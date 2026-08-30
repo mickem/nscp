@@ -25,15 +25,19 @@ struct connection_data : public socket_helpers::connection_info {
   syslog_map severities;
 
   std::string parse_priority(std::string severity_arg, std::string facility_arg) {
+    // A name that is not in the tables is an operator typo (or a missing
+    // option), and the fallback must not escalate: <0> is kernel.emergency,
+    // which many receivers broadcast or page on. Degrade to user.notice
+    // (<13>) instead - visible in the log, alarming no one.
     syslog_map::const_iterator cit1 = facilities.find(facility_arg);
     if (cit1 == facilities.end()) {
       NSC_LOG_ERROR("Undefined facility: " + facility_arg);
-      return "<0>";
+      return "<13>";
     }
     syslog_map::const_iterator cit2 = severities.find(severity_arg);
     if (cit2 == severities.end()) {
       NSC_LOG_ERROR("Undefined severity: " + severity_arg);
-      return "<0>";
+      return "<13>";
     }
     std::stringstream ss;
     ss << '<' << (cit1->second * 8 + cit2->second) << '>';
@@ -122,6 +126,15 @@ struct syslog_client_handler : public client::handler_interface {
 
     nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 
+    // The RFC 3164 HOSTNAME field: without it the receiver promotes the next
+    // token - the tag - to origin host, so a tag template that expands check
+    // output would let a monitored process pick which host the record is
+    // filed under. The sender carries the module's configured `hostname`
+    // setting; "-" (the RFC 5424 nil value) marks an unconfigured sender
+    // rather than shifting the fields.
+    std::string hostname = sender.get_host();
+    if (hostname.empty()) hostname = "-";
+
     std::list<std::string> messages;
 
     for (const ::PB::Commands::QueryResponseMessage_Response &p : request_message.payload()) {
@@ -138,14 +151,19 @@ struct syslog_client_handler : public client::handler_interface {
       if (p.result() == PB::Common::ResultCode::WARNING) severity = con.warn_severity;
       if (p.result() == PB::Common::ResultCode::CRITICAL) severity = con.crit_severity;
       if (p.result() == PB::Common::ResultCode::UNKNOWN) severity = con.unknown_severity;
+      // A submission that sets `severity` but not the per-state overrides
+      // should use it, not trip the undefined-severity fallback.
+      if (severity.empty()) severity = con.severity;
 
-      std::string line = con.parse_priority(severity, con.facility) + date + " " + tag + " " + message;
-      // Strip CR / LF / NUL so a check result containing newlines cannot
-      // split into multiple syslog records (log injection). Replace with
-      // spaces so the message text stays readable; the receiver sees one
-      // syslog line per check, which matches operator expectations.
+      std::string line = con.parse_priority(severity, con.facility) + date + " " + hostname + " " + tag + " " + message;
+      // Neutralise every control byte, not just CR/LF/NUL: a newline would
+      // split the check result into extra syslog records (log injection),
+      // and the remaining C0 bytes are how ANSI escape sequences and other
+      // terminal tricks ride a log file into an operator's terminal.
+      // Replace with spaces so the message text stays readable; the
+      // receiver sees one plain syslog line per check.
       for (char &c : line) {
-        if (c == '\r' || c == '\n' || c == '\0') c = ' ';
+        if (static_cast<unsigned char>(c) < 0x20 || c == 0x7f) c = ' ';
       }
       messages.push_back(std::move(line));
     }

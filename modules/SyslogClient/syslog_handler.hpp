@@ -17,8 +17,13 @@ struct syslog_target_object : public nscapi::targets::target_object {
     set_property_string("path", "/nsclient++");
     set_property_string("severity", "error");
     set_property_string("facility", "kernel");
-    set_property_string("tag syntax", "NSCA");
-    set_property_string("message syntax", "%message%");
+    // The property keys here (and in read() below) must be the data keys
+    // connection_data reads - "tag template", "message template" and the
+    // "<state> severity" family - or the configured value silently never
+    // reaches the wire. The settings keys (tag_syntax/message_syntax) are
+    // unchanged; only the internal property name is aligned.
+    set_property_string("tag template", "NSCA");
+    set_property_string("message template", "%message%");
     set_property_string("ok severity", "informational");
     set_property_string("warning severity", "warning");
     set_property_string("critical severity", "critical");
@@ -37,8 +42,8 @@ struct syslog_target_object : public nscapi::targets::target_object {
     root_path.add_key()
         .add_string("severity", sh::string_fun_key([this](auto value) { this->set_property_string("severity", value); }, "error"), "TODO", "")
         .add_string("facility", sh::string_fun_key([this](auto value) { this->set_property_string("facility", value); }, "kernel"), "TODO", "")
-        .add_string("tag_syntax", sh::string_fun_key([this](auto value) { this->set_property_string("tag syntax", value); }, "NSCA"), "TODO", "")
-        .add_string("message_syntax", sh::string_fun_key([this](auto value) { this->set_property_string("message syntax", value); }, "%message%"), "TODO", "")
+        .add_string("tag_syntax", sh::string_fun_key([this](auto value) { this->set_property_string("tag template", value); }, "NSCA"), "TODO", "")
+        .add_string("message_syntax", sh::string_fun_key([this](auto value) { this->set_property_string("message template", value); }, "%message%"), "TODO", "")
         .add_string("ok severity", sh::string_fun_key([this](auto value) { this->set_property_string("ok severity", value); }, "informational"), "TODO", "")
         .add_string("warning severity", sh::string_fun_key([this](auto value) { this->set_property_string("warning severity", value); }, "warning"), "TODO", "")
         .add_string("critical severity", sh::string_fun_key([this](auto value) { this->set_property_string("critical severity", value); }, "critical"), "TODO",
@@ -61,14 +66,17 @@ struct options_reader_impl : public client::options_reader_interface {
     "")
     ("severity,s", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("severity", value); }),
     "Severity of error message")
-    ("unknown-severity", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("unknown_severity", value); }),
-    "Severity of error message")
-    ("ok-severity", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("ok_severity", value); }),
-    "Severity of error message")
-    ("warning-severity", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("warning_severity", value); }),
-    "Severity of error message")
-    ("critical-severity", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("critical_severity", value); }),
-    "Severity of error message")
+    // The data keys must match what connection_data reads ("<state> severity",
+    // with a space): the underscore variants used to be stored here and were
+    // never read, so these options silently did nothing.
+    ("unknown-severity", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("unknown severity", value); }),
+    "Severity to use when the check result is UNKNOWN")
+    ("ok-severity", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("ok severity", value); }),
+    "Severity to use when the check result is OK")
+    ("warning-severity", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("warning severity", value); }),
+    "Severity to use when the check result is WARNING")
+    ("critical-severity", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("critical severity", value); }),
+    "Severity to use when the check result is CRITICAL")
     ("facility,f", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("facility", value); }),
     "Facility of error message")
     ("tag template", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("tag template", value); }),

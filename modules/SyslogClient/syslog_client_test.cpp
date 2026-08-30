@@ -15,12 +15,21 @@
 // The datagrams are read back from a real loopback UDP socket rather than
 // asserted against a refactored-out builder: the wire format is the contract,
 // and syslog is connectionless so there is nothing to stand up.
+//
+// A third half has grown since: the key plumbing. The option parser and the
+// target object both feed a free-form string map that connection_data reads
+// back by name, so a key spelled differently on the two sides is not an
+// error anywhere - the setting just silently never reaches the wire. The
+// SyslogOptions/SyslogTarget tests pin every such key end to end.
 
 // syslog_client.hpp expects its includer to have pulled in the client
 // machinery already (SyslogClient.cpp does); include it here too.
 #include <client/command_line_parser.hpp>
+#include <nscapi/nscapi_targets.hpp>
 
-#include "syslog_client.hpp"
+// syslog_handler.hpp relies on its includer for the po alias (normally
+// SyslogClient.h provides it).
+namespace po = boost::program_options;
 
 #include <gtest/gtest.h>
 
@@ -28,6 +37,9 @@
 #include <map>
 #include <string>
 #include <vector>
+
+#include "syslog_client.hpp"
+#include "syslog_handler.hpp"
 
 // Normally provided by NSC_WRAP_DLL(); the module's logging macros need it.
 nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();
@@ -76,7 +88,7 @@ class syslog_sink {
 
 // Submit one check result to a syslog sink and hand back the datagrams.
 std::vector<std::string> submit_to(syslog_sink &sink, const PB::Common::ResultCode result, const std::string &message,
-                                   std::map<std::string, std::string> options = {}) {
+                                   std::map<std::string, std::string> options = {}, const std::string &sender_host = "") {
   options["address"] = "127.0.0.1";
   options["port"] = std::to_string(sink.port());
   if (options.find("facility") == options.end()) options["facility"] = "kernel";
@@ -92,7 +104,9 @@ std::vector<std::string> submit_to(syslog_sink &sink, const PB::Common::ResultCo
 
   PB::Commands::SubmitResponseMessage response;
   syslog_client::syslog_client_handler handler;
-  handler.submit(client::destination_container(), target_with(options), request, response);
+  client::destination_container sender;
+  if (!sender_host.empty()) sender.set_host(sender_host);
+  handler.submit(sender, target_with(options), request, response);
   return sink.drain(1);
 }
 
@@ -175,20 +189,22 @@ TEST(SyslogConnectionData, CarriesTheTemplatesAndSeverities) {
 TEST(SyslogPriority, IsFacilityTimesEightPlusSeverity) {
   syslog_client::connection_data con(target_with({{"address", "h"}}), client::destination_container());
 
-  EXPECT_EQ(con.parse_priority("emergency", "kernel"), "<0>");    // 0 * 8 + 0
-  EXPECT_EQ(con.parse_priority("debug", "kernel"), "<7>");        // 0 * 8 + 7
-  EXPECT_EQ(con.parse_priority("emergency", "user"), "<8>");      // 1 * 8 + 0
-  EXPECT_EQ(con.parse_priority("error", "local0"), "<131>");      // 16 * 8 + 3
-  EXPECT_EQ(con.parse_priority("debug", "local7"), "<191>");      // 23 * 8 + 7
+  EXPECT_EQ(con.parse_priority("emergency", "kernel"), "<0>");  // 0 * 8 + 0
+  EXPECT_EQ(con.parse_priority("debug", "kernel"), "<7>");      // 0 * 8 + 7
+  EXPECT_EQ(con.parse_priority("emergency", "user"), "<8>");    // 1 * 8 + 0
+  EXPECT_EQ(con.parse_priority("error", "local0"), "<131>");    // 16 * 8 + 3
+  EXPECT_EQ(con.parse_priority("debug", "local7"), "<191>");    // 23 * 8 + 7
 }
 
-TEST(SyslogPriority, AnUnknownNameFallsBackToZero) {
+TEST(SyslogPriority, AnUnknownNameFallsBackToUserNotice) {
   // Both halves come from operator configuration, so a typo must not send a
-  // random priority - it degrades to <0> and logs.
+  // random priority - and must not escalate either. The old fallback of <0>
+  // was kernel.emergency, which receivers page or broadcast on; a typo now
+  // degrades to user.notice (<13>) and logs.
   syslog_client::connection_data con(target_with({{"address", "h"}}), client::destination_container());
 
-  EXPECT_EQ(con.parse_priority("error", "no-such-facility"), "<0>");
-  EXPECT_EQ(con.parse_priority("no-such-severity", "kernel"), "<0>");
+  EXPECT_EQ(con.parse_priority("error", "no-such-facility"), "<13>");
+  EXPECT_EQ(con.parse_priority("no-such-severity", "kernel"), "<13>");
 }
 
 TEST(SyslogPriority, ClockResolvesToFifteenBecauseTheNameIsRegisteredTwice) {
@@ -231,6 +247,15 @@ TEST(SyslogSubmit, TheSeverityFollowsTheCheckResult) {
   EXPECT_EQ(priority_of(submit_to(sink, PB::Common::ResultCode::UNKNOWN, "m", severities).at(0)), 5);
 }
 
+TEST(SyslogSubmit, AMissingPerStateSeverityFallsBackToTheBaseSeverity) {
+  // A submission that sets only `severity` (the test helper's default,
+  // "error") still gets a sane priority for every state instead of the
+  // undefined-severity fallback.
+  syslog_sink sink;
+
+  EXPECT_EQ(priority_of(submit_to(sink, PB::Common::ResultCode::CRITICAL, "m").at(0)), 3);  // kernel.error
+}
+
 TEST(SyslogSubmit, ExpandsTheTagAndMessageTemplates) {
   syslog_sink sink;
 
@@ -242,6 +267,103 @@ TEST(SyslogSubmit, ExpandsTheTagAndMessageTemplates) {
   // of it, since the priority already carries the status.
   EXPECT_NE(sent[0].find("tag[the output]"), std::string::npos) << sent[0];
   EXPECT_NE(sent[0].find("msg=the output"), std::string::npos) << sent[0];
+}
+
+TEST(SyslogSubmit, TheDatagramCarriesTheSenderHostname) {
+  // RFC 3164: <PRI>TIMESTAMP HOSTNAME TAG MESSAGE. Without the HOSTNAME field
+  // the receiver promotes the next token - the tag - to origin host, and a
+  // tag template that expands %message% would let check output choose which
+  // host a record is filed under. The module's `hostname` setting rides in on
+  // the sender container.
+  syslog_sink sink;
+
+  const std::vector<std::string> sent = submit_to(sink, PB::Common::ResultCode::OK, "all good", {}, "agent01.example.com");
+
+  ASSERT_EQ(sent.size(), 1u);
+  EXPECT_NE(sent[0].find(" agent01.example.com nscp "), std::string::npos) << sent[0];
+}
+
+TEST(SyslogSubmit, AnUnknownSenderBecomesTheNilHostname) {
+  // No sender host may not shift the fields either; the RFC 5424 nil value
+  // "-" holds the HOSTNAME position.
+  syslog_sink sink;
+
+  const std::vector<std::string> sent = submit_to(sink, PB::Common::ResultCode::OK, "all good");
+
+  ASSERT_EQ(sent.size(), 1u);
+  EXPECT_NE(sent[0].find(" - nscp "), std::string::npos) << sent[0];
+}
+
+TEST(SyslogSubmit, ControlBytesInTheCheckOutputAreNeutralised) {
+  // CR/LF record splitting is only one control-byte trick: an ANSI escape
+  // sequence in check output would replay in the terminal of whoever views
+  // the log. Every C0 byte and DEL becomes a space.
+  syslog_sink sink;
+
+  const std::vector<std::string> sent = submit_to(sink, PB::Common::ResultCode::OK,
+                                                  std::string("colour\x1b[31mred\x07"
+                                                              "bell\ttab\x7f"));
+
+  ASSERT_EQ(sent.size(), 1u);
+  for (const char c : sent[0]) {
+    EXPECT_GE(static_cast<unsigned char>(c), 0x20u) << "control byte survived: " << sent[0];
+    EXPECT_NE(c, '\x7f') << sent[0];
+  }
+  // The printable text survives, spaced apart.
+  EXPECT_NE(sent[0].find("colour"), std::string::npos) << sent[0];
+  EXPECT_NE(sent[0].find("bell"), std::string::npos) << sent[0];
+}
+
+// ---------------------------------------------------------------------------
+// Key plumbing - the option parser and the target object feed a free-form
+// string map that connection_data reads back by name, so a mismatched key is
+// not an error anywhere: the setting just silently never reaches the wire.
+// ---------------------------------------------------------------------------
+
+TEST(SyslogOptions, PerStateSeverityOptionsReachTheConnection) {
+  // These options used to store underscore keys ("ok_severity") that
+  // connection_data never read: the option parsed fine, did nothing, and the
+  // empty severity then failed parse_priority - which used to mean
+  // kernel.emergency on the wire.
+  syslog_handler::options_reader_impl reader;
+  po::options_description desc;
+  client::destination_container source, data;
+  reader.process(desc, source, data);
+
+  const char *argv[] = {"test", "--ok-severity", "notice", "--warning-severity", "error", "--critical-severity", "alert", "--unknown-severity", "debug"};
+  po::variables_map vm;
+  po::store(po::parse_command_line(static_cast<int>(std::size(argv)), const_cast<char **>(argv), desc), vm);
+  po::notify(vm);
+
+  data.set_string_data("address", "h");
+  const syslog_client::connection_data con(data, client::destination_container());
+
+  EXPECT_EQ(con.ok_severity, "notice");
+  EXPECT_EQ(con.warn_severity, "error");
+  EXPECT_EQ(con.crit_severity, "alert");
+  EXPECT_EQ(con.unknown_severity, "debug");
+}
+
+TEST(SyslogTarget, TheTargetDefaultsReachTheConnection) {
+  // The target object's property keys must be the ones connection_data
+  // reads: "tag syntax"/"message syntax" used to be stored and never read,
+  // so a settings-defined target sent an empty tag and dropped the message
+  // text entirely.
+  const auto target = std::make_shared<syslog_handler::syslog_target_object>("default", "/settings/syslog/client/targets/default");
+
+  client::destination_container d;
+  d.apply(target);
+  d.set_string_data("address", "h");
+
+  syslog_client::connection_data con(d, client::destination_container());
+  EXPECT_EQ(con.tag_syntax, "NSCA");
+  EXPECT_EQ(con.message_syntax, "%message%");
+  EXPECT_EQ(con.severity, "error");
+  EXPECT_EQ(con.facility, "kernel");
+  EXPECT_EQ(con.ok_severity, "informational");
+  EXPECT_EQ(con.warn_severity, "warning");
+  EXPECT_EQ(con.crit_severity, "critical");
+  EXPECT_EQ(con.unknown_severity, "emergency");
 }
 
 TEST(SyslogSubmit, ANewlineInTheCheckOutputCannotForgeASecondRecord) {

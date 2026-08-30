@@ -77,6 +77,10 @@ bool SyslogClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     core.register_channel(channel_);
 
     hostname_ = socket_helpers::expand_hostname(hostname_);
+    // Hand the expanded name to the client machinery: submit() reads it off
+    // the sender container to fill the RFC 3164 HOSTNAME field. Without this
+    // the `hostname` setting was read and expanded but never used.
+    client_.set_sender(hostname_);
   } catch (nsclient::nsclient_exception &e) {
     NSC_LOG_ERROR_EXR("NSClient API exception: ", e);
     return false;
