@@ -132,8 +132,10 @@ common:
           verify mode:
             advanced: false
             default_value: peer
-            description: 'Comma separated list of options: none, peer, peer-cert, client-once, fail-if-no-cert,
-              workarounds, single. In general use peer-cert or none for self signed certificates.'
+            description: 'Comma separated list of options: none, peer (or certificate), peer-cert,
+              fail-if-no-cert (or fail-if-no-peer-cert, client-certificate). Any other value is rejected
+              and the connection fails. For a self signed certificate use peer-cert and point `ca` at that
+              certificate; none disables verification entirely and sends the API credentials to an unverified peer.'
             sample: true
             title: TLS PEER VERIFY MODE
   queries:
@@ -347,13 +349,17 @@ common:
       - content_type: 2
         default_value: ''
         is_simple: true
-        long_description: 'Comma separated list of options: none, peer, peer-cert, client-once, fail-if-no-cert,
-          workarounds, single. In general use peer-cert or none for self signed certificates.'
+        long_description: 'Comma separated list of options: none, peer (or certificate), peer-cert,
+          fail-if-no-cert (or fail-if-no-peer-cert, client-certificate). Any other value is rejected and
+          the connection fails. For a self signed certificate use peer-cert and point --ca at that certificate;
+          none disables verification entirely and sends the API credentials to an unverified peer.'
         name: verify-mode
         repeatable: false
         required: false
-        short_description: 'Comma separated list of options: none, peer, peer-cert, client-once, fail-if-no-cert,
-          workarounds, single. In general use peer-cert or none for self signed certificates.'
+        short_description: 'Comma separated list of options: none, peer (or certificate), peer-cert,
+          fail-if-no-cert (or fail-if-no-peer-cert, client-certificate). Any other value is rejected and
+          the connection fails. For a self signed certificate use peer-cert and point --ca at that certificate;
+          none disables verification entirely and sends the API credentials to an unverified peer.'
       - content_type: 2
         default_value: ''
         is_simple: true

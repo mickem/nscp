@@ -49,10 +49,15 @@ struct connection_data : socket_helpers::connection_info {
       protocol = "https";
       port_ = arguments.address.get_port_string("5665");
     }
-    timeout = arguments.get_int_data("timeout", 30);
+    // destination_container routes the well-known "timeout" and "retry" keys
+    // into its typed fields (see set_string_data), so they must be read from
+    // there: get_int_data("timeout") only consults the free-form data map and
+    // always returned the fallback, which is why the target's timeout setting
+    // never took effect.
+    timeout = arguments.timeout;
+    retry = arguments.retry;
     username = arguments.get_string_data("username");
     password = arguments.get_string_data("password");
-    retry = arguments.get_int_data("retry", 3);
     tls_version = arguments.get_string_data("tls version", "1.3");
     verify_mode = arguments.get_string_data("verify mode");
     ca = arguments.get_string_data("ca");
@@ -96,11 +101,22 @@ struct http_response {
   std::string body;
 };
 
+// Build the HTTP client options for a connection, including the per-target
+// timeout. Kept out of do_http so the mapping is unit-testable: without the
+// timeout the client waits forever, and a stalled Icinga endpoint then wedges
+// the submitting thread (scheduler-driven passive results silently stop).
+inline http::http_client_options make_client_options(const connection_data &con) {
+  http::http_client_options options(con.protocol, con.tls_version, con.verify_mode, con.ca);
+  // connection_info::timeout is the target's "timeout" setting (default 30);
+  // 0 keeps the http client's wait-forever behaviour as an explicit opt-out.
+  options.timeout_seconds_ = con.timeout;
+  return options;
+}
+
 inline http_response do_http(const connection_data &con, const std::string &verb, const std::string &path, const std::string &json_body) {
   http_response result;
   result.status = 0;
-  http::http_client_options options(con.protocol, con.tls_version, con.verify_mode, con.ca);
-  http::simple_client c(options);
+  http::simple_client c(make_client_options(con));
 
   http::request request(verb, con.get_address(), path);
   request.add_header("Authorization", make_basic_auth(con.username, con.password));
@@ -140,6 +156,13 @@ struct icinga_client_handler : client::handler_interface {
 
     NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Sender configuration: " + sender.to_string()); }
     NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Target configuration: " + target.to_string()); }
+
+    if (con.protocol == "https" && icinga::is_verification_disabled(con.verify_mode)) {
+      NSC_LOG_MESSAGE("TLS certificate verification is disabled for " + con.get_endpoint_string() + " (verify mode: " +
+                      (con.verify_mode.empty() ? "<not set>" : con.verify_mode) +
+                      "): the Icinga API credentials are sent to whichever server answers. Set verify mode = peer, or peer-cert with ca pointing at the "
+                      "self-signed certificate, unless this is intentional.");
+    }
 
     for (const ::PB::Commands::QueryResponseMessage_Response &p : request_message.payload()) {
       submit_one(response_message.add_payload(), con, p);

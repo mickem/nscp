@@ -168,6 +168,27 @@ TEST(IcingaConnectionData, TlsVersionDefaultsToOneThree) {
   EXPECT_EQ(con.tls_version, "1.3");
 }
 
+TEST(IcingaConnectionData, TheTimeoutReachesTheHttpClient) {
+  // The http client's timeout_seconds_ defaults to 0 = wait forever, so if the
+  // target's timeout is not copied across, a stalled Icinga endpoint wedges
+  // the submitting thread indefinitely. Note that destination_container routes
+  // "timeout" into its typed field, not the data map - reading it with
+  // get_int_data() silently yields the fallback instead of the setting.
+  const icinga_client::connection_data con(target_with({{"address", "https://h"}, {"timeout", "7"}}), client::destination_container());
+
+  EXPECT_EQ(con.timeout, 7u);
+  EXPECT_EQ(icinga_client::make_client_options(con).timeout_seconds_, 7u);
+}
+
+TEST(IcingaConnectionData, ADefaultConstructedTargetStillGetsAFiniteTimeout) {
+  // Whatever the default ends up being (the configured target object seeds
+  // 30), it must be non-zero: 0 means wait forever on the http client.
+  const icinga_client::connection_data con(target_with({{"address", "https://h"}}), client::destination_container());
+
+  EXPECT_GT(con.timeout, 0u);
+  EXPECT_EQ(icinga_client::make_client_options(con).timeout_seconds_, con.timeout);
+}
+
 TEST(IcingaConnectionData, ObjectTemplatesAndEnsureFlagAreRead) {
   const icinga_client::connection_data con(target_with({{"address", "https://h"},
                                                         {"ensure_objects", "true"},
@@ -309,6 +330,44 @@ TEST(IcingaSubmit, AnUnreachableApiIsReportedAsAnError) {
 
   ASSERT_EQ(response.payload_size(), 1);
   EXPECT_EQ(response.payload(0).result().code(), PB::Common::Result_StatusCodeType_STATUS_ERROR);
+}
+
+TEST(IcingaSubmit, AStalledApiTimesOutInsteadOfHangingForever) {
+  // A server that accepts the connection and then never answers. Before the
+  // timeout was wired through, this hung the submitting thread forever.
+  std::promise<unsigned short> p;
+  std::future<unsigned short> f = p.get_future();
+  std::thread server([prom = std::move(p)]() mutable {
+    try {
+      boost::asio::io_context io;
+      tcp::acceptor acceptor(io, {tcp::v4(), 0});
+      prom.set_value(acceptor.local_endpoint().port());
+      tcp::socket socket(io);
+      acceptor.accept(socket);
+      // Never answer: drain until the client gives up and closes, at which
+      // point the read reports EOF and the thread exits.
+      boost::system::error_code ec;
+      char buf[4096];
+      while (!ec) socket.read_some(boost::asio::buffer(buf), ec);
+    } catch (...) {
+    }
+  });
+  const unsigned short port = f.get();
+
+  PB::Commands::SubmitRequestMessage request;
+  PB::Commands::QueryResponseMessage::Response *payload = request.add_payload();
+  payload->set_command("check_something");
+  payload->set_result(PB::Common::ResultCode::OK);
+  payload->add_lines()->set_message("fine");
+
+  PB::Commands::SubmitResponseMessage response;
+  icinga_client::icinga_client_handler handler;
+  handler.submit(client::destination_container(), target_with({{"address", "http://127.0.0.1:" + std::to_string(port)}, {"timeout", "1"}}), request, response);
+  server.join();
+
+  ASSERT_EQ(response.payload_size(), 1);
+  EXPECT_EQ(response.payload(0).result().code(), PB::Common::Result_StatusCodeType_STATUS_ERROR);
+  EXPECT_NE(response.payload(0).result().message().find("timed out"), std::string::npos) << response.payload(0).result().message();
 }
 
 TEST(IcingaSubmit, QueryAndExecAreNotSupported) {
