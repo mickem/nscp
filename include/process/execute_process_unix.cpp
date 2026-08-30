@@ -29,6 +29,13 @@
 // blocks on a full pipe and the timeout stays enforceable) but discard the rest.
 #define MAX_OUTPUT_BYTES (8u * 1024u * 1024u)
 
+namespace {
+// The truncation marker and the content ceiling that leaves room for it, so the
+// captured string is a strict <= MAX_OUTPUT_BYTES bound (marker included).
+const char kOutputTruncMarker[] = "\n[output truncated]";
+const std::size_t kOutputContentCap = MAX_OUTPUT_BYTES - (sizeof(kOutputTruncMarker) - 1);
+}  // namespace
+
 bool early_timeout = false;
 typedef hlp::buffer<char> buffer_type;
 
@@ -75,13 +82,13 @@ std::string drain_with_timeout(int fd, time_t deadline, bool& timed_out, bool& h
       // EOF: child closed its end of the pipe.
       return out;
     }
-    // Append up to the cap; past it keep draining but discard, so the child is
-    // never blocked on a full pipe (which would defeat the timeout) yet memory
-    // stays bounded.
-    if (out.size() < MAX_OUTPUT_BYTES) {
-      const std::size_t room = MAX_OUTPUT_BYTES - out.size();
+    // Append up to the content cap; past it keep draining but discard, so the
+    // child is never blocked on a full pipe (which would defeat the timeout) yet
+    // memory stays bounded. The marker fits within MAX_OUTPUT_BYTES.
+    if (out.size() < kOutputContentCap) {
+      const std::size_t room = kOutputContentCap - out.size();
       out.append(buffer.get(), std::min(static_cast<std::size_t>(n), room));
-      if (out.size() >= MAX_OUTPUT_BYTES) out.append("\n[output truncated]");
+      if (out.size() >= kOutputContentCap) out.append(kOutputTruncMarker);
     }
   }
 }
@@ -151,7 +158,10 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
   // Parent.
   close(pipefd[1]);
 
-  const time_t deadline = time(nullptr) + (args.timeout > 0 ? args.timeout : 30);
+  // Compute the effective timeout once so the deadline and the messages that
+  // report it agree (a caller-supplied 0 falls back to 30s here).
+  const unsigned int effective_timeout = args.timeout > 0 ? args.timeout : 30;
+  const time_t deadline = time(nullptr) + effective_timeout;
   bool timed_out = false;
   bool had_error = false;
   output = drain_with_timeout(pipefd[0], deadline, timed_out, had_error);
@@ -164,7 +174,7 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
       int status = 0;
       const pid_t r = waitpid(pid, &status, WNOHANG);
       if (r == pid) {
-        output = "Command " + args.alias + " didn't terminate within " + std::to_string(args.timeout) + "s; killed";
+        output = "Command " + args.alias + " didn't terminate within " + std::to_string(effective_timeout) + "s; killed";
         return NSCAPI::query_return_codes::returnUNKNOWN;
       }
       if (r < 0 && errno != EINTR) break;
@@ -176,7 +186,7 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
     kill(pid, SIGKILL);
     int status = 0;
     waitpid(pid, &status, 0);
-    output = "Command " + args.alias + " didn't terminate within " + std::to_string(args.timeout) + "s; killed";
+    output = "Command " + args.alias + " didn't terminate within " + std::to_string(effective_timeout) + "s; killed";
     return NSCAPI::query_return_codes::returnUNKNOWN;
   }
 

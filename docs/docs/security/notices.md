@@ -145,7 +145,7 @@ first, alongside the release that contains them.
 **Fixed in:** unreleased (first release after 0.18.0) · **Severity:** Low–Medium
 
 A review of the `CheckExternalScripts` module and the process launcher it uses
-produced a set of hardening fixes. None is a remotely exploitable RExecution on
+produced a set of hardening fixes. None is a remotely exploitable RCE on
 a default install — the argument guard is off by default, arguments allowed only
 when an operator opts in, and the script-management operations require an
 authenticated administrator — but each closes a rough edge.

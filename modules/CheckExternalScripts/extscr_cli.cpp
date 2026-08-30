@@ -341,12 +341,20 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
     alias = file.filename().stem().string();
   }
 
+  // The command line stored/registered for this script. Only add the separator
+  // space when there actually are arguments, so an argument-less add does not
+  // leave a trailing space in the stored value, the alias description, or the
+  // transient command. Previously the transient registration used `script`
+  // alone, so `add --no-config` (and the in-memory copy on a normal add)
+  // silently dropped the `--arguments` the operator supplied.
+  const std::string command_line = arguments.empty() ? script : (script + " " + arguments);
+
   if (!no_config) {
     nscapi::protobuf::functions::settings_query s(provider_->get_id());
     if (!wrapped)
-      s.set("/settings/external scripts/scripts", alias, script + " " + arguments);
+      s.set("/settings/external scripts/scripts", alias, command_line);
     else
-      s.set("/settings/external scripts/wrapped scripts", alias, script + " " + arguments);
+      s.set("/settings/external scripts/wrapped scripts", alias, command_line);
     s.set(MAIN_MODULES_SECTION, "CheckExternalScripts", "enabled");
     s.save();
     provider_->get_core()->settings_query(s.request(), s.response());
@@ -357,13 +365,8 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
   }
   std::string actual = "";
   if (wrapped)
-    actual = "\nActual command is: " + provider_->generate_wrapped_command(script + " " + arguments);
+    actual = "\nActual command is: " + provider_->generate_wrapped_command(command_line);
   else {
-    // Register the same command line that was (or would have been) persisted -
-    // including the arguments. Previously the transient registration used
-    // \`script\` alone, so \`add --no-config\` (and the in-memory copy on a normal
-    // add) silently dropped the \`--arguments\` the operator supplied.
-    const std::string command_line = script + " " + arguments;
     provider_->add_command(alias, command_line);
     nscapi::core_helper core(provider_->get_core(), provider_->get_id());
     core.register_command(alias, "Alias for: " + command_line);

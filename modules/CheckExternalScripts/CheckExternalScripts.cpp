@@ -163,7 +163,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
                   "Kill all child processes (notice this might accidentally kill other processes if PIDs are reused when killing the process).")
 
         .add_bool("allow arguments", sh::bool_key(&allowArgs_, false), "Allow arguments when executing external scripts",
-                  "This option determines whether or not the we will allow clients to specify arguments to commands that are executed. NOTICE this governs "
+                  "This option determines whether or not we will allow clients to specify arguments to commands that are executed. NOTICE this governs "
                   "external script commands only. Command aliases (the alias section) always substitute their client arguments into the internal command they "
                   "wrap regardless of this setting, because they dispatch to another internal check rather than spawning a process - the wrapped check's own "
                   "argument handling applies. Restrict which commands an alias may reach through the query permissions, not this flag.")
