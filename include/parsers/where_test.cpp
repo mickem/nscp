@@ -524,6 +524,56 @@ TEST(ParseExpression, FunctionCallCombinedWithAndOr) {
 }
 
 // ======================================================================
+// Resource limits — a where-expression is bounded in length and nesting
+// depth before parsing so neither the recursive-descent grammar nor the
+// recursive AST evaluator can be driven to a stack-exhaustion crash by a
+// hostile filter string (security review, Finding 1). The limits are 1024
+// characters and 64 levels of `(` nesting; the values below sit well past
+// them so the test does not depend on the exact constants.
+// ======================================================================
+
+TEST(WhereParser, RejectsDeeplyNestedExpression) {
+  // 500 levels of parens around a trivial predicate: valid syntax, but its
+  // nesting exceeds the depth cap, so parse() must reject it up front.
+  const int levels = 500;
+  const std::string expr = std::string(levels, '(') + "1=1" + std::string(levels, ')');
+  parser p;
+  EXPECT_FALSE(p.parse(make_factory(), expr));
+  EXPECT_NE(p.rest.find("depth"), std::string::npos);
+}
+
+TEST(WhereParser, RejectsOverlongExpression) {
+  // A long flat `1&1&1&...` chain parses iteratively but evaluates with a
+  // recursion depth equal to its length; the length cap stops it here.
+  std::string expr = "1";
+  while (expr.size() <= 4096) expr += "&1";
+  parser p;
+  EXPECT_FALSE(p.parse(make_factory(), expr));
+  EXPECT_NE(p.rest.find("length"), std::string::npos);
+}
+
+TEST(WhereParser, ParenInStringLiteralDoesNotCountAsDepth) {
+  // Parens inside a single-quoted literal are text, not structure, so an
+  // expression that is shallow but mentions many `(` in a string still parses.
+  parser p;
+  EXPECT_TRUE(p.parse(make_factory(), "'((((((((((((((((((((((((((((((((' = '(('));
+}
+
+TEST(WhereParser, ModerateNestingWithinLimitParses) {
+  // 32 levels is comfortably under the 64-level cap and must still parse.
+  const int levels = 32;
+  const std::string expr = std::string(levels, '(') + "1=1" + std::string(levels, ')');
+  parser p;
+  EXPECT_TRUE(p.parse(make_factory(), expr));
+}
+
+TEST(ParseExpression, ReturnsNullOnDeeplyNestedExpression) {
+  const int levels = 500;
+  const std::string expr = std::string(levels, '(') + "1=1" + std::string(levels, ')');
+  EXPECT_FALSE(static_cast<bool>(parse_expression(make_factory(), expr)));
+}
+
+// ======================================================================
 // parser::derive_types
 // ======================================================================
 

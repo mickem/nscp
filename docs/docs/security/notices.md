@@ -140,6 +140,30 @@ Security-relevant changes that are handled as defense-in-depth / consistency
 hardening rather than assigned a CVE are listed here as they ship, newest
 first, alongside the release that contains them.
 
+### Filter framework: expression length and nesting-depth limits
+
+**Fixed in:** 0.18.1 · **Severity:** Low–Medium
+
+The filter framework parses and evaluates the `filter` / `warning` / `critical`
+expressions and the `%(...)` expression placeholders used throughout the check
+modules. Both stages recurse with the shape of the input: the recursive-descent
+grammar re-enters its top rule for every nested `(...)` or `fn(...)`, and the
+AST evaluator recurses one frame per operator down a left-leaning `and`/`or`
+chain. Neither stage bounded the input, so a sufficiently long or deeply nested
+expression could exhaust the thread stack and crash the whole agent process —
+all checks share it.
+
+These expressions are normally operator-authored configuration, but they can
+also arrive as check arguments over the authenticated REST API, and over NRPE
+where `allow arguments = true` is set — so the crash is reachable by a party
+able to influence a filter string. An expression longer than **1024
+characters**, or nested deeper than **64** parentheses, is now rejected before
+either the parser or the evaluator sees it, with a clear error rather than a
+crash. The limits sit an order of magnitude above any real filter, so no normal
+configuration is affected. Single-quoted string literals are exempt from the
+depth count, so a filter that merely *mentions* many parentheses in a string is
+unaffected. See the [upgrade note](../setup/upgrading.md#0181).
+
 ### SMTP client security-review hardening
 
 **Fixed in:** 0.18.0 · **Severity:** Low–Medium
