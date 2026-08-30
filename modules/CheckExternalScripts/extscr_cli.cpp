@@ -348,7 +348,14 @@ void extscr_cli::configure(const PB::Commands::ExecuteRequestMessage::Request &r
   po::variables_map vm;
   po::options_description desc;
   std::string arguments = "false";
-  const std::string path = "/settings/external scripts/server";
+  // The module reads `allow arguments` / `allow nasty characters` from
+  // `/settings/external scripts` (see CheckExternalScripts::loadModuleEx). The
+  // previous `/settings/external scripts/server` path was never read by anyone,
+  // so this tool reported and "applied" a lockdown that had no effect - a
+  // fail-dangerous mismatch (running `install --arguments=false` left an
+  // existing `allow arguments=true` in force). Write to the path the module
+  // actually consults.
+  const std::string path = "/settings/external scripts";
 
   pf::settings_query q(provider_->get_id());
   q.get(path, "allow arguments", false);
