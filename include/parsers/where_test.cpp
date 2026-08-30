@@ -556,7 +556,17 @@ TEST(WhereParser, ParenInStringLiteralDoesNotCountAsDepth) {
   // Parens inside a single-quoted literal are text, not structure, so an
   // expression that is shallow but mentions many `(` in a string still parses.
   parser p;
-  EXPECT_TRUE(p.parse(make_factory(), "'((((((((((((((((((((((((((((((((' = '(('));
+  EXPECT_TRUE(p.parse(make_factory(), "'((((((((((((((((((((((((((((((((' = '(('"));
+}
+
+TEST(WhereParser, StrLiteralParensDoNotCountAsDepth) {
+  // The `str(...)` literal form encloses its body in parentheses whose contents
+  // run to the first ')'. Those inner '(' are text — the parser does not
+  // recurse for them — so they must not inflate the depth count even when they
+  // hold far more '(' than the nesting cap allows.
+  const std::string expr = "str(" + std::string(100, '(') + ")";
+  parser p;
+  EXPECT_TRUE(p.parse(make_factory(), expr));
 }
 
 TEST(WhereParser, ModerateNestingWithinLimitParses) {

@@ -26,11 +26,21 @@ namespace {
 constexpr std::size_t max_expression_length = 1024;
 constexpr int max_expression_depth = 64;
 
-// Deepest `(` nesting in expr, skipping single-quoted string literals so a `(`
-// inside a literal (`x = '(('`) does not count as structure — the where-grammar
-// has no escapes inside `'...'`. Returns as soon as the limit is exceeded; the
-// exact depth past that point does not matter.
+// Deepest `(` nesting in expr, skipping the two literal forms whose contents
+// are data rather than structure, so a `(` inside one does not count toward the
+// depth the parser and evaluator actually recurse to:
+//   - single-quoted strings (`'(('`) — the where-grammar has no escapes inside
+//     `'...'`, so the literal runs to the next `'`;
+//   - the `str(...)` form (grammar rule string_literal_ex), a string whose
+//     delimiters are parentheses and whose body runs to the first `)`. Its
+//     inner `(` are text and the parser does not recurse for them, so counting
+//     them would reject a valid expression like `str((((...)` for depth.
+// Returns as soon as the limit is exceeded; the exact depth past that point
+// does not matter.
 int max_paren_depth(const std::string &expr) {
+  const auto is_ident = [](const char ch) {
+    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_';
+  };
   int depth = 0;
   int max_depth = 0;
   for (std::size_t i = 0; i < expr.size(); ++i) {
@@ -41,6 +51,15 @@ int max_paren_depth(const std::string &expr) {
       continue;  // i is on the closing ' (or end); the loop's ++i steps past it
     }
     if (c == '(') {
+      // A `(` that opens a `str(...)` literal — `str` as a standalone token
+      // (word boundary before it) immediately followed by `(` — is a string
+      // delimiter, not structure. Skip to the closing `)` (first one, matching
+      // string_literal_ex) without counting.
+      if (i >= 3 && expr[i - 1] == 'r' && expr[i - 2] == 't' && expr[i - 3] == 's' && (i == 3 || !is_ident(expr[i - 4]))) {
+        ++i;
+        while (i < expr.size() && expr[i] != ')') ++i;
+        continue;  // i is on the closing ) (or end); the loop's ++i steps past it
+      }
       if (++depth > max_depth) {
         max_depth = depth;
         if (max_depth > max_expression_depth) return max_depth;
