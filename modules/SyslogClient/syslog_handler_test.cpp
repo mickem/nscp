@@ -96,8 +96,8 @@ TEST(SyslogTargetObject, AFreshTargetCarriesTheDocumentedDefaults) {
   EXPECT_EQ(target.get_property_string("path"), "/nsclient++");
   EXPECT_EQ(target.get_property_string("severity"), "error");
   EXPECT_EQ(target.get_property_string("facility"), "kernel");
-  EXPECT_EQ(target.get_property_string("tag syntax"), "NSCA");
-  EXPECT_EQ(target.get_property_string("message syntax"), "%message%");
+  EXPECT_EQ(target.get_property_string("tag template"), "NSCA");
+  EXPECT_EQ(target.get_property_string("message template"), "%message%");
   // The per-status severities are what map OK/WARNING/CRITICAL/UNKNOWN onto
   // syslog priorities; each has to have a sane default.
   EXPECT_EQ(target.get_property_string("ok severity"), "informational");
@@ -178,14 +178,15 @@ TEST(SyslogOptionsReader, CommandLineOptionsLandInTheDestinationContainer) {
   client::destination_container data = parse_options({"--path", "/nsclient++", "--severity", "warning", "--facility", "daemon", "--ok-severity", "debug",
                                                       "--warning-severity", "notice", "--critical-severity", "alert", "--unknown-severity", "emergency"});
 
-  // These are the exact keys the submit path's connection_data looks up.
+  // These are the exact keys the submit path's connection_data looks up - the
+  // per-status ones carry a space, not an underscore.
   EXPECT_EQ(data.get_string_data("path"), "/nsclient++");
   EXPECT_EQ(data.get_string_data("severity"), "warning");
   EXPECT_EQ(data.get_string_data("facility"), "daemon");
-  EXPECT_EQ(data.get_string_data("ok_severity"), "debug");
-  EXPECT_EQ(data.get_string_data("warning_severity"), "notice");
-  EXPECT_EQ(data.get_string_data("critical_severity"), "alert");
-  EXPECT_EQ(data.get_string_data("unknown_severity"), "emergency");
+  EXPECT_EQ(data.get_string_data("ok severity"), "debug");
+  EXPECT_EQ(data.get_string_data("warning severity"), "notice");
+  EXPECT_EQ(data.get_string_data("critical severity"), "alert");
+  EXPECT_EQ(data.get_string_data("unknown severity"), "emergency");
 }
 
 TEST(SyslogOptionsReader, TheTemplateOptionsKeepTheirSpacedNames) {
