@@ -146,9 +146,10 @@ first, alongside the release that contains them.
 NSCA-NG cert-mode targets, Low–Medium for everything else
 
 One sweep over the outbound client modules (Icinga, NRDP, NSCA, NSCA-NG,
-check_mk, Elastic, Graphite, syslog), the external-script launcher and the
-filter framework. Three themes run through it: **configuration that silently
-did not apply**, **operations that could never time out**, and
+check_mk, Elastic, Graphite, syslog and a second round on SMTP), the
+external-script launcher and the filter framework. Three themes run through it:
+**configuration that silently did not apply**, **operations that could never
+time out**, and
 **attacker-influenced text reaching another system's log unscrubbed**. None of
 it is remotely exploitable code execution on a default install; the NSCA-NG and
 check_mk items are the ones that change what goes on the wire.
@@ -205,6 +206,12 @@ passive results until a service restart:
   loop counted iterations rather than elapsed time, so a continuously chatty
   script escaped the timeout entirely and leaked an unkillable process each
   run. Both launchers now bound the wait by wall-clock deadline.
+- **SMTP** did bound its submission, but a budget that expired mid-connect left
+  the cancelled operation's completion handler queued, to be run by the retry
+  against the next resolved address with references into a stack frame that no
+  longer existed — a use-after-return in a long-running service. Handler state
+  is heap-owned now, and a spent budget ends the endpoint walk instead of
+  retrying into it.
 
 #### Injection, scrubbing and resource limits
 
@@ -232,8 +239,20 @@ passive results until a service restart:
   filter, and string literals are exempt from the depth count.
 - **Buffers are bounded**: an NRDP response body is capped at 5 MB (previously
   unbounded, so a hostile server — or a man-in-the-middle on a plain `http://`
-  target — could stream the agent out of memory), and captured script output
-  at 8 MiB.
+  target — could stream the agent out of memory), captured script output at
+  8 MiB, and an SMTP reply at 64 KB per line and 100 lines — nothing capped
+  how much a peer could make the client buffer inside its timeout window, so
+  bytes without a line ending, or endless `250-` continuations, turned a
+  30-second budget into gigabytes of agent memory.
+- **SMTP reply text is rendered inert before it reaches the log.** Error
+  messages quoted server replies verbatim into the agent log and the submit
+  response. Anything outside printable US-ASCII is replaced now — the C0
+  controls and the C1 range (0x80–0x9F), which carries single-byte terminal
+  escapes such as CSI — so a multi-line reply can no longer forge extra log
+  lines, and an oversized one is truncated. Two smaller items came with it:
+  the reply to `STARTTLS` must be exactly `220` per RFC 3207 rather than any
+  `2xx`, and AUTH credentials containing a NUL are refused before connecting
+  (a NUL shifts the RFC 4616 `AUTH PLAIN` field boundaries).
 - **The `ext-scr show` / `delete` sandbox resolves symlinks** before its
   containment test; previously a symlink inside the script root pointing
   outside it let an authenticated admin read or remove files anywhere the
@@ -300,41 +319,6 @@ passive results until a service restart:
   (no HOSTNAME field) need adjusting — records now arrive attributed to the
   agent's host name instead of the tag. Syslog remains cleartext and
   unauthenticated: keep the path to the server on a trusted segment.
-
-### SMTP client hardening, second round
-
-**Fixed in:** 0.18.0 · **Severity:** Low–Medium
-
-A follow-up review of the `SMTPClient` module hardened how the client behaves
-against a hostile or misbehaving peer. As with the first round, none of these
-is exploitable by an unauthenticated third party on its own; each removes a
-way the mail server (or whoever controls DNS or the path to it) could degrade
-or destabilise the agent.
-
-- **A timed-out submission no longer runs stale I/O handlers.** When the
-  submission budget expired mid-connect, the cancelled operation's completion
-  handler stayed queued and was executed by the retry against the next
-  resolved address — with references into a stack frame that no longer
-  existed (a use-after-return, so undefined behaviour in a long-running
-  service). Handler state now lives on the heap, co-owned by the handler, and
-  a spent budget ends the endpoint walk instead of retrying into it.
-- **Server replies are bounded.** Nothing capped how much reply data the
-  client would buffer inside its timeout window, so a peer streaming bytes
-  without a line ending — or endless `250-` continuation lines — could turn a
-  30-second budget into gigabytes of agent memory. A reply line is now capped
-  at 64 KB and a reply at 100 lines; both are far above anything RFC 5321
-  permits a real server to send.
-- **Reply text is rendered inert before it reaches the log.** Error messages
-  quoted server replies verbatim into the agent log and the submit response.
-  Anything outside printable US-ASCII is now replaced — both the C0 controls
-  and the C1 range (0x80–0x9F), which carries single-byte terminal escapes
-  such as CSI — multi-line replies can no longer forge additional log lines,
-  and oversized replies are truncated.
-- **Smaller items:** the reply to `STARTTLS` must now be exactly `220` per
-  RFC 3207 rather than any `2xx`; AUTH credentials containing a NUL byte are
-  refused before connecting (a NUL would shift the RFC 4616 `AUTH PLAIN`
-  field boundaries); and the test SMTP server's entrypoint no longer echoes
-  its password into the container log.
 
 ### SMTP client security hardening
 
