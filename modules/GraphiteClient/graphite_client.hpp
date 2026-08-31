@@ -6,16 +6,22 @@
 #ifdef USE_SSL
 #include <boost/asio/ssl.hpp>
 #endif
+#include <algorithm>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/asio/write.hpp>
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/tuple/tuple.hpp>
+#include <chrono>
 #include <client/command_line_parser.hpp>
+#include <memory>
 #include <net/socket/socket_helpers.hpp>
+#include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/protobuf/functions_convert.hpp>
 #include <nscapi/protobuf/functions_perfdata.hpp>
 #include <nscapi/protobuf/nagios.hpp>
+#include <stdexcept>
 #include <str/utf8.hpp>
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
@@ -32,8 +38,19 @@ struct connection_data : public socket_helpers::connection_info {
   connection_data(client::destination_container sender, client::destination_container target) {
     address = target.address.host;
     port_ = target.address.get_port_string("2003");
-    timeout = target.get_int_data("timeout", 30);
-    retry = target.get_int_data("retry", 3);
+    // The well-known `timeout` key is routed into the container's typed field
+    // (set_string_data), never into the free-form data map, so the old
+    // get_int_data("timeout", 30) lookup could not see a configured value and
+    // the default always won. Read the typed field, like NRPEClient; the
+    // settings layer notifies the documented default (30) for target sections
+    // that do not set one.
+    if (target.timeout > 0) timeout = target.timeout;
+    // No `retry` here: send() makes exactly one attempt per submission and
+    // there is no retry loop to feed - reading the setting into the inherited
+    // field only made it look honoured. A retry loop would also multiply the
+    // worst-case time a submission can hold the submitting thread (the
+    // recurring metrics flush lands here) by the retry count - the very thing the
+    // whole-submission timeout below exists to bound. Mirrors SMTPClient.
     ppath = target.get_string_data("perf path");
     spath = target.get_string_data("status path");
     send_perf = target.get_bool_data("send perfdata");
@@ -92,6 +109,187 @@ std::string fix_graphite_string(const std::string &s) {
   str::utils::replace(sc, std::string("\0", 1), "_");
   return sc;
 }
+namespace detail {
+// Deadline-bounded synchronous IO for the carbon submission, modeled on
+// SMTPClient's sync_io.
+//
+// Boost.Asio synchronous calls take no timeout, so a carbon endpoint that
+// black-holes SYNs, stalls mid-TLS-handshake or advertises a zero TCP window
+// could hold the submitting thread - channel submissions and the recurring
+// metrics flush both land in send() - for the OS-level TCP timeout, or indefinitely on
+// a stuck write. Each operation is therefore issued async and raced against a
+// deadline on the one io_context.
+//
+// The deadline is a single budget for the whole submission (resolution
+// included), not a fresh allowance per operation: an operator setting
+// timeout=30 means "give up on this submission after 30 seconds", not "allow
+// 30 seconds per write". Per-operation deadlines multiply out - a host name
+// resolving to several dead addresses would get a fresh deadline per connect
+// attempt.
+class deadline_io {
+ public:
+  deadline_io(boost::asio::io_context &io, boost::asio::ip::tcp::socket &socket, unsigned int timeout_seconds)
+      : io_(io), socket_(socket), timeout_seconds_(timeout_seconds), deadline_(std::chrono::steady_clock::now() + std::chrono::seconds(timeout_seconds)) {}
+  deadline_io(const deadline_io &) = delete;
+  deadline_io &operator=(const deadline_io &) = delete;
+
+  // Render a failure for an operator. A spent budget is ours to explain, not
+  // the platform's: the platform text for timed_out describes a peer that did
+  // not answer, which blames the server for a deadline this client set.
+  std::string describe(const boost::system::error_code &ec) const {
+    if (ec == boost::asio::error::timed_out) {
+      return "timed out after " + str::xtos(timeout_seconds_) + "s (the budget for the whole submission)";
+    }
+    return ec.message();
+  }
+
+  // Resolve under the shared budget. The platform resolver's own timeouts are
+  // long (and not ours to set), so a black-holed name server would otherwise
+  // stall the submission well past the configured timeout before any socket
+  // operation got a chance to be deadlined.
+  boost::asio::ip::tcp::resolver::results_type resolve(const std::string &host, const std::string &port) {
+    boost::asio::ip::tcp::resolver resolver(io_);
+    boost::asio::ip::tcp::resolver::results_type endpoints;
+    boost::system::error_code ec;
+    run_with_deadline(
+        [&](auto &&done) {
+          resolver.async_resolve(host, port,
+                                 [&endpoints, done = std::move(done)](const boost::system::error_code &e, boost::asio::ip::tcp::resolver::results_type r) {
+                                   endpoints = std::move(r);
+                                   done(e);
+                                 });
+        },
+        ec);
+    if (ec) throw std::runtime_error("DNS resolve failed: " + describe(ec));
+    return endpoints;
+  }
+
+  // Connect to the first endpoint that succeeds; every attempt draws on the
+  // same budget.
+  void connect(const boost::asio::ip::tcp::resolver::results_type &endpoints) {
+    boost::system::error_code ec = boost::asio::error::host_not_found;
+    for (auto it = endpoints.begin(); ec && it != endpoints.end(); ++it) {
+      // Non-throwing close: an incidental failure here (closing a socket that
+      // was never opened, on the first pass) must not mask the connect result.
+      boost::system::error_code close_ec;
+      socket_.close(close_ec);
+      const auto ep = it->endpoint();
+      run_with_deadline([&](auto &&done) { socket_.async_connect(ep, [done = std::move(done)](const boost::system::error_code &e) { done(e); }); }, ec);
+      // A spent budget ends the walk, not just this attempt: the deadline
+      // covers the whole submission, so every remaining endpoint would time
+      // out the same way before its connect could complete.
+      if (ec == boost::asio::error::timed_out) break;
+    }
+    if (ec) throw std::runtime_error("connect failed: " + describe(ec));
+  }
+
+  template <typename Stream>
+  void write(Stream &stream, const std::string &payload) {
+    boost::system::error_code ec;
+    run_with_deadline(
+        [&](auto &&done) {
+          boost::asio::async_write(stream, boost::asio::buffer(payload),
+                                   [done = std::move(done)](const boost::system::error_code &e, std::size_t) { done(e); });
+        },
+        ec);
+    if (ec) throw std::runtime_error("write failed: " + describe(ec));
+  }
+
+#ifdef USE_SSL
+  // asio's synchronous handshake() takes no timeout, so a peer that stalls
+  // part-way through one would hang the submission thread indefinitely - the
+  // very thing this class exists to prevent everywhere else.
+  void handshake(boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &stream) {
+    boost::system::error_code ec;
+    run_with_deadline(
+        [&](auto &&done) {
+          stream.async_handshake(boost::asio::ssl::stream_base::client, [done = std::move(done)](const boost::system::error_code &e) { done(e); });
+        },
+        ec);
+    if (ec) throw std::runtime_error("TLS handshake failed: " + describe(ec));
+  }
+
+  // Best-effort close_notify so the TLS proxy flushes what we sent before it
+  // sees the connection drop. asio's shutdown also waits for the peer's own
+  // close_notify, which a proxy that simply never sends one would stretch to
+  // the full remaining budget on every *successful* submission - so this
+  // waits a short grace at most (and never past the budget). A failure here
+  // is not a failed submission: the data was already written.
+  void shutdown(boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &stream) {
+    boost::system::error_code ignored;
+    run_until((std::min)(deadline_, std::chrono::steady_clock::now() + std::chrono::seconds(2)),
+              [&](auto &&done) { stream.async_shutdown([done = std::move(done)](const boost::system::error_code &e) { done(e); }); }, ignored);
+  }
+#endif
+
+ private:
+  // Run a single async op until it completes or `deadline` expires. Sets
+  // `out_ec` to the operation's result, or timed_out on expiry.
+  //
+  // The op's completion handler can outlive this frame. On timeout the timer
+  // handler stop()s the io_context, and the cancelled op's handler - already
+  // queued, or queued by the cancel - is left unexecuted; it runs on the NEXT
+  // restart()/run(), which happens when a caller issues another operation
+  // after a timeout (connect() walking its endpoint list). A handler that
+  // captured this frame's locals by reference would then write through
+  // dangling references into whatever occupies the stack now. So everything
+  // the handler touches lives in `op`, co-owned by the handler itself: a
+  // stale handler completes against its own orphaned state, which nobody
+  // reads. Mirrors the same fix in SMTPClient's sync_io.
+  //
+  // The timer handler needs no such care: run() drains it before returning in
+  // every case (it is either what called stop(), or it completes as aborted
+  // before run() runs out of work), so its frame is always alive.
+  template <typename Init>
+  void run_until(const std::chrono::steady_clock::time_point deadline, Init &&init, boost::system::error_code &out_ec) {
+    struct op_state {
+      explicit op_state(boost::asio::io_context &io) : timer(io), ec(boost::asio::error::would_block), timed_out(false) {}
+      boost::asio::steady_timer timer;
+      boost::system::error_code ec;
+      bool timed_out;
+    };
+    const auto op = std::make_shared<op_state>(io_);
+    // A deadline already in the past fires immediately, which is what we want
+    // once the budget is spent.
+    op->timer.expires_at(deadline);
+    op->timer.async_wait([this, op](const boost::system::error_code &e) {
+      if (e == boost::asio::error::operation_aborted) return;
+      op->timed_out = true;
+      // Cancel any outstanding I/O so run() returns. stop() covers the
+      // operations cancelling the socket does not reach - a resolve in
+      // particular runs off on its own thread and would otherwise keep run()
+      // going until the platform resolver gave up on its own schedule.
+      boost::system::error_code ignore;
+      socket_.cancel(ignore);
+      io_.stop();
+    });
+    init([op](const boost::system::error_code &e) {
+      op->ec = e;
+      // cancel() can throw (the non-throwing cancel(ec) overload is removed
+      // under BOOST_ASIO_NO_DEPRECATED). Swallow it so an incidental failure
+      // can't escape this handler and misreport a completed operation.
+      try {
+        op->timer.cancel();
+      } catch (...) {
+      }
+    });
+    io_.restart();
+    io_.run();
+    out_ec = op->timed_out ? boost::asio::error::timed_out : op->ec;
+  }
+
+  template <typename Init>
+  void run_with_deadline(Init &&init, boost::system::error_code &out_ec) {
+    run_until(deadline_, std::forward<Init>(init), out_ec);
+  }
+
+  boost::asio::io_context &io_;
+  boost::asio::ip::tcp::socket &socket_;
+  unsigned int timeout_seconds_;
+  std::chrono::steady_clock::time_point deadline_;
+};
+}  // namespace detail
+
 struct graphite_client_handler : public client::handler_interface {
   bool query(client::destination_container _sender, client::destination_container _target, const PB::Commands::QueryRequestMessage &_request_message,
              PB::Commands::QueryResponseMessage &_response_message) {
@@ -188,7 +386,14 @@ struct graphite_client_handler : public client::handler_interface {
         push_metrics(list, b, "", mpath);
       }
     }
-    send(con, list);
+    // The channel path surfaces a failed submission in its response; the
+    // metrics flush has no response to carry one, so log it - otherwise a
+    // timeout (or any other failure) fires invisibly and metrics just stop
+    // arriving.
+    const boost::tuple<bool, std::string> ret = send(con, list);
+    if (!ret.get<0>()) {
+      NSC_LOG_ERROR("Failed to submit metrics to " + con.to_string() + ": " + ret.get<1>());
+    }
     return true;
   }
 
@@ -201,12 +406,17 @@ struct graphite_client_handler : public client::handler_interface {
   boost::tuple<bool, std::string> send(connection_data con, const std::list<g_data> &data) {
     try {
       boost::asio::io_context io_service;
-      boost::asio::ip::tcp::resolver resolver(io_service);
-      auto endpoints = resolver.resolve(con.get_address(), con.get_port());
 
       const boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970, 1, 1));
       const boost::posix_time::time_duration diff = boost::posix_time::microsec_clock::universal_time() - time_t_epoch;
       const std::string ts = boost::lexical_cast<std::string>(diff.total_seconds());
+
+      // One buffer for the whole batch: the carbon protocol is just
+      // newline-separated lines, so a single deadlined write replaces a
+      // per-line loop (and the per-line socket.send() ignored short writes,
+      // which async_write completes).
+      std::string payload;
+      for (const g_data &d : data) payload += make_line(d, ts);
 
 #ifdef USE_SSL
       if (con.ssl.enabled) {
@@ -219,13 +429,7 @@ struct graphite_client_handler : public client::handler_interface {
           return boost::make_tuple(false, "TLS setup failed: " + emsg);
         }
         boost::asio::ssl::stream<boost::asio::ip::tcp::socket> stream(io_service, ctx);
-
-        boost::system::error_code error = boost::asio::error::host_not_found;
-        for (auto it = endpoints.begin(); error && it != endpoints.end(); ++it) {
-          stream.lowest_layer().close();
-          stream.lowest_layer().connect(it->endpoint(), error);
-        }
-        if (error) throw boost::system::system_error(error);
+        detail::deadline_io io(io_service, stream.next_layer(), con.timeout);
 
         // SNI: a TLS proxy fronting carbon (nginx/stunnel/carbon-relay-ng) often
         // hosts several certs and needs the server name to pick the right one;
@@ -241,14 +445,11 @@ struct graphite_client_handler : public client::handler_interface {
         if ((con.ssl.get_verify_mode() & boost::asio::ssl::context_base::verify_peer) != 0) {
           stream.set_verify_callback(boost::asio::ssl::host_name_verification(con.get_address()));
         }
-        stream.handshake(boost::asio::ssl::stream_base::client);
 
-        for (const g_data &d : data) {
-          const std::string msg = make_line(d, ts);
-          boost::asio::write(stream, boost::asio::buffer(msg));
-        }
-        boost::system::error_code ignored;
-        stream.shutdown(ignored);
+        io.connect(io.resolve(con.get_address(), con.get_port()));
+        io.handshake(stream);
+        io.write(stream, payload);
+        io.shutdown(stream);
         return boost::make_tuple(true, "Data presumably sent successfully (TLS)");
       }
 #else
@@ -258,17 +459,9 @@ struct graphite_client_handler : public client::handler_interface {
 #endif
 
       boost::asio::ip::tcp::socket socket(io_service);
-      boost::system::error_code error = boost::asio::error::host_not_found;
-      for (auto it = endpoints.begin(); error && it != endpoints.end(); ++it) {
-        socket.close();
-        socket.connect(it->endpoint(), error);
-      }
-      if (error) throw boost::system::system_error(error);
-
-      for (const g_data &d : data) {
-        const std::string msg = make_line(d, ts);
-        socket.send(boost::asio::buffer(msg));
-      }
+      detail::deadline_io io(io_service, socket, con.timeout);
+      io.connect(io.resolve(con.get_address(), con.get_port()));
+      io.write(socket, payload);
       return boost::make_tuple(true, "Data presumably sent successfully");
     } catch (const std::runtime_error &e) {
       return boost::make_tuple(false, "Socket error: " + utf8::utf8_from_native(e.what()));

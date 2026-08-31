@@ -171,7 +171,7 @@ legacy auth — and produced three hardening fixes on the client side:
   also no longer suggests `none` for self-signed certificates — the right
   configuration is `peer-cert` with `ca` pointing at the certificate.
 
-### Graphite client — status path scrubbed against metric-line injection
+### Graphite client: metric-line injection scrub and a whole-submission timeout
 
 **Fixed in:** unreleased (first release after 0.18.0) · **Severity:** Low
 
@@ -192,6 +192,23 @@ the scrub itself additionally replaces tabs, which split a carbon field the
 same way a space does. No operator action is needed; a status path built from
 an alias containing these characters (which previously produced corrupt lines)
 now renders them as `_`.
+
+The same review closed an availability gap: the `timeout` target setting had
+no effect at all. The configured value never reached the connection (the
+lookup read the container's free-form data map, which the well-known
+`timeout` key is never stored in, so the default 30 always won), and the
+connection did not use even that: name resolution, the connect loop, the TLS
+handshake and every write ran synchronously with no deadline, so a carbon
+endpoint that black-holes SYNs, stalls mid-handshake or stops reading held
+the submitting thread — channel submissions and the recurring metrics flush
+(`metrics interval`, default 10s) both land on this path — for the OS-level
+TCP timeout, or indefinitely on a stuck write. The configured `timeout`
+(default 30s) is read now and bounds the whole submission as one budget,
+resolution included, following the [SMTP client
+precedent](#smtp-client-security-review-hardening) ("the timeout bounds the
+whole submission"). The `retry` setting was equally read
+but never acted on; it is no longer read (see the
+[upgrade note](../setup/upgrading.md#unreleased)).
 
 ### Filter framework: expression length and nesting-depth limits
 
