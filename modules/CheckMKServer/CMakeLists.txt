@@ -71,3 +71,32 @@ target_link_libraries(
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 source_group("Server" REGULAR_EXPRESSION .*include/check_mk/.*)
 source_group("Socket" REGULAR_EXPRESSION .*include/socket/.*)
+
+# handler_impl::process() (Lua callback lookup, packet marshalling and the
+# error paths) runs against a real Lua runtime with the check_mk glue, so it
+# is testable wherever the module itself builds (this file is only processed
+# when Lua was found).
+NSCP_CREATE_TEST(
+    check_mk_handler_impl_test
+    SOURCES
+        handler_impl_test.cpp
+        handler_impl.cpp
+        ${NSCP_INCLUDEDIR}/net/check_mk/lua/lua_check_mk.cpp
+        ${NSCP_INCLUDEDIR}/metrics/metrics_store_map.cpp
+        # lua_nscp's core_wrapper::log() calls nscapi::logging::parse, which the
+        # Windows plugin_api DLL does not export.
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        lua_nscp
+        ${LUA_PB}
+        ${LUA_LIBRARIES}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${EXTRA_LIBS}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${LUA_INCLUDE_DIR}
+)

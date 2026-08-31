@@ -17,8 +17,16 @@
 #include <vector>
 
 #ifndef WIN32
+#include <fcntl.h>
+#include <sched.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
+
+#include <csignal>
+#include <cstdlib>
+#include <functional>
 #endif
 
 namespace fs = boost::filesystem;
@@ -1100,3 +1108,285 @@ TEST_F(OnboardingStateTest, AFailedSaveKeepsThePreviousIdentity) {
   ASSERT_TRUE(loaded);
   EXPECT_EQ(loaded->cert_pem, "CERT");
 }
+
+TEST_F(OnboardingStateTest, SavingOntoADirectoryThrowsAndRemovesTheTempFile) {
+  // The temp file writes fine; the rename onto the target cannot work. The
+  // failure must surface as an onboarding_error and must not strand the temp
+  // file (which holds the private key) next to it.
+  fs::create_directories(path_);
+  EXPECT_THROW(onboarding::save_state(test_state(), path_), onboarding::onboarding_error);
+  EXPECT_FALSE(fs::exists(path_ + ".tmp"));
+}
+
+#ifndef WIN32
+TEST_F(OnboardingStateTest, AWriteErrorRemovesTheTempFileAndThrows) {
+  // Model a full disk with RLIMIT_FSIZE: the open succeeds, the write cannot
+  // complete. A partial state file is worse than none (it holds half a key),
+  // so the temp file has to go and the caller has to hear about it.
+  struct rlimit old_limit = {};
+  ASSERT_EQ(::getrlimit(RLIMIT_FSIZE, &old_limit), 0);
+  // Exceeding the limit raises SIGXFSZ (default: kill); ignore it so write()
+  // fails with EFBIG instead.
+  struct sigaction ignore_action = {};
+  ignore_action.sa_handler = SIG_IGN;
+  struct sigaction old_action = {};
+  ASSERT_EQ(::sigaction(SIGXFSZ, &ignore_action, &old_action), 0);
+  struct rlimit tiny = old_limit;
+  tiny.rlim_cur = 4;
+  ASSERT_EQ(::setrlimit(RLIMIT_FSIZE, &tiny), 0);
+
+  try {
+    onboarding::save_state(test_state(), path_);
+    ::setrlimit(RLIMIT_FSIZE, &old_limit);
+    ::sigaction(SIGXFSZ, &old_action, nullptr);
+    FAIL() << "expected onboarding_error";
+  } catch (const onboarding::onboarding_error &) {
+    ::setrlimit(RLIMIT_FSIZE, &old_limit);
+    ::sigaction(SIGXFSZ, &old_action, nullptr);
+  }
+  EXPECT_FALSE(fs::exists(path_ + ".tmp")) << "a torn temp file was left behind";
+  EXPECT_FALSE(fs::exists(path_));
+}
+
+TEST_F(OnboardingStateTest, AnUnreadableStateFileThrows) {
+  if (::geteuid() == 0) {
+    GTEST_SKIP() << "root can read anything, so there is no unreadable file to test";
+  }
+  onboarding::save_state(test_state(), path_);
+  fs::permissions(path_, fs::no_perms);
+  // The file exists, so "not enrolled" (none) would be a lie; the operator has
+  // to hear that the identity is there but cannot be read.
+  EXPECT_THROW(onboarding::load_state(path_), onboarding::onboarding_error);
+  fs::permissions(path_, fs::owner_read | fs::owner_write);
+}
+
+// --- adopt_owner under a fake root ------------------------------------------
+// The chown handoff itself only runs as root (geteuid() == 0), which the tests
+// above skip. A user namespace gives us that root: fork a child, map the
+// current user to uid 0 in a fresh namespace, and every rule of the handoff
+// becomes testable - the anchor check, the O_NOFOLLOW descent, the symlink
+// refusals and the recursive chown (to the only ids the namespace maps, which
+// is exactly what CAP_CHOWN in a user namespace allows).
+
+namespace {
+
+// Exit code meaning "this kernel/sandbox does not allow user namespaces";
+// tests skip rather than fail on it.
+constexpr int kFakeRootUnavailable = 101;
+
+bool write_proc_file(const char *proc_path, const std::string &content) {
+  const int fd = ::open(proc_path, O_WRONLY | O_CLOEXEC);
+  if (fd < 0) return false;
+  const ssize_t written = ::write(fd, content.c_str(), content.size());
+  ::close(fd);
+  return written == static_cast<ssize_t>(content.size());
+}
+
+// Run `body` in a forked child inside a new user namespace where the current
+// user is uid 0 and the current group is gid `in_ns_gid`. Returns the child's
+// exit code (0 = the body was happy), kFakeRootUnavailable when namespaces are
+// not permitted, -1 when the child died abnormally.
+int run_as_fake_root(const gid_t in_ns_gid, const std::function<int()> &body) {
+  const uid_t uid = ::getuid();
+  const gid_t gid = ::getgid();
+  const pid_t pid = ::fork();
+  if (pid < 0) return -1;
+  if (pid == 0) {
+    if (::unshare(CLONE_NEWUSER) != 0) ::_exit(kFakeRootUnavailable);
+    if (!write_proc_file("/proc/self/setgroups", "deny") || !write_proc_file("/proc/self/uid_map", "0 " + std::to_string(uid) + " 1") ||
+        !write_proc_file("/proc/self/gid_map", std::to_string(in_ns_gid) + " " + std::to_string(gid) + " 1")) {
+      ::_exit(kFakeRootUnavailable);
+    }
+    // exit() rather than _exit() so gcov data is flushed.
+    ::exit(body());
+  }
+  int status = 0;
+  if (::waitpid(pid, &status, 0) != pid || !WIFEXITED(status)) return -1;
+  return WEXITSTATUS(status);
+}
+
+// Inside the namespace our own files appear as uid 0 - the reference must not
+// look root:root (that is the "everything runs as root" early-out), so map the
+// group to a non-zero gid.
+constexpr gid_t kServiceGid = 5;
+
+}  // namespace
+
+#define SKIP_WITHOUT_FAKE_ROOT(rc)                                               \
+  if ((rc) == kFakeRootUnavailable) {                                            \
+    GTEST_SKIP() << "user namespaces are not permitted in this environment";     \
+  }
+
+TEST_F(OnboardingStateTest, FakeRootHandsOverTheWholeReferenceTree) {
+  // target == reference: the whole ${data-path} tree changes hands, recursing
+  // into subdirectories, chowning regular files, and skipping symlinks.
+  fs::create_directories(dir_ / "fleet" / "cache");
+  std::ofstream((dir_ / "fleet" / "fleet.ini").string().c_str()) << "; managed";
+  std::ofstream((dir_ / "fleet" / "cache" / "bundle.zip").string().c_str()) << "zip";
+  std::ofstream((dir_ / "outside.txt").string().c_str()) << "x";
+  fs::create_symlink(dir_ / "outside.txt", dir_ / "fleet" / "link");
+  onboarding::save_state(test_state(), path_);
+
+  const int rc = run_as_fake_root(kServiceGid, [&]() -> int {
+    std::string error;
+    if (!onboarding::adopt_owner(dir_.string(), dir_.string(), error)) return 1;
+    if (!error.empty()) return 2;
+    return 0;
+  });
+  SKIP_WITHOUT_FAKE_ROOT(rc);
+  EXPECT_EQ(rc, 0);
+  EXPECT_TRUE(static_cast<bool>(onboarding::load_state(path_)));
+}
+
+TEST_F(OnboardingStateTest, FakeRootHandsOverAFileInsideASubdirectory) {
+  // The packaged shape: ${data-path}/security/agent-state.json. The descent
+  // walks `security` with O_NOFOLLOW and chowns the leaf through its parent's
+  // descriptor.
+  fs::create_directories(dir_ / "security");
+  const std::string target = (dir_ / "security" / "agent-state.json").string();
+  onboarding::save_state(test_state(), target);
+
+  const int rc = run_as_fake_root(kServiceGid, [&]() -> int {
+    std::string error;
+    if (!onboarding::adopt_owner(target, dir_.string(), error)) return 1;
+    return 0;
+  });
+  SKIP_WITHOUT_FAKE_ROOT(rc);
+  EXPECT_EQ(rc, 0);
+}
+
+TEST_F(OnboardingStateTest, FakeRootHandsOverADirectoryTarget) {
+  fs::create_directories(dir_ / "fleet");
+  std::ofstream((dir_ / "fleet" / "fleet.ini").string().c_str()) << "; managed";
+
+  const int rc = run_as_fake_root(kServiceGid, [&]() -> int {
+    std::string error;
+    if (!onboarding::adopt_owner((dir_ / "fleet").string(), dir_.string(), error)) return 1;
+    return 0;
+  });
+  SKIP_WITHOUT_FAKE_ROOT(rc);
+  EXPECT_EQ(rc, 0);
+}
+
+TEST_F(OnboardingStateTest, FakeRootRefusesASymlinkedTarget) {
+  // `rm -rf fleet && ln -s victim fleet` by the service account: refusing is
+  // the whole point of the fstatat(AT_SYMLINK_NOFOLLOW) check.
+  fs::create_directories(dir_ / "victim");
+  fs::create_directory_symlink(dir_ / "victim", dir_ / "fleet");
+
+  const int rc = run_as_fake_root(kServiceGid, [&]() -> int {
+    std::string error;
+    if (onboarding::adopt_owner((dir_ / "fleet").string(), dir_.string(), error)) return 1;
+    if (error.empty()) return 2;
+    return 0;
+  });
+  SKIP_WITHOUT_FAKE_ROOT(rc);
+  EXPECT_EQ(rc, 0);
+}
+
+TEST_F(OnboardingStateTest, FakeRootRefusesASymlinkedIntermediateDirectory) {
+  // The service account swapped an *intermediate* component for a symlink;
+  // the openat(O_NOFOLLOW) descent must refuse at that component.
+  fs::create_directories(dir_ / "victim");
+  std::ofstream((dir_ / "victim" / "agent-state.json").string().c_str()) << "x";
+  fs::create_directory_symlink(dir_ / "victim", dir_ / "security");
+
+  const int rc = run_as_fake_root(kServiceGid, [&]() -> int {
+    std::string error;
+    if (onboarding::adopt_owner((dir_ / "security" / "agent-state.json").string(), dir_.string(), error)) return 1;
+    if (error.empty()) return 2;
+    return 0;
+  });
+  SKIP_WITHOUT_FAKE_ROOT(rc);
+  EXPECT_EQ(rc, 0);
+}
+
+TEST_F(OnboardingStateTest, FakeRootRefusesATargetOutsideTheReference) {
+  // The anchor only protects paths under it; anything else must be refused
+  // rather than resolved unanchored.
+  const fs::path outside = fs::temp_directory_path() / fs::unique_path("nscp-elsewhere-%%%%");
+  fs::create_directories(outside);
+  std::ofstream((outside / "x").string().c_str()) << "x";
+
+  const int rc = run_as_fake_root(kServiceGid, [&]() -> int {
+    std::string error;
+    if (onboarding::adopt_owner((outside / "x").string(), dir_.string(), error)) return 1;
+    if (error.empty()) return 2;
+    return 0;
+  });
+  fs::remove_all(outside);
+  SKIP_WITHOUT_FAKE_ROOT(rc);
+  EXPECT_EQ(rc, 0);
+}
+
+TEST_F(OnboardingStateTest, FakeRootTreatsAMissingTargetAsHandedOver) {
+  // Nothing at the target means nothing to hand over: success, not an error.
+  const int rc = run_as_fake_root(kServiceGid, [&]() -> int {
+    std::string error;
+    if (!onboarding::adopt_owner((dir_ / "not-there.json").string(), dir_.string(), error)) return 1;
+    return 0;
+  });
+  SKIP_WITHOUT_FAKE_ROOT(rc);
+  EXPECT_EQ(rc, 0);
+}
+
+TEST_F(OnboardingStateTest, FakeRootLeavesOwnershipAloneWhenTheReferenceIsMissing) {
+  // stat() on the reference fails: a from-source install without the state
+  // directory. Leaving ownership alone is the safe answer even for root.
+  onboarding::save_state(test_state(), path_);
+
+  const int rc = run_as_fake_root(kServiceGid, [&]() -> int {
+    std::string error;
+    if (!onboarding::adopt_owner(path_, (dir_ / "no-such-dir").string(), error)) return 1;
+    return 0;
+  });
+  SKIP_WITHOUT_FAKE_ROOT(rc);
+  EXPECT_EQ(rc, 0);
+}
+
+TEST_F(OnboardingStateTest, FakeRootLeavesARootOwnedReferenceAlone) {
+  // Map the group to 0 as well, so the reference looks root:root inside the
+  // namespace: an install that genuinely runs everything as root, where there
+  // is nothing to hand over.
+  onboarding::save_state(test_state(), path_);
+
+  const int rc = run_as_fake_root(0, [&]() -> int {
+    std::string error;
+    if (!onboarding::adopt_owner(path_, dir_.string(), error)) return 1;
+    return 0;
+  });
+  SKIP_WITHOUT_FAKE_ROOT(rc);
+  EXPECT_EQ(rc, 0);
+}
+
+TEST_F(OnboardingStateTest, FakeRootLeavesAFifoAlone) {
+  // Nothing we write is ever a fifo or a device, so one at the target means
+  // someone else put it there: not ours to hand over, and not an error.
+  ASSERT_EQ(::mkfifo((dir_ / "pipe").string().c_str(), 0600), 0);
+
+  const int rc = run_as_fake_root(kServiceGid, [&]() -> int {
+    std::string error;
+    if (!onboarding::adopt_owner((dir_ / "pipe").string(), dir_.string(), error)) return 1;
+    if (!error.empty()) return 2;
+    return 0;
+  });
+  SKIP_WITHOUT_FAKE_ROOT(rc);
+  EXPECT_EQ(rc, 0);
+}
+
+TEST_F(OnboardingStateTest, FakeRootLeavesASymlinkedReferenceAlone) {
+  // The anchor itself cannot be opened O_NOFOLLOW when it is a symlink; with
+  // no trusted anchor the handoff declines to touch anything - and that is a
+  // success, not a failed enrollment.
+  fs::create_directories(dir_ / "real");
+  fs::create_directory_symlink(dir_ / "real", dir_ / "alias");
+
+  const int rc = run_as_fake_root(kServiceGid, [&]() -> int {
+    std::string error;
+    if (!onboarding::adopt_owner((dir_ / "alias" / "x").string(), (dir_ / "alias").string(), error)) return 1;
+    return 0;
+  });
+  SKIP_WITHOUT_FAKE_ROOT(rc);
+  EXPECT_EQ(rc, 0);
+}
+#endif

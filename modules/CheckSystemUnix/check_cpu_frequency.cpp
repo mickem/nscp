@@ -34,10 +34,12 @@ bool read_khz_file_as_mhz(const boost::filesystem::path &file, long long &out_mh
 }
 }  // namespace
 
-cpus_type read_cpu_frequency() {
+cpus_type read_cpu_frequency() { return read_cpu_frequency("/sys/devices/system/cpu"); }
+
+cpus_type read_cpu_frequency(const std::string &base_path) {
   cpus_type result;
 
-  const boost::filesystem::path base("/sys/devices/system/cpu");
+  const boost::filesystem::path base(base_path);
   boost::system::error_code ec;
   if (!boost::filesystem::is_directory(base, ec) || ec) return result;
 
@@ -117,7 +119,11 @@ filter_obj_handler::filter_obj_handler() {
 }
 
 void check_cpu_frequency(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  cpus_type data = read_cpu_frequency();
+  check_cpu_frequency_evaluate(request, response, read_cpu_frequency());
+}
+
+void check_cpu_frequency_evaluate(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                                  const cpus_type &data) {
   if (data.empty()) {
     return nscapi::protobuf::functions::set_response_bad(*response, "No CPU frequency data available (no cpufreq support?)");
   }
@@ -143,13 +149,14 @@ void check_cpu_frequency(const PB::Commands::QueryRequestMessage::Request &reque
   filter_helper.post_process(filter);
 }
 
-void build_cpu_frequency_metrics(PB::Metrics::MetricsBundle *parent) {
+void build_cpu_frequency_metrics(PB::Metrics::MetricsBundle *parent) { build_cpu_frequency_metrics(parent, read_cpu_frequency()); }
+
+void build_cpu_frequency_metrics(PB::Metrics::MetricsBundle *parent, const cpus_type &data) {
   using namespace nscapi::metrics;
 
   PB::Metrics::MetricsBundle *bundle = parent->add_children();
   bundle->set_key("cpu_frequency");
 
-  const cpus_type data = read_cpu_frequency();
   for (const cpus_type::value_type &v : data) {
     add_metric(bundle, v.name + ".current_mhz", v.current_mhz);
     add_metric(bundle, v.name + ".max_mhz", v.max_mhz);

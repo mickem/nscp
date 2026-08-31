@@ -6,7 +6,9 @@
 #include <net/icmp_header.hpp>
 #include <net/ipv4_header.hpp>
 #include <net/pinger.hpp>
+#include <memory>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -663,4 +665,63 @@ TEST(Pinger, PingerSendsToResolvedEndpoint) {
   EXPECT_EQ(0u, result.num_send_);
   EXPECT_EQ(0u, result.num_replies_);
   EXPECT_EQ(0u, result.num_timeouts_);
+}
+
+TEST(Pinger, ResolveFailureThrowsWithDestinationInMessage) {
+  // RFC 2606 reserves .invalid, so this name can never resolve. The pinger
+  // must surface the failure as a runtime_error naming the destination —
+  // this happens before any (privileged) raw socket is opened.
+  boost::asio::io_context io_service;
+  result_container result;
+  try {
+    pinger p(io_service, result, "no-such-host.invalid", 1000, 42, "payload");
+    FAIL() << "expected resolve failure for reserved .invalid name";
+  } catch (const std::runtime_error &e) {
+    EXPECT_NE(std::string(e.what()).find("no-such-host.invalid"), std::string::npos) << e.what();
+    EXPECT_NE(std::string(e.what()).find("Failed to resolve"), std::string::npos) << e.what();
+  }
+  // Nothing was sent and the result container carries no endpoint.
+  EXPECT_EQ(0u, result.num_send_);
+  EXPECT_TRUE(result.ip_.empty());
+}
+
+// ============================================================================
+// End-to-end loopback ping — needs a raw ICMP socket (CAP_NET_RAW / root)
+//
+// Everything past socket-open in pinger.hpp (start_send, handle_receive,
+// handle_timeout, the TTL socket option) only runs against a real raw socket:
+// there is no seam to inject a fake transport. This test exercises the whole
+// send/receive path against 127.0.0.1 when the privilege is available and
+// skips (rather than fails) when it is not.
+// ============================================================================
+
+TEST(Pinger, EndToEndLoopbackPing) {
+  boost::asio::io_context io_service;
+  result_container result;
+  const std::string payload = "nscp-pinger-test";
+  std::unique_ptr<pinger> p;
+  try {
+    // ttl=64 also exercises the unicast::hops constructor branch.
+    p = std::unique_ptr<pinger>(new pinger(io_service, result, "127.0.0.1", 2000, 0x4242, payload, net::address_family::ipv4, 64));
+  } catch (const std::exception &e) {
+    GTEST_SKIP() << "raw ICMP socket unavailable (needs CAP_NET_RAW/root): " << e.what();
+  }
+
+  p->ping();
+  io_service.run();
+
+  EXPECT_EQ(1u, result.num_send_);
+  EXPECT_EQ(1, result.sequence_number_);
+  EXPECT_EQ("127.0.0.1", result.ip_);
+  // Exactly one of the two outcomes happens: the reply was parsed (timer
+  // cancelled) or the single receive saw something else and the timer fired.
+  // On loopback a raw socket sees our own echo request as well as the reply,
+  // and handle_receive does not re-arm, so a timeout here is legitimate.
+  EXPECT_EQ(1u, result.num_replies_ + result.num_timeouts_);
+  if (result.num_replies_ == 1) {
+    ASSERT_EQ(1u, result.rtts_.size());
+    EXPECT_EQ(result.time_, result.rtts_.back());
+    EXPECT_GT(result.ttl_, 0);  // IPv4 reply carries the IP header TTL
+    EXPECT_GE(result.length_, 8u + payload.size());
+  }
 }

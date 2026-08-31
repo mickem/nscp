@@ -208,6 +208,7 @@ else()
             check_windows_checks_unix_test.cpp
             collector_thread.cpp
             collector_thread_test.cpp
+            file_filter_obj_test.cpp
             file_finder_unix.cpp
             filter.cpp
             filter_unix.cpp

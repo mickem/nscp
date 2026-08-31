@@ -16,14 +16,22 @@
 
 #include "icinga_client.hpp"
 
+// icinga_target_object.hpp relies on its includer's po alias (IcingaClient.cpp
+// declares it before pulling the header in); do the same here.
+namespace po = boost::program_options;
+#include "icinga_target_object.hpp"
+
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <boost/asio.hpp>
+#include <boost/program_options.hpp>
 #include <cstdlib>
 #include <future>
 #include <map>
 #include <string>
 #include <thread>
+#include <vector>
 
 nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();
 
@@ -368,6 +376,194 @@ TEST(IcingaSubmit, AStalledApiTimesOutInsteadOfHangingForever) {
   ASSERT_EQ(response.payload_size(), 1);
   EXPECT_EQ(response.payload(0).result().code(), PB::Common::Result_StatusCodeType_STATUS_ERROR);
   EXPECT_NE(response.payload(0).result().message().find("timed out"), std::string::npos) << response.payload(0).result().message();
+}
+
+// ---------------------------------------------------------------------------
+// icinga_target_object - the settings a `[/settings/icinga/client/targets/x]`
+// section is read into, and the command line options offered by submit_icinga.
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// A settings backend backed by a plain map, so read() can be driven without a
+// settings core (mirrors MockSettingsInterface in nscapi's helper_test).
+class fake_settings : public nscapi::settings_helper::settings_impl_interface {
+ public:
+  std::map<std::string, std::map<std::string, std::string>> values;
+  std::vector<std::string> registered_keys;
+  std::string expand_prefix;
+
+  void register_path(std::string, std::string, std::string, bool, bool) override {}
+  void register_key(std::string, std::string key, std::string, std::string, std::string, std::string, bool, bool, bool) override {
+    registered_keys.push_back(key);
+  }
+  void register_subkey(std::string, std::string, std::string, bool, bool) override {}
+  void register_tpl(std::string, std::string, std::string, std::string, std::string) override {}
+  std::string get_string(std::string path, std::string key, std::string def) override {
+    const auto pit = values.find(path);
+    if (pit == values.end()) return def;
+    const auto kit = pit->second.find(key);
+    return kit == pit->second.end() ? def : kit->second;
+  }
+  void set_string(std::string path, std::string key, std::string value) override { values[path][key] = value; }
+  string_list get_sections(std::string) override { return {}; }
+  string_list get_keys(std::string) override { return {}; }
+  std::string expand_path(std::string key) override { return expand_prefix + key; }
+  void remove_key(std::string, std::string) override {}
+  void remove_path(std::string) override {}
+  void err(const char *, int, std::string) override {}
+  void warn(const char *, int, std::string) override {}
+  void info(const char *, int, std::string) override {}
+  void debug(const char *, int, std::string) override {}
+
+  bool registered(const std::string &key) const {
+    return std::find(registered_keys.begin(), registered_keys.end(), key) != registered_keys.end();
+  }
+};
+
+// The section every `[/settings/icinga/client/targets]`-defined target lives
+// under; the object appends its alias, so "default" reads from kTargetPath.
+const std::string kTargetsPath = "/settings/icinga/client/targets";
+const std::string kTargetPath = kTargetsPath + "/default";
+
+}  // namespace
+
+TEST(IcingaTargetObject, ANewTargetGetsTheThirtySecondTimeout) {
+  icinga_handler::icinga_target_object target("default", kTargetsPath);
+
+  EXPECT_EQ(target.get_property_int("timeout", 0), 30);
+}
+
+TEST(IcingaTargetObject, ReadPicksUpTheConfiguredApiSettings) {
+  auto settings = std::make_shared<fake_settings>();
+  settings->values[kTargetPath] = {{"username", "api-user"},        {"password", "s3cret"},
+                                   {"ensure objects", "true"},      {"host template", "my-host-tpl"},
+                                   {"service template", "my-svc-tpl"}, {"check command", "passive"},
+                                   {"check source", "nscp-agent"},  {"tls version", "1.2"},
+                                   {"verify mode", "none"},         {"ca", "/etc/ssl/ca.pem"}};
+
+  icinga_handler::icinga_target_object target("default", kTargetsPath);
+  target.read(settings, false, false);
+
+  EXPECT_EQ(target.get_property_string("username"), "api-user");
+  EXPECT_EQ(target.get_property_string("password"), "s3cret");
+  EXPECT_TRUE(target.get_property_bool("ensure_objects", false));
+  EXPECT_EQ(target.get_property_string("host_template"), "my-host-tpl");
+  EXPECT_EQ(target.get_property_string("service_template"), "my-svc-tpl");
+  EXPECT_EQ(target.get_property_string("check_command"), "passive");
+  EXPECT_EQ(target.get_property_string("check_source"), "nscp-agent");
+  EXPECT_EQ(target.get_property_string("tls version"), "1.2");
+  EXPECT_EQ(target.get_property_string("verify mode"), "none");
+  EXPECT_EQ(target.get_property_string("ca"), "/etc/ssl/ca.pem");
+}
+
+TEST(IcingaTargetObject, ReadFallsBackToTheTlsDefaults) {
+  // Nothing configured: the TLS keys have defaults (1.3, peer, ${ca-path})
+  // while the credential keys have none and must stay unset.
+  auto settings = std::make_shared<fake_settings>();
+  settings->expand_prefix = "expanded:";
+
+  icinga_handler::icinga_target_object target("default", kTargetsPath);
+  target.read(settings, false, false);
+
+  EXPECT_EQ(target.get_property_string("tls version"), "1.3");
+  EXPECT_EQ(target.get_property_string("verify mode"), "peer");
+  // `ca` is a path key: the ${ca-path} placeholder must go through the
+  // settings layer's expand_path, not reach the SSL stack verbatim.
+  EXPECT_EQ(target.get_property_string("ca"), "expanded:${ca-path}");
+  EXPECT_EQ(target.get_property_string("username"), "");
+  EXPECT_EQ(target.get_property_string("password"), "");
+}
+
+TEST(IcingaTargetObject, ReadRegistersTheApiKeysForDocumentation) {
+  auto settings = std::make_shared<fake_settings>();
+
+  icinga_handler::icinga_target_object target("default", kTargetsPath);
+  target.read(settings, false, false);
+
+  for (const std::string key : {"username", "password", "ensure objects", "host template", "service template", "check command", "check source",
+                                "tls version", "verify mode", "ca"}) {
+    EXPECT_TRUE(settings->registered(key)) << "key not registered: " << key;
+  }
+}
+
+TEST(IcingaTargetObject, AOnelinerReadStopsAfterTheSharedTargetKeys) {
+  auto settings = std::make_shared<fake_settings>();
+  settings->values[kTargetPath] = {{"username", "api-user"}};
+
+  icinga_handler::icinga_target_object target("default", kTargetsPath);
+  target.read(settings, true, false);
+
+  // The parent's keys are read (timeout has a default of 30)...
+  EXPECT_EQ(target.get_property_int("timeout", 0), 30);
+  // ...but none of the Icinga specific keys are registered or read.
+  EXPECT_FALSE(settings->registered("username"));
+  EXPECT_EQ(target.get_property_string("username"), "");
+}
+
+TEST(IcingaTargetObject, ASampleReadStillRegistersTheKeys) {
+  auto settings = std::make_shared<fake_settings>();
+
+  icinga_handler::icinga_target_object target("default", kTargetsPath);
+  target.read(settings, false, true);
+
+  EXPECT_TRUE(settings->registered("username"));
+}
+
+TEST(IcingaOptionsReader, CreateAndCloneProduceTargetObjects) {
+  icinga_handler::options_reader_impl reader;
+
+  const nscapi::settings_objects::object_instance created = reader.create("default", kTargetsPath);
+  ASSERT_TRUE(created);
+  EXPECT_EQ(created->get_alias(), "default");
+  EXPECT_EQ(created->get_property_int("timeout", 0), 30) << "create() must go through the defaulting constructor";
+
+  created->set_property_string("username", "api-user");
+  const nscapi::settings_objects::object_instance cloned = reader.clone(created, "copy", kTargetsPath);
+  ASSERT_TRUE(cloned);
+  EXPECT_EQ(cloned->get_alias(), "copy");
+  EXPECT_EQ(cloned->get_property_string("username"), "api-user") << "clone() must inherit the parent's settings";
+}
+
+TEST(IcingaOptionsReader, ProcessParsesTheSubmitIcingaOptions) {
+  icinga_handler::options_reader_impl reader;
+  boost::program_options::options_description desc;
+  client::destination_container source, data;
+  reader.process(desc, source, data);
+
+  const std::vector<std::string> argv = {"--username", "api-user",   "--password",         "s3cret",     "--hostname",     "sender-host",
+                                         "--ensure-objects",         "--host-template",    "ht",         "--service-template", "st",
+                                         "--check-command", "cc",    "--check-source",     "cs",         "--tls-version",  "1.2",
+                                         "--verify-mode",   "none",  "--ca",               "/etc/ca.pem"};
+  boost::program_options::variables_map vm;
+  boost::program_options::store(boost::program_options::command_line_parser(argv).options(desc).run(), vm);
+  boost::program_options::notify(vm);
+
+  EXPECT_EQ(data.get_string_data("username"), "api-user");
+  EXPECT_EQ(data.get_string_data("password"), "s3cret");
+  EXPECT_EQ(data.get_string_data("ensure_objects"), "true") << "--ensure-objects without a value must mean true";
+  EXPECT_EQ(data.get_string_data("host_template"), "ht");
+  EXPECT_EQ(data.get_string_data("service_template"), "st");
+  EXPECT_EQ(data.get_string_data("check_command"), "cc");
+  EXPECT_EQ(data.get_string_data("check_source"), "cs");
+  EXPECT_EQ(data.get_string_data("tls version"), "1.2");
+  EXPECT_EQ(data.get_string_data("verify mode"), "none");
+  EXPECT_EQ(data.get_string_data("ca"), "/etc/ca.pem");
+  EXPECT_EQ(source.address.host, "sender-host") << "--hostname names the sender, not the API";
+}
+
+TEST(IcingaOptionsReader, TheTlsVersionDefaultsToOneThree) {
+  icinga_handler::options_reader_impl reader;
+  boost::program_options::options_description desc;
+  client::destination_container source, data;
+  reader.process(desc, source, data);
+
+  boost::program_options::variables_map vm;
+  boost::program_options::store(boost::program_options::command_line_parser(std::vector<std::string>{}).options(desc).run(), vm);
+  boost::program_options::notify(vm);
+
+  EXPECT_EQ(data.get_string_data("tls version"), "1.3");
+  EXPECT_FALSE(data.has_data("ensure_objects")) << "object creation must stay opt-in";
 }
 
 TEST(IcingaSubmit, QueryAndExecAreNotSupported) {

@@ -10,6 +10,7 @@
 #include <parsers/where.hpp>
 #include <parsers/where/binary_op.hpp>
 #include <parsers/where/engine.hpp>
+#include <parsers/where/engine_impl.hpp>
 #include <parsers/where/node.hpp>
 #include <parsers/where/unary_fun.hpp>
 #include <parsers/where/variable.hpp>
@@ -1806,4 +1807,171 @@ TEST(EngineOptionalDuration, NoValueStringIsThePresenceTestNotConverterInput) {
   auto set = ctx_with_oval(3600);
   EXPECT_FALSE(eval_match("odur = 'never'", set, true));
   EXPECT_TRUE(eval_match("odur != 'never'", set, true));
+}
+
+// ============================================================================
+// evaluation_context_impl (engine_impl.hpp)
+//
+// The production evaluation context used by every modern_filter check. The
+// tests above use a hand-rolled mock; these instantiate the real template to
+// pin down the per-object debug trace (--debug output for checks), the
+// error/warning channels, and the object/summary lifecycle.
+// ============================================================================
+
+namespace {
+
+// The debug trace calls obj->show(), so the object type must be pointer-like.
+struct traced_obj {
+  std::string name;
+  std::string show() const { return name; }
+};
+using traced_obj_ptr = std::shared_ptr<traced_obj>;
+
+// evaluation_context_impl leaves the object_factory_interface half abstract
+// (production derives filter_handler_impl from it); stub that half out so the
+// context/debug/log half under test can be instantiated.
+struct impl_context : evaluation_context_impl<traced_obj_ptr> {
+  bool has_variable(const std::string&) override { return false; }
+  node_type create_variable(const std::string&, bool) override { return factory::create_false(); }
+  bool has_function(const std::string&) override { return false; }
+  node_type create_function(const std::string&, node_type) override { return factory::create_false(); }
+  bool can_convert(value_type, value_type) override { return false; }
+  bool can_convert(std::string, std::shared_ptr<any_node>, value_type) override { return false; }
+  std::shared_ptr<binary_function_impl> create_converter(std::string, std::shared_ptr<any_node>, value_type) override { return nullptr; }
+  std::string get_performance_config_key(std::string, std::string, std::string, std::string, std::string) const override { return ""; }
+};
+
+traced_obj_ptr make_traced(const std::string& name) {
+  auto o = std::make_shared<traced_obj>();
+  o->name = name;
+  return o;
+}
+
+}  // namespace
+
+TEST(EvaluationContextImpl, DebugDisabledByDefault) {
+  impl_context ctx;
+  EXPECT_FALSE(ctx.debug_enabled());
+  ctx.enable_debug(true);
+  EXPECT_TRUE(ctx.debug_enabled());
+  ctx.enable_debug(false);
+  EXPECT_FALSE(ctx.debug_enabled());
+}
+
+TEST(EvaluationContextImpl, DebugIsNoOpWhenDisabled) {
+  impl_context ctx;
+  ctx.set_object(make_traced("row1"));
+  ctx.debug(parsers::where::match);
+  EXPECT_EQ("", ctx.get_debug());
+}
+
+TEST(EvaluationContextImpl, DebugRecordsOneLinePerObject) {
+  impl_context ctx;
+  ctx.enable_debug(true);
+  ctx.set_object(make_traced("first"));
+  ctx.debug(parsers::where::none);
+  ctx.set_object(make_traced("second"));
+  ctx.debug(parsers::where::match);
+
+  const std::string trace = ctx.get_debug();
+  EXPECT_EQ("ignored  first\nmatch    second\n", trace);
+}
+
+TEST(EvaluationContextImpl, DebugUpgradesVerdictForTheSameObject) {
+  // Re-reporting the current object replaces the last verdict instead of
+  // appending a duplicate row — a row that first matches the filter and then
+  // trips critical shows up once, as critical.
+  impl_context ctx;
+  ctx.enable_debug(true);
+  const auto row = make_traced("row");
+  ctx.set_object(row);
+  ctx.debug(parsers::where::match);
+  ctx.debug(parsers::where::critical);
+  EXPECT_EQ("critical row\n", ctx.get_debug());
+
+  // A different object starts a new row even though the previous one exists.
+  ctx.set_object(make_traced("other"));
+  ctx.debug(parsers::where::warning);
+  EXPECT_EQ("critical row\nwarning  other\n", ctx.get_debug());
+}
+
+TEST(EvaluationContextImpl, DebugTraceRendersEveryVerdictKeyword) {
+  impl_context ctx;
+  ctx.enable_debug(true);
+  const std::pair<parsers::where::object_match, std::string> rows[] = {
+      {parsers::where::none, "ignored  n"}, {parsers::where::match, "match    m"}, {parsers::where::critical, "critical c"},
+      {parsers::where::warning, "warning  w"}, {parsers::where::ok, "ok       o"},
+  };
+  std::string expected;
+  for (const auto& row : rows) {
+    ctx.set_object(make_traced(row.second.substr(row.second.size() - 1)));
+    ctx.debug(row.first);
+    expected += row.second + "\n";
+  }
+  // A verdict outside the named enumerators renders as "?" rather than
+  // crashing the trace. 7 is unnamed but within the enum's representable
+  // range (0..7 for enumerators 0..4), so the cast is not UB under UBSan.
+  ctx.set_object(make_traced("junk"));
+  ctx.debug(static_cast<parsers::where::object_match>(7));
+  expected += "?junk\n";
+
+  EXPECT_EQ(expected, ctx.get_debug());
+}
+
+TEST(EvaluationContextImpl, ObjectLifecycle) {
+  impl_context ctx;
+  EXPECT_FALSE(ctx.has_object());
+  ctx.set_object(make_traced("obj"));
+  ASSERT_TRUE(ctx.has_object());
+  EXPECT_EQ("obj", ctx.get_object()->show());
+  ctx.remove_object();
+  EXPECT_FALSE(ctx.has_object());
+}
+
+TEST(EvaluationContextImpl, SummaryLifecycle) {
+  impl_context ctx;
+  EXPECT_FALSE(ctx.has_summary());
+  // The summary is stored as an optional pointer; engaging it (even with
+  // nullptr) flips has_summary, and remove_summary disengages it again.
+  ctx.set_summary(nullptr);
+  EXPECT_TRUE(ctx.has_summary());
+  EXPECT_EQ(nullptr, ctx.get_summary());
+  ctx.remove_summary();
+  EXPECT_FALSE(ctx.has_summary());
+}
+
+TEST(EvaluationContextImpl, ErrorsJoinWithCommaSeparators) {
+  impl_context ctx;
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ("", ctx.get_error());
+  ctx.error("first error");
+  ctx.error("second error");
+  EXPECT_TRUE(ctx.has_error());
+  EXPECT_EQ("first error, second error", ctx.get_error());
+}
+
+TEST(EvaluationContextImpl, WarningsJoinWithCommaSeparators) {
+  impl_context ctx;
+  EXPECT_FALSE(ctx.has_warn());
+  EXPECT_EQ("", ctx.get_warn());
+  ctx.warn("w1");
+  ctx.warn("w2");
+  EXPECT_TRUE(ctx.has_warn());
+  EXPECT_EQ("w1, w2", ctx.get_warn());
+}
+
+TEST(EvaluationContextImpl, ClearDropsErrorsAndWarningsButNotDebug) {
+  impl_context ctx;
+  ctx.enable_debug(true);
+  ctx.set_object(make_traced("kept"));
+  ctx.debug(parsers::where::ok);
+  ctx.error("e");
+  ctx.warn("w");
+
+  ctx.clear();
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_FALSE(ctx.has_warn());
+  // The per-object trace is the point of --debug: clearing the log channels
+  // between rows must not wipe it.
+  EXPECT_EQ("ok       kept\n", ctx.get_debug());
 }

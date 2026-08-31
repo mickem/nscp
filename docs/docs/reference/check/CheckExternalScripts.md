@@ -167,7 +167,7 @@ timeout=60
 
 #### Allow arguments when executing external scripts <a id="/settings/external scripts/allow arguments"></a>
 
-This option determines whether or not the we will allow clients to specify arguments to commands that are executed.
+This option determines whether or not we will allow clients to specify arguments to commands that are executed. NOTICE this governs external script commands only. Command aliases (the alias section) always substitute their client arguments into the internal command they wrap regardless of this setting, because they dispatch to another internal check rather than spawning a process - the wrapped check's own argument handling applies. Restrict which commands an alias may reach through the query permissions, not this flag.
 
 
 | Key            | Description                                               |
@@ -227,7 +227,7 @@ kill tree=false
 
 #### Load all scripts in a given folder <a id="/settings/external scripts/script path"></a>
 
-Load all scripts in a given directory and use them as commands.
+Load all scripts in a given directory and use them as commands. SECURITY: every file in this directory becomes a runnable command (with %ARGS% appended when arguments are allowed), so write/create access to the directory is equivalent to command execution as the service account - restrict it with filesystem ACLs. Prefer listing individual scripts explicitly under the scripts section over pointing this at a shared or writable folder.
 
 
 | Key            | Description                                               |
@@ -247,7 +247,7 @@ script path=
 
 #### Script root folder <a id="/settings/external scripts/script root"></a>
 
-Root path where all scripts are contained (You can not upload/download scripts outside this folder).
+Root path used to sandbox the ext-scr show/delete operations and the destination of ext-scr add --import: those cannot read, remove, or import a file outside this folder. Note this does NOT bound ext-scr add --script <path>, which can still register an existing file anywhere on disk as a command (an administrator-only action, equivalent to editing the configuration directly).
 
 
 | Key            | Description                                               |

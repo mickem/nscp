@@ -74,3 +74,28 @@ target_link_libraries(
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 source_group("Client" REGULAR_EXPRESSION .*include/check_mk/.*)
 source_group("Socket" REGULAR_EXPRESSION .*include/socket/.*)
+
+# check_mk_handler.hpp (the target object and its options reader) is plain
+# settings/option plumbing on top of the shared client machinery - no lua and
+# no live socket needed, so it is unit-testable on every platform.
+NSCP_CREATE_TEST(
+    check_mk_handler_test
+    SOURCES
+        check_mk_handler_test.cpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        # The Windows plugin_api DLL does not export the settings_helper
+        # symbols check_mk_handler.hpp's read() needs, so compile them in
+        # (see client_command_line_parser_test).
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
+        ${NSCP_CLIENT_CPP}
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${EXTRA_LIBS}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)

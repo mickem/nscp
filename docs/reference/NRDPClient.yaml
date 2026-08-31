@@ -110,7 +110,10 @@ common:
           tls version:
             advanced: false
             default_value: '1.3'
-            description: The tls version to use 1.0, 1.1, 1.2, 1.3 or any
+            description: 'The tls version to use: an exact version (1.0, 1.1, 1.2, 1.3) allows only that
+              version, a trailing + (e.g. 1.2+) means that version or later, and any accepts whatever
+              both sides support. Configured targets default to 1.3 (TLS 1.3 only); a bare client submission
+              with no target defaults to 1.2+.'
             sample: true
             title: Tls version
           token:
@@ -287,11 +290,15 @@ common:
       - content_type: 2
         default_value: ''
         is_simple: true
-        long_description: The tls version to use 1.0, 1.1, 1.2, 1.3
+        long_description: 'The tls version to use: an exact version (1.0, 1.1, 1.2, 1.3) allows only that
+          version, a trailing + (e.g. 1.2+) means that version or later, and any accepts whatever both
+          sides support.'
         name: tls-version
         repeatable: false
         required: false
-        short_description: The tls version to use 1.0, 1.1, 1.2, 1.3
+        short_description: 'The tls version to use: an exact version (1.0, 1.1, 1.2, 1.3) allows only
+          that version, a trailing + (e.g. 1.2+) means that version or later, and any accepts whatever
+          both sides support.'
       - content_type: 2
         default_value: ''
         is_simple: true

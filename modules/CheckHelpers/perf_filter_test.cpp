@@ -75,6 +75,97 @@ std::vector<PB::Common::PerformanceData> two_records() {
 // filter_obj accessors
 // ----------------------------------------------------------------------
 
+TEST(PerfFilterObj, ShowRendersAliasValueAndUnit) {
+  PB::Common::PerformanceData perf = make_numeric_perf("alpha", 50, 0, 100);
+  perf.mutable_float_value()->set_unit("B");
+  const perf_filter::filter_obj obj(perf);
+  EXPECT_EQ(obj.show(), "alpha=50B");
+  EXPECT_EQ(obj.get_key(), "alpha");
+  EXPECT_EQ(obj.get_unit(), "B");
+}
+
+TEST(PerfFilterObj, ShowWithoutUnitOrFloatValue) {
+  const PB::Common::PerformanceData perf = make_string_perf("alpha", "some text");
+  const perf_filter::filter_obj obj(perf);
+  // String values have no unit, so show() is just alias=value.
+  EXPECT_EQ(obj.get_unit(), "");
+  EXPECT_EQ(obj.show(), "alpha=some text");
+}
+
+TEST(PerfFilterObj, ValueReadsStringValue) {
+  const PB::Common::PerformanceData perf = make_string_perf("alpha", "some text");
+  const perf_filter::filter_obj obj(perf);
+  EXPECT_EQ(obj.get_value(), "some text");
+}
+
+TEST(PerfFilterObj, ValueEmptyWhenNoValueIsSet) {
+  PB::Common::PerformanceData perf;
+  perf.set_alias("alpha");
+  const perf_filter::filter_obj obj(perf);
+  EXPECT_EQ(obj.get_value(), "");
+  EXPECT_EQ(obj.get_unit(), "");
+  EXPECT_EQ(obj.show(), "alpha=");
+}
+
+// ----------------------------------------------------------------------
+// warn/crit: prefer the original Nagios range syntax when present, fall
+// back to the numeric lower bound, and stay empty otherwise (issue #748)
+// ----------------------------------------------------------------------
+
+TEST(PerfFilterObj, WarnPrefersOriginalRangeSyntax) {
+  PB::Common::PerformanceData perf = make_numeric_perf("alpha", 50, 0, 100);
+  perf.mutable_float_value()->set_warning_range("4:5");
+  perf.mutable_float_value()->mutable_warning()->set_value(4);
+  const perf_filter::filter_obj obj(perf);
+  EXPECT_EQ(obj.get_warn(), "4:5");
+}
+
+TEST(PerfFilterObj, WarnFallsBackToNumericBound) {
+  PB::Common::PerformanceData perf = make_numeric_perf("alpha", 50, 0, 100);
+  perf.mutable_float_value()->mutable_warning()->set_value(4);
+  const perf_filter::filter_obj obj(perf);
+  EXPECT_EQ(obj.get_warn(), "4");
+}
+
+TEST(PerfFilterObj, WarnEmptyWhenUnset) {
+  const PB::Common::PerformanceData perf = make_numeric_perf("alpha", 50, 0, 100);
+  const perf_filter::filter_obj obj(perf);
+  EXPECT_EQ(obj.get_warn(), "");
+}
+
+TEST(PerfFilterObj, WarnEmptyWithoutNumericValue) {
+  const PB::Common::PerformanceData perf = make_string_perf("alpha", "some text");
+  const perf_filter::filter_obj obj(perf);
+  EXPECT_EQ(obj.get_warn(), "");
+}
+
+TEST(PerfFilterObj, CritPrefersOriginalRangeSyntax) {
+  PB::Common::PerformanceData perf = make_numeric_perf("alpha", 50, 0, 100);
+  perf.mutable_float_value()->set_critical_range("@0:90");
+  perf.mutable_float_value()->mutable_critical()->set_value(0);
+  const perf_filter::filter_obj obj(perf);
+  EXPECT_EQ(obj.get_crit(), "@0:90");
+}
+
+TEST(PerfFilterObj, CritFallsBackToNumericBound) {
+  PB::Common::PerformanceData perf = make_numeric_perf("alpha", 50, 0, 100);
+  perf.mutable_float_value()->mutable_critical()->set_value(9);
+  const perf_filter::filter_obj obj(perf);
+  EXPECT_EQ(obj.get_crit(), "9");
+}
+
+TEST(PerfFilterObj, CritEmptyWhenUnset) {
+  const PB::Common::PerformanceData perf = make_numeric_perf("alpha", 50, 0, 100);
+  const perf_filter::filter_obj obj(perf);
+  EXPECT_EQ(obj.get_crit(), "");
+}
+
+TEST(PerfFilterObj, CritEmptyWithoutNumericValue) {
+  const PB::Common::PerformanceData perf = make_string_perf("alpha", "some text");
+  const perf_filter::filter_obj obj(perf);
+  EXPECT_EQ(obj.get_crit(), "");
+}
+
 TEST(PerfFilterObj, MaxReadsMaximumAndMinReadsMinimum) {
   const PB::Common::PerformanceData perf = make_numeric_perf("alpha", 50, 5, 100);
   const perf_filter::filter_obj obj(perf);

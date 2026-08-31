@@ -43,6 +43,42 @@ common:
             description: Target host address
             sample: true
             title: TARGET ADDRESS
+          allowed ciphers:
+            advanced: false
+            default_value: ''
+            description: 'A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH'
+            sample: true
+            title: ALLOWED CIPHERS
+          ca:
+            advanced: true
+            default_value: ''
+            description: ''
+            sample: true
+            title: CA
+          certificate:
+            advanced: false
+            default_value: ''
+            description: ''
+            sample: true
+            title: SSL CERTIFICATE
+          certificate format:
+            advanced: true
+            default_value: ''
+            description: ''
+            sample: true
+            title: CERTIFICATE FORMAT
+          certificate key:
+            advanced: true
+            default_value: ''
+            description: ''
+            sample: true
+            title: SSL CERTIFICATE
+          dh:
+            advanced: true
+            default_value: ''
+            description: ''
+            sample: true
+            title: DH KEY
           host:
             advanced: true
             default_value: ''
@@ -67,6 +103,18 @@ common:
             description: Timeout (in seconds) when reading/writing packets to/from sockets.
             sample: true
             title: TIMEOUT
+          use ssl:
+            advanced: false
+            default_value: ''
+            description: This option controls if SSL should be enabled.
+            sample: true
+            title: ENABLE SSL ENCRYPTION
+          verify mode:
+            advanced: false
+            default_value: ''
+            description: ''
+            sample: true
+            title: VERIFY MODE
   queries:
     check_mk_query:
       common_options:

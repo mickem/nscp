@@ -16,6 +16,21 @@ common:
           description: The address to send data to (http://127.0.0.1:9200/_bulk).
           sample: false
           title: Elastic address
+        api key:
+          advanced: false
+          default_value: ''
+          description: 'An Elasticsearch API key (the base64 encoded id:key value as returned when the
+            key is created), sent as ''Authorization: ApiKey ...''. Takes precedence over user/password
+            when both are set.'
+          sample: false
+          title: Elastic API key
+        ca:
+          advanced: false
+          default_value: ${ca-path}
+          description: The certificate authority bundle used to verify the Elasticsearch server certificate
+            (used when 'verify mode' is not 'none').
+          sample: false
+          title: Certificate authority
         event index:
           advanced: false
           default_value: nsclient_event-%(date)
@@ -24,8 +39,10 @@ common:
           title: Elastic index used for events
         event type:
           advanced: false
-          default_value: eventlog
-          description: The elastic type to use for events (log messages).
+          default_value: ''
+          description: 'The elastic type to use for events (log messages). Only set this for Elasticsearch
+            6.x or older: mapping types were removed in Elasticsearch 8, which rejects requests that carry
+            a type.'
           sample: false
           title: Elastic type used for events
         events:
@@ -57,22 +74,60 @@ common:
           title: Elastic index used for metrics
         metrics type:
           advanced: false
-          default_value: metrics
-          description: The elastic type to use for metrics.
+          default_value: ''
+          description: 'The elastic type to use for metrics. Only set this for Elasticsearch 6.x or older:
+            mapping types were removed in Elasticsearch 8, which rejects requests that carry a type.'
           sample: false
           title: Elastic type used for metrics
         nsclient log index:
           advanced: false
           default_value: nsclient_log-%(date)
-          description: The elastic index to use for metrics.
+          description: The elastic index to use for the NSClient++ log.
           sample: false
-          title: Elastic index used for metrics
+          title: Elastic index used for the nsclient log
         nsclient log type:
           advanced: false
-          default_value: nsclient log
-          description: The elastic type to use for metrics.
+          default_value: ''
+          description: 'The elastic type to use for the NSClient++ log. Only set this for Elasticsearch
+            6.x or older: mapping types were removed in Elasticsearch 8, which rejects requests that carry
+            a type.'
           sample: false
-          title: Elastic type used for metrics
+          title: Elastic type used for the nsclient log
+        password:
+          advanced: false
+          default_value: ''
+          description: The password used to authenticate against Elasticsearch (basic authentication).
+          sample: false
+          title: Elastic password
+        timeout:
+          advanced: false
+          default_value: '30'
+          description: Timeout (in seconds) for each connect, read and write when talking to Elasticsearch.
+            0 waits forever.
+          sample: false
+          title: Timeout
+        tls version:
+          advanced: false
+          default_value: 1.2+
+          description: The TLS version to use when connecting over https (1.0, 1.1, 1.2, 1.2+ or 1.3).
+          sample: false
+          title: TLS version
+        user:
+          advanced: false
+          default_value: ''
+          description: The username used to authenticate against Elasticsearch (basic authentication).
+            Leave empty to send no credentials.
+          sample: false
+          title: Elastic user
+        verify mode:
+          advanced: false
+          default_value: peer
+          description: How to verify the Elasticsearch server certificate when connecting over https.
+            'peer' (the default) validates the certificate chain and hostname against the configured CA.
+            Set to 'none' to disable verification - this is insecure and lets an on-path attacker read
+            the submitted data and any configured credentials.
+          sample: false
+          title: TLS verify mode
 module: ElasticClient
 namespace: client
 platforms:

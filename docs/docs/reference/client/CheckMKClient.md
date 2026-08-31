@@ -173,13 +173,21 @@ This is a section of objects. This means that you will create objects below this
 **Keys:**
 
 
-| Key     | Default Value | Description    |
-|---------|---------------|----------------|
-| address |               | TARGET ADDRESS |
-| host    |               | TARGET HOST    |
-| port    |               | TARGET PORT    |
-| retries | 3             | RETRIES        |
-| timeout | 30            | TIMEOUT        |
+| Key                | Default Value | Description           |
+|--------------------|---------------|-----------------------|
+| address            |               | TARGET ADDRESS        |
+| allowed ciphers    |               | ALLOWED CIPHERS       |
+| ca                 |               | CA                    |
+| certificate        |               | SSL CERTIFICATE       |
+| certificate format |               | CERTIFICATE FORMAT    |
+| certificate key    |               | SSL CERTIFICATE       |
+| dh                 |               | DH KEY                |
+| host               |               | TARGET HOST           |
+| port               |               | TARGET PORT           |
+| retries            | 3             | RETRIES               |
+| timeout            | 30            | TIMEOUT               |
+| use ssl            |               | ENABLE SSL ENCRYPTION |
+| verify mode        |               | VERIFY MODE           |
 
 
 **Sample:**
@@ -188,10 +196,18 @@ This is a section of objects. This means that you will create objects below this
 # An example of a REMOTE TARGET DEFINITIONS section
 [/settings/check_mk/client/targets/sample]
 #address=...
+#allowed ciphers=...
+#ca=...
+#certificate=...
+#certificate format=...
+#certificate key=...
+#dh=...
 #host=...
 #port=...
 retries=3
 timeout=30
+#use ssl=...
+#verify mode=...
 
 ```
 
