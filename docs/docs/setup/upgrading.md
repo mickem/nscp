@@ -26,7 +26,7 @@ per-release detail lives in each
   the other client modules sharing that machinery) and added a log message
   when an `https` submission runs with certificate verification disabled
   (`verify mode` empty or `none`). See
-  [Security notices](../security/notices.md#icinga-client-security-review-hardening).
+  [Security notices](../security/notices.md#security-hardening-across-the-clients-scripts-and-filter-framework).
 - 🔒 **Filter expressions are now bounded in length and nesting depth.** A
   `filter` / `warning` / `critical` expression — and a `%(...)` expression
   placeholder inside a syntax template — longer than **1024 characters** or
@@ -38,7 +38,7 @@ per-release detail lives in each
   small fraction of these limits, so the default install and every normal
   configuration are unaffected — only a pathologically large or deeply nested
   expression is refused. See the
-  [security notice](../security/notices.md#filter-framework-expression-length-and-nesting-depth-limits).
+  [security notice](../security/notices.md#security-hardening-across-the-clients-scripts-and-filter-framework).
 - 🔒 **CheckExternalScripts hardening.** A security review of the external
   scripts module tightened several rough edges: the `ext-scr install` argument
   lockdown now writes to the setting the module actually reads (previously it
@@ -48,7 +48,7 @@ per-release detail lives in each
   The default install is unaffected (arguments are off by default). If you rely
   on `ext-scr install` to disable arguments, re-run it after upgrading so the
   effective setting is written. See the
-  [security notice](../security/notices.md#checkexternalscripts-security-review-hardening).
+  [security notice](../security/notices.md#security-hardening-across-the-clients-scripts-and-filter-framework).
 - 🔒 **NSCA-NG cert mode now actually verifies the server (and presents the
   client certificate).** In 0.18.0 the `NSCANgClient` cert mode
   (`use psk = false`) applied its TLS configuration to the OpenSSL context
@@ -79,7 +79,7 @@ per-release detail lives in each
   `encryption = none` explicitly if plaintext was intended — this includes
   builds compiled without crypto++, where any cipher name previously
   degraded to plaintext and the server now refuses to start.
-  See the [security notice](../security/notices.md#nsca-client-and-server-security-review-hardening).
+  See the [security notice](../security/notices.md#security-hardening-across-the-clients-scripts-and-filter-framework).
 - 🔒 **NSCA hardening: empty-password warning, `performance data = false`
   honoured, wire-field validation.** Enabling NSCA encryption with an empty
   `password` now logs an error on both ends (the password *is* the key, so an
@@ -88,7 +88,7 @@ per-release detail lives in each
   perfdata from forwarded submissions (it was silently ignored). Inbound
   host/service names are stripped of control characters and out-of-range
   status codes are clamped to UNKNOWN. No action needed on a default install.
-  See the [security notice](../security/notices.md#nsca-client-and-server-security-review-hardening).
+  See the [security notice](../security/notices.md#security-hardening-across-the-clients-scripts-and-filter-framework).
 
 ---
 
@@ -102,7 +102,7 @@ per-release detail lives in each
   times. Nothing to do unless your NRDP endpoint legitimately takes longer
   than the timeout to answer — raise `timeout` on that target. The response
   body is also capped at 5 MB, far above any real NRDP reply. See the
-  [security notice](../security/notices.md#nrdp-client-transport-hardening-and-shared-tls-version-floor-fix).
+  [security notice](../security/notices.md#security-hardening-across-the-clients-scripts-and-filter-framework).
 
 - 🔒 **A `tls version` with a trailing `+` now means "that version or later".**
   `1.2+` (the common default) previously negotiated TLS 1.2 *only*; it now
@@ -111,7 +111,7 @@ per-release detail lives in each
   HTTP-based clients, the NRPE/NSCA clients and servers, and `check_tcp`.
   No action needed; pin an exact version (`tls version = 1.2`) if a peer
   misbehaves when TLS 1.3 is offered. See the
-  [security notice](../security/notices.md#nrdp-client-transport-hardening-and-shared-tls-version-floor-fix).
+  [security notice](../security/notices.md#security-hardening-across-the-clients-scripts-and-filter-framework).
 - 🔒 **The Elastic module now verifies HTTPS server certificates and can
   authenticate.** `ElasticClient` previously hardcoded TLS verification off;
   an `https://` address now defaults to `verify mode = peer` against the
@@ -138,7 +138,7 @@ per-release detail lives in each
   read (and documented) again. If you configured `use ssl = true` on a
   check_mk target, the connection becomes TLS on upgrade — make sure the
   server side actually speaks TLS, or the check starts failing. Details in the
-  [security notice](../security/notices.md#check_mk-client-configured-tls-settings-were-silently-ignored).
+  [security notice](../security/notices.md#security-hardening-across-the-clients-scripts-and-filter-framework).
 
 - 📨 **Syslog client targets: configured severities and templates are honoured
   again.** The same defect existed in the syslog client's target object: the
@@ -151,7 +151,7 @@ per-release detail lives in each
 
 - 📨 🔒 **Syslog messages now carry the RFC 3164 HOSTNAME field, and several
   syslog options work for the first time** (see the
-  [security notice](../security/notices.md#syslog-client-security-review-hardening)).
+  [security notice](../security/notices.md#security-hardening-across-the-clients-scripts-and-filter-framework)).
   What changes on the wire and in behaviour:
 
     - Datagrams now read `<PRI>TIMESTAMP HOSTNAME TAG MESSAGE`. The `hostname`
@@ -185,7 +185,7 @@ per-release detail lives in each
   submission as one budget, like the SMTP client's. A target whose submissions
   previously completed by quietly taking longer will now fail at the
   configured value; raise `timeout` on targets talking to a slow relay. See
-  [Security notices](../security/notices.md#graphite-client-metric-line-injection-scrub-and-a-whole-submission-timeout).
+  [Security notices](../security/notices.md#security-hardening-across-the-clients-scripts-and-filter-framework).
 - 🧹 **The Graphite `retry` setting is not honoured and is no longer read.**
   The module always made exactly one attempt per submission; reading the value
   made it look otherwise, and a retry loop would multiply the worst-case time
@@ -366,7 +366,7 @@ per-release detail lives in each
   validated for command injection before it reaches the wire, and ESMTP
   capabilities are matched per reply line instead of by substring search. No
   configuration change is needed. See
-  [Security notices](../security/notices.md#smtp-client-security-review-hardening).
+  [Security notices](../security/notices.md#smtp-client-security-hardening).
 - ⏱️ **The SMTP `timeout` is now a budget for the whole submission** rather than a
   fresh deadline per operation (and per resolved address). A target that
   previously completed by using several times its configured `timeout` across
@@ -408,7 +408,7 @@ per-release detail lives in each
   A third only bites on a broken system: if the OpenSSL CSPRNG fails, the
   server now **refuses to issue a session token** (HTTP 500, logged as
   `SECURITY:`) rather than falling back to a weaker generator.
-  See the [security notice](../security/notices.md#web-server-security-review-hardening).
+  See the [security notice](../security/notices.md#web-server-security-hardening).
 - 🔒 **The bundled OpenSSL is updated from 3.5.4 to 3.5.8** in the Windows
   builds, picking up the fixes from four upstream security releases on the
   3.5 LTS line. The most relevant fix for NSClient++ is

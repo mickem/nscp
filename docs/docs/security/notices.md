@@ -140,415 +140,166 @@ Security-relevant changes that are handled as defense-in-depth / consistency
 hardening rather than assigned a CVE are listed here as they ship, newest
 first, alongside the release that contains them.
 
-### Icinga client security-review hardening
+### Security hardening across the clients, scripts and filter framework
 
-**Fixed in:** unreleased · **Severity:** Low
+**Fixed in:** unreleased (first release after 0.18.0) · **Severity:** High for
+NSCA-NG cert-mode targets, Low–Medium for everything else
 
-A security review of the `IcingaClient` module (and of the WEB server path
-Icinga's `check_nscp_api` plugin authenticates through) confirmed the
-defaults are sound — TLS verification on by default for configured and ad-hoc
-targets alike, Icinga filter-expression escaping, and the User-Agent-gated
-legacy auth — and produced three hardening fixes on the client side:
+One sweep over the outbound client modules (Icinga, NRDP, NSCA, NSCA-NG,
+check_mk, Elastic, Graphite, syslog), the external-script launcher and the
+filter framework. Three themes run through it: **configuration that silently
+did not apply**, **operations that could never time out**, and
+**attacker-influenced text reaching another system's log unscrubbed**. None of
+it is remotely exploitable code execution on a default install; the NSCA-NG and
+check_mk items are the ones that change what goes on the wire.
 
-- **Credentials are redacted from the trace log.** With log level `trace`, the
-  client logged the whole target configuration through
-  `destination_container::to_string()`, which printed the raw data map —
-  including the Icinga API `password`. The value of any `password` or `token`
-  key is now masked in that output. The fix sits in the shared client
-  machinery, so the other outbound client modules built on the same type
-  (NRPE, NSCA, NRDP, …) are covered by it as well.
-- **The configured `timeout` is enforced on Icinga API calls.** The HTTP
-  client was built without a deadline (wait forever), so the target's
-  `timeout` setting (default 30 s) was read but never applied — an Icinga
-  endpoint that accepted the connection and then stalled could wedge the
-  submitting thread indefinitely, silently stopping scheduler-driven passive
-  results. This is an availability fix; set `timeout = 0` on the target if you
-  really want the old unbounded wait.
-- **Disabled certificate verification is called out.** An `https` submission
-  whose `verify mode` resolves to no peer verification (empty, `none`, or
-  `fail-if-no-cert` alone) now logs a message naming the endpoint, since the
-  API credentials are then sent to whichever server answers. The option help
-  also no longer suggests `none` for self-signed certificates — the right
-  configuration is `peer-cert` with `ca` pointing at the certificate.
+#### Settings that were read but never applied
 
-### Graphite client: metric-line injection scrub and a whole-submission timeout
+- **NSCA-NG cert mode ignored its TLS configuration** (High; affects 0.18.0,
+  `use psk = false` only). The OpenSSL context was configured *after* the TLS
+  stream had been created from it, and `SSL_new()` copies the verify mode,
+  certificate, cipher list and version bounds out of the context at creation
+  time — so `verify mode = peer-cert` ran with verification off and accepted
+  any certificate, a man-in-the-middle's included, and the configured client
+  certificate was never presented. The default PSK mode authenticates both
+  ends through the pre-shared key and was never affected.
+- **check_mk client TLS keys were discarded** (Medium). The target object
+  never called `register_all()`/`notify()`, so `use ssl`, `certificate`,
+  `certificate key`, `ca`, `allowed ciphers`, `verify mode` and `dh` were
+  parsed and thrown away — the client connected in plaintext whatever the
+  configuration said, and the keys were missing from the reference docs.
+- **An unrecognized NSCA `encryption` value meant "no encryption".** A typo
+  (`aes-256`), or an algorithm not compiled into the build, silently resolved
+  to plaintext on the end carrying it. It is now a hard error naming the
+  available algorithms: the `NSCAServer` module refuses to load and an
+  `NSCAClient` submission fails. `encryption = none` remains the explicit way
+  to run unencrypted.
+- **Syslog severities and templates did nothing.** The per-state severity
+  options (`ok-severity`, …) and the `tag_syntax` / `message_syntax` target
+  settings were stored under keys the sender never read, so they parsed fine
+  and silently did nothing — leaving submissions on the emergency fallback
+  below, and settings-defined targets sending an empty tag.
+- **`ext-scr install --arguments=…` wrote to a path nothing reads**, so an
+  argument lockdown reported success while leaving arguments enabled.
+- **NSCA server `performance data = false` was ignored**; perfdata is stripped
+  from forwarded submissions again, as documented.
 
-**Fixed in:** unreleased (first release after 0.18.0) · **Severity:** Low
+#### Operations that could never time out
 
-`GraphiteClient` speaks the carbon plaintext protocol, where every metric is
-one `<path> <value> <timestamp>` line and `;` separates tags. The perf-data
-path and every metric value were already scrubbed so text from a check (a
-check alias, a perfdata label) cannot embed a newline or `;` — but the
-**status path** was only scrubbed for spaces. The `${check_alias}` substituted
-into it can originate from a remote submitter (an NSCA passive result, a
-forwarded submission), so an alias carrying a newline injected an extra,
-attacker-chosen metric line into Graphite, and a `;` injected carbon tags.
-Corrupting a metric another system alerts on, or planting a fake one, is a
-way to hide a real problem or fabricate one.
+Each of these ran with no deadline, so an endpoint that accepted the connection
+and then stalled held the submitting thread indefinitely — silently stopping
+passive results until a service restart:
 
-The status path now goes through the same scrub as the perf path (`\n`, `\r`,
-tab, `;`, NUL, spaces and the other reserved characters all become `_`), and
-the scrub itself additionally replaces tabs, which split a carbon field the
-same way a space does. No operator action is needed; a status path built from
-an alias containing these characters (which previously produced corrupt lines)
-now renders them as `_`.
+- **Icinga** API calls, **NRDP** submissions, **Graphite** carbon submissions
+  and the recurring metrics flush, and **Elastic** bulk submissions. Each is
+  now bounded by the target's configured `timeout` (default 30 s) as a single
+  budget covering name resolution, connect, TLS handshake and the exchange.
+  NRDP additionally retries transport failures up to `retry`, each attempt on
+  a fresh connection; Graphite's `retry` never had any effect and is gone.
+  Several of these settings were also looked up in the free-form option map
+  while the framework routes them into typed fields, so a configured value was
+  ignored even where a timeout *was* honoured.
+- **External scripts.** On Unix the single-string shell fallback ran through
+  `popen()`, which hides the child PID, so `timeout=` was silently unenforced
+  and a hung script wedged a worker thread per invocation. On Windows the read
+  loop counted iterations rather than elapsed time, so a continuously chatty
+  script escaped the timeout entirely and leaked an unkillable process each
+  run. Both launchers now bound the wait by wall-clock deadline.
 
-The same review closed an availability gap: the `timeout` target setting had
-no effect at all. The configured value never reached the connection (the
-lookup read the container's free-form data map, which the well-known
-`timeout` key is never stored in, so the default 30 always won), and the
-connection did not use even that: name resolution, the connect loop, the TLS
-handshake and every write ran synchronously with no deadline, so a carbon
-endpoint that black-holes SYNs, stalls mid-handshake or stops reading held
-the submitting thread — channel submissions and the recurring metrics flush
-(`metrics interval`, default 10s) both land on this path — for the OS-level
-TCP timeout, or indefinitely on a stuck write. The configured `timeout`
-(default 30s) is read now and bounds the whole submission as one budget,
-resolution included, following the [SMTP client
-precedent](#smtp-client-security-review-hardening) ("the timeout bounds the
-whole submission"). The `retry` setting was equally read
-but never acted on; it is no longer read (see the
-[upgrade note](../setup/upgrading.md#unreleased)).
+#### Injection, scrubbing and resource limits
 
-### Filter framework: expression length and nesting-depth limits
+- **Graphite status paths** now go through the same scrub as the perf path.
+  The `${check_alias}` substituted into them can originate from a remote
+  submitter, so an alias carrying a newline injected an extra, attacker-chosen
+  metric line into Graphite (and a `;` injected carbon tags) — a way to hide a
+  real problem or fabricate one.
+- **Syslog** emits the RFC 3164 HOSTNAME field. Without it a conforming
+  receiver promoted the tag to origin host, so with a tag template expanding
+  `%message%` check output chose which host a record was filed under. Every C0
+  control byte and DEL is neutralised rather than just CR/LF/NUL, and an
+  unknown `severity` or `facility` name falls back to `<13>` (user.notice)
+  instead of `<0>` — kernel.emergency, which many receivers page or `wall` on.
+- **Inbound NSCA wire fields** are validated before they reach logs and the
+  inbox channel: control characters are stripped from the host and service
+  names (a log-injection vector) and a return code outside 0–3 is clamped to
+  UNKNOWN instead of flowing on as an arbitrary 16-bit integer.
+- **Filter expressions** are capped at **1024 characters** and **64** nesting
+  levels. Both the recursive-descent parser and the AST evaluator recurse with
+  the shape of the input, so a long or deeply nested expression could exhaust
+  the thread stack and crash the whole agent — reachable by anyone able to
+  influence a filter string over the authenticated REST API, or over NRPE with
+  `allow arguments = true`. The limits sit an order of magnitude above any real
+  filter, and string literals are exempt from the depth count.
+- **Buffers are bounded**: an NRDP response body is capped at 5 MB (previously
+  unbounded, so a hostile server — or a man-in-the-middle on a plain `http://`
+  target — could stream the agent out of memory), and captured script output
+  at 8 MiB.
+- **The `ext-scr show` / `delete` sandbox resolves symlinks** before its
+  containment test; previously a symlink inside the script root pointing
+  outside it let an authenticated admin read or remove files anywhere the
+  service account could reach. On the Windows shell fallback `%` and `^` are
+  now refused as well (cmd.exe `%VAR%` expansion and its escape character),
+  opt-out via `allow nasty characters`.
 
-**Fixed in:** unreleased (first release after 0.18.0) · **Severity:** Low–Medium
+#### TLS and credentials
 
-The filter framework parses and evaluates the `filter` / `warning` / `critical`
-expressions and the `%(...)` expression placeholders used throughout the check
-modules. Both stages recurse with the shape of the input: the recursive-descent
-grammar re-enters its top rule for every nested `(...)` or `fn(...)`, and the
-AST evaluator recurses one frame per operator down a left-leaning `and`/`or`
-chain. Neither stage bounded the input, so a sufficiently long or deeply nested
-expression could exhaust the thread stack and crash the whole agent process —
-all checks share it.
+- **Elastic submissions verify the server certificate.** Verification was
+  hardcoded to `none`, so an `https://` address validated neither the chain
+  nor the host name while shipping event-log entries, metrics and the agent
+  log. It defaults to `peer` against the platform CA bundle now, with
+  `tls version`, `verify mode` and `ca` settings matching the other HTTP
+  clients, and new `user`/`password` and `api key` authentication —
+  Elasticsearch has enabled security by default since 8.0, which the module
+  previously could not satisfy at all.
+- **`tls version = 1.2+` means "1.2 or later" again.** The `+` was stripped and
+  the value mapped onto a version-pinned OpenSSL method, which pins the
+  *maximum* too, so the widely used default negotiated TLS 1.2 only and
+  silently excluded 1.3; `any` is accepted as the documentation always claimed.
+  The fix is in the shared stack: all HTTP-based clients, the NRPE/NSCA socket
+  clients and servers, and `check_tcp`.
+- **Credentials are masked in the trace log.** At log level `trace` the whole
+  target configuration was dumped, printing the raw `password` / `token`
+  values; the fix sits in the shared client machinery, so every outbound
+  client module is covered.
+- **Unverified links are called out.** An Icinga `https` submission whose
+  `verify mode` resolves to no peer verification logs a message naming the
+  endpoint, since the API credentials then go to whichever server answers. An
+  empty NSCA `password` with encryption enabled logs an error too: the key is
+  the password zero-padded with no derivation step, so an empty one is a
+  well-known all-zero key that anyone past `allowed hosts` can forge with.
 
-These expressions are normally operator-authored configuration, but they can
-also arrive as check arguments over the authenticated REST API, and over NRPE
-where `allow arguments = true` is set — so the crash is reachable by a party
-able to influence a filter string. An expression longer than **1024
-characters**, or nested deeper than **64** parentheses, is now rejected before
-either the parser or the evaluator sees it, with a clear error rather than a
-crash. The limits sit an order of magnitude above any real filter, so no normal
-configuration is affected. Single-quoted string literals are exempt from the
-depth count, so a filter that merely *mentions* many parentheses in a string is
-unaffected. See the [upgrade note](../setup/upgrading.md#unreleased).
+**What to do:** most installs need nothing. Specifically:
 
-### CheckExternalScripts security-review hardening
-
-**Fixed in:** unreleased (first release after 0.18.0) · **Severity:** Low–Medium
-
-A review of the `CheckExternalScripts` module and the process launcher it uses
-produced a set of hardening fixes. None is a remotely exploitable RCE on
-a default install — the argument guard is off by default, arguments allowed only
-when an operator opts in, and the script-management operations require an
-authenticated administrator — but each closes a rough edge.
-
-- **`ext-scr install --arguments=...` now writes to the path the module reads.**
-  The argument-lockdown helper read and wrote `allow arguments` /
-  `allow nasty characters` under `/settings/external scripts/server`, a path
-  nothing consults; the module reads them from `/settings/external scripts`. So
-  `install --arguments=false` printed and "applied" a lockdown that had no
-  effect — on a host with an existing `allow arguments = true` it left arguments
-  enabled while reporting they were disabled. It now updates the effective path.
-- **The command timeout is enforced on every path, and output is bounded.** On
-  Unix the single-string shell-fallback ran through `popen()`, which hid the
-  child PID: a hung script blocked forever with `timeout=` silently unenforced,
-  wedging a worker thread per invocation. On Windows the read loop counted
-  iterations rather than elapsed time, so a continuously-chatty script escaped
-  the timeout entirely and leaked an unkillable process each run. Both launchers
-  now bound the wait by wall-clock deadline and cap captured output at 8 MiB,
-  removing a low-effort resource-exhaustion vector for anyone able to trigger a
-  misbehaving check.
-- **The show/delete sandbox resolves symlinks.** `ext-scr show` / `delete`
-  bounded their target with a lexical path check that normalised `..` but did
-  not resolve symlinks, so a symlink placed inside the script root pointing
-  outside it passed — letting an authenticated admin read or remove files
-  anywhere the service account could reach. The target and root are now
-  canonicalised before the containment test.
-- **`%` and `^` are blocked on the shell-fallback path.** The stricter
-  metacharacter set applied to user arguments when a command degrades to the
-  shell fallback omitted cmd.exe's `%VAR%` expansion and `^` escape character,
-  so an argument reaching a `.bat` through cmd could smuggle environment
-  contents or escape sequences into the command line. Both are now refused on
-  that path (opt-out via `allow nasty characters`).
-- **Documentation of two boundaries was corrected.** The `script root` setting
-  claimed scripts cannot be uploaded/downloaded outside the folder, but `add`
-  never enforced that; and `script path` turns every file in a directory into a
-  runnable command. Both descriptions now state the real boundary, and
-  `allow arguments` documents that it governs external scripts, not aliases.
-
-**What to do:** if you rely on `ext-scr install` to lock arguments down, re-run
-it after upgrading to write the effective setting (or set
-`/settings/external scripts` `allow arguments` / `allow nasty characters`
-directly). Treat write access to any `script path` directory, and the ability to
-configure external-script commands, as equivalent to code execution as the
-service account.
-
-### NRDP client: transport hardening and shared TLS version-floor fix
-
-**Fixed in:** unreleased (first release after 0.18.0) · **Severity:** Low–Medium
-
-A follow-up security review of the `NRDPClient` module (after the 0.18.0
-hardening below) produced three fixes on the submission transport. None is a
-confirmed remote vulnerability in a default configuration; each closes an
-availability or downgrade gap that a hostile, compromised or merely broken
-NRDP endpoint could lean on. The TLS fix is in the shared TLS stack and
-benefits every module that uses it.
-
-- **A stalled NRDP server can no longer wedge passive monitoring.** The
-  per-target `timeout` (and `retry`) settings were parsed but never applied to
-  the HTTP exchange — every socket operation waited forever, so an NRDP server
-  (or proxy) that accepted the connection and then stalled blocked the
-  submission thread indefinitely, silently stopping passive results until a
-  service restart. The configured timeout now bounds every step of the
-  exchange — connect, TLS handshake, proxy `CONNECT` tunnel setup, request and
-  response — and transport failures (and only transport failures) are retried
-  up to `retry` times, each attempt on a fresh connection. As part of this,
-  `timeout` and `retry` are read from the right place: both were also looked
-  up in the free-form option map while the framework routes them into typed
-  fields, so a configured value was ignored even where the timeout *was*
-  honoured.
-- **An NRDP response can no longer exhaust the agent's memory.** The response
-  body was buffered without any size limit, so a hostile or compromised
-  server — or a man-in-the-middle on a plain-`http://` target — could stream
-  an arbitrarily large reply into the submitting process. The submission path
-  now uses the size-capped fetch path (5 MB, far above any real NRDP reply)
-  and reports an HTTP error status as such (`NRDP server at host:port returned
-  403: Forbidden`) instead of feeding the error page to the XML parser.
-- **`tls version = 1.2+` now actually means "TLS 1.2 or later".** The parser
-  stripped the `+` and mapped the value onto a version-pinned OpenSSL method,
-  which pins the *maximum* protocol version too — so the widely-used default
-  `1.2+` negotiated TLS 1.2 only and silently excluded TLS 1.3. `+` values now
-  resolve to the generic TLS method with an enforced minimum-version floor,
-  and `any` (documented but previously rejected) is accepted. This fix covers
-  the shared stack: all HTTP-based clients (NRDP, Elastic, Docker, web
-  fetches), the NRPE/NSCA socket clients and servers, and `check_tcp`.
-
-**What to do:** nothing required. A submission to an unresponsive server now
-fails (and is retried) after `timeout` — 30 seconds for configured targets —
-instead of hanging; raise `timeout` on a target if your NRDP endpoint is
-legitimately slower than that. Endpoints negotiating with a `+` or `any` TLS
-version can now select TLS 1.3; pin an exact version (`tls version = 1.2`)
-in the unlikely case a peer misbehaves on 1.3.
-
-### NSCA-NG client: cert-mode TLS settings (peer verification included) were never applied
-
-**Fixed in:** unreleased (first release after 0.18.0) · **Affected:** 0.18.0, `NSCANgClient` in cert mode only · **Severity:** High for cert-mode targets; the default PSK mode is unaffected
-
-A security review of the NSCA-NG client found that in certificate mode
-(`use psk = false`) the TLS configuration was applied to the OpenSSL
-context *after* the TLS stream had been created from it. `SSL_new()` copies
-the verify mode, certificate, cipher list and protocol-version bounds out of
-the `SSL_CTX` at creation time (only the CA store stays shared), so none of
-that configuration reached the live connection:
-
-- **`verify mode = peer-cert` had no effect** — the connection ran with
-  verification off and accepted any certificate the server presented,
-  including a man-in-the-middle's. The host-name check was installed but is
-  advisory when the underlying verify mode is off, and the client's own
-  "refusing to connect unverified" guard read the *configured* mode rather
-  than the live one, so it passed too.
-- **The configured client certificate and key were never presented**, so
-  mutual-TLS setups authenticated in one direction only (and fail against
-  servers that require a client certificate).
-- The `tls version` floor and `allowed ciphers` list were likewise ignored
-  in cert mode.
-
-The context is now fully configured before the connection object is created
-(the same ordering the other TLS client modules use), unit tests assert the
-settings actually arrive on connections created from it, and integration
-tests drive cert mode against a live TLS endpoint both ways: a wrong CA must
-fail the handshake, and a mutual-TLS round-trip must succeed. The same fix
-removes a rare undefined-behaviour window in the connection's I/O-timeout
-handling (a stale deadline handler could fire into a later operation).
-
-Not affected: the default PSK mode (`use psk = true`) configures the SSL
-object directly and always authenticated both ends via the pre-shared key;
-targets that never set `use psk = false` need no action.
-
-**What to do:** upgrade if any NSCA-NG target uses `use psk = false`. After
-the upgrade, a cert-mode target whose server certificate does not chain to
-the configured `ca` (or does not match the host name) will fail to connect —
-that is the verification taking effect; fix the server certificate or, if
-you accept the MITM exposure, opt out explicitly with `insecure = true`.
-
-### check_mk client: configured TLS settings were silently ignored
-
-**Fixed in:** unreleased (first release after 0.18.0) · **Severity:** Medium
-
-The check_mk client's target object built a settings registry for its SSL
-keys but never called `register_all()`/`notify()` on it, so every TLS-related
-key on a `[/settings/check_mk/client/targets/…]` section — `use ssl`,
-`certificate`, `certificate key`, `ca`, `allowed ciphers`, `verify mode`,
-`dh` — was read from the file and then discarded. The effective configuration
-was always the built-in default: **no TLS**. An operator who had configured
-`use ssl = true` (with or without certificate verification) was getting
-plaintext check_mk connections without any warning, and the keys were also
-missing from the generated reference documentation because they were never
-registered.
-
-The keys are registered and applied again, with regression tests pinning the
-behaviour. Note the flip side: targets that carry an old `use ssl = true`
-start negotiating TLS on upgrade, so a plaintext-only check_mk server end
-will now cause the check to fail — loudly, which is the point.
-
-The same missing-`register_all()`/`notify()` defect existed in the syslog
-client's target object (severity/facility/template keys, no security impact)
-and is fixed in the same release.
-
-### Elastic client: server certificate verification, authentication and modernization
-
-**Fixed in:** unreleased (next release after 0.18.0) · **Severity:** Medium
-
-A security review and modernization of the `ElasticClient` module (which
-forwards events, metrics and the NSClient++ log to Elasticsearch):
-
-- **HTTPS submissions now verify the server certificate.** The module
-  hardcoded TLS verification to `none`, so an `https://` address validated
-  neither the certificate chain nor the host name — an on-path attacker could
-  read everything the agent ships (event-log entries, metrics and the agent
-  log, which can carry sensitive operational detail) and forge responses.
-  Verification now defaults to `peer` against the platform CA bundle
-  (`${ca-path}`), with new `tls version`, `verify mode` and `ca` settings
-  matching the other HTTP client modules.
-- **The module can now authenticate.** Elasticsearch has shipped with
-  security enabled by default since 8.0, but the module could not send
-  credentials at all — forcing anonymous-write clusters. New `user`/`password`
-  (basic authentication) and `api key` settings add the `Authorization`
-  header; the values are stored as password-typed settings and never written
-  to the trace log.
-- **A stalled server can no longer wedge the agent.** Submissions ran with no
-  network timeout, so an Elasticsearch server (or man-in-the-middle) that
-  accepted the connection and went silent blocked the submitting thread
-  forever. A new `timeout` setting (default 30 seconds) bounds every
-  connect/read/write.
-- **Documents in a batch no longer overwrite each other.** Every document in
-  a bulk request was given the *same* random `_id`, so when one event message
-  carried several entries only the last survived in Elasticsearch — silent
-  data loss in the shipped audit trail. Each document now gets its own id.
-- **Error responses are parsed defensively.** The response body (attacker-
-  influenced on an unverified link, and previously parsed with throwing
-  accessors) is now handled without assuming a shape, and error text included
-  in the agent log is truncated.
-
-**What to do:** nothing for plain `http://` addresses (the common loopback
-setup). If you submit to an `https://` Elasticsearch endpoint with a
-self-signed certificate, set `ca` to the certificate (or explicitly set
-`verify mode = none` to keep the old insecure behaviour). If you run
-Elasticsearch 6.x or older, set `event type`, `metrics type` and
-`nsclient log type` explicitly — the legacy `_type` parameter is no longer
-sent by default because Elasticsearch 8+ rejects it.
-
-### NSCA client and server security-review hardening
-
-**Fixed in:** unreleased · **Severity:** Low–Medium
-
-A focused security review of the NSCA passive-check modules (`NSCAClient`,
-`NSCAServer`) and the shared legacy crypto helper produced four hardening
-changes. None is a remote-code-execution risk; the common theme is that a
-misconfiguration could silently disable protections the operator thought were
-enabled. (The protocol-level limitations of NSCA v3 — CRC32 instead of a MAC,
-password-as-key with no key derivation — are inherent to the wire format;
-prefer the `ssl` transport options or NSCA-NG where both ends support them.)
-
-- **An unrecognized `encryption` value is no longer treated as "no
-  encryption".** Any value the crypto helper did not recognize — a typo such
-  as `aes-256`, or an algorithm not compiled into the build — historically
-  resolved to *no encryption* on the end carrying it, with no warning. In
-  practice a one-sided typo was unlikely to result in accepted plaintext:
-  the ciphers have to match, so the correctly configured peer failed the
-  CRC check and rejected every submission, and the misconfiguration
-  surfaced as missing results. The exposure was narrower: a typo'd client
-  still put each attempted submission on the wire in the clear before the
-  mismatch was noticed, a typo'd server accepted unauthenticated cleartext
-  packets from any allowed host for as long as the misconfiguration lasted,
-  and only the same unrecognized value on *both* ends (one broken
-  configuration copied to the other) ran plaintext indefinitely while
-  looking encrypted. An unknown or unavailable algorithm is now a hard
-  error that names the actual problem: the `NSCAServer` module refuses to
-  load (with a log line listing the available algorithms) and an
-  `NSCAClient` submission fails with the same message in the submission
-  response, instead of an unexplained CRC mismatch on the other end.
-  `encryption = none` (or an empty value) remains the explicit way to run
-  unencrypted.
-- **An empty password with encryption enabled now logs a loud error.** The
-  NSCA key is the password zero-padded to the cipher's key length — there is
-  no key-derivation step in the protocol — so `encryption = aes256` with the
-  default empty `password` encrypts under a well-known all-zero key: anyone
-  able to reach the port past `allowed hosts` can decrypt, forge and inject
-  passive results for any host. Both the server (at startup) and the client
-  (at submission) now log an error-level warning describing exactly that.
-  Behaviour is otherwise unchanged; set the same `password` on both ends to
-  clear the warning.
-- **`performance data = false` on the NSCA server works again.** The setting
-  was read and logged but never applied: perfdata was forwarded to the inbox
-  channel regardless. It is now stripped from the submission when the setting
-  is off, as documented.
-- **Inbound wire fields are validated before they reach logs and the inbox
-  channel.** The host name, service name and return code in an NSCA packet
-  are attacker-influenced. ASCII control characters (including newlines and
-  escape sequences, a log-injection vector) are now stripped from the host
-  and service fields, and a return code outside the Nagios range 0–3 is
-  clamped to 3 (UNKNOWN) instead of flowing downstream as an arbitrary
-  16-bit integer.
-
-**What to do:** nothing for a default install (aes256 with a shared password).
-If either end carries a typo'd `encryption` value, or the build lacks
-crypto++, encryption was previously silently off on that end (visible as the
-peer rejecting submissions with a CRC error when it was configured
-correctly) — fix the algorithm name, or set `encryption = none` if plaintext
-was genuinely intended. If you see the new empty-password error in the log,
-set the same `password` on both ends. If you counted on
-`performance data = false` while it was broken, note that perfdata now
-really is dropped.
-
-### Syslog client security-review hardening
-
-**Fixed in:** unreleased · **Severity:** Low
-
-A security review of the `SyslogClient` module produced a set of
-defense-in-depth fixes to what the module puts on the wire. None is remotely
-exploitable by a third party on its own — the attacker position required is
-control over the *output* of a monitored check, which the agent then relays —
-but each removes a way that output (or a configuration typo) could distort
-what the receiving syslog server records:
-
-- **The RFC 3164 HOSTNAME field is emitted.** The datagram went
-  `<PRI>TIMESTAMP TAG MESSAGE`, so a conforming receiver promoted the tag to
-  origin host — and with a tag template that expands `%message%`, check
-  output chose which host a record was filed under (in-record host
-  spoofing). The module's `hostname` setting, until now read but never used,
-  fills the field; an empty sender becomes the RFC 5424 nil value `-` rather
-  than shifting the fields.
-- **Every C0 control byte and DEL is neutralised, not just CR/LF/NUL.**
-  Newline stripping (added earlier against record splitting) left the rest
-  of the control range through, so check output could carry ANSI escape
-  sequences into the terminal of whoever views the log. All bytes below
-  0x20, and 0x7F, become spaces.
-- **A configuration typo no longer escalates to kernel.emergency.** An
-  unknown `severity` or `facility` name fell back to priority `<0>` —
-  kernel.emergency, which many receivers page or broadcast (`wall`) on, so a
-  misspelled severity turned every OK result into an emergency. The fallback
-  is now `<13>` (user.notice), and a missing per-state severity falls back
-  to the configured base `severity` first.
-- **Severity and template options actually apply.** The per-state severity
-  command options (`ok-severity`, `warning-severity`, `critical-severity`,
-  `unknown-severity`) and the `tag_syntax` / `message_syntax` target
-  settings were stored under keys the sender never read: the values parsed
-  fine and silently did nothing, leaving submissions on the emergency
-  fallback above (and settings-defined targets sending an empty tag with the
-  message text dropped). All keys are aligned and covered by tests.
-
-Syslog remains a cleartext, unauthenticated UDP protocol: these fixes narrow
-what a relayed check result can do to the log, not who can read or spoof the
-traffic in transit. Keep the path to the syslog server on a trusted network
-segment.
-
-**What to do:** nothing is required. If the receiving syslog server's parsing
-rules keyed on the old malformed format (no HOSTNAME field), adjust them —
-records now arrive attributed to the agent's host name instead of the tag.
-See [Upgrading](../setup/upgrading.md#unreleased).
+- **NSCA-NG cert mode:** upgrade if any target sets `use psk = false`. A target
+  whose server certificate does not chain to the configured `ca` (or does not
+  match the host name) will now fail to connect — that is the verification
+  taking effect; fix the certificate, or accept the exposure explicitly with
+  `insecure = true`.
+- **check_mk:** a target carrying `use ssl = true` now really negotiates TLS,
+  so a plaintext-only server end will start failing — loudly, which is the
+  point.
+- **Elastic over `https` with a self-signed certificate:** point `ca` at it, or
+  set `verify mode = none` to keep the old insecure behaviour. On Elasticsearch
+  6.x or older set `event type`, `metrics type` and `nsclient log type`
+  explicitly — the legacy `_type` parameter is no longer sent by default.
+- **NSCA:** fix any typo'd `encryption` value (that end was silently running
+  plaintext, usually visible as the peer rejecting submissions with a CRC
+  error), and set the same real `password` on both ends if the new
+  empty-password error appears. If you relied on `performance data = false`
+  while it was broken, perfdata really is dropped now.
+- **External scripts:** re-run `ext-scr install` after upgrading so an argument
+  lockdown lands on the setting the module actually reads. Treat write access
+  to any `script path` directory, and the ability to configure external-script
+  commands, as equivalent to code execution as the service account.
+- **Slow endpoints:** a submission to an unresponsive Icinga, NRDP, Graphite or
+  Elastic endpoint now fails after `timeout` instead of hanging — raise it on
+  that target if the endpoint is legitimately slower. Peers negotiating with a
+  `+` or `any` TLS version can now select TLS 1.3; pin an exact version if one
+  misbehaves on it.
+- **Syslog receivers** whose parsing rules keyed on the old malformed datagram
+  (no HOSTNAME field) need adjusting — records now arrive attributed to the
+  agent's host name instead of the tag. Syslog remains cleartext and
+  unauthenticated: keep the path to the server on a trusted segment.
 
 ### SMTP client hardening, second round
 
@@ -585,7 +336,7 @@ or destabilise the agent.
   field boundaries); and the test SMTP server's entrypoint no longer echoes
   its password into the container log.
 
-### SMTP client security-review hardening
+### SMTP client security hardening
 
 **Fixed in:** 0.18.0 · **Severity:** Low–Medium
 
@@ -701,11 +452,11 @@ The decoded-metachar re-check can reject a request that a non-UTF-8
 such a request was meant to be blocked, so this only affects inputs the
 guard was always intended to catch.
 
-### NRDP client security-review hardening
+### NRDP client security hardening
 
 **Fixed in:** 0.18.0 · **Severity:** Low–Medium
 
-A focused security review of the passive submission protocols (`NRDPClient`,
+A focused hardening pass over the passive submission protocols (`NRDPClient`,
 `NSCAClient`/`NSCAServer`) produced a small set of defense-in-depth fixes on
 the NRDP side. None is a confirmed remote vulnerability in a default
 configuration; they close latent gaps and bring NRDP in line with the
@@ -738,11 +489,11 @@ configured through settings. If you submit to an `https://` NRDP endpoint via
 verify mode, add `--verify none` (or a CA) explicitly — the previous
 behaviour was to trust any certificate silently.
 
-### WEB server security-review hardening
+### WEB server security hardening
 
 **Fixed in:** 0.18.0 · **Severity:** Low–Medium
 
-A focused security review of the `WEBServer` module (REST API + web UI)
+A focused hardening pass over the `WEBServer` module (REST API + web UI)
 produced a set of defense-in-depth fixes. None is a confirmed remote
 vulnerability in a default configuration; they close latent gaps and
 consistency issues.
