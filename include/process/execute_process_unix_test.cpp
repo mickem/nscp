@@ -16,6 +16,7 @@
 #include <gtest/gtest.h>
 
 #include <NSCAPI.h>
+#include <ctime>
 #include <process/execute_process.hpp>
 #include <string>
 #include <vector>

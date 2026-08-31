@@ -3,6 +3,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <memory>
 #include <net/check_mk/client/client_protocol.hpp>
 #include <string>

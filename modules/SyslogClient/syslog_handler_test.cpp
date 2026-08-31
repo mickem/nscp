@@ -25,6 +25,7 @@ namespace po = boost::program_options;
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <map>
 #include <string>
 #include <vector>
