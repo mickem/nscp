@@ -37,44 +37,6 @@ common:
         description: ''
         subkey: true
         title: CLIENT HANDLER SECTION
-    /settings/syslog/client/targets:
-      info:
-        advanced: false
-        description: ''
-        subkey: true
-        title: REMOTE TARGET DEFINITIONS
-      sample:
-        keys:
-          address:
-            advanced: false
-            default_value: ''
-            description: Target host address
-            sample: true
-            title: TARGET ADDRESS
-          host:
-            advanced: true
-            default_value: ''
-            description: The target server to report results to.
-            sample: true
-            title: TARGET HOST
-          port:
-            advanced: true
-            default_value: ''
-            description: The target server port
-            sample: true
-            title: TARGET PORT
-          retries:
-            advanced: false
-            default_value: '3'
-            description: Number of times to retry sending.
-            sample: true
-            title: RETRIES
-          timeout:
-            advanced: false
-            default_value: '30'
-            description: Timeout (in seconds) when reading/writing packets to/from sockets.
-            sample: true
-            title: TIMEOUT
   queries:
     submit_syslog:
       common_options:
@@ -286,3 +248,131 @@ namespace: client
 platforms:
 - unix
 - windows
+unix:
+  paths:
+    /settings/syslog/client/targets:
+      info:
+        advanced: false
+        description: ''
+        subkey: true
+        title: REMOTE TARGET DEFINITIONS
+      sample:
+        keys:
+          address:
+            advanced: false
+            default_value: ''
+            description: Target host address
+            sample: true
+            title: TARGET ADDRESS
+          critical severity:
+            advanced: false
+            default_value: critical
+            description: ''
+            sample: true
+            title: TODO
+          facility:
+            advanced: false
+            default_value: kernel
+            description: ''
+            sample: true
+            title: TODO
+          host:
+            advanced: true
+            default_value: ''
+            description: The target server to report results to.
+            sample: true
+            title: TARGET HOST
+          message_syntax:
+            advanced: false
+            default_value: '%message%'
+            description: ''
+            sample: true
+            title: TODO
+          ok severity:
+            advanced: false
+            default_value: informational
+            description: ''
+            sample: true
+            title: TODO
+          port:
+            advanced: true
+            default_value: ''
+            description: The target server port
+            sample: true
+            title: TARGET PORT
+          retries:
+            advanced: false
+            default_value: '3'
+            description: Number of times to retry sending.
+            sample: true
+            title: RETRIES
+          severity:
+            advanced: false
+            default_value: error
+            description: ''
+            sample: true
+            title: TODO
+          tag_syntax:
+            advanced: false
+            default_value: NSCA
+            description: ''
+            sample: true
+            title: TODO
+          timeout:
+            advanced: false
+            default_value: '30'
+            description: Timeout (in seconds) when reading/writing packets to/from sockets.
+            sample: true
+            title: TIMEOUT
+          unknown severity:
+            advanced: false
+            default_value: emergency
+            description: ''
+            sample: true
+            title: TODO
+          warning severity:
+            advanced: false
+            default_value: warning
+            description: ''
+            sample: true
+            title: TODO
+windows:
+  paths:
+    /settings/syslog/client/targets:
+      info:
+        advanced: false
+        description: ''
+        subkey: true
+        title: REMOTE TARGET DEFINITIONS
+      sample:
+        keys:
+          address:
+            advanced: false
+            default_value: ''
+            description: Target host address
+            sample: true
+            title: TARGET ADDRESS
+          host:
+            advanced: true
+            default_value: ''
+            description: The target server to report results to.
+            sample: true
+            title: TARGET HOST
+          port:
+            advanced: true
+            default_value: ''
+            description: The target server port
+            sample: true
+            title: TARGET PORT
+          retries:
+            advanced: false
+            default_value: '3'
+            description: Number of times to retry sending.
+            sample: true
+            title: RETRIES
+          timeout:
+            advanced: false
+            default_value: '30'
+            description: Timeout (in seconds) when reading/writing packets to/from sockets.
+            sample: true
+            title: TIMEOUT

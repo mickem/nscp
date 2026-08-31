@@ -165,25 +165,49 @@ script root=${scripts}
 timeout=60
 ```
 
-#### Allow arguments when executing external scripts <a id="/settings/external scripts/allow arguments"></a>
+=== "Windows"
 
-This option determines whether or not the we will allow clients to specify arguments to commands that are executed.
+    #### Allow arguments when executing external scripts <a id="/settings/external scripts/allow arguments"></a>
 
-
-| Key            | Description                                               |
-|----------------|-----------------------------------------------------------|
-| Path:          | [/settings/external scripts](#/settings/external scripts) |
-| Key:           | allow arguments                                           |
-| Default value: | `false`                                                   |
+    This option determines whether or not the we will allow clients to specify arguments to commands that are executed.
 
 
-**Sample:**
+    | Key            | Description                                               |
+    |----------------|-----------------------------------------------------------|
+    | Path:          | [/settings/external scripts](#/settings/external scripts) |
+    | Key:           | allow arguments                                           |
+    | Default value: | `false`                                                   |
 
-```
-[/settings/external scripts]
-# Allow arguments when executing external scripts
-allow arguments=false
-```
+
+    **Sample:**
+
+    ```
+    [/settings/external scripts]
+    # Allow arguments when executing external scripts
+    allow arguments=false
+    ```
+
+=== "Linux"
+
+    #### Allow arguments when executing external scripts <a id="/settings/external scripts/allow arguments"></a>
+
+    This option determines whether or not we will allow clients to specify arguments to commands that are executed. NOTICE this governs external script commands only. Command aliases (the alias section) always substitute their client arguments into the internal command they wrap regardless of this setting, because they dispatch to another internal check rather than spawning a process - the wrapped check's own argument handling applies. Restrict which commands an alias may reach through the query permissions, not this flag.
+
+
+    | Key            | Description                                               |
+    |----------------|-----------------------------------------------------------|
+    | Path:          | [/settings/external scripts](#/settings/external scripts) |
+    | Key:           | allow arguments                                           |
+    | Default value: | `false`                                                   |
+
+
+    **Sample:**
+
+    ```
+    [/settings/external scripts]
+    # Allow arguments when executing external scripts
+    allow arguments=false
+    ```
 
 #### Allow certain potentially dangerous characters in arguments <a id="/settings/external scripts/allow nasty characters"></a>
 
@@ -225,45 +249,93 @@ Kill all child processes (notice this might accidentally kill other processes if
 kill tree=false
 ```
 
-#### Load all scripts in a given folder <a id="/settings/external scripts/script path"></a>
+=== "Windows"
 
-Load all scripts in a given directory and use them as commands.
+    #### Load all scripts in a given folder <a id="/settings/external scripts/script path"></a>
 
-
-| Key            | Description                                               |
-|----------------|-----------------------------------------------------------|
-| Path:          | [/settings/external scripts](#/settings/external scripts) |
-| Key:           | script path                                               |
-| Default value: | _N/A_                                                     |
+    Load all scripts in a given directory and use them as commands.
 
 
-**Sample:**
-
-```
-[/settings/external scripts]
-# Load all scripts in a given folder
-script path=
-```
-
-#### Script root folder <a id="/settings/external scripts/script root"></a>
-
-Root path where all scripts are contained (You can not upload/download scripts outside this folder).
+    | Key            | Description                                               |
+    |----------------|-----------------------------------------------------------|
+    | Path:          | [/settings/external scripts](#/settings/external scripts) |
+    | Key:           | script path                                               |
+    | Default value: | _N/A_                                                     |
 
 
-| Key            | Description                                               |
-|----------------|-----------------------------------------------------------|
-| Path:          | [/settings/external scripts](#/settings/external scripts) |
-| Key:           | script root                                               |
-| Default value: | `${scripts}`                                              |
+    **Sample:**
+
+    ```
+    [/settings/external scripts]
+    # Load all scripts in a given folder
+    script path=
+    ```
+
+=== "Linux"
+
+    #### Load all scripts in a given folder <a id="/settings/external scripts/script path"></a>
+
+    Load all scripts in a given directory and use them as commands. SECURITY: every file in this directory becomes a runnable command (with %ARGS% appended when arguments are allowed), so write/create access to the directory is equivalent to command execution as the service account - restrict it with filesystem ACLs. Prefer listing individual scripts explicitly under the scripts section over pointing this at a shared or writable folder.
 
 
-**Sample:**
+    | Key            | Description                                               |
+    |----------------|-----------------------------------------------------------|
+    | Path:          | [/settings/external scripts](#/settings/external scripts) |
+    | Key:           | script path                                               |
+    | Default value: | _N/A_                                                     |
 
-```
-[/settings/external scripts]
-# Script root folder
-script root=${scripts}
-```
+
+    **Sample:**
+
+    ```
+    [/settings/external scripts]
+    # Load all scripts in a given folder
+    script path=
+    ```
+
+=== "Windows"
+
+    #### Script root folder <a id="/settings/external scripts/script root"></a>
+
+    Root path where all scripts are contained (You can not upload/download scripts outside this folder).
+
+
+    | Key            | Description                                               |
+    |----------------|-----------------------------------------------------------|
+    | Path:          | [/settings/external scripts](#/settings/external scripts) |
+    | Key:           | script root                                               |
+    | Default value: | `${scripts}`                                              |
+
+
+    **Sample:**
+
+    ```
+    [/settings/external scripts]
+    # Script root folder
+    script root=${scripts}
+    ```
+
+=== "Linux"
+
+    #### Script root folder <a id="/settings/external scripts/script root"></a>
+
+    Root path used to sandbox the ext-scr show/delete operations and the destination of ext-scr add --import: those cannot read, remove, or import a file outside this folder. Note this does NOT bound ext-scr add --script <path>, which can still register an existing file anywhere on disk as a command (an administrator-only action, equivalent to editing the configuration directly).
+
+
+    | Key            | Description                                               |
+    |----------------|-----------------------------------------------------------|
+    | Path:          | [/settings/external scripts](#/settings/external scripts) |
+    | Key:           | script root                                               |
+    | Default value: | `${scripts}`                                              |
+
+
+    **Sample:**
+
+    ```
+    [/settings/external scripts]
+    # Script root folder
+    script root=${scripts}
+    ```
 
 #### Command timeout <a id="/settings/external scripts/timeout"></a>
 

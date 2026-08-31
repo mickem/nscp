@@ -29,44 +29,6 @@ common:
         description: ''
         subkey: true
         title: REMOTE TARGET DEFINITIONS
-    /settings/check_mk/client/targets:
-      info:
-        advanced: false
-        description: ''
-        subkey: true
-        title: REMOTE TARGET DEFINITIONS
-      sample:
-        keys:
-          address:
-            advanced: false
-            default_value: ''
-            description: Target host address
-            sample: true
-            title: TARGET ADDRESS
-          host:
-            advanced: true
-            default_value: ''
-            description: The target server to report results to.
-            sample: true
-            title: TARGET HOST
-          port:
-            advanced: true
-            default_value: ''
-            description: The target server port
-            sample: true
-            title: TARGET PORT
-          retries:
-            advanced: false
-            default_value: '3'
-            description: Number of times to retry sending.
-            sample: true
-            title: RETRIES
-          timeout:
-            advanced: false
-            default_value: '30'
-            description: Timeout (in seconds) when reading/writing packets to/from sockets.
-            sample: true
-            title: TIMEOUT
   queries:
     check_mk_query:
       common_options:
@@ -254,3 +216,131 @@ namespace: client
 platforms:
 - unix
 - windows
+unix:
+  paths:
+    /settings/check_mk/client/targets:
+      info:
+        advanced: false
+        description: ''
+        subkey: true
+        title: REMOTE TARGET DEFINITIONS
+      sample:
+        keys:
+          address:
+            advanced: false
+            default_value: ''
+            description: Target host address
+            sample: true
+            title: TARGET ADDRESS
+          allowed ciphers:
+            advanced: false
+            default_value: ''
+            description: 'A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH'
+            sample: true
+            title: ALLOWED CIPHERS
+          ca:
+            advanced: true
+            default_value: ''
+            description: ''
+            sample: true
+            title: CA
+          certificate:
+            advanced: false
+            default_value: ''
+            description: ''
+            sample: true
+            title: SSL CERTIFICATE
+          certificate format:
+            advanced: true
+            default_value: ''
+            description: ''
+            sample: true
+            title: CERTIFICATE FORMAT
+          certificate key:
+            advanced: true
+            default_value: ''
+            description: ''
+            sample: true
+            title: SSL CERTIFICATE
+          dh:
+            advanced: true
+            default_value: ''
+            description: ''
+            sample: true
+            title: DH KEY
+          host:
+            advanced: true
+            default_value: ''
+            description: The target server to report results to.
+            sample: true
+            title: TARGET HOST
+          port:
+            advanced: true
+            default_value: ''
+            description: The target server port
+            sample: true
+            title: TARGET PORT
+          retries:
+            advanced: false
+            default_value: '3'
+            description: Number of times to retry sending.
+            sample: true
+            title: RETRIES
+          timeout:
+            advanced: false
+            default_value: '30'
+            description: Timeout (in seconds) when reading/writing packets to/from sockets.
+            sample: true
+            title: TIMEOUT
+          use ssl:
+            advanced: false
+            default_value: ''
+            description: This option controls if SSL should be enabled.
+            sample: true
+            title: ENABLE SSL ENCRYPTION
+          verify mode:
+            advanced: false
+            default_value: ''
+            description: ''
+            sample: true
+            title: VERIFY MODE
+windows:
+  paths:
+    /settings/check_mk/client/targets:
+      info:
+        advanced: false
+        description: ''
+        subkey: true
+        title: REMOTE TARGET DEFINITIONS
+      sample:
+        keys:
+          address:
+            advanced: false
+            default_value: ''
+            description: Target host address
+            sample: true
+            title: TARGET ADDRESS
+          host:
+            advanced: true
+            default_value: ''
+            description: The target server to report results to.
+            sample: true
+            title: TARGET HOST
+          port:
+            advanced: true
+            default_value: ''
+            description: The target server port
+            sample: true
+            title: TARGET PORT
+          retries:
+            advanced: false
+            default_value: '3'
+            description: Number of times to retry sending.
+            sample: true
+            title: RETRIES
+          timeout:
+            advanced: false
+            default_value: '30'
+            description: Timeout (in seconds) when reading/writing packets to/from sockets.
+            sample: true
+            title: TIMEOUT

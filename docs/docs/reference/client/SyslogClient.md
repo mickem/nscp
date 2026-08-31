@@ -190,40 +190,88 @@ This is a section of objects. This means that you will create objects below this
 
 
 
-### REMOTE TARGET DEFINITIONS <a id="/settings/syslog/client/targets"></a>
+=== "Windows"
+
+    ### REMOTE TARGET DEFINITIONS <a id="/settings/syslog/client/targets"></a>
 
 
 
 
-This is a section of objects. This means that you will create objects below this point by adding sections which all look the same.
+    This is a section of objects. This means that you will create objects below this point by adding sections which all look the same.
 
 
-**Keys:**
+    **Keys:**
 
 
-| Key     | Default Value | Description    |
-|---------|---------------|----------------|
-| address |               | TARGET ADDRESS |
-| host    |               | TARGET HOST    |
-| port    |               | TARGET PORT    |
-| retries | 3             | RETRIES        |
-| timeout | 30            | TIMEOUT        |
+    | Key     | Default Value | Description    |
+    |---------|---------------|----------------|
+    | address |               | TARGET ADDRESS |
+    | host    |               | TARGET HOST    |
+    | port    |               | TARGET PORT    |
+    | retries | 3             | RETRIES        |
+    | timeout | 30            | TIMEOUT        |
 
 
-**Sample:**
+    **Sample:**
 
-```ini
-# An example of a REMOTE TARGET DEFINITIONS section
-[/settings/syslog/client/targets/sample]
-#address=...
-#host=...
-#port=...
-retries=3
-timeout=30
+    ```ini
+    # An example of a REMOTE TARGET DEFINITIONS section
+    [/settings/syslog/client/targets/sample]
+    #address=...
+    #host=...
+    #port=...
+    retries=3
+    timeout=30
 
-```
+    ```
+
+=== "Linux"
+
+    ### REMOTE TARGET DEFINITIONS <a id="/settings/syslog/client/targets"></a>
 
 
 
 
+    This is a section of objects. This means that you will create objects below this point by adding sections which all look the same.
 
+
+    **Keys:**
+
+
+    | Key               | Default Value | Description    |
+    |-------------------|---------------|----------------|
+    | address           |               | TARGET ADDRESS |
+    | critical severity | critical      | TODO           |
+    | facility          | kernel        | TODO           |
+    | host              |               | TARGET HOST    |
+    | message_syntax    | %message%     | TODO           |
+    | ok severity       | informational | TODO           |
+    | port              |               | TARGET PORT    |
+    | retries           | 3             | RETRIES        |
+    | severity          | error         | TODO           |
+    | tag_syntax        | NSCA          | TODO           |
+    | timeout           | 30            | TIMEOUT        |
+    | unknown severity  | emergency     | TODO           |
+    | warning severity  | warning       | TODO           |
+
+
+    **Sample:**
+
+    ```ini
+    # An example of a REMOTE TARGET DEFINITIONS section
+    [/settings/syslog/client/targets/sample]
+    #address=...
+    critical severity=critical
+    facility=kernel
+    #host=...
+    message_syntax=%message%
+    ok severity=informational
+    #port=...
+    retries=3
+    severity=error
+    tag_syntax=NSCA
+    timeout=30
+    unknown severity=emergency
+    warning severity=warning
+
+    ```

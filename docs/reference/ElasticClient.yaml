@@ -2,6 +2,139 @@ common:
   info:
     description: Elastic sends metrics, events and logs to elastic search
     title: ElasticClient
+module: ElasticClient
+namespace: client
+platforms:
+- unix
+- windows
+unix:
+  paths:
+    /settings/elastic/client:
+      info:
+        advanced: false
+        description: ''
+        subkey: false
+        title: ''
+      keys:
+        address:
+          advanced: false
+          default_value: ''
+          description: The address to send data to (http://127.0.0.1:9200/_bulk).
+          sample: false
+          title: Elastic address
+        api key:
+          advanced: false
+          default_value: ''
+          description: 'An Elasticsearch API key (the base64 encoded id:key value as returned when the
+            key is created), sent as ''Authorization: ApiKey ...''. Takes precedence over user/password
+            when both are set.'
+          sample: false
+          title: Elastic API key
+        ca:
+          advanced: false
+          default_value: ${ca-path}
+          description: The certificate authority bundle used to verify the Elasticsearch server certificate
+            (used when 'verify mode' is not 'none').
+          sample: false
+          title: Certificate authority
+        event index:
+          advanced: false
+          default_value: nsclient_event-%(date)
+          description: The elastic index to use for events (log messages).
+          sample: false
+          title: Elastic index used for events
+        event type:
+          advanced: false
+          default_value: ''
+          description: 'The elastic type to use for events (log messages). Only set this for Elasticsearch
+            6.x or older: mapping types were removed in Elasticsearch 8, which rejects requests that carry
+            a type.'
+          sample: false
+          title: Elastic type used for events
+        events:
+          advanced: false
+          default_value: eventlog:*,logfile:*
+          description: The events to subscribe to such as eventlog:* or logfile:mylog.
+          sample: false
+          title: Event
+        hostname:
+          advanced: false
+          default_value: auto
+          description: "The host name of the monitored computer.\nSet this to auto (default) to use the\
+            \ windows name of the computer.\n\nauto\tHostname\n${host}\tHostname\n${host_lc}\tHostname\
+            \ in lowercase\n${host_uc}\tHostname in uppercase\n${domain}\tDomainname\n${domain_lc}\tDomainname\
+            \ in lowercase\n${domain_uc}\tDomainname in uppercase\n${address_ipv4}\tIPv4 address of the\
+            \ computer\n${address_ipv6}\tIPv6 address of the computer (lowercase, compressed)\n${address_ipv6_lc}\t\
+            IPv6 address in lowercase (compressed)\n${address_ipv6_uc}\tIPv6 address in uppercase (compressed)\n\
+            ${address_ipv6_lc_comp}\tIPv6 address in lowercase, compressed (2001:db8::7)\n${address_ipv6_lc_uncomp}\t\
+            IPv6 address in lowercase, uncompressed (2001:0db8:0000:0000:0000:0000:0000:0007)\n${address_ipv6_uc_comp}\t\
+            IPv6 address in uppercase, compressed\n${address_ipv6_uc_uncomp}\tIPv6 address in uppercase,\
+            \ uncompressed\n"
+          sample: false
+          title: HOSTNAME
+        metrics index:
+          advanced: false
+          default_value: nsclient_metrics-%(date)
+          description: The elastic index to use for metrics.
+          sample: false
+          title: Elastic index used for metrics
+        metrics type:
+          advanced: false
+          default_value: ''
+          description: 'The elastic type to use for metrics. Only set this for Elasticsearch 6.x or older:
+            mapping types were removed in Elasticsearch 8, which rejects requests that carry a type.'
+          sample: false
+          title: Elastic type used for metrics
+        nsclient log index:
+          advanced: false
+          default_value: nsclient_log-%(date)
+          description: The elastic index to use for the NSClient++ log.
+          sample: false
+          title: Elastic index used for the nsclient log
+        nsclient log type:
+          advanced: false
+          default_value: ''
+          description: 'The elastic type to use for the NSClient++ log. Only set this for Elasticsearch
+            6.x or older: mapping types were removed in Elasticsearch 8, which rejects requests that carry
+            a type.'
+          sample: false
+          title: Elastic type used for the nsclient log
+        password:
+          advanced: false
+          default_value: ''
+          description: The password used to authenticate against Elasticsearch (basic authentication).
+          sample: false
+          title: Elastic password
+        timeout:
+          advanced: false
+          default_value: '30'
+          description: Timeout (in seconds) for each connect, read and write when talking to Elasticsearch.
+            0 waits forever.
+          sample: false
+          title: Timeout
+        tls version:
+          advanced: false
+          default_value: 1.2+
+          description: The TLS version to use when connecting over https (1.0, 1.1, 1.2, 1.2+ or 1.3).
+          sample: false
+          title: TLS version
+        user:
+          advanced: false
+          default_value: ''
+          description: The username used to authenticate against Elasticsearch (basic authentication).
+            Leave empty to send no credentials.
+          sample: false
+          title: Elastic user
+        verify mode:
+          advanced: false
+          default_value: peer
+          description: How to verify the Elasticsearch server certificate when connecting over https.
+            'peer' (the default) validates the certificate chain and hostname against the configured CA.
+            Set to 'none' to disable verification - this is insecure and lets an on-path attacker read
+            the submitted data and any configured credentials.
+          sample: false
+          title: TLS verify mode
+windows:
   paths:
     /settings/elastic/client:
       info:
@@ -73,8 +206,3 @@ common:
           description: The elastic type to use for metrics.
           sample: false
           title: Elastic type used for metrics
-module: ElasticClient
-namespace: client
-platforms:
-- unix
-- windows
