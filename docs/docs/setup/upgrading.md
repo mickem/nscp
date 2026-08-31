@@ -168,6 +168,7 @@ per-release detail lives in each
     - All C0 control bytes and DEL in the outgoing line are replaced with
       spaces (previously only CR, LF and NUL), so check output cannot smuggle
       ANSI escape sequences into the receiver's log.
+
 - ⏱️ **The Graphite `timeout` is now enforced — as a budget for the whole
   submission.** It was doubly dead before: the value the operator configured
   never reached the connection (the lookup read a map the well-known `timeout`
@@ -267,6 +268,7 @@ per-release detail lives in each
     command now reports that failure instead of `Message submitted` — including
     when only one channel of a comma list (`channel=NSCA,GRAPHITE`) fails,
     which previously was silently reported as success.
+
 - ⚙️ **A reload now loads modules enabled in an included file since the last one.**
   An `[/includes]` file is read once when the configuration is loaded and served
   from memory after that, so a module switched on in one — most importantly
