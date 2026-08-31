@@ -16,6 +16,7 @@
 #include <client/command_line_parser.hpp>
 #include <memory>
 #include <net/socket/socket_helpers.hpp>
+#include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/protobuf/functions_convert.hpp>
 #include <nscapi/protobuf/functions_perfdata.hpp>
@@ -385,7 +386,14 @@ struct graphite_client_handler : public client::handler_interface {
         push_metrics(list, b, "", mpath);
       }
     }
-    send(con, list);
+    // The channel path surfaces a failed submission in its response; the
+    // metrics flush has no response to carry one, so log it - otherwise a
+    // timeout (or any other failure) fires invisibly and metrics just stop
+    // arriving.
+    const boost::tuple<bool, std::string> ret = send(con, list);
+    if (!ret.get<0>()) {
+      NSC_LOG_ERROR("Failed to submit metrics to " + con.to_string() + ": " + ret.get<1>());
+    }
     return true;
   }
 
