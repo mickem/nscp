@@ -5,11 +5,87 @@
 #include <parsers/where.hpp>
 #include <parsers/where/grammar/grammar.hpp>
 #include <parsers/where/node.hpp>
+#include <str/xtos.hpp>
 
 namespace parsers {
 namespace where {
+namespace {
+// Upper bounds on a single where-expression, enforced before the recursive
+// descent parser and the recursive AST evaluator ever see the string.
+//
+// Both stages recurse with a depth that grows with the input: the Boost.Spirit
+// grammar re-enters the `expression` rule for every nested `(...)` / `fn(...)`,
+// and AST evaluation recurses one frame per operator down a left-leaning
+// and/or chain (binary_op::evaluate -> get_value -> evaluate). An unbounded
+// expression can therefore exhaust the stack and crash the whole nsclient
+// process — a denial of service reachable wherever a filter/warning/critical
+// string or a `%(...)` detail-syntax placeholder is attacker-influenced
+// (authenticated REST arguments, or NRPE with "allow arguments = true"). A
+// real where-filter is a short threshold string; these limits sit an order of
+// magnitude above any legitimate one.
+constexpr std::size_t max_expression_length = 1024;
+constexpr int max_expression_depth = 64;
+
+// Deepest `(` nesting in expr, skipping the two literal forms whose contents
+// are data rather than structure, so a `(` inside one does not count toward the
+// depth the parser and evaluator actually recurse to:
+//   - single-quoted strings (`'(('`) — the where-grammar has no escapes inside
+//     `'...'`, so the literal runs to the next `'`;
+//   - the `str(...)` form (grammar rule string_literal_ex), a string whose
+//     delimiters are parentheses and whose body runs to the first `)`. Its
+//     inner `(` are text and the parser does not recurse for them, so counting
+//     them would reject a valid expression like `str((((...)` for depth.
+// Returns as soon as the limit is exceeded; the exact depth past that point
+// does not matter.
+int max_paren_depth(const std::string &expr) {
+  const auto is_ident = [](const char ch) {
+    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_';
+  };
+  int depth = 0;
+  int max_depth = 0;
+  for (std::size_t i = 0; i < expr.size(); ++i) {
+    const char c = expr[i];
+    if (c == '\'') {
+      ++i;
+      while (i < expr.size() && expr[i] != '\'') ++i;
+      continue;  // i is on the closing ' (or end); the loop's ++i steps past it
+    }
+    if (c == '(') {
+      // A `(` that opens a `str(...)` literal — `str` as a standalone token
+      // (word boundary before it) immediately followed by `(` — is a string
+      // delimiter, not structure. Skip to the closing `)` (first one, matching
+      // string_literal_ex) without counting.
+      if (i >= 3 && expr[i - 1] == 'r' && expr[i - 2] == 't' && expr[i - 3] == 's' && (i == 3 || !is_ident(expr[i - 4]))) {
+        ++i;
+        while (i < expr.size() && expr[i] != ')') ++i;
+        continue;  // i is on the closing ) (or end); the loop's ++i steps past it
+      }
+      if (++depth > max_depth) {
+        max_depth = depth;
+        if (max_depth > max_expression_depth) return max_depth;
+      }
+    } else if (c == ')') {
+      if (depth > 0) --depth;
+    }
+  }
+  return max_depth;
+}
+}  // namespace
+
 bool parser::parse(object_factory factory, std::string expr) {
   constants::reset();
+
+  // Reject pathologically large or deeply nested expressions up front so
+  // neither the recursive parser nor the recursive evaluator can be driven to
+  // a stack-exhaustion crash. rest carries the reason so validate() logs it.
+  if (expr.size() > max_expression_length) {
+    rest = "expression exceeds the maximum length of " + str::xtos(max_expression_length) + " characters";
+    return false;
+  }
+  if (max_paren_depth(expr) > max_expression_depth) {
+    rest = "expression nesting exceeds the maximum depth of " + str::xtos(max_expression_depth);
+    return false;
+  }
 
   where_grammar calc(factory);
 
