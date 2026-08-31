@@ -56,3 +56,32 @@ target_link_libraries(
     ${EXTRA_LIBS}
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
+
+# Unit tests for the module class itself: the settings it registers/reads and
+# the `nscp op5 install|add` subcommands, which read and write settings through
+# the core and never touch the network. The stub core
+# (include/nscapi/test_helpers.hpp) stands in for the daemon; loading with
+# dontStart keeps the submitting client from being constructed.
+NSCP_CREATE_TEST(
+    op5_module_test
+    SOURCES
+        op5_module_test.cpp
+        "${TARGET}.cpp"
+        op5_client.cpp
+        ${NSCP_DEF_PLUGIN_CPP}
+        ${NSCP_CLIENT_CPP}
+        ${NSCP_INCLUDEDIR}/json/use_json.cpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+        ${NSCP_INCLUDEDIR}/bytes/base64.c
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${EXTRA_LIBS}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
