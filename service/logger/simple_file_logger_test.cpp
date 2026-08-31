@@ -180,42 +180,6 @@ TEST(SimpleFileLogger, ConfigureMethodsDoNotThrow) {
   EXPECT_NO_THROW(logger.synch_configure());
 }
 
-TEST(SimpleFileLogger, DoLogCreatesMissingParentDirectories) {
-  settings_test::temp_dir dir;
-  const std::string target = (dir.path() / "logs" / "nested" / "output.log").generic_string();
-
-  // On POSIX base_path() is empty so the constructor argument is the path;
-  // on Windows the leading separator keeps the concatenation well-formed.
-  simple_file_logger nested(target);
-  nested.do_log(make_entry(PB::Log::LogEntry_Entry_Level_LOG_INFO, "t", "f", 7, "deep-message"));
-
-  ASSERT_TRUE(boost::filesystem::exists(target)) << target;
-  std::ifstream ifs(target.c_str());
-  std::stringstream ss;
-  ss << ifs.rdbuf();
-  EXPECT_NE(ss.str().find("deep-message"), std::string::npos);
-}
-
-TEST(SimpleFileLogger, DoLogSurvivesAnUncreatableParentDirectory) {
-  // The parent path runs through a regular file, so create_directories cannot
-  // succeed and neither can the open; both failures must stay inside do_log.
-  settings_test::temp_dir dir;
-  settings_test::write_file(dir.file("blocker"), "a file, not a directory");
-  const std::string target = (dir.path() / "blocker" / "sub" / "output.log").generic_string();
-
-  simple_file_logger logger(target);
-  EXPECT_NO_THROW(logger.do_log(make_entry(PB::Log::LogEntry_Entry_Level_LOG_ERROR, "t", "f", 1, "lost")));
-  EXPECT_FALSE(boost::filesystem::exists(target));
-}
-
-TEST(SimpleFileLogger, DoLogSurvivesATargetThatIsADirectory) {
-  // The log file name points at an existing directory: the stream cannot open
-  // and the entry is diverted to the fatal log instead of crashing the logger.
-  settings_test::temp_dir dir;
-  simple_file_logger logger(dir.path().generic_string());
-  EXPECT_NO_THROW(logger.do_log(make_entry(PB::Log::LogEntry_Entry_Level_LOG_ERROR, "t", "f", 1, "nowhere to go")));
-}
-
 // ---------------------------------------------------------------------------
 // Configuration through a real settings store. asynch_configure reads
 // [/settings/log] (file name, date format) and [/settings/log/file] (max
@@ -234,6 +198,20 @@ class test_provider : public settings_manager::provider_interface {
 
  private:
   nsclient::logging::logger_instance logger_;
+};
+
+// Enters a directory for the duration of a test and restores the previous
+// working directory afterwards, whatever the test does.
+class cwd_guard {
+ public:
+  explicit cwd_guard(const boost::filesystem::path& to) : previous_(boost::filesystem::current_path()) { boost::filesystem::current_path(to); }
+  ~cwd_guard() {
+    boost::system::error_code ignored;
+    boost::filesystem::current_path(previous_, ignored);
+  }
+
+ private:
+  boost::filesystem::path previous_;
 };
 
 class SimpleFileLoggerSettingsTest : public ::testing::Test {
@@ -295,6 +273,54 @@ TEST_F(SimpleFileLoggerSettingsTest, SynchConfigureReadsTheSameConfiguration) {
   EXPECT_NO_THROW(logger.synch_configure());
 }
 
+// The filesystem edge cases below drive the target through the settings store
+// rather than the constructor: a configured name that already carries a path
+// separator is used verbatim, whereas the constructor always prepends
+// base_path() - which is the executable's directory on Windows, so an absolute
+// path handed to it would be mangled there.
+TEST_F(SimpleFileLoggerSettingsTest, DoLogCreatesMissingParentDirectories) {
+  const boost::filesystem::path target = dir_.path() / "logs" / "nested" / "output.log";
+  boot_with(
+      "[/settings/log]\n"
+      "file name = " + target.generic_string() + "\n");
+
+  simple_file_logger nested(unique_name("nested"));
+  nested.asynch_configure();
+  nested.do_log(make_entry(PB::Log::LogEntry_Entry_Level_LOG_INFO, "t", "f", 7, "deep-message"));
+
+  ASSERT_TRUE(boost::filesystem::exists(target)) << target;
+  EXPECT_NE(read_all(target).find("deep-message"), std::string::npos);
+}
+
+TEST_F(SimpleFileLoggerSettingsTest, DoLogSurvivesAnUncreatableParentDirectory) {
+  // The parent path runs through a regular file, so create_directories cannot
+  // succeed and neither can the open; both failures must stay inside do_log.
+  settings_test::write_file(dir_.file("blocker"), "a file, not a directory");
+  const boost::filesystem::path target = dir_.path() / "blocker" / "sub" / "output.log";
+  boot_with(
+      "[/settings/log]\n"
+      "file name = " + target.generic_string() + "\n");
+
+  simple_file_logger logger(unique_name("blocked"));
+  logger.asynch_configure();
+  EXPECT_NO_THROW(logger.do_log(make_entry(PB::Log::LogEntry_Entry_Level_LOG_ERROR, "t", "f", 1, "lost")));
+  EXPECT_FALSE(boost::filesystem::exists(target));
+}
+
+TEST_F(SimpleFileLoggerSettingsTest, DoLogSurvivesATargetThatIsADirectory) {
+  // The log file name points at an existing directory: the stream cannot open
+  // and the entry is diverted to the fatal log instead of crashing the logger.
+  const boost::filesystem::path target = dir_.path() / "a-directory";
+  boost::filesystem::create_directories(target);
+  boot_with(
+      "[/settings/log]\n"
+      "file name = " + target.generic_string() + "\n");
+
+  simple_file_logger logger(unique_name("dir"));
+  logger.asynch_configure();
+  EXPECT_NO_THROW(logger.do_log(make_entry(PB::Log::LogEntry_Entry_Level_LOG_ERROR, "t", "f", 1, "nowhere to go")));
+}
+
 TEST_F(SimpleFileLoggerSettingsTest, MaxSizeTruncatesTheLogFile) {
   const boost::filesystem::path target = dir_.path() / "rotate.log";
   boot_with(
@@ -334,8 +360,12 @@ TEST_F(SimpleFileLoggerSettingsTest, FileNameNoneDisablesTheFileLog) {
 #ifndef WIN32
 TEST_F(SimpleFileLoggerSettingsTest, ABareFileNameLandsNextToTheBinary) {
   // No path separator in the configured name: base_path() (empty on POSIX,
-  // i.e. the working directory) is prepended.
-  const std::string name = "simple_file_logger_bare_" + std::to_string(LFL_GETPID()) + ".log";
+  // i.e. the working directory) is prepended. Run from inside the temp dir so
+  // the resolved-relative-to-cwd behaviour is exercised without depending on
+  // the working directory the suite happened to be started in being writable
+  // (it is not, for instance, when ctest runs from a read-only tree).
+  const cwd_guard cwd(dir_.path());
+  const std::string name = "simple_file_logger_bare.log";
   boot_with(
       "[/settings/log]\n"
       "file name = " + name + "\n");
@@ -344,9 +374,7 @@ TEST_F(SimpleFileLoggerSettingsTest, ABareFileNameLandsNextToTheBinary) {
   logger.asynch_configure();
   logger.do_log(make_entry(PB::Log::LogEntry_Entry_Level_LOG_INFO, "t", "f", 1, "bare-name"));
 
-  EXPECT_TRUE(boost::filesystem::exists(name));
-  boost::system::error_code ignored;
-  boost::filesystem::remove(name, ignored);
+  EXPECT_TRUE(boost::filesystem::exists(dir_.path() / name));
 }
 #endif
 
