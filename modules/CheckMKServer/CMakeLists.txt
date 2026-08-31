@@ -100,3 +100,34 @@ NSCP_CREATE_TEST(
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${LUA_INCLUDE_DIR}
 )
+
+# Unit tests for the module class itself: the settings it registers/reads, the
+# passive submission channels and the script-manager lifecycle. The stub core
+# (include/nscapi/test_helpers.hpp) stands in for the daemon; loading with
+# dontStart keeps the listener from being created.
+NSCP_CREATE_TEST(
+    check_mk_server_module_test
+    SOURCES
+        check_mk_server_module_test.cpp
+        "${TARGET}.cpp"
+        handler_impl.cpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+        ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp
+        ${NSCP_INCLUDEDIR}/net/check_mk/lua/lua_check_mk.cpp
+        ${NSCP_INCLUDEDIR}/metrics/metrics_store_map.cpp
+        ${NSCP_DEF_PLUGIN_CPP}
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        lua_nscp
+        ${LUA_PB}
+        ${LUA_LIBRARIES}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${EXTRA_LIBS}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${LUA_INCLUDE_DIR}
+)
