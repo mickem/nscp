@@ -23,41 +23,38 @@ ElasticClient = enabled
 
 
 
-| Key                                                   | Default Value            | Description                          |
-|-------------------------------------------------------|--------------------------|--------------------------------------|
-| [address](#elastic-address)                           |                          | Elastic address                      |
-| [api key](#elastic-api-key)                           |                          | Elastic API key _(Linux only)_       |
-| [ca](#certificate-authority)                          | ${ca-path}               | Certificate authority _(Linux only)_ |
-| [event index](#elastic-index-used-for-events)         | nsclient_event-%(date)   | Elastic index used for events        |
-| [event type](#elastic-type-used-for-events)           | eventlog                 | Elastic type used for events         |
-| [events](#event)                                      | eventlog:*,logfile:*     | Event                                |
-| [hostname](#hostname)                                 | auto                     | HOSTNAME                             |
-| [metrics index](#elastic-index-used-for-metrics)      | nsclient_metrics-%(date) | Elastic index used for metrics       |
-| [metrics type](#elastic-type-used-for-metrics)        | metrics                  | Elastic type used for metrics        |
-| [nsclient log index](#elastic-index-used-for-metrics) | nsclient_log-%(date)     | Elastic index used for metrics       |
-| [nsclient log type](#elastic-type-used-for-metrics)   | nsclient log             | Elastic type used for metrics        |
-| [password](#elastic-password)                         |                          | Elastic password _(Linux only)_      |
-| [timeout](#timeout)                                   | 30                       | Timeout _(Linux only)_               |
-| [tls version](#tls-version)                           | 1.2+                     | TLS version _(Linux only)_           |
-| [user](#elastic-user)                                 |                          | Elastic user _(Linux only)_          |
-| [verify mode](#tls-verify-mode)                       | peer                     | TLS verify mode _(Linux only)_       |
+| Key                                                            | Default Value            | Description                             |
+|----------------------------------------------------------------|--------------------------|-----------------------------------------|
+| [address](#elastic-address)                                    |                          | Elastic address                         |
+| [api key](#elastic-api-key)                                    |                          | Elastic API key                         |
+| [ca](#certificate-authority)                                   | ${ca-path}               | Certificate authority                   |
+| [event index](#elastic-index-used-for-events)                  | nsclient_event-%(date)   | Elastic index used for events           |
+| [event type](#elastic-type-used-for-events)                    |                          | Elastic type used for events            |
+| [events](#event)                                               | eventlog:*,logfile:*     | Event                                   |
+| [hostname](#hostname)                                          | auto                     | HOSTNAME                                |
+| [metrics index](#elastic-index-used-for-metrics)               | nsclient_metrics-%(date) | Elastic index used for metrics          |
+| [metrics type](#elastic-type-used-for-metrics)                 |                          | Elastic type used for metrics           |
+| [nsclient log index](#elastic-index-used-for-the-nsclient-log) | nsclient_log-%(date)     | Elastic index used for the nsclient log |
+| [nsclient log type](#elastic-type-used-for-the-nsclient-log)   |                          | Elastic type used for the nsclient log  |
+| [password](#elastic-password)                                  |                          | Elastic password                        |
+| [timeout](#timeout)                                            | 30                       | Timeout                                 |
+| [tls version](#tls-version)                                    | 1.2+                     | TLS version                             |
+| [user](#elastic-user)                                          |                          | Elastic user                            |
+| [verify mode](#tls-verify-mode)                                | peer                     | TLS verify mode                         |
 
 
 ```ini
 # 
 [/settings/elastic/client]
-ca=${ca-path}  # Linux only
+ca=${ca-path}
 event index=nsclient_event-%(date)
-event type=eventlog
 events=eventlog:*,logfile:*
 hostname=auto
 metrics index=nsclient_metrics-%(date)
-metrics type=metrics
 nsclient log index=nsclient_log-%(date)
-nsclient log type=nsclient log
-timeout=30  # Linux only
-tls version=1.2+  # Linux only
-verify mode=peer  # Linux only
+timeout=30
+tls version=1.2+
+verify mode=peer
 ```
 
 #### Elastic address <a id="/settings/elastic/client/address"></a>
@@ -89,7 +86,6 @@ An Elasticsearch API key (the base64 encoded id:key value as returned when the k
 |----------------|-------------------------------------------------------|
 | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
 | Key:           | api key                                               |
-| Platform:      | Linux only                                            |
 | Default value: | _N/A_                                                 |
 
 
@@ -110,7 +106,6 @@ The certificate authority bundle used to verify the Elasticsearch server certifi
 |----------------|-------------------------------------------------------|
 | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
 | Key:           | ca                                                    |
-| Platform:      | Linux only                                            |
 | Default value: | `${ca-path}`                                          |
 
 
@@ -142,49 +137,25 @@ The elastic index to use for events (log messages).
 event index=nsclient_event-%(date)
 ```
 
-=== "Windows"
+#### Elastic type used for events <a id="/settings/elastic/client/event type"></a>
 
-    #### Elastic type used for events <a id="/settings/elastic/client/event type"></a>
-
-    The elastic type to use for events (log messages).
+The elastic type to use for events (log messages). Only set this for Elasticsearch 6.x or older: mapping types were removed in Elasticsearch 8, which rejects requests that carry a type.
 
 
-    | Key            | Description                                           |
-    |----------------|-------------------------------------------------------|
-    | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
-    | Key:           | event type                                            |
-    | Default value: | `eventlog`                                            |
+| Key            | Description                                           |
+|----------------|-------------------------------------------------------|
+| Path:          | [/settings/elastic/client](#/settings/elastic/client) |
+| Key:           | event type                                            |
+| Default value: | _N/A_                                                 |
 
 
-    **Sample:**
+**Sample:**
 
-    ```
-    [/settings/elastic/client]
-    # Elastic type used for events
-    event type=eventlog
-    ```
-
-=== "Linux"
-
-    #### Elastic type used for events <a id="/settings/elastic/client/event type"></a>
-
-    The elastic type to use for events (log messages). Only set this for Elasticsearch 6.x or older: mapping types were removed in Elasticsearch 8, which rejects requests that carry a type.
-
-
-    | Key            | Description                                           |
-    |----------------|-------------------------------------------------------|
-    | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
-    | Key:           | event type                                            |
-    | Default value: | _N/A_                                                 |
-
-
-    **Sample:**
-
-    ```
-    [/settings/elastic/client]
-    # Elastic type used for events
-    event type=
-    ```
+```
+[/settings/elastic/client]
+# Elastic type used for events
+event type=
+```
 
 #### Event <a id="/settings/elastic/client/events"></a>
 
@@ -264,137 +235,65 @@ The elastic index to use for metrics.
 metrics index=nsclient_metrics-%(date)
 ```
 
-=== "Windows"
+#### Elastic type used for metrics <a id="/settings/elastic/client/metrics type"></a>
 
-    #### Elastic type used for metrics <a id="/settings/elastic/client/metrics type"></a>
-
-    The elastic type to use for metrics.
+The elastic type to use for metrics. Only set this for Elasticsearch 6.x or older: mapping types were removed in Elasticsearch 8, which rejects requests that carry a type.
 
 
-    | Key            | Description                                           |
-    |----------------|-------------------------------------------------------|
-    | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
-    | Key:           | metrics type                                          |
-    | Default value: | `metrics`                                             |
+| Key            | Description                                           |
+|----------------|-------------------------------------------------------|
+| Path:          | [/settings/elastic/client](#/settings/elastic/client) |
+| Key:           | metrics type                                          |
+| Default value: | _N/A_                                                 |
 
 
-    **Sample:**
+**Sample:**
 
-    ```
-    [/settings/elastic/client]
-    # Elastic type used for metrics
-    metrics type=metrics
-    ```
+```
+[/settings/elastic/client]
+# Elastic type used for metrics
+metrics type=
+```
 
-=== "Linux"
+#### Elastic index used for the nsclient log <a id="/settings/elastic/client/nsclient log index"></a>
 
-    #### Elastic type used for metrics <a id="/settings/elastic/client/metrics type"></a>
-
-    The elastic type to use for metrics. Only set this for Elasticsearch 6.x or older: mapping types were removed in Elasticsearch 8, which rejects requests that carry a type.
+The elastic index to use for the NSClient++ log.
 
 
-    | Key            | Description                                           |
-    |----------------|-------------------------------------------------------|
-    | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
-    | Key:           | metrics type                                          |
-    | Default value: | _N/A_                                                 |
+| Key            | Description                                           |
+|----------------|-------------------------------------------------------|
+| Path:          | [/settings/elastic/client](#/settings/elastic/client) |
+| Key:           | nsclient log index                                    |
+| Default value: | `nsclient_log-%(date)`                                |
 
 
-    **Sample:**
+**Sample:**
 
-    ```
-    [/settings/elastic/client]
-    # Elastic type used for metrics
-    metrics type=
-    ```
+```
+[/settings/elastic/client]
+# Elastic index used for the nsclient log
+nsclient log index=nsclient_log-%(date)
+```
 
-=== "Windows"
+#### Elastic type used for the nsclient log <a id="/settings/elastic/client/nsclient log type"></a>
 
-    #### Elastic index used for metrics <a id="/settings/elastic/client/nsclient log index"></a>
-
-    The elastic index to use for metrics.
+The elastic type to use for the NSClient++ log. Only set this for Elasticsearch 6.x or older: mapping types were removed in Elasticsearch 8, which rejects requests that carry a type.
 
 
-    | Key            | Description                                           |
-    |----------------|-------------------------------------------------------|
-    | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
-    | Key:           | nsclient log index                                    |
-    | Default value: | `nsclient_log-%(date)`                                |
+| Key            | Description                                           |
+|----------------|-------------------------------------------------------|
+| Path:          | [/settings/elastic/client](#/settings/elastic/client) |
+| Key:           | nsclient log type                                     |
+| Default value: | _N/A_                                                 |
 
 
-    **Sample:**
+**Sample:**
 
-    ```
-    [/settings/elastic/client]
-    # Elastic index used for metrics
-    nsclient log index=nsclient_log-%(date)
-    ```
-
-=== "Linux"
-
-    #### Elastic index used for the nsclient log <a id="/settings/elastic/client/nsclient log index"></a>
-
-    The elastic index to use for the NSClient++ log.
-
-
-    | Key            | Description                                           |
-    |----------------|-------------------------------------------------------|
-    | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
-    | Key:           | nsclient log index                                    |
-    | Default value: | `nsclient_log-%(date)`                                |
-
-
-    **Sample:**
-
-    ```
-    [/settings/elastic/client]
-    # Elastic index used for the nsclient log
-    nsclient log index=nsclient_log-%(date)
-    ```
-
-=== "Windows"
-
-    #### Elastic type used for metrics <a id="/settings/elastic/client/nsclient log type"></a>
-
-    The elastic type to use for metrics.
-
-
-    | Key            | Description                                           |
-    |----------------|-------------------------------------------------------|
-    | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
-    | Key:           | nsclient log type                                     |
-    | Default value: | `nsclient log`                                        |
-
-
-    **Sample:**
-
-    ```
-    [/settings/elastic/client]
-    # Elastic type used for metrics
-    nsclient log type=nsclient log
-    ```
-
-=== "Linux"
-
-    #### Elastic type used for the nsclient log <a id="/settings/elastic/client/nsclient log type"></a>
-
-    The elastic type to use for the NSClient++ log. Only set this for Elasticsearch 6.x or older: mapping types were removed in Elasticsearch 8, which rejects requests that carry a type.
-
-
-    | Key            | Description                                           |
-    |----------------|-------------------------------------------------------|
-    | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
-    | Key:           | nsclient log type                                     |
-    | Default value: | _N/A_                                                 |
-
-
-    **Sample:**
-
-    ```
-    [/settings/elastic/client]
-    # Elastic type used for the nsclient log
-    nsclient log type=
-    ```
+```
+[/settings/elastic/client]
+# Elastic type used for the nsclient log
+nsclient log type=
+```
 
 #### Elastic password <a id="/settings/elastic/client/password"></a>
 
@@ -405,7 +304,6 @@ The password used to authenticate against Elasticsearch (basic authentication).
 |----------------|-------------------------------------------------------|
 | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
 | Key:           | password                                              |
-| Platform:      | Linux only                                            |
 | Default value: | _N/A_                                                 |
 
 
@@ -426,7 +324,6 @@ Timeout (in seconds) for each connect, read and write when talking to Elasticsea
 |----------------|-------------------------------------------------------|
 | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
 | Key:           | timeout                                               |
-| Platform:      | Linux only                                            |
 | Default value: | `30`                                                  |
 
 
@@ -447,7 +344,6 @@ The TLS version to use when connecting over https (1.0, 1.1, 1.2, 1.2+ or 1.3).
 |----------------|-------------------------------------------------------|
 | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
 | Key:           | tls version                                           |
-| Platform:      | Linux only                                            |
 | Default value: | `1.2+`                                                |
 
 
@@ -468,7 +364,6 @@ The username used to authenticate against Elasticsearch (basic authentication). 
 |----------------|-------------------------------------------------------|
 | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
 | Key:           | user                                                  |
-| Platform:      | Linux only                                            |
 | Default value: | _N/A_                                                 |
 
 
@@ -489,7 +384,6 @@ How to verify the Elasticsearch server certificate when connecting over https. '
 |----------------|-------------------------------------------------------|
 | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
 | Key:           | verify mode                                           |
-| Platform:      | Linux only                                            |
 | Default value: | `peer`                                                |
 
 
