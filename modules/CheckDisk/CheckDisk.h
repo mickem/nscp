@@ -47,4 +47,10 @@ class CheckDisk : public nscapi::impl::simple_plugin {
   // Legacy checks
   void checkDriveSize(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   void checkFiles(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+
+  // Read-only view of the collector the module owns; null until loadModuleEx()
+  // has created it. Exists so the unit test can assert on the intervals
+  // loadModuleEx parsed out of the settings - the clamping and the fallbacks
+  // it applies have no other observable effect.
+  const collector_thread *get_collector() const { return collector_.get(); }
 };

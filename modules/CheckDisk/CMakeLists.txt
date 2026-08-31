@@ -178,6 +178,15 @@ else()
         check_disk_unix_test
         SOURCES
             check_disk_unix_test.cpp
+            # The module class itself: its settings parsing and dispatch
+            # wrappers are ordinary C++ that only needs a stubbed core, and
+            # the branches they add (bad intervals, "collector not started",
+            # the legacy deprecation responses) are unreachable from a running
+            # daemon - so the integration suite cannot cover them.
+            check_disk_module_test.cpp
+            "${TARGET}.cpp"
+            ${NSCP_INCLUDEDIR}/compat.cpp
+            ${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_impl.cpp
             check_disk_health_test.cpp
             check_disk_io_check_test.cpp
             check_disk_health.cpp

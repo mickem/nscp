@@ -65,3 +65,30 @@ target_link_libraries(
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 source_group("Client" REGULAR_EXPRESSION .*include/nsca/.*)
 source_group("Socket" REGULAR_EXPRESSION .*include/socket/.*)
+
+# Unit tests for the module class itself: the settings it registers/reads and
+# the target/handler sections it turns into client targets and commands. The
+# stub core (include/nscapi/test_helpers.hpp) stands in for the daemon.
+NSCP_CREATE_TEST(
+    nsca_module_test
+    SOURCES
+        nsca_module_test.cpp
+        "${TARGET}.cpp"
+        ${NSCP_INCLUDEDIR}/net/nsca/nsca_packet.cpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+        ${NSCP_INCLUDEDIR}/bytes/crc32.cpp
+        ${NSCP_DEF_PLUGIN_CPP}
+        ${NSCP_CLIENT_CPP}
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${CRYPTOPP_LIBRARIES}
+        ${EXTRA_LIBS}
+        nscpcrypt
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
