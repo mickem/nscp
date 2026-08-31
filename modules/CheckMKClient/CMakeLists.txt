@@ -95,6 +95,43 @@ NSCP_CREATE_TEST(
         ${Boost_THREAD_LIBRARY}
         ${Boost_DATE_TIME_LIBRARY}
         ${EXTRA_LIBS}
+        ${LUA_LIBRARIES}
+        lua_nscp
+        # lua_nscp pulls in boost::this_thread, so the thread library has to
+        # come after it on the link line as well.
+        ${Boost_THREAD_LIBRARY}
+        ${CMAKE_THREAD_LIBS_INIT}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+# Unit tests for the module class itself: the settings it registers/reads and
+# the target/handler sections it turns into client targets and commands. The
+# stub core (include/nscapi/test_helpers.hpp) stands in for the daemon.
+NSCP_CREATE_TEST(
+    check_mk_module_test
+    SOURCES
+        check_mk_module_test.cpp
+        "${TARGET}.cpp"
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+        ${NSCP_INCLUDEDIR}/net/check_mk/lua/lua_check_mk.cpp
+        ${NSCP_INCLUDEDIR}/metrics/metrics_store_map.cpp
+        ${NSCP_DEF_PLUGIN_CPP}
+        ${NSCP_CLIENT_CPP}
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${EXTRA_LIBS}
+        ${LUA_LIBRARIES}
+        lua_nscp
+        # lua_nscp pulls in boost::this_thread, so the thread library has to
+        # come after it on the link line as well.
+        ${Boost_THREAD_LIBRARY}
+        ${CMAKE_THREAD_LIBS_INIT}
     INCLUDES
         ${NSCP_INCLUDEDIR}
         ${CMAKE_CURRENT_SOURCE_DIR}

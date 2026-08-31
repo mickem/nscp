@@ -55,3 +55,28 @@ target_link_libraries(
     ${EXTRA_LIBS}
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
+
+NSCP_CREATE_TEST(
+    graphite_module_test
+    SOURCES
+        graphite_module_test.cpp
+        "${TARGET}.cpp"
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_impl.cpp
+        # The Windows plugin_api DLL does not export the settings_helper
+        # symbols the target objects' read() needs, so compile them in
+        # (see client_command_line_parser_test).
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
+        ${NSCP_CLIENT_CPP}
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${EXTRA_LIBS}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
