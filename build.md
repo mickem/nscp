@@ -976,12 +976,27 @@ gcovr --add-tracefile coverage/unit.json \
 nothing exercises a module whose only job is to crash the daemon, and if
 anything did, the crash would take the unflushed gcov counters with it.
 
-Three things are worth knowing before trusting the numbers:
+Four things are worth knowing before trusting the numbers:
 
 - **Stale `.gcda` are poison.** Once the sources move on, gcov rejects the old
   data with `stamp mismatch with notes file` and silently under-reports. The
   script deletes every `.gcda` before each suite; if you drive gcov by hand, do
   the same.
+- **Orphaned `.gcno` are worse.** gcovr reads every `.gcno` in the tree, so a
+  build directory reused across a `CMakeLists.txt` change accumulates objects
+  no target compiles any more and no rebuild will ever refresh. Edit such a
+  source and the same function is recorded at two different lines — the live
+  objects at the new one, the orphan at the old — which gcov reports as
+  `source file is newer than notes file` plus a whole file at
+  `Lines executed:0.00%`, and which makes gcovr's default strict function merge
+  abort the entire run (`AssertionError: Got function … on multiple lines: 89,
+  97`) after the build and the tests have already been paid for. An interrupted
+  build leaves the same mix. The script drops both kinds before building — an
+  object missing from its target's `build.make`, or one whose own source (from
+  the compiler depfile beside it) is newer than its notes — and with
+  `SKIP_BUILD=1` warns instead. It also passes
+  `--merge-mode-functions=merge-use-line-min` so any residual mismatch degrades
+  to a lowest-line report rather than losing the run.
 - **The daemon must shut down cleanly.** gcov flushes its counters in an
   `atexit` handler, so a SIGKILLed `nscp` contributes nothing. On Linux the
   harness stops it with SIGTERM and `CommandClient` turns that into a graceful

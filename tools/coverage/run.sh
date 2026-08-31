@@ -71,6 +71,72 @@ wipe_gcda() {
     find "$BUILD_DIR" -name '*.gcda' -delete
 }
 
+# .gcno notes are written when an object is compiled and carry the line numbers
+# of every function in it. gcovr reads every .gcno in the tree, including ones
+# no current target compiles any more, so a build directory reused across a
+# CMakeLists change accumulates objects that no rebuild will ever refresh (the
+# client sources ElasticClient dropped, for instance). Edit such a source and
+# the same function is now recorded at two different lines - the live objects at
+# the new line, the orphan at the old one - and gcovr's default (strict)
+# function merge aborts the entire run on that, after the build and the tests
+# have already been paid for:
+#
+#   AssertionError: Got function client::destination_container::to_string() const
+#   on multiple lines: 89, 97
+#
+# The quiet half of the same failure is worse: gcov rejects the old notes with
+# "source file is newer than notes file" and reports that whole file as
+# "Lines executed:0.00%", which just looks like a coverage gap. An interrupted
+# build produces the same mix for a different reason.
+#
+# Nothing downstream can repair either, so drop the object, its notes and its
+# data. Two rules, both per-object rather than against a global timestamp:
+#
+#   orphan - the object is no longer listed in its target's build.make (which
+#            cmake has just regenerated, so it is authoritative). Dead wood; it
+#            is not rebuilt because nothing compiles it any more.
+#   stale  - its source, taken from the first dependency in the compiler depfile
+#            beside it, is newer than the notes. The build recompiles it.
+#
+# The orphan rule needs a Makefiles generator; under Ninja it simply never
+# fires and the mtime rule carries the load.
+prune_stale_notes() {
+    local mode="$1" gcno dep src obj dir mk stale=0
+    [ -d "$BUILD_DIR" ] || return 0
+    while IFS= read -r gcno; do
+        obj="${gcno%.gcno}.o"
+        # Walk up to the enclosing <target>.dir to find the target's build.make.
+        dir="$(dirname "$gcno")"
+        while [ "$dir" != "$BUILD_DIR" ] && [ "$dir" != . ] && [ "$dir" != / ]; do
+            case "$dir" in *.dir) break ;; esac
+            dir="$(dirname "$dir")"
+        done
+        mk="$dir/build.make"
+        if [ -f "$mk" ] && ! grep -qF "${obj#"$dir/"}" "$mk"; then
+            : # orphan: no current target compiles it
+        else
+            dep="${gcno%.gcno}.o.d"
+            [ -f "$dep" ] || continue
+            src="$(sed -n '2{s/^[[:space:]]*//;s/[[:space:]]*\\$//;p;q}' "$dep")"
+            { [ -n "$src" ] && [ -f "$src" ] && [ "$src" -nt "$gcno" ]; } || continue
+        fi
+        stale=$((stale + 1))
+        if [ "$mode" = prune ]; then
+            rm -f "$gcno" "$obj" "${gcno%.gcno}.gcda"
+        elif [ "$stale" -le 5 ]; then
+            echo "    stale: $gcno" >&2
+        fi
+    done < <(find "$BUILD_DIR" -name '*.gcno')
+    if [ "$stale" != 0 ]; then
+        if [ "$mode" = prune ]; then
+            echo "==> Dropped $stale stale/orphaned object(s)"
+        else
+            echo "!!! $stale object(s) are stale or orphaned (SKIP_BUILD is set)." >&2
+            echo "!!! Those files will report as 0% covered - re-run without SKIP_BUILD." >&2
+        fi
+    fi
+}
+
 if [ -z "${SKIP_BUILD:-}" ]; then
     echo "==> Configuring $BUILD_DIR with NSCP_COVERAGE=ON"
     # shellcheck disable=SC2206
@@ -86,8 +152,12 @@ if [ -z "${SKIP_BUILD:-}" ]; then
         -DBUILD_MODULE_CauseCrashes=OFF \
         "${EXTRA_CMAKE_ARGS[@]}"
 
+    prune_stale_notes prune
+
     echo "==> Building (-j$JOBS)"
     cmake --build "$BUILD_DIR" -j"$JOBS"
+else
+    prune_stale_notes check
 fi
 
 mkdir -p "$OUT_DIR"
@@ -98,6 +168,16 @@ mkdir -p "$OUT_DIR"
 # changed since. Only the suites that run here belong in the merge (see the
 # one-suite note above), so drop the leftovers before starting.
 rm -f "$OUT_DIR/unit.json" "$OUT_DIR/integration.json"
+
+# Safety net for the function-line mismatch prune_stale_notes() cannot reach: a
+# SKIP_BUILD run, or a header whose inline function genuinely lands on different
+# lines in two translation units. Report it at its lowest line instead of
+# aborting the whole run - every report below reads the same data back, so they
+# all need the setting. Added in gcovr 6.0 - probe rather than assume.
+gcovr_merge=()
+if gcovr --help 2>&1 | grep -q -- '--merge-mode-functions'; then
+    gcovr_merge=(--merge-mode-functions=merge-use-line-min)
+fi
 
 # gcovr filters shared by every report. --root is the repo, so only our own
 # sources are considered; the excludes drop the test bodies themselves,
@@ -117,6 +197,7 @@ gcovr_common=(
     --root "$ROOT"
     --gcov-executable "$GCOV"
     "$BUILD_ABS"
+    "${gcovr_merge[@]}"
     --exclude '.*_test\.cpp'
     --exclude '.*\.pb\.(cc|h)$'
     --exclude '.*/_deps/.*'
@@ -164,7 +245,7 @@ if [ "$run_unit" = 1 ]; then
     echo "==> Collecting unit coverage"
     gcovr "${gcovr_common[@]}" --json "$ROOT/$OUT_DIR/unit.json"
     gcovr --root "$ROOT" --add-tracefile "$ROOT/$OUT_DIR/unit.json" \
-        "${gcovr_report_excludes[@]}" \
+        "${gcovr_merge[@]}" "${gcovr_report_excludes[@]}" \
         --html "$ROOT/$OUT_DIR/unit.html" \
         --print-summary
 fi
@@ -193,7 +274,7 @@ if [ "$run_integration" = 1 ]; then
     echo "==> Collecting integration coverage"
     gcovr "${gcovr_common[@]}" --json "$ROOT/$OUT_DIR/integration.json"
     gcovr --root "$ROOT" --add-tracefile "$ROOT/$OUT_DIR/integration.json" \
-        "${gcovr_report_excludes[@]}" \
+        "${gcovr_merge[@]}" "${gcovr_report_excludes[@]}" \
         --html "$ROOT/$OUT_DIR/integration.html" \
         --print-summary
 fi
@@ -205,7 +286,7 @@ for f in "$OUT_DIR/unit.json" "$OUT_DIR/integration.json"; do
 done
 mkdir -p "$OUT_DIR/html"
 gcovr --root "$ROOT" "${merge_args[@]}" \
-    "${gcovr_report_excludes[@]}" \
+    "${gcovr_merge[@]}" "${gcovr_report_excludes[@]}" \
     --html-details "$ROOT/$OUT_DIR/html/index.html" \
     --cobertura "$ROOT/$OUT_DIR/cobertura.xml" \
     --cobertura-pretty \
