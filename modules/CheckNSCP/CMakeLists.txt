@@ -67,3 +67,30 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
         ${CMAKE_SOURCE_DIR}/modules/CheckNSCP
 )
+
+# Unit tests for the module class itself: the update-check settings, the error
+# counter fed by the log stream and check_nscp's own health verdict. The stub
+# core (include/nscapi/test_helpers.hpp) stands in for the daemon.
+NSCP_CREATE_TEST(
+    check_nscp_module_test
+    SOURCES
+        check_nscp_module_test.cpp
+        "${TARGET}.cpp"
+        ${NSCP_DEF_PLUGIN_CPP}
+        ${NSCP_FILTER_CPP}
+        ${NSCP_INCLUDEDIR}/json/use_json.cpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+        ${NSCP_INCLUDEDIR}/bytes/base64.c
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${NSCP_FILTER_LIB}
+        expression_parser
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${EXTRA_LIBS}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)

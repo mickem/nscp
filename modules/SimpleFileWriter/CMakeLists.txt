@@ -34,3 +34,24 @@ target_link_libraries(
 )
 
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
+
+# Unit tests for the module class itself: the settings it registers/reads, the
+# syntax it compiles into lookup functors and the line it writes. The stub core
+# (include/nscapi/test_helpers.hpp) stands in for the daemon.
+NSCP_CREATE_TEST(
+    simple_file_writer_module_test
+    SOURCES
+        simple_file_writer_module_test.cpp
+        "${TARGET}.cpp"
+        ${NSCP_DEF_PLUGIN_CPP}
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        expression_parser
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)

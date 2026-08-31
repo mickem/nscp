@@ -62,3 +62,30 @@ target_link_libraries(
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 source_group("Client" REGULAR_EXPRESSION .*include/nrpe/.*)
 source_group("Socket" REGULAR_EXPRESSION .*include/socket/.*)
+
+# Unit tests for the module class itself: the settings it registers/reads, the
+# target/handler sections, and `nscp nrpe install` - which decides whether the
+# NRPE server ends up verifying certificates or on the legacy insecure profile.
+# The stub core (include/nscapi/test_helpers.hpp) stands in for the daemon.
+NSCP_CREATE_TEST(
+    nrpe_module_test
+    SOURCES
+        nrpe_module_test.cpp
+        "${TARGET}.cpp"
+        ${NSCP_INCLUDEDIR}/net/nrpe/packet.cpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+        ${NSCP_INCLUDEDIR}/bytes/crc32.cpp
+        ${NSCP_DEF_PLUGIN_CPP}
+        ${NSCP_CLIENT_CPP}
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${EXTRA_LIBS}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)

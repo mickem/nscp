@@ -83,11 +83,13 @@ class stub_core {
   // test.
   void reset() {
     settings_.clear();
+    version_.clear();
     keys_.clear();
     sections_.clear();
     registered_keys_.clear();
     registered_paths_.clear();
     registrations_.clear();
+    updated_settings_.clear();
   }
 
   // ----- configuring what the module reads ---------------------------------
@@ -120,6 +122,10 @@ class stub_core {
   // (the section itself carries the configuration).
   void set_sections(const std::string &path, const std::vector<std::string> &sections) { sections_[path] = sections; }
 
+  // What the core reports as the running version. Left unset the query fails,
+  // which is what a module sees from a core that cannot answer.
+  void set_application_version(const std::string &version) { version_ = version; }
+
   // ----- what the module registered ----------------------------------------
 
   const std::vector<registered_key> &registered_keys() const { return registered_keys_; }
@@ -135,6 +141,23 @@ class stub_core {
   bool has_command(const std::string &name) const { return contains(registered_commands(), name); }
   bool has_channel(const std::string &name) const { return contains(registered_channels(), name); }
   bool has_event(const std::string &name) const { return contains(registered_events(), name); }
+
+  // Settings the module wrote back, in order - what `nscp <module> install`
+  // and friends persist to nsclient.ini.
+  const std::vector<registered_key> &updated_settings() const { return updated_settings_; }
+  // The value written for a key, or "" if it was never written.
+  std::string updated_value(const std::string &key) const {
+    for (const registered_key &k : updated_settings_) {
+      if (k.key == key) return k.default_value;
+    }
+    return std::string();
+  }
+  bool was_updated(const std::string &key) const {
+    for (const registered_key &k : updated_settings_) {
+      if (k.key == key) return true;
+    }
+    return false;
+  }
 
   // Whether a key was registered as holding a credential. The core redacts
   // those in the REST settings API, so the flag is security-relevant and
@@ -276,8 +299,15 @@ class stub_core {
           node->set_key(query.node().key());
           node->set_value(self.lookup(path, query.node().key(), query.default_value()));
         }
+      } else if (in.has_update()) {
+        registered_key update;
+        update.path = in.update().node().path();
+        update.key = in.update().node().key();
+        update.default_value = in.update().node().value();
+        self.updated_settings_.push_back(update);
       }
-      // Updates and everything else: an OK result is all the proxy reads.
+      // Control (save/load) and everything else: an OK result is all the
+      // caller reads.
     }
     write_response(resp.SerializeAsString(), response, response_len);
     return NSCAPI::api_return_codes::isSuccess;
@@ -322,6 +352,14 @@ class stub_core {
     return NSCAPI::api_return_codes::isSuccess;
   }
 
+  static NSCAPI::errorReturn application_version(char *buffer, const unsigned int buf_len) {
+    const std::string &version = instance().version_;
+    if (version.empty() || version.size() >= buf_len) return NSCAPI::api_return_codes::hasFailed;
+    std::memcpy(buffer, version.data(), version.size());
+    buffer[version.size()] = '\0';
+    return NSCAPI::api_return_codes::isSuccess;
+  }
+
   static void destroy_buffer(char **buffer) {
     delete[] *buffer;
     *buffer = nullptr;
@@ -333,16 +371,19 @@ class stub_core {
     if (n == "NSAPIRegistryQuery") return reinterpret_cast<nscapi::core_api::FUNPTR>(&registry_query);
     if (n == "NSAPIStorageQuery") return reinterpret_cast<nscapi::core_api::FUNPTR>(&empty_query);
     if (n == "NSAPIExpandPath") return reinterpret_cast<nscapi::core_api::FUNPTR>(&expand_path);
+    if (n == "NSAPIGetApplicationVersionStr") return reinterpret_cast<nscapi::core_api::FUNPTR>(&application_version);
     if (n == "NSAPIDestroyBuffer") return reinterpret_cast<nscapi::core_api::FUNPTR>(&destroy_buffer);
     // Everything else (logging above all) stays null, which the wrapper
     // treats as a no-op.
     return nullptr;
   }
 
+  std::string version_;
   std::map<std::string, std::string> settings_;
   std::map<std::string, std::vector<std::string> > keys_;
   std::map<std::string, std::vector<std::string> > sections_;
   std::vector<registered_key> registered_keys_;
+  std::vector<registered_key> updated_settings_;
   std::vector<std::string> registered_paths_;
   // (PB::Registry::ItemType, name) in registration order.
   std::vector<std::pair<int, std::string> > registrations_;
