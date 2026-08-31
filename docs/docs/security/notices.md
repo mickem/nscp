@@ -142,8 +142,8 @@ first, alongside the release that contains them.
 
 ### Security hardening across the clients, scripts and filter framework
 
-**Fixed in:** unreleased (first release after 0.18.0) · **Severity:** High for
-NSCA-NG cert-mode targets, Low–Medium for everything else
+**Fixed in:** 0.18.1 · **Severity:** High for NSCA-NG cert-mode targets,
+Low–Medium for everything else
 
 One sweep over the outbound client modules (Icinga, NRDP, NSCA, NSCA-NG,
 check_mk, Elastic, Graphite, syslog and a second round on SMTP), the
@@ -360,7 +360,7 @@ agent can be made to trust something it should not.
   the module's only escape hatch was `insecure-skip-verify` — so the
   configuration operators arrived at was the one with verification turned off.
   A `ca` setting now defaults to `${ca-path}` like every other TLS client in
-  the tree. See the [upgrade note](../setup/upgrading.md#0172).
+  the tree. See the [upgrade note](../setup/upgrading.md#0180).
 - **ESMTP capabilities are matched per line rather than by substring.** Reply
   lines were concatenated with no separator and searched with `find()`, so a
   server's free text could answer for a capability it never advertised — a
@@ -395,7 +395,7 @@ only because `insecure-skip-verify = true` should have that removed and
 retried — certificate verification now succeeds against public providers. A
 target pointing at an internal relay with a private CA should name that bundle
 in `ca` rather than waive verification. See
-[Upgrading](../setup/upgrading.md#0172) for the full list.
+[Upgrading](../setup/upgrading.md#0180) for the full list.
 ### NRPE: decoded-argument metachar guard, optional version banner, and consistency fixes
 
 **Fixed in:** 0.18.0 · **Severity:** Low

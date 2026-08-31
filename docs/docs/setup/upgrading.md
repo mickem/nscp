@@ -14,14 +14,14 @@ per-release detail lives in each
 
 ---
 
-## Unreleased
+## 0.18.1
 
 - 🔒 **Icinga API submissions now honour the configured `timeout`, and
   credentials no longer reach the trace log.** The `IcingaClient` module's
   HTTP calls previously waited forever — the target's `timeout` setting
   (default 30 s) was read but never applied — so a stalled Icinga endpoint
   could silently wedge passive-result submission; set `timeout = 0` on the
-  target if you depend on the old unbounded wait. The same review masked
+  target if you depend on the old unbounded wait. The same pass masked
   `password`/`token` values in the trace-level target dump (this also covers
   the other client modules sharing that machinery) and added a log message
   when an `https` submission runs with certificate verification disabled
@@ -39,7 +39,7 @@ per-release detail lives in each
   configuration are unaffected — only a pathologically large or deeply nested
   expression is refused. See the
   [security notice](../security/notices.md#security-hardening-across-the-clients-scripts-and-filter-framework).
-- 🔒 **CheckExternalScripts hardening.** A security review of the external
+- 🔒 **CheckExternalScripts hardening.** A hardening pass over the external
   scripts module tightened several rough edges: the `ext-scr install` argument
   lockdown now writes to the setting the module actually reads (previously it
   was a no-op, so a lockdown could silently not apply), the command timeout is
@@ -89,9 +89,6 @@ per-release detail lives in each
   host/service names are stripped of control characters and out-of-range
   status codes are clamped to UNKNOWN. No action needed on a default install.
   See the [security notice](../security/notices.md#security-hardening-across-the-clients-scripts-and-filter-framework).
-
----
-
 - 🔒 **NRDP submissions now honour `timeout` and `retry`.** Both settings were
   parsed but never applied: a submission to a server that accepted the
   connection and then stalled hung the submission thread forever, and failed
@@ -103,7 +100,6 @@ per-release detail lives in each
   than the timeout to answer — raise `timeout` on that target. The response
   body is also capped at 5 MB, far above any real NRDP reply. See the
   [security notice](../security/notices.md#security-hardening-across-the-clients-scripts-and-filter-framework).
-
 - 🔒 **A `tls version` with a trailing `+` now means "that version or later".**
   `1.2+` (the common default) previously negotiated TLS 1.2 *only*; it now
   also permits TLS 1.3, and `any` is accepted as the documentation always
@@ -139,7 +135,6 @@ per-release detail lives in each
   check_mk target, the connection becomes TLS on upgrade — make sure the
   server side actually speaks TLS, or the check starts failing. Details in the
   [security notice](../security/notices.md#security-hardening-across-the-clients-scripts-and-filter-framework).
-
 - 📨 **Syslog client targets: configured severities and templates are honoured
   again.** The same defect existed in the syslog client's target object: the
   `severity`, `facility`, `tag_syntax`, `message_syntax` and per-status
@@ -148,7 +143,6 @@ per-release detail lives in each
   configured — perhaps years ago, without effect — now apply; if your syslog
   routing depends on the previously effective defaults, review the target
   sections for stale keys.
-
 - 📨 🔒 **Syslog messages now carry the RFC 3164 HOSTNAME field, and several
   syslog options work for the first time** (see the
   [security notice](../security/notices.md#security-hardening-across-the-clients-scripts-and-filter-framework)).
@@ -360,7 +354,7 @@ per-release detail lives in each
   one-shot command line, or a default target — falls back to the same bundle,
   resolved once at module load, so no submission path is left on OpenSSL's
   built-in verify paths by accident.
-- 🔒 **SMTP client security-review hardening.** The same review closed a set of
+- 🔒 **SMTP client security hardening.** The same pass closed a set of
   trust gaps in `SMTPClient`: data pipelined into the STARTTLS greeting is
   refused rather than trusted as post-handshake input, the EHLO name is
   validated for command injection before it reaches the wire, and ESMTP
@@ -396,7 +390,7 @@ per-release detail lives in each
   `nscp nrpe install` reads the stored `verify mode` again instead of silently
   resetting it on a re-run.
   See the [security notice](../security/notices.md#nrpe-decoded-argument-metachar-guard-optional-version-banner-and-consistency-fixes).
-- 🔒 **WEB server security-review hardening.** A review of the `WEBServer`
+- 🔒 **WEB server security hardening.** A review of the `WEBServer`
   module produced several defense-in-depth fixes (session tokens now come from
   the OpenSSL CSPRNG, cookie-name matching requires a name boundary, the
   installer refuses an HTTPS→HTTP redirect, and the `legacy` grant's startup
