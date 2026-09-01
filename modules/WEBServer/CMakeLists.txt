@@ -136,7 +136,11 @@ NSCP_CREATE_TEST(
         name_safety_test.cpp
         auth_rate_limiter_test.cpp
         error_handler.cpp
+        error_handler_test.cpp
         metrics_handler.cpp
+        metrics_handler_test.cpp
+        event_store.cpp
+        event_store_test.cpp
         web_installer.cpp
         web_installer_test.cpp
         static_controller.cpp
