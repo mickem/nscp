@@ -1,6 +1,7 @@
 ---
 icon: "📡"
 modules: [NRPEClient, NSCAClient, NSCANgClient, NRDPClient, SMTPClient, GraphiteClient, SyslogClient, IcingaClient, CollectdClient, Op5Client, NSCPClient, ElasticClient, CheckMKClient]
+action: conditional
 ---
 **`--source-host` / `--sender-host` now name the sending host, on every
 client module.** They were registered against the *destination* container,

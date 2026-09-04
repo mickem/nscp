@@ -1,6 +1,7 @@
 ---
 icon: "📤"
 modules: [CheckHelpers]
+action: conditional
 ---
 **`check_and_forward` now actually submits the result.** The command ran the
 wrapped check, answered `Message submitted` and delivered nothing: the

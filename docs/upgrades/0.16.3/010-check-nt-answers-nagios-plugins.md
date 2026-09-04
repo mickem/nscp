@@ -1,6 +1,7 @@
 ---
 icon: "🔌"
 modules: [NSClientServer]
+action: none
 ---
 **`check_nt` (NSClientServer) answers the real nagios-plugins client again.**
 Requests without a trailing newline used to hang until the client timed out

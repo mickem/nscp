@@ -1,6 +1,7 @@
 ---
 icon: "🔒"
 modules: [ElasticClient]
+action: conditional
 ---
 **The Elastic module now verifies HTTPS server certificates and can
 authenticate.** `ElasticClient` previously hardcoded TLS verification off;

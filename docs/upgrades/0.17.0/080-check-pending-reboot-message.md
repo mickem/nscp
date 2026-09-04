@@ -1,6 +1,7 @@
 ---
 icon: "🪟"
 modules: [CheckSystem]
+action: conditional
 ---
 **`check_pending_reboot`'s default message now names the pending-since
 time.** When the reboot was queued by Component Based Servicing or Windows

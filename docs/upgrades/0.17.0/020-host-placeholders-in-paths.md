@@ -1,6 +1,7 @@
 ---
 icon: "🔒"
 modules: [core]
+action: conditional
 ---
 **`${host}` and friends now resolve in attachment paths and in
 `[/includes]`.** Host name placeholders were only expanded in settings urls

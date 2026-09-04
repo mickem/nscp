@@ -1,6 +1,7 @@
 ---
 icon: "🔒"
 modules: [WEBServer]
+action: none
 ---
 **Icinga `check_nscp_api`** works again after upgrade with no config
 change. For a non-stock probe, set `[/settings/WEB/server] legacy query auth

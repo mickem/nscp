@@ -1,6 +1,7 @@
 ---
 icon: "🔒"
 modules: [core]
+action: none
 ---
 **New permission policy layer, disabled by default.** Existing installs
 behave exactly as before until an operator sets

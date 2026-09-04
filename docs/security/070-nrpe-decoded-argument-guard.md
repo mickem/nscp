@@ -3,6 +3,7 @@ title: "NRPE: decoded-argument metachar guard, optional version banner, and cons
 fixed_in: 0.18.0
 severity: "Low"
 modules: [NRPEServer, NRPEClient]
+action: none
 ---
 A review of the `NRPEServer` / `NRPEClient` modules produced a set of
 defense-in-depth fixes. None is remotely exploitable on a default install

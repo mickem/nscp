@@ -6,12 +6,13 @@
  * notes inherit their version from the enclosing <div class="note-version">;
  * advisory table rows carry the same class and attributes). This script
  * enables the (otherwise hidden) filter form and hides the notes that do not
- * match the version range, the ticked modules or, on the Upgrading page, the
+ * match the version range, the ticked modules, the "needs action only" switch
+ * (data-action="required" or "conditional") or, on the Upgrading page, the
  * security-only switch.
  *
  * The selection is stored in localStorage — shared by both pages, so a reader
  * ticks their modules once — and mirrored into the query string
- * (?from=0.16.4&to=0.18.1&security=1&modules=NRPEServer,CheckSystem) so a
+ * (?from=0.16.4&to=0.18.1&security=1&action=1&modules=NRPEServer,CheckSystem) so a
  * filtered view can be bookmarked or shared. Query-string parameters win over
  * the stored selection.
  */
@@ -55,7 +56,8 @@
 
   function fromQuery(all) {
     var params = new URLSearchParams(window.location.search);
-    if (!params.has('from') && !params.has('to') && !params.has('security') && !params.has('modules')) {
+    if (!params.has('from') && !params.has('to') && !params.has('security') &&
+        !params.has('action') && !params.has('modules')) {
       return null;
     }
     var checked = params.has('modules')
@@ -65,6 +67,7 @@
       from: params.get('from') || '',
       to: params.get('to') || '',
       security: params.get('security') === '1',
+      action: params.get('action') === '1',
       unchecked: all.filter(function (m) { return checked.indexOf(m) < 0; })
     };
   }
@@ -74,6 +77,7 @@
     if (state.from) { params.set('from', state.from); }
     if (state.to) { params.set('to', state.to); }
     if (state.security) { params.set('security', '1'); }
+    if (state.action) { params.set('action', '1'); }
     if (state.unchecked.length) {
       params.set('modules', all.filter(function (m) { return state.unchecked.indexOf(m) < 0; }).join(','));
     }
@@ -82,7 +86,7 @@
   }
 
   function isFiltered(state) {
-    return !!(state.from || state.to || state.security || state.unchecked.length);
+    return !!(state.from || state.to || state.security || state.action || state.unchecked.length);
   }
 
   function init() {
@@ -93,6 +97,7 @@
     var fromSel = document.getElementById('note-from');
     var toSel = document.getElementById('note-to');
     var securityBox = document.getElementById('note-security'); // absent on the notices page
+    var actionBox = document.getElementById('note-action');
     var summary = document.getElementById('note-modules-summary');
     var status = document.getElementById('note-status');
     var boxes = Array.prototype.slice.call(form.querySelectorAll('input[name="module"]'));
@@ -101,7 +106,7 @@
     var notes = entries.filter(function (e) { return e.tagName !== 'TR'; });
     var versions = Array.prototype.slice.call(document.querySelectorAll('.note-version'));
 
-    var defaults = { from: '', to: '', security: false, unchecked: [] };
+    var defaults = { from: '', to: '', security: false, action: false, unchecked: [] };
     var state = fromQuery(all);
     // A deep link (#0180 from the security notices, say) must land on a visible
     // section, so a stored selection is not applied when the page is opened
@@ -114,6 +119,7 @@
       from: state.from || '',
       to: state.to || '',
       security: !!state.security && !!securityBox,
+      action: !!state.action,
       unchecked: (state.unchecked || []).filter(function (m) { return all.indexOf(m) >= 0; })
     };
 
@@ -135,6 +141,7 @@
         return false;
       }
       if (state.security && entry.dataset.security !== '1') { return false; }
+      if (state.action && entry.dataset.action === 'none') { return false; }
       return mods.some(function (m) { return checked.indexOf(m) >= 0; });
     }
 
@@ -142,6 +149,7 @@
       fromSel.value = state.from;
       toSel.value = state.to;
       if (securityBox) { securityBox.checked = state.security; }
+      actionBox.checked = state.action;
       boxes.forEach(function (b) { b.checked = state.unchecked.indexOf(b.value) < 0; });
 
       var checked = all.filter(function (m) { return state.unchecked.indexOf(m) < 0; });
@@ -181,6 +189,7 @@
     if (securityBox) {
       securityBox.addEventListener('change', function () { state.security = securityBox.checked; update(); });
     }
+    actionBox.addEventListener('change', function () { state.action = actionBox.checked; update(); });
     boxes.forEach(function (b) {
       b.addEventListener('change', function () {
         state.unchecked = boxes.filter(function (box) { return !box.checked; }).map(function (box) { return box.value; });
@@ -195,7 +204,7 @@
         } else if (action === 'none') {
           state.unchecked = all.slice();
         } else if (action === 'reset') {
-          state = { from: '', to: '', security: false, unchecked: [] };
+          state = { from: '', to: '', security: false, action: false, unchecked: [] };
           clearStored();
         }
         update();

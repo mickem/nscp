@@ -1,6 +1,7 @@
 ---
 icon: "🔒"
 modules: [core, WEBServer]
+action: conditional
 ---
 **Sensitive settings values are redacted on read.** The REST settings
 read endpoints (`GET /api/v2/settings/...`, `/descriptions`) and

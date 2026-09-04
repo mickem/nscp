@@ -1,6 +1,7 @@
 ---
 icon: "🔒"
 modules: [WEBServer]
+action: none
 ---
 **The bundled Mongoose web server is upgraded to 7.23,** fixing two
 critical (CVSS 9.1) HTTP request-smuggling vulnerabilities in its HTTP

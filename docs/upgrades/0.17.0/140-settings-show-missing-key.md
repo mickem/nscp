@@ -1,6 +1,7 @@
 ---
 icon: "🔧"
 modules: [core]
+action: conditional
 ---
 **`nscp settings --show` now says so when `--key` is missing.** `--show
 --path /some/path` without a `--key` used to print nothing and exit 0; it

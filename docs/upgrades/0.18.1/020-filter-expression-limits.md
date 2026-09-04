@@ -1,6 +1,7 @@
 ---
 icon: "🔒"
 modules: [filters]
+action: none
 ---
 **Filter expressions are now bounded in length and nesting depth.** A
 `filter` / `warning` / `critical` expression — and a `%(...)` expression

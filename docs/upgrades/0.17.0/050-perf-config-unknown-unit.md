@@ -1,6 +1,7 @@
 ---
 icon: "📊"
 modules: [filters]
+action: conditional
 ---
 **A `unit:` in `perf-config` that names no unit no longer divides the metric
 by 1024⁷.** An unrecognised unit now leaves the value alone. If a graph of

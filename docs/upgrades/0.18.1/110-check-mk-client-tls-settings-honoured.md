@@ -1,6 +1,7 @@
 ---
 icon: "🔒"
 modules: [CheckMKClient]
+action: conditional
 ---
 **check_mk client targets: configured TLS settings are honoured again.**
 `check_mk_target_object::read()` added the SSL keys (`use ssl`,

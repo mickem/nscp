@@ -1,6 +1,7 @@
 ---
 icon: "🔒"
 modules: [WEBServer]
+action: none
 ---
 **The built-in `legacy` WEB role is no longer seeded on fresh installs,**
 and any role granting the `legacy` permission now triggers a `SECURITY`

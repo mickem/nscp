@@ -89,6 +89,28 @@
   margin: .6em 0 0;
   font-weight: 700;
 }
+/* Action badges: what the reader has to do about a note. */
+.md-typeset .note-badge {
+  display: inline-block;
+  vertical-align: baseline;
+  margin-right: .2em;
+  padding: 0 .45em;
+  border-radius: .2rem;
+  font-size: .7em;
+  font-weight: 700;
+  line-height: 1.7;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.md-typeset .note-badge--required {
+  background: #d32f2f;
+  color: #fff;
+}
+.md-typeset .note-badge--conditional {
+  background: #f9a825;
+  color: #212121;
+}
 .md-typeset .note-entry > ul,
 .md-typeset .note-entry > ol {
   margin-top: 0;

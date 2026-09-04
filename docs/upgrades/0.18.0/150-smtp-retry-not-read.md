@@ -1,6 +1,7 @@
 ---
 icon: "🧹"
 modules: [SMTPClient]
+action: none
 ---
 **The SMTP `retry` setting is not honoured and is no longer read.** The
 module always made exactly one attempt per submission; reading the value

@@ -4,6 +4,7 @@ fixed_in: 0.16.4
 fixed_in_note: "bundles Mongoose 7.23"
 severity: "Critical (CVSS 9.1, upstream)"
 modules: [WEBServer]
+action: none
 advisory:
   id: "Upstream ([Cesanta Mongoose](https://github.com/cesanta/mongoose))"
   cve: "[CVE-2026-73256](https://nvd.nist.gov/vuln/detail/CVE-2026-73256), [CVE-2026-73257](https://nvd.nist.gov/vuln/detail/CVE-2026-73257)"

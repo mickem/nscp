@@ -4,6 +4,7 @@ fixed_in: 0.16.2
 severity: "Medium"
 reported_by: "[yagust](https://github.com/yagust)"
 modules: [WEBServer]
+action: none
 ---
 The `legacy` WEB grant unlocks the deprecated `POST /query.pb` and
 `GET /query/{name}` endpoints, which dispatch through the same command registry

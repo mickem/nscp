@@ -1,6 +1,7 @@
 ---
 icon: "🔒"
 modules: [NRPEServer]
+action: none
 ---
 **NRPEServer `client identity source`** defaults to `none` (previous
 behaviour). Set to `cn` only after configuring `verify_mode = peer-cert` and a

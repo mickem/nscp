@@ -1,6 +1,7 @@
 ---
 icon: "🔢"
 modules: [filters]
+action: conditional
 ---
 **An unknown unit in `format_bytes()` is now reported instead of rendering
 nonsense.** `format_bytes(used, 'gb')` used to render `1.27055e-10` because

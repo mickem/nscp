@@ -1,6 +1,7 @@
 ---
 icon: "📁"
 modules: [core]
+action: conditional
 ---
 **`[/paths]` overrides** from an older install moved to `[paths]` in
 `boot.ini` (same section name, different file). No automatic migration — copy

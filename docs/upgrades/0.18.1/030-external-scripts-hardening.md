@@ -1,6 +1,7 @@
 ---
 icon: "🔒"
 modules: [CheckExternalScripts]
+action: conditional
 ---
 **CheckExternalScripts hardening.** A hardening pass over the external
 scripts module tightened several rough edges: the `ext-scr install` argument

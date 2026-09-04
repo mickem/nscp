@@ -1,6 +1,7 @@
 ---
 icon: "🔒"
 modules: [NSCANgClient]
+action: conditional
 ---
 **NSCA-NG cert mode now actually verifies the server (and presents the
 client certificate).** In 0.18.0 the `NSCANgClient` cert mode

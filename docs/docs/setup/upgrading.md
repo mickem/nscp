@@ -8,7 +8,11 @@ moving to.
 
 Each entry carries an icon for the area it touches. 🔒 is the one that
 matters: those entries are security-relevant, and the
-[Security notices](../security/notices.md) page tracks them in one place. Full
+[Security notices](../security/notices.md) page tracks them in one place. An
+entry badged <span class="note-badge note-badge--required">Action required</span>
+needs a change on every installation that runs the module; one badged
+<span class="note-badge note-badge--conditional">Check your setup</span> only
+if you use the feature it describes; the rest are informational. Full
 per-release detail lives in each
 [GitHub release](https://github.com/mickem/nscp/releases).
 

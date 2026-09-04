@@ -15,6 +15,10 @@ changes.
 Use the filter below to narrow the page to your setup: pick the version you
 are coming from and tick the modules your `nsclient.ini` enables. The
 selection is shared with the Upgrading page and remembered in your browser.
+A notice badged <span class="note-badge note-badge--required">Action required</span>
+needs a change on every installation that runs the module; one badged
+<span class="note-badge note-badge--conditional">Check your setup</span> only
+if you use the feature it describes.
 
 <!--
   Contributors: do not add notices to this file. Each notice is its own file

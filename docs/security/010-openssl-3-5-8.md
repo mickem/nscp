@@ -4,6 +4,7 @@ fixed_in: 0.18.0
 fixed_in_note: "bundles OpenSSL 3.5.8"
 severity: "Moderate (highest fix reachable through NSClient++)"
 modules: [packaging, CheckSecurity, WEBServer]
+action: none
 advisory:
   id: "Upstream ([OpenSSL](https://github.com/openssl/openssl))"
   cve: "[CVE-2025-11187](https://nvd.nist.gov/vuln/detail/CVE-2025-11187) and the other OpenSSL 3.5.5–3.5.8 fixes"

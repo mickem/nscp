@@ -1,6 +1,7 @@
 ---
 icon: "🔒"
 modules: [packaging, CheckSecurity]
+action: none
 ---
 **The bundled OpenSSL is updated from 3.5.4 to 3.5.8** in the Windows
 builds, picking up the fixes from four upstream security releases on the

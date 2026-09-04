@@ -1,6 +1,7 @@
 ---
 icon: "🔒"
 modules: [NSCAServer, NSCAClient]
+action: conditional
 ---
 **NSCA hardening: empty-password warning, `performance data = false`
 honoured, wire-field validation.** Enabling NSCA encryption with an empty

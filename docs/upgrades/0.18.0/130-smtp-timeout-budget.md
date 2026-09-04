@@ -1,6 +1,7 @@
 ---
 icon: "⏱️"
 modules: [SMTPClient]
+action: conditional
 ---
 **The SMTP `timeout` is now a budget for the whole submission** rather than a
 fresh deadline per operation (and per resolved address). A target that

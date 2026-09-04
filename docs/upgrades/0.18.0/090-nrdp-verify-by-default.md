@@ -1,6 +1,7 @@
 ---
 icon: "🔒"
 modules: [NRDPClient]
+action: conditional
 ---
 **NRDP HTTPS submissions now verify the server certificate by default on
 the `nscp client`/REST path.** Previously an `https://` submission made that

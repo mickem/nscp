@@ -3,6 +3,7 @@ title: "SMTP client security hardening"
 fixed_in: 0.18.0
 severity: "Low–Medium"
 modules: [SMTPClient]
+action: conditional
 ---
 A review of the `SMTPClient` module produced a set of fixes to how it sets up
 and trusts a submission session. None is remotely exploitable by an

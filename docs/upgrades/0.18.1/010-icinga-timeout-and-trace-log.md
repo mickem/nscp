@@ -1,6 +1,7 @@
 ---
 icon: "🔒"
 modules: [IcingaClient]
+action: conditional
 ---
 **Icinga API submissions now honour the configured `timeout`, and
 credentials no longer reach the trace log.** The `IcingaClient` module's

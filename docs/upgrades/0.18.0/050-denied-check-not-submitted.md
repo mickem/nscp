@@ -1,6 +1,7 @@
 ---
 icon: "🚫"
 modules: [core, Scheduler, CheckHelpers]
+action: none
 ---
 **A denied check is no longer submitted as a passive result.** The permission
 layer answers a denied query as a *successful* query carrying an UNKNOWN

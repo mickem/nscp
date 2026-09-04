@@ -3,6 +3,7 @@ title: "WEB server security hardening"
 fixed_in: 0.18.0
 severity: "Low–Medium"
 modules: [WEBServer]
+action: conditional
 ---
 A focused hardening pass over the `WEBServer` module (REST API + web UI)
 produced a set of defense-in-depth fixes. None is a confirmed remote

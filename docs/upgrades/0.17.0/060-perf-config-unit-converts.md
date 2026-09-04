@@ -1,6 +1,7 @@
 ---
 icon: "📊"
 modules: [filters]
+action: conditional
 ---
 **`perf-config`'s `unit:` now converts plain byte series instead of
 relabelling them.** On series that are byte counts but do not auto-scale

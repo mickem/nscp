@@ -3,6 +3,7 @@ title: "Host name placeholders are sanitized before they land in a local path"
 fixed_in: 0.17.0
 severity: "Low"
 modules: [core]
+action: none
 ---
 With host name placeholders now resolving in attachment target paths and in
 `[/includes]` (issue [#458](https://github.com/mickem/nscp/issues/458)), the

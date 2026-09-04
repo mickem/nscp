@@ -4,6 +4,7 @@ fixed_in: 0.16.2
 severity: "Medium"
 reported_by: "[yagust](https://github.com/yagust)"
 modules: [core, WEBServer]
+action: conditional
 ---
 The settings read paths — `GET /api/v2/settings/...`,
 `GET /api/v2/settings/descriptions/...`, and the `nscp settings --list` /

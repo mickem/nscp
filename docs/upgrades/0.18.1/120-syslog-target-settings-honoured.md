@@ -1,6 +1,7 @@
 ---
 icon: "📨"
 modules: [SyslogClient]
+action: conditional
 ---
 **Syslog client targets: configured severities and templates are honoured
 again.** The same defect existed in the syslog client's target object: the

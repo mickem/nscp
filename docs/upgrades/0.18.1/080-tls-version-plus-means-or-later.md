@@ -1,6 +1,7 @@
 ---
 icon: "🔒"
 modules: [core]
+action: none
 ---
 **A `tls version` with a trailing `+` now means "that version or later".**
 `1.2+` (the common default) previously negotiated TLS 1.2 *only*; it now

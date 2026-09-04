@@ -1,6 +1,7 @@
 ---
 icon: "📄"
 modules: [CheckLogFile]
+action: none
 ---
 **`check_logfile`** is unchanged unless you opt in to `bookmark` / `max-lines`.
 Adopting `bookmark` is a trade-off: a line is consumed when the check runs

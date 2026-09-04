@@ -1,6 +1,7 @@
 ---
 icon: "📊"
 modules: [CheckHelpers]
+action: conditional
 ---
 **`filter_perf`/`render_perf`/`xform_perf`: the `max` and `min` filter
 keywords were swapped.** `max` read the perf-data *minimum* bound and

@@ -1,6 +1,7 @@
 ---
 icon: "🔧"
 modules: [core]
+action: none
 ---
 **Settings writes work again when `[/includes]` names a directory.** Saving
 handed the directory path to the INI writer, and the resulting "Is a

@@ -63,6 +63,17 @@ AREAS = [
 AREA_NAMES = [name for name, _ in AREAS]
 
 SECURITY_ICON = u'\U0001F512'  # 🔒
+
+# What the reader has to do about a note. ``required``: everyone running the
+# tagged modules must act; ``conditional``: only setups using the feature the
+# note describes must check; ``none``: nothing to do. Rendered as a badge and
+# behind the "needs action only" switch of the filter.
+ACTIONS = ['required', 'conditional', 'none']
+ACTION_ICON = u'\U0001F6E0\uFE0F'  # 🛠️
+ACTION_BADGE = {
+    'required': 'Action required',
+    'conditional': 'Check your setup',
+}
 VERSION_RE = re.compile(r'^\d+(\.\d+)*$')
 
 # Display groups for the module picker, in this order.
@@ -140,6 +151,15 @@ def read_modules(meta, path, valid):
     return modules
 
 
+def read_action(meta, path):
+    action = meta.get('action')
+    if action is None:
+        raise NoteError('%s: "action:" is required (one of: %s)' % (path, ', '.join(ACTIONS)))
+    if not isinstance(action, str) or action.strip() not in ACTIONS:
+        raise NoteError('%s: "action:" must be one of: %s' % (path, ', '.join(ACTIONS)))
+    return action.strip()
+
+
 def read_string(meta, key, path, required=False):
     value = meta.get(key)
     if value is None:
@@ -165,6 +185,7 @@ def parse_upgrade_note(path, valid):
         'path': path,
         'icon': icon,
         'modules': read_modules(meta, path, valid),
+        'action': read_action(meta, path),
         'security': security,
         'body': body,
     }
@@ -184,11 +205,13 @@ def parse_security_note(path, valid):
     return {
         'path': path,
         'title': read_string(meta, 'title', path, required=True),
+        'security': True,
         'fixed_in': fixed_in,
         'fixed_in_note': read_string(meta, 'fixed_in_note', path),
         'severity': read_string(meta, 'severity', path),
         'reported_by': read_string(meta, 'reported_by', path),
         'modules': read_modules(meta, path, valid),
+        'action': read_action(meta, path),
         'advisory': advisory,
         'body': body,
     }
@@ -241,23 +264,34 @@ def html_attr(value):
     return value.replace('&', '&amp;').replace('"', '&quot;').replace('<', '&lt;')
 
 
-def entry_open(modules, version='', security=False):
-    attrs = ' data-modules="%s"' % html_attr(' '.join(modules))
+def entry_attrs(note, version=''):
+    attrs = ' data-modules="%s" data-action="%s"' % (html_attr(' '.join(note['modules'])), note['action'])
     if version:
         attrs += ' data-version="%s"' % html_attr(version)
-    if security:
+    if note.get('security'):
         attrs += ' data-security="1"'
-    return '<div class="note-entry" markdown="1"%s>' % attrs
+    return attrs
+
+
+def entry_open(note, version=''):
+    return '<div class="note-entry" markdown="1"%s>' % entry_attrs(note, version)
+
+
+def action_badge(note):
+    label = ACTION_BADGE.get(note['action'])
+    if not label:
+        return ''
+    return '<span class="note-badge note-badge--%s">%s</span>' % (note['action'], label)
 
 
 def render_upgrade_note(note):
     lines = note['body'].split('\n')
-    head = '- ' + (note['icon'] + ' ' if note['icon'] else '') + lines[0]
+    badge = action_badge(note)
+    head = '- ' + (note['icon'] + ' ' if note['icon'] else '') + (badge + ' ' if badge else '') + lines[0]
     # Continuation lines are indented four spaces so nested lists, tables and
     # fenced code blocks stay inside the list item.
     rest = [('    ' + l) if l.strip() else '' for l in lines[1:]]
-    return '%s\n\n%s\n\n</div>' % (entry_open(note['modules'], security=note['security']),
-                                   '\n'.join([head] + rest))
+    return '%s\n\n%s\n\n</div>' % (entry_open(note), '\n'.join([head] + rest))
 
 
 def render_upgrades(versions):
@@ -271,9 +305,11 @@ def render_upgrades(versions):
 
 
 def render_security_note(note):
-    out = [entry_open(note['modules'], version=note['fixed_in'], security=True), '',
-           '### %s' % note['title'], '']
+    out = [entry_open(note, version=note['fixed_in']), '', '### %s' % note['title'], '']
     meta = []
+    badge = action_badge(note)
+    if badge:
+        meta.append(badge)
     if note['fixed_in']:
         fixed = note['fixed_in']
         if note['fixed_in_note']:
@@ -296,10 +332,7 @@ def render_advisory_table(notes):
     out = ['<table class="note-table" markdown="block">', '<thead><tr>%s</tr></thead>'
            % ''.join('<th>%s</th>' % label for _, label in ADVISORY_COLUMNS), '<tbody markdown="block">']
     for n in notes:
-        attrs = ' data-modules="%s"' % html_attr(' '.join(n['modules']))
-        if n['fixed_in']:
-            attrs += ' data-version="%s"' % html_attr(n['fixed_in'])
-        out.append('<tr class="note-entry" markdown="block"%s>' % attrs)
+        out.append('<tr class="note-entry" markdown="block"%s>' % entry_attrs(n, n['fixed_in']))
         out.extend('<td markdown="span">%s</td>' % n['advisory'][k] for k, _ in ADVISORY_COLUMNS)
         out.append('</tr>')
     out.extend(['</tbody>', '</table>'])
@@ -353,6 +386,8 @@ def render_filter(versions, security_switch):
     out.append('<label>to <select id="note-to"><option value="">latest</option>%s</select></label>' % options)
     if security_switch:
         out.append('<label><input type="checkbox" id="note-security"> %s security-relevant only</label>' % SECURITY_ICON)
+    out.append('<label title="Hide entries that need nothing from you"><input type="checkbox" id="note-action"> '
+               '%s needs action only</label>' % ACTION_ICON)
     out.append('</div>')
     out.append('<details class="note-filter__modules" id="note-modules">')
     out.append('<summary>Modules: <span id="note-modules-summary">all</span></summary>')

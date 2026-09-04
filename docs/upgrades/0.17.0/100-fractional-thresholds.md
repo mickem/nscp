@@ -1,6 +1,7 @@
 ---
 icon: "🔢"
 modules: [filters]
+action: conditional
 ---
 **Fractional numbers in thresholds are no longer truncated or rounded.**
 `count > 2.5` used to evaluate as `count > 3` (the literal was rounded

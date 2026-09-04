@@ -1,6 +1,7 @@
 ---
 icon: "⚙️"
 modules: [core]
+action: none
 ---
 **A reload now loads modules enabled in an included file since the last one.**
 An `[/includes]` file is read once when the configuration is loaded and served

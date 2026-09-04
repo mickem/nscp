@@ -1,6 +1,7 @@
 ---
 icon: "🔒"
 modules: [NRDPClient]
+action: conditional
 ---
 **NRDP submissions now honour `timeout` and `retry`.** Both settings were
 parsed but never applied: a submission to a server that accepted the

@@ -1,6 +1,7 @@
 ---
 icon: "🔒"
 modules: [SMTPClient]
+action: conditional
 ---
 **SMTP submissions now verify the server certificate against the agent's
 CA bundle.** `SMTPClient` relied on OpenSSL's built-in default verify paths,

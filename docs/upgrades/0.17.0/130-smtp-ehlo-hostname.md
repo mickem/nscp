@@ -1,6 +1,7 @@
 ---
 icon: "✉️"
 modules: [SMTPClient]
+action: conditional
 ---
 **SMTP notifications now announce this host in EHLO instead of
 `localhost`.** The sender's host name was read from the wrong place, so it

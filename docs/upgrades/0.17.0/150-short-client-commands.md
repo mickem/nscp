@@ -1,6 +1,7 @@
 ---
 icon: "💬"
 modules: [core]
+action: none
 ---
 **Client commands shorter than eight characters work again.** A command
 such as `cpu` or `run` answered `Exception processing command line:

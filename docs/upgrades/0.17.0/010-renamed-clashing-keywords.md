@@ -1,6 +1,7 @@
 ---
 icon: "🏷️"
 modules: [filters, CheckSystem, CheckSystemUnix, CheckNet, CheckSecurity, CheckDocker, CheckDisk]
+action: conditional
 ---
 **Check-specific filter keywords that clashed with the generic summary
 keywords are renamed.** A handful of checks registered their own keyword

@@ -1,6 +1,7 @@
 ---
 icon: "🔢"
 modules: [filters, CheckHelpers, CheckSystem, CheckSystemUnix, CheckLogFile]
+action: conditional
 ---
 **Filter comparisons between a text keyword and a bare number are now
 numeric.** A string-typed keyword compared against an unquoted number used

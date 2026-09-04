@@ -3,6 +3,7 @@ title: "NRDP client security hardening"
 fixed_in: 0.18.0
 severity: "Low–Medium"
 modules: [NRDPClient]
+action: conditional
 ---
 A focused hardening pass over the passive submission protocols (`NRDPClient`,
 `NSCAClient`/`NSCAServer`) produced a small set of defense-in-depth fixes on

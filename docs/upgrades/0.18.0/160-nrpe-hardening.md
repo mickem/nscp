@@ -1,6 +1,7 @@
 ---
 icon: "🔒"
 modules: [NRPEServer]
+action: none
 ---
 **NRPE hardening: a new `expose version` setting, and the metachar
 guard now also checks decoded input.** Nothing to do on a default install.

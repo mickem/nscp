@@ -1,6 +1,7 @@
 ---
 icon: "📨"
 modules: [SyslogClient, CheckMKClient]
+action: conditional
 ---
 **Syslog submission works again, so a configured syslog server will start
 receiving traffic.** `SyslogClient` read its connection settings from the

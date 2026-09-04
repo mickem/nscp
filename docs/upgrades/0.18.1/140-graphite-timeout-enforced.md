@@ -1,6 +1,7 @@
 ---
 icon: "⏱️"
 modules: [GraphiteClient]
+action: conditional
 ---
 **The Graphite `timeout` is now enforced — as a budget for the whole
 submission.** It was doubly dead before: the value the operator configured

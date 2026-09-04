@@ -1,6 +1,7 @@
 ---
 icon: "📅"
 modules: [Scheduler]
+action: none
 ---
 **New: run scheduled checks on demand with `run_schedules`.** After editing
 `nsclient.ini` you no longer have to wait out the interval to see the new

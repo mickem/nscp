@@ -1,6 +1,7 @@
 ---
 icon: "🔒"
 modules: [NSCAServer, NSCAClient]
+action: conditional
 ---
 **NSCA: an unrecognized `encryption` value is now a hard error instead of
 silently running without encryption.** A typo'd algorithm name (`aes-256`),

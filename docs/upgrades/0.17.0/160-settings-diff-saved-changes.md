@@ -1,6 +1,7 @@
 ---
 icon: "🔧"
 modules: [core, WEBServer]
+action: none
 ---
 **The settings diff no longer reports changes that were already saved.**
 `get_changes()` — behind the REST settings `diff` endpoint and any

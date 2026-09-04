@@ -1,6 +1,7 @@
 ---
 icon: "🔧"
 modules: [core]
+action: conditional
 ---
 **`settings --update --add-defaults --use-samples` now writes the sample
 objects.** The flag was parsed and never read, so it behaved exactly like the

@@ -1,6 +1,7 @@
 ---
 icon: "🔢"
 modules: [filters]
+action: none
 ---
 **Check messages can now be told how to render their numbers.** Every filter
 check gained four options - `decimals`, `byte-unit`, `decimal-separator` and

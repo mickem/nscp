@@ -1,6 +1,7 @@
 ---
 icon: "🧩"
 modules: [filters]
+action: conditional
 ---
 **Errors raised while a template renders are now reported.** A function that
 failed inside `detail-syntax` or `top-syntax` used to leave the placeholder

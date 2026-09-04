@@ -1,6 +1,7 @@
 ---
 icon: "📤"
 modules: [ElasticClient]
+action: conditional
 ---
 **The Elastic module no longer sends the legacy `_type` parameter by
 default.** Mapping types were removed in Elasticsearch 8, which rejects

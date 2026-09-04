@@ -1,6 +1,7 @@
 ---
 icon: "🔒"
 modules: [WEBServer]
+action: conditional
 ---
 **WEB server security hardening.** A review of the `WEBServer`
 module produced several defense-in-depth fixes (session tokens now come from

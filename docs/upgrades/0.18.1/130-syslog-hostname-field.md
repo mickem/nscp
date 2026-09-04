@@ -1,6 +1,7 @@
 ---
 icon: "📨 🔒"
 modules: [SyslogClient]
+action: conditional
 ---
 **Syslog messages now carry the RFC 3164 HOSTNAME field, and several
 syslog options work for the first time** (see the

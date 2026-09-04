@@ -1,6 +1,7 @@
 ---
 icon: "🔒"
 modules: [SMTPClient]
+action: none
 ---
 **SMTP client security hardening.** The same pass closed a set of
 trust gaps in `SMTPClient`: data pipelined into the STARTTLS greeting is

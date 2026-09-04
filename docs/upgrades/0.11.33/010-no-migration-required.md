@@ -1,6 +1,7 @@
 ---
 icon: "✅"
 modules: [core, CheckDisk]
+action: conditional
 ---
 **No configuration migration required** (new `proxy` keys are opt-in). The
 `check_files` fixes change a few corner cases: `max-depth=0` now scans the top

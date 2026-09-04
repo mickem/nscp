@@ -1,6 +1,7 @@
 ---
 icon: "💥"
 modules: [CheckNSCP]
+action: conditional
 ---
 **`check_nscp` is now a filter check, and it can see crash reports again.**
 Crash reporting itself has always worked — the agent has archived crash

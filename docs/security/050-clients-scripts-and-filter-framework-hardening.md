@@ -3,6 +3,7 @@ title: "Security hardening across the clients, scripts and filter framework"
 fixed_in: 0.18.1
 severity: "High for NSCA-NG cert-mode targets,"
 modules: [IcingaClient, NRDPClient, NSCAClient, NSCAServer, NSCANgClient, CheckMKClient, ElasticClient, GraphiteClient, SyslogClient, SMTPClient, CheckExternalScripts, filters]
+action: conditional
 ---
 Low–Medium for everything else
 

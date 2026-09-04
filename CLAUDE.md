@@ -179,13 +179,15 @@ from those files at build time, one file per note so parallel branches do not
 conflict. The file carries a front matter with `modules:` (the module
 directory names the change concerns, or an area: `core`, `filters`,
 `packaging`, `docs` — the page filters on these, so tag exactly the modules a
-reader must have enabled to be affected) and an `icon:`; the body starts with
-a bold title. Format and rules: `docs/upgrades/README.md`; validate with
+reader must have enabled to be affected), an `action:` (`required` when
+everyone running those modules must change something, `conditional` when only
+setups using the described feature must check, `none` when informational) and
+an `icon:`; the body starts with a bold title. Format and rules: `docs/upgrades/README.md`; validate with
 `python3 docs/hooks/notes.py --check`. Whenever a change is
 **security-relevant** — including hardening handled without a CVE — also add
 a security notice as a new file `docs/security/<slug>.md` (**never edit
 `docs/docs/security/notices.md`**, the same hook assembles it): a front matter
-with `title:`, `fixed_in:`, `severity:`, `modules:` and — only for a
+with `title:`, `fixed_in:`, `severity:`, `modules:`, `action:` and — only for a
 published CVE/GHSA advisory — an `advisory:` block that becomes its row of
 the advisories table (format: `docs/security/README.md`), and mark the
 matching upgrade note with a 🔒 icon that links to it (the anchor is the
