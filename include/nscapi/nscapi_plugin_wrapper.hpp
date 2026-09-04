@@ -25,6 +25,9 @@ struct module_version {
 };
 template <class impl_type>
 struct plugin_instance_data {
+  // The deleted copy constructor below suppresses the implicit default one,
+  // and in C++20 the class is not an aggregate either.
+  plugin_instance_data() = default;
   plugin_instance_data(const plugin_instance_data &) = delete;
   plugin_instance_data &operator=(const plugin_instance_data &) = delete;
 
