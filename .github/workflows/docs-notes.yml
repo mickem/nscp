@@ -1,7 +1,7 @@
-name: Upgrade notes
+name: Upgrade and security notes
 
-# The Upgrading page is assembled from one file per note under docs/upgrades/
-# (docs/hooks/upgrading.py). The HTML site is only built on Windows in CI, so
+# The Upgrading and Security notices pages are assembled from one file per
+# note under docs/upgrades/ and docs/security/ (docs/hooks/notes.py). The HTML site is only built on Windows in CI, so
 # validate the notes here on every change: a typo in a module tag or a missing
 # front matter would otherwise only fail the docs build much later.
 on:
@@ -9,14 +9,18 @@ on:
     branches: [main]
     paths:
       - 'docs/upgrades/**'
+      - 'docs/security/**'
       - 'docs/hooks/**'
       - 'docs/docs/setup/upgrading.md'
+      - 'docs/docs/security/notices.md'
       - '.github/workflows/docs-upgrade-notes.yml'
   pull_request:
     paths:
       - 'docs/upgrades/**'
+      - 'docs/security/**'
       - 'docs/hooks/**'
       - 'docs/docs/setup/upgrading.md'
+      - 'docs/docs/security/notices.md'
       - '.github/workflows/docs-upgrade-notes.yml'
 
 permissions:
@@ -34,6 +38,6 @@ jobs:
       - name: Validate the notes
         run: |
           pip install pyyaml
-          python3 docs/hooks/upgrading.py --check
-      - name: Assemble the page
-        run: python3 docs/hooks/upgrading.py --render /dev/null
+          python3 docs/hooks/notes.py --check
+      - name: Assemble the pages
+        run: python3 docs/hooks/notes.py --render "$RUNNER_TEMP/notes"

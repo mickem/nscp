@@ -14,9 +14,9 @@ per-release detail lives in each
 
 Use the filter below to narrow the list to your setup: pick the version you
 are coming from and tick the modules your `nsclient.ini` enables, and only the
-entries that concern that installation stay visible. The selection is
-remembered in your browser and reflected in the page address, so a filtered
-view can be bookmarked or shared.
+entries that concern that installation stay visible. The selection is shared
+with the Security notices page, remembered in your browser and reflected in
+the page address, so a filtered view can be bookmarked or shared.
 
 <!--
   Contributors: do not add entries to this file. Each entry is its own file
@@ -24,8 +24,8 @@ view can be bookmarked or shared.
   below are expanded from those files when the site is built.
 -->
 
-<!-- upgrades:filter -->
+<!-- notes:filter -->
 
 ---
 
-<!-- upgrades:entries -->
+<!-- notes:upgrades -->

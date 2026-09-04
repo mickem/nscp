@@ -3,7 +3,8 @@
 This directory is the source of the [Upgrading](../docs/setup/upgrading.md)
 page. Every note is its own file, so branches that each add a note never edit
 the same file and never conflict; the page is assembled when the documentation
-is built (`docs/hooks/upgrading.py`, run as an mkdocs hook).
+is built (`docs/hooks/notes.py`, run as an mkdocs hook). Security notices work
+the same way, see [`docs/security/`](../security/README.md).
 
 ## Adding a note
 
@@ -20,7 +21,7 @@ modules: [NRPEServer]
 install. `NRPEServer` gained `expose version` (default `true`); set it to
 `false` to answer the unauthenticated `_NRPE_CHECK` ping with a generic
 message. See the
-[security notice](../security/notices.md#nrpe-hardening).
+[security notice](../security/notices.md#nrpe-decoded-argument-metachar-guard-optional-version-banner-and-consistency-fixes).
 ```
 
 The front matter:
@@ -57,12 +58,12 @@ notes first, say).
 Check your note without building the site:
 
 ```
-python3 docs/hooks/upgrading.py --check
+python3 docs/hooks/notes.py --check
 ```
 
 It rejects a missing front matter, an unknown module name and a body without a
-bold title. `--render` prints the assembled page, for a documentation build that
-does not run mkdocs from this repository.
+bold title. `--render docs/docs` writes the assembled pages over the stubs, for
+a documentation build that does not run mkdocs from this repository.
 
 ## What goes here
 

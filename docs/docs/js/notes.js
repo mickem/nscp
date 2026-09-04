@@ -1,14 +1,16 @@
 /*
- * Filter for the "Upgrading" page (docs/docs/setup/upgrading.md).
+ * Filter for the "Upgrading" and "Security notices" pages.
  *
- * The page is assembled by docs/hooks/upgrading.py, which wraps every version
- * in <div class="upgrade-version" data-version="..."> and every note in
- * <div class="upgrade-entry" data-modules="A B" data-security="1">. This script
+ * Both pages are assembled by docs/hooks/notes.py, which marks every note as
+ * <div class="note-entry" data-modules="A B" data-version="0.18.1"> (upgrade
+ * notes inherit their version from the enclosing <div class="note-version">;
+ * advisory table rows carry the same class and attributes). This script
  * enables the (otherwise hidden) filter form and hides the notes that do not
- * match the version range, the ticked modules or the security-only switch.
+ * match the version range, the ticked modules or, on the Upgrading page, the
+ * security-only switch.
  *
- * The selection is stored in localStorage (so a reader who comes back for the
- * next upgrade finds their modules ticked) and mirrored into the query string
+ * The selection is stored in localStorage — shared by both pages, so a reader
+ * ticks their modules once — and mirrored into the query string
  * (?from=0.16.4&to=0.18.1&security=1&modules=NRPEServer,CheckSystem) so a
  * filtered view can be bookmarked or shared. Query-string parameters win over
  * the stored selection.
@@ -16,7 +18,7 @@
 (function () {
   'use strict';
 
-  var STORAGE_KEY = 'nscp.upgrading.filter';
+  var STORAGE_KEY = 'nscp.notes.filter';
 
   function versionKey(v) {
     return String(v).split('.').map(function (p) { return parseInt(p, 10) || 0; });
@@ -79,20 +81,25 @@
     return window.location.pathname + (q ? '?' + q : '') + window.location.hash;
   }
 
+  function isFiltered(state) {
+    return !!(state.from || state.to || state.security || state.unchecked.length);
+  }
+
   function init() {
-    var form = document.getElementById('upgrade-filter');
+    var form = document.getElementById('note-filter');
     if (!form || form.dataset.ready) { return; }
     form.dataset.ready = '1';
 
-    var fromSel = document.getElementById('upgrade-from');
-    var toSel = document.getElementById('upgrade-to');
-    var securityBox = document.getElementById('upgrade-security');
-    var summary = document.getElementById('upgrade-modules-summary');
-    var status = document.getElementById('upgrade-status');
+    var fromSel = document.getElementById('note-from');
+    var toSel = document.getElementById('note-to');
+    var securityBox = document.getElementById('note-security'); // absent on the notices page
+    var summary = document.getElementById('note-modules-summary');
+    var status = document.getElementById('note-status');
     var boxes = Array.prototype.slice.call(form.querySelectorAll('input[name="module"]'));
     var all = boxes.map(function (b) { return b.value; });
-    var entries = Array.prototype.slice.call(document.querySelectorAll('.upgrade-entry'));
-    var versions = Array.prototype.slice.call(document.querySelectorAll('.upgrade-version'));
+    var entries = Array.prototype.slice.call(document.querySelectorAll('.note-entry'));
+    var notes = entries.filter(function (e) { return e.tagName !== 'TR'; });
+    var versions = Array.prototype.slice.call(document.querySelectorAll('.note-version'));
 
     var defaults = { from: '', to: '', security: false, unchecked: [] };
     var state = fromQuery(all);
@@ -106,58 +113,77 @@
     state = {
       from: state.from || '',
       to: state.to || '',
-      security: !!state.security,
+      security: !!state.security && !!securityBox,
       unchecked: (state.unchecked || []).filter(function (m) { return all.indexOf(m) >= 0; })
     };
+
+    function entryVersion(entry) {
+      if (entry.dataset.version) { return entry.dataset.version; }
+      var section = entry.closest('.note-version');
+      return section ? section.dataset.version : '';
+    }
+
+    function matches(entry, checked) {
+      var version = entryVersion(entry);
+      var mods = (entry.dataset.modules || '').split(/\s+/).filter(Boolean);
+      // An entry with no version (an advisory against an unsupported line)
+      // is shown unless the reader says which version they come from.
+      if (version) {
+        if (state.from && compareVersions(version, state.from) <= 0) { return false; }
+        if (state.to && compareVersions(version, state.to) > 0) { return false; }
+      } else if (state.from) {
+        return false;
+      }
+      if (state.security && entry.dataset.security !== '1') { return false; }
+      return mods.some(function (m) { return checked.indexOf(m) >= 0; });
+    }
 
     function render() {
       fromSel.value = state.from;
       toSel.value = state.to;
-      securityBox.checked = state.security;
+      if (securityBox) { securityBox.checked = state.security; }
       boxes.forEach(function (b) { b.checked = state.unchecked.indexOf(b.value) < 0; });
 
       var checked = all.filter(function (m) { return state.unchecked.indexOf(m) < 0; });
       var shown = 0;
       entries.forEach(function (entry) {
-        var version = entry.closest('.upgrade-version').dataset.version;
-        var mods = (entry.dataset.modules || '').split(/\s+/).filter(Boolean);
-        var visible = (!state.from || compareVersions(version, state.from) > 0) &&
-          (!state.to || compareVersions(version, state.to) <= 0) &&
-          (!state.security || entry.dataset.security === '1') &&
-          mods.some(function (m) { return checked.indexOf(m) >= 0; });
+        var visible = matches(entry, checked);
         entry.hidden = !visible;
-        if (visible) { shown++; }
+        if (visible && entry.tagName !== 'TR') { shown++; }
       });
       versions.forEach(function (section) {
-        section.hidden = !section.querySelector('.upgrade-entry:not([hidden])');
+        section.hidden = !section.querySelector('.note-entry:not([hidden])');
       });
 
       summary.textContent = checked.length === all.length ? 'all'
         : checked.length === 0 ? 'none' : checked.length + ' of ' + all.length;
-      var filtered = state.from || state.to || state.security || state.unchecked.length;
+      var filtered = isFiltered(state);
       status.textContent = filtered
-        ? 'Showing ' + shown + ' of ' + entries.length + ' entries.' + (shown ? '' : ' Nothing matches this selection.')
-        : 'Showing all ' + entries.length + ' entries.';
-      form.classList.toggle('upgrade-filter--active', !!filtered);
+        ? 'Showing ' + shown + ' of ' + notes.length + ' entries.' + (shown ? '' : ' Nothing matches this selection.')
+        : 'Showing all ' + notes.length + ' entries.';
+      form.classList.toggle('note-filter--active', filtered);
+    }
+
+    function syncUrl() {
+      try {
+        window.history.replaceState(null, '', toQuery(state, all));
+      } catch (e) { /* file:// or a sandboxed view: the filter still applies */ }
     }
 
     function update() {
       store(state);
-      try {
-        window.history.replaceState(null, '', toQuery(state, all));
-      } catch (e) { /* file:// or a sandboxed view: the filter still applies */ }
+      syncUrl();
       render();
     }
 
     fromSel.addEventListener('change', function () { state.from = fromSel.value; update(); });
     toSel.addEventListener('change', function () { state.to = toSel.value; update(); });
-    securityBox.addEventListener('change', function () { state.security = securityBox.checked; update(); });
+    if (securityBox) {
+      securityBox.addEventListener('change', function () { state.security = securityBox.checked; update(); });
+    }
     boxes.forEach(function (b) {
       b.addEventListener('change', function () {
-        state.unchecked = all.filter(function (m) {
-          var box = boxes[all.indexOf(m)];
-          return !box.checked;
-        });
+        state.unchecked = boxes.filter(function (box) { return !box.checked; }).map(function (box) { return box.value; });
         update();
       });
     });
@@ -177,10 +203,10 @@
     });
 
     form.hidden = false;
-    if (state.from || state.to || state.security || state.unchecked.length) {
+    if (isFiltered(state)) {
       // A remembered selection shows in the address bar too, so the page can
       // be bookmarked or shared as it is seen.
-      try { window.history.replaceState(null, '', toQuery(state, all)); } catch (e) { /* ignore */ }
+      syncUrl();
     }
     render();
   }
