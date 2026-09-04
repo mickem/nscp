@@ -3,6 +3,7 @@
 
 #include "dotnet_host.hpp"
 
+#include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <cstdlib>
@@ -11,6 +12,9 @@
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
+#ifndef NOMINMAX
+#define NOMINMAX  // windows.h's min/max macros would break std::max below
+#endif
 #include <windows.h>
 #else
 #include <dlfcn.h>
@@ -237,7 +241,7 @@ bool parse_version(const std::string &text, version &out) {
 }
 
 bool version::operator<(const version &other) const {
-  const std::size_t n = std::max(parts.size(), other.parts.size());
+  const std::size_t n = (std::max)(parts.size(), other.parts.size());  // parenthesized: windows.h may define max
   for (std::size_t i = 0; i < n; ++i) {
     const int a = i < parts.size() ? parts[i] : 0;
     const int b = i < other.parts.size() ? other.parts[i] : 0;
