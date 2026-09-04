@@ -7,7 +7,7 @@
 
 `Plugin.QueryRequestMessage` Query request
 Used for querying the client this is the "normal" check_nrpe message request.
-Associated response is :py:class:`Plugin.QueryResponseMessage`
+Associated response is `Plugin.QueryResponseMessage`
 
 Modifier | Type    | Key     | Description
 -------- | ------- | ------- | -----------
@@ -73,8 +73,8 @@ repeated | PerformanceData | perf    |
 ## ExecuteRequestMessage
 
 `Plugin.ExecuteRequestMessage` Execute command request and response.
-Used for executing commands on clients similar to :py:class:`Plugin.QueryRequestMessage` but wont return Nagios check data
-Associated response is :py:class:`Plugin.ExecuteResponseMessage`
+Used for executing commands on clients similar to `Plugin.QueryRequestMessage` but wont return Nagios check data
+Associated response is `Plugin.ExecuteResponseMessage`
 
 Modifier | Type    | Key     | Description
 -------- | ------- | ------- | -----------
@@ -125,8 +125,8 @@ optional | bytes      | data      |
 
 `Plugin.SubmitRequestMessage` Submit result request message.
 Used for submitting a passive check results.
-The actual payload (Request) is a normal :py:class:`Plugin.QueryResponseMessage.Response`.
-Associated response is :py:class:`Plugin.SubmitResponseMessage`
+The actual payload (Request) is a normal `Plugin.QueryResponseMessage.Response`.
+Associated response is `Plugin.SubmitResponseMessage`
 
 Modifier | Type     | Key     | Description
 -------- | -------- | ------- | -----------
@@ -141,7 +141,7 @@ repeated | Response | payload |
 
 `Plugin.SubmitResponseMessage` Submit result response message.
 Response from submitting a passive check results.
-Associated request is :py:class:`Plugin.SubmitRequestMessage`
+Associated request is `Plugin.SubmitRequestMessage`
 
 Modifier | Type     | Key     | Description
 -------- | -------- | ------- | -----------
@@ -165,8 +165,8 @@ required | Result | result  |
 ## EventMessage
 
 `Plugin.EventMessage` Execute command request and response.
-Used for executing commands on clients similar to :py:class:`Plugin.QueryRequestMessage` but wont return Nagios check data
-Associated response is :py:class:`Plugin.ExecuteResponseMessage`
+Used for executing commands on clients similar to `Plugin.QueryRequestMessage` but wont return Nagios check data
+Associated response is `Plugin.ExecuteResponseMessage`
 
 Modifier | Type    | Key     | Description
 -------- | ------- | ------- | -----------
