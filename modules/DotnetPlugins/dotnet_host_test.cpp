@@ -171,6 +171,11 @@ TEST(dotnet_plugins, resolves_configured_plugin_values_to_assemblies) {
   EXPECT_EQ(root / "NSCP.Plugin.Sample.dll", DotnetPlugins::resolve_assembly(root, "NSCP.Plugin.Sample", "enabled"));
   EXPECT_EQ(root / "My.Plugin.dll", DotnetPlugins::resolve_assembly(root, "alias", "My.Plugin"));
   EXPECT_EQ(root / "sub" / "Other.dll", DotnetPlugins::resolve_assembly(root, "alias", "sub/Other.dll"));
-  EXPECT_EQ(fs::path("/elsewhere/Other.dll"), DotnetPlugins::resolve_assembly(root, "alias", "/elsewhere/Other.dll"));
-  EXPECT_EQ(fs::path("/elsewhere/Other.dll"), DotnetPlugins::resolve_assembly(root, "alias", "/elsewhere/Other"));
+#ifdef _WIN32
+  const std::string elsewhere = "C:/elsewhere/Other";
+#else
+  const std::string elsewhere = "/elsewhere/Other";
+#endif
+  EXPECT_EQ(fs::path(elsewhere + ".dll"), DotnetPlugins::resolve_assembly(root, "alias", elsewhere + ".dll"));
+  EXPECT_EQ(fs::path(elsewhere + ".dll"), DotnetPlugins::resolve_assembly(root, "alias", elsewhere));
 }
