@@ -39,7 +39,9 @@ void threaded_logger::thread_proc() {
           if (!is_no_std_err() && m.first)
             std::cerr << m.second;
           else
-            std::cout << m.second;
+            // Flush every message; see simple_console_logger::do_log for why
+            // an unflushed std::cout makes the console log lag on Windows.
+            std::cout << m.second << std::flush;
         }
         if (background_logger_) background_logger_->do_log(data);
         subscriber_manager_->on_log_message(data);
