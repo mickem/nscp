@@ -173,8 +173,24 @@ Release notes live on GitHub and get buried over time, so two docs pages mirror
 them durably. Whenever a change introduces a **breaking change, a behaviour
 change that needs operator action, or a new/removed default**, add a
 newest-first entry to `docs/docs/setup/upgrading.md` (the same content as the
-release's `## Upgrade notes`). Whenever a change is **security-relevant** —
-including hardening handled without a CVE — also add an entry to
+release's `## Upgrade notes`). Each release there is split into `### Requires
+action`, `### Changes behaviour (no action)` and `### New and opt-in (no
+action)`: file the item by what an existing install has to *do* about it, not by
+how large the change is, and add only the headings that release actually needs.
+A new module or a setting that defaults to the old behaviour belongs under
+*New and opt-in*, however important it is. Keep an item to one change: split a
+compound entry so each half can be filed where it belongs. Start each item with
+the module, setting or command it concerns so a reader can find everything
+touching their configuration by searching for its name, and lead it with an
+area icon (🔒 security, 🔧 settings/CLI, 📊 perfdata, 📁 paths, 🧩 modules, …),
+reusing one already on the page rather than inventing another. Each item appears **once**, under the
+release that introduced the change — pre-releases included, since those get
+installed too. Do not repeat it in a later release that merely re-announced it,
+and when in doubt establish the release from the commit
+(`git log -S<setting> …`, then `git tag --contains <commit>`) rather than from
+the release notes, which have aggregated items into later releases before.
+Whenever a change is **security-relevant** — including hardening handled
+without a CVE — also add an entry to
 `docs/docs/security/notices.md` (under "Published advisories" if it carries a
 CVE/GHSA, otherwise under "Hardening changes (no CVE)"), and mark the matching
 `upgrading.md` item with a 🔒 that links to it. For an embargoed fix, add these
