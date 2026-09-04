@@ -101,10 +101,11 @@ nav:
         - SimpleCache: reference/generic/SimpleCache.md
         - PythonScript: reference/generic/PythonScript.md
         - LUAScript: reference/generic/LUAScript.md
-        - DotnetPlugins: reference/windows/DotnetPlugins.md
+        - DotnetPlugins: reference/generic/DotnetPlugins.md
   - Extending:
       - Overview: extending/index.md
       - Python Scripts: extending/python.md
+      - .NET Plugins: extending/dotnet.md
       - Zip Modules: extending/zip-modules.md
       - Plugin API Reference: extending/plugin-api.md
   - REST API:

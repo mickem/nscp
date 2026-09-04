@@ -98,6 +98,7 @@ set(WIX_CANDLE_FLAGS
     -dHelpers=${NSCP_PROJECT_BINARY_DIR}/installer-dlls
     -dCRTMergeModule=${CRT_MERGE_MODULE}
     -dRuntime=${RUNTIME}
+    -dDotNet=${NSCP_DOTNET_MANAGED}
     # Python version string (e.g. "python311", "python312"). The installer
     # bundles the Python runtime DLL, the standard-library zip, and the
     # Boost.Python DLL whose names embed this string verbatim

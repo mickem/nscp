@@ -104,6 +104,13 @@ set(BUILD_ROOT_FOLDER "${CMAKE_SOURCE_DIR}")
 set(BUILD_TARGET_EXE_PATH "${PROJECT_BINARY_DIR}")
 set(BUILD_TARGET_ROOT_PATH "${PROJECT_BINARY_DIR}")
 set(BUILD_TARGET_LIB_PATH "${BUILD_TARGET_EXE_PATH}/${MODULE_SUBFOLDER}")
+# Managed .NET plugin API + plugins: built by the dotnet SDK into the modules
+# folder (modules/dotnet) so the DotnetPlugins module finds them next to the
+# native modules; the protobuf C# sources are generated here first.
+set(NSCP_DOTNET_OUTPUT_DIR "${BUILD_TARGET_LIB_PATH}/dotnet")
+set(NSCP_DOTNET_PROTO_DIR
+    "${PROJECT_BINARY_DIR}/libs/dotnet-plugin-api/generated"
+)
 set(BUILD_TARGET_INSTLIB_PATH "${BUILD_TARGET_EXE_PATH}/installer-dlls")
 set(NSCP_PROJECT_BINARY_DIR ${PROJECT_BINARY_DIR})
 set(NSCP_PROJECT_BINARY_DIR_NATIVE ${PROJECT_BINARY_DIR})
@@ -1271,20 +1278,6 @@ file(
 foreach(CURRENT_LIB ${ALL_LIB_PROJECTS})
     get_filename_component(CURRENT_LIB_PATH ${CURRENT_LIB} PATH)
     get_filename_component(CURRENT_LIB_NAME ${CURRENT_LIB_PATH} NAME)
-    if(
-        CURRENT_LIB_NAME
-            STREQUAL
-            "protobuf_net"
-        OR CURRENT_LIB_NAME
-            STREQUAL
-            "dotnet-plugin-api"
-    )
-        message(
-            STATUS
-            " - Skipping Library: ${CURRENT_LIB_PATH} (${CURRENT_LIB_NAME})"
-        )
-        continue()
-    endif()
     message(STATUS " + Library: ${CURRENT_LIB_PATH} (${CURRENT_LIB_NAME})")
     add_subdirectory("${CURRENT_LIB_PATH}")
 endforeach(

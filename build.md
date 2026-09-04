@@ -73,6 +73,7 @@ set is pinned in `build/python/requirements.txt`.
 | Mongoose                               | web / REST server (mongoose backend)                      | vendored source (`MONGOOSE_SOURCE_DIR`)          | only needed when `NSCP_WEB_BACKEND=mongoose` (the default); not needed with `beast`          |
 | MariaDB Connector/C                    | MySQL / MariaDB / Percona checks                          | `libmariadb-dev` (RHEL: `mariadb-connector-c-devel`) | `CheckMySQL` module                                                                      |
 | Rust toolchain                         | builds the bundled `check_nsclient` plugin                | [`rustup`](https://rust-lang.org/tools/install/) | bundled `check_nsclient` (skip with `-DCHECK_NSCLIENT_MISSING=TRUE`)                         |
+| .NET SDK (8.0+)                        | managed .NET plugin API (`NSCP.Core.dll`) + C# sample     | `dotnet-sdk-8.0`                                 | `modules/dotnet` (the native `DotnetPlugins` module still builds; skip with `-DNSCP_DOTNET=OFF`) |
 
 A few additional Linux packages are pulled in for packaging and supporting
 libraries: `pkg-config`, `libffi-dev`, `libdbus-1-dev` and `rpm` (the last one
