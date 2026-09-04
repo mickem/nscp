@@ -33,6 +33,19 @@ check_load percpu=true "warn=load > 1" "crit=load > 2"
 OK: scaled load average: 0.145955, 0.115391, 0.108913
 ```
 
+**Inspect the run-queue counters:**
+
+```
+check_load "detail-syntax=run=${procs_running} total=${procs_total}"
+OK: run=1 total=11221
+```
+
+##### Windows
+
+The synthesised collector exposes three extra keywords — `queue` (the raw
+`\System\Processor Queue Length` saturation signal), `cores` and `samples`
+(collector ticks folded into the averages so far).
+
 **Inspect the raw saturation signal and the collector state:**
 
 ```
