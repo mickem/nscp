@@ -175,6 +175,21 @@ NSCAPI::errorReturn NSCAPIStorageQuery(const char *request_buffer, const unsigne
 
 NSCAPI::errorReturn NSAPIReload(const char *module) { return mainClient->reload(module); }
 
+NSCAPI::errorReturn NSAPISetLogOption(const char *option) {
+  try {
+    if (option == nullptr) return NSCAPI::api_return_codes::hasFailed;
+    const std::string key = option;
+    if (key.empty()) return NSCAPI::api_return_codes::hasFailed;
+    mainClient->get_logger()->set_log_level(key);
+    return NSCAPI::api_return_codes::isSuccess;
+  } catch (const std::exception &e) {
+    LOG_ERROR(mainClient, "Failed to set log option: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    LOG_ERROR(mainClient, "Unknown error setting log option");
+  }
+  return NSCAPI::api_return_codes::hasFailed;
+}
+
 NSCAPI::errorReturn NSAPISetTag(const char *key, const char *value) {
   try {
     if (key == nullptr) return NSCAPI::api_return_codes::hasFailed;
@@ -245,6 +260,7 @@ nscapi::core_api::FUNPTR NSAPILoader(const char *buffer) {
   if (strcmp(buffer, "NSAPIStorageQuery") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSCAPIStorageQuery);
   if (strcmp(buffer, "NSAPISetTag") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPISetTag);
   if (strcmp(buffer, "NSAPIGetTags") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIGetTags);
+  if (strcmp(buffer, "NSAPISetLogOption") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPISetLogOption);
   mainClient->get_logger()->critical("api", __FILE__, __LINE__, "Function not found: " + std::string(buffer));
   return NULL;
 }

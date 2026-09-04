@@ -6,6 +6,7 @@
 #include <boost/thread/mutex.hpp>
 #include <list>
 #include <memory>
+#include <nsclient/logger/log_driver_interface_impl.hpp>
 #include <nsclient/logger/logger.hpp>
 #include <nsclient/logger/logger_impl.hpp>
 #include <string>
@@ -44,8 +45,13 @@ class nsclient_logger : public logger_impl, public logging_subscriber {
     }
   }
 
+  // Takes both severity names ("debug", "trace", ...) and log-driver options
+  // ("console", "no-console", "oneline", "no-std-err") - cli_parser pushes
+  // both onto the same list. Only "console" used to be routed to the backend,
+  // so --no-stderr and oneline reached log_level::set(), which does not know
+  // them, and logged "Invalid log level: no-std-err" instead of taking effect.
   void set_log_level(const std::string level) override {
-    if (level == "console") {
+    if (log_driver_interface_impl::is_driver_option(level)) {
       if (backend_) {
         backend_->set_config(level);
       }

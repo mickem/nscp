@@ -42,9 +42,15 @@ class log_driver_interface_impl : public log_driver_interface {
     if (other->is_started()) startup();
   }
 
+  // "no-console" is how a module that has taken the console over for itself
+  // asks the core to stop writing to it (see NSAPISetLogOption and the
+  // CommandClient prompt, which renders log messages through its line editor
+  // so they do not land in the middle of what the user is typing).
   void set_config(const std::string &key) override {
     if (key == "console")
       console_log_ = true;
+    else if (key == "no-console")
+      console_log_ = false;
     else if (key == "oneline")
       oneline_ = true;
     else if (key == "no-std-err")
@@ -52,6 +58,11 @@ class log_driver_interface_impl : public log_driver_interface {
     else
       do_log(log_message_factory::create_error("logger", __FILE__, __LINE__, "Invalid key: " + key));
   }
+
+  // The keys set_config() above understands, as opposed to the severity names
+  // log_level::set() understands. logger::set_log_level() takes both on the
+  // same string argument and needs to tell them apart.
+  static bool is_driver_option(const std::string &key) { return key == "console" || key == "no-console" || key == "oneline" || key == "no-std-err"; }
 };
 
 }  // namespace logging

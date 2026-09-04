@@ -38,7 +38,8 @@ nscapi::core_wrapper::core_wrapper()
       fNSCAPIEmitEvent(nullptr),
       fNSAPIStorageQuery(nullptr),
       fNSAPISetTag(nullptr),
-      fNSAPIGetTags(nullptr) {}
+      fNSAPIGetTags(nullptr),
+      fNSAPISetLogOption(nullptr) {}
 nscapi::core_wrapper::~core_wrapper() { delete pimpl; }
 
 //////////////////////////////////////////////////////////////////////////
@@ -253,6 +254,11 @@ bool nscapi::core_wrapper::storage_query(const std::string request, std::string 
   return retC;
 }
 
+bool nscapi::core_wrapper::set_log_option(const std::string &option) const {
+  if (!fNSAPISetLogOption) return false;
+  return NSCAPI::api_ok(fNSAPISetLogOption(option.c_str()));
+}
+
 bool nscapi::core_wrapper::set_tag(const std::string &key, const std::string &value) const {
   // Degrade gracefully on cores without the tag API (loaded as nullptr).
   if (!fNSAPISetTag) return false;
@@ -442,6 +448,7 @@ bool nscapi::core_wrapper::load_endpoints(core_api::lpNSAPILoader f) {
 
   fNSAPISetTag = reinterpret_cast<core_api::lpNSAPISetTag>(f("NSAPISetTag"));
   fNSAPIGetTags = reinterpret_cast<core_api::lpNSAPIGetTags>(f("NSAPIGetTags"));
+  fNSAPISetLogOption = reinterpret_cast<core_api::lpNSAPISetLogOption>(f("NSAPISetLogOption"));
 
   return true;
 }
