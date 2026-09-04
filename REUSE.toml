@@ -28,13 +28,13 @@ SPDX-License-Identifier = "Apache-2.0 OR GPL-2.0-only"
 [[annotations]]
 path = ["include/net/icmp_header.hpp", "include/net/ipv4_header.hpp"]
 precedence = "override"
-SPDX-FileCopyrightText = "2003-2016 Christopher M. Kohlhoff"
+SPDX-FileCopyrightText = "2003-2008 Christopher M. Kohlhoff"
 SPDX-License-Identifier = "BSL-1.0"
 
 [[annotations]]
 path = "include/simpleini/simpleini.h"
 precedence = "override"
-SPDX-FileCopyrightText = "2006-2012 Brodie Thiesfield"
+SPDX-FileCopyrightText = "2006-2008 Brodie Thiesfield"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
