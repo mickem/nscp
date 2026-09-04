@@ -2,27 +2,40 @@
 
 `xform_perf` runs another check and **transforms its performance data** before
 returning it. It exists for graphing backends that need something the original
-check does not emit.
+check does not emit. The wrapped check's status and message pass through
+untouched.
 
-**`mode=minmax`** fills in missing `min`/`max` bounds on each counter. Some
-graphing systems will not draw a gauge, or will autoscale it badly, without
-them.
+##### `mode=minmax`
 
-**`mode=extract`** promotes one field of every counter — chosen with `field=`
-(`value`, `warn`, `crit`, `min` or `max`) — to be that counter's value, and
-renames the counter with `replace=`. The replace expression is written as
-`<match>=<replacement>`: the matched part of the original label is substituted,
-so `replace=used=used_crit` turns `c: used` into `c: used_crit`.
+Sets `min=0` and `max=100` on every **percentage** counter — those whose unit is
+`%`. Counters with any other unit are left alone. Some graphing systems will not
+draw a percentage gauge on a fixed 0–100 axis, or will autoscale it to the
+observed range, unless the bounds are declared.
 
-This is how you get a check's *thresholds* onto the same graph as its values:
-run the check once normally, and once through
-`xform_perf mode=extract field=crit` to emit the critical line as its own
-series. Because the two runs are independent, pin the same thresholds on both
-so the lines stay in step.
+##### `mode=extract`
 
-`extract` requires a `replace=` expression containing exactly one `=`; without
-it the check returns a syntax error rather than silently emitting duplicate
-labels.
+Copies one field of every counter into a **new, additional** counter, renamed
+with `replace=`. The original counters are kept, so the result carries both
+series and the graph can show a value against its own bound.
+
+`replace=` is written as `<match>=<replacement>` and is a plain substring
+substitution on the counter label, applied everywhere it occurs — so
+`replace=used=size` turns `/ used` into `/ size` and `/ used %` into `/ size %`.
+It must contain exactly one `=`, or the check returns a syntax error.
+
+**Only `field=max` and `field=min` do anything.** Despite what the option help
+suggests, `value`, `warn` and `crit` add no counters at all — the check simply
+returns the original performance data unchanged, with no error. If an `extract`
+run appears to be a no-op, this is why.
+
+So the useful shape is emitting a counter's declared maximum as its own series:
+
+```
+xform_perf command=check_drivesize mode=extract field=max "replace=used=size"
+```
+
+An unrecognised `mode=` is an error (`Invalid mode specified`, UNKNOWN), not a
+silent pass-through.
 
 See also [`render_perf`](#render_perf), which turns performance data into the
 message, and [`filter_perf`](#filter_perf), which sorts and trims it.

@@ -5,9 +5,14 @@ which power source it is on, and battery health. One record is returned per
 battery.
 
 The default filter is `battery_present = 'true'`, and the thresholds are
-`charge < 20` (warning) and `charge < 10` (critical). On a machine with no
-battery — a desktop, a server, a VM — the filter matches nothing and the check
-reports **`No battery found`** as its empty state rather than a false alarm.
+`charge < 20` (warning) and `charge < 10` (critical).
+
+On a machine with no battery — a desktop, a server, a VM — the filter matches
+nothing, and **the empty state is `warning`**, so the check reports
+`WARNING: No battery found`. That is almost never what you want on
+infrastructure: set `empty-state=ok` (or `empty-state=ignored`) on any host
+where a missing battery is normal, otherwise every server running this check
+sits permanently in WARNING.
 
 ##### The three questions it answers
 

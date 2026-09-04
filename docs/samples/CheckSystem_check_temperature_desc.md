@@ -19,10 +19,11 @@ infrastructure this agent runs on does not expose any:
 - On Windows, ACPI thermal zones are read through WMI, and many vendors expose
   either nothing or a single coarse zone rather than per-component sensors.
 
-Because of that, `empty-state` matters: the check reports OK with
-*"All thermal zones seem ok."* when nothing matched. If a missing sensor should
-itself be an alert on hardware you know has one, set `empty-state=critical`
-explicitly.
+A host with no readable sensors does not fall through to the filter's empty
+state at all: the check returns **`UNKNOWN: No temperature sensors found`**
+before filtering. So on a VM this check is permanently UNKNOWN rather than
+quietly OK — which is honest, but means it should only be enabled where the
+hardware actually reports something.
 
 ##### Naming is not portable
 

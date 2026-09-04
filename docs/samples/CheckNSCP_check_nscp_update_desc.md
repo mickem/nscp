@@ -28,6 +28,14 @@ often, but also that it can lag a fresh release by up to the cache lifetime.
 **This check makes an outbound HTTPS request to github.com.** On a host with no
 egress — which is the normal case for a monitored server — it cannot work;
 either allow that one destination or run the check from a single management host
-rather than fleet-wide. When the request fails the reason is reported in the
-`error` keyword rather than being reported as "up to date", so a blocked agent
-never reads as a clean OK.
+rather than fleet-wide.
+
+When the request fails, the reason lands in the `error` keyword — but the
+**status stays OK**, because `update_available` is 0 and that is all the default
+thresholds look at. An agent that cannot reach GitHub therefore reports exactly
+the same thing as an agent that is up to date. If you rely on this check, say so
+explicitly:
+
+```
+check_nscp_update "warn=update_available = 1" "crit=error != ''"
+```
