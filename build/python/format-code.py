@@ -30,6 +30,7 @@ CODE_EXCLUDE_DIRS: Set[str] = {
     "dotnet-plugin-api",
     "rust",
     "build",
+    "replxx",
 }
 
 # Files to exclude from code formatting
