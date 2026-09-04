@@ -22,3 +22,7 @@ mkdocs serve
 
 Changes on the chapter layout can be done inside the `mkdocs.yml` file in the main tree.
 
+The [Upgrading](docs/setup/upgrading.md) page is not edited directly: each upgrade note is a
+file under [`upgrades/<version>/`](upgrades/README.md) and the page is assembled from them when
+the site is built (`hooks/upgrading.py`), so parallel branches never conflict on it.
+

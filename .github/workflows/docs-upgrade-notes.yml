@@ -1,0 +1,39 @@
+name: Upgrade notes
+
+# The Upgrading page is assembled from one file per note under docs/upgrades/
+# (docs/hooks/upgrading.py). The HTML site is only built on Windows in CI, so
+# validate the notes here on every change: a typo in a module tag or a missing
+# front matter would otherwise only fail the docs build much later.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/upgrades/**'
+      - 'docs/hooks/**'
+      - 'docs/docs/setup/upgrading.md'
+      - '.github/workflows/docs-upgrade-notes.yml'
+  pull_request:
+    paths:
+      - 'docs/upgrades/**'
+      - 'docs/hooks/**'
+      - 'docs/docs/setup/upgrading.md'
+      - '.github/workflows/docs-upgrade-notes.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Validate and assemble
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Validate the notes
+        run: |
+          pip install pyyaml
+          python3 docs/hooks/upgrading.py --check
+      - name: Assemble the page
+        run: python3 docs/hooks/upgrading.py --render /dev/null
