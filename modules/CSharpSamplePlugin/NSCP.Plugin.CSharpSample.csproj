@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Sample NSClient++ plugin written in C#. Shows the minimal shape of a .NET
+    plugin: a factory (NSCP.Plugin.PluginFactory), an IPlugin that registers a
+    command on load, and an IQueryHandler that answers it.
+
+    Built by CMake into [build]/modules/dotnet next to NSCP.Core.dll. A plugin of
+    your own is built the same way: reference the NSCP.Core.dll of an installed
+    agent (-p:NscpCoreDir=...) and copy the resulting assembly into the agent's
+    modules/dotnet folder.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>NSCP.Plugin.CSharpSample</AssemblyName>
+    <RootNamespace>NSCP.Plugin</RootNamespace>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <Deterministic>true</Deterministic>
+    <!-- Emits the .deps.json the host uses to resolve a plugin's private dependencies. -->
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <RollForward>LatestMajor</RollForward>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <Version Condition="'$(NscpVersion)' != ''">$(NscpVersion)</Version>
+    <Copyright>2004-2026 Michael Medin</Copyright>
+  </PropertyGroup>
+
+  <!-- Compile against the NSCP.Core.dll the build (or an installed agent)
+       provides: NscpCoreDir is the folder holding it. Private=false keeps the
+       plugin from shipping its own copy next to the shared one. This is also
+       how a plugin built outside this tree references the API. -->
+  <PropertyGroup>
+    <NscpCoreDir Condition="'$(NscpCoreDir)' == ''">$(MSBuildThisFileDirectory)</NscpCoreDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="NSCP.Core">
+      <HintPath>$(NscpCoreDir)/NSCP.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <PackageReference Include="Google.Protobuf" Version="3.36.1" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+</Project>

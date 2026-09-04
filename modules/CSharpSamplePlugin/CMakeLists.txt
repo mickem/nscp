@@ -1,21 +1,18 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(NSCP.Plugin.CSharpSample)
+# The target is named after the directory so the module loop in the top-level
+# CMakeLists.txt can reference it. It compiles against the NSCP.Core.dll built
+# into NSCP_DOTNET_OUTPUT_DIR, which is also where the plugin itself lands.
+project(CSharpSamplePlugin)
 
-set(CSHARP_BINARY_DIRECTORY ${NSCP_PROJECT_BINARY_DIR}/modules/dotnet)
-include(${CSHARP_USE_FILE})
-
-CSHARP_ADD_LIBRARY(
-    NSCP.Plugin.CSharpSample
-    ${CMAKE_CURRENT_SOURCE_DIR}/SamplePlugin.cs
-    ${NSCP_PROJECT_BINARY_DIR}/Google.Protobuf.dll
-    ${NSCP_PROJECT_BINARY_DIR}/NSCP.Core.dll
-    ${NSCP_PROJECT_BINARY_DIR}/NSCP.Protobuf.dll
+NSCP_ADD_DOTNET_PROJECT(
+    CSharpSamplePlugin
+    ${CMAKE_CURRENT_SOURCE_DIR}/NSCP.Plugin.CSharpSample.csproj
+    DEPENDS NSCP.Core
+    PRODUCTS ${NSCP_DOTNET_OUTPUT_DIR}/NSCP.Plugin.CSharpSample.dll
 )
-add_dependencies(NSCP.Plugin.CSharpSample NSCP.Core)
-add_dependencies(NSCP.Plugin.CSharpSample NSCP.Protobuf)
 set_target_properties(
-    NSCP.Plugin.CSharpSample
+    CSharpSamplePlugin
     PROPERTIES
         FOLDER
             "modules/dotnet"

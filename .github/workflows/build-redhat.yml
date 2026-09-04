@@ -82,7 +82,7 @@ jobs:
         # separately and is installed at runtime via `nscp web install-ui`.
         # ccache comes from EPEL, which is already enabled above. zstd lets
         # actions/cache compress with zstd instead of falling back to gzip.
-        retry dnf install -y --allowerasing coreutils bash file findutils git boost-devel gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build python3-devel dbus-devel bash libzip-devel tinyxml2-devel mariadb-connector-c-devel pkgconf-pkg-config ccache zstd
+        retry dnf install -y --allowerasing coreutils bash file findutils git boost-devel gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build python3-devel dbus-devel bash libzip-devel tinyxml2-devel mariadb-connector-c-devel pkgconf-pkg-config ccache zstd dotnet-sdk-8.0
     - uses: actions/checkout@v6
 
     - name: Configure ccache

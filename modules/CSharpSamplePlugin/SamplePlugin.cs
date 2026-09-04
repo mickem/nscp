@@ -1,7 +1,10 @@
+// SPDX-FileCopyrightText: 2004-2026 Michael Medin
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
+
 using System;
 using System.Collections.Generic;
 using System.Text;
-using System.Runtime.InteropServices;
+using Google.Protobuf;
 using NSCP.Core;
 using NSCP.Helpers;
 
@@ -46,9 +49,7 @@ namespace test
             response.Lines.Add(line);
             response_message.Payload.Add(response);
 
-            System.IO.MemoryStream stream = new System.IO.MemoryStream();
-            response_message.WriteTo(new Google.Protobuf.CodedOutputStream(stream));
-            return new Result(stream.ToArray());
+            return new Result(response_message.ToByteArray());
         }
 
     }

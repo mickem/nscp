@@ -198,10 +198,26 @@
               </Component>
             <?endif?>
             <!--
+            .NET plugin support: the native host module plus, when the build
+            had a dotnet SDK (-dDotNet=true from CMake), the managed plugin API
+            and the C# sample in modules/dotnet. The .NET runtime itself is not
+            bundled; the module locates an installed runtime through hostfxr.
+            -->
             <Component Id="DotNetPlugins" Guid="E57F4EE3-D5A6-46ED-BC99-018708258154" Win64="$(var.Win64)">
               <File Id="ModDotnetPlugins.dll" Name="DotnetPlugins.dll" DiskId="1" Source="$(var.Source)/modules/DotnetPlugins.dll" Vital="no" />
             </Component>
-            -->
+            <?if $(var.DotNet) = "true"?>
+            <Directory Id="INSTALLLOCATION_MODS_DOTNET" Name="dotnet">
+              <Component Id="LibDotNet" Guid="29AC2A9A-D1D1-4E86-BEE0-5428C86422F6" Win64="$(var.Win64)">
+                <File Id="DOTNET_CORE" Name="NSCP.Core.dll" DiskId="1" Source="$(var.Source)/modules/dotnet/NSCP.Core.dll" Vital="no" />
+                <File Id="DOTNET_CORE_DEPS" Name="NSCP.Core.deps.json" DiskId="1" Source="$(var.Source)/modules/dotnet/NSCP.Core.deps.json" Vital="no" />
+                <File Id="DOTNET_CORE_RTCFG" Name="NSCP.Core.runtimeconfig.json" DiskId="1" Source="$(var.Source)/modules/dotnet/NSCP.Core.runtimeconfig.json" Vital="no" />
+                <File Id="DOTNET_PB" Name="Google.Protobuf.dll" DiskId="1" Source="$(var.Source)/modules/dotnet/Google.Protobuf.dll" Vital="no" />
+                <File Id="DOTNET_SAMPLE" Name="NSCP.Plugin.CSharpSample.dll" DiskId="1" Source="$(var.Source)/modules/dotnet/NSCP.Plugin.CSharpSample.dll" Vital="no" />
+                <File Id="DOTNET_SAMPLE_DEPS" Name="NSCP.Plugin.CSharpSample.deps.json" DiskId="1" Source="$(var.Source)/modules/dotnet/NSCP.Plugin.CSharpSample.deps.json" Vital="no" />
+              </Component>
+            </Directory>
+            <?endif?>
             <Component Id="Op5Client" Guid="D8378E84-4785-41FD-8FCD-2409135FBFF4" Win64="$(var.Win64)">
               <File Id="ModOp5Client.dll" Name="Op5Client.dll" DiskId="1" Source="$(var.Source)/modules/Op5Client.dll" Vital="no" />
             </Component>
@@ -233,13 +249,6 @@
               <File Id="LibMariaDB" Name="libmariadb.dll" DiskId="1" Source="$(var.Source)/libmariadb.dll" Vital="no" />
             </Component>
           <?endif?>
-          <!--
-          <Component Id="LibDotNet" Guid="29AC2A9A-D1D1-4E86-BEE0-5428C86422F6">
-            <File Id="DOTNET_PB" Name="Google.ProtocolBuffers.dll" DiskId="1" Source="$(var.Source)/Google.ProtocolBuffers.dll" Vital="yes" />
-            <File Id="DOTNET_CORE" Name="NSCP.Core.dll" DiskId="1" Source="$(var.Source)/NSCP.Core.dll" Vital="yes" />
-            <File Id="DOTNET_NSPB" Name="NSCP.Protobuf.dll" DiskId="1" Source="$(var.Source)/NSCP.Protobuf.dll" Vital="yes" />
-          </Component>
-          -->
         </Directory>
       </Directory>
 
@@ -283,12 +292,12 @@
         <Feature Id="FirewallConfig" Title="Firewall Exception" Description="A firewall exception to allow NSClient++ to open ports" Level="1" Absent="allow">
           <ComponentRef Id="FWException" />
         </Feature>
-        <!--
-        <Feature Id="DotNetPluginSupport" Title=".net plugin support" Description="Support for loading modules written in .dot net (Requires installing .net framework)" Level="1" Absent="allow">
-          <ComponentRef Id="LibDotNet" />
+        <Feature Id="DotNetPluginSupport" Title=".NET plugin support" Description="Support for loading plugins written for .NET (C#, F#, ...). Requires an installed .NET runtime (8.0 or later)." Level="1" Absent="allow">
           <ComponentRef Id="DotNetPlugins" />
+          <?if $(var.DotNet) = "true"?>
+          <ComponentRef Id="LibDotNet" />
+          <?endif?>
         </Feature>
-        -->
       </Feature>
       <Feature Id="OP5Monitoring" Title="OP5 Monitoring system" Description="Configuration and scripts to use NSClient++ with OP5 monitoring solution" Level="1" Absent="allow">
           <ComponentGroupRef Id="Op5ConfigResources" />

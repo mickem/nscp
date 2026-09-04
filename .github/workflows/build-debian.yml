@@ -58,7 +58,7 @@ jobs:
         # ccache: see the "Configure ccache" step below. zstd: actions/cache
         # compresses with it when present and falls back to a slower gzip when
         # it is not.
-        retry env DEBIAN_FRONTEND=noninteractive apt-get install -y git curl unzip libboost-all-dev libgtest-dev protobuf-compiler libprotobuf-dev openssl libssl-dev libgmock-dev libcrypto++-dev ${{ matrix.lua_package }} cmake build-essential python3-pip libdbus-1-dev libzip-dev libtinyxml2-dev libmariadb-dev pkg-config ccache zstd
+        retry env DEBIAN_FRONTEND=noninteractive apt-get install -y git curl unzip libboost-all-dev libgtest-dev protobuf-compiler libprotobuf-dev openssl libssl-dev libgmock-dev libcrypto++-dev ${{ matrix.lua_package }} cmake build-essential python3-pip libdbus-1-dev libzip-dev libtinyxml2-dev libmariadb-dev pkg-config ccache zstd dotnet-sdk-8.0
 
     - uses: actions/checkout@v6
 
