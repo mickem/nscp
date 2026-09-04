@@ -32,10 +32,20 @@ for application use.
 
 ##### Message shape
 
-`tag template` (default `NSCA`) is the syslog tag, and `message_syntax`
-(default `%message%`) the message body. Both take the usual substitutions, so a
-tag or message can carry the check name and host. Keep the tag short and
-constant-ish — many syslog daemons and downstream parsers key on it.
+`tag template` (default `NSCA`) is the syslog tag, and the message body comes
+from the `message_syntax` setting (`message template` on the command line),
+default `%message%`.
+
+**`%message%` is the only substitution either template performs.** `%source%`
+and the other placeholders used elsewhere in NSClient++ are passed through
+literally here, so a template of `%source%: %message%` emits the text
+`%source%: ` followed by the check output. Put the check identity in the tag, or
+in the check's own message, rather than in the template.
+
+Keep the tag short and stable — many syslog daemons and downstream parsers key
+on it. Note that the default tag is `NSCA`, which is misleading in a log that
+also carries real NSCA traffic; setting it to something like `nscp` is worth
+doing.
 
 ##### Transport
 
