@@ -21,6 +21,11 @@ struct cli_exception final : std::exception {
   const char *what() const noexcept override { return error_.c_str(); }
 };
 
+// Keys whose values are credentials (password / token style secrets). Used to
+// mask them when a container is logged, and to decide whether a configured
+// target "carries credentials" for the host-override guard below.
+bool is_sensitive_key(const std::string &key);
+
 struct destination_container {
   typedef std::map<std::string, std::string> data_map;
 
@@ -29,10 +34,37 @@ struct destination_container {
   int retry;
   data_map data;
 
-  destination_container() : timeout(10), retry(2) {}
+  // Where the container was loaded from, when it came from a configured
+  // target object rather than being built up purely from a command line:
+  // the target's alias, whether any of its options is a credential, and
+  // whether it opted in to `allow host override`.
+  //
+  // A configured target is an address *and* the credentials for that
+  // address, as one unit. The command line can still name a different
+  // --host/--port/--address, but a target that carries a password or token
+  // refuses that unless it explicitly allows it: otherwise anyone able to run
+  // the module's submit_*/check_* commands (a REST user with queries.execute,
+  // an NRPE peer with `allow arguments`) could point the configured secret at
+  // a host of their choosing. See configuration::check_host_override().
+  std::string configured_target;
+  bool configured_credentials;
+  bool allow_host_override;
+
+  destination_container() : timeout(10), retry(2), configured_credentials(false), allow_host_override(false) {}
 
   void apply(const nscapi::settings_objects::object_instance &obj) {
+    // Targets layer: --target applies its object on top of the default one
+    // without clearing what is already here, so a credential loaded earlier
+    // is still in `data` and still counts. The name kept is the target that
+    // contributed the credentials, which is the one the refusal should cite.
+    if (configured_target.empty()) configured_target = obj->get_alias();
     for (const auto &k : obj->get_options()) {
+      if (k.first == "allow host override") {
+        allow_host_override = to_bool(k.second);
+      } else if (is_sensitive_key(k.first) && !k.second.empty()) {
+        configured_credentials = true;
+        configured_target = obj->get_alias();
+      }
       set_string_data(k.first, k.second);
     }
   }
@@ -240,6 +272,10 @@ struct configuration : public boost::noncopyable {
  private:
   boost::program_options::options_description create_descriptor(const std::string &command, client::destination_container &source,
                                                                 client::destination_container &destination) const;
+  // The host-override guard: given the options the command line actually
+  // supplied and the destination as it stands after they were applied, either
+  // an empty string (proceed) or the reason the call must be refused.
+  static std::string check_host_override(const boost::program_options::variables_map &vm, const destination_container &d);
   void i_do_query(destination_container &s, destination_container &d, std::string command, const PB::Commands::QueryRequestMessage &request,
                   PB::Commands::QueryResponseMessage &response, bool use_header);
   bool i_do_exec(destination_container &s, destination_container &d, std::string command, const PB::Commands::ExecuteRequestMessage &request,

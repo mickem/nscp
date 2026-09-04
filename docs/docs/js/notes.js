@@ -21,11 +21,16 @@
 
   var STORAGE_KEY = 'nscp.notes.filter';
 
+  // "next" is the release that has not been cut yet: newer than every number.
+  var NEXT_VERSION = 'next';
+
   function versionKey(v) {
+    if (String(v) === NEXT_VERSION) { return [Infinity]; }
     return String(v).split('.').map(function (p) { return parseInt(p, 10) || 0; });
   }
 
   function compareVersions(a, b) {
+    if (String(a) === String(b)) { return 0; }
     var ka = versionKey(a), kb = versionKey(b);
     var n = Math.max(ka.length, kb.length);
     for (var i = 0; i < n; i++) {

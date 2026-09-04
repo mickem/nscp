@@ -9,8 +9,11 @@ the same way, see [`docs/security/`](../security/README.md).
 ## Adding a note
 
 Create `docs/upgrades/<version>/<slug>.md`, where `<version>` is the release
-the change ships in (the next release while it is unreleased) and `<slug>` is a
-short kebab-case name for the change:
+the change ships in and `<slug>` is a short kebab-case name for the change.
+While the change is unreleased the version is `next` — the number is not
+known until the release is cut, and `next` sorts above every number on the
+page (rendered as *next (unreleased)*); the release process renames the
+directory:
 
 ```markdown
 ---

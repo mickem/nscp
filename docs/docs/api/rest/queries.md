@@ -114,6 +114,18 @@ to configure `check_cpu` with three time windows:
 GET /api/v2/queries/check_cpu/commands/execute?time=5m&time=30m&time=90m
 ```
 
+!!! note "Client-module commands and configured targets"
+    The `submit_*` / `check_*` commands of the outbound client modules
+    (NRDP, Icinga, SMTP, NSCA, NSCA-NG, NRPE, …) run against the module's
+    configured `default` target. Because that target's `password` or `token`
+    is loaded with it, a target that carries credentials refuses the `host`,
+    `port` and `address` arguments — otherwise any holder of
+    `queries.execute` could have the agent send those credentials to a host
+    of their choosing. Select another configured target with `target=`
+    instead, or set `allow host override = true` on the target to permit the
+    override explicitly. See
+    [Security notices](../../security/notices.md#client-credentials-stay-with-their-target-private-script-upload-staging-and-a-junction-proof-shared-folder).
+
 ### Response
 
 ```json

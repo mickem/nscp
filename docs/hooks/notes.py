@@ -95,7 +95,11 @@ ACTION_BADGE = {
     'required': 'Action required',
     'conditional': 'Check your setup',
 }
-VERSION_RE = re.compile(r'^\d+(\.\d+)*$')
+# The release that has not been cut yet. Notes for it live under
+# ``docs/upgrades/next/`` (and ``fixed_in: next``) until the version number is
+# known, and sort newest; the release process renames the directory.
+NEXT_VERSION = 'next'
+VERSION_RE = re.compile(r'^(\d+(\.\d+)*|%s)$' % NEXT_VERSION)
 
 # Display groups for the module picker, in this order.
 GROUP_CHECKS = 'Check modules'
@@ -133,8 +137,18 @@ def known_modules():
 
 
 def version_key(version):
-    """Sort key for ``0.18.1``-style versions (numeric, part by part)."""
+    """Sort key for ``0.18.1``-style versions (numeric, part by part); the
+    unreleased ``next`` sorts after every number."""
+    if version == NEXT_VERSION:
+        return (float('inf'),)
     return tuple(int(p) for p in version.split('.'))
+
+
+def version_label(version):
+    """How a version reads on the page."""
+    if version == NEXT_VERSION:
+        return '%s (unreleased)' % NEXT_VERSION
+    return version
 
 
 def read_front_matter(path):
@@ -216,7 +230,7 @@ def parse_security_note(path, valid):
     meta, body = read_front_matter(path)
     fixed_in = read_string(meta, 'fixed_in', path)
     if fixed_in and not VERSION_RE.match(fixed_in):
-        raise NoteError('%s: "fixed_in:" must be a version number such as 0.18.1' % path)
+        raise NoteError('%s: "fixed_in:" must be a version number such as 0.18.1, or %s' % (path, NEXT_VERSION))
     advisory = meta.get('advisory')
     if advisory is not None:
         if not isinstance(advisory, dict):
@@ -252,7 +266,7 @@ def load_upgrade_notes(upgrades_dir=UPGRADES_DIR, valid_modules=None):
         if not os.path.isdir(vdir):
             continue
         if not VERSION_RE.match(entry):
-            raise NoteError('%s: directory name is not a version number' % vdir)
+            raise NoteError('%s: directory name is not a version number (or %s)' % (vdir, NEXT_VERSION))
         notes = []
         for name in sorted(os.listdir(vdir)):
             if name.endswith('.md'):
@@ -319,7 +333,7 @@ def render_upgrades(versions):
     out = []
     for version, notes in versions:
         out.append('<div class="note-version" markdown="1" data-version="%s">\n' % html_attr(version))
-        out.append('## %s\n' % version)
+        out.append('## %s\n' % version_label(version))
         out.extend(render_upgrade_note(n) + '\n' for n in notes)
         out.append('</div>\n')
     return '\n'.join(out)
@@ -332,7 +346,7 @@ def render_security_note(note):
     if badge:
         meta.append(badge)
     if note['fixed_in']:
-        fixed = note['fixed_in']
+        fixed = version_label(note['fixed_in'])
         if note['fixed_in_note']:
             fixed += ' (%s)' % note['fixed_in_note']
         meta.append('**Fixed in:** ' + fixed)
@@ -399,7 +413,7 @@ def render_filter(versions, security_switch):
     for m in used:
         groups.setdefault(module_group(m), []).append(m)
     area_label = dict(FILTER_AREAS)
-    options = ''.join('<option value="%s">%s</option>' % (v, v) for v in versions)
+    options = ''.join('<option value="%s">%s</option>' % (html_attr(v), html_attr(version_label(v))) for v in versions)
 
     out = ['<div class="note-filter" id="note-filter" hidden>']
     out.append('<div class="note-filter__row">')

@@ -86,13 +86,34 @@ struct payload_builder {
   }
 };
 
-namespace {
 // Keys whose values are credentials. to_string() feeds trace/debug logging in
 // every client module (IcingaClient traces the whole target container on
 // submit, for instance), and a password copied into the log outlives every
 // other control protecting it — so mask by key here, not at each call site.
-bool is_sensitive_key(const std::string &key) { return key.find("password") != std::string::npos || key.find("token") != std::string::npos; }
-}  // namespace
+// The same test decides whether a configured target carries credentials for
+// the host-override guard.
+bool client::is_sensitive_key(const std::string &key) { return key.find("password") != std::string::npos || key.find("token") != std::string::npos; }
+
+std::string client::configuration::check_host_override(const po::variables_map &vm, const destination_container &d) {
+  // The options that move the connection somewhere else. --target is not one
+  // of them: it selects another *configured* target, credentials and all.
+  static const char *const override_options[] = {"host", "port", "address"};
+  std::string used;
+  for (const char *option : override_options) {
+    if (vm.count(option) == 0) continue;
+    if (!used.empty()) used += "/";
+    used += "--";
+    used += option;
+  }
+  if (used.empty()) return "";
+  if (!d.configured_credentials || d.allow_host_override) return "";
+  // Refused rather than sent without the credentials: a submission that
+  // silently goes out unauthenticated looks like a server-side problem, while
+  // an error names the setting that decides this.
+  return "The target '" + d.configured_target + "' carries credentials, so its destination cannot be changed from the command line (" + used +
+         "): that would send the configured credentials to a caller-chosen host. Configure the other host as its own target and select it with --target, "
+         "or set 'allow host override = true' on the target to permit this.";
+}
 
 std::string client::destination_container::to_string() const {
   std::stringstream ss;
@@ -379,6 +400,8 @@ void client::configuration::i_do_query(destination_container &s, destination_con
             return;
           }
         }
+        const std::string refused = check_host_override(vm, d);
+        if (!refused.empty()) return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), refused);
       }
       if (client_pre) {
         if (!client_pre(s, d)) return;
@@ -544,6 +567,13 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
             }
           }
         }
+      }
+      // After --target has had its say: the guard applies to whichever
+      // configured target the connection ends up loaded from.
+      const std::string refused = check_host_override(vm, d);
+      if (!refused.empty()) {
+        nscapi::protobuf::functions::set_response_bad(*response.add_payload(), refused);
+        return true;
       }
 
       if (builder.type == payload_builder::type_query) {

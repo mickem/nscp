@@ -23,7 +23,15 @@ void nscapi::targets::target_object::read(nscapi::settings_helper::settings_impl
       .add_string("port", sh::string_fun_key([this](auto key) { this->set_property_string("port", key); }), "TARGET PORT", "The target server port", true)
       .add_string("timeout", sh::int_fun_key([this](auto key) { this->set_property_int("timeout", key); }, 30), "TIMEOUT",
                   "Timeout (in seconds) when reading/writing packets to/from sockets.")
-      .add_int("retries", sh::int_fun_key([this](auto key) { this->set_property_int("retries", key); }, 3), "RETRIES", "Number of times to retry sending.");
+      .add_int("retries", sh::int_fun_key([this](auto key) { this->set_property_int("retries", key); }, 3), "RETRIES", "Number of times to retry sending.")
+      .add_bool("allow host override", sh::bool_fun_key([this](auto key) { this->set_property_bool("allow host override", key); }, false),
+                "ALLOW HOST OVERRIDE",
+                "Let a command line (a REST query, an NRPE argument or `nscp client`) change this target's host, port or address while keeping its "
+                "configured credentials. Off by default: a target that carries a password or token refuses `host=`/`port=`/`address=` overrides, since "
+                "otherwise anyone able to run the module's commands could direct the configured credentials to a host of their choosing. To reach "
+                "another server with its own credentials, configure it as a separate target and select it with `target=`. A target without "
+                "credentials is not affected by this setting.",
+                true);
 
   settings.register_all();
   settings.notify();

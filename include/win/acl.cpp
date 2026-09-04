@@ -72,7 +72,63 @@ bool build_sid(const WELL_KNOWN_SID_TYPE type, std::vector<unsigned char> &stora
   return true;
 }
 
+struct close_handle {
+  void operator()(void *h) const {
+    if (h != nullptr && h != INVALID_HANDLE_VALUE) ::CloseHandle(h);
+  }
+};
+typedef std::unique_ptr<void, close_handle> unique_handle;
+
+// Open the directory itself - not whatever a junction or symbolic link at
+// that name points to - for the given access, and make sure it really is a
+// plain directory before handing it back.
+//
+// FILE_FLAG_OPEN_REPARSE_POINT is what makes the open land on the entry rather
+// than on its target; FILE_FLAG_BACKUP_SEMANTICS is required to open a
+// directory at all, and together with SeBackupPrivilege / SeRestorePrivilege
+// (enabled by the caller when it needs them) lets us open one whose DACL
+// would otherwise refuse us. The attribute check then closes the door the
+// path-based APIs left open: a reparse point at the name is an error, never
+// something to secure "through".
+unique_handle open_plain_directory(const std::wstring &wide, const DWORD access, std::list<std::string> &errors) {
+  unique_handle handle(::CreateFileW(wide.c_str(), access, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                                     FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+  if (handle.get() == INVALID_HANDLE_VALUE) {
+    errors.emplace_back(last_error("CreateFile(directory)"));
+    return unique_handle();
+  }
+  BY_HANDLE_FILE_INFORMATION info = {};
+  if (!::GetFileInformationByHandle(handle.get(), &info)) {
+    errors.emplace_back(last_error("GetFileInformationByHandle"));
+    return unique_handle();
+  }
+  if ((info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0) {
+    errors.emplace_back(
+        "the directory entry is a junction or symbolic link, not a directory: securing it would secure its target while the link itself stays "
+        "with whoever created it");
+    return unique_handle();
+  }
+  if ((info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0) {
+    errors.emplace_back("the path is not a directory");
+    return unique_handle();
+  }
+  return handle;
+}
+
 }  // namespace
+
+bool is_reparse_point(const std::string &path, std::list<std::string> &errors) {
+  const std::wstring wide = utf8::cvt<std::wstring>(path);
+  // Attributes, not a handle: readable through the parent's list permission,
+  // which %ProgramData% grants everyone, so an unelevated process gets the
+  // same answer as the service for a folder it cannot otherwise open.
+  const DWORD attributes = ::GetFileAttributesW(wide.c_str());
+  if (attributes == INVALID_FILE_ATTRIBUTES) {
+    errors.emplace_back(last_error("GetFileAttributes"));
+    return false;
+  }
+  return (attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+}
 
 bool protect_directory(const std::string &path, std::list<std::string> &errors) {
   std::vector<unsigned char> system_sid_bytes, admin_sid_bytes;
@@ -122,23 +178,31 @@ bool protect_directory(const std::string &path, std::list<std::string> &errors) 
   // required to be.
   enable_privilege(L"SeTakeOwnershipPrivilege");
   enable_privilege(L"SeRestorePrivilege");
-  const DWORD owner_result =
-      ::SetNamedSecurityInfoW(const_cast<LPWSTR>(wide.c_str()), SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION, admin_sid, nullptr, nullptr, nullptr);
+
+  // One handle for both changes, opened on the directory entry itself: the
+  // object that gets secured is then provably the object that was named and
+  // checked, with no window for the entry to be swapped for a junction in
+  // between (see the header). SeRestorePrivilege with backup semantics is
+  // what makes the open succeed against a DACL that denies us.
+  const unique_handle handle = open_plain_directory(wide, READ_CONTROL | WRITE_DAC | WRITE_OWNER, errors);
+  if (!handle) return false;
+
+  const DWORD owner_result = ::SetSecurityInfo(handle.get(), SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION, admin_sid, nullptr, nullptr, nullptr);
 
   // PROTECTED_DACL_SECURITY_INFORMATION is the flag that breaks inheritance.
   // Without it the inherited "Users: Read & Execute" from %ProgramData%
   // survives next to the two ACEs above and the folder stays world-readable.
-  const DWORD result = ::SetNamedSecurityInfoW(const_cast<LPWSTR>(wide.c_str()), SE_FILE_OBJECT,
-                                               DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION, nullptr, nullptr, raw_acl, nullptr);
+  const DWORD result =
+      ::SetSecurityInfo(handle.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION, nullptr, nullptr, raw_acl, nullptr);
   if (result != ERROR_SUCCESS) {
-    errors.emplace_back("SetNamedSecurityInfo failed: error=" + std::to_string(result));
+    errors.emplace_back("SetSecurityInfo failed: error=" + std::to_string(result));
     return false;
   }
   if (owner_result != ERROR_SUCCESS) {
     // Reported after the DACL attempt so the more restrictive of the two still
     // gets applied, but still a failure: an owner we do not control can undo
     // everything above at any time.
-    errors.emplace_back("SetNamedSecurityInfo(owner) failed: error=" + std::to_string(owner_result));
+    errors.emplace_back("SetSecurityInfo(owner) failed: error=" + std::to_string(owner_result));
     return false;
   }
   return true;
@@ -149,15 +213,31 @@ protection inspect_protection(const std::string &path, std::list<std::string> &e
   PSID owner = nullptr;
   PSECURITY_DESCRIPTOR raw_descriptor = nullptr;
   const std::wstring wide = utf8::cvt<std::wstring>(path);
-  const DWORD result =
-      ::GetNamedSecurityInfoW(wide.c_str(), SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION, &owner, nullptr, &dacl, nullptr,
-                              &raw_descriptor);
-  if (result != ERROR_SUCCESS) {
-    // Not "open": we learned nothing. Reading a security descriptor needs
-    // READ_CONTROL, which a folder restricted to SYSTEM and Administrators
+
+  // A junction where the folder should be is "open" by definition: whoever
+  // created the link controls where it points, whatever its target's DACL
+  // says. Decided before the open, from attributes that need no access to the
+  // object, so an unelevated caller gets this answer too.
+  {
+    std::list<std::string> attribute_errors;
+    if (is_reparse_point(path, attribute_errors)) {
+      errors.emplace_back("the directory entry is a junction or symbolic link, not a directory");
+      return protection::open;
+    }
+  }
+
+  const unique_handle handle = open_plain_directory(wide, READ_CONTROL, errors);
+  if (!handle) {
+    // Not "open": we learned nothing. Opening for READ_CONTROL needs exactly
+    // that right, which a folder restricted to SYSTEM and Administrators
     // deliberately denies everyone else - so this is the expected answer for an
     // unelevated caller looking at a folder that is working exactly as intended.
-    errors.emplace_back("GetNamedSecurityInfo failed: error=" + std::to_string(result));
+    return protection::unknown;
+  }
+  const DWORD result =
+      ::GetSecurityInfo(handle.get(), SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION, &owner, nullptr, &dacl, nullptr, &raw_descriptor);
+  if (result != ERROR_SUCCESS) {
+    errors.emplace_back("GetSecurityInfo failed: error=" + std::to_string(result));
     return protection::unknown;
   }
   const std::unique_ptr<void, local_free> descriptor(raw_descriptor);
