@@ -62,12 +62,33 @@ AREAS = [
 ]
 AREA_NAMES = [name for name, _ in AREAS]
 
+# In the page filter the areas collapse into two checks: "service" (the agent
+# itself — core, filter framework, packaging — which every installation runs)
+# and "docs". The front matter keeps the finer tags; only the filter merges.
+AREA_FILTER = {'core': 'service', 'filters': 'service', 'packaging': 'service', 'docs': 'docs'}
+FILTER_AREAS = [
+    ('service', 'The service itself: core, settings, command line, filter framework, packaging'),
+    ('docs', 'Documentation'),
+]
+FILTER_AREA_NAMES = [name for name, _ in FILTER_AREAS]
+
+
+def filter_tags(modules):
+    """The tags an entry is filtered on: its modules, with the areas folded
+    into the filter's "service" / "docs" checks (order kept, duplicates dropped)."""
+    out = []
+    for m in modules:
+        tag = AREA_FILTER.get(m, m)
+        if tag not in out:
+            out.append(tag)
+    return out
+
 SECURITY_ICON = u'\U0001F512'  # 🔒
 
 # What the reader has to do about a note. ``required``: everyone running the
 # tagged modules must act; ``conditional``: only setups using the feature the
 # note describes must check; ``none``: nothing to do. Rendered as a badge and
-# behind the "needs action only" switch of the filter.
+# behind the "may need action only" switch of the filter.
 ACTIONS = ['required', 'conditional', 'none']
 ACTION_ICON = u'\U0001F6E0\uFE0F'  # 🛠️
 ACTION_BADGE = {
@@ -81,7 +102,7 @@ GROUP_CHECKS = 'Check modules'
 GROUP_CLIENTS = 'Clients and servers'
 GROUP_HELPERS = 'Helper modules'
 GROUP_GENERAL = 'General'
-GROUP_ORDER = [GROUP_CHECKS, GROUP_CLIENTS, GROUP_HELPERS, GROUP_GENERAL]
+GROUP_ORDER = [GROUP_GENERAL, GROUP_CHECKS, GROUP_CLIENTS, GROUP_HELPERS]
 
 ADVISORY_COLUMNS = [('id', 'Advisory'), ('cve', 'CVE'), ('severity', 'Severity'),
                     ('affected', 'Affected'), ('summary', 'Summary')]
@@ -265,7 +286,7 @@ def html_attr(value):
 
 
 def entry_attrs(note, version=''):
-    attrs = ' data-modules="%s" data-action="%s"' % (html_attr(' '.join(note['modules'])), note['action'])
+    attrs = ' data-modules="%s" data-action="%s"' % (html_attr(' '.join(filter_tags(note['modules']))), note['action'])
     if version:
         attrs += ' data-version="%s"' % html_attr(version)
     if note.get('security'):
@@ -349,7 +370,7 @@ def render_security(notes, advisories):
 
 
 def module_group(name):
-    if name in AREA_NAMES:
+    if name in FILTER_AREA_NAMES:
         return GROUP_GENERAL
     if name.startswith('Check'):
         return GROUP_CHECKS
@@ -364,9 +385,9 @@ def used_modules():
     used = set()
     for _, notes in load_upgrade_notes():
         for n in notes:
-            used.update(n['modules'])
+            used.update(filter_tags(n['modules']))
     for n in load_security_notes():
-        used.update(n['modules'])
+        used.update(filter_tags(n['modules']))
     return used
 
 
@@ -377,17 +398,19 @@ def render_filter(versions, security_switch):
     groups = {}
     for m in used:
         groups.setdefault(module_group(m), []).append(m)
-    area_label = dict(AREAS)
+    area_label = dict(FILTER_AREAS)
     options = ''.join('<option value="%s">%s</option>' % (v, v) for v in versions)
 
     out = ['<div class="note-filter" id="note-filter" hidden>']
     out.append('<div class="note-filter__row">')
     out.append('<label>Upgrading from <select id="note-from"><option value="">any version</option>%s</select></label>' % options)
     out.append('<label>to <select id="note-to"><option value="">latest</option>%s</select></label>' % options)
+    out.append('</div>')
+    out.append('<div class="note-filter__row">')
     if security_switch:
         out.append('<label><input type="checkbox" id="note-security"> %s security-relevant only</label>' % SECURITY_ICON)
     out.append('<label title="Hide entries that need nothing from you"><input type="checkbox" id="note-action"> '
-               '%s needs action only</label>' % ACTION_ICON)
+               '%s may need action only</label>' % ACTION_ICON)
     out.append('</div>')
     out.append('<details class="note-filter__modules" id="note-modules">')
     out.append('<summary>Modules: <span id="note-modules-summary">all</span></summary>')
@@ -396,8 +419,8 @@ def render_filter(versions, security_switch):
                '<button type="button" data-action="none">Select none</button> '
                '<button type="button" data-action="reset">Reset</button></div>')
     out.append('<p class="note-filter__hint">Tick the modules your <code>nsclient.ini</code> enables. '
-               'Entries that touch none of the ticked modules are hidden; the <em>General</em> group covers '
-               'changes that affect every installation. The selection is shared between the Upgrading and '
+               'Entries that touch none of the ticked modules are hidden; <em>service</em> covers the agent '
+               'itself, which every installation runs. The selection is shared between the Upgrading and '
                'Security notices pages.</p>')
     out.append('<div class="note-filter__groups">')
     for group in GROUP_ORDER:
@@ -405,7 +428,7 @@ def render_filter(versions, security_switch):
         if not names:
             continue
         if group == GROUP_GENERAL:
-            names = [a for a in AREA_NAMES if a in names]
+            names = [a for a in FILTER_AREA_NAMES if a in names]
         else:
             names = sorted(names)
         out.append('<fieldset><legend>%s</legend>' % group)

@@ -31,7 +31,7 @@ The front matter:
 |-----------------|----------|---------|
 | `title`         | yes      | Rendered as the notice's `###` heading. Its slug is the anchor other pages link to (`notices.md#nrpe-decoded-argument-…`), so keep it stable once published. |
 | `modules`       | yes      | The modules the change concerns, as for [upgrade notes](../upgrades/README.md): module directory names or an area (`core`, `filters`, `packaging`, `docs`). |
-| `action`        | yes      | What the reader has to do, as for upgrade notes: `required`, `conditional` or `none`. Rendered as a badge and behind the *needs action only* switch. |
+| `action`        | yes      | What the reader has to do, as for upgrade notes: `required`, `conditional` or `none`. Rendered as a badge and behind the *may need action only* switch. |
 | `fixed_in`      | no       | The release that carries the fix (`0.18.0`). Drives the version filter and the newest-first order; omit only for an advisory against a line that has no fix release. |
 | `fixed_in_note` | no       | Parenthesised after the version: `bundles OpenSSL 3.5.8`. |
 | `severity`      | no       | Free text: `Low`, `Medium`, `High for NSCA-NG cert-mode targets, Low–Medium for everything else`, … |

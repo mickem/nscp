@@ -6,7 +6,7 @@
  * notes inherit their version from the enclosing <div class="note-version">;
  * advisory table rows carry the same class and attributes). This script
  * enables the (otherwise hidden) filter form and hides the notes that do not
- * match the version range, the ticked modules, the "needs action only" switch
+ * match the version range, the ticked modules, the "may need action only" switch
  * (data-action="required" or "conditional") or, on the Upgrading page, the
  * security-only switch.
  *

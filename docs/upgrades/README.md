@@ -30,11 +30,13 @@ The front matter:
 | Key        | Required | Meaning |
 |------------|----------|---------|
 | `modules`  | yes      | The modules the change concerns: module directory names (`NRPEServer`, `CheckSystem`, …) or one of the areas below. The reader filters the page on these, so name every module a reader must have enabled to be affected — and nothing else. |
-| `action`   | yes      | What the reader has to do: `required` (everyone running the tagged modules must change something), `conditional` (only setups that use the feature the note describes have to check, e.g. "if you set `insecure = true`…"), or `none` (nothing to do, the note is informational). Rendered as a badge and behind the *needs action only* switch of the page filter. |
+| `action`   | yes      | What the reader has to do: `required` (everyone running the tagged modules must change something), `conditional` (only setups that use the feature the note describes have to check, e.g. "if you set `insecure = true`…"), or `none` (nothing to do, the note is informational). Rendered as a badge and behind the *may need action only* switch of the page filter. |
 | `icon`     | no       | Emoji shown in front of the title (🔒 security, 💥 breaking, 🔧 settings/CLI, 📊 perfdata, ⏱️ timing, 📤 submission, …). Several may be combined (`"📨 🔒"`). |
 | `security` | no       | `true`/`false`; defaults to whether `icon` contains 🔒. Marks the note for the *security-relevant only* switch. |
 
-Areas, for changes that are not tied to one module:
+Areas, for changes that are not tied to one module (in the page filter
+`core`, `filters` and `packaging` appear as one *service* check, since every
+installation runs them; `docs` stays its own check):
 
 | Area        | Use for |
 |-------------|---------|
