@@ -192,8 +192,7 @@ TEST(NrpeParser, DigestAndParseV4Packet) {
   EXPECT_TRUE(parsed.verifyCRC());
 }
 
-TEST(NrpeParser, DISABLED_DigestV4Incrementally) {
-  // TODO: Fix this test
+TEST(NrpeParser, DigestV4Incrementally) {
   const unsigned int payload_length = 1024;
   server::parser parser(payload_length);
 
@@ -297,8 +296,7 @@ TEST(NrpeParser, V2EmptyPayload) {
   EXPECT_TRUE(parsed.verifyCRC());
 }
 
-TEST(NrpeParser, DISABLED_V4EmptyPayload) {
-  // TODO: Currently empty packages are not supported
+TEST(NrpeParser, V4EmptyPayload) {
   const unsigned int payload_length = 1024;
   server::parser parser(payload_length);
 
@@ -314,6 +312,66 @@ TEST(NrpeParser, DISABLED_V4EmptyPayload) {
 
   packet parsed = parser.parse();
   EXPECT_EQ(parsed.getPayload(), "");
+  EXPECT_TRUE(parsed.verifyCRC());
+}
+
+// =============================================================================
+// parser — digest must not claim completeness on a half-filled buffer
+//
+// digest() used to short-circuit with "complete" whenever the computed
+// packet length was below 1024 bytes. That is a length sanity check written
+// as a completeness answer, and it fires in two entirely legitimate cases:
+// a v3/v4 packet smaller than 1024 bytes that arrives split across TCP
+// reads, and any deployment whose `payload length` is below 1012 (which
+// makes *every* v2 packet shorter than 1024). In both cases the decoder is
+// handed a half-read buffer and fails its length/CRC check.
+// =============================================================================
+
+TEST(NrpeParser, DigestV2IsNotCompleteUntilFullWithSmallPayloadLength) {
+  // 12 + 64 = 76 bytes on the wire, i.e. well under the old 1024 cut-off.
+  const unsigned int payload_length = 64;
+  server::parser parser(payload_length);
+
+  packet original = packet::create_response(data::version2, 0, "small", payload_length);
+  std::vector<char> buf = original.get_buffer();
+  ASSERT_LT(buf.size(), 1024u);
+
+  const std::size_t first_chunk = buf.size() / 2;
+  char* begin = buf.data();
+  bool complete;
+  boost::tie(complete, begin) = parser.digest(begin, begin + first_chunk);
+  EXPECT_FALSE(complete) << "digest() reported a complete packet after " << parser.size() << " of " << buf.size() << " bytes";
+
+  begin = buf.data() + first_chunk;
+  boost::tie(complete, begin) = parser.digest(begin, buf.data() + buf.size());
+  EXPECT_TRUE(complete);
+
+  packet parsed = parser.parse();
+  EXPECT_EQ(parsed.getPayload(), "small");
+  EXPECT_TRUE(parsed.verifyCRC());
+}
+
+TEST(NrpeParser, DigestV3SplitAcrossReadsIsNotCompleteUntilFull) {
+  const unsigned int payload_length = 1024;
+  server::parser parser(payload_length);
+
+  packet original = packet::create_response(data::version3, 0, "abc", payload_length);
+  std::vector<char> buf = original.get_buffer();
+  ASSERT_LT(buf.size(), 1024u);
+
+  // Split inside the fixed header so the advertised length is not yet known.
+  const std::size_t first_chunk = 10;
+  char* begin = buf.data();
+  bool complete;
+  boost::tie(complete, begin) = parser.digest(begin, begin + first_chunk);
+  EXPECT_FALSE(complete) << "digest() reported a complete packet after " << parser.size() << " of " << buf.size() << " bytes";
+
+  begin = buf.data() + first_chunk;
+  boost::tie(complete, begin) = parser.digest(begin, buf.data() + buf.size());
+  EXPECT_TRUE(complete);
+
+  packet parsed = parser.parse();
+  EXPECT_EQ(parsed.getPayload(), "abc");
   EXPECT_TRUE(parsed.verifyCRC());
 }
 
