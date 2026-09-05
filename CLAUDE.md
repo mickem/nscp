@@ -172,12 +172,27 @@ end with the compare link.
 Release notes live on GitHub and get buried over time, so two docs pages mirror
 them durably. Whenever a change introduces a **breaking change, a behaviour
 change that needs operator action, or a new/removed default**, add a
-newest-first entry to `docs/docs/setup/upgrading.md` (the same content as the
-release's `## Upgrade notes`). Whenever a change is **security-relevant** —
-including hardening handled without a CVE — also add an entry to
-`docs/docs/security/notices.md` (under "Published advisories" if it carries a
-CVE/GHSA, otherwise under "Hardening changes (no CVE)"), and mark the matching
-`upgrading.md` item with a 🔒 that links to it. For an embargoed fix, add these
+new file `docs/upgrades/<version>/<slug>.md` (the same content as the
+release's `## Upgrade notes`) — **never edit `docs/docs/setup/upgrading.md`
+itself**: it is a stub that the mkdocs hook `docs/hooks/notes.py` expands
+from those files at build time, one file per note so parallel branches do not
+conflict. The file carries a front matter with `modules:` (the module
+directory names the change concerns, or an area: `core`, `filters`,
+`packaging`, `docs` — the page filters on these, so tag exactly the modules a
+reader must have enabled to be affected), an `action:` (`required` when
+everyone running those modules must change something, `conditional` when only
+setups using the described feature must check, `none` when informational) and
+an `icon:`; the body starts with a bold title. Format and rules: `docs/upgrades/README.md`; validate with
+`python3 docs/hooks/notes.py --check`. Whenever a change is
+**security-relevant** — including hardening handled without a CVE — also add
+a security notice as a new file `docs/security/<slug>.md` (**never edit
+`docs/docs/security/notices.md`**, the same hook assembles it): a front matter
+with `title:`, `fixed_in:`, `severity:`, `modules:`, `action:` and — only for a
+published CVE/GHSA advisory — an `advisory:` block that becomes its row of
+the advisories table (format: `docs/security/README.md`), and mark the
+matching upgrade note with a 🔒 icon that links to it (the anchor is the
+slug of the notice's title). For an embargoed
+fix, add these
 entries **in the same branch/PR as the fix** so the notice becomes public only
 when the fix does — never describe an unfixed issue on a page that ships ahead
 of the patch.

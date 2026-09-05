@@ -1,0 +1,126 @@
+
+/* --- Upgrading / Security notices filter (docs/hooks/notes.py + js/notes.js) ---- */
+.md-typeset .note-filter {
+  margin: 1em 0;
+  padding: .8em 1em;
+  border: .05rem solid var(--md-default-fg-color--lightest);
+  border-radius: .2rem;
+  background: var(--md-code-bg-color);
+  font-size: .8rem;
+}
+.md-typeset .note-filter--active {
+  border-color: var(--md-accent-fg-color);
+}
+.md-typeset .note-filter__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5em 1.5em;
+  align-items: center;
+}
+.md-typeset .note-filter__row + .note-filter__row {
+  margin-top: .5em;
+}
+.md-typeset .note-filter select {
+  font: inherit;
+  padding: .1em .3em;
+  margin-left: .3em;
+  border: .05rem solid var(--md-default-fg-color--lighter);
+  border-radius: .1rem;
+  background: var(--md-default-bg-color);
+  color: var(--md-default-fg-color);
+}
+.md-typeset .note-filter__modules {
+  margin: .6em 0 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+.md-typeset .note-filter__modules:focus-within {
+  box-shadow: none;
+}
+.md-typeset .note-filter__modules > summary {
+  padding: .2em 1.8rem .2em 0;
+  background: none;
+  font-weight: 700;
+}
+/* Material styles <details> as an admonition; drop its icon. */
+.md-typeset .note-filter__modules > summary::before {
+  display: none;
+}
+.md-typeset .note-filter__actions {
+  margin: .4em 0;
+}
+.md-typeset .note-filter button {
+  font: inherit;
+  padding: .1em .6em;
+  border: .05rem solid var(--md-default-fg-color--lighter);
+  border-radius: .1rem;
+  background: var(--md-default-bg-color);
+  color: var(--md-default-fg-color);
+  cursor: pointer;
+}
+.md-typeset .note-filter button:hover {
+  border-color: var(--md-accent-fg-color);
+  color: var(--md-accent-fg-color);
+}
+.md-typeset .note-filter__hint {
+  margin: .4em 0;
+  color: var(--md-default-fg-color--light);
+}
+.md-typeset .note-filter__groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5em 2em;
+}
+.md-typeset .note-filter fieldset {
+  min-width: 12em;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.md-typeset .note-filter legend {
+  padding: 0;
+  margin: .3em 0;
+  font-weight: 700;
+}
+.md-typeset .note-filter fieldset label {
+  display: block;
+  white-space: nowrap;
+}
+.md-typeset .note-filter__status {
+  margin: .6em 0 0;
+  font-weight: 700;
+}
+/* Action badges: what the reader has to do about a note. */
+.md-typeset .note-badge {
+  display: inline-block;
+  vertical-align: baseline;
+  margin-right: .2em;
+  padding: 0 .45em;
+  border-radius: .2rem;
+  font-size: .7em;
+  font-weight: 700;
+  line-height: 1.7;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.md-typeset .note-badge--required {
+  background: #d32f2f;
+  color: #fff;
+}
+.md-typeset .note-badge--conditional {
+  background: #f9a825;
+  color: #212121;
+}
+.md-typeset .note-entry > ul,
+.md-typeset .note-entry > ol {
+  margin-top: 0;
+  margin-bottom: .6em;
+}
+.md-typeset .note-entry[hidden],
+.md-typeset .note-version[hidden],
+.md-typeset .note-filter[hidden] {
+  display: none;
+}
