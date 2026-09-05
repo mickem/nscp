@@ -40,3 +40,23 @@ permissions of any certificate NSClient++ generated for you
 (`chmod 600 …/security/certificate.pem`). If you distributed a generated
 `ca.pem`, treat that CA as compromised — regenerate it and re-issue client
 certificates.
+
+#### The inbound TLS handshake had no deadline
+
+`ssl_connection::start()` overrides the base `start()` — which is where the
+connection timer is armed — and runs the handshake before it, so the entire
+handshake phase was unbounded. A host permitted by `allowed hosts` could open
+N sockets, send nothing, and pin N connection objects, file descriptors and
+buffers forever. The plain-TCP path was bounded by `timeout` (30 s by
+default); the SSL path, which is the NRPE default, was not. This is the same
+class as the client-side "operations that could never time out" set fixed in
+0.18.0, on the inbound side.
+
+The deadline is now armed before the handshake and re-armed for the request
+itself once it completes. The number of established connections is still only
+bounded by the accept backlog, so `allowed hosts` remains the control that
+matters for an untrusted network.
+
+**What to do:** nothing required. A peer that cannot complete a TLS handshake
+within the listener's `timeout` is now dropped; raise `timeout` if your
+network needs longer.
