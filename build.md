@@ -72,7 +72,7 @@ set is pinned in `build/python/requirements.txt`.
 | Google Test                            | unit tests                                                | bundled via FetchContent (or `libgmock-dev`)     | unit tests (also toggled by `NSCP_BUILD_TESTS`)                                              |
 | Mongoose                               | web / REST server (mongoose backend)                      | vendored source (`MONGOOSE_SOURCE_DIR`)          | only needed when `NSCP_WEB_BACKEND=mongoose` (the default); not needed with `beast`          |
 | MariaDB Connector/C                    | MySQL / MariaDB / Percona checks                          | `libmariadb-dev` (RHEL: `mariadb-connector-c-devel`) | `CheckMySQL` module                                                                      |
-| Rust toolchain                         | builds the bundled `check_nsclient` plugin                | [`rustup`](https://rust-lang.org/tools/install/) | bundled `check_nsclient` (skip with `-DCHECK_NSCLIENT_MISSING=TRUE`)                         |
+| `check_nsclient`                       | stand-alone check plugin bundled with the packages        | prebuilt binary from [mickem/check_nsclient](https://github.com/mickem/check_nsclient/releases) (version pinned in `.check_nsclient_version`) | bundled `check_nsclient` (skip with `-DCHECK_NSCLIENT_MISSING=TRUE`) |
 | .NET SDK (8.0+)                        | managed .NET plugin API (`NSCP.Core.dll`) + C# sample     | `dotnet-sdk-8.0`                                 | `modules/dotnet` (the native `DotnetPlugins` module still builds; skip with `-DNSCP_DOTNET=OFF`) |
 
 A few additional Linux packages are pulled in for packaging and supporting
@@ -101,8 +101,8 @@ with `-DNSCP_CMAKE_CONFIG=<file>`).
 | `USE_STATIC_RUNTIME`        | `OFF`            | Link the C/C++ runtime statically (used by the Win32 static build).                                                                                                      |
 | `USE_SYSTEMD`               | `ON` (Linux)     | Install systemd service files in the package.                                                                                                                            |
 | `USE_INITD`                 | `OFF` (Linux)    | Install legacy init.d scripts in the package.                                                                                                                            |
-| `CHECK_NSCLIENT_LOCATION`   | —                | Directory holding the prebuilt Rust `check_nsclient` binary to bundle.                                                                                                   |
-| `CHECK_NSCLIENT_MISSING`    | unset            | Set `TRUE` to skip bundling `check_nsclient` (no Rust build required).                                                                                                   |
+| `CHECK_NSCLIENT_LOCATION`   | —                | Directory holding the prebuilt `check_nsclient` binary to bundle (see [Download the check_nsclient plugin](#download-the-check_nsclient-plugin)).                       |
+| `CHECK_NSCLIENT_MISSING`    | unset            | Set `TRUE` to skip bundling `check_nsclient` (no download required).                                                                                                     |
 | `NSCP_CMAKE_CONFIG`         | —                | Path (relative to the source or binary dir) to a custom `build.cmake`-style config to include.                                                                           |
 
 ### Dependency locations
@@ -615,7 +615,10 @@ if you also want those optional pieces (this is what CI does):
 pip3 install -r build/python/requirements.txt
 ```
 
-In addition to this you also need to install rust: https://rust-lang.org/tools/install/
+The `check_nsclient` plugin that the packages bundle is not built from this
+tree; it is a prebuilt binary downloaded from its own repository (see
+[Download the check_nsclient plugin](#download-the-check_nsclient-plugin)
+below), so no Rust toolchain is needed.
 
 ### Download dependencies
 
@@ -638,14 +641,28 @@ configure that doesn't set `NSCP_WEB_BACKEND=beast` would require the vendored
 Mongoose source — the Linux package builds opt into Beast for exactly this
 reason.
 
-#### Build Rust NSClient check_nsclient client
+#### Download the check_nsclient plugin
 
-The Rust based `check_nsclient` tool needs to be built before building NSClient++.
+The stand-alone `check_nsclient` plugin lives in its own repository,
+[mickem/check_nsclient](https://github.com/mickem/check_nsclient), and the
+packages bundle a prebuilt release binary of it. The version to bundle is
+pinned in `.check_nsclient_version` at the repository root; fetch the matching
+release asset for your architecture (the assets are named
+`check_nsclient-<version>-linux-x64` and `check_nsclient-<version>-linux-arm64`)
+into a directory that `CHECK_NSCLIENT_LOCATION` will point at (this is what
+`build-debian.yml` / `build-redhat.yml` do):
 
 ```bash
-cd $SOURCE_ROOT/rust/check_nsclient
-cargo build --release
+arch=x64   # or arm64
+mkdir -p $DEPENDENCIES_FOLDER/check_nsclient
+ver=$(tr -d '[:space:]' < $SOURCE_ROOT/.check_nsclient_version)
+curl -sSfL -o $DEPENDENCIES_FOLDER/check_nsclient/check_nsclient \
+    "https://github.com/mickem/check_nsclient/releases/download/${ver}/check_nsclient-${ver}-linux-${arch}"
+chmod +x $DEPENDENCIES_FOLDER/check_nsclient/check_nsclient
 ```
+
+To build without it, pass `-DCHECK_NSCLIENT_MISSING=TRUE` to `cmake` instead
+of `CHECK_NSCLIENT_LOCATION`.
 
 #### Build the web UI bundle (optional)
 
@@ -691,7 +708,7 @@ cmake $SOURCE_ROOT \
     -DCMAKE_BUILD_TYPE=Release \
     -DNSCP_WEB_BACKEND=beast \
     -DNSCP_BOOST_PYTHON_VERSION=python312 \
-    -DCHECK_NSCLIENT_LOCATION="$SOURCE_ROOT/rust/check_nsclient/target/release"
+    -DCHECK_NSCLIENT_LOCATION="$DEPENDENCIES_FOLDER/check_nsclient"
 make -j$(nproc)
 ```
 

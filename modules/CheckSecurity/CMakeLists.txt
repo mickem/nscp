@@ -137,17 +137,29 @@ NSCP_CREATE_TEST(
         ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-# The licensing decode and the owner/DACL classification are platform neutral
-# (only the data acquisition is Windows), so these unit tests build everywhere.
+# The licensing decode, the owner/DACL classification and the command bodies of
+# the Windows-only posture checks are platform neutral (only the data
+# acquisition is Windows), so these unit tests build everywhere. The command
+# tests stand in for the platform sources, which is what lets the *matched* half
+# of these checks - thresholds, rendering, perf data - run off Windows at all.
 NSCP_CREATE_TEST(
     check_posture_test
     SOURCES
         check_activation_test.cpp
         check_file_security_test.cpp
         check_firewall_rules_test.cpp
+        check_posture_commands_test.cpp
         check_activation.cpp
         check_file_security.cpp
         check_firewall_rules.cpp
+        check_antivirus.cpp
+        check_bitlocker.cpp
+        check_defender.cpp
+        check_group_members.cpp
+        check_local_accounts.cpp
+        check_nla.cpp
+        check_secureboot.cpp
+        check_users.cpp
         ${NSCP_FILTER_CPP}
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp

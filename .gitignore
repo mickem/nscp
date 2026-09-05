@@ -3,21 +3,20 @@ build.cmake
 cmake-build
 cmake-build-*
 # Sanitizer build dirs created by tools/sanitizers/run.sh (build-address+undefined,
-# build-thread, etc.) and any other ad-hoc build-<flavor>/ trees.
-build-*
-# But the GHA reusable workflows are named build-*.yml and must stay tracked.
-!.github/workflows/build-*.yml
+# build-thread, etc.) and any other ad-hoc build-<flavor>/ trees. Anchored to
+# the repo root and to directories only so tracked files such as
+# build/sh/build-ubuntu.sh and .github/workflows/build-*.yml are not swept up.
+/build-*/
 build_output.txt
 cmake_output.txt
 .cmake
+# ctest output from an in-tree run
+/Testing/
 
 # ─── Runtime / data files ─────────────────────────────────────────────────────
 nsclient.log
 nsclient.fatal
 nsclient.db
-
-# ─── Rust ─────────────────────────────────────────────────────────────────────
-rust/*/target
 
 # ─── Python ───────────────────────────────────────────────────────────────────
 *.pyc
@@ -36,6 +35,8 @@ node_modules
 *.tmp
 *~
 *.swp
+# Windows Explorer thumbnail cache
+Thumbs.db
 
 # ─── IDE — CLion / JetBrains ──────────────────────────────────────────────────
 .idea

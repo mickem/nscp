@@ -13,5 +13,5 @@ jobs:
         with:
           only_warn: 1
           builtin: clear
-          skip: "*.vbs,rust"
+          skip: "*.vbs"
           ignore_words_list: "afterall" # Important note: ignored words must be lowercase
