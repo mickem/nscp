@@ -21,7 +21,11 @@ class data {
   static constexpr short moreResponsePacket = 3;
   static constexpr short version2 = 2;
   static constexpr short version3 = 3;
-  static constexpr short version4 = 3;
+  // NRPE v3 and v4 carry identical fields and differ only in whether the
+  // three alignment bytes at the end of the struct are part of the wire
+  // packet (see get_packet_length_v3 vs _v4). The version field on the wire
+  // does distinguish them, so this must be 4 - a v4 packet announces 4.
+  static constexpr short version4 = 4;
 
   static constexpr std::size_t buffer_offset_v2 = 10;
   static constexpr std::size_t buffer_offset_v3 = 16;
@@ -209,7 +213,7 @@ class packet /*: public boost::noncopyable*/ {
     }
     const auto p = reinterpret_cast<const data::packet_header*>(buffer);
     int version = boost::endian::big_to_native(p->packet_version);
-    if (version == 3 || version == 4) {
+    if (version == data::version3 || version == data::version4) {
       readFromV3(buffer, length);
     } else {
       readFromV2(buffer, length);
@@ -256,7 +260,7 @@ class packet /*: public boost::noncopyable*/ {
       throw nrpe_exception("Invalid packet type: " + str::xtos(type_));
     }
     version_ = boost::endian::big_to_native(p->packet_version);
-    if (version_ != 3 && version_ != 4) {
+    if (version_ != data::version3 && version_ != data::version4) {
       throw nrpe_exception("Invalid packet version: " + str::xtos(version_));
     }
     const int32_t raw_payload_length = boost::endian::big_to_native(p->buffer_length);
@@ -267,7 +271,7 @@ class packet /*: public boost::noncopyable*/ {
     if (payload_length > 1024 * 1024) {
       throw nrpe_exception("Invalid packet length specified: " + str::xtos(payload_length));
     }
-    const std::size_t source_data_length = version_ == 4 ? length::get_packet_length_v4(payload_length) : length::get_packet_length_v3(payload_length);
+    const std::size_t source_data_length = version_ == data::version4 ? length::get_packet_length_v4(payload_length) : length::get_packet_length_v3(payload_length);
     if (length < source_data_length) {
       throw nrpe_exception("Invalid packet length: " + str::xtos(length) + " != " + str::xtos(source_data_length));
     }
