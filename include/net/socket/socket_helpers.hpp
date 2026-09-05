@@ -20,7 +20,32 @@
 
 namespace socket_helpers {
 #ifdef USE_SSL
+// Generate a self-signed certificate and write it to `cert`.
+//
+// For `ca == false` this is the agent's own identity: the unencrypted private
+// key and the certificate go into the one file (asio loads both from it when
+// `certificate key` is empty), created so that only the account running the
+// agent can read it.
+//
+// For `ca == true` the certificate goes to `cert` - the file operators hand
+// out to clients - and the CA private key to ca_key_path(cert) beside it,
+// again readable only by us. Distributing the CA key would let any recipient
+// mint client certificates and walk through `verify mode = peer-cert`.
 void write_certs(const std::string& cert, bool ca);
+
+// Where write_certs() puts the private key belonging to a CA certificate:
+// the same directory and extension with a "-key" suffix on the stem, so
+// `.../ca.pem` becomes `.../ca-key.pem`.
+std::string ca_key_path(const std::string& ca_certificate);
+
+#ifdef WIN32
+// Lock a file down to LOCAL SYSTEM and the local Administrators group,
+// breaking inheritance so a permissive parent (Program Files grants
+// `Users: Read & Execute`) cannot leave a private key world-readable.
+// Mirrors nsclient::windows_acl::protect_directory, which is not linked into
+// the modules that generate certificates.
+bool restrict_to_owner(const std::string& path, std::list<std::string>& errors);
+#endif
 // Extract the peer certificate's Subject DN from an established SSL
 // session and format it as an RFC 2253 string (e.g.
 // `CN=icinga-master,O=Acme,C=US`). Returns an empty string when there is
