@@ -39,7 +39,7 @@ struct connection_data : socket_helpers::connection_info {
   connection_data(client::destination_container arguments, client::destination_container sender) : ensure_objects(false) {
     address = arguments.address.host;
     protocol = arguments.address.protocol;
-    base_path = arguments.address.path;
+    base_path = icinga::normalize_base_path(arguments.address.path);
     if (protocol == "https") {
       port_ = arguments.address.get_port_string("5665");
     } else if (protocol == "http") {
@@ -79,11 +79,18 @@ struct connection_data : socket_helpers::connection_info {
     if (check_source.empty()) check_source = sender_hostname;
   }
 
+  // Prefix an absolute Icinga 2 API path ("/v1/...") with the configured base
+  // path, so a master published under a reverse-proxy subpath is reachable.
+  // Every request goes through do_http(), which is the single place this is
+  // applied - the callers below all name the upstream API path verbatim.
+  std::string api_path(const std::string &path) const { return base_path + path; }
+
   std::string to_string() const {
     std::stringstream ss;
     ss << "protocol: " << protocol;
     ss << ", host: " << get_endpoint_string();
     ss << ", port: " << port_;
+    if (!base_path.empty()) ss << ", base path: " << base_path;
     ss << ", timeout: " << timeout;
     ss << ", user: " << username;
     ss << ", sender: " << sender_hostname;
@@ -118,7 +125,7 @@ inline http_response do_http(const connection_data &con, const std::string &verb
   result.status = 0;
   http::simple_client c(make_client_options(con));
 
-  http::request request(verb, con.get_address(), path);
+  http::request request(verb, con.get_address(), con.api_path(path));
   request.add_header("Authorization", make_basic_auth(con.username, con.password));
   request.add_header("Accept", "application/json");
   if (!json_body.empty()) {
@@ -212,7 +219,7 @@ struct icinga_client_handler : client::handler_interface {
       const std::string body = icinga::build_check_result_body(nagios_result, plugin_output, perfdata, con.check_source, host, is_host ? std::string() : alias);
       const std::string path = "/v1/actions/process-check-result";
 
-      NSC_TRACE_ENABLED() { NSC_TRACE_MSG("POST " + path + " " + body); }
+      NSC_TRACE_ENABLED() { NSC_TRACE_MSG("POST " + con.api_path(path) + " " + body); }
       http_response res = do_http(con, "POST", path, body);
       NSC_TRACE_ENABLED() { NSC_TRACE_MSG("HTTP " + str::xtos(res.status) + ": " + res.body); }
 

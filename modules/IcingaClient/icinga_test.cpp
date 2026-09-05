@@ -149,6 +149,26 @@ TEST(IcingaTest, UrlEncode) {
   EXPECT_EQ(icinga::url_encode("a b/c"), "a%20b%2Fc");
 }
 
+TEST(IcingaTest, NormalizeBasePathDropsTheEmptyForms) {
+  // net::parse leaves the path empty for "https://host:5665" and "/" for
+  // "https://host/"; neither is a subpath and both must contribute nothing,
+  // or every request would go to "//v1/...".
+  EXPECT_EQ(icinga::normalize_base_path(""), "");
+  EXPECT_EQ(icinga::normalize_base_path("/"), "");
+  EXPECT_EQ(icinga::normalize_base_path("///"), "");
+  EXPECT_EQ(icinga::normalize_base_path("   "), "");
+}
+
+TEST(IcingaTest, NormalizeBasePathYieldsAPastablePrefix) {
+  // The result is concatenated straight onto an absolute "/v1/..." path, so it
+  // must start with exactly one slash and end without one.
+  EXPECT_EQ(icinga::normalize_base_path("/icinga"), "/icinga");
+  EXPECT_EQ(icinga::normalize_base_path("/icinga/"), "/icinga");
+  EXPECT_EQ(icinga::normalize_base_path("icinga"), "/icinga");
+  EXPECT_EQ(icinga::normalize_base_path("/icinga/api/"), "/icinga/api");
+  EXPECT_EQ(icinga::normalize_base_path("  /icinga/  "), "/icinga");
+}
+
 TEST(IcingaTest, VerificationIsDisabledWhenNoTokenEnablesPeerVerification) {
   // These all resolve to verify_none in socket_helpers::verify_mode_parser:
   // an empty string parses to no flags at all, "none" is explicit, and

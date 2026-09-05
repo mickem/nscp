@@ -190,6 +190,20 @@ submit_result parse_check_result_response(const std::string &body) {
   return r;
 }
 
+std::string normalize_base_path(const std::string &base_path) {
+  // Trim first: the value comes from the configured address, where a stray
+  // space around the path is a typo rather than a path segment.
+  const auto begin = base_path.find_first_not_of(" \t");
+  if (begin == std::string::npos) return std::string();
+  const auto end = base_path.find_last_not_of(" \t");
+  std::string path = base_path.substr(begin, end - begin + 1);
+
+  while (!path.empty() && path.back() == '/') path.pop_back();
+  if (path.empty()) return path;
+  if (path.front() != '/') path.insert(path.begin(), '/');
+  return path;
+}
+
 bool is_verification_disabled(const std::string &verify_mode) {
   // Token-for-token mirror of socket_helpers::verify_mode_parser, down to the
   // splitter it uses (neither trims whitespace, and the split of "" yields no
