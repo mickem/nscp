@@ -357,9 +357,53 @@ TEST(NrpeParser, ReadVersionAfterV4Header) {
   bool complete;
   boost::tie(complete, begin) = parser.digest(begin, end);
 
-  // Version 4 uses the same wire constant as version3 (3)
-  // TODO: Here we should ideally use the constants
-  EXPECT_EQ(parser.read_version(), 4);
+  EXPECT_EQ(parser.read_version(), data::version4);
+}
+
+// =============================================================================
+// parser — a v4 packet larger than the configured v2 packet length
+//
+// NRPE v3 and v4 carry the same fields; they differ only in whether the
+// three alignment bytes at the end of the struct are part of the wire
+// packet. The *version field* however really does carry 4, so the parser
+// has to recognise it. `data::version4` used to be defined as 3, which made
+// the v3/v4 arm of digest() read `v == 3 || v == 3`: a packet announcing
+// version 4 matched neither arm and no bytes were consumed.
+//
+// Small v4 packets survived that by accident (the first digest() call runs
+// through the `v == -1` arm and buffers a whole v2 packet worth of bytes).
+// A v4 packet longer than the v2 packet length does not: the first call
+// stops at get_packet_length_v2() bytes, the next consumes nothing, and
+// read_protocol::on_read sees an unmoved iterator and drops the connection
+// with "Digester failed to parse NRPE data ... giving up".
+// =============================================================================
+
+TEST(NrpeParser, DigestV4PacketLongerThanV2PacketLength) {
+  const unsigned int payload_length = 1024;
+  server::parser parser(payload_length);
+
+  // Deliberately longer than length::get_packet_length_v2(1024) == 1036.
+  const std::string payload(2000, 'x');
+  packet original = packet::create_response(4, 0, payload, payload_length);
+  std::vector<char> buf = original.get_buffer();
+  ASSERT_GT(buf.size(), length::get_packet_length_v2(payload_length));
+
+  // Mimic read_protocol::on_read: keep digesting while the parser consumes.
+  char* begin = buf.data();
+  char* end = begin + buf.size();
+  bool complete = false;
+  while (begin != end && !complete) {
+    char* const old_begin = begin;
+    boost::tie(complete, begin) = parser.digest(begin, end);
+    // An unmoved iterator is what makes on_read give up on the connection.
+    ASSERT_TRUE(complete || begin != old_begin) << "digest() stalled after " << parser.size() << " bytes";
+  }
+
+  ASSERT_TRUE(complete);
+  packet parsed = parser.parse();
+  EXPECT_EQ(parsed.getVersion(), 4);
+  EXPECT_EQ(parsed.getPayload(), payload);
+  EXPECT_TRUE(parsed.verifyCRC());
 }
 
 // =============================================================================

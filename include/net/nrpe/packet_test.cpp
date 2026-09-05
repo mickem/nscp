@@ -32,6 +32,7 @@ TEST(NrpeData, PacketTypeConstants) {
 TEST(NrpeData, VersionConstants) {
   EXPECT_EQ(data::version2, 2);
   EXPECT_EQ(data::version3, 3);
+  EXPECT_EQ(data::version4, 4);
 }
 
 // =============================================================================
@@ -216,8 +217,7 @@ TEST(NrpePacket, V4SerializeDeserialize) {
   // Deserialize from raw buffer
   packet restored(&buf[0], buf.size());
   EXPECT_EQ(restored.getType(), data::queryPacket);
-  // Version 4 maps to version3 constant value (3) in data::
-  EXPECT_TRUE(restored.getVersion() == 3 || restored.getVersion() == 4);
+  EXPECT_EQ(restored.getVersion(), data::version4);
   EXPECT_EQ(restored.getPayload(), "check_cpu");
   EXPECT_TRUE(restored.verifyCRC());
 }
