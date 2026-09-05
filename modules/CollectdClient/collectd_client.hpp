@@ -218,6 +218,18 @@ struct collectd_client_handler : public client::handler_interface {
 
     collectd::collectd_builder::packet_list packets;
     builder.render(packets);
+
+    // A value-list longer than a datagram can carry is truncated by the
+    // encoder rather than emitted malformed; say so, or the missing values
+    // look like a receiver-side problem.
+    std::size_t clamped = 0;
+    for (const collectd::packet &p : packets) clamped += p.clamped_values();
+    if (clamped > 0) {
+      NSC_LOG_ERROR("Dropped " + str::xtos(clamped) +
+                    " collectd value(s): a single value list does not fit one datagram (max " + str::xtos(collectd::max_packet_size) +
+                    " bytes). Split the metric across several entries.");
+    }
+
     connection_data con(target, sender);
     send(con, packets);
     return true;
