@@ -250,6 +250,21 @@ TEST(NrpePacket, ReadFromTooShortThrows) {
   EXPECT_THROW(pkt.readFrom(buf, 2), nrpe_exception);
 }
 
+// A packet length below the fixed v2 header used to wrap the payload length
+// subtraction into a near-SIZE_MAX value; readFromV2's equality check then
+// passed by wraparound and fetch_payload ran strnlen past the buffer.
+TEST(NrpeLength, PayloadLengthOfShortPacketIsZero) {
+  EXPECT_EQ(length::get_payload_length(0u), 0u);
+  EXPECT_EQ(length::get_payload_length(sizeof(data::packet_v2) - 1), 0u);
+  EXPECT_EQ(length::get_payload_length(sizeof(data::packet_v2)), 0u);
+  EXPECT_EQ(length::get_payload_length(sizeof(data::packet_v2) + 100), 100u);
+}
+
+TEST(NrpePacket, ConstructFromShortBufferThrows) {
+  const std::vector<char> buf(sizeof(data::packet_v2) - 1, 0);
+  EXPECT_THROW(packet(buf.data(), buf.size()), nrpe_exception);
+}
+
 TEST(NrpePacket, V2PayloadTooLargeThrows) {
   // payload_length_ = 10 but payload is longer
   EXPECT_THROW(
