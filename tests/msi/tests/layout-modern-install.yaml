@@ -66,5 +66,4 @@ required_files:
   # these under %ProgramData%, ${nrpe-dh}'s legacy candidate stops being the
   # right fallback and this assertion is what says so.
   shipped-dh-parameters:
-    - security/nrpe_dh_512.pem
     - security/nrpe_dh_2048.pem

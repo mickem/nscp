@@ -113,44 +113,5 @@ struct settings_helper {
     root_path.add_key().add_int("timeout", nscapi::settings_helper::int_fun_key([&object](auto value) { object.set_property_int("timeout", value); }, 30),
                                 "TIMEOUT", "Timeout (in seconds) when reading/writing packets to/from sockets.");
   }
-  template <class object_type>
-  static void add_ssl_client_opts(nscapi::settings_helper::settings_registry &settings, std::shared_ptr<nscapi::settings_proxy> proxy, object_type &object,
-                                  bool is_sample) {
-    nscapi::settings_helper::path_extension root_path = settings.path(object.tpl.path);
-    if (is_sample) root_path.set_sample();
-    root_path
-        .add_key()
-
-        .add_string(
-            "dh",
-            // ${nrpe-dh} resolves to wherever the shipped parameters actually
-            // live, which is not ${certificate-path} on the Windows modern
-            // layout - the installer leaves them beside the executable.
-            nscapi::settings_helper::path_fun_key([&object](auto value) { object.set_property_string("dh", value); }, "${nrpe-dh}/nrpe_dh_512.pem"),
-            "DH KEY", "", true)
-
-        .add_string("certificate", nscapi::settings_helper::path_fun_key([&object](auto value) { object.set_property_string("certificate", value); }),
-                    "SSL CERTIFICATE", "", false)
-
-        .add_string("certificate key", nscapi::settings_helper::path_fun_key([&object](auto value) { object.set_property_string("certificate key", value); }),
-                    "SSL CERTIFICATE", "", true)
-
-        .add_string("certificate format",
-                    nscapi::settings_helper::string_fun_key([&object](auto value) { object.set_property_string("certificate format", value); }, "PEM"),
-                    "CERTIFICATE FORMAT", "", true)
-
-        .add_string("ca", nscapi::settings_helper::path_fun_key([&object](auto value) { object.set_property_string("ca", value); }), "CA", "", true)
-
-        .add_string("allowed ciphers",
-                    nscapi::settings_helper::string_fun_key([&object](auto value) { object.set_property_string("allowed ciphers", value); },
-                                                            "ALL:!MD5:@STRENGTH:@SECLEVEL=0"),
-                    "ALLOWED CIPHERS", "A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH", false)
-
-        .add_string("verify mode", nscapi::settings_helper::string_fun_key([&object](auto value) { object.set_property_string("verify mode", value); }, "none"),
-                    "VERIFY MODE", "", false)
-
-        .add_bool("use ssl", nscapi::settings_helper::bool_fun_key([&object](auto value) { object.set_property_bool("ssl", value); }, true),
-                  "ENABLE SSL ENCRYPTION", "This option controls if SSL should be enabled.");
-  }
 };
 }  // namespace socket_helpers

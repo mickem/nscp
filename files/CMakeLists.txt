@@ -3,7 +3,6 @@ project(copy_files)
 
 set(ALL_FILES)
 copy_single_file(ALL_FILES license.txt .)
-copy_single_file(ALL_FILES nrpe_dh_512.pem security)
 copy_single_file(ALL_FILES nrpe_dh_2048.pem security)
 copy_single_file(ALL_FILES old-settings.map .)
 copy_single_test_file(ALL_FILES nsclient.dist .)
