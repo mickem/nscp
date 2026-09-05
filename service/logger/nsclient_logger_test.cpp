@@ -199,3 +199,19 @@ TEST(NsclientLogger, LogMethodsRespectLevel) {
   // accordingly sees nothing.
   EXPECT_TRUE(sub->snapshot().empty());
 }
+
+// The driver options cli_parser pushes onto the same list as severities.
+// These used to fall through to log_level::set(), which does not know them:
+// --no-stderr and oneline logged "Invalid log level: ..." instead of taking
+// effect, and there was no way at all to turn the console back off.
+TEST(NsclientLogger, DriverOptionsDoNotDisturbTheSeverityLevel) {
+  auto logger = make_backendless_logger();
+  logger->set_log_level("warning");
+  ASSERT_EQ(logger->get_log_level(), "warning");
+
+  for (const std::string option : {"console", "no-console", "oneline", "no-std-err"}) {
+    SCOPED_TRACE("option=" + option);
+    EXPECT_NO_THROW(logger->set_log_level(option));
+    EXPECT_EQ(logger->get_log_level(), "warning");
+  }
+}

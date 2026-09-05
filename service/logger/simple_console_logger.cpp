@@ -44,7 +44,16 @@ void simple_console_logger::do_log(const std::string data) {
     if (!is_no_std_err() && m.first)
       std::cerr << m.second;
     else
-      std::cout << m.second;
+      // Flush every message. std::cout carries our 64k buffer (see the ctor) and
+      // nothing else ever flushes it: render_console_message never reports an
+      // error, so std::cerr (which is tied to std::cout) is never written. On
+      // Windows the MSVC filebuf honours pubsetbuf, so log output sat in that
+      // buffer until something else happened to flush it - in `nscp test` the
+      // only thing that did was std::getline(std::cin), i.e. the log only
+      // caught up when you pressed a key. libstdc++ ignores pubsetbuf on the
+      // stdio-synced cout and line-buffers on a tty, which is why only Windows
+      // showed it.
+      std::cout << m.second << std::flush;
   }
   subscriber_manager_->on_log_message(data);
 }

@@ -57,6 +57,7 @@ THIRD_PARTY_PATH_FRAGMENTS = (
     "/libs/minizip/",
     "/libs/protobuf/",
     "/libs/protobuf_net/",
+    "/libs/replxx/",
 )
 
 # Individual third-party files we never modify. These either carry their

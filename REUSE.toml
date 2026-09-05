@@ -81,3 +81,44 @@ path = "libs/protobuf_net/Google.Protobuf.dll"
 precedence = "override"
 SPDX-FileCopyrightText = "Google LLC"
 SPDX-License-Identifier = "BSD-3-Clause"
+
+# Vendored replxx (libs/replxx/README.nscp.md records the upstream revision).
+# The copy is byte-identical to upstream, which is the point: it can be diffed
+# against the upstream tarball to prove provenance. That also means we do not
+# add SPDX headers to the sources - most of them carry no notice at all - so
+# the licensing lives here instead. libs/replxx/CMakeLists.txt and
+# README.nscp.md are ours and stay under the project default.
+#
+# replxx is BSD-3-Clause, but it embeds two files under other terms; upstream
+# documents all three in libs/replxx/LICENSE.md. The three blocks below must
+# stay in this order: a later annotation wins over an earlier one, so the
+# per-file entries override the directory-wide one.
+[[annotations]]
+path = ["libs/replxx/include/**", "libs/replxx/src/**", "libs/replxx/LICENSE.md"]
+precedence = "override"
+SPDX-FileCopyrightText = [
+    "2017-2018 Marcin Konarski <amok@codestation.org>",
+    "2010 Salvatore Sanfilippo <antirez@gmail.com>",
+    "2010 Pieter Noordhuis <pcnoordhuis@gmail.com>",
+]
+SPDX-License-Identifier = "BSD-3-Clause"
+
+# Markus Kuhn's reference wcwidth()/wcswidth() implementation, carried inside
+# replxx. Its notice is the short permission-and-disclaimer form SPDX registers
+# as HPND-Markus-Kuhn.
+[[annotations]]
+path = "libs/replxx/src/wcwidth.cpp"
+precedence = "override"
+SPDX-FileCopyrightText = "2007 Markus Kuhn"
+SPDX-License-Identifier = "HPND-Markus-Kuhn"
+
+# Unicode, Inc.'s UTF conversion routines, carried inside replxx. The notice in
+# these files is the short "Limitations on Rights to Redistribute This Code"
+# form shipped with ConvertUTF.c - not the Unicode Terms of Use, and not the
+# Unicode DFS licence, so no registered SPDX identifier matches it and the text
+# is carried verbatim in LICENSES/ under a LicenseRef.
+[[annotations]]
+path = ["libs/replxx/src/ConvertUTF.cpp", "libs/replxx/src/ConvertUTF.h"]
+precedence = "override"
+SPDX-FileCopyrightText = "2001-2004 Unicode, Inc."
+SPDX-License-Identifier = "LicenseRef-Unicode-ConvertUTF"
