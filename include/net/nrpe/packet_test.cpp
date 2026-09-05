@@ -223,6 +223,38 @@ TEST(NrpePacket, V4SerializeDeserialize) {
 }
 
 // =============================================================================
+// packet — trailing bytes are not payload
+//
+// The server parser buffers a whole v2 packet worth of bytes before the wire
+// version is known, so a short v3/v4 packet arrives followed by whatever else
+// was in that read. readFromV3 used to bound the payload by the buffer length
+// rather than by the length the packet declares, so those trailing bytes -
+// which the packet's own CRC does not cover - became part of the command.
+// =============================================================================
+
+TEST(NrpePacket, V4PayloadStopsAtTheDeclaredLength) {
+  packet original = packet::create_response(4, 0, "ok", 1024);
+  std::vector<char> buf = original.get_buffer();
+  const std::size_t wire_length = buf.size();
+  buf.resize(length::get_packet_length_v2(1024), 'X');
+
+  packet restored(buf.data(), buf.size());
+  EXPECT_EQ(restored.getPayload(), "ok");
+  EXPECT_TRUE(restored.verifyCRC());
+  EXPECT_LT(wire_length, buf.size());
+}
+
+TEST(NrpePacket, V3PayloadStopsAtTheDeclaredLength) {
+  packet original = packet::create_response(data::version3, 0, "ok", 1024);
+  std::vector<char> buf = original.get_buffer();
+  buf.resize(length::get_packet_length_v2(1024), 'X');
+
+  packet restored(buf.data(), buf.size());
+  EXPECT_EQ(restored.getPayload(), "ok");
+  EXPECT_TRUE(restored.verifyCRC());
+}
+
+// =============================================================================
 // packet — to_string
 // =============================================================================
 

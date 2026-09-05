@@ -314,7 +314,13 @@ class packet /*: public boost::noncopyable*/ {
     }
     // Verify CRC32 end
     result_ = boost::endian::big_to_native(p->result_code);
-    payload_ = fetch_payload(p, length);
+    // Bound the payload by the length the packet declares - the same region
+    // the checksum above covers - not by how many bytes happened to arrive.
+    // The server parser buffers a whole v2 packet worth of bytes before the
+    // version is known, so a short v3/v4 packet can be followed in that same
+    // buffer by trailing bytes no checksum protects; reading to the end of
+    // the buffer turned those into the command NRPE went on to dispatch.
+    payload_ = fetch_payload(p, data::buffer_offset_v3 + payload_length);
   }
 
   unsigned short getVersion() const { return version_; }
