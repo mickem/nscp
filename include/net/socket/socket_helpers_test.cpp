@@ -8,9 +8,14 @@
 #include <boost/asio/ip/host_name.hpp>
 #include <net/socket/server.hpp>
 #include <net/socket/socket_helpers.hpp>
+#include <boost/filesystem.hpp>
+#include <fstream>
 #include <str/utils.hpp>
 #include <string>
 #include <vector>
+#ifndef WIN32
+#include <sys/stat.h>
+#endif
 
 // =============================================================================
 // socket_exception tests
@@ -1200,3 +1205,94 @@ TEST(FormatSubjectCnOnly, CnWithSpaceAndPunctuationPreservedVerbatim) {
 }
 
 #endif  // USE_SSL
+
+// =============================================================================
+// write_certs — generated private keys must not be readable by anyone else
+//
+// write_certs used a plain fopen(cert, "wb"), so the file landed at
+// 0666 & ~umask - 0644 under a normal systemd unit - holding an *unencrypted*
+// PKCS#8 private key. A default NRPE server start generates that file when it
+// is missing, so every default install published its TLS key to every local
+// account. The CA branch was worse: it wrote the CA *private key* into the
+// very ca.pem operators are told to hand out to clients.
+// =============================================================================
+
+TEST(WriteCerts, CaKeyPathSitsBesideTheCertificate) {
+  EXPECT_EQ(socket_helpers::ca_key_path("/etc/nscp/security/ca.pem"), "/etc/nscp/security/ca-key.pem");
+  EXPECT_EQ(socket_helpers::ca_key_path("ca.pem"), "ca-key.pem");
+  EXPECT_EQ(socket_helpers::ca_key_path("/tmp/my-ca.crt"), "/tmp/my-ca-key.crt");
+}
+
+namespace {
+class WriteCertsFixture : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    dir_ = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-certs-%%%%-%%%%");
+    boost::filesystem::create_directories(dir_);
+  }
+  void TearDown() override {
+    boost::system::error_code ignored;
+    boost::filesystem::remove_all(dir_, ignored);
+  }
+  std::string path_of(const std::string &name) const { return (dir_ / name).string(); }
+  static std::string read_file(const std::string &path) {
+    std::ifstream in(path.c_str(), std::ios::binary);
+    return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  }
+  boost::filesystem::path dir_;
+};
+}  // namespace
+
+TEST_F(WriteCertsFixture, CertificateFileHoldsKeyAndCertificate) {
+  const std::string cert = path_of("certificate.pem");
+  ASSERT_NO_THROW(socket_helpers::write_certs(cert, false));
+
+  const std::string content = read_file(cert);
+  EXPECT_NE(content.find("PRIVATE KEY"), std::string::npos);
+  EXPECT_NE(content.find("BEGIN CERTIFICATE"), std::string::npos);
+}
+
+TEST_F(WriteCertsFixture, CaCertificateDoesNotCarryThePrivateKey) {
+  const std::string ca = path_of("ca.pem");
+  ASSERT_NO_THROW(socket_helpers::write_certs(ca, true));
+
+  const std::string ca_content = read_file(ca);
+  EXPECT_NE(ca_content.find("BEGIN CERTIFICATE"), std::string::npos);
+  EXPECT_EQ(ca_content.find("PRIVATE KEY"), std::string::npos) << "the file operators hand to clients must not contain the CA key";
+
+  const std::string key = socket_helpers::ca_key_path(ca);
+  ASSERT_TRUE(boost::filesystem::is_regular_file(key));
+  EXPECT_NE(read_file(key).find("PRIVATE KEY"), std::string::npos);
+}
+
+TEST_F(WriteCertsFixture, OverwritingAnExistingFileStillNarrowsIt) {
+  const std::string cert = path_of("certificate.pem");
+  {
+    std::ofstream out(cert.c_str());
+    out << "stale";
+  }
+#ifndef WIN32
+  ASSERT_EQ(::chmod(cert.c_str(), 0666), 0);
+#endif
+  ASSERT_NO_THROW(socket_helpers::write_certs(cert, false));
+#ifndef WIN32
+  struct stat st = {};
+  ASSERT_EQ(::stat(cert.c_str(), &st), 0);
+  EXPECT_EQ(st.st_mode & 0777, 0600) << "an existing certificate file keeps its old mode through O_CREAT";
+#endif
+}
+
+#ifndef WIN32
+TEST_F(WriteCertsFixture, PrivateKeyFilesAreOwnerOnly) {
+  const std::string cert = path_of("certificate.pem");
+  ASSERT_NO_THROW(socket_helpers::write_certs(cert, false));
+  struct stat st = {};
+  ASSERT_EQ(::stat(cert.c_str(), &st), 0);
+  EXPECT_EQ(st.st_mode & 0777, 0600);
+
+  const std::string ca = path_of("ca.pem");
+  ASSERT_NO_THROW(socket_helpers::write_certs(ca, true));
+  ASSERT_EQ(::stat(socket_helpers::ca_key_path(ca).c_str(), &st), 0);
+  EXPECT_EQ(st.st_mode & 0777, 0600);
+}
+#endif

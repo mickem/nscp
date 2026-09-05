@@ -10,6 +10,7 @@
 #include <str/format.hpp>
 #include <str/utf8.hpp>
 #include <str/utils.hpp>
+#include <vector>
 #if defined(USE_SSL) && !defined(WIN32)
 #define OPENSSL_NO_CRYPTO_MDEBUG
 #include <openssl/crypto.h>
@@ -24,6 +25,18 @@
 #include <openssl/bio.h>
 #include <openssl/ssl.h>
 #include <openssl/x509.h>
+#endif
+#ifdef WIN32
+// After boost/asio.hpp, which pulls winsock2.h in first; accctrl/aclapi then
+// depend on windows.h's types.
+#include <windows.h>
+//
+#include <accctrl.h>
+#include <aclapi.h>
+#else
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #endif
 const int socket_helpers::connection_info::backlog_default = 0;
 
@@ -211,6 +224,7 @@ void socket_helpers::validate_certificate(const std::string &certificate, std::l
       list.emplace_back("CA not found: " + certificate + " (generating a default CA)");
       try {
         write_certs(certificate, true);
+        list.emplace_back("CA private key written to: " + ca_key_path(certificate) + " (keep it, do not distribute it)");
       } catch (const std::exception &e) {
         list.emplace_back(e.what());
       }
@@ -596,6 +610,143 @@ void make_certificate(const X509_ptr &cert, EVP_PKEY_ptr &pkey, const int bits, 
   }
 }
 
+#ifdef WIN32
+bool socket_helpers::restrict_to_owner(const std::string &path, std::list<std::string> &errors) {
+  // Well-known SIDs are built rather than parsed so a machine whose
+  // Administrators group is named in another language still matches.
+  std::vector<unsigned char> system_sid_bytes(SECURITY_MAX_SID_SIZE, 0);
+  std::vector<unsigned char> admin_sid_bytes(SECURITY_MAX_SID_SIZE, 0);
+  DWORD size = SECURITY_MAX_SID_SIZE;
+  if (!::CreateWellKnownSid(WinLocalSystemSid, nullptr, system_sid_bytes.data(), &size)) {
+    errors.emplace_back("CreateWellKnownSid(system) failed: GetLastError=" + std::to_string(::GetLastError()));
+    return false;
+  }
+  size = SECURITY_MAX_SID_SIZE;
+  if (!::CreateWellKnownSid(WinBuiltinAdministratorsSid, nullptr, admin_sid_bytes.data(), &size)) {
+    errors.emplace_back("CreateWellKnownSid(administrators) failed: GetLastError=" + std::to_string(::GetLastError()));
+    return false;
+  }
+
+  EXPLICIT_ACCESS_W access[2] = {};
+  for (int i = 0; i < 2; i++) {
+    access[i].grfAccessPermissions = GENERIC_ALL;
+    access[i].grfAccessMode = SET_ACCESS;
+    access[i].grfInheritance = NO_INHERITANCE;
+    access[i].Trustee.TrusteeForm = TRUSTEE_IS_SID;
+    access[i].Trustee.TrusteeType = TRUSTEE_IS_WELL_KNOWN_GROUP;
+  }
+  access[0].Trustee.ptstrName = reinterpret_cast<LPWSTR>(system_sid_bytes.data());
+  access[1].Trustee.ptstrName = reinterpret_cast<LPWSTR>(admin_sid_bytes.data());
+
+  PACL raw_acl = nullptr;
+  if (::SetEntriesInAclW(2, access, nullptr, &raw_acl) != ERROR_SUCCESS) {
+    errors.emplace_back("SetEntriesInAcl failed: GetLastError=" + std::to_string(::GetLastError()));
+    return false;
+  }
+
+  // PROTECTED_DACL_SECURITY_INFORMATION is what breaks inheritance. Without
+  // it the "Users: Read & Execute" a file under Program Files inherits
+  // survives beside the two ACEs above and the key stays world-readable.
+  const std::wstring wide = utf8::cvt<std::wstring>(path);
+  const DWORD result = ::SetNamedSecurityInfoW(const_cast<LPWSTR>(wide.c_str()), SE_FILE_OBJECT,
+                                               DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION, nullptr, nullptr, raw_acl, nullptr);
+  ::LocalFree(raw_acl);
+  if (result != ERROR_SUCCESS) {
+    errors.emplace_back("SetNamedSecurityInfo failed: error=" + std::to_string(result));
+    return false;
+  }
+  return true;
+}
+#endif
+
+namespace {
+// Serialize an in-memory BIO and hand back its bytes.
+std::string drain_bio(BIO *bio, const std::string &what) {
+  const std::size_t size = BIO_ctrl_pending(bio);
+  std::string result(size, '\0');
+  if (size > 0 && BIO_read(bio, &result[0], static_cast<int>(size)) < 0) {
+    throw socket_helpers::socket_exception("Failed to read serialized " + what);
+  }
+  return result;
+}
+
+// Write `content` to `path` so that only the account running the agent (and
+// the local administrators) can read it back.
+//
+// The plain fopen(path, "wb") this replaces left the file at 0666 & ~umask -
+// 0644 under a normal systemd unit - and what goes into it is an
+// *unencrypted* PKCS#8 private key. Since a default NRPE server start
+// generates the file when it is missing, every default install published its
+// TLS key to every local account: enough to decrypt captured traffic or
+// impersonate the agent.
+void write_private_file(const std::string &path, const std::string &content) {
+#ifdef WIN32
+  // On Windows the mode bits do nothing; the DACL is what matters. Create the
+  // file empty, lock it down, and only then write the key into it, so a
+  // failure to restrict never leaves a readable key behind.
+  FILE *file = nullptr;
+#ifdef _MSC_VER
+  if (fopen_s(&file, path.c_str(), "wb") != 0) file = nullptr;
+#else
+  file = fopen(path.c_str(), "wb");
+#endif
+  if (file == nullptr) throw socket_helpers::socket_exception("Failed to write: " + path);
+  fclose(file);
+
+  std::list<std::string> errors;
+  if (!socket_helpers::restrict_to_owner(path, errors)) {
+    boost::system::error_code ignored;
+    boost::filesystem::remove(path, ignored);
+    std::string reason = errors.empty() ? std::string("unknown error") : errors.front();
+    throw socket_helpers::socket_exception("Refusing to write an unprotected private key to " + path + ": " + reason);
+  }
+#ifdef _MSC_VER
+  if (fopen_s(&file, path.c_str(), "wb") != 0) file = nullptr;
+#else
+  file = fopen(path.c_str(), "wb");
+#endif
+  if (file == nullptr) throw socket_helpers::socket_exception("Failed to write: " + path);
+#else
+  // O_CREAT only applies the mode to a file it creates, so narrow an existing
+  // one explicitly rather than inheriting whatever it had.
+  const int fd = ::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+  if (fd < 0) throw socket_helpers::socket_exception("Failed to write: " + path);
+  if (::fchmod(fd, S_IRUSR | S_IWUSR) != 0) {
+    ::close(fd);
+    throw socket_helpers::socket_exception("Failed to restrict permissions on: " + path);
+  }
+  FILE *file = ::fdopen(fd, "wb");
+  if (file == nullptr) {
+    ::close(fd);
+    throw socket_helpers::socket_exception("Failed to write: " + path);
+  }
+#endif
+  const std::size_t written = fwrite(content.data(), sizeof(char), content.size(), file);
+  fclose(file);
+  if (written != content.size()) throw socket_helpers::socket_exception("Failed to write: " + path);
+}
+
+void write_public_file(const std::string &path, const std::string &content) {
+  FILE *file = nullptr;
+#ifdef _MSC_VER
+  if (fopen_s(&file, path.c_str(), "wb") != 0) file = nullptr;
+#else
+  file = fopen(path.c_str(), "wb");
+#endif
+  if (file == nullptr) throw socket_helpers::socket_exception("Failed to write certificate to: " + path);
+  const std::size_t written = fwrite(content.data(), sizeof(char), content.size(), file);
+  fclose(file);
+  if (written != content.size()) throw socket_helpers::socket_exception("Failed to write certificate to: " + path);
+}
+}  // namespace
+
+std::string socket_helpers::ca_key_path(const std::string &ca_certificate) {
+  boost::filesystem::path path(ca_certificate);
+  const std::string stem = path.stem().string();
+  const std::string extension = path.extension().string();
+  return (path.parent_path() / (stem + "-key" + extension)).string();
+}
+
 void socket_helpers::write_certs(const std::string &cert, const bool ca) {
   const X509_ptr certificate_instance(X509_new(), X509_free);
   if (!certificate_instance) {
@@ -608,29 +759,33 @@ void socket_helpers::write_certs(const std::string &cert, const bool ca) {
 
   make_certificate(certificate_instance, private_key_instance, 2048, 365, ca);
 
-  const BIO_ptr bio(BIO_new(BIO_s_mem()), BIO_free);
-  if (!PEM_write_bio_PKCS8PrivateKey(bio.get(), private_key_instance.get(), nullptr, nullptr, 0, nullptr, nullptr)) {
+  const BIO_ptr key_bio(BIO_new(BIO_s_mem()), BIO_free);
+  if (!PEM_write_bio_PKCS8PrivateKey(key_bio.get(), private_key_instance.get(), nullptr, nullptr, 0, nullptr, nullptr)) {
     throw socket_exception("Failed to serialize key to " + cert);
   }
-  if (!PEM_write_bio_X509(bio.get(), certificate_instance.get())) {
+  const BIO_ptr cert_bio(BIO_new(BIO_s_mem()), BIO_free);
+  if (!PEM_write_bio_X509(cert_bio.get(), certificate_instance.get())) {
     throw socket_exception("Failed to serialize certificate to " + cert);
   }
+  const std::string key_pem = drain_bio(key_bio.get(), "key");
+  const std::string cert_pem = drain_bio(cert_bio.get(), "certificate");
 
-  const std::size_t size = BIO_ctrl_pending(bio.get());
-  const auto buf = std::make_unique<char[]>(size);
-  if (BIO_read(bio.get(), buf.get(), static_cast<int>(size)) < 0) {
-    throw socket_exception("Failed to read serialized key");
+  if (ca) {
+    // The CA file is the one `nscp nrpe install` tells the operator to hand
+    // out ("the clients need to have a certificate issued from ..."), so it
+    // must contain the certificate and nothing else. It used to carry the CA
+    // *private key* as well: anyone who received it could mint client
+    // certificates and walk straight through `verify mode = peer-cert`, which
+    // is NRPE's only real authentication. The key goes to a private sibling
+    // file so an operator can still issue certificates from it.
+    write_private_file(ca_key_path(cert), key_pem);
+    write_public_file(cert, cert_pem);
+    return;
   }
-
-  FILE *file = nullptr;
-#ifdef _MSC_VER
-  if (fopen_s(&file, cert.c_str(), "wb") != 0) file = nullptr;
-#else
-  file = fopen(cert.c_str(), "wb");
-#endif
-  if (file == nullptr) throw socket_exception("Failed to write certificate to: " + cert);
-  fwrite(buf.get(), sizeof(char), size, file);
-  fclose(file);
+  // The agent's own identity: asio loads the key from the certificate file
+  // when `certificate key` is empty, so the two stay together - in a file
+  // only we can read.
+  write_private_file(cert, key_pem + cert_pem);
 }
 
 boost::asio::ssl::context_base::method socket_helpers::tls_method_parser(const std::string &tls_version) {
