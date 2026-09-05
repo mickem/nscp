@@ -3,7 +3,6 @@
 
 #include "check_installed_software.h"
 
-#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -68,12 +67,6 @@ command_result run_command(const std::string &cmd) {
 
 bool binary_exists(const std::string &path) { return access(path.c_str(), X_OK) == 0; }
 
-long long file_mtime(const std::string &path) {
-  struct stat st{};
-  if (stat(path.c_str(), &st) != 0) return 0;
-  return static_cast<long long>(st.st_mtime);
-}
-
 // "Name <email>" → "Name" (the email part adds noise to publisher filters).
 std::string strip_email(const std::string &maintainer) {
   const std::size_t angle = maintainer.find(" <");
@@ -112,7 +105,7 @@ package_manager detect_manager() {
 }
 
 // Parse dpkg-query -W output with the format
-//   ${Package}\t${Version}\t${Architecture}\t${Maintainer}\t${Installed-Size}\t${Status}
+//   ${Package}\t${Version}\t${Architecture}\t${Maintainer}\t${Installed-Size}\t${Status}\t${db-fsys:Last-Modified}
 // Status is three words ("<desired> <error> <state>"). Only a state of exactly
 // "installed" counts: the states that merely end in it ("not-installed",
 // "half-installed") are removed or broken packages, not installed ones.
@@ -141,6 +134,17 @@ std::vector<software_entry> parse_dpkg_output(const std::string &output) {
       e.size_bytes = std::stoll(boost::trim_copy(parts[4])) * 1024LL;
     } catch (...) {
       e.size_bytes = 0;
+    }
+    // The install date is the last field. dpkg-query grew db-fsys:Last-Modified
+    // in 1.19.3; an older one leaves the column empty, which reads as "unknown"
+    // just like a manager that records no date at all.
+    if (parts.size() >= 7) {
+      try {
+        e.install_date_epoch = std::stoll(boost::trim_copy(parts[6]));
+      } catch (...) {
+        e.install_date_epoch = 0;
+      }
+      e.install_date_str = format_epoch_date(e.install_date_epoch);
     }
     if (e.name.empty()) continue;
     out.push_back(e);
@@ -204,23 +208,12 @@ std::vector<software_entry> parse_pacman_output(const std::string &output) {
   return out;
 }
 
-void apply_dpkg_install_dates(std::vector<software_entry> &entries, const mtime_fn &mtime) {
-  for (software_entry &e : entries) {
-    if (e.manager != "dpkg" || e.install_date_epoch > 0) continue;
-    // Multi-arch packages use <name>:<arch>.list; older/same-arch ones plain <name>.list.
-    long long t = 0;
-    if (!e.architecture.empty()) t = mtime("/var/lib/dpkg/info/" + e.name + ":" + e.architecture + ".list");
-    if (t == 0) t = mtime("/var/lib/dpkg/info/" + e.name + ".list");
-    e.install_date_epoch = t;
-    e.install_date_str = format_epoch_date(t);
-  }
-}
-
 fetch_result fetch_installed(const package_manager &manager, const exec_fn &exec) {
   fetch_result result;
   if (manager.name == "dpkg") {
     const command_result r =
-        exec(manager.binary + " -W -f='${Package}\\t${Version}\\t${Architecture}\\t${Maintainer}\\t${Installed-Size}\\t${Status}\\n' 2>/dev/null");
+        exec(manager.binary +
+             " -W -f='${Package}\\t${Version}\\t${Architecture}\\t${Maintainer}\\t${Installed-Size}\\t${Status}\\t${db-fsys:Last-Modified}\\n' 2>/dev/null");
     result.ok = r.ok;
     if (r.ok) result.entries = parse_dpkg_output(r.output);
     return result;
@@ -284,8 +277,6 @@ void check_installed_software(const PB::Commands::QueryRequestMessage::Request &
     // software found" would turn a broken package database into a clean OK.
     return nscapi::protobuf::functions::set_response_bad(*response, "Failed to query installed software from " + manager.name + " (" + manager.binary + ")");
   }
-  if (manager.name == "dpkg") apply_dpkg_install_dates(fetched.entries, file_mtime);
-
   check_from(request, response, fetched.entries);
 }
 
