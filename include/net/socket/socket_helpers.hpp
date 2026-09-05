@@ -59,6 +59,19 @@ bool restrict_to_owner(const std::string& path, std::list<std::string>& errors);
 // be used for authorization decisions.
 std::string extract_peer_subject_dn(void* ssl);
 
+// Whether a peer certificate's CN is usable as a policy principal.
+//
+// The CN reaches permissions::make_subject as `NRPEServer:<cn>` and the log
+// verbatim. It is a subject rather than a pattern, so it cannot inject a
+// glob, and the CA that issued it is operator-controlled - but a CN carrying
+// a NUL, a newline, a tab, a `:` or a `=` would still split an INI-shaped
+// key or forge a line break in the log. Those are rejected (the connection
+// then simply has no identity); everything else, including UTF-8, a space
+// and a wildcard CN like `*.example.com`, is left alone. `max_length` bounds
+// what ends up in a log line.
+bool is_valid_peer_principal(const std::string& cn);
+constexpr std::size_t max_peer_principal_length = 255;
+
 // Format an X509 certificate's Subject as an RFC 2253 DN string.
 // Exposed for unit testing (so tests can construct an X509 in memory
 // without standing up a TLS session) and for callers that already

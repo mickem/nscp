@@ -282,6 +282,18 @@ std::string socket_helpers::extract_peer_subject_dn(void *ssl) {
   return result;
 }
 
+bool socket_helpers::is_valid_peer_principal(const std::string &cn) {
+  if (cn.empty() || cn.size() > max_peer_principal_length) return false;
+  for (const char c : cn) {
+    const auto uc = static_cast<unsigned char>(c);
+    // Control characters (NUL, CR, LF, tab, ...) forge log lines; ':' and
+    // '=' are the separators of the policy subject and of INI keys.
+    if (uc < 0x20 || uc == 0x7F) return false;
+    if (c == ':' || c == '=') return false;
+  }
+  return true;
+}
+
 std::string socket_helpers::format_subject_cn_only(void *x509) {
   if (!x509) return {};
   const auto *cert = static_cast<X509 *>(x509);

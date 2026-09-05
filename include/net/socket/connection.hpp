@@ -296,7 +296,19 @@ class ssl_connection : public connection<protocol_type, N> {
       // If an identity-map indirection lands later, the connection layer
       // can stamp the full DN and the map can resolve it to a handle.
       try {
-        const std::string cn = socket_helpers::extract_peer_subject_cn(ssl_socket_.native_handle());
+        std::string cn = socket_helpers::extract_peer_subject_cn(ssl_socket_.native_handle());
+        // The CN becomes part of a policy subject (`NRPEServer:<cn>`) and is
+        // logged verbatim, so constrain it before either happens: a CN
+        // carrying a NUL, a newline, a `:` or a `=` would split the subject
+        // or forge a log line. A rejected CN leaves the connection without
+        // an identity rather than with a mangled one.
+        if (!cn.empty() && !socket_helpers::is_valid_peer_principal(cn)) {
+          parent_type::protocol_->log_error(__FILE__, __LINE__,
+                                            "Ignoring TLS peer Subject CN: it is empty, longer than " +
+                                                str::xtos(socket_helpers::max_peer_principal_length) +
+                                                " characters, or contains a control character, ':' or '='");
+          cn.clear();
+        }
         if (!cn.empty()) {
           parent_type::protocol_->log_debug(__FILE__, __LINE__, "TLS peer Subject CN: " + cn);
         }
