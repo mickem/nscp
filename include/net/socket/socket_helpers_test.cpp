@@ -1296,3 +1296,40 @@ TEST_F(WriteCertsFixture, PrivateKeyFilesAreOwnerOnly) {
   EXPECT_EQ(st.st_mode & 0777, 0600);
 }
 #endif
+
+// =============================================================================
+// is_valid_peer_principal
+//
+// The peer CN reaches permissions::make_subject as `NRPEServer:<cn>` and the
+// log verbatim. It is a subject rather than a pattern, so it cannot inject a
+// glob, and the issuing CA is operator-controlled - but a CN carrying a NUL,
+// a newline, a ':' or a '=' would still split an INI-shaped key or forge a
+// log line.
+// =============================================================================
+
+TEST(IsValidPeerPrincipal, OrdinaryCommonNamesAreAccepted) {
+  EXPECT_TRUE(socket_helpers::is_valid_peer_principal("icinga-master"));
+  EXPECT_TRUE(socket_helpers::is_valid_peer_principal("monitor.example.com"));
+  EXPECT_TRUE(socket_helpers::is_valid_peer_principal("Acme Monitoring"));
+  // A wildcard CN is a real certificate shape and is a literal in the
+  // subject, so it must not be rejected.
+  EXPECT_TRUE(socket_helpers::is_valid_peer_principal("*.example.com"));
+  // UTF-8 is fine; it is neither a separator nor a control character.
+  EXPECT_TRUE(socket_helpers::is_valid_peer_principal("överv\xc3\xa5kning"));
+}
+
+TEST(IsValidPeerPrincipal, SeparatorsAndControlCharactersAreRejected) {
+  EXPECT_FALSE(socket_helpers::is_valid_peer_principal(""));
+  EXPECT_FALSE(socket_helpers::is_valid_peer_principal("has:colon"));
+  EXPECT_FALSE(socket_helpers::is_valid_peer_principal("has=equals"));
+  EXPECT_FALSE(socket_helpers::is_valid_peer_principal(std::string("has\0nul", 7)));
+  EXPECT_FALSE(socket_helpers::is_valid_peer_principal("has\nnewline"));
+  EXPECT_FALSE(socket_helpers::is_valid_peer_principal("has\rcarriage"));
+  EXPECT_FALSE(socket_helpers::is_valid_peer_principal("has\ttab"));
+  EXPECT_FALSE(socket_helpers::is_valid_peer_principal("has\x7f" "del"));
+}
+
+TEST(IsValidPeerPrincipal, OverlongCommonNamesAreRejected) {
+  EXPECT_TRUE(socket_helpers::is_valid_peer_principal(std::string(socket_helpers::max_peer_principal_length, 'a')));
+  EXPECT_FALSE(socket_helpers::is_valid_peer_principal(std::string(socket_helpers::max_peer_principal_length + 1, 'a')));
+}
