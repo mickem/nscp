@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2004-2026 Michael Medin
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
+
 using NSCP.Core;
 using PB.Log;
 using PB.Settings;
@@ -29,7 +32,12 @@ namespace NSCP.Helpers
             LogEntry newLogEntry = new LogEntry();
             LogEntry.Types.Entry newEntry = new LogEntry.Types.Entry();
             newEntry.Level = level;
-            newEntry.Message = message;
+            newEntry.Message = message ?? "";
+            newEntry.File = file ?? "";
+            newEntry.Line = line;
+            // Attribute the line to the plugin (its alias) when the core knows it.
+            if (core is IPluginCore pluginCore && pluginCore.getInstance() != null)
+                newEntry.Sender = pluginCore.getInstance().Alias ?? "";
             newLogEntry.Entry.Add(newEntry);
             core.log(newLogEntry.ToByteArray());
         }
@@ -279,16 +287,25 @@ namespace NSCP.Helpers
             registration_builder.Info = new PB.Settings.Information();
             registration_builder.Info.Title = title;
             registration_builder.Info.Description = description;
+            registration_builder.Info.DefaultValue = defaultValue ?? "";
+            registration_builder.Info.Advanced = advanced;
+
+            SettingsRequestMessage.Types.Request request = new SettingsRequestMessage.Types.Request();
+            request.PluginId = plugin_id;
+            request.Registration = registration_builder;
+            newMessage.Payload.Add(request);
+
             NSCP.Core.Result res = core.settings(newMessage.ToByteArray());
             if (!res.result)
             {
-                log.error("Failed to describe path: " + path);
+                log.error("Failed to describe key: " + path + "/" + key);
                 return false;
             }
             SettingsResponseMessage response_message = SettingsResponseMessage.Parser.ParseFrom(res.data);
-            if (response_message.Payload[0].Result.Code != PB.Common.Result.Types.StatusCodeType.StatusOk)
+            if (response_message.Payload.Count == 0 || response_message.Payload[0].Result == null ||
+                response_message.Payload[0].Result.Code != PB.Common.Result.Types.StatusCodeType.StatusOk)
             {
-                log.error("Failed to describe path: " + path);
+                log.error("Failed to describe key: " + path + "/" + key);
                 return false;
             }
             return true;

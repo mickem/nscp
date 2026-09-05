@@ -678,3 +678,51 @@ macro(find_redist _TARGET_VAR)
     )
     file(GLOB ${_TARGET_VAR} "${_redit_folder}/*.dll")
 endmacro(find_redist)
+
+# Build a C# project with the dotnet SDK into the shared managed output folder
+# (NSCP_DOTNET_OUTPUT_DIR = <build>/modules/dotnet, where the DotnetPlugins
+# module looks for NSCP.Core.dll and the plugin assemblies).
+#
+#   NSCP_ADD_DOTNET_PROJECT(<target> <path/to/project.csproj>
+#       [DEPENDS <targets>...] [PRODUCTS <files>...] [PROPERTIES <name=value>...])
+#
+# The intermediate (obj/) and bin/ folders are redirected into the current
+# binary dir so the source tree stays clean. NSCP_DOTNET_PROTO_DIR (the protoc
+# --csharp_out folder), NSCP_DOTNET_OUTPUT_DIR and the NSClient++ version are
+# handed to MSBuild as NscpProtoDir / NscpCoreDir / NscpVersion.
+function(NSCP_ADD_DOTNET_PROJECT _TARGET _PROJECT)
+    cmake_parse_arguments(
+        PARSE_ARGV 2
+        ARG
+        ""
+        ""
+        "DEPENDS;PRODUCTS;PROPERTIES"
+    )
+    set(_props
+        "-p:NscpProtoDir=${NSCP_DOTNET_PROTO_DIR}"
+        "-p:NscpCoreDir=${NSCP_DOTNET_OUTPUT_DIR}"
+        "-p:NscpVersion=${VERSION_SERIES}.${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_BUILD}"
+        "-p:BaseIntermediateOutputPath=${CMAKE_CURRENT_BINARY_DIR}/obj/"
+        "-p:BaseOutputPath=${CMAKE_CURRENT_BINARY_DIR}/bin/"
+    )
+    foreach(_prop ${ARG_PROPERTIES})
+        list(APPEND _props "-p:${_prop}")
+    endforeach()
+    add_custom_target(
+        ${_TARGET}
+        ALL
+        COMMAND
+            ${CMAKE_COMMAND} -E env DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
+            DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 ${DOTNET_EXECUTABLE} build
+            ${_PROJECT} --configuration Release --nologo --verbosity quiet
+            --output ${NSCP_DOTNET_OUTPUT_DIR} ${_props}
+        BYPRODUCTS ${ARG_PRODUCTS}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        COMMENT "Building .NET project ${_PROJECT} -> ${NSCP_DOTNET_OUTPUT_DIR}"
+        VERBATIM
+    )
+    if(ARG_DEPENDS)
+        add_dependencies(${_TARGET} ${ARG_DEPENDS})
+    endif()
+    set_target_properties(${_TARGET} PROPERTIES FOLDER "libraries/dotnet")
+endfunction(NSCP_ADD_DOTNET_PROJECT)

@@ -79,15 +79,18 @@ function(WRAP_PROTO VAR)
                 ${PROJECT_BINARY_DIR}/scripts/python/lib/${FIL_WE}_pb2.py
             DESTINATION ${INSTALL_FILES_BASE}scripts/python/lib/
         )
-        if(CSHARP_FOUND AND WIN32)
+        if(DOTNET_FOUND)
+            # C# messages for the managed plugin API (libs/dotnet-plugin-api);
+            # NSCP_DOTNET_PROTO_DIR is set in the top-level CMakeLists.txt.
+            file(MAKE_DIRECTORY ${NSCP_DOTNET_PROTO_DIR})
             list(
                 APPEND ARGS
                 --csharp_out
-                ${PROJECT_BINARY_DIR}/libs/protobuf_net
+                ${NSCP_DOTNET_PROTO_DIR}
             )
             list(
                 APPEND ${VAR}_CS
-                "${PROJECT_BINARY_DIR}/libs/protobuf_net/${FILE_PKG}.cs"
+                "${NSCP_DOTNET_PROTO_DIR}/${FILE_PKG}.cs"
             )
         endif()
         if(PROTOC_GEN_LUA_FOUND)
@@ -164,6 +167,7 @@ function(WRAP_PROTO VAR)
                     ${${VAR}_LUA_H}
                     ${${VAR}_JSON_C}
                     ${${VAR}_JSON_H}
+                    ${${VAR}_CS}
                     ${PROJECT_BINARY_DIR}/scripts/python/lib/${FIL_WE}_pb2.py
                 COMMAND
                     ${PROTOBUF_PROTOC_EXECUTABLE}

@@ -46,9 +46,8 @@ obligation applies wherever we actually ship the library.
 | asio ICMP/IPv4 headers (Christopher M. Kohlhoff)  | `include/net/icmp_header.hpp`, `include/net/ipv4_header.hpp`                     | Boost Software License 1.0 |
 | WiX standard installer UI (Microsoft Corporation) | `installers/ui/WixUI_MondoNSCP.wxs`, `installers/installer-NSCP/WixUI_en-us.wxl` | Common Public License 1.0  |
 | WiX custom action library, prebuilt (Microsoft Corporation) | `installers/installer-NSCP/wixca.dll`                                            | Common Public License 1.0  |
-| C#/.NET/Mono CMake modules, from GDCM (Mathieu Malaterre)   | `build/cmake/{Find,Use}{CSharp,Mono,DotNetFrameworkSdk}.cmake`                   | BSD-3-Clause               |
 | Protobuf CMake modules (Ange Optimization ApS)              | `build/cmake/FindProtoBuf.cmake`, `build/cmake/GoogleProtoBuf.cmake`             | BSD-3-Clause               |
-| Google.Protobuf .NET runtime, prebuilt (Google LLC)         | `libs/protobuf_net/Google.Protobuf.dll`                                          | BSD-3-Clause               |
+| Google.Protobuf .NET runtime (Google LLC)                   | NuGet package restored by `libs/dotnet-plugin-api/NSCP.Core.csproj` at build time | BSD-3-Clause               |
 
 ## Web UI
 
