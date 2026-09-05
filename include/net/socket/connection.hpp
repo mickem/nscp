@@ -304,8 +304,7 @@ class ssl_connection : public connection<protocol_type, N> {
         // an identity rather than with a mangled one.
         if (!cn.empty() && !socket_helpers::is_valid_peer_principal(cn)) {
           parent_type::protocol_->log_error(__FILE__, __LINE__,
-                                            "Ignoring TLS peer Subject CN: it is empty, longer than " +
-                                                str::xtos(socket_helpers::max_peer_principal_length) +
+                                            "Ignoring TLS peer Subject CN: it is empty, longer than " + str::xtos(socket_helpers::max_peer_principal_length) +
                                                 " characters, or contains a control character, ':' or '='");
           cn.clear();
         }

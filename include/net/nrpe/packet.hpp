@@ -295,7 +295,8 @@ class packet /*: public boost::noncopyable*/ {
     if (payload_length > 1024 * 1024) {
       throw nrpe_exception("Invalid packet length specified: " + str::xtos(payload_length));
     }
-    const std::size_t source_data_length = version_ == data::version4 ? length::get_packet_length_v4(payload_length) : length::get_packet_length_v3(payload_length);
+    const std::size_t source_data_length =
+        version_ == data::version4 ? length::get_packet_length_v4(payload_length) : length::get_packet_length_v3(payload_length);
     if (length < source_data_length) {
       throw nrpe_exception("Invalid packet length: " + str::xtos(length) + " != " + str::xtos(source_data_length));
     }

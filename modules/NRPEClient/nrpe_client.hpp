@@ -6,7 +6,6 @@
 #include <boost/tuple/tuple.hpp>
 #include <client/command_line_parser.hpp>
 #include <mutex>
-#include <set>
 #include <net/nrpe/client/nrpe_client_protocol.hpp>
 #include <net/nrpe/packet.hpp>
 #include <net/socket/client.hpp>
@@ -16,6 +15,7 @@
 #include <nscapi/protobuf/functions_exec.hpp>
 #include <nscapi/protobuf/functions_query.hpp>
 #include <nscapi/protobuf/functions_submit.hpp>
+#include <set>
 
 namespace nrpe_client {
 struct connection_data : public socket_helpers::connection_info {
@@ -153,10 +153,11 @@ struct nrpe_client_handler : public client::handler_interface {
       std::lock_guard<std::mutex> lock(warned_mutex_);
       if (!warned_.insert(con.get_endpoint_string() + "\n" + mode).second) return;
     }
-    handler_->log_error(__FILE__, __LINE__, "TLS peer verification is disabled for " + con.get_endpoint_string() + " (verify mode: " + mode +
-                                                "): the connection is encrypted but the server is not authenticated, so an on-path attacker can "
-                                                "impersonate it undetected. Set verify mode = peer-cert with ca pointing at the issuer of the "
-                                                "server's certificate unless this is intentional.");
+    handler_->log_error(__FILE__, __LINE__,
+                        "TLS peer verification is disabled for " + con.get_endpoint_string() + " (verify mode: " + mode +
+                            "): the connection is encrypted but the server is not authenticated, so an on-path attacker can "
+                            "impersonate it undetected. Set verify mode = peer-cert with ca pointing at the issuer of the "
+                            "server's certificate unless this is intentional.");
 #endif
   }
 

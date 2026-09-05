@@ -77,7 +77,7 @@ class protocol : public boost::noncopyable {
       else
         set_state(connected);
       responses_.push_back(packet);
-    } catch (const std::exception &e) {
+    } catch (const std::exception& e) {
       responses_.push_back(nrpe::packet::unknown_response("Failed to read response: " + utf8::utf8_from_native(e.what())));
       set_state(connected);
       return false;
