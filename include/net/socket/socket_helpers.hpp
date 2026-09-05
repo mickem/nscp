@@ -274,6 +274,13 @@ struct connection_info {
 
   std::list<std::string> validate_ssl() const;
   std::list<std::string> validate() const;
+#ifdef USE_SSL
+  // True when the parsed `verify mode` actually asks for the peer's
+  // certificate to be validated. Without verify_peer the handshake accepts
+  // whatever certificate the other end presents, so `ssl = true` on its own
+  // buys encryption with no authentication at all.
+  bool verifies_peer() const;
+#endif
 
   bool get_reuse() const { return reuse; }
   std::string get_port() const { return port_; }

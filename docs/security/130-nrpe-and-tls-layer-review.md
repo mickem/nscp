@@ -60,3 +60,33 @@ matters for an untrusted network.
 **What to do:** nothing required. A peer that cannot complete a TLS handshake
 within the listener's `timeout` is now dropped; raise `timeout` if your
 network needs longer.
+
+#### The NRPE client never authenticated the server
+
+`verify mode` defaults to `none` and `ca` is empty for every NRPE target, so
+`ssl = true` buys encryption with no peer authentication whatsoever: whoever
+answers the TCP connect is trusted, and on-path impersonation is
+undetectable. (`insecure = true` goes further and drops `!ADH` from the
+client cipher list, making the session explicitly anonymous.)
+
+The asymmetry was worth calling out: the NRPE *server* argues at length for
+keeping `!ADH` because anonymous Diffie-Hellman "gives encryption with no
+peer authentication … can be MITMed undetected" — and the client default
+produced exactly that outcome by another route. It was also not fixable out
+of the box: a generated certificate carried
+`SAN = DNS:localhost,IP:127.0.0.1`, while the client installs host-name
+verification whenever `verify_peer` is set, so it could only ever verify
+against localhost.
+
+The default is unchanged — it is a compatibility decision, since most NRPE
+servers in the field have no CA to verify against — but the client now logs
+one error line per target and mode, at the first check against it, naming the
+endpoint and what to set. Generated certificates now carry the machine's own
+host name and the address a remote peer would see it as, alongside the
+loopback entries.
+
+**What to do:** if you want the server authenticated, set
+`verify mode = peer-cert` and point `ca` at the issuer of the server's
+certificate. A certificate generated before this release still has the
+localhost-only SAN; delete it and restart to regenerate one that can be
+verified.
