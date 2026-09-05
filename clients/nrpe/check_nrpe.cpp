@@ -17,6 +17,10 @@
 #include "../../modules/NRPEClient/nrpe_client.hpp"
 #include "../../modules/NRPEClient/nrpe_handler.hpp"
 
+// Never called - this client uses its own handler - but the module handler
+// included above references it, and an optimizing compiler emits it.
+nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();
+
 std::string gLog = "";
 
 int main(int argc, char *argv[]) {
