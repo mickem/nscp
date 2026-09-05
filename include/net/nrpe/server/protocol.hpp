@@ -113,16 +113,32 @@ struct read_protocol : boost::noncopyable {
   }
   bool has_more_response() const { return !responses_.empty(); }
   void queue_next() {
-    try {
-      data_ = responses_.front().get_buffer();
+    // A response that cannot be serialized must not leave the queue and the
+    // state untouched: on_write() in state has_more calls straight back in
+    // here, so the connection would re-send the same buffer forever. Drop
+    // the offending response, offer the peer an error in its place (once),
+    // and finish the connection if nothing at all can be serialized.
+    bool reported = false;
+    while (!responses_.empty()) {
+      packet response = responses_.front();
       responses_.pop_front();
-      if (has_more_response())
-        set_state(has_more);
-      else
-        set_state(last_packet);
-    } catch (const std::exception &e) {
-      log_debug(__FILE__, __LINE__, "Failed to create return package: " + utf8::utf8_from_native(e.what()));
+      try {
+        data_ = response.get_buffer();
+        if (has_more_response())
+          set_state(has_more);
+        else
+          set_state(last_packet);
+        return;
+      } catch (const std::exception &e) {
+        log_error(__FILE__, __LINE__, "Failed to create return package: " + utf8::utf8_from_native(e.what()));
+        if (!reported) {
+          reported = true;
+          responses_.push_front(handler_->create_error("Failed to create return package"));
+        }
+      }
     }
+    data_.clear();
+    set_state(done);
   }
   void on_write() {
     if (current_state_ == last_packet)
