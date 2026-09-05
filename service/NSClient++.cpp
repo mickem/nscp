@@ -112,10 +112,30 @@ struct nscp_settings_provider : public settings_manager::provider_interface {
   void prepare_shared_folder() override {
 #ifdef WIN32
     if (path_->get_layout() != nscp::paths::layout::modern) return;
-    try {
-      const std::string shared = path_->expand_path("${shared-path}");
-      if (shared.empty()) return;
+    const std::string shared = path_->expand_path("${shared-path}");
+    if (shared.empty()) return;
 
+    // Outside the try below on purpose: this one is fatal. A junction or
+    // symbolic link where the shared folder should be is not a permissions
+    // problem an operator fixes in place - it is a redirect. %ProgramData%
+    // lets any local account create one under our name before we first run,
+    // and every path-based operation follows it: the lockdown would land on
+    // the link's target while the link stays the creator's to remove and
+    // replace with a real folder holding a configuration of their choosing,
+    // which the next start would then load as SYSTEM. So the configuration is
+    // not read from behind a link, ever. Relocating the folder is supported
+    // through the [paths] section of boot.ini instead.
+    {
+      std::list<std::string> reparse_errors;
+      if (nsclient::windows_acl::is_reparse_point(shared, reparse_errors)) {
+        throw settings::settings_exception(__FILE__, __LINE__,
+                                           "Refusing to use " + shared +
+                                               ": it is a junction or symbolic link, not a directory. The shared folder must be a real directory; "
+                                               "remove the link (and whatever created it), or relocate the folder with a [paths] override in boot.ini.");
+      }
+    }
+
+    try {
       // Look before acting. This runs during the settings bootstrap of *every*
       // process, not just the service: an unelevated `nscp client ...` has no
       // WRITE_DAC, so it used to fail below and announce that a folder which is

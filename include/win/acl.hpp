@@ -31,10 +31,28 @@ namespace windows_acl {
 //    it. An owner keeps implicit READ_CONTROL | WRITE_DAC regardless of the
 //    DACL, so an unowned fix is one the excluded account can simply undo.
 //
+// A third trap, and the reason everything here works on an open handle rather
+// than a path name: the directory entry may not be a directory at all.
+// %ProgramData% lets a standard user create a *junction* (or symbolic link)
+// named NSClient++ before we first run, and every path-based API follows it -
+// create_directories succeeds, SetNamedSecurityInfo applies the owner and
+// DACL to the junction's *target*, and the entry in %ProgramData% stays the
+// user's to delete and replace with a real folder holding a configuration of
+// their choosing. So the object is opened without following reparse points,
+// checked to be a plain directory, and secured through that same handle;
+// anything else is refused.
+//
 // Returns true when the directory ends up owned by Administrators and with the
 // intended DACL. On failure `errors` describes what went wrong; the caller
 // decides how loud to be.
 bool protect_directory(const std::string &path, std::list<std::string> &errors);
+
+// Whether the entry at `path` is a reparse point (junction, symbolic link or
+// similar) rather than a real file or directory. Cheap and needs no access to
+// the object itself, so it is safe to ask from an unprivileged process. A path
+// that does not exist, or whose attributes cannot be read, is reported as not
+// a reparse point; `errors` says why when that happens.
+bool is_reparse_point(const std::string &path, std::list<std::string> &errors);
 
 // What could be determined about a directory's protection.
 enum class protection {
