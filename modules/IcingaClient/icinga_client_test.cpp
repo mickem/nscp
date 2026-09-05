@@ -162,6 +162,24 @@ TEST(IcingaConnectionData, AnExplicitPortWins) {
   EXPECT_EQ(con.get_port(), "8443");
 }
 
+TEST(IcingaConnectionData, NoBasePathLeavesTheApiPathsAlone) {
+  const icinga_client::connection_data con(target_with({{"address", "https://icinga.example.com:5665/"}}), client::destination_container());
+
+  EXPECT_EQ(con.base_path, "");
+  EXPECT_EQ(con.api_path("/v1/actions/process-check-result"), "/v1/actions/process-check-result");
+}
+
+TEST(IcingaConnectionData, ABasePathIsPrependedToTheApiPaths) {
+  // An Icinga 2 master behind a reverse proxy subpath: the base path was
+  // parsed off the address but dropped when building requests, so every call
+  // went to the proxy root instead of the master.
+  const icinga_client::connection_data con(target_with({{"address", "https://proxy.example.com/icinga/"}}), client::destination_container());
+
+  EXPECT_EQ(con.base_path, "/icinga");
+  EXPECT_EQ(con.api_path("/v1/actions/process-check-result"), "/icinga/v1/actions/process-check-result");
+  EXPECT_EQ(con.api_path("/v1/objects/hosts/srv1"), "/icinga/v1/objects/hosts/srv1");
+}
+
 TEST(IcingaConnectionData, CarriesTheApiCredentials) {
   const icinga_client::connection_data con(target_with({{"address", "https://h"}, {"username", "root"}, {"password", "s3cret"}}),
                                            client::destination_container());

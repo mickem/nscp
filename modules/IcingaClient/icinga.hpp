@@ -45,6 +45,14 @@ submit_result parse_check_result_response(const std::string &body);
 /// for inclusion in a path or a query string.
 std::string url_encode(const std::string &value);
 
+/// Normalise the base path taken from a target address into a prefix that can
+/// be pasted in front of an absolute `/v1/...` API path.  An Icinga 2 master
+/// published under a reverse-proxy subpath ("https://proxy/icinga/") has to be
+/// reached at "/icinga/v1/...", while the common no-subpath forms ("", "/")
+/// must contribute nothing.  Returns either an empty string or a path that
+/// starts with "/" and does not end with one.
+std::string normalize_base_path(const std::string &base_path);
+
 /// True when a `verify mode` string leaves TLS peer verification off — the
 /// mode parses, but no token in it enables certificate-chain verification, so
 /// the connection accepts any certificate.  Mirrors
