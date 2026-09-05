@@ -8,9 +8,16 @@ the same way, see [`docs/security/`](../security/README.md).
 
 ## Adding a note
 
-Create `docs/upgrades/<version>/<slug>.md`, where `<version>` is the release
-the change ships in (the next release while it is unreleased) and `<slug>` is a
-short kebab-case name for the change:
+Create `docs/upgrades/<version>/<slug>.md`, where `<slug>` is a short
+kebab-case name for the change and `<version>` is **`next`** — the bucket for
+everything that has not shipped yet, which the page shows as *Unreleased* and
+sorts above every release. Use a real version number only when adding a note to
+a release that is already out.
+
+Notes stay under `next/` until the release is cut, at which point the directory
+is renamed to the version (`git mv docs/upgrades/next docs/upgrades/0.19.0`) in
+the release commit. Naming the release up front means guessing it, and moving
+every note again when the guess is wrong.
 
 ```markdown
 ---
@@ -66,7 +73,8 @@ python3 docs/hooks/notes.py --check
 ```
 
 It rejects a missing front matter, an unknown module name, a missing or
-unknown `action` and a body without a bold title. `--render docs/docs` writes the assembled pages over the stubs, for
+unknown `action`, a directory that is neither `next` nor a version number, and
+a body without a bold title. `--render docs/docs` writes the assembled pages over the stubs, for
 a documentation build that does not run mkdocs from this repository.
 
 ## What goes here
