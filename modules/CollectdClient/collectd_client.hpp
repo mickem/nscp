@@ -6,39 +6,13 @@
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <net/collectd/collectd_packet.hpp>
+#include <net/collectd/collectd_sender.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/protobuf/functions_convert.hpp>
 #include <nscapi/protobuf/metrics.hpp>
 
 namespace collectd_client {
-
-class udp_sender {
- public:
-  // Multicast: bind the socket to a specific local interface (source_endpoint)
-  // so the datagram leaves through it.
-  udp_sender(boost::asio::io_context &io_service, boost::asio::ip::udp::endpoint source_endpoint, const boost::asio::ip::address &target_address,
-             unsigned short target_port)
-      : endpoint_(target_address, target_port), socket_(io_service, source_endpoint) {}
-
-  // Unicast (or default-interface multicast): open a socket for the target's
-  // protocol family and let the OS pick the source.
-  udp_sender(boost::asio::io_context &io_service, const boost::asio::ip::address &target_address, unsigned short target_port)
-      : endpoint_(target_address, target_port), socket_(io_service, endpoint_.protocol()) {}
-
-  // Queue one datagram. The payload is owned by a shared_ptr captured in the
-  // completion handler so it stays alive until the async send finishes — this
-  // lets us queue several packets before a single io_context.run() drains them
-  // (the previous single-member buffer was overwritten by the next send).
-  void send_data(const std::string &data) {
-    auto payload = std::make_shared<std::string>(data);
-    socket_.async_send_to(boost::asio::buffer(*payload), endpoint_, [payload](const boost::system::error_code &, std::size_t) {});
-  }
-
- private:
-  boost::asio::ip::udp::endpoint endpoint_;
-  boost::asio::ip::udp::socket socket_;
-};
 
 struct connection_data : public socket_helpers::connection_info {
   std::string sender_hostname;
@@ -237,42 +211,14 @@ struct collectd_client_handler : public client::handler_interface {
 
   void send(const connection_data &target, const collectd::collectd_builder::packet_list &packets) {
     NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Sending " + str::xtos(packets.size()) + " packets to: " + target.to_string()); }
-    try {
-      boost::asio::io_context io_service;
-      const boost::asio::ip::address target_address = boost::asio::ip::make_address(target.get_address());
-      const unsigned short target_port = target.get_int_port();
-
-      const bool is_multicast = (target_address.is_v4() && target_address.to_v4().is_multicast()) ||
-                                (target_address.is_v6() && target_address.to_v6().is_multicast());
-
-      // Build the set of sockets to send through. For unicast that is a single
-      // OS-routed socket; for multicast we send out every local interface of
-      // the matching address family.
-      std::list<std::shared_ptr<udp_sender> > senders;
-      if (is_multicast) {
-        boost::asio::ip::udp::resolver resolver(io_service);
-        for (const auto &entry : resolver.resolve(boost::asio::ip::host_name(), "")) {
-          const boost::asio::ip::address &local = entry.endpoint().address();
-          if (local.is_v4() == target_address.is_v4()) {
-            senders.push_back(std::make_shared<udp_sender>(io_service, entry.endpoint(), target_address, target_port));
-          }
-        }
-      }
-      if (senders.empty()) {
-        // Unicast, or multicast with no enumerable matching interface: fall
-        // back to a default-bound socket for the target's address family.
-        senders.push_back(std::make_shared<udp_sender>(io_service, target_address, target_port));
-      }
-
-      for (const collectd::packet &p : packets) {
-        if (p.get_size() == 0) continue;  // never put an empty datagram on the wire
-        for (const std::shared_ptr<udp_sender> &s : senders) {
-          s->send_data(p.get_buffer());
-        }
-      }
-      io_service.run();
-    } catch (std::exception &e) {
-      NSC_LOG_ERROR_STD(utf8::utf8_from_native(e.what()));
+    std::list<std::string> datagrams;
+    for (const collectd::packet &p : packets) {
+      if (p.get_size() == 0) continue;  // never put an empty datagram on the wire
+      datagrams.push_back(p.get_buffer());
+    }
+    const collectd::sender_result result = collectd::send_datagrams(collectd::sender_config(target.get_address(), target.get_port()), datagrams);
+    for (const std::string &error : result.errors) {
+      NSC_LOG_ERROR(error);
     }
   }
 

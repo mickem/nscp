@@ -10,6 +10,7 @@ set(SRCS
     ${SRCS}
     "${TARGET}.cpp"
     ${NSCP_INCLUDEDIR}/net/collectd/collectd_packet.cpp
+    ${NSCP_INCLUDEDIR}/net/collectd/collectd_sender.cpp
     ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_CLIENT_CPP}
@@ -24,6 +25,7 @@ if(WIN32)
         collectd_client.hpp
         collectd_handler.hpp
         ${NSCP_INCLUDEDIR}/net/collectd/collectd_packet.hpp
+        ${NSCP_INCLUDEDIR}/net/collectd/collectd_sender.hpp
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
         ${NSCP_DEF_PLUGIN_HPP}
@@ -63,6 +65,23 @@ NSCP_CREATE_TEST(
         ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
+# Unit tests for the UDP delivery half: resolution, the sockets a target opens
+# and what is reported when a datagram cannot be sent. Drives a real loopback
+# socket, so it needs no plugin API.
+NSCP_CREATE_TEST(
+    collectd_sender_test
+    SOURCES
+        collectd_sender_test.cpp
+        ${NSCP_INCLUDEDIR}/net/collectd/collectd_sender.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_THREAD_LIBRARY}
+        ${EXTRA_LIBS}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
 # Unit tests for the module class itself: the settings it registers/reads and
 # the target/handler sections it turns into client targets and commands. The
 # stub core (include/nscapi/test_helpers.hpp) stands in for the daemon.
@@ -72,6 +91,7 @@ NSCP_CREATE_TEST(
         collectd_module_test.cpp
         "${TARGET}.cpp"
         ${NSCP_INCLUDEDIR}/net/collectd/collectd_packet.cpp
+        ${NSCP_INCLUDEDIR}/net/collectd/collectd_sender.cpp
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
         ${NSCP_DEF_PLUGIN_CPP}
         ${NSCP_CLIENT_CPP}
