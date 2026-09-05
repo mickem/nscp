@@ -399,10 +399,25 @@ TEST(NrdpSubmit, AnHttpErrorStatusIsReportedNotParsed) {
       boost::asio::streambuf buffer;
       boost::system::error_code ec;
       boost::asio::read_until(socket, buffer, "\r\n\r\n", ec);
+      // Drain the POST body before answering: closing a socket with unread
+      // data makes Windows reset the connection instead of delivering the
+      // response, which the client then (correctly) treats as a transport
+      // failure and retries against a port nobody listens on any more.
+      const std::string received((std::istreambuf_iterator<char>(&buffer)), std::istreambuf_iterator<char>());
+      const std::string::size_type split = received.find("\r\n\r\n");
+      std::size_t got = split == std::string::npos ? 0 : received.size() - split - 4;
+      std::size_t expected = 0;
+      const std::string::size_type cl = received.find("Content-Length:");
+      if (cl != std::string::npos) expected = std::strtoul(received.c_str() + cl + 15, nullptr, 10);
+      while (got < expected && !ec) {
+        char chunk[4096];
+        got += socket.read_some(boost::asio::buffer(chunk), ec);
+      }
       const std::string body = "denied";
       const std::string response_text =
           "HTTP/1.1 403 Forbidden\r\nContent-Type: text/plain\r\nContent-Length: " + std::to_string(body.size()) + "\r\n\r\n" + body;
       boost::asio::write(socket, boost::asio::buffer(response_text), ec);
+      socket.shutdown(tcp::socket::shutdown_send, ec);
     } catch (...) {
     }
   });
