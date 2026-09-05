@@ -451,6 +451,12 @@ boost::asio::ssl::context::verify_mode socket_helpers::connection_info::ssl_opts
 long socket_helpers::connection_info::ssl_opts::get_tls_min_version() const {
   std::string tmp = boost::algorithm::to_lower_copy(tls_version);
   str::utils::replace(tmp, "+", "");
+  // "any" is the spelling tls_method_parser accepts for "no pin and no
+  // floor"; 0 is OpenSSL's "no minimum". Without it the two disagreed and
+  // `tls version = any` failed the listener at get_tls_min_version().
+  if (tmp == "any") {
+    return 0;
+  }
   if (tmp == "tlsv1.3" || tmp == "tls1.3" || tmp == "1.3") {
     return TLS1_3_VERSION;
   }
@@ -470,9 +476,24 @@ long socket_helpers::connection_info::ssl_opts::get_tls_min_version() const {
 }
 
 long socket_helpers::connection_info::ssl_opts::get_tls_max_version() const {
-  std::string tmp = boost::algorithm::to_lower_copy(tls_version);
-  if (tmp == "tlsv1.3" || tmp == "tls1.3" || tmp == "1.3" || tmp == "tlsv1.2+" || tmp == "tls1.2+" || tmp == "1.2+" || tmp == "tlsv1.1+" || tmp == "tls1.1+" ||
-      tmp == "1.1+" || tmp == "sslv3+" || tmp == "ssl3+") {
+  const std::string tmp = boost::algorithm::to_lower_copy(tls_version);
+  // A trailing '+' means "this version or later", so the ceiling is the
+  // highest version we support whatever floor was named. Unlike its `min`
+  // counterpart this never stripped the '+', it only listed the '+' forms
+  // literally - and the list left out tlsv1.0+/tls1.0+/1.0+ and
+  // tlsv1.3+/tls1.3+/1.3+, which are documented spellings. Those threw
+  // "Invalid tls version", surfacing for NRPE as "listener failed to start".
+  if (!tmp.empty() && tmp.back() == '+') {
+    // Validate the floor so a typo ("1.4+") still fails loudly, exactly as
+    // tls_method_parser does for the same input.
+    get_tls_min_version();
+    return TLS1_3_VERSION;
+  }
+  // "any" is documented alongside the numeric versions: no pin, no floor.
+  if (tmp == "any") {
+    return TLS1_3_VERSION;
+  }
+  if (tmp == "tlsv1.3" || tmp == "tls1.3" || tmp == "1.3") {
     return TLS1_3_VERSION;
   }
   if (tmp == "tlsv1.2" || tmp == "tls1.2" || tmp == "1.2") {

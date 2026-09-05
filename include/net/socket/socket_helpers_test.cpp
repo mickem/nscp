@@ -1347,3 +1347,38 @@ TEST(IsValidPeerPrincipal, OverlongCommonNamesAreRejected) {
   EXPECT_TRUE(socket_helpers::is_valid_peer_principal(std::string(socket_helpers::max_peer_principal_length, 'a')));
   EXPECT_FALSE(socket_helpers::is_valid_peer_principal(std::string(socket_helpers::max_peer_principal_length + 1, 'a')));
 }
+
+// =============================================================================
+// get_tls_max_version — every documented `tls version` spelling
+//
+// Unlike its `min` counterpart, get_tls_max_version() never stripped the
+// trailing '+'; it listed the '+' forms literally and the list left out
+// tlsv1.0+/tls1.0+/1.0+ and tlsv1.3+/tls1.3+/1.3+. Those threw
+// "Invalid tls version", which surfaces for NRPE as "listener failed to
+// start". "any", which tls_method_parser accepts, failed the same way at
+// get_tls_min_version().
+// =============================================================================
+
+TEST(SslOptsTlsVersion, EveryDocumentedPlusFormIsAccepted) {
+  socket_helpers::connection_info::ssl_opts opts;
+  for (const std::string &floor : {std::string("tlsv1.3"), std::string("tls1.3"), std::string("1.3"), std::string("tlsv1.2"), std::string("tls1.2"),
+                                   std::string("1.2"), std::string("tlsv1.1"), std::string("tls1.1"), std::string("1.1"), std::string("tlsv1.0"),
+                                   std::string("tls1.0"), std::string("1.0"), std::string("sslv3"), std::string("ssl3")}) {
+    opts.tls_version = floor + "+";
+    EXPECT_EQ(opts.get_tls_max_version(), TLS1_3_VERSION) << "for tls version = " << opts.tls_version;
+    EXPECT_NO_THROW(opts.get_tls_min_version()) << "for tls version = " << opts.tls_version;
+  }
+}
+
+TEST(SslOptsTlsVersion, PlusFormWithABogusVersionStillThrows) {
+  socket_helpers::connection_info::ssl_opts opts;
+  opts.tls_version = "1.4+";
+  EXPECT_THROW(opts.get_tls_max_version(), socket_helpers::socket_exception);
+}
+
+TEST(SslOptsTlsVersion, AnyMeansNoFloorAndNoCeiling) {
+  socket_helpers::connection_info::ssl_opts opts;
+  opts.tls_version = "any";
+  EXPECT_EQ(opts.get_tls_min_version(), 0);
+  EXPECT_EQ(opts.get_tls_max_version(), TLS1_3_VERSION);
+}
