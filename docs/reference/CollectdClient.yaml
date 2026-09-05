@@ -66,6 +66,18 @@ common:
               Overrides the client-level interval; should match the core 'metrics interval'.
             sample: true
             title: METRICS INTERVAL
+          multicast interface:
+            advanced: false
+            default_value: auto
+            description: Which local interface a multicast target's metrics leave through. A target with
+              no address is sent to collectd's default multicast group (239.192.74.66), so this decides
+              how far those metrics travel. 'auto' (the default) sends one copy through the interface
+              the routing table picks; 'all' sends a copy through every local interface of the target's
+              address family, which puts the metrics on every attached segment; a comma-separated list
+              of local IP addresses sends one copy through each of them and nothing else. Ignored for
+              unicast targets.
+            sample: true
+            title: MULTICAST INTERFACE
           port:
             advanced: true
             default_value: ''

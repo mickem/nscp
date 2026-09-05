@@ -323,6 +323,94 @@ describe("CollectD configurable mapping", () => {
   });
 });
 
+// A target may name a host rather than an IP literal: the send path resolves
+// it. Before that it parsed literals only, so a hostname target threw on every
+// metrics cycle and the metrics silently never arrived.
+describe("CollectD hostname target", () => {
+  let nscp: NscpInstance;
+  let receiver: CollectdReceiver;
+
+  beforeAll(async () => {
+    receiver = new CollectdReceiver();
+    const port = await receiver.start();
+
+    nscp = new NscpInstance();
+    await nscp.configure({
+      "/modules": {
+        CheckSystem: "enabled",
+        CollectdClient: "enabled",
+      },
+      "/settings/core": {
+        "metrics interval": "1s",
+      },
+      "/settings/collectd/client": {
+        hostname: HOSTNAME,
+      },
+      "/settings/collectd/client/targets/default": {
+        // The receiver binds 127.0.0.1, which "localhost" resolves to.
+        address: `localhost:${port}`,
+      },
+    });
+
+    nscp.start();
+  });
+
+  afterAll(async () => {
+    await nscp?.stop();
+    await receiver?.stop();
+  });
+
+  it("resolves the host name and delivers metrics", async () => {
+    const ok = await receiver.waitFor((r) => r.some((v) => v.host === HOSTNAME));
+    expect(ok).toBe(true);
+    expect(receiver.packets.length).toBeGreaterThan(0);
+  });
+});
+
+// `multicast interface` is a per-target setting that only applies to multicast
+// targets. Configuring it on a unicast target must be accepted and ignored -
+// this also proves the key is registered, which a typo in the settings
+// declaration would break.
+describe("CollectD multicast interface setting", () => {
+  let nscp: NscpInstance;
+  let receiver: CollectdReceiver;
+
+  beforeAll(async () => {
+    receiver = new CollectdReceiver();
+    const port = await receiver.start();
+
+    nscp = new NscpInstance();
+    await nscp.configure({
+      "/modules": {
+        CheckSystem: "enabled",
+        CollectdClient: "enabled",
+      },
+      "/settings/core": {
+        "metrics interval": "1s",
+      },
+      "/settings/collectd/client": {
+        hostname: HOSTNAME,
+      },
+      "/settings/collectd/client/targets/default": {
+        address: `127.0.0.1:${port}`,
+        "multicast interface": "all",
+      },
+    });
+
+    nscp.start();
+  });
+
+  afterAll(async () => {
+    await nscp?.stop();
+    await receiver?.stop();
+  });
+
+  it("is ignored for a unicast target", async () => {
+    const ok = await receiver.waitFor((r) => r.some((v) => v.host === HOSTNAME));
+    expect(ok).toBe(true);
+  });
+});
+
 // A per-target `interval` must override the client-level interval on the wire.
 describe("CollectD per-target interval override", () => {
   let nscp: NscpInstance;
