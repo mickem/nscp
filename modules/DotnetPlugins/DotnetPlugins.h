@@ -51,8 +51,8 @@ class DotnetPlugins : public nscapi::impl::simple_plugin {
   static boost::filesystem::path resolve_assembly(const boost::filesystem::path &root, const std::string &alias, const std::string &value);
 
   // The core callback handed to managed code (see dotnet_bridge.hpp).
-  static std::int32_t core_callback(void *ctx, std::int32_t op, const char *str, const std::uint8_t *data, std::int32_t len, dotnet::write_fn write,
-                                    void *wctx);
+  static std::int32_t NSCP_DOTNET_CALL core_callback(void *ctx, std::int32_t op, const char *str, const std::uint8_t *data, std::int32_t len,
+                                                     dotnet::write_fn write, void *wctx);
 
  private:
   struct bridge_functions {

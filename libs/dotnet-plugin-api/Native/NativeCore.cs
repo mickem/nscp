@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using NSCP.Core;
 
@@ -32,14 +33,14 @@ namespace NSCP.Core.Native
     /// </summary>
     internal sealed unsafe class NativeCore : ICore, IPluginCore
     {
-        private readonly delegate* unmanaged<void*, int, byte*, byte*, int, delegate* unmanaged<void*, byte*, int, void>, void*, int> core_;
+        private readonly delegate* unmanaged[Cdecl]<void*, int, byte*, byte*, int, delegate* unmanaged[Cdecl]<void*, byte*, int, void>, void*, int> core_;
         private readonly void* ctx_;
         private readonly PluginInstance instance_;
         private readonly HashSet<string> commands_ = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         internal NativeCore(IntPtr core, IntPtr ctx, PluginInstance instance)
         {
-            core_ = (delegate* unmanaged<void*, int, byte*, byte*, int, delegate* unmanaged<void*, byte*, int, void>, void*, int>)core;
+            core_ = (delegate* unmanaged[Cdecl]<void*, int, byte*, byte*, int, delegate* unmanaged[Cdecl]<void*, byte*, int, void>, void*, int>)core;
             ctx_ = (void*)ctx;
             instance_ = instance;
         }
@@ -160,7 +161,7 @@ namespace NSCP.Core.Native
             return buf;
         }
 
-        [UnmanagedCallersOnly]
+        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
         private static void WriteResponse(void* wctx, byte* data, int len)
         {
             if (wctx == null || len <= 0 || data == null) return;

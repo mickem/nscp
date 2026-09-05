@@ -19,7 +19,7 @@ namespace {
 
 const char *const default_factory = "NSCP.Plugin.PluginFactory";
 
-void append_to_string(void *wctx, const std::uint8_t *data, std::int32_t len) {
+void NSCP_DOTNET_CALL append_to_string(void *wctx, const std::uint8_t *data, std::int32_t len) {
   if (wctx == nullptr || data == nullptr || len <= 0) return;
   static_cast<std::string *>(wctx)->append(reinterpret_cast<const char *>(data), static_cast<std::size_t>(len));
 }
@@ -265,8 +265,8 @@ std::int32_t DotnetPlugins::dispatch(std::int32_t op, const char *str, const std
   }
 }
 
-std::int32_t DotnetPlugins::core_callback(void *ctx, std::int32_t op, const char *str, const std::uint8_t *data, std::int32_t len, dotnet::write_fn write,
-                                          void *wctx) {
+std::int32_t NSCP_DOTNET_CALL DotnetPlugins::core_callback(void *ctx, std::int32_t op, const char *str, const std::uint8_t *data, std::int32_t len,
+                                                           dotnet::write_fn write, void *wctx) {
   DotnetPlugins *self = static_cast<DotnetPlugins *>(ctx);
   if (self == nullptr) return 0;
   try {

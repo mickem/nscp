@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Loader;
 using System.Text;
@@ -16,8 +17,11 @@ namespace NSCP.Core.Native
     /// <summary>
     /// Entry points the C++ DotnetPlugins module resolves through
     /// <c>load_assembly_and_get_function_pointer</c>. All of them are
-    /// <see cref="UnmanagedCallersOnlyAttribute"/> with a C ABI; strings are
-    /// NUL-terminated UTF-8 and responses travel through a write callback.
+    /// <see cref="UnmanagedCallersOnlyAttribute"/> with a C (cdecl) ABI; strings
+    /// are NUL-terminated UTF-8 and responses travel through a write callback.
+    /// The convention is spelled out because on 32-bit Windows the default for
+    /// unmanaged function pointers is stdcall, which does not match the C++
+    /// side and crashes the process on the first call.
     /// Must be kept in sync with modules/DotnetPlugins/dotnet_bridge.hpp.
     /// </summary>
     public static unsafe class Bridge
@@ -62,7 +66,7 @@ namespace NSCP.Core.Native
             return s == null ? string.Empty : Marshal.PtrToStringUTF8((IntPtr)s) ?? string.Empty;
         }
 
-        private static void Write(delegate* unmanaged<void*, byte*, int, void> write, void* wctx, byte[] data)
+        private static void Write(delegate* unmanaged[Cdecl]<void*, byte*, int, void> write, void* wctx, byte[] data)
         {
             if (write == null || data == null || data.Length == 0) return;
             fixed (byte* p = data)
@@ -71,7 +75,7 @@ namespace NSCP.Core.Native
             }
         }
 
-        private static void WriteString(delegate* unmanaged<void*, byte*, int, void> write, void* wctx, string text)
+        private static void WriteString(delegate* unmanaged[Cdecl]<void*, byte*, int, void> write, void* wctx, string text)
         {
             Write(write, wctx, Encoding.UTF8.GetBytes(text ?? string.Empty));
         }
@@ -88,7 +92,7 @@ namespace NSCP.Core.Native
         /// Load a plugin assembly, instantiate its factory and create the plugin.
         /// </summary>
         /// <returns>An opaque handle (never 0) or 0 on failure (details are logged through the core).</returns>
-        [UnmanagedCallersOnly]
+        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
         public static IntPtr Load(IntPtr coreCallback, IntPtr coreContext, byte* assemblyPath, byte* factoryType, byte* alias, int pluginId)
         {
             var path = Utf8(assemblyPath);
@@ -138,7 +142,7 @@ namespace NSCP.Core.Native
         }
 
         /// <summary>Call IPlugin.load(mode). Returns 1 on success, 0 on failure.</summary>
-        [UnmanagedCallersOnly]
+        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
         public static int Start(IntPtr handle, int mode)
         {
             var p = Find(handle);
@@ -155,7 +159,7 @@ namespace NSCP.Core.Native
         }
 
         /// <summary>Call IPlugin.unload() and forget the plugin. Returns 1 on success.</summary>
-        [UnmanagedCallersOnly]
+        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
         public static int Unload(IntPtr handle)
         {
             LoadedPlugin p;
@@ -178,8 +182,8 @@ namespace NSCP.Core.Native
         /// <summary>
         /// Write "name\nversion\ndescription" for the plugin (for log lines).
         /// </summary>
-        [UnmanagedCallersOnly]
-        public static int Describe(IntPtr handle, delegate* unmanaged<void*, byte*, int, void> write, void* wctx)
+        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+        public static int Describe(IntPtr handle, delegate* unmanaged[Cdecl]<void*, byte*, int, void> write, void* wctx)
         {
             var p = Find(handle);
             if (p == null) return 0;
@@ -199,8 +203,8 @@ namespace NSCP.Core.Native
         /// Route a query to the plugin if it registered the command.
         /// </summary>
         /// <returns>1 handled (response written), 0 not this plugin's command, -1 failed.</returns>
-        [UnmanagedCallersOnly]
-        public static int Query(IntPtr handle, byte* command, byte* request, int requestLength, delegate* unmanaged<void*, byte*, int, void> write, void* wctx)
+        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+        public static int Query(IntPtr handle, byte* command, byte* request, int requestLength, delegate* unmanaged[Cdecl]<void*, byte*, int, void> write, void* wctx)
         {
             var p = Find(handle);
             if (p == null) return QueryIgnored;
