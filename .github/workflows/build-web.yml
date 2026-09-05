@@ -16,9 +16,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
 
-    - uses: actions/setup-node@v6
+    - uses: actions/setup-node@v7
       with:
         # react-router 8 and vite 8 need node >= 22
         node-version: 22
@@ -55,7 +55,7 @@ jobs:
         # `sha256sum -c NSCP-Web-<version>.sha256`.
         sha256sum "${zipname}" > "${shaname}"
 
-    - uses: actions/upload-artifact@v6
+    - uses: actions/upload-artifact@v7
       with:
         name: NSCP-${{ inputs.version }}-web
         path: |

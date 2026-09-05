@@ -83,7 +83,7 @@ jobs:
         # ccache comes from EPEL, which is already enabled above. zstd lets
         # actions/cache compress with zstd instead of falling back to gzip.
         retry dnf install -y --allowerasing coreutils bash file findutils git boost-devel gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build python3-devel dbus-devel bash libzip-devel tinyxml2-devel mariadb-connector-c-devel pkgconf-pkg-config ccache zstd
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
 
     - name: Configure ccache
       shell: bash
@@ -100,7 +100,7 @@ jobs:
         fi
 
     - name: Restore ccache
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: .ccache
         key: ccache-rpm-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.arch }}-${{ github.sha }}
@@ -188,7 +188,7 @@ jobs:
         dnf install -y ./NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.rpm_arch }}.rpm
         nscp settings --load-all --list --add-defaults
 
-    - uses: actions/upload-artifact@v6
+    - uses: actions/upload-artifact@v7
       with:
         name: NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.arch }}
         path: |
