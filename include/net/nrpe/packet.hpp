@@ -250,8 +250,14 @@ class packet /*: public boost::noncopyable*/ {
   }
 
   void readFromV3(const char* buffer, const std::size_t length) {
-    if (length < length::get_packet_length_v3(0)) {
-      throw nrpe_exception("Invalid packet length: " + str::xtos(length) + " < " + str::xtos(length::get_packet_length_v3(0)));
+    // The fixed header is buffer_offset_v3 bytes; whether the packet must be
+    // longer than that depends on the version, which we can only read once
+    // the header is there. v3 counts the three trailing alignment bytes as
+    // part of the packet, v4 does not - so the version-specific minimum is
+    // enforced further down via source_data_length, and an empty v4 payload
+    // (exactly buffer_offset_v3 bytes on the wire) is legal.
+    if (length < data::buffer_offset_v3) {
+      throw nrpe_exception("Invalid packet length: " + str::xtos(length) + " < " + str::xtos(data::buffer_offset_v3));
     }
 
     auto p = reinterpret_cast<const data::packet_v3*>(buffer);
