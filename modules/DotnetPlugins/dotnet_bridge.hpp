@@ -8,6 +8,15 @@
 
 #include <cstdint>
 
+// Every function pointer crossing the boundary is cdecl: the managed side pins
+// it with CallConvCdecl / delegate* unmanaged[Cdecl]. Spelled out because the
+// 32-bit Windows default differs between the two worlds (stdcall vs cdecl).
+#ifdef _WIN32
+#define NSCP_DOTNET_CALL __cdecl
+#else
+#define NSCP_DOTNET_CALL
+#endif
+
 namespace dotnet {
 
 // Operations the managed side can ask the core for, dispatched through one
@@ -23,19 +32,22 @@ enum core_op : std::int32_t {
 };
 
 // Response sink: the callee pushes response bytes back into the caller's buffer.
-typedef void (*write_fn)(void *wctx, const std::uint8_t *data, std::int32_t len);
+typedef void(NSCP_DOTNET_CALL *write_fn)(void *wctx, const std::uint8_t *data, std::int32_t len);
 
 // managed -> native: int core(ctx, op, str, data, len, write, wctx); returns 1 on
 // success, 0 on failure. `str` carries the target/channel/module for the
 // operations that have one (NUL-terminated UTF-8), else NULL.
-typedef std::int32_t (*core_fn)(void *ctx, std::int32_t op, const char *str, const std::uint8_t *data, std::int32_t len, write_fn write, void *wctx);
+typedef std::int32_t(NSCP_DOTNET_CALL *core_fn)(void *ctx, std::int32_t op, const char *str, const std::uint8_t *data, std::int32_t len, write_fn write,
+                                                void *wctx);
 
 // native -> managed (UnmanagedCallersOnly static methods on NSCP.Core.Native.Bridge).
-typedef void *(*managed_load_fn)(core_fn core, void *ctx, const char *assembly_path, const char *factory_type, const char *alias, std::int32_t plugin_id);
-typedef std::int32_t (*managed_start_fn)(void *handle, std::int32_t mode);
-typedef std::int32_t (*managed_unload_fn)(void *handle);
-typedef std::int32_t (*managed_describe_fn)(void *handle, write_fn write, void *wctx);
-typedef std::int32_t (*managed_query_fn)(void *handle, const char *command, const std::uint8_t *request, std::int32_t request_len, write_fn write, void *wctx);
+typedef void *(NSCP_DOTNET_CALL *managed_load_fn)(core_fn core, void *ctx, const char *assembly_path, const char *factory_type, const char *alias,
+                                                  std::int32_t plugin_id);
+typedef std::int32_t(NSCP_DOTNET_CALL *managed_start_fn)(void *handle, std::int32_t mode);
+typedef std::int32_t(NSCP_DOTNET_CALL *managed_unload_fn)(void *handle);
+typedef std::int32_t(NSCP_DOTNET_CALL *managed_describe_fn)(void *handle, write_fn write, void *wctx);
+typedef std::int32_t(NSCP_DOTNET_CALL *managed_query_fn)(void *handle, const char *command, const std::uint8_t *request, std::int32_t request_len,
+                                                         write_fn write, void *wctx);
 
 // Return codes of managed_query_fn.
 const std::int32_t query_handled = 1;
