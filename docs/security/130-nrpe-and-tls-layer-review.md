@@ -90,3 +90,28 @@ loopback entries.
 certificate. A certificate generated before this release still has the
 localhost-only SAN; delete it and restart to regenerate one that can be
 verified.
+
+#### 512-bit DH parameters are no longer shipped
+
+`security/nrpe_dh_512.pem` was installed beside `nrpe_dh_2048.pem` and was the
+default of `socket_helpers::settings_helper::add_ssl_client_opts`. That
+function had no callers and the NRPE server defaults to `nrpe_dh_2048.pem`,
+so nothing used it — but 512-bit DH is Logjam-broken, and an operator copying
+the shipped default into `dh` inherited it. The file and the dead default are
+gone.
+
+**What to do:** if `dh` names `nrpe_dh_512.pem` explicitly, point it at
+`${nrpe-dh}/nrpe_dh_2048.pem` before upgrading — the listener will otherwise
+fail to start on a missing DH file.
+
+#### Codec and protocol correctness
+
+The same pass fixed a set of NRPE codec and protocol defects with no direct
+security impact but which affect availability: the server parser did not
+recognise wire version 4 (a v4 packet larger than the v2 packet length made
+it drop the connection), `digest()` declared short packets complete before
+they had arrived, three unsigned length underflows were guarded, a response
+that could not be serialized left the protocol re-sending the same buffer,
+and the client parsed its whole buffer rather than the bytes it received —
+throwing the decoder's CRC error out through the asio event loop. See the
+[Upgrading](../setup/upgrading.md) page for the operator-visible parts.
