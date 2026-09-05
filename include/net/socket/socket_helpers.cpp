@@ -342,6 +342,12 @@ std::list<std::string> socket_helpers::connection_info::validate_ssl() const {
   return list;
 }
 
+#ifdef USE_SSL
+bool socket_helpers::connection_info::verifies_peer() const {
+  return (ssl.get_verify_mode() & boost::asio::ssl::context_base::verify_peer) != 0;
+}
+#endif
+
 long socket_helpers::connection_info::get_ctx_opts() const {
   long opts = 0;
 #ifdef USE_SSL
@@ -530,6 +536,45 @@ std::string get_open_ssl_error() {
   return ss.str();
 }
 
+// Subject alternative names for a generated certificate.
+//
+// This used to be the constant "DNS:localhost,IP:127.0.0.1", which made a
+// generated certificate unusable for anyone who turned peer verification on:
+// ssl_connection::connect installs host_name_verification whenever
+// verify_peer is set, so the certificate could only ever verify against
+// localhost. Include the machine's own name (and the address a remote peer
+// would see it as) so that `verify mode = peer` against a generated
+// certificate is at least possible.
+std::string build_subject_alt_name() {
+  std::vector<std::string> names;
+  // The SAN value is an OpenSSL config string, so only feed it characters
+  // that cannot change its meaning - a host name is not attacker-controlled,
+  // but it does come from the machine's configuration.
+  const auto is_safe = [](const std::string &value) {
+    if (value.empty()) return false;
+    for (const char c : value) {
+      if (!(isalnum(static_cast<unsigned char>(c)) || c == '.' || c == '-' || c == '_')) return false;
+    }
+    return true;
+  };
+  try {
+    const std::string host = ip::host_name();
+    if (is_safe(host)) names.push_back("DNS:" + host);
+    const std::string lower = boost::algorithm::to_lower_copy(host);
+    if (lower != host && is_safe(lower)) names.push_back("DNS:" + lower);
+  } catch (const std::exception &) {
+    // No host name: the loopback entries below still make the certificate
+    // usable for a local check.
+  }
+  for (const bool ipv6 : {false, true}) {
+    const boost::optional<ip::address> address = discover_local_address(ipv6);
+    if (address) names.push_back("IP:" + address->to_string());
+  }
+  names.emplace_back("DNS:localhost");
+  names.emplace_back("IP:127.0.0.1");
+  return boost::algorithm::join(names, ",");
+}
+
 void make_certificate(const X509_ptr &cert, EVP_PKEY_ptr &pkey, const int bits, const int days, bool ca) {
   EVP_PKEY_CTX_ptr pctx(EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr), EVP_PKEY_CTX_free);
   if (!pctx) {
@@ -597,7 +642,7 @@ void make_certificate(const X509_ptr &cert, EVP_PKEY_ptr &pkey, const int bits, 
 
   add_ext(cert.get(), NID_subject_key_identifier, "hash");
   add_ext(cert.get(), NID_authority_key_identifier, "keyid:always,issuer");
-  add_ext(cert.get(), NID_subject_alt_name, "DNS:localhost,IP:127.0.0.1");
+  add_ext(cert.get(), NID_subject_alt_name, build_subject_alt_name().c_str());
 
   if (ca) {
     add_ext(cert.get(), NID_basic_constraints, "critical,CA:TRUE");
