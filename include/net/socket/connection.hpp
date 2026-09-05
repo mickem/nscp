@@ -264,6 +264,15 @@ class ssl_connection : public connection<protocol_type, N> {
 
   void start() override {
     this->trace("ssl::start_read_request()");
+    // Arm the deadline *before* the handshake. This override replaces
+    // connection::start(), which is where the timer is normally armed - and
+    // that only runs once the handshake has completed, so the handshake
+    // phase itself had no deadline at all. A permitted host could open
+    // sockets, send nothing, and pin a connection object, its file
+    // descriptor and its buffer indefinitely; the plain-TCP path was bounded
+    // by `timeout` all along, the SSL path - the NRPE default - was not.
+    // parent_type::start() re-arms the same timer for the request itself.
+    this->set_timeout(parent_type::protocol_->get_info().timeout);
     std::shared_ptr<my_type> self = std::dynamic_pointer_cast<my_type>(this->shared_from_this());
     ssl_socket_.async_handshake(boost::asio::ssl::stream_base::server,
                                 boost::asio::bind_executor(parent_type::strand_, [self](const auto& e) { self->handle_handshake(e); }));
