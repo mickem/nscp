@@ -34,12 +34,25 @@ bool parse_version(const std::string &text, version &out);
 // Platform file name of the hostfxr library.
 std::string hostfxr_library_name();
 
+// CPU architecture a binary is built for. A 32-bit nscp cannot load an x64
+// hostfxr (LoadLibrary error 193), so candidates are checked against the
+// running process before being accepted.
+enum class architecture { unknown, x86, x64, arm, arm64 };
+architecture process_architecture();
+const char *architecture_name(architecture arch);
+// Read the machine type from a PE (Windows) or ELF header. `unknown` for
+// anything else (Mach-O, unreadable, stub files), which is then accepted.
+architecture library_architecture(const boost::filesystem::path &library);
+
 // Well-known places a .NET install may live, most specific first: an explicit
-// override, then the DOTNET_ROOT environment variable, then the folder the
-// `dotnet` launcher on PATH lives in, then the distribution defaults.
+// override, the architecture-specific DOTNET_ROOT_<ARCH> then DOTNET_ROOT
+// environment variables, the registered / default install locations, and last
+// the folder the `dotnet` launcher on PATH lives in (which may be another
+// architecture's install, hence last).
 std::vector<boost::filesystem::path> default_roots(const std::string &override_root);
 
-// Locate <root>/host/fxr/<newest version>/<hostfxr library>. Empty when absent.
+// Locate <root>/host/fxr/<newest version>/<hostfxr library> built for this
+// process' architecture. Empty when absent.
 boost::filesystem::path find_hostfxr_in_root(const boost::filesystem::path &root);
 
 struct hostfxr_location {
