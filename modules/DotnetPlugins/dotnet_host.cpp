@@ -30,8 +30,15 @@ namespace dotnet {
 // no .NET SDK present: the runtime is a run-time dependency only.
 #ifdef _WIN32
 typedef wchar_t char_t;
+// hostfxr's own exports are cdecl, but the delegates it hands back
+// (coreclr_delegates.h) are stdcall. Only x86 tells the two apart; getting it
+// wrong there corrupts the stack on the first call into the runtime.
+#define NSCP_HOSTFXR_CALLTYPE __cdecl
+#define NSCP_CORECLR_DELEGATE_CALLTYPE __stdcall
 #else
 typedef char char_t;
+#define NSCP_HOSTFXR_CALLTYPE
+#define NSCP_CORECLR_DELEGATE_CALLTYPE
 #endif
 typedef void *hostfxr_handle;
 struct hostfxr_initialize_parameters {
@@ -48,14 +55,16 @@ enum hostfxr_delegate_type {
   hdt_load_assembly_and_get_function_pointer,
   hdt_get_function_pointer,
 };
-typedef std::int32_t (*hostfxr_initialize_for_runtime_config_fn)(const char_t *runtime_config_path, const hostfxr_initialize_parameters *parameters,
-                                                                 hostfxr_handle *host_context_handle);
-typedef std::int32_t (*hostfxr_get_runtime_delegate_fn)(hostfxr_handle host_context_handle, hostfxr_delegate_type type, void **delegate);
-typedef std::int32_t (*hostfxr_close_fn)(hostfxr_handle host_context_handle);
-typedef void (*hostfxr_error_writer_fn)(const char_t *message);
-typedef hostfxr_error_writer_fn (*hostfxr_set_error_writer_fn)(hostfxr_error_writer_fn error_writer);
-typedef std::int32_t (*load_assembly_and_get_function_pointer_fn)(const char_t *assembly_path, const char_t *type_name, const char_t *method_name,
-                                                                  const char_t *delegate_type_name, void *reserved, void **delegate);
+typedef std::int32_t(NSCP_HOSTFXR_CALLTYPE *hostfxr_initialize_for_runtime_config_fn)(const char_t *runtime_config_path,
+                                                                                      const hostfxr_initialize_parameters *parameters,
+                                                                                      hostfxr_handle *host_context_handle);
+typedef std::int32_t(NSCP_HOSTFXR_CALLTYPE *hostfxr_get_runtime_delegate_fn)(hostfxr_handle host_context_handle, hostfxr_delegate_type type, void **delegate);
+typedef std::int32_t(NSCP_HOSTFXR_CALLTYPE *hostfxr_close_fn)(hostfxr_handle host_context_handle);
+typedef void(NSCP_HOSTFXR_CALLTYPE *hostfxr_error_writer_fn)(const char_t *message);
+typedef hostfxr_error_writer_fn(NSCP_HOSTFXR_CALLTYPE *hostfxr_set_error_writer_fn)(hostfxr_error_writer_fn error_writer);
+typedef std::int32_t(NSCP_CORECLR_DELEGATE_CALLTYPE *load_assembly_and_get_function_pointer_fn)(const char_t *assembly_path, const char_t *type_name,
+                                                                                                const char_t *method_name, const char_t *delegate_type_name,
+                                                                                                void *reserved, void **delegate);
 #define NSCP_UNMANAGEDCALLERSONLY_METHOD ((const char_t *)-1)
 
 namespace {
@@ -79,7 +88,7 @@ std::string from_host(const char_t *text) {
 // hostfxr reports the reason for a failure through a process-wide error writer
 // callback; collect it so the caller can log something better than a hex code.
 std::string g_error_text;
-void error_writer(const char_t *message) {
+void NSCP_HOSTFXR_CALLTYPE error_writer(const char_t *message) {
   if (!g_error_text.empty()) g_error_text += "\n";
   g_error_text += from_host(message);
 }
