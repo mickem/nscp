@@ -5,6 +5,8 @@
 
 #include <boost/asio.hpp>
 
+#include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <memory>
 #include <set>
@@ -38,6 +40,36 @@ class udp_sender {
 
 bool is_multicast(const boost::asio::ip::address &address) {
   return (address.is_v4() && address.to_v4().is_multicast()) || (address.is_v6() && address.to_v6().is_multicast());
+}
+
+std::string trim_lower(const std::string &value) {
+  std::string out;
+  for (const char c : value) {
+    if (std::isspace(static_cast<unsigned char>(c))) continue;
+    out.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+  }
+  return out;
+}
+
+// Split a comma-separated interface list, dropping empty entries and
+// surrounding whitespace.
+std::list<std::string> split_list(const std::string &value) {
+  std::list<std::string> out;
+  std::string current;
+  for (const char c : value) {
+    if (c == ',') {
+      if (!current.empty()) out.push_back(current);
+      current.clear();
+      continue;
+    }
+    if (std::isspace(static_cast<unsigned char>(c)) && current.empty()) continue;
+    current.push_back(c);
+  }
+  if (!current.empty()) out.push_back(current);
+  for (std::string &entry : out) {
+    while (!entry.empty() && std::isspace(static_cast<unsigned char>(entry.back()))) entry.pop_back();
+  }
+  return out;
 }
 }  // namespace
 
@@ -76,22 +108,59 @@ collectd::sender_result collectd::send_datagrams(const sender_config &config, co
     }
     const udp::endpoint target = *targets.begin();
 
-    // Build the set of sockets to send through. For unicast that is a single
-    // OS-routed socket; for multicast we send out every local interface of the
-    // matching address family.
+    // Build the set of sockets to send through. A unicast target - and a
+    // multicast target left on "auto" - is one socket whose source the routing
+    // table picks. "all" and an explicit list bind a socket per local
+    // interface, so the datagram leaves through each of them.
     std::list<std::shared_ptr<udp_sender> > senders;
     if (is_multicast(target.address())) {
-      udp::resolver resolver(io_service);
-      boost::system::error_code local_ec;
-      for (const auto &entry : resolver.resolve(boost::asio::ip::host_name(), "", local_ec)) {
-        if (entry.endpoint().address().is_v4() == target.address().is_v4()) {
-          senders.push_back(std::make_shared<udp_sender>(io_service, entry.endpoint(), target));
+      const std::string mode = trim_lower(config.multicast_interfaces);
+      if (mode == "all") {
+        // Every local interface of the matching address family. Note that this
+        // enumerates what the host name resolves to, which on a host whose name
+        // maps to a loopback address (the 127.0.1.1 convention) is loopback and
+        // nothing else - one reason "auto" is the default.
+        udp::resolver resolver(io_service);
+        boost::system::error_code local_ec;
+        for (const auto &entry : resolver.resolve(boost::asio::ip::host_name(), "", local_ec)) {
+          if (entry.endpoint().address().is_v4() == target.address().is_v4()) {
+            senders.push_back(std::make_shared<udp_sender>(io_service, entry.endpoint(), target));
+          }
+        }
+        if (senders.empty()) {
+          report("No local interface of the target's address family could be enumerated for collectd target " + target_name +
+                 " with 'multicast interface = all'; sending through the default route instead");
+        }
+      } else if (!mode.empty() && mode != "auto") {
+        for (const std::string &entry : split_list(config.multicast_interfaces)) {
+          boost::system::error_code address_ec;
+          const boost::asio::ip::address local = boost::asio::ip::make_address(entry, address_ec);
+          if (address_ec) {
+            report("Ignoring 'multicast interface' entry '" + entry + "' for collectd target " + target_name +
+                   ": not a local IP address (host names are not accepted here)");
+            continue;
+          }
+          if (local.is_v4() != target.address().is_v4()) {
+            report("Ignoring 'multicast interface' entry '" + entry + "' for collectd target " + target_name +
+                   ": wrong address family for the target group");
+            continue;
+          }
+          try {
+            senders.push_back(std::make_shared<udp_sender>(io_service, udp::endpoint(local, 0), target));
+          } catch (const std::exception &e) {
+            report("Cannot send to collectd target " + target_name + " through local address " + entry + ": " + e.what());
+          }
+        }
+        if (senders.empty()) {
+          result.failed = datagrams.size();
+          report("No usable 'multicast interface' entry for collectd target " + target_name + "; no metrics sent");
+          return result;
         }
       }
     }
     if (senders.empty()) {
-      // Unicast, or multicast with no enumerable matching interface: fall back
-      // to a default-bound socket for the target's address family.
+      // Unicast, or multicast on "auto": a default-bound socket for the
+      // target's address family, routed like any other datagram.
       senders.push_back(std::make_shared<udp_sender>(io_service, target));
     }
 

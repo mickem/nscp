@@ -16,6 +16,9 @@ namespace collectd_client {
 
 struct connection_data : public socket_helpers::connection_info {
   std::string sender_hostname;
+  // Which local interface(s) a multicast target's datagrams leave through; see
+  // collectd::sender_config.
+  std::string multicast_interfaces;
 
   connection_data() {}
 
@@ -32,6 +35,7 @@ struct connection_data : public socket_helpers::connection_info {
     // that set neither.
     if (arguments.timeout > 0) timeout = arguments.timeout;
     retry = arguments.get_int_data("retries", arguments.retry);
+    multicast_interfaces = arguments.get_string_data("multicast interface", "auto");
     sender_hostname = sender.address.host;
     if (sender.has_data("host")) sender_hostname = sender.get_string_data("host");
   }
@@ -222,7 +226,7 @@ struct collectd_client_handler : public client::handler_interface {
       if (p.get_size() == 0) continue;  // never put an empty datagram on the wire
       datagrams.push_back(p.get_buffer());
     }
-    const collectd::sender_config config(target.get_address(), target.get_port(), target.retry, target.timeout);
+    const collectd::sender_config config(target.get_address(), target.get_port(), target.retry, target.timeout, target.multicast_interfaces);
     const collectd::sender_result result = collectd::send_datagrams(config, datagrams);
     for (const std::string &error : result.errors) {
       NSC_LOG_ERROR(error);

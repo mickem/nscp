@@ -367,6 +367,50 @@ describe("CollectD hostname target", () => {
   });
 });
 
+// `multicast interface` is a per-target setting that only applies to multicast
+// targets. Configuring it on a unicast target must be accepted and ignored -
+// this also proves the key is registered, which a typo in the settings
+// declaration would break.
+describe("CollectD multicast interface setting", () => {
+  let nscp: NscpInstance;
+  let receiver: CollectdReceiver;
+
+  beforeAll(async () => {
+    receiver = new CollectdReceiver();
+    const port = await receiver.start();
+
+    nscp = new NscpInstance();
+    await nscp.configure({
+      "/modules": {
+        CheckSystem: "enabled",
+        CollectdClient: "enabled",
+      },
+      "/settings/core": {
+        "metrics interval": "1s",
+      },
+      "/settings/collectd/client": {
+        hostname: HOSTNAME,
+      },
+      "/settings/collectd/client/targets/default": {
+        address: `127.0.0.1:${port}`,
+        "multicast interface": "all",
+      },
+    });
+
+    nscp.start();
+  });
+
+  afterAll(async () => {
+    await nscp?.stop();
+    await receiver?.stop();
+  });
+
+  it("is ignored for a unicast target", async () => {
+    const ok = await receiver.waitFor((r) => r.some((v) => v.host === HOSTNAME));
+    expect(ok).toBe(true);
+  });
+});
+
 // A per-target `interval` must override the client-level interval on the wire.
 describe("CollectD per-target interval override", () => {
   let nscp: NscpInstance;

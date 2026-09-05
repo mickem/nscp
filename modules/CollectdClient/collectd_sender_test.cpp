@@ -179,3 +179,71 @@ TEST(CollectdSender, AbandonsRemainingDatagramsWhenTheTimeoutExpires) {
                                      [](const std::string &e) { return e.find("Timed out") != std::string::npos; });
   EXPECT_TRUE(timed_out);
 }
+
+// ============================================================================
+// Multicast interface selection.
+//
+// A datagram aimed at a multicast group may or may not leave this machine
+// depending on the routes the test host has, so these assert on how many
+// sockets the send opens - visible as one attempt per socket per datagram -
+// rather than on delivery.
+// ============================================================================
+namespace {
+// collectd's default multicast group; the address a target falls back to when
+// none is configured.
+const char *kDefaultGroup = "239.192.74.66";
+}  // namespace
+
+TEST(CollectdSenderMulticast, AutoSendsOneCopyThroughTheRoutedInterface) {
+  // The default. Fanning a copy out of every local interface put the machine's
+  // metrics on every attached segment, including ones the operator never meant
+  // to reach - a DMZ or guest NIC.
+  const collectd::sender_result result = collectd::send_datagrams(collectd::sender_config(kDefaultGroup, "25826", 0, 0, "auto"), {"payload"});
+
+  EXPECT_EQ(result.attempts, 1u);
+}
+
+TEST(CollectdSenderMulticast, AnUnsetSettingBehavesLikeAuto) {
+  const collectd::sender_result result = collectd::send_datagrams(collectd::sender_config(kDefaultGroup, "25826"), {"payload"});
+
+  EXPECT_EQ(result.attempts, 1u);
+}
+
+TEST(CollectdSenderMulticast, AnExplicitListSendsOneCopyPerInterface) {
+  const collectd::sender_result result =
+      collectd::send_datagrams(collectd::sender_config(kDefaultGroup, "25826", 0, 0, "127.0.0.1, 127.0.0.1"), {"payload"});
+
+  // Two configured local addresses, two sockets, two sends of the datagram.
+  EXPECT_EQ(result.attempts, 2u);
+}
+
+TEST(CollectdSenderMulticast, ReportsAndSkipsUnusableInterfaceEntries) {
+  const collectd::sender_result result =
+      collectd::send_datagrams(collectd::sender_config(kDefaultGroup, "25826", 0, 0, "not-an-ip, ::1, 127.0.0.1"), {"payload"});
+
+  // The host name and the wrong-family entry are each reported and skipped;
+  // the usable one still carries the datagram.
+  EXPECT_EQ(result.attempts, 1u);
+  EXPECT_EQ(result.errors.size(), 2u);
+}
+
+TEST(CollectdSenderMulticast, SendsNothingWhenNoConfiguredInterfaceIsUsable) {
+  // Fail closed: a misconfigured allowlist must not silently fall back to
+  // sending through whatever interface the routing table picks.
+  const collectd::sender_result result = collectd::send_datagrams(collectd::sender_config(kDefaultGroup, "25826", 0, 0, "not-an-ip"), {"a", "b"});
+
+  EXPECT_EQ(result.attempts, 0u);
+  EXPECT_EQ(result.sent, 0u);
+  EXPECT_EQ(result.failed, 2u);
+}
+
+TEST(CollectdSenderMulticast, TheSettingIsIgnoredForUnicastTargets) {
+  udp_sink sink;
+
+  const collectd::sender_result result =
+      collectd::send_datagrams(collectd::sender_config("127.0.0.1", sink.port_string(), 0, 0, "203.0.113.9"), {"payload"});
+
+  EXPECT_EQ(result.sent, 1u);
+  EXPECT_TRUE(result.errors.empty());
+  ASSERT_EQ(sink.drain().size(), 1u);
+}

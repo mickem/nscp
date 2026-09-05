@@ -119,14 +119,15 @@ This is a section of objects. This means that you will create objects below this
 **Keys:**
 
 
-| Key      | Default Value | Description      |
-|----------|---------------|------------------|
-| address  |               | TARGET ADDRESS   |
-| host     |               | TARGET HOST      |
-| interval |               | METRICS INTERVAL |
-| port     |               | TARGET PORT      |
-| retries  | 3             | RETRIES          |
-| timeout  | 30            | TIMEOUT          |
+| Key                 | Default Value | Description         |
+|---------------------|---------------|---------------------|
+| address             |               | TARGET ADDRESS      |
+| host                |               | TARGET HOST         |
+| interval            |               | METRICS INTERVAL    |
+| multicast interface | auto          | MULTICAST INTERFACE |
+| port                |               | TARGET PORT         |
+| retries             | 3             | RETRIES             |
+| timeout             | 30            | TIMEOUT             |
 
 
 **Sample:**
@@ -137,6 +138,7 @@ This is a section of objects. This means that you will create objects below this
 #address=...
 #host=...
 #interval=...
+multicast interface=auto
 #port=...
 retries=3
 timeout=30

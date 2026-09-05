@@ -35,9 +35,20 @@ struct sender_config {
   // target cannot hold the metrics thread for retries x datagrams.
   unsigned int timeout_seconds;
 
+  // Which local interfaces a multicast target's datagrams leave through (the
+  // target's `multicast interface` setting): "auto" or empty for the one the
+  // routing table picks, "all" for every local interface of the target's
+  // address family, or a comma-separated list of local IP addresses. Ignored
+  // for a unicast target, which the routing table has always decided.
+  std::string multicast_interfaces;
+
   sender_config() : retries(0), timeout_seconds(0) {}
-  sender_config(std::string address, std::string port, int retries = 0, unsigned int timeout_seconds = 0)
-      : address(std::move(address)), port(std::move(port)), retries(retries), timeout_seconds(timeout_seconds) {}
+  sender_config(std::string address, std::string port, int retries = 0, unsigned int timeout_seconds = 0, std::string multicast_interfaces = "")
+      : address(std::move(address)),
+        port(std::move(port)),
+        retries(retries),
+        timeout_seconds(timeout_seconds),
+        multicast_interfaces(std::move(multicast_interfaces)) {}
 };
 
 struct sender_result {
@@ -57,8 +68,8 @@ struct sender_result {
 // Send every datagram to the configured target.
 //
 // The address is resolved, so a target may name a host rather than an IP
-// literal. A multicast target is sent through every local interface of the
-// matching address family, as collectd's own network plugin does.
+// literal. A multicast target goes out through the interface(s) named by
+// `multicast_interfaces`.
 sender_result send_datagrams(const sender_config &config, const std::list<std::string> &datagrams);
 
 }  // namespace collectd
