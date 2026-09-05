@@ -6,6 +6,7 @@
 #include <net/nrpe/packet.hpp>
 #include <net/socket/client.hpp>
 #include <net/socket/socket_helpers.hpp>
+#include <str/utf8.hpp>
 
 using boost::asio::ip::tcp;
 
@@ -55,13 +56,32 @@ class protocol : public boost::noncopyable {
   bool has_data() const { return current_state_ == has_request; }
   bool wants_data() const { return current_state_ == sent_response || current_state_ == has_more; }
 
-  bool on_read(std::size_t) {
-    const auto packet = nrpe::packet(&buffer_[0], static_cast<unsigned int>(buffer_.size()));
-    if (packet.getType() == data::moreResponsePacket)
-      set_state(has_more);
-    else
+  bool on_read(std::size_t bytes_transferred) {
+    // Parse only what actually arrived. get_inbound() hands out the very
+    // buffer the request was written from, and client::handle_read_request
+    // calls on_read for a *partial* read too (a short response ends in eof),
+    // so anything past bytes_transferred is still the tail of our own
+    // request. Parsing buffer_.size() bytes fed that tail to the decoder,
+    // whose CRC check then threw from inside an asio completion handler and
+    // unwound through io_context::run_one() - a truncated response is an
+    // error return, not an exception through the event loop.
+    if (bytes_transferred == 0 || bytes_transferred > buffer_.size()) {
+      responses_.push_back(nrpe::packet::unknown_response("Truncated response from NRPE server"));
       set_state(connected);
-    responses_.push_back(packet);
+      return false;
+    }
+    try {
+      const auto packet = nrpe::packet(&buffer_[0], bytes_transferred);
+      if (packet.getType() == data::moreResponsePacket)
+        set_state(has_more);
+      else
+        set_state(connected);
+      responses_.push_back(packet);
+    } catch (const std::exception &e) {
+      responses_.push_back(nrpe::packet::unknown_response("Failed to read response: " + utf8::utf8_from_native(e.what())));
+      set_state(connected);
+      return false;
+    }
     return true;
   }
   bool on_write(std::size_t) {
