@@ -109,9 +109,10 @@ first run. The `nscp-build-base` layer is cached and reused across scenarios.
 - **Base image:** `ubuntu:24.04` (provides Python 3.12, so
   `-DNSCP_BOOST_PYTHON_VERSION=python312` matches Boost.Python). Adjust if you
   rebase onto a different distro.
-- The Rust `check_nsclient` copy is skipped (`-DCHECK_NSCLIENT_MISSING=TRUE`)
-  so no Rust toolchain is needed — these images validate the C++ build, not the
-  packaged installer.
+- The prebuilt `check_nsclient` binary is not bundled
+  (`-DCHECK_NSCLIENT_MISSING=TRUE`) so nothing has to be downloaded from
+  [mickem/check_nsclient](https://github.com/mickem/check_nsclient) — these
+  images validate the C++ build, not the packaged installer.
 - The base installs Boost via individual `libboost-*-dev` packages rather than
   `libboost-all-dev`, specifically so `libboost-python-dev` can be omitted for
   the no-python scenario (`libboost-all-dev` would drag it back in).
