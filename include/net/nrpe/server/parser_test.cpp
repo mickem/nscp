@@ -465,6 +465,36 @@ TEST(NrpeParser, DigestV4PacketLongerThanV2PacketLength) {
 }
 
 // =============================================================================
+// parser — a short v4 packet followed by unprotected trailing bytes
+//
+// digest() fills a whole v2 packet worth of bytes through the `v == -1` arm
+// before the version is known, so a small v4 packet reaches parse() with
+// whatever else was in that read still behind it. Only the declared payload
+// is covered by the packet's CRC, so the trailing bytes must not end up in
+// the command.
+// =============================================================================
+
+TEST(NrpeParser, V4TrailingBytesDoNotBecomeThePayload) {
+  const unsigned int payload_length = 1024;
+  server::parser parser(payload_length);
+
+  packet original = packet::create_response(4, 0, "ok", payload_length);
+  std::vector<char> buf = original.get_buffer();
+  ASSERT_LT(buf.size(), length::get_packet_length_v2(payload_length));
+  buf.resize(length::get_packet_length_v2(payload_length), 'X');
+
+  char* begin = buf.data();
+  char* end = begin + buf.size();
+  bool complete;
+  boost::tie(complete, begin) = parser.digest(begin, end);
+  ASSERT_TRUE(complete);
+
+  packet parsed = parser.parse();
+  EXPECT_EQ(parsed.getPayload(), "ok");
+  EXPECT_TRUE(parsed.verifyCRC());
+}
+
+// =============================================================================
 // parser — digest consumes all input
 // =============================================================================
 

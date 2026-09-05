@@ -104,6 +104,26 @@ gone.
 `${nrpe-dh}/nrpe_dh_2048.pem` before upgrading — the listener will otherwise
 fail to start on a missing DH file.
 
+#### A short v3/v4 packet let unchecksummed trailing bytes into the command
+
+Found while fixing the codec issues above rather than in the review itself.
+The server parser buffers a whole v2 packet worth of bytes before the wire
+version is known, so a v3/v4 packet shorter than that reaches the decoder
+with the rest of the read still behind it. `readFromV3` bounded the payload
+by how many bytes had arrived rather than by the length the packet declares —
+and only the declared length is covered by the packet's CRC. A peer could
+therefore send a small, correctly checksummed v4 packet followed by up to a
+kilobyte of arbitrary bytes and have those bytes become the command NRPE
+dispatched, defeating the integrity check on the request.
+
+The reach is the same as any other NRPE request: the caller still has to pass
+`allowed hosts` (and the TLS configuration), the decoded-argument metachar
+guard still runs, and `CheckExternalScripts` argv isolation still applies —
+so this is an integrity failure on the request, not a new execution path. The
+payload is now bounded by the declared length on both v3 and v4.
+
+**What to do:** nothing beyond upgrading.
+
 #### Codec and protocol correctness
 
 The same pass fixed a set of NRPE codec and protocol defects with no direct
