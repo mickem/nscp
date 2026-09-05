@@ -355,9 +355,7 @@ std::list<std::string> socket_helpers::connection_info::validate_ssl() const {
 }
 
 #ifdef USE_SSL
-bool socket_helpers::connection_info::verifies_peer() const {
-  return (ssl.get_verify_mode() & boost::asio::ssl::context_base::verify_peer) != 0;
-}
+bool socket_helpers::connection_info::verifies_peer() const { return (ssl.get_verify_mode() & boost::asio::ssl::context_base::verify_peer) != 0; }
 #endif
 
 long socket_helpers::connection_info::get_ctx_opts() const {

@@ -6,10 +6,10 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <boost/asio/ip/host_name.hpp>
-#include <net/socket/server.hpp>
-#include <net/socket/socket_helpers.hpp>
 #include <boost/filesystem.hpp>
 #include <fstream>
+#include <net/socket/server.hpp>
+#include <net/socket/socket_helpers.hpp>
 #include <str/utils.hpp>
 #include <string>
 #include <vector>
@@ -1248,8 +1248,8 @@ class WriteCertsFixture : public ::testing::Test {
     boost::system::error_code ignored;
     boost::filesystem::remove_all(dir_, ignored);
   }
-  std::string path_of(const std::string &name) const { return (dir_ / name).string(); }
-  static std::string read_file(const std::string &path) {
+  std::string path_of(const std::string& name) const { return (dir_ / name).string(); }
+  static std::string read_file(const std::string& path) {
     std::ifstream in(path.c_str(), std::ios::binary);
     return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
   }
@@ -1340,7 +1340,7 @@ TEST(IsValidPeerPrincipal, SeparatorsAndControlCharactersAreRejected) {
   EXPECT_FALSE(socket_helpers::is_valid_peer_principal("has\nnewline"));
   EXPECT_FALSE(socket_helpers::is_valid_peer_principal("has\rcarriage"));
   EXPECT_FALSE(socket_helpers::is_valid_peer_principal("has\ttab"));
-  EXPECT_FALSE(socket_helpers::is_valid_peer_principal("has\x7f" "del"));
+  EXPECT_FALSE(socket_helpers::is_valid_peer_principal(std::string("has\x7f") + "del"));
 }
 
 TEST(IsValidPeerPrincipal, OverlongCommonNamesAreRejected) {
@@ -1361,7 +1361,7 @@ TEST(IsValidPeerPrincipal, OverlongCommonNamesAreRejected) {
 
 TEST(SslOptsTlsVersion, EveryDocumentedPlusFormIsAccepted) {
   socket_helpers::connection_info::ssl_opts opts;
-  for (const std::string &floor : {std::string("tlsv1.3"), std::string("tls1.3"), std::string("1.3"), std::string("tlsv1.2"), std::string("tls1.2"),
+  for (const std::string& floor : {std::string("tlsv1.3"), std::string("tls1.3"), std::string("1.3"), std::string("tlsv1.2"), std::string("tls1.2"),
                                    std::string("1.2"), std::string("tlsv1.1"), std::string("tls1.1"), std::string("1.1"), std::string("tlsv1.0"),
                                    std::string("tls1.0"), std::string("1.0"), std::string("sslv3"), std::string("ssl3")}) {
     opts.tls_version = floor + "+";
