@@ -32,7 +32,37 @@ struct temp_dir {
     if (with_library) std::ofstream((dir / dotnet::hostfxr_library_name()).string().c_str()) << "stub";
     return dir;
   }
+  // A library stub carrying a real PE or ELF header for `machine`.
+  fs::path fxr_with_arch(const std::string &version, const std::string &bytes) const {
+    const fs::path dir = fxr(version, false);
+    std::ofstream((dir / dotnet::hostfxr_library_name()).string().c_str(), std::ios::binary) << bytes;
+    return dir / dotnet::hostfxr_library_name();
+  }
 };
+
+std::string pe_header(unsigned machine) {
+  std::string s(0x40 + 6, '\0');
+  s[0] = 'M';
+  s[1] = 'Z';
+  s[0x3c] = 0x40;  // e_lfanew
+  s[0x40] = 'P';
+  s[0x41] = 'E';
+  s[0x44] = static_cast<char>(machine & 0xff);
+  s[0x45] = static_cast<char>(machine >> 8);
+  return s;
+}
+
+std::string elf_header(unsigned machine) {
+  std::string s(64, '\0');
+  s[0] = 0x7f;
+  s[1] = 'E';
+  s[2] = 'L';
+  s[3] = 'F';
+  s[5] = 1;  // little endian
+  s[18] = static_cast<char>(machine & 0xff);
+  s[19] = static_cast<char>(machine >> 8);
+  return s;
+}
 
 dotnet::version v(const std::string &text) {
   dotnet::version out;
@@ -84,6 +114,49 @@ TEST(dotnet_locator, picks_the_newest_fxr_folder_that_has_the_library) {
   fs::create_directories(root.path / "host" / "fxr" / "not-a-version");
   const fs::path found = dotnet::find_hostfxr_in_root(root.path);
   EXPECT_EQ(root.path / "host" / "fxr" / "9.0.1-preview.2" / dotnet::hostfxr_library_name(), found);
+}
+
+TEST(dotnet_architecture, reads_pe_and_elf_machine_types) {
+  temp_dir root;
+  EXPECT_EQ(dotnet::architecture::x64, dotnet::library_architecture(root.fxr_with_arch("1", pe_header(0x8664))));
+  EXPECT_EQ(dotnet::architecture::x86, dotnet::library_architecture(root.fxr_with_arch("2", pe_header(0x014c))));
+  EXPECT_EQ(dotnet::architecture::arm64, dotnet::library_architecture(root.fxr_with_arch("3", pe_header(0xaa64))));
+  EXPECT_EQ(dotnet::architecture::x64, dotnet::library_architecture(root.fxr_with_arch("4", elf_header(62))));
+  EXPECT_EQ(dotnet::architecture::x86, dotnet::library_architecture(root.fxr_with_arch("5", elf_header(3))));
+  EXPECT_EQ(dotnet::architecture::arm64, dotnet::library_architecture(root.fxr_with_arch("6", elf_header(183))));
+  EXPECT_EQ(dotnet::architecture::unknown, dotnet::library_architecture(root.fxr_with_arch("7", "stub")));
+  EXPECT_EQ(dotnet::architecture::unknown, dotnet::library_architecture(root.path / "missing.dll"));
+  EXPECT_NE(dotnet::architecture::unknown, dotnet::process_architecture());
+  EXPECT_STRNE("unknown", dotnet::architecture_name(dotnet::process_architecture()));
+}
+
+TEST(dotnet_locator, skips_runtimes_built_for_another_architecture) {
+  // The scenario behind LoadLibrary error 193: a 32-bit agent finding the x64
+  // install first. Whatever we run as, the "other" architecture must lose to
+  // an older matching one, and unknown (stub) headers are still accepted.
+  const dotnet::architecture mine = dotnet::process_architecture();
+  const unsigned other_pe = mine == dotnet::architecture::x86 ? 0x8664 : 0x014c;
+  const unsigned other_elf = mine == dotnet::architecture::x86 ? 62 : 3;
+  const unsigned my_elf = mine == dotnet::architecture::x64 ? 62 : mine == dotnet::architecture::arm64 ? 183 : mine == dotnet::architecture::arm ? 40 : 3;
+  const unsigned my_pe = mine == dotnet::architecture::x64     ? 0x8664
+                         : mine == dotnet::architecture::arm64 ? 0xaa64
+                         : mine == dotnet::architecture::arm   ? 0x01c4
+                                                               : 0x014c;
+  temp_dir root;
+  root.fxr_with_arch("10.0.11", other_pe == 0x8664 || other_pe == 0x014c ? pe_header(other_pe) : elf_header(other_elf));
+  root.fxr_with_arch("9.0.5", elf_header(other_elf));
+  const fs::path good = root.fxr_with_arch("8.0.30", pe_header(my_pe));
+  EXPECT_EQ(good, dotnet::find_hostfxr_in_root(root.path));
+
+  temp_dir elf_root;
+  elf_root.fxr_with_arch("10.0.0", elf_header(other_elf));
+  const fs::path good_elf = elf_root.fxr_with_arch("8.0.0", elf_header(my_elf));
+  EXPECT_EQ(good_elf, dotnet::find_hostfxr_in_root(elf_root.path));
+
+  temp_dir only_other;
+  only_other.fxr_with_arch("8.0.30", pe_header(other_pe));
+  EXPECT_TRUE(dotnet::find_hostfxr_in_root(only_other.path).empty());
+  EXPECT_FALSE(dotnet::find_hostfxr({only_other.path}).found());
 }
 
 TEST(dotnet_locator, prefers_a_release_over_a_prerelease_of_the_same_number) {
@@ -138,6 +211,17 @@ TEST(dotnet_locator, honours_DOTNET_ROOT) {
   unsetenv("DOTNET_ROOT");
   ASSERT_FALSE(roots.empty());
   EXPECT_EQ(fs::path("/tmp/nscp-dotnet-root-test"), roots[0]);
+  // The architecture-specific variable (DOTNET_ROOT_X64, ...) beats the generic one.
+  std::string arch_var = std::string("DOTNET_ROOT_") + dotnet::architecture_name(dotnet::process_architecture());
+  for (char &c : arch_var) c = static_cast<char>(toupper(c));
+  setenv("DOTNET_ROOT", "/tmp/nscp-dotnet-root-test", 1);
+  setenv(arch_var.c_str(), "/tmp/nscp-dotnet-arch-root-test", 1);
+  const std::vector<fs::path> arch_roots = dotnet::default_roots("");
+  unsetenv("DOTNET_ROOT");
+  unsetenv(arch_var.c_str());
+  ASSERT_GT(arch_roots.size(), 1u);
+  EXPECT_EQ(fs::path("/tmp/nscp-dotnet-arch-root-test"), arch_roots[0]);
+  EXPECT_EQ(fs::path("/tmp/nscp-dotnet-root-test"), arch_roots[1]);
   // A duplicate root (override == DOTNET_ROOT) is listed once.
   setenv("DOTNET_ROOT", "/tmp/nscp-dotnet-root-test", 1);
   const std::vector<fs::path> both = dotnet::default_roots("/tmp/nscp-dotnet-root-test");

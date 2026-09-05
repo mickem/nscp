@@ -53,6 +53,20 @@ jobs:
           name: ${{ inputs.artifact-name }}
           path: .
 
+      # The runner image ships x64 .NET SDKs only. The DotnetPlugins scenario
+      # needs a runtime matching the agent's architecture (a 32-bit nscp cannot
+      # load the x64 hostfxr.dll), so install the 8.0 runtime for the tested
+      # architecture into the default per-architecture location the module
+      # searches (%ProgramFiles(x86)%\dotnet for x86).
+      - name: Install the .NET runtime (${{ inputs.architecture }})
+        shell: pwsh
+        run: |
+          $arch = '${{ inputs.architecture }}'
+          $dir = if ($arch -eq 'x86') { "${env:ProgramFiles(x86)}\dotnet" } else { "${env:ProgramFiles}\dotnet" }
+          Invoke-WebRequest -UseBasicParsing https://dot.net/v1/dotnet-install.ps1 -OutFile dotnet-install.ps1
+          ./dotnet-install.ps1 -Channel 8.0 -Runtime dotnet -Architecture $arch -InstallDir $dir
+          Get-ChildItem "$dir\host\fxr"
+
       - name: Create folders (Windows)
         shell: bash
         run: |

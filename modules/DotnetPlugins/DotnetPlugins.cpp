@@ -128,8 +128,9 @@ bool DotnetPlugins::start_runtime() {
   if (host_->initialized()) return true;
   const dotnet::hostfxr_location location = dotnet::find_hostfxr(dotnet::default_roots(runtime_root_));
   if (!location.found()) {
-    NSC_LOG_ERROR("No .NET runtime found (looked for host/fxr/<version>/" + dotnet::hostfxr_library_name() + " under: " +
-                  boost::algorithm::join(location.searched, ", ") + "). Install the .NET runtime or set 'runtime path' in " + settings_path_ + ".");
+    NSC_LOG_ERROR("No " + std::string(dotnet::architecture_name(dotnet::process_architecture())) + " .NET runtime found (looked for host/fxr/<version>/" +
+                  dotnet::hostfxr_library_name() + " under: " + boost::algorithm::join(location.searched, ", ") +
+                  "). Install the .NET runtime for this architecture or set 'runtime path' in " + settings_path_ + ".");
     return false;
   }
   const fs::path runtimeconfig = root_ / dotnet::bridge_runtimeconfig;

@@ -7,6 +7,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <cstdlib>
+#include <fstream>
 #include <sstream>
 #include <str/utf8.hpp>
 
@@ -115,7 +116,12 @@ std::string explain_rc(std::int32_t rc) {
 void *open_library(const fs::path &path, std::string &error) {
 #ifdef _WIN32
   HMODULE h = LoadLibraryW(path.wstring().c_str());
-  if (h == nullptr) error = "LoadLibrary failed with error " + std::to_string(GetLastError());
+  if (h == nullptr) {
+    const DWORD code = GetLastError();
+    error = "LoadLibrary failed with error " + std::to_string(code);
+    if (code == ERROR_BAD_EXE_FORMAT)
+      error += " (the library is built for another CPU architecture than this " + std::string(architecture_name(process_architecture())) + " process)";
+  }
   return reinterpret_cast<void *>(h);
 #else
   void *h = dlopen(path.string().c_str(), RTLD_LAZY | RTLD_LOCAL);
@@ -252,6 +258,79 @@ bool version::operator<(const version &other) const {
   return prerelease < other.prerelease;
 }
 
+architecture process_architecture() {
+#if defined(_M_X64) || defined(__x86_64__)
+  return architecture::x64;
+#elif defined(_M_ARM64) || defined(__aarch64__)
+  return architecture::arm64;
+#elif defined(_M_IX86) || defined(__i386__)
+  return architecture::x86;
+#elif defined(_M_ARM) || defined(__arm__)
+  return architecture::arm;
+#else
+  return architecture::unknown;
+#endif
+}
+
+const char *architecture_name(architecture arch) {
+  switch (arch) {
+    case architecture::x86:
+      return "x86";
+    case architecture::x64:
+      return "x64";
+    case architecture::arm:
+      return "arm";
+    case architecture::arm64:
+      return "arm64";
+    default:
+      return "unknown";
+  }
+}
+
+architecture library_architecture(const fs::path &library) {
+  std::ifstream file(library.string().c_str(), std::ios::binary);
+  if (!file) return architecture::unknown;
+  unsigned char header[64] = {0};
+  file.read(reinterpret_cast<char *>(header), sizeof(header));
+  if (file.gcount() < 20) return architecture::unknown;
+  auto u16 = [](const unsigned char *p, bool little_endian) -> unsigned { return little_endian ? (p[0] | (p[1] << 8)) : (p[1] | (p[0] << 8)); };
+  if (header[0] == 0x7f && header[1] == 'E' && header[2] == 'L' && header[3] == 'F') {
+    const bool little_endian = header[5] == 1;
+    switch (u16(header + 18, little_endian)) {
+      case 3:
+        return architecture::x86;
+      case 62:
+        return architecture::x64;
+      case 40:
+        return architecture::arm;
+      case 183:
+        return architecture::arm64;
+      default:
+        return architecture::unknown;
+    }
+  }
+  if (header[0] == 'M' && header[1] == 'Z') {
+    const std::uint32_t pe_offset = header[0x3c] | (header[0x3d] << 8) | (header[0x3e] << 16) | (static_cast<std::uint32_t>(header[0x3f]) << 24);
+    unsigned char pe[6] = {0};
+    file.seekg(pe_offset, std::ios::beg);
+    file.read(reinterpret_cast<char *>(pe), sizeof(pe));
+    if (file.gcount() < 6 || pe[0] != 'P' || pe[1] != 'E' || pe[2] != 0 || pe[3] != 0) return architecture::unknown;
+    switch (u16(pe + 4, true)) {
+      case 0x014c:
+        return architecture::x86;
+      case 0x8664:
+        return architecture::x64;
+      case 0x01c4:
+        return architecture::arm;
+      case 0xaa64:
+        return architecture::arm64;
+      default:
+        return architecture::unknown;
+    }
+  }
+  return architecture::unknown;
+}
+
 std::string hostfxr_library_name() {
 #if defined(_WIN32)
   return "hostfxr.dll";
@@ -265,15 +344,27 @@ std::string hostfxr_library_name() {
 std::vector<fs::path> default_roots(const std::string &override_root) {
   std::vector<fs::path> roots;
   push_unique(roots, override_root.empty() ? fs::path() : fs::path(override_root));
+  // DOTNET_ROOT_X64 / DOTNET_ROOT_X86 / DOTNET_ROOT_ARM64 as the runtime's own
+  // host honours them, then the generic DOTNET_ROOT.
+  std::string arch_env = std::string("DOTNET_ROOT_") + architecture_name(process_architecture());
+  boost::to_upper(arch_env);
+  push_unique(roots, fs::path(getenv_utf8(arch_env.c_str())));
+  if (process_architecture() == architecture::x86) push_unique(roots, fs::path(getenv_utf8("DOTNET_ROOT(x86)")));
   push_unique(roots, fs::path(getenv_utf8("DOTNET_ROOT")));
-  push_unique(roots, root_from_path_launcher());
 #ifdef _WIN32
   push_unique(roots, root_from_registry());
+  // Under WOW64 %ProgramFiles% already resolves to "Program Files (x86)" for a
+  // 32-bit process; the explicit variants cover both directions anyway.
   const std::string program_files = getenv_utf8("ProgramFiles");
   if (!program_files.empty()) push_unique(roots, fs::path(program_files) / "dotnet");
+  const std::string program_files_native = getenv_utf8(process_architecture() == architecture::x86 ? "ProgramFiles(x86)" : "ProgramW6432");
+  if (!program_files_native.empty()) push_unique(roots, fs::path(program_files_native) / "dotnet");
   const std::string local_app_data = getenv_utf8("LOCALAPPDATA");
   if (!local_app_data.empty()) push_unique(roots, fs::path(local_app_data) / "Microsoft" / "dotnet");
+  // Last: the launcher on PATH is usually the x64 install, whatever we are.
+  push_unique(roots, root_from_path_launcher());
 #else
+  push_unique(roots, root_from_path_launcher());
   push_unique(roots, "/usr/lib/dotnet");
   push_unique(roots, "/usr/share/dotnet");
   push_unique(roots, "/usr/lib64/dotnet");
@@ -299,6 +390,8 @@ fs::path find_hostfxr_in_root(const fs::path &root) {
     if (!parse_version(it->path().filename().string(), candidate)) continue;
     const fs::path candidate_path = it->path() / library;
     if (!fs::is_regular_file(candidate_path, ec)) continue;
+    const architecture arch = library_architecture(candidate_path);
+    if (arch != architecture::unknown && arch != process_architecture()) continue;
     if (!have_best || best < candidate) {
       best = candidate;
       best_path = candidate_path;
