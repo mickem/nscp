@@ -9,9 +9,9 @@
 #include <boost/json.hpp>
 #include <cctype>
 #include <iomanip>
+#include <net/socket/socket_helpers.hpp>
 #include <sstream>
 #include <stdexcept>
-#include <str/utils.hpp>
 
 namespace json = boost::json;
 
@@ -205,26 +205,9 @@ std::string normalize_base_path(const std::string &base_path) {
 }
 
 bool is_verification_disabled(const std::string &verify_mode) {
-  // Token-for-token mirror of socket_helpers::verify_mode_parser, down to the
-  // splitter it uses (neither trims whitespace, and the split of "" yields no
-  // tokens at all, so an unset verify mode parses to verify_none).
-  //
-  // Only these three tokens set boost::asio::ssl::verify_peer, and without it
-  // the remaining flags do nothing — the handshake accepts whatever
-  // certificate the peer presents. Anything the parser does NOT accept makes
-  // it throw instead of building a mode, so no connection is established at
-  // all: that is a configuration error the connection attempt reports on its
-  // own, not an unverified submission, and claiming "verification disabled"
-  // for it would be misleading.
-  bool verifies_peer = false;
-  for (const std::string &key : str::utils::split_lst(verify_mode, std::string(","))) {
-    if (key == "peer" || key == "certificate" || key == "peer-cert") {
-      verifies_peer = true;
-    } else if (key != "none" && key != "fail-if-no-cert" && key != "fail-if-no-peer-cert" && key != "client-certificate") {
-      return false;
-    }
-  }
-  return !verifies_peer;
+  // The predicate has to track socket_helpers::verify_mode_parser exactly, so
+  // it lives beside it; this stays as the module's spelling of it.
+  return socket_helpers::is_verification_disabled(verify_mode);
 }
 
 std::string url_encode(const std::string &value) {

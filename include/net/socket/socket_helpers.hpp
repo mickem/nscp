@@ -264,6 +264,19 @@ struct connection_info {
     return ss.str();
   }
 };
+
+// True when a `verify mode` string leaves TLS peer verification off - the mode
+// parses, but no token in it enables certificate-chain verification, so the
+// connection accepts whatever certificate the peer presents. Mirrors
+// verify_mode_parser: only `peer`, `certificate` and `peer-cert` turn
+// verification on, and an empty string resolves to verify_none. A string the
+// parser would REJECT is not "disabled" - it throws, so no connection is made
+// at all; that is a configuration error the connection attempt reports on its
+// own. Client modules use this to warn before sending credentials to an
+// unverified peer, so it lives here next to the parser it has to track (and
+// outside USE_SSL: it is pure string logic, and the callers are not).
+bool is_verification_disabled(const std::string& verify_mode);
+
 #ifdef USE_SSL
 // Parse a `tls version` setting into the context method to construct.
 // An exact version ("1.2", "tlsv1.3") maps to the version-pinned method, which

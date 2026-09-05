@@ -139,6 +139,16 @@ struct nrdp_client_handler : client::handler_interface {
     // redaction in connection_data::to_string().
     NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Target configuration: " + con.to_string()); }
 
+    // The empty verify mode is defaulted to "peer" above, so reaching here
+    // means verification was turned off deliberately - say so once per
+    // submission anyway: the NRDP token is a shared secret and an unverified
+    // TLS session hands it to whichever server answers.
+    if (con.protocol == "https" && socket_helpers::is_verification_disabled(con.verify_mode)) {
+      NSC_LOG_MESSAGE("TLS certificate verification is disabled for " + con.get_endpoint_string() + " (verify mode: " + con.verify_mode +
+                      "): the NRDP token is sent to whichever server answers. Set verify mode = peer, or peer-cert with ca pointing at the self-signed "
+                      "certificate, unless this is intentional.");
+    }
+
     nrdp::data nrdp_data;
 
     for (const ::PB::Commands::QueryResponseMessage_Response &p : request_message.payload()) {
