@@ -65,7 +65,17 @@ class length {
   static size_type get_packet_length_v3(const size_type payload_length) { return sizeof(data::packet_v3) + payload_length * sizeof(char) - 1; }
   static size_type get_packet_length_v4(const size_type payload_length) { return sizeof(data::packet_v3) + payload_length * sizeof(char) - 4; }
   static size_type get_payload_length() { return payload_length_; }
-  static size_type get_payload_length(const size_type packet_length) { return (packet_length - sizeof(data::packet_v2)) / sizeof(char); }
+  // A buffer shorter than the fixed v2 header carries no payload. Without
+  // the guard the subtraction wraps to a near-SIZE_MAX payload length, which
+  // readFromV2's length equality check then satisfies by wraparound and
+  // fetch_payload turns into a strnlen bounded by SIZE_MAX-1 past the end of
+  // the buffer.
+  static size_type get_payload_length(const size_type packet_length) {
+    if (packet_length < sizeof(data::packet_v2)) {
+      return 0;
+    }
+    return (packet_length - sizeof(data::packet_v2)) / sizeof(char);
+  }
 };
 
 class nrpe_exception : public std::exception {
@@ -98,7 +108,15 @@ class packet /*: public boost::noncopyable*/ {
     copy(buffer.begin(), buffer.end(), tmp.begin());
     readFrom(tmp.data(), buffer.size());
   };
-  packet(const char* buffer, const std::size_t buffer_length) : payload_length_(length::get_payload_length(buffer_length)) { readFrom(buffer, buffer_length); };
+  packet(const char* buffer, const std::size_t buffer_length) : payload_length_(length::get_payload_length(buffer_length)) {
+    // The payload length is derived from the buffer length, so a buffer that
+    // cannot even hold the fixed v2 header has to be rejected here rather
+    // than relying on the callers never producing one.
+    if (buffer_length < sizeof(data::packet_v2)) {
+      throw nrpe_exception("Packet to short: " + str::xtos(buffer_length) + " < " + str::xtos(sizeof(data::packet_v2)));
+    }
+    readFrom(buffer, buffer_length);
+  };
   packet(short type, short version, int16_t result, std::string payLoad, std::size_t payload_length)
       : payload_length_(payload_length), type_(type), version_(version), result_(result), payload_(payLoad), crc32_(0), calculatedCRC32_(0) {}
   packet() : payload_length_(length::get_payload_length()), type_(data::unknownPacket), version_(data::version2), result_(0), crc32_(0), calculatedCRC32_(0) {}

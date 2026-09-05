@@ -66,8 +66,13 @@ class parser : public boost::noncopyable {
   template <typename InputIterator>
   boost::tuple<bool, InputIterator> digest(InputIterator begin, InputIterator end) {
     int16_t v = read_version();
-    if (v == -1 || v == 2) {
-      for (std::size_t count = get_packet_length_v2() - buffer_.size(); count > 0 && begin != end; ++begin, --count) buffer_.push_back(*begin);
+    if (v == -1 || v == data::version2) {
+      // Compare sizes rather than counting down from a difference: the v3
+      // arm grew a guard for exactly this shape, and `target - buffer_.size()`
+      // wraps to a near-SIZE_MAX count whenever the buffer already holds more
+      // than the target (which the v2 arm itself can produce, since it fills
+      // a whole v2 packet worth of bytes before the version is known).
+      for (const std::size_t target = get_packet_length_v2(); buffer_.size() < target && begin != end; ++begin) buffer_.push_back(*begin);
     } else if (v == data::version3 || v == data::version4) {
       // For v3/v4 the packet length is attacker-influenced via the wire
       // `buffer_length` field. Reject negative values up front (read_len
@@ -93,7 +98,7 @@ class parser : public boost::noncopyable {
         if (buffer_.size() >= target) {
           break;
         }
-        for (std::size_t count = target - buffer_.size(); count > 0 && begin != end; ++begin, --count) {
+        for (; buffer_.size() < target && begin != end; ++begin) {
           if (buffer_.size() >= kMaxBufferBytes) {
             return boost::make_tuple(true, begin);
           }
