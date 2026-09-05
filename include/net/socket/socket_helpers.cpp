@@ -438,10 +438,12 @@ boost::asio::ssl::context::verify_mode socket_helpers::connection_info::ssl_opts
     else if (key == "peer-cert") {
       mode |= boost::asio::ssl::context_base::verify_peer;
       mode |= boost::asio::ssl::context_base::verify_fail_if_no_peer_cert;
-    } else if (key == "workarounds")
-      mode |= boost::asio::ssl::context_base::default_workarounds;
-    else if (key == "single")
-      mode |= boost::asio::ssl::context::single_dh_use;
+    }
+    // "workarounds" and "single" are advertised under `verify mode` too, but
+    // they are SSL *context* options, not verify bits: OR-ing them into the
+    // value handed to SSL_CTX_set_verify did nothing useful and polluted the
+    // mask (SSL_OP_ALL carries 0x4, which is SSL_VERIFY_CLIENT_ONCE). They
+    // are honoured by get_ctx_opts() instead, where they take effect.
   }
   return mode;
 }
@@ -499,6 +501,14 @@ boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts
 }
 long socket_helpers::connection_info::ssl_opts::get_ctx_opts() const {
   long opts = 0;
+  // Two context options have always been documented under `verify mode`
+  // rather than `ssl options` (see socket_settings_helper.hpp). Honour them
+  // from there so an existing configuration keeps working - but as context
+  // options, which is what they are.
+  for (const std::string &key : str::utils::split_lst(verify_mode, std::string(","))) {
+    if (key == "workarounds") opts |= boost::asio::ssl::context::default_workarounds;
+    if (key == "single") opts |= boost::asio::ssl::context::single_dh_use;
+  }
   for (const std::string &key : str::utils::split_lst(ssl_options, std::string(","))) {
     if (key == "default-workarounds") opts |= boost::asio::ssl::context::default_workarounds;
     if (key == "no-sslv2") opts |= boost::asio::ssl::context::no_sslv2;

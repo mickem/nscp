@@ -556,21 +556,35 @@ TEST(SslOptsVerifyMode, ClientOnce) {
   EXPECT_NE(+mode & +boost::asio::ssl::context_base::verify_client_once, 0);
 }
 
-TEST(SslOptsVerifyMode, Workarounds) {
+// `workarounds` and `single` are documented under `verify mode`, but they are
+// SSL context options rather than verify bits. They used to be OR-ed into the
+// value handed to SSL_CTX_set_verify, where they did nothing useful and
+// polluted the mask - SSL_OP_ALL carries 0x4, which is
+// SSL_VERIFY_CLIENT_ONCE. They now land in get_ctx_opts(), which is applied
+// with context.set_options() and is where they take effect.
+
+TEST(SslOptsVerifyMode, WorkaroundsIsNotAVerifyBit) {
   socket_helpers::connection_info::ssl_opts opts;
   opts.verify_mode = "workarounds";
-  auto mode = opts.get_verify_mode();
-  EXPECT_NE(+mode & +boost::asio::ssl::context_base::default_workarounds, 0);
+  EXPECT_EQ(+opts.get_verify_mode(), +boost::asio::ssl::context_base::verify_none);
+  EXPECT_NE(opts.get_ctx_opts() & +boost::asio::ssl::context::default_workarounds, 0);
 }
 
-TEST(SslOptsVerifyMode, Single) {
+TEST(SslOptsVerifyMode, SingleIsNotAVerifyBit) {
   socket_helpers::connection_info::ssl_opts opts;
   opts.verify_mode = "single";
-  // single_dh_use is 0x0 (no-op) on OpenSSL 3.0+, so only assert when non-zero
-  auto mode = opts.get_verify_mode();
+  EXPECT_EQ(+opts.get_verify_mode(), +boost::asio::ssl::context_base::verify_none);
+  // single_dh_use is 0x0 (a no-op) on OpenSSL 3.0+, so only assert when non-zero
   if (+boost::asio::ssl::context::single_dh_use != 0) {
-    EXPECT_NE(+mode & +boost::asio::ssl::context::single_dh_use, 0);
+    EXPECT_NE(opts.get_ctx_opts() & +boost::asio::ssl::context::single_dh_use, 0);
   }
+}
+
+TEST(SslOptsVerifyMode, ContextOptionsDoNotDisturbTheVerifyBits) {
+  socket_helpers::connection_info::ssl_opts opts;
+  opts.verify_mode = "peer-cert,workarounds";
+  const auto mode = opts.get_verify_mode();
+  EXPECT_EQ(+mode, +boost::asio::ssl::context_base::verify_peer | +boost::asio::ssl::context_base::verify_fail_if_no_peer_cert);
 }
 
 TEST(SslOptsVerifyMode, CommaDelimited) {
