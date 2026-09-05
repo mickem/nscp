@@ -14,6 +14,9 @@
 
 #include <boost/asio.hpp>
 
+#include <algorithm>
+
+#include <chrono>
 #include <list>
 #include <string>
 #include <vector>
@@ -59,6 +62,8 @@ TEST(CollectdSender, SendsEveryDatagramToAnIpLiteralTarget) {
 
   EXPECT_EQ(result.sent, 3u);
   EXPECT_EQ(result.failed, 0u);
+  // One send call per datagram: a successful send never spends retry budget.
+  EXPECT_EQ(result.attempts, 3u);
   EXPECT_TRUE(result.errors.empty());
   const std::vector<std::string> received = sink.drain();
   ASSERT_EQ(received.size(), 3u);
@@ -108,4 +113,69 @@ TEST(CollectdSender, NothingToSendIsNotAnError) {
   EXPECT_EQ(result.sent, 0u);
   EXPECT_EQ(result.failed, 0u);
   EXPECT_TRUE(result.errors.empty());
+}
+
+// A datagram larger than the 65507-byte UDP maximum always fails to send, which
+// makes the failure path deterministic without an unreachable network.
+namespace {
+std::string oversized_datagram() { return std::string(70000, 'x'); }
+}  // namespace
+
+TEST(CollectdSender, RetriesAFailingSend) {
+  udp_sink sink;
+  const int retries = 2;
+
+  const collectd::sender_result result =
+      collectd::send_datagrams(collectd::sender_config("127.0.0.1", sink.port_string(), retries), {oversized_datagram()});
+
+  EXPECT_EQ(result.sent, 0u);
+  EXPECT_EQ(result.failed, 1u);
+  // The configured retries are actually spent: one initial attempt plus two.
+  EXPECT_EQ(result.attempts, static_cast<std::size_t>(retries + 1));
+  ASSERT_EQ(result.errors.size(), 1u);
+  EXPECT_NE(result.errors.front().find(sink.port_string()), std::string::npos);
+}
+
+TEST(CollectdSender, ReportsEachDistinctFailureOnce) {
+  udp_sink sink;
+
+  const collectd::sender_result result = collectd::send_datagrams(collectd::sender_config("127.0.0.1", sink.port_string()),
+                                                                  {oversized_datagram(), oversized_datagram(), oversized_datagram()});
+
+  EXPECT_EQ(result.failed, 3u);
+  // Three identical failures, one log line: a broken target must not flood the
+  // log every metrics interval.
+  EXPECT_EQ(result.errors.size(), 1u);
+}
+
+TEST(CollectdSender, StopsRetryingWhenTheTimeoutExpires) {
+  udp_sink sink;
+  // A retry budget large enough to run for minutes, bounded by a one second
+  // timeout: the metrics thread must come back on time regardless.
+  const collectd::sender_config config("127.0.0.1", sink.port_string(), 100000, 1);
+
+  const auto started = std::chrono::steady_clock::now();
+  const collectd::sender_result result = collectd::send_datagrams(config, {oversized_datagram()});
+  const auto elapsed = std::chrono::steady_clock::now() - started;
+
+  EXPECT_LT(std::chrono::duration_cast<std::chrono::seconds>(elapsed).count(), 10);
+  EXPECT_GT(result.attempts, 1u);
+  EXPECT_LT(result.attempts, 100000u);
+  EXPECT_EQ(result.failed, 1u);
+}
+
+TEST(CollectdSender, AbandonsRemainingDatagramsWhenTheTimeoutExpires) {
+  udp_sink sink;
+  // The first datagram burns the whole budget; the rest must be reported as
+  // not sent rather than attempted anyway.
+  const collectd::sender_config config("127.0.0.1", sink.port_string(), 100000, 1);
+
+  const collectd::sender_result result = collectd::send_datagrams(config, {oversized_datagram(), "second", "third"});
+
+  EXPECT_EQ(result.sent, 0u);
+  EXPECT_EQ(result.failed, 3u);
+  EXPECT_EQ(sink.drain().size(), 0u);
+  const bool timed_out = std::any_of(result.errors.begin(), result.errors.end(),
+                                     [](const std::string &e) { return e.find("Timed out") != std::string::npos; });
+  EXPECT_TRUE(timed_out);
 }

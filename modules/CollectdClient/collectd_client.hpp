@@ -24,8 +24,14 @@ struct connection_data : public socket_helpers::connection_info {
     if (address.empty()) address = "239.192.74.66";
     port_ = arguments.address.get_port_string("25826");
     ssl.enabled = false;
-    timeout = arguments.get_int_data("timeout", 30);
-    retry = arguments.get_int_data("retries", 3);
+    // destination_container routes the well-known "timeout" key into a typed
+    // field (see set_string_data), never into the free-form data map, so
+    // get_int_data("timeout") could not see a configured value and the fallback
+    // always won. "retries" is not one of those keys and does land in the map.
+    // The settings layer notifies the documented defaults (30 / 3) for targets
+    // that set neither.
+    if (arguments.timeout > 0) timeout = arguments.timeout;
+    retry = arguments.get_int_data("retries", arguments.retry);
     sender_hostname = sender.address.host;
     if (sender.has_data("host")) sender_hostname = sender.get_string_data("host");
   }
@@ -216,7 +222,8 @@ struct collectd_client_handler : public client::handler_interface {
       if (p.get_size() == 0) continue;  // never put an empty datagram on the wire
       datagrams.push_back(p.get_buffer());
     }
-    const collectd::sender_result result = collectd::send_datagrams(collectd::sender_config(target.get_address(), target.get_port()), datagrams);
+    const collectd::sender_config config(target.get_address(), target.get_port(), target.retry, target.timeout);
+    const collectd::sender_result result = collectd::send_datagrams(config, datagrams);
     for (const std::string &error : result.errors) {
       NSC_LOG_ERROR(error);
     }
