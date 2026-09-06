@@ -41,7 +41,7 @@ OK: faults=16617.16/s (soft 4624.68/s, hard 57.2/s)
 **Over NRPE against a remote host:**
 
 ```
-check_nscp_client --host 192.168.56.103 --command check_kernel_memory --argument "crit=hard_faults_per_sec > 1000"
+check_nrpe --host 192.168.56.103 --command check_kernel_memory --arguments "crit=hard_faults_per_sec > 1000"
 OK: paged pool 1.685GB, nonpaged pool 2.571GB, cache 284.676MB, 57.2 hard faults/s
 ```
 
@@ -78,6 +78,6 @@ OK: faults=25000/s (major 2/s), slab=512MB
 **Over NRPE against a remote host:**
 
 ```
-check_nscp_client --host 192.168.56.103 --command check_kernel_memory --argument "crit=major_faults_per_sec > 1000"
+check_nrpe --host 192.168.56.103 --command check_kernel_memory --arguments "crit=major_faults_per_sec > 1000"
 OK: slab 512MB (128MB unreclaimable), cache 4GB, 2 major faults/s
 ```

@@ -18,8 +18,16 @@ other checks take do not apply here.
 
 Entries are stored under a key built from the `primary index` expression
 configured on the module, which defaults to `${alias-or-command}` and can
-combine `${command}`, `${host}`, `${channel}`, `${alias}`, `${message}` and
-`${result}`.
+combine `${command}`, `${host}`, `${channel}`, `${alias}` and
+`${alias-or-command}`.
+
+The setting's own description also lists `${message}` and `${result}`, but
+**neither is implemented**: they fall through to the parser's error branch,
+which logs `Invalid index: message` and contributes nothing to the key. An index
+expression using them silently produces a shorter key than intended, so every
+lookup that expects them misses. Check the agent log after changing
+`primary index`, and confirm the result with
+[`list_cache`](#list_cache).
 
 You can either name the key outright with `key=` — which is used as given, not
 parsed — or let the check assemble it from the same parts the writer used, by

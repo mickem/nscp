@@ -28,6 +28,11 @@ off for names that legitimately move.
 
 `norecursion=true` (RD=0) asks the server to answer only from its own
 zones and cache, which is how you verify that an authoritative server is serving
-a zone itself rather than proxying the answer. `address-family=` restricts the
-transport used to reach the DNS server; it does not restrict the record type,
-which is what `type=` is for.
+a zone itself rather than proxying the answer.
+
+`address-family=` (`any`, `ipv4`, `ipv6`) selects which address of the DNS
+server to connect to — and, when the system resolver is used (an `A`/`AAAA`
+lookup with no `server=`), it **also restricts the answer to that family**. It
+is not a substitute for `type=`, which chooses the record type actually
+queried; on the system-resolver path the two interact, so pin both when you mean
+to test one specific family.

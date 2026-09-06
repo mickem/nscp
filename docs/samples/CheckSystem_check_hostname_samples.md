@@ -67,6 +67,6 @@ OK: nb=WEB01 dns=web01 dom=corp.example.com fq=web01.corp.example.com ok=1/1
 **Over NRPE against a remote host:**
 
 ```
-check_nscp_client --host 192.168.56.103 --command check_hostname --argument "crit=domain != 'corp.example.com'"
+check_nrpe --host 192.168.56.103 --command check_hostname --arguments "crit=domain != 'corp.example.com'"
 OK: web01 (web01.corp.example.com), domain=corp.example.com
 ```

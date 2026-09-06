@@ -11,10 +11,13 @@ check.
 Unlike every other check, the keyword vocabulary is **not fixed** — it is
 derived from the columns your `query=` selects. A query of
 `SELECT Name, FreeSpace FROM Win32_LogicalDisk` gives you `Name` and
-`FreeSpace` as keywords, and each is also emitted as performance data. Because
-of that, the "Filter keywords" table below lists only `line` (the whole row,
-rendered as a comma-separated string, which the default `detail-syntax` uses);
-everything else depends on the query.
+`FreeSpace` as keywords, and each is also emitted as performance data.
+
+Because those keywords only exist once a query has been run, the generated
+"Filter keywords" section below can only list the generic summary keywords —
+none of this check's own. There is one more that is always available and is not
+listed there either: **`line`**, the whole row rendered as a comma-separated
+string, which is what the default `detail-syntax` (`%(line)`) uses.
 
 This also means `SELECT *` is usually the wrong thing to write: it produces a
 keyword and a performance-data series per column of the class, most of which you

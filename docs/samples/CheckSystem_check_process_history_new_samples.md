@@ -7,9 +7,12 @@ OK: No new processes found.
 
 **When the collector is not enabled it tells you exactly what to set:**
 
+The path quoted is the module's own settings path, so it reads
+`/settings/system/unix` on Linux and `/settings/system/windows` on Windows:
+
 ```
 check_process_history_new
-Process history is not enabled (set 'process history = true' under /settings/system/unix)
+UNKNOWN: Process history is not enabled (set 'process history = true' under /settings/system/unix)
 ```
 
 **Widen the "recently started" window to one hour:**

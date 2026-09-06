@@ -103,17 +103,31 @@ check_service service=cron "top-syntax=${list}" "detail-syntax=${name}=${state} 
 cron=running active=active preset=enabled
 ```
 
-**A failed or stopped enabled service is CRITICAL:**
+**A failed enabled service is CRITICAL:**
 
 ```
 check_service service=nginx
-CRITICAL: nginx=stopped
+CRITICAL: nginx=failed
 ```
 
-**Only alert on a specific service being down:**
+**A merely stopped service is filtered out, not reported:**
+
+The default filter is `active != 'inactive'`, so a cleanly stopped unit never
+reaches the critical expression and the check falls to its empty state:
 
 ```
-check_service service=ssh "crit=state != 'running'"
+check_service service=nginx
+UNKNOWN: No services found
+```
+
+`service=` narrows which units are enumerated; it does not bypass the filter.
+
+**Alert on a specific service not running (stopped included):**
+
+Widen the filter so inactive units are considered:
+
+```
+check_service service=ssh filter=none "crit=state != 'running'"
 OK: All 1 service(s) are ok.
 ```
 
@@ -127,6 +141,6 @@ OK: All 1 service(s) are ok.
 **Check via NRPE:**
 
 ```
-check_nscp_client --host 192.168.56.103 --command check_service --argument "service=docker"
+check_nrpe --host 192.168.56.103 --command check_service --arguments "service=docker"
 OK: All 1 service(s) are ok.
 ```

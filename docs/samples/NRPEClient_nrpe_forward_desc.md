@@ -13,6 +13,12 @@ a DMZ or a management segment where only one host is exposed.
 Register it as the fallback for a target and the arrangement becomes transparent
 to the monitoring server, which believes it is talking to the final agent.
 
+It takes **no options of its own**: the relay branch hands the incoming request
+straight to the handler without parsing an option descriptor, so the destination
+comes only from the target configuration and anything passed on the command line
+is appended to the outgoing request rather than interpreted here. Configure the
+target; do not try to steer the hop per call.
+
 Two things follow from "as-is" that are worth being deliberate about. Because
 the request is not inspected, **whatever the caller asks for is what the far end
 is asked to run** — the relay adds no filtering of its own, so restrict what may

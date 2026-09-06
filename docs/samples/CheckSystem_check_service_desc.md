@@ -52,6 +52,25 @@ not in a healthy state and is not deliberately disabled:
 critical = ( state not in ('running', 'oneshot', 'static') or active = 'failed' ) and preset != 'disabled'
 ```
 
-This means a stopped-but-`disabled` unit is ignored, while an `enabled` unit
-that has failed or stopped is CRITICAL. Pass `service=<name>` (repeatable) to
-check specific units, or override `filter=` / `warning=` / `critical=`.
+An `enabled` unit that has **failed** is therefore CRITICAL.
+
+A unit that is merely **stopped**, however, never reaches that threshold: the
+default filter `active != 'inactive'` excludes it before the critical expression
+is evaluated. With nothing left to match, the check falls to its empty state,
+which is `unknown`:
+
+```
+check_service service=nginx
+UNKNOWN: No services found
+```
+
+`service=<name>` (repeatable) narrows which units are *enumerated*; it does not
+bypass the filter. To alert on a unit being stopped rather than failed, widen
+the filter so inactive units are considered:
+
+```
+check_service service=nginx filter=none "crit=state != 'running'"
+```
+
+`exclude=` drops units by name, and `state=` (`all`, `active`, `inactive`,
+`failed`) restricts the enumeration before filtering.

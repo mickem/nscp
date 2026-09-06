@@ -78,9 +78,10 @@ authenticated. Where both ends are NSClient++, configure real certificates and
 **Truncated output on protocol version 2:**
 
 Version 2 has a fixed 1024-byte payload. If a check's output is cut off at a
-suspiciously round length, set `version=3` (or raise `payload length=` to match
-the remote daemon exactly — a mismatch corrupts the exchange rather than
-reporting an error).
+suspiciously round length, set `version=3` — or raise `payload-length=` to match
+the remote daemon exactly, a mismatch corrupting the exchange rather than
+reporting an error. (`payload-length` is the command-line spelling; the setting
+key under the target is `payload length`.)
 
 ```
 check_nrpe host=192.168.56.103 command=check_files "argument=path=/var/log" version=3

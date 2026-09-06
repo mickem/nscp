@@ -32,7 +32,7 @@ WARNING: 3 packages over 500M|'count'=428;0;0
 **Over NRPE against a remote host:**
 
 ```
-check_nscp_client --host 192.168.56.103 --command check_installed_software --argument "crit=name like 'TeamViewer'"
+check_nrpe --host 192.168.56.103 --command check_installed_software --arguments "crit=name like 'TeamViewer'"
 OK: 101 software packages installed.
 ```
 

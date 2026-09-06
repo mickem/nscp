@@ -23,9 +23,22 @@ submit results for.
 
 **Submit a host check rather than a service check:**
 
+The command-line option is `host-check` and it is a **bare flag** — it takes no
+value, so `host-check=true` is rejected with an "Invalid command line" error:
+
 ```
-submit_nsca_ng target=nsca-ng host check=true result=OK "message=host is up"
+submit_nsca_ng target=nsca-ng host-check result=OK "message=host is up"
 OK: Message submitted
+```
+
+Because it is a flag rather than a valued option, it also **cannot be set over
+REST**, which passes every argument as a `key=value` token. Set it on the target
+instead, where the settings key is `host check` (the legacy alias `host_check`
+is still honoured):
+
+```ini
+[/settings/NSCA-NG/client/targets/nsca-ng]
+host check = true
 ```
 
 **Submit several results at once:**
@@ -57,11 +70,24 @@ UNKNOWN: NSCA-NG network error: connect to 127.0.0.1:15670 failed: Connection re
 a full check message arrives intact — as long as it is also within the server's
 own limit, which truncates on its side.
 
-**`insecure=true` removes the point of using NSCA-ng:**
+**`insecure` removes the point of using NSCA-ng:**
 
 It disables peer verification, so you lose the guarantee that you are talking to
 your own server. Use it only while bringing a deployment up, and point `ca` at
 the server's CA instead.
+
+Like `host-check` it is a bare flag on the command line — `insecure=true` is
+rejected, and it cannot be set over REST at all:
+
+```
+submit_nsca_ng target=nsca-ng insecure command=nightly_backup result=OK "message=done"
+OK: Message submitted
+```
+
+```ini
+[/settings/NSCA-NG/client/targets/nsca-ng]
+insecure = true
+```
 
 **Custom relay commands:**
 

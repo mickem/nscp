@@ -1,29 +1,34 @@
 #### About `remote_nscpforward`
 
-`remote_nscpforward` passes a request through to a remote NSClient++ agent over
-the NSCP protocol **as-is**, without interpreting it.
+`remote_nscpforward` is the module's relay command: it is meant to pass a
+request through to a remote NSClient++ agent over the NSCP protocol **as-is**,
+without interpreting it, so that this host can act as a proxy for agents a
+monitoring server cannot address directly.
 
-This is the relay command. Where `check_remote_nscp` builds a request from
-`command=` and `argument=` options, `remote_nscpforward` takes a request that
-has already arrived at this agent and re-sends it to another one, returning
-whatever comes back. That makes this host a proxy: a monitoring server that can
-reach it can, through it, reach agents it cannot address directly — the usual
-case being a DMZ or a management segment where only one host is exposed.
+##### The registered name does not dispatch
 
-Register it as the fallback for a target and the arrangement becomes transparent
-to the monitoring server, which believes it is talking to the final agent.
-Because NSCP carries the request and the response as structured data, a
-forwarded result arrives with its status, message and performance data intact —
-the relay is lossless in a way an NRPE relay is not.
+The client framework selects how to handle a command by matching its name
+(`include/client/command_line_parser.cpp`): the relay path is taken for names
+that **start with `forward_` or end with `_forward`**, and the query, exec and
+submit paths for `check_*` / `*_query`, `exec_*` and `submit_*` respectively.
 
-Two things follow from "as-is" that are worth being deliberate about. Because
-the request is not inspected, **whatever the caller asks for is what the far end
-is asked to run** — the relay adds no filtering of its own, so restrict what may
-be forwarded, and to where, on this host rather than assuming the hop is a
-control point. And because the relay terminates one connection and opens
-another, the far end sees this host as the client: any password or
-certificate-based authorisation there applies to the relay, not to the original
-caller.
+`remote_nscpforward` matches none of those — it ends in `nscpforward`, not
+`_forward` — so it falls through to the final `else` and the call is answered
+with:
 
-Connection, password and TLS options are the same as for
-[`check_remote_nscp`](#check_remote_nscp).
+```
+remote_nscpforward not found
+```
+
+The command is registered and appears in the reference, but **invoking it does
+nothing useful in this release**. The sibling `nrpe_forward` in
+[NRPEClient](NRPEClient.md#nrpe_forward) does end in `_forward` and is
+dispatched correctly.
+
+##### What to use instead
+
+For an NSCP relay today, register the module's own `fallback` handler on the
+target, which routes unmatched requests through the same client without going
+via this command name. Where an explicit command is needed and the far end is
+NSClient++, [`check_remote_nscp`](#check_remote_nscp) forwards a named check and
+returns its full structured result.

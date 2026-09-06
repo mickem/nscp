@@ -31,7 +31,7 @@ OK - Context Switches 119058.5/s, System Calls 268702.6/s, Processes 628, Thread
 **Over NRPE against a remote host:**
 
 ```
-check_nscp_client --host 192.168.56.103 --command check_kernel_stats --argument "warn=none" --argument "crit=name = 'threads' and current > 20000"
+check_nrpe --host 192.168.56.103 --command check_kernel_stats --arguments "warn=none" --arguments "crit=name = 'threads' and current > 20000"
 OK - Context Switches 119058.5/s, System Calls 268702.6/s, Processes 628, Threads 3417
 ```
 

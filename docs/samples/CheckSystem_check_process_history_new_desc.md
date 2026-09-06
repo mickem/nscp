@@ -8,24 +8,22 @@ services that keep restarting, or confirming that a scheduled job actually ran.
 It relies on the background **process-history collector**, which must be enabled:
 
 ```ini
-[/settings/system/unix]
+[/settings/system/windows]
 process history = true
 ```
 
-Until that is set the check returns **UNKNOWN** with
-`Process history is not enabled (set 'process history = true' under /settings/system/unix)`.
+(`[/settings/system/unix]` on Linux.) Until that is set the check returns
+**UNKNOWN** and names the setting, quoting the module's own settings path — so
+the message reads `/settings/system/windows` on Windows and
+`/settings/system/unix` on Linux:
 
-Arguments and keywords:
+```
+check_process_history_new
+UNKNOWN: Process history is not enabled (set 'process history = true' under /settings/system/windows)
+```
 
-| Name                | Description                                                       |
-|---------------------|-------------------------------------------------------------------|
-| `time` (arg)        | How far back "new" reaches, e.g. `30s`, `5m`, `1h` (default `5m`) |
-| `exe`               | Executable path of the process                                    |
-| `first_seen`        | Unix timestamp the process was first observed                     |
-| `last_seen`         | Unix timestamp the process was last observed                      |
-| `times_seen`        | How many times it has been observed running                       |
-| `currently_running` | `1` when the process is still running                             |
-| `count`             | Number of matching (new) processes                                |
+`time=` sets how far back "new" reaches — `30s`, `5m`, `1h` — and defaults to
+`5m`.
 
 There are no default thresholds; the empty result is `OK: No new processes
 found.` Threshold on `count` to alert on *any* new process, or filter by `exe`

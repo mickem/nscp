@@ -17,8 +17,12 @@ TLS.
 services this client may submit results for, so it is an authorisation
 boundary — not just a label.
 
-`host check = true` submits the result as a **host** check rather than a service
-check, which is how you report host state through the same channel.
+`host check = true` on the target submits results as **host** checks rather than
+service checks, which is how you report host state through the same channel. On
+the command line the equivalent is the bare flag `host-check` — it takes no
+value, so `host-check=true` is an error, and because REST passes every argument
+as `key=value` it cannot be set that way at all. Use the setting for anything
+driven over REST.
 
 ##### TLS
 
@@ -28,7 +32,8 @@ The connection is TLS, configured with `certificate`, `certificate key`, `ca`,
 `insecure = true` disables peer verification. It exists for bringing up a new
 deployment before the CA is in place; leaving it on removes the guarantee that
 you are talking to your own server, which is the main thing NSCA-ng gives you
-over NSCA. Point `ca` at the server's CA instead.
+over NSCA. Point `ca` at the server's CA instead. Like `host-check`, the
+command-line form is a bare `insecure` flag and is not settable over REST.
 
 ##### Output length
 

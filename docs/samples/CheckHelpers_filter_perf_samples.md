@@ -14,13 +14,26 @@ WARNING: WARNING /opt/claude-code: 202.746MB/229.949MB used
 '/opt/claude-code used'=202.74609MB;183.95937;206.95429;0;229.94921 '/opt/claude-code used %'=88%;80;90;0;100 '/opt/env-runner used %'=64%;80;90;0;100
 ```
 
-**Or the smallest (`sort=reversed`):**
+Note that the comparison is on the raw numeric value, ignoring units — `88` (a
+percentage) sorts above `8.24` (gigabytes). Mixing units in one sorted, trimmed
+set rarely gives you the ranking you meant; filter down to one unit first.
+
+**Sorting the other way is `sort=reverse` — not `reversed`:**
+
+Only `none`, `normal` and `reverse` are recognised, despite the option's own
+help text naming `reversed`. Any other value silently leaves the performance
+data unsorted, so `limit=` then trims the *original* order rather than the
+smallest values — which is exactly what this captured run shows, the first two
+counters in the order the check emitted them:
 
 ```
 filter_perf command=check_drivesize sort=reversed limit=2
 WARNING: WARNING /opt/claude-code: 202.746MB/229.949MB used
 '/ used'=8.24916GB;201.57782;226.77505;0;251.97227 '/ used %'=3%;80;90;0;100
 ```
+
+There is no error to tell you the value was ignored, so check the order of what
+comes back rather than trusting the flag.
 
 **Top N processes by memory:**
 
@@ -39,10 +52,10 @@ Warning and critical are still evaluated against *every* matching item, so the
 alert fires even when the offending series is not among the ones shown.
 
 ```
-filter_perf command=check_drivesize sort=reversed limit=1 "arguments=crit=used > 50%"
+filter_perf command=check_drivesize limit=1 "arguments=crit=used > 50%"
 CRITICAL: CRITICAL /opt/claude-code: 202.746MB/229.949MB used, /opt/env-runner: 29.777MB/46.227MB used
 '/ used'=8.30583GB;201.57782;125.98613;0;251.97227
 ```
 
-Note that sorting only ever considers numeric counters; entries without a
-numeric value keep their original position.
+Sorting only ever considers numeric counters; entries without a numeric value
+keep their original position.

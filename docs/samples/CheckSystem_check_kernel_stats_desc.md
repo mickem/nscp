@@ -4,9 +4,15 @@
 The rate counters are sampled over a 1-second window. Use `type=` (repeatable)
 to restrict which rows are returned; the default is all of them.
 
-Row keywords are the same on both platforms: `name`, `label`, `human`, `rate`
-(perf; `0` for the gauge rows) and `current` (perf; the gauge value, or the
-rounded rate for rate rows).
+Row keywords are the same on both platforms — `name`, `label`, `human`, `rate`
+(perf; `0` for the gauge rows) and `current` (perf) — but **`current` does not
+mean the same thing on both.** On Windows it is the gauge value, or the rounded
+per-second rate for a rate row; on Linux it is the raw cumulative counter read
+from `/proc/stat` for a rate row, which only ever grows.
+
+Threshold on `rate` when you mean a per-second value: a threshold written
+against `current` from the Windows reading fires permanently on Linux, where the
+same keyword is a counter in the millions.
 
 The default thresholds are thread-count guardrails on both platforms:
 `warn = name = 'threads' and current > 8000`,

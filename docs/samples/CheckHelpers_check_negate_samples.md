@@ -5,15 +5,29 @@ check_negate command=check_critical
 CRITICAL: No message
 ```
 
-**Invert a check — swap OK and CRITICAL:**
+**Invert a check — but only in one direction at a time:**
 
-The classic use: alert when something *is* present rather than when it is
-missing.
+```
+check_negate command=check_critical critical=ok
+OK: No message
+```
+
+`ok=critical critical=ok` looks like a swap and is not one. The mappings are
+applied in sequence to the value as it is rewritten, in the order OK, WARNING,
+CRITICAL, UNKNOWN — so an OK result is rewritten to CRITICAL by the first rule
+and back to OK by the third:
 
 ```
 check_negate command=check_critical ok=critical critical=ok
 OK: No message
 ```
+
+Both report OK here only because the input was CRITICAL, which the third rule
+maps to OK. An OK input takes the first rule to CRITICAL and then the third
+straight back to OK, so the inversion never fires in that direction.
+
+Map only the direction you need, and put it on the state the wrapped check
+actually returns in the case you want to alert on.
 
 **Downgrade CRITICAL to WARNING, leaving everything else alone:**
 

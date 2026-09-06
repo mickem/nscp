@@ -18,9 +18,17 @@ track it by default. Enable it once:
 process history = true
 ```
 
-(`[/settings/system/unix]` on Linux.) Until it is enabled the history is empty
-and the check reports zero processes rather than an error, which is easy to
-mistake for "nothing ran".
+(`[/settings/system/unix]` on Linux.) Until it is enabled the check returns
+UNKNOWN and names the setting, rather than reporting an empty history that would
+be easy to mistake for "nothing ran":
+
+```
+check_process_history
+UNKNOWN: Process history is not enabled (set 'process history = true' under /settings/system/windows)
+```
+
+The path in that message is the module's own settings path, so it reads
+`/settings/system/unix` on Linux.
 
 ##### The window is the agent's uptime
 

@@ -30,12 +30,14 @@ WARNING: WARNING C:\: 91.2GB/100GB used
 
 The server addressed the relay; the result came from the agent behind it.
 
-**Invoking it explicitly (mainly useful for testing the hop):**
+**It takes no options of its own:**
 
-```
-nrpe_forward host=10.0.2.50 port=5666 command=check_ok
-OK: No message
-```
+The relay branch in the client framework hands the incoming request straight to
+the handler without building or parsing an option descriptor, so `host=`,
+`port=` and `command=` are **not** interpreted here — the destination comes only
+from the target configuration, and any arguments given are appended to the
+request that goes out on the wire. There is nothing useful to invoke by hand;
+configure the target and let requests arrive.
 
 **Two consequences of forwarding "as-is":**
 
@@ -47,10 +49,11 @@ applies to the relay rather than to the original caller.
 
 **Nothing listening on the far end:**
 
-The failure surfaces at the monitoring server as if the check itself had
-failed:
+The failure surfaces at the monitoring server as if the check itself had failed
+— the relay reports the connection error from its own attempt to reach the
+configured target:
 
 ```
-nrpe_forward host=10.0.2.50 port=5666 command=check_ok
+check_nrpe --host 192.168.56.10 --command check_drivesize
 UNKNOWN: Error: Failed to connect to: 10.0.2.50:5666 :Connection refused
 ```

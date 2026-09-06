@@ -21,9 +21,13 @@ own check commands, a Nagios `nrpe` daemon to a `command[...]` line in
 `version=` selects the NRPE protocol version and must match what the remote
 daemon speaks. Version 2 is the classic protocol with a **fixed 1024-byte
 payload**, which silently truncates longer check output; version 3 and later
-negotiate a larger payload. `payload length=` sets the version-2 buffer and must
-equal the remote daemon's compiled-in value — a mismatch corrupts the exchange
-rather than reporting a clean error.
+negotiate a larger payload.
+
+The version-2 buffer size must equal the remote daemon's compiled-in value — a
+mismatch corrupts the exchange rather than reporting a clean error. Note that
+the two spellings are not interchangeable: the setting under
+`[/settings/NRPE/client/targets/...]` is `payload length`, while the
+command-line and REST option is **`payload-length`** (short form `-l`).
 
 If a check works but its output is cut off at a suspiciously round length, this
 is why.
