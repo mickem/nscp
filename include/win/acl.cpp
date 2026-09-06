@@ -148,38 +148,14 @@ bool protect_directory(const std::string &path, std::list<std::string> &errors) 
 
   const std::wstring wide = utf8::cvt<std::wstring>(path);
 
-  // Ownership first, and separately from the DACL.
-  //
-  // %ProgramData% grants Users create-folder plus an inherit-only
-  // "CREATOR OWNER: Full", so a standard user can pre-create
-  // C:\ProgramData\NSClient++ before we ever run and become its owner. An owner
-  // keeps implicit READ_CONTROL | WRITE_DAC no matter what the DACL says, so
-  // fixing only the DACL leaves the excluded account able to put its access
-  // straight back - and read the configuration (passwords) and the fleet
-  // private key - while we report the folder as restricted.
-  //
-  // Two calls rather than one: a combined OWNER|DACL request is atomic in the
-  // wrong direction, failing the DACL fix on a machine where only the ownership
-  // change is refused. These privileges are held but not enabled by default,
-  // and are what lets us take a directory whose current DACL denies us.
+  // Held but not enabled by default, and what lets us open and re-own a
+  // directory whose current DACL denies us - the case below depends on it.
   // Spelled out rather than SE_TAKE_OWNERSHIP_NAME / SE_RESTORE_NAME: those are
   // TEXT() macros and only widen under a UNICODE build, which this is not
   // required to be.
   enable_privilege(L"SeTakeOwnershipPrivilege");
   enable_privilege(L"SeRestorePrivilege");
 
-  // One handle for both changes, opened on the directory entry itself: the
-  // object that gets secured is then provably the object that was named and
-  // checked, with no window for the entry to be swapped for a junction in
-  // between (see the header). SeRestorePrivilege with backup semantics is
-  // what makes the open succeed against a DACL that denies us.
-  //
-  // WRITE_DAC | WRITE_OWNER and nothing more: those are what the two
-  // SetSecurityInfo calls below need, and they are the two SeRestorePrivilege
-  // covers. Asking for READ_CONTROL as well would need SeBackupPrivilege,
-  // which we do not enable - so against a folder someone else owns with a
-  // DACL that shuts us out, the very case this function exists for, the open
-  // would fail and we would repair nothing.
   // A junction or symbolic link where the folder should be is refused, not
   // secured: %ProgramData% lets any local account create one under our name
   // before we first run, and securing it would apply the owner and DACL to
@@ -190,27 +166,56 @@ bool protect_directory(const std::string &path, std::list<std::string> &errors) 
     return false;
   }
 
-  const unique_handle handle = open_no_follow(wide, WRITE_DAC | WRITE_OWNER, errors);
-  if (!handle) return false;
-
-  const DWORD owner_result = ::SetSecurityInfo(handle.get(), SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION, admin_sid, nullptr, nullptr, nullptr);
+  // Ownership and the DACL through two separate opens of the entry itself, so
+  // the object secured is provably the one named and checked rather than a
+  // link's target - and each open asks only for the rights its own call needs.
+  //
+  // Ownership first, and separately: %ProgramData% grants Users create-folder
+  // plus an inherit-only "CREATOR OWNER: Full", so a standard user can
+  // pre-create C:\ProgramData\NSClient++ before we ever run and own it - and an
+  // owner keeps implicit READ_CONTROL | WRITE_DAC whatever the DACL says, so a
+  // DACL fixed under a foreign owner is one that account can put straight back
+  // (and read the configuration and the fleet private key through) while we
+  // report the folder as restricted. Taking ownership first is also what lets
+  // the second open succeed against a DACL that shuts us out - the case this
+  // function exists for - because those two rights come with the ownership we
+  // just took. A combined OWNER|DACL request on one handle is atomic in the
+  // wrong direction: it would need every right up front and fix nothing when
+  // only the ownership change is available.
+  bool owner_ok = false;
+  {
+    const unique_handle handle = open_no_follow(wide, WRITE_OWNER, errors);
+    if (handle) {
+      const DWORD result = ::SetSecurityInfo(handle.get(), SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION, admin_sid, nullptr, nullptr, nullptr);
+      owner_ok = result == ERROR_SUCCESS;
+      if (!owner_ok) errors.emplace_back("SetSecurityInfo(owner) failed: error=" + std::to_string(result));
+    }
+  }
 
   // PROTECTED_DACL_SECURITY_INFORMATION is the flag that breaks inheritance.
   // Without it the inherited "Users: Read & Execute" from %ProgramData%
   // survives next to the two ACEs above and the folder stays world-readable.
-  const DWORD result =
-      ::SetSecurityInfo(handle.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION, nullptr, nullptr, raw_acl, nullptr);
-  if (result != ERROR_SUCCESS) {
-    errors.emplace_back("SetSecurityInfo failed: error=" + std::to_string(result));
-    return false;
+  //
+  // READ_CONTROL as well as WRITE_DAC, and not an over-request to trim: making
+  // the DACL protected means converting the inherited ACEs that are there into
+  // explicit ones, so the call reads the descriptor before it writes one.
+  // Without it every protect_directory() call answers ERROR_ACCESS_DENIED.
+  // Attempted even when the ownership change above failed, so the more
+  // restrictive of the two still gets applied.
+  {
+    const unique_handle handle = open_no_follow(wide, READ_CONTROL | WRITE_DAC, errors);
+    if (!handle) return false;
+    const DWORD result =
+        ::SetSecurityInfo(handle.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION, nullptr, nullptr, raw_acl, nullptr);
+    if (result != ERROR_SUCCESS) {
+      errors.emplace_back("SetSecurityInfo failed: error=" + std::to_string(result));
+      return false;
+    }
   }
-  if (owner_result != ERROR_SUCCESS) {
-    // Reported after the DACL attempt so the more restrictive of the two still
-    // gets applied, but still a failure: an owner we do not control can undo
-    // everything above at any time.
-    errors.emplace_back("SetSecurityInfo(owner) failed: error=" + std::to_string(owner_result));
-    return false;
-  }
+
+  // An owner we do not control can undo everything above at any time, so a
+  // failed ownership change is still a failure even with the DACL applied.
+  if (!owner_ok) return false;
   return true;
 }
 
