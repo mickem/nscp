@@ -10,6 +10,7 @@
 #include <fstream>
 #include <sstream>
 #include <str/utf8.hpp>
+#include <string>
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -21,51 +22,16 @@
 #include <dlfcn.h>
 #endif
 
+// The runtime's own native hosting headers (vendored, MIT; see hostfxr/README.md).
+// They carry the calling convention of every entry point: HOSTFXR_CALLTYPE for
+// hostfxr's exports and CORECLR_DELEGATE_CALLTYPE for the delegates it hands
+// back, which differ on 32-bit Windows.
+#include "hostfxr/coreclr_delegates.h"
+#include "hostfxr/hostfxr.h"
+
 namespace fs = boost::filesystem;
 
 namespace dotnet {
-
-// --- hostfxr ABI (from dotnet/runtime src/native/corehost/hostfxr.h, MIT) -----
-// Declared here rather than including the SDK header so the module builds with
-// no .NET SDK present: the runtime is a run-time dependency only.
-#ifdef _WIN32
-typedef wchar_t char_t;
-// hostfxr's own exports are cdecl, but the delegates it hands back
-// (coreclr_delegates.h) are stdcall. Only x86 tells the two apart; getting it
-// wrong there corrupts the stack on the first call into the runtime.
-#define NSCP_HOSTFXR_CALLTYPE __cdecl
-#define NSCP_CORECLR_DELEGATE_CALLTYPE __stdcall
-#else
-typedef char char_t;
-#define NSCP_HOSTFXR_CALLTYPE
-#define NSCP_CORECLR_DELEGATE_CALLTYPE
-#endif
-typedef void *hostfxr_handle;
-struct hostfxr_initialize_parameters {
-  size_t size;
-  const char_t *host_path;
-  const char_t *dotnet_root;
-};
-enum hostfxr_delegate_type {
-  hdt_com_activation,
-  hdt_load_in_memory_assembly,
-  hdt_winrt_activation,
-  hdt_com_register,
-  hdt_com_unregister,
-  hdt_load_assembly_and_get_function_pointer,
-  hdt_get_function_pointer,
-};
-typedef std::int32_t(NSCP_HOSTFXR_CALLTYPE *hostfxr_initialize_for_runtime_config_fn)(const char_t *runtime_config_path,
-                                                                                      const hostfxr_initialize_parameters *parameters,
-                                                                                      hostfxr_handle *host_context_handle);
-typedef std::int32_t(NSCP_HOSTFXR_CALLTYPE *hostfxr_get_runtime_delegate_fn)(hostfxr_handle host_context_handle, hostfxr_delegate_type type, void **delegate);
-typedef std::int32_t(NSCP_HOSTFXR_CALLTYPE *hostfxr_close_fn)(hostfxr_handle host_context_handle);
-typedef void(NSCP_HOSTFXR_CALLTYPE *hostfxr_error_writer_fn)(const char_t *message);
-typedef hostfxr_error_writer_fn(NSCP_HOSTFXR_CALLTYPE *hostfxr_set_error_writer_fn)(hostfxr_error_writer_fn error_writer);
-typedef std::int32_t(NSCP_CORECLR_DELEGATE_CALLTYPE *load_assembly_and_get_function_pointer_fn)(const char_t *assembly_path, const char_t *type_name,
-                                                                                                const char_t *method_name, const char_t *delegate_type_name,
-                                                                                                void *reserved, void **delegate);
-#define NSCP_UNMANAGEDCALLERSONLY_METHOD ((const char_t *)-1)
 
 namespace {
 
@@ -74,6 +40,13 @@ std::basic_string<char_t> to_host(const std::string &utf8) {
   return utf8::cvt<std::wstring>(utf8);
 #else
   return utf8;
+#endif
+}
+std::basic_string<char_t> to_host(const fs::path &path) {
+#ifdef _WIN32
+  return path.wstring();
+#else
+  return path.string();
 #endif
 }
 std::string from_host(const char_t *text) {
@@ -88,10 +61,28 @@ std::string from_host(const char_t *text) {
 // hostfxr reports the reason for a failure through a process-wide error writer
 // callback; collect it so the caller can log something better than a hex code.
 std::string g_error_text;
-void NSCP_HOSTFXR_CALLTYPE error_writer(const char_t *message) {
+void HOSTFXR_CALLTYPE error_writer(const char_t *message) {
   if (!g_error_text.empty()) g_error_text += "\n";
   g_error_text += from_host(message);
 }
+
+// Installs the error writer for the duration of one hostfxr call and always
+// removes it again, whichever way the call returns.
+class error_writer_scope {
+ public:
+  explicit error_writer_scope(void *set_error_writer) : set_(reinterpret_cast<hostfxr_set_error_writer_fn>(set_error_writer)) {
+    g_error_text.clear();
+    if (set_) set_(&error_writer);
+  }
+  ~error_writer_scope() {
+    if (set_) set_(nullptr);
+  }
+  // The text hostfxr wrote, as a ": ..." suffix for an error message.
+  std::string suffix() const { return g_error_text.empty() ? std::string() : ": " + g_error_text; }
+
+ private:
+  hostfxr_set_error_writer_fn set_;
+};
 
 std::string hex(std::int32_t rc) {
   std::ostringstream ss;
@@ -102,21 +93,21 @@ std::string hex(std::int32_t rc) {
 std::string explain_rc(std::int32_t rc) {
   switch (static_cast<std::uint32_t>(rc)) {
     case 0x80008081:
-      return "InvalidArgFailure";
+      return " InvalidArgFailure";
     case 0x80008083:
-      return "CoreHostLibMissingFailure (hostpolicy library not found next to the runtime)";
+      return " CoreHostLibMissingFailure (hostpolicy library not found next to the runtime)";
     case 0x80008092:
-      return "InvalidConfigFile (the runtimeconfig.json could not be read)";
+      return " InvalidConfigFile (the runtimeconfig.json could not be read)";
     case 0x80008093:
-      return "AppArgNotRunnable";
+      return " AppArgNotRunnable";
     case 0x80008096:
-      return "FrameworkMissingFailure (the .NET runtime version required by the runtimeconfig.json is not installed)";
+      return " FrameworkMissingFailure (the .NET runtime version required by the runtimeconfig.json is not installed)";
     case 0x800080a1:
-      return "HostApiUnsupportedVersion";
+      return " HostApiUnsupportedVersion";
     case 0x800080a3:
-      return "HostInvalidState (the runtime in this process was started in an incompatible way)";
+      return " HostInvalidState (the runtime in this process was started in an incompatible way)";
     case 0x800080a5:
-      return "CoreHostIncompatibleConfig (another runtime configuration is already active in this process)";
+      return " CoreHostIncompatibleConfig (another runtime configuration is already active in this process)";
     default:
       return "";
   }
@@ -171,6 +162,9 @@ void push_unique(std::vector<fs::path> &roots, const fs::path &candidate) {
   }
   roots.push_back(candidate);
 }
+void push_unique_utf8(std::vector<fs::path> &roots, const std::string &utf8) {
+  if (!utf8.empty()) push_unique(roots, to_path(utf8));
+}
 
 // The dotnet launcher on PATH lives in the root of its install (or is a symlink
 // into it, as with /usr/bin/dotnet -> /usr/lib/dotnet/dotnet).
@@ -189,7 +183,7 @@ fs::path root_from_path_launcher() {
   for (const std::string &dir : dirs) {
     if (dir.empty()) continue;
     try {
-      fs::path candidate = fs::path(utf8::cvt<std::string>(dir)) / launcher;
+      fs::path candidate = to_path(dir) / launcher;
       if (!fs::exists(candidate)) continue;
       boost::system::error_code ec;
       fs::path resolved = fs::canonical(candidate, ec);
@@ -204,14 +198,7 @@ fs::path root_from_path_launcher() {
 
 #ifdef _WIN32
 fs::path root_from_registry() {
-#if defined(_M_X64) || defined(__x86_64__)
-  const wchar_t *arch = L"x64";
-#elif defined(_M_ARM64) || defined(__aarch64__)
-  const wchar_t *arch = L"arm64";
-#else
-  const wchar_t *arch = L"x86";
-#endif
-  std::wstring key_path = std::wstring(L"SOFTWARE\\dotnet\\Setup\\InstalledVersions\\") + arch;
+  std::wstring key_path = L"SOFTWARE\\dotnet\\Setup\\InstalledVersions\\" + utf8::cvt<std::wstring>(std::string(architecture_name(process_architecture())));
   HKEY key = nullptr;
   // The installer writes this key in the 32-bit registry view regardless of architecture.
   if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, key_path.c_str(), 0, KEY_READ | KEY_WOW64_32KEY, &key) != ERROR_SUCCESS) return fs::path();
@@ -223,11 +210,47 @@ fs::path root_from_registry() {
   if (rc != ERROR_SUCCESS || (type != REG_SZ && type != REG_EXPAND_SZ)) return fs::path();
   return fs::path(std::wstring(buffer));
 }
+#else
+// dotnet-install.sh and the distribution packages record a non-default install
+// root in /etc/dotnet/install_location (optionally per architecture), the same
+// file the runtime's own host reads.
+fs::path root_from_install_location() {
+  const char *files[] = {"/etc/dotnet/install_location_", "/etc/dotnet/install_location"};
+  for (const char *file : files) {
+    std::string name = file;
+    if (name.back() == '_') name += architecture_name(process_architecture());
+    std::ifstream in(name.c_str());
+    std::string line;
+    if (in && std::getline(in, line)) {
+      boost::trim(line);
+      if (!line.empty()) return to_path(line);
+    }
+  }
+  return fs::path();
+}
 #endif
 
 }  // namespace
 
-// --- version folders --------------------------------------------------------
+// --- paths ---------------------------------------------------------------------
+
+fs::path to_path(const std::string &utf8) {
+#ifdef _WIN32
+  return fs::path(utf8::cvt<std::wstring>(utf8));
+#else
+  return fs::path(utf8);
+#endif
+}
+
+std::string path_to_utf8(const fs::path &path) {
+#ifdef _WIN32
+  return utf8::cvt<std::string>(path.wstring());
+#else
+  return path.string();
+#endif
+}
+
+// --- version folders -----------------------------------------------------------
 
 bool parse_version(const std::string &text, version &out) {
   out = version();
@@ -266,6 +289,8 @@ bool version::operator<(const version &other) const {
   if (prerelease.empty() != other.prerelease.empty()) return !prerelease.empty();
   return prerelease < other.prerelease;
 }
+
+// --- architecture --------------------------------------------------------------
 
 architecture process_architecture() {
 #if defined(_M_X64) || defined(__x86_64__)
@@ -340,6 +365,8 @@ architecture library_architecture(const fs::path &library) {
   return architecture::unknown;
 }
 
+// --- locating the runtime ------------------------------------------------------
+
 std::string hostfxr_library_name() {
 #if defined(_WIN32)
   return "hostfxr.dll";
@@ -352,27 +379,30 @@ std::string hostfxr_library_name() {
 
 std::vector<fs::path> default_roots(const std::string &override_root) {
   std::vector<fs::path> roots;
-  push_unique(roots, override_root.empty() ? fs::path() : fs::path(override_root));
-  // DOTNET_ROOT_X64 / DOTNET_ROOT_X86 / DOTNET_ROOT_ARM64 as the runtime's own
-  // host honours them, then the generic DOTNET_ROOT.
+  push_unique_utf8(roots, override_root);
+  // The same sources the runtime's own host consults, in its order: the
+  // architecture-specific DOTNET_ROOT_<ARCH> (and the legacy DOTNET_ROOT(x86)),
+  // then DOTNET_ROOT, then the registered install location, then the platform
+  // default folders.
   std::string arch_env = std::string("DOTNET_ROOT_") + architecture_name(process_architecture());
   boost::to_upper(arch_env);
-  push_unique(roots, fs::path(getenv_utf8(arch_env.c_str())));
-  if (process_architecture() == architecture::x86) push_unique(roots, fs::path(getenv_utf8("DOTNET_ROOT(x86)")));
-  push_unique(roots, fs::path(getenv_utf8("DOTNET_ROOT")));
+  push_unique_utf8(roots, getenv_utf8(arch_env.c_str()));
+  if (process_architecture() == architecture::x86) push_unique_utf8(roots, getenv_utf8("DOTNET_ROOT(x86)"));
+  push_unique_utf8(roots, getenv_utf8("DOTNET_ROOT"));
 #ifdef _WIN32
   push_unique(roots, root_from_registry());
   // Under WOW64 %ProgramFiles% already resolves to "Program Files (x86)" for a
   // 32-bit process; the explicit variants cover both directions anyway.
   const std::string program_files = getenv_utf8("ProgramFiles");
-  if (!program_files.empty()) push_unique(roots, fs::path(program_files) / "dotnet");
+  if (!program_files.empty()) push_unique(roots, to_path(program_files) / "dotnet");
   const std::string program_files_native = getenv_utf8(process_architecture() == architecture::x86 ? "ProgramFiles(x86)" : "ProgramW6432");
-  if (!program_files_native.empty()) push_unique(roots, fs::path(program_files_native) / "dotnet");
+  if (!program_files_native.empty()) push_unique(roots, to_path(program_files_native) / "dotnet");
   const std::string local_app_data = getenv_utf8("LOCALAPPDATA");
-  if (!local_app_data.empty()) push_unique(roots, fs::path(local_app_data) / "Microsoft" / "dotnet");
+  if (!local_app_data.empty()) push_unique(roots, to_path(local_app_data) / "Microsoft" / "dotnet");
   // Last: the launcher on PATH is usually the x64 install, whatever we are.
   push_unique(roots, root_from_path_launcher());
 #else
+  push_unique(roots, root_from_install_location());
   push_unique(roots, root_from_path_launcher());
   push_unique(roots, "/usr/lib/dotnet");
   push_unique(roots, "/usr/share/dotnet");
@@ -381,7 +411,7 @@ std::vector<fs::path> default_roots(const std::string &override_root) {
   push_unique(roots, "/opt/dotnet");
   push_unique(roots, "/opt/homebrew/opt/dotnet/libexec");
   const std::string home = getenv_utf8("HOME");
-  if (!home.empty()) push_unique(roots, fs::path(home) / ".dotnet");
+  if (!home.empty()) push_unique(roots, to_path(home) / ".dotnet");
 #endif
   return roots;
 }
@@ -396,9 +426,12 @@ fs::path find_hostfxr_in_root(const fs::path &root) {
   fs::path best_path;
   for (fs::directory_iterator it(fxr, ec), end; !ec && it != end; it.increment(ec)) {
     version candidate;
-    if (!parse_version(it->path().filename().string(), candidate)) continue;
+    if (!parse_version(path_to_utf8(it->path().filename()), candidate)) continue;
     const fs::path candidate_path = it->path() / library;
-    if (!fs::is_regular_file(candidate_path, ec)) continue;
+    // A separate error code: one unreadable version folder must not end the
+    // enumeration before the newer folders behind it are seen.
+    boost::system::error_code file_ec;
+    if (!fs::is_regular_file(candidate_path, file_ec)) continue;
     const architecture arch = library_architecture(candidate_path);
     if (arch != architecture::unknown && arch != process_architecture()) continue;
     if (!have_best || best < candidate) {
@@ -413,7 +446,7 @@ fs::path find_hostfxr_in_root(const fs::path &root) {
 hostfxr_location find_hostfxr(const std::vector<fs::path> &roots) {
   hostfxr_location result;
   for (const fs::path &root : roots) {
-    result.searched.push_back(root.string());
+    result.searched.push_back(path_to_utf8(root));
     const fs::path library = find_hostfxr_in_root(root);
     if (!library.empty()) {
       result.library = library;
@@ -424,7 +457,7 @@ hostfxr_location find_hostfxr(const std::vector<fs::path> &roots) {
   return result;
 }
 
-// --- the runtime ------------------------------------------------------------
+// --- the runtime ---------------------------------------------------------------
 
 std::shared_ptr<host> host::instance() {
   // Intentionally leaked: the runtime cannot be unloaded from a process, and the
@@ -450,38 +483,32 @@ bool host::initialize(const hostfxr_location &location, const fs::path &runtimec
   if (library_ == nullptr) {
     library_ = open_library(location.library, error);
     if (library_ == nullptr) {
-      error = "Failed to load " + location.library.string() + ": " + error;
+      error = "Failed to load " + path_to_utf8(location.library) + ": " + error;
       return false;
     }
   }
   auto init = reinterpret_cast<hostfxr_initialize_for_runtime_config_fn>(find_symbol(library_, "hostfxr_initialize_for_runtime_config"));
   auto get_delegate = reinterpret_cast<hostfxr_get_runtime_delegate_fn>(find_symbol(library_, "hostfxr_get_runtime_delegate"));
   auto close = reinterpret_cast<hostfxr_close_fn>(find_symbol(library_, "hostfxr_close"));
-  auto set_error_writer = reinterpret_cast<hostfxr_set_error_writer_fn>(find_symbol(library_, "hostfxr_set_error_writer"));
+  set_error_writer_ = find_symbol(library_, "hostfxr_set_error_writer");
   if (init == nullptr || get_delegate == nullptr || close == nullptr) {
-    error = location.library.string() + " does not export the hostfxr 3.0 hosting API (a .NET Core 3.0+ / .NET 5+ runtime is required)";
+    error = path_to_utf8(location.library) + " does not export the hostfxr 3.0 hosting API (a .NET Core 3.0+ / .NET 5+ runtime is required)";
     return false;
   }
-  if (set_error_writer) set_error_writer(&error_writer);
-  g_error_text.clear();
 
-  const std::basic_string<char_t> config = to_host(runtimeconfig.string());
-  const std::basic_string<char_t> root = to_host(location.root.string());
+  const std::basic_string<char_t> config = to_host(runtimeconfig);
+  const std::basic_string<char_t> root = to_host(location.root);
   hostfxr_initialize_parameters parameters;
   parameters.size = sizeof(parameters);
   parameters.host_path = nullptr;
   parameters.dotnet_root = root.c_str();
 
+  error_writer_scope writer(set_error_writer_);
   hostfxr_handle context = nullptr;
   std::int32_t rc = init(config.c_str(), &parameters, &context);
   // 0 = Success, 1 = Success_HostAlreadyInitialized, 2 = Success_DifferentRuntimeProperties.
   if (rc < 0 || context == nullptr) {
-    error = "hostfxr_initialize_for_runtime_config(" + runtimeconfig.string() + ") failed: " + hex(rc);
-    const std::string reason = explain_rc(rc);
-    if (!reason.empty()) error += " " + reason;
-    const std::string text = take_error_text();
-    if (!text.empty()) error += ": " + text;
-    if (set_error_writer) set_error_writer(nullptr);
+    error = "hostfxr_initialize_for_runtime_config(" + path_to_utf8(runtimeconfig) + ") failed: " + hex(rc) + explain_rc(rc) + writer.suffix();
     return false;
   }
   void *delegate = nullptr;
@@ -490,13 +517,9 @@ bool host::initialize(const hostfxr_location &location, const fs::path &runtimec
   // stays loaded for the life of the process.
   close(context);
   if (rc < 0 || delegate == nullptr) {
-    error = "hostfxr_get_runtime_delegate failed: " + hex(rc);
-    const std::string text = take_error_text();
-    if (!text.empty()) error += ": " + text;
-    if (set_error_writer) set_error_writer(nullptr);
+    error = "hostfxr_get_runtime_delegate failed: " + hex(rc) + explain_rc(rc) + writer.suffix();
     return false;
   }
-  if (set_error_writer) set_error_writer(nullptr);
   load_assembly_and_get_function_pointer_ = delegate;
   location_ = location;
   return true;
@@ -508,20 +531,15 @@ void *host::get_function(const fs::path &assembly_path, const std::string &type_
     error = "The .NET runtime is not initialized";
     return nullptr;
   }
-  auto set_error_writer = reinterpret_cast<hostfxr_set_error_writer_fn>(find_symbol(library_, "hostfxr_set_error_writer"));
-  if (set_error_writer) set_error_writer(&error_writer);
-  g_error_text.clear();
+  error_writer_scope writer(set_error_writer_);
   auto load = reinterpret_cast<load_assembly_and_get_function_pointer_fn>(load_assembly_and_get_function_pointer_);
-  const std::basic_string<char_t> assembly = to_host(assembly_path.string());
+  const std::basic_string<char_t> assembly = to_host(assembly_path);
   const std::basic_string<char_t> type = to_host(type_name);
   const std::basic_string<char_t> method = to_host(method_name);
   void *fn = nullptr;
-  const std::int32_t rc = load(assembly.c_str(), type.c_str(), method.c_str(), NSCP_UNMANAGEDCALLERSONLY_METHOD, nullptr, &fn);
-  if (set_error_writer) set_error_writer(nullptr);
+  const std::int32_t rc = load(assembly.c_str(), type.c_str(), method.c_str(), UNMANAGEDCALLERSONLY_METHOD, nullptr, &fn);
   if (rc < 0 || fn == nullptr) {
-    error = "Failed to resolve " + type_name + "." + method_name + " in " + assembly_path.string() + ": " + hex(rc);
-    const std::string text = take_error_text();
-    if (!text.empty()) error += ": " + text;
+    error = "Failed to resolve " + type_name + "." + method_name + " in " + path_to_utf8(assembly_path) + ": " + hex(rc) + explain_rc(rc) + writer.suffix();
     return nullptr;
   }
   return fn;
@@ -529,7 +547,7 @@ void *host::get_function(const fs::path &assembly_path, const std::string &type_
 
 std::string host::describe() const {
   if (location_.library.empty()) return "not loaded";
-  return location_.library.string();
+  return path_to_utf8(location_.library);
 }
 
 }  // namespace dotnet

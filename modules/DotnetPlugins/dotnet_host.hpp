@@ -34,6 +34,12 @@ bool parse_version(const std::string &text, version &out);
 // Platform file name of the hostfxr library.
 std::string hostfxr_library_name();
 
+// Paths cross this module as UTF-8 strings (settings, environment, log lines,
+// the managed side). boost::filesystem::path(std::string) would decode them
+// with the ANSI code page on Windows, so always go through these two.
+boost::filesystem::path to_path(const std::string &utf8);
+std::string path_to_utf8(const boost::filesystem::path &path);
+
 // CPU architecture a binary is built for. A 32-bit nscp cannot load an x64
 // hostfxr (LoadLibrary error 193), so candidates are checked against the
 // running process before being accepted.
@@ -91,7 +97,7 @@ class host {
 
   std::mutex mutex_;
   void *library_ = nullptr;
-  void *context_ = nullptr;
+  void *set_error_writer_ = nullptr;  // hostfxr_set_error_writer, optional in old runtimes
   void *load_assembly_and_get_function_pointer_ = nullptr;
   hostfxr_location location_;
 };

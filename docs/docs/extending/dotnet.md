@@ -59,7 +59,8 @@ public class HelloPlugin : IPlugin
     {
         // Register the commands this plugin answers. The plugin id identifies
         // the hosting module to NSClient++; always pass instance.PluginID.
-        new RegistryHelper(core, instance.PluginID).registerCommand("check_hello", "Says hello");
+        var registry = new RegistryHelper(core, instance.PluginID);
+        registry.registerCommand("check_hello", "Says hello");
         log.info("hello plugin loaded as " + instance.Alias);
         return true;
     }
@@ -93,7 +94,21 @@ public class HelloQueries : IQueryHandler
 
 `onQuery` receives a serialized `QueryRequestMessage` holding the single request (command, arguments, target) and
 returns a serialized `QueryResponseMessage`; the first payload becomes the check result (status, message lines,
-performance data). The other handlers work the same way with their respective messages.
+performance data).
+
+The other handlers work the same way with their respective messages. What reaches each of them is decided by
+what the plugin registered through `RegistryHelper` on load:
+
+| Handler               | Registered with                                  | Receives                                                                  | Returns                          |
+|-----------------------|--------------------------------------------------|---------------------------------------------------------------------------|----------------------------------|
+| `IQueryHandler`       | `registerCommand(name, description)`             | check queries for `name` (`QueryRequestMessage`)                          | `QueryResponseMessage`           |
+| `IExecutionHandler`   | `registerExecCommand(name, description)`         | `nscp client --module DotnetPlugins --exec name`, REST executes (`ExecuteRequestMessage`) | `ExecuteResponseMessage` |
+| `ISubmissionHandler`  | `registerChannel(channel)`                       | passive results submitted to `channel` (`SubmitRequestMessage`)           | `SubmitResponseMessage`          |
+| `IMessageHandler`     | nothing: active whenever `isActive()` is true    | every log entry the agent writes (`LogEntry`), except the plugin's own    | `true` when handled              |
+
+A message handler must not log: its output would come straight back to it (the module drops the plugin's own
+entries, but a chatty handler still costs a call per log line). Return `null` from a handler getter for the
+features the plugin does not implement. The sample plugin implements all four.
 
 Everything a plugin needs from NSClient++ goes through `ICore`:
 
@@ -159,7 +174,11 @@ or, with the agent running, through any of the usual protocols (`check_nrpe -c c
 
 - One .NET runtime per process: the first module to start a runtime decides its version; `RollForward` in
   `NSCP.Core.runtimeconfig.json` lets it run on any newer major version.
-- Plugins are loaded into isolated assembly load contexts, so two plugins can use different versions of a NuGet
-  package. The contract assemblies (`NSCP.Core`, `Google.Protobuf`) are always shared with the host.
+- Plugins are loaded into isolated, collectible assembly load contexts, so two plugins can use different
+  versions of a NuGet package, and a module reload lets go of the previous copy. The contract assemblies
+  (`NSCP.Core`, `Google.Protobuf`) are always shared with the host.
+- The runtime cannot be unloaded, so a background thread a plugin leaves running survives the module. Stop your
+  threads and timers in `unload()`; calls into the core from a plugin whose module is gone fail instead of
+  reaching it.
 - Unhandled exceptions in a plugin are caught at the boundary, logged through the agent and turned into an
   `UNKNOWN` result; they do not take the agent down.

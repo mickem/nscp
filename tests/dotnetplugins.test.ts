@@ -104,6 +104,76 @@ describe("DotnetPlugins", () => {
     expect(out).toMatch(/Hello from C#/);
   });
 
+  it("routes command-line commands to the plugin and passive results back to it", async () => {
+    if (!haveManagedApi()) return;
+    const nscp = agent();
+    await nscp.configure({
+      "/settings/dotnet/plugins": { "NSCP.Plugin.CSharpSample": "enabled" },
+    });
+    // `client --exec` targets the module: the sample's execution handler
+    // answers dotnet_hello and, while doing so, submits a passive result to
+    // its own channel, which the core routes back into the .NET submission
+    // handler. One command covers exec, submit and the registry both ways.
+    const r = await nscp.run(
+      ["client", "--module", "DotnetPlugins", "--boot", "--exec", "dotnet_hello"],
+      {
+        allowFailure: true,
+        timeout: 90_000,
+      },
+    );
+    const out = r.all ?? "";
+    expect(out).toMatch(/Received submission on dotnet_sample: check_dotnet Ok Hello from C#/);
+    expect(out).toMatch(/Hello exec from C# \(log entries seen: \d+, submit: Received by C#\)/);
+    expect(out).not.toMatch(/ERROR|Unsupported type/);
+    expect(r.exitCode).toBe(0);
+  });
+
+  it("hands log entries to the plugin's message handler", async () => {
+    if (!haveManagedApi()) return;
+    const nscp = agent();
+    await nscp.configure({
+      "/settings/dotnet/plugins": { "NSCP.Plugin.CSharpSample": "enabled" },
+    });
+    // With debug logging the core writes a few lines between the plugin
+    // finishing its load and the command running; the sample counts them.
+    const r = await nscp.run(
+      ["client", "--log", "debug", "--module", "DotnetPlugins", "--boot", "--exec", "dotnet_hello"],
+      {
+        allowFailure: true,
+        timeout: 90_000,
+      },
+    );
+    const out = r.all ?? "";
+    expect(out).toMatch(/Hello exec from C# \(log entries seen: [1-9]\d*,/);
+  });
+
+  it("lists the loaded plugins", async () => {
+    if (!haveManagedApi()) return;
+    const nscp = agent();
+    await nscp.configure({
+      "/settings/dotnet/plugins": { "NSCP.Plugin.CSharpSample": "enabled" },
+    });
+    const r = await nscp.run(["client", "--module", "DotnetPlugins", "--boot", "--exec", "list"], {
+      allowFailure: true,
+      timeout: 90_000,
+    });
+    expect(r.all ?? "").toMatch(
+      /Loaded \.NET plugins:\s+NSCP\.Plugin\.CSharpSample: Sample C# Module 0\.0\.2/,
+    );
+  });
+
+  it("skips a plugin set to disabled without complaining", async () => {
+    if (!haveManagedApi()) return;
+    const nscp = agent();
+    await nscp.configure({
+      "/settings/dotnet/plugins": { Missing: "disabled", "NSCP.Plugin.CSharpSample": "enabled" },
+    });
+    const { out, code } = await query(nscp, "check_dotnet");
+    expect(out).not.toMatch(/Missing/);
+    expect(out).toMatch(/Hello from C#/);
+    expect(code).toBe(0);
+  });
+
   it("reports a plugin assembly that does not exist and keeps running", async () => {
     if (!haveManagedApi()) return;
     const nscp = agent();

@@ -52,6 +52,16 @@ precedence = "override"
 SPDX-FileCopyrightText = "2008 Ange Optimization ApS"
 SPDX-License-Identifier = "BSD-3-Clause"
 
+# .NET native hosting headers (dotnet/runtime, src/native/corehost), vendored
+# so the DotnetPlugins module builds without a .NET SDK. They carry a non-SPDX
+# MIT notice ("The .NET Foundation licenses this file to you under the MIT
+# license") that the reuse parser does not pick up.
+[[annotations]]
+path = ["modules/DotnetPlugins/hostfxr/hostfxr.h", "modules/DotnetPlugins/hostfxr/coreclr_delegates.h"]
+precedence = "override"
+SPDX-FileCopyrightText = ".NET Foundation and Contributors"
+SPDX-License-Identifier = "MIT"
+
 # Prebuilt third-party binaries checked into the tree (no readable inline
 # info, so without these the project-default annotation would claim them).
 [[annotations]]

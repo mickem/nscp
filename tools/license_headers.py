@@ -56,8 +56,8 @@ THIRD_PARTY_PATH_FRAGMENTS = (
     "/libs/lua/",
     "/libs/minizip/",
     "/libs/protobuf/",
-    "/libs/protobuf_net/",
     "/libs/replxx/",
+    "/modules/DotnetPlugins/hostfxr/",
 )
 
 # Individual third-party files we never modify. These either carry their

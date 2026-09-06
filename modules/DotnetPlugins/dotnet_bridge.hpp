@@ -48,8 +48,13 @@ typedef std::int32_t(NSCP_DOTNET_CALL *managed_unload_fn)(void *handle);
 typedef std::int32_t(NSCP_DOTNET_CALL *managed_describe_fn)(void *handle, write_fn write, void *wctx);
 typedef std::int32_t(NSCP_DOTNET_CALL *managed_query_fn)(void *handle, const char *command, const std::uint8_t *request, std::int32_t request_len,
                                                          write_fn write, void *wctx);
+typedef std::int32_t(NSCP_DOTNET_CALL *managed_submit_fn)(void *handle, const char *channel, const std::uint8_t *request, std::int32_t request_len,
+                                                          write_fn write, void *wctx);
+typedef std::int32_t(NSCP_DOTNET_CALL *managed_exec_fn)(void *handle, const char *target, const char *command, const std::uint8_t *request,
+                                                        std::int32_t request_len, write_fn write, void *wctx);
+typedef std::int32_t(NSCP_DOTNET_CALL *managed_message_fn)(void *handle, const std::uint8_t *request, std::int32_t request_len);
 
-// Return codes of managed_query_fn.
+// Return codes of the routing entry points (query, submit, exec, message).
 const std::int32_t query_handled = 1;
 const std::int32_t query_ignored = 0;
 const std::int32_t query_failed = -1;

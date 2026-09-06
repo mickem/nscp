@@ -12,7 +12,8 @@ namespace NSCP.Core.Native
     /// Isolates each plugin assembly (and its private dependencies, resolved
     /// through its <c>.deps.json</c>) while sharing the contract assemblies
     /// with the host so the <see cref="IPlugin"/> types are the same on both
-    /// sides of the boundary.
+    /// sides of the boundary. Collectible, so a module reload does not leave
+    /// the previous copy of every plugin resident for the life of the process.
     /// </summary>
     internal sealed class PluginLoadContext : AssemblyLoadContext
     {
@@ -20,10 +21,22 @@ namespace NSCP.Core.Native
         private readonly string directory_;
 
         internal PluginLoadContext(string pluginPath)
-            : base(Path.GetFileNameWithoutExtension(pluginPath), isCollectible: false)
+            : base(Path.GetFileNameWithoutExtension(pluginPath), isCollectible: true)
         {
             resolver_ = new AssemblyDependencyResolver(pluginPath);
             directory_ = Path.GetDirectoryName(pluginPath) ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Load <c>&lt;directory&gt;/&lt;name&gt;.dll</c> into <paramref name="context"/>
+        /// when it exists; the sibling-folder probe both the host and the plugin
+        /// contexts fall back to.
+        /// </summary>
+        internal static Assembly ProbeDirectory(AssemblyLoadContext context, string directory, AssemblyName name)
+        {
+            if (string.IsNullOrEmpty(directory) || string.IsNullOrEmpty(name.Name)) return null;
+            var candidate = Path.Combine(directory, name.Name + ".dll");
+            return File.Exists(candidate) ? context.LoadFromAssemblyPath(candidate) : null;
         }
 
         /// <summary>
@@ -54,13 +67,9 @@ namespace NSCP.Core.Native
             var shared = SharedAssembly(name);
             if (shared != null) return shared;
             var path = resolver_.ResolveAssemblyToPath(name);
-            if (path == null)
-            {
-                var candidate = Path.Combine(directory_, name.Name + ".dll");
-                if (File.Exists(candidate)) path = candidate;
-            }
+            if (path != null) return LoadFromAssemblyPath(path);
             // null => fall back to the default context (the framework).
-            return path != null ? LoadFromAssemblyPath(path) : null;
+            return ProbeDirectory(this, directory_, name);
         }
 
         protected override IntPtr LoadUnmanagedDll(string unmanagedDllName)

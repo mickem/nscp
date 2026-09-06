@@ -10,7 +10,10 @@
 #   DOTNET_VERSION     - the SDK version it reports
 #
 # Override with -DDOTNET_EXECUTABLE=/path/to/dotnet, or disable the managed
-# build entirely with -DNSCP_DOTNET=OFF.
+# build entirely with -DNSCP_DOTNET=OFF. Note that `dotnet build` restores the
+# Google.Protobuf package from nuget.org (or a configured NuGet source): a build
+# on a machine without that access must pass -DNSCP_DOTNET=OFF, or the managed
+# targets fail the build.
 option(
     NSCP_DOTNET
     "Build the managed .NET plugin API and sample plugin (requires the dotnet SDK)"
@@ -49,7 +52,19 @@ if(NSCP_DOTNET)
             ERROR_STRIP_TRAILING_WHITESPACE
         )
         if(_dotnet_rc EQUAL 0 AND DOTNET_VERSION)
-            set(DOTNET_FOUND TRUE)
+            # The managed projects target net8.0: an older SDK would accept the
+            # build here and then fail inside `dotnet build` (NETSDK1045),
+            # taking the whole build down instead of skipping the managed half.
+            string(REGEX MATCH "^[0-9]+" _dotnet_major "${DOTNET_VERSION}")
+            if(_dotnet_major AND _dotnet_major GREATER_EQUAL 8)
+                set(DOTNET_FOUND TRUE)
+            else()
+                message(
+                    STATUS
+                    " ! dotnet SDK ${DOTNET_VERSION} at ${DOTNET_EXECUTABLE} is too old: the managed .NET plugin API needs SDK 8.0 or later"
+                )
+                set(DOTNET_VERSION "")
+            endif()
         else()
             set(DOTNET_VERSION "")
             message(

@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <boost/filesystem.hpp>
+#include <cstdlib>
 #include <fstream>
 #include <nscapi/nscapi_helper_singleton.hpp>
 
@@ -193,7 +194,45 @@ TEST(dotnet_locator, searches_roots_in_order_and_reports_what_it_looked_at) {
   EXPECT_EQ(1u, missing.searched.size());
 }
 
+#ifndef _WIN32
+// Pins one environment variable for the duration of a test and puts the
+// previous value back, so the ambient DOTNET_ROOT* of a developer box or CI
+// image neither leaks into the assertions nor is lost for later tests.
+struct scoped_env {
+  std::string name;
+  bool had = false;
+  std::string previous;
+  scoped_env(const std::string &n, const char *value) : name(n) {
+    const char *old = std::getenv(name.c_str());
+    if (old) {
+      had = true;
+      previous = old;
+    }
+    if (value)
+      setenv(name.c_str(), value, 1);
+    else
+      unsetenv(name.c_str());
+  }
+  ~scoped_env() {
+    if (had)
+      setenv(name.c_str(), previous.c_str(), 1);
+    else
+      unsetenv(name.c_str());
+  }
+};
+
+std::string arch_root_variable() {
+  std::string v = std::string("DOTNET_ROOT_") + dotnet::architecture_name(dotnet::process_architecture());
+  for (char &c : v) c = static_cast<char>(toupper(c));
+  return v;
+}
+#endif
+
 TEST(dotnet_locator, an_explicit_root_is_searched_first_and_defaults_follow) {
+#ifndef _WIN32
+  scoped_env no_arch(arch_root_variable(), nullptr);
+  scoped_env no_root("DOTNET_ROOT", nullptr);
+#endif
   const std::vector<fs::path> roots = dotnet::default_roots("/opt/my-dotnet");
   ASSERT_FALSE(roots.empty());
   EXPECT_EQ(fs::path("/opt/my-dotnet"), roots[0]);
@@ -206,27 +245,20 @@ TEST(dotnet_locator, an_explicit_root_is_searched_first_and_defaults_follow) {
 
 #ifndef _WIN32
 TEST(dotnet_locator, honours_DOTNET_ROOT) {
-  setenv("DOTNET_ROOT", "/tmp/nscp-dotnet-root-test", 1);
+  scoped_env no_arch(arch_root_variable(), nullptr);
+  scoped_env root("DOTNET_ROOT", "/tmp/nscp-dotnet-root-test");
   const std::vector<fs::path> roots = dotnet::default_roots("");
-  unsetenv("DOTNET_ROOT");
   ASSERT_FALSE(roots.empty());
   EXPECT_EQ(fs::path("/tmp/nscp-dotnet-root-test"), roots[0]);
+  // A duplicate root (override == DOTNET_ROOT) is listed once.
+  const std::vector<fs::path> both = dotnet::default_roots("/tmp/nscp-dotnet-root-test");
+  EXPECT_EQ(roots.size(), both.size());
   // The architecture-specific variable (DOTNET_ROOT_X64, ...) beats the generic one.
-  std::string arch_var = std::string("DOTNET_ROOT_") + dotnet::architecture_name(dotnet::process_architecture());
-  for (char &c : arch_var) c = static_cast<char>(toupper(c));
-  setenv("DOTNET_ROOT", "/tmp/nscp-dotnet-root-test", 1);
-  setenv(arch_var.c_str(), "/tmp/nscp-dotnet-arch-root-test", 1);
+  scoped_env arch(arch_root_variable(), "/tmp/nscp-dotnet-arch-root-test");
   const std::vector<fs::path> arch_roots = dotnet::default_roots("");
-  unsetenv("DOTNET_ROOT");
-  unsetenv(arch_var.c_str());
   ASSERT_GT(arch_roots.size(), 1u);
   EXPECT_EQ(fs::path("/tmp/nscp-dotnet-arch-root-test"), arch_roots[0]);
   EXPECT_EQ(fs::path("/tmp/nscp-dotnet-root-test"), arch_roots[1]);
-  // A duplicate root (override == DOTNET_ROOT) is listed once.
-  setenv("DOTNET_ROOT", "/tmp/nscp-dotnet-root-test", 1);
-  const std::vector<fs::path> both = dotnet::default_roots("/tmp/nscp-dotnet-root-test");
-  unsetenv("DOTNET_ROOT");
-  EXPECT_EQ(roots.size(), both.size());
 }
 #endif
 
@@ -246,20 +278,48 @@ TEST(dotnet_host, refuses_a_missing_runtime_with_a_reason) {
 
 TEST(dotnet_plugins, resolves_configured_plugin_values_to_assemblies) {
   const fs::path root("/opt/nsclient/modules/dotnet");
-  EXPECT_EQ(root / "MyPlugin.dll", DotnetPlugins::resolve_assembly(root, "MyPlugin", "enabled"));
-  EXPECT_EQ(root / "MyPlugin.dll", DotnetPlugins::resolve_assembly(root, "MyPlugin", ""));
-  EXPECT_EQ(root / "MyPlugin.dll", DotnetPlugins::resolve_assembly(root, "MyPlugin", "true"));
-  EXPECT_EQ(root / "Other.dll", DotnetPlugins::resolve_assembly(root, "alias", "Other"));
-  EXPECT_EQ(root / "Other.dll", DotnetPlugins::resolve_assembly(root, "alias", "Other.dll"));
-  EXPECT_EQ(root / "Other.DLL", DotnetPlugins::resolve_assembly(root, "alias", "Other.DLL"));
-  EXPECT_EQ(root / "NSCP.Plugin.Sample.dll", DotnetPlugins::resolve_assembly(root, "NSCP.Plugin.Sample", "enabled"));
-  EXPECT_EQ(root / "My.Plugin.dll", DotnetPlugins::resolve_assembly(root, "alias", "My.Plugin"));
-  EXPECT_EQ(root / "sub" / "Other.dll", DotnetPlugins::resolve_assembly(root, "alias", "sub/Other.dll"));
+  const auto nothing = [](const fs::path &) { return false; };
+  // Nothing on disk: the .dll form is what gets loaded (and named in the error).
+  EXPECT_EQ(root / "MyPlugin.dll", DotnetPlugins::resolve_assembly(root, "MyPlugin", "enabled", nothing));
+  EXPECT_EQ(root / "MyPlugin.dll", DotnetPlugins::resolve_assembly(root, "MyPlugin", "", nothing));
+  EXPECT_EQ(root / "MyPlugin.dll", DotnetPlugins::resolve_assembly(root, "MyPlugin", "true", nothing));
+  EXPECT_EQ(root / "Other.dll", DotnetPlugins::resolve_assembly(root, "alias", "Other", nothing));
+  EXPECT_EQ(root / "Other.dll", DotnetPlugins::resolve_assembly(root, "alias", "Other.dll", nothing));
+  EXPECT_EQ(root / "Other.DLL", DotnetPlugins::resolve_assembly(root, "alias", "Other.DLL", nothing));
+  EXPECT_EQ(root / "NSCP.Plugin.Sample.dll", DotnetPlugins::resolve_assembly(root, "NSCP.Plugin.Sample", "enabled", nothing));
+  EXPECT_EQ(root / "My.Plugin.dll", DotnetPlugins::resolve_assembly(root, "alias", "My.Plugin", nothing));
+  EXPECT_EQ(root / "sub" / "Other.dll", DotnetPlugins::resolve_assembly(root, "alias", "sub/Other.dll", nothing));
+  // A name that already says which assembly file it means is reported as such.
+  EXPECT_EQ(root / "Tool.exe", DotnetPlugins::resolve_assembly(root, "alias", "Tool.exe", nothing));
 #ifdef _WIN32
   const std::string elsewhere = "C:/elsewhere/Other";
 #else
   const std::string elsewhere = "/elsewhere/Other";
 #endif
-  EXPECT_EQ(fs::path(elsewhere + ".dll"), DotnetPlugins::resolve_assembly(root, "alias", elsewhere + ".dll"));
-  EXPECT_EQ(fs::path(elsewhere + ".dll"), DotnetPlugins::resolve_assembly(root, "alias", elsewhere));
+  EXPECT_EQ(fs::path(elsewhere + ".dll"), DotnetPlugins::resolve_assembly(root, "alias", elsewhere + ".dll", nothing));
+  EXPECT_EQ(fs::path(elsewhere + ".dll"), DotnetPlugins::resolve_assembly(root, "alias", elsewhere, nothing));
+}
+
+TEST(dotnet_plugins, the_configured_file_wins_when_it_exists) {
+  // The value as configured is tried before ".dll" is appended, so an .exe
+  // assembly or an extensionless file load as they did before.
+  const fs::path root("/opt/nsclient/modules/dotnet");
+  const auto only = [](const fs::path &present) { return [present](const fs::path &p) { return p == present; }; };
+  EXPECT_EQ(root / "Contoso.Inventory.exe", DotnetPlugins::resolve_assembly(root, "inventory", "Contoso.Inventory.exe", only(root / "Contoso.Inventory.exe")));
+  EXPECT_EQ(root / "inventory", DotnetPlugins::resolve_assembly(root, "inventory", "enabled", only(root / "inventory")));
+  EXPECT_EQ(root / "Other.dll", DotnetPlugins::resolve_assembly(root, "alias", "Other", only(root / "Other.dll")));
+  // With both present the configured spelling is the one that loads.
+  const auto both = [root](const fs::path &p) { return p == root / "Other" || p == root / "Other.dll"; };
+  EXPECT_EQ(root / "Other", DotnetPlugins::resolve_assembly(root, "alias", "Other", both));
+}
+
+TEST(dotnet_plugins, disabled_values_are_not_file_names) {
+  EXPECT_TRUE(DotnetPlugins::is_disabled("disabled"));
+  EXPECT_TRUE(DotnetPlugins::is_disabled("Disabled"));
+  EXPECT_TRUE(DotnetPlugins::is_disabled("0"));
+  EXPECT_TRUE(DotnetPlugins::is_disabled("false"));
+  EXPECT_TRUE(DotnetPlugins::is_disabled("off"));
+  EXPECT_FALSE(DotnetPlugins::is_disabled("enabled"));
+  EXPECT_FALSE(DotnetPlugins::is_disabled(""));
+  EXPECT_FALSE(DotnetPlugins::is_disabled("Disabler.dll"));
 }

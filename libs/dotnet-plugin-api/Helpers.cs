@@ -324,15 +324,33 @@ namespace NSCP.Helpers
             this.plugin_id = plugin_id;
         }
 
+        /// <summary>Register a query (check command) this plugin answers through IQueryHandler.</summary>
         public bool registerCommand(string command, string description)
+        {
+            return register(PB.Registry.ItemType.Query, command, description);
+        }
+
+        /// <summary>Register a command-line command this plugin answers through IExecutionHandler.</summary>
+        public bool registerExecCommand(string command, string description)
+        {
+            return register(PB.Registry.ItemType.Command, command, description);
+        }
+
+        /// <summary>Register a channel whose passive results reach this plugin's ISubmissionHandler.</summary>
+        public bool registerChannel(string channel)
+        {
+            return register(PB.Registry.ItemType.Handler, channel, "");
+        }
+
+        private bool register(PB.Registry.ItemType type, string name, string description)
         {
             RegistryRequestMessage newMessage = new RegistryRequestMessage();
             RegistryRequestMessage.Types.Request.Types.Registration newRegistration = new RegistryRequestMessage.Types.Request.Types.Registration();
-            newRegistration.Name = command;
+            newRegistration.Name = name;
             newRegistration.PluginId = plugin_id;
-            newRegistration.Type = PB.Registry.ItemType.Query;
+            newRegistration.Type = type;
             newRegistration.Info = new PB.Registry.Information();
-            newRegistration.Info.Description = description;
+            newRegistration.Info.Description = description ?? "";
             RegistryRequestMessage.Types.Request request = new RegistryRequestMessage.Types.Request();
             request.Registration = newRegistration;
             newMessage.Payload.Add(request);
@@ -340,13 +358,14 @@ namespace NSCP.Helpers
             NSCP.Core.Result response = core.registry(newMessage.ToByteArray());
             if (!response.result)
             {
-                log.error("Failed to register: " + command);
+                log.error("Failed to register " + type + " " + name);
                 return false;
             }
             RegistryResponseMessage response_message = RegistryResponseMessage.Parser.ParseFrom(response.data);
-            if (response_message.Payload[0].Result.Code != PB.Common.Result.Types.StatusCodeType.StatusOk)
+            if (response_message.Payload.Count == 0 || response_message.Payload[0].Result == null ||
+                response_message.Payload[0].Result.Code != PB.Common.Result.Types.StatusCodeType.StatusOk)
             {
-                log.error("Failed to register: " + command);
+                log.error("Failed to register " + type + " " + name);
                 return false;
             }
             return true;

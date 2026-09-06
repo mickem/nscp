@@ -13,5 +13,8 @@
 
 	"commands" : {
 		"fallback" : "true"
-	}
+	},
+	"command line exec" : "true",
+	"channels" : true,
+	"log messages" : true
 }
