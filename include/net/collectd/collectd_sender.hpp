@@ -68,7 +68,12 @@ struct sender_result {
 // Send every datagram to the configured target.
 //
 // The address is resolved, so a target may name a host rather than an IP
-// literal. A multicast target goes out through the interface(s) named by
+// literal; the datagrams go to the first address the resolver returns - the
+// one any other client would use for that name - so a name with both an A and
+// an AAAA record follows the host's own address preference. Name a literal on
+// the target when the collectd daemon listens on one family only.
+//
+// A multicast target goes out through the interface(s) named by
 // `multicast_interfaces`.
 sender_result send_datagrams(const sender_config &config, const std::list<std::string> &datagrams);
 

@@ -24,10 +24,21 @@
 namespace {
 using boost::asio::ip::udp;
 
+// The address a name resolves to first - the endpoint send_datagrams() aims
+// at. "localhost" is ::1 on some hosts and 127.0.0.1 on others, so a test that
+// binds a literal and sends to the name would be asserting on the resolver
+// rather than on the code.
+boost::asio::ip::address first_resolved_address(const std::string &name) {
+  boost::asio::io_context io;
+  udp::resolver resolver(io);
+  return resolver.resolve(name, "25826").begin()->endpoint().address();
+}
+
 // A UDP socket bound to an ephemeral loopback port, and the datagrams it saw.
 class udp_sink {
  public:
-  udp_sink() : socket_(io_, udp::endpoint(boost::asio::ip::make_address("127.0.0.1"), 0)) {}
+  explicit udp_sink(const boost::asio::ip::address &bind_address = boost::asio::ip::make_address("127.0.0.1"))
+      : socket_(io_, udp::endpoint(bind_address, 0)) {}
 
   unsigned short port() const { return socket_.local_endpoint().port(); }
   std::string port_string() const { return std::to_string(port()); }
@@ -74,7 +85,7 @@ TEST(CollectdSender, SendsEveryDatagramToAnIpLiteralTarget) {
 TEST(CollectdSender, ResolvesAHostNameTarget) {
   // The send path used to parse IP literals only, so a target configured with
   // a host name threw on every metrics cycle and nothing was ever sent.
-  udp_sink sink;
+  udp_sink sink(first_resolved_address("localhost"));
 
   const collectd::sender_result result = collectd::send_datagrams(collectd::sender_config("localhost", sink.port_string()), {"payload"});
 
@@ -192,6 +203,12 @@ namespace {
 // collectd's default multicast group; the address a target falls back to when
 // none is configured.
 const char *kDefaultGroup = "239.192.74.66";
+
+// How many reported problems name `needle`.
+std::size_t errors_naming(const collectd::sender_result &result, const std::string &needle) {
+  return static_cast<std::size_t>(
+      std::count_if(result.errors.begin(), result.errors.end(), [&needle](const std::string &e) { return e.find(needle) != std::string::npos; }));
+}
 }  // namespace
 
 TEST(CollectdSenderMulticast, AutoSendsOneCopyThroughTheRoutedInterface) {
@@ -221,10 +238,14 @@ TEST(CollectdSenderMulticast, ReportsAndSkipsUnusableInterfaceEntries) {
   const collectd::sender_result result =
       collectd::send_datagrams(collectd::sender_config(kDefaultGroup, "25826", 0, 0, "not-an-ip, ::1, 127.0.0.1"), {"payload"});
 
-  // The host name and the wrong-family entry are each reported and skipped;
-  // the usable one still carries the datagram.
+  // The name and the wrong-family entry are each reported and skipped; the one
+  // usable entry still gets a socket and one send. Whether that send reaches
+  // the group from a loopback-bound socket depends on the host's routing (it
+  // fails on Windows), so the outcome of the send itself is not asserted -
+  // only that exactly one socket was opened and each bad entry named once.
   EXPECT_EQ(result.attempts, 1u);
-  EXPECT_EQ(result.errors.size(), 2u);
+  EXPECT_EQ(errors_naming(result, "not-an-ip"), 1u);
+  EXPECT_EQ(errors_naming(result, "::1"), 1u);
 }
 
 TEST(CollectdSenderMulticast, SendsNothingWhenNoConfiguredInterfaceIsUsable) {
