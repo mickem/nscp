@@ -8,4 +8,4 @@ action: none
 where a local user could plant a file of the same name and have it imported
 as a command. No configuration change; a staging failure is now reported as
 an HTTP 500 instead of importing whatever was on disk. See the
-[security notice](../security/notices.md#client-credentials-stay-with-their-target-private-script-upload-staging-and-a-junction-proof-shared-folder).
+[security notice](../security/notices.md#rest-script-uploads-were-staged-at-a-predictable-path).

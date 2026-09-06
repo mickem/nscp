@@ -125,7 +125,7 @@ GET /api/v2/queries/check_cpu/commands/execute?time=5m&time=30m&time=90m
     credential with the request, select another configured target with
     `target=`, or set `allow host override = true` on the target to permit
     the override explicitly. See
-    [Security notices](../../security/notices.md#client-credentials-stay-with-their-target-private-script-upload-staging-and-a-junction-proof-shared-folder).
+    [Security notices](../../security/notices.md#client-credentials-could-be-sent-to-a-caller-chosen-host).
 
 ### Response
 

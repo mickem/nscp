@@ -15,4 +15,4 @@ unaffected. If you relied on one credentialed target plus `host=` to reach
 several servers: pass the credential with the request, configure each server as
 its own target and select it with `target=` (which now works for queries too),
 or set `allow host override = true` on the target. See the
-[security notice](../security/notices.md#client-credentials-stay-with-their-target-private-script-upload-staging-and-a-junction-proof-shared-folder).
+[security notice](../security/notices.md#client-credentials-could-be-sent-to-a-caller-chosen-host).
