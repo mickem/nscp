@@ -4,7 +4,7 @@ Loads and processes internal Lua scripts
 
 ## Enable module
 
-To enable this module and and allow using the commands you need to ass `LUAScript = enabled` to the `[/modules]` section in nsclient.ini:
+To enable this module and allow using the commands you need to add `LUAScript = enabled` to the `[/modules]` section in nsclient.ini:
 
 ```
 [/modules]

@@ -403,7 +403,6 @@ std::vector<fs::path> default_roots(const std::string &override_root) {
   push_unique(roots, root_from_path_launcher());
 #else
   push_unique(roots, root_from_install_location());
-  push_unique(roots, root_from_path_launcher());
   push_unique(roots, "/usr/lib/dotnet");
   push_unique(roots, "/usr/share/dotnet");
   push_unique(roots, "/usr/lib64/dotnet");
@@ -412,6 +411,8 @@ std::vector<fs::path> default_roots(const std::string &override_root) {
   push_unique(roots, "/opt/homebrew/opt/dotnet/libexec");
   const std::string home = getenv_utf8("HOME");
   if (!home.empty()) push_unique(roots, to_path(home) / ".dotnet");
+  // Last, as on Windows: the launcher on PATH may belong to another install.
+  push_unique(roots, root_from_path_launcher());
 #endif
   return roots;
 }

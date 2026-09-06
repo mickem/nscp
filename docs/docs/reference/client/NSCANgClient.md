@@ -4,7 +4,7 @@ NSCA-NG client can be used both from command line and from queries to submit pas
 
 ## Enable module
 
-To enable this module and and allow using the commands you need to ass `NSCANgClient = enabled` to the `[/modules]` section in nsclient.ini:
+To enable this module and allow using the commands you need to add `NSCANgClient = enabled` to the `[/modules]` section in nsclient.ini:
 
 ```
 [/modules]

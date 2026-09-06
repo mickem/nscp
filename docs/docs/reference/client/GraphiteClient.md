@@ -4,7 +4,7 @@ Graphite client can be used to submit graph data to a graphite graphing system
 
 ## Enable module
 
-To enable this module and and allow using the commands you need to ass `GraphiteClient = enabled` to the `[/modules]` section in nsclient.ini:
+To enable this module and allow using the commands you need to add `GraphiteClient = enabled` to the `[/modules]` section in nsclient.ini:
 
 ```
 [/modules]
