@@ -32,8 +32,10 @@ struct connection_data : public socket_helpers::connection_info {
     // get_int_data("timeout") could not see a configured value and the fallback
     // always won. "retries" is not one of those keys and does land in the map.
     // The settings layer notifies the documented defaults (30 / 3) for targets
-    // that set neither.
-    if (arguments.timeout > 0) timeout = arguments.timeout;
+    // that set neither. A configured 0 means "no time limit" to the sender, so
+    // it has to survive: only a negative value - impossible from settings, but
+    // reachable from a hand-written --timeout - keeps the inherited default.
+    if (arguments.timeout >= 0) timeout = static_cast<unsigned int>(arguments.timeout);
     retry = arguments.get_int_data("retries", arguments.retry);
     multicast_interfaces = arguments.get_string_data("multicast interface", "auto");
     sender_hostname = sender.address.host;

@@ -365,7 +365,8 @@ describe("CollectD hostname target", () => {
         hostname: HOSTNAME,
       },
       "/settings/collectd/client/targets/default": {
-        // The receiver binds 127.0.0.1, which "localhost" resolves to.
+        // The receiver binds whatever "localhost" resolves to on this host,
+        // which may be ::1 - see resolveLocalhost above.
         address: `localhost:${port}`,
       },
     });
