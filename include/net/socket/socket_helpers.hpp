@@ -264,6 +264,27 @@ struct connection_info {
     return ss.str();
   }
 };
+
+// True when a CLIENT `verify mode` string leaves TLS peer verification off -
+// the mode parses, but no token in it enables certificate-chain verification,
+// so the connection accepts whatever certificate the peer presents. Client
+// modules use this to warn before sending credentials to an unverified peer.
+//
+// Only for the `verify mode` that verify_mode_parser() consumes (the outbound
+// http/client path), which this mirrors token for token: `peer`, `certificate`
+// and `peer-cert` turn verification on, an empty string resolves to
+// verify_none, and a string the parser would REJECT is not "disabled" - it
+// throws, so no connection is made at all and the attempt reports the
+// configuration error itself. NOT for connection_info::ssl_opts::verify_mode:
+// that one has its own parser (ssl_opts::get_verify_mode) with a wider
+// vocabulary - `client-once`, `workarounds` and `single` are accepted there and
+// rejected here, so this would answer for a mode it never saw. The mirroring is
+// pinned by a test against verify_mode_parser (socket_helpers_test.cpp).
+//
+// Lives outside USE_SSL because it is pure string logic and its callers are
+// built with or without OpenSSL.
+bool client_verify_mode_disables_verification(const std::string& verify_mode);
+
 #ifdef USE_SSL
 // Parse a `tls version` setting into the context method to construct.
 // An exact version ("1.2", "tlsv1.3") maps to the version-pinned method, which

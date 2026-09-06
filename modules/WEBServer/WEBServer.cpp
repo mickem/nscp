@@ -172,7 +172,12 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
                nscapi::settings_helper::int_fun_key([this](auto value) { this->session->set_auth_rate_limit_block_seconds(value); },
                                                     auth_rate_limiter::kDefaultBlockSeconds),
                "AUTH RATE LIMIT (BLOCK SECONDS)",
-               "How long an IP stays blocked after hitting `auth rate limit max failures` consecutive failures. Default 60 s.")
+               "How long an IP stays blocked when it hits `auth rate limit max failures` consecutive failures. Default 60 s. A further block doubles the "
+               "wait - up to an hour - only when that IP burned its whole failure budget at machine speed (faster than one attempt every two seconds on "
+               "average); a slower run, such as a monitoring client retrying a stale password, keeps the base delay however long it goes on, so one broken "
+               "client cannot lock everyone sharing its address (behind NAT or a proxy) out for hours. The escalation resets on a successful "
+               "authentication, or after an hour of quiet. A value of an hour or more is already longer than any escalated block and is used as configured, "
+               "without doubling.")
       .add_string("legacy query auth user agents",
                   nscapi::settings_helper::string_fun_key([this](auto value) { this->session->set_legacy_query_auth_user_agents(value); },
                                                           session_manager_interface::kDefaultLegacyQueryAuthUserAgents),

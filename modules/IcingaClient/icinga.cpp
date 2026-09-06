@@ -11,7 +11,6 @@
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
-#include <str/utils.hpp>
 
 namespace json = boost::json;
 
@@ -190,27 +189,23 @@ submit_result parse_check_result_response(const std::string &body) {
   return r;
 }
 
-bool is_verification_disabled(const std::string &verify_mode) {
-  // Token-for-token mirror of socket_helpers::verify_mode_parser, down to the
-  // splitter it uses (neither trims whitespace, and the split of "" yields no
-  // tokens at all, so an unset verify mode parses to verify_none).
-  //
-  // Only these three tokens set boost::asio::ssl::verify_peer, and without it
-  // the remaining flags do nothing — the handshake accepts whatever
-  // certificate the peer presents. Anything the parser does NOT accept makes
-  // it throw instead of building a mode, so no connection is established at
-  // all: that is a configuration error the connection attempt reports on its
-  // own, not an unverified submission, and claiming "verification disabled"
-  // for it would be misleading.
-  bool verifies_peer = false;
-  for (const std::string &key : str::utils::split_lst(verify_mode, std::string(","))) {
-    if (key == "peer" || key == "certificate" || key == "peer-cert") {
-      verifies_peer = true;
-    } else if (key != "none" && key != "fail-if-no-cert" && key != "fail-if-no-peer-cert" && key != "client-certificate") {
-      return false;
-    }
-  }
-  return !verifies_peer;
+std::string normalize_base_path(const std::string &base_path) {
+  // Trim first: the value comes from the configured address, where a stray
+  // space around the path is a typo rather than a path segment.
+  const auto begin = base_path.find_first_not_of(" \t");
+  if (begin == std::string::npos) return std::string();
+  const auto end = base_path.find_last_not_of(" \t");
+  std::string path = base_path.substr(begin, end - begin + 1);
+
+  while (!path.empty() && path.back() == '/') path.pop_back();
+  // Collapse the leading run of slashes to exactly one: "//icinga" (an address
+  // written with a doubled slash) would otherwise survive into the request
+  // path, where a leading "//" reads as an authority rather than a path.
+  std::size_t first = path.find_first_not_of('/');
+  if (first == std::string::npos) return std::string();
+  path.erase(0, first);
+  path.insert(path.begin(), '/');
+  return path;
 }
 
 std::string url_encode(const std::string &value) {

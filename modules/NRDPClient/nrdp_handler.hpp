@@ -38,8 +38,9 @@ struct nrdp_target_object : nscapi::targets::target_object {
                     "target defaults to 1.2+.")
         .add_string("verify mode", sh::string_fun_key([this](const auto& value) { this->set_property_string("verify mode", value); }, "peer"),
                     "TLS peer verify mode",
-                    "Comma separated list of options: none, peer, peer-cert, client-once, fail-if-no-cert, workarounds, single. "
-                    "In general use peer-cert or none for self signed certificates.")
+                    "Comma separated list of options: none, peer (or certificate), peer-cert, fail-if-no-cert (or fail-if-no-peer-cert, "
+                    "client-certificate). Any other value is rejected and the connection fails. For a self signed certificate use peer-cert and point `ca` "
+                    "at that certificate; none disables verification entirely and sends the NRDP token to an unverified peer.")
         .add_string("ca", sh::path_fun_key([this](const auto& value) { this->set_property_string("ca", value); }, "${ca-path}"), "Certificate Authority",
                     "Certificate authority to use when verifying certificates. Defaults to ${ca-path} (the auto-generated system ROOT bundle on Windows, "
                     "the distribution CA store on Linux).")
@@ -77,7 +78,7 @@ struct options_reader_impl : client::options_reader_interface {
     ("tls version", po::value<std::string>()->notifier([&data] (const auto& value) { data.set_string_data("tls version", value); }),
       "Legacy alias for --tls-version (kept for backwards compatibility).")
     ("verify", po::value<std::string>()->notifier([&data] (const auto& value) { data.set_string_data("verify mode", value); }),
-      "Coma separated list of option none, peer, peer-cert, client-once, fail-if-no-cert, workarounds, single. In general use peer-cert or none for self signed certificates.")
+      "Comma separated list of options: none, peer (or certificate), peer-cert, fail-if-no-cert (or fail-if-no-peer-cert, client-certificate). For a self signed certificate use peer-cert and point --ca at that certificate; none disables verification entirely and sends the NRDP token to an unverified peer.")
     ("verify-mode", po::value<std::string>()->notifier([&data] (const auto& value) { data.set_string_data("verify mode", value); }),
       "Alias for --verify.")
     ("verify mode", po::value<std::string>()->notifier([&data] (const auto& value) { data.set_string_data("verify mode", value); }),
