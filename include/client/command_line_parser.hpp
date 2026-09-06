@@ -5,10 +5,12 @@
 
 #include <boost/program_options.hpp>
 #include <boost/unordered_map.hpp>
+#include <cctype>
 #include <net/net.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_targets.hpp>
 #include <nscapi/protobuf/metrics.hpp>
+#include <set>
 #include <utility>
 
 namespace client {
@@ -35,39 +37,55 @@ struct destination_container {
   data_map data;
 
   // Where the container was loaded from, when it came from a configured
-  // target object rather than being built up purely from a command line:
-  // the target's alias, whether any of its options is a credential, and
-  // whether it opted in to `allow host override`.
+  // target object rather than being built up purely from a command line: the
+  // target's alias, the destination that target named, which of its
+  // credentials are still the ones the target configured, and whether it
+  // opted in to `allow host override`.
   //
-  // A configured target is an address *and* the credentials for that
-  // address, as one unit. The command line can still name a different
-  // --host/--port/--address, but a target that carries a password or token
-  // refuses that unless it explicitly allows it: otherwise anyone able to run
-  // the module's submit_*/check_* commands (a REST user with queries.execute,
-  // an NRPE peer with `allow arguments`) could point the configured secret at
-  // a host of their choosing. See configuration::check_host_override().
+  // A configured target is an address *and* the credentials for that address,
+  // as one unit. A request can still name a different --host/--port/--address,
+  // but not while carrying credentials it did not supply itself: otherwise
+  // anyone able to run the module's submit_*/check_* commands (a REST user
+  // with queries.execute, an NRPE peer with `allow arguments`) could point the
+  // configured secret at a host of their choosing. A request that supplies its
+  // own password/token is free to send it wherever it likes - there is no
+  // longer a configured secret in play. See
+  // configuration::check_host_override().
   std::string configured_target;
-  bool configured_credentials;
+  std::string configured_address;
+  std::set<std::string> inherited_credentials;
   bool allow_host_override;
 
-  destination_container() : timeout(10), retry(2), configured_credentials(false), allow_host_override(false) {}
+  destination_container() : timeout(10), retry(2), allow_host_override(false) {}
 
   void apply(const nscapi::settings_objects::object_instance &obj) {
     // Targets layer: --target applies its object on top of the default one
-    // without clearing what is already here, so a credential loaded earlier
-    // is still in `data` and still counts. The name kept is the target that
-    // contributed the credentials, which is the one the refusal should cite.
+    // without clearing what is already here, so a credential loaded earlier is
+    // still in `data` and still counts. The name kept is the target that
+    // contributed the credentials, which is the one a refusal should cite.
     if (configured_target.empty()) configured_target = obj->get_alias();
     for (const auto &k : obj->get_options()) {
       if (k.first == "allow host override") {
-        allow_host_override = to_bool(k.second);
-      } else if (is_sensitive_key(k.first) && !k.second.empty()) {
-        configured_credentials = true;
-        configured_target = obj->get_alias();
+        allow_host_override = to_permissive_bool(k.second);
+        continue;
       }
       set_string_data(k.first, k.second);
+      // After set_string_data(), which drops the key from the inherited set:
+      // this value came from settings, so it goes (back) in.
+      if (is_sensitive_key(k.first) && !k.second.empty()) {
+        inherited_credentials.insert(k.first);
+        configured_target = obj->get_alias();
+      }
     }
+    // The destination this target named. Compared against the address the
+    // request ends up with, which is how an override is detected whichever
+    // way it arrived - a command-line option or a header host entry.
+    configured_address = address.to_string();
   }
+
+  // Whether any credential still in this container is one a configured target
+  // supplied, rather than one the request brought with it.
+  bool has_inherited_credentials() const { return !inherited_credentials.empty(); }
 
   void apply(const std::string &key, const PB::Common::Header &header) {
     for (const PB::Common::Host &host : header.hosts()) {
@@ -97,6 +115,21 @@ struct destination_container {
     if (value == "true" || value == "1" || value == "True") return true;
     return false;
   }
+
+  // to_bool() for a value that decides whether a protection is on. The
+  // settings layer normalises a registered bool key to "true"/"false" before
+  // it reaches the option map, but a value that arrives another way (a
+  // template, or a caller writing the property directly) is raw - and there
+  // "yes" silently reading as false would turn the guard *on* where the
+  // operator asked for it off, which is confusing rather than dangerous but
+  // still wrong. Accepts what settings_value::to_bool accepts.
+  static bool to_permissive_bool(const std::string &value, const bool def = false) {
+    if (value.empty()) return def;
+    std::string v;
+    v.reserve(value.size());
+    for (const char c : value) v.push_back(static_cast<char>(::tolower(static_cast<unsigned char>(c))));
+    return v == "true" || v == "1" || v == "yes" || v == "y" || v == "on" || v == "enabled";
+  }
   static int to_int(const std::string &value, const int def = 0) {
     if (value.empty()) return def;
     try {
@@ -116,6 +149,11 @@ struct destination_container {
   bool has_data(const std::string &key) { return data.find(key) != data.end(); }
 
   void set_string_data(const std::string &key, const std::string &value) {
+    // Whatever the source, this value is no longer the configured target's.
+    // apply() re-marks the keys it sets straight afterwards, so only a value
+    // that came from the request (an option, or a header host entry) clears
+    // the mark for good.
+    inherited_credentials.erase(key);
     if (key == "host")
       set_host(value);
     else if (key == "address")

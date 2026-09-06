@@ -79,37 +79,26 @@ struct close_handle {
 };
 typedef std::unique_ptr<void, close_handle> unique_handle;
 
-// Open the directory itself - not whatever a junction or symbolic link at
-// that name points to - for the given access, and make sure it really is a
-// plain directory before handing it back.
+// Open the entry itself - never whatever a junction or symbolic link at that
+// name points to.
 //
 // FILE_FLAG_OPEN_REPARSE_POINT is what makes the open land on the entry rather
-// than on its target; FILE_FLAG_BACKUP_SEMANTICS is required to open a
-// directory at all, and together with SeBackupPrivilege / SeRestorePrivilege
-// (enabled by the caller when it needs them) lets us open one whose DACL
-// would otherwise refuse us. The attribute check then closes the door the
-// path-based APIs left open: a reparse point at the name is an error, never
-// something to secure "through".
-unique_handle open_plain_directory(const std::wstring &wide, const DWORD access, std::list<std::string> &errors) {
+// than on its target, so the object that gets secured (or read back) is always
+// the one that was named: a link swapped in after a caller's check can at
+// worst have us act on the link itself, never on something we did not name.
+// FILE_FLAG_BACKUP_SEMANTICS is required to open a directory at all, and with
+// SeRestorePrivilege (enabled by protect_directory) it opens one whose DACL
+// would otherwise shut us out.
+//
+// Deliberately no GetFileInformationByHandle() to classify what was opened:
+// that would want read access on a handle protect_directory() opens for
+// writing only, and the callers establish what the entry is beforehand with
+// is_reparse_point(), which needs no access to the object at all.
+unique_handle open_no_follow(const std::wstring &wide, const DWORD access, std::list<std::string> &errors) {
   unique_handle handle(::CreateFileW(wide.c_str(), access, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
                                      FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
   if (handle.get() == INVALID_HANDLE_VALUE) {
-    errors.emplace_back(last_error("CreateFile(directory)"));
-    return unique_handle();
-  }
-  BY_HANDLE_FILE_INFORMATION info = {};
-  if (!::GetFileInformationByHandle(handle.get(), &info)) {
-    errors.emplace_back(last_error("GetFileInformationByHandle"));
-    return unique_handle();
-  }
-  if ((info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0) {
-    errors.emplace_back(
-        "the directory entry is a junction or symbolic link, not a directory: securing it would secure its target while the link itself stays "
-        "with whoever created it");
-    return unique_handle();
-  }
-  if ((info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0) {
-    errors.emplace_back("the path is not a directory");
+    errors.emplace_back(last_error("CreateFile"));
     return unique_handle();
   }
   return handle;
@@ -184,7 +173,24 @@ bool protect_directory(const std::string &path, std::list<std::string> &errors) 
   // checked, with no window for the entry to be swapped for a junction in
   // between (see the header). SeRestorePrivilege with backup semantics is
   // what makes the open succeed against a DACL that denies us.
-  const unique_handle handle = open_plain_directory(wide, READ_CONTROL | WRITE_DAC | WRITE_OWNER, errors);
+  //
+  // WRITE_DAC | WRITE_OWNER and nothing more: those are what the two
+  // SetSecurityInfo calls below need, and they are the two SeRestorePrivilege
+  // covers. Asking for READ_CONTROL as well would need SeBackupPrivilege,
+  // which we do not enable - so against a folder someone else owns with a
+  // DACL that shuts us out, the very case this function exists for, the open
+  // would fail and we would repair nothing.
+  // A junction or symbolic link where the folder should be is refused, not
+  // secured: %ProgramData% lets any local account create one under our name
+  // before we first run, and securing it would apply the owner and DACL to
+  // wherever it points while the link itself stays that account's to remove
+  // and replace. Checked from attributes, which need no access to the object.
+  if (is_reparse_point(path, errors)) {
+    errors.emplace_back("refusing to secure " + path + ": it is a junction or symbolic link, not a real directory");
+    return false;
+  }
+
+  const unique_handle handle = open_no_follow(wide, WRITE_DAC | WRITE_OWNER, errors);
   if (!handle) return false;
 
   const DWORD owner_result = ::SetSecurityInfo(handle.get(), SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION, admin_sid, nullptr, nullptr, nullptr);
@@ -221,12 +227,15 @@ protection inspect_protection(const std::string &path, std::list<std::string> &e
   {
     std::list<std::string> attribute_errors;
     if (is_reparse_point(path, attribute_errors)) {
-      errors.emplace_back("the directory entry is a junction or symbolic link, not a directory");
+      errors.emplace_back("the entry is a junction or symbolic link rather than a real directory or file");
       return protection::open;
     }
   }
 
-  const unique_handle handle = open_plain_directory(wide, READ_CONTROL, errors);
+  // Files are a fair question too - the layout migration checks the entries it
+  // moved (nsclient.ini, the fleet private key) - so nothing here insists on a
+  // directory.
+  const unique_handle handle = open_no_follow(wide, READ_CONTROL, errors);
   if (!handle) {
     // Not "open": we learned nothing. Opening for READ_CONTROL needs exactly
     // that right, which a folder restricted to SYSTEM and Administrators

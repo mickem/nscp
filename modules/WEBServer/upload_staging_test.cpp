@@ -65,7 +65,11 @@ TEST(upload_staging, the_name_is_not_predictable) {
 TEST(upload_staging, binary_content_survives_intact) {
   scratch_dir dir;
   std::string error;
-  std::string content("\x00\x01\r\n\xff\xfe binary \x00", 17);
+  // sizeof - 1 rather than a counted length: the count has to include the
+  // embedded NULs and exclude only the terminator, and getting it wrong by
+  // hand reads past the literal (which is what ASan caught the first time).
+  static const char raw[] = "\x00\x01\r\n\xff\xfe binary \x00";
+  const std::string content(raw, sizeof(raw) - 1);
 
   const fs::path staged = upload_staging::stage(dir.path, content, error);
 

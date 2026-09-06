@@ -2,7 +2,7 @@
 title: "Client credentials stay with their target, private script-upload staging, and a junction-proof shared folder"
 fixed_in: next
 severity: "Medium (High where the REST `monitoring` or `client` role is handed to people who must not hold the outbound credentials, or where untrusted local accounts exist on a Windows agent)"
-modules: [NRDPClient, IcingaClient, SMTPClient, NSCAClient, NSCANgClient, NRPEClient, NSCPClient, GraphiteClient, SyslogClient, CheckMKClient, WEBServer, packaging, core]
+modules: [NRDPClient, IcingaClient, SMTPClient, NSCAClient, NSCANgClient, NSCPClient, WEBServer, packaging, core]
 action: conditional
 ---
 A whole-codebase security review produced three items. None is exploitable
@@ -11,16 +11,15 @@ principal one tier down act as the tier above it.
 
 #### Configured client credentials could be redirected to a caller-chosen host
 
-Every outbound client module (`NRDPClient`, `IcingaClient`, `SMTPClient`,
-`NSCAClient`, `NSCANgClient`, `NRPEClient`, `NSCPClient`, `GraphiteClient`,
-`SyslogClient`, `CheckMKClient`) registers its `submit_*` / `check_*`
-commands as ordinary queries, and all of them share one argument parser.
-For a request that names no target, the parser loads the module's `default`
-target — the one under `[/settings/<module>/client/targets/default]`,
-including its `token`, `password` or `username` — and then applies the
-request's arguments on top. `host=`, `port=` and `address=` are among those
-arguments and rewrite the destination while the credentials loaded from
-settings stay in place.
+Every outbound client module registers its `submit_*` / `check_*` commands as
+ordinary queries, and all of them share one argument parser. For a request
+that names no target, the parser loads the module's `default` target — the one
+under `[/settings/<module>/client/targets/default]`, including its `token` or
+`password` — and then applies the request's arguments on top. `host=`, `port=`
+and `address=` are among those arguments and rewrite the destination while the
+credentials loaded from settings stay in place. The modules whose targets
+carry a credential, and so the ones affected, are `NSCAClient`,
+`NSCANgClient`, `NRDPClient`, `IcingaClient`, `SMTPClient` and `NSCPClient`.
 
 So on an agent where an operator had configured, say, an NRDP target with a
 `token`, any principal allowed to run queries could do
@@ -41,15 +40,30 @@ this redirection; the deliberate `host`/`port`/`address` options were left in
 place.
 
 A configured target is now treated as an address **and** the credentials for
-that address, as one unit. A target that carries a `password` or `token`
-refuses `host=`, `port=` and `address=` from the request with an error naming
-the target — the submission is not sent without the credentials, since that
-would look like a server-side problem rather than a policy decision. Targets
-without credentials are unaffected (the many-agents `check_nrpe host=…` use
-with a client certificate keeps working: a certificate is a path, not a
-transmitted secret). To reach a second server with its own credentials,
-configure it as its own target and select it with `target=`. A target can opt
-back in to the old behaviour with `allow host override = true`.
+that address, as one unit. When a request moves the destination away from the
+address its target configured *and* the credential that would go with it is
+the one the target configured, the call is refused with an error naming the
+target — the submission is not sent without the credentials, since that would
+look like a server-side problem rather than a policy decision.
+
+Nothing else changes, because nothing else puts a configured secret on the
+wire to a caller-chosen host:
+
+- A target with no credentials is unaffected, so the many-agents
+  `check_nrpe host=…` use with a client certificate keeps working — a
+  certificate is a path, not a transmitted secret.
+- A request that supplies its own `password=` / `token=` is sending a
+  credential it already had, and may name any destination for it. This is how
+  the agent's own NSCA test suite submits.
+- A request naming the address the target already had has moved nothing.
+- The destination is compared however it was set, so a header host entry is
+  covered as well as a command-line option.
+
+To reach a second server with its own credentials, configure it as its own
+target and select it with `target=` — which, as part of this change, is
+honoured on the query path too; it had only ever been applied to `exec`, so
+for a REST or NRPE caller it silently did nothing. A target can opt back in to
+the old behaviour with `allow host override = true`.
 
 #### REST script uploads were staged through a predictable file in the shared temp directory
 
@@ -92,10 +106,10 @@ real folder with a crafted `nsclient.ini` (enabling, for example,
 folder "open", re-protected it and loaded that configuration as SYSTEM. The
 boot-time check was deliberately non-fatal.
 
-The ACL helpers now open the directory entry itself (`FILE_FLAG_OPEN_REPARSE_POINT`),
-refuse anything that is a reparse point or not a plain directory, and apply
-ownership and DACL through that handle, so the object secured is provably
-the object named. The installer's `ExecPrepareLayout` and the migration
+The ACL helpers now refuse a reparse point outright and open the entry itself
+(`FILE_FLAG_OPEN_REPARSE_POINT`) to apply ownership and DACL through that
+handle, so the object secured is always the object named rather than whatever
+a link points at. The installer's `ExecPrepareLayout` and the migration
 command therefore fail on a planted junction instead of adopting it. At
 service start on the modern layout, a shared folder that is a junction or
 symbolic link is a fatal error: the configuration is never read from behind a
@@ -104,12 +118,12 @@ link. Legacy (default) installs are unaffected.
 **What to do:**
 
 - **Client targets:** nothing for the common case. If you run `nscp client`,
-  REST queries or NRPE checks that pass `host=`/`port=`/`address=` against a
-  target that carries a password or token, they now fail with a clear error.
-  Either configure the other host as its own target and select it with
-  `target=`, or set `allow host override = true` on the target — knowing that
-  every principal allowed to run that module's commands can then send its
-  credentials to any host they name.
+  REST queries or NRPE checks that move the destination of a target whose
+  password or token they do not also supply, they now fail with a clear error.
+  Either pass the credential with the request, configure the other host as its
+  own target and select it with `target=`, or set `allow host override = true`
+  on the target — knowing that every principal allowed to run that module's
+  commands can then send its credentials to any host they name.
 - **Script uploads:** nothing; the endpoint's contract is unchanged.
 - **Modern layout:** a shared folder that is a junction will refuse to
   install, migrate or boot. Relocate the folder with a `[paths]` override in
