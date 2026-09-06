@@ -53,15 +53,11 @@ static const std::size_t string_part_overhead = 5;
 // Bytes a values part costs beyond its values: type(2) + length(2) + count(2).
 static const std::size_t values_part_overhead = 6;
 
+// A number part (time / interval) is a fixed type(2) + length(2) + uint64(8).
+static const std::size_t number_part_size = 12;
+
 // Bytes one value costs inside a values part: its type code plus the value.
 static const std::size_t bytes_per_value = 9;
-
-// Headroom left free before a packet is considered full: enough for one more
-// value-list at its worst case - five identifier parts at the clamped maximum,
-// the time and interval parts, a values header and a handful of values - so a
-// metric that lands on the boundary is flushed into the next packet instead of
-// having its parts clamped by append_string()/append_values().
-static const std::size_t value_list_headroom = 5 * (max_string_length + string_part_overhead) + 2 * 12 + values_part_overhead + 8 * bytes_per_value;
 
 class collectd_exception : public std::exception {
   std::string msg_;
@@ -80,7 +76,7 @@ class packet {
  public:
   packet() {}
   packet(const packet &other) : buffer(other.buffer), clamped_values_(other.clamped_values_) {}
-  packet operator=(const packet &other) {
+  packet &operator=(const packet &other) {
     buffer = other.buffer;
     clamped_values_ = other.clamped_values_;
     return *this;
@@ -102,14 +98,10 @@ class packet {
   void add_time_hr(unsigned long long time) { append_int(part_time_hr, time); }
   void add_interval_hr(unsigned long long time) { append_int(part_interval_hr, time); }
 
-  // A packet is "full" once adding another value-list could overflow the
-  // network buffer, so render() flushes it and starts a new one. This is the
-  // soft limit that keeps whole value-lists intact; the hard guarantee that a
-  // datagram never exceeds max_packet_size lives in append_string() and
-  // append_values(), which clamp against what is actually left.
-  bool is_full() const { return buffer.size() > max_packet_size - value_list_headroom; }
-
-  // Bytes still available in this datagram.
+  // Bytes still available in this datagram. render() sizes each value-list
+  // against this before appending it, so the clamps in append_string() and
+  // append_values() only ever bite on a value-list too large for a datagram of
+  // its own.
   std::size_t remaining() const { return buffer.size() >= max_packet_size ? 0 : max_packet_size - buffer.size(); }
 
   // Values dropped because they did not fit the datagram. Non-zero means the
@@ -148,7 +140,7 @@ class packet {
   // A number part: type(2) + length(2, always 12) + uint64(8).
   void append_int(int16_t type, unsigned long long int_data) {
     append_be<int16_t>(buffer, type);
-    append_be<int16_t>(buffer, static_cast<int16_t>(12));
+    append_be<int16_t>(buffer, static_cast<int16_t>(number_part_size));
     append_be<uint64_t>(buffer, static_cast<uint64_t>(int_data));
   }
   // A values part: type(2) + length(2) + count(2) + count value-type bytes +
@@ -365,7 +357,50 @@ struct collectd_builder {
     std::string last_plugin_instance = "";
     std::string last_type = "";
     std::string last_type_instance = "";
+
+    const auto string_part_size = [](const std::string &value) {
+      return collectd::string_part_overhead + (std::min)(value.size(), collectd::max_string_length);
+    };
+    // Bytes this metric will add to the current packet, given the identifier
+    // context that packet already carries (`fresh` sizes it against an empty
+    // one, where every part has to be repeated). It mirrors the appends below
+    // exactly, so the flush decision is made on the real cost rather than a
+    // fixed headroom guess.
+    const auto metric_size = [&](const metric_container &m, const bool fresh) {
+      const std::string plugin = fresh ? "" : last_plugin;
+      const std::string plugin_instance = fresh ? "" : last_plugin_instance;
+      const std::string type = fresh ? "" : last_type;
+      const std::string type_instance = fresh ? "" : last_type_instance;
+
+      std::size_t size = 0;
+      if (fresh) size += string_part_size(host) + 2 * collectd::number_part_size;
+      if (m.plugin_name != plugin) size += string_part_size(m.plugin_name);
+      if (m.plugin_instance) {
+        if (plugin_instance != m.plugin_instance.get()) size += string_part_size(m.plugin_instance.get());
+      } else if (!plugin_instance.empty()) {
+        size += string_part_size("");
+      }
+      if (m.type_name != type) size += string_part_size(m.type_name);
+      if (m.type_instance) {
+        if (type_instance != m.type_instance.get()) size += string_part_size(m.type_instance.get());
+      } else if (!type_instance.empty()) {
+        size += string_part_size("");
+      }
+      if (!m.gauges.empty()) size += collectd::values_part_overhead + collectd::bytes_per_value * m.gauges.size();
+      if (!m.derives.empty()) size += collectd::values_part_overhead + collectd::bytes_per_value * m.derives.size();
+      return size;
+    };
+
     for (const metric_container &m : rendererd_metrics) {
+      // Flush before appending rather than after: a value-list that fits a
+      // datagram of its own must never be clamped into a partly filled one.
+      // Sizing the metric first also packs each datagram to the real limit
+      // instead of stopping at a worst-case headroom.
+      if (!is_new && packet.remaining() < metric_size(m, false)) {
+        packets.push_back(packet);
+        packet = collectd::packet();
+        is_new = true;
+      }
       if (is_new) {
         last_plugin = "";
         last_plugin_instance = "";
@@ -405,11 +440,6 @@ struct collectd_builder {
       }
       if (!m.derives.empty()) {
         packet.add_derive_value(m.derives);
-      }
-      if (packet.is_full()) {
-        packets.push_back(packet);
-        packet = collectd::packet();
-        is_new = true;
       }
     }
     // Only emit the trailing packet if it actually holds data. When nothing

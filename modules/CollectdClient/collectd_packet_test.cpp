@@ -380,6 +380,38 @@ TEST(CollectdBuilder, UnmatchedVariableProducesNoMetrics) {
 // which stays within the collectd network buffer size.
 // ============================================================================
 
+TEST(CollectdBuilder, DoesNotClampAValueListThatFitsADatagramOfItsOwn) {
+  collectd::collectd_builder b;
+  b.set_time(1ULL << 30, 1ULL << 30);
+  b.set_host("a-reasonably-long-hostname-for-padding");
+  // Partly fill the first packet with small metrics...
+  for (int i = 0; i < 40; ++i) {
+    b.set_metric("small_" + std::to_string(i), "1");
+    b.add_metric("plugin" + std::to_string(i) + "-/gauge-value", "gauge:small_" + std::to_string(i));
+  }
+  // ...then a value list that fits a datagram of its own (120 * 9 + 6 bytes)
+  // but not what is left of a partly filled one. It has to be flushed into a
+  // fresh packet, not truncated to what happens to remain.
+  std::string values = "gauge:1";
+  for (int i = 1; i < 120; ++i) values += ",1";
+  b.add_metric("bigplugin-/gauge-value", values);
+
+  collectd::collectd_builder::packet_list packets;
+  b.render(packets);
+
+  std::size_t clamped = 0;
+  std::size_t big_values = 0;
+  for (const auto &pk : packets) {
+    EXPECT_LE(pk.get_size(), collectd::max_packet_size);
+    clamped += pk.clamped_values();
+    for (const auto &vl : decode_packet(pk.get_buffer())) {
+      if (vl.plugin == "bigplugin") big_values = vl.gauges.size();
+    }
+  }
+  EXPECT_EQ(clamped, 0u) << "a value list that fits a datagram was clamped into a partly filled one";
+  EXPECT_EQ(big_values, 120u);
+}
+
 TEST(CollectdBuilder, FragmentsLargeMetricSetWithinMtu) {
   collectd::collectd_builder b;
   b.set_time(1ULL << 30, 1ULL << 30);
