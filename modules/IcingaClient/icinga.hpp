@@ -53,13 +53,4 @@ std::string url_encode(const std::string &value);
 /// starts with "/" and does not end with one.
 std::string normalize_base_path(const std::string &base_path);
 
-/// True when a `verify mode` string leaves TLS peer verification off — the
-/// mode parses, but no token in it enables certificate-chain verification, so
-/// the connection accepts any certificate.  Mirrors
-/// socket_helpers::verify_mode_parser: only `peer`, `certificate` and
-/// `peer-cert` turn verification on, and an empty string resolves to
-/// verify_none.  A string the parser would reject is not "disabled" — it
-/// throws, so no connection is made.
-bool is_verification_disabled(const std::string &verify_mode);
-
 }  // namespace icinga

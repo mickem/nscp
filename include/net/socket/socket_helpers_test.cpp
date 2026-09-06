@@ -510,6 +510,46 @@ TEST(ExpandHostnamePlaceholdersInPath, LeavesNonHostTokensAndShorthandsAlone) {
   EXPECT_EQ(socket_helpers::expand_hostname_placeholders_in_path("auto"), "auto");
 }
 
+// =============================================================================
+// client_verify_mode_disables_verification
+// =============================================================================
+//
+// The predicate a client module consults before it sends credentials over a
+// TLS session that may not be verified. Pure string logic, so it is exercised
+// in every build flavour; the SSL-only block below pins it against the parser
+// it mirrors.
+
+TEST(ClientVerifyMode, DisabledWhenNoTokenEnablesPeerVerification) {
+  // All of these resolve to verify_none: an empty string parses to no flags at
+  // all, "none" is explicit, and fail-if-no-cert does nothing without
+  // verify_peer.
+  EXPECT_TRUE(socket_helpers::client_verify_mode_disables_verification(""));
+  EXPECT_TRUE(socket_helpers::client_verify_mode_disables_verification("none"));
+  EXPECT_TRUE(socket_helpers::client_verify_mode_disables_verification("fail-if-no-cert"));
+  EXPECT_TRUE(socket_helpers::client_verify_mode_disables_verification("fail-if-no-peer-cert"));
+  EXPECT_TRUE(socket_helpers::client_verify_mode_disables_verification("client-certificate"));
+}
+
+TEST(ClientVerifyMode, EnabledByAnyPeerToken) {
+  EXPECT_FALSE(socket_helpers::client_verify_mode_disables_verification("peer"));
+  EXPECT_FALSE(socket_helpers::client_verify_mode_disables_verification("certificate"));
+  EXPECT_FALSE(socket_helpers::client_verify_mode_disables_verification("peer-cert"));
+  // The parser ORs the flags together, so a list naming peer anywhere verifies
+  // even when it also says none.
+  EXPECT_FALSE(socket_helpers::client_verify_mode_disables_verification("none,peer"));
+  EXPECT_FALSE(socket_helpers::client_verify_mode_disables_verification("peer,fail-if-no-cert"));
+}
+
+TEST(ClientVerifyMode, AnUnparsableModeIsNotReportedAsDisabled) {
+  // The parser throws on a token it does not know, so such a mode never
+  // produces a connection at all - let the attempt report the configuration
+  // error rather than warn about an unverified submission that never happens.
+  EXPECT_FALSE(socket_helpers::client_verify_mode_disables_verification("workarounds"));
+  EXPECT_FALSE(socket_helpers::client_verify_mode_disables_verification("client-once"));
+  EXPECT_FALSE(socket_helpers::client_verify_mode_disables_verification("single"));
+  EXPECT_FALSE(socket_helpers::client_verify_mode_disables_verification("none,typo"));
+}
+
 #ifdef USE_SSL
 // =============================================================================
 // SSL-specific: get_verify_mode
@@ -951,6 +991,45 @@ TEST(VerifyModeParser, CommaDelimited) {
   auto mode = socket_helpers::verify_mode_parser("peer,fail-if-no-cert");
   EXPECT_NE(+mode & +boost::asio::ssl::verify_peer, 0);
   EXPECT_NE(+mode & +boost::asio::ssl::verify_fail_if_no_peer_cert, 0);
+}
+
+// client_verify_mode_disables_verification() answers the same question as the
+// parser - "does this mode leave the peer unverified?" - but has to do it
+// without OpenSSL, so it re-implements the token vocabulary rather than calling
+// verify_mode_parser. This is the seam where the two can drift apart: a token
+// added to the parser and forgotten here would make a client stop warning that
+// it is about to send credentials to an unverified peer. Assert them equal on
+// every value the parser accepts, and on the shapes it rejects.
+TEST(VerifyModeMirror, AgreesWithTheParserOnEveryAcceptedMode) {
+  const char *modes[] = {"",
+                         "none",
+                         "peer",
+                         "certificate",
+                         "peer-cert",
+                         "fail-if-no-cert",
+                         "fail-if-no-peer-cert",
+                         "client-certificate",
+                         "none,peer",
+                         "peer,fail-if-no-cert",
+                         "none,fail-if-no-cert",
+                         "peer-cert,none",
+                         "certificate,client-certificate"};
+  for (const char *mode : modes) {
+    const bool parsed_leaves_peer_unverified = (+socket_helpers::verify_mode_parser(mode) & +boost::asio::ssl::verify_peer) == 0;
+    EXPECT_EQ(socket_helpers::client_verify_mode_disables_verification(mode), parsed_leaves_peer_unverified) << "verify mode: '" << mode << "'";
+  }
+}
+
+TEST(VerifyModeMirror, ReportsAModeTheParserRejectsAsVerifying) {
+  // A rejected mode never produces a connection at all - the parser throws and
+  // the attempt fails with the configuration error - so calling it "disabled"
+  // would warn about an unverified submission that never happens. This includes
+  // the tokens ssl_opts::get_verify_mode() accepts on the server side, which is
+  // exactly the mode string this predicate must not be pointed at.
+  for (const char *mode : {"bogus", "client-once", "workarounds", "single", "none,typo"}) {
+    EXPECT_THROW(socket_helpers::verify_mode_parser(mode), socket_helpers::socket_exception) << "verify mode: '" << mode << "'";
+    EXPECT_FALSE(socket_helpers::client_verify_mode_disables_verification(mode)) << "verify mode: '" << mode << "'";
+  }
 }
 
 // =============================================================================

@@ -336,10 +336,13 @@ long socket_helpers::connection_info::get_ctx_opts() const {
   return opts;
 }
 
-bool socket_helpers::is_verification_disabled(const std::string &verify_mode) {
+bool socket_helpers::client_verify_mode_disables_verification(const std::string &verify_mode) {
   // Token-for-token mirror of verify_mode_parser above, down to the splitter it
   // uses (neither trims whitespace, and the split of "" yields no tokens at
-  // all, so an unset verify mode parses to verify_none).
+  // all, so an unset verify mode parses to verify_none). It cannot simply call
+  // the parser: that one lives under USE_SSL and this has to answer in a build
+  // without OpenSSL too. VerifyModeMirror in socket_helpers_test.cpp holds the
+  // two in step.
   //
   // Only these three tokens set boost::asio::ssl::verify_peer, and without it
   // the remaining flags do nothing - the handshake accepts whatever certificate

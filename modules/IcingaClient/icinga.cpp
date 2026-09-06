@@ -9,7 +9,6 @@
 #include <boost/json.hpp>
 #include <cctype>
 #include <iomanip>
-#include <net/socket/socket_helpers.hpp>
 #include <sstream>
 #include <stdexcept>
 
@@ -207,12 +206,6 @@ std::string normalize_base_path(const std::string &base_path) {
   path.erase(0, first);
   path.insert(path.begin(), '/');
   return path;
-}
-
-bool is_verification_disabled(const std::string &verify_mode) {
-  // The predicate has to track socket_helpers::verify_mode_parser exactly, so
-  // it lives beside it; this stays as the module's spelling of it.
-  return socket_helpers::is_verification_disabled(verify_mode);
 }
 
 std::string url_encode(const std::string &value) {

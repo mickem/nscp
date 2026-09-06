@@ -164,7 +164,7 @@ struct icinga_client_handler : client::handler_interface {
     NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Sender configuration: " + sender.to_string()); }
     NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Target configuration: " + target.to_string()); }
 
-    if (con.protocol == "https" && icinga::is_verification_disabled(con.verify_mode)) {
+    if (con.protocol == "https" && socket_helpers::client_verify_mode_disables_verification(con.verify_mode)) {
       NSC_LOG_MESSAGE("TLS certificate verification is disabled for " + con.get_endpoint_string() + " (verify mode: " +
                       (con.verify_mode.empty() ? "<not set>" : con.verify_mode) +
                       "): the Icinga API credentials are sent to whichever server answers. Set verify mode = peer, or peer-cert with ca pointing at the "

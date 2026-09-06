@@ -8,7 +8,9 @@ action: none
 An `https` NRDP submission whose `verify mode` resolves to no peer
 verification now logs a message naming the endpoint, as an Icinga submission
 already does: the token is a shared secret, and an unverified TLS session
-hands it to whichever server answers. The connection itself is unchanged.
+hands it to whichever server answers. It is logged once per target for as long
+as the service runs, not on every submission. The connection itself is
+unchanged.
 
 The `verify mode` help text is corrected in the same pass. It recommended
 "peer-cert **or none** for self signed certificates" and listed `client-once`,

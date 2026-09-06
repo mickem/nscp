@@ -3,9 +3,11 @@
 
 #pragma once
 
+#include <mutex>
 #include <net/http/client.hpp>
 #include <net/http/proxy_config.hpp>
 #include <net/socket/socket_helpers.hpp>
+#include <set>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/protobuf/functions_convert.hpp>
@@ -140,13 +142,17 @@ struct nrdp_client_handler : client::handler_interface {
     NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Target configuration: " + con.to_string()); }
 
     // The empty verify mode is defaulted to "peer" above, so reaching here
-    // means verification was turned off deliberately - say so once per
-    // submission anyway: the NRDP token is a shared secret and an unverified
-    // TLS session hands it to whichever server answers.
-    if (con.protocol == "https" && socket_helpers::is_verification_disabled(con.verify_mode)) {
+    // means verification was turned off deliberately - say so anyway: the NRDP
+    // token is a shared secret and an unverified TLS session hands it to
+    // whichever server answers. Once per target, not once per submission: this
+    // runs on every passive result, so a target left on `verify mode = none`
+    // would write the same line 1440 times a day on a 60 s schedule and bury
+    // the log it is meant to stand out in.
+    if (con.protocol == "https" && socket_helpers::client_verify_mode_disables_verification(con.verify_mode) &&
+        first_warning_for(con.get_endpoint_string() + "|" + con.verify_mode)) {
       NSC_LOG_MESSAGE("TLS certificate verification is disabled for " + con.get_endpoint_string() + " (verify mode: " + con.verify_mode +
                       "): the NRDP token is sent to whichever server answers. Set verify mode = peer, or peer-cert with ca pointing at the self-signed "
-                      "certificate, unless this is intentional.");
+                      "certificate, unless this is intentional. This is logged once per target while the service runs.");
     }
 
     nrdp::data nrdp_data;
@@ -165,6 +171,19 @@ struct nrdp_client_handler : client::handler_interface {
     return true;
   }
 
+  // True the first time `key` (endpoint plus verify mode, so a reconfigured
+  // target warns again) is seen. The handler outlives every submission - one
+  // instance per loaded module - and submissions arrive on channel threads, so
+  // the set is shared state and needs the lock. Bounded: ad-hoc `nscp client`
+  // submissions can name an unlimited number of endpoints, and a warning
+  // repeated after a wrap is better than a map that only grows.
+  bool first_warning_for(const std::string &key) {
+    static constexpr std::size_t kMaxRemembered = 64;
+    std::lock_guard<std::mutex> guard(warned_mutex_);
+    if (warned_targets_.size() >= kMaxRemembered) warned_targets_.clear();
+    return warned_targets_.insert(key).second;
+  }
+
   bool exec(client::destination_container _sender, client::destination_container _target, const PB::Commands::ExecuteRequestMessage &_request_message,
             PB::Commands::ExecuteResponseMessage &_response_message) override {
     return false;
@@ -173,6 +192,9 @@ struct nrdp_client_handler : client::handler_interface {
   bool metrics(client::destination_container _sender, client::destination_container _target, const PB::Metrics::MetricsMessage &_request_message) override {
     return false;
   }
+
+  std::mutex warned_mutex_;
+  std::set<std::string> warned_targets_;
 
   static void send(PB::Commands::SubmitResponseMessage::Response *payload, const connection_data &con, const nrdp::data &nrdp_data) {
     try {
