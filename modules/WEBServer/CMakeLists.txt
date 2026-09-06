@@ -35,8 +35,10 @@ set(SRCS
     metrics_handler.cpp
     error_handler.cpp
     event_store.cpp
+    result_store.cpp
     modules_controller.cpp
     query_controller.cpp
+    results_controller.cpp
     alias_controller.cpp
     scripts_controller.cpp
     upload_staging.cpp
@@ -99,6 +101,8 @@ if(WIN32)
         metrics_controller.hpp
         openmetrics_controller.hpp
         metadata_controller.hpp
+        results_controller.hpp
+        result_store.hpp
         ${NSCP_DEF_PLUGIN_HPP}
     )
 endif(WIN32)
@@ -116,6 +120,7 @@ target_link_libraries(
     ${EXTRA_LIBS}
     nscp_mongoose
     nscp_miniz
+    expression_parser
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 
@@ -142,6 +147,8 @@ NSCP_CREATE_TEST(
         metrics_handler_test.cpp
         event_store.cpp
         event_store_test.cpp
+        result_store.cpp
+        result_store_test.cpp
         web_installer.cpp
         web_installer_test.cpp
         static_controller.cpp
@@ -175,6 +182,7 @@ NSCP_CREATE_TEST(
         ${EXTRA_LIBS}
         nscp_mongoose
         nscp_miniz
+        expression_parser
     INCLUDES
         ${NSCP_INCLUDEDIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/../../libs/mongoose-cpp

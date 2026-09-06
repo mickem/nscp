@@ -15,6 +15,7 @@
 
 #include "error_handler_interface.hpp"
 #include "event_store.hpp"
+#include "result_store.hpp"
 #include "session_manager_interface.hpp"
 #include "user_config.hpp"
 
@@ -36,6 +37,8 @@ class WEBServer : public nscapi::impl::simple_plugin {
   bool unloadModule();
   void handleLogMessage(const PB::Log::LogEntry::Entry &message);
   void onEvent(const PB::Commands::EventMessage &request, const std::string &buffer);
+  void handleNotification(const std::string &channel, const PB::Commands::QueryResponseMessage::Response &request,
+                          PB::Commands::SubmitResponseMessage::Response *response, const PB::Commands::SubmitRequestMessage &request_message);
   bool commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request,
                        PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message);
   void submitMetrics(const PB::Metrics::MetricsMessage &response) const;
@@ -54,6 +57,11 @@ class WEBServer : public nscapi::impl::simple_plugin {
   std::shared_ptr<client::cli_client> client;
   std::shared_ptr<session_manager_interface> session;
   std::shared_ptr<event_store> events_;
+  std::shared_ptr<result_store> results_;
+  result_key_formatter result_key_;
+  // This machine's name, used for results whose header names no sender
+  // (locally scheduled checks, mostly).
+  std::string local_hostname_;
   std::shared_ptr<Mongoose::Server> server;
 
   web_server::user_config users_;
