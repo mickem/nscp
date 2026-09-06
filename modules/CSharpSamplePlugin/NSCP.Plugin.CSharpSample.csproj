@@ -37,12 +37,15 @@
   <PropertyGroup>
     <NscpCoreDir Condition="'$(NscpCoreDir)' == ''">$(MSBuildThisFileDirectory)</NscpCoreDir>
   </PropertyGroup>
+  <PropertyGroup>
+    <GoogleProtobufVersion Condition="'$(GoogleProtobufVersion)' == ''">3.36.1</GoogleProtobufVersion>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="NSCP.Core">
       <HintPath>$(NscpCoreDir)/NSCP.Core.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <PackageReference Include="Google.Protobuf" Version="3.36.1" ExcludeAssets="runtime" />
+    <PackageReference Include="Google.Protobuf" Version="$(GoogleProtobufVersion)" ExcludeAssets="runtime" />
   </ItemGroup>
 
 </Project>

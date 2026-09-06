@@ -18,18 +18,16 @@ if(DOTNET_FOUND)
     )
 
     # Everything the managed side needs at run time lives in modules/dotnet:
-    # the API, its protobuf runtime, the hosting configuration and the plugins.
-    if(WIN32)
-        set(NSCP_DOTNET_INSTALL_DIR "${MODULE_SUBFOLDER}/dotnet")
-    else()
-        set(NSCP_DOTNET_INSTALL_DIR "${MODULE_TARGET_FOLDER}/dotnet")
-    endif()
+    # the API, its protobuf runtime and the hosting configuration. The list is
+    # explicit (not a glob over the output folder) so the package contents do
+    # not depend on whatever else was built into that folder; plugins install
+    # themselves (see modules/CSharpSamplePlugin).
     install(
-        DIRECTORY
-            ${NSCP_DOTNET_OUTPUT_DIR}/
+        FILES
+            ${NSCP_DOTNET_OUTPUT_DIR}/NSCP.Core.dll
+            ${NSCP_DOTNET_OUTPUT_DIR}/NSCP.Core.deps.json
+            ${NSCP_DOTNET_OUTPUT_DIR}/NSCP.Core.runtimeconfig.json
+            ${NSCP_DOTNET_OUTPUT_DIR}/Google.Protobuf.dll
         DESTINATION ${NSCP_DOTNET_INSTALL_DIR}
-        FILES_MATCHING
-        PATTERN "*.dll"
-        PATTERN "*.json"
     )
 endif()

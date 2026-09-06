@@ -10,13 +10,49 @@
 #   DOTNET_VERSION     - the SDK version it reports
 #
 # Override with -DDOTNET_EXECUTABLE=/path/to/dotnet, or disable the managed
-# build entirely with -DNSCP_DOTNET=OFF. Note that `dotnet build` restores the
-# Google.Protobuf package from nuget.org (or a configured NuGet source): a build
-# on a machine without that access must pass -DNSCP_DOTNET=OFF, or the managed
-# targets fail the build.
+# build entirely with -DNSCP_DOTNET=OFF.
+#
+# `dotnet build` restores the Google.Protobuf package from nuget.org by default.
+# A build without network access (distribution packaging) has three knobs:
+#   -DNSCP_DOTNET_PACKAGE_SOURCE=<dir|url>  restore from a local folder holding
+#                                            the .nupkg (or another feed) instead
+#                                            of the configured NuGet sources
+#   -DNSCP_DOTNET_NO_RESTORE=ON              skip the restore step entirely; the
+#                                            packages must already sit in the
+#                                            NuGet cache ($NUGET_PACKAGES or
+#                                            ~/.nuget/packages)
+#   -DNSCP_DOTNET_PROTOBUF_VERSION=<x.y.z>   the Google.Protobuf version to
+#                                            reference, when the build host's
+#                                            protoc is newer than the default
+# The dotnet CLI also honours NUGET_PACKAGES and a NuGet.Config on its own; the
+# variables above are simply forwarded to it. Without any of these, an offline
+# build must pass -DNSCP_DOTNET=OFF or the managed targets fail the build.
 option(
     NSCP_DOTNET
     "Build the managed .NET plugin API and sample plugin (requires the dotnet SDK)"
+    ON
+)
+option(
+    NSCP_DOTNET_NO_RESTORE
+    "Build the managed projects with --no-restore (NuGet packages must already be cached)"
+    OFF
+)
+set(NSCP_DOTNET_PACKAGE_SOURCE
+    ""
+    CACHE STRING
+    "NuGet package source (local folder or feed URL) used instead of the configured sources when restoring the managed projects"
+)
+# Generated code from protoc 21.x needs at least this runtime; newer runtimes
+# stay compatible with older generated code, but a newer protoc may require a
+# newer runtime, hence the override.
+set(NSCP_DOTNET_PROTOBUF_VERSION
+    "3.36.1"
+    CACHE STRING
+    "Google.Protobuf NuGet package version the managed plugin API is built against"
+)
+option(
+    NSCP_DOTNET_INSTALL_SAMPLE
+    "Install the C# sample plugin (NSCP.Plugin.CSharpSample) into modules/dotnet alongside the API"
     ON
 )
 

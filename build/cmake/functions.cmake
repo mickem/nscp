@@ -689,7 +689,10 @@ endmacro(find_redist)
 # The intermediate (obj/) and bin/ folders are redirected into the current
 # binary dir so the source tree stays clean. NSCP_DOTNET_PROTO_DIR (the protoc
 # --csharp_out folder), NSCP_DOTNET_OUTPUT_DIR and the NSClient++ version are
-# handed to MSBuild as NscpProtoDir / NscpCoreDir / NscpVersion.
+# handed to MSBuild as NscpProtoDir / NscpCoreDir / NscpVersion, and the
+# restore knobs from FindDotnet.cmake (NSCP_DOTNET_PACKAGE_SOURCE,
+# NSCP_DOTNET_NO_RESTORE, NSCP_DOTNET_PROTOBUF_VERSION) as RestoreSources,
+# --no-restore and GoogleProtobufVersion.
 function(NSCP_ADD_DOTNET_PROJECT _TARGET _PROJECT)
     cmake_parse_arguments(
         PARSE_ARGV 2
@@ -705,6 +708,16 @@ function(NSCP_ADD_DOTNET_PROJECT _TARGET _PROJECT)
         "-p:BaseIntermediateOutputPath=${CMAKE_CURRENT_BINARY_DIR}/obj/"
         "-p:BaseOutputPath=${CMAKE_CURRENT_BINARY_DIR}/bin/"
     )
+    if(NSCP_DOTNET_PROTOBUF_VERSION)
+        list(APPEND _props "-p:GoogleProtobufVersion=${NSCP_DOTNET_PROTOBUF_VERSION}")
+    endif()
+    if(NSCP_DOTNET_PACKAGE_SOURCE)
+        list(APPEND _props "-p:RestoreSources=${NSCP_DOTNET_PACKAGE_SOURCE}")
+    endif()
+    set(_restore "")
+    if(NSCP_DOTNET_NO_RESTORE)
+        set(_restore "--no-restore")
+    endif()
     foreach(_prop ${ARG_PROPERTIES})
         list(APPEND _props "-p:${_prop}")
     endforeach()
@@ -715,7 +728,7 @@ function(NSCP_ADD_DOTNET_PROJECT _TARGET _PROJECT)
             ${CMAKE_COMMAND} -E env DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
             DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 ${DOTNET_EXECUTABLE} build
             ${_PROJECT} --configuration Release --nologo --verbosity quiet
-            --output ${NSCP_DOTNET_OUTPUT_DIR} ${_props}
+            --output ${NSCP_DOTNET_OUTPUT_DIR} ${_restore} ${_props}
         BYPRODUCTS ${ARG_PRODUCTS}
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
         COMMENT "Building .NET project ${_PROJECT} -> ${NSCP_DOTNET_OUTPUT_DIR}"

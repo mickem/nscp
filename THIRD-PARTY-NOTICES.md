@@ -51,7 +51,7 @@ obligation applies wherever we actually ship the library.
 | WiX custom action library, prebuilt (Microsoft Corporation)      | `installers/installer-NSCP/wixca.dll`                                            | Common Public License 1.0  |
 | Protobuf CMake modules (Ange Optimization ApS)                   | `build/cmake/FindProtoBuf.cmake`, `build/cmake/GoogleProtoBuf.cmake`             | BSD-3-Clause               |
 | .NET native hosting headers (.NET Foundation and Contributors)   | `modules/DotnetPlugins/hostfxr/hostfxr.h`, `modules/DotnetPlugins/hostfxr/coreclr_delegates.h` | MIT                        |
-| Google.Protobuf .NET runtime (Google LLC)                        | NuGet package restored by `libs/dotnet-plugin-api/NSCP.Core.csproj` at build time | BSD-3-Clause               |
+| Google.Protobuf .NET runtime (Google LLC)                        | NuGet package restored at build time by `libs/dotnet-plugin-api/NSCP.Core.csproj` and shipped as `modules/dotnet/Google.Protobuf.dll` | BSD-3-Clause               |
 
 ## Web UI
 

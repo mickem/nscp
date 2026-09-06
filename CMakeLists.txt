@@ -203,6 +203,16 @@ if(NOT WIN32)
     set(NSCP_RPATH_LIB "$ORIGIN")
 endif()
 
+# Where the managed .NET files (libs/dotnet-plugin-api, the C# sample) are
+# installed: modules/dotnet next to the native modules, the folder the
+# DotnetPlugins module searches by default. Set after MODULE_TARGET_FOLDER has
+# taken its final value above.
+if(WIN32)
+    set(NSCP_DOTNET_INSTALL_DIR "${MODULE_SUBFOLDER}/dotnet")
+else()
+    set(NSCP_DOTNET_INSTALL_DIR "${MODULE_TARGET_FOLDER}/dotnet")
+endif()
+
 set(NSCP_GLOBAL_DEFINES
     ${NSCP_GLOBAL_DEFINES}
     -DBOOST_PHOENIX_STL_TUPLE_H_
@@ -1433,6 +1443,15 @@ else()
     # RPM-specific
     set(CPACK_RPM_PACKAGE_LICENSE "Apache-2.0 OR GPL-2.0-only")
     set(CPACK_RPM_PACKAGE_REQUIRES "libstdc++, glibc >= 2.17")
+
+    # The managed .NET plugin API (modules/dotnet) needs an installed .NET
+    # runtime, which the module locates at run time and which is optional for
+    # everything else the agent does. It is not in the distributions' own
+    # repositories, so it is a suggestion rather than a dependency.
+    if(NSCP_DOTNET_MANAGED STREQUAL "true")
+        set(CPACK_DEBIAN_PACKAGE_SUGGESTS "dotnet-runtime-8.0")
+        set(CPACK_RPM_PACKAGE_SUGGESTS "dotnet-runtime-8.0")
+    endif()
 
     if(NOT CPACK_SYSTEM_NAME)
         set(CPACK_SYSTEM_NAME ${CMAKE_SYSTEM_PROCESSOR})
