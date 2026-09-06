@@ -46,10 +46,11 @@ class auth_rate_limiter {
   static constexpr int kDefaultBlockSeconds = 60;
   // How many times the block may double before it stops growing.
   static constexpr int kMaxBackoffShift = 6;
-  // Absolute ceiling for a block. The defaults reach it (60 s doubled six times
-  // is 64 min, clamped to 60). A `block seconds` configured at or above this is
-  // an explicit operator choice: it is never shortened, and it never escalates
-  // either - it is already longer than any escalated block would be.
+  // Absolute ceiling for a block, in seconds (one hour). The defaults reach it:
+  // 60 s doubled six times is 64 min, clamped back to this 60 min. A
+  // `block seconds` configured at or above the ceiling is an explicit operator
+  // choice: it is never shortened, and it never escalates either - it is
+  // already longer than any escalated block would be.
   static constexpr long kMaxBlockSeconds = 3600;
   // Quiet time after a block expires that resets the escalation.
   static constexpr long kOffenseDecaySeconds = 3600;

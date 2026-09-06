@@ -199,8 +199,13 @@ std::string normalize_base_path(const std::string &base_path) {
   std::string path = base_path.substr(begin, end - begin + 1);
 
   while (!path.empty() && path.back() == '/') path.pop_back();
-  if (path.empty()) return path;
-  if (path.front() != '/') path.insert(path.begin(), '/');
+  // Collapse the leading run of slashes to exactly one: "//icinga" (an address
+  // written with a doubled slash) would otherwise survive into the request
+  // path, where a leading "//" reads as an authority rather than a path.
+  std::size_t first = path.find_first_not_of('/');
+  if (first == std::string::npos) return std::string();
+  path.erase(0, first);
+  path.insert(path.begin(), '/');
   return path;
 }
 

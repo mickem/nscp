@@ -167,6 +167,10 @@ TEST(IcingaTest, NormalizeBasePathYieldsAPastablePrefix) {
   EXPECT_EQ(icinga::normalize_base_path("icinga"), "/icinga");
   EXPECT_EQ(icinga::normalize_base_path("/icinga/api/"), "/icinga/api");
   EXPECT_EQ(icinga::normalize_base_path("  /icinga/  "), "/icinga");
+  // A doubled slash in the configured address: a leading "//" in a request
+  // path reads as an authority, not a path, so the run collapses to one.
+  EXPECT_EQ(icinga::normalize_base_path("//icinga/"), "/icinga");
+  EXPECT_EQ(icinga::normalize_base_path("///icinga//api///"), "/icinga//api");
 }
 
 TEST(IcingaTest, VerificationIsDisabledWhenNoTokenEnablesPeerVerification) {
