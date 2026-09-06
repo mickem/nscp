@@ -152,6 +152,9 @@ TEST(CollectdPacket, ClampsOverlongStringPart) {
   EXPECT_GT(len, 0u);
   EXPECT_LE(len, collectd::max_packet_size);
   EXPECT_EQ(buf.size(), len);
+  // Clamped to the receiver's identifier limit, leaving room for the rest of
+  // the value-list rather than consuming the whole datagram.
+  EXPECT_EQ(len, collectd::max_string_length + 5);
 
   // Still decodes cleanly to a (clamped, non-empty) host without overrunning.
   p.add_gauge_value({1.0});
@@ -159,6 +162,67 @@ TEST(CollectdPacket, ClampsOverlongStringPart) {
   ASSERT_EQ(lists.size(), 1u);
   EXPECT_FALSE(lists[0].host.empty());
   EXPECT_LE(lists[0].host.size(), collectd::max_string_length);
+}
+
+TEST(CollectdPacket, ClampsOversizedValueList) {
+  collectd::packet p;
+  p.add_host("h");
+  // Far more values than a 1452-byte datagram can carry (9 bytes each): the
+  // part must be truncated to what fits rather than overflowing the datagram.
+  std::list<double> values(500, 1.5);
+  p.add_gauge_value(values);
+
+  const std::string buf = p.get_buffer();
+  EXPECT_LE(buf.size(), collectd::max_packet_size);
+  EXPECT_GT(p.clamped_values(), 0u);
+
+  const auto lists = decode_packet(buf);
+  ASSERT_EQ(lists.size(), 1u);
+  // Everything the part claims to carry is really there, and nothing was lost
+  // silently: emitted + clamped accounts for every configured value.
+  EXPECT_GT(lists[0].gauges.size(), 0u);
+  EXPECT_EQ(lists[0].gauges.size() + p.clamped_values(), values.size());
+  EXPECT_TRUE(std::all_of(lists[0].gauges.begin(), lists[0].gauges.end(), [](double d) { return d == 1.5; }));
+}
+
+TEST(CollectdPacket, ValuesPartLengthNeverWraps) {
+  collectd::packet p;
+  // Above ~3600 values the 16-bit length field wraps; the cap must make that
+  // unreachable, so the encoded length stays positive and inside the datagram.
+  p.add_derive_value(std::list<long long>(20000, 7));
+  const std::string buf = p.get_buffer();
+  ASSERT_GE(buf.size(), 6u);
+  const uint16_t len = read_be<uint16_t>(reinterpret_cast<const unsigned char *>(buf.data()) + 2);
+  const uint16_t count = read_be<uint16_t>(reinterpret_cast<const unsigned char *>(buf.data()) + 4);
+  EXPECT_GT(len, 0u);
+  EXPECT_EQ(len, buf.size());
+  EXPECT_LE(buf.size(), collectd::max_packet_size);
+  EXPECT_EQ(len, 6u + count * 9u);
+}
+
+TEST(CollectdPacket, DropsValuesWhenNoRoomIsLeft) {
+  collectd::packet p;
+  // Fill the datagram with identifier parts, then ask for values that cannot
+  // fit at all: no malformed zero-value part may be emitted.
+  while (p.remaining() >= collectd::max_string_length + 5) {
+    p.add_plugin_instance(std::string(collectd::max_string_length, 'x'));
+  }
+  const std::size_t size_before = p.get_size();
+  p.add_gauge_value({1.0, 2.0});
+  EXPECT_EQ(p.get_size(), size_before);
+  EXPECT_EQ(p.clamped_values(), 2u);
+  EXPECT_LE(p.get_size(), collectd::max_packet_size);
+}
+
+TEST(CollectdPacket, StringPartsNeverExceedTheDatagram) {
+  collectd::packet p;
+  // Every identifier part is clamped, so no sequence of them can push the
+  // packet past the receiver's read size.
+  for (int i = 0; i < 100; ++i) {
+    p.add_plugin(std::string(4000, 'p'));
+    p.add_type(std::string(4000, 't'));
+  }
+  EXPECT_LE(p.get_size(), collectd::max_packet_size);
 }
 
 TEST(CollectdPacket, TimeAndIntervalPartsAreBigEndian) {
@@ -315,6 +379,38 @@ TEST(CollectdBuilder, UnmatchedVariableProducesNoMetrics) {
 // Fragmentation: a large metric set must split into multiple packets, each of
 // which stays within the collectd network buffer size.
 // ============================================================================
+
+TEST(CollectdBuilder, DoesNotClampAValueListThatFitsADatagramOfItsOwn) {
+  collectd::collectd_builder b;
+  b.set_time(1ULL << 30, 1ULL << 30);
+  b.set_host("a-reasonably-long-hostname-for-padding");
+  // Partly fill the first packet with small metrics...
+  for (int i = 0; i < 40; ++i) {
+    b.set_metric("small_" + std::to_string(i), "1");
+    b.add_metric("plugin" + std::to_string(i) + "-/gauge-value", "gauge:small_" + std::to_string(i));
+  }
+  // ...then a value list that fits a datagram of its own (120 * 9 + 6 bytes)
+  // but not what is left of a partly filled one. It has to be flushed into a
+  // fresh packet, not truncated to what happens to remain.
+  std::string values = "gauge:1";
+  for (int i = 1; i < 120; ++i) values += ",1";
+  b.add_metric("bigplugin-/gauge-value", values);
+
+  collectd::collectd_builder::packet_list packets;
+  b.render(packets);
+
+  std::size_t clamped = 0;
+  std::size_t big_values = 0;
+  for (const auto &pk : packets) {
+    EXPECT_LE(pk.get_size(), collectd::max_packet_size);
+    clamped += pk.clamped_values();
+    for (const auto &vl : decode_packet(pk.get_buffer())) {
+      if (vl.plugin == "bigplugin") big_values = vl.gauges.size();
+    }
+  }
+  EXPECT_EQ(clamped, 0u) << "a value list that fits a datagram was clamped into a partly filled one";
+  EXPECT_EQ(big_values, 120u);
+}
 
 TEST(CollectdBuilder, FragmentsLargeMetricSetWithinMtu) {
   collectd::collectd_builder b;

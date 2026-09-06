@@ -5,6 +5,7 @@
 
 #include <stdint.h>
 
+#include <algorithm>
 #include <boost/endian/conversion.hpp>
 #include <boost/optional.hpp>
 #include <cstring>
@@ -38,9 +39,25 @@ enum value_type : uint8_t {
 // `MaxPacketSize`, default 1452).
 static const std::size_t max_packet_size = 1452;
 
-// Longest string a single part may carry: it must fit in one datagram alongside
-// the 4-byte part header and the trailing NUL.
-static const std::size_t max_string_length = max_packet_size - 5;
+// Longest identifier a single string part may carry. The receiver keeps
+// host/plugin/type and their instances in DATA_MAX_NAME_LEN (128) byte buffers
+// and truncates anything longer, so clamp to the same limit rather than to the
+// datagram: bytes past it are dropped on arrival anyway, and a part sized off
+// the datagram budget alone leaves no room for the value-list it describes.
+static const std::size_t max_string_length = 127;
+
+// Bytes a string part costs on the wire beyond its payload: the 4-byte part
+// header plus the trailing NUL.
+static const std::size_t string_part_overhead = 5;
+
+// Bytes a values part costs beyond its values: type(2) + length(2) + count(2).
+static const std::size_t values_part_overhead = 6;
+
+// A number part (time / interval) is a fixed type(2) + length(2) + uint64(8).
+static const std::size_t number_part_size = 12;
+
+// Bytes one value costs inside a values part: its type code plus the value.
+static const std::size_t bytes_per_value = 9;
 
 class collectd_exception : public std::exception {
   std::string msg_;
@@ -58,9 +75,10 @@ class packet {
 
  public:
   packet() {}
-  packet(const packet &other) : buffer(other.buffer) {}
-  packet operator=(const packet &other) {
+  packet(const packet &other) : buffer(other.buffer), clamped_values_(other.clamped_values_) {}
+  packet &operator=(const packet &other) {
     buffer = other.buffer;
+    clamped_values_ = other.clamped_values_;
     return *this;
   }
 
@@ -80,10 +98,16 @@ class packet {
   void add_time_hr(unsigned long long time) { append_int(part_time_hr, time); }
   void add_interval_hr(unsigned long long time) { append_int(part_interval_hr, time); }
 
-  // A packet is "full" once adding another value-list could overflow the
-  // network buffer. Leave headroom for one more value-list (a handful of
-  // string parts plus the values) so render() never emits an oversized packet.
-  bool is_full() const { return buffer.size() > max_packet_size - 128; }
+  // Bytes still available in this datagram. render() sizes each value-list
+  // against this before appending it, so the clamps in append_string() and
+  // append_values() only ever bite on a value-list too large for a datagram of
+  // its own.
+  std::size_t remaining() const { return buffer.size() >= max_packet_size ? 0 : max_packet_size - buffer.size(); }
+
+  // Values dropped because they did not fit the datagram. Non-zero means the
+  // configuration asks for a value-list larger than the collectd protocol can
+  // carry; the caller logs it rather than silently shipping a partial list.
+  std::size_t clamped_values() const { return clamped_values_; }
 
   // All multi-byte integers in the collectd protocol are big-endian. Build the
   // big-endian value in a properly aligned local and append its bytes, rather
@@ -100,11 +124,14 @@ class packet {
   //
   // The length field is an (unsigned) 16-bit value and the whole part must fit
   // inside one datagram, so clamp pathologically long strings — e.g. a
-  // misconfigured hostname/plugin/type — instead of letting the cast to int16_t
-  // silently wrap and emit a malformed part.
+  // misconfigured hostname/plugin/type — to the identifier limit and to what is
+  // left of the datagram, instead of letting the cast to int16_t silently wrap
+  // and emit a malformed part.
   void append_string(int16_t type, const std::string &string_data) {
-    const std::size_t data_len = string_data.size() > max_string_length ? max_string_length : string_data.size();
-    const int16_t len = static_cast<int16_t>(data_len + 5);
+    const std::size_t budget = remaining();
+    if (budget < string_part_overhead) return;  // no room left for even an empty part
+    const std::size_t data_len = (std::min)(string_data.size(), (std::min)(max_string_length, budget - string_part_overhead));
+    const int16_t len = static_cast<int16_t>(data_len + string_part_overhead);
     append_be<int16_t>(buffer, type);
     append_be<int16_t>(buffer, len);
     buffer.append(string_data, 0, data_len);
@@ -113,27 +140,44 @@ class packet {
   // A number part: type(2) + length(2, always 12) + uint64(8).
   void append_int(int16_t type, unsigned long long int_data) {
     append_be<int16_t>(buffer, type);
-    append_be<int16_t>(buffer, static_cast<int16_t>(12));
+    append_be<int16_t>(buffer, static_cast<int16_t>(number_part_size));
     append_be<uint64_t>(buffer, static_cast<uint64_t>(int_data));
   }
   // A values part: type(2) + length(2) + count(2) + count value-type bytes +
   // count 8-byte values. Gauge values are little-endian IEEE-754 doubles;
   // derive values are big-endian int64. Build the body first, then prefix the
   // header with the now-known length.
+  //
+  // Both the length and the count are 16-bit fields and the part must fit the
+  // datagram, so the number of values is capped at what is actually left: a
+  // configured value-list of a few hundred entries would otherwise overflow the
+  // receiver's read size, and past ~3600 entries the length cast wraps and emits
+  // a malformed part. Dropped values are counted for the caller to log - a
+  // truncated list is still valid on the wire, but it is not what was asked for.
   template <class T>
   void append_values(uint8_t value_type, const std::list<T> &value_data) {
+    const std::size_t budget = remaining();
+    if (budget < values_part_overhead + bytes_per_value) {
+      clamped_values_ += value_data.size();
+      return;
+    }
+    const std::size_t count = (std::min)(value_data.size(), (budget - values_part_overhead) / bytes_per_value);
+    clamped_values_ += value_data.size() - count;
+
     std::string body;
-    body.reserve(value_data.size() * 9);
-    for (std::size_t i = 0; i < value_data.size(); i++) {
+    body.reserve(count * bytes_per_value);
+    for (std::size_t i = 0; i < count; i++) {
       body.push_back(static_cast<char>(value_type));
     }
+    std::size_t emitted = 0;
     for (const T &v : value_data) {
+      if (emitted++ >= count) break;
       append_value(body, v);
     }
-    const int16_t len = static_cast<int16_t>(6 + body.size());
+    const int16_t len = static_cast<int16_t>(values_part_overhead + body.size());
     append_be<int16_t>(buffer, part_values);
     append_be<int16_t>(buffer, len);
-    append_be<int16_t>(buffer, static_cast<int16_t>(value_data.size()));
+    append_be<int16_t>(buffer, static_cast<int16_t>(count));
     buffer.append(body);
   }
 
@@ -150,6 +194,9 @@ class packet {
   std::string get_buffer() const { return buffer; }
 
   std::size_t get_size() const { return buffer.size(); }
+
+ private:
+  std::size_t clamped_values_ = 0;
 };
 
 struct collectd_builder {
@@ -310,7 +357,50 @@ struct collectd_builder {
     std::string last_plugin_instance = "";
     std::string last_type = "";
     std::string last_type_instance = "";
+
+    const auto string_part_size = [](const std::string &value) {
+      return collectd::string_part_overhead + (std::min)(value.size(), collectd::max_string_length);
+    };
+    // Bytes this metric will add to the current packet, given the identifier
+    // context that packet already carries (`fresh` sizes it against an empty
+    // one, where every part has to be repeated). It mirrors the appends below
+    // exactly, so the flush decision is made on the real cost rather than a
+    // fixed headroom guess.
+    const auto metric_size = [&](const metric_container &m, const bool fresh) {
+      const std::string plugin = fresh ? "" : last_plugin;
+      const std::string plugin_instance = fresh ? "" : last_plugin_instance;
+      const std::string type = fresh ? "" : last_type;
+      const std::string type_instance = fresh ? "" : last_type_instance;
+
+      std::size_t size = 0;
+      if (fresh) size += string_part_size(host) + 2 * collectd::number_part_size;
+      if (m.plugin_name != plugin) size += string_part_size(m.plugin_name);
+      if (m.plugin_instance) {
+        if (plugin_instance != m.plugin_instance.get()) size += string_part_size(m.plugin_instance.get());
+      } else if (!plugin_instance.empty()) {
+        size += string_part_size("");
+      }
+      if (m.type_name != type) size += string_part_size(m.type_name);
+      if (m.type_instance) {
+        if (type_instance != m.type_instance.get()) size += string_part_size(m.type_instance.get());
+      } else if (!type_instance.empty()) {
+        size += string_part_size("");
+      }
+      if (!m.gauges.empty()) size += collectd::values_part_overhead + collectd::bytes_per_value * m.gauges.size();
+      if (!m.derives.empty()) size += collectd::values_part_overhead + collectd::bytes_per_value * m.derives.size();
+      return size;
+    };
+
     for (const metric_container &m : rendererd_metrics) {
+      // Flush before appending rather than after: a value-list that fits a
+      // datagram of its own must never be clamped into a partly filled one.
+      // Sizing the metric first also packs each datagram to the real limit
+      // instead of stopping at a worst-case headroom.
+      if (!is_new && packet.remaining() < metric_size(m, false)) {
+        packets.push_back(packet);
+        packet = collectd::packet();
+        is_new = true;
+      }
       if (is_new) {
         last_plugin = "";
         last_plugin_instance = "";
@@ -350,11 +440,6 @@ struct collectd_builder {
       }
       if (!m.derives.empty()) {
         packet.add_derive_value(m.derives);
-      }
-      if (packet.is_full()) {
-        packets.push_back(packet);
-        packet = collectd::packet();
-        is_new = true;
       }
     }
     // Only emit the trailing packet if it actually holds data. When nothing

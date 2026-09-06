@@ -30,6 +30,7 @@
  * mirrors what collectd_packet.cpp on the sending side writes.
  */
 import * as dgram from "dgram";
+import * as dns from "dns";
 import { NscpInstance } from "@fixtures/index";
 
 jest.setTimeout(600_000);
@@ -136,17 +137,31 @@ function decodeCollectd(buf: Buffer): CollectdReading[] {
   return readings;
 }
 
+/**
+ * The address "localhost" resolves to for this host - the same one
+ * NSClient++'s resolver picks when a target names it. Debian-family hosts map
+ * localhost to both 127.0.0.1 and ::1 in /etc/hosts and getaddrinfo prefers
+ * ::1, so a receiver bound to a hard-coded literal would be asserting on the
+ * resolver rather than on the agent.
+ */
+async function resolveLocalhost(): Promise<string> {
+  const { address } = await dns.promises.lookup("localhost");
+  return address;
+}
+
 /** A loopback UDP collectd receiver that decodes every datagram it gets. */
 class CollectdReceiver {
-  private readonly socket = dgram.createSocket("udp4");
+  private socket!: dgram.Socket;
   readonly readings: CollectdReading[] = [];
   /** Raw datagrams, kept so a failing assertion can show the bytes. */
   readonly packets: Buffer[] = [];
 
-  async start(): Promise<number> {
+  /** Bind the receiver, by default on IPv4 loopback. */
+  async start(host = "127.0.0.1"): Promise<number> {
+    this.socket = dgram.createSocket(host.includes(":") ? "udp6" : "udp4");
     await new Promise<void>((resolve, reject) => {
       this.socket.once("error", reject);
-      this.socket.bind(0, "127.0.0.1", () => {
+      this.socket.bind(0, host, () => {
         this.socket.off("error", reject);
         resolve();
       });
@@ -159,6 +174,7 @@ class CollectdReceiver {
   }
 
   async stop(): Promise<void> {
+    if (!this.socket) return; // start() never ran (a failed beforeAll)
     await new Promise<void>((resolve) => this.socket.close(() => resolve()));
   }
 
@@ -320,6 +336,97 @@ describe("CollectD configurable mapping", () => {
     expect(plugins).not.toContain("cpu");
     // The configured 7s interval is what reaches the wire.
     expect(receiver.readings.every((v) => v.intervalSeconds === 7)).toBe(true);
+  });
+});
+
+// A target may name a host rather than an IP literal: the send path resolves
+// it. Before that it parsed literals only, so a hostname target threw on every
+// metrics cycle and the metrics silently never arrived.
+describe("CollectD hostname target", () => {
+  let nscp: NscpInstance;
+  let receiver: CollectdReceiver;
+
+  beforeAll(async () => {
+    receiver = new CollectdReceiver();
+    // Listen where "localhost" actually points on this host, so the test
+    // asserts that the name is resolved and not which family the host prefers.
+    const port = await receiver.start(await resolveLocalhost());
+
+    nscp = new NscpInstance();
+    await nscp.configure({
+      "/modules": {
+        CheckSystem: "enabled",
+        CollectdClient: "enabled",
+      },
+      "/settings/core": {
+        "metrics interval": "1s",
+      },
+      "/settings/collectd/client": {
+        hostname: HOSTNAME,
+      },
+      "/settings/collectd/client/targets/default": {
+        // The receiver binds whatever "localhost" resolves to on this host,
+        // which may be ::1 - see resolveLocalhost above.
+        address: `localhost:${port}`,
+      },
+    });
+
+    nscp.start();
+  });
+
+  afterAll(async () => {
+    await nscp?.stop();
+    await receiver?.stop();
+  });
+
+  it("resolves the host name and delivers metrics", async () => {
+    const ok = await receiver.waitFor((r) => r.some((v) => v.host === HOSTNAME));
+    expect(ok).toBe(true);
+    expect(receiver.packets.length).toBeGreaterThan(0);
+  });
+});
+
+// `multicast interface` is a per-target setting that only applies to multicast
+// targets. Configuring it on a unicast target must be accepted and ignored -
+// this also proves the key is registered, which a typo in the settings
+// declaration would break.
+describe("CollectD multicast interface setting", () => {
+  let nscp: NscpInstance;
+  let receiver: CollectdReceiver;
+
+  beforeAll(async () => {
+    receiver = new CollectdReceiver();
+    const port = await receiver.start();
+
+    nscp = new NscpInstance();
+    await nscp.configure({
+      "/modules": {
+        CheckSystem: "enabled",
+        CollectdClient: "enabled",
+      },
+      "/settings/core": {
+        "metrics interval": "1s",
+      },
+      "/settings/collectd/client": {
+        hostname: HOSTNAME,
+      },
+      "/settings/collectd/client/targets/default": {
+        address: `127.0.0.1:${port}`,
+        "multicast interface": "all",
+      },
+    });
+
+    nscp.start();
+  });
+
+  afterAll(async () => {
+    await nscp?.stop();
+    await receiver?.stop();
+  });
+
+  it("is ignored for a unicast target", async () => {
+    const ok = await receiver.waitFor((r) => r.some((v) => v.host === HOSTNAME));
+    expect(ok).toBe(true);
   });
 });
 
