@@ -88,7 +88,10 @@ template <class TCoreHandler = client_handler>
 struct nrpe_client_handler : public client::handler_interface {
   std::shared_ptr<TCoreHandler> handler_;
   // Targets already warned about (endpoint + verify mode), so the warning
-  // below is emitted once rather than on every check.
+  // below is emitted once rather than on every check. Bounded, because a
+  // relay passing a different `-H <host>` per request would otherwise add an
+  // entry for every host it ever saw and never drop one.
+  static constexpr std::size_t max_warned_targets = 256;
   std::set<std::string> warned_;
   std::mutex warned_mutex_;
 
@@ -151,6 +154,10 @@ struct nrpe_client_handler : public client::handler_interface {
     const std::string mode = con.ssl.verify_mode.empty() ? "<not set>" : con.ssl.verify_mode;
     {
       std::lock_guard<std::mutex> lock(warned_mutex_);
+      // Start over rather than grow without limit: the warning then repeats
+      // occasionally on a relay with many targets, which is the right way to
+      // fail - bounded memory, and no target stays silent forever.
+      if (warned_.size() >= max_warned_targets) warned_.clear();
       if (!warned_.insert(con.get_endpoint_string() + "\n" + mode).second) return;
     }
     handler_->log_error(__FILE__, __LINE__,
@@ -186,6 +193,7 @@ struct nrpe_client_handler : public client::handler_interface {
             PB::Commands::ExecuteResponseMessage &response_message) {
     const PB::Common::Header &request_header = request_message.header();
     nrpe_client::connection_data con(sender, target, handler_);
+    warn_if_unverified(con);
 
     nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 

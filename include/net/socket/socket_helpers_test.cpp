@@ -598,10 +598,9 @@ TEST(SslOptsVerifyMode, ClientOnce) {
 
 // `workarounds` and `single` are documented under `verify mode`, but they are
 // SSL context options rather than verify bits. They used to be OR-ed into the
-// value handed to SSL_CTX_set_verify, where they did nothing useful and
-// polluted the mask - SSL_OP_ALL carries 0x4, which is
-// SSL_VERIFY_CLIENT_ONCE. They now land in get_ctx_opts(), which is applied
-// with context.set_options() and is where they take effect.
+// value handed to SSL_CTX_set_verify, which only fed it flags it ignores.
+// They now land in get_ctx_opts(), which is applied with
+// context.set_options() and is where they take effect.
 
 TEST(SslOptsVerifyMode, WorkaroundsIsNotAVerifyBit) {
   socket_helpers::connection_info::ssl_opts opts;
@@ -1358,6 +1357,39 @@ TEST_F(WriteCertsFixture, CaCertificateDoesNotCarryThePrivateKey) {
   EXPECT_NE(read_file(key).find("PRIVATE KEY"), std::string::npos);
 }
 
+// A write that fails part-way must not leave a truncated file behind:
+// validate_certificate only generates when the path is not a regular file, so
+// a zero-byte certificate.pem would never be repaired.
+TEST_F(WriteCertsFixture, AFailedWriteLeavesThePreviousCertificateIntact) {
+  const std::string cert = path_of("certificate.pem");
+  ASSERT_NO_THROW(socket_helpers::write_certs(cert, false));
+  const std::string original = read_file(cert);
+  ASSERT_FALSE(original.empty());
+
+  // Park a non-empty directory where the temporary has to be created: it
+  // cannot be removed and cannot be opened as a file, so the write fails
+  // before it ever reaches `cert`. (An *empty* directory would not do -
+  // boost::filesystem::remove deletes those.)
+  const boost::filesystem::path blocker = boost::filesystem::path(cert).parent_path() / "certificate.pem.new";
+  boost::filesystem::create_directories(blocker);
+  {
+    std::ofstream keep((blocker / "keep").string().c_str());
+    keep << "x";
+  }
+
+  EXPECT_THROW(socket_helpers::write_certs(cert, false), socket_helpers::socket_exception);
+  EXPECT_EQ(read_file(cert), original) << "a failed regeneration must not clobber the working certificate";
+
+  boost::system::error_code ignored;
+  boost::filesystem::remove_all(blocker, ignored);
+}
+
+TEST_F(WriteCertsFixture, NoTemporaryFileIsLeftBehind) {
+  const std::string cert = path_of("certificate.pem");
+  ASSERT_NO_THROW(socket_helpers::write_certs(cert, false));
+  EXPECT_FALSE(boost::filesystem::exists(cert + ".new"));
+}
+
 TEST_F(WriteCertsFixture, OverwritingAnExistingFileStillNarrowsIt) {
   const std::string cert = path_of("certificate.pem");
   {
@@ -1460,4 +1492,18 @@ TEST(SslOptsTlsVersion, AnyMeansNoFloorAndNoCeiling) {
   opts.tls_version = "any";
   EXPECT_EQ(opts.get_tls_min_version(), 0);
   EXPECT_EQ(opts.get_tls_max_version(), TLS1_3_VERSION);
+}
+
+TEST(EscapeForLog, ControlCharactersBecomeHexEscapes) {
+  EXPECT_EQ(socket_helpers::escape_for_log("icinga-master"), "icinga-master");
+  EXPECT_EQ(socket_helpers::escape_for_log("has\nnewline"), "has\\x0anewline");
+  EXPECT_EQ(socket_helpers::escape_for_log(std::string("has\0nul", 7)), "has\\x00nul");
+  // ':' and '=' get a CN rejected but are harmless in a log line, so they
+  // survive verbatim - the point is to show the operator what was refused.
+  EXPECT_EQ(socket_helpers::escape_for_log("has:colon"), "has:colon");
+}
+
+TEST(EscapeForLog, OverlongValuesAreTruncated) {
+  const std::string result = socket_helpers::escape_for_log(std::string(socket_helpers::max_peer_principal_length + 10, 'a'));
+  EXPECT_EQ(result, std::string(socket_helpers::max_peer_principal_length, 'a') + "...");
 }

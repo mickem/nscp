@@ -72,6 +72,13 @@ std::string extract_peer_subject_dn(void* ssl);
 bool is_valid_peer_principal(const std::string& cn);
 constexpr std::size_t max_peer_principal_length = 255;
 
+// A rejected CN rendered safe to put in a log line: the characters that got
+// it rejected are exactly the ones that must not reach the log unescaped, so
+// each is replaced by \xNN and the result is truncated. Without this a
+// rejected CN is invisible and the resulting drop to a bare policy subject
+// cannot be diagnosed.
+std::string escape_for_log(const std::string& value);
+
 // Format an X509 certificate's Subject as an RFC 2253 DN string.
 // Exposed for unit testing (so tests can construct an X509 in memory
 // without standing up a TLS session) and for callers that already

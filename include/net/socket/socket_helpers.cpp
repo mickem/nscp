@@ -282,6 +282,24 @@ std::string socket_helpers::extract_peer_subject_dn(void *ssl) {
   return result;
 }
 
+std::string socket_helpers::escape_for_log(const std::string &value) {
+  static const char *const hex = "0123456789abcdef";
+  std::string result;
+  const std::size_t limit = std::min(value.size(), max_peer_principal_length);
+  for (std::size_t i = 0; i < limit; i++) {
+    const auto uc = static_cast<unsigned char>(value[i]);
+    if (uc < 0x20 || uc == 0x7F) {
+      result += "\\x";
+      result += hex[uc >> 4];
+      result += hex[uc & 0x0F];
+    } else {
+      result += value[i];
+    }
+  }
+  if (value.size() > limit) result += "...";
+  return result;
+}
+
 bool socket_helpers::is_valid_peer_principal(const std::string &cn) {
   if (cn.empty() || cn.size() > max_peer_principal_length) return false;
   for (const char c : cn) {
@@ -465,9 +483,13 @@ boost::asio::ssl::context::verify_mode socket_helpers::connection_info::ssl_opts
     }
     // "workarounds" and "single" are advertised under `verify mode` too, but
     // they are SSL *context* options, not verify bits: OR-ing them into the
-    // value handed to SSL_CTX_set_verify did nothing useful and polluted the
-    // mask (SSL_OP_ALL carries 0x4, which is SSL_VERIFY_CLIENT_ONCE). They
-    // are honoured by get_ctx_opts() instead, where they take effect.
+    // value handed to SSL_CTX_set_verify only fed it flags it ignores. None
+    // of the verify bits (0x1 peer, 0x2 fail-if-no-peer-cert, 0x4
+    // client-once) is set in SSL_OP_ALL (0x80000850 on OpenSSL 1.1+) or in
+    // SSL_OP_SINGLE_DH_USE (0x0 since 1.1), so verification was never
+    // silently turned on or off - but this is the same mask
+    // `client identity source = cn` gates on, so it is worth keeping exact.
+    // get_ctx_opts() honours them instead, where they take effect.
   }
   return mode;
 }
@@ -723,6 +745,36 @@ void make_certificate(const X509_ptr &cert, EVP_PKEY_ptr &pkey, const int bits, 
 }
 
 #ifdef WIN32
+// The SID of the account this process runs as, so a key we generate stays
+// readable by the agent itself. docs/docs/setup/securing.md recommends a
+// dedicated low-privilege service account, which is neither LOCAL SYSTEM nor
+// an administrator - a DACL naming only those two would lock the agent out of
+// the key it had just written.
+namespace {
+bool current_user_sid(std::vector<unsigned char> &storage, std::list<std::string> &errors) {
+  HANDLE token = nullptr;
+  if (!::OpenProcessToken(::GetCurrentProcess(), TOKEN_QUERY, &token)) {
+    errors.emplace_back("OpenProcessToken failed: GetLastError=" + std::to_string(::GetLastError()));
+    return false;
+  }
+  DWORD size = 0;
+  ::GetTokenInformation(token, TokenUser, nullptr, 0, &size);
+  bool ok = false;
+  if (size > 0) {
+    std::vector<unsigned char> buffer(size, 0);
+    if (::GetTokenInformation(token, TokenUser, buffer.data(), size, &size)) {
+      const auto *user = reinterpret_cast<const TOKEN_USER *>(buffer.data());
+      const DWORD sid_size = ::GetLengthSid(user->User.Sid);
+      storage.assign(sid_size, 0);
+      ok = ::CopySid(sid_size, storage.data(), user->User.Sid) != 0;
+    }
+  }
+  if (!ok) errors.emplace_back("GetTokenInformation(TokenUser) failed: GetLastError=" + std::to_string(::GetLastError()));
+  ::CloseHandle(token);
+  return ok;
+}
+}  // namespace
+
 bool socket_helpers::restrict_to_owner(const std::string &path, std::list<std::string> &errors) {
   // Well-known SIDs are built rather than parsed so a machine whose
   // Administrators group is named in another language still matches.
@@ -738,9 +790,12 @@ bool socket_helpers::restrict_to_owner(const std::string &path, std::list<std::s
     errors.emplace_back("CreateWellKnownSid(administrators) failed: GetLastError=" + std::to_string(::GetLastError()));
     return false;
   }
+  // Duplicated harmlessly when the agent already runs as SYSTEM.
+  std::vector<unsigned char> user_sid_bytes;
+  if (!current_user_sid(user_sid_bytes, errors)) return false;
 
-  EXPLICIT_ACCESS_W access[2] = {};
-  for (int i = 0; i < 2; i++) {
+  EXPLICIT_ACCESS_W access[3] = {};
+  for (int i = 0; i < 3; i++) {
     access[i].grfAccessPermissions = GENERIC_ALL;
     access[i].grfAccessMode = SET_ACCESS;
     access[i].grfInheritance = NO_INHERITANCE;
@@ -749,9 +804,11 @@ bool socket_helpers::restrict_to_owner(const std::string &path, std::list<std::s
   }
   access[0].Trustee.ptstrName = reinterpret_cast<LPWSTR>(system_sid_bytes.data());
   access[1].Trustee.ptstrName = reinterpret_cast<LPWSTR>(admin_sid_bytes.data());
+  access[2].Trustee.ptstrName = reinterpret_cast<LPWSTR>(user_sid_bytes.data());
+  access[2].Trustee.TrusteeType = TRUSTEE_IS_USER;
 
   PACL raw_acl = nullptr;
-  if (::SetEntriesInAclW(2, access, nullptr, &raw_acl) != ERROR_SUCCESS) {
+  if (::SetEntriesInAclW(3, access, nullptr, &raw_acl) != ERROR_SUCCESS) {
     errors.emplace_back("SetEntriesInAcl failed: GetLastError=" + std::to_string(::GetLastError()));
     return false;
   }
@@ -791,7 +848,15 @@ std::string drain_bio(BIO *bio, const std::string &what) {
 // generates the file when it is missing, every default install published its
 // TLS key to every local account: enough to decrypt captured traffic or
 // impersonate the agent.
-void write_private_file(const std::string &path, const std::string &content) {
+//
+// Written through a temporary file and renamed into place, because a failure
+// part-way is not recoverable otherwise: validate_certificate only generates
+// a certificate when the path is *not* a regular file, so a zero-byte or
+// half-written certificate.pem would never be repaired and the listener would
+// keep starting without a usable certificate until someone deleted it by
+// hand. A rename preserves the mode (and, on Windows, the DACL) it was
+// created with, and replaces any previous file atomically.
+void write_secured(const std::string &path, const std::string &content) {
 #ifdef WIN32
   // On Windows the mode bits do nothing; the DACL is what matters. Create the
   // file empty, lock it down, and only then write the key into it, so a
@@ -807,9 +872,7 @@ void write_private_file(const std::string &path, const std::string &content) {
 
   std::list<std::string> errors;
   if (!socket_helpers::restrict_to_owner(path, errors)) {
-    boost::system::error_code ignored;
-    boost::filesystem::remove(path, ignored);
-    std::string reason = errors.empty() ? std::string("unknown error") : errors.front();
+    const std::string reason = errors.empty() ? std::string("unknown error") : errors.front();
     throw socket_helpers::socket_exception("Refusing to write an unprotected private key to " + path + ": " + reason);
   }
 #ifdef _MSC_VER
@@ -819,14 +882,10 @@ void write_private_file(const std::string &path, const std::string &content) {
 #endif
   if (file == nullptr) throw socket_helpers::socket_exception("Failed to write: " + path);
 #else
-  // O_CREAT only applies the mode to a file it creates, so narrow an existing
-  // one explicitly rather than inheriting whatever it had.
-  const int fd = ::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+  // O_EXCL: the temporary is ours alone, so nothing can pre-create it with a
+  // mode or an owner of somebody else's choosing.
+  const int fd = ::open(path.c_str(), O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
   if (fd < 0) throw socket_helpers::socket_exception("Failed to write: " + path);
-  if (::fchmod(fd, S_IRUSR | S_IWUSR) != 0) {
-    ::close(fd);
-    throw socket_helpers::socket_exception("Failed to restrict permissions on: " + path);
-  }
   FILE *file = ::fdopen(fd, "wb");
   if (file == nullptr) {
     ::close(fd);
@@ -834,8 +893,27 @@ void write_private_file(const std::string &path, const std::string &content) {
   }
 #endif
   const std::size_t written = fwrite(content.data(), sizeof(char), content.size(), file);
-  fclose(file);
-  if (written != content.size()) throw socket_helpers::socket_exception("Failed to write: " + path);
+  const bool flushed = fclose(file) == 0;
+  if (written != content.size() || !flushed) throw socket_helpers::socket_exception("Failed to write: " + path);
+}
+
+void write_private_file(const std::string &path, const std::string &content) {
+  const boost::filesystem::path target(path);
+  const boost::filesystem::path temporary = target.parent_path() / (target.filename().string() + ".new");
+  boost::system::error_code ignored;
+  boost::filesystem::remove(temporary, ignored);
+  try {
+    write_secured(temporary.string(), content);
+  } catch (...) {
+    boost::filesystem::remove(temporary, ignored);
+    throw;
+  }
+  boost::system::error_code ec;
+  boost::filesystem::rename(temporary, target, ec);
+  if (ec) {
+    boost::filesystem::remove(temporary, ignored);
+    throw socket_helpers::socket_exception("Failed to move " + temporary.string() + " into place: " + utf8::utf8_from_native(ec.message()));
+  }
 }
 
 void write_public_file(const std::string &path, const std::string &content) {

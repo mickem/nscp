@@ -32,10 +32,11 @@ exploitable for code execution past `allowed hosts`.
   unused (the server defaults to 2048) but Logjam-broken, and an operator
   copying the shipped default inherited it. File and dead default removed.
 - Smaller fixes: the peer certificate CN is constrained before it becomes a
-  policy principal, `workarounds`/`single` no longer pollute the TLS verify
-  mask, every documented `tls version` spelling is accepted, and a set of NRPE
-  codec correctness bugs (wire version 4 unrecognised, premature packet
-  completion, length underflows, a re-sending response loop).
+  policy principal, `workarounds`/`single` no longer go into the TLS verify
+  mask (which ignored them; no verify bit was ever set or cleared by them),
+  every documented `tls version` spelling is accepted, and a set of NRPE codec
+  correctness bugs (wire version 4 unrecognised, premature packet completion,
+  length underflows, a re-sending response loop).
 
 **What to do:** the upgrade does not touch existing files. Check the
 permissions of any certificate NSClient++ generated (`chmod 600

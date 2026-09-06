@@ -303,9 +303,14 @@ class ssl_connection : public connection<protocol_type, N> {
         // or forge a log line. A rejected CN leaves the connection without
         // an identity rather than with a mangled one.
         if (!cn.empty() && !socket_helpers::is_valid_peer_principal(cn)) {
-          parent_type::protocol_->log_error(__FILE__, __LINE__,
-                                            "Ignoring TLS peer Subject CN: it is empty, longer than " + str::xtos(socket_helpers::max_peer_principal_length) +
-                                                " characters, or contains a control character, ':' or '='");
+          // Say which CN, escaped: the request is still served, but with no
+          // identity, so a policy keyed on `NRPEServer:<cn>` stops matching
+          // it. That is undiagnosable if the log does not name the CN.
+          parent_type::protocol_->log_error(
+              __FILE__, __LINE__,
+              "Ignoring TLS peer Subject CN '" + socket_helpers::escape_for_log(cn) + "': longer than " + str::xtos(socket_helpers::max_peer_principal_length) +
+                  " characters, or contains a control character, ':' or '='. This connection has no identity, so a permission rule naming this principal "
+                  "will not match it.");
           cn.clear();
         }
         if (!cn.empty()) {
