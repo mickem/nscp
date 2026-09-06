@@ -21,7 +21,16 @@
 
   var STORAGE_KEY = 'nscp.notes.filter';
 
+  // Keep in step with version_key() in docs/hooks/notes.py: 'next' is the
+  // unreleased bucket and has to sort above every release, not below it -
+  // parseInt('next') is NaN, which would otherwise read as version 0.
+  var UNRELEASED = 'next';
+
   function versionKey(v) {
+    // A finite sentinel, not Infinity: compareVersions subtracts, and
+    // Infinity - Infinity is NaN, which would make 'next' fail to compare
+    // equal to itself and leak its notes past an "upgrading from next" filter.
+    if (String(v) === UNRELEASED) { return [Number.MAX_SAFE_INTEGER]; }
     return String(v).split('.').map(function (p) { return parseInt(p, 10) || 0; });
   }
 

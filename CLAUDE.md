@@ -24,6 +24,16 @@
   the DCO, so an AI must never carry a `Signed-off-by` (which co-authorship
   implies). Keep `Signed-off-by:` as the final trailer — a human always reviews,
   tests, and takes responsibility for the result.
+- The **release version is derived from the commit messages**, by
+  `codacy/git-version` in `.github/workflows/get-version.yml`. It scans the
+  commits since the last tag for `feature:` (bumps the minor version) and
+  `breaking:` (bumps the major); everything else is a patch. The match is on
+  the message text, not just the subject, so keep those two words out of prose
+  unless you mean them. By convention they are a subject prefix. A branch that
+  adds user-visible functionality wants at least one `feature:` subject —
+  `feature: give \`nscp test\` a real prompt` — or the release it lands in is
+  numbered as a patch. Conventional-commit prefixes (`fix:`, `docs:`, `test:`,
+  `build:`, `refactor:`) are used for everything else and all read as a patch.
 
 ## Check command options
 - Boolean check options must be declared as
@@ -172,7 +182,7 @@ end with the compare link.
 Release notes live on GitHub and get buried over time, so two docs pages mirror
 them durably. Whenever a change introduces a **breaking change, a behaviour
 change that needs operator action, or a new/removed default**, add a
-new file `docs/upgrades/<version>/<slug>.md` (the same content as the
+new file `docs/upgrades/next/<slug>.md` (the same content as the
 release's `## Upgrade notes`) — **never edit `docs/docs/setup/upgrading.md`
 itself**: it is a stub that the mkdocs hook `docs/hooks/notes.py` expands
 from those files at build time, one file per note so parallel branches do not
@@ -183,11 +193,17 @@ reader must have enabled to be affected), an `action:` (`required` when
 everyone running those modules must change something, `conditional` when only
 setups using the described feature must check, `none` when informational) and
 an `icon:`; the body starts with a bold title. Format and rules: `docs/upgrades/README.md`; validate with
-`python3 docs/hooks/notes.py --check`. Whenever a change is
+`python3 docs/hooks/notes.py --check`. `next` is the bucket for everything that
+has not shipped: it renders as *Unreleased* and sorts above every release, so
+nobody has to guess the next version number while writing a note. Cutting a
+release renames the directory to the version
+(`git mv docs/upgrades/next docs/upgrades/0.19.0`) and rewrites any
+`fixed_in: next` in `docs/security/` to match, in the release commit. Whenever a change is
 **security-relevant** — including hardening handled without a CVE — also add
 a security notice as a new file `docs/security/<slug>.md` (**never edit
 `docs/docs/security/notices.md`**, the same hook assembles it): a front matter
-with `title:`, `fixed_in:`, `severity:`, `modules:`, `action:` and — only for a
+with `title:`, `fixed_in:` (`next` until it ships), `severity:`, `modules:`,
+`action:` and — only for a
 published CVE/GHSA advisory — an `advisory:` block that becomes its row of
 the advisories table (format: `docs/security/README.md`), and mark the
 matching upgrade note with a 🔒 icon that links to it (the anchor is the

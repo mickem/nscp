@@ -97,6 +97,22 @@ ACTION_BADGE = {
 }
 VERSION_RE = re.compile(r'^\d+(\.\d+)*$')
 
+# Version directory (and "fixed_in:") for changes that have not been released
+# yet. Naming the release they will ship in means guessing it, and then moving
+# every note when the guess turns out wrong; notes accumulate under UNRELEASED
+# instead, and the directory is renamed once, when the release is cut. It sorts
+# above every real version and reads as UNRELEASED_LABEL on the page.
+UNRELEASED = 'next'
+UNRELEASED_LABEL = 'Unreleased'
+
+
+def is_version(value):
+    return value == UNRELEASED or bool(VERSION_RE.match(value))
+
+
+def version_label(version):
+    return UNRELEASED_LABEL if version == UNRELEASED else version
+
 # Display groups for the module picker, in this order.
 GROUP_CHECKS = 'Check modules'
 GROUP_CLIENTS = 'Clients and servers'
@@ -133,7 +149,13 @@ def known_modules():
 
 
 def version_key(version):
-    """Sort key for ``0.18.1``-style versions (numeric, part by part)."""
+    """Sort key for ``0.18.1``-style versions (numeric, part by part).
+
+    ``next`` is not a number and has to sort above every release, so it gets a
+    single part no version will ever reach.
+    """
+    if version == UNRELEASED:
+        return (float('inf'),)
     return tuple(int(p) for p in version.split('.'))
 
 
@@ -215,8 +237,8 @@ def parse_upgrade_note(path, valid):
 def parse_security_note(path, valid):
     meta, body = read_front_matter(path)
     fixed_in = read_string(meta, 'fixed_in', path)
-    if fixed_in and not VERSION_RE.match(fixed_in):
-        raise NoteError('%s: "fixed_in:" must be a version number such as 0.18.1' % path)
+    if fixed_in and not is_version(fixed_in):
+        raise NoteError('%s: "fixed_in:" must be a version number such as 0.18.1, or "%s"' % (path, UNRELEASED))
     advisory = meta.get('advisory')
     if advisory is not None:
         if not isinstance(advisory, dict):
@@ -251,8 +273,8 @@ def load_upgrade_notes(upgrades_dir=UPGRADES_DIR, valid_modules=None):
         vdir = os.path.join(upgrades_dir, entry)
         if not os.path.isdir(vdir):
             continue
-        if not VERSION_RE.match(entry):
-            raise NoteError('%s: directory name is not a version number' % vdir)
+        if not is_version(entry):
+            raise NoteError('%s: directory name is not a version number (or "%s")' % (vdir, UNRELEASED))
         notes = []
         for name in sorted(os.listdir(vdir)):
             if name.endswith('.md'):
@@ -319,7 +341,7 @@ def render_upgrades(versions):
     out = []
     for version, notes in versions:
         out.append('<div class="note-version" markdown="1" data-version="%s">\n' % html_attr(version))
-        out.append('## %s\n' % version)
+        out.append('## %s\n' % version_label(version))
         out.extend(render_upgrade_note(n) + '\n' for n in notes)
         out.append('</div>\n')
     return '\n'.join(out)
@@ -332,7 +354,7 @@ def render_security_note(note):
     if badge:
         meta.append(badge)
     if note['fixed_in']:
-        fixed = note['fixed_in']
+        fixed = version_label(note['fixed_in'])
         if note['fixed_in_note']:
             fixed += ' (%s)' % note['fixed_in_note']
         meta.append('**Fixed in:** ' + fixed)
@@ -399,7 +421,7 @@ def render_filter(versions, security_switch):
     for m in used:
         groups.setdefault(module_group(m), []).append(m)
     area_label = dict(FILTER_AREAS)
-    options = ''.join('<option value="%s">%s</option>' % (v, v) for v in versions)
+    options = ''.join('<option value="%s">%s</option>' % (v, version_label(v)) for v in versions)
 
     out = ['<div class="note-filter" id="note-filter" hidden>']
     out.append('<div class="note-filter__row">')

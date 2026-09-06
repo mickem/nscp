@@ -3,10 +3,14 @@
 
 #include <boost/scoped_ptr.hpp>
 #include <client/simple_client.hpp>
+#include <memory>
 #include <nscapi/plugin.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/log.hpp>
 #include <nscapi/protobuf/metrics.hpp>
+#include <string>
+
+#include "console_editor.hpp"
 
 struct client_handler : public client::cli_handler {
  private:
@@ -24,7 +28,19 @@ struct client_handler : public client::cli_handler {
 
 class CommandClient : public nscapi::impl::simple_plugin {
   boost::scoped_ptr<client::cli_client> client;
-  void read_input_thread() const;
+
+  // Settings, read in loadModuleEx.
+  std::string history_file_;
+  int history_size_ = 500;
+  bool color_ = true;
+
+  // The prompt, when we have a terminal to draw one on. The interactive and
+  // non-interactive read loops are genuinely different animals - one is a
+  // full-screen line editor, the other polls a pipe - so they are separate
+  // functions rather than one with branches.
+  void interactive_input_loop(const std::shared_ptr<command_client::console_editor> &editor) const;
+  void piped_input_loop() const;
+  std::shared_ptr<command_client::console_editor> make_editor() const;
 
  public:
   CommandClient() {}

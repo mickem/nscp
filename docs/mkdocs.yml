@@ -34,6 +34,7 @@ nav:
       - How NSClient++ Works: concepts/index.md
       - Checks In Depth: concepts/checks.md
       - Settings: concepts/settings.md
+      - Test Mode: concepts/test-mode.md
       - File Layout: concepts/file-layout.md
       - Permissions: concepts/permissions.md
   - Setup:
