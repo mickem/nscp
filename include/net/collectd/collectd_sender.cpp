@@ -28,7 +28,18 @@ using boost::asio::ip::udp;
 class udp_sender {
  public:
   udp_sender(boost::asio::io_context &io_service, const udp::endpoint &source, const udp::endpoint &target)
-      : target_(target), socket_(io_service, source) {}
+      : target_(target), socket_(io_service, source) {
+    // Binding the source address is not by itself what steers multicast egress
+    // on every platform - IP_MULTICAST_IF is what selects the outgoing
+    // interface - so set it too, or "through exactly these interfaces" holds
+    // on some hosts and not others. Best effort: where the option is refused
+    // the bound source and the routing table still apply. The IPv6 option
+    // selects by interface index, which an address alone does not give us.
+    if (target.address().is_v4() && source.address().is_v4()) {
+      boost::system::error_code ec;
+      socket_.set_option(boost::asio::ip::multicast::outbound_interface(source.address().to_v4()), ec);
+    }
+  }
   udp_sender(boost::asio::io_context &io_service, const udp::endpoint &target) : target_(target), socket_(io_service, target.protocol()) {}
 
   void send_data(const std::string &data, boost::system::error_code &ec) { socket_.send_to(boost::asio::buffer(data), target_, 0, ec); }
@@ -75,7 +86,19 @@ std::list<std::string> split_list(const std::string &value) {
 
 collectd::sender_result collectd::send_datagrams(const sender_config &config, const std::list<std::string> &datagrams) {
   sender_result result;
-  if (datagrams.empty()) return result;
+
+  // An empty datagram is never put on the wire, so it is not a payload and
+  // must not appear in the accounting either - counting it made a timeout
+  // report more outstanding datagrams than there were.
+  std::list<const std::string *> payloads;
+  for (const std::string &datagram : datagrams) {
+    if (!datagram.empty()) payloads.push_back(&datagram);
+  }
+  if (payloads.empty()) return result;
+  const std::size_t total = payloads.size();
+  // Payloads whose outcome has been recorded; the rest are still outstanding
+  // if the send is cut short.
+  std::size_t processed = 0;
 
   const std::string target_name = config.address + ":" + config.port;
   // Distinct failures only: the same error on every datagram of every cycle is
@@ -98,11 +121,36 @@ collectd::sender_result collectd::send_datagrams(const sender_config &config, co
     // literals: parsing only literals meant a target named by host name threw
     // on every metrics cycle - visible as a repeated log line and nothing
     // else - so the metrics silently never arrived.
+    //
+    // The lookup is asynchronous so it runs under the same budget as the send.
+    // A blocking resolve() answers to the resolver's own timeout, which can be
+    // tens of seconds on an unreachable DNS server - spent on the core metrics
+    // thread, and outside the `timeout` this target documents.
     udp::resolver target_resolver(io_service);
     boost::system::error_code ec;
-    const udp::resolver::results_type targets = target_resolver.resolve(config.address, config.port, ec);
+    udp::resolver::results_type targets;
+    bool resolved = false;
+    target_resolver.async_resolve(config.address, config.port, [&](const boost::system::error_code &e, const udp::resolver::results_type &r) {
+      ec = e;
+      targets = r;
+      resolved = true;
+    });
+    if (config.timeout_seconds > 0) {
+      io_service.run_for(std::chrono::seconds(config.timeout_seconds));
+    } else {
+      io_service.run();
+    }
+    if (!resolved) {
+      target_resolver.cancel();
+      io_service.restart();
+      io_service.run();
+      result.failed = total;
+      report("Timed out after " + std::to_string(config.timeout_seconds) + "s resolving collectd target " + target_name + "; no metrics sent");
+      return result;
+    }
+    io_service.restart();
     if (ec || targets.empty()) {
-      result.failed = datagrams.size();
+      result.failed = total;
       report("Failed to resolve collectd target " + target_name + ": " + (ec ? ec.message() : std::string("no addresses returned")));
       return result;
     }
@@ -123,8 +171,15 @@ collectd::sender_result collectd::send_datagrams(const sender_config &config, co
         udp::resolver resolver(io_service);
         boost::system::error_code local_ec;
         for (const auto &entry : resolver.resolve(boost::asio::ip::host_name(), "", local_ec)) {
-          if (entry.endpoint().address().is_v4() == target.address().is_v4()) {
+          if (entry.endpoint().address().is_v4() != target.address().is_v4()) continue;
+          // Skip an address that cannot be bound (an interface that went away,
+          // a privileged or already-taken source) instead of letting it throw:
+          // one bad entry must not stop the metrics leaving through the good
+          // interfaces.
+          try {
             senders.push_back(std::make_shared<udp_sender>(io_service, entry.endpoint(), target));
+          } catch (const std::exception &e) {
+            report("Cannot send to collectd target " + target_name + " through local address " + entry.endpoint().address().to_string() + ": " + e.what());
           }
         }
         if (senders.empty()) {
@@ -137,7 +192,7 @@ collectd::sender_result collectd::send_datagrams(const sender_config &config, co
           const boost::asio::ip::address local = boost::asio::ip::make_address(entry, address_ec);
           if (address_ec) {
             report("Ignoring 'multicast interface' entry '" + entry + "' for collectd target " + target_name +
-                   ": not a local IP address (host names are not accepted here)");
+                   ": not an IP address literal (host names are not accepted here)");
             continue;
           }
           if (local.is_v4() != target.address().is_v4()) {
@@ -152,7 +207,7 @@ collectd::sender_result collectd::send_datagrams(const sender_config &config, co
           }
         }
         if (senders.empty()) {
-          result.failed = datagrams.size();
+          result.failed = total;
           report("No usable 'multicast interface' entry for collectd target " + target_name + "; no metrics sent");
           return result;
         }
@@ -164,36 +219,40 @@ collectd::sender_result collectd::send_datagrams(const sender_config &config, co
       senders.push_back(std::make_shared<udp_sender>(io_service, target));
     }
 
-    std::size_t remaining = datagrams.size();
-    for (const std::string &datagram : datagrams) {
-      remaining--;
-      if (datagram.empty()) continue;  // never put an empty datagram on the wire
+    for (const std::string *payload : payloads) {
       if (expired()) {
-        result.failed += remaining + 1;
+        const std::size_t outstanding = total - processed;
+        result.failed += outstanding;
         report("Timed out after " + std::to_string(config.timeout_seconds) + "s sending metrics to collectd target " + target_name + ": " +
-               std::to_string(remaining + 1) + " datagram(s) not sent");
+               std::to_string(outstanding) + " datagram(s) not sent");
         break;
       }
+      // One datagram is one unit of work whatever the interface count: it
+      // counts as sent when every socket took it, and as failed otherwise.
+      bool delivered = true;
       for (const std::shared_ptr<udp_sender> &sender : senders) {
         for (int attempt = 0;; attempt++) {
           boost::system::error_code send_ec;
           result.attempts++;
-          sender->send_data(datagram, send_ec);
-          if (!send_ec) {
-            result.sent++;
-            break;
-          }
+          sender->send_data(*payload, send_ec);
+          if (!send_ec) break;
           if (attempt >= config.retries || expired()) {
-            result.failed++;
+            delivered = false;
             report("Failed to send metrics to collectd target " + target_name + ": " + send_ec.message());
             break;
           }
           std::this_thread::sleep_for(std::chrono::milliseconds(retry_backoff_ms));
         }
       }
+      processed++;
+      if (delivered) {
+        result.sent++;
+      } else {
+        result.failed++;
+      }
     }
   } catch (const std::exception &e) {
-    result.failed = datagrams.size() - result.sent;
+    result.failed += total - processed;
     report("Failed to send metrics to collectd target " + target_name + ": " + e.what());
   }
   return result;

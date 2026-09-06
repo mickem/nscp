@@ -159,6 +159,32 @@ TEST(CollectdSender, ReportsEachDistinctFailureOnce) {
   EXPECT_EQ(result.errors.size(), 1u);
 }
 
+TEST(CollectdSender, AccountsForEveryPayloadExactlyOnce) {
+  udp_sink sink;
+
+  const collectd::sender_result result =
+      collectd::send_datagrams(collectd::sender_config("127.0.0.1", sink.port_string()), {"one", "", oversized_datagram(), "two"});
+
+  // Three payloads - the empty entry is not one. Each is either sent or
+  // failed, never both and never neither, so a caller can trust the pair.
+  EXPECT_EQ(result.sent + result.failed, 3u);
+  EXPECT_EQ(result.sent, 2u);
+  EXPECT_EQ(result.failed, 1u);
+}
+
+TEST(CollectdSender, TheTimeoutReportCountsOnlyRealPayloads) {
+  udp_sink sink;
+  const collectd::sender_config config("127.0.0.1", sink.port_string(), 100000, 1);
+
+  const collectd::sender_result result = collectd::send_datagrams(config, {oversized_datagram(), "", "", "last"});
+
+  // Two payloads: the first burns the whole budget and the last is abandoned.
+  // The two empty entries were never going on the wire and must not inflate
+  // the "not sent" count.
+  EXPECT_EQ(result.sent + result.failed, 2u);
+  EXPECT_EQ(result.failed, 2u);
+}
+
 TEST(CollectdSender, StopsRetryingWhenTheTimeoutExpires) {
   udp_sink sink;
   // A retry budget large enough to run for minutes, bounded by a one second
@@ -267,4 +293,15 @@ TEST(CollectdSenderMulticast, TheSettingIsIgnoredForUnicastTargets) {
   EXPECT_EQ(result.sent, 1u);
   EXPECT_TRUE(result.errors.empty());
   ASSERT_EQ(sink.drain().size(), 1u);
+}
+
+TEST(CollectdSenderMulticast, CountsADatagramOnceHoweverManyInterfacesCarryIt) {
+  const collectd::sender_result result =
+      collectd::send_datagrams(collectd::sender_config(kDefaultGroup, "25826", 0, 0, "127.0.0.1, 127.0.0.1"), {"payload"});
+
+  // Two sockets and two send calls, but one datagram: the payload counters
+  // stay at one, so `failed` can never be computed by subtracting a
+  // socket-scaled `sent` and underflow.
+  EXPECT_EQ(result.attempts, 2u);
+  EXPECT_EQ(result.sent + result.failed, 1u);
 }

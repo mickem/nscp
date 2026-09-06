@@ -31,8 +31,9 @@ struct sender_config {
   int retries;
 
   // Wall-clock budget for the whole send, in seconds (the target's `timeout`
-  // setting); 0 means no limit. It bounds the retry loop, so an unreachable
-  // target cannot hold the metrics thread for retries x datagrams.
+  // setting); 0 means no limit. It covers name resolution as well as the retry
+  // loop, so neither an unreachable target nor an unresponsive DNS server can
+  // hold the metrics thread past it.
   unsigned int timeout_seconds;
 
   // Which local interfaces a multicast target's datagrams leave through (the
@@ -52,11 +53,15 @@ struct sender_config {
 };
 
 struct sender_result {
-  // Datagrams that reached the socket, and datagrams that did not.
+  // Datagrams delivered to every socket the target uses, and datagrams that
+  // were not - including the ones a spent timeout left unsent. Both count
+  // payloads, so together they account for every non-empty datagram passed in,
+  // whatever the number of interfaces behind a multicast target.
   std::size_t sent;
   std::size_t failed;
-  // Send calls made, including retries: `attempts` above `sent` means the
-  // retry budget was being spent.
+  // Send calls made, including retries and one per interface: `attempts` above
+  // `sent` means the retry budget was being spent, or the target fans out over
+  // several interfaces.
   std::size_t attempts;
   // One line per problem, ready to log. Repeated identical failures are
   // collapsed so a broken target cannot flood the log every interval.
