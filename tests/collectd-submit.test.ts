@@ -30,6 +30,7 @@
  * mirrors what collectd_packet.cpp on the sending side writes.
  */
 import * as dgram from "dgram";
+import * as dns from "dns";
 import { NscpInstance } from "@fixtures/index";
 
 jest.setTimeout(600_000);
@@ -136,17 +137,31 @@ function decodeCollectd(buf: Buffer): CollectdReading[] {
   return readings;
 }
 
+/**
+ * The address "localhost" resolves to for this host - the same one
+ * NSClient++'s resolver picks when a target names it. Debian-family hosts map
+ * localhost to both 127.0.0.1 and ::1 in /etc/hosts and getaddrinfo prefers
+ * ::1, so a receiver bound to a hard-coded literal would be asserting on the
+ * resolver rather than on the agent.
+ */
+async function resolveLocalhost(): Promise<string> {
+  const { address } = await dns.promises.lookup("localhost");
+  return address;
+}
+
 /** A loopback UDP collectd receiver that decodes every datagram it gets. */
 class CollectdReceiver {
-  private readonly socket = dgram.createSocket("udp4");
+  private socket!: dgram.Socket;
   readonly readings: CollectdReading[] = [];
   /** Raw datagrams, kept so a failing assertion can show the bytes. */
   readonly packets: Buffer[] = [];
 
-  async start(): Promise<number> {
+  /** Bind the receiver, by default on IPv4 loopback. */
+  async start(host = "127.0.0.1"): Promise<number> {
+    this.socket = dgram.createSocket(host.includes(":") ? "udp6" : "udp4");
     await new Promise<void>((resolve, reject) => {
       this.socket.once("error", reject);
-      this.socket.bind(0, "127.0.0.1", () => {
+      this.socket.bind(0, host, () => {
         this.socket.off("error", reject);
         resolve();
       });
@@ -159,6 +174,7 @@ class CollectdReceiver {
   }
 
   async stop(): Promise<void> {
+    if (!this.socket) return; // start() never ran (a failed beforeAll)
     await new Promise<void>((resolve) => this.socket.close(() => resolve()));
   }
 
@@ -332,7 +348,9 @@ describe("CollectD hostname target", () => {
 
   beforeAll(async () => {
     receiver = new CollectdReceiver();
-    const port = await receiver.start();
+    // Listen where "localhost" actually points on this host, so the test
+    // asserts that the name is resolved and not which family the host prefers.
+    const port = await receiver.start(await resolveLocalhost());
 
     nscp = new NscpInstance();
     await nscp.configure({
