@@ -50,10 +50,12 @@ Because the values are averages, they will not match the instantaneous CPU load 
 as `top` at the moment the check is executed, and very short spikes that fall between collection
 ticks may be missed entirely.
 
-**Interaction with the `disable` setting**
+**Interaction with the `disable` setting (Windows only)**
 
-The collector that feeds this buffer can be turned off with `disable = cpu` in
+On Windows the collector that feeds this buffer can be turned off with `disable = cpu` in
 `[/settings/system/windows]`. In that case `check_cpu` returns UNKNOWN with an explanatory message
 rather than reporting values from a buffer that is no longer updated. The entries in `disable` are
 matched as whole tokens, so `disable = cpu_frequency` only disables the CPU frequency collector and
 leaves `check_cpu` unaffected.
+
+The Linux module has no `disable` setting; its collector is always running.

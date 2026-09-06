@@ -1,16 +1,19 @@
-#### Checking for Windows Updates
+#### Checking for pending OS updates
 
-The `check_os_updates` command allows you to monitor for missing Windows updates via the Windows Update Agent (WUA) API. You can filter the results based on severity, reboot requirements, and other attributes. 
-
-**Basic usage**
-
-To simply check if there are any pending updates:
+`check_os_updates` reports the updates the system is waiting to install. The
+counters (`updates`, `security`, …) are **record keywords**: reference them from
+`detail-syntax` (rendered per record and included in `${list}`), not from
+`top-syntax`, where they read as 0. On both platforms the default `warning`
+filter is `updates > 0`, so a bare call warns whenever anything is pending:
 
 ```
 check_os_updates
 ```
 
-If there are any pending updates, this will return a warning state by default (because the default `warning` filter is `updates > 0`).
+##### Windows
+
+Sourced from the Windows Update Agent (WUA) API. Results can be filtered by
+severity, reboot requirements and other attributes.
 
 **Checking for critical updates**
 
@@ -64,7 +67,23 @@ check_os_updates update-filter=".NET" "detail-syntax=${updates} .NET updates: ${
 > **Note:** the WUA search criteria is `Type='Software'`, so **driver updates are
 > excluded** by design. This keeps the count focused on OS/application patches.
 
-**Customizing the output**
+##### Linux
+
+Sourced from the system package manager — `apt`, `dnf`, `yum`, `zypper` or
+`pacman`, whichever the host uses. The `manager` keyword names the one that was
+queried, and `count` remains a deprecated alias for `updates`.
+
+**Checking for security updates only**
+
+Often, you only want to be alerted for *security* updates. You can configure this using the `warning` and `critical` filters:
+
+```
+check_os_updates "warning=none" "critical=security > 0"
+```
+
+This will return `CRITICAL` if any security updates are pending and otherwise `OK` regardless of the number of ordinary updates.
+
+##### Customizing the output
 
 You can use the syntax options to format the output string:
 
@@ -72,6 +91,9 @@ You can use the syntax options to format the output string:
 check_os_updates "top-syntax=${status}: ${list}" "detail-syntax=Found ${updates} missing updates. Security: ${security}, Critical: ${critical} - ${titles}"
 ```
 
-Note that the update counters (`updates`, `security`, …) are record keywords: reference
-them from `detail-syntax` (rendered per record and included in `${list}`), not from
-`top-syntax`, where they read as 0.
+On Linux, list the pending package names and the package manager that reported
+them:
+
+```
+check_os_updates "detail-syntax=${updates} updates via ${manager}: ${packages}" show-all
+```
