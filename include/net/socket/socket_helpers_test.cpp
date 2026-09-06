@@ -1310,9 +1310,18 @@ TEST(FormatSubjectCnOnly, CnWithSpaceAndPunctuationPreservedVerbatim) {
 // =============================================================================
 
 TEST(WriteCerts, CaKeyPathSitsBesideTheCertificate) {
-  EXPECT_EQ(socket_helpers::ca_key_path("/etc/nscp/security/ca.pem"), "/etc/nscp/security/ca-key.pem");
-  EXPECT_EQ(socket_helpers::ca_key_path("ca.pem"), "ca-key.pem");
-  EXPECT_EQ(socket_helpers::ca_key_path("/tmp/my-ca.crt"), "/tmp/my-ca-key.crt");
+  // Assert the naming rule - same directory, "-key" appended to the stem,
+  // extension kept - rather than a separator convention. ca_key_path() joins
+  // with boost::filesystem::operator/, which uses '\\' on Windows, so
+  // comparing against a hardcoded '/'-separated string fails there.
+  const auto key_beside = [](const std::string& certificate) {
+    const boost::filesystem::path key(socket_helpers::ca_key_path(certificate));
+    EXPECT_EQ(key.parent_path(), boost::filesystem::path(certificate).parent_path());
+    return key.filename().string();
+  };
+  EXPECT_EQ(key_beside("/etc/nscp/security/ca.pem"), "ca-key.pem");
+  EXPECT_EQ(key_beside("ca.pem"), "ca-key.pem");
+  EXPECT_EQ(key_beside("/tmp/my-ca.crt"), "my-ca-key.crt");
 }
 
 namespace {
