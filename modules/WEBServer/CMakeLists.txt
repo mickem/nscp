@@ -39,6 +39,7 @@ set(SRCS
     query_controller.cpp
     alias_controller.cpp
     scripts_controller.cpp
+    upload_staging.cpp
     legacy_controller.cpp
     legacy_command_controller.cpp
     api_controller.cpp
@@ -145,6 +146,8 @@ NSCP_CREATE_TEST(
         web_installer_test.cpp
         static_controller.cpp
         static_controller_test.cpp
+        upload_staging.cpp
+        upload_staging_test.cpp
         ${NSCP_INCLUDEDIR}/bytes/base64.c
         ${NSCP_INCLUDEDIR}/bytes/unzip.cpp
         ${NSCP_INCLUDEDIR}/json/use_json.cpp

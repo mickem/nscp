@@ -72,7 +72,52 @@ bool build_sid(const WELL_KNOWN_SID_TYPE type, std::vector<unsigned char> &stora
   return true;
 }
 
+struct close_handle {
+  void operator()(void *h) const {
+    if (h != nullptr && h != INVALID_HANDLE_VALUE) ::CloseHandle(h);
+  }
+};
+typedef std::unique_ptr<void, close_handle> unique_handle;
+
+// Open the entry itself - never whatever a junction or symbolic link at that
+// name points to.
+//
+// FILE_FLAG_OPEN_REPARSE_POINT is what makes the open land on the entry rather
+// than on its target, so the object that gets secured (or read back) is always
+// the one that was named: a link swapped in after a caller's check can at
+// worst have us act on the link itself, never on something we did not name.
+// FILE_FLAG_BACKUP_SEMANTICS is required to open a directory at all, and with
+// SeRestorePrivilege (enabled by protect_directory) it opens one whose DACL
+// would otherwise shut us out.
+//
+// Deliberately no GetFileInformationByHandle() to classify what was opened:
+// that would want read access on a handle protect_directory() opens for
+// writing only, and the callers establish what the entry is beforehand with
+// is_reparse_point(), which needs no access to the object at all.
+unique_handle open_no_follow(const std::wstring &wide, const DWORD access, std::list<std::string> &errors) {
+  unique_handle handle(::CreateFileW(wide.c_str(), access, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                                     FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+  if (handle.get() == INVALID_HANDLE_VALUE) {
+    errors.emplace_back(last_error("CreateFile"));
+    return unique_handle();
+  }
+  return handle;
+}
+
 }  // namespace
+
+bool is_reparse_point(const std::string &path, std::list<std::string> &errors) {
+  const std::wstring wide = utf8::cvt<std::wstring>(path);
+  // Attributes, not a handle: readable through the parent's list permission,
+  // which %ProgramData% grants everyone, so an unelevated process gets the
+  // same answer as the service for a folder it cannot otherwise open.
+  const DWORD attributes = ::GetFileAttributesW(wide.c_str());
+  if (attributes == INVALID_FILE_ATTRIBUTES) {
+    errors.emplace_back(last_error("GetFileAttributes"));
+    return false;
+  }
+  return (attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+}
 
 bool protect_directory(const std::string &path, std::list<std::string> &errors) {
   std::vector<unsigned char> system_sid_bytes, admin_sid_bytes;
@@ -103,44 +148,74 @@ bool protect_directory(const std::string &path, std::list<std::string> &errors) 
 
   const std::wstring wide = utf8::cvt<std::wstring>(path);
 
-  // Ownership first, and separately from the DACL.
-  //
-  // %ProgramData% grants Users create-folder plus an inherit-only
-  // "CREATOR OWNER: Full", so a standard user can pre-create
-  // C:\ProgramData\NSClient++ before we ever run and become its owner. An owner
-  // keeps implicit READ_CONTROL | WRITE_DAC no matter what the DACL says, so
-  // fixing only the DACL leaves the excluded account able to put its access
-  // straight back - and read the configuration (passwords) and the fleet
-  // private key - while we report the folder as restricted.
-  //
-  // Two calls rather than one: a combined OWNER|DACL request is atomic in the
-  // wrong direction, failing the DACL fix on a machine where only the ownership
-  // change is refused. These privileges are held but not enabled by default,
-  // and are what lets us take a directory whose current DACL denies us.
+  // Held but not enabled by default, and what lets us open and re-own a
+  // directory whose current DACL denies us - the case below depends on it.
   // Spelled out rather than SE_TAKE_OWNERSHIP_NAME / SE_RESTORE_NAME: those are
   // TEXT() macros and only widen under a UNICODE build, which this is not
   // required to be.
   enable_privilege(L"SeTakeOwnershipPrivilege");
   enable_privilege(L"SeRestorePrivilege");
-  const DWORD owner_result =
-      ::SetNamedSecurityInfoW(const_cast<LPWSTR>(wide.c_str()), SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION, admin_sid, nullptr, nullptr, nullptr);
+
+  // A junction or symbolic link where the folder should be is refused, not
+  // secured: %ProgramData% lets any local account create one under our name
+  // before we first run, and securing it would apply the owner and DACL to
+  // wherever it points while the link itself stays that account's to remove
+  // and replace. Checked from attributes, which need no access to the object.
+  if (is_reparse_point(path, errors)) {
+    errors.emplace_back("refusing to secure " + path + ": it is a junction or symbolic link, not a real directory");
+    return false;
+  }
+
+  // Ownership and the DACL through two separate opens of the entry itself, so
+  // the object secured is provably the one named and checked rather than a
+  // link's target - and each open asks only for the rights its own call needs.
+  //
+  // Ownership first, and separately: %ProgramData% grants Users create-folder
+  // plus an inherit-only "CREATOR OWNER: Full", so a standard user can
+  // pre-create C:\ProgramData\NSClient++ before we ever run and own it - and an
+  // owner keeps implicit READ_CONTROL | WRITE_DAC whatever the DACL says, so a
+  // DACL fixed under a foreign owner is one that account can put straight back
+  // (and read the configuration and the fleet private key through) while we
+  // report the folder as restricted. Taking ownership first is also what lets
+  // the second open succeed against a DACL that shuts us out - the case this
+  // function exists for - because those two rights come with the ownership we
+  // just took. A combined OWNER|DACL request on one handle is atomic in the
+  // wrong direction: it would need every right up front and fix nothing when
+  // only the ownership change is available.
+  bool owner_ok = false;
+  {
+    const unique_handle handle = open_no_follow(wide, WRITE_OWNER, errors);
+    if (handle) {
+      const DWORD result = ::SetSecurityInfo(handle.get(), SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION, admin_sid, nullptr, nullptr, nullptr);
+      owner_ok = result == ERROR_SUCCESS;
+      if (!owner_ok) errors.emplace_back("SetSecurityInfo(owner) failed: error=" + std::to_string(result));
+    }
+  }
 
   // PROTECTED_DACL_SECURITY_INFORMATION is the flag that breaks inheritance.
   // Without it the inherited "Users: Read & Execute" from %ProgramData%
   // survives next to the two ACEs above and the folder stays world-readable.
-  const DWORD result = ::SetNamedSecurityInfoW(const_cast<LPWSTR>(wide.c_str()), SE_FILE_OBJECT,
-                                               DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION, nullptr, nullptr, raw_acl, nullptr);
-  if (result != ERROR_SUCCESS) {
-    errors.emplace_back("SetNamedSecurityInfo failed: error=" + std::to_string(result));
-    return false;
+  //
+  // READ_CONTROL as well as WRITE_DAC, and not an over-request to trim: making
+  // the DACL protected means converting the inherited ACEs that are there into
+  // explicit ones, so the call reads the descriptor before it writes one.
+  // Without it every protect_directory() call answers ERROR_ACCESS_DENIED.
+  // Attempted even when the ownership change above failed, so the more
+  // restrictive of the two still gets applied.
+  {
+    const unique_handle handle = open_no_follow(wide, READ_CONTROL | WRITE_DAC, errors);
+    if (!handle) return false;
+    const DWORD result =
+        ::SetSecurityInfo(handle.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION, nullptr, nullptr, raw_acl, nullptr);
+    if (result != ERROR_SUCCESS) {
+      errors.emplace_back("SetSecurityInfo failed: error=" + std::to_string(result));
+      return false;
+    }
   }
-  if (owner_result != ERROR_SUCCESS) {
-    // Reported after the DACL attempt so the more restrictive of the two still
-    // gets applied, but still a failure: an owner we do not control can undo
-    // everything above at any time.
-    errors.emplace_back("SetNamedSecurityInfo(owner) failed: error=" + std::to_string(owner_result));
-    return false;
-  }
+
+  // An owner we do not control can undo everything above at any time, so a
+  // failed ownership change is still a failure even with the DACL applied.
+  if (!owner_ok) return false;
   return true;
 }
 
@@ -149,15 +224,34 @@ protection inspect_protection(const std::string &path, std::list<std::string> &e
   PSID owner = nullptr;
   PSECURITY_DESCRIPTOR raw_descriptor = nullptr;
   const std::wstring wide = utf8::cvt<std::wstring>(path);
-  const DWORD result =
-      ::GetNamedSecurityInfoW(wide.c_str(), SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION, &owner, nullptr, &dacl, nullptr,
-                              &raw_descriptor);
-  if (result != ERROR_SUCCESS) {
-    // Not "open": we learned nothing. Reading a security descriptor needs
-    // READ_CONTROL, which a folder restricted to SYSTEM and Administrators
+
+  // A junction where the folder should be is "open" by definition: whoever
+  // created the link controls where it points, whatever its target's DACL
+  // says. Decided before the open, from attributes that need no access to the
+  // object, so an unelevated caller gets this answer too.
+  {
+    std::list<std::string> attribute_errors;
+    if (is_reparse_point(path, attribute_errors)) {
+      errors.emplace_back("the entry is a junction or symbolic link rather than a real directory or file");
+      return protection::open;
+    }
+  }
+
+  // Files are a fair question too - the layout migration checks the entries it
+  // moved (nsclient.ini, the fleet private key) - so nothing here insists on a
+  // directory.
+  const unique_handle handle = open_no_follow(wide, READ_CONTROL, errors);
+  if (!handle) {
+    // Not "open": we learned nothing. Opening for READ_CONTROL needs exactly
+    // that right, which a folder restricted to SYSTEM and Administrators
     // deliberately denies everyone else - so this is the expected answer for an
     // unelevated caller looking at a folder that is working exactly as intended.
-    errors.emplace_back("GetNamedSecurityInfo failed: error=" + std::to_string(result));
+    return protection::unknown;
+  }
+  const DWORD result =
+      ::GetSecurityInfo(handle.get(), SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION, &owner, nullptr, &dacl, nullptr, &raw_descriptor);
+  if (result != ERROR_SUCCESS) {
+    errors.emplace_back("GetSecurityInfo failed: error=" + std::to_string(result));
     return protection::unknown;
   }
   const std::unique_ptr<void, local_free> descriptor(raw_descriptor);

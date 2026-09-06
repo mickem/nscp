@@ -86,13 +86,43 @@ struct payload_builder {
   }
 };
 
-namespace {
 // Keys whose values are credentials. to_string() feeds trace/debug logging in
 // every client module (IcingaClient traces the whole target container on
 // submit, for instance), and a password copied into the log outlives every
 // other control protecting it — so mask by key here, not at each call site.
-bool is_sensitive_key(const std::string &key) { return key.find("password") != std::string::npos || key.find("token") != std::string::npos; }
-}  // namespace
+// The same test decides whether a configured target carries credentials for
+// the host-override guard.
+bool client::is_sensitive_key(const std::string &key) { return key.find("password") != std::string::npos || key.find("token") != std::string::npos; }
+
+std::string client::configuration::check_host_override(const po::variables_map &vm, const destination_container &d) {
+  // Decided on the destination the request ends up with, not on which options
+  // it used: --host, --port and --address are only the usual way to move it,
+  // and a header host entry moves it just as effectively. An override that
+  // names the address the target already had changes nothing and is allowed.
+  if (d.configured_address.empty() || d.address.to_string() == d.configured_address) return "";
+  // Nothing configured is at stake: either the target carries no credentials,
+  // or the request supplied its own for every one of them - a caller may send
+  // a password it brought itself wherever it likes.
+  if (!d.has_inherited_credentials() || d.allow_host_override) return "";
+
+  // Name the options actually used where there are any, so the message points
+  // at the part of the request to change.
+  static const char *const override_options[] = {"host", "port", "address"};
+  std::string used;
+  for (const char *option : override_options) {
+    if (vm.count(option) == 0) continue;
+    if (!used.empty()) used += "/";
+    used += "--";
+    used += option;
+  }
+  const std::string how = used.empty() ? "the request changed it" : used;
+  // Refused rather than sent without the credentials: a submission that
+  // silently goes out unauthenticated looks like a server-side problem, while
+  // an error names the setting that decides this.
+  return "The configured target '" + d.configured_target + "' carries credentials, so its destination cannot be changed by the request (" + how +
+         "): that would send the configured credentials to a caller-chosen host. Supply the credentials with the request, configure the other host as "
+         "its own target and select it with target=, or set 'allow host override = true' on the target to permit this.";
+}
 
 std::string client::destination_container::to_string() const {
   std::stringstream ss;
@@ -361,13 +391,21 @@ void client::configuration::i_do_query(destination_container &s, destination_con
       } else {
         return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " not found");
       }
+      boost::program_options::variables_map vm;
       reader->process(desc, s, d);
-      if (custom_command) {
-        // TODO: Parse argument vector here
-      } else if (use_header) {
-        // TODO: Parse header here
-      } else {
-        boost::program_options::variables_map vm;
+      // Parse the request's arguments against the descriptor. Factored out
+      // because --target has to be able to run it a second time, once the
+      // target it names has been applied.
+      bool parse_failed = false;
+      const auto parse_arguments = [&]() {
+        if (custom_command) {
+          // TODO: Parse argument vector here
+          return true;
+        }
+        if (use_header) {
+          // TODO: Parse header here
+          return true;
+        }
         for (int i = 0; i < request.payload_size(); i++) {
           ::PB::Commands::QueryResponseMessage::Response resp;
           // Apply any arguments from command line
@@ -376,10 +414,34 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 
           if (!nscapi::program_options::process_arguments_from_request(vm, desc, request.payload(i), resp, p)) {
             response.add_payload()->CopyFrom(resp);
-            return;
+            parse_failed = true;
+            return false;
           }
         }
+        return true;
+      };
+      if (!parse_arguments()) return;
+
+      // target=/-t names another configured target: apply it, then re-apply
+      // the command line so an explicit option still beats what the target
+      // says. i_do_exec has always done this; the query path silently ignored
+      // it, so `target=` did nothing for exactly the callers (REST, NRPE) that
+      // reach a client command as a query - including anyone following the
+      // advice check_host_override() gives.
+      if (d.has_data("$target.id$")) {
+        const std::string t = d.get_string_data("$target.id$");
+        object_handler_type::object_instance op = targets.find_object(t);
+        if (op) {
+          d.apply(op);
+          d.apply(t, request.header());
+          if (!parse_arguments()) return;
+        }
       }
+      if (parse_failed) return;
+
+      const std::string refused = check_host_override(vm, d);
+      if (!refused.empty()) return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), refused);
+
       if (client_pre) {
         if (!client_pre(s, d)) return;
       }
@@ -544,6 +606,13 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
             }
           }
         }
+      }
+      // After --target has had its say: the guard applies to whichever
+      // configured target the connection ends up loaded from.
+      const std::string refused = check_host_override(vm, d);
+      if (!refused.empty()) {
+        nscapi::protobuf::functions::set_response_bad(*response.add_payload(), refused);
+        return true;
       }
 
       if (builder.type == payload_builder::type_query) {

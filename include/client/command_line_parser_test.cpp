@@ -93,9 +93,16 @@ class recording_handler : public client::handler_interface {
 };
 
 // The reader is where a module adds its own options (--password, --ssl, ...).
-// Nothing here needs module-specific options, so it adds none.
-struct null_reader : client::options_reader_interface {
-  void process(po::options_description &, client::destination_container &, client::destination_container &) override {}
+// Only the credential options are mirrored here, since the host-override guard
+// turns on whether the request supplied its own: every module that has a
+// credential on its target registers one of these (NSCA/NSCA-ng/SMTP/Icinga/
+// NSCP `password`, NRDP `token`).
+struct module_reader : client::options_reader_interface {
+  void process(po::options_description &desc, client::destination_container &, client::destination_container &destination) override {
+    desc.add_options()("password", po::value<std::string>()->notifier([&destination](const auto &v) { destination.set_string_data("password", v); }),
+                       "The password to use")(
+        "token", po::value<std::string>()->notifier([&destination](const auto &v) { destination.set_string_data("token", v); }), "The token to use");
+  }
   object_instance create(std::string alias, std::string path) override {
     return std::make_shared<nscapi::settings_objects::object_instance_interface>(alias, path);
   }
@@ -108,7 +115,7 @@ struct null_reader : client::options_reader_interface {
 // to poke at them.
 struct fixture {
   std::shared_ptr<recording_handler> handler = std::make_shared<recording_handler>();
-  std::shared_ptr<null_reader> reader = std::make_shared<null_reader>();
+  std::shared_ptr<module_reader> reader = std::make_shared<module_reader>();
   client::configuration config{"test client", handler, reader};
 
   fixture() { config.set_path("/settings/test/targets"); }
@@ -559,6 +566,276 @@ TEST(client_query, an_unknown_option_is_reported_rather_than_sent) {
   EXPECT_EQ(f.handler->query_calls, 0);
   ASSERT_EQ(response.payload_size(), 1);
   EXPECT_NE(response.payload(0).result(), PB::Common::ResultCode::OK);
+}
+
+// ---------------------------------------------------------------------------
+// The host-override guard.
+//
+// A configured target is an address plus the credentials for that address.
+// The command line may still say --host/--port/--address, but not against a
+// target that carries a password or token: that would send the configured
+// secret to whatever host the caller named, and the caller may be a REST user
+// who holds queries.execute and nothing else.
+// ---------------------------------------------------------------------------
+
+TEST(client_host_override, a_credentialed_target_refuses_a_host_override) {
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--host", "attacker.example"}), response);
+
+  EXPECT_EQ(f.handler->query_calls, 0) << "nothing must go on the wire";
+  ASSERT_EQ(response.payload_size(), 1);
+  EXPECT_NE(response.payload(0).result(), PB::Common::ResultCode::OK);
+  EXPECT_NE(first_message(response).find("'default' carries credentials"), std::string::npos) << first_message(response);
+  EXPECT_NE(first_message(response).find("--host"), std::string::npos) << first_message(response);
+}
+
+TEST(client_host_override, port_and_address_are_guarded_the_same_way) {
+  fixture f;
+  f.add_target("default", {{"address", "nsca://nsca.example.com:5667"}, {"password", "s3cret"}});
+
+  PB::Commands::QueryResponseMessage port_response;
+  f.config.do_query(fixture::query_request("check_cpu", {"--port", "1234"}), port_response);
+  EXPECT_EQ(f.handler->query_calls, 0);
+  EXPECT_NE(first_message(port_response).find("--port"), std::string::npos) << first_message(port_response);
+
+  PB::Commands::QueryResponseMessage address_response;
+  f.config.do_query(fixture::query_request("check_cpu", {"--address", "nsca://attacker.example:5667"}), address_response);
+  EXPECT_EQ(f.handler->query_calls, 0);
+  EXPECT_NE(first_message(address_response).find("--address"), std::string::npos) << first_message(address_response);
+}
+
+TEST(client_host_override, the_rest_style_key_value_token_is_guarded_too) {
+  // REST forwards each query-string pair as one `key=value` token, which the
+  // argument parser accepts as the long option - so the guard has to hold for
+  // that spelling as well as for `--host value`.
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"host=attacker.example"}), response);
+
+  EXPECT_EQ(f.handler->query_calls, 0);
+  EXPECT_NE(first_message(response).find("carries credentials"), std::string::npos) << first_message(response);
+}
+
+TEST(client_host_override, a_request_that_brings_its_own_credentials_may_name_a_host) {
+  // The point of the guard is that a *configured* secret must not follow the
+  // caller's address. A caller who supplies the password too is sending
+  // something it already had, so there is nothing left to protect - and this
+  // is how the project's own NSCA suite submits (--target x --address y
+  // --password z).
+  fixture f;
+  f.add_target("default", {{"address", "nsca://configured.example.com:5667"}, {"password", "configured"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--host", "other.example.com", "--password", "mine"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.get_host(), "other.example.com");
+  EXPECT_EQ(f.handler->last_target.get_string_data("password"), "mine");
+}
+
+TEST(client_host_override, overriding_only_some_of_the_credentials_is_still_refused) {
+  // The token is still the configured one, so it must not travel even though
+  // the password was replaced.
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"password", "configured"}, {"token", "configured-token"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--host", "attacker.example", "--password", "mine"}), response);
+
+  EXPECT_EQ(f.handler->query_calls, 0) << first_message(response);
+  EXPECT_NE(first_message(response).find("carries credentials"), std::string::npos) << first_message(response);
+}
+
+TEST(client_host_override, naming_the_address_the_target_already_had_is_not_an_override) {
+  // Nothing moved, so there is nothing to refuse.
+  fixture f;
+  f.add_target("default", {{"address", "nrpe://configured.example.com:5666"}, {"password", "secret"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--host", "configured.example.com"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.get_string_data("password"), "secret");
+}
+
+TEST(client_host_override, a_target_without_credentials_still_accepts_the_override) {
+  // Nothing to protect: the multi-host check_nrpe use (one target, many
+  // agents, a client certificate that never leaves this host) keeps working.
+  fixture f;
+  f.add_target("default", {{"address", "nrpe://configured.example.com:5666"}, {"certificate", "/etc/nsclient/agent.pem"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--host", "agent7.example.com"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.get_host(), "agent7.example.com");
+}
+
+TEST(client_host_override, an_empty_credential_does_not_count) {
+  // Registering a password key with no value - what a target section looks
+  // like when the operator never set one - must not lock the target down.
+  fixture f;
+  f.add_target("default", {{"address", "nrpe://configured.example.com:5666"}, {"password", ""}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--host", "agent7.example.com"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+}
+
+TEST(client_host_override, allow_host_override_lets_the_credentials_travel) {
+  // The explicit opt-in: the operator has decided this target's credentials
+  // may be used against any host the caller names.
+  fixture f;
+  f.add_target("default", {{"address", "nsca://nsca.example.com:5667"}, {"password", "shared"}, {"allow host override", "true"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--host", "nsca2.example.com"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.get_host(), "nsca2.example.com");
+  EXPECT_EQ(f.handler->last_target.get_string_data("password"), "shared");
+}
+
+TEST(client_host_override, no_override_means_the_credentials_go_where_they_were_configured_for) {
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--timeout", "5"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.get_host(), "nrdp.example.com");
+  EXPECT_EQ(f.handler->last_target.get_string_data("token"), "s3cret");
+}
+
+TEST(client_host_override, selecting_another_configured_target_is_not_an_override) {
+  // --target picks a different *configured* address-and-credentials pair;
+  // that is the supported way to reach a second server.
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}});
+  f.add_target("backup", {{"address", "https://nrdp2.example.com/nrdp/"}, {"token", "other"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {}, "backup"), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.get_host(), "nrdp2.example.com");
+  EXPECT_EQ(f.handler->last_target.get_string_data("token"), "other");
+}
+
+TEST(client_host_override, the_query_path_honours_the_target_argument) {
+  // The remedy check_host_override() recommends. i_do_exec has always applied
+  // target=; the query path ignored it, so `target=` did nothing for exactly
+  // the callers (REST, NRPE) that reach a client command as a query.
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "default-token"}});
+  f.add_target("backup", {{"address", "https://nrdp2.example.com/nrdp/"}, {"token", "backup-token"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"target=backup"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.get_host(), "nrdp2.example.com");
+  EXPECT_EQ(f.handler->last_target.get_string_data("token"), "backup-token");
+}
+
+TEST(client_host_override, an_explicit_option_still_beats_the_target_it_selects) {
+  // The re-parse after applying target=: an option the caller gave explicitly
+  // has to win over what the selected target says.
+  fixture f;
+  f.add_target("default", {{"address", "nrpe://configured.example.com:5666"}});
+  f.add_target("other", {{"address", "nrpe://other.example.com:5666"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"target=other", "timeout=42"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.get_host(), "other.example.com");
+  EXPECT_EQ(f.handler->last_target.timeout, 42);
+}
+
+TEST(client_host_override, a_header_supplied_address_is_guarded_too) {
+  // apply_host() moves the destination without any option being parsed, so a
+  // guard that only looked at the command line would miss it.
+  fixture f;
+  f.add_target("default", {{"address", "nsca://configured.example.com:5667"}, {"password", "configured"}});
+  PB::Commands::QueryRequestMessage request = fixture::query_request("check_cpu", {}, "default");
+  PB::Common::Host *host = request.mutable_header()->add_hosts();
+  host->set_id("default");
+  host->set_address("nsca://attacker.example:5667");
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(request, response);
+
+  EXPECT_EQ(f.handler->query_calls, 0) << first_message(response);
+  EXPECT_NE(first_message(response).find("carries credentials"), std::string::npos) << first_message(response);
+}
+
+TEST(client_host_override, a_header_that_carries_its_own_credentials_is_allowed) {
+  // How the bundled NSCA suite submits over the API: the header names both the
+  // address and the password to use with it.
+  fixture f;
+  f.add_target("default", {{"address", "nsca://configured.example.com:5667"}, {"password", "configured"}});
+  PB::Commands::QueryRequestMessage request = fixture::query_request("check_cpu", {}, "default");
+  PB::Common::Host *host = request.mutable_header()->add_hosts();
+  host->set_id("default");
+  host->set_address("nsca://other.example:5667");
+  PB::Common::KeyValue *kvp = host->add_metadata();
+  kvp->set_key("password");
+  kvp->set_value("mine");
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(request, response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.get_string_data("password"), "mine");
+}
+
+TEST(client_host_override, the_exec_path_is_guarded_as_well) {
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}});
+  PB::Commands::ExecuteRequestMessage request;
+  PB::Commands::ExecuteRequestMessage::Request *payload = request.add_payload();
+  payload->set_command("exec_something");
+  payload->add_arguments("--host");
+  payload->add_arguments("attacker.example");
+  PB::Commands::ExecuteResponseMessage response;
+
+  f.config.do_exec(request, response, "");
+
+  EXPECT_EQ(f.handler->exec_calls, 0);
+  ASSERT_GE(response.payload_size(), 1);
+  EXPECT_NE(response.payload(0).result(), PB::Common::ResultCode::OK);
+  EXPECT_NE(response.payload(0).message().find("carries credentials"), std::string::npos) << response.payload(0).message();
+}
+
+TEST(client_host_override, the_exec_path_applies_the_guard_to_the_selected_target) {
+  // --target on the exec path re-applies the named target on top of the
+  // default one, so the guard has to run after that - and it must still see
+  // the default target's credentials, which the layering leaves in place.
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}});
+  f.add_target("plain", {{"address", "https://nrdp2.example.com/nrdp/"}});
+  PB::Commands::ExecuteRequestMessage request;
+  PB::Commands::ExecuteRequestMessage::Request *payload = request.add_payload();
+  payload->set_command("exec_something");
+  payload->add_arguments("--target");
+  payload->add_arguments("plain");
+  payload->add_arguments("--host");
+  payload->add_arguments("attacker.example");
+  PB::Commands::ExecuteResponseMessage response;
+
+  f.config.do_exec(request, response, "");
+
+  EXPECT_EQ(f.handler->exec_calls, 0);
+  ASSERT_GE(response.payload_size(), 1);
+  EXPECT_NE(response.payload(0).message().find("'default' carries credentials"), std::string::npos) << response.payload(0).message();
 }
 
 // ---------------------------------------------------------------------------

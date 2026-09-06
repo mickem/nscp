@@ -4,15 +4,15 @@
 #include "scripts_controller.hpp"
 
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/json.hpp>
 #include <boost/regex.hpp>
-#include <file_helpers.hpp>
-#include <fstream>
 #include <nscapi/protobuf/command.hpp>
 #include <utility>
 
 #include "name_safety.hpp"
+#include "upload_staging.hpp"
 
 #define EXT_SCR "CheckExternalScripts"
 #define PY_SCR "PythonScript"
@@ -179,11 +179,26 @@ void scripts_controller::add_script(Mongoose::Request &request, boost::smatch &w
 
   if (!session->can("scripts.add." + runtime, response)) return;
 
-  boost::filesystem::path name = script;
-  boost::filesystem::path file = core->expand_path("${temp}/" + file_helpers::meta::get_filename(name));
-  std::ofstream ofs(file.string().c_str(), std::ios::binary);
-  ofs << request.getData();
-  ofs.close();
+  // The body goes to disk so the module can `--import` it, and that file has
+  // to be one nobody else could have created or can reach: see
+  // upload_staging.hpp for what went wrong when it was `${temp}/<name>`. Any
+  // failure is the caller's answer; the module must never be pointed at a
+  // file whose content is in doubt.
+  std::string staging_error;
+  const boost::filesystem::path file = upload_staging::stage(core->expand_path("${temp}"), request.getData(), staging_error);
+  if (file.empty()) {
+    response.setCodeServerError("Failed to stage the uploaded script: " + staging_error);
+    return;
+  }
+  // Consumed by the module's copy below; gone once this request is answered,
+  // whichever way it went.
+  struct remove_on_exit {
+    boost::filesystem::path path;
+    ~remove_on_exit() {
+      boost::system::error_code ec;
+      boost::filesystem::remove(path, ec);
+    }
+  } const staged_file{file};
 
   PB::Commands::ExecuteRequestMessage rm;
   PB::Commands::ExecuteRequestMessage::Request *payload = rm.add_payload();
