@@ -63,10 +63,82 @@ TEST(AuthRateLimiter, BlockDurationIsCapped) {
 }
 
 TEST(AuthRateLimiter, BlockDurationNeverShortensAConfiguredValue) {
-  // An operator asking for a block longer than the ceiling gets it.
+  // A base at or above the ceiling already exceeds every escalated block, so
+  // it is handed back unchanged rather than clamped - and it does not escalate
+  // either, which is what the setting's description says.
   const int base = static_cast<int>(auth_rate_limiter::kMaxBlockSeconds) * 3;
   EXPECT_EQ(auth_rate_limiter::block_duration_seconds(base, 1), base);
   EXPECT_EQ(auth_rate_limiter::block_duration_seconds(base, 10), base);
+
+  const int at_ceiling = static_cast<int>(auth_rate_limiter::kMaxBlockSeconds);
+  EXPECT_EQ(auth_rate_limiter::block_duration_seconds(at_ceiling, 1), at_ceiling);
+  EXPECT_EQ(auth_rate_limiter::block_duration_seconds(at_ceiling, 5), at_ceiling);
+}
+
+TEST(AuthRateLimiter, OnlyAMachineSpeedRunEscalates) {
+  auth_rate_limiter rl;
+  // The whole failure budget spent within the burst window: a guessing loop.
+  EXPECT_TRUE(rl.is_burst(0));
+  EXPECT_TRUE(rl.is_burst((auth_rate_limiter::kDefaultMaxFailures - 1) * auth_rate_limiter::kBurstGapSeconds - 1));
+  // One failure every kBurstGapSeconds or slower: a person, or a poller.
+  EXPECT_FALSE(rl.is_burst((auth_rate_limiter::kDefaultMaxFailures - 1) * auth_rate_limiter::kBurstGapSeconds));
+  EXPECT_FALSE(rl.is_burst(600));
+}
+
+TEST(AuthRateLimiter, ASlowTrickleNeverEscalatesPastTheBaseBlock) {
+  // The case that matters behind NAT or a reverse proxy, where every client
+  // shares one peer address: a monitoring client retrying a stale password
+  // every 5 s must not ratchet the shared address up to the ceiling and lock
+  // everyone else out of logging in. It stays at the base block - exactly the
+  // pre-escalation behaviour.
+  auth_rate_limiter rl;
+  const std::string ip = "10.0.0.1";
+  std::time_t now = 1000;
+  for (int round = 0; round < 8; ++round) {
+    for (int i = 0; i < auth_rate_limiter::kDefaultMaxFailures; ++i) {
+      rl.record_failure_at(ip, now);
+      now += 5;
+    }
+    EXPECT_EQ(rl.blocked_until(ip) - (now - 5), auth_rate_limiter::kDefaultBlockSeconds) << "round " << round;
+    // Wait out the block before the next round, as a retrying client does.
+    now += auth_rate_limiter::kDefaultBlockSeconds;
+  }
+}
+
+TEST(AuthRateLimiter, ASlowRunDropsAFastGuesserBackToTheBase) {
+  auth_rate_limiter rl;
+  const std::string ip = "10.0.0.2";
+  std::time_t now = 1000;
+  // Two machine-speed rounds: the block doubles.
+  for (int round = 0; round < 2; ++round) {
+    for (int i = 0; i < auth_rate_limiter::kDefaultMaxFailures; ++i) rl.record_failure_at(ip, now);
+    now += auth_rate_limiter::kDefaultBlockSeconds;
+  }
+  EXPECT_EQ(rl.blocked_until(ip) - (now - auth_rate_limiter::kDefaultBlockSeconds), 2 * auth_rate_limiter::kDefaultBlockSeconds);
+
+  // Then a slow run from the same address - the guesser gave up and what is
+  // left is an ordinary client failing occasionally.
+  for (int i = 0; i < auth_rate_limiter::kDefaultMaxFailures; ++i) {
+    rl.record_failure_at(ip, now);
+    now += 30;
+  }
+  EXPECT_EQ(rl.blocked_until(ip) - (now - 30), auth_rate_limiter::kDefaultBlockSeconds);
+}
+
+TEST(AuthRateLimiter, QuietTimeResetsTheEscalation) {
+  auth_rate_limiter rl;
+  const std::string ip = "10.0.0.3";
+  std::time_t now = 1000;
+  for (int round = 0; round < 3; ++round) {
+    for (int i = 0; i < auth_rate_limiter::kDefaultMaxFailures; ++i) rl.record_failure_at(ip, now);
+    now += auth_rate_limiter::kDefaultBlockSeconds;
+  }
+  EXPECT_GT(rl.blocked_until(ip) - now, auth_rate_limiter::kDefaultBlockSeconds);
+
+  // Quiet for well past the decay window, then a fresh burst: base block again.
+  now = rl.blocked_until(ip) + auth_rate_limiter::kOffenseDecaySeconds + 1;
+  for (int i = 0; i < auth_rate_limiter::kDefaultMaxFailures; ++i) rl.record_failure_at(ip, now);
+  EXPECT_EQ(rl.blocked_until(ip) - now, auth_rate_limiter::kDefaultBlockSeconds);
 }
 
 TEST(AuthRateLimiter, ConsecutiveBlocksEscalate) {
