@@ -5,8 +5,8 @@
 
 #include <NSCAPI.h>
 
-#include <nscapi/dll_defines.hpp>
 #include <map>
+#include <nscapi/dll_defines.hpp>
 #include <string>
 
 namespace nscapi {
@@ -31,6 +31,7 @@ class NSCAPI_EXPORT core_wrapper {
   core_api::lpNSAPIStorageQuery fNSAPIStorageQuery;
   core_api::lpNSAPISetTag fNSAPISetTag;
   core_api::lpNSAPIGetTags fNSAPIGetTags;
+  core_api::lpNSAPISetLogOption fNSAPISetLogOption;
 
  public:
   core_wrapper();
@@ -82,6 +83,13 @@ class NSCAPI_EXPORT core_wrapper {
   // for a passthrough consumer (the web tags controller); a module that wants
   // to read tags should prefer the typed get_tags() below.
   std::string get_tags_json() const;
+
+  // Change one logging option at runtime; takes the same strings as the --log
+  // switch (a severity, or a driver option such as "no-console"). Returns
+  // false on a core that predates the call. A module that paints its own
+  // console uses "no-console" so the core stops writing to stdout underneath
+  // it - see CommandClient's interactive prompt.
+  bool set_log_option(const std::string &option) const;
   // The full tag map, typed. Parses the JSON once here so a consuming module
   // does not have to link a JSON parser just to read what a sibling published.
   std::map<std::string, std::string> get_tags() const;

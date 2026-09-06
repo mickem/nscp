@@ -11,4 +11,3 @@
 cmake-build*
 build-*
 **/node_modules
-rust/*/target

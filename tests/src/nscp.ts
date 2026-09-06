@@ -145,6 +145,12 @@ export type NscpRunOptions = {
   timeout?: number;
   /** Don't throw on non-zero exit. The caller inspects `.exitCode`. */
   allowFailure?: boolean;
+  /**
+   * Text to write to the process's stdin, which is then closed. Use for the
+   * subcommands that read it - `nscp test` takes commands line by line this
+   * way. Without it stdin is inherited.
+   */
+  input?: string;
 };
 
 export type NscpRunResult = ExecaReturnValue;
@@ -266,6 +272,7 @@ export class NscpInstance {
         timeout: opts.timeout ?? 30_000,
         reject: !opts.allowFailure,
         all: true,
+        ...(opts.input === undefined ? {} : { input: opts.input }),
         env: process.env,
       },
     );

@@ -120,6 +120,13 @@ typedef NSCAPI::errorReturn (*lpNSAPIStorageQuery)(const char *, const unsigned 
 typedef NSCAPI::errorReturn (*lpNSAPISetTag)(const char *, const char *);
 typedef NSCAPI::errorReturn (*lpNSAPIGetTags)(char **, unsigned int *);
 
+// Change one logging option at runtime. Takes the same strings as the --log
+// command line switch: a severity ("debug", "trace", ...) or a log-driver
+// option ("console", "no-console", "oneline", "no-std-err"). A module that
+// draws its own console (CommandClient's prompt) uses "no-console" to stop the
+// core writing over it.
+typedef NSCAPI::errorReturn (*lpNSAPISetLogOption)(const char *);
+
 }  // namespace core_api
 
 namespace plugin_api {
