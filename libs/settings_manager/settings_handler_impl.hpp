@@ -81,12 +81,12 @@ class settings_handler_impl : public settings_core {
   // context as the operator wrote it hand that in, placeholder intact, and
   // set_primary resolves the protocol aliases itself.
   void migrate(instance_ptr from, instance_ptr to, const std::string &primary_context) {
-    if (!from || !to) throw new settings_exception(__FILE__, __LINE__, "Source or target is null");
+    if (!from || !to) throw settings_exception(__FILE__, __LINE__, "Source or target is null");
     from->save_to(to);
     set_primary(primary_context);
   }
   void migrate(instance_ptr from, instance_ptr to) {
-    if (!to) throw new settings_exception(__FILE__, __LINE__, "Source or target is null");
+    if (!to) throw settings_exception(__FILE__, __LINE__, "Source or target is null");
     migrate(from, to, to->get_context());
   }
   void migrate_to(instance_ptr to) { migrate(get(), to); }
@@ -199,6 +199,8 @@ class settings_handler_impl : public settings_core {
   }
 
   void register_tpl(unsigned int plugin_id, std::string path, std::string title, std::string data) {
+    boost::unique_lock<boost::shared_mutex> writeLock(registry_mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
+    if (!writeLock.owns_lock()) throw settings_exception(__FILE__, __LINE__, "Failed to get mutex for register_tpl");
     std::string key = path + "::" + title;
     registered_tpls_[key] = tpl_description(plugin_id, path, title, data);
   }
