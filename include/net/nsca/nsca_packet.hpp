@@ -207,8 +207,9 @@ class packet {
   }
 
   void get_buffer(std::string& buffer, const int servertime = 0) const {
-    data::data_packet* data = reinterpret_cast<data::data_packet*>(&*buffer.begin());
+    // Size first: dereferencing begin() of an empty string is undefined.
     if (buffer.size() < get_packet_length()) throw nsca_exception("Buffer is to short: " + str::xtos(buffer.length()) + " > " + str::xtos(get_packet_length()));
+    data::data_packet* data = reinterpret_cast<data::data_packet*>(&buffer[0]);
 
     data->packet_version = boost::endian::native_to_big(data::version3);
     if (servertime != 0)
@@ -226,7 +227,7 @@ class packet {
     data->crc32_value = boost::endian::native_to_big(static_cast<uint32_t>(calculated_crc32));
   }
   std::string get_buffer() const {
-    std::string buffer;
+    std::string buffer(get_packet_length(), '\0');
     get_buffer(buffer);
     return buffer;
   }
