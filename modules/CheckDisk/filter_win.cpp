@@ -26,7 +26,7 @@ std::shared_ptr<file_filter::filter_obj> file_filter::filter_obj::get(unsigned l
 }
 
 std::string file_filter::filter_obj::get_version(parsers::where::evaluation_context context) {
-  if (cached_version) return *cached_version;
+  if (cached_version) return cached_version.value();
   const std::string fullpath = (path / filename).string();
 
   DWORD dwDummy;
@@ -61,5 +61,5 @@ std::string file_filter::filter_obj::get_version(parsers::where::evaluation_cont
   const DWORD dwSecondRight = HIWORD(dwFileVersionLS);
   const DWORD dwRightMost = LOWORD(dwFileVersionLS);
   cached_version.reset(str::xtos(dwLeftMost) + "." + str::xtos(dwSecondLeft) + "." + str::xtos(dwSecondRight) + "." + str::xtos(dwRightMost));
-  return *cached_version;
+  return cached_version.value();
 }

@@ -279,7 +279,7 @@ void run_tcp_check(const std::string &host, unsigned short port, int timeout_ms,
       // regardless of `verify`, so an expiry check needs no trust decision.
       if (const auto expiry = socket_helpers::peer_certificate_expiry_days(ssl_stream.native_handle())) {
         out.has_certificate = true;
-        out.ssl_expiry_days = *expiry;
+        out.ssl_expiry_days = expiry.value();
       }
 
       tcp_converse(ssl_stream, socket, io_service, timeout_ms, send_data, expect, expect_regex, out);

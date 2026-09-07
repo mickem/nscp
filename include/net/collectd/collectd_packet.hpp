@@ -376,13 +376,13 @@ struct collectd_builder {
       if (fresh) size += string_part_size(host) + 2 * collectd::number_part_size;
       if (m.plugin_name != plugin) size += string_part_size(m.plugin_name);
       if (m.plugin_instance) {
-        if (plugin_instance != m.plugin_instance.get()) size += string_part_size(m.plugin_instance.get());
+        if (plugin_instance != m.plugin_instance.value()) size += string_part_size(m.plugin_instance.value());
       } else if (!plugin_instance.empty()) {
         size += string_part_size("");
       }
       if (m.type_name != type) size += string_part_size(m.type_name);
       if (m.type_instance) {
-        if (type_instance != m.type_instance.get()) size += string_part_size(m.type_instance.get());
+        if (type_instance != m.type_instance.value()) size += string_part_size(m.type_instance.value());
       } else if (!type_instance.empty()) {
         size += string_part_size("");
       }
@@ -415,9 +415,9 @@ struct collectd_builder {
         packet.add_plugin(m.plugin_name);
         last_plugin = m.plugin_name;
       }
-      if (m.plugin_instance && last_plugin_instance != m.plugin_instance.get()) {
-        packet.add_plugin_instance(m.plugin_instance.get());
-        last_plugin_instance = m.plugin_instance.get();
+      if (m.plugin_instance && last_plugin_instance != m.plugin_instance.value()) {
+        packet.add_plugin_instance(m.plugin_instance.value());
+        last_plugin_instance = m.plugin_instance.value();
       } else if (!m.plugin_instance && last_plugin_instance != "") {
         packet.add_plugin_instance("");
         last_plugin_instance = "";
@@ -427,9 +427,9 @@ struct collectd_builder {
         packet.add_type(m.type_name);
         last_type = m.type_name;
       }
-      if (m.type_instance && last_type_instance != m.type_instance.get()) {
-        packet.add_type_instance(m.type_instance.get());
-        last_type_instance = m.type_instance.get();
+      if (m.type_instance && last_type_instance != m.type_instance.value()) {
+        packet.add_type_instance(m.type_instance.value());
+        last_type_instance = m.type_instance.value();
       } else if (!m.type_instance && last_type_instance != "") {
         packet.add_type_instance("");
         last_type_instance = "";

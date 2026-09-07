@@ -85,7 +85,7 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   schedules_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
 
   for (const schedules::schedule_handler::object_list_type::value_type &o : schedules_.get_object_list()) {
-    if (o->duration && o->duration->total_seconds() == 0) {
+    if (o->duration && o->duration.value().total_seconds() == 0) {
       NSC_LOG_ERROR("WE cant add schedules with 0 duration: " + o->to_string());
       continue;
     }
