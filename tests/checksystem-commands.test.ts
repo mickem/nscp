@@ -18,6 +18,7 @@ import {
   NscpInstance,
   OK,
   UNKNOWN,
+  WARNING,
   executeQuery,
   messageOf,
   perfOf,
@@ -86,6 +87,18 @@ describe("CheckSystem commands", () => {
     const load = perfValue(q, "total 5m_total");
     expect(load).toBeGreaterThanOrEqual(0);
     expect(load).toBeLessThanOrEqual(100);
+  });
+
+  it("check_cpu evaluates thresholds against the record it rendered", async () => {
+    // The Windows record used to hold a reference to the loop variable, so the
+    // warn/crit evaluation in match_post() read a dead stack slot: a threshold
+    // that can never hold on a real sample could still fire. An always-true
+    // warning and a never-true critical pin both directions.
+    const q = await executeQuery(key, "check_cpu", {
+      warning: "usage >= 0",
+      critical: "usage > 100",
+    });
+    expect(q.result).toBe(WARNING);
   });
 
   it("check_cpu still accepts the deprecated total alias", async () => {

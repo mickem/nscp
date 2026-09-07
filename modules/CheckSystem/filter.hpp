@@ -24,9 +24,12 @@ namespace check_cpu_filter {
 struct filter_obj {
   std::string time;
   std::string core;
-  const windows::system_info::load_entry &value;
+  // Owned, not referenced: warn/crit are evaluated in match_post() after the
+  // fetch loop that produced this entry has returned.
+  windows::system_info::load_entry value;
 
-  filter_obj(std::string time, std::string core, const windows::system_info::load_entry &value) : time(time), core(core), value(value) {}
+  filter_obj(std::string time, std::string core, const windows::system_info::load_entry &value)
+      : time(std::move(time)), core(std::move(core)), value(value) {}
 
   std::string show() const {
     return core + " user: " + str::xtos(value.user) + "% kernel: " + str::xtos(value.kernel) + "% idle: " + str::xtos(value.idle) +
