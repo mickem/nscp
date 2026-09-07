@@ -1,6 +1,6 @@
 ---
 title: "Failed WEB authentication now backs off exponentially"
-fixed_in: 0.18.1
+fixed_in: 0.19.0
 severity: "Low"
 modules: [WEBServer]
 action: none

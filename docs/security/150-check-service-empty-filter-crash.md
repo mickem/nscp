@@ -1,6 +1,6 @@
 ---
 title: "A filter that matched nothing crashed the agent"
-fixed_in: next
+fixed_in: 0.19.0
 severity: "High"
 modules: [CheckSystem, CheckLogFile, filters]
 action: none

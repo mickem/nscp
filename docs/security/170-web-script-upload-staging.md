@@ -1,6 +1,6 @@
 ---
 title: "REST script uploads were staged at a predictable path"
-fixed_in: next
+fixed_in: 0.19.0
 severity: "Medium"
 modules: [WEBServer]
 action: none
