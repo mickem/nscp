@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <boost/optional.hpp>
 #include <boost/thread/shared_mutex.hpp>
 #include <list>
@@ -50,7 +51,7 @@ class plugin_cache {
   logging::log_client_accessor logger_;
   plugin_cache_list_type plugin_cache_;
   boost::shared_mutex m_mutexRW;
-  bool has_all_;
+  std::atomic<bool> has_all_;
 
  public:
   plugin_cache(logging::log_client_accessor logger) : logger_(logger), has_all_(false) {}
