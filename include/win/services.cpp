@@ -17,6 +17,12 @@
 #include <win/windows.hpp>
 #include <win/winsvc.hpp>
 
+namespace {
+// Service names and paths come back as LPWSTR that may be NULL.
+std::string from_wide(const wchar_t *s) { return s ? utf8::cvt<std::string>(std::wstring(s)) : std::string(); }
+}  // namespace
+
+
 typedef boost::unordered_map<std::string, std::string> hash_map;
 hash_map smap;
 
@@ -379,11 +385,11 @@ std::list<service_info> enum_services(const std::string &computer, const DWORD d
       [&](const BYTE *page, DWORD count) {
         const auto *data = reinterpret_cast<const ENUM_SERVICE_STATUS_PROCESS *>(page);
         for (DWORD i = 0; i < count; ++i) {
-          const auto service_name = utf8::cvt<std::string>(data[i].lpServiceName);
+          const auto service_name = from_wide(data[i].lpServiceName);
           if (std::find(excludes.begin(), excludes.end(), service_name) != excludes.end()) {
             continue;
           }
-          service_info info(utf8::cvt<std::string>(data[i].lpServiceName), utf8::cvt<std::string>(data[i].lpDisplayName));
+          service_info info(from_wide(data[i].lpServiceName), from_wide(data[i].lpDisplayName));
           info.pid = data[i].ServiceStatusProcess.dwProcessId;
           info.state = data[i].ServiceStatusProcess.dwCurrentState;
           info.type = data[i].ServiceStatusProcess.dwServiceType;
@@ -395,7 +401,7 @@ std::list<service_info> enum_services(const std::string &computer, const DWORD d
           try {
             hlp::buffer<BYTE, QUERY_SERVICE_CONFIG *> qscData = queryServiceConfig(hService, info.name);
             info.start_type = qscData.get()->dwStartType;
-            info.binary_path = utf8::cvt<std::string>(qscData.get()->lpBinaryPathName);
+            info.binary_path = from_wide(qscData.get()->lpBinaryPathName);
             info.error_control = qscData.get()->dwErrorControl;
           } catch (std::exception &e) {
             NSC_LOG_ERROR("Failed to query service config: " + info.name + ": " + e.what());
@@ -449,13 +455,13 @@ service_info get_service_info(const std::string &computer, const std::string &se
     throw nsclient::nsclient_exception("Failed to query service config: " + service);
   const auto *data2 = reinterpret_cast<QUERY_SERVICE_CONFIG *>(buf2.get());
 
-  service_info info(service, utf8::cvt<std::string>(data2->lpDisplayName));
+  service_info info(service, from_wide(data2->lpDisplayName));
   info.pid = ssp.get()->dwProcessId;
   info.state = ssp.get()->dwCurrentState;
   info.type = ssp.get()->dwServiceType;
   info.exit_code = ssp.get()->dwWin32ExitCode;
   info.start_type = data2->dwStartType;
-  info.binary_path = utf8::cvt<std::string>(data2->lpBinaryPathName);
+  info.binary_path = from_wide(data2->lpBinaryPathName);
   info.error_control = data2->dwErrorControl;
 
   fetch_delayed(hService, info);

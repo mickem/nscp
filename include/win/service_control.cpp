@@ -192,7 +192,7 @@ std::wstring get_exe_path(std::wstring svc_name) {
   if (!bRet)
     lErr = GetLastError();
   else {
-    ret = lpqscBuf->lpBinaryPathName;
+    ret = lpqscBuf->lpBinaryPathName ? lpqscBuf->lpBinaryPathName : L"";
   }
   LocalFree(lpqscBuf);
   CloseServiceHandle(schService);

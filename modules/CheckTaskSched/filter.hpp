@@ -63,14 +63,16 @@ struct lpwstr_traits : public fetch_traits<LPWSTR, std::string, TObject> {
   static std::string get_default() { return ""; }
   static void cleanup(LPWSTR obj) { CoTaskMemFree(obj); }
   static bool has_failed(HRESULT hr) { return FAILED(hr); }
-  static std::string convert(HRESULT, LPWSTR value) { return utf8::cvt<std::string>(value); }
+  // NULL for stock tasks (comment, creator, max_run_time): never construct a string from it.
+  static std::string convert(HRESULT, LPWSTR value) { return value ? utf8::cvt<std::string>(value) : std::string(); }
 };
 template <typename TObject>
 struct bstr_traits : public fetch_traits<BSTR, std::string, TObject> {
   static std::string get_default() { return ""; }
   static void cleanup(LPWSTR) { /*CoTaskMemFree(obj);*/ }
   static bool has_failed(HRESULT hr) { return FAILED(hr); }
-  static std::string convert(HRESULT, LPWSTR value) { return utf8::cvt<std::string>(value); }
+  // NULL for stock tasks (comment, creator, max_run_time): never construct a string from it.
+  static std::string convert(HRESULT, LPWSTR value) { return value ? utf8::cvt<std::string>(value) : std::string(); }
 };
 template <typename TTarget, typename TReturn, typename TObject>
 struct word_traits : public fetch_traits<TTarget, TReturn, TObject> {
