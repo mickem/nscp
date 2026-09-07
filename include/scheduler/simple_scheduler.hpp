@@ -162,9 +162,11 @@ class scheduler : public boost::noncopyable {
 
   // thread variables
   unsigned int schedule_id_;
-  volatile bool stop_requested_;
-  volatile bool running_;
-  volatile bool has_watchdog_;
+  // Written by start()/stop() on the module thread and read in every worker's
+  // loop condition: atomics, since volatile orders nothing across threads.
+  std::atomic<bool> stop_requested_;
+  std::atomic<bool> running_;
+  std::atomic<bool> has_watchdog_;
   std::size_t thread_count_;
   // Read by every worker on each tick and written by the module's load/unload
   // path, so a plain pointer here is a data race independent of what it points
@@ -180,16 +182,18 @@ class scheduler : public boost::noncopyable {
   // start, so a plain string is sufficient.
   std::string tz_;
 
-  scoped_thread_group threads_;
   boost::mutex mutex_;
   tasks_list_type tasks_;
   schedule_queue_type queue_;
   boost::mutex idle_thread_mutex_;
   boost::condition_variable idle_thread_cond_;
+  // Last member on purpose: the workers are joined in ~scoped_thread_group,
+  // which must run before the mutexes, queue and condition variable they use.
+  scoped_thread_group threads_;
 
  public:
   scheduler() : schedule_id_(0), stop_requested_(false), running_(false), has_watchdog_(false), thread_count_(10), handler_(nullptr), error_threshold_(5) {}
-  ~scheduler() = default;
+  ~scheduler() { stop(); }
 
   void set_handler(handler* handler) { handler_ = handler; }
   void unset_handler() { handler_ = nullptr; }
