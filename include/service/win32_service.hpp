@@ -5,6 +5,7 @@
 
 #include <win/sysinfo/sysinfo.h>
 
+#include <boost/thread/condition_variable.hpp>
 #include <boost/thread/mutex.hpp>
 #include <error/error.hpp>
 #include <string>
@@ -69,7 +70,15 @@ template <class TBase>
 class win32_service : public TBase {
  public:
  private:
+  // stop_service() runs on the SCM control thread while _handle_start waits
+  // on the service-main thread: a condition variable, not a mutex handed
+  // between threads as a semaphore.
   boost::mutex stop_mutex_;
+  boost::condition_variable stop_cv_;
+  bool stop_requested_ = false;
+  // ssStatus and the checkpoint are written from both threads.
+  boost::mutex status_mutex_;
+  DWORD checkpoint_ = 1;
   SERVICE_STATUS ssStatus;
   SERVICE_STATUS_HANDLE sshStatusHandle;
   SERVICE_TABLE_ENTRY *dispatchTable;
@@ -227,7 +236,7 @@ class win32_service : public TBase {
    * @date 03-13-2004
    */
   BOOL _report_status_to_SCMgr(DWORD dwCurrentState, DWORD dwWaitHint) {
-    static DWORD dwCheckPoint = 1;
+    boost::lock_guard<boost::mutex> lock(status_mutex_);
     BOOL fResult = TRUE;
 
     if (dwCurrentState == SERVICE_START_PENDING)
@@ -242,7 +251,7 @@ class win32_service : public TBase {
     if ((dwCurrentState == SERVICE_RUNNING) || (dwCurrentState == SERVICE_STOPPED))
       ssStatus.dwCheckPoint = 0;
     else
-      ssStatus.dwCheckPoint = dwCheckPoint++;
+      ssStatus.dwCheckPoint = checkpoint_++;
 
     // Report the status of the service to the service control manager.
     fResult = SetServiceStatus(sshStatusHandle, &ssStatus);
@@ -259,7 +268,6 @@ class win32_service : public TBase {
    * @date 03-13-2004
    */
   void _handle_start(DWORD, LPTSTR *) {
-    stop_mutex_.lock();
     if (!_report_status_to_SCMgr(SERVICE_RUNNING, 0)) {
       stop_service();
       return;
@@ -267,7 +275,10 @@ class win32_service : public TBase {
 
     TBase::handle_startup(utf8::cvt<std::string>(name_));
 
-    stop_mutex_.lock();
+    {
+      boost::unique_lock<boost::mutex> lock(stop_mutex_);
+      stop_cv_.wait(lock, [this] { return stop_requested_; });
+    }
 
     print_debug(_T("Shutting down: ") + name_);
     TBase::handle_shutdown(utf8::cvt<std::string>(name_));
@@ -278,6 +289,12 @@ class win32_service : public TBase {
    *
    * @date 03-13-2004
    */
-  void stop_service() { stop_mutex_.unlock(); }
+  void stop_service() {
+    {
+      boost::lock_guard<boost::mutex> lock(stop_mutex_);
+      stop_requested_ = true;
+    }
+    stop_cv_.notify_all();
+  }
 };
 }  // namespace service_helper_impl
