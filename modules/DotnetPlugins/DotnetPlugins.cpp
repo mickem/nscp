@@ -142,6 +142,9 @@ bool DotnetPlugins::unloadModule() {
 		plugin_instance.erase(id);
 	}
 	plugins.clear();
+	// The command and channel maps hold the same instances.
+	commands.clear();
+	channels.clear();
 	return true;
 }
 
@@ -249,8 +252,8 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
 	return TRUE;
 }
 #pragma managed(pop)
-// Owned via unique_ptr so DLL unload runs the destructor; matches the
-// NSC_WRAP_DLL macro in include/nscapi/macros.hpp. Direct definition
-// here because DotnetPlugins needs its own #pragma-managed DllMain.
-static std::unique_ptr<nscapi::helper_singleton> _nscapi_plugin_singleton_owner(new nscapi::helper_singleton());
-nscapi::helper_singleton* nscapi::plugin_singleton = _nscapi_plugin_singleton_owner.get();
+// Deliberately leaked, as NSC_WRAP_DLL in include/nscapi/macros.hpp does:
+// a static owner destroys the singleton at DLL unload while detached workers
+// and the managed bridge may still reach it. Direct definition here because
+// DotnetPlugins needs its own #pragma-managed DllMain.
+nscapi::helper_singleton* nscapi::plugin_singleton = new nscapi::helper_singleton();
