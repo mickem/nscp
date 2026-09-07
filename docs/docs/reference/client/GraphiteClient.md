@@ -27,9 +27,125 @@ A list of all available queries (check commands)
 
 Submit information to the remote Graphite server.
 
+#### About `submit_graphite`
+
+`submit_graphite` sends a check result to a Graphite server over the plaintext
+line protocol (Carbon). Unlike the Nagios-flavoured submit commands, Graphite
+stores **numbers over time**, not states with messages — so what actually gets
+sent is the check's performance data.
+
+The usual way to use it is not to call it directly but to route results to it:
+give a scheduled check `target=graphite` (or add `GRAPHITE` to the channels a
+check reports on) and the module forwards each result as it is produced. Calling
+the command by hand is mainly useful for testing that the connection and metric
+paths are right.
+
+##### Metric paths
+
+Two settings on the module decide where the values land:
+`path` for performance data and `status path` for the status value, both written
+as Graphite dotted paths with the usual `${hostname}`, `${check_alias}` and
+`${perf_alias}` placeholders. `send perfdata` and `send status` turn each half
+on or off — sending status as a number is often not what you want, since a
+Graphite dashboard renders `0/1/2/3` poorly compared to a real alerting system.
+
+Get the path template right before pointing a fleet at it: Carbon creates a
+whisper file per distinct metric path on first write, so a template that
+interpolates something volatile (a PID, a timestamp, an unsanitised check name)
+will litter the storage with files that then have to be cleaned up by hand.
+
+##### Transport
+
+Carbon's plaintext protocol is **unauthenticated**, and by default this module
+speaks it in the clear. Set `ssl = true` to wrap the connection in TLS, and
+supply `ca`, `certificate` and `certificate key` for a Carbon endpoint that
+requires them. On an untrusted network, treat the plaintext default as
+unsuitable — anyone on the path can both read and inject metrics.
+
 **Jump to section:**
 
+* [Sample Commands](#submit_graphite_samples)
 * [Command-line Arguments](#submit_graphite_options)
+
+
+<a id="submit_graphite_samples"></a>
+#### Sample Commands
+
+The examples below were sent to a Carbon listener on `127.0.0.1:2003`, with the
+target configured as:
+
+```ini
+[/settings/graphite/client/targets/default]
+address = 127.0.0.1:2003
+path = nsclient.${hostname}.${check_alias}.${perf_alias}
+status path = nsclient.${hostname}.${check_alias}.status
+send perfdata = true
+send status = true
+```
+
+**Submit a result directly (useful for testing the connection):**
+
+```
+submit_graphite host=127.0.0.1 port=2003 command=check_disk result=WARNING "message=/var is 91% full"
+OK: Data presumably sent successfully
+```
+
+What arrives on the wire:
+
+```
+nsclient.vm..status 1 1788526945
+```
+
+Two things to notice. Only the status arrived — the submission carried no
+performance data, and Graphite stores numbers, so there was nothing else to
+send. And `${check_alias}` is **empty**, leaving a `..` in the path: neither
+`command=` nor `alias=` populates it on this path.
+
+**Route a real check to the target instead — which is how it is meant to be used:**
+
+```
+check_and_forward command=check_drivesize channel=GRAPHITE alias=drivesize
+OK: Message submitted: GRAPHITE
+```
+
+```
+nsclient.vm.drivesize./_used 9039142912 1788526958
+nsclient.vm.drivesize./_used_percent 3 1788526958
+nsclient.vm.drivesize./opt/claude-code_used 212594688 1788526958
+nsclient.vm.drivesize./opt/claude-code_used_percent 88 1788526958
+nsclient.vm.drivesize./opt/env-runner_used 31223808 1788526958
+nsclient.vm.drivesize./opt/env-runner_used_percent 64 1788526958
+nsclient.vm.drivesize.status 1 1788526958
+```
+
+Now `${check_alias}` is the alias the result was forwarded under, and every
+performance counter becomes its own series.
+
+**Watch out for separators in counter names:**
+
+`${perf_alias}` is inserted verbatim, so the mount point `/opt/claude-code`
+becomes `.../opt/claude-code_used` — a **dotted path split into extra levels**
+by Graphite, and a whisper file created for each one. On Windows the same
+happens with drive letters and colons.
+
+Get the path template and the check's `perf-syntax` right before pointing a
+fleet at it: Carbon creates a whisper file per distinct path on first write, so
+anything volatile in the name has to be cleaned up by hand afterwards.
+
+**Send only the numbers, not the status:**
+
+Graphite renders a `0/1/2/3` status series poorly compared to a real alerting
+system, so most installations turn it off:
+
+```ini
+[/settings/graphite/client/targets/default]
+send status = false
+```
+
+**"Sent successfully" means handed to the socket:**
+
+Carbon's plaintext protocol acknowledges nothing, so an OK here does not mean
+the metrics were stored — only that the connection was accepted.
 
 
 
@@ -185,25 +301,26 @@ This is a section of objects. This means that you will create objects below this
 **Keys:**
 
 
-| Key                | Default Value                     | Description            |
-|--------------------|-----------------------------------|------------------------|
-| address            |                                   | TARGET ADDRESS         |
-| allowed ciphers    | ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH | ALLOWED CIPHERS        |
-| ca                 | ${ca-path}                        | CA                     |
-| certificate        |                                   | CLIENT CERTIFICATE     |
-| certificate format | PEM                               | CERTIFICATE FORMAT     |
-| certificate key    |                                   | CLIENT CERTIFICATE KEY |
-| host               |                                   | TARGET HOST            |
-| path               |                                   | PATH FOR METRICS       |
-| port               |                                   | TARGET PORT            |
-| retries            | 3                                 | RETRIES                |
-| send perfdata      |                                   | SEND PERF DATA         |
-| send status        |                                   | SEND STATUS            |
-| ssl                | false                             | ENABLE TLS             |
-| status path        |                                   | PATH FOR STATUS        |
-| timeout            | 30                                | TIMEOUT                |
-| tls version        | 1.2+                              | TLS VERSION            |
-| verify mode        | peer                              | VERIFY MODE            |
+| Key                 | Default Value                     | Description            |
+|---------------------|-----------------------------------|------------------------|
+| address             |                                   | TARGET ADDRESS         |
+| allow host override | false                             | ALLOW HOST OVERRIDE    |
+| allowed ciphers     | ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH | ALLOWED CIPHERS        |
+| ca                  | ${ca-path}                        | CA                     |
+| certificate         |                                   | CLIENT CERTIFICATE     |
+| certificate format  | PEM                               | CERTIFICATE FORMAT     |
+| certificate key     |                                   | CLIENT CERTIFICATE KEY |
+| host                |                                   | TARGET HOST            |
+| path                |                                   | PATH FOR METRICS       |
+| port                |                                   | TARGET PORT            |
+| retries             | 3                                 | RETRIES                |
+| send perfdata       |                                   | SEND PERF DATA         |
+| send status         |                                   | SEND STATUS            |
+| ssl                 | false                             | ENABLE TLS             |
+| status path         |                                   | PATH FOR STATUS        |
+| timeout             | 30                                | TIMEOUT                |
+| tls version         | 1.2+                              | TLS VERSION            |
+| verify mode         | peer                              | VERIFY MODE            |
 
 
 **Sample:**
@@ -212,6 +329,7 @@ This is a section of objects. This means that you will create objects below this
 # An example of a REMOTE TARGET DEFINITIONS section
 [/settings/graphite/client/targets/sample]
 #address=...
+allow host override=false
 allowed ciphers=ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH
 ca=${ca-path}
 #certificate=...

@@ -52,6 +52,20 @@ common:
             description: Target host address
             sample: true
             title: TARGET ADDRESS
+          allow host override:
+            advanced: true
+            default_value: 'false'
+            description: 'Let a request (a REST query, an NRPE argument or `nscp client`) send this target''s
+              *configured* credentials to a destination the request names. Off by default: when a request
+              moves the destination (`host=`, `port=`, `address=`) and the password or token going with
+              it is the one configured here, the call is refused, since otherwise anyone able to run the
+              module''s commands could direct the configured credentials to a host of their choosing.
+              This setting is only consulted in that case: a target with no credentials, a request that
+              supplies its own password/token, and a request that does not move the destination are all
+              unaffected. To reach another server with its own credentials, prefer configuring it as a
+              separate target and selecting it with `target=`.'
+            sample: true
+            title: ALLOW HOST OVERRIDE
           ca:
             advanced: false
             default_value: ${ca-path}
@@ -125,8 +139,10 @@ common:
           verify mode:
             advanced: false
             default_value: peer
-            description: 'Comma separated list of options: none, peer, peer-cert, client-once, fail-if-no-cert,
-              workarounds, single. In general use peer-cert or none for self signed certificates.'
+            description: 'Comma separated list of options: none, peer (or certificate), peer-cert, fail-if-no-cert
+              (or fail-if-no-peer-cert, client-certificate). Any other value is rejected and the connection
+              fails. For a self signed certificate use peer-cert and point `ca` at that certificate; none
+              disables verification entirely and sends the NRDP token to an unverified peer.'
             sample: true
             title: TLS peer verify mode
   queries:
@@ -310,13 +326,17 @@ common:
       - content_type: 2
         default_value: ''
         is_simple: true
-        long_description: Coma separated list of option none, peer, peer-cert, client-once, fail-if-no-cert,
-          workarounds, single. In general use peer-cert or none for self signed certificates.
+        long_description: 'Comma separated list of options: none, peer (or certificate), peer-cert, fail-if-no-cert
+          (or fail-if-no-peer-cert, client-certificate). For a self signed certificate use peer-cert and
+          point --ca at that certificate; none disables verification entirely and sends the NRDP token
+          to an unverified peer.'
         name: verify
         repeatable: false
         required: false
-        short_description: Coma separated list of option none, peer, peer-cert, client-once, fail-if-no-cert,
-          workarounds, single. In general use peer-cert or none for self signed certificates.
+        short_description: 'Comma separated list of options: none, peer (or certificate), peer-cert, fail-if-no-cert
+          (or fail-if-no-peer-cert, client-certificate). For a self signed certificate use peer-cert and
+          point --ca at that certificate; none disables verification entirely and sends the NRDP token
+          to an unverified peer.'
       - content_type: 2
         default_value: ''
         is_simple: true

@@ -27,9 +27,162 @@ A list of all available queries (check commands)
 
 Submit information to the remote NSCA-NG server. Custom relay commands defined under [/settings/NSCA-NG/client/handlers] are registered automatically using the same `submit_<alias>` naming convention.
 
+#### About `submit_nsca_ng`
+
+`submit_nsca_ng` submits a passive check result to an **NSCA-ng** server.
+NSCA-ng is the modern replacement for NSCA: it authenticates both ends over TLS
+with a shared identity and password rather than obfuscating the payload with a
+shared cipher, and it carries much larger output.
+
+The usual way to use it is to route results rather than call it by hand: give a
+scheduled check `target=nsca-ng`, or add the module's channel to the channels a
+check reports on. A direct call is mainly useful for verifying credentials and
+TLS.
+
+##### Identity and password
+
+`identity` and `password` must match a client entry in the server's
+`nsca-ng.cfg`. The identity is what the server uses to decide which hosts and
+services this client may submit results for, so it is an authorisation
+boundary — not just a label.
+
+`host check = true` on the target submits results as **host** checks rather than
+service checks, which is how you report host state through the same channel. On
+the command line the equivalent is the bare flag `host-check` — it takes no
+value, so `host-check=true` is an error, and because REST passes every argument
+as `key=value` it cannot be set that way at all. Use the setting for anything
+driven over REST.
+
+##### TLS
+
+The connection is TLS, configured with `certificate`, `certificate key`, `ca`,
+`dh` and `allowed ciphers`.
+
+`insecure = true` disables peer verification. It exists for bringing up a new
+deployment before the CA is in place; leaving it on removes the guarantee that
+you are talking to your own server, which is the main thing NSCA-ng gives you
+over NSCA. Point `ca` at the server's CA instead. Like `host-check`, the
+command-line form is a bare `insecure` flag and is not settable over REST.
+
+##### Output length
+
+`max output length` defaults to 65536 bytes — far more than NSCA's 512-byte
+payload — so long check output survives intact. It still has to be no larger
+than the server's own limit; a value above what the server accepts truncates on
+its side.
+
+##### Custom relay commands
+
+Handlers defined under `[/settings/NSCA-NG/client/handlers]` are registered
+automatically as additional commands, following the same `submit_<alias>`
+naming, so a relay with several destinations does not need a module instance per
+destination.
+
 **Jump to section:**
 
+* [Sample Commands](#submit_nsca_ng_samples)
 * [Command-line Arguments](#submit_nsca_ng_options)
+
+
+<a id="submit_nsca_ng_samples"></a>
+#### Sample Commands
+
+**Submit a passive result to an NSCA-ng server:**
+
+```
+submit_nsca_ng target=nsca-ng command=nightly_backup result=CRITICAL "message=backup failed"
+OK: Message submitted
+```
+
+**A typical target:**
+
+```ini
+[/settings/NSCA-NG/client/targets/nsca-ng]
+address = nsca-ng://192.168.56.10:5668
+identity = web01
+password = <shared secret>
+ca = /etc/nsclient/ca.pem
+max output length = 65536
+```
+
+`identity` and `password` must match a client entry in the server's
+`nsca-ng.cfg`. The identity is an authorisation boundary, not just a label — it
+is what the server uses to decide which hosts and services this client may
+submit results for.
+
+**Submit a host check rather than a service check:**
+
+The command-line option is `host-check` and it is a **bare flag** — it takes no
+value, so `host-check=true` is rejected with an "Invalid command line" error:
+
+```
+submit_nsca_ng target=nsca-ng host-check result=OK "message=host is up"
+OK: Message submitted
+```
+
+Because it is a flag rather than a valued option, it also **cannot be set over
+REST**, which passes every argument as a `key=value` token. Set it on the target
+instead, where the settings key is `host check` (the legacy alias `host_check`
+is still honoured):
+
+```ini
+[/settings/NSCA-NG/client/targets/nsca-ng]
+host check = true
+```
+
+**Submit several results at once:**
+
+```
+submit_nsca_ng target=nsca-ng "batch=job_a|OK|finished in 4m" "batch=job_b|CRITICAL|exit code 1"
+OK: Message submitted
+```
+
+**Route results rather than calling this by hand:**
+
+```ini
+[/settings/scheduler/schedules/disk]
+command = check_drivesize
+interval = 5m
+channel = NSCA-NG
+```
+
+**Nothing listening:**
+
+```
+submit_nsca_ng host=127.0.0.1 port=15670 command=nightly_backup result=CRITICAL "message=backup failed" identity=agent1 password=secret
+UNKNOWN: NSCA-NG network error: connect to 127.0.0.1:15670 failed: Connection refused
+```
+
+**Long output survives:**
+
+`max output length` defaults to 65536 bytes, against NSCA's 512-byte payload, so
+a full check message arrives intact — as long as it is also within the server's
+own limit, which truncates on its side.
+
+**`insecure` removes the point of using NSCA-ng:**
+
+It disables peer verification, so you lose the guarantee that you are talking to
+your own server. Use it only while bringing a deployment up, and point `ca` at
+the server's CA instead.
+
+Like `host-check` it is a bare flag on the command line — `insecure=true` is
+rejected, and it cannot be set over REST at all:
+
+```
+submit_nsca_ng target=nsca-ng insecure command=nightly_backup result=OK "message=done"
+OK: Message submitted
+```
+
+```ini
+[/settings/NSCA-NG/client/targets/nsca-ng]
+insecure = true
+```
+
+**Custom relay commands:**
+
+Handlers defined under `[/settings/NSCA-NG/client/handlers]` are registered
+automatically as `submit_<alias>` commands, so a relay with several destinations
+does not need a module instance per destination.
 
 
 
@@ -218,27 +371,28 @@ This is a section of objects. This means that you will create objects below this
 **Keys:**
 
 
-| Key                | Default Value | Description           |
-|--------------------|---------------|-----------------------|
-| address            |               | TARGET ADDRESS        |
-| allowed ciphers    |               | ALLOWED CIPHERS       |
-| ca                 |               | CA                    |
-| certificate        |               | SSL CERTIFICATE       |
-| certificate format |               | CERTIFICATE FORMAT    |
-| certificate key    |               | SSL CERTIFICATE       |
-| dh                 |               | DH KEY                |
-| host               |               | TARGET HOST           |
-| host check         | false         | HOST CHECK            |
-| identity           |               | IDENTITY              |
-| insecure           | false         | INSECURE              |
-| max output length  | 65536         | MAX OUTPUT LENGTH     |
-| password           |               | PASSWORD              |
-| port               |               | TARGET PORT           |
-| retries            | 3             | RETRIES               |
-| timeout            | 30            | TIMEOUT               |
-| use psk            | true          | USE PSK               |
-| use ssl            |               | ENABLE SSL ENCRYPTION |
-| verify mode        |               | VERIFY MODE           |
+| Key                 | Default Value | Description           |
+|---------------------|---------------|-----------------------|
+| address             |               | TARGET ADDRESS        |
+| allow host override | false         | ALLOW HOST OVERRIDE   |
+| allowed ciphers     |               | ALLOWED CIPHERS       |
+| ca                  |               | CA                    |
+| certificate         |               | SSL CERTIFICATE       |
+| certificate format  |               | CERTIFICATE FORMAT    |
+| certificate key     |               | SSL CERTIFICATE       |
+| dh                  |               | DH KEY                |
+| host                |               | TARGET HOST           |
+| host check          | false         | HOST CHECK            |
+| identity            |               | IDENTITY              |
+| insecure            | false         | INSECURE              |
+| max output length   | 65536         | MAX OUTPUT LENGTH     |
+| password            |               | PASSWORD              |
+| port                |               | TARGET PORT           |
+| retries             | 3             | RETRIES               |
+| timeout             | 30            | TIMEOUT               |
+| use psk             | true          | USE PSK               |
+| use ssl             |               | ENABLE SSL ENCRYPTION |
+| verify mode         |               | VERIFY MODE           |
 
 
 **Sample:**
@@ -247,6 +401,7 @@ This is a section of objects. This means that you will create objects below this
 # An example of a REMOTE TARGET DEFINITIONS section
 [/settings/NSCA-NG/client/targets/sample]
 #address=...
+allow host override=false
 #allowed ciphers=...
 #ca=...
 #certificate=...
