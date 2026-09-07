@@ -48,6 +48,11 @@ std::string file_filter::filter_obj::get_version(parsers::where::evaluation_cont
     context->error("Failed to query version for " + fullpath + ": " + error::lookup::last_error());
     return "";
   }
+  if (uLen < sizeof(VS_FIXEDFILEINFO) || lpFfi->dwSignature != 0xFEEF04BD) {
+    delete[] lpVersionInfo;
+    context->error("Malformed version resource in " + fullpath);
+    return "";
+  }
   const DWORD dwFileVersionMS = lpFfi->dwFileVersionMS;
   const DWORD dwFileVersionLS = lpFfi->dwFileVersionLS;
   delete[] lpVersionInfo;

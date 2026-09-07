@@ -20,6 +20,17 @@
 #include <string>
 #include <vector>
 
+namespace {
+// strerror() is not thread-safe and this runs on worker threads. strerror_r
+// comes in the XSI (int) and GNU (char *) flavours; both are handled.
+std::string describe_errno(int, const char *buf) { return buf; }
+std::string describe_errno(const char *msg, const char *) { return msg ? msg : ""; }
+std::string errno_text(int err) {
+  char buf[256] = {0};
+  return describe_errno(strerror_r(err, buf, sizeof(buf)), buf);
+}
+}  // namespace
+
 #define BUFFER_SIZE 4096
 
 // Upper bound on captured child output. A check is expected to print one Nagios
@@ -132,7 +143,7 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
   int pipefd[2];
   if (pipe(pipefd) != 0) {
     output = "Failed to create pipe: ";
-    output += strerror(errno);
+    output += errno_text(errno);
     return NSCAPI::query_return_codes::returnUNKNOWN;
   }
 
@@ -141,7 +152,7 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
     close(pipefd[0]);
     close(pipefd[1]);
     output = "Failed to fork: ";
-    output += strerror(errno);
+    output += errno_text(errno);
     return NSCAPI::query_return_codes::returnUNKNOWN;
   }
   if (pid == 0) {
@@ -204,7 +215,7 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
   int status = 0;
   if (waitpid(pid, &status, 0) < 0) {
     output = "Failed to wait for child: ";
-    output += strerror(errno);
+    output += errno_text(errno);
     return NSCAPI::query_return_codes::returnUNKNOWN;
   }
   return map_exit_status(status);

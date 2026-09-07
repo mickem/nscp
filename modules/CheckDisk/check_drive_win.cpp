@@ -692,6 +692,7 @@ class volume_helper {
 
   bool GetVolumeNameForVolumeMountPoint(std::wstring volumeMountPoint, std::wstring &volumeName) {
     hlp::tchar_buffer buffer(1024);
+    if (ptrGetVolumeNameForVolumeMountPointW == nullptr) return false;
     if (ptrGetVolumeNameForVolumeMountPointW(volumeMountPoint.c_str(), buffer.get(), static_cast<DWORD>(buffer.size()))) {
       volumeName = buffer;
       return true;
@@ -719,7 +720,8 @@ class volume_helper {
       ret.push_back(volume);
       bFlag = FindNextVolumeMountPoint(hVol, volume);
     }
-    CloseHandle(hVol);
+    // A find handle is closed by its own close function, not CloseHandle.
+    FindVolumeMountPointClose(hVol);
     return ret;
   }
 

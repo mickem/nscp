@@ -24,13 +24,18 @@ void Install(std::wstring szName, std::wstring szDisplayName, std::wstring szDep
   SC_HANDLE schSCManager;
 
   if (exe.empty()) {
-    TCHAR szPath[512];
-    if (GetModuleFileName(NULL, szPath, 512) == 0) throw service_control_exception("Could not get module");
+    TCHAR szPath[512] = {};
+    const DWORD copied = GetModuleFileName(NULL, szPath, 512);
+    if (copied == 0 || copied >= 512) throw service_control_exception("Could not get module");
     exe = szPath;
   }
 
   std::wstring bin = _T("\"") + exe + _T("\"");
   if (!args.empty()) bin += L" " + args;
+  // lpDependencies is a MULTI_SZ: two terminators, which c_str() alone
+  // does not provide.
+  std::wstring dependencies = szDependencies;
+  dependencies.push_back(L'\0');
   schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
   if (!schSCManager) throw service_control_exception("OpenSCManager failed:" + error::lookup::last_error());
   schService = CreateService(schSCManager,            // SCManager database
@@ -43,7 +48,7 @@ void Install(std::wstring szName, std::wstring szDisplayName, std::wstring szDep
                              bin.c_str(),             // service's binary
                              NULL,                    // no load ordering group
                              NULL,                    // no tag identifier
-                             szDependencies.c_str(),  // dependencies
+                             dependencies.c_str(),    // dependencies (double-NUL terminated)
                              NULL,                    // LocalSystem account
                              NULL);                   // no password
 

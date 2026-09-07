@@ -31,13 +31,15 @@ spi_container pdh_thread::fetch_spi(error_list &errors) {
   spi_container ret;
   try {
     hlp::buffer<BYTE, windows::winapi::SYSTEM_PROCESS_INFORMATION *> buffer = windows::system_info::get_system_process_information();
+    // Walk on NextEntryOffset but never past the buffer.
+    const BYTE *end = reinterpret_cast<const BYTE *>(buffer.get()) + buffer.size();
     windows::winapi::SYSTEM_PROCESS_INFORMATION *b = buffer.get();
-    while (b != nullptr) {
+    while (b != nullptr && reinterpret_cast<const BYTE *>(b) + sizeof(windows::winapi::SYSTEM_PROCESS_INFORMATION) <= end) {
       ret.handles += b->HandleCount;
       ret.threads += b->NumberOfThreads;
       ret.procs++;
 
-      if (b->NextEntryOffset == NULL) return ret;
+      if (b->NextEntryOffset == 0) return ret;
       b = reinterpret_cast<windows::winapi::SYSTEM_PROCESS_INFORMATION *>(reinterpret_cast<PCHAR>(b) + b->NextEntryOffset);
     }
   } catch (...) {
@@ -63,8 +65,9 @@ void pdh_thread::sample_process_cpu(error_list &errors) {
   std::map<DWORD, proc_cpu_raw> current;
   try {
     hlp::buffer<BYTE, windows::winapi::SYSTEM_PROCESS_INFORMATION *> buffer = windows::system_info::get_system_process_information();
+    const BYTE *end = reinterpret_cast<const BYTE *>(buffer.get()) + buffer.size();
     windows::winapi::SYSTEM_PROCESS_INFORMATION *b = buffer.get();
-    while (b != nullptr) {
+    while (b != nullptr && reinterpret_cast<const BYTE *>(b) + sizeof(windows::winapi::SYSTEM_PROCESS_INFORMATION) <= end) {
       const DWORD pid = static_cast<DWORD>(reinterpret_cast<ULONG_PTR>(b->UniqueProcessId));
       proc_cpu_raw r;
       r.creation = str::format::filetime_to_time(static_cast<unsigned long long>(b->CreateTime.QuadPart));

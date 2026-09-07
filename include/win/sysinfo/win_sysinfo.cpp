@@ -364,7 +364,7 @@ long system_info::get_numberOfProcessorscores() {
 
 hlp::buffer<BYTE, winapi::SYSTEM_PROCESS_INFORMATION *> system_info::get_system_process_information(int size) {
   hlp::buffer<BYTE, winapi::SYSTEM_PROCESS_INFORMATION *> buffer(size);
-  unsigned long bufferSize;
+  unsigned long bufferSize = 0;
   LONG r = winapi::NtQuerySystemInformation(winapi::SystemProcessInformation, (BYTE *)buffer, static_cast<unsigned long>(buffer.size()), &bufferSize);
   if (r == 0) return buffer;
   if (r == STATUS_INFO_LENGTH_MISMATCH) return get_system_process_information(bufferSize * 10);
@@ -546,9 +546,13 @@ std::vector<system_info::pagefile_info> system_info::get_pagefile_info() {
     return ret;
   }
   ULONG offset = 0;
-  while (true) {
+  // Walk on NextEntryOffset but never past the bytes returned.
+  while (offset + sizeof(windows::winapi::SYSTEM_PAGEFILE_INFORMATION) <= retLen && offset + sizeof(windows::winapi::SYSTEM_PAGEFILE_INFORMATION) <= buffer.size()) {
     windows::winapi::SYSTEM_PAGEFILE_INFORMATION *info = buffer.get_t<windows::winapi::SYSTEM_PAGEFILE_INFORMATION *>(offset);
-    system_info::pagefile_info data(utf8::cvt<std::string>(std::wstring(info->PageFileName.Buffer)));
+    // A counted string, and the buffer pointer may be NULL.
+    std::wstring name;
+    if (info->PageFileName.Buffer != NULL) name.assign(info->PageFileName.Buffer, info->PageFileName.Length / sizeof(wchar_t));
+    system_info::pagefile_info data(utf8::cvt<std::string>(name));
     data.peak_usage = static_cast<long long>(info->PeakUsage) * static_cast<long long>(si.dwPageSize);
     data.usage = static_cast<long long>(info->TotalInUse) * static_cast<long long>(si.dwPageSize);
     data.size = static_cast<long long>(info->TotalSize) * static_cast<long long>(si.dwPageSize);
