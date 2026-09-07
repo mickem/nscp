@@ -17,6 +17,7 @@
 #include <parsers/where/node.hpp>
 #include <str/format.hpp>
 #include <string>
+#include <vector>
 
 #include "eventlog_record.hpp"
 #include "modern_eventlog.hpp"
@@ -66,11 +67,21 @@ struct filter_obj : boost::noncopyable {
 };
 
 struct old_filter_obj : filter_obj {
+  // Own the raw record: the reader's buffer is reused for the next read and
+  // warn/crit are evaluated in match_post() after the read loop has returned.
+  // Declared before `record`, which points into it.
+  std::vector<BYTE> raw;
   EventLogRecord record;
   int truncate_message;
 
   old_filter_obj(unsigned long long now, std::string file, const EVENTLOGRECORD *pevlr, const int truncate_message)
-      : filter_obj(now), record(file, pevlr), truncate_message(truncate_message) {}
+      : filter_obj(now), raw(copy_record(pevlr)), record(file, reinterpret_cast<const EVENTLOGRECORD *>(raw.data())), truncate_message(truncate_message) {}
+
+  static std::vector<BYTE> copy_record(const EVENTLOGRECORD *pevlr) {
+    if (pevlr == NULL || pevlr->Length < sizeof(EVENTLOGRECORD)) throw nsclient::nsclient_exception("Invalid eventlog record");
+    const BYTE *begin = reinterpret_cast<const BYTE *>(pevlr);
+    return std::vector<BYTE>(begin, begin + pevlr->Length);
+  }
 
   std::string show() override { return get_log() + ":" + str::xtos(get_id()) + "=" + get_el_type_s() + "('" + get_message() + "')"; }
 

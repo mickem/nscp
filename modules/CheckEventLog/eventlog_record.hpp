@@ -20,14 +20,34 @@ class EventLogRecord : boost::noncopyable {
   EventLogRecord(std::string file, const EVENTLOGRECORD *pevlr) : file_(file), pevlr_(pevlr) {
     if (pevlr == NULL) throw nsclient::nsclient_exception("Invalid eventlog record");
   }
+
+  // Every string inside an EVENTLOGRECORD is read against the record's own
+  // Length rather than trusted to be terminated: a record written without a
+  // terminator would otherwise be scanned into whatever follows the buffer.
+  const wchar_t *record_end() const { return reinterpret_cast<const wchar_t *>(reinterpret_cast<const BYTE *>(pevlr_) + pevlr_->Length); }
+  const wchar_t *string_at(DWORD offset) const {
+    if (offset >= pevlr_->Length) return record_end();
+    return reinterpret_cast<const wchar_t *>(reinterpret_cast<const BYTE *>(pevlr_) + offset);
+  }
+  // The terminated string starting at p, or as much of it as fits in the record.
+  std::wstring bounded_string(const wchar_t *p) const {
+    const wchar_t *end = record_end();
+    const wchar_t *q = p;
+    while (q < end && *q != 0) ++q;
+    return std::wstring(p, q);
+  }
+  // The start of the string after the one at p, clamped to the record end.
+  const wchar_t *next_string(const wchar_t *p) const {
+    const wchar_t *end = record_end();
+    while (p < end && *p != 0) ++p;
+    return p < end ? p + 1 : end;
+  }
+
   inline unsigned long long generated() const { return pevlr_->TimeGenerated; }
   inline unsigned long long written() const { return pevlr_->TimeWritten; }
   inline WORD category() const { return pevlr_->EventCategory; }
-  inline std::wstring get_source() const { return reinterpret_cast<const WCHAR *>(reinterpret_cast<const BYTE *>(pevlr_) + sizeof(EVENTLOGRECORD)); }
-  inline std::wstring get_computer() const {
-    size_t len = wcslen(reinterpret_cast<const WCHAR *>(reinterpret_cast<const BYTE *>(pevlr_) + sizeof(EVENTLOGRECORD)));
-    return reinterpret_cast<const WCHAR *>(reinterpret_cast<const BYTE *>(pevlr_) + sizeof(EVENTLOGRECORD) + (len + 1) * sizeof(wchar_t));
-  }
+  inline std::wstring get_source() const { return bounded_string(string_at(sizeof(EVENTLOGRECORD))); }
+  inline std::wstring get_computer() const { return bounded_string(next_string(string_at(sizeof(EVENTLOGRECORD)))); }
   inline DWORD eventID() const { return (pevlr_->EventID & 0xffff); }
   inline DWORD severity() const { return (pevlr_->EventID >> 30) & 0x3; }
   inline DWORD facility() const { return (pevlr_->EventID >> 16) & 0xfff; }
@@ -62,12 +82,12 @@ class EventLogRecord : boost::noncopyable {
 
   std::wstring enumStrings() const {
     std::wstring ret;
-    const TCHAR *p = reinterpret_cast<const TCHAR *>(reinterpret_cast<const BYTE *>(pevlr_) + pevlr_->StringOffset);
-    for (unsigned int i = 0; i < pevlr_->NumStrings; i++) {
-      std::wstring s = p;
+    const wchar_t *p = string_at(pevlr_->StringOffset);
+    for (unsigned int i = 0; i < pevlr_->NumStrings && p < record_end(); i++) {
+      std::wstring s = bounded_string(p);
       if (!s.empty()) s += L", ";
       ret += s;
-      p = &p[wcslen(p) + 1];
+      p = next_string(p);
     }
     return ret;
   }
@@ -177,11 +197,10 @@ class EventLogRecord : boost::noncopyable {
     }
     std::wstring msg = reinterpret_cast<wchar_t *>(lpMsgBuf);
     LocalFree(lpMsgBuf);
-    const TCHAR *p = reinterpret_cast<const TCHAR *>(reinterpret_cast<const BYTE *>(pevlr_) + pevlr_->StringOffset);
-    for (unsigned int i = 0; i < pevlr_->NumStrings; i++) {
-      strEx::replace(msg, L"%" + strEx::xtos(i + 1), std::wstring(p));
-      std::size_t len = wcslen(p);
-      p = &(p[len + 1]);
+    const wchar_t *p = string_at(pevlr_->StringOffset);
+    for (unsigned int i = 0; i < pevlr_->NumStrings && p < record_end(); i++) {
+      strEx::replace(msg, L"%" + strEx::xtos(i + 1), bounded_string(p));
+      p = next_string(p);
     }
     return boost::make_tuple(0, msg);
   }

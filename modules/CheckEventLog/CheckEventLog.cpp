@@ -191,6 +191,10 @@ void check_legacy(const std::string &logfile, std::string &scan_range, const int
 
     EVENTLOGRECORD *pevlr = buffer.get();
     while (dwRead > 0) {
+      // Trust nothing about the record header before stepping on it: a zero
+      // Length would spin forever and a Length past the bytes read would
+      // walk the pointer off the buffer.
+      if (dwRead < sizeof(EVENTLOGRECORD) || pevlr->Length < sizeof(EVENTLOGRECORD) || pevlr->Length > dwRead) break;
       EventLogRecord record(logfile, pevlr);
       if (direction == direction_backwards && static_cast<long long>(record.written()) < stop_date) {
         is_scanning = false;
