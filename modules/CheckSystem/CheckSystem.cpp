@@ -671,6 +671,9 @@ void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &re
     } catch (const std::exception &e) {
       return nscapi::protobuf::functions::set_response_bad(*response, "Invalid time '" + time + "': " + e.what());
     }
+    if (seconds <= 0) {
+      return nscapi::protobuf::functions::set_response_bad(*response, "Invalid time '" + time + "': the window must be at least one second");
+    }
     std::map<std::string, windows::system_info::load_entry> vals = collector->get_cpu_load(seconds);
     typedef std::map<std::string, windows::system_info::load_entry>::value_type vt;
     for (vt v : vals) {

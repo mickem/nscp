@@ -54,6 +54,9 @@ struct system_info {
       kernel += other.kernel;
     }
     void normalize(double value) {
+      // A zero window would turn every field into NaN, which the filter then
+      // casts to an integer: undefined behaviour, not a wrong number.
+      if (value <= 0) return;
       idle /= value;
       user /= value;
       kernel /= value;
