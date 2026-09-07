@@ -80,6 +80,24 @@ const expectIis = process.env.NSCP_EXPECT_IIS === "1";
     if (expectIis) expect(out).toMatch(/Default Web Site: \w+, \d+ connections/);
   });
 
+  // --- empty result sets ----------------------------------------------------
+
+  // The #1499 shape: the default crit (`state != 'running' and auto_start != 0`)
+  // is force-evaluated with no pool/site bound once a filter matched nothing.
+  // Both host shapes must end on a documented message, never WARNING/CRITICAL.
+
+  it("check_iis_app_pools with a filter that matches nothing takes the empty state", async () => {
+    const out = await query("check_iis_app_pools", ["filter=pool = 'nosuchpool-1499'", "empty-state=ok"]);
+    expect(out).toMatch(/not available|No application pools found/);
+    expect(out).not.toMatch(/(^|\s)(WARNING|CRITICAL)\b/);
+  });
+
+  it("check_iis_sites with a filter that matches nothing takes the empty state", async () => {
+    const out = await query("check_iis_sites", ["filter=site = 'nosuchsite-1499'", "empty-state=ok"]);
+    expect(out).toMatch(/not available|No web sites found/);
+    expect(out).not.toMatch(/(^|\s)(WARNING|CRITICAL)\b/);
+  });
+
   // --- check_iis_worker_processes -------------------------------------------
 
   it("check_iis_worker_processes reports workers or the documented contracts", async () => {

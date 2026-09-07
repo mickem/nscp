@@ -847,6 +847,19 @@ describe("CheckNet commands", () => {
     expect(m?.[4]).toBe(m?.[1]);
   });
 
+  it("check_connections with a filter that matches nothing reports no data", async () => {
+    // The empty state is 'ignored' here, so the verdict comes from the default
+    // thresholds being force-evaluated with no bucket bound (#1499 shape):
+    // they cannot resolve, which surfaces as UNKNOWN rather than a silent OK.
+    // Pinning the empty state gives the caller the quiet result.
+    const args = { filter: "protocol = 'nosuchprotocol-1499'" };
+    const q = await executeQuery(key, "check_connections", args);
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/No connection data/i);
+    const relaxed = await executeQuery(key, "check_connections", { ...args, "empty-state": "ok" });
+    expect(relaxed.result).toBe(OK);
+  });
+
   // --- check_ntp_offset -----------------------------------------------------
 
   it("check_ntp_offset reports the server's advertised root delay and dispersion", async () => {
