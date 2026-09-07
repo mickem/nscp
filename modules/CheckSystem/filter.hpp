@@ -56,7 +56,9 @@ typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 
 namespace check_page_filter {
 struct filter_obj {
-  const windows::system_info::pagefile_info &info;
+  // Owned, not referenced: the range temporary this is built from is gone by
+  // the time match_post() evaluates warn/crit.
+  windows::system_info::pagefile_info info;
 
   filter_obj(const windows::system_info::pagefile_info &info) : info(info) {}
 
