@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/select.h>
+#include <poll.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <time.h>
@@ -51,18 +51,19 @@ std::string drain_with_timeout(int fd, time_t deadline, bool& timed_out, bool& h
   std::string out;
   buffer_type buffer(BUFFER_SIZE);
   for (;;) {
-    fd_set rfds;
-    FD_ZERO(&rfds);
-    FD_SET(fd, &rfds);
     const time_t now = time(nullptr);
     if (now >= deadline) {
       timed_out = true;
       return out;
     }
-    struct timeval tv;
-    tv.tv_sec = deadline - now;
-    tv.tv_usec = 0;
-    const int ready = select(fd + 1, &rfds, nullptr, nullptr, &tv);
+    // poll(), not select(): FD_SET on a descriptor past FD_SETSIZE writes off
+    // the end of the stack bitmap, and a busy agent (ten io threads per
+    // socket server plus the web server) can hold that many descriptors.
+    struct pollfd pfd;
+    pfd.fd = fd;
+    pfd.events = POLLIN;
+    pfd.revents = 0;
+    const int ready = poll(&pfd, 1, static_cast<int>((deadline - now) * 1000));
     if (ready < 0) {
       if (errno == EINTR) continue;
       had_error = true;
