@@ -84,8 +84,11 @@ inline void parse(std::shared_ptr<builder> builder, const std::string &perff) {
     p = perf.find_first_not_of(perf_separator, p);
     if (p != 0) perf = perf.substr(p);
     if (perf[0] == perf_lable_enclosure[0]) {
-      p = perf.find(perf_lable_enclosure[0], 1) + 1;
-      if (p == std::string::npos) return;
+      // Find the closing quote first: npos + 1 is 0, so testing the
+      // incremented value never caught an unterminated label.
+      const std::string::size_type closing = perf.find(perf_lable_enclosure[0], 1);
+      if (closing == std::string::npos) return;
+      p = closing + 1;
     }
     p = perf.find(perf_separator, p);
     if (p == 0) return;
