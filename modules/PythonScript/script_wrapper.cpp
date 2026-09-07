@@ -559,9 +559,12 @@ bool script_wrapper::function_wrapper::has_simple_event_handler(const std::strin
 
 void script_wrapper::function_wrapper::on_event(const std::string event, const std::string &request) const {
   try {
-    functions::function_map_type::iterator it = functions::get()->normal_handler.find(event);
-    if (it == functions::get()->normal_handler.end()) {
+    // Hold the table for the whole call: the iterator points into it.
+    const std::shared_ptr<functions> fns = functions::get();
+    functions::function_map_type::iterator it = fns->normal_handler.find(event);
+    if (it == fns->normal_handler.end()) {
       NSC_LOG_ERROR_STD("Failed to find python handler: " + event);
+      return;
     }
     {
       thread_locker locker;
@@ -579,9 +582,11 @@ void script_wrapper::function_wrapper::on_event(const std::string event, const s
 }
 void script_wrapper::function_wrapper::on_simple_event(const std::string event, const py::dict &data) const {
   try {
-    functions::function_map_type::iterator it = functions::get()->simple_handler.find(event);
-    if (it == functions::get()->simple_handler.end()) {
+    const std::shared_ptr<functions> fns = functions::get();
+    functions::function_map_type::iterator it = fns->simple_handler.find(event);
+    if (it == fns->simple_handler.end()) {
       NSC_LOG_ERROR_STD("Failed to find python handler: " + event);
+      return;
     }
     {
       thread_locker locker;
