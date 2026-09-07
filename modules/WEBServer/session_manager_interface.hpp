@@ -3,6 +3,9 @@
 
 #pragma once
 
+#include <boost/thread/mutex.hpp>
+#include <memory>
+#include <vector>
 #include <Request.h>
 #include <StreamResponse.h>
 
@@ -42,7 +45,10 @@ struct session_manager_interface {
   // check_nscp_api keeps working without forcing every integration site to
   // update their plugin in lockstep with NSClient. Set to an empty list to
   // disable the fallback entirely.
-  std::vector<std::string> legacy_query_auth_user_agents_;
+  // Replaced whole on a settings reload while requests read it: published
+  // as an immutable list behind a mutex-protected pointer.
+  std::shared_ptr<const std::vector<std::string>> legacy_query_auth_user_agents_;
+  mutable boost::mutex legacy_query_auth_mutex_;
 
  public:
   // The single source of truth for the default allowlist. Used both by the

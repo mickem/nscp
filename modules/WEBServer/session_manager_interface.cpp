@@ -72,17 +72,24 @@ session_manager_interface::session_manager_interface() : log_data(std::make_uniq
 }
 
 void session_manager_interface::set_legacy_query_auth_user_agents(const std::string &csv) {
-  legacy_query_auth_user_agents_.clear();
+  auto list = std::make_shared<std::vector<std::string>>();
   for (const std::string &raw : str::utils::split_lst(csv, std::string(","))) {
     std::string pat = boost::algorithm::trim_copy(raw);
-    if (!pat.empty()) legacy_query_auth_user_agents_.push_back(std::move(pat));
+    if (!pat.empty()) list->push_back(std::move(pat));
   }
+  boost::lock_guard<boost::mutex> lock(legacy_query_auth_mutex_);
+  legacy_query_auth_user_agents_ = list;
 }
 
 bool session_manager_interface::client_allows_legacy_query_auth(const std::string &user_agent) const {
-  if (user_agent.empty() || legacy_query_auth_user_agents_.empty()) return false;
+  std::shared_ptr<const std::vector<std::string>> patterns;
+  {
+    boost::lock_guard<boost::mutex> lock(legacy_query_auth_mutex_);
+    patterns = legacy_query_auth_user_agents_;
+  }
+  if (user_agent.empty() || !patterns || patterns->empty()) return false;
   const std::string ua_lower = boost::algorithm::to_lower_copy(user_agent);
-  for (const std::string &pat : legacy_query_auth_user_agents_) {
+  for (const std::string &pat : *patterns) {
     if (pat.empty()) continue;
     const std::string pat_lower = boost::algorithm::to_lower_copy(pat);
     if (ua_lower.find(pat_lower) != std::string::npos) return true;
