@@ -74,8 +74,10 @@ json::object to_json(const result_store::result_entry &e, const std::int64_t now
   node["count"] = static_cast<std::int64_t>(e.count);
   node["first_seen"] = e.first_seen;
   node["last_seen"] = e.last_seen;
+  node["result_seen"] = e.result_seen;
   node["first_seen_date"] = to_date(e.first_seen);
   node["last_seen_date"] = to_date(e.last_seen);
+  node["result_seen_date"] = to_date(e.result_seen);
   // How stale the result is. The whole point of a passive cache is that a
   // consumer can tell "OK" from "OK, reported three days ago".
   node["age"] = now > e.last_seen ? now - e.last_seen : 0;
@@ -87,8 +89,8 @@ json::object to_json(const result_store::result_entry &e, const std::int64_t now
 }  // namespace
 
 results_controller::results_controller(const int version, const std::shared_ptr<session_manager_interface> &session,
-                                       const std::shared_ptr<result_store> &results)
-    : RegexpController(version == 1 ? "/api/v1/results" : "/api/v2/results"), session(session), results(results) {
+                                       const std::shared_ptr<result_store> &results, const bool clear_on_poll)
+    : RegexpController(version == 1 ? "/api/v1/results" : "/api/v2/results"), session(session), results(results), clear_on_poll(clear_on_poll) {
   addRoute("GET", "/?$", this, &results_controller::list_results);
   addRoute("DELETE", "/?$", this, &results_controller::clear_results);
   // Keys contain the primary-index separator (a `/` by default), so the
@@ -98,8 +100,20 @@ results_controller::results_controller(const int version, const std::shared_ptr<
   addRoute("DELETE", "/(.+?)/?$", this, &results_controller::delete_result);
 }
 
+bool results_controller::require_enabled(Mongoose::StreamResponse &response) const {
+  if (results->is_enabled()) return true;
+  // Deliberately not 404 (which reads as "wrong URL / too old a version") and
+  // not an empty list (which reads as "nothing has reported yet"): an
+  // operator polling a switched-off cache should be told exactly that, and
+  // which setting turns it on.
+  response.setCode(HTTP_SERVICE_UNAVALIBLE, REASON_SERVICE_UNAVALIBLE);
+  response.append("Passive result cache is disabled. Set enabled=true under /settings/WEB/server/results to turn it on.");
+  return false;
+}
+
 void results_controller::list_results(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
   if (!session->is_logged_in("results.list", request, response)) return;
+  if (!require_enabled(response)) return;
 
   result_store::filter f;
   f.channel = request.get("channel", "");
@@ -121,16 +135,22 @@ void results_controller::list_results(Mongoose::Request &request, boost::smatch 
 
   const std::int64_t now = result_store_now();
   const std::string base = get_base(request);
+  // A poll consumes what it reports: the next poll then answers "what has
+  // happened since you last asked" rather than repeating the same results,
+  // which is what makes the `worst` cache mode mean "worst since last poll".
+  const result_store::result_list entries = clear_on_poll ? results->drain(f, now) : results->list(f, now);
   json::array root;
-  for (const result_store::result_entry &e : results->list(f, now)) {
+  for (const result_store::result_entry &e : entries) {
     root.push_back(to_json(e, now, base));
   }
   response.setHeader("X-Result-Count", str::xtos(root.size()));
+  response.setHeader("X-Result-Drained", clear_on_poll ? "true" : "false");
   response.append(json::serialize(root));
 }
 
 void results_controller::get_result(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
   if (!session->is_logged_in("results.get", request, response)) return;
+  if (!require_enabled(response)) return;
   if (!validate_arguments(1, what, response)) return;
 
   const std::string key = what.str(1);
@@ -145,6 +165,7 @@ void results_controller::get_result(Mongoose::Request &request, boost::smatch &w
 
 void results_controller::clear_results(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
   if (!session->is_logged_in("results.delete", request, response)) return;
+  if (!require_enabled(response)) return;
 
   json::object node;
   node["removed"] = static_cast<std::int64_t>(results->clear());
@@ -153,6 +174,7 @@ void results_controller::clear_results(Mongoose::Request &request, boost::smatch
 
 void results_controller::delete_result(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
   if (!session->is_logged_in("results.delete", request, response)) return;
+  if (!require_enabled(response)) return;
   if (!validate_arguments(1, what, response)) return;
 
   const std::string key = what.str(1);

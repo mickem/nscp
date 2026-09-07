@@ -4,7 +4,9 @@
 #include "result_store.hpp"
 
 #include <algorithm>
+#include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/trim.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <parsers/expression/expression.hpp>
 #include <utility>
@@ -37,29 +39,47 @@ bool result_store::filter::matches(const result_entry &entry) const {
 void result_store::submit(const result_entry &entry, const std::int64_t now) {
   const boost::unique_lock<boost::timed_mutex> lock(mutex_, lock_deadline());
   if (!lock.owns_lock()) return;
+  if (!enabled_) return;
 
   expire(now);
 
-  result_entry stored = entry;
-  // A repeat result for a key keeps the key's history: when it was first
-  // seen and how many times it has reported. That is what turns the cache
-  // into something a monitoring system can reason about ("this check has
-  // been flapping") rather than a bare last-value register.
-  const entry_map::iterator it = entries_.find(stored.key);
+  const entry_map::iterator it = entries_.find(entry.key);
   if (it == entries_.end()) {
+    result_entry stored = entry;
     stored.first_seen = now;
     stored.count = 1;
-  } else {
-    stored.first_seen = it->second.first_seen;
-    stored.count = it->second.count + 1;
+    stored.last_seen = now;
+    stored.result_seen = now;
+    // Bumped on every submission, so the lowest index is always the least
+    // recently updated entry - which is the one trim() evicts.
+    stored.index = next_index_++;
+    entries_[stored.key] = std::move(stored);
+    trim();
+    return;
   }
-  stored.last_seen = now;
-  // Bumped on every update, so the lowest index is always the least
-  // recently updated entry - which is the one trim() evicts.
-  stored.index = next_index_++;
-  entries_[stored.key] = std::move(stored);
 
-  trim();
+  result_entry &current = it->second;
+  // The key's history survives whichever result wins: when it was first seen
+  // and how many times it has reported. That is what turns the cache into
+  // something a monitoring system can reason about rather than a bare
+  // last-value register.
+  const std::int64_t first_seen = current.first_seen;
+  const std::size_t count = current.count + 1;
+
+  // In `worst` mode a less severe result is recorded as a submission but does
+  // not get to overwrite the problem it is recovering from - that is the
+  // point: a CRITICAL that recovers between two polls must still be seen.
+  // Equal severity does replace, so the message stays as current as its
+  // severity allows.
+  const bool keep_current = mode_ == mode_worst && entry.status < current.status;
+  if (!keep_current) {
+    current = entry;  // same key by construction - this is the map slot it was found in
+    current.result_seen = now;
+  }
+  current.first_seen = first_seen;
+  current.count = count;
+  current.last_seen = now;
+  current.index = next_index_++;
 }
 
 void result_store::submit(const result_entry &entry) { submit(entry, result_store_now()); }
@@ -78,6 +98,28 @@ result_store::result_list result_store::list(const filter &f, const std::int64_t
 }
 
 result_store::result_list result_store::list() const { return list(filter(), result_store_now()); }
+
+result_store::result_list result_store::drain(const filter &f, const std::int64_t now) {
+  result_list ret;
+  const boost::unique_lock<boost::timed_mutex> lock(mutex_, lock_deadline());
+  if (!lock.owns_lock()) return ret;
+
+  for (entry_map::iterator it = entries_.begin(); it != entries_.end();) {
+    const bool expired = max_age_ > 0 && (now - it->second.last_seen) > max_age_;
+    if (expired) {
+      // On its way out anyway, and the caller never saw it.
+      it = entries_.erase(it);
+      continue;
+    }
+    if (!f.matches(it->second)) {
+      ++it;
+      continue;
+    }
+    ret.push_back(it->second);
+    it = entries_.erase(it);
+  }
+  return ret;
+}
 
 bool result_store::get(const std::string &key, result_entry &out, const std::int64_t now) const {
   const boost::unique_lock<boost::timed_mutex> lock(mutex_, lock_deadline());
@@ -117,6 +159,50 @@ std::size_t result_store::size() const {
   }
   return count;
 }
+
+void result_store::set_enabled(const bool value) {
+  const boost::unique_lock<boost::timed_mutex> lock(mutex_, lock_deadline());
+  if (!lock.owns_lock()) return;
+  // Turning the cache off empties it: leaving results behind would keep
+  // serving them from an endpoint the operator has just switched off.
+  if (!value) entries_.clear();
+  enabled_ = value;
+}
+
+bool result_store::is_enabled() const {
+  const boost::unique_lock<boost::timed_mutex> lock(mutex_, lock_deadline());
+  if (!lock.owns_lock()) return false;
+  return enabled_;
+}
+
+void result_store::set_mode(const cache_mode value) {
+  const boost::unique_lock<boost::timed_mutex> lock(mutex_, lock_deadline());
+  if (!lock.owns_lock()) return;
+  mode_ = value;
+}
+
+result_store::cache_mode result_store::mode() const {
+  const boost::unique_lock<boost::timed_mutex> lock(mutex_, lock_deadline());
+  if (!lock.owns_lock()) return mode_last;
+  return mode_;
+}
+
+bool result_store::parse_mode(const std::string &value, cache_mode &out) {
+  std::string name = value;
+  boost::algorithm::trim(name);
+  boost::algorithm::to_lower(name);
+  if (name == "last") {
+    out = mode_last;
+    return true;
+  }
+  if (name == "worst") {
+    out = mode_worst;
+    return true;
+  }
+  return false;
+}
+
+const char *result_store::mode_name(const cache_mode value) { return value == mode_worst ? "worst" : "last"; }
 
 void result_store::set_max_entries(const std::size_t value) {
   const boost::unique_lock<boost::timed_mutex> lock(mutex_, lock_deadline());

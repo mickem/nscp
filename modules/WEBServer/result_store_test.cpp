@@ -3,12 +3,14 @@
 
 // The passive-result cache behind /api/v2/results.
 //
-// Unlike the event store next door this one is keyed: a repeat result for a
-// key replaces the previous one instead of queueing behind it. That is the
-// property the endpoint's whole contract rests on (a monitoring system polls
-// "current state per check", not "everything that ever happened"), together
-// with the two bounds - a key cap and an age limit - that keep a misbehaving
-// producer from growing the daemon without end.
+// Unlike the event store next door this one is keyed: only one result is kept
+// per key, and the cache mode decides which one survives a collision - the
+// newest (`last`) or the most severe (`worst`). Paired with a draining poll,
+// `worst` is what stops a CRITICAL that recovered between two polls from
+// going unseen, so those two behaviours are the heart of the contract. Around
+// them sit the switch that keeps the whole thing off until an operator asks
+// for it, and the two bounds - a key cap and an age limit - that keep a
+// misbehaving producer from growing the daemon without end.
 
 #include "result_store.hpp"
 
@@ -38,6 +40,41 @@ result_store::filter no_filter() { return result_store::filter(); }
 
 }  // namespace
 
+TEST(ResultStore, IsDisabledUntilItIsSwitchedOn) {
+  // Nothing accumulates behind an operator's back: an install that never
+  // turned the cache on must not be holding check results in memory.
+  result_store store;
+  EXPECT_FALSE(store.is_enabled());
+  store.submit(make("srv1", "check_disk"), kNow);
+  EXPECT_EQ(store.size(), 0u);
+  EXPECT_TRUE(store.list(no_filter(), kNow).empty());
+}
+
+TEST(ResultStore, AcceptsResultsOnceEnabled) {
+  result_store store;
+  store.set_enabled(true);
+  store.submit(make("srv1", "check_disk"), kNow);
+  EXPECT_EQ(store.size(), 1u);
+}
+
+TEST(ResultStore, SwitchingItOffEmptiesIt) {
+  // Otherwise the endpoint would keep serving results from a cache the
+  // operator has just turned off.
+  result_store store;
+  store.set_enabled(true);
+  store.submit(make("srv1", "check_disk"), kNow);
+  ASSERT_EQ(store.size(), 1u);
+
+  store.set_enabled(false);
+  EXPECT_EQ(store.size(), 0u);
+  EXPECT_FALSE(store.is_enabled());
+}
+
+TEST(ResultStore, TheDefaultModeIsLast) {
+  result_store store;
+  EXPECT_EQ(store.mode(), result_store::mode_last);
+}
+
 TEST(ResultStore, StartsEmpty) {
   result_store store;
   EXPECT_EQ(store.size(), 0u);
@@ -46,6 +83,7 @@ TEST(ResultStore, StartsEmpty) {
 
 TEST(ResultStore, KeepsWhatItIsGiven) {
   result_store store;
+  store.set_enabled(true);
   store.submit(make("srv1", "check_disk", 1), kNow);
 
   const result_store::result_list results = store.list(no_filter(), kNow);
@@ -65,6 +103,7 @@ TEST(ResultStore, ARepeatResultReplacesRatherThanAccumulates) {
   // This is what makes the store a cache: a check reporting every minute
   // must not grow the store by an entry a minute.
   result_store store;
+  store.set_enabled(true);
   store.submit(make("srv1", "check_disk", 0), kNow);
   store.submit(make("srv1", "check_disk", 2), kNow + 60);
 
@@ -75,6 +114,7 @@ TEST(ResultStore, ARepeatResultReplacesRatherThanAccumulates) {
 
 TEST(ResultStore, ARepeatResultKeepsTheKeysHistory) {
   result_store store;
+  store.set_enabled(true);
   store.submit(make("srv1", "check_disk"), kNow);
   store.submit(make("srv1", "check_disk"), kNow + 60);
   store.submit(make("srv1", "check_disk"), kNow + 120);
@@ -90,6 +130,7 @@ TEST(ResultStore, ARepeatResultKeepsTheKeysHistory) {
 
 TEST(ResultStore, DifferentKeysAreKeptSideBySide) {
   result_store store;
+  store.set_enabled(true);
   store.submit(make("srv1", "check_disk"), kNow);
   store.submit(make("srv2", "check_disk"), kNow);
   store.submit(make("srv1", "check_cpu"), kNow);
@@ -102,6 +143,7 @@ TEST(ResultStore, ResultsAreListedInKeyOrder) {
   // A client paging through the list must see a stable order even while
   // results keep arriving, so it is sorted by key rather than by arrival.
   result_store store;
+  store.set_enabled(true);
   store.submit(make("srv2", "check_disk"), kNow);
   store.submit(make("srv1", "check_disk"), kNow + 1);
   store.submit(make("srv3", "check_disk"), kNow + 2);
@@ -115,6 +157,7 @@ TEST(ResultStore, ResultsAreListedInKeyOrder) {
 
 TEST(ResultStore, GetFindsOneResultAndMissesTheRest) {
   result_store store;
+  store.set_enabled(true);
   store.submit(make("srv1", "check_disk"), kNow);
 
   result_store::result_entry entry;
@@ -127,6 +170,7 @@ TEST(ResultStore, GetFindsOneResultAndMissesTheRest) {
 
 TEST(ResultStore, ListingDoesNotDrain) {
   result_store store;
+  store.set_enabled(true);
   store.submit(make("srv1", "check_disk"), kNow);
 
   EXPECT_EQ(store.list(no_filter(), kNow).size(), 1u);
@@ -135,6 +179,7 @@ TEST(ResultStore, ListingDoesNotDrain) {
 
 TEST(ResultStore, RemoveDropsOneResult) {
   result_store store;
+  store.set_enabled(true);
   store.submit(make("srv1", "check_disk"), kNow);
   store.submit(make("srv2", "check_disk"), kNow);
 
@@ -145,6 +190,7 @@ TEST(ResultStore, RemoveDropsOneResult) {
 
 TEST(ResultStore, ClearDropsEverythingAndSaysHowMuch) {
   result_store store;
+  store.set_enabled(true);
   store.submit(make("srv1", "check_disk"), kNow);
   store.submit(make("srv2", "check_disk"), kNow);
 
@@ -157,6 +203,7 @@ TEST(ResultStore, TheLeastRecentlyUpdatedKeyIsEvictedOnceTheCapIsReached) {
   // The cap only bites when keys keep changing; when it does, the entry that
   // has gone longest without an update is the one to lose.
   result_store store;
+  store.set_enabled(true);
   store.set_max_entries(2);
   store.submit(make("srv1", "check_disk"), kNow);
   store.submit(make("srv2", "check_disk"), kNow + 1);
@@ -172,6 +219,7 @@ TEST(ResultStore, TheLeastRecentlyUpdatedKeyIsEvictedOnceTheCapIsReached) {
 
 TEST(ResultStore, LoweringTheCapTrimsWhatIsAlreadyCached) {
   result_store store;
+  store.set_enabled(true);
   for (int i = 0; i < 5; ++i) store.submit(make("srv" + std::to_string(i), "check_disk"), kNow + i);
   ASSERT_EQ(store.size(), 5u);
 
@@ -186,6 +234,7 @@ TEST(ResultStore, LoweringTheCapTrimsWhatIsAlreadyCached) {
 
 TEST(ResultStore, ACapOfZeroIsClampedToOne) {
   result_store store;
+  store.set_enabled(true);
   store.set_max_entries(0);
   store.submit(make("srv1", "check_disk"), kNow);
   store.submit(make("srv2", "check_disk"), kNow + 1);
@@ -197,12 +246,14 @@ TEST(ResultStore, ACapOfZeroIsClampedToOne) {
 
 TEST(ResultStore, TheDefaultCapIsAThousand) {
   result_store store;
+  store.set_enabled(true);
   for (int i = 0; i < 1005; ++i) store.submit(make("srv" + std::to_string(i), "check_disk"), kNow + i);
   EXPECT_EQ(store.size(), 1000u);
 }
 
 TEST(ResultStore, ResultsNeverExpireByDefault) {
   result_store store;
+  store.set_enabled(true);
   store.submit(make("srv1", "check_disk"), kNow);
 
   // A year later it is very stale, but staleness is the caller's call to
@@ -212,6 +263,7 @@ TEST(ResultStore, ResultsNeverExpireByDefault) {
 
 TEST(ResultStore, AResultOlderThanTheMaxAgeIsNotListed) {
   result_store store;
+  store.set_enabled(true);
   store.set_max_age(60);
   store.submit(make("srv1", "check_disk"), kNow);
 
@@ -225,6 +277,7 @@ TEST(ResultStore, AnExpiredResultIsDroppedWhenTheNextOneArrives) {
   // Expiry is lazy, so nothing has to run a timer - but it must actually
   // free the memory, not merely hide the entry from readers forever.
   result_store store;
+  store.set_enabled(true);
   store.set_max_age(60);
   store.submit(make("srv1", "check_disk"), kNow);
   store.submit(make("srv2", "check_disk"), kNow + 61);
@@ -236,6 +289,7 @@ TEST(ResultStore, AnExpiredResultIsDroppedWhenTheNextOneArrives) {
 
 TEST(ResultStore, AKeyThatKeepsReportingDoesNotExpire) {
   result_store store;
+  store.set_enabled(true);
   store.set_max_age(60);
   store.submit(make("srv1", "check_disk"), kNow);
   store.submit(make("srv1", "check_disk"), kNow + 50);
@@ -245,6 +299,7 @@ TEST(ResultStore, AKeyThatKeepsReportingDoesNotExpire) {
 
 TEST(ResultStore, AnEmptyFilterMatchesEverything) {
   result_store store;
+  store.set_enabled(true);
   store.submit(make("srv1", "check_disk", 0), kNow);
   store.submit(make("srv2", "check_cpu", 2), kNow);
 
@@ -253,6 +308,7 @@ TEST(ResultStore, AnEmptyFilterMatchesEverything) {
 
 TEST(ResultStore, FilteringByHostIsExactAndCaseInsensitive) {
   result_store store;
+  store.set_enabled(true);
   store.submit(make("srv1", "check_disk"), kNow);
   store.submit(make("srv10", "check_disk"), kNow);
 
@@ -271,6 +327,7 @@ TEST(ResultStore, FilteringByHostIsExactAndCaseInsensitive) {
 
 TEST(ResultStore, FilteringByCommandAliasAndChannel) {
   result_store store;
+  store.set_enabled(true);
   result_store::result_entry aliased = make("srv1", "check_drivesize");
   aliased.key = "srv1/disk";
   aliased.alias = "disk";
@@ -296,6 +353,7 @@ TEST(ResultStore, FilteringByCommandAliasAndChannel) {
 
 TEST(ResultStore, FilteringByStatusAcceptsSeveralStates) {
   result_store store;
+  store.set_enabled(true);
   store.submit(make("srv1", "check_disk", 0), kNow);
   store.submit(make("srv2", "check_disk", 1), kNow);
   store.submit(make("srv3", "check_disk", 2), kNow);
@@ -311,6 +369,7 @@ TEST(ResultStore, FilteringByStatusAcceptsSeveralStates) {
 
 TEST(ResultStore, FiltersAreCombinedWithAnd) {
   result_store store;
+  store.set_enabled(true);
   store.submit(make("srv1", "check_disk", 2), kNow);
   store.submit(make("srv1", "check_cpu", 0), kNow);
   store.submit(make("srv2", "check_disk", 0), kNow);
@@ -376,4 +435,210 @@ TEST(ResultKeyFormatter, AConstantExpressionIsAcceptedAsWritten) {
   std::string error;
   ASSERT_TRUE(formatter.parse("constant", error));
   EXPECT_EQ(formatter.format(make("srv1", "check_disk")), "constant");
+}
+
+// --- cache mode -------------------------------------------------------------
+
+TEST(ResultStore, LastModeLetsARecoveryReplaceTheProblem) {
+  result_store store;
+  store.set_enabled(true);
+  store.set_mode(result_store::mode_last);
+  store.submit(make("srv1", "check_disk", 2), kNow);
+  store.submit(make("srv1", "check_disk", 0), kNow + 60);
+
+  result_store::result_entry entry;
+  ASSERT_TRUE(store.get("srv1/check_disk", entry, kNow + 60));
+  EXPECT_EQ(entry.status, 0);
+}
+
+TEST(ResultStore, WorstModeHoldsTheProblemThroughARecovery) {
+  // The reason the mode exists: a CRITICAL that recovers before the next poll
+  // must still be reported, not quietly overwritten by the OK behind it.
+  result_store store;
+  store.set_enabled(true);
+  store.set_mode(result_store::mode_worst);
+  store.submit(make("srv1", "check_disk", 2), kNow);
+  store.submit(make("srv1", "check_disk", 0), kNow + 60);
+
+  result_store::result_entry entry;
+  ASSERT_TRUE(store.get("srv1/check_disk", entry, kNow + 60));
+  EXPECT_EQ(entry.status, 2);
+}
+
+TEST(ResultStore, WorstModeStillEscalates) {
+  result_store store;
+  store.set_enabled(true);
+  store.set_mode(result_store::mode_worst);
+  store.submit(make("srv1", "check_disk", 1), kNow);
+  store.submit(make("srv1", "check_disk", 2), kNow + 60);
+
+  result_store::result_entry entry;
+  ASSERT_TRUE(store.get("srv1/check_disk", entry, kNow + 60));
+  EXPECT_EQ(entry.status, 2);
+}
+
+TEST(ResultStore, WorstModeRanksUnknownAboveCritical) {
+  // Matches how the rest of NSClient++ aggregates a worst-of (a plain numeric
+  // max over the Nagios status), so the two never disagree.
+  result_store store;
+  store.set_enabled(true);
+  store.set_mode(result_store::mode_worst);
+  store.submit(make("srv1", "check_disk", 2), kNow);
+  store.submit(make("srv1", "check_disk", 3), kNow + 60);
+
+  result_store::result_entry entry;
+  ASSERT_TRUE(store.get("srv1/check_disk", entry, kNow + 60));
+  EXPECT_EQ(entry.status, 3);
+}
+
+TEST(ResultStore, WorstModeTakesTheFresherOfTwoEquallySevereResults) {
+  // Holding the severity does not mean holding a stale message: an equally
+  // severe result still replaces, so the text stays current.
+  result_store store;
+  store.set_enabled(true);
+  store.set_mode(result_store::mode_worst);
+  result_store::result_entry first = make("srv1", "check_disk", 2);
+  first.message = "old text";
+  store.submit(first, kNow);
+  result_store::result_entry second = make("srv1", "check_disk", 2);
+  second.message = "new text";
+  store.submit(second, kNow + 60);
+
+  result_store::result_entry entry;
+  ASSERT_TRUE(store.get("srv1/check_disk", entry, kNow + 60));
+  EXPECT_EQ(entry.message, "new text");
+  EXPECT_EQ(entry.result_seen, kNow + 60);
+}
+
+TEST(ResultStore, WorstModeCountsASuppressedResultAsAReport) {
+  // The OK did not win, but the check did report - `age` and `count` have to
+  // say so, or a held CRITICAL looks like a check that stopped running.
+  result_store store;
+  store.set_enabled(true);
+  store.set_mode(result_store::mode_worst);
+  store.submit(make("srv1", "check_disk", 2), kNow);
+  store.submit(make("srv1", "check_disk", 0), kNow + 60);
+
+  result_store::result_entry entry;
+  ASSERT_TRUE(store.get("srv1/check_disk", entry, kNow + 60));
+  EXPECT_EQ(entry.count, 2u);
+  EXPECT_EQ(entry.first_seen, kNow);
+  EXPECT_EQ(entry.last_seen, kNow + 60);
+  // ...and the retained problem is still dated to when it actually happened.
+  EXPECT_EQ(entry.result_seen, kNow);
+}
+
+TEST(ResultStore, WorstModeStartsOverAfterADrain) {
+  // "Worst" means worst since the last poll, not worst ever - otherwise a
+  // single CRITICAL would pin the check forever.
+  result_store store;
+  store.set_enabled(true);
+  store.set_mode(result_store::mode_worst);
+  store.submit(make("srv1", "check_disk", 2), kNow);
+  ASSERT_EQ(store.drain(no_filter(), kNow).size(), 1u);
+
+  store.submit(make("srv1", "check_disk", 0), kNow + 60);
+  result_store::result_entry entry;
+  ASSERT_TRUE(store.get("srv1/check_disk", entry, kNow + 60));
+  EXPECT_EQ(entry.status, 0);
+  EXPECT_EQ(entry.count, 1u);
+}
+
+TEST(ResultStore, InLastModeResultSeenTracksTheSubmission) {
+  result_store store;
+  store.set_enabled(true);
+  store.submit(make("srv1", "check_disk", 2), kNow);
+  store.submit(make("srv1", "check_disk", 0), kNow + 60);
+
+  result_store::result_entry entry;
+  ASSERT_TRUE(store.get("srv1/check_disk", entry, kNow + 60));
+  EXPECT_EQ(entry.result_seen, kNow + 60);
+  EXPECT_EQ(entry.last_seen, kNow + 60);
+}
+
+TEST(ResultStore, ParseModeAcceptsTheTwoNamesAndNothingElse) {
+  result_store::cache_mode mode = result_store::mode_last;
+  EXPECT_TRUE(result_store::parse_mode("worst", mode));
+  EXPECT_EQ(mode, result_store::mode_worst);
+  EXPECT_TRUE(result_store::parse_mode("last", mode));
+  EXPECT_EQ(mode, result_store::mode_last);
+  // Config files are written by hand, so be forgiving about case and space.
+  EXPECT_TRUE(result_store::parse_mode("  WORST ", mode));
+  EXPECT_EQ(mode, result_store::mode_worst);
+
+  // An unrecognised value must not silently pick one: the caller logs and
+  // falls back, and `mode` is left as it was.
+  EXPECT_FALSE(result_store::parse_mode("newest", mode));
+  EXPECT_EQ(mode, result_store::mode_worst);
+  EXPECT_FALSE(result_store::parse_mode("", mode));
+}
+
+TEST(ResultStore, ModeNameRoundTrips) {
+  result_store::cache_mode mode = result_store::mode_last;
+  ASSERT_TRUE(result_store::parse_mode(result_store::mode_name(result_store::mode_worst), mode));
+  EXPECT_EQ(mode, result_store::mode_worst);
+  ASSERT_TRUE(result_store::parse_mode(result_store::mode_name(result_store::mode_last), mode));
+  EXPECT_EQ(mode, result_store::mode_last);
+}
+
+// --- draining poll ----------------------------------------------------------
+
+TEST(ResultStore, DrainReturnsWhatItRemoves) {
+  result_store store;
+  store.set_enabled(true);
+  store.submit(make("srv1", "check_disk"), kNow);
+  store.submit(make("srv2", "check_disk"), kNow);
+
+  const result_store::result_list drained = store.drain(no_filter(), kNow);
+  ASSERT_EQ(drained.size(), 2u);
+  EXPECT_EQ(drained[0].key, "srv1/check_disk");
+  EXPECT_EQ(drained[1].key, "srv2/check_disk");
+  EXPECT_EQ(store.size(), 0u);
+}
+
+TEST(ResultStore, ASecondDrainSeesOnlyWhatArrivedSince) {
+  result_store store;
+  store.set_enabled(true);
+  store.submit(make("srv1", "check_disk"), kNow);
+  ASSERT_EQ(store.drain(no_filter(), kNow).size(), 1u);
+  EXPECT_TRUE(store.drain(no_filter(), kNow).empty());
+
+  store.submit(make("srv2", "check_disk"), kNow + 60);
+  const result_store::result_list second = store.drain(no_filter(), kNow + 60);
+  ASSERT_EQ(second.size(), 1u);
+  EXPECT_EQ(second[0].key, "srv2/check_disk");
+}
+
+TEST(ResultStore, AFilteredDrainKeepsWhatItDidNotReturn) {
+  // Otherwise a caller polling `?status=critical` would silently throw away
+  // every OK it never even saw.
+  result_store store;
+  store.set_enabled(true);
+  store.submit(make("srv1", "check_disk", 2), kNow);
+  store.submit(make("srv2", "check_disk", 0), kNow);
+
+  result_store::filter f;
+  f.statuses.push_back(2);
+  const result_store::result_list drained = store.drain(f, kNow);
+  ASSERT_EQ(drained.size(), 1u);
+  EXPECT_EQ(drained[0].key, "srv1/check_disk");
+
+  EXPECT_EQ(store.size(), 1u);
+  EXPECT_EQ(store.list(no_filter(), kNow)[0].key, "srv2/check_disk");
+}
+
+TEST(ResultStore, DrainDoesNotHandBackAnExpiredResult) {
+  result_store store;
+  store.set_enabled(true);
+  store.set_max_age(60);
+  store.submit(make("srv1", "check_disk"), kNow);
+
+  EXPECT_TRUE(store.drain(no_filter(), kNow + 61).empty());
+  EXPECT_EQ(store.size(), 0u);
+}
+
+TEST(ResultStore, DrainOnAnEmptyStoreIsEmptyRatherThanAnError) {
+  result_store store;
+  store.set_enabled(true);
+  EXPECT_TRUE(store.drain(no_filter(), kNow).empty());
 }

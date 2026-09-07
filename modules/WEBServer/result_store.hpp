@@ -17,16 +17,33 @@
 // agent (behind NAT, on a laptop, ...) can still be served its results by
 // polling /api/v2/results instead of the agent pushing to it.
 //
-// The store is a *cache*, not a queue: results are keyed, and a new result
-// for a key replaces the previous one rather than piling up behind it. That
-// is what makes it bounded in normal operation - one entry per monitored
-// thing, however often it reports. The cap and the age limit exist for the
-// abnormal case (a producer that invents a fresh key every submission).
+// The store keeps exactly one entry per key. When a second result arrives for
+// a key the `mode` decides which of the two survives: the newer one (`last`),
+// or the more severe one (`worst`). Paired with a draining poll, `worst` is
+// what stops a CRITICAL that recovered between two polls from going unseen,
+// which is the whole reason the mode exists.
+//
+// The store is therefore bounded in normal operation - one entry per
+// monitored thing, however often it reports. The entry cap and the age limit
+// exist for the abnormal case: a producer that invents a fresh key every
+// submission.
 struct result_store {
+  // Which of two results for the same key is kept. The ordering is a plain
+  // numeric max over the Nagios status, matching how the rest of NSClient++
+  // aggregates a worst-of (see parse_simple_exec_response), so UNKNOWN (3)
+  // ranks above CRITICAL (2).
+  enum cache_mode {
+    // The newest result wins. A recovery replaces the problem that preceded it.
+    mode_last,
+    // The most severe result wins; an equally severe one still replaces it, so
+    // the message stays as current as its severity allows.
+    mode_worst
+  };
+
   struct result_entry {
     // Identity of the monitored thing. Built from the configured primary
     // index (see result_key_formatter); a second result with the same key
-    // overwrites this one.
+    // resolves against this one per the cache mode.
     std::string key;
     std::string channel;
     // The submitting host as resolved from the request header, and the raw
@@ -45,9 +62,17 @@ struct result_store {
     std::size_t index;
     std::size_t count;
     std::int64_t first_seen;
+    // When the key last submitted anything, whether or not that submission
+    // won. This is what `age` and the expiry are measured from: it answers
+    // "is this check still reporting".
     std::int64_t last_seen;
+    // When the result actually being served arrived. Equal to last_seen in
+    // `last` mode; in `worst` mode it is when the retained problem happened,
+    // which a consumer needs in order to tell a fresh CRITICAL from one that
+    // has been held since the last poll.
+    std::int64_t result_seen;
 
-    result_entry() : status(3), index(0), count(0), first_seen(0), last_seen(0) {}
+    result_entry() : status(3), index(0), count(0), first_seen(0), last_seen(0), result_seen(0) {}
   };
 
   typedef std::vector<result_entry> result_list;
@@ -68,10 +93,11 @@ struct result_store {
 
   static const std::size_t kDefaultMaxEntries = 1000;
 
-  result_store() : next_index_(0), max_entries_(kDefaultMaxEntries), max_age_(0) {}
+  result_store() : enabled_(false), mode_(mode_last), next_index_(0), max_entries_(kDefaultMaxEntries), max_age_(0) {}
 
-  // Store a result, replacing any previous result carrying the same key.
-  // `now` is injectable so the tests do not have to sleep.
+  // Store a result, resolving a collision on the key per the cache mode.
+  // Does nothing while the cache is disabled. `now` is injectable so the
+  // tests do not have to sleep.
   void submit(const result_entry &entry, std::int64_t now);
   void submit(const result_entry &entry);
 
@@ -79,6 +105,11 @@ struct result_store {
   // order even while results keep arriving.
   result_list list(const filter &f, std::int64_t now) const;
   result_list list() const;
+
+  // list(), but the entries handed back are removed. Only what is returned is
+  // dropped, so a filtered poll cannot silently discard results the caller
+  // never saw.
+  result_list drain(const filter &f, std::int64_t now);
 
   bool get(const std::string &key, result_entry &out, std::int64_t now) const;
   bool get(const std::string &key, result_entry &out) const;
@@ -90,11 +121,26 @@ struct result_store {
 
   std::size_t size() const;
 
+  // Off by default: until an operator turns the cache on, submissions are
+  // dropped and nothing accumulates. The channel is not registered either,
+  // so in practice nothing is submitted in the first place - this is the
+  // belt to that pair of braces.
+  void set_enabled(bool value);
+  bool is_enabled() const;
+
+  void set_mode(cache_mode value);
+  cache_mode mode() const;
+
   // 0 is clamped to 1: "cache nothing" is a silently useless configuration.
   void set_max_entries(std::size_t value);
   // Seconds; 0 disables expiry. Expired entries are dropped lazily on the
   // next read or write, so nothing has to run a timer.
   void set_max_age(std::int64_t seconds);
+
+  // "last"/"worst", case-insensitively and ignoring surrounding space.
+  // Returns false on anything else, leaving `out` untouched.
+  static bool parse_mode(const std::string &value, cache_mode &out);
+  static const char *mode_name(cache_mode value);
 
  private:
   typedef std::map<std::string, result_entry> entry_map;
@@ -105,6 +151,8 @@ struct result_store {
 
   mutable boost::timed_mutex mutex_;
   entry_map entries_;
+  bool enabled_;
+  cache_mode mode_;
   std::size_t next_index_;
   std::size_t max_entries_;
   std::int64_t max_age_;
