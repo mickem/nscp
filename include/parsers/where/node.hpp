@@ -9,6 +9,7 @@
 #include <memory>
 #include <parsers/where/dll_defines.hpp>
 #include <str/number_format.hpp>
+#include <str/saturate.hpp>
 #include <string>
 #include <utility>
 #ifdef WIN32
@@ -180,7 +181,7 @@ struct NSCAPI_EXPORT value_container {
   }
   long long get_int() const {
     if (i_value) return static_cast<long long>(i_value.value());
-    if (f_value) return static_cast<long long>(f_value.value());
+    if (f_value) return str::to_int64_saturating(f_value.value());
     throw filter_exception("Type is not int");
   }
   double get_float() const {
@@ -190,7 +191,7 @@ struct NSCAPI_EXPORT value_container {
   }
   long long get_int(const long long def) const {
     if (i_value) return i_value.value();
-    if (f_value) return static_cast<long long>(f_value.value());
+    if (f_value) return str::to_int64_saturating(f_value.value());
     return def;
   }
   double get_float(const double def) const {

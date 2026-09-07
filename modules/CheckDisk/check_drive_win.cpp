@@ -18,6 +18,7 @@
 #include <parsers/where/format_functions.hpp>
 #include <parsers/where/helpers.hpp>
 #include <str/format.hpp>
+#include <str/saturate.hpp>
 #include <str/xtos.hpp>
 #include <utility>
 
@@ -335,7 +336,7 @@ parsers::where::node_type calculate_total_used(std::shared_ptr<filter_obj> objec
   } else {
     number = str::format::decode_byte_units(number, unit);
   }
-  return parsers::where::factory::create_int(static_cast<long long>(number));
+  return parsers::where::factory::create_int(str::to_int64_saturating(number));
 }
 
 parsers::where::node_type calculate_user_used(std::shared_ptr<filter_obj> object, parsers::where::evaluation_context context,
@@ -349,7 +350,7 @@ parsers::where::node_type calculate_user_used(std::shared_ptr<filter_obj> object
   } else {
     number = str::format::decode_byte_units(number, unit);
   }
-  return parsers::where::factory::create_int(static_cast<long long>(number));
+  return parsers::where::factory::create_int(str::to_int64_saturating(number));
 }
 int do_convert_type(const std::string &keyword) {
   if (keyword == "fixed") return DRIVE_FIXED;
