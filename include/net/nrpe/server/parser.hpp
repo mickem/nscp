@@ -57,7 +57,10 @@ class parser : public boost::noncopyable {
   boost::tuple<bool, InputIterator> digest(InputIterator begin, InputIterator end) {
     int16_t v = read_version();
     if (v == -1 || v == 2) {
-      for (std::size_t count = get_packet_length_v2() - buffer_.size(); count > 0 && begin != end; ++begin, --count) buffer_.push_back(*begin);
+      // Never subtract past the target: the unsigned difference would wrap.
+      const std::size_t target = get_packet_length_v2();
+      if (buffer_.size() >= target) return boost::make_tuple(true, begin);
+      for (std::size_t count = target - buffer_.size(); count > 0 && begin != end; ++begin, --count) buffer_.push_back(*begin);
     } else if (v == data::version3 || v == data::version4) {
       // For v3/v4 the packet length is attacker-influenced via the wire
       // `buffer_length` field. Reject negative values up front (read_len
@@ -69,7 +72,7 @@ class parser : public boost::noncopyable {
         return boost::make_tuple(true, begin);
       }
       const std::size_t target = get_packet_length_v3();
-      if (target > kMaxBufferBytes) {
+      if (target > kMaxBufferBytes || buffer_.size() >= target) {
         return boost::make_tuple(true, begin);
       }
       for (std::size_t count = target - buffer_.size(); count > 0 && begin != end; ++begin, --count) {

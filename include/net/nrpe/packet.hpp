@@ -94,7 +94,13 @@ class packet /*: public boost::noncopyable*/ {
     copy(buffer.begin(), buffer.end(), tmp.begin());
     readFrom(tmp.data(), buffer.size());
   };
-  packet(const char* buffer, const std::size_t buffer_length) : payload_length_(length::get_payload_length(buffer_length)) { readFrom(buffer, buffer_length); };
+  packet(const char* buffer, const std::size_t buffer_length) : payload_length_(checked_payload_length(buffer_length)) { readFrom(buffer, buffer_length); };
+  // The payload length is the buffer minus the v2 header; refuse a buffer
+  // shorter than the header up front rather than let the subtraction wrap.
+  static std::size_t checked_payload_length(const std::size_t buffer_length) {
+    if (buffer_length < sizeof(data::packet_v2)) throw nrpe_exception("Packet is shorter than its header: " + str::xtos(buffer_length));
+    return length::get_payload_length(buffer_length);
+  }
   packet(short type, short version, int16_t result, std::string payLoad, std::size_t payload_length)
       : payload_length_(payload_length), type_(type), version_(version), result_(result), payload_(payLoad), crc32_(0), calculatedCRC32_(0) {}
   packet() : payload_length_(length::get_payload_length()), type_(data::unknownPacket), version_(data::version2), result_(0), crc32_(0), calculatedCRC32_(0) {}
