@@ -20,13 +20,6 @@ set_target_properties(
             "modules/dotnet"
 )
 
-# Shipped like the sample scripts are: useful to verify an installation (the
-# integration tests drive it), optional for packagers who want the API only.
-if(NSCP_DOTNET_INSTALL_SAMPLE)
-    install(
-        FILES
-            ${NSCP_DOTNET_OUTPUT_DIR}/NSCP.Plugin.CSharpSample.dll
-            ${NSCP_DOTNET_OUTPUT_DIR}/NSCP.Plugin.CSharpSample.deps.json
-        DESTINATION ${NSCP_DOTNET_INSTALL_DIR}
-    )
-endif()
+# The sample is built into <build>/modules/dotnet so the integration tests can
+# drive it, but it is deliberately not installed: it is an example, not part of
+# the product, so neither the installers nor the packages carry it.

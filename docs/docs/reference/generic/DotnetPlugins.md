@@ -30,7 +30,8 @@ named after the alias, or `disabled` to skip it.
 
 ```ini
 [/settings/dotnet/plugins]
-; modules/dotnet/NSCP.Plugin.CSharpSample.dll, factory NSCP.Plugin.PluginFactory
+; modules/dotnet/NSCP.Plugin.CSharpSample.dll (the sample built from the source
+; tree and copied here; it is not part of the installers), factory NSCP.Plugin.PluginFactory
 NSCP.Plugin.CSharpSample = enabled
 ; an alias for a plugin with a different file name
 inventory = Contoso.Inventory.dll

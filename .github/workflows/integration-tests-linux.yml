@@ -145,6 +145,17 @@ jobs:
           dnf install -y ./NSCP-${{ inputs.version }}-${{ inputs.distro }}-${{ inputs.distro_version }}-${{ inputs.package-arch }}.rpm
           nscp settings --load-all --list --add-defaults
 
+      # The C# sample plugin the DotnetPlugins scenario drives is built by the
+      # package job but is not part of the package (it is an example, not the
+      # product); it arrives next to the package in the artifact.
+      - name: Install the C# sample plugin (DotnetPlugins scenario)
+        shell: bash
+        run: |
+          if [ -d dotnet-sample ]; then
+            mkdir -p /usr/lib/nsclient/modules/dotnet
+            cp dotnet-sample/* /usr/lib/nsclient/modules/dotnet/
+          fi
+
       # Linux: Acceptance tests (DEB)
       - name: Acceptance tests (Linux DEB)
         if: inputs.package-type == 'deb'

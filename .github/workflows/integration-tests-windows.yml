@@ -74,6 +74,18 @@ jobs:
           cd tmp/nscp
           7z x ../../NSCP-${{ inputs.version }}-${{ inputs.platform }}.zip
 
+      # The C# sample plugin the DotnetPlugins scenario drives is built by the
+      # build job but is not part of the zip (it is an example, not the
+      # product); it arrives next to the zip in the artifact.
+      - name: Add the C# sample plugin (DotnetPlugins scenario)
+        working-directory: tmp/nscp
+        shell: bash
+        run: |
+          if [ -d ../../dotnet-sample ]; then
+            mkdir -p modules/dotnet
+            cp ../../dotnet-sample/* modules/dotnet/
+          fi
+
       - name: Copy test scripts
         working-directory: tmp/nscp
         shell: bash

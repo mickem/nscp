@@ -150,7 +150,9 @@ dependencies of the plugin (NuGet packages it uses) from the plugin folder. Copy
 `YourPlugin.deps.json` and any private dependencies) into the agent's `modules/dotnet` folder
 (`C:\Program Files\NSClient++\modules\dotnet` on Windows, `/usr/lib/nsclient/modules/dotnet` on Linux).
 
-The sample plugin in the source tree (`modules/CSharpSamplePlugin/`) is a complete, buildable example.
+The sample plugin in the source tree (`modules/CSharpSamplePlugin/`) is a complete, buildable example. A build with
+the dotnet SDK produces it as `modules/dotnet/NSCP.Plugin.CSharpSample.dll` in the build tree, but it is not part of
+the installers or packages: copy it into the agent's `modules/dotnet` folder yourself if you want to try it.
 
 ## Installing and running
 

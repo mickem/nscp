@@ -50,11 +50,6 @@ set(NSCP_DOTNET_PROTOBUF_VERSION
     CACHE STRING
     "Google.Protobuf NuGet package version the managed plugin API is built against"
 )
-option(
-    NSCP_DOTNET_INSTALL_SAMPLE
-    "Install the C# sample plugin (NSCP.Plugin.CSharpSample) into modules/dotnet alongside the API"
-    ON
-)
 
 set(DOTNET_FOUND FALSE)
 if(NSCP_DOTNET)

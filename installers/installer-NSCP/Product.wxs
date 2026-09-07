@@ -200,8 +200,9 @@
             <!--
             .NET plugin support: the native host module plus, when the build
             had a dotnet SDK (-dDotNet=true from CMake), the managed plugin API
-            and the C# sample in modules/dotnet. The .NET runtime itself is not
-            bundled; the module locates an installed runtime through hostfxr.
+            in modules/dotnet. The .NET sample plugin is built but not shipped.
+            The .NET runtime itself is not bundled; the module locates an
+            installed runtime through hostfxr.
             -->
             <Component Id="DotNetPlugins" Guid="E57F4EE3-D5A6-46ED-BC99-018708258154" Win64="$(var.Win64)">
               <File Id="ModDotnetPlugins.dll" Name="DotnetPlugins.dll" DiskId="1" Source="$(var.Source)/modules/DotnetPlugins.dll" Vital="no" />
@@ -213,11 +214,6 @@
                 <File Id="DOTNET_CORE_DEPS" Name="NSCP.Core.deps.json" DiskId="1" Source="$(var.Source)/modules/dotnet/NSCP.Core.deps.json" Vital="no" />
                 <File Id="DOTNET_CORE_RTCFG" Name="NSCP.Core.runtimeconfig.json" DiskId="1" Source="$(var.Source)/modules/dotnet/NSCP.Core.runtimeconfig.json" Vital="no" />
                 <File Id="DOTNET_PB" Name="Google.Protobuf.dll" DiskId="1" Source="$(var.Source)/modules/dotnet/Google.Protobuf.dll" Vital="no" />
-              </Component>
-              <!-- The C# sample plugin belongs with the other samples (the Scripts feature), not with the API. -->
-              <Component Id="DotNetSample" Guid="7B0C1F7E-2D3A-4C6B-9E58-3F1A5B2C8D41" Win64="$(var.Win64)">
-                <File Id="DOTNET_SAMPLE" Name="NSCP.Plugin.CSharpSample.dll" DiskId="1" Source="$(var.Source)/modules/dotnet/NSCP.Plugin.CSharpSample.dll" Vital="no" />
-                <File Id="DOTNET_SAMPLE_DEPS" Name="NSCP.Plugin.CSharpSample.deps.json" DiskId="1" Source="$(var.Source)/modules/dotnet/NSCP.Plugin.CSharpSample.deps.json" Vital="no" />
               </Component>
             </Directory>
             <?endif?>
@@ -372,9 +368,6 @@
       </Feature>
       <Feature Id="SampleScripts" Title="Scripts" Description="Scripts for checking and testing various aspects of your computer and NSClient++" Level="1" Absent="allow">
         <ComponentGroupRef Id="ScriptResources" />
-        <?if $(var.DotNet) = "true"?>
-        <ComponentRef Id="DotNetSample" />
-        <?endif?>
       </Feature>
     </Feature>
 
