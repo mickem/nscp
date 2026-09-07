@@ -510,7 +510,10 @@ int nsclient::core::dll_plugin::commandLineExec(bool targeted, std::string &requ
   return ret;
 }
 
-bool nsclient::core::dll_plugin::has_command_line_exec() { return (isLoaded() && !loaded_) || (fCommandLineExec != nullptr); }
+// A mapped-but-not-started module (the client path) may still be exec'd, but
+// only when it actually exports NSCommandLineExec: the old first disjunct made
+// every module whose load had failed claim the export and then call nullptr.
+bool nsclient::core::dll_plugin::has_command_line_exec() { return isLoaded() && fCommandLineExec != nullptr; }
 
 int nsclient::core::dll_plugin::commandLineExec(bool targeted, const char *request, const unsigned int request_len, char **reply, unsigned int *reply_len) {
   if (!has_command_line_exec()) throw plugin_exception(get_alias_or_name(), "Library is not loaded or modules does not support command line");

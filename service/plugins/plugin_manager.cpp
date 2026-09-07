@@ -349,7 +349,14 @@ bool nsclient::core::plugin_manager::load_single_plugin(const std::string &plugi
       return false;
     }
     if (start) {
-      instance->load_plugin(NSCAPI::normalStart);
+      if (!instance->load_plugin(NSCAPI::normalStart)) {
+        // Keep a module whose loadModuleEx failed out of the list: it stays
+        // mapped with loaded_ == false, and the next exec targeting `any` or
+        // `all` would otherwise call into it.
+        LOG_ERROR_CORE("Failed to load: " + plugin);
+        purge_broken_plugin(instance->get_id());
+        return false;
+      }
       // A plugin loaded into an already running agent never sees
       // post_start_plugins, so start it here: modules which defer work until
       // every peer is available (Scheduler's run-on-startup schedules,
