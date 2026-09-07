@@ -208,7 +208,7 @@ std::list<std::string> header_enumerator::get() const {
 }
 row_enumerator query::execute() {
   row_enumerator ret(columns);
-  BSTR strQL = _T("WQL");
+  const CComBSTR strQL(L"WQL");
   const CComBSTR strQuery(utf8::cvt<std::wstring>(wql_query).c_str());
 
   const HRESULT hr = instance.get()->ExecQuery(strQL, strQuery, WBEM_FLAG_FORWARD_ONLY, nullptr, &ret.enumerator_obj);
@@ -240,7 +240,7 @@ row_enumerator instances::get() {
 
 std::list<std::string> query::get_columns() {
   if (!columns.empty()) return columns;
-  BSTR strQL = _T("WQL");
+  const CComBSTR strQL(L"WQL");
   const CComBSTR strQuery(utf8::cvt<std::wstring>(wql_query).c_str());
 
   header_enumerator enumerator;
