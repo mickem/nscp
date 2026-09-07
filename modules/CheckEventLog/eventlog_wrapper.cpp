@@ -116,7 +116,8 @@ eventlog_wrapper_old::~eventlog_wrapper_old() {
 }
 void eventlog_wrapper_old::open() {
   hLog = OpenEventLog(NULL, utf8::cvt<std::wstring>(name).c_str());
-  if (hLog == INVALID_HANDLE_VALUE) {
+  // OpenEventLog reports failure with NULL, not INVALID_HANDLE_VALUE.
+  if (hLog == NULL) {
     throw nsclient::nsclient_exception("Failed to open eventlog: " + error::lookup::last_error());
   }
   seek_end();
@@ -208,6 +209,13 @@ eventlog_filter::filter::object_type eventlog_wrapper_old::read_record(HANDLE &h
   if (nextBufferPosition >= lastReadSize) return eventlog_filter::filter::object_type();
   EVENTLOGRECORD *pevlr = buffer.get(nextBufferPosition);
   if (pevlr == NULL) return eventlog_filter::filter::object_type();
+  // Validate the record against the bytes read before stepping on it: a zero
+  // or oversized Length would otherwise spin or walk off the buffer.
+  const DWORD remaining = lastReadSize - nextBufferPosition;
+  if (remaining < sizeof(EVENTLOGRECORD) || pevlr->Length < sizeof(EVENTLOGRECORD) || pevlr->Length > remaining) {
+    nextBufferPosition = lastReadSize;
+    return eventlog_filter::filter::object_type();
+  }
   nextBufferPosition += pevlr->Length;
   return eventlog_filter::filter::object_type(new eventlog_filter::old_filter_obj(ltime, get_name(), pevlr, 0));
 }
