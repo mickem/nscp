@@ -360,7 +360,8 @@ process_info describe_pid(DWORD pid, bool deep_scan, bool ignore_unreadable, boo
   if (EnumProcessModules(handle, &hMod, sizeof(hMod), &size)) {
     TCHAR buffer2[MAX_FILENAME + 1];
     if (!GetModuleFileNameEx(handle, hMod, reinterpret_cast<LPTSTR>(&buffer2), MAX_FILENAME)) {
-      CloseHandle(handle);
+      // The RAII wrapper owns `handle`; closing it here as well closed a
+      // value the kernel may already have reissued.
       throw nsclient::nsclient_exception("Failed to find name for: " + str::xtos(pid) + ": " + error::lookup::last_error());
     } else {
       std::wstring path = buffer2;
