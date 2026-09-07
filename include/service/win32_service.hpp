@@ -94,8 +94,10 @@ class win32_service : public TBase {
   }
 
   void create_dispatch_table(std::wstring name) {
-    serviceName_ = new wchar_t[name.length() + 2];
-    wcsncpy(serviceName_, name.c_str(), name.length());
+    // wcsncpy pads only when the source is shorter than the count, so a
+    // length-sized copy left the terminator to whatever the heap held.
+    serviceName_ = new wchar_t[name.length() + 1];
+    wmemcpy(serviceName_, name.c_str(), name.length() + 1);
     dispatchTable = new SERVICE_TABLE_ENTRY[2];
     dispatchTable[0].lpServiceName = serviceName_;
     dispatchTable[0].lpServiceProc = (LPSERVICE_MAIN_FUNCTION)service_helper_impl::win32_service<TBase>::service_main_dispatch;
