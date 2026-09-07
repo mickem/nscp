@@ -29,7 +29,19 @@
 
 typedef parsers::where::realtime_filter_helper<runtime_data, filters::filter_config_object> filter_helper;
 
+// The thread entry: an exception escaping the body would terminate the
+// process, so it is caught and logged here and the monitor simply ends.
 void real_time_thread::thread_proc() {
+  try {
+    thread_proc_body();
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR("Real-time log monitoring stopped: " + std::string(e.what()));
+  } catch (...) {
+    NSC_LOG_ERROR("Real-time log monitoring stopped: unknown exception");
+  }
+}
+
+void real_time_thread::thread_proc_body() {
   filter_helper helper(core, plugin_id);
   std::list<std::string> logs;
 

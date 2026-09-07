@@ -45,6 +45,7 @@ struct real_time_thread {
   bool stop();
 
   void thread_proc();
+  void thread_proc_body();
   //	void process_events(eventlog_filter::filter_engine engine, eventlog_wrapper &eventlog);
   void process_no_events(const eventlog_filter::filter_config_object &object);
   void process_record(eventlog_filter::filter_config_object &object, const EventLogRecord &record);
