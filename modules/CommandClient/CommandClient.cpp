@@ -409,6 +409,11 @@ bool CommandClient::commandLineExec(const int target_mode, const PB::Commands::E
   if (signal_thread.joinable()) signal_thread.join();
 #endif
 
+#ifdef WIN32
+  // The handler lives in this DLL: leave it registered and a Ctrl+C after
+  // the module is unmapped runs a thread into freed code.
+  SetConsoleCtrlHandler(consoleHandler, FALSE);
+#endif
   nscapi::protobuf::functions::set_response_good(*response, "Done");
   return true;
 }
