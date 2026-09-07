@@ -1,6 +1,6 @@
 ---
 title: "A junction defeated the modern-layout shared folder lockdown"
-fixed_in: next
+fixed_in: 0.19.0
 severity: "Medium"
 modules: [packaging, core]
 action: conditional

@@ -1,6 +1,6 @@
 ---
 title: "collectd metrics no longer fan out over every local interface"
-fixed_in: 0.18.2
+fixed_in: 0.19.0
 severity: "Low"
 modules: [CollectdClient]
 action: conditional

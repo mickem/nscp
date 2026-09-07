@@ -27,9 +27,109 @@ A list of all available queries (check commands)
 
 Request remote information via check_mk.
 
+#### About `check_mk_query`
+
+`check_mk_query` connects to a remote **check_mk agent**, retrieves its output
+and hands it to a Lua script that turns it into a check result. It is the active
+half of the check_mk support: the agent on the far end is a check_mk agent, not
+NSClient++.
+
+##### The Lua script does the work
+
+Unlike the other client modules, `check_mk_query` does not itself interpret what
+it fetched. The check_mk agent returns a sectioned plain-text dump — `<<<mem>>>`,
+`<<<df>>>`, `<<<ps>>>` and so on — and a Lua script registered under the
+module's `scripts` section is called back with the parsed packet to decide what
+the status and message should be. `default_check_mk.lua` is loaded when no
+script is configured.
+
+That means the useful configuration for this command is mostly *not* on the
+command line: what the check reports is whatever your script returns. Point
+`scripts` at your own file when you want anything other than the default
+behaviour.
+
+##### Connection
+
+The usual client options apply — `host=` (with `port=`, defaulting to the
+module's configured value), or `target=` to use a target defined in the module's
+settings, plus `timeout=`, `retries=` and the TLS options (`certificate=`,
+`ca=`, `verify=`, `allowed-ciphers=`).
+
+Note that a stock check_mk agent listens on **TCP 6556 in plain text**, with
+access control done by source-IP allowlist rather than by authentication, so set
+`port=6556` explicitly unless you have configured otherwise, and treat the
+transport as unauthenticated unless you have put TLS in front of it.
+
+See also the CheckMKServer module for the passive direction — serving check_mk
+agent output *from* this host to a check_mk server.
+
 **Jump to section:**
 
+* [Sample Commands](#check_mk_query_samples)
 * [Command-line Arguments](#check_mk_query_options)
+
+
+<a id="check_mk_query_samples"></a>
+#### Sample Commands
+
+**Query a remote check_mk agent:**
+
+A stock check_mk agent listens on TCP 6556, so the port normally has to be given
+explicitly — the module's own default is 5667.
+
+```
+check_mk_query host=192.168.56.20 port=6556
+OK: check_mk agent responded
+```
+
+**Use a configured target:**
+
+```ini
+[/settings/check_mk/client/targets/linux01]
+address = 192.168.56.20:6556
+timeout = 30
+```
+
+```
+check_mk_query target=linux01
+OK: check_mk agent responded
+```
+
+**What the check actually reports is decided by the Lua script:**
+
+The agent returns a sectioned plain-text dump (`<<<mem>>>`, `<<<df>>>`,
+`<<<ps>>>`, ...), and a Lua script registered on the module is called back with
+the parsed packet to produce the status and message. With no script configured,
+`default_check_mk.lua` is loaded.
+
+```ini
+[/settings/check_mk/client/scripts]
+mine = check_mk_custom.lua
+```
+
+```
+check_mk_query target=linux01
+CRITICAL: /var 94% used
+```
+
+Change the script, not the command line, when you want different behaviour.
+
+**Nothing listening:**
+
+```
+check_mk_query host=127.0.0.1 port=15670
+UNKNOWN: Error: Failed to connect to: 127.0.0.1:15670 :Connection refused
+```
+
+**A note on the transport:**
+
+A stock check_mk agent speaks plain text on 6556 with access control by
+source-IP allowlist rather than authentication. Treat it as unauthenticated
+unless you have put TLS in front of it, and configure `ca` / `verify` /
+`certificate` accordingly where you have.
+
+See also the CheckMKServer module for the passive direction — serving check_mk
+agent output *from* this host.
 
 
 
@@ -173,21 +273,22 @@ This is a section of objects. This means that you will create objects below this
 **Keys:**
 
 
-| Key                | Default Value | Description           |
-|--------------------|---------------|-----------------------|
-| address            |               | TARGET ADDRESS        |
-| allowed ciphers    |               | ALLOWED CIPHERS       |
-| ca                 |               | CA                    |
-| certificate        |               | SSL CERTIFICATE       |
-| certificate format |               | CERTIFICATE FORMAT    |
-| certificate key    |               | SSL CERTIFICATE       |
-| dh                 |               | DH KEY                |
-| host               |               | TARGET HOST           |
-| port               |               | TARGET PORT           |
-| retries            | 3             | RETRIES               |
-| timeout            | 30            | TIMEOUT               |
-| use ssl            |               | ENABLE SSL ENCRYPTION |
-| verify mode        |               | VERIFY MODE           |
+| Key                 | Default Value | Description           |
+|---------------------|---------------|-----------------------|
+| address             |               | TARGET ADDRESS        |
+| allow host override | false         | ALLOW HOST OVERRIDE   |
+| allowed ciphers     |               | ALLOWED CIPHERS       |
+| ca                  |               | CA                    |
+| certificate         |               | SSL CERTIFICATE       |
+| certificate format  |               | CERTIFICATE FORMAT    |
+| certificate key     |               | SSL CERTIFICATE       |
+| dh                  |               | DH KEY                |
+| host                |               | TARGET HOST           |
+| port                |               | TARGET PORT           |
+| retries             | 3             | RETRIES               |
+| timeout             | 30            | TIMEOUT               |
+| use ssl             |               | ENABLE SSL ENCRYPTION |
+| verify mode         |               | VERIFY MODE           |
 
 
 **Sample:**
@@ -196,6 +297,7 @@ This is a section of objects. This means that you will create objects below this
 # An example of a REMOTE TARGET DEFINITIONS section
 [/settings/check_mk/client/targets/sample]
 #address=...
+allow host override=false
 #allowed ciphers=...
 #ca=...
 #certificate=...

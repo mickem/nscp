@@ -1,6 +1,6 @@
 ---
 title: "Client credentials could be sent to a caller-chosen host"
-fixed_in: next
+fixed_in: 0.19.0
 severity: "Medium"
 modules: [NRDPClient, IcingaClient, SMTPClient, NSCAClient, NSCANgClient, NSCPClient]
 action: conditional

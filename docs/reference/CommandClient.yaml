@@ -2,6 +2,38 @@ common:
   info:
     description: A command line client, generally not used except with "nscp test".
     title: CommandClient
+  paths:
+    /settings/cli:
+      info:
+        advanced: false
+        description: Section for the interactive command line client (nscp test).
+        subkey: false
+        title: CLI
+      keys:
+        color:
+          advanced: true
+          default_value: 'true'
+          description: Colour the prompt, syntax highlight what is typed and colour log messages by severity.
+            Turn this off for a terminal that renders the colours badly.
+          sample: false
+          title: COLOR
+        history file:
+          advanced: true
+          default_value: ''
+          description: 'Where to keep the interactive prompt''s command history. Empty means the per-user
+            default: %APPDATA%\NSClient++\console-history.txt on Windows, $XDG_STATE_HOME/nscp/console-history
+            or ~/.nscp_history on other platforms. History is only read and written when the prompt is
+            attached to a terminal.'
+          sample: false
+          title: HISTORY FILE
+        history size:
+          advanced: true
+          default_value: '500'
+          description: How many commands to keep in the history file. Set to 0 to turn persistent history
+            off entirely - nothing is then read from or written to disk, which is what you want if commands
+            typed at the prompt may carry credentials.
+          sample: false
+          title: HISTORY SIZE
 module: CommandClient
 namespace: generic
 platforms:
