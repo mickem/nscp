@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <boost/thread/locks.hpp>
+#include <boost/thread/shared_mutex.hpp>
 #include <NSCAPI.h>
 
 #include <boost/algorithm/string.hpp>
@@ -29,6 +31,10 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
   ::dll::dll_impl module_;
   bool loaded_;
   bool loading_;
+  // Shared across every dispatch into the module, unique while it unloads,
+  // so an unload waits for in-flight calls instead of tearing the instance
+  // down under them.
+  boost::shared_mutex dispatch_mutex_;
   // Set once unload_plugin has run; nothing is delivered to the module after.
   bool unloaded_ = false;
   bool broken_;
