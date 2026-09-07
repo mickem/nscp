@@ -129,7 +129,7 @@ std::string row::get_string(const std::string &col) const {
     return get_array<INT>(vValue.parray);
   }
   if (vValue.vt == (VT_ARRAY | VT_I8)) {
-    return get_array<LONG>(vValue.parray);
+    return get_array<LONGLONG>(vValue.parray);
   }
   hr = vValue.ChangeType(VT_BSTR);
   if (FAILED(hr)) throw wmi_exception(hr, "Failed to convert " + col + " to string");
