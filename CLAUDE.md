@@ -37,10 +37,11 @@
 
 ## C++ conventions
 
-### Optionals: `.value()`, never `*` or `->`
-Never dereference a `boost::optional` / `std::optional` with `*opt` or `opt->x`.
-Always read it through `opt.value()` (or `get_value_or(def)` when you want a
-default).
+### Optionals: `.value()`, never `*`, `->`, `get()` or `get_ptr()`
+Never dereference a `boost::optional` / `std::optional` with `*opt`, `opt->x`,
+`opt.get()` or `opt.get_ptr()`. Always read it through `opt.value()` (or
+`get_value_or(def)` when you want a default). `boost::optional::get()` is
+assert-only, exactly like `*`: it does not throw.
 
 `*opt` on a disengaged optional is **undefined behaviour, not a crash you can
 debug**. For an optional holding a `shared_ptr` it resurrects the destroyed
@@ -97,6 +98,22 @@ decide whether a given dereference is safe.
   perfdata), driven by `modern_filter::cli_helper` (`add_options(warn, crit,
   filter, syntax, empty_state)` + `add_syntax(top, detail, perf, empty, ok)`).
   See `CheckDisk/check_single_file.cpp` for a minimal template.
+- **A `filter_obj` owns every value it exposes as a keyword.** Never store a
+  reference, a raw pointer or a borrowed COM interface to data owned by the
+  fetch loop that builds the record (`const load_entry &value;`,
+  `IRegisteredTask *task;`). `modern_filter::match()` renders the detail line
+  while the loop iteration is alive, but `warning`/`critical` are evaluated in
+  `match_post()` after the loop has returned, so a borrowed field is read after
+  its owner is gone. Copy the value (or hold a `CComPtr`). A sweep for
+  `&\s*\w+;` members in `modules/**/filter*.hpp` is the quick check.
+- **`loadModuleEx` must be safe to re-enter with `reloadStart`.** A settings
+  reload calls it again on the live module while its worker threads are
+  running. Anything that starts a thread or replaces a shared object must stop
+  the old one first (`if (collector_) collector_->stop();`, as `NRPEServer`
+  does with its server) or be gated on `mode == NSCAPI::normalStart`; a class
+  owning a thread needs a destructor that stops it. Settings callbacks that
+  append to a list must clear it first, or every reload duplicates the entries
+  under the threads iterating them.
 - **Never name a check keyword after a generic summary keyword.** These names
   are reserved by the filter engine (`generic_summary` in
   `parsers/where/filter_handler_impl.hpp`): `count`, `total`, `ok_count`,
