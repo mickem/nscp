@@ -396,7 +396,7 @@ bool write_with_timeout(boost::asio::io_context& io_service, AsyncWriteStream& s
         timer.cancel();
       } catch (...) {
       }
-      if (*write_result) throw boost::system::system_error(*write_result);
+      if (write_result.value()) throw boost::system::system_error(write_result.value());
       return true;
     } else if (timer_result) {
       rawSocket.close();
@@ -489,7 +489,7 @@ bool read_with_timeout(boost::asio::io_context& io_service, AsyncReadStream& soc
         timer.cancel();
       } catch (...) {
       }
-      if (*read_result) throw boost::system::system_error(*read_result);
+      if (read_result.value()) throw boost::system::system_error(read_result.value());
       return true;
     } else if (timer_result) {
       rawSocket.close();

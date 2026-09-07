@@ -119,11 +119,11 @@ std::string expand_placeholders_with(std::string spec, std::string (*prep)(std::
     // A machine with no usable address in a family keeps that family's tokens
     // unresolved, same as the host name tokens above when gethostname() fails.
     if (spec.find("${address_ipv4}") != std::string::npos) {
-      if (const boost::optional<ip::address> v4 = discover_local_address(false)) str::utils::replace(spec, "${address_ipv4}", prep(v4->to_string()));
+      if (const boost::optional<ip::address> v4 = discover_local_address(false)) str::utils::replace(spec, "${address_ipv4}", prep(v4.value().to_string()));
     }
     if (spec.find("${address_ipv6") != std::string::npos) {
       if (const boost::optional<ip::address> v6 = discover_local_address(true)) {
-        const ip::address_v6 addr = v6->to_v6();
+        const ip::address_v6 addr = v6.value().to_v6();
         str::utils::replace(spec, "${address_ipv6_lc_comp}", prep(socket_helpers::format_ipv6(addr, false, true)));
         str::utils::replace(spec, "${address_ipv6_lc_uncomp}", prep(socket_helpers::format_ipv6(addr, false, false)));
         str::utils::replace(spec, "${address_ipv6_uc_comp}", prep(socket_helpers::format_ipv6(addr, true, true)));

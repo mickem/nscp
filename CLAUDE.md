@@ -35,6 +35,28 @@
   numbered as a patch. Conventional-commit prefixes (`fix:`, `docs:`, `test:`,
   `build:`, `refactor:`) are used for everything else and all read as a patch.
 
+## C++ conventions
+
+### Optionals: `.value()`, never `*` or `->`
+Never dereference a `boost::optional` / `std::optional` with `*opt` or `opt->x`.
+Always read it through `opt.value()` (or `get_value_or(def)` when you want a
+default).
+
+`*opt` on a disengaged optional is **undefined behaviour, not a crash you can
+debug**. For an optional holding a `shared_ptr` it resurrects the destroyed
+control-block pointer out of the vacated storage, and the copy taken of it
+increments a refcount in freed memory; the process then dies somewhere
+unrelated with a heap-corruption code (`0xC0000374` on Windows) and no usable
+stack. `.value()` throws `boost::bad_optional_access` instead, which the
+`catch (const std::exception &)` around every filter evaluation turns into a
+reported error on the check rather than a dead agent (#1499).
+
+This holds **even where an `if (opt)` guard sits right above the read**. The
+guard is the thing that gets moved, inverted or deleted by a later change, and
+using `.value()` everywhere is what stops that edit from silently becoming UB.
+Uniformity is the point: a reviewer should never have to trace control flow to
+decide whether a given dereference is safe.
+
 ## Check command options
 - Boolean check options must be declared as
   `po::value<bool>(&x)->implicit_value(true)->default_value(false)`,

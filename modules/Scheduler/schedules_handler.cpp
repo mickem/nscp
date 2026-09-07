@@ -56,9 +56,9 @@ void scheduler::add_task(const target_object target) {
   const bool schedule_first_run = !target->run_on_startup;
   unsigned int id = 0;
   if (target->duration)
-    id = tasks.add_task(target->get_alias(), *target->duration, target->randomness, schedule_first_run);
+    id = tasks.add_task(target->get_alias(), target->duration.value(), target->randomness, schedule_first_run);
   else if (target->schedule)
-    id = tasks.add_task(target->get_alias(), cron_parser::parse(*target->schedule), schedule_first_run);
+    id = tasks.add_task(target->get_alias(), cron_parser::parse(target->schedule.value()), schedule_first_run);
   else
     id = tasks.add_task(target->get_alias(), parse_interval("5m"), 0.1, schedule_first_run);
   {

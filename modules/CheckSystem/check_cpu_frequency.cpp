@@ -62,7 +62,7 @@ void cpu_frequency::read_wmi(const wmi_impl::row &r) {
   l3_cache = r.get_int_opt("L3CacheSize").value_or(0) * 1024;
   const boost::optional<long long> arch = r.get_int_opt("Architecture");
   // Cannot default to 0 here: 0 is a valid value (x86).
-  architecture = arch ? architecture_to_string(*arch) : "unknown";
+  architecture = arch ? architecture_to_string(arch.value()) : "unknown";
 }
 
 std::string cpu_frequency::get_l2_cache_human(parsers::where::evaluation_context context) const {
@@ -80,7 +80,7 @@ void cpu_frequency::build_metrics(PB::Metrics::MetricsBundle *section) const {
   add_metric(section, name + ".cores", number_of_cores);
   add_metric(section, name + ".logical_processors", number_of_logical_processors);
   // No fabricated 0 when WMI had no load sample this cycle: absent is absent.
-  if (load_pct) add_metric(section, name + ".load_pct", *load_pct);
+  if (load_pct) add_metric(section, name + ".load_pct", load_pct.value());
   add_metric(section, name + ".l2_cache", l2_cache);
   add_metric(section, name + ".l3_cache", l3_cache);
 }

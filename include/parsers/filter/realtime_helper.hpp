@@ -149,9 +149,9 @@ struct realtime_filter_helper {
     }
 
     void touch(const boost::posix_time::ptime &now, bool alert) {
-      if (max_age) next_ok_ = now + (*max_age);
+      if (max_age) next_ok_ = now + (max_age.value());
       if (alert && silent_period)
-        next_alert_ = now + (*silent_period);
+        next_alert_ = now + (silent_period.value());
       else if (silent_period)
         next_alert_ = now;
       data.touch(now);
@@ -163,7 +163,7 @@ struct realtime_filter_helper {
       if (!max_age) return false;
       if (!minNext)  // No value yes, lest assign ours.
         minNext = next_ok_;
-      if (next_ok_ > *minNext)  // Our value is not interesting: lets ignore us
+      if (next_ok_ > minNext.value())  // Our value is not interesting: lets ignore us
         return false;
       minNext = next_ok_;
       return true;
@@ -431,7 +431,7 @@ struct realtime_filter_helper {
     if (!minNext) {
       NSC_TRACE_MSG("Next miss time is in: no timeout specified");
     } else {
-      boost::posix_time::time_duration dur = *minNext - current_time;
+      boost::posix_time::time_duration dur = minNext.value() - current_time;
       if (dur.total_seconds() <= 0) {
         NSC_LOG_ERROR("Invalid duration for eventlog check, assuming all values stale");
         touch_all();
@@ -440,7 +440,7 @@ struct realtime_filter_helper {
           if (item->broken) continue;
           item->find_minimum_timeout(minNext);
         }
-        dur = *minNext - current_time;
+        dur = minNext.value() - current_time;
         if (dur.total_seconds() <= 0) {
           NSC_LOG_ERROR("Something is fishy with your periods, returning 30 seconds...");
           dur = boost::posix_time::time_duration(0, 0, 30, 0);

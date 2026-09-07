@@ -198,7 +198,7 @@ void PythonScript::execute_script(const PB::Commands::ExecuteRequestMessage::Req
     nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + file);
     return;
   }
-  std::string script_file = ofile->string();
+  std::string script_file = ofile.value().string();
   python_script script(get_id(), root_.string(), "", "", script_file);
   std::list<std::string> ops(script_options.begin(), script_options.end());
   if (!script.callFunction("__main__", ops)) {

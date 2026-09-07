@@ -595,13 +595,13 @@ unsigned long fleet_sync::poll_once() {
   if (response.status_code_ == 304) {
     failures_ = 0;
     const boost::optional<unsigned long> next = onboarding::parse_next_poll(response.payload_);
-    if (next) poll_interval_ = std::max(1ul, *next);
+    if (next) poll_interval_ = std::max(1ul, next.value());
     return poll_interval_;
   }
   if (response.status_code_ == 429) {
     const boost::optional<unsigned long> retry = get_retry_after(response);
     log_info("Desired-state poll rate limited");
-    return retry ? clamp_sleep_seconds(*retry) : poll_interval_;
+    return retry ? clamp_sleep_seconds(retry.value()) : poll_interval_;
   }
   if (!response.is_2xx()) {
     ++failures_;
@@ -681,7 +681,7 @@ void fleet_sync::run() {
     log_error("No fleet enrollment found (" + config_.state_file + "): run `nscp enroll` first; fleet sync disabled");
     return;
   }
-  identity_ = *loaded;
+  identity_ = loaded.value();
   while (!identity_.mtls_url.empty() && identity_.mtls_url.back() == '/') identity_.mtls_url.pop_back();
   fs::create_directories(fs::path(config_.managed_path));
   load_applied_state();

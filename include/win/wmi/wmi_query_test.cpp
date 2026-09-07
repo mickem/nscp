@@ -329,7 +329,7 @@ TEST_F(WmiQueryTest, RowGetIntOptReturnsValue) {
       auto& row = enumerator.get_next();
       const boost::optional<long long> pid = row.get_int_opt("ProcessId");
       ASSERT_TRUE(pid);
-      EXPECT_GE(*pid, 0);
+      EXPECT_GE(pid.value(), 0);
     }
   } catch (const wmi_impl::wmi_exception& ex) {
     GTEST_SKIP() << "WMI access failed: " << ex.what();

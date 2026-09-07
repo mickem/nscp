@@ -51,7 +51,7 @@ const unsigned long max_retry_after_seconds = 300;
 // The cap keeps the shift well-defined (and the wait sane) for large --retries.
 unsigned long backoff_ms(const unsigned int attempt, const boost::optional<unsigned long> &retry_after_seconds) {
   if (retry_after_seconds) {
-    return std::min(*retry_after_seconds, max_retry_after_seconds) * 1000UL + jitter_ms();
+    return std::min(retry_after_seconds.value(), max_retry_after_seconds) * 1000UL + jitter_ms();
   }
   const unsigned int max_exponent = 6;
   return (1UL << std::min(attempt, max_exponent)) * 1000UL + jitter_ms();

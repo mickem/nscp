@@ -236,8 +236,8 @@ bool CheckMKServer::add_script(std::string alias, std::string file) {
       NSC_LOG_ERROR("Failed to find script: " + file);
       return false;
     }
-    NSC_DEBUG_MSG_STD("Adding script: " + ofile->string());
-    scripts_->add(alias, ofile->string());
+    NSC_DEBUG_MSG_STD("Adding script: " + ofile.value().string());
+    scripts_->add(alias, ofile.value().string());
     return true;
   } catch (...) {
     NSC_LOG_ERROR_EX("add script");

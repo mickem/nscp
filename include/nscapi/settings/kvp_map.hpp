@@ -55,7 +55,7 @@ class kvp_map {
     const std::string key = normalize(name);
     boost::optional<Value> parsed = parser_(key, raw);
     if (!parsed) return;
-    entries_[key] = std::move(*parsed);
+    entries_[key] = std::move(parsed.value());
   }
 
   boost::optional<Value> find(const std::string &name) const {

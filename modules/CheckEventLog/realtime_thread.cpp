@@ -79,10 +79,10 @@ void real_time_thread::thread_proc() {
     filter_helper::op_duration dur = helper.find_minimum_timeout();
 
     DWORD dwWaitTime = INFINITE;
-    if (dur && dur->total_milliseconds() < 0)
+    if (dur && dur.value().total_milliseconds() < 0)
       dwWaitTime = 0;
     else if (dur)
-      dwWaitTime = static_cast<DWORD>(dur->total_milliseconds());
+      dwWaitTime = static_cast<DWORD>(dur.value().total_milliseconds());
     if (!startup_done && dwWaitTime > 500) dwWaitTime = 500;
 
     NSC_DEBUG_MSG("Sleeping for: " + str::xtos(dwWaitTime) + "ms");

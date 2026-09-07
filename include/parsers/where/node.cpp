@@ -15,15 +15,15 @@
 namespace parsers {
 namespace where {
 std::string value_container::get_string() const {
-  if (i_value) return str::xtos(*i_value);
-  if (f_value) return str::xtos(*f_value);
-  if (s_value) return *s_value;
+  if (i_value) return str::xtos(i_value.value());
+  if (f_value) return str::xtos(f_value.value());
+  if (s_value) return s_value.value();
   throw filter_exception("Type is not string");
 }
 std::string value_container::get_string(std::string def) const {
-  if (i_value) return str::xtos(*i_value);
-  if (f_value) return str::xtos(*f_value);
-  if (s_value) return *s_value;
+  if (i_value) return str::xtos(i_value.value());
+  if (f_value) return str::xtos(f_value.value());
+  if (s_value) return s_value.value();
   return def;
 }
 

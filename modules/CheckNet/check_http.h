@@ -53,7 +53,7 @@ struct filter_obj {
   long long get_code() const { return status_code; }
   long long get_time() const { return time; }
   long long get_size() const { return size; }
-  long long get_ssl_expiry_days() const { return ssl_expiry_days ? *ssl_expiry_days : -1; }
+  long long get_ssl_expiry_days() const { return ssl_expiry_days ? ssl_expiry_days.value() : -1; }
   boost::optional<long long> get_ssl_expiry_days_opt() const { return ssl_expiry_days; }
   std::string get_status() const { return status_message; }
   std::string get_body() const { return body; }

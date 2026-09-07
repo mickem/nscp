@@ -103,7 +103,7 @@ void CheckHelpers::query_fallback(const PB::Commands::QueryRequestMessage::Reque
   }
   std::list<std::string> args;
   for (int i = 0; i < request.arguments_size(); ++i) args.push_back(request.arguments(i));
-  handle_alias(*alias_def, args, response, extract_identity(request_message));
+  handle_alias(alias_def.value(), args, response, extract_identity(request_message));
 }
 
 void CheckHelpers::handle_alias(const alias::simple_command &cd, const std::list<std::string> &src_args, PB::Commands::QueryResponseMessage::Response *response,

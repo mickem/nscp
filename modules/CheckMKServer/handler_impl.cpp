@@ -17,9 +17,9 @@ check_mk::packet handler_impl::process() {
   // full collection below) corrupts the interpreter heap. Hold the GIL across
   // the whole sequence, including prep_function's pushes. See lua::lua_gil.
   lua::lua_gil::guard gil;
-  lua::lua_wrapper instance(lua::lua_runtime::prep_function(cmd->information, cmd->function));
+  lua::lua_wrapper instance(lua::lua_runtime::prep_function(cmd.value().information, cmd.value().function));
   int args = 1;
-  if (cmd->function.object_ref != 0) {
+  if (cmd.value().function.object_ref != 0) {
     args = 2;
   }
   auto data = check_mk::check_mk_packet_wrapper::wrap(instance.L);

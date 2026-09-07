@@ -113,7 +113,7 @@ struct check_mk_client_handler : public client::handler_interface {
       check_mk::packet packet = client.process_request(dummy);
       boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts_->find_command("check_mk", "c_callback");
       if (cmd) {
-        parse_data(cmd->information, cmd->function, packet);
+        parse_data(cmd.value().information, cmd.value().function, packet);
       } else {
         NSC_LOG_ERROR_STD("No check_mk callback found!");
       }

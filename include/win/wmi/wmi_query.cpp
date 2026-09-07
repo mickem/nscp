@@ -165,7 +165,7 @@ boost::optional<long long> row::get_int_opt(const std::string &col) const {
 long long row::get_int(const std::string &col) const {
   const boost::optional<long long> value = get_int_opt(col);
   if (!value) throw wmi_exception(DISP_E_TYPEMISMATCH, col + " is NULL (use get_int_opt for optional fields)");
-  return *value;
+  return value.value();
 }
 
 bool row_enumerator::has_next() {

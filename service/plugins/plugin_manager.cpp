@@ -522,16 +522,16 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::only
   if (!real_file) {
     return {};
   }
-  LOG_DEBUG_CORE_STD("Loading module " + real_file->string() + " (" + alias + ")");
-  plugin_type dup = plugin_list_.find_duplicate(*real_file, alias);
+  LOG_DEBUG_CORE_STD("Loading module " + real_file.value().string() + " (" + alias + ")");
+  plugin_type dup = plugin_list_.find_duplicate(real_file.value(), alias);
   if (dup) {
     return dup;
   }
   loaded = true;
-  if (boost::algorithm::ends_with(real_file->string(), ".zip")) {
-    return std::make_shared<zip_plugin>(plugin_list_.get_next_id(), real_file->lexically_normal(), alias, path_, shared_from_this(), log_instance_);
+  if (boost::algorithm::ends_with(real_file.value().string(), ".zip")) {
+    return std::make_shared<zip_plugin>(plugin_list_.get_next_id(), real_file.value().lexically_normal(), alias, path_, shared_from_this(), log_instance_);
   }
-  return std::make_shared<dll_plugin>(plugin_list_.get_next_id(), real_file->lexically_normal(), alias);
+  return std::make_shared<dll_plugin>(plugin_list_.get_next_id(), real_file.value().lexically_normal(), alias);
 }
 
 /**
