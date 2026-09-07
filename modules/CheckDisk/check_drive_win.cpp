@@ -792,7 +792,9 @@ void find_all_drives(std::list<drive_container> &drives, std::vector<std::string
   const DWORD bufSize = GetLogicalDriveStrings(0, nullptr) + 5;
   const hlp::tchar_buffer buffer(bufSize);
 
-  if (GetLogicalDriveStrings(bufSize, buffer.get()) > 0) {
+  // A result at or past the buffer size is a required size, not a fill.
+  const DWORD filled = GetLogicalDriveStrings(bufSize, buffer.get());
+  if (filled > 0 && filled < bufSize) {
     for (std::size_t i = 0; i < buffer.size();) {
       std::wstring drv = buffer.get(i);
       if (drv.empty()) break;

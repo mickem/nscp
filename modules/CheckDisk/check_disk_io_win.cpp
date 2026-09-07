@@ -192,7 +192,8 @@ bool disk_free_data::fetch() {
 
   char buf[512];
   const DWORD len = GetLogicalDriveStringsA(sizeof(buf) - 1, buf);
-  if (len == 0) return false;
+  // A result at or past the buffer size is a required size, not a fill.
+  if (len == 0 || len >= sizeof(buf) - 1) return false;
 
   for (const char *p = buf; *p; p += strlen(p) + 1) {
     std::string drive(p);
