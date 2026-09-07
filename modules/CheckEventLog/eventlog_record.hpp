@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <vector>
 #include <boost/tuple/tuple.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <str/utils.hpp>
@@ -63,17 +64,13 @@ class EventLogRecord : boost::noncopyable {
     DWORD domainLen = 0;
     SID_NAME_USE sidName;
 
-    LookupAccountSid(NULL, p, NULL, &userLen, NULL, &domainLen, &sidName);
-    LPTSTR user = new TCHAR[userLen + 10];
-    LPTSTR domain = new TCHAR[domainLen + 10];
+    if (!LookupAccountSid(NULL, p, NULL, &userLen, NULL, &domainLen, &sidName) && GetLastError() != ERROR_INSUFFICIENT_BUFFER) return L"missing";
+    std::vector<wchar_t> user(userLen + 10, 0);
+    std::vector<wchar_t> domain(domainLen + 10, 0);
 
-    LookupAccountSid(NULL, p, user, &userLen, domain, &domainLen, &sidName);
-    user[userLen] = 0;
-    domain[domainLen] = 0;
-    std::wstring ustr = user;
-    std::wstring dstr = domain;
-    delete[] user;
-    delete[] domain;
+    if (!LookupAccountSid(NULL, p, user.data(), &userLen, domain.data(), &domainLen, &sidName)) return L"missing";
+    std::wstring ustr(user.data());
+    std::wstring dstr(domain.data());
     if (!dstr.empty()) dstr = dstr + L"\\";
     if (ustr.empty() && dstr.empty()) return L"missing";
 
