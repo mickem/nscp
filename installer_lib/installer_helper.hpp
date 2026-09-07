@@ -636,12 +636,11 @@ WcaGetRecordString() - gets a string field out of a record
   }
   std::wstring getProductName(std::wstring code) {
     DWORD size = 0;
-    MsiGetProductInfo(code.c_str(), INSTALLPROPERTY_INSTALLEDPRODUCTNAME, NULL, &size);
+    const UINT sized = MsiGetProductInfo(code.c_str(), INSTALLPROPERTY_INSTALLEDPRODUCTNAME, NULL, &size);
+    if (sized != ERROR_SUCCESS && sized != ERROR_MORE_DATA) return L"";
     size++;
-    wchar_t* buffer = new wchar_t[size + 4];
-    MsiGetProductInfo(code.c_str(), INSTALLPROPERTY_INSTALLEDPRODUCTNAME, buffer, &size);
-    std::wstring ret = buffer;
-    delete[] buffer;
-    return ret;
+    std::vector<wchar_t> buffer(size + 4, L'\0');
+    if (MsiGetProductInfo(code.c_str(), INSTALLPROPERTY_INSTALLEDPRODUCTNAME, buffer.data(), &size) != ERROR_SUCCESS) return L"";
+    return std::wstring(buffer.data());
   }
 };
