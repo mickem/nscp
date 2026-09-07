@@ -321,7 +321,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
  * @return true if successfully, false if not (if not things might be bad)
  */
 bool CheckSystem::unloadModule() {
-  if (!collector->stop()) {
+  if (collector && !collector->stop()) {
     NSC_LOG_ERROR("Could not exit the thread, memory leak and potential corruption may be the result...");
   }
   pdh_checker.clear();

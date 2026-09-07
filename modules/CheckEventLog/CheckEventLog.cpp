@@ -108,7 +108,7 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
   return true;
 }
 bool CheckEventLog::unloadModule() {
-  if (!thread_->stop()) NSC_LOG_ERROR_STD("Failed to start collection thread");
+  if (thread_ && !thread_->stop()) NSC_LOG_ERROR_STD("Failed to stop collection thread");
 
   nscapi::core_helper core(get_core(), get_id());
   for (const bookmarks::map_type::value_type &v : bookmarks_.get_copy()) {
