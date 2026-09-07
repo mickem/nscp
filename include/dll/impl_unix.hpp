@@ -55,7 +55,13 @@ class impl : public boost::noncopyable {
     return ep;
   }
 
-  void unload_library() { dlclose(handle_); }
+  void unload_library() {
+    // Mirror the Win32 wrapper: dlclose(NULL) and a second close are both
+    // undefined.
+    if (handle_ == NULL) return;
+    dlclose(handle_);
+    handle_ = NULL;
+  }
 
   bool is_loaded() const { return handle_ != NULL; }
   boost::filesystem::path get_file() const { return module_; }
