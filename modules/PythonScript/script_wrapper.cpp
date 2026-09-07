@@ -3,6 +3,11 @@
 
 #include "script_wrapper.hpp"
 
+#include <set>
+#include <map>
+#include <cstring>
+#include <boost/thread/mutex.hpp>
+#include <boost/algorithm/string.hpp>
 #include <boost/thread.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -779,7 +784,37 @@ bool script_wrapper::command_wrapper::load_module(std::string name, std::string 
   return ret == NSCAPI::api_return_codes::isSuccess;
 }
 
+namespace {
+boost::mutex self_names_mutex;
+std::map<unsigned int, std::set<std::string>> self_names;
+
+std::string module_key(std::string name) {
+  boost::algorithm::to_lower(name);
+  for (const char *ext : {".dll", ".so", ".dylib"}) {
+    if (boost::algorithm::ends_with(name, ext)) name.erase(name.size() - std::strlen(ext));
+  }
+  return name;
+}
+}  // namespace
+
+void script_wrapper::command_wrapper::register_self(unsigned int plugin_id, const std::string &module, const std::string &alias) {
+  boost::lock_guard<boost::mutex> lock(self_names_mutex);
+  std::set<std::string> &names = self_names[plugin_id];
+  names.insert(module_key(module));
+  if (!alias.empty()) names.insert(module_key(alias));
+}
+
 bool script_wrapper::command_wrapper::unload_module(std::string name) {
+  {
+    // Unloading the module a script runs in tears the interpreter down under
+    // the live Python frame that asked for it.
+    boost::lock_guard<boost::mutex> lock(self_names_mutex);
+    const auto it = self_names.find(plugin_id);
+    if (it != self_names.end() && it->second.count(module_key(name)) > 0) {
+      NSC_LOG_ERROR("Refusing to unload " + name + " from a script running inside it");
+      return false;
+    }
+  }
   int ret = 0;
   {
     thread_unlocker unlocker;

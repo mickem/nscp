@@ -26,6 +26,7 @@ namespace py = boost::python;
 
 bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   alias_ = alias;
+  script_wrapper::command_wrapper::register_self(get_id(), "PythonScript", alias);
 
   if (mode == NSCAPI::reloadStart) {
     nscapi::core_helper ch(get_core(), get_id());
