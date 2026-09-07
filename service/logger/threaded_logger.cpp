@@ -15,17 +15,20 @@ namespace nsclient {
 namespace logging {
 namespace impl {
 threaded_logger::threaded_logger(logging_subscriber *subscriber_manager, log_driver_instance background_logger)
-    : subscriber_manager_(subscriber_manager), background_logger_(std::move(background_logger)) {}
+    : state_(std::make_shared<shared_state>()), subscriber_manager_(subscriber_manager), background_logger_(std::move(background_logger)) {}
 threaded_logger::~threaded_logger() { threaded_logger::shutdown(); }
 
 void threaded_logger::do_log(const std::string data) { push(data); }
-void threaded_logger::push(const std::string &data) { log_queue_.push(data); }
+void threaded_logger::push(const std::string &data) { state_->queue.push(data); }
 
-void threaded_logger::thread_proc() {
+void threaded_logger::thread_proc(std::shared_ptr<shared_state> state) {
   std::string data;
   while (true) {
     try {
-      log_queue_.wait_and_pop(data);
+      state->queue.wait_and_pop(data);
+      // Abandoned by a shutdown that gave up waiting: the logger this thread
+      // belongs to is gone, so touch nothing but the shared state.
+      if (state->abandoned) return;
       if (data == QUIT_MESSAGE) {
         return;
       }
@@ -58,7 +61,8 @@ void threaded_logger::asynch_configure() { push(CONFIGURE_MESSAGE); }
 void threaded_logger::synch_configure() { background_logger_->synch_configure(); }
 bool threaded_logger::startup() {
   if (is_started()) return true;
-  thread_ = boost::thread([this]() { this->thread_proc(); });
+  std::shared_ptr<shared_state> state = state_;
+  thread_ = boost::thread([this, state]() { this->thread_proc(state); });
   return log_driver_interface_impl::startup();
 }
 bool threaded_logger::shutdown() {
@@ -67,6 +71,10 @@ bool threaded_logger::shutdown() {
     push(QUIT_MESSAGE);
     if (!thread_.timed_join(boost::posix_time::seconds(10))) {
       logger_helper::log_fatal("Failed to exit log slave!");
+      // Leave the thread running on state it co-owns rather than destroy the
+      // queue it will return to.
+      state_->abandoned = true;
+      thread_.detach();
       log_driver_interface_impl::shutdown();
       return false;
     }
