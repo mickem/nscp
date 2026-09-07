@@ -3,6 +3,9 @@
 
 #pragma once
 
+#include <boost/optional.hpp>
+#include <boost/thread/locks.hpp>
+#include <boost/thread/shared_mutex.hpp>
 #include <boost/program_options.hpp>
 #include <boost/unordered_map.hpp>
 #include <cctype>
@@ -284,13 +287,30 @@ struct configuration : public boost::noncopyable {
   destination_container get_target(const std::string &name) const;
   destination_container get_sender() const;
 
-  void add_target(const std::shared_ptr<nscapi::settings_proxy> &proxy, const std::string &key, const std::string &value) { targets.add(proxy, key, value); }
+  void add_target(const std::shared_ptr<nscapi::settings_proxy> &proxy, const std::string &key, const std::string &value) {
+    boost::unique_lock<boost::shared_mutex> lock(tables_mutex_);
+    targets.add(proxy, key, value);
+  }
   std::string add_command(const std::string &name, const std::string &args);
   void clear() {
+    boost::unique_lock<boost::shared_mutex> lock(tables_mutex_);
     targets.clear();
     commands.clear();
   }
   void finalize(const std::shared_ptr<nscapi::settings_proxy> &settings);
+  // Locked lookups: a settings reload rewrites `commands` and `targets` on
+  // the module thread while queries, submissions and the metrics task read
+  // them from workers.
+  boost::optional<command_container> find_command(const std::string &command) const {
+    boost::shared_lock<boost::shared_mutex> lock(tables_mutex_);
+    const command_type::const_iterator cit = commands.find(command);
+    if (cit == commands.end()) return boost::none;
+    return cit->second;
+  }
+  object_handler_type::object_instance find_target(const std::string &name) const {
+    boost::shared_lock<boost::shared_mutex> lock(tables_mutex_);
+    return targets.find_object(name);
+  }
 
   void do_query(const PB::Commands::QueryRequestMessage &request, PB::Commands::QueryResponseMessage &response);
   bool do_exec(const PB::Commands::ExecuteRequestMessage &request, PB::Commands::ExecuteResponseMessage &response, const std::string &default_command_arg);
@@ -308,6 +328,7 @@ struct configuration : public boost::noncopyable {
   client_pre_fun client_pre;
 
  private:
+  mutable boost::shared_mutex tables_mutex_;
   boost::program_options::options_description create_descriptor(const std::string &command, client::destination_container &source,
                                                                 client::destination_container &destination) const;
   // The host-override guard: given the options the command line actually

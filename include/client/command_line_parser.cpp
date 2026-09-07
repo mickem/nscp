@@ -275,17 +275,20 @@ std::string client::configuration::add_command(const std::string &name, const st
 
   std::string key = boost::algorithm::to_lower_copy(name);
   data.key = key;
-  commands[data.key] = data;
+  {
+    boost::unique_lock<boost::shared_mutex> lock(tables_mutex_);
+    commands[data.key] = data;
+  }
   return key;
 }
 
 client::destination_container client::configuration::get_target(const std::string &name) const {
   destination_container d;
-  object_handler_type::object_instance op = targets.find_object(name);
+  object_handler_type::object_instance op = find_target(name);
   if (op) {
     d.apply(op);
   } else {
-    op = targets.find_object("default");
+    op = find_target("default");
     if (op) d.apply(op);
   }
   return d;
@@ -349,9 +352,9 @@ void client::configuration::i_do_query(destination_container &s, destination_con
   try {
     bool custom_command = false;
 
-    command_type::const_iterator cit = commands.find(command);
-    if (cit != commands.end()) {
-      command = cit->second.command;
+    const boost::optional<command_container> custom = find_command(command);
+    if (custom) {
+      command = custom->command;
       custom_command = true;
       // TODO: Build argument vector here!
     }
@@ -430,7 +433,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
       // advice check_host_override() gives.
       if (d.has_data("$target.id$")) {
         const std::string t = d.get_string_data("$target.id$");
-        object_handler_type::object_instance op = targets.find_object(t);
+        object_handler_type::object_instance op = find_target(t);
         if (op) {
           d.apply(op);
           d.apply(t, request.header());
@@ -534,9 +537,9 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
   try {
     bool custom_command = false;
 
-    command_type::const_iterator cit = commands.find(command);
-    if (cit != commands.end()) {
-      command = cit->second.command;
+    const boost::optional<command_container> custom = find_command(command);
+    if (custom) {
+      command = custom->command;
       custom_command = true;
       // TODO: Build argument vector here!
     }
@@ -582,7 +585,7 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
         std::string t = d.get_string_data("$target.id$");
 
         // If we have a target, apply it
-        object_handler_type::object_instance op = targets.find_object(t);
+        object_handler_type::object_instance op = find_target(t);
         if (op) {
           d.apply(op);
 
@@ -699,9 +702,9 @@ void client::configuration::i_do_submit(const destination_container &s, destinat
   try {
     boost::program_options::variables_map vm;
 
-    const command_type::const_iterator cit = commands.find(command);
-    if (cit != commands.end()) {
-      command = cit->second.command;
+    const boost::optional<command_container> custom = find_command(command);
+    if (custom) {
+      command = custom->command;
       // TODO: Build argument vector here!
     }
     if (command.substr(0, 8) == "forward_") {
@@ -734,6 +737,7 @@ void client::configuration::do_metrics(const PB::Metrics::MetricsMessage &reques
 }
 
 void client::configuration::finalize(const std::shared_ptr<nscapi::settings_proxy> &settings) {
+  boost::unique_lock<boost::shared_mutex> lock(tables_mutex_);
   targets.add_samples(settings);
   targets.add_missing(settings, "default", "");
 }

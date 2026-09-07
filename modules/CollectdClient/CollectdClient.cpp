@@ -33,6 +33,7 @@ bool CollectdClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
   try {
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
     settings.set_alias("collectd", alias, "client");
+    handler_->clear_mappings();
     std::string target_path = settings.alias().get_settings_path("targets");
 
     client_.set_path(target_path);

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <boost/thread/mutex.hpp>
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <net/collectd/collectd_packet.hpp>
@@ -126,8 +127,21 @@ struct collectd_client_handler : public client::handler_interface {
   collectd_client_handler() : interval_seconds_(10) {}
 
   // Configuration (populated from settings; empty => defaults are used).
-  void add_variable(const std::string &key, const std::string &value) { variables_.push_back(std::make_pair(key, value)); }
-  void add_metric(const std::string &key, const std::string &value) { metrics_.push_back(std::make_pair(key, value)); }
+  void add_variable(const std::string &key, const std::string &value) {
+    boost::lock_guard<boost::mutex> lock(mappings_mutex_);
+    variables_.push_back(std::make_pair(key, value));
+  }
+  void add_metric(const std::string &key, const std::string &value) {
+    boost::lock_guard<boost::mutex> lock(mappings_mutex_);
+    metrics_.push_back(std::make_pair(key, value));
+  }
+  // A reload re-reads the settings: start from empty so entries replace
+  // rather than append.
+  void clear_mappings() {
+    boost::lock_guard<boost::mutex> lock(mappings_mutex_);
+    variables_.clear();
+    metrics_.clear();
+  }
   void set_interval(unsigned long long seconds) { interval_seconds_ = seconds; }
 
   bool query(client::destination_container sender, client::destination_container target, const PB::Commands::QueryRequestMessage &request_message,
@@ -197,8 +211,13 @@ struct collectd_client_handler : public client::handler_interface {
 
     // Variables must be expanded (against the flattened metric names) before
     // the metric templates that reference them are added.
-    const mapping_list &variables = variables_.empty() ? default_variables_ : variables_;
-    const mapping_list &metrics = metrics_.empty() ? default_metrics_ : metrics_;
+    mapping_list variables, metrics;
+    {
+      // Copy out: the settings thread rewrites the lists on a reload.
+      boost::lock_guard<boost::mutex> lock(mappings_mutex_);
+      variables = variables_.empty() ? default_variables_ : variables_;
+      metrics = metrics_.empty() ? default_metrics_ : metrics_;
+    }
     for (const auto &v : variables) builder.add_variable(v.first, v.second);
     for (const auto &m : metrics) builder.add_metric(m.first, m.second);
 
@@ -236,6 +255,7 @@ struct collectd_client_handler : public client::handler_interface {
   }
 
  private:
+  mutable boost::mutex mappings_mutex_;
   mapping_list variables_;
   mapping_list metrics_;
   unsigned long long interval_seconds_;
