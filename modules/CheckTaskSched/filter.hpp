@@ -204,7 +204,9 @@ struct old_filter_obj : public filter_obj {
   typedef helpers::com_variable<helpers::date_traits<SYSTEMTIME, ITask> > date_variable;
   typedef helpers::com_variable<helpers::next_run_date_traits<SYSTEMTIME, ITask> > next_run_date_variable;
 
-  ITask *task;
+  // Counted reference: the enumeration loop releases its own pointer before
+  // warn/crit are evaluated in match_post().
+  CComPtr<ITask> task;
   std::string title;
   string_variable account_name;
   string_variable application_name;
@@ -294,7 +296,8 @@ struct new_filter_obj : public filter_obj {
   typedef helpers::com_variable<helpers::bstr_traits<ITaskSettings> > settings_string_variable;
   typedef helpers::com_variable<helpers::bool_traits<VARIANT_BOOL, bool, ITaskSettings> > settings_bool_variable;
 
-  IRegisteredTask *task;
+  // Counted reference, for the same reason as old_filter_obj::task.
+  CComPtr<IRegisteredTask> task;
   CComPtr<IRegistrationInfo> reginfo;
   CComPtr<ITaskSettings> settings;
   CComPtr<ITaskDefinition> def;
