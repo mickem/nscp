@@ -225,9 +225,9 @@ struct collectd_builder {
     std::string to_string() const {
       std::stringstream ss;
       ss << plugin_name << "-";
-      if (plugin_instance) ss << *plugin_instance;
+      if (plugin_instance) ss << plugin_instance.value();
       ss << "/" << type_name << "-";
-      if (type_instance) ss << *type_instance;
+      if (type_instance) ss << type_instance.value();
       ss << "=";
       if (!gauges.empty()) {
         ss << " gagues: ";
@@ -288,7 +288,7 @@ struct collectd_builder {
   void add_type(std::string value, std::string plugin, boost::optional<std::string> p_instance, std::string tpe, boost::optional<std::string> t_instance) {
     for (const expanded_keys &et : expand_keyword(tpe, value)) {
       if (t_instance) {
-        for (const expanded_keys &ei : expand_keyword(*t_instance, et.value)) {
+        for (const expanded_keys &ei : expand_keyword(t_instance.value(), et.value)) {
           metric_container m = metric_container(time_hr, interval_hr);
           m.set_plugin(plugin, p_instance);
           m.set_type(et.key, ei.key);
@@ -325,7 +325,7 @@ struct collectd_builder {
 
     for (const expanded_keys &ep : expand_keyword(plugin, value)) {
       if (p_instance) {
-        for (const expanded_keys &ei : expand_keyword(*p_instance, ep.value)) {
+        for (const expanded_keys &ei : expand_keyword(p_instance.value(), ep.value)) {
           add_type(ei.value, ep.key, ei.key, tpe, t_instance);
         }
       } else {

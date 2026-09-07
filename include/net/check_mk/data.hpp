@@ -106,16 +106,16 @@ struct packet {
 
     std::string render_header() const {
       std::string ret = "<<<" + title;
-      if (separator) ret += ":sep(" + str::xtos(*separator) + ")";
-      if (cached) ret += ":cached(" + str::xtos(cached->first) + "," + str::xtos(cached->second) + ")";
-      if (persist_until) ret += ":persist(" + str::xtos(*persist_until) + ")";
+      if (separator) ret += ":sep(" + str::xtos(separator.value()) + ")";
+      if (cached) ret += ":cached(" + str::xtos(cached.value().first) + "," + str::xtos(cached.value().second) + ")";
+      if (persist_until) ret += ":persist(" + str::xtos(persist_until.value()) + ")";
       ret += ">>>\n";
       return ret;
     }
 
     std::string to_string() const {
       std::string ret = render_header();
-      const int sep = separator ? *separator : ' ';
+      const int sep = separator ? separator.value() : ' ';
       for (const section::line &l : lines) {
         ret += l.to_string(sep) + "\n";
       }

@@ -135,7 +135,7 @@ void run_http_check(const std::string &url_in, const http_check_options &opt, ch
       // followed by a plain http one, and keeping the earlier hop's expiry
       // would report a certificate for a URL that never presented one.
       const boost::optional<long> expiry = client.peer_certificate_expiry_days_opt();
-      out.ssl_expiry_days = expiry ? boost::optional<long long>(static_cast<long long>(*expiry)) : boost::none;
+      out.ssl_expiry_days = expiry ? boost::optional<long long>(static_cast<long long>(expiry.value())) : boost::none;
 
       // Follow redirects when asked to, up to the configured limit.
       if (opt.follow_redirects && redirects < opt.max_redirs && is_redirect(resp.status_code_)) {

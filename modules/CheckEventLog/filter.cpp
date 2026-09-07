@@ -136,9 +136,9 @@ std::string new_filter_obj::get_task() {
   const int id = buffer.get()[eventlog::api::EvtSystemTask].Int16Val;
   const std::string provider = get_provider();
   op_str os = task_cache_.get_cached(provider, id);
-  if (os) return *os;
+  if (os) return os.value();
   os = task_cache_.get(get_provider_handle(provider), provider, id);
-  if (os) return *os;
+  if (os) return os.value();
   return "";
 }
 std::string new_filter_obj::get_opcode() {
@@ -146,9 +146,9 @@ std::string new_filter_obj::get_opcode() {
   int id = buffer.get()[eventlog::api::EvtSystemOpcode].ByteVal;
   std::string provider = get_provider();
   op_str os = opcode_cache_.get_cached(provider, id);
-  if (os) return *os;
+  if (os) return os.value();
   os = opcode_cache_.get(get_provider_handle(provider), provider, id);
-  if (os) return *os;
+  if (os) return os.value();
   return "";
 }
 #define WINLOG_KEYWORD_AUDITFAILURE 0x0010000000000000
@@ -178,7 +178,7 @@ std::string new_filter_obj::get_keyword() {
       os = keyword_cache_.apply(get_provider_handle(provider), provider, id);
     }
     if (os) {
-      str::format::append_list(ret, *os);
+      str::format::append_list(ret, os.value());
     }
   }
   return ret;

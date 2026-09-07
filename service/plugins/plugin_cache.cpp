@@ -74,10 +74,10 @@ std::string nsclient::core::plugin_cache::find_plugin_alias(unsigned int plugin_
   if (!info) {
     return "Failed to find plugin: " + str::xtos(plugin_id);
   }
-  if (!info->alias.empty()) {
-    return info->alias;
+  if (!info.value().alias.empty()) {
+    return info.value().alias;
   }
-  return info->dll;
+  return info.value().dll;
 }
 
 void nsclient::core::plugin_cache::add_plugin(plugin_type plugin) {

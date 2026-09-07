@@ -96,7 +96,7 @@ bool CheckMKClient::add_script(std::string alias, std::string file) {
 
     boost::optional<boost::filesystem::path> ofile = lua::lua_script::find_script(root_, file);
     if (!ofile) return false;
-    handler_->scripts_->add(alias, ofile->string());
+    handler_->scripts_->add(alias, ofile.value().string());
     return true;
   } catch (...) {
     NSC_LOG_ERROR("Could not load script: " + file);

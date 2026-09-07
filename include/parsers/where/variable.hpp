@@ -113,8 +113,8 @@ struct simple_number_performance_generator : number_performance_generator_interf
     int_data.crit = static_cast<double>(crit) * scale;
     // Explicit minimum/maximum overrides are written by the operator in the
     // displayed unit already - never rescale them.
-    if (minimum) int_data.minimum = *minimum;
-    if (maximum) int_data.maximum = *maximum;
+    if (minimum) int_data.minimum = minimum.value();
+    if (maximum) int_data.maximum = maximum.value();
     data.set(int_data);
     data.alias = prefix + alias + suffix;
     data.unit = unit;
@@ -719,7 +719,7 @@ struct optional_int_variable_node : any_node {
       native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
       if (native_context != nullptr && fun && native_context->has_object()) {
         const boost::optional<long long> v = fun(native_context->get_object(), context);
-        if (v) return factory::create_int(*v);
+        if (v) return factory::create_int(v.value());
         // A bare-variable boolean context sees the no-value string, whose
         // is_true() is false — a missing value never satisfies anything.
         return factory::create_string(no_value_);
@@ -747,9 +747,9 @@ struct optional_int_variable_node : any_node {
         return value_container::create_string("", true);
       }
       const boost::optional<long long> v = fun(native_context->get_object(), context);
-      if (ti) return v ? value_container::create_int(*v) : value_container::create_no_value();
-      if (tf) return v ? value_container::create_float(static_cast<double>(*v)) : value_container::create_no_value();
-      if (vt == type_string) return value_container::create_string(v ? str::xtos(*v) : no_value_);
+      if (ti) return v ? value_container::create_int(v.value()) : value_container::create_no_value();
+      if (tf) return v ? value_container::create_float(static_cast<double>(v.value())) : value_container::create_no_value();
+      if (vt == type_string) return value_container::create_string(v ? str::xtos(v.value()) : no_value_);
     } catch (const std::exception &e) {
       context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
       return value_container::create_nil();
@@ -761,7 +761,7 @@ struct optional_int_variable_node : any_node {
     native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
     if (native_context != nullptr && fun && native_context->has_object()) {
       const boost::optional<long long> v = fun(native_context->get_object(), context);
-      return v ? str::xtos(*v) : no_value_;
+      return v ? str::xtos(v.value()) : no_value_;
     }
     return name_ + "?";
   }
@@ -796,7 +796,7 @@ struct optional_int_variable_node : any_node {
       if (crit) crit_value = crit->get_int_value(context);
       for (int_performance_generator &p : perfgen) {
         if (!p->is_configured()) p->configure(name_, context);
-        p->eval(ret, context, alias, *v, warn_value, crit_value, native_context->get_object());
+        p->eval(ret, context, alias, v.value(), warn_value, crit_value, native_context->get_object());
       }
     }
     return ret;

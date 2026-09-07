@@ -77,9 +77,9 @@ std::string get_my_ip() {
     }
   }
   if (firstv4) {
-    return *firstv4;
+    return firstv4.value();
   } else if (firstv6) {
-    return *firstv6;
+    return firstv6.value();
   }
   return h;
 }

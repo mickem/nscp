@@ -296,7 +296,7 @@ void CheckEventLog::check_modern(const std::string &logfile, const std::string &
   if (!bookmark.empty()) {
     bookmarks::op_string xmlBm = bookmarks_.get(bookmark);
     if (xmlBm) {
-      eventlog::evt_handle hBookmark = eventlog::EvtCreateBookmark(utf8::cvt<std::wstring>(*xmlBm).c_str());
+      eventlog::evt_handle hBookmark = eventlog::EvtCreateBookmark(utf8::cvt<std::wstring>(xmlBm.value()).c_str());
       if (!hBookmark) {
         NSC_LOG_ERROR("Failed to create bookmark: " + error::lookup::last_error());
       } else {

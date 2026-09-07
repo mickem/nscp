@@ -219,7 +219,7 @@ void nsclient_core::settings_client::dump_path(std::string root) {
   }
   for (std::string key : get_core()->get()->get_keys(root)) {
     settings::settings_interface::op_string val = get_core()->get()->get_string(root, key);
-    if (val) std::cout << root << "." << key << "=" << redacted_for_display(get_core(), root, key, *val) << std::endl;
+    if (val) std::cout << root << "." << key << "=" << redacted_for_display(get_core(), root, key, val.value()) << std::endl;
   }
 }
 
@@ -271,7 +271,7 @@ int nsclient_core::settings_client::show(std::string path, std::string key) {
     list_settings_context_info(2, settings_manager::get_settings());
   else {
     settings::settings_interface::op_string val = get_core()->get()->get_string(path, key);
-    if (val) std::cout << redacted_for_display(get_core(), path, key, *val);
+    if (val) std::cout << redacted_for_display(get_core(), path, key, val.value());
   }
   return 0;
 }

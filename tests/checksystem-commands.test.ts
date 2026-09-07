@@ -596,6 +596,26 @@ describe("CheckSystem commands", () => {
     expect(parts).toBeLessThanOrEqual(total);
   });
 
+  // --- check_service empty result set (#1499) --------------------------------
+
+  // A filter which matched no service used to terminate the whole agent: the
+  // default warn/crit (`not state_is_perfect()` / `not state_is_ok()`) are
+  // re-evaluated with no service bound once the result set is empty, and both
+  // read the service straight off the evaluation context. The check must
+  // return its documented empty contract instead — and, more to the point, the
+  // process has to still be there for the queries after this one.
+  it("check_service with a filter that matches nothing returns UNKNOWN", async () => {
+    const q = await executeQuery(key, "check_service", {
+      filter: "name = 'nosuchservice-1499'",
+    });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/No services found/i);
+
+    // The agent survived: a second query still answers.
+    const alive = await executeQuery(key, "check_service", { filter: "none" });
+    expect(alive.result).not.toBeUndefined();
+  });
+
   // --- check_pending_reboot (Windows) ----------------------------------------
 
   it("check_pending_reboot returns one aggregate row with perf (Windows)", async () => {

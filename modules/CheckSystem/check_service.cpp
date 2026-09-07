@@ -39,8 +39,25 @@ bool check_state_is_ok(const DWORD state, const DWORD start_type, const bool del
   return check_state_is_perfect(state, start_type, trigger);
 }
 
+// The value both state functions return when there is no service to look at.
+// match_post() force-evaluates the warn/crit expressions with no object bound
+// whenever nothing matched the filter, so that a mixed expression such as
+// `state = 'stopped' or count = 0` still gets a verdict. Reading the object
+// there used to dereference an empty optional and corrupt the heap, taking the
+// whole agent down on any filter that matched no service (#1499).
+//
+// Unsure-false is what the built-in object bound variables report on that same
+// path: false so the expression stays evaluable, unsure so the engine knows the
+// verdict did not rest on real data. `warn` rather than `error` because the
+// missing object is expected here and match_force() deliberately drops those.
+node_type no_object_state(const evaluation_context &context, const std::string &name) {
+  context->warn("Failed to evaluate " + name + " no object instance");
+  return factory::create_num(value_container::create_bool(false, true));
+}
+
 node_type state_is_ok(const value_type, const evaluation_context &raw_context, const node_type &subject) {
   const auto context = reinterpret_cast<native_context *>(raw_context.get());
+  if (!context->has_object()) return no_object_state(raw_context, "state_is_ok");
   const DWORD state = context->get_object()->state;
   const DWORD start_type = context->get_object()->start_type;
   const bool delayed = context->get_object()->get_delayed() == 1;
@@ -52,6 +69,7 @@ node_type state_is_ok(const value_type, const evaluation_context &raw_context, c
 
 node_type state_is_perfect(const value_type, const evaluation_context &raw_context, const node_type &subject) {
   auto context = reinterpret_cast<native_context *>(raw_context.get());
+  if (!context->has_object()) return no_object_state(raw_context, "state_is_perfect");
   const DWORD state = context->get_object()->state;
   const DWORD start_type = context->get_object()->start_type;
   const bool trigger = context->get_object()->get_is_trigger() == 1;

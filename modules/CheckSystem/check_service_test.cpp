@@ -5,8 +5,12 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/optional.hpp>
 #include <cstddef>
+#include <list>
+#include <memory>
 #include <nsclient/nsclient_exception.hpp>
+#include <string>
 #include <vector>
 #include <win/services_paging.hpp>
 #include <win/winsvc.hpp>
@@ -586,4 +590,85 @@ TEST(EnumeratePagedServices, ManyPagesAllProcessedInOrder) {
   EXPECT_EQ(counts[0], static_cast<DWORD>(7));
   EXPECT_EQ(counts[1], static_cast<DWORD>(5));
   EXPECT_EQ(counts[2], static_cast<DWORD>(2));
+}
+
+// ============================================================================
+// Empty result set (#1499)
+// ============================================================================
+
+// When nothing matched the filter, modern_filter::match_post() force-evaluates
+// the warn/crit expressions with no object bound to the context so that mixed
+// expressions such as `state = 'stopped' or count = 0` still get a verdict. The
+// default warn/crit of check_service are `not state_is_perfect()` /
+// `not state_is_ok()`, and those read the service straight off the context: with
+// no object that dereferenced an empty optional, resurrected a freed shared_ptr
+// control block and corrupted the heap, killing the whole agent on any filter
+// that happened to match no service.
+
+TEST(CheckServiceEmptyResult, StateIsOkWithoutObjectIsUnsureFalse) {
+  const auto context = std::make_shared<service_checks::check_svc_filter::filter_obj_handler>();
+  const parsers::where::node_type result = service_checks::check_svc_filter::state_is_ok(parsers::where::type_bool, context, parsers::where::node_type());
+
+  ASSERT_TRUE(static_cast<bool>(result));
+  const parsers::where::value_container value = result->get_value(context, parsers::where::type_int);
+  EXPECT_FALSE(value.is_true());
+  // Unsure, so the engine knows the verdict did not rest on a real service.
+  EXPECT_TRUE(value.is_unsure);
+}
+
+TEST(CheckServiceEmptyResult, StateIsPerfectWithoutObjectIsUnsureFalse) {
+  const auto context = std::make_shared<service_checks::check_svc_filter::filter_obj_handler>();
+  const parsers::where::node_type result = service_checks::check_svc_filter::state_is_perfect(parsers::where::type_bool, context, parsers::where::node_type());
+
+  ASSERT_TRUE(static_cast<bool>(result));
+  const parsers::where::value_container value = result->get_value(context, parsers::where::type_int);
+  EXPECT_FALSE(value.is_true());
+  EXPECT_TRUE(value.is_unsure);
+}
+
+TEST(CheckServiceEmptyResult, GetObjectWithoutObjectThrows) {
+  // The last line of defence: the context reads its optional through value(),
+  // so an accessor that forgets the has_object() guard throws — and every
+  // evaluate() catches std::exception and reports it — instead of running into
+  // undefined behaviour.
+  service_checks::check_svc_filter::filter_obj_handler context;
+  EXPECT_FALSE(context.has_object());
+  EXPECT_THROW(context.get_object(), boost::bad_optional_access);
+}
+
+TEST(CheckServiceEmptyResult, FilterMatchingNoServiceReturnsUnknown) {
+  // The reported reproduction: a filter which excludes every service. Runs the
+  // real check against the live service database; "nosuchservice-1499" cannot
+  // match, so the empty-state contract (UNKNOWN + "No services found") applies
+  // regardless of what the host happens to be running.
+  PB::Commands::QueryRequestMessage::Request request;
+  request.set_command("check_service");
+  request.add_arguments("filter=name = 'nosuchservice-1499'");
+
+  PB::Commands::QueryResponseMessage::Response response;
+  service_checks::check(request, &response);
+
+  ASSERT_EQ(response.lines_size(), 1);
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::UNKNOWN) << response.lines(0).message();
+  EXPECT_EQ(response.lines(0).message(), "UNKNOWN: No services found");
+}
+
+TEST(CheckServiceEmptyResult, NamedServiceExcludedByFilterReturnsUnknown) {
+  // The other reported shape: the service is collected but the filter drops it.
+  const std::vector<std::string> no_excludes;
+  const std::list<win_list_services::service_info> all = win_list_services::enum_services(
+      "", win_list_services::parse_service_type("service"), win_list_services::parse_service_state("all"), no_excludes);
+  ASSERT_FALSE(all.empty());
+
+  PB::Commands::QueryRequestMessage::Request request;
+  request.set_command("check_service");
+  request.add_arguments("service=" + all.front().name);
+  request.add_arguments("filter=name = 'nosuchservice-1499'");
+
+  PB::Commands::QueryResponseMessage::Response response;
+  service_checks::check(request, &response);
+
+  ASSERT_EQ(response.lines_size(), 1);
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::UNKNOWN) << response.lines(0).message();
+  EXPECT_EQ(response.lines(0).message(), "UNKNOWN: No services found");
 }

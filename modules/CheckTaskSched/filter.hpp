@@ -156,7 +156,7 @@ struct com_variable {
       else
         data_.reset(traits::get_default());
     }
-    return *data_;
+    return data_.value();
   }
 };
 }  // namespace helpers

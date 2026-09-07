@@ -297,7 +297,7 @@ TEST(CrashScan, AnUndatableReportNeverBecomesTheNewest) {
   EXPECT_EQ(scan.newest, "dated.crash");
   const boost::optional<long long> age = scan.age(800);
   ASSERT_TRUE(age);
-  EXPECT_EQ(*age, 300);
+  EXPECT_EQ(age.value(), 300);
 }
 
 TEST(CrashScan, AnUndatableReportDoesNotShadowALaterOne) {
@@ -314,7 +314,7 @@ TEST(CrashScan, AgeIsRelativeToNow) {
   scan.add("a.crash", 1000);
   const boost::optional<long long> age = scan.age(1600);
   ASSERT_TRUE(age);
-  EXPECT_EQ(*age, 600);
+  EXPECT_EQ(age.value(), 600);
 }
 
 TEST(CrashScan, AgeOfAFutureReportIsClampedToZero) {
@@ -323,7 +323,7 @@ TEST(CrashScan, AgeOfAFutureReportIsClampedToZero) {
   scan.add("a.crash", 2000);
   const boost::optional<long long> age = scan.age(1000);
   ASSERT_TRUE(age);
-  EXPECT_EQ(*age, 0);
+  EXPECT_EQ(age.value(), 0);
 }
 
 TEST(HealthObj, DefaultsAreAHealthyAgent) {

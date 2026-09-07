@@ -104,7 +104,7 @@ void settings_query_handler::parse_inventory(const PB::Settings::SettingsRequest
           for (const std::string &key : klist) {
             settings::settings_core::key_description desc =
                 settings_manager::get_core()->get_registered_key(path, key).get_value_or(settings::settings_core::key_description());
-            if (plugin_id && !desc.has_plugin(*plugin_id)) continue;
+            if (plugin_id && !desc.has_plugin(plugin_id.value())) continue;
             PB::Settings::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
             cache.emplace(key);
             rpp->mutable_node()->set_path(path);
@@ -116,7 +116,7 @@ void settings_query_handler::parse_inventory(const PB::Settings::SettingsRequest
             rpp->mutable_info()->set_sample(desc.is_sample);
             rpp->mutable_info()->set_default_value(desc.default_value);
             settings::settings_interface::op_string val = settings_manager::get_settings()->get_string(path, key);
-            if (val) rpp->mutable_node()->set_value(redact_value(path, key, *val, q.redact_sensitive()));
+            if (val) rpp->mutable_node()->set_value(redact_value(path, key, val.value(), q.redact_sensitive()));
             settings_add_plugin_data(desc.plugins, rpp->mutable_info());
           }
           if (!plugin_id) {
@@ -133,7 +133,7 @@ void settings_query_handler::parse_inventory(const PB::Settings::SettingsRequest
                 rpp->mutable_info()->set_sample(false);
                 rpp->mutable_info()->set_default_value("");
                 settings::settings_interface::op_string val = settings_manager::get_settings()->get_string(path, key);
-                if (val) rpp->mutable_node()->set_value(redact_value(path, key, *val, q.redact_sensitive()));
+                if (val) rpp->mutable_node()->set_value(redact_value(path, key, val.value(), q.redact_sensitive()));
               }
             }
           }
@@ -164,7 +164,7 @@ void settings_query_handler::parse_inventory(const PB::Settings::SettingsRequest
           t.start("fetching keys");
           settings::settings_core::key_description desc =
               settings_manager::get_core()->get_registered_key(path, key).get_value_or(settings::settings_core::key_description());
-          if (plugin_id && !desc.has_plugin(*plugin_id)) continue;
+          if (plugin_id && !desc.has_plugin(plugin_id.value())) continue;
           t.end();
           PB::Settings::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
           cache.emplace(key);
@@ -195,7 +195,7 @@ void settings_query_handler::parse_inventory(const PB::Settings::SettingsRequest
               rpp->mutable_info()->set_advanced(true);
               rpp->mutable_info()->set_sample(false);
               settings::settings_interface::op_string val = settings_manager::get_settings()->get_string(path, key);
-              if (val) rpp->mutable_node()->set_value(redact_value(path, key, *val, q.redact_sensitive()));
+              if (val) rpp->mutable_node()->set_value(redact_value(path, key, val.value(), q.redact_sensitive()));
             }
           }
         }

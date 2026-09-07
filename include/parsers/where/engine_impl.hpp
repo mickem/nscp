@@ -24,7 +24,14 @@ struct evaluation_context_impl : object_factory_interface {
   std::list<std::pair<TObject, object_match>> object_debug_;
   boost::optional<TObject> last_debug_object_;
 
-  TObject get_object() { return *object; }
+  // value(), never *object: dereferencing an empty optional is undefined
+  // behaviour, and for the shared_ptr TObject every caller uses it resurrects a
+  // destroyed control-block pointer out of the vacated storage, so the copy
+  // returned here bumps a refcount in freed memory and corrupts the heap
+  // (#1499). value() throws instead, which the try/catch around every
+  // evaluate() turns into a reported filter error. Call sites should still
+  // check has_object() first; the throw is what makes forgetting it survivable.
+  TObject get_object() { return object.value(); }
   void enable_debug(const bool enable_debug) override { enable_debug_ = enable_debug; }
   bool debug_enabled() override { return enable_debug_; }
 
@@ -60,15 +67,15 @@ struct evaluation_context_impl : object_factory_interface {
       return;
     }
     if (last_debug_object_ && object && last_debug_object_ == object && !object_debug_.empty()) {
-      last_debug_object_ = *object;
+      last_debug_object_ = object.value();
       object_debug_.back().second = reason;
     } else {
-      last_debug_object_ = *object;
-      object_debug_.emplace_back(*object, reason);
+      last_debug_object_ = object.value();
+      object_debug_.emplace_back(object.value(), reason);
     }
   }
 
-  summary_type get_summary() { return *summary; }
+  summary_type get_summary() { return summary.value(); }
   bool has_object() { return static_cast<bool>(object); }
   bool has_summary() { return static_cast<bool>(summary); }
   void remove_object() { object.reset(); }

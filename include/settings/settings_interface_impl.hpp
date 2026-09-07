@@ -50,25 +50,25 @@ class settings_interface_impl : public settings_interface {
 
     bool is_dirty() const { return is_dirty_; }
     std::string get_string() const {
-      if (string_val) return *string_val;
-      if (int_val) return str::xtos(*int_val);
-      if (bool_val) return *bool_val ? "true" : "false";
+      if (string_val) return string_val.value();
+      if (int_val) return str::xtos(int_val.value());
+      if (bool_val) return bool_val.value() ? "true" : "false";
       return "UNKNOWN TYPE";
     }
     int get_int() const {
       try {
-        if (string_val) return str::stox<int>(*string_val);
-        if (int_val) return *int_val;
-        if (bool_val) return *bool_val ? 1 : 0;
+        if (string_val) return str::stox<int>(string_val.value());
+        if (int_val) return int_val.value();
+        if (bool_val) return bool_val.value() ? 1 : 0;
         return -1;
       } catch (const std::exception &) {
         return -1;
       }
     }
     bool get_bool() const {
-      if (string_val) return string_to_bool(*string_val);
-      if (int_val) return *int_val == 1 ? true : false;
-      if (bool_val) return *bool_val;
+      if (string_val) return string_to_bool(string_val.value());
+      if (int_val) return int_val.value() == 1 ? true : false;
+      if (bool_val) return bool_val.value();
       return false;
     }
   };
@@ -167,7 +167,7 @@ class settings_interface_impl : public settings_interface {
         return T::get_from_child(child, lookup);
       }
     }
-    if (val) settings_cache_[lookup] = conainer(*val, false);
+    if (val) settings_cache_[lookup] = conainer(val.value(), false);
     return val;
   }
 
@@ -194,7 +194,7 @@ class settings_interface_impl : public settings_interface {
       }
     }
 
-    bool unchanged = (current && *current == value) || (!current && T::is_default(value));
+    bool unchanged = (current && current.value() == value) || (!current && T::is_default(value));
     settings_cache_[cache_key_type(path, key)] = conainer(value, !unchanged);
     path_cache_.insert(path);
     core_->register_path(99, path, "in flight", "TODO", true, false, false);
@@ -239,7 +239,7 @@ class settings_interface_impl : public settings_interface {
   /// @return the string value
   virtual std::string get_string(std::string path, std::string key, std::string def) {
     op_string val = get_string(path, key);
-    if (val) return *val;
+    if (val) return val.value();
     return def;
   }
   //////////////////////////////////////////////////////////////////////////
@@ -523,7 +523,7 @@ class settings_interface_impl : public settings_interface {
     for (const std::string &key : list) {
       settings_interface::op_string val = get_string(path, key);
       if (val)
-        other->set_string(path, key, *val);
+        other->set_string(path, key, val.value());
       else
         other->set_string(path, key, "");
     }
@@ -731,7 +731,7 @@ class settings_interface_impl : public settings_interface {
           current = op_string();
         }
         if (current) {
-          ce.old_value = *current;
+          ce.old_value = current.value();
           ce.kind = change_entry::change_kind::modified;
         } else {
           ce.kind = change_entry::change_kind::added;
@@ -747,7 +747,7 @@ class settings_interface_impl : public settings_interface {
         try {
           op_string current = get_real_string(v);
           if (current) {
-            ce.old_value = *current;
+            ce.old_value = current.value();
           }
         } catch (...) {
         }

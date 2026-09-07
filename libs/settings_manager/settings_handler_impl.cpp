@@ -34,7 +34,7 @@ void settings::settings_handler_impl::update_defaults(bool include_samples) {
           settings_interface::op_string val = get()->get_string(path, key);
           if (val) {
             get_logger()->debug("settings", __FILE__, __LINE__, "Setting old (already exists): " + key_to_string(path, key));
-            get()->set_string(path, key, *val);
+            get()->set_string(path, key, val.value());
           }
         }
       } else {

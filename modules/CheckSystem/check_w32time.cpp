@@ -60,7 +60,7 @@ bool is_local_clock(const std::string &source) {
 
 boost::optional<long long> us_to_ms(const boost::optional<long long> &microseconds) {
   if (!microseconds) return boost::none;
-  return *microseconds / 1000;
+  return microseconds.value() / 1000;
 }
 
 w32time_obj build_w32time_obj(const w32time_data &data, const long long now_epoch) {
@@ -112,7 +112,7 @@ w32time_obj build_w32time_obj(const w32time_data &data, const long long now_epoc
   // and with neither we do not cry wolf.
   const bool no_sync = boost::iequals(obj.sync_type, "NoSync");
   const bool live_source_known = obj.source_from == "service";
-  const bool no_source_in_use = !live_source_known && obj.time_sources && *obj.time_sources == 0;
+  const bool no_source_in_use = !live_source_known && obj.time_sources && obj.time_sources.value() == 0;
   if (obj.running == 0 || no_sync) {
     obj.synchronized = 0;
   } else if (live_source_known) {
@@ -121,7 +121,7 @@ w32time_obj build_w32time_obj(const w32time_data &data, const long long now_epoc
     obj.synchronized = no_source_in_use ? 0 : 1;
   }
 
-  const std::string offset_suffix = obj.offset ? " (offset " + str::xtos(*obj.offset) + "ms)" : "";
+  const std::string offset_suffix = obj.offset ? " (offset " + str::xtos(obj.offset.value()) + "ms)" : "";
   if (obj.installed == 0) {
     obj.state = "the Windows Time service is not installed";
   } else if (obj.running == 0) {

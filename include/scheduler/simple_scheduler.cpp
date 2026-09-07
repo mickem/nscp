@@ -108,7 +108,7 @@ void scheduler::run_now(const int id, const boost::posix_time::time_duration del
     log_error(__FILE__, __LINE__, "Cannot run unknown task: " + str::xtos(id));
     return;
   }
-  reschedule_at(item->tag, id, now() + delay, true);
+  reschedule_at(item.value().tag, id, now() + delay, true);
 }
 void scheduler::remove_task(const int id) {
   boost::mutex::scoped_lock l(mutex_);
@@ -229,23 +229,23 @@ void scheduler::thread_proc(const int id) {
           // Snapshot once: a second read could observe a different value, and
           // the null check has to apply to the pointer we actually call.
           if (handler *h = handler_.load()) {
-            to_reschedule = h->handle_schedule(*item);
+            to_reschedule = h->handle_schedule(item.value());
           }
           boost::posix_time::time_duration duration = now() - now_time;
 
           my_atomic_add(&metric_time, static_cast<uint32_t>(duration.total_milliseconds()));
           atomic_inc32(&metric_count);
           if (to_reschedule) {
-            reschedule(*item, now_time);
+            reschedule(item.value(), now_time);
             atomic_inc32(&metric_compleated);
           } else {
             atomic_inc32(&metric_errors);
-            log_trace(__FILE__, __LINE__, "Abandoning: " + item->to_string());
+            log_trace(__FILE__, __LINE__, "Abandoning: " + item.value().to_string());
           }
         } catch (...) {
           atomic_inc32(&metric_errors);
-          log_error(__FILE__, __LINE__, "UNKNOWN ERROR RUNNING TASK: " + item->tag);
-          reschedule(*item, now_time);
+          log_error(__FILE__, __LINE__, "UNKNOWN ERROR RUNNING TASK: " + item.value().tag);
+          reschedule(item.value(), now_time);
         }
       } else {
         atomic_inc32(&metric_errors);

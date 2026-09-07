@@ -69,9 +69,9 @@ struct schedule_object : public nscapi::settings_objects::object_instance_interf
        << "{tpl: " << parent::to_string() << ", command: " << command << ", channel: " << channel << ", source_id: " << source_id
        << ", target_id: " << target_id;
     if (duration) {
-      ss << ", duration: " << (*duration).total_seconds() << "s, " << (randomness * 100) << "% randomness";
+      ss << ", duration: " << duration.value().total_seconds() << "s, " << (randomness * 100) << "% randomness";
     }
-    if (schedule) ss << ", schedule: " << *schedule;
+    if (schedule) ss << ", schedule: " << schedule.value();
     if (run_on_startup) ss << ", run on startup";
     ss << "}";
     return ss.str();
