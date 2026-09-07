@@ -75,6 +75,7 @@ struct logger : log_interface {
   virtual void raw(const std::string &message) = 0;
 
   virtual void add_subscriber(logging_subscriber_instance subscriber) = 0;
+  virtual void remove_subscriber(logging_subscriber_instance subscriber) = 0;
   virtual void clear_subscribers() = 0;
 
   virtual bool startup() = 0;

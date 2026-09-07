@@ -29,6 +29,8 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
   ::dll::dll_impl module_;
   bool loaded_;
   bool loading_;
+  // Set once unload_plugin has run; nothing is delivered to the module after.
+  bool unloaded_ = false;
   bool broken_;
   bool started_;
 

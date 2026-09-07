@@ -30,7 +30,7 @@ extern int NSModuleHelperInit(unsigned int, nscapi::core_api::lpNSAPILoader f) {
 extern int NSLoadModuleEx(unsigned int id, char* alias, int mode) {
 	try {
 		nscapi::basic_wrapper_static<plugin_impl_class>::set_alias("dotnet", alias);
-		nscapi::basic_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
+		nscapi::basic_wrapper<plugin_impl_class> wrapper(plugin_instance.create(id));
 		return wrapper.NSLoadModuleExNoExcept(id, alias, mode);
 	} catch (System::Exception^ e) {
 		NSC_LOG_ERROR("Exception in NSLoadModuleEx: " + to_nstring(e->Message));
@@ -63,7 +63,7 @@ extern void NSHandleMessage(unsigned int id, const char* request_buffer, unsigne
 	return wrapper.NSHandleMessage(request_buffer, request_buffer_len);
 }
 extern NSCAPI::boolReturn NSHasMessageHandler(unsigned int id) {
-	nscapi::message_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
+	nscapi::message_wrapper<plugin_impl_class> wrapper(plugin_instance.create(id));
 	return wrapper.NSHasMessageHandler();
 }
 extern NSCAPI::nagiosReturn NSHandleCommand(unsigned int id, const char* request_buffer, const unsigned int request_buffer_len, char** reply_buffer, unsigned int *reply_buffer_len) {
@@ -71,7 +71,7 @@ extern NSCAPI::nagiosReturn NSHandleCommand(unsigned int id, const char* request
 	return wrapper.NSHandleCommand(request_buffer, request_buffer_len, reply_buffer, reply_buffer_len);
 }
 extern NSCAPI::boolReturn NSHasCommandHandler(unsigned int id) {
-	nscapi::command_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
+	nscapi::command_wrapper<plugin_impl_class> wrapper(plugin_instance.create(id));
 	return wrapper.NSHasCommandHandler();
 }
 extern int NSCommandLineExec(unsigned int id, int target_mode, char *request_buffer, unsigned int request_len, char **response_buffer, unsigned int *response_len) {
@@ -83,7 +83,7 @@ extern int NSHandleNotification(unsigned int id, const char* channel, const char
 	return wrapper.NSHandleNotification(channel, buffer, buffer_len, response_buffer, response_buffer_len);
 }
 extern NSCAPI::boolReturn NSHasNotificationHandler(unsigned int id) {
-	nscapi::submission_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
+	nscapi::submission_wrapper<plugin_impl_class> wrapper(plugin_instance.create(id));
 	return wrapper.NSHasNotificationHandler();
 }
 

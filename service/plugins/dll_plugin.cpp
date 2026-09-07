@@ -363,6 +363,9 @@ void nsclient::core::dll_plugin::deleteBuffer(char **buffer) {
  */
 void nsclient::core::dll_plugin::handleMessage(const char *data, unsigned int len) {
   if (!fHandleMessage) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
+  // A log line racing the unload must not call into an instance that
+  // unload_plugin has torn down.
+  if (unloaded_) return;
   try {
     fHandleMessage(get_id(), data, len);
   } catch (...) {
@@ -382,6 +385,7 @@ void nsclient::core::dll_plugin::unload_plugin() {
   if (!loaded_ && !loading_) return;
   loaded_ = false;
   loading_ = false;
+  unloaded_ = true;
   if (!fUnLoadModule) throw plugin_exception(get_alias_or_name(), "Critical error (fUnLoadModule)");
   try {
     fUnLoadModule(get_id());
