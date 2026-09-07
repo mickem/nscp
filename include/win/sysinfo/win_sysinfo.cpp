@@ -36,7 +36,7 @@ typedef LONG(NTAPI *tNtQuerySystemInformation)(SYSTEM_INFORMATION_CLASS SystemIn
                                                PULONG ReturnLength);
 typedef DWORD(WINAPI *tWTSGetActiveConsoleSessionId)();
 
-typedef BOOL (*tWTSQueryUserToken)(ULONG SessionId, PHANDLE phToken);
+typedef BOOL(WINAPI *tWTSQueryUserToken)(ULONG SessionId, PHANDLE phToken);
 
 tEnumServicesStatusEx pEnumServicesStatusEx = nullptr;
 tQueryServiceConfig2 pQueryServiceConfig2 = nullptr;
