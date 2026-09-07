@@ -3,6 +3,7 @@
 
 #include "WEBServer.h"
 
+#include <str/saturate.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/json.hpp>
 #include <boost/program_options.hpp>
@@ -941,8 +942,9 @@ bool WEBServer::password(const PB::Commands::ExecuteRequestMessage::Request &req
 
 namespace {
 json::value gauge_to_json(double v) {
-  if (std::trunc(v) == v && v >= static_cast<double>(std::numeric_limits<std::int64_t>::min()) &&
-      v <= static_cast<double>(std::numeric_limits<std::int64_t>::max())) {
+  // fits_int64 bounds at 2^63 exactly: numeric_limits::max() rounds up to
+  // 2^63 as a double, so the old comparison admitted that one value.
+  if (std::trunc(v) == v && str::fits_int64(v)) {
     return json::value(static_cast<std::int64_t>(v));
   }
   return json::value(v);
