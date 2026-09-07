@@ -406,10 +406,10 @@ template <class T>
 T decode_byte_units(const T value, const std::string &unit) {
   if (unit.empty()) return value;
   if (unit[0] == 'B' || unit[0] == 'b') return value;
-  if (unit[0] == 'K' || unit[0] == 'k') return value * 1024;
-  if (unit[0] == 'M' || unit[0] == 'm') return value * 1024 * 1024;
-  if (unit[0] == 'G' || unit[0] == 'g') return value * 1024 * 1024 * 1024;
-  if (unit[0] == 'T' || unit[0] == 't') return value * 1024 * 1024 * 1024 * 1024;
+  if (unit[0] == 'K' || unit[0] == 'k') return mul_checked(value, 1024LL, "size");
+  if (unit[0] == 'M' || unit[0] == 'm') return mul_checked(value, 1024LL * 1024, "size");
+  if (unit[0] == 'G' || unit[0] == 'g') return mul_checked(value, 1024LL * 1024 * 1024, "size");
+  if (unit[0] == 'T' || unit[0] == 't') return mul_checked(value, 1024LL * 1024 * 1024 * 1024, "size");
   return value;
 }
 inline long long decode_byte_units(const std::string &s) {
