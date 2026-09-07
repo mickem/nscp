@@ -9,6 +9,7 @@
 #include <cmath>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <list>
 #include <locale>
 #include <sstream>
@@ -269,19 +270,34 @@ inline void validate_time_spec(const std::string &time) {
   if (i != time.size()) throw std::invalid_argument("Invalid time specification: '" + time + "'");
 }
 
+// value * factor, or std::out_of_range when the product does not fit T. The
+// digits of a unit-suffixed number are range-checked by the parser, but the
+// unit multiplier applied afterwards was not, so "5000000w" fit a 32-bit long
+// and then overflowed it (signed overflow is undefined behaviour).
+template <class T>
+T mul_checked(const T value, const long long factor, const std::string &what) {
+  if (factor > 0) {
+    const T f = static_cast<T>(factor);
+    if (value > (std::numeric_limits<T>::max)() / f) throw std::out_of_range(what + " is too large");
+    if (value < (std::numeric_limits<T>::lowest)() / f) throw std::out_of_range(what + " is too small");
+  }
+  return value * static_cast<T>(factor);
+}
+
 template <class T>
 T decode_time(const std::string &time, unsigned int factor = 1) {
   validate_time_spec(time);
   const auto p = time.find_first_of("sSmMhHdDwW");
   const auto pend = time.find_first_not_of("0123456789");
   T value = boost::lexical_cast<T>(pend == std::string::npos ? time : time.substr(0, pend));
-  if (p == std::string::npos) return value * factor;
-  if ((time[p] == 's') || (time[p] == 'S')) return value * factor;
-  if ((time[p] == 'm') || (time[p] == 'M')) return value * 60 * factor;
-  if ((time[p] == 'h') || (time[p] == 'H')) return value * 60 * 60 * factor;
-  if ((time[p] == 'd') || (time[p] == 'D')) return value * 24 * 60 * 60 * factor;
-  if ((time[p] == 'w') || (time[p] == 'W')) return value * 7 * 24 * 60 * 60 * factor;
-  return value * factor;
+  const long long f = static_cast<long long>(factor);
+  if (p == std::string::npos) return mul_checked(value, f, time);
+  if ((time[p] == 's') || (time[p] == 'S')) return mul_checked(value, f, time);
+  if ((time[p] == 'm') || (time[p] == 'M')) return mul_checked(value, 60 * f, time);
+  if ((time[p] == 'h') || (time[p] == 'H')) return mul_checked(value, 60 * 60 * f, time);
+  if ((time[p] == 'd') || (time[p] == 'D')) return mul_checked(value, 24 * 60 * 60 * f, time);
+  if ((time[p] == 'w') || (time[p] == 'W')) return mul_checked(value, 7 * 24 * 60 * 60 * f, time);
+  return mul_checked(value, f, time);
 }
 
 #define WEEK (7 * 24 * 60 * 60 * 1000)
@@ -380,7 +396,7 @@ T stox_as_time_sec(const std::string &time, const std::string &default_unit) {
   if (p != std::string::npos) {
     unit = time.substr(p);
   }
-  return value * static_cast<T>(time_unit_multiplier(unit));
+  return mul_checked(value, time_unit_multiplier(unit), time);
 }
 
 //
