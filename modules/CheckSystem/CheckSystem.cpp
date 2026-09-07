@@ -185,6 +185,9 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     detect_sql_server_tag(get_core());
   }
   std::map<std::string, std::string> service_tags;
+  // A reload replaces the collector: stop the running one first so its
+  // threads are joined before the checks start reading the new instance.
+  if (collector) collector->stop();
   collector.reset(new pdh_thread(get_core(), get_id()));
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("system", alias, "windows");

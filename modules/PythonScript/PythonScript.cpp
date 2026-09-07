@@ -54,7 +54,9 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 #endif
         ;
 
-    provider_ = std::make_shared<script_provider>(get_id(), get_core(), root_);
+    // Construct once: a reload would otherwise replace the provider under
+    // the query threads that hold it.
+    if (!provider_) provider_ = std::make_shared<script_provider>(get_id(), get_core(), root_);
 
     // clang-format off
     settings.alias().add_path_to_settings()
