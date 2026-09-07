@@ -85,7 +85,7 @@ eventlog_filter::filter::object_type eventlog_wrapper_new::read_record(HANDLE &h
   __time64_t ltime;
   _time64(&ltime);
 
-  eventlog::api::EVT_HANDLE hEvents[1];
+  eventlog::api::EVT_HANDLE hEvents[1] = {nullptr};
   DWORD dwReturned = 0;
   if (!eventlog::EvtNext(hLog, 1, hEvents, 100, 0, &dwReturned)) {
     DWORD status = GetLastError();
@@ -97,6 +97,8 @@ eventlog_filter::filter::object_type eventlog_wrapper_new::read_record(HANDLE &h
       return eventlog_filter::filter::object_type();
     }
   }
+  // EvtNext can fail with ERROR_SUCCESS and hand back nothing.
+  if (dwReturned == 0 || hEvents[0] == nullptr) return eventlog_filter::filter::object_type();
   return eventlog_filter::filter::object_type(new eventlog_filter::new_filter_obj(ltime, name, hEvents[0], hContext, 0));
 }
 
