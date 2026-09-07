@@ -78,6 +78,8 @@ void publish_drives_tag(const nscapi::core_wrapper *core) {
 }  // namespace
 
 bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
+  // A reload replaces the collector: stop the running one first.
+  if (collector_) collector_->stop();
   collector_.reset(new collector_thread(get_core(), get_id()));
 
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));

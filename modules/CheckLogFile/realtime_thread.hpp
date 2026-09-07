@@ -27,6 +27,8 @@ struct real_time_thread {
   bool cache_;
 
   real_time_thread(nscapi::core_wrapper *core, int plugin_id) : core(core), plugin_id(plugin_id), enabled_(false), debug_(false), cache_(false) {}
+  // Join the monitor before the stop signal and filters it uses are gone.
+  ~real_time_thread() { stop(); }
 
   void add_realtime_filter(nscapi::settings_helper::settings_impl_interface_ptr proxy, std::string key, std::string query);
   void ensure_default(nscapi::settings_helper::settings_impl_interface_ptr proxy);

@@ -43,6 +43,8 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias(alias, "eventlog");
 
+  // A reload replaces the monitor: stop the running one first.
+  if (thread_) thread_->stop();
   thread_.reset(new real_time_thread(get_core(), get_id()));
   if (!thread_) {
     NSC_LOG_ERROR_STD("Failed to create thread container");

@@ -51,7 +51,9 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   settings.set_alias("system", alias, "unix");
   std::map<std::string, std::string> service_tags;
 
-  // Start the CPU collector thread
+  // Start the CPU collector thread. On a reload the previous collector is
+  // still running; stop it before it is replaced.
+  if (collector_) collector_->stop();
   collector_ = std::shared_ptr<pdh_thread>(new pdh_thread());
   collector_->set_core(get_core(), get_id());
   collector_->set_path(settings.alias().get_settings_path("real-time/cpu"), settings.alias().get_settings_path("real-time/memory"),
