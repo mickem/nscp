@@ -613,7 +613,7 @@ class volume_helper {
     DWORD maximumComponentLength, fileSystemFlags;
     type = 0;
     std::wstring vfile = volume;
-    if (vfile[vfile.size() - 1] == '\\') vfile = vfile.substr(0, vfile.size() - 1);
+    if (!vfile.empty() && vfile.back() == L'\\') vfile.pop_back();
 
     HANDLE hDevice = CreateFile(vfile.c_str(), 0, 0, 0, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING, 0);
     if (hDevice != INVALID_HANDLE_VALUE) {
