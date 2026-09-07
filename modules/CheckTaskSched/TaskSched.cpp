@@ -38,8 +38,9 @@ void find_old(tasksched_filter::filter &filter) {
     while (dwFetchedTasks) {
       CComPtr<ITask> task;
       std::string title = utf8::cvt<std::string>(lpwszNames[--dwFetchedTasks]);
-      taskSched->Activate(lpwszNames[dwFetchedTasks], IID_ITask, reinterpret_cast<IUnknown **>(&task));
+      const HRESULT activated = taskSched->Activate(lpwszNames[dwFetchedTasks], IID_ITask, reinterpret_cast<IUnknown **>(&task));
       CoTaskMemFree(lpwszNames[dwFetchedTasks]);
+      if (FAILED(activated) || !task) continue;
       std::shared_ptr<tasksched_filter::filter_obj> record(new tasksched_filter::old_filter_obj((ITask *)task, title));
       modern_filter::match_result ret = filter.match(record);
     }
