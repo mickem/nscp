@@ -16,6 +16,14 @@ node_type get_column_fun(const value_type, evaluation_context context, const nod
   node_type f = l.front();
   long long idx = f->get_int_value(context);
   logfile_filter::native_context* n_context = reinterpret_cast<logfile_filter::native_context*>(context.get());
+  if (!n_context->has_object()) {
+    // No line is bound while match_post() force-evaluates warn/crit for an
+    // empty result set; reading the object there is undefined behaviour and
+    // used to corrupt the heap (#1499). Report unsure-false instead, as the
+    // built-in object bound variables do on the same path.
+    context->warn("Failed to evaluate column no object instance");
+    return factory::create_num(value_container::create_bool(false, true));
+  }
   std::string value = n_context->get_object()->get_column(idx);
   return factory::create_string(value);
 }

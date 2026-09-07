@@ -20,6 +20,10 @@ typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 // Exposed for unit testing
 bool check_state_is_perfect(DWORD state, DWORD start_type, bool trigger);
 bool check_state_is_ok(DWORD state, DWORD start_type, bool delayed, bool trigger, DWORD exit_code);
+parsers::where::node_type state_is_ok(parsers::where::value_type type, const parsers::where::evaluation_context &context,
+                                      const parsers::where::node_type &subject);
+parsers::where::node_type state_is_perfect(parsers::where::value_type type, const parsers::where::evaluation_context &context,
+                                           const parsers::where::node_type &subject);
 }  // namespace check_svc_filter
 void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 }  // namespace service_checks
