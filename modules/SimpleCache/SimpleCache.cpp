@@ -99,6 +99,11 @@ bool SimpleCache::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   if (!parser.parse(primary_key, result)) {
     NSC_LOG_ERROR_STD("Failed to parse primary key: " + primary_key)
   }
+  // Rebuilt on every reload: take the writer lock so the submission and
+  // check threads never iterate a list being appended to, and start empty.
+  boost::unique_lock<boost::shared_mutex> lock(cache_mutex_);
+  index_lookup_.clear();
+  command_lookup_.clear();
   for (parsers::simple_expression::entry &e : result) {
     if (!e.is_variable) {
       index_lookup_.push_back(simple_string_functor(e.name));
@@ -128,8 +133,11 @@ bool SimpleCache::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 void SimpleCache::handleNotification(const std::string &channel, const PB::Commands::QueryResponseMessage::Response &request,
                                      PB::Commands::SubmitResponseMessage::Response *response, const PB::Commands::SubmitRequestMessage &request_message) {
   std::string key;
-  for (index_lookup_function &f : index_lookup_) {
-    key += f(channel, request_message.header(), request);
+  {
+    boost::shared_lock<boost::shared_mutex> lock(cache_mutex_);
+    for (index_lookup_function &f : index_lookup_) {
+      key += f(channel, request_message.header(), request);
+    }
   }
   std::string data = request.SerializeAsString();
   NSC_DEBUG_MSG("Adding to index: " + key);
@@ -188,6 +196,7 @@ void SimpleCache::check_cache(const PB::Commands::QueryRequestMessage::Request &
   if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) return;
 
   if (key.empty()) {
+    boost::shared_lock<boost::shared_mutex> lock(cache_mutex_);
     for (command_lookup_function &f : command_lookup_) {
       key += f(query);
     }
