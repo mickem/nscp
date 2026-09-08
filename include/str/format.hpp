@@ -272,20 +272,22 @@ inline void validate_time_spec(const std::string &time) {
 }
 
 namespace detail {
-// Integral T: widen to long long rather than narrowing the factor to T. The
-// bound check divides by the factor, and a multiplier that does not fit T (a
-// TB multiplier in a 32-bit T) narrowed to exactly 0, so the guard against
-// overflow divided by zero.
+// Integral T: check that the factor survives the narrowing to T before using
+// it as a divisor. A multiplier that does not fit T - a TB multiplier in a
+// 32-bit T - narrowed to exactly 0, and the guard written to prevent overflow
+// divided by zero instead. The comparison is in unsigned long long because T
+// may itself be unsigned and wider than long long (stox_as_time_sec<unsigned
+// long long>), where a long long would take max() for -1 and reject
+// everything.
 template <class T>
 T mul_checked_impl(const T value, const long long factor, const std::string &what, std::true_type) {
   if (factor <= 0) return value * static_cast<T>(factor);
-  const long long v = static_cast<long long>(value);
-  if (v > (std::numeric_limits<long long>::max)() / factor) throw std::out_of_range(what + " is too large");
-  if (v < (std::numeric_limits<long long>::min)() / factor) throw std::out_of_range(what + " is too small");
-  const long long product = v * factor;
-  if (product > static_cast<long long>((std::numeric_limits<T>::max)())) throw std::out_of_range(what + " is too large");
-  if (product < static_cast<long long>((std::numeric_limits<T>::lowest)())) throw std::out_of_range(what + " is too small");
-  return static_cast<T>(product);
+  if (static_cast<unsigned long long>(factor) > static_cast<unsigned long long>((std::numeric_limits<T>::max)()))
+    throw std::out_of_range(what + " is too large");
+  const T f = static_cast<T>(factor);
+  if (value > (std::numeric_limits<T>::max)() / f) throw std::out_of_range(what + " is too large");
+  if (value < (std::numeric_limits<T>::lowest)() / f) throw std::out_of_range(what + " is too small");
+  return value * f;
 }
 // Floating point T: every multiplier used here is exact in T, and there is no
 // signed-overflow undefined behaviour to guard against - only the range.
