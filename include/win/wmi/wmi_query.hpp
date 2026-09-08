@@ -63,6 +63,16 @@ class wmi_exception : public std::exception {
   HRESULT get_code() const noexcept { return code_; }
 };
 
+// Thrown by query::execute(HANDLE) and row_enumerator::has_next() when the
+// abort event handed to execute() is signalled while the query is in flight.
+// Deliberately NOT a wmi_exception: callers treat those as provider failures
+// (log an error, disable the collector) and an abort is neither, so a
+// `catch (const wmi_exception&)` must not see it.
+class wmi_aborted : public std::exception {
+ public:
+  const char* what() const noexcept override { return "WMI query aborted"; }
+};
+
 struct row {
   CComPtr<IWbemClassObject> row_obj;
   const std::list<std::string>& columns;
@@ -81,7 +91,14 @@ struct row {
 struct row_enumerator {
   row row_instance;
   CComPtr<IEnumWbemClassObject> enumerator_obj;
-  explicit row_enumerator(const std::list<std::string>& columns) : row_instance(columns), enumerator_obj() {}
+  // Optional, not owned. When set the enumerator was opened semisynchronously
+  // and has_next() pulls rows with a bounded wait, checking this event between
+  // waits; once it is signalled the enumerator is released (which cancels the
+  // outstanding WMI operation) and wmi_aborted is thrown. Null means the
+  // classic blocking enumeration.
+  HANDLE abort_event;
+  explicit row_enumerator(const std::list<std::string>& columns, HANDLE abort_event = nullptr)
+      : row_instance(columns), enumerator_obj(), abort_event(abort_event) {}
   bool has_next();
   row& get_next();
 };
@@ -111,6 +128,14 @@ struct query {
 
   std::list<std::string> get_columns();
   row_enumerator execute();
+  // Abortable variant for background collectors: the query runs in WMI's
+  // semisynchronous mode and the returned enumerator watches abort_event (a
+  // manual-reset event, typically a threads::stop_signal handle) so a stop
+  // request interrupts a stalled provider within one poll interval instead of
+  // holding the calling thread until WMI answers. Throws wmi_aborted if the
+  // event is already signalled, or from has_next() once it becomes so. A null
+  // handle behaves exactly like execute().
+  row_enumerator execute(HANDLE abort_event);
 };
 
 struct instances {

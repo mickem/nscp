@@ -10,6 +10,7 @@
 #include <nscapi/protobuf/metrics.hpp>
 #include <parsers/where/node.hpp>
 #include <string>
+#include <threads/stop_signal.hpp>
 #include <win/wmi/wmi_query.hpp>
 
 namespace cpu_frequency_check {
@@ -80,11 +81,13 @@ class cpu_frequency_data {
  public:
   cpu_frequency_data() : fetch_cpu_frequency_(true) {}
 
-  void fetch();
+  // `stop`: see network_data::fetch(); a stop mid-query abandons the WMI
+  // operation, publishes nothing and lets wmi_impl::wmi_aborted propagate.
+  void fetch(const threads::stop_signal *stop = nullptr);
   cpus_type get();
 
  private:
-  static cpus_type query_wmi();
+  static cpus_type query_wmi(HANDLE abort_event = nullptr);
 };
 
 namespace check {

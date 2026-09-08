@@ -110,7 +110,7 @@ void battery_data::query_power_status(batteries_type &batteries) {
   batteries.push_back(info);
 }
 
-void battery_data::query_wmi_battery(batteries_type &batteries) {
+void battery_data::query_wmi_battery(batteries_type &batteries, HANDLE abort_event) {
   if (batteries.empty()) return;
 
   // Try to get additional battery info from WMI BatteryStatus and BatteryStaticData
@@ -119,7 +119,7 @@ void battery_data::query_wmi_battery(batteries_type &batteries) {
   try {
     // BatteryStatus provides dynamic battery information
     wmi_impl::query wmi_status("select Tag, ChargeRate, DischargeRate, RemainingCapacity from BatteryStatus where Active = True", "root\\WMI", "", "");
-    wmi_impl::row_enumerator row = wmi_status.execute();
+    wmi_impl::row_enumerator row = wmi_status.execute(abort_event);
     while (row.has_next()) {
       wmi_impl::row r = row.get_next();
       // Apply to the first battery (we only track one from GetSystemPowerStatus)
@@ -138,7 +138,7 @@ void battery_data::query_wmi_battery(batteries_type &batteries) {
   try {
     // BatteryStaticData provides design capacity information for health calculation
     wmi_impl::query wmi_static("select Tag, DesignedCapacity from BatteryStaticData", "root\\WMI", "", "");
-    wmi_impl::row_enumerator row = wmi_static.execute();
+    wmi_impl::row_enumerator row = wmi_static.execute(abort_event);
     while (row.has_next()) {
       wmi_impl::row r = row.get_next();
       if (!batteries.empty()) {
@@ -154,7 +154,7 @@ void battery_data::query_wmi_battery(batteries_type &batteries) {
   try {
     // BatteryFullChargedCapacity provides current full charge capacity
     wmi_impl::query wmi_full("select Tag, FullChargedCapacity from BatteryFullChargedCapacity", "root\\WMI", "", "");
-    wmi_impl::row_enumerator row = wmi_full.execute();
+    wmi_impl::row_enumerator row = wmi_full.execute(abort_event);
     while (row.has_next()) {
       wmi_impl::row r = row.get_next();
       if (!batteries.empty()) {
@@ -175,13 +175,17 @@ void battery_data::query_wmi_battery(batteries_type &batteries) {
   }
 }
 
-void battery_data::fetch() {
+void battery_data::fetch(const threads::stop_signal *stop) {
   if (!fetch_battery_) return;
 
   batteries_type tmp;
   try {
     query_power_status(tmp);
-    query_wmi_battery(tmp);
+    query_wmi_battery(tmp, stop != nullptr ? stop->native_handle() : nullptr);
+  } catch (const wmi_impl::wmi_aborted &) {
+    // A stop request is not a broken battery driver: keep the collector
+    // enabled and let the caller see the abort.
+    throw;
   } catch (const std::exception &e) {
     fetch_battery_ = false;
     throw nsclient::nsclient_exception("Failed to fetch battery status, disabling: " + std::string(e.what()));

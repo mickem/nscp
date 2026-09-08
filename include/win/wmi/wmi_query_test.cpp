@@ -5,6 +5,9 @@
 
 #ifdef WIN32
 
+#include <list>
+#include <string>
+#include <vector>
 #include <win/wmi/wmi_query.hpp>
 
 // Test fixture for WMI tests that require COM initialization
@@ -463,6 +466,128 @@ TEST_F(WmiQueryTest, WmiServiceInvalidNamespace) {
 
   wmi_impl::wmi_service svc("root\\nonexistent_namespace_xyz", "", "");
   EXPECT_THROW(svc.get(), wmi_impl::wmi_exception);
+}
+
+// ============================================================================
+// Abortable enumeration (query::execute(HANDLE) / row_enumerator::has_next)
+// ============================================================================
+//
+// The WMI side is stood in for by a fake IEnumWbemClassObject that answers
+// Next() from a scripted list of HRESULTs, so the poll/abort logic is exercised
+// deterministically without a stalled provider.
+
+namespace {
+
+class fake_enumerator final : public IEnumWbemClassObject {
+  LONG refs_;
+  std::vector<HRESULT> script_;
+  size_t index_;
+
+ public:
+  int next_calls;
+
+  explicit fake_enumerator(std::vector<HRESULT> script) : refs_(1), script_(std::move(script)), index_(0), next_calls(0) {}
+  LONG refs() const { return refs_; }
+
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override {
+    if (ppv == nullptr) return E_POINTER;
+    if (riid == IID_IUnknown || riid == IID_IEnumWbemClassObject) {
+      *ppv = static_cast<IEnumWbemClassObject*>(this);
+      AddRef();
+      return S_OK;
+    }
+    *ppv = nullptr;
+    return E_NOINTERFACE;
+  }
+  ULONG STDMETHODCALLTYPE AddRef() override { return static_cast<ULONG>(InterlockedIncrement(&refs_)); }
+  // The test owns the object (it outlives the enumerator under test) so the
+  // count is only tracked, never used to delete.
+  ULONG STDMETHODCALLTYPE Release() override { return static_cast<ULONG>(InterlockedDecrement(&refs_)); }
+
+  HRESULT STDMETHODCALLTYPE Reset() override { return WBEM_S_NO_ERROR; }
+  HRESULT STDMETHODCALLTYPE Next(long, ULONG, IWbemClassObject** objects, ULONG* returned) override {
+    ++next_calls;
+    if (objects != nullptr) *objects = nullptr;
+    if (returned != nullptr) *returned = 0;
+    if (index_ >= script_.size()) return WBEM_S_FALSE;
+    return script_[index_++];
+  }
+  HRESULT STDMETHODCALLTYPE NextAsync(ULONG, IWbemObjectSink*) override { return WBEM_E_NOT_SUPPORTED; }
+  HRESULT STDMETHODCALLTYPE Clone(IEnumWbemClassObject**) override { return WBEM_E_NOT_SUPPORTED; }
+  HRESULT STDMETHODCALLTYPE Skip(long, ULONG) override { return WBEM_E_NOT_SUPPORTED; }
+};
+
+struct manual_event {
+  HANDLE h;
+  manual_event() : h(CreateEvent(nullptr, TRUE, FALSE, nullptr)) {}
+  ~manual_event() {
+    if (h != nullptr) CloseHandle(h);
+  }
+  manual_event(const manual_event&) = delete;
+  manual_event& operator=(const manual_event&) = delete;
+};
+
+const std::list<std::string> no_columns;
+
+}  // namespace
+
+TEST(WmiAbortTest, has_next_keeps_polling_while_abort_is_not_signalled) {
+  manual_event abort;
+  ASSERT_NE(abort.h, nullptr);
+  // Two provider timeouts, then "no more rows": the enumeration must ride out
+  // the timeouts and end normally.
+  fake_enumerator fake({WBEM_S_TIMEDOUT, WBEM_S_TIMEDOUT, WBEM_S_FALSE});
+
+  wmi_impl::row_enumerator rows(no_columns, abort.h);
+  rows.enumerator_obj = &fake;
+  EXPECT_FALSE(rows.has_next());
+  EXPECT_EQ(fake.next_calls, 3);
+}
+
+TEST(WmiAbortTest, has_next_throws_wmi_aborted_and_releases_enumerator_once_signalled) {
+  manual_event abort;
+  ASSERT_NE(abort.h, nullptr);
+  // A provider that never answers: the only way out is the abort event.
+  fake_enumerator fake({WBEM_S_TIMEDOUT, WBEM_S_TIMEDOUT, WBEM_S_TIMEDOUT, WBEM_S_TIMEDOUT});
+
+  wmi_impl::row_enumerator rows(no_columns, abort.h);
+  rows.enumerator_obj = &fake;
+  const LONG refs_while_held = fake.refs();
+  SetEvent(abort.h);
+  EXPECT_THROW(rows.has_next(), wmi_impl::wmi_aborted);
+  // Exactly one poll: the abort is noticed on the first timeout.
+  EXPECT_EQ(fake.next_calls, 1);
+  // Released: that is what cancels the outstanding semisynchronous operation.
+  EXPECT_EQ(rows.enumerator_obj.p, nullptr);
+  EXPECT_EQ(fake.refs(), refs_while_held - 1);
+}
+
+TEST(WmiAbortTest, wmi_aborted_is_not_a_wmi_exception) {
+  // Collectors catch wmi_exception to decide "provider broken, disable"; an
+  // abort must fly past those handlers.
+  wmi_impl::wmi_aborted aborted;
+  EXPECT_EQ(dynamic_cast<wmi_impl::wmi_exception*>(&aborted), nullptr);
+  EXPECT_NE(dynamic_cast<std::exception*>(&aborted), nullptr);
+  EXPECT_STREQ(aborted.what(), "WMI query aborted");
+}
+
+TEST(WmiAbortTest, has_next_without_abort_event_is_unchanged) {
+  fake_enumerator fake({WBEM_S_FALSE});
+  wmi_impl::row_enumerator rows(no_columns);
+  rows.enumerator_obj = &fake;
+  EXPECT_FALSE(rows.has_next());
+  EXPECT_EQ(fake.next_calls, 1);
+}
+
+TEST(WmiAbortTest, execute_with_signalled_abort_throws_before_connecting) {
+  manual_event abort;
+  ASSERT_NE(abort.h, nullptr);
+  SetEvent(abort.h);
+  // No COM initialisation in this test: if execute() reached ConnectServer it
+  // would fail with a wmi_exception, not wmi_aborted.
+  wmi_impl::query q("select Name from Win32_Processor", "root\\cimv2", "", "");
+  EXPECT_THROW(q.execute(abort.h), wmi_impl::wmi_aborted);
+  EXPECT_FALSE(q.instance.is_initialized);
 }
 
 #endif  // WIN32

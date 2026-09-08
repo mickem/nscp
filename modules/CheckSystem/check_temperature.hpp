@@ -8,6 +8,7 @@
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/metrics.hpp>
 #include <string>
+#include <threads/stop_signal.hpp>
 #include <win/wmi/wmi_query.hpp>
 
 namespace temperature_check {
@@ -62,12 +63,14 @@ class temperature_data {
  public:
   temperature_data() : fetch_temperature_(true), use_fallback_(false) {}
 
-  void fetch();
+  // `stop`: see network_data::fetch(); a stop mid-query abandons the WMI
+  // operation, publishes nothing and lets wmi_impl::wmi_aborted propagate.
+  void fetch(const threads::stop_signal *stop = nullptr);
   zones_type get();
 
  private:
-  void query_acpi(zones_type &zones);
-  void query_perf(zones_type &zones);
+  void query_acpi(zones_type &zones, HANDLE abort_event);
+  void query_perf(zones_type &zones, HANDLE abort_event);
 };
 
 namespace check {

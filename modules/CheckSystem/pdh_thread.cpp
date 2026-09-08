@@ -12,6 +12,7 @@
 #include <str/utils_no_boost.hpp>
 #include <win/com_helpers.hpp>
 #include <win/processes.hpp>
+#include <win/wmi/wmi_query.hpp>
 
 #include "check_memory.hpp"
 #include "check_process.hpp"
@@ -568,6 +569,10 @@ template <class Fetcher>
 void run_fetch(const std::string &what, Fetcher fetch) {
   try {
     fetch();
+  } catch (const wmi_impl::wmi_aborted &) {
+    // The collector is stopping and the fetch let go of its WMI query; the
+    // previous sample stays published, so this is not an error.
+    NSC_DEBUG_MSG("Aborted collecting " + what + ": collector is stopping");
   } catch (const nsclient::nsclient_exception &e) {
     NSC_LOG_ERROR("Failed to get " + what + ": " + e.reason());
   } catch (const std::exception &e) {
@@ -626,13 +631,15 @@ void pdh_thread::aux_thread_proc() {
       // provider, and stop() joins this thread, so a stop that lands during
       // one fetch must not start the next (#1504).
       const auto stop_requested = [this] { return WaitForSingleObject(stop_signal_.native_handle(), 0) == WAIT_OBJECT_0; };
-      if (!disable_network && !stop_requested()) run_fetch("network metrics", [this] { network.fetch(); });
-      if (!disable_temperature && !stop_requested()) run_fetch("temperature metrics", [this] { temperature.fetch(); });
-      if (!disable_cpu_frequency && !stop_requested()) run_fetch("CPU frequency metrics", [this] { cpu_frequency.fetch(); });
-      if (!disable_battery && !stop_requested()) run_fetch("battery metrics", [this] { battery.fetch(); });
+      // Every fetch is handed the stop signal so that a WMI provider stall
+      // (or the WUA search below) is abandoned as soon as stop() fires.
+      if (!disable_network && !stop_requested()) run_fetch("network metrics", [this] { network.fetch(&stop_signal_); });
+      if (!disable_temperature && !stop_requested()) run_fetch("temperature metrics", [this] { temperature.fetch(&stop_signal_); });
+      if (!disable_cpu_frequency && !stop_requested()) run_fetch("CPU frequency metrics", [this] { cpu_frequency.fetch(&stop_signal_); });
+      if (!disable_battery && !stop_requested()) run_fetch("battery metrics", [this] { battery.fetch(&stop_signal_); });
       // os_updates.fetch() is a no-op until its internal TTL has elapsed
-      // (default 1h). The search itself can take minutes, so it is handed the
-      // stop signal and aborts the in-flight WUA job when stop() fires.
+      // (default 1h). The search itself can take minutes; it aborts the
+      // in-flight WUA job when stop() fires.
       if (!disable_os_updates && !stop_requested()) {
         run_fetch("OS updates metrics", [this] {
           if (!os_updates.fetch(&stop_signal_)) NSC_DEBUG_MSG("OS updates search aborted: collector is stopping");
