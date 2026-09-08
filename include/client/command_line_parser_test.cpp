@@ -745,6 +745,78 @@ TEST(client_host_override, the_query_path_honours_the_target_argument) {
   EXPECT_EQ(f.handler->last_target.get_string_data("token"), "backup-token");
 }
 
+TEST(client_host_override, a_credential_in_the_configured_url_counts_as_a_credential) {
+  // The credential does not have to sit in a key named "token": this project
+  // documents `address = https://server/submit.php?token=SECRET`, and set_host
+  // keeps the query string, so a bare host= used to redirect the whole URL -
+  // secret and all - to a caller-chosen host while the guard saw no
+  // credentials to protect.
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/submit.php?token=SECRET"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--host", "attacker.example"}), response);
+
+  EXPECT_EQ(f.handler->query_calls, 0) << first_message(response);
+  EXPECT_NE(first_message(response).find("carries credentials"), std::string::npos) << first_message(response);
+}
+
+TEST(client_host_override, a_password_in_the_configured_url_userinfo_counts_too) {
+  fixture f;
+  f.add_target("default", {{"address", "https://user:s3cret@nrdp.example.com/nrdp/"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--host", "attacker.example"}), response);
+
+  EXPECT_EQ(f.handler->query_calls, 0) << first_message(response);
+  EXPECT_NE(first_message(response).find("carries credentials"), std::string::npos) << first_message(response);
+}
+
+TEST(client_host_override, a_url_without_a_secret_still_accepts_the_override) {
+  // Only credentials lock a target down: a plain URL, or a userinfo with no
+  // password, leaves the multi-host use working.
+  fixture f;
+  f.add_target("default", {{"address", "https://user@nrdp.example.com/nrdp/?format=json"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--host", "agent7.example.com"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.get_host(), "agent7.example.com");
+}
+
+TEST(client_host_override, a_selected_target_that_names_no_address_cannot_be_pointed_anywhere) {
+  // host= is parsed before target= is applied, and apply() used to record
+  // whatever address was in the container as the "configured" one. A target
+  // that carries a credential but names no address of its own therefore had
+  // the caller's host written down as its own, and the guard compared that
+  // host against itself and let the credential through.
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}});
+  f.add_target("creds", {{"token", "s3cret"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"host=attacker.example", "target=creds"}), response);
+
+  EXPECT_EQ(f.handler->query_calls, 0) << first_message(response);
+  EXPECT_NE(first_message(response).find("carries credentials"), std::string::npos) << first_message(response);
+}
+
+TEST(client_host_override, a_target_without_its_own_address_is_fine_when_the_request_moves_nothing) {
+  // The same target, with no host= in the request: the destination is the
+  // configured one, so there is nothing to refuse.
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}});
+  f.add_target("creds", {{"token", "s3cret"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"target=creds"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.get_host(), "nrdp.example.com");
+  EXPECT_EQ(f.handler->last_target.get_string_data("token"), "s3cret");
+}
+
 TEST(client_host_override, an_explicit_option_still_beats_the_target_it_selects) {
   // The re-parse after applying target=: an option the caller gave explicitly
   // has to win over what the selected target says.
