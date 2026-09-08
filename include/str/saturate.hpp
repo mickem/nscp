@@ -15,11 +15,13 @@ namespace str {
 // itself rounds up to 2^63 as a double and would admit that value.
 inline bool fits_int64(double v) { return !std::isnan(v) && v < 9223372036854775808.0 && v >= -9223372036854775808.0; }
 
+// Truncates toward zero, exactly like the static_cast<long long> it replaces:
+// the filter engine documents `9.7` as `9`, so this must not round.
 inline long long to_int64_saturating(double v) {
   if (std::isnan(v)) return 0;
   if (v >= 9223372036854775808.0) return (std::numeric_limits<long long>::max)();
   if (v <= -9223372036854775808.0) return (std::numeric_limits<long long>::min)();
-  return std::llround(v);
+  return static_cast<long long>(v);
 }
 
 }  // namespace str
