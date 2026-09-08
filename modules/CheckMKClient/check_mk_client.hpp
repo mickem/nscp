@@ -4,6 +4,7 @@
 #pragma once
 
 #include <boost/scoped_ptr.hpp>
+#include <boost/thread/locks.hpp>
 #include <net/check_mk/client/client_protocol.hpp>
 #include <net/socket/client.hpp>
 #include <nscapi/macros.hpp>
@@ -111,6 +112,10 @@ struct check_mk_client_handler : public client::handler_interface {
       client.connect();
       std::string dummy;
       check_mk::packet packet = client.process_request(dummy);
+      // As in CheckMKServer: the command map is rewritten by register_command
+      // and unload_all, and the definition points at a script unload_all
+      // deletes, so hold the dispatch lock across the lookup and the call.
+      boost::shared_lock<boost::shared_mutex> dispatch(scripts_->dispatch_mutex());
       boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts_->find_command("check_mk", "c_callback");
       if (cmd) {
         parse_data(cmd.value().information, cmd.value().function, packet);

@@ -372,7 +372,16 @@ void nsclient::core::dll_plugin::deleteBuffer(char **buffer) {
 void nsclient::core::dll_plugin::handleMessage(const char *data, unsigned int len) {
   if (!fHandleMessage) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
   // A log line racing the unload must not call into an instance that
-  // unload_plugin has torn down.
+  // unload_plugin has torn down. Unlike every other entry point this one does
+  // NOT take the shared dispatch lock: simple_console_logger dispatches
+  // subscribers synchronously on the caller's thread, so a module that logs
+  // from inside its own fUnLoadModule would arrive here on the thread already
+  // holding dispatch_mutex_ exclusively and deadlock. The flag is atomic
+  // instead, which orders this read against unload_plugin's write without
+  // making the unload wait on a log callback. That leaves a narrow window --
+  // an unload starting between this check and the call below still tears the
+  // instance down under it -- which closing properly needs a lock this path
+  // can reach without deadlocking.
   if (unloaded_) return;
   try {
     fHandleMessage(get_id(), data, len);

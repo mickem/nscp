@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <boost/thread/locks.hpp>
 #include <boost/thread/shared_mutex.hpp>
 #include <NSCAPI.h>
@@ -36,7 +37,9 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
   // down under them.
   boost::shared_mutex dispatch_mutex_;
   // Set once unload_plugin has run; nothing is delivered to the module after.
-  bool unloaded_ = false;
+  // Atomic because handleMessage reads it off the logger path without the
+  // dispatch lock (see dll_plugin.cpp for why it cannot take one).
+  std::atomic<bool> unloaded_{false};
   bool broken_;
   bool started_;
 
