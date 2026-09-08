@@ -4,7 +4,6 @@
 #pragma once
 
 #include <mutex>
-#include <shared_mutex>
 #include <boost/asio/ip/address.hpp>
 #include <list>
 #include <string>
@@ -32,8 +31,13 @@ struct allowed_hosts_manager {
   std::list<std::string> sources;
   bool cached;
   // set_source()/refresh() rewrite the lists on the settings thread while
-  // is_allowed() walks them on every accepting thread.
-  mutable std::shared_mutex entries_mutex_;
+  // is_allowed() walks them on every accepting thread. A plain mutex, not a
+  // shared_mutex: installer_lib compiles this header as its own C++14 project
+  // for the XP-compatible custom actions (it even defines
+  // BOOST_NO_CXX17_HDR_SHARED_MUTEX), so std::shared_mutex is not available
+  // here. The critical section is a short list walk per accepted connection,
+  // so there is nothing to win from a reader/writer lock anyway.
+  mutable std::mutex entries_mutex_;
 
   allowed_hosts_manager() : cached(true) {}
   allowed_hosts_manager(const allowed_hosts_manager &other)
@@ -71,7 +75,7 @@ struct allowed_hosts_manager {
     // `allowed hosts =` (empty) to accept any source must set
     // `allowed hosts = 0.0.0.0/0,::/0` to keep the same behaviour.
     if (!cached) refresh(errors);
-    std::shared_lock<std::shared_mutex> lock(entries_mutex_);
+    std::lock_guard<std::mutex> lock(entries_mutex_);
     if (entries_v4.empty() && entries_v6.empty()) {
       errors.emplace_back("allowed_hosts is empty - rejecting all connections (set `allowed hosts = 0.0.0.0/0,::/0` to allow all)");
       return false;
@@ -98,7 +102,7 @@ struct allowed_hosts_manager {
     }
     return false;
   }
-  // Called from is_allowed() with the shared lock held.
+  // Called from is_allowed() with the lock held.
   bool is_allowed_v4(const addr_v4 &remote, std::list<std::string> &errors) {
     for (const host_record_v4 &r : entries_v4) {
       if (match_host(r.addr, r.mask, remote)) return true;

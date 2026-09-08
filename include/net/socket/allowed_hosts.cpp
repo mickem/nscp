@@ -3,6 +3,7 @@
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <mutex>
 #include <net/socket/allowed_hosts.hpp>
 #include <str/format.hpp>
 #include <str/utf8.hpp>
@@ -51,9 +52,9 @@ addr calculate_mask(const std::string &mask_as_string) {
 void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &errors) {
   io_context io_service;
   tcp::resolver resolver(io_service);
-  // Rebuilt in place: hold the writer lock for the whole rebuild so no
-  // accepting thread walks a half-built list.
-  std::unique_lock<std::shared_mutex> lock(entries_mutex_);
+  // Rebuilt in place: hold the lock for the whole rebuild so no accepting
+  // thread walks a half-built list.
+  std::lock_guard<std::mutex> lock(entries_mutex_);
   entries_v4.clear();
   entries_v6.clear();
   for (const std::string &record : sources) {
@@ -102,7 +103,7 @@ void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &erro
 }
 
 void socket_helpers::allowed_hosts_manager::set_source(const std::string &source) {
-  std::unique_lock<std::shared_mutex> lock(entries_mutex_);
+  std::lock_guard<std::mutex> lock(entries_mutex_);
   sources.clear();
   for (std::string s : str::utils::split_lst(source, std::string(","))) {
     boost::trim(s);
@@ -111,7 +112,7 @@ void socket_helpers::allowed_hosts_manager::set_source(const std::string &source
 }
 
 std::string socket_helpers::allowed_hosts_manager::to_string() const {
-  std::shared_lock<std::shared_mutex> lock(entries_mutex_);
+  std::lock_guard<std::mutex> lock(entries_mutex_);
   std::string ret;
   for (const host_record_v4 &r : entries_v4) {
     ip::address_v4 a(r.addr);
