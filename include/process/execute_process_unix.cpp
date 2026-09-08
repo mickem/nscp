@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <limits>
 #include <bytes/buffer.hpp>
 #include <process/execute_process.hpp>
 #include <string>
@@ -74,7 +75,13 @@ std::string drain_with_timeout(int fd, time_t deadline, bool& timed_out, bool& h
     pfd.fd = fd;
     pfd.events = POLLIN;
     pfd.revents = 0;
-    const int ready = poll(&pfd, 1, static_cast<int>((deadline - now) * 1000));
+    // Clamp the wait: (deadline - now) * 1000 overflows int for a large
+    // configured timeout, and a negative poll timeout means "block forever",
+    // which would turn this bounded drain unbounded. The loop re-arms, so a
+    // capped single wait costs nothing.
+    const long long remaining_ms = static_cast<long long>(deadline - now) * 1000;
+    const int poll_ms = remaining_ms > static_cast<long long>((std::numeric_limits<int>::max)()) ? (std::numeric_limits<int>::max)() : static_cast<int>(remaining_ms);
+    const int ready = poll(&pfd, 1, poll_ms);
     if (ready < 0) {
       if (errno == EINTR) continue;
       had_error = true;

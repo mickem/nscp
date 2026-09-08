@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include <array>
+#include <chrono>
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
 #include <cstdio>
@@ -99,15 +100,23 @@ std::string exec_command(const std::vector<std::string> &argv) {
   std::array<char, 4096> buffer{};
   std::string result;
   // Bounded wait: a child that never exits (or never closes its stdout) must
-  // not hang the check forever.
+  // not hang the check forever. The bound is an absolute deadline, not a fresh
+  // timeout handed to every poll() - a child trickling one byte at a time reset
+  // the budget on each iteration and was never killed.
   const int timeout_ms = 30000;
+  const std::chrono::steady_clock::time_point deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
   bool timed_out = false;
   for (;;) {
+    const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+    if (now >= deadline) {
+      timed_out = true;
+      break;
+    }
     struct pollfd pfd;
     pfd.fd = pipefd[0];
     pfd.events = POLLIN;
     pfd.revents = 0;
-    const int ready = poll(&pfd, 1, timeout_ms);
+    const int ready = poll(&pfd, 1, static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count()));
     if (ready < 0 && errno == EINTR) continue;
     if (ready <= 0) {
       timed_out = true;
