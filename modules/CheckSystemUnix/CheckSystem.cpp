@@ -104,8 +104,14 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
   collector_->add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
 
-  if (mode == NSCAPI::normalStart) {
+  // The collector above is stopped and replaced on every load, a reload
+  // included, so it has to be started again here or check_cpu and check_memory
+  // read an empty collector until the service is restarted.
+  if (mode != NSCAPI::dontStart) {
     collector_->start();
+  }
+
+  if (mode == NSCAPI::normalStart) {
     // Publish one tag per configured [/settings/system/unix/service-tags]
     // entry (systemd unit -> tag): <tag>=enabled when the unit is active,
     // removed otherwise so stopped units clear their tag on the next load.

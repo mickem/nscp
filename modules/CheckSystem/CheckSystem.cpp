@@ -291,6 +291,14 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   if (mode == NSCAPI::normalStart) {
     publish_os_version_tags(get_core());
     publish_service_tags(get_core(), service_tags);
+  }
+
+  // The collector above is stopped and replaced on every load, a reload
+  // included, so its counters have to be registered and it has to be started
+  // again here. Leaving this under normalStart left a reload with a fresh
+  // collector that held no counters and was never started, so check_cpu,
+  // check_memory and check_network read nothing until the service restarted.
+  if (mode != NSCAPI::dontStart) {
     for (const check_pdh::counter_config_handler::object_instance object : pdh_checker.counters_.get_object_list()) {
       try {
         PDH::pdh_object counter;

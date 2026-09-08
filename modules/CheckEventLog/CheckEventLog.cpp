@@ -98,11 +98,17 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
   thread_->filters_.add_missing(nscapi::settings_proxy::create(get_id(), get_core()), "default", "");
 
   if (mode == NSCAPI::normalStart) {
+    // Only at startup: on a reload bookmarks_ already holds the live positions,
+    // and re-reading the stored ones would rewind them.
     nscapi::core_helper core(get_core(), get_id());
     for (const nscapi::core_helper::storage_map::value_type &e : core.get_storage_strings("eventlog.bookmarks")) {
       bookmarks_.add(e.first, e.second);
     }
-
+  }
+  // The monitor above is stopped and replaced on every load, a reload
+  // included, so it has to be started again here or realtime monitoring stays
+  // dead until the service is restarted.
+  if (mode != NSCAPI::dontStart) {
     if (!thread_->start()) NSC_LOG_ERROR_STD("Failed to start collection thread");
   }
   return true;

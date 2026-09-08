@@ -71,7 +71,10 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
     bookmarks_.add(e.first, e.second);
   }
 
-  if (mode == NSCAPI::normalStart) {
+  // The monitor above is stopped and replaced on every load, a reload
+  // included, so it has to be started again here or realtime monitoring stays
+  // dead until the service is restarted.
+  if (mode != NSCAPI::dontStart) {
     if (!thread_->start()) NSC_LOG_ERROR_STD("Failed to start collection thread");
   }
   return true;
