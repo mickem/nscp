@@ -5,7 +5,10 @@
 
 #include <atomic>
 #include <boost/thread/locks.hpp>
+#include <boost/thread/mutex.hpp>
 #include <boost/thread/shared_mutex.hpp>
+#include <boost/thread/thread.hpp>
+#include <set>
 #include <NSCAPI.h>
 
 #include <boost/algorithm/string.hpp>
@@ -36,6 +39,28 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
   // so an unload waits for in-flight calls instead of tearing the instance
   // down under them.
   boost::shared_mutex dispatch_mutex_;
+  // The threads currently inside a dispatch into this module. unload_plugin()
+  // has to tell two cases apart that both leave the exclusive lock untaken: a
+  // handler unloading the module it is itself running in (which holds the
+  // shared lock on this very thread, so waiting for it would deadlock on
+  // ourselves) and other threads still executing in there (which must not have
+  // the module torn down under them).
+  mutable boost::mutex dispatchers_mutex_;
+  std::multiset<boost::thread::id> dispatchers_;
+  bool is_dispatching_on_this_thread() const;
+
+  // Takes the shared dispatch lock and records this thread as a dispatcher for
+  // as long as it is held. Every entry point into the module uses it.
+  class dispatch_lock {
+    dll_plugin &owner_;
+    boost::shared_lock<boost::shared_mutex> lock_;
+
+   public:
+    explicit dispatch_lock(dll_plugin &owner);
+    ~dispatch_lock();
+    dispatch_lock(const dispatch_lock &) = delete;
+    dispatch_lock &operator=(const dispatch_lock &) = delete;
+  };
   // Set once unload_plugin has run; nothing is delivered to the module after.
   // Atomic because handleMessage reads it off the logger path without the
   // dispatch lock (see dll_plugin.cpp for why it cannot take one).

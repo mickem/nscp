@@ -46,6 +46,22 @@ nsclient::core::dll_plugin::dll_plugin(const unsigned int id, const boost::files
       fOnEvent(nullptr) {
   load_dll();
 }
+nsclient::core::dll_plugin::dispatch_lock::dispatch_lock(dll_plugin &owner) : owner_(owner), lock_(owner.dispatch_mutex_) {
+  boost::lock_guard<boost::mutex> guard(owner_.dispatchers_mutex_);
+  owner_.dispatchers_.insert(boost::this_thread::get_id());
+}
+nsclient::core::dll_plugin::dispatch_lock::~dispatch_lock() {
+  boost::lock_guard<boost::mutex> guard(owner_.dispatchers_mutex_);
+  // Erase one entry, not every entry for this thread: a module that dispatches
+  // into itself nests, and the outer guard still holds the lock.
+  const std::multiset<boost::thread::id>::iterator it = owner_.dispatchers_.find(boost::this_thread::get_id());
+  if (it != owner_.dispatchers_.end()) owner_.dispatchers_.erase(it);
+}
+bool nsclient::core::dll_plugin::is_dispatching_on_this_thread() const {
+  boost::lock_guard<boost::mutex> guard(dispatchers_mutex_);
+  return dispatchers_.find(boost::this_thread::get_id()) != dispatchers_.end();
+}
+
 /**
  * Default d-tor
  */
@@ -234,7 +250,7 @@ bool nsclient::core::dll_plugin::has_routing_handler() {
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::handleCommand(const char *request, unsigned int request_length, char **response,
                                                                unsigned int *response_length) {
   if (!isLoaded() || !loaded_ || fHandleCommand == nullptr) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
-  boost::shared_lock<boost::shared_mutex> dispatch(dispatch_mutex_);
+  dispatch_lock dispatch(*this);
   try {
     return fHandleCommand(get_id(), request, request_length, response, response_length);
   } catch (...) {
@@ -254,7 +270,7 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::handleCommand(const std::string
 
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::handle_schedule(const char *dataBuffer, const unsigned int dataBuffer_len) {
   if (!isLoaded() || fHandleSchedule == nullptr) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
-  boost::shared_lock<boost::shared_mutex> dispatch(dispatch_mutex_);
+  dispatch_lock dispatch(*this);
   try {
     return fHandleSchedule(get_id(), dataBuffer, dataBuffer_len);
   } catch (...) {
@@ -280,7 +296,7 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::handleNotification(const char *
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::handleNotification(const char *channel, const char *dataBuffer, const unsigned int dataBuffer_len,
                                                                     char **returnBuffer, unsigned int *returnBuffer_len) {
   if (!isLoaded() || !loaded_ || fHandleNotification == nullptr) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
-  boost::shared_lock<boost::shared_mutex> dispatch(dispatch_mutex_);
+  dispatch_lock dispatch(*this);
   try {
     return fHandleNotification(get_id(), channel, dataBuffer, dataBuffer_len, returnBuffer, returnBuffer_len);
   } catch (...) {
@@ -293,7 +309,7 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::on_event(const std::string &req
 }
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::on_event(const char *request_buffer, const unsigned int request_buffer_len) {
   if (!isLoaded() || !loaded_ || fOnEvent == nullptr) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
-  boost::shared_lock<boost::shared_mutex> dispatch(dispatch_mutex_);
+  dispatch_lock dispatch(*this);
   try {
     return fOnEvent(get_id(), request_buffer, request_buffer_len);
   } catch (...) {
@@ -318,7 +334,7 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::fetchMetrics(std::string &reque
 
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::fetchMetrics(char **returnBuffer, unsigned int *returnBuffer_len) {
   if (!isLoaded() || !loaded_ || fFetchMetrics == nullptr) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
-  boost::shared_lock<boost::shared_mutex> dispatch(dispatch_mutex_);
+  dispatch_lock dispatch(*this);
   try {
     return fFetchMetrics(get_id(), returnBuffer, returnBuffer_len);
   } catch (...) {
@@ -332,7 +348,7 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::submitMetrics(const std::string
 
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::submitMetrics(const char *buffer, const unsigned int buffer_len) {
   if (!isLoaded() || !loaded_ || fSubmitMetrics == nullptr) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
-  boost::shared_lock<boost::shared_mutex> dispatch(dispatch_mutex_);
+  dispatch_lock dispatch(*this);
   try {
     return fSubmitMetrics(get_id(), buffer, buffer_len);
   } catch (...) {
@@ -343,7 +359,7 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::submitMetrics(const char *buffe
 bool nsclient::core::dll_plugin::route_message(const char *channel, const char *buffer, unsigned int buffer_len, char **new_channel_buffer, char **new_buffer,
                                                unsigned int *new_buffer_len) {
   if (!isLoaded() || !loaded_ || fRouteMessage == nullptr) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
-  boost::shared_lock<boost::shared_mutex> dispatch(dispatch_mutex_);
+  dispatch_lock dispatch(*this);
   try {
     return fRouteMessage(get_id(), channel, buffer, buffer_len, new_channel_buffer, new_buffer, new_buffer_len);
   } catch (...) {
@@ -395,9 +411,23 @@ void nsclient::core::dll_plugin::handleMessage(const char *data, unsigned int le
  */
 void nsclient::core::dll_plugin::unload_plugin() {
   if (!isLoaded()) return;
-  // Wait for dispatches in flight, but not forever: a module that unloads
-  // itself from one of its own handlers holds the shared lock on this thread.
-  boost::unique_lock<boost::shared_mutex> dispatch(dispatch_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+  // A module that unloads itself from one of its own handlers already holds
+  // the shared lock on this thread, so the exclusive lock can never be taken
+  // here and asking for it would only stall for the timeout. That case is
+  // allowed to proceed without it: the one dispatch in flight is our own
+  // caller, further up this stack.
+  const bool self_unload = is_dispatching_on_this_thread();
+  boost::unique_lock<boost::shared_mutex> dispatch(dispatch_mutex_, boost::defer_lock);
+  if (!self_unload) {
+    dispatch.timed_lock(boost::get_system_time() + boost::posix_time::seconds(5));
+    if (!dispatch.owns_lock()) {
+      // Other threads are still executing inside the module and did not come
+      // back within the wait. Tearing it down now is precisely the race this
+      // lock exists to prevent, so leave it loaded: leaking a module is much
+      // cheaper than calling into one whose instance has been destroyed.
+      throw plugin_exception(get_alias_or_name(), "Refused to unload: calls into the module were still in flight after 5s");
+    }
+  }
   // Only call into the DSO while a module instance can exist there (fLoadModule
   // was invoked — even unsuccessfully — and unload has not run yet). A second
   // call, e.g. from the destructor of a shared_ptr copy that outlives main(),
@@ -541,7 +571,7 @@ bool nsclient::core::dll_plugin::has_command_line_exec() { return isLoaded() && 
 
 int nsclient::core::dll_plugin::commandLineExec(bool targeted, const char *request, const unsigned int request_len, char **reply, unsigned int *reply_len) {
   if (!has_command_line_exec()) throw plugin_exception(get_alias_or_name(), "Library is not loaded or modules does not support command line");
-  boost::shared_lock<boost::shared_mutex> dispatch(dispatch_mutex_);
+  dispatch_lock dispatch(*this);
   try {
     return fCommandLineExec(get_id(), targeted ? NSCAPI::target_module : NSCAPI::target_any, request, request_len, reply, reply_len);
   } catch (...) {
