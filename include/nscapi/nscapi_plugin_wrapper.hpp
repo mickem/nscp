@@ -4,7 +4,6 @@
 #pragma once
 
 #include <mutex>
-#include <shared_mutex>
 #include <NSCAPI.h>
 
 #include <cstring>
@@ -33,14 +32,18 @@ struct plugin_instance_data {
   typedef std::map<unsigned int, std::shared_ptr<impl_type> > plugin_list_type;
   plugin_list_type plugins;
   // Entry points run on the core's worker threads while load/unload run on
-  // another, so every access to the map is locked.
-  mutable std::shared_mutex mutex;
+  // another, so every access to the map is locked. A plain mutex, not a
+  // shared_mutex: this header is compiled by the MSVC toolsets NSCP targets
+  // for Windows, which build as C++14, so std::shared_mutex is not declared
+  // there. Every critical section here is a lookup in a map with one entry
+  // per loaded module, so a reader/writer lock would buy nothing.
+  mutable std::mutex mutex;
   plugin_instance_data() = default;
   // The instance for id, or null when none exists. Only NSLoadModuleEx may
   // create one (see create()): an unloaded module used to be resurrected as a
   // fresh instance that never saw loadModuleEx by the next log line.
   std::shared_ptr<impl_type> get(unsigned int id) const {
-    std::shared_lock<std::shared_mutex> lock(mutex);
+    std::lock_guard<std::mutex> lock(mutex);
     const auto it = plugins.find(id);
     if (it != plugins.end()) {
       return it->second;
@@ -48,7 +51,7 @@ struct plugin_instance_data {
     return std::shared_ptr<impl_type>();
   }
   std::shared_ptr<impl_type> create(unsigned int id) {
-    std::unique_lock<std::shared_mutex> lock(mutex);
+    std::lock_guard<std::mutex> lock(mutex);
     const auto it = plugins.find(id);
     if (it != plugins.end()) {
       return it->second;
@@ -58,13 +61,13 @@ struct plugin_instance_data {
     return impl;
   }
   void erase(unsigned int id) {
-    std::unique_lock<std::shared_mutex> lock(mutex);
+    std::lock_guard<std::mutex> lock(mutex);
     plugins.erase(id);
   }
   void add_alias(const unsigned int existing_id, const unsigned int new_id) {
     std::shared_ptr<impl_type> old = get(existing_id);
     if (!old) return;
-    std::unique_lock<std::shared_mutex> lock(mutex);
+    std::lock_guard<std::mutex> lock(mutex);
     plugins[new_id] = old;
   }
 };
