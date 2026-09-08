@@ -110,6 +110,7 @@ class msi_logger : public nsclient::logging::logger {
   std::list<std::wstring> get_errors() { return log_; }
 
   void nsclient::logging::logger::add_subscriber(nsclient::logging::logging_subscriber_instance) {}
+  void nsclient::logging::logger::remove_subscriber(nsclient::logging::logging_subscriber_instance) {}
   void nsclient::logging::logger::clear_subscribers(void) {}
   void nsclient::logging::logger::destroy(void) {}
   void nsclient::logging::logger::configure(void) {}
