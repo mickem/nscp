@@ -12,6 +12,7 @@
 #include <error/error.hpp>
 #include <list>
 #include <string>
+#include <threads/stop_signal.hpp>
 #include <utility>
 
 namespace wmi_impl {
@@ -67,8 +68,10 @@ class wmi_exception : public std::exception {
 // abort event handed to execute() is signalled while the query is in flight.
 // Deliberately NOT a wmi_exception: callers treat those as provider failures
 // (log an error, disable the collector) and an abort is neither, so a
-// `catch (const wmi_exception&)` must not see it.
-class wmi_aborted : public std::exception {
+// `catch (const wmi_exception&)` must not see it. It is a
+// threads::stop_requested so that a platform-neutral collector loop can
+// recognise the abort without naming WMI.
+class wmi_aborted : public threads::stop_requested {
  public:
   const char* what() const noexcept override { return "WMI query aborted"; }
 };

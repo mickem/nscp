@@ -568,6 +568,9 @@ TEST(WmiAbortTest, wmi_aborted_is_not_a_wmi_exception) {
   wmi_impl::wmi_aborted aborted;
   EXPECT_EQ(dynamic_cast<wmi_impl::wmi_exception*>(&aborted), nullptr);
   EXPECT_NE(dynamic_cast<std::exception*>(&aborted), nullptr);
+  // ... but it is the portable stop marker, which is what a cross-platform
+  // collector loop catches.
+  EXPECT_NE(dynamic_cast<threads::stop_requested*>(&aborted), nullptr);
   EXPECT_STREQ(aborted.what(), "WMI query aborted");
 }
 
@@ -588,6 +591,31 @@ TEST(WmiAbortTest, execute_with_signalled_abort_throws_before_connecting) {
   wmi_impl::query q("select Name from Win32_Processor", "root\\cimv2", "", "");
   EXPECT_THROW(q.execute(abort.h), wmi_impl::wmi_aborted);
   EXPECT_FALSE(q.instance.is_initialized);
+}
+
+// Live check that the semisynchronous path actually delivers rows for the
+// class family the collectors care about: the cooked PerfFormattedData
+// classes need the provider to take two samples, which is where a
+// semisynchronous enumeration differs most from a blocking one.
+TEST_F(WmiQueryTest, abortable_execute_delivers_perf_formatted_rows) {
+  if (!com_initialized_) GTEST_SKIP() << "COM not initialized";
+  manual_event abort;
+  ASSERT_NE(abort.h, nullptr);
+  wmi_impl::query q("select Name, DiskReadBytesPersec from Win32_PerfFormattedData_PerfDisk_PhysicalDisk", "root\\cimv2", "", "");
+  try {
+    const DWORD started = GetTickCount();
+    wmi_impl::row_enumerator rows = q.execute(abort.h);
+    int count = 0;
+    while (rows.has_next()) {
+      EXPECT_FALSE(rows.get_next().get_string("Name").empty());
+      ++count;
+    }
+    const DWORD elapsed = GetTickCount() - started;
+    EXPECT_GT(count, 0) << "no rows from the semisynchronous enumeration";
+    EXPECT_LT(elapsed, 30000u) << "semisynchronous enumeration took " << elapsed << " ms";
+  } catch (const wmi_impl::wmi_exception& ex) {
+    GTEST_SKIP() << "WMI access failed: " << ex.what();
+  }
 }
 
 #endif  // WIN32

@@ -6,8 +6,6 @@
 // space is read with statvfs over the real mounts. The metric builders / check
 // logic are shared in check_disk_io.cpp.
 
-#include "check_disk_io.hpp"
-
 #include <dirent.h>
 #include <mntent.h>
 #include <sys/statvfs.h>
@@ -24,6 +22,8 @@
 #include <sstream>
 #include <string>
 #include <vector>
+
+#include "check_disk_io.hpp"
 
 namespace {
 
@@ -125,10 +125,9 @@ std::string mount_source_to_disk(const std::string &fsname, const std::function<
 std::string device_to_disk(const std::string &fsname) { return mount_source_to_disk(fsname, canonicalize_dev, sysfs_slaves); }
 
 bool is_pseudo_fs(const std::string &fstype) {
-  static const std::set<std::string> pseudo = {"proc",     "sysfs",      "cgroup",   "cgroup2",  "devtmpfs",  "devpts",   "mqueue",
-                                               "hugetlbfs", "debugfs",    "tracefs",  "securityfs", "pstore",  "bpf",      "configfs",
-                                               "fusectl",   "autofs",     "binfmt_misc", "rpc_pipefs", "nsfs",  "efivarfs", "ramfs",
-                                               "selinuxfs", "overlay",    "tmpfs",    "squashfs", "fuse.snapfuse"};
+  static const std::set<std::string> pseudo = {"proc",    "sysfs",      "cgroup", "cgroup2",   "devtmpfs", "devpts",  "mqueue",   "hugetlbfs",    "debugfs",
+                                               "tracefs", "securityfs", "pstore", "bpf",       "configfs", "fusectl", "autofs",   "binfmt_misc",  "rpc_pipefs",
+                                               "nsfs",    "efivarfs",   "ramfs",  "selinuxfs", "overlay",  "tmpfs",   "squashfs", "fuse.snapfuse"};
   return pseudo.count(fstype) > 0;
 }
 
@@ -136,7 +135,7 @@ bool is_pseudo_fs(const std::string &fstype) {
 
 namespace disk_io_check {
 
-bool disk_io_data::fetch() {
+bool disk_io_data::fetch(const threads::stop_signal *) {
   stored_data_ = false;
   std::ifstream f("/proc/diskstats");
   if (!f) return false;
@@ -208,7 +207,8 @@ bool disk_io_data::fetch() {
   total.percent_idle_time = 100 - total.percent_disk_time;
   if (total_reads > 0) total.read_latency = static_cast<double>(total_read_ms) / static_cast<double>(total_reads);
   if (total_writes > 0) total.write_latency = static_cast<double>(total_write_ms) / static_cast<double>(total_writes);
-  if (total_reads + total_writes > 0) total.total_latency = static_cast<double>(total_read_ms + total_write_ms) / static_cast<double>(total_reads + total_writes);
+  if (total_reads + total_writes > 0)
+    total.total_latency = static_cast<double>(total_read_ms + total_write_ms) / static_cast<double>(total_reads + total_writes);
   disks.push_back(total);
 
   prev_raw_.swap(current);
