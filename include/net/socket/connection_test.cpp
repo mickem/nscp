@@ -308,3 +308,45 @@ TEST_F(ServerConnectionTest, OnDone_TracksResult) {
   conn2->on_done(false);
   EXPECT_FALSE(conn2->on_done_result);
 }
+
+// =============================================================================
+// ssl_connection — the TLS handshake must have a deadline
+//
+// ssl_connection::start() overrides connection::start(), which is where the
+// connection timer is armed - and that only ran *after* the handshake had
+// completed. So the handshake phase itself was unbounded: a permitted host
+// could open sockets, send nothing, and pin connection objects, file
+// descriptors and buffers indefinitely. The plain-TCP path was bounded by
+// `timeout` all along; the SSL path - the NRPE default - was not.
+// =============================================================================
+#ifdef USE_SSL
+namespace {
+
+class TestSslConnection : public socket_helpers::server::ssl_connection<MockProtocol, BUF_SIZE> {
+  typedef socket_helpers::server::ssl_connection<MockProtocol, BUF_SIZE> parent_type;
+
+ public:
+  int timeout_armed = -1;
+
+  TestSslConnection(boost::asio::io_context& io, boost::asio::ssl::context& context, std::shared_ptr<MockProtocol> protocol)
+      : parent_type(io, context, protocol) {}
+
+  // Record rather than schedule, so the test needs no io_context run.
+  void set_timeout(const int seconds) override { timeout_armed = seconds; }
+  void on_done(bool) override {}
+};
+
+}  // namespace
+
+TEST(ServerSslConnectionTest, StartArmsTheTimeoutBeforeTheHandshake) {
+  boost::asio::io_context io;
+  boost::asio::ssl::context context(boost::asio::ssl::context::tls_server);
+  auto protocol = std::make_shared<MockProtocol>();
+  protocol->info_.timeout = 17;
+
+  auto conn = std::make_shared<TestSslConnection>(io, context, protocol);
+  conn->start();
+
+  EXPECT_EQ(conn->timeout_armed, 17) << "the handshake phase ran without a deadline";
+}
+#endif

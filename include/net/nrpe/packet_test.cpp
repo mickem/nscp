@@ -32,6 +32,7 @@ TEST(NrpeData, PacketTypeConstants) {
 TEST(NrpeData, VersionConstants) {
   EXPECT_EQ(data::version2, 2);
   EXPECT_EQ(data::version3, 3);
+  EXPECT_EQ(data::version4, 4);
 }
 
 // =============================================================================
@@ -216,9 +217,40 @@ TEST(NrpePacket, V4SerializeDeserialize) {
   // Deserialize from raw buffer
   packet restored(&buf[0], buf.size());
   EXPECT_EQ(restored.getType(), data::queryPacket);
-  // Version 4 maps to version3 constant value (3) in data::
-  EXPECT_TRUE(restored.getVersion() == 3 || restored.getVersion() == 4);
+  EXPECT_EQ(restored.getVersion(), data::version4);
   EXPECT_EQ(restored.getPayload(), "check_cpu");
+  EXPECT_TRUE(restored.verifyCRC());
+}
+
+// =============================================================================
+// packet — trailing bytes are not payload
+//
+// The server parser buffers a whole v2 packet worth of bytes before the wire
+// version is known, so a short v3/v4 packet arrives followed by whatever else
+// was in that read. readFromV3 used to bound the payload by the buffer length
+// rather than by the length the packet declares, so those trailing bytes -
+// which the packet's own CRC does not cover - became part of the command.
+// =============================================================================
+
+TEST(NrpePacket, V4PayloadStopsAtTheDeclaredLength) {
+  packet original = packet::create_response(4, 0, "ok", 1024);
+  std::vector<char> buf = original.get_buffer();
+  const std::size_t wire_length = buf.size();
+  buf.resize(length::get_packet_length_v2(1024), 'X');
+
+  packet restored(buf.data(), buf.size());
+  EXPECT_EQ(restored.getPayload(), "ok");
+  EXPECT_TRUE(restored.verifyCRC());
+  EXPECT_LT(wire_length, buf.size());
+}
+
+TEST(NrpePacket, V3PayloadStopsAtTheDeclaredLength) {
+  packet original = packet::create_response(data::version3, 0, "ok", 1024);
+  std::vector<char> buf = original.get_buffer();
+  buf.resize(length::get_packet_length_v2(1024), 'X');
+
+  packet restored(buf.data(), buf.size());
+  EXPECT_EQ(restored.getPayload(), "ok");
   EXPECT_TRUE(restored.verifyCRC());
 }
 
@@ -248,6 +280,21 @@ TEST(NrpePacket, ReadFromTooShortThrows) {
   char buf[2] = {0, 0};
   packet pkt(1024);
   EXPECT_THROW(pkt.readFrom(buf, 2), nrpe_exception);
+}
+
+// A packet length below the fixed v2 header used to wrap the payload length
+// subtraction into a near-SIZE_MAX value; readFromV2's equality check then
+// passed by wraparound and fetch_payload ran strnlen past the buffer.
+TEST(NrpeLength, PayloadLengthOfShortPacketIsZero) {
+  EXPECT_EQ(length::get_payload_length(0u), 0u);
+  EXPECT_EQ(length::get_payload_length(sizeof(data::packet_v2) - 1), 0u);
+  EXPECT_EQ(length::get_payload_length(sizeof(data::packet_v2)), 0u);
+  EXPECT_EQ(length::get_payload_length(sizeof(data::packet_v2) + 100), 100u);
+}
+
+TEST(NrpePacket, ConstructFromShortBufferThrows) {
+  const std::vector<char> buf(sizeof(data::packet_v2) - 1, 0);
+  EXPECT_THROW(packet(buf.data(), buf.size()), nrpe_exception);
 }
 
 TEST(NrpePacket, V2PayloadTooLargeThrows) {

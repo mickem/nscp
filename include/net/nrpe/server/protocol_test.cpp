@@ -172,6 +172,44 @@ TEST(NrpeServerProtocol, OnWriteMultipleResponses) {
 }
 
 // =============================================================================
+// read_protocol — a response that cannot be serialized
+//
+// queue_next() used to log and return when get_buffer() threw, leaving the
+// response queued and the state untouched. Reached from on_write() in state
+// has_more that is a tight loop: the connection re-sends the same buffer and
+// calls straight back into queue_next forever.
+// =============================================================================
+
+TEST(NrpeServerProtocol, QueueNextTerminatesWhenAResponseCannotBeSerialized) {
+  MockHandler handler;
+  handler.response_packets.push_back(packet::create_more_response(0, "first", 1024));
+  // Payload longer than the packet's own payload length: get_buffer() throws.
+  handler.response_packets.push_back(packet::create_response(data::version2, 0, std::string(2000, 'x'), 1024));
+
+  socket_helpers::connection_info info;
+  read_protocol proto(info, &handler);
+  proto.on_connect();
+
+  packet query = packet::make_request("check_test", 1024, 2);
+  std::vector<char> buf = query.get_buffer();
+  proto.on_read(buf.data(), buf.data() + buf.size());
+
+  ASSERT_TRUE(proto.has_data());
+  const std::vector<char> first = proto.get_outbound();
+
+  proto.on_write();
+
+  // Either something else is queued, or the connection is finished - what it
+  // must never do is stay in a sending state with the same buffer.
+  if (proto.has_data()) {
+    EXPECT_NE(proto.get_outbound(), first);
+    proto.on_write();
+  }
+  EXPECT_FALSE(proto.has_data());
+  EXPECT_FALSE(proto.wants_data());
+}
+
+// =============================================================================
 // read_protocol — has_more_response
 // =============================================================================
 

@@ -1,15 +1,18 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
+#include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
+#include <cstdio>
 #include <iomanip>
 #include <net/socket/socket_helpers.hpp>
 #include <sstream>
 #include <str/format.hpp>
 #include <str/utf8.hpp>
 #include <str/utils.hpp>
+#include <vector>
 #if defined(USE_SSL) && !defined(WIN32)
 #define OPENSSL_NO_CRYPTO_MDEBUG
 #include <openssl/crypto.h>
@@ -24,6 +27,18 @@
 #include <openssl/bio.h>
 #include <openssl/ssl.h>
 #include <openssl/x509.h>
+#endif
+#ifdef WIN32
+// After boost/asio.hpp, which pulls winsock2.h in first; accctrl/aclapi then
+// depend on windows.h's types.
+#include <windows.h>
+//
+#include <accctrl.h>
+#include <aclapi.h>
+#else
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #endif
 const int socket_helpers::connection_info::backlog_default = 0;
 
@@ -211,6 +226,7 @@ void socket_helpers::validate_certificate(const std::string &certificate, std::l
       list.emplace_back("CA not found: " + certificate + " (generating a default CA)");
       try {
         write_certs(certificate, true);
+        list.emplace_back("CA private key written to: " + ca_key_path(certificate) + " (keep it, do not distribute it)");
       } catch (const std::exception &e) {
         list.emplace_back(e.what());
       }
@@ -266,6 +282,36 @@ std::string socket_helpers::extract_peer_subject_dn(void *ssl) {
   const std::string result = format_subject_dn_rfc2253(cert);
   X509_free(cert);
   return result;
+}
+
+std::string socket_helpers::escape_for_log(const std::string &value) {
+  static const char *const hex = "0123456789abcdef";
+  std::string result;
+  const std::size_t limit = std::min(value.size(), max_peer_principal_length);
+  for (std::size_t i = 0; i < limit; i++) {
+    const auto uc = static_cast<unsigned char>(value[i]);
+    if (uc < 0x20 || uc == 0x7F) {
+      result += "\\x";
+      result += hex[uc >> 4];
+      result += hex[uc & 0x0F];
+    } else {
+      result += value[i];
+    }
+  }
+  if (value.size() > limit) result += "...";
+  return result;
+}
+
+bool socket_helpers::is_valid_peer_principal(const std::string &cn) {
+  if (cn.empty() || cn.size() > max_peer_principal_length) return false;
+  for (const char c : cn) {
+    const auto uc = static_cast<unsigned char>(c);
+    // Control characters (NUL, CR, LF, tab, ...) forge log lines; ':' and
+    // '=' are the separators of the policy subject and of INI keys.
+    if (uc < 0x20 || uc == 0x7F) return false;
+    if (c == ':' || c == '=') return false;
+  }
+  return true;
 }
 
 std::string socket_helpers::format_subject_cn_only(void *x509) {
@@ -327,6 +373,10 @@ std::list<std::string> socket_helpers::connection_info::validate_ssl() const {
 #endif
   return list;
 }
+
+#ifdef USE_SSL
+bool socket_helpers::connection_info::verifies_peer() const { return (ssl.get_verify_mode() & boost::asio::ssl::context_base::verify_peer) != 0; }
+#endif
 
 long socket_helpers::connection_info::get_ctx_opts() const {
   long opts = 0;
@@ -432,54 +482,84 @@ boost::asio::ssl::context::verify_mode socket_helpers::connection_info::ssl_opts
     else if (key == "peer-cert") {
       mode |= boost::asio::ssl::context_base::verify_peer;
       mode |= boost::asio::ssl::context_base::verify_fail_if_no_peer_cert;
-    } else if (key == "workarounds")
-      mode |= boost::asio::ssl::context_base::default_workarounds;
-    else if (key == "single")
-      mode |= boost::asio::ssl::context::single_dh_use;
+    }
+    // "workarounds" and "single" are advertised under `verify mode` too, but
+    // they are SSL *context* options, not verify bits: OR-ing them into the
+    // value handed to SSL_CTX_set_verify only fed it flags it ignores. None
+    // of the verify bits (0x1 peer, 0x2 fail-if-no-peer-cert, 0x4
+    // client-once) is set in SSL_OP_ALL (0x80000850 on OpenSSL 1.1+) or in
+    // SSL_OP_SINGLE_DH_USE (0x0 since 1.1), so verification was never
+    // silently turned on or off - but this is the same mask
+    // `client identity source = cn` gates on, so it is worth keeping exact.
+    // get_ctx_opts() honours them instead, where they take effect.
   }
   return mode;
 }
 
+namespace {
+// The one table of `tls version` spellings, so the places that have to
+// understand the setting cannot drift apart again - drifting apart is exactly
+// what left documented spellings rejected as "Invalid tls version" (which for
+// an NRPE listener surfaces as "listener failed to start"). `spec` is the
+// setting lower-cased with any trailing '+' already stripped; "any" is not
+// handled here because it means different things to a floor and to a ceiling.
+bool lookup_tls_version(const std::string &spec, long &version) {
+  if (spec == "tlsv1.3" || spec == "tls1.3" || spec == "1.3") {
+    version = TLS1_3_VERSION;
+  } else if (spec == "tlsv1.2" || spec == "tls1.2" || spec == "1.2") {
+    version = TLS1_2_VERSION;
+  } else if (spec == "tlsv1.1" || spec == "tls1.1" || spec == "1.1") {
+    version = TLS1_1_VERSION;
+  } else if (spec == "tlsv1.0" || spec == "tls1.0" || spec == "1.0") {
+    version = TLS1_VERSION;
+  } else if (spec == "sslv3" || spec == "ssl3") {
+    version = SSL3_VERSION;
+  } else {
+    return false;
+  }
+  return true;
+}
+}  // namespace
+
 long socket_helpers::connection_info::ssl_opts::get_tls_min_version() const {
   std::string tmp = boost::algorithm::to_lower_copy(tls_version);
   str::utils::replace(tmp, "+", "");
-  if (tmp == "tlsv1.3" || tmp == "tls1.3" || tmp == "1.3") {
-    return TLS1_3_VERSION;
+  // "any" is the spelling tls_method_parser accepts for "no pin and no
+  // floor"; 0 is OpenSSL's "no minimum". Without it the two disagreed and
+  // `tls version = any` failed the listener at get_tls_min_version().
+  if (tmp == "any") {
+    return 0;
   }
-  if (tmp == "tlsv1.2" || tmp == "tls1.2" || tmp == "1.2") {
-    return TLS1_2_VERSION;
+  long version = 0;
+  if (!lookup_tls_version(tmp, version)) {
+    throw socket_exception("Invalid tls version: " + tmp);
   }
-  if (tmp == "tlsv1.1" || tmp == "tls1.1" || tmp == "1.1") {
-    return TLS1_1_VERSION;
-  }
-  if (tmp == "tlsv1.0" || tmp == "tls1.0" || tmp == "1.0") {
-    return TLS1_VERSION;
-  }
-  if (tmp == "sslv3" || tmp == "ssl3") {
-    return SSL3_VERSION;
-  }
-  throw socket_exception("Invalid tls version: " + tmp);
+  return version;
 }
 
 long socket_helpers::connection_info::ssl_opts::get_tls_max_version() const {
-  std::string tmp = boost::algorithm::to_lower_copy(tls_version);
-  if (tmp == "tlsv1.3" || tmp == "tls1.3" || tmp == "1.3" || tmp == "tlsv1.2+" || tmp == "tls1.2+" || tmp == "1.2+" || tmp == "tlsv1.1+" || tmp == "tls1.1+" ||
-      tmp == "1.1+" || tmp == "sslv3+" || tmp == "ssl3+") {
+  const std::string tmp = boost::algorithm::to_lower_copy(tls_version);
+  // A trailing '+' means "this version or later", so the ceiling is the
+  // highest version we support whatever floor was named. Unlike its `min`
+  // counterpart this never stripped the '+', it only listed the '+' forms
+  // literally - and the list left out tlsv1.0+/tls1.0+/1.0+ and
+  // tlsv1.3+/tls1.3+/1.3+, which are documented spellings. Those threw
+  // "Invalid tls version", surfacing for NRPE as "listener failed to start".
+  if (!tmp.empty() && tmp.back() == '+') {
+    // Validate the floor so a typo ("1.4+") still fails loudly, exactly as
+    // tls_method_parser does for the same input.
+    static_cast<void>(get_tls_min_version());
     return TLS1_3_VERSION;
   }
-  if (tmp == "tlsv1.2" || tmp == "tls1.2" || tmp == "1.2") {
-    return TLS1_2_VERSION;
+  // "any" is documented alongside the numeric versions: no pin, no floor.
+  if (tmp == "any") {
+    return TLS1_3_VERSION;
   }
-  if (tmp == "tlsv1.1" || tmp == "tls1.1" || tmp == "1.1") {
-    return TLS1_1_VERSION;
+  long version = 0;
+  if (!lookup_tls_version(tmp, version)) {
+    throw socket_exception("Invalid tls version: " + tmp);
   }
-  if (tmp == "tlsv1.0" || tmp == "tls1.0" || tmp == "1.0") {
-    return TLS1_VERSION;
-  }
-  if (tmp == "sslv3" || tmp == "ssl3") {
-    return SSL3_VERSION;
-  }
-  throw socket_exception("Invalid tls version: " + tmp);
+  return version;
 }
 
 boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts::get_certificate_format() const {
@@ -493,6 +573,14 @@ boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts
 }
 long socket_helpers::connection_info::ssl_opts::get_ctx_opts() const {
   long opts = 0;
+  // Two context options have always been documented under `verify mode`
+  // rather than `ssl options` (see socket_settings_helper.hpp). Honour them
+  // from there so an existing configuration keeps working - but as context
+  // options, which is what they are.
+  for (const std::string &key : str::utils::split_lst(verify_mode, std::string(","))) {
+    if (key == "workarounds") opts |= boost::asio::ssl::context::default_workarounds;
+    if (key == "single") opts |= boost::asio::ssl::context::single_dh_use;
+  }
   for (const std::string &key : str::utils::split_lst(ssl_options, std::string(","))) {
     if (key == "default-workarounds") opts |= boost::asio::ssl::context::default_workarounds;
     if (key == "no-sslv2") opts |= boost::asio::ssl::context::no_sslv2;
@@ -540,6 +628,49 @@ std::string get_open_ssl_error() {
     err_code = ERR_get_error();
   }
   return ss.str();
+}
+
+// Subject alternative names for a generated certificate.
+//
+// This used to be the constant "DNS:localhost,IP:127.0.0.1", which made a
+// generated certificate unusable for anyone who turned peer verification on:
+// ssl_connection::connect installs host_name_verification whenever
+// verify_peer is set, so the certificate could only ever verify against
+// localhost. Include the machine's own name (and the address a remote peer
+// would see it as) so that `verify mode = peer` against a generated
+// certificate is at least possible.
+std::string build_subject_alt_name() {
+  std::vector<std::string> names;
+  // The SAN value is an OpenSSL config string, so only feed it characters
+  // that cannot change its meaning - a host name is not attacker-controlled,
+  // but it does come from the machine's configuration.
+  const auto is_safe = [](const std::string &value) {
+    if (value.empty()) return false;
+    for (const char c : value) {
+      // Spelled out rather than isalnum(): a host name is ASCII by
+      // definition here, while isalnum() is locale-dependent (and would need
+      // <cctype> plus the std:: qualification to be portable at all).
+      const bool alnum = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
+      if (!(alnum || c == '.' || c == '-' || c == '_')) return false;
+    }
+    return true;
+  };
+  try {
+    const std::string host = ip::host_name();
+    if (is_safe(host)) names.push_back("DNS:" + host);
+    const std::string lower = boost::algorithm::to_lower_copy(host);
+    if (lower != host && is_safe(lower)) names.push_back("DNS:" + lower);
+  } catch (const std::exception &) {
+    // No host name: the loopback entries below still make the certificate
+    // usable for a local check.
+  }
+  for (const bool ipv6 : {false, true}) {
+    const boost::optional<ip::address> address = discover_local_address(ipv6);
+    if (address) names.push_back("IP:" + address.value().to_string());
+  }
+  names.emplace_back("DNS:localhost");
+  names.emplace_back("IP:127.0.0.1");
+  return boost::algorithm::join(names, ",");
 }
 
 void make_certificate(const X509_ptr &cert, EVP_PKEY_ptr &pkey, const int bits, const int days, bool ca) {
@@ -609,7 +740,7 @@ void make_certificate(const X509_ptr &cert, EVP_PKEY_ptr &pkey, const int bits, 
 
   add_ext(cert.get(), NID_subject_key_identifier, "hash");
   add_ext(cert.get(), NID_authority_key_identifier, "keyid:always,issuer");
-  add_ext(cert.get(), NID_subject_alt_name, "DNS:localhost,IP:127.0.0.1");
+  add_ext(cert.get(), NID_subject_alt_name, build_subject_alt_name().c_str());
 
   if (ca) {
     add_ext(cert.get(), NID_basic_constraints, "critical,CA:TRUE");
@@ -620,6 +751,210 @@ void make_certificate(const X509_ptr &cert, EVP_PKEY_ptr &pkey, const int bits, 
   if (X509_sign(cert.get(), pkey.get(), EVP_sha256()) == 0) {
     throw socket_helpers::socket_exception("Failed to sign certificate: " + get_open_ssl_error());
   }
+}
+
+#ifdef WIN32
+// The SID of the account this process runs as, so a key we generate stays
+// readable by the agent itself. docs/docs/setup/securing.md recommends a
+// dedicated low-privilege service account, which is neither LOCAL SYSTEM nor
+// an administrator - a DACL naming only those two would lock the agent out of
+// the key it had just written.
+namespace {
+bool current_user_sid(std::vector<unsigned char> &storage, std::list<std::string> &errors) {
+  HANDLE token = nullptr;
+  if (!::OpenProcessToken(::GetCurrentProcess(), TOKEN_QUERY, &token)) {
+    errors.emplace_back("OpenProcessToken failed: GetLastError=" + std::to_string(::GetLastError()));
+    return false;
+  }
+  DWORD size = 0;
+  ::GetTokenInformation(token, TokenUser, nullptr, 0, &size);
+  bool ok = false;
+  if (size > 0) {
+    std::vector<unsigned char> buffer(size, 0);
+    if (::GetTokenInformation(token, TokenUser, buffer.data(), size, &size)) {
+      const auto *user = reinterpret_cast<const TOKEN_USER *>(buffer.data());
+      const DWORD sid_size = ::GetLengthSid(user->User.Sid);
+      storage.assign(sid_size, 0);
+      ok = ::CopySid(sid_size, storage.data(), user->User.Sid) != 0;
+    }
+  }
+  if (!ok) errors.emplace_back("GetTokenInformation(TokenUser) failed: GetLastError=" + std::to_string(::GetLastError()));
+  ::CloseHandle(token);
+  return ok;
+}
+}  // namespace
+
+bool socket_helpers::restrict_to_owner(const std::string &path, std::list<std::string> &errors) {
+  // Well-known SIDs are built rather than parsed so a machine whose
+  // Administrators group is named in another language still matches.
+  std::vector<unsigned char> system_sid_bytes(SECURITY_MAX_SID_SIZE, 0);
+  std::vector<unsigned char> admin_sid_bytes(SECURITY_MAX_SID_SIZE, 0);
+  DWORD size = SECURITY_MAX_SID_SIZE;
+  if (!::CreateWellKnownSid(WinLocalSystemSid, nullptr, system_sid_bytes.data(), &size)) {
+    errors.emplace_back("CreateWellKnownSid(system) failed: GetLastError=" + std::to_string(::GetLastError()));
+    return false;
+  }
+  size = SECURITY_MAX_SID_SIZE;
+  if (!::CreateWellKnownSid(WinBuiltinAdministratorsSid, nullptr, admin_sid_bytes.data(), &size)) {
+    errors.emplace_back("CreateWellKnownSid(administrators) failed: GetLastError=" + std::to_string(::GetLastError()));
+    return false;
+  }
+  // Duplicated harmlessly when the agent already runs as SYSTEM.
+  std::vector<unsigned char> user_sid_bytes;
+  if (!current_user_sid(user_sid_bytes, errors)) return false;
+
+  EXPLICIT_ACCESS_W access[3] = {};
+  for (int i = 0; i < 3; i++) {
+    access[i].grfAccessPermissions = GENERIC_ALL;
+    access[i].grfAccessMode = SET_ACCESS;
+    access[i].grfInheritance = NO_INHERITANCE;
+    access[i].Trustee.TrusteeForm = TRUSTEE_IS_SID;
+    access[i].Trustee.TrusteeType = TRUSTEE_IS_WELL_KNOWN_GROUP;
+  }
+  access[0].Trustee.ptstrName = reinterpret_cast<LPWSTR>(system_sid_bytes.data());
+  access[1].Trustee.ptstrName = reinterpret_cast<LPWSTR>(admin_sid_bytes.data());
+  access[2].Trustee.ptstrName = reinterpret_cast<LPWSTR>(user_sid_bytes.data());
+  access[2].Trustee.TrusteeType = TRUSTEE_IS_USER;
+
+  PACL raw_acl = nullptr;
+  if (::SetEntriesInAclW(3, access, nullptr, &raw_acl) != ERROR_SUCCESS) {
+    errors.emplace_back("SetEntriesInAcl failed: GetLastError=" + std::to_string(::GetLastError()));
+    return false;
+  }
+
+  // PROTECTED_DACL_SECURITY_INFORMATION is what breaks inheritance. Without
+  // it the "Users: Read & Execute" a file under Program Files inherits
+  // survives beside the two ACEs above and the key stays world-readable.
+  const std::wstring wide = utf8::cvt<std::wstring>(path);
+  const DWORD result = ::SetNamedSecurityInfoW(const_cast<LPWSTR>(wide.c_str()), SE_FILE_OBJECT,
+                                               DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION, nullptr, nullptr, raw_acl, nullptr);
+  ::LocalFree(raw_acl);
+  if (result != ERROR_SUCCESS) {
+    errors.emplace_back("SetNamedSecurityInfo failed: error=" + std::to_string(result));
+    return false;
+  }
+  return true;
+}
+#endif
+
+namespace {
+// Serialize an in-memory BIO and hand back its bytes.
+std::string drain_bio(BIO *bio, const std::string &what) {
+  const std::size_t size = BIO_ctrl_pending(bio);
+  std::string result(size, '\0');
+  if (size > 0 && BIO_read(bio, &result[0], static_cast<int>(size)) < 0) {
+    throw socket_helpers::socket_exception("Failed to read serialized " + what);
+  }
+  return result;
+}
+
+// Write `content` to `path` so that only the account running the agent (and
+// the local administrators) can read it back.
+//
+// The plain fopen(path, "wb") this replaces left the file at 0666 & ~umask -
+// 0644 under a normal systemd unit - and what goes into it is an
+// *unencrypted* PKCS#8 private key. Since a default NRPE server start
+// generates the file when it is missing, every default install published its
+// TLS key to every local account: enough to decrypt captured traffic or
+// impersonate the agent.
+//
+// Written through a temporary file and renamed into place, because a failure
+// part-way is not recoverable otherwise: validate_certificate only generates
+// a certificate when the path is *not* a regular file, so a zero-byte or
+// half-written certificate.pem would never be repaired and the listener would
+// keep starting without a usable certificate until someone deleted it by
+// hand. A rename preserves the mode (and, on Windows, the DACL) it was
+// created with, and replaces any previous file atomically.
+void write_secured(const std::string &path, const std::string &content) {
+#ifdef WIN32
+  // On Windows the mode bits do nothing; the DACL is what matters. Create the
+  // file empty, lock it down, and only then write the key into it, so a
+  // failure to restrict never leaves a readable key behind.
+  FILE *file = nullptr;
+#ifdef _MSC_VER
+  if (fopen_s(&file, path.c_str(), "wb") != 0) file = nullptr;
+#else
+  file = fopen(path.c_str(), "wb");
+#endif
+  if (file == nullptr) throw socket_helpers::socket_exception("Failed to write: " + path);
+  fclose(file);
+
+  std::list<std::string> errors;
+  if (!socket_helpers::restrict_to_owner(path, errors)) {
+    const std::string reason = errors.empty() ? std::string("unknown error") : errors.front();
+    throw socket_helpers::socket_exception("Refusing to write an unprotected private key to " + path + ": " + reason);
+  }
+#ifdef _MSC_VER
+  if (fopen_s(&file, path.c_str(), "wb") != 0) file = nullptr;
+#else
+  file = fopen(path.c_str(), "wb");
+#endif
+  if (file == nullptr) throw socket_helpers::socket_exception("Failed to write: " + path);
+#else
+  // O_EXCL: the temporary is ours alone, so nothing can pre-create it with a
+  // mode or an owner of somebody else's choosing.
+  const int fd = ::open(path.c_str(), O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
+  if (fd < 0) throw socket_helpers::socket_exception("Failed to write: " + path);
+  FILE *file = ::fdopen(fd, "wb");
+  if (file == nullptr) {
+    ::close(fd);
+    throw socket_helpers::socket_exception("Failed to write: " + path);
+  }
+#endif
+  const std::size_t written = fwrite(content.data(), sizeof(char), content.size(), file);
+  const bool flushed = fclose(file) == 0;
+  if (written != content.size() || !flushed) throw socket_helpers::socket_exception("Failed to write: " + path);
+}
+
+void write_private_file(const std::string &path, const std::string &content) {
+  const boost::filesystem::path target(path);
+  const boost::filesystem::path temporary = target.parent_path() / (target.filename().string() + ".new");
+  boost::system::error_code ignored;
+  boost::filesystem::remove(temporary, ignored);
+  try {
+    write_secured(temporary.string(), content);
+  } catch (...) {
+    boost::filesystem::remove(temporary, ignored);
+    throw;
+  }
+  boost::system::error_code ec;
+  boost::filesystem::rename(temporary, target, ec);
+  if (ec) {
+    // A rename over an existing file is not universally atomic: Windows fails
+    // it when the destination is read-only or held open by another process,
+    // and settings_http.hpp works around the same thing the same way. Take
+    // the target out of the way and retry - a regenerated certificate (`nscp
+    // nrpe install --force`) is exactly the case that lands here, and leaving
+    // the old key in place would silently keep the listener on the key we
+    // just decided to replace.
+    boost::filesystem::remove(target, ignored);
+    boost::filesystem::rename(temporary, target, ec);
+  }
+  if (ec) {
+    boost::filesystem::remove(temporary, ignored);
+    throw socket_helpers::socket_exception("Failed to move " + temporary.string() + " into place: " + utf8::utf8_from_native(ec.message()));
+  }
+}
+
+void write_public_file(const std::string &path, const std::string &content) {
+  FILE *file = nullptr;
+#ifdef _MSC_VER
+  if (fopen_s(&file, path.c_str(), "wb") != 0) file = nullptr;
+#else
+  file = fopen(path.c_str(), "wb");
+#endif
+  if (file == nullptr) throw socket_helpers::socket_exception("Failed to write certificate to: " + path);
+  const std::size_t written = fwrite(content.data(), sizeof(char), content.size(), file);
+  fclose(file);
+  if (written != content.size()) throw socket_helpers::socket_exception("Failed to write certificate to: " + path);
+}
+}  // namespace
+
+std::string socket_helpers::ca_key_path(const std::string &ca_certificate) {
+  boost::filesystem::path path(ca_certificate);
+  const std::string stem = path.stem().string();
+  const std::string extension = path.extension().string();
+  return (path.parent_path() / (stem + "-key" + extension)).string();
 }
 
 void socket_helpers::write_certs(const std::string &cert, const bool ca) {
@@ -634,29 +969,33 @@ void socket_helpers::write_certs(const std::string &cert, const bool ca) {
 
   make_certificate(certificate_instance, private_key_instance, 2048, 365, ca);
 
-  const BIO_ptr bio(BIO_new(BIO_s_mem()), BIO_free);
-  if (!PEM_write_bio_PKCS8PrivateKey(bio.get(), private_key_instance.get(), nullptr, nullptr, 0, nullptr, nullptr)) {
+  const BIO_ptr key_bio(BIO_new(BIO_s_mem()), BIO_free);
+  if (!PEM_write_bio_PKCS8PrivateKey(key_bio.get(), private_key_instance.get(), nullptr, nullptr, 0, nullptr, nullptr)) {
     throw socket_exception("Failed to serialize key to " + cert);
   }
-  if (!PEM_write_bio_X509(bio.get(), certificate_instance.get())) {
+  const BIO_ptr cert_bio(BIO_new(BIO_s_mem()), BIO_free);
+  if (!PEM_write_bio_X509(cert_bio.get(), certificate_instance.get())) {
     throw socket_exception("Failed to serialize certificate to " + cert);
   }
+  const std::string key_pem = drain_bio(key_bio.get(), "key");
+  const std::string cert_pem = drain_bio(cert_bio.get(), "certificate");
 
-  const std::size_t size = BIO_ctrl_pending(bio.get());
-  const auto buf = std::make_unique<char[]>(size);
-  if (BIO_read(bio.get(), buf.get(), static_cast<int>(size)) < 0) {
-    throw socket_exception("Failed to read serialized key");
+  if (ca) {
+    // The CA file is the one `nscp nrpe install` tells the operator to hand
+    // out ("the clients need to have a certificate issued from ..."), so it
+    // must contain the certificate and nothing else. It used to carry the CA
+    // *private key* as well: anyone who received it could mint client
+    // certificates and walk straight through `verify mode = peer-cert`, which
+    // is NRPE's only real authentication. The key goes to a private sibling
+    // file so an operator can still issue certificates from it.
+    write_private_file(ca_key_path(cert), key_pem);
+    write_public_file(cert, cert_pem);
+    return;
   }
-
-  FILE *file = nullptr;
-#ifdef _MSC_VER
-  if (fopen_s(&file, cert.c_str(), "wb") != 0) file = nullptr;
-#else
-  file = fopen(cert.c_str(), "wb");
-#endif
-  if (file == nullptr) throw socket_exception("Failed to write certificate to: " + cert);
-  fwrite(buf.get(), sizeof(char), size, file);
-  fclose(file);
+  // The agent's own identity: asio loads the key from the certificate file
+  // when `certificate key` is empty, so the two stay together - in a file
+  // only we can read.
+  write_private_file(cert, key_pem + cert_pem);
 }
 
 boost::asio::ssl::context_base::method socket_helpers::tls_method_parser(const std::string &tls_version) {
@@ -701,11 +1040,15 @@ long socket_helpers::tls_min_version_parser(const std::string &tls_version) {
   std::string tmp = boost::algorithm::to_lower_copy(tls_version);
   if (tmp.empty() || tmp.back() != '+') return 0;
   tmp.pop_back();
-  if (tmp == "tlsv1.3" || tmp == "tls1.3" || tmp == "1.3") return TLS1_3_VERSION;
-  if (tmp == "tlsv1.2" || tmp == "tls1.2" || tmp == "1.2") return TLS1_2_VERSION;
-  if (tmp == "tlsv1.1" || tmp == "tls1.1" || tmp == "1.1") return TLS1_1_VERSION;
-  if (tmp == "tlsv1.0" || tmp == "tls1.0" || tmp == "1.0") return TLS1_VERSION;
-  throw socket_exception("Invalid tls version: " + tls_version);
+  // Through the shared table: this copy left `sslv3` out, so `tls version =
+  // sslv3+` - which the settings description advertises alongside the other
+  // '+' forms - threw here and took the listener down with it, the same
+  // failure the '+' forms above were fixed for.
+  long version = 0;
+  if (!lookup_tls_version(tmp, version)) {
+    throw socket_exception("Invalid tls version: " + tls_version);
+  }
+  return version;
 }
 
 void socket_helpers::apply_tls_min_version(boost::asio::ssl::context &ctx, const std::string &tls_version) {

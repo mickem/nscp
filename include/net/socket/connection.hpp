@@ -264,6 +264,15 @@ class ssl_connection : public connection<protocol_type, N> {
 
   void start() override {
     this->trace("ssl::start_read_request()");
+    // Arm the deadline *before* the handshake. This override replaces
+    // connection::start(), which is where the timer is normally armed - and
+    // that only runs once the handshake has completed, so the handshake
+    // phase itself had no deadline at all. A permitted host could open
+    // sockets, send nothing, and pin a connection object, its file
+    // descriptor and its buffer indefinitely; the plain-TCP path was bounded
+    // by `timeout` all along, the SSL path - the NRPE default - was not.
+    // parent_type::start() re-arms the same timer for the request itself.
+    this->set_timeout(parent_type::protocol_->get_info().timeout);
     std::shared_ptr<my_type> self = std::dynamic_pointer_cast<my_type>(this->shared_from_this());
     ssl_socket_.async_handshake(boost::asio::ssl::stream_base::server,
                                 boost::asio::bind_executor(parent_type::strand_, [self](const auto& e) { self->handle_handshake(e); }));
@@ -287,7 +296,23 @@ class ssl_connection : public connection<protocol_type, N> {
       // If an identity-map indirection lands later, the connection layer
       // can stamp the full DN and the map can resolve it to a handle.
       try {
-        const std::string cn = socket_helpers::extract_peer_subject_cn(ssl_socket_.native_handle());
+        std::string cn = socket_helpers::extract_peer_subject_cn(ssl_socket_.native_handle());
+        // The CN becomes part of a policy subject (`NRPEServer:<cn>`) and is
+        // logged verbatim, so constrain it before either happens: a CN
+        // carrying a NUL, a newline, a `:` or a `=` would split the subject
+        // or forge a log line. A rejected CN leaves the connection without
+        // an identity rather than with a mangled one.
+        if (!cn.empty() && !socket_helpers::is_valid_peer_principal(cn)) {
+          // Say which CN, escaped: the request is still served, but with no
+          // identity, so a policy keyed on `NRPEServer:<cn>` stops matching
+          // it. That is undiagnosable if the log does not name the CN.
+          parent_type::protocol_->log_error(
+              __FILE__, __LINE__,
+              "Ignoring TLS peer Subject CN '" + socket_helpers::escape_for_log(cn) + "': longer than " + str::xtos(socket_helpers::max_peer_principal_length) +
+                  " characters, or contains a control character, ':' or '='. This connection has no identity, so a permission rule naming this principal "
+                  "will not match it.");
+          cn.clear();
+        }
         if (!cn.empty()) {
           parent_type::protocol_->log_debug(__FILE__, __LINE__, "TLS peer Subject CN: " + cn);
         }
