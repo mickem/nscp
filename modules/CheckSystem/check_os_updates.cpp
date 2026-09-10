@@ -246,11 +246,32 @@ class search_completed_callback final : public ISearchCompletedCallback {
 
 // How long to wait for WUA to acknowledge RequestAbort() before giving up on
 // the job. WUA normally completes an aborted search within a second; the cap
-// only matters if it does not, in which case the job is released without
-// EndSearch() rather than holding shutdown hostage.
+// only matters if it does not, in which case the job is abandoned without
+// EndSearch() (see pin_this_module) rather than holding shutdown hostage.
 const DWORD abort_grace_ms = 5000;
 
 bool abort_requested(HANDLE abort_event) { return abort_event != nullptr && WaitForSingleObject(abort_event, 0) == WAIT_OBJECT_0; }
+
+// Keep this DLL mapped for the remaining life of the process.
+//
+// BeginSearch() hands WUA its own reference to the completion callback, and
+// WUA keeps it until the job is torn down. On the abandoned-job path below we
+// return without EndSearch(), so that reference outlives the call -- and both
+// the callback's Invoke() and its Release()/destructor dispatch through a
+// vtable that lives in this module. stop_plugins() unloads it moments later,
+// so a late call from a WUA worker would land in unmapped memory: an access
+// violation during exactly the stalled shutdown this code exists to fix
+// (#1504). Pinning costs one abandoned module mapping (the module can no
+// longer be unloaded and reloaded without restarting the service) in the rare
+// case where WUA does not acknowledge RequestAbort() in time, which is the
+// better trade.
+void pin_this_module() {
+  // Any address inside the module image identifies it; PIN makes the reference
+  // permanent, so the handle is deliberately never released.
+  static const char anchor = 0;
+  HMODULE self = nullptr;
+  GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN, reinterpret_cast<LPCWSTR>(&anchor), &self);
+}
 
 // Run the WUA search. Returns false when the search was abandoned because
 // abort_event was signalled (out is then left as "pending" and must not be
@@ -314,11 +335,16 @@ bool perform_wua_search(os_updates_obj &out, HANDLE abort_event) {
       // Stop requested (or the wait itself failed, which we treat the same
       // way: there is no point sitting on a search nobody will read).
       job->RequestAbort();
-      // Let WUA wind the job down so EndSearch() releases it cleanly; if it
-      // does not acknowledge in time, just drop our reference and go.
+      // Let WUA wind the job down so EndSearch() releases it cleanly.
       if (WaitForSingleObject(callback->done_event(), abort_grace_ms) == WAIT_OBJECT_0) {
         com_ptr<ISearchResult> discarded;
         searcher->EndSearch(job.get(), discarded.out());
+      } else {
+        // WUA did not acknowledge in time and we will not hold the unload
+        // hostage any longer: drop our references and abandon the job. WUA
+        // still holds one on the callback, so the module has to stay mapped
+        // for whatever it does with it next.
+        pin_this_module();
       }
       return false;
     }
@@ -382,6 +408,8 @@ bool os_updates_data::force_fetch(const threads::stop_signal *stop) {
   }
   return true;
 }
+
+void os_updates_data::set_last_fetch_age_for_test(long long age_seconds) { last_fetch_ = now_seconds() - age_seconds; }
 
 bool os_updates_data::fetch(const threads::stop_signal *stop) {
   if (!fetch_supported_) return true;

@@ -114,6 +114,11 @@ class os_updates_data final {
 
   // Return a snapshot of the current data.
   os_updates_obj get();
+
+  // Test seam: pretend a successful search completed `age_seconds` ago, so the
+  // TTL short-circuit in fetch() can be exercised without running a real (slow,
+  // admin- and network-dependent) WUA search.
+  void set_last_fetch_age_for_test(long long age_seconds);
 };
 
 namespace check {
