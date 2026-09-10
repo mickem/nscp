@@ -29,8 +29,9 @@ helper = None
 # (docs.py picked windows vs unix at runtime from sys.platform; here the mapping
 # is fixed so a module always lands in the same reference folder regardless of
 # which platform's pipeline extracted it. Cross-platform "system" modules keep
-# their historical windows/ home; CheckSystemUnix is the only unix-only one.)
-WINDOWS_MODULES = ['NSClientServer', 'DotnetPlugins', 'CheckEventLog', 'CheckMSSQL', 'CheckTaskSched', 'CheckWMI', 'CheckWindowsApps']
+# their historical windows/ home; CheckSystemUnix is the only unix-only one.
+# DotnetPlugins is hosted on both platforms since 0.20.0 and lives in generic/.)
+WINDOWS_MODULES = ['NSClientServer', 'CheckEventLog', 'CheckMSSQL', 'CheckTaskSched', 'CheckWMI', 'CheckWindowsApps']
 UNIX_MODULES = []
 CHECK_MODULES = ['CheckSystem', 'CheckExternalScripts', 'CheckDisk', 'CheckHelpers', 'CheckLogFile', 'CheckNSCP', 'CheckNet',
                  'CheckSecurity', 'CheckMySQL', 'CheckDocker', 'CheckWindowsApps']
@@ -38,14 +39,14 @@ CLIENT_MODULES = ['GraphiteClient', 'IcingaClient', 'NRDPClient', 'NRPEClient', 
                   'NSCAClient', 'NSCANgClient', 'NSCAServer', 'NSClientServer', 'SMTPClient',
                   'SyslogClient', 'CollectdClient', 'Op5Client', 'CheckNSCP', 'ElasticClient', 'NSCPClient',
                   'CheckMKClient', 'CheckMKServer']
-GENERIC_MODULES = ['CommandClient', 'LUAScript', 'PythonScript', 'Scheduler',
+GENERIC_MODULES = ['CommandClient', 'DotnetPlugins', 'LUAScript', 'PythonScript', 'Scheduler',
                    'SimpleCache', 'SimpleFileWriter', 'WEBServer']
 IGNORED_MODULES = ['CauseCrashes', 'SamplePluginSimple']
 
 
 def classify_namespace(name):
     # Order matters: the "system" modules must win over client/generic where a
-    # name appears in more than one list (NSClientServer, DotnetPlugins).
+    # name appears in more than one list (NSClientServer).
     if name in UNIX_MODULES:
         return 'unix'
     if name in WINDOWS_MODULES:
