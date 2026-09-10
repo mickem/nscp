@@ -14,13 +14,14 @@ WEBServer = enabled
 
 ## Configuration
 
-| Path / Section                                  | Description       |
-|-------------------------------------------------|-------------------|
-| [/settings/WEB/server](#web-server)             | Web server        |
-| [/settings/WEB/server/log](#log-configuration)  | Log configuration |
-| [/settings/WEB/server/roles](#web-server-roles) | Web server roles  |
-| [/settings/WEB/server/users](#web-server-users) | Web server users  |
-| [/settings/default](#default-values)            | Default values    |
+| Path / Section                                        | Description          |
+|-------------------------------------------------------|----------------------|
+| [/settings/WEB/server](#web-server)                   | Web server           |
+| [/settings/WEB/server/log](#log-configuration)        | Log configuration    |
+| [/settings/WEB/server/results](#passive-result-cache) | Passive result cache |
+| [/settings/WEB/server/roles](#web-server-roles)       | Web server roles     |
+| [/settings/WEB/server/users](#web-server-users)       | Web server users     |
+| [/settings/default](#default-values)                  | Default values       |
 
 
 ### Web server <a id="/settings/WEB/server"></a>
@@ -421,6 +422,176 @@ Enable logging of info messages from the web server.
 [/settings/WEB/server/log]
 # Log info
 info=false
+```
+
+### Passive result cache <a id="/settings/WEB/server/results"></a>
+
+*Available on Windows only.*
+
+
+Configure the channel the web server listens on for passive check results and how long they are kept.
+
+| Key                                         | Default Value               | Description                     |
+|---------------------------------------------|-----------------------------|---------------------------------|
+| [channel](#passive-result-channel)          | WEB                         | PASSIVE RESULT CHANNEL          |
+| [clear on poll](#drain-the-cache-on-a-poll) | true                        | DRAIN THE CACHE ON A POLL       |
+| [enabled](#enable-the-passive-result-cache) | false                       | ENABLE THE PASSIVE RESULT CACHE |
+| [max age](#passive-result-cache-max-age)    | 0                           | PASSIVE RESULT CACHE MAX AGE    |
+| [max entries](#passive-result-cache-size)   | 1000                        | PASSIVE RESULT CACHE SIZE       |
+| [mode](#which-result-to-keep-per-key)       | last                        | WHICH RESULT TO KEEP PER KEY    |
+| [primary index](#passive-result-cache-key)  | ${host}/${alias-or-command} | PASSIVE RESULT CACHE KEY        |
+
+
+```ini
+# Configure the channel the web server listens on for passive check results and how long they are kept.
+[/settings/WEB/server/results]
+channel=WEB
+clear on poll=true
+enabled=false
+max age=0
+max entries=1000
+mode=last
+primary index=${host}/${alias-or-command}
+```
+
+#### PASSIVE RESULT CHANNEL <a id="/settings/WEB/server/results/channel"></a>
+
+The submission channel the web server registers and caches results from. Anything submitted here (by the Scheduler, by check_and_forward, by a relaying client, ...) is kept in memory and served by the /api/v2/results REST endpoints, so a monitoring system that cannot be reached from this host can poll the results out instead. Set to an empty string to register no channel and disable the cache entirely. Read when the web server starts: a channel cannot be registered or moved by a settings reload, so changing this needs a service restart.
+
+
+| Key            | Description                                                   |
+|----------------|---------------------------------------------------------------|
+| Path:          | [/settings/WEB/server/results](#/settings/WEB/server/results) |
+| Key:           | channel                                                       |
+| Default value: | `WEB`                                                         |
+
+
+**Sample:**
+
+```
+[/settings/WEB/server/results]
+# PASSIVE RESULT CHANNEL
+channel=WEB
+```
+
+#### DRAIN THE CACHE ON A POLL <a id="/settings/WEB/server/results/clear on poll"></a>
+
+When true (the default) GET /api/v2/results removes the results it returns, so the next poll reports what has happened since this one rather than repeating it - this is what makes \`mode = worst\` mean "worst since the last poll". Only what a poll actually returns is dropped, so a filtered poll cannot discard results its caller never saw. Set to false when several consumers poll the same agent, or for a dashboard that must not consume what it displays; results then stay until they are replaced, expire or are deleted. Fetching a single result by key is a lookup rather than a poll and never drains.
+
+
+| Key            | Description                                                   |
+|----------------|---------------------------------------------------------------|
+| Path:          | [/settings/WEB/server/results](#/settings/WEB/server/results) |
+| Key:           | clear on poll                                                 |
+| Default value: | `true`                                                        |
+
+
+**Sample:**
+
+```
+[/settings/WEB/server/results]
+# DRAIN THE CACHE ON A POLL
+clear on poll=true
+```
+
+#### ENABLE THE PASSIVE RESULT CACHE <a id="/settings/WEB/server/results/enabled"></a>
+
+When false (the default) the web server registers no submission channel, caches nothing and answers the /api/v2/results endpoints with 503. Set to true to have the agent accept passive results and hold them for a monitoring system to poll. Read when the web server starts: turning the cache on needs a service restart, since a submission channel cannot be registered by a settings reload. Turning it off does take effect on a reload (and empties the cache).
+
+
+| Key            | Description                                                   |
+|----------------|---------------------------------------------------------------|
+| Path:          | [/settings/WEB/server/results](#/settings/WEB/server/results) |
+| Key:           | enabled                                                       |
+| Default value: | `false`                                                       |
+
+
+**Sample:**
+
+```
+[/settings/WEB/server/results]
+# ENABLE THE PASSIVE RESULT CACHE
+enabled=false
+```
+
+#### PASSIVE RESULT CACHE MAX AGE <a id="/settings/WEB/server/results/max age"></a>
+
+Drop cached results that have not been updated for this many seconds. 0 (the default) keeps them until they are replaced or the service restarts. Note that results are never hidden merely for being stale - every result carries an \`age\` field - so this is about bounding memory, not about deciding what counts as current.
+
+
+| Key            | Description                                                   |
+|----------------|---------------------------------------------------------------|
+| Path:          | [/settings/WEB/server/results](#/settings/WEB/server/results) |
+| Key:           | max age                                                       |
+| Default value: | `0`                                                           |
+
+
+**Sample:**
+
+```
+[/settings/WEB/server/results]
+# PASSIVE RESULT CACHE MAX AGE
+max age=0
+```
+
+#### PASSIVE RESULT CACHE SIZE <a id="/settings/WEB/server/results/max entries"></a>
+
+How many distinct keys to keep. Since a repeat result for a key replaces the previous one, this only bites when results arrive under ever-changing keys; the least recently updated entry is then dropped. 0 is treated as 1.
+
+
+| Key            | Description                                                   |
+|----------------|---------------------------------------------------------------|
+| Path:          | [/settings/WEB/server/results](#/settings/WEB/server/results) |
+| Key:           | max entries                                                   |
+| Default value: | `1000`                                                        |
+
+
+**Sample:**
+
+```
+[/settings/WEB/server/results]
+# PASSIVE RESULT CACHE SIZE
+max entries=1000
+```
+
+#### WHICH RESULT TO KEEP PER KEY <a id="/settings/WEB/server/results/mode"></a>
+
+Only one result is kept per key, and this decides which one when a second arrives. \`last\` (the default) keeps the newest, so a recovery replaces the problem before it. \`worst\` keeps the most severe, so a CRITICAL that recovers before the next poll is still reported (an equally severe result still replaces it, keeping the message current). Severity is ordered as elsewhere in NSClient++: OK < WARNING < CRITICAL < UNKNOWN.
+
+
+| Key            | Description                                                   |
+|----------------|---------------------------------------------------------------|
+| Path:          | [/settings/WEB/server/results](#/settings/WEB/server/results) |
+| Key:           | mode                                                          |
+| Default value: | `last`                                                        |
+
+
+**Sample:**
+
+```
+[/settings/WEB/server/results]
+# WHICH RESULT TO KEEP PER KEY
+mode=last
+```
+
+#### PASSIVE RESULT CACHE KEY <a id="/settings/WEB/server/results/primary index"></a>
+
+The key each cached result is stored under: a new result replaces the previous result carrying the same key. Can be any string, optionally including ${host} (the submitting host), ${source} (the raw sender id), ${channel}, ${command}, ${alias} and ${alias-or-command} (alias if set, otherwise command).
+
+
+| Key            | Description                                                   |
+|----------------|---------------------------------------------------------------|
+| Path:          | [/settings/WEB/server/results](#/settings/WEB/server/results) |
+| Key:           | primary index                                                 |
+| Default value: | `${host}/${alias-or-command}`                                 |
+
+
+**Sample:**
+
+```
+[/settings/WEB/server/results]
+# PASSIVE RESULT CACHE KEY
+primary index=${host}/${alias-or-command}
 ```
 
 ### Web server roles <a id="/settings/WEB/server/roles"></a>

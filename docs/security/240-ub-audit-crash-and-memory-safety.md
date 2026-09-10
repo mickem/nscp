@@ -1,6 +1,6 @@
 ---
 title: "Undefined-behaviour audit: crash and memory-safety fixes across the agent"
-fixed_in: next
+fixed_in: 0.20.0
 severity: "Medium"
 modules: [core, filters, CheckSystem, CheckHelpers, CheckTaskSched, CheckEventLog, CheckDisk, CheckLogFile, WEBServer, NSClientServer, CheckMKServer, PythonScript, LUAScript, NRPEServer, NSCAClient]
 action: none
@@ -19,4 +19,4 @@ hang the agent.
 
 **What to do:** nothing beyond upgrading. A few defaults changed as a
 consequence; see the
-[upgrade note](../setup/upgrading.md#unreleased).
+[upgrade note](../setup/upgrading.md#0200).
