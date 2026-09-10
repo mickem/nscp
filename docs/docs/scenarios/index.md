@@ -64,6 +64,7 @@ direction (active vs. passive) and protocol that matches your setup.
 | [Passive Monitoring (NSCA-NG)](passive-monitoring-nsca-ng.md) | TLS-PSK successor to NSCA — modern crypto, same passive-push pattern             |
 | [Passive Monitoring (Icinga 2)](passive-monitoring-icinga.md) | Submit scheduled check results to the Icinga 2 REST API                          |
 | [Passive Monitoring (Graphite)](passive-monitoring-graphite.md) | Push perfdata and system metrics to a Graphite/carbon backend for graphing     |
+| [Polled Passive Checks (Nagios Core)](nagios-result-cache.md) | Cache scheduled results in the agent and let one active `check_nsclient` check feed them all into Nagios as passive checks |
 | [Checkmk Agent Integration](check-mk.md)                      | Serve a Checkmk-compatible agent dump from NSClient++ on TCP/6556                |
 | [Prometheus Scraping](prometheus.md)                          | Expose metrics on `/api/v2/openmetrics` for Prometheus to scrape                 |
 

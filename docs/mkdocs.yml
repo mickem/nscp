@@ -61,6 +61,7 @@ nav:
       - Passive Monitoring (NSCA-NG): scenarios/passive-monitoring-nsca-ng.md
       - Passive Monitoring (Icinga 2): scenarios/passive-monitoring-icinga.md
       - Passive Monitoring (Graphite): scenarios/passive-monitoring-graphite.md
+      - Polled Passive Checks (Nagios Core): scenarios/nagios-result-cache.md
       - Checkmk Agent Integration: scenarios/check-mk.md
       - Prometheus Scraping: scenarios/prometheus.md
       - External Scripts: scenarios/external-scripts.md
@@ -124,6 +125,7 @@ nav:
       - Aliases: api/rest/aliases.md
       - Scripts: api/rest/scripts.md
       - Logs: api/rest/logs.md
+      - Results: api/rest/results.md
       - Legacy API: api/rest/legacy.md
   - FAQ: faq.md
 

@@ -17,6 +17,7 @@ Each topic has its own page:
 * [Logs](logs.md) — read, write, status, reset, paginate
 * [Metrics](metrics.md) — flat JSON, OpenMetrics text, legacy nested JSON
 * [Metadata](metadata.md) — performance counters, registered channels
+* [Results](results.md) — cached passive check results
 * [Legacy API](legacy.md) — pre-`/api/v2` endpoints kept for backwards compatibility
 
 ## API versions

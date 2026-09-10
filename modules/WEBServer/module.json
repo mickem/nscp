@@ -10,6 +10,7 @@
 	"command line exec" : true,
 	"log messages" : true,
 	"events": true,
+	"channels" : true,
 	"prepare_shutdown" : true
 
 }
