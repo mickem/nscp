@@ -293,6 +293,18 @@ namespace NSCP.Core.Native
         }
 
         /// <summary>
+        /// 1 when the plugin exposes an <see cref="IMessageHandler"/>, 0 otherwise.
+        /// The native module asks once after Start and only hands log entries
+        /// to plugins that answered 1, so the others cost nothing per log line.
+        /// </summary>
+        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+        public static int HasMessageHandler(IntPtr handle)
+        {
+            var rc = Guarded(handle, "HasMessageHandler", 0, false, p => p.Plugin.getMessageHandler() != null ? 1 : 0);
+            return rc == Failed ? 0 : rc;
+        }
+
+        /// <summary>
         /// Hand a log entry (a serialized LogEntry) to the plugin's message
         /// handler. Never logs itself: that would feed straight back in here.
         /// </summary>

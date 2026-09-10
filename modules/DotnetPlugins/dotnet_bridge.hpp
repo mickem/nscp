@@ -53,6 +53,9 @@ typedef std::int32_t(NSCP_DOTNET_CALL *managed_submit_fn)(void *handle, const ch
 typedef std::int32_t(NSCP_DOTNET_CALL *managed_exec_fn)(void *handle, const char *target, const char *command, const std::uint8_t *request,
                                                         std::int32_t request_len, write_fn write, void *wctx);
 typedef std::int32_t(NSCP_DOTNET_CALL *managed_message_fn)(void *handle, const std::uint8_t *request, std::int32_t request_len);
+// 1 when the plugin exposes an IMessageHandler (only those are handed log
+// entries), 0 otherwise.
+typedef std::int32_t(NSCP_DOTNET_CALL *managed_has_message_fn)(void *handle);
 
 // Return codes of the routing entry points (query, submit, exec, message).
 const std::int32_t query_handled = 1;

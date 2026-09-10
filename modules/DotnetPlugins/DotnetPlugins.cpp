@@ -113,12 +113,34 @@ bool DotnetPlugins::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
     root_ = resolve_plugin_root();
     if (!start_runtime() || !resolve_bridge()) return true;  // Reported already; keep the module loaded so the error stays visible.
 
+    // Each configured plugin gets its own section, plugins/<alias>, registered
+    // like any other key so it shows up in the settings UI, in
+    // `nscp settings --generate` and in the reference, and so a misspelt key
+    // there is reported instead of silently ignored.
+    settings.clear();
+    std::map<std::string, std::string> factories;
+    for (const auto &kv : configured_) {
+      // clang-format off
+      settings.alias().add_path_to_settings()
+        ("plugins/" + kv.first, "Plugin " + kv.first, "Settings for the .NET plugin " + kv.first + " (its assembly is configured under plugins).")
+        ;
+      settings.alias().add_key_to_settings("plugins/" + kv.first)
+        .add_string("factory class", sh::string_key(&factories[kv.first], default_factory_),
+          "Factory class", "Fully qualified name of the IPluginFactory implementation to instantiate in this plugin's assembly; overrides the "
+          "module's default factory class.", true)
+        ;
+      // clang-format on
+    }
+    settings.register_all();
+    settings.notify();
+    settings.clear();
+
     for (const auto &kv : configured_) {
       plugin_entry entry;
       entry.alias = kv.first;
       boost::system::error_code ec;
       entry.assembly = dotnet::path_to_utf8(resolve_assembly(root_, kv.first, kv.second, [&ec](const fs::path &p) { return fs::is_regular_file(p, ec); }));
-      entry.factory = settings.get_static_string(settings_path_ + "/plugins/" + kv.first, "factory class", default_factory_);
+      entry.factory = factories[kv.first];
       if (load_plugin(entry, mode)) {
         std::lock_guard<std::mutex> lock(plugins_mutex_);
         plugins_.push_back(entry);
@@ -189,7 +211,8 @@ bool DotnetPlugins::resolve_bridge() {
   const bool ok = resolve(*host_, bridge_assembly, "Load", fns.load, error) && resolve(*host_, bridge_assembly, "Start", fns.start, error) &&
                   resolve(*host_, bridge_assembly, "Unload", fns.unload, error) && resolve(*host_, bridge_assembly, "Describe", fns.describe, error) &&
                   resolve(*host_, bridge_assembly, "Query", fns.query, error) && resolve(*host_, bridge_assembly, "Submit", fns.submit, error) &&
-                  resolve(*host_, bridge_assembly, "Exec", fns.exec, error) && resolve(*host_, bridge_assembly, "Message", fns.message, error);
+                  resolve(*host_, bridge_assembly, "Exec", fns.exec, error) && resolve(*host_, bridge_assembly, "Message", fns.message, error) &&
+                  resolve(*host_, bridge_assembly, "HasMessageHandler", fns.has_message, error);
   if (!ok) {
     NSC_LOG_ERROR("Failed to load the managed plugin API from " + dotnet::path_to_utf8(bridge_assembly) + ": " + error);
     return false;
@@ -219,7 +242,9 @@ bool DotnetPlugins::load_plugin(plugin_entry &entry, NSCAPI::moduleLoadMode mode
     entry.handle = nullptr;
     return false;
   }
-  NSC_DEBUG_MSG_STD("Loaded .NET plugin " + entry.alias + ": " + entry.name + " " + entry.version + " from " + entry.assembly);
+  entry.messages = bridge_.has_message(entry.handle) == 1;
+  NSC_DEBUG_MSG_STD("Loaded .NET plugin " + entry.alias + ": " + entry.name + " " + entry.version + " from " + entry.assembly +
+                    (entry.messages ? " (receives log entries)" : ""));
   return true;
 }
 
@@ -363,19 +388,23 @@ void DotnetPlugins::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
   // Never log from here: the entry would come straight back to this handler.
   // Entries written by the plugins themselves are not echoed to them either,
   // or a message handler that logs would keep the logger busy forever.
-  std::vector<plugin_entry> plugins;
+  // This runs on the logger's thread for every line the agent writes, so do
+  // nothing at all unless a loaded plugin actually exposes a message handler.
+  std::vector<plugin_entry> targets;
   {
     std::lock_guard<std::mutex> lock(plugins_mutex_);
-    plugins = plugins_;
+    for (const plugin_entry &entry : plugins_) {
+      if (message.sender() == entry.alias) return;
+    }
+    for (const plugin_entry &entry : plugins_) {
+      if (entry.messages) targets.push_back(entry);
+    }
   }
-  if (plugins.empty() || bridge_.message == nullptr) return;
-  for (const plugin_entry &entry : plugins) {
-    if (message.sender() == entry.alias) return;
-  }
+  if (targets.empty() || bridge_.message == nullptr) return;
   PB::Log::LogEntry single;
   single.add_entry()->CopyFrom(message);
   const std::string buffer = single.SerializeAsString();
-  for (plugin_entry &entry : plugins) {
+  for (plugin_entry &entry : targets) {
     try {
       bridge_.message(entry.handle, bytes_of(buffer), length_of(buffer));
     } catch (...) {

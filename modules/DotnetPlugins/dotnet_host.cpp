@@ -8,8 +8,8 @@
 #include <boost/filesystem.hpp>
 #include <cstdlib>
 #include <fstream>
-#include <sstream>
 #include <str/utf8.hpp>
+#include <str/xtos.hpp>
 #include <string>
 
 #ifdef _WIN32
@@ -84,33 +84,57 @@ class error_writer_scope {
   hostfxr_set_error_writer_fn set_;
 };
 
-std::string hex(std::int32_t rc) {
-  std::ostringstream ss;
-  ss << "0x" << std::hex << static_cast<std::uint32_t>(rc);
-  return ss.str();
-}
+std::string hex(std::int32_t rc) { return "0x" + str::ihextos(static_cast<unsigned int>(rc)); }
 
+// Names from the runtime's StatusCode enum (dotnet/runtime, src/native/corehost/error_codes.h).
 std::string explain_rc(std::int32_t rc) {
-  switch (static_cast<std::uint32_t>(rc)) {
-    case 0x80008081:
-      return " InvalidArgFailure";
-    case 0x80008083:
-      return " CoreHostLibMissingFailure (hostpolicy library not found next to the runtime)";
-    case 0x80008092:
-      return " InvalidConfigFile (the runtimeconfig.json could not be read)";
-    case 0x80008093:
-      return " AppArgNotRunnable";
-    case 0x80008096:
-      return " FrameworkMissingFailure (the .NET runtime version required by the runtimeconfig.json is not installed)";
-    case 0x800080a1:
-      return " HostApiUnsupportedVersion";
-    case 0x800080a3:
-      return " HostInvalidState (the runtime in this process was started in an incompatible way)";
-    case 0x800080a5:
-      return " CoreHostIncompatibleConfig (another runtime configuration is already active in this process)";
-    default:
-      return "";
+  struct status {
+    std::uint32_t code;
+    const char *text;
+  };
+  static const status table[] = {
+      {0x80008081, "InvalidArgFailure"},
+      {0x80008082, "CoreHostLibLoadFailure"},
+      {0x80008083, "CoreHostLibMissingFailure (hostpolicy library not found next to the runtime)"},
+      {0x80008084, "CoreHostEntryPointFailure"},
+      {0x80008085, "CoreHostCurHostFindFailure"},
+      {0x80008087, "CoreClrResolveFailure"},
+      {0x80008088, "CoreClrBindFailure"},
+      {0x80008089, "CoreClrInitFailure"},
+      {0x8000808a, "CoreClrExeFailure"},
+      {0x8000808b, "ResolverInitFailure"},
+      {0x8000808c, "ResolverResolveFailure"},
+      {0x8000808d, "LibHostCurExeFindFailure"},
+      {0x8000808e, "LibHostInitFailure"},
+      {0x80008090, "LibHostExecModeFailure"},
+      {0x80008091, "LibHostSdkFindFailure"},
+      {0x80008092, "LibHostInvalidArgs"},
+      {0x80008093, "InvalidConfigFile (the runtimeconfig.json could not be read or parsed)"},
+      {0x80008094, "AppArgNotRunnable"},
+      {0x80008095, "AppHostExeNotBoundFailure"},
+      {0x80008096, "FrameworkMissingFailure (the .NET runtime version required by the runtimeconfig.json is not installed)"},
+      {0x80008097, "HostApiFailed"},
+      {0x80008098, "HostApiBufferTooSmall"},
+      {0x80008099, "LibHostUnknownCommand"},
+      {0x8000809a, "LibHostAppRootFindFailure"},
+      {0x8000809b, "SdkResolverResolveFailure"},
+      {0x8000809c, "FrameworkCompatFailure"},
+      {0x8000809d, "FrameworkCompatRetry"},
+      {0x8000809f, "BundleExtractionFailure"},
+      {0x800080a0, "BundleExtractionIOError"},
+      {0x800080a1, "LibHostDuplicateProperty"},
+      {0x800080a2, "HostApiUnsupportedVersion"},
+      {0x800080a3, "HostInvalidState (the runtime in this process was started in an incompatible way)"},
+      {0x800080a4, "HostPropertyNotFound"},
+      {0x800080a5, "CoreHostIncompatibleConfig (another runtime configuration is already active in this process)"},
+      {0x800080a6, "HostApiUnsupportedScenario"},
+      {0x800080a7, "HostFeatureDisabled"},
+  };
+  const std::uint32_t code = static_cast<std::uint32_t>(rc);
+  for (const status &entry : table) {
+    if (entry.code == code) return std::string(" ") + entry.text;
   }
+  return "";
 }
 
 void *open_library(const fs::path &path, std::string &error) {
@@ -322,7 +346,10 @@ const char *architecture_name(architecture arch) {
 }
 
 architecture library_architecture(const fs::path &library) {
-  std::ifstream file(library.string().c_str(), std::ios::binary);
+  // path::c_str() is wide on Windows, and MSVC's ifstream opens wide paths:
+  // narrowing through .string() would lose non-ANSI folder names and skip
+  // the architecture check for exactly the libraries it exists to reject.
+  std::ifstream file(library.c_str(), std::ios::binary);
   if (!file) return architecture::unknown;
   unsigned char header[64] = {0};
   file.read(reinterpret_cast<char *>(header), sizeof(header));
@@ -466,12 +493,6 @@ std::shared_ptr<host> host::instance() {
   // must outlive any one module instance.
   static std::shared_ptr<host> *singleton = new std::shared_ptr<host>(new host());
   return *singleton;
-}
-
-std::string host::take_error_text() {
-  std::string text = g_error_text;
-  g_error_text.clear();
-  return text;
 }
 
 bool host::initialize(const hostfxr_location &location, const fs::path &runtimeconfig, std::string &error) {

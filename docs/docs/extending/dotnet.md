@@ -104,7 +104,7 @@ what the plugin registered through `RegistryHelper` on load:
 | `IQueryHandler`       | `registerCommand(name, description)`             | check queries for `name` (`QueryRequestMessage`)                          | `QueryResponseMessage`           |
 | `IExecutionHandler`   | `registerExecCommand(name, description)`         | `nscp client --module DotnetPlugins --exec name`, REST executes (`ExecuteRequestMessage`) | `ExecuteResponseMessage` |
 | `ISubmissionHandler`  | `registerChannel(channel)`                       | passive results submitted to `channel` (`SubmitRequestMessage`)           | `SubmitResponseMessage`          |
-| `IMessageHandler`     | nothing: active whenever `isActive()` is true    | every log entry the agent writes (`LogEntry`), except the plugin's own    | `true` when handled              |
+| `IMessageHandler`     | return it from `getMessageHandler()`; forwarded while `isActive()` is true | every log entry the agent writes (`LogEntry`), except the plugin's own    | `true` when handled              |
 
 A message handler must not log: its output would come straight back to it (the module drops the plugin's own
 entries, but a chatty handler still costs a call per log line). Return `null` from a handler getter for the

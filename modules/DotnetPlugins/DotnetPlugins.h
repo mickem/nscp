@@ -37,6 +37,7 @@ class DotnetPlugins : public nscapi::impl::simple_plugin {
     void *handle = nullptr;
     std::string name;
     std::string version;
+    bool messages = false;  // exposes an IMessageHandler: gets the log entries
   };
 
   DotnetPlugins() = default;
@@ -79,6 +80,7 @@ class DotnetPlugins : public nscapi::impl::simple_plugin {
     dotnet::managed_submit_fn submit = nullptr;
     dotnet::managed_exec_fn exec = nullptr;
     dotnet::managed_message_fn message = nullptr;
+    dotnet::managed_has_message_fn has_message = nullptr;
   };
 
   void add_plugin(const std::string &key, const std::string &value);

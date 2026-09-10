@@ -93,8 +93,6 @@ class host {
 
  private:
   host() = default;
-  static std::string take_error_text();
-
   std::mutex mutex_;
   void *library_ = nullptr;
   void *set_error_writer_ = nullptr;  // hostfxr_set_error_writer, optional in old runtimes
