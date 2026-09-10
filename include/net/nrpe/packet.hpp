@@ -113,7 +113,7 @@ class packet /*: public boost::noncopyable*/ {
     // cannot even hold the fixed v2 header has to be rejected here rather
     // than relying on the callers never producing one.
     if (buffer_length < sizeof(data::packet_v2)) {
-      throw nrpe_exception("Packet to short: " + str::xtos(buffer_length) + " < " + str::xtos(sizeof(data::packet_v2)));
+      throw nrpe_exception("Packet too short: " + str::xtos(buffer_length) + " < " + str::xtos(sizeof(data::packet_v2)));
     }
     readFrom(buffer, buffer_length);
   };
@@ -227,7 +227,7 @@ class packet /*: public boost::noncopyable*/ {
       throw nrpe_exception("No buffer.");
     }
     if (length < length::get_min_header_length()) {
-      throw nrpe_exception("Packet to short to determine version: " + str::xtos(length) + " < " + str::xtos(length::get_min_header_length()));
+      throw nrpe_exception("Packet too short to determine version: " + str::xtos(length) + " < " + str::xtos(length::get_min_header_length()));
     }
     const auto p = reinterpret_cast<const data::packet_header*>(buffer);
     int version = boost::endian::big_to_native(p->packet_version);

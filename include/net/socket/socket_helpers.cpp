@@ -642,7 +642,11 @@ std::string build_subject_alt_name() {
   const auto is_safe = [](const std::string &value) {
     if (value.empty()) return false;
     for (const char c : value) {
-      if (!(isalnum(static_cast<unsigned char>(c)) || c == '.' || c == '-' || c == '_')) return false;
+      // Spelled out rather than isalnum(): a host name is ASCII by
+      // definition here, while isalnum() is locale-dependent (and would need
+      // <cctype> plus the std:: qualification to be portable at all).
+      const bool alnum = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
+      if (!(alnum || c == '.' || c == '-' || c == '_')) return false;
     }
     return true;
   };
@@ -910,6 +914,17 @@ void write_private_file(const std::string &path, const std::string &content) {
   }
   boost::system::error_code ec;
   boost::filesystem::rename(temporary, target, ec);
+  if (ec) {
+    // A rename over an existing file is not universally atomic: Windows fails
+    // it when the destination is read-only or held open by another process,
+    // and settings_http.hpp works around the same thing the same way. Take
+    // the target out of the way and retry - a regenerated certificate (`nscp
+    // nrpe install --force`) is exactly the case that lands here, and leaving
+    // the old key in place would silently keep the listener on the key we
+    // just decided to replace.
+    boost::filesystem::remove(target, ignored);
+    boost::filesystem::rename(temporary, target, ec);
+  }
   if (ec) {
     boost::filesystem::remove(temporary, ignored);
     throw socket_helpers::socket_exception("Failed to move " + temporary.string() + " into place: " + utf8::utf8_from_native(ec.message()));

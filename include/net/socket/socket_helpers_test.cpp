@@ -1409,6 +1409,15 @@ TEST_F(WriteCertsFixture, OverwritingAnExistingFileStillNarrowsIt) {
   ASSERT_EQ(::chmod(cert.c_str(), 0666), 0);
 #endif
   ASSERT_NO_THROW(socket_helpers::write_certs(cert, false));
+
+  // `nscp nrpe install --force` regenerates over a file that is already
+  // there, so the move into place has to replace it rather than fail: leaving
+  // the old key would keep the listener on exactly the key we set out to
+  // replace, and silently.
+  const std::string content = read_file(cert);
+  EXPECT_EQ(content.find("stale"), std::string::npos) << "the previous file must be replaced, not left in place";
+  EXPECT_NE(content.find("PRIVATE KEY"), std::string::npos);
+  EXPECT_FALSE(boost::filesystem::exists(cert + ".new"));
 #ifndef WIN32
   struct stat st = {};
   ASSERT_EQ(::stat(cert.c_str(), &st), 0);
