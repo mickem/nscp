@@ -41,7 +41,6 @@ struct plugin_instance_data {
   // there. Every critical section here is a lookup in a map with one entry
   // per loaded module, so a reader/writer lock would buy nothing.
   mutable std::mutex mutex;
-  plugin_instance_data() = default;
   // The instance for id, or null when none exists. Only NSLoadModuleEx may
   // create one (see create()): an unloaded module used to be resurrected as a
   // fresh instance that never saw loadModuleEx by the next log line.
