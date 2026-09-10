@@ -915,6 +915,13 @@ TEST(TlsMethodParser, Any) { EXPECT_EQ(+socket_helpers::tls_method_parser("any")
 
 TEST(TlsMethodParser, InvalidPlusThrows) { EXPECT_THROW(socket_helpers::tls_method_parser("1.4+"), socket_helpers::socket_exception); }
 
+// sslv3+ is advertised by the `tls version` settings description alongside
+// the other '+' forms, but the floor lookup this validates through left
+// sslv3 out - so it threw here and the listener never started.
+TEST(TlsMethodParser, Sslv3WithPlus) { EXPECT_EQ(+socket_helpers::tls_method_parser("sslv3+"), +boost::asio::ssl::context::tls); }
+
+TEST(TlsMethodParser, Ssl3WithPlus) { EXPECT_EQ(+socket_helpers::tls_method_parser("ssl3+"), +boost::asio::ssl::context::tls); }
+
 TEST(TlsMethodParser, Tls11) { EXPECT_EQ(+socket_helpers::tls_method_parser("tls1.1"), +boost::asio::ssl::context::tlsv11); }
 
 TEST(TlsMethodParser, Tls10) { EXPECT_EQ(+socket_helpers::tls_method_parser("tls1.0"), +boost::asio::ssl::context::tlsv1); }
@@ -938,6 +945,8 @@ TEST(TlsMinVersionParser, Tls12PlusAsksForTls12Floor) { EXPECT_EQ(socket_helpers
 TEST(TlsMinVersionParser, Tls13PlusAsksForTls13Floor) { EXPECT_EQ(socket_helpers::tls_min_version_parser("tlsv1.3+"), TLS1_3_VERSION); }
 
 TEST(TlsMinVersionParser, Tls10PlusAsksForTls10Floor) { EXPECT_EQ(socket_helpers::tls_min_version_parser("1.0+"), TLS1_VERSION); }
+
+TEST(TlsMinVersionParser, Sslv3PlusAsksForAnSsl3Floor) { EXPECT_EQ(socket_helpers::tls_min_version_parser("sslv3+"), SSL3_VERSION); }
 
 TEST(TlsMinVersionParser, AnExactVersionCarriesNoFloor) {
   // The pinned method already constrains both ends; a floor would be redundant.

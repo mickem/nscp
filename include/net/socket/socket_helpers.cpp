@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
+#include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
+#include <cstdio>
 #include <iomanip>
 #include <net/socket/socket_helpers.hpp>
 #include <sstream>
@@ -494,6 +496,31 @@ boost::asio::ssl::context::verify_mode socket_helpers::connection_info::ssl_opts
   return mode;
 }
 
+namespace {
+// The one table of `tls version` spellings, so the places that have to
+// understand the setting cannot drift apart again - drifting apart is exactly
+// what left documented spellings rejected as "Invalid tls version" (which for
+// an NRPE listener surfaces as "listener failed to start"). `spec` is the
+// setting lower-cased with any trailing '+' already stripped; "any" is not
+// handled here because it means different things to a floor and to a ceiling.
+bool lookup_tls_version(const std::string &spec, long &version) {
+  if (spec == "tlsv1.3" || spec == "tls1.3" || spec == "1.3") {
+    version = TLS1_3_VERSION;
+  } else if (spec == "tlsv1.2" || spec == "tls1.2" || spec == "1.2") {
+    version = TLS1_2_VERSION;
+  } else if (spec == "tlsv1.1" || spec == "tls1.1" || spec == "1.1") {
+    version = TLS1_1_VERSION;
+  } else if (spec == "tlsv1.0" || spec == "tls1.0" || spec == "1.0") {
+    version = TLS1_VERSION;
+  } else if (spec == "sslv3" || spec == "ssl3") {
+    version = SSL3_VERSION;
+  } else {
+    return false;
+  }
+  return true;
+}
+}  // namespace
+
 long socket_helpers::connection_info::ssl_opts::get_tls_min_version() const {
   std::string tmp = boost::algorithm::to_lower_copy(tls_version);
   str::utils::replace(tmp, "+", "");
@@ -503,22 +530,11 @@ long socket_helpers::connection_info::ssl_opts::get_tls_min_version() const {
   if (tmp == "any") {
     return 0;
   }
-  if (tmp == "tlsv1.3" || tmp == "tls1.3" || tmp == "1.3") {
-    return TLS1_3_VERSION;
+  long version = 0;
+  if (!lookup_tls_version(tmp, version)) {
+    throw socket_exception("Invalid tls version: " + tmp);
   }
-  if (tmp == "tlsv1.2" || tmp == "tls1.2" || tmp == "1.2") {
-    return TLS1_2_VERSION;
-  }
-  if (tmp == "tlsv1.1" || tmp == "tls1.1" || tmp == "1.1") {
-    return TLS1_1_VERSION;
-  }
-  if (tmp == "tlsv1.0" || tmp == "tls1.0" || tmp == "1.0") {
-    return TLS1_VERSION;
-  }
-  if (tmp == "sslv3" || tmp == "ssl3") {
-    return SSL3_VERSION;
-  }
-  throw socket_exception("Invalid tls version: " + tmp);
+  return version;
 }
 
 long socket_helpers::connection_info::ssl_opts::get_tls_max_version() const {
@@ -532,29 +548,18 @@ long socket_helpers::connection_info::ssl_opts::get_tls_max_version() const {
   if (!tmp.empty() && tmp.back() == '+') {
     // Validate the floor so a typo ("1.4+") still fails loudly, exactly as
     // tls_method_parser does for the same input.
-    get_tls_min_version();
+    static_cast<void>(get_tls_min_version());
     return TLS1_3_VERSION;
   }
   // "any" is documented alongside the numeric versions: no pin, no floor.
   if (tmp == "any") {
     return TLS1_3_VERSION;
   }
-  if (tmp == "tlsv1.3" || tmp == "tls1.3" || tmp == "1.3") {
-    return TLS1_3_VERSION;
+  long version = 0;
+  if (!lookup_tls_version(tmp, version)) {
+    throw socket_exception("Invalid tls version: " + tmp);
   }
-  if (tmp == "tlsv1.2" || tmp == "tls1.2" || tmp == "1.2") {
-    return TLS1_2_VERSION;
-  }
-  if (tmp == "tlsv1.1" || tmp == "tls1.1" || tmp == "1.1") {
-    return TLS1_1_VERSION;
-  }
-  if (tmp == "tlsv1.0" || tmp == "tls1.0" || tmp == "1.0") {
-    return TLS1_VERSION;
-  }
-  if (tmp == "sslv3" || tmp == "ssl3") {
-    return SSL3_VERSION;
-  }
-  throw socket_exception("Invalid tls version: " + tmp);
+  return version;
 }
 
 boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts::get_certificate_format() const {
@@ -661,7 +666,7 @@ std::string build_subject_alt_name() {
   }
   for (const bool ipv6 : {false, true}) {
     const boost::optional<ip::address> address = discover_local_address(ipv6);
-    if (address) names.push_back("IP:" + address->to_string());
+    if (address) names.push_back("IP:" + address.value().to_string());
   }
   names.emplace_back("DNS:localhost");
   names.emplace_back("IP:127.0.0.1");
@@ -1035,11 +1040,15 @@ long socket_helpers::tls_min_version_parser(const std::string &tls_version) {
   std::string tmp = boost::algorithm::to_lower_copy(tls_version);
   if (tmp.empty() || tmp.back() != '+') return 0;
   tmp.pop_back();
-  if (tmp == "tlsv1.3" || tmp == "tls1.3" || tmp == "1.3") return TLS1_3_VERSION;
-  if (tmp == "tlsv1.2" || tmp == "tls1.2" || tmp == "1.2") return TLS1_2_VERSION;
-  if (tmp == "tlsv1.1" || tmp == "tls1.1" || tmp == "1.1") return TLS1_1_VERSION;
-  if (tmp == "tlsv1.0" || tmp == "tls1.0" || tmp == "1.0") return TLS1_VERSION;
-  throw socket_exception("Invalid tls version: " + tls_version);
+  // Through the shared table: this copy left `sslv3` out, so `tls version =
+  // sslv3+` - which the settings description advertises alongside the other
+  // '+' forms - threw here and took the listener down with it, the same
+  // failure the '+' forms above were fixed for.
+  long version = 0;
+  if (!lookup_tls_version(tmp, version)) {
+    throw socket_exception("Invalid tls version: " + tls_version);
+  }
+  return version;
 }
 
 void socket_helpers::apply_tls_min_version(boost::asio::ssl::context &ctx, const std::string &tls_version) {
