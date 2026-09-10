@@ -73,6 +73,7 @@ set is pinned in `build/python/requirements.txt`.
 | Mongoose                               | web / REST server (mongoose backend)                      | vendored source (`MONGOOSE_SOURCE_DIR`)          | only needed when `NSCP_WEB_BACKEND=mongoose` (the default); not needed with `beast`          |
 | MariaDB Connector/C                    | MySQL / MariaDB / Percona checks                          | `libmariadb-dev` (RHEL: `mariadb-connector-c-devel`) | `CheckMySQL` module                                                                      |
 | `check_nsclient`                       | stand-alone check plugin bundled with the packages        | prebuilt binary from [mickem/check_nsclient](https://github.com/mickem/check_nsclient/releases) (version pinned in `.check_nsclient_version`) | bundled `check_nsclient` (skip with `-DCHECK_NSCLIENT_MISSING=TRUE`) |
+| .NET SDK (8.0+)                        | managed .NET plugin API (`NSCP.Core.dll`) + C# sample     | `dotnet-sdk-8.0`                                 | `modules/dotnet` (the native `DotnetPlugins` module still builds; skip with `-DNSCP_DOTNET=OFF`). The managed build restores `Google.Protobuf` from nuget.org; offline builds point it at a local package folder with `-DNSCP_DOTNET_PACKAGE_SOURCE=<dir>` or skip the restore with `-DNSCP_DOTNET_NO_RESTORE=ON` (packages already in `$NUGET_PACKAGES`), or pass `-DNSCP_DOTNET=OFF`. `-DNSCP_DOTNET_PROTOBUF_VERSION=` picks the runtime version. The C# sample is built into `modules/dotnet` for the tests but is not installed or packaged. |
 
 A few additional Linux packages are pulled in for packaging and supporting
 libraries: `pkg-config`, `libffi-dev`, `libdbus-1-dev` and `rpm` (the last one
@@ -941,6 +942,13 @@ export UBSAN_OPTIONS=suppressions=$PWD/../tools/sanitizers/ubsan-suppressions.tx
 
 See the header of `tools/sanitizers/run.sh` and
 `.github/workflows/tests-sanitizers.yml` for more variations.
+
+In CI the sanitizers run on **`main` only**, not on every pull request: the job
+is close to half of a PR run's machine time and it very rarely fails on a single
+change. If a branch touches memory handling and you want it checked before it
+merges, run `tools/sanitizers/run.sh` locally, or start
+`.github/workflows/tests-sanitizers.yml` from the Actions tab ("Run workflow",
+then pick the branch).
 
 #### Coverage reports
 

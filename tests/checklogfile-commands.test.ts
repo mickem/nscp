@@ -81,6 +81,22 @@ describe("CheckLogFile check_logfile", () => {
     expect(messageOf(second)).toMatch(/2\/3/);
   });
 
+  it("reports the empty contract when the filter matches nothing", async () => {
+    // Part of #1499: with no line matched the warn/crit expressions are
+    // force-evaluated with no row bound, and column() used to read the row
+    // anyway. It must resolve to nothing so the check lands on its empty-state
+    // result, not an error.
+    const file = newLog("INFO one\nINFO two\n");
+    const q = await executeQuery(key, "check_logfile", {
+      file,
+      filter: "column1 = 'nosuchcolumn-1499'",
+      critical: "column(1) = 'ERROR' or count > 5",
+      "empty-state": "ok",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/Nothing found/i);
+  });
+
   it("compares columns against decimal thresholds numerically", async () => {
     // Tab-separated columns (the default column-split). column2 is a dual
     // string/number keyword: the decimal literal re-types it to float and

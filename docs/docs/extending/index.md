@@ -57,9 +57,22 @@ These script run inside NSClient++ and can interact with NSClient++.
 
 - Slightly awkward to distribute third party modules.
 
-## .Net modules
+## .NET plugins
 
-> Removed in 0.6.x, let me know if this is still relevant.
+Plugins written for .NET (C#, F#, ...) hosted in-process by the DotnetPlugins module, on Windows and Linux.
+See [.NET plugins](dotnet.md).
+
+**Pros:**
+
+- Very Powerful in that your plugin can do whatever you want and you can interact with NSClient++.
+- Supports queries, commands, passive results, settings and logging through the same protocol as native modules.
+- Stateful as the plugins run in the background, with full access to the .NET ecosystem (NuGet, threads, ...).
+- No forking overhead.
+
+**Cons:**
+
+- Requires a .NET runtime (8.0 or newer) on the monitored machine.
+- Compiled, so modifications require a rebuild.
 
 ## C/C++ modules
 

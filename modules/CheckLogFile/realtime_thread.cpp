@@ -29,7 +29,19 @@
 
 typedef parsers::where::realtime_filter_helper<runtime_data, filters::filter_config_object> filter_helper;
 
+// The thread entry: an exception escaping the body would terminate the
+// process, so it is caught and logged here and the monitor simply ends.
 void real_time_thread::thread_proc() {
+  try {
+    thread_proc_body();
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR("Real-time log monitoring stopped: " + std::string(e.what()));
+  } catch (...) {
+    NSC_LOG_ERROR("Real-time log monitoring stopped: unknown exception");
+  }
+}
+
+void real_time_thread::thread_proc_body() {
   filter_helper helper(core, plugin_id);
   std::list<std::string> logs;
 
@@ -127,14 +139,14 @@ void real_time_thread::thread_proc() {
   while (true) {
     if (!startup_done) startup_done = helper.process_startup();
     filter_helper::op_duration dur = helper.find_minimum_timeout();
-    if (!startup_done && (!dur || *dur > boost::posix_time::milliseconds(500))) dur = boost::posix_time::milliseconds(500);
+    if (!startup_done && (!dur || dur.value() > boost::posix_time::milliseconds(500))) dur = boost::posix_time::milliseconds(500);
     std::string trigger_folder;
 #ifdef WIN32
     DWORD dwWaitTime = INFINITE;
-    if (dur && dur->total_milliseconds() < 0)
+    if (dur && dur.value().total_milliseconds() < 0)
       dwWaitTime = 0;
     else if (dur)
-      dwWaitTime = static_cast<DWORD>(dur->total_milliseconds());
+      dwWaitTime = static_cast<DWORD>(dur.value().total_milliseconds());
     const DWORD dwWaitReason = WaitForMultipleObjects(static_cast<DWORD>(handles.size()), handles.data(), FALSE, dwWaitTime);
     if (dwWaitReason == WAIT_TIMEOUT) {
       // we take care of this below...
@@ -167,7 +179,7 @@ void real_time_thread::thread_proc() {
 #define BUF_LEN (1024 * (EVENT_SIZE + 16))
 
     int timeout = 1000 * 60;
-    if (dur) timeout = dur->total_milliseconds();
+    if (dur) timeout = dur.value().total_milliseconds();
     char buffer[BUF_LEN];
     int length = poll(pollfds, 2, timeout);
     if (!length) {

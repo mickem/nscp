@@ -4,7 +4,7 @@ A server that listens for incoming HTTP connection and processes incoming reques
 
 ## Enable module
 
-To enable this module and and allow using the commands you need to ass `WEBServer = enabled` to the `[/modules]` section in nsclient.ini:
+To enable this module and allow using the commands you need to add `WEBServer = enabled` to the `[/modules]` section in nsclient.ini:
 
 ```
 [/modules]
@@ -120,25 +120,49 @@ A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to
 allowed hosts=127.0.0.1
 ```
 
-#### AUTH RATE LIMIT (BLOCK SECONDS) <a id="/settings/WEB/server/auth rate limit block seconds"></a>
+=== "Windows"
 
-How long an IP stays blocked after hitting \`auth rate limit max failures\` consecutive failures. Default 60 s.
+    #### AUTH RATE LIMIT (BLOCK SECONDS) <a id="/settings/WEB/server/auth rate limit block seconds"></a>
 
-
-| Key            | Description                                   |
-|----------------|-----------------------------------------------|
-| Path:          | [/settings/WEB/server](#/settings/WEB/server) |
-| Key:           | auth rate limit block seconds                 |
-| Default value: | `60`                                          |
+    How long an IP stays blocked when it hits \`auth rate limit max failures\` consecutive failures. Default 60 s. A further block doubles the wait - up to an hour - only when that IP burned its whole failure budget at machine speed (faster than one attempt every two seconds on average); a slower run, such as a monitoring client retrying a stale password, keeps the base delay however long it goes on, so one broken client cannot lock everyone sharing its address (behind NAT or a proxy) out for hours. The escalation resets on a successful authentication, or after an hour of quiet. A value of an hour or more is already longer than any escalated block and is used as configured, without doubling.
 
 
-**Sample:**
+    | Key            | Description                                   |
+    |----------------|-----------------------------------------------|
+    | Path:          | [/settings/WEB/server](#/settings/WEB/server) |
+    | Key:           | auth rate limit block seconds                 |
+    | Default value: | `60`                                          |
 
-```
-[/settings/WEB/server]
-# AUTH RATE LIMIT (BLOCK SECONDS)
-auth rate limit block seconds=60
-```
+
+    **Sample:**
+
+    ```
+    [/settings/WEB/server]
+    # AUTH RATE LIMIT (BLOCK SECONDS)
+    auth rate limit block seconds=60
+    ```
+
+=== "Linux"
+
+    #### AUTH RATE LIMIT (BLOCK SECONDS) <a id="/settings/WEB/server/auth rate limit block seconds"></a>
+
+    How long an IP stays blocked after hitting \`auth rate limit max failures\` consecutive failures. Default 60 s.
+
+
+    | Key            | Description                                   |
+    |----------------|-----------------------------------------------|
+    | Path:          | [/settings/WEB/server](#/settings/WEB/server) |
+    | Key:           | auth rate limit block seconds                 |
+    | Default value: | `60`                                          |
+
+
+    **Sample:**
+
+    ```
+    [/settings/WEB/server]
+    # AUTH RATE LIMIT (BLOCK SECONDS)
+    auth rate limit block seconds=60
+    ```
 
 #### AUTH RATE LIMIT (FAILURES) <a id="/settings/WEB/server/auth rate limit max failures"></a>
 
@@ -420,25 +444,49 @@ legacy=legacy,login.get
 monitoring=public,queries.execute,aliases.list,login.get,metrics.get
 ```
 
-#### Role for read + run checks (queries.execute can run side-effecting commands) <a id="/settings/WEB/server/roles/client"></a>
+=== "Windows"
 
-Default role for read + run checks (queries.execute can run side-effecting commands)
+    #### Role for read + run checks (queries.execute can run side-effecting commands) <a id="/settings/WEB/server/roles/client"></a>
 
-
-| Key            | Description                                                                                                     |
-|----------------|-----------------------------------------------------------------------------------------------------------------|
-| Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles)                                                       |
-| Key:           | client                                                                                                          |
-| Default value: | `public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list` |
+    Default role for read + run checks (queries.execute can run side-effecting commands)
 
 
-**Sample:**
+    | Key            | Description                                                                                                     |
+    |----------------|-----------------------------------------------------------------------------------------------------------------|
+    | Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles)                                                       |
+    | Key:           | client                                                                                                          |
+    | Default value: | `public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list` |
 
-```
-[/settings/WEB/server/roles]
-# Role for read + run checks (queries.execute can run side-effecting commands)
-client=public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list
-```
+
+    **Sample:**
+
+    ```
+    [/settings/WEB/server/roles]
+    # Role for read + run checks (queries.execute can run side-effecting commands)
+    client=public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list
+    ```
+
+=== "Linux"
+
+    #### Role for read only <a id="/settings/WEB/server/roles/client"></a>
+
+    Default role for read only
+
+
+    | Key            | Description                                                                                                     |
+    |----------------|-----------------------------------------------------------------------------------------------------------------|
+    | Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles)                                                       |
+    | Key:           | client                                                                                                          |
+    | Default value: | `public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list` |
+
+
+    **Sample:**
+
+    ```
+    [/settings/WEB/server/roles]
+    # Role for read only
+    client=public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list
+    ```
 
 #### Role for Full access <a id="/settings/WEB/server/roles/full"></a>
 

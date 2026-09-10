@@ -6,7 +6,7 @@ Check Microsoft SQL Server: connectivity, databases, backups, agent jobs and cus
 
 ## Enable module
 
-To enable this module and and allow using the commands you need to ass `CheckMSSQL = enabled` to the `[/modules]` section in nsclient.ini:
+To enable this module and allow using the commands you need to add `CheckMSSQL = enabled` to the `[/modules]` section in nsclient.ini:
 
 ```
 [/modules]

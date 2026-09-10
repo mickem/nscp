@@ -22,6 +22,42 @@
 nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();
 
 // ============================================================================
+// Shutdown contract: a stop that is already pending makes fetch() bail out
+// before touching WMI, storing nothing and surfacing the portable stop marker
+// rather than an error (#1504).
+// ============================================================================
+
+TEST(DiskIo, FetchWithSignalledStopThrowsStopRequestedAndStoresNothing) {
+  threads::stop_signal stop;
+  std::string error;
+  ASSERT_TRUE(stop.create(error)) << error;
+  stop.signal();
+
+  disk_io_check::disk_io_data data;
+  EXPECT_THROW(data.fetch(&stop), threads::stop_requested);
+  EXPECT_FALSE(data.stored_data());
+  EXPECT_TRUE(data.get().empty());
+}
+
+TEST(DiskIo, FetchWithUnsignalledStopIsNotAnAbort) {
+  threads::stop_signal stop;
+  std::string error;
+  ASSERT_TRUE(stop.create(error)) << error;
+
+  disk_io_check::disk_io_data data;
+  // Live WMI: on a host where the PerfDisk classes exist this collects, and
+  // where they do not it reports the failure the usual way. Either way the
+  // one thing it must not do is claim a stop was requested.
+  try {
+    data.fetch(&stop);
+  } catch (const threads::stop_requested &) {
+    FAIL() << "fetch reported an abort with the stop signal unsignalled";
+  } catch (const std::exception &) {
+    // provider failure: acceptable here
+  }
+}
+
+// ============================================================================
 // disk_io struct tests
 // ============================================================================
 

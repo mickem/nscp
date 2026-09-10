@@ -4,7 +4,7 @@ CollectD client can be used to submit metrics to a collectd server
 
 ## Enable module
 
-To enable this module and and allow using the commands you need to ass `CollectdClient = enabled` to the `[/modules]` section in nsclient.ini:
+To enable this module and allow using the commands you need to add `CollectdClient = enabled` to the `[/modules]` section in nsclient.ini:
 
 ```
 [/modules]
@@ -122,6 +122,7 @@ This is a section of objects. This means that you will create objects below this
 | Key                 | Default Value | Description         |
 |---------------------|---------------|---------------------|
 | address             |               | TARGET ADDRESS      |
+| allow host override | false         | ALLOW HOST OVERRIDE |
 | host                |               | TARGET HOST         |
 | interval            |               | METRICS INTERVAL    |
 | multicast interface | auto          | MULTICAST INTERFACE |
@@ -136,6 +137,7 @@ This is a section of objects. This means that you will create objects below this
 # An example of a REMOTE TARGET DEFINITIONS section
 [/settings/collectd/client/targets/sample]
 #address=...
+allow host override=false
 #host=...
 #interval=...
 multicast interface=auto

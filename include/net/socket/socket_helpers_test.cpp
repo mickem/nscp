@@ -6,11 +6,16 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <boost/asio/ip/host_name.hpp>
+#include <boost/filesystem.hpp>
+#include <fstream>
 #include <net/socket/server.hpp>
 #include <net/socket/socket_helpers.hpp>
 #include <str/utils.hpp>
 #include <string>
 #include <vector>
+#ifndef WIN32
+#include <sys/stat.h>
+#endif
 
 // =============================================================================
 // socket_exception tests
@@ -591,21 +596,34 @@ TEST(SslOptsVerifyMode, ClientOnce) {
   EXPECT_NE(+mode & +boost::asio::ssl::context_base::verify_client_once, 0);
 }
 
-TEST(SslOptsVerifyMode, Workarounds) {
+// `workarounds` and `single` are documented under `verify mode`, but they are
+// SSL context options rather than verify bits. They used to be OR-ed into the
+// value handed to SSL_CTX_set_verify, which only fed it flags it ignores.
+// They now land in get_ctx_opts(), which is applied with
+// context.set_options() and is where they take effect.
+
+TEST(SslOptsVerifyMode, WorkaroundsIsNotAVerifyBit) {
   socket_helpers::connection_info::ssl_opts opts;
   opts.verify_mode = "workarounds";
-  auto mode = opts.get_verify_mode();
-  EXPECT_NE(+mode & +boost::asio::ssl::context_base::default_workarounds, 0);
+  EXPECT_EQ(+opts.get_verify_mode(), +boost::asio::ssl::context_base::verify_none);
+  EXPECT_NE(opts.get_ctx_opts() & +boost::asio::ssl::context::default_workarounds, 0);
 }
 
-TEST(SslOptsVerifyMode, Single) {
+TEST(SslOptsVerifyMode, SingleIsNotAVerifyBit) {
   socket_helpers::connection_info::ssl_opts opts;
   opts.verify_mode = "single";
-  // single_dh_use is 0x0 (no-op) on OpenSSL 3.0+, so only assert when non-zero
-  auto mode = opts.get_verify_mode();
+  EXPECT_EQ(+opts.get_verify_mode(), +boost::asio::ssl::context_base::verify_none);
+  // single_dh_use is 0x0 (a no-op) on OpenSSL 3.0+, so only assert when non-zero
   if (+boost::asio::ssl::context::single_dh_use != 0) {
-    EXPECT_NE(+mode & +boost::asio::ssl::context::single_dh_use, 0);
+    EXPECT_NE(opts.get_ctx_opts() & +boost::asio::ssl::context::single_dh_use, 0);
   }
+}
+
+TEST(SslOptsVerifyMode, ContextOptionsDoNotDisturbTheVerifyBits) {
+  socket_helpers::connection_info::ssl_opts opts;
+  opts.verify_mode = "peer-cert,workarounds";
+  const auto mode = opts.get_verify_mode();
+  EXPECT_EQ(+mode, +boost::asio::ssl::context_base::verify_peer | +boost::asio::ssl::context_base::verify_fail_if_no_peer_cert);
 }
 
 TEST(SslOptsVerifyMode, CommaDelimited) {
@@ -897,6 +915,13 @@ TEST(TlsMethodParser, Any) { EXPECT_EQ(+socket_helpers::tls_method_parser("any")
 
 TEST(TlsMethodParser, InvalidPlusThrows) { EXPECT_THROW(socket_helpers::tls_method_parser("1.4+"), socket_helpers::socket_exception); }
 
+// sslv3+ is advertised by the `tls version` settings description alongside
+// the other '+' forms, but the floor lookup this validates through left
+// sslv3 out - so it threw here and the listener never started.
+TEST(TlsMethodParser, Sslv3WithPlus) { EXPECT_EQ(+socket_helpers::tls_method_parser("sslv3+"), +boost::asio::ssl::context::tls); }
+
+TEST(TlsMethodParser, Ssl3WithPlus) { EXPECT_EQ(+socket_helpers::tls_method_parser("ssl3+"), +boost::asio::ssl::context::tls); }
+
 TEST(TlsMethodParser, Tls11) { EXPECT_EQ(+socket_helpers::tls_method_parser("tls1.1"), +boost::asio::ssl::context::tlsv11); }
 
 TEST(TlsMethodParser, Tls10) { EXPECT_EQ(+socket_helpers::tls_method_parser("tls1.0"), +boost::asio::ssl::context::tlsv1); }
@@ -920,6 +945,8 @@ TEST(TlsMinVersionParser, Tls12PlusAsksForTls12Floor) { EXPECT_EQ(socket_helpers
 TEST(TlsMinVersionParser, Tls13PlusAsksForTls13Floor) { EXPECT_EQ(socket_helpers::tls_min_version_parser("tlsv1.3+"), TLS1_3_VERSION); }
 
 TEST(TlsMinVersionParser, Tls10PlusAsksForTls10Floor) { EXPECT_EQ(socket_helpers::tls_min_version_parser("1.0+"), TLS1_VERSION); }
+
+TEST(TlsMinVersionParser, Sslv3PlusAsksForAnSsl3Floor) { EXPECT_EQ(socket_helpers::tls_min_version_parser("sslv3+"), SSL3_VERSION); }
 
 TEST(TlsMinVersionParser, AnExactVersionCarriesNoFloor) {
   // The pinned method already constrains both ends; a floor would be redundant.
@@ -1279,3 +1306,231 @@ TEST(FormatSubjectCnOnly, CnWithSpaceAndPunctuationPreservedVerbatim) {
 }
 
 #endif  // USE_SSL
+
+// =============================================================================
+// write_certs — generated private keys must not be readable by anyone else
+//
+// write_certs used a plain fopen(cert, "wb"), so the file landed at
+// 0666 & ~umask - 0644 under a normal systemd unit - holding an *unencrypted*
+// PKCS#8 private key. A default NRPE server start generates that file when it
+// is missing, so every default install published its TLS key to every local
+// account. The CA branch was worse: it wrote the CA *private key* into the
+// very ca.pem operators are told to hand out to clients.
+// =============================================================================
+
+TEST(WriteCerts, CaKeyPathSitsBesideTheCertificate) {
+  // Assert the naming rule - same directory, "-key" appended to the stem,
+  // extension kept - rather than a separator convention. ca_key_path() joins
+  // with boost::filesystem::operator/, which uses '\\' on Windows, so
+  // comparing against a hardcoded '/'-separated string fails there.
+  const auto key_beside = [](const std::string& certificate) {
+    const boost::filesystem::path key(socket_helpers::ca_key_path(certificate));
+    EXPECT_EQ(key.parent_path(), boost::filesystem::path(certificate).parent_path());
+    return key.filename().string();
+  };
+  EXPECT_EQ(key_beside("/etc/nscp/security/ca.pem"), "ca-key.pem");
+  EXPECT_EQ(key_beside("ca.pem"), "ca-key.pem");
+  EXPECT_EQ(key_beside("/tmp/my-ca.crt"), "my-ca-key.crt");
+}
+
+namespace {
+class WriteCertsFixture : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    dir_ = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-certs-%%%%-%%%%");
+    boost::filesystem::create_directories(dir_);
+  }
+  void TearDown() override {
+    boost::system::error_code ignored;
+    boost::filesystem::remove_all(dir_, ignored);
+  }
+  std::string path_of(const std::string& name) const { return (dir_ / name).string(); }
+  static std::string read_file(const std::string& path) {
+    std::ifstream in(path.c_str(), std::ios::binary);
+    return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  }
+  boost::filesystem::path dir_;
+};
+}  // namespace
+
+TEST_F(WriteCertsFixture, CertificateFileHoldsKeyAndCertificate) {
+  const std::string cert = path_of("certificate.pem");
+  ASSERT_NO_THROW(socket_helpers::write_certs(cert, false));
+
+  const std::string content = read_file(cert);
+  EXPECT_NE(content.find("PRIVATE KEY"), std::string::npos);
+  EXPECT_NE(content.find("BEGIN CERTIFICATE"), std::string::npos);
+}
+
+TEST_F(WriteCertsFixture, CaCertificateDoesNotCarryThePrivateKey) {
+  const std::string ca = path_of("ca.pem");
+  ASSERT_NO_THROW(socket_helpers::write_certs(ca, true));
+
+  const std::string ca_content = read_file(ca);
+  EXPECT_NE(ca_content.find("BEGIN CERTIFICATE"), std::string::npos);
+  EXPECT_EQ(ca_content.find("PRIVATE KEY"), std::string::npos) << "the file operators hand to clients must not contain the CA key";
+
+  const std::string key = socket_helpers::ca_key_path(ca);
+  ASSERT_TRUE(boost::filesystem::is_regular_file(key));
+  EXPECT_NE(read_file(key).find("PRIVATE KEY"), std::string::npos);
+}
+
+// A write that fails part-way must not leave a truncated file behind:
+// validate_certificate only generates when the path is not a regular file, so
+// a zero-byte certificate.pem would never be repaired.
+TEST_F(WriteCertsFixture, AFailedWriteLeavesThePreviousCertificateIntact) {
+  const std::string cert = path_of("certificate.pem");
+  ASSERT_NO_THROW(socket_helpers::write_certs(cert, false));
+  const std::string original = read_file(cert);
+  ASSERT_FALSE(original.empty());
+
+  // Park a non-empty directory where the temporary has to be created: it
+  // cannot be removed and cannot be opened as a file, so the write fails
+  // before it ever reaches `cert`. (An *empty* directory would not do -
+  // boost::filesystem::remove deletes those.)
+  const boost::filesystem::path blocker = boost::filesystem::path(cert).parent_path() / "certificate.pem.new";
+  boost::filesystem::create_directories(blocker);
+  {
+    std::ofstream keep((blocker / "keep").string().c_str());
+    keep << "x";
+  }
+
+  EXPECT_THROW(socket_helpers::write_certs(cert, false), socket_helpers::socket_exception);
+  EXPECT_EQ(read_file(cert), original) << "a failed regeneration must not clobber the working certificate";
+
+  boost::system::error_code ignored;
+  boost::filesystem::remove_all(blocker, ignored);
+}
+
+TEST_F(WriteCertsFixture, NoTemporaryFileIsLeftBehind) {
+  const std::string cert = path_of("certificate.pem");
+  ASSERT_NO_THROW(socket_helpers::write_certs(cert, false));
+  EXPECT_FALSE(boost::filesystem::exists(cert + ".new"));
+}
+
+TEST_F(WriteCertsFixture, OverwritingAnExistingFileStillNarrowsIt) {
+  const std::string cert = path_of("certificate.pem");
+  {
+    std::ofstream out(cert.c_str());
+    out << "stale";
+  }
+#ifndef WIN32
+  ASSERT_EQ(::chmod(cert.c_str(), 0666), 0);
+#endif
+  ASSERT_NO_THROW(socket_helpers::write_certs(cert, false));
+
+  // `nscp nrpe install --force` regenerates over a file that is already
+  // there, so the move into place has to replace it rather than fail: leaving
+  // the old key would keep the listener on exactly the key we set out to
+  // replace, and silently.
+  const std::string content = read_file(cert);
+  EXPECT_EQ(content.find("stale"), std::string::npos) << "the previous file must be replaced, not left in place";
+  EXPECT_NE(content.find("PRIVATE KEY"), std::string::npos);
+  EXPECT_FALSE(boost::filesystem::exists(cert + ".new"));
+#ifndef WIN32
+  struct stat st = {};
+  ASSERT_EQ(::stat(cert.c_str(), &st), 0);
+  EXPECT_EQ(st.st_mode & 0777, 0600) << "an existing certificate file keeps its old mode through O_CREAT";
+#endif
+}
+
+#ifndef WIN32
+TEST_F(WriteCertsFixture, PrivateKeyFilesAreOwnerOnly) {
+  const std::string cert = path_of("certificate.pem");
+  ASSERT_NO_THROW(socket_helpers::write_certs(cert, false));
+  struct stat st = {};
+  ASSERT_EQ(::stat(cert.c_str(), &st), 0);
+  EXPECT_EQ(st.st_mode & 0777, 0600);
+
+  const std::string ca = path_of("ca.pem");
+  ASSERT_NO_THROW(socket_helpers::write_certs(ca, true));
+  ASSERT_EQ(::stat(socket_helpers::ca_key_path(ca).c_str(), &st), 0);
+  EXPECT_EQ(st.st_mode & 0777, 0600);
+}
+#endif
+
+// =============================================================================
+// is_valid_peer_principal
+//
+// The peer CN reaches permissions::make_subject as `NRPEServer:<cn>` and the
+// log verbatim. It is a subject rather than a pattern, so it cannot inject a
+// glob, and the issuing CA is operator-controlled - but a CN carrying a NUL,
+// a newline, a ':' or a '=' would still split an INI-shaped key or forge a
+// log line.
+// =============================================================================
+
+TEST(IsValidPeerPrincipal, OrdinaryCommonNamesAreAccepted) {
+  EXPECT_TRUE(socket_helpers::is_valid_peer_principal("icinga-master"));
+  EXPECT_TRUE(socket_helpers::is_valid_peer_principal("monitor.example.com"));
+  EXPECT_TRUE(socket_helpers::is_valid_peer_principal("Acme Monitoring"));
+  // A wildcard CN is a real certificate shape and is a literal in the
+  // subject, so it must not be rejected.
+  EXPECT_TRUE(socket_helpers::is_valid_peer_principal("*.example.com"));
+  // UTF-8 is fine; it is neither a separator nor a control character.
+  EXPECT_TRUE(socket_helpers::is_valid_peer_principal("överv\xc3\xa5kning"));
+}
+
+TEST(IsValidPeerPrincipal, SeparatorsAndControlCharactersAreRejected) {
+  EXPECT_FALSE(socket_helpers::is_valid_peer_principal(""));
+  EXPECT_FALSE(socket_helpers::is_valid_peer_principal("has:colon"));
+  EXPECT_FALSE(socket_helpers::is_valid_peer_principal("has=equals"));
+  EXPECT_FALSE(socket_helpers::is_valid_peer_principal(std::string("has\0nul", 7)));
+  EXPECT_FALSE(socket_helpers::is_valid_peer_principal("has\nnewline"));
+  EXPECT_FALSE(socket_helpers::is_valid_peer_principal("has\rcarriage"));
+  EXPECT_FALSE(socket_helpers::is_valid_peer_principal("has\ttab"));
+  EXPECT_FALSE(socket_helpers::is_valid_peer_principal(std::string("has\x7f") + "del"));
+}
+
+TEST(IsValidPeerPrincipal, OverlongCommonNamesAreRejected) {
+  EXPECT_TRUE(socket_helpers::is_valid_peer_principal(std::string(socket_helpers::max_peer_principal_length, 'a')));
+  EXPECT_FALSE(socket_helpers::is_valid_peer_principal(std::string(socket_helpers::max_peer_principal_length + 1, 'a')));
+}
+
+// =============================================================================
+// get_tls_max_version — every documented `tls version` spelling
+//
+// Unlike its `min` counterpart, get_tls_max_version() never stripped the
+// trailing '+'; it listed the '+' forms literally and the list left out
+// tlsv1.0+/tls1.0+/1.0+ and tlsv1.3+/tls1.3+/1.3+. Those threw
+// "Invalid tls version", which surfaces for NRPE as "listener failed to
+// start". "any", which tls_method_parser accepts, failed the same way at
+// get_tls_min_version().
+// =============================================================================
+
+TEST(SslOptsTlsVersion, EveryDocumentedPlusFormIsAccepted) {
+  socket_helpers::connection_info::ssl_opts opts;
+  for (const std::string& floor : {std::string("tlsv1.3"), std::string("tls1.3"), std::string("1.3"), std::string("tlsv1.2"), std::string("tls1.2"),
+                                   std::string("1.2"), std::string("tlsv1.1"), std::string("tls1.1"), std::string("1.1"), std::string("tlsv1.0"),
+                                   std::string("tls1.0"), std::string("1.0"), std::string("sslv3"), std::string("ssl3")}) {
+    opts.tls_version = floor + "+";
+    EXPECT_EQ(opts.get_tls_max_version(), TLS1_3_VERSION) << "for tls version = " << opts.tls_version;
+    EXPECT_NO_THROW(opts.get_tls_min_version()) << "for tls version = " << opts.tls_version;
+  }
+}
+
+TEST(SslOptsTlsVersion, PlusFormWithABogusVersionStillThrows) {
+  socket_helpers::connection_info::ssl_opts opts;
+  opts.tls_version = "1.4+";
+  EXPECT_THROW(opts.get_tls_max_version(), socket_helpers::socket_exception);
+}
+
+TEST(SslOptsTlsVersion, AnyMeansNoFloorAndNoCeiling) {
+  socket_helpers::connection_info::ssl_opts opts;
+  opts.tls_version = "any";
+  EXPECT_EQ(opts.get_tls_min_version(), 0);
+  EXPECT_EQ(opts.get_tls_max_version(), TLS1_3_VERSION);
+}
+
+TEST(EscapeForLog, ControlCharactersBecomeHexEscapes) {
+  EXPECT_EQ(socket_helpers::escape_for_log("icinga-master"), "icinga-master");
+  EXPECT_EQ(socket_helpers::escape_for_log("has\nnewline"), "has\\x0anewline");
+  EXPECT_EQ(socket_helpers::escape_for_log(std::string("has\0nul", 7)), "has\\x00nul");
+  // ':' and '=' get a CN rejected but are harmless in a log line, so they
+  // survive verbatim - the point is to show the operator what was refused.
+  EXPECT_EQ(socket_helpers::escape_for_log("has:colon"), "has:colon");
+}
+
+TEST(EscapeForLog, OverlongValuesAreTruncated) {
+  const std::string result = socket_helpers::escape_for_log(std::string(socket_helpers::max_peer_principal_length + 10, 'a'));
+  EXPECT_EQ(result, std::string(socket_helpers::max_peer_principal_length, 'a') + "...");
+}

@@ -62,7 +62,7 @@ settings_query::key_values::~key_values() { delete pimpl; }
 
 bool settings_query::key_values::matches(const char *path, const char *key) const {
   if (!pimpl || !pimpl->key) return false;
-  return pimpl->path == path && *pimpl->key == key;
+  return pimpl->path == path && pimpl->key.value() == key;
 }
 bool settings_query::key_values::matches(const char *path) const {
   if (!pimpl || !pimpl->key) return false;
@@ -70,7 +70,7 @@ bool settings_query::key_values::matches(const char *path) const {
 }
 bool settings_query::key_values::matches(const std::string &path, const std::string &key) const {
   if (!pimpl || !pimpl->key) return false;
-  return pimpl->path == path && *pimpl->key == key;
+  return pimpl->path == path && pimpl->key.value() == key;
 }
 bool settings_query::key_values::matches(const std::string &path) const {
   if (!pimpl) return false;
@@ -83,14 +83,14 @@ std::string settings_query::key_values::path() const {
 }
 std::string settings_query::key_values::key() const {
   if (!pimpl || !pimpl->key) return "";
-  return *pimpl->key;
+  return pimpl->key.value();
 }
 
 std::string settings_query::key_values::get_string() const {
   if (!pimpl) return "";
-  if (pimpl->str_value) return *pimpl->str_value;
-  if (pimpl->int_value) return str::xtos(*pimpl->int_value);
-  if (pimpl->bool_value) return *pimpl->bool_value ? "true" : "false";
+  if (pimpl->str_value) return pimpl->str_value.value();
+  if (pimpl->int_value) return str::xtos(pimpl->int_value.value());
+  if (pimpl->bool_value) return pimpl->bool_value.value() ? "true" : "false";
   return "";
 }
 
@@ -98,25 +98,25 @@ long long settings_query::key_values::get_int() const {
   if (!pimpl) return 0;
   if (pimpl->str_value) {
     try {
-      return str::stox<long long>(*pimpl->str_value);
+      return str::stox<long long>(pimpl->str_value.value());
     } catch (const std::exception &) {
       return 0;  // Return 0 if conversion fails
     }
   };
-  if (pimpl->int_value) return *pimpl->int_value;
-  if (pimpl->bool_value) return *pimpl->bool_value ? 1 : 0;
+  if (pimpl->int_value) return pimpl->int_value.value();
+  if (pimpl->bool_value) return pimpl->bool_value.value() ? 1 : 0;
   return 0;
 }
 
 bool settings_query::key_values::get_bool() const {
   if (!pimpl) return false;
   if (pimpl->str_value) {
-    std::string s = *pimpl->str_value;
+    std::string s = pimpl->str_value.value();
     std::transform(s.begin(), s.end(), s.begin(), ::tolower);
     return s == "true" || s == "1";
   }
-  if (pimpl->int_value) return *pimpl->int_value == 1;
-  if (pimpl->bool_value) return *pimpl->bool_value;
+  if (pimpl->int_value) return pimpl->int_value.value() == 1;
+  if (pimpl->bool_value) return pimpl->bool_value.value();
   return false;
 }
 

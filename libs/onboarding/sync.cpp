@@ -323,7 +323,7 @@ std::string onboarding::build_state_report(const boost::optional<std::string> &a
                                            const bool local_config_present) {
   json::object root;
   if (applied_state_hash) {
-    root["applied_state_hash"] = *applied_state_hash;
+    root["applied_state_hash"] = applied_state_hash.value();
   }
   // Whether this host has configuration of its own, which takes precedence over
   // anything the fleet server sends. Deliberately only the fact: the server can

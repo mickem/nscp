@@ -312,11 +312,10 @@ WcaGetRecordString() - gets a string field out of a record
     hlp::char_buffer buffer(size + 5);
 
     er = ::MsiRecordReadStream(hRec, uiField, buffer, (DWORD*)&size);
-    if (er != ERROR_SUCCESS)
-      if (ERROR_MORE_DATA == er) {
-        throw installer_exception(L"get_record_string:: Failed to get length of string: " + last_werror(er));
-      }
-    std::string string = buffer;
+    if (ERROR_MORE_DATA == er) throw installer_exception(L"get_record_blob:: stream is larger than its declared size: " + last_werror(er));
+    if (er != ERROR_SUCCESS) throw installer_exception(L"get_record_blob:: MsiRecordReadStream failed: " + last_werror(er));
+    // A stream is binary: size it by the byte count, never by a terminator.
+    std::string string(buffer.get(), size);
     return utf8::cvt<std::wstring>(string);
   }
 
@@ -637,12 +636,11 @@ WcaGetRecordString() - gets a string field out of a record
   }
   std::wstring getProductName(std::wstring code) {
     DWORD size = 0;
-    MsiGetProductInfo(code.c_str(), INSTALLPROPERTY_INSTALLEDPRODUCTNAME, NULL, &size);
+    const UINT sized = MsiGetProductInfo(code.c_str(), INSTALLPROPERTY_INSTALLEDPRODUCTNAME, NULL, &size);
+    if (sized != ERROR_SUCCESS && sized != ERROR_MORE_DATA) return L"";
     size++;
-    wchar_t* buffer = new wchar_t[size + 4];
-    MsiGetProductInfo(code.c_str(), INSTALLPROPERTY_INSTALLEDPRODUCTNAME, buffer, &size);
-    std::wstring ret = buffer;
-    delete[] buffer;
-    return ret;
+    std::vector<wchar_t> buffer(size + 4, L'\0');
+    if (MsiGetProductInfo(code.c_str(), INSTALLPROPERTY_INSTALLEDPRODUCTNAME, buffer.data(), &size) != ERROR_SUCCESS) return L"";
+    return std::wstring(buffer.data());
   }
 };

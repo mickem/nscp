@@ -100,8 +100,8 @@ class REGSettings : public settings::settings_interface_impl {
     for (const std::string &s : list) {
       op_string child = getString_(path, s);
       if (child) {
-        get_core()->register_key(999, "/includes", s, "INCLUDED FILE", "string", *child, *child, false, false);
-        add_child_unsafe(*child, *child);
+        get_core()->register_key(999, "/includes", s, "INCLUDED FILE", "string", child.value(), child.value(), false, false);
+        add_child_unsafe(child.value(), child.value());
       }
     }
   }

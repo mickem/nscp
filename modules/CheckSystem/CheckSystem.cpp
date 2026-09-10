@@ -185,6 +185,9 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     detect_sql_server_tag(get_core());
   }
   std::map<std::string, std::string> service_tags;
+  // A reload replaces the collector: stop the running one first so its
+  // threads are joined before the checks start reading the new instance.
+  if (collector) collector->stop();
   collector.reset(new pdh_thread(get_core(), get_id()));
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("system", alias, "windows");
@@ -288,6 +291,14 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   if (mode == NSCAPI::normalStart) {
     publish_os_version_tags(get_core());
     publish_service_tags(get_core(), service_tags);
+  }
+
+  // The collector above is stopped and replaced on every load, a reload
+  // included, so its counters have to be registered and it has to be started
+  // again here. Leaving this under normalStart left a reload with a fresh
+  // collector that held no counters and was never started, so check_cpu,
+  // check_memory and check_network read nothing until the service restarted.
+  if (mode != NSCAPI::dontStart) {
     for (const check_pdh::counter_config_handler::object_instance object : pdh_checker.counters_.get_object_list()) {
       try {
         PDH::pdh_object counter;
@@ -318,7 +329,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
  * @return true if successfully, false if not (if not things might be bad)
  */
 bool CheckSystem::unloadModule() {
-  if (!collector->stop()) {
+  if (collector && !collector->stop()) {
     NSC_LOG_ERROR("Could not exit the thread, memory leak and potential corruption may be the result...");
   }
   pdh_checker.clear();
@@ -670,6 +681,9 @@ void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &re
       seconds = str::format::decode_time<long>(time, 1);
     } catch (const std::exception &e) {
       return nscapi::protobuf::functions::set_response_bad(*response, "Invalid time '" + time + "': " + e.what());
+    }
+    if (seconds <= 0) {
+      return nscapi::protobuf::functions::set_response_bad(*response, "Invalid time '" + time + "': the window must be at least one second");
     }
     std::map<std::string, windows::system_info::load_entry> vals = collector->get_cpu_load(seconds);
     typedef std::map<std::string, windows::system_info::load_entry>::value_type vt;

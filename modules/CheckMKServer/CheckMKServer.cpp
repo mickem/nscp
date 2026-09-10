@@ -19,6 +19,17 @@ CheckMKServer::CheckMKServer() {}
 CheckMKServer::~CheckMKServer() {}
 
 bool CheckMKServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
+  // On a reload the io threads still read the channel names and the script
+  // handler rebuilt below: stop the listener first and start it again after.
+  try {
+    if (server_) {
+      server_->stop();
+      server_.reset();
+    }
+  } catch (...) {
+    NSC_LOG_ERROR_STD("Failed to stop server");
+    return false;
+  }
   // Resolve to <base>/scripts so find_script finds <base>/scripts/lua/<file>.
   // Using get_base_path() here was a long-standing bug: the auto-add of
   // default_check_mk.lua silently failed because the .lua lives under
@@ -110,7 +121,7 @@ bool CheckMKServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 
   scripts_->load_all();
 
-  if (mode == NSCAPI::normalStart) {
+  if (mode != NSCAPI::dontStart) {
     server_.reset(new check_mk::server::server(info_, handler_));
     if (!server_) {
       NSC_LOG_ERROR_STD("Failed to create server instance!");
@@ -236,8 +247,8 @@ bool CheckMKServer::add_script(std::string alias, std::string file) {
       NSC_LOG_ERROR("Failed to find script: " + file);
       return false;
     }
-    NSC_DEBUG_MSG_STD("Adding script: " + ofile->string());
-    scripts_->add(alias, ofile->string());
+    NSC_DEBUG_MSG_STD("Adding script: " + ofile.value().string());
+    scripts_->add(alias, ofile.value().string());
     return true;
   } catch (...) {
     NSC_LOG_ERROR_EX("add script");

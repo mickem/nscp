@@ -20,7 +20,32 @@
 
 namespace socket_helpers {
 #ifdef USE_SSL
+// Generate a self-signed certificate and write it to `cert`.
+//
+// For `ca == false` this is the agent's own identity: the unencrypted private
+// key and the certificate go into the one file (asio loads both from it when
+// `certificate key` is empty), created so that only the account running the
+// agent can read it.
+//
+// For `ca == true` the certificate goes to `cert` - the file operators hand
+// out to clients - and the CA private key to ca_key_path(cert) beside it,
+// again readable only by us. Distributing the CA key would let any recipient
+// mint client certificates and walk through `verify mode = peer-cert`.
 void write_certs(const std::string& cert, bool ca);
+
+// Where write_certs() puts the private key belonging to a CA certificate:
+// the same directory and extension with a "-key" suffix on the stem, so
+// `.../ca.pem` becomes `.../ca-key.pem`.
+std::string ca_key_path(const std::string& ca_certificate);
+
+#ifdef WIN32
+// Lock a file down to LOCAL SYSTEM and the local Administrators group,
+// breaking inheritance so a permissive parent (Program Files grants
+// `Users: Read & Execute`) cannot leave a private key world-readable.
+// Mirrors nsclient::windows_acl::protect_directory, which is not linked into
+// the modules that generate certificates.
+bool restrict_to_owner(const std::string& path, std::list<std::string>& errors);
+#endif
 // Extract the peer certificate's Subject DN from an established SSL
 // session and format it as an RFC 2253 string (e.g.
 // `CN=icinga-master,O=Acme,C=US`). Returns an empty string when there is
@@ -33,6 +58,26 @@ void write_certs(const std::string& cert, bool ca);
 // issuer. Otherwise the returned DN is attacker-supplied and must NOT
 // be used for authorization decisions.
 std::string extract_peer_subject_dn(void* ssl);
+
+// Whether a peer certificate's CN is usable as a policy principal.
+//
+// The CN reaches permissions::make_subject as `NRPEServer:<cn>` and the log
+// verbatim. It is a subject rather than a pattern, so it cannot inject a
+// glob, and the CA that issued it is operator-controlled - but a CN carrying
+// a NUL, a newline, a tab, a `:` or a `=` would still split an INI-shaped
+// key or forge a line break in the log. Those are rejected (the connection
+// then simply has no identity); everything else, including UTF-8, a space
+// and a wildcard CN like `*.example.com`, is left alone. `max_length` bounds
+// what ends up in a log line.
+bool is_valid_peer_principal(const std::string& cn);
+constexpr std::size_t max_peer_principal_length = 255;
+
+// A rejected CN rendered safe to put in a log line: the characters that got
+// it rejected are exactly the ones that must not reach the log unescaped, so
+// each is replaced by \xNN and the result is truncated. Without this a
+// rejected CN is invisible and the resulting drop to a bare policy subject
+// cannot be diagnosed.
+std::string escape_for_log(const std::string& value);
 
 // Format an X509 certificate's Subject as an RFC 2253 DN string.
 // Exposed for unit testing (so tests can construct an X509 in memory
@@ -249,6 +294,13 @@ struct connection_info {
 
   std::list<std::string> validate_ssl() const;
   std::list<std::string> validate() const;
+#ifdef USE_SSL
+  // True when the parsed `verify mode` actually asks for the peer's
+  // certificate to be validated. Without verify_peer the handshake accepts
+  // whatever certificate the other end presents, so `ssl = true` on its own
+  // buys encryption with no authentication at all.
+  bool verifies_peer() const;
+#endif
 
   bool get_reuse() const { return reuse; }
   std::string get_port() const { return port_; }
@@ -396,7 +448,7 @@ bool write_with_timeout(boost::asio::io_context& io_service, AsyncWriteStream& s
         timer.cancel();
       } catch (...) {
       }
-      if (*write_result) throw boost::system::system_error(*write_result);
+      if (write_result.value()) throw boost::system::system_error(write_result.value());
       return true;
     } else if (timer_result) {
       rawSocket.close();
@@ -489,7 +541,7 @@ bool read_with_timeout(boost::asio::io_context& io_service, AsyncReadStream& soc
         timer.cancel();
       } catch (...) {
       }
-      if (*read_result) throw boost::system::system_error(*read_result);
+      if (read_result.value()) throw boost::system::system_error(read_result.value());
       return true;
     } else if (timer_result) {
       rawSocket.close();

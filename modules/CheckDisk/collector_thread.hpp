@@ -11,6 +11,7 @@
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <set>
 #include <string>
+#include <threads/stop_signal.hpp>
 #include <trend/trend_buffer.hpp>
 
 #include "check_disk_io.hpp"
@@ -62,6 +63,12 @@ class collector_thread {
   boost::mutex stop_mutex_;
   boost::condition_variable stop_cv_;
   bool stop_requested_;
+  // The same stop request as a kernel primitive, for the fetches themselves:
+  // the CV only wakes the wait between ticks, while a fetch that is blocked
+  // inside a provider (the PerfDisk WMI classes stall for tens of seconds
+  // while WmiApSrv restarts) needs something it can poll or wait on to let go
+  // (#1504). Signalled in stop() before the CV, closed after the join.
+  threads::stop_signal abort_signal_;
   int plugin_id_;
   nscapi::core_wrapper *core_;
 
@@ -102,6 +109,9 @@ class collector_thread {
         trend_retention(7 * 24 * 3600),
         max_collection_errors(10) {}
 
+  // Join the collector before the mutexes and buffers it ticks against go.
+  ~collector_thread() { stop(); }
+
   disk_io_check::disks_type get_disk_io();
   disk_free_check::drives_type get_disk_free();
   // May be null before the first collector tick has published anything.
@@ -114,6 +124,10 @@ class collector_thread {
 
  private:
   void thread_proc();
+  // Whether stop() has been called; checked between the fetches of one tick
+  // so a stop that lands in the disk I/O fetch does not start the disk free
+  // one.
+  bool stop_pending();
   void update_trends(long long now);
   // Rebuild snapshot_ from trends_; must be called with trends_mutex_ held.
   void publish_trends();

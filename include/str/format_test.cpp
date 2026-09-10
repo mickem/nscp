@@ -828,3 +828,27 @@ TEST(format, parse_cim_datetime_rejects_bad_input) {
   EXPECT_EQ(str::format::parse_cim_datetime("2024"), 0);
   EXPECT_EQ(str::format::parse_cim_datetime("20241315083000.000000-000"), 0);  // month 13
 }
+
+// mul_checked() guards the unit multiplier against overflow, and the guard
+// divides by that multiplier. Both halves of the type it is instantiated with
+// matter: a multiplier that does not fit T must not narrow to 0 (and divide by
+// zero), and an unsigned T wider than long long must not have its max() read
+// as -1 (which rejected every value Op5Client parsed).
+TEST(format, unit_multipliers_across_the_instantiated_types) {
+  EXPECT_EQ(str::format::stox_as_time_sec<unsigned long long>("5m", "s"), 300ULL);
+  EXPECT_EQ(str::format::stox_as_time_sec<unsigned long long>("1w", "s"), 604800ULL);
+  EXPECT_EQ(str::format::stox_as_time_sec<long long>("1w", "s"), 604800LL);
+  EXPECT_EQ(str::format::stox_as_time_sec<long>("1w", "s"), 604800L);
+  EXPECT_EQ(str::format::decode_time<long long>("1w", 1), 604800LL);
+  EXPECT_EQ(str::format::decode_byte_units<long long>(1, "TB"), 1099511627776LL);
+  EXPECT_DOUBLE_EQ(str::format::decode_byte_units<double>(1.0, "TB"), 1099511627776.0);
+}
+
+TEST(format, a_multiplier_too_large_for_the_type_is_refused) {
+  // Not a division by zero: a TB multiplier does not fit a 32-bit type, so it
+  // used to narrow to exactly 0 and the guard divided by it.
+  EXPECT_THROW(str::format::decode_byte_units<int>(1, "TB"), std::out_of_range);
+  // The product overflowing is still refused too, signed and unsigned alike.
+  EXPECT_THROW(str::format::stox_as_time_sec<int>("5000000w", "s"), std::out_of_range);
+  EXPECT_THROW(str::format::stox_as_time_sec<unsigned long long>("100000000000000000w", "s"), std::out_of_range);
+}

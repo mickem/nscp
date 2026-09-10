@@ -53,6 +53,20 @@ common:
             description: Target host address
             sample: true
             title: TARGET ADDRESS
+          allow host override:
+            advanced: true
+            default_value: 'false'
+            description: 'Let a request (a REST query, an NRPE argument or `nscp client`) send this target''s
+              *configured* credentials to a destination the request names. Off by default: when a request
+              moves the destination (`host=`, `port=`, `address=`) and the password or token going with
+              it is the one configured here, the call is refused, since otherwise anyone able to run the
+              module''s commands could direct the configured credentials to a host of their choosing.
+              This setting is only consulted in that case: a target with no credentials, a request that
+              supplies its own password/token, and a request that does not move the destination are all
+              unaffected. To reach another server with its own credentials, prefer configuring it as a
+              separate target and selecting it with `target=`.'
+            sample: true
+            title: ALLOW HOST OVERRIDE
           host:
             advanced: true
             default_value: ''

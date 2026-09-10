@@ -3,7 +3,14 @@
 
 #include "handler_impl.hpp"
 
+#include <boost/thread/locks.hpp>
+
 check_mk::packet handler_impl::process() {
+  // find_command reads the command map that register_command and unload_all
+  // rewrite, and the definition it returns points at a script unload_all
+  // deletes. Hold the dispatch lock across the lookup and the call that uses
+  // it, the way LUAScript's own query path does.
+  boost::shared_lock<boost::shared_mutex> dispatch(scripts_->dispatch_mutex());
   boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts_->find_command("check_mk", "s_callback");
   if (!cmd) {
     NSC_LOG_ERROR_STD("No check_mk callback found!");
@@ -17,9 +24,9 @@ check_mk::packet handler_impl::process() {
   // full collection below) corrupts the interpreter heap. Hold the GIL across
   // the whole sequence, including prep_function's pushes. See lua::lua_gil.
   lua::lua_gil::guard gil;
-  lua::lua_wrapper instance(lua::lua_runtime::prep_function(cmd->information, cmd->function));
+  lua::lua_wrapper instance(lua::lua_runtime::prep_function(cmd.value().information, cmd.value().function));
   int args = 1;
-  if (cmd->function.object_ref != 0) {
+  if (cmd.value().function.object_ref != 0) {
     args = 2;
   }
   auto data = check_mk::check_mk_packet_wrapper::wrap(instance.L);

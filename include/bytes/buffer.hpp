@@ -8,7 +8,8 @@ template <class T, class U = T*>
 struct buffer {
   T* data;
   std::size_t size_;
-  explicit buffer(const std::size_t size) : size_(size) { data = new T[size]; }
+  // Value-initialised: callers treat the tail as terminated.
+  explicit buffer(const std::size_t size) : size_(size) { data = new T[size](); }
   buffer(const std::size_t size, const T* src_data) : size_(size) {
     data = new T[size];
     memcpy(data, src_data, size * sizeof(T));
@@ -45,7 +46,7 @@ struct buffer {
   void resize(const std::size_t size) {
     size_ = size;
     delete[] data;
-    data = new T[size_];
+    data = new T[size_]();
   }
 };
 }  // namespace hlp

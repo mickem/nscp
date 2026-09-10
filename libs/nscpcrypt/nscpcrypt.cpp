@@ -201,7 +201,10 @@ class cryptopp_encryption : public nscp::encryption::any_encryption {
       throw nscp::encryption::encryption_exception("Unknown exception when trying to setup crypto");
     }
   }
-  void encrypt(std::string &buffer) { encrypt((unsigned char *)&*buffer.begin(), buffer.size()); }
+  void encrypt(std::string &buffer) {
+    if (buffer.empty()) return;
+    encrypt(reinterpret_cast<unsigned char *>(&buffer[0]), buffer.size());
+  }
   void encrypt(unsigned char *buffer, std::size_t buffer_size) {
     /* encrypt each byte of buffer, one byte at a time (CFB mode) */
     try {
@@ -210,7 +213,10 @@ class cryptopp_encryption : public nscp::encryption::any_encryption {
       throw nscp::encryption::encryption_exception("Unknown exception when trying to setup crypto");
     }
   }
-  void decrypt(std::string &buffer) { decrypt((unsigned char *)&*buffer.begin(), buffer.size()); }
+  void decrypt(std::string &buffer) {
+    if (buffer.empty()) return;
+    decrypt(reinterpret_cast<unsigned char *>(&buffer[0]), buffer.size());
+  }
   void decrypt(unsigned char *buffer, std::size_t buffer_size) {
     try {
       for (std::size_t x = 0; x < buffer_size; x++) decrypto_.ProcessData(&buffer[x], &buffer[x], 1);
@@ -359,7 +365,7 @@ std::string nscp::encryption::engine::generate_transmitted_iv(unsigned int len) 
 
 #ifdef HAVE_LIBCRYPTOPP
   CryptoPP::AutoSeededRandomPool rng;
-  rng.GenerateBlock(reinterpret_cast<unsigned char *>(&*buffer.begin()), len);
+  if (len > 0) rng.GenerateBlock(reinterpret_cast<unsigned char *>(&buffer[0]), len);
 #else
   std::random_device rd;
   for (unsigned int x = 0; x < len; x++) buffer[x] = static_cast<char>(rd() & 0xFF);
@@ -396,13 +402,13 @@ void nscp::encryption::engine::decrypt_buffer(std::string &buffer) {
   if (core_ == NULL) throw encryption_exception("No encryption core!");
   core_->decrypt(buffer);
 }
-std::string nscp::encryption::engine::get_rand_buffer(int length) {
+std::string nscp::encryption::engine::get_rand_buffer(std::size_t length) {
   std::string buffer;
   buffer.resize(length);
   // unsigned char * buffer = new unsigned char[length+1];
 #if HAVE_LIBCRYPTOPP
   CryptoPP::AutoSeededRandomPool rng;
-  rng.GenerateBlock((unsigned char *)&*buffer.begin(), length);
+  if (length > 0) rng.GenerateBlock(reinterpret_cast<unsigned char *>(&buffer[0]), length);
 #endif
   return buffer;
 }

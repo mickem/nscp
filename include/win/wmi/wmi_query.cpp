@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
+#include <memory>
 #include <WMIUtils.h>
 #include <Wbemidl.h>
 #include <atlsafe.h>
@@ -50,12 +51,16 @@ identity_container get_identity(const std::wstring &username, const std::wstring
   return {username.substr(0, pos), username.substr(pos + 1), password};
 }
 
-void set_proxy_blanket(IUnknown *pProxy, const std::string &user, const std::string &password) {
-  if (user.empty() || password.empty()) return;
-  identity_container auth = get_identity(utf8::cvt<std::wstring>(user), utf8::cvt<std::wstring>(password));
+// The identity handed to CoSetProxyBlanket must stay valid until another
+// identity is set or the proxy is released, so it is returned to the caller
+// (type-erased) to be kept alongside the service it was set on.
+std::shared_ptr<void> set_proxy_blanket(IUnknown *pProxy, const std::string &user, const std::string &password) {
+  if (user.empty() || password.empty()) return std::shared_ptr<void>();
+  std::shared_ptr<identity_container> auth = std::make_shared<identity_container>(get_identity(utf8::cvt<std::wstring>(user), utf8::cvt<std::wstring>(password)));
   const HRESULT hr = CoSetProxyBlanket(pProxy, RPC_C_AUTHN_DEFAULT, RPC_C_AUTHZ_DEFAULT, COLE_DEFAULT_PRINCIPAL, RPC_C_AUTHN_LEVEL_DEFAULT,
-                                       RPC_C_IMP_LEVEL_IMPERSONATE, &auth.auth_identity, EOAC_NONE);
+                                       RPC_C_IMP_LEVEL_IMPERSONATE, &auth->auth_identity, EOAC_NONE);
   if (FAILED(hr)) throw wmi_exception(hr, "CoSetProxyBlanket failed: " + ComError::getComError(hr));
+  return auth;
 }
 
 CComPtr<IWbemServices> &wmi_service::get() {
@@ -77,7 +82,7 @@ CComPtr<IWbemServices> &wmi_service::get() {
       throw wmi_exception(hr, "ConnectServer failed: namespace=" + ns + ", user=" + username);
     }
 
-    set_proxy_blanket(service, username, password);
+    proxy_identity = set_proxy_blanket(service, username, password);
     is_initialized = true;
   }
   return service;
@@ -124,7 +129,7 @@ std::string row::get_string(const std::string &col) const {
     return get_array<INT>(vValue.parray);
   }
   if (vValue.vt == (VT_ARRAY | VT_I8)) {
-    return get_array<LONG>(vValue.parray);
+    return get_array<LONGLONG>(vValue.parray);
   }
   hr = vValue.ChangeType(VT_BSTR);
   if (FAILED(hr)) throw wmi_exception(hr, "Failed to convert " + col + " to string");
@@ -165,15 +170,39 @@ boost::optional<long long> row::get_int_opt(const std::string &col) const {
 long long row::get_int(const std::string &col) const {
   const boost::optional<long long> value = get_int_opt(col);
   if (!value) throw wmi_exception(DISP_E_TYPEMISMATCH, col + " is NULL (use get_int_opt for optional fields)");
-  return *value;
+  return value.value();
 }
+
+namespace {
+// How long one Next() call on an abortable enumerator waits before the abort
+// event is re-checked. Bounds how long a stop request can go unnoticed while a
+// provider is stalled; it costs nothing on a responsive provider, which
+// returns the row before the timeout.
+const long abort_poll_ms = 250;
+
+bool is_signalled(HANDLE event) { return event != nullptr && WaitForSingleObject(event, 0) == WAIT_OBJECT_0; }
+}  // namespace
 
 bool row_enumerator::has_next() {
   ULONG retcnt;
   if (row_instance.row_obj) row_instance.row_obj.Release();
-  const HRESULT hr = enumerator_obj->Next(WBEM_INFINITE, 1L, &row_instance.row_obj, &retcnt);
-  if (FAILED(hr)) throw wmi_exception(hr, "Enumeration failed: " + ComError::getComError(hr));
-  return hr == WBEM_S_NO_ERROR;
+  if (abort_event == nullptr) {
+    const HRESULT hr = enumerator_obj->Next(WBEM_INFINITE, 1L, &row_instance.row_obj, &retcnt);
+    if (FAILED(hr)) throw wmi_exception(hr, "Enumeration failed: " + ComError::getComError(hr));
+    return hr == WBEM_S_NO_ERROR;
+  }
+  for (;;) {
+    const HRESULT hr = enumerator_obj->Next(abort_poll_ms, 1L, &row_instance.row_obj, &retcnt);
+    if (hr == WBEM_S_TIMEDOUT) {
+      if (!is_signalled(abort_event)) continue;
+      // Releasing the enumerator cancels the semisynchronous operation on the
+      // WMI side, so the provider stops working on a result nobody will read.
+      enumerator_obj.Release();
+      throw wmi_aborted();
+    }
+    if (FAILED(hr)) throw wmi_exception(hr, "Enumeration failed: " + ComError::getComError(hr));
+    return hr == WBEM_S_NO_ERROR;
+  }
 }
 
 row &row_enumerator::get_next() { return row_instance; }
@@ -201,12 +230,21 @@ std::list<std::string> header_enumerator::get() const {
   }
   return ret;
 }
-row_enumerator query::execute() {
-  row_enumerator ret(columns);
-  BSTR strQL = _T("WQL");
+row_enumerator query::execute() { return execute(nullptr); }
+
+row_enumerator query::execute(HANDLE abort_event) {
+  // A stop that is already pending: do not even connect to WMI.
+  if (is_signalled(abort_event)) throw wmi_aborted();
+  row_enumerator ret(columns, abort_event);
+  const CComBSTR strQL(L"WQL");
   const CComBSTR strQuery(utf8::cvt<std::wstring>(wql_query).c_str());
 
-  const HRESULT hr = instance.get()->ExecQuery(strQL, strQuery, WBEM_FLAG_FORWARD_ONLY, nullptr, &ret.enumerator_obj);
+  // Semisynchronous (RETURN_IMMEDIATELY) only when abortable: ExecQuery then
+  // returns before the provider has produced anything and the rows arrive
+  // through the bounded Next() waits in has_next(). Without an abort event
+  // the plain synchronous query is kept for the request-handler callers.
+  const long flags = abort_event != nullptr ? (WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY) : WBEM_FLAG_FORWARD_ONLY;
+  const HRESULT hr = instance.get()->ExecQuery(strQL, strQuery, flags, nullptr, &ret.enumerator_obj);
   if (FAILED(hr))
     throw wmi_exception(hr, "ExecQuery of '" + wql_query + "' failed: " + utf8::cvt<std::string>(ComError::getWMIError(hr)) + ", " + ComError::getComError(hr));
   return ret;
@@ -235,7 +273,7 @@ row_enumerator instances::get() {
 
 std::list<std::string> query::get_columns() {
   if (!columns.empty()) return columns;
-  BSTR strQL = _T("WQL");
+  const CComBSTR strQL(L"WQL");
   const CComBSTR strQuery(utf8::cvt<std::wstring>(wql_query).c_str());
 
   header_enumerator enumerator;

@@ -4,134 +4,65 @@ set(TARGET DotnetPlugins)
 
 project(${TARGET})
 
+CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+
 set(SRCS
     ${SRCS}
     "${TARGET}.cpp"
-    plugin_instance.cpp
-    block_allocator.cpp
-    json.cpp
-    json_writer.cpp
-    ${NSCP_INCLUDEDIR}/str/utf8.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper_singleton.cpp
+    dotnet_host.cpp
+    ${NSCP_DEF_PLUGIN_CPP}
 )
+
+add_definitions(${NSCP_GLOBAL_DEFINES})
 
 if(WIN32)
     set(SRCS
         ${SRCS}
         "${TARGET}.h"
-        plugin_instance.hpp
-        DotnetPlugins.def
-        block_allocator.h
-        json.h
-        json_writer.h
-        ${NSCP_INCLUDEDIR}/str/utf8.hpp
-        ${NSCP_INCLUDEDIR}/str/format.hpp
-        ${NSCP_INCLUDEDIR}/str/utils.hpp
-        # ${NSCP_INCLUDEDIR}/config.h
-        ${NSCP_INCLUDEDIR}/NSCAPI.h
+        dotnet_bridge.hpp
+        dotnet_host.hpp
+        ${NSCP_DEF_PLUGIN_HPP}
     )
 endif(WIN32)
 
-string(
-    REPLACE "/EHsc"
-    "/EHa"
-    CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS}"
-)
-string(
-    REPLACE "/EHs"
-    "/EHa"
-    CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS}"
-)
-string(
-    REPLACE "/MT"
-    "/MD"
-    CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS}"
-)
-string(
-    REPLACE "/EHsc"
-    "/EHa"
-    CMAKE_CXX_FLAGS_RELWITHDEBINFO
-    ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}
-)
-string(
-    REPLACE "/EHs"
-    "/EHa"
-    CMAKE_CXX_FLAGS_RELWITHDEBINFO
-    ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}
-)
-string(
-    REPLACE "/MT"
-    "/MD"
-    CMAKE_CXX_FLAGS_RELWITHDEBINFO
-    ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}
-)
-string(
-    REPLACE "/MT"
-    "/MD"
-    CMAKE_CXX_FLAGS_MINSIZEREL
-    ${CMAKE_CXX_FLAGS_MINSIZEREL}
-)
-string(
-    REPLACE "/MT"
-    "/MD"
-    CMAKE_CXX_FLAGS_RELEASE
-    ${CMAKE_CXX_FLAGS_RELEASE}
-)
-string(
-    REPLACE "/EHsc"
-    "/EHa"
-    CMAKE_CXX_FLAGS_DEBUG
-    ${CMAKE_CXX_FLAGS_DEBUG}
-)
-string(
-    REPLACE "/EHs"
-    "/EHa"
-    CMAKE_CXX_FLAGS_DEBUG
-    ${CMAKE_CXX_FLAGS_DEBUG}
-)
-string(
-    REPLACE "/MTd"
-    "/MDd"
-    CMAKE_CXX_FLAGS_DEBUG
-    ${CMAKE_CXX_FLAGS_DEBUG}
-)
-string(
-    REPLACE "/RTC1"
-    ""
-    CMAKE_CXX_FLAGS_DEBUG
-    ${CMAKE_CXX_FLAGS_DEBUG}
-)
-string(
-    REPLACE "/RTCs"
-    ""
-    CMAKE_CXX_FLAGS_DEBUG
-    ${CMAKE_CXX_FLAGS_DEBUG}
-)
-string(
-    REPLACE "/RTCu"
-    ""
-    CMAKE_CXX_FLAGS_DEBUG
-    ${CMAKE_CXX_FLAGS_DEBUG}
-)
-string(
-    REPLACE "/GZ"
-    ""
-    CMAKE_CXX_FLAGS_DEBUG
-    ${CMAKE_CXX_FLAGS_DEBUG}
-)
-set(CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS} /clr /EHa /FU${NSCP_PROJECT_BINARY_DIR}/Google.Protobuf.dll /FU${NSCP_PROJECT_BINARY_DIR}/NSCP.Core.dll /FU${NSCP_PROJECT_BINARY_DIR}/NSCP.Protobuf.dll"
-)
 add_library(${TARGET} MODULE ${SRCS})
 NSCP_DEBUG_SYMBOLS(${TARGET})
 
-add_dependencies(${TARGET} NSCP.Core)
-add_dependencies(${TARGET} NSCP.Protobuf)
+target_link_libraries(
+    ${TARGET}
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${NSCP_DEF_PLUGIN_LIB}
+    ${CMAKE_DL_LIBS}
+)
+if(WIN32)
+    # RegOpenKeyExW & co. for locating the .NET install through the registry.
+    target_link_libraries(${TARGET} advapi32)
+endif()
 
-target_link_libraries(${TARGET})
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
+
+NSCP_CREATE_TEST(
+    dotnet_plugins_test
+    SOURCES
+        dotnet_host_test.cpp
+        dotnet_host.cpp
+        # The module class: its value resolution is plain C++ and the log
+        # macros only need the plugin singleton the test defines itself.
+        "${TARGET}.cpp"
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_impl.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_protobuf
+        ${PLUGIN_API_TARGET}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
+        ${CMAKE_DL_LIBS}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)

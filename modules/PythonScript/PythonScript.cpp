@@ -26,6 +26,7 @@ namespace py = boost::python;
 
 bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   alias_ = alias;
+  script_wrapper::command_wrapper::register_self(get_id(), "PythonScript", alias);
 
   if (mode == NSCAPI::reloadStart) {
     nscapi::core_helper ch(get_core(), get_id());
@@ -53,7 +54,9 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 #endif
         ;
 
-    provider_ = std::make_shared<script_provider>(get_id(), get_core(), root_);
+    // Construct once: a reload would otherwise replace the provider under
+    // the query threads that hold it.
+    if (!provider_) provider_ = std::make_shared<script_provider>(get_id(), get_core(), root_);
 
     // clang-format off
     settings.alias().add_path_to_settings()
@@ -198,7 +201,7 @@ void PythonScript::execute_script(const PB::Commands::ExecuteRequestMessage::Req
     nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + file);
     return;
   }
-  std::string script_file = ofile->string();
+  std::string script_file = ofile.value().string();
   python_script script(get_id(), root_.string(), "", "", script_file);
   std::list<std::string> ops(script_options.begin(), script_options.end());
   if (!script.callFunction("__main__", ops)) {

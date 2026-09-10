@@ -11,7 +11,7 @@
 
 ## Enable module
 
-To enable this module and and allow using the commands you need to ass `CheckSystem = enabled` to the `[/modules]` section in nsclient.ini:
+To enable this module and allow using the commands you need to add `CheckSystem = enabled` to the `[/modules]` section in nsclient.ini:
 
 ```
 [/modules]
@@ -73,14 +73,203 @@ A list of all short hand aliases for queries (check commands)
 
     Check battery status including charge level, power source, and battery health.
 
+    #### About `check_battery`
+
+    `check_battery` reports the state of the machine's batteries: charge level,
+    which power source it is on, and battery health. One record is returned per
+    battery.
+
+    The default filter is `battery_present = 'true'`, and the thresholds are
+    `charge < 20` (warning) and `charge < 10` (critical).
+
+    On a machine with no battery — a desktop, a server, a VM — the filter matches
+    nothing, and **the empty state is `warning`**, so the check reports
+    `WARNING: No battery found`. That is almost never what you want on
+    infrastructure: set `empty-state=ok` (or `empty-state=ignored`) on any host
+    where a missing battery is normal, otherwise every server running this check
+    sits permanently in WARNING.
+
+    ##### The three questions it answers
+
+    **"Is this laptop about to die?"** is the default, and rarely the interesting
+    one on monitored infrastructure.
+
+    **"Is this machine on mains power?"** is often the real check.
+    `power_source` reads `ac`, `battery` or `unknown`, so a UPS-backed or
+    laptop-as-server host can alert the moment it drops to battery, long before the
+    charge level matters:
+
+    ```
+    check_battery "crit=power_source = 'battery'" "warn=none"
+    ```
+
+    **"Is the battery worn out?"** is what `health` is for — full charge capacity as
+    a percentage of design capacity. A battery at 60% health still charges to "100%"
+    and looks fine to a charge-level check while holding barely half its rated
+    runtime:
+
+    ```
+    check_battery "warn=health < 70" "crit=health < 50"
+    ```
+
+    `health` is emitted as performance data, so the decline is visible as a trend
+    long before it crosses a threshold.
+
+    ##### Runtime and rates
+
+    `time_remaining` is the estimated seconds left, and is **`-1` when unknown or on
+    AC** — so guard any threshold on it with a `power_source = 'battery'` clause,
+    otherwise `time_remaining < 600` fires on every mains-powered host.
+    `charge_rate` and `discharge_rate` (mW) and the `design_capacity` /
+    `full_capacity` / `remaining_capacity` triple (mWh) are available for the
+    detailed view.
+
+    ##### Data sources
+
+    On Windows the data comes from the Windows power/battery APIs. On Linux it is
+    read from `/sys/class/power_supply`, so batteries exposed by the ACPI or
+    platform driver are visible; a battery behind a vendor-specific driver that does
+    not populate sysfs will not be. `battery_status` carries the charging state
+    (`status` is a deprecated alias — the name clashes with the generic status
+    summary keyword and resolves to that in `top-syntax`).
+
 === "Linux"
 
     Check battery charge level, power source and health.
 
+    #### About `check_battery`
+
+    `check_battery` reports the state of the machine's batteries: charge level,
+    which power source it is on, and battery health. One record is returned per
+    battery.
+
+    The default filter is `battery_present = 'true'`, and the thresholds are
+    `charge < 20` (warning) and `charge < 10` (critical).
+
+    On a machine with no battery — a desktop, a server, a VM — the filter matches
+    nothing, and **the empty state is `warning`**, so the check reports
+    `WARNING: No battery found`. That is almost never what you want on
+    infrastructure: set `empty-state=ok` (or `empty-state=ignored`) on any host
+    where a missing battery is normal, otherwise every server running this check
+    sits permanently in WARNING.
+
+    ##### The three questions it answers
+
+    **"Is this laptop about to die?"** is the default, and rarely the interesting
+    one on monitored infrastructure.
+
+    **"Is this machine on mains power?"** is often the real check.
+    `power_source` reads `ac`, `battery` or `unknown`, so a UPS-backed or
+    laptop-as-server host can alert the moment it drops to battery, long before the
+    charge level matters:
+
+    ```
+    check_battery "crit=power_source = 'battery'" "warn=none"
+    ```
+
+    **"Is the battery worn out?"** is what `health` is for — full charge capacity as
+    a percentage of design capacity. A battery at 60% health still charges to "100%"
+    and looks fine to a charge-level check while holding barely half its rated
+    runtime:
+
+    ```
+    check_battery "warn=health < 70" "crit=health < 50"
+    ```
+
+    `health` is emitted as performance data, so the decline is visible as a trend
+    long before it crosses a threshold.
+
+    ##### Runtime and rates
+
+    `time_remaining` is the estimated seconds left, and is **`-1` when unknown or on
+    AC** — so guard any threshold on it with a `power_source = 'battery'` clause,
+    otherwise `time_remaining < 600` fires on every mains-powered host.
+    `charge_rate` and `discharge_rate` (mW) and the `design_capacity` /
+    `full_capacity` / `remaining_capacity` triple (mWh) are available for the
+    detailed view.
+
+    ##### Data sources
+
+    On Windows the data comes from the Windows power/battery APIs. On Linux it is
+    read from `/sys/class/power_supply`, so batteries exposed by the ACPI or
+    platform driver are visible; a battery behind a vendor-specific driver that does
+    not populate sysfs will not be. `battery_status` carries the charging state
+    (`status` is a deprecated alias — the name clashes with the generic status
+    summary keyword and resolves to that in `top-syntax`).
+
 **Jump to section:**
 
+* [Sample Commands](#check_battery_samples)
 * [Command-line Arguments](#check_battery_options)
 * [Filter keywords](#check_battery_filter_keys)
+
+
+<a id="check_battery_samples"></a>
+#### Sample Commands
+
+**A host with no battery:**
+
+The default filter is `battery_present = 'true'`, and the empty state is
+`warning` — so a desktop, server or VM reports WARNING out of the box.
+
+```
+check_battery
+WARNING: No battery found
+```
+
+**Which is almost never what you want on infrastructure:**
+
+```
+check_battery "empty-state=ok"
+OK: No battery found
+```
+
+Set `empty-state=ok` (or `ignored`) on every host where a missing battery is
+normal, or the check sits permanently in WARNING.
+
+**Default check on a laptop (`charge < 20` warns, `< 10` is critical):**
+
+```
+check_battery
+OK: BAT0: 87% (ac, charging)|'BAT0_charge'=87%;20;10;0;100 'BAT0_health'=92%;0;0;0;100
+```
+
+**Alert the moment the host drops off mains power:**
+
+Often the real check on a UPS-backed or laptop-as-server host — long before the
+charge level matters.
+
+```
+check_battery "crit=power_source = 'battery'" "warn=none"
+CRITICAL: BAT0: 87% (battery, discharging)
+```
+
+**Alert on a worn-out battery:**
+
+`health` is full charge capacity as a percentage of design capacity. A battery
+at 60% health still charges to "100%" and looks fine to a charge-level check.
+
+```
+check_battery "warn=health < 70" "crit=health < 50"
+WARNING: BAT0: 100% (ac, full)|'BAT0_health'=64%;70;50;0;100
+```
+
+**Threshold on remaining runtime — guard it with a power-source clause:**
+
+`time_remaining` is `-1` when unknown or on AC, so an unguarded threshold fires
+on every mains-powered host.
+
+```
+check_battery "crit=power_source = 'battery' and time_remaining < 600" "detail-syntax=${name}: ${charge}% ${time_remaining}s left"
+OK: BAT0: 87% -1s left
+```
+
+**Inspect the capacity figures:**
+
+```
+check_battery "detail-syntax=${name} rem=${remaining_capacity} full=${full_capacity} design=${design_capacity} rate=${discharge_rate}"
+OK: BAT0 rem=48120 full=55300 design=60000 rate=0
+```
 
 
 
@@ -224,13 +413,15 @@ This command also accepts the standard [help options](../common-options.md#stand
     as `top` at the moment the check is executed, and very short spikes that fall between collection
     ticks may be missed entirely.
 
-    **Interaction with the `disable` setting**
+    **Interaction with the `disable` setting (Windows only)**
 
-    The collector that feeds this buffer can be turned off with `disable = cpu` in
+    On Windows the collector that feeds this buffer can be turned off with `disable = cpu` in
     `[/settings/system/windows]`. In that case `check_cpu` returns UNKNOWN with an explanatory message
     rather than reporting values from a buffer that is no longer updated. The entries in `disable` are
     matched as whole tokens, so `disable = cpu_frequency` only disables the CPU frequency collector and
     leaves `check_cpu` unaffected.
+
+    The Linux module has no `disable` setting; its collector is always running.
 
 === "Linux"
 
@@ -288,13 +479,15 @@ This command also accepts the standard [help options](../common-options.md#stand
     as `top` at the moment the check is executed, and very short spikes that fall between collection
     ticks may be missed entirely.
 
-    **Interaction with the `disable` setting**
+    **Interaction with the `disable` setting (Windows only)**
 
-    The collector that feeds this buffer can be turned off with `disable = cpu` in
+    On Windows the collector that feeds this buffer can be turned off with `disable = cpu` in
     `[/settings/system/windows]`. In that case `check_cpu` returns UNKNOWN with an explanatory message
     rather than reporting values from a buffer that is no longer updated. The entries in `disable` are
     matched as whole tokens, so `disable = cpu_frequency` only disables the CPU frequency collector and
     leaves `check_cpu` unaffected.
+
+    The Linux module has no `disable` setting; its collector is always running.
 
 **Jump to section:**
 
@@ -642,10 +835,61 @@ This command also supports the [common filter keywords](../common-options.md#com
 
 Check CPU utilization broken down by user/system/iowait/steal/guest.
 
+#### About `check_cpu_utilization`
+
+`check_cpu_utilization` reports how the CPU's time is being spent, broken down
+by mode. It reads the aggregate `cpu` line from `/proc/stat`, waits ~1 second,
+reads it again, and reports the delta as percentages — so it measures live
+utilization over that sampling window rather than since boot.
+
+All numeric keywords are percentages (0–100).
+
+Default thresholds: **warning** `usage > 90`, **critical** `usage > 95`
+(`total` still works as a deprecated alias for `usage`; it was renamed to avoid
+clashing with the generic `total` summary keyword). This
+differs from [`check_cpu`](#check_cpu), which averages utilization over rolling
+time windows (`1m`/`5m`/`15m`) from the background collector; `check_cpu_utilization`
+takes a single fresh 1-second sample and exposes the per-mode breakdown, which
+is what you want to distinguish user vs. `iowait` vs. `steal` pressure.
+
 **Jump to section:**
 
+* [Sample Commands](#check_cpu_utilization_samples)
 * [Command-line Arguments](#check_cpu_utilization_options)
 * [Filter keywords](#check_cpu_utilization_filter_keys)
+
+
+<a id="check_cpu_utilization_samples"></a>
+#### Sample Commands
+
+**CPU utilization broken down by mode:**
+
+```
+check_cpu_utilization
+OK: user: 1.39% system: 1.54% iowait: 0% steal: 0% idle: 95.73%
+L        cli  Performance data: 'cpu_usage'=4.27;90;95 'cpu_user'=1.39;0;0 'cpu_system'=1.54;0;0 'cpu_iowait'=0;0;0 'cpu_steal'=0;0;0 'cpu_idle'=95.73;0;0 ...
+```
+
+**Custom thresholds on total busy percentage (the default is `usage > 90` / `> 95`):**
+
+```
+check_cpu_utilization "warn=usage > 80" "crit=usage > 95"
+OK: user: 2.1% system: 1.8% iowait: 0.2% steal: 0% idle: 95.9%
+```
+
+**Alert specifically on I/O wait (storage saturation):**
+
+```
+check_cpu_utilization "warn=iowait > 20" "crit=iowait > 50"
+OK: user: 1.4% system: 1.5% iowait: 0% steal: 0% idle: 95.7%
+```
+
+**Alert on steal time (noisy-neighbour on a VM):**
+
+```
+check_cpu_utilization "warn=steal > 5" "crit=steal > 15"
+OK: user: 1.4% system: 1.5% iowait: 0% steal: 0% idle: 95.7%
+```
 
 
 
@@ -862,13 +1106,25 @@ This command also supports the [common filter keywords](../common-options.md#com
 
     Check host identity: hostname, FQDN, DNS domain and domain-join state, with drift detection for the name mismatches that silently break auth and monitoring.
 
-    #### About `check_hostname` (Windows)
+    #### About `check_hostname`
 
-    `check_hostname` reports host identity — hostname, FQDN, DNS domain and
-    domain-join state — and detects the name drift that silently breaks Kerberos
-    auth, certificate validation and monitoring host-matching. It reads
-    `GetComputerNameEx` (NetBIOS name, DNS hostname, DNS suffix, FQDN) and
-    `NetGetJoinInformation` (joined domain or workgroup); no WMI involved.
+    `check_hostname` reports host identity — hostname, FQDN and DNS domain (plus
+    domain-join state on Windows) — and detects the name drift that silently breaks
+    Kerberos auth, certificate validation and monitoring host-matching.
+
+    The shared keywords (`hostname`, `fqdn`, `domain`, `fqdn_consistent`) carry the
+    same meaning on both platforms. The check returns a single aggregate row, has no
+    default thresholds — whether `workgroup` is wrong is site policy — and emits no
+    performance data (there is no meaningful number here). Comparisons are
+    case-insensitive, since DNS is case-insensitive and case differences are not
+    drift.
+
+    ##### Windows
+
+    Reads `GetComputerNameEx` (NetBIOS name, DNS hostname, DNS suffix, FQDN) and
+    `NetGetJoinInformation` (joined domain or workgroup); no WMI involved. Two extra
+    keywords are available here: `join` / `join_name` (Active Directory membership)
+    and `netbios_matches_dns`.
 
     The useful alerts are **pinned expectations**:
 
@@ -881,28 +1137,54 @@ This command also supports the [common filter keywords](../common-options.md#com
     - **"Is this the host I think it is?"** — `crit=hostname != 'WEB01'` on
       cloned/re-imaged machines.
 
-    There are no default thresholds — whether `workgroup` is wrong is site policy —
-    and no perf data (there is no meaningful number here). A host with no DNS
-    suffix reports `fqdn == hostname` as consistent, not as drift, and the NetBIOS
-    comparison tolerates the 15-character truncation of longer DNS names.
+    A host with no DNS suffix reports `fqdn == hostname` as consistent, not as
+    drift, and the NetBIOS comparison tolerates the 15-character truncation of
+    longer DNS names.
 
-    On Linux the same command is provided by the unix CheckSystem module with the
-    shared keywords (`hostname`, `fqdn`, `domain`, `fqdn_consistent`); `join` /
-    `join_name` have no clean Linux equivalent and are absent there. See also
-    CheckSecurity's `check_nla` for the runtime side of the same question — which
+    ##### Linux
+
+    Reads `gethostname()` and canonicalises it with `getaddrinfo(AI_CANONNAME)`;
+    when the host cannot be resolved (containers, hosts without DNS) the FQDN falls
+    back to the bare hostname, which is treated as consistent rather than as drift.
+    `join` / `join_name` / `netbios_matches_dns` have no clean Linux equivalent and
+    are absent here.
+
+    The useful alerts are **pinned expectations**:
+
+    - **"Is this the host I think it is?"** — `crit=hostname != 'web01'`,
+      `crit=domain != 'corp.example.com'`.
+    - **"Is the name coherent?"** — `warn=fqdn_consistent = 0` flags the resolver
+      canonicalising this host under a *different* name (stale `/etc/hosts`
+      entries, CNAME chains, re-imaged boxes keeping an old DNS record).
+
+    ##### See also
+
+    CheckSecurity's `check_nla` covers the runtime side of the same question — which
     network profile (domain/private/public) the host is currently on.
 
 === "Linux"
 
     Check host identity: hostname, canonical FQDN and DNS domain, with drift detection for the name mismatches that silently break auth and monitoring.
 
-    #### About `check_hostname` (Windows)
+    #### About `check_hostname`
 
-    `check_hostname` reports host identity — hostname, FQDN, DNS domain and
-    domain-join state — and detects the name drift that silently breaks Kerberos
-    auth, certificate validation and monitoring host-matching. It reads
-    `GetComputerNameEx` (NetBIOS name, DNS hostname, DNS suffix, FQDN) and
-    `NetGetJoinInformation` (joined domain or workgroup); no WMI involved.
+    `check_hostname` reports host identity — hostname, FQDN and DNS domain (plus
+    domain-join state on Windows) — and detects the name drift that silently breaks
+    Kerberos auth, certificate validation and monitoring host-matching.
+
+    The shared keywords (`hostname`, `fqdn`, `domain`, `fqdn_consistent`) carry the
+    same meaning on both platforms. The check returns a single aggregate row, has no
+    default thresholds — whether `workgroup` is wrong is site policy — and emits no
+    performance data (there is no meaningful number here). Comparisons are
+    case-insensitive, since DNS is case-insensitive and case differences are not
+    drift.
+
+    ##### Windows
+
+    Reads `GetComputerNameEx` (NetBIOS name, DNS hostname, DNS suffix, FQDN) and
+    `NetGetJoinInformation` (joined domain or workgroup); no WMI involved. Two extra
+    keywords are available here: `join` / `join_name` (Active Directory membership)
+    and `netbios_matches_dns`.
 
     The useful alerts are **pinned expectations**:
 
@@ -915,15 +1197,29 @@ This command also supports the [common filter keywords](../common-options.md#com
     - **"Is this the host I think it is?"** — `crit=hostname != 'WEB01'` on
       cloned/re-imaged machines.
 
-    There are no default thresholds — whether `workgroup` is wrong is site policy —
-    and no perf data (there is no meaningful number here). A host with no DNS
-    suffix reports `fqdn == hostname` as consistent, not as drift, and the NetBIOS
-    comparison tolerates the 15-character truncation of longer DNS names.
+    A host with no DNS suffix reports `fqdn == hostname` as consistent, not as
+    drift, and the NetBIOS comparison tolerates the 15-character truncation of
+    longer DNS names.
 
-    On Linux the same command is provided by the unix CheckSystem module with the
-    shared keywords (`hostname`, `fqdn`, `domain`, `fqdn_consistent`); `join` /
-    `join_name` have no clean Linux equivalent and are absent there. See also
-    CheckSecurity's `check_nla` for the runtime side of the same question — which
+    ##### Linux
+
+    Reads `gethostname()` and canonicalises it with `getaddrinfo(AI_CANONNAME)`;
+    when the host cannot be resolved (containers, hosts without DNS) the FQDN falls
+    back to the bare hostname, which is treated as consistent rather than as drift.
+    `join` / `join_name` / `netbios_matches_dns` have no clean Linux equivalent and
+    are absent here.
+
+    The useful alerts are **pinned expectations**:
+
+    - **"Is this the host I think it is?"** — `crit=hostname != 'web01'`,
+      `crit=domain != 'corp.example.com'`.
+    - **"Is the name coherent?"** — `warn=fqdn_consistent = 0` flags the resolver
+      canonicalising this host under a *different* name (stale `/etc/hosts`
+      entries, CNAME chains, re-imaged boxes keeping an old DNS record).
+
+    ##### See also
+
+    CheckSecurity's `check_nla` covers the runtime side of the same question — which
     network profile (domain/private/public) the host is currently on.
 
 **Jump to section:**
@@ -943,14 +1239,35 @@ check_hostname
 OK: WEB01 (web01.corp.example.com), domain=corp.example.com
 ```
 
-On a workgroup machine:
+On a Windows workgroup machine:
 
 ```
 check_hostname
 OK: MYPC (MyPC), workgroup=WORKGROUP
 ```
 
-**Require domain membership (CRITICAL on domain-join / workgroup drift):**
+On a Linux host without DNS (e.g. a container), the FQDN falls back to the hostname:
+
+```
+check_hostname
+OK: container123 (container123), domain=
+```
+
+**Pin the expected identity (cloned or re-imaged box detection):**
+
+```
+check_hostname "crit=hostname != 'web01' or domain != 'corp.example.com'"
+OK: web01 (web01.corp.example.com), domain=corp.example.com
+```
+
+**Detect name drift (the resolver canonicalises this host under another name):**
+
+```
+check_hostname "warn=fqdn_consistent = 0"
+WARNING: web01 (web01-old.corp.example.com), domain=corp.example.com
+```
+
+**Require domain membership — Windows only (CRITICAL on domain-join / workgroup drift):**
 
 ```
 check_hostname "crit=join != 'domain'"
@@ -960,21 +1277,21 @@ check_hostname "crit=join != 'domain' or domain != 'corp.example.com'"
 OK: WEB01 (web01.corp.example.com), domain=corp.example.com
 ```
 
-**Detect name drift (FQDN or NetBIOS out of sync):**
+**Detect NetBIOS drift — Windows only:**
 
 ```
 check_hostname "warn=fqdn_consistent = 0 or netbios_matches_dns = 0"
 OK: WEB01 (web01.corp.example.com), domain=corp.example.com
 ```
 
-**Pin the expected hostname (cloned or re-imaged box detection):**
-
-```
-check_hostname "crit=hostname != 'WEB01'"
-OK: WEB01 (web01.corp.example.com), domain=corp.example.com
-```
-
 **Inspect all identity fields:**
+
+```
+check_hostname "detail-syntax=h=${hostname} f=${fqdn} d=${domain} ok=${fqdn_consistent}"
+OK: h=web01 f=web01.corp.example.com d=corp.example.com ok=1
+```
+
+On Windows the NetBIOS and DNS names are separate fields:
 
 ```
 check_hostname "detail-syntax=nb=${hostname} dns=${dns_hostname} dom=${domain} fq=${fqdn} ok=${fqdn_consistent}/${netbios_matches_dns}"
@@ -984,8 +1301,8 @@ OK: nb=WEB01 dns=web01 dom=corp.example.com fq=web01.corp.example.com ok=1/1
 **Over NRPE against a remote host:**
 
 ```
-check_nscp_client --host 192.168.56.103 --command check_hostname --argument "crit=join != 'domain'"
-OK: WEB01 (web01.corp.example.com), domain=corp.example.com
+check_nrpe --host 192.168.56.103 --command check_hostname --arguments "crit=domain != 'corp.example.com'"
+OK: web01 (web01.corp.example.com), domain=corp.example.com
 ```
 
 
@@ -1099,37 +1416,60 @@ OK: WEB01 (web01.corp.example.com), domain=corp.example.com
 
     #### About `check_installed_software`
 
-    `check_installed_software` inventories installed software from the registry
-    Uninstall hives — `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall` in
-    **both** the 64-bit and 32-bit (Wow6432Node) views, plus every loaded per-user
-    hive under `HKEY_USERS` (which covers per-user installs such as VS Code,
-    JetBrains IDEs and Electron apps, regardless of the account the service runs
-    as).
+    `check_installed_software` inventories installed software and answers three
+    operator questions:
 
-    It answers three operator questions:
-
-    - **"Is unwanted or EOL software present?"** — `crit=name like 'BitTorrent'`,
-      `crit=version < '8'` (an empty match set is OK, so an absence probe is cheap).
+    - **"Is unwanted or EOL software present?"** — `crit=name like 'BitTorrent'`
+      (an empty match set is OK, so an absence probe is cheap).
     - **"What was installed recently?"** — `warn=install_date > -7d` correlates
       incidents with fresh installs.
     - **"What is installed at all?"** — a bare call is an OK inventory with the
       package count as perf data.
 
+    Each installed product is one row. There are no default thresholds (a bare call
+    is an inventory), an empty match set returns OK, and the matched package count
+    is emitted as `count` perf data. The shared keywords (`name`, `version`,
+    `publisher`, `install_date`, `size`, `architecture`) carry the same meaning on
+    both platforms; `version` comparisons are plain string comparisons everywhere,
+    so pin patterns (e.g. `version like '7.'`) rather than relying on numeric
+    ordering across multi-digit components.
+
+    ##### Windows
+
+    Reads the registry Uninstall hives —
+    `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall` in **both** the
+    64-bit and 32-bit (Wow6432Node) views, plus every loaded per-user hive under
+    `HKEY_USERS` (which covers per-user installs such as VS Code, JetBrains IDEs
+    and Electron apps, regardless of the account the service runs as). The `hive`
+    keyword says which view a row came from.
+
     The default filter is `system_component = 0`, matching what Add/Remove Programs
-    shows; pass `filter=none` to include runtime/driver components. There are no
-    default thresholds (a bare call is an inventory), an empty match set returns OK,
-    and the matched package count is emitted as `count` perf data.
+    shows; pass `filter=none` to include runtime/driver components.
 
     **Caveats:** `InstallDate` is best-effort — many installers never write it (the
     `install_date` expressions simply never match such entries), and MSI stamps it
-    on every repair/modify, not only the original install. `version` comparisons
-    are plain string comparisons, so pin patterns accordingly (e.g.
-    `version like '7.'`) rather than relying on numeric ordering across
-    multi-digit components. Legacy patch entries (children with `ParentKeyName`)
-    and entries without a `DisplayName` are skipped. On Linux the same command is
-    provided by the unix CheckSystem module, backed by dpkg/rpm/pacman, with the
-    shared keywords (`name`, `version`, `publisher`, `install_date`, `size`,
-    `architecture`) carrying the same meaning.
+    on every repair/modify, not only the original install. Legacy patch entries
+    (children with `ParentKeyName`) and entries without a `DisplayName` are skipped.
+
+    ##### Linux
+
+    Reads the system package manager — `dpkg-query` on Debian/Ubuntu, `rpm -qa` on
+    RHEL/Fedora/SUSE, `pacman -Q` on Arch (detected in that order, dpkg first
+    because Debian-family hosts frequently carry an rpm binary too). The `manager`
+    keyword says which one was used.
+
+    Only packages whose dpkg state is exactly `installed` are listed: removed
+    (`not-installed`), `config-files` leftovers and broken (`half-installed`,
+    `unpacked`) packages are skipped, while held packages (`hold ok installed`)
+    are kept. If the package-manager query itself fails, the check returns UNKNOWN
+    rather than an empty "no installed software found" inventory, so a broken
+    package database can never read as a clean OK.
+
+    **Caveats:** install dates are exact on rpm (`INSTALLTIME`); dpkg does not
+    record them, so they are approximated from the mtime of the package's
+    `/var/lib/dpkg/info/<name>[:<arch>].list` file (rewritten on upgrade — treat as
+    "last installed/upgraded"). `pacman -Q` exposes only name and version, so
+    `publisher`, `size` and `install_date` stay unset there.
 
 === "Linux"
 
@@ -1137,37 +1477,60 @@ OK: WEB01 (web01.corp.example.com), domain=corp.example.com
 
     #### About `check_installed_software`
 
-    `check_installed_software` inventories installed software from the registry
-    Uninstall hives — `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall` in
-    **both** the 64-bit and 32-bit (Wow6432Node) views, plus every loaded per-user
-    hive under `HKEY_USERS` (which covers per-user installs such as VS Code,
-    JetBrains IDEs and Electron apps, regardless of the account the service runs
-    as).
+    `check_installed_software` inventories installed software and answers three
+    operator questions:
 
-    It answers three operator questions:
-
-    - **"Is unwanted or EOL software present?"** — `crit=name like 'BitTorrent'`,
-      `crit=version < '8'` (an empty match set is OK, so an absence probe is cheap).
+    - **"Is unwanted or EOL software present?"** — `crit=name like 'BitTorrent'`
+      (an empty match set is OK, so an absence probe is cheap).
     - **"What was installed recently?"** — `warn=install_date > -7d` correlates
       incidents with fresh installs.
     - **"What is installed at all?"** — a bare call is an OK inventory with the
       package count as perf data.
 
+    Each installed product is one row. There are no default thresholds (a bare call
+    is an inventory), an empty match set returns OK, and the matched package count
+    is emitted as `count` perf data. The shared keywords (`name`, `version`,
+    `publisher`, `install_date`, `size`, `architecture`) carry the same meaning on
+    both platforms; `version` comparisons are plain string comparisons everywhere,
+    so pin patterns (e.g. `version like '7.'`) rather than relying on numeric
+    ordering across multi-digit components.
+
+    ##### Windows
+
+    Reads the registry Uninstall hives —
+    `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall` in **both** the
+    64-bit and 32-bit (Wow6432Node) views, plus every loaded per-user hive under
+    `HKEY_USERS` (which covers per-user installs such as VS Code, JetBrains IDEs
+    and Electron apps, regardless of the account the service runs as). The `hive`
+    keyword says which view a row came from.
+
     The default filter is `system_component = 0`, matching what Add/Remove Programs
-    shows; pass `filter=none` to include runtime/driver components. There are no
-    default thresholds (a bare call is an inventory), an empty match set returns OK,
-    and the matched package count is emitted as `count` perf data.
+    shows; pass `filter=none` to include runtime/driver components.
 
     **Caveats:** `InstallDate` is best-effort — many installers never write it (the
     `install_date` expressions simply never match such entries), and MSI stamps it
-    on every repair/modify, not only the original install. `version` comparisons
-    are plain string comparisons, so pin patterns accordingly (e.g.
-    `version like '7.'`) rather than relying on numeric ordering across
-    multi-digit components. Legacy patch entries (children with `ParentKeyName`)
-    and entries without a `DisplayName` are skipped. On Linux the same command is
-    provided by the unix CheckSystem module, backed by dpkg/rpm/pacman, with the
-    shared keywords (`name`, `version`, `publisher`, `install_date`, `size`,
-    `architecture`) carrying the same meaning.
+    on every repair/modify, not only the original install. Legacy patch entries
+    (children with `ParentKeyName`) and entries without a `DisplayName` are skipped.
+
+    ##### Linux
+
+    Reads the system package manager — `dpkg-query` on Debian/Ubuntu, `rpm -qa` on
+    RHEL/Fedora/SUSE, `pacman -Q` on Arch (detected in that order, dpkg first
+    because Debian-family hosts frequently carry an rpm binary too). The `manager`
+    keyword says which one was used.
+
+    Only packages whose dpkg state is exactly `installed` are listed: removed
+    (`not-installed`), `config-files` leftovers and broken (`half-installed`,
+    `unpacked`) packages are skipped, while held packages (`hold ok installed`)
+    are kept. If the package-manager query itself fails, the check returns UNKNOWN
+    rather than an empty "no installed software found" inventory, so a broken
+    package database can never read as a clean OK.
+
+    **Caveats:** install dates are exact on rpm (`INSTALLTIME`); dpkg does not
+    record them, so they are approximated from the mtime of the package's
+    `/var/lib/dpkg/info/<name>[:<arch>].list` file (rewritten on upgrade — treat as
+    "last installed/upgraded"). `pacman -Q` exposes only name and version, so
+    `publisher`, `size` and `install_date` stay unset there.
 
 **Jump to section:**
 
@@ -1203,6 +1566,22 @@ check_installed_software "warn=install_date > -30d" "top-syntax=${status}: ${war
 WARNING: 2 recent installs: PowerToys (Preview) 0.100.2 (Microsoft Corporation), Microsoft Edge 151.0.4129.72 (Microsoft Corporation)|'count'=101;0;0
 ```
 
+**Threshold on installed size (large packages):**
+
+```
+check_installed_software "warn=size > 500M" "top-syntax=${status}: ${warn_count} packages over 500M"
+WARNING: 3 packages over 500M|'count'=428;0;0
+```
+
+**Over NRPE against a remote host:**
+
+```
+check_nrpe --host 192.168.56.103 --command check_installed_software --arguments "crit=name like 'TeamViewer'"
+OK: 101 software packages installed.
+```
+
+##### Windows
+
 **Flag EOL software by version (string comparison — pin the major with like):**
 
 ```
@@ -1231,11 +1610,27 @@ check_installed_software filter=none
 OK: 233 software packages installed.|'count'=233;0;0
 ```
 
-**Over NRPE against a remote host:**
+##### Linux
+
+**Alert when unwanted software is present:**
 
 ```
-check_nscp_client --host 192.168.56.103 --command check_installed_software --argument "crit=name like 'TeamViewer'"
-OK: 101 software packages installed.
+check_installed_software "crit=name like 'telnetd'"
+CRITICAL: telnetd 0.17-41 (Debian telnet maintainers)|'count'=428;0;0
+```
+
+**Flag EOL software (pin the version prefix with like):**
+
+```
+check_installed_software "filter=name like 'openjdk-7'" "crit=version like '7u'"
+CRITICAL: openjdk-7-jre 7u51-2.4.6-1 (Debian Java Maintainers)|'count'=1;0;0
+```
+
+**Custom output showing the detected package manager:**
+
+```
+check_installed_software "filter=name = 'bash'" "top-syntax=${status}: ${list}" "detail-syntax=${name} ${version} via ${manager}"
+OK: bash 5.2.21-2 via dpkg|'count'=1;0;0
 ```
 
 
@@ -1358,53 +1753,87 @@ OK: 101 software packages installed.
 
     Check kernel memory-manager health: paged/nonpaged pool bytes, file-cache bytes and page-fault rates â€” the pool-exhaustion and hard-fault-storm signals free-RAM thresholds miss.
 
-    #### About `check_kernel_memory` (Windows)
+    #### About `check_kernel_memory`
 
-    `check_kernel_memory` reports kernel memory-manager health from the PDH
-    `Memory` counter set: pool usage, file cache and page-fault rates. It
-    complements `check_memory` (used/free/size of physical/committed/virtual) —
-    **pool exhaustion and hard-fault storms are the classic Windows server failure
-    modes that free-RAM thresholds do not catch.** The fault counters are rates,
-    so the check samples a 1-second window (like `check_swap_io`).
+    `check_kernel_memory` reports kernel memory-manager health: kernel-allocation
+    gauges, cache bytes and page-fault rates. It complements `check_memory`
+    (used/free/size of physical/committed/virtual) — **kernel-side leaks and
+    hard-fault storms are the classic server failure modes that free-RAM thresholds
+    do not catch.** The fault counters are rates, so the check samples a 1-second
+    window (like `check_swap_io`).
 
-    All six keywords are always emitted as perf data (`kernel_pool_paged`,
-    `kernel_hard_faults_per_sec`, ...), which is what makes the slow nonpaged-pool
-    leak visible: it is inherently a trend signal, so let the backend graph it.
+    The check returns a single aggregate row. All gauges and rates are always
+    emitted as perf data (`kernel_cache`, `kernel_page_faults_per_sec`, ...), which
+    is what makes a slow kernel-allocation leak visible: it is inherently a trend
+    signal, so let the backend graph it. There are no default thresholds.
 
-    There are no default thresholds. `hard_faults_per_sec` counts hard-fault
-    *events* (`Page Reads/sec`), not the pages they bring in: `check_swap_io`
-    reports the latter as `swap_in` (`Pages Input/sec`), and a read that pages in a
-    whole cluster makes `swap_in` several times larger than the fault rate. Read
-    the two side by side to tell a fault storm from a paging storm. On Linux the same command is
-    provided by the unix CheckSystem module with `slab`/`slab_reclaimable`/
-    `slab_unreclaimable` as the platform-native gauges and
-    `major_faults_per_sec` as the hard-fault rate.
+    `cache` and `page_faults_per_sec` are shared; the kernel-allocation gauges and
+    the hard-fault rate keep their platform-native names (`pool_*` /
+    `hard_faults_per_sec` on Windows, `slab_*` / `major_faults_per_sec` on Linux),
+    the same convention as `hive` vs `manager` in `check_installed_software`.
+
+    ##### Windows
+
+    Sourced from the PDH `Memory` counter set. Keywords: `pool_paged`,
+    `pool_nonpaged`, `cache`, `page_faults_per_sec`, `transition_faults_per_sec`
+    and `hard_faults_per_sec`.
+
+    `hard_faults_per_sec` counts hard-fault *events* (`Page Reads/sec`), not the
+    pages they bring in: `check_swap_io` reports the latter as `swap_in`
+    (`Pages Input/sec`), and a read that pages in a whole cluster makes `swap_in`
+    several times larger than the fault rate. Read the two side by side to tell a
+    fault storm from a paging storm.
+
+    ##### Linux
+
+    Sourced from `/proc/meminfo` and `/proc/vmstat`. Keywords: `slab`,
+    `slab_reclaimable`, `slab_unreclaimable`, `cache`, `page_faults_per_sec` and
+    `major_faults_per_sec`. `slab_unreclaimable` is the gauge that exposes a slow
+    kernel-side leak — reclaimable slab grows and shrinks with cache pressure and
+    is not by itself a problem.
 
 === "Linux"
 
     Check kernel memory-manager health: slab bytes (reclaimable/unreclaimable), page-cache bytes and page-fault rates — the kernel-leak and fault-storm signals free-RAM thresholds miss.
 
-    #### About `check_kernel_memory` (Windows)
+    #### About `check_kernel_memory`
 
-    `check_kernel_memory` reports kernel memory-manager health from the PDH
-    `Memory` counter set: pool usage, file cache and page-fault rates. It
-    complements `check_memory` (used/free/size of physical/committed/virtual) —
-    **pool exhaustion and hard-fault storms are the classic Windows server failure
-    modes that free-RAM thresholds do not catch.** The fault counters are rates,
-    so the check samples a 1-second window (like `check_swap_io`).
+    `check_kernel_memory` reports kernel memory-manager health: kernel-allocation
+    gauges, cache bytes and page-fault rates. It complements `check_memory`
+    (used/free/size of physical/committed/virtual) — **kernel-side leaks and
+    hard-fault storms are the classic server failure modes that free-RAM thresholds
+    do not catch.** The fault counters are rates, so the check samples a 1-second
+    window (like `check_swap_io`).
 
-    All six keywords are always emitted as perf data (`kernel_pool_paged`,
-    `kernel_hard_faults_per_sec`, ...), which is what makes the slow nonpaged-pool
-    leak visible: it is inherently a trend signal, so let the backend graph it.
+    The check returns a single aggregate row. All gauges and rates are always
+    emitted as perf data (`kernel_cache`, `kernel_page_faults_per_sec`, ...), which
+    is what makes a slow kernel-allocation leak visible: it is inherently a trend
+    signal, so let the backend graph it. There are no default thresholds.
 
-    There are no default thresholds. `hard_faults_per_sec` counts hard-fault
-    *events* (`Page Reads/sec`), not the pages they bring in: `check_swap_io`
-    reports the latter as `swap_in` (`Pages Input/sec`), and a read that pages in a
-    whole cluster makes `swap_in` several times larger than the fault rate. Read
-    the two side by side to tell a fault storm from a paging storm. On Linux the same command is
-    provided by the unix CheckSystem module with `slab`/`slab_reclaimable`/
-    `slab_unreclaimable` as the platform-native gauges and
-    `major_faults_per_sec` as the hard-fault rate.
+    `cache` and `page_faults_per_sec` are shared; the kernel-allocation gauges and
+    the hard-fault rate keep their platform-native names (`pool_*` /
+    `hard_faults_per_sec` on Windows, `slab_*` / `major_faults_per_sec` on Linux),
+    the same convention as `hive` vs `manager` in `check_installed_software`.
+
+    ##### Windows
+
+    Sourced from the PDH `Memory` counter set. Keywords: `pool_paged`,
+    `pool_nonpaged`, `cache`, `page_faults_per_sec`, `transition_faults_per_sec`
+    and `hard_faults_per_sec`.
+
+    `hard_faults_per_sec` counts hard-fault *events* (`Page Reads/sec`), not the
+    pages they bring in: `check_swap_io` reports the latter as `swap_in`
+    (`Pages Input/sec`), and a read that pages in a whole cluster makes `swap_in`
+    several times larger than the fault rate. Read the two side by side to tell a
+    fault storm from a paging storm.
+
+    ##### Linux
+
+    Sourced from `/proc/meminfo` and `/proc/vmstat`. Keywords: `slab`,
+    `slab_reclaimable`, `slab_unreclaimable`, `cache`, `page_faults_per_sec` and
+    `major_faults_per_sec`. `slab_unreclaimable` is the gauge that exposes a slow
+    kernel-side leak — reclaimable slab grows and shrinks with cache pressure and
+    is not by itself a problem.
 
 **Jump to section:**
 
@@ -1415,6 +1844,8 @@ OK: 101 software packages installed.
 
 <a id="check_kernel_memory_samples"></a>
 #### Sample Commands
+
+##### Windows
 
 **Default check (inventory of the kernel memory gauges and fault rates):**
 
@@ -1457,8 +1888,45 @@ OK: faults=16617.16/s (soft 4624.68/s, hard 57.2/s)
 **Over NRPE against a remote host:**
 
 ```
-check_nscp_client --host 192.168.56.103 --command check_kernel_memory --argument "crit=hard_faults_per_sec > 1000"
+check_nrpe --host 192.168.56.103 --command check_kernel_memory --arguments "crit=hard_faults_per_sec > 1000"
 OK: paged pool 1.685GB, nonpaged pool 2.571GB, cache 284.676MB, 57.2 hard faults/s
+```
+
+##### Linux
+
+**Default check (inventory of the kernel memory gauges and fault rates):**
+
+```
+check_kernel_memory
+OK: slab 512MB (128MB unreclaimable), cache 4GB, 2 major faults/s|'kernel_cache'=4294967296;0;0 'kernel_major_faults_per_sec'=2;0;0 'kernel_page_faults_per_sec'=25000;0;0 'kernel_slab'=536870912;0;0 'kernel_slab_reclaimable'=402653184;0;0 'kernel_slab_unreclaimable'=134217728;0;0
+```
+
+**Detect an unreclaimable-slab leak (baseline the host, then pin absolute bytes):**
+
+```
+check_kernel_memory "warn=slab_unreclaimable > 1G" "crit=slab_unreclaimable > 2G"
+OK: slab 512MB (128MB unreclaimable), cache 4GB, 2 major faults/s
+```
+
+**Alert on a major-fault storm (memory pressure forcing disk reads):**
+
+```
+check_kernel_memory "warn=major_faults_per_sec > 200" "crit=major_faults_per_sec > 1000"
+OK: slab 512MB (128MB unreclaimable), cache 4GB, 2 major faults/s
+```
+
+**Inspect the fault breakdown (total vs major):**
+
+```
+check_kernel_memory "detail-syntax=faults=${page_faults_per_sec}/s (major ${major_faults_per_sec}/s), slab=${slab}"
+OK: faults=25000/s (major 2/s), slab=512MB
+```
+
+**Over NRPE against a remote host:**
+
+```
+check_nrpe --host 192.168.56.103 --command check_kernel_memory --arguments "crit=major_faults_per_sec > 1000"
+OK: slab 512MB (128MB unreclaimable), cache 4GB, 2 major faults/s
 ```
 
 
@@ -1570,73 +2038,113 @@ OK: paged pool 1.685GB, nonpaged pool 2.571GB, cache 284.676MB, 57.2 hard faults
 
     Check system-wide kernel activity: context-switch and system-call rates plus live process and thread counts.
 
-    #### About `check_kernel_stats` (Windows)
+    #### About `check_kernel_stats`
 
-    `check_kernel_stats` reports system-wide kernel activity from the PDH `System`
-    counter set — the Windows counterpart to the unix `check_kernel_stats`
-    (`/proc/stat`). The rate counters are sampled over a 1-second window.
+    `check_kernel_stats` reports system-wide kernel activity as one row per metric.
+    The rate counters are sampled over a 1-second window. Use `type=` (repeatable)
+    to restrict which rows are returned; the default is all of them.
 
-    It emits one row per metric, selected with `type=` (repeatable; default all):
+    Row keywords are the same on both platforms — `name`, `label`, `human`, `rate`
+    (perf; `0` for the gauge rows) and `current` (perf) — but **`current` does not
+    mean the same thing on both.** On Windows it is the gauge value, or the rounded
+    per-second rate for a rate row; on Linux it is the raw cumulative counter read
+    from `/proc/stat` for a rate row, which only ever grows.
 
-    | Row (`name`) | Counter              | Kind  | Description                                     |
+    Threshold on `rate` when you mean a per-second value: a threshold written
+    against `current` from the Windows reading fires permanently on Linux, where the
+    same keyword is a counter in the millions.
+
+    The default thresholds are thread-count guardrails on both platforms:
+    `warn = name = 'threads' and current > 8000`,
+    `crit = name = 'threads' and current > 10000`. Override them (`warn=none`) or
+    threshold the rates explicitly, e.g. `crit=name = 'ctxt' and rate > 500000` —
+    context-switch storms are workload-relative, so baseline before pinning.
+
+    ##### Windows
+
+    Sourced from the PDH `System` counter set.
+
+    | Row (`name`) | Counter              | Kind  | Description                                      |
     |--------------|----------------------|-------|--------------------------------------------------|
     | `ctxt`       | Context Switches/sec | rate  | Scheduler churn; storms indicate lock contention |
     | `syscalls`   | System Calls/sec     | rate  | Kernel-transition rate (Windows only)            |
     | `processes`  | Processes            | gauge | Current process count                            |
     | `threads`    | Threads              | gauge | Current thread count                             |
 
-    Row keywords match the unix check: `name`, `label`, `human`, `rate` (perf,
-    0 for the gauge rows) and `current` (perf; the gauge value, or the *rounded
-    rate* for the rate rows — Windows exposes no cumulative counter).
+    Windows exposes no cumulative counter here, so `current` on the rate rows is
+    the rounded rate rather than a running total. `Processor Queue Length` and
+    `System Up Time` from the same counter set are deliberately not duplicated —
+    `check_load` and `check_uptime` own those.
 
-    **Platform differences:** unix's `processes` row is a fork *rate*
-    (creations/sec from `/proc/stat`); Windows has no process-creation-rate counter
-    in this set, so its `processes` row is a *gauge* (current count). Windows adds
-    the `syscalls` row; unix does not have it. `Processor Queue Length` and
-    `System Up Time` from the same counter set are deliberately not duplicated
-    here — `check_load` and `check_uptime` own those.
+    ##### Linux
 
-    The default thresholds are the same thread-count guardrails as the unix check:
-    `warn = name = 'threads' and current > 8000`,
-    `crit = name = 'threads' and current > 10000`. Override them (`warn=none`) or
-    threshold the rates explicitly, e.g. `crit=name = 'ctxt' and rate > 500000` —
-    context-switch storms are workload-relative, so baseline before pinning.
+    | Row (`name`) | Source                | Kind  | Description                            |
+    |--------------|-----------------------|-------|----------------------------------------|
+    | `ctxt`       | `/proc/stat`          | rate  | Context switches per second            |
+    | `processes`  | `/proc/stat`          | rate  | Process/fork creations per second      |
+    | `threads`    | `/proc/*/task`        | gauge | Live thread count (instantaneous)      |
+
+    ##### Platform differences
+
+    Linux's `processes` row is a fork *rate*; Windows has no process-creation-rate
+    counter in this set, so its `processes` row is a *gauge* (current count).
+    Windows adds the `syscalls` row, which Linux does not have.
 
 === "Linux"
 
     Check kernel activity: context-switch rate, fork rate and live thread count.
 
-    #### About `check_kernel_stats` (Windows)
+    #### About `check_kernel_stats`
 
-    `check_kernel_stats` reports system-wide kernel activity from the PDH `System`
-    counter set — the Windows counterpart to the unix `check_kernel_stats`
-    (`/proc/stat`). The rate counters are sampled over a 1-second window.
+    `check_kernel_stats` reports system-wide kernel activity as one row per metric.
+    The rate counters are sampled over a 1-second window. Use `type=` (repeatable)
+    to restrict which rows are returned; the default is all of them.
 
-    It emits one row per metric, selected with `type=` (repeatable; default all):
+    Row keywords are the same on both platforms — `name`, `label`, `human`, `rate`
+    (perf; `0` for the gauge rows) and `current` (perf) — but **`current` does not
+    mean the same thing on both.** On Windows it is the gauge value, or the rounded
+    per-second rate for a rate row; on Linux it is the raw cumulative counter read
+    from `/proc/stat` for a rate row, which only ever grows.
 
-    | Row (`name`) | Counter              | Kind  | Description                                     |
+    Threshold on `rate` when you mean a per-second value: a threshold written
+    against `current` from the Windows reading fires permanently on Linux, where the
+    same keyword is a counter in the millions.
+
+    The default thresholds are thread-count guardrails on both platforms:
+    `warn = name = 'threads' and current > 8000`,
+    `crit = name = 'threads' and current > 10000`. Override them (`warn=none`) or
+    threshold the rates explicitly, e.g. `crit=name = 'ctxt' and rate > 500000` —
+    context-switch storms are workload-relative, so baseline before pinning.
+
+    ##### Windows
+
+    Sourced from the PDH `System` counter set.
+
+    | Row (`name`) | Counter              | Kind  | Description                                      |
     |--------------|----------------------|-------|--------------------------------------------------|
     | `ctxt`       | Context Switches/sec | rate  | Scheduler churn; storms indicate lock contention |
     | `syscalls`   | System Calls/sec     | rate  | Kernel-transition rate (Windows only)            |
     | `processes`  | Processes            | gauge | Current process count                            |
     | `threads`    | Threads              | gauge | Current thread count                             |
 
-    Row keywords match the unix check: `name`, `label`, `human`, `rate` (perf,
-    0 for the gauge rows) and `current` (perf; the gauge value, or the *rounded
-    rate* for the rate rows — Windows exposes no cumulative counter).
+    Windows exposes no cumulative counter here, so `current` on the rate rows is
+    the rounded rate rather than a running total. `Processor Queue Length` and
+    `System Up Time` from the same counter set are deliberately not duplicated —
+    `check_load` and `check_uptime` own those.
 
-    **Platform differences:** unix's `processes` row is a fork *rate*
-    (creations/sec from `/proc/stat`); Windows has no process-creation-rate counter
-    in this set, so its `processes` row is a *gauge* (current count). Windows adds
-    the `syscalls` row; unix does not have it. `Processor Queue Length` and
-    `System Up Time` from the same counter set are deliberately not duplicated
-    here — `check_load` and `check_uptime` own those.
+    ##### Linux
 
-    The default thresholds are the same thread-count guardrails as the unix check:
-    `warn = name = 'threads' and current > 8000`,
-    `crit = name = 'threads' and current > 10000`. Override them (`warn=none`) or
-    threshold the rates explicitly, e.g. `crit=name = 'ctxt' and rate > 500000` —
-    context-switch storms are workload-relative, so baseline before pinning.
+    | Row (`name`) | Source                | Kind  | Description                            |
+    |--------------|-----------------------|-------|----------------------------------------|
+    | `ctxt`       | `/proc/stat`          | rate  | Context switches per second            |
+    | `processes`  | `/proc/stat`          | rate  | Process/fork creations per second      |
+    | `threads`    | `/proc/*/task`        | gauge | Live thread count (instantaneous)      |
+
+    ##### Platform differences
+
+    Linux's `processes` row is a fork *rate*; Windows has no process-creation-rate
+    counter in this set, so its `processes` row is a *gauge* (current count).
+    Windows adds the `syscalls` row, which Linux does not have.
 
 **Jump to section:**
 
@@ -1648,25 +2156,18 @@ OK: paged pool 1.685GB, nonpaged pool 2.571GB, cache 284.676MB, 57.2 hard faults
 <a id="check_kernel_stats_samples"></a>
 #### Sample Commands
 
-**Default check (all four rows; thread-count guardrails apply):**
-
-```
-check_kernel_stats
-OK - Context Switches 119058.5/s, System Calls 268702.6/s, Processes 628, Threads 3417|'ctxt'=119059;8000;10000 'syscalls'=268703;8000;10000 'processes'=628;8000;10000 'threads'=3417;8000;10000
-```
-
-**Threshold a context-switch storm (baseline the host first):**
-
-```
-check_kernel_stats "warn=none" "crit=name = 'ctxt' and rate > 500000"
-OK - Context Switches 119058.5/s, System Calls 268702.6/s, Processes 628, Threads 3417
-```
-
 **Watch only the thread count with custom limits:**
 
 ```
 check_kernel_stats type=threads "warn=current > 5000" "crit=current > 8000"
-OK - Threads 3417
+OK - Threads 3417|'threads'=3417;5000;8000
+```
+
+**Alert on a runaway context-switch rate (baseline the host first):**
+
+```
+check_kernel_stats "warn=name = 'ctxt' and rate > 100000" "crit=name = 'ctxt' and rate > 500000"
+OK - Context Switches 57111.0/s, Process Creations 317.0/s, Threads 363
 ```
 
 **Select several rows and render the raw values:**
@@ -1676,11 +2177,40 @@ check_kernel_stats type=ctxt type=processes "detail-syntax=${name}=${current}"
 OK - ctxt=119059, processes=628
 ```
 
+##### Windows
+
+**Default check (all four rows; thread-count guardrails apply):**
+
+```
+check_kernel_stats
+OK - Context Switches 119058.5/s, System Calls 268702.6/s, Processes 628, Threads 3417|'ctxt'=119059;8000;10000 'syscalls'=268703;8000;10000 'processes'=628;8000;10000 'threads'=3417;8000;10000
+```
+
 **Over NRPE against a remote host:**
 
 ```
-check_nscp_client --host 192.168.56.103 --command check_kernel_stats --argument "warn=none" --argument "crit=name = 'threads' and current > 20000"
+check_nrpe --host 192.168.56.103 --command check_kernel_stats --arguments "warn=none" --arguments "crit=name = 'threads' and current > 20000"
 OK - Context Switches 119058.5/s, System Calls 268702.6/s, Processes 628, Threads 3417
+```
+
+##### Linux
+
+**Default check (context-switch rate, fork rate and live thread count):**
+
+```
+check_kernel_stats
+OK - Context Switches 57111.0/s, Process Creations 317.0/s, Threads 363|'ctxt'=2747325827;8000;10000 'processes'=2888772;8000;10000 'threads'=363;8000;10000
+```
+
+Note that on Linux `current` for the rate rows is the *cumulative* counter read
+from `/proc/stat`, which is why `ctxt` shows a very large number in perf data
+while the message shows the per-second rate.
+
+**Only context switches and forks (repeat `type=`):**
+
+```
+check_kernel_stats type=ctxt type=processes
+OK - Context Switches 57111.0/s, Process Creations 317.0/s
 ```
 
 
@@ -1808,13 +2338,20 @@ OK - Context Switches 119058.5/s, System Calls 268702.6/s, Processes 628, Thread
 
     Check the system load average (1/5/15 minutes), synthesised from the processor queue length plus busy cores.
 
-    #### About `check_load` (Windows)
+    #### About `check_load`
 
-    `check_load` reports Unix-style 1/5/15-minute load averages on Windows —
+    `check_load` reports 1/5/15-minute load averages —
     utilization tells you how busy the CPUs are, load tells you how much work is
     *queued for* them, which is the saturation signal utilization alone cannot
     give (100% CPU with an empty queue is a busy box; 100% with a deep queue is an
     overloaded one).
+
+    ##### Linux
+
+    The averages come straight from `/proc/loadavg` — the kernel's own 1-, 5-
+    and 15-minute run-queue averages.
+
+    ##### Windows
 
     Windows has no kernel-maintained load average, so the CheckSystem background
     collector synthesises one: every second it folds the instantaneous value
@@ -1834,14 +2371,19 @@ OK - Context Switches 119058.5/s, System Calls 268702.6/s, Processes 628, Thread
     saturated one reads above it, and the familiar threshold conventions
     (`warn=load > <cores>`, or `percpu=true` with `warn=load > 1`) transfer as-is.
 
-    The keyword vocabulary matches the Linux `check_load` (a single aggregate row),
-    so warning/critical expressions and detail-syntax port between platforms.
+    ##### Common behaviour
+
+    The check returns a single aggregate row and the keyword vocabulary is identical
+    on both platforms, so warning/critical expressions and detail-syntax port
+    between them. With `percpu=true` each figure is divided by the number of CPUs so
+    thresholds port across hosts with different core counts (the row's `type` then
+    reads `scaled` instead of `total`).
 
     There are no default thresholds; the three averages are always emitted as perf
     data (`total_load1` etc., `scaled_*` with `percpu=true`). `queue` is never
     divided by `percpu` — it is an absolute thread count.
 
-    **Caveats:** the averages live in the collector, so the check reports
+    **Windows caveats:** the averages live in the collector, so the check reports
     *"Load average data is not available yet"* right after service start. 
     If the `\System\Processor Queue Length` counter is unavailable (corrupt perflib), 
     the load degrades to the CPU-utilization component and a warning is logged. 
@@ -1855,13 +2397,20 @@ OK - Context Switches 119058.5/s, System Calls 268702.6/s, Processes 628, Thread
 
     Check the system load average (1/5/15 minutes).
 
-    #### About `check_load` (Windows)
+    #### About `check_load`
 
-    `check_load` reports Unix-style 1/5/15-minute load averages on Windows —
+    `check_load` reports 1/5/15-minute load averages —
     utilization tells you how busy the CPUs are, load tells you how much work is
     *queued for* them, which is the saturation signal utilization alone cannot
     give (100% CPU with an empty queue is a busy box; 100% with a deep queue is an
     overloaded one).
+
+    ##### Linux
+
+    The averages come straight from `/proc/loadavg` — the kernel's own 1-, 5-
+    and 15-minute run-queue averages.
+
+    ##### Windows
 
     Windows has no kernel-maintained load average, so the CheckSystem background
     collector synthesises one: every second it folds the instantaneous value
@@ -1881,14 +2430,19 @@ OK - Context Switches 119058.5/s, System Calls 268702.6/s, Processes 628, Thread
     saturated one reads above it, and the familiar threshold conventions
     (`warn=load > <cores>`, or `percpu=true` with `warn=load > 1`) transfer as-is.
 
-    The keyword vocabulary matches the Linux `check_load` (a single aggregate row),
-    so warning/critical expressions and detail-syntax port between platforms.
+    ##### Common behaviour
+
+    The check returns a single aggregate row and the keyword vocabulary is identical
+    on both platforms, so warning/critical expressions and detail-syntax port
+    between them. With `percpu=true` each figure is divided by the number of CPUs so
+    thresholds port across hosts with different core counts (the row's `type` then
+    reads `scaled` instead of `total`).
 
     There are no default thresholds; the three averages are always emitted as perf
     data (`total_load1` etc., `scaled_*` with `percpu=true`). `queue` is never
     divided by `percpu` — it is an absolute thread count.
 
-    **Caveats:** the averages live in the collector, so the check reports
+    **Windows caveats:** the averages live in the collector, so the check reports
     *"Load average data is not available yet"* right after service start. 
     If the `\System\Processor Queue Length` counter is unavailable (corrupt perflib), 
     the load degrades to the CPU-utilization component and a warning is logged. 
@@ -1942,6 +2496,19 @@ OK: total load average: 2.33528, 1.84625, 1.74261
 check_load percpu=true "warn=load > 1" "crit=load > 2"
 OK: scaled load average: 0.145955, 0.115391, 0.108913
 ```
+
+**Inspect the run-queue counters:**
+
+```
+check_load "detail-syntax=run=${procs_running} total=${procs_total}"
+OK: run=1 total=11221
+```
+
+##### Windows
+
+The synthesised collector exposes three extra keywords — `queue` (the raw
+`\System\Processor Queue Length` saturation signal), `cores` and `samples`
+(collector ticks folded into the averages so far).
 
 **Inspect the raw saturation signal and the collector state:**
 
@@ -2530,8 +3097,94 @@ page = 8.05G, physical = 7.85G
 
 **Jump to section:**
 
+* [Sample Commands](#check_network_samples)
 * [Command-line Arguments](#check_network_options)
 * [Filter keywords](#check_network_filter_keys)
+
+
+<a id="check_network_samples"></a>
+#### Sample Commands
+
+**Default check (one record per interface):**
+
+The defaults threshold total throughput: `throughput > 10000` warns and
+`> 100000` is critical, in bytes per second.
+
+```
+check_network
+OK: eth0 >659B/s <659B/s, ifb0 >0B/s <0B/s, ifb1 >0B/s <0B/s, lo >0B/s <0B/s|'eth0'=1318Bps;10000;100000 'ifb0'=0Bps;10000;100000 'ifb1'=0Bps;10000;100000 'lo'=0Bps;10000;100000
+```
+
+The message renders the human-readable `sent_human` / `received_human`; the
+performance data carries the raw `throughput` in bytes per second.
+
+**Exclude loopback and virtual interfaces:**
+
+```
+check_network "filter=name not like 'lo' and name not like 'ifb'"
+OK: eth0 >659B/s <659B/s|'eth0'=1318Bps;10000;100000
+```
+
+Do this before setting any fleet-wide threshold — a container host has a lot of
+`veth`/`docker` interfaces that will otherwise each become a record and a
+performance-data series.
+
+**Alert when a link is not up:**
+
+Note that a loopback interface reports `unknown` rather than `up`, so filter it
+out or this will fire on every host.
+
+```
+check_network "crit=link_status != 'up'" "warn=none" "detail-syntax=${name}: ${link_status}"
+CRITICAL: eth0: up, ifb0: down, ifb1: down, lo: unknown
+```
+
+**Alert on interface errors rather than volume:**
+
+Errors and drops are a cabling, driver or duplex-mismatch signal, and are
+invisible to a throughput threshold. They are cumulative counters since boot, so
+alert on any increase from your own baseline rather than on an absolute number.
+
+```
+check_network "crit=rx_errors > 0 or tx_errors > 0" "warn=none" "detail-syntax=${name}: rx_err=${rx_errors} tx_err=${tx_errors}"
+OK: eth0: rx_err=0 tx_err=0, ifb0: rx_err=0 tx_err=0, ifb1: rx_err=0 tx_err=0, lo: rx_err=0 tx_err=0|'eth0_rx_errors'=0;0;0 'eth0_tx_errors'=0;0;0 'ifb0_rx_errors'=0;0;0 'ifb0_tx_errors'=0;0;0
+```
+
+**Threshold on link utilisation instead of raw bytes:**
+
+`usage_in` / `usage_out` / `usage_total` are percentages of the link speed, which
+ports across differently-sized links. They are `0` whenever `speed_bps` is
+unknown — as it is on virtual interfaces and in many VMs — so pair the threshold
+with a `speed_bps > 0` guard rather than trusting a 0% reading.
+
+```
+check_network "warn=usage_total > 60" "crit=usage_total > 85" "detail-syntax=${name}: ${usage_total}% of ${speed_bps}bps"
+OK: eth0: 0% of 0bps, ifb0: 0% of 0bps, ifb1: 0% of 0bps, lo: 0% of 0bps|'eth0_usage_total'=0%;60;85 'ifb0_usage_total'=0%;60;85
+```
+
+**Inspect the raw fields:**
+
+```
+check_network "detail-syntax=${name} link=${link_status} rx=${received} tx=${sent} speed=${speed_bps}"
+OK: eth0 link=up rx=659 tx=659 speed=0, ifb0 link=down rx=0 tx=0 speed=0, ifb1 link=down rx=0 tx=0 speed=0, lo link=unknown rx=0 tx=0 speed=0
+```
+
+**Right after the agent starts:**
+
+The rates come from the 1 Hz background collector, so the first seconds after a
+restart report no data rather than zeros.
+
+```
+check_network
+UNKNOWN: No network data available yet (collector still initializing)
+```
+
+**Over NRPE against a remote host:**
+
+```
+check_nrpe --host 192.168.56.103 --command check_network --arguments "crit=rx_errors > 100"
+OK: eth0 >659B/s <659B/s, lo >0B/s <0B/s
+```
 
 
 
@@ -2694,19 +3347,22 @@ page = 8.05G, physical = 7.85G
 
     Check for available Windows updates via the Windows Update Agent (WUA) API.
 
-    #### Checking for Windows Updates
+    #### Checking for pending OS updates
 
-    The `check_os_updates` command allows you to monitor for missing Windows updates via the Windows Update Agent (WUA) API. You can filter the results based on severity, reboot requirements, and other attributes. 
-
-    **Basic usage**
-
-    To simply check if there are any pending updates:
+    `check_os_updates` reports the updates the system is waiting to install. The
+    counters (`updates`, `security`, …) are **record keywords**: reference them from
+    `detail-syntax` (rendered per record and included in `${list}`), not from
+    `top-syntax`, where they read as 0. On both platforms the default `warning`
+    filter is `updates > 0`, so a bare call warns whenever anything is pending:
 
     ```
     check_os_updates
     ```
 
-    If there are any pending updates, this will return a warning state by default (because the default `warning` filter is `updates > 0`).
+    ##### Windows
+
+    Sourced from the Windows Update Agent (WUA) API. Results can be filtered by
+    severity, reboot requirements and other attributes.
 
     **Checking for critical updates**
 
@@ -2760,7 +3416,23 @@ page = 8.05G, physical = 7.85G
     > **Note:** the WUA search criteria is `Type='Software'`, so **driver updates are
     > excluded** by design. This keeps the count focused on OS/application patches.
 
-    **Customizing the output**
+    ##### Linux
+
+    Sourced from the system package manager — `apt`, `dnf`, `yum`, `zypper` or
+    `pacman`, whichever the host uses. The `manager` keyword names the one that was
+    queried, and `count` remains a deprecated alias for `updates`.
+
+    **Checking for security updates only**
+
+    Often, you only want to be alerted for *security* updates. You can configure this using the `warning` and `critical` filters:
+
+    ```
+    check_os_updates "warning=none" "critical=security > 0"
+    ```
+
+    This will return `CRITICAL` if any security updates are pending and otherwise `OK` regardless of the number of ordinary updates.
+
+    ##### Customizing the output
 
     You can use the syntax options to format the output string:
 
@@ -2768,27 +3440,33 @@ page = 8.05G, physical = 7.85G
     check_os_updates "top-syntax=${status}: ${list}" "detail-syntax=Found ${updates} missing updates. Security: ${security}, Critical: ${critical} - ${titles}"
     ```
 
-    Note that the update counters (`updates`, `security`, …) are record keywords: reference
-    them from `detail-syntax` (rendered per record and included in `${list}`), not from
-    `top-syntax`, where they read as 0.
+    On Linux, list the pending package names and the package manager that reported
+    them:
+
+    ```
+    check_os_updates "detail-syntax=${updates} updates via ${manager}: ${packages}" show-all
+    ```
 
 === "Linux"
 
     Check for available OS package updates via the system package manager (apt/dnf/yum/zypper/pacman).
 
-    #### Checking for Windows Updates
+    #### Checking for pending OS updates
 
-    The `check_os_updates` command allows you to monitor for missing Windows updates via the Windows Update Agent (WUA) API. You can filter the results based on severity, reboot requirements, and other attributes. 
-
-    **Basic usage**
-
-    To simply check if there are any pending updates:
+    `check_os_updates` reports the updates the system is waiting to install. The
+    counters (`updates`, `security`, …) are **record keywords**: reference them from
+    `detail-syntax` (rendered per record and included in `${list}`), not from
+    `top-syntax`, where they read as 0. On both platforms the default `warning`
+    filter is `updates > 0`, so a bare call warns whenever anything is pending:
 
     ```
     check_os_updates
     ```
 
-    If there are any pending updates, this will return a warning state by default (because the default `warning` filter is `updates > 0`).
+    ##### Windows
+
+    Sourced from the Windows Update Agent (WUA) API. Results can be filtered by
+    severity, reboot requirements and other attributes.
 
     **Checking for critical updates**
 
@@ -2842,7 +3520,23 @@ page = 8.05G, physical = 7.85G
     > **Note:** the WUA search criteria is `Type='Software'`, so **driver updates are
     > excluded** by design. This keeps the count focused on OS/application patches.
 
-    **Customizing the output**
+    ##### Linux
+
+    Sourced from the system package manager — `apt`, `dnf`, `yum`, `zypper` or
+    `pacman`, whichever the host uses. The `manager` keyword names the one that was
+    queried, and `count` remains a deprecated alias for `updates`.
+
+    **Checking for security updates only**
+
+    Often, you only want to be alerted for *security* updates. You can configure this using the `warning` and `critical` filters:
+
+    ```
+    check_os_updates "warning=none" "critical=security > 0"
+    ```
+
+    This will return `CRITICAL` if any security updates are pending and otherwise `OK` regardless of the number of ordinary updates.
+
+    ##### Customizing the output
 
     You can use the syntax options to format the output string:
 
@@ -2850,14 +3544,111 @@ page = 8.05G, physical = 7.85G
     check_os_updates "top-syntax=${status}: ${list}" "detail-syntax=Found ${updates} missing updates. Security: ${security}, Critical: ${critical} - ${titles}"
     ```
 
-    Note that the update counters (`updates`, `security`, …) are record keywords: reference
-    them from `detail-syntax` (rendered per record and included in `${list}`), not from
-    `top-syntax`, where they read as 0.
+    On Linux, list the pending package names and the package manager that reported
+    them:
+
+    ```
+    check_os_updates "detail-syntax=${updates} updates via ${manager}: ${packages}" show-all
+    ```
 
 **Jump to section:**
 
+* [Sample Commands](#check_os_updates_samples)
 * [Command-line Arguments](#check_os_updates_options)
 * [Filter keywords](#check_os_updates_filter_keys)
+
+
+<a id="check_os_updates_samples"></a>
+#### Sample Commands
+
+##### Linux
+
+**Default check (any pending update warns):**
+
+```
+check_os_updates
+CRITICAL: 176 updates available (152 security) via apt|'updates_security'=152;0;0 'updates'=176;0;0
+```
+
+The default critical threshold is `security > 0`, so a host with pending
+security updates goes critical rather than merely warning.
+
+**Only care about security updates:**
+
+```
+check_os_updates "warning=none" "critical=security > 0"
+CRITICAL: 176 updates available (152 security) via apt|'updates_security'=152;0;0
+```
+
+**Tolerate a backlog of ordinary updates:**
+
+```
+check_os_updates "warning=updates > 200" "critical=updates > 500"
+OK: 176 updates available (152 security) via apt|'updates'=176;200;500
+```
+
+**Show which package manager answered:**
+
+```
+check_os_updates "detail-syntax=${updates} updates via ${manager}"
+CRITICAL: 176 updates via apt|'updates_security'=152;0;0 'updates'=176;0;0
+```
+
+**List the pending package names:**
+
+```
+check_os_updates "detail-syntax=${updates}: ${packages}" show-all
+CRITICAL: 176: bsdutils, bzip2, ca-certificates, containerd.io, coreutils, curl, diffutils, dirmngr, distro-info-data, docker-buildx-plugin, ...
+```
+
+##### Windows
+
+**Default check:**
+
+```
+check_os_updates
+WARNING: 7 updates available (2 security)|'updates'=7;0;0 'updates_security'=2;0;0
+```
+
+**Alert only on security and critical updates:**
+
+```
+check_os_updates "warning=important > 0" "critical=security > 0 or critical > 0"
+CRITICAL: 7 updates available (2 security)
+```
+
+**Detect a pending reboot:**
+
+`reboot_required` counts updates that would need a reboot once installed;
+`reboot_pending` reports a reboot that is *already* queued system-wide.
+
+```
+check_os_updates "crit=reboot_pending = 1" "detail-syntax=reboot pending: ${reboot_pending}"
+CRITICAL: reboot pending: 1
+```
+
+**Threshold OS patches separately from Defender definitions:**
+
+```
+check_os_updates "warning=updates - defender > 0" "detail-syntax=${updates} total, ${defender} defender, ${rollups} rollups"
+WARNING: 7 total, 3 defender, 1 rollups
+```
+
+**Restrict to updates whose title matches a substring:**
+
+All the counters are recomputed over just the matching subset.
+
+```
+check_os_updates update-filter=".NET" "detail-syntax=${updates} .NET updates: ${titles}"
+WARNING: 2 .NET updates: 2026-08 Cumulative Update for .NET Framework 4.8, Update for .NET 8.0.14
+```
+
+**Over NRPE against a remote host:**
+
+```
+check_nrpe --host 192.168.56.103 --command check_os_updates --arguments "critical=security > 0"
+OK: 0 updates available (0 security)
+```
 
 
 
@@ -3167,6 +3958,45 @@ OK: 5CG1234ABC / American Megatrends Inc. BIOS 1.7.0 / 10.0.22631.3810 x64|'vers
 
 Check the size of the system pagefile(s).
 
+#### About `check_pagefile`
+
+`check_pagefile` reports the size and usage of the system's paging space. It
+returns one record per paging file (Windows) or swap device (Linux), plus a
+synthetic **`total`** record aggregating all of them — which is what you almost
+always want to threshold on, since a host with several pagefiles will otherwise
+alert per file.
+
+The defaults are `used > 60%` for warning and `used > 80%` for critical.
+Thresholds accept both absolute sizes and percentages, so
+`crit=used > 8G` and `crit=used > 80%` are both valid; `free_pct` / `used_pct`
+are available when you want the percentage as a plain number.
+
+##### What it does and does not tell you
+
+This is a **capacity** check: how much paging space is committed, not how hard
+the machine is paging. A box can sit with swap 90% full and be perfectly
+healthy — pages written out long ago and never needed again — while a box with
+5% swap used can be thrashing badly. For the pressure signal, use
+[`check_swap_io`](#check_swap_io), which reports the paging *rate*, and read the
+two together.
+
+##### Windows
+
+`peak_used` reports the high-water mark of commit charge for each pagefile since
+boot. That is often the more useful alert than instantaneous usage: it catches
+the nightly job that briefly exhausted the pagefile hours before the check ran.
+
+```
+check_pagefile "crit=peak_used > 90%"
+```
+
+##### Linux
+
+Each swap device (or swap file) is one record, and `name` is its path. A host
+with swap disabled entirely reports only the `total` record with a size of zero;
+guard against that with `filter=size > 0` if a zero-sized total would otherwise
+read as 100% used in your dashboards.
+
 **Jump to section:**
 
 * [Sample Commands](#check_pagefile_samples)
@@ -3457,6 +4287,67 @@ This command also supports the [common filter keywords](../common-options.md#com
 
 Check the value of a performance (PDH) counter on the local or remote system.
 The counters can also be added and polled periodically to get average values. Performance Log Users group membership is required to check performance counters.
+
+#### About `check_pdh`
+
+`check_pdh` reads Windows performance (PDH) counters and turns each one into a
+filter record. It is the general-purpose escape hatch for anything the
+purpose-built checks do not cover — if it shows up in Performance Monitor, this
+can alert on it.
+
+Counters are named with `counter=` (repeatable), and can also be passed
+positionally. There are no default thresholds, so a bare call reports the values
+and returns OK; a call with no counter at all is an error rather than an empty OK.
+
+The alias `check_counter` is accepted for backwards compatibility.
+
+##### Instantaneous versus averaged counters
+
+Many PDH counters are *rates* and are meaningless from a single sample — a
+single read of `\Processor(_Total)\% Processor Time` returns whatever the last
+interval happened to be, or zero. `averages=true` takes two samples a second
+apart and reports the difference, which is what you want for any `/sec` or `%`
+counter.
+
+For anything you check often, prefer the **configured collection** path instead:
+add the counter under `[/settings/system/windows/counters]` so the background
+collector samples it continuously, then reference it by its configured name.
+That makes the check itself instant, and lets `time=` ask for an average over a
+window (`time=5m`) rather than a one-second snapshot. `time=` may be repeated to
+report several windows at once, in which case the default perf and detail syntax
+automatically grow a `${time}` component so the series stay distinct.
+
+##### Localized counter names
+
+Counter names are localized, so `\Processor(_Total)\% Processor Time` does not
+exist on a German or French Windows. `resolution=` decides how the name is
+looked up:
+
+- `auto` (default) — try the localized name, then the English API, then index
+  expansion. This is what makes a single portable configuration work across
+  language variants.
+- `english` — force English names regardless of the system language.
+- `index` — expand numeric counter indexes to their localized names, which is
+  what `expand-index=true` does explicitly.
+
+##### Instances, types and error handling
+
+`instances=true` expands a wildcard instance (`\Process(*)\...`) into one record
+per instance. `type=` picks the value format (`double`, `long`, `large`, default
+`large`) and `flags=` passes PDH format flags (`nocap100`, `1000`, `noscale`) —
+`nocap100` is the one you want for a counter that legitimately exceeds 100%,
+such as multi-core `% Processor Time`.
+
+`reload=true` re-reads the counter list on error, which helps with counters
+registered after boot by a service that starts late. `ignore-errors=true` makes a
+missing or invalid counter report `0` instead of failing the check — convenient
+for a configuration shared across differently-provisioned hosts, but be aware
+that it turns "the counter is gone" into a silent zero, which is exactly the
+kind of thing you may want to alert on.
+
+Note that reading performance counters requires membership of the
+**Performance Log Users** group (or equivalent rights); a check that returns
+access-denied errors is usually a permissions problem, not a missing counter.
 
 **Jump to section:**
 
@@ -4182,12 +5073,16 @@ This command also supports the [common filter keywords](../common-options.md#com
 
 Check state/metrics of one or more of the processes running on the computer.
 
-#### Process owner and cross-agent portability keywords
+#### Cross-agent portability keywords
 
-For cross-agent portability `check_process` mirrors the Linux agent's keyword
-vocabulary: `rss` is a straight alias for `working_set` (same bytes and human
+`check_process` keeps a shared keyword vocabulary across the Windows and Linux
+agents: `rss` is a straight alias for `working_set` (same bytes and human
 value), and `state` accepts `running` as a synonym for `started` (the rendered
 value stays `started`), so the same expressions work on both platforms.
+
+#### Process owner (`username` / `uid`)
+
+##### Windows
 
 **`resolve-owner`** (default `false`) turns on owner resolution: it reads each
 matching process's token to populate `username`/`uid`. It is opt-in because
@@ -4196,10 +5091,95 @@ check to specific processes when using it on a busy host.
 
 ```
 check_process process=sqlservr.exe resolve-owner=true "crit=username not like 'NT SERVICE'" "detail-syntax=%(exe) owner=%(username)"
+check_process process=nginx.exe "warn=state != 'running'" "crit=rss > 2G"
+```
+
+##### Linux
+
+`uid` is **always** populated — it is read out of a file the check already
+opens, so it costs nothing — and it is numeric, so it can be thresholded
+directly:
+
+```
+check_process process=* "crit=uid = 0 and working_set > 1G" "detail-syntax=%(exe) uid=%(uid) ws=%(working_set)"
 ```
 
 ```
-check_process process=nginx.exe "warn=state != 'running'" "crit=rss > 2G"
+check_process process=* "filter=uid >= 1000" "warn=count > 200" "top-syntax=%(status): %(count) user processes"
+```
+
+**`resolve-owner`** (default `false`) additionally turns each uid into a user
+name. It is opt-in because the lookup goes through NSS, which can block for
+seconds when it is backed by a remote directory (LDAP/SSSD) — the same reason
+the Windows check gates owner resolution. Names are cached per uid for the
+lifetime of the agent, so the cost is one lookup per *distinct* owner, not per
+process.
+
+```
+check_process process=postgres resolve-owner=true "crit=username != 'postgres'" "detail-syntax=%(exe) owner=%(username)"
+```
+
+#### Process state: `state` vs `proc_state` (Linux)
+
+Two different questions, two keywords: `state` is the cross-platform
+started/stopped verdict (also available on Windows), `proc_state` the raw Linux
+scheduler state.
+
+`state` answers "is this process there and alive"; a zombie reports `stopped`
+there. `proc_state` answers "what is it *doing*", which is what the two classic
+Linux alerts need:
+
+```
+check_process process=* "crit=proc_state = 'zombie'" "detail-syntax=%(exe) (pid %(pid)) is a zombie"
+```
+
+```
+check_process process=* "warn=proc_state = 'disk_sleep'" "detail-syntax=%(exe) is blocked in uninterruptible I/O"
+```
+
+`disk_sleep` (`D`) is the useful I/O-hang signal: a process stuck there cannot
+be killed and usually means a wedged disk or an unresponsive NFS mount.
+
+For readability the parser also accepts `uninterruptible` for `disk_sleep`,
+`defunct` for `zombie` and `traced` for `tracing_stop`.
+
+Note that `proc_state = 'stopped'` means SIGSTOP'd / job-control stopped (`T`),
+which is **not** the same as `state = 'stopped'` (process not running).
+
+#### `ppid` (Linux)
+
+The parent process id, so process trees can be expressed:
+
+```
+check_process process=* "filter=ppid = 1" "warn=count < 10" "top-syntax=%(status): %(count) processes reparented to init"
+```
+
+It is also how kernel threads are excluded: on a standard Linux kernel every
+kernel thread is a child of `kthreadd`, which is pid 2, so
+
+```
+check_process process=* "filter=ppid != 2 and pid != 2" "warn=count > 500"
+```
+
+drops them all. (Note that some environments — WSL, and some container
+runtimes — do not run a `kthreadd` at pid 2, so check what pid 2 is on the host
+before relying on this.)
+
+#### `elapsed` and `rss` (Linux)
+
+`elapsed` is the "has this been running long enough / too long" check, which
+`creation` (an absolute timestamp) makes awkward:
+
+```
+check_process process=my-batch-job "crit=elapsed > 3600" "detail-syntax=%(exe) has been running for %(elapsed)s"
+```
+
+```
+check_process process=nginx "crit=elapsed < 300" "top-syntax=%(status): nginx restarted recently"
+```
+
+```
+check_process process=* "crit=rss > 2G" "detail-syntax=%(exe) rss=%(rss)"
 ```
 
 #### Showing only the top processes (sorting and limiting)
@@ -4230,7 +5210,7 @@ Note that `limit` only trims the performance data; the warning/critical status i
 evaluated against every matching process, so an alert is raised even if the offending
 process is not among the items shown.
 
-#### `delta=true` and the per-process CPU collector
+#### `delta=true` and the per-process CPU collector (Windows)
 
 Unlike earlier releases, `delta=true` no longer samples, sleeps a second, then
 samples again inside the check. Instead the CPU percentage is taken from a
@@ -4259,6 +5239,8 @@ Cumulative CPU seconds (`delta` omitted) need no collector and are unaffected.
 
 <a id="check_process_samples"></a>
 #### Sample Commands
+
+##### Windows
 
 **Default check:**
 
@@ -4326,6 +5308,68 @@ Performance data: 'sqlservr.exe ws_pct'=12%;25;40 'sqlservr.exe pf_pct'=8%;;
 RAM; `pagefile_pct` is its pagefile (commit) usage as a percentage of the system
 commit limit (RAM + pagefile). Both work with `total=true` aggregation.
 
+##### Linux
+
+**Show the owner, parent and state of every matching process:**
+
+```
+check_process process=bash "top-syntax=${list}" "detail-syntax=${exe} uid=${uid} ppid=${ppid} proc_state=${proc_state} elapsed=${elapsed}s"
+bash uid=1000 ppid=385 proc_state=sleeping elapsed=961739s, bash uid=1000 ppid=381 proc_state=sleeping elapsed=961715s, bash uid=0 ppid=12728 proc_state=sleeping elapsed=961693s
+```
+
+**Resolve uids to user names (opt-in, `resolve-owner=true`):**
+
+```
+check_process process=bash resolve-owner=true "top-syntax=${list}" "detail-syntax=${exe} uid=${uid} owner=${username}"
+bash uid=1000 owner=mickem, bash uid=1000 owner=mickem, bash uid=0 owner=root
+```
+
+Without the flag `uid` is still populated; only `username` stays empty.
+
+**Count the processes owned by root (`uid` is numeric, so it thresholds
+directly):**
+
+```
+check_process process=* "filter=uid = 0" "warn=count > 1000" "ok-syntax=%(status): %(count) processes owned by root"
+OK: 27 processes owned by root|'count'=27;1000;0 ...
+```
+
+**Alert on zombie processes:**
+
+```
+check_process process=* "crit=proc_state = 'zombie'" "ok-syntax=%(status): no zombie processes (%(count) checked)" "detail-syntax=%(exe) (pid %(pid)) is a zombie"
+OK: no zombie processes (49 checked)
+```
+
+**Alert on processes blocked in uninterruptible I/O (a wedged disk or a hung
+NFS mount):**
+
+```
+check_process process=* "warn=proc_state = 'disk_sleep'" "ok-syntax=%(status): no processes blocked in uninterruptible I/O"
+OK: no processes blocked in uninterruptible I/O
+```
+
+**Select by parent process id:**
+
+```
+check_process process=* "filter=ppid = 1" "ok-syntax=%(status): %(count) processes reparented to init"
+OK: 22 processes reparented to init
+```
+
+**Threshold on how long a process has been running (`elapsed`, in seconds):**
+
+```
+check_process process=bash "crit=elapsed > 31536000" "top-syntax=${list}" "detail-syntax=${exe} up ${elapsed}s"
+bash up 961756s, bash up 961732s, bash up 6183s, bash up 6s|'bash elapsed'=961756s;0;31536000 ...
+```
+
+**`rss` is an alias for `working_set` (same value, portable with the Windows
+check):**
+
+```
+check_process process=bash "crit=rss > 2G" "top-syntax=${list}" "detail-syntax=${exe} rss=${rss} ws=${working_set}"
+bash rss=8.594MB ws=8.594MB, bash rss=9.219MB ws=9.219MB, bash rss=4.688MB ws=4.688MB|'bash rss'=0.00839GB;0;2 ...
+```
 
 
 
@@ -4546,14 +5590,232 @@ commit limit (RAM + pagefile). Both work with `total=true` aggregation.
 
     Check the history of processes that have been running since NSClient++ started. Useful for verifying if certain applications have been executed.
 
+    #### About `check_process_history`
+
+    `check_process_history` reports the processes NSClient++ has seen running since
+    the agent started — including ones that have long since exited. It answers the
+    question a point-in-time `check_process` cannot: *did this ever run?*
+
+    One record is returned per distinct executable, carrying `exe`, whether it is
+    `running` right now, `first_seen` / `last_seen` timestamps and `times_seen`
+    (how many collector ticks observed it).
+
+    ##### It must be turned on first
+
+    The history is kept by the CheckSystem background collector, which does **not**
+    track it by default. Enable it once:
+
+    ```ini
+    [/settings/system/windows]
+    process history = true
+    ```
+
+    (`[/settings/system/unix]` on Linux.) Until it is enabled the check returns
+    UNKNOWN and names the setting, rather than reporting an empty history that would
+    be easy to mistake for "nothing ran":
+
+    ```
+    check_process_history
+    UNKNOWN: Process history is not enabled (set 'process history = true' under /settings/system/windows)
+    ```
+
+    The path in that message is the module's own settings path, so it reads
+    `/settings/system/unix` on Linux.
+
+    ##### The window is the agent's uptime
+
+    History lives in memory and starts empty when the agent starts. A restarted
+    agent has no history, and there is no persistence across restarts — so
+    `first_seen` means "first seen since this agent process started", not "first
+    seen on this machine". Read the results alongside
+    [`check_uptime`](#check_uptime) or `check_nscp`'s `uptime` when the window
+    matters.
+
+    ##### What it is good for
+
+    The typical uses are verifying that scheduled work actually ran, and catching
+    things that ran when they should not have:
+
+    ```
+    check_process_history process=backup.exe "crit=times_seen = 0"
+    check_process_history "crit=exe like 'psexec'" "top-syntax=${status}: ${problem_list}"
+    ```
+
+    `process=` restricts the check to specific executable names (repeatable,
+    case-insensitive); with no `process=` every process in the history is reported.
+    There are no default thresholds, and the default empty state is OK.
+
+    For the narrower question "what appeared *recently*", use
+    [`check_process_history_new`](#check_process_history_new), which takes a `time=`
+    window and reports only processes first seen inside it.
+
 === "Linux"
 
     Check the history of processes seen since NSClient++ started (requires 'process history = true').
 
+    #### About `check_process_history`
+
+    `check_process_history` reports the processes NSClient++ has seen running since
+    the agent started — including ones that have long since exited. It answers the
+    question a point-in-time `check_process` cannot: *did this ever run?*
+
+    One record is returned per distinct executable, carrying `exe`, whether it is
+    `running` right now, `first_seen` / `last_seen` timestamps and `times_seen`
+    (how many collector ticks observed it).
+
+    ##### It must be turned on first
+
+    The history is kept by the CheckSystem background collector, which does **not**
+    track it by default. Enable it once:
+
+    ```ini
+    [/settings/system/windows]
+    process history = true
+    ```
+
+    (`[/settings/system/unix]` on Linux.) Until it is enabled the check returns
+    UNKNOWN and names the setting, rather than reporting an empty history that would
+    be easy to mistake for "nothing ran":
+
+    ```
+    check_process_history
+    UNKNOWN: Process history is not enabled (set 'process history = true' under /settings/system/windows)
+    ```
+
+    The path in that message is the module's own settings path, so it reads
+    `/settings/system/unix` on Linux.
+
+    ##### The window is the agent's uptime
+
+    History lives in memory and starts empty when the agent starts. A restarted
+    agent has no history, and there is no persistence across restarts — so
+    `first_seen` means "first seen since this agent process started", not "first
+    seen on this machine". Read the results alongside
+    [`check_uptime`](#check_uptime) or `check_nscp`'s `uptime` when the window
+    matters.
+
+    ##### What it is good for
+
+    The typical uses are verifying that scheduled work actually ran, and catching
+    things that ran when they should not have:
+
+    ```
+    check_process_history process=backup.exe "crit=times_seen = 0"
+    check_process_history "crit=exe like 'psexec'" "top-syntax=${status}: ${problem_list}"
+    ```
+
+    `process=` restricts the check to specific executable names (repeatable,
+    case-insensitive); with no `process=` every process in the history is reported.
+    There are no default thresholds, and the default empty state is OK.
+
+    For the narrower question "what appeared *recently*", use
+    [`check_process_history_new`](#check_process_history_new), which takes a `time=`
+    window and reports only processes first seen inside it.
+
 **Jump to section:**
 
+* [Sample Commands](#check_process_history_samples)
 * [Command-line Arguments](#check_process_history_options)
 * [Filter keywords](#check_process_history_filter_keys)
+
+
+<a id="check_process_history_samples"></a>
+#### Sample Commands
+
+**Before the history is turned on:**
+
+The history is kept by the CheckSystem background collector, which is off by
+default.
+
+```
+check_process_history
+UNKNOWN: Process history is not enabled (set 'process history = true' under /settings/system/unix)
+```
+
+Enable it once (`[/settings/system/windows]` on Windows):
+
+```ini
+[/settings/system/unix]
+process history = true
+```
+
+**Default check (an inventory of everything seen since the agent started):**
+
+There are no default thresholds, so a bare call is always OK and reports the
+count.
+
+```
+check_process_history
+OK: 91 processes in history.
+```
+
+**Restrict to specific executables (`process=`, repeatable, case-insensitive):**
+
+```
+check_process_history process=nscp process=make
+OK: 2 processes in history.
+```
+
+**Show the detail for a process:**
+
+The default `top-syntax` renders only the *problem* list, so with no threshold
+set you get the OK summary. Ask for the full list to see the per-process detail.
+
+```
+check_process_history process=nscp "top-syntax=${status}: ${list}" "detail-syntax=${exe} running=${running} seen=${times_seen}"
+OK: nscp running=true seen=1
+```
+
+`first_seen` / `last_seen` are timestamps and support date comparisons:
+
+```
+check_process_history process=nscp "detail-syntax=${exe} running=${running} seen=${times_seen} first=${first_seen}" show-all
+OK: nscp running=true seen=1 first=2026-09-04 12:56:43
+```
+
+**Count only what is still running:**
+
+```
+check_process_history "filter=running = 'true'" "top-syntax=${status}: ${count} still running"
+OK: 79 still running
+```
+
+**Alert on something that should never have run:**
+
+Note that `like` is a substring match, so a short pattern matches more than you
+expect — here `'nc'` matches a kernel worker thread.
+
+```
+check_process_history "crit=exe like 'nc'" "top-syntax=${status}: ${problem_list}"
+CRITICAL: kworker/R-sync_wq (true)
+```
+
+Anchor the pattern or use `=` for an exact name when you mean one binary.
+
+**Verify that a scheduled job actually ran:**
+
+```
+check_process_history process=backup.exe "crit=times_seen = 0"
+CRITICAL: backup.exe (false)
+```
+
+**The window is the agent's uptime:**
+
+History lives in memory and starts empty at agent start, so `first_seen` means
+"first seen since this agent process started", not "first seen on this machine".
+A restarted agent reports an empty history:
+
+```
+check_process_history
+OK: 0 processes in history.
+```
+
+**Over NRPE against a remote host:**
+
+```
+check_nrpe --host 192.168.56.103 --command check_process_history --arguments "process=backup.exe" --arguments "crit=times_seen = 0"
+OK: 1 processes in history.
+```
 
 
 
@@ -4622,14 +5884,121 @@ This command also supports the [common filter keywords](../common-options.md#com
 
     Check for new processes that appeared within a specified time window. Useful for detecting unexpected or unauthorized applications.
 
+    #### About `check_process_history_new`
+
+    `check_process_history_new` reports processes that were **first seen within a
+    recent time window** — i.e. processes that started (or first appeared to the
+    agent) recently. It is useful for spotting unexpected launches, flapping
+    services that keep restarting, or confirming that a scheduled job actually ran.
+
+    It relies on the background **process-history collector**, which must be enabled:
+
+    ```ini
+    [/settings/system/windows]
+    process history = true
+    ```
+
+    (`[/settings/system/unix]` on Linux.) Until that is set the check returns
+    **UNKNOWN** and names the setting, quoting the module's own settings path — so
+    the message reads `/settings/system/windows` on Windows and
+    `/settings/system/unix` on Linux:
+
+    ```
+    check_process_history_new
+    UNKNOWN: Process history is not enabled (set 'process history = true' under /settings/system/windows)
+    ```
+
+    `time=` sets how far back "new" reaches — `30s`, `5m`, `1h` — and defaults to
+    `5m`.
+
+    There are no default thresholds; the empty result is `OK: No new processes
+    found.` Threshold on `count` to alert on *any* new process, or filter by `exe`
+    to watch for a specific program starting. See also the companion
+    `check_process_history` (full history rather than just recently-new).
+
 === "Linux"
 
     Check for processes first seen within a recent time window (requires 'process history = true').
 
+    #### About `check_process_history_new`
+
+    `check_process_history_new` reports processes that were **first seen within a
+    recent time window** — i.e. processes that started (or first appeared to the
+    agent) recently. It is useful for spotting unexpected launches, flapping
+    services that keep restarting, or confirming that a scheduled job actually ran.
+
+    It relies on the background **process-history collector**, which must be enabled:
+
+    ```ini
+    [/settings/system/windows]
+    process history = true
+    ```
+
+    (`[/settings/system/unix]` on Linux.) Until that is set the check returns
+    **UNKNOWN** and names the setting, quoting the module's own settings path — so
+    the message reads `/settings/system/windows` on Windows and
+    `/settings/system/unix` on Linux:
+
+    ```
+    check_process_history_new
+    UNKNOWN: Process history is not enabled (set 'process history = true' under /settings/system/windows)
+    ```
+
+    `time=` sets how far back "new" reaches — `30s`, `5m`, `1h` — and defaults to
+    `5m`.
+
+    There are no default thresholds; the empty result is `OK: No new processes
+    found.` Threshold on `count` to alert on *any* new process, or filter by `exe`
+    to watch for a specific program starting. See also the companion
+    `check_process_history` (full history rather than just recently-new).
+
 **Jump to section:**
 
+* [Sample Commands](#check_process_history_new_samples)
 * [Command-line Arguments](#check_process_history_new_options)
 * [Filter keywords](#check_process_history_new_filter_keys)
+
+
+<a id="check_process_history_new_samples"></a>
+#### Sample Commands
+
+**List processes first seen in the last few minutes (needs the collector):**
+
+```
+check_process_history_new
+OK: No new processes found.
+```
+
+**When the collector is not enabled it tells you exactly what to set:**
+
+The path quoted is the module's own settings path, so it reads
+`/settings/system/unix` on Linux and `/settings/system/windows` on Windows:
+
+```
+check_process_history_new
+UNKNOWN: Process history is not enabled (set 'process history = true' under /settings/system/unix)
+```
+
+**Widen the "recently started" window to one hour:**
+
+```
+check_process_history_new time=1h
+OK: No new processes found.
+```
+
+**Alert when any new process appears (e.g. detect unexpected launches):**
+
+```
+check_process_history_new time=10m "warn=count > 0"
+WARNING: /usr/bin/rogue (first seen: 1720000000)
+```
+
+**Watch for a specific executable starting:**
+
+```
+check_process_history_new "crit=exe = '/usr/bin/nmap'"
+OK: No new processes found.
+```
 
 
 
@@ -4701,6 +6070,63 @@ This command also supports the [common filter keywords](../common-options.md#com
 *Available on Windows only.*
 
 Check existence, last-write time, and child counts of one or more Windows registry keys.
+
+#### About `check_registry_key`
+
+`check_registry_key` inspects registry **keys** — whether they exist, when they
+were last written, and how many values and sub-keys they hold. Use
+[`check_registry_value`](#check_registry_value) when you care about the contents
+of a specific value instead.
+
+At least one `key=` is required (repeatable), given as a full path including the
+hive, e.g. `HKLM\Software\MyApp`. The default critical threshold is
+`not exists`, so a bare call is an existence probe: name a key and the check
+goes critical if it is missing.
+
+##### Existence as a policy check
+
+The `exists` keyword is the reason this check earns its place: a great deal of
+Windows configuration is "this key is present" or "this key is absent". Both
+directions are one expression:
+
+```
+check_registry_key key=HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate
+check_registry_key key=HKLM\SOFTWARE\SomeVendor "crit=exists = 1"
+```
+
+Note that `empty-state` is `unknown`, so a check that matches nothing at all
+reports UNKNOWN rather than a misleading OK.
+
+##### Change detection
+
+`written` is the key's last-write timestamp (epoch seconds, comparable as a
+date) and `age` the seconds since. Together they turn the check into a
+tamper/drift probe for keys that are supposed to be stable:
+
+```
+check_registry_key key=HKLM\SYSTEM\CurrentControlSet\Services\MyService "crit=age < 1d"
+```
+
+Be aware that Windows updates a key's last-write time for changes to its
+*values* as well as its sub-keys, and that the timestamp is not maintained for
+every hive with the same fidelity — treat it as a strong hint rather than an
+audit record.
+
+##### Enumeration, views and remote hosts
+
+`recursive=true` walks the sub-keys below each starting key, bounded by
+`max-depth=` (`-1`, the default under `recursive`, means unlimited). Without
+`recursive` only the named key itself is examined. `exclude=` drops sub-keys by
+name during enumeration.
+
+`view=` selects the registry view on 64-bit Windows: `default`, `32`
+(`KEY_WOW64_32KEY`) or `64` (`KEY_WOW64_64KEY`). This matters more often than it
+looks — a 32-bit installer writes under `Wow6432Node`, and a check that does not
+pin the view can report "missing" for a key that is plainly there in regedit.
+
+`computer=` connects to a remote machine's registry, which requires the Remote
+Registry service to be running there and appropriate rights; running the check
+locally on the monitored host is both faster and easier to secure.
 
 **Jump to section:**
 
@@ -4877,6 +6303,52 @@ This command also supports the [common filter keywords](../common-options.md#com
 *Available on Windows only.*
 
 Check the type, content, and size of one or more Windows registry values.
+
+#### About `check_registry_value`
+
+`check_registry_value` inspects registry **values** — their type, contents and
+size. Use [`check_registry_key`](#check_registry_key) when you care about the
+key itself rather than what is in it.
+
+At least one `key=` is required (repeatable). `value=` restricts the check to
+specific value names; omit it, or pass `value=*`, to enumerate every value in
+the key. The unnamed default value is reported as `(default)`. The default
+critical threshold is `not exists`, so naming a value and running the check bare
+is an existence probe.
+
+##### Reading the value
+
+Two keywords carry the contents, and picking the right one matters:
+
+- **`string_value`** is the rendered form and works for every type. Use it for
+  `REG_SZ`, `REG_EXPAND_SZ` and `REG_MULTI_SZ`, and for matching with `like`.
+- **`int_value`** is the numeric value of a `REG_DWORD` or `REG_QWORD`, and is
+  `0` for every other type. That zero is a trap: a threshold like
+  `crit=int_value = 0` fires on any string value too, so pair it with a `type=`
+  guard when the key might hold something unexpected.
+
+`type` compares against the registry type names (`REG_SZ`, `REG_DWORD`, …), and
+`size` is the raw byte size of the data.
+
+This is the check for verifying that a policy or product setting actually holds
+the value it is supposed to:
+
+```
+check_registry_value key=HKLM\SYSTEM\CurrentControlSet\Control\Lsa value=RunAsPPL "crit=int_value != 1"
+check_registry_value key=HKLM\SOFTWARE\MyApp value=LogLevel "crit=string_value != 'INFO'"
+```
+
+##### Enumeration, views and remote hosts
+
+`recursive=true` walks values in sub-keys as well, bounded by `max-depth=`
+(unlimited by default under `recursive`); `exclude=` drops value names during
+enumeration. `view=` selects the 32-bit or 64-bit registry view — the usual
+cause of a value that is "missing" from the check but visible in regedit — and
+`computer=` reads a remote machine's registry, which needs the Remote Registry
+service and rights on the target.
+
+`empty-state` is `unknown`, so an enumeration that matches nothing reports
+UNKNOWN rather than OK.
 
 **Jump to section:**
 
@@ -5072,7 +6544,19 @@ This command also supports the [common filter keywords](../common-options.md#com
 
 Check the state of one or more of the computer services.
 
-#### `state_is_ok`
+#### About `check_service`
+
+`check_service` reports the state of the machine's services. `state` is
+normalised across platforms so the same `warning=` / `critical=` expressions
+read the same way on Windows and Linux; the platform-native fields are exposed
+alongside it.
+
+##### Windows
+
+Enumerates the Service Control Manager. Two helper functions make the
+"is this service actually fine" question expressible in a filter:
+
+##### `state_is_ok`
 
 Helper function that checks if the state of a service is "OK". It returns `True` if the state is "OK" and `False` otherwise.
 This can be used in filter expressions to warn about services that are not running properly.
@@ -5086,7 +6570,7 @@ This can be used in filter expressions to warn about services that are not runni
 | auto-start            | stopped   | non zero  | ❌ not ok                |
 | demand-start          | any state | any       | ✅ ok                    |
 
-#### `state_is_perfect`
+##### `state_is_perfect`
 
 Helper function that checks if the state of a service is "perfect". It returns `True` if the state is "perfect" and `False` otherwise.
 This can be used in filter expressions to warn about services that are not running perfectly.
@@ -5099,6 +6583,44 @@ This can be used in filter expressions to warn about services that are not runni
 | demand-start          | any state | ✅ perfect                    |
 | disabled              | stopped   | ✅ perfect                    |
 
+##### Linux
+
+`check_service` inspects **systemd** units (via `systemctl show`). It
+maps each unit's raw systemd state to a normalised `state` keyword so thresholds
+read the same way as on Windows, and also exposes the raw systemd fields and the
+main process's resource usage.
+
+By default it looks at units that are *not* inactive
+(`filter = active != 'inactive'`) and treats a unit as **critical** when it is
+not in a healthy state and is not deliberately disabled:
+
+```
+critical = ( state not in ('running', 'oneshot', 'static') or active = 'failed' ) and preset != 'disabled'
+```
+
+An `enabled` unit that has **failed** is therefore CRITICAL.
+
+A unit that is merely **stopped**, however, never reaches that threshold: the
+default filter `active != 'inactive'` excludes it before the critical expression
+is evaluated. With nothing left to match, the check falls to its empty state,
+which is `unknown`:
+
+```
+check_service service=nginx
+UNKNOWN: No services found
+```
+
+`service=<name>` (repeatable) narrows which units are *enumerated*; it does not
+bypass the filter. To alert on a unit being stopped rather than failed, widen
+the filter so inactive units are considered:
+
+```
+check_service service=nginx filter=none "crit=state != 'running'"
+```
+
+`exclude=` drops units by name, and `state=` (`all`, `active`, `inactive`,
+`failed`) restricts the enumeration before filtering.
+
 **Jump to section:**
 
 * [Sample Commands](#check_service_samples)
@@ -5108,6 +6630,8 @@ This can be used in filter expressions to warn about services that are not runni
 
 <a id="check_service_samples"></a>
 #### Sample Commands
+
+##### Windows
 
 **Default check:**
 
@@ -5145,19 +6669,19 @@ The upside to filters are that they are richer in terms of functionality i.e. su
 Regular check
 ```
 check_service
-L        cli CRITICAL: CRITICAL: nfoo=stopped (auto), nscp=stopped (auto), nscp2=stopped (auto), ...
+CRITICAL: CRITICAL: nfoo=stopped (auto), nscp=stopped (auto), nscp2=stopped (auto), ...
 ```
 
 Excluding nfoo service with exclude:
 ```
 check_service exclude=nfoo
-L        cli CRITICAL: CRITICAL: nscp=stopped (auto), nscp2=stopped (auto), ...
+CRITICAL: CRITICAL: nscp=stopped (auto), nscp2=stopped (auto), ...
 ```
 
 Excluding nscp2 with substring like matching filter:
 ```
 check_service exclude=nfoo "filter=name not like 'nscp'"
-L        cli CRITICAL: CRITICAL: ...
+CRITICAL: CRITICAL: ...
 ```
 
 
@@ -5188,6 +6712,71 @@ OK: All 214 service(s) are ok.
 
 The counts cover every matched service regardless of the warning/critical
 filter, so the rollup is stable even when the check itself is OK.
+
+##### Linux
+
+**Check all services (the default watches enabled units for failures):**
+
+```
+check_service
+OK: All 42 service(s) are ok.
+```
+
+**Check one service by name:**
+
+```
+check_service service=cron
+OK: All 1 service(s) are ok.
+```
+
+**Show the mapped state, raw systemd state and vendor preset:**
+
+```
+check_service service=cron "top-syntax=${list}" "detail-syntax=${name}=${state} active=${active} preset=${preset}"
+cron=running active=active preset=enabled
+```
+
+**A failed enabled service is CRITICAL:**
+
+```
+check_service service=nginx
+CRITICAL: nginx=failed
+```
+
+**A merely stopped service is filtered out, not reported:**
+
+The default filter is `active != 'inactive'`, so a cleanly stopped unit never
+reaches the critical expression and the check falls to its empty state:
+
+```
+check_service service=nginx
+UNKNOWN: No services found
+```
+
+`service=` narrows which units are enumerated; it does not bypass the filter.
+
+**Alert on a specific service not running (stopped included):**
+
+Widen the filter so inactive units are considered:
+
+```
+check_service service=ssh filter=none "crit=state != 'running'"
+OK: All 1 service(s) are ok.
+```
+
+**Alert on a service using too much memory (process metrics):**
+
+```
+check_service service=mysql "warn=rss > 1G" "crit=rss > 2G" "detail-syntax=${name} rss=${rss} cpu=${cpu}%"
+OK: All 1 service(s) are ok.
+```
+
+**Check via NRPE:**
+
+```
+check_nrpe --host 192.168.56.103 --command check_service --arguments "service=docker"
+OK: All 1 service(s) are ok.
+```
 
 
 
@@ -5412,43 +7001,67 @@ filter, so the rollup is stable even when the check itself is OK.
 
     Check system paging (swap) I/O rates: pages/bytes paged in and out per second.
 
-    Reports system paging (swap) I/O **rates**, sourced from the Windows memory
-    performance counters `\Memory\Pages Input/sec` and `\Memory\Pages Output/sec`
-    (sampled over a ~1 second window). Windows has no per-pagefile I/O counter, so
-    this is a single system-wide aggregate row.
+    #### About `check_swap_io`
 
-    The keyword vocabulary matches the Linux `check_swap_io`, so warning/critical
-    expressions and detail-syntax port between platforms.
+    `check_swap_io` measures how fast the system is paging to and from swap. It
+    samples the underlying counters over a ~1 second window and reports the rate.
+    Sustained non-zero swap I/O is a strong signal of memory pressure — often more
+    actionable than swap *usage*, since a box can sit with swap full but idle, or
+    with little swap used yet thrashing hard.
 
-    There are no default warning/critical thresholds: sustained paging is workload
-    dependent, and a default would warn on legitimately busy hosts. Set a threshold
-    on `swap_in`/`swap_out` (pages/s) or `swap_in_bytes`/`swap_out_bytes` (bytes/s)
-    for the host in question.
+    The keyword vocabulary is identical on both platforms, so warning/critical
+    expressions and detail-syntax port between them. There are **no default
+    thresholds**: sustained paging is workload dependent, and a default would warn
+    on legitimately busy hosts. Set a threshold on `swap_in` / `swap_out` (pages/s)
+    or `swap_in_bytes` / `swap_out_bytes` (bytes/s) for the host in question.
+
+    ##### Windows
+
+    Sourced from the memory performance counters `\Memory\Pages Input/sec` and
+    `\Memory\Pages Output/sec`. Windows has no per-pagefile I/O counter, so this is
+    a single system-wide aggregate row.
 
     > Note: on Windows these are system-wide paging rates (pages moved between disk
     > and physical memory) — the correct analogue of Linux swap-in/out — not literal
     > per-pagefile read/write bytes.
+
+    ##### Linux
+
+    Reads `pswpin` / `pswpout` from `/proc/vmstat`. On a host with no swap
+    configured the rates are simply `0`.
 
 === "Linux"
 
     Check the swap in/out paging rate.
 
-    Reports system paging (swap) I/O **rates**, sourced from the Windows memory
-    performance counters `\Memory\Pages Input/sec` and `\Memory\Pages Output/sec`
-    (sampled over a ~1 second window). Windows has no per-pagefile I/O counter, so
-    this is a single system-wide aggregate row.
+    #### About `check_swap_io`
 
-    The keyword vocabulary matches the Linux `check_swap_io`, so warning/critical
-    expressions and detail-syntax port between platforms.
+    `check_swap_io` measures how fast the system is paging to and from swap. It
+    samples the underlying counters over a ~1 second window and reports the rate.
+    Sustained non-zero swap I/O is a strong signal of memory pressure — often more
+    actionable than swap *usage*, since a box can sit with swap full but idle, or
+    with little swap used yet thrashing hard.
 
-    There are no default warning/critical thresholds: sustained paging is workload
-    dependent, and a default would warn on legitimately busy hosts. Set a threshold
-    on `swap_in`/`swap_out` (pages/s) or `swap_in_bytes`/`swap_out_bytes` (bytes/s)
-    for the host in question.
+    The keyword vocabulary is identical on both platforms, so warning/critical
+    expressions and detail-syntax port between them. There are **no default
+    thresholds**: sustained paging is workload dependent, and a default would warn
+    on legitimately busy hosts. Set a threshold on `swap_in` / `swap_out` (pages/s)
+    or `swap_in_bytes` / `swap_out_bytes` (bytes/s) for the host in question.
+
+    ##### Windows
+
+    Sourced from the memory performance counters `\Memory\Pages Input/sec` and
+    `\Memory\Pages Output/sec`. Windows has no per-pagefile I/O counter, so this is
+    a single system-wide aggregate row.
 
     > Note: on Windows these are system-wide paging rates (pages moved between disk
     > and physical memory) — the correct analogue of Linux swap-in/out — not literal
     > per-pagefile read/write bytes.
+
+    ##### Linux
+
+    Reads `pswpin` / `pswpout` from `/proc/vmstat`. On a host with no swap
+    configured the rates are simply `0`.
 
 **Jump to section:**
 
@@ -5460,28 +7073,39 @@ filter, so the rollup is stable even when the check itself is OK.
 <a id="check_swap_io_samples"></a>
 #### Sample Commands
 
-**Default check:**
+**Default check (current paging rate):**
 
 ```
 check_swap_io
-OK: 1 page file(s), in 0 pages/s, out 0 pages/s
-'io_swap_in'=0;;; 'io_swap_out'=0;;; 'io_swap_in_bytes'=0B;;; 'io_swap_out_bytes'=0B;;;
+OK: 1 page file(s), in 0 pages/s, out 0 pages/s|'io_swap_in'=0;;; 'io_swap_out'=0;;; 'io_swap_in_bytes'=0B;;; 'io_swap_out_bytes'=0B;;;
+```
+
+On Linux the same call names swap devices rather than page files:
+
+```
+check_swap_io
+OK: 1 swap device(s) in 0 pages/s, out 0 pages/s|'io_swap_in'=0;0;0 'io_swap_out'=0;0;0 'io_swap_in_bytes'=0;0;0 'io_swap_out_bytes'=0;0;0
 ```
 
 **Alert on sustained paging (pages/s):**
 
 ```
 check_swap_io "warn=swap_in > 1000" "crit=swap_in > 5000"
-OK: 1 page file(s), in 42 pages/s, out 7 pages/s
-'io_swap_in'=42;1000;5000; 'io_swap_out'=7;;; 'io_swap_in_bytes'=172032B;;; 'io_swap_out_bytes'=28672B;;;
+OK: 1 page file(s), in 42 pages/s, out 7 pages/s|'io_swap_in'=42;1000;5000; 'io_swap_out'=7;;; 'io_swap_in_bytes'=172032B;;; 'io_swap_out_bytes'=28672B;;;
+```
+
+**Alert in either direction:**
+
+```
+check_swap_io "warn=swap_in > 100 or swap_out > 100" "crit=swap_in > 1000 or swap_out > 1000"
+OK: 1 swap device(s) in 0 pages/s, out 0 pages/s
 ```
 
 **Threshold on throughput (bytes/s) with a custom output line:**
 
 ```
 check_swap_io "crit=swap_out_bytes > 10485760" "detail-syntax=in ${swap_in_bytes}B/s, out ${swap_out_bytes}B/s"
-OK: in 172032B/s, out 28672B/s
-'io_swap_in_bytes'=172032B;;; 'io_swap_out_bytes'=28672B;;10485760;
+OK: in 172032B/s, out 28672B/s|'io_swap_in_bytes'=172032B;;; 'io_swap_out_bytes'=28672B;;10485760;
 ```
 
 
@@ -5593,14 +7217,160 @@ OK: in 172032B/s, out 28672B/s
 
     Check ACPI thermal zone temperatures.
 
+    #### About `check_temperature`
+
+    `check_temperature` reports thermal sensor readings, one record per zone or
+    sensor, in degrees Celsius. The defaults are `temperature > 70` (warning) and
+    `temperature > 90` (critical).
+
+    ##### Sensor availability is the main caveat
+
+    Thermal sensors are hardware- and driver-dependent, and a great deal of the
+    infrastructure this agent runs on does not expose any:
+
+    - **Virtual machines** almost never present thermal zones — the hypervisor owns
+      the hardware.
+    - **Cloud instances** likewise.
+    - On Linux, readings come from the kernel's thermal zones and hwmon sensors
+      (`/sys/class/thermal`, `/sys/class/hwmon`), so a sensor needs a loaded driver
+      to appear. `sensors-detect` from `lm-sensors` is the usual way to find out
+      what a given box can report.
+    - On Windows, ACPI thermal zones are read through WMI, and many vendors expose
+      either nothing or a single coarse zone rather than per-component sensors.
+
+    A host with no readable sensors does not fall through to the filter's empty
+    state at all: the check returns **`UNKNOWN: No temperature sensors found`**
+    before filtering. So on a VM this check is permanently UNKNOWN rather than
+    quietly OK — which is honest, but means it should only be enabled where the
+    hardware actually reports something.
+
+    ##### Naming is not portable
+
+    `name` is whatever the platform calls the zone — `thermal_zone0`,
+    `coretemp Package id 0`, `TZ00` — and it differs between machines, vendors and
+    kernel versions. Do not hard-code a sensor name in a fleet-wide check; threshold
+    across all of them and use `detail-syntax` to identify the offender in the
+    message.
+
+    A sensible fleet-wide shape is a generous threshold on everything, since the
+    absolute numbers vary a lot between a CPU package sensor and a chassis sensor:
+
+    ```
+    check_temperature "warn=temperature > 75" "crit=temperature > 90" "detail-syntax=${name}=${temperature}C"
+    ```
+
+    `active` reports whether the zone is currently active; on Windows
+    `throttle_reasons` carries the ACPI throttle bitmask, which is a more direct
+    signal that thermal limits are actually biting than the temperature alone.
+
 === "Linux"
 
     Check temperature sensors (thermal zones / hwmon).
 
+    #### About `check_temperature`
+
+    `check_temperature` reports thermal sensor readings, one record per zone or
+    sensor, in degrees Celsius. The defaults are `temperature > 70` (warning) and
+    `temperature > 90` (critical).
+
+    ##### Sensor availability is the main caveat
+
+    Thermal sensors are hardware- and driver-dependent, and a great deal of the
+    infrastructure this agent runs on does not expose any:
+
+    - **Virtual machines** almost never present thermal zones — the hypervisor owns
+      the hardware.
+    - **Cloud instances** likewise.
+    - On Linux, readings come from the kernel's thermal zones and hwmon sensors
+      (`/sys/class/thermal`, `/sys/class/hwmon`), so a sensor needs a loaded driver
+      to appear. `sensors-detect` from `lm-sensors` is the usual way to find out
+      what a given box can report.
+    - On Windows, ACPI thermal zones are read through WMI, and many vendors expose
+      either nothing or a single coarse zone rather than per-component sensors.
+
+    A host with no readable sensors does not fall through to the filter's empty
+    state at all: the check returns **`UNKNOWN: No temperature sensors found`**
+    before filtering. So on a VM this check is permanently UNKNOWN rather than
+    quietly OK — which is honest, but means it should only be enabled where the
+    hardware actually reports something.
+
+    ##### Naming is not portable
+
+    `name` is whatever the platform calls the zone — `thermal_zone0`,
+    `coretemp Package id 0`, `TZ00` — and it differs between machines, vendors and
+    kernel versions. Do not hard-code a sensor name in a fleet-wide check; threshold
+    across all of them and use `detail-syntax` to identify the offender in the
+    message.
+
+    A sensible fleet-wide shape is a generous threshold on everything, since the
+    absolute numbers vary a lot between a CPU package sensor and a chassis sensor:
+
+    ```
+    check_temperature "warn=temperature > 75" "crit=temperature > 90" "detail-syntax=${name}=${temperature}C"
+    ```
+
+    `active` reports whether the zone is currently active; on Windows
+    `throttle_reasons` carries the ACPI throttle bitmask, which is a more direct
+    signal that thermal limits are actually biting than the temperature alone.
+
 **Jump to section:**
 
+* [Sample Commands](#check_temperature_samples)
 * [Command-line Arguments](#check_temperature_options)
 * [Filter keywords](#check_temperature_filter_keys)
+
+
+<a id="check_temperature_samples"></a>
+#### Sample Commands
+
+**A host with no readable sensors:**
+
+Most VMs and cloud instances expose no thermal zones at all. The check returns
+UNKNOWN before the filter runs, rather than a misleading OK.
+
+```
+check_temperature
+UNKNOWN: No temperature sensors found
+```
+
+**Default check on hardware that does report (`> 70` warns, `> 90` is critical):**
+
+```
+check_temperature
+OK: thermal_zone0: 42 C, thermal_zone1: 38 C|'thermal_zone0'=42;70;90 'thermal_zone1'=38;70;90
+```
+
+**Fleet-wide thresholds:**
+
+Sensor names differ between machines, vendors and kernel versions, so threshold
+across all of them and let `detail-syntax` name the offender rather than
+hard-coding a zone.
+
+```
+check_temperature "warn=temperature > 75" "crit=temperature > 90" "detail-syntax=${name}=${temperature}C"
+CRITICAL: coretemp Package id 0=94C
+```
+
+**Watch one specific sensor:**
+
+```
+check_temperature "filter=name like 'Package'" "crit=temperature > 85"
+OK: coretemp Package id 0: 61 C
+```
+
+**Only the zones that are currently active:**
+
+```
+check_temperature "filter=active = 1" "detail-syntax=${name}=${temperature}C"
+OK: thermal_zone0=42C
+```
+
+**Over NRPE against a remote host:**
+
+```
+check_nrpe --host 192.168.56.103 --command check_temperature --arguments "crit=temperature > 90"
+OK: thermal_zone0: 42 C, thermal_zone1: 38 C
+```
 
 
 
@@ -5703,6 +7473,43 @@ OK: in 172032B/s, out 28672B/s
 ### check_uptime
 
 Check time since last server re-boot.
+
+#### About `check_uptime`
+
+`check_uptime` reports how long the machine has been running since its last
+boot, as a single aggregate row.
+
+The defaults invert the usual reading of "uptime": the check warns when uptime
+is **less** than 2 days and goes critical below 1 day. That is deliberate — a
+low uptime means the machine has just rebooted, which is the event worth
+alerting on. A high uptime is only a problem if your patching policy makes it
+one, in which case invert the comparison:
+
+```
+check_uptime "warn=uptime > 90d" "crit=uptime > 180d"
+```
+
+`uptime` accepts units, so thresholds are written the way you think about them
+(`2d`, `12h`, `90d`) rather than in raw seconds.
+
+##### Rendering the duration
+
+`max-unit=` controls the largest unit `${uptime}` is rendered in — `s`, `m`,
+`h`, `d` or `w`, defaulting to `w`. For a six-week uptime, `w` renders
+`6w 0d 00:00`, `d` renders `42d 00:00` and `h` renders `1008:00`. Pick whichever
+reads best for the audience; it affects only the rendered string, never the
+comparisons.
+
+##### Boot time and timezone
+
+`boot` is the wall-clock time the machine came up, derived as *now minus
+uptime*, and `${tz}` renders the timezone label it is expressed in. Both follow
+the module's configured timezone (default `local`), so the boot time in the
+message matches the clock an operator is reading it against.
+
+The same duration formatting and unit handling is shared with `check_nscp`'s
+`uptime` and `crash_age` keywords, so thresholds written for one read the same
+way in the other.
 
 **Jump to section:**
 

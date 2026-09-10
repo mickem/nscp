@@ -63,6 +63,28 @@ maybeDescribe("CheckDocker commands", () => {
     expect(out).toMatch(/nscp-no-such-container=missing/);
   });
 
+  it("check_docker with a filter that matches nothing takes the empty state", async () => {
+    // The #1499 shape: the default crit (`container_state != 'running'`) is
+    // force-evaluated with no container bound once nothing matched. The
+    // documented empty state is WARNING; the option still relaxes it. The
+    // empty syntax carries no status word, so the exit code is the verdict.
+    const args = ["client", "--module", "CheckDocker", "--boot", "--query", "check_docker", "filter=names = 'nscp-no-such-container-1499'"];
+    const r = await nscp.run(args, { allowFailure: true });
+    expect(r.all ?? `${r.stdout}\n${r.stderr}`).toMatch(/No containers found/);
+    expect(r.exitCode).toBe(1);
+    const relaxed = await nscp.run([...args, "empty-state=ok"], { allowFailure: true });
+    expect(relaxed.exitCode).toBe(0);
+  });
+
+  it("check_docker_restarts with a filter that matches nothing is OK", async () => {
+    const r = await nscp.run(
+      ["client", "--module", "CheckDocker", "--boot", "--query", "check_docker_restarts", "filter=names = 'nscp-no-such-container-1499'"],
+      { allowFailure: true },
+    );
+    expect(r.all ?? `${r.stdout}\n${r.stderr}`).toMatch(/No containers found/);
+    expect(r.exitCode).toBe(0);
+  });
+
   it("check_docker accepts all=true as a valued boolean (REST k=v token path)", async () => {
     const out = await query("check_docker", ["all=true", `filter=names = '${probeName}'`]);
     expect(out).not.toMatch(/does not take any arguments/i);

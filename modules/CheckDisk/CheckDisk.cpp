@@ -78,6 +78,8 @@ void publish_drives_tag(const nscapi::core_wrapper *core) {
 }  // namespace
 
 bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
+  // A reload replaces the collector: stop the running one first.
+  if (collector_) collector_->stop();
   collector_.reset(new collector_thread(get_core(), get_id()));
 
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
@@ -138,8 +140,13 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   }
   if (collector_->max_collection_errors < 0) collector_->max_collection_errors = 0;
 
-  if (mode == NSCAPI::normalStart) {
+  // The collector above is stopped and replaced on every load, a reload
+  // included, so it has to be started again here or every disk_io, disk_free
+  // and trend check reads an empty collector until the service is restarted.
+  if (mode != NSCAPI::dontStart) {
     collector_->start();
+  }
+  if (mode == NSCAPI::normalStart) {
     publish_drives_tag(get_core());
   }
   return true;

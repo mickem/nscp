@@ -9,6 +9,7 @@
 #include <memory>
 #include <parsers/where/dll_defines.hpp>
 #include <str/number_format.hpp>
+#include <str/saturate.hpp>
 #include <string>
 #include <utility>
 #ifdef WIN32
@@ -168,38 +169,38 @@ struct NSCAPI_EXPORT value_container {
     return ret;
   }
   void set_string(std::string value) { s_value = value; }
-  void set_string(const value_container &value) { s_value = *value.s_value; }
+  void set_string(const value_container &value) { s_value = value.s_value.value(); }
   void set_int(long long value) { i_value = value; }
-  void set_int(const value_container &value) { i_value = *value.i_value; }
+  void set_int(const value_container &value) { i_value = value.i_value.value(); }
   void set_float(double value) { f_value = value; }
-  void set_float(const value_container &value) { f_value = *value.f_value; }
+  void set_float(const value_container &value) { f_value = value.f_value.value(); }
   void set_value(const value_container &value) {
     if (value.i_value) set_int(value);
     if (value.f_value) set_float(value);
     if (value.s_value) set_string(value);
   }
   long long get_int() const {
-    if (i_value) return static_cast<long long>(*i_value);
-    if (f_value) return static_cast<long long>(*f_value);
+    if (i_value) return static_cast<long long>(i_value.value());
+    if (f_value) return str::to_int64_saturating(f_value.value());
     throw filter_exception("Type is not int");
   }
   double get_float() const {
-    if (i_value) return static_cast<double>(*i_value);
-    if (f_value) return static_cast<double>(*f_value);
+    if (i_value) return static_cast<double>(i_value.value());
+    if (f_value) return static_cast<double>(f_value.value());
     throw filter_exception("Type is not float");
   }
   long long get_int(const long long def) const {
-    if (i_value) return *i_value;
-    if (f_value) return static_cast<long long>(*f_value);
+    if (i_value) return i_value.value();
+    if (f_value) return str::to_int64_saturating(f_value.value());
     return def;
   }
   double get_float(const double def) const {
-    if (i_value) return static_cast<double>(*i_value);
-    if (f_value) return *f_value;
+    if (i_value) return static_cast<double>(i_value.value());
+    if (f_value) return f_value.value();
     return def;
   }
   bool is_true() const {
-    if (i_value) return *i_value == 1;
+    if (i_value) return i_value.value() == 1;
     return false;
   }
   std::string get_string() const;

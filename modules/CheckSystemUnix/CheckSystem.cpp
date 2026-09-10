@@ -51,7 +51,9 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   settings.set_alias("system", alias, "unix");
   std::map<std::string, std::string> service_tags;
 
-  // Start the CPU collector thread
+  // Start the CPU collector thread. On a reload the previous collector is
+  // still running; stop it before it is replaced.
+  if (collector_) collector_->stop();
   collector_ = std::shared_ptr<pdh_thread>(new pdh_thread());
   collector_->set_core(get_core(), get_id());
   collector_->set_path(settings.alias().get_settings_path("real-time/cpu"), settings.alias().get_settings_path("real-time/memory"),
@@ -102,8 +104,14 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
   collector_->add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
 
-  if (mode == NSCAPI::normalStart) {
+  // The collector above is stopped and replaced on every load, a reload
+  // included, so it has to be started again here or check_cpu and check_memory
+  // read an empty collector until the service is restarted.
+  if (mode != NSCAPI::dontStart) {
     collector_->start();
+  }
+
+  if (mode == NSCAPI::normalStart) {
     // Publish one tag per configured [/settings/system/unix/service-tags]
     // entry (systemd unit -> tag): <tag>=enabled when the unit is active,
     // removed otherwise so stopped units clear their tag on the next load.

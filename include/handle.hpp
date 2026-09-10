@@ -9,6 +9,17 @@ struct handle {
   THandle handle_;
   handle() : handle_(NULL) {}
   handle(THandle handle) : handle_(handle) {}
+  // Owning: a copy would close the same value twice, so only moves exist.
+  handle(const handle &) = delete;
+  handle &operator=(const handle &) = delete;
+  handle(handle &&other) : handle_(other.detach()) {}
+  handle &operator=(handle &&other) {
+    if (this != &other) {
+      close();
+      handle_ = other.detach();
+    }
+    return *this;
+  }
   ~handle() { close(); }
   void close() {
     if (handle_ != NULL) TCloser::close(handle_);

@@ -4,7 +4,7 @@ Use this module to check the health and status of NSClient++ it self
 
 ## Enable module
 
-To enable this module and and allow using the commands you need to ass `CheckNSCP = enabled` to the `[/modules]` section in nsclient.ini:
+To enable this module and allow using the commands you need to add `CheckNSCP = enabled` to the `[/modules]` section in nsclient.ini:
 
 ```
 [/modules]
@@ -263,10 +263,112 @@ This command also supports the [common filter keywords](../common-options.md#com
 
 Check if there is a newer version of NSClient++ available on GitHub. The result is cached (default 24 hours) to avoid hitting the GitHub API rate limit.
 
+#### About `check_nscp_update`
+
+`check_nscp_update` compares the running build against the latest release
+published on the NSClient++ GitHub releases page, so a fleet can alert on
+"this agent is out of date" without an external inventory.
+
+The comparison is exposed as filter keywords: `update_available` (0/1),
+`versions_behind`, and the latest release's `latest_version` /
+`latest_major` / `latest_minor` / `latest_release` / `latest_build` alongside
+the running `version` / `major` / `minor` / `release` / `build`. `tag`,
+`published` and `url` identify the release itself, so the alert can point an
+operator straight at the download.
+
+Both the default warning and the default critical threshold are
+`update_available = 1`, so a bare call reports CRITICAL as soon as any newer
+release exists. Most fleets want something less noisy — for example only caring
+about falling more than one release behind:
+
+```
+check_nscp_update "warn=versions_behind > 0" "crit=versions_behind > 1"
+```
+
+**The result is cached** (24 hours by default) because the GitHub API is rate
+limited per source IP, and a fleet of agents checking on every poll would
+exhaust that budget quickly. The cache means the check is cheap to schedule
+often, but also that it can lag a fresh release by up to the cache lifetime.
+
+**This check makes an outbound HTTPS request to github.com.** On a host with no
+egress — which is the normal case for a monitored server — it cannot work;
+either allow that one destination or run the check from a single management host
+rather than fleet-wide.
+
+When the request fails, the reason lands in the `error` keyword — but the
+**status stays OK**, because `update_available` is 0 and that is all the default
+thresholds look at. An agent that cannot reach GitHub therefore reports exactly
+the same thing as an agent that is up to date. If you rely on this check, say so
+explicitly:
+
+```
+check_nscp_update "warn=update_available = 1" "crit=error != ''"
+```
+
 **Jump to section:**
 
+* [Sample Commands](#check_nscp_update_samples)
 * [Command-line Arguments](#check_nscp_update_options)
 * [Filter keywords](#check_nscp_update_filter_keys)
+
+
+<a id="check_nscp_update_samples"></a>
+#### Sample Commands
+
+**Default check (any newer release is CRITICAL):**
+
+Both the default warning and the default critical threshold are
+`update_available = 1`.
+
+```
+check_nscp_update
+CRITICAL: 0.17.2 (latest: 0.18.1)|'version_update_available'=1;1;1
+```
+
+An agent on the current release:
+
+```
+check_nscp_update
+OK: 0.18.1 (latest: 0.18.1)|'version_update_available'=0;1;1
+```
+
+**Something less noisy — only alert on falling more than one release behind:**
+
+```
+check_nscp_update "warn=versions_behind > 0" "crit=versions_behind > 1"
+OK: 0.18.1 (latest: 0.18.1)|'version_versions_behind'=0;0;1
+```
+
+**Point an operator at the release:**
+
+```
+check_nscp_update "detail-syntax=${version} -> ${latest_version} (${tag}, published ${published}) ${url}"
+CRITICAL: 0.17.2 -> 0.18.1 (0.18.1, published 2026-08-14) https://github.com/mickem/nscp/releases/tag/0.18.1
+```
+
+**When GitHub cannot be reached:**
+
+The failure lands in `error`, but `update_available` stays 0 — so with the
+default thresholds a blocked agent reports **exactly the same OK** as an
+up-to-date one:
+
+```
+check_nscp_update "detail-syntax=avail=${update_available} latest=${latest_version} err=${error}"
+OK: avail=0 latest= err=HTTP 426 from https://api.github.com/repos/mickem/nscp/releases/latest|'version_update_available'=0;1;1
+```
+
+Threshold on `error` explicitly if you rely on this check:
+
+```
+check_nscp_update "warn=update_available = 1" "crit=error != ''"
+CRITICAL: 0.18.1 (latest: )|'version_update_available'=0;1;0
+```
+
+**Caching:**
+
+The GitHub result is cached (24 hours by default) to stay inside the API's rate
+limit, so the check is cheap to schedule often — but can lag a fresh release by
+up to the cache lifetime.
 
 
 
@@ -335,10 +437,84 @@ This command also supports the [common filter keywords](../common-options.md#com
 
 Check the version of NSClient++ which is used.
 
+#### About `check_nscp_version`
+
+`check_nscp_version` reports the version of the running NSClient++ build. It
+decomposes the version so that thresholds can be written against it rather than
+against a string: `release`, `major`, `minor` and `build` are numeric, while
+`version` and `date` carry the rendered string and the build date.
+
+The typical use is fleet hygiene — flag agents that have fallen behind a version
+you have standardised on:
+
+```
+check_nscp_version "crit=major < 12"
+```
+
+There are no default thresholds, so a bare call is always OK and simply reports
+the version. That makes it a useful heartbeat probe as well: the cheapest way to
+confirm an agent is up and answering.
+
+Note that `build` is only meaningful on builds before 0.6.0; newer releases
+report `0` for it.
+
+If you want to know whether a *newer* release exists rather than which one is
+installed, use [`check_nscp_update`](#check_nscp_update), which compares against
+the latest release published on GitHub. For the running agent's own health —
+crashes, logged errors, uptime — see [`check_nscp`](#check_nscp).
+
 **Jump to section:**
 
+* [Sample Commands](#check_nscp_version_samples)
 * [Command-line Arguments](#check_nscp_version_options)
 * [Filter keywords](#check_nscp_version_filter_keys)
+
+
+<a id="check_nscp_version_samples"></a>
+#### Sample Commands
+
+**Report the running version:**
+
+```
+check_nscp_version
+OK: 0.18.1 (2026-08-14)
+```
+
+**Alert when an agent has fallen behind a version you standardised on:**
+
+The parts are numeric, so they threshold directly. `version` is
+`release.major.minor`, so 0.18.1 is release 0, major 18, minor 1.
+
+```
+check_nscp_version "crit=major < 12"
+CRITICAL: 0.11.4 (2024-03-09)|'version_major'=11;0;12
+```
+
+An agent that is current stays OK:
+
+```
+check_nscp_version "crit=major < 12"
+OK: 0.18.1 (2026-08-14)|'version_major'=18;0;12
+```
+
+**Inspect all the parts:**
+
+```
+check_nscp_version "detail-syntax=${version} major=${major} minor=${minor} release=${release} build=${build}"
+OK: 0.18.1 major=18 minor=1 release=0 build=0
+```
+
+`build` is only meaningful on builds before 0.6.0; newer releases report `0`.
+
+**As a heartbeat probe:**
+
+There are no default thresholds, so a bare call is always OK — anything else
+means the agent is not answering.
+
+```
+check_nrpe --host 192.168.56.103 --command check_nscp_version
+OK: 0.18.1 (2026-08-14)
+```
 
 
 

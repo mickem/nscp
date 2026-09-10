@@ -31,6 +31,9 @@ bool GraphiteClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
   try {
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
     settings.set_alias("graphite", alias, "client");
+    // A reload re-reads handlers and targets: start from empty so they
+    // replace rather than append.
+    client_.clear();
     client_.set_path(settings.alias().get_settings_path("targets"));
 
     // clang-format off

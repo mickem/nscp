@@ -5,113 +5,6 @@ common:
       module.
     title: WEBServer
   paths:
-    /settings/WEB/server:
-      info:
-        advanced: false
-        description: Section for WEB (WEBServer.dll) (check_WEB) protocol options.
-        subkey: false
-        title: Web server
-      keys:
-        allow anonymous access:
-          advanced: false
-          default_value: 'false'
-          description: When false (the default) any role named `anonymous` registered via /settings/WEB/server/roles
-            is ignored and the WEB server never answers an unauthenticated request. Set to true only if
-            you intentionally want to expose endpoints (via the `anonymous` role grants) without authentication.
-          sample: false
-          title: ALLOW ANONYMOUS ACCESS
-        allow insecure:
-          advanced: false
-          default_value: 'false'
-          description: When false (the default) the WEB server refuses to start if the TLS certificate
-            is missing, rather than silently serving HTTP in clear. Set to true to explicitly accept unencrypted
-            HTTP when no certificate is present - session tokens and Basic-auth credentials will then
-            be transmitted unencrypted, so only do this behind a TLS-terminating proxy or on a trusted
-            loopback interface.
-          sample: false
-          title: ALLOW INSECURE (CLEARTEXT HTTP)
-        allowed hosts:
-          advanced: false
-          default_value: 127.0.0.1
-          description: A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to
-            create ranges.
-          sample: false
-          title: Allowed hosts
-        auth rate limit block seconds:
-          advanced: false
-          default_value: '60'
-          description: How long an IP stays blocked after hitting `auth rate limit max failures` consecutive
-            failures. Default 60 s.
-          sample: false
-          title: AUTH RATE LIMIT (BLOCK SECONDS)
-        auth rate limit max failures:
-          advanced: false
-          default_value: '10'
-          description: How many consecutive failed authentication attempts from one client IP trigger
-            the block. Default 10. Set to 0 to disable the limiter entirely (useful for integration test
-            harnesses that intentionally probe failed auth).
-          sample: false
-          title: AUTH RATE LIMIT (FAILURES)
-        cache allowed hosts:
-          advanced: false
-          default_value: 'true'
-          description: If host names (DNS entries) should be cached, improves speed and security somewhat
-            but won't allow you to have dynamic IPs for your Nagios server.
-          sample: false
-          title: Cache list of allowed hosts
-        certificate:
-          advanced: false
-          default_value: ${certificate-path}/certificate.pem
-          description: Ssl certificate to use for the ssl server
-          sample: false
-          title: TLS Certificate
-        certificate key:
-          advanced: false
-          default_value: ''
-          description: The private key for the certificate if not in the same file
-          sample: false
-          title: TLS private key
-        disable admin user:
-          advanced: false
-          default_value: 'false'
-          description: When true, suppress the built-in `admin` user entirely. The default admin is not
-            seeded on first boot, any pre-existing `admin` entry in /settings/WEB/server/users is ignored
-            at load time, and the fallback that auto-creates admin when no users are configured is skipped.
-            Use this when you want the WEB server up for monitoring (queries, metrics, anonymous endpoints)
-            but do NOT want any account that can remotely reconfigure the host - even if credentials are
-            compromised. Define your own read-only users under /settings/WEB/server/users (or rely on
-            `allow anonymous access` with a tightly-scoped `anonymous` role) so something remains callable.
-          sample: false
-          title: DISABLE ADMIN USER
-        legacy query auth user agents:
-          advanced: false
-          default_value: Icinga/check_nscp_api
-          description: Comma-separated list of User-Agent substrings (case-insensitive) for clients allowed
-            to authenticate via the legacy `?password=...` / `?TOKEN=...` query-string mechanism. The
-            fallback was removed for security in 340b8db1 because URL parameters leak into browser history,
-            proxy logs and Referer headers. Defaults to 'Icinga/check_nscp_api' so Icinga's bundled check_nscp_api
-            plugin keeps working without admitting any other client that happens to mention Icinga in
-            its User-Agent. Set to empty string to disable the fallback entirely.
-          sample: false
-          title: LEGACY QUERY-STRING AUTH ALLOWLIST
-        password:
-          advanced: false
-          default_value: ''
-          description: Password used to authenticate against server
-          sample: false
-          title: Password
-        port:
-          advanced: false
-          default_value: '8443'
-          description: Port to use for WEB server.
-          sample: false
-          title: Server port
-        threads:
-          advanced: false
-          default_value: '10'
-          description: The number of threads in the sever response pool.
-          sample: false
-          title: Server threads
     /settings/WEB/server/log:
       info:
         advanced: false
@@ -137,37 +30,6 @@ common:
           description: Enable logging of info messages from the web server.
           sample: false
           title: Log info
-    /settings/WEB/server/roles:
-      info:
-        advanced: false
-        description: A list of roles and with coma separated list of access rights.
-        subkey: false
-        title: Web server roles
-      keys:
-        client:
-          advanced: false
-          default_value: public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list
-          description: Default role for read + run checks (queries.execute can run side-effecting commands)
-          sample: false
-          title: Role for read + run checks (queries.execute can run side-effecting commands)
-        full:
-          advanced: false
-          default_value: '*'
-          description: Default role for Full access
-          sample: false
-          title: Role for Full access
-        legacy:
-          advanced: false
-          default_value: legacy,login.get
-          description: Default role for legacy API
-          sample: false
-          title: Role for legacy API
-        monitoring:
-          advanced: false
-          default_value: public,queries.execute,aliases.list,login.get,metrics.get
-          description: Default role for checks and queries only
-          sample: false
-          title: Role for checks and queries only
     /settings/WEB/server/users:
       info:
         advanced: false
@@ -285,3 +147,289 @@ namespace: generic
 platforms:
 - unix
 - windows
+unix:
+  paths:
+    /settings/WEB/server:
+      info:
+        advanced: false
+        description: Section for WEB (WEBServer.dll) (check_WEB) protocol options.
+        subkey: false
+        title: Web server
+      keys:
+        allow anonymous access:
+          advanced: false
+          default_value: 'false'
+          description: When false (the default) any role named `anonymous` registered via /settings/WEB/server/roles
+            is ignored and the WEB server never answers an unauthenticated request. Set to true only if
+            you intentionally want to expose endpoints (via the `anonymous` role grants) without authentication.
+          sample: false
+          title: ALLOW ANONYMOUS ACCESS
+        allow insecure:
+          advanced: false
+          default_value: 'false'
+          description: When false (the default) the WEB server refuses to start if the TLS certificate
+            is missing, rather than silently serving HTTP in clear. Set to true to explicitly accept unencrypted
+            HTTP when no certificate is present - session tokens and Basic-auth credentials will then
+            be transmitted unencrypted, so only do this behind a TLS-terminating proxy or on a trusted
+            loopback interface.
+          sample: false
+          title: ALLOW INSECURE (CLEARTEXT HTTP)
+        allowed hosts:
+          advanced: false
+          default_value: 127.0.0.1
+          description: A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to
+            create ranges.
+          sample: false
+          title: Allowed hosts
+        auth rate limit block seconds:
+          advanced: false
+          default_value: '60'
+          description: How long an IP stays blocked after hitting `auth rate limit max failures` consecutive
+            failures. Default 60 s.
+          sample: false
+          title: AUTH RATE LIMIT (BLOCK SECONDS)
+        auth rate limit max failures:
+          advanced: false
+          default_value: '10'
+          description: How many consecutive failed authentication attempts from one client IP trigger
+            the block. Default 10. Set to 0 to disable the limiter entirely (useful for integration test
+            harnesses that intentionally probe failed auth).
+          sample: false
+          title: AUTH RATE LIMIT (FAILURES)
+        cache allowed hosts:
+          advanced: false
+          default_value: 'true'
+          description: If host names (DNS entries) should be cached, improves speed and security somewhat
+            but won't allow you to have dynamic IPs for your Nagios server.
+          sample: false
+          title: Cache list of allowed hosts
+        certificate:
+          advanced: false
+          default_value: ${certificate-path}/certificate.pem
+          description: Ssl certificate to use for the ssl server
+          sample: false
+          title: TLS Certificate
+        certificate key:
+          advanced: false
+          default_value: ''
+          description: The private key for the certificate if not in the same file
+          sample: false
+          title: TLS private key
+        disable admin user:
+          advanced: false
+          default_value: 'false'
+          description: When true, suppress the built-in `admin` user entirely. The default admin is not
+            seeded on first boot, any pre-existing `admin` entry in /settings/WEB/server/users is ignored
+            at load time, and the fallback that auto-creates admin when no users are configured is skipped.
+            Use this when you want the WEB server up for monitoring (queries, metrics, anonymous endpoints)
+            but do NOT want any account that can remotely reconfigure the host - even if credentials are
+            compromised. Define your own read-only users under /settings/WEB/server/users (or rely on
+            `allow anonymous access` with a tightly-scoped `anonymous` role) so something remains callable.
+          sample: false
+          title: DISABLE ADMIN USER
+        legacy query auth user agents:
+          advanced: false
+          default_value: Icinga/check_nscp_api
+          description: Comma-separated list of User-Agent substrings (case-insensitive) for clients allowed
+            to authenticate via the legacy `?password=...` / `?TOKEN=...` query-string mechanism. The
+            fallback was removed for security in 340b8db1 because URL parameters leak into browser history,
+            proxy logs and Referer headers. Defaults to 'Icinga/check_nscp_api' so Icinga's bundled check_nscp_api
+            plugin keeps working without admitting any other client that happens to mention Icinga in
+            its User-Agent. Set to empty string to disable the fallback entirely.
+          sample: false
+          title: LEGACY QUERY-STRING AUTH ALLOWLIST
+        password:
+          advanced: false
+          default_value: ''
+          description: Password used to authenticate against server
+          sample: false
+          title: Password
+        port:
+          advanced: false
+          default_value: '8443'
+          description: Port to use for WEB server.
+          sample: false
+          title: Server port
+        threads:
+          advanced: false
+          default_value: '10'
+          description: The number of threads in the sever response pool.
+          sample: false
+          title: Server threads
+    /settings/WEB/server/roles:
+      info:
+        advanced: false
+        description: A list of roles and with coma separated list of access rights.
+        subkey: false
+        title: Web server roles
+      keys:
+        client:
+          advanced: false
+          default_value: public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list
+          description: Default role for read only
+          sample: false
+          title: Role for read only
+        full:
+          advanced: false
+          default_value: '*'
+          description: Default role for Full access
+          sample: false
+          title: Role for Full access
+        legacy:
+          advanced: false
+          default_value: legacy,login.get
+          description: Default role for legacy API
+          sample: false
+          title: Role for legacy API
+        monitoring:
+          advanced: false
+          default_value: public,queries.execute,aliases.list,login.get,metrics.get
+          description: Default role for checks and queries only
+          sample: false
+          title: Role for checks and queries only
+windows:
+  paths:
+    /settings/WEB/server:
+      info:
+        advanced: false
+        description: Section for WEB (WEBServer.dll) (check_WEB) protocol options.
+        subkey: false
+        title: Web server
+      keys:
+        allow anonymous access:
+          advanced: false
+          default_value: 'false'
+          description: When false (the default) any role named `anonymous` registered via /settings/WEB/server/roles
+            is ignored and the WEB server never answers an unauthenticated request. Set to true only if
+            you intentionally want to expose endpoints (via the `anonymous` role grants) without authentication.
+          sample: false
+          title: ALLOW ANONYMOUS ACCESS
+        allow insecure:
+          advanced: false
+          default_value: 'false'
+          description: When false (the default) the WEB server refuses to start if the TLS certificate
+            is missing, rather than silently serving HTTP in clear. Set to true to explicitly accept unencrypted
+            HTTP when no certificate is present - session tokens and Basic-auth credentials will then
+            be transmitted unencrypted, so only do this behind a TLS-terminating proxy or on a trusted
+            loopback interface.
+          sample: false
+          title: ALLOW INSECURE (CLEARTEXT HTTP)
+        allowed hosts:
+          advanced: false
+          default_value: 127.0.0.1
+          description: A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to
+            create ranges.
+          sample: false
+          title: Allowed hosts
+        auth rate limit block seconds:
+          advanced: false
+          default_value: '60'
+          description: How long an IP stays blocked when it hits `auth rate limit max failures` consecutive
+            failures. Default 60 s. A further block doubles the wait - up to an hour - only when that
+            IP burned its whole failure budget at machine speed (faster than one attempt every two seconds
+            on average); a slower run, such as a monitoring client retrying a stale password, keeps the
+            base delay however long it goes on, so one broken client cannot lock everyone sharing its
+            address (behind NAT or a proxy) out for hours. The escalation resets on a successful authentication,
+            or after an hour of quiet. A value of an hour or more is already longer than any escalated
+            block and is used as configured, without doubling.
+          sample: false
+          title: AUTH RATE LIMIT (BLOCK SECONDS)
+        auth rate limit max failures:
+          advanced: false
+          default_value: '10'
+          description: How many consecutive failed authentication attempts from one client IP trigger
+            the block. Default 10. Set to 0 to disable the limiter entirely (useful for integration test
+            harnesses that intentionally probe failed auth).
+          sample: false
+          title: AUTH RATE LIMIT (FAILURES)
+        cache allowed hosts:
+          advanced: false
+          default_value: 'true'
+          description: If host names (DNS entries) should be cached, improves speed and security somewhat
+            but won't allow you to have dynamic IPs for your Nagios server.
+          sample: false
+          title: Cache list of allowed hosts
+        certificate:
+          advanced: false
+          default_value: ${certificate-path}/certificate.pem
+          description: Ssl certificate to use for the ssl server
+          sample: false
+          title: TLS Certificate
+        certificate key:
+          advanced: false
+          default_value: ''
+          description: The private key for the certificate if not in the same file
+          sample: false
+          title: TLS private key
+        disable admin user:
+          advanced: false
+          default_value: 'false'
+          description: When true, suppress the built-in `admin` user entirely. The default admin is not
+            seeded on first boot, any pre-existing `admin` entry in /settings/WEB/server/users is ignored
+            at load time, and the fallback that auto-creates admin when no users are configured is skipped.
+            Use this when you want the WEB server up for monitoring (queries, metrics, anonymous endpoints)
+            but do NOT want any account that can remotely reconfigure the host - even if credentials are
+            compromised. Define your own read-only users under /settings/WEB/server/users (or rely on
+            `allow anonymous access` with a tightly-scoped `anonymous` role) so something remains callable.
+          sample: false
+          title: DISABLE ADMIN USER
+        legacy query auth user agents:
+          advanced: false
+          default_value: Icinga/check_nscp_api
+          description: Comma-separated list of User-Agent substrings (case-insensitive) for clients allowed
+            to authenticate via the legacy `?password=...` / `?TOKEN=...` query-string mechanism. The
+            fallback was removed for security in 340b8db1 because URL parameters leak into browser history,
+            proxy logs and Referer headers. Defaults to 'Icinga/check_nscp_api' so Icinga's bundled check_nscp_api
+            plugin keeps working without admitting any other client that happens to mention Icinga in
+            its User-Agent. Set to empty string to disable the fallback entirely.
+          sample: false
+          title: LEGACY QUERY-STRING AUTH ALLOWLIST
+        password:
+          advanced: false
+          default_value: ''
+          description: Password used to authenticate against server
+          sample: false
+          title: Password
+        port:
+          advanced: false
+          default_value: '8443'
+          description: Port to use for WEB server.
+          sample: false
+          title: Server port
+        threads:
+          advanced: false
+          default_value: '10'
+          description: The number of threads in the sever response pool.
+          sample: false
+          title: Server threads
+    /settings/WEB/server/roles:
+      info:
+        advanced: false
+        description: A list of roles and with coma separated list of access rights.
+        subkey: false
+        title: Web server roles
+      keys:
+        client:
+          advanced: false
+          default_value: public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list
+          description: Default role for read + run checks (queries.execute can run side-effecting commands)
+          sample: false
+          title: Role for read + run checks (queries.execute can run side-effecting commands)
+        full:
+          advanced: false
+          default_value: '*'
+          description: Default role for Full access
+          sample: false
+          title: Role for Full access
+        legacy:
+          advanced: false
+          default_value: legacy,login.get
+          description: Default role for legacy API
+          sample: false
+          title: Role for legacy API
+        monitoring:
+          advanced: false
+          default_value: public,queries.execute,aliases.list,login.get,metrics.get
+          description: Default role for checks and queries only
+          sample: false
+          title: Role for checks and queries only

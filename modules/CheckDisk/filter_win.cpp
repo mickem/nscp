@@ -26,7 +26,7 @@ std::shared_ptr<file_filter::filter_obj> file_filter::filter_obj::get(unsigned l
 }
 
 std::string file_filter::filter_obj::get_version(parsers::where::evaluation_context context) {
-  if (cached_version) return *cached_version;
+  if (cached_version) return cached_version.value();
   const std::string fullpath = (path / filename).string();
 
   DWORD dwDummy;
@@ -48,6 +48,11 @@ std::string file_filter::filter_obj::get_version(parsers::where::evaluation_cont
     context->error("Failed to query version for " + fullpath + ": " + error::lookup::last_error());
     return "";
   }
+  if (uLen < sizeof(VS_FIXEDFILEINFO) || lpFfi->dwSignature != 0xFEEF04BD) {
+    delete[] lpVersionInfo;
+    context->error("Malformed version resource in " + fullpath);
+    return "";
+  }
   const DWORD dwFileVersionMS = lpFfi->dwFileVersionMS;
   const DWORD dwFileVersionLS = lpFfi->dwFileVersionLS;
   delete[] lpVersionInfo;
@@ -56,5 +61,5 @@ std::string file_filter::filter_obj::get_version(parsers::where::evaluation_cont
   const DWORD dwSecondRight = HIWORD(dwFileVersionLS);
   const DWORD dwRightMost = LOWORD(dwFileVersionLS);
   cached_version.reset(str::xtos(dwLeftMost) + "." + str::xtos(dwSecondLeft) + "." + str::xtos(dwSecondRight) + "." + str::xtos(dwRightMost));
-  return *cached_version;
+  return cached_version.value();
 }

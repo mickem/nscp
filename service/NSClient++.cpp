@@ -264,6 +264,10 @@ NSClientT::NSClientT()
 
 NSClientT::~NSClientT() {
   try {
+    // The settings core references the provider; take it down first so no
+    // proxy holds a pointer into a deleted provider. Idempotent after the
+    // shutdown path has already run it.
+    settings_manager::destroy_settings();
     delete provider_;
     log_instance_->destroy();
   } catch (...) {

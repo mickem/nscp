@@ -57,9 +57,9 @@ bool engine_filter::validate(error_handler error, object_factory context, bool p
 }
 
 bool engine_filter::require_object(execution_context_type context) {
-  if (requires_object) return *requires_object;
+  if (requires_object) return requires_object.value();
   requires_object = ast_parser.require_object(context);
-  return *requires_object;
+  return requires_object.value();
 }
 
 bool engine_filter::match(error_handler error, execution_context_type context, bool expect_object) {

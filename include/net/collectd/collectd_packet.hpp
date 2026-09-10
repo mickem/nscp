@@ -225,9 +225,9 @@ struct collectd_builder {
     std::string to_string() const {
       std::stringstream ss;
       ss << plugin_name << "-";
-      if (plugin_instance) ss << *plugin_instance;
+      if (plugin_instance) ss << plugin_instance.value();
       ss << "/" << type_name << "-";
-      if (type_instance) ss << *type_instance;
+      if (type_instance) ss << type_instance.value();
       ss << "=";
       if (!gauges.empty()) {
         ss << " gagues: ";
@@ -288,7 +288,7 @@ struct collectd_builder {
   void add_type(std::string value, std::string plugin, boost::optional<std::string> p_instance, std::string tpe, boost::optional<std::string> t_instance) {
     for (const expanded_keys &et : expand_keyword(tpe, value)) {
       if (t_instance) {
-        for (const expanded_keys &ei : expand_keyword(*t_instance, et.value)) {
+        for (const expanded_keys &ei : expand_keyword(t_instance.value(), et.value)) {
           metric_container m = metric_container(time_hr, interval_hr);
           m.set_plugin(plugin, p_instance);
           m.set_type(et.key, ei.key);
@@ -325,7 +325,7 @@ struct collectd_builder {
 
     for (const expanded_keys &ep : expand_keyword(plugin, value)) {
       if (p_instance) {
-        for (const expanded_keys &ei : expand_keyword(*p_instance, ep.value)) {
+        for (const expanded_keys &ei : expand_keyword(p_instance.value(), ep.value)) {
           add_type(ei.value, ep.key, ei.key, tpe, t_instance);
         }
       } else {
@@ -376,13 +376,13 @@ struct collectd_builder {
       if (fresh) size += string_part_size(host) + 2 * collectd::number_part_size;
       if (m.plugin_name != plugin) size += string_part_size(m.plugin_name);
       if (m.plugin_instance) {
-        if (plugin_instance != m.plugin_instance.get()) size += string_part_size(m.plugin_instance.get());
+        if (plugin_instance != m.plugin_instance.value()) size += string_part_size(m.plugin_instance.value());
       } else if (!plugin_instance.empty()) {
         size += string_part_size("");
       }
       if (m.type_name != type) size += string_part_size(m.type_name);
       if (m.type_instance) {
-        if (type_instance != m.type_instance.get()) size += string_part_size(m.type_instance.get());
+        if (type_instance != m.type_instance.value()) size += string_part_size(m.type_instance.value());
       } else if (!type_instance.empty()) {
         size += string_part_size("");
       }
@@ -415,9 +415,9 @@ struct collectd_builder {
         packet.add_plugin(m.plugin_name);
         last_plugin = m.plugin_name;
       }
-      if (m.plugin_instance && last_plugin_instance != m.plugin_instance.get()) {
-        packet.add_plugin_instance(m.plugin_instance.get());
-        last_plugin_instance = m.plugin_instance.get();
+      if (m.plugin_instance && last_plugin_instance != m.plugin_instance.value()) {
+        packet.add_plugin_instance(m.plugin_instance.value());
+        last_plugin_instance = m.plugin_instance.value();
       } else if (!m.plugin_instance && last_plugin_instance != "") {
         packet.add_plugin_instance("");
         last_plugin_instance = "";
@@ -427,9 +427,9 @@ struct collectd_builder {
         packet.add_type(m.type_name);
         last_type = m.type_name;
       }
-      if (m.type_instance && last_type_instance != m.type_instance.get()) {
-        packet.add_type_instance(m.type_instance.get());
-        last_type_instance = m.type_instance.get();
+      if (m.type_instance && last_type_instance != m.type_instance.value()) {
+        packet.add_type_instance(m.type_instance.value());
+        last_type_instance = m.type_instance.value();
       } else if (!m.type_instance && last_type_instance != "") {
         packet.add_type_instance("");
         last_type_instance = "";

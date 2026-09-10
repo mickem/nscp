@@ -151,6 +151,62 @@ TEST(NrpeClientProtocol, OnReadMoreResponseKeepsWantingData) {
 }
 
 // =============================================================================
+// client::protocol — a truncated response
+//
+// get_inbound() hands out the very buffer the request was written from, and
+// client::handle_read_request calls on_read for a *partial* read too (a
+// short response ends in eof). on_read used to parse buffer_.size() bytes
+// regardless, so the untouched tail of our own request was fed to the
+// decoder; the CRC check then threw from inside an asio completion handler
+// and unwound through io_context::run_one().
+// =============================================================================
+
+TEST(NrpeClientProtocol, OnReadTruncatedResponseIsAnErrorNotAnException) {
+  auto handler = std::make_shared<MockClientHandler>();
+  client::protocol proto(handler);
+  proto.on_connect();
+
+  packet request = packet::make_request("check_cpu", 1024, 2);
+  proto.prepare_request(request);
+  proto.on_write(proto.get_outbound().size());
+
+  // Only the first 100 bytes of the response arrive; the rest of the buffer
+  // is still the request we sent.
+  packet response = packet::create_response(data::version2, 0, "OK", 1024);
+  const std::vector<char> resp_buf = response.get_buffer();
+  auto& inbound = proto.get_inbound();
+  ASSERT_GE(inbound.size(), 100u);
+  std::copy(resp_buf.begin(), resp_buf.begin() + 100, inbound.begin());
+
+  bool result = true;
+  ASSERT_NO_THROW(result = proto.on_read(100));
+  EXPECT_FALSE(result);
+
+  // The protocol must settle rather than ask for more data forever.
+  EXPECT_FALSE(proto.wants_data());
+  EXPECT_FALSE(proto.has_data());
+
+  auto responses = proto.get_response();
+  ASSERT_EQ(responses.size(), 1u);
+  EXPECT_EQ(responses.front().getResult(), 3);
+}
+
+TEST(NrpeClientProtocol, OnReadZeroBytesIsAnError) {
+  auto handler = std::make_shared<MockClientHandler>();
+  client::protocol proto(handler);
+  proto.on_connect();
+
+  packet request = packet::make_request("check_cpu", 1024, 2);
+  proto.prepare_request(request);
+  proto.on_write(proto.get_outbound().size());
+
+  bool result = true;
+  ASSERT_NO_THROW(result = proto.on_read(0));
+  EXPECT_FALSE(result);
+  EXPECT_FALSE(proto.wants_data());
+}
+
+// =============================================================================
 // client::protocol — get_response
 // =============================================================================
 

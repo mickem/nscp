@@ -5,6 +5,7 @@
 
 #include <boost/tuple/tuple.hpp>
 #include <client/command_line_parser.hpp>
+#include <mutex>
 #include <net/nrpe/client/nrpe_client_protocol.hpp>
 #include <net/nrpe/packet.hpp>
 #include <net/socket/client.hpp>
@@ -14,6 +15,7 @@
 #include <nscapi/protobuf/functions_exec.hpp>
 #include <nscapi/protobuf/functions_query.hpp>
 #include <nscapi/protobuf/functions_submit.hpp>
+#include <set>
 
 namespace nrpe_client {
 struct connection_data : public socket_helpers::connection_info {
@@ -85,6 +87,14 @@ struct client_handler : public socket_helpers::client::client_handler {
 template <class TCoreHandler = client_handler>
 struct nrpe_client_handler : public client::handler_interface {
   std::shared_ptr<TCoreHandler> handler_;
+  // Targets already warned about (endpoint + verify mode), so the warning
+  // below is emitted once rather than on every check. Bounded, because a
+  // relay passing a different `-H <host>` per request would otherwise add an
+  // entry for every host it ever saw and never drop one.
+  static constexpr std::size_t max_warned_targets = 256;
+  std::set<std::string> warned_;
+  std::mutex warned_mutex_;
+
   nrpe_client_handler() : handler_(std::make_shared<TCoreHandler>()) {}
 
   std::string get_command(std::string alias, std::string command = "") {
@@ -103,6 +113,7 @@ struct nrpe_client_handler : public client::handler_interface {
     for (const std::string &e : con.validate()) {
       handler_->log_error(__FILE__, __LINE__, e);
     }
+    warn_if_unverified(con);
 
     nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 
@@ -126,10 +137,42 @@ struct nrpe_client_handler : public client::handler_interface {
     return true;
   }
 
+  // `verify mode` defaults to "none" and `ca` is empty for every NRPE target,
+  // so `ssl = true` gives encryption with no peer authentication at all: any
+  // host that answers the TCP connect is trusted, and on-path impersonation
+  // is undetectable. The default is a compatibility decision - most NRPE
+  // servers in the field have no CA to verify against - but it should not be
+  // silent. (`insecure = true` goes further and drops !ADH from the cipher
+  // list, making the connection explicitly anonymous.)
+  //
+  // Once per target and mode, not once per check: this is a configuration
+  // observation, and an agent running hundreds of NRPE checks would otherwise
+  // repeat it hundreds of times an interval.
+  void warn_if_unverified(const nrpe_client::connection_data &con) {
+#ifdef USE_SSL
+    if (!con.ssl.enabled || con.verifies_peer()) return;
+    const std::string mode = con.ssl.verify_mode.empty() ? "<not set>" : con.ssl.verify_mode;
+    {
+      std::lock_guard<std::mutex> lock(warned_mutex_);
+      // Start over rather than grow without limit: the warning then repeats
+      // occasionally on a relay with many targets, which is the right way to
+      // fail - bounded memory, and no target stays silent forever.
+      if (warned_.size() >= max_warned_targets) warned_.clear();
+      if (!warned_.insert(con.get_endpoint_string() + "\n" + mode).second) return;
+    }
+    handler_->log_error(__FILE__, __LINE__,
+                        "TLS peer verification is disabled for " + con.get_endpoint_string() + " (verify mode: " + mode +
+                            "): the connection is encrypted but the server is not authenticated, so an on-path attacker can "
+                            "impersonate it undetected. Set verify mode = peer-cert with ca pointing at the issuer of the "
+                            "server's certificate unless this is intentional.");
+#endif
+  }
+
   bool submit(client::destination_container sender, client::destination_container target, const PB::Commands::SubmitRequestMessage &request_message,
               PB::Commands::SubmitResponseMessage &response_message) {
     const PB::Common::Header &request_header = request_message.header();
     nrpe_client::connection_data con(sender, target, handler_);
+    warn_if_unverified(con);
 
     nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 
@@ -150,6 +193,7 @@ struct nrpe_client_handler : public client::handler_interface {
             PB::Commands::ExecuteResponseMessage &response_message) {
     const PB::Common::Header &request_header = request_message.header();
     nrpe_client::connection_data con(sender, target, handler_);
+    warn_if_unverified(con);
 
     nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 

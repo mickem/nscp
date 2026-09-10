@@ -3,6 +3,7 @@
 
 #include "dll_plugin.h"
 
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <str/xtos.hpp>
 
 #include "../core_api.h"
@@ -45,6 +46,29 @@ nsclient::core::dll_plugin::dll_plugin(const unsigned int id, const boost::files
       fOnEvent(nullptr) {
   load_dll();
 }
+nsclient::core::dll_plugin::dispatch_lock::dispatch_lock(dll_plugin &owner) : owner_(owner), entered_(false) {
+  boost::lock_guard<boost::mutex> guard(owner_.dispatch_mutex_);
+  // Only the bookkeeping is serialised, never the dispatch itself: two callers
+  // arriving at the same module from different transports both go straight in.
+  const boost::thread::id self = boost::this_thread::get_id();
+  // A thread already inside may re-enter even once an unload has started. It
+  // is one of the calls that unload is waiting for, so the module cannot go
+  // away underneath it - and refusing would fail the outer call (a check_multi
+  // running its sub-checks) for no gain.
+  if (owner_.unloading_ && owner_.dispatchers_.find(self) == owner_.dispatchers_.end()) return;
+  owner_.dispatchers_.insert(self);
+  entered_ = true;
+}
+nsclient::core::dll_plugin::dispatch_lock::~dispatch_lock() {
+  if (!entered_) return;
+  boost::lock_guard<boost::mutex> guard(owner_.dispatch_mutex_);
+  // Erase one entry, not every entry for this thread: a module that dispatches
+  // into itself nests, and the outer call is still running.
+  const std::multiset<boost::thread::id>::iterator it = owner_.dispatchers_.find(boost::this_thread::get_id());
+  if (it != owner_.dispatchers_.end()) owner_.dispatchers_.erase(it);
+  if (owner_.dispatchers_.empty()) owner_.dispatch_idle_.notify_all();
+}
+
 /**
  * Default d-tor
  */
@@ -233,6 +257,8 @@ bool nsclient::core::dll_plugin::has_routing_handler() {
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::handleCommand(const char *request, unsigned int request_length, char **response,
                                                                unsigned int *response_length) {
   if (!isLoaded() || !loaded_ || fHandleCommand == nullptr) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
+  dispatch_lock dispatch(*this);
+  if (!dispatch.entered()) throw plugin_exception(get_alias_or_name(), "Library is unloading");
   try {
     return fHandleCommand(get_id(), request, request_length, response, response_length);
   } catch (...) {
@@ -252,6 +278,8 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::handleCommand(const std::string
 
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::handle_schedule(const char *dataBuffer, const unsigned int dataBuffer_len) {
   if (!isLoaded() || fHandleSchedule == nullptr) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
+  dispatch_lock dispatch(*this);
+  if (!dispatch.entered()) throw plugin_exception(get_alias_or_name(), "Library is unloading");
   try {
     return fHandleSchedule(get_id(), dataBuffer, dataBuffer_len);
   } catch (...) {
@@ -277,6 +305,8 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::handleNotification(const char *
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::handleNotification(const char *channel, const char *dataBuffer, const unsigned int dataBuffer_len,
                                                                     char **returnBuffer, unsigned int *returnBuffer_len) {
   if (!isLoaded() || !loaded_ || fHandleNotification == nullptr) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
+  dispatch_lock dispatch(*this);
+  if (!dispatch.entered()) throw plugin_exception(get_alias_or_name(), "Library is unloading");
   try {
     return fHandleNotification(get_id(), channel, dataBuffer, dataBuffer_len, returnBuffer, returnBuffer_len);
   } catch (...) {
@@ -289,6 +319,8 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::on_event(const std::string &req
 }
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::on_event(const char *request_buffer, const unsigned int request_buffer_len) {
   if (!isLoaded() || !loaded_ || fOnEvent == nullptr) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
+  dispatch_lock dispatch(*this);
+  if (!dispatch.entered()) throw plugin_exception(get_alias_or_name(), "Library is unloading");
   try {
     return fOnEvent(get_id(), request_buffer, request_buffer_len);
   } catch (...) {
@@ -313,6 +345,8 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::fetchMetrics(std::string &reque
 
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::fetchMetrics(char **returnBuffer, unsigned int *returnBuffer_len) {
   if (!isLoaded() || !loaded_ || fFetchMetrics == nullptr) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
+  dispatch_lock dispatch(*this);
+  if (!dispatch.entered()) throw plugin_exception(get_alias_or_name(), "Library is unloading");
   try {
     return fFetchMetrics(get_id(), returnBuffer, returnBuffer_len);
   } catch (...) {
@@ -326,6 +360,8 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::submitMetrics(const std::string
 
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::submitMetrics(const char *buffer, const unsigned int buffer_len) {
   if (!isLoaded() || !loaded_ || fSubmitMetrics == nullptr) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
+  dispatch_lock dispatch(*this);
+  if (!dispatch.entered()) throw plugin_exception(get_alias_or_name(), "Library is unloading");
   try {
     return fSubmitMetrics(get_id(), buffer, buffer_len);
   } catch (...) {
@@ -336,6 +372,8 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::submitMetrics(const char *buffe
 bool nsclient::core::dll_plugin::route_message(const char *channel, const char *buffer, unsigned int buffer_len, char **new_channel_buffer, char **new_buffer,
                                                unsigned int *new_buffer_len) {
   if (!isLoaded() || !loaded_ || fRouteMessage == nullptr) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
+  dispatch_lock dispatch(*this);
+  if (!dispatch.entered()) throw plugin_exception(get_alias_or_name(), "Library is unloading");
   try {
     return fRouteMessage(get_id(), channel, buffer, buffer_len, new_channel_buffer, new_buffer, new_buffer_len);
   } catch (...) {
@@ -363,6 +401,18 @@ void nsclient::core::dll_plugin::deleteBuffer(char **buffer) {
  */
 void nsclient::core::dll_plugin::handleMessage(const char *data, unsigned int len) {
   if (!fHandleMessage) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
+  // A log line racing the unload must not call into an instance that
+  // unload_plugin has torn down. Unlike every other entry point this one does
+  // NOT take the shared dispatch lock: simple_console_logger dispatches
+  // subscribers synchronously on the caller's thread, so a module that logs
+  // from inside its own fUnLoadModule would arrive here on the thread already
+  // holding dispatch_mutex_ exclusively and deadlock. The flag is atomic
+  // instead, which orders this read against unload_plugin's write without
+  // making the unload wait on a log callback. That leaves a narrow window --
+  // an unload starting between this check and the call below still tears the
+  // instance down under it -- which closing properly needs a lock this path
+  // can reach without deadlocking.
+  if (unloaded_) return;
   try {
     fHandleMessage(get_id(), data, len);
   } catch (...) {
@@ -375,6 +425,28 @@ void nsclient::core::dll_plugin::handleMessage(const char *data, unsigned int le
  */
 void nsclient::core::dll_plugin::unload_plugin() {
   if (!isLoaded()) return;
+  {
+    boost::unique_lock<boost::mutex> lock(dispatch_mutex_);
+    // Close the door first, then wait for whoever is already inside.
+    unloading_ = true;
+    const boost::thread::id self = boost::this_thread::get_id();
+    const boost::system_time deadline = boost::get_system_time() + boost::posix_time::seconds(5);
+    // Wait until the only calls left inside are this thread's own. A handler
+    // unloading the module it is running in is itself one of them, further up
+    // this stack, and can never leave before we return - so waiting for it
+    // would be waiting for ourselves.
+    while (dispatchers_.size() != dispatchers_.count(self)) {
+      if (!dispatch_idle_.timed_wait(lock, deadline)) {
+        // Other threads are still executing inside the module and did not come
+        // back within the wait. Tearing it down now is precisely the race this
+        // count exists to prevent, so leave it loaded and serving: leaking a
+        // module is much cheaper than calling into one whose instance has been
+        // destroyed.
+        unloading_ = false;
+        throw plugin_exception(get_alias_or_name(), "Refused to unload: calls into the module were still in flight after 5s");
+      }
+    }
+  }
   // Only call into the DSO while a module instance can exist there (fLoadModule
   // was invoked — even unsuccessfully — and unload has not run yet). A second
   // call, e.g. from the destructor of a shared_ptr copy that outlives main(),
@@ -382,6 +454,7 @@ void nsclient::core::dll_plugin::unload_plugin() {
   if (!loaded_ && !loading_) return;
   loaded_ = false;
   loading_ = false;
+  unloaded_ = true;
   if (!fUnLoadModule) throw plugin_exception(get_alias_or_name(), "Critical error (fUnLoadModule)");
   try {
     fUnLoadModule(get_id());
@@ -510,10 +583,15 @@ int nsclient::core::dll_plugin::commandLineExec(bool targeted, std::string &requ
   return ret;
 }
 
-bool nsclient::core::dll_plugin::has_command_line_exec() { return (isLoaded() && !loaded_) || (fCommandLineExec != nullptr); }
+// A mapped-but-not-started module (the client path) may still be exec'd, but
+// only when it actually exports NSCommandLineExec: the old first disjunct made
+// every module whose load had failed claim the export and then call nullptr.
+bool nsclient::core::dll_plugin::has_command_line_exec() { return isLoaded() && fCommandLineExec != nullptr; }
 
 int nsclient::core::dll_plugin::commandLineExec(bool targeted, const char *request, const unsigned int request_len, char **reply, unsigned int *reply_len) {
   if (!has_command_line_exec()) throw plugin_exception(get_alias_or_name(), "Library is not loaded or modules does not support command line");
+  dispatch_lock dispatch(*this);
+  if (!dispatch.entered()) throw plugin_exception(get_alias_or_name(), "Library is unloading");
   try {
     return fCommandLineExec(get_id(), targeted ? NSCAPI::target_module : NSCAPI::target_any, request, request_len, reply, reply_len);
   } catch (...) {

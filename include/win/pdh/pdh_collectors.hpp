@@ -186,7 +186,8 @@ class rrd_collector : public base_collector<T> {
   }
 
   void update(T value) override {
-    boost::shared_lock<boost::shared_mutex> lock(mutex_);
+    // A push is a write: readers hold the shared lock, so this one is unique.
+    boost::unique_lock<boost::shared_mutex> lock(mutex_);
     if (!lock.owns_lock()) throw pdh_exception(get_name(), "Could not get mutex");
     values.push_back(value);
   }

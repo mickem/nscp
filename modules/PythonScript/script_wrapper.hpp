@@ -193,6 +193,9 @@ struct command_wrapper {
   bool reload(std::string module);
   bool load_module(std::string name, std::string alias = "");
   bool unload_module(std::string name);
+  // Names (module and alias) under which the given plugin instance is loaded,
+  // so a script cannot unload the module whose interpreter it runs in.
+  static void register_self(unsigned int plugin_id, const std::string &module, const std::string &alias);
   std::string expand_path(std::string module);
 };
 

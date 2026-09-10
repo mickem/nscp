@@ -136,9 +136,9 @@ std::string new_filter_obj::get_task() {
   const int id = buffer.get()[eventlog::api::EvtSystemTask].Int16Val;
   const std::string provider = get_provider();
   op_str os = task_cache_.get_cached(provider, id);
-  if (os) return *os;
+  if (os) return os.value();
   os = task_cache_.get(get_provider_handle(provider), provider, id);
-  if (os) return *os;
+  if (os) return os.value();
   return "";
 }
 std::string new_filter_obj::get_opcode() {
@@ -146,9 +146,9 @@ std::string new_filter_obj::get_opcode() {
   int id = buffer.get()[eventlog::api::EvtSystemOpcode].ByteVal;
   std::string provider = get_provider();
   op_str os = opcode_cache_.get_cached(provider, id);
-  if (os) return *os;
+  if (os) return os.value();
   os = opcode_cache_.get(get_provider_handle(provider), provider, id);
-  if (os) return *os;
+  if (os) return os.value();
   return "";
 }
 #define WINLOG_KEYWORD_AUDITFAILURE 0x0010000000000000
@@ -178,7 +178,7 @@ std::string new_filter_obj::get_keyword() {
       os = keyword_cache_.apply(get_provider_handle(provider), provider, id);
     }
     if (os) {
-      str::format::append_list(ret, *os);
+      str::format::append_list(ret, os.value());
     }
   }
   return ret;
@@ -248,8 +248,18 @@ std::string new_filter_obj::get_computer() const {
   return utf8::cvt<std::string>(buffer.get()[eventlog::api::EvtSystemComputer].StringVal);
 }
 std::string new_filter_obj::get_guid() const {
-  if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemProviderGuid].Type) return "";
-  return utf8::cvt<std::string>(buffer.get()[eventlog::api::EvtSystemProviderGuid].StringVal);
+  // The variant is a GUID (a pointer to sixteen bytes), not a string:
+  // reading StringVal scanned those bytes for a terminator into the render
+  // buffer and past it.
+  const eventlog::api::EVT_VARIANT &v = buffer.get()[eventlog::api::EvtSystemProviderGuid];
+  if (v.Type != eventlog::api::EvtVarTypeGuid || v.GuidVal == nullptr) return "";
+  // Formatted here rather than through StringFromGUID2 to avoid an ole32
+  // dependency for one call.
+  const GUID &g = *v.GuidVal;
+  wchar_t text[40] = {};
+  swprintf_s(text, L"{%08lX-%04hX-%04hX-%02hhX%02hhX-%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX}", g.Data1, g.Data2, g.Data3, g.Data4[0], g.Data4[1], g.Data4[2],
+             g.Data4[3], g.Data4[4], g.Data4[5], g.Data4[6], g.Data4[7]);
+  return utf8::cvt<std::string>(std::wstring(text));
 }
 std::string new_filter_obj::get_user() const {
   if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemUserID].Type) return "";

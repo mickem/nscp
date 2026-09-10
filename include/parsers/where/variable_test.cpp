@@ -41,7 +41,7 @@ struct mock_variable_context : evaluation_context_interface {
   mock_variable_context() : summary_(nullptr) {}
 
   bool has_object() { return static_cast<bool>(object_); }
-  mock_object get_object() { return *object_; }
+  mock_object get_object() { return object_.value(); }
   void set_object(mock_object obj) { object_ = obj; }
   void remove_object() { object_.reset(); }
   mock_summary* get_summary() { return summary_; }

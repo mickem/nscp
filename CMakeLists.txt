@@ -6,6 +6,11 @@ project(
     C
 )
 
+# Build against a known language level instead of whatever the compiler happens
+# to default to: that default moves (GCC 16 switched to C++20).
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 include(CTest)
 if(COMMAND CMAKE_POLICY)
     cmake_policy(SET CMP0011 NEW)
@@ -104,6 +109,13 @@ set(BUILD_ROOT_FOLDER "${CMAKE_SOURCE_DIR}")
 set(BUILD_TARGET_EXE_PATH "${PROJECT_BINARY_DIR}")
 set(BUILD_TARGET_ROOT_PATH "${PROJECT_BINARY_DIR}")
 set(BUILD_TARGET_LIB_PATH "${BUILD_TARGET_EXE_PATH}/${MODULE_SUBFOLDER}")
+# Managed .NET plugin API + plugins: built by the dotnet SDK into the modules
+# folder (modules/dotnet) so the DotnetPlugins module finds them next to the
+# native modules; the protobuf C# sources are generated here first.
+set(NSCP_DOTNET_OUTPUT_DIR "${BUILD_TARGET_LIB_PATH}/dotnet")
+set(NSCP_DOTNET_PROTO_DIR
+    "${PROJECT_BINARY_DIR}/libs/dotnet-plugin-api/generated"
+)
 set(BUILD_TARGET_INSTLIB_PATH "${BUILD_TARGET_EXE_PATH}/installer-dlls")
 set(NSCP_PROJECT_BINARY_DIR ${PROJECT_BINARY_DIR})
 set(NSCP_PROJECT_BINARY_DIR_NATIVE ${PROJECT_BINARY_DIR})
@@ -194,6 +206,16 @@ if(NOT WIN32)
     # DT_RUNPATH (not the deprecated, transitive DT_RPATH), so each object must
     # carry an RPATH covering its own direct dependencies.
     set(NSCP_RPATH_LIB "$ORIGIN")
+endif()
+
+# Where the managed .NET files (libs/dotnet-plugin-api, the C# sample) are
+# installed: modules/dotnet next to the native modules, the folder the
+# DotnetPlugins module searches by default. Set after MODULE_TARGET_FOLDER has
+# taken its final value above.
+if(WIN32)
+    set(NSCP_DOTNET_INSTALL_DIR "${MODULE_SUBFOLDER}/dotnet")
+else()
+    set(NSCP_DOTNET_INSTALL_DIR "${MODULE_TARGET_FOLDER}/dotnet")
 endif()
 
 set(NSCP_GLOBAL_DEFINES
@@ -1271,20 +1293,6 @@ file(
 foreach(CURRENT_LIB ${ALL_LIB_PROJECTS})
     get_filename_component(CURRENT_LIB_PATH ${CURRENT_LIB} PATH)
     get_filename_component(CURRENT_LIB_NAME ${CURRENT_LIB_PATH} NAME)
-    if(
-        CURRENT_LIB_NAME
-            STREQUAL
-            "protobuf_net"
-        OR CURRENT_LIB_NAME
-            STREQUAL
-            "dotnet-plugin-api"
-    )
-        message(
-            STATUS
-            " - Skipping Library: ${CURRENT_LIB_PATH} (${CURRENT_LIB_NAME})"
-        )
-        continue()
-    endif()
     message(STATUS " + Library: ${CURRENT_LIB_PATH} (${CURRENT_LIB_NAME})")
     add_subdirectory("${CURRENT_LIB_PATH}")
 endforeach(
@@ -1440,6 +1448,15 @@ else()
     # RPM-specific
     set(CPACK_RPM_PACKAGE_LICENSE "Apache-2.0 OR GPL-2.0-only")
     set(CPACK_RPM_PACKAGE_REQUIRES "libstdc++, glibc >= 2.17")
+
+    # The managed .NET plugin API (modules/dotnet) needs an installed .NET
+    # runtime, which the module locates at run time and which is optional for
+    # everything else the agent does. It is not in the distributions' own
+    # repositories, so it is a suggestion rather than a dependency.
+    if(NSCP_DOTNET_MANAGED STREQUAL "true")
+        set(CPACK_DEBIAN_PACKAGE_SUGGESTS "dotnet-runtime-8.0")
+        set(CPACK_RPM_PACKAGE_SUGGESTS "dotnet-runtime-8.0")
+    endif()
 
     if(NOT CPACK_SYSTEM_NAME)
         set(CPACK_SYSTEM_NAME ${CMAKE_SYSTEM_PROCESSOR})

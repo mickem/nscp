@@ -108,7 +108,7 @@ void scheduler::run_now(const int id, const boost::posix_time::time_duration del
     log_error(__FILE__, __LINE__, "Cannot run unknown task: " + str::xtos(id));
     return;
   }
-  reschedule_at(item->tag, id, now() + delay, true);
+  reschedule_at(item.value().tag, id, now() + delay, true);
 }
 void scheduler::remove_task(const int id) {
   boost::mutex::scoped_lock l(mutex_);
@@ -145,7 +145,7 @@ void scheduler::watch_dog(const int id) {
       try {
         schedule_queue_type::value_type instance = queue_.top();
         if (instance) {
-          boost::posix_time::time_duration off = now() - instance->time;
+          boost::posix_time::time_duration off = now() - instance.value().time;
           if (off.total_seconds() > 5) {
             if (thread_count_ < 10) {
               thread_count_++;
@@ -195,25 +195,25 @@ void scheduler::thread_proc(const int id) {
       }
 
       try {
-        boost::posix_time::time_duration off = now() - instance->time;
-        if (!instance->suppress_late_warning && off.total_seconds() > error_threshold_) {
+        boost::posix_time::time_duration off = now() - instance.value().time;
+        if (!instance.value().suppress_late_warning && off.total_seconds() > error_threshold_) {
           log_error(__FILE__, __LINE__,
-                    "Ran scheduled item " + instance->tag + "(" + str::xtos(instance->schedule_id) + ") " + str::xtos(off.total_seconds()) +
+                    "Ran scheduled item " + instance.value().tag + "(" + str::xtos(instance.value().schedule_id) + ") " + str::xtos(off.total_seconds()) +
                         " seconds to late from thread " + str::xtos(id));
         }
-        const boost::posix_time::time_duration wait = instance->time - now();
+        const boost::posix_time::time_duration wait = instance.value().time - now();
         if (wait.total_microseconds() > 0) {
           boost::this_thread::sleep(wait);
         }
       } catch (const boost::thread_interrupted &) {
-        if (!queue_.push(*instance)) log_error(__FILE__, __LINE__, "Failed to push item");
+        if (!queue_.push(instance.value())) log_error(__FILE__, __LINE__, "Failed to push item");
         if (stop_requested_) {
           log_trace(__FILE__, __LINE__, "Terminating thread: " + str::xtos(id));
           return;
         }
         continue;
       } catch (...) {
-        if (!queue_.push(*instance)) {
+        if (!queue_.push(instance.value())) {
           atomic_inc32(&metric_errors);
           log_error(__FILE__, __LINE__, "Failed to push item");
         }
@@ -222,34 +222,34 @@ void scheduler::thread_proc(const int id) {
 
       boost::posix_time::ptime now_time = now();
       atomic_inc32(&metric_executed);
-      op_task_object item = get_task(instance->schedule_id);
+      op_task_object item = get_task(instance.value().schedule_id);
       if (item) {
         try {
           bool to_reschedule = false;
           // Snapshot once: a second read could observe a different value, and
           // the null check has to apply to the pointer we actually call.
           if (handler *h = handler_.load()) {
-            to_reschedule = h->handle_schedule(*item);
+            to_reschedule = h->handle_schedule(item.value());
           }
           boost::posix_time::time_duration duration = now() - now_time;
 
           my_atomic_add(&metric_time, static_cast<uint32_t>(duration.total_milliseconds()));
           atomic_inc32(&metric_count);
           if (to_reschedule) {
-            reschedule(*item, now_time);
+            reschedule(item.value(), now_time);
             atomic_inc32(&metric_compleated);
           } else {
             atomic_inc32(&metric_errors);
-            log_trace(__FILE__, __LINE__, "Abandoning: " + item->to_string());
+            log_trace(__FILE__, __LINE__, "Abandoning: " + item.value().to_string());
           }
         } catch (...) {
           atomic_inc32(&metric_errors);
-          log_error(__FILE__, __LINE__, "UNKNOWN ERROR RUNNING TASK: " + item->tag);
-          reschedule(*item, now_time);
+          log_error(__FILE__, __LINE__, "UNKNOWN ERROR RUNNING TASK: " + item.value().tag);
+          reschedule(item.value(), now_time);
         }
       } else {
         atomic_inc32(&metric_errors);
-        log_error(__FILE__, __LINE__, "Task not found: " + str::xtos(instance->schedule_id));
+        log_error(__FILE__, __LINE__, "Task not found: " + str::xtos(instance.value().schedule_id));
       }
     }
   } catch (const boost::thread_interrupted &) {

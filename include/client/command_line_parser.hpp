@@ -3,6 +3,9 @@
 
 #pragma once
 
+#include <boost/optional.hpp>
+#include <boost/thread/locks.hpp>
+#include <boost/thread/shared_mutex.hpp>
 #include <boost/program_options.hpp>
 #include <boost/unordered_map.hpp>
 #include <cctype>
@@ -27,6 +30,12 @@ struct cli_exception final : std::exception {
 // mask them when a container is logged, and to decide whether a configured
 // target "carries credentials" for the host-override guard below.
 bool is_sensitive_key(const std::string &key);
+// Whether a value carries a credential in its own text, whatever its key is
+// called. An address can be `https://h/submit.php?token=SECRET` or
+// `https://user:pass@h/`, where the key ("address") says nothing about it.
+bool value_carries_credentials(const std::string &value);
+// Keys that decide where the request ends up.
+bool is_address_key(const std::string &key);
 
 struct destination_container {
   typedef std::map<std::string, std::string> data_map;
@@ -55,8 +64,13 @@ struct destination_container {
   std::string configured_address;
   std::set<std::string> inherited_credentials;
   bool allow_host_override;
+  // Whether the destination currently in `address` was last set by the
+  // request rather than by settings. Tracked the same way as
+  // inherited_credentials: set_string_data() marks it, and apply() unmarks it
+  // straight afterwards for the values that came from a target object.
+  bool address_from_request;
 
-  destination_container() : timeout(10), retry(2), allow_host_override(false) {}
+  destination_container() : timeout(10), retry(2), allow_host_override(false), address_from_request(false) {}
 
   void apply(const nscapi::settings_objects::object_instance &obj) {
     // Targets layer: --target applies its object on top of the default one
@@ -71,16 +85,28 @@ struct destination_container {
       }
       set_string_data(k.first, k.second);
       // After set_string_data(), which drops the key from the inherited set:
-      // this value came from settings, so it goes (back) in.
-      if (is_sensitive_key(k.first) && !k.second.empty()) {
+      // this value came from settings, so it goes (back) in. A value that
+      // carries the credential in its own text counts too, however its key is
+      // named - an address can be `https://h/submit.php?token=SECRET`.
+      if ((is_sensitive_key(k.first) || value_carries_credentials(k.second)) && !k.second.empty()) {
         inherited_credentials.insert(k.first);
         configured_target = obj->get_alias();
       }
+      if (is_address_key(k.first)) {
+        // The destination this target named. Compared against the address the
+        // request ends up with, which is how an override is detected whichever
+        // way it arrived - a command-line option or a header host entry.
+        //
+        // Recorded only for keys the object actually supplies. Taking
+        // address.to_string() unconditionally at the end of apply() recorded
+        // whatever was already in the container, and --host is parsed before
+        // target= is applied: a target that named no address of its own then
+        // had the caller's host written down as its "configured" one, and the
+        // guard compared that host against itself and let it through.
+        address_from_request = false;
+        configured_address = address.to_string();
+      }
     }
-    // The destination this target named. Compared against the address the
-    // request ends up with, which is how an override is detected whichever
-    // way it arrived - a command-line option or a header host entry.
-    configured_address = address.to_string();
   }
 
   // Whether any credential still in this container is one a configured target
@@ -154,6 +180,7 @@ struct destination_container {
     // that came from the request (an option, or a header host entry) clears
     // the mark for good.
     inherited_credentials.erase(key);
+    if (is_address_key(key)) address_from_request = true;
     if (key == "host")
       set_host(value);
     else if (key == "address")
@@ -284,13 +311,30 @@ struct configuration : public boost::noncopyable {
   destination_container get_target(const std::string &name) const;
   destination_container get_sender() const;
 
-  void add_target(const std::shared_ptr<nscapi::settings_proxy> &proxy, const std::string &key, const std::string &value) { targets.add(proxy, key, value); }
+  void add_target(const std::shared_ptr<nscapi::settings_proxy> &proxy, const std::string &key, const std::string &value) {
+    boost::unique_lock<boost::shared_mutex> lock(tables_mutex_);
+    targets.add(proxy, key, value);
+  }
   std::string add_command(const std::string &name, const std::string &args);
   void clear() {
+    boost::unique_lock<boost::shared_mutex> lock(tables_mutex_);
     targets.clear();
     commands.clear();
   }
   void finalize(const std::shared_ptr<nscapi::settings_proxy> &settings);
+  // Locked lookups: a settings reload rewrites `commands` and `targets` on
+  // the module thread while queries, submissions and the metrics task read
+  // them from workers.
+  boost::optional<command_container> find_command(const std::string &command) const {
+    boost::shared_lock<boost::shared_mutex> lock(tables_mutex_);
+    const command_type::const_iterator cit = commands.find(command);
+    if (cit == commands.end()) return boost::none;
+    return cit->second;
+  }
+  object_handler_type::object_instance find_target(const std::string &name) const {
+    boost::shared_lock<boost::shared_mutex> lock(tables_mutex_);
+    return targets.find_object(name);
+  }
 
   void do_query(const PB::Commands::QueryRequestMessage &request, PB::Commands::QueryResponseMessage &response);
   bool do_exec(const PB::Commands::ExecuteRequestMessage &request, PB::Commands::ExecuteResponseMessage &response, const std::string &default_command_arg);
@@ -308,6 +352,7 @@ struct configuration : public boost::noncopyable {
   client_pre_fun client_pre;
 
  private:
+  mutable boost::shared_mutex tables_mutex_;
   boost::program_options::options_description create_descriptor(const std::string &command, client::destination_container &source,
                                                                 client::destination_container &destination) const;
   // The host-override guard: given the options the command line actually

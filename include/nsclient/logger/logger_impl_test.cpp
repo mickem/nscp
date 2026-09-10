@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
+#include <algorithm>
 #include <gtest/gtest.h>
 
 #include <nscapi/protobuf/log.hpp>
@@ -23,6 +24,9 @@ class TestLogger : public nsclient::logging::logger_impl {
 
   void add_subscriber(const nsclient::logging::logging_subscriber_instance subscriber) override { subscribers_.push_back(subscriber); }
 
+  void remove_subscriber(nsclient::logging::logging_subscriber_instance subscriber) override {
+    subscribers_.erase(std::remove(subscribers_.begin(), subscribers_.end(), subscriber), subscribers_.end());
+  }
   void clear_subscribers() override { subscribers_.clear(); }
 
   bool startup() override { return true; }

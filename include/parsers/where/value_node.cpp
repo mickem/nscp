@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
 #include <parsers/where/value_node.hpp>
+#include <str/saturate.hpp>
 #include <str/xtos.hpp>
 
 namespace parsers {
@@ -59,7 +60,11 @@ value_container float_value::get_value(const evaluation_context context, value_t
     return value_container::create_float(value_, is_unsure_);
   }
   if (new_type == type_int) {
-    return value_container::create_int(static_cast<long long>(value_), is_unsure_);
+    if (!str::fits_int64(value_)) {
+      context->error("Value is out of range for an integer: " + str::xtos(value_));
+      return value_container::create_int(str::to_int64_saturating(value_), true);
+    }
+    return value_container::create_int(str::to_int64_saturating(value_), is_unsure_);
   }
   if (new_type == type_string) {
     return value_container::create_string(str::xtos(value_), is_unsure_);

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <mutex>
 #include <NSCAPI.h>
 
 #include <cstring>
@@ -25,12 +26,35 @@ struct module_version {
 };
 template <class impl_type>
 struct plugin_instance_data {
+  // The deleted copy constructor below suppresses the implicit default one,
+  // and in C++20 the class is not an aggregate either.
+  plugin_instance_data() = default;
   plugin_instance_data(const plugin_instance_data &) = delete;
   plugin_instance_data &operator=(const plugin_instance_data &) = delete;
 
   typedef std::map<unsigned int, std::shared_ptr<impl_type> > plugin_list_type;
   plugin_list_type plugins;
-  std::shared_ptr<impl_type> get(unsigned int id) {
+  // Entry points run on the core's worker threads while load/unload run on
+  // another, so every access to the map is locked. A plain mutex, not a
+  // shared_mutex: this header is compiled by the MSVC toolsets NSCP targets
+  // for Windows, which build as C++14, so std::shared_mutex is not declared
+  // there. Every critical section here is a lookup in a map with one entry
+  // per loaded module, so a reader/writer lock would buy nothing.
+  mutable std::mutex mutex;
+  plugin_instance_data() = default;
+  // The instance for id, or null when none exists. Only NSLoadModuleEx may
+  // create one (see create()): an unloaded module used to be resurrected as a
+  // fresh instance that never saw loadModuleEx by the next log line.
+  std::shared_ptr<impl_type> get(unsigned int id) const {
+    std::lock_guard<std::mutex> lock(mutex);
+    const auto it = plugins.find(id);
+    if (it != plugins.end()) {
+      return it->second;
+    }
+    return std::shared_ptr<impl_type>();
+  }
+  std::shared_ptr<impl_type> create(unsigned int id) {
+    std::lock_guard<std::mutex> lock(mutex);
     const auto it = plugins.find(id);
     if (it != plugins.end()) {
       return it->second;
@@ -39,9 +63,14 @@ struct plugin_instance_data {
     plugins[id] = impl;
     return impl;
   }
-  void erase(unsigned int id) { plugins.erase(id); }
+  void erase(unsigned int id) {
+    std::lock_guard<std::mutex> lock(mutex);
+    plugins.erase(id);
+  }
   void add_alias(const unsigned int existing_id, const unsigned int new_id) {
     std::shared_ptr<impl_type> old = get(existing_id);
+    if (!old) return;
+    std::lock_guard<std::mutex> lock(mutex);
     plugins[new_id] = old;
   }
 };
@@ -156,6 +185,7 @@ struct on_start_wrapper {
   explicit on_start_wrapper(std::shared_ptr<impl_class> instance) : instance(instance) {}
   NSCAPI::boolReturn NSStartModule() {
     try {
+      if (!instance) return NSCAPI::bool_return::isfalse;
       return instance->startModule();
     } catch (...) {
       NSC_LOG_CRITICAL("Unknown exception in: NSStartModule");
@@ -186,6 +216,7 @@ struct message_wrapper {
   explicit message_wrapper(std::shared_ptr<impl_class> instance) : instance(instance) {}
   void NSHandleMessage(const char *request_buffer, unsigned int request_buffer_len) {
     try {
+      if (!instance) return;
       instance->handleMessageRAW(std::string(request_buffer, request_buffer_len));
     } catch (...) {
       NSC_LOG_CRITICAL("Unknown exception in: NSHandleMessage");
@@ -193,7 +224,7 @@ struct message_wrapper {
   }
   NSCAPI::boolReturn NSHasMessageHandler() {
     try {
-      if (instance->hasMessageHandler()) return NSCAPI::bool_return::istrue;
+      if (instance && instance->hasMessageHandler()) return NSCAPI::bool_return::istrue;
     } catch (...) {
       NSC_LOG_CRITICAL("Unknown exception in: NSHasMessageHandler");
     }
@@ -207,6 +238,7 @@ struct command_wrapper {
 
   NSCAPI::nagiosReturn NSHandleCommand(const char *request_buffer, const unsigned int request_buffer_len, char **reply_buffer, unsigned int *reply_buffer_len) {
     try {
+      if (!instance) return NSCAPI::cmd_return_codes::hasFailed;
       std::string request(request_buffer, request_buffer_len), reply;
       const NSCAPI::nagiosReturn retCode = instance->handleRAWCommand(request, reply);
       helpers::wrap_string(reply, reply_buffer, reply_buffer_len);
@@ -224,7 +256,7 @@ struct command_wrapper {
   }
   NSCAPI::boolReturn NSHasCommandHandler() {
     try {
-      if (instance->hasCommandHandler()) return NSCAPI::bool_return::istrue;
+      if (instance && instance->hasCommandHandler()) return NSCAPI::bool_return::istrue;
     } catch (...) {
       NSC_LOG_ERROR_EX("NSHasCommandHandler");
     }
@@ -240,6 +272,7 @@ struct routing_wrapper {
   NSCAPI::nagiosReturn NSRouteMessage(const wchar_t *channel, const wchar_t *command, const char *request_buffer, const unsigned int request_buffer_len,
                                       char **reply_buffer, unsigned int *reply_buffer_len) {
     try {
+      if (!instance) return NSCAPI::cmd_return_codes::returnIgnored;
       std::string request(request_buffer, request_buffer_len), reply;
       const NSCAPI::nagiosReturn retCode = instance->RAWRouteMessage(channel, command, request, reply);
       helpers::wrap_string(reply, reply_buffer, reply_buffer_len);
@@ -251,7 +284,7 @@ struct routing_wrapper {
   }
   NSCAPI::boolReturn NSHasRoutingHandler() {
     try {
-      if (instance->hasRoutingHandler()) return NSCAPI::bool_return::istrue;
+      if (instance && instance->hasRoutingHandler()) return NSCAPI::bool_return::istrue;
     } catch (...) {
       NSC_LOG_ERROR_EX("NSHasRoutingHandler");
     }
@@ -267,6 +300,7 @@ struct submission_wrapper {
   NSCAPI::nagiosReturn NSHandleNotification(const char *channel, const char *buffer, unsigned int buffer_len, char **response_buffer,
                                             unsigned int *response_buffer_len) {
     try {
+      if (!instance) return NSCAPI::cmd_return_codes::hasFailed;
       std::string request(buffer, buffer_len), reply;
       NSCAPI::nagiosReturn retCode = instance->handleRAWNotification(channel, request, reply);
       helpers::wrap_string(reply, response_buffer, response_buffer_len);
@@ -281,7 +315,7 @@ struct submission_wrapper {
   }
   NSCAPI::boolReturn NSHasNotificationHandler() {
     try {
-      if (instance->hasNotificationHandler()) return NSCAPI::bool_return::istrue;
+      if (instance && instance->hasNotificationHandler()) return NSCAPI::bool_return::istrue;
     } catch (...) {
       NSC_LOG_ERROR_EX("NSHasNotificationHandler");
     }
@@ -297,6 +331,7 @@ struct cliexec_wrapper {
   int NSCommandLineExec(const int target_mode, char *request_buffer, unsigned int request_buffer_len, char **response_buffer,
                         unsigned int *response_buffer_len) {
     try {
+      if (!instance) return NSCAPI::cmd_return_codes::hasFailed;
       std::string request(request_buffer, request_buffer_len), reply;
       const NSCAPI::nagiosReturn retCode = instance->commandRAWLineExec(target_mode, request, reply);
       helpers::wrap_string(reply, response_buffer, response_buffer_len);
@@ -317,6 +352,7 @@ struct metrics_wrapper {
 
   int NSFetchMetrics(char **response_buffer, unsigned int *response_buffer_len) {
     try {
+      if (!instance) return NSCAPI::api_return_codes::hasFailed;
       std::string reply;
       NSCAPI::nagiosReturn retCode = instance->fetchMetrics(reply);
       helpers::wrap_string(reply, response_buffer, response_buffer_len);
@@ -330,6 +366,7 @@ struct metrics_wrapper {
   }
   int NSSubmitMetrics(const char *buffer, const unsigned int buffer_len) {
     try {
+      if (!instance) return NSCAPI::api_return_codes::hasFailed;
       std::string reply(buffer, buffer_len);
       return instance->submitMetrics(reply);
     } catch (const std::exception &e) {

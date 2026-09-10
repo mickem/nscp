@@ -213,3 +213,67 @@ TEST(ThreadedLogger, DestructorJoinsBackgroundThread) {
   }
   EXPECT_EQ(backend->snapshot().size(), 1u);
 }
+
+// A backend whose do_log() parks until released, so shutdown()'s join times
+// out and takes the abandon-and-detach path.
+namespace {
+class BlockingBackend : public log_driver_interface_impl {
+ public:
+  void do_log(std::string) override {
+    entered = true;
+    while (!release) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  void synch_configure() override {}
+  void asynch_configure() override {}
+  void set_config(const std::string &) override {}
+  using log_driver_interface_impl::set_config;
+
+  std::atomic<bool> entered{false};
+  std::atomic<bool> release{false};
+};
+}  // namespace
+
+// The worker that shutdown() gives up on is detached and outlives the
+// threaded_logger. It must not call back into the subscriber afterwards: the
+// subscriber manager is the nsclient_logger that owns the logger, so it is
+// being destroyed right behind us. Under a sanitizer this is the test that
+// fails if thread_proc ever reaches back into the logger again.
+TEST(ThreadedLogger, AbandonedWorkerDoesNotTouchSubscriberAfterShutdown) {
+  auto sub = std::make_shared<FakeSubscriber>();
+  auto backend = std::make_shared<BlockingBackend>();
+  {
+    threaded_logger tl(sub.get(), backend);
+    tl.set_join_timeout_for_test(boost::posix_time::milliseconds(100));
+    tl.startup();
+    tl.do_log("parked");
+    ASSERT_TRUE(wait_for([&] { return backend->entered.load(); }));
+    // The worker is stuck inside the backend, so the join times out and
+    // shutdown reports failure rather than pretending it stopped.
+    EXPECT_FALSE(tl.shutdown());
+  }
+  // The logger is gone. Release the worker: it finishes the do_log it was in
+  // and must then find the subscriber cleared instead of calling it.
+  backend->release = true;
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  EXPECT_TRUE(sub->snapshot().empty());
+}
+
+// The background logger is reference counted by the shared state, so an
+// abandoned worker still has a live sink to finish writing to.
+TEST(ThreadedLogger, AbandonedWorkerKeepsBackendAlive) {
+  auto sub = std::make_shared<FakeSubscriber>();
+  auto backend = std::make_shared<BlockingBackend>();
+  const long use_count_before = backend.use_count();
+  {
+    threaded_logger tl(sub.get(), backend);
+    tl.set_join_timeout_for_test(boost::posix_time::milliseconds(100));
+    tl.startup();
+    tl.do_log("parked");
+    ASSERT_TRUE(wait_for([&] { return backend->entered.load(); }));
+    EXPECT_FALSE(tl.shutdown());
+  }
+  // Still held by the detached worker's shared_state, not just by us.
+  EXPECT_GT(backend.use_count(), use_count_before);
+  backend->release = true;
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+}

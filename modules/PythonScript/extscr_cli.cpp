@@ -270,7 +270,7 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
   if (!found) {
     boost::optional<fs::path> path = provider_->find_file(file.string());
     if (path) {
-      file = *path;
+      file = path.value();
       found = fs::is_regular_file(file);
     }
   }

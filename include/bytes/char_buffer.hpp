@@ -31,6 +31,9 @@ class char_buffer : public buffer<char> {
 #else
     strncpy(get(), str.c_str(), str.length());
 #endif
+    // Explicit on both branches: the POSIX strncpy count equals the length,
+    // which never writes the terminator.
+    get()[str.length()] = 0;
   }
   explicit char_buffer(const std::size_t len) : buffer(len) {}
   void zero() const {

@@ -326,7 +326,7 @@ TEST(RealtimeContainer, FindMinimumTimeoutSetsFirstValue) {
   boost::optional<boost::posix_time::ptime> minNext;
   EXPECT_TRUE(c.find_minimum_timeout(minNext));
   ASSERT_TRUE(minNext.is_initialized());
-  EXPECT_EQ(*minNext, make_time(10, 1, 0));
+  EXPECT_EQ(minNext.value(), make_time(10, 1, 0));
 }
 
 TEST(RealtimeContainer, FindMinimumTimeoutKeepsSmallerExisting) {
@@ -339,7 +339,7 @@ TEST(RealtimeContainer, FindMinimumTimeoutKeepsSmallerExisting) {
   // is later, so should not update and return false.
   boost::optional<boost::posix_time::ptime> minNext = make_time(10, 0, 30);
   EXPECT_FALSE(c.find_minimum_timeout(minNext));
-  EXPECT_EQ(*minNext, make_time(10, 0, 30));
+  EXPECT_EQ(minNext.value(), make_time(10, 0, 30));
 }
 
 TEST(RealtimeContainer, FindMinimumTimeoutUpdatesLargerExisting) {
@@ -352,7 +352,7 @@ TEST(RealtimeContainer, FindMinimumTimeoutUpdatesLargerExisting) {
   // is earlier, so should update.
   boost::optional<boost::posix_time::ptime> minNext = make_time(10, 5, 0);
   EXPECT_TRUE(c.find_minimum_timeout(minNext));
-  EXPECT_EQ(*minNext, make_time(10, 0, 30));
+  EXPECT_EQ(minNext.value(), make_time(10, 0, 30));
 }
 
 TEST(RealtimeContainer, FindMinimumTimeoutUpdatesEqualExisting) {
@@ -364,7 +364,7 @@ TEST(RealtimeContainer, FindMinimumTimeoutUpdatesEqualExisting) {
   // Pre-set minNext to equal value — should still update (returns true).
   boost::optional<boost::posix_time::ptime> minNext = make_time(10, 1, 0);
   EXPECT_TRUE(c.find_minimum_timeout(minNext));
-  EXPECT_EQ(*minNext, make_time(10, 1, 0));
+  EXPECT_EQ(minNext.value(), make_time(10, 1, 0));
 }
 
 // ============================================================================

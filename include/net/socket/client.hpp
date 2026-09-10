@@ -423,12 +423,12 @@ class client : boost::noncopyable {
         handler_->log_debug(__FILE__, __LINE__, "Retrying attempt " + str::xtos(i) + " of " + str::xtos(info_.retry));
         connect();
         response = connection_->process_request(packet);
-        if (response) return *response;
+        if (response) return response.value();
       }
       handler_->log_debug(__FILE__, __LINE__, "Retrying failed");
       throw socket_helpers::socket_exception("Retry failed");
     }
-    return *response;
+    return response.value();
   }
   void shutdown() {
     connection_->shutdown();

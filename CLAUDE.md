@@ -34,6 +34,48 @@
   `feature: give \`nscp test\` a real prompt` — or the release it lands in is
   numbered as a patch. Conventional-commit prefixes (`fix:`, `docs:`, `test:`,
   `build:`, `refactor:`) are used for everything else and all read as a patch.
+- A **documentation-only** change does not need the full build matrix (Windows
+  x64/x86/XP, Debian, RedHat, web, integration tests — roughly 300 machine-
+  minutes). GitHub honours `[skip ci]` in the commit message for `push` and
+  `pull_request` events; the other accepted spellings are `[ci skip]`,
+  `[no ci]`, `[skip actions]`, `[actions skip]`, and a `skip-checks: true`
+  trailer. Put it in the **subject**, e.g.
+  `docs: document check_battery keywords [skip ci]`.
+  The catch: a skipped workflow leaves its check `Pending`, not `Passed`, so a
+  **required** check never resolves and the pull request cannot be merged.
+  Therefore:
+  - Use it on a commit pushed straight to `main`, or on a merge commit, where
+    nothing is gating it.
+  - Do **not** use it on a pull request head branch while any check is
+    required. Let CI run there — a docs-only PR is one of the cheap ones and
+    it stays mergeable.
+  Reach for it only when the diff genuinely cannot affect a build: `.md` under
+  `docs/`, release notes, prose in comments. Anything touching `docs/hooks/`,
+  `mkdocs.yml`, the `docs/samples/` wiring or a `CMakeLists.txt` is not
+  docs-only.
+
+## C++ conventions
+
+### Optionals: `.value()`, never `*`, `->`, `get()` or `get_ptr()`
+Never dereference a `boost::optional` / `std::optional` with `*opt`, `opt->x`,
+`opt.get()` or `opt.get_ptr()`. Always read it through `opt.value()` (or
+`get_value_or(def)` when you want a default). `boost::optional::get()` is
+assert-only, exactly like `*`: it does not throw.
+
+`*opt` on a disengaged optional is **undefined behaviour, not a crash you can
+debug**. For an optional holding a `shared_ptr` it resurrects the destroyed
+control-block pointer out of the vacated storage, and the copy taken of it
+increments a refcount in freed memory; the process then dies somewhere
+unrelated with a heap-corruption code (`0xC0000374` on Windows) and no usable
+stack. `.value()` throws `boost::bad_optional_access` instead, which the
+`catch (const std::exception &)` around every filter evaluation turns into a
+reported error on the check rather than a dead agent (#1499).
+
+This holds **even where an `if (opt)` guard sits right above the read**. The
+guard is the thing that gets moved, inverted or deleted by a later change, and
+using `.value()` everywhere is what stops that edit from silently becoming UB.
+Uniformity is the point: a reviewer should never have to trace control flow to
+decide whether a given dereference is safe.
 
 ## Check command options
 - Boolean check options must be declared as
@@ -75,6 +117,22 @@
   perfdata), driven by `modern_filter::cli_helper` (`add_options(warn, crit,
   filter, syntax, empty_state)` + `add_syntax(top, detail, perf, empty, ok)`).
   See `CheckDisk/check_single_file.cpp` for a minimal template.
+- **A `filter_obj` owns every value it exposes as a keyword.** Never store a
+  reference, a raw pointer or a borrowed COM interface to data owned by the
+  fetch loop that builds the record (`const load_entry &value;`,
+  `IRegisteredTask *task;`). `modern_filter::match()` renders the detail line
+  while the loop iteration is alive, but `warning`/`critical` are evaluated in
+  `match_post()` after the loop has returned, so a borrowed field is read after
+  its owner is gone. Copy the value (or hold a `CComPtr`). A sweep for
+  `&\s*\w+;` members in `modules/**/filter*.hpp` is the quick check.
+- **`loadModuleEx` must be safe to re-enter with `reloadStart`.** A settings
+  reload calls it again on the live module while its worker threads are
+  running. Anything that starts a thread or replaces a shared object must stop
+  the old one first (`if (collector_) collector_->stop();`, as `NRPEServer`
+  does with its server) or be gated on `mode == NSCAPI::normalStart`; a class
+  owning a thread needs a destructor that stops it. Settings callbacks that
+  append to a list must clear it first, or every reload duplicates the entries
+  under the threads iterating them.
 - **Never name a check keyword after a generic summary keyword.** These names
   are reserved by the filter engine (`generic_summary` in
   `parsers/where/filter_handler_impl.hpp`): `count`, `total`, `ok_count`,

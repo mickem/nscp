@@ -3,6 +3,7 @@
 
 #include "filter.hpp"
 
+#include <str/saturate.hpp>
 #include <boost/assign.hpp>
 #include <memory>
 
@@ -17,7 +18,7 @@ node_type get_percentage(std::shared_ptr<ping_filter::filter_obj> object, evalua
   std::string unit = value.get<2>();
 
   if (unit != "%") context->error("Invalid unit: " + unit);
-  return factory::create_int(static_cast<long long>(number));
+  return factory::create_int(str::to_int64_saturating(number));
 }
 
 ping_filter::filter_obj_handler::filter_obj_handler() {

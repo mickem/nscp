@@ -674,13 +674,13 @@ TEST_F(OnboardingStateTest, RoundTrip) {
   EXPECT_FALSE(fs::exists(path_ + ".tmp")) << "temp file should be renamed away";
   const boost::optional<onboarding::enrolled_identity> loaded = onboarding::load_state(path_);
   ASSERT_TRUE(loaded);
-  EXPECT_EQ(loaded->private_key_pem, saved.private_key_pem);
-  EXPECT_EQ(loaded->cert_pem, saved.cert_pem);
-  EXPECT_EQ(loaded->ca_pem, saved.ca_pem);
-  EXPECT_EQ(loaded->bundle_signing_pub_pem, saved.bundle_signing_pub_pem);
-  EXPECT_EQ(loaded->server_url, saved.server_url);
-  EXPECT_EQ(loaded->mtls_url, saved.mtls_url);
-  EXPECT_EQ(loaded->mtls_server_cert_pem, saved.mtls_server_cert_pem);
+  EXPECT_EQ(loaded.value().private_key_pem, saved.private_key_pem);
+  EXPECT_EQ(loaded.value().cert_pem, saved.cert_pem);
+  EXPECT_EQ(loaded.value().ca_pem, saved.ca_pem);
+  EXPECT_EQ(loaded.value().bundle_signing_pub_pem, saved.bundle_signing_pub_pem);
+  EXPECT_EQ(loaded.value().server_url, saved.server_url);
+  EXPECT_EQ(loaded.value().mtls_url, saved.mtls_url);
+  EXPECT_EQ(loaded.value().mtls_server_cert_pem, saved.mtls_server_cert_pem);
 }
 
 TEST_F(OnboardingStateTest, SaveOverwritesExistingState) {
@@ -691,7 +691,7 @@ TEST_F(OnboardingStateTest, SaveOverwritesExistingState) {
 
   const boost::optional<onboarding::enrolled_identity> loaded = onboarding::load_state(path_);
   ASSERT_TRUE(loaded);
-  EXPECT_EQ(loaded->cert_pem, "NEW-CERT");
+  EXPECT_EQ(loaded.value().cert_pem, "NEW-CERT");
 }
 
 TEST_F(OnboardingStateTest, MissingFileReturnsNone) { EXPECT_FALSE(onboarding::load_state(path_)); }
@@ -997,7 +997,7 @@ TEST_F(OnboardingStateTest, AnEmptyPublicApiUrlIsAllowed) {
   onboarding::save_state(state, path_);
   const boost::optional<onboarding::enrolled_identity> loaded = onboarding::load_state(path_);
   ASSERT_TRUE(loaded);
-  EXPECT_TRUE(loaded->server_url.empty());
+  EXPECT_TRUE(loaded.value().server_url.empty());
 }
 
 TEST_F(OnboardingStateTest, MalformedFilesThrowInsteadOfLookingUnenrolled) {
@@ -1050,7 +1050,7 @@ TEST_F(OnboardingStateTest, ExtraFieldsAreIgnored) {
   out.close();
   const boost::optional<onboarding::enrolled_identity> loaded = onboarding::load_state(path_);
   ASSERT_TRUE(loaded);
-  EXPECT_EQ(loaded->cert_pem, "CERT");
+  EXPECT_EQ(loaded.value().cert_pem, "CERT");
 }
 
 TEST_F(OnboardingStateTest, RealPemMaterialSurvivesTheRoundTrip) {
@@ -1062,10 +1062,10 @@ TEST_F(OnboardingStateTest, RealPemMaterialSurvivesTheRoundTrip) {
   onboarding::save_state(state, path_);
   const boost::optional<onboarding::enrolled_identity> loaded = onboarding::load_state(path_);
   ASSERT_TRUE(loaded);
-  EXPECT_EQ(loaded->private_key_pem, state.private_key_pem);
-  EXPECT_EQ(loaded->cert_pem, state.cert_pem) << "CRLF inside a PEM must not be rewritten";
-  EXPECT_EQ(loaded->ca_pem, state.ca_pem);
-  EXPECT_EQ(loaded->mtls_url, state.mtls_url);
+  EXPECT_EQ(loaded.value().private_key_pem, state.private_key_pem);
+  EXPECT_EQ(loaded.value().cert_pem, state.cert_pem) << "CRLF inside a PEM must not be rewritten";
+  EXPECT_EQ(loaded.value().ca_pem, state.ca_pem);
+  EXPECT_EQ(loaded.value().mtls_url, state.mtls_url);
 }
 
 TEST_F(OnboardingStateTest, StringsAreNotTruncatedAtAnEmbeddedNul) {
@@ -1085,7 +1085,7 @@ TEST_F(OnboardingStateTest, StringsAreNotTruncatedAtAnEmbeddedNul) {
   out.close();
   const boost::optional<onboarding::enrolled_identity> loaded = onboarding::load_state(path_);
   ASSERT_TRUE(loaded);
-  EXPECT_EQ(loaded->private_key_pem.size(), 4u);
+  EXPECT_EQ(loaded.value().private_key_pem.size(), 4u);
 }
 
 TEST_F(OnboardingStateTest, LoadingADirectoryThrows) { EXPECT_THROW(onboarding::load_state(dir_.string()), onboarding::onboarding_error); }
@@ -1106,7 +1106,7 @@ TEST_F(OnboardingStateTest, AFailedSaveKeepsThePreviousIdentity) {
   fs::remove_all(path_ + ".tmp");
   const boost::optional<onboarding::enrolled_identity> loaded = onboarding::load_state(path_);
   ASSERT_TRUE(loaded);
-  EXPECT_EQ(loaded->cert_pem, "CERT");
+  EXPECT_EQ(loaded.value().cert_pem, "CERT");
 }
 
 TEST_F(OnboardingStateTest, SavingOntoADirectoryThrowsAndRemovesTheTempFile) {

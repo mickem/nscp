@@ -186,9 +186,9 @@ struct crash_scan {
     if (!is_crash_report(filename)) return;
     count++;
     if (!last_write) return;
-    if (!has_newest || *last_write > newest_time) {
+    if (!has_newest || last_write.value() > newest_time) {
       has_newest = true;
-      newest_time = *last_write;
+      newest_time = last_write.value();
       newest = filename;
     }
   }
@@ -235,7 +235,7 @@ struct health_obj {
   std::string get_date() const { return date; }
 
   std::string get_uptime_s() const { return format_duration(uptime); }
-  std::string get_crash_age_s() const { return crash_age ? format_duration(*crash_age) : std::string("none"); }
+  std::string get_crash_age_s() const { return crash_age ? format_duration(crash_age.value()) : std::string("none"); }
   std::string get_summary() const {
     return str::xtos(crashes) + " crash(es), " + str::xtos(errors) + " error(s), uptime " + get_uptime_s();
   }

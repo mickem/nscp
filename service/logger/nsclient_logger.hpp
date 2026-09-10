@@ -35,6 +35,11 @@ class nsclient_logger : public logger_impl, public logging_subscriber {
     if (!lock.owns_lock()) return;
     subscribers_.clear();
   }
+  void remove(const logging_subscriber_instance &subscriber) {
+    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+    if (!lock.owns_lock()) return;
+    subscribers_.remove(subscriber);
+  }
 
   void on_log_message(const std::string &data) override {
     boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
@@ -66,6 +71,7 @@ class nsclient_logger : public logger_impl, public logging_subscriber {
   void destroy() override;
 
   void add_subscriber(logging_subscriber_instance) override;
+  void remove_subscriber(logging_subscriber_instance subscriber) override;
   void clear_subscribers() override;
   bool startup() override;
   bool shutdown() override;

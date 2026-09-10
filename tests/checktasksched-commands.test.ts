@@ -16,6 +16,7 @@ import { join } from "node:path";
 import {
   NscpInstance,
   OK,
+  WARNING,
   executeQuery,
   messageOf,
   setupQueryNscp,
@@ -97,5 +98,18 @@ const HIDDEN_TASK_XML = `<?xml version="1.0" encoding="UTF-16"?>
     const msg = messageOf(q);
     expect(msg).toMatch(/No tasks found/i);
     expect(msg).not.toContain(TASK);
+  });
+
+  it("a filter that matches nothing takes the empty state (WARNING by default)", async () => {
+    // The #1499 shape: the default warn/crit on exit_code are re-evaluated
+    // with no task bound once nothing matched. check_tasksched defaults to
+    // empty-state=warning (a task list that comes back empty deserves a look);
+    // the option still relaxes it.
+    const args = { filter: "title = 'nosuchtask-1499'" };
+    const q = await executeQuery(key, "check_tasksched", args);
+    expect(q.result).toBe(WARNING);
+    expect(messageOf(q)).toMatch(/No tasks found/i);
+    const relaxed = await executeQuery(key, "check_tasksched", { ...args, "empty-state": "ok" });
+    expect(relaxed.result).toBe(OK);
   });
 });

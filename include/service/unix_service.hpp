@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
+#include <csignal>
 #include <boost/thread/condition.hpp>
 #pragma once
 
@@ -24,15 +25,19 @@ class unix_service : public TBase {
   boost::mutex stop_mutex_;
   bool is_running_;
   boost::condition shutdown_condition_;
+  // Set from the signal handlers, which may run on any thread at any point,
+  // including while the main thread holds stop_mutex_: taking a mutex there
+  // is not async-signal-safe. The wait loop polls this flag instead.
+  static volatile sig_atomic_t stop_signalled_;
 
  public:
-  unix_service() {}
+  unix_service() : is_running_(false) {}
   virtual ~unix_service() {}
   inline void print_debug(const std::string s) { std::cout << s << std::endl; }
   inline void print_debug(const char *s) { std::cout << s << std::endl; }
 
-  static void handleSigTerm(int) { TBase::get_global_instance()->stop_service(); }
-  static void handleSigInt(int) { TBase::get_global_instance()->stop_service(); }
+  static void handleSigTerm(int) { stop_signalled_ = 1; }
+  static void handleSigInt(int) { stop_signalled_ = 1; }
   /** start */
   void start_and_wait(std::string name) {
     is_running_ = true;
@@ -45,7 +50,7 @@ class unix_service : public TBase {
     print_debug("Service started waiting for termination event...");
     {
       boost::unique_lock<boost::mutex> lock(stop_mutex_);
-      while (is_running_) shutdown_condition_.wait(lock);
+      while (is_running_ && !stop_signalled_) shutdown_condition_.timed_wait(lock, boost::posix_time::milliseconds(200));
     }
 
     print_debug("Shutting down...");
@@ -63,4 +68,6 @@ class unix_service : public TBase {
     std::cerr << file << ":" << line << ": " << message << std::endl;
   }
 };
+template <class TBase>
+volatile sig_atomic_t unix_service<TBase>::stop_signalled_ = 0;
 }  // namespace service_helper_impl

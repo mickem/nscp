@@ -305,7 +305,7 @@ int lua::registry_wrapper::register_function(lua_State *L) {
   lua_wrapper lua_instance(L);
   lua_instance.get_user_object_instance<RegistryData>();
   boost::optional<int> error = read_registration("query", lua_instance, command, fundata, description);
-  if (error) return *error;
+  if (error) return error.value();
 
   if (description.empty()) description = "Lua script: " + command;
   lua::lua_traits::get_info(lua_instance)->register_command(scripts::nscp::tags::query_tag, command, description, fundata);
@@ -317,7 +317,7 @@ int lua::registry_wrapper::register_simple_function(lua_State *L) {
   lua_wrapper lua_instance(L);
   lua_instance.get_user_object_instance<RegistryData>();
   boost::optional<int> error = read_registration("simple_function", lua_instance, command, fundata, description);
-  if (error) return *error;
+  if (error) return error.value();
 
   if (description.empty()) description = "Lua script: " + command;
   lua::lua_traits::get_info(lua_instance)->register_command(scripts::nscp::tags::simple_query_tag, command, description, fundata);
@@ -335,7 +335,7 @@ int lua::registry_wrapper::register_simple_cmdline(lua_State *L) {
   lua_wrapper lua_instance(L);
   lua_instance.get_user_object_instance<RegistryData>();
   boost::optional<int> error = read_registration("simple_cmdline", lua_instance, command, fundata, description);
-  if (error) return *error;
+  if (error) return error.value();
   lua::lua_traits::get_info(lua_instance)->register_command(scripts::nscp::tags::simple_exec_tag, command, description, fundata);
   return 0;
 }
@@ -351,7 +351,7 @@ int lua::registry_wrapper::simple_subscription(lua_State *L) {
   lua_wrapper lua_instance(L);
   lua_instance.get_user_object_instance<RegistryData>();
   boost::optional<int> error = read_registration("simple_subscription", lua_instance, command, fundata, description);
-  if (error) return *error;
+  if (error) return error.value();
   lua::lua_traits::get_info(lua_instance)->register_command(scripts::nscp::tags::simple_submit_tag, command, description, fundata);
   return 0;
 }

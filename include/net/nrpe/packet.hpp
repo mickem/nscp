@@ -21,7 +21,11 @@ class data {
   static constexpr short moreResponsePacket = 3;
   static constexpr short version2 = 2;
   static constexpr short version3 = 3;
-  static constexpr short version4 = 3;
+  // NRPE v3 and v4 carry identical fields and differ only in whether the
+  // three alignment bytes at the end of the struct are part of the wire
+  // packet (see get_packet_length_v3 vs _v4). The version field on the wire
+  // does distinguish them, so this must be 4 - a v4 packet announces 4.
+  static constexpr short version4 = 4;
 
   static constexpr std::size_t buffer_offset_v2 = 10;
   static constexpr std::size_t buffer_offset_v3 = 16;
@@ -61,7 +65,17 @@ class length {
   static size_type get_packet_length_v3(const size_type payload_length) { return sizeof(data::packet_v3) + payload_length * sizeof(char) - 1; }
   static size_type get_packet_length_v4(const size_type payload_length) { return sizeof(data::packet_v3) + payload_length * sizeof(char) - 4; }
   static size_type get_payload_length() { return payload_length_; }
-  static size_type get_payload_length(const size_type packet_length) { return (packet_length - sizeof(data::packet_v2)) / sizeof(char); }
+  // A buffer shorter than the fixed v2 header carries no payload. Without
+  // the guard the subtraction wraps to a near-SIZE_MAX payload length, which
+  // readFromV2's length equality check then satisfies by wraparound and
+  // fetch_payload turns into a strnlen bounded by SIZE_MAX-1 past the end of
+  // the buffer.
+  static size_type get_payload_length(const size_type packet_length) {
+    if (packet_length < sizeof(data::packet_v2)) {
+      return 0;
+    }
+    return (packet_length - sizeof(data::packet_v2)) / sizeof(char);
+  }
 };
 
 class nrpe_exception : public std::exception {
@@ -94,7 +108,15 @@ class packet /*: public boost::noncopyable*/ {
     copy(buffer.begin(), buffer.end(), tmp.begin());
     readFrom(tmp.data(), buffer.size());
   };
-  packet(const char* buffer, const std::size_t buffer_length) : payload_length_(length::get_payload_length(buffer_length)) { readFrom(buffer, buffer_length); };
+  packet(const char* buffer, const std::size_t buffer_length) : payload_length_(length::get_payload_length(buffer_length)) {
+    // The payload length is derived from the buffer length, so a buffer that
+    // cannot even hold the fixed v2 header has to be rejected here rather
+    // than relying on the callers never producing one.
+    if (buffer_length < sizeof(data::packet_v2)) {
+      throw nrpe_exception("Packet too short: " + str::xtos(buffer_length) + " < " + str::xtos(sizeof(data::packet_v2)));
+    }
+    readFrom(buffer, buffer_length);
+  };
   packet(short type, short version, int16_t result, std::string payLoad, std::size_t payload_length)
       : payload_length_(payload_length), type_(type), version_(version), result_(result), payload_(payLoad), crc32_(0), calculatedCRC32_(0) {}
   packet() : payload_length_(length::get_payload_length()), type_(data::unknownPacket), version_(data::version2), result_(0), crc32_(0), calculatedCRC32_(0) {}
@@ -205,11 +227,11 @@ class packet /*: public boost::noncopyable*/ {
       throw nrpe_exception("No buffer.");
     }
     if (length < length::get_min_header_length()) {
-      throw nrpe_exception("Packet to short to determine version: " + str::xtos(length) + " < " + str::xtos(length::get_min_header_length()));
+      throw nrpe_exception("Packet too short to determine version: " + str::xtos(length) + " < " + str::xtos(length::get_min_header_length()));
     }
     const auto p = reinterpret_cast<const data::packet_header*>(buffer);
     int version = boost::endian::big_to_native(p->packet_version);
-    if (version == 3 || version == 4) {
+    if (version == data::version3 || version == data::version4) {
       readFromV3(buffer, length);
     } else {
       readFromV2(buffer, length);
@@ -246,8 +268,14 @@ class packet /*: public boost::noncopyable*/ {
   }
 
   void readFromV3(const char* buffer, const std::size_t length) {
-    if (length < length::get_packet_length_v3(0)) {
-      throw nrpe_exception("Invalid packet length: " + str::xtos(length) + " < " + str::xtos(length::get_packet_length_v3(0)));
+    // The fixed header is buffer_offset_v3 bytes; whether the packet must be
+    // longer than that depends on the version, which we can only read once
+    // the header is there. v3 counts the three trailing alignment bytes as
+    // part of the packet, v4 does not - so the version-specific minimum is
+    // enforced further down via source_data_length, and an empty v4 payload
+    // (exactly buffer_offset_v3 bytes on the wire) is legal.
+    if (length < data::buffer_offset_v3) {
+      throw nrpe_exception("Invalid packet length: " + str::xtos(length) + " < " + str::xtos(data::buffer_offset_v3));
     }
 
     auto p = reinterpret_cast<const data::packet_v3*>(buffer);
@@ -256,7 +284,7 @@ class packet /*: public boost::noncopyable*/ {
       throw nrpe_exception("Invalid packet type: " + str::xtos(type_));
     }
     version_ = boost::endian::big_to_native(p->packet_version);
-    if (version_ != 3 && version_ != 4) {
+    if (version_ != data::version3 && version_ != data::version4) {
       throw nrpe_exception("Invalid packet version: " + str::xtos(version_));
     }
     const int32_t raw_payload_length = boost::endian::big_to_native(p->buffer_length);
@@ -267,7 +295,8 @@ class packet /*: public boost::noncopyable*/ {
     if (payload_length > 1024 * 1024) {
       throw nrpe_exception("Invalid packet length specified: " + str::xtos(payload_length));
     }
-    const std::size_t source_data_length = version_ == 4 ? length::get_packet_length_v4(payload_length) : length::get_packet_length_v3(payload_length);
+    const std::size_t source_data_length =
+        version_ == data::version4 ? length::get_packet_length_v4(payload_length) : length::get_packet_length_v3(payload_length);
     if (length < source_data_length) {
       throw nrpe_exception("Invalid packet length: " + str::xtos(length) + " != " + str::xtos(source_data_length));
     }
@@ -285,7 +314,13 @@ class packet /*: public boost::noncopyable*/ {
     }
     // Verify CRC32 end
     result_ = boost::endian::big_to_native(p->result_code);
-    payload_ = fetch_payload(p, length);
+    // Bound the payload by the length the packet declares - the same region
+    // the checksum above covers - not by how many bytes happened to arrive.
+    // The server parser buffers a whole v2 packet worth of bytes before the
+    // version is known, so a short v3/v4 packet can be followed in that same
+    // buffer by trailing bytes no checksum protects; reading to the end of
+    // the buffer turned those into the command NRPE went on to dispatch.
+    payload_ = fetch_payload(p, data::buffer_offset_v3 + payload_length);
   }
 
   unsigned short getVersion() const { return version_; }

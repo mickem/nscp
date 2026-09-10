@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <boost/thread/locks.hpp>
+#include <boost/thread/shared_mutex.hpp>
 #include <NSCAPI.h>
 
 #include <boost/optional.hpp>
@@ -146,6 +148,10 @@ struct script_manager {
   typedef std::map<std::string, command_definition<script_trait> > command_list_type;
   script_list_type scripts_;
   command_list_type commands;
+  // Held shared across a dispatch (find_command through the script's run),
+  // unique while scripts are added, registered or unloaded, so unload_all
+  // cannot delete a script a query is still executing.
+  mutable boost::shared_mutex mutex_;
 
  public:
   script_manager(std::shared_ptr<script_runtime_interface<script_trait> > script_runtime_, std::shared_ptr<nscp_runtime_interface> nscp_runtime, int plugin_id,
@@ -160,7 +166,10 @@ struct script_manager {
     info->script_alias = alias;
     info->script_id = script_id++;
     script_runtime->create_user_data(info);
-    scripts_[info->script_id] = info;
+    {
+      boost::unique_lock<boost::shared_mutex> lock(mutex_);
+      scripts_[info->script_id] = info;
+    }
     return info;
   }
 
@@ -183,7 +192,9 @@ struct script_manager {
     }
   }
   void unload_all() {
-    // TODO: locked
+    boost::unique_lock<boost::shared_mutex> lock(mutex_);
+    // The command map points at the scripts deleted below.
+    commands.clear();
     for (typename script_list_type::value_type &entry : scripts_) {
       script_information<script_trait> *info = entry.second;
       script_runtime->unload(info);
@@ -191,10 +202,11 @@ struct script_manager {
     }
     scripts_.clear();
   }
+  boost::shared_mutex &dispatch_mutex() const { return mutex_; }
 
   void register_command(script_information<script_trait> *information, const std::string type, const std::string &command, const std::string &description,
                         typename script_trait::function_type function) {
-    // TODO: locked
+    boost::unique_lock<boost::shared_mutex> lock(mutex_);
     command_definition<script_trait> cmd(information);
     cmd.function = function;
     cmd.command = command;
@@ -203,8 +215,9 @@ struct script_manager {
     nscp_runtime->register_command(type, command, description);
   }
 
-  boost::optional<command_definition<script_trait> > find_command(std::string type, std::string command) {
-    // TODO: locked
+  // Callers that go on to run the command hold dispatch_mutex() shared for
+  // the duration; the lookup itself is safe on its own.
+  boost::optional<command_definition<script_trait> > find_command(std::string type, std::string command) const {
     typename command_list_type::const_iterator it = commands.find(type + "$$" + command);
     if (it == commands.end()) {
       return boost::optional<command_definition<script_trait> >();

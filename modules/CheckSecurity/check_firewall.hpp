@@ -75,9 +75,9 @@ inline policy_override pick_policy_override(const policy_override &modern, const
 inline void apply_policy_override(firewall_filter::filter_obj &obj, const policy_override &gp) {
   if (!gp.any()) return;
   obj.policy = "group policy";
-  if (gp.enabled) obj.enabled = *gp.enabled ? 1 : 0;
-  if (gp.inbound_block) obj.inbound = *gp.inbound_block ? "block" : "allow";
-  if (gp.outbound_block) obj.outbound = *gp.outbound_block ? "block" : "allow";
+  if (gp.enabled) obj.enabled = gp.enabled.value() ? 1 : 0;
+  if (gp.inbound_block) obj.inbound = gp.inbound_block.value() ? "block" : "allow";
+  if (gp.outbound_block) obj.outbound = gp.outbound_block.value() ? "block" : "allow";
 }
 }  // namespace firewall_source
 

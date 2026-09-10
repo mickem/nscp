@@ -24,6 +24,7 @@
 #include <parsers/where/helpers.hpp>
 #include <set>
 #include <str/format.hpp>
+#include <str/saturate.hpp>
 #include <str/xtos.hpp>
 #include <utility>
 #include <vector>
@@ -339,7 +340,7 @@ parsers::where::node_type calculate_total_used(std::shared_ptr<filter_obj> objec
   } else {
     number = str::format::decode_byte_units(number, unit);
   }
-  return parsers::where::factory::create_int(static_cast<long long>(number));
+  return parsers::where::factory::create_int(str::to_int64_saturating(number));
 }
 
 parsers::where::node_type calculate_user_used(std::shared_ptr<filter_obj> object, parsers::where::evaluation_context context,
@@ -352,7 +353,7 @@ parsers::where::node_type calculate_user_used(std::shared_ptr<filter_obj> object
   } else {
     number = str::format::decode_byte_units(number, unit);
   }
-  return parsers::where::factory::create_int(static_cast<long long>(number));
+  return parsers::where::factory::create_int(str::to_int64_saturating(number));
 }
 
 parsers::where::node_type convert_type(std::shared_ptr<filter_obj>, parsers::where::evaluation_context context, parsers::where::node_type subject) {

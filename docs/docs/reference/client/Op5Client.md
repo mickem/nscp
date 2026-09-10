@@ -4,7 +4,7 @@ Client for connecting nativly to the Op5 Nortbound API
 
 ## Enable module
 
-To enable this module and and allow using the commands you need to ass `Op5Client = enabled` to the `[/modules]` section in nsclient.ini:
+To enable this module and allow using the commands you need to add `Op5Client = enabled` to the `[/modules]` section in nsclient.ini:
 
 ```
 [/modules]

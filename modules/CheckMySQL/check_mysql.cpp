@@ -92,6 +92,7 @@ void check_with(const mysql_client::connection_info &defaults, const PB::Command
 
     const mysql_client::result status = run(STATUS_SQL);
     for (std::size_t i = 0; i < status.rows.size(); i++) {
+      if (status.rows[i].size() < 2) continue;  // never index a row narrower than expected
       const std::string name = status.get_string(i, 0);
       if (name == "Uptime") record->uptime = status.get_int(i, 1);
       if (name == "Threads_connected") record->threads_connected = status.get_int(i, 1);

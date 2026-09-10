@@ -1,0 +1,48 @@
+common:
+  info:
+    description: Loads and hosts plugins written for .NET (C#, F#, ...)
+    title: .NET plugins
+  paths:
+    /settings/dotnet:
+      info:
+        advanced: false
+        description: 'Section for the DotnetPlugins module: hosts modules written for .NET.'
+        subkey: false
+        title: DOTNET PLUGINS
+      keys:
+        factory class:
+          advanced: true
+          default_value: NSCP.Plugin.PluginFactory
+          description: Fully qualified name of the IPluginFactory implementation instantiated in a plugin
+            assembly unless the plugin overrides it.
+          sample: false
+          title: Default factory class
+        plugin path:
+          advanced: false
+          default_value: ${module-path}/dotnet
+          description: Folder holding NSCP.Core.dll (the managed plugin API shipped with NSClient++) and the
+            .NET plugin assemblies. Falls back to ${exe-path}/modules/dotnet when the folder does not exist.
+          sample: false
+          title: Plugin path
+        runtime path:
+          advanced: true
+          default_value: ''
+          description: Root folder of the .NET installation to host (the folder containing 'host/fxr'). Leave
+            empty to use DOTNET_ROOT, the registered install location or the platform's default install
+            folders.
+          sample: false
+          title: .NET runtime root
+    /settings/dotnet/plugins:
+      info:
+        advanced: false
+        description: 'Plugins to load: <alias> = <assembly> where <assembly> is a file in the plugin path (the
+          .dll extension is optional), an absolute path, ''enabled'' to load an assembly named after the alias,
+          or ''disabled'' to skip it. Set the factory class for one plugin under plugins/<alias> with the key
+          ''factory class''.'
+        subkey: true
+        title: .NET plugins
+module: DotnetPlugins
+namespace: generic
+platforms:
+- unix
+- windows

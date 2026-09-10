@@ -10,6 +10,7 @@
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/metrics.hpp>
 #include <string>
+#include <threads/stop_signal.hpp>
 #include <vector>
 #ifdef WIN32
 #include <win/wmi/wmi_query.hpp>
@@ -101,7 +102,13 @@ class disk_io_data {
   // False when nothing at all was collected: the source could not be read, or
   // querying it has been permanently disabled (see fetch_disk_io_). The
   // collector counts that as a failed fetch; throwing does the same.
-  bool fetch();
+  //
+  // `stop` is the collector's stop signal. On Windows the PerfDisk WMI
+  // queries watch it and, once it fires, abandon the query, store nothing
+  // and throw threads::stop_requested (which the collector treats as a
+  // shutdown, not a failure). Null runs the classic blocking queries. The
+  // Unix source is a /proc read that cannot stall, so it ignores the signal.
+  bool fetch(const threads::stop_signal *stop = nullptr);
   // True when the last fetch() stored a set of disks, even if it then failed.
   // A latency failure is deliberately partial - the rates are stored before
   // the error is raised - so the collector must not count it against the
@@ -125,12 +132,12 @@ class disk_io_data {
   // unavailable the check keeps reporting rates and only the latency fields
   // stay at 0 (fetch() logs and clears this on a permanent query failure).
   bool fetch_latency_ = true;
-  disks_type query_perf();
-  void apply_latency(disks_type &disks);
+  disks_type query_perf(HANDLE abort_event);
+  void apply_latency(disks_type &disks, HANDLE abort_event);
 #else
   // Previous raw /proc/diskstats counters (per device) + timestamp, used to
   // compute per-second rates from the cumulative counters (Unix).
-  std::map<std::string, std::vector<unsigned long long>> prev_raw_;
+  std::map<std::string, std::vector<unsigned long long> > prev_raw_;
   long long prev_time_ms_ = 0;
 #endif
 };

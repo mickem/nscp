@@ -173,7 +173,7 @@ find_package(
         ${NSCP_BOOST_PYTHON_VERSION}
 )
 find_package(Mkdocs)
-find_package(CSharp)
+find_package(Dotnet)
 
 if(WIN32)
     include(${BUILD_CMAKE_FOLDER}/wix.cmake)
@@ -289,17 +289,22 @@ if(Boost_FOUND)
 else(Boost_FOUND)
     message(STATUS " ! boost not found: BOOST_ROOT=${BOOST_ROOT}")
 endif(Boost_FOUND)
-if(CSHARP_FOUND)
-    if(WIN32)
-        message(STATUS " - CSharp found: ${CSHARP_TYPE} ${CSHARP_VERSION}")
-    else()
-        message(
-            STATUS
-            " - CSharp found: ${CSHARP_TYPE} ${CSHARP_VERSION} (but disabled sine it is not currently supported on non windows"
-        )
-    endif()
+# Handed to WiX (-dDotNet) so the MSI only lists the managed files when they
+# were actually built; the preprocessor compares strings, hence "true"/"false".
+set(NSCP_DOTNET_MANAGED "false")
+if(DOTNET_FOUND)
+    set(NSCP_DOTNET_MANAGED "true")
+    message(STATUS " - dotnet SDK found: ${DOTNET_VERSION} (${DOTNET_EXECUTABLE})")
+elseif(NOT NSCP_DOTNET)
+    message(
+        STATUS
+        " - dotnet SDK: disabled (NSCP_DOTNET=OFF), managed .NET plugin API not built"
+    )
 else()
-    message(STATUS " ! CSharp not found")
+    message(
+        STATUS
+        " ! dotnet SDK not found: managed .NET plugin API and C# sample not built"
+    )
 endif()
 # Report the resolved ZIP backend (computed above). libzip may be located
 # either via its CMake config package (imported target libzip::zip) or via

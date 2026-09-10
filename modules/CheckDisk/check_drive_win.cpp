@@ -18,6 +18,7 @@
 #include <parsers/where/format_functions.hpp>
 #include <parsers/where/helpers.hpp>
 #include <str/format.hpp>
+#include <str/saturate.hpp>
 #include <str/xtos.hpp>
 #include <utility>
 
@@ -335,7 +336,7 @@ parsers::where::node_type calculate_total_used(std::shared_ptr<filter_obj> objec
   } else {
     number = str::format::decode_byte_units(number, unit);
   }
-  return parsers::where::factory::create_int(static_cast<long long>(number));
+  return parsers::where::factory::create_int(str::to_int64_saturating(number));
 }
 
 parsers::where::node_type calculate_user_used(std::shared_ptr<filter_obj> object, parsers::where::evaluation_context context,
@@ -349,7 +350,7 @@ parsers::where::node_type calculate_user_used(std::shared_ptr<filter_obj> object
   } else {
     number = str::format::decode_byte_units(number, unit);
   }
-  return parsers::where::factory::create_int(static_cast<long long>(number));
+  return parsers::where::factory::create_int(str::to_int64_saturating(number));
 }
 int do_convert_type(const std::string &keyword) {
   if (keyword == "fixed") return DRIVE_FIXED;
@@ -612,7 +613,7 @@ class volume_helper {
     DWORD maximumComponentLength, fileSystemFlags;
     type = 0;
     std::wstring vfile = volume;
-    if (vfile[vfile.size() - 1] == '\\') vfile = vfile.substr(0, vfile.size() - 1);
+    if (!vfile.empty() && vfile.back() == L'\\') vfile.pop_back();
 
     HANDLE hDevice = CreateFile(vfile.c_str(), 0, 0, 0, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING, 0);
     if (hDevice != INVALID_HANDLE_VALUE) {
@@ -691,6 +692,7 @@ class volume_helper {
 
   bool GetVolumeNameForVolumeMountPoint(std::wstring volumeMountPoint, std::wstring &volumeName) {
     hlp::tchar_buffer buffer(1024);
+    if (ptrGetVolumeNameForVolumeMountPointW == nullptr) return false;
     if (ptrGetVolumeNameForVolumeMountPointW(volumeMountPoint.c_str(), buffer.get(), static_cast<DWORD>(buffer.size()))) {
       volumeName = buffer;
       return true;
@@ -718,7 +720,8 @@ class volume_helper {
       ret.push_back(volume);
       bFlag = FindNextVolumeMountPoint(hVol, volume);
     }
-    CloseHandle(hVol);
+    // A find handle is closed by its own close function, not CloseHandle.
+    FindVolumeMountPointClose(hVol);
     return ret;
   }
 
@@ -791,7 +794,9 @@ void find_all_drives(std::list<drive_container> &drives, std::vector<std::string
   const DWORD bufSize = GetLogicalDriveStrings(0, nullptr) + 5;
   const hlp::tchar_buffer buffer(bufSize);
 
-  if (GetLogicalDriveStrings(bufSize, buffer.get()) > 0) {
+  // A result at or past the buffer size is a required size, not a fill.
+  const DWORD filled = GetLogicalDriveStrings(bufSize, buffer.get());
+  if (filled > 0 && filled < bufSize) {
     for (std::size_t i = 0; i < buffer.size();) {
       std::wstring drv = buffer.get(i);
       if (drv.empty()) break;

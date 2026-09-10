@@ -6,7 +6,7 @@ Check status of your scheduled jobs.
 
 ## Enable module
 
-To enable this module and and allow using the commands you need to ass `CheckTaskSched = enabled` to the `[/modules]` section in nsclient.ini:
+To enable this module and allow using the commands you need to add `CheckTaskSched = enabled` to the `[/modules]` section in nsclient.ini:
 
 ```
 [/modules]

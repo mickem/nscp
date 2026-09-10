@@ -3,6 +3,12 @@
 
 #pragma once
 
+#include <atomic>
+#include <boost/thread/locks.hpp>
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/condition_variable.hpp>
+#include <boost/thread/thread.hpp>
+#include <set>
 #include <NSCAPI.h>
 
 #include <boost/algorithm/string.hpp>
@@ -29,6 +35,40 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
   ::dll::dll_impl module_;
   bool loaded_;
   bool loading_;
+  // A reference count of the calls currently inside the module, not a
+  // reader/writer lock. Dispatches never block each other, and never block
+  // behind a pending unload: boost::shared_mutex is writer-preferring, so a
+  // queued unload stalled every new dispatch - and a module re-entering itself
+  // through the core (check_multi calling check_always_ok, a script querying a
+  // command its own module serves) deadlocked against its own outer read lock.
+  // The count is kept as the multiset of dispatching threads because
+  // unload_plugin needs one thing a plain counter cannot give it: whether the
+  // calls in flight are only its own, which is the case when a handler unloads
+  // the module it is itself running in.
+  mutable boost::mutex dispatch_mutex_;
+  boost::condition_variable dispatch_idle_;
+  std::multiset<boost::thread::id> dispatchers_;
+  // Set by unload_plugin before it waits: no dispatch may enter after it.
+  bool unloading_ = false;
+
+  // Registers this thread as being inside the module for as long as it lives.
+  // Never blocks. Entering is refused once an unload has started, which the
+  // entry points check through entered().
+  class dispatch_lock {
+    dll_plugin &owner_;
+    bool entered_;
+
+   public:
+    explicit dispatch_lock(dll_plugin &owner);
+    ~dispatch_lock();
+    bool entered() const { return entered_; }
+    dispatch_lock(const dispatch_lock &) = delete;
+    dispatch_lock &operator=(const dispatch_lock &) = delete;
+  };
+  // Set once unload_plugin has run; nothing is delivered to the module after.
+  // Atomic because handleMessage reads it off the logger path without the
+  // dispatch lock (see dll_plugin.cpp for why it cannot take one).
+  std::atomic<bool> unloaded_{false};
   bool broken_;
   bool started_;
 

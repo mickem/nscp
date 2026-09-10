@@ -40,7 +40,7 @@ unsigned long long file_filter::filter_obj::get_type() const { return is_dir_ ? 
 std::string file_filter::filter_obj::get_type_su() const { return is_dir_ ? "dir" : "file"; }
 
 unsigned long file_filter::filter_obj::get_line_count() {
-  if (cached_count) return *cached_count;
+  if (cached_count) return cached_count.value();
   unsigned long count = 0;
   FILE *pFile = fopen((path / filename).string().c_str(), "r");
   if (pFile != nullptr) {
@@ -115,7 +115,7 @@ std::string file_filter::filter_obj::get_md5() {
     cached_md5 = std::string();
 #endif
   }
-  return *cached_md5;
+  return cached_md5.value();
 }
 std::string file_filter::filter_obj::get_sha1() {
   if (!cached_sha1) {
@@ -125,7 +125,7 @@ std::string file_filter::filter_obj::get_sha1() {
     cached_sha1 = std::string();
 #endif
   }
-  return *cached_sha1;
+  return cached_sha1.value();
 }
 std::string file_filter::filter_obj::get_sha256() {
   if (!cached_sha256) {
@@ -135,7 +135,7 @@ std::string file_filter::filter_obj::get_sha256() {
     cached_sha256 = std::string();
 #endif
   }
-  return *cached_sha256;
+  return cached_sha256.value();
 }
 std::string file_filter::filter_obj::get_sha384() {
   if (!cached_sha384) {
@@ -145,7 +145,7 @@ std::string file_filter::filter_obj::get_sha384() {
     cached_sha384 = std::string();
 #endif
   }
-  return *cached_sha384;
+  return cached_sha384.value();
 }
 std::string file_filter::filter_obj::get_sha512() {
   if (!cached_sha512) {
@@ -155,7 +155,7 @@ std::string file_filter::filter_obj::get_sha512() {
     cached_sha512 = std::string();
 #endif
   }
-  return *cached_sha512;
+  return cached_sha512.value();
 }
 
 std::shared_ptr<file_filter::filter_obj> file_filter::filter_obj::create(const boost::filesystem::path &dir, const std::string &name, unsigned long long size,

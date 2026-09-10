@@ -79,7 +79,7 @@ struct mock_native_context : object_factory_interface {
   bool debug_enabled_ = false;
 
   bool has_object() { return static_cast<bool>(object_); }
-  mock_object get_object() { return *object_; }
+  mock_object get_object() { return object_.value(); }
   void set_object(mock_object obj) { object_ = obj; }
   void remove_object() { object_.reset(); }
   void set_summary(mock_summary* s) { summary_ = s; }

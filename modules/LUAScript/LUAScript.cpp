@@ -3,6 +3,7 @@
 
 #include "LUAScript.h"
 
+#include <boost/thread/locks.hpp>
 #include <boost/program_options.hpp>
 #include <boost/smart_ptr/make_shared_object.hpp>
 #include <file_helpers.hpp>
@@ -86,8 +87,8 @@ bool LUAScript::loadScript(std::string alias, std::string file) {
       NSC_LOG_ERROR("Failed to find script: " + file);
       return false;
     }
-    NSC_DEBUG_MSG_STD("Adding script: " + ofile->string());
-    scripts_->add(alias, ofile->string());
+    NSC_DEBUG_MSG_STD("Adding script: " + ofile.value().string());
+    scripts_->add(alias, ofile.value().string());
     return true;
   } catch (...) {
     NSC_LOG_ERROR_EX("load script");
@@ -105,13 +106,19 @@ bool LUAScript::unloadModule() {
 
 void LUAScript::query_fallback(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                                const PB::Commands::QueryRequestMessage &request_message) {
-  boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts_->find_command(scripts::nscp::tags::query_tag, request.command());
+  // Hold our own reference and the shared dispatch lock for the whole call:
+  // an unload on another thread otherwise deletes the script (and its
+  // lua_State) while it runs.
+  const std::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts = scripts_;
+  if (!scripts) return nscapi::protobuf::functions::set_response_bad(*response, "Module is not loaded");
+  boost::shared_lock<boost::shared_mutex> dispatch(scripts->dispatch_mutex());
+  boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts->find_command(scripts::nscp::tags::query_tag, request.command());
   if (!cmd) {
-    cmd = scripts_->find_command(scripts::nscp::tags::simple_query_tag, request.command());
+    cmd = scripts->find_command(scripts::nscp::tags::simple_query_tag, request.command());
     if (!cmd) return nscapi::protobuf::functions::set_response_bad(*response, "Failed to find command: " + request.command());
-    return lua_runtime_->on_query(request.command(), cmd->information, cmd->function, true, request, response, request_message);
+    return lua_runtime_->on_query(request.command(), cmd.value().information, cmd.value().function, true, request, response, request_message);
   }
-  return lua_runtime_->on_query(request.command(), cmd->information, cmd->function, false, request, response, request_message);
+  return lua_runtime_->on_query(request.command(), cmd.value().information, cmd.value().function, false, request, response, request_message);
 }
 
 bool LUAScript::commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request,
@@ -187,7 +194,7 @@ void LUAScript::execute_script(const PB::Commands::ExecuteRequestMessage::Reques
     nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + file);
     return;
   }
-  scripts::script_information<lua::lua_traits> *info = scripts_->add("", ofile->string());
+  scripts::script_information<lua::lua_traits> *info = scripts_->add("", ofile.value().string());
   lua_runtime_->load(info);
   std::vector<std::string> opts(script_options.begin(), script_options.end());
   lua_runtime_->exec_main(info, opts, response);
@@ -195,13 +202,16 @@ void LUAScript::execute_script(const PB::Commands::ExecuteRequestMessage::Reques
 
 void LUAScript::handleNotification(const std::string &channel, const PB::Commands::QueryResponseMessage::Response &request,
                                    PB::Commands::SubmitResponseMessage::Response *response, const PB::Commands::SubmitRequestMessage &request_message) {
-  boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts_->find_command(scripts::nscp::tags::submit_tag, channel);
+  const std::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts = scripts_;
+  if (!scripts) return;
+  boost::shared_lock<boost::shared_mutex> dispatch(scripts->dispatch_mutex());
+  boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts->find_command(scripts::nscp::tags::submit_tag, channel);
   if (cmd) {
-    lua_runtime_->on_submit(channel, cmd->information, cmd->function, false, request, response);
+    lua_runtime_->on_submit(channel, cmd.value().information, cmd.value().function, false, request, response);
     return;
   }
-  cmd = scripts_->find_command(scripts::nscp::tags::simple_submit_tag, channel);
+  cmd = scripts->find_command(scripts::nscp::tags::simple_submit_tag, channel);
   if (cmd) {
-    lua_runtime_->on_submit(channel, cmd->information, cmd->function, true, request, response);
+    lua_runtime_->on_submit(channel, cmd.value().information, cmd.value().function, true, request, response);
   }
 }

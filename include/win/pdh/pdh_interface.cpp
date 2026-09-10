@@ -35,7 +35,7 @@ counter_info::counter_info(BYTE *lpBuffer, DWORD, const BOOL explainText) {
   lDefaultScale = info->lDefaultScale;
   dwUserData = info->dwUserData;
   dwQueryUserData = info->dwQueryUserData;
-  szFullPath = info->szFullPath;
+  if (info->szFullPath) szFullPath = info->szFullPath;
   if (info->szMachineName) szMachineName = info->szMachineName;
   if (info->szObjectName) szObjectName = info->szObjectName;
   if (info->szInstanceName) szInstanceName = info->szInstanceName;

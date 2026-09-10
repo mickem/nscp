@@ -102,6 +102,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/str/utf8_test.cpp
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
         ${NSCP_INCLUDEDIR}/str/constant_time_test.cpp
+        ${NSCP_INCLUDEDIR}/str/saturate_test.cpp
     LIBRARIES
         GTest::gtest_main
     INCLUDES

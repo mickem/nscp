@@ -156,19 +156,29 @@ std::vector<DWORD> find_crashed_pids(error_reporter *error_interface) {
 }
 
 void nscpGetCommandLine(const HANDLE hProcess, const LPVOID pebAddress, process_info &entry) {
-  windows::winapi::UNICODE_STRING commandLine;
-  LPVOID rtlUserProcParamsAddress;
+  windows::winapi::UNICODE_STRING commandLine = {};
+  LPVOID rtlUserProcParamsAddress = nullptr;
+  // Each failed read leaves its target unset: report and stop, or the next
+  // read dereferences an address that was never filled in.
 #ifdef _WIN64
-  if (!ReadProcessMemory(hProcess, static_cast<PCHAR>(pebAddress) + 0x20, &rtlUserProcParamsAddress, sizeof(LPVOID), nullptr))
+  if (!ReadProcessMemory(hProcess, static_cast<PCHAR>(pebAddress) + 0x20, &rtlUserProcParamsAddress, sizeof(LPVOID), nullptr)) {
     entry.set_error("Could not read the address of ProcessParameters: " + error::lookup::last_error());
-  if (!ReadProcessMemory(hProcess, static_cast<PCHAR>(rtlUserProcParamsAddress) + 0x70, &commandLine, sizeof(commandLine), nullptr))
+    return;
+  }
+  if (!ReadProcessMemory(hProcess, static_cast<PCHAR>(rtlUserProcParamsAddress) + 0x70, &commandLine, sizeof(commandLine), nullptr)) {
     entry.set_error("Could not read command line: " + error::lookup::last_error());
+    return;
+  }
 #else
   if (!entry.wow64) return;
-  if (!ReadProcessMemory(hProcess, (PCHAR)pebAddress + 0x10, &rtlUserProcParamsAddress, sizeof(LPVOID), NULL))
+  if (!ReadProcessMemory(hProcess, (PCHAR)pebAddress + 0x10, &rtlUserProcParamsAddress, sizeof(LPVOID), NULL)) {
     entry.set_error("Could not read the address of ProcessParameters: " + error::lookup::last_error());
-  if (!ReadProcessMemory(hProcess, (PCHAR)rtlUserProcParamsAddress + 0x40, &commandLine, sizeof(commandLine), NULL))
+    return;
+  }
+  if (!ReadProcessMemory(hProcess, (PCHAR)rtlUserProcParamsAddress + 0x40, &commandLine, sizeof(commandLine), NULL)) {
     entry.set_error("Could not read command line: " + error::lookup::last_error());
+    return;
+  }
 #endif
 
   /* allocate memory to hold the command line */
@@ -360,7 +370,8 @@ process_info describe_pid(DWORD pid, bool deep_scan, bool ignore_unreadable, boo
   if (EnumProcessModules(handle, &hMod, sizeof(hMod), &size)) {
     TCHAR buffer2[MAX_FILENAME + 1];
     if (!GetModuleFileNameEx(handle, hMod, reinterpret_cast<LPTSTR>(&buffer2), MAX_FILENAME)) {
-      CloseHandle(handle);
+      // The RAII wrapper owns `handle`; closing it here as well closed a
+      // value the kernel may already have reissued.
       throw nsclient::nsclient_exception("Failed to find name for: " + str::xtos(pid) + ": " + error::lookup::last_error());
     } else {
       std::wstring path = buffer2;

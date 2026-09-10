@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <memory>
 #include <boost/scoped_ptr.hpp>
 #include <lua/lua_core.hpp>
 #include <lua/lua_script.hpp>
@@ -13,7 +14,8 @@
 
 class LUAScript : public nscapi::impl::simple_plugin {
  private:
-  boost::scoped_ptr<scripts::script_manager<lua::lua_traits> > scripts_;
+  // Shared so a dispatch can hold its own reference across unloadModule.
+  std::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts_;
   std::shared_ptr<lua::lua_runtime> lua_runtime_;
   std::shared_ptr<scripts::nscp::nscp_runtime_impl> nscp_runtime_;
   boost::filesystem::path root_;

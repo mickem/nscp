@@ -13,7 +13,7 @@ on:
       - 'docs/hooks/**'
       - 'docs/docs/setup/upgrading.md'
       - 'docs/docs/security/notices.md'
-      - '.github/workflows/docs-upgrade-notes.yml'
+      - '.github/workflows/docs-notes.yml'
   pull_request:
     paths:
       - 'docs/upgrades/**'
@@ -21,10 +21,15 @@ on:
       - 'docs/hooks/**'
       - 'docs/docs/setup/upgrading.md'
       - 'docs/docs/security/notices.md'
-      - '.github/workflows/docs-upgrade-notes.yml'
+      - '.github/workflows/docs-notes.yml'
 
 permissions:
   contents: read
+
+# A new push supersedes this run; do not let it finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:

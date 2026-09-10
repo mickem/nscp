@@ -66,7 +66,7 @@ class engine {
   void encrypt_buffer(std::string &buffer);
   /* encrypt a buffer */
   void decrypt_buffer(std::string &buffer);
-  std::string get_rand_buffer(int length);
+  std::string get_rand_buffer(std::size_t length);
   std::string to_string() const {
     if (core_ == NULL) return "<NULL>";
     std::stringstream ss;

@@ -162,6 +162,10 @@ bool nsclient::core::zip_plugin::load_plugin(NSCAPI::moduleLoadMode) {
       continue;
     }
 
+    if (args.empty()) {
+      LOG_ERROR_CORE("Empty on_start command in " + get_alias_or_name());
+      continue;
+    }
     const std::string command = args.front();
     args.erase(args.begin());
     plugins_->simple_exec(command, args, ret);

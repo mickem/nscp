@@ -116,14 +116,14 @@ struct eval_helper {
   eval_helper(const evaluation_context &context, const node_type &left, const node_type &right)
       : left(left), right(right), context(context), ltype(left->get_type()), rtype(right->get_type()) {}
   value_container get_lhs() {
-    if (lhs) return *lhs;
+    if (lhs) return lhs.value();
     lhs.reset(left->get_value(context, type_int));
-    return *lhs;
+    return lhs.value();
   }
   value_container get_rhs() {
-    if (rhs) return *rhs;
+    if (rhs) return rhs.value();
     rhs.reset(right->get_value(context, type_int));
-    return *rhs;
+    return rhs.value();
   }
 };
 struct simple_int_binary_operator_impl : binary_operator_impl {
@@ -553,9 +553,9 @@ struct function_convert : binary_function_impl {
       context->error("no arguments for convert(): " + subject->to_string());
       return std::make_shared<int_value>(0, /*is_unsure=*/true);
     }
-    node_type v = *value;
+    node_type v = value.value();
     if (unit) {
-      const node_type u = *unit;
+      const node_type u = unit.value();
       if (type == type_date) {
         const std::string unit_s = u->get_string_value(context);
         if (v->is_float()) {

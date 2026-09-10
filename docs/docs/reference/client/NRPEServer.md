@@ -8,7 +8,7 @@ See the [Getting Started](https://nsclient.org/docs/getting-started/) guide for 
 
 ## Enable module
 
-To enable this module and and allow using the commands you need to ass `NRPEServer = enabled` to the `[/modules]` section in nsclient.ini:
+To enable this module and allow using the commands you need to add `NRPEServer = enabled` to the `[/modules]` section in nsclient.ini:
 
 ```
 [/modules]

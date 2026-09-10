@@ -101,9 +101,10 @@ class patterns {
     }
 
     std::string spath = path.string();
-    std::string::size_type pos = spath.find_last_of('\\');
+    // Either separator: a forward-slash path otherwise reached substr(npos + 1).
+    std::string::size_type pos = spath.find_last_of("\\/");
     if (pos == std::string::npos) {
-      pattern_type(spath, fs::path("*.*"));
+      return pattern_type(spath, fs::path("*.*"));
     }
     return pattern_type(spath.substr(0, pos), spath.substr(pos + 1));
   }

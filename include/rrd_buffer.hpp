@@ -34,7 +34,10 @@ struct rrd_buffer {
   }
   value_type get_average(long time) const {
     value_type ret;
+    // A negative window is nonsense: keep reporting the zero-initialised value.
     if (time < 0) return ret;
+    // A zero-second window has no samples to average; report the newest one.
+    if (time == 0) time = 1;
     if (static_cast<size_t>(time) <= seconds.size()) {
       for (typename list_type::const_iterator cit = seconds.end() - time; cit != seconds.end(); ++cit) {
         ret.add(*cit);

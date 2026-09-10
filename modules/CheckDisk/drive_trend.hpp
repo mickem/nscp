@@ -9,6 +9,8 @@
 // human renderings. The platform files own the filter_obj and keyword
 // registration; everything here is pure and unit-testable.
 
+#include <limits>
+#include <str/saturate.hpp>
 #include <algorithm>
 #include <boost/optional.hpp>
 #include <cctype>
@@ -65,7 +67,7 @@ inline const trend::trend_buffer *lookup_win(const trend_map &trends, const std:
 // The signed growth rate in bytes/day, or nothing while no trend exists.
 inline boost::optional<long long> rate_per_day(const trend::slope_result &r) {
   if (!r.valid) return boost::none;
-  return static_cast<long long>(r.slope * static_cast<double>(seconds_per_day));
+  return str::to_int64_saturating(r.slope * static_cast<double>(seconds_per_day));
 }
 
 // Seconds until full projected from the *current* free space (not the
@@ -88,8 +90,8 @@ struct total_values {
 
   void append(const boost::optional<long long> &other_full_in, const boost::optional<long long> &other_rate, const long long other_span,
               const long long other_samples) {
-    if (other_full_in && (!full_in || *other_full_in < *full_in)) full_in = other_full_in;
-    if (other_rate) rate = rate.get_value_or(0) + *other_rate;
+    if (other_full_in && (!full_in || other_full_in.value() < full_in.value())) full_in = other_full_in;
+    if (other_rate) rate = rate.get_value_or(0) + other_rate.value();
     span = (std::max)(span, other_span);
     samples += other_samples;
   }
@@ -97,13 +99,14 @@ struct total_values {
 
 inline std::string format_full_in(const boost::optional<long long> &v) {
   if (!v) return "never";
-  return str::format::itos_as_time(static_cast<unsigned long long>(*v < 0 ? 0 : *v) * 1000);
+  return str::format::itos_as_time(static_cast<unsigned long long>(v.value() < 0 ? 0 : v.value()) * 1000);
 }
 
 inline std::string format_rate(const boost::optional<long long> &v, const str::number_format &fmt = str::number_format()) {
   if (!v) return "unknown";
-  if (*v < 0) return "-" + str::format::format_byte_units(-*v, fmt) + "/day";
-  return str::format::format_byte_units(*v, fmt) + "/day";
+  // Negate through the clamp: -LLONG_MIN is undefined behaviour.
+  if (v.value() < 0) return "-" + str::format::format_byte_units(v.value() == (std::numeric_limits<long long>::min)() ? (std::numeric_limits<long long>::max)() : -v.value(), fmt) + "/day";
+  return str::format::format_byte_units(v.value(), fmt) + "/day";
 }
 
 // Duration literal ("12h", or the tokenized [12, h] list form) to seconds, as

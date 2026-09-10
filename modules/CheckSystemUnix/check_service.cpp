@@ -3,12 +3,16 @@
 
 #include "check_service.h"
 
+#include <poll.h>
+#include <csignal>
+#include <cerrno>
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 
 #include <array>
+#include <chrono>
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
 #include <cstdio>
@@ -62,6 +66,14 @@ std::string exec_command(const std::vector<std::string> &argv) {
   int pipefd[2];
   if (pipe(pipefd) == -1) return "";
 
+  // Build argv before fork(): a heap allocation in the child can block on a
+  // lock another thread held at fork time, and the parent then blocks in
+  // read() for good.
+  std::vector<char *> cargv;
+  cargv.reserve(argv.size() + 1);
+  for (const auto &a : argv) cargv.push_back(const_cast<char *>(a.c_str()));
+  cargv.push_back(nullptr);
+
   const pid_t pid = fork();
   if (pid == -1) {
     close(pipefd[0]);
@@ -79,11 +91,7 @@ std::string exec_command(const std::vector<std::string> &argv) {
     }
     close(pipefd[1]);
 
-    std::vector<char *> cargv;
-    cargv.reserve(argv.size() + 1);
-    for (const auto &a : argv) cargv.push_back(const_cast<char *>(a.c_str()));
-    cargv.push_back(nullptr);
-
+    // Only async-signal-safe calls between fork() and exec().
     execvp(cargv[0], cargv.data());
     _exit(127);
   }
@@ -91,13 +99,38 @@ std::string exec_command(const std::vector<std::string> &argv) {
   close(pipefd[1]);
   std::array<char, 4096> buffer{};
   std::string result;
-  ssize_t n;
-  while ((n = read(pipefd[0], buffer.data(), buffer.size())) > 0) {
+  // Bounded wait: a child that never exits (or never closes its stdout) must
+  // not hang the check forever. The bound is an absolute deadline, not a fresh
+  // timeout handed to every poll() - a child trickling one byte at a time reset
+  // the budget on each iteration and was never killed.
+  const int timeout_ms = 30000;
+  const std::chrono::steady_clock::time_point deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
+  bool timed_out = false;
+  for (;;) {
+    const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+    if (now >= deadline) {
+      timed_out = true;
+      break;
+    }
+    struct pollfd pfd;
+    pfd.fd = pipefd[0];
+    pfd.events = POLLIN;
+    pfd.revents = 0;
+    const int ready = poll(&pfd, 1, static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count()));
+    if (ready < 0 && errno == EINTR) continue;
+    if (ready <= 0) {
+      timed_out = true;
+      break;
+    }
+    const ssize_t n = read(pipefd[0], buffer.data(), buffer.size());
+    if (n < 0 && errno == EINTR) continue;
+    if (n <= 0) break;
     result.append(buffer.data(), static_cast<size_t>(n));
   }
   close(pipefd[0]);
 
   int status = 0;
+  if (timed_out) kill(pid, SIGKILL);
   waitpid(pid, &status, 0);
   return result;
 }

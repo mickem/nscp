@@ -62,7 +62,7 @@ void cpu_frequency::read_wmi(const wmi_impl::row &r) {
   l3_cache = r.get_int_opt("L3CacheSize").value_or(0) * 1024;
   const boost::optional<long long> arch = r.get_int_opt("Architecture");
   // Cannot default to 0 here: 0 is a valid value (x86).
-  architecture = arch ? architecture_to_string(*arch) : "unknown";
+  architecture = arch ? architecture_to_string(arch.value()) : "unknown";
 }
 
 std::string cpu_frequency::get_l2_cache_human(parsers::where::evaluation_context context) const {
@@ -80,14 +80,14 @@ void cpu_frequency::build_metrics(PB::Metrics::MetricsBundle *section) const {
   add_metric(section, name + ".cores", number_of_cores);
   add_metric(section, name + ".logical_processors", number_of_logical_processors);
   // No fabricated 0 when WMI had no load sample this cycle: absent is absent.
-  if (load_pct) add_metric(section, name + ".load_pct", *load_pct);
+  if (load_pct) add_metric(section, name + ".load_pct", load_pct.value());
   add_metric(section, name + ".l2_cache", l2_cache);
   add_metric(section, name + ".l3_cache", l3_cache);
 }
 
-cpus_type cpu_frequency_data::query_wmi() {
+cpus_type cpu_frequency_data::query_wmi(HANDLE abort_event) {
   wmi_impl::query wmi_q(helper::query, helper::ns, "", "");
-  wmi_impl::row_enumerator row = wmi_q.execute();
+  wmi_impl::row_enumerator row = wmi_q.execute(abort_event);
   cpus_type cpus;
   while (row.has_next()) {
     const wmi_impl::row r = row.get_next();
@@ -98,11 +98,11 @@ cpus_type cpu_frequency_data::query_wmi() {
   return cpus;
 }
 
-void cpu_frequency_data::fetch() {
+void cpu_frequency_data::fetch(const threads::stop_signal *stop) {
   if (!fetch_cpu_frequency_) return;
 
   try {
-    const cpus_type tmp = query_wmi();
+    const cpus_type tmp = query_wmi(stop != nullptr ? stop->native_handle() : nullptr);
     const boost::unique_lock<boost::shared_mutex> write_lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
     if (!write_lock.owns_lock()) throw nsclient::nsclient_exception("Failed to get mutex for writing CPU frequency data");
     cpus_ = tmp;

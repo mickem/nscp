@@ -73,7 +73,7 @@ class CheckMemory {
   }
 
   memData getMemoryStatus() {
-    memData ret;
+    memData ret = {};
     if (method_ == CheckMemMethod::Extended) {
       MEMORYSTATUSEX buffer;
       buffer.dwLength = sizeof(buffer);

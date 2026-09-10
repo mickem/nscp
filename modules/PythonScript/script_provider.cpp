@@ -44,7 +44,7 @@ void script_provider::add_command(std::string script_alias, std::string script, 
       get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to find script: " + script);
       return;
     }
-    std::string script_file = ofile->string();
+    std::string script_file = ofile.value().string();
     get_core()->log(NSCAPI::log_level::debug, __FILE__, __LINE__, "Adding script: " + script_alias + " (" + script_file + ")");
 
     std::shared_ptr<python_script> instance = std::make_shared<python_script>(get_id(), root_.string(), plugin_alias, script_alias, script_file);

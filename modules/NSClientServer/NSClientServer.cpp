@@ -25,6 +25,18 @@ NSClientServer::NSClientServer() : noPerfData_(false), allowNasty_(false), allow
 NSClientServer::~NSClientServer() {}
 
 bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
+  // On a reload the io threads are still answering requests against the
+  // password and allow-list rewritten below: stop the listener first (as
+  // NRPEServer does) and start it again with the new settings.
+  try {
+    if (server_) {
+      server_->stop();
+      server_.reset();
+    }
+  } catch (...) {
+    NSC_LOG_ERROR_STD("Failed to stop server");
+    return false;
+  }
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("NSClient", alias, "server");
 
@@ -108,7 +120,7 @@ bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode
 
   boost::asio::io_context io_service_;
 
-  if (mode == NSCAPI::normalStart) {
+  if (mode != NSCAPI::dontStart) {
     try {
 #ifndef USE_SSL
       if (info_.use_ssl) {

@@ -22,6 +22,12 @@ nsclient.db
 *.pyc
 .venv
 
+# ─── .NET (only when a csproj is built outside CMake, which redirects these) ──
+libs/dotnet-plugin-api/obj
+libs/dotnet-plugin-api/bin
+modules/CSharpSamplePlugin/obj
+modules/CSharpSamplePlugin/bin
+
 # ─── Node ─────────────────────────────────────────────────────────────────────
 node_modules
 

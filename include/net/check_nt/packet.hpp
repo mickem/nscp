@@ -42,7 +42,6 @@ class packet /*: public boost::noncopyable*/ {
   std::string get_payload() const { return data_; }
 
   std::size_t get_packet_length() const { return data_.length(); }
-  boost::asio::const_buffer to_buffers() const { return boost::asio::buffer(get_buffer(), get_packet_length()); }
   std::string to_string() const {
     std::stringstream ss;
     ss << "data: " << data_;

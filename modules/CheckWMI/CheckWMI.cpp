@@ -108,7 +108,7 @@ void CheckWMI::check_wmi(const PB::Commands::QueryRequestMessage::Request &reque
   if (!given_target.empty()) {
     t = targets.find(given_target);
     if (t)
-      target_info.update_from(*t);
+      target_info.update_from(t.value());
     else
       target_info.hostname = given_target;
   }

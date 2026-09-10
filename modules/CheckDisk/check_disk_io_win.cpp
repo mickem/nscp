@@ -5,12 +5,12 @@
 // + GetDiskFreeSpaceEx). The metric builders / check logic are shared in
 // check_disk_io.cpp.
 
-#include "check_disk_io.hpp"
-
 #include <boost/thread/locks.hpp>
 #include <map>
 #include <nsclient/nsclient_exception.hpp>
 #include <utility>
+
+#include "check_disk_io.hpp"
 
 namespace disk_io_check {
 
@@ -55,9 +55,9 @@ void disk_io::read_wmi(const wmi_impl::row &r) {
   split_io_per_sec = r.get_int("SplitIOPerSec");
 }
 
-disks_type disk_io_data::query_perf() {
+disks_type disk_io_data::query_perf(HANDLE abort_event) {
   wmi_impl::query wmi_q(helper::perf_query, helper::perf_namespace, "", "");
-  wmi_impl::row_enumerator row = wmi_q.execute();
+  wmi_impl::row_enumerator row = wmi_q.execute(abort_event);
   disks_type disks;
   while (row.has_next()) {
     const wmi_impl::row r = row.get_next();
@@ -70,12 +70,12 @@ disks_type disk_io_data::query_perf() {
 
 // Latency from the raw counters: average time per I/O since the previous
 // sample. The first sample only seeds prev_raw_, leaving latencies at 0.
-void disk_io_data::apply_latency(disks_type &disks) {
+void disk_io_data::apply_latency(disks_type &disks, HANDLE abort_event) {
   std::map<std::string, disk_io *> by_name;
   for (disk_io &d : disks) by_name[d.name] = &d;
 
   wmi_impl::query raw_q(helper::raw_latency_query, helper::perf_namespace, "", "");
-  wmi_impl::row_enumerator raw_row = raw_q.execute();
+  wmi_impl::row_enumerator raw_row = raw_q.execute(abort_event);
   std::map<std::string, raw_latency_sample> current;
   while (raw_row.has_next()) {
     const wmi_impl::row r = raw_row.get_next();
@@ -101,13 +101,17 @@ void disk_io_data::apply_latency(disks_type &disks) {
   prev_raw_.swap(current);
 }
 
-bool disk_io_data::fetch() {
+bool disk_io_data::fetch(const threads::stop_signal *stop) {
   stored_data_ = false;
   if (!fetch_disk_io_) return false;
+  // A stop mid-query surfaces as wmi_impl::wmi_aborted, which is not a
+  // wmi_exception: it passes the handlers below untouched, so nothing is
+  // stored and the collector sees a threads::stop_requested.
+  const HANDLE abort_event = stop != nullptr ? stop->native_handle() : nullptr;
 
   disks_type disks;
   try {
-    disks = query_perf();
+    disks = query_perf(abort_event);
   } catch (const wmi_impl::wmi_exception &e) {
     if (e.get_code() == WBEM_E_INVALID_QUERY || e.get_code() == WBEM_E_NOT_FOUND) {
       fetch_disk_io_ = false;
@@ -120,7 +124,7 @@ bool disk_io_data::fetch() {
   // and report the problem; on a permanent error stop querying the raw class.
   if (fetch_latency_) {
     try {
-      apply_latency(disks);
+      apply_latency(disks, abort_event);
     } catch (const wmi_impl::wmi_exception &e) {
       if (e.get_code() == WBEM_E_INVALID_QUERY || e.get_code() == WBEM_E_NOT_FOUND) {
         fetch_latency_ = false;
@@ -192,7 +196,8 @@ bool disk_free_data::fetch() {
 
   char buf[512];
   const DWORD len = GetLogicalDriveStringsA(sizeof(buf) - 1, buf);
-  if (len == 0) return false;
+  // A result at or past the buffer size is a required size, not a fill.
+  if (len == 0 || len >= sizeof(buf) - 1) return false;
 
   for (const char *p = buf; *p; p += strlen(p) + 1) {
     std::string drive(p);

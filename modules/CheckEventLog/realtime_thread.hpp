@@ -27,6 +27,8 @@ struct real_time_thread {
   real_time_thread(nscapi::core_wrapper *core, int plugin_id) : core(core), plugin_id(plugin_id), enabled_(false), start_age_(0), debug_(false), cache_(false) {
     set_start_age("30m");
   }
+  // Join the monitor before the stop event and filters it uses are gone.
+  ~real_time_thread() { stop(); }
 
   void add_realtime_filter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
   void set_enabled(bool flag) { enabled_ = flag; }
@@ -43,6 +45,7 @@ struct real_time_thread {
   bool stop();
 
   void thread_proc();
+  void thread_proc_body();
   //	void process_events(eventlog_filter::filter_engine engine, eventlog_wrapper &eventlog);
   void process_no_events(const eventlog_filter::filter_config_object &object);
   void process_record(eventlog_filter::filter_config_object &object, const EventLogRecord &record);

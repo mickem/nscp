@@ -27,23 +27,29 @@
 #include <win/userenv.hpp>
 
 void kill_process_tree(const DWORD parent_pid) {
+  // The snapshot fails with INVALID_HANDLE_VALUE (ERROR_BAD_LENGTH under
+  // process churn), not NULL; closing that value terminates under strict
+  // handle checking. Without a snapshot the children cannot be found, but
+  // the parent below is still terminated.
   HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-  PROCESSENTRY32 entry;
-  entry.dwSize = sizeof(PROCESSENTRY32);
+  if (snapshot != INVALID_HANDLE_VALUE) {
+    PROCESSENTRY32 entry;
+    entry.dwSize = sizeof(PROCESSENTRY32);
 
-  if (Process32First(snapshot, &entry)) {
-    do {
-      if (entry.th32ParentProcessID == parent_pid) {
-        kill_process_tree(entry.th32ProcessID);  // Recursively kill children
-        HANDLE process = OpenProcess(PROCESS_TERMINATE, FALSE, entry.th32ProcessID);
-        if (process) {
-          TerminateProcess(process, 5);
-          CloseHandle(process);
+    if (Process32First(snapshot, &entry)) {
+      do {
+        if (entry.th32ParentProcessID == parent_pid) {
+          kill_process_tree(entry.th32ProcessID);  // Recursively kill children
+          HANDLE process = OpenProcess(PROCESS_TERMINATE, FALSE, entry.th32ProcessID);
+          if (process) {
+            TerminateProcess(process, 5);
+            CloseHandle(process);
+          }
         }
-      }
-    } while (Process32Next(snapshot, &entry));
+      } while (Process32Next(snapshot, &entry));
+    }
+    CloseHandle(snapshot);
   }
-  CloseHandle(snapshot);
 
   HANDLE process = OpenProcess(PROCESS_TERMINATE, FALSE, parent_pid);
   if (process) {

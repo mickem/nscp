@@ -12,7 +12,9 @@
 
 namespace perf_filter {
 struct filter_obj {
-  const PB::Common::PerformanceData &data;
+  // Owned, not referenced: remove-perf clears the response entries before
+  // warn/crit are evaluated in match_post().
+  PB::Common::PerformanceData data;
 
   filter_obj(const PB::Common::PerformanceData &data) : data(data) {}
 

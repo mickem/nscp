@@ -389,7 +389,7 @@ class settings_http : public settings::settings_interface_impl {
       std::string target = resolve_attachment_target(get_core(), k);
       op_string str = child->get_string("/attachments", k);
       if (!str) continue;
-      net::url source = parse_settings_url(*str);
+      net::url source = parse_settings_url(str.value());
       get_logger()->debug("settings", __FILE__, __LINE__, "Found attachment: " + source.to_log_safe_string() + " as " + target);
       cache_remote_file(source, target);
     }
