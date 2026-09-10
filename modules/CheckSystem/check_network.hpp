@@ -9,6 +9,7 @@
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/metrics.hpp>
 #include <string>
+#include <threads/stop_signal.hpp>
 #include <win/wmi/wmi_query.hpp>
 
 namespace network_check {
@@ -179,15 +180,18 @@ class network_data {
  public:
   network_data() : fetch_network_(true), last_(boost::posix_time::second_clock::local_time()) {}
 
-  void fetch();
+  // `stop` is the collector's stop signal: when it fires mid-query the WMI
+  // operation is abandoned, nothing is published and wmi_impl::wmi_aborted
+  // propagates to the caller. Null runs the classic blocking queries.
+  void fetch(const threads::stop_signal *stop = nullptr);
   nics_type get();
 
  private:
-  void query_nif(netmap_type &netmap);
-  void query_prd(netmap_type &netmap, long long delta, const std::string &query, bool allow_insert);
+  void query_nif(netmap_type &netmap, HANDLE abort_event);
+  void query_prd(netmap_type &netmap, long long delta, const std::string &query, bool allow_insert, HANDLE abort_event);
   // Best-effort: annotate entries in both maps with NIC-team membership. Never
   // throws — the LBFO provider is absent on many systems and that is not an error.
-  void query_team(netmap_type &if_netmap, netmap_type &ad_netmap);
+  void query_team(netmap_type &if_netmap, netmap_type &ad_netmap, HANDLE abort_event);
   bool fetch_team_ = true;
 };
 

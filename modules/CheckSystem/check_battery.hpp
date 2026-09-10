@@ -8,6 +8,7 @@
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/metrics.hpp>
 #include <string>
+#include <threads/stop_signal.hpp>
 
 namespace battery_check {
 
@@ -86,12 +87,14 @@ class battery_data final {
  public:
   battery_data() : fetch_battery_(true) {}
 
-  void fetch();
+  // `stop`: see network_data::fetch(); a stop mid-query abandons the WMI
+  // operation, publishes nothing and lets wmi_impl::wmi_aborted propagate.
+  void fetch(const threads::stop_signal *stop = nullptr);
   batteries_type get();
 
  private:
   static void query_power_status(batteries_type &batteries);
-  static void query_wmi_battery(batteries_type &batteries);
+  static void query_wmi_battery(batteries_type &batteries, HANDLE abort_event = nullptr);
 };
 
 namespace check {

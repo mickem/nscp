@@ -8,6 +8,7 @@
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/metrics.hpp>
 #include <string>
+#include <threads/stop_signal.hpp>
 #include <vector>
 
 namespace os_updates_check {
@@ -99,14 +100,25 @@ class os_updates_data final {
 
   // Issue a WUA search if the cache is older than the configured TTL.
   // Safe to call from the collector loop; no-op until TTL has elapsed.
-  void fetch();
+  //
+  // `stop` is the collector's stop signal: when it fires mid-search the
+  // in-flight WUA job is aborted, nothing is published and false is returned,
+  // so a shutdown never has to wait out a multi-minute search (#1504). Pass
+  // nullptr to run uninterruptibly. Returns true otherwise, including when the
+  // search failed (the failure is recorded in the published data's error).
+  bool fetch(const threads::stop_signal *stop = nullptr);
 
   // Force a search regardless of TTL. Used on the first collector tick and
-  // exposed for tests.
-  void force_fetch();
+  // exposed for tests. Same `stop` semantics and return value as fetch().
+  bool force_fetch(const threads::stop_signal *stop = nullptr);
 
   // Return a snapshot of the current data.
   os_updates_obj get();
+
+  // Test seam: pretend a successful search completed `age_seconds` ago, so the
+  // TTL short-circuit in fetch() can be exercised without running a real (slow,
+  // admin- and network-dependent) WUA search.
+  void set_last_fetch_age_for_test(long long age_seconds);
 };
 
 namespace check {

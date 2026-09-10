@@ -5,6 +5,8 @@
 
 #include <gtest/gtest.h>
 
+#include <threads/stop_signal.hpp>
+
 using os_updates_check::classify_update;
 using os_updates_check::os_updates_data;
 using os_updates_check::os_updates_obj;
@@ -257,7 +259,79 @@ TEST(CheckOsUpdates, data_get_returns_default_before_fetch) {
 
 // fetch() will exercise the WUA COM API; we don't run it here because it
 // requires admin / network access and may take 30+ seconds. The data class is
-// otherwise covered by the snapshot/TTL tests above.
+// otherwise covered by the snapshot/TTL tests above and the abort tests below.
+
+// A stop that is already signalled must make the fetch bail out before it
+// touches WUA at all: nothing published, "pending" retained, false returned.
+// This is the shutdown contract that keeps unloadModule from waiting out a
+// multi-minute search (#1504).
+TEST(CheckOsUpdates, force_fetch_aborts_immediately_when_stop_is_signalled) {
+  threads::stop_signal stop;
+  std::string error;
+  ASSERT_TRUE(stop.create(error)) << error;
+  stop.signal();
+
+  os_updates_data d;
+  EXPECT_FALSE(d.force_fetch(&stop));
+
+  os_updates_obj snapshot = d.get();
+  EXPECT_FALSE(snapshot.fetch_succeeded);
+  EXPECT_TRUE(snapshot.error.empty());
+  EXPECT_EQ(snapshot.get_update_status(), "pending");
+  EXPECT_EQ(snapshot.count, 0);
+}
+
+// The TTL short-circuit must not be bypassed by the stop signal: a cache that
+// is still fresh reports success without starting (and then aborting) a job.
+//
+// The return value is what separates the two paths: the short-circuit reports
+// success, while a search that is started and then aborted reports false. The
+// cache age is seeded rather than produced by a real search, which needs admin
+// rights, network access and 30+ seconds.
+TEST(CheckOsUpdates, fetch_within_ttl_is_a_noop_even_with_stop_signalled) {
+  threads::stop_signal stop;
+  std::string error;
+  ASSERT_TRUE(stop.create(error)) << error;
+  stop.signal();
+
+  os_updates_data d;
+  d.set_ttl_seconds(3600);
+  d.set_last_fetch_age_for_test(60);  // well inside the TTL
+
+  EXPECT_TRUE(d.fetch(&stop));
+
+  // Nothing was published: the cached snapshot is whatever it already was.
+  os_updates_obj snapshot = d.get();
+  EXPECT_FALSE(snapshot.fetch_succeeded);
+  EXPECT_TRUE(snapshot.error.empty());
+}
+
+// The other half of the same guard: once the cache is older than the TTL,
+// fetch() does start a search, and the already-signalled stop aborts it before
+// WUA is touched. Without this case an inverted TTL comparison would still
+// pass the test above.
+TEST(CheckOsUpdates, fetch_past_ttl_starts_a_search_and_honours_the_stop) {
+  threads::stop_signal stop;
+  std::string error;
+  ASSERT_TRUE(stop.create(error)) << error;
+  stop.signal();
+
+  os_updates_data d;
+  d.set_ttl_seconds(60);
+  d.set_last_fetch_age_for_test(3600);  // stale
+
+  EXPECT_FALSE(d.fetch(&stop));
+}
+
+// A stop signal that was never created (no kernel object) must behave like no
+// stop signal at all: the fetch must not report an abort because of it. We
+// cannot run the real search here, so only the "not aborted before WUA"
+// decision is observable: an uncreated signal is not "signalled".
+TEST(CheckOsUpdates, uncreated_stop_signal_is_not_a_stop_request) {
+  threads::stop_signal stop;
+  EXPECT_FALSE(stop.valid());
+  EXPECT_EQ(stop.native_handle(), nullptr);
+}
 
 // ============================================================================
 // filter keyword tests (the `updates` keyword and its deprecated `count` alias)

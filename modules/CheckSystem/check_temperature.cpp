@@ -88,9 +88,9 @@ void thermal_zone::build_metrics(PB::Metrics::MetricsBundle *section) const {
   add_metric(section, name + ".throttle_reasons", throttle_reasons);
 }
 
-void temperature_data::query_acpi(zones_type &zones) {
+void temperature_data::query_acpi(zones_type &zones, HANDLE abort_event) {
   wmi_impl::query wmi_q(helper::acpi_query, helper::acpi_namespace, "", "");
-  wmi_impl::row_enumerator row = wmi_q.execute();
+  wmi_impl::row_enumerator row = wmi_q.execute(abort_event);
   while (row.has_next()) {
     wmi_impl::row r = row.get_next();
     thermal_zone zone;
@@ -99,9 +99,9 @@ void temperature_data::query_acpi(zones_type &zones) {
   }
 }
 
-void temperature_data::query_perf(zones_type &zones) {
+void temperature_data::query_perf(zones_type &zones, HANDLE abort_event) {
   wmi_impl::query wmi_q(helper::perf_query, helper::perf_namespace, "", "");
-  wmi_impl::row_enumerator row = wmi_q.execute();
+  wmi_impl::row_enumerator row = wmi_q.execute(abort_event);
   while (row.has_next()) {
     wmi_impl::row r = row.get_next();
     thermal_zone zone;
@@ -110,13 +110,14 @@ void temperature_data::query_perf(zones_type &zones) {
   }
 }
 
-void temperature_data::fetch() {
+void temperature_data::fetch(const threads::stop_signal *stop) {
   if (!fetch_temperature_) return;
+  const HANDLE abort_event = stop != nullptr ? stop->native_handle() : nullptr;
 
   zones_type tmp;
   if (!use_fallback_) {
     try {
-      query_acpi(tmp);
+      query_acpi(tmp, abort_event);
       if (tmp.empty()) {
         // The ACPI class can exist yet expose no zones (common on consumer
         // hardware) — treat that like "not available" and use the fallback.
@@ -133,7 +134,7 @@ void temperature_data::fetch() {
   }
   if (use_fallback_) {
     try {
-      query_perf(tmp);
+      query_perf(tmp, abort_event);
     } catch (const wmi_impl::wmi_exception &e) {
       if (e.get_code() == WBEM_E_INVALID_QUERY || e.get_code() == WBEM_E_NOT_FOUND) {
         fetch_temperature_ = false;

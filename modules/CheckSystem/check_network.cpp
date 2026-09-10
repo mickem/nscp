@@ -7,7 +7,6 @@
 #include <boost/program_options.hpp>
 #include <boost/thread/locks.hpp>
 #include <map>
-#include <utility>
 #include <nscapi/nscapi_metrics_helper.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <parsers/filter/cli_helper.hpp>
@@ -17,6 +16,7 @@
 #include <parsers/where/node.hpp>
 #include <str/format.hpp>
 #include <str/xtos.hpp>
+#include <utility>
 
 namespace po = boost::program_options;
 
@@ -163,9 +163,9 @@ void network_interface::build_metrics(PB::Metrics::MetricsBundle *section) const
   }
 }
 
-void network_data::query_nif(netmap_type &netmap) {
+void network_data::query_nif(netmap_type &netmap, HANDLE abort_event) {
   wmi_impl::query wmiQuery1(helper::nif_query, "root\\cimv2", "", "");
-  wmi_impl::row_enumerator row = wmiQuery1.execute();
+  wmi_impl::row_enumerator row = wmiQuery1.execute(abort_event);
   while (row.has_next()) {
     wmi_impl::row r = row.get_next();
     std::string name = helper::parse_nif_name(r.get_string("Name"));
@@ -184,9 +184,9 @@ void network_data::query_nif(netmap_type &netmap) {
   }
 }
 
-void network_data::query_prd(netmap_type &netmap, long long delta, const std::string &query, bool allow_insert) {
+void network_data::query_prd(netmap_type &netmap, long long delta, const std::string &query, bool allow_insert, HANDLE abort_event) {
   wmi_impl::query wmiQuery(query, "root\\cimv2", "", "");
-  wmi_impl::row_enumerator row = wmiQuery.execute();
+  wmi_impl::row_enumerator row = wmiQuery.execute(abort_event);
   while (row.has_next()) {
     wmi_impl::row r = row.get_next();
     std::string name = helper::parse_prd_name(r.get_string("Name"));
@@ -205,13 +205,13 @@ void network_data::query_prd(netmap_type &netmap, long long delta, const std::st
   }
 }
 
-void network_data::query_team(netmap_type &if_netmap, netmap_type &ad_netmap) {
+void network_data::query_team(netmap_type &if_netmap, netmap_type &ad_netmap, HANDLE abort_event) {
   if (!fetch_team_) return;
   // member interface name -> (team name, raw operational status)
   std::map<std::string, std::pair<std::string, std::string> > members;
   try {
     wmi_impl::query q("select Name, Team, OperationalStatus from MSFT_NetLbfoTeamMember", "root\\StandardCimv2", "", "");
-    wmi_impl::row_enumerator row = q.execute();
+    wmi_impl::row_enumerator row = q.execute(abort_event);
     while (row.has_next()) {
       wmi_impl::row r = row.get_next();
       members[r.get_string("Name")] = std::make_pair(r.get_string("Team"), str::xtos(r.get_int("OperationalStatus")));
@@ -240,8 +240,9 @@ void network_data::query_team(netmap_type &if_netmap, netmap_type &ad_netmap) {
   annotate(ad_netmap);
 }
 
-void network_data::fetch() {
+void network_data::fetch(const threads::stop_signal *stop) {
   if (!fetch_network_) return;
+  const HANDLE abort_event = stop != nullptr ? stop->native_handle() : nullptr;
 
   nics_type tmp;
   // Two separate maps keyed by name: NetworkInterface and NetworkAdapter use
@@ -270,7 +271,7 @@ void network_data::fetch() {
 
     // Win32_NetworkAdapter metadata applies to both perfraw sources, so we run
     // it once and merge into whichever map(s) end up holding a matching entry.
-    query_nif(if_netmap);
+    query_nif(if_netmap, abort_event);
     for (const netmap_type::value_type &v : if_netmap) {
       netmap_type::iterator it = ad_netmap.find(v.first);
       if (it == ad_netmap.end()) {
@@ -301,13 +302,13 @@ void network_data::fetch() {
       }
     }
 
-    query_prd(if_netmap, delta, helper::prd_query, false);
+    query_prd(if_netmap, delta, helper::prd_query, false, abort_event);
     // allow_insert=true so the team aggregate (no nif match) surfaces.
-    query_prd(ad_netmap, delta, helper::prd_adapter_query, true);
+    query_prd(ad_netmap, delta, helper::prd_adapter_query, true, abort_event);
 
     // Best-effort NIC-team membership annotation (no-op / self-disabling when
     // the LBFO provider is unavailable).
-    query_team(if_netmap, ad_netmap);
+    query_team(if_netmap, ad_netmap, abort_event);
 
     for (netmap_type::value_type &v : if_netmap) {
       if (!v.second.is_compleate()) continue;

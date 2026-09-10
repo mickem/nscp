@@ -12,6 +12,7 @@
 #include <str/utils_no_boost.hpp>
 #include <win/com_helpers.hpp>
 #include <win/processes.hpp>
+#include <win/wmi/wmi_query.hpp>
 
 #include "check_memory.hpp"
 #include "check_process.hpp"
@@ -568,6 +569,10 @@ template <class Fetcher>
 void run_fetch(const std::string &what, Fetcher fetch) {
   try {
     fetch();
+  } catch (const wmi_impl::wmi_aborted &) {
+    // The collector is stopping and the fetch let go of its WMI query; the
+    // previous sample stays published, so this is not an error.
+    NSC_DEBUG_MSG("Aborted collecting " + what + ": collector is stopping");
   } catch (const nsclient::nsclient_exception &e) {
     NSC_LOG_ERROR("Failed to get " + what + ": " + e.reason());
   } catch (const std::exception &e) {
@@ -622,12 +627,24 @@ void pdh_thread::aux_thread_proc() {
       }
     }
     if (com->is_ready()) {
-      if (!disable_network) run_fetch("network metrics", [this] { network.fetch(); });
-      if (!disable_temperature) run_fetch("temperature metrics", [this] { temperature.fetch(); });
-      if (!disable_cpu_frequency) run_fetch("CPU frequency metrics", [this] { cpu_frequency.fetch(); });
-      if (!disable_battery) run_fetch("battery metrics", [this] { battery.fetch(); });
-      // os_updates.fetch() is a no-op until its internal TTL has elapsed (default 1h).
-      if (!disable_os_updates) run_fetch("OS updates metrics", [this] { os_updates.fetch(); });
+      // Re-check the stop signal between fetches: each one can block on its
+      // provider, and stop() joins this thread, so a stop that lands during
+      // one fetch must not start the next (#1504).
+      const auto stop_requested = [this] { return WaitForSingleObject(stop_signal_.native_handle(), 0) == WAIT_OBJECT_0; };
+      // Every fetch is handed the stop signal so that a WMI provider stall
+      // (or the WUA search below) is abandoned as soon as stop() fires.
+      if (!disable_network && !stop_requested()) run_fetch("network metrics", [this] { network.fetch(&stop_signal_); });
+      if (!disable_temperature && !stop_requested()) run_fetch("temperature metrics", [this] { temperature.fetch(&stop_signal_); });
+      if (!disable_cpu_frequency && !stop_requested()) run_fetch("CPU frequency metrics", [this] { cpu_frequency.fetch(&stop_signal_); });
+      if (!disable_battery && !stop_requested()) run_fetch("battery metrics", [this] { battery.fetch(&stop_signal_); });
+      // os_updates.fetch() is a no-op until its internal TTL has elapsed
+      // (default 1h). The search itself can take minutes; it aborts the
+      // in-flight WUA job when stop() fires.
+      if (!disable_os_updates && !stop_requested()) {
+        run_fetch("OS updates metrics", [this] {
+          if (!os_updates.fetch(&stop_signal_)) NSC_DEBUG_MSG("OS updates search aborted: collector is stopping");
+        });
+      }
     }
   } while ((wait_status = WaitForSingleObject(stop_signal_.native_handle(), interval_ms)) == WAIT_TIMEOUT);
   if (wait_status != WAIT_OBJECT_0) {
@@ -852,6 +869,12 @@ bool pdh_thread::start() {
   aux_thread_ = std::make_shared<boost::thread>([this]() { this->aux_thread_proc(); });
   return true;
 }
+namespace {
+// How long stop() waits quietly for the auxiliary collector before logging
+// that a fetch is holding up the unload.
+const long aux_join_warn_seconds = 5;
+}  // namespace
+
 bool pdh_thread::stop() {
   stop_signal_.signal();
   // Reset after joining so a second call (the destructor always calls stop())
@@ -860,10 +883,17 @@ bool pdh_thread::stop() {
     thread_->join();
     thread_.reset();
   }
-  // aux_thread_ may be mid-fetch (up to a WMI stall) before it sees the event;
-  // join still returns once that fetch completes, same worst case as before.
+  // aux_thread_ may be mid-fetch before it sees the event. The WUA search
+  // aborts on the signal, but a WMI provider stall still has to run its
+  // course, so say so in the log rather than sit silently: an operator
+  // watching a slow shutdown then knows which collector to look at (#1504).
+  // The thread is never detached: it runs against this object and this
+  // module's code, both of which are torn down right after stop() returns.
   if (aux_thread_) {
-    aux_thread_->join();
+    if (!aux_thread_->timed_join(boost::posix_time::seconds(aux_join_warn_seconds))) {
+      NSC_LOG_MESSAGE("CheckSystem auxiliary collector is still busy in a WMI/WUA fetch; waiting for it to finish before unloading");
+      aux_thread_->join();
+    }
     aux_thread_.reset();
   }
   // Release after both joins so a stop/start cycle gets a fresh, unsignalled

@@ -34,6 +34,13 @@ bool collector_thread::start() {
     const boost::lock_guard<boost::mutex> lock(stop_mutex_);
     stop_requested_ = false;
   }
+  // Without the abort primitive the collector still works, its fetches are
+  // just not interruptible (fetch() gets a null signal), so this is a
+  // warning rather than a refusal to start.
+  std::string error;
+  if (!abort_signal_.create(error)) {
+    NSC_LOG_ERROR("Failed to create the disk collector abort signal, a stalled fetch will delay shutdown: " + error);
+  }
   thread_ = std::make_shared<boost::thread>([this]() { this->thread_proc(); });
   return true;
 }
@@ -43,12 +50,22 @@ bool collector_thread::stop() {
     const boost::lock_guard<boost::mutex> lock(stop_mutex_);
     stop_requested_ = true;
   }
+  // Order matters: the fetch in flight watches abort_signal_, the wait
+  // between ticks watches the CV. Signal both before joining.
+  abort_signal_.signal();
   stop_cv_.notify_all();
   if (thread_) {
     thread_->join();
     thread_.reset();
   }
+  // After the join so a stop/start cycle gets a fresh, unsignalled primitive.
+  abort_signal_.close();
   return true;
+}
+
+bool collector_thread::stop_pending() {
+  const boost::lock_guard<boost::mutex> lock(stop_mutex_);
+  return stop_requested_;
 }
 
 void collector_thread::update_trends(const long long now) {
@@ -170,6 +187,12 @@ void collector_thread::thread_proc() {
     try {
       fetched = fetch();
       if (!fetched) NSC_LOG_ERROR(std::string("Failed to get ") + what + ": no data returned");
+    } catch (const threads::stop_requested &) {
+      // The collector is stopping and the fetch let go of its source. The
+      // previous sample stays published and the failure tracker is left
+      // alone: a shutdown is not evidence that the source is broken.
+      NSC_DEBUG_MSG(std::string("Aborted collecting ") + what + ": collector is stopping");
+      return false;
     } catch (const nsclient::nsclient_exception &e) {
       NSC_LOG_ERROR(std::string("Failed to get ") + what + ": " + e.reason());
       fetched = collected_anyway && collected_anyway();
@@ -189,27 +212,36 @@ void collector_thread::thread_proc() {
     return fetched;
   };
 
-  const std::function<bool()> fetch_disk_io = [this]() { return disk_io_.fetch(); };
+  const std::function<bool()> fetch_disk_io = [this]() { return disk_io_.fetch(abort_signal_.valid() ? &abort_signal_ : nullptr); };
   // The Windows fetch stores the rates before raising a latency error, so the
   // rates keep flowing and only latency degrades; that must not accumulate
   // towards giving up on disk I/O altogether.
   const std::function<bool()> disk_io_stored_data = [this]() { return disk_io_.stored_data(); };
   const std::function<bool()> fetch_disk_free = [this]() { return disk_free_.fetch(); };
 
-  // Initial fetch to populate data immediately.
+  // Initial fetch to populate data immediately. A stop that lands in the
+  // first fetch must not start the second (#1504).
   if (!disable_disk_io) {
     run_fetch(io_failures, "disk I/O metrics", fetch_disk_io, disk_io_stored_data);
   }
-  if (!disable_disk_free) {
+  if (!disable_disk_free && !stop_pending()) {
     run_fetch(free_failures, "disk free metrics", fetch_disk_free, nullptr);
   }
 
   const long long started = static_cast<long long>(std::time(nullptr));
   long long last_save = started;
   for (;;) {
+    // A stop that landed in the initial fetches above arrives here without
+    // passing the wait at the bottom of the loop, so check before starting
+    // another fetch that would only be aborted straight away.
+    if (stop_pending()) break;
     if (!disable_disk_io && !io_failures.given_up()) {
       run_fetch(io_failures, "disk I/O metrics", fetch_disk_io, disk_io_stored_data);
     }
+    // Re-check between the fetches: the disk free probe cannot be
+    // interrupted once started, so do not start it for a stop that arrived
+    // during the disk I/O fetch.
+    if (stop_pending()) break;
     if (!disable_disk_free && !free_failures.given_up()) {
       // A failed fetch leaves the previous snapshot in place. Timestamping it
       // as a fresh sample would feed the regression a fabricated flat segment,
