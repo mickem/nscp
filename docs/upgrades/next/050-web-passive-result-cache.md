@@ -33,3 +33,11 @@ nscp web add-role --role poller --grant results.list,results.get,login.get
 The cache is bounded (`max entries`, default 1000 keys; `max age`, default no
 expiry). See the [REST API results page](../api/rest/results.md) for the full
 contract.
+
+The `check_nsclient` binary bundled with the packages (Windows MSI and the
+Linux DEB/RPM alike) moves from 1.0.1 to 1.1.0, which is the version that
+gained the `results` commands — `results list`, `results show`, `results
+delete`, `results clear` and `results feed`, the last of which polls an
+agent's cache and submits everything in it to Nagios as passive check
+results. Nothing else about the plugin changes and no existing invocation is
+affected.

@@ -49,7 +49,7 @@ CheckDisk   = enabled   ; check_drivesize
 On the **Nagios server** you need:
 
 * Nagios Core 3.x or 4.x with `accept_passive_service_checks=1` and `check_service_freshness=1` in `nagios.cfg`.
-* [`check_nsclient`](https://github.com/mickem/check_nsclient), the NSClient++ command line client, installed where Nagios can run it (for example `/usr/local/bin/check_nsclient`).
+* [`check_nsclient`](https://github.com/mickem/check_nsclient) **1.1.0 or later**, the NSClient++ command line client, installed where Nagios can run it (for example `/usr/local/bin/check_nsclient`). The `results` commands used below are new in 1.1.0; that is the version bundled with the NSClient++ packages, so copying the binary off an agent of this release is one way to get it.
 * Network access from the Nagios server to the agent's REST port (8443 by default).
 
 ---
