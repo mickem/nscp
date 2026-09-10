@@ -17,13 +17,13 @@
 #define HTTP_NOT_FOUND 404
 #define HTTP_FORBIDDEN 403
 #define HTTP_SERVER_ERROR 500
-#define HTTP_SERVICE_UNAVALIBLE 503
+#define HTTP_SERVICE_UNAVAILABLE 503
 
 #define REASON_OK "OK"
 #define REASON_SERVER_ERROR "Error"
 #define REASON_NOT_FOUND "Not Found"
 #define REASON_BAD_REQUEST "Bad Request"
-#define REASON_SERVICE_UNAVALIBLE "Service Unavaible"
+#define REASON_SERVICE_UNAVAILABLE "Service Unavailable"
 #define REASON_FORBIDDEN "Forbidden"
 
 #define HTTP_HDR_AUTH "Authorization"

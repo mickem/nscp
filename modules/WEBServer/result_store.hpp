@@ -93,13 +93,15 @@ struct result_store {
 
   static const std::size_t kDefaultMaxEntries = 1000;
 
-  result_store() : enabled_(false), mode_(mode_last), next_index_(0), max_entries_(kDefaultMaxEntries), max_age_(0) {}
+  result_store() : enabled_(false), mode_(mode_last), clear_on_poll_(true), next_index_(0), max_entries_(kDefaultMaxEntries), max_age_(0) {}
 
   // Store a result, resolving a collision on the key per the cache mode.
-  // Does nothing while the cache is disabled. `now` is injectable so the
-  // tests do not have to sleep.
-  void submit(const result_entry &entry, std::int64_t now);
-  void submit(const result_entry &entry);
+  // Returns false when the result was NOT stored: the cache is disabled, or
+  // the lock was not acquired within the deadline. A submitter has to be able
+  // to tell the difference, or it reports a result as cached that was
+  // dropped. `now` is injectable so the tests do not have to sleep.
+  bool submit(const result_entry &entry, std::int64_t now);
+  bool submit(const result_entry &entry);
 
   // Sorted by key so that a client paging through the list sees a stable
   // order even while results keep arriving.
@@ -114,7 +116,10 @@ struct result_store {
   bool get(const std::string &key, result_entry &out, std::int64_t now) const;
   bool get(const std::string &key, result_entry &out) const;
 
-  // Returns false when there was nothing to remove.
+  // Returns false when there was nothing to remove. An entry past `max age`
+  // counts as nothing: it is erased, but reported as absent, so a DELETE and
+  // a GET of the same expired key agree.
+  bool remove(const std::string &key, std::int64_t now);
   bool remove(const std::string &key);
   // Number of entries dropped.
   std::size_t clear();
@@ -131,10 +136,19 @@ struct result_store {
   void set_mode(cache_mode value);
   cache_mode mode() const;
 
+  // Whether a poll consumes what it reports (see drain()). Held here rather
+  // than in the controller so that a settings reload reaches it: the
+  // controllers are built once, at startup.
+  void set_clear_on_poll(bool value);
+  bool clear_on_poll() const;
+
   // 0 is clamped to 1: "cache nothing" is a silently useless configuration.
   void set_max_entries(std::size_t value);
-  // Seconds; 0 disables expiry. Expired entries are dropped lazily on the
-  // next read or write, so nothing has to run a timer.
+  // Seconds; 0 disables expiry. Nothing runs a timer: an expired entry is
+  // hidden from every read as soon as it is too old, and physically erased
+  // the next time a submission or a draining poll walks the map. A store
+  // that is only ever listed therefore keeps expired entries in memory until
+  // the entry cap evicts them - which is what the cap is for.
   void set_max_age(std::int64_t seconds);
 
   // "last"/"worst", case-insensitively and ignoring surrounding space.
@@ -153,6 +167,7 @@ struct result_store {
   entry_map entries_;
   bool enabled_;
   cache_mode mode_;
+  bool clear_on_poll_;
   std::size_t next_index_;
   std::size_t max_entries_;
   std::int64_t max_age_;
@@ -160,6 +175,15 @@ struct result_store {
 
 // Seconds since the unix epoch - the clock the store stamps results with.
 std::int64_t result_store_now();
+
+// A key is operator-defined text (an alias, a hostname) that travels in a URL
+// path: `/api/v2/results/{key}`. Anything outside the unreserved set is
+// percent-encoded on the way out and decoded on the way back in, so a key
+// holding a space or a `%` still round-trips. `/` is deliberately left alone:
+// the default primary index puts one between host and check, and every route
+// that captures a key spans path segments.
+std::string result_key_encode(const std::string &key);
+std::string result_key_decode(const std::string &encoded);
 
 // Expands the configured primary-index expression (`${host}/${alias-or-command}`
 // and friends) into the key a result is cached under. Kept separate from the

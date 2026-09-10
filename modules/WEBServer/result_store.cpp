@@ -36,10 +36,10 @@ bool result_store::filter::matches(const result_entry &entry) const {
   return true;
 }
 
-void result_store::submit(const result_entry &entry, const std::int64_t now) {
+bool result_store::submit(const result_entry &entry, const std::int64_t now) {
   const boost::unique_lock<boost::timed_mutex> lock(mutex_, lock_deadline());
-  if (!lock.owns_lock()) return;
-  if (!enabled_) return;
+  if (!lock.owns_lock()) return false;
+  if (!enabled_) return false;
 
   expire(now);
 
@@ -55,7 +55,7 @@ void result_store::submit(const result_entry &entry, const std::int64_t now) {
     stored.index = next_index_++;
     entries_[stored.key] = std::move(stored);
     trim();
-    return;
+    return true;
   }
 
   result_entry &current = it->second;
@@ -80,9 +80,10 @@ void result_store::submit(const result_entry &entry, const std::int64_t now) {
   current.count = count;
   current.last_seen = now;
   current.index = next_index_++;
+  return true;
 }
 
-void result_store::submit(const result_entry &entry) { submit(entry, result_store_now()); }
+bool result_store::submit(const result_entry &entry) { return submit(entry, result_store_now()); }
 
 result_store::result_list result_store::list(const filter &f, const std::int64_t now) const {
   result_list ret;
@@ -134,11 +135,19 @@ bool result_store::get(const std::string &key, result_entry &out, const std::int
 
 bool result_store::get(const std::string &key, result_entry &out) const { return get(key, out, result_store_now()); }
 
-bool result_store::remove(const std::string &key) {
+bool result_store::remove(const std::string &key, const std::int64_t now) {
   const boost::unique_lock<boost::timed_mutex> lock(mutex_, lock_deadline());
   if (!lock.owns_lock()) return false;
-  return entries_.erase(key) > 0;
+  const entry_map::iterator it = entries_.find(key);
+  if (it == entries_.end()) return false;
+  // Too old to be served by get(), so it is too old to be deleted either -
+  // drop it, but tell the caller there was nothing there.
+  const bool expired = max_age_ > 0 && (now - it->second.last_seen) > max_age_;
+  entries_.erase(it);
+  return !expired;
 }
+
+bool result_store::remove(const std::string &key) { return remove(key, result_store_now()); }
 
 std::size_t result_store::clear() {
   const boost::unique_lock<boost::timed_mutex> lock(mutex_, lock_deadline());
@@ -185,6 +194,20 @@ result_store::cache_mode result_store::mode() const {
   const boost::unique_lock<boost::timed_mutex> lock(mutex_, lock_deadline());
   if (!lock.owns_lock()) return mode_last;
   return mode_;
+}
+
+void result_store::set_clear_on_poll(const bool value) {
+  const boost::unique_lock<boost::timed_mutex> lock(mutex_, lock_deadline());
+  if (!lock.owns_lock()) return;
+  clear_on_poll_ = value;
+}
+
+bool result_store::clear_on_poll() const {
+  const boost::unique_lock<boost::timed_mutex> lock(mutex_, lock_deadline());
+  // A poll that cannot read the flag falls back to the default rather than
+  // draining on a guess: repeating a result is recoverable, losing one is not.
+  if (!lock.owns_lock()) return true;
+  return clear_on_poll_;
 }
 
 bool result_store::parse_mode(const std::string &value, cache_mode &out) {
@@ -236,6 +259,56 @@ void result_store::trim() {
     }
     entries_.erase(oldest);
   }
+}
+
+namespace {
+bool is_unreserved(const char c) {
+  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~' || c == '/';
+}
+int hex_value(const char c) {
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+  if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+  return -1;
+}
+}  // namespace
+
+std::string result_key_encode(const std::string &key) {
+  static const char *digits = "0123456789ABCDEF";
+  std::string out;
+  out.reserve(key.size());
+  for (const char c : key) {
+    if (is_unreserved(c)) {
+      out += c;
+    } else {
+      const unsigned char byte = static_cast<unsigned char>(c);
+      out += '%';
+      out += digits[byte >> 4];
+      out += digits[byte & 0x0f];
+    }
+  }
+  return out;
+}
+
+std::string result_key_decode(const std::string &encoded) {
+  std::string out;
+  out.reserve(encoded.size());
+  for (std::size_t i = 0; i < encoded.size(); ++i) {
+    if (encoded[i] != '%' || i + 2 >= encoded.size()) {
+      out += encoded[i];
+      continue;
+    }
+    const int hi = hex_value(encoded[i + 1]);
+    const int lo = hex_value(encoded[i + 2]);
+    if (hi < 0 || lo < 0) {
+      // Not an escape at all; a key may legitimately contain a bare '%'.
+      out += encoded[i];
+      continue;
+    }
+    out += static_cast<char>((hi << 4) | lo);
+    i += 2;
+  }
+  return out;
 }
 
 const char *result_key_formatter::kDefaultExpression = "${host}/${alias-or-command}";

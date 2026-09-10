@@ -50,6 +50,15 @@ TEST(ResultStore, IsDisabledUntilItIsSwitchedOn) {
   EXPECT_TRUE(store.list(no_filter(), kNow).empty());
 }
 
+TEST(ResultStore, ADroppedSubmissionSaysSo) {
+  // The submitter has to be able to tell "cached" from "thrown away", or it
+  // reports a success the agent never delivered.
+  result_store store;
+  EXPECT_FALSE(store.submit(make("srv1", "check_disk"), kNow));
+  store.set_enabled(true);
+  EXPECT_TRUE(store.submit(make("srv1", "check_disk"), kNow));
+}
+
 TEST(ResultStore, AcceptsResultsOnceEnabled) {
   result_store store;
   store.set_enabled(true);
@@ -186,6 +195,31 @@ TEST(ResultStore, RemoveDropsOneResult) {
   EXPECT_TRUE(store.remove("srv1/check_disk"));
   EXPECT_FALSE(store.remove("srv1/check_disk"));
   EXPECT_EQ(store.size(), 1u);
+}
+
+TEST(ResultStore, RemovingAnExpiredResultReportsItAsAbsent) {
+  // get() will not serve an entry past the age limit, so deleting one must
+  // not claim to have removed something either: a DELETE and a GET of the
+  // same key have to agree on whether it is there.
+  result_store store;
+  store.set_enabled(true);
+  store.set_max_age(60);
+  store.submit(make("srv1", "check_disk"), kNow);
+
+  result_store::result_entry out;
+  EXPECT_FALSE(store.get("srv1/check_disk", out, kNow + 61));
+  EXPECT_FALSE(store.remove("srv1/check_disk", kNow + 61));
+  // ...and it really is gone rather than merely hidden.
+  EXPECT_EQ(store.list(no_filter(), kNow).size(), 0u);
+}
+
+TEST(ResultStore, RemovingALiveResultStillReportsIt) {
+  result_store store;
+  store.set_enabled(true);
+  store.set_max_age(60);
+  store.submit(make("srv1", "check_disk"), kNow);
+
+  EXPECT_TRUE(store.remove("srv1/check_disk", kNow + 59));
 }
 
 TEST(ResultStore, ClearDropsEverythingAndSaysHowMuch) {
@@ -579,6 +613,46 @@ TEST(ResultStore, ModeNameRoundTrips) {
   EXPECT_EQ(mode, result_store::mode_worst);
   ASSERT_TRUE(result_store::parse_mode(result_store::mode_name(result_store::mode_last), mode));
   EXPECT_EQ(mode, result_store::mode_last);
+}
+
+TEST(ResultStore, PollsDrainByDefault) {
+  // The controller reads this per request rather than capturing it, so a
+  // settings reload reaches it; the default has to be the documented one.
+  result_store store;
+  EXPECT_TRUE(store.clear_on_poll());
+  store.set_clear_on_poll(false);
+  EXPECT_FALSE(store.clear_on_poll());
+  store.set_clear_on_poll(true);
+  EXPECT_TRUE(store.clear_on_poll());
+}
+
+// --- url-safe keys ----------------------------------------------------------
+
+TEST(ResultKeyUrl, LeavesAnOrdinaryKeyAlone) {
+  // The default key shape has to survive untouched, `/` separator included -
+  // the routes that capture a key deliberately span path segments.
+  EXPECT_EQ(result_key_encode("srv1/check_disk"), "srv1/check_disk");
+  EXPECT_EQ(result_key_decode("srv1/check_disk"), "srv1/check_disk");
+}
+
+TEST(ResultKeyUrl, EscapesWhatWouldBreakTheUrl) {
+  EXPECT_EQ(result_key_encode("srv 1/disk C:"), "srv%201/disk%20C%3A");
+  EXPECT_EQ(result_key_encode("a?b#c"), "a%3Fb%23c");
+  EXPECT_EQ(result_key_encode("100%"), "100%25");
+}
+
+TEST(ResultKeyUrl, RoundTripsAnythingAnAliasCanHold) {
+  const char *keys[] = {"srv1/check_disk", "srv 1/disk C:", "100%", "a?b#c", "\xc3\xa5\xc3\xa4\xc3\xb6/check", "a%2Fb"};
+  for (const char *key : keys) {
+    EXPECT_EQ(result_key_decode(result_key_encode(key)), std::string(key)) << key;
+  }
+}
+
+TEST(ResultKeyUrl, ATruncatedOrBogusEscapeIsTakenLiterally) {
+  // A hand-written URL must not be silently mangled into a different key.
+  EXPECT_EQ(result_key_decode("100%"), "100%");
+  EXPECT_EQ(result_key_decode("a%zz"), "a%zz");
+  EXPECT_EQ(result_key_decode("a%2"), "a%2");
 }
 
 // --- draining poll ----------------------------------------------------------

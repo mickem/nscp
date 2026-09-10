@@ -76,7 +76,7 @@ async function startAgent(
 async function submit(key: string, command: string, alias: string, extra = ""): Promise<void> {
   const response = await request(REST_URL)
     .get(
-      `/api/v2/queries/check_and_forward/commands/execute?command=${command}&channel=${CHANNEL}&alias=${alias}${extra}`,
+      `/api/v2/queries/check_and_forward/commands/execute?command=${command}&channel=${CHANNEL}&alias=${encodeURIComponent(alias)}${extra}`,
     )
     .set("Authorization", `Bearer ${key}`)
     .trustLocalhost(true)
@@ -264,9 +264,44 @@ describe("REST passive result cache", () => {
 
       expect((await poll(key, "?alias=fine")).map((r) => r.alias)).toEqual(["fine"]);
       expect(await poll(key, "?command=check_critical")).toHaveLength(1);
-      // A channel nothing was submitted on matches nothing rather than everything.
+
+      // Every poll above drained what it matched, so re-stock before testing
+      // the channel filter - otherwise both assertions below pass on an empty
+      // cache and prove nothing.
+      await submit(key, "check_ok", "fine");
+      // A channel nothing was submitted on matches nothing rather than everything...
       expect(await poll(key, "?channel=NSCA")).toEqual([]);
-      expect(await poll(key, `?channel=${CHANNEL}`)).toEqual([]);
+      // ...while the channel it actually arrived on matches.
+      expect((await poll(key, `?channel=${CHANNEL}`)).map((r) => r.alias)).toEqual(["fine"]);
+    });
+
+    it("round-trips a key that has to be escaped in a URL", async () => {
+      // An alias is operator-defined text and routinely holds a space, so the
+      // URL the cache advertises for it has to be one a client can fetch.
+      await submit(key, "check_ok", "disk C");
+
+      const listed = await poll(key);
+      expect(listed).toHaveLength(1);
+      expect(listed[0].key).toEqual("cached/disk C");
+      const path = new URL(String(listed[0].result_url)).pathname;
+      expect(path).toEqual("/api/v2/results/cached/disk%20C");
+
+      // The poll consumed it; put it back and fetch it by the advertised URL.
+      await submit(key, "check_ok", "disk C");
+      const single = await request(REST_URL)
+        .get(path)
+        .set("Authorization", `Bearer ${key}`)
+        .trustLocalhost(true)
+        .expect(200);
+      expect(single.body.key).toEqual("cached/disk C");
+
+      // ...and the same URL deletes it.
+      await request(REST_URL)
+        .delete(path)
+        .set("Authorization", `Bearer ${key}`)
+        .trustLocalhost(true)
+        .expect(200);
+      expect(await poll(key)).toEqual([]);
     });
 
     it("rejects an unrecognised status filter instead of ignoring it", async () => {
@@ -280,7 +315,8 @@ describe("REST passive result cache", () => {
     it("fetches a single result by key without consuming it", async () => {
       await submit(key, "check_warning", "single");
 
-      for (const attempt of [1, 2]) {
+      // Twice: a lookup is not a poll, so the second one still finds it.
+      for (let attempt = 0; attempt < 2; attempt++) {
         const response = await request(REST_URL)
           .get("/api/v2/results/cached/single")
           .set("Authorization", `Bearer ${key}`)
@@ -288,7 +324,6 @@ describe("REST passive result cache", () => {
           .expect(200);
         expect(response.body.key).toEqual("cached/single");
         expect(response.body.status).toEqual(1);
-        expect(attempt).toBeLessThan(3); // a lookup is not a poll: still there
       }
       // ...and the poll still gets it.
       expect(await poll(key)).toHaveLength(1);

@@ -82,15 +82,17 @@ json::object to_json(const result_store::result_entry &e, const std::int64_t now
   // consumer can tell "OK" from "OK, reported three days ago".
   node["age"] = now > e.last_seen ? now - e.last_seen : 0;
   if (!base.empty()) {
-    node["result_url"] = base + "/" + e.key;
+    // The key is operator-defined text and can hold a space or a `%`; the URL
+    // it is advertised under has to be one a client can actually fetch.
+    node["result_url"] = base + "/" + result_key_encode(e.key);
   }
   return node;
 }
 }  // namespace
 
 results_controller::results_controller(const int version, const std::shared_ptr<session_manager_interface> &session,
-                                       const std::shared_ptr<result_store> &results, const bool clear_on_poll)
-    : RegexpController(version == 1 ? "/api/v1/results" : "/api/v2/results"), session(session), results(results), clear_on_poll(clear_on_poll) {
+                                       const std::shared_ptr<result_store> &results)
+    : RegexpController(version == 1 ? "/api/v1/results" : "/api/v2/results"), session(session), results(results) {
   addRoute("GET", "/?$", this, &results_controller::list_results);
   addRoute("DELETE", "/?$", this, &results_controller::clear_results);
   // Keys contain the primary-index separator (a `/` by default), so the
@@ -105,9 +107,14 @@ bool results_controller::require_enabled(Mongoose::StreamResponse &response) con
   // Deliberately not 404 (which reads as "wrong URL / too old a version") and
   // not an empty list (which reads as "nothing has reported yet"): an
   // operator polling a switched-off cache should be told exactly that, and
-  // which setting turns it on.
-  response.setCode(HTTP_SERVICE_UNAVALIBLE, REASON_SERVICE_UNAVALIBLE);
-  response.append("Passive result cache is disabled. Set enabled=true under /settings/WEB/server/results to turn it on.");
+  // which settings turn it on. `enabled` is not the only way to end up here -
+  // an empty `channel`, or either of them changed by a settings reload
+  // without a restart, leaves the store off as well - so name both and say
+  // that they are read at startup.
+  response.setCode(HTTP_SERVICE_UNAVAILABLE, REASON_SERVICE_UNAVAILABLE);
+  response.append(
+      "Passive result cache is disabled. Under /settings/WEB/server/results set enabled=true and channel to a non-empty submission channel, then "
+      "restart the service: both are read when the web server starts, not on a settings reload.");
   return false;
 }
 
@@ -138,13 +145,14 @@ void results_controller::list_results(Mongoose::Request &request, boost::smatch 
   // A poll consumes what it reports: the next poll then answers "what has
   // happened since you last asked" rather than repeating the same results,
   // which is what makes the `worst` cache mode mean "worst since last poll".
-  const result_store::result_list entries = clear_on_poll ? results->drain(f, now) : results->list(f, now);
+  const bool drained = results->clear_on_poll();
+  const result_store::result_list entries = drained ? results->drain(f, now) : results->list(f, now);
   json::array root;
   for (const result_store::result_entry &e : entries) {
     root.push_back(to_json(e, now, base));
   }
   response.setHeader("X-Result-Count", str::xtos(root.size()));
-  response.setHeader("X-Result-Drained", clear_on_poll ? "true" : "false");
+  response.setHeader("X-Result-Drained", drained ? "true" : "false");
   response.append(json::serialize(root));
 }
 
@@ -153,7 +161,7 @@ void results_controller::get_result(Mongoose::Request &request, boost::smatch &w
   if (!require_enabled(response)) return;
   if (!validate_arguments(1, what, response)) return;
 
-  const std::string key = what.str(1);
+  const std::string key = result_key_decode(what.str(1));
   const std::int64_t now = result_store_now();
   result_store::result_entry entry;
   if (!results->get(key, entry, now)) {
@@ -177,8 +185,8 @@ void results_controller::delete_result(Mongoose::Request &request, boost::smatch
   if (!require_enabled(response)) return;
   if (!validate_arguments(1, what, response)) return;
 
-  const std::string key = what.str(1);
-  if (!results->remove(key)) {
+  const std::string key = result_key_decode(what.str(1));
+  if (!results->remove(key, result_store_now())) {
     response.setCodeNotFound("Result not found: " + key);
     return;
   }

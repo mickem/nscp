@@ -71,6 +71,8 @@ clear on poll = true
 | `mode = worst`  | If a check went CRITICAL and recovered between two Nagios polls, the CRITICAL is still reported once instead of vanishing. With `last` Nagios only ever sees the newest result. |
 | `clear on poll` | The default. Every poll reports what happened since the previous one, which is what makes `worst` mean "worst since Nagios last asked". Keep it unless several systems poll the same agent. |
 
+Restart the service after this: `enabled` and `channel` are read when the web server starts, since a submission channel cannot be registered by a settings reload. The remaining settings take effect on a reload.
+
 The full list of settings (key format, size and age bounds) is on the [Results API page](../api/rest/results.md#configuration).
 
 ### Create a user for the Nagios server
@@ -262,9 +264,9 @@ A feed of `0 result(s)` between two scheduler intervals is normal with `clear on
 
 **Several agents.** One profile and one feeder service per agent; the `$ARG1$` in the command keeps the definition shared. `results feed --host <name>` additionally filters on the host name the agent recorded, which matters only when one agent caches results for several hosts (for example an agent receiving NSCA submissions and forwarding them to the `WEB` channel).
 
-**Only problems.** `--status warning,critical,unknown` feeds only non-OK results. Do this only with `clear on poll = false`, since a filtered poll never drains what it did not return and the OK results would otherwise pile up in the cache.
+**Only problems.** `--status warning,critical,unknown` feeds only non-OK results. Do this only with `clear on poll = false`, since a filtered poll never drains what it did not return and the OK results would otherwise pile up in the cache. Switch to `mode = last` as well — see the next bullet.
 
-**Non-draining cache.** With `clear on poll = false` (several pollers, or a dashboard reading the same cache) every feed re-submits every result. Add `--max-age 600` so a check that stopped reporting is fed as UNKNOWN (`stale result, last reported ...`) instead of its last good state.
+**Non-draining cache.** With `clear on poll = false` (several pollers, or a dashboard reading the same cache) every feed re-submits every result. Add `--max-age 600` so a check that stopped reporting is fed as UNKNOWN (`stale result, last reported ...`) instead of its last good state. Use `mode = last` here: with `worst` a recovery never replaces the problem it recovered from, and with nothing draining the cache a key that once went CRITICAL keeps being fed as CRITICAL until it is deleted or expires.
 
 **Ad-hoc checks.** `check_and_forward` from CheckHelpers submits a single check into the cache without a schedule — handy to try a new check before adding it:
 

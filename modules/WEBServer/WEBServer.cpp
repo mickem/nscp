@@ -215,12 +215,15 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       .add_key_to_settings("results")
       .add_bool("enabled", sh::bool_key(&result_enabled, false), "ENABLE THE PASSIVE RESULT CACHE",
                 "When false (the default) the web server registers no submission channel, caches nothing and answers the /api/v2/results endpoints with "
-                "503. Set to true to have the agent accept passive results and hold them for a monitoring system to poll.")
+                "503. Set to true to have the agent accept passive results and hold them for a monitoring system to poll. Read when the web server "
+                "starts: turning the cache on needs a service restart, since a submission channel cannot be registered by a settings reload. Turning "
+                "it off does take effect on a reload (and empties the cache).")
       .add_string("channel", sh::string_key(&result_channel, "WEB"), "PASSIVE RESULT CHANNEL",
                   "The submission channel the web server registers and caches results from. Anything submitted here (by the Scheduler, by "
                   "check_and_forward, by a relaying client, ...) is kept in memory and served by the /api/v2/results REST endpoints, so a monitoring "
                   "system that cannot be reached from this host can poll the results out instead. Set to an empty string to register no channel and "
-                  "disable the cache entirely.")
+                  "disable the cache entirely. Read when the web server starts: a channel cannot be registered or moved by a settings reload, so "
+                  "changing this needs a service restart.")
       .add_string("primary index", sh::string_key(&result_index, result_key_formatter::kDefaultExpression), "PASSIVE RESULT CACHE KEY",
                   "The key each cached result is stored under: a new result replaces the previous result carrying the same key. Can be any string, "
                   "optionally including ${host} (the submitting host), ${source} (the raw sender id), ${channel}, ${command}, ${alias} and "
@@ -265,30 +268,49 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   certificate = get_core()->expand_path(certificate);
   key = get_core()->expand_path(key);
 
-  // Results submitted by a local producer (the Scheduler, check_and_forward
-  // without an explicit source) carry no sender in their header. Filing them
-  // under this machine's name is both more useful and more accurate than
-  // leaving the host blank.
-  local_hostname_ = socket_helpers::expand_hostname("auto");
   results_->set_max_entries(result_max_entries < 0 ? 0 : static_cast<std::size_t>(result_max_entries));
   results_->set_max_age(result_max_age);
+  results_->set_clear_on_poll(result_clear_on_poll);
   {
-    result_store::cache_mode mode = result_store::mode_last;
-    if (!result_store::parse_mode(result_mode, mode)) {
+    result_store::cache_mode parsed_mode = result_store::mode_last;
+    if (!result_store::parse_mode(result_mode, parsed_mode)) {
       NSC_LOG_ERROR("Invalid value for /settings/WEB/server/results/mode: '" + result_mode + "' (expected 'last' or 'worst'), using 'last'.");
     }
-    results_->set_mode(mode);
+    results_->set_mode(parsed_mode);
   }
   {
+    // Results submitted by a local producer (the Scheduler, check_and_forward
+    // without an explicit source) carry no sender in their header. Filing them
+    // under this machine's name is both more useful and more accurate than
+    // leaving the host blank.
+    const std::string hostname = socket_helpers::expand_hostname("auto");
     std::string error;
-    if (!result_key_.parse(result_index, error)) {
+    {
+      const boost::mutex::scoped_lock lock(result_config_mutex_);
+      local_hostname_ = hostname;
+      result_key_.parse(result_index, error);
+    }
+    if (!error.empty()) {
       NSC_LOG_ERROR(error + " (falling back to '" + result_key_formatter::kDefaultExpression + "')");
     }
   }
-  // The cache only accepts submissions once it is switched on; the channel
-  // below is only registered under the same condition, so this is the belt to
-  // that pair of braces.
-  results_->set_enabled(result_enabled && !result_channel.empty());
+
+  // The store only accepts submissions while the channel that feeds it is
+  // registered, and registering one only happens on a full start (see below):
+  // the core has no way to unregister a channel, so a settings reload can
+  // neither start listening on one nor move to another. Enabling the store
+  // without its channel would leave endpoints answering 200 with an empty
+  // list for ever, with nothing in the log to say why - so the store follows
+  // the channel we actually have, and a reload that cannot be honoured says
+  // so.
+  const bool want_results = result_enabled && !result_channel.empty();
+  if (mode == NSCAPI::normalStart) {
+    registered_result_channel_ = want_results ? result_channel : std::string();
+  } else if (want_results && registered_result_channel_ != result_channel) {
+    NSC_LOG_ERROR("Passive result cache: 'enabled' and 'channel' under /settings/WEB/server/results are read when the web server starts, not on a "
+                  "settings reload. The cache stays off until the service is restarted.");
+  }
+  results_->set_enabled(want_results && registered_result_channel_ == result_channel);
 
   users_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
 
@@ -424,8 +446,8 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     server->registerController(new metadata_controller(1, session, get_core(), get_id()));
     server->registerController(new events_controller(2, session, events_));
     server->registerController(new events_controller(1, session, events_));
-    server->registerController(new results_controller(2, session, results_, result_clear_on_poll));
-    server->registerController(new results_controller(1, session, results_, result_clear_on_poll));
+    server->registerController(new results_controller(2, session, results_));
+    server->registerController(new results_controller(1, session, results_));
 
     server->registerController(new modules_controller(1, session, get_core(), get_id()));
     server->registerController(new query_controller(1, session, get_core(), get_id()));
@@ -452,7 +474,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     // daemon; while the cache is off we register nothing, so a submission is
     // refused by the core ("No handler for channel") instead of silently
     // disappearing into a cache nobody can read.
-    if (result_enabled && !result_channel.empty()) {
+    if (want_results) {
       nscapi::core_helper(get_core(), get_id()).register_channel(result_channel);
       NSC_DEBUG_MSG("Caching passive results submitted to channel " + result_channel + " (mode=" + result_store::mode_name(results_->mode()) + ").");
     } else if (result_enabled) {
@@ -576,7 +598,6 @@ void WEBServer::handleNotification(const std::string &channel, const PB::Command
   result_store::result_entry entry;
   entry.channel = channel;
   entry.host = resolve_host(request_message.header());
-  if (entry.host.empty()) entry.host = local_hostname_;
   entry.source = request_message.header().sender_id();
   entry.command = request.command();
   entry.alias = request.alias();
@@ -592,7 +613,11 @@ void WEBServer::handleNotification(const std::string &channel, const PB::Command
       }
     }
   }
-  entry.key = result_key_.format(entry);
+  {
+    const boost::mutex::scoped_lock lock(result_config_mutex_);
+    if (entry.host.empty()) entry.host = local_hostname_;
+    entry.key = result_key_.format(entry);
+  }
   if (entry.key.empty()) {
     // Nothing to file it under: a result with neither alias nor command from
     // a sender that did not name itself. Caching it would silently overwrite
@@ -601,7 +626,15 @@ void WEBServer::handleNotification(const std::string &channel, const PB::Command
     return;
   }
 
-  results_->submit(entry);
+  if (!results_->submit(entry)) {
+    // The store refused it: switched off between the check above and here, or
+    // - far more likely - the lock was still held after the deadline because
+    // an HTTP worker is wedged. Either way the result is gone, and saying it
+    // was cached would have the submitter believe otherwise.
+    NSC_LOG_ERROR("Failed to cache passive result (the result cache is busy or disabled): " + entry.key);
+    nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), false, "Result was not cached");
+    return;
+  }
   NSC_DEBUG_MSG("Cached passive result: " + entry.key);
   nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), true, "Result has been cached");
 }

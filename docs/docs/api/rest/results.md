@@ -18,6 +18,15 @@ CheckHelpers, but anything that submits to a channel works.
 registers no channel, caches nothing, and answers every endpoint below with
 `503 Service Unavailable`.
 
+`enabled` and `channel` are read when the web server starts, **not** on a
+settings reload: the core cannot unregister a submission channel, so a reload
+can neither start listening on one nor move to another. Turning the cache on
+(or renaming its channel) therefore needs a service restart; until then the
+cache stays off, the endpoints keep answering `503`, and the log says why.
+Every other setting on this page — `primary index`, `mode`, `clear on poll`,
+`max entries`, `max age` — takes effect on a reload. Turning the cache *off*
+also takes effect on a reload, and empties it.
+
 Only one result is kept per key. When a second result arrives for a key,
 [`mode`](#which-result-is-kept) decides which of the two survives.
 
@@ -57,6 +66,13 @@ max age = 0
 An unknown variable is refused at load time (with an error in the log) and the
 default expression is used instead, so a typo cannot silently collapse every
 result into a single entry.
+
+A key travels in a URL path (`/api/v2/results/{key}`), so anything in it
+outside `A-Z a-z 0-9 - _ . ~ /` is percent-encoded: a key `srv1/disk C:` is
+fetched as `/api/v2/results/srv1/disk%20C%3A`. `/` is left alone on purpose —
+the default `primary index` puts one between the host and the check, and the
+routes that capture a key span path segments. The `key` field of a result is
+always the unescaped key; `result_url` is the escaped URL for it.
 
 To submit results into the cache, point a producer at the channel:
 
@@ -103,6 +119,15 @@ Set `clear on poll = false` when several consumers poll the same agent, or for
 a dashboard that must not consume what it displays; results then stay until
 they are replaced, expire, or are deleted. Fetching a single result by key is
 a lookup rather than a poll and never drains, in either setting.
+
+!!! warning "`mode = worst` with `clear on poll = false` holds a problem for ever"
+
+    In `worst` mode a recovery does not replace the problem it recovered from,
+    and with draining off nothing else marks where the last poll stopped. A key
+    that once went CRITICAL therefore keeps reporting CRITICAL until it is
+    deleted (`DELETE /api/v2/results/{key}`) or expires via `max age`. Pair
+    `worst` with the default `clear on poll = true`, or use `mode = last` when
+    several consumers share one agent.
 
 ### Privileges
 

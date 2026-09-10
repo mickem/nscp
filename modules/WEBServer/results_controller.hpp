@@ -22,7 +22,10 @@
 // it returns are removed, so the next poll reports what has happened since
 // this one rather than repeating it. That is what makes the `worst` cache
 // mode meaningful - it holds the worst result since the previous poll.
-// Fetching a single key is a lookup, not a poll, and never drains.
+// Fetching a single key is a lookup, not a poll, and never drains. The flag
+// is read off the store per request rather than captured here, because these
+// controllers are built once at startup and a settings reload has to reach
+// it.
 //
 // Every route answers 503 while the cache is disabled, rather than 404 or a
 // misleading empty list, so an operator can tell "switched off" from "nothing
@@ -30,10 +33,9 @@
 class results_controller : public Mongoose::RegexpController {
   std::shared_ptr<session_manager_interface> session;
   std::shared_ptr<result_store> results;
-  bool clear_on_poll;
 
  public:
-  results_controller(int version, const std::shared_ptr<session_manager_interface> &session, const std::shared_ptr<result_store> &results, bool clear_on_poll);
+  results_controller(int version, const std::shared_ptr<session_manager_interface> &session, const std::shared_ptr<result_store> &results);
 
   void list_results(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
   void get_result(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);

@@ -5,6 +5,7 @@
 
 #include <Server.h>
 
+#include <boost/thread/mutex.hpp>
 #include <client/simple_client.hpp>
 #include <memory>
 #include <nscapi/plugin.hpp>
@@ -58,10 +59,21 @@ class WEBServer : public nscapi::impl::simple_plugin {
   std::shared_ptr<session_manager_interface> session;
   std::shared_ptr<event_store> events_;
   std::shared_ptr<result_store> results_;
+  // `result_key_` and `local_hostname_` are rebuilt by loadModuleEx, which a
+  // settings reload re-enters on the live module while results keep arriving
+  // on the channel. Swapping the formatter's token vector under a reader
+  // iterating it is a use-after-free, so both are only ever touched under
+  // this lock (result_store has its own).
+  mutable boost::mutex result_config_mutex_;
   result_key_formatter result_key_;
   // This machine's name, used for results whose header names no sender
   // (locally scheduled checks, mostly).
   std::string local_hostname_;
+  // The submission channel actually registered with the core, which only
+  // happens on a full start: the core cannot unregister one, so a reload can
+  // neither start listening on a channel nor move to a different one. Empty
+  // until the cache has been switched on across a restart.
+  std::string registered_result_channel_;
   std::shared_ptr<Mongoose::Server> server;
 
   web_server::user_config users_;
