@@ -19,4 +19,4 @@ hang the agent.
 
 **What to do:** nothing beyond upgrading. A few defaults changed as a
 consequence; see the
-[upgrade note](../setup/upgrading.md#unreleased).
+[upgrade note](../setup/upgrading.md#0200).
