@@ -77,6 +77,8 @@ std::string installer_feature_hint(const std::string &module) {
       {"NSCPClient", "Various client plugins"},
       // Lua Scripting
       {"LUAScript", "Lua Scripting"},
+      // .NET plugin support
+      {"DotnetPlugins", ".NET plugin support"},
       // OP5 Monitoring system
       {"Op5Client", "OP5 Monitoring system"},
       // Elastic plugin

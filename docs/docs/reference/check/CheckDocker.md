@@ -4,7 +4,7 @@ Check docker containers (state, health) and the docker daemon itself.
 
 ## Enable module
 
-To enable this module and and allow using the commands you need to ass `CheckDocker = enabled` to the `[/modules]` section in nsclient.ini:
+To enable this module and allow using the commands you need to add `CheckDocker = enabled` to the `[/modules]` section in nsclient.ini:
 
 ```
 [/modules]

@@ -320,6 +320,16 @@ jobs:
         azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
         signing-enabled: ${{ github.ref == 'refs/heads/main' }}
 
+    # The C# sample plugin is built for the tests but deliberately not part of
+    # the zip or the MSI, so it travels next to them in the artifact (staged
+    # under tmp/nscp to keep the artifact's root where it is) and the
+    # integration job copies it into the extracted modules/dotnet folder.
+    - name: Stage the C# sample plugin for the integration tests
+      shell: bash
+      run: |
+        mkdir -p tmp/nscp/dotnet-sample
+        cp tmp/nscp/modules/dotnet/NSCP.Plugin.CSharpSample.dll tmp/nscp/modules/dotnet/NSCP.Plugin.CSharpSample.deps.json tmp/nscp/dotnet-sample/
+
     - uses: actions/upload-artifact@v6
       with:
         name: NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}
@@ -328,6 +338,7 @@ jobs:
           tmp/nscp/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}.zip
           tmp/nscp/installers/installer-NSCP/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}.msi
           tmp/nscp/NSCP-${{ inputs.version }}-${{ inputs.platform }}-symbols.zip
+          tmp/nscp/dotnet-sample/
         if-no-files-found: error
 
     - name: Add versions

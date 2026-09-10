@@ -4,7 +4,7 @@ check_mk client can be used both from command line and from queries to check rem
 
 ## Enable module
 
-To enable this module and and allow using the commands you need to ass `CheckMKClient = enabled` to the `[/modules]` section in nsclient.ini:
+To enable this module and allow using the commands you need to add `CheckMKClient = enabled` to the `[/modules]` section in nsclient.ini:
 
 ```
 [/modules]

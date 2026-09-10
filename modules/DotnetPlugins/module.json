@@ -1,13 +1,20 @@
 {
 	"module"		: {
-		"title"			: ".NET Plugin",
-		"description"	: "Plugin to load and manage plugins written in .net",
+		"title"			: ".NET plugins",
+		"description"	: "Loads and hosts plugins written for .NET (C#, F#, ...)",
 		"name"			: "DotnetPlugins",
-		"alias"			: ".net",
+		"alias"			: "dotnet",
 		"version"		: "auto"
 	},
-	
+
+	"settings"		: {
+		"default_alias"	: "dotnet"
+	},
+
 	"commands" : {
 		"fallback" : "true"
-	}
+	},
+	"command line exec" : "true",
+	"channels" : true,
+	"log messages" : true
 }

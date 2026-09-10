@@ -895,7 +895,7 @@ class DocumentationGenerator(object):
             out.append(ext_desc + '\n')
 
         out.append('## Enable module\n')
-        out.append('To enable this module and and allow using the commands you need to ass '
+        out.append('To enable this module and allow using the commands you need to add '
                    '`%s = enabled` to the `[/modules]` section in nsclient.ini:\n' % module)
         out.append('```\n[/modules]\n%s = enabled\n```\n' % module)
 

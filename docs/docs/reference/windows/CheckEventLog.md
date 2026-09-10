@@ -187,7 +187,7 @@ If we check the log we should see something similar to this:
 
 ## Enable module
 
-To enable this module and and allow using the commands you need to ass `CheckEventLog = enabled` to the `[/modules]` section in nsclient.ini:
+To enable this module and allow using the commands you need to add `CheckEventLog = enabled` to the `[/modules]` section in nsclient.ini:
 
 ```
 [/modules]

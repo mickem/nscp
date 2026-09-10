@@ -4,7 +4,7 @@ Icinga 2 client submits passive check results to an Icinga 2 server via the REST
 
 ## Enable module
 
-To enable this module and and allow using the commands you need to ass `IcingaClient = enabled` to the `[/modules]` section in nsclient.ini:
+To enable this module and allow using the commands you need to add `IcingaClient = enabled` to the `[/modules]` section in nsclient.ini:
 
 ```
 [/modules]

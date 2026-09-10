@@ -4,7 +4,7 @@ SMTP client can be used both from command line and from queries to check remote 
 
 ## Enable module
 
-To enable this module and and allow using the commands you need to ass `SMTPClient = enabled` to the `[/modules]` section in nsclient.ini:
+To enable this module and allow using the commands you need to add `SMTPClient = enabled` to the `[/modules]` section in nsclient.ini:
 
 ```
 [/modules]

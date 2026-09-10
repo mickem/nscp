@@ -6,7 +6,7 @@ Checks for applications and server roles on Windows: IIS (web sites, application
 
 ## Enable module
 
-To enable this module and and allow using the commands you need to ass `CheckWindowsApps = enabled` to the `[/modules]` section in nsclient.ini:
+To enable this module and allow using the commands you need to add `CheckWindowsApps = enabled` to the `[/modules]` section in nsclient.ini:
 
 ```
 [/modules]

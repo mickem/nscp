@@ -4,7 +4,7 @@ CollectD client can be used to submit metrics to a collectd server
 
 ## Enable module
 
-To enable this module and and allow using the commands you need to ass `CollectdClient = enabled` to the `[/modules]` section in nsclient.ini:
+To enable this module and allow using the commands you need to add `CollectdClient = enabled` to the `[/modules]` section in nsclient.ini:
 
 ```
 [/modules]

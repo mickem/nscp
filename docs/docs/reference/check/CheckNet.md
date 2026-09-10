@@ -92,7 +92,7 @@ ICMPv6 echo request (type 128) on an ICMPv6 socket. Two consequences:
 
 ## Enable module
 
-To enable this module and and allow using the commands you need to ass `CheckNet = enabled` to the `[/modules]` section in nsclient.ini:
+To enable this module and allow using the commands you need to add `CheckNet = enabled` to the `[/modules]` section in nsclient.ini:
 
 ```
 [/modules]
