@@ -12,6 +12,7 @@
 #include <parsers/where/format_functions.hpp>
 #include <parsers/where/node.hpp>
 #include <str/format.hpp>
+#include <str/saturate.hpp>
 #include <string>
 
 CheckMemory memchecker;
@@ -63,7 +64,7 @@ parsers::where::node_type calculate_free(std::shared_ptr<filter_obj> object, par
   } else {
     number = str::format::decode_byte_units(number, unit);
   }
-  return parsers::where::factory::create_int(static_cast<long long>(number));
+  return parsers::where::factory::create_int(str::to_int64_saturating(number));
 }
 
 long long get_zero() { return 0; }

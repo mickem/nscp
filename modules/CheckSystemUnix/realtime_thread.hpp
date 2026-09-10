@@ -279,6 +279,9 @@ class pdh_thread {
 
  public:
   pdh_thread() : stop_requested_(false), core_(nullptr), plugin_id_(0), process_history_enabled(false) {}
+  // Stop the collector before its buffers and mutexes go: a reload replaces
+  // the instance, and dropping a joinable boost::thread detaches it.
+  ~pdh_thread() { stop(); }
 
   void set_core(nscapi::core_wrapper *core, int plugin_id) {
     core_ = core;

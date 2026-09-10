@@ -43,6 +43,8 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias(alias, "eventlog");
 
+  // A reload replaces the monitor: stop the running one first.
+  if (thread_) thread_->stop();
   thread_.reset(new real_time_thread(get_core(), get_id()));
   if (!thread_) {
     NSC_LOG_ERROR_STD("Failed to create thread container");
@@ -96,17 +98,23 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
   thread_->filters_.add_missing(nscapi::settings_proxy::create(get_id(), get_core()), "default", "");
 
   if (mode == NSCAPI::normalStart) {
+    // Only at startup: on a reload bookmarks_ already holds the live positions,
+    // and re-reading the stored ones would rewind them.
     nscapi::core_helper core(get_core(), get_id());
     for (const nscapi::core_helper::storage_map::value_type &e : core.get_storage_strings("eventlog.bookmarks")) {
       bookmarks_.add(e.first, e.second);
     }
-
+  }
+  // The monitor above is stopped and replaced on every load, a reload
+  // included, so it has to be started again here or realtime monitoring stays
+  // dead until the service is restarted.
+  if (mode != NSCAPI::dontStart) {
     if (!thread_->start()) NSC_LOG_ERROR_STD("Failed to start collection thread");
   }
   return true;
 }
 bool CheckEventLog::unloadModule() {
-  if (!thread_->stop()) NSC_LOG_ERROR_STD("Failed to start collection thread");
+  if (thread_ && !thread_->stop()) NSC_LOG_ERROR_STD("Failed to stop collection thread");
 
   nscapi::core_helper core(get_core(), get_id());
   for (const bookmarks::map_type::value_type &v : bookmarks_.get_copy()) {
@@ -191,6 +199,10 @@ void check_legacy(const std::string &logfile, std::string &scan_range, const int
 
     EVENTLOGRECORD *pevlr = buffer.get();
     while (dwRead > 0) {
+      // Trust nothing about the record header before stepping on it: a zero
+      // Length would spin forever and a Length past the bytes read would
+      // walk the pointer off the buffer.
+      if (dwRead < sizeof(EVENTLOGRECORD) || pevlr->Length < sizeof(EVENTLOGRECORD) || pevlr->Length > dwRead) break;
       EventLogRecord record(logfile, pevlr);
       if (direction == direction_backwards && static_cast<long long>(record.written()) < stop_date) {
         is_scanning = false;

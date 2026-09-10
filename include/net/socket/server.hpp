@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
@@ -39,7 +40,7 @@ class server : boost::noncopyable {
 #ifdef USE_SSL
   typedef ssl_connection<protocol_type, N> ssl_connection_type;
 #endif
-  bool is_shutting_down_;
+  std::atomic<bool> is_shutting_down_;
   connection_info info_;
   int threads_;
   typename protocol_type::handler_type handler_;
@@ -245,12 +246,16 @@ class server : boost::noncopyable {
   }
 
   void stop() {
+    // Stop the reactor and join the pool first: closing an acceptor while a
+    // worker re-arms async_accept on it is a shared-object race. Once no
+    // thread runs, the closes need no strand. The flag stays set: a stopped
+    // server is never restarted, and clearing it let a late accept
+    // completion log a spurious error.
     is_shutting_down_ = true;
-    acceptor_v4.close();
-    acceptor_v6.close();
     io_service_.stop();
     thread_group_.join_all();
-    is_shutting_down_ = false;
+    acceptor_v4.close();
+    acceptor_v6.close();
   }
 
  private:

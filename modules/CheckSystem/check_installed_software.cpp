@@ -97,14 +97,15 @@ std::string sid_to_account(const std::string &sid_str) {
   const std::wstring wsid = utf8::cvt<std::wstring>(sid_str);
   PSID psid = nullptr;
   if (!ConvertStringSidToSidW(wsid.c_str(), &psid)) return sid_str;
-  wchar_t name[256];
-  wchar_t domain[256];
+  wchar_t name[256] = {};
+  wchar_t domain[256] = {};
   DWORD cch_name = 256;
   DWORD cch_domain = 256;
   SID_NAME_USE use;
   std::string ret = sid_str;
   if (LookupAccountSidW(nullptr, psid, name, &cch_name, domain, &cch_domain, &use)) {
-    ret = utf8::cvt<std::string>(std::wstring(domain) + L"\\" + name);
+    // A SID without a domain reports cch_domain == 0 and leaves the buffer alone.
+    ret = cch_domain > 0 ? utf8::cvt<std::string>(std::wstring(domain) + L"\\" + name) : utf8::cvt<std::string>(std::wstring(name));
   }
   LocalFree(psid);
   return ret;

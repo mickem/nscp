@@ -383,6 +383,10 @@ void cli_client::handle_command(const std::string &command) {
     try {
       std::list<std::string> args;
       str::utils::parse_command(command, args);
+      if (args.empty()) {
+        handler->output_message("Empty command");
+        return;
+      }
       std::string cmd = args.front();
       args.pop_front();
       nscapi::core_helper helper(handler->get_core(), handler->get_plugin_id());

@@ -102,6 +102,9 @@ class collector_thread {
         trend_retention(7 * 24 * 3600),
         max_collection_errors(10) {}
 
+  // Join the collector before the mutexes and buffers it ticks against go.
+  ~collector_thread() { stop(); }
+
   disk_io_check::disks_type get_disk_io();
   disk_free_check::drives_type get_disk_free();
   // May be null before the first collector tick has published anything.

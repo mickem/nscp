@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <memory>
 #include <WbemCli.h>
 #include <atlbase.h>
 
@@ -91,6 +92,8 @@ struct header_enumerator {
 };
 struct wmi_service {
   CComPtr<IWbemServices> service;
+  // Keeps the COAUTHIDENTITY set on `service` alive for as long as the proxy.
+  std::shared_ptr<void> proxy_identity;
   std::string ns;
   std::string username;
   std::string password;

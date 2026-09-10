@@ -9,6 +9,7 @@
 #include <cmath>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <list>
 #include <locale>
 #include <sstream>
@@ -17,6 +18,7 @@
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
 #include <string>
+#include <type_traits>
 
 namespace str {
 namespace format {
@@ -269,19 +271,60 @@ inline void validate_time_spec(const std::string &time) {
   if (i != time.size()) throw std::invalid_argument("Invalid time specification: '" + time + "'");
 }
 
+namespace detail {
+// Integral T: check that the factor survives the narrowing to T before using
+// it as a divisor. A multiplier that does not fit T - a TB multiplier in a
+// 32-bit T - narrowed to exactly 0, and the guard written to prevent overflow
+// divided by zero instead. The comparison is in unsigned long long because T
+// may itself be unsigned and wider than long long (stox_as_time_sec<unsigned
+// long long>), where a long long would take max() for -1 and reject
+// everything.
+template <class T>
+T mul_checked_impl(const T value, const long long factor, const std::string &what, std::true_type) {
+  if (factor <= 0) return value * static_cast<T>(factor);
+  if (static_cast<unsigned long long>(factor) > static_cast<unsigned long long>((std::numeric_limits<T>::max)()))
+    throw std::out_of_range(what + " is too large");
+  const T f = static_cast<T>(factor);
+  if (value > (std::numeric_limits<T>::max)() / f) throw std::out_of_range(what + " is too large");
+  if (value < (std::numeric_limits<T>::lowest)() / f) throw std::out_of_range(what + " is too small");
+  return value * f;
+}
+// Floating point T: every multiplier used here is exact in T, and there is no
+// signed-overflow undefined behaviour to guard against - only the range.
+template <class T>
+T mul_checked_impl(const T value, const long long factor, const std::string &what, std::false_type) {
+  if (factor > 0) {
+    const T f = static_cast<T>(factor);
+    if (value > (std::numeric_limits<T>::max)() / f) throw std::out_of_range(what + " is too large");
+    if (value < (std::numeric_limits<T>::lowest)() / f) throw std::out_of_range(what + " is too small");
+  }
+  return value * static_cast<T>(factor);
+}
+}  // namespace detail
+
+// value * factor, or std::out_of_range when the product does not fit T. The
+// digits of a unit-suffixed number are range-checked by the parser, but the
+// unit multiplier applied afterwards was not, so "5000000w" fit a 32-bit long
+// and then overflowed it (signed overflow is undefined behaviour).
+template <class T>
+T mul_checked(const T value, const long long factor, const std::string &what) {
+  return detail::mul_checked_impl(value, factor, what, std::is_integral<T>());
+}
+
 template <class T>
 T decode_time(const std::string &time, unsigned int factor = 1) {
   validate_time_spec(time);
   const auto p = time.find_first_of("sSmMhHdDwW");
   const auto pend = time.find_first_not_of("0123456789");
   T value = boost::lexical_cast<T>(pend == std::string::npos ? time : time.substr(0, pend));
-  if (p == std::string::npos) return value * factor;
-  if ((time[p] == 's') || (time[p] == 'S')) return value * factor;
-  if ((time[p] == 'm') || (time[p] == 'M')) return value * 60 * factor;
-  if ((time[p] == 'h') || (time[p] == 'H')) return value * 60 * 60 * factor;
-  if ((time[p] == 'd') || (time[p] == 'D')) return value * 24 * 60 * 60 * factor;
-  if ((time[p] == 'w') || (time[p] == 'W')) return value * 7 * 24 * 60 * 60 * factor;
-  return value * factor;
+  const long long f = static_cast<long long>(factor);
+  if (p == std::string::npos) return mul_checked(value, f, time);
+  if ((time[p] == 's') || (time[p] == 'S')) return mul_checked(value, f, time);
+  if ((time[p] == 'm') || (time[p] == 'M')) return mul_checked(value, 60 * f, time);
+  if ((time[p] == 'h') || (time[p] == 'H')) return mul_checked(value, 60 * 60 * f, time);
+  if ((time[p] == 'd') || (time[p] == 'D')) return mul_checked(value, 24 * 60 * 60 * f, time);
+  if ((time[p] == 'w') || (time[p] == 'W')) return mul_checked(value, 7 * 24 * 60 * 60 * f, time);
+  return mul_checked(value, f, time);
 }
 
 #define WEEK (7 * 24 * 60 * 60 * 1000)
@@ -380,7 +423,7 @@ T stox_as_time_sec(const std::string &time, const std::string &default_unit) {
   if (p != std::string::npos) {
     unit = time.substr(p);
   }
-  return value * static_cast<T>(time_unit_multiplier(unit));
+  return mul_checked(value, time_unit_multiplier(unit), time);
 }
 
 //
@@ -390,10 +433,10 @@ template <class T>
 T decode_byte_units(const T value, const std::string &unit) {
   if (unit.empty()) return value;
   if (unit[0] == 'B' || unit[0] == 'b') return value;
-  if (unit[0] == 'K' || unit[0] == 'k') return value * 1024;
-  if (unit[0] == 'M' || unit[0] == 'm') return value * 1024 * 1024;
-  if (unit[0] == 'G' || unit[0] == 'g') return value * 1024 * 1024 * 1024;
-  if (unit[0] == 'T' || unit[0] == 't') return value * 1024 * 1024 * 1024 * 1024;
+  if (unit[0] == 'K' || unit[0] == 'k') return mul_checked(value, 1024LL, "size");
+  if (unit[0] == 'M' || unit[0] == 'm') return mul_checked(value, 1024LL * 1024, "size");
+  if (unit[0] == 'G' || unit[0] == 'g') return mul_checked(value, 1024LL * 1024 * 1024, "size");
+  if (unit[0] == 'T' || unit[0] == 't') return mul_checked(value, 1024LL * 1024 * 1024 * 1024, "size");
   return value;
 }
 inline long long decode_byte_units(const std::string &s) {

@@ -26,6 +26,7 @@
 // Pure logic, no clock: every entry point takes the current time as an
 // argument, so tests inject timestamps.
 
+#include <limits>
 #include <boost/optional.hpp>
 #include <deque>
 #include <sstream>
@@ -165,6 +166,10 @@ class trend_buffer {
   // and the same cadence append() enforces is applied so a corrupt or
   // hand-written row cannot inflate the ring past retention/interval samples;
   // non-monotonic timestamps abort the parse.
+  static bool add_overflows(const long long a, const long long b) {
+    return (b > 0 && a > (std::numeric_limits<long long>::max)() - b) || (b < 0 && a < (std::numeric_limits<long long>::min)() - b);
+  }
+
   static trend_buffer decode(const std::string &data, const long long interval_sec, const long long retention_sec, const long long now) {
     trend_buffer ret(interval_sec, retention_sec);
     std::istringstream ss(data);
@@ -195,6 +200,9 @@ class trend_buffer {
         first = false;
       } else {
         if (f1 <= 0) return trend_buffer(interval_sec, retention_sec);
+        // A hand-edited or corrupt row near the limits would overflow the
+        // running sums; treat it as no history rather than wrap.
+        if (add_overflows(ts, f1) || add_overflows(value, f2)) return trend_buffer(interval_sec, retention_sec);
         ts += f1;
         value += f2;
       }

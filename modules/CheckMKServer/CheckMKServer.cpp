@@ -19,6 +19,17 @@ CheckMKServer::CheckMKServer() {}
 CheckMKServer::~CheckMKServer() {}
 
 bool CheckMKServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
+  // On a reload the io threads still read the channel names and the script
+  // handler rebuilt below: stop the listener first and start it again after.
+  try {
+    if (server_) {
+      server_->stop();
+      server_.reset();
+    }
+  } catch (...) {
+    NSC_LOG_ERROR_STD("Failed to stop server");
+    return false;
+  }
   // Resolve to <base>/scripts so find_script finds <base>/scripts/lua/<file>.
   // Using get_base_path() here was a long-standing bug: the auto-add of
   // default_check_mk.lua silently failed because the .lua lives under
@@ -110,7 +121,7 @@ bool CheckMKServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 
   scripts_->load_all();
 
-  if (mode == NSCAPI::normalStart) {
+  if (mode != NSCAPI::dontStart) {
     server_.reset(new check_mk::server::server(info_, handler_));
     if (!server_) {
       NSC_LOG_ERROR_STD("Failed to create server instance!");

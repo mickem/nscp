@@ -94,16 +94,61 @@ struct payload_builder {
 // the host-override guard.
 bool client::is_sensitive_key(const std::string &key) { return key.find("password") != std::string::npos || key.find("token") != std::string::npos; }
 
+bool client::is_address_key(const std::string &key) { return key == "host" || key == "address" || key == "port"; }
+
+// A URL can carry the credential in its own text, where the key it is stored
+// under says nothing about it: `address = https://h/submit.php?token=SECRET`
+// is a form this project documents, and `https://user:pass@h/` is the other.
+// Such an address is as much a configured credential as a `password` key, so
+// the host-override guard has to see it as one - otherwise `host=` redirects
+// the whole URL, token and all, to a caller-chosen host.
+bool client::value_carries_credentials(const std::string &value) {
+  const std::string lower = boost::algorithm::to_lower_copy(value);
+  const std::string::size_type query = lower.find('?');
+  if (query != std::string::npos) {
+    static const char *const sensitive_params[] = {"token=", "password=", "passwd=", "secret=", "apikey=", "api_key=", "access_key="};
+    for (const char *param : sensitive_params) {
+      const std::string::size_type at = lower.find(param, query);
+      if (at == std::string::npos) continue;
+      // Only as a parameter name, so "?next=/reset-password=x" does not count.
+      if (at == query + 1 || lower[at - 1] == '&' || lower[at - 1] == ';') return true;
+    }
+  }
+  // userinfo: scheme://user:password@host. A bare `user@host` carries no
+  // secret, so the colon is what makes this one.
+  const std::string::size_type scheme = lower.find("://");
+  if (scheme != std::string::npos) {
+    const std::string::size_type authority = scheme + 3;
+    const std::string::size_type end = lower.find_first_of("/?#", authority);
+    const std::string::size_type at = lower.rfind('@', end == std::string::npos ? std::string::npos : end);
+    if (at != std::string::npos && at > authority) {
+      const std::string::size_type colon = lower.find(':', authority);
+      if (colon != std::string::npos && colon < at) return true;
+    }
+  }
+  return false;
+}
+
 std::string client::configuration::check_host_override(const po::variables_map &vm, const destination_container &d) {
   // Decided on the destination the request ends up with, not on which options
   // it used: --host, --port and --address are only the usual way to move it,
   // and a header host entry moves it just as effectively. An override that
   // names the address the target already had changes nothing and is allowed.
-  if (d.configured_address.empty() || d.address.to_string() == d.configured_address) return "";
   // Nothing configured is at stake: either the target carries no credentials,
   // or the request supplied its own for every one of them - a caller may send
   // a password it brought itself wherever it likes.
   if (!d.has_inherited_credentials() || d.allow_host_override) return "";
+  if (d.configured_address.empty()) {
+    // The target named no destination of its own, so it configures a secret
+    // but not where it goes. Whatever the request supplied is a caller-chosen
+    // host, and sending the target's credentials there is the very thing this
+    // guard exists to stop. Only allow it when the request did not choose one.
+    if (!d.address_from_request) return "";
+  } else if (d.address.to_string() == d.configured_address) {
+    // An override that names the address the target already had changes
+    // nothing and is allowed.
+    return "";
+  }
 
   // Name the options actually used where there are any, so the message points
   // at the part of the request to change.
@@ -275,17 +320,20 @@ std::string client::configuration::add_command(const std::string &name, const st
 
   std::string key = boost::algorithm::to_lower_copy(name);
   data.key = key;
-  commands[data.key] = data;
+  {
+    boost::unique_lock<boost::shared_mutex> lock(tables_mutex_);
+    commands[data.key] = data;
+  }
   return key;
 }
 
 client::destination_container client::configuration::get_target(const std::string &name) const {
   destination_container d;
-  object_handler_type::object_instance op = targets.find_object(name);
+  object_handler_type::object_instance op = find_target(name);
   if (op) {
     d.apply(op);
   } else {
-    op = targets.find_object("default");
+    op = find_target("default");
     if (op) d.apply(op);
   }
   return d;
@@ -349,9 +397,9 @@ void client::configuration::i_do_query(destination_container &s, destination_con
   try {
     bool custom_command = false;
 
-    command_type::const_iterator cit = commands.find(command);
-    if (cit != commands.end()) {
-      command = cit->second.command;
+    const boost::optional<command_container> custom = find_command(command);
+    if (custom) {
+      command = custom->command;
       custom_command = true;
       // TODO: Build argument vector here!
     }
@@ -430,7 +478,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
       // advice check_host_override() gives.
       if (d.has_data("$target.id$")) {
         const std::string t = d.get_string_data("$target.id$");
-        object_handler_type::object_instance op = targets.find_object(t);
+        object_handler_type::object_instance op = find_target(t);
         if (op) {
           d.apply(op);
           d.apply(t, request.header());
@@ -534,9 +582,9 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
   try {
     bool custom_command = false;
 
-    command_type::const_iterator cit = commands.find(command);
-    if (cit != commands.end()) {
-      command = cit->second.command;
+    const boost::optional<command_container> custom = find_command(command);
+    if (custom) {
+      command = custom->command;
       custom_command = true;
       // TODO: Build argument vector here!
     }
@@ -582,7 +630,7 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
         std::string t = d.get_string_data("$target.id$");
 
         // If we have a target, apply it
-        object_handler_type::object_instance op = targets.find_object(t);
+        object_handler_type::object_instance op = find_target(t);
         if (op) {
           d.apply(op);
 
@@ -699,9 +747,9 @@ void client::configuration::i_do_submit(const destination_container &s, destinat
   try {
     boost::program_options::variables_map vm;
 
-    const command_type::const_iterator cit = commands.find(command);
-    if (cit != commands.end()) {
-      command = cit->second.command;
+    const boost::optional<command_container> custom = find_command(command);
+    if (custom) {
+      command = custom->command;
       // TODO: Build argument vector here!
     }
     if (command.substr(0, 8) == "forward_") {
@@ -734,6 +782,7 @@ void client::configuration::do_metrics(const PB::Metrics::MetricsMessage &reques
 }
 
 void client::configuration::finalize(const std::shared_ptr<nscapi::settings_proxy> &settings) {
+  boost::unique_lock<boost::shared_mutex> lock(tables_mutex_);
   targets.add_samples(settings);
   targets.add_missing(settings, "default", "");
 }

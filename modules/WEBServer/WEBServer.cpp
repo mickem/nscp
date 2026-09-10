@@ -3,6 +3,7 @@
 
 #include "WEBServer.h"
 
+#include <str/saturate.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/json.hpp>
 #include <boost/program_options.hpp>
@@ -98,8 +99,12 @@ WEBServer::WEBServer() : simple_plugin(), session(new session_manager_interface(
 WEBServer::~WEBServer() = default;
 
 bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
-  log_handler.reset(new error_handler());
-  client.reset(new client::cli_client(std::make_shared<web_cli_handler>(log_handler, get_core(), get_id())));
+  // Construct once: neither object depends on settings, and a reload would
+  // otherwise destroy the client under the metrics task's push_metrics().
+  if (!client) {
+    log_handler.reset(new error_handler());
+    client.reset(new client::cli_client(std::make_shared<web_cli_handler>(log_handler, get_core(), get_id())));
+  }
 
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("WEB", std::move(alias), "server");
@@ -941,8 +946,9 @@ bool WEBServer::password(const PB::Commands::ExecuteRequestMessage::Request &req
 
 namespace {
 json::value gauge_to_json(double v) {
-  if (std::trunc(v) == v && v >= static_cast<double>(std::numeric_limits<std::int64_t>::min()) &&
-      v <= static_cast<double>(std::numeric_limits<std::int64_t>::max())) {
+  // fits_int64 bounds at 2^63 exactly: numeric_limits::max() rounds up to
+  // 2^63 as a double, so the old comparison admitted that one value.
+  if (std::trunc(v) == v && str::fits_int64(v)) {
     return json::value(static_cast<std::int64_t>(v));
   }
   return json::value(v);

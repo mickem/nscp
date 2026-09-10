@@ -526,6 +526,8 @@ bool pdh_thread::stop() {
   stop_requested_ = true;
   if (thread_) {
     thread_->join();
+    // Idempotent: the destructor calls stop() again after unloadModule did.
+    thread_.reset();
   }
   return true;
 }

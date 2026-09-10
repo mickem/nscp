@@ -3,6 +3,7 @@
 
 #include "realtime_thread.hpp"
 
+#include <vector>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -18,7 +19,19 @@ void real_time_thread::set_path(const std::string &p) { filters_.set_path(p); }
 
 inline bool icase_eq(const std::string &x, const std::string &y) { return boost::algorithm::ilexicographical_compare(x, y) == 0; }
 
+// The thread entry: an exception escaping the body would terminate the
+// process, so it is caught and logged here and the monitor simply ends.
 void real_time_thread::thread_proc() {
+  try {
+    thread_proc_body();
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR("Real-time eventlog monitoring stopped: " + std::string(e.what()));
+  } catch (...) {
+    NSC_LOG_ERROR("Real-time eventlog monitoring stopped: unknown exception");
+  }
+}
+
+void real_time_thread::thread_proc_body() {
   filter_helper helper(core, plugin_id);
   std::list<std::string> logs;
 
@@ -58,10 +71,19 @@ void real_time_thread::thread_proc() {
 
   // TODO: add support for scanning "missed messages" at startup
 
-  HANDLE *handles = new HANDLE[1 + evlog_list.size()];
-  handles[0] = stop_signal_.native_handle();
-  for (int i = 0; i < evlog_list.size(); i++) {
-    evlog_list[i]->notify(handles[i + 1]);
+  // Subscribe each log; one whose subscription fails is skipped rather than
+  // waited on through a NULL handle.
+  std::vector<HANDLE> handles;
+  eventlog_list active;
+  handles.push_back(stop_signal_.native_handle());
+  for (const eventlog_type &el : evlog_list) {
+    HANDLE h = NULL;
+    if (!el->notify(h) || h == NULL) {
+      NSC_LOG_ERROR("Failed to subscribe to eventlog " + el->get_name() + ", it will not be monitored");
+      continue;
+    }
+    handles.push_back(h);
+    active.push_back(el);
   }
   helper.touch_all();
 
@@ -86,16 +108,15 @@ void real_time_thread::thread_proc() {
     if (!startup_done && dwWaitTime > 500) dwWaitTime = 500;
 
     NSC_DEBUG_MSG("Sleeping for: " + str::xtos(dwWaitTime) + "ms");
-    DWORD dwWaitReason = WaitForMultipleObjects(static_cast<DWORD>(evlog_list.size() + 1), handles, FALSE, dwWaitTime);
+    DWORD dwWaitReason = WaitForMultipleObjects(static_cast<DWORD>(handles.size()), handles.data(), FALSE, dwWaitTime);
     if (dwWaitReason == WAIT_TIMEOUT) {
       NSC_DEBUG_MSG_STD("No events detected looking for any ok events to send");
       helper.process_no_items();
     } else if (dwWaitReason == WAIT_OBJECT_0) {
-      delete[] handles;
       return;
-    } else if (dwWaitReason > WAIT_OBJECT_0 && dwWaitReason <= (WAIT_OBJECT_0 + evlog_list.size())) {
+    } else if (dwWaitReason > WAIT_OBJECT_0 && dwWaitReason <= (WAIT_OBJECT_0 + active.size())) {
       int index = dwWaitReason - WAIT_OBJECT_0 - 1;
-      eventlog_type el = evlog_list[index];
+      eventlog_type el = active[index];
       try {
         NSC_DEBUG_MSG_STD("Detected action on: " + el->get_name());
 
@@ -129,8 +150,6 @@ void real_time_thread::thread_proc() {
       }
     }
   }
-  delete[] handles;
-  return;
 }
 
 bool real_time_thread::start() {

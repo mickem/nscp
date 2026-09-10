@@ -8,17 +8,29 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/select.h>
+#include <poll.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 
 #include <algorithm>
+#include <limits>
 #include <bytes/buffer.hpp>
 #include <process/execute_process.hpp>
 #include <string>
 #include <vector>
+
+namespace {
+// strerror() is not thread-safe and this runs on worker threads. strerror_r
+// comes in the XSI (int) and GNU (char *) flavours; both are handled.
+std::string describe_errno(int, const char *buf) { return buf; }
+std::string describe_errno(const char *msg, const char *) { return msg ? msg : ""; }
+std::string errno_text(int err) {
+  char buf[256] = {0};
+  return describe_errno(strerror_r(err, buf, sizeof(buf)), buf);
+}
+}  // namespace
 
 #define BUFFER_SIZE 4096
 
@@ -51,18 +63,25 @@ std::string drain_with_timeout(int fd, time_t deadline, bool& timed_out, bool& h
   std::string out;
   buffer_type buffer(BUFFER_SIZE);
   for (;;) {
-    fd_set rfds;
-    FD_ZERO(&rfds);
-    FD_SET(fd, &rfds);
     const time_t now = time(nullptr);
     if (now >= deadline) {
       timed_out = true;
       return out;
     }
-    struct timeval tv;
-    tv.tv_sec = deadline - now;
-    tv.tv_usec = 0;
-    const int ready = select(fd + 1, &rfds, nullptr, nullptr, &tv);
+    // poll(), not select(): FD_SET on a descriptor past FD_SETSIZE writes off
+    // the end of the stack bitmap, and a busy agent (ten io threads per
+    // socket server plus the web server) can hold that many descriptors.
+    struct pollfd pfd;
+    pfd.fd = fd;
+    pfd.events = POLLIN;
+    pfd.revents = 0;
+    // Clamp the wait: (deadline - now) * 1000 overflows int for a large
+    // configured timeout, and a negative poll timeout means "block forever",
+    // which would turn this bounded drain unbounded. The loop re-arms, so a
+    // capped single wait costs nothing.
+    const long long remaining_ms = static_cast<long long>(deadline - now) * 1000;
+    const int poll_ms = remaining_ms > static_cast<long long>((std::numeric_limits<int>::max)()) ? (std::numeric_limits<int>::max)() : static_cast<int>(remaining_ms);
+    const int ready = poll(&pfd, 1, poll_ms);
     if (ready < 0) {
       if (errno == EINTR) continue;
       had_error = true;
@@ -131,7 +150,7 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
   int pipefd[2];
   if (pipe(pipefd) != 0) {
     output = "Failed to create pipe: ";
-    output += strerror(errno);
+    output += errno_text(errno);
     return NSCAPI::query_return_codes::returnUNKNOWN;
   }
 
@@ -140,7 +159,7 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
     close(pipefd[0]);
     close(pipefd[1]);
     output = "Failed to fork: ";
-    output += strerror(errno);
+    output += errno_text(errno);
     return NSCAPI::query_return_codes::returnUNKNOWN;
   }
   if (pid == 0) {
@@ -203,7 +222,7 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
   int status = 0;
   if (waitpid(pid, &status, 0) < 0) {
     output = "Failed to wait for child: ";
-    output += strerror(errno);
+    output += errno_text(errno);
     return NSCAPI::query_return_codes::returnUNKNOWN;
   }
   return map_exit_status(status);

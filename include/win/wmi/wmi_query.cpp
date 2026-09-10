@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
+#include <memory>
 #include <WMIUtils.h>
 #include <Wbemidl.h>
 #include <atlsafe.h>
@@ -50,12 +51,16 @@ identity_container get_identity(const std::wstring &username, const std::wstring
   return {username.substr(0, pos), username.substr(pos + 1), password};
 }
 
-void set_proxy_blanket(IUnknown *pProxy, const std::string &user, const std::string &password) {
-  if (user.empty() || password.empty()) return;
-  identity_container auth = get_identity(utf8::cvt<std::wstring>(user), utf8::cvt<std::wstring>(password));
+// The identity handed to CoSetProxyBlanket must stay valid until another
+// identity is set or the proxy is released, so it is returned to the caller
+// (type-erased) to be kept alongside the service it was set on.
+std::shared_ptr<void> set_proxy_blanket(IUnknown *pProxy, const std::string &user, const std::string &password) {
+  if (user.empty() || password.empty()) return std::shared_ptr<void>();
+  std::shared_ptr<identity_container> auth = std::make_shared<identity_container>(get_identity(utf8::cvt<std::wstring>(user), utf8::cvt<std::wstring>(password)));
   const HRESULT hr = CoSetProxyBlanket(pProxy, RPC_C_AUTHN_DEFAULT, RPC_C_AUTHZ_DEFAULT, COLE_DEFAULT_PRINCIPAL, RPC_C_AUTHN_LEVEL_DEFAULT,
-                                       RPC_C_IMP_LEVEL_IMPERSONATE, &auth.auth_identity, EOAC_NONE);
+                                       RPC_C_IMP_LEVEL_IMPERSONATE, &auth->auth_identity, EOAC_NONE);
   if (FAILED(hr)) throw wmi_exception(hr, "CoSetProxyBlanket failed: " + ComError::getComError(hr));
+  return auth;
 }
 
 CComPtr<IWbemServices> &wmi_service::get() {
@@ -77,7 +82,7 @@ CComPtr<IWbemServices> &wmi_service::get() {
       throw wmi_exception(hr, "ConnectServer failed: namespace=" + ns + ", user=" + username);
     }
 
-    set_proxy_blanket(service, username, password);
+    proxy_identity = set_proxy_blanket(service, username, password);
     is_initialized = true;
   }
   return service;
@@ -124,7 +129,7 @@ std::string row::get_string(const std::string &col) const {
     return get_array<INT>(vValue.parray);
   }
   if (vValue.vt == (VT_ARRAY | VT_I8)) {
-    return get_array<LONG>(vValue.parray);
+    return get_array<LONGLONG>(vValue.parray);
   }
   hr = vValue.ChangeType(VT_BSTR);
   if (FAILED(hr)) throw wmi_exception(hr, "Failed to convert " + col + " to string");
@@ -203,7 +208,7 @@ std::list<std::string> header_enumerator::get() const {
 }
 row_enumerator query::execute() {
   row_enumerator ret(columns);
-  BSTR strQL = _T("WQL");
+  const CComBSTR strQL(L"WQL");
   const CComBSTR strQuery(utf8::cvt<std::wstring>(wql_query).c_str());
 
   const HRESULT hr = instance.get()->ExecQuery(strQL, strQuery, WBEM_FLAG_FORWARD_ONLY, nullptr, &ret.enumerator_obj);
@@ -235,7 +240,7 @@ row_enumerator instances::get() {
 
 std::list<std::string> query::get_columns() {
   if (!columns.empty()) return columns;
-  BSTR strQL = _T("WQL");
+  const CComBSTR strQL(L"WQL");
   const CComBSTR strQuery(utf8::cvt<std::wstring>(wql_query).c_str());
 
   header_enumerator enumerator;

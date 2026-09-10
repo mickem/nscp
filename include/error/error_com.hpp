@@ -19,9 +19,12 @@ class com {
     if (FAILED(hr)) return utf8::cvt<std::string>(std::wstring(_com_error(srcHr).ErrorMessage()));
     hr = errorInfo->GetDescription(&bDesc);
     if (FAILED(hr)) return utf8::cvt<std::string>(std::wstring(_com_error(srcHr).ErrorMessage()));
-    auto ret = utf8::cvt<std::string>(OLE2T(bSource));
+    // GetSource/GetDescription may succeed with a NULL BSTR.
+    const std::wstring source = bSource ? std::wstring(bSource, bSource.Length()) : std::wstring();
+    const std::wstring desc = bDesc ? std::wstring(bDesc, bDesc.Length()) : std::wstring();
+    auto ret = utf8::cvt<std::string>(source);
     ret += " - ";
-    ret += utf8::cvt<std::string>(OLE2T(bDesc));
+    ret += utf8::cvt<std::string>(desc);
     return ret;
   }
 };

@@ -656,8 +656,8 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
 		if (mode == NSCAPI::normalStart || mode == NSCAPI::dontStart) {
 			nscapi::basic_wrapper_static<plugin_impl_class>::set_alias("{{module.alias}}", alias);
 		}
-		nscapi::basic_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
-		return wrapper.NSLoadModuleEx(id, alias, mode); 
+		nscapi::basic_wrapper<plugin_impl_class> wrapper(plugin_instance.create(id));
+		return wrapper.NSLoadModuleEx(id, alias, mode);
 	}
 	extern int NSLoadModule() {
 		return nscapi::basic_wrapper_static<plugin_impl_class>::NSLoadModule();
@@ -701,7 +701,7 @@ extern void NSHandleMessage(unsigned int id, const char* request_buffer, unsigne
 	return wrapper.NSHandleMessage(request_buffer, request_buffer_len);
 }
 extern NSCAPI::boolReturn NSHasMessageHandler(unsigned int id) {
-	nscapi::message_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
+	nscapi::message_wrapper<plugin_impl_class> wrapper(plugin_instance.create(id));
 	return wrapper.NSHasMessageHandler();
 }
 {% else %}
@@ -714,7 +714,7 @@ extern NSCAPI::nagiosReturn NSHandleCommand(unsigned int id, const char* request
 	return wrapper.NSHandleCommand(request_buffer, request_buffer_len, reply_buffer, reply_buffer_len); 
 }
 extern NSCAPI::boolReturn NSHasCommandHandler(unsigned int id) {
-	nscapi::command_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
+	nscapi::command_wrapper<plugin_impl_class> wrapper(plugin_instance.create(id));
 	return wrapper.NSHasCommandHandler(); 
 }
 {% else %}
@@ -733,7 +733,7 @@ extern int NSHandleNotification(unsigned int id, const char* channel, const char
 	return wrapper.NSHandleNotification(channel, buffer, buffer_len, response_buffer, response_buffer_len); 
 }
 extern NSCAPI::boolReturn NSHasNotificationHandler(unsigned int id) {
-	nscapi::submission_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
+	nscapi::submission_wrapper<plugin_impl_class> wrapper(plugin_instance.create(id));
 	return wrapper.NSHasNotificationHandler(); 
 }
 {% endif %}

@@ -648,6 +648,9 @@ int cli_parser::parse_client(int argc, char *argv[], const std::string &module_)
       }
     }
     if (!args.run_pre(core_, defines)) {
+      // Plugins started before the failure keep their threads; stop them so
+      // static destruction does not run under them.
+      args.run_post(core_);
       return NSCAPI::exec_return_codes::returnERROR;
     }
     int ret = 0;
@@ -722,6 +725,9 @@ int cli_parser::parse_unittest(int argc, char *argv[]) {
     install_args.emplace_back(script);
     std::list<std::string> resp;
     if (!args.run_pre(core_, defines)) {
+      // Plugins started before the failure keep their threads; stop them so
+      // static destruction does not run under them.
+      args.run_post(core_);
       return NSCAPI::exec_return_codes::returnERROR;
     }
     int ret = 0;

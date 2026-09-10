@@ -3,7 +3,9 @@
 
 #pragma once
 
+#include <boost/thread.hpp>
 #include <list>
+#include <memory>
 #include <nscapi/command_alias.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
@@ -22,6 +24,13 @@ class CheckHelpers final : public nscapi::impl::simple_plugin {
   // aliases here are leaf definitions, so the per-alias subdirectory and
   // template/parent machinery just added configuration noise.
   alias::simple_command_map aliases_;
+
+  // check_timeout workers that outlived their caller. They own their state
+  // through a shared_ptr, so the caller returning is safe; this list exists
+  // so unloadModule can give them a bounded wait before the DLL goes away.
+  boost::mutex workers_mutex_;
+  std::list<std::shared_ptr<boost::thread>> orphaned_workers_;
+  void park_worker(std::shared_ptr<boost::thread> worker);
 
  public:
   CheckHelpers() : aliases_(alias::make_simple_command_map()) {}

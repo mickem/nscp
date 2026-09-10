@@ -142,33 +142,33 @@ bool parse_tomcat_status_xml(const std::string &body, tomcat_status &out) {
   }
   const auto status = tree.get_child_optional("status");
   if (!status) return false;
-  if (const auto memory = status->get_child_optional("jvm.memory")) {
-    out.memory_free = attr_ll(*memory, "free");
-    out.memory_total = attr_ll(*memory, "total");
-    out.memory_max = attr_ll(*memory, "max");
+  if (const auto memory = status.value().get_child_optional("jvm.memory")) {
+    out.memory_free = attr_ll(memory.value(), "free");
+    out.memory_total = attr_ll(memory.value(), "total");
+    out.memory_max = attr_ll(memory.value(), "max");
   }
-  for (const auto &child : *status) {
+  for (const auto &child : status.value()) {
     if (child.first != "connector") continue;
     tomcat_connector c;
     // Tomcat quotes the name attribute value itself: name='"http-nio-8080"'.
     c.name = child.second.get<std::string>("<xmlattr>.name", "");
     boost::trim_if(c.name, boost::is_any_of("\""));
     if (const auto threads = child.second.get_child_optional("threadInfo")) {
-      c.threads_max = attr_ll(*threads, "maxThreads");
-      c.threads_current = attr_ll(*threads, "currentThreadCount");
-      c.threads_busy = attr_ll(*threads, "currentThreadsBusy");
+      c.threads_max = attr_ll(threads.value(), "maxThreads");
+      c.threads_current = attr_ll(threads.value(), "currentThreadCount");
+      c.threads_busy = attr_ll(threads.value(), "currentThreadsBusy");
     }
     if (const auto requests = child.second.get_child_optional("requestInfo")) {
-      c.max_time = attr_ll(*requests, "maxTime");
-      c.processing_time = attr_ll(*requests, "processingTime");
-      c.request_count = attr_ll(*requests, "requestCount");
-      c.error_count = attr_ll(*requests, "errorCount");
-      c.bytes_received = attr_ll(*requests, "bytesReceived");
-      c.bytes_sent = attr_ll(*requests, "bytesSent");
+      c.max_time = attr_ll(requests.value(), "maxTime");
+      c.processing_time = attr_ll(requests.value(), "processingTime");
+      c.request_count = attr_ll(requests.value(), "requestCount");
+      c.error_count = attr_ll(requests.value(), "errorCount");
+      c.bytes_received = attr_ll(requests.value(), "bytesReceived");
+      c.bytes_sent = attr_ll(requests.value(), "bytesSent");
     }
     out.connectors.push_back(c);
   }
-  return !out.connectors.empty() || status->get_child_optional("jvm").is_initialized();
+  return !out.connectors.empty() || status.value().get_child_optional("jvm").is_initialized();
 }
 
 }  // namespace check_webserver_internal

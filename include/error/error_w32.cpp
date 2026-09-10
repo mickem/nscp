@@ -55,7 +55,8 @@ std::string format_message(unsigned long attrs, std::string module, unsigned lon
   } else {
     attrs |= FORMAT_MESSAGE_FROM_SYSTEM;
   }
-  const unsigned long dwRet = FormatMessage(attrs, hMod, dwError, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), reinterpret_cast<LPTSTR>(&lpMsgBuf), 0, nullptr);
+  // Messages such as ERROR_BAD_EXE_FORMAT carry %1 inserts and no argument array is supplied.
+  const unsigned long dwRet = FormatMessage(attrs | FORMAT_MESSAGE_IGNORE_INSERTS, hMod, dwError, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), reinterpret_cast<LPTSTR>(&lpMsgBuf), 0, nullptr);
   if (dwRet == 0) {
     FreeLibrary(hMod);
     const DWORD err = GetLastError();
@@ -84,7 +85,8 @@ std::string format_message(unsigned long attrs, std::string module, unsigned lon
   } else {
     attrs |= FORMAT_MESSAGE_FROM_SYSTEM;
   }
-  const unsigned long dwRet = FormatMessage(attrs, hMod, dwError, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), reinterpret_cast<LPTSTR>(&lpMsgBuf), 0,
+  // Messages such as ERROR_BAD_EXE_FORMAT carry %1 inserts and no argument array is supplied.
+  const unsigned long dwRet = FormatMessage(attrs | FORMAT_MESSAGE_IGNORE_INSERTS, hMod, dwError, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), reinterpret_cast<LPTSTR>(&lpMsgBuf), 0,
                                             reinterpret_cast<va_list *>(arguments));
   if (dwRet == 0) {
     FreeLibrary(hMod);

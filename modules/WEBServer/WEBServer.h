@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <Server.h>
 
 #include <client/simple_client.hpp>
@@ -57,5 +58,5 @@ class WEBServer : public nscapi::impl::simple_plugin {
   std::shared_ptr<Mongoose::Server> server;
 
   web_server::user_config users_;
-  unsigned long last_log_index;
+  std::atomic<unsigned long> last_log_index;
 };

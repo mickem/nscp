@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
+#include <atomic>
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_helper.hpp>
 #include <nsclient/nsclient_exception.hpp>
@@ -47,14 +48,15 @@ nscapi::core_wrapper::~core_wrapper() { delete pimpl; }
 //////////////////////////////////////////////////////////////////////////
 
 bool nscapi::core_wrapper::should_log(NSCAPI::nagiosReturn msgType) const {
-  enum log_status { unknown, set };
-  static NSCAPI::log_level::level level = NSCAPI::log_level::info;
-  static log_status status = unknown;
-  if (status == unknown) {
-    level = get_loglevel();
-    status = set;
+  // Read on every log call from any thread, so the cached level is one
+  // atomic rather than two plain statics racing each other.
+  static std::atomic<int> cached{-1};
+  int level = cached.load(std::memory_order_relaxed);
+  if (level < 0) {
+    level = static_cast<int>(get_loglevel());
+    cached.store(level, std::memory_order_relaxed);
   }
-  return logging::matches(level, msgType);
+  return logging::matches(static_cast<NSCAPI::log_level::level>(level), msgType);
 }
 
 /**

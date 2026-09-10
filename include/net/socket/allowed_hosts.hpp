@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <mutex>
 #include <boost/asio/ip/address.hpp>
 #include <list>
 #include <string>
@@ -29,10 +30,27 @@ struct allowed_hosts_manager {
   std::list<host_record_v6> entries_v6;
   std::list<std::string> sources;
   bool cached;
+  // set_source()/refresh() rewrite the lists on the settings thread while
+  // is_allowed() walks them on every accepting thread. A plain mutex, not a
+  // shared_mutex: installer_lib compiles this header as its own C++14 project
+  // for the XP-compatible custom actions (it even defines
+  // BOOST_NO_CXX17_HDR_SHARED_MUTEX), so std::shared_mutex is not available
+  // here. The critical section is a short list walk per accepted connection,
+  // so there is nothing to win from a reader/writer lock anyway.
+  mutable std::mutex entries_mutex_;
 
   allowed_hosts_manager() : cached(true) {}
-  allowed_hosts_manager(const allowed_hosts_manager &other) = default;
-  allowed_hosts_manager &operator=(const allowed_hosts_manager &other) = default;
+  allowed_hosts_manager(const allowed_hosts_manager &other)
+      : entries_v4(other.entries_v4), entries_v6(other.entries_v6), sources(other.sources), cached(other.cached) {}
+  allowed_hosts_manager &operator=(const allowed_hosts_manager &other) {
+    if (this != &other) {
+      entries_v4 = other.entries_v4;
+      entries_v6 = other.entries_v6;
+      sources = other.sources;
+      cached = other.cached;
+    }
+    return *this;
+  }
 
   void set_source(const std::string &source);
   addr_v4 lookup_mask_v4(std::string mask);
@@ -56,6 +74,8 @@ struct allowed_hosts_manager {
     // BREAKING CHANGE from earlier versions: deployments that relied on
     // `allowed hosts =` (empty) to accept any source must set
     // `allowed hosts = 0.0.0.0/0,::/0` to keep the same behaviour.
+    if (!cached) refresh(errors);
+    std::lock_guard<std::mutex> lock(entries_mutex_);
     if (entries_v4.empty() && entries_v6.empty()) {
       errors.emplace_back("allowed_hosts is empty - rejecting all connections (set `allowed hosts = 0.0.0.0/0,::/0` to allow all)");
       return false;
@@ -82,8 +102,8 @@ struct allowed_hosts_manager {
     }
     return false;
   }
+  // Called from is_allowed() with the lock held.
   bool is_allowed_v4(const addr_v4 &remote, std::list<std::string> &errors) {
-    if (!cached) refresh(errors);
     for (const host_record_v4 &r : entries_v4) {
       if (match_host(r.addr, r.mask, remote)) return true;
     }
@@ -91,7 +111,6 @@ struct allowed_hosts_manager {
     return false;
   }
   bool is_allowed_v6(const addr_v6 &remote, std::list<std::string> &errors) {
-    if (!cached) refresh(errors);
     for (const host_record_v6 &r : entries_v6) {
       if (match_host(r.addr, r.mask, remote)) return true;
     }

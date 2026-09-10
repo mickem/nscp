@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <boost/thread/shared_mutex.hpp>
 #include <list>
 #include <memory>
@@ -21,7 +22,7 @@ class master_plugin_list {
   typedef std::vector<plugin_type> pluginList;
   pluginList plugins_;
   boost::shared_mutex m_mutexRW;
-  unsigned int next_plugin_id_;
+  std::atomic<unsigned int> next_plugin_id_;
   logging::log_client_accessor log_instance_;
 
  public:

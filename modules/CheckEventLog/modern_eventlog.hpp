@@ -268,7 +268,7 @@ typedef BOOL(WINAPI* tEvtGetPublisherMetadataProperty)(EVT_HANDLE PublisherMetad
 typedef BOOL(WINAPI* tEvtGetObjectArrayProperty)(EVT_OBJECT_ARRAY_PROPERTY_HANDLE ObjectArray, DWORD PropertyId, DWORD ArrayIndex, DWORD Flags,
                                                  DWORD PropertyValueBufferSize, PEVT_VARIANT PropertyValueBuffer, _Out_ PDWORD PropertyValueBufferUsed);
 
-typedef BOOL (*tEvtGetObjectArraySize)(EVT_OBJECT_ARRAY_PROPERTY_HANDLE ObjectArray, _Out_ PDWORD ObjectArraySize);
+typedef BOOL(WINAPI *tEvtGetObjectArraySize)(EVT_OBJECT_ARRAY_PROPERTY_HANDLE ObjectArray, _Out_ PDWORD ObjectArraySize);
 
 typedef enum _EVT_SUBSCRIBE_NOTIFY_ACTION {
   EvtSubscribeActionError = 0,

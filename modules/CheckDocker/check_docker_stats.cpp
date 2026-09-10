@@ -6,6 +6,7 @@
 #include "docker_client.hpp"
 #include "docker_endpoint.hpp"
 
+#include <str/saturate.hpp>
 #include <boost/json.hpp>
 #include <memory>
 #include <parsers/filter/cli_helper.hpp>
@@ -68,7 +69,9 @@ void parse_stats(const json::object &o, const std::shared_ptr<stats_obj> &record
       long long online = get_num(*cpu, "online_cpus");
       if (online <= 0) online = 1;
       if (cpu_delta > 0 && system_delta > 0) {
-        record->cpu_pct = cpu_delta * 100 * online / system_delta;
+        // In double: a daemon reporting a very large total_usage (the
+        // endpoint may be a remote host) overflows the integer product.
+        record->cpu_pct = str::to_int64_saturating(static_cast<double>(cpu_delta) * 100.0 * static_cast<double>(online) / static_cast<double>(system_delta));
       }
     }
   }

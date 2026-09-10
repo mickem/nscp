@@ -40,7 +40,9 @@ class registry_key {
     std::wstring ret;
     DWORD cbData = buffer_length;
     delete[] bData_;
-    bData_ = new BYTE[cbData + 2];
+    // Value-initialised: a REG_SZ written without its terminator (third-party
+    // installers do this) otherwise leaves the wide terminator to chance.
+    bData_ = new BYTE[cbData + 2]();
     // TODO: add get size here !
     LONG lRet = RegQueryValueEx(hKey_, key.c_str(), NULL, &type, bData_, &cbData);
     if (lRet != ERROR_SUCCESS) throw registry_exception(path_, key, "Failed to get value: " + error::format::from_system(lRet));
@@ -53,7 +55,7 @@ class registry_key {
       delete[] buffer_;
       buffer_ = new TCHAR[buffer_length + 1];
       DWORD expRet = ExpandEnvironmentStrings(s.c_str(), buffer_, buffer_length);
-      if (expRet >= buffer_length)
+      if (expRet == 0 || expRet >= buffer_length)
         throw registry_exception(path_, key, "Buffer to small (expand)");
       else
         ret = buffer_;

@@ -54,7 +54,9 @@ inline std::string decode_chunked(const std::string &raw) {
     }
     pos = crlf + 2;
     if (size == 0) break;
-    if (pos + size > raw.size()) {
+    // Compare without adding: a chunk-size line of ffffffffffffffff makes
+    // pos + size wrap below raw.size() and the loop step backwards forever.
+    if (size > raw.size() - pos) {
       // Truncated chunk: append what we have and stop.
       out.append(raw, pos, raw.size() - pos);
       break;

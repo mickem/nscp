@@ -69,7 +69,30 @@ bool CheckHelpers::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
   return true;
 }
 
-bool CheckHelpers::unloadModule() { return true; }
+bool CheckHelpers::unloadModule() {
+  std::list<std::shared_ptr<boost::thread>> workers;
+  {
+    boost::lock_guard<boost::mutex> lock(workers_mutex_);
+    workers.swap(orphaned_workers_);
+  }
+  for (const std::shared_ptr<boost::thread> &worker : workers) {
+    if (!worker->timed_join(boost::posix_time::seconds(1))) worker->detach();
+  }
+  return true;
+}
+
+void CheckHelpers::park_worker(std::shared_ptr<boost::thread> worker) {
+  boost::lock_guard<boost::mutex> lock(workers_mutex_);
+  // Drop the ones that have finished since they were parked.
+  for (auto it = orphaned_workers_.begin(); it != orphaned_workers_.end();) {
+    if ((*it)->timed_join(boost::posix_time::seconds(0))) {
+      it = orphaned_workers_.erase(it);
+    } else {
+      ++it;
+    }
+  }
+  orphaned_workers_.push_back(std::move(worker));
+}
 
 void CheckHelpers::add_alias(const std::string &key, const std::string &arg) {
   try {
@@ -445,6 +468,9 @@ void CheckHelpers::check_and_forward(const PB::Commands::QueryRequestMessage::Re
   nscapi::protobuf::functions::set_response_good(*response, "Message submitted: " + channel);
 }
 
+// State shared between check_timeout and its worker thread. Owned through a
+// shared_ptr by both, so a worker that overruns the timeout keeps writing
+// into live heap memory, never into the caller's returned stack frame.
 struct worker_object {
   void proc(nscapi::core_wrapper *core, int plugin_id, const std::string &caller_plugin_id, const std::string &principal, std::string command,
             std::vector<std::string> arguments) {
@@ -477,23 +503,28 @@ void CheckHelpers::check_timeout(const PB::Commands::QueryRequestMessage::Reques
   if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) return;
   if (command.empty()) return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
 
-  worker_object obj;
-  std::shared_ptr<boost::thread> t = std::shared_ptr<boost::thread>(
-      new boost::thread([&obj, this, command, arguments, id]() { obj.proc(get_core(), get_id(), id.caller_plugin_id, id.principal, command, arguments); }));
+  // Capture values only: the worker may outlive this call and the module.
+  auto obj = std::make_shared<worker_object>();
+  nscapi::core_wrapper *core = get_core();
+  const int plugin_id = get_id();
+  const std::string caller = id.caller_plugin_id;
+  const std::string principal = id.principal;
+  auto t = std::make_shared<boost::thread>(
+      [obj, core, plugin_id, caller, principal, command, arguments]() { obj->proc(core, plugin_id, caller, principal, command, arguments); });
 
   if (t->timed_join(boost::posix_time::seconds(timeout))) {
-    if (!obj.ok) {
+    if (!obj->ok) {
       return nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute: " + command);
     }
     PB::Commands::QueryResponseMessage local_response;
-    local_response.ParseFromString(obj.response_buffer);
+    local_response.ParseFromString(obj->response_buffer);
     if (local_response.payload_size() != 1) {
       return nscapi::protobuf::functions::set_response_bad(*response, "Invalid payload size: " + command);
     }
     response->CopyFrom(local_response.payload(0));
     if (vm.count("return")) response->set_result(nscapi::protobuf::functions::parse_nagios(vm["return"].as<std::string>()));
   } else {
-    t->detach();
+    park_worker(t);
     nscapi::protobuf::functions::set_response_bad(*response, "Thread failed to return within given timeout");
   }
 }

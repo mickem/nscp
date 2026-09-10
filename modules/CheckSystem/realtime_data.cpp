@@ -4,6 +4,7 @@
 #include "realtime_data.hpp"
 
 #include <boost/filesystem.hpp>
+#include <stdexcept>
 #include <str/format.hpp>
 
 namespace check_cpu_filter {
@@ -11,6 +12,7 @@ void runtime_data::add(const std::string &time) {
   container c;
   c.alias = time;
   c.time = str::format::decode_time<long>(time, 1);
+  if (c.time <= 0) throw std::invalid_argument("Invalid time '" + time + "': the window must be at least one second");
   checks.push_back(c);
 }
 

@@ -191,11 +191,24 @@ bool input_available() {
   HANDLE input_handle = GetStdHandle(STD_INPUT_HANDLE);
   DWORD num_events = 0;
   if (!GetNumberOfConsoleInputEvents(input_handle, &num_events)) {
-    // Not a console handle: stdin is a file, a pipe or NUL. Say yes and let
-    // the caller do a blocking read, which either returns a line or reports
-    // end of input (which the caller then parks on). Returning false here is
-    // what used to make `nscp test < commands.txt` silently do nothing on
-    // Windows while the same thing worked on POSIX.
+    // Not a console handle: stdin is a file, a pipe or NUL.
+    //
+    // A pipe has to be peeked rather than assumed readable. Saying yes sends
+    // the caller into a blocking std::getline, and a pipe that is open but
+    // idle parks it there indefinitely: `exit` and Ctrl+C do set is_running to
+    // false, but the input thread never returns and the join at the end of
+    // run() hangs the process. POSIX does not have this problem because the
+    // select() below reports an idle pipe as not readable.
+    if (GetFileType(input_handle) == FILE_TYPE_PIPE) {
+      DWORD available = 0;
+      // A failure here means the write end is gone, so the read returns end of
+      // input rather than blocking; let the caller see it.
+      if (!PeekNamedPipe(input_handle, nullptr, 0, nullptr, &available, nullptr)) return true;
+      return available > 0;
+    }
+    // A file or NUL: the blocking read returns a line or end of input at once.
+    // Returning false for those is what used to make `nscp test <
+    // commands.txt` silently do nothing on Windows while POSIX worked.
     return true;
   }
 
@@ -409,6 +422,11 @@ bool CommandClient::commandLineExec(const int target_mode, const PB::Commands::E
   if (signal_thread.joinable()) signal_thread.join();
 #endif
 
+#ifdef WIN32
+  // The handler lives in this DLL: leave it registered and a Ctrl+C after
+  // the module is unmapped runs a thread into freed code.
+  SetConsoleCtrlHandler(consoleHandler, FALSE);
+#endif
   nscapi::protobuf::functions::set_response_good(*response, "Done");
   return true;
 }

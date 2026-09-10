@@ -26,6 +26,7 @@ schedule_metadata scheduler::get(int id) {
 }
 void scheduler::handle_plugin(const schedule_metadata &data) {
   nsclient::core::plugin_manager::plugin_type plugin = mainClient->get_plugin_manager()->find_plugin(data.plugin_id);
+  if (!plugin) return;  // unloaded since the schedule was registered
   plugin->handle_schedule("");
 }
 void scheduler::handle_reload(const schedule_metadata &data) { mainClient->do_reload(data.info); }

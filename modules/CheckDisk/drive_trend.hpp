@@ -9,6 +9,8 @@
 // human renderings. The platform files own the filter_obj and keyword
 // registration; everything here is pure and unit-testable.
 
+#include <limits>
+#include <str/saturate.hpp>
 #include <algorithm>
 #include <boost/optional.hpp>
 #include <cctype>
@@ -65,7 +67,7 @@ inline const trend::trend_buffer *lookup_win(const trend_map &trends, const std:
 // The signed growth rate in bytes/day, or nothing while no trend exists.
 inline boost::optional<long long> rate_per_day(const trend::slope_result &r) {
   if (!r.valid) return boost::none;
-  return static_cast<long long>(r.slope * static_cast<double>(seconds_per_day));
+  return str::to_int64_saturating(r.slope * static_cast<double>(seconds_per_day));
 }
 
 // Seconds until full projected from the *current* free space (not the
@@ -102,7 +104,8 @@ inline std::string format_full_in(const boost::optional<long long> &v) {
 
 inline std::string format_rate(const boost::optional<long long> &v, const str::number_format &fmt = str::number_format()) {
   if (!v) return "unknown";
-  if (v.value() < 0) return "-" + str::format::format_byte_units(-v.value(), fmt) + "/day";
+  // Negate through the clamp: -LLONG_MIN is undefined behaviour.
+  if (v.value() < 0) return "-" + str::format::format_byte_units(v.value() == (std::numeric_limits<long long>::min)() ? (std::numeric_limits<long long>::max)() : -v.value(), fmt) + "/day";
   return str::format::format_byte_units(v.value(), fmt) + "/day";
 }
 

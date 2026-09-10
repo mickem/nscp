@@ -223,6 +223,8 @@ NSCP_CREATE_TEST(
     service_test
     SOURCES
         cron_test.cpp
+        # cron_test constructs a scheduler, whose destructor now stops it.
+        ${NSCP_INCLUDEDIR}/scheduler/simple_scheduler.cpp
         path_manager.cpp
         path_manager_test.cpp
         acl_test.cpp
