@@ -6,6 +6,11 @@ project(
     C
 )
 
+# Build against a known language level instead of whatever the compiler happens
+# to default to: that default moves (GCC 16 switched to C++20).
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 include(CTest)
 if(COMMAND CMAKE_POLICY)
     cmake_policy(SET CMP0011 NEW)
