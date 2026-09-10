@@ -495,4 +495,48 @@ onWindows("CheckSecurity (Windows posture)", () => {
     expect(out).toMatch(/^CRITICAL/m);
     expect(out).toMatch(/unexpected owner/);
   });
+
+  // --- empty result sets -----------------------------------------------------
+
+  // A filter that matches nothing must land on each check's documented empty
+  // contract, never an error (#1499 was check_service dying on this path).
+  // Client-query output carries no status word when the empty syntax has
+  // none, so the UNKNOWN cases assert the message alone.
+
+  it("check_firewall with a filter that matches nothing reports no profiles", async () => {
+    const out = await query("check_firewall", ["filter=profile = 'nosuchprofile-1499'"]);
+    expect(out).toMatch(/No firewall profiles found/);
+    expect(out).not.toMatch(/^(OK|WARNING|CRITICAL)/m);
+  });
+
+  it("check_firewall_rules with a filter that matches nothing is OK", async () => {
+    // The default crit is `present = 0`, an object-bound keyword.
+    const out = await query("check_firewall_rules", ["filter=name = 'nosuchrule-1499'"]);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/No firewall rules matched/);
+  });
+
+  it("check_local_accounts with a filter that matches nothing is OK", async () => {
+    const out = await query("check_local_accounts", ["filter=name = 'nosuchaccount-1499'"]);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/No local accounts found/);
+  });
+
+  it("check_nla with a filter that matches nothing reports no networks", async () => {
+    const out = await query("check_nla", ["filter=network = 'nosuchnetwork-1499'"]);
+    expect(out).toMatch(/No networks found/);
+    expect(out).not.toMatch(/^(WARNING|CRITICAL)/m);
+  });
+
+  it("check_certificate with a store filter that matches nothing reports no certificates", async () => {
+    const out = await query("check_certificate", ["store=MY", "filter=subject = 'nosuchsubject-1499'"]);
+    expect(out).toMatch(/No certificates found/);
+    expect(out).not.toMatch(/^(OK|WARNING|CRITICAL)/m);
+  });
+
+  it("check_file_security with a filter that matches nothing returns UNKNOWN", async () => {
+    const out = await query("check_file_security", ["path=C:\\Windows", "filter=path = 'nosuchpath-1499'"]);
+    expect(out).toMatch(/^UNKNOWN/m);
+    expect(out).toMatch(/No paths checked/);
+  });
 });

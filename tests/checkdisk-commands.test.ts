@@ -590,6 +590,65 @@ describe("CheckDisk commands", () => {
     expect(m).toMatch(/inodes \d+\/\d+ \(\d+% used, \d+ free\)/);
   });
 
+  // --- empty result sets ------------------------------------------------------
+
+  // A filter that matches nothing must land on each check's documented empty
+  // contract rather than an error (#1499 was check_service dying on exactly
+  // this path). The disk checks disagree on what an empty set means, so each
+  // case pins its own default.
+
+  it("check_drivesize with a filter that matches nothing returns UNKNOWN", async () => {
+    const q = await executeQuery(key, "check_drivesize", {
+      filter: "name = 'nosuchdrive-1499'",
+    });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/No drives found/i);
+  });
+
+  it("check_disk_io with a filter that matches nothing takes the empty state", async () => {
+    // The default empty-state is critical: a device list that comes back empty
+    // is an alert, not a quiet OK. The option still relaxes it.
+    const args = { filter: "name = 'nosuchdevice-1499'" };
+    const q = await executeQuery(key, "check_disk_io", args);
+    expect(q.result).toBe(CRITICAL);
+    const relaxed = await executeQuery(key, "check_disk_io", { ...args, "empty-state": "ok" });
+    expect(relaxed.result).toBe(OK);
+  });
+
+  it("check_disk_health with a filter that matches nothing takes the empty state", async () => {
+    const args = { filter: "name = 'nosuchdevice-1499'" };
+    const q = await executeQuery(key, "check_disk_health", args);
+    expect(q.result).toBe(CRITICAL);
+    const relaxed = await executeQuery(key, "check_disk_health", { ...args, "empty-state": "ok" });
+    expect(relaxed.result).toBe(OK);
+  });
+
+  it("check_files with a filter that matches nothing returns UNKNOWN", async () => {
+    // The directory exists and has a file, so this is the filter (not a bad
+    // path) producing the empty set.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-empty-"));
+    fs.writeFileSync(path.join(dir, "present.txt"), "x");
+    try {
+      const q = await executeQuery(key, "check_files", {
+        path: dir,
+        filter: "filename = 'nosuchfile-1499'",
+      });
+      expect(q.result).toBe(UNKNOWN);
+      expect(messageOf(q)).toMatch(/No files found/i);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("check_share with a filter that matches nothing is OK (Windows)", async () => {
+    if (!onWindows) return; // SMB shares are a Windows feature.
+    // The default crit is `not exists`, an object-bound keyword: with no share
+    // in the context it must not fire.
+    const q = await executeQuery(key, "check_share", { filter: "name = 'nosuchshare-1499'" });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/No shares found/i);
+  });
+
   // --- checksums (check_files, both platforms) ------------------------------
 
   it("check_files computes file content checksums", async () => {

@@ -629,6 +629,71 @@ describe("CheckSystem commands", () => {
     expect(alive.result).not.toBeUndefined();
   });
 
+  // --- empty result sets ------------------------------------------------------
+
+  // The same shape as #1499 for the other enumerating checks: a filter that
+  // matches nothing must land on the check's documented empty contract, never
+  // an error - and the agent must still be there afterwards.
+
+  it("check_process with a filter that matches nothing returns UNKNOWN", async () => {
+    // The default warn/crit (`state not in ('started')` / `state = 'stopped'`)
+    // are object-bound and get force-evaluated with no process in the context.
+    const q = await executeQuery(key, "check_process", {
+      filter: "exe = 'nosuchprocess-1499.exe'",
+    });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/No processes found/i);
+  });
+
+  it("check_network with a filter that matches nothing takes the empty state", async () => {
+    // check_network defaults to empty-state=critical: an interface list that
+    // comes back empty is worth an alert. The option still relaxes it.
+    const args = { filter: "name = 'nosuchinterface-1499'" };
+    const q = await executeQuery(key, "check_network", args);
+    expect(q.result).toBe(CRITICAL);
+    const relaxed = await executeQuery(key, "check_network", { ...args, "empty-state": "ok" });
+    expect(relaxed.result).toBe(OK);
+  });
+
+  it("check_registry_key with a filter that matches nothing returns UNKNOWN (Windows)", async () => {
+    if (!onWindows) return; // the registry checks are Windows-only (CheckSystem).
+    // The default crit is `not exists`, an object-bound keyword.
+    const q = await executeQuery(key, "check_registry_key", {
+      key: "HKLM\\SOFTWARE",
+      filter: "name = 'nosuchkey-1499'",
+    });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/No registry keys found/i);
+  });
+
+  it("check_registry_value with a filter that matches nothing returns UNKNOWN (Windows)", async () => {
+    if (!onWindows) return;
+    const q = await executeQuery(key, "check_registry_value", {
+      key: "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+      filter: "name = 'nosuchvalue-1499'",
+    });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/No registry values found/i);
+  });
+
+  it("check_printqueue with a filter that matches nothing is OK (Windows)", async () => {
+    if (!onWindows) return; // print queues are a Windows feature.
+    const q = await executeQuery(key, "check_printqueue", {
+      filter: "printer = 'nosuchprinter-1499'",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/No printers found/i);
+  });
+
+  it("check_printjobs with a filter that matches nothing is OK (Windows)", async () => {
+    if (!onWindows) return;
+    const q = await executeQuery(key, "check_printjobs", {
+      filter: "printer = 'nosuchprinter-1499'",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/No print jobs queued/i);
+  });
+
   // --- check_pending_reboot (Windows) ----------------------------------------
 
   it("check_pending_reboot returns one aggregate row with perf (Windows)", async () => {

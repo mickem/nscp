@@ -289,6 +289,22 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
     expect(included).not.toMatch(/_full_age'?=-1s/);
   });
 
+  it("check_mssql_databases with a filter that matches nothing returns UNKNOWN", async () => {
+    // The #1499 shape: the default warn/crit on `state` are force-evaluated
+    // with no database bound once nothing matched.
+    const out = await query("check_mssql_databases", ["filter=name = 'nosuchdb-1499'"]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/^UNKNOWN/m);
+    expect(out).toMatch(/No databases found/);
+  });
+
+  it("check_mssql_backup with a filter that matches nothing returns UNKNOWN", async () => {
+    const out = await query("check_mssql_backup", ["filter=name = 'nosuchdb-1499'"]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/^UNKNOWN/m);
+    expect(out).toMatch(/No databases found/);
+  });
+
   it("check_mssql_jobs exposes is_running and keeps last_run_status for completed runs", async () => {
     const out = await query("check_mssql_jobs", [
       "warning=none",
