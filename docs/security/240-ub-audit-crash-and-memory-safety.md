@@ -1,6 +1,6 @@
 ---
 title: "Undefined-behaviour audit: crash and memory-safety fixes across the agent"
-fixed_in: next
+fixed_in: 0.20.0
 severity: "Medium"
 modules: [core, filters, CheckSystem, CheckHelpers, CheckTaskSched, CheckEventLog, CheckDisk, CheckLogFile, WEBServer, NSClientServer, CheckMKServer, PythonScript, LUAScript, NRPEServer, NSCAClient]
 action: none

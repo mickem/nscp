@@ -1,6 +1,6 @@
 ---
 title: "NRPE and the shared TLS layer: key permissions, handshake deadline and codec fixes"
-fixed_in: next
+fixed_in: 0.20.0
 severity: "High for the generated-key exposure, Low–Medium for the rest"
 modules: [NRPEServer, NRPEClient, NSCAServer, NSClientServer, CheckMKServer, WEBServer, core]
 action: conditional

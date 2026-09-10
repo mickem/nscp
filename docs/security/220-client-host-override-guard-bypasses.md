@@ -1,6 +1,6 @@
 ---
 title: "Two ways past the client host-override guard"
-fixed_in: next
+fixed_in: 0.20.0
 severity: "Medium"
 modules: [NRDPClient, IcingaClient, SMTPClient, NSCAClient, NSCANgClient, NSCPClient]
 action: conditional
