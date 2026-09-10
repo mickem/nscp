@@ -942,6 +942,13 @@ export UBSAN_OPTIONS=suppressions=$PWD/../tools/sanitizers/ubsan-suppressions.tx
 See the header of `tools/sanitizers/run.sh` and
 `.github/workflows/tests-sanitizers.yml` for more variations.
 
+In CI the sanitizers run on **`main` only**, not on every pull request: the job
+is close to half of a PR run's machine time and it very rarely fails on a single
+change. If a branch touches memory handling and you want it checked before it
+merges, run `tools/sanitizers/run.sh` locally, or start
+`.github/workflows/tests-sanitizers.yml` from the Actions tab ("Run workflow",
+then pick the branch).
+
 #### Coverage reports
 
 `-DNSCP_COVERAGE=ON` instruments every target with gcov counters. Because the

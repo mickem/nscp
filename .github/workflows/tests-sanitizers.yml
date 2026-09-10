@@ -27,6 +27,15 @@ on:
         description: 'Version to build'
         required: true
         default: '0.0.0'
+  # Runnable on its own so a branch can be checked under the sanitizers
+  # before merging — they are not part of the PR build (see build-main.yml).
+  workflow_dispatch:
+    inputs:
+      version:
+        type: string
+        description: 'Version to build'
+        required: false
+        default: '0.0.0'
 
 jobs:
   sanitizer-tests:
