@@ -14,6 +14,11 @@ on:
       - 'packaging/**'
       - '.github/workflows/test-packaging.yml'
 
+# A new push supersedes this run; do not let it finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test-render-templates:
     runs-on: ubuntu-latest

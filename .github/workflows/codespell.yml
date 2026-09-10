@@ -1,6 +1,11 @@
 name: Codespell
 on: [pull_request]
 
+# A new push to the PR supersedes this run; do not let it finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     name: Check

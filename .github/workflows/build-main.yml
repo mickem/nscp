@@ -8,11 +8,30 @@ on:
   push:
     branches: [main]
 
+# Merging three PRs in a row used to start three full release builds when only
+# the newest one can become the release: the drafts from the older two are
+# superseded before they are even finished. Cancel them and let the newest
+# merge produce the artifacts.
+#
+# Trade-off: a merge whose run is cancelled never gets its own draft release.
+# That is deliberate — the draft is cut from the newest state of main, and the
+# run that follows produces one for its own version a few minutes later. If a
+# per-merge draft ever becomes load-bearing, set cancel-in-progress to false
+# and the runs will queue instead.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   get-version:
     uses: ./.github/workflows/get-version.yml
   create-test-bundle:
     uses: ./.github/workflows/create-test-bundle.yml
+  # Sanitizers (and coverage) run on main only, not per PR: together they are
+  # close to half of a PR run's machine time and they almost never fail on a
+  # single change. A regression is caught on the merge instead, and a branch
+  # that needs them checked first can run tests-sanitizers.yml on demand from
+  # the Actions tab ("Run workflow" -> pick the branch).
   sanitizer-tests:
     needs: get-version
     uses: ./.github/workflows/tests-sanitizers.yml

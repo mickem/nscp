@@ -34,6 +34,25 @@
   `feature: give \`nscp test\` a real prompt` — or the release it lands in is
   numbered as a patch. Conventional-commit prefixes (`fix:`, `docs:`, `test:`,
   `build:`, `refactor:`) are used for everything else and all read as a patch.
+- A **documentation-only** change does not need the full build matrix (Windows
+  x64/x86/XP, Debian, RedHat, web, integration tests — roughly 300 machine-
+  minutes). GitHub honours `[skip ci]` in the commit message for `push` and
+  `pull_request` events; the other accepted spellings are `[ci skip]`,
+  `[no ci]`, `[skip actions]`, `[actions skip]`, and a `skip-checks: true`
+  trailer. Put it in the **subject**, e.g.
+  `docs: document check_battery keywords [skip ci]`.
+  The catch: a skipped workflow leaves its check `Pending`, not `Passed`, so a
+  **required** check never resolves and the pull request cannot be merged.
+  Therefore:
+  - Use it on a commit pushed straight to `main`, or on a merge commit, where
+    nothing is gating it.
+  - Do **not** use it on a pull request head branch while any check is
+    required. Let CI run there — a docs-only PR is one of the cheap ones and
+    it stays mergeable.
+  Reach for it only when the diff genuinely cannot affect a build: `.md` under
+  `docs/`, release notes, prose in comments. Anything touching `docs/hooks/`,
+  `mkdocs.yml`, the `docs/samples/` wiring or a `CMakeLists.txt` is not
+  docs-only.
 
 ## C++ conventions
 
