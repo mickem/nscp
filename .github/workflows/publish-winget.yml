@@ -184,7 +184,12 @@ jobs:
               '--asset',        'MSI_X86=NSCP-${{ steps.ctx.outputs.version }}-Win32.msi',
               '--extra',        'PRODUCT_CODE_MSI_X64=${{ steps.msi.outputs.product_code_MSI_X64 }}',
               '--extra',        'PRODUCT_CODE_MSI_X86=${{ steps.msi.outputs.product_code_MSI_X86 }}',
-              '--extra-file',   'RELEASE_NOTES=dist/release-notes.md'
+              '--extra-file',   'RELEASE_NOTES=dist/release-notes.md',
+              # Keep the release's intro, Highlights and Upgrade notes; drop
+              # the per-module "Detailed changes" walkthrough, which is most of
+              # the body and is what used to push ReleaseNotes past WinGet's
+              # 10000-character cap and get it cut mid-table.
+              '--extra-file-drop-section', 'Detailed'
           )
           if ('${{ steps.release.outputs.date }}') {
               $renderArgs += '--release-date'

@@ -173,9 +173,19 @@ ReleaseNotes: |-
   {{RELEASE_NOTES}}
 ```
 
-Values read with `--extra-file` are truncated to 10000 characters
-(`--extra-file-max-chars`), which is WinGet's cap on `ReleaseNotes` — over it
-the manifest is rejected outright rather than trimmed.
+`--extra-file-drop-section Detailed` removes the release body's
+`## Detailed changes` section and everything nested under it, keeping the
+intro, `## Highlights`, `## Upgrade notes` and the changelog link. That is the
+part of the notes a `winget show` reader wants, and it is what keeps the field
+inside WinGet's cap: 0.19.0's body is 22774 characters whole and 8192 without
+that section, 0.20.0's 13512 and 5991. Anything still over the cap is
+truncated to 10000 characters (`--extra-file-max-chars`) on a line boundary,
+since WinGet rejects an oversized `ReleaseNotes` outright rather than trimming
+it — but with the section dropped that is a backstop, not the normal path.
+
+One wart to know about: a bullet under `## Upgrade notes` that refers back to
+`## Detailed changes` ("see the table above") loses its referent. Keep upgrade
+notes self-contained when writing the release.
 
 ### `publish-scoop.yml`
 

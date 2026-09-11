@@ -243,6 +243,60 @@ class RenderTemplatesTests(unittest.TestCase):
         self.assertIn("body", out)
         self.assertNotIn("dangling", out)
 
+    def test_drop_sections_removes_a_section_and_its_subsections(self):
+        body = (
+            "# Title\n\nintro\n\n"
+            "## Highlights\n\n- one\n\n"
+            "## Detailed changes\n\nprose\n\n### A module\n\nmore prose\n\n"
+            "## Upgrade notes\n\n- do this\n"
+        )
+        out = rt._drop_sections(body, ["Detailed"])
+        self.assertIn("## Highlights", out)
+        self.assertIn("## Upgrade notes", out)
+        self.assertNotIn("Detailed changes", out)
+        # The subsection under it goes too, and nothing after it is lost.
+        self.assertNotIn("### A module", out)
+        self.assertNotIn("more prose", out)
+        self.assertIn("- do this", out)
+
+    def test_drop_sections_matches_a_heading_carrying_an_emoji(self):
+        body = "## \u2728 Highlights\n\n- one\n\n## \U0001f50d Detailed changes\n\nprose\n"
+        out = rt._drop_sections(body, ["Detailed"])
+        self.assertIn("Highlights", out)
+        self.assertNotIn("Detailed changes", out)
+
+    def test_drop_sections_is_a_no_op_without_patterns_or_matches(self):
+        body = "## Highlights\n\n- one\n"
+        self.assertEqual(rt._drop_sections(body, []), body)
+        self.assertEqual(rt._drop_sections(body, ["Nothing here"]), body)
+
+    def test_extra_file_drop_section_applies_before_truncation(self):
+        with _tmpdir() as work:
+            tpl = work / "tpl"
+            tpl.mkdir()
+            (tpl / "out.txt.tmpl").write_text("{{NOTES}}\n")
+            notes = work / "notes.md"
+            notes.write_text(
+                "## Highlights\n\n- one\n\n## Detailed changes\n\n"
+                + ("filler line\n" * 500)
+                + "\n## Upgrade notes\n\n- do this\n",
+                encoding="utf-8",
+            )
+
+            out = work / "out"
+            rc = self._run(
+                tpl, out,
+                "--extra-file", f"NOTES={notes}",
+                "--extra-file-drop-section", "Detailed",
+                download_dir=work / "_assets",
+            )
+            self.assertEqual(rc, 0)
+            rendered = (out / "out.txt").read_text()
+            # Dropping the bulk section keeps it under the cap, so nothing is cut.
+            self.assertNotIn(rt.TRUNCATION_MARKER, rendered)
+            self.assertNotIn("filler line", rendered)
+            self.assertIn("- do this", rendered)
+
     def test_extra_file_shorter_than_the_limit_is_untouched(self):
         with _tmpdir() as work:
             tpl = work / "tpl"

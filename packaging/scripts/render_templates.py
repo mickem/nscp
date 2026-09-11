@@ -59,6 +59,8 @@ TRUNCATION_MARKER = "\n\n[...] (truncated)"
 # reads as a section that lost its body rather than as a document that stops.
 _TRAILING_HEADING = re.compile(r"\n#{1,6} [^\n]*$")
 
+_MARKDOWN_HEADING = re.compile(r"(?m)^(#{1,6}) [^\n]*$")
+
 _PLACEHOLDER = re.compile(r"\{\{([A-Z0-9_]+)\}\}")
 
 # A placeholder that owns its whole line; only these may expand to a
@@ -94,6 +96,33 @@ def _parse_kv(items):
 
 def _normalize_newlines(text: str) -> str:
     return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def _drop_sections(text: str, patterns) -> str:
+    """Remove every Markdown section whose heading matches one of *patterns*.
+
+    A section runs from its heading to the next heading at the same level or
+    above, so dropping "Detailed changes" takes its subsections with it and
+    leaves the sections after it intact.
+    """
+    if not patterns:
+        return text
+    compiled = [re.compile(p, re.IGNORECASE) for p in patterns]
+    headings = list(_MARKDOWN_HEADING.finditer(text))
+    kept = text
+    # Walk backwards so earlier match offsets stay valid as we cut.
+    for index in range(len(headings) - 1, -1, -1):
+        heading = headings[index]
+        if not any(c.search(heading.group(0)) for c in compiled):
+            continue
+        level = len(heading.group(1))
+        end = len(kept)
+        for later in headings[index + 1:]:
+            if len(later.group(1)) <= level:
+                end = later.start()
+                break
+        kept = (kept[: heading.start()].rstrip() + "\n\n" + kept[end:].lstrip()).strip()
+    return kept
 
 
 def _truncate(text: str, limit: int) -> str:
@@ -224,6 +253,17 @@ def main(argv=None) -> int:
         ),
     )
     parser.add_argument(
+        "--extra-file-drop-section",
+        action="append",
+        default=[],
+        metavar="PATTERN",
+        help=(
+            "Drop any Markdown section from --extra-file content whose heading "
+            "matches this regular expression (case-insensitive), together with "
+            "its subsections. Repeatable."
+        ),
+    )
+    parser.add_argument(
         "--extra-file-max-chars",
         type=int,
         default=DEFAULT_EXTRA_FILE_MAX_CHARS,
@@ -250,6 +290,7 @@ def main(argv=None) -> int:
         if not path.is_file():
             raise SystemExit(f"--extra-file {key}: no such file: {path}")
         value = _normalize_newlines(path.read_text(encoding="utf-8")).strip()
+        value = _drop_sections(value, args.extra_file_drop_section)
         value = _truncate(value, args.extra_file_max_chars)
         subs[key] = value
         print(f"  * {key}: {len(value)} characters from {path}")
