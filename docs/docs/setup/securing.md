@@ -143,8 +143,15 @@ Options:
 * `--password`: Plaintext password. Hashed before being written to the config. If omitted, a random one is generated
   and printed once — copy it then.
 * `--role`: Built-in roles shipped by the module:
+    * `restricted` — `public, queries.execute.noargs, aliases.list, login.get`. The tightest useful role: it can run
+      the checks the agent defines but **cannot pass arguments** to them, which is the REST equivalent of the NRPE
+      server's `allow arguments = false`. A request that carries any query-string parameter is refused with
+      `403 Arguments are not allowed for this user`. Give such a caller the checks it needs as
+      [aliases](../api/rest/aliases.md), so the arguments live in your configuration rather than in the request. Note
+      that every query parameter counts, so this role must authenticate with a header rather than a legacy
+      `?password=` / `?TOKEN=` query parameter.
     * `monitoring` — `queries.execute, login.get, metrics.get`. Recommended for monitoring servers and Prometheus
-      scrapes.
+      scrapes that need to pass arguments.
     * `client` — adds query listing; needed for the legacy `check_nscp_api` integration.
     * `full` — admin (settings, modules, scripts). Avoid for monitoring callers.
     * `legacy` — `legacy,login.get`. **Dangerous — do not use for normal clients.** It unlocks the deprecated

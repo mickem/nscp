@@ -47,6 +47,9 @@ export async function setupRestNscp(nscp: NscpInstance): Promise<void> {
       full: "*",
       client:
         "public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list",
+      // The built-in `restricted` role: query execution without arguments,
+      // the REST twin of NRPE's `allow arguments = false`.
+      restricted: "public,queries.execute.noargs,aliases.list,login.get",
     },
     // CheckHelpers aliases used by the alias-endpoint and queries scenarios:
     // mock_alias is mapped to a real QUERY (so we can confirm QUERY_ALIAS
@@ -63,6 +66,10 @@ export async function setupRestNscp(nscp: NscpInstance): Promise<void> {
     "/settings/WEB/server/users/legacy": {
       role: "legacy",
       password: "legacy-password",
+    },
+    "/settings/WEB/server/users/restricted": {
+      role: "restricted",
+      password: "restricted-password",
     },
     // The admin password is set explicitly so the Jest suite's
     // auth("admin", "default-password") calls work. Pre-0.13 the

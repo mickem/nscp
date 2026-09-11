@@ -6,6 +6,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/json.hpp>
 #include <boost/regex.hpp>
+#include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/functions_convert.hpp>
@@ -107,7 +108,17 @@ void query_controller::get_query(Mongoose::Request &request, boost::smatch &what
 }
 
 void query_controller::query_command(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_logged_in("queries.execute", request, response)) return;
+  // Two grants open this endpoint:
+  //   queries.execute         - run a query with or without arguments.
+  //   queries.execute.noargs  - run a query only when the request carries no
+  //                             arguments at all. This is the REST twin of
+  //                             the NRPE server's `allow arguments = false`:
+  //                             the caller may run the commands the agent
+  //                             defines, but cannot shape what they do.
+  // They are disjoint in the grant tree (neither implies the other), so a
+  // role granting only `queries.execute.noargs` never widens into the full
+  // privilege; the `*` wildcard of `full` still confers both.
+  if (!session->is_logged_in(session_manager_interface::grant_options{"queries.execute", "queries.execute.noargs"}, request, response)) return;
 
   if (what.size() != 3) {
     response.setCodeNotFound("Invalid request");
@@ -116,17 +127,32 @@ void query_controller::query_command(Mongoose::Request &request, boost::smatch &
   const std::string module = what.str(1);
   const std::string command = what.str(2);
 
+  const arg_vector args = request.getVariablesVector();
+  // Every query-string parameter counts, including a credential passed as
+  // `?TOKEN=` / `?password=` by a legacy client - those are forwarded to the
+  // check as arguments like any other, so exempting them would hand the
+  // restricted role exactly the argument smuggling this grant forbids. A
+  // no-arguments caller must authenticate with a header.
+  if (!args.empty() && !session->has_grant("queries.execute", response)) {
+    std::string user, token;
+    session_manager_interface::get_user_from_response(response, user, token);
+    NSC_LOG_ERROR("Request from " + request.getRemoteIp() + " for query " + module + " contained arguments but user '" + user +
+                  "' only holds the 'queries.execute.noargs' grant (arguments are not allowed for this role).");
+    response.setCodeForbidden("403 Arguments are not allowed for this user");
+    return;
+  }
+
   if (command == "execute") {
     if (request.readHeader("Accept") == "text/plain") {
-      execute_query_text(module, request.getVariablesVector(), response);
+      execute_query_text(module, args, response);
     } else {
-      execute_query(module, request.getVariablesVector(), response);
+      execute_query(module, args, response);
     }
   } else if (command == "execute_nagios") {
     if (request.readHeader("Accept") == "text/plain") {
-      execute_query_text(module, request.getVariablesVector(), response);
+      execute_query_text(module, args, response);
     } else {
-      execute_query_nagios(module, request.getVariablesVector(), response);
+      execute_query_nagios(module, args, response);
     }
   } else {
     response.setCodeNotFound("unknown command: " + command);

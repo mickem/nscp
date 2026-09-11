@@ -72,6 +72,40 @@ WEBServer = enabled
 port = 8443
 ```
 
+### Built-in roles
+
+| Role         | Grants                                                                                       | Use for                                                                  |
+|--------------|----------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
+| `full`       | `*`                                                                                          | Administration: settings, modules, scripts.                              |
+| `client`     | `public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list` | A monitoring client that also browses the agent.       |
+| `monitoring` | `public,queries.execute,aliases.list,login.get,metrics.get`                                  | A monitoring server running checks with arguments.                       |
+| `restricted` | `public,queries.execute.noargs,aliases.list,login.get`                                       | A monitoring server that may run checks but **not pass arguments**.      |
+| `legacy`     | `legacy,login.get`                                                                           | Old clients only — see the warning below. Not created on a fresh install. |
+
+The `restricted` role is the REST equivalent of the NRPE server's
+`allow arguments = false`: it holds `queries.execute.noargs` instead of
+`queries.execute`, so it can run the checks the agent defines but any request
+carrying a query-string parameter is refused with
+`403 Arguments are not allowed for this user`. Neither grant implies the
+other, so the role can never widen into the full privilege — and existing
+`client` / `monitoring` users keep passing arguments exactly as before. Hand a
+restricted caller the checks it needs as
+[aliases](../api/rest/aliases.md), where the arguments live in your
+configuration:
+
+```ini
+[/settings/WEB/server/users/monitor]
+role = restricted
+password = ...
+
+[/settings/check helpers/alias]
+check_root_disk = check_drivesize drive=/ warning=free<10% critical=free<5%
+```
+
+Because every query parameter counts as an argument, a restricted client must
+send its credentials in a header (`Authorization`, `X-Auth-Token` or `TOKEN`)
+rather than as a legacy `?password=` / `?TOKEN=` parameter.
+
 <!-- @formatter:off -->
 !!! danger "The `legacy` role is powerful — only for legacy integrations"
     The `legacy` role (`legacy,login.get`) exists so that old clients which

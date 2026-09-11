@@ -144,6 +144,61 @@ TEST_F(SessionManagerTest, CanCheckPermissionsAnonymous) {
   EXPECT_TRUE(smi.can("nothing:read", resp));
 }
 
+TEST_F(SessionManagerTest, CanAcceptsAnyOneOfSeveralGrants) {
+  // The multi-grant form is an OR: the endpoint is reachable by either
+  // privilege. query_controller uses it to let both `queries.execute` and
+  // `queries.execute.noargs` through the same door.
+  Mongoose::StreamResponse resp;
+  smi.store_user_in_response("user", resp);
+  EXPECT_TRUE(smi.can(session_manager_interface::grant_options{"something:write", "something:read"}, resp));
+}
+
+TEST_F(SessionManagerTest, CanRefusesWhenNoneOfTheGrantsMatch) {
+  Mongoose::StreamResponse resp;
+  smi.store_user_in_response("user", resp);
+  EXPECT_FALSE(smi.can(session_manager_interface::grant_options{"something:write", "other:read"}, resp));
+}
+
+TEST_F(SessionManagerTest, HasGrantDoesNotTouchTheResponse) {
+  // has_grant() is the non-mutating twin of can(): call sites that branch on
+  // a privilege (may this caller pass arguments?) must not have a 403 written
+  // into the response as a side effect of asking.
+  Mongoose::StreamResponse resp;
+  smi.store_user_in_response("user", resp);
+  EXPECT_FALSE(smi.has_grant("something:write", resp));
+  EXPECT_TRUE(smi.has_grant("something:read", resp));
+  EXPECT_EQ(resp.getCode(), 200);
+}
+
+TEST(SessionManagerNoArgs, ExecuteAndNoargsGrantsAreDisjoint) {
+  // The `restricted` role's `queries.execute.noargs` must never widen into
+  // the full `queries.execute` privilege, and an existing `queries.execute`
+  // role must not accidentally be treated as a no-arguments one. Neither
+  // implies the other; only the `*` wildcard confers both.
+  session_manager_interface smi;
+  smi.add_user("restricted", "restricted", "password");
+  smi.add_grant("restricted", "public,queries.execute.noargs,login.get");
+  smi.add_user("monitoring", "monitoring", "password");
+  smi.add_grant("monitoring", "public,queries.execute,login.get");
+  smi.add_user("admin", "full", "password");
+  smi.add_grant("full", "*");
+
+  Mongoose::StreamResponse restricted;
+  smi.store_user_in_response("restricted", restricted);
+  EXPECT_TRUE(smi.has_grant("queries.execute.noargs", restricted));
+  EXPECT_FALSE(smi.has_grant("queries.execute", restricted));
+
+  Mongoose::StreamResponse monitoring;
+  smi.store_user_in_response("monitoring", monitoring);
+  EXPECT_TRUE(smi.has_grant("queries.execute", monitoring));
+  EXPECT_FALSE(smi.has_grant("queries.execute.noargs", monitoring));
+
+  Mongoose::StreamResponse admin;
+  smi.store_user_in_response("admin", admin);
+  EXPECT_TRUE(smi.has_grant("queries.execute", admin));
+  EXPECT_TRUE(smi.has_grant("queries.execute.noargs", admin));
+}
+
 TEST_F(SessionManagerTest, IsAllowedIp) { EXPECT_TRUE(smi.is_allowed("127.0.0.1")); }
 
 TEST_F(SessionManagerTest, RevokeToken) {

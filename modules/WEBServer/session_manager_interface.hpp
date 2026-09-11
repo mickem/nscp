@@ -51,6 +51,12 @@ struct session_manager_interface {
   mutable boost::mutex legacy_query_auth_mutex_;
 
  public:
+  // A set of alternative grants: the caller is authorised when the role
+  // confers ANY of them. The query endpoints use it to accept either the
+  // full `queries.execute` grant or the argument-less
+  // `queries.execute.noargs` one (see query_controller).
+  typedef std::vector<std::string> grant_options;
+
   // The single source of truth for the default allowlist. Used both by the
   // settings layer (so `show-default` reports it accurately) and by the
   // constructor (so `session_manager_interface` constructed without going
@@ -62,13 +68,16 @@ struct session_manager_interface {
   session_manager_interface();
 
   bool process_auth_header(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response);
+  bool process_auth_header(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response);
   // Handle the legacy `password` HTTP header used by Icinga's
   // check_nscp_api (and any client that follows the same convention). The
   // header carries the password only; the user is implied to be "admin".
   // Applies the same rate-limit / constant-time-compare guards as
   // process_auth_header.
   bool process_password_header(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response, const std::string &password);
+  bool process_password_header(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response, const std::string &password);
   bool is_logged_in(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response);
+  bool is_logged_in(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response);
 
   bool is_allowed(const std::string &ip);
 
@@ -110,6 +119,12 @@ struct session_manager_interface {
   bool store_user_in_response(const std::string &user, Mongoose::StreamResponse &response);
   void store_session_in_response(const std::string &token, const std::string &user, Mongoose::StreamResponse &response) const;
   bool can(const std::string &grant, Mongoose::StreamResponse &response);
+  bool can(const grant_options &grants, Mongoose::StreamResponse &response);
+  // Non-mutating privilege test: unlike can() it never writes a 403 into the
+  // response. For call sites that need to *branch* on a privilege the caller
+  // may legitimately lack (the query endpoints branch on `queries.execute` to
+  // decide whether arguments are permitted) rather than gate on it.
+  bool has_grant(const std::string &grant, const Mongoose::StreamResponse &response);
   static void get_user_from_response(const Mongoose::StreamResponse &response, std::string &user, std::string &key);
   void add_user(const std::string &user, const std::string &role, const std::string &password);
   bool has_user(const std::string &user) const;
