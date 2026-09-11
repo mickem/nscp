@@ -175,18 +175,26 @@ void CheckWMI::check_wmi(const PB::Commands::QueryRequestMessage::Request &reque
 
   if (query.empty()) return nscapi::protobuf::functions::set_response_bad(*response, "No query specified");
 
-  // Hold the query against [/settings/wmi] 'query access' before WMI is
-  // touched. A name defined in [/settings/wmi/queries] is operator-authored,
-  // so it expands and is trusted as-is; a raw query in `allowed` mode has to
-  // name a class on the allow list, which means it also has to be simple
-  // enough to say which class that is.
-  const bool is_predefined = query_access_.has_predefined(query);
-  {
-    const check::access::decision d = query_access_.resolve(query);
-    if (!d.allowed) return nscapi::protobuf::functions::set_response_bad(*response, d.error);
-    query = d.value;
-  }
-  if (!is_predefined && query_access_.get_mode() == check::access::mode::allowed) {
+  // Hold the query against [/settings/wmi] 'query access' before WMI is touched.
+  //
+  // This does not go through policy::resolve() the way the other checks do,
+  // because `allowed` means something different here: there is no list of
+  // permitted query *texts* to match against - a query is judged by the class
+  // it reads, which means it also has to be simple enough to say which class
+  // that is. Only the mode and the predefined names come from the policy.
+  std::string predefined_query;
+  if (query_access_.lookup_predefined(query, predefined_query)) {
+    // Operator-authored, so it is trusted as written: not parsed, and not held
+    // against 'allowed classes'.
+    query = predefined_query;
+  } else if (!query_access_.get_config_error().empty()) {
+    return nscapi::protobuf::functions::set_response_bad(*response, query_access_.get_config_error());
+  } else if (query_access_.get_mode() == check::access::mode::predefined) {
+    return nscapi::protobuf::functions::set_response_bad(
+        *response, "Refusing query '" + query +
+                       "': 'query access' is set to predefined, so only a query defined in [/settings/wmi/queries] may be used (see [/settings/wmi] in "
+                       "the configuration)");
+  } else if (query_access_.get_mode() == check::access::mode::allowed) {
     const check::wql::parse_result parsed = check::wql::extract_class(query);
     if (!parsed.ok) {
       return nscapi::protobuf::functions::set_response_bad(*response, "Refusing query: " + parsed.error + " (see [/settings/wmi] in the configuration)");

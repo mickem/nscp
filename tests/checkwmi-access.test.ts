@@ -43,8 +43,13 @@ onWindows("CheckWMI query access modes", () => {
   /**
    * Point [/settings/wmi] at one mode. Every key is always written so a
    * previous case's list can never leak into the next one.
+   *
+   * Both lists default to empty rather than to a placeholder: an empty
+   * 'allowed namespaces' is what means "the default root\\cimv2 only", so a
+   * placeholder there would silently refuse every case that does not name a
+   * namespace.
    */
-  async function setAccess(mode: string, classes = "-", namespaces = "-"): Promise<void> {
+  async function setAccess(mode: string, classes = "", namespaces = ""): Promise<void> {
     await nscp.configure({
       "/settings/wmi": {
         "query access": mode,
