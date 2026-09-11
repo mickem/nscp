@@ -236,6 +236,13 @@ class RenderTemplatesTests(unittest.TestCase):
             body = rendered[: -len(rt.TRUNCATION_MARKER)]
             self.assertRegex(body.splitlines()[-1], r"^line \d+$")
 
+    def test_truncation_drops_a_heading_left_without_a_body(self):
+        text = "intro\n\n## kept\n\nbody\n\n### dangling\n\n#### also dangling"
+        out = rt._truncate(text, len(text) - 5)
+        self.assertTrue(out.endswith(rt.TRUNCATION_MARKER))
+        self.assertIn("body", out)
+        self.assertNotIn("dangling", out)
+
     def test_extra_file_shorter_than_the_limit_is_untouched(self):
         with _tmpdir() as work:
             tpl = work / "tpl"

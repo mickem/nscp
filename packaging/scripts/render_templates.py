@@ -55,6 +55,10 @@ DEFAULT_EXTRA_FILE_MAX_CHARS = 10000
 
 TRUNCATION_MARKER = "\n\n[...] (truncated)"
 
+# Cutting at a line boundary can leave a heading with nothing under it, which
+# reads as a section that lost its body rather than as a document that stops.
+_TRAILING_HEADING = re.compile(r"\n#{1,6} [^\n]*$")
+
 _PLACEHOLDER = re.compile(r"\{\{([A-Z0-9_]+)\}\}")
 
 # A placeholder that owns its whole line; only these may expand to a
@@ -103,7 +107,12 @@ def _truncate(text: str, limit: int) -> str:
     cut = head.rfind("\n")
     if cut > budget // 2:
         head = head[:cut]
-    return head.rstrip() + TRUNCATION_MARKER
+    head = head.rstrip()
+    while True:
+        trimmed = _TRAILING_HEADING.sub("", head).rstrip()
+        if trimmed == head:
+            return head + TRUNCATION_MARKER
+        head = trimmed
 
 
 def _substitute(text: str, subs: dict[str, str]) -> str:
