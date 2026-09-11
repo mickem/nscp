@@ -56,7 +56,10 @@ THIRD_PARTY_PATH_FRAGMENTS = (
     "/libs/lua/",
     "/libs/minizip/",
     "/libs/protobuf/",
-    "/libs/replxx/",
+    # Only upstream's own tree; libs/replxx/nscp/ is ours (it replaces the
+    # Unicode-licensed ConvertUTF) and takes the canonical header.
+    "/libs/replxx/include/",
+    "/libs/replxx/src/",
     "/modules/DotnetPlugins/hostfxr/",
 )
 

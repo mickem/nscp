@@ -44,7 +44,6 @@ obligation applies wherever we actually ship the library.
 | mongoose-cpp (Grégoire Passault)                                 | `libs/mongoose-cpp/` (derived files)                                             | MIT                        |
 | replxx (Marcin Konarski, Salvatore Sanfilippo, Pieter Noordhuis) | `libs/replxx/`                                                                   | BSD-3-Clause               |
 | wcwidth reference implementation (Markus Kuhn), embedded in replxx | `libs/replxx/src/wcwidth.cpp`                                  | HPND-Markus-Kuhn           |
-| UTF conversion routines (Unicode, Inc.), embedded in replxx      | `libs/replxx/src/ConvertUTF.cpp`, `libs/replxx/src/ConvertUTF.h` | Unicode, Inc. (see `LICENSES/`) |
 | SimpleIni (Brodie Thiesfield)                                    | `include/simpleini/simpleini.h`                                                  | MIT                        |
 | asio ICMP/IPv4 headers (Christopher M. Kohlhoff)                 | `include/net/icmp_header.hpp`, `include/net/ipv4_header.hpp`                     | Boost Software License 1.0 |
 | WiX standard installer UI (Microsoft Corporation)                | `installers/ui/WixUI_MondoNSCP.wxs`, `installers/installer-NSCP/WixUI_en-us.wxl` | Common Public License 1.0  |

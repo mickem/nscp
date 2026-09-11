@@ -3,10 +3,13 @@ cmake_minimum_required(VERSION 3.10)
 # Vendored replxx (BSD-3-Clause) — see README.nscp.md. This is our own build
 # file, not upstream's: upstream's carries install/export rules, a
 # shared-library option and a coverage harness that we have no use for.
+#
+# include/ and src/ are upstream verbatim; nscp/ is ours and replaces
+# upstream's src/ConvertUTF.{cpp,h} (see README.nscp.md).
 set(TARGET replxx)
 
 set(SRCS
-    src/ConvertUTF.cpp
+    nscp/utf8_conversion.cpp
     src/conversion.cxx
     src/escape.cxx
     src/history.cxx
@@ -23,7 +26,7 @@ if(WIN32)
         ${SRCS}
         include/replxx.h
         include/replxx.hxx
-        src/ConvertUTF.h
+        nscp/utf8_conversion.hpp
         src/conversion.hxx
         src/escape.hxx
         src/history.hxx
@@ -64,6 +67,7 @@ target_include_directories(
         "${CMAKE_CURRENT_SOURCE_DIR}/include"
     PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
+        "${CMAKE_CURRENT_SOURCE_DIR}/nscp"
 )
 
 if(MSVC)
@@ -99,3 +103,17 @@ target_link_libraries(${TARGET} ${CMAKE_THREAD_LIBS_INIT})
 if(CMAKE_COMPILER_IS_GNUCXX)
     nscp_apply_pic(${TARGET})
 endif(CMAKE_COMPILER_IS_GNUCXX)
+
+# The UTF-8 codec under nscp/ is ours (it replaces upstream's ConvertUTF), so
+# unlike the rest of replxx it is ours to test: it is a pure function of a byte
+# buffer and needs neither a terminal nor the rest of the library.
+NSCP_CREATE_TEST(
+    replxx_utf8_conversion_test
+    SOURCES
+        nscp/utf8_conversion_test.cpp
+        nscp/utf8_conversion.cpp
+    LIBRARIES
+        GTest::gtest_main
+    INCLUDES
+        ${CMAKE_CURRENT_SOURCE_DIR}/nscp
+)
