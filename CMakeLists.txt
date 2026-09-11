@@ -1,4 +1,16 @@
-cmake_minimum_required(VERSION 3.10)
+# 3.21 is the oldest release that ships $<TARGET_RUNTIME_DLLS:...> (used by the
+# WEBServer tests) and preset files with a `condition`; it is also what the
+# oldest supported build hosts carry (Ubuntu 22.04, Debian 12, RHEL 9). The
+# policies it brings are relied upon: CMP0077/CMP0126 make a value set in
+# build.cmake win over an option()/set(CACHE) default, and CMP0091 selects the
+# MSVC runtime through CMAKE_MSVC_RUNTIME_LIBRARY (build_profiles.cmake).
+cmake_minimum_required(VERSION 3.21)
+
+# CMAKE_MSVC_DEBUG_INFORMATION_FORMAT (below) is only honoured under this
+# policy, which - like CMP0091 - must be NEW before the first project() call.
+if(POLICY CMP0141)
+    cmake_policy(SET CMP0141 NEW)
+endif()
 
 project(
     NSCP
@@ -12,9 +24,6 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(CTest)
-if(COMMAND CMAKE_POLICY)
-    cmake_policy(SET CMP0011 NEW)
-endif(COMMAND CMAKE_POLICY)
 
 set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT
     "$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>"
@@ -27,52 +36,63 @@ endif()
 
 # ##############################################################################
 #
-# Setup cmake environment and include custom config overrides
+# Per-machine configuration (build.cmake) and the build profile
+#
+# build.cmake is an optional CMake script that sets normal variables (dependency
+# locations, knobs) before anything else runs. It predates presets and initial
+# cache files; `cmake -C <file>` or a CMakeUserPresets.json do the same job and
+# are preferred for new setups, but the file is still honoured. Because the
+# policy level is >= 3.21, a value set here wins over an option() / set(CACHE)
+# default further down (CMP0077, CMP0126) - it is no longer silently reset.
+#
+# Search order: -DNSCP_CMAKE_CONFIG=<file> (relative to the source or binary
+# dir), then build.cmake in the source dir, the binary dir, or its parent.
 #
 # ##############################################################################
+set(_nscp_config_file "")
 if(NSCP_CMAKE_CONFIG)
-    if(EXISTS ${CMAKE_SOURCE_DIR}/${NSCP_CMAKE_CONFIG})
-        message(
-            STATUS
-            "Reading custom variables from: ${CMAKE_SOURCE_DIR}/${NSCP_CMAKE_CONFIG}"
-        )
-        include(${CMAKE_SOURCE_DIR}/${NSCP_CMAKE_CONFIG})
-    elseif(EXISTS ${CMAKE_BINARY_DIR}/${NSCP_CMAKE_CONFIG})
-        message(
-            STATUS
-            "Reading custom variables from: ${CMAKE_BINARY_DIR}/${NSCP_CMAKE_CONFIG}"
-        )
-        include(${CMAKE_BINARY_DIR}/${NSCP_CMAKE_CONFIG})
-    else()
+    foreach(_dir ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR})
+        if(EXISTS "${_dir}/${NSCP_CMAKE_CONFIG}")
+            set(_nscp_config_file "${_dir}/${NSCP_CMAKE_CONFIG}")
+            break()
+        endif()
+    endforeach()
+    if(NOT _nscp_config_file)
         message(
             FATAL_ERROR
             "Could not find custom config file: ${NSCP_CMAKE_CONFIG}"
         )
-    endif(EXISTS ${CMAKE_SOURCE_DIR}/${NSCP_CMAKE_CONFIG})
-elseif(EXISTS ${CMAKE_SOURCE_DIR}/build.cmake)
+    endif()
+else()
+    foreach(
+        _dir
+        ${CMAKE_SOURCE_DIR}
+        ${PROJECT_BINARY_DIR}
+        ${PROJECT_BINARY_DIR}/..
+    )
+        if(EXISTS "${_dir}/build.cmake")
+            set(_nscp_config_file "${_dir}/build.cmake")
+            break()
+        endif()
+    endforeach()
+endif()
+if(_nscp_config_file)
+    message(STATUS "Reading custom variables from: ${_nscp_config_file}")
+    include(${_nscp_config_file})
+else()
     message(
         STATUS
-        "Reading custom variables from: ${CMAKE_SOURCE_DIR}/build.cmake"
+        "No build.cmake found (optional; see build.md and CMakePresets.json)"
     )
-    include(${CMAKE_SOURCE_DIR}/build.cmake)
-elseif(EXISTS ${PROJECT_BINARY_DIR}/build.cmake)
-    message(
-        STATUS
-        "Reading custom variables from: ${PROJECT_BINARY_DIR}/build.cmake"
-    )
-    include(${PROJECT_BINARY_DIR}/build.cmake)
-elseif(EXISTS ${PROJECT_BINARY_DIR}/../build.cmake)
-    message(
-        STATUS
-        "Reading custom variables from: ${PROJECT_BINARY_DIR}/../build.cmake"
-    )
-    include(${PROJECT_BINARY_DIR}/../build.cmake)
-else(NSCP_CMAKE_CONFIG)
-    message(
-        STATUS
-        "NO build configuration found, see NSCP_CMAKE_CONFIG=${NSCP_CMAKE_CONFIG}"
-    )
-endif(NSCP_CMAKE_CONFIG)
+endif()
+unset(_nscp_config_file)
+
+set(BUILD_CMAKE_FOLDER "${CMAKE_SOURCE_DIR}/build/cmake")
+# Profiles (NSCP_LEGACY_BUILD) and the independent knobs they set
+# (NSCP_STATIC_RUNTIME, NSCP_STATIC_LIBS, NSCP_TARGET_WINDOWS_XP, ...). Must
+# run before anything reads them and before the first target is created.
+include(${BUILD_CMAKE_FOLDER}/build_profiles.cmake)
+
 set_property(
     GLOBAL
     PROPERTY
@@ -103,7 +123,6 @@ endif()
 # Distribution package builds pass -DCMAKE_INSTALL_PREFIX=/usr explicitly;
 
 set(BUILD_PYTHON_FOLDER "${CMAKE_SOURCE_DIR}/build/python")
-set(BUILD_CMAKE_FOLDER "${CMAKE_SOURCE_DIR}/build/cmake")
 set(BUILD_BATCH_FOLDER "${CMAKE_SOURCE_DIR}/build/batch")
 set(BUILD_ROOT_FOLDER "${CMAKE_SOURCE_DIR}")
 set(BUILD_TARGET_EXE_PATH "${PROJECT_BINARY_DIR}")
@@ -234,12 +253,18 @@ if(WIN32)
     install(FILES "${PROJECT_BINARY_DIR}/unicodedata.pyd" DESTINATION .)
 endif()
 if(WIN32)
-    # Target windows version
-    if(USE_STATIC_RUNTIME)
+    # Windows API level. The XP level also needs the v141_xp toolset and the
+    # matching workarounds (no <shared_mutex> on that SDK, the 7.1A SDK
+    # marker); everything else targets Windows 7 / Server 2008 R2 and later.
+    if(NSCP_TARGET_WINDOWS_XP)
         add_definitions(
             -DWINVER=0x0501
             -D_WIN32_WINNT=0x0501
+            -DNTDDI_VERSION=0x05010000
             -DBOOST_USE_WINAPI_VERSION=0x501
+            -DBOOST_NO_CXX17_HDR_SHARED_MUTEX
+            -D_USING_V110_SDK71_
+            -DSTRSAFE_NO_DEPRECATE
         )
     else()
         add_definitions(
@@ -249,12 +274,13 @@ if(WIN32)
         )
     endif()
 endif()
-if(NOT DEFINED USE_STATIC_RUNTIME)
-    set(USE_STATIC_RUNTIME FALSE)
-endif(NOT DEFINED USE_STATIC_RUNTIME)
-if(USE_STATIC_RUNTIME)
-    message(STATUS "Using static runtime")
-    set(BUILD_SHARED_LIBS OFF)
+
+# Linkage of the project's own support libraries. When static, the DLL
+# export/import macros of each library are neutered through its *_NOLIB define
+# (see include/nscapi/dll_defines.hpp and friends); NSCP_MAKE_LIBRARY picks
+# STATIC vs SHARED from the same knob.
+if(NSCP_STATIC_LIBS)
+    message(STATUS "Support libraries: static")
     add_definitions(
         -Dnscp_protobuf_NOLIB
         -D${PLUGIN_API_TARGET}_NOLIB
@@ -263,39 +289,20 @@ if(USE_STATIC_RUNTIME)
         -Dlua_protobuf_NOLIB
         -Dlib_mongoose_NOLIB
     )
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-    if(WIN32)
-        # Workaround for building with XP support
-        add_definitions(
-            -DNTDDI_VERSION=0x05010000
-            -DBOOST_NO_CXX17_HDR_SHARED_MUTEX
-            -D_USING_V110_SDK71_
-            -DSTRSAFE_NO_DEPRECATE
-        )
-        set(Boost_USE_STATIC_LIBS ON)
-        set(Boost_USE_STATIC_RUNTIME ON)
-        set(BOOST_USE_MULTITHREADED ON)
-    endif(WIN32)
-    set(CRYPTOPP_RUNTIME_TYPE "STATIC")
-    set(BUILD_STATIC_LIBS ON)
-else(USE_STATIC_RUNTIME)
-    message(STATUS "Using dynamic runtime")
+else()
+    message(STATUS "Support libraries: shared")
+endif()
+# Boost's auto-link and dyn-link switches follow how Boost itself was linked,
+# which is independent of the above (a static-library build can still use the
+# Boost DLLs, and vice versa).
+if(NOT Boost_USE_STATIC_LIBS)
     set(NSCP_GLOBAL_DEFINES
         ${NSCP_GLOBAL_DEFINES}
         -DBOOST_THREAD_DYN_LINK
         -DBOOST_PROGRAM_OPTIONS_DYN_LINK
     )
-    set(BUILD_SHARED_LIBS ON)
-    if(WIN32)
-        set(Boost_USE_STATIC_LIBS OFF)
-        set(Boost_USE_STATIC_RUNTIME OFF)
-        set(BOOST_USE_MULTITHREADED ON)
-    endif(WIN32)
-    set(CRYPTOPP_RUNTIME_TYPE "SHARED")
-    set(BUILD_STATIC_LIBS OFF)
-endif(USE_STATIC_RUNTIME)
+endif()
 
-include(${BUILD_CMAKE_FOLDER}/SetMultiThread.cmake)
 include(${BUILD_CMAKE_FOLDER}/GoogleProtoBuf.cmake)
 
 # When OFF the whole Google Test apparatus is skipped: the googletest download
@@ -401,96 +408,97 @@ if(NOT CHECK_NSCLIENT_MISSING)
     )
 endif()
 
-if(USE_STATIC_RUNTIME)
-else(USE_STATIC_RUNTIME)
-    if(WIN32)
-        find_redist(REDIST_LIST)
-        foreach(LIB ${REDIST_LIST})
-            get_filename_component(_NAME ${LIB} NAME)
-            message(STATUS " +  ${_NAME}")
-            COPY_FILE(${LIB} ${PROJECT_BINARY_DIR})
-            install(FILES "${LIB}" DESTINATION .)
-        endforeach()
-        string(TOUPPER ${NSCP_BOOST_PYTHON_VERSION} BOOST_PYTHON_VERSION_UPPER)
-        set(LIBS
-            DATE_TIME
-            FILESYSTEM
-            PROGRAM_OPTIONS
-            "${BOOST_PYTHON_VERSION_UPPER}"
-            "REGEX"
-            SYSTEM
-            THREAD
-            CHRONO
-        )
-        foreach(LIB ${LIBS})
-            if(Boost_${LIB}_LIBRARY_RELEASE)
-                string(
-                    REPLACE ".lib"
-                    ".dll"
-                    Boost_${LIB}_LIBRARY_RELEASE_DLL
-                    ${Boost_${LIB}_LIBRARY_RELEASE}
-                )
-                get_filename_component(
-                    _NAME
-                    "${Boost_${LIB}_LIBRARY_RELEASE_DLL}"
-                    NAME
-                )
-                message(STATUS " + ${_NAME} - ${LIB}")
-                COPY_FILE(
-                    ${Boost_${LIB}_LIBRARY_RELEASE_DLL}
-                    ${PROJECT_BINARY_DIR}
-                )
-                string(
-                    REPLACE ".lib"
-                    ".dll"
-                    Boost_${LIB}_LIBRARY_DEBUG_DLL
-                    ${Boost_${LIB}_LIBRARY_DEBUG}
-                )
-                # COPY_FILE(${Boost_${LIB}_LIBRARY_DEBUG_DLL} ${PROJECT_BINARY_DIR})
-                install(FILES ${Boost_${LIB}_LIBRARY_RELEASE_DLL} DESTINATION .)
-            else()
-                message(
-                    WARNING
-                    " + Boost_${LIB}_LIBRARY_RELEASE - is missing (${Boost_${LIB}_LIBRARY_RELEASE})"
-                )
-            endif()
-        endforeach()
-        set(LIBS
-            LIB_EAY
-            SSL_EAY
-            PROTOBUF_LIBRARY
-        )
-        foreach(LIB ${LIBS})
+# Redistributables shipped next to the binaries on Windows: the CRT DLLs when
+# the runtime is dynamic, the Boost DLLs when Boost is, and whatever OpenSSL /
+# protobuf DLLs exist beside the import libraries that were linked.
+if(WIN32 AND NOT NSCP_STATIC_RUNTIME)
+    find_redist(REDIST_LIST)
+    foreach(LIB ${REDIST_LIST})
+        get_filename_component(_NAME ${LIB} NAME)
+        message(STATUS " +  ${_NAME}")
+        COPY_FILE(${LIB} ${PROJECT_BINARY_DIR})
+        install(FILES "${LIB}" DESTINATION .)
+    endforeach()
+endif()
+if(WIN32 AND NOT Boost_USE_STATIC_LIBS)
+    string(TOUPPER ${NSCP_BOOST_PYTHON_VERSION} BOOST_PYTHON_VERSION_UPPER)
+    set(LIBS
+        DATE_TIME
+        FILESYSTEM
+        PROGRAM_OPTIONS
+        "${BOOST_PYTHON_VERSION_UPPER}"
+        "REGEX"
+        SYSTEM
+        THREAD
+        CHRONO
+    )
+    foreach(LIB ${LIBS})
+        if(Boost_${LIB}_LIBRARY_RELEASE)
             string(
                 REPLACE ".lib"
                 ".dll"
-                ${LIB}_RELEASE_DLL
+                Boost_${LIB}_LIBRARY_RELEASE_DLL
+                ${Boost_${LIB}_LIBRARY_RELEASE}
+            )
+            get_filename_component(
+                _NAME
+                "${Boost_${LIB}_LIBRARY_RELEASE_DLL}"
+                NAME
+            )
+            message(STATUS " + ${_NAME} - ${LIB}")
+            COPY_FILE(${Boost_${LIB}_LIBRARY_RELEASE_DLL} ${PROJECT_BINARY_DIR})
+            string(
+                REPLACE ".lib"
+                ".dll"
+                Boost_${LIB}_LIBRARY_DEBUG_DLL
+                ${Boost_${LIB}_LIBRARY_DEBUG}
+            )
+            # COPY_FILE(${Boost_${LIB}_LIBRARY_DEBUG_DLL} ${PROJECT_BINARY_DIR})
+            install(FILES ${Boost_${LIB}_LIBRARY_RELEASE_DLL} DESTINATION .)
+        else()
+            message(
+                WARNING
+                " + Boost_${LIB}_LIBRARY_RELEASE - is missing (${Boost_${LIB}_LIBRARY_RELEASE})"
+            )
+        endif()
+    endforeach()
+endif()
+if(WIN32 AND NOT NSCP_STATIC_RUNTIME)
+    set(LIBS
+        LIB_EAY
+        SSL_EAY
+        PROTOBUF_LIBRARY
+    )
+    foreach(LIB ${LIBS})
+        string(
+            REPLACE ".lib"
+            ".dll"
+            ${LIB}_RELEASE_DLL
+            "${${LIB}_RELEASE}"
+        )
+        if(EXISTS "${${LIB}_RELEASE_DLL}")
+            get_filename_component(_NAME "${${LIB}_RELEASE_DLL}" NAME)
+            message(STATUS " + ${_NAME}")
+            COPY_FILE("${${LIB}_RELEASE_DLL}" ${PROJECT_BINARY_DIR})
+            install(FILES "${${LIB}_RELEASE_DLL}" DESTINATION .)
+        else()
+            get_filename_component(_PATH "${${LIB}_RELEASE_DLL}" DIRECTORY)
+            string(
+                REPLACE ".lib"
+                "*.dll"
+                LIB_PATTERN
                 "${${LIB}_RELEASE}"
             )
-            if(EXISTS "${${LIB}_RELEASE_DLL}")
-                get_filename_component(_NAME "${${LIB}_RELEASE_DLL}" NAME)
+            file(GLOB FILES ${LIB_PATTERN})
+            foreach(FILE ${FILES})
+                get_filename_component(_NAME "${FILE}" NAME)
                 message(STATUS " + ${_NAME}")
-                COPY_FILE("${${LIB}_RELEASE_DLL}" ${PROJECT_BINARY_DIR})
-                install(FILES "${${LIB}_RELEASE_DLL}" DESTINATION .)
-            else()
-                get_filename_component(_PATH "${${LIB}_RELEASE_DLL}" DIRECTORY)
-                string(
-                    REPLACE ".lib"
-                    "*.dll"
-                    LIB_PATTERN
-                    "${${LIB}_RELEASE}"
-                )
-                file(GLOB FILES ${LIB_PATTERN})
-                foreach(FILE ${FILES})
-                    get_filename_component(_NAME "${FILE}" NAME)
-                    message(STATUS " + ${_NAME}")
-                    COPY_FILE("${FILE}" ${PROJECT_BINARY_DIR})
-                    install(FILES "${FILE}" DESTINATION .)
-                endforeach()
-            endif()
-        endforeach()
-    endif()
-endif(USE_STATIC_RUNTIME)
+                COPY_FILE("${FILE}" ${PROJECT_BINARY_DIR})
+                install(FILES "${FILE}" DESTINATION .)
+            endforeach()
+        endif()
+    endforeach()
+endif()
 
 # ##############################################################################
 #
@@ -598,11 +606,6 @@ if(WIN32)
     if(CMAKE_CL_64)
         set(VERSION_ARCH x64)
     endif(CMAKE_CL_64)
-    if(USE_STATIC_RUNTIME)
-        set(RELEASE_SUFFIX "-legacy-xp")
-    else(USE_STATIC_RUNTIME)
-        set(RELEASE_SUFFIX "")
-    endif(USE_STATIC_RUNTIME)
 else(WIN32)
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "amd64|x86_64")
         set(VERSION_ARCH "amd64")
@@ -627,7 +630,12 @@ set(CMAKE_LIBRARY_PATH
     "${CMAKE_LIBRARY_PATH};${OPENSSL_LIBRARY_DIR};${NSCP_LIBRARYDIR};${BOOST_LIBRARYDIR}"
 )
 
-SET_MULTITHREAD()
+# The MSVC runtime (/MT vs /MD) is selected per target through
+# CMAKE_MSVC_RUNTIME_LIBRARY (build_profiles.cmake); the per-configuration
+# optimisation / debug-info flags are CMake's own defaults for MSVC.
+if(CMAKE_COMPILER_IS_GNUCXX)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+endif()
 
 if(MSVC)
     # Force to always compile with W4
@@ -753,14 +761,6 @@ if(MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
     message(STATUS "Added parallel build arguments")
 endif()
-
-if(NOT SHARED_LIBS)
-    if(WIN32)
-        option(SHARED_LIBS "Compile shared libraries" OFF)
-    else(WIN32)
-        option(SHARED_LIBS "Compile shared libraries" ON)
-    endif(WIN32)
-endif(NOT SHARED_LIBS)
 
 include_directories(${Boost_INCLUDE_DIRS})
 include_directories("${PROTOBUF_INCLUDE_DIR}")
@@ -1127,11 +1127,7 @@ else()
     # so the default log location was unwritable and every log line was dropped.
     # This is what docs/design/linux-prefix-builds.md already documents
     # NSCP_LOGDIR as backing.
-    set(CONFIG_LOG_FOLDER
-        "${NSCP_LOGDIR}"
-        CACHE STRING
-        "Path for log files"
-    )
+    set(CONFIG_LOG_FOLDER "${NSCP_LOGDIR}" CACHE STRING "Path for log files")
     set(CONFIG_DEFAULT_LOG_LOCATION
         "\${log-path}/nsclient.log"
         CACHE STRING
@@ -1229,45 +1225,6 @@ if(NSCP_BUILD_TESTS)
     enable_testing()
     include(GoogleTest)
 endif(NSCP_BUILD_TESTS)
-
-if(NETLIB_FOUND)
-    if(NOT (Boost_VERSION LESS 105400))
-        message(STATUS " - c++-netlib")
-        set(CPP-NETLIB_BUILD_SHARED_LIBS ON CACHE BOOL "Override")
-        set(CPP-NETLIB_BUILD_SINGLE_LIB ON CACHE BOOL "Override")
-        set(CPP-NETLIB_BUILD_TESTS OFF CACHE BOOL "Override")
-        set(CPP-NETLIB_BUILD_EXAMPLES OFF CACHE BOOL "Override")
-        set(CPP-NETLIB_BUILD_FOLDER "../../" CACHE STRING "Override")
-        set(OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
-        set(BUILD_SHARED_LIBS OFF)
-        add_subdirectory(ext/cpp-netlib)
-        set(BUILD_SHARED_LIBS ${OLD_BUILD_SHARED_LIBS})
-        set_target_properties(
-            cppnetlib-client-connections
-            PROPERTIES
-                FOLDER
-                    "libraries"
-        )
-        set_target_properties(
-            cppnetlib-server-parsers
-            PROPERTIES
-                FOLDER
-                    "libraries"
-        )
-        set_target_properties(
-            cppnetlib-uri
-            PROPERTIES
-                FOLDER
-                    "libraries"
-        )
-        set_target_properties(
-            cppnetlib-client-connections
-            PROPERTIES
-                COMPILE_DEFINITIONS
-                    "BOOST_ALL_NO_LIB"
-        )
-    endif()
-endif()
 
 # Must be set BEFORE the libs subdirectories are added below, because
 # libs/plugin_api/CMakeLists.txt references ${NSCP_DEF_PLUGIN_LIB} when
@@ -1430,12 +1387,12 @@ set(CPACK_PACKAGE_VERSION ${NSCP_FULL_VERSION})
 if(WIN32)
     set(CPACK_GENERATOR ZIP)
     set(CPACK_PACKAGE_FILE_NAME
-        "NSCP-${CPACK_PACKAGE_VERSION}-${VERSION_ARCH}${RELEASE_SUFFIX}"
+        "NSCP-${CPACK_PACKAGE_VERSION}-${VERSION_ARCH}${NSCP_PACKAGE_SUFFIX}"
     )
 else()
     set(CPACK_GENERATOR "ZIP;DEB;RPM")
     set(CPACK_PACKAGE_FILE_NAME
-        "NSCP-${CPACK_PACKAGE_VERSION}-${VERSION_ARCH}${RELEASE_SUFFIX}"
+        "NSCP-${CPACK_PACKAGE_VERSION}-${VERSION_ARCH}${NSCP_PACKAGE_SUFFIX}"
     )
     set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY TRUE)
 

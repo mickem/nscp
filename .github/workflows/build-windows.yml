@@ -233,7 +233,6 @@ jobs:
       with:
         path: tmp/nscp/build.cmake
         contents: |
-            SET(USE_STATIC_RUNTIME FALSE)
             SET(LIBRARY_ROOT_FOLDER	"${{ env.GITHUB_WORKSPACE }}")
             SET(BOOST_ROOT "${{ steps.paths.outputs.boost_root }}")
             SET(BOOST_LIBRARYDIR "${{ steps.paths.outputs.boost_librarydir }}")
@@ -283,7 +282,9 @@ jobs:
     - name: CMake (NSCP)
       working-directory: tmp/nscp
       run: |
-        cmake ../.. -T ${{ steps.setup.outputs.toolset }} -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -D BUILD_VERSION=${{ inputs.version }} -D CRT_MERGE_MODULE_NAME=Microsoft_VC143_CRT
+        # Generator, toolset and architecture come from the preset
+        # (CMakePresets.json); build.cmake above carries the dependency paths.
+        cmake -S ../.. -B . --preset windows-${{ inputs.architecture }} -D BUILD_VERSION=${{ inputs.version }} -D CRT_MERGE_MODULE_NAME=Microsoft_VC143_CRT
 
     - name: Build nsclient
       working-directory: tmp/nscp

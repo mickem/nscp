@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.10)
-
 if(LUA_SOURCE_FOUND)
     set(TARGET lua)
 
@@ -44,7 +42,7 @@ if(LUA_SOURCE_FOUND)
     endforeach()
 
     file(GLOB lua_HEADERS "${LUA_SOURCE_DIR}/*.h")
-    if(NOT USE_STATIC_RUNTIME)
+    if(NOT NSCP_STATIC_LIBS)
         add_definitions(-DLUA_BUILD_AS_DLL)
     endif()
 

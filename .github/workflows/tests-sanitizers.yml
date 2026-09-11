@@ -112,8 +112,7 @@ jobs:
           -DNSCP_WEB_BACKEND=beast \
           -DNSCP_BOOST_PYTHON_VERSION=python312 \
           -DLIBRARY_ROOT_FOLDER="$GITHUB_WORKSPACE" \
-          -DCHECK_NSCLIENT_MISSING=ON \
-          -DUSE_STATIC_RUNTIME=OFF
+          -DCHECK_NSCLIENT_MISSING=ON
 
     - name: Build
       working-directory: tmp/nscp

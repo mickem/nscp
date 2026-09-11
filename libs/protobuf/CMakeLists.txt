@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.10)
-
 WRAP_PROTO(PROTO_PLUGIN_SRC plugin.proto)
 WRAP_PROTO(COMMON_PLUGIN_SRC common.proto)
 WRAP_PROTO(METRICS_PLUGIN_SRC metrics.proto)
@@ -37,7 +35,7 @@ if(WIN32)
         ${SETTINGS_PLUGIN_SRC_H}
         ${STORAGE_PLUGIN_SRC_H}
     )
-    if(NOT USE_STATIC_RUNTIME)
+    if(NOT NSCP_STATIC_LIBS)
         set(SRCS
             ${SRCS}
             ${CMAKE_CURRENT_SOURCE_DIR}/nscp_protobuf.rc
@@ -85,7 +83,7 @@ if(PROTOC_GEN_LUA_FOUND AND (LUA_FOUND OR LUA_SOURCE_FOUND))
             ${SETTINGS_PLUGIN_SRC_LUA_H}
             ${STORAGE_PLUGIN_SRC_LUA_H}
         )
-        if(NOT USE_STATIC_RUNTIME)
+        if(NOT NSCP_STATIC_LIBS)
             set(SRCS
                 ${SRCS}
                 ${CMAKE_CURRENT_SOURCE_DIR}/nscp_lua_pb.rc
@@ -104,11 +102,11 @@ if(PROTOC_GEN_LUA_FOUND AND (LUA_FOUND OR LUA_SOURCE_FOUND))
         )
     endif(MSVC)
 
-    if(USE_STATIC_RUNTIME)
+    if(NSCP_STATIC_LIBS)
         add_definitions(-Dlua_protobuf_NOLIB)
-    else(USE_STATIC_RUNTIME)
+    else(NSCP_STATIC_LIBS)
         add_definitions(-Dlua_protobuf_EXPORTS)
-    endif(USE_STATIC_RUNTIME)
+    endif(NSCP_STATIC_LIBS)
     NSCP_MAKE_LIBRARY(${TARGET} "${SRCS}")
     NSCP_FORCE_INCLUDE(
         ${TARGET}

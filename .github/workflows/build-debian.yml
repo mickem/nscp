@@ -152,8 +152,7 @@ jobs:
           -DNSCP_WEB_BACKEND=beast \
           -DNSCP_BOOST_PYTHON_VERSION=${{ matrix.python_version }} \
           -DLIBRARY_ROOT_FOLDER="$GITHUB_WORKSPACE" \
-          -DCHECK_NSCLIENT_LOCATION="$GITHUB_WORKSPACE" \
-          -DUSE_STATIC_RUNTIME=OFF
+          -DCHECK_NSCLIENT_LOCATION="$GITHUB_WORKSPACE"
 
     - name: Build nsclient
       working-directory: tmp/nscp

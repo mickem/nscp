@@ -1,4 +1,3 @@
-cmake_minimum_required(VERSION 3.10)
 set(TARGET ${PLUGIN_API_TARGET})
 
 include_directories(${BOOST_INCLUDE_DIRS})

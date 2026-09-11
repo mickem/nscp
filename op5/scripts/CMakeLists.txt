@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.10)
-
 project(copy_op5_scripts)
 
 if(WIN32)

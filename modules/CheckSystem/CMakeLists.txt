@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.10)
-
 set(TARGET CheckSystem)
 
 project(${TARGET})
@@ -140,9 +138,9 @@ include(${BUILD_CMAKE_FOLDER}/module.cmake)
 source_group("pdh" REGULAR_EXPRESSION .*include/pdh/.*)
 
 # check_registry_test.cpp uses GTest features that are not ABI-compatible with
-# the static (legacy) MSVC runtime, so it is excluded when USE_STATIC_RUNTIME is on.
+# the static MSVC runtime, so it is excluded when NSCP_STATIC_RUNTIME is on.
 set(_check_system_test_extra_sources)
-if(NOT USE_STATIC_RUNTIME)
+if(NOT NSCP_STATIC_RUNTIME)
     list(APPEND _check_system_test_extra_sources check_registry_test.cpp)
 endif()
 

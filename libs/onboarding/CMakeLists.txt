@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.10)
-
 set(TARGET onboarding)
 
 # Fleet onboarding (enrollment) shared between the installer and the core

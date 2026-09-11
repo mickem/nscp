@@ -191,9 +191,6 @@ jobs:
       with:
         path: tmp/nscp/build.cmake
         contents: |
-            set(Boost_USE_STATIC_RUNTIME ON)
-            set(Boost_USE_STATIC_LIBS ON)
-            SET(USE_STATIC_RUNTIME TRUE)
             SET(NSCP_BOOST_PYTHON_VERSION "python311")
 
             SET(LIBRARY_ROOT_FOLDER	"${{ env.GITHUB_WORKSPACE }}")
@@ -235,7 +232,10 @@ jobs:
     - name: CMake (NSCP)
       working-directory: tmp/nscp
       run: |
-         cmake ../.. -T v141_xp  -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -D BUILD_VERSION=${{ inputs.version }} -D CRT_MERGE_MODULE_NAME=Microsoft_VC143_CRT
+        # The legacy profile (NSCP_LEGACY_BUILD: static runtime, static
+        # libraries, XP API level) and the v141_xp toolset come from the
+        # preset; build.cmake above carries the dependency paths.
+        cmake -S ../.. -B . --preset windows-${{ inputs.architecture }}-legacy -D BUILD_VERSION=${{ inputs.version }} -D CRT_MERGE_MODULE_NAME=Microsoft_VC143_CRT
 
     - name: Build nsclient
       working-directory: tmp/nscp

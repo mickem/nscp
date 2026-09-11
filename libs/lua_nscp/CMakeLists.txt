@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.10)
-
 if(LUA_FOUND OR LUA_SOURCE_FOUND)
     set(TARGET lua_nscp)
 

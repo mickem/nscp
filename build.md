@@ -11,8 +11,9 @@ If you want to produce debug builds and/or w32 some adjustments will be required
 * [Prerequisites](#prerequisites)
 * [Dependencies](#dependencies)
 * [Build options](#build-options)
+* [Build profiles and presets](#build-profiles-and-presets)
 * [x64 version (dynamic runtime)](#x64-version-dynamic-runtime)
-* [Win32 version (static link)](#win32-version-static-link)
+* [Win32 legacy version (XP / Server 2003)](#win32-legacy-version-xp--server-2003)
 * [Linux version](#linux-version)
 * [Running tests](#running-tests)
 
@@ -49,7 +50,7 @@ and its location is pointed to from `build.cmake`.
 | Dependency                                                                                     | Used for                                     | Debian/Ubuntu package                           | Windows                                                      |
 |------------------------------------------------------------------------------------------------|----------------------------------------------|-------------------------------------------------|--------------------------------------------------------------|
 | C++17 toolchain                                                                                | compiling                                    | `build-essential`                               | Visual Studio (v141_xp toolset)                              |
-| CMake ≥ 3.10                                                                                   | build system                                 | `cmake`                                         | CMake                                                        |
+| CMake ≥ 3.21                                                                                   | build system                                 | `cmake`                                         | CMake                                                        |
 | Boost (system, filesystem, thread, regex, date_time, program_options, chrono, json, container) | core runtime, filtering, JSON, threading     | `libboost-all-dev`                              | built from source                                            |
 | Protocol Buffers (library + `protoc`)                                                          | every cross-module message                   | `libprotobuf-dev`, `protobuf-compiler`          | built from source                                            |
 | Python 3 **interpreter** + Jinja2                                                              | build-time protobuf / module code generation | `python3`, `python3-protobuf`, `python3-jinja2` | on `PATH` (+ `pip install -r build/python/requirements.txt`) |
@@ -81,10 +82,13 @@ only for building `.rpm` packages).
 
 ## Build options
 
-These are passed on the `cmake` command line (`-DNAME=VALUE`) or set in a
-`build.cmake` file. On Linux they go on the command line; on Windows they go in
-`build.cmake` (auto-included when found at the repository root, or point at it
-with `-DNSCP_CMAKE_CONFIG=<file>`).
+These are passed on the `cmake` command line (`-DNAME=VALUE`), selected through
+a preset (see [Build profiles and presets](#build-profiles-and-presets)) or set
+in a `build.cmake` file. On Linux they go on the command line; on Windows the
+dependency locations go in `build.cmake` (auto-included when found at the
+repository root or in the build directory, or point at it with
+`-DNSCP_CMAKE_CONFIG=<file>`). A value set in `build.cmake` wins over the
+default in the CMake files.
 
 ### General
 
@@ -98,7 +102,12 @@ with `-DNSCP_CMAKE_CONFIG=<file>`).
 | `NSCP_SANITIZE`             | `off`            | Comma-separated sanitizer list for gcc/clang on Linux: `address`, `undefined`, `address,undefined`, `thread`. See `tools/sanitizers/run.sh`.                             |
 | `NSCP_COVERAGE`             | `OFF`            | Instrument every target with gcov counters (gcc/clang on Linux) so ctest and the `tests/` suite can be turned into a coverage report. See `tools/coverage/run.sh`.      |
 | `NSCP_BUILD_DOCS_HTML`      | `ON` on Windows, `OFF` elsewhere | Build the mkdocs HTML site as part of the default target. Only the Windows installer ships the site; elsewhere build it on demand with `cmake --build . --target build_docs_html`. |
-| `USE_STATIC_RUNTIME`        | `OFF`            | Link the C/C++ runtime statically (used by the Win32 static build).                                                                                                      |
+| `NSCP_LEGACY_BUILD`         | `OFF`            | The legacy Windows XP / Server 2003 profile: forces `NSCP_STATIC_RUNTIME`, `NSCP_STATIC_LIBS` and `NSCP_TARGET_WINDOWS_XP` on and defaults static Boost, the `mongoose` backend and a `-legacy-xp` package suffix. Needs the `v141_xp` toolset (`--preset windows-x86-legacy`). |
+| `NSCP_STATIC_RUNTIME`       | `OFF`            | Link the C/C++ runtime statically (MSVC `/MT`); no CRT redistributable is shipped. Independent of `NSCP_STATIC_LIBS`.                                                     |
+| `NSCP_STATIC_LIBS`          | `OFF`            | Build the project's own support libraries (`plugin_api`, `nscp_protobuf`, `where_filter`, …) as static libraries linked into every module and executable instead of shipping them as `nscp_*.dll` / `libnscp_*.so`. |
+| `NSCP_TARGET_WINDOWS_XP`    | `OFF`            | Target the Windows XP / Server 2003 API level (`WINVER 0x0501`); otherwise Windows 7 / Server 2008 R2 and later. Needs the `v141_xp` toolset.                            |
+| `NSCP_PACKAGE_SUFFIX`       | empty            | Appended to the package and installer file names (the legacy profile defaults it to `-legacy-xp`).                                                                        |
+| `USE_STATIC_RUNTIME`        | —                | **Deprecated.** `ON` is treated as `NSCP_LEGACY_BUILD=ON` (that is what it used to mean); `OFF` was the default and can be dropped.                                       |
 | `USE_SYSTEMD`               | `ON` (Linux)     | Install systemd service files in the package.                                                                                                                            |
 | `USE_INITD`                 | `OFF` (Linux)    | Install legacy init.d scripts in the package.                                                                                                                            |
 | `CHECK_NSCLIENT_LOCATION`   | —                | Directory holding the prebuilt `check_nsclient` binary to bundle (see [Download the check_nsclient plugin](#download-the-check_nsclient-plugin)).                       |
@@ -113,7 +122,8 @@ path); on Linux the system packages are found automatically.
 | Variable                                       | Points at                                         |
 |------------------------------------------------|---------------------------------------------------|
 | `BOOST_ROOT` / `BOOST_LIBRARYDIR`              | Boost headers / compiled libraries                |
-| `Boost_USE_STATIC_RUNTIME`                     | link Boost against the static runtime             |
+| `Boost_USE_STATIC_LIBS`                        | link Boost statically (defaults to `ON` in the legacy profile) |
+| `Boost_USE_STATIC_RUNTIME`                     | Boost was built against the static runtime (defaults to `NSCP_STATIC_RUNTIME`) |
 | `OPENSSL_ROOT_DIR` / `OPENSSL_USE_STATIC_LIBS` | OpenSSL install / static linking                  |
 | `PROTOBUF_LIBRARYDIR`                          | compiled Protocol Buffers libraries               |
 | `CRYPTOPP_ROOT`                                | Crypto++ build directory                          |
@@ -153,6 +163,60 @@ override a module that is unsupported on the current platform (e.g.
 `NSClientServer` on Linux). The exact module names are the directory names
 under `modules/` / `clients/` / `tools/`. Options are cached, so they persist
 across reconfigures until explicitly flipped back to `ON`.
+
+## Build profiles and presets
+
+A *profile* is one of the artefacts the project ships; a *knob* is one
+independent decision (`NSCP_STATIC_RUNTIME`, `NSCP_STATIC_LIBS`,
+`NSCP_TARGET_WINDOWS_XP`, `NSCP_WEB_BACKEND`, …). A profile is just a flag that
+sets the knobs it requires — `NSCP_LEGACY_BUILD=ON` forces the static runtime,
+static support libraries and the XP API level — and the knobs can be combined
+freely outside it, e.g. a static-library build that still targets modern
+Windows. The knob logic lives in `build/cmake/build_profiles.cmake`.
+
+The compiler toolset and target architecture cannot be chosen from inside
+CMake, so `CMakePresets.json` carries them together with the profile:
+
+| Preset               | Generator / toolset / arch       | What it builds                                        |
+|----------------------|----------------------------------|-------------------------------------------------------|
+| `windows-x64`        | Visual Studio 17 2022, v141, x64 | `NSCP-<ver>-x64.msi`                                  |
+| `windows-x86`        | Visual Studio 17 2022, v141, Win32 | `NSCP-<ver>-Win32.msi`                              |
+| `windows-arm64`      | Visual Studio 17 2022, v143, ARM64 | `NSCP-<ver>-ARM64.msi`                              |
+| `windows-x86-legacy` | Visual Studio 17 2022, v141_xp, Win32 + `NSCP_LEGACY_BUILD=ON` | `NSCP-<ver>-Win32-legacy-xp.msi`  |
+| `linux`              | default generator, `NSCP_WEB_BACKEND=beast` | what the DEB/RPM packages are built from   |
+| `linux-static`       | as `linux` + `NSCP_STATIC_LIBS=ON` | no `libnscp_*.so` beside the modules                |
+| `linux-asan`         | as `linux` + `NSCP_SANITIZE=address,undefined` | see `tools/sanitizers/run.sh`           |
+| `linux-coverage`     | as `linux` + `NSCP_COVERAGE=ON`  | see `tools/coverage/run.sh`                           |
+
+The presets do not know where your dependencies are. Either keep a
+`build.cmake` (Windows, see below) or add an untracked `CMakeUserPresets.json`
+that inherits a preset and adds the locations as `cacheVariables`:
+
+```json
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "my-x64",
+      "inherits": "windows-x64",
+      "cacheVariables": {
+        "BOOST_ROOT": "C:/src/build/boost_1_86_0",
+        "PROTOBUF_ROOT": "C:/src/build/protobuf-21.12"
+      }
+    }
+  ]
+}
+```
+
+Then configure and build with the preset (the build directory defaults to
+`build-<preset>` under the source tree; pass `-B` to put it elsewhere):
+
+```commandline
+cmake --preset windows-x64 -DBUILD_VERSION=%NSCP_VERSION%
+cmake --build --preset windows-x64
+```
+
+`cmake --list-presets` shows the ones that apply to the current host.
 
 ## x64 version (dynamic runtime)
 
@@ -385,8 +449,6 @@ copy install\bin\*.dll %BUILD_FOLDER%\nscp
 Create a file called `build.cmake` adding the paths to the above tools and libraries.
 
 ```cmake
-SET(USE_STATIC_RUNTIME FALSE)
-set(Boost_USE_STATIC_RUNTIME ON)
 SET(BOOST_ROOT "BUILD_FOLDER/boost_VERSION")
 SET(NSCP_BOOST_PYTHON_VERSION "python311")
 SET(BOOST_LIBRARYDIR "BUILD_FOLDER/boost_VERSION/stage/lib")
@@ -411,11 +473,14 @@ SET(MARIADB_ROOT_DIR "BUILD_FOLDER/mariadb-connector-c-VERSION/install")
 cd %BUILD_FOLDER%
 mkdir nscp
 cd nscp
-cmake %SOURCE_ROOT% -T v141_xp -G "Visual Studio 17" -A x64 -DBUILD_VERSION=%NSCP_VERSION%
+cmake -S %SOURCE_ROOT% -B . --preset windows-x64 -DBUILD_VERSION=%NSCP_VERSION%
 msbuild nscp.sln /p:Configuration=Release /p:Platform=x64
 ```
 
-## Win32 version (static link)
+The preset supplies the generator, the `v141` toolset and the architecture;
+`build.cmake` in the build directory supplies the dependency locations.
+
+## Win32 legacy version (XP / Server 2003)
 
 ### Environment
 
@@ -567,8 +632,6 @@ copy install\bin\*.dll %BUILD_FOLDER%\nscp
 Create a file called `build.cmake` adding the paths to the above tools and libraries.
 
 ```cmake
-SET(USE_STATIC_RUNTIME FALSE)
-set(Boost_USE_STATIC_RUNTIME ON)
 SET(NSCP_BOOST_PYTHON_VERSION "python311")
 SET(BOOST_ROOT "BUILD_FOLDER/boost_VERSION_static")
 SET(BOOST_LIBRARYDIR "BUILD_FOLDER/boost_VERSION_static/stage/lib")
@@ -587,9 +650,15 @@ SET(MINIZ_INCLUDE_DIR "BUILD_FOLDER/miniz-VERSION")
 cd %BUILD_FOLDER%
 mkdir nscp
 cd nscp
-cmake %SOURCE_ROOT% -T v141_xp -G "Visual Studio 17" -A Win32 -DBUILD_VERSION=%NSCP_VERSION%
+cmake -S %SOURCE_ROOT% -B . --preset windows-x86-legacy -DBUILD_VERSION=%NSCP_VERSION%
 msbuild nscp.sln /p:Configuration=Release /p:Platform=Win32
 ```
+
+The `windows-x86-legacy` preset selects the `v141_xp` toolset and sets
+`NSCP_LEGACY_BUILD=ON`, which in turn forces the static runtime, static support
+libraries and the XP API level and defaults Boost to static, the web backend to
+`mongoose` and the package suffix to `-legacy-xp`. Without the preset the same
+build is `-T v141_xp -A Win32 -DNSCP_LEGACY_BUILD=ON`.
 
 ## Linux version
 
@@ -699,7 +768,9 @@ Either way, `WEBServer` and its REST API don't depend on the bundle.
 Linux passes its configuration on the `cmake` command line — no `build.cmake`
 file is needed (Windows still uses one, see the sections above). The cache
 remembers everything so subsequent `cmake $SOURCE_ROOT` calls in the same
-build directory don't need to repeat the flags.
+build directory don't need to repeat the flags. `cmake --preset linux` (or
+`linux-static`, `linux-asan`, `linux-coverage`) is the same thing with the
+backend pre-selected and the build directory at `build-linux`.
 
 ```bash
 cd $BUILD_FOLDER/nscp

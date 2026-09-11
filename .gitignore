@@ -1,5 +1,7 @@
 # ─── Build output ────────────────────────────────────────────────────────────
 build.cmake
+# Per-machine presets (dependency locations); CMakePresets.json is tracked.
+CMakeUserPresets.json
 cmake-build
 cmake-build-*
 # Sanitizer build dirs created by tools/sanitizers/run.sh (build-address+undefined,

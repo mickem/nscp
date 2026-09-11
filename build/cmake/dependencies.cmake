@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.10)
-
 # ##############################################################################
 #
 # Find all dependencies and report anything missing.
@@ -61,21 +59,18 @@ set(NSCP_ZIP_BACKEND
     "Resolved ZIP backend: miniz | libzip | none"
     FORCE
 )
-# HTTP backend selector for WEBServer. The mongoose default keeps the
-# Windows packaging story unchanged; setting `beast` switches every
-# platform to the Boost.Beast implementation (libs/mongoose-cpp/
-# ServerBeastImpl.cpp) and drops the vendored mongoose download from
-# the build. See docs/design/beast-web-backend.md.
-# Seed the default only when nothing else has chosen a backend. This must
-# honour BOTH a command-line `-DNSCP_WEB_BACKEND=...` (a cache entry) AND a
-# `SET(NSCP_WEB_BACKEND ...)` in build.cmake (a normal variable, since
-# build.cmake is include()d earlier in the top-level CMakeLists).
+# HTTP backend selector for WEBServer: `mongoose` (the vendored mongoose.c)
+# or `beast` (Boost.Beast, libs/mongoose-cpp/ServerBeastImpl.cpp, no vendored
+# download). The Linux packages use beast; the legacy Windows profile seeds
+# mongoose (build_profiles.cmake) because Beast needs Boost.Coroutine /
+# Boost.Context, which the XP toolchain does not provide. Everything else
+# still defaults to mongoose only until the Windows Boost build ships those
+# two components - flip the fallback below to `beast` at that point.
 #
-# A bare `set(NSCP_WEB_BACKEND "mongoose" CACHE STRING ...)` here is a trap:
-# when no cache entry exists yet, CMake creates it AND removes any normal
-# variable of the same name — silently reverting build.cmake's
-# `SET(NSCP_WEB_BACKEND "beast")` back to mongoose. That broke the Linux
-# (beast) package builds, which opt in via build.cmake rather than -D.
+# Seed the default only when nothing else has chosen a backend: a command line
+# -D (a cache entry) and a build.cmake / profile `set()` (a normal variable)
+# are both honoured. Under CMP0126 the set(CACHE) below no longer removes a
+# normal variable of the same name, so the seeded value survives.
 if(NOT DEFINED NSCP_WEB_BACKEND)
     set(NSCP_WEB_BACKEND "mongoose")
 endif()

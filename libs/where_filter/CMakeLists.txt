@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.10)
-
 set(TARGET nscp_where_filter)
 
 include_directories(${BOOST_INCLUDE_DIRS})

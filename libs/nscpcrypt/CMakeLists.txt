@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.10)
-
 list(APPEND cryptopp_SOURCES nscpcrypt.cpp)
 if(WIN32)
     list(APPEND cryptopp_SOURCES ${NSCP_INCLUDEDIR}/nscpcrypt/nscpcrypt.hpp)

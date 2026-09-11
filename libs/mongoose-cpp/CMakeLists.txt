@@ -69,11 +69,11 @@ if(WIN32)
     set(SOURCES ${SOURCES} ${WIN_HEADERS})
 endif()
 
-if(USE_STATIC_RUNTIME)
+if(NSCP_STATIC_LIBS)
     add_definitions(-Dlib_mongoose_NOLIB)
-else(USE_STATIC_RUNTIME)
+else(NSCP_STATIC_LIBS)
     add_definitions(-Dlib_mongoose_EXPORTS)
-endif(USE_STATIC_RUNTIME)
+endif(NSCP_STATIC_LIBS)
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
 

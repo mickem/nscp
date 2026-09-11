@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.10)
-
 project(copy_web)
 
 # Web bundle ships out-of-band as of the web-bundle-installer rollout

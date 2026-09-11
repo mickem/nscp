@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.10)
-
 # Vendored replxx (BSD-3-Clause) — see README.nscp.md. This is our own build
 # file, not upstream's: upstream's carries install/export rules, a
 # shared-library option and a coverage harness that we have no use for.

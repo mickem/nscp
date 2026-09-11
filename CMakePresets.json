@@ -1,0 +1,103 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build-${presetName}"
+    },
+    {
+      "name": "windows",
+      "hidden": true,
+      "inherits": "base",
+      "generator": "Visual Studio 17 2022",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+    },
+    {
+      "name": "windows-x64",
+      "displayName": "Windows x64",
+      "description": "Windows 7 / Server 2008 R2 and later, shared runtime and libraries (NSCP-<ver>-x64.msi).",
+      "inherits": "windows",
+      "architecture": { "value": "x64", "strategy": "set" },
+      "toolset": { "value": "v141", "strategy": "set" }
+    },
+    {
+      "name": "windows-x86",
+      "displayName": "Windows x86",
+      "description": "Windows 7 / Server 2008 R2 and later, 32-bit (NSCP-<ver>-Win32.msi).",
+      "inherits": "windows",
+      "architecture": { "value": "Win32", "strategy": "set" },
+      "toolset": { "value": "v141", "strategy": "set" }
+    },
+    {
+      "name": "windows-arm64",
+      "displayName": "Windows ARM64",
+      "description": "Windows on ARM64, cross-compiled with the v143 toolset (v141 has no ARM64 support).",
+      "inherits": "windows",
+      "architecture": { "value": "ARM64", "strategy": "set" },
+      "toolset": { "value": "v143", "strategy": "set" }
+    },
+    {
+      "name": "windows-x86-legacy",
+      "displayName": "Windows x86 legacy (XP / Server 2003)",
+      "description": "The legacy profile: v141_xp toolset, static runtime, static libraries, XP API level (NSCP-<ver>-Win32-legacy-xp.msi).",
+      "inherits": "windows",
+      "architecture": { "value": "Win32", "strategy": "set" },
+      "toolset": { "value": "v141_xp", "strategy": "set" },
+      "cacheVariables": {
+        "NSCP_LEGACY_BUILD": "ON"
+      }
+    },
+    {
+      "name": "linux",
+      "displayName": "Linux",
+      "description": "Linux with the Boost.Beast web backend (what the DEB/RPM packages use).",
+      "inherits": "base",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" },
+      "cacheVariables": {
+        "NSCP_WEB_BACKEND": "beast"
+      }
+    },
+    {
+      "name": "linux-static",
+      "displayName": "Linux, static support libraries",
+      "description": "As linux, but the project's own support libraries are linked into each module instead of shipped as shared libraries.",
+      "inherits": "linux",
+      "cacheVariables": {
+        "NSCP_STATIC_LIBS": "ON"
+      }
+    },
+    {
+      "name": "linux-asan",
+      "displayName": "Linux, ASan + UBSan",
+      "description": "As linux, instrumented with AddressSanitizer and UndefinedBehaviorSanitizer (see tools/sanitizers/run.sh).",
+      "inherits": "linux",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "NSCP_SANITIZE": "address,undefined"
+      }
+    },
+    {
+      "name": "linux-coverage",
+      "displayName": "Linux, coverage",
+      "description": "As linux, instrumented for gcov/gcovr (see tools/coverage/run.sh).",
+      "inherits": "linux",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "NSCP_COVERAGE": "ON",
+        "BUILD_MODULE_CauseCrashes": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "windows-x64", "configurePreset": "windows-x64", "configuration": "RelWithDebInfo" },
+    { "name": "windows-x86", "configurePreset": "windows-x86", "configuration": "RelWithDebInfo" },
+    { "name": "windows-arm64", "configurePreset": "windows-arm64", "configuration": "RelWithDebInfo" },
+    { "name": "windows-x86-legacy", "configurePreset": "windows-x86-legacy", "configuration": "RelWithDebInfo" },
+    { "name": "linux", "configurePreset": "linux" },
+    { "name": "linux-static", "configurePreset": "linux-static" },
+    { "name": "linux-asan", "configurePreset": "linux-asan" },
+    { "name": "linux-coverage", "configurePreset": "linux-coverage" }
+  ]
+}

@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.10)
-
 if(MKDOCS_FOUND)
     project(generate_docs)
     # --path-override key=value redirects a path-resolver token directly at the path_manager.

@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.10)
-
 set(ALIAS NSCP)
 set(TARGET installer_${ALIAS})
 
@@ -19,15 +17,15 @@ set(SRCS
     ../common/op5_scripts.wxs
     ../common/op5_config.wxs
 )
-if(USE_STATIC_RUNTIME)
+if(NSCP_STATIC_RUNTIME)
     set(RUNTIME "static")
-else(USE_STATIC_RUNTIME)
+else(NSCP_STATIC_RUNTIME)
     set(SRCS
         ${SRCS}
         RUNTIME_DLL.wxs
     )
     set(RUNTIME "dynamic")
-endif(USE_STATIC_RUNTIME)
+endif(NSCP_STATIC_RUNTIME)
 
 if(CHECK_NSCLIENT_MISSING)
     set(HAS_NSCLIENT "false")

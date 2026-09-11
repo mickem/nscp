@@ -359,7 +359,7 @@ macro(NSCP_MAKE_LIBRARY _TARGET _SRCS)
         set(_NSCP_LIB_EXCLUDE EXCLUDE_FROM_ALL)
         set(_NSCP_INSTALL_OPTIONAL OPTIONAL)
     endif()
-    if(USE_STATIC_RUNTIME)
+    if(NSCP_STATIC_LIBS)
         add_library(${_TARGET} STATIC ${_NSCP_LIB_EXCLUDE} ${_SRCS})
         nscp_apply_pic(${_TARGET})
         set_target_properties(
@@ -368,7 +368,7 @@ macro(NSCP_MAKE_LIBRARY _TARGET _SRCS)
                 VERSION
                     "${NSCP_LIB_VERSION}"
         )
-    else(USE_STATIC_RUNTIME)
+    else(NSCP_STATIC_LIBS)
         add_library(${_TARGET} SHARED ${_NSCP_LIB_EXCLUDE} ${_SRCS})
         SET_LIBRARY_OUT_FOLDER(${_TARGET})
         # These are package-PRIVATE libraries they install under NSCP_PKGLIBDIR alongside the modules, not the public
@@ -385,7 +385,7 @@ macro(NSCP_MAKE_LIBRARY _TARGET _SRCS)
                         "${NSCP_RPATH_LIB}"
             )
         endif()
-    endif(USE_STATIC_RUNTIME)
+    endif(NSCP_STATIC_LIBS)
     set_target_properties(
         ${_TARGET}
         PROPERTIES
@@ -393,7 +393,7 @@ macro(NSCP_MAKE_LIBRARY _TARGET _SRCS)
                 "libraries"
     )
 
-    if(NOT USE_STATIC_RUNTIME)
+    if(NOT NSCP_STATIC_LIBS)
         if(WIN32)
             install(
                 TARGETS
@@ -439,7 +439,7 @@ macro(NSCP_MAKE_LIBRARY _TARGET _SRCS)
                         ${BUILD_TARGET_ROOT_PATH}
             )
         endif()
-    endif(NOT USE_STATIC_RUNTIME)
+    endif(NOT NSCP_STATIC_LIBS)
 endmacro()
 
 macro(NSCP_MAKE_EXE _TARGET _SRCS _FOLDER)
@@ -643,7 +643,7 @@ macro(NSCP_FORCE_INCLUDE _TARGET _SRC)
                 COMPILE_FLAGS
                     "-include \"${_SRC}\""
         )
-        if(USE_STATIC_RUNTIME)
+        if(NSCP_STATIC_LIBS)
             # PIC is needed when this object is later linked into a shared
             # NSCP module. Handled separately so it composes with the
             # -include flag set above instead of overwriting COMPILE_FLAGS.

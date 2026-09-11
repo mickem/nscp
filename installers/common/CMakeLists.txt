@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.10)
-
 # Developer helper to re-run WiX heat over the harvested resource folders when
 # their content changes. Generated into the build folder (never the source
 # tree); the .wxs files it regenerates live in this source folder and are
