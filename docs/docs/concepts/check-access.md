@@ -9,6 +9,8 @@ the first place*:
 | `check_logfile` | `file=` | any file the agent can open, returned through the `line` and `columnN` keywords |
 | `check_wmi` | `query=` | any WMI class, including the filesystem via `CIM_DataFile` and `Win32_Directory` |
 | `check_pdh` (`check_counter`) | `counter=` | any performance object on the machine |
+| `check_files`, `check_single_file` | `path=`, `file=` | any directory tree the agent can read: every name, size and timestamp, plus a checksum of any file |
+| `check_disk_write` | `file=` | creates and deletes a test file at any path the agent can write |
 
 That is what those checks are for, and on a host where only the configuration
 decides what runs, it is not a problem. It becomes one where the *caller*
@@ -17,24 +19,25 @@ because the agent runs as `SYSTEM` (Windows) or `root`/`nsclient` (Linux) and
 the argument then decides how much of the machine a single check can read back.
 
 An operator who only wants two log files watched has no reason to leave the
-other several hundred thousand reachable. The `access mode` settings are how you
+other several hundred thousand reachable. The access-mode settings are how you
 say so.
 
 !!! note "Nothing changes unless you change it"
 
-    All three default to `any`, which is what every release before 0.21.0 did.
-    Restricting access is opt-in; upgrading does not break a working setup.
+    Every one of these defaults to `any`, which is what each release before
+    0.21.0 did. Restricting access is opt-in; upgrading does not break a
+    working setup.
 
 ## The three modes
 
-Each of the three checks has one mode setting and, where it applies, one allow
-list:
+Each module has one mode setting and, where it applies, one allow list:
 
 | Check | Section | Mode setting | Allow list |
 |-------|---------|--------------|------------|
 | `check_logfile` | `[/settings/logfile]` | `file access` | `allowed files` |
 | `check_wmi` | `[/settings/wmi]` | `query access` | `allowed classes`, `allowed namespaces` |
 | `check_pdh` | `[/settings/system/windows]` | `counter access` | `allowed counters` |
+| `check_files`, `check_single_file`, `check_disk_write` | `[/settings/disk]` | `file access` | `allowed files` |
 
 === "any"
 
@@ -107,6 +110,53 @@ the name differently than the caller did.
 
 On Windows, matching ignores case; on Linux it does not, because
 `/var/log/App.log` and `/var/log/app.log` are two different files there.
+
+## check_files, check_single_file and check_disk_write
+
+```ini
+[/settings/disk]
+file access = allowed
+allowed files = C:/logs, D:/data/incoming/*.csv
+
+; or, tighter:
+file access = predefined
+
+[/settings/disk/files]
+logs = C:/logs
+spool = D:/data/incoming
+```
+
+`[/settings/disk]` covers all three at once: `check_files` and
+`check_single_file` read, `check_disk_write` writes. Entry shapes and path
+resolution are exactly as for `check_logfile` above — a directory covers its
+whole subtree, a wildcard is matched against the resolved path, and anything
+else is a single file.
+
+!!! info "These checks do not return file contents"
+
+    There is no `line` or `content` keyword here. What they expose is the
+    filesystem's *shape* — `path`, `filename`, `size`, `type`, `version` and the
+    timestamps — for every file under the tree you point them at. Two keyword
+    families go further without returning contents:
+
+    * the checksum keywords (`md5_checksum`, `sha1_checksum`, `sha256_checksum`,
+      `sha384_checksum`, `sha512_checksum`) hash the file, which confirms known
+      content and, for a short or predictable file, effectively recovers it;
+    * `line_count` and `version` are weaker oracles of the same kind.
+
+    So the exposure is narrower than `check_logfile`'s but reaches much wider —
+    whole trees rather than one named file — which is why it is worth setting
+    even where you left `check_logfile` open.
+
+For `check_files` only the **scan root** is checked, not each file the walk
+finds. That is sound rather than a shortcut: the recursion already refuses to
+follow symbolic links and reparse points, so everything it yields is genuinely
+beneath a root which passed. It also keeps the inner loop free of policy work on
+a check that may visit many thousands of files.
+
+`check_disk_write` cannot overwrite anything — the test file is created
+exclusively, capped at 1 MB and deleted afterwards — but where you have narrowed
+which paths a caller may name, that applies to writing them too.
 
 ## check_wmi
 
@@ -196,7 +246,8 @@ Two things to know about the allow list:
   control and `allow arguments` is off. The configuration decides everything,
   and nothing here adds to that.
 * **Use `allowed`** where you want a family of checks — every log under one
-  directory, every counter of one object — without enumerating each one.
+  directory, every file under one tree, every counter of one object — without
+  enumerating each one.
 * **Use `predefined`** where the monitoring server should run your checks and
   nothing else. This is the one to aim for on a host exposed to NRPE with
   `allow arguments = true` or to the REST API.

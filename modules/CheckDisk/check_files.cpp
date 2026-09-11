@@ -18,7 +18,8 @@ namespace po = boost::program_options;
 
 namespace check_files_command {
 
-void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+           const check::access::path_policy &access) {
   modern_filter::data_container data;
   modern_filter::cli_helper<file_filter::filter> filter_helper(request, response, data);
   std::vector<std::string> file_list;
@@ -66,6 +67,16 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   if (!files_string.empty()) boost::split(file_list, files_string, boost::is_any_of(","));
 
   if (file_list.empty()) return nscapi::protobuf::functions::set_response_bad(*response, "No path specified");
+
+  // Hold every scan root against [/settings/disk] 'file access' before the
+  // walk starts. Only the root needs checking: recursive_scan skips symbolic
+  // links and reparse points, so everything it yields is genuinely beneath a
+  // root which passed - and the inner loop stays free of policy work.
+  for (std::string &path : file_list) {
+    const check::access::decision decision = access.resolve(path);
+    if (!decision.allowed) return nscapi::protobuf::functions::set_response_bad(*response, decision.error);
+    path = decision.value;
+  }
 
   if (!filter_helper.build_filter(filter)) return;
 

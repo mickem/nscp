@@ -42,7 +42,7 @@
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
-CheckDisk::CheckDisk() : show_errors_(false) {}
+CheckDisk::CheckDisk() : show_errors_(false), file_access_("file", "files", "/settings/disk") {}
 
 namespace {
 // The collector hands out an immutable, shared snapshot (null before it has
@@ -85,9 +85,37 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("disk", alias);
 
+  // A reload calls loadModuleEx again on the live module and the settings
+  // callbacks below append, so start from nothing or every reload doubles the
+  // list.
+  file_access_.reset();
+
+  // clang-format off
+  settings.alias().add_path_to_settings()
+    ("files", sh::fun_values_path([this](const auto& key, const auto& value) { file_access_.add_predefined(key, value); }),
+      "PREDEFINED PATHS", "Files and folders the disk checks may use by name, as <name> = <path>.\n"
+      "A name defined here can be used as file=<name> (or path=<name>) in any access mode, and is the only thing accepted "
+      "when 'file access' is set to predefined.")
+    ;
+  // clang-format on
+
   std::string collection_interval, trend_interval, trend_retention;
   // clang-format off
   settings.alias().add_key_to_settings()
+    .add_string("file access", sh::string_fun_key([this](const auto& value) { file_access_.set_mode(value); }, "any"),
+        "FILE ACCESS MODE",
+        "Which paths a caller may ask check_files, check_single_file and check_disk_write to use: any (the default - any path the caller names, which is "
+        "how every earlier release behaved), allowed (only paths matching 'allowed files') or predefined (only names defined in the "
+        "[/settings/disk/files] section).\n"
+        "These checks do not return file contents, but they enumerate whole directory trees (name, size, timestamps) and can report a file's checksum, so "
+        "on a host where callers may pass arguments (NRPE with 'allow arguments', or the REST API) this decides how much of the filesystem a check can "
+        "describe. See the 'Restricting what a check may read' section of the documentation.")
+    .add_string("allowed files", sh::string_fun_key([this](const auto& value) { file_access_.set_allow_list(value); }, ""),
+        "ALLOWED PATHS",
+        "Comma separated list of paths the disk checks may use when 'file access' is set to allowed.\n"
+        "An entry naming a directory allows it and everything beneath it at any depth; an entry containing * or ? is a wildcard matched against the whole "
+        "path; any other entry is a single file. Paths are resolved (`..` is flattened and symbolic links and junctions are followed) before they are "
+        "matched, so a link planted inside an allowed directory does not widen it.")
     .add_string("disable", sh::string_key(&collector_->disable_, ""),
         "Disable automatic checks",
         "A comma separated list of checks to disable in the collector: disk_io, disk_free, trend. "
@@ -112,6 +140,8 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   // clang-format on
   settings.register_all();
   settings.notify();
+
+  if (!file_access_.get_config_error().empty()) NSC_LOG_ERROR_STD(file_access_.get_config_error());
 
   try {
     const long long interval = str::format::stox_as_time_sec<long long>(collection_interval, "s");
@@ -186,7 +216,7 @@ void CheckDisk::check_disk_health(const PB::Commands::QueryRequestMessage::Reque
 
 void CheckDisk::check_disk_write(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   try {
-    check_disk_write_command::check(request, response);
+    check_disk_write_command::check(request, response, file_access_);
   } catch (const std::exception &e) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to run disk write test: " + std::string(e.what()));
   }
@@ -409,11 +439,11 @@ void CheckDisk::checkFiles(PB::Commands::QueryRequestMessage::Request &request, 
 }
 
 void CheckDisk::check_files(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_files_command::check(request, response);
+  check_files_command::check(request, response, file_access_);
 }
 
 void CheckDisk::check_single_file(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_single_file_command::check(request, response);
+  check_single_file_command::check(request, response, file_access_);
 }
 
 void CheckDisk::check_mount(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {

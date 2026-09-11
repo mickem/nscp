@@ -494,6 +494,8 @@ read**, and the agent reads it with its own privileges - `SYSTEM` on Windows, `r
 | `check_logfile` | `file=` | any file the agent can open; `${line}` returns its contents |
 | `check_wmi` | `query=` | any WMI class, the filesystem included (`CIM_DataFile`, `Win32_Directory`) |
 | `check_pdh` / `check_counter` | `counter=` | any performance object on the machine |
+| `check_files`, `check_single_file` | `path=` / `file=` | any directory tree: every name, size and timestamp, plus a checksum of any file |
+| `check_disk_write` | `file=` | creates and deletes a test file at any writable path |
 
 That is what those checks are *for*, so it is not a defect, and where only your configuration decides what runs it does
 not matter. It matters where the **caller** picks the argument: NRPE with `allow arguments = true`, or the REST API. A
@@ -508,6 +510,11 @@ release before 0.21.0 - so this is opt-in and an upgrade changes nothing:
 | `check_logfile` | `[/settings/logfile]` | `file access` | `allowed files` |
 | `check_wmi` | `[/settings/wmi]` | `query access` | `allowed classes`, `allowed namespaces` |
 | `check_pdh` | `[/settings/system/windows]` | `counter access` | `allowed counters` |
+| `check_files`, `check_single_file`, `check_disk_write` | `[/settings/disk]` | `file access` | `allowed files` |
+
+The disk checks never return file contents, but they enumerate whole trees and can report a checksum of any readable
+file, which confirms known content and for a short file effectively recovers it. Narrower than `check_logfile`, but much
+wider reach.
 
 The modes are `any` (anything the caller names), `allowed` (only what matches the list) and `predefined` (only names you
 configured). Names you configure resolve in **every** mode, so you can name your checks first, confirm the monitoring
@@ -789,3 +796,4 @@ If two-way TLS is not yet in place, the compensating controls are:
 | `check_logfile` `file access`                   | `any`         | `predefined` (or `allowed`) wherever callers may pass arguments          |
 | `check_wmi` `query access`                      | `any`         | `predefined` (or `allowed`) wherever callers may pass arguments          |
 | `check_pdh` `counter access`                    | `any`         | `predefined` (or `allowed`) wherever callers may pass arguments          |
+| CheckDisk `file access`                         | `any`         | `predefined` (or `allowed`) wherever callers may pass arguments          |

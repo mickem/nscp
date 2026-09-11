@@ -28,7 +28,7 @@ TEST(CheckFilesCommand, NoPathSpecifiedReturnsUnknown) {
   PB::Commands::QueryResponseMessage::Response response;
   request.set_command("check_files");
 
-  check_files_command::check(request, &response);
+  check_files_command::check(request, &response, check_disk_test_support::unrestricted());
 
   EXPECT_EQ(response.result(), PB::Common::ResultCode::UNKNOWN);
   EXPECT_NE(join_lines(response).find("No path specified"), std::string::npos) << join_lines(response);
@@ -42,7 +42,7 @@ TEST(CheckFilesCommand, MissingPathIsReportedAsUnknown) {
   request.set_command("check_files");
   request.add_arguments("path=Z:\\nscp_test_definitely_not_a_real_path_47b1f0e5");
 
-  check_files_command::check(request, &response);
+  check_files_command::check(request, &response, check_disk_test_support::unrestricted());
 
   EXPECT_EQ(response.result(), PB::Common::ResultCode::UNKNOWN);
   EXPECT_NE(join_lines(response).find("Path was not found"), std::string::npos) << join_lines(response);
@@ -64,7 +64,7 @@ TEST(CheckFilesCommand, EmptyDirectoryUsesDefaultEmptyStateUnknown) {
   request.set_command("check_files");
   request.add_arguments("path=" + dir.string());
 
-  check_files_command::check(request, &response);
+  check_files_command::check(request, &response, check_disk_test_support::unrestricted());
 
   EXPECT_EQ(response.result(), PB::Common::ResultCode::UNKNOWN);
   EXPECT_NE(join_lines(response).find("No files found"), std::string::npos) << join_lines(response);
@@ -79,7 +79,7 @@ TEST(CheckFilesCommand, EmptyStateOverrideMakesEmptyDirectoryOk) {
   request.add_arguments("path=" + dir.string());
   request.add_arguments("empty-state=ok");
 
-  check_files_command::check(request, &response);
+  check_files_command::check(request, &response, check_disk_test_support::unrestricted());
 
   EXPECT_EQ(response.result(), PB::Common::ResultCode::OK);
 }
@@ -96,7 +96,7 @@ TEST(CheckFilesCommand, ScansFilesInDirectory) {
   request.add_arguments("path=" + dir.string());
   request.add_arguments("pattern=*.txt");
 
-  check_files_command::check(request, &response);
+  check_files_command::check(request, &response, check_disk_test_support::unrestricted());
 
   EXPECT_EQ(response.result(), PB::Common::ResultCode::OK);
   // Default detail-syntax includes "%(count) files"; with three matching
@@ -118,7 +118,7 @@ TEST(CheckFilesCommand, MaxDepthZeroSkipsSubdirectories) {
   request.add_arguments("pattern=*.txt");
   request.add_arguments("max-depth=0");
 
-  check_files_command::check(request, &response);
+  check_files_command::check(request, &response, check_disk_test_support::unrestricted());
 
   EXPECT_EQ(response.result(), PB::Common::ResultCode::OK);
   // Only top.txt is reachable at depth 0; deep.txt must not be scanned.
@@ -161,7 +161,7 @@ TEST(CheckFilesCommand, MixedCritDoesNotFireOnRunningCount) {
   request.add_arguments("pattern=*.txt");
   request.add_arguments("crit=count<3 or name='nonexistent.foo'");
 
-  check_files_command::check(request, &response);
+  check_files_command::check(request, &response, check_disk_test_support::unrestricted());
 
   EXPECT_EQ(response.result(), PB::Common::ResultCode::OK) << join_lines(response);
 }
@@ -181,7 +181,7 @@ TEST(CheckFilesCommand, MixedCritFiresWhenRowPredicateMatchesEvenIfSummaryFalse)
   request.add_arguments("pattern=*.txt");
   request.add_arguments("crit=count<1 or name='alert.txt'");
 
-  check_files_command::check(request, &response);
+  check_files_command::check(request, &response, check_disk_test_support::unrestricted());
 
   EXPECT_EQ(response.result(), PB::Common::ResultCode::CRITICAL) << join_lines(response);
 }
@@ -217,7 +217,7 @@ TEST(CheckFilesCommand, MixedCritFiresOnEmptyResultViaForceEvaluate) {
   request.add_arguments("empty-state=ignored");
   request.add_arguments("crit=count=0 or name='alert.txt'");
 
-  check_files_command::check(request, &response);
+  check_files_command::check(request, &response, check_disk_test_support::unrestricted());
 
   EXPECT_EQ(response.result(), PB::Common::ResultCode::CRITICAL) << join_lines(response);
 }
@@ -237,7 +237,7 @@ TEST(CheckFilesCommand, PureSummaryCritFiresOnEmptyResult) {
   request.add_arguments("empty-state=ignored");
   request.add_arguments("crit=count=0");
 
-  check_files_command::check(request, &response);
+  check_files_command::check(request, &response, check_disk_test_support::unrestricted());
 
   EXPECT_EQ(response.result(), PB::Common::ResultCode::CRITICAL) << join_lines(response);
 }
@@ -259,7 +259,7 @@ TEST(CheckFilesCommand, MixedCritDoesNotFireOnEmptyResultWhenSummarySideFalse) {
   request.add_arguments("empty-state=ignored");
   request.add_arguments("crit=count>0 and name='alert.txt'");
 
-  check_files_command::check(request, &response);
+  check_files_command::check(request, &response, check_disk_test_support::unrestricted());
 
   EXPECT_EQ(response.result(), PB::Common::ResultCode::OK) << join_lines(response);
 }
@@ -292,7 +292,7 @@ TEST(CheckFilesCommand, MixedCritUnsureSurfacesAsUnknown) {
   // summary side to definitively rescue the OR. Result: UNKNOWN.
   request.add_arguments("crit=name='alert.txt' or size>1000");
 
-  check_files_command::check(request, &response);
+  check_files_command::check(request, &response, check_disk_test_support::unrestricted());
 
   EXPECT_EQ(response.result(), PB::Common::ResultCode::UNKNOWN) << join_lines(response);
 }
@@ -312,7 +312,7 @@ TEST(CheckFilesCommand, MixedCritInOnStringUnsureSurfacesAsUnknown) {
   request.add_arguments("empty-state=ignored");
   request.add_arguments("crit=name in ('alert.txt', 'urgent.txt') or count>0");
 
-  check_files_command::check(request, &response);
+  check_files_command::check(request, &response, check_disk_test_support::unrestricted());
 
   EXPECT_EQ(response.result(), PB::Common::ResultCode::UNKNOWN) << join_lines(response);
 }
@@ -333,7 +333,7 @@ TEST(CheckFilesCommand, MixedCritInOnStringSureTrueSummaryStillFiresCrit) {
   request.add_arguments("empty-state=ignored");
   request.add_arguments("crit=name in ('alert.txt') or count=0");
 
-  check_files_command::check(request, &response);
+  check_files_command::check(request, &response, check_disk_test_support::unrestricted());
 
   EXPECT_EQ(response.result(), PB::Common::ResultCode::CRITICAL) << join_lines(response);
 }
@@ -367,7 +367,7 @@ TEST(CheckFilesCommand, MixedCritWithSummaryDoesNotEmitMutatingWarn) {
   // sure-false (none of these files match). OK verdict, no CRIT.
   request.add_arguments("crit=count<3 or name='alert.txt'");
 
-  check_files_command::check(request, &response);
+  check_files_command::check(request, &response, check_disk_test_support::unrestricted());
 
   EXPECT_EQ(response.result(), PB::Common::ResultCode::OK) << join_lines(response);
   // The rendered message must not contain the legacy mutating marker.

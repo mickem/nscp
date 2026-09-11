@@ -2,7 +2,7 @@
 title: "Check access modes for check_logfile, check_wmi and check_pdh"
 fixed_in: next
 severity: "Low (hardening; no vulnerability — the previous behaviour is the documented purpose of these checks)"
-modules: [CheckLogFile, CheckWMI, CheckSystem]
+modules: [CheckLogFile, CheckWMI, CheckSystem, CheckDisk]
 action: conditional
 ---
 Three checks take an argument which decides *what data is read* rather than how
@@ -14,6 +14,8 @@ Windows, `root` or the service account on Linux):
 | `check_logfile` | `file=` | any file the agent can open; the `line` and `columnN` keywords return its contents |
 | `check_wmi` | `query=` | any WMI class, including the filesystem via `CIM_DataFile` and `Win32_Directory` |
 | `check_pdh` (`check_counter`) | `counter=` | any performance object on the machine |
+| `check_files`, `check_single_file` | `path=`, `file=` | any directory tree the agent can read: every name, size and timestamp, and a checksum of any file |
+| `check_disk_write` | `file=` | creates and deletes a test file at any path the agent can write |
 
 This is the documented purpose of those checks and is not a vulnerability: on a
 host where only the configuration decides what runs, nothing here is reachable
@@ -33,6 +35,7 @@ upgrade.
 | `check_logfile` | `[/settings/logfile]` | `file access` | `allowed files` |
 | `check_wmi` | `[/settings/wmi]` | `query access` | `allowed classes`, `allowed namespaces` |
 | `check_pdh` | `[/settings/system/windows]` | `counter access` | `allowed counters` |
+| `check_files`, `check_single_file`, `check_disk_write` | `[/settings/disk]` | `file access` | `allowed files` |
 
 `allowed` accepts only values matching the list; `predefined` accepts only names
 the operator configured and refuses a raw value outright. Configured names
@@ -54,6 +57,15 @@ Three details matter for the strength of the control:
   queries remain usable as predefined queries.
 * **A misspelled mode fails closed.** An unrecognised value refuses every
   request and is logged at startup, rather than reading as "no restriction".
+
+The disk checks are a weaker case than `check_logfile` and were included for
+reach rather than depth: they never return file contents, but they enumerate
+whole directory trees (name, size, timestamps, executable version) and their
+checksum keywords hash any readable file, which confirms known content and for a
+short or predictable file effectively recovers it. For `check_files` only the
+scan root is held against the policy - the recursion already refuses to follow
+symbolic links and reparse points, so every file it yields is genuinely beneath
+a root which passed.
 
 Refusals name what was rejected and the section that governs it, but never the
 contents of the allow list.
