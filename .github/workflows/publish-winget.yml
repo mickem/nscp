@@ -80,7 +80,8 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Fetch the release notes
+      - name: Fetch the release notes and date
+        id: release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -91,9 +92,14 @@ jobs:
           # release rather than interpolating it into this script - it is
           # arbitrary text and would otherwise land inside a PowerShell string.
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          $notes = gh release view '${{ steps.ctx.outputs.tag }}' `
-              --repo '${{ github.repository }}' --json body --jq '.body'
-          if ($LASTEXITCODE -ne 0) { $notes = '' }
+          $json = (gh release view '${{ steps.ctx.outputs.tag }}' `
+              --repo '${{ github.repository }}' --json body,publishedAt | Out-String)
+          $meta = $null
+          if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($json)) {
+              $meta = $json | ConvertFrom-Json
+          }
+
+          $notes = if ($meta) { $meta.body } else { '' }
           if ([string]::IsNullOrWhiteSpace($notes)) {
               # ReleaseNotes has a minimum length of 1, so never render it empty.
               Write-Warning 'Release body is empty; falling back to a pointer at the release page.'
@@ -101,6 +107,17 @@ jobs:
           }
           Set-Content -Path dist/release-notes.md -Value $notes -Encoding utf8
           Write-Host "Release notes: $($notes.Length) characters."
+
+          # A workflow_dispatch / workflow_call run has no release payload to
+          # read published_at from, and defaulting ReleaseDate to "today" would
+          # date the manifest by when the workflow was re-run rather than by
+          # when the release shipped. Take it off the release instead.
+          $date = '${{ steps.ctx.outputs.release_date }}'
+          if ([string]::IsNullOrWhiteSpace($date) -and $meta -and $meta.publishedAt) {
+              $date = ([string]$meta.publishedAt).Substring(0, 10)
+          }
+          Write-Host "Release date: $date"
+          "date=$date" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Download the installers and read their ProductCodes
         id: msi
@@ -169,9 +186,9 @@ jobs:
               '--extra',        'PRODUCT_CODE_MSI_X86=${{ steps.msi.outputs.product_code_MSI_X86 }}',
               '--extra-file',   'RELEASE_NOTES=dist/release-notes.md'
           )
-          if ('${{ steps.ctx.outputs.release_date }}') {
+          if ('${{ steps.release.outputs.date }}') {
               $renderArgs += '--release-date'
-              $renderArgs += '${{ steps.ctx.outputs.release_date }}'
+              $renderArgs += '${{ steps.release.outputs.date }}'
           }
           python packaging/scripts/render_templates.py @renderArgs
 
