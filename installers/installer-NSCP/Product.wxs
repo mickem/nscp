@@ -532,7 +532,14 @@
     <UIRef Id="WixUI_ErrorProgressText" />
 
     <!-- ### Icons -->
-    <Icon Id="nscp.exe" SourceFile="$(var.Source)/nscp.exe" />
+    <!-- Windows Installer extracts every Icon row into
+         %WINDIR%\Installer\{ProductCode}\ under the Id given here. Pointing
+         this at nscp.exe therefore dropped a second, isolated copy of the
+         agent there - one that cannot resolve its own DLLs and dies with
+         STATUS_DLL_NOT_FOUND (0xC0000135) if anything runs it, which is
+         exactly what the WinGet package validator reported. Ship the real
+         icon instead, and give Add/Remove Programs something to draw. -->
+    <Icon Id="nsclient.ico" SourceFile="$(var.Resources)/nsclient.ico" />
     <Binary Id="OldSettingsMap" SourceFile="$(var.Source)/old-settings.map" />
     <Binary Id="ModeOP5" SourceFile="$(var.InSource)/Bitmaps/op5-small.bmp" />
     <Binary Id="ModeGeneric" SourceFile="$(var.InSource)/Bitmaps/generic-small.bmp" />
