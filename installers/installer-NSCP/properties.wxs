@@ -6,7 +6,9 @@
 	<Property Id="ARPURLINFOABOUT">https://nsclient.org</Property>
 	<Property Id="ARPURLUPDATEINFO">https://nsclient.org</Property>
 	<Property Id="ARPHELPTELEPHONE">https://nsclient.org</Property>
-	<Property Id="ARPPRODUCTICON">nscp.exe</Property>
+	<!-- Must name an Icon row from Product.wxs; see the note there for why
+	     this is a .ico and not the agent executable. -->
+	<Property Id="ARPPRODUCTICON">nsclient.ico</Property>
 
 	<!-- DEFAULT MONITORING TOOL -->
 	<Property Id="MONITORING_TOOL">GENERIC</Property>

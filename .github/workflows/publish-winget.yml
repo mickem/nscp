@@ -80,6 +80,97 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Fetch the release notes and date
+        id: release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The previously published version carries ReleaseNotes, and
+          # winget-pkgs flags a new version that drops a property the last one
+          # had ("Manifest-Metadata-Consistency"). Read the body off the
+          # release rather than interpolating it into this script - it is
+          # arbitrary text and would otherwise land inside a PowerShell string.
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          $json = (gh release view '${{ steps.ctx.outputs.tag }}' `
+              --repo '${{ github.repository }}' --json body,publishedAt | Out-String)
+          $meta = $null
+          if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($json)) {
+              $meta = $json | ConvertFrom-Json
+          }
+
+          $notes = if ($meta) { $meta.body } else { '' }
+          if ([string]::IsNullOrWhiteSpace($notes)) {
+              # ReleaseNotes has a minimum length of 1, so never render it empty.
+              Write-Warning 'Release body is empty; falling back to a pointer at the release page.'
+              $notes = 'See https://github.com/${{ github.repository }}/releases/tag/${{ steps.ctx.outputs.tag }} for the release notes.'
+          }
+          Set-Content -Path dist/release-notes.md -Value $notes -Encoding utf8
+          Write-Host "Release notes: $($notes.Length) characters."
+
+          # A workflow_dispatch / workflow_call run has no release payload to
+          # read published_at from, and defaulting ReleaseDate to "today" would
+          # date the manifest by when the workflow was re-run rather than by
+          # when the release shipped. Take it off the release instead.
+          $date = '${{ steps.ctx.outputs.release_date }}'
+          if ([string]::IsNullOrWhiteSpace($date) -and $meta -and $meta.publishedAt) {
+              $date = ([string]$meta.publishedAt).Substring(0, 10)
+          }
+          Write-Host "Release date: $date"
+          "date=$date" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Download the installers and read their ProductCodes
+        id: msi
+        shell: pwsh
+        run: |
+          # Product Id is "*" in Product.wxs, so every build mints a fresh
+          # ProductCode. WinGet uses it to correlate the installed package with
+          # its ARP entry for upgrade and uninstall, so read it out of the MSI
+          # instead of leaving it off the manifest.
+          function Get-MsiProperty {
+              param([string] $Path, [string] $Name)
+              $installer = New-Object -ComObject WindowsInstaller.Installer
+              try {
+                  $db = $installer.GetType().InvokeMember(
+                      'OpenDatabase', 'InvokeMethod', $null, $installer, @($Path, 0))
+                  $query = "SELECT Value FROM Property WHERE Property = '$Name'"
+                  $view = $db.GetType().InvokeMember(
+                      'OpenView', 'InvokeMethod', $null, $db, @($query))
+                  $view.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $view, $null) | Out-Null
+                  $record = $view.GetType().InvokeMember('Fetch', 'InvokeMethod', $null, $view, $null)
+                  if (-not $record) {
+                      throw "$Path has no '$Name' property."
+                  }
+                  return $record.GetType().InvokeMember('StringData', 'GetProperty', $null, $record, 1)
+              } finally {
+                  [Runtime.InteropServices.Marshal]::FinalReleaseComObject($installer) | Out-Null
+              }
+          }
+
+          $assets = [ordered]@{
+              MSI_X64 = 'NSCP-${{ steps.ctx.outputs.version }}-x64.msi'
+              MSI_X86 = 'NSCP-${{ steps.ctx.outputs.version }}-Win32.msi'
+          }
+          # Same directory and file names the renderer uses, so it reuses these
+          # downloads rather than fetching each MSI a second time.
+          New-Item -ItemType Directory -Force -Path dist/_assets | Out-Null
+          foreach ($key in $assets.Keys) {
+              $name = $assets[$key]
+              $path = Join-Path 'dist/_assets' $name
+              $url  = "https://github.com/${{ github.repository }}/releases/download/${{ steps.ctx.outputs.tag }}/$name"
+              if (-not (Test-Path $path)) {
+                  Write-Host "Downloading $url"
+                  Invoke-WebRequest -Uri $url -OutFile $path
+              }
+              $code = (Get-MsiProperty -Path (Resolve-Path $path) -Name 'ProductCode').Trim()
+              if ($code -notmatch '^\{[0-9A-Fa-f-]{36}\}$') {
+                  Write-Error "$name yielded an implausible ProductCode: '$code'"
+                  exit 1
+              }
+              Write-Host "$name ProductCode: $code"
+              "product_code_$key=$code" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
+
       - name: Render WinGet manifests
         shell: pwsh
         run: |
@@ -90,11 +181,19 @@ jobs:
               '--output',       'dist/winget',
               '--download-dir', 'dist/_assets',
               '--asset',        'MSI_X64=NSCP-${{ steps.ctx.outputs.version }}-x64.msi',
-              '--asset',        'MSI_X86=NSCP-${{ steps.ctx.outputs.version }}-Win32.msi'
+              '--asset',        'MSI_X86=NSCP-${{ steps.ctx.outputs.version }}-Win32.msi',
+              '--extra',        'PRODUCT_CODE_MSI_X64=${{ steps.msi.outputs.product_code_MSI_X64 }}',
+              '--extra',        'PRODUCT_CODE_MSI_X86=${{ steps.msi.outputs.product_code_MSI_X86 }}',
+              '--extra-file',   'RELEASE_NOTES=dist/release-notes.md',
+              # Keep the release's intro, Highlights and Upgrade notes; drop
+              # the per-module "Detailed changes" walkthrough, which is most of
+              # the body and is what used to push ReleaseNotes past WinGet's
+              # 10000-character cap and get it cut mid-table.
+              '--extra-file-drop-section', 'Detailed'
           )
-          if ('${{ steps.ctx.outputs.release_date }}') {
+          if ('${{ steps.release.outputs.date }}') {
               $renderArgs += '--release-date'
-              $renderArgs += '${{ steps.ctx.outputs.release_date }}'
+              $renderArgs += '${{ steps.release.outputs.date }}'
           }
           python packaging/scripts/render_templates.py @renderArgs
 

@@ -87,6 +87,7 @@ set(WIX_CANDLE_FLAGS
     "-dOP5ScriptSource=${NSCP_PROJECT_BINARY_DIR}\\scripts\\op5"
     "-dOP5ConfigSource=${NSCP_PROJECT_BINARY_DIR}"
     "-dInSource=${CMAKE_CURRENT_SOURCE_DIR}"
+    "-dResources=${CMAKE_SOURCE_DIR}/resources"
     "-dInstallerDllPath=${NSCP_PROJECT_BINARY_DIR_NATIVE}/../installer_lib/Release"
     "-dApp.Title=NSClient++"
     "-dApp.Path=NSClient++"

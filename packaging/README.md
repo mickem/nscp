@@ -150,6 +150,43 @@ the subset of placeholders it needs.
 | `{{SHA256_MSI_X64}}`     | Uppercase SHA256 of the x64 MSI.     |
 | `{{SHA256_MSI_X86}}`     | Uppercase SHA256 of the x86 MSI.     |
 
+### `publish-winget.yml` only
+
+| Placeholder                   | Meaning                                          |
+| ----------------------------- | ------------------------------------------------ |
+| `{{PRODUCT_CODE_MSI_X64}}`    | `ProductCode` read out of the x64 MSI.           |
+| `{{PRODUCT_CODE_MSI_X86}}`    | `ProductCode` read out of the x86 MSI.           |
+| `{{RELEASE_NOTES}}`           | Body of the GitHub release, as Markdown.         |
+
+`Product Id` is `*` in `Product.wxs`, so every build mints a fresh
+`ProductCode`. The workflow downloads each MSI and reads the property out of
+its `Property` table before rendering; WinGet uses it to tie the installed
+package to its Add/Remove Programs entry for upgrade and uninstall.
+
+`{{RELEASE_NOTES}}` is a multi-line value, supplied with `--extra-file`
+rather than `--extra`. A placeholder that is alone on its line expands with
+that line's indentation applied to every continuation line, which is what
+drops it straight into a YAML block scalar:
+
+```yaml
+ReleaseNotes: |-
+  {{RELEASE_NOTES}}
+```
+
+`--extra-file-drop-section Detailed` removes the release body's
+`## Detailed changes` section and everything nested under it, keeping the
+intro, `## Highlights`, `## Upgrade notes` and the changelog link. That is the
+part of the notes a `winget show` reader wants, and it is what keeps the field
+inside WinGet's cap: 0.19.0's body is 22774 characters whole and 8192 without
+that section, 0.20.0's 13512 and 5991. Anything still over the cap is
+truncated to 10000 characters (`--extra-file-max-chars`) on a line boundary,
+since WinGet rejects an oversized `ReleaseNotes` outright rather than trimming
+it — but with the section dropped that is a backstop, not the normal path.
+
+One wart to know about: a bullet under `## Upgrade notes` that refers back to
+`## Detailed changes` ("see the table above") loses its referent. Keep upgrade
+notes self-contained when writing the release.
+
 ### `publish-scoop.yml`
 
 | Placeholder              | Meaning                              |
@@ -158,6 +195,27 @@ the subset of placeholders it needs.
 | `{{URL_ZIP_X86}}`        | x86 ZIP archive URL.                 |
 | `{{SHA256_ZIP_X64}}`     | Uppercase SHA256 of the x64 ZIP.     |
 | `{{SHA256_ZIP_X86}}`     | Uppercase SHA256 of the x86 ZIP.     |
+
+### Facts that are not ours to restyle
+
+Three fields in the locale template are constrained by something outside
+packaging, and were wrong when the templates were first written:
+
+| Field | Value | Why |
+| ----- | ----- | --- |
+| `License` | `Apache-2.0 OR GPL-2.0-only` | What `REUSE.toml` declares project-wide and every source header carries. `GPL-2.0-or-later` grants rights the project does not grant. |
+| `Moniker` | `nscp` | What 0.16.4 published, and what users type in `winget install nscp`. Renaming it on a later version breaks them. |
+| `Tags` | includes `naemon` | Published in 0.16.4; dropping a tag loses the searches that found the package by it. |
+
+### Keeping metadata consistent between versions
+
+`winget-pkgs` runs a metadata-consistency check that compares a submission
+against the previously published version and flags every property the new
+manifest drops. So a property that has ever shipped — `ReleaseNotes`,
+`Documentations`, `InstallerLocale`, `Scope`, `InstallerSwitches`,
+`ProductCode` — has to keep being rendered. Before deleting anything from a
+template, check it against the published manifest under
+`manifests/m/Mickem/NSClient/` upstream.
 
 The legacy XP MSI (`NSCP-<ver>-Win32-legacy-xp.msi`) is produced by
 `release.yml` but is **not** plumbed through these workflows; XP coverage

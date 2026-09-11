@@ -184,6 +184,171 @@ class RenderTemplatesTests(unittest.TestCase):
             self.assertEqual(rc, 0)
             self.assertEqual((out / "x").read_text(), "hi hello")
 
+    def test_extra_file_multiline_value_is_indented_into_block_scalar(self):
+        with _tmpdir() as work:
+            tpl = work / "tpl"
+            tpl.mkdir()
+            (tpl / "locale.yaml.tmpl").write_text(
+                "ReleaseNotes: |-\n  {{RELEASE_NOTES}}\nManifestType: defaultLocale\n"
+            )
+            notes = work / "notes.md"
+            # CRLF, a blank line and trailing whitespace: all three show up in
+            # a real GitHub release body.
+            notes.write_text("# Title\r\n\r\n- one\r\n- two\r\n\r\n", encoding="utf-8")
+
+            out = work / "out"
+            rc = self._run(
+                tpl, out, "--extra-file", f"RELEASE_NOTES={notes}",
+                download_dir=work / "_assets",
+            )
+            self.assertEqual(rc, 0)
+            self.assertEqual(
+                (out / "locale.yaml").read_text(),
+                "ReleaseNotes: |-\n"
+                "  # Title\n"
+                "\n"
+                "  - one\n"
+                "  - two\n"
+                "ManifestType: defaultLocale\n",
+            )
+
+    def test_extra_file_is_truncated_to_the_winget_limit(self):
+        with _tmpdir() as work:
+            tpl = work / "tpl"
+            tpl.mkdir()
+            (tpl / "out.txt.tmpl").write_text("{{NOTES}}\n")
+            notes = work / "notes.md"
+            notes.write_text("\n".join(f"line {i}" for i in range(500)), encoding="utf-8")
+
+            out = work / "out"
+            rc = self._run(
+                tpl, out,
+                "--extra-file", f"NOTES={notes}",
+                "--extra-file-max-chars", "200",
+                download_dir=work / "_assets",
+            )
+            self.assertEqual(rc, 0)
+            rendered = (out / "out.txt").read_text().rstrip("\n")
+            self.assertLessEqual(len(rendered), 200)
+            self.assertTrue(rendered.endswith(rt.TRUNCATION_MARKER))
+            self.assertTrue(rendered.startswith("line 0\n"))
+            # Truncation lands on a line boundary, never mid-line.
+            body = rendered[: -len(rt.TRUNCATION_MARKER)]
+            self.assertRegex(body.splitlines()[-1], r"^line \d+$")
+
+    def test_truncation_drops_a_heading_left_without_a_body(self):
+        text = "intro\n\n## kept\n\nbody\n\n### dangling\n\n#### also dangling"
+        out = rt._truncate(text, len(text) - 5)
+        self.assertTrue(out.endswith(rt.TRUNCATION_MARKER))
+        self.assertIn("body", out)
+        self.assertNotIn("dangling", out)
+
+    def test_drop_sections_removes_a_section_and_its_subsections(self):
+        body = (
+            "# Title\n\nintro\n\n"
+            "## Highlights\n\n- one\n\n"
+            "## Detailed changes\n\nprose\n\n### A module\n\nmore prose\n\n"
+            "## Upgrade notes\n\n- do this\n"
+        )
+        out = rt._drop_sections(body, ["Detailed"])
+        self.assertIn("## Highlights", out)
+        self.assertIn("## Upgrade notes", out)
+        self.assertNotIn("Detailed changes", out)
+        # The subsection under it goes too, and nothing after it is lost.
+        self.assertNotIn("### A module", out)
+        self.assertNotIn("more prose", out)
+        self.assertIn("- do this", out)
+
+    def test_drop_sections_matches_a_heading_carrying_an_emoji(self):
+        body = "## \u2728 Highlights\n\n- one\n\n## \U0001f50d Detailed changes\n\nprose\n"
+        out = rt._drop_sections(body, ["Detailed"])
+        self.assertIn("Highlights", out)
+        self.assertNotIn("Detailed changes", out)
+
+    def test_drop_sections_is_a_no_op_without_patterns_or_matches(self):
+        body = "## Highlights\n\n- one\n"
+        self.assertEqual(rt._drop_sections(body, []), body)
+        self.assertEqual(rt._drop_sections(body, ["Nothing here"]), body)
+
+    def test_extra_file_drop_section_applies_before_truncation(self):
+        with _tmpdir() as work:
+            tpl = work / "tpl"
+            tpl.mkdir()
+            (tpl / "out.txt.tmpl").write_text("{{NOTES}}\n")
+            notes = work / "notes.md"
+            notes.write_text(
+                "## Highlights\n\n- one\n\n## Detailed changes\n\n"
+                + ("filler line\n" * 500)
+                + "\n## Upgrade notes\n\n- do this\n",
+                encoding="utf-8",
+            )
+
+            out = work / "out"
+            rc = self._run(
+                tpl, out,
+                "--extra-file", f"NOTES={notes}",
+                "--extra-file-drop-section", "Detailed",
+                download_dir=work / "_assets",
+            )
+            self.assertEqual(rc, 0)
+            rendered = (out / "out.txt").read_text()
+            # Dropping the bulk section keeps it under the cap, so nothing is cut.
+            self.assertNotIn(rt.TRUNCATION_MARKER, rendered)
+            self.assertNotIn("filler line", rendered)
+            self.assertIn("- do this", rendered)
+
+    def test_extra_file_shorter_than_the_limit_is_untouched(self):
+        with _tmpdir() as work:
+            tpl = work / "tpl"
+            tpl.mkdir()
+            (tpl / "out.txt.tmpl").write_text("{{NOTES}}\n")
+            notes = work / "notes.md"
+            notes.write_text("short enough", encoding="utf-8")
+
+            out = work / "out"
+            rc = self._run(
+                tpl, out, "--extra-file", f"NOTES={notes}",
+                download_dir=work / "_assets",
+            )
+            self.assertEqual(rc, 0)
+            self.assertEqual((out / "out.txt").read_text(), "short enough\n")
+
+    def test_missing_extra_file_exits_nonzero(self):
+        with _tmpdir() as work:
+            tpl = work / "tpl"
+            tpl.mkdir()
+            (tpl / "out.txt.tmpl").write_text("{{NOTES}}\n")
+            with self.assertRaises(SystemExit):
+                self._run(
+                    tpl, work / "out",
+                    "--extra-file", f"NOTES={work / 'nope.md'}",
+                    download_dir=work / "_assets",
+                )
+
+    def test_multiline_value_sharing_a_line_is_rejected(self):
+        # Silently emitting unindented continuation lines would produce a
+        # manifest that parses as something else entirely.
+        with _tmpdir() as work:
+            tpl = work / "tpl"
+            tpl.mkdir()
+            (tpl / "out.txt.tmpl").write_text("notes: {{NOTES}}\n")
+            notes = work / "notes.md"
+            notes.write_text("first\nsecond", encoding="utf-8")
+            with self.assertRaises(SystemExit):
+                self._run(
+                    tpl, work / "out",
+                    "--extra-file", f"NOTES={notes}",
+                    download_dir=work / "_assets",
+                )
+
+    def test_substituted_value_is_not_rescanned_for_placeholders(self):
+        # A ProductCode is '{GUID}' - one brace short of a placeholder, but a
+        # second substitution pass over the output would be a foothold anyway.
+        self.assertEqual(
+            rt._substitute("a: {{X}}\n", {"X": "{{Y}}", "Y": "no"}),
+            "a: {{Y}}\n",
+        )
+
     def test_missing_template_dir_exits_nonzero(self):
         with _tmpdir() as work:
             with self.assertRaises(SystemExit):
