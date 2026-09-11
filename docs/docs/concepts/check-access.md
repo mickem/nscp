@@ -325,25 +325,76 @@ wildcard matching.
 Only channel names can be named — `check_eventlog` cannot be pointed at an
 `.evtx` file on disk, because the query is always opened against a channel path.
 
-## Choosing a mode
+## Choosing an approach
 
-* **Leave it at `any`** where the agent only answers a monitoring server you
-  control and `allow arguments` is off. The configuration decides everything,
-  and nothing here adds to that.
-* **Use `allowed`** where you want a family of checks — every log under one
-  directory, every file under one tree, every counter of one object — without
-  enumerating each one.
-* **Use `predefined`** where the monitoring server should run your checks and
-  nothing else. This is the one to aim for on a host exposed to NRPE with
-  `allow arguments = true` or to the REST API.
+An access mode is not the only way to stop a caller reading more than you meant
+it to, and it is not always the right one. There are four practical approaches,
+and they trade the same thing against each other: how much the monitoring server
+may decide for itself, versus how much you have to write down in the agent's
+configuration.
 
-If you are only going to set one of these, set `registry access`: it is the one
-whose default reaches furthest.
+| Approach | Where you set it | The monitoring server can still | What it costs you | Where it falls short |
+|---|---|---|---|---|
+| **Refuse arguments entirely** | `allow arguments = false` in `[/settings/NRPE/server]` (the default) | Run the commands and aliases you defined, with the thresholds you baked into them | Every variation becomes a configuration entry — thresholds and output syntax included, not just the file or key | **NRPE only.** The REST API has no equivalent switch, so a REST caller is unaffected. It is also all-or-nothing across every check at once |
+| **Allow a folder or subtree** | `access mode = allowed` with a directory, key or channel-family entry | Pick anything at or below what you allowed, and set its own thresholds and syntax | One setting per module, plus knowing what else lives under that area | Whatever lands there **later** is readable too. A folder shared with other applications is broader than it looks |
+| **Allow specific items** | `access mode = allowed` with exact entries | Set thresholds, syntax and bookmarks — everything except choosing a different target | An agent configuration edit for each new file, key or channel | The paths live in the monitoring server's command line, so they are visible there and have to be kept in step with the agent |
+| **Only predefined names** | `access mode = predefined` plus the module's names section | Run any name you defined, with its own thresholds and syntax | The most configuration up front, and the monitoring server's commands have to be rewritten to use names | No ad-hoc troubleshooting through the agent: a new target needs a configuration change and a reload |
 
-A typo in a mode setting is refused rather than ignored: the check fails with
+### How they combine
+
+They are not alternatives so much as layers, and the important asymmetry is in
+the last column above: **refusing arguments is a property of one transport,
+while an access mode is a property of the check.** Turning off NRPE arguments
+does nothing about a REST caller; setting an access mode covers both, and every
+transport added later.
+
+So on a host that only answers NRPE with arguments off, the access modes add
+nothing you do not already have — leave them at `any`. On a host that exposes
+REST at all, or NRPE with `allow arguments = true`, the access mode is the only
+one of the four that applies.
+
+The two are worth having together where it matters: arguments off stops the
+caller choosing anything, and the access mode means that if someone later turns
+arguments on — or enables the web server for an afternoon of troubleshooting —
+the agent does not quietly become readable.
+
+### Rolling it out
+
+Because a configured name resolves in **every** mode, you do not have to pick
+between the last two rows in one step:
+
+1. Add the names first, under `[/settings/logfile/files]`,
+   `[/settings/system/windows/registry]` and so on, and leave the mode at `any`.
+2. Move the monitoring server onto those names. Nothing has been restricted yet,
+   so a mistake shows up as a normal check failure rather than an outage.
+3. Once the checks are green, set the mode to `predefined`.
+
+If you would rather not rewrite the monitoring server's commands at all, stop at
+the second row instead and allow the folders you already use.
+
+### If you only change one thing
+
+Set `registry access`. Of all the defaults it is the one that reaches furthest —
+value data, rendered as hex for binary values, in the default syntax, over a
+whole subtree at once.
+
+### A typo will not open the gate
+
+A mode that does not parse is refused rather than ignored: the check fails with
 `expected any, allowed or predefined` and the module logs the error at startup.
 A setting that decides what may be read must not fail open because it was
 misspelled.
+
+### Restricting which checks run at all
+
+All of the above restricts what a check may *read*. It is worth saying that the
+other half of the question — which commands a caller may run in the first place
+— is a separate control, and often the cheaper win: see
+[Permissions](permissions.md) for the policy engine, and the
+[securing guide](../setup/securing.md#locking-down-which-commands-the-web-user-can-run)
+for restricting a web user to a fixed list of commands. An access mode and a
+permission policy answer different questions, and a tight deployment usually
+wants both.
 
 ## What a refusal looks like
 

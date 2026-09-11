@@ -541,9 +541,15 @@ iis = C:/inetpub/logs/LogFiles/W3SVC1/u_ex.log
 The monitoring server then runs `check_logfile file=app`, and a caller asking for anything else is refused.
 
 **Recommended posture.** If `allow arguments` is off for NRPE and the REST API is not exposed, `any` costs you nothing -
-your configuration already decides everything. Otherwise set `predefined` on whichever of the three modules you have
-enabled; `allowed` is the middle ground when you want a whole directory or performance object without enumerating each
-entry.
+your configuration already decides everything. Otherwise set `predefined` on whichever of the modules you have enabled;
+`allowed` is the middle ground when you want a whole directory, key subtree or performance object without enumerating
+each entry.
+
+Note the asymmetry that decides which control you actually need: **`allow arguments` is a property of one transport, an
+access mode is a property of the check.** Turning off NRPE arguments does nothing about a REST caller; setting an access
+mode covers both, and any transport added later. The concepts page has a
+[table comparing the four approaches](../concepts/check-access.md#choosing-an-approach) - refusing arguments, allowing a
+folder, allowing specific items, and predefined names only - with what each costs and where each falls short.
 
 File paths are resolved before they are matched, so `..` and symbolic links or junctions cannot widen an allowed
 directory, and a misspelled mode is refused rather than ignored. The full reference - entry syntax, the WMI query forms
