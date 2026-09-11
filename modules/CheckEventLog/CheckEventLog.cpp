@@ -62,8 +62,36 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
            "Real-time eventlog filters", "A set of filters to use in real-time mode", "FILTER DEFINITION",
            "For more configuration options add a dedicated section");
 
+  // A reload calls loadModuleEx again on the live module and the settings
+  // callbacks append, so start from nothing.
+  log_access_.reset();
+
+  // clang-format off
+  settings.alias().add_path_to_settings()
+    ("logs", sh::fun_values_path([this](const auto& key, const auto& value) { log_access_.add_predefined(key, value); }),
+      "PREDEFINED EVENT LOGS", "Event log channels check_eventlog may read by name, as <name> = <channel>.\n"
+      "A name defined here can be used as file=<name> in any access mode, and is the only thing accepted when "
+      "'log access' is set to predefined.")
+    ;
+  // clang-format on
+
   settings.alias()
       .add_key_to_settings()
+      .add_string("log access", sh::string_fun_key([this](const auto& value) { log_access_.set_mode(value); }, "any"), "EVENT LOG ACCESS MODE",
+                  "Which event log channels a caller may ask check_eventlog to read: any (the default - any channel the caller names, which is how every "
+                  "earlier release behaved), allowed (only channels at or below an entry in 'allowed logs') or predefined (only names defined in the "
+                  "[/settings/eventlog/logs] section).\n"
+                  "The event text itself comes back through the message, strings and xml keywords - and message is part of the default syntax - so on a "
+                  "host where callers may pass arguments (NRPE with 'allow arguments', or the REST API) this decides which of the machine's logs a check "
+                  "can read. The Security channel and the PowerShell and Sysmon operational channels are the ones usually worth withholding. See the "
+                  "'Restricting what a check may read' section of the documentation.")
+
+      .add_string("allowed logs", sh::string_fun_key([this](const auto& value) { log_access_.set_allow_list(value); }, ""), "ALLOWED EVENT LOGS",
+                  "Comma separated list of event log channels check_eventlog may read when 'log access' is set to allowed.\n"
+                  "An entry allows that channel and every channel below it, for example Microsoft-Windows-Sysmon covers "
+                  "Microsoft-Windows-Sysmon/Operational. The match is on whole channel-name segments, so that entry does not also allow "
+                  "Microsoft-Windows-SysmonOther. An entry containing * or ? is matched as a wildcard against the whole channel name instead.")
+
       .add_bool("debug", sh::bool_key(&debug_, false), "Enable debugging",
                 "Log more information when filtering (useful to detect issues with filters) not useful in production as it is a bit of a resource hog.")
 
@@ -93,6 +121,8 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 
   settings.register_all();
   settings.notify();
+
+  if (!log_access_.get_config_error().empty()) NSC_LOG_ERROR_STD(log_access_.get_config_error());
 
   thread_->filters_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
   thread_->filters_.add_missing(nscapi::settings_proxy::create(get_id(), get_core()), "default", "");
@@ -511,7 +541,9 @@ void CheckEventLog::check_eventlog(const PB::Commands::QueryRequestMessage::Requ
   // clang-format off
   filter_helper.get_desc().add_options()
     ("file", po::value<std::vector<std::string> >(&file_list), "File to read (can be specified multiple times to check multiple files.\nNotice that specifying multiple files will create an aggregate set you will not check each file individually."
-	    "In other words if one file contains an error the entire check will result in error.")
+	    "In other words if one file contains an error the entire check will result in error.\n"
+	    "Which channels may be named here is governed by 'log access' in [/settings/eventlog]: by default any channel is read, but an operator can "
+	    "restrict this to a list of allowed channels or to names predefined in [/settings/eventlog/logs], in which case this takes such a name.")
     ("log", po::value<std::vector<std::string>>(&file_list), "Same as file")
     ("scan-range", po::value<std::string>(&scan_range),
 	    "Date range to scan.\n"
@@ -534,6 +566,16 @@ void CheckEventLog::check_eventlog(const PB::Commands::QueryRequestMessage::Requ
   if (file_list.empty()) {
     file_list.push_back("Application");
     file_list.push_back("System");
+  }
+
+  // Hold every channel against [/settings/eventlog] 'log access' before the
+  // log is opened. The defaults above go through the gate too: an operator who
+  // restricted access did not exempt Application and System by not naming them,
+  // and silently reading them would make the setting mean less than it says.
+  for (std::string &log_name : file_list) {
+    const check::access::decision decision = log_access_.resolve(log_name);
+    if (!decision.allowed) return nscapi::protobuf::functions::set_response_bad(*response, decision.error);
+    log_name = decision.value;
   }
   std::string bookmark_prefix = "auto,log[", bookmark_suffix;
   if (bookmark == "auto") {

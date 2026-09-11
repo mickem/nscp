@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
+#include <check/prefix_access_policy.hpp>
 #include <memory>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
@@ -17,9 +18,12 @@ class CheckEventLog : public nscapi::impl::simple_plugin {
   int buffer_length_;
   bool lookup_names_;
   bookmarks bookmarks_;
+  // Which event log channels a caller may name in `file=`/`log=`. Open by
+  // default; see docs/docs/concepts/check-access.md.
+  check::access::prefix_policy log_access_;
 
  public:
-  CheckEventLog() {}
+  CheckEventLog() : log_access_("log", "logs", "/settings/eventlog", '/') {}
   virtual ~CheckEventLog() {}
   // Module calls
   bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);

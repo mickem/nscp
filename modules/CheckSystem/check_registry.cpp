@@ -12,6 +12,18 @@ namespace po = boost::program_options;
 //  check_registry_key
 // ══════════════════════════════════════════════════════════════════════════════
 
+std::string normalize_registry_hive(const std::string &key) {
+  static const char *pairs[][2] = {{"HKEY_LOCAL_MACHINE", "HKLM"}, {"HKEY_CURRENT_USER", "HKCU"}, {"HKEY_CLASSES_ROOT", "HKCR"},
+                                   {"HKEY_USERS", "HKU"},          {"HKEY_CURRENT_CONFIG", "HKCC"}};
+  for (const auto &pair : pairs) {
+    const std::string full(pair[0]);
+    if (key.size() >= full.size() && boost::algorithm::iequals(key.substr(0, full.size()), full)) {
+      return std::string(pair[1]) + key.substr(full.size());
+    }
+  }
+  return key;
+}
+
 namespace registry_key_checks {
 namespace check_rk_filter {
 
@@ -70,7 +82,9 @@ void registry_key_checks::check(const PB::Commands::QueryRequestMessage::Request
   // clang-format off
   filter_helper.get_desc().add_options()
     ("key",       po::value<std::vector<std::string>>(&keys),
-                  "One or more registry key paths to check (e.g. HKLM\\Software\\MyApp).")
+                  "One or more registry key paths to check (e.g. HKLM\\Software\\MyApp).\n"
+                  "Which keys may be named here is governed by 'registry access' in [/settings/system/windows]: by default any key is read, but an "
+                  "operator can restrict this to keys below an allowed entry, or to names predefined in [/settings/system/windows/registry].")
     ("exclude",   po::value<std::vector<std::string>>(&excludes),
                   "Registry key names to exclude from enumeration")
     ("computer",  po::value<std::string>(&computer),
@@ -92,6 +106,26 @@ void registry_key_checks::check(const PB::Commands::QueryRequestMessage::Request
 
   if (keys.empty()) {
     return nscapi::protobuf::functions::set_response_bad(*response, "No key specified. Please provide at least one key= argument.");
+  }
+
+  // Hold every key against [/settings/system/windows] 'registry access' before
+  // the registry is opened. Only the starting key is checked: enumeration below
+  // it stays within the subtree by construction, so a key which passed cannot
+  // walk out of the allowed part of the hive.
+  for (std::string &key_arg : keys) {
+    const check::access::decision decision = access.resolve(key_arg);
+    if (!decision.allowed) return nscapi::protobuf::functions::set_response_bad(*response, decision.error);
+    key_arg = decision.value;
+  }
+
+  // A remote computer is a destination, not a key: the allow list says nothing
+  // about it, and RegConnectRegistry authenticates outbound as the machine
+  // account. While access is restricted the local registry is the only one
+  // reachable.
+  if (!computer.empty() && access.is_restricted()) {
+    return nscapi::protobuf::functions::set_response_bad(
+        *response, "Refusing computer '" + computer +
+                       "': 'registry access' is restricted, so only the local registry may be read (see [/settings/system/windows] in the configuration)");
   }
 
   if (!filter_helper.build_filter(filter)) return;
@@ -216,7 +250,9 @@ void registry_value_checks::check(const PB::Commands::QueryRequestMessage::Reque
   // clang-format off
   filter_helper.get_desc().add_options()
     ("key",       po::value<std::vector<std::string>>(&keys),
-                  "One or more registry key paths whose values to check (e.g. HKLM\\Software\\MyApp)")
+                  "One or more registry key paths whose values to check (e.g. HKLM\\Software\\MyApp).\n"
+                  "Which keys may be named here is governed by 'registry access' in [/settings/system/windows]: by default any key is read, but an "
+                  "operator can restrict this to keys below an allowed entry, or to names predefined in [/settings/system/windows/registry].")
     ("value",     po::value<std::vector<std::string>>(&value_names),
                   "Restrict to specific value names (default: all values). Supports '*' to enumerate all.")
     ("exclude",   po::value<std::vector<std::string>>(&excludes),
@@ -238,6 +274,26 @@ void registry_value_checks::check(const PB::Commands::QueryRequestMessage::Reque
 
   if (keys.empty()) {
     return nscapi::protobuf::functions::set_response_bad(*response, "No key specified. Please provide at least one key= argument.");
+  }
+
+  // Hold every key against [/settings/system/windows] 'registry access' before
+  // the registry is opened. Only the starting key is checked: enumeration below
+  // it stays within the subtree by construction, so a key which passed cannot
+  // walk out of the allowed part of the hive.
+  for (std::string &key_arg : keys) {
+    const check::access::decision decision = access.resolve(key_arg);
+    if (!decision.allowed) return nscapi::protobuf::functions::set_response_bad(*response, decision.error);
+    key_arg = decision.value;
+  }
+
+  // A remote computer is a destination, not a key: the allow list says nothing
+  // about it, and RegConnectRegistry authenticates outbound as the machine
+  // account. While access is restricted the local registry is the only one
+  // reachable.
+  if (!computer.empty() && access.is_restricted()) {
+    return nscapi::protobuf::functions::set_response_bad(
+        *response, "Refusing computer '" + computer +
+                       "': 'registry access' is restricted, so only the local registry may be read (see [/settings/system/windows] in the configuration)");
   }
 
   if (!filter_helper.build_filter(filter)) return;

@@ -195,6 +195,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   // A reload calls loadModuleEx again on the live module and the settings
   // callbacks append, so start the access policy from nothing.
   pdh_checker.counter_access_.reset();
+  registry_access_.reset();
 
   collector->set_path(settings.alias().get_settings_path("real-time/memory"), settings.alias().get_settings_path("real-time/cpu"),
                       settings.alias().get_settings_path("real-time/process"), settings.alias().get_settings_path("real-time/checks"));
@@ -206,6 +207,11 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     ("counters", sh::fun_values_path([this] (auto key, auto value) { this->add_counter(key, value); }),
         "PDH Counters", "Add counters to check",
         "COUNTER", "For more configuration options add a dedicated section")
+
+    ("registry", sh::fun_values_path([this] (auto key, auto value) { registry_access_.add_predefined(key, value); }),
+        "PREDEFINED REGISTRY KEYS", "Registry keys the registry checks may use by name, as <name> = <key>.\n"
+        "A name defined here can be used as key=<name> in any access mode, and is the only thing accepted when "
+        "'registry access' is set to predefined.")
 
     ("real-time/memory", sh::fun_values_path([this] (auto key, auto value) { collector->add_realtime_mem_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
         "Realtime memory filters", "A set of filters to use in real-time mode",
@@ -244,6 +250,23 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         "\\Processor(*)\\*, \\Memory\\*.\n"
         "The pattern is matched against the counter path exactly as the caller wrote it, so include both the localized and English spellings if your hosts "
         "differ. It has no effect in the default any mode.")
+
+  .add_string("registry access", sh::string_fun_key([this](const auto& value) { registry_access_.set_mode(value); }, "any"),
+        "REGISTRY ACCESS MODE",
+        "Which registry keys a caller may ask check_registry_key and check_registry_value to read: any (the default - any key the caller names, which is "
+        "how every earlier release behaved), allowed (only keys at or below an entry in 'allowed registry keys') or predefined (only names defined in the "
+        "[/settings/system/windows/registry] section).\n"
+        "check_registry_value returns the value data itself, with binary values rendered as hex, and will walk a whole subtree when 'recursive' is set, so "
+        "on a host where callers may pass arguments (NRPE with 'allow arguments', or the REST API) this decides how much of the registry a check can read. "
+        "While this is not 'any' the 'computer' argument is also refused, so only the local registry is reachable. See the 'Restricting what a check may "
+        "read' section of the documentation.")
+
+  .add_string("allowed registry keys", sh::string_fun_key([this](const auto& value) { registry_access_.set_allow_list(value); }, ""),
+        "ALLOWED REGISTRY KEYS",
+        "Comma separated list of registry keys check_registry_key and check_registry_value may read when 'registry access' is set to allowed.\n"
+        "An entry allows that key and everything below it, for example HKLM\\SOFTWARE\\MyApp. The match is on whole key names, so that entry does not "
+        "also allow HKLM\\SOFTWARE\\MyAppOther. An entry containing * or ? is matched as a wildcard against the whole key instead. Both hive spellings "
+        "(HKLM and HKEY_LOCAL_MACHINE) mean the same thing on either side of the comparison.")
 
   .add_string("default buffer length", sh::string_key(&collector->default_buffer_size, "1h"),
         "Default buffer time", "Used to define the default size of range buffer checks (ie. CPU).")
@@ -297,6 +320,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   settings.notify();
 
   if (!pdh_checker.counter_access_.get_config_error().empty()) NSC_LOG_ERROR_STD(pdh_checker.counter_access_.get_config_error());
+  if (!registry_access_.get_config_error().empty()) NSC_LOG_ERROR_STD(registry_access_.get_config_error());
 
   collector->ensure_default(nscapi::settings_proxy::create(get_id(), get_core()));
   collector->add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
@@ -1171,11 +1195,11 @@ void CheckSystem::check_pdh(const PB::Commands::QueryRequestMessage::Request &re
 }
 
 void CheckSystem::check_registry_key(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  registry_key_checks::check(request, response);
+  registry_key_checks::check(request, response, registry_access_);
 }
 
 void CheckSystem::check_registry_value(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  registry_value_checks::check(request, response);
+  registry_value_checks::check(request, response, registry_access_);
 }
 
 void CheckSystem::check_pending_reboot(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {

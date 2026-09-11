@@ -11,6 +11,8 @@ the first place*:
 | `check_pdh` (`check_counter`) | `counter=` | any performance object on the machine |
 | `check_files`, `check_single_file` | `path=`, `file=` | any directory tree the agent can read: every name, size and timestamp, plus a checksum of any file |
 | `check_disk_write` | `file=` | creates and deletes a test file at any path the agent can write |
+| `check_registry_key`, `check_registry_value` | `key=` | any registry key, and the value data itself, with binary rendered as hex |
+| `check_eventlog` | `file=`, `log=` | any event log channel, and the event text itself |
 
 That is what those checks are for, and on a host where only the configuration
 decides what runs, it is not a problem. It becomes one where the *caller*
@@ -38,6 +40,8 @@ Each module has one mode setting and, where it applies, one allow list:
 | `check_wmi` | `[/settings/wmi]` | `query access` | `allowed classes`, `allowed namespaces` |
 | `check_pdh` | `[/settings/system/windows]` | `counter access` | `allowed counters` |
 | `check_files`, `check_single_file`, `check_disk_write` | `[/settings/disk]` | `file access` | `allowed files` |
+| `check_registry_key`, `check_registry_value` | `[/settings/system/windows]` | `registry access` | `allowed registry keys` |
+| `check_eventlog` | `[/settings/eventlog]` | `log access` | `allowed logs` |
 
 === "any"
 
@@ -240,6 +244,87 @@ Two things to know about the allow list:
   English spellings.
 * The `counter:<alias>=<path>` form is gated exactly like `counter=`.
 
+## check_registry_key and check_registry_value
+
+```ini
+[/settings/system/windows]
+registry access = allowed
+allowed registry keys = HKLM\SOFTWARE\MyApp, HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion
+
+; or, tighter:
+registry access = predefined
+
+[/settings/system/windows/registry]
+myapp = HKLM\SOFTWARE\MyApp
+winver = HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion
+```
+
+!!! warning "This is the widest read of the lot"
+
+    `check_registry_value` returns the value data itself — `string_value`
+    renders `REG_SZ` expanded and `REG_BINARY` as hex — and `string_value` is
+    part of the **default** detail syntax, so a caller needs no syntax argument
+    to get it. With `value=*` and `recursive=true` at unlimited depth, one call
+    walks an entire subtree. The registry is where Windows and third-party
+    software keep autologon passwords, product keys, community strings and
+    stored connection settings, so on a host where callers pass arguments this
+    is the setting to reach for first.
+
+Entries are **hierarchical, not glob**: an entry allows that key and everything
+below it. The match is on whole key names, so `HKLM\SOFTWARE\MyApp` covers
+`HKLM\SOFTWARE\MyApp\Settings` but not `HKLM\SOFTWARE\MyAppOther`. An entry
+containing `*` or `?` is matched as a wildcard against the whole key instead,
+for the cases where that is what you want.
+
+Both hive spellings mean the same hive on either side of the comparison, so an
+allow list written with `HKLM` still matches a caller who sent
+`HKEY_LOCAL_MACHINE`. Matching ignores case, as the registry does.
+
+Only the **starting** key is checked. Enumeration below it stays inside the
+subtree by construction, so a key that passed cannot walk out of the allowed
+part of the hive.
+
+While `registry access` is not `any`, the `computer=` argument is refused
+outright and only the local registry is reachable. A remote computer is a
+destination the allow list says nothing about, and connecting to one
+authenticates outbound as the machine account.
+
+## check_eventlog
+
+```ini
+[/settings/eventlog]
+log access = allowed
+allowed logs = Application, System, Microsoft-Windows-Sysmon
+
+; or, tighter:
+log access = predefined
+
+[/settings/eventlog/logs]
+app = Application
+sysmon = Microsoft-Windows-Sysmon/Operational
+```
+
+The event text comes back through the `message`, `strings` and `xml` keywords,
+and `message` is part of the default detail syntax — so, as with the registry, a
+caller gets content without asking for it. What that reaches is every channel
+the agent can read: `Security`, the PowerShell and Sysmon operational channels,
+and the task scheduler's, among others.
+
+Entries are hierarchical on `/`, so `Microsoft-Windows-Sysmon` covers
+`Microsoft-Windows-Sysmon/Operational` without naming each channel — and, by the
+same whole-segment rule as the registry, does not cover
+`Microsoft-Windows-SysmonOther`. A `*` or `?` in an entry switches it to
+wildcard matching.
+
+!!! note "The default channels are not exempt"
+
+    With no `file=` argument `check_eventlog` reads `Application` and `System`.
+    Those go through the gate too: leaving the argument off is not a way to opt
+    them in, so list them if you want them.
+
+Only channel names can be named — `check_eventlog` cannot be pointed at an
+`.evtx` file on disk, because the query is always opened against a channel path.
+
 ## Choosing a mode
 
 * **Leave it at `any`** where the agent only answers a monitoring server you
@@ -251,6 +336,9 @@ Two things to know about the allow list:
 * **Use `predefined`** where the monitoring server should run your checks and
   nothing else. This is the one to aim for on a host exposed to NRPE with
   `allow arguments = true` or to the REST API.
+
+If you are only going to set one of these, set `registry access`: it is the one
+whose default reaches furthest.
 
 A typo in a mode setting is refused rather than ignored: the check fails with
 `expected any, allowed or predefined` and the module logs the error at startup.

@@ -2,7 +2,7 @@
 title: "Check access modes for check_logfile, check_wmi and check_pdh"
 fixed_in: next
 severity: "Low (hardening; no vulnerability — the previous behaviour is the documented purpose of these checks)"
-modules: [CheckLogFile, CheckWMI, CheckSystem, CheckDisk]
+modules: [CheckLogFile, CheckWMI, CheckSystem, CheckDisk, CheckEventLog]
 action: conditional
 ---
 Three checks take an argument which decides *what data is read* rather than how
@@ -16,6 +16,8 @@ Windows, `root` or the service account on Linux):
 | `check_pdh` (`check_counter`) | `counter=` | any performance object on the machine |
 | `check_files`, `check_single_file` | `path=`, `file=` | any directory tree the agent can read: every name, size and timestamp, and a checksum of any file |
 | `check_disk_write` | `file=` | creates and deletes a test file at any path the agent can write |
+| `check_registry_key`, `check_registry_value` | `key=` | any registry key, and the value data itself, with binary rendered as hex |
+| `check_eventlog` | `file=`, `log=` | any event log channel, and the event text itself |
 
 This is the documented purpose of those checks and is not a vulnerability: on a
 host where only the configuration decides what runs, nothing here is reachable
@@ -36,6 +38,8 @@ upgrade.
 | `check_wmi` | `[/settings/wmi]` | `query access` | `allowed classes`, `allowed namespaces` |
 | `check_pdh` | `[/settings/system/windows]` | `counter access` | `allowed counters` |
 | `check_files`, `check_single_file`, `check_disk_write` | `[/settings/disk]` | `file access` | `allowed files` |
+| `check_registry_key`, `check_registry_value` | `[/settings/system/windows]` | `registry access` | `allowed registry keys` |
+| `check_eventlog` | `[/settings/eventlog]` | `log access` | `allowed logs` |
 
 `allowed` accepts only values matching the list; `predefined` accepts only names
 the operator configured and refuses a raw value outright. Configured names
@@ -57,6 +61,19 @@ Three details matter for the strength of the control:
   queries remain usable as predefined queries.
 * **A misspelled mode fails closed.** An unrecognised value refuses every
   request and is logged at startup, rather than reading as "no restriction".
+
+The registry and event-log gates cover the two widest reads of the set, and both
+return content in their *default* rendering, so a caller needs no syntax argument
+to receive it. `check_registry_value` renders `REG_BINARY` as hex and will walk a
+whole subtree with `recursive=true`; `check_eventlog` returns event text through
+`message`, `strings` and `xml` from any channel the agent can read. Their
+allow-list entries are hierarchical rather than glob - an entry covers that key or
+channel and everything below it, matched on whole name segments, so
+`HKLM\SOFTWARE\MyApp` cannot be widened into `HKLM\SOFTWARE\MyAppOther` - and
+both registry hive spellings compare equal. Only the starting key or channel is
+checked, because enumeration below it cannot leave the subtree. While registry
+access is restricted the `computer=` argument is refused, so the local registry is
+the only one reachable.
 
 The disk checks are a weaker case than `check_logfile` and were included for
 reach rather than depth: they never return file contents, but they enumerate

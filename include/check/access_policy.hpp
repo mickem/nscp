@@ -209,6 +209,8 @@ class policy {
 
   mode get_mode() const { return mode_; }
   const std::string &get_settings_path() const { return settings_path_; }
+  const std::string &get_noun() const { return noun_; }
+  const std::string &get_nouns() const { return nouns_; }
   bool is_restricted() const { return mode_ != mode::any || !config_error_.empty(); }
   const std::string &get_config_error() const { return config_error_; }
   bool has_predefined(const std::string &name) const { return predefined_.find(name) != predefined_.end(); }

@@ -496,6 +496,8 @@ read**, and the agent reads it with its own privileges - `SYSTEM` on Windows, `r
 | `check_pdh` / `check_counter` | `counter=` | any performance object on the machine |
 | `check_files`, `check_single_file` | `path=` / `file=` | any directory tree: every name, size and timestamp, plus a checksum of any file |
 | `check_disk_write` | `file=` | creates and deletes a test file at any writable path |
+| `check_registry_key`, `check_registry_value` | `key=` | any registry key, and the value data itself (binary as hex) |
+| `check_eventlog` | `file=` / `log=` | any event log channel, and the event text itself |
 
 That is what those checks are *for*, so it is not a defect, and where only your configuration decides what runs it does
 not matter. It matters where the **caller** picks the argument: NRPE with `allow arguments = true`, or the REST API. A
@@ -511,6 +513,13 @@ release before 0.21.0 - so this is opt-in and an upgrade changes nothing:
 | `check_wmi` | `[/settings/wmi]` | `query access` | `allowed classes`, `allowed namespaces` |
 | `check_pdh` | `[/settings/system/windows]` | `counter access` | `allowed counters` |
 | `check_files`, `check_single_file`, `check_disk_write` | `[/settings/disk]` | `file access` | `allowed files` |
+| `check_registry_key`, `check_registry_value` | `[/settings/system/windows]` | `registry access` | `allowed registry keys` |
+| `check_eventlog` | `[/settings/eventlog]` | `log access` | `allowed logs` |
+
+If you set only one of these, set `registry access`. `check_registry_value` returns value data with binary rendered as hex,
+in its *default* syntax, and `recursive=true` walks a whole subtree — the registry is where autologon passwords, product keys
+and stored connection settings live. `check_eventlog` is the next widest: event text comes back in its default syntax too, from
+any channel the agent can read, `Security` included.
 
 The disk checks never return file contents, but they enumerate whole trees and can report a checksum of any readable
 file, which confirms known content and for a short file effectively recovers it. Narrower than `check_logfile`, but much
@@ -797,3 +806,5 @@ If two-way TLS is not yet in place, the compensating controls are:
 | `check_wmi` `query access`                      | `any`         | `predefined` (or `allowed`) wherever callers may pass arguments          |
 | `check_pdh` `counter access`                    | `any`         | `predefined` (or `allowed`) wherever callers may pass arguments          |
 | CheckDisk `file access`                         | `any`         | `predefined` (or `allowed`) wherever callers may pass arguments          |
+| `check_registry_*` `registry access`            | `any`         | `predefined` (or `allowed`) wherever callers may pass arguments          |
+| `check_eventlog` `log access`                   | `any`         | `predefined` (or `allowed`) wherever callers may pass arguments          |

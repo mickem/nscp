@@ -1,6 +1,6 @@
 ---
 icon: "🔒 🔧"
-modules: [CheckLogFile, CheckWMI, CheckSystem, CheckDisk]
+modules: [CheckLogFile, CheckWMI, CheckSystem, CheckDisk, CheckEventLog]
 action: none
 ---
 **The checks whose argument decides *what data is read* can now be told which
@@ -17,15 +17,23 @@ file-read primitive. Each module gained a mode setting and an allow list:
 | `check_wmi` | `[/settings/wmi]` | `query access` | `allowed classes`, `allowed namespaces` |
 | `check_pdh` | `[/settings/system/windows]` | `counter access` | `allowed counters` |
 | `check_files`, `check_single_file`, `check_disk_write` | `[/settings/disk]` | `file access` | `allowed files` |
+| `check_registry_key`, `check_registry_value` | `[/settings/system/windows]` | `registry access` | `allowed registry keys` |
+| `check_eventlog` | `[/settings/eventlog]` | `log access` | `allowed logs` |
 
 The modes are `any`, `allowed` (only what matches the list) and `predefined`
 (only names you configured — `[/settings/logfile/files]`,
-`[/settings/wmi/queries]`, `[/settings/disk/files]`, and for `check_pdh` the
-counters already in `[/settings/system/windows/counters]`). Configured names resolve in every mode,
-so you can name your checks first and tighten the mode afterwards. Two things
-only take effect once a mode is set: a `check_wmi` `namespace=` may then no
-longer be moved off `root\cimv2` unless `allowed namespaces` says so, and
-`target=` must name a target defined in `[/settings/wmi/targets]`. See
+`[/settings/wmi/queries]`, `[/settings/disk/files]`,
+`[/settings/system/windows/registry]`, `[/settings/eventlog/logs]`, and for
+`check_pdh` the counters already in `[/settings/system/windows/counters]`).
+Registry and event-log entries are hierarchical: an entry covers that key or
+channel and everything below it, matched on whole name segments. Configured names resolve in every mode,
+so you can name your checks first and tighten the mode afterwards. Some arguments
+only tighten once a mode is set: a `check_wmi` `namespace=` may then no longer be
+moved off `root\cimv2` unless `allowed namespaces` says so, `check_wmi`
+`target=` must name a target defined in `[/settings/wmi/targets]`,
+`check_registry_*` refuses `computer=` so only the local registry is read, and
+`check_eventlog`'s default `Application`/`System` channels go through the gate
+like any other. See
 [Restricting what a check may read](../concepts/check-access.md), the
 [securing guide](securing.md#data-disclosure-restricting-what-a-check-may-read)
 and the

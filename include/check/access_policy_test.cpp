@@ -3,6 +3,7 @@
 
 #include <check/access_policy.hpp>
 #include <check/path_access_policy.hpp>
+#include <check/prefix_access_policy.hpp>
 #include <check/wql_query.hpp>
 #include <boost/filesystem.hpp>
 #include <fstream>
@@ -423,6 +424,173 @@ TEST_F(path_access_test, several_entries_are_all_considered) {
   EXPECT_TRUE(p.resolve(at("logs/app.log")).allowed);
   EXPECT_TRUE(p.resolve(at("logs/sub/deep.log")).allowed);
   EXPECT_FALSE(p.resolve(at("logs/notes.txt")).allowed);
+}
+
+// ---------------------------------------------------------------------------
+// prefix policy (registry keys, event log channels)
+// ---------------------------------------------------------------------------
+
+namespace {
+// The registry accepts both spellings of every hive, so the gate compares them
+// in one spelling or an operator's list silently misses half the requests.
+std::string normalize_hive(const std::string &key) {
+  static const char *pairs[][2] = {{"HKEY_LOCAL_MACHINE", "HKLM"}, {"HKEY_CURRENT_USER", "HKCU"}, {"HKEY_CLASSES_ROOT", "HKCR"},
+                                   {"HKEY_USERS", "HKU"},          {"HKEY_CURRENT_CONFIG", "HKCC"}};
+  for (const auto &pair : pairs) {
+    const std::string full(pair[0]);
+    if (key.size() >= full.size() && boost::algorithm::iequals(key.substr(0, full.size()), full)) {
+      return std::string(pair[1]) + key.substr(full.size());
+    }
+  }
+  return key;
+}
+
+check::access::prefix_policy registry_policy() {
+  return check::access::prefix_policy("registry key", "registry keys", "/settings/system/windows", '\\', &normalize_hive);
+}
+check::access::prefix_policy channel_policy() { return check::access::prefix_policy("log", "logs", "/settings/eventlog", '/'); }
+}  // namespace
+
+TEST(prefix_policy, any_is_the_default) {
+  const check::access::prefix_policy p = registry_policy();
+  EXPECT_FALSE(p.is_restricted());
+  EXPECT_TRUE(p.resolve("HKLM\\SAM").allowed);
+}
+
+TEST(prefix_policy, a_literal_entry_covers_the_key_itself) {
+  check::access::prefix_policy p = registry_policy();
+  p.set_mode("allowed");
+  p.set_allow_list("HKLM\\SOFTWARE\\MyApp");
+  EXPECT_TRUE(p.resolve("HKLM\\SOFTWARE\\MyApp").allowed);
+}
+
+TEST(prefix_policy, a_literal_entry_covers_the_subtree) {
+  check::access::prefix_policy p = registry_policy();
+  p.set_mode("allowed");
+  p.set_allow_list("HKLM\\SOFTWARE\\MyApp");
+  EXPECT_TRUE(p.resolve("HKLM\\SOFTWARE\\MyApp\\Settings").allowed);
+  EXPECT_TRUE(p.resolve("HKLM\\SOFTWARE\\MyApp\\Deep\\Nested\\Key").allowed);
+}
+
+// The whole reason this is not a plain glob: a prefix only counts when the next
+// character ends the segment, or `MyApp` would cover `MyAppEvil`.
+TEST(prefix_policy, a_prefix_does_not_match_mid_segment) {
+  check::access::prefix_policy p = registry_policy();
+  p.set_mode("allowed");
+  p.set_allow_list("HKLM\\SOFTWARE\\MyApp");
+  EXPECT_FALSE(p.resolve("HKLM\\SOFTWARE\\MyAppEvil").allowed);
+  EXPECT_FALSE(p.resolve("HKLM\\SOFTWARE\\MyAppEvil\\Sub").allowed);
+}
+
+TEST(prefix_policy, refuses_a_sibling_and_another_hive) {
+  check::access::prefix_policy p = registry_policy();
+  p.set_mode("allowed");
+  p.set_allow_list("HKLM\\SOFTWARE\\MyApp");
+  EXPECT_FALSE(p.resolve("HKLM\\SOFTWARE\\Other").allowed);
+  EXPECT_FALSE(p.resolve("HKLM\\SAM").allowed);
+  EXPECT_FALSE(p.resolve("HKCU\\SOFTWARE\\MyApp").allowed);
+}
+
+TEST(prefix_policy, the_long_hive_spelling_resolves_to_the_same_entry) {
+  check::access::prefix_policy p = registry_policy();
+  p.set_mode("allowed");
+  p.set_allow_list("HKLM\\SOFTWARE\\MyApp");
+  EXPECT_TRUE(p.resolve("HKEY_LOCAL_MACHINE\\SOFTWARE\\MyApp\\Sub").allowed);
+  EXPECT_FALSE(p.resolve("HKEY_LOCAL_MACHINE\\SAM").allowed);
+}
+
+TEST(prefix_policy, an_entry_written_with_the_long_spelling_works_too) {
+  check::access::prefix_policy p = registry_policy();
+  p.set_mode("allowed");
+  p.set_allow_list("HKEY_LOCAL_MACHINE\\SOFTWARE\\MyApp");
+  EXPECT_TRUE(p.resolve("HKLM\\SOFTWARE\\MyApp\\Sub").allowed);
+}
+
+TEST(prefix_policy, registry_matching_ignores_case) {
+  check::access::prefix_policy p = registry_policy();
+  p.set_mode("allowed");
+  p.set_allow_list("HKLM\\Software\\MyApp");
+  EXPECT_TRUE(p.resolve("hklm\\SOFTWARE\\myapp\\Sub").allowed);
+}
+
+TEST(prefix_policy, a_trailing_separator_on_an_entry_is_harmless) {
+  check::access::prefix_policy p = registry_policy();
+  p.set_mode("allowed");
+  p.set_allow_list("HKLM\\SOFTWARE\\MyApp\\");
+  EXPECT_TRUE(p.resolve("HKLM\\SOFTWARE\\MyApp\\Sub").allowed);
+  EXPECT_FALSE(p.resolve("HKLM\\SOFTWARE\\MyAppEvil").allowed);
+}
+
+TEST(prefix_policy, a_wildcard_entry_is_matched_as_a_glob) {
+  check::access::prefix_policy p = registry_policy();
+  p.set_mode("allowed");
+  p.set_allow_list("HKLM\\SOFTWARE\\*\\Version");
+  EXPECT_TRUE(p.resolve("HKLM\\SOFTWARE\\MyApp\\Version").allowed);
+  EXPECT_FALSE(p.resolve("HKLM\\SOFTWARE\\MyApp\\Secrets").allowed);
+}
+
+TEST(prefix_policy, predefined_names_resolve_in_every_mode) {
+  check::access::prefix_policy p = registry_policy();
+  p.add_predefined("myapp", "HKLM\\SOFTWARE\\MyApp");
+  EXPECT_EQ("HKLM\\SOFTWARE\\MyApp", p.resolve("myapp").value);
+
+  p.set_mode("predefined");
+  EXPECT_EQ("HKLM\\SOFTWARE\\MyApp", p.resolve("myapp").value);
+  const check::access::decision d = p.resolve("HKLM\\SAM");
+  EXPECT_FALSE(d.allowed);
+  EXPECT_NE(std::string::npos, d.error.find("set to predefined"));
+}
+
+TEST(prefix_policy, an_invalid_mode_fails_closed) {
+  check::access::prefix_policy p = registry_policy();
+  p.set_mode("allwed");
+  const check::access::decision d = p.resolve("HKLM\\SOFTWARE\\MyApp");
+  EXPECT_FALSE(d.allowed);
+  EXPECT_NE(std::string::npos, d.error.find("expected any, allowed or predefined"));
+}
+
+TEST(prefix_policy, a_refusal_does_not_disclose_the_list) {
+  check::access::prefix_policy p = registry_policy();
+  p.set_mode("allowed");
+  p.set_allow_list("HKLM\\SOFTWARE\\SecretVendor");
+  const check::access::decision d = p.resolve("HKLM\\SAM");
+  ASSERT_FALSE(d.allowed);
+  EXPECT_EQ(std::string::npos, d.error.find("SecretVendor"));
+}
+
+TEST(prefix_policy, reset_clears_everything_for_a_reload) {
+  check::access::prefix_policy p = registry_policy();
+  p.set_mode("predefined");
+  p.set_allow_list("HKLM\\a,HKLM\\b");
+  p.add_predefined("x", "HKLM\\x");
+  p.reset();
+  EXPECT_EQ(check::access::mode::any, p.get_mode());
+  EXPECT_EQ(0u, p.allow_list_size());
+  EXPECT_TRUE(p.resolve("HKLM\\SAM").allowed);
+}
+
+// The event log uses the same machinery with '/' as the separator, so a channel
+// family can be allowed without naming each channel.
+TEST(prefix_policy, an_event_log_channel_family_is_covered_by_its_prefix) {
+  check::access::prefix_policy p = channel_policy();
+  p.set_mode("allowed");
+  p.set_allow_list("Application, Microsoft-Windows-Sysmon");
+  EXPECT_TRUE(p.resolve("Application").allowed);
+  EXPECT_TRUE(p.resolve("Microsoft-Windows-Sysmon/Operational").allowed);
+  EXPECT_FALSE(p.resolve("Security").allowed);
+  // The separator rule again: a sibling family sharing the prefix is not in.
+  EXPECT_FALSE(p.resolve("Microsoft-Windows-SysmonEvil/Operational").allowed);
+}
+
+TEST(prefix_policy, an_event_log_refusal_names_the_setting) {
+  check::access::prefix_policy p = channel_policy();
+  p.set_mode("allowed");
+  p.set_allow_list("Application");
+  const check::access::decision d = p.resolve("Security");
+  EXPECT_FALSE(d.allowed);
+  EXPECT_NE(std::string::npos, d.error.find("Refusing log 'Security'"));
+  EXPECT_NE(std::string::npos, d.error.find("allowed logs"));
+  EXPECT_NE(std::string::npos, d.error.find("/settings/eventlog"));
 }
 
 }  // namespace
