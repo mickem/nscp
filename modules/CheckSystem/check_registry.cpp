@@ -62,7 +62,8 @@ filter_obj_handler::filter_obj_handler() {
 }  // namespace check_rk_filter
 }  // namespace registry_key_checks
 
-void registry_key_checks::check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+void registry_key_checks::check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                                const check::access::prefix_policy &access) {
   typedef check_rk_filter::filter filter_type;
   modern_filter::data_container data;
   modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
@@ -232,7 +233,8 @@ filter_obj_handler::filter_obj_handler() {
 }  // namespace check_rv_filter
 }  // namespace registry_value_checks
 
-void registry_value_checks::check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+void registry_value_checks::check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                                  const check::access::prefix_policy &access) {
   typedef check_rv_filter::filter filter_type;
   modern_filter::data_container data;
   modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
