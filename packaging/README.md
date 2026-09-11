@@ -196,6 +196,17 @@ notes self-contained when writing the release.
 | `{{SHA256_ZIP_X64}}`     | Uppercase SHA256 of the x64 ZIP.     |
 | `{{SHA256_ZIP_X86}}`     | Uppercase SHA256 of the x86 ZIP.     |
 
+### Facts that are not ours to restyle
+
+Three fields in the locale template are constrained by something outside
+packaging, and were wrong when the templates were first written:
+
+| Field | Value | Why |
+| ----- | ----- | --- |
+| `License` | `Apache-2.0 OR GPL-2.0-only` | What `REUSE.toml` declares project-wide and every source header carries. `GPL-2.0-or-later` grants rights the project does not grant. |
+| `Moniker` | `nscp` | What 0.16.4 published, and what users type in `winget install nscp`. Renaming it on a later version breaks them. |
+| `Tags` | includes `naemon` | Published in 0.16.4; dropping a tag loses the searches that found the package by it. |
+
 ### Keeping metadata consistent between versions
 
 `winget-pkgs` runs a metadata-consistency check that compares a submission
