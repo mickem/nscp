@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
 #include <boost/optional.hpp>
+#include <check/access_policy.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
@@ -94,7 +95,14 @@ struct target_helper {
 
 class CheckWMI : public nscapi::impl::simple_plugin {
  public:
-  CheckWMI() {}
+  // Open by default, so an upgrade changes nothing. `queries` holds both the
+  // mode and the predefined queries; `classes` and `namespaces` carry only
+  // their own allow lists, and are consulted through check_value().
+  // See docs/docs/concepts/check-access.md.
+  CheckWMI()
+      : query_access_("query", "queries", "/settings/wmi"),
+        class_access_("class", "classes", "/settings/wmi"),
+        namespace_access_("namespace", "namespaces", "/settings/wmi") {}
   virtual ~CheckWMI() {}
   // Module calls
   bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
@@ -105,5 +113,13 @@ class CheckWMI : public nscapi::impl::simple_plugin {
   NSCAPI::nagiosReturn commandLineExec(int target_mode, const std::string &command, const std::list<std::string> &arguments, std::string &result);
 
  private:
+  // Resolve `namespace=` against the policy, and build the full namespace
+  // string WMI binds to. Returns false and fills `error` when the namespace is
+  // not permitted.
+  bool resolve_namespace(const std::string &requested, const std::string &computer, std::string &out, std::string &error) const;
+
   target_helper targets;
+  check::access::policy query_access_;
+  check::access::policy class_access_;
+  check::access::policy namespace_access_;
 };

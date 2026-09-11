@@ -484,6 +484,59 @@ WEBServer : monitor = CheckSystem.check_cpu, CheckSystem.check_drivesize, CheckD
 See [Permissions](../concepts/permissions.md) for the full reference: identity model, which modules stamp what,
 pattern syntax, the worked `CheckHelpers` example, and the detailed step-by-step setup guide.
 
+## Data disclosure: restricting what a check may read
+
+Code execution is the risk people look for first, but a handful of checks take an argument which decides **what data is
+read**, and the agent reads it with its own privileges - `SYSTEM` on Windows, `root` or `nsclient` on Linux:
+
+| Check | Argument | What an unrestricted argument reaches |
+|-------|----------|---------------------------------------|
+| `check_logfile` | `file=` | any file the agent can open; `${line}` returns its contents |
+| `check_wmi` | `query=` | any WMI class, the filesystem included (`CIM_DataFile`, `Win32_Directory`) |
+| `check_pdh` / `check_counter` | `counter=` | any performance object on the machine |
+
+That is what those checks are *for*, so it is not a defect, and where only your configuration decides what runs it does
+not matter. It matters where the **caller** picks the argument: NRPE with `allow arguments = true`, or the REST API. A
+caller who can reach `check_logfile` with an arbitrary `file=` can read `/etc/shadow`, a private key or a registry hive
+backup, and gets the contents back in the check output.
+
+Each of the three checks has an access mode which narrows this. All three default to `any` - the behaviour of every
+release before 0.21.0 - so this is opt-in and an upgrade changes nothing:
+
+| Check | Section | Mode setting | Allow list |
+|-------|---------|--------------|------------|
+| `check_logfile` | `[/settings/logfile]` | `file access` | `allowed files` |
+| `check_wmi` | `[/settings/wmi]` | `query access` | `allowed classes`, `allowed namespaces` |
+| `check_pdh` | `[/settings/system/windows]` | `counter access` | `allowed counters` |
+
+The modes are `any` (anything the caller names), `allowed` (only what matches the list) and `predefined` (only names you
+configured). Names you configure resolve in **every** mode, so you can name your checks first, confirm the monitoring
+server still works, and tighten the mode afterwards:
+
+```ini
+[/settings/logfile]
+file access = predefined
+
+[/settings/logfile/files]
+app = C:/logs/app.log
+iis = C:/inetpub/logs/LogFiles/W3SVC1/u_ex.log
+```
+
+The monitoring server then runs `check_logfile file=app`, and a caller asking for anything else is refused.
+
+**Recommended posture.** If `allow arguments` is off for NRPE and the REST API is not exposed, `any` costs you nothing -
+your configuration already decides everything. Otherwise set `predefined` on whichever of the three modules you have
+enabled; `allowed` is the middle ground when you want a whole directory or performance object without enumerating each
+entry.
+
+File paths are resolved before they are matched, so `..` and symbolic links or junctions cannot widen an allowed
+directory, and a misspelled mode is refused rather than ignored. The full reference - entry syntax, the WMI query forms
+which can and cannot be checked by class, and what a refusal looks like - is in
+[Restricting what a check may read](../concepts/check-access.md).
+
+This is the companion to the [permission policy](#permission-policy) above: that one restricts *which* checks a caller
+may run, this one restricts *what* those checks may reach.
+
 ## Remote code execution: understanding the attack surface
 
 NSClient++ is, by design, a remote-administration agent. Several modules can ultimately cause arbitrary code to run on
@@ -733,3 +786,6 @@ If two-way TLS is not yet in place, the compensating controls are:
 | check_nt (`NSClientServer`) protocol            | optional      | avoid; leave disabled. If required, firewall to the monitor, treat the password as public, and set `allow = metrics, info` |
 | Service account                                 | `LocalSystem` | dedicated low-privilege account with only the access your checks require |
 | Permission policy (`/settings/permissions`)     | disabled      | enable in observe mode, lock down to per-subject allow-list              |
+| `check_logfile` `file access`                   | `any`         | `predefined` (or `allowed`) wherever callers may pass arguments          |
+| `check_wmi` `query access`                      | `any`         | `predefined` (or `allowed`) wherever callers may pass arguments          |
+| `check_pdh` `counter access`                    | `any`         | `predefined` (or `allowed`) wherever callers may pass arguments          |

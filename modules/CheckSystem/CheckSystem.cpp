@@ -192,6 +192,9 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("system", alias, "windows");
   pdh_checker.counters_.set_path(settings.alias().get_settings_path("counters"));
+  // A reload calls loadModuleEx again on the live module and the settings
+  // callbacks append, so start the access policy from nothing.
+  pdh_checker.counter_access_.reset();
 
   collector->set_path(settings.alias().get_settings_path("real-time/memory"), settings.alias().get_settings_path("real-time/cpu"),
                       settings.alias().get_settings_path("real-time/process"), settings.alias().get_settings_path("real-time/checks"));
@@ -226,6 +229,22 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     ;
 
   settings.alias().add_key_to_settings()
+  .add_string("counter access", sh::string_fun_key([this](const auto& value) { pdh_checker.counter_access_.set_mode(value); }, "any"),
+        "COUNTER ACCESS MODE",
+        "Which performance counters a caller may ask check_pdh (check_counter) to read: any (the default - any counter path the caller names, which is how "
+        "every earlier release behaved), allowed (only paths matching 'allowed counters') or predefined (only the counters configured in the "
+        "[/settings/system/windows/counters] section).\n"
+        "PDH exposes every performance object on the machine, so on a host where callers may pass arguments (NRPE with 'allow arguments', or the REST API) "
+        "this decides how much of it a check can read. Counters configured in the counters section are always available by name, whatever the mode. See the "
+        "'Restricting what a check may read' section of the documentation.")
+
+  .add_string("allowed counters", sh::string_fun_key([this](const auto& value) { pdh_checker.counter_access_.set_allow_list(value); }, ""),
+        "ALLOWED COUNTERS",
+        "Comma separated list of counter paths check_pdh may read when 'counter access' is set to allowed. Entries may contain * and ?, for example "
+        "\\Processor(*)\\*, \\Memory\\*.\n"
+        "The pattern is matched against the counter path exactly as the caller wrote it, so include both the localized and English spellings if your hosts "
+        "differ. It has no effect in the default any mode.")
+
   .add_string("default buffer length", sh::string_key(&collector->default_buffer_size, "1h"),
         "Default buffer time", "Used to define the default size of range buffer checks (ie. CPU).")
   .add_string("subsystem", sh::string_key(&collector->subsystem, "default"),
@@ -276,6 +295,8 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   // clang-format on
   settings.register_all();
   settings.notify();
+
+  if (!pdh_checker.counter_access_.get_config_error().empty()) NSC_LOG_ERROR_STD(pdh_checker.counter_access_.get_config_error());
 
   collector->ensure_default(nscapi::settings_proxy::create(get_id(), get_core()));
   collector->add_samples(nscapi::settings_proxy::create(get_id(), get_core()));

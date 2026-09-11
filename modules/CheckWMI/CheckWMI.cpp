@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <boost/program_options.hpp>
+#include <check/wql_query.hpp>
 #include <map>
 #include <memory>
 #include <nscapi/nscapi_program_options.hpp>
@@ -25,16 +26,53 @@ bool CheckWMI::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
     targets.set_path(settings.alias().get_settings_path("targets"));
 
+    // A reload calls loadModuleEx again on the live module and the settings
+    // callbacks below append, so start from nothing or every reload doubles
+    // the lists.
+    query_access_.reset();
+    class_access_.reset();
+    namespace_access_.reset();
+
     // clang-format off
     settings.alias().add_path_to_settings()
       ("targets", sh::fun_values_path([this] (const auto& key, const auto& value) { targets.add_target(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
         "TARGET LIST SECTION", "A list of available remote target systems",
         "TARGET DEFINITION", "For more configuration options add a dedicated section")
+
+      ("queries", sh::fun_values_path([this] (const auto& key, const auto& value) { query_access_.add_predefined(key, value); }),
+        "PREDEFINED WMI QUERIES", "WMI queries check_wmi may run by name, as <name> = <query>.\n"
+        "A name defined here can be used as query=<name> in any access mode, and is the only thing accepted when "
+        "'query access' is set to predefined. The query is not parsed: an operator who writes it here has vouched for it.")
       ;
     // clang-format on
 
+    settings.alias()
+        .add_key_to_settings()
+
+        .add_string("query access", sh::string_fun_key([this](const auto& value) { query_access_.set_mode(value); }, "any"), "WMI QUERY ACCESS MODE",
+                    "Which WMI queries a caller may ask check_wmi to run: any (the default - any query the caller sends, which is how every earlier release "
+                    "behaved), allowed (only a plain SELECT whose class matches 'allowed classes') or predefined (only names defined in the "
+                    "[/settings/wmi/queries] section).\n"
+                    "WMI reaches most of what the machine knows, including the filesystem through Win32_Directory and CIM_DataFile, so on a host where "
+                    "callers may pass arguments (NRPE with 'allow arguments', or the REST API) this decides how much of it a check can read. See the "
+                    "'Restricting what a check may read' section of the documentation.")
+
+        .add_string("allowed classes", sh::string_fun_key([this](const auto& value) { class_access_.set_allow_list(value); }, ""), "ALLOWED WMI CLASSES",
+                    "Comma separated list of WMI classes check_wmi may read when 'query access' is set to allowed. Entries may contain * and ?, for example "
+                    "Win32_Service, Win32_PerfFormattedData_*.\n"
+                    "Only a plain 'SELECT ... FROM <class> [WHERE ...]' can be checked this way. Anything else - ASSOCIATORS OF, REFERENCES OF, a class path "
+                    "carrying a namespace - is refused rather than guessed at, and has to be configured as a predefined query instead.")
+
+        .add_string("allowed namespaces", sh::string_fun_key([this](const auto& value) { namespace_access_.set_allow_list(value); }, ""),
+                    "ALLOWED WMI NAMESPACES",
+                    "Comma separated list of WMI namespaces check_wmi may bind to when 'query access' is not any. Entries may contain * and ?.\n"
+                    "Leaving this empty means the caller may not change the namespace at all: only the default root\\cimv2 is used. It has no effect in the "
+                    "default any mode.");
+
     settings.register_all();
     settings.notify();
+
+    if (!query_access_.get_config_error().empty()) NSC_LOG_ERROR_STD(query_access_.get_config_error());
 
     targets.finalize(nscapi::settings_proxy::create(get_id(), get_core()));
   } catch (const std::exception &e) {
@@ -52,6 +90,35 @@ std::string build_namespace(std::string ns, const std::string &computer) {
   if (ns.empty()) ns = "root\\cimv2";
   if (!computer.empty()) ns = "\\\\" + computer + "\\" + ns;
   return ns;
+}
+
+// Decide whether the caller may bind to the namespace it asked for, and build
+// the string WMI connects to.
+//
+// The rule is deliberately blunt when 'allowed namespaces' is empty: rather
+// than leave the namespace open while the class is restricted - which would
+// let the same class name be read from a different provider - an empty list in
+// a restricted mode means the namespace may not be moved off the default at
+// all. In the default `any` mode nothing is checked.
+bool CheckWMI::resolve_namespace(const std::string &requested, const std::string &computer, std::string &out, std::string &error) const {
+  const std::string ns = requested.empty() ? "root\\cimv2" : requested;
+  if (query_access_.get_mode() != check::access::mode::any) {
+    if (namespace_access_.allow_list_size() == 0) {
+      if (!boost::algorithm::iequals(ns, "root\\cimv2")) {
+        error = "Refusing namespace '" + ns +
+                "': 'allowed namespaces' is empty in [/settings/wmi], so only the default root\\cimv2 may be used while 'query access' is restricted";
+        return false;
+      }
+    } else {
+      const check::access::decision d = namespace_access_.check_value(ns, "namespace");
+      if (!d.allowed) {
+        error = d.error;
+        return false;
+      }
+    }
+  }
+  out = build_namespace(ns, computer);
+  return true;
 }
 
 #include <parsers/filter/cli_helper.hpp>
@@ -96,8 +163,11 @@ void CheckWMI::check_wmi(const PB::Commands::QueryRequestMessage::Request &reque
     ("target", po::value<std::string>(&given_target), "The target to check (for checking remote machines).")
     ("user", po::value<std::string>(&target_info.username), "Remote username when checking remote machines.")
     ("password", po::value<std::string>(&target_info.password), "Remote password when checking remote machines.")
-    ("namespace", po::value<std::string>(&ns)->default_value("root\\cimv2"), "The WMI root namespace to bind to.")
-    ("query", po::value<std::string>(&query), "The WMI query to execute.")
+    ("namespace", po::value<std::string>(&ns)->default_value("root\\cimv2"), "The WMI root namespace to bind to.\n"
+      "While 'query access' in [/settings/wmi] is restricted this must match 'allowed namespaces', and may not be changed at all when that list is empty.")
+    ("query", po::value<std::string>(&query), "The WMI query to execute.\n"
+      "Which queries may be run here is governed by 'query access' in [/settings/wmi]: by default any query is run, but an operator can restrict this to "
+      "queries reading an allowed class, or to names predefined in [/settings/wmi/queries], in which case this takes such a name.")
     ;
   // clang-format on
 
@@ -105,16 +175,50 @@ void CheckWMI::check_wmi(const PB::Commands::QueryRequestMessage::Request &reque
 
   if (query.empty()) return nscapi::protobuf::functions::set_response_bad(*response, "No query specified");
 
+  // Hold the query against [/settings/wmi] 'query access' before WMI is
+  // touched. A name defined in [/settings/wmi/queries] is operator-authored,
+  // so it expands and is trusted as-is; a raw query in `allowed` mode has to
+  // name a class on the allow list, which means it also has to be simple
+  // enough to say which class that is.
+  const bool is_predefined = query_access_.has_predefined(query);
+  {
+    const check::access::decision d = query_access_.resolve(query);
+    if (!d.allowed) return nscapi::protobuf::functions::set_response_bad(*response, d.error);
+    query = d.value;
+  }
+  if (!is_predefined && query_access_.get_mode() == check::access::mode::allowed) {
+    const check::wql::parse_result parsed = check::wql::extract_class(query);
+    if (!parsed.ok) {
+      return nscapi::protobuf::functions::set_response_bad(*response, "Refusing query: " + parsed.error + " (see [/settings/wmi] in the configuration)");
+    }
+    const check::access::decision d = class_access_.check_value(parsed.class_name, "WMI class");
+    if (!d.allowed) return nscapi::protobuf::functions::set_response_bad(*response, d.error);
+  }
+
   if (!given_target.empty()) {
     t = targets.find(given_target);
-    if (t)
+    if (t) {
       target_info.update_from(t.value());
-    else
+    } else if (query_access_.get_mode() != check::access::mode::any) {
+      // An unknown target is otherwise taken as a bare host name, which would
+      // let a caller point a restricted check at a machine of its choosing
+      // (and hand it the configured credentials). While access is restricted,
+      // only a target defined in [/settings/wmi/targets] is accepted.
+      return nscapi::protobuf::functions::set_response_bad(
+          *response, "Refusing target '" + given_target +
+                         "': it is not defined in [/settings/wmi/targets], and 'query access' is restricted (see [/settings/wmi] in the configuration)");
+    } else {
       target_info.hostname = given_target;
+    }
+  }
+
+  {
+    std::string resolved_ns, error;
+    if (!resolve_namespace(ns, target_info.hostname, resolved_ns, error)) return nscapi::protobuf::functions::set_response_bad(*response, error);
+    ns = resolved_ns;
   }
 
   try {
-    ns = build_namespace(ns, target_info.hostname);
     wmi_impl::query wmiQuery(query, ns, target_info.username, target_info.password);
     filter.context->registry_.add_string_var("line", &wmi_filter::filter_obj::get_row, "Get a list of all columns");
     for (const std::string &col : wmiQuery.get_columns()) {
