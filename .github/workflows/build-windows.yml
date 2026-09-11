@@ -53,7 +53,7 @@ jobs:
       platform: ${{ steps.setup.outputs.platform }}
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
 
     - id: setup
       run: |
@@ -91,14 +91,14 @@ jobs:
       shell: pwsh
 
     - id: python
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ ENV.PYTHON_VERSION }}
         architecture: ${{ steps.setup.outputs.python_arch }}
         cache-dependency-path: 'build/python/requirements.txt'
         cache: 'pip'
 
-    - uses: actions/setup-node@v6
+    - uses: actions/setup-node@v7
       with:
         node-version: 20
         cache: 'npm'
@@ -330,7 +330,7 @@ jobs:
         mkdir -p tmp/nscp/dotnet-sample
         cp tmp/nscp/modules/dotnet/NSCP.Plugin.CSharpSample.dll tmp/nscp/modules/dotnet/NSCP.Plugin.CSharpSample.deps.json tmp/nscp/dotnet-sample/
 
-    - uses: actions/upload-artifact@v6
+    - uses: actions/upload-artifact@v7
       with:
         name: NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}
         path: |
