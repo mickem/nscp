@@ -150,6 +150,33 @@ the subset of placeholders it needs.
 | `{{SHA256_MSI_X64}}`     | Uppercase SHA256 of the x64 MSI.     |
 | `{{SHA256_MSI_X86}}`     | Uppercase SHA256 of the x86 MSI.     |
 
+### `publish-winget.yml` only
+
+| Placeholder                   | Meaning                                          |
+| ----------------------------- | ------------------------------------------------ |
+| `{{PRODUCT_CODE_MSI_X64}}`    | `ProductCode` read out of the x64 MSI.           |
+| `{{PRODUCT_CODE_MSI_X86}}`    | `ProductCode` read out of the x86 MSI.           |
+| `{{RELEASE_NOTES}}`           | Body of the GitHub release, as Markdown.         |
+
+`Product Id` is `*` in `Product.wxs`, so every build mints a fresh
+`ProductCode`. The workflow downloads each MSI and reads the property out of
+its `Property` table before rendering; WinGet uses it to tie the installed
+package to its Add/Remove Programs entry for upgrade and uninstall.
+
+`{{RELEASE_NOTES}}` is a multi-line value, supplied with `--extra-file`
+rather than `--extra`. A placeholder that is alone on its line expands with
+that line's indentation applied to every continuation line, which is what
+drops it straight into a YAML block scalar:
+
+```yaml
+ReleaseNotes: |-
+  {{RELEASE_NOTES}}
+```
+
+Values read with `--extra-file` are truncated to 10000 characters
+(`--extra-file-max-chars`), which is WinGet's cap on `ReleaseNotes` — over it
+the manifest is rejected outright rather than trimmed.
+
 ### `publish-scoop.yml`
 
 | Placeholder              | Meaning                              |
@@ -158,6 +185,16 @@ the subset of placeholders it needs.
 | `{{URL_ZIP_X86}}`        | x86 ZIP archive URL.                 |
 | `{{SHA256_ZIP_X64}}`     | Uppercase SHA256 of the x64 ZIP.     |
 | `{{SHA256_ZIP_X86}}`     | Uppercase SHA256 of the x86 ZIP.     |
+
+### Keeping metadata consistent between versions
+
+`winget-pkgs` runs a metadata-consistency check that compares a submission
+against the previously published version and flags every property the new
+manifest drops. So a property that has ever shipped — `ReleaseNotes`,
+`Documentations`, `InstallerLocale`, `Scope`, `InstallerSwitches`,
+`ProductCode` — has to keep being rendered. Before deleting anything from a
+template, check it against the published manifest under
+`manifests/m/Mickem/NSClient/` upstream.
 
 The legacy XP MSI (`NSCP-<ver>-Win32-legacy-xp.msi`) is produced by
 `release.yml` but is **not** plumbed through these workflows; XP coverage
