@@ -383,6 +383,13 @@ msiexec /i NSClient++.msi OP5_SERVER=https://op5.com OP5_USER=monitor OP5_PASSWO
 
 ## Enrolling with a fleet server
 
+<!-- @formatter:off -->
+!!! tip "Starting from nothing?"
+    [Central management with NSClient Fleet](fleet.md) is the end-to-end walkthrough:
+    running the fleet server as a container, getting the agent to trust it, enrolling, and
+    what changes on the agent afterwards. This section is the MSI reference.
+<!-- @formatter:on -->
+
 If you manage your agents from an NSClient fleet server, the installer can enroll the host while it installs, so the
 machine is managed from the moment the service starts. Generate an install command on the fleet server and pass the
 server url and the bootstrap token it gives you:
@@ -424,11 +431,16 @@ A few things worth knowing:
 - **Keep the token out of your logs.** The token is hidden from the MSI log, but treat the deployment script that
   carries it as a secret; the token is a credential that exchanges for this host's client certificate.
 
-The same enrollment can be done after installation with the command line:
+The same enrollment can be done after installation with the command line, and is how a
+Linux host enrolls since there is no MSI there:
 
 ```
 nscp enroll --server https://fleet.example.com --token <bootstrap-token>
 ```
+
+Add `--ca <file>` when the fleet server does not have a publicly trusted certificate —
+which includes the self-signed one it generates for itself by default. See
+[Give the agents something to trust](fleet.md#step-2-give-the-agents-something-to-trust).
 
 ## Installing your own TLS certificates
 

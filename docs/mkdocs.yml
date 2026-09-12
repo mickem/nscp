@@ -42,6 +42,7 @@ nav:
       - Upgrading: setup/upgrading.md
       - Securing NSClient++: setup/securing.md
       - Web Interface: setup/web-interface.md
+      - Central management (Fleet): setup/fleet.md
   - Security:
       - Security notices: security/notices.md
   - Monitoring Scenarios:
