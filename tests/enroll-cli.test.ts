@@ -128,8 +128,20 @@ describe("nscp enroll (fleet onboarding CLI)", () => {
     expect(out).toContain(`Bundle keys:        1 (fingerprint ${pinnedFingerprint})`);
     expect(out).not.toContain(bundleKey);
     expect(readState(stateFile).bundle_keys).toEqual([bundleKey]);
+    expect(readState(stateFile).require_encrypted_bundles).toBe(false);
+    expect(out).toContain("Encrypted bundles:  not required");
     // The key never goes to the server.
     expect(JSON.stringify(requests)).not.toContain(bundleKey);
+  });
+
+  it("stores --require-encrypted-bundles in the manifest, out of the server's reach", async () => {
+    const stateFile = path.join(nscp.scratch("enroll_require"), "agent-state.json");
+    const r = await enroll(["--state-file", stateFile, "--bundle-key", bundleKey, "--require-encrypted-bundles"]);
+    expect(r.exitCode).toBe(0);
+    expect(r.all ?? r.stdout).toContain("Encrypted bundles:  required");
+    expect(readState(stateFile).require_encrypted_bundles).toBe(true);
+    // Not a setting: nothing the fleet-managed include could override.
+    expect(fs.readFileSync(nscp.settingsFile, "utf8")).not.toMatch(/require encrypted/);
   });
 
   it("keeps several --bundle-key values in the order given", async () => {
@@ -162,13 +174,22 @@ describe("nscp enroll (fleet onboarding CLI)", () => {
     expect(requests).toEqual([]);
     const after = readState(stateFile);
     expect(after.bundle_keys).toEqual([otherKey, bundleKey]);
+    expect(after.require_encrypted_bundles).toBe(false);
     // Only the keys changed: the identity is untouched.
     expect(after.private_key_pem).toBe(before.private_key_pem);
     expect(after.cert_pem).toBe(before.cert_pem);
 
-    // No keys at all removes them.
+    // The requirement travels with the update: given, it is on; omitted, off.
+    const required = await nscp.run(["enroll", "--update-bundle-keys", "--state-file", stateFile, "--bundle-key", bundleKey, "--require-encrypted-bundles"], {
+      allowFailure: true,
+    });
+    expect(required.exitCode).toBe(0);
+    expect(readState(stateFile).require_encrypted_bundles).toBe(true);
+
+    // No keys at all removes them, and the requirement with them.
     expect((await nscp.run(["enroll", "--update-bundle-keys", "--state-file", stateFile], { allowFailure: true })).exitCode).toBe(0);
     expect(readState(stateFile).bundle_keys).toEqual([]);
+    expect(readState(stateFile).require_encrypted_bundles).toBe(false);
   });
 
   it("refuses --update-bundle-keys on a host that is not enrolled", async () => {

@@ -687,10 +687,12 @@ TEST_F(OnboardingStateTest, RoundTripsBundleKeys) {
   onboarding::enrolled_identity saved = test_state();
   saved.bundle_keys.push_back("AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=");
   saved.bundle_keys.push_back("a2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2s=");
+  saved.require_encrypted_bundles = true;
   onboarding::save_state(saved, path_);
   const boost::optional<onboarding::enrolled_identity> loaded = onboarding::load_state(path_);
   ASSERT_TRUE(loaded);
   EXPECT_EQ(loaded.value().bundle_keys, saved.bundle_keys) << "order matters: newest first is the rotation convention";
+  EXPECT_TRUE(loaded.value().require_encrypted_bundles);
 }
 
 TEST_F(OnboardingStateTest, AManifestWithoutBundleKeysStillLoads) {
@@ -703,11 +705,12 @@ TEST_F(OnboardingStateTest, AManifestWithoutBundleKeysStillLoads) {
     buffer << in.rdbuf();
     text = buffer.str();
   }
-  // Strip the member: the manifest is compact JSON and the member is last.
-  const std::string member = ",\"bundle_keys\":[]";
-  const std::string::size_type at = text.find(member);
-  ASSERT_NE(at, std::string::npos) << text;
-  text.erase(at, member.size());
+  // Strip both members: the manifest is compact JSON and they are last.
+  for (const std::string member : {std::string(",\"bundle_keys\":[]"), std::string(",\"require_encrypted_bundles\":false")}) {
+    const std::string::size_type at = text.find(member);
+    ASSERT_NE(at, std::string::npos) << text;
+    text.erase(at, member.size());
+  }
   {
     std::ofstream out(path_.c_str(), std::ios::binary | std::ios::trunc);
     out << text;
@@ -715,6 +718,7 @@ TEST_F(OnboardingStateTest, AManifestWithoutBundleKeysStillLoads) {
   const boost::optional<onboarding::enrolled_identity> loaded = onboarding::load_state(path_);
   ASSERT_TRUE(loaded);
   EXPECT_TRUE(loaded.value().bundle_keys.empty());
+  EXPECT_FALSE(loaded.value().require_encrypted_bundles);
 }
 
 TEST_F(OnboardingStateTest, MalformedBundleKeysAreCorrupt) {

@@ -1808,7 +1808,7 @@ namespace {
 // Hand the deferred half what it needs. One writer, so the two halves cannot
 // disagree about the field order.
 UINT schedule_enroll_fleet(msi_helper &h, const std::wstring &server, const std::wstring &token, const std::wstring &verify_mode, const bool insecure,
-                           const std::wstring &bundle_keys) {
+                           const std::wstring &bundle_keys, const bool require_encrypted_bundles) {
   msi_helper::custom_action_data_w data;
   data.write_string(h.getTargetPath(L"INSTALLLOCATION"));
   data.write_string(server);
@@ -1818,6 +1818,7 @@ UINT schedule_enroll_fleet(msi_helper &h, const std::wstring &server, const std:
   data.write_string(verify_mode);
   data.write_int(insecure ? 1 : 0);
   data.write_string(bundle_keys);
+  data.write_int(require_encrypted_bundles ? 1 : 0);
   // Deliberately not logged: it carries the bootstrap token and the bundle
   // keys (which is also why FLEET_TOKEN, FLEET_BUNDLE_KEY and ExecEnrollFleet
   // are hidden properties).
@@ -1837,7 +1838,8 @@ extern "C" UINT __stdcall ScheduleEnrollFleet(MSIHANDLE hInstall) {
   try {
     const std::wstring server = boost::algorithm::trim_copy(h.getMsiPropery(FLEET_SERVER));
     const std::wstring bundle_keys = boost::algorithm::trim_copy(h.getMsiPropery(FLEET_BUNDLE_KEY));
-    if (server.empty() && bundle_keys.empty()) {
+    const bool require_encrypted_bundles = is_true(h.getMsiPropery(FLEET_REQUIRE_ENCRYPTED_BUNDLES));
+    if (server.empty() && bundle_keys.empty() && !require_encrypted_bundles) {
       h.logMessage(L"No FLEET_SERVER given: not enrolling with a fleet server");
       return ERROR_SUCCESS;
     }
@@ -1857,8 +1859,8 @@ extern "C" UINT __stdcall ScheduleEnrollFleet(MSIHANDLE hInstall) {
     if (server.empty()) {
       // Key rotation on an already enrolled host, e.g. an upgrade run with only
       // FLEET_BUNDLE_KEY. The deferred half refuses if there is no enrollment.
-      h.logMessage(L"No FLEET_SERVER given: storing FLEET_BUNDLE_KEY into this host's existing enrollment");
-      return schedule_enroll_fleet(h, L"", L"", L"", false, bundle_keys);
+      h.logMessage(L"No FLEET_SERVER given: updating the bundle keys / encrypted-bundle requirement of this host's existing enrollment");
+      return schedule_enroll_fleet(h, L"", L"", L"", false, bundle_keys, require_encrypted_bundles);
     }
     const std::wstring token = boost::algorithm::trim_copy(h.getMsiPropery(FLEET_TOKEN));
     const std::wstring verify_mode = boost::algorithm::trim_copy(h.getMsiPropery(FLEET_VERIFY_MODE));
@@ -1918,7 +1920,7 @@ extern "C" UINT __stdcall ScheduleEnrollFleet(MSIHANDLE hInstall) {
       return ERROR_INSTALL_FAILURE;
     }
 
-    return schedule_enroll_fleet(h, server, token, verify_mode, insecure, bundle_keys);
+    return schedule_enroll_fleet(h, server, token, verify_mode, insecure, bundle_keys, require_encrypted_bundles);
   } catch (const installer_exception &e) {
     h.errorMessage(L"Failed to schedule the fleet enrollment: " + e.what());
     return ERROR_INSTALL_FAILURE;
@@ -1947,6 +1949,7 @@ extern "C" UINT __stdcall ExecEnrollFleet(MSIHANDLE hInstall) {
     // Already validated by the immediate half; split here so the manifest
     // stores one entry per key.
     const std::vector<std::string> bundle_keys = onboarding::split_bundle_keys(utf8::cvt<std::string>(data.get_next_string()));
+    const bool require_encrypted_bundles = data.get_next_int() == 1;
 
     // The enrollment manifest lives where the service looks for it:
     // ${certificate-path}/agent-state.json, i.e. inside the install folder.
@@ -1976,18 +1979,22 @@ extern "C" UINT __stdcall ExecEnrollFleet(MSIHANDLE hInstall) {
     boost::system::error_code ec;
     if (boost::filesystem::exists(state_file, ec)) {
       h.logMessage(L"This host is already enrolled: keeping the existing identity (delete the manifest above to enroll again).");
-      if (!bundle_keys.empty()) {
+      if (!bundle_keys.empty() || require_encrypted_bundles) {
         // Re-running the installer with FLEET_BUNDLE_KEY is how a rotated key
         // reaches an enrolled host: the identity stays, the keys are replaced.
+        // The requirement can only be switched on here; switching it off is
+        // `nscp enroll --update-bundle-keys` without the flag, on purpose.
         const boost::optional<onboarding::enrolled_identity> current = onboarding::load_state(state_file);
         if (!current) {
           h.errorMessage(L"Fleet enrollment failed: the enrollment manifest exists but could not be read, so FLEET_BUNDLE_KEY cannot be stored.");
           return ERROR_INSTALL_FAILURE;
         }
         onboarding::enrolled_identity updated = current.value();
-        updated.bundle_keys = bundle_keys;
+        if (!bundle_keys.empty()) updated.bundle_keys = bundle_keys;
+        if (require_encrypted_bundles) updated.require_encrypted_bundles = true;
         onboarding::save_state(updated, state_file);
-        h.logMessage(L"Stored " + std::to_wstring(bundle_keys.size()) + L" bundle key(s) into the existing enrollment.");
+        h.logMessage(L"Updated the existing enrollment: " + std::to_wstring(updated.bundle_keys.size()) + L" bundle key(s), encrypted bundles " +
+                     (updated.require_encrypted_bundles ? L"required" : L"not required") + L".");
       }
       ensure_fleet_ini(install_folder, shared_folder);
       return ERROR_SUCCESS;
@@ -2037,6 +2044,7 @@ extern "C" UINT __stdcall ExecEnrollFleet(MSIHANDLE hInstall) {
     h.logMessage(L"Enrolling with the fleet server...");
     onboarding::enrolled_identity state = onboarding::enroll(request);
     state.bundle_keys = bundle_keys;
+    state.require_encrypted_bundles = require_encrypted_bundles;
     onboarding::save_state(state, state_file);
     h.logMessage("Enrollment successful, agent API (mTLS): " + state.mtls_url);
     ensure_fleet_ini(install_folder, shared_folder);

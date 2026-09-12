@@ -497,7 +497,7 @@ bool fleet_sync::apply_state(const onboarding::desired_state &state, std::vector
       // what the signature covers); the plaintext zip only exists in staging
       // while this apply runs.
       std::string plaintext, open_error;
-      if (!onboarding::open_bundle(identity_.bundle_keys, bundle.name, bundle.version, bytes, config_.require_encrypted_bundles, plaintext, open_error)) {
+      if (!onboarding::open_bundle(identity_.bundle_keys, bundle.name, bundle.version, bytes, identity_.require_encrypted_bundles, plaintext, open_error)) {
         errors.push_back("Bundle " + bundle.id + ": " + open_error);
         return false;
       }
@@ -722,7 +722,7 @@ void fleet_sync::run() {
       fingerprints += onboarding::parse_bundle_key(key, raw, key_error) ? onboarding::bundle_key_fingerprint(raw) : "(invalid)";
     }
     log_debug("Bundle encryption keys configured: " + fingerprints);
-  } else if (config_.require_encrypted_bundles) {
+  } else if (identity_.require_encrypted_bundles) {
     log_error(
         "Encrypted bundles are required but this host holds no bundle key: nothing the fleet server sends can be applied (add one with "
         "`nscp enroll --bundle-key`)");

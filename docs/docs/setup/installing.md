@@ -269,6 +269,7 @@ A list of all the MSI options can be found below.
 | FLEET_VERIFY_MODE   | TLS verify mode for the enrollment call (*certificate*, none). `none` requires FLEET_INSECURE=1                         |
 | FLEET_INSECURE      | Set to 1 to allow an unauthenticated enrollment: a plain `http://` FLEET_SERVER, or FLEET_VERIFY_MODE=none              |
 | FLEET_BUNDLE_KEY    | Bundle encryption key(s) for sealed bundles, as shown once by the fleet server; several separated by commas             |
+| FLEET_REQUIRE_ENCRYPTED_BUNDLES | Set to 1 to refuse every bundle that is not sealed with one of the bundle keys                              |
 | LAYOUT              | On-disk layout: `modern` keeps the writable state in `%ProgramData%\NSClient++` restricted to SYSTEM and administrators, `legacy` (default) keeps it in the install folder. Omit it to keep whatever the host already uses. **Experimental** - see below |
 
 ### On-disk layout (LAYOUT)
@@ -417,6 +418,7 @@ msiexec /qn /i NSCP-<version>-x64.msi FLEET_SERVER=https://fleet.example.com FLE
 | `FLEET_VERIFY_MODE` | no                                        | `certificate`              | `none` stops the fleet server being verified at all, and is only accepted together with `FLEET_INSECURE=1`.              |
 | `FLEET_INSECURE`    | no                                        | unset                      | `1` opts into an unauthenticated enrollment: a plain `http://` url, `FLEET_VERIFY_MODE=none`, or both.                   |
 | `FLEET_BUNDLE_KEY`  | for [encrypted bundles](fleet.md#encrypted-bundles) | unset            | The bundle encryption key (44 base64 characters) the fleet server showed once when it was created; several, comma separated, while rotating. Stored in the enrollment manifest, never sent to the server. On an already enrolled host it may be given on its own, without `FLEET_SERVER`, to replace the stored keys. |
+| `FLEET_REQUIRE_ENCRYPTED_BUNDLES` | no                          | unset                      | `1` refuses every bundle that is not sealed with one of the bundle keys, plain ones included. Stored in the enrollment manifest, so the fleet server cannot switch it off; may be given on its own on an enrolled host. |
 
 ### Running the installer with fleet arguments
 

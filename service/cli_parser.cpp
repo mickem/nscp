@@ -785,6 +785,7 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
     bool insecure = false;
     std::vector<std::string> bundle_keys;
     bool update_bundle_keys = false;
+    bool require_encrypted_bundles = false;
     bool unenroll = false;
 
     po::options_description enroll_desc("Enrollment options");
@@ -803,7 +804,8 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
       ("force", po::bool_switch(&force), "Overwrite an existing enrollment state file")
       ("insecure", po::bool_switch(&insecure), "Allow an unauthenticated enrollment: plain HTTP, or HTTPS with --verify none. Either way the fleet server is not authenticated, so an on-path attacker can read the bootstrap token and supply the trust anchors this agent will use from then on - only on a trusted network or for testing")
       ("bundle-key", po::value<std::vector<std::string> >(&bundle_keys)->composing(), "Bundle encryption key, as the fleet server showed it once when the key was created (base64 of 32 bytes). Needed to open bundles the operator sealed in the browser; the server never sees it. Stored in the enrollment manifest, never sent anywhere. Repeat for several keys while rotating, newest first")
-      ("update-bundle-keys", po::bool_switch(&update_bundle_keys), "Do not enroll: replace the bundle keys stored in this host's existing enrollment manifest with the --bundle-key values (none to remove them all). No server contact, no token needed")
+      ("require-encrypted-bundles", po::bool_switch(&require_encrypted_bundles), "Refuse every bundle that is not sealed with one of the bundle keys, plain ones included: the posture for a fleet server not trusted with plaintext configuration. Stored in the enrollment manifest with the keys, so the server cannot switch it off")
+      ("update-bundle-keys", po::bool_switch(&update_bundle_keys), "Do not enroll: replace the bundle keys stored in this host's existing enrollment manifest with the --bundle-key values (none to remove them all), and the encrypted-bundle requirement with whether --require-encrypted-bundles is given. No server contact, no token needed")
       ("unenroll", po::bool_switch(&unenroll), "Leave the fleet: delete the enrollment manifest (identity and bundle keys), the fleet-managed configuration, scripts and bundle cache, and the [/includes] fleet entry. Nothing is sent to the server; remove the host there as well")
     ;
     // clang-format on
@@ -912,10 +914,12 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
       }
       onboarding::enrolled_identity updated = current.value();
       updated.bundle_keys = bundle_keys;
+      updated.require_encrypted_bundles = require_encrypted_bundles;
       onboarding::save_state(updated, state_file);
       std::cout << "Bundle keys updated." << std::endl;
       std::cout << "  Identity stored in: " << state_file << std::endl;
       std::cout << "  Bundle keys:        " << describe_keys() << std::endl;
+      std::cout << "  Encrypted bundles:  " << (require_encrypted_bundles ? "required" : "not required") << std::endl;
       std::cout << "  The fleet sync picks them up on the next service start." << std::endl;
       return 0;
     }
@@ -996,6 +1000,7 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
     std::cout << "Enrolling with " << request.server_url << "..." << std::endl;
     onboarding::enrolled_identity state = onboarding::enroll(request);
     state.bundle_keys = bundle_keys;
+    state.require_encrypted_bundles = require_encrypted_bundles;
     onboarding::save_state(state, state_file);
 
     // Enrollment is normally run with sudo while the service runs unprivileged,
@@ -1019,6 +1024,7 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
     std::cout << "  Identity stored in: " << state_file << std::endl;
     std::cout << "  Agent API (mTLS):   " << state.mtls_url << std::endl;
     std::cout << "  Bundle keys:        " << describe_keys() << std::endl;
+    std::cout << "  Encrypted bundles:  " << (require_encrypted_bundles ? "required" : "not required") << std::endl;
 
     // The core starts the fleet sync automatically whenever the enrollment
     // manifest written above exists - no module to enable. Only the include

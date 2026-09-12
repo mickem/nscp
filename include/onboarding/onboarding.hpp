@@ -109,6 +109,11 @@ struct enrolled_identity {
   // a key the server could plant there would defeat the point of sealing
   // bundles against the server. Only local enrollment writes this file.
   std::vector<std::string> bundle_keys;
+  // Refuse any bundle that is not a sealed envelope: the posture for a fleet
+  // server that is not trusted with plaintext configuration. Lives here for
+  // the same reason the keys do - in the settings store the server could
+  // reach it through the fleet-managed include.
+  bool require_encrypted_bundles = false;
 };
 
 // Parse a Retry-After header value (429/503) as RFC 9110 delay-seconds; none

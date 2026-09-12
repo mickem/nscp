@@ -498,7 +498,7 @@
            the time the configuration gains a `certificate key` pointing at
            it. -->
       <Custom Action="ScheduleInstallCerts" After="SchedulePrepareLayout">NOT (REMOVE ="ALL") AND (CERTIFICATE OR CERTIFICATE_KEY OR CERTIFICATE_CA)</Custom>
-      <Custom Action="ScheduleEnrollFleet" After="ScheduleInstallCerts">NOT (REMOVE ="ALL") AND (FLEET_SERVER OR FLEET_BUNDLE_KEY)</Custom>
+      <Custom Action="ScheduleEnrollFleet" After="ScheduleInstallCerts">NOT (REMOVE ="ALL") AND (FLEET_SERVER OR FLEET_BUNDLE_KEY OR FLEET_REQUIRE_ENCRYPTED_BUNDLES)</Custom>
       <Custom Action="ScheduleWriteConfig" After="ScheduleEnrollFleet">NOT (REMOVE ="ALL")</Custom>
       <Custom Action="GenConfig.Command" After="ScheduleWriteConfig">NOT (REMOVE ="ALL") AND GENERATE_SAMPLE_CONFIG = 1</Custom>
       <Custom Action="GenConfig" After="GenConfig.Command">NOT (REMOVE ="ALL") AND GENERATE_SAMPLE_CONFIG = 1</Custom>

@@ -388,15 +388,15 @@ What the agent does with a sealed bundle:
 debug level on start, so a mismatch is visible without exposing the key.
 
 For a server you do not trust with plaintext at all, make sealed bundles the only kind the
-host accepts:
+host accepts: pass `--require-encrypted-bundles` to `nscp enroll` (at enrollment, or later
+with `--update-bundle-keys`), or `FLEET_REQUIRE_ENCRYPTED_BUNDLES=1` to the installer. Then
+nothing the server sends is applied unless a key holder produced it — including ordinary
+plain bundles, which are refused with an error in the state report.
 
-```ini
-[/settings/fleet]
-require encrypted bundles = true
-```
-
-Then nothing the server sends is applied unless a key holder produced it — including
-ordinary plain bundles, which are refused with an error in the state report.
+This is deliberately not a setting. It is stored in the enrollment manifest with the keys,
+where the fleet-managed include cannot reach it: a server that could switch the requirement
+off would not be much of a requirement. To switch it off yourself, run
+`nscp enroll --update-bundle-keys` with your keys and without the flag.
 
 <!-- @formatter:off -->
 !!! warning "There is no key escrow"

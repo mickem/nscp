@@ -28,9 +28,6 @@ struct fleet_config {
   // accepts the connection and then stops responding would otherwise block the
   // sync thread for good - the host would stay enrolled but stop being managed.
   unsigned int timeout_seconds = 60;
-  // Refuse any bundle that is not a sealed envelope: the posture for a fleet
-  // server that is not trusted with plaintext configuration. Off by default.
-  bool require_encrypted_bundles = false;
   // Answers "does this host carry local configuration that outranks what we
   // send it?" for the state report. A callback rather than a captured bool
   // because the sync outlives configuration reloads - including the ones it

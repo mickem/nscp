@@ -14,7 +14,7 @@
  * Under test: a sealed bundle is opened and applied when the host holds the
  * key; the plaintext never lands in the cache (only the envelope does); a
  * bundle served under another name is refused, as is one sealed with a key
- * this host does not hold; `require encrypted bundles` refuses a plain one.
+ * this host does not hold; `--require-encrypted-bundles` refuses a plain one.
  * The envelope is built with node's own AES-GCM, an implementation
  * independent of the agent's.
  */
@@ -309,7 +309,14 @@ describe("encrypted fleet bundles", () => {
     );
 
     await nscp.stop();
-    await nscp.configure({ "/settings/fleet": { "require encrypted bundles": "true" } });
+    // The requirement lives in the manifest with the keys, not in a setting
+    // the fleet-managed include could reach.
+    const r = await nscp.run(
+      ["enroll", "--update-bundle-keys", "--bundle-key", bundleKey.toString("base64"), "--require-encrypted-bundles"],
+      { allowFailure: true },
+    );
+    expect(r.exitCode).toBe(0);
+    expect(fs.readFileSync(nscp.settingsFile, "utf8")).not.toMatch(/require encrypted/);
     requests = [];
     phase = "plain-required";
     nscp.start();

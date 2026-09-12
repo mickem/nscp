@@ -527,13 +527,6 @@ void NSClientT::boot_fleet_sync() {
     config.hostname = socket_helpers::expand_hostname(
         reg_key("hostname", "Hostname", "Hostname reported as a tag to the fleet server. Set to auto (default) to use this machine's hostname.", "auto"));
     config.tls_version = reg_key("tls version", "TLS version", "The TLS version used when connecting to the fleet server.", "tlsv1.2+");
-    settings_manager::get_core()->register_key(0xffff, path, "require encrypted bundles", "bool", "Require encrypted bundles",
-                                               "Refuse to apply any bundle that is not sealed with a bundle encryption key held by this host "
-                                               "(`nscp enroll --bundle-key`). The posture for a fleet server that is not trusted with plaintext "
-                                               "configuration: nothing it sends is applied unless a key holder produced it.",
-                                               "false", true, false);
-    const std::string require_encrypted = settings_manager::get_settings()->get_string(path, "require encrypted bundles", "false");
-    config.require_encrypted_bundles = require_encrypted == "true" || require_encrypted == "1" || require_encrypted == "yes";
     const std::string timeout = reg_key("timeout", "Request timeout",
                                         "How long a single request to the fleet server may take before it is abandoned and retried. A server that "
                                         "accepts the connection and then stops responding would otherwise stall the sync loop indefinitely.",

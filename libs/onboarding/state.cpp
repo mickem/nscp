@@ -43,6 +43,7 @@ std::string serialize_state(const onboarding::enrolled_identity &state) {
   json::array bundle_keys;
   for (const std::string &key : state.bundle_keys) bundle_keys.push_back(json::value(json::string_view(key.data(), key.size())));
   object["bundle_keys"] = bundle_keys;
+  object["require_encrypted_bundles"] = state.require_encrypted_bundles;
   return json::serialize(object);
 }
 
@@ -319,6 +320,11 @@ boost::optional<onboarding::enrolled_identity> onboarding::load_state(const std:
         if (!key.is_string()) throw std::runtime_error("bundle_keys entry is not a string");
         result.bundle_keys.push_back(onboarding::detail::to_string(key.as_string()));
       }
+    }
+    const json::value *require_encrypted = root.if_contains("require_encrypted_bundles");
+    if (require_encrypted != nullptr) {
+      if (!require_encrypted->is_bool()) throw std::runtime_error("require_encrypted_bundles is not a boolean");
+      result.require_encrypted_bundles = require_encrypted->as_bool();
     }
     return result;
   } catch (const std::exception &e) {
