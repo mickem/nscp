@@ -7,7 +7,6 @@
 #include <boost/regex.hpp>
 #include <map>
 #include <mutex>
-#include <shared_mutex>
 #include <string>
 #include <vector>
 
@@ -39,12 +38,19 @@
 //
 // A policy is read by the check threads and rewritten by a settings reload,
 // which calls loadModuleEx again on the live module while those threads run.
-// Every accessor therefore takes a shared lock and every mutator an exclusive
-// one, and a mutator replaces its part of the state in one step: the gate is
-// never observed half-rebuilt, and a reload never opens it - `reset()` drops
-// only the predefined entries, which the settings callbacks re-add, while the
-// mode and the allow list keep their previous values until notify() writes
-// the new ones over them.
+// Every accessor and every mutator therefore takes the lock, and a mutator
+// replaces its part of the state in one step: the gate is never observed
+// half-rebuilt, and a reload never opens it - `reset()` drops only the
+// predefined entries, which the settings callbacks re-add, while the mode and
+// the allow list keep their previous values until notify() writes the new ones
+// over them.
+//
+// A plain mutex, not a shared_mutex: the XP build defines _WIN32_WINNT=0x0501
+// and MSVC's <shared_mutex> is empty below Vista, because it is built on
+// SRWLOCK (net/socket/allowed_hosts.hpp makes the same choice for the same
+// reason). Nothing is lost by it - the critical sections are a mode read, a
+// map lookup and a walk of a handful of patterns, so there was never a
+// reader/writer win to have.
 
 namespace check {
 namespace access {
@@ -170,7 +176,7 @@ class policy {
   // own.
   policy(const policy &other)
       : noun_(other.noun_), nouns_(other.nouns_), settings_path_(other.settings_path_), case_sensitive_(other.case_sensitive_), mode_(mode::any) {
-    std::shared_lock<std::shared_mutex> lock(other.mutex_);
+    std::lock_guard<std::mutex> lock(other.mutex_);
     mode_ = other.mode_;
     config_error_ = other.config_error_;
     patterns_ = other.patterns_;
@@ -180,7 +186,7 @@ class policy {
   policy &operator=(const policy &other) {
     if (this == &other) return *this;
     policy copy(other);
-    std::unique_lock<std::shared_mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     noun_ = copy.noun_;
     nouns_ = copy.nouns_;
     settings_path_ = copy.settings_path_;
@@ -205,7 +211,7 @@ class policy {
       error = "invalid '" + noun_ + " access' in [" + settings_path_ + "]: '" + value + "' (expected any, allowed or predefined)";
       m = mode::predefined;
     }
-    std::unique_lock<std::shared_mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     config_error_.swap(error);
     mode_ = m;
   }
@@ -232,17 +238,17 @@ class policy {
         // list by throwing out of settings notification.
       }
     }
-    std::unique_lock<std::shared_mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     patterns_.swap(patterns);
     raw_patterns_.swap(raw_patterns);
   }
 
   void add_predefined(const std::string &name, const std::string &value) {
-    std::unique_lock<std::shared_mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     predefined_[name] = value;
   }
   void clear_predefined() {
-    std::unique_lock<std::shared_mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     predefined_.clear();
   }
 
@@ -257,38 +263,38 @@ class policy {
   // --- state ---------------------------------------------------------------
 
   mode get_mode() const {
-    std::shared_lock<std::shared_mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     return mode_;
   }
   const std::string &get_settings_path() const { return settings_path_; }
   const std::string &get_noun() const { return noun_; }
   const std::string &get_nouns() const { return nouns_; }
   bool is_restricted() const {
-    std::shared_lock<std::shared_mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     return mode_ != mode::any || !config_error_.empty();
   }
   std::string get_config_error() const {
-    std::shared_lock<std::shared_mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     return config_error_;
   }
   bool has_predefined(const std::string &name) const {
-    std::shared_lock<std::shared_mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     return predefined_.find(name) != predefined_.end();
   }
   bool lookup_predefined(const std::string &name, std::string &out) const {
-    std::shared_lock<std::shared_mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     const std::map<std::string, std::string>::const_iterator it = predefined_.find(name);
     if (it == predefined_.end()) return false;
     out = it->second;
     return true;
   }
   std::size_t allow_list_size() const {
-    std::shared_lock<std::shared_mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     return patterns_.size();
   }
 
   bool matches_allow_list(const std::string &value) const {
-    std::shared_lock<std::shared_mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     return matches_allow_list_unlocked(value);
   }
 
@@ -296,7 +302,7 @@ class policy {
 
   // Resolve one caller-supplied token into the value the check should use.
   decision resolve(const std::string &token) const {
-    std::shared_lock<std::shared_mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     const std::map<std::string, std::string>::const_iterator it = predefined_.find(token);
     if (it != predefined_.end()) return decision::accept(it->second);
 
@@ -337,7 +343,7 @@ class policy {
   std::string nouns_;
   std::string settings_path_;
   bool case_sensitive_;
-  mutable std::shared_mutex mutex_;
+  mutable std::mutex mutex_;
   mode mode_;
   std::string config_error_;
   std::vector<boost::regex> patterns_;

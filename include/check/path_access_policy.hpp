@@ -6,7 +6,6 @@
 #include <boost/filesystem.hpp>
 #include <check/access_policy.hpp>
 #include <mutex>
-#include <shared_mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -61,14 +60,14 @@ class path_policy {
         ) {}
 
   path_policy(const path_policy &other) : base_(other.base_) {
-    std::shared_lock<std::shared_mutex> lock(other.mutex_);
+    std::lock_guard<std::mutex> lock(other.mutex_);
     entries_ = other.entries_;
   }
   path_policy &operator=(const path_policy &other) {
     if (this == &other) return *this;
     path_policy copy(other);
     base_ = copy.base_;
-    std::unique_lock<std::shared_mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     entries_.swap(copy.entries_);
     return *this;
   }
@@ -90,7 +89,7 @@ class path_policy {
       if (item.empty()) continue;
       entries.push_back(make_entry(item));
     }
-    std::unique_lock<std::shared_mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     entries_.swap(entries);
   }
 
@@ -105,7 +104,7 @@ class path_policy {
   bool is_restricted() const { return base_.is_restricted(); }
   std::string get_config_error() const { return base_.get_config_error(); }
   std::size_t allow_list_size() const {
-    std::shared_lock<std::shared_mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     return entries_.size();
   }
 
@@ -169,7 +168,7 @@ class path_policy {
   }
 
   bool matches_allow_list(const std::string &resolved_path) const {
-    std::shared_lock<std::shared_mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     return matches_allow_list_unlocked(resolved_path);
   }
 
@@ -294,7 +293,7 @@ class path_policy {
   }
 
   policy base_;
-  mutable std::shared_mutex mutex_;
+  mutable std::mutex mutex_;
   std::vector<entry> entries_;
 };
 

@@ -7,7 +7,6 @@
 #include <check/access_policy.hpp>
 #include <functional>
 #include <mutex>
-#include <shared_mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -42,14 +41,14 @@ class prefix_policy {
       : base_(std::move(noun), std::move(nouns), std::move(settings_path)), separator_(separator), normalize_(std::move(normalize)) {}
 
   prefix_policy(const prefix_policy &other) : base_(other.base_), separator_(other.separator_), normalize_(other.normalize_) {
-    std::shared_lock<std::shared_mutex> lock(other.mutex_);
+    std::lock_guard<std::mutex> lock(other.mutex_);
     entries_ = other.entries_;
   }
   prefix_policy &operator=(const prefix_policy &other) {
     if (this == &other) return *this;
     prefix_policy copy(other);
     base_ = copy.base_;
-    std::unique_lock<std::shared_mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     separator_ = copy.separator_;
     normalize_ = copy.normalize_;
     entries_.swap(copy.entries_);
@@ -73,7 +72,7 @@ class prefix_policy {
       if (item.empty()) continue;
       entries.push_back(make_entry(normalize(item)));
     }
-    std::unique_lock<std::shared_mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     entries_.swap(entries);
   }
 
@@ -88,13 +87,13 @@ class prefix_policy {
   bool is_restricted() const { return base_.is_restricted(); }
   std::string get_config_error() const { return base_.get_config_error(); }
   std::size_t allow_list_size() const {
-    std::shared_lock<std::shared_mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     return entries_.size();
   }
 
   bool matches_allow_list(const std::string &value) const {
     const std::string subject = normalize(value);
-    std::shared_lock<std::shared_mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     for (const entry &e : entries_) {
       if (e.is_glob) {
         if (boost::regex_match(subject, e.pattern)) return true;
@@ -168,7 +167,7 @@ class prefix_policy {
   policy base_;
   char separator_;
   normalizer normalize_;
-  mutable std::shared_mutex mutex_;
+  mutable std::mutex mutex_;
   std::vector<entry> entries_;
 };
 
