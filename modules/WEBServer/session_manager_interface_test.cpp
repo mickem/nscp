@@ -153,6 +153,25 @@ TEST_F(SessionManagerTest, CanAcceptsAnyOneOfSeveralGrants) {
   EXPECT_TRUE(smi.can(session_manager_interface::grant_options{"something:write", "something:read"}, resp));
 }
 
+TEST_F(SessionManagerTest, CanReportsWhichGrantMatched) {
+  // query_controller branches on which of `queries.execute` /
+  // `queries.execute.noargs` let the request in; reporting it from the walk
+  // that authorised the call saves a second (mutex-guarded) walk of the tree.
+  Mongoose::StreamResponse resp;
+  smi.store_user_in_response("user", resp);
+  std::string matched;
+  EXPECT_TRUE(smi.can(session_manager_interface::grant_options{"something:write", "something:read"}, resp, &matched));
+  EXPECT_EQ(matched, "something:read");
+}
+
+TEST_F(SessionManagerTest, CanLeavesTheMatchedGrantUntouchedWhenRefusing) {
+  Mongoose::StreamResponse resp;
+  smi.store_user_in_response("user", resp);
+  std::string matched = "untouched";
+  EXPECT_FALSE(smi.can(session_manager_interface::grant_options{"something:write", "other:read"}, resp, &matched));
+  EXPECT_EQ(matched, "untouched");
+}
+
 TEST_F(SessionManagerTest, CanRefusesWhenNoneOfTheGrantsMatch) {
   Mongoose::StreamResponse resp;
   smi.store_user_in_response("user", resp);
@@ -197,6 +216,51 @@ TEST(SessionManagerNoArgs, ExecuteAndNoargsGrantsAreDisjoint) {
   smi.store_user_in_response("admin", admin);
   EXPECT_TRUE(smi.has_grant("queries.execute", admin));
   EXPECT_TRUE(smi.has_grant("queries.execute.noargs", admin));
+
+  // What query_controller actually asks: the grant that let the request in
+  // decides whether arguments are allowed. `queries.execute` is listed first,
+  // so a role holding both (the `*` of `full`) keeps passing arguments.
+  const session_manager_interface::grant_options both{"queries.execute", "queries.execute.noargs"};
+  std::string matched;
+  EXPECT_TRUE(smi.can(both, restricted, &matched));
+  EXPECT_EQ(matched, "queries.execute.noargs");
+  EXPECT_TRUE(smi.can(both, monitoring, &matched));
+  EXPECT_EQ(matched, "queries.execute");
+  EXPECT_TRUE(smi.can(both, admin, &matched));
+  EXPECT_EQ(matched, "queries.execute");
+}
+
+TEST(SessionManagerMetricsRole, MetricsGrantsAreWhatTheEndpointsAskFor) {
+  // Grants match per dot-separated segment, so the `metrics.get` the
+  // `monitoring` role used to carry opened neither metrics endpoint: they are
+  // gated by `metrics.list` (/api/v2/metrics) and `openmetrics.list`
+  // (/api/v2/openmetrics). The shipped roles now name those two, and the
+  // scrape-only `metrics` role holds nothing that runs a command.
+  session_manager_interface smi;
+  smi.add_user("stale", "stale", "password");
+  smi.add_grant("stale", "public,queries.execute,login.get,metrics.get");
+  smi.add_user("scraper", "metrics", "password");
+  smi.add_grant("metrics", "public,metrics.list,openmetrics.list,login.get");
+  smi.add_user("monitor", "monitoring", "password");
+  smi.add_grant("monitoring", "public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list");
+
+  Mongoose::StreamResponse stale;
+  smi.store_user_in_response("stale", stale);
+  EXPECT_FALSE(smi.has_grant("metrics.list", stale));
+  EXPECT_FALSE(smi.has_grant("openmetrics.list", stale));
+
+  Mongoose::StreamResponse scraper;
+  smi.store_user_in_response("scraper", scraper);
+  EXPECT_TRUE(smi.has_grant("metrics.list", scraper));
+  EXPECT_TRUE(smi.has_grant("openmetrics.list", scraper));
+  EXPECT_FALSE(smi.has_grant("queries.execute", scraper));
+  EXPECT_FALSE(smi.has_grant("queries.execute.noargs", scraper));
+
+  Mongoose::StreamResponse monitor;
+  smi.store_user_in_response("monitor", monitor);
+  EXPECT_TRUE(smi.has_grant("metrics.list", monitor));
+  EXPECT_TRUE(smi.has_grant("openmetrics.list", monitor));
+  EXPECT_TRUE(smi.has_grant("queries.execute", monitor));
 }
 
 TEST_F(SessionManagerTest, IsAllowedIp) { EXPECT_TRUE(smi.is_allowed("127.0.0.1")); }

@@ -334,7 +334,14 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   ensure_role(roles, settings, role_path, "client",
               "public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list",
               "read + run checks (queries.execute can run side-effecting commands)");
-  ensure_role(roles, settings, role_path, "monitoring", "public,queries.execute,aliases.list,login.get,metrics.get", "checks and queries only");
+  // `metrics.get` used to stand in for "may read metrics" here, but it opens
+  // nothing: the endpoints are gated by `metrics.list` (/api/v2/metrics) and
+  // `openmetrics.list` (/api/v2/openmetrics), and grants match per
+  // dot-separated segment (grant_store::validate_grants), so `metrics.get`
+  // matched neither. A monitoring server is expected to scrape, so the role
+  // now carries the two grants that actually do it.
+  ensure_role(roles, settings, role_path, "monitoring", "public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list",
+              "checks, queries and metrics");
   // `queries.execute.noargs` runs a query only when the request carries no
   // arguments at all - the REST twin of the NRPE server's
   // `allow arguments = false`. The caller can run the checks the agent
@@ -343,6 +350,11 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   // `queries.execute`, so this role can never widen into the full privilege.
   ensure_role(roles, settings, role_path, "restricted", "public,queries.execute.noargs,aliases.list,login.get",
               "checks and queries only, without arguments");
+  // A Prometheus scraper needs neither checks nor aliases: it reads the two
+  // metrics endpoints and nothing else. Handing it `monitoring` would give it
+  // `queries.execute` - the ability to run any registered command - for no
+  // reason, so scraping gets a role of its own.
+  ensure_role(roles, settings, role_path, "metrics", "public,metrics.list,openmetrics.list,login.get", "reading metrics only");
 
   if (!disable_admin_user) {
     ensure_user(settings, user_path, "admin", "full", admin_password, "Administrator");
@@ -1025,7 +1037,9 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
       result << "Admin user disabled (disable admin user = true)." << std::endl;
       result << "No user was created. The WEB server will reject all logins until you add one, e.g.:" << std::endl;
       result << "  nscp web add-user monitoring --role monitoring --password <pwd>" << std::endl;
-      result << "Available roles: monitoring (queries + metrics, recommended), client (adds query listing), full (admin)." << std::endl;
+      result << "Available roles: restricted (checks without arguments, tightest), metrics (scraping only), "
+                "monitoring (checks and metrics, recommended), client (adds query listing), full (admin)."
+             << std::endl;
     } else {
       // Default install: rotate /settings/default/password and seed the
       // per-user admin row. Setting the per-user row is required - without

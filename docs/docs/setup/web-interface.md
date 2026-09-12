@@ -78,9 +78,14 @@ port = 8443
 |--------------|----------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
 | `full`       | `*`                                                                                          | Administration: settings, modules, scripts.                              |
 | `client`     | `public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list` | A monitoring client that also browses the agent.       |
-| `monitoring` | `public,queries.execute,aliases.list,login.get,metrics.get`                                  | A monitoring server running checks with arguments.                       |
+| `monitoring` | `public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list`                 | A monitoring server running checks with arguments, and scraping metrics. |
 | `restricted` | `public,queries.execute.noargs,aliases.list,login.get`                                       | A monitoring server that may run checks but **not pass arguments**.      |
+| `metrics`    | `public,metrics.list,openmetrics.list,login.get`                                             | A Prometheus scraper: reads metrics, runs nothing.                       |
 | `legacy`     | `legacy,login.get`                                                                           | Old clients only — see the warning below. Not created on a fresh install. |
+
+The `metrics` role covers `/api/v2/metrics` and `/api/v2/openmetrics` and
+nothing else — a scraper never needs to run a check, so it should not hold
+`queries.execute`. See [Prometheus scraping](../scenarios/prometheus.md).
 
 The `restricted` role is the REST equivalent of the NRPE server's
 `allow arguments = false`: it holds `queries.execute.noargs` instead of
@@ -104,7 +109,7 @@ check_root_disk = check_drivesize drive=/ warning=free<10% critical=free<5%
 
 Because every query parameter counts as an argument, a restricted client must
 send its credentials in a header (`Authorization`, `X-Auth-Token` or `TOKEN`)
-rather than as a legacy `?password=` / `?TOKEN=` parameter.
+rather than as a legacy `?TOKEN=` parameter.
 
 <!-- @formatter:off -->
 !!! danger "The `legacy` role is powerful — only for legacy integrations"

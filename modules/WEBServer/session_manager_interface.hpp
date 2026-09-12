@@ -68,16 +68,21 @@ struct session_manager_interface {
   session_manager_interface();
 
   bool process_auth_header(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response);
-  bool process_auth_header(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response);
+  bool process_auth_header(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response,
+                           std::string *matched_grant = nullptr);
   // Handle the legacy `password` HTTP header used by Icinga's
   // check_nscp_api (and any client that follows the same convention). The
   // header carries the password only; the user is implied to be "admin".
   // Applies the same rate-limit / constant-time-compare guards as
   // process_auth_header.
   bool process_password_header(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response, const std::string &password);
-  bool process_password_header(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response, const std::string &password);
+  bool process_password_header(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response, const std::string &password,
+                               std::string *matched_grant = nullptr);
   bool is_logged_in(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response);
-  bool is_logged_in(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response);
+  // When matched_grant is given it receives the alternative which authorised
+  // the call, so a call site can branch on the privilege it was granted
+  // without walking the (mutex-guarded) grant tree a second time.
+  bool is_logged_in(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response, std::string *matched_grant = nullptr);
 
   bool is_allowed(const std::string &ip);
 
@@ -119,11 +124,12 @@ struct session_manager_interface {
   bool store_user_in_response(const std::string &user, Mongoose::StreamResponse &response);
   void store_session_in_response(const std::string &token, const std::string &user, Mongoose::StreamResponse &response) const;
   bool can(const std::string &grant, Mongoose::StreamResponse &response);
-  bool can(const grant_options &grants, Mongoose::StreamResponse &response);
+  // Satisfied by any one of the alternatives; matched_grant, when given,
+  // receives the one that did.
+  bool can(const grant_options &grants, Mongoose::StreamResponse &response, std::string *matched_grant = nullptr);
   // Non-mutating privilege test: unlike can() it never writes a 403 into the
-  // response. For call sites that need to *branch* on a privilege the caller
-  // may legitimately lack (the query endpoints branch on `queries.execute` to
-  // decide whether arguments are permitted) rather than gate on it.
+  // response. The building block of can(), and usable on its own where a call
+  // site must ask about a privilege the caller may legitimately lack.
   bool has_grant(const std::string &grant, const Mongoose::StreamResponse &response);
   static void get_user_from_response(const Mongoose::StreamResponse &response, std::string &user, std::string &key);
   void add_user(const std::string &user, const std::string &role, const std::string &password);
