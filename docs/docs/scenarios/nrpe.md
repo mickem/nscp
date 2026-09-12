@@ -348,6 +348,14 @@ port                   = 5666
 ```
 
 <!-- @formatter:off -->
+!!! tip "The same control over REST"
+    `allow arguments` governs callers arriving over NRPE. If the same agent
+    also serves the REST API, give those clients the built-in `restricted`
+    web role instead of `monitoring`: it grants `queries.execute.noargs`, so
+    a request carrying any argument is refused. That keeps the
+    no-arguments rule you set here from being bypassed through the other
+    door. See [Web interface](../setup/web-interface.md).
+
 !!! danger
     Combine `allow arguments = true` with a tight `allowed hosts` list (and
     a firewall) so only your monitoring server can reach the NRPE port. Any

@@ -100,6 +100,10 @@ bool session_manager_interface::client_allows_legacy_query_auth(const std::strin
 std::string decode_key(const std::string &encoded) { return Mongoose::Helpers::decode_b64(encoded); }
 
 bool session_manager_interface::process_auth_header(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response) {
+  return process_auth_header(grant_options{grant}, request, response);
+}
+
+bool session_manager_interface::process_auth_header(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response) {
   const std::string remote_ip = request.getRemoteIp();
   if (rate_limiter.is_blocked(remote_ip)) {
     NSC_LOG_ERROR("Rate-limited authentication attempt from " + remote_ip);
@@ -134,7 +138,7 @@ bool session_manager_interface::process_auth_header(const std::string &grant, Mo
       response.setCodeServerError("500 Failed to issue token");
       return false;
     }
-    return can(grant, response);
+    return can(grants, response);
   }
   if (is_bearer_auth(auth)) {
     const std::string token = auth.substr(7);
@@ -147,7 +151,7 @@ bool session_manager_interface::process_auth_header(const std::string &grant, Mo
     }
     rate_limiter.record_success(remote_ip);
     store_session_in_response(token, user, response);
-    return can(grant, response);
+    return can(grants, response);
   }
   NSC_LOG_ERROR("Unknown authentication scheme for " + remote_ip);
   response.setCodeForbidden(NOT_ALLOWED);
@@ -155,6 +159,11 @@ bool session_manager_interface::process_auth_header(const std::string &grant, Mo
 }
 
 bool session_manager_interface::process_password_header(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response,
+                                                        const std::string &password) {
+  return process_password_header(grant_options{grant}, request, response, password);
+}
+
+bool session_manager_interface::process_password_header(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response,
                                                         const std::string &password) {
   const std::string remote_ip = request.getRemoteIp();
   if (rate_limiter.is_blocked(remote_ip)) {
@@ -186,10 +195,14 @@ bool session_manager_interface::process_password_header(const std::string &grant
     response.setCodeServerError("500 Failed to issue token");
     return false;
   }
-  return can(grant, response);
+  return can(grants, response);
 }
 
 bool session_manager_interface::is_logged_in(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response) {
+  return is_logged_in(grant_options{grant}, request, response);
+}
+
+bool session_manager_interface::is_logged_in(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response) {
   std::list<std::string> errors;
   if (!allowed_hosts.is_allowed(boost::asio::ip::make_address(request.getRemoteIp()), errors)) {
     const std::string error = str::utils::joinEx(errors, ", ");
@@ -198,7 +211,7 @@ bool session_manager_interface::is_logged_in(const std::string &grant, Mongoose:
     return false;
   }
   if (has_auth_header(request)) {
-    return process_auth_header(grant, request, response);
+    return process_auth_header(grants, request, response);
   }
   // Legacy `password` HTTP header used by Icinga's check_nscp_api (and any
   // other plugin that follows the same convention). The header carries just
@@ -209,7 +222,7 @@ bool session_manager_interface::is_logged_in(const std::string &grant, Mongoose:
   // Basic auth path uses.
   const std::string password_header = request.readHeader("password");
   if (!password_header.empty()) {
-    return process_password_header(grant, request, response, password_header);
+    return process_password_header(grants, request, response, password_header);
   }
   const std::string token = find_token(request, *this);
   if (token.empty()) {
@@ -224,7 +237,7 @@ bool session_manager_interface::is_logged_in(const std::string &grant, Mongoose:
     return false;
   }
   store_session_in_response(token, user, response);
-  if (!can(grant, response)) {
+  if (!can(grants, response)) {
     NSC_LOG_ERROR("Rejected connection from: " + request.getRemoteIp() + " due to insufficient permissions");
     response.setCodeForbidden(NOT_ALLOWED);
     return false;
@@ -266,7 +279,7 @@ void session_manager_interface::get_user_from_response(const Mongoose::StreamRes
   key = response.getCookie("token");
 }
 
-bool session_manager_interface::can(const std::string &grant, Mongoose::StreamResponse &response) {
+bool session_manager_interface::has_grant(const std::string &grant, const Mongoose::StreamResponse &response) {
   const std::string uid = response.getCookie("uid");
   if (uid.empty()) {
     // Only consult the "anonymous" grants if anonymous access is explicitly
@@ -274,17 +287,23 @@ bool session_manager_interface::can(const std::string &grant, Mongoose::StreamRe
     // `anonymous` role for any reason (often by mistake or for
     // experimentation) would expose every endpoint listed in that role to
     // unauthenticated callers.
-    if (allow_anonymous_ && tokens.can("anonymous", grant)) {
+    return allow_anonymous_ && tokens.can("anonymous", grant);
+  }
+  return tokens.can(uid, grant);
+}
+
+bool session_manager_interface::can(const std::string &grant, Mongoose::StreamResponse &response) { return can(grant_options{grant}, response); }
+
+bool session_manager_interface::can(const grant_options &grants, Mongoose::StreamResponse &response) {
+  // Any one of the alternatives is enough: a call site listing several is
+  // saying "this endpoint is reachable by either privilege", not "both".
+  for (const std::string &grant : grants) {
+    if (has_grant(grant, response)) {
       return true;
     }
-    response.setCodeForbidden(NOT_ALLOWED);
-    return false;
   }
-  if (!tokens.can(uid, grant)) {
-    response.setCodeForbidden(NOT_ALLOWED);
-    return false;
-  }
-  return true;
+  response.setCodeForbidden(NOT_ALLOWED);
+  return false;
 }
 
 void session_manager_interface::add_user(const std::string &user, const std::string &role, const std::string &password) {

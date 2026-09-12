@@ -260,7 +260,9 @@ The arguments `C:`, `20`, and `10` are always passed to the script — they cann
 There are actually **two** independent `allow arguments` flags — one on the
 NRPE server, one on `CheckExternalScripts` — and the combination determines
 how exposed your scripts are. Pick the strategy that matches your threat
-model:
+model (if the agent also serves the REST API, the web role decides the same
+thing for those callers: `restricted` is the no-arguments one, `monitoring`
+and `client` pass them through):
 
 | Strategy                                | NRPE `allow arguments` | External-scripts `allow arguments` | Trade-off                                                                                            |
 |-----------------------------------------|------------------------|------------------------------------|------------------------------------------------------------------------------------------------------|
@@ -315,6 +317,14 @@ Arguments are accessed in scripts as `$ARG1$`, `$ARG2$`, etc.
     no longer the only thing standing between the network and a shell
     interpreter — argv isolation is — but leaving it `false` continues to
     block the most obvious abuse patterns.
+
+!!! note "Locking the REST door too"
+    These flags cover NRPE. A caller on the REST API holding `queries.execute`
+    passes arguments regardless of what the NRPE server allows. Assign such
+    clients the built-in `restricted` role instead — it grants
+    `queries.execute.noargs`, so an argument-carrying request is refused — and
+    the "locked down" row above holds on both transports. See
+    [Securing NSClient++](../setup/securing.md).
 <!-- @formatter:on -->
 
 ### Protocol payload limits

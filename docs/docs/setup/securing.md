@@ -128,12 +128,18 @@ $ nscp web install ^
 $ nscp web add-user monitoring --role monitoring --password "<strong password>"
 ```
 
+If the monitoring server only runs checks the agent already defines — no
+thresholds or targets supplied in the request — use `--role restricted`
+instead. It is the same role with arguments refused, the REST counterpart of
+NRPE's `allow arguments = false`; see the role list below.
+
 ### Adding a dedicated user
 
 `nscp web add-user` creates or updates a per-user row under `[/settings/WEB/server/users/<name>]`:
 
 ```commandline
 $ nscp web add-user monitoring --role monitoring --password "<strong password>"
+$ nscp web add-user poller     --role restricted --password "<strong password>"
 $ nscp web add-user dashboard  --role client
 ```
 
@@ -143,8 +149,16 @@ Options:
 * `--password`: Plaintext password. Hashed before being written to the config. If omitted, a random one is generated
   and printed once — copy it then.
 * `--role`: Built-in roles shipped by the module:
+    * `restricted` — `public, queries.execute.noargs, aliases.list, login.get`. The tightest useful role: it can run
+      the checks the agent defines but **cannot pass arguments** to them, which is the REST equivalent of the NRPE
+      server's `allow arguments = false`. A request that carries any query-string parameter is refused with
+      `403 Arguments are not allowed for this user`. Give such a caller the checks it needs as
+      [aliases](../api/rest/aliases.md), so the arguments live in your configuration rather than in the request. Note
+      that every query parameter counts, so this role must authenticate with a header rather than a legacy
+      `?password=` / `?TOKEN=` query parameter.
     * `monitoring` — `queries.execute, login.get, metrics.get`. Recommended for monitoring servers and Prometheus
-      scrapes.
+      scrapes that need to pass arguments. Where they don't, `restricted` above is the tighter choice — it is the
+      same role with arguments refused.
     * `client` — adds query listing; needed for the legacy `check_nscp_api` integration.
     * `full` — admin (settings, modules, scripts). Avoid for monitoring callers.
     * `legacy` — `legacy,login.get`. **Dangerous — do not use for normal clients.** It unlocks the deprecated
@@ -171,6 +185,12 @@ invoke through `/queries/{command}/commands/execute`, layer the [Permission poli
 WEBServer:admin      = *
 WEBServer:monitoring = CheckSystem.check_cpu, CheckSystem.check_drivesize, CheckDisk.check_drivesize
 ```
+
+The two controls are complementary and worth pairing: the policy decides *which
+commands* the user may invoke, the `restricted` role decides *whether it may
+shape them*. A `restricted` user pinned to a policy runs a fixed set of checks
+exactly as you defined them — which, over REST, is what NRPE with
+`allow arguments = false` gives you.
 
 For deeper coverage of the WEB module's attack surface — including the `--disable-admin` trade-off and the
 `scripts_controller` endpoint — see the [WEB module](#web-module) section further down.
@@ -492,6 +512,11 @@ The default posture is that arguments and shell metacharacters are **both reject
 `allow arguments = true`, the agent only substitutes arguments into the *already-configured* command line — the command
 itself is not user-controllable.
 
+This gate is per-transport. `allow arguments` covers callers arriving over NRPE; the equivalent for the REST API is the
+`restricted` web role (`queries.execute.noargs`), which refuses any request carrying arguments. If you rely on
+`allow arguments = false` for your NRPE clients, give your REST clients `restricted` rather than `monitoring` so the
+same rule holds on both doors.
+
 ```ini
 [/settings/external scripts]
 allow arguments = false             ; default; clients cannot pass extra args
@@ -603,6 +628,13 @@ $ nscp web add-user monitoring ^
     --password "$(openssl rand -base64 32)"
 ```
 
+Swap `--role monitoring` for `--role restricted` if the monitoring server only
+needs to run the checks this agent defines: the `restricted` role refuses any
+request that carries arguments, which is the REST equivalent of NRPE's
+`allow arguments = false`. Checks that do need arguments are then defined as
+aliases on the agent, so the arguments live in your configuration rather than in
+whatever the caller sends.
+
 With `--disable-admin`, the install command does three things differently:
 
 1. Sets `disable admin user = true` under `[/settings/WEB/server]`.
@@ -623,7 +655,9 @@ password = <hash>
 The `monitoring` role is registered by the WEB module at startup and grants only
 `public,queries.execute,login.get,metrics.get` — enough for a monitoring server to log in, run queries and scrape
 metrics, and nothing else. No `settings.*`, no `modules.*`, no `scripts.*`. If you need more (e.g. the legacy
-`check_nscp_api` integration that lists queries), prefer the `client` role over `full`.
+`check_nscp_api` integration that lists queries), prefer the `client` role over `full`. If you need *less*, the
+`restricted` role (`public,queries.execute.noargs,aliases.list,login.get`) runs the same checks but refuses any request
+carrying arguments.
 
 With `disable admin user = true`, the agent never creates or activates the `admin` account. The script-upload path is
 still wired up in the code, but no account can authenticate to it — so even an attacker who recovers the

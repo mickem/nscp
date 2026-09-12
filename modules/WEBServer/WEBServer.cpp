@@ -335,6 +335,14 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
               "public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list",
               "read + run checks (queries.execute can run side-effecting commands)");
   ensure_role(roles, settings, role_path, "monitoring", "public,queries.execute,aliases.list,login.get,metrics.get", "checks and queries only");
+  // `queries.execute.noargs` runs a query only when the request carries no
+  // arguments at all - the REST twin of the NRPE server's
+  // `allow arguments = false`. The caller can run the checks the agent
+  // defines (including aliases, which is how you give it a check with
+  // arguments baked in) but cannot shape what they do. It does not imply
+  // `queries.execute`, so this role can never widen into the full privilege.
+  ensure_role(roles, settings, role_path, "restricted", "public,queries.execute.noargs,aliases.list,login.get",
+              "checks and queries only, without arguments");
 
   if (!disable_admin_user) {
     ensure_user(settings, user_path, "admin", "full", admin_password, "Administrator");

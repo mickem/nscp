@@ -5,6 +5,7 @@ provided by the loaded modules.
 
 * [List queries](#list-queries)
 * [Get query](#get-query)
+* [Executing without arguments](#executing-without-arguments)
 * [Execute query](#command-execute)
 * [Execute Query (Nagios format)](#command-execute_nagios)
 
@@ -95,6 +96,50 @@ shape of the result:
 | `execute`        | Structured JSON with parsed performance data.            |
 | `execute_nagios` | Plain Nagios-style payload (`message` + `perf` strings). |
 
+## Executing without arguments
+
+Two grants open the execute endpoints:
+
+| Grant                    | May run a query | May pass arguments |
+|--------------------------|-----------------|--------------------|
+| `queries.execute`        | yes             | yes                |
+| `queries.execute.noargs` | yes             | no                 |
+
+`queries.execute.noargs` is the REST equivalent of the NRPE server's
+`allow arguments = false`: the caller may run the checks the agent defines,
+but cannot shape what they do. A request that carries any query-string
+parameter is answered with `403 Arguments are not allowed for this user`
+and the refusal is logged.
+
+The built-in [`restricted`](../../setup/web-interface.md) role
+(`public,queries.execute.noargs,aliases.list,login.get`) is exactly this.
+Neither grant implies the other, so a `restricted` role can never widen into
+the full privilege, and the existing `client` / `monitoring` roles keep
+passing arguments as before. `full` (`*`) confers both.
+
+To give such a caller a check that does need arguments, define an
+[alias](aliases.md) — the arguments live in the agent's configuration and
+the caller only names the alias:
+
+```ini
+[/settings/check helpers/alias]
+check_root_disk = check_drivesize drive=/ warning=free<10% critical=free<5%
+```
+
+```
+GET /api/v2/queries/check_root_disk/commands/execute
+```
+
+<!-- @formatter:off -->
+!!! note "Credentials must travel in a header"
+    Every query-string parameter counts as an argument, including a
+    credential passed the legacy way as `?TOKEN=` or `?password=` — those
+    are forwarded to the check like any other parameter, so exempting them
+    would reopen the argument smuggling the grant exists to prevent. A
+    no-arguments caller authenticates with the `Authorization`,
+    `X-Auth-Token` or `TOKEN` header.
+<!-- @formatter:on -->
+
 ## Command: execute
 
 Executes a query and returns the result as structured JSON.
@@ -103,7 +148,7 @@ Executes a query and returns the result as structured JSON.
 |-----------|------------------------------------------------------|
 | Verb      | GET                                                  |
 | Address   | /api/v2/queries/{query}/commands/execute             |
-| Privilege | queries.execute                                      |
+| Privilege | queries.execute (or queries.execute.noargs)          |
 
 ### Parameters
 
@@ -113,6 +158,9 @@ to configure `check_cpu` with three time windows:
 ```
 GET /api/v2/queries/check_cpu/commands/execute?time=5m&time=30m&time=90m
 ```
+
+A caller holding only `queries.execute.noargs` may not pass any — see
+[Executing without arguments](#executing-without-arguments).
 
 !!! note "Client-module commands and configured targets"
     The `submit_*` / `check_*` commands of the outbound client modules
@@ -169,12 +217,13 @@ Executes a query and returns a Nagios-style payload.
 |-----------|------------------------------------------------------|
 | Verb      | GET                                                  |
 | Address   | /api/v2/queries/{query}/commands/execute_nagios      |
-| Privilege | queries.execute                                      |
+| Privilege | queries.execute (or queries.execute.noargs)          |
 
 ### Parameters
 
 Identical to [`execute`](#command-execute) — any query-string parameter is
-forwarded to the check.
+forwarded to the check, and the same
+[no-arguments restriction](#executing-without-arguments) applies.
 
 ### Response
 

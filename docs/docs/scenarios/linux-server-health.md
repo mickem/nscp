@@ -177,7 +177,11 @@ alias_services    = check_service
 ```
 
 Each alias is then callable by name from the monitoring server over NRPE
-(`check_nrpe -H <agent> -c alias_load`).
+(`check_nrpe -H <agent> -c alias_load`). Serving the same checks over the REST
+API? Give that client the built-in `restricted` web role rather than
+`monitoring` — it is the REST counterpart of `allow arguments = false` above,
+refusing any request that carries arguments, so the aliases stay the only thing
+on offer. See [Securing NSClient++](../setup/securing.md).
 
 ---
 

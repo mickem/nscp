@@ -73,6 +73,8 @@ The bundled roles grant `aliases.list` to:
 
 * `client` — read-only role used by the web UI.
 * `monitoring` — minimal grant for clients that only run checks.
+* `restricted` — as `monitoring`, but the checks and aliases it lists here are
+  the only thing it can run: any request carrying arguments is refused.
 * `full` — `*` (everything).
 
 A custom role needs the `aliases.list` privilege to call this endpoint:

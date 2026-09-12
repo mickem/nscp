@@ -105,7 +105,9 @@ Aliases solve two problems:
    monitoring side just calls `my_check_cpu`.
 2. **Avoid `allow arguments = true` on the network.** Accepting arbitrary arguments from the monitoring server widens
    the attack surface (see [Securing NSClient++](../setup/securing.md)). Aliases bake the arguments into the local
-   config so the protocol layer doesn't need to pass anything dangerous.
+   config so the protocol layer doesn't need to pass anything dangerous. The REST API has the same switch in role form:
+   the built-in `restricted` role runs checks and aliases but refuses a request that carries arguments, where
+   `monitoring` and `client` allow them.
 
 ### Where to define them
 
