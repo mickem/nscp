@@ -103,15 +103,9 @@ $ nscp web add-user prometheus --role metrics --password "<strong-random-passwor
 ```
 
 A monitoring server that both runs checks and scrapes can use `monitoring`
-instead, which holds the two metrics grants as well. If you would rather
-define your own role, the minimum for this scenario is:
+instead, which holds the two metrics grants as well.
 
-```ini
-[/settings/WEB/server/roles]
-prometheus = openmetrics.list,login.get
-```
-
-Restart NSClient++ for the new role/user to take effect.
+Restart NSClient++ for the new user to take effect.
 
 ---
 
