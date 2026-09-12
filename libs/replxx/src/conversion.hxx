@@ -1,7 +1,12 @@
 #ifndef REPLXX_CONVERSION_HXX_INCLUDED
 #define REPLXX_CONVERSION_HXX_INCLUDED 1
 
-#include "ConvertUTF.h"
+// Local change: upstream includes its own "ConvertUTF.h" here (Unicode, Inc.,
+// not DFSG-free). See ../README.nscp.md. <string> came in with that header and
+// unicodestring.hxx leans on it, so keep it coming from here.
+#include <string>
+
+#include "utf8_conversion.hpp"
 
 #ifdef __has_include
 #if __has_include( <version> )
