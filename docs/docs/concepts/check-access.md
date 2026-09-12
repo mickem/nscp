@@ -16,7 +16,8 @@ the first place*:
 
 That is what those checks are for, and on a host where only the configuration
 decides what runs, it is not a problem. It becomes one where the *caller*
-chooses the argument — NRPE with `allow arguments = true`, or the REST API —
+chooses the argument — NRPE with `allow arguments = true`, or a REST user who
+is not on the no-arguments [`restricted` role](../setup/securing.md#adding-a-dedicated-user) —
 because the agent runs as `SYSTEM` (Windows) or `root`/`nsclient` (Linux) and
 the argument then decides how much of the machine a single check can read back.
 
@@ -335,28 +336,38 @@ configuration.
 
 | Approach | Where you set it | The monitoring server can still | What it costs you | Where it falls short |
 |---|---|---|---|---|
-| **Refuse arguments entirely** | `allow arguments = false` in `[/settings/NRPE/server]` (the default) | Run the commands and aliases you defined, with the thresholds you baked into them | Every variation becomes a configuration entry — thresholds and output syntax included, not just the file or key | **NRPE only.** The REST API has no equivalent switch, so a REST caller is unaffected. It is also all-or-nothing across every check at once |
+| **Refuse arguments entirely** | `allow arguments = false` in `[/settings/NRPE/server]` (the default) for NRPE; the [`restricted` web role](../setup/securing.md#adding-a-dedicated-user) (`queries.execute.noargs`) for REST | Run the commands and aliases you defined, with the thresholds you baked into them | Every variation becomes a configuration entry — thresholds and output syntax included, not just the file or key | **Set per transport.** Each door has its own switch, so one you forget — or one added later — is not covered. It is also all-or-nothing across every check at once |
 | **Allow a folder or subtree** | `access mode = allowed` with a directory, key or channel-family entry | Pick anything at or below what you allowed, and set its own thresholds and syntax | One setting per module, plus knowing what else lives under that area | Whatever lands there **later** is readable too. A folder shared with other applications is broader than it looks |
 | **Allow specific items** | `access mode = allowed` with exact entries | Set thresholds, syntax and bookmarks — everything except choosing a different target | An agent configuration edit for each new file, key or channel | The paths live in the monitoring server's command line, so they are visible there and have to be kept in step with the agent |
 | **Only predefined names** | `access mode = predefined` plus the module's names section | Run any name you defined, with its own thresholds and syntax | The most configuration up front, and the monitoring server's commands have to be rewritten to use names | No ad-hoc troubleshooting through the agent: a new target needs a configuration change and a reload |
 
 ### How they combine
 
-They are not alternatives so much as layers, and the important asymmetry is in
-the last column above: **refusing arguments is a property of one transport,
-while an access mode is a property of the check.** Turning off NRPE arguments
-does nothing about a REST caller; setting an access mode covers both, and every
-transport added later.
+They are not alternatives so much as layers, and the asymmetry is in the last
+column above: **refusing arguments is set per transport, while an access mode is
+set per check.**
 
-So on a host that only answers NRPE with arguments off, the access modes add
-nothing you do not already have — leave them at `any`. On a host that exposes
-REST at all, or NRPE with `allow arguments = true`, the access mode is the only
-one of the four that applies.
+Both doors can refuse arguments. NRPE has `allow arguments = false`, and the
+web server has the built-in
+[`restricted` role](../setup/securing.md#adding-a-dedicated-user), whose
+`queries.execute.noargs` privilege runs checks and aliases but rejects any
+request carrying a parameter. What you have to remember is that they are two
+separate settings: closing one says nothing about the other, a user given
+`monitoring` rather than `restricted` is unaffected by the NRPE switch, and a
+transport added later starts open again. An access mode is written once on the
+check and holds for every caller that reaches it.
 
-The two are worth having together where it matters: arguments off stops the
-caller choosing anything, and the access mode means that if someone later turns
-arguments on — or enables the web server for an afternoon of troubleshooting —
-the agent does not quietly become readable.
+So on a host where every door already refuses arguments — NRPE with
+`allow arguments = false` and every web user on `restricted` — the access modes
+add little you do not already have, and leaving them at `any` is a defensible
+choice. On a host where any caller can pass arguments (a `monitoring` web user,
+or NRPE with `allow arguments = true`), the access mode is the only one of the
+four that applies.
+
+They are worth having together where it matters: arguments off stops the caller
+choosing anything, and the access mode means that if someone later turns
+arguments on — or adds a `monitoring` user for an afternoon of troubleshooting
+— the agent does not quietly become readable.
 
 ### Rolling it out
 

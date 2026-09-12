@@ -1,11 +1,11 @@
 ---
-title: "Check access modes for check_logfile, check_wmi and check_pdh"
+title: "Access modes for the checks whose argument decides what is read"
 fixed_in: next
 severity: "Low (hardening; no vulnerability — the previous behaviour is the documented purpose of these checks)"
 modules: [CheckLogFile, CheckWMI, CheckSystem, CheckDisk, CheckEventLog]
 action: conditional
 ---
-Three checks take an argument which decides *what data is read* rather than how
+Several checks take an argument which decides *what data is read* rather than how
 it is judged, and the agent reads it with its own privileges (`SYSTEM` on
 Windows, `root` or the service account on Linux):
 
@@ -22,13 +22,15 @@ Windows, `root` or the service account on Linux):
 This is the documented purpose of those checks and is not a vulnerability: on a
 host where only the configuration decides what runs, nothing here is reachable
 by a caller. It becomes a disclosure surface where the **caller** chooses the
-argument — NRPE with `allow arguments = true`, or the REST API — because a
-single check can then return the contents of any file the agent can read. Until
+argument — NRPE with `allow arguments = true`, or a REST user not on the
+no-arguments [`restricted` role](../setup/securing.md#adding-a-dedicated-user)
+— because a single check can then return the contents of any file the agent can
+read. Until
 now an operator had no way to narrow that short of disabling the module.
 
 #### What changed
 
-Each of the three modules gained an access mode and an allow list, defaulting to
+Each of these modules gained an access mode and an allow list, defaulting to
 `any` — the behaviour of every earlier release, so no installation changes on
 upgrade.
 
@@ -99,7 +101,7 @@ reaching it over REST already requires the `legacy` or `console.exec`
 permission, which is administrator-equivalent.
 
 **What to do:** nothing on upgrade. If callers can pass arguments to these
-checks — NRPE with `allow arguments = true`, or an exposed REST API — set the
-mode to `predefined` (or `allowed`) on the modules you have enabled. See
+checks — NRPE with `allow arguments = true`, or a REST user not on the
+no-arguments `restricted` role — set the mode to `predefined` (or `allowed`) on the modules you have enabled. See
 [Restricting what a check may read](../concepts/check-access.md) and the
 [securing guide](../setup/securing.md#data-disclosure-restricting-what-a-check-may-read).

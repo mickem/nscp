@@ -504,7 +504,7 @@ not matter. It matters where the **caller** picks the argument: NRPE with `allow
 caller who can reach `check_logfile` with an arbitrary `file=` can read `/etc/shadow`, a private key or a registry hive
 backup, and gets the contents back in the check output.
 
-Each of the three checks has an access mode which narrows this. All three default to `any` - the behaviour of every
+Each of these modules has an access mode which narrows this. They all default to `any` - the behaviour of every
 release before 0.21.0 - so this is opt-in and an upgrade changes nothing:
 
 | Check | Section | Mode setting | Allow list |
@@ -540,14 +540,17 @@ iis = C:/inetpub/logs/LogFiles/W3SVC1/u_ex.log
 
 The monitoring server then runs `check_logfile file=app`, and a caller asking for anything else is refused.
 
-**Recommended posture.** If `allow arguments` is off for NRPE and the REST API is not exposed, `any` costs you nothing -
-your configuration already decides everything. Otherwise set `predefined` on whichever of the modules you have enabled;
+**Recommended posture.** If no caller can pass arguments at all - `allow arguments` off for NRPE, and every web user on
+the `restricted` role or the REST API not exposed - `any` costs you nothing; your configuration already decides
+everything. Otherwise set `predefined` on whichever of the modules you have enabled;
 `allowed` is the middle ground when you want a whole directory, key subtree or performance object without enumerating
 each entry.
 
-Note the asymmetry that decides which control you actually need: **`allow arguments` is a property of one transport, an
-access mode is a property of the check.** Turning off NRPE arguments does nothing about a REST caller; setting an access
-mode covers both, and any transport added later. The concepts page has a
+Refusing arguments is the other way to close this, and it is now available on both doors: `allow arguments = false` for
+NRPE, and the [`restricted` web role](#adding-a-dedicated-user) (`queries.execute.noargs`) for REST. Note what still
+differs, because it decides whether you need an access mode as well: **refusing arguments is set per transport, an access
+mode is set per check.** You have to remember both doors, and a third added later; an access mode covers every transport
+at once. The concepts page has a
 [table comparing the four approaches](../concepts/check-access.md#choosing-an-approach) - refusing arguments, allowing a
 folder, allowing specific items, and predefined names only - with what each costs and where each falls short.
 

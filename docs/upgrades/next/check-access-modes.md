@@ -4,12 +4,13 @@ modules: [CheckLogFile, CheckWMI, CheckSystem, CheckDisk, CheckEventLog]
 action: none
 ---
 **The checks whose argument decides *what data is read* can now be told which
-files, queries and counters a caller may ask for.** Nothing to do on upgrade: all
-three default to `any`, which is exactly what earlier releases did. Those
+files, queries and counters a caller may ask for.** Nothing to do on upgrade: they
+all default to `any`, which is exactly what earlier releases did. Those
 checks take an argument that decides *what data is read*, and the agent reads
 it with its own privileges — so where callers choose the argument (NRPE with
-`allow arguments = true`, or the REST API) an unrestricted `file=` is a general
-file-read primitive. Each module gained a mode setting and an allow list:
+`allow arguments = true`, or a REST user not on the no-arguments
+[`restricted` role](securing.md#adding-a-dedicated-user)) an
+unrestricted `file=` is a general file-read primitive. Each module gained a mode setting and an allow list:
 
 | Check | Section | Mode setting | Allow list |
 |-------|---------|--------------|------------|
@@ -37,4 +38,4 @@ like any other. See
 [Restricting what a check may read](../concepts/check-access.md), the
 [securing guide](securing.md#data-disclosure-restricting-what-a-check-may-read)
 and the
-[security notice](../security/notices.md#check-access-modes-for-check_logfile-check_wmi-and-check_pdh).
+[security notice](../security/notices.md#access-modes-for-the-checks-whose-argument-decides-what-is-read).
