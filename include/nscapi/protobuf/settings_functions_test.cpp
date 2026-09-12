@@ -323,7 +323,19 @@ TEST_F(SettingsQueryTest, ListConfiguredAsksForAWalkOfTheStore) {
   EXPECT_EQ("/", request.payload(0).query().node().path());
   EXPECT_TRUE(request.payload(0).query().include_keys());
   EXPECT_TRUE(request.payload(0).query().recursive());
+  // A listing for display: passwords must come back masked by default.
+  EXPECT_TRUE(request.payload(0).query().redact_sensitive());
   EXPECT_FALSE(request.payload(0).has_inventory());
+}
+
+TEST_F(SettingsQueryTest, ListConfiguredCanAskForTheRealValues) {
+  settings_query query(7);
+  query.list_configured("/", true, false);
+
+  PB::Settings::SettingsRequestMessage request;
+  ASSERT_TRUE(request.ParseFromString(query.request()));
+  ASSERT_EQ(1, request.payload_size());
+  EXPECT_FALSE(request.payload(0).query().redact_sensitive());
 }
 
 TEST_F(SettingsQueryTest, GetQueryKeyResponseReadsTheNodesOfAPathQuery) {

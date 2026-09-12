@@ -179,12 +179,13 @@ void settings_query::list(const std::string &path, const bool recursive) const {
   r->mutable_inventory()->set_recursive_fetch(recursive);
 }
 
-void settings_query::list_configured(const std::string &path, const bool recursive) const {
+void settings_query::list_configured(const std::string &path, const bool recursive, const bool redact_sensitive) const {
   auto *r = pimpl->request_message.add_payload();
   r->set_plugin_id(pimpl->plugin_id);
   r->mutable_query()->mutable_node()->set_path(path);
   r->mutable_query()->set_include_keys(true);
   r->mutable_query()->set_recursive(recursive);
+  r->mutable_query()->set_redact_sensitive(redact_sensitive);
 }
 
 void settings_query::save() const {

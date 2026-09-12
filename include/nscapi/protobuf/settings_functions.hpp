@@ -50,7 +50,10 @@ class NSCAPI_EXPORT settings_query {
   // list() above answers from the registry instead, so it reports every key
   // a loaded module knows about, set or not, and its default is not in the
   // value either - which for a dump reads as page after page of `key=`.
-  void list_configured(const std::string &path, const bool recursive = true) const;
+  // Values of keys their module registered sensitive (add_password) come
+  // back as "***" unless redact_sensitive is turned off: this is a listing
+  // meant for eyes, not a module reading its own secret.
+  void list_configured(const std::string &path, const bool recursive = true, const bool redact_sensitive = true) const;
 
   void set(const std::string &path, const std::string &key, const std::string &value) const;
   void erase(const std::string &path, const std::string &key) const;

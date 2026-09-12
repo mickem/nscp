@@ -368,7 +368,10 @@ void cli_client::handle_command(const std::string &command) {
     // Walk the settings store rather than the registry: the registry lists
     // every key any loaded module has declared, almost all of them unset,
     // which buried the handful of lines that are actually configured.
-    q.list_configured("/");
+    // Sensitive keys come back as "***": this dump ends up in tickets and
+    // chat windows, and the file is right there for anyone who needs the
+    // real value.
+    q.list_configured("/", true, true);
 
     handler->get_core()->settings_query(q.request(), q.response());
     if (!q.validate_response()) {

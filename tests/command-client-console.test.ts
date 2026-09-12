@@ -79,6 +79,27 @@ describe("nscp test console", () => {
     expect(out).not.toContain("/settings/cli/history file=");
   });
 
+  it("settings masks keys their module registered as sensitive", async () => {
+    // The dump ends up in tickets and chat windows. A key registered with
+    // add_password (here the script object's run-as password) must print as
+    // "***", the same masking the REST read paths and `nscp settings --list`
+    // apply. Unloaded modules cannot register anything, so only keys a loaded
+    // module declared sensitive are covered - the same contract as REST.
+    await nscp.configure({
+      "/modules": { CheckExternalScripts: "enabled" },
+      "/settings/external scripts/scripts": { secretive: "cmd /c echo hi" },
+      "/settings/external scripts/scripts/secretive": { user: "someone", password: "hunter2" },
+    });
+    try {
+      const out = await runConsole("settings\nexit\n");
+      expect(out).toContain("/settings/external scripts/scripts/secretive/password=***");
+      expect(out).toContain("/settings/external scripts/scripts/secretive/user=someone");
+      expect(out).not.toContain("hunter2");
+    } finally {
+      await nscp.configure({ "/modules": { CheckExternalScripts: "disabled" } });
+    }
+  });
+
   it("describes a query and its parameters", async () => {
     const out = await runConsole("desc check_ok\nexit\n");
     expect(out).toContain("check_ok");
