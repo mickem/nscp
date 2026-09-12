@@ -8,6 +8,7 @@
 #include <net/http/http_response.hpp>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 // One-time onboarding (enrollment) of this host against an NSClient fleet
 // server. The flow is: generate an Ed25519 keypair, build a PKCS#10 CSR from
@@ -102,6 +103,12 @@ struct enrolled_identity {
   std::string server_url;              // public API base
   std::string mtls_url;                // base URL for all /agent/v1/* calls
   std::string mtls_server_cert_pem;    // cert to pin when connecting to mtls_url
+  // Bundle-encryption keys in operator form (base64 of 32 bytes), newest
+  // first; several exist only mid-rotation. They live here, not in the
+  // settings store, because the fleet-managed include is part of that store:
+  // a key the server could plant there would defeat the point of sealing
+  // bundles against the server. Only local enrollment writes this file.
+  std::vector<std::string> bundle_keys;
 };
 
 // Parse a Retry-After header value (429/503) as RFC 9110 delay-seconds; none

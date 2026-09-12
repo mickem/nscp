@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
 #include <gtest/gtest.h>
-#include <onboarding/sync.hpp>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
 #include <openssl/x509.h>
@@ -13,6 +12,8 @@
 #include <cctype>
 #include <map>
 #include <memory>
+#include <onboarding/bundle_crypto.hpp>
+#include <onboarding/sync.hpp>
 #include <string>
 #include <vector>
 
@@ -1110,4 +1111,186 @@ TEST(SyncReportHostile, EmptyReportIsStillWellFormed) {
   EXPECT_TRUE(root.at("bundles_installed").as_array().empty());
   EXPECT_TRUE(root.at("errors").as_array().empty());
   EXPECT_TRUE(root.at("reported_tags").as_object().empty()) << "the server relies on the keys existing";
+}
+
+// --- encrypted bundles ("enc-v1") ---------------------------------------------
+//
+// The envelope is produced by the fleet server's browser code and its Rust
+// reference implementation; the agent must open it byte for byte. The fixed
+// vector below is the server's pinned key (bytes 00..1f) sealed with a fixed
+// nonce by an independent AES-256-GCM implementation, so a drift in framing,
+// AAD encoding or tag placement fails here rather than in the field.
+
+namespace {
+
+std::string from_hex(const std::string &hex) {
+  std::string out;
+  for (std::size_t i = 0; i + 1 < hex.size(); i += 2) out.push_back(static_cast<char>(std::stoul(hex.substr(i, 2), nullptr, 16)));
+  return out;
+}
+
+const char *pinned_key_b64 = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=";
+const char *pinned_fingerprint = "630dcd2966c43366";
+const char *pinned_blob_hex = "4e53454231630dcd2966c43366000102030405060708090a0b3167b56faa976318e145332dec299b8f64c8fa5351ed";
+
+std::string pinned_key() {
+  std::string raw, error;
+  EXPECT_TRUE(onboarding::parse_bundle_key(pinned_key_b64, raw, error)) << error;
+  return raw;
+}
+
+std::string other_key() { return std::string(32, 'k'); }
+
+const std::string fixed_nonce = from_hex("000102030405060708090a0b");
+
+}  // namespace
+
+TEST(BundleKey, ParsesTheOperatorForm) {
+  std::string raw, error;
+  ASSERT_TRUE(onboarding::parse_bundle_key(pinned_key_b64, raw, error)) << error;
+  ASSERT_EQ(raw.size(), 32u);
+  for (std::size_t i = 0; i < raw.size(); ++i) EXPECT_EQ(static_cast<unsigned char>(raw[i]), i);
+  EXPECT_EQ(onboarding::bundle_key_fingerprint(raw), pinned_fingerprint);
+}
+
+TEST(BundleKey, TrimsSurroundingWhitespace) {
+  std::string raw, error;
+  EXPECT_TRUE(onboarding::parse_bundle_key(std::string("  ") + pinned_key_b64 + "\r\n", raw, error)) << error;
+  EXPECT_EQ(onboarding::bundle_key_fingerprint(raw), pinned_fingerprint);
+}
+
+TEST(BundleKey, RejectsAnythingButThirtyTwoBase64Bytes) {
+  std::string raw, error;
+  EXPECT_FALSE(onboarding::parse_bundle_key("", raw, error));
+  EXPECT_FALSE(onboarding::parse_bundle_key("   ", raw, error));
+  EXPECT_FALSE(onboarding::parse_bundle_key("not base64!", raw, error));
+  EXPECT_FALSE(onboarding::parse_bundle_key("AAECAwQFBgcICQoLDA0ODw==", raw, error)) << "16 bytes";
+  EXPECT_FALSE(onboarding::parse_bundle_key(std::string(pinned_key_b64) + "AAAA", raw, error)) << "35 bytes";
+  EXPECT_FALSE(onboarding::parse_bundle_key("630dcd2966c43366", raw, error)) << "a fingerprint is not a key";
+  // The error is logged and reported; it must not carry the value.
+  EXPECT_FALSE(onboarding::parse_bundle_key("secretsecretsecretsecretsecretsecretsecr", raw, error));
+  EXPECT_EQ(error.find("secret"), std::string::npos);
+}
+
+TEST(BundleKey, SplitsAnInstallerList) {
+  const std::vector<std::string> keys = onboarding::split_bundle_keys(" a1==, b2== ;c3==\nd4== ");
+  ASSERT_EQ(keys.size(), 4u);
+  EXPECT_EQ(keys[0], "a1==");
+  EXPECT_EQ(keys[1], "b2==");
+  EXPECT_EQ(keys[2], "c3==");
+  EXPECT_EQ(keys[3], "d4==");
+  EXPECT_TRUE(onboarding::split_bundle_keys("").empty());
+  EXPECT_TRUE(onboarding::split_bundle_keys(" ,; ").empty());
+}
+
+TEST(BundleCrypto, OpensTheServersFixedVector) {
+  const std::string blob = from_hex(pinned_blob_hex);
+  ASSERT_EQ(blob.size(), 47u);
+  EXPECT_TRUE(onboarding::is_encrypted_bundle(blob));
+  EXPECT_EQ(onboarding::encrypted_bundle_fingerprint(blob), pinned_fingerprint);
+  std::string plaintext, error;
+  ASSERT_EQ(onboarding::decrypt_bundle(pinned_key(), "pinned", "0.1", blob, plaintext, error), onboarding::unseal_status::ok) << error;
+  EXPECT_EQ(plaintext, "vector");
+}
+
+TEST(BundleCrypto, SealsExactlyLikeTheServer) {
+  // Same key, nonce, AAD and plaintext as the vector: the bytes must match.
+  const std::string blob = onboarding::encrypt_bundle(pinned_key(), fixed_nonce, "pinned", "0.1", "vector");
+  EXPECT_EQ(blob, from_hex(pinned_blob_hex));
+}
+
+TEST(BundleCrypto, RoundTripsABundleSizedPayload) {
+  std::string payload(200000, '\0');
+  for (std::size_t i = 0; i < payload.size(); ++i) payload[i] = static_cast<char>(i * 7);
+  const std::string blob = onboarding::encrypt_bundle(other_key(), fixed_nonce, "big", "3.2.1", payload);
+  std::string plaintext, error;
+  ASSERT_EQ(onboarding::decrypt_bundle(other_key(), "big", "3.2.1", blob, plaintext, error), onboarding::unseal_status::ok) << error;
+  EXPECT_EQ(plaintext, payload);
+}
+
+TEST(BundleCrypto, NameAndVersionAreBoundIntoTheSeal) {
+  const std::string blob = onboarding::encrypt_bundle(pinned_key(), fixed_nonce, "secrets", "1.0.0", "zip");
+  std::string plaintext, error;
+  EXPECT_EQ(onboarding::decrypt_bundle(pinned_key(), "secrets", "1.0.1", blob, plaintext, error), onboarding::unseal_status::failed);
+  EXPECT_EQ(onboarding::decrypt_bundle(pinned_key(), "other", "1.0.0", blob, plaintext, error), onboarding::unseal_status::failed);
+  // The NUL separator: a shifted split of the same characters is not the
+  // same additional data.
+  EXPECT_EQ(onboarding::decrypt_bundle(pinned_key(), "secrets1", ".0.0", blob, plaintext, error), onboarding::unseal_status::failed);
+  EXPECT_EQ(onboarding::decrypt_bundle(pinned_key(), "secrets", "1.0.0", blob, plaintext, error), onboarding::unseal_status::ok);
+}
+
+TEST(BundleCrypto, TamperingIsDetected) {
+  const std::string blob = onboarding::encrypt_bundle(pinned_key(), fixed_nonce, "demo", "1.0", "zip-bytes");
+  std::string plaintext, error;
+  for (const std::size_t at : {std::size_t(13), std::size_t(25), blob.size() - 1}) {
+    std::string tampered = blob;
+    tampered[at] = static_cast<char>(tampered[at] ^ 0x01);
+    EXPECT_EQ(onboarding::decrypt_bundle(pinned_key(), "demo", "1.0", tampered, plaintext, error), onboarding::unseal_status::failed) << "byte " << at;
+  }
+}
+
+TEST(BundleCrypto, ReportsAnotherKeyAndTruncation) {
+  const std::string blob = onboarding::encrypt_bundle(pinned_key(), fixed_nonce, "demo", "1.0", "zip-bytes");
+  std::string plaintext, error;
+  EXPECT_EQ(onboarding::decrypt_bundle(other_key(), "demo", "1.0", blob, plaintext, error), onboarding::unseal_status::wrong_key);
+  EXPECT_EQ(onboarding::decrypt_bundle(pinned_key(), "demo", "1.0", "NSEB1short", plaintext, error), onboarding::unseal_status::corrupt);
+  EXPECT_EQ(onboarding::decrypt_bundle(pinned_key(), "demo", "1.0", blob.substr(0, 40), plaintext, error), onboarding::unseal_status::corrupt);
+  EXPECT_EQ(onboarding::decrypt_bundle(pinned_key(), "demo", "1.0", "PK\x03\x04plain zip", plaintext, error), onboarding::unseal_status::not_encrypted);
+  EXPECT_EQ(onboarding::encrypted_bundle_fingerprint("NSEB1short"), "");
+  EXPECT_FALSE(onboarding::is_encrypted_bundle("PK\x03\x04"));
+  EXPECT_FALSE(onboarding::is_encrypted_bundle("NSEB"));
+}
+
+TEST(BundleOpen, PassesPlainBundlesThroughUnlessRequired) {
+  const std::string zip = "PK\x03\x04 a plain zip";
+  std::string out, error;
+  EXPECT_TRUE(onboarding::open_bundle({}, "demo", "1.0", zip, false, out, error)) << error;
+  EXPECT_EQ(out, zip);
+  EXPECT_TRUE(onboarding::open_bundle({pinned_key_b64}, "demo", "1.0", zip, false, out, error)) << error;
+  EXPECT_FALSE(onboarding::open_bundle({pinned_key_b64}, "demo", "1.0", zip, true, out, error));
+  EXPECT_NE(error.find("requires encrypted"), std::string::npos);
+}
+
+TEST(BundleOpen, PicksTheKeyByFingerprintAndSkipsTheOthers) {
+  const std::string blob = onboarding::encrypt_bundle(pinned_key(), fixed_nonce, "demo", "1.0", "zip-bytes");
+  const std::string other_b64 = "a2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2s=";  // 32 x 'k'
+  std::string out, error;
+  EXPECT_TRUE(onboarding::open_bundle({other_b64, pinned_key_b64}, "demo", "1.0", blob, true, out, error)) << error;
+  EXPECT_EQ(out, "zip-bytes");
+}
+
+TEST(BundleOpen, ExplainsAMissingKeyWithTheFingerprint) {
+  const std::string blob = onboarding::encrypt_bundle(pinned_key(), fixed_nonce, "demo", "1.0", "zip-bytes");
+  const std::string other_b64 = "a2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2s=";
+  std::string out, error;
+  EXPECT_FALSE(onboarding::open_bundle({}, "demo", "1.0", blob, false, out, error));
+  EXPECT_NE(error.find(pinned_fingerprint), std::string::npos) << error;
+  EXPECT_NE(error.find("no bundle key"), std::string::npos) << error;
+  EXPECT_FALSE(onboarding::open_bundle({other_b64}, "demo", "1.0", blob, false, out, error));
+  EXPECT_NE(error.find(pinned_fingerprint), std::string::npos) << error;
+  EXPECT_EQ(error.find(pinned_key_b64), std::string::npos) << "no key material in the message";
+}
+
+TEST(BundleOpen, AMatchingKeyThatFailsToAuthenticateIsFatal) {
+  // Served under another version: the right key is present, the seal does
+  // not open. That is a substitution, not a reason to try the next key.
+  const std::string blob = onboarding::encrypt_bundle(pinned_key(), fixed_nonce, "demo", "1.0", "zip-bytes");
+  std::string out, error;
+  EXPECT_FALSE(onboarding::open_bundle({pinned_key_b64, pinned_key_b64}, "demo", "2.0", blob, false, out, error));
+  EXPECT_NE(error.find("authentication failed"), std::string::npos) << error;
+}
+
+TEST(BundleOpen, AnUnparsableConfiguredKeyIsAnError) {
+  const std::string blob = onboarding::encrypt_bundle(pinned_key(), fixed_nonce, "demo", "1.0", "zip-bytes");
+  std::string out, error;
+  EXPECT_FALSE(onboarding::open_bundle({"garbage"}, "demo", "1.0", blob, false, out, error));
+  EXPECT_NE(error.find("invalid"), std::string::npos) << error;
+}
+
+TEST(BundleOpen, DesiredStateCarriesTheAdvisoryFormat) {
+  const onboarding::desired_state state = onboarding::parse_desired_state(bundle_with("format", "enc-v1"));
+  ASSERT_EQ(state.bundles.size(), 1u);
+  EXPECT_EQ(state.bundles[0].format, "enc-v1");
+  const onboarding::desired_state plain = onboarding::parse_desired_state(bundle_with("priority", 100));
+  EXPECT_EQ(plain.bundles[0].format, "");
 }

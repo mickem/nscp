@@ -252,6 +252,7 @@ set(SRCS
     ../libs/onboarding/identity.cpp
     ../libs/onboarding/enroll.cpp
     ../libs/onboarding/state.cpp
+    ../libs/onboarding/bundle_crypto.cpp
     ${NSCP_INCLUDEDIR}/json/use_json.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
     ${NSCP_INCLUDEDIR}/str/utf8.cpp

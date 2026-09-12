@@ -32,6 +32,7 @@ set(onboarding_SRCS
     state.cpp
     sync.cpp
     verify.cpp
+    bundle_crypto.cpp
     ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_INCLUDEDIR}/bytes/base64.c
     ${NSCP_INCLUDEDIR}/str/utf8.cpp
@@ -43,6 +44,7 @@ if(WIN32)
         json_util.hpp
         ${NSCP_INCLUDEDIR}/onboarding/onboarding.hpp
         ${NSCP_INCLUDEDIR}/onboarding/sync.hpp
+        ${NSCP_INCLUDEDIR}/onboarding/bundle_crypto.hpp
         ${NSCP_INCLUDEDIR}/net/http/client.hpp
     )
 endif(WIN32)

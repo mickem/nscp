@@ -15,6 +15,7 @@
 #include <pid_file.hpp>
 #endif
 #ifdef HAVE_ONBOARDING
+#include <onboarding/bundle_crypto.hpp>
 #include <onboarding/onboarding.hpp>
 #endif
 #include <boost/algorithm/string/predicate.hpp>
@@ -782,6 +783,8 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
     std::string state_file;
     bool force = false;
     bool insecure = false;
+    std::vector<std::string> bundle_keys;
+    bool update_bundle_keys = false;
 
     po::options_description enroll_desc("Enrollment options");
     // clang-format off
@@ -798,6 +801,8 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
       ("state-file", po::value<std::string>(&state_file), "Where to store the enrolled identity (default: " DEFAULT_FLEET_STATE_LOCATION ")")
       ("force", po::bool_switch(&force), "Overwrite an existing enrollment state file")
       ("insecure", po::bool_switch(&insecure), "Allow an unauthenticated enrollment: plain HTTP, or HTTPS with --verify none. Either way the fleet server is not authenticated, so an on-path attacker can read the bootstrap token and supply the trust anchors this agent will use from then on - only on a trusted network or for testing")
+      ("bundle-key", po::value<std::vector<std::string> >(&bundle_keys)->composing(), "Bundle encryption key, as the fleet server showed it once when the key was created (base64 of 32 bytes). Needed to open bundles the operator sealed in the browser; the server never sees it. Stored in the enrollment manifest, never sent anywhere. Repeat for several keys while rotating, newest first")
+      ("update-bundle-keys", po::bool_switch(&update_bundle_keys), "Do not enroll: replace the bundle keys stored in this host's existing enrollment manifest with the --bundle-key values (none to remove them all). No server contact, no token needed")
     ;
     // clang-format on
 
@@ -809,6 +814,52 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
     po::notify(vm);
 
     if (process_common_options("enroll", all)) return 1;
+
+    // Check every key before anything else happens: a paste error found after
+    // the token has been spent is a bootstrap token wasted.
+    std::vector<std::string> key_fingerprints;
+    for (std::size_t i = 0; i < bundle_keys.size(); ++i) {
+      std::string raw_key, key_error;
+      if (!onboarding::parse_bundle_key(bundle_keys[i], raw_key, key_error)) {
+        std::cerr << "Invalid --bundle-key (" << (i + 1) << " of " << bundle_keys.size() << "): " << key_error << "." << std::endl;
+        std::cerr << "Paste the key exactly as the fleet server showed it when it was created (44 base64 characters)." << std::endl;
+        return 1;
+      }
+      key_fingerprints.push_back(onboarding::bundle_key_fingerprint(raw_key));
+    }
+    const auto describe_keys = [&key_fingerprints]() -> std::string {
+      if (key_fingerprints.empty()) return "none (only plain bundles can be applied)";
+      std::string out = str::xtos(key_fingerprints.size()) + " (fingerprint";
+      out += key_fingerprints.size() == 1 ? " " : "s ";
+      for (std::size_t i = 0; i < key_fingerprints.size(); ++i) out += (i ? ", " : "") + key_fingerprints[i];
+      return out + ")";
+    };
+
+    if (update_bundle_keys) {
+      // Key rotation on an enrolled host: the identity stays, only the keys
+      // change. Deliberately separate from --force, which burns a token and
+      // makes the server forget the host.
+      if (!core_->load_configuration_1()) {
+        std::cerr << "Failed to load configuration" << std::endl;
+        return 1;
+      }
+      if (state_file.empty()) state_file = DEFAULT_FLEET_STATE_LOCATION;
+      state_file = core_->get_path()->expand_path(state_file);
+      boost::optional<onboarding::enrolled_identity> current = onboarding::load_state(state_file);
+      if (!current) {
+        std::cerr << "This host is not enrolled (" << state_file << " does not exist): enroll first, passing --bundle-key along with --server and --token."
+                  << std::endl;
+        return 1;
+      }
+      onboarding::enrolled_identity updated = current.value();
+      updated.bundle_keys = bundle_keys;
+      onboarding::save_state(updated, state_file);
+      std::cout << "Bundle keys updated." << std::endl;
+      std::cout << "  Identity stored in: " << state_file << std::endl;
+      std::cout << "  Bundle keys:        " << describe_keys() << std::endl;
+      std::cout << "  The fleet sync picks them up on the next service start." << std::endl;
+      return 0;
+    }
 
     if (request.server_url.empty() || request.bootstrap_token.empty()) {
       std::cerr << "Both --server and --token are required." << std::endl;
@@ -884,7 +935,8 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
     const bool created_state_dir = !state_dir.empty() && boost::filesystem::create_directories(state_dir, fs_error);
 
     std::cout << "Enrolling with " << request.server_url << "..." << std::endl;
-    const onboarding::enrolled_identity state = onboarding::enroll(request);
+    onboarding::enrolled_identity state = onboarding::enroll(request);
+    state.bundle_keys = bundle_keys;
     onboarding::save_state(state, state_file);
 
     // Enrollment is normally run with sudo while the service runs unprivileged,
@@ -907,6 +959,7 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
     std::cout << "Enrollment successful." << std::endl;
     std::cout << "  Identity stored in: " << state_file << std::endl;
     std::cout << "  Agent API (mTLS):   " << state.mtls_url << std::endl;
+    std::cout << "  Bundle keys:        " << describe_keys() << std::endl;
 
     // The core starts the fleet sync automatically whenever the enrollment
     // manifest written above exists - no module to enable. Only the include

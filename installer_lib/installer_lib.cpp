@@ -23,6 +23,7 @@
 #include <nsclient/logger/log_message_factory.hpp>
 #include <nsclient/logger/logger.hpp>
 #include <nsclient/nsclient_exception.hpp>
+#include <onboarding/bundle_crypto.hpp>
 #include <onboarding/onboarding.hpp>
 #include <str/utils.hpp>
 #include <str/wstring.hpp>
@@ -1803,13 +1804,61 @@ extern "C" UINT __stdcall ExecRemoveSecrets(MSIHANDLE hInstall) {
   }
 }
 
+namespace {
+// Hand the deferred half what it needs. One writer, so the two halves cannot
+// disagree about the field order.
+UINT schedule_enroll_fleet(msi_helper &h, const std::wstring &server, const std::wstring &token, const std::wstring &verify_mode, const bool insecure,
+                           const std::wstring &bundle_keys) {
+  msi_helper::custom_action_data_w data;
+  data.write_string(h.getTargetPath(L"INSTALLLOCATION"));
+  data.write_string(server);
+  data.write_string(token);
+  data.write_string(boost::algorithm::trim_copy(h.getMsiPropery(FLEET_HOSTNAME)));
+  data.write_string(boost::algorithm::trim_copy(h.getMsiPropery(FLEET_CA)));
+  data.write_string(verify_mode);
+  data.write_int(insecure ? 1 : 0);
+  data.write_string(bundle_keys);
+  // Deliberately not logged: it carries the bootstrap token and the bundle
+  // keys (which is also why FLEET_TOKEN, FLEET_BUNDLE_KEY and ExecEnrollFleet
+  // are hidden properties).
+  h.logMessage(L"Scheduling fleet enrollment (ExecEnrollFleet) with: " + (server.empty() ? std::wstring(L"<bundle keys only>") : server));
+  const HRESULT hr = h.do_deferred_action(L"ExecEnrollFleet", data, COST_SERVICE_INSTALL);
+  if (hr == ERROR_INSTALL_USEREXIT) return ERROR_INSTALL_USEREXIT;
+  if (FAILED(hr)) {
+    h.errorMessage(L"Failed to schedule the fleet enrollment.");
+    return ERROR_INSTALL_FAILURE;
+  }
+  return ERROR_SUCCESS;
+}
+}  // namespace
+
 extern "C" UINT __stdcall ScheduleEnrollFleet(MSIHANDLE hInstall) {
   msi_helper h(hInstall, L"ScheduleEnrollFleet");
   try {
     const std::wstring server = boost::algorithm::trim_copy(h.getMsiPropery(FLEET_SERVER));
-    if (server.empty()) {
+    const std::wstring bundle_keys = boost::algorithm::trim_copy(h.getMsiPropery(FLEET_BUNDLE_KEY));
+    if (server.empty() && bundle_keys.empty()) {
       h.logMessage(L"No FLEET_SERVER given: not enrolling with a fleet server");
       return ERROR_SUCCESS;
+    }
+    // Every key is checked here, before anything is installed: a paste error
+    // found in the deferred half would fail the install after the bootstrap
+    // token has been spent. The message names the position, never the value.
+    const std::vector<std::string> keys = onboarding::split_bundle_keys(utf8::cvt<std::string>(bundle_keys));
+    for (std::size_t i = 0; i < keys.size(); ++i) {
+      std::string raw_key, key_error;
+      if (!onboarding::parse_bundle_key(keys[i], raw_key, key_error)) {
+        h.errorMessage(L"FLEET_BUNDLE_KEY entry " + std::to_wstring(i + 1) + L" of " + std::to_wstring(keys.size()) + L" is not a valid bundle key: " +
+                       utf8::cvt<std::wstring>(key_error) +
+                       L". Pass the key exactly as the fleet server showed it when it was created (44 base64 characters); separate several with commas.");
+        return ERROR_INSTALL_FAILURE;
+      }
+    }
+    if (server.empty()) {
+      // Key rotation on an already enrolled host, e.g. an upgrade run with only
+      // FLEET_BUNDLE_KEY. The deferred half refuses if there is no enrollment.
+      h.logMessage(L"No FLEET_SERVER given: storing FLEET_BUNDLE_KEY into this host's existing enrollment");
+      return schedule_enroll_fleet(h, L"", L"", L"", false, bundle_keys);
     }
     const std::wstring token = boost::algorithm::trim_copy(h.getMsiPropery(FLEET_TOKEN));
     const std::wstring verify_mode = boost::algorithm::trim_copy(h.getMsiPropery(FLEET_VERIFY_MODE));
@@ -1869,24 +1918,7 @@ extern "C" UINT __stdcall ScheduleEnrollFleet(MSIHANDLE hInstall) {
       return ERROR_INSTALL_FAILURE;
     }
 
-    msi_helper::custom_action_data_w data;
-    data.write_string(h.getTargetPath(L"INSTALLLOCATION"));
-    data.write_string(server);
-    data.write_string(token);
-    data.write_string(boost::algorithm::trim_copy(h.getMsiPropery(FLEET_HOSTNAME)));
-    data.write_string(boost::algorithm::trim_copy(h.getMsiPropery(FLEET_CA)));
-    data.write_string(verify_mode);
-    data.write_int(insecure ? 1 : 0);
-
-    // Deliberately not logged: it carries the bootstrap token (which is also
-    // why FLEET_TOKEN and ExecEnrollFleet are in MsiHiddenProperties).
-    h.logMessage(L"Scheduling fleet enrollment (ExecEnrollFleet) with: " + server);
-    const HRESULT hr = h.do_deferred_action(L"ExecEnrollFleet", data, COST_SERVICE_INSTALL);
-    if (hr == ERROR_INSTALL_USEREXIT) return ERROR_INSTALL_USEREXIT;
-    if (FAILED(hr)) {
-      h.errorMessage(L"Failed to schedule the fleet enrollment.");
-      return ERROR_INSTALL_FAILURE;
-    }
+    return schedule_enroll_fleet(h, server, token, verify_mode, insecure, bundle_keys);
   } catch (const installer_exception &e) {
     h.errorMessage(L"Failed to schedule the fleet enrollment: " + e.what());
     return ERROR_INSTALL_FAILURE;
@@ -1912,6 +1944,9 @@ extern "C" UINT __stdcall ExecEnrollFleet(MSIHANDLE hInstall) {
     request.ca = utf8::cvt<std::string>(boost::algorithm::trim_copy(data.get_next_string()));
     request.verify_mode = utf8::cvt<std::string>(boost::algorithm::trim_copy(data.get_next_string()));
     const bool insecure = data.get_next_int() == 1;
+    // Already validated by the immediate half; split here so the manifest
+    // stores one entry per key.
+    const std::vector<std::string> bundle_keys = onboarding::split_bundle_keys(utf8::cvt<std::string>(data.get_next_string()));
 
     // The enrollment manifest lives where the service looks for it:
     // ${certificate-path}/agent-state.json, i.e. inside the install folder.
@@ -1941,8 +1976,27 @@ extern "C" UINT __stdcall ExecEnrollFleet(MSIHANDLE hInstall) {
     boost::system::error_code ec;
     if (boost::filesystem::exists(state_file, ec)) {
       h.logMessage(L"This host is already enrolled: keeping the existing identity (delete the manifest above to enroll again).");
+      if (!bundle_keys.empty()) {
+        // Re-running the installer with FLEET_BUNDLE_KEY is how a rotated key
+        // reaches an enrolled host: the identity stays, the keys are replaced.
+        const boost::optional<onboarding::enrolled_identity> current = onboarding::load_state(state_file);
+        if (!current) {
+          h.errorMessage(L"Fleet enrollment failed: the enrollment manifest exists but could not be read, so FLEET_BUNDLE_KEY cannot be stored.");
+          return ERROR_INSTALL_FAILURE;
+        }
+        onboarding::enrolled_identity updated = current.value();
+        updated.bundle_keys = bundle_keys;
+        onboarding::save_state(updated, state_file);
+        h.logMessage(L"Stored " + std::to_wstring(bundle_keys.size()) + L" bundle key(s) into the existing enrollment.");
+      }
       ensure_fleet_ini(install_folder, shared_folder);
       return ERROR_SUCCESS;
+    }
+    if (request.server_url.empty()) {
+      h.errorMessage(
+          L"FLEET_BUNDLE_KEY was given without FLEET_SERVER, but this host is not enrolled, so there is no enrollment to store the key in. Pass "
+          L"FLEET_SERVER and FLEET_TOKEN as well to enroll.");
+      return ERROR_INSTALL_FAILURE;
     }
 
     const boost::filesystem::path state_dir = boost::filesystem::path(state_file).parent_path();
@@ -1981,7 +2035,8 @@ extern "C" UINT __stdcall ExecEnrollFleet(MSIHANDLE hInstall) {
     }
 
     h.logMessage(L"Enrolling with the fleet server...");
-    const onboarding::enrolled_identity state = onboarding::enroll(request);
+    onboarding::enrolled_identity state = onboarding::enroll(request);
+    state.bundle_keys = bundle_keys;
     onboarding::save_state(state, state_file);
     h.logMessage("Enrollment successful, agent API (mTLS): " + state.mtls_url);
     ensure_fleet_ini(install_folder, shared_folder);

@@ -37,6 +37,8 @@
 	<Property Id="FLEET_CA" Secure="yes" />
 	<Property Id="FLEET_VERIFY_MODE" Secure="yes" />
 	<Property Id="FLEET_INSECURE" Secure="yes" />
+	<!-- Hidden for the same reason as the token: it opens every sealed bundle. -->
+	<Property Id="FLEET_BUNDLE_KEY" Secure="yes" Hidden="yes" />
 	<Property Id="ExecEnrollFleet" Hidden="yes" />
 
 	<!-- OPERATOR-SUPPLIED TLS MATERIAL (GitHub #568)

@@ -114,6 +114,71 @@ describe("nscp enroll (fleet onboarding CLI)", () => {
     expect(state.server_url).toBe(baseUrl);
   });
 
+  // A bundle encryption key in operator form: base64 of 32 bytes.
+  const bundleKey = Buffer.from(Array.from({ length: 32 }, (_, i) => i)).toString("base64");
+  const otherKey = Buffer.alloc(32, "k").toString("base64");
+  // First 8 bytes of SHA-256 over the raw key, as the fleet server shows it.
+  const pinnedFingerprint = "630dcd2966c43366";
+
+  it("stores --bundle-key in the manifest and reports its fingerprint", async () => {
+    const stateFile = path.join(nscp.scratch("enroll_bundle_key"), "agent-state.json");
+    const r = await enroll(["--state-file", stateFile, "--bundle-key", bundleKey]);
+    expect(r.exitCode).toBe(0);
+    const out = r.all ?? `${r.stdout}${r.stderr}`;
+    expect(out).toContain(`Bundle keys:        1 (fingerprint ${pinnedFingerprint})`);
+    expect(out).not.toContain(bundleKey);
+    expect(readState(stateFile).bundle_keys).toEqual([bundleKey]);
+    // The key never goes to the server.
+    expect(JSON.stringify(requests)).not.toContain(bundleKey);
+  });
+
+  it("keeps several --bundle-key values in the order given", async () => {
+    const stateFile = path.join(nscp.scratch("enroll_bundle_keys"), "agent-state.json");
+    const r = await enroll(["--state-file", stateFile, "--bundle-key", bundleKey, "--bundle-key", otherKey]);
+    expect(r.exitCode).toBe(0);
+    expect(readState(stateFile).bundle_keys).toEqual([bundleKey, otherKey]);
+  });
+
+  it("rejects a malformed --bundle-key before spending the token", async () => {
+    const stateFile = path.join(nscp.scratch("enroll_bad_key"), "agent-state.json");
+    const r = await enroll(["--state-file", stateFile, "--bundle-key", "not-a-key"]);
+    expect(r.exitCode).toBe(1);
+    expect(r.all ?? r.stderr).toMatch(/Invalid --bundle-key/);
+    expect(requests).toEqual([]);
+    expect(fs.existsSync(stateFile)).toBe(false);
+  });
+
+  it("rotates keys on an enrolled host with --update-bundle-keys, without a server", async () => {
+    const stateFile = path.join(nscp.scratch("enroll_rotate"), "agent-state.json");
+    expect((await enroll(["--state-file", stateFile, "--bundle-key", bundleKey])).exitCode).toBe(0);
+    const before = readState(stateFile);
+    requests = [];
+
+    const r = await nscp.run(["enroll", "--update-bundle-keys", "--state-file", stateFile, "--bundle-key", otherKey, "--bundle-key", bundleKey], {
+      allowFailure: true,
+    });
+    expect(r.exitCode).toBe(0);
+    expect(r.all ?? r.stdout).toContain("Bundle keys updated.");
+    expect(requests).toEqual([]);
+    const after = readState(stateFile);
+    expect(after.bundle_keys).toEqual([otherKey, bundleKey]);
+    // Only the keys changed: the identity is untouched.
+    expect(after.private_key_pem).toBe(before.private_key_pem);
+    expect(after.cert_pem).toBe(before.cert_pem);
+
+    // No keys at all removes them.
+    expect((await nscp.run(["enroll", "--update-bundle-keys", "--state-file", stateFile], { allowFailure: true })).exitCode).toBe(0);
+    expect(readState(stateFile).bundle_keys).toEqual([]);
+  });
+
+  it("refuses --update-bundle-keys on a host that is not enrolled", async () => {
+    const stateFile = path.join(nscp.scratch("enroll_rotate_none"), "agent-state.json");
+    const r = await nscp.run(["enroll", "--update-bundle-keys", "--state-file", stateFile, "--bundle-key", bundleKey], { allowFailure: true });
+    expect(r.exitCode).toBe(1);
+    expect(r.all ?? r.stderr).toMatch(/not enrolled/);
+    expect(fs.existsSync(stateFile)).toBe(false);
+  });
+
   it("passes --hostname and --os through to the enrollment request", async () => {
     const stateFile = path.join(nscp.scratch("enroll_tags"), "agent-state.json");
     const r = await enroll(["--state-file", stateFile, "--hostname", "web-01", "--os", "linux"]);
