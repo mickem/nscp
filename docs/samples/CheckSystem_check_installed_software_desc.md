@@ -49,8 +49,10 @@ are kept. If the package-manager query itself fails, the check returns UNKNOWN
 rather than an empty "no installed software found" inventory, so a broken
 package database can never read as a clean OK.
 
-**Caveats:** install dates are exact on rpm (`INSTALLTIME`); dpkg does not
-record them, so they are approximated from the mtime of the package's
-`/var/lib/dpkg/info/<name>[:<arch>].list` file (rewritten on upgrade — treat as
-"last installed/upgraded"). `pacman -Q` exposes only name and version, so
-`publisher`, `size` and `install_date` stay unset there.
+**Caveats:** install dates are exact on rpm (`INSTALLTIME`). dpkg does not
+record them; the date is the one `dpkg-query` reports as `db-fsys:Last-Modified`,
+the last time dpkg rewrote the package's file list, which it also does on
+upgrade — treat it as "last installed/upgraded". A dpkg older than 1.19.3 does
+not have that field, so `install_date` stays unset there. `pacman -Q` exposes
+only name and version, so `publisher`, `size` and `install_date` stay unset
+there.
