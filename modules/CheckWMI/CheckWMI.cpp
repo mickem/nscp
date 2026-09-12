@@ -26,9 +26,10 @@ bool CheckWMI::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
     targets.set_path(settings.alias().get_settings_path("targets"));
 
-    // A reload calls loadModuleEx again on the live module and the settings
-    // callbacks below append, so start from nothing or every reload doubles
-    // the lists.
+    // A reload calls loadModuleEx again on the live module and the predefined
+    // queries below are appended, so drop them or every reload doubles the
+    // list. The modes and allow lists are replaced by their callbacks and stay
+    // in force meanwhile.
     query_access_.reset();
     class_access_.reset();
     namespace_access_.reset();

@@ -1,13 +1,14 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
+#include <gtest/gtest.h>
+
+#include <boost/filesystem.hpp>
 #include <check/access_policy.hpp>
 #include <check/path_access_policy.hpp>
 #include <check/prefix_access_policy.hpp>
 #include <check/wql_query.hpp>
-#include <boost/filesystem.hpp>
 #include <fstream>
-#include <gtest/gtest.h>
 
 namespace fs = boost::filesystem;
 using check::access::decision;
@@ -204,18 +205,56 @@ TEST(access_policy, a_predefined_value_is_not_held_against_the_allow_list) {
   EXPECT_TRUE(p.resolve("cpu").allowed);
 }
 
-// Settings callbacks append, so a reload which does not clear first would
-// double every entry under the threads reading them.
-TEST(access_policy, reset_clears_everything_for_a_reload) {
+// The predefined entries are appended by the settings callbacks, so a reload
+// which does not clear them first would double every entry under the threads
+// reading them...
+TEST(access_policy, reset_clears_the_predefined_entries_for_a_reload) {
   check::access::policy p = make_policy();
-  p.set_mode("predefined");
-  p.set_allow_list("a,b,c");
   p.add_predefined("cpu", "x");
   p.reset();
-  EXPECT_EQ(mode::any, p.get_mode());
-  EXPECT_EQ(0u, p.allow_list_size());
   EXPECT_FALSE(p.has_predefined("cpu"));
-  EXPECT_FALSE(p.is_restricted());
+}
+
+// ...but the mode and the allow list are replaced by theirs, and must stay in
+// force: a reload calls loadModuleEx on the live module, and a check arriving
+// between reset() and settings.notify() must not find the gate open.
+TEST(access_policy, reset_keeps_the_gate_closed_until_the_settings_are_reread) {
+  check::access::policy p = make_policy();
+  p.set_mode("allowed");
+  p.set_allow_list("\\Memory\\*");
+  p.reset();
+  EXPECT_EQ(mode::allowed, p.get_mode());
+  EXPECT_TRUE(p.is_restricted());
+  EXPECT_EQ(1u, p.allow_list_size());
+  EXPECT_TRUE(p.resolve("\\Memory\\Available Bytes").allowed);
+  EXPECT_FALSE(p.resolve("\\Processor(_Total)\\% Processor Time").allowed);
+
+  p.set_mode("predefined");
+  p.reset();
+  EXPECT_FALSE(p.resolve("\\Memory\\Available Bytes").allowed);
+}
+
+TEST(access_policy, an_invalid_mode_survives_a_reset) {
+  check::access::policy p = make_policy();
+  p.set_mode("alowed");
+  p.reset();
+  EXPECT_TRUE(p.is_restricted());
+  EXPECT_FALSE(p.resolve("\\Memory\\Available Bytes").allowed);
+}
+
+TEST(access_policy, a_copy_carries_the_configuration) {
+  check::access::policy p = make_policy();
+  p.set_mode("allowed");
+  p.set_allow_list("\\Memory\\*");
+  p.add_predefined("cpu", "x");
+  const check::access::policy copy(p);
+  EXPECT_EQ(mode::allowed, copy.get_mode());
+  EXPECT_TRUE(copy.resolve("\\Memory\\Available Bytes").allowed);
+  EXPECT_TRUE(copy.has_predefined("cpu"));
+  check::access::policy assigned = make_policy();
+  assigned = p;
+  EXPECT_TRUE(assigned.resolve("\\Memory\\Available Bytes").allowed);
+  EXPECT_TRUE(assigned.has_predefined("cpu"));
 }
 
 TEST(access_policy, check_value_reports_the_dimension_it_rejected) {
@@ -338,13 +377,86 @@ TEST_F(path_access_test, a_directory_entry_covers_the_whole_subtree) {
   EXPECT_FALSE(p.resolve(at("secret/shadow")).allowed);
 }
 
+// `*` stops at a directory separator: an operator who wrote a one-level
+// pattern gets one level, not the subtree.
 TEST_F(path_access_test, a_glob_entry_matches_only_its_own_level) {
   check::access::path_policy p("file", "files", "/settings/logfile");
   p.set_mode("allowed");
   p.set_allow_list(at("logs") + "/*.log");
   EXPECT_TRUE(p.resolve(at("logs/app.log")).allowed);
   EXPECT_FALSE(p.resolve(at("logs/notes.txt")).allowed);
+  EXPECT_FALSE(p.resolve(at("logs/sub/deep.log")).allowed);
   EXPECT_FALSE(p.resolve(at("secret/shadow")).allowed);
+}
+
+TEST_F(path_access_test, a_question_mark_does_not_cross_a_separator) {
+  check::access::path_policy p("file", "files", "/settings/logfile");
+  p.set_mode("allowed");
+  p.set_allow_list(at("logs") + "/?u?/deep.log");
+  EXPECT_TRUE(p.resolve(at("logs/sub/deep.log")).allowed);
+  fs::create_directories(root_ / "logs" / "a" / "b");
+  write(root_ / "logs" / "a" / "b" / "deep.log", "x\n");
+  EXPECT_FALSE(p.resolve(at("logs/a/b/deep.log")).allowed);
+}
+
+// `**` is the spelling which crosses separators, for when the subtree is meant.
+TEST_F(path_access_test, a_double_star_glob_covers_the_subtree) {
+  check::access::path_policy p("file", "files", "/settings/logfile");
+  p.set_mode("allowed");
+  p.set_allow_list(at("logs") + "/**.log");
+  EXPECT_TRUE(p.resolve(at("logs/app.log")).allowed);
+  EXPECT_TRUE(p.resolve(at("logs/sub/deep.log")).allowed);
+  EXPECT_FALSE(p.resolve(at("logs/notes.txt")).allowed);
+  EXPECT_FALSE(p.resolve(at("secret/shadow")).allowed);
+}
+
+// A directory which is not there when the settings are read (a volume mounted
+// later, a log directory the application creates on first run) must still
+// cover what appears beneath it, without a reload.
+TEST_F(path_access_test, a_directory_entry_which_does_not_exist_yet_covers_what_appears_beneath_it) {
+  check::access::path_policy p("file", "files", "/settings/logfile");
+  p.set_mode("allowed");
+  p.set_allow_list(at("later"));
+  fs::create_directories(root_ / "later" / "sub");
+  write(root_ / "later" / "app.log", "x\n");
+  write(root_ / "later" / "sub" / "deep.log", "x\n");
+  EXPECT_TRUE(p.resolve(at("later/app.log")).allowed);
+  EXPECT_TRUE(p.resolve(at("later/sub/deep.log")).allowed);
+  EXPECT_FALSE(p.resolve(at("secret/shadow")).allowed);
+}
+
+TEST_F(path_access_test, a_file_entry_which_does_not_exist_yet_covers_that_file) {
+  check::access::path_policy p("file", "files", "/settings/logfile");
+  p.set_mode("allowed");
+  p.set_allow_list(at("logs/later.log"));
+  write(root_ / "logs" / "later.log", "x\n");
+  EXPECT_TRUE(p.resolve(at("logs/later.log")).allowed);
+  EXPECT_FALSE(p.resolve(at("logs/app.log")).allowed);
+}
+
+#ifdef WIN32
+// Directory containment has to fold case like the glob entries do, or the
+// same tree is allowed under one drive-letter spelling and refused under
+// another.
+TEST_F(path_access_test, a_directory_entry_ignores_case_on_windows) {
+  check::access::path_policy p("file", "files", "/settings/logfile");
+  p.set_mode("allowed");
+  p.set_allow_list(boost::algorithm::to_upper_copy(at("logs")));
+  EXPECT_TRUE(p.resolve(boost::algorithm::to_lower_copy(at("logs/app.log"))).allowed);
+  EXPECT_TRUE(p.resolve(at("logs/sub/deep.log")).allowed);
+}
+#endif
+
+TEST_F(path_access_test, reset_keeps_the_allow_list_until_the_settings_are_reread) {
+  check::access::path_policy p("file", "files", "/settings/logfile");
+  p.set_mode("allowed");
+  p.set_allow_list(at("logs"));
+  p.add_predefined("app", at("logs/app.log"));
+  p.reset();
+  EXPECT_EQ(mode::allowed, p.get_mode());
+  EXPECT_TRUE(p.resolve(at("logs/app.log")).allowed);
+  EXPECT_FALSE(p.resolve(at("secret/shadow")).allowed);
+  EXPECT_FALSE(p.resolve("app").allowed);
 }
 
 // The whole reason a path needs its own policy: `..` has to be flattened
@@ -434,8 +546,8 @@ namespace {
 // The registry accepts both spellings of every hive, so the gate compares them
 // in one spelling or an operator's list silently misses half the requests.
 std::string normalize_hive(const std::string &key) {
-  static const char *pairs[][2] = {{"HKEY_LOCAL_MACHINE", "HKLM"}, {"HKEY_CURRENT_USER", "HKCU"}, {"HKEY_CLASSES_ROOT", "HKCR"},
-                                   {"HKEY_USERS", "HKU"},          {"HKEY_CURRENT_CONFIG", "HKCC"}};
+  static const char *pairs[][2] = {
+      {"HKEY_LOCAL_MACHINE", "HKLM"}, {"HKEY_CURRENT_USER", "HKCU"}, {"HKEY_CLASSES_ROOT", "HKCR"}, {"HKEY_USERS", "HKU"}, {"HKEY_CURRENT_CONFIG", "HKCC"}};
   for (const auto &pair : pairs) {
     const std::string full(pair[0]);
     if (key.size() >= full.size() && boost::algorithm::iequals(key.substr(0, full.size()), full)) {
@@ -558,15 +670,17 @@ TEST(prefix_policy, a_refusal_does_not_disclose_the_list) {
   EXPECT_EQ(std::string::npos, d.error.find("SecretVendor"));
 }
 
-TEST(prefix_policy, reset_clears_everything_for_a_reload) {
+TEST(prefix_policy, reset_drops_the_predefined_entries_and_keeps_the_gate) {
   check::access::prefix_policy p = registry_policy();
-  p.set_mode("predefined");
+  p.set_mode("allowed");
   p.set_allow_list("HKLM\\a,HKLM\\b");
   p.add_predefined("x", "HKLM\\x");
   p.reset();
-  EXPECT_EQ(check::access::mode::any, p.get_mode());
-  EXPECT_EQ(0u, p.allow_list_size());
-  EXPECT_TRUE(p.resolve("HKLM\\SAM").allowed);
+  EXPECT_EQ(check::access::mode::allowed, p.get_mode());
+  EXPECT_EQ(2u, p.allow_list_size());
+  EXPECT_FALSE(p.resolve("x").allowed);
+  EXPECT_TRUE(p.resolve("HKLM\\a\\sub").allowed);
+  EXPECT_FALSE(p.resolve("HKLM\\SAM").allowed);
 }
 
 // The event log uses the same machinery with '/' as the separator, so a channel

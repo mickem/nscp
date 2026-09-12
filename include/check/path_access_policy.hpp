@@ -5,6 +5,8 @@
 
 #include <boost/filesystem.hpp>
 #include <check/access_policy.hpp>
+#include <mutex>
+#include <shared_mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -27,7 +29,18 @@
 //   /var/log            a directory: everything beneath it, at any depth
 //   /var/log/*.log      a glob: matched against the whole resolved path
 //
-// A bare entry which is not a directory is an exact file name.
+// A bare entry which names an existing regular file is that one file. A bare
+// entry which names nothing yet is treated as a directory: the volume may be
+// mounted, or the application may create its log directory, after the
+// service has started, and an entry which is silently demoted to an exact
+// file name at load time would then refuse everything beneath it until the
+// next reload. Treating it as a directory costs nothing - a directory entry
+// covers the path itself too - and matches what the documentation promises.
+//
+// In a path glob `*` and `?` do not cross a directory separator, so
+// `/var/log/*.log` names the files in that directory and not those in
+// `/var/log/private/`; `**` matches across separators for the cases where
+// the whole subtree is meant (`/var/log/**.log`).
 
 namespace check {
 namespace access {
@@ -47,34 +60,54 @@ class path_policy {
 #endif
         ) {}
 
+  path_policy(const path_policy &other) : base_(other.base_) {
+    std::shared_lock<std::shared_mutex> lock(other.mutex_);
+    entries_ = other.entries_;
+  }
+  path_policy &operator=(const path_policy &other) {
+    if (this == &other) return *this;
+    path_policy copy(other);
+    base_ = copy.base_;
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+    entries_.swap(copy.entries_);
+    return *this;
+  }
+
   // --- configuration -------------------------------------------------------
 
   void set_mode(const std::string &value) { base_.set_mode(value); }
   void add_predefined(const std::string &name, const std::string &value) { base_.add_predefined(name, value); }
   void clear_predefined() { base_.clear_predefined(); }
 
+  // Built beside the live list and swapped in whole, for the same reason as
+  // policy::set_allow_list.
   void set_allow_list(const std::string &value) {
-    entries_.clear();
+    std::vector<entry> entries;
     std::vector<std::string> raw;
     boost::algorithm::split(raw, value, boost::algorithm::is_any_of(","));
     for (std::string &item : raw) {
       boost::algorithm::trim(item);
       if (item.empty()) continue;
-      entries_.push_back(make_entry(item));
+      entries.push_back(make_entry(item));
     }
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+    entries_.swap(entries);
   }
 
-  void reset() {
-    base_.reset();
-    entries_.clear();
-  }
+  // Only the predefined entries are appended to by the settings callbacks;
+  // the mode and the allow list are replaced by theirs, and clearing them
+  // here would open the gate until notify() has run (see policy::reset).
+  void reset() { base_.reset(); }
 
   // --- state ---------------------------------------------------------------
 
   mode get_mode() const { return base_.get_mode(); }
   bool is_restricted() const { return base_.is_restricted(); }
-  const std::string &get_config_error() const { return base_.get_config_error(); }
-  std::size_t allow_list_size() const { return entries_.size(); }
+  std::string get_config_error() const { return base_.get_config_error(); }
+  std::size_t allow_list_size() const {
+    std::shared_lock<std::shared_mutex> lock(mutex_);
+    return entries_.size();
+  }
 
   // Normalise a path the way resolve() does, so a caller can match a candidate
   // without going through the mode machinery (used by the tests).
@@ -91,15 +124,53 @@ class path_policy {
     return to_slashes(out.string());
   }
 
-  bool matches_allow_list(const std::string &resolved_path) const {
-    for (const entry &e : entries_) {
-      if (e.is_directory) {
-        if (is_under(e.text, resolved_path)) return true;
-      } else if (boost::regex_match(resolved_path, e.pattern)) {
-        return true;
+  // Translate a path glob into a regular expression. Unlike the generic
+  // glob_to_regex, `*` and `?` stop at a directory separator (the candidate
+  // is slash-normalised by canonical(), so `/` is the only one to consider)
+  // and `**` is the spelling which crosses them.
+  static std::string glob_to_regex(const std::string &glob) {
+    std::string re;
+    re.reserve(glob.size() * 2);
+    for (std::string::size_type i = 0; i < glob.size(); ++i) {
+      const char c = glob[i];
+      switch (c) {
+        case '*':
+          if (i + 1 < glob.size() && glob[i + 1] == '*') {
+            re += ".*";
+            ++i;
+          } else {
+            re += "[^/]*";
+          }
+          break;
+        case '?':
+          re += "[^/]";
+          break;
+        case '.':
+        case '\\':
+        case '+':
+        case '^':
+        case '$':
+        case '(':
+        case ')':
+        case '[':
+        case ']':
+        case '{':
+        case '}':
+        case '|':
+          re += '\\';
+          re += c;
+          break;
+        default:
+          re += c;
+          break;
       }
     }
-    return false;
+    return re;
+  }
+
+  bool matches_allow_list(const std::string &resolved_path) const {
+    std::shared_lock<std::shared_mutex> lock(mutex_);
+    return matches_allow_list_unlocked(resolved_path);
   }
 
   // --- resolution ----------------------------------------------------------
@@ -112,7 +183,8 @@ class path_policy {
     std::string configured;
     if (base_.lookup_predefined(token, configured)) return decision::accept(configured);
 
-    if (!base_.get_config_error().empty()) return decision::refuse(base_.get_config_error());
+    const std::string config_error = base_.get_config_error();
+    if (!config_error.empty()) return decision::refuse(config_error);
 
     switch (base_.get_mode()) {
       case mode::any:
@@ -120,14 +192,12 @@ class path_policy {
       case mode::allowed: {
         const std::string resolved = canonical(token);
         if (matches_allow_list(resolved)) return decision::accept(resolved);
-        return decision::refuse("Refusing file '" + token + "': it is not in 'allowed files' (see [" + base_.get_settings_path() +
-                                "] in the configuration)");
+        return decision::refuse("Refusing file '" + token + "': it is not in 'allowed files' (see [" + base_.get_settings_path() + "] in the configuration)");
       }
       case mode::predefined:
       default:
-        return decision::refuse("Refusing file '" + token +
-                                "': 'file access' is set to predefined, so only a configured file name may be used (see [" + base_.get_settings_path() +
-                                "] in the configuration)");
+        return decision::refuse("Refusing file '" + token + "': 'file access' is set to predefined, so only a configured file name may be used (see [" +
+                                base_.get_settings_path() + "] in the configuration)");
     }
   }
 
@@ -138,6 +208,17 @@ class path_policy {
     boost::regex pattern;  // glob entries
     entry() : is_directory(false) {}
   };
+
+  bool matches_allow_list_unlocked(const std::string &resolved_path) const {
+    for (const entry &e : entries_) {
+      if (e.is_directory) {
+        if (is_under(e.text, resolved_path)) return true;
+      } else if (boost::regex_match(resolved_path, e.pattern)) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   static std::string to_slashes(std::string s) {
     std::replace(s.begin(), s.end(), '\\', '/');
@@ -152,9 +233,14 @@ class path_policy {
   static entry make_entry(const std::string &item) {
     entry e;
     if (!has_wildcard(item)) {
+      // Everything which is not an existing regular file is a directory
+      // entry: an existing directory obviously, and a path which does not
+      // exist yet (see the header comment). Only a file which is there now is
+      // pinned to that one file.
       boost::system::error_code ec;
-      const bool dir = boost::filesystem::is_directory(boost::filesystem::path(item), ec);
-      e.is_directory = !ec && dir;
+      const boost::filesystem::file_status status = boost::filesystem::status(boost::filesystem::path(item), ec);
+      const bool is_file = !ec && boost::filesystem::exists(status) && !boost::filesystem::is_directory(status);
+      e.is_directory = !is_file;
       e.text = canonical(item);
       if (e.is_directory) return e;
     } else {
@@ -183,17 +269,32 @@ class path_policy {
     return canonical(prefix) + rest;
   }
 
+  // Compare two path fragments the way the platform's filesystem does: the
+  // glob entries are compiled case-insensitively on Windows, and a directory
+  // entry has to agree with them or the same tree is allowed under one
+  // spelling and refused under another. weakly_canonical keeps whatever
+  // case the caller wrote for the elements it resolves lexically, so this
+  // cannot be left to it.
+  static bool same_text(const std::string &a, const std::string &b) {
+#ifdef WIN32
+    return boost::algorithm::iequals(a, b);
+#else
+    return a == b;
+#endif
+  }
+
   // True when `file` sits inside `dir` (or is `dir` itself). Both are already
   // resolved and slash-normalised, so this is a plain element-wise prefix
   // test: comparing the strings would let "/var/logger/x" pass for "/var/log".
   static bool is_under(const std::string &dir, const std::string &file) {
-    if (file == dir) return true;
+    if (same_text(file, dir)) return true;
     if (file.size() <= dir.size()) return false;
-    if (file.compare(0, dir.size(), dir) != 0) return false;
+    if (!same_text(file.substr(0, dir.size()), dir)) return false;
     return file[dir.size()] == '/';
   }
 
   policy base_;
+  mutable std::shared_mutex mutex_;
   std::vector<entry> entries_;
 };
 

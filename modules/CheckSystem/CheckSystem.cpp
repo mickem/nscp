@@ -192,8 +192,9 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("system", alias, "windows");
   pdh_checker.counters_.set_path(settings.alias().get_settings_path("counters"));
-  // A reload calls loadModuleEx again on the live module and the settings
-  // callbacks append, so start the access policy from nothing.
+  // A reload calls loadModuleEx again on the live module and the predefined
+  // entries are appended, so drop them; the modes and allow lists are
+  // replaced by their callbacks and stay in force meanwhile.
   pdh_checker.counter_access_.reset();
   registry_access_.reset();
 

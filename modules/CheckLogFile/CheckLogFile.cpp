@@ -54,8 +54,10 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
                 "Spawns a background thread which waits for file changes.");
 
   // Which files a caller may name. A reload calls loadModuleEx again on the
-  // live module, and the settings callbacks below append, so start from
-  // nothing or every reload doubles the list.
+  // live module and the predefined entries below are appended, so drop them
+  // or every reload doubles the list. The mode and the allow list are
+  // replaced by their callbacks and stay in force meanwhile, so a check
+  // arriving mid-reload is not let through an open gate.
   file_access_.reset();
 
   // clang-format off
@@ -79,9 +81,10 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 
       .add_string("allowed files", sh::string_fun_key([this](const auto& value) { file_access_.set_allow_list(value); }, ""), "ALLOWED LOG FILES",
                   "Comma separated list of files check_logfile may read when 'file access' is set to allowed.\n"
-                  "An entry naming a directory allows every file beneath it at any depth; an entry containing * or ? is a wildcard matched against the whole "
-                  "path; any other entry is a single file. Paths are resolved (`..` is flattened and symbolic links and junctions are followed) before they "
-                  "are matched, so a link planted inside an allowed directory does not widen it.");
+                  "An entry naming a directory (or a path which does not exist yet) allows every file beneath it at any depth; an entry naming an existing "
+                  "file is that single file; an entry containing * or ? is a wildcard matched against the whole path, where * and ? do not cross a directory "
+                  "separator and ** does. Paths are resolved (`..` is flattened and symbolic links and junctions are followed) before they are matched, so "
+                  "a link planted inside an allowed directory does not widen it.");
 
   settings.register_all();
   settings.notify();

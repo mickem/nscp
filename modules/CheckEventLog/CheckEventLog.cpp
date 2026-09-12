@@ -62,8 +62,9 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
            "Real-time eventlog filters", "A set of filters to use in real-time mode", "FILTER DEFINITION",
            "For more configuration options add a dedicated section");
 
-  // A reload calls loadModuleEx again on the live module and the settings
-  // callbacks append, so start from nothing.
+  // A reload calls loadModuleEx again on the live module and the predefined
+  // logs are appended, so drop them; the mode and allow list are replaced by
+  // their callbacks and stay in force meanwhile.
   log_access_.reset();
 
   // clang-format off

@@ -77,7 +77,7 @@ you have vouched for it.
 ```ini
 [/settings/logfile]
 file access = allowed
-allowed files = C:/logs, C:/inetpub/logs/LogFiles/*.log
+allowed files = C:/logs, C:/inetpub/logs/LogFiles/**.log
 
 ; or, tighter:
 file access = predefined
@@ -97,6 +97,14 @@ Allow-list entries come in three shapes:
 | `C:/logs` | a directory: every file beneath it, at any depth |
 | `C:/logs/*.log` | a wildcard (`*` and `?`), matched against the whole path |
 | `C:/logs/app.log` | that one file |
+
+A bare entry is a directory unless it names a file which exists when the
+settings are read; a path which does not exist yet (a volume mounted later, a
+log directory the application creates on first run) is taken as a directory,
+so the files that appear beneath it are covered without a reload. In a
+wildcard, `*` and `?` stop at a directory separator: `C:/logs/*.log` names the
+`.log` files in `C:/logs` itself and not those in `C:/logs/private/`. Write
+`**` where the whole subtree is meant, as in `C:/logs/**.log`.
 
 **Paths are resolved before they are matched.** `..` is flattened and symbolic
 links and junctions are followed, so neither
@@ -154,10 +162,11 @@ else is a single file.
     even where you left `check_logfile` open.
 
 For `check_files` only the **scan root** is checked, not each file the walk
-finds. That is sound rather than a shortcut: the recursion already refuses to
-follow symbolic links and reparse points, so everything it yields is genuinely
-beneath a root which passed. It also keeps the inner loop free of policy work on
-a check that may visit many thousands of files.
+finds. That is sound rather than a shortcut: the recursion refuses to follow
+symbolic links — directory links and junctions, and file links too — so
+everything it yields is genuinely beneath a root which passed. It also keeps
+the inner loop free of policy work on a check that may visit many thousands of
+files.
 
 `check_disk_write` cannot overwrite anything — the test file is created
 exclusively, capped at 1 MB and deleted afterwards — but where you have narrowed

@@ -6,6 +6,8 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/regex.hpp>
 #include <map>
+#include <mutex>
+#include <shared_mutex>
 #include <string>
 #include <vector>
 
@@ -34,6 +36,15 @@
 //
 // The path-shaped variant (file names, which need `..` and symlinks resolved
 // before they can be matched) lives in check/path_access_policy.hpp.
+//
+// A policy is read by the check threads and rewritten by a settings reload,
+// which calls loadModuleEx again on the live module while those threads run.
+// Every accessor therefore takes a shared lock and every mutator an exclusive
+// one, and a mutator replaces its part of the state in one step: the gate is
+// never observed half-rebuilt, and a reload never opens it - `reset()` drops
+// only the predefined entries, which the settings callbacks re-add, while the
+// mode and the allow list keep their previous values until notify() writes
+// the new ones over them.
 
 namespace check {
 namespace access {
@@ -154,6 +165,34 @@ class policy {
   policy(std::string noun, std::string nouns, std::string settings_path, const bool case_sensitive = false)
       : noun_(std::move(noun)), nouns_(std::move(nouns)), settings_path_(std::move(settings_path)), case_sensitive_(case_sensitive), mode_(mode::any) {}
 
+  // A mutex is neither copyable nor movable, so copying a policy copies its
+  // configuration under the source's lock and gives the copy a lock of its
+  // own.
+  policy(const policy &other)
+      : noun_(other.noun_), nouns_(other.nouns_), settings_path_(other.settings_path_), case_sensitive_(other.case_sensitive_), mode_(mode::any) {
+    std::shared_lock<std::shared_mutex> lock(other.mutex_);
+    mode_ = other.mode_;
+    config_error_ = other.config_error_;
+    patterns_ = other.patterns_;
+    raw_patterns_ = other.raw_patterns_;
+    predefined_ = other.predefined_;
+  }
+  policy &operator=(const policy &other) {
+    if (this == &other) return *this;
+    policy copy(other);
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+    noun_ = copy.noun_;
+    nouns_ = copy.nouns_;
+    settings_path_ = copy.settings_path_;
+    case_sensitive_ = copy.case_sensitive_;
+    mode_ = copy.mode_;
+    config_error_ = copy.config_error_;
+    patterns_.swap(copy.patterns_);
+    raw_patterns_.swap(copy.raw_patterns_);
+    predefined_.swap(copy.predefined_);
+    return *this;
+  }
+
   // --- configuration -------------------------------------------------------
 
   // A mode which does not parse is remembered as a configuration error and
@@ -161,78 +200,103 @@ class policy {
   // rather than quietly opening the gate.
   void set_mode(const std::string &value) {
     mode m = mode::any;
+    std::string error;
     if (!parse_mode(value, m)) {
-      config_error_ = "invalid '" + noun_ + " access' in [" + settings_path_ + "]: '" + value + "' (expected any, allowed or predefined)";
-      mode_ = mode::predefined;
-      return;
+      error = "invalid '" + noun_ + " access' in [" + settings_path_ + "]: '" + value + "' (expected any, allowed or predefined)";
+      m = mode::predefined;
     }
-    config_error_.clear();
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+    config_error_.swap(error);
     mode_ = m;
   }
 
+  // The new list is built beside the old one and swapped in whole, so a check
+  // running through a reload sees either the previous list or the new one and
+  // never an empty or half-filled one.
   void set_allow_list(const std::string &value) {
-    patterns_.clear();
-    raw_patterns_.clear();
+    std::vector<boost::regex> patterns;
+    std::vector<std::string> raw_patterns;
     std::vector<std::string> entries;
     boost::algorithm::split(entries, value, boost::algorithm::is_any_of(","));
     for (std::string &entry : entries) {
       boost::algorithm::trim(entry);
       if (entry.empty()) continue;
-      raw_patterns_.push_back(entry);
       boost::regex::flag_type flags = boost::regex::perl;
       if (!case_sensitive_) flags |= boost::regex::icase;
       try {
-        patterns_.emplace_back(glob_to_regex(entry), flags);
+        patterns.emplace_back(glob_to_regex(entry), flags);
+        raw_patterns.push_back(entry);
       } catch (const boost::regex_error &) {
         // glob_to_regex escapes every metacharacter, so this should not be
         // reachable; drop the entry rather than let a malformed one widen the
         // list by throwing out of settings notification.
-        raw_patterns_.pop_back();
       }
     }
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+    patterns_.swap(patterns);
+    raw_patterns_.swap(raw_patterns);
   }
 
-  void add_predefined(const std::string &name, const std::string &value) { predefined_[name] = value; }
-  void clear_predefined() { predefined_.clear(); }
-
-  // Settings callbacks append, so a reload has to start from nothing or every
-  // reload doubles the list (see the reload rule in CLAUDE.md).
-  void reset() {
-    patterns_.clear();
-    raw_patterns_.clear();
+  void add_predefined(const std::string &name, const std::string &value) {
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+    predefined_[name] = value;
+  }
+  void clear_predefined() {
+    std::unique_lock<std::shared_mutex> lock(mutex_);
     predefined_.clear();
-    config_error_.clear();
-    mode_ = mode::any;
   }
+
+  // Called at the top of loadModuleEx before the settings are re-read. The
+  // predefined entries are the one thing the callbacks *append* to, so they
+  // have to start from nothing or every reload doubles them (the reload rule
+  // in CLAUDE.md). The mode and the allow list are *replaced* by their
+  // callbacks and are left alone here: dropping them would open the gate for
+  // every check which arrives between this call and settings.notify().
+  void reset() { clear_predefined(); }
 
   // --- state ---------------------------------------------------------------
 
-  mode get_mode() const { return mode_; }
+  mode get_mode() const {
+    std::shared_lock<std::shared_mutex> lock(mutex_);
+    return mode_;
+  }
   const std::string &get_settings_path() const { return settings_path_; }
   const std::string &get_noun() const { return noun_; }
   const std::string &get_nouns() const { return nouns_; }
-  bool is_restricted() const { return mode_ != mode::any || !config_error_.empty(); }
-  const std::string &get_config_error() const { return config_error_; }
-  bool has_predefined(const std::string &name) const { return predefined_.find(name) != predefined_.end(); }
+  bool is_restricted() const {
+    std::shared_lock<std::shared_mutex> lock(mutex_);
+    return mode_ != mode::any || !config_error_.empty();
+  }
+  std::string get_config_error() const {
+    std::shared_lock<std::shared_mutex> lock(mutex_);
+    return config_error_;
+  }
+  bool has_predefined(const std::string &name) const {
+    std::shared_lock<std::shared_mutex> lock(mutex_);
+    return predefined_.find(name) != predefined_.end();
+  }
   bool lookup_predefined(const std::string &name, std::string &out) const {
+    std::shared_lock<std::shared_mutex> lock(mutex_);
     const std::map<std::string, std::string>::const_iterator it = predefined_.find(name);
     if (it == predefined_.end()) return false;
     out = it->second;
     return true;
   }
-  std::size_t allow_list_size() const { return patterns_.size(); }
+  std::size_t allow_list_size() const {
+    std::shared_lock<std::shared_mutex> lock(mutex_);
+    return patterns_.size();
+  }
 
   bool matches_allow_list(const std::string &value) const {
-    for (const boost::regex &re : patterns_) {
-      if (boost::regex_match(value, re)) return true;
-    }
-    return false;
+    std::shared_lock<std::shared_mutex> lock(mutex_);
+    return matches_allow_list_unlocked(value);
   }
 
   // --- resolution ----------------------------------------------------------
 
   // Resolve one caller-supplied token into the value the check should use.
   decision resolve(const std::string &token) const {
+    std::shared_lock<std::shared_mutex> lock(mutex_);
     const std::map<std::string, std::string>::const_iterator it = predefined_.find(token);
     if (it != predefined_.end()) return decision::accept(it->second);
 
@@ -242,7 +306,7 @@ class policy {
       case mode::any:
         return decision::accept(token);
       case mode::allowed:
-        if (matches_allow_list(token)) return decision::accept(token);
+        if (matches_allow_list_unlocked(token)) return decision::accept(token);
         return decision::refuse(refusal(token, "it is not in 'allowed " + nouns_ + "'"));
       case mode::predefined:
       default:
@@ -258,6 +322,13 @@ class policy {
   }
 
  private:
+  bool matches_allow_list_unlocked(const std::string &value) const {
+    for (const boost::regex &re : patterns_) {
+      if (boost::regex_match(value, re)) return true;
+    }
+    return false;
+  }
+
   std::string refusal(const std::string &token, const std::string &why) const {
     return "Refusing " + noun_ + " '" + token + "': " + why + " (see [" + settings_path_ + "] in the configuration)";
   }
@@ -266,6 +337,7 @@ class policy {
   std::string nouns_;
   std::string settings_path_;
   bool case_sensitive_;
+  mutable std::shared_mutex mutex_;
   mode mode_;
   std::string config_error_;
   std::vector<boost::regex> patterns_;

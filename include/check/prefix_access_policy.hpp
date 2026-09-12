@@ -6,6 +6,8 @@
 #include <boost/algorithm/string.hpp>
 #include <check/access_policy.hpp>
 #include <functional>
+#include <mutex>
+#include <shared_mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -39,37 +41,60 @@ class prefix_policy {
   prefix_policy(std::string noun, std::string nouns, std::string settings_path, const char separator, normalizer normalize = normalizer())
       : base_(std::move(noun), std::move(nouns), std::move(settings_path)), separator_(separator), normalize_(std::move(normalize)) {}
 
+  prefix_policy(const prefix_policy &other) : base_(other.base_), separator_(other.separator_), normalize_(other.normalize_) {
+    std::shared_lock<std::shared_mutex> lock(other.mutex_);
+    entries_ = other.entries_;
+  }
+  prefix_policy &operator=(const prefix_policy &other) {
+    if (this == &other) return *this;
+    prefix_policy copy(other);
+    base_ = copy.base_;
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+    separator_ = copy.separator_;
+    normalize_ = copy.normalize_;
+    entries_.swap(copy.entries_);
+    return *this;
+  }
+
   // --- configuration -------------------------------------------------------
 
   void set_mode(const std::string &value) { base_.set_mode(value); }
   void add_predefined(const std::string &name, const std::string &value) { base_.add_predefined(name, value); }
   void clear_predefined() { base_.clear_predefined(); }
 
+  // Built beside the live list and swapped in whole, for the same reason as
+  // policy::set_allow_list.
   void set_allow_list(const std::string &value) {
-    entries_.clear();
+    std::vector<entry> entries;
     std::vector<std::string> raw;
     boost::algorithm::split(raw, value, boost::algorithm::is_any_of(","));
     for (std::string &item : raw) {
       boost::algorithm::trim(item);
       if (item.empty()) continue;
-      entries_.push_back(make_entry(normalize(item)));
+      entries.push_back(make_entry(normalize(item)));
     }
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+    entries_.swap(entries);
   }
 
-  void reset() {
-    base_.reset();
-    entries_.clear();
-  }
+  // Only the predefined entries are appended to by the settings callbacks;
+  // the mode and the allow list are replaced by theirs, and clearing them
+  // here would open the gate until notify() has run (see policy::reset).
+  void reset() { base_.reset(); }
 
   // --- state ---------------------------------------------------------------
 
   mode get_mode() const { return base_.get_mode(); }
   bool is_restricted() const { return base_.is_restricted(); }
-  const std::string &get_config_error() const { return base_.get_config_error(); }
-  std::size_t allow_list_size() const { return entries_.size(); }
+  std::string get_config_error() const { return base_.get_config_error(); }
+  std::size_t allow_list_size() const {
+    std::shared_lock<std::shared_mutex> lock(mutex_);
+    return entries_.size();
+  }
 
   bool matches_allow_list(const std::string &value) const {
     const std::string subject = normalize(value);
+    std::shared_lock<std::shared_mutex> lock(mutex_);
     for (const entry &e : entries_) {
       if (e.is_glob) {
         if (boost::regex_match(subject, e.pattern)) return true;
@@ -86,7 +111,8 @@ class prefix_policy {
     std::string configured;
     if (base_.lookup_predefined(token, configured)) return decision::accept(configured);
 
-    if (!base_.get_config_error().empty()) return decision::refuse(base_.get_config_error());
+    const std::string config_error = base_.get_config_error();
+    if (!config_error.empty()) return decision::refuse(config_error);
 
     switch (base_.get_mode()) {
       case mode::any:
@@ -142,6 +168,7 @@ class prefix_policy {
   policy base_;
   char separator_;
   normalizer normalize_;
+  mutable std::shared_mutex mutex_;
   std::vector<entry> entries_;
 };
 

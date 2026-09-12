@@ -82,9 +82,11 @@ reach rather than depth: they never return file contents, but they enumerate
 whole directory trees (name, size, timestamps, executable version) and their
 checksum keywords hash any readable file, which confirms known content and for a
 short or predictable file effectively recovers it. For `check_files` only the
-scan root is held against the policy - the recursion already refuses to follow
-symbolic links and reparse points, so every file it yields is genuinely beneath
-a root which passed.
+scan root is held against the policy - the recursion refuses to follow symbolic
+links, directory and file links alike (the Windows scanner previously skipped
+only directory reparse points, so a file symlink planted in an allowed tree
+could be hashed through), so every file it yields is genuinely beneath a root
+which passed.
 
 Refusals name what was rejected and the section that governs it, but never the
 contents of the allow list.

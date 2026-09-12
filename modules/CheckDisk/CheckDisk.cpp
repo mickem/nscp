@@ -85,9 +85,11 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("disk", alias);
 
-  // A reload calls loadModuleEx again on the live module and the settings
-  // callbacks below append, so start from nothing or every reload doubles the
-  // list.
+  // A reload calls loadModuleEx again on the live module and the predefined
+  // entries below are appended, so drop them or every reload doubles the
+  // list. The mode and the allow list are replaced by their callbacks and
+  // stay in force meanwhile, so a check arriving mid-reload is not let
+  // through an open gate.
   file_access_.reset();
 
   // clang-format off
@@ -113,9 +115,10 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     .add_string("allowed files", sh::string_fun_key([this](const auto& value) { file_access_.set_allow_list(value); }, ""),
         "ALLOWED PATHS",
         "Comma separated list of paths the disk checks may use when 'file access' is set to allowed.\n"
-        "An entry naming a directory allows it and everything beneath it at any depth; an entry containing * or ? is a wildcard matched against the whole "
-        "path; any other entry is a single file. Paths are resolved (`..` is flattened and symbolic links and junctions are followed) before they are "
-        "matched, so a link planted inside an allowed directory does not widen it.")
+        "An entry naming a directory (or a path which does not exist yet) allows it and everything beneath it at any depth; an entry naming an existing "
+        "file is that single file; an entry containing * or ? is a wildcard matched against the whole path, where * and ? do not cross a directory "
+        "separator and ** does. Paths are resolved (`..` is flattened and symbolic links and junctions are followed) before they are matched, so a link "
+        "planted inside an allowed directory does not widen it.")
     .add_string("disable", sh::string_key(&collector_->disable_, ""),
         "Disable automatic checks",
         "A comma separated list of checks to disable in the collector: disk_io, disk_free, trend. "
