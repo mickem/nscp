@@ -25,6 +25,11 @@ See [Supported platforms](supported-platforms.md) for the Windows and Linux vers
   - [Debugging](#debugging)
 - [Specifying your monitoring tool](#specifying-your-monitoring-tool)
 - [Enrolling with a fleet server](#enrolling-with-a-fleet-server)
+  - [Fleet MSI properties](#fleet-msi-properties)
+  - [Running the installer with fleet arguments](#running-the-installer-with-fleet-arguments)
+  - [Checking the enrollment](#checking-the-enrollment)
+  - [What the installer does](#what-the-installer-does)
+  - [Enrolling after installation](#enrolling-after-installation)
 - [Copy configuration from a HTTP server](#copy-configuration-from-a-http-server)
 - [Use configuration from a HTTP server](#use-configuration-from-a-http-server)
 
@@ -383,6 +388,13 @@ msiexec /i NSClient++.msi OP5_SERVER=https://op5.com OP5_USER=monitor OP5_PASSWO
 
 ## Enrolling with a fleet server
 
+<!-- @formatter:off -->
+!!! tip "Starting from nothing?"
+    [Central management with NSClient Fleet](fleet.md) is the end-to-end walkthrough:
+    running the fleet server as a container, getting the agent to trust it, enrolling, and
+    what changes on the agent afterwards. This section is the MSI reference.
+<!-- @formatter:on -->
+
 If you manage your agents from an NSClient fleet server, the installer can enroll the host while it installs, so the
 machine is managed from the moment the service starts. Generate an install command on the fleet server and pass the
 server url and the bootstrap token it gives you:
@@ -390,6 +402,121 @@ server url and the bootstrap token it gives you:
 ```
 msiexec /qn /i NSCP-<version>-x64.msi FLEET_SERVER=https://fleet.example.com FLEET_TOKEN=<bootstrap-token>
 ```
+
+### Fleet MSI properties
+
+`FLEET_SERVER` is what turns enrollment on; everything else refines it.
+
+| Property            | Required                                  | Default                    | What it does                                                                                                            |
+|---------------------|-------------------------------------------|----------------------------|-------------------------------------------------------------------------------------------------------------------------|
+| `FLEET_SERVER`      | yes                                       | -                          | Url of the fleet server, scheme included (`https://fleet.example.com`). Without it no enrollment is attempted.           |
+| `FLEET_TOKEN`       | yes                                       | -                          | The one-time bootstrap token from the install command the fleet server generated. One-time, and valid for an hour.       |
+| `FLEET_CA`          | when the server certificate is not publicly trusted | the Windows ROOT store | Path to the issuing CA in PEM form, **on the machine being installed**.                                                  |
+| `FLEET_HOSTNAME`    | no                                        | this machine's host name   | The name this host reports to the fleet server.                                                                         |
+| `FLEET_VERIFY_MODE` | no                                        | `certificate`              | `none` stops the fleet server being verified at all, and is only accepted together with `FLEET_INSECURE=1`.              |
+| `FLEET_INSECURE`    | no                                        | unset                      | `1` opts into an unauthenticated enrollment: a plain `http://` url, `FLEET_VERIFY_MODE=none`, or both.                   |
+
+### Running the installer with fleet arguments
+
+All of these are one command line; `^` is the cmd continuation character, so drop it if you put the command on a single
+line. Use the same properties from any deployment tool that can pass MSI properties (Intune, SCCM/MECM, Group Policy,
+Ansible, Chocolatey) - they are ordinary public properties.
+
+**The fleet server has a publicly trusted certificate.** Nothing beyond the two properties from the install command:
+
+```batch
+msiexec /qn /l*v install.log /i NSCP-<version>-x64.msi ^
+  FLEET_SERVER=https://fleet.example.com ^
+  FLEET_TOKEN=<bootstrap-token>
+```
+
+**The fleet server has a private or self-signed certificate.** This is the common case - a fleet server generates a
+self-signed certificate for itself by default - and it is the step people miss. Copy the issuing certificate to the
+machine first (it is a public certificate, so it needs no protection in transit) and point `FLEET_CA` at the copy:
+
+```batch
+msiexec /qn /l*v install.log /i NSCP-<version>-x64.msi ^
+  FLEET_SERVER=https://fleet.example.internal:8443 ^
+  FLEET_TOKEN=<bootstrap-token> ^
+  FLEET_CA=C:\ProgramData\fleet-ca.pem
+```
+
+`FLEET_CA` is a path on the machine being installed, read while the install runs - not a path on the machine that wrote
+the command line - so put the file there before `msiexec` starts. Get it wrong and the install fails with a certificate
+verification error that says nothing about the token; see
+[Give the agents something to trust](fleet.md#step-2-give-the-agents-something-to-trust) for how to get the file out of
+the fleet server.
+
+**Enrolling as part of a real install.** The fleet properties combine with the rest of the command line as usual:
+
+```batch
+msiexec /qn /l*v install.log /i NSCP-<version>-x64.msi ^
+  ADDLOCAL=ALL REMOVE=PythonScript ^
+  LAYOUT=modern ^
+  ALLOWED_HOSTS=10.0.0.0/8 ^
+  FLEET_SERVER=https://fleet.example.internal:8443 ^
+  FLEET_TOKEN=<bootstrap-token> ^
+  FLEET_CA=C:\ProgramData\fleet-ca.pem ^
+  FLEET_HOSTNAME=web01.example.internal
+```
+
+Keep that local part small: whatever the fleet server sends after the first sync is the configuration you actually
+maintain, and a value set locally here [wins over the fleet-managed one](fleet.md#step-5-send-it-some-configuration).
+
+**From PowerShell.** PowerShell parses the arguments before `msiexec` sees them, so pass them as an array and wait for
+the exit code rather than assuming it worked:
+
+```powershell
+$token = '<bootstrap-token>'
+$msiArgs = @(
+  '/qn', '/l*v', 'install.log', '/i', 'NSCP-<version>-x64.msi',
+  'FLEET_SERVER=https://fleet.example.internal:8443',
+  "FLEET_TOKEN=$token",
+  'FLEET_CA=C:\ProgramData\fleet-ca.pem'
+)
+$p = Start-Process msiexec.exe -ArgumentList $msiArgs -Wait -PassThru
+if ($p.ExitCode -ne 0) { throw "NSClient++ install failed with $($p.ExitCode), see install.log" }
+```
+
+A value containing spaces is quoted around the **value**, not around the whole pair:
+`FLEET_CA="C:\Program Files\fleet-ca.pem"` works, `"FLEET_CA=C:\Program Files\fleet-ca.pem"` is not read as a
+property at all.
+
+<!-- @formatter:off -->
+!!! warning "The lab shortcut"
+    A fleet server you have no trust anchor for can still be enrolled against, but only if you say so explicitly -
+    `FLEET_VERIFY_MODE=none` on its own fails the install, as does a `http://` url:
+
+    ```batch
+    msiexec /qn /i NSCP-<version>-x64.msi ^
+      FLEET_SERVER=https://fleet.example.internal:8443 ^
+      FLEET_TOKEN=<bootstrap-token> ^
+      FLEET_VERIFY_MODE=none FLEET_INSECURE=1
+    ```
+
+    The enrollment response carries the certificate this agent pins from then on *and* the key it trusts for executable
+    bundles, so an unverified enrollment hands both to whoever answered - and the pinning then works perfectly, against
+    the wrong server. Only on a network you trust.
+<!-- @formatter:on -->
+
+### Checking the enrollment
+
+Enrollment failures fail the install, so a non-zero exit code from `msiexec` is the first signal. The reason is in the
+log you asked for with `/l*v`:
+
+```batch
+findstr /i fleet install.log
+```
+
+The bootstrap token is kept out of that log, but the log names the server, where the identity was written and, on a
+failure, what went wrong. After a successful install:
+
+- `security\agent-state.json` exists, beside the installation by default or under
+  `C:\ProgramData\NSClient++\` with `LAYOUT=modern`.
+- `nsclient.ini` has gained `fleet = ${fleet-folder}/fleet.ini` under `[/includes]`.
+- the host leaves *awaiting enrollment* on the fleet server once the service has started and completed its first sync.
+
+### What the installer does
 
 During the install NSClient++ generates a key pair, sends a certificate request together with the token to
 `FLEET_SERVER`, and stores the certificate material it gets back as `agent-state.json` in the `security` folder. It also
@@ -405,7 +532,9 @@ A few things worth knowing:
 
 - **Enrollment is required to succeed.** If the fleet server cannot be reached, or rejects the token, the install fails
   with an error explaining what went wrong rather than leaving you with an agent that never joined the fleet. Bootstrap
-  tokens are one-time and are burned on first use, so a rejected token means generating a new install command.
+  tokens are one-time and are burned on first use, so a rejected token means generating a new install command. A
+  certificate verification failure happens before the token is sent, so that token survives: fix `FLEET_CA` and run the
+  same command again.
 - **The installer has to be allowed to write the configuration.** Enrollment is what adds the include that makes the
   host read what the fleet server sends it, so combining `FLEET_SERVER` with `ALLOW_CONFIGURATION=0` - or installing
   onto a configuration the installer cannot update - fails the install rather than enrolling a host that then ignores
@@ -424,11 +553,18 @@ A few things worth knowing:
 - **Keep the token out of your logs.** The token is hidden from the MSI log, but treat the deployment script that
   carries it as a secret; the token is a credential that exchanges for this host's client certificate.
 
-The same enrollment can be done after installation with the command line:
+### Enrolling after installation
+
+The same enrollment can be done after installation with the command line, and is how a
+Linux host enrolls since there is no MSI there:
 
 ```
 nscp enroll --server https://fleet.example.com --token <bootstrap-token>
 ```
+
+Add `--ca <file>` when the fleet server does not have a publicly trusted certificate -
+which includes the self-signed one it generates for itself by default. See
+[Give the agents something to trust](fleet.md#step-2-give-the-agents-something-to-trust).
 
 ## Installing your own TLS certificates
 

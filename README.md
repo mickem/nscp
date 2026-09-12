@@ -46,6 +46,7 @@ For more depth:
 
 - [Installing NSClient++](https://docs.nsclient.org/setup/installing/) — interactive MSI walkthrough, silent install, MSI properties, remote config.
 - [Web interface](https://docs.nsclient.org/setup/web-interface/) — manage and query the agent from a browser.
+- [Central management (Fleet)](https://docs.nsclient.org/setup/fleet/) — run a fleet server in Docker, enroll agents, manage their configuration centrally.
 - [Securing NSClient++](https://docs.nsclient.org/setup/securing/) — TLS, two-way certificate authentication, per-protocol hardening.
 - [How it works (concepts)](https://docs.nsclient.org/concepts/) — modules, commands, the filter/threshold engine shared by every check.
 - [FAQ](https://docs.nsclient.org/faq/) — timeouts, allowed-hosts, NRPE insecure mode, performance counter pitfalls, escaping.
@@ -175,7 +176,7 @@ build instructions, dependencies, and tips.
 The [full documentation](https://docs.nsclient.org) is organised as:
 
 - **[Quick Start](https://docs.nsclient.org/quick-start/)** — your first 10 minutes
-- **[Setup](https://docs.nsclient.org/setup/installing/)** — installing, web UI, hardening
+- **[Setup](https://docs.nsclient.org/setup/installing/)** — installing, web UI, hardening, [central management](https://docs.nsclient.org/setup/fleet/)
 - **[Concepts](https://docs.nsclient.org/concepts/)** — how modules, commands, checks, permissions, and settings fit together
 - **[Scenarios](https://docs.nsclient.org/scenarios/)** — end-to-end recipes
 - **[Reference](https://docs.nsclient.org/reference/)** — every module, command, and setting
