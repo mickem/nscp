@@ -17,4 +17,5 @@ private key, never in `nsclient.ini`. `nscp enroll --require-encrypted-bundles`
 (or `FLEET_REQUIRE_ENCRYPTED_BUNDLES=1`) refuses every bundle that is not
 sealed, for a fleet server you do not trust with plaintext configuration; it
 is stored in the manifest too, so the server cannot switch it off. See
-[Central management with NSClient Fleet](fleet.md#encrypted-bundles).
+[Central management with NSClient Fleet](fleet.md#encrypted-bundles) and the
+[security notice](../security/notices.md#fleet-encrypted-bundles-are-opened-by-the-agent-not-the-server).
