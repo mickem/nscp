@@ -42,6 +42,7 @@ if(WIN32)
     set(onboarding_SRCS
         ${onboarding_SRCS}
         json_util.hpp
+        digest.hpp
         ${NSCP_INCLUDEDIR}/onboarding/onboarding.hpp
         ${NSCP_INCLUDEDIR}/onboarding/sync.hpp
         ${NSCP_INCLUDEDIR}/onboarding/bundle_crypto.hpp

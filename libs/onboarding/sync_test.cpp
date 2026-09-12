@@ -1172,6 +1172,22 @@ TEST(BundleKey, RejectsAnythingButThirtyTwoBase64Bytes) {
   EXPECT_EQ(error.find("secret"), std::string::npos);
 }
 
+TEST(BundleKey, RejectsPaddingThatIsNotTrailingPadding) {
+  // '=' is padding, so it only means anything at the end. A paste error that
+  // drops one into the middle keeps the length a multiple of four, so without
+  // the alphabet check the operator would be told the key is the wrong length
+  // (it is not) instead of that it is not base64.
+  std::string mangled = pinned_key_b64;
+  mangled[8] = '=';
+  std::string raw, error;
+  EXPECT_FALSE(onboarding::parse_bundle_key(mangled, raw, error));
+  EXPECT_NE(error.find("base64"), std::string::npos) << error;
+  // A whole quantum of padding is not a key either.
+  EXPECT_FALSE(onboarding::parse_bundle_key("====", raw, error));
+  EXPECT_NE(error.find("base64"), std::string::npos) << error;
+  EXPECT_FALSE(onboarding::parse_bundle_key(std::string(pinned_key_b64).substr(0, 40) + "A===", raw, error));
+}
+
 TEST(BundleKey, SplitsAnInstallerList) {
   const std::vector<std::string> keys = onboarding::split_bundle_keys(" a1==, b2== ;c3==\nd4== ");
   ASSERT_EQ(keys.size(), 4u);

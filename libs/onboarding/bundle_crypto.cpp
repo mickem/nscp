@@ -1,15 +1,16 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
+#include <boost/algorithm/string/trim.hpp>
 #include <bytes/base64.h>
 #include <openssl/evp.h>
-#include <openssl/sha.h>
 
-#include <algorithm>
 #include <cctype>
 #include <memory>
 #include <onboarding/bundle_crypto.hpp>
 #include <onboarding/onboarding.hpp>
+
+#include "digest.hpp"
 
 namespace {
 
@@ -25,27 +26,8 @@ struct cipher_ctx_deleter {
 };
 typedef std::unique_ptr<EVP_CIPHER_CTX, cipher_ctx_deleter> cipher_ctx_ptr;
 
-std::string sha256_raw(const std::string &bytes) {
-  unsigned char digest[SHA256_DIGEST_LENGTH];
-  unsigned int len = 0;
-  const std::unique_ptr<EVP_MD_CTX, void (*)(EVP_MD_CTX *)> ctx(EVP_MD_CTX_new(), EVP_MD_CTX_free);
-  if (!ctx || EVP_DigestInit_ex(ctx.get(), EVP_sha256(), nullptr) != 1 || EVP_DigestUpdate(ctx.get(), bytes.data(), bytes.size()) != 1 ||
-      EVP_DigestFinal_ex(ctx.get(), digest, &len) != 1) {
-    throw onboarding::onboarding_error("SHA-256 failed", false);
-  }
-  return std::string(reinterpret_cast<const char *>(digest), len);
-}
-
-std::string to_hex(const std::string &bytes) {
-  static const char digits[] = "0123456789abcdef";
-  std::string out;
-  out.reserve(bytes.size() * 2);
-  for (const unsigned char c : bytes) {
-    out.push_back(digits[c >> 4]);
-    out.push_back(digits[c & 0x0f]);
-  }
-  return out;
-}
+using onboarding::detail::sha256_raw;
+using onboarding::detail::to_hex;
 
 std::string raw_fingerprint(const std::string &raw_key) { return sha256_raw(raw_key).substr(0, fingerprint_len); }
 
@@ -78,17 +60,25 @@ std::vector<std::string> onboarding::split_bundle_keys(const std::string &list) 
 }
 
 bool onboarding::parse_bundle_key(const std::string &key_b64, std::string &raw_key, std::string &error) {
-  std::string trimmed = key_b64;
-  trimmed.erase(trimmed.begin(), std::find_if(trimmed.begin(), trimmed.end(), [](const unsigned char c) { return !std::isspace(c); }));
-  trimmed.erase(std::find_if(trimmed.rbegin(), trimmed.rend(), [](const unsigned char c) { return !std::isspace(c); }).base(), trimmed.end());
+  const std::string trimmed = boost::algorithm::trim_copy(key_b64);
   if (trimmed.empty()) {
     error = "bundle key is empty";
     return false;
   }
-  // The decoder tolerates junk by skipping it; a key is short and fixed
-  // enough that anything outside the alphabet is a paste error worth naming.
-  for (const char c : trimmed) {
-    if (!std::isalnum(static_cast<unsigned char>(c)) && c != '+' && c != '/' && c != '=') {
+  // Anything outside the alphabet is a paste error worth naming: the key is
+  // short and fixed, so "not base64" is a better answer than whatever the
+  // decoder makes of it. '=' is padding, so it is only allowed at the end and
+  // only up to a quantum's worth - an interior '=' is rejected here rather
+  // than reported as the wrong length further down.
+  const std::string::size_type last_data = trimmed.find_last_not_of('=');
+  const std::size_t data_len = last_data == std::string::npos ? 0 : last_data + 1;
+  if (data_len == 0 || trimmed.size() - data_len > 2) {
+    error = "bundle key is not base64";
+    return false;
+  }
+  for (std::size_t i = 0; i < data_len; ++i) {
+    const unsigned char c = static_cast<unsigned char>(trimmed[i]);
+    if (!std::isalnum(c) && c != '+' && c != '/') {
       error = "bundle key is not base64";
       return false;
     }
