@@ -202,6 +202,13 @@ alias_users = check_users "crit=count > 10"
 Each alias is then callable by name over NRPE
 (`check_nrpe -H <agent> -c alias_cert`).
 
+`allow arguments = false` is what keeps a caller from re-pointing these checks
+at something else. If this agent also serves the REST API, give those clients
+the built-in `restricted` web role rather than `monitoring` — it refuses any
+request carrying arguments, so the same rule applies on both transports and the
+aliases above stay the only thing a monitoring server can ask for. See
+[Securing NSClient++](../setup/securing.md).
+
 ---
 
 ## Next Steps

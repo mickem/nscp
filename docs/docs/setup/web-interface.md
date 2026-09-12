@@ -126,8 +126,8 @@ rather than as a legacy `?password=` / `?TOKEN=` parameter.
     for running checks.
 
     Do **not** grant `legacy` to a normal user or monitoring server: modern
-    clients should use the `monitoring` or `client` role and the versioned
-    `/api/v2/queries/...` endpoints. Grant `legacy` only for a specific,
+    clients should use the `restricted`, `monitoring` or `client` role and the
+    versioned `/api/v2/queries/...` endpoints. Grant `legacy` only for a specific,
     trusted legacy system that genuinely cannot be upgraded, and pair it with
     the [permission policy](../concepts/permissions.md) to restrict which
     commands it may run. A normal install grants this permission to no role
