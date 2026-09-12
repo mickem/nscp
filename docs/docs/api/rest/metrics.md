@@ -15,6 +15,12 @@ Modules that submit metrics push them through the core's metrics bus. The
 WEBServer caches the latest snapshot; reads are non-blocking and serve the
 last received data.
 
+The two `/api/v2` endpoints are gated by their own grants, `metrics.list` and
+`openmetrics.list`. The bundled [`metrics`
+role](../../setup/web-interface.md#built-in-roles) holds both and nothing
+else, which is what a scraper wants; `monitoring` holds them alongside
+`queries.execute`.
+
 ## List metrics
 
 Returns a flat dictionary mapping a dotted path (e.g.

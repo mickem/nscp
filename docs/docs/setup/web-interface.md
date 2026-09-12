@@ -78,14 +78,14 @@ port = 8443
 |--------------|----------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
 | `full`       | `*`                                                                                          | Administration: settings, modules, scripts.                              |
 | `client`     | `public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list` | A monitoring client that also browses the agent.       |
-| `monitoring` | `public,queries.execute,aliases.list,login.get,metrics.get`                                  | A monitoring server running checks with arguments.                       |
+| `monitoring` | `public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list`                 | A monitoring server running checks with arguments, and scraping metrics. |
 | `restricted` | `public,queries.execute.noargs,aliases.list,login.get`                                       | A monitoring server that may run checks but **not pass arguments**.      |
+| `metrics`    | `public,metrics.list,openmetrics.list,login.get`                                             | A Prometheus scraper: reads metrics, runs nothing.                       |
 | `legacy`     | `legacy,login.get`                                                                           | Old clients only — see the warning below. Not created on a fresh install. |
 
-Apart from `full` (`*`), none of the bundled roles opens the metrics
-endpoints: `/api/v2/metrics` requires `metrics.list` and `/api/v2/openmetrics`
-requires `openmetrics.list`, so a Prometheus scraper wants a role of its own —
-see [Prometheus scraping](../scenarios/prometheus.md).
+The `metrics` role covers `/api/v2/metrics` and `/api/v2/openmetrics` and
+nothing else — a scraper never needs to run a check, so it should not hold
+`queries.execute`. See [Prometheus scraping](../scenarios/prometheus.md).
 
 The `restricted` role is the REST equivalent of the NRPE server's
 `allow arguments = false`: it holds `queries.execute.noargs` instead of

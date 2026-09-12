@@ -291,4 +291,109 @@ describe("REST permissions", () => {
         .expect(403);
     });
   });
+
+  // The `metrics` role is for a scraper: it holds `metrics.list` and
+  // `openmetrics.list` and nothing that runs a command.
+  describe("metrics user (scraping only)", () => {
+    let key: string | undefined = undefined;
+    it("can login", async () => {
+      await request(REST_URL)
+        .get("/api/v2/login")
+        .auth("metrics", "metrics-password")
+        .trustLocalhost(true)
+        .expect(200)
+        .then((response) => {
+          expect(response.body.user).toEqual("metrics");
+          expect(response.body.key).toBeDefined();
+          key = response.body.key;
+        });
+    });
+
+    it("can read /metrics", async () => {
+      await request(REST_URL)
+        .get("/api/v2/metrics")
+        .set("Authorization", `Bearer ${key}`)
+        .trustLocalhost(true)
+        .expect(200);
+    });
+
+    it("can read /openmetrics", async () => {
+      await request(REST_URL)
+        .get("/api/v2/openmetrics")
+        .set("Authorization", `Bearer ${key}`)
+        .trustLocalhost(true)
+        .expect(200);
+    });
+
+    it("can not execute a query", async () => {
+      // The point of the role: a scraper has no business running commands.
+      await request(REST_URL)
+        .get("/api/v2/queries/mock_query/commands/execute")
+        .set("Authorization", `Bearer ${key}`)
+        .trustLocalhost(true)
+        .expect(403);
+    });
+
+    it("can not access /modules", async () => {
+      await request(REST_URL)
+        .get("/api/v2/modules")
+        .set("Authorization", `Bearer ${key}`)
+        .trustLocalhost(true)
+        .expect(403);
+    });
+  });
+
+  // `monitoring` used to list `metrics.get`, which matches neither endpoint:
+  // it now holds the two grants that do, so the role can run checks *and*
+  // scrape.
+  describe("monitoring user", () => {
+    let key: string | undefined = undefined;
+    it("can login", async () => {
+      await request(REST_URL)
+        .get("/api/v2/login")
+        .auth("monitoring", "monitoring-password")
+        .trustLocalhost(true)
+        .expect(200)
+        .then((response) => {
+          expect(response.body.user).toEqual("monitoring");
+          expect(response.body.key).toBeDefined();
+          key = response.body.key;
+        });
+    });
+
+    it("can execute a query with arguments", async () => {
+      await request(REST_URL)
+        .get("/api/v2/queries/mock_query/commands/execute?a=b")
+        .set("Authorization", `Bearer ${key}`)
+        .trustLocalhost(true)
+        .expect(200)
+        .then((response) => {
+          expect(response.body.lines[0].message).toEqual("mock_query::a=b");
+        });
+    });
+
+    it("can read /metrics", async () => {
+      await request(REST_URL)
+        .get("/api/v2/metrics")
+        .set("Authorization", `Bearer ${key}`)
+        .trustLocalhost(true)
+        .expect(200);
+    });
+
+    it("can read /openmetrics", async () => {
+      await request(REST_URL)
+        .get("/api/v2/openmetrics")
+        .set("Authorization", `Bearer ${key}`)
+        .trustLocalhost(true)
+        .expect(200);
+    });
+
+    it("can not access /modules", async () => {
+      await request(REST_URL)
+        .get("/api/v2/modules")
+        .set("Authorization", `Bearer ${key}`)
+        .trustLocalhost(true)
+        .expect(403);
+    });
+  });
 });

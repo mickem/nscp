@@ -72,7 +72,7 @@ curl -s -k -u admin https://localhost:8443/api/v2/aliases | python -m json.tool
 The bundled roles grant `aliases.list` to:
 
 * `client` — read-only role used by the web UI.
-* `monitoring` — minimal grant for clients that only run checks.
+* `monitoring` — minimal grant for clients that run checks and scrape metrics.
 * `restricted` — as `monitoring`, but the checks and aliases it lists here are
   the only thing it can run: any request carrying arguments is refused.
 * `full` — `*` (everything).

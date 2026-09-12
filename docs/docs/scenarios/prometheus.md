@@ -83,16 +83,32 @@ the same web server, so anything that page covers applies here too.
 
 Reading the OpenMetrics endpoint requires the `openmetrics.list` grant. The
 built-in `full` role has `*` (everything), so the `admin` user can scrape
-without further configuration — but a dedicated user with only the metrics
-grant is better practice.
+without further configuration — but a dedicated user is better practice.
+
+The WEB module ships a `metrics` role for exactly this
+(`public,metrics.list,openmetrics.list,login.get`): it reads
+`/api/v2/openmetrics` and `/api/v2/metrics` and can do nothing else — in
+particular it cannot run checks.
+
+```ini
+[/settings/WEB/server/users/prometheus]
+role     = metrics
+password = <strong-random-password>
+```
+
+Or from the command line:
+
+```commandline
+$ nscp web add-user prometheus --role metrics --password "<strong-random-password>"
+```
+
+A monitoring server that both runs checks and scrapes can use `monitoring`
+instead, which holds the two metrics grants as well. If you would rather
+define your own role, the minimum for this scenario is:
 
 ```ini
 [/settings/WEB/server/roles]
 prometheus = openmetrics.list,login.get
-
-[/settings/WEB/server/users/prometheus]
-role     = prometheus
-password = <strong-random-password>
 ```
 
 Restart NSClient++ for the new role/user to take effect.

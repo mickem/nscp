@@ -50,6 +50,13 @@ export async function setupRestNscp(nscp: NscpInstance): Promise<void> {
       // The built-in `restricted` role: query execution without arguments,
       // the REST twin of NRPE's `allow arguments = false`.
       restricted: "public,queries.execute.noargs,aliases.list,login.get",
+      // The built-in `monitoring` and `metrics` roles, copied verbatim from
+      // WEBServer.cpp: the metrics endpoints are gated by `metrics.list` /
+      // `openmetrics.list`, and a scraper gets a role that holds those two
+      // and no `queries.execute`.
+      monitoring:
+        "public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list",
+      metrics: "public,metrics.list,openmetrics.list,login.get",
     },
     // CheckHelpers aliases used by the alias-endpoint and queries scenarios:
     // mock_alias is mapped to a real QUERY (so we can confirm QUERY_ALIAS
@@ -70,6 +77,14 @@ export async function setupRestNscp(nscp: NscpInstance): Promise<void> {
     "/settings/WEB/server/users/restricted": {
       role: "restricted",
       password: "restricted-password",
+    },
+    "/settings/WEB/server/users/monitoring": {
+      role: "monitoring",
+      password: "monitoring-password",
+    },
+    "/settings/WEB/server/users/metrics": {
+      role: "metrics",
+      password: "metrics-password",
     },
     // The admin password is set explicitly so the Jest suite's
     // auth("admin", "default-password") calls work. Pre-0.13 the

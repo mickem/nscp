@@ -230,6 +230,39 @@ TEST(SessionManagerNoArgs, ExecuteAndNoargsGrantsAreDisjoint) {
   EXPECT_EQ(matched, "queries.execute");
 }
 
+TEST(SessionManagerMetricsRole, MetricsGrantsAreWhatTheEndpointsAskFor) {
+  // Grants match per dot-separated segment, so the `metrics.get` the
+  // `monitoring` role used to carry opened neither metrics endpoint: they are
+  // gated by `metrics.list` (/api/v2/metrics) and `openmetrics.list`
+  // (/api/v2/openmetrics). The shipped roles now name those two, and the
+  // scrape-only `metrics` role holds nothing that runs a command.
+  session_manager_interface smi;
+  smi.add_user("stale", "stale", "password");
+  smi.add_grant("stale", "public,queries.execute,login.get,metrics.get");
+  smi.add_user("scraper", "metrics", "password");
+  smi.add_grant("metrics", "public,metrics.list,openmetrics.list,login.get");
+  smi.add_user("monitor", "monitoring", "password");
+  smi.add_grant("monitoring", "public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list");
+
+  Mongoose::StreamResponse stale;
+  smi.store_user_in_response("stale", stale);
+  EXPECT_FALSE(smi.has_grant("metrics.list", stale));
+  EXPECT_FALSE(smi.has_grant("openmetrics.list", stale));
+
+  Mongoose::StreamResponse scraper;
+  smi.store_user_in_response("scraper", scraper);
+  EXPECT_TRUE(smi.has_grant("metrics.list", scraper));
+  EXPECT_TRUE(smi.has_grant("openmetrics.list", scraper));
+  EXPECT_FALSE(smi.has_grant("queries.execute", scraper));
+  EXPECT_FALSE(smi.has_grant("queries.execute.noargs", scraper));
+
+  Mongoose::StreamResponse monitor;
+  smi.store_user_in_response("monitor", monitor);
+  EXPECT_TRUE(smi.has_grant("metrics.list", monitor));
+  EXPECT_TRUE(smi.has_grant("openmetrics.list", monitor));
+  EXPECT_TRUE(smi.has_grant("queries.execute", monitor));
+}
+
 TEST_F(SessionManagerTest, IsAllowedIp) { EXPECT_TRUE(smi.is_allowed("127.0.0.1")); }
 
 TEST_F(SessionManagerTest, RevokeToken) {
