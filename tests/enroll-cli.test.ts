@@ -200,6 +200,33 @@ describe("nscp enroll (fleet onboarding CLI)", () => {
     expect(fs.existsSync(stateFile)).toBe(false);
   });
 
+  it("resolves the state file from the /settings/fleet setting the service reads", async () => {
+    // The service takes the manifest path from [/settings/fleet] state file
+    // (NSClientT::boot_fleet_sync), so enroll and --update-bundle-keys have to
+    // read the same key: resolving the default anywhere else writes a manifest
+    // the service never looks at. Own instance, so the setting does not leak
+    // into the rest of the suite.
+    const other = new NscpInstance();
+    const configured = path.join(other.scratch("fleet_state"), "configured-state.json");
+    await other.configure({ "/settings/fleet": { "state file": configured } });
+
+    const args = ["--server", baseUrl, "--token", "tok-1", "--insecure", "--bundle-key", bundleKey];
+    const enrolled = await other.run(["enroll", ...args], { allowFailure: true });
+    expect(enrolled.exitCode).toBe(0);
+    expect(fs.existsSync(configured)).toBe(true);
+    expect(readState(configured).cert_pem).toBe("CERT");
+    // Nothing was written to the built-in default location instead.
+    const fallback = path.join(other.pathOverrides["data-path"], "security", "agent-state.json");
+    expect(fs.existsSync(fallback)).toBe(false);
+
+    // The rotation path finds that same manifest without --state-file.
+    const rotated = await other.run(["enroll", "--update-bundle-keys", "--bundle-key", otherKey], {
+      allowFailure: true,
+    });
+    expect(rotated.exitCode).toBe(0);
+    expect(readState(configured).bundle_keys).toEqual([otherKey]);
+  });
+
   it("passes --hostname and --os through to the enrollment request", async () => {
     const stateFile = path.join(nscp.scratch("enroll_tags"), "agent-state.json");
     const r = await enroll(["--state-file", stateFile, "--hostname", "web-01", "--os", "linux"]);

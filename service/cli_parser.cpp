@@ -800,7 +800,7 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
       ("verify", po::value<std::string>(&request.verify_mode), "TLS verify mode (default: certificate). 'none' disables server verification and requires --insecure")
       ("retries", po::value<unsigned int>(&request.max_attempts)->default_value(3), "Attempts for transient failures (rate limiting, server errors)")
       ("timeout", po::value<unsigned int>(&request.timeout_seconds)->default_value(60), "Seconds a single read or write to the fleet server may take before the attempt is abandoned. 0 waits forever, which lets an unresponsive server block the command indefinitely")
-      ("state-file", po::value<std::string>(&state_file), "Where to store the enrolled identity (default: " DEFAULT_FLEET_STATE_LOCATION ")")
+      ("state-file", po::value<std::string>(&state_file), "Where to store the enrolled identity (default: the /settings/fleet 'state file' setting, normally " DEFAULT_FLEET_STATE_LOCATION ")")
       ("force", po::bool_switch(&force), "Overwrite an existing enrollment state file")
       ("insecure", po::bool_switch(&insecure), "Allow an unauthenticated enrollment: plain HTTP, or HTTPS with --verify none. Either way the fleet server is not authenticated, so an on-path attacker can read the bootstrap token and supply the trust anchors this agent will use from then on - only on a trusted network or for testing")
       ("bundle-key", po::value<std::vector<std::string> >(&bundle_keys)->composing(), "Bundle encryption key, as the fleet server showed it once when the key was created (base64 of 32 bytes). Needed to open bundles the operator sealed in the browser; the server never sees it. Stored in the enrollment manifest, never sent anywhere. Repeat for several keys while rotating, newest first")
@@ -839,6 +839,20 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
       return out + ")";
     };
 
+    // The service reads the manifest path out of the settings
+    // (NSClientT::boot_fleet_sync), so every subcommand has to resolve it the
+    // same way: resolving it anywhere else means writing - or looking for - a
+    // manifest the service never reads. Call this only after
+    // load_configuration_1(), which is what makes the settings readable.
+    const auto resolve_state_file = [this, &state_file]() {
+      if (state_file.empty()) state_file = settings_manager::get_settings()->get_string("/settings/fleet", "state file", DEFAULT_FLEET_STATE_LOCATION);
+      // A key that is present but empty is not a path: get_string only falls
+      // back to the default when the key is absent, so do it here too rather
+      // than resolving the empty string against the current directory.
+      if (state_file.empty()) state_file = DEFAULT_FLEET_STATE_LOCATION;
+      state_file = core_->get_path()->expand_path(state_file);
+    };
+
     if (unenroll) {
       // The reverse of enrollment. The include goes first: saving the
       // settings also rewrites every included file, so the fleet directory
@@ -852,8 +866,7 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
           std::cerr << "Failed to load configuration" << std::endl;
           return 1;
         }
-        if (state_file.empty()) state_file = settings_manager::get_settings()->get_string("/settings/fleet", "state file", DEFAULT_FLEET_STATE_LOCATION);
-        state_file = core_->get_path()->expand_path(state_file);
+        resolve_state_file();
         const std::string managed_path =
             core_->get_path()->expand_path(settings_manager::get_settings()->get_string("/settings/fleet", "managed path", "${" FLEET_FOLDER_KEY "}"));
         bool removed_any = false;
@@ -904,8 +917,7 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
         std::cerr << "Failed to load configuration" << std::endl;
         return 1;
       }
-      if (state_file.empty()) state_file = DEFAULT_FLEET_STATE_LOCATION;
-      state_file = core_->get_path()->expand_path(state_file);
+      resolve_state_file();
       boost::optional<onboarding::enrolled_identity> current = onboarding::load_state(state_file);
       if (!current) {
         std::cerr << "This host is not enrolled (" << state_file << " does not exist): enroll first, passing --bundle-key along with --server and --token."
@@ -953,8 +965,7 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
       std::cerr << "Failed to load configuration" << std::endl;
       return 1;
     }
-    if (state_file.empty()) state_file = DEFAULT_FLEET_STATE_LOCATION;
-    state_file = core_->get_path()->expand_path(state_file);
+    resolve_state_file();
 
     // Enrollment is where this agent decides who the fleet server is: the
     // response carries the certificate every later call pins against and the
