@@ -65,6 +65,20 @@ describe("nscp test console", () => {
     expect(out).toContain("check_ok");
   });
 
+  it("settings shows what is configured, not every registered key", async () => {
+    // The dump used to come from the registry: every key any loaded module
+    // declares, nearly all of them printed as a bare `key=` because nothing
+    // set them. Now it walks the settings store, so only what the
+    // configuration actually says is listed.
+    await nscp.configure({ "/settings/log": { level: "info" } });
+    const out = await runConsole("settings\nexit\n");
+    expect(out).toContain("/modules/CheckHelpers=enabled");
+    expect(out).toContain("/settings/log/level=info");
+    // Registered by CommandClient itself and never set: must not appear.
+    expect(out).not.toContain("/settings/cli/color=");
+    expect(out).not.toContain("/settings/cli/history file=");
+  });
+
   it("describes a query and its parameters", async () => {
     const out = await runConsole("desc check_ok\nexit\n");
     expect(out).toContain("check_ok");

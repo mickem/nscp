@@ -84,7 +84,7 @@ const std::vector<command_info> &builtin_commands() {
       {"plugins", "", "list all plugins and whether they are loaded"},
       {"desc", "<query>", "describe a query and its parameters"},
       {"metrics", "[prefix]", "show the metrics collected so far"},
-      {"settings", "", "dump the current settings"},
+      {"settings", "", "show the configured settings (keys set in the configuration, not every registered default)"},
       {"exec", "<target> <command> [args]", "run a command on one module"},
       {"load", "<module>", "load a module now"},
       {"unload", "<module>", "unload a module now"},
@@ -365,19 +365,23 @@ void cli_client::handle_command(const std::string &command) {
     namespace pf = nscapi::protobuf::functions;
 
     pf::settings_query q(handler->get_plugin_id());
-    q.list("/", true);
+    // Walk the settings store rather than the registry: the registry lists
+    // every key any loaded module has declared, almost all of them unset,
+    // which buried the handful of lines that are actually configured.
+    q.list_configured("/");
 
     handler->get_core()->settings_query(q.request(), q.response());
     if (!q.validate_response()) {
       handler->output_message("ERROR: " + q.get_response_error());
     } else {
+      std::string out;
       for (const pf::settings_query::key_values &val : q.get_query_key_response()) {
-        std::string tmp;
-        tmp += val.path();
-        tmp += "/" + val.key();
-        tmp += "=" + val.get_string();
-        handler->output_message(tmp);
+        // Section entries come back too; only keys are worth a line.
+        if (val.key().empty()) continue;
+        if (!out.empty()) out += "\n";
+        out += val.path() + "/" + val.key() + "=" + val.get_string();
       }
+      handler->output_message(out.empty() ? "Nothing configured" : out);
     }
   } else if (!command.empty()) {
     try {

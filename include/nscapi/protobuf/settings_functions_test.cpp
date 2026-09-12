@@ -3,6 +3,7 @@
 
 #include <gtest/gtest.h>
 
+#include <nscapi/protobuf/settings.hpp>
 #include <nscapi/protobuf/settings_functions.hpp>
 #include <string>
 
@@ -305,6 +306,80 @@ TEST_F(SettingsQueryTest, GetQueryKeyResponseEmpty) {
   // Empty response should return empty list
   const std::list<settings_query::key_values> results = query.get_query_key_response();
   EXPECT_TRUE(results.empty());
+}
+
+TEST_F(SettingsQueryTest, ListConfiguredAsksForAWalkOfTheStore) {
+  // list() is an inventory request (the registry: every declared key);
+  // list_configured() must be a query with keys, so the core walks the
+  // settings store and answers with what is actually set.
+  settings_query query(7);
+  query.list_configured("/", true);
+
+  PB::Settings::SettingsRequestMessage request;
+  ASSERT_TRUE(request.ParseFromString(query.request()));
+  ASSERT_EQ(1, request.payload_size());
+  EXPECT_EQ(7, request.payload(0).plugin_id());
+  ASSERT_TRUE(request.payload(0).has_query());
+  EXPECT_EQ("/", request.payload(0).query().node().path());
+  EXPECT_TRUE(request.payload(0).query().include_keys());
+  EXPECT_TRUE(request.payload(0).query().recursive());
+  EXPECT_FALSE(request.payload(0).has_inventory());
+}
+
+TEST_F(SettingsQueryTest, GetQueryKeyResponseReadsTheNodesOfAPathQuery) {
+  // A path query comes back with the walk under `nodes` and only the queried
+  // path echoed in `node`. The list used to read `node` alone, so a
+  // list_configured() answer collapsed to a single path entry.
+  PB::Settings::SettingsResponseMessage response;
+  PB::Settings::SettingsResponseMessage::Response *payload = response.add_payload();
+  payload->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
+  PB::Settings::SettingsResponseMessage::Response::Query *q = payload->mutable_query();
+  q->mutable_node()->set_path("/");
+  PB::Settings::Node *section = q->add_nodes();
+  section->set_path("/modules");
+  PB::Settings::Node *key = q->add_nodes();
+  key->set_path("/modules");
+  key->set_key("CheckHelpers");
+  key->set_value("enabled");
+  PB::Settings::Node *other = q->add_nodes();
+  other->set_path("/settings/log");
+  other->set_key("level");
+  other->set_value("info");
+
+  const settings_query query(1);
+  query.response() = response.SerializeAsString();
+  ASSERT_TRUE(query.validate_response());
+
+  const std::list<settings_query::key_values> results = query.get_query_key_response();
+  ASSERT_EQ(3u, results.size());
+  auto it = results.begin();
+  EXPECT_EQ("/modules", it->path());
+  EXPECT_EQ("", it->key());
+  ++it;
+  EXPECT_TRUE(it->matches("/modules", "CheckHelpers"));
+  EXPECT_EQ("enabled", it->get_string());
+  ++it;
+  EXPECT_TRUE(it->matches("/settings/log", "level"));
+  EXPECT_EQ("info", it->get_string());
+}
+
+TEST_F(SettingsQueryTest, GetQueryKeyResponseStillReadsASingleKeyQuery) {
+  PB::Settings::SettingsResponseMessage response;
+  PB::Settings::SettingsResponseMessage::Response *payload = response.add_payload();
+  payload->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
+  PB::Settings::Node *node = payload->mutable_query()->mutable_node();
+  node->set_path("/settings/log");
+  node->set_key("level");
+  node->set_value("debug");
+
+  const settings_query query(1);
+  query.response() = response.SerializeAsString();
+  ASSERT_TRUE(query.validate_response());
+
+  const std::list<settings_query::key_values> results = query.get_query_key_response();
+  ASSERT_EQ(1u, results.size());
+  EXPECT_TRUE(results.front().matches("/settings/log", "level"));
+  EXPECT_EQ("debug", results.front().get_string());
 }
 
 // ============================================================================

@@ -45,6 +45,12 @@ class NSCAPI_EXPORT settings_query {
   void get(const std::string &path, const std::string &key, const long long def) const;
   void get(const std::string &path, const std::string &key, const bool def) const;
   void list(const std::string &path, const bool recursive = false) const;
+  // Only what is actually configured: the sections and keys present in the
+  // settings store (the ini file, its includes and anything set in memory).
+  // list() above answers from the registry instead, so it reports every key
+  // a loaded module knows about, set or not, and its default is not in the
+  // value either - which for a dump reads as page after page of `key=`.
+  void list_configured(const std::string &path, const bool recursive = true) const;
 
   void set(const std::string &path, const std::string &key, const std::string &value) const;
   void erase(const std::string &path, const std::string &key) const;
