@@ -82,6 +82,11 @@ port = 8443
 | `restricted` | `public,queries.execute.noargs,aliases.list,login.get`                                       | A monitoring server that may run checks but **not pass arguments**.      |
 | `legacy`     | `legacy,login.get`                                                                           | Old clients only — see the warning below. Not created on a fresh install. |
 
+Apart from `full` (`*`), none of the bundled roles opens the metrics
+endpoints: `/api/v2/metrics` requires `metrics.list` and `/api/v2/openmetrics`
+requires `openmetrics.list`, so a Prometheus scraper wants a role of its own —
+see [Prometheus scraping](../scenarios/prometheus.md).
+
 The `restricted` role is the REST equivalent of the NRPE server's
 `allow arguments = false`: it holds `queries.execute.noargs` instead of
 `queries.execute`, so it can run the checks the agent defines but any request
@@ -104,7 +109,7 @@ check_root_disk = check_drivesize drive=/ warning=free<10% critical=free<5%
 
 Because every query parameter counts as an argument, a restricted client must
 send its credentials in a header (`Authorization`, `X-Auth-Token` or `TOKEN`)
-rather than as a legacy `?password=` / `?TOKEN=` parameter.
+rather than as a legacy `?TOKEN=` parameter.
 
 <!-- @formatter:off -->
 !!! danger "The `legacy` role is powerful — only for legacy integrations"

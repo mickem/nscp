@@ -103,7 +103,8 @@ bool session_manager_interface::process_auth_header(const std::string &grant, Mo
   return process_auth_header(grant_options{grant}, request, response);
 }
 
-bool session_manager_interface::process_auth_header(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response) {
+bool session_manager_interface::process_auth_header(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response,
+                                                   std::string *matched_grant) {
   const std::string remote_ip = request.getRemoteIp();
   if (rate_limiter.is_blocked(remote_ip)) {
     NSC_LOG_ERROR("Rate-limited authentication attempt from " + remote_ip);
@@ -138,7 +139,7 @@ bool session_manager_interface::process_auth_header(const grant_options &grants,
       response.setCodeServerError("500 Failed to issue token");
       return false;
     }
-    return can(grants, response);
+    return can(grants, response, matched_grant);
   }
   if (is_bearer_auth(auth)) {
     const std::string token = auth.substr(7);
@@ -151,7 +152,7 @@ bool session_manager_interface::process_auth_header(const grant_options &grants,
     }
     rate_limiter.record_success(remote_ip);
     store_session_in_response(token, user, response);
-    return can(grants, response);
+    return can(grants, response, matched_grant);
   }
   NSC_LOG_ERROR("Unknown authentication scheme for " + remote_ip);
   response.setCodeForbidden(NOT_ALLOWED);
@@ -164,7 +165,7 @@ bool session_manager_interface::process_password_header(const std::string &grant
 }
 
 bool session_manager_interface::process_password_header(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response,
-                                                        const std::string &password) {
+                                                        const std::string &password, std::string *matched_grant) {
   const std::string remote_ip = request.getRemoteIp();
   if (rate_limiter.is_blocked(remote_ip)) {
     NSC_LOG_ERROR("Rate-limited authentication attempt from " + remote_ip);
@@ -195,14 +196,15 @@ bool session_manager_interface::process_password_header(const grant_options &gra
     response.setCodeServerError("500 Failed to issue token");
     return false;
   }
-  return can(grants, response);
+  return can(grants, response, matched_grant);
 }
 
 bool session_manager_interface::is_logged_in(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response) {
   return is_logged_in(grant_options{grant}, request, response);
 }
 
-bool session_manager_interface::is_logged_in(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response) {
+bool session_manager_interface::is_logged_in(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response,
+                                             std::string *matched_grant) {
   std::list<std::string> errors;
   if (!allowed_hosts.is_allowed(boost::asio::ip::make_address(request.getRemoteIp()), errors)) {
     const std::string error = str::utils::joinEx(errors, ", ");
@@ -211,7 +213,7 @@ bool session_manager_interface::is_logged_in(const grant_options &grants, Mongoo
     return false;
   }
   if (has_auth_header(request)) {
-    return process_auth_header(grants, request, response);
+    return process_auth_header(grants, request, response, matched_grant);
   }
   // Legacy `password` HTTP header used by Icinga's check_nscp_api (and any
   // other plugin that follows the same convention). The header carries just
@@ -222,7 +224,7 @@ bool session_manager_interface::is_logged_in(const grant_options &grants, Mongoo
   // Basic auth path uses.
   const std::string password_header = request.readHeader("password");
   if (!password_header.empty()) {
-    return process_password_header(grants, request, response, password_header);
+    return process_password_header(grants, request, response, password_header, matched_grant);
   }
   const std::string token = find_token(request, *this);
   if (token.empty()) {
@@ -237,7 +239,7 @@ bool session_manager_interface::is_logged_in(const grant_options &grants, Mongoo
     return false;
   }
   store_session_in_response(token, user, response);
-  if (!can(grants, response)) {
+  if (!can(grants, response, matched_grant)) {
     NSC_LOG_ERROR("Rejected connection from: " + request.getRemoteIp() + " due to insufficient permissions");
     response.setCodeForbidden(NOT_ALLOWED);
     return false;
@@ -294,11 +296,18 @@ bool session_manager_interface::has_grant(const std::string &grant, const Mongoo
 
 bool session_manager_interface::can(const std::string &grant, Mongoose::StreamResponse &response) { return can(grant_options{grant}, response); }
 
-bool session_manager_interface::can(const grant_options &grants, Mongoose::StreamResponse &response) {
+bool session_manager_interface::can(const grant_options &grants, Mongoose::StreamResponse &response, std::string *matched_grant) {
   // Any one of the alternatives is enough: a call site listing several is
   // saying "this endpoint is reachable by either privilege", not "both".
+  // The first match wins and is handed back through matched_grant, so a
+  // caller that needs to know *which* privilege let the request in (the query
+  // endpoints, to decide whether arguments are allowed) gets it from this one
+  // walk of the grant tree rather than asking again afterwards.
   for (const std::string &grant : grants) {
     if (has_grant(grant, response)) {
+      if (matched_grant != nullptr) {
+        *matched_grant = grant;
+      }
       return true;
     }
   }

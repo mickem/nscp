@@ -1025,7 +1025,9 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
       result << "Admin user disabled (disable admin user = true)." << std::endl;
       result << "No user was created. The WEB server will reject all logins until you add one, e.g.:" << std::endl;
       result << "  nscp web add-user monitoring --role monitoring --password <pwd>" << std::endl;
-      result << "Available roles: monitoring (queries + metrics, recommended), client (adds query listing), full (admin)." << std::endl;
+      result << "Available roles: restricted (checks without arguments, tightest), monitoring (checks with arguments, recommended), "
+                "client (adds query listing), full (admin)."
+             << std::endl;
     } else {
       // Default install: rotate /settings/default/password and seed the
       // per-user admin row. Setting the per-user row is required - without

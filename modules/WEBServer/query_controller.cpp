@@ -118,7 +118,10 @@ void query_controller::query_command(Mongoose::Request &request, boost::smatch &
   // They are disjoint in the grant tree (neither implies the other), so a
   // role granting only `queries.execute.noargs` never widens into the full
   // privilege; the `*` wildcard of `full` still confers both.
-  if (!session->is_logged_in(session_manager_interface::grant_options{"queries.execute", "queries.execute.noargs"}, request, response)) return;
+  // is_logged_in reports which of the two let the request in, so deciding
+  // whether arguments are allowed below costs no second walk of the grant tree.
+  std::string granted;
+  if (!session->is_logged_in(session_manager_interface::grant_options{"queries.execute", "queries.execute.noargs"}, request, response, &granted)) return;
 
   if (what.size() != 3) {
     response.setCodeNotFound("Invalid request");
@@ -127,35 +130,41 @@ void query_controller::query_command(Mongoose::Request &request, boost::smatch &
   const std::string module = what.str(1);
   const std::string command = what.str(2);
 
+  const bool nagios_output = command == "execute_nagios";
+  if (command != "execute" && !nagios_output) {
+    response.setCodeNotFound("unknown command: " + command);
+    return;
+  }
+
+  // Below the dispatch check on purpose: a request naming a command that does
+  // not exist is a 404 for every caller, argument-less or not.
   const arg_vector args = request.getVariablesVector();
-  // Every query-string parameter counts, including a credential passed as
-  // `?TOKEN=` / `?password=` by a legacy client - those are forwarded to the
-  // check as arguments like any other, so exempting them would hand the
+  // Every query-string parameter counts, a session token passed the legacy way
+  // as `?TOKEN=` by an allowlisted client included: it is forwarded to the
+  // check as an argument like any other, so exempting it would hand the
   // restricted role exactly the argument smuggling this grant forbids. A
   // no-arguments caller must authenticate with a header.
-  if (!args.empty() && !session->has_grant("queries.execute", response)) {
+  if (!args.empty() && granted == "queries.execute.noargs") {
     std::string user, token;
     session_manager_interface::get_user_from_response(response, user, token);
-    NSC_LOG_ERROR("Request from " + request.getRemoteIp() + " for query " + module + " contained arguments but user '" + user +
-                  "' only holds the 'queries.execute.noargs' grant (arguments are not allowed for this role).");
+    // Warning rather than error: this is a misconfigured client, not an agent
+    // fault, and a poller that keeps sending arguments would otherwise write an
+    // ERROR line per check per interval for as long as it is left alone. The
+    // user is empty when anonymous access is enabled and the anonymous role
+    // carries the grant.
+    const std::string who = user.empty() ? std::string("anonymous caller") : "user '" + user + "'";
+    NSC_LOG_WARNING("Refused query " + module + " from " + request.getRemoteIp() + ": " + who +
+                    " holds 'queries.execute.noargs', which does not allow arguments.");
     response.setCodeForbidden("403 Arguments are not allowed for this user");
     return;
   }
 
-  if (command == "execute") {
-    if (request.readHeader("Accept") == "text/plain") {
-      execute_query_text(module, args, response);
-    } else {
-      execute_query(module, args, response);
-    }
-  } else if (command == "execute_nagios") {
-    if (request.readHeader("Accept") == "text/plain") {
-      execute_query_text(module, args, response);
-    } else {
-      execute_query_nagios(module, args, response);
-    }
+  if (request.readHeader("Accept") == "text/plain") {
+    execute_query_text(module, args, response);
+  } else if (nagios_output) {
+    execute_query_nagios(module, args, response);
   } else {
-    response.setCodeNotFound("unknown command: " + command);
+    execute_query(module, args, response);
   }
 }
 

@@ -52,6 +52,15 @@
     }                                                     \
   }
 
+#ifdef NSCAPI_UNIT_TESTS
+#define NSC_LOG_WARNING(msg) std::cout << "WARNING: " << msg << std::endl;
+#else
+#define NSC_LOG_WARNING(msg)                                \
+  if (GET_CORE()->should_log(NSCAPI::log_level::warning)) { \
+    NSC_ANY_MSG(msg, NSCAPI::log_level::warning);           \
+  }
+#endif
+
 #define NSC_LOG_CRITICAL_STD(msg)                               \
   if (GET_CORE()->should_log(NSCAPI::log_level::critical)) {    \
     NSC_ANY_MSG((std::string)msg, NSCAPI::log_level::critical); \

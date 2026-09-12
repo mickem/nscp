@@ -154,11 +154,14 @@ Options:
       server's `allow arguments = false`. A request that carries any query-string parameter is refused with
       `403 Arguments are not allowed for this user`. Give such a caller the checks it needs as
       [aliases](../api/rest/aliases.md), so the arguments live in your configuration rather than in the request. Note
-      that every query parameter counts, so this role must authenticate with a header rather than a legacy
-      `?password=` / `?TOKEN=` query parameter.
-    * `monitoring` — `queries.execute, login.get, metrics.get`. Recommended for monitoring servers and Prometheus
-      scrapes that need to pass arguments. Where they don't, `restricted` above is the tighter choice — it is the
-      same role with arguments refused.
+      that every query parameter counts, so this role must authenticate with a header rather than with a legacy
+      `?TOKEN=` query parameter.
+    * `monitoring` — `public, queries.execute, aliases.list, login.get, metrics.get`. Recommended for monitoring
+      servers that need to pass arguments (thresholds, drives, service names) in the request. Where they don't,
+      `restricted` above is the tighter choice — it is the same role with arguments refused. Neither role opens the
+      metrics endpoints (only `full` does): `/api/v2/metrics` requires `metrics.list` and `/api/v2/openmetrics` requires
+      `openmetrics.list`, so give a Prometheus scraper a role of its own — see the
+      [Prometheus scenario](../scenarios/prometheus.md).
     * `client` — adds query listing; needed for the legacy `check_nscp_api` integration.
     * `full` — admin (settings, modules, scripts). Avoid for monitoring callers.
     * `legacy` — `legacy,login.get`. **Dangerous — do not use for normal clients.** It unlocks the deprecated

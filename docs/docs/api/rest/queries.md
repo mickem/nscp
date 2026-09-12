@@ -132,12 +132,12 @@ GET /api/v2/queries/check_root_disk/commands/execute
 
 <!-- @formatter:off -->
 !!! note "Credentials must travel in a header"
-    Every query-string parameter counts as an argument, including a
-    credential passed the legacy way as `?TOKEN=` or `?password=` — those
-    are forwarded to the check like any other parameter, so exempting them
-    would reopen the argument smuggling the grant exists to prevent. A
-    no-arguments caller authenticates with the `Authorization`,
-    `X-Auth-Token` or `TOKEN` header.
+    Every query-string parameter counts as an argument, including a session
+    token passed the legacy way as `?TOKEN=` — it is forwarded to the check
+    like any other parameter, so exempting it would reopen the argument
+    smuggling the grant exists to prevent. A no-arguments caller
+    authenticates with the `Authorization`, `X-Auth-Token` or `TOKEN`
+    header.
 <!-- @formatter:on -->
 
 ## Command: execute

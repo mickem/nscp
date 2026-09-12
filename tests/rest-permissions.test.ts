@@ -246,6 +246,21 @@ describe("REST permissions", () => {
         .expect(403);
     });
 
+    it("gets 404 for an unknown command even with arguments", async () => {
+      // The argument gate sits below the dispatch check: a command that does
+      // not exist is a 404 for every caller, so a restricted client is not
+      // told "arguments are not allowed" about an endpoint that was never
+      // there.
+      await request(REST_URL)
+        .get("/api/v2/queries/mock_query/commands/no_such_command?a=b")
+        .set("Authorization", `Bearer ${key}`)
+        .trustLocalhost(true)
+        .expect(404)
+        .then((response) => {
+          expect(response.text).toContain("unknown command");
+        });
+    });
+
     it("can run an alias that has arguments baked in", async () => {
       // Aliases are how an operator hands a no-arguments caller a check that
       // needs arguments: the alias resolves to `check_warning message=hello`

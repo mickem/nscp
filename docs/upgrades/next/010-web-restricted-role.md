@@ -24,5 +24,5 @@ check_root_disk = check_drivesize drive=/ warning=free<10% critical=free<5%
 
 Give a restricted caller the checks that need arguments as aliases, as above, so
 the arguments live in your configuration. Note that *every* query parameter
-counts as an argument, including a credential passed the legacy way as
-`?password=` or `?TOKEN=`, so such a client must authenticate with a header.
+counts as an argument, including a session token passed the legacy way as
+`?TOKEN=`, so such a client must authenticate with a header.
