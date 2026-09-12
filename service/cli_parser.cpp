@@ -785,6 +785,7 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
     bool insecure = false;
     std::vector<std::string> bundle_keys;
     bool update_bundle_keys = false;
+    bool unenroll = false;
 
     po::options_description enroll_desc("Enrollment options");
     // clang-format off
@@ -803,6 +804,7 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
       ("insecure", po::bool_switch(&insecure), "Allow an unauthenticated enrollment: plain HTTP, or HTTPS with --verify none. Either way the fleet server is not authenticated, so an on-path attacker can read the bootstrap token and supply the trust anchors this agent will use from then on - only on a trusted network or for testing")
       ("bundle-key", po::value<std::vector<std::string> >(&bundle_keys)->composing(), "Bundle encryption key, as the fleet server showed it once when the key was created (base64 of 32 bytes). Needed to open bundles the operator sealed in the browser; the server never sees it. Stored in the enrollment manifest, never sent anywhere. Repeat for several keys while rotating, newest first")
       ("update-bundle-keys", po::bool_switch(&update_bundle_keys), "Do not enroll: replace the bundle keys stored in this host's existing enrollment manifest with the --bundle-key values (none to remove them all). No server contact, no token needed")
+      ("unenroll", po::bool_switch(&unenroll), "Leave the fleet: delete the enrollment manifest (identity and bundle keys), the fleet-managed configuration, scripts and bundle cache, and the [/includes] fleet entry. Nothing is sent to the server; remove the host there as well")
     ;
     // clang-format on
 
@@ -834,6 +836,63 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
       for (std::size_t i = 0; i < key_fingerprints.size(); ++i) out += (i ? ", " : "") + key_fingerprints[i];
       return out + ")";
     };
+
+    if (unenroll) {
+      // The reverse of enrollment. The include goes first: saving the
+      // settings also rewrites every included file, so the fleet directory
+      // must still exist at that point. Then the manifest (which is what
+      // makes the core start the sync at boot) and the directory the sync
+      // writes into. Each step is reported so a partial cleanup is visible,
+      // and a host that was never enrolled is not an error - there is simply
+      // nothing to remove.
+      try {
+        if (!core_->load_configuration_1()) {
+          std::cerr << "Failed to load configuration" << std::endl;
+          return 1;
+        }
+        if (state_file.empty()) state_file = settings_manager::get_settings()->get_string("/settings/fleet", "state file", DEFAULT_FLEET_STATE_LOCATION);
+        state_file = core_->get_path()->expand_path(state_file);
+        const std::string managed_path =
+            core_->get_path()->expand_path(settings_manager::get_settings()->get_string("/settings/fleet", "managed path", "${" FLEET_FOLDER_KEY "}"));
+        bool removed_any = false;
+        if (!settings_manager::get_settings()->get_string("/includes", "fleet", "").empty()) {
+          settings_manager::get_settings()->remove_key("/includes", "fleet");
+          settings_manager::get_settings()->save(false);
+          std::cout << "  Removed the [/includes] fleet entry from " << settings_manager::get_settings()->get_context() << std::endl;
+          removed_any = true;
+        }
+        boost::system::error_code remove_error;
+        if (boost::filesystem::exists(state_file, remove_error)) {
+          boost::filesystem::remove(state_file, remove_error);
+          if (remove_error) {
+            std::cerr << "Failed to remove the enrollment manifest " << state_file << ": " << remove_error.message() << std::endl;
+            return 1;
+          }
+          std::cout << "  Removed the identity and bundle keys: " << state_file << std::endl;
+          removed_any = true;
+        }
+        if (!managed_path.empty() && boost::filesystem::exists(managed_path, remove_error)) {
+          boost::filesystem::remove_all(managed_path, remove_error);
+          if (remove_error) {
+            std::cerr << "Failed to remove the fleet-managed configuration " << managed_path << ": " << remove_error.message() << std::endl;
+            return 1;
+          }
+          std::cout << "  Removed the fleet-managed configuration, scripts and bundle cache: " << managed_path << std::endl;
+          removed_any = true;
+        }
+        if (!removed_any) {
+          std::cout << "This host is not enrolled: nothing to remove." << std::endl;
+          return 0;
+        }
+        std::cout << "Unenrolled." << std::endl;
+        std::cout << "  Restart the service so it stops syncing; the sync loop is only started at boot when the manifest exists." << std::endl;
+        std::cout << "  The fleet server still lists this host: remove it there too. Its certificate is no longer used by anything." << std::endl;
+        return 0;
+      } catch (const std::exception &e) {
+        std::cerr << "Unenroll failed: " << utf8::utf8_from_native(e.what()) << std::endl;
+        return 1;
+      }
+    }
 
     if (update_bundle_keys) {
       // Key rotation on an enrolled host: the identity stays, only the keys

@@ -407,6 +407,41 @@ describe("nscp enroll (fleet onboarding CLI)", () => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
+  it("--unenroll removes the manifest, the fleet directory and the include", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-unenroll-"));
+    const own = new NscpInstance({ workDir: dir, pathOverrides: { "shared-path": dir } });
+    const bundleKeyB64 = Buffer.alloc(32, "u").toString("base64");
+    expect((await own.run(["enroll", "--server", baseUrl, "--token", "tok-1", "--insecure", "--bundle-key", bundleKeyB64], { allowFailure: true })).exitCode).toBe(0);
+    const manifest = path.join(dir, "security", "agent-state.json");
+    expect(fs.existsSync(manifest)).toBe(true);
+    // Something the sync would have written, to prove the whole directory goes.
+    fs.mkdirSync(path.join(dir, "fleet", "scripts", "demo"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "fleet", "scripts", "demo", "x.txt"), "x");
+    fs.writeFileSync(path.join(dir, "fleet", "applied-state.json"), "{}");
+    requests = [];
+
+    const r = await own.run(["enroll", "--unenroll"], { allowFailure: true });
+    expect(r.exitCode).toBe(0);
+    const out = r.all ?? `${r.stdout}${r.stderr}`;
+    expect(out).toContain("Unenrolled.");
+    expect(out).toContain("Removed the identity and bundle keys");
+    expect(out).toContain("Removed the fleet-managed configuration");
+    expect(out).toContain("Removed the [/includes] fleet entry");
+    expect(fs.existsSync(manifest)).toBe(false);
+    expect(fs.existsSync(path.join(dir, "fleet"))).toBe(false);
+    const ini = fs.readFileSync(own.settingsFile, "utf8");
+    expect(ini).not.toMatch(/fleet\s*=/);
+    expect(ini).not.toContain("fleet.ini");
+    // Nothing goes to the server: leaving is a local act.
+    expect(requests).toEqual([]);
+
+    // A second run has nothing to do and says so, without failing.
+    const again = await own.run(["enroll", "--unenroll"], { allowFailure: true });
+    expect(again.exitCode).toBe(0);
+    expect(again.all ?? again.stdout).toContain("not enrolled: nothing to remove");
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
   // A local key beats the included fleet.ini: a lookup reads the local store
   // first and only falls back to an include when the key is absent. Silently
   // ignoring a fleet setting is a miserable thing to debug, so enrollment says

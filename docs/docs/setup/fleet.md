@@ -406,6 +406,20 @@ ordinary plain bundles, which are refused with an error in the state report.
 
 ## Step 6 — Living with it
 
+**Leaving the fleet** is one command, run as root or from an elevated prompt:
+
+```bash
+sudo nscp enroll --unenroll
+sudo systemctl restart nsclient
+```
+
+It deletes the enrollment manifest (the host's identity and any bundle keys), the
+fleet-managed directory (`fleet.ini`, synced scripts, the bundle cache) and the
+`[/includes] fleet` entry, and reports each. The service stops syncing at the next
+restart, because the sync only starts at boot when the manifest exists. Nothing is sent to
+the server, so remove the host there as well — its certificate is simply no longer used.
+Running it on a host that is not enrolled is harmless.
+
 **Certificates renew themselves.** The client certificate an agent gets is short-lived and
 the agent renews it over its existing mTLS session, before expiry. Nothing to schedule.
 
