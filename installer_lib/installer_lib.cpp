@@ -2000,9 +2000,19 @@ extern "C" UINT __stdcall ExecEnrollFleet(MSIHANDLE hInstall) {
       return ERROR_SUCCESS;
     }
     if (request.server_url.empty()) {
-      h.errorMessage(
-          L"FLEET_BUNDLE_KEY was given without FLEET_SERVER, but this host is not enrolled, so there is no enrollment to store the key in. Pass "
-          L"FLEET_SERVER and FLEET_TOKEN as well to enroll.");
+      // Name the properties that were actually passed: the scheduling
+      // condition fires on FLEET_REQUIRE_ENCRYPTED_BUNDLES too, so an install
+      // that set only that one used to be told to fix FLEET_BUNDLE_KEY, which
+      // it never gave.
+      std::wstring given;
+      if (!bundle_keys.empty()) given = FLEET_BUNDLE_KEY;
+      if (require_encrypted_bundles) {
+        if (!given.empty()) given += L" and ";
+        given += FLEET_REQUIRE_ENCRYPTED_BUNDLES;
+      }
+      h.errorMessage(given +
+                     L" was given without FLEET_SERVER, but this host is not enrolled, so there is no enrollment to store it in. Pass FLEET_SERVER and "
+                     L"FLEET_TOKEN as well to enroll.");
       return ERROR_INSTALL_FAILURE;
     }
 
