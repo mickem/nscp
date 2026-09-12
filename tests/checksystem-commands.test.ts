@@ -839,6 +839,19 @@ describe("CheckSystem commands", () => {
     expect(perfValue(q, "count")).toBeGreaterThan(0);
   });
 
+  it("check_installed_software dates every package on dpkg and rpm (Linux)", async () => {
+    if (onWindows) return; // manager is the unix package-manager keyword.
+    // dpkg-query (db-fsys:Last-Modified) and rpm (INSTALLTIME) date every
+    // installed package, so an entry with no date means the date query broke;
+    // pacman records none and is left out.
+    const q = await executeQuery(key, "check_installed_software", {
+      filter: "manager = 'dpkg' or manager = 'rpm'",
+      critical: "install_date_s = ''",
+    });
+    expect(q.result).toBe(OK);
+    expect(perfValue(q, "count")).toBeGreaterThan(0);
+  });
+
   // --- check_kernel_memory (both platforms) -------------------------------------
 
   it("check_kernel_memory reports kernel gauges and fault rates with perf", async () => {

@@ -6,7 +6,6 @@
 #include <gtest/gtest.h>
 
 #include <ctime>
-#include <map>
 
 using installed_software::software_entry;
 
@@ -64,9 +63,9 @@ PB::Common::ResultCode run_check(const std::vector<software_entry> &entries, con
 
 TEST(CheckInstalledSoftware, ParsesDpkgOutput) {
   const std::string output =
-      "bash\t5.1-6ubuntu1\tamd64\tUbuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>\t1864\tinstall ok installed\n"
-      "removed-pkg\t1.0\tamd64\tSomeone <x@y.z>\t10\tdeinstall ok config-files\n"
-      "libc6\t2.35-0ubuntu3\tamd64\tUbuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>\t13597\tinstall ok installed\n";
+      "bash\t5.1-6ubuntu1\tamd64\tUbuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>\t1864\tinstall ok installed\t1717200000\n"
+      "removed-pkg\t1.0\tamd64\tSomeone <x@y.z>\t10\tdeinstall ok config-files\t1717200000\n"
+      "libc6\t2.35-0ubuntu3\tamd64\tUbuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>\t13597\tinstall ok installed\t1700000000\n";
   const std::vector<software_entry> entries = installed_software::parse_dpkg_output(output);
   ASSERT_EQ(entries.size(), 2u);  // config-files leftover is skipped
   EXPECT_EQ(entries[0].name, "bash");
@@ -75,8 +74,10 @@ TEST(CheckInstalledSoftware, ParsesDpkgOutput) {
   EXPECT_EQ(entries[0].publisher, "Ubuntu Developers");  // email stripped
   EXPECT_EQ(entries[0].size_bytes, 1864LL * 1024);
   EXPECT_EQ(entries[0].manager, "dpkg");
-  EXPECT_EQ(entries[0].install_date_epoch, 0);  // dpkg has no date until apply_dpkg_install_dates
+  EXPECT_EQ(entries[0].install_date_epoch, 1717200000);
+  EXPECT_EQ(entries[0].install_date_str, "2024-06-01");
   EXPECT_EQ(entries[1].name, "libc6");
+  EXPECT_EQ(entries[1].install_date_epoch, 1700000000);
 }
 
 TEST(CheckInstalledSoftware, SkipsNonInstalledDpkgStates) {
@@ -137,22 +138,18 @@ TEST(CheckInstalledSoftware, ParsesPacmanOutput) {
   EXPECT_EQ(entries[0].manager, "pacman");
 }
 
-TEST(CheckInstalledSoftware, DpkgInstallDatesComeFromListFileMtime) {
-  std::vector<software_entry> entries = installed_software::parse_dpkg_output(
+// A dpkg-query older than 1.19.3 does not know db-fsys:Last-Modified and leaves
+// the column out (or empty): the entry keeps its unknown date rather than being
+// dropped.
+TEST(CheckInstalledSoftware, DpkgEntriesSurviveAMissingInstallDate) {
+  const std::vector<software_entry> entries = installed_software::parse_dpkg_output(
       "bash\t5.1\tamd64\tX\t1\tinstall ok installed\n"
-      "libc6\t2.35\tamd64\tX\t1\tinstall ok installed\n");
-  const std::map<std::string, long long> mtimes = {
-      // bash only has the multi-arch variant; libc6 only the legacy name.
-      {"/var/lib/dpkg/info/bash:amd64.list", 1717200000},
-      {"/var/lib/dpkg/info/libc6.list", 1700000000},
-  };
-  installed_software::apply_dpkg_install_dates(entries, [&mtimes](const std::string &path) -> long long {
-    const auto it = mtimes.find(path);
-    return it == mtimes.end() ? 0 : it->second;
-  });
-  EXPECT_EQ(entries[0].install_date_epoch, 1717200000);
-  EXPECT_EQ(entries[0].install_date_str, "2024-06-01");
-  EXPECT_EQ(entries[1].install_date_epoch, 1700000000);
+      "libc6\t2.35\tamd64\tX\t1\tinstall ok installed\t\n");
+  ASSERT_EQ(entries.size(), 2u);
+  EXPECT_EQ(entries[0].install_date_epoch, 0);
+  EXPECT_EQ(entries[0].install_date_str, "");
+  EXPECT_EQ(entries[1].install_date_epoch, 0);
+  EXPECT_EQ(entries[1].install_date_str, "");
 }
 
 // --- check_from --------------------------------------------------------------
