@@ -18,6 +18,7 @@
  *     agent is normally started under a supervisor — and how every other suite
  *     in this directory runs it.
  */
+import execa from "execa";
 import { NscpInstance } from "@fixtures/index";
 
 jest.setTimeout(120_000);
@@ -68,6 +69,45 @@ describe("nscp test console", () => {
     const out = await runConsole("desc check_ok\nexit\n");
     expect(out).toContain("check_ok");
     expect(out).toMatch(/Parameters/i);
+  });
+
+  it("keeps running commands after a module reload", async () => {
+    // A settings reload re-enters CommandClient::loadModuleEx on the live
+    // module while the console is up. It used to replace the client object
+    // the console was built on, leaving the prompt's completion hooks with a
+    // freed pointer: the first refresh after a reload - a fleet configuration
+    // push being what hit it - took the process down. The completion hooks
+    // only exist with a terminal and cannot be driven through a pipe, so this
+    // pins the half that can be: the reload lands while the console is
+    // running, and what is typed afterwards still runs on an intact client.
+    const overrides: string[] = [];
+    for (const [k, v] of Object.entries(nscp.pathOverrides))
+      overrides.push("--path-override", `${k}=${v}`);
+    const proc = execa(
+      process.env.NSCP_BIN as string,
+      ["test", "--settings", nscp.settingsFile, ...overrides],
+      {
+        cwd: nscp.workDir,
+        all: true,
+        timeout: 60_000,
+        reject: false,
+        env: process.env,
+      },
+    );
+    const stdin = proc.stdin;
+    if (!stdin) throw new Error("no stdin pipe");
+    stdin.write("reload\n");
+    // The reload is queued ("delayed,service") and runs on a core thread a
+    // moment later; give it time to complete before typing the next command
+    // so that command really does run after loadModuleEx has been re-entered.
+    await new Promise((resolve) => setTimeout(resolve, 5_000));
+    stdin.write("check_ok message=after-reload\nexit\n");
+    stdin.end();
+    const r = await proc;
+    const out = r.all ?? `${r.stdout}\n${r.stderr}`;
+    expect(out).toContain("after-reload");
+    expect(r.timedOut).toBe(false);
+    expect(r.exitCode).toBe(0);
   });
 
   it("exits on the exit command instead of running to the timeout", async () => {
