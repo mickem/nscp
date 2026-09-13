@@ -105,6 +105,11 @@ describe("nscp test console", () => {
       expect(ok.indexOf("Alias for:")).toBeGreaterThan(longAlias.length);
     });
 
+    it("alias is the same listing as aliases", async () => {
+      // "aliases" is a word nobody types right the first time.
+      expect(await listing("alias", /Alias for:/)).toEqual(await listing("aliases", /Alias for:/));
+    });
+
     it("queries and list: the description is one line, and list shows both kinds", async () => {
       const queries = await listing("queries", /(^|\s)check_ok\s/);
       const okLine = queries.find((l) => /(^|\s)check_ok\s/.test(l))!;

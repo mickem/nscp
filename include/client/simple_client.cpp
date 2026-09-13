@@ -237,6 +237,7 @@ const std::vector<command_info> &builtin_commands() {
       {"queries", "", "list all available queries"},
       {"commands", "", "list all available queries (alias for queries)"},
       {"aliases", "", "list all available query aliases"},
+      {"alias", "", "list all available query aliases (alias for aliases)"},
       {"list", "", "list queries and aliases"},
       {"plugins", "", "list all plugins and whether they are loaded"},
       {"desc", "<query>", "describe a query and its parameters"},
@@ -473,7 +474,7 @@ void cli_client::handle_command(const std::string &command) {
     PB::Registry::RegistryResponseMessage response_message;
     create_registry_query(handler->get_core(), "", PB::Registry::ItemType::QUERY, response_message);
     handler->output_message(render_inventory({response_message}, false));
-  } else if (command == "aliases") {
+  } else if (command == "aliases" || command == "alias") {
     PB::Registry::RegistryResponseMessage response_message;
     create_registry_query(handler->get_core(), "", PB::Registry::ItemType::QUERY_ALIAS, response_message);
     handler->output_message(render_inventory({response_message}, false));
