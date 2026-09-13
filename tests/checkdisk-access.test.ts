@@ -116,6 +116,51 @@ describe("CheckDisk file access modes", () => {
       expect(out).toMatch(/Refusing file/);
     });
 
+    // Only the scan root is held against the allow list, so `pattern` has to
+    // stay a file mask: the Windows scanner concatenates it onto the directory
+    // it is walking, and a pattern carrying separators walked straight out of
+    // the root which had just passed the gate.
+    it("check_files refuses a pattern which climbs out of the scan root", async () => {
+      for (const pattern of ["../secret/*", "..\\secret\\*", "../../*", "sub/../../secret/*"]) {
+        const { out, code } = await query("check_files", [
+          `path=${allowedDir}`,
+          `pattern=${pattern}`,
+          "detail-syntax=%(filename)",
+          "top-syntax=${list}",
+        ]);
+        expect(code).toBe(UNKNOWN);
+        expect(out).toMatch(/Refusing pattern/);
+        expect(out).not.toMatch(/credentials/);
+      }
+    });
+
+    it("check_files refuses a pattern naming a subdirectory while restricted", async () => {
+      const { out, code } = await query("check_files", [`path=${allowedDir}`, "pattern=sub/*.log"]);
+      expect(code).toBe(UNKNOWN);
+      expect(out).toMatch(/Refusing pattern/);
+    });
+
+    it("check_files still accepts an ordinary file mask", async () => {
+      const { out, code } = await query("check_files", [
+        `path=${allowedDir}`,
+        "pattern=*.log",
+        "detail-syntax=%(filename)",
+        "top-syntax=${list}",
+      ]);
+      expect(code).not.toBe(UNKNOWN);
+      expect(out).toMatch(/app\.log/);
+    });
+
+    // A traversal written with the other separator. On Windows it is a
+    // separator and must be flattened before the match; on Linux it is an
+    // ordinary character and must not become one afterwards. Either way the
+    // secret directory must not be enumerated.
+    it("check_files does not enumerate through a backslash traversal", async () => {
+      const escape = `${allowedDir}/..\\..\\secret`;
+      const { out } = await query("check_files", [`path=${escape}`, "pattern=*", "detail-syntax=%(filename)", "top-syntax=${list}"]);
+      expect(out).not.toMatch(/credentials/);
+    });
+
     // The checksum keywords are the reason this matters even though no content
     // keyword exists: a hash of an arbitrary file is a content oracle.
     it("check_files cannot hash a file outside the allowed directory", async () => {

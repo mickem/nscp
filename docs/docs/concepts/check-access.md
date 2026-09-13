@@ -98,6 +98,11 @@ Allow-list entries come in three shapes:
 | `C:/logs/*.log` | a wildcard (`*` and `?`), matched against the whole path |
 | `C:/logs/app.log` | that one file |
 
+Paths are compared after both sides are resolved, and separators are folded
+only where the platform treats them as separators: on Windows `\` and `/` are
+the same thing, on Linux `\` is an ordinary character in a file name. An entry
+may also be a filesystem root (`/`, or `C:\`), which allows everything on it.
+
 A bare entry is a directory unless it names a file which exists when the
 settings are read; a path which does not exist yet (a volume mounted later, a
 log directory the application creates on first run) is taken as a directory,
@@ -160,6 +165,11 @@ else is a single file.
     So the exposure is narrower than `check_logfile`'s but reaches much wider —
     whole trees rather than one named file — which is why it is worth setting
     even where you left `check_logfile` open.
+
+While the disk checks are restricted, `check_files` also requires `pattern` to
+be a plain file mask: it may not contain a path separator or `..`. The pattern
+is appended to the directory being walked, so one carrying a path would
+enumerate a tree the allow list never approved, no matter which root passed.
 
 For `check_files` only the **scan root** is checked, not each file the walk
 finds. That is sound rather than a shortcut: the recursion refuses to follow

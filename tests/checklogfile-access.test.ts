@@ -140,6 +140,35 @@ describe("CheckLogFile file access modes", () => {
       expect(out).not.toMatch(/SECRET which must not come back/);
     });
 
+    // The same traversal written with the other separator. On Windows `\` is
+    // a separator and has to be flattened before the match; on Linux it is an
+    // ordinary character and must not turn into one afterwards, which is how
+    // this escaped an allow list (folding happened after resolution).
+    it("refuses a .. traversal written with a backslash", async () => {
+      for (const escape of [
+        `${allowedDir}/..\\secret\\credentials`,
+        `${allowedDir}/..\\..\\secret/credentials`,
+        `${allowedDir}\\..\\secret\\credentials`,
+      ]) {
+        const { out, code } = await check([`file=${escape}`]);
+        expect(code).toBe(UNKNOWN);
+        expect(out).not.toMatch(/SECRET which must not come back/);
+      }
+    });
+
+    // `files=` is the comma-separated form of `file=`, and it goes through the
+    // same gate: it used to be parsed before the arguments were read, so it
+    // did nothing at all.
+    it("gates the files= alias, and it actually reads now", async () => {
+      const both = await check([`files=${allowedLog}`]);
+      expect(both.out).toMatch(/SECRET in an allowed file/);
+
+      const mixed = await check([`files=${allowedLog},${secretFile}`]);
+      expect(mixed.code).toBe(UNKNOWN);
+      expect(mixed.out).toMatch(/Refusing file/);
+      expect(mixed.out).not.toMatch(/SECRET which must not come back/);
+    });
+
     it("refuses a sibling directory sharing the allowed prefix", async () => {
       const sibling = path.join(scratch, "logs-private");
       fs.mkdirSync(sibling, { recursive: true });

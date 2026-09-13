@@ -3,12 +3,15 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
 #include <boost/filesystem.hpp>
 #include <check/access_policy.hpp>
 #include <check/path_access_policy.hpp>
 #include <check/prefix_access_policy.hpp>
 #include <check/wql_query.hpp>
 #include <fstream>
+#include <thread>
+#include <vector>
 
 namespace fs = boost::filesystem;
 using check::access::decision;
@@ -705,6 +708,378 @@ TEST(prefix_policy, an_event_log_refusal_names_the_setting) {
   EXPECT_NE(std::string::npos, d.error.find("Refusing log 'Security'"));
   EXPECT_NE(std::string::npos, d.error.find("allowed logs"));
   EXPECT_NE(std::string::npos, d.error.find("/settings/eventlog"));
+}
+
+// ---------------------------------------------------------------------------
+// Negative tests: the ways a path gate is fooled
+//
+// Every bug found in review of this gate had the same shape - resolve() said
+// yes and handed back a path which, read by the OS, was somewhere else. So
+// these tests do not assert "refused"; they assert the invariant that makes a
+// refusal unnecessary:
+//
+//   whatever the caller spelled, the value handed back must resolve - through
+//   boost, independently of anything in path_access_policy - to a path inside
+//   the allowed directory.
+//
+// A gate which accepts a hostile token but returns a path that stays inside is
+// just as correct as one which refuses it, and this says so without pinning
+// the test to today's behaviour.
+// ---------------------------------------------------------------------------
+
+class path_escape_test : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    root_ = fs::temp_directory_path() / fs::unique_path("nscp-escape-%%%%%%%%");
+    fs::create_directories(root_ / "logs" / "sub");
+    fs::create_directories(root_ / "secret");
+    write(root_ / "logs" / "app.log", "in\n");
+    write(root_ / "logs" / "sub" / "deep.log", "deep\n");
+    write(root_ / "secret" / "shadow", "SECRET\n");
+  }
+  void TearDown() override {
+    boost::system::error_code ec;
+    fs::remove_all(root_, ec);
+  }
+  static void write(const fs::path &p, const std::string &body) {
+    std::ofstream f(p.string().c_str());
+    f << body;
+  }
+  std::string at(const std::string &rel) const { return (root_ / rel).string(); }
+  std::string allowed_dir() const { return at("logs"); }
+
+  check::access::path_policy restricted() const {
+    check::access::path_policy p("file", "files", "/settings/logfile");
+    p.set_mode("allowed");
+    p.set_allow_list(allowed_dir());
+    return p;
+  }
+
+  // Resolve `token` against a policy allowing only <root>/logs, and check the
+  // invariant. Returns whether it was accepted, so a caller can additionally
+  // pin today's answer where that is worth pinning.
+  bool accepted_and_contained(const check::access::path_policy &p, const std::string &token) const {
+    const decision d = p.resolve(token);
+    if (!d.allowed) return false;
+    // Resolve the *returned* value the way the operating system will when the
+    // check opens it. Deliberately not path_policy::canonical: a bug in that
+    // function is exactly what this is meant to catch.
+    boost::system::error_code ec;
+    fs::path landed = fs::weakly_canonical(fs::path(d.value), ec);
+    if (ec) landed = fs::path(d.value).lexically_normal();
+    fs::path base = fs::weakly_canonical(fs::path(allowed_dir()), ec);
+    if (ec) base = fs::path(allowed_dir()).lexically_normal();
+
+    const std::string landed_s = landed.string();
+    const std::string base_s = base.string();
+    const bool inside = landed_s == base_s || (landed_s.size() > base_s.size() && landed_s.compare(0, base_s.size(), base_s) == 0 &&
+                                               (landed_s[base_s.size()] == '/' || landed_s[base_s.size()] == '\\'));
+    EXPECT_TRUE(inside) << "accepted '" << token << "' but it lands on '" << landed_s << "', outside '" << base_s << "'";
+    return true;
+  }
+
+  fs::path root_;
+};
+
+// The table this suite exists for. Each token is a way of writing "leave the
+// allowed directory"; none of them may come back as a path which does.
+TEST_F(path_escape_test, no_spelling_of_a_traversal_escapes_the_allowed_directory) {
+  const check::access::path_policy p = restricted();
+  const std::string logs = allowed_dir();
+  const std::vector<std::string> tokens = {
+      logs + "/../secret/shadow",
+      logs + "/../../etc/passwd",
+      // Written with a backslash. On Windows that is a separator and must be
+      // flattened; on Linux it is an ordinary character and must not become
+      // one after the match - which is what let this through (#1516 review).
+      logs + "/..\\..\\secret/shadow",
+      logs + "/..\\secret\\shadow",
+      logs + "\\..\\secret\\shadow",
+      logs + "/./../secret/shadow",
+      logs + "/.././secret/shadow",
+      logs + "//../secret/shadow",
+      logs + "/sub/../../secret/shadow",
+      logs + "/./sub/./../../secret/shadow",
+      logs + "/../logs/../secret/shadow",
+      logs + "/sub/../sub/../../secret/shadow",
+      logs + "/../../../../../../../../etc/passwd",
+      at("secret/shadow"),
+      "/etc/passwd",
+  };
+  for (const std::string &token : tokens) accepted_and_contained(p, token);
+}
+
+// The same table, but the allow list is a wildcard rather than a directory.
+TEST_F(path_escape_test, a_glob_entry_is_not_a_way_round_the_traversal_rule) {
+  check::access::path_policy p("file", "files", "/settings/logfile");
+  p.set_mode("allowed");
+  p.set_allow_list(allowed_dir() + "/*.log");
+  const std::string logs = allowed_dir();
+  for (const std::string &token : {logs + "/../secret/shadow.log", logs + "/..\\..\\secret/shadow.log", logs + "/sub/../../secret/shadow.log"}) {
+    accepted_and_contained(p, std::string(token));
+  }
+}
+
+#ifndef WIN32
+// Both link shapes, since only one of them was covered before: a file link and
+// a directory link, each planted inside the allowed directory.
+TEST_F(path_escape_test, neither_a_file_nor_a_directory_symlink_leads_out) {
+  boost::system::error_code ec;
+  fs::create_symlink(root_ / "secret" / "shadow", root_ / "logs" / "escape.log", ec);
+  if (ec) GTEST_SKIP() << "cannot create symlinks here: " << ec.message();
+  fs::create_directory_symlink(root_ / "secret", root_ / "logs" / "out", ec);
+  ASSERT_FALSE(ec) << ec.message();
+
+  const check::access::path_policy p = restricted();
+  EXPECT_FALSE(accepted_and_contained(p, at("logs/escape.log")));
+  EXPECT_FALSE(accepted_and_contained(p, at("logs/out/shadow")));
+  // Through the directory link and back out again.
+  accepted_and_contained(p, at("logs/out/../secret/shadow"));
+}
+
+// A symlink whose own name is a traversal written with a backslash: on Linux
+// that is a legal file name, so the resolver does see a link here.
+TEST_F(path_escape_test, a_link_named_like_a_traversal_is_resolved_not_pattern_matched) {
+  boost::system::error_code ec;
+  fs::create_symlink(root_ / "secret", root_ / "logs" / "..\\..", ec);
+  if (ec) GTEST_SKIP() << "cannot create that name here: " << ec.message();
+  const check::access::path_policy p = restricted();
+  accepted_and_contained(p, at("logs") + "/..\\../shadow");
+}
+
+// Linux file names are case sensitive, so folding case would hand one allow
+// list entry two different files.
+TEST_F(path_escape_test, case_is_significant_on_posix) {
+  fs::create_directories(root_ / "LOGS");
+  write(root_ / "LOGS" / "app.log", "other\n");
+  const check::access::path_policy p = restricted();
+  EXPECT_FALSE(p.resolve(at("LOGS/app.log")).allowed);
+  EXPECT_TRUE(p.resolve(at("logs/app.log")).allowed);
+}
+#endif
+
+// An allow list of "/" means the whole filesystem. It used to mean nothing at
+// all: the containment test looked for a separator after "/" and never found
+// one, so every path below it was refused.
+TEST_F(path_escape_test, the_filesystem_root_as_an_entry_allows_what_is_below_it) {
+  check::access::path_policy p("file", "files", "/settings/logfile");
+  p.set_mode("allowed");
+#ifdef WIN32
+  p.set_allow_list("C:\\");
+  EXPECT_TRUE(p.resolve("C:\\Windows\\win.ini").allowed);
+  // And the root keeps its separator, or Win32 reads "C:" as the current
+  // directory on that drive rather than its root.
+  EXPECT_EQ("C:/", check::access::path_policy::canonical("C:\\"));
+  EXPECT_EQ("C:/", check::access::path_policy::canonical("C:/"));
+#else
+  p.set_allow_list("/");
+  EXPECT_TRUE(p.resolve("/etc/passwd").allowed);
+  EXPECT_TRUE(p.resolve(at("secret/shadow")).allowed);
+  EXPECT_EQ("/", check::access::path_policy::canonical("/"));
+#endif
+}
+
+// A path handed back must never still carry a `..`: the check opens exactly
+// what resolve() returned, so an element the resolver left behind would be
+// walked after the match had already passed.
+TEST_F(path_escape_test, an_accepted_path_never_carries_a_parent_element) {
+  const check::access::path_policy p = restricted();
+  const std::string logs = allowed_dir();
+  for (const std::string &token : {logs + "/sub/../app.log", logs + "/./app.log", logs + "//app.log", logs + "/sub/../sub/deep.log"}) {
+    const decision d = p.resolve(std::string(token));
+    if (!d.allowed) continue;
+    EXPECT_EQ(std::string::npos, d.value.find("/../")) << d.value;
+    EXPECT_FALSE(d.value.size() > 3 && d.value.compare(d.value.size() - 3, 3, "/..") == 0) << d.value;
+  }
+}
+
+// Degenerate allow lists must fail closed rather than match everything.
+TEST_F(path_escape_test, a_degenerate_allow_list_allows_nothing) {
+  const std::vector<std::string> lists = {"", " ", ",", " , , ", "\t"};
+  for (const std::string &list : lists) {
+    check::access::path_policy p("file", "files", "/settings/logfile");
+    p.set_mode("allowed");
+    p.set_allow_list(list);
+    EXPECT_EQ(0u, p.allow_list_size()) << "list '" << list << "'";
+    EXPECT_FALSE(p.resolve(at("logs/app.log")).allowed) << "list '" << list << "'";
+    EXPECT_FALSE(p.resolve(at("secret/shadow")).allowed) << "list '" << list << "'";
+  }
+}
+
+// A bare `*` is one element, not the whole filesystem: it cannot match a path
+// which still has separators in it.
+TEST_F(path_escape_test, a_bare_star_entry_does_not_match_an_absolute_path) {
+  check::access::path_policy p("file", "files", "/settings/logfile");
+  p.set_mode("allowed");
+  p.set_allow_list("*");
+  EXPECT_FALSE(p.resolve(at("secret/shadow")).allowed);
+}
+
+// Reloads happen while checks are running. This hammers both sides: if the
+// gate were rebuilt in place - cleared and refilled, as it once was - a reader
+// would see an empty list (and accept nothing) or a torn one (and crash under
+// a sanitiser). Nothing here may ever be accepted from outside both lists.
+TEST_F(path_escape_test, a_reload_never_opens_the_gate_for_a_concurrent_check) {
+  check::access::path_policy p("file", "files", "/settings/logfile");
+  p.set_mode("allowed");
+  p.set_allow_list(allowed_dir());
+
+  std::atomic<bool> stop(false);
+  std::atomic<int> escaped(0);
+  std::atomic<int> accepted(0);
+
+  std::vector<std::thread> readers;
+  for (int i = 0; i < 4; ++i) {
+    readers.emplace_back([&] {
+      while (!stop.load()) {
+        if (p.resolve(at("secret/shadow")).allowed) escaped.fetch_add(1);
+        if (p.resolve(at("logs/app.log")).allowed) accepted.fetch_add(1);
+        p.allow_list_size();
+        p.is_restricted();
+      }
+    });
+  }
+  for (int i = 0; i < 300; ++i) {
+    p.reset();
+    p.set_allow_list(allowed_dir());
+    p.set_mode("allowed");
+    p.add_predefined("app", at("logs/app.log"));
+  }
+  stop.store(true);
+  for (std::thread &t : readers) t.join();
+
+  EXPECT_EQ(0, escaped.load()) << "a concurrent reload let a path outside the allow list through";
+  EXPECT_GT(accepted.load(), 0) << "the allow list was empty for the whole run, so the test proved nothing";
+}
+
+// ---------------------------------------------------------------------------
+// Negative tests: WQL shapes which must not yield a class
+// ---------------------------------------------------------------------------
+
+TEST(wql_negative, refuses_every_query_whose_class_is_not_unambiguous) {
+  const std::vector<std::string> queries = {
+      // A second FROM: the column list used to swallow the first one and the
+      // gate then reported the last class while WMI reads the first (#1516).
+      "SELECT a FROM Win32_Foo FROM Win32_Allowed",
+      "SELECT a FROM Win32_Foo FROM Win32_Bar FROM Win32_Allowed",
+      "SELECT * FROM Win32_Foo FROM Win32_Allowed",
+      "SELECT FROM FROM Win32_Allowed",
+      // Keywords and punctuation in the column list.
+      "SELECT (SELECT * FROM Win32_Shadow) FROM Win32_Allowed",
+      "SELECT a.b FROM Win32_Allowed",
+      "SELECT a-b FROM Win32_Allowed",
+      "SELECT a b FROM Win32_Allowed",
+      "SELECT a,, FROM Win32_Allowed",
+      "SELECT ,a FROM Win32_Allowed",
+      "SELECT a, FROM Win32_Allowed",
+      // Qualified or non-identifier class names.
+      "SELECT * FROM root\\cimv2:Win32_Process",
+      "SELECT * FROM \\\\host\\root\\cimv2:Win32_Process",
+      "SELECT * FROM root/cimv2:Win32_Process",
+      "SELECT * FROM 9Win32_Process",
+      "SELECT * FROM Win32_Process, Win32_Service",
+      // Not a SELECT at all.
+      "ASSOCIATORS OF {Win32_Process.Handle='1'}",
+      "REFERENCES OF {Win32_Process.Handle='1'}",
+      "DELETE FROM Win32_Process",
+      "UPDATE Win32_Process SET a = 1",
+      // Trailing material the grammar does not account for.
+      "SELECT * FROM Win32_Process Win32_Other",
+      "SELECT * FROM Win32_Process HAVING x",
+      "SELECT * FROM Win32_Process GROUP BY a",
+      "SELECT * FROM Win32_Process WITHIN 10",
+      // Statement separators and embedded NUL.
+      "SELECT * FROM Win32_Service; SELECT * FROM Win32_Process",
+      std::string("SELECT * FROM Win32_Proc\0ess", 28),
+      // Empty and near-empty.
+      "",
+      "   ",
+      "SELECT",
+      "SELECT *",
+      "SELECT * FROM",
+      "SELECT * FROM ",
+  };
+  for (const std::string &query : queries) {
+    const check::wql::parse_result r = check::wql::extract_class(query);
+    EXPECT_FALSE(r.ok) << "accepted '" << query << "' as class '" << r.class_name << "'";
+    EXPECT_FALSE(r.error.empty()) << "refused '" << query << "' without saying why";
+  }
+}
+
+// The shapes which must keep working, so the grammar above is not simply
+// "refuse everything".
+TEST(wql_negative, still_accepts_the_plain_shapes) {
+  struct {
+    const char *query;
+    const char *expected;
+  } cases[] = {
+      {"SELECT * FROM Win32_Process", "Win32_Process"},
+      {"select * from win32_process", "win32_process"},
+      {"SELECT Name FROM Win32_Service", "Win32_Service"},
+      {"SELECT Name,State FROM Win32_Service", "Win32_Service"},
+      {"SELECT Name , State FROM Win32_Service", "Win32_Service"},
+      {"SELECT __CLASS, Name FROM Win32_Service", "Win32_Service"},
+      {"\n\tSELECT\n*\nFROM\tWin32_Process\n", "Win32_Process"},
+      {"SELECT * FROM Win32_Process WHERE Name = 'x'", "Win32_Process"},
+      // A WHERE clause is opaque on purpose: WMI evaluates it against the
+      // class already approved, so the words in it cannot move the class.
+      {"SELECT * FROM Win32_Process WHERE Name = 'FROM Win32_Service'", "Win32_Process"},
+      {"SELECT * FROM Win32_Process WHERE Name = 'a;b'", nullptr},
+  };
+  for (const auto &c : cases) {
+    const check::wql::parse_result r = check::wql::extract_class(c.query);
+    if (c.expected == nullptr) {
+      EXPECT_FALSE(r.ok) << c.query;  // the ';' rule wins, even inside a literal
+      continue;
+    }
+    ASSERT_TRUE(r.ok) << c.query << ": " << r.error;
+    EXPECT_EQ(c.expected, r.class_name) << c.query;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Negative tests: the hierarchical (registry / event log) gate
+// ---------------------------------------------------------------------------
+
+TEST(prefix_negative, nothing_outside_the_allowed_subtree_resolves) {
+  check::access::prefix_policy p = registry_policy();
+  p.set_mode("allowed");
+  p.set_allow_list("HKLM\\SOFTWARE\\MyApp");
+  const std::vector<std::string> refused = {
+      "HKLM\\SOFTWARE\\MyAppEvil",
+      "HKLM\\SOFTWARE\\MyAppEvil\\Sub",
+      "HKLM\\SOFTWARE\\MyApp2",
+      "HKLM\\SOFTWARE",
+      "HKLM\\SAM",
+      "HKEY_LOCAL_MACHINE\\SAM",
+      "HKCU\\SOFTWARE\\MyApp",
+      "HKLM\\SOFTWARE\\MyAppEvil\\..\\MyApp",
+      // The other separator is not a separator here, so it cannot end a
+      // segment on this gate's behalf.
+      "HKLM/SOFTWARE/MyApp/Sub",
+      "",
+  };
+  for (const std::string &key : refused) EXPECT_FALSE(p.resolve(key).allowed) << "accepted '" << key << "'";
+
+  const std::vector<std::string> allowed = {
+      "HKLM\\SOFTWARE\\MyApp",
+      "HKLM\\SOFTWARE\\MyApp\\",
+      "HKLM\\SOFTWARE\\MyApp\\Sub",
+      "HKLM\\SOFTWARE\\MyApp\\Sub\\Deeper",
+      "HKEY_LOCAL_MACHINE\\SOFTWARE\\MyApp\\Sub",
+  };
+  for (const std::string &key : allowed) EXPECT_TRUE(p.resolve(key).allowed) << "refused '" << key << "'";
+}
+
+TEST(prefix_negative, a_degenerate_allow_list_allows_nothing) {
+  for (const std::string list : {"", " ", ",", " , , "}) {
+    check::access::prefix_policy p("log", "logs", "/settings/eventlog", '/');
+    p.set_mode("allowed");
+    p.set_allow_list(list);
+    EXPECT_EQ(0u, p.allow_list_size());
+    EXPECT_FALSE(p.resolve("Application").allowed);
+    EXPECT_FALSE(p.resolve("Security").allowed);
+  }
 }
 
 }  // namespace

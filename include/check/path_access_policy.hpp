@@ -36,6 +36,12 @@
 // next reload. Treating it as a directory costs nothing - a directory entry
 // covers the path itself too - and matches what the documentation promises.
 //
+// Separators are folded to `/` before anything is resolved, and only on the
+// platforms where `\` actually separates. Folding afterwards is what let
+// `/var/log/..\..\etc/passwd` through on Linux: the resolver saw one odd
+// file name, said it was under `/var/log`, and the fold then turned it into a
+// `..` the kernel walked after the match had already passed.
+//
 // In a path glob `*` and `?` do not cross a directory separator, so
 // `/var/log/*.log` names the files in that directory and not those in
 // `/var/log/private/`; `**` matches across separators for the cases where
@@ -57,7 +63,8 @@ class path_policy {
 #else
               true
 #endif
-        ) {}
+        ) {
+  }
 
   path_policy(const path_policy &other) : base_(other.base_) {
     std::lock_guard<std::mutex> lock(other.mutex_);
@@ -111,16 +118,36 @@ class path_policy {
   // Normalise a path the way resolve() does, so a caller can match a candidate
   // without going through the mode machinery (used by the tests).
   static std::string canonical(const std::string &path) {
+    // Fold the separators *first*. weakly_canonical only flattens a `..` it
+    // recognises as a path element, so on a platform where `\` separates, a
+    // `..\` has to reach it already spelled `../` - and on a platform where
+    // `\` does not separate, it must not be folded at all.
+    const std::string input = to_separators(path);
     boost::system::error_code ec;
-    const boost::filesystem::path resolved = boost::filesystem::weakly_canonical(boost::filesystem::path(path), ec);
+    const boost::filesystem::path resolved = boost::filesystem::weakly_canonical(boost::filesystem::path(input), ec);
     // weakly_canonical needs the filesystem to resolve symlinks; when it
     // cannot (a path on a volume which is gone, a permission error on a parent
     // directory) fall back to a purely lexical normalisation. That still
     // flattens `..`, so the traversal case stays closed; only symlink
     // resolution is lost, and an entry which is not reachable cannot be read
     // by the check either.
-    const boost::filesystem::path out = ec ? boost::filesystem::path(path).lexically_normal() : resolved;
-    return to_slashes(out.string());
+    const boost::filesystem::path out = ec ? boost::filesystem::path(input).lexically_normal() : resolved;
+    return trim_trailing_separator(to_separators(out.string()));
+  }
+
+  // True when the path still carries a parent-directory element. Nothing
+  // should reach the allow list in that state, so this is belt and braces: if
+  // the resolver ever leaves one behind, the check would open a path the
+  // match never saw, which is the whole failure this class exists to prevent.
+  static bool has_parent_element(const std::string &path) {
+    std::string::size_type start = 0;
+    for (;;) {
+      const std::string::size_type end = path.find('/', start);
+      const std::string element = end == std::string::npos ? path.substr(start) : path.substr(start, end - start);
+      if (element == "..") return true;
+      if (end == std::string::npos) return false;
+      start = end + 1;
+    }
   }
 
   // Translate a path glob into a regular expression. Unlike the generic
@@ -190,6 +217,10 @@ class path_policy {
         return decision::accept(token);
       case mode::allowed: {
         const std::string resolved = canonical(token);
+        if (has_parent_element(resolved)) {
+          return decision::refuse("Refusing file '" + token + "': it could not be resolved to a path without a '..' element (see [" +
+                                  base_.get_settings_path() + "] in the configuration)");
+        }
         if (matches_allow_list(resolved)) return decision::accept(resolved);
         return decision::refuse("Refusing file '" + token + "': it is not in 'allowed files' (see [" + base_.get_settings_path() + "] in the configuration)");
       }
@@ -219,11 +250,31 @@ class path_policy {
     return false;
   }
 
-  static std::string to_slashes(std::string s) {
+  // Windows spells a separator either way, so the two have to be folded into
+  // one before anything is compared. POSIX does not: there `\` is an ordinary
+  // character in a file name, and folding it would invent a separator the
+  // kernel will not honour - the match would then describe a different path
+  // than the one the check goes on to open.
+  static std::string to_separators(std::string s) {
+#ifdef WIN32
     std::replace(s.begin(), s.end(), '\\', '/');
+#endif
+    return s;
+  }
+
+  // A root keeps its trailing separator: it is part of the name. Dropping it
+  // turns `C:\` into `C:`, which Win32 reads as the current directory *on*
+  // drive C rather than its root, so the check would then scan a tree nobody
+  // matched.
+  static bool is_root(const std::string &s) {
+    if (s == "/") return true;
+    return s.size() == 3 && s[1] == ':' && s[2] == '/';
+  }
+
+  static std::string trim_trailing_separator(std::string s) {
     // A trailing separator would make the containment test compare an empty
     // final element; drop it so "/var/log/" and "/var/log" behave alike.
-    while (s.size() > 1 && s.back() == '/') s.pop_back();
+    while (s.size() > 1 && s.back() == '/' && !is_root(s)) s.pop_back();
     return s;
   }
 
@@ -258,7 +309,7 @@ class path_policy {
   }
 
   static std::string resolve_glob_prefix(const std::string &item) {
-    const std::string normalised = to_slashes(item);
+    const std::string normalised = trim_trailing_separator(to_separators(item));
     const std::string::size_type wild = normalised.find_first_of("*?");
     const std::string::size_type slash = normalised.rfind('/', wild);
     if (slash == std::string::npos || slash == 0) return normalised;
@@ -286,9 +337,16 @@ class path_policy {
   // resolved and slash-normalised, so this is a plain element-wise prefix
   // test: comparing the strings would let "/var/logger/x" pass for "/var/log".
   static bool is_under(const std::string &dir, const std::string &file) {
+    // An empty entry contains nothing; without this the separator test below
+    // would index off the front of the string.
+    if (dir.empty()) return false;
     if (same_text(file, dir)) return true;
     if (file.size() <= dir.size()) return false;
     if (!same_text(file.substr(0, dir.size()), dir)) return false;
+    // `/` and `C:/` already end in the separator, so what follows is the first
+    // element of the contained path. Requiring another one there refused
+    // everything beneath an allow list of `/`.
+    if (dir[dir.size() - 1] == '/') return true;
     return file[dir.size()] == '/';
   }
 

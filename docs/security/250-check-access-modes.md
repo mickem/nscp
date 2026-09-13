@@ -54,7 +54,13 @@ Three details matter for the strength of the control:
   symbolic links and junctions are followed, so neither a traversal out of an
   allowed directory nor a link planted inside one widens it. The resolved path
   is also the one the check opens, so nothing re-resolves the name between the
-  check and the read.
+  check and the read. Separators are folded before that resolution, and only
+  where the platform separates on them - folding afterwards would hand back a
+  path still carrying a `..` for the kernel to walk after the match had passed.
+* **An argument which is not the path still cannot leave it.** `check_files`
+  takes a `pattern`, which the scanner appends to each directory it walks; while
+  access is restricted it must be a file mask, not a path, or the scan would
+  step outside the root that passed the gate.
 * **A WMI query whose class cannot be determined with certainty is refused, not
   guessed at.** `ASSOCIATORS OF`, `REFERENCES OF`, a class path carrying a
   namespace or machine name, and multiple statements are all rejected in

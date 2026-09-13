@@ -107,7 +107,8 @@ bool CheckWMI::resolve_namespace(const std::string &requested, const std::string
     if (namespace_access_.allow_list_size() == 0) {
       if (!boost::algorithm::iequals(ns, "root\\cimv2")) {
         error = "Refusing namespace '" + ns +
-                "': 'allowed namespaces' is empty in [/settings/wmi], so only the default root\\cimv2 may be used while 'query access' is restricted";
+                "': 'allowed namespaces' is empty in [/settings/wmi], so only the default root\\cimv2 may be used while 'query access' is restricted"
+                " (list it there to permit it - a predefined query reading another namespace needs that too)";
         return false;
       }
     } else {

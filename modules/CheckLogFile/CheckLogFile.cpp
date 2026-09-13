@@ -279,9 +279,22 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
 		;
   // clang-format on
 
-  if (!files_string.empty()) boost::split(file_list, files_string, boost::is_any_of(","));
-
   if (!filter_helper.parse_options()) return;
+
+  // After parse_options, or files_string is still empty and `files=` reads as
+  // "not given at all" - it has been a dead argument for as far back as the
+  // history goes. The split has to land before the access gate below, so that
+  // every name it produces is held against 'file access' like a `file=` one.
+  // Append rather than assign: `file=` and `files=` are documented as the same
+  // list, so naming both must not silently drop one of them.
+  if (!files_string.empty()) {
+    std::vector<std::string> extra;
+    boost::split(extra, files_string, boost::is_any_of(","));
+    for (std::string &name : extra) {
+      boost::algorithm::trim(name);
+      if (!name.empty()) file_list.push_back(name);
+    }
+  }
 
   if (column_split.empty()) return nscapi::protobuf::functions::set_response_bad(*response, "No column-split specified");
   if (line_split.empty()) return nscapi::protobuf::functions::set_response_bad(*response, "No line-split specified");

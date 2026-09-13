@@ -33,10 +33,17 @@ struct parse_result {
   parse_result() : ok(false) {}
 };
 
-// Accepts: optional whitespace, SELECT, a column list with no statement
-// punctuation in it, FROM, a bare class identifier, and optionally a WHERE
-// clause (whose contents are not our business - WMI evaluates it against the
-// class we just approved, it cannot reach another one).
+// Accepts: optional whitespace, SELECT, a column list which is `*` or a
+// comma-separated list of identifiers and nothing else, FROM, a bare class
+// identifier, and optionally a WHERE clause (whose contents are not our
+// business - WMI evaluates it against the class we just approved, it cannot
+// reach another one).
+//
+// The column list is spelled out in the grammar rather than checked afterwards
+// because a looser one lets the class move. With the column list written as
+// "anything without a semicolon", `SELECT a FROM Win32_Foo FROM Win32_Allowed`
+// matched with the columns swallowing the first FROM, and the gate reported
+// the *last* class in the query while WMI would read the first.
 inline parse_result extract_class(const std::string &query) {
   parse_result result;
 
@@ -55,8 +62,17 @@ inline parse_result extract_class(const std::string &query) {
   // what keeps a query from naming a class in another namespace or on another
   // machine (`\\\\host\\root\\cimv2:Win32_Process`) and slipping past a check
   // which only compared the trailing identifier.
+  // A column or class named after a keyword leaves the statement ambiguous -
+  // `SELECT FROM FROM Win32_Allowed` parses two ways and WMI picks one of them
+  // - so no identifier here may be one. `\\b` keeps `FROMAGE` an ordinary name.
+  static const std::string ident = "(?!(?:FROM|WHERE|SELECT)\\b)[A-Za-z_][A-Za-z0-9_]*";
   static const boost::regex re(
-      "\\A\\s*SELECT\\s+([^;]+?)\\s+FROM\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(?:WHERE\\s+(.*))?\\z",
+      "\\A\\s*SELECT\\s+"
+      "(\\*|" +
+          ident + "(?:\\s*,\\s*" + ident +
+          ")*)"
+          "\\s+FROM\\s+(" +
+          ident + ")\\s*(?:WHERE\\s+(.*))?\\z",
       boost::regex::perl | boost::regex::icase | boost::regex::mod_s);
 
   boost::smatch what;
@@ -64,15 +80,6 @@ inline parse_result extract_class(const std::string &query) {
     result.error =
         "only a plain 'SELECT ... FROM <class> [WHERE ...]' query can be checked against 'allowed classes'; "
         "configure it as a predefined query instead";
-    return result;
-  }
-
-  // The column list is identifiers, commas, `*` and whitespace. Anything else
-  // (a nested keyword, a path, punctuation we have not reasoned about) means
-  // this is not the simple shape we claim to understand.
-  const std::string columns = what[1].str();
-  if (!boost::regex_match(columns, boost::regex("\\A[A-Za-z0-9_,\\s*]+\\z"))) {
-    result.error = "the column list is not a plain list of column names";
     return result;
   }
 
