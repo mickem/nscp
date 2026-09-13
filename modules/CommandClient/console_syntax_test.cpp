@@ -191,6 +191,21 @@ TEST(ConsoleSyntaxComplete, LoadOffersWhatIsNotLoaded) {
   EXPECT_EQ(complete("load Check", test_vocabulary(), no_parameters), (std::vector<std::string>{"CheckDisk", "CheckWMI"}));
 }
 
+TEST(ConsoleSyntaxComplete, ModulePrefixMatchesRegardlessOfCase) {
+  // The typed prefix is what the editor replaces, so a match in another case
+  // corrects what was typed: "load check" becomes "load CheckDisk".
+  EXPECT_EQ(complete("load check", test_vocabulary(), no_parameters), (std::vector<std::string>{"CheckDisk", "CheckWMI"}));
+  EXPECT_EQ(complete("load CHECKd", test_vocabulary(), no_parameters), (std::vector<std::string>{"CheckDisk"}));
+  EXPECT_EQ(complete("unload checksys", test_vocabulary(), no_parameters), (std::vector<std::string>{"CheckSystem"}));
+  EXPECT_TRUE(complete("load checkx", test_vocabulary(), no_parameters).empty());
+}
+
+TEST(ConsoleSyntaxComplete, CommandPrefixMatchesRegardlessOfCase) {
+  const std::vector<std::string> lower = complete("che", test_vocabulary(), no_parameters);
+  EXPECT_EQ(complete("CHE", test_vocabulary(), no_parameters), lower);
+  EXPECT_FALSE(lower.empty());
+}
+
 TEST(ConsoleSyntaxComplete, UnloadOffersWhatIsLoaded) {
   EXPECT_EQ(complete("unload Check", test_vocabulary(), no_parameters), (std::vector<std::string>{"CheckSystem"}));
 }

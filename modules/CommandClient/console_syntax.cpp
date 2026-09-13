@@ -4,6 +4,7 @@
 #include "console_syntax.hpp"
 
 #include <algorithm>
+#include <cctype>
 
 namespace command_client {
 
@@ -78,6 +79,17 @@ std::size_t split_point(const std::string &text) {
 }
 
 bool contains(const std::set<std::string> &haystack, const std::string &needle) { return haystack.find(needle) != haystack.end(); }
+
+// Case-insensitive prefix test. Module names are CamelCase and nobody
+// remembers which letters; the editor replaces exactly the typed prefix with
+// the match, so completing "check" to "CheckDisk" also corrects the case.
+bool starts_with_ci(const std::string &candidate, const std::string &prefix) {
+  if (prefix.size() > candidate.size()) return false;
+  for (std::size_t i = 0; i < prefix.size(); ++i) {
+    if (std::tolower(static_cast<unsigned char>(candidate[i])) != std::tolower(static_cast<unsigned char>(prefix[i]))) return false;
+  }
+  return true;
+}
 
 // Strip surrounding quotes so `load "CheckDisk"` still resolves.
 std::string unquote(const std::string &text) {
@@ -237,7 +249,7 @@ std::vector<std::string> complete(const std::string &input, const vocabulary &vo
 
   std::vector<std::string> matches;
   for (const std::string &candidate : candidates) {
-    if (candidate.compare(0, ctx.prefix.size(), ctx.prefix) == 0) matches.push_back(candidate);
+    if (starts_with_ci(candidate, ctx.prefix)) matches.push_back(candidate);
   }
   std::sort(matches.begin(), matches.end());
   matches.erase(std::unique(matches.begin(), matches.end()), matches.end());
