@@ -141,6 +141,20 @@ onWindows("CheckWMI query access modes", () => {
       await setAccess("allowed", "Win32_OperatingSystem");
     });
 
+    // A namespace spelled with a machine is a connection to that machine;
+    // `target=` is the sanctioned way to choose one and is held to the
+    // configured targets, so the namespace must not be a way round that even
+    // when the list would match it.
+    it("refuses a namespace naming a machine while restricted", async () => {
+      await setAccess("allowed", "*", "*cimv2");
+      for (const ns of ["\\\\localhost\\root\\cimv2", "//localhost/root/cimv2"]) {
+        const { out, code } = await check([`query=${OS_QUERY}`, `namespace=${ns}`]);
+        expect(code).toBe(UNKNOWN);
+        expect(out).toMatch(/Refusing namespace/);
+      }
+      await setAccess("allowed", "Win32_OperatingSystem");
+    });
+
     // An unknown target would otherwise be taken as a bare host name, pointing
     // a restricted check at a machine of the caller's choosing.
     it("refuses a target which is not configured", async () => {

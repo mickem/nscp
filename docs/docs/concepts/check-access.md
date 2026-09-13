@@ -116,7 +116,11 @@ links and junctions are followed, so neither
 `C:/logs/../../Windows/System32/config/SAM` nor a link planted inside an allowed
 directory widens it. The resolved path is also the one the check opens, so what
 was matched is what gets read — which means `${file}` in your syntax may spell
-the name differently than the caller did.
+the name differently than the caller did. A path which cannot be resolved all
+the way — an element too long for the file system, a link loop, or a link the
+resolver left behind a `..` — is refused rather than matched as written, and so
+is a relative path, one containing a NUL byte, or (on Windows) one with an
+element ending in a space or a period, which Win32 would silently rewrite.
 
 !!! tip "Bookmarks and the first restricted check"
 
@@ -219,7 +223,9 @@ Two further restrictions apply whenever `query access` is not `any`:
 * **Namespaces.** `allowed namespaces` lists the namespaces a caller may bind
   to. Leaving it empty means the namespace cannot be moved off the default
   `root\cimv2` at all — restricting the class while leaving the namespace open
-  would let the same class name be read from a different provider.
+  would let the same class name be read from a different provider. A namespace
+  spelled with a machine (`\\host\root\cimv2`) is refused whatever the list
+  says; the host is chosen through `target=` and nothing else.
 * **Targets.** `target=` must name a target defined in
   `[/settings/wmi/targets]`. An unknown target is otherwise taken as a bare host
   name, which would let a caller point the check at a machine of its own
@@ -263,6 +269,9 @@ Two things to know about the allow list:
   before any index expansion. On a mixed estate, list both the localized and the
   English spellings.
 * The `counter:<alias>=<path>` form is gated exactly like `counter=`.
+* A counter path naming a machine (`\\host\Memory\Available Bytes`) is refused
+  whatever the list says: PDH would read it over the network as the service
+  account, and the list is about which counters, not whose.
 
 ## check_registry_key and check_registry_value
 

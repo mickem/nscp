@@ -116,6 +116,18 @@ onWindows("CheckSystem counter access modes", () => {
       expect(code).toBe(UNKNOWN);
       expect(out).toMatch(/Refusing counter/);
     });
+
+    // A counter path may carry a machine, which PDH reads over the network as
+    // the service account; an entry loose enough to match the local spelling
+    // (`*\System\*`) would match that too, so it is refused outright.
+    it("refuses a counter naming a machine while restricted", async () => {
+      await setAccess("allowed", "*\\System\\*");
+      const { out, code } = await check([`counter=\\\\localhost${THREADS}`, "warning=value > 0"]);
+      expect(code).toBe(UNKNOWN);
+      expect(out).toMatch(/Refusing counter/);
+      expect(out).toMatch(/remote machine/);
+      await setAccess("allowed", "\\System\\*");
+    });
   });
 
   // --- predefined: only the configured counters ------------------------------

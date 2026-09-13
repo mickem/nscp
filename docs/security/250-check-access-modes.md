@@ -57,6 +57,16 @@ Three details matter for the strength of the control:
   check and the read. Separators are folded before that resolution, and only
   where the platform separates on them - folding afterwards would hand back a
   path still carrying a `..` for the kernel to walk after the match had passed.
+  The resolver alone is not trusted for this: it follows links only in the
+  part of the path which exists and appends the rest lexically, so a `..`
+  cancelling a name which is not there (`logs/nonexist/../link`), an element
+  too long for the file system or a link loop all used to leave a link after
+  that point unresolved. The result is now walked once more and refused if any
+  element is still a link, and a path which cannot be resolved, a relative
+  path, or one carrying a NUL byte is refused outright. The NUL rule applies
+  to every gate: a glob matched the whole token while the C or wide-string API
+  the check then called saw only the part before the NUL, so
+  `Security<NUL>Operational` passed `*Operational`.
 * **An argument which is not the path still cannot leave it.** `check_files`
   takes a `pattern`, which the scanner appends to each directory it walks; while
   access is restricted it must be a file mask, not a path, or the scan would

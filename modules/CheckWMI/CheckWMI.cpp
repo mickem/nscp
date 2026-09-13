@@ -104,6 +104,16 @@ std::string build_namespace(std::string ns, const std::string &computer) {
 bool CheckWMI::resolve_namespace(const std::string &requested, const std::string &computer, std::string &out, std::string &error) const {
   const std::string ns = requested.empty() ? "root\\cimv2" : requested;
   if (query_access_.get_mode() != check::access::mode::any) {
+    // A namespace spelled with a machine (`\\host\root\cimv2`) is a
+    // connection to that machine, made with the agent's identity or the
+    // caller's `user=`/`password=`. `target=` is the sanctioned way to name
+    // another host, and it is held to [/settings/wmi/targets] above; the
+    // namespace must not be a second, unlisted way round that.
+    if (ns.size() > 1 && (ns[0] == '\\' || ns[0] == '/') && (ns[1] == '\\' || ns[1] == '/')) {
+      error = "Refusing namespace '" + ns +
+              "': it names a machine, and 'query access' is restricted, so the host can only be chosen through a target defined in [/settings/wmi/targets]";
+      return false;
+    }
     if (namespace_access_.allow_list_size() == 0) {
       if (!boost::algorithm::iequals(ns, "root\\cimv2")) {
         error = "Refusing namespace '" + ns +

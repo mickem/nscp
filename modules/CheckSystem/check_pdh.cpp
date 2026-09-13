@@ -101,6 +101,18 @@ bool check::allow_counter(const std::string &counter, const bool is_named, std::
     return false;
   }
 
+  // A counter path may carry a machine (`\\host\Memory\Available Bytes`),
+  // which PDH reads from over the network as the service account. The allow
+  // list is about *which counters*, not *whose*, and a pattern loose enough
+  // to match the local spelling (`*\Memory\*`) would match a remote one too.
+  // While access is restricted only the local machine is reachable.
+  if (counter.size() > 1 && counter[0] == '\\' && counter[1] == '\\') {
+    error = "Refusing counter '" + counter +
+            "': it names a remote machine, and 'counter access' is restricted, so only local counters may be read (see [/settings/system/windows] in the "
+            "configuration)";
+    return false;
+  }
+
   const ::check::access::decision d = counter_access_.resolve(counter);
   if (d.allowed) return true;
   error = d.error;

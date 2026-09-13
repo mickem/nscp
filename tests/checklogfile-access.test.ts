@@ -222,6 +222,38 @@ describe("CheckLogFile file access modes", () => {
       },
     );
 
+    // The resolver only follows links in the part of the path which exists
+    // and appends the rest lexically, so a `..` cancelling a name which is
+    // not there used to leave a link after it unresolved: the path read as
+    // inside the allowed directory and opened wherever the link pointed.
+    (process.platform === "win32" ? it.skip : it)(
+      "refuses a symlink reached past an element the resolver skipped",
+      async () => {
+        const link = path.join(allowedDir, "escape.log");
+        fs.rmSync(link, { force: true });
+        fs.symlinkSync(secretFile, link);
+        const spellings = [
+          path.join(allowedDir, "nonexist", "..", "escape.log"),
+          path.join(allowedDir, "a".repeat(300), "..", "escape.log"),
+        ];
+        try {
+          for (const spelling of spellings) {
+            const { out, code } = await check([`file=${spelling}`]);
+            expect(code).toBe(UNKNOWN);
+            expect(out).toMatch(/Refusing file/);
+            expect(out).not.toMatch(/SECRET which must not come back/);
+          }
+          // The same spelling without a link behind it is still fine.
+          const { out } = await check([
+            `file=${path.join(allowedDir, "nonexist", "..", "app.log")}`,
+          ]);
+          expect(out).toMatch(/SECRET in an allowed file/);
+        } finally {
+          fs.rmSync(link, { force: true });
+        }
+      },
+    );
+
     it("does not disclose the allow list in the refusal", async () => {
       const { out } = await check([`file=${secretFile}`]);
       expect(out).not.toContain(allowedDir);

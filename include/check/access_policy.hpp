@@ -132,6 +132,13 @@ inline std::string glob_to_regex(const std::string &glob) {
   return re;
 }
 
+// A token with a NUL byte in it is two strings: the one the glob was matched
+// against, and the shorter one every C API the check goes on to call actually
+// sees. `Security\0Operational` passes a `*Operational` entry and opens the
+// Security log. No legitimate name has one, so a restricted mode refuses it
+// outright rather than matching a string the OS will never look at.
+inline bool has_nul(const std::string &s) { return s.find('\0') != std::string::npos; }
+
 // The outcome of resolving one caller-supplied token.
 //
 // `value` is what the check should actually use: the token itself when it was
@@ -312,6 +319,7 @@ class policy {
       case mode::any:
         return decision::accept(token);
       case mode::allowed:
+        if (has_nul(token)) return decision::refuse(refusal(token, "it contains a NUL character"));
         if (matches_allow_list_unlocked(token)) return decision::accept(token);
         return decision::refuse(refusal(token, "it is not in 'allowed " + nouns_ + "'"));
       case mode::predefined:
@@ -323,6 +331,7 @@ class policy {
   // Check a value which is not itself the token - a WMI class extracted from a
   // query, a namespace - against a second allow list held by another policy.
   decision check_value(const std::string &value, const std::string &what) const {
+    if (has_nul(value)) return decision::refuse("Refusing " + what + " '" + value + "': it contains a NUL character");
     if (matches_allow_list(value)) return decision::accept(value);
     return decision::refuse("Refusing " + what + " '" + value + "': it is not in 'allowed " + nouns_ + "' in [" + settings_path_ + "]");
   }

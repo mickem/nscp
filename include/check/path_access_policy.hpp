@@ -22,6 +22,12 @@
 // exists to prevent, so in a restricted mode the check reads the resolved path
 // even when that spells the name differently than the caller did.
 //
+// The resolver alone is not enough for that, because it only follows links in
+// the longest prefix which exists and appends the rest of the path lexically.
+// So after resolving, the result is walked once more and refused if any of
+// its elements is still a link (see resolve_physical for the full list of
+// what is refused and why).
+//
 // Allow-list entries come in two shapes, distinguished by whether they contain
 // a wildcard:
 //
@@ -135,6 +141,111 @@ class path_policy {
     return trim_trailing_separator(to_separators(out.string()));
   }
 
+  // Resolve a caller-supplied token into the physical path the check would
+  // open, or say why it cannot be. This is what stands between the token and
+  // the allow list, so it is the place where every way of making the two
+  // disagree has to be closed:
+  //
+  //   * A NUL byte. Every API the check goes on to call takes a C string, so
+  //     the OS opens the part before the NUL while the match saw the whole
+  //     token; `notes.txt\0.log` passes a `*.log` entry and opens notes.txt.
+  //   * A relative path. The match would run against whatever the current
+  //     directory happens to be and a degenerate entry such as `*` would
+  //     accept it; only an absolute path names one thing.
+  //   * A resolver error. weakly_canonical gives up on an over-long element
+  //     (ENAMETOOLONG), a symlink loop, or a junction it cannot read, and a
+  //     lexical fallback would then leave every link in the path for the
+  //     kernel to follow after the match had passed. A path the resolver
+  //     cannot stat is one the check cannot read either, so refusing costs
+  //     nothing.
+  //   * A `..` element left behind, for the same reason.
+  //   * A symbolic link anywhere in the result. weakly_canonical resolves the
+  //     longest *existing* prefix and appends the rest lexically, so in
+  //     `logs/nonexist/../out/shadow` the `..` cancels `nonexist` and the
+  //     `out` link is never looked at: the result reads as inside `logs` and
+  //     opens wherever `out` points. Walking the result and refusing any
+  //     element which is still a link is what makes "what was matched is
+  //     what gets opened" true whatever the resolver did.
+  //   * On Windows, an element ending in a space or a period. Win32 strips
+  //     those before the file system sees the name, so `logs\.. ` is one odd
+  //     name to the resolver and `logs\..` to the kernel.
+  static bool resolve_physical(const std::string &token, std::string &resolved, std::string &why) {
+    if (token.find('\0') != std::string::npos) {
+      why = "it contains a NUL character";
+      return false;
+    }
+    const std::string input = to_separators(token);
+    boost::system::error_code ec;
+    const boost::filesystem::path canonical_path = boost::filesystem::weakly_canonical(boost::filesystem::path(input), ec);
+    if (ec) {
+      why = "it could not be resolved (" + ec.message() + ")";
+      return false;
+    }
+    resolved = trim_trailing_separator(to_separators(canonical_path.string()));
+    if (resolved.empty() || !boost::filesystem::path(resolved).is_absolute()) {
+      why = "it is not an absolute path";
+      return false;
+    }
+    if (has_parent_element(resolved)) {
+      why = "it could not be resolved to a path without a '..' element";
+      return false;
+    }
+#ifdef WIN32
+    if (has_element_win32_would_trim(resolved)) {
+      why = "it contains a path element ending in a space or a period, which Windows would silently rewrite";
+      return false;
+    }
+#endif
+    if (has_symlink_element(resolved)) {
+      why = "it passes through a symbolic link the resolver did not follow";
+      return false;
+    }
+    return true;
+  }
+
+  // True when any prefix of the (slash-normalised) path is a symbolic link or
+  // junction, or cannot be examined. The walk stops at the first element
+  // which does not exist: nothing beyond it can be a link.
+  static bool has_symlink_element(const std::string &path) {
+    std::string::size_type pos = 0;
+    for (;;) {
+      const std::string::size_type end = path.find('/', pos + 1);
+      const std::string prefix = end == std::string::npos ? path : path.substr(0, end);
+      // Skip the root name (`C:`, `//server`) and the root itself: they are
+      // not links, and asking the OS about a bare server name is an error.
+      const bool root_name = prefix.empty() || prefix == "/" || is_root(prefix) || prefix.back() == ':' ||
+                             (prefix.size() > 2 && prefix[0] == '/' && prefix[1] == '/' && prefix.find('/', 2) == std::string::npos);
+      if (!root_name) {
+        boost::system::error_code ec;
+        const boost::filesystem::file_status st = boost::filesystem::symlink_status(boost::filesystem::path(prefix), ec);
+        // Not found is the normal end of the walk (a file which does not
+        // exist yet); boost reports it with the error code set as well as
+        // through the status, so test the status first.
+        if (st.type() == boost::filesystem::file_not_found) return false;
+        if (ec || st.type() == boost::filesystem::status_error) return true;
+        if (boost::filesystem::is_symlink(st)) return true;
+      }
+      if (end == std::string::npos) return false;
+      pos = end;
+    }
+  }
+
+  // True when an element of the path ends in a space or a period. Win32 path
+  // normalisation drops those (`x.log. ` opens `x.log`, and `.. ` becomes
+  // `..`), so the name the resolver matched is not the name the file system
+  // gets. Only consulted on Windows, but written portably so it can be tested
+  // anywhere.
+  static bool has_element_win32_would_trim(const std::string &path) {
+    std::string::size_type start = 0;
+    for (;;) {
+      const std::string::size_type end = path.find('/', start);
+      const std::string element = end == std::string::npos ? path.substr(start) : path.substr(start, end - start);
+      if (!element.empty() && (element.back() == ' ' || element.back() == '.')) return true;
+      if (end == std::string::npos) return false;
+      start = end + 1;
+    }
+  }
+
   // True when the path still carries a parent-directory element. Nothing
   // should reach the allow list in that state, so this is belt and braces: if
   // the resolver ever leaves one behind, the check would open a path the
@@ -216,10 +327,9 @@ class path_policy {
       case mode::any:
         return decision::accept(token);
       case mode::allowed: {
-        const std::string resolved = canonical(token);
-        if (has_parent_element(resolved)) {
-          return decision::refuse("Refusing file '" + token + "': it could not be resolved to a path without a '..' element (see [" +
-                                  base_.get_settings_path() + "] in the configuration)");
+        std::string resolved, why;
+        if (!resolve_physical(token, resolved, why)) {
+          return decision::refuse("Refusing file '" + token + "': " + why + " (see [" + base_.get_settings_path() + "] in the configuration)");
         }
         if (matches_allow_list(resolved)) return decision::accept(resolved);
         return decision::refuse("Refusing file '" + token + "': it is not in 'allowed files' (see [" + base_.get_settings_path() + "] in the configuration)");

@@ -117,6 +117,7 @@ class prefix_policy {
       case mode::any:
         return decision::accept(token);
       case mode::allowed:
+        if (has_nul(token)) return decision::refuse(refusal(token, "it contains a NUL character"));
         if (matches_allow_list(token)) return decision::accept(token);
         return decision::refuse(refusal(token, "it is not in 'allowed " + base_.get_nouns() + "'"));
       case mode::predefined:

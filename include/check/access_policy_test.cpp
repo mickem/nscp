@@ -952,6 +952,110 @@ TEST_F(path_escape_test, a_reload_never_opens_the_gate_for_a_concurrent_check) {
   EXPECT_GT(accepted.load(), 0) << "the allow list was empty for the whole run, so the test proved nothing";
 }
 
+#ifndef WIN32
+// weakly_canonical resolves the longest prefix which *exists* and appends the
+// rest lexically. In `logs/nonexist/../out/shadow` the `..` cancels `nonexist`
+// after that point, so the `out` link is never looked at: the result reads as
+// inside `logs` and opens wherever `out` points. The same happens for
+// anything which makes the resolver stop early - an over-long element, a
+// symlink loop - and the gate must not depend on the resolver for this.
+TEST_F(path_escape_test, a_link_after_an_element_the_resolver_skipped_is_still_not_a_way_out) {
+  boost::system::error_code ec;
+  fs::create_directory_symlink(root_ / "secret", root_ / "logs" / "out", ec);
+  if (ec) GTEST_SKIP() << "cannot create symlinks here: " << ec.message();
+  fs::create_symlink(root_ / "secret" / "shadow", root_ / "logs" / "escape.log", ec);
+  ASSERT_FALSE(ec) << ec.message();
+  fs::create_symlink(root_ / "logs" / "loop2", root_ / "logs" / "loop1", ec);
+  ASSERT_FALSE(ec) << ec.message();
+  fs::create_symlink(root_ / "logs" / "loop1", root_ / "logs" / "loop2", ec);
+  ASSERT_FALSE(ec) << ec.message();
+
+  const check::access::path_policy p = restricted();
+  const std::string logs = allowed_dir();
+  const std::string too_long(300, 'a');
+  const std::vector<std::string> tokens = {
+      // A non-existent element cancelled by `..`, then the link.
+      logs + "/nonexist/../out/shadow",
+      logs + "/nonexist/../escape.log",
+      logs + "/no/such/../../out/shadow",
+      // An element too long for the file system, then the link.
+      logs + "/" + too_long + "/../out/shadow",
+      logs + "/out/" + too_long + "/../shadow",
+      // A symlink loop, then the link.
+      logs + "/loop1/../out/shadow",
+      logs + "/loop1/../escape.log",
+  };
+  for (const std::string &token : tokens) EXPECT_FALSE(accepted_and_contained(p, token)) << token;
+
+  // The plain spellings still work, so this is not "refuse everything".
+  EXPECT_TRUE(p.resolve(logs + "/app.log").allowed);
+  EXPECT_TRUE(p.resolve(logs + "/nonexist/../app.log").allowed);
+  EXPECT_TRUE(p.resolve(logs + "/not-there-yet.log").allowed);
+}
+
+// A NUL byte splits the token into the string the glob saw and the shorter
+// one the C library opens; `notes.txt\0.log` must not pass a `*.log` entry.
+TEST_F(path_escape_test, a_nul_byte_cannot_smuggle_a_file_past_a_glob) {
+  write(root_ / "logs" / "notes.txt", "txt\n");
+  check::access::path_policy p("file", "files", "/settings/logfile");
+  p.set_mode("allowed");
+  p.set_allow_list(allowed_dir() + "/*.log");
+  EXPECT_FALSE(p.resolve(at("logs/notes.txt") + std::string(1, '\0') + ".log").allowed);
+  EXPECT_FALSE(p.resolve(at("logs/app.log") + std::string(1, '\0')).allowed);
+  EXPECT_TRUE(p.resolve(at("logs/app.log")).allowed);
+  // And against a directory entry, where it cannot escape but still names a
+  // path the OS will not open as written.
+  const check::access::path_policy d = restricted();
+  EXPECT_FALSE(d.resolve(at("logs/app.log") + std::string(1, '\0') + "/x").allowed);
+}
+#endif
+
+// An empty or relative token names nothing in particular - it is matched
+// against whatever the current directory is - and a degenerate entry such as
+// `*` used to accept it and hand the check an empty path. (A relative token
+// which resolves to an existing absolute path is matched as that path, so
+// `**`, which means everything, would accept `.`; the lists here do not.)
+TEST_F(path_escape_test, a_restricted_mode_accepts_only_absolute_paths) {
+  for (const std::string &list : {std::string("*"), std::string("*.log"), allowed_dir()}) {
+    check::access::path_policy p("file", "files", "/settings/logfile");
+    p.set_mode("allowed");
+    p.set_allow_list(list);
+    const std::vector<std::string> tokens = {"", " ", "app.log", "logs/app.log", ".", "..", "./app.log"};
+    for (const std::string &token : tokens) {
+      const decision d = p.resolve(token);
+      EXPECT_FALSE(d.allowed) << "list '" << list << "' accepted '" << token << "' as '" << d.value << "'";
+    }
+  }
+}
+
+// Win32 strips trailing spaces and periods from a path element before the
+// file system sees it, so `logs\.. ` is one odd name to the resolver and
+// `logs\..` to the kernel. The helper is portable so it is pinned here on
+// every platform; resolve() consults it on Windows only.
+TEST(path_policy_helpers, spots_an_element_windows_would_rewrite) {
+  using check::access::path_policy;
+  EXPECT_TRUE(path_policy::has_element_win32_would_trim("C:/logs/.. "));
+  EXPECT_TRUE(path_policy::has_element_win32_would_trim("C:/logs/.. /x.log"));
+  EXPECT_TRUE(path_policy::has_element_win32_would_trim("C:/logs/x.log."));
+  EXPECT_TRUE(path_policy::has_element_win32_would_trim("C:/logs./x.log"));
+  EXPECT_TRUE(path_policy::has_element_win32_would_trim("C:/logs/x.log "));
+  EXPECT_FALSE(path_policy::has_element_win32_would_trim("C:/logs/x.log"));
+  EXPECT_FALSE(path_policy::has_element_win32_would_trim("C:/logs/x. y.log"));
+  EXPECT_FALSE(path_policy::has_element_win32_would_trim("C:/"));
+  EXPECT_FALSE(path_policy::has_element_win32_would_trim("/"));
+}
+
+#ifdef WIN32
+TEST_F(path_escape_test, an_element_windows_would_rewrite_is_refused) {
+  const check::access::path_policy p = restricted();
+  const std::string logs = allowed_dir();
+  EXPECT_FALSE(p.resolve(logs + "\\.. ").allowed);
+  EXPECT_FALSE(p.resolve(logs + "\\.. \\..\\secret\\shadow").allowed);
+  EXPECT_FALSE(p.resolve(logs + "\\app.log. ").allowed);
+  EXPECT_TRUE(p.resolve(logs + "\\app.log").allowed);
+}
+#endif
+
 // ---------------------------------------------------------------------------
 // Negative tests: WQL shapes which must not yield a class
 // ---------------------------------------------------------------------------
@@ -1080,6 +1184,39 @@ TEST(prefix_negative, a_degenerate_allow_list_allows_nothing) {
     EXPECT_FALSE(p.resolve("Application").allowed);
     EXPECT_FALSE(p.resolve("Security").allowed);
   }
+}
+
+// A NUL byte is the same trick against the glob policies: the pattern sees
+// the whole token and the C or wide-string API the check calls sees only
+// what comes before the NUL. `Security\0Operational` passed `*Operational`
+// and opened the Security log.
+TEST(access_negative, a_nul_byte_cannot_smuggle_a_value_past_a_glob) {
+  check::access::policy c = make_policy();
+  c.set_mode("allowed");
+  c.set_allow_list("*\\% Processor Time");
+  const std::string privileged = "\\Processor(_Total)\\% Privileged Time";
+  EXPECT_FALSE(c.resolve(privileged + std::string(1, '\0') + "\\% Processor Time").allowed);
+  EXPECT_FALSE(c.resolve(std::string("\\Processor(_Total)\\% Processor Time") + std::string(1, '\0')).allowed);
+  EXPECT_TRUE(c.resolve("\\Processor(_Total)\\% Processor Time").allowed);
+
+  check::access::policy w("class", "classes", "/settings/wmi");
+  w.set_allow_list("Win32_Perf*");
+  EXPECT_FALSE(w.check_value(std::string("Win32_Perf") + std::string(1, '\0') + "X", "WMI class").allowed);
+  EXPECT_FALSE(w.check_value(std::string("CIM_DataFile") + std::string(1, '\0') + "Win32_Perf", "WMI class").allowed);
+  EXPECT_TRUE(w.check_value("Win32_PerfFormattedData_PerfOS_Memory", "WMI class").allowed);
+
+  check::access::prefix_policy e = channel_policy();
+  e.set_mode("allowed");
+  e.set_allow_list("*Operational");
+  EXPECT_FALSE(e.resolve(std::string("Security") + std::string(1, '\0') + "/Operational").allowed);
+  EXPECT_FALSE(e.resolve(std::string("Security") + std::string(1, '\0') + "Operational").allowed);
+  EXPECT_TRUE(e.resolve("Microsoft-Windows-Sysmon/Operational").allowed);
+
+  check::access::prefix_policy r = registry_policy();
+  r.set_mode("allowed");
+  r.set_allow_list("HKLM\\SOFTWARE\\MyApp");
+  EXPECT_FALSE(r.resolve(std::string("HKLM\\SOFTWARE\\MyApp\\") + std::string(1, '\0') + "\\x").allowed);
+  EXPECT_FALSE(r.resolve(std::string("HKLM\\SAM") + std::string(1, '\0') + "\\SOFTWARE\\MyApp").allowed);
 }
 
 }  // namespace

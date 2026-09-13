@@ -205,6 +205,26 @@ describe("CheckDisk file access modes", () => {
       expect(out).toMatch(/Refusing file/);
     });
 
+    // A `..` cancelling a name which is not there used to leave a link after
+    // it unresolved, so the path read as inside the allowed directory and the
+    // check followed the link out of it.
+    (process.platform === "win32" ? it.skip : it)("refuses a symlink reached past an element the resolver skipped", async () => {
+      const link = path.join(allowedDir, "escape.log");
+      fs.rmSync(link, { force: true });
+      fs.symlinkSync(secretFile, link);
+      try {
+        const spelling = path.join(allowedDir, "nonexist", "..", "escape.log");
+        const single = await query("check_single_file", [`file=${spelling}`]);
+        expect(single.code).toBe(UNKNOWN);
+        expect(single.out).toMatch(/Refusing file/);
+        const files = await query("check_files", [`path=${spelling}`, "empty-state=ok"]);
+        expect(files.code).toBe(UNKNOWN);
+        expect(files.out).toMatch(/Refusing file/);
+      } finally {
+        fs.rmSync(link, { force: true });
+      }
+    });
+
     it("does not disclose the allow list in the refusal", async () => {
       const { out } = await query("check_single_file", [`file=${secretFile}`]);
       expect(out).not.toContain(allowedDir);
