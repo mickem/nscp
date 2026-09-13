@@ -21,8 +21,8 @@ unrestricted `file=` is a general file-read primitive. Each module gained a mode
 | `check_registry_key`, `check_registry_value` | `[/settings/system/windows]` | `registry access` | `allowed registry keys` |
 | `check_eventlog` | `[/settings/eventlog]` | `log access` | `allowed logs` |
 
-The modes are `any`, `allowed` (only what matches the list) and `predefined`
-(only names you configured — `[/settings/logfile/files]`,
+The modes are `any`, `allowed` (only what matches the list; experimental, since
+it parses what the caller sent) and `predefined` (the secure option: only names you configured — `[/settings/logfile/files]`,
 `[/settings/wmi/queries]`, `[/settings/disk/files]`,
 `[/settings/system/windows/registry]`, `[/settings/eventlog/logs]`, and for
 `check_pdh` the counters already in `[/settings/system/windows/counters]`).

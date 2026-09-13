@@ -54,12 +54,22 @@ Each module has one mode setting and, where it applies, one allow list:
     Only values matching the allow list are read. Everything else is refused
     with a message naming what was rejected — never what the list contains.
 
+    **This mode is experimental.** It works by parsing what the caller sent —
+    resolving a path, extracting the class from a query, matching a pattern —
+    and every such parser is a place where the gate and the operating system
+    can disagree about what a string means. The known ways of making them
+    disagree are closed and tested, but the surface is inherently wider than
+    a lookup of a name you wrote yourself. Where the data behind a check is
+    sensitive, use `predefined`.
+
 === "predefined"
 
     Only names *you* defined in configuration are accepted. A raw path, query or
     counter path from the caller is refused outright. This is the tightest
     setting, and the one to reach for when the monitoring server should be able
-    to run your checks and nothing else.
+    to run your checks and nothing else. It is also the secure option: nothing
+    the caller sends is parsed or matched, only looked up, so there is no
+    string for a caller to craft.
 
 ### Predefined names work in every mode
 

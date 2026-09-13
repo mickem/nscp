@@ -526,8 +526,10 @@ file, which confirms known content and for a short file effectively recovers it.
 wider reach.
 
 The modes are `any` (anything the caller names), `allowed` (only what matches the list) and `predefined` (only names you
-configured). Names you configure resolve in **every** mode, so you can name your checks first, confirm the monitoring
-server still works, and tighten the mode afterwards:
+configured). `allowed` is experimental: it parses and matches what the caller sent, and a parser is a place where the
+gate and the operating system can disagree about what a string means. `predefined` only looks a name up, so it is the
+secure option and the one to use wherever the data behind a check matters. Names you configure resolve in **every**
+mode, so you can name your checks first, confirm the monitoring server still works, and tighten the mode afterwards:
 
 ```ini
 [/settings/logfile]

@@ -44,7 +44,11 @@ upgrade.
 | `check_eventlog` | `[/settings/eventlog]` | `log access` | `allowed logs` |
 
 `allowed` accepts only values matching the list; `predefined` accepts only names
-the operator configured and refuses a raw value outright. Configured names
+the operator configured and refuses a raw value outright. `allowed` is
+experimental - it parses and matches what the caller sent, and every such
+parser is a place where the gate and the operating system can disagree about
+what a string means - whereas `predefined` only looks a name up, so it is the
+secure option for any check whose data matters. Configured names
 resolve in every mode, so a site can name its checks first and tighten the mode
 afterwards without rewriting the monitoring server's commands.
 
