@@ -7,6 +7,8 @@
 #include <fstream>
 #include <gtest/gtest.h>
 
+#include "test_support.hpp"
+
 namespace fs = boost::filesystem;
 using check_disk_write_command::write_result;
 
@@ -24,7 +26,7 @@ PB::Common::ResultCode run(const std::vector<std::string> &args, PB::Commands::Q
   PB::Commands::QueryRequestMessage::Request request;
   request.set_command("check_disk_write");
   for (const std::string &a : args) request.add_arguments(a);
-  check_disk_write_command::check(request, &response);
+  check_disk_write_command::check(request, &response, check_disk_test_support::unrestricted());
   return response.result();
 }
 
@@ -33,7 +35,7 @@ PB::Common::ResultCode run_with(const check_disk_write_command::write_tester &te
   PB::Commands::QueryRequestMessage::Request request;
   request.set_command("check_disk_write");
   for (const std::string &a : args) request.add_arguments(a);
-  check_disk_write_command::check_with(request, &response, tester);
+  check_disk_write_command::check_with(request, &response, tester, check_disk_test_support::unrestricted());
   return response.result();
 }
 

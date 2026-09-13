@@ -33,6 +33,7 @@ nav:
   - Concepts:
       - How NSClient++ Works: concepts/index.md
       - Checks In Depth: concepts/checks.md
+      - Restricting What A Check May Read: concepts/check-access.md
       - Settings: concepts/settings.md
       - Test Mode: concepts/test-mode.md
       - File Layout: concepts/file-layout.md

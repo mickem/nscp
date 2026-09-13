@@ -10,6 +10,7 @@
 #include <nscapi/protobuf/metrics.hpp>
 
 #include "check_pdh.hpp"
+#include "check_registry.hpp"
 #include "filter_config_object.hpp"
 #include "pdh_thread.hpp"
 
@@ -24,6 +25,11 @@ class CheckSystem : public nscapi::impl::simple_plugin {
   //	std::map<DWORD,std::string> lookups_;
 
   check_pdh::check pdh_checker;
+
+  // Which registry keys a caller may name in check_registry_key /
+  // check_registry_value. Open by default; see
+  // docs/docs/concepts/check-access.md.
+  check::access::prefix_policy registry_access_{"registry key", "registry keys", "/settings/system/windows", '\\', &normalize_registry_hive};
 
   // Configured timezone for `check_uptime`, cached in loadModuleEx (issue #365).
   // See `include/nscp_time.hpp` for the supported value syntax.

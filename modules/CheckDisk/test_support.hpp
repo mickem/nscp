@@ -12,11 +12,20 @@
 // any number of test files.
 
 #include <boost/filesystem.hpp>
+#include <check/path_access_policy.hpp>
 #include <fstream>
 #include <nscapi/protobuf/command.hpp>
 #include <string>
 
 namespace check_disk_test_support {
+
+// The path-taking checks are gated by an access policy the module owns. Tests
+// which are not about the gate pass this one: a freshly constructed policy is
+// in `any` mode, which is exactly the behaviour before the gate existed.
+inline const check::access::path_policy &unrestricted() {
+  static const check::access::path_policy policy("file", "files", "/settings/disk");
+  return policy;
+}
 
 // RAII helper that creates a unique scratch directory under the OS temp
 // folder and removes it (including all contents) on destruction. Tests use

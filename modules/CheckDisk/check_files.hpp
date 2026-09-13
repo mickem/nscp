@@ -3,8 +3,14 @@
 
 #pragma once
 
+#include <check/path_access_policy.hpp>
+
 #include <nscapi/protobuf/command.hpp>
 
 namespace check_files_command {
-void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+// `access` decides which paths the caller may name; see
+// docs/docs/concepts/check-access.md. It is passed in rather than looked up so
+// the gate can be unit tested without a live module.
+void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+           const check::access::path_policy &access);
 }

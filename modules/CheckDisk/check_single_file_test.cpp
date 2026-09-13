@@ -23,7 +23,7 @@ TEST(CheckSingleFileCommand, NoFileSpecifiedReturnsUnknown) {
   PB::Commands::QueryResponseMessage::Response response;
   request.set_command("check_single_file");
 
-  check_single_file_command::check(request, &response);
+  check_single_file_command::check(request, &response, check_disk_test_support::unrestricted());
 
   EXPECT_EQ(response.result(), PB::Common::ResultCode::UNKNOWN);
   EXPECT_NE(join_lines(response).find("No file specified"), std::string::npos) << join_lines(response);
@@ -35,7 +35,7 @@ TEST(CheckSingleFileCommand, MissingFileReturnsUnknown) {
   request.set_command("check_single_file");
   request.add_arguments("file=Z:\\nscp_test_definitely_not_a_real_path_47b1f0e5\\foo.dat");
 
-  check_single_file_command::check(request, &response);
+  check_single_file_command::check(request, &response, check_disk_test_support::unrestricted());
 
   EXPECT_EQ(response.result(), PB::Common::ResultCode::UNKNOWN);
   const std::string out = join_lines(response);
@@ -56,7 +56,7 @@ TEST(CheckSingleFileCommand, ExistingFileReturnsOk) {
   request.set_command("check_single_file");
   request.add_arguments("file=" + file_path);
 
-  check_single_file_command::check(request, &response);
+  check_single_file_command::check(request, &response, check_disk_test_support::unrestricted());
 
   // No thresholds and a single matching file → default-empty-state ("ok")
   // path; the file's name must appear in the rendered detail line.
@@ -73,7 +73,7 @@ TEST(CheckSingleFileCommand, PathAliasIsAcceptedForFile) {
   request.set_command("check_single_file");
   request.add_arguments("path=" + file_path);
 
-  check_single_file_command::check(request, &response);
+  check_single_file_command::check(request, &response, check_disk_test_support::unrestricted());
 
   EXPECT_EQ(response.result(), PB::Common::ResultCode::OK);
   EXPECT_NE(join_lines(response).find("aliased.log"), std::string::npos) << join_lines(response);
@@ -90,7 +90,7 @@ TEST(CheckSingleFileCommand, SizeThresholdTriggersCritical) {
   request.add_arguments("file=" + file_path);
   request.add_arguments("crit=size > 8B");
 
-  check_single_file_command::check(request, &response);
+  check_single_file_command::check(request, &response, check_disk_test_support::unrestricted());
 
   EXPECT_EQ(response.result(), PB::Common::ResultCode::CRITICAL);
 }

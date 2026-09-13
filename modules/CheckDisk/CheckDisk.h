@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <check/path_access_policy.hpp>
 #include <memory>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
@@ -13,6 +14,10 @@
 class CheckDisk : public nscapi::impl::simple_plugin {
   bool show_errors_;
   std::shared_ptr<collector_thread> collector_;
+  // Which paths a caller may name in check_files, check_single_file and
+  // check_disk_write. Open by default, so an upgrade changes nothing; see
+  // docs/docs/concepts/check-access.md.
+  check::access::path_policy file_access_;
 
  public:
   CheckDisk();

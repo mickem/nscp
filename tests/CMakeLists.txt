@@ -669,6 +669,18 @@ NSCP_CREATE_TEST(
 )
 
 NSCP_CREATE_TEST(
+    access_policy_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/check/access_policy_test.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+NSCP_CREATE_TEST(
     pid_file_test
     SOURCES
         ${NSCP_INCLUDEDIR}/pid_file_test.cpp
