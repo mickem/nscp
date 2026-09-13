@@ -124,11 +124,28 @@ void Enumerations::fetch_object_details(Object &object, bool instances, bool obj
       return;
     }
 
-    hlp::buffer<TCHAR> counterBuffer(dwCounterBufLen + 1);
-    hlp::buffer<TCHAR> instanceBuffer(dwInstanceBufLen + 1);
-
-    status = factory::get_impl()->PdhEnumObjectItems(nullptr, nullptr, utf8::cvt<std::wstring>(object.name).c_str(), counterBuffer.get(), &dwCounterBufLen,
-                                                     instanceBuffer.get(), &dwInstanceBufLen, dwDetailLevel, 0);
+    // Same race as EnumObjects: instances come and go (processes, say)
+    // between the sizing call and the fetch. Grow to what PDH asks for and
+    // retry a few times before giving up on the object.
+    DWORD counterSize = dwCounterBufLen + 1;
+    DWORD instanceSize = dwInstanceBufLen + 1;
+    hlp::buffer<TCHAR> counterBuffer(counterSize);
+    hlp::buffer<TCHAR> instanceBuffer(instanceSize);
+    for (int attempt = 0;; ++attempt) {
+      dwCounterBufLen = counterSize;
+      dwInstanceBufLen = instanceSize;
+      status = factory::get_impl()->PdhEnumObjectItems(nullptr, nullptr, utf8::cvt<std::wstring>(object.name).c_str(), counterBuffer.get(), &dwCounterBufLen,
+                                                       instanceBuffer.get(), &dwInstanceBufLen, dwDetailLevel, 0);
+      if (!status.is_more_data()) break;
+      if (attempt >= 4) {
+        object.error = "Failed to enumerate object: " + object.name;
+        return;
+      }
+      counterSize = dwCounterBufLen + 1;
+      instanceSize = dwInstanceBufLen + 1;
+      counterBuffer = hlp::buffer<TCHAR>(counterSize);
+      instanceBuffer = hlp::buffer<TCHAR>(instanceSize);
+    }
     if (status.is_error()) {
       object.error = "Failed to enumerate object: " + object.name;
       return;
@@ -161,8 +178,21 @@ Enumerations::Objects Enumerations::EnumObjects(bool instances, bool objects, DW
   pdh_error status = factory::get_impl()->PdhEnumObjects(nullptr, nullptr, nullptr, &dwObjectBufLen, dwDetailLevel, FALSE);
   if (!status.is_more_data()) throw pdh_exception("PdhEnumObjects failed when trying to retrieve size of object buffer", status);
 
-  hlp::buffer<TCHAR> objectBuffer(dwObjectBufLen + 1024);
-  status = factory::get_impl()->PdhEnumObjects(nullptr, nullptr, objectBuffer.get(), &dwObjectBufLen, dwDetailLevel, FALSE);
+  // The object list can grow between the sizing call and the fetch - another
+  // thread in this process refreshing counters (CheckSystem's collector, when
+  // this runs inside `nscp test`) is enough - and PDH then answers the fetch
+  // with PDH_MORE_DATA and the size it needs now. Grow and try again rather
+  // than report a failure for a list that is merely bigger than a moment ago.
+  DWORD size = dwObjectBufLen + 1024;
+  hlp::buffer<TCHAR> objectBuffer(size);
+  for (int attempt = 0;; ++attempt) {
+    DWORD needed = size;
+    status = factory::get_impl()->PdhEnumObjects(nullptr, nullptr, objectBuffer.get(), &needed, dwDetailLevel, FALSE);
+    if (!status.is_more_data()) break;
+    if (attempt >= 4) throw pdh_exception("PdhEnumObjects failed when trying to retrieve object buffer", status);
+    size = needed + 1024;
+    objectBuffer = hlp::buffer<TCHAR>(size);
+  }
   if (status.is_error()) throw pdh_exception("PdhEnumObjects failed when trying to retrieve object buffer", status);
 
   const TCHAR *cp = objectBuffer.get();

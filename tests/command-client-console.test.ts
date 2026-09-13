@@ -79,6 +79,12 @@ describe("nscp test console", () => {
       const out = await runConsole("exec CheckSystem --help\nexit\n");
       expect(out).toContain("List counters and/or instances");
       expect(out).not.toContain("Failed to execute command on CheckSystem");
+      // The reported case. Inside nscp test the collector thread refreshes
+      // counters while this enumerates them, which used to surface as
+      // PdhEnumObjects failing with PDH_MORE_DATA.
+      const listed = await runConsole("exec CheckSystem --list SQL --all\nexit\n", 90_000);
+      expect(listed).toMatch(/Listed \d+ of \d+ counters/);
+      expect(listed).not.toContain("PdhEnumObjects failed");
       await nscp.configure({ "/modules": { CheckSystem: "disabled" } });
     }
     const nothing = await runConsole("exec CheckExternalScripts no-such-thing\nexit\n");
