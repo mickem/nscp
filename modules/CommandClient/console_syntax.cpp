@@ -18,6 +18,10 @@ bool takes_module(const std::string &verb) { return verb == "load" || verb == "u
 // loaded offers exactly the set that cannot usefully be loaded.
 bool takes_absent_module(const std::string &verb) { return verb == "load" || verb == "enable"; }
 
+// Verbs whose first argument is a query name: completed and checked against
+// the registered queries rather than the modules.
+bool takes_query(const std::string &verb) { return verb == "desc" || verb == "keywords"; }
+
 bool is_space(const char c) { return c == ' ' || c == '\t'; }
 bool is_quote(const char c) { return c == '"' || c == '\''; }
 
@@ -179,9 +183,9 @@ std::vector<token_kind> classify(const std::string &input, const vocabulary &voc
     const token &t = tokens[n];
     // The first argument of a module verb, or of `desc`, names something we
     // can check - so check it, and say so when it does not resolve.
-    if (n == 1 && (takes_module(verb) || verb == "desc")) {
+    if (n == 1 && (takes_module(verb) || takes_query(verb))) {
       const std::string name = unquote(t.text);
-      if (verb == "desc") {
+      if (takes_query(verb)) {
         paint(colors, index, t.begin, t.end, contains(vocab.queries, name) ? token_kind::known_name : token_kind::unknown_name);
       } else if (contains(vocab.modules.all, name)) {
         paint(colors, index, t.begin, t.end, token_kind::known_name);
@@ -236,7 +240,7 @@ std::vector<std::string> complete(const std::string &input, const vocabulary &vo
     } else {
       candidates.insert(candidates.end(), established.begin(), established.end());
     }
-  } else if (ctx.word_index == 1 && ctx.command == "desc") {
+  } else if (ctx.word_index == 1 && takes_query(ctx.command)) {
     candidates.insert(candidates.end(), vocab.queries.begin(), vocab.queries.end());
   } else if (split_point(ctx.prefix) == std::string::npos && parameters_of) {
     // Argument position of a real query: offer its parameters as `name=`, and

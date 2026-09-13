@@ -148,6 +148,29 @@ describe("nscp test console", () => {
       expect(out).toMatch(/\smessage\s+Message to return/);
     });
 
+    it("keywords lists a filter check's keywords with live values", async () => {
+      // check_cpu is a filter check on every platform; its default filter
+      // keeps the total core, so the rows are the sampling intervals.
+      await nscp.configure({ "/modules": { CheckSystem: "enabled" } });
+      const out = await runConsole("keywords check_cpu\nexit\n");
+      expect(out).toMatch(/Filter keywords of check_cpu, \d+ records?:/);
+      expect(out).toMatch(/KEYWORD\s+(VALUE|#1)/);
+      expect(out).toMatch(/\bcore\s+total\s/);
+      expect(out).toMatch(/\bload\s+\d+/);
+      expect(out).toMatch(/\btime\s+\d+[ms]\s/);
+      // Aggregates are named, not rendered per record.
+      expect(out).toMatch(/Summary keywords.*\bcount\b.*\bstatus\b/);
+      expect(out).not.toMatch(/^\s*list\s/m);
+      expect(out).not.toContain("\t");
+      expect(out).not.toContain("%(");
+    });
+
+    it("keywords says so for a check without a filter, and for an unknown one", async () => {
+      expect(await runConsole("keywords check_ok\nexit\n")).toContain("check_ok has no filter keywords");
+      expect(await runConsole("keywords no_such_query\nexit\n")).toContain("Command not found: no_such_query");
+      expect(await runConsole("keywords\nexit\n")).toContain("Usage: keywords <query> [args]");
+    });
+
     it("desc of an unknown query says so", async () => {
       const out = await runConsole("desc no_such_query\nexit\n");
       expect(out).toContain("Command not found: no_such_query");
