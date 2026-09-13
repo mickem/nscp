@@ -4,6 +4,7 @@
 #include "console_syntax.hpp"
 
 #include <algorithm>
+#include <cctype>
 
 namespace command_client {
 
@@ -17,6 +18,10 @@ bool takes_module(const std::string &verb) { return verb == "load" || verb == "u
 // loaded offers exactly the set that cannot usefully be loaded.
 bool takes_absent_module(const std::string &verb) { return verb == "load" || verb == "enable"; }
 
+// Verbs whose first argument is a query name: completed and checked against
+// the registered queries rather than the modules.
+bool takes_query(const std::string &verb) { return verb == "desc" || verb == "keywords"; }
+
 bool is_space(const char c) { return c == ' ' || c == '\t'; }
 bool is_quote(const char c) { return c == '"' || c == '\''; }
 
@@ -29,10 +34,13 @@ struct token {
   bool quoted = false;
 };
 
-// Split on unquoted whitespace. Quoting rules match str::utils::parse_command
-// closely enough for highlighting: a quote runs to the matching quote, and an
-// unterminated quote runs to the end of the line (which is exactly what the
-// user sees while still typing it).
+// Split on unquoted whitespace. Quoting rules match
+// str::utils::parse_prompt_command closely enough for highlighting: a quote
+// runs to the matching quote, an unterminated quote runs to the end of the
+// line (which is exactly what the user sees while still typing it), and a
+// single quote only opens a string at the start of an argument or right after
+// its first '=' - elsewhere it is an ordinary character, so
+// filter=core='total' is one plain token.
 std::vector<token> tokenize(const std::string &input) {
   std::vector<token> tokens;
   std::size_t i = 0;
@@ -42,15 +50,19 @@ std::vector<token> tokenize(const std::string &input) {
     token t;
     t.begin = i;
     char quote = 0;
+    std::size_t equals = 0;
     while (i < input.size()) {
       const char c = input[i];
+      const bool value_start = i == t.begin || (equals == 1 && input[i - 1] == '=');
       if (quote != 0) {
         if (c == quote) quote = 0;
-      } else if (is_quote(c)) {
+      } else if (c == '"' || (c == '\'' && value_start)) {
         quote = c;
         t.quoted = true;
       } else if (is_space(c)) {
         break;
+      } else if (c == '=') {
+        equals++;
       }
       i++;
     }
@@ -61,14 +73,15 @@ std::vector<token> tokenize(const std::string &input) {
   return tokens;
 }
 
-// Offset of the first unquoted '=' in `text`, or npos.
+// Offset of the first unquoted '=' in `text`, or npos. Before the first '='
+// a single quote only counts at the very start of the token (see tokenize).
 std::size_t split_point(const std::string &text) {
   char quote = 0;
   for (std::size_t i = 0; i < text.size(); i++) {
     const char c = text[i];
     if (quote != 0) {
       if (c == quote) quote = 0;
-    } else if (is_quote(c)) {
+    } else if (c == '"' || (c == '\'' && i == 0)) {
       quote = c;
     } else if (c == '=') {
       return i;
@@ -78,6 +91,17 @@ std::size_t split_point(const std::string &text) {
 }
 
 bool contains(const std::set<std::string> &haystack, const std::string &needle) { return haystack.find(needle) != haystack.end(); }
+
+// Case-insensitive prefix test. Module names are CamelCase and nobody
+// remembers which letters; the editor replaces exactly the typed prefix with
+// the match, so completing "check" to "CheckDisk" also corrects the case.
+bool starts_with_ci(const std::string &candidate, const std::string &prefix) {
+  if (prefix.size() > candidate.size()) return false;
+  for (std::size_t i = 0; i < prefix.size(); ++i) {
+    if (std::tolower(static_cast<unsigned char>(candidate[i])) != std::tolower(static_cast<unsigned char>(prefix[i]))) return false;
+  }
+  return true;
+}
 
 // Strip surrounding quotes so `load "CheckDisk"` still resolves.
 std::string unquote(const std::string &text) {
@@ -167,9 +191,9 @@ std::vector<token_kind> classify(const std::string &input, const vocabulary &voc
     const token &t = tokens[n];
     // The first argument of a module verb, or of `desc`, names something we
     // can check - so check it, and say so when it does not resolve.
-    if (n == 1 && (takes_module(verb) || verb == "desc")) {
+    if (n == 1 && (takes_module(verb) || takes_query(verb))) {
       const std::string name = unquote(t.text);
-      if (verb == "desc") {
+      if (takes_query(verb)) {
         paint(colors, index, t.begin, t.end, contains(vocab.queries, name) ? token_kind::known_name : token_kind::unknown_name);
       } else if (contains(vocab.modules.all, name)) {
         paint(colors, index, t.begin, t.end, token_kind::known_name);
@@ -224,7 +248,7 @@ std::vector<std::string> complete(const std::string &input, const vocabulary &vo
     } else {
       candidates.insert(candidates.end(), established.begin(), established.end());
     }
-  } else if (ctx.word_index == 1 && ctx.command == "desc") {
+  } else if (ctx.word_index == 1 && takes_query(ctx.command)) {
     candidates.insert(candidates.end(), vocab.queries.begin(), vocab.queries.end());
   } else if (split_point(ctx.prefix) == std::string::npos && parameters_of) {
     // Argument position of a real query: offer its parameters as `name=`, and
@@ -237,7 +261,7 @@ std::vector<std::string> complete(const std::string &input, const vocabulary &vo
 
   std::vector<std::string> matches;
   for (const std::string &candidate : candidates) {
-    if (candidate.compare(0, ctx.prefix.size(), ctx.prefix) == 0) matches.push_back(candidate);
+    if (starts_with_ci(candidate, ctx.prefix)) matches.push_back(candidate);
   }
   std::sort(matches.begin(), matches.end());
   matches.erase(std::unique(matches.begin(), matches.end()), matches.end());

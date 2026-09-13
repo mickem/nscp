@@ -97,22 +97,17 @@ void client_handler::output_message(const std::string &msg) {
     msg_copy = msg_copy.substr(0, p + 1);
   }
   // With a prompt up, command output goes straight to the line editor: it
-  // knows how to draw around the prompt, and multi-line output can stay
-  // multi-line instead of being folded into a single log record with "..."
-  // separators (which is all the fallback below can do).
+  // knows how to draw around the prompt. Without one it goes out as a single
+  // log record, newlines and all: the tables the listings render depend on
+  // their lines arriving as written. (The unix build used to append a tab
+  // and "..." to every line as a continuation marker, which the Windows
+  // build never did; the difference showed up as tabs in otherwise aligned
+  // output.)
   if (const std::shared_ptr<command_client::console_editor> editor = get_editor()) {
     editor->print(msg_copy + "\n");
     return;
   }
-  if (msg_copy.find("\n") == std::string::npos) {
-    NSC_LOG_MESSAGE(msg_copy);
-  } else {
-#ifdef WIN32
-    NSC_LOG_MESSAGE(boost::replace_all_copy(msg_copy, "\r", "\t... \r"));
-#else
-    NSC_LOG_MESSAGE(boost::replace_all_copy(msg_copy, "\n", "\t... \n"));
-#endif
-  }
+  NSC_LOG_MESSAGE(msg_copy);
 }
 
 void client_handler::log_debug(std::string module, std::string file, int line, std::string msg) const {

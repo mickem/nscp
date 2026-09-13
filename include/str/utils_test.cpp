@@ -407,3 +407,46 @@ TEST(str_utils, unescape_escaped_backslash_does_not_start_a_new_escape) { EXPECT
 TEST(str_utils, unescape_keeps_unknown_escapes) { EXPECT_EQ(str::utils::unescape("C:\\Users\\Public"), "C:\\Users\\Public"); }
 
 TEST(str_utils, unescape_trailing_backslash_is_kept) { EXPECT_EQ(str::utils::unescape("path\\"), "path\\"); }
+
+// ============================================================================
+// Tests for parse_prompt_command: the interactive prompt's tokenizer
+// ============================================================================
+namespace {
+std::vector<std::string> prompt_args(const std::string &line) {
+  std::vector<std::string> args;
+  str::utils::parse_prompt_command(line, args);
+  return args;
+}
+}  // namespace
+
+TEST(str_utils, parse_prompt_command_splits_like_parse_command) {
+  EXPECT_EQ(prompt_args("cmd arg1  arg2\targ3"), (std::vector<std::string>{"cmd", "arg1", "arg2", "arg3"}));
+  EXPECT_EQ(prompt_args("cmd \"arg with spaces\" arg2"), (std::vector<std::string>{"cmd", "arg with spaces", "arg2"}));
+  EXPECT_EQ(prompt_args("cmd \"a=b\""), (std::vector<std::string>{"cmd", "a=b"}));
+  EXPECT_TRUE(prompt_args("").empty());
+  EXPECT_TRUE(prompt_args("   ").empty());
+  EXPECT_EQ(prompt_args("cmd \"\" x"), (std::vector<std::string>{"cmd", "x"})) << "empty arguments are dropped";
+}
+
+TEST(str_utils, parse_prompt_command_double_quotes_keep_backslash_escapes) {
+  EXPECT_EQ(prompt_args("\"path=C:\\\\temp\\\\x\""), (std::vector<std::string>{"path=C:\\temp\\x"}));
+  EXPECT_EQ(prompt_args("\"say \\\"hi\\\"\""), (std::vector<std::string>{"say \"hi\""}));
+  EXPECT_EQ(prompt_args("a\\ b"), (std::vector<std::string>{"a b"})) << "a bare backslash escapes, as before";
+}
+
+TEST(str_utils, parse_prompt_command_single_quotes_are_literal) {
+  EXPECT_EQ(prompt_args("check_files 'path=C:\\temp\\x y'"), (std::vector<std::string>{"check_files", "path=C:\\temp\\x y"}));
+  EXPECT_EQ(prompt_args("check_files path='C:\\Program Files\\app'"), (std::vector<std::string>{"check_files", "path=C:\\Program Files\\app"}));
+  EXPECT_EQ(prompt_args("x 'a \"b\" \\ c'"), (std::vector<std::string>{"x", "a \"b\" \\ c"})) << "nothing is special inside";
+  EXPECT_EQ(prompt_args("x 'unterminated to the end"), (std::vector<std::string>{"x", "unterminated to the end"}));
+}
+
+TEST(str_utils, parse_prompt_command_single_quotes_elsewhere_are_ordinary) {
+  // The filter language quotes its strings with single quotes; typed bare
+  // they must reach the check untouched.
+  EXPECT_EQ(prompt_args("check_cpu filter=core='total'"), (std::vector<std::string>{"check_cpu", "filter=core='total'"}));
+  EXPECT_EQ(prompt_args("check_cpu \"filter=core = 'total'\""), (std::vector<std::string>{"check_cpu", "filter=core = 'total'"}));
+  EXPECT_EQ(prompt_args("it's fine"), (std::vector<std::string>{"it's", "fine"}));
+  EXPECT_EQ(prompt_args("check_x warning='load > 80'"), (std::vector<std::string>{"check_x", "warning=load > 80"}))
+      << "right after the first = is a value start";
+}
