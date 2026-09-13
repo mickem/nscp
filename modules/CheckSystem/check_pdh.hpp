@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <check/access_policy.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/settings/object.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -11,6 +12,11 @@
 #include "pdh_thread.hpp"
 
 namespace check_pdh {
+
+// `check_pdh::check` would otherwise shadow the `check` namespace the policy
+// lives in, so name it once here.
+typedef ::check::access::policy access_policy;
+
 struct counter_config_object : public nscapi::settings_objects::object_instance_interface {
   typedef nscapi::settings_objects::object_instance_interface parent;
 
@@ -66,10 +72,23 @@ typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 
 struct check {
   counter_config_handler counters_;
+  // Which counters a caller may name in `counter=`. Open by default, so an
+  // upgrade changes nothing. The predefined entries are the counters already
+  // configured in [/settings/system/windows/counters], so `predefined` mode
+  // needs no second list; see docs/docs/concepts/check-access.md.
+  access_policy counter_access_;
+
+  check() : counter_access_("counter", "counters", "/settings/system/windows") {}
+
   void check_pdh(std::shared_ptr<pdh_thread> &collector, const PB::Commands::QueryRequestMessage::Request &request,
                  PB::Commands::QueryResponseMessage::Response *response);
   void add_counter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
   void add_rrd_counter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
   void clear();
+
+  // Hold one counter argument against the access mode. `is_named` marks the
+  // form which refers to a counter configured in [/settings/system/windows/counters]
+  // rather than a raw PDH path. Returns false and fills `error` when refused.
+  bool allow_counter(const std::string &counter, bool is_named, std::string &error) const;
 };
 }  // namespace check_pdh

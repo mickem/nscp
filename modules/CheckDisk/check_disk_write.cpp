@@ -205,7 +205,7 @@ write_result perform_write_test(const std::string &path, const long long size) {
 }
 
 void check_with(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
-                const write_tester &tester) {
+                const write_tester &tester, const check::access::path_policy &access) {
   modern_filter::data_container data;
   modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
   std::string file_path;
@@ -229,6 +229,17 @@ void check_with(const PB::Commands::QueryRequestMessage::Request &request, PB::C
   if (file_path.empty()) {
     return nscapi::protobuf::functions::set_response_bad(*response, "No file specified (use file=<path>)");
   }
+
+  // Hold the path against [/settings/disk] 'file access' before anything is
+  // created. The test file cannot overwrite an existing one (it is created
+  // exclusively and removed afterwards), but where an operator has narrowed
+  // which paths a caller may name, that applies to writing them too.
+  {
+    const check::access::decision decision = access.resolve(file_path);
+    if (!decision.allowed) return nscapi::protobuf::functions::set_response_bad(*response, decision.error);
+    file_path = decision.value;
+  }
+
   long long size = 0;
   try {
     size = str::format::decode_byte_units(size_arg);
@@ -249,8 +260,9 @@ void check_with(const PB::Commands::QueryRequestMessage::Request &request, PB::C
   filter_helper.post_process(filter);
 }
 
-void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_with(request, response, &perform_write_test);
+void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+           const check::access::path_policy &access) {
+  check_with(request, response, &perform_write_test, access);
 }
 
 }  // namespace check_disk_write_command

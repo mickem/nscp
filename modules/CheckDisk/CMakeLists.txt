@@ -120,6 +120,7 @@ if(WIN32)
             drive_trend_test.cpp
             check_files_test.cpp
             check_single_file_test.cpp
+            check_disk_access_test.cpp
             check_uncpath_test.cpp
             check_storagepool_test.cpp
             check_shadowcopy_test.cpp
@@ -198,6 +199,7 @@ else()
             drive_trend_test.cpp
             check_files.cpp
             check_files_checksum_test.cpp
+            check_disk_access_test.cpp
             check_mount.cpp
             check_mount_test.cpp
             check_single_file.cpp

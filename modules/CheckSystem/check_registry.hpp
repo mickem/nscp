@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <check/prefix_access_policy.hpp>
+
 #include <memory>
 #include <nscapi/protobuf/command.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -10,6 +12,11 @@
 #include <win/registry.hpp>
 
 // ── check_registry_key ───────────────────────────────────────────────────────
+
+// Normalise the long hive spelling to the abbreviation, so an allow list
+// written one way still matches a caller who used the other. Both are accepted
+// by win_registry::parse_hive.
+std::string normalize_registry_hive(const std::string &key);
 
 namespace registry_key_checks {
 
@@ -29,7 +36,11 @@ long long parse_type_name(const std::string &s);
 
 }  // namespace check_rk_filter
 
-void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+// `access` decides which keys the caller may name; see
+// docs/docs/concepts/check-access.md. It is passed in rather than looked up so
+// the gate can be unit tested without a live module.
+void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+           const check::access::prefix_policy &access);
 
 }  // namespace registry_key_checks
 
@@ -50,6 +61,9 @@ typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 
 }  // namespace check_rv_filter
 
-void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+// `access` decides which keys the caller may name; see
+// docs/docs/concepts/check-access.md.
+void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+           const check::access::prefix_policy &access);
 
 }  // namespace registry_value_checks

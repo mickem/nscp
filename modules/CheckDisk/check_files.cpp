@@ -18,7 +18,8 @@ namespace po = boost::program_options;
 
 namespace check_files_command {
 
-void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+           const check::access::path_policy &access) {
   modern_filter::data_container data;
   modern_filter::cli_helper<file_filter::filter> filter_helper(request, response, data);
   std::vector<std::string> file_list;
@@ -39,7 +40,9 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
         "In other words if one path contains an error the entire check will result in error.")
     ("file", po::value<std::vector<std::string> >(&file_list), "Alias for path.")
     ("paths", po::value<std::string>(&files_string), "A comma separated list of paths to scan")
-    ("pattern", po::value<std::string>(&context.pattern)->default_value("*.*"), "The pattern of files to search for (works like a filter but is faster and can be combined with a filter).")
+    ("pattern", po::value<std::string>(&context.pattern)->default_value("*.*"), "The pattern of files to search for (works like a filter but is faster and can be combined with a filter).\n"
+        "This is a file mask, not a path: while 'file access' in [/settings/disk] is restricted it may not contain a path separator or '..', since the "
+        "scan root is what was held against the allow list.")
     ("max-depth", po::value<int>(&context.max_depth), "Maximum depth to recurse")
     ("total", po::value(&total)->implicit_value("filter"), "Include the total of either (filter) all files matching the filter or (all) all files regardless of the filter")
     ("ignore-missing", po::value<bool>(&ignore_missing)->implicit_value(true)->default_value(false),
@@ -66,6 +69,29 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   if (!files_string.empty()) boost::split(file_list, files_string, boost::is_any_of(","));
 
   if (file_list.empty()) return nscapi::protobuf::functions::set_response_bad(*response, "No path specified");
+
+  // Hold every scan root against [/settings/disk] 'file access' before the
+  // walk starts. Only the root needs checking: recursive_scan skips symbolic
+  // links - directories and files alike, on both platforms - so everything it
+  // yields is genuinely beneath a root which passed, and the inner loop stays
+  // free of policy work.
+  for (std::string &path : file_list) {
+    const check::access::decision decision = access.resolve(path);
+    if (!decision.allowed) return nscapi::protobuf::functions::set_response_bad(*response, decision.error);
+    path = decision.value;
+  }
+
+  // `pattern` is a file mask, and the Windows scanner builds its search string
+  // by concatenating it onto the directory it is walking. A pattern carrying
+  // separators or `..` therefore enumerates a tree the allow list never saw -
+  // the root passed the gate and the pattern then walked out of it. Only the
+  // root is held against the policy, so the pattern has to stay a mask.
+  if (access.is_restricted() &&
+      (context.pattern.find('/') != std::string::npos || context.pattern.find('\\') != std::string::npos || context.pattern.find("..") != std::string::npos)) {
+    return nscapi::protobuf::functions::set_response_bad(
+        *response, "Refusing pattern '" + context.pattern +
+                       "': it must be a file mask, not a path, while 'file access' is restricted (see [/settings/disk] in the configuration)");
+  }
 
   if (!filter_helper.build_filter(filter)) return;
 

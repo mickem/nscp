@@ -53,8 +53,43 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
       .add_bool("enabled", sh::bool_fun_key([this](auto value) { thread_->set_enabled(value); }, false), "Real time",
                 "Spawns a background thread which waits for file changes.");
 
+  // Which files a caller may name. A reload calls loadModuleEx again on the
+  // live module and the predefined entries below are appended, so drop them
+  // or every reload doubles the list. The mode and the allow list are
+  // replaced by their callbacks and stay in force meanwhile, so a check
+  // arriving mid-reload is not let through an open gate.
+  file_access_.reset();
+
+  // clang-format off
+  settings.alias().add_path_to_settings()
+    ("files", sh::fun_values_path([this](const auto& key, const auto& value) { file_access_.add_predefined(key, value); }),
+      "PREDEFINED LOG FILES", "Log files which check_logfile may read by name, as <name> = <path>.\n"
+      "A name defined here can be used as file=<name> in any access mode, and is the only thing accepted when "
+      "'file access' is set to predefined.")
+    ;
+  // clang-format on
+
+  settings.alias()
+      .add_key_to_settings()
+
+      .add_string("file access", sh::string_fun_key([this](const auto& value) { file_access_.set_mode(value); }, "any"), "FILE ACCESS MODE",
+                  "Which files a caller may ask check_logfile to read: any (the default - any path the caller names, which is how every earlier release "
+                  "behaved), allowed (only paths matching 'allowed files') or predefined (only names defined in the [/settings/logfile/files] section).\n"
+                  "check_logfile reads the file it is given with the privileges of the agent, so on a host where callers may pass arguments (NRPE with "
+                  "'allow arguments', or the REST API) this decides how much of the machine a check can read. See the 'Restricting what a check may read' "
+                  "section of the documentation.")
+
+      .add_string("allowed files", sh::string_fun_key([this](const auto& value) { file_access_.set_allow_list(value); }, ""), "ALLOWED LOG FILES",
+                  "Comma separated list of files check_logfile may read when 'file access' is set to allowed.\n"
+                  "An entry naming a directory (or a path which does not exist yet) allows every file beneath it at any depth; an entry naming an existing "
+                  "file is that single file; an entry containing * or ? is a wildcard matched against the whole path, where * and ? do not cross a directory "
+                  "separator and ** does. Paths are resolved (`..` is flattened and symbolic links and junctions are followed) before they are matched, so "
+                  "a link planted inside an allowed directory does not widen it.");
+
   settings.register_all();
   settings.notify();
+
+  if (!file_access_.get_config_error().empty()) NSC_LOG_ERROR_STD(file_access_.get_config_error());
 
   thread_->ensure_default(nscapi::settings_proxy::create(get_id(), get_core()));
 
@@ -205,7 +240,9 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
 		("split", po::value<std::string>(&column_split), "Alias for split-column")
 		("file", po::value<std::vector<std::string> >(&file_list), "File to read (can be specified multiple times to check multiple files.\n"
 			"Notice that specifying multiple files will create an aggregate set it will not check each file individually.\n"
-			"In other words if one file contains an error the entire check will result in error or if you check the count it is the global count which is used.")
+			"In other words if one file contains an error the entire check will result in error or if you check the count it is the global count which is used.\n"
+			"Which files may be named here is governed by 'file access' in [/settings/logfile]: by default any path is read, but an operator can restrict "
+			"this to a list of allowed paths or to names predefined in [/settings/logfile/files], in which case this takes such a name.")
 		("files", po::value<std::string>(&files_string), "A comma separated list of files to scan (same as file except a list)")
 		// Present-but-empty (`bookmark=`, which is how several transports render a
 		// valueless argument) has to mean the same as the bare flag, or a check
@@ -242,14 +279,38 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
 		;
   // clang-format on
 
-  if (!files_string.empty()) boost::split(file_list, files_string, boost::is_any_of(","));
-
   if (!filter_helper.parse_options()) return;
+
+  // After parse_options, or files_string is still empty and `files=` reads as
+  // "not given at all" - it has been a dead argument for as far back as the
+  // history goes. The split has to land before the access gate below, so that
+  // every name it produces is held against 'file access' like a `file=` one.
+  // Append rather than assign: `file=` and `files=` are documented as the same
+  // list, so naming both must not silently drop one of them.
+  if (!files_string.empty()) {
+    std::vector<std::string> extra;
+    boost::split(extra, files_string, boost::is_any_of(","));
+    for (std::string &name : extra) {
+      boost::algorithm::trim(name);
+      if (!name.empty()) file_list.push_back(name);
+    }
+  }
 
   if (column_split.empty()) return nscapi::protobuf::functions::set_response_bad(*response, "No column-split specified");
   if (line_split.empty()) return nscapi::protobuf::functions::set_response_bad(*response, "No line-split specified");
 
   if (file_list.empty()) return nscapi::protobuf::functions::set_response_bad(*response, "Need to specify at least one file: file=foo.txt");
+
+  // Hold every name the caller gave against [/settings/logfile] 'file access'
+  // before anything is opened. In the default `any` mode this hands each token
+  // straight back; where the operator restricted it, what comes back is the
+  // resolved path which passed - so what was matched is what gets read, with
+  // no second resolution in between.
+  for (std::string &filename : file_list) {
+    const check::access::decision decision = file_access_.resolve(filename);
+    if (!decision.allowed) return nscapi::protobuf::functions::set_response_bad(*response, decision.error);
+    filename = decision.value;
+  }
 
   const bool newest_first = newest == "first";
   if (!newest_first && newest != "last") {

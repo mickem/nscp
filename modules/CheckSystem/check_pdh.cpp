@@ -74,6 +74,38 @@ filter_obj_handler::filter_obj_handler() {
 }
 
 void check::clear() { counters_.clear(); }
+
+bool check::allow_counter(const std::string &counter, const bool is_named, std::string &error) const {
+  if (!counter_access_.get_config_error().empty()) {
+    error = counter_access_.get_config_error();
+    return false;
+  }
+  if (counter_access_.get_mode() == ::check::access::mode::any) return true;
+
+  // A named counter is one an operator already wrote into
+  // [/settings/system/windows/counters], so it is trusted in every mode - that
+  // section *is* the predefined list. What it expands to is never taken from
+  // the caller.
+  if (is_named) {
+    if (counters_.has_object(counter)) return true;
+    error = "Refusing counter '" + counter +
+            "': it is not defined in [/settings/system/windows/counters] and 'counter access' is restricted (see [/settings/system/windows] in the "
+            "configuration)";
+    return false;
+  }
+
+  if (counter_access_.get_mode() == ::check::access::mode::predefined) {
+    error = "Refusing counter '" + counter +
+            "': 'counter access' is set to predefined, so only a counter defined in [/settings/system/windows/counters] may be used (see "
+            "[/settings/system/windows] in the configuration)";
+    return false;
+  }
+
+  const ::check::access::decision d = counter_access_.resolve(counter);
+  if (d.allowed) return true;
+  error = d.error;
+  return false;
+}
 void check::add_counter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
   try {
     counters_.add(proxy, key, query);
@@ -116,7 +148,9 @@ void check::check_pdh(std::shared_ptr<pdh_thread> &collector, const PB::Commands
   filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
   filter_helper.add_syntax("${status}: ${list}", "${alias} = ${value}", "${alias}", "", "");
   filter_helper.get_desc().add_options()
-    ("counter", po::value<std::vector<std::string>>(&counters), "Performance counter to check")
+    ("counter", po::value<std::vector<std::string>>(&counters), "Performance counter to check.\n"
+      "Which counters may be named here is governed by 'counter access' in [/settings/system/windows]: by default any counter is read, but an operator can "
+      "restrict this to paths matching 'allowed counters', or to the counters configured in [/settings/system/windows/counters].")
     ("expand-index", po::value<bool>(&expand_index)->implicit_value(true)->default_value(false), "Expand indexes in counter strings")
     ("resolution", po::value<std::string>(&resolution)->default_value("auto"), "How to resolve counter names against the system locale: auto (try the localized name, then the English API, then index expansion - the default), english (force English counter names regardless of the system language) or index (expand numeric counter indexes to their localized names)")
     ("instances", po::value<bool>(&expand_instance)->implicit_value(true)->default_value(false), "Expand wildcards and fetch all instances")
@@ -158,7 +192,10 @@ void check::check_pdh(std::shared_ptr<pdh_thread> &collector, const PB::Commands
   std::list<std::wstring> to_check;
   for (std::string &counter : counters) {
     try {
-      if (counter.find('\\') == std::string::npos) {
+      const bool is_named = counter.find('\\') == std::string::npos;
+      std::string access_error;
+      if (!allow_counter(counter, is_named, access_error)) return nscapi::protobuf::functions::set_response_bad(*response, access_error);
+      if (is_named) {
         named_counters[counter] = counter;
       } else {
         if (expand_index) {
@@ -194,7 +231,10 @@ void check::check_pdh(std::shared_ptr<pdh_thread> &collector, const PB::Commands
           return nscapi::protobuf::functions::set_response_bad(*response, "Invalid option: " + s);
       } else
         return nscapi::protobuf::functions::set_response_bad(*response, "Invalid option: " + s);
-      if (counter.find('\\') == std::string::npos) {
+      const bool is_named = counter.find('\\') == std::string::npos;
+      std::string access_error;
+      if (!allow_counter(counter, is_named, access_error)) return nscapi::protobuf::functions::set_response_bad(*response, access_error);
+      if (is_named) {
         named_counters[counter] = counter;
       } else {
         if (expand_index) {

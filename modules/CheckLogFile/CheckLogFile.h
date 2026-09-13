@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <check/path_access_policy.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <set>
@@ -19,9 +20,12 @@ class CheckLogFile : public nscapi::impl::simple_plugin {
   // that has aged out (or whose filter was edited) does not keep its row in
   // nsclient.db forever.
   std::set<std::string> persisted_keys_;
+  // Which files a caller may name in `file=`/`files=`. Open by default, so an
+  // upgrade changes nothing; see docs/docs/concepts/check-access.md.
+  check::access::path_policy file_access_;
 
  public:
-  CheckLogFile() {}
+  CheckLogFile() : file_access_("file", "files", "/settings/logfile") {}
   virtual ~CheckLogFile() {}
 
   // Module calls

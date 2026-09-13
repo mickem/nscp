@@ -1,13 +1,12 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
-#include "file_finder.hpp"
-
 #include <file_helpers.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <str/utf8.hpp>
 
+#include "file_finder.hpp"
 #include "filter.hpp"
 
 #ifndef INVALID_FILE_ATTRIBUTES
@@ -19,6 +18,17 @@
 #ifndef FILE_ATTRIBUTE_REPARSE_POINT
 #define FILE_ATTRIBUTE_REPARSE_POINT 0x00000400
 #endif
+#ifndef IO_REPARSE_TAG_SYMLINK
+#define IO_REPARSE_TAG_SYMLINK 0xA000000CL
+#endif
+
+// A file entry which is a symbolic link. When FILE_ATTRIBUTE_REPARSE_POINT is
+// set, FindFirstFile/FindNextFile put the reparse tag in dwReserved0. Only the
+// symlink tag counts: deduplicated and cloud-backed files are reparse points
+// too, and those are ordinary files which must keep being counted.
+static bool is_file_symlink(const WIN32_FIND_DATA &wfd) {
+  return (wfd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0 && wfd.dwReserved0 == IO_REPARSE_TAG_SYMLINK;
+}
 bool file_finder::is_directory(unsigned long dwAttr) {
   if (dwAttr == INVALID_FILE_ATTRIBUTES) {
     return false;
@@ -83,6 +93,15 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
   if (hFind != INVALID_HANDLE_VALUE) {
     do {
       if (is_directory(wfd.dwFileAttributes) && (wcscmp(wfd.cFileName, L".") == 0 || wcscmp(wfd.cFileName, L"..") == 0)) continue;
+      // Skip file symlinks, as the unix scanner does (lstat/S_ISLNK): the
+      // keywords which open the file (the checksums, line_count, version)
+      // would otherwise read the link's target, which can sit anywhere - and
+      // when the scan root has been held against 'file access' that target
+      // is exactly what the allow list never approved.
+      if (!is_directory(wfd.dwFileAttributes) && is_file_symlink(wfd)) {
+        if (context.debug) context.report_debug(std::string("Skipping symbolic link: ") + utf8::cvt<std::string>(wfd.cFileName));
+        continue;
+      }
       std::shared_ptr<file_filter::filter_obj> info = file_filter::filter_obj::get(context.now, wfd, dir);
       modern_filter::match_result ret = filter.match(info);
       if (total_obj && (ret.matched_filter || total_all)) total_obj->add(info);

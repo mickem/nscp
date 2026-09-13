@@ -491,6 +491,84 @@ WEBServer : monitor = CheckSystem.check_cpu, CheckSystem.check_drivesize, CheckD
 See [Permissions](../concepts/permissions.md) for the full reference: identity model, which modules stamp what,
 pattern syntax, the worked `CheckHelpers` example, and the detailed step-by-step setup guide.
 
+## Data disclosure: restricting what a check may read
+
+Code execution is the risk people look for first, but a handful of checks take an argument which decides **what data is
+read**, and the agent reads it with its own privileges - `SYSTEM` on Windows, `root` or `nsclient` on Linux:
+
+| Check | Argument | What an unrestricted argument reaches |
+|-------|----------|---------------------------------------|
+| `check_logfile` | `file=` | any file the agent can open; `${line}` returns its contents |
+| `check_wmi` | `query=` | any WMI class, the filesystem included (`CIM_DataFile`, `Win32_Directory`) |
+| `check_pdh` / `check_counter` | `counter=` | any performance object on the machine |
+| `check_files`, `check_single_file` | `path=` / `file=` | any directory tree: every name, size and timestamp, plus a checksum of any file |
+| `check_disk_write` | `file=` | creates and deletes a test file at any writable path |
+| `check_registry_key`, `check_registry_value` | `key=` | any registry key, and the value data itself (binary as hex) |
+| `check_eventlog` | `file=` / `log=` | any event log channel, and the event text itself |
+
+That is what those checks are *for*, so it is not a defect, and where only your configuration decides what runs it does
+not matter. It matters where the **caller** picks the argument: NRPE with `allow arguments = true`, or the REST API. A
+caller who can reach `check_logfile` with an arbitrary `file=` can read `/etc/shadow`, a private key or a registry hive
+backup, and gets the contents back in the check output.
+
+Each of these modules has an access mode which narrows this. They all default to `any` - the behaviour of every
+release before 0.21.0 - so this is opt-in and an upgrade changes nothing:
+
+| Check | Section | Mode setting | Allow list |
+|-------|---------|--------------|------------|
+| `check_logfile` | `[/settings/logfile]` | `file access` | `allowed files` |
+| `check_wmi` | `[/settings/wmi]` | `query access` | `allowed classes`, `allowed namespaces` |
+| `check_pdh` | `[/settings/system/windows]` | `counter access` | `allowed counters` |
+| `check_files`, `check_single_file`, `check_disk_write` | `[/settings/disk]` | `file access` | `allowed files` |
+| `check_registry_key`, `check_registry_value` | `[/settings/system/windows]` | `registry access` | `allowed registry keys` |
+| `check_eventlog` | `[/settings/eventlog]` | `log access` | `allowed logs` |
+
+If you set only one of these, set `registry access`. `check_registry_value` returns value data with binary rendered as hex,
+in its *default* syntax, and `recursive=true` walks a whole subtree — the registry is where autologon passwords, product keys
+and stored connection settings live. `check_eventlog` is the next widest: event text comes back in its default syntax too, from
+any channel the agent can read, `Security` included.
+
+The disk checks never return file contents, but they enumerate whole trees and can report a checksum of any readable
+file, which confirms known content and for a short file effectively recovers it. Narrower than `check_logfile`, but much
+wider reach.
+
+The modes are `any` (anything the caller names), `allowed` (only what matches the list) and `predefined` (only names you
+configured). Names you configure resolve in **every** mode, so you can name your checks first, confirm the monitoring
+server still works, and tighten the mode afterwards:
+
+```ini
+[/settings/logfile]
+file access = predefined
+
+[/settings/logfile/files]
+app = C:/logs/app.log
+iis = C:/inetpub/logs/LogFiles/W3SVC1/u_ex.log
+```
+
+The monitoring server then runs `check_logfile file=app`, and a caller asking for anything else is refused.
+
+**Recommended posture.** If no caller can pass arguments at all - `allow arguments` off for NRPE, and every web user on
+the `restricted` role or the REST API not exposed - `any` costs you nothing; your configuration already decides
+everything. Otherwise set `predefined` on whichever of the modules you have enabled;
+`allowed` is the middle ground when you want a whole directory, key subtree or performance object without enumerating
+each entry.
+
+Refusing arguments is the other way to close this, and it is now available on both doors: `allow arguments = false` for
+NRPE, and the [`restricted` web role](#adding-a-dedicated-user) (`queries.execute.noargs`) for REST. Note what still
+differs, because it decides whether you need an access mode as well: **refusing arguments is set per transport, an access
+mode is set per check.** You have to remember both doors, and a third added later; an access mode covers every transport
+at once. The concepts page has a
+[table comparing the four approaches](../concepts/check-access.md#choosing-an-approach) - refusing arguments, allowing a
+folder, allowing specific items, and predefined names only - with what each costs and where each falls short.
+
+File paths are resolved before they are matched, so `..` and symbolic links or junctions cannot widen an allowed
+directory, and a misspelled mode is refused rather than ignored. The full reference - entry syntax, the WMI query forms
+which can and cannot be checked by class, and what a refusal looks like - is in
+[Restricting what a check may read](../concepts/check-access.md).
+
+This is the companion to the [permission policy](#permission-policy) above: that one restricts *which* checks a caller
+may run, this one restricts *what* those checks may reach.
+
 ## Remote code execution: understanding the attack surface
 
 NSClient++ is, by design, a remote-administration agent. Several modules can ultimately cause arbitrary code to run on
@@ -743,3 +821,9 @@ If two-way TLS is not yet in place, the compensating controls are:
 | check_nt (`NSClientServer`) protocol            | optional      | avoid; leave disabled. If required, firewall to the monitor, treat the password as public, and set `allow = metrics, info` |
 | Service account                                 | `LocalSystem` | dedicated low-privilege account with only the access your checks require |
 | Permission policy (`/settings/permissions`)     | disabled      | enable in observe mode, lock down to per-subject allow-list              |
+| `check_logfile` `file access`                   | `any`         | `predefined` (or `allowed`) wherever callers may pass arguments          |
+| `check_wmi` `query access`                      | `any`         | `predefined` (or `allowed`) wherever callers may pass arguments          |
+| `check_pdh` `counter access`                    | `any`         | `predefined` (or `allowed`) wherever callers may pass arguments          |
+| CheckDisk `file access`                         | `any`         | `predefined` (or `allowed`) wherever callers may pass arguments          |
+| `check_registry_*` `registry access`            | `any`         | `predefined` (or `allowed`) wherever callers may pass arguments          |
+| `check_eventlog` `log access`                   | `any`         | `predefined` (or `allowed`) wherever callers may pass arguments          |

@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <check/path_access_policy.hpp>
+
 #include <functional>
 #include <nscapi/protobuf/command.hpp>
 #include <string>
@@ -29,8 +31,12 @@ typedef std::function<write_result(const std::string &path, long long size)> wri
 // Evaluate a write test using the given tester. Exposed (with an injectable
 // tester) for unit testing the option parsing, filtering and rendering.
 void check_with(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
-                const write_tester &tester);
+                const write_tester &tester, const check::access::path_policy &access);
 
-void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+// `access` decides which paths the caller may name; see
+// docs/docs/concepts/check-access.md. It is passed in rather than looked up so
+// the gate can be unit tested without a live module.
+void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+           const check::access::path_policy &access);
 
 }  // namespace check_disk_write_command
