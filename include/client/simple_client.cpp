@@ -281,7 +281,7 @@ const std::vector<command_info> &builtin_commands() {
       {"keywords", "<query>", "list the filter keywords of a query with their descriptions"},
       {"metrics", "[prefix]", "show the metrics collected so far"},
       {"settings", "", "show the configured settings (keys set in the configuration, not every registered default)"},
-      {"exec", "<target> <command> [args]", "run a command on one module"},
+      {"exec", "<module> [command] [args]", "run a module's command line, as nscp <module> ... does (exec CheckSystem --list --all)"},
       {"load", "<module>", "load a module now"},
       {"unload", "<module>", "unload a module now"},
       {"enable", "<module>", "enable a module in the configuration and save"},
@@ -549,22 +549,36 @@ void cli_client::handle_command(const std::string &command) {
     for (const metrics::metrics_store::values_map::value_type &v : metrics_store.get(command.substr(7))) {
       handler->output_message(v.first + "=" + v.second);
     }
-  } else if (command.size() > 4 && command.substr(0, 4) == "exec") {
+  } else if (command == "exec" || (command.size() > 5 && command.substr(0, 5) == "exec ")) {
     try {
       std::list<std::string> args;
       str::utils::parse_prompt_command(command, args);
-      if (args.size() < 3) {
-        handler->output_message("Usage: exec <target> <command> [args]");
+      if (args.size() < 2) {
+        handler->output_message("Usage: exec <module> [command] [args]  (e.g. exec CheckSystem --list --all, exec CheckExternalScripts help)");
         return;
       }
       args.pop_front();
-      std::string target = args.front();
+      const std::string target = args.front();
       args.pop_front();
-      std::string cmd = args.front();
-      args.pop_front();
+      // The word after the module is its command only when it looks like one.
+      // A module's options are dashed (`exec CheckSystem --list SQL --all`
+      // is what `nscp sys --list SQL --all` sends), and the modules take an
+      // empty command as "the default one"; promoting `--list` to the command
+      // made every module refuse the call.
+      std::string cmd;
+      if (!args.empty() && args.front().compare(0, 1, "-") != 0) {
+        cmd = args.front();
+        args.pop_front();
+      }
       std::list<std::string> result;
       nscapi::core_helper helper(handler->get_core(), handler->get_plugin_id());
       helper.exec_simple_command(target, cmd, args, result);
+      if (result.empty()) {
+        // The core has already logged "Failed to execute command on X" if
+        // the module declined; that line says nothing about what to do.
+        handler->output_message(target + " did not answer" + (cmd.empty() ? "" : " the command '" + cmd + "'") + ". Try `exec " + target +
+                                " help` to see what it accepts, or `exec " + target + " --help`.");
+      }
       for (const std::string &s : result) handler->output_message(s);
     } catch (const std::exception &e) {
       handler->output_message("Exception: " + utf8::utf8_from_native(e.what()));

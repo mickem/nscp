@@ -67,6 +67,27 @@ describe("nscp test console", () => {
     expect(out).toContain("OK: it's");
   });
 
+  it("exec passes dashed options to the module without promoting one to the command", async () => {
+    // `exec CheckSystem --list SQL --all` used to send "--list" as the command
+    // and every module refused it: a module's command line starts with its
+    // options, exactly as `nscp sys --list SQL --all` sends them.
+    await nscp.configure({ "/modules": { CheckExternalScripts: "enabled" } });
+    const help = await runConsole("exec CheckExternalScripts help\nexit\n");
+    expect(help).toContain("Usage: nscp ext-scr [add|list|show|install|delete] --help");
+    if (process.platform === "win32") {
+      await nscp.configure({ "/modules": { CheckSystem: "enabled" } });
+      const out = await runConsole("exec CheckSystem --help\nexit\n");
+      expect(out).toContain("List counters and/or instances");
+      expect(out).not.toContain("Failed to execute command on CheckSystem");
+      await nscp.configure({ "/modules": { CheckSystem: "disabled" } });
+    }
+    const nothing = await runConsole("exec CheckExternalScripts no-such-thing\nexit\n");
+    expect(nothing).toMatch(/CheckExternalScripts did not answer the command 'no-such-thing'|Usage: nscp ext-scr/);
+    expect(await runConsole("exec\nexit\n")).toContain("Usage: exec <module>");
+    expect(await runConsole("exec CheckExternalScripts\nexit\n")).toContain("Usage: nscp ext-scr");
+    await nscp.configure({ "/modules": { CheckExternalScripts: "disabled" } });
+  });
+
   it("prints the built-in command list for help", async () => {
     const out = await runConsole("help\nexit\n");
     // Rendered from client::builtin_commands(), which is also the list the
