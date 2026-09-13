@@ -148,27 +148,24 @@ describe("nscp test console", () => {
       expect(out).toMatch(/\smessage\s+Message to return/);
     });
 
-    it("keywords lists a filter check's keywords with live values", async () => {
-      // check_cpu is a filter check on every platform; its default filter
-      // keeps the total core, so the rows are the sampling intervals.
+    it("keywords lists a filter check's keywords with their descriptions", async () => {
+      // check_cpu is a filter check on every platform. Nothing is executed:
+      // the list is the help payload's field list, so it cannot fail the way
+      // rendering a value can (the filter functions are listed too).
       await nscp.configure({ "/modules": { CheckSystem: "enabled" } });
       const out = await runConsole("keywords check_cpu\nexit\n");
-      expect(out).toMatch(/Filter keywords of check_cpu, \d+ records?:/);
-      expect(out).toMatch(/KEYWORD\s+(VALUE|#1)/);
-      expect(out).toMatch(/\bcore\s+total\s/);
-      expect(out).toMatch(/\bload\s+\d+/);
-      expect(out).toMatch(/\btime\s+\d+[ms]\s/);
-      // Aggregates are named, not rendered per record.
-      expect(out).toMatch(/Summary keywords.*\bcount\b.*\bstatus\b/);
-      expect(out).not.toMatch(/^\s*list\s/m);
+      expect(out).toContain("Filter keywords of check_cpu:");
+      expect(out).toMatch(/KEYWORD\s+DESCRIPTION/);
+      expect(out).toMatch(/\bcore\s{2,}The core to check/);
+      expect(out).toMatch(/\btime\s{2,}The time frame to check/);
+      expect(out).toMatch(/\bcount\s{2,}Number of items matching the filter/);
       expect(out).not.toContain("\t");
-      expect(out).not.toContain("%(");
     });
 
     it("keywords says so for a check without a filter, and for an unknown one", async () => {
       expect(await runConsole("keywords check_ok\nexit\n")).toContain("check_ok has no filter keywords");
       expect(await runConsole("keywords no_such_query\nexit\n")).toContain("Command not found: no_such_query");
-      expect(await runConsole("keywords\nexit\n")).toContain("Usage: keywords <query> [args]");
+      expect(await runConsole("keywords\nexit\n")).toContain("Usage: keywords <query>");
     });
 
     it("desc of an unknown query says so", async () => {

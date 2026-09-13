@@ -157,15 +157,12 @@ static std::string show_default(const client::cli_handler_ptr &handler, const st
   return "";
 }
 
-// `keywords <query> [args]`: the filter keywords a check offers, each with the
-// value it has right now. The names and descriptions come from the help
-// payload; the values come from running the check with a detail syntax that
-// renders every keyword, thresholds off and every record shown, so what is
-// listed is exactly what `filter=`, `warning=` and `critical=` expressions see.
-// Arguments the user adds go to the check as they are (and win over the
-// generated ones), so `keywords check_drivesize drive=c:` narrows the records.
-static std::string render_keywords(const client::cli_handler_ptr &handler, const std::string &query, const std::list<std::string> &user_args) {
-  const nscapi::core_wrapper *core = handler->get_core();
+// `keywords <query>`: the filter keywords (and filter functions) a check
+// offers, with their descriptions - the same list the reference
+// documentation prints under "Filter keywords", read from the help payload
+// instead of the docs. For an alias the target's are shown, since those are
+// the ones its filter expressions use.
+static std::string render_keywords(const nscapi::core_wrapper *core, const std::string &query) {
   PB::Registry::RegistryResponseMessage response;
   create_registry_query(core, query, PB::Registry::ItemType::QUERY, response);
   std::vector<inventory_entry> entries;
@@ -173,8 +170,6 @@ static std::string render_keywords(const client::cli_handler_ptr &handler, const
   if (!collect_entries(response, entries, error)) return error;
   if (entries.empty()) return "Command not found: " + query;
 
-  // An alias carries no keywords of its own; the target's are the ones its
-  // filter expressions use.
   std::string command = query;
   const inventory_entry *source = &entries.front();
   std::vector<inventory_entry> target_entries;
@@ -187,102 +182,15 @@ static std::string render_keywords(const client::cli_handler_ptr &handler, const
     collect_entries(target_response, target_entries, ignored);
     if (!target_entries.empty()) source = &target_entries.front();
   }
-  // The generic summary keywords (count, list, status, ...) describe the
-  // whole result, not one record: rendered inside a record they expand to
-  // the list of all records - separators included - and `sep` is the list
-  // separator itself. They get a line of their own instead of a value.
-  static const char *summary_names[] = {"count",   "total",     "ok_count",  "warn_count",   "crit_count",  "problem_count", "list",
-                                        "ok_list", "warn_list", "crit_list", "problem_list", "detail_list", "sep",           "status"};
-  const std::set<std::string> summary(std::begin(summary_names), std::end(summary_names));
-  std::vector<std::string> names, descriptions, summaries;
-  for (int i = 0; i < source->parameters().fields_size(); i++) {
-    const std::string &name = source->parameters().fields(i).name();
-    if (summary.find(name) != summary.end()) {
-      summaries.push_back(name);
-      continue;
-    }
-    names.push_back(name);
-    descriptions.push_back(source->parameters().fields(i).long_description());
-  }
-  if (names.empty() && summaries.empty()) return command + " has no filter keywords (it is not a filter based check)";
-  if (names.empty()) return command + " has no record keywords, only the summary ones: " + boost::algorithm::join(summaries, ", ");
-
-  // Two control characters that never appear in a rendered value; the check
-  // separates keywords with one and records with the other.
-  const std::string unit(1, '\x1f');
-  const std::string record(1, '\x1e');
-  std::string detail;
-  for (const std::string &name : names) detail += (detail.empty() ? "" : unit) + "%(" + name + ")";
-
-  std::list<std::string> args = user_args;
-  const auto given = [&user_args](const std::string &key) {
-    for (const std::string &arg : user_args) {
-      if (arg == key || arg.compare(0, key.size() + 1, key + "=") == 0) return true;
-    }
-    return false;
-  };
-  if (!given("detail-syntax")) args.push_back("detail-syntax=" + detail);
-  if (!given("top-syntax")) args.push_back("top-syntax=${list}");
-  if (!given("list-separator")) args.push_back("list-separator=" + record);
-  if (!given("warning")) args.push_back("warning=none");
-  if (!given("critical")) args.push_back("critical=none");
-  if (!given("show-all")) args.push_back("show-all=true");
-  if (!given("empty-state")) args.push_back("empty-state=ok");
-
-  std::string raw;
-  nscapi::core_helper helper(core, handler->get_plugin_id());
-  if (!helper.simple_query(command, args, raw) || raw.empty()) return "Failed to run " + command;
-  PB::Commands::QueryResponseMessage message;
-  if (!message.ParseFromString(raw) || message.payload_size() == 0) return "Failed to run " + command + ": no response";
-  const PB::Commands::QueryResponseMessage::Response &payload = message.payload(0);
-  std::string rendered;
-  if (payload.lines_size() > 0) rendered = payload.lines(0).message();
-  if (payload.result() != PB::Common::ResultCode::OK) {
-    return command + " returned " + nscapi::plugin_helper::translateReturn(payload.result()) + ": " + first_line(rendered);
-  }
-  std::vector<std::vector<std::string> > records;
-  std::string::size_type start = 0;
-  while (start <= rendered.size()) {
-    const std::string::size_type end = rendered.find(record, start);
-    const std::string entry = rendered.substr(start, end == std::string::npos ? std::string::npos : end - start);
-    if (!entry.empty() && entry.find(unit) != std::string::npos) {
-      std::vector<std::string> values;
-      boost::algorithm::split(values, entry, boost::algorithm::is_any_of(unit));
-      records.push_back(values);
-    }
-    if (end == std::string::npos) break;
-    start = end + 1;
-  }
-
-  // One value column per record. Past a handful the table is unreadable and
-  // the user is better served by narrowing, so say so instead of widening.
-  const std::size_t max_records = 8;
-  const std::size_t shown = std::min(records.size(), max_records);
   std::vector<table_row> rows;
-  table_row heading{"KEYWORD"};
-  for (std::size_t r = 0; r < shown; ++r) heading.push_back(shown == 1 ? "VALUE" : "#" + std::to_string(r + 1));
-  heading.push_back("DESCRIPTION");
-  rows.push_back(heading);
-  for (std::size_t i = 0; i < names.size(); ++i) {
-    table_row row{names[i]};
-    for (std::size_t r = 0; r < shown; ++r) row.push_back(i < records[r].size() ? records[r][i] : "");
-    row.push_back(descriptions[i]);
-    rows.push_back(row);
+  rows.push_back({"KEYWORD", "DESCRIPTION"});
+  for (int i = 0; i < source->parameters().fields_size(); i++) {
+    rows.push_back({source->parameters().fields(i).name(), source->parameters().fields(i).long_description()});
   }
+  if (rows.size() == 1) return command + " has no filter keywords (it is not a filter based check)";
   std::string out = "Filter keywords of " + command;
   if (command != query) out += " (via " + query + ")";
-  if (records.empty()) {
-    out += " - no records matched, so there are no values to show:";
-  } else {
-    out += ", " + std::to_string(records.size()) + (records.size() == 1 ? " record" : " records");
-    if (records.size() > shown) out += " (showing " + std::to_string(shown) + "; add an argument such as filter=... to narrow)";
-    out += ":";
-  }
-  out += "\n" + render_table(rows, 2);
-  if (!summaries.empty()) {
-    out += "\nSummary keywords, for top-syntax (they describe the whole result, not a record): " + boost::algorithm::join(summaries, ", ");
-  }
-  return out;
+  return out + ":\n" + render_table(rows, 2);
 }
 
 // `desc <query>`: what it is, and what it takes. For an alias the command it
@@ -370,7 +278,7 @@ const std::vector<command_info> &builtin_commands() {
       {"list", "", "list queries and aliases"},
       {"plugins", "", "list all plugins and whether they are loaded"},
       {"desc", "<query>", "describe a query and its parameters"},
-      {"keywords", "<query> [args]", "show the filter keywords of a query with their current values (arguments narrow the records, e.g. drive=c:)"},
+      {"keywords", "<query>", "list the filter keywords of a query with their descriptions"},
       {"metrics", "[prefix]", "show the metrics collected so far"},
       {"settings", "", "show the configured settings (keys set in the configuration, not every registered default)"},
       {"exec", "<target> <command> [args]", "run a command on one module"},
@@ -622,14 +530,11 @@ void cli_client::handle_command(const std::string &command) {
       handler->output_message(render_description(handler, entries.front()));
     }
   } else if (command == "keywords" || (command.size() > 9 && command.substr(0, 9) == "keywords ")) {
-    std::list<std::string> words;
-    if (command.size() > 9) str::utils::parse_command(command.substr(9), words);
-    if (words.empty()) {
-      handler->output_message("Usage: keywords <query> [args]");
+    const std::string query = command.size() > 9 ? boost::algorithm::trim_copy(command.substr(9)) : std::string();
+    if (query.empty()) {
+      handler->output_message("Usage: keywords <query>");
     } else {
-      const std::string query = words.front();
-      words.pop_front();
-      handler->output_message(render_keywords(handler, query, words));
+      handler->output_message(render_keywords(handler->get_core(), query));
     }
   } else if (command == "list") {
     // Both, in one table, so the columns line up across the two kinds.
