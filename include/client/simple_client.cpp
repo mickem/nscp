@@ -132,11 +132,38 @@ static std::string alias_target(const std::string &description) {
   return "";
 }
 
+// What `<command> show-default` answers: the command's arguments with their
+// default values, quoted and ready to paste. Empty when the command has no
+// defaults, does not understand show-default, or fails.
+static std::string show_default(const client::cli_handler_ptr &handler, const std::string &command) {
+  try {
+    nscapi::core_helper helper(handler->get_core(), handler->get_plugin_id());
+    std::list<std::string> args;
+    args.push_back("show-default");
+    std::string response;
+    if (!helper.simple_query(command, args, response) || response.empty()) return "";
+    PB::Commands::QueryResponseMessage message;
+    if (!message.ParseFromString(response)) return "";
+    for (const PB::Commands::QueryResponseMessage::Response &payload : message.payload()) {
+      if (payload.result() != PB::Common::ResultCode::OK) continue;
+      for (const PB::Commands::QueryResponseMessage::Response::Line &l : payload.lines()) {
+        const std::string line = boost::algorithm::trim_copy(l.message());
+        if (!line.empty()) return line;
+      }
+    }
+  } catch (...) {
+  }
+  return "";
+}
+
 // `desc <query>`: what it is, and what it takes. For an alias the command it
 // expands to is shown, and the parameters listed are the target's - the alias
 // itself takes none - so the reader sees what can still be passed and what
-// the alias has already fixed.
-static std::string render_description(const nscapi::core_wrapper *core, const inventory_entry &inv) {
+// the alias has already fixed. The "Default:" line is the command as it would
+// run with every default spelled out (what `<command> show-default` prints),
+// which is the quickest way to see what a check does when called bare.
+static std::string render_description(const client::cli_handler_ptr &handler, const inventory_entry &inv) {
+  const nscapi::core_wrapper *core = handler->get_core();
   std::vector<table_row> header;
   header.push_back({"Command:", inv.name()});
   const std::string target = alias_target(inv.info().description());
@@ -160,6 +187,8 @@ static std::string render_description(const nscapi::core_wrapper *core, const in
   } else {
     header.push_back({"Description:", inv.info().description()});
   }
+  const std::string defaults = show_default(handler, parameters_of);
+  if (!defaults.empty()) header.push_back({"Default:", parameters_of + " " + defaults});
   std::string out = render_table(header);
 
   // The rest of a multi-line description, below the header, as written.
@@ -459,7 +488,7 @@ void cli_client::handle_command(const std::string &command) {
     } else if (entries.empty()) {
       handler->output_message("Command not found: " + name);
     } else {
-      handler->output_message(render_description(handler->get_core(), entries.front()));
+      handler->output_message(render_description(handler, entries.front()));
     }
   } else if (command == "list") {
     // Both, in one table, so the columns line up across the two kinds.

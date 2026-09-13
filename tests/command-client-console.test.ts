@@ -125,6 +125,9 @@ describe("nscp test console", () => {
       const out = await runConsole("desc check_ok\nexit\n");
       expect(out).toMatch(/Command:\s+check_ok/);
       expect(out).toMatch(/Description:\s+Just return OK/);
+      // The command with every default spelled out, as `check_ok show-default`
+      // prints it: what a bare call does.
+      expect(out).toMatch(/Default:\s+check_ok "message=No message"/);
       // The old renderer dropped the last character before a line break.
       expect(out).toContain("Show help screen (this screen)");
       expect(out).not.toContain("\t");
@@ -135,6 +138,7 @@ describe("nscp test console", () => {
       expect(out).toMatch(/Command:\s+alias_ok/);
       expect(out).toMatch(/Runs:\s+check_ok message=hi there/);
       expect(out).toMatch(/Description:\s+Just return OK/);
+      expect(out).toMatch(/Default:\s+check_ok "message=No message"/);
       expect(out).toContain("Parameters (of check_ok):");
       expect(out).toMatch(/\smessage\s+Message to return/);
     });
