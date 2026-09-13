@@ -247,7 +247,8 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 
     nscapi::core_helper core(get_core(), get_id());
     for (const std::shared_ptr<alias::command_object> &o : aliases_.get_object_list()) {
-      core.register_alias(o->get_alias(), "Alias for: " + o->command);
+      const std::string arguments = o->get_argument();
+      core.register_alias(o->get_alias(), "Alias for: " + o->command + (arguments.empty() ? "" : " " + arguments));
     }
   } catch (...) {
     NSC_LOG_ERROR_EX("loading");

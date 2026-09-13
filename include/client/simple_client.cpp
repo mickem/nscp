@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
+#include <algorithm>
+#include <boost/algorithm/string.hpp>
 #include <boost/function.hpp>
 #include <client/simple_client.hpp>
 #include <nscapi/macros.hpp>
@@ -14,6 +16,7 @@
 #include <nscapi/protobuf/settings_functions.hpp>
 #include <str/utf8.hpp>
 #include <str/utils.hpp>
+#include <vector>
 
 static void create_registry_query(const nscapi::core_wrapper *core, const std::string &command, const PB::Registry::ItemType &type,
                                   PB::Registry::RegistryResponseMessage &response_message, const bool fetch_all = false) {
@@ -34,39 +37,164 @@ static void create_registry_query(const nscapi::core_wrapper *core, const std::s
   response_message.ParseFromString(pb_response);
 }
 
-std::string render_command(const ::PB::Registry::RegistryResponseMessage::Response::Inventory &inv) {
-  std::string data = "command:\t" + inv.name() + "\n" + inv.info().description() + "\n\nParameters:\n";
-  for (int i = 0; i < inv.parameters().parameter_size(); i++) {
-    ::PB::Registry::ParameterDetail p = inv.parameters().parameter(i);
-    std::string desc = p.long_description();
-    std::size_t pos = desc.find('\n');
-    if (pos != std::string::npos) desc = desc.substr(0, pos - 1);
-    data += p.name() + "\t" + desc + "\n";
-  }
-  return data;
-}
-std::string render_plugin(const ::PB::Registry::RegistryResponseMessage::Response::Inventory &inv) {
-  std::string loaded = "[ ]";
-  for (int i = 0; i < inv.info().metadata_size(); i++) {
-    if (inv.info().metadata(i).key() == "loaded" && inv.info().metadata(i).value() == "true") loaded = "[X]";
-  }
-  return loaded + "\t" + inv.name() + "\t-" + inv.info().description();
-}
-std::string render_query(const ::PB::Registry::RegistryResponseMessage::Response::Inventory &inv) { return inv.name() + "\t-" + inv.info().description(); }
+// --- table rendering ----------------------------------------------------------
+//
+// Everything the prompt lists used to be tab separated, which lines up only
+// while every name is shorter than a tab stop and falls apart the moment a
+// description spans lines. A table pads each column to its widest cell and
+// keeps the first line of every cell, so a long description does not push the
+// rest of the row (or the next row) around.
 
-static std::string render_list(const PB::Registry::RegistryResponseMessage &response_message,
-                               boost::function<std::string(const ::PB::Registry::RegistryResponseMessage::Response::Inventory &)> renderer) {
-  std::string list;
-  for (const ::PB::Registry::RegistryResponseMessage::Response &pl : response_message.payload()) {
-    for (const ::PB::Registry::RegistryResponseMessage_Response_Inventory &i : pl.inventory()) {
-      if (!list.empty()) list += "\n";
-      list += renderer(i);
+typedef std::vector<std::string> table_row;
+
+// The first line of a possibly multi-line text, trimmed. Lists get one line
+// per entry; `desc` shows the full text where there is room for it.
+static std::string first_line(const std::string &text) {
+  std::string line = text.substr(0, text.find('\n'));
+  boost::algorithm::trim(line);
+  return line;
+}
+
+// Render rows as aligned columns, two spaces apart, `indent` spaces in front.
+// The last column is not padded, so trailing whitespace never ends up in the
+// output.
+static std::string render_table(const std::vector<table_row> &rows, const std::size_t indent = 0) {
+  std::vector<std::size_t> widths;
+  for (const table_row &row : rows) {
+    if (row.size() > widths.size()) widths.resize(row.size(), 0);
+    for (std::size_t i = 0; i < row.size(); ++i) widths[i] = std::max(widths[i], first_line(row[i]).size());
+  }
+  std::string out;
+  for (const table_row &row : rows) {
+    if (!out.empty()) out += "\n";
+    std::string line(indent, ' ');
+    for (std::size_t i = 0; i < row.size(); ++i) {
+      const std::string cell = first_line(row[i]);
+      line += cell;
+      if (i + 1 < row.size()) line += std::string(widths[i] - cell.size() + 2, ' ');
     }
+    boost::algorithm::trim_right(line);
+    out += line;
+  }
+  return out;
+}
+
+typedef ::PB::Registry::RegistryResponseMessage::Response::Inventory inventory_entry;
+
+static bool is_loaded(const inventory_entry &inv) {
+  for (int i = 0; i < inv.info().metadata_size(); i++) {
+    if (inv.info().metadata(i).key() == "loaded" && inv.info().metadata(i).value() == "true") return true;
+  }
+  return false;
+}
+
+// Every inventory entry of a response, or the error the core answered with.
+static bool collect_entries(const PB::Registry::RegistryResponseMessage &response_message, std::vector<inventory_entry> &entries, std::string &error) {
+  for (const ::PB::Registry::RegistryResponseMessage::Response &pl : response_message.payload()) {
+    for (const inventory_entry &i : pl.inventory()) entries.push_back(i);
     if (pl.result().code() != PB::Common::Result_StatusCodeType_STATUS_OK) {
-      return "Error: " + pl.result().message();
+      error = "Error: " + pl.result().message();
+      return false;
     }
   }
-  return list;
+  return true;
+}
+
+// `name  description` for queries and aliases; `[X] name  description` for
+// modules. Nothing found is reported as such rather than as an empty screen.
+static std::string render_inventory(const std::vector<PB::Registry::RegistryResponseMessage> &responses, const bool with_loaded_marker) {
+  std::vector<table_row> rows;
+  for (const PB::Registry::RegistryResponseMessage &response : responses) {
+    std::vector<inventory_entry> entries;
+    std::string error;
+    if (!collect_entries(response, entries, error)) return error;
+    for (const inventory_entry &i : entries) {
+      table_row row;
+      if (with_loaded_marker) row.push_back(is_loaded(i) ? "[X]" : "[ ]");
+      row.push_back(i.name());
+      row.push_back(i.info().description());
+      rows.push_back(row);
+    }
+  }
+  return rows.empty() ? "Nothing found" : render_table(rows);
+}
+
+// An alias is registered with a description of the form "Alias for: <command
+// line>" (or "Alternative name for: <command>"); that is the only place the
+// target lives, so the description is parsed rather than the registry
+// extended. Returns the command line after the prefix, or an empty string.
+static std::string alias_target(const std::string &description) {
+  static const char *prefixes[] = {"Alias for: ", "Alternative name for: "};
+  for (const char *prefix : prefixes) {
+    const std::size_t len = std::string(prefix).size();
+    if (description.compare(0, len, prefix) == 0) return boost::algorithm::trim_copy(description.substr(len));
+  }
+  return "";
+}
+
+// `desc <query>`: what it is, and what it takes. For an alias the command it
+// expands to is shown, and the parameters listed are the target's - the alias
+// itself takes none - so the reader sees what can still be passed and what
+// the alias has already fixed.
+static std::string render_description(const nscapi::core_wrapper *core, const inventory_entry &inv) {
+  std::vector<table_row> header;
+  header.push_back({"Command:", inv.name()});
+  const std::string target = alias_target(inv.info().description());
+  std::string parameters_of = inv.name();
+  const inventory_entry *parameters_from = &inv;
+  PB::Registry::RegistryResponseMessage target_response;
+  std::vector<inventory_entry> target_entries;
+  if (!target.empty()) {
+    header.push_back({"Runs:", target});
+    // The target command is the first word of the command line; the rest are
+    // the arguments the alias fixes.
+    const std::string target_command = target.substr(0, target.find(' '));
+    create_registry_query(core, target_command, PB::Registry::ItemType::QUERY, target_response);
+    std::string ignored;
+    collect_entries(target_response, target_entries, ignored);
+    if (!target_entries.empty()) {
+      parameters_from = &target_entries.front();
+      parameters_of = target_command;
+      header.push_back({"Description:", target_entries.front().info().description()});
+    }
+  } else {
+    header.push_back({"Description:", inv.info().description()});
+  }
+  std::string out = render_table(header);
+
+  // The rest of a multi-line description, below the header, as written.
+  const std::string &description = parameters_from->info().description();
+  const std::size_t newline = description.find('\n');
+  if (newline != std::string::npos) {
+    std::string rest = description.substr(newline + 1);
+    boost::algorithm::trim(rest);
+    if (!rest.empty()) out += "\n\n" + rest;
+  }
+
+  std::vector<table_row> rows;
+  bool any_default = false;
+  for (int i = 0; i < parameters_from->parameters().parameter_size(); i++) {
+    const ::PB::Registry::ParameterDetail &p = parameters_from->parameters().parameter(i);
+    if (!p.default_value().empty()) any_default = true;
+  }
+  for (int i = 0; i < parameters_from->parameters().parameter_size(); i++) {
+    const ::PB::Registry::ParameterDetail &p = parameters_from->parameters().parameter(i);
+    table_row row;
+    row.push_back(p.name());
+    if (any_default) row.push_back(p.default_value());
+    row.push_back(p.long_description());
+    rows.push_back(row);
+  }
+  out += "\n\nParameters";
+  if (parameters_of != inv.name()) out += " (of " + parameters_of + ")";
+  out += ":";
+  if (rows.empty()) {
+    out += "\n  (none)";
+  } else {
+    if (any_default) rows.insert(rows.begin(), table_row{"NAME", "DEFAULT", "DESCRIPTION"});
+    out += "\n" + render_table(rows, 2);
+  }
+  return out;
 }
 
 namespace client {
@@ -191,8 +319,7 @@ void cli_client::handle_command(const std::string &command) {
   if (command == "plugins") {
     PB::Registry::RegistryResponseMessage response_message;
     create_registry_query(handler->get_core(), "", PB::Registry::ItemType::MODULE, response_message);
-    std::string list = render_list(response_message, &render_plugin);
-    handler->output_message(list.empty() ? "Nothing found" : list);
+    handler->output_message(render_inventory({response_message}, true));
   } else if (command == "help") {
     handler->output_message(render_help());
   } else if (command == "reload") {
@@ -316,25 +443,30 @@ void cli_client::handle_command(const std::string &command) {
   } else if (command == "queries" || command == "commands") {
     PB::Registry::RegistryResponseMessage response_message;
     create_registry_query(handler->get_core(), "", PB::Registry::ItemType::QUERY, response_message);
-    std::string list = render_list(response_message, &render_query);
-    handler->output_message(list.empty() ? "Nothing found" : list);
+    handler->output_message(render_inventory({response_message}, false));
   } else if (command == "aliases") {
     PB::Registry::RegistryResponseMessage response_message;
     create_registry_query(handler->get_core(), "", PB::Registry::ItemType::QUERY_ALIAS, response_message);
-    std::string list = render_list(response_message, &render_query);
-    handler->output_message(list.empty() ? "Nothing found" : list);
+    handler->output_message(render_inventory({response_message}, false));
   } else if (command.size() > 5 && command.substr(0, 4) == "desc") {
+    const std::string name = boost::algorithm::trim_copy(command.substr(5));
     PB::Registry::RegistryResponseMessage response_message;
-    create_registry_query(handler->get_core(), command.substr(5), PB::Registry::ItemType::QUERY, response_message);
-    std::string data = render_list(response_message, &render_command);
-    handler->output_message(data.empty() ? "Command not found" : data);
+    create_registry_query(handler->get_core(), name, PB::Registry::ItemType::QUERY, response_message);
+    std::vector<inventory_entry> entries;
+    std::string error;
+    if (!collect_entries(response_message, entries, error)) {
+      handler->output_message(error);
+    } else if (entries.empty()) {
+      handler->output_message("Command not found: " + name);
+    } else {
+      handler->output_message(render_description(handler->get_core(), entries.front()));
+    }
   } else if (command == "list") {
-    PB::Registry::RegistryResponseMessage response_message;
-    create_registry_query(handler->get_core(), "", PB::Registry::ItemType::QUERY, response_message);
-    std::string list = render_list(response_message, &render_query);
-    create_registry_query(handler->get_core(), "", PB::Registry::ItemType::QUERY_ALIAS, response_message);
-    list = render_list(response_message, &render_query);
-    handler->output_message(list.empty() ? "Nothing found" : list);
+    // Both, in one table, so the columns line up across the two kinds.
+    PB::Registry::RegistryResponseMessage queries, aliases;
+    create_registry_query(handler->get_core(), "", PB::Registry::ItemType::QUERY, queries);
+    create_registry_query(handler->get_core(), "", PB::Registry::ItemType::QUERY_ALIAS, aliases);
+    handler->output_message(render_inventory({queries, aliases}, false));
   } else if (command.size() >= 7 && command.substr(0, 7) == "metrics") {
     for (const metrics::metrics_store::values_map::value_type &v : metrics_store.get(command.substr(7))) {
       handler->output_message(v.first + "=" + v.second);

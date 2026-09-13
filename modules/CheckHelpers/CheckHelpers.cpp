@@ -58,7 +58,12 @@ bool CheckHelpers::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     // CheckExternalScripts has to copy definitions over by hand, keeping
     // the two modules' alias sets independent.
     nscapi::core_helper core(get_core(), get_id());
-    aliases_.for_each([&core](const std::string &name, const alias::simple_command &def) { core.register_alias(name, "Alias for: " + def.command); });
+    // The whole command line, arguments included: it is what `desc <alias>`
+    // at the prompt shows as the command the alias runs.
+    aliases_.for_each([&core](const std::string &name, const alias::simple_command &def) {
+      const std::string arguments = def.get_argument();
+      core.register_alias(name, "Alias for: " + def.command + (arguments.empty() ? "" : " " + arguments));
+    });
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("loading CheckHelpers", e);
     return false;

@@ -65,6 +65,86 @@ describe("nscp test console", () => {
     expect(out).toContain("check_ok");
   });
 
+  describe("aligned listings", () => {
+    // A long alias name and a command with a multi-line description are the
+    // two things that broke the old tab-separated layout.
+    const longAlias = "alias_with_a_rather_long_name";
+    beforeAll(async () => {
+      await nscp.configure({
+        "/settings/check helpers/alias": {
+          alias_ok: "check_ok message=hi there",
+          [longAlias]: "check_ok message=long",
+        },
+      });
+    });
+
+    /** The rows the prompt printed for `verb` that match `row`. The first
+     * line of every answer carries the log prefix ("L   cli "), which is
+     * stripped so columns can be compared across rows; log lines from the
+     * core (a "D  core" line naming a module, say) are not rows and are
+     * dropped. */
+    async function listing(verb: string, row: RegExp): Promise<string[]> {
+      const out = await runConsole(`${verb}\nexit\n`);
+      return out
+        .split(/\r?\n/)
+        .filter((l) => !/^[A-Z]\s+(core|settings)\s/.test(l))
+        .map((l) => l.replace(/^[A-Z]\s+cli\s/, ""))
+        .filter((l) => row.test(l));
+    }
+
+    it("aliases: one line per entry, columns padded, no tabs", async () => {
+      const lines = await listing("aliases", /Alias for:/);
+      const ok = lines.find((l) => /(^|\s)alias_ok\s/.test(l))!;
+      const long = lines.find((l) => l.includes(longAlias))!;
+      expect(ok).toBeDefined();
+      expect(long).toBeDefined();
+      expect(ok).not.toContain("\t");
+      expect(ok).toContain("Alias for: check_ok message=hi there");
+      // The description column starts at the same offset on every row.
+      expect(ok.indexOf("Alias for:")).toBe(long.indexOf("Alias for:"));
+      expect(ok.indexOf("Alias for:")).toBeGreaterThan(longAlias.length);
+    });
+
+    it("queries and list: the description is one line, and list shows both kinds", async () => {
+      const queries = await listing("queries", /(^|\s)check_ok\s/);
+      const okLine = queries.find((l) => /(^|\s)check_ok\s/.test(l))!;
+      expect(okLine).toMatch(/check_ok\s{2,}Just return OK/);
+      expect(okLine).not.toContain("\t");
+      const list = await listing("list", /(^|\s)(check_ok|alias_ok)\s/);
+      expect(list.some((l) => /(^|\s)check_ok\s{2,}Just return OK/.test(l))).toBe(true);
+      expect(list.some((l) => /(^|\s)alias_ok\s{2,}Alias for: check_ok/.test(l))).toBe(true);
+    });
+
+    it("plugins: loaded marker, name and description as columns", async () => {
+      const lines = await listing("plugins", /^\[[X ]\]\s/);
+      const helpers = lines.find((l) => l.includes("CheckHelpers"))!;
+      expect(helpers).toMatch(/^\[X\]\s{2,}CheckHelpers\s{2,}Various helper/);
+    });
+
+    it("desc shows the parameters with their defaults, untruncated", async () => {
+      const out = await runConsole("desc check_ok\nexit\n");
+      expect(out).toMatch(/Command:\s+check_ok/);
+      expect(out).toMatch(/Description:\s+Just return OK/);
+      // The old renderer dropped the last character before a line break.
+      expect(out).toContain("Show help screen (this screen)");
+      expect(out).not.toContain("\t");
+    });
+
+    it("desc of an alias shows the command it runs and that command's parameters", async () => {
+      const out = await runConsole("desc alias_ok\nexit\n");
+      expect(out).toMatch(/Command:\s+alias_ok/);
+      expect(out).toMatch(/Runs:\s+check_ok message=hi there/);
+      expect(out).toMatch(/Description:\s+Just return OK/);
+      expect(out).toContain("Parameters (of check_ok):");
+      expect(out).toMatch(/\smessage\s+Message to return/);
+    });
+
+    it("desc of an unknown query says so", async () => {
+      const out = await runConsole("desc no_such_query\nexit\n");
+      expect(out).toContain("Command not found: no_such_query");
+    });
+  });
+
   it("settings shows what is configured, not every registered key", async () => {
     // The dump used to come from the registry: every key any loaded module
     // declares, nearly all of them printed as a bare `key=` because nothing
