@@ -304,6 +304,9 @@ static std::string render_help() {
     help += "\n\t" + usage + std::string(width - usage.size() + 2, ' ') + "- " + c.description;
   }
   help += "\n\t" + catch_all + std::string(width - catch_all.size() + 2, ' ') + "- run as a query";
+  help += "\nQuoting: \"...\" takes backslash escapes (\\\" and \\\\); '...' takes its content literally, handy for paths:";
+  help += "\n\tcheck_files path='C:\\Program Files\\app' \"filter=size > 1k\"";
+  help += "\n\tA single quote only opens a string at the start of an argument or right after its first =, so filter=core='total' still works.";
   return help;
 }
 
@@ -549,7 +552,7 @@ void cli_client::handle_command(const std::string &command) {
   } else if (command.size() > 4 && command.substr(0, 4) == "exec") {
     try {
       std::list<std::string> args;
-      str::utils::parse_command(command, args);
+      str::utils::parse_prompt_command(command, args);
       if (args.size() < 3) {
         handler->output_message("Usage: exec <target> <command> [args]");
         return;
@@ -596,7 +599,7 @@ void cli_client::handle_command(const std::string &command) {
   } else if (!command.empty()) {
     try {
       std::list<std::string> args;
-      str::utils::parse_command(command, args);
+      str::utils::parse_prompt_command(command, args);
       if (args.empty()) {
         handler->output_message("Empty command");
         return;

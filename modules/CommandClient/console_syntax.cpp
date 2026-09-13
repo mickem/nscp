@@ -34,10 +34,13 @@ struct token {
   bool quoted = false;
 };
 
-// Split on unquoted whitespace. Quoting rules match str::utils::parse_command
-// closely enough for highlighting: a quote runs to the matching quote, and an
-// unterminated quote runs to the end of the line (which is exactly what the
-// user sees while still typing it).
+// Split on unquoted whitespace. Quoting rules match
+// str::utils::parse_prompt_command closely enough for highlighting: a quote
+// runs to the matching quote, an unterminated quote runs to the end of the
+// line (which is exactly what the user sees while still typing it), and a
+// single quote only opens a string at the start of an argument or right after
+// its first '=' - elsewhere it is an ordinary character, so
+// filter=core='total' is one plain token.
 std::vector<token> tokenize(const std::string &input) {
   std::vector<token> tokens;
   std::size_t i = 0;
@@ -47,15 +50,19 @@ std::vector<token> tokenize(const std::string &input) {
     token t;
     t.begin = i;
     char quote = 0;
+    std::size_t equals = 0;
     while (i < input.size()) {
       const char c = input[i];
+      const bool value_start = i == t.begin || (equals == 1 && input[i - 1] == '=');
       if (quote != 0) {
         if (c == quote) quote = 0;
-      } else if (is_quote(c)) {
+      } else if (c == '"' || (c == '\'' && value_start)) {
         quote = c;
         t.quoted = true;
       } else if (is_space(c)) {
         break;
+      } else if (c == '=') {
+        equals++;
       }
       i++;
     }
@@ -66,14 +73,15 @@ std::vector<token> tokenize(const std::string &input) {
   return tokens;
 }
 
-// Offset of the first unquoted '=' in `text`, or npos.
+// Offset of the first unquoted '=' in `text`, or npos. Before the first '='
+// a single quote only counts at the very start of the token (see tokenize).
 std::size_t split_point(const std::string &text) {
   char quote = 0;
   for (std::size_t i = 0; i < text.size(); i++) {
     const char c = text[i];
     if (quote != 0) {
       if (c == quote) quote = 0;
-    } else if (is_quote(c)) {
+    } else if (c == '"' || (c == '\'' && i == 0)) {
       quote = c;
     } else if (c == '=') {
       return i;

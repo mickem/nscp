@@ -136,6 +136,21 @@ TEST(ConsoleSyntaxClassify, EqualsInsideQuotesIsNotASplit) {
   EXPECT_EQ(kind_of_run(input, 12, 5), token_kind::quoted);
 }
 
+TEST(ConsoleSyntaxClassify, SingleQuotedValueIsAString) {
+  const std::string input = "check_files path='C:\\x y'";
+  EXPECT_EQ(kind_of_run(input, 12, 4), token_kind::option);
+  EXPECT_EQ(kind_of_run(input, 17, 8), token_kind::quoted);
+}
+
+TEST(ConsoleSyntaxClassify, SingleQuoteInsideAValueIsOrdinary) {
+  // The filter language's own string quotes: filter=core='total' is one
+  // argument with an option name and a plain value, not a string.
+  const std::string input = "check_cpu filter=core='total'";
+  EXPECT_EQ(kind_of_run(input, 10, 6), token_kind::option);
+  EXPECT_EQ(kind_at(input, 16), token_kind::punctuation);
+  EXPECT_EQ(kind_of_run(input, 17, 12), token_kind::value);
+}
+
 TEST(ConsoleSyntaxClassify, WhitespaceStaysPlain) { EXPECT_EQ(kind_at("help me", 4), token_kind::plain); }
 
 TEST(ConsoleSyntaxAnalyze, EmptyInput) {

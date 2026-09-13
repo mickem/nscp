@@ -48,6 +48,25 @@ describe("nscp test console", () => {
     expect(out).toContain("hello-from-stdin");
   });
 
+  it("single quotes pass their content literally, double quotes keep escapes", async () => {
+    // A Windows path is the case that hurts: inside "..." every backslash
+    // must be doubled, inside '...' nothing is special.
+    const out = await runConsole(
+      [
+        "check_ok 'message=C:\\temp\\x y'",
+        "check_ok message='a b'",
+        'check_ok "message=say \\"hi\\""',
+        "check_ok message=it's",
+        "exit",
+        "",
+      ].join("\n"),
+    );
+    expect(out).toContain("OK: C:\\temp\\x y");
+    expect(out).toContain("OK: a b");
+    expect(out).toContain('OK: say "hi"');
+    expect(out).toContain("OK: it's");
+  });
+
   it("prints the built-in command list for help", async () => {
     const out = await runConsole("help\nexit\n");
     // Rendered from client::builtin_commands(), which is also the list the
