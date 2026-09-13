@@ -114,6 +114,119 @@ describe("nscp enroll (fleet onboarding CLI)", () => {
     expect(state.server_url).toBe(baseUrl);
   });
 
+  // A bundle encryption key in operator form: base64 of 32 bytes.
+  const bundleKey = Buffer.from(Array.from({ length: 32 }, (_, i) => i)).toString("base64");
+  const otherKey = Buffer.alloc(32, "k").toString("base64");
+  // First 8 bytes of SHA-256 over the raw key, as the fleet server shows it.
+  const pinnedFingerprint = "630dcd2966c43366";
+
+  it("stores --bundle-key in the manifest and reports its fingerprint", async () => {
+    const stateFile = path.join(nscp.scratch("enroll_bundle_key"), "agent-state.json");
+    const r = await enroll(["--state-file", stateFile, "--bundle-key", bundleKey]);
+    expect(r.exitCode).toBe(0);
+    const out = r.all ?? `${r.stdout}${r.stderr}`;
+    expect(out).toContain(`Bundle keys:        1 (fingerprint ${pinnedFingerprint})`);
+    expect(out).not.toContain(bundleKey);
+    expect(readState(stateFile).bundle_keys).toEqual([bundleKey]);
+    expect(readState(stateFile).require_encrypted_bundles).toBe(false);
+    expect(out).toContain("Encrypted bundles:  not required");
+    // The key never goes to the server.
+    expect(JSON.stringify(requests)).not.toContain(bundleKey);
+  });
+
+  it("stores --require-encrypted-bundles in the manifest, out of the server's reach", async () => {
+    const stateFile = path.join(nscp.scratch("enroll_require"), "agent-state.json");
+    const r = await enroll(["--state-file", stateFile, "--bundle-key", bundleKey, "--require-encrypted-bundles"]);
+    expect(r.exitCode).toBe(0);
+    expect(r.all ?? r.stdout).toContain("Encrypted bundles:  required");
+    expect(readState(stateFile).require_encrypted_bundles).toBe(true);
+    // Not a setting: nothing the fleet-managed include could override.
+    expect(fs.readFileSync(nscp.settingsFile, "utf8")).not.toMatch(/require encrypted/);
+  });
+
+  it("keeps several --bundle-key values in the order given", async () => {
+    const stateFile = path.join(nscp.scratch("enroll_bundle_keys"), "agent-state.json");
+    const r = await enroll(["--state-file", stateFile, "--bundle-key", bundleKey, "--bundle-key", otherKey]);
+    expect(r.exitCode).toBe(0);
+    expect(readState(stateFile).bundle_keys).toEqual([bundleKey, otherKey]);
+  });
+
+  it("rejects a malformed --bundle-key before spending the token", async () => {
+    const stateFile = path.join(nscp.scratch("enroll_bad_key"), "agent-state.json");
+    const r = await enroll(["--state-file", stateFile, "--bundle-key", "not-a-key"]);
+    expect(r.exitCode).toBe(1);
+    expect(r.all ?? r.stderr).toMatch(/Invalid --bundle-key/);
+    expect(requests).toEqual([]);
+    expect(fs.existsSync(stateFile)).toBe(false);
+  });
+
+  it("rotates keys on an enrolled host with --update-bundle-keys, without a server", async () => {
+    const stateFile = path.join(nscp.scratch("enroll_rotate"), "agent-state.json");
+    expect((await enroll(["--state-file", stateFile, "--bundle-key", bundleKey])).exitCode).toBe(0);
+    const before = readState(stateFile);
+    requests = [];
+
+    const r = await nscp.run(["enroll", "--update-bundle-keys", "--state-file", stateFile, "--bundle-key", otherKey, "--bundle-key", bundleKey], {
+      allowFailure: true,
+    });
+    expect(r.exitCode).toBe(0);
+    expect(r.all ?? r.stdout).toContain("Bundle keys updated.");
+    expect(requests).toEqual([]);
+    const after = readState(stateFile);
+    expect(after.bundle_keys).toEqual([otherKey, bundleKey]);
+    expect(after.require_encrypted_bundles).toBe(false);
+    // Only the keys changed: the identity is untouched.
+    expect(after.private_key_pem).toBe(before.private_key_pem);
+    expect(after.cert_pem).toBe(before.cert_pem);
+
+    // The requirement travels with the update: given, it is on; omitted, off.
+    const required = await nscp.run(["enroll", "--update-bundle-keys", "--state-file", stateFile, "--bundle-key", bundleKey, "--require-encrypted-bundles"], {
+      allowFailure: true,
+    });
+    expect(required.exitCode).toBe(0);
+    expect(readState(stateFile).require_encrypted_bundles).toBe(true);
+
+    // No keys at all removes them, and the requirement with them.
+    expect((await nscp.run(["enroll", "--update-bundle-keys", "--state-file", stateFile], { allowFailure: true })).exitCode).toBe(0);
+    expect(readState(stateFile).bundle_keys).toEqual([]);
+    expect(readState(stateFile).require_encrypted_bundles).toBe(false);
+  });
+
+  it("refuses --update-bundle-keys on a host that is not enrolled", async () => {
+    const stateFile = path.join(nscp.scratch("enroll_rotate_none"), "agent-state.json");
+    const r = await nscp.run(["enroll", "--update-bundle-keys", "--state-file", stateFile, "--bundle-key", bundleKey], { allowFailure: true });
+    expect(r.exitCode).toBe(1);
+    expect(r.all ?? r.stderr).toMatch(/not enrolled/);
+    expect(fs.existsSync(stateFile)).toBe(false);
+  });
+
+  it("resolves the state file from the /settings/fleet setting the service reads", async () => {
+    // The service takes the manifest path from [/settings/fleet] state file
+    // (NSClientT::boot_fleet_sync), so enroll and --update-bundle-keys have to
+    // read the same key: resolving the default anywhere else writes a manifest
+    // the service never looks at. Own instance, so the setting does not leak
+    // into the rest of the suite.
+    const other = new NscpInstance();
+    const configured = path.join(other.scratch("fleet_state"), "configured-state.json");
+    await other.configure({ "/settings/fleet": { "state file": configured } });
+
+    const args = ["--server", baseUrl, "--token", "tok-1", "--insecure", "--bundle-key", bundleKey];
+    const enrolled = await other.run(["enroll", ...args], { allowFailure: true });
+    expect(enrolled.exitCode).toBe(0);
+    expect(fs.existsSync(configured)).toBe(true);
+    expect(readState(configured).cert_pem).toBe("CERT");
+    // Nothing was written to the built-in default location instead.
+    const fallback = path.join(other.pathOverrides["data-path"], "security", "agent-state.json");
+    expect(fs.existsSync(fallback)).toBe(false);
+
+    // The rotation path finds that same manifest without --state-file.
+    const rotated = await other.run(["enroll", "--update-bundle-keys", "--bundle-key", otherKey], {
+      allowFailure: true,
+    });
+    expect(rotated.exitCode).toBe(0);
+    expect(readState(configured).bundle_keys).toEqual([otherKey]);
+  });
+
   it("passes --hostname and --os through to the enrollment request", async () => {
     const stateFile = path.join(nscp.scratch("enroll_tags"), "agent-state.json");
     const r = await enroll(["--state-file", stateFile, "--hostname", "web-01", "--os", "linux"]);
@@ -339,6 +452,41 @@ describe("nscp enroll (fleet onboarding CLI)", () => {
     const placeholder = path.join(dir, "fleet", "fleet.ini");
     expect(fs.existsSync(placeholder)).toBe(true);
     expect(fs.readFileSync(placeholder, "utf8")).toMatch(/managed by the fleet sync/i);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("--unenroll removes the manifest, the fleet directory and the include", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-unenroll-"));
+    const own = new NscpInstance({ workDir: dir, pathOverrides: { "shared-path": dir } });
+    const bundleKeyB64 = Buffer.alloc(32, "u").toString("base64");
+    expect((await own.run(["enroll", "--server", baseUrl, "--token", "tok-1", "--insecure", "--bundle-key", bundleKeyB64], { allowFailure: true })).exitCode).toBe(0);
+    const manifest = path.join(dir, "security", "agent-state.json");
+    expect(fs.existsSync(manifest)).toBe(true);
+    // Something the sync would have written, to prove the whole directory goes.
+    fs.mkdirSync(path.join(dir, "fleet", "scripts", "demo"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "fleet", "scripts", "demo", "x.txt"), "x");
+    fs.writeFileSync(path.join(dir, "fleet", "applied-state.json"), "{}");
+    requests = [];
+
+    const r = await own.run(["enroll", "--unenroll"], { allowFailure: true });
+    expect(r.exitCode).toBe(0);
+    const out = r.all ?? `${r.stdout}${r.stderr}`;
+    expect(out).toContain("Unenrolled.");
+    expect(out).toContain("Removed the identity and bundle keys");
+    expect(out).toContain("Removed the fleet-managed configuration");
+    expect(out).toContain("Removed the [/includes] fleet entry");
+    expect(fs.existsSync(manifest)).toBe(false);
+    expect(fs.existsSync(path.join(dir, "fleet"))).toBe(false);
+    const ini = fs.readFileSync(own.settingsFile, "utf8");
+    expect(ini).not.toMatch(/fleet\s*=/);
+    expect(ini).not.toContain("fleet.ini");
+    // Nothing goes to the server: leaving is a local act.
+    expect(requests).toEqual([]);
+
+    // A second run has nothing to do and says so, without failing.
+    const again = await own.run(["enroll", "--unenroll"], { allowFailure: true });
+    expect(again.exitCode).toBe(0);
+    expect(again.all ?? again.stdout).toContain("not enrolled: nothing to remove");
     fs.rmSync(dir, { recursive: true, force: true });
   });
 

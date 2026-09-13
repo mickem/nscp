@@ -12,6 +12,8 @@
 #include <cctype>
 #include <memory>
 
+#include "digest.hpp"
+
 namespace {
 
 struct bio_deleter {
@@ -27,26 +29,8 @@ struct x509_deleter {
   void operator()(X509 *p) const { X509_free(p); }
 };
 
-std::string sha256_raw(const std::string &bytes) {
-  unsigned char digest[EVP_MAX_MD_SIZE];
-  unsigned int length = 0;
-  if (EVP_Digest(bytes.data(), bytes.size(), digest, &length, EVP_sha256(), nullptr) != 1) {
-    throw onboarding::onboarding_error("SHA-256 digest failed", false);
-  }
-  return std::string(reinterpret_cast<const char *>(digest), length);
-}
-
-std::string to_hex(const std::string &bytes) {
-  static const char *digits = "0123456789abcdef";
-  std::string out;
-  out.reserve(bytes.size() * 2);
-  for (const char c : bytes) {
-    const auto b = static_cast<unsigned char>(c);
-    out.push_back(digits[b >> 4]);
-    out.push_back(digits[b & 0x0f]);
-  }
-  return out;
-}
+using onboarding::detail::sha256_raw;
+using onboarding::detail::to_hex;
 
 std::string to_lower(std::string s) {
   std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });

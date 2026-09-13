@@ -223,6 +223,7 @@ onboarding::desired_state onboarding::parse_desired_state(const std::string &bod
       info.name = detail::optional_string(b, "name", "");
       info.version = detail::optional_string(b, "version", "");
       info.priority = optional_int(b, "priority", 0);
+      info.format = detail::optional_string(b, "format", "");
       result.bundles.push_back(info);
     }
   }

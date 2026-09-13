@@ -128,8 +128,17 @@ void client_handler::log_error(std::string module, std::string file, int line, s
 }
 
 bool CommandClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
-  client::cli_handler_ptr handler(new client_handler(get_core(), get_id()));
-  client.reset(new client::cli_client(handler));
+  // A settings reload re-enters this on the live module while the prompt is
+  // up, and the prompt's editor hooks and input thread reach the client
+  // through this pointer. Replacing it here handed them a freed object: the
+  // first completion refresh after a reload - a fleet configuration push
+  // being what hit it - dereferenced it and took the process down. The
+  // handler only carries the core pointer and the plugin id, neither of
+  // which changes on reload, so the client built at first load is kept.
+  if (!client) {
+    client::cli_handler_ptr handler(new client_handler(get_core(), get_id()));
+    client.reset(new client::cli_client(handler));
+  }
 
   try {
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
@@ -241,23 +250,25 @@ std::shared_ptr<command_client::console_editor> CommandClient::make_editor() con
   std::shared_ptr<command_client::console_editor> editor(new command_client::console_editor());
 
   command_client::editor_hooks hooks;
-  client::cli_client *cli = client.get();
-  hooks.queries = [cli]() {
+  // Resolve the client when a hook runs rather than snapshotting the raw
+  // pointer: the editor outlives any one call to loadModuleEx, and a
+  // snapshot is exactly what a reload would leave dangling.
+  hooks.queries = [this]() {
     std::vector<command_client::editor_item> items;
-    for (const client::command_info &c : cli->list_queries()) items.push_back({c.name, c.description});
+    for (const client::command_info &c : client->list_queries()) items.push_back({c.name, c.description});
     return items;
   };
-  hooks.modules = [cli]() {
+  hooks.modules = [this]() {
     std::vector<command_client::editor_module> items;
-    for (const client::module_info &m : cli->list_modules()) items.push_back({m.name, m.description, m.loaded, m.enabled});
+    for (const client::module_info &m : client->list_modules()) items.push_back({m.name, m.description, m.loaded, m.enabled});
     return items;
   };
-  hooks.all_modules = [cli]() {
+  hooks.all_modules = [this]() {
     std::vector<command_client::editor_module> items;
-    for (const client::module_info &m : cli->list_all_modules()) items.push_back({m.name, m.description, m.loaded, m.enabled});
+    for (const client::module_info &m : client->list_all_modules()) items.push_back({m.name, m.description, m.loaded, m.enabled});
     return items;
   };
-  hooks.parameters = [cli](const std::string &query) { return cli->list_parameters(query); };
+  hooks.parameters = [this](const std::string &query) { return client->list_parameters(query); };
   editor->install(hooks);
 
   std::vector<command_client::editor_item> builtins;

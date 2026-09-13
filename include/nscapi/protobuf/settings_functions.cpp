@@ -179,6 +179,15 @@ void settings_query::list(const std::string &path, const bool recursive) const {
   r->mutable_inventory()->set_recursive_fetch(recursive);
 }
 
+void settings_query::list_configured(const std::string &path, const bool recursive, const bool redact_sensitive) const {
+  auto *r = pimpl->request_message.add_payload();
+  r->set_plugin_id(pimpl->plugin_id);
+  r->mutable_query()->mutable_node()->set_path(path);
+  r->mutable_query()->set_include_keys(true);
+  r->mutable_query()->set_recursive(recursive);
+  r->mutable_query()->set_redact_sensitive(redact_sensitive);
+}
+
 void settings_query::save() const {
   auto *r = pimpl->request_message.add_payload();
   r->set_plugin_id(pimpl->plugin_id);
@@ -219,8 +228,17 @@ std::list<settings_query::key_values> settings_query::get_query_key_response() c
       const auto &q = pl.query();
       if (!q.node().key().empty()) {
         ret.emplace_back(q.node().path(), q.node().key(), q.node().value());
-      } else {
+      } else if (q.nodes_size() == 0) {
         ret.emplace_back(q.node().path());
+      }
+      // A path query (list_configured) answers with the walk under `nodes`;
+      // `node` then only echoes what was asked for.
+      for (const auto &n : q.nodes()) {
+        if (!n.key().empty()) {
+          ret.emplace_back(n.path(), n.key(), n.value());
+        } else {
+          ret.emplace_back(n.path());
+        }
       }
     } else if (pl.inventory_size() > 0) {
       for (const auto &q : pl.inventory()) {

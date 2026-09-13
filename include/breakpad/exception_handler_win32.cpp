@@ -9,6 +9,7 @@
 #include <file_helpers.hpp>
 #include <iostream>
 #include <str/format.hpp>
+#include <str/utf8.hpp>
 #include <string>
 #include <win/psapi.hpp>
 #include <win/windows.hpp>
@@ -147,16 +148,19 @@ void ExceptionManager::handle_exception(EXCEPTION_POINTERS *exinfo) {
       return;
     }
 
-    HMODULE hm;
+    HMODULE hm = nullptr;
     ::GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, static_cast<LPCTSTR>(exinfo->ExceptionRecord->ExceptionAddress), &hm);
-    MODULEINFO mi;
+    MODULEINFO mi = {};
     ::GetModuleInformation(::GetCurrentProcess(), hm, &mi, sizeof(mi));
-    wchar_t fn[MAX_PATH];
+    wchar_t fn[MAX_PATH] = {};
     ::GetModuleFileNameEx(::GetCurrentProcess(), hm, fn, MAX_PATH);
+    // The buffer is wide; streaming it into a narrow stream prints its
+    // address, which is what every crash file used to say for the module.
+    const std::string module_name = fn[0] == 0 ? std::string("<unknown module>") : utf8::cvt<std::string>(std::wstring(fn));
 
     DWORD code = exinfo->ExceptionRecord->ExceptionCode;
     std::ofstream oss(crash_file, std::ios::out);
-    oss << "SE " << seDescription(code) << " at address 0x" << std::hex << exinfo->ExceptionRecord->ExceptionAddress << std::dec << " inside " << fn
+    oss << "SE " << seDescription(code) << " at address 0x" << std::hex << exinfo->ExceptionRecord->ExceptionAddress << std::dec << " inside " << module_name
         << " loaded at base address 0x" << std::hex << mi.lpBaseOfDll << "\n";
 
     if (code == EXCEPTION_ACCESS_VIOLATION || code == EXCEPTION_IN_PAGE_ERROR) {

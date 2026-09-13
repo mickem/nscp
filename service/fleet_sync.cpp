@@ -10,6 +10,7 @@
 #include <fstream>
 #include <iomanip>
 #include <net/http/client.hpp>
+#include <onboarding/bundle_crypto.hpp>
 #include <random>
 #include <sstream>
 #include <str/utf8.hpp>
@@ -458,6 +459,17 @@ bool fleet_sync::apply_state(const onboarding::desired_state &state, std::vector
   const fs::path managed(config_.managed_path);
   const fs::path staging = managed / "staging";
   std::vector<onboarding::installed_bundle> new_installed;
+  std::vector<fs::path> unsealed_archives;
+  // Whichever way this function leaves - swapped in, refused, or thrown out
+  // of - the unsealed plaintext goes with it. Every reader lives inside its
+  // loop iteration, so nothing holds the files open by then.
+  struct remove_on_exit {
+    std::vector<fs::path> &paths;
+    ~remove_on_exit() {
+      boost::system::error_code ignored_remove;
+      for (const fs::path &path : paths) fs::remove(path, ignored_remove);
+    }
+  } remove_unsealed{unsealed_archives};
   try {
     boost::system::error_code ignored;
     fs::remove_all(staging, ignored);
@@ -480,9 +492,25 @@ bool fleet_sync::apply_state(const onboarding::desired_state &state, std::vector
         return false;
       }
 
-      // The unzip reader is file-based; the verified cache file is the source.
+      // What was downloaded and verified may be a sealed envelope: open it
+      // with the key this host holds. The envelope stays in the cache (it is
+      // what the signature covers); the plaintext zip only exists in staging
+      // while this apply runs.
+      std::string plaintext, open_error;
+      if (!onboarding::open_bundle(identity_.bundle_keys, bundle.name, bundle.version, bytes, identity_.require_encrypted_bundles, plaintext, open_error)) {
+        errors.push_back("Bundle " + bundle.id + ": " + open_error);
+        return false;
+      }
+      const bool sealed = onboarding::is_encrypted_bundle(bytes);
       const fs::path cached = managed / "cache" / (bundle.id + "-" + bundle.sha256.substr(0, 16) + ".zip");
-      bytes::unzip::reader reader(cached.string());
+      const fs::path unsealed = staging / (bundle.id + ".unsealed.zip");
+      if (sealed) {
+        write_file(unsealed, plaintext);
+        unsealed_archives.push_back(unsealed);
+      }
+      // The unzip reader is file-based: the verified cache file, or the
+      // plaintext just unsealed from it, is the source.
+      bytes::unzip::reader reader(sealed ? unsealed.string() : cached.string());
       if (!reader.is_open()) {
         errors.push_back("Bundle " + bundle.id + " is not a readable zip archive");
         return false;
@@ -683,6 +711,22 @@ void fleet_sync::run() {
   }
   identity_ = loaded.value();
   while (!identity_.mtls_url.empty() && identity_.mtls_url.back() == '/') identity_.mtls_url.pop_back();
+  // Fingerprints only: they are what the fleet server shows for a key, so an
+  // operator can see at a glance whether this host holds the key the bundles
+  // are sealed with. The key itself is never logged.
+  if (!identity_.bundle_keys.empty()) {
+    std::string fingerprints;
+    for (const std::string &key : identity_.bundle_keys) {
+      std::string raw, key_error;
+      if (!fingerprints.empty()) fingerprints += ", ";
+      fingerprints += onboarding::parse_bundle_key(key, raw, key_error) ? onboarding::bundle_key_fingerprint(raw) : "(invalid)";
+    }
+    log_debug("Bundle encryption keys configured: " + fingerprints);
+  } else if (identity_.require_encrypted_bundles) {
+    log_error(
+        "Encrypted bundles are required but this host holds no bundle key: nothing the fleet server sends can be applied (add one with "
+        "`nscp enroll --bundle-key`)");
+  }
   fs::create_directories(fs::path(config_.managed_path));
   load_applied_state();
   recover_interrupted_apply();

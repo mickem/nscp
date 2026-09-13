@@ -53,6 +53,12 @@
 #define FLEET_CA L"FLEET_CA"
 #define FLEET_VERIFY_MODE L"FLEET_VERIFY_MODE"
 #define FLEET_INSECURE L"FLEET_INSECURE"
+// Bundle encryption key(s), base64, comma separated when rotating. Reaches the
+// host only this way or via `nscp enroll --bundle-key`: never from the server.
+#define FLEET_BUNDLE_KEY L"FLEET_BUNDLE_KEY"
+// 1 to refuse every bundle that is not sealed. Stored in the manifest with the
+// keys, out of the server's reach.
+#define FLEET_REQUIRE_ENCRYPTED_BUNDLES L"FLEET_REQUIRE_ENCRYPTED_BUNDLES"
 
 // Operator-supplied TLS material (GitHub #568): install your own certificate,
 // private key and CA into ${certificate-path} instead of letting the service

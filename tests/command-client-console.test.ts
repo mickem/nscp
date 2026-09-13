@@ -18,6 +18,7 @@
  *     agent is normally started under a supervisor — and how every other suite
  *     in this directory runs it.
  */
+import execa from "execa";
 import { NscpInstance } from "@fixtures/index";
 
 jest.setTimeout(120_000);
@@ -64,10 +65,84 @@ describe("nscp test console", () => {
     expect(out).toContain("check_ok");
   });
 
+  it("settings shows what is configured, not every registered key", async () => {
+    // The dump used to come from the registry: every key any loaded module
+    // declares, nearly all of them printed as a bare `key=` because nothing
+    // set them. Now it walks the settings store, so only what the
+    // configuration actually says is listed.
+    await nscp.configure({ "/settings/log": { level: "info" } });
+    const out = await runConsole("settings\nexit\n");
+    expect(out).toContain("/modules/CheckHelpers=enabled");
+    expect(out).toContain("/settings/log/level=info");
+    // Registered by CommandClient itself and never set: must not appear.
+    expect(out).not.toContain("/settings/cli/color=");
+    expect(out).not.toContain("/settings/cli/history file=");
+  });
+
+  it("settings masks keys their module registered as sensitive", async () => {
+    // The dump ends up in tickets and chat windows. A key registered with
+    // add_password (here the script object's run-as password) must print as
+    // "***", the same masking the REST read paths and `nscp settings --list`
+    // apply. Unloaded modules cannot register anything, so only keys a loaded
+    // module declared sensitive are covered - the same contract as REST.
+    await nscp.configure({
+      "/modules": { CheckExternalScripts: "enabled" },
+      "/settings/external scripts/scripts": { secretive: "cmd /c echo hi" },
+      "/settings/external scripts/scripts/secretive": { user: "someone", password: "hunter2" },
+    });
+    try {
+      const out = await runConsole("settings\nexit\n");
+      expect(out).toContain("/settings/external scripts/scripts/secretive/password=***");
+      expect(out).toContain("/settings/external scripts/scripts/secretive/user=someone");
+      expect(out).not.toContain("hunter2");
+    } finally {
+      await nscp.configure({ "/modules": { CheckExternalScripts: "disabled" } });
+    }
+  });
+
   it("describes a query and its parameters", async () => {
     const out = await runConsole("desc check_ok\nexit\n");
     expect(out).toContain("check_ok");
     expect(out).toMatch(/Parameters/i);
+  });
+
+  it("keeps running commands after a module reload", async () => {
+    // A settings reload re-enters CommandClient::loadModuleEx on the live
+    // module while the console is up. It used to replace the client object
+    // the console was built on, leaving the prompt's completion hooks with a
+    // freed pointer: the first refresh after a reload - a fleet configuration
+    // push being what hit it - took the process down. The completion hooks
+    // only exist with a terminal and cannot be driven through a pipe, so this
+    // pins the half that can be: the reload lands while the console is
+    // running, and what is typed afterwards still runs on an intact client.
+    const overrides: string[] = [];
+    for (const [k, v] of Object.entries(nscp.pathOverrides))
+      overrides.push("--path-override", `${k}=${v}`);
+    const proc = execa(
+      process.env.NSCP_BIN as string,
+      ["test", "--settings", nscp.settingsFile, ...overrides],
+      {
+        cwd: nscp.workDir,
+        all: true,
+        timeout: 60_000,
+        reject: false,
+        env: process.env,
+      },
+    );
+    const stdin = proc.stdin;
+    if (!stdin) throw new Error("no stdin pipe");
+    stdin.write("reload\n");
+    // The reload is queued ("delayed,service") and runs on a core thread a
+    // moment later; give it time to complete before typing the next command
+    // so that command really does run after loadModuleEx has been re-entered.
+    await new Promise((resolve) => setTimeout(resolve, 5_000));
+    stdin.write("check_ok message=after-reload\nexit\n");
+    stdin.end();
+    const r = await proc;
+    const out = r.all ?? `${r.stdout}\n${r.stderr}`;
+    expect(out).toContain("after-reload");
+    expect(r.timedOut).toBe(false);
+    expect(r.exitCode).toBe(0);
   });
 
   it("exits on the exit command instead of running to the timeout", async () => {

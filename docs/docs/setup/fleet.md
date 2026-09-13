@@ -324,7 +324,101 @@ sudo nscp settings --path /settings/default --key "allowed hosts" --show
 Never edit `fleet.ini` itself. It is rewritten wholesale on the next sync, which is exactly
 what the banner at the top of it says.
 
+### Encrypted bundles
+
+A bundle can hold things the fleet server has no business reading — an API token, a
+database password, a script that embeds a credential. For those, the server supports
+**encrypted bundles**: you seal the bundle in the browser before it is uploaded, the server
+stores and serves only the ciphertext, and the agent opens it with a key that never passed
+through the server.
+
+The key is a tenant-wide secret. The server shows it **once**, when you create it under
+**Bundles → Encryption key**, and keeps only its fingerprint. Put it in a password manager,
+then hand it to each agent out of band — never through the fleet itself:
+
+=== "Linux"
+
+    ```bash
+    sudo nscp enroll --server https://fleet.example.internal:8443 \
+                     --token <bootstrap-token> \
+                     --ca /etc/nsclient/security/fleet-ca.pem \
+                     --bundle-key <key>
+    ```
+
+    On a host that is already enrolled, rotate or add keys without touching the identity:
+
+    ```bash
+    sudo nscp enroll --update-bundle-keys --bundle-key <new-key> --bundle-key <old-key>
+    sudo systemctl restart nsclient
+    ```
+
+=== "Windows"
+
+    At install time, next to the other fleet properties:
+
+    ```
+    msiexec /qn /i NSCP-<version>-x64.msi ^
+      FLEET_SERVER=https://fleet.example.internal:8443 ^
+      FLEET_TOKEN=<bootstrap-token> ^
+      FLEET_BUNDLE_KEY=<key>
+    ```
+
+    Running the installer again on an enrolled host with only `FLEET_BUNDLE_KEY` replaces the
+    stored keys and keeps the enrollment; separate several keys with commas. From an elevated
+    prompt, `nscp enroll --update-bundle-keys --bundle-key <key>` does the same.
+
+The key lives in the enrollment manifest (`agent-state.json`) beside the host's private key,
+and nowhere else: not in `nsclient.ini`, and not in anything the server sends. That is
+deliberate — the fleet-managed configuration is an include of the settings store, so a key
+kept there could be planted by the server the bundles are meant to be sealed against.
+
+What the agent does with a sealed bundle:
+
+- The download is verified exactly as before: the published SHA-256 and the Ed25519 signature
+  cover the sealed envelope. Only then is it opened, with the key whose fingerprint the
+  envelope names. The plaintext exists on disk only while it is being unpacked; the cache
+  keeps the envelope.
+- The bundle's name and version are bound into the seal. A server that re-labels a sealed
+  bundle — serving last year's `secrets 1.0` as `secrets 2.0` — gets a refusal, not an apply.
+- A bundle sealed with a key the host does not hold is refused, and the state report names
+  the missing key's fingerprint so you can match it against the server's key page. The
+  previously applied configuration stays in force.
+
+`nscp enroll` prints the fingerprint of each key it stores, and the service logs them at
+debug level on start, so a mismatch is visible without exposing the key.
+
+For a server you do not trust with plaintext at all, make sealed bundles the only kind the
+host accepts: pass `--require-encrypted-bundles` to `nscp enroll` (at enrollment, or later
+with `--update-bundle-keys`), or `FLEET_REQUIRE_ENCRYPTED_BUNDLES=1` to the installer. Then
+nothing the server sends is applied unless a key holder produced it — including ordinary
+plain bundles, which are refused with an error in the state report.
+
+This is deliberately not a setting. It is stored in the enrollment manifest with the keys,
+where the fleet-managed include cannot reach it: a server that could switch the requirement
+off would not be much of a requirement. To switch it off yourself, run
+`nscp enroll --update-bundle-keys` with your keys and without the flag.
+
+<!-- @formatter:off -->
+!!! warning "There is no key escrow"
+    The server holds only the fingerprint. Lose the key and every bundle sealed with it is
+    unreadable, on the server and on every host; re-seal and re-upload with a new one.
+<!-- @formatter:on -->
+
 ## Step 6 — Living with it
+
+**Leaving the fleet** is one command, run as root or from an elevated prompt:
+
+```bash
+sudo nscp enroll --unenroll
+sudo systemctl restart nsclient
+```
+
+It deletes the enrollment manifest (the host's identity and any bundle keys), the
+fleet-managed directory (`fleet.ini`, synced scripts, the bundle cache) and the
+`[/includes] fleet` entry, and reports each. The service stops syncing at the next
+restart, because the sync only starts at boot when the manifest exists. Nothing is sent to
+the server, so remove the host there as well — its certificate is simply no longer used.
+Running it on a host that is not enrolled is harmless.
 
 **Certificates renew themselves.** The client certificate an agent gets is short-lived and
 the agent renews it over its existing mTLS session, before expiry. Nothing to schedule.

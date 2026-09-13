@@ -40,6 +40,10 @@ std::string serialize_state(const onboarding::enrolled_identity &state) {
   object["server_url"] = state.server_url;
   object["mtls_url"] = state.mtls_url;
   object["mtls_server_cert_pem"] = state.mtls_server_cert_pem;
+  json::array bundle_keys;
+  for (const std::string &key : state.bundle_keys) bundle_keys.push_back(json::value(json::string_view(key.data(), key.size())));
+  object["bundle_keys"] = bundle_keys;
+  object["require_encrypted_bundles"] = state.require_encrypted_bundles;
   return json::serialize(object);
 }
 
@@ -306,6 +310,22 @@ boost::optional<onboarding::enrolled_identity> onboarding::load_state(const std:
     result.server_url = read_state_string(root, "server_url", false);
     result.mtls_url = read_state_string(root, "mtls_url");
     result.mtls_server_cert_pem = read_state_string(root, "mtls_server_cert_pem");
+    // Added after the first manifests were written: absent means none, so an
+    // older manifest keeps loading. Present but malformed is corrupt, like
+    // every other field.
+    const json::value *bundle_keys = root.if_contains("bundle_keys");
+    if (bundle_keys != nullptr) {
+      if (!bundle_keys->is_array()) throw std::runtime_error("bundle_keys is not an array");
+      for (const json::value &key : bundle_keys->as_array()) {
+        if (!key.is_string()) throw std::runtime_error("bundle_keys entry is not a string");
+        result.bundle_keys.push_back(onboarding::detail::to_string(key.as_string()));
+      }
+    }
+    const json::value *require_encrypted = root.if_contains("require_encrypted_bundles");
+    if (require_encrypted != nullptr) {
+      if (!require_encrypted->is_bool()) throw std::runtime_error("require_encrypted_bundles is not a boolean");
+      result.require_encrypted_bundles = require_encrypted->as_bool();
+    }
     return result;
   } catch (const std::exception &e) {
     throw onboarding_error("State file " + path + " is corrupt: " + e.what(), false);

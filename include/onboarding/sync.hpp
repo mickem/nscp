@@ -27,6 +27,7 @@ struct bundle_info {
   std::string signature;  // base64 Ed25519 signature over the 32-byte digest
   std::string url;        // server-relative download path
   long long priority = 0;
+  std::string format;  // "plain" or "enc-v1"; advisory, the envelope magic decides
 };
 
 struct desired_state {

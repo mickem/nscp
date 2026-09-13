@@ -683,6 +683,63 @@ TEST_F(OnboardingStateTest, RoundTrip) {
   EXPECT_EQ(loaded.value().mtls_server_cert_pem, saved.mtls_server_cert_pem);
 }
 
+TEST_F(OnboardingStateTest, RoundTripsBundleKeys) {
+  onboarding::enrolled_identity saved = test_state();
+  saved.bundle_keys.push_back("AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=");
+  saved.bundle_keys.push_back("a2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2s=");
+  saved.require_encrypted_bundles = true;
+  onboarding::save_state(saved, path_);
+  const boost::optional<onboarding::enrolled_identity> loaded = onboarding::load_state(path_);
+  ASSERT_TRUE(loaded);
+  EXPECT_EQ(loaded.value().bundle_keys, saved.bundle_keys) << "order matters: newest first is the rotation convention";
+  EXPECT_TRUE(loaded.value().require_encrypted_bundles);
+}
+
+TEST_F(OnboardingStateTest, AManifestWithoutBundleKeysStillLoads) {
+  // Written before the field existed: absent means none, not corrupt.
+  onboarding::save_state(test_state(), path_);
+  std::string text;
+  {
+    std::ifstream in(path_.c_str(), std::ios::binary);
+    std::ostringstream buffer;
+    buffer << in.rdbuf();
+    text = buffer.str();
+  }
+  // Strip both members: the manifest is compact JSON and they are last.
+  for (const std::string member : {std::string(",\"bundle_keys\":[]"), std::string(",\"require_encrypted_bundles\":false")}) {
+    const std::string::size_type at = text.find(member);
+    ASSERT_NE(at, std::string::npos) << text;
+    text.erase(at, member.size());
+  }
+  {
+    std::ofstream out(path_.c_str(), std::ios::binary | std::ios::trunc);
+    out << text;
+  }
+  const boost::optional<onboarding::enrolled_identity> loaded = onboarding::load_state(path_);
+  ASSERT_TRUE(loaded);
+  EXPECT_TRUE(loaded.value().bundle_keys.empty());
+  EXPECT_FALSE(loaded.value().require_encrypted_bundles);
+}
+
+TEST_F(OnboardingStateTest, MalformedBundleKeysAreCorrupt) {
+  onboarding::save_state(test_state(), path_);
+  std::string text;
+  {
+    std::ifstream in(path_.c_str(), std::ios::binary);
+    std::ostringstream buffer;
+    buffer << in.rdbuf();
+    text = buffer.str();
+  }
+  const std::string::size_type at = text.find("\"bundle_keys\":[]");
+  ASSERT_NE(at, std::string::npos);
+  text.replace(at, std::string("\"bundle_keys\":[]").size(), "\"bundle_keys\":\"not-a-list\"");
+  {
+    std::ofstream out(path_.c_str(), std::ios::binary | std::ios::trunc);
+    out << text;
+  }
+  EXPECT_THROW(onboarding::load_state(path_), onboarding::onboarding_error);
+}
+
 TEST_F(OnboardingStateTest, SaveOverwritesExistingState) {
   onboarding::save_state(test_state(), path_);
   onboarding::enrolled_identity renewed = test_state();
