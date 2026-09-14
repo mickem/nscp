@@ -344,6 +344,7 @@ void nsclient::core::plugin_manager::load_all_plugins() {
 }
 
 bool nsclient::core::plugin_manager::load_single_plugin(const std::string &plugin, const std::string &alias, bool start) {
+  const boost::recursive_mutex::scoped_lock lifecycle(lifecycle_mutex_);
   try {
     const plugin_type instance = add_plugin(plugin, alias);
     if (!instance) {
@@ -379,6 +380,7 @@ bool nsclient::core::plugin_manager::load_single_plugin(const std::string &plugi
 }
 
 void nsclient::core::plugin_manager::start_plugins(NSCAPI::moduleLoadMode mode) {
+  const boost::recursive_mutex::scoped_lock lifecycle(lifecycle_mutex_);
   std::set<long> broken;
   for (const plugin_type &plugin : plugin_list_.get_plugins()) {
     LOG_DEBUG_CORE_STD("Loading plugin: " + plugin->getModule())
@@ -406,6 +408,7 @@ void nsclient::core::plugin_manager::start_plugins(NSCAPI::moduleLoadMode mode) 
 }
 
 void nsclient::core::plugin_manager::purge_broken_plugin(const unsigned long plugin_id) {
+  const boost::recursive_mutex::scoped_lock lifecycle(lifecycle_mutex_);
   const auto plugin = plugin_list_.find_by_id(plugin_id);
   plugin_list_.remove(plugin_id);
   commands_.remove_plugin(plugin_id);
@@ -430,6 +433,7 @@ void nsclient::core::plugin_manager::purge_broken_plugin(const unsigned long plu
 }
 
 void nsclient::core::plugin_manager::post_start_plugins() {
+  const boost::recursive_mutex::scoped_lock lifecycle(lifecycle_mutex_);
   std::set<long> broken;
   for (const plugin_type &plugin : plugin_list_.get_plugins()) {
     if (!plugin->has_start()) {
@@ -466,6 +470,7 @@ void nsclient::core::plugin_manager::post_start_plugins() {
  * Scheduler can finish in-flight queries and submissions cleanly.
  */
 void nsclient::core::plugin_manager::prepare_shutdown_plugins() {
+  const boost::recursive_mutex::scoped_lock lifecycle(lifecycle_mutex_);
   for (const plugin_type &p : plugin_list_.get_plugins()) {
     if (!p) continue;
     if (!p->has_prepare_shutdown()) continue;
@@ -484,6 +489,7 @@ void nsclient::core::plugin_manager::prepare_shutdown_plugins() {
  * Unload all plug-ins
  */
 void nsclient::core::plugin_manager::stop_plugins() {
+  const boost::recursive_mutex::scoped_lock lifecycle(lifecycle_mutex_);
   commands_.remove_all();
   channels_.remove_all();
   event_subscribers_.remove_all();
@@ -538,6 +544,12 @@ boost::optional<boost::filesystem::path> nsclient::core::plugin_manager::find_fi
 
 nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::only_load_module(const std::string &module, const std::string &alias,
                                                                                              bool &loaded) {
+  // Held here as well as in add_plugin, so the duplicate check and the append
+  // that follows it in add_plugin cannot be split by another loader: two
+  // threads both passing find_duplicate for the same file ended up with two
+  // instances of one module - two listeners on one port, two collectors - and
+  // only one of them findable by name afterwards.
+  const boost::recursive_mutex::scoped_lock lifecycle(lifecycle_mutex_);
   loaded = false;
   boost::optional<boost::filesystem::path> real_file = find_file(module);
   if (!real_file) {
@@ -560,6 +572,7 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::only
  * @param plugin The plug-in instance to load. The pointer is managed by the
  */
 nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::add_plugin(const std::string &file_name, const std::string &alias) {
+  const boost::recursive_mutex::scoped_lock lifecycle(lifecycle_mutex_);
   try {
     bool loaded = false;
     plugin_type plugin = only_load_module(file_name, alias, loaded);
@@ -602,6 +615,7 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::add_
 }
 
 bool nsclient::core::plugin_manager::reload_plugin(const std::string &module) {
+  const boost::recursive_mutex::scoped_lock lifecycle(lifecycle_mutex_);
   const plugin_type plugin = plugin_list_.find_by_alias(module);
   if (plugin) {
     LOG_DEBUG_CORE_STD(std::string("Reloading: ") + plugin->get_alias_or_name());
@@ -616,6 +630,7 @@ bool nsclient::core::plugin_manager::reload_plugin(const std::string &module) {
 }
 
 bool nsclient::core::plugin_manager::remove_plugin(const std::string &name) {
+  const boost::recursive_mutex::scoped_lock lifecycle(lifecycle_mutex_);
   const plugin_type plugin = plugin_list_.find_by_module(name);
   if (!plugin) {
     LOG_ERROR_CORE("Module " + name + " was not found.");
