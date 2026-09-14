@@ -385,15 +385,31 @@ void CheckEventLog::check_modern(const std::string &logfile, const std::string &
         } else if (status != ERROR_SUCCESS)
           throw nsclient::nsclient_exception("EvtNext failed: " + error::lookup::last_error(status));
       }
+      // Closes the handles this batch still owns. new_filter_obj adopts the one
+      // it is given - it closes it in its destructor, and also when its
+      // construction fails part way - so its slot is cleared before the object
+      // is built and never closed twice from here. EVT_HANDLE values are
+      // recycled, so a second close lands on whatever handle the realtime
+      // thread or another check has opened since.
+      const auto close_remaining = [&](DWORD from) {
+        for (DWORD j = from; j < dwReturned; j++) {
+          if (hEvents[j] != nullptr) {
+            eventlog::EvtClose(hEvents[j]);
+            hEvents[j] = nullptr;
+          }
+        }
+      };
       for (DWORD i = 0; i < dwReturned; i++) {
         try {
-          filter_type::object_type item(new eventlog_filter::new_filter_obj(ltime, logfile, hEvents[i], hContext, truncate_message));
+          eventlog::api::EVT_HANDLE hEvent = hEvents[i];
+          hEvents[i] = nullptr;
+          filter_type::object_type item(new eventlog_filter::new_filter_obj(ltime, logfile, hEvent, hContext, truncate_message));
           if ((direction == direction_backwards && item->get_written() < stop_date) ||
               (direction == direction_forwards && item->get_written() > stop_date)) {
             // Past the requested window: stop without consuming this event (it is
             // picked up on a later run) and persist the position reached so far.
             flush_bookmark();
-            for (; i < dwReturned; i++) eventlog::EvtClose(hEvents[i]);
+            close_remaining(i);
             return;
           }
           // Advance the tracking bookmark to the NEWEST event read so the next
@@ -405,18 +421,21 @@ void CheckEventLog::check_modern(const std::string &logfile, const std::string &
           // OLDEST event read, after which a resume (also reverse, pre-fix) could
           // only ever seek to older events and never picked up anything new.
           const bool track_this = (direction == direction_forwards) || !bookmark_dirty;
-          if (hTrackBookmark && track_this && nscpEvtUpdateBookmark(hTrackBookmark, hEvents[i])) bookmark_dirty = true;
+          if (hTrackBookmark && track_this && nscpEvtUpdateBookmark(hTrackBookmark, hEvent)) bookmark_dirty = true;
           if (direction == direction_forwards && item->get_written() < start_date) {
-            eventlog::EvtClose(hEvents[i]);
+            // Older than the window: skip it. The handle goes with the object.
             continue;
           }
           modern_filter::match_result ret = filter.match(item);
         } catch (const nsclient::nsclient_exception &e) {
-          for (; i < dwReturned; i++) eventlog::EvtClose(hEvents[i]);
+          // Abandon the rest of the batch, as before: the handles go with it.
+          close_remaining(i + 1);
           NSC_LOG_ERROR("Failed to describe event: " + e.reason());
+          break;
         } catch (...) {
-          for (; i < dwReturned; i++) eventlog::EvtClose(hEvents[i]);
+          close_remaining(i + 1);
           NSC_LOG_ERROR("Failed to describe event");
+          break;
         }
       }
     }
