@@ -33,8 +33,13 @@
 	     modes: a plain http url, or a certificate that cannot be verified.
 	     Maps to FLEET_INSECURE / TLS_VERIFY_MODE=none. -->
 	<Property Id="MANAGEMENT_INSECURE" Secure="yes" />
-	<!-- What ApplyManagement rejected, shown by ManagementErrorDlg. Internal to
-	     the UI sequence, never given on a command line. -->
+	<!-- Internal to whichever sequence the two actions run in, never given on a
+	     command line: MGMT_DERIVED says the mode was worked out rather than
+	     asked for, MGMT_ENROLLED that this host already carries an enrollment,
+	     and MGMT_ERROR carries what ApplyManagement rejected to
+	     ManagementErrorDlg. -->
+	<Property Id="MGMT_DERIVED" />
+	<Property Id="MGMT_ENROLLED" />
 	<Property Id="MGMT_ERROR" />
 	
 	<!-- CONFIGURE THE INSTALLER -->

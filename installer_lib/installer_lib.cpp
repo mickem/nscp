@@ -522,6 +522,7 @@ void dump_config(msi_helper &h, std::wstring title) {
   h.dumpProperty(MANAGEMENT_SERVER);
   h.dumpProperty(MANAGEMENT_URL);
   h.dumpProperty(MGMT_ENROLLED);
+  h.dumpProperty(MGMT_DERIVED);
   h.dumpProperty(MGMT_ERROR);
   h.dumpProperty(LAYOUT_MODE);
 }
@@ -565,6 +566,11 @@ bool is_http_url(const std::wstring &value) {
 // a http(s) configuration url has picked a management server whether or not it
 // knows the property exists, so every `FLEET_SERVER=...` deployment script
 // written before this page existed lands in FLEET without being changed.
+bool management_server_named(msi_helper &h) {
+  const std::wstring requested = boost::algorithm::to_upper_copy(trimmed_property(h, MANAGEMENT_SERVER));
+  return requested == MANAGEMENT_SERVER_FLEET || requested == MANAGEMENT_SERVER_WEB;
+}
+
 std::wstring detect_management_server(msi_helper &h) {
   const std::wstring requested = boost::algorithm::to_upper_copy(trimmed_property(h, MANAGEMENT_SERVER));
   if (requested == MANAGEMENT_SERVER_FLEET || requested == MANAGEMENT_SERVER_WEB) return requested;
@@ -673,10 +679,24 @@ void apply_managed_profile(msi_helper &h, const std::wstring &configuration_type
 }
 
 // A fresh install whose configuration is managed elsewhere defaults to the
-// modern layout. Only a fresh one: the move is one-way, and a deployment
-// script that repeats FLEET_SERVER on every upgrade must not migrate the host
-// behind the operator's back. An explicit LAYOUT always wins, either way.
+// modern layout. Three things have to hold first:
+//
+//  - it is a fresh install. The move is one-way, and a deployment script that
+//    repeats FLEET_SERVER on every upgrade must not migrate the host behind
+//    the operator's back.
+//  - LAYOUT was not given. An explicit layout always wins.
+//  - somebody asked for this mode: named it in MANAGEMENT_SERVER, or picked it
+//    on the page. A mode derived from a FLEET_SERVER or CONFIGURATION_TYPE
+//    command line written before this page existed asked for a management
+//    server, not for a different on-disk layout, and an unattended install
+//    must not quietly get one it did not ask for.
 void default_modern_layout(msi_helper &h) {
+  // UILevel 5 is a full UI install, where this action is run by the page - so
+  // the mode on it is the mode somebody just chose, derived default or not.
+  if (trimmed_property(h, MGMT_DERIVED) == L"1" && trimmed_property(h, L"UILevel") != L"5") {
+    h.logMessage("Keeping the default layout: the management server was derived from the command line, not asked for.");
+    return;
+  }
   if (!trimmed_property(h, LAYOUT_MODE).empty()) return;
   const std::string install_folder = as_install_folder(h.getTargetPath(L"INSTALLLOCATION"));
   boost::system::error_code ec;
@@ -694,6 +714,10 @@ extern "C" UINT __stdcall DetectManagement(MSIHANDLE hInstall) {
 
   try {
     h.logMessage("Detecting the management server");
+    // Recorded before anything overwrites the property: a mode that was named
+    // rather than worked out is a mode somebody asked for, which is what
+    // decides whether this install may also change the on-disk layout.
+    const bool named = management_server_named(h);
     std::wstring mode = detect_management_server(h);
 
     // An enrolled host is fleet managed whether or not this install command
@@ -723,6 +747,7 @@ extern "C" UINT __stdcall DetectManagement(MSIHANDLE hInstall) {
       h.logMessage(L"Could not look for an existing enrollment: " + utf8::to_unicode(e.what()));
     }
 
+    if (!named && mode != MANAGEMENT_SERVER_NONE) h.setPropertyValue(MGMT_DERIVED, L"1");
     h.setPropertyValue(MANAGEMENT_SERVER, mode);
     if (mode == MANAGEMENT_SERVER_WEB && trimmed_property(h, MANAGEMENT_URL).empty()) {
       // So the page shows the url the command line gave.

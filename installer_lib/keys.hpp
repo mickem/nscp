@@ -58,6 +58,11 @@
 // The one opt-out of verifying who is on the other end, for both managed
 // modes: a plain http url, or a server certificate that cannot be verified.
 #define MANAGEMENT_INSECURE L"MANAGEMENT_INSECURE"
+// Set by DetectManagement when the mode was worked out from FLEET_SERVER or
+// CONFIGURATION_TYPE rather than asked for by name. Such a command line
+// predates this page: it asked for a fleet server or a configuration url, not
+// for a different on-disk layout, so it does not get one.
+#define MGMT_DERIVED L"MGMT_DERIVED"
 // What ApplyManagement refused, shown by ManagementErrorDlg. Empty means the
 // values were accepted, so the page may move on.
 #define MGMT_ERROR L"MGMT_ERROR"
