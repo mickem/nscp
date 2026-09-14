@@ -71,6 +71,54 @@ TEST(http_client_protocol, reads_a_status_line_with_a_reason_phrase) {
   EXPECT_EQ(response.payload_, "WARNING: warm|'load'=1");
 }
 
+// get_inbound() and get_outbound() are the same vector, still holding the
+// request that was just sent. A reply shorter than that request leaves our own
+// bytes in the tail, and on_read used to append the whole buffer regardless of
+// how much was actually read - so a short 403 came back with "Connection:
+// close" and the password header we sent stuck to its body. Simulated here the
+// way the socket layer does it: the buffer keeps its request-sized length, the
+// reply is written over the front, and on_read is told how many bytes landed.
+TEST(http_client_protocol, a_short_reply_does_not_carry_the_tail_of_our_request) {
+  std::shared_ptr<http::client::protocol::client_handler> handler;
+  http::client::protocol proto(handler);
+  http::request req("GET", "example.com", "/test");
+  proto.prepare_request(req);
+  const std::size_t request_size = proto.get_outbound().size();
+  proto.on_write(0);
+
+  const std::string reply = "HTTP/1.1 403 Forbidden\r\nContent-Type: text/plain\r\n\r\nnope";
+  ASSERT_LT(reply.size(), request_size) << "the request must be the longer of the two for this to bite";
+  std::copy(reply.begin(), reply.end(), proto.get_inbound().begin());
+
+  EXPECT_TRUE(proto.on_read(reply.size()));
+  const http::response response = proto.get_response();
+  EXPECT_EQ(response.status_code_, 403u);
+  EXPECT_EQ(response.payload_, "nope");
+  EXPECT_EQ(response.payload_.find("password"), std::string::npos);
+  EXPECT_EQ(response.payload_.find("Connection"), std::string::npos);
+}
+
+// The same buffer reuse repeated earlier bytes when a reply arrived in several
+// reads, because every on_read appended the whole buffer rather than its own.
+TEST(http_client_protocol, a_reply_split_across_reads_is_assembled_once) {
+  std::shared_ptr<http::client::protocol::client_handler> handler;
+  http::client::protocol proto(handler);
+  http::request req("GET", "example.com", "/test");
+  proto.prepare_request(req);
+  proto.on_write(0);
+
+  const std::string first = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nfir";
+  const std::string second = "st-and-second";
+  std::copy(first.begin(), first.end(), proto.get_inbound().begin());
+  EXPECT_TRUE(proto.on_read(first.size()));
+  std::copy(second.begin(), second.end(), proto.get_inbound().begin());
+  EXPECT_TRUE(proto.on_read(second.size()));
+
+  const http::response response = proto.get_response();
+  EXPECT_EQ(response.status_code_, 200u);
+  EXPECT_EQ(response.payload_, "first-and-second");
+}
+
 TEST(http_client_protocol, on_read_when_not_waiting_marks_done) {
   std::shared_ptr<http::client::protocol::client_handler> handler;
   http::client::protocol proto(handler);
