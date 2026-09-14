@@ -297,12 +297,6 @@
           <?endif?>
         </Feature>
       </Feature>
-      <Feature Id="OP5Monitoring" Title="OP5 Monitoring system" Description="Configuration and scripts to use NSClient++ with OP5 monitoring solution" Level="1" Absent="allow">
-          <ComponentGroupRef Id="Op5ConfigResources" />
-          <ComponentGroupRef Id="Op5ScriptResources" />
-          <ComponentRef Id="Op5Client" />
-      </Feature>
-
       <Feature Id="Plugins" Title="Plugins" Description="Plugins" Level="1" Absent="allow">
         <Feature Id="CheckPlugins" Title="Check Plugins" Description="Various plugins to check your system. (Includes all check plugins)" Level="1">
           <ComponentRef Id="Plugins" />
@@ -349,8 +343,12 @@
         <Feature Id="ElasticPlugin" Title="Elastic plugin" Description="Plugin to submit passive results and metrics to an Elastic server" Level="1" Absent="allow">
           <ComponentRef Id="ElasticClient" />
         </Feature>
-        <Feature Id="ExtraClientPlugin" Title="Various client plugins" Description="Plugins to connect to various systems: syslog, graphite, SMTP, NRDP, Icinga, collectd, and the NSCP protocol" Level="1" Absent="allow">
+        <Feature Id="ExtraClientPlugin" Title="Various client plugins" Description="Plugins to connect to various systems: syslog, graphite, SMTP, NRDP, Icinga, collectd, op5, and the NSCP protocol" Level="1" Absent="allow">
           <ComponentRef Id="ExtraClients" />
+          <!-- The module outlived the feature it used to ship under: it is a
+               passive-submission client like the rest of these, and only the
+               op5 configuration and scripts went away. -->
+          <ComponentRef Id="Op5Client" />
         </Feature>
         <Feature Id="PythonScript" Title="Python Scripting" Description="Allows running INTERNAL scripts written in Python" Level="1" Absent="allow">
           <ComponentRef Id="PythonScript" />
