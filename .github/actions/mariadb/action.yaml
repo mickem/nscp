@@ -40,7 +40,7 @@ runs:
     - name: Download
       if: steps.cache.outputs.cache-hit != 'true'
       run: |
-        curl -sSfL https://github.com/mariadb-corporation/mariadb-connector-c/archive/refs/tags/v${{ inputs.version }}.tar.gz --output connector-c.tar.gz
+        curl -sSfL --retry 8 --retry-delay 15 --retry-max-time 300 https://github.com/mariadb-corporation/mariadb-connector-c/archive/refs/tags/v${{ inputs.version }}.tar.gz --output connector-c.tar.gz
       working-directory: tmp
       shell: bash
 

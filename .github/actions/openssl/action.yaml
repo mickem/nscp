@@ -38,7 +38,7 @@ runs:
 
     - name: Download openssl
       run: |
-            curl -L https://github.com/openssl/openssl/releases/download/openssl-${{ inputs.version }}/openssl-${{ inputs.version }}.tar.gz --output openssl-${{ inputs.version }}.tar.gz
+            curl -fL --retry 8 --retry-delay 15 --retry-max-time 300 https://github.com/openssl/openssl/releases/download/openssl-${{ inputs.version }}/openssl-${{ inputs.version }}.tar.gz --output openssl-${{ inputs.version }}.tar.gz
       working-directory: tmp
       shell: cmd
 

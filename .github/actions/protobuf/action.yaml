@@ -30,7 +30,7 @@ runs:
 
     - name: Download protobuf
       run: |
-            curl -L https://github.com/protocolbuffers/protobuf/releases/download/v${{ inputs.version }}/protobuf-all-${{ inputs.version }}.zip --output protobuf.zip
+            curl -fL --retry 8 --retry-delay 15 --retry-max-time 300 https://github.com/protocolbuffers/protobuf/releases/download/v${{ inputs.version }}/protobuf-all-${{ inputs.version }}.zip --output protobuf.zip
       working-directory: tmp
       shell: cmd
 

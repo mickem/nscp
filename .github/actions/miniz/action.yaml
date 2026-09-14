@@ -17,7 +17,7 @@ runs:
   steps:
     - name: Download
       run: |
-        curl -L https://github.com/richgel999/miniz/releases/download/${{ inputs.version }}/miniz-${{ inputs.version }}.zip --output miniz.zip
+        curl -fL --retry 8 --retry-delay 15 --retry-max-time 300 https://github.com/richgel999/miniz/releases/download/${{ inputs.version }}/miniz-${{ inputs.version }}.zip --output miniz.zip
       working-directory: tmp
       shell: bash
 

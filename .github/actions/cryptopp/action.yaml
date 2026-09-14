@@ -43,7 +43,7 @@ runs:
     - name: Download
       if: steps.cache.outputs.cache-hit != 'true'
       run: |
-            curl -L https://github.com/weidai11/cryptopp/releases/download/CRYPTOPP_${{ steps.versions.outputs.tag_version }}/cryptopp${{ steps.versions.outputs.file_version }}.zip --output cryptopp.zip
+            curl -fL --retry 8 --retry-delay 15 --retry-max-time 300 https://github.com/weidai11/cryptopp/releases/download/CRYPTOPP_${{ steps.versions.outputs.tag_version }}/cryptopp${{ steps.versions.outputs.file_version }}.zip --output cryptopp.zip
       working-directory: tmp
       shell: cmd
 

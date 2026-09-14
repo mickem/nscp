@@ -25,7 +25,7 @@ runs:
     - name: Download
       if: steps.cache.outputs.cache-hit != 'true'
       run: |
-        curl -L https://www.lua.org/ftp/lua-${{ inputs.version }}.tar.gz --output lua.tar.gz
+        curl -fL --retry 8 --retry-delay 15 --retry-max-time 300 https://www.lua.org/ftp/lua-${{ inputs.version }}.tar.gz --output lua.tar.gz
       working-directory: tmp
       shell: cmd
 
