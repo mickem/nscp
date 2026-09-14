@@ -640,7 +640,9 @@ TEST_F(PathManagerTest, BootConfDefaultIsNextToTheExecutable) {
   // one exact string: the two halves are joined with a forward slash while the
   // base path carries the platform's separators, and the point here is the
   // location, not the spelling.
-  EXPECT_EQ(expanded.rfind(pm->getBasePath().string(), 0), 0u) << expanded;
+  // getFolder("exe-path") rather than getBasePath(): the latter is private, and
+  // this is the token the default is actually written in terms of.
+  EXPECT_EQ(expanded.rfind(pm->getFolder("exe-path"), 0), 0u) << expanded;
   EXPECT_NE(expanded.find("boot.ini"), std::string::npos) << expanded;
 }
 
