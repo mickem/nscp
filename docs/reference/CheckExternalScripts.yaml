@@ -211,7 +211,8 @@ common:
           domain:
             advanced: true
             default_value: ''
-            description: The user to run the command as
+            description: The domain of the user to run the command as (Windows only; on Linux the command
+              is refused when this is set).
             sample: true
             title: DOMAIN
           encoding:
@@ -242,7 +243,8 @@ common:
           password:
             advanced: true
             default_value: ''
-            description: The user to run the command as
+            description: The password of the user to run the command as (Windows only; on Linux the command
+              is refused when this is set).
             sample: true
             title: PASSWORD
           session:
@@ -255,7 +257,9 @@ common:
           user:
             advanced: true
             default_value: ''
-            description: The user to run the command as
+            description: 'The user to run the command as (Windows only). On Linux the command is refused
+              when this is set: prefix the command with sudo (`sudo -n -u <user> ...`) and grant it in
+              sudoers instead.'
             sample: true
             title: USER
     /settings/external scripts/wrapped scripts:

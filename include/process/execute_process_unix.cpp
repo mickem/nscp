@@ -360,6 +360,19 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
 
 int process::execute_process(const process::exec_arguments& args, std::string& output) {
   early_timeout = false;
+  // The run-as settings (user/domain/password) are implemented by the Windows
+  // launcher only (LogonUser + CreateProcessAsUser). This launcher never read
+  // them, so a script an operator had sandboxed with `user = nobody` ran as the
+  // service identity - root on a manual `nscp service` run - with a plaintext
+  // password in the ini for nothing. Refuse rather than silently ignore: on
+  // Linux the supported way to drop or raise privileges is sudo in the command
+  // itself, which the operator grants in sudoers.
+  if (!args.user.empty() || !args.domain.empty() || !args.password.empty()) {
+    output = "Refusing to run " + args.alias +
+             ": the user, domain and password settings are only supported on Windows; on Linux prefix the command with sudo (for example `command = "
+             "sudo -n -u <user> /path/to/script`) and grant it in sudoers instead";
+    return NSCAPI::query_return_codes::returnUNKNOWN;
+  }
   if (!args.argv.empty()) {
     return execute_argv(args, output);
   }

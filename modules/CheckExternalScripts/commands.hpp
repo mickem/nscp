@@ -56,11 +56,16 @@ struct command_object : public nscapi::settings_objects::object_instance_interfa
       root_path.add_key()
           .add_string("command", sh::string_fun_key([this](auto value) { this->set_command(value); }), "COMMAND", "Command to execute")
 
-          .add_string("user", nscapi::settings_helper::string_key(&user), "USER", "The user to run the command as", true)
+          .add_string("user", nscapi::settings_helper::string_key(&user), "USER",
+                      "The user to run the command as (Windows only). On Linux the command is refused when this is set: prefix the command with sudo "
+                      "(`sudo -n -u <user> ...`) and grant it in sudoers instead.",
+                      true)
 
-          .add_string("domain", nscapi::settings_helper::string_key(&domain), "DOMAIN", "The user to run the command as", true)
+          .add_string("domain", nscapi::settings_helper::string_key(&domain), "DOMAIN",
+                      "The domain of the user to run the command as (Windows only; on Linux the command is refused when this is set).", true)
 
-          .add_password("password", nscapi::settings_helper::string_key(&password), "PASSWORD", "The user to run the command as", true)
+          .add_password("password", nscapi::settings_helper::string_key(&password), "PASSWORD",
+                        "The password of the user to run the command as (Windows only; on Linux the command is refused when this is set).", true)
 
           .add_string("session", nscapi::settings_helper::string_key(&session), "SESSION",
                       "Session you want to invoke the client in either the number of current for the one with a UI", true)
