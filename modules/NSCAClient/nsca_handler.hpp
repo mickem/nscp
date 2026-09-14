@@ -4,6 +4,8 @@
 #pragma once
 
 #include <memory>
+#include <set>
+#include <string>
 #include <net/nsca/client/nsca_client_protocol.hpp>
 #include <nscapi/settings/helper.hpp>
 
@@ -94,5 +96,8 @@ struct options_reader_impl : public client::options_reader_interface {
   ;
     // clang-format on
   }
+  // The shape and the timestamp of the payload, not the channel: `encryption`
+  // picks the cipher and `password` is the credential, so neither is here.
+  std::set<std::string> safe_request_keys() const override { return {"payload length", "time offset", "timezone"}; }
 };
 }  // namespace nsca_handler

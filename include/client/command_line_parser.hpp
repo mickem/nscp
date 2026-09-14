@@ -36,10 +36,15 @@ bool is_sensitive_key(const std::string &key);
 bool value_carries_credentials(const std::string &value);
 // Keys that decide where the request ends up.
 bool is_address_key(const std::string &key);
-// Keys that decide which way the request travels to get there: an HTTP proxy
-// is handed the whole request, credentials included, so a caller choosing one
-// moves the credentials as effectively as a caller choosing the host.
-bool is_route_key(const std::string &key);
+// Keys a request may set even while a configured target's own credential is
+// still going to travel with it. Everything else a request can put in the
+// destination container - where it goes, which way it gets there, and every
+// transport and trust decision on the way - is refused instead, so the rule
+// is fail-closed: a module option added tomorrow is guarded on the day it is
+// added rather than on the day someone notices. A module adds the keys that
+// are message rather than channel through
+// options_reader_interface::safe_request_keys().
+bool is_request_safe_key(const std::string &key);
 
 struct destination_container {
   typedef std::map<std::string, std::string> data_map;
@@ -63,7 +68,7 @@ struct destination_container {
   // configured secret at a host of their choosing. A request that supplies its
   // own password/token is free to send it wherever it likes - there is no
   // longer a configured secret in play. See
-  // configuration::check_host_override().
+  // configuration::check_request_overrides().
   std::string configured_target;
   std::string configured_address;
   std::set<std::string> inherited_credentials;
@@ -73,14 +78,13 @@ struct destination_container {
   // inherited_credentials: set_string_data() marks it, and apply() unmarks it
   // straight afterwards for the values that came from a target object.
   bool address_from_request;
-  // The route keys (`proxy`, `no proxy`) as the target configured them. A
-  // proxy is not part of the address, so the comparison above does not see
-  // it, yet `proxy=http://attacker/` hands the request - token and all - to a
-  // host of the caller's choosing while the destination stays exactly what
-  // the target named. apply() records the configured value here alongside
-  // the copy in `data`; a request that sets the key changes only `data`, so
-  // the two differing is what "the request changed it" means.
-  data_map configured_route;
+  // Every key the target configured, as it configured it. apply() records
+  // the value here alongside the copy it puts in `data`; a request that sets
+  // a key changes only `data`, so the two differing is what "the request
+  // changed it" means. No marker set to keep in step with the values, and it
+  // covers each key the same way whether or not anyone thought about that key
+  // when this guard was written.
+  data_map configured_data;
 
   destination_container() : timeout(10), retry(2), allow_host_override(false), address_from_request(false) {}
 
@@ -118,7 +122,7 @@ struct destination_container {
         address_from_request = false;
         configured_address = address.to_string();
       }
-      if (is_route_key(k.first)) configured_route[k.first] = k.second;
+      configured_data[k.first] = k.second;
     }
   }
 
@@ -126,15 +130,16 @@ struct destination_container {
   // supplied, rather than one the request brought with it.
   bool has_inherited_credentials() const { return !inherited_credentials.empty(); }
 
-  // The route keys whose current value is not what the target configured
-  // (an unset key on either side reads as empty). A request that repeats the
-  // configured proxy changes nothing, like a --host naming the address the
-  // target already had.
-  std::set<std::string> route_changes() const {
-    static const char *const route_keys[] = {"proxy", "no proxy"};
+  // The keys whose current value is not what the target configured, leaving
+  // out the ones a request is allowed to set. A request that repeats a
+  // configured value changes nothing, like a `host` naming the address the
+  // target already had. `also_safe` is the module's own list of keys that
+  // carry the message rather than shape the channel.
+  std::set<std::string> request_changes(const std::set<std::string> &also_safe = std::set<std::string>()) const {
     std::set<std::string> changed;
-    for (const char *key : route_keys) {
-      if (get_string_data(key) != lookup(configured_route, key)) changed.insert(key);
+    for (const data_map::value_type &kv : data) {
+      if (is_request_safe_key(kv.first) || also_safe.count(kv.first) != 0) continue;
+      if (lookup(configured_data, kv.first) != kv.second) changed.insert(kv.first);
     }
     return changed;
   }
@@ -292,6 +297,12 @@ void add_host_options(boost::program_options::options_description &desc, destina
 
 struct options_reader_interface : nscapi::settings_objects::object_factory_interface<nscapi::settings_objects::object_instance_interface> {
   virtual void process(boost::program_options::options_description &desc, destination_container &source, destination_container &destination) = 0;
+  // The keys this module's requests may set even while a configured target's
+  // own credential travels with them: the ones that say what to submit rather
+  // than where it goes or how it is protected. Empty by default, so a module
+  // that adds an option gets it guarded until someone decides otherwise. See
+  // client::is_request_safe_key().
+  virtual std::set<std::string> safe_request_keys() const { return std::set<std::string>(); }
   void add_ssl_options(boost::program_options::options_description &desc, client::destination_container &data);
 };
 typedef std::shared_ptr<options_reader_interface> options_reader_type;
@@ -385,7 +396,10 @@ struct configuration : public boost::noncopyable {
   // The host-override guard: given the options the command line actually
   // supplied and the destination as it stands after they were applied, either
   // an empty string (proceed) or the reason the call must be refused.
-  static std::string check_host_override(const boost::program_options::variables_map &vm, const destination_container &d);
+  // Empty when the request may go ahead, otherwise the refusal to answer
+  // with. Not static: the answer depends on the module's own list of keys
+  // that carry the message rather than shape the channel.
+  std::string check_request_overrides(const destination_container &d) const;
   void i_do_query(destination_container &s, destination_container &d, std::string command, const PB::Commands::QueryRequestMessage &request,
                   PB::Commands::QueryResponseMessage &response, bool use_header);
   bool i_do_exec(destination_container &s, destination_container &d, std::string command, const PB::Commands::ExecuteRequestMessage &request,

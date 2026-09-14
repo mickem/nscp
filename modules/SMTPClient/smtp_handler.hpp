@@ -6,6 +6,8 @@
 #include <boost/program_options.hpp>
 #include <client/command_line_parser.hpp>
 #include <memory>
+#include <set>
+#include <string>
 #include <nscapi/nscapi_targets.hpp>
 #include <nscapi/settings/helper.hpp>
 
@@ -126,5 +128,14 @@ struct options_reader_impl : client::options_reader_interface {
       ;
     // clang-format on
   }
+  // What the mail says, rather than where it is sent or how the connection
+  // to the relay is protected. `username` / `password` are the credential and
+  // `security` decides whether AUTH goes over TLS, so neither is here.
+  //
+  // This keeps today's behaviour: a caller may still name the recipient of a
+  // mail sent through the operator's authenticated relay. That is abuse of an
+  // intended function rather than exposure of the credential, and closing it
+  // is a separate decision - see the SMTP client hardening notice.
+  std::set<std::string> safe_request_keys() const override { return {"sender", "recipient", "subject", "template"}; }
 };
 }  // namespace smtp_handler

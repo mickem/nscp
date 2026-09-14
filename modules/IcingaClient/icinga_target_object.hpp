@@ -5,6 +5,8 @@
 
 #include <client/command_line_parser.hpp>
 #include <memory>
+#include <set>
+#include <string>
 #include <nscapi/nscapi_targets.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <utility>
@@ -113,6 +115,11 @@ struct options_reader_impl : client::options_reader_interface {
         "Certificate authority to use when verifying certificates.")
     ;
     // clang-format on
+  }
+  // What the API call says about the check being submitted, not where it is
+  // sent or how the connection is protected.
+  std::set<std::string> safe_request_keys() const override {
+    return {"ensure_objects", "host_template", "service_template", "check_command", "check_source"};
   }
 };
 }  // namespace icinga_handler

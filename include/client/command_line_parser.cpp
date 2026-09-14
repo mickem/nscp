@@ -97,11 +97,25 @@ bool client::is_sensitive_key(const std::string &key) { return key.find("passwor
 
 bool client::is_address_key(const std::string &key) { return key == "host" || key == "address" || key == "port"; }
 
-// `proxy` names the host the request is actually sent to; `no proxy` decides
-// whether the configured one is used at all. Neither shows up in the address,
-// which is why the destination comparison in check_host_override() cannot see
-// them on its own.
-bool client::is_route_key(const std::string &key) { return key == "proxy" || key == "no proxy"; }
+// The two keys a request may always set. Everything else it can put in the
+// destination container either moves the credential (`host`, `address`,
+// `port`, `proxy`, `no proxy`) or decides how well it is protected on the way
+// (`verify mode`, `ca`, `tls version`, `allowed ciphers`, `certificate`,
+// `insecure`, `encryption`, ...), and is refused while the credential is the
+// target's own. Keys that carry the message rather than shape the channel are
+// named per module by options_reader_interface::safe_request_keys().
+bool client::is_request_safe_key(const std::string &key) {
+  // The credential itself. A request that brings its own for every inherited
+  // key never reaches this guard at all, since nothing configured is then at
+  // stake; where it replaces only some, the one it supplied is not the reason
+  // the rest need protecting.
+  if (is_sensitive_key(key)) return true;
+  // Selecting another configured target swaps in another operator-defined
+  // address-and-credential pair, which is one of the remedies this guard
+  // recommends. `timeout` and `retry` never reach `data` - set_string_data()
+  // routes them into their own typed fields - so they need no entry here.
+  return key == "$target.id$";
+}
 
 // A URL can carry the credential in its own text, where the key it is stored
 // under says nothing about it: `address = https://h/submit.php?token=SECRET`
@@ -136,72 +150,46 @@ bool client::value_carries_credentials(const std::string &value) {
   return false;
 }
 
-std::string client::configuration::check_host_override(const po::variables_map &vm, const destination_container &d) {
-  // Decided on the destination the request ends up with, not on which options
-  // it used: --host, --port and --address are only the usual way to move it,
-  // and a header host entry moves it just as effectively. An override that
-  // names the address the target already had changes nothing and is allowed.
-  // Nothing configured is at stake: either the target carries no credentials,
-  // or the request supplied its own for every one of them - a caller may send
-  // a password it brought itself wherever it likes.
+std::string client::configuration::check_request_overrides(const destination_container &d) const {
+  // Nothing configured is at stake when the target carries no credentials of
+  // its own, or when the request supplied its own for every one of them: a
+  // caller may send a password it brought itself wherever it likes, and
+  // however it likes.
   if (!d.has_inherited_credentials() || d.allow_host_override) return "";
-  bool moved = false;
+
+  // Everything the request set that is not on the allow list. Decided on the
+  // values the request ends up with rather than on which options it used: an
+  // option and a header metadata entry move the request equally well, and one
+  // that repeats what the target already configured moves nothing.
+  std::set<std::string> changed = d.request_changes(reader ? reader->safe_request_keys() : std::set<std::string>());
+
+  // The destination is not in `data` - set_string_data() routes `host`,
+  // `address` and `port` into the typed address field - so it is compared on
+  // its own.
   if (d.configured_address.empty()) {
     // The target named no destination of its own, so it configures a secret
     // but not where it goes. Whatever the request supplied is a caller-chosen
     // host, and sending the target's credentials there is the very thing this
-    // guard exists to stop. Only allow it when the request did not choose one.
-    moved = d.address_from_request;
+    // guard exists to stop.
+    if (d.address_from_request) changed.insert("address");
   } else if (d.address.to_string() != d.configured_address) {
-    // An override that names the address the target already had changes
-    // nothing and is allowed.
-    moved = true;
+    changed.insert("address");
   }
-  // The destination can stay exactly what the target named and the request
-  // still end up somewhere else: `proxy=http://attacker:3128/` hands the whole
-  // request, credentials included, to that host - in the clear for an http://
-  // target, and as a CONNECT tunnel the proxy terminates once `verify=none`
-  // is added for an https:// one. A request that repeats the configured proxy
-  // changes nothing, and `no proxy` is guarded the same way since it decides
-  // whether the configured proxy is used at all.
-  const std::set<std::string> rerouted = d.route_changes();
-  if (!moved && rerouted.empty()) return "";
+  if (changed.empty()) return "";
 
-  // Name the options actually used where there are any, so the message points
-  // at the part of the request to change - and only the ones that changed
-  // something: a --host repeating the configured address, or a --proxy
-  // repeating the configured proxy, is not why the request is refused.
-  const struct {
-    const char *option;
-    bool changed;
-  } override_options[] = {{"host", moved},
-                          {"port", moved},
-                          {"address", moved},
-                          {"proxy", rerouted.count("proxy") != 0},
-                          {"no-proxy", rerouted.count("no proxy") != 0}};
-  std::string how;
-  for (const auto &o : override_options) {
-    if (!o.changed || vm.count(o.option) == 0) continue;
-    if (!how.empty()) how += "/";
-    how += "--";
-    how += o.option;
-  }
-  if (how.empty()) {
-    // A header host entry, or a route key that arrived as metadata: name the
-    // keys that moved rather than options the request never spelled out.
-    std::set<std::string> keys = rerouted;
-    if (moved) keys.insert("address");
-    how = "the request changed " + str::utils::joinEx(keys, "/");
-  }
-  const std::string what = moved ? (rerouted.empty() ? "destination" : "destination and proxy") : "proxy";
-  const std::string consequence =
-      moved ? "send the configured credentials to a caller-chosen host" : "hand the request, configured credentials included, to a caller-chosen proxy";
+  // Named by key rather than by option spelling: a key is what the settings
+  // documentation and the REST `key=value` form both use, a header entry has
+  // no option spelling at all, and a module is free to spell an option
+  // differently from the key it sets (`--no-proxy` sets `no proxy`).
+  //
   // Refused rather than sent without the credentials: a submission that
   // silently goes out unauthenticated looks like a server-side problem, while
   // an error names the setting that decides this.
-  return "The configured target '" + d.configured_target + "' carries credentials, so its " + what + " cannot be changed by the request (" + how +
-         "): that would " + consequence + ". Supply the credentials with the request, configure the other host or proxy as its own target and select it "
-         "with target=, or set 'allow host override = true' on the target to permit this.";
+  return "The configured target '" + d.configured_target +
+         "' carries credentials, so the request cannot change where they are sent or how they are protected (the request changed " +
+         str::utils::joinEx(changed, ", ") +
+         "). Supply the credentials with the request, configure the other destination as its own target and select it with target=, or set 'allow host "
+         "override = true' on the target to permit this.";
 }
 
 std::string client::destination_container::to_string() const {
@@ -510,7 +498,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
       // says. i_do_exec has always done this; the query path silently ignored
       // it, so `target=` did nothing for exactly the callers (REST, NRPE) that
       // reach a client command as a query - including anyone following the
-      // advice check_host_override() gives.
+      // advice check_request_overrides() gives.
       if (d.has_data("$target.id$")) {
         const std::string t = d.get_string_data("$target.id$");
         object_handler_type::object_instance op = find_target(t);
@@ -522,7 +510,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
       }
       if (parse_failed) return;
 
-      const std::string refused = check_host_override(vm, d);
+      const std::string refused = check_request_overrides(d);
       if (!refused.empty()) return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), refused);
 
       if (client_pre) {
@@ -692,7 +680,7 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
       }
       // After --target has had its say: the guard applies to whichever
       // configured target the connection ends up loaded from.
-      const std::string refused = check_host_override(vm, d);
+      const std::string refused = check_request_overrides(d);
       if (!refused.empty()) {
         nscapi::protobuf::functions::set_response_bad(*response.add_payload(), refused);
         return true;

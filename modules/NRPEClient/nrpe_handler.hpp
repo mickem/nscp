@@ -4,6 +4,8 @@
 #pragma once
 
 #include <memory>
+#include <set>
+#include <string>
 #include <net/nsca/client/nsca_client_protocol.hpp>
 #include <net/nsca/nsca_packet.hpp>
 #include <nscapi/settings/helper.hpp>
@@ -98,5 +100,8 @@ struct options_reader_impl : public client::options_reader_interface {
       ;
     // clang-format on
   }
+  // The protocol shape of the request, not the trust placed in the peer:
+  // `insecure` downgrades the TLS setup, so it is deliberately absent.
+  std::set<std::string> safe_request_keys() const override { return {"payload length", "version"}; }
 };
 }  // namespace nrpe_handler

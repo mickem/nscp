@@ -26,13 +26,15 @@ void nscapi::targets::target_object::read(nscapi::settings_helper::settings_impl
       .add_int("retries", sh::int_fun_key([this](auto key) { this->set_property_int("retries", key); }, 3), "RETRIES", "Number of times to retry sending.")
       .add_bool("allow host override", sh::bool_fun_key([this](auto key) { this->set_property_bool("allow host override", key); }, false),
                 "ALLOW HOST OVERRIDE",
-                "Let a request (a REST query, an NRPE argument or `nscp client`) send this target's *configured* credentials to a destination the "
-                "request names. Off by default: when a request moves the destination (`host=`, `port=`, `address=`) or reroutes it through a proxy of "
-                "its own (`proxy=`, `no-proxy=`) and the password or token going with it is the one configured here, the call is refused, since "
-                "otherwise anyone able to run the module's commands could direct the configured credentials to a host of their choosing. This setting "
-                "is only consulted in that case: a target with no credentials, a request that supplies its own password/token, and a request that "
-                "neither moves nor reroutes the destination are all unaffected. To reach another server with its own credentials, prefer configuring it "
-                "as a separate target and selecting it with `target=`.",
+                "Let a request (a REST query, an NRPE argument or `nscp client`) shape the connection this target's *configured* credentials travel "
+                "over. Off by default: while the password or token going out is the one configured here, a request may say what to submit but not "
+                "where it goes or how it is protected, so anything it sets other than the payload, `timeout`, `retry`, its own password/token and "
+                "`target=` is refused - the destination (`host=`, `port=`, `address=`), the route to it (`proxy=`, `no-proxy=`) and every transport "
+                "and trust setting (`verify=`, `ca=`, `tls-version=`, `insecure=`, `encryption=`, ...) alike. Otherwise anyone able to run the "
+                "module's commands could direct the configured credentials to a host of their choosing, or strip the protection from the connection "
+                "carrying them. This setting is only consulted in that case: a target with no credentials, a request that supplies its own "
+                "password/token, and a request that changes nothing about the connection are all unaffected. To reach another server with its own "
+                "credentials, prefer configuring it as a separate target and selecting it with `target=`.",
                 true);
 
   settings.register_all();

@@ -105,8 +105,18 @@ struct module_reader : client::options_reader_interface {
         "token", po::value<std::string>()->notifier([&destination](const auto &v) { destination.set_string_data("token", v); }), "The token to use")(
         "proxy", po::value<std::string>()->notifier([&destination](const auto &v) { destination.set_string_data("proxy", v); }), "The proxy to use")(
         "no-proxy", po::value<std::string>()->notifier([&destination](const auto &v) { destination.set_string_data("no proxy", v); }),
-        "Hosts that bypass the proxy");
+        "Hosts that bypass the proxy")(
+        // A transport/trust option, the shape every client module has: it
+        // moves nothing, it decides how well the credential is protected on
+        // the way to where it was always going.
+        "verify", po::value<std::string>()->notifier([&destination](const auto &v) { destination.set_string_data("verify mode", v); }), "TLS verify mode")(
+        // A message-shaped option, declared safe by safe_request_keys().
+        "subject", po::value<std::string>()->notifier([&destination](const auto &v) { destination.set_string_data("subject", v); }), "What to say")(
+        // An option nobody has classified: the case the allow list exists for.
+        "future-option", po::value<std::string>()->notifier([&destination](const auto &v) { destination.set_string_data("future option", v); }),
+        "Something added later");
   }
+  std::set<std::string> safe_request_keys() const override { return {"subject"}; }
   object_instance create(std::string alias, std::string path) override {
     return std::make_shared<nscapi::settings_objects::object_instance_interface>(alias, path);
   }
@@ -593,7 +603,7 @@ TEST(client_host_override, a_credentialed_target_refuses_a_host_override) {
   ASSERT_EQ(response.payload_size(), 1);
   EXPECT_NE(response.payload(0).result(), PB::Common::ResultCode::OK);
   EXPECT_NE(first_message(response).find("'default' carries credentials"), std::string::npos) << first_message(response);
-  EXPECT_NE(first_message(response).find("--host"), std::string::npos) << first_message(response);
+  EXPECT_NE(first_message(response).find("the request changed address"), std::string::npos) << first_message(response);
 }
 
 TEST(client_host_override, port_and_address_are_guarded_the_same_way) {
@@ -603,12 +613,14 @@ TEST(client_host_override, port_and_address_are_guarded_the_same_way) {
   PB::Commands::QueryResponseMessage port_response;
   f.config.do_query(fixture::query_request("check_cpu", {"--port", "1234"}), port_response);
   EXPECT_EQ(f.handler->query_calls, 0);
-  EXPECT_NE(first_message(port_response).find("--port"), std::string::npos) << first_message(port_response);
+  // Whichever of host/port/address moved it, the destination is one thing and
+  // is reported under the key the target configures it with.
+  EXPECT_NE(first_message(port_response).find("the request changed address"), std::string::npos) << first_message(port_response);
 
   PB::Commands::QueryResponseMessage address_response;
   f.config.do_query(fixture::query_request("check_cpu", {"--address", "nsca://attacker.example:5667"}), address_response);
   EXPECT_EQ(f.handler->query_calls, 0);
-  EXPECT_NE(first_message(address_response).find("--address"), std::string::npos) << first_message(address_response);
+  EXPECT_NE(first_message(address_response).find("the request changed address"), std::string::npos) << first_message(address_response);
 }
 
 TEST(client_host_override, the_rest_style_key_value_token_is_guarded_too) {
@@ -734,7 +746,7 @@ TEST(client_host_override, selecting_another_configured_target_is_not_an_overrid
 }
 
 TEST(client_host_override, the_query_path_honours_the_target_argument) {
-  // The remedy check_host_override() recommends. i_do_exec has always applied
+  // The remedy check_request_overrides() recommends. i_do_exec has always applied
   // target=; the query path ignored it, so `target=` did nothing for exactly
   // the callers (REST, NRPE) that reach a client command as a query.
   fixture f;
@@ -932,8 +944,8 @@ TEST(client_route_override, a_credentialed_target_refuses_a_request_chosen_proxy
   ASSERT_EQ(response.payload_size(), 1);
   EXPECT_NE(response.payload(0).result(), PB::Common::ResultCode::OK);
   EXPECT_NE(first_message(response).find("'default' carries credentials"), std::string::npos) << first_message(response);
-  EXPECT_NE(first_message(response).find("--proxy"), std::string::npos) << first_message(response);
-  EXPECT_NE(first_message(response).find("caller-chosen proxy"), std::string::npos) << first_message(response);
+  EXPECT_NE(first_message(response).find("the request changed proxy"), std::string::npos) << first_message(response);
+  EXPECT_NE(first_message(response).find("where they are sent or how they are protected"), std::string::npos) << first_message(response);
 }
 
 TEST(client_route_override, the_rest_style_proxy_token_is_guarded_too) {
@@ -960,7 +972,7 @@ TEST(client_route_override, the_no_proxy_list_is_guarded_the_same_way) {
 
   EXPECT_EQ(f.handler->query_calls, 0) << first_message(response);
   EXPECT_NE(first_message(response).find("carries credentials"), std::string::npos) << first_message(response);
-  EXPECT_NE(first_message(response).find("--no-proxy"), std::string::npos) << first_message(response);
+  EXPECT_NE(first_message(response).find("the request changed no proxy"), std::string::npos) << first_message(response);
 }
 
 TEST(client_route_override, naming_the_proxy_the_target_already_had_is_not_an_override) {
@@ -1025,8 +1037,8 @@ TEST(client_route_override, a_repeated_host_is_not_blamed_when_only_the_proxy_mo
   f.config.do_query(fixture::query_request("check_cpu", {"--host", "nrdp.example.com", "--proxy", "http://attacker.example:3128/"}), response);
 
   EXPECT_EQ(f.handler->query_calls, 0) << first_message(response);
-  EXPECT_NE(first_message(response).find("(--proxy)"), std::string::npos) << first_message(response);
-  EXPECT_EQ(first_message(response).find("--host"), std::string::npos) << first_message(response);
+  EXPECT_NE(first_message(response).find("the request changed proxy)"), std::string::npos) << first_message(response);
+  EXPECT_EQ(first_message(response).find("address"), std::string::npos) << first_message(response);
 }
 
 TEST(client_route_override, a_header_that_moves_both_names_both) {
@@ -1044,7 +1056,7 @@ TEST(client_route_override, a_header_that_moves_both_names_both) {
   f.config.do_query(request, response);
 
   EXPECT_EQ(f.handler->query_calls, 0) << first_message(response);
-  EXPECT_NE(first_message(response).find("the request changed address/proxy"), std::string::npos) << first_message(response);
+  EXPECT_NE(first_message(response).find("the request changed address, proxy"), std::string::npos) << first_message(response);
 }
 
 TEST(client_route_override, a_header_supplied_proxy_is_guarded_too) {
@@ -1098,7 +1110,124 @@ TEST(client_route_override, the_exec_path_is_guarded_as_well) {
   EXPECT_EQ(f.handler->exec_calls, 0);
   ASSERT_GE(response.payload_size(), 1);
   EXPECT_NE(response.payload(0).result(), PB::Common::ResultCode::OK);
-  EXPECT_NE(response.payload(0).message().find("--proxy"), std::string::npos) << response.payload(0).message();
+  EXPECT_NE(response.payload(0).message().find("the request changed proxy"), std::string::npos) << response.payload(0).message();
+}
+
+// ---------------------------------------------------------------------------
+// The allow list. A request may say what to submit; where it goes and how
+// well it is protected on the way come from the target, so every key that is
+// not explicitly safe is refused rather than every key someone remembered to
+// name being guarded.
+// ---------------------------------------------------------------------------
+
+TEST(client_allow_list, a_transport_key_is_refused) {
+  // The destination never moves: `verify=none` just makes the agent accept
+  // any certificate at the address the target configured, which is enough to
+  // hand the token to whoever answers for that name.
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}, {"verify mode", "peer"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--verify", "none"}), response);
+
+  EXPECT_EQ(f.handler->query_calls, 0) << "nothing must go on the wire";
+  EXPECT_NE(first_message(response).find("'default' carries credentials"), std::string::npos) << first_message(response);
+  EXPECT_NE(first_message(response).find("the request changed verify mode"), std::string::npos) << first_message(response);
+}
+
+TEST(client_allow_list, an_unclassified_key_is_refused_by_default) {
+  // The point of the inversion. Nobody taught the guard about this key; it is
+  // guarded anyway, so a module option added tomorrow does not need a fourth
+  // security notice to become safe.
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--future-option", "whatever"}), response);
+
+  EXPECT_EQ(f.handler->query_calls, 0) << first_message(response);
+  EXPECT_NE(first_message(response).find("the request changed future option"), std::string::npos) << first_message(response);
+}
+
+TEST(client_allow_list, a_module_declared_message_key_is_allowed) {
+  // What the submission says is the caller's to choose; only the channel is
+  // the operator's. The module names these through safe_request_keys().
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--subject", "disk is full"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.get_string_data("subject"), "disk is full");
+  EXPECT_EQ(f.handler->last_target.get_string_data("token"), "s3cret");
+}
+
+TEST(client_allow_list, repeating_a_configured_transport_value_changes_nothing) {
+  // The comparison is against what the target configured, not against whether
+  // an option was used at all, so a request that spells out the same value is
+  // not an override - the same rule the address has always followed.
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}, {"verify mode", "peer"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--verify", "peer"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.get_string_data("verify mode"), "peer");
+}
+
+TEST(client_allow_list, timeout_and_retry_are_always_the_callers) {
+  // Neither reaches the data map - set_string_data() routes them into their
+  // own typed fields - and neither decides where the credential goes or how
+  // it is protected.
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--timeout", "5", "--retry", "7"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.timeout, 5);
+  EXPECT_EQ(f.handler->last_target.retry, 7);
+}
+
+TEST(client_allow_list, a_target_without_credentials_is_not_restricted_at_all) {
+  // The allow list only decides who may use a *configured* credential. With
+  // none in play a request may set whatever the module registered.
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--verify", "none", "--future-option", "whatever"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.get_string_data("verify mode"), "none");
+}
+
+TEST(client_allow_list, a_request_that_brings_its_own_credentials_may_set_anything) {
+  // Nothing configured is at stake once the caller supplies the secret, so
+  // the channel is theirs to shape too.
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "configured"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--verify", "none", "--token", "mine"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.get_string_data("token"), "mine");
+  EXPECT_EQ(f.handler->last_target.get_string_data("verify mode"), "none");
+}
+
+TEST(client_allow_list, allow_host_override_still_lets_everything_through) {
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}, {"allow host override", "true"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--verify", "none"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.get_string_data("token"), "s3cret");
 }
 
 // ---------------------------------------------------------------------------
