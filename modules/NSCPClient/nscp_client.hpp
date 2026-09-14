@@ -16,7 +16,44 @@
 #include <nscapi/protobuf/functions_submit.hpp>
 #include <str/format.hpp>
 
+#include <string>
+#include <utility>
+#include <vector>
+
 namespace nscp_client {
+
+// The two header metadata keys the core permission layer resolves a caller
+// from (service/plugins/plugin_manager.cpp::extract_subject_from_header). They
+// are stamped in-process and describe *this* agent's caller, so they mean
+// nothing on another host - and a remote agent refuses a /query.pb request
+// that carries them, because over the wire they are exactly how a caller would
+// forge its own subject.
+//
+// remote_nscpforward sends the request it was handed "as-is", header included,
+// so the local principal's name would otherwise travel to the remote host and
+// be rejected there. Drop them and let the remote resolve the caller the way
+// it resolves any other unattributed request.
+inline void strip_local_identity(PB::Commands::QueryRequestMessage &message) {
+  if (!message.has_header()) return;
+  PB::Common::Header *header = message.mutable_header();
+  std::vector<std::pair<std::string, std::string>> kept;
+  bool found = false;
+  for (const PB::Common::KeyValue &kv : header->metadata()) {
+    if (kv.key() == "nscp.caller_plugin_id" || kv.key() == "nscp.principal") {
+      found = true;
+      continue;
+    }
+    kept.emplace_back(kv.key(), kv.value());
+  }
+  if (!found) return;
+  header->clear_metadata();
+  for (const auto &kv : kept) {
+    PB::Common::KeyValue *entry = header->add_metadata();
+    entry->set_key(kv.first);
+    entry->set_value(kv.second);
+  }
+}
+
 struct connection_data : public socket_helpers::connection_info {
   std::string password;
   std::string path;
@@ -94,7 +131,12 @@ struct nscp_client_handler : public client::handler_interface {
     for (const std::string &e : con.validate()) {
       handler_->log_error(__FILE__, __LINE__, e);
     }
-    boost::tuple<bool, std::string> ret = send(con, request_message.SerializeAsString());
+    // This is the one handler that puts a whole request message on the wire,
+    // so it is the one that has to take the local caller identity back off it.
+    // remote_nscpforward hands us the request it was given, unchanged.
+    PB::Commands::QueryRequestMessage outgoing(request_message);
+    nscp_client::strip_local_identity(outgoing);
+    boost::tuple<bool, std::string> ret = send(con, outgoing.SerializeAsString());
     if (ret.get<0>()) {
       response_message.ParseFromString(ret.get<1>());
     } else {

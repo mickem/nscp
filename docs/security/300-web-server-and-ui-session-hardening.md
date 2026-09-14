@@ -2,7 +2,7 @@
 title: "Web server and web UI: identity metadata, log buffer, logout and bundle staging"
 fixed_in: next
 severity: "Medium"
-modules: [WEBServer]
+modules: [WEBServer, NSCPClient]
 action: none
 ---
 Four findings from a review of the web server and the shipped web UI. None is
@@ -19,9 +19,18 @@ inside the agent.
 `POST /query.pb` forwarded the caller's protobuf into the core verbatim,
 header included — so a caller who set the two keys picked its own subject and
 satisfied any allow-list rule written for another module or user. The route now
-parses the body and refuses, with `400`, any request that carries either key;
-nothing legitimate sends them over HTTP. The `legacy` grant remains
-RCE-equivalent on its own ([The `legacy` WEB permission is flagged and no longer seeded by
+parses the body and refuses, with `400`, any request that carries either key.
+
+Nothing that talks to an agent over HTTP sends them: Icinga's bundled
+`check_nscp_api` uses `GET /query/<command>` with a `password` header, not the
+raw-protobuf route. The one thing that did was NSClient++ itself — the
+`remote_nscpforward` command forwards the request it was handed "as-is", header
+included — so the forwarding client no longer puts the local caller's identity
+on the wire; it describes this host's caller and means nothing on the other
+one. A forwarding agent on an older release still sends the keys, so upgrade it
+at the same time as, or before, the agent it forwards to.
+
+The `legacy` grant remains RCE-equivalent on its own ([The `legacy` WEB permission is flagged and no longer seeded by
 default](#the-legacy-web-permission-is-flagged-and-no-longer-seeded-by-default)), so this
 matters where the policy system is used to constrain what legacy callers may
 reach.

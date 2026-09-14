@@ -267,6 +267,81 @@ client::destination_container unreachable_target() {
 
 }  // namespace
 
+// --- the caller identity must not cross the wire ----------------------------
+//
+// remote_nscpforward forwards the request it was handed as-is. Its header
+// carries the two metadata keys the *local* core stamped to say which module
+// and user asked - and on the receiving agent those same keys are how a caller
+// would forge its own subject, so a patched agent answers 400 to a /query.pb
+// request that carries them. They describe this host's caller and mean nothing
+// on the other one.
+
+namespace {
+PB::Common::KeyValue *add_meta(PB::Commands::QueryRequestMessage &m, const std::string &key, const std::string &value) {
+  PB::Common::KeyValue *kv = m.mutable_header()->add_metadata();
+  kv->set_key(key);
+  kv->set_value(value);
+  return kv;
+}
+
+std::map<std::string, std::string> meta_of(const PB::Commands::QueryRequestMessage &m) {
+  std::map<std::string, std::string> out;
+  for (const PB::Common::KeyValue &kv : m.header().metadata()) out[kv.key()] = kv.value();
+  return out;
+}
+}  // namespace
+
+TEST(NscpForwardIdentity, DropsTheCallerPluginIdAndPrincipal) {
+  PB::Commands::QueryRequestMessage m;
+  add_meta(m, "nscp.caller_plugin_id", "7");
+  add_meta(m, "nscp.principal", "admin");
+
+  nscp_client::strip_local_identity(m);
+
+  EXPECT_EQ(m.header().metadata_size(), 0);
+}
+
+TEST(NscpForwardIdentity, KeepsEveryOtherMetadataKeyAndItsOrder) {
+  // The header is also how a target's own metadata reaches the remote host;
+  // only the two identity keys are ours to remove.
+  PB::Commands::QueryRequestMessage m;
+  add_meta(m, "some.key", "one");
+  add_meta(m, "nscp.principal", "admin");
+  add_meta(m, "other.key", "two");
+
+  nscp_client::strip_local_identity(m);
+
+  ASSERT_EQ(m.header().metadata_size(), 2);
+  EXPECT_EQ(m.header().metadata(0).key(), "some.key");
+  EXPECT_EQ(m.header().metadata(1).key(), "other.key");
+  EXPECT_EQ(meta_of(m)["other.key"], "two");
+}
+
+TEST(NscpForwardIdentity, LeavesTheRestOfTheHeaderAndThePayloadAlone) {
+  PB::Commands::QueryRequestMessage m;
+  m.mutable_header()->set_source_id("me");
+  m.mutable_header()->set_destination_id("them");
+  m.add_payload()->set_command("check_cpu");
+  add_meta(m, "nscp.caller_plugin_id", "7");
+
+  nscp_client::strip_local_identity(m);
+
+  EXPECT_EQ(m.header().source_id(), "me");
+  EXPECT_EQ(m.header().destination_id(), "them");
+  ASSERT_EQ(m.payload_size(), 1);
+  EXPECT_EQ(m.payload(0).command(), "check_cpu");
+}
+
+TEST(NscpForwardIdentity, AMessageWithNoHeaderIsLeftUntouched) {
+  PB::Commands::QueryRequestMessage m;
+  m.add_payload()->set_command("check_cpu");
+
+  nscp_client::strip_local_identity(m);
+
+  EXPECT_FALSE(m.has_header());
+  ASSERT_EQ(m.payload_size(), 1);
+}
+
 TEST(NscpClientHandler, GetCommandPrefersAliasThenCommand) {
   test_client h;
   EXPECT_EQ(h.get_command("alias", "cmd"), "alias");
