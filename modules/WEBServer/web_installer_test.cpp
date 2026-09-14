@@ -354,10 +354,12 @@ TEST_F(WebInstallerTest, InstallWithForceOverwritesExisting) {
   EXPECT_TRUE(fs::is_regular_file(web_path_ / "module.json"));
 }
 
-TEST_F(WebInstallerTest, ForceInstallStashesFromPathUnderWebPath) {
+TEST_F(WebInstallerTest, ForceInstallHandlesAFromPathUnderWebPath) {
   // Regression: when --force is set and --from points at a file inside
   // ${web-path}, the wipe used to destroy the source zip before extract_all
-  // could re-open it. Stage exactly that scenario.
+  // could re-open it. The installer now reads the bundle into memory before
+  // the wipe, so there is nothing left to re-open. Stage exactly that
+  // scenario.
   fs::create_directories(web_path_);
   const fs::path inside_zip = web_path_ / "saved.zip";
   {
@@ -383,8 +385,38 @@ TEST_F(WebInstallerTest, ForceInstallStashesFromPathUnderWebPath) {
   EXPECT_FALSE(fs::exists(web_path_ / "old-file.txt"));
   // The user's original --from path was inside web_path and therefore wiped
   // along with everything else; the install still completed because the
-  // installer stashed a copy to ${temp} before the wipe.
+  // bundle had already been read into memory.
   EXPECT_FALSE(fs::exists(inside_zip));
+}
+
+// The download used to be staged at ${temp}/nsclient-web-<version>.zip: a
+// world-writable directory, a name fully predictable from the agent's own
+// version, and a truncating open. A local user could plant a symlink there and
+// have the root-owned install clobber whatever it pointed at, or plant a file
+// they own and rewrite its content between the hash check and the extraction.
+// Nothing may be written to ${temp} any more.
+TEST_F(WebInstallerTest, InstallNeverWritesToTheSharedTempDirectory) {
+  nsclient::web::web_installer installer(resolver());
+  std::ostringstream out;
+  ASSERT_EQ(installer.install(local_install_opts(), out), 0) << out.str();
+
+  EXPECT_TRUE(fs::is_empty(temp_path_));
+}
+
+TEST_F(WebInstallerTest, InstallLeavesNoStagingDirectoryBehind) {
+  nsclient::web::web_installer installer(resolver());
+  std::ostringstream out;
+  ASSERT_EQ(installer.install(local_install_opts(), out), 0) << out.str();
+
+  // Everything under ${web-path} is either a bundle entry or the manifest;
+  // the directory the zip was staged in is gone.
+  std::vector<std::string> unexpected;
+  for (fs::directory_iterator it(web_path_), end; it != end; ++it) {
+    const std::string name = it->path().filename().string();
+    if (name == "module.json" || name == "empty.txt" || name == "scripts" || name == kManifestFile) continue;
+    unexpected.push_back(name);
+  }
+  EXPECT_TRUE(unexpected.empty()) << "left behind: " << (unexpected.empty() ? "" : unexpected.front());
 }
 
 TEST_F(WebInstallerTest, InstallRejectsMissingLocalZip) {
