@@ -194,7 +194,12 @@ NSClient++ must already be installed — see [Installation](installing.md).
 
 === "Windows"
 
-    At install time, as MSI properties:
+    In the interactive installer, the first page - **Select Management Server** - asks where this
+    machine's configuration comes from. Pick **NSClient Fleet** and paste the server and token from
+    the install command into it; the installer enrolls the host as it installs and skips the
+    configuration pages, since the fleet server owns that from here on.
+
+    The same thing as MSI properties:
 
     ```
     msiexec /qn /i NSCP-<version>-x64.msi ^
