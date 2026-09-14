@@ -52,27 +52,31 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   std::map<std::string, std::string> service_tags;
 
   // Start the CPU collector thread. On a reload the previous collector is
-  // still running; stop it before it is replaced.
-  if (collector_) collector_->stop();
-  collector_ = std::shared_ptr<pdh_thread>(new pdh_thread());
-  collector_->set_core(get_core(), get_id());
-  collector_->set_path(settings.alias().get_settings_path("real-time/cpu"), settings.alias().get_settings_path("real-time/memory"),
+  // still running; stop it before it is replaced. Publish the replacement
+  // atomically and configure it through the local copy: a check running right
+  // now holds its own reference to whichever instance it read, so the old one
+  // dies when that check returns rather than under it.
+  if (const std::shared_ptr<pdh_thread> previous = std::atomic_load(&collector_)) previous->stop();
+  const std::shared_ptr<pdh_thread> fresh = std::make_shared<pdh_thread>();
+  std::atomic_store(&collector_, fresh);
+  fresh->set_core(get_core(), get_id());
+  fresh->set_path(settings.alias().get_settings_path("real-time/cpu"), settings.alias().get_settings_path("real-time/memory"),
                        settings.alias().get_settings_path("real-time/process"));
-  collector_->set_settings_path(settings.alias().get_settings_path(""));
+  fresh->set_settings_path(settings.alias().get_settings_path(""));
 
   // clang-format off
   settings.alias().add_path_to_settings()
     ("Unix system", "Section for system checks and system settings")
 
-    ("real-time/cpu", sh::fun_values_path([this] (auto key, auto value) { collector_->add_realtime_cpu_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
+    ("real-time/cpu", sh::fun_values_path([this, fresh] (auto key, auto value) { fresh->add_realtime_cpu_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
         "Realtime cpu filters", "A set of filters to use in real-time mode",
         "FILTER", "For more configuration options add a dedicated section")
 
-    ("real-time/memory", sh::fun_values_path([this] (auto key, auto value) { collector_->add_realtime_mem_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
+    ("real-time/memory", sh::fun_values_path([this, fresh] (auto key, auto value) { fresh->add_realtime_mem_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
         "Realtime memory filters", "A set of filters to use in real-time mode",
         "FILTER", "For more configuration options add a dedicated section")
 
-    ("real-time/process", sh::fun_values_path([this] (auto key, auto value) { collector_->add_realtime_proc_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
+    ("real-time/process", sh::fun_values_path([this, fresh] (auto key, auto value) { fresh->add_realtime_proc_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
         "Realtime process filters", "A set of filters to use in real-time mode",
         "FILTER", "For more configuration options add a dedicated section")
 
@@ -82,9 +86,9 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     ;
 
   settings.alias().add_key_to_settings()
-    .add_string("default buffer length", sh::string_key(&collector_->default_buffer_size, "1h"),
+    .add_string("default buffer length", sh::string_key(&fresh->default_buffer_size, "1h"),
         "Default buffer time", "Used to define the default size of range buffer checks (ie. CPU).")
-    .add_bool("process history", sh::bool_key(&collector_->process_history_enabled, false),
+    .add_bool("process history", sh::bool_key(&fresh->process_history_enabled, false),
         "Track process history", "Enable tracking of process history for use with the check_process_history and check_process_history_new commands.")
     ;
   // clang-format on
@@ -102,13 +106,13 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   settings.register_all();
   settings.notify();
 
-  collector_->add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
+  fresh->add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
 
   // The collector above is stopped and replaced on every load, a reload
   // included, so it has to be started again here or check_cpu and check_memory
   // read an empty collector until the service is restarted.
   if (mode != NSCAPI::dontStart) {
-    collector_->start();
+    fresh->start();
   }
 
   if (mode == NSCAPI::normalStart) {
@@ -137,9 +141,10 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
  * @return true if successfully, false if not (if not things might be bad)
  */
 bool CheckSystem::unloadModule() {
-  if (collector_) {
-    collector_->stop();
-    collector_.reset();
+  const std::shared_ptr<pdh_thread> collector = get_collector();
+  if (collector) {
+    collector->stop();
+    std::atomic_store(&collector_, std::shared_ptr<pdh_thread>());
   }
   return true;
 }
@@ -148,13 +153,13 @@ void CheckSystem::check_service(const PB::Commands::QueryRequestMessage::Request
   checks::check_service(request, response);
 }
 void CheckSystem::check_memory(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_memory::check_memory(collector_, request, response);
+  check_memory::check_memory(get_collector(), request, response);
 }
 void CheckSystem::check_process(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_proc::check_process(request, response);
 }
 void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  checks::check_cpu(collector_, request, response);
+  checks::check_cpu(get_collector(), request, response);
 }
 void CheckSystem::check_load(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   load_check::check_load(request, response);
@@ -172,7 +177,7 @@ void CheckSystem::check_uptime(const PB::Commands::QueryRequestMessage::Request 
   checks::check_uptime(request, response, timezone_);
 }
 void CheckSystem::check_pagefile(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_page::check_pagefile(collector_, request, response);
+  check_page::check_pagefile(get_collector(), request, response);
 }
 void CheckSystem::check_os_version(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   os_version::check_os_version(request, response);
@@ -199,13 +204,13 @@ void CheckSystem::check_battery(const PB::Commands::QueryRequestMessage::Request
   battery_check::check_battery(request, response);
 }
 void CheckSystem::check_network(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  network_check::check_network(collector_, request, response);
+  network_check::check_network(get_collector(), request, response);
 }
 void CheckSystem::check_process_history(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  process_history_check::check_process_history(collector_, request, response);
+  process_history_check::check_process_history(get_collector(), request, response);
 }
 void CheckSystem::check_process_history_new(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  process_history_check::check_process_history_new(collector_, request, response);
+  process_history_check::check_process_history_new(get_collector(), request, response);
 }
 
 namespace {
@@ -233,6 +238,7 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
   bundle->set_key("system");
   metric(bundle, "refresh_interval").help("How often the background collector samples the system").unit("seconds").gauge(1);
 
+  const std::shared_ptr<pdh_thread> collector_ = get_collector();
   if (!collector_) return;
 
   // CPU metrics: system.cpu.<core>.{idle,user,kernel,total}

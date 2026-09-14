@@ -13,6 +13,12 @@
 
 class CheckDisk : public nscapi::impl::simple_plugin {
   bool show_errors_;
+  // A reload replaces the collector while checks are running: the core calls
+  // loadModuleEx(reloadStart) on the live module without waiting for the
+  // threads that are inside handleCommand. Publishing the pointer atomically
+  // and taking a copy in every check keeps the old instance alive until the
+  // last check that observed it returns, instead of freeing its mutexes and
+  // trend snapshot under a check that is reading them.
   std::shared_ptr<collector_thread> collector_;
   // Which paths a caller may name in check_files, check_single_file and
   // check_disk_write. Open by default, so an upgrade changes nothing; see
@@ -57,5 +63,10 @@ class CheckDisk : public nscapi::impl::simple_plugin {
   // has created it. Exists so the unit test can assert on the intervals
   // loadModuleEx parsed out of the settings - the clamping and the fallbacks
   // it applies have no other observable effect.
-  const collector_thread *get_collector() const { return collector_.get(); }
+  const collector_thread *get_collector() const { return get_collector_ptr().get(); }
+
+  // The collector as the check threads must read it. Never dereference the
+  // member directly from a check: a reload can replace it between the test and
+  // the call.
+  std::shared_ptr<collector_thread> get_collector_ptr() const { return std::atomic_load(&collector_); }
 };

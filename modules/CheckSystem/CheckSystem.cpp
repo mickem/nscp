@@ -188,8 +188,13 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   std::map<std::string, std::string> service_tags;
   // A reload replaces the collector: stop the running one first so its
   // threads are joined before the checks start reading the new instance.
-  if (collector) collector->stop();
-  collector.reset(new pdh_thread(get_core(), get_id()));
+  // Publish the replacement atomically and configure it through the local
+  // copy: a check running right now holds its own reference to whichever
+  // instance it read, so the old one dies when that check returns rather than
+  // under it (the member is read by every check thread, see get_collector()).
+  if (const std::shared_ptr<pdh_thread> previous = std::atomic_load(&collector)) previous->stop();
+  const std::shared_ptr<pdh_thread> fresh = std::make_shared<pdh_thread>(get_core(), get_id());
+  std::atomic_store(&collector, fresh);
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("system", alias, "windows");
   pdh_checker.counters_.set_path(settings.alias().get_settings_path("counters"));
@@ -199,7 +204,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   pdh_checker.counter_access_.reset();
   registry_access_.reset();
 
-  collector->set_path(settings.alias().get_settings_path("real-time/memory"), settings.alias().get_settings_path("real-time/cpu"),
+  fresh->set_path(settings.alias().get_settings_path("real-time/memory"), settings.alias().get_settings_path("real-time/cpu"),
                       settings.alias().get_settings_path("real-time/process"), settings.alias().get_settings_path("real-time/checks"));
 
   // clang-format off
@@ -215,19 +220,19 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         "A name defined here can be used as key=<name> in any access mode, and is the only thing accepted when "
         "'registry access' is set to predefined.")
 
-    ("real-time/memory", sh::fun_values_path([this] (auto key, auto value) { collector->add_realtime_mem_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
+    ("real-time/memory", sh::fun_values_path([this, fresh] (auto key, auto value) { fresh->add_realtime_mem_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
         "Realtime memory filters", "A set of filters to use in real-time mode",
         "FILTER", "For more configuration options add a dedicated section")
 
-    ("real-time/cpu", sh::fun_values_path([this] (auto key, auto value) { collector->add_realtime_cpu_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
+    ("real-time/cpu", sh::fun_values_path([this, fresh] (auto key, auto value) { fresh->add_realtime_cpu_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
         "Realtime cpu filters", "A set of filters to use in real-time mode",
         "FILTER", "For more configuration options add a dedicated section")
 
-    ("real-time/process", sh::fun_values_path([this] (auto key, auto value) { collector->add_realtime_proc_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
+    ("real-time/process", sh::fun_values_path([this, fresh] (auto key, auto value) { fresh->add_realtime_proc_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
         "Realtime process filters", "A set of filters to use in real-time mode",
         "FILTER", "For more configuration options add a dedicated section")
 
-    ("real-time/checks", sh::fun_values_path([this] (auto key, auto value) { collector->add_realtime_legacy_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
+    ("real-time/checks", sh::fun_values_path([this, fresh] (auto key, auto value) { fresh->add_realtime_legacy_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
         "Legacy generic filters", "A set of filters to use in real-time mode",
         "FILTER", "For more configuration options add a dedicated section")
 
@@ -270,24 +275,24 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         "also allow HKLM\\SOFTWARE\\MyAppOther. An entry containing * or ? is matched as a wildcard against the whole key instead. Both hive spellings "
         "(HKLM and HKEY_LOCAL_MACHINE) mean the same thing on either side of the comparison.")
 
-  .add_string("default buffer length", sh::string_key(&collector->default_buffer_size, "1h"),
+  .add_string("default buffer length", sh::string_key(&fresh->default_buffer_size, "1h"),
         "Default buffer time", "Used to define the default size of range buffer checks (ie. CPU).")
-  .add_string("subsystem", sh::string_key(&collector->subsystem, "default"),
+  .add_string("subsystem", sh::string_key(&fresh->subsystem, "default"),
     "PDH subsystem", "Set which pdh subsystem to use.\nCurrently default and thread-safe are supported where thread-safe is slower but required if you have some problematic counters.", true)
 
-    .add_bool("fetch core loads", sh::bool_key(&collector->read_core_load, true),
+    .add_bool("fetch core loads", sh::bool_key(&fresh->read_core_load, true),
         "Fetch core load", "Set to false to use a different API for fetching CPU load (will not provide core load, and will not show exact same values as task manager).", true)
 
-    .add_bool("use pdh for cpu", sh::bool_key(&collector->use_pdh_for_cpu, false),
+    .add_bool("use pdh for cpu", sh::bool_key(&fresh->use_pdh_for_cpu, false),
       "Use PDH to fetch CPU load", "When using PDH you might get better accuracy and hel alleviate invalid CPU values on multi core systems. The drawback is that PDH counters are sometimes missing and have invalid indexes so your milage may vary", true)
 
-    .add_bool("process history", sh::bool_key(&collector->process_history_enabled, false),
+    .add_bool("process history", sh::bool_key(&fresh->process_history_enabled, false),
       "Track process history", "Enable tracking of process history for use with check_process_history and check_process_history_new commands.")
 
-    .add_bool("process cpu", sh::bool_key(&collector->process_cpu_enabled, false),
+    .add_bool("process cpu", sh::bool_key(&fresh->process_cpu_enabled, false),
       "Sample per-process CPU", "Sample per-process CPU usage once a second in the background so that 'check_process delta=true' can report CPU% without stalling the check for a second. Off by default (adds one system-process-table query per second); required for the delta=true CPU fields.")
 
-    .add_string("disable", sh::string_key(&collector->disable_, ""),
+    .add_string("disable", sh::string_key(&fresh->disable_, ""),
         "Disable automatic checks", "A comma separated list of checks to disable in the collector: battery,cpu,handles,load,network,temperature,cpu_frequency,os_updates,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
     ;
 
@@ -324,13 +329,13 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   if (!pdh_checker.counter_access_.get_config_error().empty()) NSC_LOG_ERROR_STD(pdh_checker.counter_access_.get_config_error());
   if (!registry_access_.get_config_error().empty()) NSC_LOG_ERROR_STD(registry_access_.get_config_error());
 
-  collector->ensure_default(nscapi::settings_proxy::create(get_id(), get_core()));
-  collector->add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
+  fresh->ensure_default(nscapi::settings_proxy::create(get_id(), get_core()));
+  fresh->add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
   pdh_checker.counters_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
 
   if (!pdh_checker.counters_.has_object("disk_queue_length")) add_counter("disk_queue_length", "\\PhysicalDisk($INSTANCE$)\\% Disk Time");
   if (!pdh_checker.counters_.has_object("memory_pages_sec")) add_counter("memory_pages_sec", "\\Memory\\Pages/sec");
-  if (collector->use_pdh_for_cpu) {
+  if (fresh->use_pdh_for_cpu) {
     if (!pdh_checker.counters_.has_object("cpu_total")) add_rrd_counter("cpu_total", "\\Processor Information($INSTANCE$)\\% Processor Utility");
     if (!pdh_checker.counters_.has_object("cpu_kernel")) add_rrd_counter("cpu_kernel", "\\Processor Information($INSTANCE$)\\% Privileged Utility");
   }
@@ -361,12 +366,12 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         counter.add_flags(object->flags);
         counter.set_resolution(object->resolution);
 
-        collector->add_counter(counter);
+        fresh->add_counter(counter);
       } catch (const PDH::pdh_exception &e) {
         NSC_LOG_ERROR("Failed to load: " + object->get_alias() + ": " + e.reason());
       }
     }
-    collector->start();
+    fresh->start();
   }
 
   return true;
@@ -378,6 +383,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
  * @return true if successfully, false if not (if not things might be bad)
  */
 bool CheckSystem::unloadModule() {
+  const std::shared_ptr<pdh_thread> collector = get_collector();
   if (collector && !collector->stop()) {
     NSC_LOG_ERROR("Could not exit the thread, memory leak and potential corruption may be the result...");
   }
@@ -717,6 +723,9 @@ void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &re
 
   if (!filter_helper.build_filter(filter)) return;
 
+  const std::shared_ptr<pdh_thread> collector = get_collector();
+  if (!collector) return nscapi::protobuf::functions::set_response_bad(*response, "Collector is not running");
+
   if (collector->is_disabled("cpu") && !collector->use_pdh_for_cpu) {
     // Without this guard the check would answer from a buffer that is never
     // updated, reporting frozen values as fresh samples (#1368).
@@ -897,6 +906,8 @@ void CheckSystem::check_os_version(const PB::Commands::QueryRequestMessage::Requ
 
 void CheckSystem::check_network(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   try {
+    const std::shared_ptr<pdh_thread> collector = get_collector();
+    if (!collector) return nscapi::protobuf::functions::set_response_bad(*response, "Collector is not running");
     network_check::check::check_network(request, response, collector->get_network());
   } catch (const std::exception &e) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to get network data: " + std::string(e.what()));
@@ -905,6 +916,8 @@ void CheckSystem::check_network(const PB::Commands::QueryRequestMessage::Request
 
 void CheckSystem::check_temperature(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   try {
+    const std::shared_ptr<pdh_thread> collector = get_collector();
+    if (!collector) return nscapi::protobuf::functions::set_response_bad(*response, "Collector is not running");
     temperature_check::check::check_temperature(request, response, collector->get_temperature());
   } catch (const std::exception &e) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to get temperature data: " + std::string(e.what()));
@@ -913,6 +926,8 @@ void CheckSystem::check_temperature(const PB::Commands::QueryRequestMessage::Req
 
 void CheckSystem::check_cpu_frequency(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   try {
+    const std::shared_ptr<pdh_thread> collector = get_collector();
+    if (!collector) return nscapi::protobuf::functions::set_response_bad(*response, "Collector is not running");
     cpu_frequency_check::check::check_cpu_frequency(request, response, collector->get_cpu_frequency());
   } catch (const std::exception &e) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to get CPU frequency data: " + std::string(e.what()));
@@ -921,6 +936,8 @@ void CheckSystem::check_cpu_frequency(const PB::Commands::QueryRequestMessage::R
 
 void CheckSystem::check_battery(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   try {
+    const std::shared_ptr<pdh_thread> collector = get_collector();
+    if (!collector) return nscapi::protobuf::functions::set_response_bad(*response, "Collector is not running");
     battery_check::check::check_battery(request, response, collector->get_battery());
   } catch (const std::exception &e) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to get battery data: " + std::string(e.what()));
@@ -929,6 +946,8 @@ void CheckSystem::check_battery(const PB::Commands::QueryRequestMessage::Request
 
 void CheckSystem::check_os_updates(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   try {
+    const std::shared_ptr<pdh_thread> collector = get_collector();
+    if (!collector) return nscapi::protobuf::functions::set_response_bad(*response, "Collector is not running");
     os_updates_check::check::check_os_updates(request, response, collector->get_os_updates());
   } catch (const std::exception &e) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to get OS updates data: " + std::string(e.what()));
@@ -937,6 +956,8 @@ void CheckSystem::check_os_updates(const PB::Commands::QueryRequestMessage::Requ
 
 void CheckSystem::check_process_history(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   try {
+    const std::shared_ptr<pdh_thread> collector = get_collector();
+    if (!collector) return nscapi::protobuf::functions::set_response_bad(*response, "Collector is not running");
     process_history_check::check::check_process_history(request, response, collector->get_process_history());
   } catch (const std::exception &e) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to get process history data: " + std::string(e.what()));
@@ -945,6 +966,8 @@ void CheckSystem::check_process_history(const PB::Commands::QueryRequestMessage:
 
 void CheckSystem::check_process_history_new(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   try {
+    const std::shared_ptr<pdh_thread> collector = get_collector();
+    if (!collector) return nscapi::protobuf::functions::set_response_bad(*response, "Collector is not running");
     process_history_check::check::check_process_history_new(request, response, collector->get_process_history());
   } catch (const std::exception &e) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to get process history data: " + std::string(e.what()));
@@ -1152,6 +1175,8 @@ void CheckSystem::checkProcState(PB::Commands::QueryRequestMessage::Request &req
   check_process(request, response);
 }
 void CheckSystem::check_process(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  const std::shared_ptr<pdh_thread> collector = get_collector();
+  if (!collector) return nscapi::protobuf::functions::set_response_bad(*response, "Collector is not running");
   process_checks::active::check(request, response, collector->get_process_cpu_deltas(), collector->process_cpu_enabled);
 }
 
@@ -1195,6 +1220,8 @@ void CheckSystem::checkCounter(PB::Commands::QueryRequestMessage::Request &reque
 }
 
 void CheckSystem::check_pdh(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  const std::shared_ptr<pdh_thread> collector = get_collector();
+  if (!collector) return nscapi::protobuf::functions::set_response_bad(*response, "Collector is not running");
   pdh_checker.check_pdh(collector, request, response);
 }
 
@@ -1219,6 +1246,8 @@ void CheckSystem::check_installed_software(const PB::Commands::QueryRequestMessa
 }
 
 void CheckSystem::check_load(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  const std::shared_ptr<pdh_thread> collector = get_collector();
+  if (!collector) return nscapi::protobuf::functions::set_response_bad(*response, "Collector is not running");
   load_check::check_load(request, response, collector);
 }
 
@@ -1319,6 +1348,9 @@ class add_visitor : public boost::static_visitor<> {
 void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
   using nscapi::metrics::describe;
   using nscapi::metrics::metric;
+
+  const std::shared_ptr<pdh_thread> collector = get_collector();
+  if (!collector) return;
 
   PB::Metrics::MetricsBundle *bundle = response->add_bundles();
   bundle->set_key("system");
