@@ -2,6 +2,14 @@ import { useAppDispatch, useAppSelector } from "../../store/store";
 import { authSlice } from "../authSlice";
 import { nsclientApi, useLoginMutation, useLogoutMutation } from "../../api/api.ts";
 
+// How long logging out waits for the server to acknowledge the revoke before
+// giving up on it. The revoke matters - it is what stops a captured bearer
+// working for the rest of its eight hours - but it must never be what keeps a
+// user signed in: an agent that has stopped, or a network that swallows the
+// request, would otherwise hold the token in this browser (and in
+// localStorage) for however long the platform's own timeout happens to be.
+export const LOGOUT_REVOKE_TIMEOUT_MS = 2000;
+
 export const useAuthentication = () => {
   const auth = useAppSelector((store) => store.auth);
   const dispatch = useAppDispatch();
@@ -22,13 +30,19 @@ export const useAuthentication = () => {
     // check and rewrites the settings - so anyone who picked it up from a
     // shared machine, a profile backup or a proxy log would still hold it.
     //
-    // A failure here must not leave the UI logged in: the server may be gone,
-    // or the token already expired, and in both cases clearing the client
-    // state is still the right outcome.
+    // Neither a failure nor a hang here may leave the UI logged in: the server
+    // may be gone, the token already expired, or the request simply never
+    // answered, and in every case clearing the client state is still the right
+    // outcome. A rejection is caught; a stall is cut short by aborting the
+    // request, which then rejects into the same catch.
+    const revoke = doLogout();
+    const giveUp = setTimeout(() => revoke.abort(), LOGOUT_REVOKE_TIMEOUT_MS);
     try {
-      await doLogout().unwrap();
+      await revoke.unwrap();
     } catch {
       // Deliberately ignored - see above.
+    } finally {
+      clearTimeout(giveUp);
     }
     dispatch(authSlice.actions.removeToken());
     // Drop the persisted copy now rather than leaving it for the next

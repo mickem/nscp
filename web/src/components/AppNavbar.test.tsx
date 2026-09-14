@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import AppNavbar from "./AppNavbar";
+import { LOGOUT_REVOKE_TIMEOUT_MS } from "../common/hooks/auth";
 import {
   authenticatedState,
   installFetchMock,
@@ -61,7 +62,9 @@ describe("AppNavbar", () => {
     await userEvent.click(screen.getByRole("button", { name: "account of current user" }));
     await userEvent.click(await screen.findByRole("menuitem", { name: "Logout" }));
 
-    expect(store.getState().auth.token).toBeUndefined();
+    // Awaited: the session is cleared only after the server has been asked to
+    // revoke the token, so the click returns before the state has changed.
+    await waitFor(() => expect(store.getState().auth.token).toBeUndefined());
     // Not just forgotten by this browser: the persisted copy goes too, rather
     // than sitting in localStorage until something happens to notice it.
     expect(localStorage.getItem("token")).toBeNull();
@@ -83,6 +86,45 @@ describe("AppNavbar", () => {
     // which token to revoke.
     expect(logoutCalls[0].authorization).toBe("Bearer test-token");
   });
+
+  it(
+    "logs out locally when the revoke never answers, without waiting for it",
+    async () => {
+      // The failure that matters is not a rejected request but a silent one: an
+      // agent that has stopped, or a network that swallows the DELETE. Logout
+      // gives the revoke a bounded window and then abandons it - otherwise the
+      // browser stays signed in, with the bearer still in localStorage, for
+      // however long the platform's own timeout is.
+      //
+      // Real timers on purpose: React Testing Library's polling does not
+      // advance under vitest's fake clock, so a faked timeout hangs the test
+      // rather than proving anything. The wait is the real window.
+      installFetchMock({
+        "/api/v2/info": jsonResponse({ name: "NSClient++", version: "0.17.0", version_url: "" }),
+        "/api/v2/logs/status": jsonResponse({ errors: 0, last_error: "" }),
+        // Never settles, and never rejects: the request just hangs.
+        "/api/v2/login": () => new Promise<Response>(() => {}),
+      });
+      const { store } = renderWithProviders(<AppNavbar handleDrawerToggle={() => {}} />, {
+        preloadedState: authenticatedState,
+      });
+      localStorage.setItem("token", "test-token");
+
+      await userEvent.click(screen.getByRole("button", { name: "account of current user" }));
+      await userEvent.click(await screen.findByRole("menuitem", { name: "Logout" }));
+
+      // Still signed in while the revoke is in flight...
+      expect(store.getState().auth.token).toBe("test-token");
+
+      // ...and signed out once the window has passed, without the request ever
+      // having answered.
+      await waitFor(() => expect(store.getState().auth.token).toBeUndefined(), {
+        timeout: LOGOUT_REVOKE_TIMEOUT_MS + 3000,
+      });
+      expect(localStorage.getItem("token")).toBeNull();
+    },
+    LOGOUT_REVOKE_TIMEOUT_MS + 8000,
+  );
 
   it("still logs out locally when the revoke call fails", async () => {
     installFetchMock({
