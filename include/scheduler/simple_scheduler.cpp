@@ -59,23 +59,40 @@ void scheduler::start() {
   boost::posix_time::time_duration diff = now() - time_t_epoch;
   metric_start = static_cast<uint32_t>(diff.total_seconds());
   log_trace(__FILE__, __LINE__, "starting all threads");
-  running_ = true;
+  {
+    // Opening the door is the starter's job alone. start_threads() used to
+    // clear stop_requested_ as well, which let the watchdog re-open it while
+    // stop() was joining.
+    boost::mutex::scoped_lock l(pool_mutex_);
+    running_ = true;
+    stop_requested_ = false;
+  }
   start_threads();
   log_trace(__FILE__, __LINE__, "Thread pool contains: " + str::xtos(threads_.count()));
 }
 
 void scheduler::prepare_shutdown() {
   log_trace(__FILE__, __LINE__, "prepare to shutdown");
-  running_ = false;
-  stop_requested_ = true;
-  has_watchdog_ = false;
+  {
+    boost::mutex::scoped_lock l(pool_mutex_);
+    running_ = false;
+    stop_requested_ = true;
+    has_watchdog_ = false;
+  }
   threads_.interrupt_all();
 }
 void scheduler::stop() {
   log_trace(__FILE__, __LINE__, "stopping all threads");
-  running_ = false;
-  stop_requested_ = true;
-  has_watchdog_ = false;
+  {
+    // Under the lock, so a watchdog that is in start_threads() right now has
+    // either already created its thread or will see these flags and create
+    // nothing. Released before the join: the watchdog is one of the threads
+    // being joined.
+    boost::mutex::scoped_lock l(pool_mutex_);
+    running_ = false;
+    stop_requested_ = true;
+    has_watchdog_ = false;
+  }
   threads_.interrupt_all();
   threads_.wait_all();
   thread_count_ = 0;
@@ -207,7 +224,10 @@ void scheduler::thread_proc(const int id) {
         }
       } catch (const boost::thread_interrupted &) {
         if (!queue_.push(instance.value())) log_error(__FILE__, __LINE__, "Failed to push item");
-        if (stop_requested_) {
+        // Either flag means the pool is going away: the interrupt consumed the
+        // request, so a worker that only checked stop_requested_ would keep
+        // looping forever if it were cleared between the two.
+        if (stop_requested_ || !running_) {
           log_trace(__FILE__, __LINE__, "Terminating thread: " + str::xtos(id));
           return;
         }
@@ -288,8 +308,11 @@ void scheduler::reschedule_at(const std::string &tag, const int id, boost::posix
 }
 
 void scheduler::start_threads() {
-  if (!running_) return;
-  stop_requested_ = false;
+  // The watchdog calls this from inside the pool while another thread may be
+  // stopping it. Everything below happens under the lock so that no thread is
+  // created once stop() has begun, and none is created while it joins.
+  boost::mutex::scoped_lock l(pool_mutex_);
+  if (!running_ || stop_requested_) return;
   std::size_t missing_threads = 0;
   if (thread_count_ > threads_.count()) missing_threads = thread_count_ - threads_.count();
   if (missing_threads > 0 && missing_threads <= thread_count_) {
