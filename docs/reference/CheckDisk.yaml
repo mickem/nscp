@@ -10,6 +10,20 @@ common:
         subkey: false
         title: ''
       keys:
+        allowed files:
+          advanced: false
+          default_value: ''
+          description: 'Comma separated list of paths the disk checks may use when ''file access'' is
+            set to allowed.
+
+            An entry naming a directory (or a path which does not exist yet) allows it and everything
+            beneath it at any depth; an entry naming an existing file is that single file; an entry containing
+            * or ? is a wildcard matched against the whole path, where * and ? do not cross a directory
+            separator and ** does. Paths are resolved (`..` is flattened and symbolic links and junctions
+            are followed) before they are matched, so a link planted inside an allowed directory does
+            not widen it.'
+          sample: false
+          title: ALLOWED PATHS
         collection interval:
           advanced: true
           default_value: 10s
@@ -27,6 +41,20 @@ common:
             expected.'
           sample: false
           title: Disable automatic checks
+        file access:
+          advanced: false
+          default_value: any
+          description: 'Which paths a caller may ask check_files, check_single_file and check_disk_write
+            to use: any (the default - any path the caller names, which is how every earlier release behaved),
+            allowed (only paths matching ''allowed files'') or predefined (only names defined in the [/settings/disk/files]
+            section).
+
+            These checks do not return file contents, but they enumerate whole directory trees (name,
+            size, timestamps) and can report a file''s checksum, so on a host where callers may pass arguments
+            (NRPE with ''allow arguments'', or the REST API) this decides how much of the filesystem a
+            check can describe. See the ''Restricting what a check may read'' section of the documentation.'
+          sample: false
+          title: FILE ACCESS MODE
         max collection errors:
           advanced: true
           default_value: '10'
@@ -50,6 +78,15 @@ common:
             Duration, e.g. 7d.
           sample: false
           title: Trend history retention
+    /settings/disk/files:
+      info:
+        advanced: false
+        description: 'Files and folders the disk checks may use by name, as <name> = <path>.
+
+          A name defined here can be used as file=<name> (or path=<name>) in any access mode, and is the
+          only thing accepted when ''file access'' is set to predefined.'
+        subkey: false
+        title: PREDEFINED PATHS
   queries:
     check_disk_health:
       common_fields:
@@ -689,8 +726,12 @@ common:
       - content_type: 2
         default_value: '*.*'
         is_simple: false
-        long_description: The pattern of files to search for (works like a filter but is faster and can
+        long_description: 'The pattern of files to search for (works like a filter but is faster and can
           be combined with a filter).
+
+          This is a file mask, not a path: while ''file access'' in [/settings/disk] is restricted it
+          may not contain a path separator or ''..'', since the scan root is what was held against the
+          allow list.'
         name: pattern
         repeatable: false
         required: false

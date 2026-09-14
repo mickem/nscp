@@ -603,7 +603,9 @@ A list of roles and with coma separated list of access rights.
 | [client](#role-for-read-+-run-checks-queries.execute-can-run-side-effecting-commands) | public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list | Role for read + run checks (queries.execute can run side-effecting commands) |
 | [full](#role-for-full-access)                                                         | *                                                                                                             | Role for Full access                                                         |
 | [legacy](#role-for-legacy-api)                                                        | legacy,login.get                                                                                              | Role for legacy API                                                          |
-| [monitoring](#role-for-checks-and-queries-only)                                       | public,queries.execute,aliases.list,login.get,metrics.get                                                     | Role for checks and queries only                                             |
+| [metrics](#role-for-reading-metrics-only)                                             | public,metrics.list,openmetrics.list,login.get                                                                | Role for reading metrics only _(Windows only)_                               |
+| [monitoring](#role-for-checks,-queries-and-metrics)                                   | public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list                                   | Role for checks, queries and metrics                                         |
+| [restricted](#role-for-checks-and-queries-only,-without-arguments)                    | public,queries.execute.noargs,aliases.list,login.get                                                          | Role for checks and queries only, without arguments _(Windows only)_         |
 
 
 ```ini
@@ -612,7 +614,9 @@ A list of roles and with coma separated list of access rights.
 client=public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list
 full=*
 legacy=legacy,login.get
-monitoring=public,queries.execute,aliases.list,login.get,metrics.get
+metrics=public,metrics.list,openmetrics.list,login.get  # Windows only
+monitoring=public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list
+restricted=public,queries.execute.noargs,aliases.list,login.get  # Windows only
 ```
 
 === "Windows"
@@ -699,24 +703,90 @@ Default role for legacy API
 legacy=legacy,login.get
 ```
 
-#### Role for checks and queries only <a id="/settings/WEB/server/roles/monitoring"></a>
+#### Role for reading metrics only <a id="/settings/WEB/server/roles/metrics"></a>
 
-Default role for checks and queries only
+Default role for reading metrics only
 
 
-| Key            | Description                                                 |
-|----------------|-------------------------------------------------------------|
-| Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles)   |
-| Key:           | monitoring                                                  |
-| Default value: | `public,queries.execute,aliases.list,login.get,metrics.get` |
+| Key            | Description                                               |
+|----------------|-----------------------------------------------------------|
+| Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles) |
+| Key:           | metrics                                                   |
+| Platform:      | Windows only                                              |
+| Default value: | `public,metrics.list,openmetrics.list,login.get`          |
 
 
 **Sample:**
 
 ```
 [/settings/WEB/server/roles]
-# Role for checks and queries only
-monitoring=public,queries.execute,aliases.list,login.get,metrics.get
+# Role for reading metrics only
+metrics=public,metrics.list,openmetrics.list,login.get
+```
+
+=== "Windows"
+
+    #### Role for checks, queries and metrics <a id="/settings/WEB/server/roles/monitoring"></a>
+
+    Default role for checks, queries and metrics
+
+
+    | Key            | Description                                                                   |
+    |----------------|-------------------------------------------------------------------------------|
+    | Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles)                     |
+    | Key:           | monitoring                                                                    |
+    | Default value: | `public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list` |
+
+
+    **Sample:**
+
+    ```
+    [/settings/WEB/server/roles]
+    # Role for checks, queries and metrics
+    monitoring=public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list
+    ```
+
+=== "Linux"
+
+    #### Role for checks and queries only <a id="/settings/WEB/server/roles/monitoring"></a>
+
+    Default role for checks and queries only
+
+
+    | Key            | Description                                                 |
+    |----------------|-------------------------------------------------------------|
+    | Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles)   |
+    | Key:           | monitoring                                                  |
+    | Default value: | `public,queries.execute,aliases.list,login.get,metrics.get` |
+
+
+    **Sample:**
+
+    ```
+    [/settings/WEB/server/roles]
+    # Role for checks and queries only
+    monitoring=public,queries.execute,aliases.list,login.get,metrics.get
+    ```
+
+#### Role for checks and queries only, without arguments <a id="/settings/WEB/server/roles/restricted"></a>
+
+Default role for checks and queries only, without arguments
+
+
+| Key            | Description                                               |
+|----------------|-----------------------------------------------------------|
+| Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles) |
+| Key:           | restricted                                                |
+| Platform:      | Windows only                                              |
+| Default value: | `public,queries.execute.noargs,aliases.list,login.get`    |
+
+
+**Sample:**
+
+```
+[/settings/WEB/server/roles]
+# Role for checks and queries only, without arguments
+restricted=public,queries.execute.noargs,aliases.list,login.get
 ```
 
 ### Web server users <a id="/settings/WEB/server/users"></a>

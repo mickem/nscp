@@ -3,7 +3,7 @@ common:
     alias_cpu:
       description: 'Alias for: check_cpu'
     alias_cpu_ex:
-      description: 'Alias for: check_cpu'
+      description: 'Alias for: check_cpu warn=load > $ARG1$ crit=load > $ARG2$ time=5m time=1m time=30s'
     alias_disk:
       description: 'Alias for: check_drivesize'
     alias_disk_loose:
@@ -11,33 +11,40 @@ common:
     alias_event_log:
       description: 'Alias for: check_eventlog'
     alias_file_age:
-      description: 'Alias for: check_files'
+      description: 'Alias for: check_files path=$ARG1$ crit=written > $ARG2$ top-syntax=${list} detail-syntax=${filename]
+        ${written} max-dir-depth=10'
     alias_file_size:
-      description: 'Alias for: check_files'
+      description: 'Alias for: check_files path=$ARG1$ crit=size > $ARG2$ top-syntax=${list} detail-syntax=${filename]
+        ${size} max-dir-depth=10'
     alias_mem:
       description: 'Alias for: check_memory'
     alias_process:
-      description: 'Alias for: check_process'
+      description: 'Alias for: check_process process=$ARG1$ crit=state != ''started'''
     alias_process_count:
-      description: 'Alias for: check_process'
+      description: 'Alias for: check_process process=$ARG1$ warn=count > $ARG2$ crit=count > $ARG3$'
     alias_process_hung:
-      description: 'Alias for: check_process'
+      description: 'Alias for: check_process filter=is_hung crit=count>0'
     alias_process_stopped:
-      description: 'Alias for: check_process'
+      description: 'Alias for: check_process process=$ARG1$ crit=state != ''stopped'''
     alias_sched_all:
-      description: 'Alias for: check_tasksched'
+      description: 'Alias for: check_tasksched show-all syntax=${title}: ${exit_code} crit=exit_code ne
+        0'
     alias_sched_long:
-      description: 'Alias for: check_tasksched'
+      description: 'Alias for: check_tasksched filter=status = ''running'' detail-syntax=${title} (${most_recent_run_time})
+        crit=most_recent_run_time < -$ARG1$'
     alias_sched_task:
-      description: 'Alias for: check_tasksched'
+      description: 'Alias for: check_tasksched show-all filter=title eq ''$ARG1$'' detail-syntax=${title}
+        (${exit_code}) crit=exit_code ne 0'
     alias_service:
       description: 'Alias for: check_service'
     alias_service_ex:
-      description: 'Alias for: check_service'
+      description: 'Alias for: check_service exclude=Net Driver HPZ12 exclude=Pml Driver HPZ12 exclude=stisvc'
     alias_top_memory_users:
-      description: 'Alias for: filter_perf'
+      description: 'Alias for: filter_perf sort=normal limit=5 command=check_process arguments warn=working_set
+        > 3G crit=working_set > 4G detail-syntax=%(exe) ws=%(working_set)'
     alias_top_memory_users_ex:
-      description: 'Alias for: filter_perf'
+      description: 'Alias for: filter_perf sort=normal limit=5 command=check_process arguments warn=working_set
+        > $ARG1$ crit=working_set > $ARG2$ detail-syntax=%(exe) ws=%(working_set)'
     alias_up:
       description: 'Alias for: check_uptime'
     alias_volumes:

@@ -48,6 +48,52 @@ describe("nscp test console", () => {
     expect(out).toContain("hello-from-stdin");
   });
 
+  it("single quotes pass their content literally, double quotes keep escapes", async () => {
+    // A Windows path is the case that hurts: inside "..." every backslash
+    // must be doubled, inside '...' nothing is special.
+    const out = await runConsole(
+      [
+        "check_ok 'message=C:\\temp\\x y'",
+        "check_ok message='a b'",
+        'check_ok "message=say \\"hi\\""',
+        "check_ok message=it's",
+        "exit",
+        "",
+      ].join("\n"),
+    );
+    expect(out).toContain("OK: C:\\temp\\x y");
+    expect(out).toContain("OK: a b");
+    expect(out).toContain('OK: say "hi"');
+    expect(out).toContain("OK: it's");
+  });
+
+  it("exec passes dashed options to the module without promoting one to the command", async () => {
+    // `exec CheckSystem --list SQL --all` used to send "--list" as the command
+    // and every module refused it: a module's command line starts with its
+    // options, exactly as `nscp sys --list SQL --all` sends them.
+    await nscp.configure({ "/modules": { CheckExternalScripts: "enabled" } });
+    const help = await runConsole("exec CheckExternalScripts help\nexit\n");
+    expect(help).toContain("Usage: nscp ext-scr [add|list|show|install|delete] --help");
+    if (process.platform === "win32") {
+      await nscp.configure({ "/modules": { CheckSystem: "enabled" } });
+      const out = await runConsole("exec CheckSystem --help\nexit\n");
+      expect(out).toContain("List counters and/or instances");
+      expect(out).not.toContain("Failed to execute command on CheckSystem");
+      // The reported case. Inside nscp test the collector thread refreshes
+      // counters while this enumerates them, which used to surface as
+      // PdhEnumObjects failing with PDH_MORE_DATA.
+      const listed = await runConsole("exec CheckSystem --list SQL --all\nexit\n", 90_000);
+      expect(listed).toMatch(/Listed \d+ of \d+ counters/);
+      expect(listed).not.toContain("PdhEnumObjects failed");
+      await nscp.configure({ "/modules": { CheckSystem: "disabled" } });
+    }
+    const nothing = await runConsole("exec CheckExternalScripts no-such-thing\nexit\n");
+    expect(nothing).toMatch(/CheckExternalScripts did not answer the command 'no-such-thing'|Usage: nscp ext-scr/);
+    expect(await runConsole("exec\nexit\n")).toContain("Usage: exec <module>");
+    expect(await runConsole("exec CheckExternalScripts\nexit\n")).toContain("Usage: nscp ext-scr");
+    await nscp.configure({ "/modules": { CheckExternalScripts: "disabled" } });
+  });
+
   it("prints the built-in command list for help", async () => {
     const out = await runConsole("help\nexit\n");
     // Rendered from client::builtin_commands(), which is also the list the
@@ -63,6 +109,115 @@ describe("nscp test console", () => {
   it("lists registered queries", async () => {
     const out = await runConsole("queries\nexit\n");
     expect(out).toContain("check_ok");
+  });
+
+  describe("aligned listings", () => {
+    // A long alias name and a command with a multi-line description are the
+    // two things that broke the old tab-separated layout.
+    const longAlias = "alias_with_a_rather_long_name";
+    beforeAll(async () => {
+      await nscp.configure({
+        "/settings/check helpers/alias": {
+          alias_ok: "check_ok message=hi there",
+          [longAlias]: "check_ok message=long",
+        },
+      });
+    });
+
+    /** The rows the prompt printed for `verb` that match `row`. The first
+     * line of every answer carries the log prefix ("L   cli "), which is
+     * stripped so columns can be compared across rows; log lines from the
+     * core (a "D  core" line naming a module, say) are not rows and are
+     * dropped. */
+    async function listing(verb: string, row: RegExp): Promise<string[]> {
+      const out = await runConsole(`${verb}\nexit\n`);
+      return out
+        .split(/\r?\n/)
+        .filter((l) => !/^[A-Z]\s+(core|settings)\s/.test(l))
+        .map((l) => l.replace(/^[A-Z]\s+cli\s/, ""))
+        .filter((l) => row.test(l));
+    }
+
+    it("aliases: one line per entry, columns padded, no tabs", async () => {
+      const lines = await listing("aliases", /Alias for:/);
+      const ok = lines.find((l) => /(^|\s)alias_ok\s/.test(l))!;
+      const long = lines.find((l) => l.includes(longAlias))!;
+      expect(ok).toBeDefined();
+      expect(long).toBeDefined();
+      expect(ok).not.toContain("\t");
+      expect(ok).toContain("Alias for: check_ok message=hi there");
+      // The description column starts at the same offset on every row.
+      expect(ok.indexOf("Alias for:")).toBe(long.indexOf("Alias for:"));
+      expect(ok.indexOf("Alias for:")).toBeGreaterThan(longAlias.length);
+    });
+
+    it("alias is the same listing as aliases", async () => {
+      // "aliases" is a word nobody types right the first time.
+      expect(await listing("alias", /Alias for:/)).toEqual(await listing("aliases", /Alias for:/));
+    });
+
+    it("queries and list: the description is one line, and list shows both kinds", async () => {
+      const queries = await listing("queries", /(^|\s)check_ok\s/);
+      const okLine = queries.find((l) => /(^|\s)check_ok\s/.test(l))!;
+      expect(okLine).toMatch(/check_ok\s{2,}Just return OK/);
+      expect(okLine).not.toContain("\t");
+      const list = await listing("list", /(^|\s)(check_ok|alias_ok)\s/);
+      expect(list.some((l) => /(^|\s)check_ok\s{2,}Just return OK/.test(l))).toBe(true);
+      expect(list.some((l) => /(^|\s)alias_ok\s{2,}Alias for: check_ok/.test(l))).toBe(true);
+    });
+
+    it("plugins: loaded marker, name and description as columns", async () => {
+      const lines = await listing("plugins", /^\[[X ]\]\s/);
+      const helpers = lines.find((l) => l.includes("CheckHelpers"))!;
+      expect(helpers).toMatch(/^\[X\]\s{2,}CheckHelpers\s{2,}Various helper/);
+    });
+
+    it("desc shows the parameters with their defaults, untruncated", async () => {
+      const out = await runConsole("desc check_ok\nexit\n");
+      expect(out).toMatch(/Command:\s+check_ok/);
+      expect(out).toMatch(/Description:\s+Just return OK/);
+      // The command with every default spelled out, as `check_ok show-default`
+      // prints it: what a bare call does.
+      expect(out).toMatch(/Default:\s+check_ok "message=No message"/);
+      // The old renderer dropped the last character before a line break.
+      expect(out).toContain("Show help screen (this screen)");
+      expect(out).not.toContain("\t");
+    });
+
+    it("desc of an alias shows the command it runs and that command's parameters", async () => {
+      const out = await runConsole("desc alias_ok\nexit\n");
+      expect(out).toMatch(/Command:\s+alias_ok/);
+      expect(out).toMatch(/Runs:\s+check_ok message=hi there/);
+      expect(out).toMatch(/Description:\s+Just return OK/);
+      expect(out).toMatch(/Default:\s+check_ok "message=No message"/);
+      expect(out).toContain("Parameters (of check_ok):");
+      expect(out).toMatch(/\smessage\s+Message to return/);
+    });
+
+    it("keywords lists a filter check's keywords with their descriptions", async () => {
+      // check_cpu is a filter check on every platform. Nothing is executed:
+      // the list is the help payload's field list, so it cannot fail the way
+      // rendering a value can (the filter functions are listed too).
+      await nscp.configure({ "/modules": { CheckSystem: "enabled" } });
+      const out = await runConsole("keywords check_cpu\nexit\n");
+      expect(out).toContain("Filter keywords of check_cpu:");
+      expect(out).toMatch(/KEYWORD\s+DESCRIPTION/);
+      expect(out).toMatch(/\bcore\s{2,}The core to check/);
+      expect(out).toMatch(/\btime\s{2,}The time frame to check/);
+      expect(out).toMatch(/\bcount\s{2,}Number of items matching the filter/);
+      expect(out).not.toContain("\t");
+    });
+
+    it("keywords says so for a check without a filter, and for an unknown one", async () => {
+      expect(await runConsole("keywords check_ok\nexit\n")).toContain("check_ok has no filter keywords");
+      expect(await runConsole("keywords no_such_query\nexit\n")).toContain("Command not found: no_such_query");
+      expect(await runConsole("keywords\nexit\n")).toContain("Usage: keywords <query>");
+    });
+
+    it("desc of an unknown query says so", async () => {
+      const out = await runConsole("desc no_such_query\nexit\n");
+      expect(out).toContain("Command not found: no_such_query");
+    });
   });
 
   it("settings shows what is configured, not every registered key", async () => {

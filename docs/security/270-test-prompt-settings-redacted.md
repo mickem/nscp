@@ -1,6 +1,6 @@
 ---
 title: "Sensitive settings are redacted in the nscp test settings dump"
-fixed_in: next
+fixed_in: 0.21.0
 severity: "Low"
 modules: [core]
 action: none

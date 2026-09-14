@@ -10,6 +10,58 @@ windows:
     description: Check status via WMI
     title: CheckWMI
   paths:
+    /settings/wmi:
+      info:
+        advanced: false
+        description: ''
+        subkey: false
+        title: ''
+      keys:
+        allowed classes:
+          advanced: false
+          default_value: ''
+          description: 'Comma separated list of WMI classes check_wmi may read when ''query access'' is
+            set to allowed. Entries may contain * and ?, for example Win32_Service, Win32_PerfFormattedData_*.
+
+            Only a plain ''SELECT ... FROM <class> [WHERE ...]'' can be checked this way. Anything else
+            - ASSOCIATORS OF, REFERENCES OF, a class path carrying a namespace - is refused rather than
+            guessed at, and has to be configured as a predefined query instead.'
+          sample: false
+          title: ALLOWED WMI CLASSES
+        allowed namespaces:
+          advanced: false
+          default_value: ''
+          description: 'Comma separated list of WMI namespaces check_wmi may bind to when ''query access''
+            is not any. Entries may contain * and ?.
+
+            Leaving this empty means the caller may not change the namespace at all: only the default
+            root\cimv2 is used. It has no effect in the default any mode.'
+          sample: false
+          title: ALLOWED WMI NAMESPACES
+        query access:
+          advanced: false
+          default_value: any
+          description: 'Which WMI queries a caller may ask check_wmi to run: any (the default - any query
+            the caller sends, which is how every earlier release behaved), allowed (only a plain SELECT
+            whose class matches ''allowed classes'') or predefined (only names defined in the [/settings/wmi/queries]
+            section).
+
+            WMI reaches most of what the machine knows, including the filesystem through Win32_Directory
+            and CIM_DataFile, so on a host where callers may pass arguments (NRPE with ''allow arguments'',
+            or the REST API) this decides how much of it a check can read. See the ''Restricting what
+            a check may read'' section of the documentation.'
+          sample: false
+          title: WMI QUERY ACCESS MODE
+    /settings/wmi/queries:
+      info:
+        advanced: false
+        description: 'WMI queries check_wmi may run by name, as <name> = <query>.
+
+          A name defined here can be used as query=<name> in any access mode, and is the only thing accepted
+          when ''query access'' is set to predefined. The query is not parsed: an operator who writes
+          it here has vouched for it.'
+        subkey: false
+        title: PREDEFINED WMI QUERIES
     /settings/wmi/targets:
       info:
         advanced: false
@@ -89,15 +141,22 @@ windows:
       - content_type: 2
         default_value: root\cimv2
         is_simple: false
-        long_description: The WMI root namespace to bind to.
+        long_description: 'The WMI root namespace to bind to.
+
+          While ''query access'' in [/settings/wmi] is restricted this must match ''allowed namespaces'',
+          and may not be changed at all when that list is empty.'
         name: namespace
         repeatable: false
         required: false
         short_description: The WMI root namespace to bind to.
       - content_type: 2
         default_value: ''
-        is_simple: true
-        long_description: The WMI query to execute.
+        is_simple: false
+        long_description: 'The WMI query to execute.
+
+          Which queries may be run here is governed by ''query access'' in [/settings/wmi]: by default
+          any query is run, but an operator can restrict this to queries reading an allowed class, or
+          to names predefined in [/settings/wmi/queries], in which case this takes such a name.'
         name: query
         repeatable: false
         required: false

@@ -1,6 +1,6 @@
 ---
 title: "WEB: a metrics role, and a corrected metrics grant on the monitoring role"
-fixed_in: next
+fixed_in: 0.21.0
 severity: "Low"
 modules: [WEBServer]
 action: conditional

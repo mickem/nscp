@@ -505,9 +505,21 @@ windows:
           description: Default role for legacy API
           sample: false
           title: Role for legacy API
+        metrics:
+          advanced: false
+          default_value: public,metrics.list,openmetrics.list,login.get
+          description: Default role for reading metrics only
+          sample: false
+          title: Role for reading metrics only
         monitoring:
           advanced: false
-          default_value: public,queries.execute,aliases.list,login.get,metrics.get
-          description: Default role for checks and queries only
+          default_value: public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list
+          description: Default role for checks, queries and metrics
           sample: false
-          title: Role for checks and queries only
+          title: Role for checks, queries and metrics
+        restricted:
+          advanced: false
+          default_value: public,queries.execute.noargs,aliases.list,login.get
+          description: Default role for checks and queries only, without arguments
+          sample: false
+          title: Role for checks and queries only, without arguments
