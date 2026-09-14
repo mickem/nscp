@@ -150,7 +150,6 @@ L        cli  Performance data: 'BuildNumber'=10240;9600;8000
 <a id="check_wmi_target"></a>
 <a id="check_wmi_user"></a>
 <a id="check_wmi_password"></a>
-<a id="check_wmi_query"></a>
 
 | Option                            | Default Value | Description                                         |
 |-----------------------------------|---------------|-----------------------------------------------------|
@@ -158,15 +157,22 @@ L        cli  Performance data: 'BuildNumber'=10240;9600;8000
 | user                              |               | Remote username when checking remote machines.      |
 | password                          |               | Remote password when checking remote machines.      |
 | [namespace](#check_wmi_namespace) | root\cimv2    | The WMI root namespace to bind to.                  |
-| query                             |               | The WMI query to execute.                           |
+| [query](#check_wmi_query)         |               | The WMI query to execute.                           |
 
 
 
 <h5 id="check_wmi_namespace">namespace:</h5>
 
 The WMI root namespace to bind to.
+While 'query access' in [/settings/wmi] is restricted this must match 'allowed namespaces', and may not be changed at all when that list is empty.
 
 *Default Value:* `root\cimv2`
+
+<h5 id="check_wmi_query">query:</h5>
+
+The WMI query to execute.
+Which queries may be run here is governed by 'query access' in [/settings/wmi]: by default any query is run, but an operator can restrict this to queries reading an allowed class, or to names predefined in [/settings/wmi/queries], in which case this takes such a name.
+
 
 
 **Common options:**
@@ -209,10 +215,104 @@ This command also supports the [common filter keywords](../common-options.md#com
 
 ## Configuration
 
-| Path / Section                                | Description         |
-|-----------------------------------------------|---------------------|
-| [/settings/wmi/targets](#target-list-section) | TARGET LIST SECTION |
+| Path / Section                                   | Description            |
+|--------------------------------------------------|------------------------|
+| [/settings/wmi](#/settings/wmi)                  |                        |
+| [/settings/wmi/queries](#predefined-wmi-queries) | PREDEFINED WMI QUERIES |
+| [/settings/wmi/targets](#target-list-section)    | TARGET LIST SECTION    |
 
+
+### /settings/wmi <a id="/settings/wmi"></a>
+
+
+
+| Key                                           | Default Value | Description            |
+|-----------------------------------------------|---------------|------------------------|
+| [allowed classes](#allowed-wmi-classes)       |               | ALLOWED WMI CLASSES    |
+| [allowed namespaces](#allowed-wmi-namespaces) |               | ALLOWED WMI NAMESPACES |
+| [query access](#wmi-query-access-mode)        | any           | WMI QUERY ACCESS MODE  |
+
+
+```ini
+# 
+[/settings/wmi]
+query access=any
+```
+
+#### ALLOWED WMI CLASSES <a id="/settings/wmi/allowed classes"></a>
+
+Comma separated list of WMI classes check_wmi may read when 'query access' is set to allowed. Entries may contain * and ?, for example Win32_Service, Win32_PerfFormattedData_*.
+Only a plain 'SELECT ... FROM <class> [WHERE ...]' can be checked this way. Anything else - ASSOCIATORS OF, REFERENCES OF, a class path carrying a namespace - is refused rather than guessed at, and has to be configured as a predefined query instead.
+
+
+| Key            | Description                     |
+|----------------|---------------------------------|
+| Path:          | [/settings/wmi](#/settings/wmi) |
+| Key:           | allowed classes                 |
+| Default value: | _N/A_                           |
+
+
+**Sample:**
+
+```
+[/settings/wmi]
+# ALLOWED WMI CLASSES
+allowed classes=
+```
+
+#### ALLOWED WMI NAMESPACES <a id="/settings/wmi/allowed namespaces"></a>
+
+Comma separated list of WMI namespaces check_wmi may bind to when 'query access' is not any. Entries may contain * and ?.
+Leaving this empty means the caller may not change the namespace at all: only the default root\\cimv2 is used. It has no effect in the default any mode.
+
+
+| Key            | Description                     |
+|----------------|---------------------------------|
+| Path:          | [/settings/wmi](#/settings/wmi) |
+| Key:           | allowed namespaces              |
+| Default value: | _N/A_                           |
+
+
+**Sample:**
+
+```
+[/settings/wmi]
+# ALLOWED WMI NAMESPACES
+allowed namespaces=
+```
+
+#### WMI QUERY ACCESS MODE <a id="/settings/wmi/query access"></a>
+
+Which WMI queries a caller may ask check_wmi to run: any (the default - any query the caller sends, which is how every earlier release behaved), allowed (only a plain SELECT whose class matches 'allowed classes') or predefined (only names defined in the [/settings/wmi/queries] section).
+WMI reaches most of what the machine knows, including the filesystem through Win32_Directory and CIM_DataFile, so on a host where callers may pass arguments (NRPE with 'allow arguments', or the REST API) this decides how much of it a check can read. See the 'Restricting what a check may read' section of the documentation.
+
+
+| Key            | Description                     |
+|----------------|---------------------------------|
+| Path:          | [/settings/wmi](#/settings/wmi) |
+| Key:           | query access                    |
+| Default value: | `any`                           |
+
+
+**Sample:**
+
+```
+[/settings/wmi]
+# WMI QUERY ACCESS MODE
+query access=any
+```
+
+### PREDEFINED WMI QUERIES <a id="/settings/wmi/queries"></a>
+
+WMI queries check_wmi may run by name, as <name> = <query>.
+A name defined here can be used as query=<name> in any access mode, and is the only thing accepted when 'query access' is set to predefined. The query is not parsed: an operator who writes it here has vouched for it.
+
+
+
+```ini
+# WMI queries check_wmi may run by name, as <name> = <query>.
+[/settings/wmi/queries]
+```
 
 ### TARGET LIST SECTION <a id="/settings/wmi/targets"></a>
 

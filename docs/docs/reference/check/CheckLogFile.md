@@ -360,6 +360,7 @@ Character string to split a line into several columns (default \t)
 File to read (can be specified multiple times to check multiple files.
 Notice that specifying multiple files will create an aggregate set it will not check each file individually.
 In other words if one file contains an error the entire check will result in error or if you check the count it is the global count which is used.
+Which files may be named here is governed by 'file access' in [/settings/logfile]: by default any path is read, but an operator can restrict this to a list of allowed paths or to names predefined in [/settings/logfile/files], in which case this takes such a name.
 
 
 <h5 id="check_logfile_bookmark">bookmark:</h5>
@@ -442,11 +443,83 @@ This command also supports the [common filter keywords](../common-options.md#com
 
 ## Configuration
 
-| Path / Section                                           | Description         |
-|----------------------------------------------------------|---------------------|
-| [/settings/logfile/real-time](#real-time-filtering)      | Real-time filtering |
-| [/settings/logfile/real-time/checks](#real-time-filters) | Real-time filters   |
+| Path / Section                                           | Description          |
+|----------------------------------------------------------|----------------------|
+| [/settings/logfile](#/settings/logfile)                  |                      |
+| [/settings/logfile/files](#predefined-log-files)         | PREDEFINED LOG FILES |
+| [/settings/logfile/real-time](#real-time-filtering)      | Real-time filtering  |
+| [/settings/logfile/real-time/checks](#real-time-filters) | Real-time filters    |
 
+
+### /settings/logfile <a id="/settings/logfile"></a>
+
+
+
+| Key                                 | Default Value | Description       |
+|-------------------------------------|---------------|-------------------|
+| [allowed files](#allowed-log-files) |               | ALLOWED LOG FILES |
+| [file access](#file-access-mode)    | any           | FILE ACCESS MODE  |
+
+
+```ini
+# 
+[/settings/logfile]
+file access=any
+```
+
+#### ALLOWED LOG FILES <a id="/settings/logfile/allowed files"></a>
+
+Comma separated list of files check_logfile may read when 'file access' is set to allowed.
+An entry naming a directory (or a path which does not exist yet) allows every file beneath it at any depth; an entry naming an existing file is that single file; an entry containing * or ? is a wildcard matched against the whole path, where * and ? do not cross a directory separator and ** does. Paths are resolved (\`..\` is flattened and symbolic links and junctions are followed) before they are matched, so a link planted inside an allowed directory does not widen it.
+
+
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/logfile](#/settings/logfile) |
+| Key:           | allowed files                           |
+| Default value: | _N/A_                                   |
+
+
+**Sample:**
+
+```
+[/settings/logfile]
+# ALLOWED LOG FILES
+allowed files=
+```
+
+#### FILE ACCESS MODE <a id="/settings/logfile/file access"></a>
+
+Which files a caller may ask check_logfile to read: any (the default - any path the caller names, which is how every earlier release behaved), allowed (only paths matching 'allowed files') or predefined (only names defined in the [/settings/logfile/files] section).
+check_logfile reads the file it is given with the privileges of the agent, so on a host where callers may pass arguments (NRPE with 'allow arguments', or the REST API) this decides how much of the machine a check can read. See the 'Restricting what a check may read' section of the documentation.
+
+
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/logfile](#/settings/logfile) |
+| Key:           | file access                             |
+| Default value: | `any`                                   |
+
+
+**Sample:**
+
+```
+[/settings/logfile]
+# FILE ACCESS MODE
+file access=any
+```
+
+### PREDEFINED LOG FILES <a id="/settings/logfile/files"></a>
+
+Log files which check_logfile may read by name, as <name> = <path>.
+A name defined here can be used as file=<name> in any access mode, and is the only thing accepted when 'file access' is set to predefined.
+
+
+
+```ini
+# Log files which check_logfile may read by name, as <name> = <path>.
+[/settings/logfile/files]
+```
 
 ### Real-time filtering <a id="/settings/logfile/real-time"></a>
 
