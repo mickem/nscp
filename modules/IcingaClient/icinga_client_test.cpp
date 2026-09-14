@@ -599,3 +599,33 @@ TEST(IcingaSubmit, QueryAndExecAreNotSupported) {
   PB::Metrics::MetricsMessage metrics;
   EXPECT_FALSE(handler.metrics(empty, empty, metrics));
 }
+
+TEST(IcingaUnverifiedWarning, IsLoggedOncePerTargetNotPerSubmission) {
+  // The warning sits in submit(), which runs on every passive result. Without
+  // this gate a target left on `verify mode = none` writes the same line on
+  // every schedule tick - 1440 times a day at 60 s - and buries the log it is
+  // meant to stand out in.
+  icinga_client::icinga_client_handler handler;
+
+  EXPECT_TRUE(handler.first_warning_for("icinga.example.com:5665|none"));
+  EXPECT_FALSE(handler.first_warning_for("icinga.example.com:5665|none"));
+  EXPECT_FALSE(handler.first_warning_for("icinga.example.com:5665|none"));
+
+  // A different target still gets its own warning...
+  EXPECT_TRUE(handler.first_warning_for("other.example.com:5665|none"));
+  // ...and so does the same target after its verify mode is reconfigured.
+  EXPECT_TRUE(handler.first_warning_for("icinga.example.com:5665|peer"));
+}
+
+TEST(IcingaUnverifiedWarning, TheRememberedSetIsBounded) {
+  // `nscp client` submissions can name an unlimited number of endpoints, so the
+  // set must not grow without bound; a repeated warning after a wrap is the
+  // accepted cost.
+  icinga_client::icinga_client_handler handler;
+  for (int i = 0; i < 500; ++i) {
+    EXPECT_TRUE(handler.first_warning_for("host" + std::to_string(i) + ":5665|none"));
+  }
+  // Whatever was evicted, the gate still suppresses an immediate repeat.
+  EXPECT_TRUE(handler.first_warning_for("stable.example.com:5665|none"));
+  EXPECT_FALSE(handler.first_warning_for("stable.example.com:5665|none"));
+}
