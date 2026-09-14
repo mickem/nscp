@@ -1041,6 +1041,11 @@ TEST(path_policy_helpers, spots_an_element_windows_would_rewrite) {
   EXPECT_TRUE(path_policy::has_element_win32_would_trim("C:/logs/x.log "));
   EXPECT_FALSE(path_policy::has_element_win32_would_trim("C:/logs/x.log"));
   EXPECT_FALSE(path_policy::has_element_win32_would_trim("C:/logs/x. y.log"));
+  // The two names Win32 does not trim. resolve() now consults the helper on
+  // the raw input too, where `logs/sub/../app.log` still carries them.
+  EXPECT_FALSE(path_policy::has_element_win32_would_trim("C:/logs/sub/../app.log"));
+  EXPECT_FALSE(path_policy::has_element_win32_would_trim("C:/logs/./app.log"));
+  EXPECT_TRUE(path_policy::has_element_win32_would_trim("C:/logs/.. /../secret"));
   EXPECT_FALSE(path_policy::has_element_win32_would_trim("C:/"));
   EXPECT_FALSE(path_policy::has_element_win32_would_trim("/"));
 }
