@@ -18,11 +18,14 @@
  * (`check_nscp_nrpe` is a build-tree-only artifact and is not packaged).
  *
  * The blocking half of the suite needs a check that really parks its dispatch
- * thread, which here is an external script. Registering one portably is not a
- * solved problem in this tree - checkexternalscripts-commands.test.ts is itself
- * Unix-only for the same reason - so those cases follow that precedent and are
- * skipped on Windows rather than shipped on a guess. The re-entrancy and
- * scripted-check cases below need no external script and run everywhere.
+ * thread, which here is an external script. It is written in Python so the same
+ * script runs on every platform the suite does: both CI images already provide
+ * an interpreter (`python3` on the Linux containers, setup-python on Windows).
+ * The interpreter is registered by its absolute path rather than by name,
+ * because the launcher calls CreateProcess with lpApplicationName, which does
+ * no PATH search; paths are written with forward slashes because the command
+ * tokeniser treats a backslash as an escape character and falls back to the
+ * legacy single-string form when it sees one.
  *
  * Overlap is asserted from the agent's side, not from the client's clock: the
  * slow script appends a marker when it starts and another when it finishes, so
@@ -30,6 +33,7 @@
  * rather than an inference from wall-clock timing on a loaded CI runner. The
  * elapsed-time assertions are kept as a loose backstop only.
  */
+import { spawnSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -45,10 +49,28 @@ const NRPE_PORT = 15666;
 /** How long the slow check blocks for, in milliseconds. */
 const SLOW_MS = 2000;
 
-const onWindows = process.platform === "win32";
+/**
+ * Absolute path to a Python interpreter, or null if there is none. Asked for
+ * as `sys.executable` rather than assumed from the platform, so the agent gets
+ * a path it can hand straight to CreateProcess / execv.
+ */
+function findPython(): string | null {
+  for (const candidate of ["python3", "python"]) {
+    const r = spawnSync(candidate, ["-c", "import sys; print(sys.executable)"], {
+      encoding: "utf8",
+    });
+    if (!r.error && r.status === 0) {
+      const exe = (r.stdout ?? "").trim();
+      if (exe) return exe.replace(/\\/g, "/");
+    }
+  }
+  return null;
+}
 
-/** The cases that need the external slow script; Unix-only, see the header. */
-const itUnix = onWindows ? it.skip : it;
+const python = findPython();
+
+/** The cases that need the external slow script. */
+const itScript = python ? it : it.skip;
 
 describe("plugin threading", () => {
   let nscp: NscpInstance;
@@ -122,26 +144,32 @@ describe("plugin threading", () => {
 
     // A check that genuinely blocks its dispatch thread: CheckExternalScripts
     // waits on the child process, so there is no cooperative yielding hiding
-    // a serialised core. The marker writes are append-only single lines, which
-    // both platforms serialise for us.
-    // Unix-only, see the header: `/bin/sh <path>` is how this tree registers
-    // a test script (checkexternalscripts-commands.test.ts).
-    const slowScript = path.join(scriptDir, "slow.sh");
-    if (!onWindows) {
-      fs.writeFileSync(
-        slowScript,
-        [
-          "#!/bin/sh",
-          `echo "+ $$" >> "${tracePath}"`,
-          `sleep ${SLOW_MS / 1000}`,
-          `echo "- $$" >> "${tracePath}"`,
-          "echo 'OK: slow done'",
-          "exit 0",
-          "",
-        ].join("\n"),
-        { mode: 0o755 },
-      );
-    }
+    // a serialised core. Each marker is one short line appended to a file
+    // opened in append mode, which both platforms write atomically.
+    const slowScript = path.join(scriptDir, "slow.py");
+    // JSON.stringify produces a correctly escaped literal for Python too, so
+    // a Windows path survives whichever separator it carries.
+    const traceLiteral = JSON.stringify(tracePath);
+    fs.writeFileSync(
+      slowScript,
+      [
+        "import os, sys, time",
+        "",
+        `TRACE = ${traceLiteral}`,
+        "",
+        "def mark(sign):",
+        '    with open(TRACE, "a") as f:',
+        '        f.write("%s %d\\n" % (sign, os.getpid()))',
+        "",
+        'mark("+")',
+        `time.sleep(${SLOW_MS / 1000})`,
+        'mark("-")',
+        'print("OK: slow done")',
+        "sys.exit(0)",
+        "",
+      ].join("\n"),
+      { mode: 0o755 },
+    );
 
     // Two Lua commands that call back into the core. `lua_nested` is the
     // re-entrancy case that matters: LUAScript asks the core for a command
@@ -202,11 +230,15 @@ describe("plugin threading", () => {
         // handshake is covered by nrpe-tls.test.ts.
         "use ssl": "false",
       },
-      // `/bin/sh <path>`, matching how the external-scripts suite registers
-      // its fixtures; omitted entirely on Windows where those cases are skipped.
-      ...(onWindows
-        ? {}
-        : { "/settings/external scripts/scripts": { slow: `/bin/sh ${slowScript}` } }),
+      // Absolute interpreter, forward slashes: see the header note on
+      // lpApplicationName and the backslash-escaping tokeniser.
+      ...(python
+        ? {
+            "/settings/external scripts/scripts": {
+              slow: `${python} ${slowScript.replace(/\\/g, "/")}`,
+            },
+          }
+        : {}),
       "/settings/lua/scripts": {
         threading: luaScript,
       },
@@ -221,7 +253,7 @@ describe("plugin threading", () => {
     await nscp?.stop();
   });
 
-  itUnix("runs one slow check per caller without serialising them", async () => {
+  itScript("runs one slow check per caller without serialising them", async () => {
     resetTrace();
     const callers = 4;
 
@@ -232,20 +264,33 @@ describe("plugin threading", () => {
     for (const r of results) expect(r).toContain("slow done");
 
     const trace = readTrace();
+    const peak = peakOverlap(trace);
+
+    // A failure here is almost always one CI-only observation, so make sure
+    // the evidence reaches the log rather than just the expected/received.
+    const serialisedMs = callers * SLOW_MS;
+    const budgetMs = serialisedMs * 0.75;
+    if (peak <= 1 || elapsed >= budgetMs) {
+      console.error(`peak=${peak} elapsed=${elapsed}ms trace=[${trace.join(" ")}]`);
+    }
+
     expect(trace.filter((l) => l.startsWith("+"))).toHaveLength(callers);
     expect(trace.filter((l) => l.startsWith("-"))).toHaveLength(callers);
 
     // The point of the suite: the agent had more than one of them inside it
     // at the same time. A core that dispatched under a single lock scores 1
     // here however fast the machine is.
-    expect(peakOverlap(trace)).toBeGreaterThan(1);
+    expect(peak).toBeGreaterThan(1);
 
-    // Loose backstop on the clock. Fully serialised would be callers * SLOW_MS;
-    // anything below half of that cannot have been serialised.
-    expect(elapsed).toBeLessThan(callers * SLOW_MS * 0.5);
+    // Backstop on the clock, deliberately loose. A busy runner can let one
+    // caller arrive after the others have finished, costing a second round
+    // (~2 * SLOW_MS); a core that truly serialises needs all four
+    // (~4 * SLOW_MS). The budget sits between the two so a straggler stays
+    // green and a serialising core cannot.
+    expect(elapsed).toBeLessThan(budgetMs);
   });
 
-  itUnix("keeps a different module answering while one module is blocked", async () => {
+  itScript("keeps a different module answering while one module is blocked", async () => {
     resetTrace();
 
     // Hold CheckExternalScripts busy, then ask CheckHelpers for something
@@ -332,7 +377,7 @@ describe("plugin threading", () => {
     expect(await nrpe("check_ok", ["message=still-alive"])).toContain("still-alive");
   });
 
-  itUnix("keeps serving checks while the agent reloads", async () => {
+  itScript("keeps serving checks while the agent reloads", async () => {
     resetTrace();
 
     // A reload re-runs loadModuleEx on every live module while these checks
