@@ -50,12 +50,17 @@ async function getJson<T>(key: string, path: string): Promise<T> {
   return res.body as T;
 }
 
-/** GET an API path as raw text, bypassing superagent's content-type-driven
- * body parsing (openmetrics serves plain text under a JSON content-type). */
-async function getText(key: string, path: string): Promise<string> {
-  const res = await request(REST_URL)
-    .get(path)
-    .set("Authorization", `Bearer ${key}`)
+/** GET an API path as raw text plus its Content-Type, bypassing superagent's
+ * content-type-driven body parsing (the exposition is not JSON). `accept` is
+ * sent verbatim when given, so the negotiation can be exercised. */
+async function getTextWithType(
+  key: string,
+  path: string,
+  accept?: string,
+): Promise<{ text: string; contentType: string }> {
+  let req = request(REST_URL).get(path).set("Authorization", `Bearer ${key}`);
+  if (accept !== undefined) req = req.set("Accept", accept);
+  const res = await req
     .trustLocalhost(true)
     .buffer(true)
     .parse((r, callback) => {
@@ -64,7 +69,11 @@ async function getText(key: string, path: string): Promise<string> {
       r.on("end", () => callback(null, data));
     })
     .expect(200);
-  return res.body as string;
+  return { text: res.body as string, contentType: String(res.headers["content-type"] ?? "") };
+}
+
+async function getText(key: string, path: string): Promise<string> {
+  return (await getTextWithType(key, path)).text;
 }
 
 /** Re-fetch until `until(value)` holds (scheduler/collector warm-up).
@@ -189,9 +198,97 @@ describe("metrics and real-time checks", () => {
       () => getText(key, "/api/v2/openmetrics"),
       (t) => /^system_cpu_/m.test(t),
     );
-    // One "name value" sample per line, dots flattened to underscores.
-    expect(text).toMatch(/^system_cpu_\S+ [\d.]+$/m);
-    expect(text).toMatch(/^system_mem_\S+ [\d.]+$/m);
+    expect(text).toMatch(/^system_cpu_\S+ -?[\d.]+$/m);
+    expect(text).toMatch(/^system_mem_\S+ -?[\d.]+$/m);
+    // `%` reads as the word, which is the name the documentation has always
+    // shown and the code did not produce until the renderer landed.
+    expect(text).toMatch(/^system_mem_\S*_percent -?[\d.]+$/m);
+  });
+
+  it("serves an exposition a strict OpenMetrics parser accepts", async () => {
+    // A grammar walk rather than a spot check: this is the test that fails on
+    // a future regression nobody predicted, not just on the ones we know about.
+    const text = await poll(
+      () => getText(key, "/api/v2/openmetrics"),
+      (t) => /^system_cpu_/m.test(t),
+    );
+
+    // OpenMetrics 1.0 bodies end with the `# EOF` terminator and nothing after.
+    expect(text.endsWith("# EOF\n")).toBe(true);
+
+    const lines = text.split("\n").slice(0, -1);
+    const typed = new Set<string>();
+    const seenSeries = new Set<string>();
+    let samples = 0;
+    for (const line of lines) {
+      if (line.startsWith("#")) {
+        const type = /^# TYPE (\S+) (\S+)$/.exec(line);
+        if (type) {
+          // Exactly one `# TYPE` per family, or the document is ambiguous.
+          expect(typed.has(type[1])).toBe(false);
+          typed.add(type[1]);
+          expect(["gauge", "counter", "unknown", "info", "summary", "histogram"]).toContain(
+            type[2],
+          );
+        } else {
+          expect(line).toBe("# EOF");
+        }
+        continue;
+      }
+      const sample =
+        /^([a-zA-Z_][a-zA-Z0-9_]*)(\{[^}]*\})? (-?(?:[0-9.]+(?:[eE][+-]?[0-9]+)?|Inf|NaN)|\+Inf)$/.exec(
+          line,
+        );
+      expect(sample).not.toBeNull();
+      const series = `${sample![1]}${sample![2] ?? ""}`;
+      // The same series twice in one body is a duplicate a scraper rejects.
+      expect(seenSeries.has(series)).toBe(false);
+      seenSeries.add(series);
+      // Every sample belongs to a family that was declared before it.
+      expect(typed.has(sample![1])).toBe(true);
+      samples++;
+    }
+    expect(samples).toBeGreaterThan(0);
+  });
+
+  it("keeps full precision, so a sample equals the JSON value for the same key", async () => {
+    // `str::xtos` truncated to six significant digits, which turned a 16 GB
+    // memory reading into 1.6554e+10 on the scrape while the JSON endpoint
+    // reported every byte.
+    const metrics = await poll(
+      () => getMetrics(key),
+      (m) => Object.keys(m).some((k) => k.startsWith("system.mem.")),
+    );
+    const text = await getText(key, "/api/v2/openmetrics");
+
+    const large = Object.entries(metrics).find(
+      ([k, v]) => k.startsWith("system.mem.") && typeof v === "number" && (v as number) > 1e7,
+    );
+    expect(large).toBeDefined();
+    const [flatKey, value] = large!;
+    // The flat key maps onto the exposition name by the documented rules.
+    const name = flatKey.replace(/%/g, "percent").replace(/[^a-zA-Z0-9_]+/g, "_");
+    const sample = new RegExp(`^${name} (\\S+)$`, "m").exec(text);
+    expect(sample).not.toBeNull();
+    expect(Number(sample![1])).toBe(value as number);
+    // And it is written out in full rather than in scientific notation.
+    expect(sample![1]).not.toMatch(/e/i);
+  });
+
+  it("negotiates the OpenMetrics content type", async () => {
+    const om = await getTextWithType(
+      key,
+      "/api/v2/openmetrics",
+      "application/openmetrics-text;version=1.0.0;q=0.75,text/plain;version=0.0.4;q=0.5",
+    );
+    expect(om.contentType).toBe("application/openmetrics-text; version=1.0.0; charset=utf-8");
+
+    // Anything else gets the versioned Prometheus text type - not the bare
+    // `text/plain` the endpoint used to fall back to, which tells a scraper
+    // nothing about what it is reading.
+    const plain = await getTextWithType(key, "/api/v2/openmetrics", "*/*");
+    expect(plain.contentType).toBe("text/plain; version=0.0.4; charset=utf-8");
+    expect(plain.text).toBe(om.text);
   });
 
   // --- real-time checks -----------------------------------------------------

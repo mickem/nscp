@@ -336,10 +336,14 @@ TEST_F(SessionManagerTest, RateLimiterBlocksAfterRepeatedFailures) {
 }
 
 TEST_F(SessionManagerTest, Metrics) {
-  smi.set_metrics("metrics", "metrics_list", {"open_metrics"});
+  // The OpenMetrics body is stored and served verbatim - the session manager
+  // used to join a list of lines, and is not allowed to reshape the document
+  // the renderer produced (dropping its trailing newline would be enough to
+  // make the exposition invalid).
+  smi.set_metrics("metrics", "metrics_list", "# TYPE open_metrics gauge\nopen_metrics 1\n# EOF\n");
   EXPECT_EQ(smi.get_metrics(), "metrics");
   EXPECT_EQ(smi.get_metrics_v2(), "metrics_list");
-  EXPECT_EQ(smi.get_open_metrics(), "open_metrics\n");
+  EXPECT_EQ(smi.get_open_metrics(), "# TYPE open_metrics gauge\nopen_metrics 1\n# EOF\n");
 }
 
 TEST_F(SessionManagerTest, LogData) {

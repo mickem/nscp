@@ -54,6 +54,12 @@ class WEBServer : public nscapi::impl::simple_plugin {
 
  private:
   void add_user(const std::string &key, const std::string &arg);
+  void set_openmetrics_format(const std::string &value);
+
+  // Which exposition `/api/v2/openmetrics` serves. Written by loadModuleEx,
+  // which a settings reload re-enters on the live module, and read by the
+  // metrics task that renders the snapshot - hence the atomic.
+  std::atomic<bool> openmetrics_legacy_;
 
   std::shared_ptr<error_handler_interface> log_handler;
   std::shared_ptr<client::cli_client> client;

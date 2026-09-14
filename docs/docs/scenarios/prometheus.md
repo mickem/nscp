@@ -24,9 +24,9 @@ NSClient++'s `WEBServer` module exposes an OpenMetrics endpoint at:
 GET https://<agent>:8443/api/v2/openmetrics
 ```
 
-Authenticated requests return the current metrics one-per-line in OpenMetrics
-text format. Prometheus is configured to scrape that URL on its usual
-interval (15s, 30s, 1m, …).
+Authenticated requests return the current metrics as an OpenMetrics text
+exposition. Prometheus is configured to scrape that URL on its usual interval
+(15s, 30s, 1m, …).
 
 ```mermaid
 flowchart LR
@@ -117,30 +117,47 @@ From the agent (or anywhere allowed to reach it):
 curl -k -u prometheus:<password> https://<agent>:8443/api/v2/openmetrics
 ```
 
-Expected output is one metric per line, `<name> <value>`. On a Windows host:
+Expected output is an OpenMetrics document: a `# TYPE` line per family, one
+`<name> <value>` sample per line, and a closing `# EOF`. On a Windows host:
 
 ```text
-system_mem_commited.avail 12592123904
-system_mem_commited.total 17175158784
-system_mem_commited.% 73
-system_cpu_total.idle 95
-system_cpu_total.total 5
-system_uptime_ticks.raw 84135
+# TYPE system_mem_commited_avail gauge
+system_mem_commited_avail 12592123904
+# TYPE system_mem_commited_total gauge
+system_mem_commited_total 17175158784
+# TYPE system_mem_commited_percent gauge
+system_mem_commited_percent 73
+# TYPE system_cpu_total_idle gauge
+system_cpu_total_idle 95
+# TYPE system_cpu_core_0_idle gauge
+system_cpu_core_0_idle 93
+# TYPE system_uptime_ticks_raw gauge
+system_uptime_ticks_raw 84135
+# EOF
 ```
 
 On a Linux host:
 
 ```text
-system_cpu_total.idle 97.8293
-system_cpu_total.user 1.19519
-system_cpu_total.kernel 0.975472
-system_mem_physical.total 1.6554e+10
-system_mem_physical.used 2.78311e+09
-system_mem_swap.% 26
-system_uptime_ticks.raw 434344
-system_network_eth0.received 343
-system_network_eth0.sent 131
+# TYPE system_cpu_total_idle gauge
+system_cpu_total_idle 97.8293
+# TYPE system_cpu_total_user gauge
+system_cpu_total_user 1.19519
+# TYPE system_mem_physical_total gauge
+system_mem_physical_total 16554000000
+# TYPE system_mem_swap_percent gauge
+system_mem_swap_percent 26
+# TYPE system_network_eth0_received gauge
+system_network_eth0_received 343
+# EOF
 ```
+
+Metric names are rewritten to the OpenMetrics grammar: `.` and any other
+character outside `[a-zA-Z0-9_]` becomes `_`, a run of them collapses to one,
+`%` becomes the word `percent`, and a name starting with a digit gets a `_`
+prefix. The mapping is deterministic, so the same reading always lands on the
+same series. See the [REST metrics
+reference](../api/rest/metrics.md#metric-names) for the full table.
 
 If you get HTTP 401, the credentials or role grant are wrong; if you get a
 TLS error, see "TLS / self-signed certificate" below.
@@ -185,20 +202,24 @@ within one scrape interval.
 The exact set depends on which modules are loaded and on the platform.
 Available on **both platforms** from `CheckSystem`:
 
-| Bundle                    | Examples                                                            |
-|---------------------------|----------------------------------------------------------------------|
-| `system_cpu_*`            | `total.idle`, `total.user`, `total.kernel`, plus per-core variants  |
-| `system_mem_*`            | families differ per platform — see below                            |
-| `system_uptime_*`         | `ticks.raw`, `boot.raw`                                             |
-| `system_network_<nic>.*`  | `received`, `sent`, `total` (bytes/s per interface)                 |
-| `system_temperature_*`    | thermal sensors (WMI/ACPI on Windows, sysfs thermal/hwmon on Linux) |
-| `system_battery_*`        | charge/health, on machines that have a battery                      |
-| `system_cpu_frequency_*`  | current/max clock per core, where exposed                           |
-| `system_process_history_*`| per-executable `times_seen` / `currently_running` (opt-in, below)   |
+| Family prefix              | Examples                                                                         |
+|----------------------------|----------------------------------------------------------------------------------|
+| `system_cpu_*`             | `system_cpu_total_idle`, `..._user`, `..._kernel`, plus per-core variants        |
+| `system_mem_*`             | families differ per platform — see below                                        |
+| `system_uptime_*`          | `system_uptime_ticks_raw`, `system_uptime_boot_raw`                              |
+| `system_network_<nic>_*`   | `received`, `sent`, `total` (bytes/s per interface)                              |
+| `system_temperature_*`     | thermal sensors (WMI/ACPI on Windows, sysfs thermal/hwmon on Linux)              |
+| `system_battery_*`         | charge/health, on machines that have a battery                                   |
+| `system_cpu_frequency_*`   | current/max clock per core, where exposed                                        |
+| `system_process_history_*` | per-executable `times_seen` / `currently_running` (opt-in, below)                |
 
-Add `CheckDisk` (either platform) and you also get `disk_io_<device>.*`
-(throughput, IOPS, queue length, busy time) and `disk_free_<drive>.*`
+Add `CheckDisk` (either platform) and you also get `disk_io_<device>_*`
+(throughput, IOPS, queue length, busy time) and `disk_free_<drive>_*`
 (total/free/used and percentages).
+
+The instance (the NIC, drive or executable) is part of the family name, not a
+label, so each one is its own metric family. A Grafana variable or a `sum by
+(...)` over them is not possible yet.
 
 Platform differences to be aware of:
 
@@ -206,9 +227,9 @@ Platform differences to be aware of:
   `commited` / `physical` / `page` / `virtual`, Linux publishes `physical` /
   `cached` / `swap`.
 - **Per-core CPU naming**: Linux normalises core names to `core_0`, `core_1`,
-  …; Windows names them `core 0` (with a space), which is not a valid
-  OpenMetrics identifier — strict parsers may drop the per-core lines there
-  (the `total` aggregate is always parseable on both).
+  …; Windows names them `core 0` (with a space). The space is rewritten on the
+  OpenMetrics endpoint, so both platforms scrape as `system_cpu_core_0_*`; the
+  JSON endpoints still show the platform's own spelling.
 - **PDH counters** (`system_metrics_*`) are Windows-only: predefine them in
   `[/settings/system/windows/counters/<name>]` (see
   [Performance Counter (PDH) Monitoring](counters.md)) and they appear on the
@@ -224,21 +245,27 @@ Platform differences to be aware of:
 
 ## Common Gotchas
 
-### Metric names contain dots
+### Metric names changed in 0.22
 
-NSClient++ emits names like `system_mem_commited.avail`. Strict OpenMetrics /
-Prometheus identifiers should match `[a-zA-Z_:][a-zA-Z0-9_:]*`, which doesn't
-include `.`. Recent Prometheus versions tolerate it; older ones may reject
-the line. If your scrape drops metrics with dots, rewrite them with
-`metric_relabel_configs`:
+Up to 0.21 the endpoint emitted the JSON keys verbatim, so names carried dots,
+spaces and colons (`system_mem_commited.avail`, `system_cpu_core 0.idle`) and
+the documented workaround was to rewrite them with `metric_relabel_configs`.
+The agent does that itself now, by the rules above, so **drop any
+`metric_relabel_configs` block that was rewriting dots** — it no longer matches
+anything, and a rule that rewrote `(.*)\.(.*)` to `${1}_${2}` is exactly what
+the agent already applied.
 
-```yaml
-    metric_relabel_configs:
-      - source_labels: [__name__]
-        regex: '(.*)\.(.*)'
-        target_label: __name__
-        replacement: '${1}_${2}'
+A dashboard, recording rule or alert written against the old names does need
+updating. To buy time for that, put the old body back:
+
+```ini
+[/settings/WEB/server]
+openmetrics format = legacy
 ```
+
+This reproduces the pre-0.22 exposition byte for byte. It is deprecated and
+will be removed in 0.24.0, so treat it as a migration window rather than a
+setting to leave in place.
 
 ### TLS / self-signed certificate
 
@@ -264,12 +291,13 @@ allowed hosts = 127.0.0.1, 10.0.0.0/24
 
 Or per-module under `[/settings/WEB/server]`.
 
-### No `# HELP` / `# TYPE` lines
+### No `# HELP` lines
 
-The endpoint emits only `<name> <value>` pairs — no metadata. Most metrics
-are gauges; tag them as such on the Prometheus side if you need explicit
-type metadata, or use `metric_relabel_configs` to project them into separate
-series.
+Every family carries a `# TYPE ... gauge` line and the body ends with `# EOF`,
+so the document parses as OpenMetrics 1.0. What is still missing is the
+descriptive metadata: no module declares a help text or a unit for its metrics
+yet, so no `# HELP` or `# UNIT` lines are emitted and everything is typed as a
+gauge — including the handful of readings that are really monotonic counters.
 
 ### Strings are skipped
 
