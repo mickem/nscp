@@ -41,6 +41,19 @@ runs:
       if: steps.cache.outputs.cache-hit != 'true'
       run: |
         curl -sSfL https://github.com/mariadb-corporation/mariadb-connector-c/archive/refs/tags/v${{ inputs.version }}.tar.gz --output connector-c.tar.gz
+      working-directory: tmp
+      shell: bash
+
+    - name: Verify checksum
+      if: steps.cache.outputs.cache-hit != 'true'
+      run: |
+        "$GITHUB_WORKSPACE/.github/scripts/verify-checksum.sh" mariadb "${{ inputs.version }}" connector-c.tar.gz
+      working-directory: tmp
+      shell: bash
+
+    - name: Unpack
+      if: steps.cache.outputs.cache-hit != 'true'
+      run: |
         mkdir -p mariadb-connector-c
         tar xzf connector-c.tar.gz -C mariadb-connector-c --strip-components=1
         rm connector-c.tar.gz

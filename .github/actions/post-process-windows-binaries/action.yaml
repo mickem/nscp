@@ -50,7 +50,7 @@ runs:
         7z a -tzip -r ../NSCP-${{ inputs.version }}-${{ inputs.platform }}${{ inputs.suffix }}-symbols.zip .
 
     - name: Sign files installer
-      uses: azure/trusted-signing-action@v0.5.1
+      uses: azure/trusted-signing-action@0d74250c661747df006298d0fb49944c10f16e03 # v0.5.1
       if: ${{ inputs.signing-enabled == 'true' }}
       with:
         azure-tenant-id: ${{ inputs.azure-tenant-id }}

@@ -21,6 +21,12 @@ runs:
       working-directory: tmp
       shell: bash
 
+    - name: Verify checksum
+      run: |
+        "$GITHUB_WORKSPACE/.github/scripts/verify-checksum.sh" miniz "${{ inputs.version }}" miniz.zip
+      working-directory: tmp
+      shell: bash
+
     - name: Unzip on windows
       if: runner.os == 'Windows'
       run: |

@@ -26,6 +26,19 @@ runs:
       if: steps.cache.outputs.cache-hit != 'true'
       run: |
         curl -L https://www.lua.org/ftp/lua-${{ inputs.version }}.tar.gz --output lua.tar.gz
+      working-directory: tmp
+      shell: cmd
+
+    - name: Verify checksum
+      if: steps.cache.outputs.cache-hit != 'true'
+      run: |
+        "$GITHUB_WORKSPACE/.github/scripts/verify-checksum.sh" lua "${{ inputs.version }}" lua.tar.gz
+      working-directory: tmp
+      shell: bash
+
+    - name: Unpack
+      if: steps.cache.outputs.cache-hit != 'true'
+      run: |
         7z x lua.tar.gz
         7z x lua.tar
         del lua.tar
