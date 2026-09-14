@@ -96,12 +96,16 @@ class recording_handler : public client::handler_interface {
 // Only the credential options are mirrored here, since the host-override guard
 // turns on whether the request supplied its own: every module that has a
 // credential on its target registers one of these (NSCA/NSCA-ng/SMTP/Icinga/
-// NSCP `password`, NRDP `token`).
+// NSCP `password`, NRDP `token`) - plus the NRDP proxy options, which the
+// guard treats as moving the request as much as --host does.
 struct module_reader : client::options_reader_interface {
   void process(po::options_description &desc, client::destination_container &, client::destination_container &destination) override {
     desc.add_options()("password", po::value<std::string>()->notifier([&destination](const auto &v) { destination.set_string_data("password", v); }),
                        "The password to use")(
-        "token", po::value<std::string>()->notifier([&destination](const auto &v) { destination.set_string_data("token", v); }), "The token to use");
+        "token", po::value<std::string>()->notifier([&destination](const auto &v) { destination.set_string_data("token", v); }), "The token to use")(
+        "proxy", po::value<std::string>()->notifier([&destination](const auto &v) { destination.set_string_data("proxy", v); }), "The proxy to use")(
+        "no-proxy", po::value<std::string>()->notifier([&destination](const auto &v) { destination.set_string_data("no proxy", v); }),
+        "Hosts that bypass the proxy");
   }
   object_instance create(std::string alias, std::string path) override {
     return std::make_shared<nscapi::settings_objects::object_instance_interface>(alias, path);
@@ -908,6 +912,161 @@ TEST(client_host_override, the_exec_path_applies_the_guard_to_the_selected_targe
   EXPECT_EQ(f.handler->exec_calls, 0);
   ASSERT_GE(response.payload_size(), 1);
   EXPECT_NE(response.payload(0).message().find("'default' carries credentials"), std::string::npos) << response.payload(0).message();
+}
+
+// ---------------------------------------------------------------------------
+// The proxy is a second way to move the request: the destination stays what
+// the target named, but `proxy=` hands the whole request - credentials
+// included - to the host the caller picked. Guarded on the same terms as the
+// address, with the same three remedies.
+// ---------------------------------------------------------------------------
+
+TEST(client_route_override, a_credentialed_target_refuses_a_request_chosen_proxy) {
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--proxy", "http://attacker.example:3128/"}), response);
+
+  EXPECT_EQ(f.handler->query_calls, 0) << "nothing must go on the wire";
+  ASSERT_EQ(response.payload_size(), 1);
+  EXPECT_NE(response.payload(0).result(), PB::Common::ResultCode::OK);
+  EXPECT_NE(first_message(response).find("'default' carries credentials"), std::string::npos) << first_message(response);
+  EXPECT_NE(first_message(response).find("--proxy"), std::string::npos) << first_message(response);
+  EXPECT_NE(first_message(response).find("caller-chosen proxy"), std::string::npos) << first_message(response);
+}
+
+TEST(client_route_override, the_rest_style_proxy_token_is_guarded_too) {
+  // submit_nrdp proxy=http://attacker:3128 command=x result=0 message=x, as a
+  // REST caller with queries.execute would send it.
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"proxy=http://attacker.example:3128/"}), response);
+
+  EXPECT_EQ(f.handler->query_calls, 0) << first_message(response);
+  EXPECT_NE(first_message(response).find("carries credentials"), std::string::npos) << first_message(response);
+}
+
+TEST(client_route_override, the_no_proxy_list_is_guarded_the_same_way) {
+  // `no proxy` decides whether the configured proxy is used at all, so a
+  // request may not rewrite it either while the credentials are inherited.
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}, {"proxy", "http://proxy.example:3128/"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--no-proxy", "*"}), response);
+
+  EXPECT_EQ(f.handler->query_calls, 0) << first_message(response);
+  EXPECT_NE(first_message(response).find("carries credentials"), std::string::npos) << first_message(response);
+  EXPECT_NE(first_message(response).find("--no-proxy"), std::string::npos) << first_message(response);
+}
+
+TEST(client_route_override, naming_the_proxy_the_target_already_had_is_not_an_override) {
+  // Nothing moved, so there is nothing to refuse - and --proxy must not be
+  // named as the reason for anything.
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}, {"proxy", "http://proxy.example:3128/"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--proxy", "http://proxy.example:3128/"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.get_string_data("proxy"), "http://proxy.example:3128/");
+  EXPECT_EQ(f.handler->last_target.get_string_data("token"), "s3cret");
+}
+
+TEST(client_route_override, a_request_that_brings_its_own_credentials_may_choose_a_proxy) {
+  // Same rule as for the address: a caller sending a token it already had may
+  // route it however it likes.
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "configured"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--proxy", "http://other.example:3128/", "--token", "mine"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.get_string_data("proxy"), "http://other.example:3128/");
+  EXPECT_EQ(f.handler->last_target.get_string_data("token"), "mine");
+}
+
+TEST(client_route_override, a_target_without_credentials_still_accepts_a_proxy) {
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--proxy", "http://proxy.example:3128/"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.get_string_data("proxy"), "http://proxy.example:3128/");
+}
+
+TEST(client_route_override, allow_host_override_lets_the_request_choose_a_proxy) {
+  // The one opt-in covers both ways of moving the request.
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}, {"allow host override", "true"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--proxy", "http://proxy.example:3128/"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.get_string_data("proxy"), "http://proxy.example:3128/");
+  EXPECT_EQ(f.handler->last_target.get_string_data("token"), "s3cret");
+}
+
+TEST(client_route_override, a_header_supplied_proxy_is_guarded_too) {
+  // apply_host() copies every metadata entry into the container, so a proxy
+  // can arrive without any option being parsed; the message then names the
+  // key rather than an option.
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}});
+  PB::Commands::QueryRequestMessage request = fixture::query_request("check_cpu", {}, "default");
+  PB::Common::Host *host = request.mutable_header()->add_hosts();
+  host->set_id("default");
+  PB::Common::KeyValue *kvp = host->add_metadata();
+  kvp->set_key("proxy");
+  kvp->set_value("http://attacker.example:3128/");
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(request, response);
+
+  EXPECT_EQ(f.handler->query_calls, 0) << first_message(response);
+  EXPECT_NE(first_message(response).find("carries credentials"), std::string::npos) << first_message(response);
+  EXPECT_NE(first_message(response).find("the request changed proxy"), std::string::npos) << first_message(response);
+}
+
+TEST(client_route_override, a_selected_target_keeps_its_own_proxy) {
+  // target= picks a configured proxy along with the configured credentials;
+  // that is the supported way to reach a server through a second proxy.
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}, {"proxy", "http://proxy.example:3128/"}});
+  f.add_target("dmz", {{"address", "https://nrdp2.example.com/nrdp/"}, {"token", "other"}, {"proxy", "http://dmz-proxy.example:3128/"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--target", "dmz"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.get_string_data("proxy"), "http://dmz-proxy.example:3128/");
+  EXPECT_EQ(f.handler->last_target.get_string_data("token"), "other");
+}
+
+TEST(client_route_override, the_exec_path_is_guarded_as_well) {
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}});
+  PB::Commands::ExecuteRequestMessage request;
+  PB::Commands::ExecuteRequestMessage::Request *payload = request.add_payload();
+  payload->set_command("exec_something");
+  payload->add_arguments("--proxy");
+  payload->add_arguments("http://attacker.example:3128/");
+  PB::Commands::ExecuteResponseMessage response;
+
+  f.config.do_exec(request, response, "");
+
+  EXPECT_EQ(f.handler->exec_calls, 0);
+  ASSERT_GE(response.payload_size(), 1);
+  EXPECT_NE(response.payload(0).result(), PB::Common::ResultCode::OK);
+  EXPECT_NE(response.payload(0).message().find("--proxy"), std::string::npos) << response.payload(0).message();
 }
 
 // ---------------------------------------------------------------------------

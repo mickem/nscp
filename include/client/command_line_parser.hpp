@@ -36,6 +36,10 @@ bool is_sensitive_key(const std::string &key);
 bool value_carries_credentials(const std::string &value);
 // Keys that decide where the request ends up.
 bool is_address_key(const std::string &key);
+// Keys that decide which way the request travels to get there: an HTTP proxy
+// is handed the whole request, credentials included, so a caller choosing one
+// moves the credentials as effectively as a caller choosing the host.
+bool is_route_key(const std::string &key);
 
 struct destination_container {
   typedef std::map<std::string, std::string> data_map;
@@ -69,6 +73,15 @@ struct destination_container {
   // inherited_credentials: set_string_data() marks it, and apply() unmarks it
   // straight afterwards for the values that came from a target object.
   bool address_from_request;
+  // The route keys (`proxy`, `no proxy`) as the target configured them, and
+  // the ones the request has set since. A proxy is not part of the address,
+  // so the comparison above does not see it, yet `proxy=http://attacker/`
+  // hands the request - token and all - to a host of the caller's choosing
+  // while the destination stays exactly what the target named. Recorded the
+  // same way as the address: set_string_data() marks the key as request-set
+  // and apply() unmarks it and records the configured value.
+  data_map configured_route;
+  std::set<std::string> route_from_request;
 
   destination_container() : timeout(10), retry(2), allow_host_override(false), address_from_request(false) {}
 
@@ -106,12 +119,31 @@ struct destination_container {
         address_from_request = false;
         configured_address = address.to_string();
       }
+      if (is_route_key(k.first)) {
+        route_from_request.erase(k.first);
+        configured_route[k.first] = k.second;
+      }
     }
   }
 
   // Whether any credential still in this container is one a configured target
   // supplied, rather than one the request brought with it.
   bool has_inherited_credentials() const { return !inherited_credentials.empty(); }
+
+  // The route keys the request set to something other than what the target
+  // configured. A request that repeats the configured proxy changes nothing,
+  // like a --host naming the address the target already had.
+  std::set<std::string> route_changes() const {
+    std::set<std::string> changed;
+    for (const std::string &key : route_from_request) {
+      const data_map::const_iterator now = data.find(key);
+      const std::string value = now == data.end() ? std::string() : now->second;
+      const data_map::const_iterator was = configured_route.find(key);
+      const std::string configured = was == configured_route.end() ? std::string() : was->second;
+      if (value != configured) changed.insert(key);
+    }
+    return changed;
+  }
 
   void apply(const std::string &key, const PB::Common::Header &header) {
     for (const PB::Common::Host &host : header.hosts()) {
@@ -181,6 +213,7 @@ struct destination_container {
     // the mark for good.
     inherited_credentials.erase(key);
     if (is_address_key(key)) address_from_request = true;
+    if (is_route_key(key)) route_from_request.insert(key);
     if (key == "host")
       set_host(value);
     else if (key == "address")
