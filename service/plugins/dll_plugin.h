@@ -130,6 +130,9 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
   // in flight and the five second drain expired.
   bool reload_raced() const override { return reload_raced_; }
 
+  // True when this thread is one of the calls currently inside the module.
+  bool is_dispatching_on_this_thread() const override;
+
   bool load_plugin(NSCAPI::moduleLoadMode mode) override;
   bool has_start() override;
   bool start_plugin() override;

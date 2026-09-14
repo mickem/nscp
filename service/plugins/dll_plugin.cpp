@@ -179,6 +179,11 @@ void nsclient::core::dll_plugin::load_dll() {
   loadRemoteProcs_();
 }
 
+bool nsclient::core::dll_plugin::is_dispatching_on_this_thread() const {
+  boost::lock_guard<boost::mutex> guard(dispatch_mutex_);
+  return dispatchers_.find(boost::this_thread::get_id()) != dispatchers_.end();
+}
+
 bool nsclient::core::dll_plugin::load_plugin(NSCAPI::moduleLoadMode mode) {
   if ((loaded_ || loading_) && mode != NSCAPI::reloadStart) return true;
   if (!fLoadModule) throw plugin_exception(get_alias_or_name(), "Critical error (fLoadModule)");

@@ -612,6 +612,17 @@ bool nsclient::core::plugin_manager::remove_plugin(const std::string &name) {
     LOG_ERROR_CORE("Module " + name + " was not found.");
     return false;
   }
+  // The request asking for this is being served by the module it names: the
+  // web server unloading WEBServer, a script unloading the module hosting it.
+  // Removing it now drops the last reference, and the destructor unmaps the
+  // library while this thread is still executing inside it - the call returns
+  // to an address that is no longer mapped. The module also has to stop its
+  // own listener from that listener's thread on the way, which joins the
+  // calling thread with itself.
+  if (plugin->is_dispatching_on_this_thread()) {
+    LOG_ERROR_CORE_STD("Refused to unload " + plugin->get_alias_or_name() + ": the request asking for it is being served by that module");
+    return false;
+  }
   unsigned int plugin_id = plugin->get_id();
   plugin_list_.remove(plugin_id);
   commands_.remove_plugin(plugin_id);
