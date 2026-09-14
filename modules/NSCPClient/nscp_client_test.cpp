@@ -54,7 +54,7 @@ TEST(NscpConnectionData, DefaultsToTheAgentsOwnPortAndQueryPath) {
   const nscp_client::connection_data con = connection_for({{"address", "agent.example.com"}});
 
   EXPECT_EQ(con.get_port(), "8443");
-  EXPECT_EQ(con.path, "/query.pb");
+  EXPECT_EQ(con.path, "/api/v2/queries");
 }
 
 TEST(NscpConnectionData, AnExplicitPortAndPathWin) {
@@ -93,6 +93,13 @@ TEST(NscpConnectionData, TlsMaterialIsCarriedAndPathsExpanded) {
   EXPECT_EQ(con.ssl.certificate_key, "/expanded${certificate-path}/key.pem") << "the handler resolves ${...} tokens";
   EXPECT_EQ(con.ssl.ca_path, "/etc/ca.pem");
   EXPECT_EQ(con.ssl.verify_mode, "peer-cert");
+}
+
+TEST(NscpConnectionData, TlsIsOnByDefault) {
+  // The target is the remote agent's REST API, which listens on TLS: port
+  // 8443 above is its https port, so a target that says nothing about TLS
+  // must not connect in the clear.
+  EXPECT_TRUE(connection_for({{"address", "agent.example.com"}}).ssl.enabled);
 }
 
 TEST(NscpConnectionData, SslHasTheFinalWordOverNoSsl) {
@@ -267,79 +274,69 @@ client::destination_container unreachable_target() {
 
 }  // namespace
 
-// --- the caller identity must not cross the wire ----------------------------
+// --- the REST request this client builds -------------------------------------
 //
-// remote_nscpforward forwards the request it was handed as-is. Its header
-// carries the two metadata keys the *local* core stamped to say which module
-// and user asked - and on the receiving agent those same keys are how a caller
-// would forge its own subject, so a patched agent answers 400 to a /query.pb
-// request that carries them. They describe this host's caller and mean nothing
-// on the other one.
+// The client used to serialize a whole QueryRequestMessage to /query.pb - a
+// route that let the caller author the header the remote's permission layer
+// read its identity from, and that this client never actually spoke correctly
+// (it passed the serialized message as the HTTP request *target*). It now
+// addresses the command by path on the versioned API, like every other client
+// of that API, and reads the result out of the HTTP status.
 
-namespace {
-PB::Common::KeyValue *add_meta(PB::Commands::QueryRequestMessage &m, const std::string &key, const std::string &value) {
-  PB::Common::KeyValue *kv = m.mutable_header()->add_metadata();
-  kv->set_key(key);
-  kv->set_value(value);
-  return kv;
+TEST(NscpQueryPath, AddsTheCommandAndTheExecuteVerb) {
+  EXPECT_EQ(nscp_client::build_query_path("/api/v2/queries", "check_cpu", {}), "/api/v2/queries/check_cpu/commands/execute");
 }
 
-std::map<std::string, std::string> meta_of(const PB::Commands::QueryRequestMessage &m) {
-  std::map<std::string, std::string> out;
-  for (const PB::Common::KeyValue &kv : m.header().metadata()) out[kv.key()] = kv.value();
-  return out;
-}
-}  // namespace
-
-TEST(NscpForwardIdentity, DropsTheCallerPluginIdAndPrincipal) {
-  PB::Commands::QueryRequestMessage m;
-  add_meta(m, "nscp.caller_plugin_id", "7");
-  add_meta(m, "nscp.principal", "admin");
-
-  nscp_client::strip_local_identity(m);
-
-  EXPECT_EQ(m.header().metadata_size(), 0);
+TEST(NscpQueryPath, ATrailingSlashOnTheBaseDoesNotDoubleUp) {
+  EXPECT_EQ(nscp_client::build_query_path("/api/v2/queries/", "check_cpu", {}), "/api/v2/queries/check_cpu/commands/execute");
 }
 
-TEST(NscpForwardIdentity, KeepsEveryOtherMetadataKeyAndItsOrder) {
-  // The header is also how a target's own metadata reaches the remote host;
-  // only the two identity keys are ours to remove.
-  PB::Commands::QueryRequestMessage m;
-  add_meta(m, "some.key", "one");
-  add_meta(m, "nscp.principal", "admin");
-  add_meta(m, "other.key", "two");
-
-  nscp_client::strip_local_identity(m);
-
-  ASSERT_EQ(m.header().metadata_size(), 2);
-  EXPECT_EQ(m.header().metadata(0).key(), "some.key");
-  EXPECT_EQ(m.header().metadata(1).key(), "other.key");
-  EXPECT_EQ(meta_of(m)["other.key"], "two");
+TEST(NscpQueryPath, ArgumentsBecomeQueryParameters) {
+  EXPECT_EQ(nscp_client::build_query_path("/api/v2/queries", "check_cpu", {"warning=load>80", "time=5m"}),
+            "/api/v2/queries/check_cpu/commands/execute?warning=load%3E80&time=5m");
 }
 
-TEST(NscpForwardIdentity, LeavesTheRestOfTheHeaderAndThePayloadAlone) {
-  PB::Commands::QueryRequestMessage m;
-  m.mutable_header()->set_source_id("me");
-  m.mutable_header()->set_destination_id("them");
-  m.add_payload()->set_command("check_cpu");
-  add_meta(m, "nscp.caller_plugin_id", "7");
-
-  nscp_client::strip_local_identity(m);
-
-  EXPECT_EQ(m.header().source_id(), "me");
-  EXPECT_EQ(m.header().destination_id(), "them");
-  ASSERT_EQ(m.payload_size(), 1);
-  EXPECT_EQ(m.payload(0).command(), "check_cpu");
+TEST(NscpQueryPath, AnArgumentWithoutAValueIsPassedAsABareParameter) {
+  // "show-all" and friends: the endpoint reads a valueless parameter back as
+  // a bare argument on the request payload, which is what the other
+  // transports send too.
+  EXPECT_EQ(nscp_client::build_query_path("/api/v2/queries", "check_drivesize", {"show-all", "drive=C:"}),
+            "/api/v2/queries/check_drivesize/commands/execute?show-all&drive=C%3A");
 }
 
-TEST(NscpForwardIdentity, AMessageWithNoHeaderIsLeftUntouched) {
-  PB::Commands::QueryRequestMessage m;
-  m.add_payload()->set_command("check_cpu");
+TEST(NscpQueryPath, AFilterExpressionSurvivesEncoding) {
+  // A filter is full of characters that are not legal in a URL unescaped.
+  // The encoding here is the form the remote's own query parser decodes
+  // (libs/mongoose-cpp/Request.cpp::decode_form): "+" for a space, "%XX"
+  // otherwise, and a handful of characters - the apostrophe among them -
+  // passed through as they are.
+  EXPECT_EQ(nscp_client::build_query_path("/api/v2/queries", "check_files", {"filter=name = 'a b'"}),
+            "/api/v2/queries/check_files/commands/execute?filter=name+%3D+'a+b'");
+}
 
-  nscp_client::strip_local_identity(m);
+TEST(NscpQueryPath, OnlyTheFirstEqualsSplitsAnArgument) {
+  // "filter=a=b" is a filter whose value contains an equals sign, not two
+  // arguments - the same rule the other transports apply.
+  EXPECT_EQ(nscp_client::build_query_path("/api/v2/queries", "check_files", {"filter=a=b"}),
+            "/api/v2/queries/check_files/commands/execute?filter=a%3Db");
+}
 
-  EXPECT_FALSE(m.has_header());
-  ASSERT_EQ(m.payload_size(), 1);
+TEST(NscpStatusMapping, TheHttpStatusCarriesTheNagiosResult) {
+  // query_controller::execute_query_text encodes it this way, and Icinga's
+  // check_nscp_api reads it the same way.
+  EXPECT_EQ(nscp_client::status_to_nagios(200), NSCAPI::query_return_codes::returnOK);
+  EXPECT_EQ(nscp_client::status_to_nagios(202), NSCAPI::query_return_codes::returnWARN);
+  EXPECT_EQ(nscp_client::status_to_nagios(500), NSCAPI::query_return_codes::returnCRIT);
+  EXPECT_EQ(nscp_client::status_to_nagios(503), NSCAPI::query_return_codes::returnUNKNOWN);
+}
+
+TEST(NscpStatusMapping, AnythingElseIsUnknownRatherThanOk) {
+  // A rejected password (403) or a missing route (404) must not read as a
+  // passing check.
+  EXPECT_EQ(nscp_client::status_to_nagios(401), NSCAPI::query_return_codes::returnUNKNOWN);
+  EXPECT_EQ(nscp_client::status_to_nagios(403), NSCAPI::query_return_codes::returnUNKNOWN);
+  EXPECT_EQ(nscp_client::status_to_nagios(404), NSCAPI::query_return_codes::returnUNKNOWN);
+  EXPECT_EQ(nscp_client::status_to_nagios(0), NSCAPI::query_return_codes::returnUNKNOWN);
 }
 
 TEST(NscpClientHandler, GetCommandPrefersAliasThenCommand) {
@@ -350,6 +347,9 @@ TEST(NscpClientHandler, GetCommandPrefersAliasThenCommand) {
 }
 
 TEST(NscpClientHandler, QueryReportsUnknownWhenTheAgentIsUnreachable) {
+  // The transport failure has to surface as UNKNOWN with the reason, not as
+  // an empty OK: this is what a monitoring server sees when the remote agent
+  // is down.
   test_client h;
   PB::Commands::QueryRequestMessage req;
   req.add_payload()->set_command("check_dummy");
@@ -381,7 +381,15 @@ TEST(NscpClientHandler, QueryLogsValidationErrorsForMissingTlsMaterial) {
   EXPECT_EQ(resp.payload(0).result(), PB::Common::ResultCode::UNKNOWN);
 }
 
-TEST(NscpClientHandler, SubmitProducesOnePayloadPerRequestEntry) {
+// --- submit and exec are refused, not silently dropped -----------------------
+//
+// Neither ever worked over this transport: both posted an NRPE-style
+// "command!arg!arg" string to the protobuf route, which the remote parsed as
+// an empty message and answered with nothing - and submit then reported
+// success anyway, because it compared a bool against returnUNKNOWN. The REST
+// API has no endpoint for either, so they now say so.
+
+TEST(NscpClientHandler, SubmitIsRefusedWithAnExplanationPerPayload) {
   test_client h;
   PB::Commands::SubmitRequestMessage req;
   PB::Commands::QueryResponseMessage::Response *p = req.add_payload();
@@ -393,7 +401,9 @@ TEST(NscpClientHandler, SubmitProducesOnePayloadPerRequestEntry) {
 
   ASSERT_EQ(resp.payload_size(), 1);
   EXPECT_EQ(resp.payload(0).command(), "c1");
-  EXPECT_FALSE(resp.payload(0).result().message().empty());
+  // A passive result that is quietly discarded is worse than one that is
+  // refused: the sender has to be able to tell.
+  EXPECT_NE(resp.payload(0).result().message().find("not supported"), std::string::npos) << resp.payload(0).result().message();
 }
 
 TEST(NscpClientHandler, SubmitUsesTheAliasWhenSet) {
@@ -410,7 +420,7 @@ TEST(NscpClientHandler, SubmitUsesTheAliasWhenSet) {
   EXPECT_EQ(resp.payload(0).command(), "friendly_name");
 }
 
-TEST(NscpClientHandler, ExecForwardsCommandAndArguments) {
+TEST(NscpClientHandler, ExecIsRefusedWithAnExplanationPerPayload) {
   test_client h;
   PB::Commands::ExecuteRequestMessage req;
   PB::Commands::ExecuteRequestMessage::Request *p = req.add_payload();
@@ -422,7 +432,22 @@ TEST(NscpClientHandler, ExecForwardsCommandAndArguments) {
 
   ASSERT_EQ(resp.payload_size(), 1);
   EXPECT_EQ(resp.payload(0).command(), "do_thing");
-  EXPECT_FALSE(resp.payload(0).message().empty());
+  EXPECT_NE(resp.payload(0).message().find("not supported"), std::string::npos) << resp.payload(0).message();
+}
+
+TEST(NscpClientHandler, AQueryWithNoPayloadAnswersRatherThanAsksForNothing) {
+  // The endpoint addresses the command by path, so there is no request to
+  // make without one - and "/api/v2/queries//commands/execute" is not it.
+  test_client h;
+  const PB::Commands::QueryRequestMessage req;
+  PB::Commands::QueryResponseMessage resp;
+
+  EXPECT_TRUE(h.query(client::destination_container(), unreachable_target(), req, resp));
+
+  ASSERT_EQ(resp.payload_size(), 1);
+  EXPECT_EQ(resp.payload(0).result(), PB::Common::ResultCode::UNKNOWN);
+  ASSERT_GE(resp.payload(0).lines_size(), 1);
+  EXPECT_NE(resp.payload(0).lines(0).message().find("no payload"), std::string::npos) << resp.payload(0).lines(0).message();
 }
 
 TEST(NscpClientHandler, MetricsAreNotSupported) {

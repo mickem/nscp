@@ -3,12 +3,14 @@ title: "Web server and web UI: identity metadata, log buffer, logout and bundle 
 fixed_in: next
 severity: "Medium"
 modules: [WEBServer, NSCPClient]
-action: none
+action: conditional
 ---
 Four findings from a review of the web server and the shipped web UI. None is
-remotely exploitable without credentials except the second.
+remotely exploitable without credentials except the second. The first removes
+an endpoint, which changes three settings on an `NSCP` client target - see the
+[upgrade note](../setup/upgrading.md).
 
-#### The legacy `/query.pb` route let a caller choose its own subject
+#### The raw protobuf route let a caller choose its own subject, and is gone
 
 The core permission layer decides what a request may run from the calling
 module and principal, which it reads out of two metadata keys on the request
@@ -18,22 +20,25 @@ inside the agent.
 
 `POST /query.pb` forwarded the caller's protobuf into the core verbatim,
 header included — so a caller who set the two keys picked its own subject and
-satisfied any allow-list rule written for another module or user. The route now
-parses the body and refuses, with `400`, any request that carries either key.
+satisfied any allow-list rule written for another module or user. The `legacy`
+grant that unlocks the route is RCE-equivalent on its own ([The `legacy` WEB
+permission is flagged and no longer seeded by
+default](#the-legacy-web-permission-is-flagged-and-no-longer-seeded-by-default)),
+so this mattered where the policy system was used to constrain what legacy
+callers could reach.
 
-Nothing that talks to an agent over HTTP sends them: Icinga's bundled
-`check_nscp_api` uses `GET /query/<command>` with a `password` header, not the
-raw-protobuf route. The one thing that did was NSClient++ itself — the
-`remote_nscpforward` command forwards the request it was handed "as-is", header
-included — so the forwarding client no longer puts the local caller's identity
-on the wire; it describes this host's caller and means nothing on the other
-one. A forwarding agent on an older release still sends the keys, so upgrade it
-at the same time as, or before, the agent it forwards to.
-
-The `legacy` grant remains RCE-equivalent on its own ([The `legacy` WEB permission is flagged and no longer seeded by
-default](#the-legacy-web-permission-is-flagged-and-no-longer-seeded-by-default)), so this
-matters where the policy system is used to constrain what legacy callers may
-reach.
+The route is removed, along with `POST /settings/query.pb` (unreachable for
+several releases, and it read settings without the redaction the v2 endpoints
+apply). Nothing that talks to an agent over HTTP used either: Icinga's
+`check_nscp_api` asks for `GET /query/{name}`, which is untouched. The one
+consumer was NSClient++'s own `NSCPClient`, which now runs remote checks
+through `GET /api/v2/queries/{command}/commands/execute` — an endpoint that
+stamps the identity from the authenticated session instead of taking it on
+trust. That client had never actually worked (it put the serialized message in
+the HTTP request target and never sent its configured password), so the
+transport is fixed and tested rather than migrated; see the
+[upgrade note](../setup/upgrading.md) for the three target settings that
+changed.
 
 #### The in-memory log buffer had no upper bound
 

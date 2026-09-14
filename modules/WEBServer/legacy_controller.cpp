@@ -7,7 +7,6 @@
 #include <boost/thread/locks.hpp>
 #include <client/simple_client.hpp>
 #include <nscapi/macros.hpp>
-#include <nscapi/protobuf/command.hpp>
 #include <str/xtos.hpp>
 
 #include "error_handler_interface.hpp"
@@ -17,8 +16,8 @@ namespace json = boost::json;
 legacy_controller::legacy_controller(const std::shared_ptr<session_manager_interface> &session, const nscapi::core_wrapper *core, unsigned int plugin_id,
                                      const std::shared_ptr<client::cli_client> &client)
     : session(session), core(core), plugin_id(plugin_id), client(client), status("ok") {
-  addRoute("POST", "/query.pb", this, &legacy_controller::run_query_pb);
-  addRoute("POST", "/settings/query.pb", this, &legacy_controller::settings_query_pb);
+  // The raw-protobuf routes (POST /query.pb, POST /settings/query.pb) were
+  // removed: see the comment on the class in legacy_controller.hpp.
   addRoute("GET", "/log/status", this, &legacy_controller::log_status);
   // State-changing endpoints must be POST so that they cannot be triggered by
   // a cross-origin <img>/<a>/<form> CSRF gadget that an authenticated admin
@@ -60,61 +59,6 @@ void legacy_controller::console_exec(Mongoose::Request &request, Mongoose::Strea
 
   client->handle_command(command);
   response.append("{\"status\" : \"ok\"}");
-}
-
-void legacy_controller::settings_query_pb(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-  if (!session->is_logged_in("legacy", request, response)) return;
-  std::string response_pb;
-  if (!core->settings_query(request.getData(), response_pb)) {
-    response.setCodeServerError("500 Query failed");
-    return;
-  }
-  response.append(response_pb);
-}
-void legacy_controller::run_query_pb(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-  if (!session->is_logged_in("legacy", request, response)) return;
-  // Raw-protobuf passthrough: the body is forwarded verbatim, which means
-  // the caller authors the message *header* too. The core permission layer
-  // (service/plugins/plugin_manager.cpp::extract_subject_from_header) reads
-  // the caller identity out of exactly two header metadata keys, so a
-  // caller who sets them here picks its own subject and satisfies any
-  // allow-list rule written for another module or user. Refuse such a
-  // request outright rather than stripping the keys silently: nothing
-  // legitimate sends them (core_helper stamps them in-process, never over
-  // HTTP), so their presence is either an attack or a client that has to be
-  // fixed, and a 400 says which.
-  //
-  // The newer query_controller (v2 `/api/vX/queries/...`) is the supported
-  // way to invoke checks over HTTP - it stamps the identity itself from the
-  // session. This legacy endpoint stays unstamped: a strict default-deny
-  // policy blocks it because the subject resolves to "*" (no caller module
-  // known) rather than to WEBServer. That's the intended behaviour for a
-  // deprecated endpoint.
-  PB::Commands::QueryRequestMessage message;
-  if (!message.ParseFromString(request.getData())) {
-    response.setCodeBadRequest("400 Invalid query request");
-    return;
-  }
-  for (const auto &kv : message.header().metadata()) {
-    if (kv.key() != "nscp.caller_plugin_id" && kv.key() != "nscp.principal") continue;
-    NSC_LOG_ERROR("Rejected legacy /query.pb call from " + request.getRemoteIp() + ": the request carries a '" + kv.key() +
-                  "' header, which would forge the identity the core permission layer attributes the call to. "
-                  "Use the v2 API (/api/v2/queries/...), which stamps the identity from the authenticated session.");
-    response.setCodeBadRequest("400 Request carries reserved identity metadata");
-    return;
-  }
-  std::string response_pb;
-  if (!core->query(request.getData(), response_pb)) {
-    response.setCodeServerError("500 Query failed");
-    return;
-  }
-  response.append(response_pb);
-}
-void legacy_controller::run_exec_pb(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-  if (!session->is_logged_in("legacy", request, response)) return;
-  std::string response_pb;
-  if (!core->exec_command("*", request.getData(), response_pb)) return;
-  response.append(response_pb);
 }
 
 void legacy_controller::auth_token(Mongoose::Request &request, Mongoose::StreamResponse &response) {

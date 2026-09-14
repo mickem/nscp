@@ -11,58 +11,6 @@ import { NscpInstance, REST_URL, setupRestNscp } from "@fixtures/index";
 
 jest.setTimeout(900_000);
 
-// Just enough protobuf wire format to build a QueryRequestMessage by hand:
-// the raw /query.pb endpoint takes protobuf bytes and there is no generated
-// TypeScript stub in this suite. Only length-delimited (wire type 2) fields
-// are needed - every field used below is a string or a sub-message.
-const tag = (field: number, wireType = 2): Buffer => varint((field << 3) | wireType);
-
-function varint(value: number): Buffer {
-  const bytes: number[] = [];
-  let v = value;
-  do {
-    let b = v & 0x7f;
-    v >>>= 7;
-    if (v) b |= 0x80;
-    bytes.push(b);
-  } while (v);
-  return Buffer.from(bytes);
-}
-
-const lengthDelimited = (field: number, payload: Buffer): Buffer =>
-  Buffer.concat([tag(field), varint(payload.length), payload]);
-
-const stringField = (field: number, value: string): Buffer =>
-  lengthDelimited(field, Buffer.from(value, "utf8"));
-
-// PB.Common.KeyValue: key = 1, value = 2.
-const keyValue = (key: string, value: string): Buffer =>
-  Buffer.concat([stringField(1, key), stringField(2, value)]);
-
-// The response is protobuf too, and the route answers with the agent's default
-// JSON content type - so superagent's JSON parser chokes on the first byte.
-// Collect the bytes instead and let the test read them.
-function binaryParser(res: unknown, callback: (err: Error | null, body: Buffer) => void): void {
-  // superagent types the parser's first argument as its own ResponseBase, but
-  // at this point it is still the raw http.IncomingMessage - a stream.
-  const stream = res as NodeJS.ReadableStream;
-  const chunks: Buffer[] = [];
-  stream.on("data", (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
-  stream.on("end", () => callback(null, Buffer.concat(chunks)));
-}
-
-// PB.Common.Header: metadata = 8. QueryRequestMessage: header = 1, payload = 2.
-// QueryRequestMessage.Request: command = 2, arguments = 4.
-function queryRequest(command: string, metadata: Array<[string, string]> = []): Buffer {
-  const parts: Buffer[] = [];
-  if (metadata.length > 0) {
-    const header = Buffer.concat(metadata.map(([k, v]) => lengthDelimited(8, keyValue(k, v))));
-    parts.push(lengthDelimited(1, header));
-  }
-  parts.push(lengthDelimited(2, stringField(2, command)));
-  return Buffer.concat(parts);
-}
-
 describe("REST query (legacy)", () => {
   let nscp: NscpInstance;
   let key: string | undefined = undefined;
@@ -210,50 +158,33 @@ describe("REST query (legacy)", () => {
       });
   });
 
-  // The raw-protobuf endpoint forwards the caller's message into the core,
-  // header included, and the core permission layer reads the calling module
-  // and principal out of two header metadata keys. A caller who sets them
-  // would pick its own subject and match any allow-list rule written for
-  // another module or user, so the endpoint refuses such a request outright.
-  it("executes a raw protobuf query that carries no identity metadata", async () => {
-    const response = await request(REST_URL)
-      .post("/query.pb")
-      .set("Authorization", `Bearer ${key}`)
-      .set("Content-Type", "application/octet-stream")
-      .send(queryRequest("check_ok"))
-      .buffer(true)
-      .parse(binaryParser)
-      .trustLocalhost(true)
-      .expect(200);
-
-    // A QueryResponseMessage for the command we asked for: the command name
-    // is carried verbatim in the payload, so finding it proves the request was
-    // dispatched rather than merely accepted.
-    const body: Buffer = response.body;
-    expect(body.length).toBeGreaterThan(0);
-    expect(body.includes("check_ok")).toBe(true);
-  });
-
-  it.each([["nscp.caller_plugin_id", "1"] as const, ["nscp.principal", "admin"] as const])(
-    "rejects a raw protobuf query that forges %s",
-    async (metaKey, metaValue) => {
-      await request(REST_URL)
-        .post("/query.pb")
-        .set("Authorization", `Bearer ${key}`)
-        .set("Content-Type", "application/octet-stream")
-        .send(queryRequest("check_ok", [[metaKey, metaValue]]))
-        .trustLocalhost(true)
-        .expect(400);
-    },
-  );
-
-  it("rejects a body that is not a query request at all", async () => {
+  // The raw-protobuf endpoint is gone. It handed the remote core a message
+  // whose header the caller wrote, which is how a caller picked the identity
+  // the permission layer attributed the call to - and its only consumer was
+  // NSClient++'s own NSCPClient, which now uses /api/v2/queries like
+  // everything else. This route must not come back: the JSON route below is
+  // what a legacy client (Icinga's check_nscp_api) actually uses.
+  it("no longer serves the raw protobuf endpoint", async () => {
     await request(REST_URL)
       .post("/query.pb")
       .set("Authorization", `Bearer ${key}`)
       .set("Content-Type", "application/octet-stream")
-      .send(Buffer.from([0xff, 0xff, 0xff, 0xff]))
+      .send(Buffer.from([0x0a, 0x00]))
       .trustLocalhost(true)
-      .expect(400);
+      .expect(404);
+  });
+
+  it("still serves the legacy JSON query route the `legacy` grant is for", async () => {
+    // check_nscp_api asks for GET /query/<command>, not the protobuf route;
+    // removing one must not take the other with it.
+    await request(REST_URL)
+      .get("/query/check_ok")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true)
+      .expect(200)
+      .then((response) => {
+        expect(response.body.payload[0].command).toEqual("check_ok");
+        expect(response.body.payload[0].result).toEqual("OK");
+      });
   });
 });

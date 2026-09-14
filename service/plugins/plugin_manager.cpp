@@ -681,12 +681,12 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::find
 // module calling through core_helper cannot set them to anything else
 // without rewriting core_helper. They are NOT trustworthy for a request
 // whose bytes came off the wire - whoever composed the protobuf composed
-// its header too. Any endpoint that forwards a caller-supplied
-// QueryRequestMessage into core->query must therefore either re-stamp the
-// keys from its own session (query_controller::stamp_identity) or refuse a
-// request that carries them (legacy_controller::run_query_pb). Adding a
-// third such endpoint without doing one of the two hands the caller its
-// own subject.
+// its header too. No endpoint hands a caller-supplied QueryRequestMessage
+// to core->query any more (the raw-protobuf route that did was removed);
+// every HTTP path now builds the message itself and stamps the keys from
+// the authenticated session, as query_controller::stamp_identity does.
+// Anything that reintroduces a pass-through must do the same, or refuse a
+// request that carries them - otherwise the caller picks its own subject.
 //
 // Both keys are best-effort: legacy simple_query (no _as) sends neither,
 // and direct NSAPIInject invocations may send neither either. An
