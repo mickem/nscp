@@ -1030,8 +1030,10 @@ TEST_F(path_escape_test, a_restricted_mode_accepts_only_absolute_paths) {
 
 // Win32 strips trailing spaces and periods from a path element before the
 // file system sees it, so `logs\.. ` is one odd name to the resolver and
-// `logs\..` to the kernel. The helper is portable so it is pinned here on
-// every platform; resolve() consults it on Windows only.
+// `logs\..` to the kernel. The two navigation elements are left alone by
+// Win32 and flattened by the resolver, so they are not a rewrite. The helper
+// is portable so it is pinned here on every platform; resolve() consults it
+// on Windows only.
 TEST(path_policy_helpers, spots_an_element_windows_would_rewrite) {
   using check::access::path_policy;
   EXPECT_TRUE(path_policy::has_element_win32_would_trim("C:/logs/.. "));
@@ -1043,6 +1045,11 @@ TEST(path_policy_helpers, spots_an_element_windows_would_rewrite) {
   EXPECT_FALSE(path_policy::has_element_win32_would_trim("C:/logs/x. y.log"));
   EXPECT_FALSE(path_policy::has_element_win32_would_trim("C:/"));
   EXPECT_FALSE(path_policy::has_element_win32_would_trim("/"));
+  // `.` and `..` end in a period but name themselves, not a trimmed sibling.
+  EXPECT_FALSE(path_policy::has_element_win32_would_trim("C:/logs/../x.log"));
+  EXPECT_FALSE(path_policy::has_element_win32_would_trim("C:/logs/./x.log"));
+  EXPECT_FALSE(path_policy::has_element_win32_would_trim("C:/logs/.."));
+  EXPECT_FALSE(path_policy::has_element_win32_would_trim("C:/logs/."));
 }
 
 #ifdef WIN32
@@ -1050,9 +1057,17 @@ TEST_F(path_escape_test, an_element_windows_would_rewrite_is_refused) {
   const check::access::path_policy p = restricted();
   const std::string logs = allowed_dir();
   EXPECT_FALSE(p.resolve(logs + "\\.. ").allowed);
+  // The resolver keeps `.. ` as an ordinary element, so the `..` behind it
+  // cancels it and the result lands back inside the allowed directory; the
+  // token as written is what Win32 would walk two levels up, so the token is
+  // what has to be refused.
   EXPECT_FALSE(p.resolve(logs + "\\.. \\..\\secret\\shadow").allowed);
   EXPECT_FALSE(p.resolve(logs + "\\app.log. ").allowed);
   EXPECT_TRUE(p.resolve(logs + "\\app.log").allowed);
+  // A plain `..` is not a rewrite: it still resolves and still has to stay
+  // inside the allowed directory.
+  EXPECT_TRUE(p.resolve(logs + "\\sub\\..\\app.log").allowed);
+  EXPECT_FALSE(p.resolve(logs + "\\..\\secret\\shadow").allowed);
 }
 #endif
 

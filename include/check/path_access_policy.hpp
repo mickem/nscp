@@ -166,15 +166,26 @@ class path_policy {
   //     opens wherever `out` points. Walking the result and refusing any
   //     element which is still a link is what makes "what was matched is
   //     what gets opened" true whatever the resolver did.
-  //   * On Windows, an element ending in a space or a period. Win32 strips
-  //     those before the file system sees the name, so `logs\.. ` is one odd
-  //     name to the resolver and `logs\..` to the kernel.
+  //   * On Windows, an element ending in a space or a period, in the token as
+  //     written as much as in the result. Win32 strips those before the file
+  //     system sees the name, so `logs\.. ` is one odd name to the resolver
+  //     and `logs\..` to the kernel. Looking only at the result is not
+  //     enough: the resolver keeps `.. ` as an ordinary element, so a `..`
+  //     after it cancels it and `logs\.. \..\secret` resolves to
+  //     `logs\secret` - inside the allowed directory - while the kernel walks
+  //     two levels up and opens `secret` beside it.
   static bool resolve_physical(const std::string &token, std::string &resolved, std::string &why) {
     if (token.find('\0') != std::string::npos) {
       why = "it contains a NUL character";
       return false;
     }
     const std::string input = to_separators(token);
+#ifdef WIN32
+    if (has_element_win32_would_trim(input)) {
+      why = "it contains a path element ending in a space or a period, which Windows would silently rewrite";
+      return false;
+    }
+#endif
     boost::system::error_code ec;
     const boost::filesystem::path canonical_path = boost::filesystem::weakly_canonical(boost::filesystem::path(input), ec);
     if (ec) {
@@ -233,14 +244,17 @@ class path_policy {
   // True when an element of the path ends in a space or a period. Win32 path
   // normalisation drops those (`x.log. ` opens `x.log`, and `.. ` becomes
   // `..`), so the name the resolver matched is not the name the file system
-  // gets. Only consulted on Windows, but written portably so it can be tested
-  // anywhere.
+  // gets. `.` and `..` are the exception: Win32 leaves the two navigation
+  // elements alone, and the resolver flattens them itself (what is left of a
+  // `..` afterwards is has_parent_element's business), so counting them here
+  // would refuse the perfectly ordinary `logs\sub\..\app.log`. Only consulted
+  // on Windows, but written portably so it can be tested anywhere.
   static bool has_element_win32_would_trim(const std::string &path) {
     std::string::size_type start = 0;
     for (;;) {
       const std::string::size_type end = path.find('/', start);
       const std::string element = end == std::string::npos ? path.substr(start) : path.substr(start, end - start);
-      if (!element.empty() && (element.back() == ' ' || element.back() == '.')) return true;
+      if (element != "." && element != ".." && !element.empty() && (element.back() == ' ' || element.back() == '.')) return true;
       if (end == std::string::npos) return false;
       start = end + 1;
     }

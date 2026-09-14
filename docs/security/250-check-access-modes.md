@@ -70,7 +70,13 @@ Three details matter for the strength of the control:
   path, or one carrying a NUL byte is refused outright. The NUL rule applies
   to every gate: a glob matched the whole token while the C or wide-string API
   the check then called saw only the part before the NUL, so
-  `Security<NUL>Operational` passed `*Operational`.
+  `Security<NUL>Operational` passed `*Operational`. On Windows the token is
+  also refused when any of its elements ends in a space or a period, because
+  Win32 strips those before the file system sees the name: `logs\.. ` is an
+  ordinary element to the resolver, so a `..` behind it cancelled it and
+  `logs\.. \..\secret` matched as a path inside `logs` while the kernel
+  walked two levels up. The two navigation elements `.` and `..` are not
+  affected - Win32 leaves them alone and the resolver flattens them.
 * **An argument which is not the path still cannot leave it.** `check_files`
   takes a `pattern`, which the scanner appends to each directory it walks; while
   access is restricted it must be a file mask, not a path, or the scan would
