@@ -255,6 +255,13 @@ class settings_core {
   virtual std::string get_tls_verify_mode() const = 0;
   virtual std::string get_tls_ca() const = 0;
 
+  /// True when boot.ini opts this host into fetching settings over plain
+  /// http://. False (the default) refuses such a fetch outright: the remote
+  /// store is the agent's whole configuration, [/modules] and external script
+  /// definitions included, so an unauthenticated transport hands whoever can
+  /// answer for the host name code execution as SYSTEM or root.
+  virtual bool get_allow_plaintext() const = 0;
+
   virtual std::string get_proxy_url() const = 0;
   virtual std::string get_no_proxy() const = 0;
 };

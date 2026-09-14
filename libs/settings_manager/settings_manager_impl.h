@@ -52,6 +52,10 @@ class NSCSettingsImpl : public settings::settings_handler_impl {
   std::string tls_ca_;
   std::string proxy_url_;
   std::string no_proxy_;
+  // `[tls] allow plaintext` in boot.ini. Opt-in, because an http:// settings
+  // source has no server authentication at all - not merely a weaker one. See
+  // settings_core::get_allow_plaintext().
+  bool allow_plaintext_ = false;
 
  public:
   // Defaults for [tls] in boot.ini. These govern the transport used to fetch a
@@ -106,6 +110,7 @@ class NSCSettingsImpl : public settings::settings_handler_impl {
   std::string get_tls_version() const override { return tls_version_; }
   std::string get_tls_verify_mode() const override { return tls_verify_mode_; }
   std::string get_tls_ca() const override { return tls_ca_; }
+  bool get_allow_plaintext() const override { return allow_plaintext_; }
   std::string get_proxy_url() const override { return proxy_url_; }
   std::string get_no_proxy() const override { return no_proxy_; }
 };

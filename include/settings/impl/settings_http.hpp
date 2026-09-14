@@ -211,6 +211,41 @@ class settings_http : public settings::settings_interface_impl {
       }
     } guard{tmp_file};
 
+    // Plain http:// carries no authentication of the server at all, and this
+    // download *is* the agent's configuration: [/modules], external script
+    // definitions, the lot. Anyone on path, or anyone who can answer for the
+    // host name through DHCP or DNS, therefore owns every agent that boots
+    // against such a url - and it is re-fetched on every housekeeping pass, so
+    // one answered query is enough. Refuse by default. `[tls] allow plaintext
+    // = true` in boot.ini is the escape hatch for a lab or an air-gapped
+    // network, and it still logs on every fetch.
+    //
+    // This sits in cache_remote_file rather than at the settings-source entry
+    // point on purpose: the settings url, an [/includes] entry inside a fetched
+    // file, and an [/attachments] target all arrive here, and all three deliver
+    // the same thing.
+    //
+    // Anything that is not https counts, not just a literal "http": a url with
+    // no scheme at all parses to an empty protocol and is fetched over a plain
+    // socket just the same, and an [/attachments] value is not validated
+    // anywhere before it gets here.
+    if (url.protocol != "https") {
+      const std::string how = url.protocol.empty() ? "a url with no scheme, which is fetched over a plain socket" : "plain " + url.protocol;
+      if (!get_core()->get_allow_plaintext()) {
+        get_logger()->error("settings", __FILE__, __LINE__,
+                            "Refusing to fetch settings from " + url.to_log_safe_string() + " over " + how +
+                                ": the transport does not authenticate the server, and this download is the agent's entire configuration "
+                                "(including external script definitions, i.e. command execution). Use https://, or set "
+                                "'allow plaintext = true' under [tls] in boot.ini if you accept that anyone who can answer for this host "
+                                "controls this agent.");
+        return false;
+      }
+      get_logger()->warning("settings", __FILE__, __LINE__,
+                            "INSECURE: fetching settings from " + url.to_log_safe_string() + " over " + how +
+                                " because [tls] allow plaintext = true is set in boot.ini. The server is not authenticated: anyone on path "
+                                "controls this agent's entire configuration, including external script definitions.");
+    }
+
     std::ofstream os(tmp_file.string().c_str(), std::ofstream::binary);
 
     try {
