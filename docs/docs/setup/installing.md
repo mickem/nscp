@@ -340,6 +340,33 @@ NSClient++ consists of the following features most which can be disabled when do
 | WEBPlugins        | WEB Server             | NSClient WEB Server. Use this to administrate or check NSClient via a browser or REST API |
 | OP5Monitoring     | OP5 Monitoring         | Scripts/config for the op5 monitoring system.                                             |
 
+Features are selected with the standard Windows Installer properties:
+`ADDLOCAL=ALL` selects everything (which is also what a default install picks -
+every feature above is installed by default), and `REMOVE=<feature>,<feature>`
+takes individual ones away again:
+
+```commandline
+msiexec /i NSCP-<version>-x64.msi /quiet ADDLOCAL=ALL REMOVE=NSCPlugins,WEBPlugins
+```
+
+<!-- @formatter:off -->
+!!! note "Always pass `ADDLOCAL=ALL` together with `REMOVE`"
+    Windows Installer only applies the default feature selection when the
+    command line names no features at all. `REMOVE=...` on its own therefore
+    used to install *nothing* — the new version registered itself in Add/Remove
+    Programs with no files, and Windows Installer skipped the step that takes
+    the previous version out, leaving the old agent installed and running beside
+    it ([#1256](https://github.com/mickem/nscp/issues/1256)).
+
+    The installer now fills in `ADDLOCAL=ALL` itself when a fresh install or an
+    upgrade passes `REMOVE` without a selection, so both spellings work. Write
+    it out anyway: it is what every other MSI expects, and it keeps the command
+    line working with older NSClient++ packages.
+
+    On a host that already has this exact version installed, `REMOVE=<feature>`
+    keeps its plain meaning — remove that feature and change nothing else.
+<!-- @formatter:on -->
+
 ### Silent install
 
 Now we can put all this together using the normal silent installer which is again part of the standard windows install

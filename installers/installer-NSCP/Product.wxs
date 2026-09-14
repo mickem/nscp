@@ -19,6 +19,41 @@
       <UpgradeVersion Property="NEWERVERSIONDETECTED" IncludeMinimum="no" Minimum="$(var.Version.Tag)" OnlyDetect="yes"/>
     </Upgrade>
 
+    <!-- REMOVE=<features> on the command line of an install that is not a
+         maintenance run turns the whole transaction into a no-op, and takes
+         the major upgrade with it (#1256).
+
+         Windows Installer only applies the install-level defaults when *no*
+         feature-state property is authored on the command line. REMOVE is one
+         of them, so `msiexec /i NSCP.msi REMOVE=WEBPlugins` gives WEBPlugins
+         the action Absent and every other feature the action Null - nothing is
+         installed, yet the product still registers itself in Add/Remove
+         Programs. And because no feature is being installed, MSI classifies
+         the transaction as a removal and skips the action that would have
+         taken the old version out:
+
+             Skipping RemoveExistingProducts action: current configuration is
+             maintenance mode or an uninstall
+
+         The host is then left with the old version still installed and running
+         beside an empty new entry - which is what "the automated install does
+         not override the old version" and the duplicate Add/Remove Programs
+         entries in #1256 both are.
+
+         What the operator means by REMOVE on an install is "install, minus
+         these", i.e. the ADDLOCAL=ALL REMOVE=<features> form the documentation
+         has always shown; every feature here is Level="1", so ADDLOCAL=ALL is
+         exactly the default selection. Fill it in for them when they leave it
+         out, before CostFinalize resolves the feature states.
+
+         Guarded on NOT Installed so a maintenance run against the installed
+         product (`msiexec /i <same version> REMOVE=WEBPlugins`, or the same
+         through Add/Remove Programs) still means "take this feature away" and
+         does not quietly install everything the operator deselected earlier.
+         Any explicitly authored selection wins, and REMOVE=ALL - an uninstall
+         spelled the long way - is left alone. -->
+    <SetProperty Id="ADDLOCAL" Value="ALL" After="FindRelatedProducts" Sequence="both"><![CDATA[NOT Installed AND REMOVE AND NOT REMOVE~="ALL" AND NOT ADDLOCAL AND NOT ADDDEFAULT AND NOT ADDSOURCE AND NOT ADVERTISE]]></SetProperty>
+
     <?if "$(var.arch)" = "x64"?>
     <Condition Message="x64 bit version not supported on Win32 bit platform (get Win32 instead)">VersionNT64</Condition>
     <?endif?>
