@@ -161,19 +161,29 @@ describe("NSCP client (agent to agent)", () => {
 
   // --- authentication --------------------------------------------------------
 
+  // These two assert UNKNOWN, which is also what a client that cannot talk to
+  // anything returns - so on their own they pass just as happily when every
+  // request is failing locally. They did exactly that when the HTTP response
+  // parser threw on every real status line. So each one also pins that the
+  // UNKNOWN was the remote refusing the credential, not this client falling
+  // over before it got an answer.
   it("fails with UNKNOWN when the password is wrong", async () => {
     // The password is finally sent (it used to be read from the settings and
     // never put on the wire). A rejected credential must read as UNKNOWN, not
     // as a passing check.
-    const { code } = await remote(["command=check_ok"], "definitely-not-the-password");
+    const { out, code } = await remote(["command=check_ok"], "definitely-not-the-password");
 
     expect(code).toBe(3);
+    expect(out).not.toMatch(/bad lexical cast|socket error/i);
+    expect(out).not.toContain("all good");
   });
 
   it("fails with UNKNOWN when no password is sent at all", async () => {
-    const { code } = await remote(["command=check_ok"], "");
+    const { out, code } = await remote(["command=check_ok"], "");
 
     expect(code).toBe(3);
+    expect(out).not.toMatch(/bad lexical cast|socket error/i);
+    expect(out).not.toContain("all good");
   });
 
   // --- the transport itself --------------------------------------------------
