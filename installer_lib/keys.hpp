@@ -58,6 +58,10 @@
 // The one opt-out of verifying who is on the other end, for both managed
 // modes: a plain http url, or a server certificate that cannot be verified.
 #define MANAGEMENT_INSECURE L"MANAGEMENT_INSECURE"
+// Set when the modern layout was this page's idea rather than the operator's,
+// so that going Back and answering None can undo it. The migration is one-way
+// once it has run, so the undo has to happen before the install does.
+#define MGMT_SET_LAYOUT L"MGMT_SET_LAYOUT"
 // Set by DetectManagement when the mode was worked out from FLEET_SERVER or
 // CONFIGURATION_TYPE rather than asked for by name. Such a command line
 // predates this page: it asked for a fleet server or a configuration url, not

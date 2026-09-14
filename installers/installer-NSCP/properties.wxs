@@ -33,12 +33,19 @@
 	     modes: a plain http url, or a certificate that cannot be verified.
 	     Maps to FLEET_INSECURE / TLS_VERIFY_MODE=none. -->
 	<Property Id="MANAGEMENT_INSECURE" Secure="yes" />
-	<!-- Three more are set by DetectManagement / ApplyManagement and read in
-	     the same sequence, so they are deliberately not declared here:
-	     MGMT_DERIVED (the mode was worked out rather than asked for),
-	     MGMT_ENROLLED (this host already carries an enrollment manifest) and
-	     MGMT_ERROR (what ApplyManagement rejected, shown by
-	     ManagementErrorDlg). -->
+	<!-- Set by DetectManagement when the mode was worked out from FLEET_SERVER
+	     or CONFIGURATION_TYPE rather than asked for by name. Secure because it
+	     has to travel with MANAGEMENT_SERVER: on a basic-UI install both
+	     sequences run DetectManagement, and a second pass sees the mode the
+	     first one wrote and would call it named. If the mode crosses to the
+	     elevated half and this does not, a command line written before this
+	     page existed would silently get the modern-layout migration. -->
+	<Property Id="MGMT_DERIVED" Secure="yes" />
+	<!-- Three more are set by these actions and read in the same sequence, so
+	     they are deliberately not declared: MGMT_ENROLLED (this host already
+	     carries an enrollment manifest), MGMT_SET_LAYOUT (the modern layout was
+	     this page's idea, so answering None can take it back) and MGMT_ERROR
+	     (what ApplyManagement rejected, shown by ManagementErrorDlg). -->
 	
 	<!-- CONFIGURE THE INSTALLER -->
 	<Property Id="ALLOW_CONFIGURATION">1</Property>

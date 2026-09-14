@@ -424,7 +424,8 @@ other it fetches the file that becomes the whole configuration of the agent, ext
 
 In `NONE` mode `MONITORING_TOOL` picks what the installer writes into a fresh configuration. `GENERIC`, the default,
 writes the usual starting point (allowed hosts, a generated password, the common check plugins, NRPE). Anything else -
-`none`, by convention - writes nothing and leaves the existing or shipped configuration to speak for itself.
+`none`, by convention - writes nothing and leaves the existing or shipped configuration to speak for itself. `OP5` is
+still accepted and now means `GENERIC`; the baseline it used to select went with the op5 page.
 
 ```
 msiexec /i NSCP-<version>.msi MONITORING_TOOL=none

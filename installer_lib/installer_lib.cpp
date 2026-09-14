@@ -587,6 +587,20 @@ std::string enrollment_manifest(msi_helper &h) {
   return expand_install_path(std::string(CERT_FOLDER) + "/agent-state.json", install_folder, shared.folder);
 }
 
+// A full UI install, where these actions are run by the page rather than by
+// the sequence - so there is somewhere to show a refusal, and the values on
+// screen are the operator's current answer rather than a command line.
+bool full_ui(msi_helper &h) { return trimmed_property(h, L"UILevel") == L"5"; }
+
+// Did somebody ask for this mode, or was it worked out from a command line
+// that predates this page? A derived mode asked for a fleet server or a
+// configuration url and nothing else, so it gets neither the new refusals nor
+// a different on-disk layout: `CONFIGURATION_TYPE=http://...` has been a
+// documented way to install for years. The page always counts as asking.
+bool mode_was_chosen(msi_helper &h) { return trimmed_property(h, MGMT_DERIVED) != L"1" || full_ui(h); }
+
+bool wants_insecure(msi_helper &h) { return is_true(h.getMsiPropery(MANAGEMENT_INSECURE)); }
+
 bool file_is_missing(const std::wstring &path) {
   boost::system::error_code ec;
   return !boost::filesystem::exists(boost::filesystem::path(utf8::cvt<std::string>(path)), ec);
@@ -631,7 +645,16 @@ std::wstring validate_fleet(msi_helper &h) {
   // plain HTTP anyone on the network path can read it and enroll as this host.
   if (scheme == L"http" && !insecure) {
     return L"Refusing to enroll over plain HTTP: the enrollment token would be sent in cleartext, so anyone on the network path could read it and enroll "
-           L"as this machine.\n\nUse an https:// url, or tick 'Allow an unverified connection'.";
+           L"as this machine.\n\nUse an https:// url, or pass MANAGEMENT_INSECURE=1 (the 'Allow an unverified connection' box on the page).";
+  }
+  // The same refusal ScheduleEnrollFleet makes, made here as well so it lands
+  // on the page instead of after Install: the enrollment response carries the
+  // certificate this agent pins and the key it trusts for bundles, so an
+  // unverified enrollment hands both to whoever answered.
+  if (boost::algorithm::iequals(trimmed_property(h, FLEET_VERIFY_MODE), L"none") && !insecure) {
+    return L"Refusing to enroll without verifying the fleet server certificate. The enrollment response carries the certificate this agent pins for "
+           L"every later call and the key it trusts for executable bundles.\n\nName the issuing CA above, or pass MANAGEMENT_INSECURE=1 (the 'Allow an "
+           L"unverified connection' box on the page).";
   }
   if (trimmed_property(h, FLEET_TOKEN).empty()) {
     return L"Enter the enrollment token from the install command the fleet server generated.\n\nIt is one-time and valid for an hour, so generate a fresh "
@@ -657,7 +680,8 @@ std::wstring validate_web(msi_helper &h, std::wstring &url) {
   // machine. Downloading it unauthenticated is a decision, not a default.
   if (scheme == L"http" && !is_true(h.getMsiPropery(MANAGEMENT_INSECURE))) {
     return L"Refusing to fetch the configuration over plain HTTP: that file becomes the whole configuration of this agent, including the scripts it "
-           L"runs, so anyone who can answer for that address would own this machine.\n\nUse an https:// url, or tick 'Allow an unverified connection'.";
+           L"runs, so anyone who can answer for that address would own this machine.\n\nUse an https:// url, or pass MANAGEMENT_INSECURE=1 (the 'Allow "
+           L"an unverified connection' box on the page).";
   }
   const std::wstring ca = trimmed_property(h, L"TLS_CA");
   if (!ca.empty() && file_is_missing(ca)) {
@@ -691,9 +715,7 @@ void apply_managed_profile(msi_helper &h, const std::wstring &configuration_type
 //    server, not for a different on-disk layout, and an unattended install
 //    must not quietly get one it did not ask for.
 void default_modern_layout(msi_helper &h) {
-  // UILevel 5 is a full UI install, where this action is run by the page - so
-  // the mode on it is the mode somebody just chose, derived default or not.
-  if (trimmed_property(h, MGMT_DERIVED) == L"1" && trimmed_property(h, L"UILevel") != L"5") {
+  if (!mode_was_chosen(h)) {
     h.logMessage("Keeping the default layout: the management server was derived from the command line, not asked for.");
     return;
   }
@@ -706,6 +728,65 @@ void default_modern_layout(msi_helper &h) {
   }
   h.logMessage("Fresh install with a management server: using the modern layout.");
   h.setPropertyValue(LAYOUT_MODE, L"modern");
+  // Ours, so ours to take back if the operator goes Back and answers None.
+  h.setPropertyValue(MGMT_SET_LAYOUT, L"1");
+}
+
+// Take back what an abandoned answer left behind.
+//
+// Everything downstream keys off the individual properties rather than off
+// MANAGEMENT_SERVER: ScheduleEnrollFleet enrolls because FLEET_SERVER is set,
+// boot.ini records `verify mode = none` because TLS_VERIFY_MODE says so, and
+// the layout migration runs because LAYOUT does. So a value typed under one
+// answer still takes effect under another unless it is cleared - a fleet
+// server typed, then Back, then None, would enroll the host anyway.
+//
+// Full UI only. On a command line nothing was abandoned: every property there
+// was passed on purpose, and clearing one would be overruling the operator.
+void clear_abandoned_answer(msi_helper &h, const std::wstring &mode) {
+  if (!full_ui(h)) return;
+  const bool insecure = wants_insecure(h);
+
+  if (mode != MANAGEMENT_SERVER_FLEET) {
+    for (const auto key : {FLEET_SERVER, FLEET_TOKEN, FLEET_BUNDLE_KEY, FLEET_REQUIRE_ENCRYPTED_BUNDLES, FLEET_INSECURE, FLEET_VERIFY_MODE}) {
+      if (!trimmed_property(h, key).empty()) h.setPropertyValue(key, L"");
+    }
+  } else if (!insecure) {
+    if (!trimmed_property(h, FLEET_INSECURE).empty()) h.setPropertyValue(FLEET_INSECURE, L"");
+  }
+
+  // Keyed off the box rather than off the mode, and only ever undoing the one
+  // value this page sets. DetectManagement seeds the box from a command line
+  // that already said "none", so a cleared value here is always one the
+  // operator turned off - never an IMPORT_CONFIG=https:// install having its
+  // own TLS_VERIFY_MODE taken away under an unrelated answer.
+  if (!insecure && boost::algorithm::iequals(trimmed_property(h, L"TLS_VERIFY_MODE"), L"none")) {
+    h.setPropertyValue(L"TLS_VERIFY_MODE", L"");
+  }
+
+  // Both managed modes want the modern layout, so only an answer of None takes
+  // the default back.
+  if (mode == MANAGEMENT_SERVER_NONE && trimmed_property(h, MGMT_SET_LAYOUT) == L"1") {
+    h.logMessage("No management server after all: taking back the modern layout default.");
+    h.setPropertyValue(LAYOUT_MODE, L"");
+    h.setPropertyValue(MGMT_SET_LAYOUT, L"");
+  }
+}
+
+// A refusal reaches the operator differently depending on how they install.
+// On the page it goes into MGMT_ERROR and the dialog keeps them there to fix
+// it. On a command line there is no page to keep them on, so the install fails
+// instead of quietly installing an agent that is managed by nobody - which is
+// what ScheduleEnrollFleet already does for the fleet half.
+UINT refuse_management(msi_helper &h, const std::wstring &error) {
+  if (full_ui(h)) {
+    h.logMessage(L"Refusing the management server settings: " + error);
+    h.setPropertyValue(MGMT_ERROR, error);
+    dump_config(h, L"After ApplyManagement");
+    return ERROR_SUCCESS;
+  }
+  h.errorMessage(error);
+  return ERROR_INSTALL_FAILURE;
 }
 }  // namespace
 
@@ -747,6 +828,14 @@ extern "C" UINT __stdcall DetectManagement(MSIHANDLE hInstall) {
       h.logMessage(L"Could not look for an existing enrollment: " + utf8::to_unicode(e.what()));
     }
 
+    // Seed the page's insecure box from a command line that already says the
+    // same thing. Without this the box reads "off" next to a FLEET_INSECURE=1
+    // that is on, and the clearing below would then take the operator's own
+    // value away from them.
+    if (trimmed_property(h, MANAGEMENT_INSECURE).empty() &&
+        (is_true(h.getMsiPropery(FLEET_INSECURE)) || boost::algorithm::iequals(trimmed_property(h, L"TLS_VERIFY_MODE"), L"none"))) {
+      h.setPropertyValue(MANAGEMENT_INSECURE, L"1");
+    }
     if (!named && mode != MANAGEMENT_SERVER_NONE) h.setPropertyValue(MGMT_DERIVED, L"1");
     h.setPropertyValue(MANAGEMENT_SERVER, mode);
     if (mode == MANAGEMENT_SERVER_WEB && trimmed_property(h, MANAGEMENT_URL).empty()) {
@@ -787,15 +876,15 @@ extern "C" UINT __stdcall ApplyManagement(MSIHANDLE hInstall) {
     h.setPropertyValue(MANAGEMENT_SERVER, mode);
     h.logMessage(L"Applying management server: " + mode);
 
+    // The operator may have been here before and answered differently.
+    clear_abandoned_answer(h, mode);
+    // A derived mode is not held to the page's refusals; see mode_was_chosen.
+    const bool check = mode_was_chosen(h);
+
     if (mode == MANAGEMENT_SERVER_FLEET) {
-      const std::wstring error = validate_fleet(h);
-      if (!error.empty()) {
-        h.logMessage(L"Refusing the fleet settings: " + error);
-        h.setPropertyValue(MGMT_ERROR, error);
-        dump_config(h, L"After ApplyManagement");
-        return ERROR_SUCCESS;
-      }
-      if (is_true(h.getMsiPropery(MANAGEMENT_INSECURE))) {
+      const std::wstring error = check ? validate_fleet(h) : std::wstring();
+      if (!error.empty()) return refuse_management(h, error);
+      if (wants_insecure(h)) {
         h.setPropertyValue(FLEET_INSECURE, L"1");
       }
       // The configuration stays local and ordinary - it is the include of the
@@ -806,14 +895,13 @@ extern "C" UINT __stdcall ApplyManagement(MSIHANDLE hInstall) {
       h.setConfCanChange(true, L"Fleet managed");
     } else if (mode == MANAGEMENT_SERVER_WEB) {
       std::wstring url;
-      const std::wstring error = validate_web(h, url);
-      if (!error.empty()) {
-        h.logMessage(L"Refusing the configuration url: " + error);
-        h.setPropertyValue(MGMT_ERROR, error);
-        dump_config(h, L"After ApplyManagement");
-        return ERROR_SUCCESS;
-      }
-      if (is_true(h.getMsiPropery(MANAGEMENT_INSECURE))) {
+      std::wstring error = validate_web(h, url);
+      // A derived mode is not held to the page's refusals - except the one
+      // refusal a command line cannot trip: WEB mode is derived *from* a url,
+      // so an empty one means the mode was asked for and the url forgotten.
+      if (!check && !url.empty()) error.clear();
+      if (!error.empty()) return refuse_management(h, error);
+      if (wants_insecure(h)) {
         // Both halves of "do not check who answered": the download this
         // installer does, and every later refresh the service does from the
         // same boot.ini.
@@ -827,7 +915,14 @@ extern "C" UINT __stdcall ApplyManagement(MSIHANDLE hInstall) {
       h.setConfCanChange(true, L"Configuration served over HTTP(S)");
     } else {
       const std::wstring tool = trimmed_property(h, MONITORING_TOOL);
-      if (boost::algorithm::iequals(tool, L"GENERIC")) {
+      // OP5 selected a baseline of its own until the page that offered it was
+      // retired. It stays accepted, and means the generic baseline: a
+      // deployment script that still passes it should get a configured agent,
+      // not one with no allowed hosts, no password and no check modules.
+      if (boost::algorithm::iequals(tool, L"OP5")) {
+        h.logMessage(L"MONITORING_TOOL=OP5 is retired; using the generic base config.");
+      }
+      if (boost::algorithm::iequals(tool, L"GENERIC") || boost::algorithm::iequals(tool, L"OP5")) {
         h.logMessage(L"Setting base config as Generic");
         h.setPropertyKeyAndDefault(ALLOWED_HOSTS, L"127.0.0.1", L"");
 
