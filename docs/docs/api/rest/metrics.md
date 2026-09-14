@@ -100,6 +100,14 @@ terminator OpenMetrics 1.0 requires, so a strict parser accepts the document
 as it stands. `# HELP` and `# UNIT` are not emitted yet: no module declares a
 description or a unit for its metrics.
 
+One consequence of everything being typed as a gauge: a metric whose key ends
+in `total` or `count` (`system.network.eth0.total`,
+`system.os_updates.count`) becomes a gauge family carrying a suffix the spec
+reserves for counters and summaries. Prometheus scrapes it without complaint,
+but `promtool check metrics` reports a naming-convention warning for each such
+family. Typing those metrics as counters is what resolves it, and that needs
+the per-metric metadata the modules do not declare yet.
+
 ### Metric names
 
 The dotted path used in the JSON form is rewritten to the OpenMetrics name
@@ -110,16 +118,19 @@ grammar (`[a-zA-Z_][a-zA-Z0-9_]*`), deterministically:
 | `%` becomes the word                            | `system.mem.physical.%`       | `system_mem_physical_percent`  |
 | anything else outside the grammar becomes `_`   | `system.cpu.core 0.idle`      | `system_cpu_core_0_idle`       |
 | a run of separators collapses to one            | `disk.free.C:.total`          | `disk_free_C_total`            |
-| a leading digit gets a `_` prefix               | `5m_load`                     | `_5m_load`                     |
+| a name that would not start with a letter borrows `metric_` | `5m_load`   | `metric_5m_load`               |
 
 Colons are rewritten too: they are legal in the grammar but reserved for
-user-defined recording rules, so an exporter must not emit them.
+user-defined recording rules, so an exporter must not emit them. A leading
+underscore is reserved the same way, which is why a name that would not begin
+with a letter borrows a `metric_` prefix rather than a bare `_`.
 
 The mapping is lossy, so two different JSON keys can want the same metric
-name. When that happens the first metric of the snapshot keeps the name, the
-others are dropped, and each dropped metric is logged with the name it
-collided on - emitting both would mean the same series twice, which costs the
-scraper the whole body rather than one metric.
+name. When that happens the first metric of the snapshot keeps the name and the
+others are dropped - emitting both would mean the same series twice, which
+costs the scraper the whole body rather than one metric. Each distinct
+collision is logged once (and again after a settings reload), naming the metric
+that was dropped and the name it collided on.
 
 Values keep their full precision: an integral value is written out in full
 (`17175158784`, not `1.7175e+10`), so a sample equals the number

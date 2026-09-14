@@ -117,6 +117,14 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     client.reset(new client::cli_client(std::make_shared<web_cli_handler>(log_handler, get_core(), get_id())));
   }
 
+  // A reload can change the keys a module publishes, so let the renderer's
+  // collision reports be said again rather than staying silenced by a run that
+  // is no longer the current configuration.
+  {
+    const boost::mutex::scoped_lock lock(openmetrics_problem_mutex_);
+    reported_openmetrics_problems_.clear();
+  }
+
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("WEB", std::move(alias), "server");
 
@@ -1209,10 +1217,15 @@ void WEBServer::submitMetrics(const PB::Metrics::MetricsMessage &response) const
   } else {
     // Sanitising is lossy, so two keys can want the same family name. The
     // renderer keeps the first and hands back a line per metric it dropped;
-    // that is a producer bug the operator has to see, not something to hide.
+    // that is a producer bug the operator has to see, not something to hide -
+    // but only once, since the same bad key collides again on every snapshot.
     std::vector<std::string> problems;
     open_metrics = openmetrics::render(response, &problems);
     for (const std::string &problem : problems) {
+      {
+        const boost::mutex::scoped_lock lock(openmetrics_problem_mutex_);
+        if (!reported_openmetrics_problems_.insert(problem).second) continue;
+      }
       NSC_LOG_ERROR(problem);
     }
   }

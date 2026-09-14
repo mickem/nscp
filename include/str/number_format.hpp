@@ -111,9 +111,9 @@ inline std::string render_number(const double value, const number_format &fmt) {
 // them differently (OpenMetrics wants "NaN", "+Inf", "-Inf") - and are only
 // handled here so that no input can produce an empty string.
 inline std::string render_shortest(const double value) {
+  std::ostringstream ss;
+  ss.imbue(std::locale::classic());
   if (!std::isfinite(value)) {
-    std::ostringstream ss;
-    ss.imbue(std::locale::classic());
     ss << value;
     return ss.str();
   }
@@ -121,27 +121,32 @@ inline std::string render_shortest(const double value) {
   // is undefined behaviour, so `fits_int64` has to gate the cast rather than
   // sit beside it.
   if (fits_int64(value) && std::trunc(value) == value) {
-    std::ostringstream ss;
-    ss.imbue(std::locale::classic());
     ss << static_cast<long long>(value);
     return ss.str();
   }
-  // A double carries at most 17 significant decimal digits, so the loop always
-  // terminates with an exact round trip on the last iteration at the latest.
-  for (int precision = 1; precision <= 17; ++precision) {
-    std::ostringstream ss;
-    ss.imbue(std::locale::classic());
+  // A double needs at most 17 significant decimal digits to round trip and
+  // almost always fewer, so start at 15 rather than at 1: the default float
+  // format drops trailing zeros, so 0.1 comes out "0.1" at any precision that
+  // round trips, and the loop costs at most three iterations instead of
+  // seventeen. Both streams are built once and reused - this runs per gauge on
+  // the metrics thread, once per `metrics interval`.
+  //
+  // std::to_chars(double) answers this in one call, but its floating-point
+  // overload needs a newer standard library than the oldest toolchain this
+  // project still builds with (the XP target); swap to it once that goes.
+  std::istringstream back;
+  back.imbue(std::locale::classic());
+  for (int precision = 15; precision <= 17; ++precision) {
+    ss.str(std::string());
+    ss.clear();
     ss << std::setprecision(precision) << value;
     const std::string candidate = ss.str();
-    std::istringstream back(candidate);
-    back.imbue(std::locale::classic());
+    back.clear();
+    back.str(candidate);
     double parsed = 0;
     back >> parsed;
     if (!back.fail() && parsed == value) return candidate;
   }
-  std::ostringstream ss;
-  ss.imbue(std::locale::classic());
-  ss << std::setprecision(17) << value;
   return ss.str();
 }
 

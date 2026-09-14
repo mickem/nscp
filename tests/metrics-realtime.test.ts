@@ -255,22 +255,26 @@ describe("metrics and real-time checks", () => {
     // `str::xtos` truncated to six significant digits, which turned a 16 GB
     // memory reading into 1.6554e+10 on the scrape while the JSON endpoint
     // reported every byte.
+    //
+    // The pinned key is deliberate: the JSON and the text body are two
+    // requests, so a metric that moves (anything `avail`, `used` or a
+    // percentage) would differ whenever a metrics tick lands between them.
+    // Installed physical memory is published on both platforms and does not
+    // change while the test runs.
+    const STABLE_KEY = "system.mem.physical.total";
+    const STABLE_NAME = "system_mem_physical_total";
     const metrics = await poll(
       () => getMetrics(key),
-      (m) => Object.keys(m).some((k) => k.startsWith("system.mem.")),
+      (m) => typeof m[STABLE_KEY] === "number",
     );
-    const text = await getText(key, "/api/v2/openmetrics");
+    const value = metrics[STABLE_KEY] as number;
+    expect(typeof value).toBe("number");
+    expect(value).toBeGreaterThan(1e7);
 
-    const large = Object.entries(metrics).find(
-      ([k, v]) => k.startsWith("system.mem.") && typeof v === "number" && (v as number) > 1e7,
-    );
-    expect(large).toBeDefined();
-    const [flatKey, value] = large!;
-    // The flat key maps onto the exposition name by the documented rules.
-    const name = flatKey.replace(/%/g, "percent").replace(/[^a-zA-Z0-9_]+/g, "_");
-    const sample = new RegExp(`^${name} (\\S+)$`, "m").exec(text);
+    const text = await getText(key, "/api/v2/openmetrics");
+    const sample = new RegExp(`^${STABLE_NAME} (\\S+)$`, "m").exec(text);
     expect(sample).not.toBeNull();
-    expect(Number(sample![1])).toBe(value as number);
+    expect(Number(sample![1])).toBe(value);
     // And it is written out in full rather than in scientific notation.
     expect(sample![1]).not.toMatch(/e/i);
   });
@@ -288,7 +292,15 @@ describe("metrics and real-time checks", () => {
     // nothing about what it is reading.
     const plain = await getTextWithType(key, "/api/v2/openmetrics", "*/*");
     expect(plain.contentType).toBe("text/plain; version=0.0.4; charset=utf-8");
-    expect(plain.text).toBe(om.text);
+
+    // Same document either way — asserted on its shape, not byte for byte:
+    // these are two round trips against a one-second metrics interval, so the
+    // cpu and memory readings differ whenever a tick lands between them.
+    for (const body of [om.text, plain.text]) {
+      expect(body.endsWith("# EOF\n")).toBe(true);
+      expect(body).toMatch(/^# TYPE system_mem_physical_total gauge$/m);
+      expect(body).toMatch(/^system_mem_physical_total \d+$/m);
+    }
   });
 
   // --- real-time checks -----------------------------------------------------

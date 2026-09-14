@@ -19,8 +19,16 @@
 // What is deliberately *not* here yet: `# HELP`, `# UNIT`, counters and info
 // families all need metadata that no producer sets today, and labels need the
 // producers to say which part of a key is an instance. Those arrive with the
-// metrics-metadata work; the family grouping below is already shaped for them,
-// so a family can grow from one sample to N without the renderer changing.
+// metrics-metadata work, and bring with them the escaping helpers and the
+// one-family-many-samples shape that only labels make reachable.
+//
+// One consequence of typing everything as a gauge: a key that already ends in
+// `total` or `count` (`system.network.eth0.total`, `system.os_updates.count`)
+// produces a gauge family whose name carries a suffix OpenMetrics reserves for
+// counters and summaries. Prometheus reads it, and `promtool check metrics`
+// warns about it; typing those metrics as counters is what fixes it, and that
+// is the metadata work rather than something to paper over with a rename the
+// same work would undo.
 namespace openmetrics {
 
 // Map one protobuf key or bundle key onto the OpenMetrics name grammar
@@ -33,18 +41,11 @@ namespace openmetrics {
 //   * anything outside `[a-zA-Z0-9_]` becomes `_`, and a run of them collapses
 //     to a single `_`, which is exactly the `metric_relabel_configs` rewrite
 //     the Prometheus scenario page tells operators to write by hand today.
-//   * a leading digit (or an empty result) gets a `_` prefix, since a name may
-//     not start with one.
+//   * a name that would not start with a letter borrows a `metric_` prefix: a
+//     name has to start with a letter or an underscore, and OpenMetrics
+//     separately reserves every name *beginning* with an underscore, so `_`
+//     would only trade one non-conformance for another.
 std::string sanitize_name(const std::string &raw);
-
-// Escape a `# HELP` text per the OpenMetrics spec: `\` and a newline. A quote
-// needs no escaping in help text, only in a label value.
-std::string escape_help(const std::string &raw);
-
-// Escape a label value per the spec: `\`, `"` and a newline. Label values are
-// where hostile-looking data actually turns up - WMI adapter descriptions,
-// `\Device\HarddiskVolume1`, a PDH counter path chosen by the operator.
-std::string escape_label_value(const std::string &raw);
 
 // Render one sample value. Finite values go through `str::render_shortest`
 // (integers stay integers, no six-digit truncation); the three non-finite

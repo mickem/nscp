@@ -154,9 +154,9 @@ system_network_eth0_received 343
 
 Metric names are rewritten to the OpenMetrics grammar: `.` and any other
 character outside `[a-zA-Z0-9_]` becomes `_`, a run of them collapses to one,
-`%` becomes the word `percent`, and a name starting with a digit gets a `_`
-prefix. The mapping is deterministic, so the same reading always lands on the
-same series. See the [REST metrics
+`%` becomes the word `percent`, and a name that would not start with a letter
+borrows a `metric_` prefix. The mapping is deterministic, so the same reading
+always lands on the same series. See the [REST metrics
 reference](../api/rest/metrics.md#metric-names) for the full table.
 
 If you get HTTP 401, the credentials or role grant are wrong; if you get a
@@ -291,13 +291,21 @@ allowed hosts = 127.0.0.1, 10.0.0.0/24
 
 Or per-module under `[/settings/WEB/server]`.
 
-### No `# HELP` lines
+### No `# HELP` lines, and `promtool` still warns
 
 Every family carries a `# TYPE ... gauge` line and the body ends with `# EOF`,
 so the document parses as OpenMetrics 1.0. What is still missing is the
 descriptive metadata: no module declares a help text or a unit for its metrics
 yet, so no `# HELP` or `# UNIT` lines are emitted and everything is typed as a
 gauge — including the handful of readings that are really monotonic counters.
+
+That has one visible consequence. `promtool check metrics` lints naming
+conventions as well as syntax, and a gauge whose key already ends in `total` or
+`count` (`system_network_eth0_total`, `system_os_updates_count`) carries a
+suffix reserved for counters and summaries, so it reports one warning per such
+family. Prometheus itself scrapes them without complaint. Typing those metrics
+as counters is what clears the warnings, and that arrives with the metadata
+work rather than with a rename it would immediately undo.
 
 ### Strings are skipped
 

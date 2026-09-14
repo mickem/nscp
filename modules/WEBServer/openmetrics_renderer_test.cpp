@@ -104,43 +104,39 @@ TEST(OpenmetricsRenderer, ColonsAreRewrittenBecauseTheyAreReservedForRecordingRu
   EXPECT_FALSE(contains(openmetrics::sanitize_name("a:b:c"), ":"));
 }
 
-TEST(OpenmetricsRenderer, ALeadingDigitGetsAnUnderscorePrefix) {
-  // A PDH counter or a Python script can name a metric anything at all.
-  EXPECT_EQ(openmetrics::sanitize_name("5m_load"), "_5m_load");
-  EXPECT_EQ(openmetrics::sanitize_name("0"), "_0");
+TEST(OpenmetricsRenderer, ANameThatWouldNotStartWithALetterBorrowsOne) {
+  // A PDH counter or a Python script can name a metric anything at all. The
+  // obvious `_` prefix is not the fix: a leading underscore is legal in the
+  // name grammar but OpenMetrics reserves every name that begins with one, so
+  // it would only trade one non-conformance for another.
+  EXPECT_EQ(openmetrics::sanitize_name("5m_load"), "metric_5m_load");
+  EXPECT_EQ(openmetrics::sanitize_name("0"), "metric_0");
+  EXPECT_EQ(openmetrics::sanitize_name(".leading"), "metric_leading");
 }
 
 TEST(OpenmetricsRenderer, ANameThatSanitisesAwayEntirelyStaysANameAtAll) {
   // An empty name is not a valid sample line, so it must never be emitted -
   // even for a key that is nothing but punctuation.
-  EXPECT_EQ(openmetrics::sanitize_name(""), "_");
-  EXPECT_EQ(openmetrics::sanitize_name("..."), "_");
+  EXPECT_EQ(openmetrics::sanitize_name(""), "metric");
+  EXPECT_EQ(openmetrics::sanitize_name("..."), "metric");
+}
+
+TEST(OpenmetricsRenderer, NoNameEverBeginsWithAnUnderscore) {
+  // The reserved-prefix rule, swept rather than spot-checked: whatever a
+  // producer hands us, the name it lands on is usable.
+  const char *keys[] = {"", ".", "___", "5", "%", "_x", ":x", " x", "..5m", "0.5"};
+  for (const char *key : keys) {
+    const std::string name = openmetrics::sanitize_name(key);
+    ASSERT_FALSE(name.empty()) << key;
+    EXPECT_NE(name[0], '_') << "reserved leading underscore for key: " << key;
+    EXPECT_TRUE((name[0] >= 'a' && name[0] <= 'z') || (name[0] >= 'A' && name[0] <= 'Z')) << key;
+  }
 }
 
 TEST(OpenmetricsRenderer, SanitisingIsDeterministic) {
   // The same input always maps to the same name: a scraper that sees a family
   // rename between two scrapes loses the series' history.
   EXPECT_EQ(openmetrics::sanitize_name("system.mem.commited.%"), openmetrics::sanitize_name("system.mem.commited.%"));
-}
-
-// --- escaping ---------------------------------------------------------------
-
-TEST(OpenmetricsRenderer, HelpTextEscapesBackslashAndNewline) {
-  // A quote is legal unescaped in help text; a raw newline would end the line
-  // and turn the rest of the text into garbage the parser tries to read as a
-  // sample.
-  EXPECT_EQ(openmetrics::escape_help("C:\\Windows"), "C:\\\\Windows");
-  EXPECT_EQ(openmetrics::escape_help("one\ntwo"), "one\\ntwo");
-  EXPECT_EQ(openmetrics::escape_help("say \"hi\""), "say \"hi\"");
-}
-
-TEST(OpenmetricsRenderer, LabelValuesEscapeQuotesToo) {
-  // Label values are quoted, so an unescaped quote closes the value early -
-  // and WMI adapter descriptions and device paths are exactly where one turns
-  // up.
-  EXPECT_EQ(openmetrics::escape_label_value("\\Device\\HarddiskVolume1"), "\\\\Device\\\\HarddiskVolume1");
-  EXPECT_EQ(openmetrics::escape_label_value("Intel(R) \"Pro\" 1000"), "Intel(R) \\\"Pro\\\" 1000");
-  EXPECT_EQ(openmetrics::escape_label_value("a\nb"), "a\\nb");
 }
 
 // --- values -----------------------------------------------------------------
@@ -227,10 +223,11 @@ TEST(OpenmetricsRenderer, StringMetricsAreSkipped) {
   EXPECT_TRUE(contains(body, "uptime_ticks_raw 84135\n"));
 }
 
-TEST(OpenmetricsRenderer, SamplesOfOneFamilyAreContiguousUnderASingleType) {
-  // Two bundles can contribute to one family once instances become labels. The
-  // grouping has to hold today already: a second `# TYPE` for a family, or a
-  // sample appearing after another family started, makes the document invalid.
+TEST(OpenmetricsRenderer, EachFamilyIsEmittedOnceUnderItsOwnType) {
+  // Every family is one `# TYPE` followed by its sample. Repeating a `# TYPE`
+  // for a family, or letting a sample appear after another family started,
+  // makes the document invalid - which is what the first-seen ordered family
+  // list exists to prevent.
   snapshot s;
   PB::Metrics::MetricsBundle *a = s.bundle("dup");
   snapshot::gauge(a, "value", 1.0);

@@ -5,10 +5,8 @@
 
 #include <cmath>
 #include <map>
-#include <set>
 #include <str/number_format.hpp>
 #include <str/xtos.hpp>
-#include <utility>
 
 namespace openmetrics {
 
@@ -17,16 +15,11 @@ namespace {
 // One family, collected before anything is written: OpenMetrics requires the
 // samples of a family to be contiguous under a single `# TYPE`, which the flat
 // list of lines this replaces could not promise once two producers interleave.
+// One sample per family today; labels are what will let a family hold several.
 struct family {
   std::string name;
   std::string type;
-  // Label set (`{core="0"}`, empty until producers declare labels) and the
-  // rendered value, one entry per sample.
-  std::vector<std::pair<std::string, std::string> > samples;
-  // The label sets already in `samples`. A family may hold many samples but
-  // only one per label set - two samples sharing a label set are the same
-  // series twice over, which a strict parser rejects outright.
-  std::set<std::string> seen_label_sets;
+  std::string value;
 };
 
 struct family_set {
@@ -39,23 +32,16 @@ struct family_set {
   // lossy, so two distinct keys can land on one name (`foo.bar` and `foo bar`,
   // or `mem.%` and `mem.percent`); when they do, the first metric of the
   // snapshot keeps the name and the rest are dropped rather than emitted as a
-  // duplicate series that would cost the scraper the whole body.
-  std::string add_sample(const std::string &name, const std::string &type, const std::string &labels, const std::string &value) {
-    const std::map<std::string, size_t>::const_iterator it = index.find(name);
-    if (it == index.end()) {
-      family added;
-      added.name = name;
-      added.type = type;
-      added.samples.push_back(std::make_pair(labels, value));
-      added.seen_label_sets.insert(labels);
-      index[name] = families.size();
-      families.push_back(added);
-      return "";
-    }
-    family &existing = families[it->second];
-    if (existing.type != type) return "the name is already used by a " + existing.type + " family";
-    if (!existing.seen_label_sets.insert(labels).second) return "another metric already claimed that name";
-    existing.samples.push_back(std::make_pair(labels, value));
+  // second sample of the same series - a duplicate a strict parser rejects for
+  // the whole body, not just for that metric.
+  std::string add_sample(const std::string &name, const std::string &type, const std::string &value) {
+    if (index.find(name) != index.end()) return "another metric already claimed that name";
+    family added;
+    added.name = name;
+    added.type = type;
+    added.value = value;
+    index[name] = families.size();
+    families.push_back(added);
     return "";
   }
 };
@@ -72,7 +58,7 @@ void collect(const PB::Metrics::MetricsBundle &bundle, const std::string &trail,
     // what collapses a run spanning a separator (`disk.io.` + `C:` would leave
     // `disk_io__C_` if each part were cleaned on its own).
     const std::string name = sanitize_name(trail + "_" + metric.key());
-    const std::string problem = out.add_sample(name, "gauge", "", render_value(metric.gauge_value().value()));
+    const std::string problem = out.add_sample(name, "gauge", render_value(metric.gauge_value().value()));
     if (!problem.empty() && problems != nullptr) {
       problems->push_back("Dropping metric '" + trail + "." + metric.key() + "' from the OpenMetrics exposition: it renders as '" + name + "' and " + problem +
                           ".");
@@ -122,41 +108,16 @@ std::string sanitize_name(const std::string &raw) {
     if (!ret.empty() && ret[ret.size() - 1] == '_') continue;
     ret += '_';
   }
-  if (ret.empty()) return "_";
-  if (ret[0] >= '0' && ret[0] <= '9') return "_" + ret;
-  return ret;
-}
-
-std::string escape_help(const std::string &raw) {
-  std::string ret;
-  ret.reserve(raw.size());
-  for (const char c : raw) {
-    if (c == '\\') {
-      ret += "\\\\";
-    } else if (c == '\n') {
-      ret += "\\n";
-    } else {
-      ret += c;
-    }
-  }
-  return ret;
-}
-
-std::string escape_label_value(const std::string &raw) {
-  std::string ret;
-  ret.reserve(raw.size());
-  for (const char c : raw) {
-    if (c == '\\') {
-      ret += "\\\\";
-    } else if (c == '"') {
-      ret += "\\\"";
-    } else if (c == '\n') {
-      ret += "\\n";
-    } else {
-      ret += c;
-    }
-  }
-  return ret;
+  // A name must start with a letter or an underscore, but OpenMetrics also
+  // reserves every name that *begins* with an underscore, so the obvious `_`
+  // prefix would trade one non-conformance for another. Borrow a letter
+  // instead. Only reachable for a producer-chosen key - a PDH counter or a
+  // Python script under the empty root bundle - since every built-in bundle
+  // name starts with a letter.
+  if (ret.empty()) return "metric";
+  if ((ret[0] >= 'a' && ret[0] <= 'z') || (ret[0] >= 'A' && ret[0] <= 'Z')) return ret;
+  const std::string tail = ret[0] == '_' ? ret.substr(1) : ret;
+  return tail.empty() ? "metric" : "metric_" + tail;
 }
 
 std::string render_value(const double value) {
@@ -185,9 +146,7 @@ std::string render(const PB::Metrics::MetricsMessage &response, std::vector<std:
   std::string body;
   for (const family &f : collected.families) {
     body += "# TYPE " + f.name + " " + f.type + "\n";
-    for (const std::pair<std::string, std::string> &sample : f.samples) {
-      body += f.name + sample.first + " " + sample.second + "\n";
-    }
+    body += f.name + " " + f.value + "\n";
   }
   // Mandatory in OpenMetrics 1.0, and a parser that only knows the older
   // Prometheus text format reads it as a comment.
