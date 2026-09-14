@@ -74,7 +74,11 @@ bool lua::lua_wrapper::get_raw_string(std::string &str, int pos) {
 int lua::lua_wrapper::get_int(int pos) {
   if (pos == -1) pos = lua_gettop(L);
   if (pos == 0) return 0;
-  if (is_string(pos)) return str::stox<int>(lua_tostring(L, pos));
+  // Every caller of this is inside a lua_CFunction, and Lua is compiled as C:
+  // an exception thrown here unwinds through lua_pcall's setjmp frames, which
+  // is undefined and in practice terminates the agent. A string that is not a
+  // number reads as 0, the same as any other type this cannot convert.
+  if (is_string(pos)) return str::stox<int>(lua_tostring(L, pos), 0);
   if (is_number(pos)) return static_cast<int>(lua_tonumber(L, pos));
   return 0;
 }

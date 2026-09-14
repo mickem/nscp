@@ -48,3 +48,37 @@ TEST(LuaWrapper, AnErrorMessageIsTextAndNotAFormat) {
   EXPECT_FALSE(ok) << "error() must raise: " << message;
   EXPECT_NE(message.find("a %s %d %p b"), std::string::npos) << message;
 }
+
+TEST(LuaWrapper, ANonNumericStringArgumentReadsAsZero) {
+  // get_int used the throwing lexical_cast: a script passing a word where a
+  // number belongs - Settings():get_int(path, key, "n/a") - threw through
+  // lua_pcall's C frames. Unconvertible text reads as 0, like any other type
+  // this cannot convert.
+  std::string result;
+  const bool ok = call_protected(
+      [](lua_State *L) {
+        lua::lua_wrapper instance(L);
+        lua_pushstring(L, "not a number");
+        instance.push_int(instance.get_int());
+        return 1;
+      },
+      result);
+
+  EXPECT_TRUE(ok) << "get_int must not throw: " << result;
+  EXPECT_EQ(result, "0") << result;
+}
+
+TEST(LuaWrapper, ANumericStringArgumentStillConverts) {
+  std::string result;
+  const bool ok = call_protected(
+      [](lua_State *L) {
+        lua::lua_wrapper instance(L);
+        lua_pushstring(L, "42");
+        instance.push_int(instance.get_int());
+        return 1;
+      },
+      result);
+
+  EXPECT_TRUE(ok) << result;
+  EXPECT_EQ(result, "42") << result;
+}
