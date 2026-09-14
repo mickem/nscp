@@ -47,13 +47,23 @@ Once for the NRPE Server and once for `CheckExternalScripts`.
 
 ### Running a command as a user
 
-Running a command as a given user (to use elevated privileges for instance) you need to use the long format:
+Running a command as a given user (to use elevated privileges for instance) you need to use the long format.
+This is a **Windows-only** feature: on Linux a script with `user`, `domain` or `password` set is refused (UNKNOWN)
+instead of silently running as the service account; use `sudo` in the command there (see below).
 
 ```
 [/settings/external scripts/scripts/check_as_user]
 command = scripts\check_ok.bat
 user = Administrator
 password = 1qflkasdhf7ejd8/kjhskjhk(/)"#
+```
+
+On Linux put the identity change in the command itself and grant it in `sudoers` (`NOPASSWD`, and `-n` so the
+check can never block on a password prompt):
+
+```
+[/settings/external scripts/scripts/check_as_nobody]
+command = sudo -n -u nobody /usr/lib/nagios/plugins/check_something
 ```
 
 You can also specify a session and to show the output if you want to have the program visible:

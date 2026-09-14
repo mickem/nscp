@@ -4,8 +4,11 @@
  *
  * These cover the security-relevant behaviour of the module: the `ext-scr
  * install` argument-lockdown tool (cross-platform), and — on the Unix launcher —
- * the command timeout on a runaway script and the shell-fallback metacharacter
- * guard; plus output capture on the Windows launcher.
+ * These cover the security-relevant behaviour of the module: the `ext-scr
+ * install` argument-lockdown tool (cross-platform), and — on the Unix launcher —
+ * the command timeout on a runaway script, the shell-fallback metacharacter
+ * guard, and the refusal of the Windows-only run-as (`user`/`password`) keys;
+ * plus output capture on the Windows launcher.
  *
  * The Unix launcher has a gtest of its own that pins the captured bytes
  * exactly, `include/process/execute_process_unix_test.cpp`. Its CMake target
@@ -196,6 +199,78 @@ onUnix("CheckExternalScripts — shell-fallback metacharacter guard (POSIX launc
     const out = await query("plainvalue");
     expect(out).toMatch(/plainvalue/);
     expect(out).not.toMatch(/illegal characters/i);
+  });
+});
+
+onUnix("CheckExternalScripts — run-as user settings are refused (POSIX launcher)", () => {
+  // `user`, `domain` and `password` are implemented by the Windows launcher
+  // only. The Unix launcher used to ignore them silently, so a script an
+  // operator had sandboxed with `user = nobody` ran as the service identity.
+  // The command must now fail with a message pointing at sudo, and the script
+  // must not run at all.
+  let nscp: NscpInstance;
+  let scriptsDir: string;
+  let marker: string;
+
+  beforeAll(() => {
+    scriptsDir = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-extscr-runas-"));
+    marker = path.join(scriptsDir, "ran.marker");
+    fs.writeFileSync(path.join(scriptsDir, "hello.sh"), `#!/bin/sh\ntouch "${marker}"\necho hello-from-script\n`, { mode: 0o755 });
+    nscp = new NscpInstance();
+  });
+
+  afterAll(() => {
+    fs.rmSync(scriptsDir, { recursive: true, force: true });
+  });
+
+  async function query(command: string) {
+    const r = await nscp.run(["client", "--module", "CheckExternalScripts", "--boot", "--query", command], { allowFailure: true });
+    return r.all ?? `${r.stdout}\n${r.stderr}`;
+  }
+
+  /**
+   * Write the ini directly (rather than `nscp settings --set`, which only adds
+   * keys) so each case starts from exactly the script section it names.
+   */
+  function configure(extra: string[]) {
+    const ini = [
+      "[/modules]",
+      "CheckExternalScripts = enabled",
+      "",
+      "[/settings/external scripts]",
+      "timeout = 10",
+      "",
+      "[/settings/external scripts/scripts/check_as_user]",
+      `command = /bin/sh ${path.join(scriptsDir, "hello.sh")}`,
+      ...extra,
+      "",
+    ].join("\n");
+    fs.writeFileSync(nscp.settingsFile, ini);
+  }
+
+  it("refuses a script configured with `user` and points at sudo", async () => {
+    configure(["user = nobody"]);
+    const out = await query("check_as_user");
+    expect(out).toMatch(/only supported on Windows/i);
+    expect(out).toMatch(/sudo/);
+    expect(out).not.toMatch(/hello-from-script/);
+    expect(fs.existsSync(marker)).toBe(false);
+  });
+
+  it("refuses a script configured with only a `password`, without echoing it", async () => {
+    configure(["password = s3cr3t-run-as"]);
+    const out = await query("check_as_user");
+    expect(out).toMatch(/only supported on Windows/i);
+    expect(out).not.toMatch(/s3cr3t-run-as/);
+    expect(out).not.toMatch(/hello-from-script/);
+    expect(fs.existsSync(marker)).toBe(false);
+  });
+
+  it("still runs the same script once the run-as keys are removed", async () => {
+    configure([]);
+    const out = await query("check_as_user");
+    expect(out).toMatch(/hello-from-script/);
+    expect(out).not.toMatch(/only supported on Windows/i);
   });
 });
 

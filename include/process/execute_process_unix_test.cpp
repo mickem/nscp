@@ -8,6 +8,7 @@
  *   - argv path (fork + execvp): stdout/stderr capture, exit-code mapping,
  *     large output spanning multiple reads, exec failure (127), timeout kill
  *   - legacy popen path (argv empty): shell execution and exit codes
+ *   - run-as settings (user/domain/password): refused, never silently ignored
  *
  * Everything runs real child processes against /bin/sh and friends, which is
  * deterministic on any POSIX build host.
@@ -125,4 +126,52 @@ TEST(ExecuteProcessUnix, PopenMapsExitCode) {
   const int ret = process::execute_process(args, output);
   EXPECT_EQ(ret, 3);
   EXPECT_EQ(output, "");
+}
+
+// =============================================================================
+// run-as settings: Windows-only, refused here rather than silently ignored
+// =============================================================================
+
+TEST(ExecuteProcessUnix, RunAsUserIsRefusedOnArgvPath) {
+  // Before the guard the script ran as the service identity with `user`
+  // ignored; an operator sandboxing an untrusted script with `user = nobody`
+  // got root (or the service account) instead. The command must not execute.
+  process::exec_arguments args = make_args("touch");
+  args.user = "nobody";
+  args.argv = {"/bin/sh", "-c", "echo RAN"};
+  std::string output;
+  const int ret = process::execute_process(args, output);
+  EXPECT_EQ(ret, NSCAPI::query_return_codes::returnUNKNOWN);
+  EXPECT_EQ(output.find("RAN"), std::string::npos);
+  EXPECT_NE(output.find("only supported on Windows"), std::string::npos);
+  EXPECT_NE(output.find("sudo"), std::string::npos);
+  EXPECT_NE(output.find("test_command"), std::string::npos);
+}
+
+TEST(ExecuteProcessUnix, RunAsUserIsRefusedOnShellPath) {
+  process::exec_arguments args = make_args("echo RAN");
+  args.user = "nobody";
+  std::string output;
+  const int ret = process::execute_process(args, output);
+  EXPECT_EQ(ret, NSCAPI::query_return_codes::returnUNKNOWN);
+  EXPECT_EQ(output.find("RAN"), std::string::npos);
+}
+
+TEST(ExecuteProcessUnix, PasswordOrDomainAloneIsRefused) {
+  // A password (or domain) without a user is a misconfiguration on every
+  // platform; it must not slip through because `user` happens to be empty.
+  for (const char* which : {"password", "domain"}) {
+    process::exec_arguments args = make_args("echo RAN");
+    args.argv = {"/bin/echo", "RAN"};
+    if (std::string(which) == "password")
+      args.password = "secret";
+    else
+      args.domain = "EXAMPLE";
+    std::string output;
+    const int ret = process::execute_process(args, output);
+    EXPECT_EQ(ret, NSCAPI::query_return_codes::returnUNKNOWN) << which;
+    EXPECT_EQ(output.find("RAN"), std::string::npos) << which;
+    // The refusal must never echo the secret.
+    EXPECT_EQ(output.find("secret"), std::string::npos) << which;
+  }
 }
