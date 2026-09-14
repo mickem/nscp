@@ -892,7 +892,6 @@ extern "C" UINT __stdcall ApplyManagement(MSIHANDLE hInstall) {
       // managed - but nothing else is written into it.
       apply_managed_profile(h, L"ini://${shared-path}/nsclient.ini");
       default_modern_layout(h);
-      h.setConfCanChange(true, L"Fleet managed");
     } else if (mode == MANAGEMENT_SERVER_WEB) {
       std::wstring url;
       std::wstring error = validate_web(h, url);
@@ -909,10 +908,6 @@ extern "C" UINT __stdcall ApplyManagement(MSIHANDLE hInstall) {
       }
       apply_managed_profile(h, url);
       default_modern_layout(h);
-      // ImportConfig has the last word here: the http settings store cannot be
-      // written by the installer, so it will turn this back off. Saying yes
-      // now is what lets it get as far as reading the url.
-      h.setConfCanChange(true, L"Configuration served over HTTP(S)");
     } else {
       const std::wstring tool = trimmed_property(h, MONITORING_TOOL);
       // OP5 selected a baseline of its own until the page that offered it was
@@ -936,7 +931,6 @@ extern "C" UINT __stdcall ApplyManagement(MSIHANDLE hInstall) {
 
         h.setPropertyKeyAndDefault(CONF_INCLUDES, L"", L"");
         h.setPropertyKeyAndDefault(CONFIGURATION_TYPE, L"ini://${shared-path}/nsclient.ini", L"");
-        h.setConfCanChange(true, L"Generic applied");
       } else {
         // MONITORING_TOOL=none: no baseline, the existing configuration (or
         // the shipped default) is left to speak for itself.
@@ -944,6 +938,10 @@ extern "C" UINT __stdcall ApplyManagement(MSIHANDLE hInstall) {
       }
     }
 
+    // Whatever the mode, the answer is the same and ImportConfig has the last
+    // word on it: it is the one that reads the store and finds out whether the
+    // installer may write to it (an http one, for instance, it may not). Saying
+    // yes here is what lets it get that far.
     h.setConfCanChange(true, L"Default config set from profile");
     h.setPropertyIfEmpty(CONFIGURATION_TYPE, L"ini://${shared-path}/nsclient.ini");
 
