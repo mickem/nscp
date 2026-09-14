@@ -115,6 +115,34 @@ onUnix("CheckExternalScripts — command timeout enforcement (POSIX launcher)", 
     const { out } = await query("check_hello");
     expect(out).toMatch(/hello-from-script/);
   });
+
+  it("hands the script only its own stdio, not the service's descriptors", async () => {
+    // The pipe is created close-on-exec and the child closes everything above
+    // stderr before the exec, so nothing the service holds (sockets, the log
+    // file, another script's pipe) is the script's to read or write. `ls` lists
+    // its own descriptor table: 0-2 plus the directory it is reading (3).
+    if (!fs.existsSync("/proc/self/fd")) return;
+    fs.writeFileSync(path.join(scriptsDir, "fds.sh"), "#!/bin/sh\nls /proc/self/fd\n", {
+      mode: 0o755,
+    });
+    await nscp.configure({
+      "/modules": { CheckExternalScripts: "enabled" },
+      "/settings/external scripts": { timeout: "10" },
+      "/settings/external scripts/scripts": {
+        check_fds: `/bin/sh ${path.join(scriptsDir, "fds.sh")}`,
+      },
+    });
+
+    const { out } = await query("check_fds");
+
+    const fds = out
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => /^\d+$/.test(line))
+      .map(Number);
+    expect(fds).toEqual(expect.arrayContaining([0, 1, 2]));
+    expect(fds.filter((fd) => fd > 3)).toEqual([]);
+  });
 });
 
 onUnix("CheckExternalScripts — shell-fallback metacharacter guard (POSIX launcher)", () => {

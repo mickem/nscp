@@ -9,10 +9,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <poll.h>
+#include <sys/resource.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+#if defined(__linux__)
+#include <sys/syscall.h>
+#endif
 
 #include <algorithm>
 #include <limits>
@@ -147,11 +151,40 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
   }
   cargs.push_back(nullptr);
 
+  // Close-on-exec from the moment the pipe exists: another worker may fork
+  // between pipe() and this fork, and its child would otherwise carry this
+  // script's write end - it could then write into this script's output, and
+  // this script's read end would not see EOF until that unrelated child had
+  // exited too. pipe2() sets the flag atomically where it exists; elsewhere
+  // fcntl() closes the window as far as it can be closed.
   int pipefd[2];
-  if (pipe(pipefd) != 0) {
+#if defined(__linux__) && defined(O_CLOEXEC)
+  const int piped = pipe2(pipefd, O_CLOEXEC);
+#else
+  int piped = pipe(pipefd);
+  if (piped == 0 && (fcntl(pipefd[0], F_SETFD, FD_CLOEXEC) != 0 || fcntl(pipefd[1], F_SETFD, FD_CLOEXEC) != 0)) {
+    const int saved = errno;
+    close(pipefd[0]);
+    close(pipefd[1]);
+    errno = saved;
+    piped = -1;
+  }
+#endif
+  if (piped != 0) {
     output = "Failed to create pipe: ";
     output += errno_text(errno);
     return NSCAPI::query_return_codes::returnUNKNOWN;
+  }
+
+  // How far the descriptor sweep in the child has to go when close_range() is
+  // not there. Read here, in the parent: getrlimit is not on the
+  // async-signal-safe list. Bounded so a huge nofile limit does not turn the
+  // sweep into a million close() calls per spawn; the service keeps nowhere
+  // near that many descriptors open.
+  int max_fd = 1024;
+  struct rlimit nofile;
+  if (getrlimit(RLIMIT_NOFILE, &nofile) == 0 && nofile.rlim_cur != RLIM_INFINITY && nofile.rlim_cur > static_cast<rlim_t>(max_fd)) {
+    max_fd = nofile.rlim_cur > 65536 ? 65536 : static_cast<int>(nofile.rlim_cur);
   }
 
   const pid_t pid = fork();
@@ -166,9 +199,24 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
     // Child. Everything from here to execvp must be async-signal-safe: no
     // allocation, no locking, no libstdc++ calls that might do either.
     close(pipefd[0]);
+    // dup2() clears close-on-exec on the new descriptor, so 1 and 2 survive
+    // the exec while pipefd[1] itself does not.
     if (dup2(pipefd[1], STDOUT_FILENO) < 0) _exit(127);
     if (dup2(pipefd[1], STDERR_FILENO) < 0) _exit(127);
     close(pipefd[1]);
+    // Nothing above stderr is the script's business: listener sockets, the
+    // log file, other scripts' pipes and whatever else the service holds
+    // without close-on-exec would otherwise be the child's to read and write.
+    // close_range() (Linux 5.9+) does it in one call; a kernel without it
+    // answers ENOSYS and the sweep below takes over. close() on a descriptor
+    // that is not open is a cheap EBADF.
+    bool swept = false;
+#if defined(__linux__) && defined(SYS_close_range)
+    swept = syscall(SYS_close_range, 3, ~0U, 0) == 0;
+#endif
+    if (!swept) {
+      for (int fd = 3; fd < max_fd; ++fd) close(fd);
+    }
     execvp(cargs[0], cargs.data());
     // execvp only returns on error.
     _exit(127);
