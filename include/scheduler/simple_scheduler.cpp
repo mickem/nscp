@@ -84,17 +84,21 @@ void scheduler::prepare_shutdown() {
 void scheduler::stop() {
   log_trace(__FILE__, __LINE__, "stopping all threads");
   {
-    // Under the lock, so a watchdog that is in start_threads() right now has
-    // either already created its thread or will see these flags and create
-    // nothing. Released before the join: the watchdog is one of the threads
-    // being joined.
+    // Held across the join, not just the flag writes. boost::thread_group
+    // keeps a shared lock for the whole of join_all() while create_thread
+    // wants it exclusively, so a thread spawned during the join blocks in
+    // create_thread and is never joined - and the join waits for it. Holding
+    // pool_mutex_ here means nothing can reach create_thread until the pool is
+    // gone. The watchdog, which is one of the threads being joined, only ever
+    // try_locks this mutex (see scale_up), so it cannot be the thread we are
+    // waiting for.
     boost::mutex::scoped_lock l(pool_mutex_);
     running_ = false;
     stop_requested_ = true;
     has_watchdog_ = false;
+    threads_.interrupt_all();
+    threads_.wait_all();
   }
-  threads_.interrupt_all();
-  threads_.wait_all();
   thread_count_ = 0;
   log_trace(__FILE__, __LINE__, "Thread pool contains: " + str::xtos(threads_.count()));
 }
@@ -166,7 +170,7 @@ void scheduler::watch_dog(const int id) {
           if (off.total_seconds() > 5) {
             if (thread_count_ < 10) {
               thread_count_++;
-              start_threads();
+              scale_up();
             } else if (!maximum_threads_reached) {
               log_error(
                   __FILE__, __LINE__,
@@ -308,10 +312,22 @@ void scheduler::reschedule_at(const std::string &tag, const int id, boost::posix
 }
 
 void scheduler::start_threads() {
-  // The watchdog calls this from inside the pool while another thread may be
-  // stopping it. Everything below happens under the lock so that no thread is
-  // created once stop() has begun, and none is created while it joins.
   boost::mutex::scoped_lock l(pool_mutex_);
+  spawn_missing_locked();
+}
+
+void scheduler::scale_up() {
+  // Called by the watchdog, which is itself one of the threads stop() joins.
+  // It must never block on pool_mutex_: stop() holds that across the join, so
+  // waiting for it here would be waiting for the thread that is waiting for
+  // us. Missing a scale-up tick costs nothing - the next one is five seconds
+  // away, and a stop in flight means there is nothing to scale.
+  boost::mutex::scoped_try_lock l(pool_mutex_);
+  if (!l.owns_lock()) return;
+  spawn_missing_locked();
+}
+
+void scheduler::spawn_missing_locked() {
   if (!running_ || stop_requested_) return;
   std::size_t missing_threads = 0;
   if (thread_count_ > threads_.count()) missing_threads = thread_count_ - threads_.count();

@@ -258,6 +258,10 @@ class scheduler : public boost::noncopyable {
   void reschedule(const task& item, boost::posix_time::ptime now_time);
   void reschedule_at(const std::string& tag, int id, boost::posix_time::ptime new_time, bool suppress_late_warning = false);
   void start_threads();
+  // Non-blocking scale-up used by the watchdog; see the definition.
+  void scale_up();
+  // Spawns any missing workers and the watchdog. Caller must hold pool_mutex_.
+  void spawn_missing_locked();
 
   void log_error(const char* file, const int line, const std::string& err) const {
     if (handler* h = handler_.load()) h->on_error(file, line, err);
