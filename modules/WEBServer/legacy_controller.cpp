@@ -7,6 +7,7 @@
 #include <boost/thread/locks.hpp>
 #include <client/simple_client.hpp>
 #include <nscapi/macros.hpp>
+#include <nscapi/protobuf/command.hpp>
 #include <str/xtos.hpp>
 
 #include "error_handler_interface.hpp"
@@ -72,15 +73,36 @@ void legacy_controller::settings_query_pb(Mongoose::Request &request, Mongoose::
 }
 void legacy_controller::run_query_pb(Mongoose::Request &request, Mongoose::StreamResponse &response) {
   if (!session->is_logged_in("legacy", request, response)) return;
-  // Raw-protobuf passthrough: forwarded verbatim. The newer
-  // query_controller (v2 `/api/vX/queries/...`) is the supported way to
-  // invoke checks from HTTP - it stamps identity metadata so the core
-  // permission layer can attribute calls. This legacy endpoint is
-  // deliberately left unstamped: callers using it should be migrated to
-  // the v2 controller, and a strict default-deny policy will block this
-  // path because the subject resolves to "*" (no caller module known)
-  // rather than to WEBServer. That's the intended behaviour for a
+  // Raw-protobuf passthrough: the body is forwarded verbatim, which means
+  // the caller authors the message *header* too. The core permission layer
+  // (service/plugins/plugin_manager.cpp::extract_subject_from_header) reads
+  // the caller identity out of exactly two header metadata keys, so a
+  // caller who sets them here picks its own subject and satisfies any
+  // allow-list rule written for another module or user. Refuse such a
+  // request outright rather than stripping the keys silently: nothing
+  // legitimate sends them (core_helper stamps them in-process, never over
+  // HTTP), so their presence is either an attack or a client that has to be
+  // fixed, and a 400 says which.
+  //
+  // The newer query_controller (v2 `/api/vX/queries/...`) is the supported
+  // way to invoke checks over HTTP - it stamps the identity itself from the
+  // session. This legacy endpoint stays unstamped: a strict default-deny
+  // policy blocks it because the subject resolves to "*" (no caller module
+  // known) rather than to WEBServer. That's the intended behaviour for a
   // deprecated endpoint.
+  PB::Commands::QueryRequestMessage message;
+  if (!message.ParseFromString(request.getData())) {
+    response.setCodeBadRequest("400 Invalid query request");
+    return;
+  }
+  for (const auto &kv : message.header().metadata()) {
+    if (kv.key() != "nscp.caller_plugin_id" && kv.key() != "nscp.principal") continue;
+    NSC_LOG_ERROR("Rejected legacy /query.pb call from " + request.getRemoteIp() + ": the request carries a '" + kv.key() +
+                  "' header, which would forge the identity the core permission layer attributes the call to. "
+                  "Use the v2 API (/api/v2/queries/...), which stamps the identity from the authenticated session.");
+    response.setCodeBadRequest("400 Request carries reserved identity metadata");
+    return;
+  }
   std::string response_pb;
   if (!core->query(request.getData(), response_pb)) {
     response.setCodeServerError("500 Query failed");

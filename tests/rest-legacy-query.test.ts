@@ -11,6 +11,46 @@ import { NscpInstance, REST_URL, setupRestNscp } from "@fixtures/index";
 
 jest.setTimeout(900_000);
 
+// Just enough protobuf wire format to build a QueryRequestMessage by hand:
+// the raw /query.pb endpoint takes protobuf bytes and there is no generated
+// TypeScript stub in this suite. Only length-delimited (wire type 2) fields
+// are needed - every field used below is a string or a sub-message.
+const tag = (field: number, wireType = 2): Buffer => varint((field << 3) | wireType);
+
+function varint(value: number): Buffer {
+  const bytes: number[] = [];
+  let v = value;
+  do {
+    let b = v & 0x7f;
+    v >>>= 7;
+    if (v) b |= 0x80;
+    bytes.push(b);
+  } while (v);
+  return Buffer.from(bytes);
+}
+
+const lengthDelimited = (field: number, payload: Buffer): Buffer =>
+  Buffer.concat([tag(field), varint(payload.length), payload]);
+
+const stringField = (field: number, value: string): Buffer =>
+  lengthDelimited(field, Buffer.from(value, "utf8"));
+
+// PB.Common.KeyValue: key = 1, value = 2.
+const keyValue = (key: string, value: string): Buffer =>
+  Buffer.concat([stringField(1, key), stringField(2, value)]);
+
+// PB.Common.Header: metadata = 8. QueryRequestMessage: header = 1, payload = 2.
+// QueryRequestMessage.Request: command = 2, arguments = 4.
+function queryRequest(command: string, metadata: Array<[string, string]> = []): Buffer {
+  const parts: Buffer[] = [];
+  if (metadata.length > 0) {
+    const header = Buffer.concat(metadata.map(([k, v]) => lengthDelimited(8, keyValue(k, v))));
+    parts.push(lengthDelimited(1, header));
+  }
+  parts.push(lengthDelimited(2, stringField(2, command)));
+  return Buffer.concat(parts);
+}
+
 describe("REST query (legacy)", () => {
   let nscp: NscpInstance;
   let key: string | undefined = undefined;
@@ -156,5 +196,43 @@ describe("REST query (legacy)", () => {
           ],
         });
       });
+  });
+
+  // The raw-protobuf endpoint forwards the caller's message into the core,
+  // header included, and the core permission layer reads the calling module
+  // and principal out of two header metadata keys. A caller who sets them
+  // would pick its own subject and match any allow-list rule written for
+  // another module or user, so the endpoint refuses such a request outright.
+  it("executes a raw protobuf query that carries no identity metadata", async () => {
+    await request(REST_URL)
+      .post("/query.pb")
+      .set("Authorization", `Bearer ${key}`)
+      .set("Content-Type", "application/octet-stream")
+      .send(queryRequest("check_ok"))
+      .trustLocalhost(true)
+      .expect(200);
+  });
+
+  it.each([["nscp.caller_plugin_id", "1"] as const, ["nscp.principal", "admin"] as const])(
+    "rejects a raw protobuf query that forges %s",
+    async (metaKey, metaValue) => {
+      await request(REST_URL)
+        .post("/query.pb")
+        .set("Authorization", `Bearer ${key}`)
+        .set("Content-Type", "application/octet-stream")
+        .send(queryRequest("check_ok", [[metaKey, metaValue]]))
+        .trustLocalhost(true)
+        .expect(400);
+    },
+  );
+
+  it("rejects a body that is not a query request at all", async () => {
+    await request(REST_URL)
+      .post("/query.pb")
+      .set("Authorization", `Bearer ${key}`)
+      .set("Content-Type", "application/octet-stream")
+      .send(Buffer.from([0xff, 0xff, 0xff, 0xff]))
+      .trustLocalhost(true)
+      .expect(400);
   });
 });
