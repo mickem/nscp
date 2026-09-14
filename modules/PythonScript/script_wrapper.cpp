@@ -340,13 +340,19 @@ py::tuple script_wrapper::function_wrapper::register_event(std::string event, Py
 
 int script_wrapper::function_wrapper::handle_query(const std::string cmd, const std::string &request, std::string &response) const {
   try {
+    // The GIL is what serialises these maps: registration runs from Python and
+    // therefore holds it, so take it before the lookup and keep it for the
+    // call. The lookup used to run bare, and the iterator was kept across the
+    // acquisition that followed - so a script's init() inserting into the same
+    // map during a reload could rebalance the tree between the two and leave
+    // the iterator pointing at a moved node.
+    thread_locker locker;
     functions::function_map_type::iterator it = functions::get()->normal_functions.find(cmd);
     if (it == functions::get()->normal_functions.end()) {
       NSC_LOG_ERROR_STD("Failed to find python function: " + cmd);
       return NSCAPI::cmd_return_codes::returnIgnored;
     }
     {
-      thread_locker locker;
       try {
         py::tuple ret = py::call<py::tuple>(py::object(it->second).ptr(), cmd, request);
         if (ret.ptr() == Py_None) {
@@ -369,13 +375,19 @@ int script_wrapper::function_wrapper::handle_query(const std::string cmd, const 
 
 int script_wrapper::function_wrapper::handle_simple_query(const std::string cmd, std::list<std::string> arguments, std::string &msg, std::string &perf) const {
   try {
+    // The GIL is what serialises these maps: registration runs from Python and
+    // therefore holds it, so take it before the lookup and keep it for the
+    // call. The lookup used to run bare, and the iterator was kept across the
+    // acquisition that followed - so a script's init() inserting into the same
+    // map during a reload could rebalance the tree between the two and leave
+    // the iterator pointing at a moved node.
+    thread_locker locker;
     functions::function_map_type::iterator it = functions::get()->simple_functions.find(cmd);
     if (it == functions::get()->simple_functions.end()) {
       NSC_LOG_ERROR_STD("Failed to find python function: " + cmd);
       return NSCAPI::cmd_return_codes::returnIgnored;
     }
     {
-      thread_locker locker;
 
       try {
         py::list l;
@@ -410,21 +422,31 @@ int script_wrapper::function_wrapper::handle_simple_query(const std::string cmd,
 }
 
 bool script_wrapper::function_wrapper::has_function(const std::string command) {
+  // Same maps as the dispatch paths: read them under the GIL.
+  thread_locker locker;
   return functions::get()->normal_functions.find(command) != functions::get()->normal_functions.end();
 }
 bool script_wrapper::function_wrapper::has_simple(const std::string command) {
+  // Same maps as the dispatch paths: read them under the GIL.
+  thread_locker locker;
   return functions::get()->simple_functions.find(command) != functions::get()->simple_functions.end();
 }
 
 int script_wrapper::function_wrapper::handle_exec(const std::string cmd, const std::string &request, std::string &response) const {
   try {
+    // The GIL is what serialises these maps: registration runs from Python and
+    // therefore holds it, so take it before the lookup and keep it for the
+    // call. The lookup used to run bare, and the iterator was kept across the
+    // acquisition that followed - so a script's init() inserting into the same
+    // map during a reload could rebalance the tree between the two and leave
+    // the iterator pointing at a moved node.
+    thread_locker locker;
     functions::function_map_type::iterator it = functions::get()->normal_cmdline.find(cmd);
     if (it == functions::get()->normal_cmdline.end()) {
       NSC_LOG_ERROR_STD("Failed to find python function: " + cmd);
       return NSCAPI::cmd_return_codes::returnIgnored;
     }
     {
-      thread_locker locker;
       try {
         py::tuple ret = py::call<py::tuple>(py::object(it->second).ptr(), cmd, request);
         if (ret.ptr() == Py_None) {
@@ -450,6 +472,13 @@ int script_wrapper::function_wrapper::handle_exec(const std::string cmd, const s
 
 int script_wrapper::function_wrapper::handle_simple_exec(const std::string cmd, std::list<std::string> arguments, std::string &result) const {
   try {
+    // The GIL is what serialises these maps: registration runs from Python and
+    // therefore holds it, so take it before the lookup and keep it for the
+    // call. The lookup used to run bare, and the iterator was kept across the
+    // acquisition that followed - so a script's init() inserting into the same
+    // map during a reload could rebalance the tree between the two and leave
+    // the iterator pointing at a moved node.
+    thread_locker locker;
     functions::function_map_type::iterator it = functions::get()->simple_cmdline.find(cmd);
     if (it == functions::get()->simple_cmdline.end()) {
       result = "Failed to find python function: " + cmd;
@@ -457,7 +486,6 @@ int script_wrapper::function_wrapper::handle_simple_exec(const std::string cmd, 
       return NSCAPI::cmd_return_codes::returnIgnored;
     }
     {
-      thread_locker locker;
       try {
         py::tuple ret = py::call<py::tuple>(py::object(it->second).ptr(), convert(arguments));
         if (ret.ptr() == Py_None) {
@@ -484,21 +512,31 @@ int script_wrapper::function_wrapper::handle_simple_exec(const std::string cmd, 
 }
 
 bool script_wrapper::function_wrapper::has_message_handler(const std::string channel) {
+  // Same maps as the dispatch paths: read them under the GIL.
+  thread_locker locker;
   return functions::get()->normal_handler.find(channel) != functions::get()->normal_handler.end();
 }
 bool script_wrapper::function_wrapper::has_simple_message_handler(const std::string channel) {
+  // Same maps as the dispatch paths: read them under the GIL.
+  thread_locker locker;
   return functions::get()->simple_handler.find(channel) != functions::get()->simple_handler.end();
 }
 
 int script_wrapper::function_wrapper::handle_message(const std::string channel, const std::string &request, std::string &response) const {
   try {
+    // The GIL is what serialises these maps: registration runs from Python and
+    // therefore holds it, so take it before the lookup and keep it for the
+    // call. The lookup used to run bare, and the iterator was kept across the
+    // acquisition that followed - so a script's init() inserting into the same
+    // map during a reload could rebalance the tree between the two and leave
+    // the iterator pointing at a moved node.
+    thread_locker locker;
     functions::function_map_type::iterator it = functions::get()->normal_handler.find(channel);
     if (it == functions::get()->normal_handler.end()) {
       NSC_LOG_ERROR_STD("Failed to find python handler: " + channel);
       return NSCAPI::api_return_codes::hasFailed;
     }
     {
-      thread_locker locker;
       int ret_code = NSCAPI::api_return_codes::hasFailed;
       try {
         py::object memoryView(py::handle<>(PyMemoryView_FromMemory(const_cast<char *>(request.c_str()), static_cast<Py_ssize_t>(request.size()), PyBUF_READ)));
@@ -526,13 +564,19 @@ int script_wrapper::function_wrapper::handle_message(const std::string channel, 
 int script_wrapper::function_wrapper::handle_simple_message(const std::string channel, const std::string source, const std::string command, const int code,
                                                             const std::string &msg, const std::string &perf) const {
   try {
+    // The GIL is what serialises these maps: registration runs from Python and
+    // therefore holds it, so take it before the lookup and keep it for the
+    // call. The lookup used to run bare, and the iterator was kept across the
+    // acquisition that followed - so a script's init() inserting into the same
+    // map during a reload could rebalance the tree between the two and leave
+    // the iterator pointing at a moved node.
+    thread_locker locker;
     functions::function_map_type::iterator it = functions::get()->simple_handler.find(channel);
     if (it == functions::get()->simple_handler.end()) {
       NSC_LOG_ERROR_STD("Failed to find python handler: " + channel);
       return NSCAPI::api_return_codes::hasFailed;
     }
     {
-      thread_locker locker;
       try {
         py::object ret = py::call<py::object>(py::object(it->second).ptr(), channel, source, command, nagios_return_to_py(code), pystr(msg), perf);
         int ret_code = NSCAPI::api_return_codes::hasFailed;
@@ -557,15 +601,22 @@ int script_wrapper::function_wrapper::handle_simple_message(const std::string ch
 }
 
 bool script_wrapper::function_wrapper::has_event_handler(const std::string channel) {
+  // Same maps as the dispatch paths: read them under the GIL.
+  thread_locker locker;
   return functions::get()->normal_handler.find(channel) != functions::get()->normal_handler.end();
 }
 bool script_wrapper::function_wrapper::has_simple_event_handler(const std::string channel) {
+  // Same maps as the dispatch paths: read them under the GIL.
+  thread_locker locker;
   return functions::get()->simple_handler.find(channel) != functions::get()->simple_handler.end();
 }
 
 void script_wrapper::function_wrapper::on_event(const std::string event, const std::string &request) const {
   try {
     // Hold the table for the whole call: the iterator points into it.
+    // Under the GIL for the lookup too: registration inserts into this map
+    // from Python, so the GIL is what keeps the two apart.
+    thread_locker locker;
     const std::shared_ptr<functions> fns = functions::get();
     functions::function_map_type::iterator it = fns->normal_handler.find(event);
     if (it == fns->normal_handler.end()) {
@@ -573,7 +624,6 @@ void script_wrapper::function_wrapper::on_event(const std::string event, const s
       return;
     }
     {
-      thread_locker locker;
       try {
         py::call<py::object>(py::object(it->second).ptr(), event, request);
       } catch (py::error_already_set &) {
@@ -588,6 +638,9 @@ void script_wrapper::function_wrapper::on_event(const std::string event, const s
 }
 void script_wrapper::function_wrapper::on_simple_event(const std::string event, const py::dict &data) const {
   try {
+    // Under the GIL for the lookup too: registration inserts into this map
+    // from Python, so the GIL is what keeps the two apart.
+    thread_locker locker;
     const std::shared_ptr<functions> fns = functions::get();
     functions::function_map_type::iterator it = fns->simple_handler.find(event);
     if (it == fns->simple_handler.end()) {
@@ -640,8 +693,9 @@ void script_wrapper::function_wrapper::submit_metrics(const std::string &request
     }
 
     try {
+      // The list itself is registered from Python, so walk it under the GIL.
+      thread_locker inner_locker;
       for (functions::function_list_type::value_type &v : functions::get()->submit_metrics) {
-        thread_locker inner_locker;
         try {
           py::call<py::object>(py::object(v).ptr(), metrics, pystr(""));
         } catch (py::error_already_set &) {
@@ -711,8 +765,9 @@ void script_wrapper::function_wrapper::fetch_metrics(std::string &request) const
   bundle->set_key("");
 
   try {
+    // The list itself is registered from Python, so walk it under the GIL.
+    thread_locker locker;
     for (functions::function_list_type::value_type &v : functions::get()->fetch_metrics) {
-      thread_locker locker;
       try {
         py::object ret = py::call<py::object>(py::object(v).ptr());
 #if BOOST_VERSION > 104200
@@ -773,13 +828,19 @@ bool script_wrapper::function_wrapper::has_submit_metrics() { return true; }
 bool script_wrapper::function_wrapper::has_metrics_fetcher() { return true; }
 
 bool script_wrapper::function_wrapper::has_cmdline(const std::string command) {
+  // Same maps as the dispatch paths: read them under the GIL.
+  thread_locker locker;
   return functions::get()->normal_cmdline.find(command) != functions::get()->normal_cmdline.end();
 }
 bool script_wrapper::function_wrapper::has_simple_cmdline(const std::string command) {
+  // Same maps as the dispatch paths: read them under the GIL.
+  thread_locker locker;
   return functions::get()->simple_cmdline.find(command) != functions::get()->simple_cmdline.end();
 }
 
 std::string script_wrapper::function_wrapper::get_commands() {
+  // Same maps as the dispatch paths: read them under the GIL.
+  thread_locker locker;
   std::string str;
   for (const functions::function_map_type::value_type &i : functions::get()->normal_functions) {
     str::format::append_list(str, i.first, ", ");
