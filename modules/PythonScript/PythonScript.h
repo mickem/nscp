@@ -16,6 +16,11 @@ class PythonScript : public nscapi::impl::simple_plugin {
  private:
   boost::filesystem::path root_;
   std::string alias_;
+  // Read from the settings before any script is loaded; the interpreter is
+  // booted with them from loadScript, which runs while notify() is still
+  // delivering paths.
+  std::string python_cache_;
+  std::string python_lib_;
 
   std::shared_ptr<script_provider_interface> provider_;
 
