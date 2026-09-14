@@ -344,29 +344,42 @@ describe("plugin threading", () => {
   itScript("keeps a different module answering while one module is blocked", async () => {
     resetTrace();
 
+    const entered = () => readTrace().some((l) => l.startsWith("+"));
+    const exits = () => readTrace().filter((l) => l.startsWith("-")).length;
+
     // Hold CheckExternalScripts busy, then ask CheckHelpers for something
-    // trivial. If a slow check could block the whole dispatch path the fast
-    // one could not come back before the slow one did.
+    // trivial. If a slow check could block the whole dispatch path, no fast
+    // check could come back until the slow one had.
     const slow = nrpe("slow");
-    const fastFinished: number[] = [];
-    const slowStarted = Date.now();
 
-    // Give the slow check a moment to actually be inside the agent.
-    await new Promise((r) => setTimeout(r, 300));
+    // Wait for the slow check to actually be inside the agent rather than
+    // assuming a fixed sleep was long enough on this machine.
+    const readyBy = Date.now() + 30_000;
+    while (!entered() && Date.now() < readyBy) {
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    expect(entered()).toBe(true);
 
-    for (let i = 0; i < 3; i++) {
+    // Count the fast checks that demonstrably came back while the slow one was
+    // still inside the agent: its entry marker written, its exit marker not.
+    //
+    // Read from the trace rather than compared as clocks. Two durations taken
+    // from the same origin can tie at millisecond resolution, and a slow runner
+    // can spend most of SLOW_MS on three NRPE round trips - which is exactly
+    // how this failed on the arm64 runner, at "2046 < 2046". Stopping as soon
+    // as the slow check exits also makes the loop adapt to the machine instead
+    // of assuming a fixed count fits in the window.
+    let servedWhileBlocked = 0;
+    const deadline = Date.now() + 60_000;
+    while (exits() === 0 && servedWhileBlocked < 3 && Date.now() < deadline) {
       const out = await nrpe("check_ok", ["message=fast"]);
       expect(out).toContain("fast");
-      fastFinished.push(Date.now() - slowStarted);
+      if (exits() === 0) servedWhileBlocked++;
     }
 
-    const slowOut = await slow;
-    expect(slowOut).toContain("slow done");
-    const slowDuration = Date.now() - slowStarted;
-
-    // Every fast check came back while the slow one was still running.
-    for (const t of fastFinished) expect(t).toBeLessThan(slowDuration);
-    expect(readTrace().filter((l) => l.startsWith("-"))).toHaveLength(1);
+    expect(servedWhileBlocked).toBeGreaterThan(0);
+    expect(await slow).toContain("slow done");
+    expect(exits()).toBe(1);
   });
 
   it("lets a module dispatch into itself", async () => {
