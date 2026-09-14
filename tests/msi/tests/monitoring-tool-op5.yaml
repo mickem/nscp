@@ -33,11 +33,16 @@ nsclient.ini: |
 
 # The feature is gone, so its content must be too - but the client module it
 # used to ship is not op5 configuration and stays.
+# The op5 script components were harvested into the same Directory row as the
+# ordinary scripts (Name="scripts"), so these four installed flat beside them -
+# not into a scripts\op5 subfolder, which was declared and never used.
 forbidden_files:
   op5-config:
     - op5.ini
-    - scripts/op5/check_time.vbs
-    - scripts/op5/services.vbs
+    - scripts/check_ad.vbs
+    - scripts/check_time.vbs
+    - scripts/restart_service.ps1
+    - scripts/services.vbs
 required_files:
   op5-client:
     - modules/Op5Client.dll

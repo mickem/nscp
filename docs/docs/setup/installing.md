@@ -254,11 +254,6 @@ A list of all the MSI options can be found below.
 | MANAGEMENT_SERVER   | Where the configuration comes from: `NONE` (this machine, the default), `FLEET` or `WEB` - see [Choosing a management server](#choosing-a-management-server) |
 | MANAGEMENT_URL      | The configuration url for `MANAGEMENT_SERVER=WEB`; the same thing as CONFIGURATION_TYPE pointed at a http(s) url         |
 | MANAGEMENT_INSECURE | Set to 1 to allow an unverified connection to the management server: a plain `http://` url, or a certificate that cannot be verified |
-| OP5_SERVER          | OP5 Server if you want to automatically submit passive checks via Op5 northbound API.                                   |
-| OP5_USER            | The username to login with on the OP5_SERVER                                                                            |
-| OP5_PASSWORD        | The password to login with on the OP5_SERVER                                                                            |
-| OP5_HOSTGROUPS      | Additional hostgroups to add to the host.                                                                               |
-| OP5_CONTACTGROUP    | Additional contactgroups to add to the host.                                                                            |
 | NO_SERVICE          | Set to 1 to disable installing the service (then you can manually create and activate the service when needed)          |
 | TLS_VERSION         | The TLS version to use (1.0, 1.1, 1.2, *1.3*)                                                                           |
 | TLS_VERIFY_MODE     | The TLS verify mode to use (none, *peer*, fail_if_no_peer_cert)                                                         |
@@ -433,12 +428,27 @@ msiexec /i NSCP-<version>.msi MONITORING_TOOL=none
 
 ### Submitting to an op5 server
 
-The op5 profile was retired with the page that offered it, but the client module is still there. Set `OP5_SERVER`,
-`OP5_USER` and `OP5_PASSWORD` to enable passive reports through op5's Northbound API:
+The op5 profile was retired with the page that offered it, but the `Op5Client` module is still shipped, under the
+*Various client plugins* feature. Configure it after installing - in `nsclient.ini` under `[/settings/op5]`, or with
+`nscp op5 install`:
 
+```ini
+[/modules]
+Op5Client = enabled
+
+[/settings/op5]
+server = https://op5.example.com
+user = monitor
+password = <password>
 ```
-msiexec /i NSClient++.msi OP5_SERVER=https://op5.com OP5_USER=monitor OP5_PASSWORD=rotinom
-```
+
+<!-- @formatter:off -->
+!!! warning "The `OP5_*` MSI properties do not work"
+    `OP5_SERVER`, `OP5_USER`, `OP5_PASSWORD`, `OP5_HOSTGROUPS` and `OP5_CONTACTGROUP` are read by the installer from
+    a property name nothing ever fills in, so passing them on the command line has always been silently ignored. This
+    is a long-standing bug rather than something the retirement of the op5 profile changed, and it is why they are not
+    in the options table above. Configure the module as shown instead.
+<!-- @formatter:on -->
 
 ## Enrolling with a fleet server
 

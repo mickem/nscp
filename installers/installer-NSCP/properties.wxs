@@ -31,8 +31,13 @@
 	<Property Id="MANAGEMENT_URL" Secure="yes" />
 	<!-- The one opt-out of verifying who is on the other end, for both managed
 	     modes: a plain http url, or a certificate that cannot be verified.
-	     Maps to FLEET_INSECURE / TLS_VERIFY_MODE=none. -->
+	     Maps to FLEET_INSECURE / TLS_VERIFY_MODE=none, per mode - the two are
+	     about different connections and are never seeded from each other. -->
 	<Property Id="MANAGEMENT_INSECURE" Secure="yes" />
+	<!-- The CA file for the WEB mode, projected onto TLS_CA once the answer is
+	     final. See MANAGEMENT_CA in keys.hpp for why it is not bound to TLS_CA
+	     directly. -->
+	<Property Id="MANAGEMENT_CA" Secure="yes" />
 	<!-- Set by DetectManagement when the mode was worked out from FLEET_SERVER
 	     or CONFIGURATION_TYPE rather than asked for by name. Secure because it
 	     has to travel with MANAGEMENT_SERVER: on a basic-UI install both
@@ -41,11 +46,12 @@
 	     elevated half and this does not, a command line written before this
 	     page existed would silently get the modern-layout migration. -->
 	<Property Id="MGMT_DERIVED" Secure="yes" />
-	<!-- Three more are set by these actions and read in the same sequence, so
+	<!-- Four more are set by these actions and read in the same sequence, so
 	     they are deliberately not declared: MGMT_ENROLLED (this host already
-	     carries an enrollment manifest), MGMT_SET_LAYOUT (the modern layout was
-	     this page's idea, so answering None can take it back) and MGMT_ERROR
-	     (what ApplyManagement rejected, shown by ManagementErrorDlg). -->
+	     carries an enrollment manifest), MGMT_SET_LAYOUT and MGMT_SET_TLS_CA
+	     (the modern layout and the CA path were this page's doing, so an
+	     abandoned answer can take them back) and MGMT_ERROR (what
+	     ApplyManagement rejected, shown by ManagementErrorDlg). -->
 	
 	<!-- CONFIGURE THE INSTALLER -->
 	<Property Id="ALLOW_CONFIGURATION">1</Property>

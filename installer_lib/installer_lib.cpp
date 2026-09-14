@@ -584,6 +584,11 @@ std::wstring detect_management_server(msi_helper &h) {
 std::string enrollment_manifest(msi_helper &h) {
   const std::string install_folder = as_install_folder(h.getTargetPath(L"INSTALLLOCATION"));
   const resolved_shared_folder shared = shared_folder_for(resolve_layout(install_folder, L""), install_folder);
+  // Unresolved means this host is on the modern layout but %ProgramData%
+  // could not be determined, so the folder handed back is the install folder -
+  // not where the manifest is. Looking there would report an enrolled host as
+  // unenrolled; say we do not know instead.
+  if (!shared.resolved) return "";
   return expand_install_path(std::string(CERT_FOLDER) + "/agent-state.json", install_folder, shared.folder);
 }
 
@@ -683,7 +688,8 @@ std::wstring validate_web(msi_helper &h, std::wstring &url) {
            L"runs, so anyone who can answer for that address would own this machine.\n\nUse an https:// url, or pass MANAGEMENT_INSECURE=1 (the 'Allow "
            L"an unverified connection' box on the page).";
   }
-  const std::wstring ca = trimmed_property(h, L"TLS_CA");
+  std::wstring ca = trimmed_property(h, MANAGEMENT_CA);
+  if (ca.empty()) ca = trimmed_property(h, L"TLS_CA");
   if (!ca.empty() && file_is_missing(ca)) {
     return L"The CA file was not found on this machine:\n\n" + ca;
   }
@@ -745,6 +751,13 @@ void default_modern_layout(msi_helper &h) {
 // was passed on purpose, and clearing one would be overruling the operator.
 void clear_abandoned_answer(msi_helper &h, const std::wstring &mode) {
   if (!full_ui(h)) return;
+
+  // The box is hidden rather than cleared when the answer is None, so its
+  // value survives an abandoned managed answer and would keep every take-back
+  // below from firing. Clear it first, then read it.
+  if (mode == MANAGEMENT_SERVER_NONE && !trimmed_property(h, MANAGEMENT_INSECURE).empty()) {
+    h.setPropertyValue(MANAGEMENT_INSECURE, L"");
+  }
   const bool insecure = wants_insecure(h);
 
   if (mode != MANAGEMENT_SERVER_FLEET) {
@@ -762,6 +775,13 @@ void clear_abandoned_answer(msi_helper &h, const std::wstring &mode) {
   // own TLS_VERIFY_MODE taken away under an unrelated answer.
   if (!insecure && boost::algorithm::iequals(trimmed_property(h, L"TLS_VERIFY_MODE"), L"none")) {
     h.setPropertyValue(L"TLS_VERIFY_MODE", L"");
+  }
+
+  // Only the TLS_CA this page projected, which is what the marker records: a
+  // path passed on the command line for another reason is not ours to drop.
+  if (mode != MANAGEMENT_SERVER_WEB && trimmed_property(h, MGMT_SET_TLS_CA) == L"1") {
+    h.setPropertyValue(L"TLS_CA", L"");
+    h.setPropertyValue(MGMT_SET_TLS_CA, L"");
   }
 
   // Both managed modes want the modern layout, so only an answer of None takes
@@ -807,7 +827,7 @@ extern "C" UINT __stdcall DetectManagement(MSIHANDLE hInstall) {
     try {
       const std::string manifest = enrollment_manifest(h);
       boost::system::error_code ec;
-      if (boost::filesystem::exists(manifest, ec)) {
+      if (!manifest.empty() && boost::filesystem::exists(manifest, ec)) {
         h.logMessage("This host is already enrolled: " + manifest);
         h.setPropertyValue(MGMT_ENROLLED, L"1");
         const boost::optional<onboarding::enrolled_identity> current = onboarding::load_state(manifest);
@@ -828,13 +848,27 @@ extern "C" UINT __stdcall DetectManagement(MSIHANDLE hInstall) {
       h.logMessage(L"Could not look for an existing enrollment: " + utf8::to_unicode(e.what()));
     }
 
-    // Seed the page's insecure box from a command line that already says the
-    // same thing. Without this the box reads "off" next to a FLEET_INSECURE=1
-    // that is on, and the clearing below would then take the operator's own
-    // value away from them.
-    if (trimmed_property(h, MANAGEMENT_INSECURE).empty() &&
-        (is_true(h.getMsiPropery(FLEET_INSECURE)) || boost::algorithm::iequals(trimmed_property(h, L"TLS_VERIFY_MODE"), L"none"))) {
-      h.setPropertyValue(MANAGEMENT_INSECURE, L"1");
+    // Seed the page's fields from a command line that already says the same
+    // thing, so the box reads "on" next to a FLEET_INSECURE=1 that is on and
+    // the take-back below never removes the operator's own value.
+    //
+    // Per mode, and never across: FLEET_INSECURE is about the enrollment
+    // call, TLS_VERIFY_MODE about the configuration download, and they are
+    // not interchangeable. Seeding one from the other would let
+    // TLS_VERIFY_MODE=none on the command line switch off the enrollment's
+    // refusal to send a bootstrap token over plain HTTP.
+    if (trimmed_property(h, MANAGEMENT_INSECURE).empty()) {
+      const bool already_insecure = mode == MANAGEMENT_SERVER_FLEET
+                                        ? is_true(h.getMsiPropery(FLEET_INSECURE))
+                                        : mode == MANAGEMENT_SERVER_WEB && boost::algorithm::iequals(trimmed_property(h, L"TLS_VERIFY_MODE"), L"none");
+      if (already_insecure) h.setPropertyValue(MANAGEMENT_INSECURE, L"1");
+    }
+    // The same for the CA field. The page writes MANAGEMENT_CA and
+    // ApplyManagement projects it onto TLS_CA, so that a path typed under Web
+    // and then abandoned can be taken back without touching a TLS_CA the
+    // operator passed for something else (an IMPORT_CONFIG=https:// install).
+    if (trimmed_property(h, MANAGEMENT_CA).empty() && mode == MANAGEMENT_SERVER_WEB) {
+      h.setPropertyValue(MANAGEMENT_CA, trimmed_property(h, L"TLS_CA"));
     }
     if (!named && mode != MANAGEMENT_SERVER_NONE) h.setPropertyValue(MGMT_DERIVED, L"1");
     h.setPropertyValue(MANAGEMENT_SERVER, mode);
@@ -873,6 +907,14 @@ extern "C" UINT __stdcall ApplyManagement(MSIHANDLE hInstall) {
     // page. Only a property that is not there at all falls back.
     std::wstring mode = boost::algorithm::to_upper_copy(trimmed_property(h, MANAGEMENT_SERVER));
     if (mode.empty()) mode = detect_management_server(h);
+    // Anything unrecognised is None, the answer detect_management_server also
+    // gives it. Left as typed it would be neither: this action would write the
+    // local baseline while every dialog condition, which tests for NONE by
+    // name, skipped the pages that baseline belongs to.
+    if (mode != MANAGEMENT_SERVER_FLEET && mode != MANAGEMENT_SERVER_WEB && mode != MANAGEMENT_SERVER_NONE) {
+      h.logMessage(L"Unknown MANAGEMENT_SERVER '" + mode + L"'; using " + MANAGEMENT_SERVER_NONE + L". Use NONE, FLEET or WEB.");
+      mode = MANAGEMENT_SERVER_NONE;
+    }
     h.setPropertyValue(MANAGEMENT_SERVER, mode);
     h.logMessage(L"Applying management server: " + mode);
 
@@ -905,6 +947,11 @@ extern "C" UINT __stdcall ApplyManagement(MSIHANDLE hInstall) {
         // installer does, and every later refresh the service does from the
         // same boot.ini.
         h.setPropertyValue(L"TLS_VERIFY_MODE", L"none");
+      }
+      const std::wstring ca = trimmed_property(h, MANAGEMENT_CA);
+      if (!ca.empty()) {
+        h.setPropertyValue(L"TLS_CA", ca);
+        h.setPropertyValue(MGMT_SET_TLS_CA, L"1");
       }
       apply_managed_profile(h, url);
       default_modern_layout(h);

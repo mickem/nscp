@@ -111,7 +111,7 @@
           <Condition Action="show">MANAGEMENT_SERVER = "WEB"</Condition>
           <Condition Action="hide">NOT MANAGEMENT_SERVER = "WEB"</Condition>
         </Control>
-        <Control Id="webCa" Type="Edit" X="112" Y="164" Width="208" Height="15" Property="TLS_CA" Text="{255}">
+        <Control Id="webCa" Type="Edit" X="112" Y="164" Width="208" Height="15" Property="MANAGEMENT_CA" Text="{255}">
           <Condition Action="show">MANAGEMENT_SERVER = "WEB"</Condition>
           <Condition Action="hide">NOT MANAGEMENT_SERVER = "WEB"</Condition>
         </Control>
