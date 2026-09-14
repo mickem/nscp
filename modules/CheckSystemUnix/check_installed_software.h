@@ -64,9 +64,8 @@ struct command_result {
   command_result(std::string out, const bool success) : output(std::move(out)), ok(success) {}
 };
 
-// Helpers for command execution / filesystem access (injectable for tests).
+// Helper for command execution (injectable for tests).
 typedef std::function<command_result(const std::string &)> exec_fn;
-typedef std::function<long long(const std::string &)> mtime_fn;
 
 // The package manager owning this host: the manager name plus the absolute
 // path of its query binary (commands are invoked by absolute path so a
@@ -95,11 +94,6 @@ std::string format_epoch_date(long long epoch);
 std::vector<software_entry> parse_dpkg_output(const std::string &output);
 std::vector<software_entry> parse_rpm_output(const std::string &output);
 std::vector<software_entry> parse_pacman_output(const std::string &output);
-
-// dpkg does not record install dates; approximate them from the mtime of the
-// package's /var/lib/dpkg/info/<name>[:<arch>].list file. mtime must return
-// epoch seconds, or 0 when the path does not exist.
-void apply_dpkg_install_dates(std::vector<software_entry> &entries, const mtime_fn &mtime);
 
 // Detection of the available package manager (name is empty if none found).
 // Order: dpkg-query, rpm, pacman — dpkg first because Debian-family hosts
