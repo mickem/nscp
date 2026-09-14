@@ -128,8 +128,18 @@ nsclient::core::dll_plugin::~dll_plugin() {
     try {
       dll_plugin::unload_plugin();
     } catch (const plugin_exception &) {
-      // ...
+      // Refused because calls into the module were still in flight. Leaving it
+      // loaded is the whole point of that refusal, so the library must stay
+      // mapped too - see below.
     }
+  }
+  if (leaked_) {
+    // unload_plugin() decided the module was still in use and deliberately
+    // left it loaded rather than call into an instance being destroyed.
+    // Unmapping the library here would undo that: the thread still inside
+    // returns to an address that is no longer mapped. Leaking the mapping for
+    // the rest of the process is the cheaper half of the same trade.
+    return;
   }
   try {
     unload_dll();
@@ -503,6 +513,7 @@ void nsclient::core::dll_plugin::unload_plugin() {
         // module is much cheaper than calling into one whose instance has been
         // destroyed.
         unloading_ = false;
+        leaked_ = true;
         throw plugin_exception(get_alias_or_name(), "Refused to unload: calls into the module were still in flight after 5s");
       }
     }

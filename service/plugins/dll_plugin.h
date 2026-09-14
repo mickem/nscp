@@ -62,6 +62,10 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
   // Set when the drain above expired and the reload went ahead anyway. This
   // class has no logger, so the caller reports it.
   std::atomic<bool> reload_raced_{false};
+  // Set when unload_plugin() refused to tear the module down because calls
+  // were still inside it. The destructor then leaves the library mapped: the
+  // refusal is worthless if the mapping goes away anyway.
+  std::atomic<bool> leaked_{false};
 
   // Holds the reload barrier for the duration of loadModuleEx and lets go
   // again however that call leaves - fLoadModule is foreign code that may
