@@ -18,6 +18,12 @@ Only installs that used that profile are affected, and only on their next upgrad
   Despite the name of the folder they were built from, they installed straight into `scripts\`, beside the ordinary
   ones - so check your external-script definitions for those four names, and keep your own copies before upgrading if
   you still call them. An upgrade does not delete copies you put there yourself.
+- **`Op5Client` moved feature.** It is now part of *Various client plugins* rather than the retired *OP5 Monitoring
+  system*, and an upgrade keeps the feature selection the host already had. So a host that installed `OP5Monitoring`
+  but left *Various client plugins* out loses `Op5Client.dll` on upgrade, and the service then logs a failure to load
+  a module its configuration still enables. Add the feature on the upgrade command line
+  (`ADDLOCAL=ExtraClientPlugin`, alongside whatever else you name), or select it in the feature tree. `ADDLOCAL=ALL`
+  is unaffected.
 - **`Op5Client` still ships**, now under the *Various client plugins* feature. Configure it in `nsclient.ini` under
   `[/settings/op5]`, or with `nscp op5 install`. The `OP5_SERVER`, `OP5_USER` and `OP5_PASSWORD` MSI properties do
   **not** configure it and never have: the installer reads them from a place nothing fills in, so they have always

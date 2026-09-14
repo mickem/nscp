@@ -64,6 +64,7 @@
 // for something else. MGMT_SET_TLS_CA records that the projection happened.
 #define MANAGEMENT_CA L"MANAGEMENT_CA"
 #define MGMT_SET_TLS_CA L"MGMT_SET_TLS_CA"
+#define MGMT_SET_TLS_VERIFY L"MGMT_SET_TLS_VERIFY"
 // Set when the modern layout was this page's idea rather than the operator's,
 // so that going Back and answering None can undo it. The migration is one-way
 // once it has run, so the undo has to happen before the install does.

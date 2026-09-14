@@ -611,19 +611,30 @@ bool file_is_missing(const std::wstring &path) {
   return !boost::filesystem::exists(boost::filesystem::path(utf8::cvt<std::string>(path)), ec);
 }
 
-// Everything the fleet server needs, checked while the operator is still
-// looking at the page. The same rules ScheduleEnrollFleet enforces, only
-// earlier: enrollment burns a one-time token, so a typo found after Install
-// has been clicked costs a new install command from the server.
-std::wstring validate_fleet(msi_helper &h) {
-  const std::wstring server = trimmed_property(h, FLEET_SERVER);
-  const bool enrolled = trimmed_property(h, MGMT_ENROLLED) == L"1";
-  const bool insecure = is_true(h.getMsiPropery(MANAGEMENT_INSECURE)) || is_true(h.getMsiPropery(FLEET_INSECURE));
-  const std::wstring ca = trimmed_property(h, FLEET_CA);
+// The refusals an enrollment is held to, in one place because they are read
+// twice: by the page, before Install is clicked, and by ScheduleEnrollFleet,
+// before the bootstrap token is spent. A rule added to only one of them would
+// reappear after the token was gone - which is the whole reason the page
+// checks at all. Empty means accepted.
+//
+// The wording names both the property and the field, so the same sentence
+// works in an install log and in a dialog.
+struct fleet_settings {
+  std::wstring server;
+  std::wstring token;
+  std::wstring verify_mode;
+  std::wstring bundle_keys;
+  std::wstring ca;
+  bool insecure = false;
+  // No server is an answer in two places: an enrolled host keeps the identity
+  // it has, and an install that passes only bundle keys is rotating them.
+  bool server_optional = false;
+};
 
-  // Checked before the server, so an enrolled host rotating its bundle keys is
-  // told about a bad key rather than about a missing server url.
-  const std::vector<std::string> keys = onboarding::split_bundle_keys(utf8::cvt<std::string>(trimmed_property(h, FLEET_BUNDLE_KEY)));
+std::wstring fleet_refusal(const fleet_settings &s) {
+  // Checked first, so a host rotating its bundle keys is told about a bad key
+  // rather than about a missing server url.
+  const std::vector<std::string> keys = onboarding::split_bundle_keys(utf8::cvt<std::string>(s.bundle_keys));
   for (std::size_t i = 0; i < keys.size(); ++i) {
     std::string raw_key, key_error;
     if (!onboarding::parse_bundle_key(keys[i], raw_key, key_error)) {
@@ -631,41 +642,53 @@ std::wstring validate_fleet(msi_helper &h) {
              L".\n\nPaste it exactly as the fleet server showed it when it was created (44 base64 characters); separate several with commas.";
     }
   }
-  if (!ca.empty() && file_is_missing(ca)) {
-    return L"The CA file was not found on this machine:\n\n" + ca +
+  if (!s.ca.empty() && file_is_missing(s.ca)) {
+    return L"The CA file (FLEET_CA) was not found on this machine:\n\n" + s.ca +
            L"\n\nIt is read while this machine is being installed, so copy the fleet server's issuing certificate here first.";
   }
-  if (server.empty()) {
-    // An enrolled host keeps the identity it has: there is nothing to enroll,
-    // and the fields are there for rotating a bundle key.
-    if (enrolled) return L"";
-    return L"Enter the url of the fleet server, for example https://fleet.example.com.\n\nIt is the first half of the install command the fleet server "
-           L"generated.";
+  if (s.server.empty()) {
+    if (s.server_optional) return L"";
+    return L"Enter the url of the fleet server (FLEET_SERVER), for example https://fleet.example.com.\n\nIt is the first half of the install command the "
+           L"fleet server generated.";
   }
-  const std::wstring scheme = url_scheme(server);
+  const std::wstring scheme = url_scheme(s.server);
   if (scheme != L"https" && scheme != L"http") {
-    return L"The fleet server must be a url including the scheme, for example https://fleet.example.com.";
+    return L"The fleet server (FLEET_SERVER) must be a url including the scheme, for example https://fleet.example.com.\n\nGot: " + s.server;
   }
   // The bootstrap token exchanges for this host's client certificate; over
   // plain HTTP anyone on the network path can read it and enroll as this host.
-  if (scheme == L"http" && !insecure) {
+  if (scheme == L"http" && !s.insecure) {
     return L"Refusing to enroll over plain HTTP: the enrollment token would be sent in cleartext, so anyone on the network path could read it and enroll "
-           L"as this machine.\n\nUse an https:// url, or pass MANAGEMENT_INSECURE=1 (the 'Allow an unverified connection' box on the page).";
+           L"as this machine.\n\nUse an https:// url, or allow an unverified connection (MANAGEMENT_INSECURE=1, the box on the page).";
   }
-  // The same refusal ScheduleEnrollFleet makes, made here as well so it lands
-  // on the page instead of after Install: the enrollment response carries the
-  // certificate this agent pins and the key it trusts for bundles, so an
-  // unverified enrollment hands both to whoever answered.
-  if (boost::algorithm::iequals(trimmed_property(h, FLEET_VERIFY_MODE), L"none") && !insecure) {
-    return L"Refusing to enroll without verifying the fleet server certificate. The enrollment response carries the certificate this agent pins for "
-           L"every later call and the key it trusts for executable bundles.\n\nName the issuing CA above, or pass MANAGEMENT_INSECURE=1 (the 'Allow an "
-           L"unverified connection' box on the page).";
+  // The enrollment response carries the certificate this agent pins for every
+  // later call and the key it trusts for bundles, so an unverified enrollment
+  // hands both to whoever answered.
+  if (boost::algorithm::iequals(s.verify_mode, L"none") && !s.insecure) {
+    return L"Refusing to enroll without verifying the fleet server certificate (FLEET_VERIFY_MODE=none). The enrollment response carries the certificate "
+           L"this agent pins and the key it trusts for executable bundles.\n\nName the issuing CA instead, or allow an unverified connection "
+           L"(MANAGEMENT_INSECURE=1, the box on the page).";
   }
-  if (trimmed_property(h, FLEET_TOKEN).empty()) {
-    return L"Enter the enrollment token from the install command the fleet server generated.\n\nIt is one-time and valid for an hour, so generate a fresh "
-           L"install command if this one has been used.";
+  if (s.token.empty()) {
+    return L"Enter the enrollment token (FLEET_TOKEN) from the install command the fleet server generated.\n\nIt is one-time and valid for an hour, so "
+           L"generate a fresh install command if this one has been used.";
   }
   return L"";
+}
+
+// The page's half: the same rules, read off the properties it collects.
+std::wstring validate_fleet(msi_helper &h) {
+  fleet_settings s;
+  s.server = trimmed_property(h, FLEET_SERVER);
+  s.token = trimmed_property(h, FLEET_TOKEN);
+  s.verify_mode = trimmed_property(h, FLEET_VERIFY_MODE);
+  s.bundle_keys = trimmed_property(h, FLEET_BUNDLE_KEY);
+  s.ca = trimmed_property(h, FLEET_CA);
+  s.insecure = is_true(h.getMsiPropery(FLEET_INSECURE));
+  // An enrolled host keeps the identity it has: there is nothing to enroll,
+  // and the fields are there for rotating a bundle key.
+  s.server_optional = trimmed_property(h, MGMT_ENROLLED) == L"1";
+  return fleet_refusal(s);
 }
 
 // The configuration url, once it has been checked. Empty return value means
@@ -768,20 +791,29 @@ void clear_abandoned_answer(msi_helper &h, const std::wstring &mode) {
     if (!trimmed_property(h, FLEET_INSECURE).empty()) h.setPropertyValue(FLEET_INSECURE, L"");
   }
 
-  // Keyed off the box rather than off the mode, and only ever undoing the one
-  // value this page sets. DetectManagement seeds the box from a command line
-  // that already said "none", so a cleared value here is always one the
-  // operator turned off - never an IMPORT_CONFIG=https:// install having its
-  // own TLS_VERIFY_MODE taken away under an unrelated answer.
-  if (!insecure && boost::algorithm::iequals(trimmed_property(h, L"TLS_VERIFY_MODE"), L"none")) {
+  // Both of these are taken back only where a marker says this page set them.
+  // The box is not evidence enough: it is seeded from TLS_VERIFY_MODE in WEB
+  // mode only, so an `IMPORT_CONFIG=https://... TLS_VERIFY_MODE=none` install
+  // answering None or Fleet has the box empty and its own verify mode would be
+  // cleared out from under it - and the import would then fail to verify.
+  if ((mode != MANAGEMENT_SERVER_WEB || !insecure) && trimmed_property(h, MGMT_SET_TLS_VERIFY) == L"1") {
     h.setPropertyValue(L"TLS_VERIFY_MODE", L"");
+    h.setPropertyValue(MGMT_SET_TLS_VERIFY, L"");
   }
-
-  // Only the TLS_CA this page projected, which is what the marker records: a
-  // path passed on the command line for another reason is not ours to drop.
   if (mode != MANAGEMENT_SERVER_WEB && trimmed_property(h, MGMT_SET_TLS_CA) == L"1") {
     h.setPropertyValue(L"TLS_CA", L"");
     h.setPropertyValue(MGMT_SET_TLS_CA, L"");
+  }
+
+  // The url itself. ImportConfig reads the raw CONFIGURATION_TYPE, not the
+  // KEY_ copy the mode branches write, so a http(s) url left over from an
+  // abandoned Web answer still becomes this host's settings store - and, being
+  // unwritable, still turns the local baseline off. Only a url: which local
+  // store the configuration lives in is SelectConfigurationDlg's question and
+  // none of this page's business.
+  if (mode != MANAGEMENT_SERVER_WEB && is_http_url(trimmed_property(h, CONFIGURATION_TYPE))) {
+    h.logMessage(L"No web configuration after all: dropping the url from " + std::wstring(CONFIGURATION_TYPE) + L".");
+    h.setPropertyValue(CONFIGURATION_TYPE, L"");
   }
 
   // Both managed modes want the modern layout, so only an answer of None takes
@@ -924,11 +956,14 @@ extern "C" UINT __stdcall ApplyManagement(MSIHANDLE hInstall) {
     const bool check = mode_was_chosen(h);
 
     if (mode == MANAGEMENT_SERVER_FLEET) {
-      const std::wstring error = check ? validate_fleet(h) : std::wstring();
-      if (!error.empty()) return refuse_management(h, error);
+      // Projected before the check, not after: FLEET_INSECURE is then the one
+      // flag both this validation and ScheduleEnrollFleet read, with no second
+      // opinion about what counts as insecure.
       if (wants_insecure(h)) {
         h.setPropertyValue(FLEET_INSECURE, L"1");
       }
+      const std::wstring error = check ? validate_fleet(h) : std::wstring();
+      if (!error.empty()) return refuse_management(h, error);
       // The configuration stays local and ordinary - it is the include of the
       // fleet-managed file that ScheduleWriteConfig adds that makes this host
       // managed - but nothing else is written into it.
@@ -945,8 +980,10 @@ extern "C" UINT __stdcall ApplyManagement(MSIHANDLE hInstall) {
       if (wants_insecure(h)) {
         // Both halves of "do not check who answered": the download this
         // installer does, and every later refresh the service does from the
-        // same boot.ini.
+        // same boot.ini. Marked, so that abandoning this answer takes back
+        // this value and no other.
         h.setPropertyValue(L"TLS_VERIFY_MODE", L"none");
+        h.setPropertyValue(MGMT_SET_TLS_VERIFY, L"1");
       }
       const std::wstring ca = trimmed_property(h, MANAGEMENT_CA);
       if (!ca.empty()) {
@@ -2258,18 +2295,29 @@ extern "C" UINT __stdcall ScheduleEnrollFleet(MSIHANDLE hInstall) {
       h.logMessage(L"No FLEET_SERVER given: not enrolling with a fleet server");
       return ERROR_SUCCESS;
     }
-    // Every key is checked here, before anything is installed: a paste error
-    // found in the deferred half would fail the install after the bootstrap
-    // token has been spent. The message names the position, never the value.
-    const std::vector<std::string> keys = onboarding::split_bundle_keys(utf8::cvt<std::string>(bundle_keys));
-    for (std::size_t i = 0; i < keys.size(); ++i) {
-      std::string raw_key, key_error;
-      if (!onboarding::parse_bundle_key(keys[i], raw_key, key_error)) {
-        h.errorMessage(L"FLEET_BUNDLE_KEY entry " + std::to_wstring(i + 1) + L" of " + std::to_wstring(keys.size()) + L" is not a valid bundle key: " +
-                       utf8::cvt<std::wstring>(key_error) +
-                       L". Pass the key exactly as the fleet server showed it when it was created (44 base64 characters); separate several with commas.");
-        return ERROR_INSTALL_FAILURE;
-      }
+    const std::wstring token = boost::algorithm::trim_copy(h.getMsiPropery(FLEET_TOKEN));
+    const std::wstring verify_mode = boost::algorithm::trim_copy(h.getMsiPropery(FLEET_VERIFY_MODE));
+    const bool insecure = is_true(h.getMsiPropery(FLEET_INSECURE));
+
+    // The same rules the page applies, from the same implementation: every
+    // refusal here is one the page has already made, so reaching this point
+    // with a bad value means the install was unattended. A paste error caught
+    // here still costs nothing; caught in the deferred half it would cost the
+    // bootstrap token. The messages name the position of a bad key, never its
+    // value.
+    fleet_settings settings;
+    settings.server = server;
+    settings.token = token;
+    settings.verify_mode = verify_mode;
+    settings.bundle_keys = bundle_keys;
+    settings.ca = boost::algorithm::trim_copy(h.getMsiPropery(FLEET_CA));
+    settings.insecure = insecure;
+    // Rotating the bundle keys of an already enrolled host needs no server.
+    settings.server_optional = true;
+    const std::wstring refusal = fleet_refusal(settings);
+    if (!refusal.empty()) {
+      h.errorMessage(refusal);
+      return ERROR_INSTALL_FAILURE;
     }
     if (server.empty()) {
       // Key rotation on an already enrolled host, e.g. an upgrade run with only
@@ -2277,45 +2325,6 @@ extern "C" UINT __stdcall ScheduleEnrollFleet(MSIHANDLE hInstall) {
       h.logMessage(L"No FLEET_SERVER given: updating the bundle keys / encrypted-bundle requirement of this host's existing enrollment");
       return schedule_enroll_fleet(h, L"", L"", L"", false, bundle_keys, require_encrypted_bundles);
     }
-    const std::wstring token = boost::algorithm::trim_copy(h.getMsiPropery(FLEET_TOKEN));
-    const std::wstring verify_mode = boost::algorithm::trim_copy(h.getMsiPropery(FLEET_VERIFY_MODE));
-    const bool insecure = is_true(h.getMsiPropery(FLEET_INSECURE));
-    const std::wstring scheme = url_scheme(server);
-
-    // Everything below fails the install rather than installing an agent that
-    // silently never joined the fleet: enrollment was asked for explicitly, and
-    // a host that is not enrolled is not managed.
-    if (token.empty()) {
-      h.errorMessage(
-          L"FLEET_SERVER was given but FLEET_TOKEN is empty. Generate an install command on the fleet server and pass its bootstrap token as "
-          L"FLEET_TOKEN=<token>.");
-      return ERROR_INSTALL_FAILURE;
-    }
-    if (scheme != L"https" && scheme != L"http") {
-      h.errorMessage(L"FLEET_SERVER must be a url including the scheme, for example https://fleet.example.com (got: " + server + L").");
-      return ERROR_INSTALL_FAILURE;
-    }
-    // The bootstrap token exchanges for a client certificate; over plain HTTP
-    // anyone on the network path can read it and enroll as this host. Same
-    // rule as `nscp enroll`: opt in with FLEET_INSECURE=1.
-    if (scheme == L"http" && !insecure) {
-      h.errorMessage(
-          L"Refusing to enroll over plain HTTP: the bootstrap token would be sent in cleartext, so anyone on the network path could read it and "
-          L"enroll as this host. Use an https:// FLEET_SERVER url, or pass FLEET_INSECURE=1 to allow plain HTTP anyway.");
-      return ERROR_INSTALL_FAILURE;
-    }
-    // Enrollment is where this agent decides who the fleet server is: the
-    // response carries the certificate every later call pins against and the
-    // key that authorises executable bundles. Handing both to whoever answers
-    // an unverified connection is a decision the operator has to make out loud.
-    if (boost::algorithm::iequals(verify_mode, L"none") && !insecure) {
-      h.errorMessage(
-          L"Refusing to enroll without verifying the fleet server certificate (FLEET_VERIFY_MODE=none). The enrollment response supplies the "
-          L"certificate this agent pins for every later call and the key it trusts for executable bundles, so an unverified enrollment hands both "
-          L"to whoever answers. Point FLEET_CA at the issuing CA (recommended), or pass FLEET_INSECURE=1 to accept it anyway.");
-      return ERROR_INSTALL_FAILURE;
-    }
-
     // The include of the fleet-managed configuration is written by
     // ScheduleWriteConfig, and only when it is allowed to change the
     // configuration - the exact test repeated here, so we fail precisely when

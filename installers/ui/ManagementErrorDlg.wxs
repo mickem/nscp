@@ -7,11 +7,15 @@
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
   <Fragment>
     <UI>
-      <Dialog Id="ManagementErrorDlg" Width="270" Height="120" Title="[ProductName] [Setup]" NoMinimize="yes">
-        <Control Id="Text" Type="Text" X="20" Y="15" Width="230" Height="65" NoPrefix="yes">
+      <!-- Sized for the longest refusal, not the shortest. MSI text controls
+           neither scroll nor ellipsize: anything past the bottom edge is
+           simply not drawn, and these messages carry the remedy in their last
+           line - exactly the part that would be cut off. -->
+      <Dialog Id="ManagementErrorDlg" Width="320" Height="180" Title="[ProductName] [Setup]" NoMinimize="yes">
+        <Control Id="Text" Type="Text" X="20" Y="15" Width="280" Height="120" NoPrefix="yes">
           <Text>[MGMT_ERROR]</Text>
         </Control>
-        <Control Id="OK" Type="PushButton" X="107" Y="90" Width="56" Height="17" Default="yes" Cancel="yes" Text="OK">
+        <Control Id="OK" Type="PushButton" X="132" Y="150" Width="56" Height="17" Default="yes" Cancel="yes" Text="OK">
           <Publish Event="EndDialog" Value="Return">1</Publish>
         </Control>
       </Dialog>
