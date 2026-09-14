@@ -60,6 +60,11 @@ describe("settings host name placeholders (issue #458)", () => {
     // source, include or attachment is refused unless boot.ini opts in. Point
     // ${boot-conf} into the sandbox and write that opt-in: standing up TLS
     // here would test OpenSSL rather than placeholder expansion.
+    //
+    // ${boot-conf} only became a token on Windows in the same change that
+    // introduced the refusal - before that the location was a literal in the
+    // build configuration, so this override was silently ignored there and the
+    // agent read no boot.ini at all.
     const bootIni = path.join(workDir, "boot.ini");
     fs.writeFileSync(bootIni, "[tls]\nallow plaintext = true\n");
     // ${shared-path} is where the fleet config drops the per-host files, so

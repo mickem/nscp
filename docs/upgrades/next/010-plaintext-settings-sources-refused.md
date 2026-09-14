@@ -21,6 +21,13 @@ in per host in `boot.ini`:
 allow plaintext = true
 ```
 
-Every plaintext fetch is then logged as `INSECURE`. See
+Every plaintext fetch is then logged as `INSECURE`.
+
+On Windows, `boot.ini`'s location is now the `${boot-conf}` path token rather
+than a literal baked into the build, so `--path-override boot-conf=...`
+relocates it the way the command line already documented and the way it has
+always worked on Linux. The default is unchanged: next to the executable.
+
+See
 [http settings](../concepts/settings.md#https-settings) and the
 [security notice](../security/notices.md#settings-sources-includes-and-attachments-are-refused-over-plain-http).

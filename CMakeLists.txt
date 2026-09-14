@@ -894,8 +894,13 @@ set(CONFIG_DEFAULT_CONF_OLD_LOCATION
 if(WIN32)
     set(INSTALL_FILES_BASE "")
 
+    # ${boot-conf}, not the literal ${exe-path}/boot.ini it used to be: the
+    # token's default (include/nscp/path_defaults.hpp) is that same path, so
+    # nothing moves - but going through the token is what lets
+    # `--path-override boot-conf=...` relocate it, which the CLI already
+    # documents and which unix has always had.
     set(CONFIG_BOOT_CONF_LOCATION
-        "\${exe-path}/boot.ini"
+        "\${boot-conf}"
         CACHE STRING
         "Location of boot ini (the file which specified where to load the config)"
     )

@@ -625,6 +625,29 @@ TEST_F(PathManagerTest, GetFolderKeysWindows) {
     EXPECT_FALSE(pm->getFolder(key).empty()) << "Failed for key: " << key;
   }
 }
+
+// boot-conf names boot.ini here too. It was a literal in the build
+// configuration until the token existed on this platform, which meant
+// `--path-override boot-conf=...` silently did nothing on Windows while the
+// CLI documented it as working - and boot.ini is the only place the TLS
+// options that govern fetching a remote configuration can be written, so a
+// host that could not relocate it could not set them from a test or a sandbox.
+// The default must stay exactly where it was: next to the executable.
+TEST_F(PathManagerTest, BootConfDefaultIsNextToTheExecutable) {
+  const std::string expanded = pm->expand_path("${boot-conf}");
+  EXPECT_EQ(expanded.find("${"), std::string::npos);
+  // Asserted as "under the executable's directory, named boot.ini" rather than
+  // one exact string: the two halves are joined with a forward slash while the
+  // base path carries the platform's separators, and the point here is the
+  // location, not the spelling.
+  EXPECT_EQ(expanded.rfind(pm->getBasePath().string(), 0), 0u) << expanded;
+  EXPECT_NE(expanded.find("boot.ini"), std::string::npos) << expanded;
+}
+
+TEST_F(PathManagerTest, CliOverrideRelocatesBootConfOnWindows) {
+  pm->set_cli_overrides({{"boot-conf", "C:/custom/boot.ini"}});
+  EXPECT_EQ(pm->expand_path("${boot-conf}"), "C:/custom/boot.ini");
+}
 #else
 // ${etc} tracks NSCP_SYSCONFDIR (ETC_FOLDER) so it follows CMAKE_INSTALL_PREFIX
 // rather than being a literal /etc.
