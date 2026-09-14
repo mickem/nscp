@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <poll.h>
+#include <stdint.h>
 #include <sys/resource.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -16,6 +17,13 @@
 #include <unistd.h>
 #if defined(__linux__)
 #include <sys/syscall.h>
+// close_range() landed in 5.9 with the same number on every architecture;
+// spell it out so a build against older headers still tries the fast path.
+#ifdef SYS_close_range
+#define NSCP_SYS_CLOSE_RANGE SYS_close_range
+#else
+#define NSCP_SYS_CLOSE_RANGE 436
+#endif
 #endif
 
 #include <algorithm>
@@ -54,6 +62,65 @@ const std::size_t kOutputContentCap = MAX_OUTPUT_BYTES - (sizeof(kOutputTruncMar
 
 bool early_timeout = false;
 typedef hlp::buffer<char> buffer_type;
+
+namespace {
+// Close every descriptor above stderr in the child, between fork() and exec():
+// only async-signal-safe calls, no allocation. Nothing above stderr is the
+// script's business - listener sockets, the log file, other scripts' pipes
+// and whatever else the service holds without close-on-exec would otherwise
+// be the child's to read and write. On Linux close_range() does it in one
+// call (ENOSYS before 5.9); failing that /proc/self/fd names exactly the
+// descriptors that are open, read with raw getdents64 into a stack buffer
+// (what CPython's subprocess does). The bounded sweep is the last resort
+// only, for a system with neither: it costs one close() per possible
+// descriptor and stops at `max_fd`.
+#if defined(__linux__)
+struct dirent64_compat {
+  uint64_t d_ino;
+  int64_t d_off;
+  unsigned short d_reclen;
+  unsigned char d_type;
+  char d_name[1];
+};
+bool close_from_proc() {
+  const int dir = open("/proc/self/fd", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+  if (dir < 0) return false;
+  alignas(8) char buf[4096];
+  bool ok = true;
+  for (;;) {
+    const long n = syscall(SYS_getdents64, dir, buf, sizeof(buf));
+    if (n == 0) break;
+    if (n < 0) {
+      ok = false;
+      break;
+    }
+    for (long off = 0; off < n;) {
+      const dirent64_compat *d = reinterpret_cast<const dirent64_compat *>(buf + off);
+      off += d->d_reclen;
+      int fd = 0;
+      bool numeric = d->d_name[0] != '\0';
+      for (const char *p = d->d_name; *p != '\0'; ++p) {
+        if (*p < '0' || *p > '9' || fd > 100000000) {
+          numeric = false;
+          break;
+        }
+        fd = fd * 10 + (*p - '0');
+      }
+      if (numeric && fd > STDERR_FILENO && fd != dir) close(fd);
+    }
+  }
+  close(dir);
+  return ok;
+}
+#endif
+void close_above_stdio(long max_fd) {
+#if defined(__linux__)
+  if (syscall(NSCP_SYS_CLOSE_RANGE, 3, ~0U, 0) == 0) return;
+  if (close_from_proc()) return;
+#endif
+  for (long fd = 3; fd < max_fd; ++fd) close(static_cast<int>(fd));
+}
+}  // namespace
 
 void process::kill_all() {
   // TODO: Fixme
@@ -175,17 +242,42 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
     output += errno_text(errno);
     return NSCAPI::query_return_codes::returnUNKNOWN;
   }
-
-  // How far the descriptor sweep in the child has to go when close_range() is
-  // not there. Read here, in the parent: getrlimit is not on the
-  // async-signal-safe list. Bounded so a huge nofile limit does not turn the
-  // sweep into a million close() calls per spawn; the service keeps nowhere
-  // near that many descriptors open.
-  int max_fd = 1024;
-  struct rlimit nofile;
-  if (getrlimit(RLIMIT_NOFILE, &nofile) == 0 && nofile.rlim_cur != RLIM_INFINITY && nofile.rlim_cur > static_cast<rlim_t>(max_fd)) {
-    max_fd = nofile.rlim_cur > 65536 ? 65536 : static_cast<int>(nofile.rlim_cur);
+  // A pipe end at 0, 1 or 2 - the service was started with that descriptor
+  // closed, so the pipe took the lowest free one - would collide with the
+  // dup2() in the child: dup2(1, 1) is a no-op that leaves close-on-exec set,
+  // and the script would exec with no stdout. Move such an end above stdio.
+  for (int i = 0; i < 2; ++i) {
+    if (pipefd[i] > STDERR_FILENO) continue;
+    const int raised = fcntl(pipefd[i], F_DUPFD_CLOEXEC, 3);
+    if (raised < 0) {
+      const int saved = errno;
+      close(pipefd[0]);
+      close(pipefd[1]);
+      output = "Failed to create pipe: ";
+      output += errno_text(saved);
+      return NSCAPI::query_return_codes::returnUNKNOWN;
+    }
+    close(pipefd[i]);
+    pipefd[i] = raised;
   }
+
+  // Bound for the last-resort descriptor sweep in the child (see
+  // close_above_stdio). Read here, in the parent: getrlimit and sysconf are
+  // not on the async-signal-safe list. The soft nofile limit is what bounds
+  // the descriptors the service can hold; an unlimited one is capped so the
+  // sweep, if it is ever taken, stays at a million close() calls at most.
+  const long max_fd_cap = 1L << 20;
+  long max_fd = sysconf(_SC_OPEN_MAX);
+  struct rlimit nofile;
+  if (getrlimit(RLIMIT_NOFILE, &nofile) == 0) {
+    if (nofile.rlim_cur == RLIM_INFINITY) {
+      max_fd = max_fd_cap;
+    } else if (static_cast<long>(nofile.rlim_cur) > max_fd) {
+      max_fd = static_cast<long>(nofile.rlim_cur);
+    }
+  }
+  if (max_fd < 1024) max_fd = 1024;
+  if (max_fd > max_fd_cap) max_fd = max_fd_cap;
 
   const pid_t pid = fork();
   if (pid < 0) {
@@ -204,19 +296,7 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
     if (dup2(pipefd[1], STDOUT_FILENO) < 0) _exit(127);
     if (dup2(pipefd[1], STDERR_FILENO) < 0) _exit(127);
     close(pipefd[1]);
-    // Nothing above stderr is the script's business: listener sockets, the
-    // log file, other scripts' pipes and whatever else the service holds
-    // without close-on-exec would otherwise be the child's to read and write.
-    // close_range() (Linux 5.9+) does it in one call; a kernel without it
-    // answers ENOSYS and the sweep below takes over. close() on a descriptor
-    // that is not open is a cheap EBADF.
-    bool swept = false;
-#if defined(__linux__) && defined(SYS_close_range)
-    swept = syscall(SYS_close_range, 3, ~0U, 0) == 0;
-#endif
-    if (!swept) {
-      for (int fd = 3; fd < max_fd; ++fd) close(fd);
-    }
+    close_above_stdio(max_fd);
     execvp(cargs[0], cargs.data());
     // execvp only returns on error.
     _exit(127);

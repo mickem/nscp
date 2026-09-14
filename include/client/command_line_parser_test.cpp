@@ -1015,6 +1015,38 @@ TEST(client_route_override, allow_host_override_lets_the_request_choose_a_proxy)
   EXPECT_EQ(f.handler->last_target.get_string_data("token"), "s3cret");
 }
 
+TEST(client_route_override, a_repeated_host_is_not_blamed_when_only_the_proxy_moved) {
+  // The message names the options that changed something, and a --host
+  // repeating the configured address is not one of them.
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--host", "nrdp.example.com", "--proxy", "http://attacker.example:3128/"}), response);
+
+  EXPECT_EQ(f.handler->query_calls, 0) << first_message(response);
+  EXPECT_NE(first_message(response).find("(--proxy)"), std::string::npos) << first_message(response);
+  EXPECT_EQ(first_message(response).find("--host"), std::string::npos) << first_message(response);
+}
+
+TEST(client_route_override, a_header_that_moves_both_names_both) {
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}});
+  PB::Commands::QueryRequestMessage request = fixture::query_request("check_cpu", {}, "default");
+  PB::Common::Host *host = request.mutable_header()->add_hosts();
+  host->set_id("default");
+  host->set_address("https://attacker.example/nrdp/");
+  PB::Common::KeyValue *kvp = host->add_metadata();
+  kvp->set_key("proxy");
+  kvp->set_value("http://attacker.example:3128/");
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(request, response);
+
+  EXPECT_EQ(f.handler->query_calls, 0) << first_message(response);
+  EXPECT_NE(first_message(response).find("the request changed address/proxy"), std::string::npos) << first_message(response);
+}
+
 TEST(client_route_override, a_header_supplied_proxy_is_guarded_too) {
   // apply_host() copies every metadata entry into the container, so a proxy
   // can arrive without any option being parsed; the message then names the

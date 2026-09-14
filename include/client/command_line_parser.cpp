@@ -8,6 +8,7 @@
 #include <nscapi/protobuf/metrics.hpp>
 #include <nscapi/protobuf/nagios.hpp>
 #include <str/utf8.hpp>
+#include <str/utils.hpp>
 
 #ifdef _WIN32
 #pragma warning(disable : 4100)
@@ -167,37 +168,30 @@ std::string client::configuration::check_host_override(const po::variables_map &
   if (!moved && rerouted.empty()) return "";
 
   // Name the options actually used where there are any, so the message points
-  // at the part of the request to change. The route options are named only
-  // when they are what changed: a --proxy repeating the configured one is not
-  // why the request is refused.
-  struct override_option {
+  // at the part of the request to change - and only the ones that changed
+  // something: a --host repeating the configured address, or a --proxy
+  // repeating the configured proxy, is not why the request is refused.
+  const struct {
     const char *option;
-    const char *key;
-  };
-  static const override_option override_options[] = {{"host", ""}, {"port", ""}, {"address", ""}, {"proxy", "proxy"}, {"no-proxy", "no proxy"}};
-  std::string used;
-  for (const override_option &o : override_options) {
-    if (vm.count(o.option) == 0) continue;
-    if (*o.key != '\0' && rerouted.count(o.key) == 0) continue;
-    if (!used.empty()) used += "/";
-    used += "--";
-    used += o.option;
+    bool changed;
+  } override_options[] = {{"host", moved},
+                          {"port", moved},
+                          {"address", moved},
+                          {"proxy", rerouted.count("proxy") != 0},
+                          {"no-proxy", rerouted.count("no proxy") != 0}};
+  std::string how;
+  for (const auto &o : override_options) {
+    if (!o.changed || vm.count(o.option) == 0) continue;
+    if (!how.empty()) how += "/";
+    how += "--";
+    how += o.option;
   }
-  std::string how = used;
   if (how.empty()) {
     // A header host entry, or a route key that arrived as metadata: name the
-    // keys rather than options the request never spelled out.
-    how = "the request changed ";
-    if (rerouted.empty()) {
-      how += "it";
-    } else {
-      bool first = true;
-      for (const std::string &key : rerouted) {
-        if (!first) how += "/";
-        how += key;
-        first = false;
-      }
-    }
+    // keys that moved rather than options the request never spelled out.
+    std::set<std::string> keys = rerouted;
+    if (moved) keys.insert("address");
+    how = "the request changed " + str::utils::joinEx(keys, "/");
   }
   const std::string what = moved ? (rerouted.empty() ? "destination" : "destination and proxy") : "proxy";
   const std::string consequence =

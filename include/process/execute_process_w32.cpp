@@ -208,18 +208,22 @@ bool set_inheritable(HANDLE handle, bool inheritable) { return SetHandleInformat
 // Takes the child-side pipe ends out of circulation again: explicitly once
 // the spawn has returned, and from the destructor on every other way out of
 // execute_process, so no early return leaves them inheritable while the
-// fallback lock is already released. Reads the handles through their owners
-// so a closed (null) one is skipped rather than a stale value touched.
+// fallback lock is already released. Runs once; reads the handles through
+// their owners so a closed (null) one - or a fork spawn that never created
+// pipes - is skipped rather than a stale value touched.
 struct inherit_reset {
-  generic_handle *first;
-  generic_handle *second;
-  inherit_reset(generic_handle *first_, generic_handle *second_) : first(first_), second(second_) {}
+  generic_handle &first;
+  generic_handle &second;
+  bool done;
+  inherit_reset(generic_handle &first_, generic_handle &second_) : first(first_), second(second_), done(false) {}
   inherit_reset(const inherit_reset &) = delete;
   inherit_reset &operator=(const inherit_reset &) = delete;
   ~inherit_reset() { run(); }
   void run() {
-    if (first != nullptr && first->get() != NULL) set_inheritable(first->get(), false);
-    if (second != nullptr && second->get() != NULL) set_inheritable(second->get(), false);
+    if (done) return;
+    done = true;
+    if (first.get() != NULL) set_inheritable(first.get(), false);
+    if (second.get() != NULL) set_inheritable(second.get(), false);
   }
 };
 }  // namespace
@@ -265,11 +269,12 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
     }
   }
 
-  // Both pipes are created non-inheritable and only the two ends the child
-  // uses (its stdin read end, its stdout/stderr write end) are then marked
-  // inheritable. The parent's ends never cross into any child: with every end
-  // inheritable, a concurrently spawned script inherited this one's read end
-  // and could read - or, holding the write end too, forge - its output.
+  // Both pipes are created non-inheritable. Only the two ends the child uses
+  // (its stdin read end, its stdout/stderr write end) are marked inheritable,
+  // and only immediately before the spawn (arm_inheritance below). The
+  // parent's ends never cross into any child: with every end inheritable, a
+  // concurrently spawned script inherited this one's read end and could read
+  // - or, holding the write end too, forge - its output.
   SECURITY_ATTRIBUTES sec;
   sec.nLength = sizeof(SECURITY_ATTRIBUTES);
   sec.bInheritHandle = FALSE;
@@ -277,10 +282,6 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
   if (!args.fork) {
     if (!CreatePipe(hChildInR.ref(), hChildInW.ref(), &sec, 0) || !CreatePipe(hChildOutR.ref(), hChildOutW.ref(), &sec, 0)) {
       output = "Failed to create pipes for " + args.alias + ": " + error::lookup::last_error();
-      return NSCAPI::query_return_codes::returnUNKNOWN;
-    }
-    if (!set_inheritable(hChildInR.get(), true) || !set_inheritable(hChildOutW.get(), true)) {
-      output = "Failed to prepare pipes for " + args.alias + ": " + error::lookup::last_error();
       return NSCAPI::query_return_codes::returnUNKNOWN;
     }
   }
@@ -303,9 +304,17 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
   si.wShowWindow = SW_HIDE;
   if (args.display) si.wShowWindow = SW_SHOW;
 
+  // With the API present the list is the protection, so a failure to build
+  // it is a failed spawn rather than a silent fall back to full inheritance
+  // (the serialised fallback below only protects when every spawn takes it).
   inherit_list inherit;
-  const bool restrict_inheritance = !args.fork && inherit.build(hChildInR.get(), hChildOutW.get());
-  if (restrict_inheritance) {
+  bool restrict_inheritance = false;
+  if (!args.fork && attribute_api().available()) {
+    if (!inherit.build(hChildInR.get(), hChildOutW.get())) {
+      output = "Failed to build the handle inherit list for " + args.alias + ": " + error::lookup::last_error();
+      return NSCAPI::query_return_codes::returnUNKNOWN;
+    }
+    restrict_inheritance = true;
     si.cb = sizeof(startupinfoex_compat);
     siex.lpAttributeList = inherit.list;
   }
@@ -339,14 +348,20 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
   if (restrict_inheritance) {
     creation_flags |= kExtendedStartupInfoPresent;
   }
-  // Without an inherit list, two spawns must not overlap: the other one's
-  // child-side ends are inheritable for exactly as long as it holds this lock,
-  // and they are made non-inheritable again (below) before it lets go.
+  // Without an inherit list, two spawns must not overlap: a spawn's child-side
+  // ends are inheritable only while it holds this lock, from arm_inheritance()
+  // just before its CreateProcess call until reset_inherit runs after it. The
+  // lock is taken before the ends are marked, never after - otherwise a spawn
+  // already inside CreateProcess under the lock would inherit them.
   boost::unique_lock<boost::mutex> spawn_lock(spawn_mutex_, boost::defer_lock);
-  if (!args.fork && !restrict_inheritance) spawn_lock.lock();
   // Declared after the lock so it runs before the lock is released on any
   // early return below.
-  inherit_reset reset_inherit(args.fork ? nullptr : &hChildInR, args.fork ? nullptr : &hChildOutW);
+  inherit_reset reset_inherit(hChildInR, hChildOutW);
+  const auto arm_inheritance = [&]() -> bool {
+    if (args.fork) return true;
+    if (!restrict_inheritance && !spawn_lock.owns_lock()) spawn_lock.lock();
+    return set_inheritable(hChildInR.get(), true) && set_inheritable(hChildOutW.get(), true);
+  };
   // CreateProcessWithLogonW runs through the secondary logon service and
   // takes no inherit list; it duplicates only the std handles into the child.
   const DWORD logon_creation_flags = creation_flags & ~kExtendedStartupInfoPresent;
@@ -362,6 +377,10 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
       return NSCAPI::query_return_codes::returnUNKNOWN;
     }
 
+    if (!arm_inheritance()) {
+      output = "Failed to prepare pipes for " + args.alias + ": " + error::lookup::last_error();
+      return NSCAPI::query_return_codes::returnUNKNOWN;
+    }
     processOK = CreateProcessAsUser(pHandle.get(), lpApplicationName, tmpCmd.get(), nullptr, nullptr, args.fork ? FALSE : TRUE,
                                     creation_flags | CREATE_UNICODE_ENVIRONMENT, environment.get(), utf8::cvt<std::wstring>(args.root_path).c_str(), &si, &pi);
     if (!processOK) {
@@ -384,15 +403,20 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
       }
     }
   } else {
+    if (!arm_inheritance()) {
+      output = "Failed to prepare pipes for " + args.alias + ": " + error::lookup::last_error();
+      return NSCAPI::query_return_codes::returnUNKNOWN;
+    }
     processOK = CreateProcess(lpApplicationName, tmpCmd.get(), nullptr, nullptr, args.fork ? FALSE : TRUE, creation_flags, nullptr,
                               utf8::cvt<std::wstring>(args.root_path).c_str(), &si, &pi);
   }
+  // Captured here: the reset and unlock below may touch the thread's last
+  // error, and the failure report at the end reads this local instead.
   const DWORD spawn_error = GetLastError();
   // The child has its copies now (or was never created); nothing spawned from
   // here on may pick these up. Done before the fallback lock is released.
   reset_inherit.run();
   if (spawn_lock.owns_lock()) spawn_lock.unlock();
-  SetLastError(spawn_error);
 
   if (processOK) {
     DWORD state = 0;
@@ -532,7 +556,7 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
     CloseHandle(pi.hProcess);
     return result;
   }
-  DWORD error = GetLastError();
+  const DWORD error = spawn_error;
   if (error == ERROR_BAD_EXE_FORMAT) {
     output = "Failed to execute " + args.alias + " seems more like a script maybe you need a script executable first: " + error::lookup::last_error(error);
   } else {
