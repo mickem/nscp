@@ -777,7 +777,13 @@ extern "C" UINT __stdcall ApplyManagement(MSIHANDLE hInstall) {
     // a value corrected after a refusal has to be able to clear it again.
     h.setPropertyValue(MGMT_ERROR, L"");
 
-    const std::wstring mode = detect_management_server(h);
+    // The property, not the derivation: DetectManagement has already run and
+    // written what it worked out, and in a full UI install the page has had
+    // its say since. Re-deriving here would quietly overrule an operator who
+    // passed FLEET_SERVER on the command line and then picked None on the
+    // page. Only a property that is not there at all falls back.
+    std::wstring mode = boost::algorithm::to_upper_copy(trimmed_property(h, MANAGEMENT_SERVER));
+    if (mode.empty()) mode = detect_management_server(h);
     h.setPropertyValue(MANAGEMENT_SERVER, mode);
     h.logMessage(L"Applying management server: " + mode);
 
