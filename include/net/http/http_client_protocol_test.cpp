@@ -50,6 +50,27 @@ TEST(http_client_protocol, on_read_in_read_state_collects_response_data) {
   EXPECT_EQ(response.payload_, "hello");
 }
 
+// The test above sends a status line with no reason phrase, which no real
+// server does. Parsing "HTTP/1.1 200 OK" used to throw bad_lexical_cast out of
+// the response constructor, so every reply from a real server failed here -
+// this is the path NSCPClient reads a remote agent's check result from.
+TEST(http_client_protocol, reads_a_status_line_with_a_reason_phrase) {
+  std::shared_ptr<http::client::protocol::client_handler> handler;
+  http::client::protocol proto(handler);
+  http::request req("GET", "example.com", "/test");
+  proto.prepare_request(req);
+  proto.on_write(0);
+
+  const std::string raw = "HTTP/1.1 202 Accepted\r\nContent-Type: text/plain\r\n\r\nWARNING: warm|'load'=1";
+  proto.get_inbound().assign(raw.begin(), raw.end());
+
+  EXPECT_TRUE(proto.on_read(raw.size()));
+  const http::response response = proto.get_response();
+  EXPECT_EQ(response.status_code_, 202u);
+  EXPECT_EQ(response.status_message_, "Accepted");
+  EXPECT_EQ(response.payload_, "WARNING: warm|'load'=1");
+}
+
 TEST(http_client_protocol, on_read_when_not_waiting_marks_done) {
   std::shared_ptr<http::client::protocol::client_handler> handler;
   http::client::protocol proto(handler);

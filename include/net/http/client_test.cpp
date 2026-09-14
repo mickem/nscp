@@ -407,6 +407,42 @@ TEST(http_response, parse_status_line_no_space) {
   EXPECT_EQ(p.status_code_, 500u);
 }
 
+// Every test above fed a status line with no reason phrase, which no real
+// server sends. "HTTP/1.1 200 OK" used to be cast whole - "200 OK" - to an
+// int, which throws boost::bad_lexical_cast out of the response constructor,
+// so every single reply from a real HTTP server failed to parse.
+TEST(http_response, parse_status_line_with_reason_phrase) {
+  http::response p;
+  p.parse_status_line("HTTP/1.1 200 OK");
+  EXPECT_EQ(p.status_code_, 200u);
+  EXPECT_EQ(p.http_version_, "HTTP/1.1");
+  EXPECT_EQ(p.status_message_, "OK");
+}
+
+// The agent encodes the Nagios result in the status, so these four are the
+// ones the check path depends on reading correctly.
+TEST(http_response, parse_status_line_keeps_multi_word_reason_phrase) {
+  http::response p;
+  p.parse_status_line("HTTP/1.1 503 Service Unavailable");
+  EXPECT_EQ(p.status_code_, 503u);
+  EXPECT_EQ(p.status_message_, "Service Unavailable");
+}
+
+TEST(http_response, parse_status_line_does_not_throw_on_garbage) {
+  http::response p;
+  EXPECT_NO_THROW(p.parse_status_line("HTTP/1.1 not-a-number Bad"));
+  EXPECT_EQ(p.status_code_, 500u);
+}
+
+// The whole-buffer path is what the socket client actually calls.
+TEST(http_response, parses_a_real_response_off_the_wire) {
+  const std::string raw = "HTTP/1.1 202 Accepted\r\nContent-Type: text/plain\r\n\r\nWARNING: getting warm|'a label'=1";
+  const http::response r{std::vector<char>(raw.begin(), raw.end())};
+  EXPECT_EQ(r.status_code_, 202u);
+  EXPECT_EQ(r.status_message_, "Accepted");
+  EXPECT_EQ(r.get_payload(), "WARNING: getting warm|'a label'=1");
+}
+
 // =============================================================================
 // http::response tests
 // =============================================================================
