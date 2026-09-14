@@ -39,7 +39,7 @@ import * as path from "path";
 
 import execa from "execa";
 
-import { NscpInstance } from "@fixtures/index";
+import { hasModule, NscpInstance } from "@fixtures/index";
 
 jest.setTimeout(300_000);
 
@@ -71,6 +71,14 @@ const python = findPython();
 
 /** The cases that need the external slow script. */
 const itScript = python ? it : it.skip;
+
+/**
+ * PythonScript is an optional module - it is built only where Boost.Python and
+ * libpython were found - so the scripted-check cases below ask for it rather
+ * than assuming a package that ships it.
+ */
+const hasPythonScript = hasModule("PythonScript");
+const itPy = hasPythonScript ? it : it.skip;
 
 describe("plugin threading", () => {
   let nscp: NscpInstance;
@@ -216,12 +224,45 @@ describe("plugin threading", () => {
       ].join("\n"),
     );
 
+    // The PythonScript twin of the Lua script above. Unlike Lua, CPython gives
+    // every OS thread its own interpreter state, so concurrent invocations that
+    // release the GIL around a core call do not share an execution stack.
+    const pyScript = path.join(scriptDir, "threading.py");
+    fs.writeFileSync(
+      pyScript,
+      [
+        "from NSCP import Registry, Core, status",
+        "",
+        "plugin_id = 0",
+        "",
+        "def inner(arguments):",
+        "    return (status.OK, 'inner reached')",
+        "",
+        "def nested(arguments):",
+        "    core = Core.get(plugin_id)",
+        "    # Held across the core call: if another thread could run on this",
+        "    # frame's state, this local is what would come back wrong.",
+        "    sentinel = 'sentinel-%d' % len(arguments)",
+        "    (code, msg, perf) = core.simple_query('py_inner', [])",
+        "    return (status.OK, 'nested saw: %s [%s]' % (msg, sentinel))",
+        "",
+        "def init(pid, plugin_alias, script_alias):",
+        "    global plugin_id",
+        "    plugin_id = pid",
+        "    reg = Registry.get(plugin_id)",
+        "    reg.simple_function('py_inner', inner, 'innermost self-query target')",
+        "    reg.simple_function('py_nested', nested, 'queries a command its own module serves')",
+        "",
+      ].join("\n"),
+    );
+
     await nscp.configure({
       "/modules": {
         NRPEServer: "enabled",
         CheckExternalScripts: "enabled",
         CheckHelpers: "enabled",
         LUAScript: "enabled",
+        ...(hasPythonScript ? { PythonScript: "enabled" } : {}),
       },
       "/settings/NRPE/server": {
         port: NRPE_PORT,
@@ -242,6 +283,7 @@ describe("plugin threading", () => {
       "/settings/lua/scripts": {
         threading: luaScript,
       },
+      ...(hasPythonScript ? { "/settings/python/scripts": { threading: pyScript } } : {}),
     });
 
     await nscp.waitForPortFree(NRPE_PORT, { timeoutMs: 30_000 });
@@ -348,6 +390,32 @@ describe("plugin threading", () => {
     const expected = "busy done " + ((2000000 * 2000001) / 2).toString();
     const results = await Promise.all(Array.from({ length: 4 }, () => nrpe("lua_busy")));
     for (const r of results) expect(r).toContain(expected);
+  });
+
+  itPy("boots with a python script configured", async () => {
+    // Regression guard. PythonScript used to call settings.notify() - which
+    // constructs every configured script, and the constructor takes the GIL -
+    // before Py_Initialize, so any agent with a python script segfaulted on
+    // boot. Nothing caught it because no suite enabled the module with a
+    // script. Reaching this assertion at all means the agent came up.
+    expect(await nrpe("py_inner")).toContain("inner reached");
+  });
+
+  itPy("lets a python script query a command its own module serves", async () => {
+    expect(await nrpe("py_nested")).toContain("nested saw: inner reached");
+  });
+
+  itPy("serves concurrent python checks that call back into the core", async () => {
+    // The case Lua cannot pass (see the skip below). CPython gives each OS
+    // thread its own interpreter state, so releasing the GIL around the core
+    // call does not hand another thread this frame's stack: every caller must
+    // get its own sentinel back, and the agent must survive.
+    const rounds = 3;
+    for (let i = 0; i < rounds; i++) {
+      const results = await Promise.all(Array.from({ length: 6 }, () => nrpe("py_nested")));
+      for (const r of results) expect(r).toContain("nested saw: inner reached [sentinel-0]");
+    }
+    expect(await nrpe("check_ok", ["message=still-alive"])).toContain("still-alive");
   });
 
   // KNOWN DEFECT - skipped because it kills the agent, not because it is
