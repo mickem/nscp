@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Where this agent gets its configuration from.
+
+  Three answers, and they are mutually exclusive by construction:
+
+  - NONE  keeps the local configuration the installer has always written, so
+          the configuration and module pages that follow stay as they were.
+  - FLEET enrolls the host with an NSClient fleet server (FLEET_SERVER +
+          FLEET_TOKEN, the install command the server generated) and lets that
+          server manage it from the first sync onwards.
+  - WEB   points the settings store at an nsclient.ini served over HTTP(S)
+          (CONFIGURATION_TYPE), which the agent re-reads periodically.
+
+  Both managed modes skip the configuration pages that follow: there is
+  nothing local left to choose, and anything written here would win over what
+  the management server sends (see docs/docs/setup/fleet.md). ApplyManagement
+  is what enforces that - this dialog only collects the values and shows what
+  it rejected.
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Fragment>
+    <UI>
+      <Dialog Id="ManagementServerDlg" Width="370" Height="270" Title="[ProductName] [Setup]" NoMinimize="yes">
+
+        <Control Type="RadioButtonGroup" Property="MANAGEMENT_SERVER" Id="setManagementServer" Width="285" Height="54" X="45" Y="52">
+          <RadioButtonGroup Property="MANAGEMENT_SERVER">
+            <RadioButton Text="{\WixUI_Font_Title}None - configure this agent locally" Height="16" Value="NONE" Width="280" X="0" Y="0" />
+            <RadioButton Text="{\WixUI_Font_Title}NSClient Fleet - central management server" Height="16" Value="FLEET" Width="280" X="0" Y="18" />
+            <RadioButton Text="{\WixUI_Font_Title}Web server - configuration file over HTTP(S)" Height="16" Value="WEB" Width="280" X="0" Y="36" />
+          </RadioButtonGroup>
+        </Control>
+        <Control Id="line" Type="Line" X="10" Y="108" Width="353" Height="0" />
+
+        <!-- NONE -->
+        <Control Id="DescriptionNone" Type="Text" X="45" Y="116" Width="280" Height="50" Transparent="yes" NoPrefix="yes">
+          <Text>This machine keeps its own configuration. The next pages let you choose where that configuration is stored and which modules to enable.</Text>
+          <Condition Action="show">MANAGEMENT_SERVER = "NONE"</Condition>
+          <Condition Action="hide">NOT MANAGEMENT_SERVER = "NONE"</Condition>
+        </Control>
+
+        <!-- FLEET -->
+        <Control Id="DescriptionFleet" Type="Text" X="45" Y="112" Width="280" Height="18" Transparent="yes" NoPrefix="yes">
+          <Text>Paste the server and token from the install command the fleet server generated.</Text>
+          <Condition Action="show">MANAGEMENT_SERVER = "FLEET" AND NOT MGMT_ENROLLED = "1"</Condition>
+          <Condition Action="hide">NOT MANAGEMENT_SERVER = "FLEET" OR MGMT_ENROLLED = "1"</Condition>
+        </Control>
+        <!-- An enrolled host keeps the identity it has: enrollment is never
+             repeated, and the fields below are there for replacing a bundle
+             key. -->
+        <Control Id="DescriptionFleetEnrolled" Type="Text" X="45" Y="112" Width="280" Height="18" Transparent="yes" NoPrefix="yes">
+          <Text>Already enrolled with [MGMT_ENROLLED_SERVER] - that identity is kept.</Text>
+          <Condition Action="show">MANAGEMENT_SERVER = "FLEET" AND MGMT_ENROLLED = "1"</Condition>
+          <Condition Action="hide">NOT MANAGEMENT_SERVER = "FLEET" OR NOT MGMT_ENROLLED = "1"</Condition>
+        </Control>
+        <Control Id="fleetServerLabel" Type="Text" X="45" Y="134" Width="65" Height="15" TabSkip="no" Text="&amp;Fleet server:">
+          <Condition Action="show">MANAGEMENT_SERVER = "FLEET"</Condition>
+          <Condition Action="hide">NOT MANAGEMENT_SERVER = "FLEET"</Condition>
+        </Control>
+        <Control Id="fleetServer" Type="Edit" X="112" Y="132" Width="208" Height="15" Property="FLEET_SERVER" Text="{255}">
+          <Condition Action="show">MANAGEMENT_SERVER = "FLEET"</Condition>
+          <Condition Action="hide">NOT MANAGEMENT_SERVER = "FLEET"</Condition>
+        </Control>
+        <Control Id="fleetTokenLabel" Type="Text" X="45" Y="152" Width="65" Height="15" TabSkip="no" Text="&amp;Token:">
+          <Condition Action="show">MANAGEMENT_SERVER = "FLEET"</Condition>
+          <Condition Action="hide">NOT MANAGEMENT_SERVER = "FLEET"</Condition>
+        </Control>
+        <!-- The bootstrap token exchanges for this host's client certificate
+             and the bundle key opens every sealed bundle: masked here, hidden
+             from the MSI log by the Property declarations. -->
+        <Control Id="fleetToken" Type="Edit" X="112" Y="150" Width="208" Height="15" Property="FLEET_TOKEN" Password="yes" Text="{255}">
+          <Condition Action="show">MANAGEMENT_SERVER = "FLEET"</Condition>
+          <Condition Action="hide">NOT MANAGEMENT_SERVER = "FLEET"</Condition>
+        </Control>
+        <Control Id="fleetBundleKeyLabel" Type="Text" X="45" Y="170" Width="65" Height="15" TabSkip="no" Text="&amp;Bundle key:">
+          <Condition Action="show">MANAGEMENT_SERVER = "FLEET"</Condition>
+          <Condition Action="hide">NOT MANAGEMENT_SERVER = "FLEET"</Condition>
+        </Control>
+        <Control Id="fleetBundleKey" Type="Edit" X="112" Y="168" Width="208" Height="15" Property="FLEET_BUNDLE_KEY" Password="yes" Text="{255}">
+          <Condition Action="show">MANAGEMENT_SERVER = "FLEET"</Condition>
+          <Condition Action="hide">NOT MANAGEMENT_SERVER = "FLEET"</Condition>
+        </Control>
+        <Control Id="fleetCaLabel" Type="Text" X="45" Y="188" Width="65" Height="15" TabSkip="no" Text="CA &amp;file:">
+          <Condition Action="show">MANAGEMENT_SERVER = "FLEET"</Condition>
+          <Condition Action="hide">NOT MANAGEMENT_SERVER = "FLEET"</Condition>
+        </Control>
+        <Control Id="fleetCa" Type="Edit" X="112" Y="186" Width="208" Height="15" Property="FLEET_CA" Text="{255}">
+          <Condition Action="show">MANAGEMENT_SERVER = "FLEET"</Condition>
+          <Condition Action="hide">NOT MANAGEMENT_SERVER = "FLEET"</Condition>
+        </Control>
+        <Control Id="fleetRequireEncrypted" Type="CheckBox" X="112" Y="204" Width="208" Height="15" Property="FLEET_REQUIRE_ENCRYPTED_BUNDLES" Text="&amp;Refuse bundles that are not encrypted" CheckBoxValue="1">
+          <Condition Action="show">MANAGEMENT_SERVER = "FLEET"</Condition>
+          <Condition Action="hide">NOT MANAGEMENT_SERVER = "FLEET"</Condition>
+        </Control>
+
+        <!-- WEB -->
+        <Control Id="DescriptionWeb" Type="Text" X="45" Y="112" Width="280" Height="27" Transparent="yes" NoPrefix="yes">
+          <Text>The agent downloads its configuration from this url and re-reads it periodically. Nothing is configured on this machine.</Text>
+          <Condition Action="show">MANAGEMENT_SERVER = "WEB"</Condition>
+          <Condition Action="hide">NOT MANAGEMENT_SERVER = "WEB"</Condition>
+        </Control>
+        <Control Id="webUrlLabel" Type="Text" X="45" Y="146" Width="65" Height="15" TabSkip="no" Text="&amp;Url:">
+          <Condition Action="show">MANAGEMENT_SERVER = "WEB"</Condition>
+          <Condition Action="hide">NOT MANAGEMENT_SERVER = "WEB"</Condition>
+        </Control>
+        <Control Id="webUrl" Type="Edit" X="112" Y="144" Width="208" Height="15" Property="MANAGEMENT_URL" Text="{255}">
+          <Condition Action="show">MANAGEMENT_SERVER = "WEB"</Condition>
+          <Condition Action="hide">NOT MANAGEMENT_SERVER = "WEB"</Condition>
+        </Control>
+        <Control Id="webCaLabel" Type="Text" X="45" Y="166" Width="65" Height="15" TabSkip="no" Text="CA &amp;file:">
+          <Condition Action="show">MANAGEMENT_SERVER = "WEB"</Condition>
+          <Condition Action="hide">NOT MANAGEMENT_SERVER = "WEB"</Condition>
+        </Control>
+        <Control Id="webCa" Type="Edit" X="112" Y="164" Width="208" Height="15" Property="TLS_CA" Text="{255}">
+          <Condition Action="show">MANAGEMENT_SERVER = "WEB"</Condition>
+          <Condition Action="hide">NOT MANAGEMENT_SERVER = "WEB"</Condition>
+        </Control>
+        <Control Id="DescriptionWebTls" Type="Text" X="45" Y="186" Width="280" Height="36" Transparent="yes" NoPrefix="yes">
+          <Text>That file becomes the whole configuration of this agent, so it is fetched over https and verified against the machine's trusted root store. Name the issuing certificate above when it was issued by a private CA.</Text>
+          <Condition Action="show">MANAGEMENT_SERVER = "WEB"</Condition>
+          <Condition Action="hide">NOT MANAGEMENT_SERVER = "WEB"</Condition>
+        </Control>
+
+        <!-- Shared by both managed modes: the one opt-out of verifying who is
+             on the other end. -->
+        <Control Id="managementInsecure" Type="CheckBox" X="112" Y="220" Width="208" Height="13" Property="MANAGEMENT_INSECURE" Text="Allow an &amp;unverified connection (insecure)" CheckBoxValue="1">
+          <Condition Action="show">NOT MANAGEMENT_SERVER = "NONE"</Condition>
+          <Condition Action="hide">MANAGEMENT_SERVER = "NONE"</Condition>
+        </Control>
+
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="&amp;Back">
+        </Control>
+        <!-- ApplyManagement turns the choice into the properties the rest of
+             the install reads, and refuses a command line it cannot honour -
+             here, rather than after Install has been clicked and the bootstrap
+             token has been spent. -->
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="&amp;Next">
+          <Publish Event="DoAction" Value="ApplyManagement">1</Publish>
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="WixUI_Bmp_Banner" />
+        <Control Id="DescriptionWrite" Type="Text" X="25" Y="23" Width="280" Height="15" Hidden="yes" Transparent="yes" NoPrefix="yes">
+          <Text>Where does this agent get its configuration?</Text>
+        </Control>
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="250" Height="15" Transparent="yes" NoPrefix="yes">
+          <Text>{\WixUI_Font_Title}Select Management Server</Text>
+        </Control>
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+      </Dialog>
+    </UI>
+  </Fragment>
+</Wix>

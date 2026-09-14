@@ -374,8 +374,19 @@
 
     <CustomAction Id='BackupConfig'	BinaryKey='InstallerHelper' DllEntry='BackupConfig'	Impersonate='yes' Execute="immediate" Return="check" />
     <CustomAction Id='ScheduleWriteConfig'	BinaryKey='InstallerHelper' DllEntry='ScheduleWriteConfig'	Impersonate='yes' Execute="immediate" Return="check" />
-    <CustomAction Id="ApplyTool"		        BinaryKey="InstallerHelper" DllEntry="ApplyTool"	          Impersonate="yes" Execute="immediate" Return="check"  />
-    <CustomAction Id="DetectTool"		        BinaryKey="InstallerHelper" DllEntry="DetectTool"	          Impersonate="yes" Execute="immediate" Return="check"  />
+    <!-- Management server (MANAGEMENT_SERVER): where this agent's configuration
+         comes from. DetectManagement works out the mode - from the property,
+         or from a command line that names a fleet server or a http(s)
+         configuration url without knowing the property exists - and notices a
+         host that is already enrolled. ApplyManagement turns that into the
+         properties the rest of the install reads, and refuses what it cannot
+         honour (MGMT_ERROR, shown by ManagementErrorDlg).
+
+         Both need the target path resolved, so they are sequenced after
+         CostFinalize in the UI sequence too; in a full-UI install
+         ApplyManagement is run by the page instead (DoAction). -->
+    <CustomAction Id="ApplyManagement"      BinaryKey="InstallerHelper" DllEntry="ApplyManagement"      Impersonate="yes" Execute="immediate" Return="check"  />
+    <CustomAction Id="DetectManagement"     BinaryKey="InstallerHelper" DllEntry="DetectManagement"     Impersonate="yes" Execute="immediate" Return="check"  />
     <CustomAction Id="ExecWriteConfig"		  BinaryKey="InstallerHelper" DllEntry="ExecWriteConfig"	    Impersonate="no" Execute="deferred" Return="check"  />
 
     <!-- On-disk layout (LAYOUT). The immediate action decides which layout this
@@ -475,10 +486,10 @@
       <Custom Action="ScheduleRemoveSecrets" After="BackupConfig">REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE</Custom>
       <RemoveExistingProducts After='InstallExecute'></RemoveExistingProducts>
 
-      <Custom Action="DetectTool" After="CostFinalize">NOT (REMOVE ="ALL") AND NOT UILevel=5</Custom>
+      <Custom Action="DetectManagement" After="CostFinalize">NOT (REMOVE ="ALL") AND NOT UILevel=5</Custom>
       <Custom Action="NeedUninstall" After="FindRelatedProducts">1</Custom>
-      <Custom Action="ApplyTool" After="DetectTool">NOT (REMOVE ="ALL") AND NOT UILevel=5</Custom>
-      <Custom Action="ImportConfig" After="ApplyTool">NOT (REMOVE ="ALL") AND NOT UILevel=5</Custom>
+      <Custom Action="ApplyManagement" After="DetectManagement">NOT (REMOVE ="ALL") AND NOT UILevel=5</Custom>
+      <Custom Action="ImportConfig" After="ApplyManagement">NOT (REMOVE ="ALL") AND NOT UILevel=5</Custom>
 
       <Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWERVERSIONDETECTED</Custom>
       <!-- Before ScheduleWriteConfig so the deferred halves run in that order
@@ -519,7 +530,11 @@
 
     <InstallUISequence>
       <Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWERVERSIONDETECTED</Custom>
-      <Custom Action="DetectTool" After="FindRelatedProducts">1</Custom>
+      <!-- After CostFinalize, not FindRelatedProducts: it looks for this
+           host's enrollment manifest, and the install folder is not resolved
+           before costing. Still well before ManagementServerDlg, which the
+           WixUI sequence shows after MigrateFeatureStates. -->
+      <Custom Action="DetectManagement" After="CostFinalize">1</Custom>
     </InstallUISequence>
 
     <Property Id="ALLUSERS">
@@ -541,8 +556,6 @@
          icon instead, and give Add/Remove Programs something to draw. -->
     <Icon Id="nsclient.ico" SourceFile="$(var.Resources)/nsclient.ico" />
     <Binary Id="OldSettingsMap" SourceFile="$(var.Source)/old-settings.map" />
-    <Binary Id="ModeOP5" SourceFile="$(var.InSource)/Bitmaps/op5-small.bmp" />
-    <Binary Id="ModeGeneric" SourceFile="$(var.InSource)/Bitmaps/generic-small.bmp" />
 
   </Product>
 </Wix>

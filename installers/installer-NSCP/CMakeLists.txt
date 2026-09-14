@@ -12,7 +12,8 @@ set(SRCS
     ../ui/InvalidConfigDlg2.wxs
     ../ui/InvalidConfigDlg3.wxs
     ../ui/SelectConfigurationDlg.wxs
-    ../ui/MonitoringToolDlg.wxs
+    ../ui/ManagementServerDlg.wxs
+    ../ui/ManagementErrorDlg.wxs
     ../ui/WixUI_MondoNSCP.wxs
     ../common/web.wxs
     ../common/scripts.wxs

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What ApplyManagement rejected, spawned from ManagementServerDlg so the user
+  lands back on the fields rather than on a failed install. Modal: OK returns
+  to the dialog that spawned it.
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Fragment>
+    <UI>
+      <Dialog Id="ManagementErrorDlg" Width="270" Height="120" Title="[ProductName] [Setup]" NoMinimize="yes">
+        <Control Id="Text" Type="Text" X="20" Y="15" Width="230" Height="65" NoPrefix="yes">
+          <Text>[MGMT_ERROR]</Text>
+        </Control>
+        <Control Id="OK" Type="PushButton" X="107" Y="90" Width="56" Height="17" Default="yes" Cancel="yes" Text="OK">
+          <Publish Event="EndDialog" Value="Return">1</Publish>
+        </Control>
+      </Dialog>
+    </UI>
+  </Fragment>
+</Wix>
