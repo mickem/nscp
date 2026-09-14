@@ -242,7 +242,7 @@ int process::execute_process(const process::exec_arguments& args, std::string& o
   if (!args.user.empty() || !args.domain.empty() || !args.password.empty()) {
     output = "Refusing to run " + args.alias +
              ": the user, domain and password settings are only supported on Windows; on Linux prefix the command with sudo (for example `command = "
-             "sudo -u <user> /path/to/script`) and grant it in sudoers instead";
+             "sudo -n -u <user> /path/to/script`) and grant it in sudoers instead";
     return NSCAPI::query_return_codes::returnUNKNOWN;
   }
   if (!args.argv.empty()) {

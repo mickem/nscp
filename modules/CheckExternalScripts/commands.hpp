@@ -58,7 +58,7 @@ struct command_object : public nscapi::settings_objects::object_instance_interfa
 
           .add_string("user", nscapi::settings_helper::string_key(&user), "USER",
                       "The user to run the command as (Windows only). On Linux the command is refused when this is set: prefix the command with sudo "
-                      "(`sudo -u <user> ...`) and grant it in sudoers instead.",
+                      "(`sudo -n -u <user> ...`) and grant it in sudoers instead.",
                       true)
 
           .add_string("domain", nscapi::settings_helper::string_key(&domain), "DOMAIN",

@@ -498,13 +498,13 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
   if (!cd.user.empty() || !cd.domain.empty() || !cd.password.empty()) {
     NSC_LOG_ERROR_STD("Refusing '" + cd.get_alias() +
                       "': the user, domain and password script settings are only supported on Windows. On Linux prefix the command with sudo (for "
-                      "example `command = sudo -u <user> /path/to/script`) and grant it in sudoers, then remove the user/domain/password keys from "
+                      "example `command = sudo -n -u <user> /path/to/script`) and grant it in sudoers, then remove the user/domain/password keys from "
                       "[/settings/external scripts/scripts/" +
                       cd.get_alias() + "].");
     nscapi::protobuf::functions::set_response_bad(
         *response, "Refusing to run " + cd.get_alias() +
                        ": the user, domain and password settings are only supported on Windows; on Linux prefix the command with sudo (for example "
-                       "`command = sudo -u <user> /path/to/script`) and grant it in sudoers instead");
+                       "`command = sudo -n -u <user> /path/to/script`) and grant it in sudoers instead");
     return;
   }
 #endif
