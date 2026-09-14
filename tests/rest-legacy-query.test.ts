@@ -39,6 +39,18 @@ const stringField = (field: number, value: string): Buffer =>
 const keyValue = (key: string, value: string): Buffer =>
   Buffer.concat([stringField(1, key), stringField(2, value)]);
 
+// The response is protobuf too, and the route answers with the agent's default
+// JSON content type - so superagent's JSON parser chokes on the first byte.
+// Collect the bytes instead and let the test read them.
+function binaryParser(res: unknown, callback: (err: Error | null, body: Buffer) => void): void {
+  // superagent types the parser's first argument as its own ResponseBase, but
+  // at this point it is still the raw http.IncomingMessage - a stream.
+  const stream = res as NodeJS.ReadableStream;
+  const chunks: Buffer[] = [];
+  stream.on("data", (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
+  stream.on("end", () => callback(null, Buffer.concat(chunks)));
+}
+
 // PB.Common.Header: metadata = 8. QueryRequestMessage: header = 1, payload = 2.
 // QueryRequestMessage.Request: command = 2, arguments = 4.
 function queryRequest(command: string, metadata: Array<[string, string]> = []): Buffer {
@@ -204,13 +216,22 @@ describe("REST query (legacy)", () => {
   // would pick its own subject and match any allow-list rule written for
   // another module or user, so the endpoint refuses such a request outright.
   it("executes a raw protobuf query that carries no identity metadata", async () => {
-    await request(REST_URL)
+    const response = await request(REST_URL)
       .post("/query.pb")
       .set("Authorization", `Bearer ${key}`)
       .set("Content-Type", "application/octet-stream")
       .send(queryRequest("check_ok"))
+      .buffer(true)
+      .parse(binaryParser)
       .trustLocalhost(true)
       .expect(200);
+
+    // A QueryResponseMessage for the command we asked for: the command name
+    // is carried verbatim in the payload, so finding it proves the request was
+    // dispatched rather than merely accepted.
+    const body: Buffer = response.body;
+    expect(body.length).toBeGreaterThan(0);
+    expect(body.includes("check_ok")).toBe(true);
   });
 
   it.each([["nscp.caller_plugin_id", "1"] as const, ["nscp.principal", "admin"] as const])(
