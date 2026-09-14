@@ -15,6 +15,10 @@
 
 #ifdef WIN32
 #include <win/windows.hpp>
+#else
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #endif
 
 #include "../libs/settings_manager/settings_manager_impl.h"
@@ -37,6 +41,24 @@ std::string simple_file_logger::base_path() {
 
 static bool reported_log_failure = false;
 static bool reported_mkdir_failure = false;
+
+// Create the log file ourselves, with an explicit mode, before the append
+// stream below gets to it. An ofstream creates 0666 & ~umask, i.e. 0644 under
+// the default umask - and a debug log echoes check arguments and settings
+// paths, which is the same disclosure as the configuration file the packages
+// now ship 0640. O_EXCL means this only ever applies to a file we create: a
+// mode an operator set on an existing log is theirs to keep. Failures are
+// ignored on purpose - the stream below reports them, once, with a message
+// that names the file.
+static void create_log_file_with_mode(const std::string &file) {
+#ifndef WIN32
+  const int fd = ::open(file.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0640);
+  if (fd >= 0) ::close(fd);
+#else
+  // Windows inherits the directory's ACL, which the installer sets.
+  (void)file;
+#endif
+}
 
 void simple_file_logger::do_log(const std::string data) {
   if (file_.empty()) return;
@@ -90,6 +112,7 @@ void simple_file_logger::do_log(const std::string data) {
             << (": ") << safe_message << "\n";
       }
       try {
+        if (!boost::filesystem::exists(file_.c_str())) create_log_file_with_mode(file_);
         std::ofstream stream(file_.c_str(), std::ios::out | std::ios::app | std::ios::ate);
         if (!stream) {
           if (!reported_log_failure) {

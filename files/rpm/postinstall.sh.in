@@ -11,6 +11,7 @@ if [ "$1" -eq 1 ]; then
     # Create log + state folders if they don't exist
     mkdir -p @NSCP_LOGDIR@
     chown nsclient:nsclient @NSCP_LOGDIR@
+    chmod 0750 @NSCP_LOGDIR@
     mkdir -p @NSCP_PKGSTATEDIR@
     chown nsclient:nsclient @NSCP_PKGSTATEDIR@
 
@@ -25,4 +26,27 @@ elif [ "$1" -eq 2 ]; then
         systemctl daemon-reload
         systemctl try-restart nsclient
     fi
+fi
+
+# Both install and upgrade: nsclient.ini carries the web admin password, the
+# NRPE/NSCA passwords and the submit-client tokens in plaintext - that is what
+# the file is for, so the filesystem is the boundary around it. Keep it
+# root-owned and writable only by root, readable by the service account through
+# the group, and unreadable by everyone else. Run on upgrade too, so a host
+# installed before this change does not keep the old world-readable 0644.
+#
+# Gated on the group actually existing: narrowing the mode without also handing
+# the group to the service account would lock the daemon out of its own
+# configuration, and a broken agent is a worse outcome than the mode staying as
+# it was until someone notices this warning.
+if getent group nsclient >/dev/null 2>&1; then
+    chown root:nsclient @NSCP_PKGSYSCONFDIR@
+    chmod 0750 @NSCP_PKGSYSCONFDIR@
+    if [ -f @NSCP_PKGSYSCONFDIR@/nsclient.ini ]; then
+        chown root:nsclient @NSCP_PKGSYSCONFDIR@/nsclient.ini
+        chmod 0640 @NSCP_PKGSYSCONFDIR@/nsclient.ini
+    fi
+else
+    echo "NSClient++: group 'nsclient' not found; leaving @NSCP_PKGSYSCONFDIR@ permissions as they are." >&2
+    echo "NSClient++: nsclient.ini holds plaintext passwords - restrict it by hand (chown root:<service group>, chmod 0640)." >&2
 fi
