@@ -50,10 +50,37 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
   std::multiset<boost::thread::id> dispatchers_;
   // Set by unload_plugin before it waits: no dispatch may enter after it.
   bool unloading_ = false;
+  // Set by load_plugin(reloadStart) for as long as loadModuleEx runs on the
+  // live module. A reload rewrites the settings the handlers read and often
+  // replaces the objects behind them, so dispatches wait it out instead of
+  // running against half-applied configuration. Only the reloading thread may
+  // enter meanwhile: loadModuleEx registers commands and reads settings
+  // through the core, which can dispatch straight back into this module.
+  bool reloading_ = false;
+  boost::thread::id reloading_thread_;
+  boost::condition_variable dispatch_resumed_;
+  // Set when the drain above expired and the reload went ahead anyway. This
+  // class has no logger, so the caller reports it.
+  std::atomic<bool> reload_raced_{false};
+
+  // Holds the reload barrier for the duration of loadModuleEx and lets go
+  // again however that call leaves - fLoadModule is foreign code that may
+  // throw.
+  class reload_barrier {
+    dll_plugin &owner_;
+    bool held_;
+
+   public:
+    reload_barrier(dll_plugin &owner, NSCAPI::moduleLoadMode mode);
+    ~reload_barrier();
+    reload_barrier(const reload_barrier &) = delete;
+    reload_barrier &operator=(const reload_barrier &) = delete;
+  };
 
   // Registers this thread as being inside the module for as long as it lives.
-  // Never blocks. Entering is refused once an unload has started, which the
-  // entry points check through entered().
+  // Blocks only while a reload is applying new settings. Entering is refused
+  // once an unload has started, which the entry points check through
+  // entered().
   class dispatch_lock {
     dll_plugin &owner_;
     bool entered_;
@@ -98,6 +125,10 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
  public:
   dll_plugin(const unsigned int id, const boost::filesystem::path file, std::string alias);
   ~dll_plugin() override;
+
+  // True when the last reload started while calls into the module were still
+  // in flight and the five second drain expired.
+  bool reload_raced() const override { return reload_raced_; }
 
   bool load_plugin(NSCAPI::moduleLoadMode mode) override;
   bool has_start() override;

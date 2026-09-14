@@ -386,6 +386,8 @@ void nsclient::core::plugin_manager::start_plugins(NSCAPI::moduleLoadMode mode) 
       if (!plugin->load_plugin(mode)) {
         LOG_ERROR_CORE_STD("Plugin refused to load: " + plugin->getModule());
         broken.insert(plugin->get_id());
+      } else if (plugin->reload_raced()) {
+        LOG_ERROR_CORE_STD("Reloaded " + plugin->get_alias_or_name() + " while calls into it were still running: a check held it for over 5s");
       }
     } catch (const plugin_exception &e) {
       broken.insert(plugin->get_id());
@@ -595,6 +597,9 @@ bool nsclient::core::plugin_manager::reload_plugin(const std::string &module) {
   if (plugin) {
     LOG_DEBUG_CORE_STD(std::string("Reloading: ") + plugin->get_alias_or_name());
     plugin->load_plugin(NSCAPI::reloadStart);
+    if (plugin->reload_raced()) {
+      LOG_ERROR_CORE_STD("Reloaded " + plugin->get_alias_or_name() + " while calls into it were still running: a check held it for over 5s");
+    }
     return true;
   }
   LOG_ERROR_CORE("Failed to reload plugin " + module);
