@@ -78,6 +78,18 @@ describe("NSCP client (agent to agent)", () => {
         password: PASSWORD,
         "allowed hosts": "127.0.0.1,::1",
       },
+      // The `password` header authenticates as the implicit `admin` user
+      // (session_manager_interface::process_password_header), so that user has
+      // to exist with this password and hold a role that permits
+      // queries.execute. The agent seeds both on a fresh install, but a
+      // sandbox built from a generated ini does not come up with a live
+      // credential the header can validate against - every other REST suite
+      // here declares them explicitly for the same reason.
+      "/settings/WEB/server/roles": { full: "*" },
+      "/settings/WEB/server/users/admin": {
+        role: "full",
+        password: PASSWORD,
+      },
       "/settings/WEB/server": {
         port: String(PORT),
         certificate: certs.signed.server.certPath,
