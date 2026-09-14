@@ -106,12 +106,14 @@ bool LUAScript::unloadModule() {
 
 void LUAScript::query_fallback(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                                const PB::Commands::QueryRequestMessage &request_message) {
-  // Hold our own reference and the shared dispatch lock for the whole call:
+  // Hold our own reference and register as a dispatcher for the whole call:
   // an unload on another thread otherwise deletes the script (and its
-  // lua_State) while it runs.
+  // lua_State) while it runs. A script that queries a command its own module
+  // serves lands here again on this thread, which the counter allows.
   const std::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts = scripts_;
   if (!scripts) return nscapi::protobuf::functions::set_response_bad(*response, "Module is not loaded");
-  boost::shared_lock<boost::shared_mutex> dispatch(scripts->dispatch_mutex());
+  const scripts::script_manager<lua::lua_traits>::dispatch_guard dispatch(*scripts);
+  if (!dispatch.entered()) return nscapi::protobuf::functions::set_response_bad(*response, "Module is unloading");
   boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts->find_command(scripts::nscp::tags::query_tag, request.command());
   if (!cmd) {
     cmd = scripts->find_command(scripts::nscp::tags::simple_query_tag, request.command());
@@ -204,7 +206,8 @@ void LUAScript::handleNotification(const std::string &channel, const PB::Command
                                    PB::Commands::SubmitResponseMessage::Response *response, const PB::Commands::SubmitRequestMessage &request_message) {
   const std::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts = scripts_;
   if (!scripts) return;
-  boost::shared_lock<boost::shared_mutex> dispatch(scripts->dispatch_mutex());
+  const scripts::script_manager<lua::lua_traits>::dispatch_guard dispatch(*scripts);
+  if (!dispatch.entered()) return;
   boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts->find_command(scripts::nscp::tags::submit_tag, channel);
   if (cmd) {
     lua_runtime_->on_submit(channel, cmd.value().information, cmd.value().function, false, request, response);
