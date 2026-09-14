@@ -23,11 +23,14 @@
 #endif
 
 #include <chrono>
+#include <cstring>
 #include <ctime>
 #include <fstream>
 #include <iomanip>
 #include <sstream>
+#include <string>
 #include <utility>
+#include <vector>
 
 namespace fs = boost::filesystem;
 namespace json = boost::json;
@@ -135,6 +138,10 @@ namespace {
 
 constexpr int kMaxRedirects = 5;
 constexpr auto kManifestFile = ".nscp-web-manifest.json";
+// Prefix of the per-install staging directory created under ${web-path}. Only
+// this file creates directories by that name, which is what lets a leftover be
+// recognised and removed rather than mistaken for operator content.
+constexpr auto kStagingPrefix = "nscp-web-stage-";
 // Default GitHub release URL base. Overridable via --url; the project's own
 // fork/mirror is enough for the default install.
 constexpr auto kDefaultUrlBase = "https://github.com/mickem/nscp/releases/download";
@@ -241,7 +248,7 @@ fs::path make_staging_dir(const fs::path& parent, std::string& error) {
   boost::system::error_code ec;
   fs::create_directories(parent, ec);
   for (int attempt = 0; attempt < 4; ++attempt) {
-    const fs::path candidate = parent / fs::unique_path("nscp-web-stage-%%%%%%%%%%%%%%%%");
+    const fs::path candidate = parent / fs::unique_path(std::string(kStagingPrefix) + "%%%%%%%%%%%%%%%%");
     boost::system::error_code mk_ec;
     // create_directory (not create_directories): it returns false rather than
     // succeeding when the name is already taken, so a planted directory is a
@@ -324,11 +331,39 @@ std::vector<std::string> extract_all(const fs::path& zip_path, const fs::path& d
   return extracted;
 }
 
+bool is_staging_dir(const fs::path& p) { return p.filename().string().compare(0, std::strlen(kStagingPrefix), kStagingPrefix) == 0; }
+
+// Remove a staging directory a previous run left behind. The directory is
+// normally removed by the guard in install(), but a process that is killed
+// between creating it and finishing the extraction leaves one - and since
+// nothing else in ${web-path} is named like this, a leftover is unambiguously
+// ours. Without this sweep it would be counted as content by
+// web_path_contains_files() below, so every later install would refuse with
+// "already contains files (no install manifest)" while `uninstall-ui`, which
+// only removes what the manifest lists, could not clear it either.
+void remove_stale_staging_dirs(const fs::path& web_path) {
+  boost::system::error_code ec;
+  if (!fs::is_directory(web_path, ec)) return;
+  std::vector<fs::path> stale;
+  for (fs::directory_iterator it(web_path, ec), end; it != end; ++it) {
+    if (fs::is_directory(it->status()) && is_staging_dir(it->path())) stale.push_back(it->path());
+  }
+  for (const fs::path& p : stale) {
+    boost::system::error_code rm_ec;
+    fs::remove_all(p, rm_ec);
+  }
+}
+
 bool web_path_contains_files(const fs::path& web_path) {
   boost::system::error_code ec;
   if (!fs::is_directory(web_path, ec)) return false;
-  fs::directory_iterator it(web_path, ec), end;
-  return it != end;
+  for (fs::directory_iterator it(web_path, ec), end; it != end; ++it) {
+    // A staging directory is this installer's own scratch space, never
+    // operator content: it must not be what makes an install refuse.
+    if (is_staging_dir(it->path())) continue;
+    return true;
+  }
+  return false;
 }
 
 bool write_manifest(const fs::path& web_path, const std::string& version, const std::string& source_url, const std::string& sha256,
@@ -377,6 +412,8 @@ int web_installer::install(const options& opts, std::ostream& out) const {
   out << "Web bundle install" << std::endl;
   out << "  version: " << version << std::endl;
   out << "  target : " << web_path.string() << std::endl;
+
+  remove_stale_staging_dirs(web_path);
 
   if (web_path_contains_files(web_path) && !opts.force) {
     // Refuse silently-destructive installs. If a previous install is present
@@ -547,6 +584,10 @@ int web_installer::install(const options& opts, std::ostream& out) const {
 
 int web_installer::uninstall(const bool force, std::ostream& out) const {
   const fs::path web_path = resolve_("${web-path}");
+  // The manifest lists bundle entries only, so a staging directory a killed
+  // install left behind would survive an uninstall and keep ${web-path}
+  // non-empty forever.
+  remove_stale_staging_dirs(web_path);
   std::string error;
   json::object manifest;
   if (!read_manifest(web_path, manifest, error)) {

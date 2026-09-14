@@ -419,6 +419,51 @@ TEST_F(WebInstallerTest, InstallLeavesNoStagingDirectoryBehind) {
   EXPECT_TRUE(unexpected.empty()) << "left behind: " << (unexpected.empty() ? "" : unexpected.front());
 }
 
+// A staging directory only survives a process that was killed between
+// creating it and finishing the extraction. It then sits in ${web-path}, which
+// is enough to make every later install refuse ("already contains files") -
+// and `uninstall-ui` removes only what the manifest lists, so nothing would
+// ever clear it. Nothing else is named like this, so a leftover is
+// unambiguously the installer's own.
+TEST_F(WebInstallerTest, AStaleStagingDirectoryDoesNotBlockTheNextInstall) {
+  fs::create_directories(web_path_ / "nscp-web-stage-deadbeefdeadbeef");
+  write_file(web_path_ / "nscp-web-stage-deadbeefdeadbeef" / "nscp-upload-xyz", "half a bundle");
+
+  nsclient::web::web_installer installer(resolver());
+  std::ostringstream out;
+  EXPECT_EQ(installer.install(local_install_opts(), out), 0) << out.str();
+
+  EXPECT_TRUE(fs::is_regular_file(web_path_ / kManifestFile));
+  EXPECT_FALSE(fs::exists(web_path_ / "nscp-web-stage-deadbeefdeadbeef"));
+}
+
+TEST_F(WebInstallerTest, UninstallClearsAStaleStagingDirectory) {
+  nsclient::web::web_installer installer(resolver());
+  {
+    std::ostringstream out;
+    ASSERT_EQ(installer.install(local_install_opts(), out), 0) << out.str();
+  }
+  fs::create_directories(web_path_ / "nscp-web-stage-0123456789abcdef");
+
+  std::ostringstream out;
+  EXPECT_EQ(installer.uninstall(false, out), 0) << out.str();
+  EXPECT_FALSE(fs::exists(web_path_ / "nscp-web-stage-0123456789abcdef"));
+}
+
+TEST_F(WebInstallerTest, OperatorContentStillBlocksAnInstallWithoutForce) {
+  // The sweep must not turn into "wipe anything that is in the way": only the
+  // installer's own staging directories are removed.
+  fs::create_directories(web_path_);
+  write_file(web_path_ / "operator-file.txt", "hands off");
+  fs::create_directories(web_path_ / "nscp-web-stage-feedfacefeedface");
+
+  nsclient::web::web_installer installer(resolver());
+  std::ostringstream out;
+  EXPECT_EQ(installer.install(local_install_opts(), out), 2);
+  EXPECT_EQ(read_file(web_path_ / "operator-file.txt"), "hands off");
+  EXPECT_FALSE(fs::exists(web_path_ / "nscp-web-stage-feedfacefeedface"));
+}
+
 TEST_F(WebInstallerTest, InstallRejectsMissingLocalZip) {
   auto opts = local_install_opts();
   opts.from_path = (root_ / "does-not-exist.zip").string();
