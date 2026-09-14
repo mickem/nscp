@@ -56,4 +56,32 @@ if(LUA_FOUND OR LUA_SOURCE_FOUND)
     if(CMAKE_COMPILER_IS_GNUCXX)
         nscp_apply_pic(${TARGET})
     endif(CMAKE_COMPILER_IS_GNUCXX)
+
+    # The lua_wrapper accessors run between lua_pcall's setjmp and the C
+    # binding it dispatched to, so they may neither throw nor leave an object
+    # alive across a raised error. Testable wherever Lua was found.
+    set(LUA_TEST_PB)
+    if(PROTOC_GEN_LUA_FOUND)
+        set(LUA_TEST_PB nscp_lua_pb)
+    endif()
+    NSCP_CREATE_TEST(
+        lua_cpp_test
+        SOURCES
+            lua_cpp_test.cpp
+            # lua_nscp's core_wrapper::log() calls nscapi::logging::parse, which
+            # the Windows plugin_api DLL does not export.
+            ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+        LIBRARIES
+            GTest::gtest_main
+            ${NSCP_DEF_PLUGIN_LIB}
+            lua_nscp
+            ${LUA_TEST_PB}
+            ${LUA_LIBRARIES}
+            ${Boost_THREAD_LIBRARY}
+            ${Boost_DATE_TIME_LIBRARY}
+            ${EXTRA_LIBS}
+        INCLUDES
+            ${NSCP_INCLUDEDIR}
+            ${LUA_INCLUDE_DIR}
+    )
 endif()

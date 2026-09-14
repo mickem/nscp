@@ -284,7 +284,11 @@ void lua::lua_wrapper::log_stack() {
 
 int lua::lua_wrapper::error(std::string s) {
   NSC_LOG_ERROR_STD("Lua raised an error: " + s);
-  return luaL_error(L, s.c_str());
+  // The message is data, not a format: it routinely quotes something the
+  // script passed in (a channel or command name), and luaL_error runs it
+  // through lua_pushvfstring. A % in there consumed an argument that was
+  // never pushed, so `Submissions():get("mrpe%s")` read a wild pointer.
+  return luaL_error(L, "%s", s.c_str());
 }
 
 lua::lua_wrapper::stack_trace lua::lua_wrapper::get_stack_trace(int level) {
