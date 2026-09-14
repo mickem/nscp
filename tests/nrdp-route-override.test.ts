@@ -92,9 +92,9 @@ describe("NRDPClient — a request-chosen proxy is guarded like a request-chosen
     const out = await submit(`proxy=${CONFIGURED_PROXY}`);
 
     expect(out).not.toMatch(/carries credentials/);
-    // Past the guard: the submission was attempted and failed on the socket,
-    // so a module that never reached the request cannot pass this vacuously.
-    expect(out).toMatch(/Socket error/);
+    // Past the guard: the submission went to the configured proxy and failed
+    // there, so a module that never reached the request cannot pass vacuously.
+    expect(out).toMatch(/Failed to connect to proxy 127\.0\.0\.1:1/);
   });
 
   it("lets a request that brings its own token choose a proxy", async () => {
@@ -106,9 +106,9 @@ describe("NRDPClient — a request-chosen proxy is guarded like a request-chosen
     const out = await submit(`proxy=${CALLER_PROXY}`, "token=mine");
 
     expect(out).not.toMatch(/carries credentials/);
-    // Past the guard: the submission was attempted and failed on the socket,
-    // so a module that never reached the request cannot pass this vacuously.
-    expect(out).toMatch(/Socket error/);
+    // Past the guard: the submission went to the caller's proxy and failed
+    // there, so a module that never reached the request cannot pass vacuously.
+    expect(out).toMatch(/Failed to connect to proxy 127\.0\.0\.2:1/);
   });
 
   it("lets a request choose a proxy when the target allows host override", async () => {
@@ -125,8 +125,8 @@ describe("NRDPClient — a request-chosen proxy is guarded like a request-chosen
     const out = await submit(`proxy=${CALLER_PROXY}`);
 
     expect(out).not.toMatch(/carries credentials/);
-    // Past the guard: the submission was attempted and failed on the socket,
-    // so a module that never reached the request cannot pass this vacuously.
-    expect(out).toMatch(/Socket error/);
+    // Past the guard: the submission went to the caller's proxy and failed
+    // there, so a module that never reached the request cannot pass vacuously.
+    expect(out).toMatch(/Failed to connect to proxy 127\.0\.0\.2:1/);
   });
 });
