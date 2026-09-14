@@ -53,11 +53,18 @@ void pdh_object::set_default_buffer_size(const std::string &buffer_size_) {
 
 void pdh_object::set_buffer_size(const std::string &buffer_size_) {
   if (buffer_size_.empty()) return;
+  long parsed = 0;
   try {
-    buffer_size = str::format::stox_as_time_sec<long>(buffer_size_, "s");
+    parsed = str::format::stox_as_time_sec<long>(buffer_size_, "s");
   } catch (...) {
-    buffer_size = 0;
+    throw pdh_exception("Invalid buffer size: " + buffer_size_);
   }
+  // Storing a zero here used to look like "no buffer configured", which it is
+  // not: it overrode the 60m default the rrd strategy had just set and left
+  // the counter with a buffer that holds nothing at all. Refusing the counter
+  // names it in the log instead.
+  if (parsed <= 0) throw pdh_exception("Buffer size must be at least one second: " + buffer_size_);
+  buffer_size = parsed;
 }
 unsigned long pdh_object::get_flags() const { return flags_; }
 
