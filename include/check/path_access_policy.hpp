@@ -175,6 +175,17 @@ class path_policy {
       return false;
     }
     const std::string input = to_separators(token);
+#ifdef WIN32
+    // Checked on the input as well as on the result below: the resolver
+    // treats `.. ` as an ordinary name, so in `logs/.. /../secret` the `..`
+    // that follows cancels it and the result reads as `logs/secret` with no
+    // odd element left to spot - while the kernel strips the space, reads
+    // `logs/../../secret` and walks out of `logs`.
+    if (has_element_win32_would_trim(input)) {
+      why = "it contains a path element ending in a space or a period, which Windows would silently rewrite";
+      return false;
+    }
+#endif
     boost::system::error_code ec;
     const boost::filesystem::path canonical_path = boost::filesystem::weakly_canonical(boost::filesystem::path(input), ec);
     if (ec) {
@@ -240,7 +251,9 @@ class path_policy {
     for (;;) {
       const std::string::size_type end = path.find('/', start);
       const std::string element = end == std::string::npos ? path.substr(start) : path.substr(start, end - start);
-      if (!element.empty() && (element.back() == ' ' || element.back() == '.')) return true;
+      // `.` and `..` are the two names Win32 does not trim: they are path
+      // syntax, and the resolver folds them before anything is opened.
+      if (!element.empty() && element != "." && element != ".." && (element.back() == ' ' || element.back() == '.')) return true;
       if (end == std::string::npos) return false;
       start = end + 1;
     }
