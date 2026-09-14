@@ -2505,6 +2505,43 @@ windows:
         subkey: false
         title: Windows system
       keys:
+        allowed counters:
+          advanced: false
+          default_value: ''
+          description: 'Comma separated list of counter paths check_pdh may read when ''counter access''
+            is set to allowed. Entries may contain * and ?, for example \Processor(*)\*, \Memory\*.
+
+            The pattern is matched against the counter path exactly as the caller wrote it, so include
+            both the localized and English spellings if your hosts differ. It has no effect in the default
+            any mode.'
+          sample: false
+          title: ALLOWED COUNTERS
+        allowed registry keys:
+          advanced: false
+          default_value: ''
+          description: 'Comma separated list of registry keys check_registry_key and check_registry_value
+            may read when ''registry access'' is set to allowed.
+
+            An entry allows that key and everything below it, for example HKLM\SOFTWARE\MyApp. The match
+            is on whole key names, so that entry does not also allow HKLM\SOFTWARE\MyAppOther. An entry
+            containing * or ? is matched as a wildcard against the whole key instead. Both hive spellings
+            (HKLM and HKEY_LOCAL_MACHINE) mean the same thing on either side of the comparison.'
+          sample: false
+          title: ALLOWED REGISTRY KEYS
+        counter access:
+          advanced: false
+          default_value: any
+          description: 'Which performance counters a caller may ask check_pdh (check_counter) to read:
+            any (the default - any counter path the caller names, which is how every earlier release behaved),
+            allowed (only paths matching ''allowed counters'') or predefined (only the counters configured
+            in the [/settings/system/windows/counters] section).
+
+            PDH exposes every performance object on the machine, so on a host where callers may pass arguments
+            (NRPE with ''allow arguments'', or the REST API) this decides how much of it a check can read.
+            Counters configured in the counters section are always available by name, whatever the mode.
+            See the ''Restricting what a check may read'' section of the documentation.'
+          sample: false
+          title: COUNTER ACCESS MODE
         default buffer length:
           advanced: false
           default_value: 1h
@@ -2540,6 +2577,22 @@ windows:
             commands.
           sample: false
           title: Track process history
+        registry access:
+          advanced: false
+          default_value: any
+          description: 'Which registry keys a caller may ask check_registry_key and check_registry_value
+            to read: any (the default - any key the caller names, which is how every earlier release behaved),
+            allowed (only keys at or below an entry in ''allowed registry keys'') or predefined (only
+            names defined in the [/settings/system/windows/registry] section).
+
+            check_registry_value returns the value data itself, with binary values rendered as hex, and
+            will walk a whole subtree when ''recursive'' is set, so on a host where callers may pass arguments
+            (NRPE with ''allow arguments'', or the REST API) this decides how much of the registry a check
+            can read. While this is not ''any'' the ''computer'' argument is also refused, so only the
+            local registry is reachable. See the ''Restricting what a check may read'' section of the
+            documentation.'
+          sample: false
+          title: REGISTRY ACCESS MODE
         subsystem:
           advanced: true
           default_value: default
@@ -3404,6 +3457,15 @@ windows:
             description: If any rows match this filter severity will escalated to WARNING
             sample: true
             title: WARNING FILTER
+    /settings/system/windows/registry:
+      info:
+        advanced: false
+        description: 'Registry keys the registry checks may use by name, as <name> = <key>.
+
+          A name defined here can be used as key=<name> in any access mode, and is the only thing accepted
+          when ''registry access'' is set to predefined.'
+        subkey: false
+        title: PREDEFINED REGISTRY KEYS
     /settings/system/windows/service-tags:
       info:
         advanced: false
@@ -4959,12 +5021,16 @@ windows:
       params:
       - content_type: 2
         default_value: ''
-        is_simple: true
-        long_description: Performance counter to check
+        is_simple: false
+        long_description: 'Performance counter to check.
+
+          Which counters may be named here is governed by ''counter access'' in [/settings/system/windows]:
+          by default any counter is read, but an operator can restrict this to paths matching ''allowed
+          counters'', or to the counters configured in [/settings/system/windows/counters].'
         name: counter
         repeatable: false
         required: false
-        short_description: Performance counter to check
+        short_description: Performance counter to check.
       - content_type: 2
         default_value: 'false'
         is_simple: false
@@ -5884,8 +5950,12 @@ windows:
       params:
       - content_type: 2
         default_value: ''
-        is_simple: true
-        long_description: One or more registry key paths to check (e.g. HKLM\Software\MyApp).
+        is_simple: false
+        long_description: 'One or more registry key paths to check (e.g. HKLM\Software\MyApp).
+
+          Which keys may be named here is governed by ''registry access'' in [/settings/system/windows]:
+          by default any key is read, but an operator can restrict this to keys below an allowed entry,
+          or to names predefined in [/settings/system/windows/registry].'
         name: key
         repeatable: false
         required: false
@@ -6027,12 +6097,16 @@ windows:
       params:
       - content_type: 2
         default_value: ''
-        is_simple: true
-        long_description: One or more registry key paths whose values to check (e.g. HKLM\Software\MyApp)
+        is_simple: false
+        long_description: 'One or more registry key paths whose values to check (e.g. HKLM\Software\MyApp).
+
+          Which keys may be named here is governed by ''registry access'' in [/settings/system/windows]:
+          by default any key is read, but an operator can restrict this to keys below an allowed entry,
+          or to names predefined in [/settings/system/windows/registry].'
         name: key
         repeatable: false
         required: false
-        short_description: One or more registry key paths whose values to check (e.g. HKLM\Software\MyApp)
+        short_description: One or more registry key paths whose values to check (e.g. HKLM\Software\MyApp).
       - content_type: 2
         default_value: ''
         is_simple: true

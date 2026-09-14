@@ -1,6 +1,6 @@
 ---
 title: "Fleet: encrypted bundles are opened by the agent, not the server"
-fixed_in: next
+fixed_in: 0.21.0
 severity: "Low"
 modules: [core]
 action: conditional

@@ -365,6 +365,7 @@ OK: Event log seems fine
 
 File to read (can be specified multiple times to check multiple files.
 Notice that specifying multiple files will create an aggregate set you will not check each file individually.In other words if one file contains an error the entire check will result in error.
+Which channels may be named here is governed by 'log access' in [/settings/eventlog]: by default any channel is read, but an operator can restrict this to a list of allowed channels or to names predefined in [/settings/eventlog/logs], in which case this takes such a name.
 
 
 <h5 id="check_eventlog_scan-range">scan-range:</h5>
@@ -454,6 +455,7 @@ This command also supports the [common filter keywords](../common-options.md#com
 | Path / Section                                                      | Description                   |
 |---------------------------------------------------------------------|-------------------------------|
 | [/settings/eventlog](#eventlog)                                     | Eventlog                      |
+| [/settings/eventlog/logs](#predefined-event-logs)                   | PREDEFINED EVENT LOGS         |
 | [/settings/eventlog/real-time](#real-time-eventlog-monitoring)      | Real-time eventlog monitoring |
 | [/settings/eventlog/real-time/filters](#real-time-eventlog-filters) | Real-time eventlog filters    |
 
@@ -464,8 +466,10 @@ Section for the EventLog Checker (CheckEventLog.dll).
 
 | Key                                    | Default Value | Description           |
 |----------------------------------------|---------------|-----------------------|
+| [allowed logs](#allowed-event-logs)    |               | ALLOWED EVENT LOGS    |
 | [buffer size](#default-buffer-size)    | 131072        | Default buffer size   |
 | [debug](#enable-debugging)             | false         | Enable debugging      |
+| [log access](#event-log-access-mode)   | any           | EVENT LOG ACCESS MODE |
 | [lookup names](#lookup-eventlog-names) | true          | Lookup eventlog names |
 | [syntax](#default-syntax)              |               | Default syntax        |
 
@@ -475,7 +479,29 @@ Section for the EventLog Checker (CheckEventLog.dll).
 [/settings/eventlog]
 buffer size=131072
 debug=false
+log access=any
 lookup names=true
+```
+
+#### ALLOWED EVENT LOGS <a id="/settings/eventlog/allowed logs"></a>
+
+Comma separated list of event log channels check_eventlog may read when 'log access' is set to allowed.
+An entry allows that channel and every channel below it, for example Microsoft-Windows-Sysmon covers Microsoft-Windows-Sysmon/Operational. The match is on whole channel-name segments, so that entry does not also allow Microsoft-Windows-SysmonOther. An entry containing * or ? is matched as a wildcard against the whole channel name instead.
+
+
+| Key            | Description                               |
+|----------------|-------------------------------------------|
+| Path:          | [/settings/eventlog](#/settings/eventlog) |
+| Key:           | allowed logs                              |
+| Default value: | _N/A_                                     |
+
+
+**Sample:**
+
+```
+[/settings/eventlog]
+# ALLOWED EVENT LOGS
+allowed logs=
 ```
 
 #### Default buffer size <a id="/settings/eventlog/buffer size"></a>
@@ -518,6 +544,27 @@ Log more information when filtering (useful to detect issues with filters) not u
 debug=false
 ```
 
+#### EVENT LOG ACCESS MODE <a id="/settings/eventlog/log access"></a>
+
+Which event log channels a caller may ask check_eventlog to read: any (the default - any channel the caller names, which is how every earlier release behaved), allowed (only channels at or below an entry in 'allowed logs') or predefined (only names defined in the [/settings/eventlog/logs] section).
+The event text itself comes back through the message, strings and xml keywords - and message is part of the default syntax - so on a host where callers may pass arguments (NRPE with 'allow arguments', or the REST API) this decides which of the machine's logs a check can read. The Security channel and the PowerShell and Sysmon operational channels are the ones usually worth withholding. See the 'Restricting what a check may read' section of the documentation.
+
+
+| Key            | Description                               |
+|----------------|-------------------------------------------|
+| Path:          | [/settings/eventlog](#/settings/eventlog) |
+| Key:           | log access                                |
+| Default value: | `any`                                     |
+
+
+**Sample:**
+
+```
+[/settings/eventlog]
+# EVENT LOG ACCESS MODE
+log access=any
+```
+
 #### Lookup eventlog names <a id="/settings/eventlog/lookup names"></a>
 
 Lookup the names of eventlog files
@@ -556,6 +603,18 @@ Set this to use a specific syntax string for all commands (that don't specify on
 [/settings/eventlog]
 # Default syntax
 syntax=
+```
+
+### PREDEFINED EVENT LOGS <a id="/settings/eventlog/logs"></a>
+
+Event log channels check_eventlog may read by name, as <name> = <channel>.
+A name defined here can be used as file=<name> in any access mode, and is the only thing accepted when 'log access' is set to predefined.
+
+
+
+```ini
+# Event log channels check_eventlog may read by name, as <name> = <channel>.
+[/settings/eventlog/logs]
 ```
 
 ### Real-time eventlog monitoring <a id="/settings/eventlog/real-time"></a>

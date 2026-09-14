@@ -1284,6 +1284,7 @@ Notice that specifying multiple path will create an aggregate set you will not c
 <h5 id="check_files_pattern">pattern:</h5>
 
 The pattern of files to search for (works like a filter but is faster and can be combined with a filter).
+This is a file mask, not a path: while 'file access' in [/settings/disk] is restricted it may not contain a path separator or '..', since the scan root is what was held against the allow list.
 
 *Default Value:* `*.*`
 
@@ -2265,9 +2266,10 @@ This command also supports the [common filter keywords](../common-options.md#com
 
 ## Configuration
 
-| Path / Section                    | Description |
-|-----------------------------------|-------------|
-| [/settings/disk](#/settings/disk) |             |
+| Path / Section                            | Description      |
+|-------------------------------------------|------------------|
+| [/settings/disk](#/settings/disk)         |                  |
+| [/settings/disk/files](#predefined-paths) | PREDEFINED PATHS |
 
 
 ### /settings/disk <a id="/settings/disk"></a>
@@ -2276,8 +2278,10 @@ This command also supports the [common filter keywords](../common-options.md#com
 
 | Key                                                             | Default Value | Description                           |
 |-----------------------------------------------------------------|---------------|---------------------------------------|
+| [allowed files](#allowed-paths)                                 |               | ALLOWED PATHS                         |
 | [collection interval](#collection-interval)                     | 10s           | Collection interval                   |
 | [disable](#disable-automatic-checks)                            |               | Disable automatic checks              |
+| [file access](#file-access-mode)                                | any           | FILE ACCESS MODE                      |
 | [max collection errors](#maximum-consecutive-collection-errors) | 10            | Maximum consecutive collection errors |
 | [trend interval](#trend-sampling-interval)                      | 5m            | Trend sampling interval               |
 | [trend retention](#trend-history-retention)                     | 7d            | Trend history retention               |
@@ -2287,9 +2291,31 @@ This command also supports the [common filter keywords](../common-options.md#com
 # 
 [/settings/disk]
 collection interval=10s
+file access=any
 max collection errors=10
 trend interval=5m
 trend retention=7d
+```
+
+#### ALLOWED PATHS <a id="/settings/disk/allowed files"></a>
+
+Comma separated list of paths the disk checks may use when 'file access' is set to allowed.
+An entry naming a directory (or a path which does not exist yet) allows it and everything beneath it at any depth; an entry naming an existing file is that single file; an entry containing * or ? is a wildcard matched against the whole path, where * and ? do not cross a directory separator and ** does. Paths are resolved (\`..\` is flattened and symbolic links and junctions are followed) before they are matched, so a link planted inside an allowed directory does not widen it.
+
+
+| Key            | Description                       |
+|----------------|-----------------------------------|
+| Path:          | [/settings/disk](#/settings/disk) |
+| Key:           | allowed files                     |
+| Default value: | _N/A_                             |
+
+
+**Sample:**
+
+```
+[/settings/disk]
+# ALLOWED PATHS
+allowed files=
 ```
 
 #### Collection interval <a id="/settings/disk/collection interval"></a>
@@ -2332,6 +2358,27 @@ A comma separated list of checks to disable in the collector: disk_io, disk_free
 [/settings/disk]
 # Disable automatic checks
 disable=
+```
+
+#### FILE ACCESS MODE <a id="/settings/disk/file access"></a>
+
+Which paths a caller may ask check_files, check_single_file and check_disk_write to use: any (the default - any path the caller names, which is how every earlier release behaved), allowed (only paths matching 'allowed files') or predefined (only names defined in the [/settings/disk/files] section).
+These checks do not return file contents, but they enumerate whole directory trees (name, size, timestamps) and can report a file's checksum, so on a host where callers may pass arguments (NRPE with 'allow arguments', or the REST API) this decides how much of the filesystem a check can describe. See the 'Restricting what a check may read' section of the documentation.
+
+
+| Key            | Description                       |
+|----------------|-----------------------------------|
+| Path:          | [/settings/disk](#/settings/disk) |
+| Key:           | file access                       |
+| Default value: | `any`                             |
+
+
+**Sample:**
+
+```
+[/settings/disk]
+# FILE ACCESS MODE
+file access=any
 ```
 
 #### Maximum consecutive collection errors <a id="/settings/disk/max collection errors"></a>
@@ -2395,4 +2442,16 @@ How much used-space history is kept per drive; bounds the largest useful trend-w
 [/settings/disk]
 # Trend history retention
 trend retention=7d
+```
+
+### PREDEFINED PATHS <a id="/settings/disk/files"></a>
+
+Files and folders the disk checks may use by name, as <name> = <path>.
+A name defined here can be used as file=<name> (or path=<name>) in any access mode, and is the only thing accepted when 'file access' is set to predefined.
+
+
+
+```ini
+# Files and folders the disk checks may use by name, as <name> = <path>.
+[/settings/disk/files]
 ```

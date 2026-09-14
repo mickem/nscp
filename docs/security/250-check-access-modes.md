@@ -1,6 +1,6 @@
 ---
 title: "Access modes for the checks whose argument decides what is read"
-fixed_in: next
+fixed_in: 0.21.0
 severity: "Low (hardening; no vulnerability — the previous behaviour is the documented purpose of these checks)"
 modules: [CheckLogFile, CheckWMI, CheckSystem, CheckDisk, CheckEventLog]
 action: conditional
