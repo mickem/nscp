@@ -142,11 +142,13 @@ describe("REST settings controller", () => {
     });
   });
 
-  // /settings/default/password is registered sensitive by WEBServer
-  // (add_password) and the fixture pins it to "default-password". The read
-  // paths must mask it to "***" the way /diff already does, while leaving a
-  // non-sensitive sibling key (allowed hosts) untouched. Guards the
-  // settings.get -> plaintext-secret disclosure.
+  // /settings/default/password is the shared secret NRPE, NSCA, NSClient and
+  // the web server all fall back to; the core seeds it as sensitive so the
+  // masking does not depend on which of those modules is loaded (WEBServer,
+  // here, also declares it with add_password). The fixture pins it to
+  // "default-password". The read paths must mask it to "***" the way /diff
+  // already does, while leaving a non-sensitive sibling key (allowed hosts)
+  // untouched. Guards the settings.get -> plaintext-secret disclosure.
   describe("sensitive values are redacted on read", () => {
     it("GET masks a sensitive key but not its neighbours", async () => {
       await request(REST_URL)

@@ -238,8 +238,9 @@ describe("nscp test console", () => {
     // The dump ends up in tickets and chat windows. A key registered with
     // add_password (here the script object's run-as password) must print as
     // "***", the same masking the REST read paths and `nscp settings --list`
-    // apply. Unloaded modules cannot register anything, so only keys a loaded
-    // module declared sensitive are covered - the same contract as REST.
+    // apply. Registration is per loaded module: an unloaded module declares
+    // nothing, so its keys are not covered - the same contract as REST. The
+    // exception is the core-owned shared password, below.
     await nscp.configure({
       "/modules": { CheckExternalScripts: "enabled" },
       "/settings/external scripts/scripts": { secretive: "cmd /c echo hi" },
@@ -252,6 +253,28 @@ describe("nscp test console", () => {
       expect(out).not.toContain("hunter2");
     } finally {
       await nscp.configure({ "/modules": { CheckExternalScripts: "disabled" } });
+    }
+  });
+
+  it("settings masks the shared password with no server module loaded", async () => {
+    // /settings/default/password is the secret NRPE, NSCA, NSClient and the
+    // web server all fall back to, but only some of them declare it with
+    // add_password - so on an agent running none of them nothing marked it
+    // sensitive and the dump printed it in the clear. The core seeds it, so
+    // the masking no longer depends on which consumer happens to be enabled:
+    // here only CheckHelpers is loaded.
+    await nscp.configure({
+      "/modules": { CheckExternalScripts: "disabled", NRPEServer: "disabled", NSCAServer: "disabled", NSClientServer: "disabled", WEBServer: "disabled" },
+      "/settings/default": { password: "shared-secret-value", "allowed hosts": "127.0.0.1" },
+    });
+    try {
+      const out = await runConsole("settings\nexit\n");
+      expect(out).toContain("/settings/default/password=***");
+      expect(out).not.toContain("shared-secret-value");
+      // Seeding is an exact (path, key) entry, not a match on the name.
+      expect(out).toContain("/settings/default/allowed hosts=127.0.0.1");
+    } finally {
+      await nscp.configure({ "/settings/default": { password: "" } });
     }
   });
 
