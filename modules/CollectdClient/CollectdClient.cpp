@@ -50,16 +50,19 @@ bool CollectdClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
       ("variables", sh::fun_values_path([this] (auto key, auto value) { this->handler_->add_variable(key, value); }),
 	      "VARIABLE DEFINITIONS",
-	      "Variables used to expand ${...} placeholders in metric keys. Each value is either `label:<name>`, which expands to the distinct values "
+	      "Variables used to expand ${...} placeholders in metric keys. Each value is either `label:<name>`, which expands to every distinct value "
 	      "of that metric label (`label:core`, `label:nic`, `label:drive` - the same dimensions the OpenMetrics exposition renders, and spelled the "
 	      "same on every platform), or a regular expression matched against metric names, whose captured groups become the variable's values. "
-	      "When empty a built-in default set is used.")
+	      "A label includes the aggregates, so `label:core` yields `total` alongside `0`, `1`, ...; a template built from it that names a metric the "
+	      "snapshot has no value for is simply not sent. When empty a built-in default set is used.")
 
       ("metrics", sh::fun_values_path([this] (auto key, auto value) { this->handler_->add_metric(key, value); }),
 	      "METRIC MAPPINGS",
 	      "Mapping of collectd keys (e.g. cpu-total/cpu-user) to value expressions (e.g. derive:system.cpu.total.user). The expression is "
-	      "`gauge:`, `derive:` or `auto:` followed by the metric key(s); `auto:` takes the type from the metric itself, sending whatever the "
-	      "producing module declared as a counter as a DERIVE and everything else as a GAUGE. When empty a built-in default set is used.")
+	      "`gauge:`, `derive:` or `auto:` followed by one or more comma-separated metric keys; `auto:` takes the type from the metric itself, "
+	      "sending whatever the producing module declared as a counter as a DERIVE and everything else as a GAUGE. A value list is sent only when "
+	      "the snapshot carries every metric it names - one this platform or configuration does not produce means the list is skipped, not reported "
+	      "as zero. When empty a built-in default set is used.")
       ;
 
     settings.alias().add_key_to_settings()

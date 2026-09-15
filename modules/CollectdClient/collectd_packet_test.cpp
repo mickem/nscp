@@ -520,6 +520,132 @@ TEST(CollectdBuilder, UnmatchedVariableProducesNoMetrics) {
   for (const auto &pk : packets) EXPECT_GT(pk.get_size(), 0u);
 }
 
+// A value expression that names a metric the snapshot does not carry must send
+// nothing, rather than a zero nobody measured.
+//
+// This was survivable while every variable was a regular expression over the
+// metric keys: a captured group always came out of a key that exists, so the
+// template it was substituted back into resolved by construction. A `label:`
+// variable breaks that - the label value is independent of how the key spells
+// the instance - and a mapping that names a metric only one platform produces
+// always could.
+TEST(CollectdBuilder, AMissingMetricKeySendsNothingRatherThanZero) {
+  collectd::collectd_builder b;
+  b.set_time(1ULL << 30, 1ULL << 30);
+  b.set_host("h");
+  b.set_metric("system.cpu.total.user", "100");
+  b.add_metric("cpu-absent/cpu-user", "gauge:system.cpu.absent.user");
+  b.add_metric("cpu-absent/cpu-system", "derive:system.cpu.absent.kernel");
+
+  collectd::collectd_builder::packet_list packets;
+  b.render(packets);
+  std::size_t value_lists = 0;
+  for (const auto &pk : packets) value_lists += decode_packet(pk.get_buffer()).size();
+  EXPECT_EQ(value_lists, 0u);
+}
+
+TEST(CollectdBuilder, OneMissingKeyDropsTheWholeValueList) {
+  // Dropping only the missing value would reorder the list: a collectd value
+  // list is positional, so the receiver would read the second metric's number
+  // under the first one's type.
+  collectd::collectd_builder b;
+  b.set_time(1ULL << 30, 1ULL << 30);
+  b.set_host("h");
+  b.set_metric("system.metrics.procs.procs", "42");
+  b.add_metric("processes-/ps_count", "gauge:system.metrics.procs.procs,system.metrics.procs.threads");
+
+  collectd::collectd_builder::packet_list packets;
+  b.render(packets);
+  std::size_t value_lists = 0;
+  for (const auto &pk : packets) value_lists += decode_packet(pk.get_buffer()).size();
+  EXPECT_EQ(value_lists, 0u);
+}
+
+// The headline `label:` example against the shipped default mapping. The CPU
+// bundle labels its all-cores aggregate `core="total"`, so `label:core`
+// expands to one more value than the old per-core regex matched, and the
+// template built from it names a metric that does not exist.
+TEST(CollectdBuilder, TheCpuAggregateLabelDoesNotFabricateATotalValueList) {
+  collectd::collectd_builder b;
+  b.set_time(1ULL << 30, 1ULL << 30);
+  b.set_host("h");
+  b.set_metric("system.cpu.core_0.user", "100");
+  b.add_label("core", "0");
+  b.set_metric("system.cpu.total.user", "150");
+  b.add_label("core", "total");
+  b.add_variable("core", "label:core");
+  b.add_metric("cpu-${core}/cpu-user", "derive:system.cpu.core_${core}.user");
+
+  collectd::collectd_builder::packet_list packets;
+  b.render(packets);
+  std::vector<decoded_value_list> all;
+  for (const auto &pk : packets) {
+    const auto lists = decode_packet(pk.get_buffer());
+    all.insert(all.end(), lists.begin(), lists.end());
+  }
+  // `core_total.user` is not a key anything produces, so only core 0 is sent -
+  // and nothing collides with the separately mapped `cpu-total/cpu-user`.
+  ASSERT_EQ(all.size(), 1u);
+  EXPECT_EQ(all[0].plugin_instance, "0");
+  ASSERT_EQ(all[0].derives.size(), 1u);
+  EXPECT_EQ(all[0].derives[0], 100);
+}
+
+TEST(CollectdBuilder, DeriveSplitsAMultiKeyList) {
+  // The gauge branch always split on `,`; the derive branch looked the whole
+  // "a,b" string up as one key, so a two-key derive sent one value of 0.
+  collectd::collectd_builder b;
+  b.set_time(1ULL << 30, 1ULL << 30);
+  b.set_host("h");
+  b.set_metric("workers.jobs", "10");
+  b.set_metric("workers.submitted", "20");
+  b.add_metric("nscp-/total_operations", "derive:workers.jobs,workers.submitted");
+
+  collectd::collectd_builder::packet_list packets;
+  b.render(packets);
+  const auto lists = decode_packet(packets.front().get_buffer());
+  ASSERT_EQ(lists.size(), 1u);
+  ASSERT_EQ(lists[0].derives.size(), 2u);
+  EXPECT_EQ(lists[0].derives[0], 10);
+  EXPECT_EQ(lists[0].derives[1], 20);
+}
+
+TEST(CollectdBuilder, AutoSplitsAMultiKeyListToo) {
+  collectd::collectd_builder b;
+  b.set_time(1ULL << 30, 1ULL << 30);
+  b.set_host("h");
+  b.set_metric("workers.jobs", "10", true);
+  b.set_metric("workers.submitted", "20", true);
+  b.add_metric("nscp-/total_operations", "auto:workers.jobs,workers.submitted");
+
+  collectd::collectd_builder::packet_list packets;
+  b.render(packets);
+  const auto lists = decode_packet(packets.front().get_buffer());
+  ASSERT_EQ(lists.size(), 1u);
+  ASSERT_EQ(lists[0].value_types.size(), 2u);
+  EXPECT_EQ(lists[0].value_types[0], 2);
+  EXPECT_EQ(lists[0].value_types[1], 2);
+  ASSERT_EQ(lists[0].derives.size(), 2u);
+  EXPECT_EQ(lists[0].derives[0], 10);
+  EXPECT_EQ(lists[0].derives[1], 20);
+}
+
+TEST(CollectdBuilder, AnUnknownValueTypeSendsNothing) {
+  collectd::collectd_builder b;
+  b.set_time(1ULL << 30, 1ULL << 30);
+  b.set_host("h");
+  b.set_metric("workers.jobs", "10");
+  // No type prefix at all, and a type nobody knows.
+  b.add_metric("nscp-/a", "workers.jobs");
+  b.add_metric("nscp-/b", "absolute:workers.jobs");
+
+  collectd::collectd_builder::packet_list packets;
+  b.render(packets);
+  std::size_t value_lists = 0;
+  for (const auto &pk : packets) value_lists += decode_packet(pk.get_buffer()).size();
+  EXPECT_EQ(value_lists, 0u);
+}
+
 // ============================================================================
 // Fragmentation: a large metric set must split into multiple packets, each of
 // which stays within the collectd network buffer size.
