@@ -5,6 +5,7 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/thread/thread.hpp>
 #include <memory>
 #include <nsclient/nsclient_exception.hpp>
 #include <sstream>
@@ -100,6 +101,17 @@ void ServerMongooseImpl::start(const std::string &bind) {
 void ServerMongooseImpl::stop() {
   if (thread_) {
     stop_thread_ = true;
+    // Stopping the server from the thread that runs it: a request handler took
+    // a route that unloads the module (the core refuses that, this is the
+    // backstop for any other path). Joining here would join this thread with
+    // itself, which throws rather than returning, and the throw would escape a
+    // destructor further up. Let it go instead - the poll loop sees the stop
+    // flag and returns as soon as this handler does.
+    if (thread_->get_id() == boost::this_thread::get_id()) {
+      thread_->detach();
+      thread_.reset();
+      return;
+    }
     thread_->interrupt();
     thread_->join();
   }

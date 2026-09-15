@@ -251,6 +251,17 @@ class server : boost::noncopyable {
     // thread runs, the closes need no strand. The flag stays set: a stopped
     // server is never restarted, and clearing it let a late accept
     // completion log a spurious error.
+    // Called from one of our own pool threads: a request handler took a route
+    // that reloads or unloads this module, and loadModuleEx stops the server.
+    // join_all() would then join this thread with itself, which throws rather
+    // than returning - and by that point the acceptors are shut and the
+    // io_service stopped, so the listener would be dead either way. Refuse
+    // before touching either, so the listener keeps serving and the caller
+    // gets an error it can report.
+    if (thread_group_.is_this_thread_in()) {
+      logger_->log_error(__FILE__, __LINE__, "Refused to stop the server from one of its own threads");
+      throw socket_helpers::socket_exception("Refused to stop the server from one of its own threads");
+    }
     is_shutting_down_ = true;
     io_service_.stop();
     thread_group_.join_all();

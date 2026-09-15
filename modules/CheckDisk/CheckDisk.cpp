@@ -78,9 +78,13 @@ void publish_drives_tag(const nscapi::core_wrapper *core) {
 }  // namespace
 
 bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
-  // A reload replaces the collector: stop the running one first.
-  if (collector_) collector_->stop();
-  collector_.reset(new collector_thread(get_core(), get_id()));
+  // A reload replaces the collector: stop the running one first. Publish the
+  // replacement atomically and configure it through the local copy: a check
+  // running right now holds its own reference to whichever instance it read,
+  // so the old one dies when that check returns rather than under it.
+  if (const std::shared_ptr<collector_thread> previous = std::atomic_load(&collector_)) previous->stop();
+  const std::shared_ptr<collector_thread> fresh = std::make_shared<collector_thread>(get_core(), get_id());
+  std::atomic_store(&collector_, fresh);
 
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("disk", alias);
@@ -119,7 +123,7 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         "file is that single file; an entry containing * or ? is a wildcard matched against the whole path, where * and ? do not cross a directory "
         "separator and ** does. Paths are resolved (`..` is flattened and symbolic links and junctions are followed) before they are matched, so a link "
         "planted inside an allowed directory does not widen it.")
-    .add_string("disable", sh::string_key(&collector_->disable_, ""),
+    .add_string("disable", sh::string_key(&fresh->disable_, ""),
         "Disable automatic checks",
         "A comma separated list of checks to disable in the collector: disk_io, disk_free, trend. "
         "Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
@@ -128,7 +132,7 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         "How often disk I/O and disk free data is sampled. All rates (IOPS, bytes/sec) and latencies reported by check_disk_io and check_disk_health "
         "are averages over one such interval, so lowering it makes them react faster and follow short spikes more closely, at the cost of more "
         "frequent sampling. Duration, e.g. 10s.", true)
-    .add_int("max collection errors", sh::int_key(&collector_->max_collection_errors, 10),
+    .add_int("max collection errors", sh::int_key(&fresh->max_collection_errors, 10),
         "Maximum consecutive collection errors",
         "How many consecutive failed fetches disable a collection (disk I/O or disk free) for the rest of the process lifetime. "
         "A single failure is not treated as the source being unavailable, since the collector retries on the next interval and any success resets "
@@ -156,28 +160,28 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     // Parenthesised so the Windows `max` macro (windows.h, included above)
     // does not eat the call.
     if (interval > (std::numeric_limits<int>::max)()) throw std::invalid_argument("is too large");
-    collector_->collection_interval = static_cast<int>(interval);
+    fresh->collection_interval = static_cast<int>(interval);
   } catch (const std::exception &e) {
     NSC_LOG_ERROR("Invalid collection interval (using the default 10s): " + std::string(e.what()));
-    collector_->collection_interval = 10;
+    fresh->collection_interval = 10;
   }
 
   try {
-    collector_->trend_interval = str::format::stox_as_time_sec<long long>(trend_interval, "s");
-    collector_->trend_retention = str::format::stox_as_time_sec<long long>(trend_retention, "s");
-    if (collector_->trend_interval <= 0 || collector_->trend_retention <= 0) throw std::invalid_argument("must be positive");
+    fresh->trend_interval = str::format::stox_as_time_sec<long long>(trend_interval, "s");
+    fresh->trend_retention = str::format::stox_as_time_sec<long long>(trend_retention, "s");
+    if (fresh->trend_interval <= 0 || fresh->trend_retention <= 0) throw std::invalid_argument("must be positive");
   } catch (const std::exception &e) {
     NSC_LOG_ERROR("Invalid trend interval/retention (using defaults 5m/7d): " + std::string(e.what()));
-    collector_->trend_interval = 300;
-    collector_->trend_retention = 7 * 24 * 3600;
+    fresh->trend_interval = 300;
+    fresh->trend_retention = 7 * 24 * 3600;
   }
-  if (collector_->max_collection_errors < 0) collector_->max_collection_errors = 0;
+  if (fresh->max_collection_errors < 0) fresh->max_collection_errors = 0;
 
   // The collector above is stopped and replaced on every load, a reload
   // included, so it has to be started again here or every disk_io, disk_free
   // and trend check reads an empty collector until the service is restarted.
   if (mode != NSCAPI::dontStart) {
-    collector_->start();
+    fresh->start();
   }
   if (mode == NSCAPI::normalStart) {
     publish_drives_tag(get_core());
@@ -186,6 +190,7 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 }
 
 bool CheckDisk::unloadModule() {
+  const std::shared_ptr<collector_thread> collector_ = get_collector_ptr();
   if (collector_) {
     collector_->stop();
   }
@@ -193,6 +198,7 @@ bool CheckDisk::unloadModule() {
 }
 
 void CheckDisk::check_disk_io(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  const std::shared_ptr<collector_thread> collector_ = get_collector_ptr();
   if (!collector_) {
     nscapi::protobuf::functions::set_response_bad(*response, "Collector not started");
     return;
@@ -205,6 +211,7 @@ void CheckDisk::check_disk_io(const PB::Commands::QueryRequestMessage::Request &
 }
 
 void CheckDisk::check_disk_health(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  const std::shared_ptr<collector_thread> collector_ = get_collector_ptr();
   if (!collector_) {
     nscapi::protobuf::functions::set_response_bad(*response, "Collector not started");
     return;
@@ -258,6 +265,7 @@ void CheckDisk::check_share(const PB::Commands::QueryRequestMessage::Request &re
 }
 
 void CheckDisk::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
+  const std::shared_ptr<collector_thread> collector_ = get_collector_ptr();
   if (!collector_) return;
 
   using namespace nscapi::metrics;
@@ -351,11 +359,13 @@ void CheckDisk::checkDriveSize(PB::Commands::QueryRequestMessage::Request &reque
     request.add_arguments("filter=type in (" + type_list + ")");
   }
   compat::log_args(request);
+  const std::shared_ptr<collector_thread> collector_ = get_collector_ptr();
   const collector_thread::trend_snapshot trends = collector_ ? collector_->get_drive_trends() : collector_thread::trend_snapshot();
   check_drive::check(request, response, deref_trends(trends));
 }
 
 void CheckDisk::check_drivesize(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  const std::shared_ptr<collector_thread> collector_ = get_collector_ptr();
   const collector_thread::trend_snapshot trends = collector_ ? collector_->get_drive_trends() : collector_thread::trend_snapshot();
   check_drive::check(request, response, deref_trends(trends));
 }

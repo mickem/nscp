@@ -37,6 +37,13 @@
 namespace settings {
 class settings_http : public settings::settings_interface_impl {
  private:
+  // Deadline for a single read or write while fetching the configuration. The
+  // scheduler's SETTINGS task drives this refresh, and every settings read in
+  // the process waits behind the instance it is refreshing, so a server that
+  // accepts the connection and then goes quiet must not be able to hold it
+  // open indefinitely.
+  static const unsigned int download_timeout_seconds = 30;
+
   std::string url_;
   boost::filesystem::path local_file_;
   net::url remote_url;
@@ -278,7 +285,7 @@ class settings_http : public settings::settings_interface_impl {
       // being asked for, and a settings url that selects its configuration with
       // parameters is useless without it (issue #460).
       if (!http::simple_client::download(url.protocol, url.host, url.get_port_string(def_port), url.get_request_path(), tls_version, verify_mode, ca, os,
-                                         error, proxy)) {
+                                         error, proxy, download_timeout_seconds)) {
         os.close();
         get_logger()->error("settings", __FILE__, __LINE__, "Failed to download " + tmp_file.string() + ": " + error);
         if (boost::filesystem::is_regular_file(local_file)) {

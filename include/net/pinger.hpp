@@ -159,8 +159,17 @@ class pinger {
       result_.ttl_ = is_v6_ ? -1 : static_cast<int>(ipv4_hdr.time_to_live());
       result_.time_ = std::chrono::duration_cast<std::chrono::milliseconds>(now - time_sent_).count();
       result_.rtts_.push_back(result_.time_);
+      return;
     }
-    // start_receive();
+    // Not our reply. A raw ICMP socket receives every echo reply that reaches
+    // the host, so this is any other ping on the box - including a concurrent
+    // check_ping, which runs on the same ten thread query pool. Listen again
+    // rather than give up: without this the first stranger's packet consumed
+    // the single outstanding receive and our own reply, arriving milliseconds
+    // later, was never read - the check then waited out its timeout and
+    // reported the host as losing packets. handle_timeout closes the socket,
+    // which ends this loop.
+    start_receive();
   }
 
   boost::asio::ip::icmp::resolver resolver_;

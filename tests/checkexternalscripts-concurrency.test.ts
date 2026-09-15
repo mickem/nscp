@@ -16,6 +16,20 @@
  * it serialise. A socket server has a real thread pool, ten threads by
  * default, so two NRPE requests to one long-lived `nscp test` are handled on
  * different threads and the two scripts genuinely run at once.
+ *
+ * That last part has to be *checked*, or the isolation assertions below prove
+ * nothing - two scripts that never overlapped trivially keep their streams
+ * apart. It used to be checked with one clock reading against twice the wait,
+ * which measured the runner as much as the agent: the two client processes
+ * have to be scheduled promptly for the scripts to overlap, and on a loaded
+ * runner the second one can start seconds late. That produced a real CI
+ * failure at 6.026s against a 6s bound, with the agent dispatching perfectly
+ * well.
+ *
+ * So the scripts say so themselves: each creates a marker file while it runs
+ * and removes it on the way out, and the test watches for both being present
+ * at the same instant. That is a fact recorded by the scripts rather than
+ * inferred from the client's clock, and it needs nothing a `.bat` cannot do.
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -42,13 +56,24 @@ describe("CheckExternalScripts — concurrent scripts keep their streams apart",
 
   const scriptFile = (name: string) => path.join(scriptsDir, `${name}.${onWindows ? "bat" : "sh"}`);
 
+  /** Present exactly while `name`'s script is running. */
+  const runningFile = (name: string) => path.join(scriptsDir, `${name}.running`);
+
+  /** How many of the two scripts are inside the agent right now. */
+  const runningCount = () => ["alpha", "beta"].filter((n) => fs.existsSync(runningFile(n))).length;
+
   function writeScript(name: string, marker: string): void {
     // One line of output, printed last: it proves the script ran to
     // completion, and it keeps the payload clear of any question about how a
     // transport treats multi-line check output.
+    //
+    // The marker file brackets the wait, so "both were alive at once" is
+    // something the scripts record rather than something the test infers from
+    // how quickly the two clients happened to start.
+    const mark = runningFile(name);
     const body = onWindows
-      ? `@echo off\r\nping -n ${WAIT_SECONDS + 1} 127.0.0.1 >nul\r\necho ${marker}-done\r\n`
-      : `#!/bin/sh\nsleep ${WAIT_SECONDS}\necho "${marker}-done"\n`;
+      ? `@echo off\r\necho running > "${mark}"\r\nping -n ${WAIT_SECONDS + 1} 127.0.0.1 >nul\r\ndel "${mark}"\r\necho ${marker}-done\r\n`
+      : `#!/bin/sh\necho running > "${mark}"\nsleep ${WAIT_SECONDS}\nrm -f "${mark}"\necho "${marker}-done"\n`;
     fs.writeFileSync(scriptFile(name), body, { mode: 0o755 });
   }
 
@@ -112,10 +137,23 @@ describe("CheckExternalScripts — concurrent scripts keep their streams apart",
 
   it("gives each concurrent script only its own output", async () => {
     const started = Date.now();
-    const [alphaOut, betaOut] = await Promise.all([
-      nrpeQuery("check_alpha"),
-      nrpeQuery("check_beta"),
-    ]);
+    let settled = false;
+    const inFlight = Promise.all([nrpeQuery("check_alpha"), nrpeQuery("check_beta")]).then((r) => {
+      settled = true;
+      return r;
+    });
+
+    // Watch for the moment both markers exist. Polling rather than sleeping a
+    // fixed time: whenever the two scripts do overlap they overlap for about
+    // WAIT_SECONDS, which is thousands of samples at this interval.
+    let bothAlive = false;
+    const deadline = Date.now() + 120_000;
+    while (!settled && !bothAlive && Date.now() < deadline) {
+      if (runningCount() === 2) bothAlive = true;
+      else await new Promise((r) => setTimeout(r, 25));
+    }
+
+    const [alphaOut, betaOut] = await inFlight;
     const elapsed = (Date.now() - started) / 1000;
 
     // Each check got its own script's line...
@@ -126,10 +164,14 @@ describe("CheckExternalScripts — concurrent scripts keep their streams apart",
     expect(alphaOut).not.toContain(BETA);
     expect(betaOut).not.toContain(ALPHA);
 
-    // The assertions above only mean something if the two scripts really were
-    // alive at the same time. Run back to back they would take twice the
-    // wait; overlapping they take a little over one of them, so a bound
-    // between the two says they overlapped without pinning an exact duration.
-    expect(elapsed).toBeLessThan(WAIT_SECONDS * 2);
+    // ...and the assertions above mean something, because the two scripts were
+    // demonstrably inside the agent at the same instant rather than run back
+    // to back. This is the claim the old wall-clock bound was standing in for.
+    expect(bothAlive).toBe(true);
+
+    // Loose backstop only. Two overlapping scripts take a little over one
+    // wait; this catches a gross stall without failing because a client
+    // process was slow off the mark.
+    expect(elapsed).toBeLessThan(WAIT_SECONDS * 8);
   });
 });

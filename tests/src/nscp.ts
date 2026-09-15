@@ -94,6 +94,17 @@ function findShared(rel: string): string {
 }
 
 /**
+ * True when the named module is present in this install. PythonScript and the
+ * other optional modules are built only where their dependencies were found
+ * (Boost.Python, libpython), so a test that needs one has to ask rather than
+ * assume, or it fails on a perfectly good package that simply omits it.
+ */
+export function hasModule(name: string): boolean {
+  const file = process.platform === "win32" ? `${name}.dll` : `lib${name}.so`;
+  return findSharedOptional(path.join("modules", file)) !== undefined;
+}
+
+/**
  * Absolute path to a Lua script bundled next to the nscp binary
  * (`<build>/scripts/lua/<name>.lua` in a build tree;
  * `/usr/lib/nsclient/scripts/lua/<name>.lua` on Debian/RPM). Tests pass
@@ -433,7 +444,10 @@ export class NscpInstance {
    * for, and then starts refusing connections when it finally exits. Call this
    * before start() so the port is known to be ours.
    */
-  async waitForPortFree(port: number, opts: { host?: string; timeoutMs?: number } = {}): Promise<void> {
+  async waitForPortFree(
+    port: number,
+    opts: { host?: string; timeoutMs?: number } = {},
+  ): Promise<void> {
     // 0.0.0.0, the address nscp itself binds: a listener there also blocks a
     // 127.0.0.1 bind, so checking the loopback alone would miss it.
     const host = opts.host ?? "0.0.0.0";

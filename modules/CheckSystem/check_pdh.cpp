@@ -145,7 +145,7 @@ void check::add_rrd_counter(std::shared_ptr<nscapi::settings_proxy> proxy, std::
   }
 }
 
-void check::check_pdh(std::shared_ptr<pdh_thread> &collector, const PB::Commands::QueryRequestMessage::Request &request,
+void check::check_pdh(const std::shared_ptr<pdh_thread> &collector, const PB::Commands::QueryRequestMessage::Request &request,
                       PB::Commands::QueryResponseMessage::Response *response) {
   typedef filter filter_type;
   modern_filter::data_container data;

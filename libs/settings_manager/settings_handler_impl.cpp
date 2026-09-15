@@ -76,14 +76,22 @@ void settings::settings_handler_impl::destroy_all_instances() {
 }
 
 void settings::settings_handler_impl::house_keeping() {
-  boost::unique_lock<boost::timed_mutex> mutex(instance_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-  if (!mutex.owns_lock()) throw settings_exception(__FILE__, __LINE__, "house_keeping Failed to get mutex, cant get access settings");
-  // The scheduler calls this on a timer (scheduler::handle_settings), so it
-  // can fire before boot() installs an instance or after shutdown destroyed
-  // it. Dereferencing then is a null crash; the scheduler thread catches
-  // exceptions, so report it the way every sibling here does.
-  if (!instance_) throw settings_exception(__FILE__, __LINE__, "Failed initialize settings instance");
-  instance_->house_keeping();
+  instance_raw_ptr instance;
+  {
+    boost::unique_lock<boost::timed_mutex> mutex(instance_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+    if (!mutex.owns_lock()) throw settings_exception(__FILE__, __LINE__, "house_keeping Failed to get mutex, cant get access settings");
+    // The scheduler calls this on a timer (scheduler::handle_settings), so it
+    // can fire before boot() installs an instance or after shutdown destroyed
+    // it. Dereferencing then is a null crash; the scheduler thread catches
+    // exceptions, so report it the way every sibling here does.
+    if (!instance_) throw settings_exception(__FILE__, __LINE__, "Failed initialize settings instance");
+    instance = instance_;
+  }
+  // Outside the lock. instance_mutex_ guards the pointer, not the work: for an
+  // http settings source this call re-downloads the whole configuration, and
+  // holding the lock across it made every settings read in the process - every
+  // get_string on every thread - fail after its five second wait.
+  instance->house_keeping();
 }
 
 settings::error_list settings::settings_handler_impl::validate() { return get()->validate(); }
