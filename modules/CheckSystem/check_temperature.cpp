@@ -83,9 +83,9 @@ void thermal_zone::read_perf(wmi_impl::row r) {
 
 void thermal_zone::build_metrics(PB::Metrics::MetricsBundle *section) const {
   using namespace nscapi::metrics;
-  add_metric(section, name + ".temperature", static_cast<long long>(temperature));
-  add_metric(section, name + ".active", get_active());
-  add_metric(section, name + ".throttle_reasons", throttle_reasons);
+  metric(section, "temperature").instance(name).label("zone", name).gauge(static_cast<long long>(temperature));
+  metric(section, "active").instance(name).label("zone", name).info(get_active());
+  metric(section, "throttle_reasons").instance(name).label("zone", name).gauge(throttle_reasons);
 }
 
 void temperature_data::query_acpi(zones_type &zones, HANDLE abort_event) {

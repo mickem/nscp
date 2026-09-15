@@ -16,11 +16,17 @@
 // `# TYPE`, no `# EOF`, and six-significant-digit values (a 16 GB memory
 // reading went out as `1.6554e+10`).
 //
+// A metric that a producer built through `nscapi::metrics::metric()` with an
+// instance and one or more labels arrives carrying `Metric::alias` (the family
+// name, with the instance taken back out of it) and `Metric::dims` (the
+// dimensions). Those samples group: one `# TYPE` for `system_cpu_idle` and one
+// sample per core under it, rather than a family per core. A metric with no
+// dims renders from its key exactly as before, so a producer that has not been
+// swept, or an out-of-tree module, is unaffected.
+//
 // What is deliberately *not* here yet: `# HELP`, `# UNIT`, counters and info
-// families all need metadata that no producer sets today, and labels need the
-// producers to say which part of a key is an instance. Those arrive with the
-// metrics-metadata work, and bring with them the escaping helpers and the
-// one-family-many-samples shape that only labels make reachable.
+// families all need metadata that no producer sets today. Those arrive with
+// the metrics-metadata work.
 //
 // One consequence of typing everything as a gauge: a key that already ends in
 // `total` or `count` (`system.network.eth0.total`, `system.os_updates.count`)
@@ -47,6 +53,19 @@ namespace openmetrics {
 //     would only trade one non-conformance for another.
 std::string sanitize_name(const std::string &raw);
 
+// The same mapping for a label name, which shares the metric-name grammar.
+// Producers use fixed, already-legal names; what needs cleaning is the
+// operator-defined end - a PDH counter's instance dimension, or the `labels`
+// dict a Python script returns. The borrowed prefix is `label_` rather than
+// `metric_` so a name that needed rescuing says what it is.
+std::string sanitize_label_name(const std::string &raw);
+
+// Escape a label value for the exposition. Only three characters have to be
+// spelled differently (`\\`, `\"` and a newline as `\n`) and all three turn up
+// in real values: a Windows volume reads `\Device\HarddiskVolume1`, and a WMI
+// adapter description can carry a quote.
+std::string escape_label_value(const std::string &raw);
+
 // Render one sample value. Finite values go through `str::render_shortest`
 // (integers stay integers, no six-digit truncation); the three non-finite
 // values have their own spelling in OpenMetrics.
@@ -63,9 +82,10 @@ std::string content_type_for(const std::string &accept);
 // body ends with the `# EOF` that OpenMetrics 1.0 requires.
 //
 // `problems` collects one human-readable line per metric that was dropped
-// because a different metric already claimed its family name (two keys can
-// sanitise to the same name - `foo.bar` and `foo bar`). The caller logs them;
-// the renderer keeps the first and never emits a duplicate family.
+// because a different metric already claimed its series - either the family
+// name, since two keys can sanitise to the same one (`foo.bar` and `foo bar`),
+// or the family name together with an identical label set. The caller logs
+// them; the renderer keeps the first and never emits a duplicate series.
 std::string render(const PB::Metrics::MetricsMessage &response, std::vector<std::string> *problems = nullptr);
 
 // The exposition as it was emitted before the renderer existed: one

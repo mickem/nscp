@@ -30,18 +30,22 @@ std::string battery_info::show() const {
 
 void battery_info::build_metrics(PB::Metrics::MetricsBundle *section) const {
   using namespace nscapi::metrics;
-  const std::string prefix = name.empty() ? "" : name + ".";
-  add_metric(section, prefix + "charge_percent", charge_percent);
-  add_metric(section, prefix + "power_source", power_source);
-  add_metric(section, prefix + "status", status);
-  add_metric(section, prefix + "battery_present", get_battery_present());
-  if (time_remaining >= 0) add_metric(section, prefix + "time_remaining", time_remaining);
-  if (health_percent >= 0) add_metric(section, prefix + "health_percent", health_percent);
-  if (charge_rate > 0) add_metric(section, prefix + "charge_rate", charge_rate);
-  if (discharge_rate > 0) add_metric(section, prefix + "discharge_rate", discharge_rate);
-  if (design_capacity > 0) add_metric(section, prefix + "design_capacity", design_capacity);
-  if (full_capacity > 0) add_metric(section, prefix + "full_capacity", full_capacity);
-  if (remaining_capacity > 0) add_metric(section, prefix + "remaining_capacity", remaining_capacity);
+  // An unnamed battery keeps its bare key (`.instance("")` is a no-op) and
+  // gets no label - there is only one of it, and a `battery=""` label would be
+  // the same series as no label at all to a scraper.
+  const auto value = [&](const std::string &metric_name, const auto v) { metric(section, metric_name).instance(name).label("battery", name).gauge(v); };
+  const auto text = [&](const std::string &metric_name, const std::string &v) { metric(section, metric_name).instance(name).label("battery", name).info(v); };
+  value("charge_percent", charge_percent);
+  text("power_source", power_source);
+  text("status", status);
+  text("battery_present", get_battery_present());
+  if (time_remaining >= 0) value("time_remaining", time_remaining);
+  if (health_percent >= 0) value("health_percent", health_percent);
+  if (charge_rate > 0) value("charge_rate", charge_rate);
+  if (discharge_rate > 0) value("discharge_rate", discharge_rate);
+  if (design_capacity > 0) value("design_capacity", design_capacity);
+  if (full_capacity > 0) value("full_capacity", full_capacity);
+  if (remaining_capacity > 0) value("remaining_capacity", remaining_capacity);
 }
 
 void battery_data::query_power_status(batteries_type &batteries) {

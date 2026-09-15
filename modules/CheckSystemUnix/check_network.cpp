@@ -115,10 +115,10 @@ void build_network_metrics(PB::Metrics::MetricsBundle *parent, const nics_type &
   PB::Metrics::MetricsBundle *bundle = parent->add_children();
   bundle->set_key("network");
   for (const network_interface &v : data) {
-    add_metric(bundle, v.name + ".received", v.rx_bytes_per_sec);
-    add_metric(bundle, v.name + ".sent", v.tx_bytes_per_sec);
-    add_metric(bundle, v.name + ".total", v.get_total());
-    add_metric(bundle, v.name + ".status", v.status);
+    metric(bundle, "received").instance(v.name).label("nic", v.name).gauge(v.rx_bytes_per_sec);
+    metric(bundle, "sent").instance(v.name).label("nic", v.name).gauge(v.tx_bytes_per_sec);
+    metric(bundle, "total").instance(v.name).label("nic", v.name).gauge(v.get_total());
+    metric(bundle, "status").instance(v.name).label("nic", v.name).info(v.status);
   }
 }
 

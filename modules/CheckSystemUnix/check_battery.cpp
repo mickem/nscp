@@ -194,17 +194,19 @@ std::string battery_info::show() const {
 
 void battery_info::build_metrics(PB::Metrics::MetricsBundle *section) const {
   using namespace nscapi::metrics;
-  add_metric(section, name + ".charge", charge_percent);
-  add_metric(section, name + ".health", health_percent);
-  add_metric(section, name + ".status", status);
-  add_metric(section, name + ".power_source", power_source);
-  add_metric(section, name + ".battery_present", get_battery_present());
-  if (time_remaining >= 0) add_metric(section, name + ".time_remaining", time_remaining);
-  if (charge_rate > 0) add_metric(section, name + ".charge_rate", charge_rate);
-  if (discharge_rate > 0) add_metric(section, name + ".discharge_rate", discharge_rate);
-  if (design_capacity > 0) add_metric(section, name + ".design_capacity", design_capacity);
-  if (full_capacity > 0) add_metric(section, name + ".full_capacity", full_capacity);
-  if (remaining_capacity > 0) add_metric(section, name + ".remaining_capacity", remaining_capacity);
+  const auto value = [&](const std::string &metric_name, const long long v) { metric(section, metric_name).instance(name).label("battery", name).gauge(v); };
+  const auto text = [&](const std::string &metric_name, const std::string &v) { metric(section, metric_name).instance(name).label("battery", name).info(v); };
+  value("charge", charge_percent);
+  value("health", health_percent);
+  text("status", status);
+  text("power_source", power_source);
+  text("battery_present", get_battery_present());
+  if (time_remaining >= 0) value("time_remaining", time_remaining);
+  if (charge_rate > 0) value("charge_rate", charge_rate);
+  if (discharge_rate > 0) value("discharge_rate", discharge_rate);
+  if (design_capacity > 0) value("design_capacity", design_capacity);
+  if (full_capacity > 0) value("full_capacity", full_capacity);
+  if (remaining_capacity > 0) value("remaining_capacity", remaining_capacity);
 }
 
 batteries_type read_battery() { return read_battery_from(POWER_SUPPLY_PATH); }

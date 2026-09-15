@@ -14,6 +14,7 @@ set(SRCS
     extscr_cli.cpp
     script_provider.cpp
     ${NSCP_INCLUDEDIR}/json/use_json.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
     ${NSCP_DEF_PLUGIN_CPP}
 )
 

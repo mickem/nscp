@@ -38,6 +38,21 @@ class pdh_thread {
   typedef boost::variant<std::string, long long, double> value_type;
   typedef boost::unordered_map<std::string, value_type> metrics_hash;
 
+  // Which counter and which instance a metric key came from, for the counters
+  // that have instances. The key of `metrics` flattens the two into
+  // `pdh.<counter>.<instance>`, which is what every consumer reads and must
+  // keep reading - but flattening loses the split, and a counter name can
+  // itself contain dots, so it cannot be recovered by splitting the key again.
+  // Recording it where it is still known is the only way to label the sample
+  // without moving the key.
+  struct dimension {
+    // The metric key with the instance taken back off: the family the
+    // instances of one counter share.
+    std::string family;
+    std::string instance;
+  };
+  typedef boost::unordered_map<std::string, dimension> dimension_hash;
+
  private:
   typedef boost::unordered_map<std::string, PDH::pdh_instance> lookup_type;
   typedef std::list<std::string> error_list;
@@ -55,6 +70,7 @@ class pdh_thread {
   nscapi::core_wrapper *core_;
 
   metrics_hash metrics;
+  dimension_hash metric_dimensions;
 
   std::list<PDH::pdh_object> configs_;
   std::list<PDH::pdh_instance> counters_;
@@ -126,6 +142,7 @@ class pdh_thread {
   // off or the collector has not yet completed its first two samples.
   process_checks::cpu_delta_map get_process_cpu_deltas();
   metrics_hash get_metrics();
+  dimension_hash get_metric_dimensions();
 
   // Whether a collector is turned off via the `disable` setting (whole-token
   // match, see disable_list.hpp).

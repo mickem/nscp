@@ -39,10 +39,11 @@ std::string process_record::show() const {
 
 void process_record::build_metrics(PB::Metrics::MetricsBundle *section) const {
   using namespace nscapi::metrics;
-  add_metric(section, exe + ".first_seen", first_seen);
-  add_metric(section, exe + ".last_seen", last_seen);
-  add_metric(section, exe + ".times_seen", times_seen);
-  add_metric(section, exe + ".currently_running", get_currently_running_i());
+  const auto value = [&](const std::string &metric_name, const auto v) { metric(section, metric_name).instance(exe).label("exe", exe).gauge(v); };
+  value("first_seen", first_seen);
+  value("last_seen", last_seen);
+  value("times_seen", times_seen);
+  value("currently_running", get_currently_running_i());
 }
 
 // Simple error reporter that does nothing (we don't want to spam logs during enumeration)

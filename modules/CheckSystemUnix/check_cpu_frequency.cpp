@@ -158,9 +158,14 @@ void build_cpu_frequency_metrics(PB::Metrics::MetricsBundle *parent, const cpus_
   bundle->set_key("cpu_frequency");
 
   for (const cpus_type::value_type &v : data) {
-    add_metric(bundle, v.name + ".current_mhz", v.current_mhz);
-    add_metric(bundle, v.name + ".max_mhz", v.max_mhz);
-    add_metric(bundle, v.name + ".frequency_pct", v.get_frequency_pct());
+    // `cpu` rather than `core`: this section is per-core on Linux (`cpu0`,
+    // `cpu1`, `total`, straight from sysfs) but per-processor on Windows, where
+    // the instance is a WMI model string. One label name, one meaning - the
+    // thing the frequency was read from - rather than a `core` that means
+    // something else on each platform.
+    metric(bundle, "current_mhz").instance(v.name).label("cpu", v.name).gauge(v.current_mhz);
+    metric(bundle, "max_mhz").instance(v.name).label("cpu", v.name).gauge(v.max_mhz);
+    metric(bundle, "frequency_pct").instance(v.name).label("cpu", v.name).gauge(v.get_frequency_pct());
   }
 }
 

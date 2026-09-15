@@ -67,7 +67,8 @@ curl -s -k -u admin https://localhost:8443/api/v2/metrics | python -m json.tool
 Returns the same snapshot in
 [OpenMetrics](https://openmetrics.io/) text exposition format, suitable for
 Prometheus scraping. Only gauge values are emitted; string-valued metrics
-are skipped.
+are skipped. Metrics measured per core, NIC, drive or process are grouped into
+one family carrying a [label](#labels) rather than one family per instance.
 
 | Key       | Value                |
 |-----------|----------------------|
@@ -84,14 +85,16 @@ GET /api/v2/openmetrics
 ### Response
 
 ```
-# TYPE system_cpu_total_5m gauge
-system_cpu_total_5m 12
-# TYPE system_cpu_total_1m gauge
-system_cpu_total_1m 8
+# TYPE system_cpu_idle gauge
+system_cpu_idle{core="0"} 95
+system_cpu_idle{core="1"} 91
+system_cpu_idle{core="total"} 93
 # TYPE system_mem_physical_percent gauge
 system_mem_physical_percent 73
 # TYPE system_mem_physical_total gauge
 system_mem_physical_total 17175158784
+# TYPE disk_free_total gauge
+disk_free_total{drive="/"} 255000000000
 # EOF
 ```
 
@@ -135,6 +138,60 @@ that was dropped and the name it collided on.
 Values keep their full precision: an integral value is written out in full
 (`17175158784`, not `1.7175e+10`), so a sample equals the number
 `/api/v2/metrics` reports for the same key.
+
+### Labels
+
+A metric measured once per core, NIC, drive, thermal zone, battery or process
+is one family with a label, not one family per instance. The instance stays in
+the JSON key exactly where it was; the label is additive.
+
+```
+# TYPE system_cpu_idle gauge
+system_cpu_idle{core="0"} 95
+system_cpu_idle{core="1"} 91
+system_cpu_idle{core="total"} 93
+```
+
+so `sum by (core)` has something to group on, a Grafana variable has a label
+to bind to, and the family names no longer depend on how many cores or NICs a
+particular host has. The same metric is still `system.cpu.core_0.idle` on
+`/api/v2/metrics`.
+
+| Bundle                     | Label      | Value                                                        |
+|----------------------------|------------|--------------------------------------------------------------|
+| `system.cpu`               | `core`     | `0`, `1`, … and `total` for the aggregate                     |
+| `system.cpu_frequency`     | `cpu`      | the sysfs core (`cpu0`, `total`) on Linux, the WMI processor name on Windows |
+| `system.network`           | `nic`      | the interface as the OS names it (`eth0`, `Ethernet 1`)       |
+| `system.temperature`       | `zone`     | the thermal zone or sensor                                    |
+| `system.battery`           | `battery`  | the battery (`BAT0`); absent for a single unnamed battery      |
+| `system.process_history`   | `exe`      | the executable name                                           |
+| `system.metrics`           | `instance` | the PDH instance, for a counter configured with instances      |
+| `disk.io`                  | `disk`     | the device (`sda`, `_Total`)                                  |
+| `disk.free`                | `drive`    | the drive or mount point (`C:`, `/`)                          |
+
+`core="total"` is the all-cores aggregate, mirroring the `system.cpu.total.*`
+JSON key. It means `sum by (core)` stays honest but `sum without (core)`
+double-counts — exclude it explicitly:
+
+```promql
+sum without (core) (system_cpu_idle{core!="total"})
+```
+
+Label names follow the same grammar as metric names and are rewritten the same
+way, which matters only for the operator-defined ones (a PDH instance, a
+Python script's labels). Label values are free text and are escaped rather
+than rewritten: `\`, `"` and a newline are the three characters spelled
+differently, so a Windows volume reads
+`drive="\\Device\\HarddiskVolume1"`. A label with an empty value is
+dropped, because `x=""` and an absent `x` are the same series.
+
+Two samples of one family that end up with the same label set are the same
+series, so the first is kept and the rest are dropped and logged, exactly as
+for two keys colliding on one name.
+
+A metric with no labels — most of `system.mem`, the uptime and scheduler
+sections, anything published by a module that does not set dimensions —
+renders from its key as before.
 
 ### Content type
 

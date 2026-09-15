@@ -70,6 +70,8 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_status.cpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_submit.cpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/settings_functions.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
     LIBRARIES
         GTest::gtest_main
         nscp_protobuf

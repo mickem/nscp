@@ -117,8 +117,8 @@ From the agent (or anywhere allowed to reach it):
 curl -k -u prometheus:<password> https://<agent>:8443/api/v2/openmetrics
 ```
 
-Expected output is an OpenMetrics document: a `# TYPE` line per family, one
-`<name> <value>` sample per line, and a closing `# EOF`. On a Windows host:
+Expected output is an OpenMetrics document: a `# TYPE` line per family, its
+samples under it, and a closing `# EOF`. On a Windows host:
 
 ```text
 # TYPE system_mem_commited_avail gauge
@@ -127,10 +127,9 @@ system_mem_commited_avail 12592123904
 system_mem_commited_total 17175158784
 # TYPE system_mem_commited_percent gauge
 system_mem_commited_percent 73
-# TYPE system_cpu_total_idle gauge
-system_cpu_total_idle 95
-# TYPE system_cpu_core_0_idle gauge
-system_cpu_core_0_idle 93
+# TYPE system_cpu_idle gauge
+system_cpu_idle{core="total"} 95
+system_cpu_idle{core="0"} 93
 # TYPE system_uptime_ticks_raw gauge
 system_uptime_ticks_raw 84135
 # EOF
@@ -139,16 +138,17 @@ system_uptime_ticks_raw 84135
 On a Linux host:
 
 ```text
-# TYPE system_cpu_total_idle gauge
-system_cpu_total_idle 97.8293
-# TYPE system_cpu_total_user gauge
-system_cpu_total_user 1.19519
+# TYPE system_cpu_idle gauge
+system_cpu_idle{core="total"} 97.8293
+system_cpu_idle{core="0"} 96.4
+# TYPE system_cpu_user gauge
+system_cpu_user{core="total"} 1.19519
 # TYPE system_mem_physical_total gauge
 system_mem_physical_total 16554000000
 # TYPE system_mem_swap_percent gauge
 system_mem_swap_percent 26
-# TYPE system_network_eth0_received gauge
-system_network_eth0_received 343
+# TYPE system_network_received gauge
+system_network_received{nic="eth0"} 343
 # EOF
 ```
 
@@ -156,8 +156,10 @@ Metric names are rewritten to the OpenMetrics grammar: `.` and any other
 character outside `[a-zA-Z0-9_]` becomes `_`, a run of them collapses to one,
 `%` becomes the word `percent`, and a name that would not start with a letter
 borrows a `metric_` prefix. The mapping is deterministic, so the same reading
-always lands on the same series. See the [REST metrics
-reference](../api/rest/metrics.md#metric-names) for the full table.
+always lands on the same series. Anything measured per core, NIC, drive or
+process is one family with a label rather than one family per instance. See the
+[REST metrics reference](../api/rest/metrics.md#metric-names) for the full
+table and [Labels](../api/rest/metrics.md#labels) for the label per bundle.
 
 If you get HTTP 401, the credentials or role grant are wrong; if you get a
 TLS error, see "TLS / self-signed certificate" below.
@@ -204,22 +206,38 @@ Available on **both platforms** from `CheckSystem`:
 
 | Family prefix              | Examples                                                                         |
 |----------------------------|----------------------------------------------------------------------------------|
-| `system_cpu_*`             | `system_cpu_total_idle`, `..._user`, `..._kernel`, plus per-core variants        |
+| `system_cpu_*`             | `system_cpu_idle`, `..._user`, `..._kernel`, `..._total`, labelled by `core`     |
 | `system_mem_*`             | families differ per platform — see below                                        |
 | `system_uptime_*`          | `system_uptime_ticks_raw`, `system_uptime_boot_raw`                              |
-| `system_network_<nic>_*`   | `received`, `sent`, `total` (bytes/s per interface)                              |
-| `system_temperature_*`     | thermal sensors (WMI/ACPI on Windows, sysfs thermal/hwmon on Linux)              |
-| `system_battery_*`         | charge/health, on machines that have a battery                                   |
-| `system_cpu_frequency_*`   | current/max clock per core, where exposed                                        |
-| `system_process_history_*` | per-executable `times_seen` / `currently_running` (opt-in, below)                |
+| `system_network_*`         | `received`, `sent`, `total` (bytes/s), labelled by `nic`                          |
+| `system_temperature_*`     | thermal sensors, labelled by `zone` (WMI/ACPI on Windows, sysfs on Linux)        |
+| `system_battery_*`         | charge/health, labelled by `battery`, on machines that have one                   |
+| `system_cpu_frequency_*`   | current/max clock, labelled by `cpu`, where exposed                              |
+| `system_process_history_*` | `times_seen` / `currently_running`, labelled by `exe` (opt-in, below)            |
 
-Add `CheckDisk` (either platform) and you also get `disk_io_<device>_*`
-(throughput, IOPS, queue length, busy time) and `disk_free_<drive>_*`
-(total/free/used and percentages).
+Add `CheckDisk` (either platform) and you also get `disk_io_*` (throughput,
+IOPS, queue length, busy time) labelled by `disk`, and `disk_free_*`
+(total/free/used and percentages) labelled by `drive`.
 
-The instance (the NIC, drive or executable) is part of the family name, not a
-label, so each one is its own metric family. A Grafana variable or a `sum by
-(...)` over them is not possible yet.
+The instance is a label, so one family covers every core, NIC, drive or
+process on the host. That is what makes a Grafana variable and an aggregation
+work:
+
+```promql
+# busiest core on each host
+min by (instance) (system_cpu_idle{core!="total"})
+
+# total received bytes/s across every interface
+sum by (instance) (system_network_received)
+
+# every filesystem under 10% free
+disk_free_free_pct < 10
+```
+
+`core="total"` is the all-cores aggregate, so exclude it from anything that
+aggregates over cores (`sum without (core)` would double-count). The full
+label-per-bundle table is in the [REST metrics
+reference](../api/rest/metrics.md#labels).
 
 Platform differences to be aware of:
 
@@ -227,9 +245,10 @@ Platform differences to be aware of:
   `commited` / `physical` / `page` / `virtual`, Linux publishes `physical` /
   `cached` / `swap`.
 - **Per-core CPU naming**: Linux normalises core names to `core_0`, `core_1`,
-  …; Windows names them `core 0` (with a space). The space is rewritten on the
-  OpenMetrics endpoint, so both platforms scrape as `system_cpu_core_0_*`; the
-  JSON endpoints still show the platform's own spelling.
+  …; Windows names them `core 0` (with a space). Neither reaches the
+  OpenMetrics endpoint, where both platforms scrape as
+  `system_cpu_idle{core="0"}`; the JSON endpoints still show the platform's own
+  spelling.
 - **PDH counters** (`system_metrics_*`) are Windows-only: predefine them in
   `[/settings/system/windows/counters/<name>]` (see
   [Performance Counter (PDH) Monitoring](counters.md)) and they appear on the

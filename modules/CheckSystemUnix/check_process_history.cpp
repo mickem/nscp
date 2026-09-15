@@ -173,8 +173,8 @@ void build_process_history_metrics(PB::Metrics::MetricsBundle *parent, const his
   bundle->set_key("process_history");
   long long running = 0;
   for (const process_record &rec : data) {
-    add_metric(bundle, rec.exe + ".times_seen", rec.times_seen);
-    add_metric(bundle, rec.exe + ".currently_running", rec.get_currently_running_i());
+    metric(bundle, "times_seen").instance(rec.exe).label("exe", rec.exe).gauge(rec.times_seen);
+    metric(bundle, "currently_running").instance(rec.exe).label("exe", rec.exe).gauge(rec.get_currently_running_i());
     if (rec.currently_running) ++running;
   }
   add_metric(bundle, "count", static_cast<long long>(data.size()));

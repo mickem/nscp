@@ -518,6 +518,30 @@ def init(plugin_id, plugin_alias, script_alias):
     reg.fetch_metrics(my_metrics)
 ```
 
+A value may also be a `dict`, which is how a metric says more about itself than
+its number. `value` is required and is the metric's value as above; `labels` is
+a `dict` of strings that becomes the metric's labels on the
+[OpenMetrics endpoint](../api/rest/metrics.md#labels), the same way the
+built-in per-core and per-NIC metrics are labelled:
+
+```python
+def my_metrics():
+    return {
+        "my_script.queue_depth": {
+            "value": 42,
+            "labels": {"queue": "inbound", "region": "eu-west"},
+        },
+    }
+```
+
+which scrapes as `my_script_queue_depth{queue="inbound",region="eu-west"} 42`.
+
+The dict key is still the metric's key everywhere else — `/api/v2/metrics`,
+`/metrics`, Graphite, collectd and `submit_metrics` see the same flat
+`my_script.queue_depth` as they would for a bare `42`. A dict without a usable
+`value` is skipped. An empty label value is dropped, since `x=""` and an absent
+`x` are the same series to a scraper.
+
 #### `Registry.query`
 
 ```python

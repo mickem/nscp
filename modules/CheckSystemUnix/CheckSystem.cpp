@@ -245,10 +245,14 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
         std::string name = v.first;
         // Normalize "core 0" -> "core_0" (web UI prefers underscore-separated keys)
         std::replace(name.begin(), name.end(), ' ', '_');
-        add_metric(cpu, name + ".idle", load.idle);
-        add_metric(cpu, name + ".user", load.user);
-        add_metric(cpu, name + ".kernel", load.kernel);
-        add_metric(cpu, name + ".total", load.user + load.kernel);
+        // The key keeps that per-core spelling; the label carries the core on
+        // its own, so `sum by (core)` has something to group on and the Windows
+        // `core 0` / Linux `core_0` split stays out of the label value.
+        const std::string core = core_label(name);
+        metric(cpu, "idle").instance(name).label("core", core).gauge(load.idle);
+        metric(cpu, "user").instance(name).label("core", core).gauge(load.user);
+        metric(cpu, "kernel").instance(name).label("core", core).gauge(load.kernel);
+        metric(cpu, "total").instance(name).label("core", core).gauge(load.user + load.kernel);
       }
     }
   } catch (const std::exception &e) {

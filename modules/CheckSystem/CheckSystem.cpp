@@ -19,6 +19,7 @@
 #include <nscp_time.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <set>
+#include <utility>
 #include <win/com_helpers.hpp>
 #include <win/pdh/pdh_enumerations.hpp>
 #include <win/services.hpp>
@@ -1260,25 +1261,20 @@ void CheckSystem::add_rrd_counter(std::string key, std::string query) {
   pdh_checker.add_rrd_counter(nscapi::settings_proxy::create(get_id(), get_core()), key, query);
 }
 
+// Publishes one PDH/process metric, whatever the variant turned out to hold.
+// The builder it carries has already been given the key and - for a counter
+// with instances - the family name and the `instance` label, so the visitor
+// only has to pick the right terminator. It is copied per call because a
+// terminator is what writes the metric, and the visitor is handed to
+// `apply_visitor` as a const reference.
 class add_visitor : public boost::static_visitor<> {
-  PB::Metrics::MetricsBundle *b;
-  const std::string &key;
+  nscapi::metrics::metric_builder b;
 
  public:
-  add_visitor(PB::Metrics::MetricsBundle *b, const std::string &key) : b(b), key(key) {}
-  void operator()(const long long &i) const {
-    using namespace nscapi::metrics;
-    add_metric(b, key, i);
-  }
-
-  void operator()(const std::string &s) const {
-    using namespace nscapi::metrics;
-    add_metric(b, key, s);
-  }
-  void operator()(const double &d) const {
-    using namespace nscapi::metrics;
-    add_metric(b, key, d);
-  }
+  explicit add_visitor(nscapi::metrics::metric_builder b) : b(std::move(b)) {}
+  void operator()(const long long &i) const { nscapi::metrics::metric_builder(b).gauge(i); }
+  void operator()(const std::string &s) const { nscapi::metrics::metric_builder(b).info(s); }
+  void operator()(const double &d) const { nscapi::metrics::metric_builder(b).gauge(d); }
 };
 void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
   using namespace nscapi::metrics;
@@ -1318,10 +1314,14 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
     std::map<std::string, windows::system_info::load_entry> vals = collector->get_cpu_load(5);
     typedef std::map<std::string, windows::system_info::load_entry>::value_type vt;
     for (vt v : vals) {
-      add_metric(section, v.first + ".idle", v.second.idle);
-      add_metric(section, v.first + ".total", v.second.user + v.second.kernel);
-      add_metric(section, v.first + ".user", v.second.user);
-      add_metric(section, v.first + ".kernel", v.second.kernel);
+      // The key keeps Windows' `core 0` spelling; `core_label` reduces it to
+      // the bare number so the label reads the same here as it does on Linux,
+      // where the key is `core_0`.
+      const std::string core = core_label(v.first);
+      metric(section, "idle").instance(v.first).label("core", core).gauge(v.second.idle);
+      metric(section, "total").instance(v.first).label("core", core).gauge(v.second.user + v.second.kernel);
+      metric(section, "user").instance(v.first).label("core", core).gauge(v.second.user);
+      metric(section, "kernel").instance(v.first).label("core", core).gauge(v.second.kernel);
     }
   } catch (...) {
     NSC_LOG_ERROR("Failed to getch memory metrics: ");
@@ -1350,8 +1350,16 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
     PB::Metrics::MetricsBundle *section = bundle->add_children();
     section->set_key("metrics");
 
+    // A counter configured with instances publishes one key per instance
+    // (`pdh.<counter>.<instance>`). The key stays exactly that; the label is
+    // what lets the instances of one counter be queried as a family, which is
+    // the whole reason an operator configures a wildcard counter.
+    const pdh_thread::dimension_hash dimensions = collector->get_metric_dimensions();
     for (const pdh_thread::metrics_hash::value_type &e : collector->get_metrics()) {
-      add_visitor adder(section, e.first);
+      const pdh_thread::dimension_hash::const_iterator dim = dimensions.find(e.first);
+      metric_builder builder = metric(section, dim == dimensions.end() ? e.first : dim->second.family);
+      if (dim != dimensions.end()) builder.key(e.first).label("instance", dim->second.instance);
+      add_visitor adder(builder);
       boost::apply_visitor(adder, e.second);
     }
   } catch (...) {

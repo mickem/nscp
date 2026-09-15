@@ -21,17 +21,22 @@ namespace disk_io_check {
 
 void disk_io::build_metrics(PB::Metrics::MetricsBundle *section) const {
   using namespace nscapi::metrics;
-  add_metric(section, name + ".read_bytes_per_sec", read_bytes_per_sec);
-  add_metric(section, name + ".write_bytes_per_sec", write_bytes_per_sec);
-  add_metric(section, name + ".reads_per_sec", reads_per_sec);
-  add_metric(section, name + ".writes_per_sec", writes_per_sec);
-  add_metric(section, name + ".queue_length", queue_length);
-  add_metric(section, name + ".percent_disk_time", percent_disk_time);
-  add_metric(section, name + ".percent_idle_time", percent_idle_time);
-  add_metric(section, name + ".split_io_per_sec", split_io_per_sec);
-  add_metric(section, name + ".read_latency", read_latency);
-  add_metric(section, name + ".write_latency", write_latency);
-  add_metric(section, name + ".total_latency", total_latency);
+  // One family per counter with a `disk` label, rather than one family per
+  // disk: `_Total` on Windows, `sda` on Linux, and any number of devices in
+  // between - each of which used to get its own family name, so a dashboard
+  // could not be written once and pointed at a second host.
+  const auto value = [&](const std::string &metric_name, const auto v) { metric(section, metric_name).instance(name).label("disk", name).gauge(v); };
+  value("read_bytes_per_sec", read_bytes_per_sec);
+  value("write_bytes_per_sec", write_bytes_per_sec);
+  value("reads_per_sec", reads_per_sec);
+  value("writes_per_sec", writes_per_sec);
+  value("queue_length", queue_length);
+  value("percent_disk_time", percent_disk_time);
+  value("percent_idle_time", percent_idle_time);
+  value("split_io_per_sec", split_io_per_sec);
+  value("read_latency", read_latency);
+  value("write_latency", write_latency);
+  value("total_latency", total_latency);
 }
 
 disks_type disk_io_data::get() {
@@ -116,12 +121,13 @@ namespace disk_free_check {
 
 void disk_free::build_metrics(PB::Metrics::MetricsBundle *section) const {
   using namespace nscapi::metrics;
-  add_metric(section, name + ".total", total);
-  add_metric(section, name + ".free", free);
-  add_metric(section, name + ".used", total - free);
-  add_metric(section, name + ".user_free", user_free);
-  add_metric(section, name + ".free_pct", get_free_pct());
-  add_metric(section, name + ".used_pct", get_used_pct());
+  const auto value = [&](const std::string &metric_name, const auto v) { metric(section, metric_name).instance(name).label("drive", name).gauge(v); };
+  value("total", total);
+  value("free", free);
+  value("used", total - free);
+  value("user_free", user_free);
+  value("free_pct", get_free_pct());
+  value("used_pct", get_used_pct());
 }
 
 void disk_free_data::set(const drives_type &drives) {

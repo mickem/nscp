@@ -20,6 +20,7 @@
 
 #include <limits>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -47,6 +48,23 @@ class snapshot {
     m->mutable_gauge_value()->set_value(value);
   }
 
+  // A metric as `nscapi::metrics::metric(b, name).instance(i).label(...)`
+  // builds it: the key still carries the instance, and `alias` + `dims` say
+  // which family it belongs to and what tells it apart from its siblings.
+  typedef std::vector<std::pair<std::string, std::string> > labels_type;
+  static void labelled_gauge(PB::Metrics::MetricsBundle *b, const std::string &name, const std::string &instance, const labels_type &labels,
+                             const double value) {
+    PB::Metrics::Metric *m = b->add_value();
+    m->set_key(instance.empty() ? name : instance + "." + name);
+    m->set_alias(name);
+    for (const labels_type::value_type &l : labels) {
+      PB::Common::KeyValue *dim = m->add_dims();
+      dim->set_key(l.first);
+      dim->set_value(l.second);
+    }
+    m->mutable_gauge_value()->set_value(value);
+  }
+
   static void string_metric(PB::Metrics::MetricsBundle *b, const std::string &key, const std::string &value) {
     PB::Metrics::Metric *m = b->add_value();
     m->set_key(key);
@@ -61,6 +79,10 @@ class snapshot {
 };
 
 bool contains(const std::string &haystack, const std::string &needle) { return haystack.find(needle) != std::string::npos; }
+
+// One label pair, so the call sites below read as a label set rather than as
+// nested brace initialisers.
+std::pair<std::string, std::string> l(const std::string &key, const std::string &value) { return std::make_pair(key, value); }
 
 }  // namespace
 
@@ -319,6 +341,314 @@ TEST(OpenmetricsRenderer, EveryEmittedLineMatchesTheExpositionGrammar) {
       EXPECT_TRUE((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') << "illegal character in name: " << line;
     }
     EXPECT_EQ(value.find(' '), std::string::npos) << "value carries a space: " << line;
+    EXPECT_FALSE(value.empty()) << line;
+    ++samples;
+  }
+  EXPECT_EQ(samples, 4);
+}
+
+
+// --- labels -----------------------------------------------------------------
+
+TEST(OpenmetricsRenderer, InstancesOfOneMetricBecomeSamplesOfOneFamily) {
+  // The point of the whole exercise. Before labels, four cores meant four
+  // families named after the core, so `sum by (core)` had nothing to sum, a
+  // Grafana variable had no label to bind to, and the family names differed
+  // between two hosts with different core counts.
+  snapshot s;
+  PB::Metrics::MetricsBundle *cpu = snapshot::child(s.bundle("system"), "cpu");
+  snapshot::labelled_gauge(cpu, "idle", "core 0", {l("core", "0")}, 95.0);
+  snapshot::labelled_gauge(cpu, "idle", "core 1", {l("core", "1")}, 91.0);
+  snapshot::labelled_gauge(cpu, "idle", "total", {l("core", "total")}, 93.0);
+
+  EXPECT_EQ(openmetrics::render(s.message()),
+            "# TYPE system_cpu_idle gauge\n"
+            "system_cpu_idle{core=\"0\"} 95\n"
+            "system_cpu_idle{core=\"1\"} 91\n"
+            "system_cpu_idle{core=\"total\"} 93\n"
+            "# EOF\n");
+}
+
+TEST(OpenmetricsRenderer, TheSamplesOfAFamilyStayContiguousWhenProducersInterleave) {
+  // Two metrics per core, emitted core by core, is what the producer loops
+  // actually do. A sample that lands after another family has started belongs
+  // to no `# TYPE` at all, so the families have to be collected before
+  // anything is written - which is why the renderer does not stream.
+  snapshot s;
+  PB::Metrics::MetricsBundle *cpu = snapshot::child(s.bundle("system"), "cpu");
+  snapshot::labelled_gauge(cpu, "idle", "core 0", {l("core", "0")}, 95.0);
+  snapshot::labelled_gauge(cpu, "user", "core 0", {l("core", "0")}, 3.0);
+  snapshot::labelled_gauge(cpu, "idle", "core 1", {l("core", "1")}, 91.0);
+  snapshot::labelled_gauge(cpu, "user", "core 1", {l("core", "1")}, 7.0);
+
+  EXPECT_EQ(openmetrics::render(s.message()),
+            "# TYPE system_cpu_idle gauge\n"
+            "system_cpu_idle{core=\"0\"} 95\n"
+            "system_cpu_idle{core=\"1\"} 91\n"
+            "# TYPE system_cpu_user gauge\n"
+            "system_cpu_user{core=\"0\"} 3\n"
+            "system_cpu_user{core=\"1\"} 7\n"
+            "# EOF\n");
+}
+
+TEST(OpenmetricsRenderer, LabelsAreEmittedInTheOrderTheProducerAddedThem) {
+  // Stable, not sorted: a series whose label order changes between two scrapes
+  // reads as a different series to some tooling, and the builder already
+  // preserves insertion order, so the renderer must not reshuffle it.
+  snapshot s;
+  PB::Metrics::MetricsBundle *net = snapshot::child(s.bundle("system"), "network");
+  snapshot::labelled_gauge(net, "sent", "eth0", {l("nic", "eth0"), l("mac", "00:11:22"), l("kind", "physical")}, 1.0);
+
+  EXPECT_TRUE(contains(openmetrics::render(s.message()), "system_network_sent{nic=\"eth0\",mac=\"00:11:22\",kind=\"physical\"} 1\n"));
+}
+
+TEST(OpenmetricsRenderer, LabelValuesAreEscapedRatherThanSanitised) {
+  // A label value is free text - unlike a name, nothing about it has to be
+  // rewritten, only escaped. All three escapes turn up in real values: a
+  // Windows volume reads `\Device\HarddiskVolume1`, and a WMI adapter
+  // description can carry a quote.
+  snapshot s;
+  PB::Metrics::MetricsBundle *disk = s.bundle("disk");
+  snapshot::labelled_gauge(disk, "free", "vol", {l("drive", "\\Device\\HarddiskVolume1")}, 1.0);
+  snapshot::labelled_gauge(disk, "free", "quoted", {l("drive", "say \"hi\"")}, 2.0);
+  snapshot::labelled_gauge(disk, "free", "multi", {l("drive", "two\nlines")}, 3.0);
+
+  const std::string body = openmetrics::render(s.message());
+
+  EXPECT_TRUE(contains(body, "disk_free{drive=\"\\\\Device\\\\HarddiskVolume1\"} 1\n"));
+  EXPECT_TRUE(contains(body, "disk_free{drive=\"say \\\"hi\\\"\"} 2\n"));
+  EXPECT_TRUE(contains(body, "disk_free{drive=\"two\\nlines\"} 3\n"));
+  // The escaped newline must not have become an actual line break, which would
+  // split one sample into two the parser cannot read.
+  EXPECT_FALSE(contains(body, "two\nlines"));
+}
+
+TEST(OpenmetricsRenderer, LabelNamesAreMappedOntoTheGrammarTheSameWayNamesAre) {
+  // Producers use fixed, already-legal names. What needs cleaning is the
+  // operator-defined end: a PDH counter's dimension, or the `labels` dict a
+  // Python script returns.
+  EXPECT_EQ(openmetrics::sanitize_label_name("core"), "core");
+  EXPECT_EQ(openmetrics::sanitize_label_name("disk io"), "disk_io");
+  EXPECT_EQ(openmetrics::sanitize_label_name("5m"), "label_5m");
+  EXPECT_EQ(openmetrics::sanitize_label_name(""), "label");
+  // A leading underscore is legal in a label name but `__` is reserved, and
+  // borrowing a letter is one rule rather than two.
+  EXPECT_EQ(openmetrics::sanitize_label_name("__reserved"), "label_reserved");
+}
+
+TEST(OpenmetricsRenderer, ALabelNameThatNeedsCleaningIsCleanedInTheBody) {
+  snapshot s;
+  PB::Metrics::MetricsBundle *b = s.bundle("system");
+  snapshot::labelled_gauge(b, "value", "x", {l("disk io", "sda")}, 1.0);
+
+  EXPECT_TRUE(contains(openmetrics::render(s.message()), "system_value{disk_io=\"sda\"} 1\n"));
+}
+
+TEST(OpenmetricsRenderer, TwoLabelsCollapsingToOneNameKeepTheFirst) {
+  // Nobody writes the same label twice, but two raw names can sanitise to one
+  // - and a label name repeated within a sample makes the line invalid, so the
+  // duplicate goes rather than the sample.
+  snapshot s;
+  PB::Metrics::MetricsBundle *b = s.bundle("system");
+  snapshot::labelled_gauge(b, "value", "x", {l("disk io", "sda"), l("disk.io", "sdb")}, 1.0);
+
+  EXPECT_EQ(openmetrics::render(s.message()),
+            "# TYPE system_value gauge\n"
+            "system_value{disk_io=\"sda\"} 1\n"
+            "# EOF\n");
+}
+
+TEST(OpenmetricsRenderer, AnEmptyLabelValueIsDroppedRatherThanEmitted) {
+  // `x=""` and an absent `x` are the same series to a scraper, so emitting one
+  // would make two samples the producer meant to keep apart collide - and the
+  // collision would drop a metric rather than just render it oddly.
+  snapshot s;
+  PB::Metrics::MetricsBundle *b = s.bundle("system");
+  snapshot::labelled_gauge(b, "value", "x", {l("zone", "acpitz"), l("label", "")}, 1.0);
+
+  EXPECT_TRUE(contains(openmetrics::render(s.message()), "system_value{zone=\"acpitz\"} 1\n"));
+}
+
+TEST(OpenmetricsRenderer, OneFamilyMayHoldSamplesWithDifferentLabelSets) {
+  // Not something the built-in producers do, but valid OpenMetrics and
+  // reachable from a Python script, so it must render rather than drop: the
+  // two samples are different series, which is the only thing that matters.
+  snapshot s;
+  PB::Metrics::MetricsBundle *b = s.bundle("system");
+  snapshot::labelled_gauge(b, "value", "a", {l("kind", "a")}, 1.0);
+  snapshot::labelled_gauge(b, "value", "b", {l("kind", "b"), l("extra", "yes")}, 2.0);
+
+  EXPECT_EQ(openmetrics::render(s.message()),
+            "# TYPE system_value gauge\n"
+            "system_value{kind=\"a\"} 1\n"
+            "system_value{kind=\"b\",extra=\"yes\"} 2\n"
+            "# EOF\n");
+}
+
+TEST(OpenmetricsRenderer, LabelOrderDoesNotMakeASecondSeries) {
+  // `{a="1",b="2"}` and `{b="2",a="1"}` are one series to a scraper even though
+  // the two strings differ, so the duplicate check has to ignore order - or the
+  // body ships the same series twice and a strict parser rejects all of it.
+  snapshot s;
+  PB::Metrics::MetricsBundle *b = s.bundle("system");
+  snapshot::labelled_gauge(b, "value", "a", {l("x", "1"), l("y", "2")}, 1.0);
+  snapshot::labelled_gauge(b, "value", "b", {l("y", "2"), l("x", "1")}, 2.0);
+
+  std::vector<std::string> problems;
+  EXPECT_EQ(openmetrics::render(s.message(), &problems),
+            "# TYPE system_value gauge\n"
+            "system_value{x=\"1\",y=\"2\"} 1\n"
+            "# EOF\n");
+  EXPECT_EQ(problems.size(), 1u);
+}
+
+TEST(OpenmetricsRenderer, TheSameSeriesTwiceIsDroppedAndReported) {
+  // Two instances whose names sanitise to nothing distinguishable would do
+  // this; so would a producer looping over a list with a duplicate in it.
+  snapshot s;
+  PB::Metrics::MetricsBundle *cpu = snapshot::child(s.bundle("system"), "cpu");
+  snapshot::labelled_gauge(cpu, "idle", "core 0", {l("core", "0")}, 95.0);
+  snapshot::labelled_gauge(cpu, "idle", "core 0", {l("core", "0")}, 42.0);
+
+  std::vector<std::string> problems;
+  const std::string body = openmetrics::render(s.message(), &problems);
+
+  EXPECT_EQ(body,
+            "# TYPE system_cpu_idle gauge\n"
+            "system_cpu_idle{core=\"0\"} 95\n"
+            "# EOF\n");
+  ASSERT_EQ(problems.size(), 1u);
+  EXPECT_TRUE(contains(problems[0], "system_cpu_idle{core=\"0\"}"));
+  EXPECT_TRUE(contains(problems[0], "with the same labels"));
+}
+
+TEST(OpenmetricsRenderer, AMetricWithoutDimsStillRendersFromItsKey) {
+  // An out-of-tree module, or a producer this sweep did not touch, calls
+  // `add_metric` and sets neither `alias` nor `dims`. Its family name is the
+  // key, exactly as before labels existed.
+  snapshot s;
+  PB::Metrics::MetricsBundle *cpu = snapshot::child(s.bundle("system"), "cpu");
+  snapshot::gauge(cpu, "core 0.idle", 95.0);
+
+  EXPECT_EQ(openmetrics::render(s.message()),
+            "# TYPE system_cpu_core_0_idle gauge\n"
+            "system_cpu_core_0_idle 95\n"
+            "# EOF\n");
+}
+
+TEST(OpenmetricsRenderer, AnAliasWithoutDimsIsIgnored) {
+  // The builder writes the two together, so this shape only reaches the
+  // renderer from a hand-rolled producer or an older plugin. Honouring the
+  // alias on its own would merge every instance into one series, each
+  // overwriting the last; falling back to the key keeps them apart.
+  snapshot s;
+  PB::Metrics::MetricsBundle *cpu = snapshot::child(s.bundle("system"), "cpu");
+  PB::Metrics::Metric *m = cpu->add_value();
+  m->set_key("core 0.idle");
+  m->set_alias("idle");
+  m->mutable_gauge_value()->set_value(95.0);
+
+  EXPECT_TRUE(contains(openmetrics::render(s.message()), "system_cpu_core_0_idle 95\n"));
+}
+
+TEST(OpenmetricsRenderer, LabelledAndUnlabelledMetricsCoexistInOneBody) {
+  // Which is the state of the world for at least one release: the swept
+  // producers label their per-instance metrics, everything else does not.
+  snapshot s;
+  PB::Metrics::MetricsBundle *system = s.bundle("system");
+  snapshot::gauge(system, "refresh_interval", 1.0);
+  PB::Metrics::MetricsBundle *cpu = snapshot::child(system, "cpu");
+  snapshot::labelled_gauge(cpu, "idle", "core 0", {l("core", "0")}, 95.0);
+
+  EXPECT_EQ(openmetrics::render(s.message()),
+            "# TYPE system_cpu_idle gauge\n"
+            "system_cpu_idle{core=\"0\"} 95\n"
+            "# TYPE system_refresh_interval gauge\n"
+            "system_refresh_interval 1\n"
+            "# EOF\n");
+}
+
+TEST(OpenmetricsRenderer, LegacyModeIsUnmovedByLabels) {
+  // The switch exists to reproduce the pre-renderer bytes, and the pre-renderer
+  // body was built from keys alone. Since a labelled metric keeps its key, the
+  // legacy body is identical whether or not the producer was swept - which is
+  // the property that makes the sweep safe to ship.
+  snapshot s;
+  PB::Metrics::MetricsBundle *cpu = snapshot::child(s.bundle("system"), "cpu");
+  snapshot::labelled_gauge(cpu, "idle", "core 0", {l("core", "0")}, 95.0);
+
+  snapshot before;
+  PB::Metrics::MetricsBundle *old_cpu = snapshot::child(before.bundle("system"), "cpu");
+  snapshot::gauge(old_cpu, "core 0.idle", 95.0);
+
+  EXPECT_EQ(openmetrics::render_legacy(s.message()), openmetrics::render_legacy(before.message()));
+  EXPECT_EQ(openmetrics::render_legacy(s.message()), "system_cpu_core 0.idle 95\n");
+}
+
+TEST(OpenmetricsRenderer, EveryLabelledLineMatchesTheExpositionGrammar) {
+  // The grammar walk from the unlabelled case, extended over a snapshot shaped
+  // like a real host after the sweep - so a future change that produces some
+  // other malformed label fails here rather than on somebody's scrape.
+  snapshot s;
+  PB::Metrics::MetricsBundle *system = s.bundle("system");
+  PB::Metrics::MetricsBundle *cpu = snapshot::child(system, "cpu");
+  snapshot::labelled_gauge(cpu, "idle", "core 0", {l("core", "0")}, 95.0);
+  snapshot::labelled_gauge(cpu, "idle", "total", {l("core", "total")}, 91.5);
+  PB::Metrics::MetricsBundle *net = snapshot::child(system, "network");
+  snapshot::labelled_gauge(net, "BytesReceivedPersec", "Intel(R) Ethernet #2", {l("nic", "Intel(R) Ethernet #2")}, 343.0);
+  PB::Metrics::MetricsBundle *disk = s.bundle("disk");
+  snapshot::labelled_gauge(disk, "total", "C:", {l("drive", "C:")}, 255000000000.0);
+
+  const std::string body = openmetrics::render(s.message());
+
+  size_t line_start = 0;
+  int samples = 0;
+  while (line_start < body.size()) {
+    const size_t line_end = body.find('\n', line_start);
+    ASSERT_NE(line_end, std::string::npos);
+    const std::string line = body.substr(line_start, line_end - line_start);
+    line_start = line_end + 1;
+    if (!line.empty() && line[0] == '#') continue;
+
+    // `name{labels} value`, with the labels optional. The name is checked the
+    // same way as in the unlabelled walk; what is new is that everything
+    // between the braces has to be well-formed too.
+    const size_t brace = line.find('{');
+    const std::string name = line.substr(0, brace == std::string::npos ? line.find(' ') : brace);
+    ASSERT_FALSE(name.empty()) << line;
+    for (const char c : name) {
+      EXPECT_TRUE((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') << "illegal character in name: " << line;
+    }
+    if (brace != std::string::npos) {
+      const size_t close = line.rfind("} ");
+      ASSERT_NE(close, std::string::npos) << "label set never closed: " << line;
+      const std::string labels = line.substr(brace + 1, close - brace - 1);
+      ASSERT_FALSE(labels.empty()) << "an empty label set must not be emitted: " << line;
+      // Every label name is legal, and every value is quoted with no
+      // unescaped quote inside it.
+      size_t at = 0;
+      while (at < labels.size()) {
+        const size_t eq = labels.find('=', at);
+        ASSERT_NE(eq, std::string::npos) << line;
+        const std::string label = labels.substr(at, eq - at);
+        ASSERT_FALSE(label.empty()) << line;
+        EXPECT_TRUE((label[0] >= 'a' && label[0] <= 'z') || (label[0] >= 'A' && label[0] <= 'Z') || label[0] == '_') << "label starts illegally: " << line;
+        for (const char c : label) {
+          EXPECT_TRUE((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') << "illegal character in label: " << line;
+        }
+        ASSERT_EQ(labels[eq + 1], '"') << line;
+        // Walk to the closing quote, stepping over every escaped character.
+        size_t at_value = eq + 2;
+        while (at_value < labels.size() && labels[at_value] != '"') at_value += labels[at_value] == '\\' ? 2 : 1;
+        ASSERT_LT(at_value, labels.size()) << "unterminated label value: " << line;
+        at = at_value + 1;
+        if (at < labels.size()) {
+          ASSERT_EQ(labels[at], ',') << line;
+          ++at;
+        }
+      }
+    }
+    const std::string value = line.substr(line.rfind(' ') + 1);
     EXPECT_FALSE(value.empty()) << line;
     ++samples;
   }

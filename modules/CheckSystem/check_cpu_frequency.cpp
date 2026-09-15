@@ -74,15 +74,19 @@ std::string cpu_frequency::get_l3_cache_human(parsers::where::evaluation_context
 
 void cpu_frequency::build_metrics(PB::Metrics::MetricsBundle *section) const {
   using namespace nscapi::metrics;
-  add_metric(section, name + ".current_mhz", current_mhz);
-  add_metric(section, name + ".max_mhz", max_mhz);
-  add_metric(section, name + ".frequency_pct", get_frequency_pct());
-  add_metric(section, name + ".cores", number_of_cores);
-  add_metric(section, name + ".logical_processors", number_of_logical_processors);
+  // `cpu` rather than `core`: the instance here is the WMI processor name (a
+  // model string), not a core number - see the Linux side, which labels the
+  // same section from sysfs and has to agree on what the label means.
+  const auto value = [&](const std::string &metric_name, const auto v) { metric(section, metric_name).instance(name).label("cpu", name).gauge(v); };
+  value("current_mhz", current_mhz);
+  value("max_mhz", max_mhz);
+  value("frequency_pct", get_frequency_pct());
+  value("cores", number_of_cores);
+  value("logical_processors", number_of_logical_processors);
   // No fabricated 0 when WMI had no load sample this cycle: absent is absent.
-  if (load_pct) add_metric(section, name + ".load_pct", load_pct.value());
-  add_metric(section, name + ".l2_cache", l2_cache);
-  add_metric(section, name + ".l3_cache", l3_cache);
+  if (load_pct) value("load_pct", load_pct.value());
+  value("l2_cache", l2_cache);
+  value("l3_cache", l3_cache);
 }
 
 cpus_type cpu_frequency_data::query_wmi(HANDLE abort_event) {

@@ -232,7 +232,7 @@ void build_temperature_metrics(PB::Metrics::MetricsBundle *parent) {
 
   zones_type zones = read_temperature();
   for (const zones_type::value_type &v : zones) {
-    add_metric(section, v.get_name() + ".temperature", v.get_temperature_i());
+    metric(section, "temperature").instance(v.get_name()).label("zone", v.get_name()).gauge(v.get_temperature_i());
   }
 }
 

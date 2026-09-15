@@ -145,21 +145,30 @@ void network_interface::build_metrics(PB::Metrics::MetricsBundle *section) const
   using namespace nscapi::metrics;
 
   section->set_key("network");
-  add_metric(section, name + ".NetConnectionID", NetConnectionID);
-  add_metric(section, name + ".MACAddress", MACAddress);
-  add_metric(section, name + ".NetConnectionStatus", NetConnectionStatus);
-  add_metric(section, name + ".NetEnabled", NetEnabled);
-  add_metric(section, name + ".Speed", Speed);
+  // The adapter name comes straight from WMI, so it is `Ethernet 1` or
+  // `Intel(R) Ethernet Connection ... #2` - a string that made a terrible
+  // family name and makes a perfectly good label value.
+  const auto value = [&](const std::string &metric_name, const auto v) { metric(section, metric_name).instance(name).label("nic", name).gauge(v); };
+  const auto text = [&](const std::string &metric_name, const std::string &v) { metric(section, metric_name).instance(name).label("nic", name).info(v); };
+  text("NetConnectionID", NetConnectionID);
+  text("MACAddress", MACAddress);
+  // Status, enabled and speed are WMI display strings, not numbers - `Speed`
+  // reads `1000000000` or `Unknown`, and `SpeedBps` beside it is the parsed
+  // one. They stay text; the renderer skips them either way until info
+  // families land, and then they carry the `nic` label recorded here.
+  text("NetConnectionStatus", NetConnectionStatus);
+  text("NetEnabled", NetEnabled);
+  text("Speed", Speed);
   if (has_prd) {
-    add_metric(section, name + ".BytesReceivedPersec", BytesReceivedPersec);
-    add_metric(section, name + ".BytesSentPersec", BytesSentPersec);
-    add_metric(section, name + ".BytesTotalPersec", BytesTotalPersec);
-    add_metric(section, name + ".PacketsReceivedPersec", PacketsReceivedPersec);
-    add_metric(section, name + ".PacketsSentPersec", PacketsSentPersec);
-    add_metric(section, name + ".PacketsReceivedErrors", PacketsReceivedErrors);
-    add_metric(section, name + ".PacketsOutboundErrors", PacketsOutboundErrors);
-    add_metric(section, name + ".PacketsReceivedDiscarded", PacketsReceivedDiscarded);
-    add_metric(section, name + ".PacketsOutboundDiscarded", PacketsOutboundDiscarded);
+    value("BytesReceivedPersec", BytesReceivedPersec);
+    value("BytesSentPersec", BytesSentPersec);
+    value("BytesTotalPersec", BytesTotalPersec);
+    value("PacketsReceivedPersec", PacketsReceivedPersec);
+    value("PacketsSentPersec", PacketsSentPersec);
+    value("PacketsReceivedErrors", PacketsReceivedErrors);
+    value("PacketsOutboundErrors", PacketsOutboundErrors);
+    value("PacketsReceivedDiscarded", PacketsReceivedDiscarded);
+    value("PacketsOutboundDiscarded", PacketsOutboundDiscarded);
   }
 }
 

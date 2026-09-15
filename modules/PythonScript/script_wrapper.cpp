@@ -12,6 +12,7 @@
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_metrics_helper.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/functions_convert.hpp>
 #include <nscapi/protobuf/functions_copy.hpp>
@@ -19,6 +20,8 @@
 #include <nscapi/protobuf/functions_submit.hpp>
 #include <str/format.hpp>
 #include <str/utf8.hpp>
+#include <utility>
+#include <vector>
 
 #include "PythonScript.h"
 #include "script_identity.hpp"
@@ -653,6 +656,66 @@ void script_wrapper::function_wrapper::submit_metrics(const std::string &request
     }
   }
 }
+namespace {
+// One entry of the dict a `fetch_metrics` callback returns.
+//
+// A scalar is the metric's value, as it has always been. A dict is the long
+// form, which exists so a script can say more about a metric than its value:
+//
+//     {"queue.depth": {"value": 42, "labels": {"queue": "inbound"}}}
+//
+// `labels` is what makes several instances of one thing queryable as a family
+// on the OpenMetrics endpoint, exactly as the built-in per-core and per-NIC
+// metrics now are. The flat key is untouched either way, so `submit_metrics`,
+// the JSON endpoints and Graphite see the same snapshot as before.
+//
+// Anything that is neither a scalar nor a dict with a usable `value` is
+// skipped rather than published as a keyless, valueless metric - which is what
+// a dict used to produce here, since the metric was added to the bundle before
+// its type was ever checked.
+void add_metric_from_python(PB::Metrics::MetricsBundle *bundle, const std::string &key, const py::object &entry) {
+  py::object value = entry;
+  std::vector<std::pair<std::string, std::string> > labels;
+
+  py::extract<py::dict> dictExtr(entry);
+  if (dictExtr.check()) {
+    const py::dict spec = dictExtr;
+    if (!spec.has_key("value")) return;
+    value = spec["value"];
+    if (spec.has_key("labels")) {
+      py::extract<py::dict> labelExtr(spec["labels"]);
+      if (labelExtr.check()) {
+        const py::dict raw = labelExtr;
+        const py::list label_keys = raw.keys();
+        for (int i = 0; i < len(label_keys); ++i) {
+          py::extract<std::string> name(label_keys[i]);
+          py::extract<std::string> text(raw[label_keys[i]]);
+          if (name.check() && text.check()) labels.push_back(std::make_pair(name(), text()));
+        }
+      }
+    }
+  }
+
+  nscapi::metrics::metric_builder builder = nscapi::metrics::metric(bundle, key);
+  for (const std::pair<std::string, std::string> &l : labels) builder.label(l.first, l.second);
+
+  py::extract<std::string> strExtr(value);
+  if (strExtr.check()) {
+    builder.info(strExtr());
+    return;
+  }
+  py::extract<long long> intExtr(value);
+  if (intExtr.check()) {
+    builder.gauge(intExtr());
+    return;
+  }
+  py::extract<double> dblExtr(value);
+  if (dblExtr.check()) {
+    builder.gauge(dblExtr());
+  }
+}
+}  // namespace
+
 void script_wrapper::function_wrapper::fetch_metrics(std::string &request) const {
   PB::Metrics::MetricsMessage::Response payload;
   PB::Metrics::MetricsBundle *bundle = payload.add_bundles();
@@ -675,24 +738,7 @@ void script_wrapper::function_wrapper::fetch_metrics(std::string &request) const
           for (int i = 0; i < len(keys); ++i) {
             py::object curArg = dic[keys[i]];
             if (curArg) {
-              PB::Metrics::Metric *value = bundle->add_value();
-              value->set_key(py::extract<std::string>(keys[i]));
-
-              py::extract<std::string> strExtr(dic[keys[i]]);
-              if (strExtr.check()) {
-                value->mutable_string_value()->set_value(strExtr);
-                continue;
-              }
-              py::extract<int> intExtr(dic[keys[i]]);
-              if (intExtr.check()) {
-                value->mutable_gauge_value()->set_value(intExtr);
-                continue;
-              }
-              py::extract<double> dblExtr(dic[keys[i]]);
-              if (dblExtr.check()) {
-                value->mutable_gauge_value()->set_value(dblExtr);
-                continue;
-              }
+              add_metric_from_python(bundle, py::extract<std::string>(keys[i]), curArg);
             }
           }
         }

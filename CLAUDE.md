@@ -77,6 +77,28 @@ using `.value()` everywhere is what stops that edit from silently becoming UB.
 Uniformity is the point: a reviewer should never have to trace control flow to
 decide whether a given dereference is safe.
 
+## Metrics
+- A module publishes metrics from `fetchMetrics()` through
+  `nscapi::metrics`. A metric measured once per core, NIC, drive, sensor or
+  process declares that through the builder rather than by pasting the instance
+  into the key:
+  `metric(bundle, "idle").instance("core 0").label("core", "0").gauge(v);`
+  `instance()` composes the key exactly as concatenation did, so the flat and
+  nested JSON endpoints, the web UI dashboard, Graphite, collectd and Python
+  all see a byte-identical snapshot; `label()` is what turns N families into
+  one family with N samples on `/api/v2/openmetrics`. The bare
+  `add_metric(bundle, key, value)` overloads stay the shorthand for a metric
+  with no instance and no dimensions.
+- **Never move a metric key to improve a metric name.** The key is what every
+  consumer except the OpenMetrics renderer reads, and a key that moves moves a
+  dashboard on every upgraded host, silently. Name the family through the
+  builder and let the renderer do the naming; if a key really has to change,
+  that is an upgrade note of its own.
+- A label value must mean the same thing on every platform. Windows spells a
+  CPU core `core 0` and Linux `core_0`; that difference belongs in the key,
+  which is why `core_label()` exists, and must not reach the label, where it
+  would make one core look like two across a fleet.
+
 ## Check command options
 - Boolean check options must be declared as
   `po::value<bool>(&x)->implicit_value(true)->default_value(false)`,
