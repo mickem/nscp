@@ -18,6 +18,7 @@
 #include <net/socket/socket_helpers.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_metrics_helper.hpp>
 #include <nscapi/protobuf/functions_convert.hpp>
 #include <nscapi/protobuf/functions_perfdata.hpp>
 #include <nscapi/protobuf/nagios.hpp>
@@ -368,8 +369,12 @@ struct graphite_client_handler : public client::handler_interface {
       d.path = mpath;
       str::utils::replace(d.path, "${metric}", mypath + "." + v.key());
       d.path = fix_graphite_string(d.path);
-      if (v.has_gauge_value()) {
-        d.value = str::xtos(v.gauge_value().value());
+      // Any numeric type: Graphite has no notion of one, but a metric typed
+      // as a counter for the OpenMetrics endpoint would otherwise stop
+      // arriving here for no reason its operator could see.
+      double value = 0;
+      if (nscapi::metrics::numeric_value(v, value)) {
+        d.value = str::xtos(value);
         list.push_back(d);
       }
     }

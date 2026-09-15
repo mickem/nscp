@@ -24,7 +24,7 @@ import crypto from "crypto";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { NscpInstance, makeZip, signBundle, makeCertPem } from "@fixtures/index";
+import { NscpInstance, makeZip, signBundle, makeCertPem, FLEET_TENANT_ID } from "@fixtures/index";
 
 jest.setTimeout(180_000);
 
@@ -88,7 +88,7 @@ describe("encrypted fleet bundles", () => {
 
   const sha = (b: Buffer) => crypto.createHash("sha256").update(b).digest("hex");
 
-  let phase: "sealed" | "relabelled" | "foreign" | "plain" | "plain-required";
+  let phase: "sealed" | "relabelled" | "relabelled-unsigned" | "foreign" | "plain" | "plain-required";
 
   function desiredStateFor(currentHash: string | null): { code: number; body: any } {
     const entry = (id: string, name: string, version: string, bytes: Buffer, format: string) => ({
@@ -96,7 +96,7 @@ describe("encrypted fleet bundles", () => {
       name,
       version,
       sha256: sha(bytes),
-      signature: signBundle(signingKeys.privateKey, bytes),
+      signature: signBundle(signingKeys.privateKey, { id, name, version, format, sha256: sha(bytes) }),
       url: `/agent/v1/bundles/${id}`,
       priority: 100,
       format,
@@ -106,11 +106,20 @@ describe("encrypted fleet bundles", () => {
         state_hash: "h-sealed",
         bundles: [entry("b-sealed", "sealed", "1.0", sealedGood, "enc-v1")],
       },
-      // Same envelope, same signature, but the server claims another version:
-      // the additional data no longer matches and the seal must not open.
+      // Same envelope, correctly re-signed for the version the server now
+      // claims, so the v2 signature check passes: what must stop this is the
+      // envelope's own additional data, which still binds the original
+      // name/version. Belt and braces - the signature covers the descriptor
+      // precisely so a relabel is normally caught one layer earlier.
       relabelled: {
         state_hash: "h-relabelled",
         bundles: [entry("b-relabelled", "sealed", "2.0", sealedGood, "enc-v1")],
+      },
+      // The same relabel without re-signing: here the descriptor signature is
+      // the thing that refuses it, before the envelope is ever opened.
+      "relabelled-unsigned": {
+        state_hash: "h-relabelled-unsigned",
+        bundles: [{ ...entry("b-relabel-unsigned", "sealed", "1.0", sealedGood, "enc-v1"), version: "2.0" }],
       },
       foreign: {
         state_hash: "h-foreign",
@@ -127,7 +136,7 @@ describe("encrypted fleet bundles", () => {
         bundles: [entry("b-plain", "plain", "1.0", plainZip, "plain")],
       },
     };
-    const active = { next_poll_in_seconds: 1, merged_config_json: {}, ...states[phase] };
+    const active = { tenant_id: FLEET_TENANT_ID, next_poll_in_seconds: 1, merged_config_json: {}, ...states[phase] };
     if (currentHash === active.state_hash) return { code: 304, body: { next_poll_in_seconds: 1 } };
     return { code: 200, body: active };
   }
@@ -152,6 +161,7 @@ describe("encrypted fleet bundles", () => {
         const bundles: Record<string, Buffer> = {
           "/agent/v1/bundles/b-sealed": sealedGood,
           "/agent/v1/bundles/b-relabelled": sealedGood,
+          "/agent/v1/bundles/b-relabel-unsigned": sealedGood,
           "/agent/v1/bundles/b-foreign": sealedOther,
           "/agent/v1/bundles/b-plain": plainZip,
         };
@@ -285,6 +295,23 @@ describe("encrypted fleet bundles", () => {
     expect(report.body.applied_state_hash ?? null).toBeNull();
     expect(report.body.errors.join(" ")).toMatch(/authentication failed/);
     // The previously applied configuration is untouched.
+    expect(fs.readFileSync(path.join(workDir, "fleet", "fleet.ini"), "utf8")).toContain(
+      "api token=hunter2-sealed-value",
+    );
+  });
+
+  it("refuses a relabelled bundle at the signature, before opening the envelope", async () => {
+    // The same envelope re-advertised under a new version with its original
+    // signature: this is exactly what the v2 descriptor exists to stop, and it
+    // is refused at verification rather than by the envelope's own AAD.
+    phase = "relabelled-unsigned";
+    await waitFor(
+      "a report rejecting the unsigned relabel",
+      () => reportWithError("b-relabel-unsigned") !== undefined,
+    );
+    const report = reportWithError("b-relabel-unsigned")!;
+    expect(report.body.applied_state_hash ?? null).toBeNull();
+    expect(report.body.errors.join(" ")).toMatch(/signature verification failed/);
     expect(fs.readFileSync(path.join(workDir, "fleet", "fleet.ini"), "utf8")).toContain(
       "api token=hunter2-sealed-value",
     );

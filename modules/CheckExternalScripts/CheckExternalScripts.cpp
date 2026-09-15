@@ -488,6 +488,27 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
   }
   NSC_TRACE_ENABLED() { NSC_TRACE_MSG(cd.get_alias() + " command line: " + cmdline); }
 
+#ifndef WIN32
+  // The run-as settings are a Windows feature (LogonUser + CreateProcessAsUser).
+  // The Unix launcher used to ignore them silently, so a script configured with
+  // `user = nobody` ran as the service identity. Fail the command loudly: sudo
+  // in the command line is the supported way to change identity on Linux, and
+  // an operator who set these keys believes the script is sandboxed when it is
+  // not. The launcher refuses too; this is the copy that reaches the log.
+  if (!cd.user.empty() || !cd.domain.empty() || !cd.password.empty()) {
+    NSC_LOG_ERROR_STD("Refusing '" + cd.get_alias() +
+                      "': the user, domain and password script settings are only supported on Windows. On Linux prefix the command with sudo (for "
+                      "example `command = sudo -n -u <user> /path/to/script`) and grant it in sudoers, then remove the user/domain/password keys from "
+                      "[/settings/external scripts/scripts/" +
+                      cd.get_alias() + "].");
+    nscapi::protobuf::functions::set_response_bad(
+        *response, "Refusing to run " + cd.get_alias() +
+                       ": the user, domain and password settings are only supported on Windows; on Linux prefix the command with sudo (for example "
+                       "`command = sudo -n -u <user> /path/to/script`) and grant it in sudoers instead");
+    return;
+  }
+#endif
+
   process::exec_arguments arg(root_, cmdline, timeout, cd.encoding, cd.session, cd.display, !cd.no_fork, kill_tree);
   if (argv_ok) {
     arg.argv = argv;

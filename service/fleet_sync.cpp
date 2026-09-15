@@ -412,7 +412,8 @@ void fleet_sync::maybe_renew() {
   }
 }
 
-bool fleet_sync::fetch_bundle(const onboarding::bundle_info &bundle, std::string &bytes, std::string &error, bool &gone) {
+bool fleet_sync::fetch_bundle(const onboarding::bundle_info &bundle, const onboarding::bundle_descriptor &descriptor, std::string &bytes, std::string &error,
+                              bool &gone) {
   gone = false;
   const fs::path cache_dir = fs::path(config_.managed_path) / "cache";
   const fs::path cached = cache_dir / (bundle.id + "-" + bundle.sha256.substr(0, 16) + ".zip");
@@ -445,7 +446,7 @@ bool fleet_sync::fetch_bundle(const onboarding::bundle_info &bundle, std::string
   // Cache only verified content so a poisoned download can never be replayed
   // from disk.
   std::string verify_error;
-  if (!onboarding::verify_bundle(identity_.bundle_signing_pub_pem, bytes, bundle.sha256, bundle.signature, verify_error)) {
+  if (!onboarding::verify_bundle(identity_.bundle_signing_pub_pem, bytes, descriptor, bundle.signature, verify_error)) {
     error = "Bundle " + bundle.id + " failed verification: " + verify_error;
     return false;
   }
@@ -480,14 +481,18 @@ bool fleet_sync::apply_state(const onboarding::desired_state &state, std::vector
     for (const onboarding::bundle_info &bundle : state.bundles) {
       std::string bytes, error;
       bool gone = false;
-      if (!fetch_bundle(bundle, bytes, error, gone)) {
+      // What the signature covers is this bundle's identity in this tenant, not
+      // just its bytes - so the descriptor is built once from the response and
+      // used for both the download check and the cache-hit recheck below.
+      const onboarding::bundle_descriptor descriptor = onboarding::describe_bundle(state.tenant_id, bundle);
+      if (!fetch_bundle(bundle, descriptor, bytes, error, gone)) {
         stale = gone;
         errors.push_back(error);
         return false;
       }
       // Verify even cache hits: cheap, and protects against on-disk tampering.
       std::string verify_error;
-      if (!onboarding::verify_bundle(identity_.bundle_signing_pub_pem, bytes, bundle.sha256, bundle.signature, verify_error)) {
+      if (!onboarding::verify_bundle(identity_.bundle_signing_pub_pem, bytes, descriptor, bundle.signature, verify_error)) {
         errors.push_back("Bundle " + bundle.id + " failed verification: " + verify_error);
         return false;
       }

@@ -20,18 +20,20 @@
 namespace disk_io_check {
 
 void disk_io::build_metrics(PB::Metrics::MetricsBundle *section) const {
-  using namespace nscapi::metrics;
-  add_metric(section, name + ".read_bytes_per_sec", read_bytes_per_sec);
-  add_metric(section, name + ".write_bytes_per_sec", write_bytes_per_sec);
-  add_metric(section, name + ".reads_per_sec", reads_per_sec);
-  add_metric(section, name + ".writes_per_sec", writes_per_sec);
-  add_metric(section, name + ".queue_length", queue_length);
-  add_metric(section, name + ".percent_disk_time", percent_disk_time);
-  add_metric(section, name + ".percent_idle_time", percent_idle_time);
-  add_metric(section, name + ".split_io_per_sec", split_io_per_sec);
-  add_metric(section, name + ".read_latency", read_latency);
-  add_metric(section, name + ".write_latency", write_latency);
-  add_metric(section, name + ".total_latency", total_latency);
+  using nscapi::metrics::metric;
+  // The eight rates carry no unit: they are already per-second values, and a
+  // name ending in `_bytes` would claim the sample is a byte count.
+  metric(section, name + ".read_bytes_per_sec").help("Bytes read per second").gauge(read_bytes_per_sec);
+  metric(section, name + ".write_bytes_per_sec").help("Bytes written per second").gauge(write_bytes_per_sec);
+  metric(section, name + ".reads_per_sec").help("Read operations per second").gauge(reads_per_sec);
+  metric(section, name + ".writes_per_sec").help("Write operations per second").gauge(writes_per_sec);
+  metric(section, name + ".queue_length").help("Requests queued on the disk").gauge(queue_length);
+  metric(section, name + ".percent_disk_time").help("Share of the interval the disk was busy").gauge(percent_disk_time);
+  metric(section, name + ".percent_idle_time").help("Share of the interval the disk was idle").gauge(percent_idle_time);
+  metric(section, name + ".split_io_per_sec").help("Split I/O operations per second").gauge(split_io_per_sec);
+  metric(section, name + ".read_latency").help("Average time one read took over the interval").unit("milliseconds").gauge(read_latency);
+  metric(section, name + ".write_latency").help("Average time one write took over the interval").unit("milliseconds").gauge(write_latency);
+  metric(section, name + ".total_latency").help("Average time one operation took over the interval").unit("milliseconds").gauge(total_latency);
 }
 
 disks_type disk_io_data::get() {
@@ -115,13 +117,13 @@ void check_disk_io(const PB::Commands::QueryRequestMessage::Request &request, PB
 namespace disk_free_check {
 
 void disk_free::build_metrics(PB::Metrics::MetricsBundle *section) const {
-  using namespace nscapi::metrics;
-  add_metric(section, name + ".total", total);
-  add_metric(section, name + ".free", free);
-  add_metric(section, name + ".used", total - free);
-  add_metric(section, name + ".user_free", user_free);
-  add_metric(section, name + ".free_pct", get_free_pct());
-  add_metric(section, name + ".used_pct", get_used_pct());
+  using nscapi::metrics::metric;
+  metric(section, name + ".total").help("Size of the volume").unit("bytes").gauge(total);
+  metric(section, name + ".free").help("Free space on the volume").unit("bytes").gauge(free);
+  metric(section, name + ".used").help("Used space on the volume").unit("bytes").gauge(total - free);
+  metric(section, name + ".user_free").help("Free space the querying user may actually use, after quotas").unit("bytes").gauge(user_free);
+  metric(section, name + ".free_pct").help("Free space as a share of the volume").gauge(get_free_pct());
+  metric(section, name + ".used_pct").help("Used space as a share of the volume").gauge(get_used_pct());
 }
 
 void disk_free_data::set(const drives_type &drives) {

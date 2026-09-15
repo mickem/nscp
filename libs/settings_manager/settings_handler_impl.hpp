@@ -27,6 +27,9 @@ class settings_handler_impl : public settings_core {
   boost::filesystem::path base_path_;
 
   boost::shared_mutex registry_mutex_;
+  // Keyed on path + separator + key: sensitivity is per (path, key), never
+  // per key name, so a flag on /a."password" must not reach /b."password".
+  static std::string make_sensitive_key(const std::string &path, const std::string &key) { return path + "|||" + key; }
   std::set<std::string> sensitive_keys_;
   reg_paths_type registred_paths_;
   tpl_desc_type registered_tpls_;
@@ -36,7 +39,17 @@ class settings_handler_impl : public settings_core {
   bool reload_flag;
 
  public:
-  settings_handler_impl(nsclient::logging::logger_instance logger) : logger_(logger), ready_flag(false), dirty_flag(false), reload_flag(false) {}
+  settings_handler_impl(nsclient::logging::logger_instance logger) : logger_(logger), ready_flag(false), dirty_flag(false), reload_flag(false) {
+    // Credentials the core owns rather than any single module. The password
+    // under /settings/default is the shared secret NRPE, NSCA, NSClient and
+    // the web server all fall back to, but only those modules declare it with
+    // add_password - so on an agent running none of them (check modules only,
+    // or NRPE alone) nothing marked it sensitive: `settings show` printed it
+    // in the clear and `settings --update` left it in the INI rather than
+    // moving it to the credential store. Sensitivity is a property of the
+    // key, not of which consumer happens to be enabled, so seed it here.
+    sensitive_keys_.emplace(make_sensitive_key("/settings/default", "password"));
+  }
   virtual ~settings_handler_impl() { destroy_all_instances(); }
   bool is_ready() { return ready_flag; }
   void set_ready(bool flag = true) { ready_flag = flag; }
@@ -194,8 +207,7 @@ class settings_handler_impl : public settings_core {
     if (!writeLock.owns_lock()) {
       throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex: " + path + "." + key);
     }
-    const auto combined_key = path + "|||" + key;
-    sensitive_keys_.emplace(combined_key);
+    sensitive_keys_.emplace(make_sensitive_key(path, key));
   }
 
   void register_tpl(unsigned int plugin_id, std::string path, std::string title, std::string data) {
@@ -239,8 +251,7 @@ class settings_handler_impl : public settings_core {
     if (!readLock.owns_lock()) {
       throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex: " + path);
     }
-    const auto combined_key = path + "|||" + key;
-    return sensitive_keys_.find(combined_key) != sensitive_keys_.end();
+    return sensitive_keys_.find(make_sensitive_key(path, key)) != sensitive_keys_.end();
   }
   settings_core::path_description get_registered_path(const std::string &path) {
     boost::shared_lock<boost::shared_mutex> readLock(registry_mutex_, boost::get_system_time() + boost::posix_time::milliseconds(5000));

@@ -36,6 +36,10 @@ bool is_sensitive_key(const std::string &key);
 bool value_carries_credentials(const std::string &value);
 // Keys that decide where the request ends up.
 bool is_address_key(const std::string &key);
+// Keys that decide which way the request travels to get there: an HTTP proxy
+// is handed the whole request, credentials included, so a caller choosing one
+// moves the credentials as effectively as a caller choosing the host.
+bool is_route_key(const std::string &key);
 
 struct destination_container {
   typedef std::map<std::string, std::string> data_map;
@@ -69,6 +73,14 @@ struct destination_container {
   // inherited_credentials: set_string_data() marks it, and apply() unmarks it
   // straight afterwards for the values that came from a target object.
   bool address_from_request;
+  // The route keys (`proxy`, `no proxy`) as the target configured them. A
+  // proxy is not part of the address, so the comparison above does not see
+  // it, yet `proxy=http://attacker/` hands the request - token and all - to a
+  // host of the caller's choosing while the destination stays exactly what
+  // the target named. apply() records the configured value here alongside
+  // the copy in `data`; a request that sets the key changes only `data`, so
+  // the two differing is what "the request changed it" means.
+  data_map configured_route;
 
   destination_container() : timeout(10), retry(2), allow_host_override(false), address_from_request(false) {}
 
@@ -106,12 +118,26 @@ struct destination_container {
         address_from_request = false;
         configured_address = address.to_string();
       }
+      if (is_route_key(k.first)) configured_route[k.first] = k.second;
     }
   }
 
   // Whether any credential still in this container is one a configured target
   // supplied, rather than one the request brought with it.
   bool has_inherited_credentials() const { return !inherited_credentials.empty(); }
+
+  // The route keys whose current value is not what the target configured
+  // (an unset key on either side reads as empty). A request that repeats the
+  // configured proxy changes nothing, like a --host naming the address the
+  // target already had.
+  std::set<std::string> route_changes() const {
+    static const char *const route_keys[] = {"proxy", "no proxy"};
+    std::set<std::string> changed;
+    for (const char *key : route_keys) {
+      if (get_string_data(key) != lookup(configured_route, key)) changed.insert(key);
+    }
+    return changed;
+  }
 
   void apply(const std::string &key, const PB::Common::Header &header) {
     for (const PB::Common::Host &host : header.hosts()) {
@@ -167,12 +193,13 @@ struct destination_container {
 
   int get_int_data(const std::string &key, const int def = 0) { return to_int(data[key], def); }
   bool get_bool_data(const std::string &key, const bool def = false) { return to_bool(data[key], def); }
-  std::string get_string_data(const std::string &key, std::string def = "") {
-    const auto it = data.find(key);
-    if (it == data.end()) return def;
+  static std::string lookup(const data_map &map, const std::string &key, const std::string &def = std::string()) {
+    const data_map::const_iterator it = map.find(key);
+    if (it == map.end()) return def;
     return it->second;
   }
-  bool has_data(const std::string &key) { return data.find(key) != data.end(); }
+  std::string get_string_data(const std::string &key, const std::string &def = std::string()) const { return lookup(data, key, def); }
+  bool has_data(const std::string &key) const { return data.find(key) != data.end(); }
 
   void set_string_data(const std::string &key, const std::string &value) {
     // Whatever the source, this value is no longer the configured target's.

@@ -29,19 +29,26 @@ std::string battery_info::show() const {
 }
 
 void battery_info::build_metrics(PB::Metrics::MetricsBundle *section) const {
-  using namespace nscapi::metrics;
+  using nscapi::metrics::describe;
+  using nscapi::metrics::metric;
   const std::string prefix = name.empty() ? "" : name + ".";
-  add_metric(section, prefix + "charge_percent", charge_percent);
-  add_metric(section, prefix + "power_source", power_source);
-  add_metric(section, prefix + "status", status);
-  add_metric(section, prefix + "battery_present", get_battery_present());
-  if (time_remaining >= 0) add_metric(section, prefix + "time_remaining", time_remaining);
-  if (health_percent >= 0) add_metric(section, prefix + "health_percent", health_percent);
-  if (charge_rate > 0) add_metric(section, prefix + "charge_rate", charge_rate);
-  if (discharge_rate > 0) add_metric(section, prefix + "discharge_rate", discharge_rate);
-  if (design_capacity > 0) add_metric(section, prefix + "design_capacity", design_capacity);
-  if (full_capacity > 0) add_metric(section, prefix + "full_capacity", full_capacity);
-  if (remaining_capacity > 0) add_metric(section, prefix + "remaining_capacity", remaining_capacity);
+  describe(section, "Battery and mains state, as reported by the power API and WMI");
+  metric(section, prefix + "charge_percent").help("Charge left in the battery").unit("percent").gauge(charge_percent);
+  // Strings, so they fold into the section's info family rather than becoming
+  // samples of their own.
+  metric(section, prefix + "power_source").help("Whether the machine is on mains or on battery").info(power_source);
+  metric(section, prefix + "status").help("What the battery is doing (charging, discharging, full)").info(status);
+  metric(section, prefix + "battery_present").help("Whether a battery is fitted at all").info(get_battery_present());
+  if (time_remaining >= 0) metric(section, prefix + "time_remaining").help("Time left at the current rate").unit("seconds").gauge(time_remaining);
+  if (health_percent >= 0)
+    metric(section, prefix + "health_percent").help("Full charge capacity as a share of the design capacity").unit("percent").gauge(health_percent);
+  if (charge_rate > 0) metric(section, prefix + "charge_rate").help("Rate the battery is charging at").unit("milliwatts").gauge(charge_rate);
+  if (discharge_rate > 0) metric(section, prefix + "discharge_rate").help("Rate the battery is discharging at").unit("milliwatts").gauge(discharge_rate);
+  if (design_capacity > 0)
+    metric(section, prefix + "design_capacity").help("Capacity the battery was built with").unit("milliwatthours").gauge(design_capacity);
+  if (full_capacity > 0) metric(section, prefix + "full_capacity").help("Capacity the battery charges to today").unit("milliwatthours").gauge(full_capacity);
+  if (remaining_capacity > 0)
+    metric(section, prefix + "remaining_capacity").help("Capacity left in the battery").unit("milliwatthours").gauge(remaining_capacity);
 }
 
 void battery_data::query_power_status(batteries_type &batteries) {

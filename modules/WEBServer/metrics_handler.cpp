@@ -16,10 +16,13 @@ void metrics_handler::set_list(const std::string &metrics) {
   metrics_list_ = metrics;
 }
 
-void metrics_handler::set_openmetrics(std::list<std::string> &metrics) {
+void metrics_handler::set_openmetrics(const std::string &openmetrics, const std::string &prometheus_text) {
   boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!lock.owns_lock()) return;
-  open_metrics_ = metrics;
+  // Latched together: a scrape must never be able to see one body from this
+  // snapshot and the other from the previous one.
+  open_metrics_ = openmetrics;
+  prometheus_text_ = prometheus_text;
 }
 
 std::string metrics_handler::get() {
@@ -34,8 +37,14 @@ std::string metrics_handler::get_list() {
   return metrics_list_;
 }
 
-std::list<std::string> metrics_handler::get_openmetrics() {
+std::string metrics_handler::get_openmetrics() {
   boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-  if (!lock.owns_lock()) return std::list<std::string>();
+  if (!lock.owns_lock()) return "";
   return open_metrics_;
+}
+
+std::string metrics_handler::get_prometheus_text() {
+  boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+  if (!lock.owns_lock()) return "";
+  return prometheus_text_;
 }

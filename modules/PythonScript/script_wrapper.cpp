@@ -3,20 +3,21 @@
 
 #include "script_wrapper.hpp"
 
-#include <set>
-#include <map>
-#include <cstring>
-#include <boost/thread/mutex.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/thread.hpp>
+#include <boost/thread/mutex.hpp>
+#include <cstring>
+#include <map>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_metrics_helper.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/functions_convert.hpp>
 #include <nscapi/protobuf/functions_copy.hpp>
 #include <nscapi/protobuf/functions_exec.hpp>
 #include <nscapi/protobuf/functions_submit.hpp>
+#include <set>
 #include <str/format.hpp>
 #include <str/utf8.hpp>
 
@@ -630,10 +631,11 @@ void build_metrics(py::dict &metrics, const PB::Metrics::MetricsBundle &b, const
   }
 
   for (const PB::Metrics::Metric &v : b.value()) {
+    double value = 0;
     if (v.has_string_value())
       metrics[p + "." + v.key()] = v.string_value().value();
-    else if (v.has_gauge_value())
-      metrics[p + "." + v.key()] = str::xtos(v.gauge_value().value());
+    else if (nscapi::metrics::numeric_value(v, value))
+      metrics[p + "." + v.key()] = str::xtos(value);
   }
 }
 
@@ -665,6 +667,56 @@ void script_wrapper::function_wrapper::submit_metrics(const std::string &request
     }
   }
 }
+namespace {
+// A string field of the dict form, or "" when it is missing or is not a string.
+std::string metric_meta(const py::dict &value, const char *key) {
+  if (!value.has_key(key)) return "";
+  const py::extract<std::string> extracter(value[key]);
+  return extracter.check() ? std::string(extracter) : std::string();
+}
+
+// Sets the metric's value from a Python scalar, typed as `type` says. Returns
+// false for a value that is neither a string nor a number, which is the one
+// case where there is nothing to report at all.
+bool set_metric_value(PB::Metrics::Metric *metric, const py::object &value, const std::string &type, const std::string &key) {
+  const py::extract<std::string> strExtr(value);
+  if (strExtr.check()) {
+    metric->mutable_string_value()->set_value(strExtr);
+    return true;
+  }
+  double number = 0;
+  const py::extract<int> intExtr(value);
+  if (intExtr.check()) {
+    number = intExtr;
+  } else {
+    const py::extract<double> dblExtr(value);
+    if (!dblExtr.check()) return false;
+    number = dblExtr;
+  }
+  if (type.empty() || type == "gauge") {
+    metric->mutable_gauge_value()->set_value(number);
+    return true;
+  }
+  if (type == "counter") {
+    metric->mutable_counter_value()->set_value(number);
+    return true;
+  }
+  if (type == "unknown" || type == "untyped") {
+    metric->mutable_untyped_value()->set_value(number);
+    return true;
+  }
+  // A typo here would otherwise be invisible: the metric would quietly be a
+  // gauge and the script author would never find out. Said once per key and
+  // spelling rather than on every snapshot, which is every ten seconds.
+  static std::set<std::string> reported;
+  if (reported.insert(key + "\x1f" + type).second) {
+    NSC_LOG_ERROR("Unknown metric type '" + type + "' for '" + key + "', expected gauge, counter or unknown. Reporting it as a gauge.");
+  }
+  metric->mutable_gauge_value()->set_value(number);
+  return true;
+}
+}  // namespace
+
 void script_wrapper::function_wrapper::fetch_metrics(std::string &request) const {
   PB::Metrics::MetricsMessage::Response payload;
   PB::Metrics::MetricsBundle *bundle = payload.add_bundles();
@@ -686,26 +738,34 @@ void script_wrapper::function_wrapper::fetch_metrics(std::string &request) const
 
           for (int i = 0; i < len(keys); ++i) {
             py::object curArg = dic[keys[i]];
-            if (curArg) {
-              PB::Metrics::Metric *value = bundle->add_value();
-              value->set_key(py::extract<std::string>(keys[i]));
+            if (!curArg) continue;
+            const std::string key = py::extract<std::string>(keys[i]);
 
-              py::extract<std::string> strExtr(dic[keys[i]]);
-              if (strExtr.check()) {
-                value->mutable_string_value()->set_value(strExtr);
-                continue;
-              }
-              py::extract<int> intExtr(dic[keys[i]]);
-              if (intExtr.check()) {
-                value->mutable_gauge_value()->set_value(intExtr);
-                continue;
-              }
-              py::extract<double> dblExtr(dic[keys[i]]);
-              if (dblExtr.check()) {
-                value->mutable_gauge_value()->set_value(dblExtr);
-                continue;
-              }
+            // A scalar is a gauge with no description, as it always was. A
+            // dict is the same value with the metadata a bare number cannot
+            // carry: {"value": 42, "help": "...", "unit": "bytes",
+            // "type": "counter"}.
+            py::object scalar = curArg;
+            std::string help;
+            std::string unit;
+            std::string type;
+            const py::extract<py::dict> dictExtr(curArg);
+            if (dictExtr.check()) {
+              const py::dict described = dictExtr;
+              if (!described.has_key("value")) continue;
+              scalar = described["value"];
+              help = metric_meta(described, "help");
+              unit = metric_meta(described, "unit");
+              type = metric_meta(described, "type");
             }
+
+            PB::Metrics::Metric metric;
+            metric.set_key(key);
+            if (!help.empty()) metric.set_desc(help);
+            if (!unit.empty()) metric.set_unit(unit);
+            // Only append once there is something to append: a metric with a
+            // key and no value is a line every consumer skips anyway.
+            if (set_metric_value(&metric, scalar, type, key)) bundle->add_value()->CopyFrom(metric);
           }
         }
       } catch (const py::error_already_set &) {

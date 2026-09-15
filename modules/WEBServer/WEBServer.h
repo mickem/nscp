@@ -14,6 +14,7 @@
 #include <nscapi/protobuf/log.hpp>
 #include <nscapi/protobuf/metrics.hpp>
 #include <nscapi/settings/kvp_map.hpp>
+#include <set>
 
 #include "error_handler_interface.hpp"
 #include "event_store.hpp"
@@ -54,6 +55,19 @@ class WEBServer : public nscapi::impl::simple_plugin {
 
  private:
   void add_user(const std::string &key, const std::string &arg);
+  void set_openmetrics_format(const std::string &value);
+
+  // Which exposition `/api/v2/openmetrics` serves. Written by loadModuleEx,
+  // which a settings reload re-enters on the live module, and read by the
+  // metrics task that renders the snapshot - hence the atomic.
+  std::atomic<bool> openmetrics_legacy_;
+  // Name collisions the renderer has already reported. A collision comes from
+  // a static configuration mistake, so it recurs on every snapshot: logging it
+  // each time would put thousands of identical ERROR lines a day in the log
+  // for one bad key. Each distinct problem is logged once and the set is
+  // cleared on a settings reload, which is when the offending key can change.
+  mutable boost::mutex openmetrics_problem_mutex_;
+  mutable std::set<std::string> reported_openmetrics_problems_;
 
   std::shared_ptr<error_handler_interface> log_handler;
   std::shared_ptr<client::cli_client> client;

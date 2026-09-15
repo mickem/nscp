@@ -563,11 +563,25 @@ TEST_F(SettingsHandlerTest, GetRegisteredKeyModulesHasSyntheticBoolDesc) {
 // or, conversely, non-secret strings get hidden in cred manager.
 // ---------------------------------------------------------------------------
 
-TEST_F(SettingsHandlerTest, IsSensitiveKeyDefaultsFalse) { EXPECT_FALSE(impl_->is_sensitive_key("/settings/default", "password")); }
+TEST_F(SettingsHandlerTest, IsSensitiveKeyDefaultsFalse) { EXPECT_FALSE(impl_->is_sensitive_key("/settings/sample", "some key")); }
 
 TEST_F(SettingsHandlerTest, AddSensitiveKeyMakesItSensitive) {
-  impl_->add_sensitive_key(0xffff, "/settings/default", "password");
+  impl_->add_sensitive_key(0xffff, "/settings/sample", "some key");
+  EXPECT_TRUE(impl_->is_sensitive_key("/settings/sample", "some key"));
+}
+
+TEST_F(SettingsHandlerTest, DefaultPasswordIsSensitiveWithoutAnyModule) {
+  // The shared password is core-owned: NRPE, NSCA, NSClient and the web
+  // server all fall back to it, but only some of them declare it with
+  // add_password. An agent running none of those (check modules only) must
+  // still redact it rather than print it in a `settings` dump.
   EXPECT_TRUE(impl_->is_sensitive_key("/settings/default", "password"));
+}
+
+TEST_F(SettingsHandlerTest, SeededSensitiveKeyDoesNotBleedToNeighbours) {
+  // Seeding is still an exact (path, key) entry - no name-based matching.
+  EXPECT_FALSE(impl_->is_sensitive_key("/settings/default", "allowed hosts"));
+  EXPECT_FALSE(impl_->is_sensitive_key("/settings/NRPE/server", "password"));
 }
 
 TEST_F(SettingsHandlerTest, SensitiveKeyIsExactPathPlusKey) {

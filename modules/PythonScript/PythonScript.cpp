@@ -39,6 +39,8 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
   }
 
   try {
+    std::string python_cache;
+    std::string python_lib;
     root_ = get_core()->expand_path("${scripts}");
 
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
@@ -46,9 +48,9 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 
     settings.alias()
         .add_key_to_settings()
-        .add_string("python cache", sh::string_key(&python_cache_), "Python cache", "Override python cache folder.")
+        .add_string("python cache", sh::string_key(&python_cache), "Python cache", "Override python cache folder.")
 #ifdef __linux__
-        .add_string("python lib", sh::string_key(&python_lib_, DEFAULT_PYTHON_LIB), "Python lib", "The python DLL to load")
+        .add_string("python lib", sh::string_key(&python_lib, DEFAULT_PYTHON_LIB), "Python lib", "The python DLL to load")
 #endif
         ;
 
@@ -80,14 +82,20 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
       ;
     // clang-format on
 
+    // The `scripts` callback only records what it finds; notify() below is
+    // what runs it, and at that point there is no Python interpreter yet -
+    // constructing a script takes the GIL, and `python_script::init()` cannot
+    // run any earlier because the two settings it needs are read by this same
+    // walk. Clear the list first so a reload does not load every script twice.
+    pending_scripts_.clear();
+
     settings.register_all();
-    // notify() delivers every key before the first path, so the two keys
-    // above are set by the time the `scripts` path callback loads a script -
-    // which is where the interpreter is booted, because a script object takes
-    // the GIL as it is built and cannot wait for the call below.
     settings.notify();
 
-    python_script::init(python_cache_, python_lib_);
+    python_script::init(python_cache, python_lib);
+
+    // Now that the interpreter exists, the recorded scripts can be loaded.
+    load_pending_scripts();
 
   } catch (...) {
     NSC_LOG_ERROR_STD("Exception caught: <UNKNOWN EXCEPTION>");
@@ -96,17 +104,17 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
   return true;
 }
 
-void PythonScript::loadScript(std::string alias, std::string file) {
-  // Building a script takes the GIL, and PyGILState_Ensure on an interpreter
-  // that was never initialised reads a null thread state: loading any script
-  // took the agent down before it could run one. init() is idempotent, so the
-  // call at the end of loadModuleEx stays as the no-script path.
-  python_script::init(python_cache_, python_lib_);
-  if (!provider_) {
-    NSC_LOG_ERROR_STD("Could not find script: no provider " + file);
-  } else {
-    provider_->add_command(alias, file, alias_);
+void PythonScript::loadScript(std::string alias, std::string file) { pending_scripts_.emplace_back(alias, file); }
+
+void PythonScript::load_pending_scripts() {
+  for (const std::pair<std::string, std::string> &script : pending_scripts_) {
+    if (!provider_) {
+      NSC_LOG_ERROR_STD("Could not find script: no provider " + script.second);
+    } else {
+      provider_->add_command(script.first, script.second, alias_);
+    }
   }
+  pending_scripts_.clear();
 }
 
 bool PythonScript::unloadModule() {

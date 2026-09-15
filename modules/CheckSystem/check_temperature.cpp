@@ -82,10 +82,13 @@ void thermal_zone::read_perf(wmi_impl::row r) {
 }
 
 void thermal_zone::build_metrics(PB::Metrics::MetricsBundle *section) const {
-  using namespace nscapi::metrics;
-  add_metric(section, name + ".temperature", static_cast<long long>(temperature));
-  add_metric(section, name + ".active", get_active());
-  add_metric(section, name + ".throttle_reasons", throttle_reasons);
+  using nscapi::metrics::describe;
+  using nscapi::metrics::metric;
+  describe(section, "Temperature per thermal zone, as reported by ACPI through WMI");
+  metric(section, name + ".temperature").help("Temperature of the zone").unit("celsius").gauge(static_cast<long long>(temperature));
+  // A string ("true"/"false") today, and the key is what the JSON view reads.
+  metric(section, name + ".active").help("Whether the zone's active cooling is running").info(get_active());
+  metric(section, name + ".throttle_reasons").help("Bit mask of the reasons the processor is being throttled").gauge(throttle_reasons);
 }
 
 void temperature_data::query_acpi(zones_type &zones, HANDLE abort_event) {

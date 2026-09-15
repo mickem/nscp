@@ -378,8 +378,11 @@ What the agent does with a sealed bundle:
   cover the sealed envelope. Only then is it opened, with the key whose fingerprint the
   envelope names. The plaintext exists on disk only while it is being unpacked; the cache
   keeps the envelope.
-- The bundle's name and version are bound into the seal. A server that re-labels a sealed
-  bundle — serving last year's `secrets 1.0` as `secrets 2.0` — gets a refusal, not an apply.
+- The bundle's name and version are bound twice over: into the signature, which covers the
+  bundle's whole identity (tenant, id, name, version, format and digest) rather than just its
+  bytes, and into the seal itself. A server that re-labels a sealed bundle — serving last
+  year's `secrets 1.0` as `secrets 2.0` — gets a refusal at the signature, before the
+  envelope is opened at all; re-signing it correctly only moves the refusal to the seal.
 - A bundle sealed with a key the host does not hold is refused, and the state report names
   the missing key's fingerprint so you can match it against the server's key page. The
   previously applied configuration stays in force.

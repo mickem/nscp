@@ -3,7 +3,6 @@
 
 #include "WEBServer.h"
 
-#include <str/saturate.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/json.hpp>
 #include <boost/program_options.hpp>
@@ -14,6 +13,7 @@
 #include <nscapi/nscapi_common_options.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_metrics_helper.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_perfdata.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
@@ -22,16 +22,15 @@
 #include <nscapi/protobuf/settings_functions.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <str/format.hpp>
-#include <str/xtos.hpp>
+#include <str/saturate.hpp>
 #include <utility>
+#include <vector>
 
 #include "alias_controller.hpp"
 #include "api_controller.hpp"
-#include "web_installer.hpp"
 #include "error_handler.hpp"
 #include "events_controller.hpp"
 #include "info_controller.hpp"
-#include "tags_controller.hpp"
 #include "legacy_command_controller.hpp"
 #include "legacy_controller.hpp"
 #include "log_controller.hpp"
@@ -40,14 +39,17 @@
 #include "metrics_controller.hpp"
 #include "modules_controller.hpp"
 #include "openmetrics_controller.hpp"
+#include "openmetrics_renderer.hpp"
 #include "password_hash.hpp"
 #include "query_controller.hpp"
 #include "results_controller.hpp"
 #include "scripts_controller.hpp"
 #include "settings_controller.hpp"
 #include "static_controller.hpp"
+#include "tags_controller.hpp"
 #include "token_store.hpp"
 #include "web_cli_handler.hpp"
+#include "web_installer.hpp"
 
 namespace json = boost::json;
 
@@ -100,7 +102,12 @@ bool grant_confers_legacy(const std::string &grant) {
 }  // namespace
 
 WEBServer::WEBServer()
-    : simple_plugin(), session(new session_manager_interface()), events_(new event_store()), results_(new result_store()), last_log_index(0) {}
+    : simple_plugin(),
+      session(new session_manager_interface()),
+      events_(new event_store()),
+      results_(new result_store()),
+      openmetrics_legacy_(false),
+      last_log_index(0) {}
 WEBServer::~WEBServer() = default;
 
 bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
@@ -109,6 +116,14 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   if (!client) {
     log_handler.reset(new error_handler());
     client.reset(new client::cli_client(std::make_shared<web_cli_handler>(log_handler, get_core(), get_id())));
+  }
+
+  // A reload can change the keys a module publishes, so let the renderer's
+  // collision reports be said again rather than staying silenced by a run that
+  // is no longer the current configuration.
+  {
+    const boost::mutex::scoped_lock lock(openmetrics_problem_mutex_);
+    reported_openmetrics_problems_.clear();
   }
 
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
@@ -210,7 +225,14 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
                   "`?password=...` / `?TOKEN=...` query-string mechanism. The fallback was removed for security in 340b8db1 because URL parameters "
                   "leak into browser history, proxy logs and Referer headers. Defaults to 'Icinga/check_nscp_api' so Icinga's bundled check_nscp_api "
                   "plugin keeps working without admitting any other client that happens to mention Icinga in its User-Agent. Set to empty string to "
-                  "disable the fallback entirely.");
+                  "disable the fallback entirely.")
+      .add_string("openmetrics format", nscapi::settings_helper::string_fun_key([this](auto value) { this->set_openmetrics_format(value); }, "openmetrics"),
+                  "OPENMETRICS EXPOSITION FORMAT",
+                  "Which exposition /api/v2/openmetrics serves. `openmetrics` (the default) emits a conformant OpenMetrics document: metric names are "
+                  "rewritten to the `[a-zA-Z_][a-zA-Z0-9_]*` grammar (`system.mem.physical.%` becomes `system_mem_physical_percent`), every family "
+                  "carries a `# TYPE` line, the body ends with `# EOF` and values keep their full precision. `legacy` reproduces the previous body byte "
+                  "for byte - `<name> <value>` lines with dots, spaces and colons left in the names, and values truncated to six significant digits - "
+                  "for a dashboard or recording rule that has not been migrated yet. The legacy format is deprecated and will be removed in a future release.");
   settings.alias()
       .add_key_to_settings()
       .add_string("certificate", sh::string_key(&certificate, "${certificate-path}/certificate.pem"), "TLS Certificate",
@@ -312,8 +334,9 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   if (mode == NSCAPI::normalStart) {
     registered_result_channel_ = want_results ? result_channel : std::string();
   } else if (want_results && registered_result_channel_ != result_channel) {
-    NSC_LOG_ERROR("Passive result cache: 'enabled' and 'channel' under /settings/WEB/server/results are read when the web server starts, not on a "
-                  "settings reload. The cache stays off until the service is restarted.");
+    NSC_LOG_ERROR(
+        "Passive result cache: 'enabled' and 'channel' under /settings/WEB/server/results are read when the web server starts, not on a "
+        "settings reload. The cache stays off until the service is restarted.");
   }
   results_->set_enabled(want_results && registered_result_channel_ == result_channel);
 
@@ -348,8 +371,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   // defines (including aliases, which is how you give it a check with
   // arguments baked in) but cannot shape what they do. It does not imply
   // `queries.execute`, so this role can never widen into the full privilege.
-  ensure_role(roles, settings, role_path, "restricted", "public,queries.execute.noargs,aliases.list,login.get",
-              "checks and queries only, without arguments");
+  ensure_role(roles, settings, role_path, "restricted", "public,queries.execute.noargs,aliases.list,login.get", "checks and queries only, without arguments");
   // A Prometheus scraper needs neither checks nor aliases: it reads the two
   // metrics endpoints and nothing else. Handing it `monitoring` would give it
   // `queries.execute` - the ability to run any registered command - for no
@@ -406,8 +428,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         // anyway — the REST API doesn't depend on the bundle, and the
         // static controller will serve a placeholder page that tells the
         // operator how to install the UI.
-        NSC_LOG_MESSAGE("Web bundle not installed at " + path +
-                        " (also tried " + fallback +
+        NSC_LOG_MESSAGE("Web bundle not installed at " + path + " (also tried " + fallback +
                         "). The REST API will work; the UI is served as a "
                         "placeholder. Run `nscp web install-ui` to install it.");
       }
@@ -423,11 +444,10 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     }
     if (cert_missing) {
       if (!allow_insecure) {
-        NSC_LOG_ERROR(
-            "WEB certificate not found at '" + certificate +
-            "': refusing to start the WEB server in cleartext HTTP. Provide a valid certificate, or set 'allow insecure = true' to explicitly accept "
-            "unencrypted HTTP (session tokens and Basic-auth credentials will then travel in clear - only safe behind a TLS-terminating proxy or on "
-            "loopback). The WEB server has NOT been started.");
+        NSC_LOG_ERROR("WEB certificate not found at '" + certificate +
+                      "': refusing to start the WEB server in cleartext HTTP. Provide a valid certificate, or set 'allow insecure = true' to explicitly accept "
+                      "unencrypted HTTP (session tokens and Basic-auth credentials will then travel in clear - only safe behind a TLS-terminating proxy or on "
+                      "loopback). The WEB server has NOT been started.");
         return true;
       }
       // Operator explicitly accepted cleartext. Move off the TLS default port so
@@ -436,8 +456,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         port = "8080";
       }
       NSC_LOG_ERROR(
-          "WEB certificate not found at '" + certificate +
-          "' and 'allow insecure = true' is set: serving UNENCRYPTED HTTP on port " + port +
+          "WEB certificate not found at '" + certificate + "' and 'allow insecure = true' is set: serving UNENCRYPTED HTTP on port " + port +
           ". Session tokens / Basic-auth credentials will be transmitted in clear - only use this behind a TLS-terminating proxy or on a trusted network.");
     }
 
@@ -681,8 +700,7 @@ bool WEBServer::commandLineExec(const int target_mode, const PB::Commands::Execu
   if (command == "uninstall-ui") return cli_uninstall_ui(request, response);
   if (command == "ui-status") return cli_ui_status(request, response);
   if (target_mode == NSCAPI::target_module) {
-    nscapi::protobuf::functions::set_response_bad(
-        *response, "Usage: nscp web [install|password|add-user|add-role|install-ui|uninstall-ui|ui-status] --help");
+    nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp web [install|password|add-user|add-role|install-ui|uninstall-ui|ui-status] --help");
     return true;
   }
   return false;
@@ -1163,17 +1181,23 @@ json::value gauge_to_json(double v) {
 }
 }  // namespace
 
-void build_metrics(json::object &metrics, json::object &metrics_list, std::list<std::string> &openmetrics, const std::string &trail,
-                   const std::string &opentrail, const PB::Metrics::MetricsBundle &b) {
+// The two JSON renderings of a snapshot. The OpenMetrics exposition used to be
+// built in the same pass; it lives in openmetrics_renderer.cpp now, because a
+// conformant document has to group samples into families and cannot be
+// appended a line at a time.
+void build_metrics(json::object &metrics, json::object &metrics_list, const std::string &trail, const PB::Metrics::MetricsBundle &b) {
   json::object node;
   for (const PB::Metrics::MetricsBundle &b2 : b.children()) {
-    build_metrics(node, metrics_list, openmetrics, trail + "." + b2.key(), opentrail + "_" + b2.key(), b2);
+    build_metrics(node, metrics_list, trail + "." + b2.key(), b2);
   }
   for (const PB::Metrics::Metric &v : b.value()) {
-    if (v.has_gauge_value()) {
-      node.insert(json::object::value_type(v.key(), gauge_to_json(v.gauge_value().value())));
-      metrics_list.insert(json::object::value_type(trail + "." + v.key(), gauge_to_json(v.gauge_value().value())));
-      openmetrics.push_back(opentrail + "_" + v.key() + " " + str::xtos(v.gauge_value().value()));
+    // Any numeric type, not just a gauge: a producer that types a monotonic
+    // count as a counter must not disappear from the JSON views and the web UI
+    // dashboard on its way to being described properly on the OpenMetrics one.
+    double value = 0;
+    if (nscapi::metrics::numeric_value(v, value)) {
+      node.insert(json::object::value_type(v.key(), gauge_to_json(value)));
+      metrics_list.insert(json::object::value_type(trail + "." + v.key(), gauge_to_json(value)));
     } else if (v.has_string_value()) {
       node.insert(json::object::value_type(v.key(), v.string_value().value()));
       metrics_list.insert(json::object::value_type(trail + "." + v.key(), v.string_value().value()));
@@ -1183,14 +1207,49 @@ void build_metrics(json::object &metrics, json::object &metrics_list, std::list<
 }
 void WEBServer::submitMetrics(const PB::Metrics::MetricsMessage &response) const {
   json::object metrics, metrics_list;
-  std::list<std::string> openmetrics;
   for (const PB::Metrics::MetricsMessage::Response &p : response.payload()) {
     for (const PB::Metrics::MetricsBundle &b : p.bundles()) {
-      build_metrics(metrics, metrics_list, openmetrics, b.key(), b.key(), b);
+      build_metrics(metrics, metrics_list, b.key(), b);
     }
   }
-  session->set_metrics(json::serialize(metrics), json::serialize(metrics_list), openmetrics);
+  std::string open_metrics;
+  std::string prometheus_text;
+  if (openmetrics_legacy_) {
+    // The pre-renderer body carried no metadata at all, so there is nothing
+    // for the two formats to disagree about: one body answers both.
+    open_metrics = openmetrics::render_legacy(response);
+    prometheus_text = open_metrics;
+  } else {
+    // Sanitising is lossy, so two keys can want the same family name. The
+    // renderer keeps the first and hands back a line per metric it dropped;
+    // that is a producer bug the operator has to see, not something to hide -
+    // but only once, since the same bad key collides again on every snapshot.
+    // One walk produces both bodies, so each problem is found once.
+    std::vector<std::string> problems;
+    const openmetrics::exposition rendered = openmetrics::render_both(response, &problems);
+    open_metrics = rendered.openmetrics;
+    prometheus_text = rendered.prometheus_text;
+    for (const std::string &problem : problems) {
+      {
+        const boost::mutex::scoped_lock lock(openmetrics_problem_mutex_);
+        if (!reported_openmetrics_problems_.insert(problem).second) continue;
+      }
+      NSC_LOG_ERROR(problem);
+    }
+  }
+  session->set_metrics(json::serialize(metrics), json::serialize(metrics_list), open_metrics, prometheus_text);
   client->push_metrics(response);
+}
+
+void WEBServer::set_openmetrics_format(const std::string &value) {
+  if (value == "legacy") {
+    openmetrics_legacy_ = true;
+    return;
+  }
+  if (value != "openmetrics") {
+    NSC_LOG_ERROR("Unknown 'openmetrics format' value '" + value + "', expected 'openmetrics' or 'legacy'. Serving the conformant OpenMetrics format.");
+  }
+  openmetrics_legacy_ = false;
 }
 
 void WEBServer::add_user(const std::string &key, const std::string &arg) {
@@ -1262,18 +1321,12 @@ bool WEBServer::cli_install_ui(const PB::Commands::ExecuteRequestMessage::Reques
   po::options_description desc("install-ui");
   std::string version_arg, from_arg, url_arg;
   bool force = false, dry_run = false;
-  desc.add_options()
-      ("help", "Show help.")
-      ("release-version", po::value<std::string>(&version_arg)->default_value(""),
-       "Release version of the web bundle to install (defaults to this daemon's version).")
-      ("from", po::value<std::string>(&from_arg)->default_value(""),
-       "Install from a local zip instead of downloading. Skips the network entirely.")
-      ("url", po::value<std::string>(&url_arg)->default_value(""),
-       "Override the release URL base (default: project's GitHub releases).")
-      ("force", po::bool_switch(&force),
-       "Overwrite an existing install.")
-      ("dry-run", po::bool_switch(&dry_run),
-       "Report intended actions without touching disk.");
+  desc.add_options()("help", "Show help.")("release-version", po::value<std::string>(&version_arg)->default_value(""),
+                                           "Release version of the web bundle to install (defaults to this daemon's version).")(
+      "from", po::value<std::string>(&from_arg)->default_value(""), "Install from a local zip instead of downloading. Skips the network entirely.")(
+      "url", po::value<std::string>(&url_arg)->default_value(""), "Override the release URL base (default: project's GitHub releases).")(
+      "force", po::bool_switch(&force), "Overwrite an existing install.")("dry-run", po::bool_switch(&dry_run),
+                                                                          "Report intended actions without touching disk.");
   try {
     nscapi::program_options::basic_command_line_parser cmd(request);
     cmd.options(desc);
@@ -1308,11 +1361,9 @@ bool WEBServer::cli_uninstall_ui(const PB::Commands::ExecuteRequestMessage::Requ
   po::variables_map vm;
   po::options_description desc("uninstall-ui");
   bool force = false;
-  desc.add_options()
-      ("help", "Show help.")
-      ("force", po::bool_switch(&force),
-       "Proceed past a missing manifest (forced uninstall removes nothing manifest-tracked, "
-       "since by definition we don't know what we installed).");
+  desc.add_options()("help", "Show help.")("force", po::bool_switch(&force),
+                                           "Proceed past a missing manifest (forced uninstall removes nothing manifest-tracked, "
+                                           "since by definition we don't know what we installed).");
   try {
     nscapi::program_options::basic_command_line_parser cmd(request);
     cmd.options(desc);

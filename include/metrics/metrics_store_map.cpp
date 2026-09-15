@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
 #include <metrics/metrics_store_map.hpp>
+#include <nscapi/nscapi_metrics_helper.hpp>
 #include <str/xtos.hpp>
 
 namespace metrics {
@@ -15,8 +16,9 @@ void build_metrics(metrics_store::values_map &metrics, const PB::Metrics::Metric
   }
 
   for (const PB::Metrics::Metric &v : b.value()) {
-    if (v.has_gauge_value())
-      metrics[p + "." + v.key()] = str::xtos(v.gauge_value().value());
+    double value = 0;
+    if (nscapi::metrics::numeric_value(v, value))
+      metrics[p + "." + v.key()] = str::xtos(value);
     else if (v.has_string_value())
       metrics[p + "." + v.key()] = v.string_value().value();
   }

@@ -3,7 +3,6 @@
 
 #include "ElasticClient.h"
 
-#include <str/saturate.hpp>
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/json.hpp>
@@ -16,11 +15,13 @@
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_metrics_helper.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nscapi/settings/proxy.hpp>
 #include <nsclient/logger/logger_helper.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <str/format.hpp>
+#include <str/saturate.hpp>
 #include <str/utils.hpp>
 
 #include "elastic_bulk.hpp"
@@ -117,6 +118,23 @@ bool ElasticClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
     if (timeout < 0) {
       NSC_LOG_ERROR("Invalid elastic timeout (negative): " + str::xtos(timeout) + ", using 30 seconds");
       timeout = 30;
+    }
+
+    // An https submission whose `verify mode` carries no peer-verifying token
+    // sends the configured Elasticsearch credentials to whichever server
+    // answers. Say so, as the Icinga and NRDP clients already do for their
+    // targets. Once per load rather than per submission: this is an
+    // observation about the configuration, and events are submitted
+    // continuously. Only when credentials are configured - without them the
+    // exposure is the submitted data alone, which the `verify mode` setting
+    // description already spells out.
+    if (!address.empty() && (!user.empty() || !api_key.empty())) {
+      const http::parsed_url parsed = http::parse_url(address);
+      if (parsed.protocol == "https" && socket_helpers::client_verify_mode_disables_verification(verify_mode)) {
+        NSC_LOG_MESSAGE("TLS certificate verification is disabled for " + parsed.host + " (verify mode: " + (verify_mode.empty() ? "<not set>" : verify_mode) +
+                        "): the Elasticsearch credentials are sent to whichever server answers. Set verify mode = peer, or peer-cert with ca pointing at "
+                        "the self-signed certificate, unless this is intentional.");
+      }
     }
 
     hostname_ = socket_helpers::expand_hostname(hostname_);
@@ -262,8 +280,9 @@ void build_metrics(json::object &metrics, const std::string trail, const PB::Met
   }
   for (const PB::Metrics::Metric &v : b.value()) {
     std::string key = trail.empty() ? boost::replace_all_copy(v.key(), ".", "_") : trail + "_" + boost::replace_all_copy(v.key(), ".", "_");
-    if (v.has_gauge_value())
-      node.insert(json::object::value_type(key, gauge_to_json(v.gauge_value().value())));
+    double value = 0;
+    if (nscapi::metrics::numeric_value(v, value))
+      node.insert(json::object::value_type(key, gauge_to_json(value)));
     else if (v.has_string_value())
       node.insert(json::object::value_type(key, v.string_value().value()));
   }

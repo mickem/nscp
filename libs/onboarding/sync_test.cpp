@@ -10,6 +10,7 @@
 #include <boost/json.hpp>
 #include <bytes/base64.hpp>
 #include <cctype>
+#include <limits>
 #include <map>
 #include <memory>
 #include <onboarding/bundle_crypto.hpp>
@@ -64,20 +65,37 @@ std::string public_key_pem(EVP_PKEY *key) {
   return std::string(data, static_cast<std::size_t>(len));
 }
 
-// Sign the fleet way: an Ed25519 signature over the 32-byte SHA-256 digest of
-// the payload, base64 encoded.
-std::string sign_bundle(EVP_PKEY *key, const std::string &payload) {
-  unsigned char digest[32];
-  unsigned int digest_len = 0;
-  EVP_Digest(payload.data(), payload.size(), digest, &digest_len, EVP_sha256(), nullptr);
+// An Ed25519 signature over `message`, base64 encoded - the raw primitive, for
+// tests that need to sign something other than a well-formed descriptor.
+std::string sign_raw(EVP_PKEY *key, const std::string &message) {
   const std::unique_ptr<EVP_MD_CTX, evp_md_ctx_deleter> ctx(EVP_MD_CTX_new());
   EVP_DigestSignInit(ctx.get(), nullptr, nullptr, nullptr, key);
   std::size_t sig_len = 0;
-  EVP_DigestSign(ctx.get(), nullptr, &sig_len, digest, digest_len);
+  EVP_DigestSign(ctx.get(), nullptr, &sig_len, reinterpret_cast<const unsigned char *>(message.data()), message.size());
   std::string signature(sig_len, '\0');
-  EVP_DigestSign(ctx.get(), reinterpret_cast<unsigned char *>(&signature[0]), &sig_len, digest, digest_len);
+  EVP_DigestSign(ctx.get(), reinterpret_cast<unsigned char *>(&signature[0]), &sig_len, reinterpret_cast<const unsigned char *>(message.data()),
+                 message.size());
   signature.resize(sig_len);
   return bytes::base64_encode(signature);
+}
+
+// The descriptor a desired-state response would carry for `payload`: plausible
+// values for everything the signature covers.
+onboarding::bundle_descriptor descriptor_for(const std::string &payload) {
+  onboarding::bundle_descriptor descriptor;
+  descriptor.tenant_id = 7;
+  descriptor.bundle_id = "01M2HWFQ4RGMZSZ6Z7CTCQCBHV";
+  descriptor.name = "checks";
+  descriptor.version = "1.0.0";
+  descriptor.format = "plain";
+  descriptor.sha256_hex = onboarding::sha256_hex(payload);
+  return descriptor;
+}
+
+// Sign the fleet way: an Ed25519 signature over the bundle descriptor, base64
+// encoded. Ed25519 hashes internally, so the descriptor is signed directly.
+std::string sign_bundle(EVP_PKEY *key, const onboarding::bundle_descriptor &descriptor) {
+  return sign_raw(key, descriptor.signing_bytes());
 }
 
 // A minimal self-signed certificate expiring `seconds` from now (negative for
@@ -124,6 +142,9 @@ json::object valid_bundle() {
 
 json::object valid_state() {
   json::object root;
+  // Required whenever the response carries bundles: it is the first field of
+  // every bundle's signing descriptor.
+  root["tenant_id"] = 7;
   root["state_hash"] = "h1";
   root["next_poll_in_seconds"] = 30;
   root["merged_config_json"] = json::object();
@@ -175,7 +196,7 @@ void expect_rejected(const std::string &body, const std::string &must_not_leak =
 
 TEST(SyncDesiredState, ParsesAndSortsBundlesByPriority) {
   const std::string body =
-      "{\"state_hash\": \"h1\", \"next_poll_in_seconds\": 30, \"merged_config_json\": {},"
+      "{\"tenant_id\": 7, \"state_hash\": \"h1\", \"next_poll_in_seconds\": 30, \"merged_config_json\": {},"
       "\"bundles\": ["
       "{\"id\": \"b2\", \"name\": \"second\", \"version\": \"2.0\", \"sha256\": \"" +
       hex64('b') +
@@ -185,6 +206,7 @@ TEST(SyncDesiredState, ParsesAndSortsBundlesByPriority) {
       "\", \"signature\": \"sig1\", \"url\": \"/agent/v1/bundles/b1\", \"priority\": 100}"
       "]}";
   const onboarding::desired_state state = onboarding::parse_desired_state(body);
+  EXPECT_EQ(state.tenant_id, 7);
   EXPECT_EQ(state.state_hash, "h1");
   EXPECT_EQ(state.next_poll_in_seconds, 30u);
   EXPECT_EQ(state.merged_config_json, "{}");
@@ -246,6 +268,53 @@ TEST(SyncDesiredStateHostile, StateHashMustBePresentAndAString) {
   expect_rejected("{\"state_hash\": 42}");
   expect_rejected("{\"state_hash\": null}");
   expect_rejected("{\"state_hash\": [\"h\"]}");
+}
+
+TEST(SyncDesiredState, TenantIdIsRequiredOnlyWhenThereAreBundlesToVerify) {
+  // It exists solely to build the signing descriptor, so a response with no
+  // bundles does not need it - but one with bundles deserves a clear error
+  // rather than the "signature verification failed" it would become.
+  const onboarding::desired_state empty = onboarding::parse_desired_state("{\"state_hash\": \"h\", \"bundles\": []}");
+  EXPECT_EQ(empty.tenant_id, 0);
+
+  json::object root = valid_state();
+  root.erase("tenant_id");
+  root["bundles"] = json::array{valid_bundle()};
+  expect_rejected(json::serialize(root));
+}
+
+TEST(SyncDesiredStateHostile, TenantIdMustBeAnInteger) {
+  for (const json::value &bad : {json::value("7"), json::value(7.5), json::value(), json::value(json::array{7})}) {
+    json::object root = valid_state();
+    root["tenant_id"] = bad;
+    root["bundles"] = json::array{valid_bundle()};
+    expect_rejected(json::serialize(root));
+  }
+  // A negative id is not something the server issues, but it is an integer and
+  // renders unambiguously; rejecting it would be inventing a rule.
+  json::object root = valid_state();
+  root["tenant_id"] = -1;
+  root["bundles"] = json::array{valid_bundle()};
+  EXPECT_EQ(onboarding::parse_desired_state(json::serialize(root)).tenant_id, -1);
+}
+
+TEST(SyncDesiredStateHostile, SignedBundleFieldsCannotCarryTheDescriptorSeparator) {
+  // name, version and format are NUL-separated fields of the signing
+  // descriptor. A NUL inside one would make the encoding ambiguous, so a
+  // single signature could be made to cover two different bundles.
+  for (const char *field : {"name", "version", "format"}) {
+    expect_rejected(bundle_with(field, std::string("a\0b", 3)));
+  }
+}
+
+TEST(SyncDesiredState, SignedBundleFieldsAreTakenVerbatim) {
+  // Whitespace, case and punctuation all reach the descriptor unchanged: what
+  // is verified is the server's own claim, not a normalised version of it.
+  for (const std::string &value : {std::string("Checks-Prod"), std::string("1.0.0+build.7"), std::string(" padded ")}) {
+    const onboarding::desired_state state = onboarding::parse_desired_state(bundle_with("name", value));
+    ASSERT_EQ(state.bundles.size(), 1u);
+    EXPECT_EQ(state.bundles[0].name, value);
+  }
 }
 
 TEST(SyncDesiredStateHostile, BundleIdCannotEscapeTheCacheDirectory) {
@@ -644,17 +713,17 @@ TEST(SyncVerify, Sha256StreamOfNothingIsTheEmptyDigest) {
 TEST(SyncVerify, AcceptsAValidSignature) {
   const pkey_ptr key = generate_ed25519();
   const std::string payload = "bundle-bytes-here";
+  const onboarding::bundle_descriptor descriptor = descriptor_for(payload);
   std::string error;
-  EXPECT_TRUE(onboarding::verify_bundle(public_key_pem(key.get()), payload, onboarding::sha256_hex(payload), sign_bundle(key.get(), payload), error))
-      << error;
+  EXPECT_TRUE(onboarding::verify_bundle(public_key_pem(key.get()), payload, descriptor, sign_bundle(key.get(), descriptor), error)) << error;
 }
 
 TEST(SyncVerify, RejectsChecksumMismatch) {
   const pkey_ptr key = generate_ed25519();
   const std::string payload = "bundle-bytes-here";
+  const onboarding::bundle_descriptor descriptor = descriptor_for(payload);
   std::string error;
-  EXPECT_FALSE(onboarding::verify_bundle(public_key_pem(key.get()), payload + "tampered", onboarding::sha256_hex(payload),
-                                         sign_bundle(key.get(), payload), error));
+  EXPECT_FALSE(onboarding::verify_bundle(public_key_pem(key.get()), payload + "tampered", descriptor, sign_bundle(key.get(), descriptor), error));
   EXPECT_NE(error.find("checksum"), std::string::npos);
 }
 
@@ -662,8 +731,9 @@ TEST(SyncVerify, RejectsSignatureFromAnotherKey) {
   const pkey_ptr key = generate_ed25519();
   const pkey_ptr other = generate_ed25519();
   const std::string payload = "bundle-bytes-here";
+  const onboarding::bundle_descriptor descriptor = descriptor_for(payload);
   std::string error;
-  EXPECT_FALSE(onboarding::verify_bundle(public_key_pem(key.get()), payload, onboarding::sha256_hex(payload), sign_bundle(other.get(), payload), error));
+  EXPECT_FALSE(onboarding::verify_bundle(public_key_pem(key.get()), payload, descriptor, sign_bundle(other.get(), descriptor), error));
   EXPECT_NE(error.find("signature"), std::string::npos);
 }
 
@@ -671,7 +741,7 @@ TEST(SyncVerify, RejectsGarbageSignature) {
   const pkey_ptr key = generate_ed25519();
   const std::string payload = "bundle-bytes-here";
   std::string error;
-  EXPECT_FALSE(onboarding::verify_bundle(public_key_pem(key.get()), payload, onboarding::sha256_hex(payload), "!!!not-base64!!!", error));
+  EXPECT_FALSE(onboarding::verify_bundle(public_key_pem(key.get()), payload, descriptor_for(payload), "!!!not-base64!!!", error));
 }
 
 // --- bundle verification: everything that must NOT verify ---------------------
@@ -688,11 +758,11 @@ TEST(SyncVerifyHostile, Sha256KnownVectors) {
 TEST(SyncVerifyHostile, RejectsASingleFlippedByte) {
   const pkey_ptr key = generate_ed25519();
   std::string payload(256, 'x');
-  const std::string digest = onboarding::sha256_hex(payload);
-  const std::string signature = sign_bundle(key.get(), payload);
+  const onboarding::bundle_descriptor descriptor = descriptor_for(payload);
+  const std::string signature = sign_bundle(key.get(), descriptor);
   payload[128] = 'y';
   std::string error;
-  EXPECT_FALSE(onboarding::verify_bundle(public_key_pem(key.get()), payload, digest, signature, error));
+  EXPECT_FALSE(onboarding::verify_bundle(public_key_pem(key.get()), payload, descriptor, signature, error));
   EXPECT_NE(error.find("checksum"), std::string::npos) << error;
 }
 
@@ -700,104 +770,133 @@ TEST(SyncVerifyHostile, RejectsATruncatedBundle) {
   const pkey_ptr key = generate_ed25519();
   const std::string payload(256, 'x');
   std::string error;
-  EXPECT_FALSE(onboarding::verify_bundle(public_key_pem(key.get()), payload.substr(0, 255), onboarding::sha256_hex(payload),
-                                         sign_bundle(key.get(), payload), error));
+  const onboarding::bundle_descriptor descriptor = descriptor_for(payload);
+  EXPECT_FALSE(onboarding::verify_bundle(public_key_pem(key.get()), payload.substr(0, 255), descriptor, sign_bundle(key.get(), descriptor), error));
 }
 
 TEST(SyncVerifyHostile, RejectsAnEmptyBundleAgainstANonEmptyDigest) {
   const pkey_ptr key = generate_ed25519();
   std::string error;
-  EXPECT_FALSE(onboarding::verify_bundle(public_key_pem(key.get()), "", onboarding::sha256_hex("something"), sign_bundle(key.get(), "something"), error));
+  const onboarding::bundle_descriptor descriptor = descriptor_for("something");
+  EXPECT_FALSE(onboarding::verify_bundle(public_key_pem(key.get()), "", descriptor, sign_bundle(key.get(), descriptor), error));
 }
 
 TEST(SyncVerifyHostile, AcceptsAnEmptyBundleSignedAsSuch) {
   // Degenerate but legal: an empty bundle has a digest and can be signed.
   const pkey_ptr key = generate_ed25519();
   std::string error;
-  EXPECT_TRUE(onboarding::verify_bundle(public_key_pem(key.get()), "", onboarding::sha256_hex(""), sign_bundle(key.get(), ""), error)) << error;
+  const onboarding::bundle_descriptor descriptor = descriptor_for("");
+  EXPECT_TRUE(onboarding::verify_bundle(public_key_pem(key.get()), "", descriptor, sign_bundle(key.get(), descriptor), error)) << error;
 }
 
 TEST(SyncVerifyHostile, ExpectedDigestIsCaseInsensitiveButNothingElse) {
   const pkey_ptr key = generate_ed25519();
   const std::string payload = "bundle";
-  const std::string signature = sign_bundle(key.get(), payload);
+  const std::string pub = public_key_pem(key.get());
   std::string upper = onboarding::sha256_hex(payload);
   std::transform(upper.begin(), upper.end(), upper.begin(), [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+
+  // The integrity comparison is case-insensitive, so an upper-case digest is
+  // still this payload's digest - and since the descriptor carries the field
+  // verbatim, the signature has to have been made over that same spelling.
+  onboarding::bundle_descriptor descriptor = descriptor_for(payload);
+  descriptor.sha256_hex = upper;
+  const std::string signature = sign_bundle(key.get(), descriptor);
   std::string error;
-  EXPECT_TRUE(onboarding::verify_bundle(public_key_pem(key.get()), payload, upper, signature, error)) << error;
+  EXPECT_TRUE(onboarding::verify_bundle(pub, payload, descriptor, signature, error)) << error;
+
   // Padding, whitespace or a prefix is not "the same digest".
-  EXPECT_FALSE(onboarding::verify_bundle(public_key_pem(key.get()), payload, " " + upper, signature, error));
-  EXPECT_FALSE(onboarding::verify_bundle(public_key_pem(key.get()), payload, upper + "\n", signature, error));
-  EXPECT_FALSE(onboarding::verify_bundle(public_key_pem(key.get()), payload, upper.substr(0, 32), signature, error));
-  EXPECT_FALSE(onboarding::verify_bundle(public_key_pem(key.get()), payload, "", signature, error));
+  for (const std::string &mangled : {" " + upper, upper + "\n", upper.substr(0, 32), std::string()}) {
+    onboarding::bundle_descriptor broken = descriptor;
+    broken.sha256_hex = mangled;
+    EXPECT_FALSE(onboarding::verify_bundle(pub, payload, broken, signature, error)) << mangled;
+  }
 }
 
-TEST(SyncVerifyHostile, RejectsASignatureOverTheRawBytesInsteadOfTheDigest) {
-  // Pins the protocol: the signature covers the 32-byte SHA-256 digest. An
-  // implementation that signed the bundle bytes directly must not be accepted
-  // (nor should ours drift into accepting it).
+TEST(SyncVerifyHostile, TheDigestIsSignedInTheSpellingItWasAdvertisedIn) {
+  // The descriptor takes the response's sha256 field verbatim, so re-spelling
+  // it changes the signing bytes even though the integrity check accepts both.
+  // Pinned because "normalise it first" is a tempting and breaking cleanup.
+  const pkey_ptr key = generate_ed25519();
+  const std::string payload = "bundle";
+  const onboarding::bundle_descriptor lower = descriptor_for(payload);
+  onboarding::bundle_descriptor upper_descriptor = lower;
+  std::transform(upper_descriptor.sha256_hex.begin(), upper_descriptor.sha256_hex.end(), upper_descriptor.sha256_hex.begin(),
+                 [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+  EXPECT_NE(lower.signing_bytes(), upper_descriptor.signing_bytes());
+  std::string error;
+  EXPECT_FALSE(onboarding::verify_bundle(public_key_pem(key.get()), payload, upper_descriptor, sign_bundle(key.get(), lower), error));
+}
+
+TEST(SyncVerifyHostile, RejectsASignatureOverAnythingButTheDescriptor) {
+  // Pins the protocol. Both of these are signatures by the right key over
+  // something related to the right bundle, and neither is what v2 signs:
+  //   - the raw bundle bytes
+  //   - the bare 32-byte SHA-256 digest, which is what the v1 protocol signed
+  // The second is the one that matters in practice: it is what an agent that
+  // has not been moved to the descriptor produces, and accepting it would
+  // silently restore the property v2 exists to remove - a signature that says
+  // nothing about *which* bundle the bytes are.
   const pkey_ptr key = generate_ed25519();
   const std::string payload = "bundle-bytes-here";
-  const std::unique_ptr<EVP_MD_CTX, evp_md_ctx_deleter> ctx(EVP_MD_CTX_new());
-  EVP_DigestSignInit(ctx.get(), nullptr, nullptr, nullptr, key.get());
-  std::size_t sig_len = 0;
-  EVP_DigestSign(ctx.get(), nullptr, &sig_len, reinterpret_cast<const unsigned char *>(payload.data()), payload.size());
-  std::string signature(sig_len, '\0');
-  EVP_DigestSign(ctx.get(), reinterpret_cast<unsigned char *>(&signature[0]), &sig_len, reinterpret_cast<const unsigned char *>(payload.data()),
-                 payload.size());
-  signature.resize(sig_len);
-
+  const onboarding::bundle_descriptor descriptor = descriptor_for(payload);
+  const std::string pub = public_key_pem(key.get());
   std::string error;
-  EXPECT_FALSE(onboarding::verify_bundle(public_key_pem(key.get()), payload, onboarding::sha256_hex(payload), bytes::base64_encode(signature), error));
+
+  EXPECT_FALSE(onboarding::verify_bundle(pub, payload, descriptor, sign_raw(key.get(), payload), error)) << "signature over the raw bytes";
+  EXPECT_NE(error.find("signature"), std::string::npos) << error;
+
+  unsigned char digest[32];
+  unsigned int digest_len = 0;
+  EVP_Digest(payload.data(), payload.size(), digest, &digest_len, EVP_sha256(), nullptr);
+  const std::string raw_digest(reinterpret_cast<const char *>(digest), digest_len);
+  EXPECT_FALSE(onboarding::verify_bundle(pub, payload, descriptor, sign_raw(key.get(), raw_digest), error)) << "v1: signature over the bare digest";
   EXPECT_NE(error.find("signature"), std::string::npos) << error;
 }
 
 TEST(SyncVerifyHostile, RejectsSignaturesOfTheWrongShape) {
   const pkey_ptr key = generate_ed25519();
   const std::string payload = "bundle-bytes-here";
-  const std::string digest = onboarding::sha256_hex(payload);
+  const onboarding::bundle_descriptor descriptor = descriptor_for(payload);
   const std::string pub = public_key_pem(key.get());
   std::string error;
 
-  EXPECT_FALSE(onboarding::verify_bundle(pub, payload, digest, "", error)) << "empty signature";
-  EXPECT_FALSE(onboarding::verify_bundle(pub, payload, digest, "=", error));
-  EXPECT_FALSE(onboarding::verify_bundle(pub, payload, digest, bytes::base64_encode("short"), error)) << "not 64 bytes";
-  EXPECT_FALSE(onboarding::verify_bundle(pub, payload, digest, bytes::base64_encode(std::string(64, '\0')), error)) << "all zero signature";
-  EXPECT_FALSE(onboarding::verify_bundle(pub, payload, digest, bytes::base64_encode(std::string(1024, 'A')), error)) << "oversized signature";
+  EXPECT_FALSE(onboarding::verify_bundle(pub, payload, descriptor, "", error)) << "empty signature";
+  EXPECT_FALSE(onboarding::verify_bundle(pub, payload, descriptor, "=", error));
+  EXPECT_FALSE(onboarding::verify_bundle(pub, payload, descriptor, bytes::base64_encode("short"), error)) << "not 64 bytes";
+  EXPECT_FALSE(onboarding::verify_bundle(pub, payload, descriptor, bytes::base64_encode(std::string(64, '\0')), error)) << "all zero signature";
+  EXPECT_FALSE(onboarding::verify_bundle(pub, payload, descriptor, bytes::base64_encode(std::string(1024, 'A')), error)) << "oversized signature";
 
   // A valid signature with one flipped bit is still a forgery.
-  std::string tampered_raw;
-  {
-    const std::string valid = sign_bundle(key.get(), payload);
-    tampered_raw = valid;
-    tampered_raw[10] = (tampered_raw[10] == 'A') ? 'B' : 'A';
-  }
-  EXPECT_FALSE(onboarding::verify_bundle(pub, payload, digest, tampered_raw, error));
+  std::string tampered_raw = sign_bundle(key.get(), descriptor);
+  tampered_raw[10] = (tampered_raw[10] == 'A') ? 'B' : 'A';
+  EXPECT_FALSE(onboarding::verify_bundle(pub, payload, descriptor, tampered_raw, error));
 }
 
 TEST(SyncVerifyHostile, RejectsKeysThatAreNotAnEd25519PublicKey) {
   const pkey_ptr key = generate_ed25519();
   const std::string payload = "bundle-bytes-here";
-  const std::string digest = onboarding::sha256_hex(payload);
-  const std::string signature = sign_bundle(key.get(), payload);
+  const onboarding::bundle_descriptor descriptor = descriptor_for(payload);
+  const std::string signature = sign_bundle(key.get(), descriptor);
   std::string error;
 
-  EXPECT_FALSE(onboarding::verify_bundle("", payload, digest, signature, error)) << "empty key";
+  EXPECT_FALSE(onboarding::verify_bundle("", payload, descriptor, signature, error)) << "empty key";
   EXPECT_NE(error.find("public key"), std::string::npos) << error;
-  EXPECT_FALSE(onboarding::verify_bundle("not a pem at all", payload, digest, signature, error));
-  EXPECT_FALSE(onboarding::verify_bundle("-----BEGIN PUBLIC KEY-----\nnot base64\n-----END PUBLIC KEY-----\n", payload, digest, signature, error));
-  EXPECT_FALSE(onboarding::verify_bundle(public_key_pem(key.get()).substr(0, 40), payload, digest, signature, error)) << "truncated PEM";
+  EXPECT_FALSE(onboarding::verify_bundle("not a pem at all", payload, descriptor, signature, error));
+  EXPECT_FALSE(
+      onboarding::verify_bundle("-----BEGIN PUBLIC KEY-----\nnot base64\n-----END PUBLIC KEY-----\n", payload, descriptor, signature, error));
+  EXPECT_FALSE(onboarding::verify_bundle(public_key_pem(key.get()).substr(0, 40), payload, descriptor, signature, error)) << "truncated PEM";
 
   // A private key is not a public key, and another algorithm is not Ed25519.
   const std::unique_ptr<BIO, bio_deleter> bio(BIO_new(BIO_s_mem()));
   PEM_write_bio_PrivateKey(bio.get(), key.get(), nullptr, nullptr, 0, nullptr, nullptr);
   char *data = nullptr;
   const long len = BIO_get_mem_data(bio.get(), &data);
-  EXPECT_FALSE(onboarding::verify_bundle(std::string(data, static_cast<std::size_t>(len)), payload, digest, signature, error)) << "private key PEM";
+  EXPECT_FALSE(onboarding::verify_bundle(std::string(data, static_cast<std::size_t>(len)), payload, descriptor, signature, error)) << "private key PEM";
 
   const pkey_ptr rsa = generate_rsa();
   ASSERT_TRUE(rsa);
-  EXPECT_FALSE(onboarding::verify_bundle(public_key_pem(rsa.get()), payload, digest, signature, error)) << "RSA key with an Ed25519 signature";
+  EXPECT_FALSE(onboarding::verify_bundle(public_key_pem(rsa.get()), payload, descriptor, signature, error)) << "RSA key with an Ed25519 signature";
 }
 
 TEST(SyncVerifyHostile, TheWrongKeyOfTheRightTypeIsStillTheWrongKey) {
@@ -806,18 +905,117 @@ TEST(SyncVerifyHostile, TheWrongKeyOfTheRightTypeIsStillTheWrongKey) {
   const pkey_ptr ours = generate_ed25519();
   const pkey_ptr theirs = generate_ed25519();
   const std::string payload = "bundle-bytes-here";
+  const onboarding::bundle_descriptor descriptor = descriptor_for(payload);
   std::string error;
-  EXPECT_FALSE(onboarding::verify_bundle(public_key_pem(ours.get()), payload, onboarding::sha256_hex(payload), sign_bundle(theirs.get(), payload), error));
-  EXPECT_TRUE(onboarding::verify_bundle(public_key_pem(theirs.get()), payload, onboarding::sha256_hex(payload), sign_bundle(theirs.get(), payload), error))
-      << error;
+  EXPECT_FALSE(onboarding::verify_bundle(public_key_pem(ours.get()), payload, descriptor, sign_bundle(theirs.get(), descriptor), error));
+  EXPECT_TRUE(onboarding::verify_bundle(public_key_pem(theirs.get()), payload, descriptor, sign_bundle(theirs.get(), descriptor), error)) << error;
 }
 
 TEST(SyncVerifyHostile, VerifiesLargeBundlesToo) {
   const pkey_ptr key = generate_ed25519();
   const std::string payload(4u * 1024u * 1024u, 'z');
+  const onboarding::bundle_descriptor descriptor = descriptor_for(payload);
   std::string error;
-  EXPECT_TRUE(onboarding::verify_bundle(public_key_pem(key.get()), payload, onboarding::sha256_hex(payload), sign_bundle(key.get(), payload), error))
-      << error;
+  EXPECT_TRUE(onboarding::verify_bundle(public_key_pem(key.get()), payload, descriptor, sign_bundle(key.get(), descriptor), error)) << error;
+}
+
+// --- the bundle signing descriptor -------------------------------------------
+//
+// These mirror the server's own tests (fleet_core::bundlesig): if the two
+// encodings ever disagree, nothing this host is sent will verify.
+
+TEST(SyncDescriptor, CarriesTheVersionPrefix) {
+  // The prefix is what makes a future shape change a verification failure
+  // rather than a silent reinterpretation, so it is worth pinning literally.
+  const std::string bytes = descriptor_for("payload").signing_bytes();
+  EXPECT_EQ(bytes.compare(0, 28, "nsclient-fleet/bundle-sig/v2"), 0) << bytes.substr(0, 40);
+}
+
+TEST(SyncDescriptor, IsTheDocumentedByteSequence) {
+  onboarding::bundle_descriptor descriptor;
+  descriptor.tenant_id = 7;
+  descriptor.bundle_id = "01J0A";
+  descriptor.name = "checks";
+  descriptor.version = "1.0.0";
+  descriptor.format = "plain";
+  descriptor.sha256_hex = "ab";
+  const std::string expected = std::string("nsclient-fleet/bundle-sig/v2") + '\0' + "7" + '\0' + "01J0A" + '\0' + "checks" + '\0' +
+                               "1.0.0" + '\0' + "plain" + '\0' + "ab";
+  EXPECT_EQ(descriptor.signing_bytes(), expected);
+}
+
+TEST(SyncDescriptor, EveryFieldChangesTheSigningBytes) {
+  const onboarding::bundle_descriptor base = descriptor_for("payload");
+  const std::string bytes = base.signing_bytes();
+
+  onboarding::bundle_descriptor other_tenant = base;
+  other_tenant.tenant_id = 8;
+  onboarding::bundle_descriptor other_id = base;
+  other_id.bundle_id = "01J0B";
+  onboarding::bundle_descriptor other_name = base;
+  other_name.name = "secrets";
+  onboarding::bundle_descriptor other_version = base;
+  other_version.version = "1.0.1";
+  onboarding::bundle_descriptor other_format = base;
+  other_format.format = "enc-v1";
+  onboarding::bundle_descriptor other_digest = base;
+  other_digest.sha256_hex = onboarding::sha256_hex("something else");
+
+  for (const onboarding::bundle_descriptor &other : {other_tenant, other_id, other_name, other_version, other_format, other_digest}) {
+    EXPECT_NE(bytes, other.signing_bytes());
+  }
+}
+
+TEST(SyncDescriptor, FieldsCannotBeRunTogether) {
+  // The NUL separator is what stops ("ab", "c") and ("a", "bc") colliding -
+  // i.e. one signature covering two different bundles.
+  onboarding::bundle_descriptor left = descriptor_for("payload");
+  left.name = "ab";
+  left.version = "c";
+  onboarding::bundle_descriptor right = left;
+  right.name = "a";
+  right.version = "bc";
+  EXPECT_NE(left.signing_bytes(), right.signing_bytes());
+}
+
+TEST(SyncDescriptor, RendersTheTenantIdAsPlainDecimal) {
+  // Not through a stringstream: a global locale with digit grouping would
+  // render 1234 as "1,234" and silently break every signature on the host.
+  onboarding::bundle_descriptor descriptor;
+  descriptor.tenant_id = 1234567;
+  const std::string bytes = descriptor.signing_bytes();
+  EXPECT_NE(bytes.find("1234567"), std::string::npos) << bytes;
+  EXPECT_EQ(bytes.find(','), std::string::npos) << bytes;
+
+  descriptor.tenant_id = std::numeric_limits<long long>::min();
+  EXPECT_NE(descriptor.signing_bytes().find("-9223372036854775808"), std::string::npos) << "LLONG_MIN cannot be negated";
+  descriptor.tenant_id = 0;
+  EXPECT_NE(descriptor.signing_bytes().find(std::string(1, '\0') + "0" + '\0'), std::string::npos) << "zero is a digit, not an empty field";
+}
+
+TEST(SyncDescriptor, DescribeBundleTakesTheResponseFieldsVerbatim) {
+  onboarding::bundle_info bundle;
+  bundle.id = "01J0A";
+  bundle.name = "checks";
+  bundle.version = "1.0.0";
+  bundle.format = "enc-v1";
+  bundle.sha256 = onboarding::sha256_hex("payload");
+  bundle.priority = 42;
+  const onboarding::bundle_descriptor descriptor = onboarding::describe_bundle(7, bundle);
+
+  EXPECT_EQ(descriptor.tenant_id, 7);
+  EXPECT_EQ(descriptor.bundle_id, bundle.id);
+  EXPECT_EQ(descriptor.name, bundle.name);
+  EXPECT_EQ(descriptor.version, bundle.version);
+  EXPECT_EQ(descriptor.format, bundle.format);
+  EXPECT_EQ(descriptor.sha256_hex, bundle.sha256);
+
+  // Priority is deliberately outside the descriptor: it belongs to a group
+  // assignment, and the same bundle legitimately carries different priorities
+  // in different groups, so signing it would make one of them unverifiable.
+  onboarding::bundle_info reprioritised = bundle;
+  reprioritised.priority = 7;
+  EXPECT_EQ(descriptor.signing_bytes(), onboarding::describe_bundle(7, reprioritised).signing_bytes());
 }
 
 // --- transport error classification ------------------------------------------

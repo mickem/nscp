@@ -104,7 +104,7 @@ bool session_manager_interface::process_auth_header(const std::string &grant, Mo
 }
 
 bool session_manager_interface::process_auth_header(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response,
-                                                   std::string *matched_grant) {
+                                                    std::string *matched_grant) {
   const std::string remote_ip = request.getRemoteIp();
   if (rate_limiter.is_blocked(remote_ip)) {
     NSC_LOG_ERROR("Rate-limited authentication attempt from " + remote_ip);
@@ -270,8 +270,7 @@ bool session_manager_interface::store_user_in_response(const std::string &user, 
   return true;
 }
 
-void session_manager_interface::store_session_in_response(const std::string &token, const std::string &user,
-                                                          Mongoose::StreamResponse &response) const {
+void session_manager_interface::store_session_in_response(const std::string &token, const std::string &user, Mongoose::StreamResponse &response) const {
   response.setCookie("token", token);
   response.setCookie("uid", user);
 }
@@ -343,17 +342,13 @@ void session_manager_interface::add_grant(const std::string &role, const std::st
 
 std::string session_manager_interface::get_metrics() { return metrics_store.get(); }
 std::string session_manager_interface::get_metrics_v2() { return metrics_store.get_list(); }
-std::string session_manager_interface::get_open_metrics() {
-  std::string metrics;
-  for (const std::string &m : metrics_store.get_openmetrics()) {
-    metrics += m + "\n";
-  }
-  return metrics;
-}
-void session_manager_interface::set_metrics(const std::string &metrics, const std::string &metrics_list, std::list<std::string> open_metrics) {
+std::string session_manager_interface::get_open_metrics() { return metrics_store.get_openmetrics(); }
+std::string session_manager_interface::get_prometheus_metrics() { return metrics_store.get_prometheus_text(); }
+void session_manager_interface::set_metrics(const std::string &metrics, const std::string &metrics_list, const std::string &open_metrics,
+                                            const std::string &prometheus_metrics) {
   metrics_store.set(metrics);
   metrics_store.set_list(metrics_list);
-  metrics_store.set_openmetrics(open_metrics);
+  metrics_store.set_openmetrics(open_metrics, prometheus_metrics);
 }
 
 void session_manager_interface::add_log_message(const bool is_error, const error_handler_interface::log_entry &entry) const {
