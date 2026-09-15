@@ -246,12 +246,21 @@ describe("plugin threading", () => {
         "    (code, msg, perf) = core.simple_query('py_inner', [])",
         "    return (status.OK, 'nested saw: %s [%s]' % (msg, sentinel))",
         "",
+        "def native(arguments):",
+        "    # ctypes is a C extension: importing it resolves libpython's",
+        "    # symbols, which only works when the module dlopen'd libpython",
+        "    # RTLD_GLOBAL. That depends on the 'python lib' setting having",
+        "    # been read before Py_Initialize ran.",
+        "    import ctypes",
+        "    return (status.OK, 'native ok %d' % ctypes.sizeof(ctypes.c_int))",
+        "",
         "def init(pid, plugin_alias, script_alias):",
         "    global plugin_id",
         "    plugin_id = pid",
         "    reg = Registry.get(plugin_id)",
         "    reg.simple_function('py_inner', inner, 'innermost self-query target')",
         "    reg.simple_function('py_nested', nested, 'queries a command its own module serves')",
+        "    reg.simple_function('py_native', native, 'imports a C extension module')",
         "",
       ].join("\n"),
     );
@@ -399,6 +408,15 @@ describe("plugin threading", () => {
     // boot. Nothing caught it because no suite enabled the module with a
     // script. Reaching this assertion at all means the agent came up.
     expect(await nrpe("py_inner")).toContain("inner reached");
+  });
+
+  itPy("can import a C extension module from a python script", async () => {
+    // Regression guard for the other half of the interpreter bring-up: the
+    // "python lib" setting has to be read before Py_Initialize, or the
+    // RTLD_GLOBAL dlopen is skipped and every C extension module fails with
+    // "undefined symbol: PyTuple_Type" - which takes protobuf, and so the
+    // bundled scripts, down with it. A pure-Python script never notices.
+    expect(await nrpe("py_native")).toContain("native ok");
   });
 
   itPy("lets a python script query a command its own module serves", async () => {
