@@ -548,6 +548,13 @@ def my_metrics():
 | `unit`  | no       | What the value is measured in (`bytes`, `seconds`, `percent`, …). Becomes the `# UNIT` line, and the metric name is made to end in it, which OpenMetrics requires of a metric that declares one. Leave it off for a plain count and for a per-second rate. |
 | `type`  | no       | `gauge` (the default), `counter` for a value that only grows while the script runs, or `unknown`. Anything else is reported as a gauge and logged once, so a typo is visible. |
 
+A unit becomes part of the metric name, so it has to be spelled in
+`[a-zA-Z0-9_]`; anything else is rewritten the way a name is (`bytes/sec`
+becomes `bytes_sec`) or dropped if nothing usable is left, and the agent logs
+it. A `counter` whose key already ends in `_total` does not get the suffix
+twice — the family is named without it and the sample carries it, as the
+specification requires.
+
 Both forms may be mixed in one dict, and a plain value keeps meaning exactly
 what it always did: a gauge with no description. A string value, in either
 form, becomes a label of the bundle's `_info` family rather than a sample.

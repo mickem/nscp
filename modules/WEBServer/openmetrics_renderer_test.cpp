@@ -663,6 +663,183 @@ TEST(OpenmetricsRenderer, TheRootBundleWithNoKeyStillProducesUsableNames) {
             "# EOF\n");
 }
 
+// --- what a producer can hand over that would break the body ----------------
+
+TEST(OpenmetricsRenderer, AUnitIsHeldToTheSameGrammarAsAName) {
+  // A unit is producer-supplied - an operator writes it next to a PDH counter,
+  // a Python script returns it - and it reaches both the family name and the
+  // `# UNIT` line. Pasted in verbatim, `bytes/sec` makes a document no parser
+  // accepts, which costs the scraper every other metric in the body too.
+  snapshot s;
+  PB::Metrics::MetricsBundle *b = s.bundle("disk");
+  snapshot::described(snapshot::gauge(b, "read", 1024.0), "Bytes read per second", "bytes/sec");
+
+  std::vector<std::string> problems;
+  const std::string body = render(s, &problems);
+
+  EXPECT_EQ(body,
+            "# HELP disk_read_bytes_sec Bytes read per second\n"
+            "# TYPE disk_read_bytes_sec gauge\n"
+            "# UNIT disk_read_bytes_sec bytes_sec\n"
+            "disk_read_bytes_sec 1024\n"
+            "# EOF\n");
+  // And the operator is told, because the unit they configured is not the one
+  // the scraper sees.
+  ASSERT_EQ(problems.size(), 1u);
+  EXPECT_TRUE(contains(problems[0], "bytes/sec"));
+  EXPECT_TRUE(contains(problems[0], "bytes_sec"));
+}
+
+TEST(OpenmetricsRenderer, AUnitThatSanitisesAwayEntirelyIsDroppedNotEmitted) {
+  // `_` or `///` leaves nothing that can be part of a name. Emitting
+  // `# UNIT foo ` with an empty unit is not a line the grammar has.
+  snapshot s;
+  PB::Metrics::MetricsBundle *b = s.bundle("odd");
+  snapshot::described(snapshot::gauge(b, "value", 1.0), "Something", "///");
+
+  std::vector<std::string> problems;
+  const std::string body = render(s, &problems);
+
+  EXPECT_EQ(body,
+            "# HELP odd_value Something\n"
+            "# TYPE odd_value gauge\n"
+            "odd_value 1\n"
+            "# EOF\n");
+  ASSERT_EQ(problems.size(), 1u);
+  EXPECT_TRUE(contains(problems[0], "Ignoring the unit"));
+}
+
+TEST(OpenmetricsRenderer, AUnitNeverBorrowsTheNamePrefix) {
+  // `sanitize_name` gives a name that would not start with a letter a
+  // `metric_` prefix. A unit is a fragment of a name, not a name, so
+  // `metric_` in the middle of one would be nonsense.
+  snapshot s;
+  PB::Metrics::MetricsBundle *b = s.bundle("odd");
+  snapshot::described(snapshot::gauge(b, "value", 1.0), "Something", "2x");
+
+  const std::string body = render(s);
+
+  EXPECT_TRUE(contains(body, "odd_value_2x 1\n"));
+  EXPECT_FALSE(contains(body, "metric_"));
+}
+
+TEST(OpenmetricsRenderer, AMetricWithNoValueAtAllIsSkippedRatherThanZeroed) {
+  // A producer can key a metric and never value it. Reading the gauge out of
+  // it hands back the message default, so the endpoint would publish a 0
+  // nobody measured - while /api/v2/metrics, which asks whether there is a
+  // value, omits the metric entirely. The two views must agree.
+  snapshot s;
+  PB::Metrics::MetricsBundle *b = s.bundle("plugin");
+  b->add_value()->set_key("keyed_but_never_valued");
+  snapshot::gauge(b, "real", 5.0);
+
+  EXPECT_EQ(render(s),
+            "# TYPE plugin_real gauge\n"
+            "plugin_real 5\n"
+            "# EOF\n");
+}
+
+TEST(OpenmetricsRenderer, ACounterNamedTotalDoesNotTakeTheSuffixTwice) {
+  // A Python script declaring `requests_total` as a counter has no way to
+  // avoid this: the sample would be `requests_total_total`, and OpenMetrics
+  // separately forbids a counter family name ending in `_total`.
+  snapshot s;
+  PB::Metrics::MetricsBundle *b = s.bundle("app");
+  snapshot::counter(b, "requests_total", 42.0);
+
+  EXPECT_EQ(render(s),
+            "# TYPE app_requests counter\n"
+            "app_requests_total 42\n"
+            "# EOF\n");
+  // And the older format, which names the sample, is unchanged by the strip.
+  EXPECT_EQ(render_text(s),
+            "# TYPE app_requests_total counter\n"
+            "app_requests_total 42\n"
+            "# EOF\n");
+}
+
+TEST(OpenmetricsRenderer, ACounterKeepsItsUnitBeforeTheTotalSuffix) {
+  // Both rewrites apply, in the order the spec wants: unit on the family name,
+  // `_total` on the sample.
+  snapshot s;
+  PB::Metrics::MetricsBundle *b = s.bundle("app");
+  snapshot::described(snapshot::counter(b, "cpu_total", 12.5), "CPU time used", "seconds");
+
+  EXPECT_TRUE(contains(render(s), "# TYPE app_cpu_total_seconds counter\n"));
+  EXPECT_TRUE(contains(render(s), "app_cpu_total_seconds_total 12.5\n"));
+}
+
+TEST(OpenmetricsRenderer, AStringCannotWriteALabelTheDimensionsAlreadyCarry) {
+  // The first string metric of a series used to be added without checking it
+  // against the dimensions the series was created with, so a metric keyed
+  // `core` in a bundle whose metrics carry a `core` label wrote `core` twice
+  // into one label set - a duplicate a strict parser rejects the body over.
+  snapshot s;
+  PB::Metrics::MetricsBundle *b = s.bundle("cpu");
+  PB::Metrics::Metric *m = snapshot::string_metric(b, "core", "performance");
+  snapshot::labelled(m, "core", "0");
+
+  std::vector<std::string> problems;
+  const std::string body = render(s, &problems);
+
+  EXPECT_EQ(body,
+            "# TYPE cpu info\n"
+            "cpu_info{core=\"0\"} 1\n"
+            "# EOF\n");
+  ASSERT_EQ(problems.size(), 1u);
+  EXPECT_TRUE(contains(problems[0], "already on this bundle's info series"));
+}
+
+TEST(OpenmetricsRenderer, TwoStringsOfOneSeriesCannotShareALabelName) {
+  // The same check on the path that was already covered: two keys sanitising
+  // to one label name.
+  snapshot s;
+  PB::Metrics::MetricsBundle *b = s.bundle("net");
+  snapshot::string_metric(b, "link.state", "up");
+  snapshot::string_metric(b, "link state", "down");
+
+  std::vector<std::string> problems;
+  const std::string body = render(s, &problems);
+
+  EXPECT_EQ(body,
+            "# TYPE net info\n"
+            "net_info{link_state=\"up\"} 1\n"
+            "# EOF\n");
+  EXPECT_EQ(problems.size(), 1u);
+}
+
+// --- both bodies from one walk ----------------------------------------------
+
+TEST(OpenmetricsRenderer, RenderBothMatchesRenderingEachOnItsOwn) {
+  // The endpoint walks the snapshot once and emits twice. That has to be the
+  // same output as two independent renders, or the negotiated bodies drift
+  // apart from what the tests above pin.
+  snapshot s;
+  PB::Metrics::MetricsBundle *system = s.bundle("system");
+  PB::Metrics::MetricsBundle *mem = snapshot::child(system, "mem");
+  snapshot::described(snapshot::gauge(mem, "physical.used", 17175158784.0), "Physical memory in use", "bytes");
+  snapshot::described(snapshot::counter(system, "jobs", 7.0), "Jobs run since start");
+  snapshot::string_metric(system, "uptime", "1d 12:30");
+
+  const openmetrics::exposition both = openmetrics::render_both(s.message());
+
+  EXPECT_EQ(both.openmetrics, render(s));
+  EXPECT_EQ(both.prometheus_text, render_text(s));
+}
+
+TEST(OpenmetricsRenderer, RenderBothReportsEachProblemOnce) {
+  // Two walks would find every producer problem twice and log it twice.
+  snapshot s;
+  PB::Metrics::MetricsBundle *mem = s.bundle("mem");
+  snapshot::gauge(mem, "used.%", 73.0);
+  snapshot::gauge(mem, "used percent", 99.0);
+
+  std::vector<std::string> problems;
+  openmetrics::render_both(s.message(), &problems);
+
+  EXPECT_EQ(problems.size(), 1u);
+}
+
 // --- the aggregate types ----------------------------------------------------
 
 TEST(OpenmetricsRenderer, ASummaryRendersItsQuantilesSumAndCount) {

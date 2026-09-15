@@ -59,7 +59,17 @@ What to do:
     which reproduces the pre-0.21 body byte for byte, with no metadata at all.
     It is deprecated and **will be removed in a future release**.
 
-Two smaller changes come with it:
+* **Windows only: `system.mem.page.%` and `system.mem.physical.%` report
+  different numbers now, because they were reporting the wrong thing.** Both
+  divided the *commit charge* by the commit limit while checking their own
+  total for zero, so they published the commit figure under a page-file and a
+  physical-memory name — and divided by zero on a machine that reported a page
+  file or physical memory but no commit limit. Each reads its own numbers now.
+  The JSON keys and the metric names are unchanged; only the values are, and
+  they were wrong before. An alert threshold tuned against the old reading
+  needs re-checking.
+
+Three smaller changes come with it:
 
 * **The two negotiated bodies are no longer identical.** The endpoint already
   answered `application/openmetrics-text; version=1.0.0` or

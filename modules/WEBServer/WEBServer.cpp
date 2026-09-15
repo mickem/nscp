@@ -1224,11 +1224,11 @@ void WEBServer::submitMetrics(const PB::Metrics::MetricsMessage &response) const
     // renderer keeps the first and hands back a line per metric it dropped;
     // that is a producer bug the operator has to see, not something to hide -
     // but only once, since the same bad key collides again on every snapshot.
-    // Only the first pass reports: the second walks the same metrics and would
-    // say everything twice.
+    // One walk produces both bodies, so each problem is found once.
     std::vector<std::string> problems;
-    open_metrics = openmetrics::render(response, openmetrics::dialect::openmetrics_1_0, &problems);
-    prometheus_text = openmetrics::render(response, openmetrics::dialect::prometheus_text_0_0_4);
+    const openmetrics::exposition rendered = openmetrics::render_both(response, &problems);
+    open_metrics = rendered.openmetrics;
+    prometheus_text = rendered.prometheus_text;
     for (const std::string &problem : problems) {
       {
         const boost::mutex::scoped_lock lock(openmetrics_problem_mutex_);

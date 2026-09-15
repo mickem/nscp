@@ -148,6 +148,12 @@ unit                =
 | `help` | Becomes the `# HELP` line of the metric. Defaults to the counter path, which is better than nothing but reads like a path. |
 | `unit` | Becomes the `# UNIT` line, and the metric name is made to end in `_<unit>`, which OpenMetrics requires of a metric that declares one. Leave it empty for a plain count, a queue length or a per-second rate. |
 
+A unit becomes part of a metric name, so it has to be spelled in
+`[a-zA-Z0-9_]`. Anything else is rewritten the way a metric name is
+(`bytes/sec` becomes `bytes_sec`), or dropped if nothing usable is left, and
+the agent logs which counter it happened to — the metric itself is still
+published either way.
+
 Neither key changes what `check_pdh` returns or what the JSON metrics endpoint
 reports — they only describe the counter to a scraper.
 

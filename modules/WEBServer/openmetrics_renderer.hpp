@@ -90,6 +90,19 @@ std::string content_type_for(dialect dialect);
 // the renderer keeps the first and never emits a duplicate family.
 std::string render(const PB::Metrics::MetricsMessage &response, dialect dialect, std::vector<std::string> *problems = nullptr);
 
+// Both bodies of one snapshot.
+struct exposition {
+  std::string openmetrics;
+  std::string prometheus_text;
+};
+
+// What the endpoint actually calls: the two bodies differ only in a handful of
+// metadata lines, so the snapshot is walked once and the families it produces
+// are emitted twice. Rendering each body on its own would allocate every
+// family, sample and label string a second time on every metrics tick, and
+// would report each producer problem twice over.
+exposition render_both(const PB::Metrics::MetricsMessage &response, std::vector<std::string> *problems = nullptr);
+
 // The exposition as it was emitted before the renderer existed: one
 // `<bundle path>_<key> <value>` line per gauge, keys verbatim, values through
 // `str::xtos`, strings skipped, no metadata. Kept behind the `openmetrics

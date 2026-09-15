@@ -1352,17 +1352,22 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
     metric(mem, "page.avail").help("Page file space still available").unit("bytes").gauge(mem_data.page.avail);
     metric(mem, "page.total").help("Page file space in total").unit("bytes").gauge(mem_data.page.total);
     metric(mem, "page.used").help("Page file space in use").unit("bytes").gauge(mem_data.page.total - mem_data.page.avail);
+    // Both of these used to divide the *commit charge* by the commit limit
+    // while guarding on their own total, so they published the commit figure
+    // under a page-file and a physical-memory name - and divided by zero
+    // whenever a machine reported a page file or physical memory but no commit
+    // limit. Each reads its own numbers now.
     metric(mem, "page.%")
         .help("Share of the page file still available")
         .unit("percent")
-        .gauge(mem_data.page.total == 0 ? 0 : (100 * mem_data.commited.avail) / mem_data.commited.total);
+        .gauge(mem_data.page.total == 0 ? 0 : (100 * mem_data.page.avail) / mem_data.page.total);
     metric(mem, "physical.avail").help("Physical memory still available").unit("bytes").gauge(mem_data.phys.avail);
     metric(mem, "physical.total").help("Physical memory fitted in the machine").unit("bytes").gauge(mem_data.phys.total);
     metric(mem, "physical.used").help("Physical memory in use").unit("bytes").gauge(mem_data.phys.total - mem_data.phys.avail);
     metric(mem, "physical.%")
         .help("Share of physical memory still available")
         .unit("percent")
-        .gauge(mem_data.phys.total == 0 ? 0 : (100 * mem_data.commited.avail) / mem_data.commited.total);
+        .gauge(mem_data.phys.total == 0 ? 0 : (100 * mem_data.phys.avail) / mem_data.phys.total);
   } catch (CheckMemoryException &e) {
     NSC_LOG_ERROR("Failed to getch memory metrics: " + e.reason());
   }

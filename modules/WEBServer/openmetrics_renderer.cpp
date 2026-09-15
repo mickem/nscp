@@ -13,11 +13,43 @@ namespace openmetrics {
 
 namespace {
 
+// The character rules both a name and a unit obey: `%` reads as the word, and
+// everything outside `[a-zA-Z0-9_]` becomes a single `_`. What a *name* then
+// needs on top of this - a leading letter - is in `sanitize_name`.
+std::string to_grammar(const std::string &raw) {
+  std::string expanded;
+  expanded.reserve(raw.size());
+  for (const char c : raw) {
+    if (c == '%') {
+      expanded += "percent";
+    } else {
+      expanded += c;
+    }
+  }
+  std::string ret;
+  ret.reserve(expanded.size());
+  for (const char c : expanded) {
+    const bool legal = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
+    if (legal) {
+      ret += c;
+      continue;
+    }
+    // Every separator, whether it was already a `_` or is standing in for
+    // something illegal, collapses into a single one. `a...b`, `a b` and
+    // `a_-_b` all land on `a_b`, and - the case that actually turns up -
+    // `disk.free.C:` joined to `_total` gives `disk_free_C_total` rather than
+    // a stray `C__total`.
+    if (!ret.empty() && ret[ret.size() - 1] == '_') continue;
+    ret += '_';
+  }
+  return ret;
+}
+
 // What a producer said the metric is, by which member of the `value` oneof it
 // set. Not the same word in the two expositions, and not the same family name
 // either, which is why the renderer carries the type around rather than the
 // word.
-enum class metric_type { gauge, counter, unknown, info, summary, histogram };
+enum class metric_type { none, gauge, counter, unknown, info, summary, histogram };
 
 // The suffix the spec gives the *sample* of a family of this type. A counter
 // family `foo` has the sample `foo_total`; an info family `foo` has `foo_info`;
@@ -144,11 +176,47 @@ struct family_set {
 // that unit, so a producer only has to say `bytes` once and the suffix follows.
 // A key that already ends in it (`system.mem.physical.%` sanitised to
 // `..._percent`, a frequency in `..._mhz`) keeps the name it had.
+bool ends_with(const std::string &value, const std::string &suffix) {
+  return value.size() > suffix.size() && value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
 std::string with_unit(const std::string &name, const std::string &unit) {
   if (unit.empty()) return name;
   const std::string suffix = "_" + unit;
-  if (name.size() >= suffix.size() && name.compare(name.size() - suffix.size(), suffix.size(), suffix) == 0) return name;
+  if (ends_with(name, suffix) || name == unit) return name;
   return name + suffix;
+}
+
+// The sample of a counter is `<family>_total` and of an info family
+// `<family>_info`, so a family whose own name already ends that way would have
+// the suffix twice - `requests_total` declared as a counter giving a
+// `requests_total_total` sample. OpenMetrics separately forbids a counter
+// family name ending in `_total`, and a producer naming its metric
+// `requests_total` has no way to avoid either. Take the suffix off the family
+// name and let the sample put it back, the same way `with_unit` leaves a name
+// that already ends in its unit alone.
+std::string without_type_suffix(const std::string &name, const metric_type type) {
+  const std::string suffix = sample_suffix(type);
+  if (suffix.empty() || !ends_with(name, suffix)) return name;
+  return name.substr(0, name.size() - suffix.size());
+}
+
+// A producer-supplied unit reaches the family name and the `# UNIT` line, so
+// it is held to the same character grammar as a name: an operator writing
+// `bytes/sec` against a PDH counter, or a Python script returning it, would
+// otherwise emit a line no parser accepts and cost the scraper the entire
+// body.
+//
+// It is *only* the character grammar, not `sanitize_name`: the rules that make
+// a name start with a letter belong to a name, and a unit is a fragment pasted
+// on after a `_`. Running `///` through `sanitize_name` would give the unit
+// `metric`, which is the empty-name placeholder and not a unit at all. A unit
+// with nothing usable left is dropped instead, and the caller reports it.
+std::string sanitize_unit(const std::string &raw) {
+  std::string ret = to_grammar(raw);
+  while (!ret.empty() && ret[0] == '_') ret = ret.substr(1);
+  while (!ret.empty() && ret[ret.size() - 1] == '_') ret = ret.substr(0, ret.size() - 1);
+  return ret;
 }
 
 std::string render_labels(const label_list &labels) {
@@ -182,12 +250,17 @@ struct info_series {
 };
 
 metric_type type_of(const PB::Metrics::Metric &metric) {
+  if (metric.has_gauge_value()) return metric_type::gauge;
   if (metric.has_counter_value()) return metric_type::counter;
   if (metric.has_untyped_value()) return metric_type::unknown;
   if (metric.has_string_value()) return metric_type::info;
   if (metric.has_summary_value()) return metric_type::summary;
   if (metric.has_histogram_value()) return metric_type::histogram;
-  return metric_type::gauge;
+  // A producer can key a metric and never give it a value - `add_value()`
+  // followed by `set_key()` and nothing else. Reading the gauge out of it
+  // would hand back the message default and publish a 0 nobody measured,
+  // while every other consumer skips the metric entirely.
+  return metric_type::none;
 }
 
 void add_numeric(family &target, const std::string &labels, const double value) {
@@ -258,9 +331,35 @@ void report(std::vector<std::string> *problems, const std::string &trail, const 
   problems->push_back("Dropping metric '" + trail + "." + key + "' from the OpenMetrics exposition: it renders as '" + name + "' and " + why + ".");
 }
 
+// A unit the producer wrote that the grammar would not accept. The metric is
+// still published - dropping a reading over its label would be worse - but the
+// operator has to be told, because the unit they configured is not the one the
+// scraper sees.
+void report_unit(std::vector<std::string> *problems, const std::string &trail, const std::string &key, const std::string &raw, const std::string &used) {
+  if (problems == nullptr) return;
+  if (used.empty()) {
+    problems->push_back("Ignoring the unit '" + raw + "' on metric '" + trail + "." + key +
+                        "': a unit has to be spelled in [a-zA-Z0-9_] to be part of an OpenMetrics name.");
+    return;
+  }
+  problems->push_back("Rewriting the unit '" + raw + "' on metric '" + trail + "." + key + "' to '" + used +
+                      "': a unit has to be spelled in [a-zA-Z0-9_] to be part of an OpenMetrics name.");
+}
+
+bool has_label(const label_list &labels, const std::string &name) {
+  for (const std::pair<std::string, std::string> &label : labels) {
+    if (label.first == name) return true;
+  }
+  return false;
+}
+
 // Folds one string metric into the bundle's info series that carries its label
-// set, creating that series on first use.
-void add_info(std::vector<info_series> &info, const label_list &dims, const std::string &label_name, const std::string &value, const std::string &help) {
+// set, creating that series on first use. Returns false when the series
+// already carries that label name - which includes the labels it was created
+// with, since a string metric keyed `core` in a bundle whose metrics carry a
+// `core` dimension would otherwise write `core` twice into one label set and
+// cost the scraper the whole body.
+bool add_info(std::vector<info_series> &info, const label_list &dims, const std::string &label_name, const std::string &value, const std::string &help) {
   std::string dims_key;
   for (const std::pair<std::string, std::string> &dim : dims) dims_key += dim.first + "=" + dim.second + "\x1f";
   size_t at = 0;
@@ -272,24 +371,10 @@ void add_info(std::vector<info_series> &info, const label_list &dims, const std:
     added.help = help;
     info.push_back(added);
   }
+  if (has_label(info[at].labels, label_name)) return false;
   if (info[at].help.empty()) info[at].help = help;
   info[at].labels.push_back(std::make_pair(label_name, value));
-}
-
-bool has_label(const label_list &labels, const std::string &name) {
-  for (const std::pair<std::string, std::string> &label : labels) {
-    if (label.first == name) return true;
-  }
-  return false;
-}
-
-const info_series *find_series(const std::vector<info_series> &info, const label_list &dims) {
-  std::string dims_key;
-  for (const std::pair<std::string, std::string> &dim : dims) dims_key += dim.first + "=" + dim.second + "\x1f";
-  for (const info_series &series : info) {
-    if (series.dims_key == dims_key) return &series;
-  }
-  return nullptr;
+  return true;
 }
 
 void collect(const PB::Metrics::MetricsBundle &bundle, const std::string &trail, family_set &out, std::vector<std::string> *problems) {
@@ -314,22 +399,30 @@ void collect(const PB::Metrics::MetricsBundle &bundle, const std::string &trail,
     // NIC) gets help text without repeating it on every metric.
     const std::string help = metric.desc().empty() ? bundle.desc() : metric.desc();
 
+    // A metric a producer keyed and never valued has nothing to publish, and
+    // reading a gauge out of it would invent a zero.
+    if (type == metric_type::none) continue;
+
     if (type == metric_type::info) {
       const std::string label_name = sanitize_name(leaf);
-      const info_series *existing = find_series(info, labels);
-      if (existing != nullptr && has_label(existing->labels, label_name)) {
-        report(problems, trail, metric.key(), label_name, "another string metric of this bundle already claimed that label");
-        continue;
+      if (!add_info(info, labels, label_name, metric.string_value().value(), help)) {
+        report(problems, trail, metric.key(), label_name, "that label is already on this bundle's info series");
       }
-      add_info(info, labels, label_name, metric.string_value().value(), help);
       continue;
     }
 
+    // A unit is producer-supplied and lands in both the family name and the
+    // `# UNIT` line, so it goes through the grammar like everything else.
+    const std::string unit = sanitize_unit(metric.unit());
+    if (unit != metric.unit()) {
+      report_unit(problems, trail, metric.key(), metric.unit(), unit);
+    }
     // Sanitise the joined path in one pass rather than per segment: that is
     // what collapses a run spanning a separator (`disk.io.` + `C:` would leave
-    // `disk_io__C_` if each part were cleaned on its own).
-    const std::string name = with_unit(sanitize_name(trail + "_" + leaf), metric.unit());
-    const size_t at = out.open(name, type, help, metric.unit(), suffixes_of(type));
+    // `disk_io__C_` if each part were cleaned on its own). The type's own
+    // suffix comes off afterwards so the sample can put it back exactly once.
+    const std::string name = without_type_suffix(with_unit(sanitize_name(trail + "_" + leaf), unit), type);
+    const size_t at = out.open(name, type, help, unit, suffixes_of(type));
     if (at == family_set::none) {
       report(problems, trail, metric.key(), name, "another metric already claimed that name");
       continue;
@@ -395,34 +488,42 @@ void collect_legacy(const PB::Metrics::MetricsBundle &bundle, const std::string 
   }
 }
 
+// Walk the snapshot into the ordered family set the two bodies share.
+family_set collect_snapshot(const PB::Metrics::MetricsMessage &response, std::vector<std::string> *problems) {
+  family_set collected;
+  for (const PB::Metrics::MetricsMessage::Response &payload : response.payload()) {
+    for (const PB::Metrics::MetricsBundle &bundle : payload.bundles()) {
+      collect(bundle, bundle.key(), collected, problems);
+    }
+  }
+  return collected;
+}
+
+// Write one body. Only the metadata lines depend on the dialect: the sample
+// lines are identical in both.
+std::string emit(const family_set &collected, const dialect dialect) {
+  std::string body;
+  for (const family &f : collected.families) {
+    const std::string described = f.name + metadata_suffix(f.type, dialect);
+    if (!f.help.empty()) body += "# HELP " + described + " " + escape_help(f.help) + "\n";
+    body += "# TYPE " + described + " " + type_word(f.type, dialect) + "\n";
+    // `# UNIT` is an OpenMetrics 1.0 line; the older parser reads it as a
+    // comment, so it costs nothing to leave in both bodies.
+    if (!f.unit.empty()) body += "# UNIT " + described + " " + f.unit + "\n";
+    for (const sample &s : f.samples) {
+      body += f.name + s.suffix + s.labels + " " + s.value + "\n";
+    }
+  }
+  // Mandatory in OpenMetrics 1.0, and a parser that only knows the older
+  // Prometheus text format reads it as a comment.
+  body += "# EOF\n";
+  return body;
+}
+
 }  // namespace
 
 std::string sanitize_name(const std::string &raw) {
-  std::string expanded;
-  expanded.reserve(raw.size());
-  for (const char c : raw) {
-    if (c == '%') {
-      expanded += "percent";
-    } else {
-      expanded += c;
-    }
-  }
-  std::string ret;
-  ret.reserve(expanded.size());
-  for (const char c : expanded) {
-    const bool legal = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
-    if (legal) {
-      ret += c;
-      continue;
-    }
-    // Every separator, whether it was already a `_` or is standing in for
-    // something illegal, collapses into a single one. `a...b`, `a b` and
-    // `a_-_b` all land on `a_b`, and - the case that actually turns up -
-    // `disk.free.C:` joined to `_total` gives `disk_free_C_total` rather than
-    // a stray `C__total`.
-    if (!ret.empty() && ret[ret.size() - 1] == '_') continue;
-    ret += '_';
-  }
+  const std::string ret = to_grammar(raw);
   // A name must start with a letter or an underscore, but OpenMetrics also
   // reserves every name that *begins* with an underscore, so the obvious `_`
   // prefix would trade one non-conformance for another. Borrow a letter
@@ -494,28 +595,18 @@ std::string content_type_for(const dialect dialect) {
 }
 
 std::string render(const PB::Metrics::MetricsMessage &response, const dialect dialect, std::vector<std::string> *problems) {
-  family_set collected;
-  for (const PB::Metrics::MetricsMessage::Response &payload : response.payload()) {
-    for (const PB::Metrics::MetricsBundle &bundle : payload.bundles()) {
-      collect(bundle, bundle.key(), collected, problems);
-    }
-  }
-  std::string body;
-  for (const family &f : collected.families) {
-    const std::string described = f.name + metadata_suffix(f.type, dialect);
-    if (!f.help.empty()) body += "# HELP " + described + " " + escape_help(f.help) + "\n";
-    body += "# TYPE " + described + " " + type_word(f.type, dialect) + "\n";
-    // `# UNIT` is an OpenMetrics 1.0 line; the older parser reads it as a
-    // comment, so it costs nothing to leave in both bodies.
-    if (!f.unit.empty()) body += "# UNIT " + described + " " + f.unit + "\n";
-    for (const sample &s : f.samples) {
-      body += f.name + s.suffix + s.labels + " " + s.value + "\n";
-    }
-  }
-  // Mandatory in OpenMetrics 1.0, and a parser that only knows the older
-  // Prometheus text format reads it as a comment.
-  body += "# EOF\n";
-  return body;
+  return emit(collect_snapshot(response, problems), dialect);
+}
+
+exposition render_both(const PB::Metrics::MetricsMessage &response, std::vector<std::string> *problems) {
+  // One walk, two bodies: everything except a handful of metadata lines is the
+  // same in both, and the producer problems are found while walking, so a
+  // second walk would only find them again.
+  const family_set collected = collect_snapshot(response, problems);
+  exposition ret;
+  ret.openmetrics = emit(collected, dialect::openmetrics_1_0);
+  ret.prometheus_text = emit(collected, dialect::prometheus_text_0_0_4);
+  return ret;
 }
 
 std::string render_legacy(const PB::Metrics::MetricsMessage &response) {
