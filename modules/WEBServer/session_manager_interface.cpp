@@ -342,12 +342,13 @@ void session_manager_interface::add_grant(const std::string &role, const std::st
 
 std::string session_manager_interface::get_metrics() { return metrics_store.get(); }
 std::string session_manager_interface::get_metrics_v2() { return metrics_store.get_list(); }
+std::string session_manager_interface::get_metrics_v2_described() { return metrics_store.get_described(); }
 std::string session_manager_interface::get_open_metrics() { return metrics_store.get_openmetrics(); }
 std::string session_manager_interface::get_prometheus_metrics() { return metrics_store.get_prometheus_text(); }
-void session_manager_interface::set_metrics(const std::string &metrics, const std::string &metrics_list, const std::string &open_metrics,
-                                            const std::string &prometheus_metrics) {
+void session_manager_interface::set_metrics(const std::string &metrics, const std::string &metrics_list, const std::string &metrics_metadata,
+                                            const std::string &open_metrics, const std::string &prometheus_metrics) {
   metrics_store.set(metrics);
-  metrics_store.set_list(metrics_list);
+  metrics_store.set_list(metrics_list, metrics_metadata);
   metrics_store.set_openmetrics(open_metrics, prometheus_metrics);
 }
 

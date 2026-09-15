@@ -19,6 +19,7 @@ struct graphite_target_object : public nscapi::targets::target_object {
     set_property_string("perf path", "nsclient.${hostname}.${check_alias}.${perf_alias}");
     set_property_string("status path", "nsclient.${hostname}.${check_alias}.status");
     set_property_string("metric path", "nsclient.${hostname}.${metric}");
+    set_property_bool("metric tags", false);
   }
   graphite_target_object(const nscapi::settings_objects::object_instance other, std::string alias, std::string path) : parent(other, alias, path) {}
 
@@ -51,7 +52,12 @@ struct graphite_target_object : public nscapi::targets::target_object {
 
           .add_string("metric path",
                       sh::string_fun_key([this](auto value) { this->set_property_string("metric path", value); }, "nsclient.${hostname}.${metric}"),
-                      "PATH FOR METRICS", "Path mapping for metrics");
+                      "PATH FOR METRICS", "Path mapping for metrics")
+
+          .add_bool("metric tags", sh::bool_fun_key([this](auto value) { this->set_property_bool("metric tags", value); }, false), "SEND METRIC TAGS",
+                    "Append each metric's labels to its path as carbon tags (`;core=0`), the dimensions the OpenMetrics exposition renders. The path itself is "
+                    "unchanged, so the carbon tree stays where it is. Off by default: a carbon older than 1.1 has no tag support and stores "
+                    "`path;tag=value` as the metric name, renaming every series that carries a label.");
     } else {
       root_path
           .add_key()
@@ -66,7 +72,12 @@ struct graphite_target_object : public nscapi::targets::target_object {
                     "Send performance data to this server")
 
           .add_bool("send status", sh::bool_fun_key([this](auto value) { this->set_property_bool("send status", value); }), "SEND STATUS",
-                    "Send status data to this server");
+                    "Send status data to this server")
+
+          .add_bool("metric tags", sh::bool_fun_key([this](auto value) { this->set_property_bool("metric tags", value); }), "SEND METRIC TAGS",
+                    "Append each metric's labels to its path as carbon tags (`;core=0`), the dimensions the OpenMetrics exposition renders. The path itself is "
+                    "unchanged, so the carbon tree stays where it is. Off by default: a carbon older than 1.1 has no tag support and stores "
+                    "`path;tag=value` as the metric name, renaming every series that carries a label.");
     }
 
     // Optional TLS. Carbon's line receiver is plaintext, so this is for talking

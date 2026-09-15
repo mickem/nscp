@@ -35,6 +35,7 @@ struct connection_data : public socket_helpers::connection_info {
   std::string sender_hostname;
   bool send_perf;
   bool send_status;
+  bool metric_tags;
 
   connection_data(client::destination_container sender, client::destination_container target) {
     address = target.address.host;
@@ -57,6 +58,7 @@ struct connection_data : public socket_helpers::connection_info {
     send_perf = target.get_bool_data("send perfdata");
     send_status = target.get_bool_data("send status");
     mpath = target.get_string_data("metric path");
+    metric_tags = target.get_bool_data("metric tags", false);
 
     // Optional TLS. Carbon itself is plaintext, so this targets a TLS-terminating
     // proxy (stunnel / nginx / carbon-relay-ng) in front of carbon.
@@ -110,6 +112,49 @@ std::string fix_graphite_string(const std::string &s) {
   str::utils::replace(sc, std::string("\0", 1), "_");
   return sc;
 }
+
+// A carbon tag name. On top of the path scrubbing above, Graphite reserves
+// `!`, `^` and `=` in a tag name - `=` is what separates the name from the
+// value, so a name carrying one silently moves the split point and renames
+// the tag.
+std::string fix_graphite_tag_key(const std::string &s) {
+  std::string sc = fix_graphite_string(s);
+  str::utils::replace(sc, "!", "_");
+  str::utils::replace(sc, "^", "_");
+  str::utils::replace(sc, "=", "_");
+  return sc;
+}
+
+// A carbon tag value. `=` is legal here (only the first one splits the pair),
+// but a leading `~` is not: Graphite strips it, so `~foo` and `foo` would be
+// the same tag and two different labels would collapse into one series.
+std::string fix_graphite_tag_value(const std::string &s) {
+  std::string sc = fix_graphite_string(s);
+  if (!sc.empty() && sc[0] == '~') sc[0] = '_';
+  return sc;
+}
+
+// The labels of one metric as carbon tags, appended to the metric path:
+// `nsclient.host.system.cpu.core_0.idle;core=0`. Off by default, because a
+// carbon that predates the tag support (Graphite 1.1) stores the whole
+// `path;tag=value` string as the metric name and every series is renamed.
+//
+// The dimensions are the same ones the OpenMetrics exposition renders, in the
+// order the producer declared them, so a Graphite tag and a Prometheus label
+// never disagree about what a sample was measured on. A pair either side of
+// which is empty after scrubbing is dropped rather than emitted as `=` or as a
+// bare name, which carbon rejects for the whole line.
+std::string render_graphite_tags(const PB::Metrics::Metric &metric) {
+  std::string tags;
+  for (const PB::Common::KeyValue &dim : metric.dims()) {
+    const std::string key = fix_graphite_tag_key(dim.key());
+    const std::string value = fix_graphite_tag_value(dim.value());
+    if (key.empty() || value.empty()) continue;
+    tags += ";" + key + "=" + value;
+  }
+  return tags;
+}
+
 namespace detail {
 // Deadline-bounded synchronous IO for the carbon submission, modeled on
 // SMTPClient's sync_io.
@@ -357,18 +402,22 @@ struct graphite_client_handler : public client::handler_interface {
     return false;
   }
 
-  void push_metrics(std::list<graphite_client::g_data> &list, const PB::Metrics::MetricsBundle &b, std::string path, std::string mpath) {
+  void push_metrics(std::list<graphite_client::g_data> &list, const PB::Metrics::MetricsBundle &b, std::string path, std::string mpath, bool metric_tags) {
     std::string mypath;
     if (!path.empty()) mypath = path + ".";
     mypath += b.key();
     for (const PB::Metrics::MetricsBundle &b2 : b.children()) {
-      push_metrics(list, b2, mypath, mpath);
+      push_metrics(list, b2, mypath, mpath, metric_tags);
     }
     for (const PB::Metrics::Metric &v : b.value()) {
       graphite_client::g_data d;
       d.path = mpath;
       str::utils::replace(d.path, "${metric}", mypath + "." + v.key());
       d.path = fix_graphite_string(d.path);
+      // The key keeps the instance it always carried (`core 0.idle`), so the
+      // carbon tree does not move when tags are switched on; the tags are
+      // additive, for a receiver that can query them.
+      if (metric_tags) d.path += render_graphite_tags(v);
       // Any numeric type: Graphite has no notion of one, but a metric typed
       // as a counter for the OpenMetrics endpoint would otherwise stop
       // arriving here for no reason its operator could see.
@@ -388,7 +437,7 @@ struct graphite_client_handler : public client::handler_interface {
 
     for (const PB::Metrics::MetricsMessage::Response &r : request_message.payload()) {
       for (const PB::Metrics::MetricsBundle &b : r.bundles()) {
-        push_metrics(list, b, "", mpath);
+        push_metrics(list, b, "", mpath, con.metric_tags);
       }
     }
     // The channel path surfaces a failed submission in its response; the

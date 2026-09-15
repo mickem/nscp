@@ -11,6 +11,7 @@
 #include <cstring>
 #include <list>
 #include <map>
+#include <set>
 #include <sstream>
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
@@ -249,9 +250,19 @@ struct collectd_builder {
   typedef std::multimap<std::string, std::string> variables_map;
   typedef std::list<metric_container> metrics_list;
   typedef std::list<collectd::packet> packet_list;
+  // Label name -> the distinct values the snapshot carried for it, which is
+  // what a `label:` variable expands to. Sorted rather than insertion-ordered
+  // so two agents reporting the same cores render them in the same order.
+  typedef std::map<std::string, std::set<std::string> > labels_map;
 
   variables_map variables;
   metrics_map metrics;
+  // The keys whose producer typed them as a counter. collectd's DERIVE is the
+  // same idea - a value that only grows, whose rate is what matters - so
+  // `auto:` maps one onto the other rather than making the operator restate a
+  // type the agent already knows.
+  std::set<std::string> counters;
+  labels_map labels;
   metrics_list rendererd_metrics;
   unsigned long long time_hr;
   unsigned long long interval_hr;
@@ -266,23 +277,69 @@ struct collectd_builder {
  private:
   std::list<expanded_keys> expand_keyword(const std::string &keyword, const std::string &value);
 
-  void add_value(metric_container &metric, std::string value) {
-    str::utils::token svalue = str::utils::split2(value, ":");
-    if (svalue.first == "gauge") {
-      for (const std::string &vkey : str::utils::split_lst(svalue.second, ",")) {
-        if (vkey.size() > 0 && vkey[0] >= '0' && vkey[0] <= '9')
-          metric.gauges.push_back(str::stox<double>(vkey, 0));
-        else
-          metric.gauges.push_back(str::stox<double>(metrics[vkey], 0));
-      }
+  // Whether the value expression names metrics the agent typed as counters.
+  // `auto:` decides on the first key it can resolve and applies that to every
+  // value of the list: a collectd value list keeps its gauges and its derives
+  // in two separate vectors, so a list that mixed the two would go out
+  // reordered.
+  bool resolves_to_derive(const std::string &keys) const {
+    for (const std::string &vkey : str::utils::split_lst(keys, ",")) {
+      if (vkey.empty() || (vkey[0] >= '0' && vkey[0] <= '9')) continue;
+      if (metrics.find(vkey) == metrics.end()) continue;
+      return counters.find(vkey) != counters.end();
     }
-    if (svalue.first == "derive") {
-      std::string vkey = svalue.second;
-      if (vkey.size() > 0 && vkey[0] >= '0' && vkey[0] <= '9')
-        metric.derives.push_back(static_cast<long long>(str::stox<double>(svalue.second, 0)));
+    return false;
+  }
+
+  // Append one value of a value expression. A key starting with a digit is a
+  // literal spelled in the mapping itself; anything else names a metric of
+  // this snapshot. False means the snapshot does not carry it, which is what
+  // makes the caller drop the whole value list.
+  //
+  // It used to read `metrics[vkey]`, so a key the snapshot never had
+  // default-constructed to "" and went out as a measured 0. That was
+  // survivable while every variable was a regular expression over the metric
+  // keys - a captured group always came out of a key that exists, so the
+  // template it was substituted back into resolved by construction - but a
+  // `label:` variable breaks that invariant, and a mapping naming a metric
+  // only the other platform produces always could.
+  bool append_value(metric_container &metric, const std::string &vkey, const bool is_derive) const {
+    if (vkey.empty()) return false;
+    if (vkey[0] >= '0' && vkey[0] <= '9') {
+      if (is_derive)
+        metric.derives.push_back(static_cast<long long>(str::stox<double>(vkey, 0)));
       else
-        metric.derives.push_back(str::stox<unsigned long long>(metrics[svalue.second], 0));
+        metric.gauges.push_back(str::stox<double>(vkey, 0));
+      return true;
     }
+    const metrics_map::const_iterator it = metrics.find(vkey);
+    if (it == metrics.end()) return false;
+    if (is_derive)
+      metric.derives.push_back(str::stox<unsigned long long>(it->second, 0));
+    else
+      metric.gauges.push_back(str::stox<double>(it->second, 0));
+    return true;
+  }
+
+  // The whole value expression. False means this value list must not be sent:
+  // the type is not one we know, the expression named no values, or a key it
+  // names is not in this snapshot. One missing key drops the list rather than
+  // just its own value, because a collectd value list is positional - dropping
+  // one value of several would have the receiver read the next metric's number
+  // under this one's type.
+  bool add_value(metric_container &metric, std::string value) {
+    str::utils::token svalue = str::utils::split2(value, ":");
+    // `auto:` is the same expression with the type left to the producer: a
+    // metric declared as a counter becomes a DERIVE, everything else a GAUGE.
+    if (svalue.first == "auto") svalue.first = resolves_to_derive(svalue.second) ? "derive" : "gauge";
+    if (svalue.first != "gauge" && svalue.first != "derive") return false;
+    const bool is_derive = svalue.first == "derive";
+    std::size_t values = 0;
+    for (const std::string &vkey : str::utils::split_lst(svalue.second, ",")) {
+      if (!append_value(metric, vkey, is_derive)) return false;
+      ++values;
+    }
+    return values > 0;
   }
 
   void add_type(std::string value, std::string plugin, boost::optional<std::string> p_instance, std::string tpe, boost::optional<std::string> t_instance) {
@@ -292,15 +349,13 @@ struct collectd_builder {
           metric_container m = metric_container(time_hr, interval_hr);
           m.set_plugin(plugin, p_instance);
           m.set_type(et.key, ei.key);
-          add_value(m, ei.value);
-          rendererd_metrics.push_back(m);
+          if (add_value(m, ei.value)) rendererd_metrics.push_back(m);
         }
       } else {
         metric_container m = metric_container(time_hr, interval_hr);
         m.set_plugin(plugin, p_instance);
         m.set_type(et.key);
-        add_value(m, et.value);
-        rendererd_metrics.push_back(m);
+        if (add_value(m, et.value)) rendererd_metrics.push_back(m);
       }
     }
   }
@@ -335,6 +390,12 @@ struct collectd_builder {
   }
 
   void add_variable(std::string key, std::string value);
+  // One dimension the snapshot carried, so a `label:` variable has something
+  // to expand to. Repeats are folded; an empty name or value is ignored.
+  void add_label(const std::string &name, const std::string &value) {
+    if (name.empty() || value.empty()) return;
+    labels[name].insert(value);
+  }
   void set_time(unsigned long long time_hr_, unsigned long long interval_hr_) {
     time_hr = time_hr_;
     interval_hr = interval_hr_;
@@ -449,6 +510,9 @@ struct collectd_builder {
     if (packet.get_size() > 0) packets.push_back(packet);
   }
   void set_metric(const ::std::string &key, const std::string &value);
+  // The same, remembering that the producer typed this one as a counter, for
+  // `auto:` to read.
+  void set_metric(const ::std::string &key, const std::string &value, bool is_counter);
 };
 
 }  // namespace collectd

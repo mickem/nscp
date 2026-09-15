@@ -287,6 +287,105 @@ TEST(GraphiteSubmitTest, benign_submission_renders_expected_lines) {
   EXPECT_EQ(0u, lines[1].find("nsclient.myhost.cpu_load.status 1 ")) << lines[1];
 }
 
+// ============================================================================
+// Carbon tags from a metric's labels (`metric tags = true`)
+// ============================================================================
+
+namespace {
+// One metric of one bundle, with whatever labels the caller wants on it.
+PB::Metrics::MetricsMessage one_labelled_metric(const std::string &bundle, const std::string &key, const double value,
+                                                const std::vector<std::pair<std::string, std::string> > &labels) {
+  PB::Metrics::MetricsMessage message;
+  PB::Metrics::MetricsBundle *b = message.add_payload()->add_bundles();
+  b->set_key(bundle);
+  PB::Metrics::Metric *m = b->add_value();
+  m->set_key(key);
+  m->mutable_gauge_value()->set_value(value);
+  for (const auto &l : labels) {
+    PB::Common::KeyValue *dim = m->add_dims();
+    dim->set_key(l.first);
+    dim->set_value(l.second);
+  }
+  return message;
+}
+
+// Everything the handler would put on the wire for `message`, as carbon lines.
+std::vector<std::string> carbon_lines_for(const PB::Metrics::MetricsMessage &message, const bool metric_tags) {
+  loopback_carbon_receiver server;
+  client::destination_container sender = container_with({{"host", "myhost"}});
+  client::destination_container target = container_with({
+      {"address", "127.0.0.1:" + str::xtos(server.port())},
+      {"metric path", "nsclient.${hostname}.${metric}"},
+      {"metric tags", metric_tags ? "true" : "false"},
+  });
+
+  graphite_client::graphite_client_handler handler;
+  EXPECT_TRUE(handler.metrics(sender, target, message));
+  return split_lines(server.received());
+}
+}  // namespace
+
+TEST(GraphiteMetricTagsTest, labels_are_not_sent_unless_asked_for) {
+  // The default has to stay byte-identical: a carbon older than 1.1 stores
+  // `path;core=0` as the metric name, so switching this on by itself would
+  // rename every labelled series in the tree.
+  const std::vector<std::string> lines = carbon_lines_for(one_labelled_metric("system", "cpu.core 0.idle", 93, {{"core", "0"}}), false);
+  ASSERT_EQ(1u, lines.size());
+  EXPECT_EQ(0u, lines[0].find("nsclient.myhost.system.cpu.core_0.idle 93 ")) << lines[0];
+}
+
+TEST(GraphiteMetricTagsTest, labels_become_tags_on_the_existing_path) {
+  // The path is the one the tree already has - the key still carries the
+  // instance - and the tags are appended to it.
+  const std::vector<std::string> lines = carbon_lines_for(one_labelled_metric("system", "cpu.core 0.idle", 93, {{"core", "0"}}), true);
+  ASSERT_EQ(1u, lines.size());
+  EXPECT_EQ(0u, lines[0].find("nsclient.myhost.system.cpu.core_0.idle;core=0 93 ")) << lines[0];
+}
+
+TEST(GraphiteMetricTagsTest, several_labels_keep_the_order_the_producer_declared) {
+  // A tag set that reorders between two flushes is two different series to
+  // carbon, so the order the producer declared is the order that goes out.
+  const std::vector<std::string> lines = carbon_lines_for(one_labelled_metric("disk", "io.sda.reads", 7, {{"disk", "sda"}, {"kind", "read"}}), true);
+  ASSERT_EQ(1u, lines.size());
+  EXPECT_EQ(0u, lines[0].find("nsclient.myhost.disk.io.sda.reads;disk=sda;kind=read 7 ")) << lines[0];
+}
+
+TEST(GraphiteMetricTagsTest, an_unlabelled_metric_gets_no_tags) {
+  const std::vector<std::string> lines = carbon_lines_for(one_labelled_metric("workers", "jobs", 12, {}), true);
+  ASSERT_EQ(1u, lines.size());
+  EXPECT_EQ(std::string::npos, lines[0].find(';')) << lines[0];
+  EXPECT_EQ(0u, lines[0].find("nsclient.myhost.workers.jobs 12 ")) << lines[0];
+}
+
+TEST(GraphiteMetricTagsTest, a_hostile_label_cannot_inject_a_line_or_an_extra_tag) {
+  // Label values reach the agent from WMI adapter descriptions and from a
+  // Python script's dict, so the tag pair is scrubbed exactly like the path:
+  // a `;` would open a tag of the attacker's choosing and a newline a whole
+  // extra metric.
+  const std::vector<std::string> lines =
+      carbon_lines_for(one_labelled_metric("system", "network.evil.rx", 1, {{"n=ic^!", "eth0;evil=1\ninjected.metric 666"}}), true);
+  ASSERT_EQ(1u, lines.size()) << "a label injected a second carbon line";
+  EXPECT_EQ(0u, lines[0].find("nsclient.myhost.system.network.evil.rx;n_ic__=eth0_evil=1_injected.metric_666 1 ")) << lines[0];
+  // Exactly "<path> <value> <ts>": one `;` opening the one tag, two spaces.
+  EXPECT_EQ(1, std::count(lines[0].begin(), lines[0].end(), ';')) << lines[0];
+  EXPECT_EQ(2, std::count(lines[0].begin(), lines[0].end(), ' ')) << lines[0];
+}
+
+TEST(GraphiteMetricTagsTest, a_leading_tilde_in_a_value_is_replaced) {
+  // Graphite strips a leading `~` from a tag value, which would fold two
+  // different labels onto one series.
+  EXPECT_EQ("_x", graphite_client::fix_graphite_tag_value("~x"));
+  EXPECT_EQ("a~x", graphite_client::fix_graphite_tag_value("a~x"));
+}
+
+TEST(GraphiteMetricTagsTest, a_pair_that_scrubs_to_nothing_is_dropped) {
+  // Carbon rejects the whole line for a bare tag name or an empty value, so a
+  // pair with nothing left of it is not emitted at all.
+  const std::vector<std::string> lines = carbon_lines_for(one_labelled_metric("system", "cpu.idle", 5, {{"core", ""}, {"", "0"}}), true);
+  ASSERT_EQ(1u, lines.size());
+  EXPECT_EQ(std::string::npos, lines[0].find(';')) << lines[0];
+}
+
 // `timeout` bounds the whole submission; `retry` is deliberately not read -
 // there is no retry loop, and reading it into the inherited field only made
 // it look honoured (mirrors SMTPClient).
