@@ -88,6 +88,7 @@ Docker-using scenarios (skipped when `NSCP_SKIP_DOCKER=1`):
 | `tests/graphite-submit.test.ts`   | (new) GraphiteClient metrics + submit  |
 | `tests/graphite-tls.test.ts`      | (new) GraphiteClient TLS (socat proxy) |
 | `tests/check_nt-client.test.ts`   | (new) NSClientServer vs the real nagios-plugins check_nt, incl. the `allow` gate |
+| `tests/fleet-server-live.test.ts` | (new) the agent against a **real** nsclient-fleet server, built from its newest GitHub release |
 
 Docker-free scenarios (always run, including in no-docker CI pipelines):
 
@@ -118,6 +119,22 @@ Docker-free scenarios (always run, including in no-docker CI pipelines):
 
 The Checkmk end-to-end test (`check_mk-site.test.ts`) pulls a ~500MB image and is also gated by `RUN_CMK_SITE_TEST=1`
 (must be set _and_ docker must not be skipped).
+
+`fleet-server-live.test.ts` is the one suite that talks to something outside this repo. Every other fleet suite drives a
+fake server written in node; this one runs the real `nsclient-fleet` so that a change to the agent/server protocol fails
+here instead of on someone's machine (it exists because exactly that happened — the bundle signature changed shape and
+every fake kept passing). It resolves the **newest GitHub release** of `mickem/nsclient-fleet-server` and builds a small
+image around that release's musl binary, rather than pulling `ghcr.io/mickem/nsclient-fleet:latest`, because the
+published image can lag the release by a protocol version. Knobs:
+
+| Variable                     | Effect                                                                     |
+| ---------------------------- | -------------------------------------------------------------------------- |
+| `NSCP_FLEET_SERVER_VERSION`  | Pin the release (`0.1.0`) instead of asking the GitHub API                  |
+| `NSCP_FLEET_SERVER_IMAGE`    | Skip the build and run this image (e.g. one built from a server working tree) |
+| `GITHUB_TOKEN`               | Used for the release lookup when set; the anonymous API allows 60 calls/hour |
+
+It publishes the server on host port **19443** (fixed, because the server must be told its own address before it starts),
+so a local fleet server on 9443 does not collide. The built image is cached as `nscp-it/nsclient-fleet:<version>`.
 
 The MSI tests (`tests/msi/`) stay Windows-only and are not part of this harness.
 
