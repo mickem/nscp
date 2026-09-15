@@ -67,11 +67,56 @@ std::string onboarding::sha256_stream::hex_final() {
   return to_hex(std::string(reinterpret_cast<const char *>(digest), length));
 }
 
-bool onboarding::verify_bundle(const std::string &pub_pem, const std::string &bytes, const std::string &sha256_hex_expected,
+// The version prefix. Present so that a future change to the descriptor's shape
+// is a verification failure rather than a silent reinterpretation.
+const char kBundleSigDomain[] = "nsclient-fleet/bundle-sig/v2";
+
+namespace {
+// Plain decimal, independent of the global locale. str::xtos would do this
+// through a stringstream, which is imbued with the global locale: were that
+// ever a locale with digit grouping, the tenant id would render as "1,234"
+// and every signature on the host would stop verifying. Accumulate through
+// the unsigned type so LLONG_MIN, which cannot be negated, still renders.
+std::string decimal(const long long value) {
+  const bool negative = value < 0;
+  unsigned long long magnitude = negative ? 0ULL - static_cast<unsigned long long>(value) : static_cast<unsigned long long>(value);
+  std::string digits;
+  do {
+    digits.push_back(static_cast<char>('0' + (magnitude % 10)));
+    magnitude /= 10;
+  } while (magnitude != 0);
+  if (negative) digits.push_back('-');
+  std::reverse(digits.begin(), digits.end());
+  return digits;
+}
+}  // namespace
+
+std::string onboarding::bundle_descriptor::signing_bytes() const {
+  std::string out(kBundleSigDomain);
+  const std::string fields[] = {decimal(tenant_id), bundle_id, name, version, format, sha256_hex};
+  for (const std::string &field : fields) {
+    out.push_back('\0');
+    out += field;
+  }
+  return out;
+}
+
+onboarding::bundle_descriptor onboarding::describe_bundle(const long long tenant_id, const bundle_info &bundle) {
+  bundle_descriptor descriptor;
+  descriptor.tenant_id = tenant_id;
+  descriptor.bundle_id = bundle.id;
+  descriptor.name = bundle.name;
+  descriptor.version = bundle.version;
+  descriptor.format = bundle.format;
+  descriptor.sha256_hex = bundle.sha256;
+  return descriptor;
+}
+
+bool onboarding::verify_bundle(const std::string &pub_pem, const std::string &bytes, const bundle_descriptor &descriptor,
                                const std::string &signature_b64, std::string &error) {
   const std::string digest = sha256_raw(bytes);
-  if (to_hex(digest) != to_lower(sha256_hex_expected)) {
-    error = "checksum mismatch: expected " + sha256_hex_expected + " got " + to_hex(digest);
+  if (to_hex(digest) != to_lower(descriptor.sha256_hex)) {
+    error = "checksum mismatch: expected " + descriptor.sha256_hex + " got " + to_hex(digest);
     return false;
   }
 
@@ -95,14 +140,17 @@ bool onboarding::verify_bundle(const std::string &pub_pem, const std::string &by
     return false;
   }
   const std::unique_ptr<EVP_MD_CTX, evp_md_ctx_deleter> ctx(EVP_MD_CTX_new());
-  // Ed25519 is a one-shot algorithm (no digest): the signature covers the
-  // 32-byte SHA-256 digest of the bundle, per the fleet protocol.
+  // Ed25519 is a one-shot algorithm that hashes internally, so the descriptor
+  // is verified directly rather than being digested first. The digest computed
+  // above is what the integrity check used; it reaches the signature only as
+  // the hex string inside the descriptor.
   if (!ctx || EVP_DigestVerifyInit(ctx.get(), nullptr, nullptr, nullptr, key.get()) != 1) {
     error = "failed to initialize signature verification";
     return false;
   }
+  const std::string signed_bytes = descriptor.signing_bytes();
   if (EVP_DigestVerify(ctx.get(), reinterpret_cast<const unsigned char *>(signature.data()), signature.size(),
-                       reinterpret_cast<const unsigned char *>(digest.data()), digest.size()) != 1) {
+                       reinterpret_cast<const unsigned char *>(signed_bytes.data()), signed_bytes.size()) != 1) {
     error = "signature verification failed";
     return false;
   }

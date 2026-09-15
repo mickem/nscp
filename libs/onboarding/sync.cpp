@@ -5,6 +5,7 @@
 #include <cctype>
 #include <cstring>
 #include <initializer_list>
+#include <limits>
 #include <map>
 #include <onboarding/sync.hpp>
 #include <sstream>
@@ -114,6 +115,36 @@ json::object parse_object(const std::string &body, const char *context) {
   }
 }
 
+// A required integer. boost.json parses a whole number as int64 (or uint64
+// when it is too large to fit), so both are accepted; anything fractional or
+// non-numeric is a malformed response rather than something to coerce.
+long long require_int(const json::object &object, const char *key, const char *context) {
+  const json::value *value = object.if_contains(key);
+  if (value == nullptr) {
+    throw bad_field(context, key, "is missing");
+  }
+  if (value->is_int64()) {
+    return value->as_int64();
+  }
+  if (value->is_uint64() && value->as_uint64() <= static_cast<unsigned long long>(std::numeric_limits<long long>::max())) {
+    return static_cast<long long>(value->as_uint64());
+  }
+  throw bad_field(context, key, "is not an integer");
+}
+
+// A string that goes into the bundle signing descriptor. The descriptor is
+// NUL-separated, so a NUL inside a field would make the encoding ambiguous:
+// ("ab", "c") and ("a", "bc") could be made to produce the same signing bytes
+// and one signature would cover two different bundles. The server's grammar
+// excludes NUL from all of these; reject it here rather than trust that.
+std::string require_signed_string(const json::object &object, const char *key, const char *context, const std::string &fallback) {
+  const std::string value = onboarding::detail::optional_string(object, key, fallback);
+  if (value.find('\0') != std::string::npos) {
+    throw bad_field(context, key, "contains a NUL character");
+  }
+  return value;
+}
+
 long long optional_int(const json::object &object, const char *key, const long long fallback) {
   const json::value *value = object.if_contains(key);
   if (value == nullptr || !value->is_number()) {
@@ -192,6 +223,13 @@ void collect_ini(const json::object &object, const std::string &path, ini_sectio
 onboarding::desired_state onboarding::parse_desired_state(const std::string &body) {
   const json::object root = parse_object(body, "desired state");
   desired_state result;
+  // Required only when there is something to verify: it exists solely to build
+  // the bundle signing descriptor, so a response carrying no bundles does not
+  // need it, while a missing one alongside bundles is worth a clear error
+  // rather than the "signature verification failed" it would otherwise become.
+  const json::value *bundles_present = root.if_contains("bundles");
+  const bool has_bundles = bundles_present != nullptr && bundles_present->is_array() && !bundles_present->as_array().empty();
+  result.tenant_id = has_bundles ? require_int(root, "tenant_id", "Desired state") : optional_int(root, "tenant_id", 0);
   // The hash is sent back to the server in a query string, so it may not carry
   // anything that could alter the request.
   result.state_hash = require_token(root, "state_hash", "Desired state", token_extra_chars, max_hash_length);
@@ -220,10 +258,12 @@ onboarding::desired_state onboarding::parse_desired_state(const std::string &bod
       info.sha256 = require_sha256_hex(b, "sha256", "Bundle");
       info.signature = require_token(b, "signature", "Bundle", signature_extra_chars, max_signature_length);
       info.url = require_relative_url(b, "url", "Bundle");
-      info.name = detail::optional_string(b, "name", "");
-      info.version = detail::optional_string(b, "version", "");
+      // name, version and format are covered by the signature, so they are
+      // taken verbatim - but must not carry the descriptor's separator.
+      info.name = require_signed_string(b, "name", "Bundle", "");
+      info.version = require_signed_string(b, "version", "Bundle", "");
       info.priority = optional_int(b, "priority", 0);
-      info.format = detail::optional_string(b, "format", "");
+      info.format = require_signed_string(b, "format", "Bundle", "");
       result.bundles.push_back(info);
     }
   }

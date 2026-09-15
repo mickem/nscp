@@ -28,7 +28,7 @@ import crypto from "crypto";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { NscpInstance, makeZip, signBundle, makeCertPem } from "@fixtures/index";
+import { NscpInstance, makeZip, signBundle, makeCertPem, FLEET_TENANT_ID } from "@fixtures/index";
 
 jest.setTimeout(180_000);
 
@@ -87,6 +87,7 @@ describe("core fleet sync loop", () => {
   function desiredStateFor(currentHash: string | null): { code: number; body: any } {
     const states = {
       good: {
+        tenant_id: FLEET_TENANT_ID,
         state_hash: "h-good",
         next_poll_in_seconds: 1,
         merged_config_json: {},
@@ -96,13 +97,15 @@ describe("core fleet sync loop", () => {
             name: "demo",
             version: "1.0",
             sha256: goodSha,
-            signature: signBundle(signingKeys.privateKey, goodZip),
+            format: "plain",
+            signature: signBundle(signingKeys.privateKey, { id: "b-good", name: "demo", version: "1.0", sha256: goodSha }),
             url: "/agent/v1/bundles/b-good",
             priority: 100,
           },
         ],
       },
       evil: {
+        tenant_id: FLEET_TENANT_ID,
         state_hash: "h-evil",
         next_poll_in_seconds: 1,
         merged_config_json: {},
@@ -112,13 +115,15 @@ describe("core fleet sync loop", () => {
             name: "evil",
             version: "6.6.6",
             sha256: evilSha,
-            signature: signBundle(wrongKeys.privateKey, evilZip),
+            format: "plain",
+            signature: signBundle(wrongKeys.privateKey, { id: "b-evil", name: "evil", version: "6.6.6", sha256: evilSha }),
             url: "/agent/v1/bundles/b-evil",
             priority: 100,
           },
         ],
       },
       trimmed: {
+        tenant_id: FLEET_TENANT_ID,
         state_hash: "h-trimmed",
         next_poll_in_seconds: 1,
         merged_config_json: {},
@@ -128,7 +133,8 @@ describe("core fleet sync loop", () => {
             name: "demo",
             version: "2.0",
             sha256: trimmedSha,
-            signature: signBundle(signingKeys.privateKey, trimmedZip),
+            format: "plain",
+            signature: signBundle(signingKeys.privateKey, { id: "b-trimmed", name: "demo", version: "2.0", sha256: trimmedSha }),
             url: "/agent/v1/bundles/b-trimmed",
             priority: 100,
           },
@@ -137,6 +143,7 @@ describe("core fleet sync loop", () => {
       // A desired state whose bundle download 403s: the server recomputed
       // membership after handing out the state, so the state is stale.
       gone: {
+        tenant_id: FLEET_TENANT_ID,
         state_hash: "h-gone",
         next_poll_in_seconds: 1,
         merged_config_json: {},
@@ -146,7 +153,8 @@ describe("core fleet sync loop", () => {
             name: "demo",
             version: "3.0",
             sha256: goodSha,
-            signature: signBundle(signingKeys.privateKey, goodZip),
+            format: "plain",
+            signature: signBundle(signingKeys.privateKey, { id: "b-gone", name: "demo", version: "3.0", sha256: goodSha }),
             url: "/agent/v1/bundles/b-gone",
             priority: 100,
           },
