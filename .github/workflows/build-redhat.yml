@@ -82,7 +82,16 @@ jobs:
         # separately and is installed at runtime via `nscp web install-ui`.
         # ccache comes from EPEL, which is already enabled above. zstd lets
         # actions/cache compress with zstd instead of falling back to gzip.
-        retry dnf install -y --allowerasing coreutils bash file findutils git boost-devel gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build python3-devel dbus-devel bash libzip-devel tinyxml2-devel mariadb-connector-c-devel pkgconf-pkg-config ccache zstd dotnet-sdk-8.0
+        # --nobest: appstream and baseos do not always publish a package set
+        # in lockstep. On 2026-09-15 appstream carried openssl-devel 3.5.8
+        # while no enabled repo had the openssl-libs 3.5.8 it requires, so the
+        # install failed outright ("nothing provides openssl-libs(x86-64) =
+        # 1:3.5.8") on rocky 9 x86_64 while the same package list resolved on
+        # aarch64. Without --nobest dnf refuses the whole transaction rather
+        # than taking the older build that matches the installed runtime. It
+        # can only widen what resolves - if no installable candidate exists the
+        # install still fails loudly, exactly as it does now.
+        retry dnf install -y --allowerasing --nobest coreutils bash file findutils git boost-devel gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build python3-devel dbus-devel bash libzip-devel tinyxml2-devel mariadb-connector-c-devel pkgconf-pkg-config ccache zstd dotnet-sdk-8.0
     - uses: actions/checkout@v6
 
     - name: Configure ccache

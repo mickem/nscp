@@ -93,7 +93,16 @@ jobs:
           fi
           retry dnf update -y
           retry sh -c 'curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -'
-          retry dnf install -y --allowerasing coreutils bash file findutils git boost-devel gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build nodejs python3-devel dbus-devel bash nodejs coreutils procps-ng dotnet-runtime-8.0
+          # --nobest: appstream and baseos do not always publish a package set
+          # in lockstep. On 2026-09-15 appstream carried openssl-devel 3.5.8
+          # while no enabled repo had the openssl-libs 3.5.8 it requires, so the
+          # install failed outright ("nothing provides openssl-libs(x86-64) =
+          # 1:3.5.8") on rocky 9 x86_64 while the same package list resolved on
+          # aarch64. Without --nobest dnf refuses the whole transaction rather
+          # than taking the older build that matches the installed runtime. It
+          # can only widen what resolves - if no installable candidate exists the
+          # install still fails loudly, exactly as it does now.
+          retry dnf install -y --allowerasing --nobest coreutils bash file findutils git boost-devel gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build nodejs python3-devel dbus-devel bash nodejs coreutils procps-ng dotnet-runtime-8.0
 
       - uses: actions/checkout@v6
 
