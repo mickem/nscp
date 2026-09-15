@@ -67,8 +67,7 @@ curl -s -k -u admin https://localhost:8443/api/v2/metrics | python -m json.tool
 Returns the same snapshot in
 [OpenMetrics](https://openmetrics.io/) text exposition format, suitable for
 Prometheus scraping. Only gauge values are emitted; string-valued metrics
-are skipped. The output does **not** currently include `# HELP` or
-`# TYPE` comments.
+are skipped.
 
 | Key       | Value                |
 |-----------|----------------------|
@@ -85,16 +84,79 @@ GET /api/v2/openmetrics
 ### Response
 
 ```
+# TYPE system_cpu_total_5m gauge
 system_cpu_total_5m 12
+# TYPE system_cpu_total_1m gauge
 system_cpu_total_1m 8
-system_cpu_total_5s 6
+# TYPE system_mem_physical_percent gauge
 system_mem_physical_percent 73
-system_mem_committed_percent 81
-system_uptime 36370
+# TYPE system_mem_physical_total gauge
+system_mem_physical_total 17175158784
+# EOF
 ```
 
-The dotted path used in the JSON form is rewritten to use underscores so
-that the output is a valid OpenMetrics metric name.
+Every family carries a `# TYPE` line and the body ends with the `# EOF`
+terminator OpenMetrics 1.0 requires, so a strict parser accepts the document
+as it stands. `# HELP` and `# UNIT` are not emitted yet: no module declares a
+description or a unit for its metrics.
+
+One consequence of everything being typed as a gauge: a metric whose key ends
+in `total` or `count` (`system.network.eth0.total`,
+`system.os_updates.count`) becomes a gauge family carrying a suffix the spec
+reserves for counters and summaries. Prometheus scrapes it without complaint,
+but `promtool check metrics` reports a naming-convention warning for each such
+family. Typing those metrics as counters is what resolves it, and that needs
+the per-metric metadata the modules do not declare yet.
+
+### Metric names
+
+The dotted path used in the JSON form is rewritten to the OpenMetrics name
+grammar (`[a-zA-Z_][a-zA-Z0-9_]*`), deterministically:
+
+| Rule                                            | JSON key                      | Metric name                    |
+|-------------------------------------------------|-------------------------------|--------------------------------|
+| `%` becomes the word                            | `system.mem.physical.%`       | `system_mem_physical_percent`  |
+| anything else outside the grammar becomes `_`   | `system.cpu.core 0.idle`      | `system_cpu_core_0_idle`       |
+| a run of separators collapses to one            | `disk.free.C:.total`          | `disk_free_C_total`            |
+| a name that would not start with a letter borrows `metric_` | `5m_load`   | `metric_5m_load`               |
+
+Colons are rewritten too: they are legal in the grammar but reserved for
+user-defined recording rules, so an exporter must not emit them. A leading
+underscore is reserved the same way, which is why a name that would not begin
+with a letter borrows a `metric_` prefix rather than a bare `_`.
+
+The mapping is lossy, so two different JSON keys can want the same metric
+name. When that happens the first metric of the snapshot keeps the name and the
+others are dropped - emitting both would mean the same series twice, which
+costs the scraper the whole body rather than one metric. Each distinct
+collision is logged once (and again after a settings reload), naming the metric
+that was dropped and the name it collided on.
+
+Values keep their full precision: an integral value is written out in full
+(`17175158784`, not `1.7175e+10`), so a sample equals the number
+`/api/v2/metrics` reports for the same key.
+
+### Content type
+
+The endpoint answers `application/openmetrics-text; version=1.0.0;
+charset=utf-8` when the request's `Accept` header names that type, and
+`text/plain; version=0.0.4; charset=utf-8` otherwise. The body is the same
+either way - the Prometheus text parser reads `# EOF` as an ordinary comment.
+
+### The legacy exposition
+
+The endpoint used to emit `<name> <value>` lines with the JSON keys
+pasted in verbatim (dots, spaces, `%` and colons included), no metadata, no
+terminator, and values truncated to six significant digits. Set
+
+```ini
+[/settings/WEB/server]
+openmetrics format = legacy
+```
+
+to get that body back byte for byte while a dashboard or recording rule built
+on the old names is migrated. The setting is deprecated and will be removed in
+a future release.
 
 ### Prometheus scrape config
 

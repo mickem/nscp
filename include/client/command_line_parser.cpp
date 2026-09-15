@@ -214,15 +214,15 @@ void client::options_reader_interface::add_ssl_options(boost::program_options::o
     ("dh", po::value<std::string>()->notifier([&data](const auto& v) { data.set_string_data("dh", v); }),
 	"The DH key to use")
     ("certificate-key", po::value<std::string>()->notifier([&data](const auto& v) { data.set_string_data("certificate key", v); }),
-	"Client certificate to use")
+	"The private key belonging to the client certificate (when it is not in the certificate file itself)")
     ("certificate-format", po::value<std::string>()->notifier([&data](const auto& v) { data.set_string_data("certificate format", v); }),
 	"Client certificate format")
     ("ca", po::value<std::string>()->notifier([&data](const auto& v) { data.set_string_data("ca", v); }),
-	"Certificate authority")
+	"The certificate authority the server certificate is verified against")
     ("verify", po::value<std::string>()->notifier([&data](const auto& v) { data.set_string_data("verify mode", v); }),
-	"Client certificate format")
+	"How to verify the server certificate. Comma separated list of options: none, peer (or certificate), peer-cert, fail-if-no-cert (or fail-if-no-peer-cert, client-certificate). For a self signed certificate use peer-cert and point --ca at that certificate; none leaves the connection encrypted but the server unauthenticated, so an on-path attacker can impersonate it undetected.")
     ("allowed-ciphers", po::value<std::string>()->notifier([&data](const auto& v) { data.set_string_data("allowed ciphers", v); }),
-	"Client certificate format")
+	"The OpenSSL cipher list the connection is restricted to")
     ("ssl,n", po::value<bool>()->implicit_value(true)->notifier([&data](const bool& v) { data.set_bool_data("ssl", v); }),
 	"Initial an ssl handshake with the server.")
     ;

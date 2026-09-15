@@ -5,15 +5,14 @@
 //
 // The daemon's metrics thread writes it once a second and any number of HTTP
 // workers read it; the three representations (the JSON blob, the flat list and
-// the OpenMetrics lines) are independent latches, and confusing them serves a
-// scrape the wrong body. Nothing covered that separation, nor the empty state
-// a scrape gets before the first write.
+// the OpenMetrics exposition) are independent latches, and confusing them
+// serves a scrape the wrong body. Nothing covered that separation, nor the
+// empty state a scrape gets before the first write.
 
 #include "metrics_handler.hpp"
 
 #include <gtest/gtest.h>
 
-#include <list>
 #include <string>
 
 TEST(MetricsHandler, ReadsAreEmptyBeforeTheFirstWrite) {
@@ -22,7 +21,7 @@ TEST(MetricsHandler, ReadsAreEmptyBeforeTheFirstWrite) {
   metrics_handler handler;
   EXPECT_EQ(handler.get(), "");
   EXPECT_EQ(handler.get_list(), "");
-  EXPECT_TRUE(handler.get_openmetrics().empty());
+  EXPECT_EQ(handler.get_openmetrics(), "");
 }
 
 TEST(MetricsHandler, TheJsonBlobRoundTrips) {
@@ -37,15 +36,15 @@ TEST(MetricsHandler, TheFlatListRoundTrips) {
   EXPECT_EQ(handler.get_list(), "cpu\nmem\n");
 }
 
-TEST(MetricsHandler, TheOpenmetricsLinesRoundTrip) {
+TEST(MetricsHandler, TheOpenmetricsExpositionRoundTrips) {
+  // One body, not a list of lines: `# TYPE` governs the samples that follow it
+  // and the document has to end with `# EOF`, so the renderer owns the whole
+  // thing and the latch must hand it back unchanged - the trailing newline
+  // included, since a body that loses it is not a valid exposition.
   metrics_handler handler;
-  std::list<std::string> lines = {"# TYPE nscp_cpu gauge", "nscp_cpu 42"};
-  handler.set_openmetrics(lines);
+  handler.set_openmetrics("# TYPE nscp_cpu gauge\nnscp_cpu 42\n# EOF\n");
 
-  const std::list<std::string> read_back = handler.get_openmetrics();
-  ASSERT_EQ(read_back.size(), 2u);
-  EXPECT_EQ(read_back.front(), "# TYPE nscp_cpu gauge");
-  EXPECT_EQ(read_back.back(), "nscp_cpu 42");
+  EXPECT_EQ(handler.get_openmetrics(), "# TYPE nscp_cpu gauge\nnscp_cpu 42\n# EOF\n");
 }
 
 TEST(MetricsHandler, TheThreeRepresentationsAreIndependent) {
@@ -54,29 +53,23 @@ TEST(MetricsHandler, TheThreeRepresentationsAreIndependent) {
   metrics_handler handler;
   handler.set("{\"cpu\":42}");
   handler.set_list("cpu");
-  std::list<std::string> lines = {"nscp_cpu 42"};
-  handler.set_openmetrics(lines);
+  handler.set_openmetrics("nscp_cpu 42\n# EOF\n");
 
   handler.set("{\"cpu\":43}");
 
   EXPECT_EQ(handler.get(), "{\"cpu\":43}");
   EXPECT_EQ(handler.get_list(), "cpu");
-  ASSERT_EQ(handler.get_openmetrics().size(), 1u);
-  EXPECT_EQ(handler.get_openmetrics().front(), "nscp_cpu 42");
+  EXPECT_EQ(handler.get_openmetrics(), "nscp_cpu 42\n# EOF\n");
 }
 
 TEST(MetricsHandler, EachWriteReplacesTheWholeSnapshot) {
   // It is a snapshot, not an append log: a shrinking metric set must not leave
   // last second's readings visible.
   metrics_handler handler;
-  std::list<std::string> first = {"a 1", "b 2", "c 3"};
-  handler.set_openmetrics(first);
-  std::list<std::string> second = {"a 9"};
-  handler.set_openmetrics(second);
+  handler.set_openmetrics("a 1\nb 2\nc 3\n# EOF\n");
+  handler.set_openmetrics("a 9\n# EOF\n");
 
-  const std::list<std::string> read_back = handler.get_openmetrics();
-  ASSERT_EQ(read_back.size(), 1u);
-  EXPECT_EQ(read_back.front(), "a 9");
+  EXPECT_EQ(handler.get_openmetrics(), "a 9\n# EOF\n");
 }
 
 TEST(MetricsHandler, AnEmptyWriteClearsTheSnapshot) {
@@ -85,32 +78,19 @@ TEST(MetricsHandler, AnEmptyWriteClearsTheSnapshot) {
   handler.set("");
   EXPECT_EQ(handler.get(), "");
 
-  std::list<std::string> lines = {"a 1"};
-  handler.set_openmetrics(lines);
-  std::list<std::string> none;
-  handler.set_openmetrics(none);
-  EXPECT_TRUE(handler.get_openmetrics().empty());
+  handler.set_openmetrics("a 1\n# EOF\n");
+  handler.set_openmetrics("");
+  EXPECT_EQ(handler.get_openmetrics(), "");
 }
 
 TEST(MetricsHandler, ReadsHandBackACopyRatherThanAReference) {
-  // The caller renders the list into a response outside the lock; if it were
-  // handed the live container the next metrics tick would mutate it mid-write.
+  // The caller writes the body into a response outside the lock; if it were
+  // handed the live string the next metrics tick would mutate it mid-write.
   metrics_handler handler;
-  std::list<std::string> lines = {"a 1"};
-  handler.set_openmetrics(lines);
+  handler.set_openmetrics("a 1\n# EOF\n");
 
-  std::list<std::string> taken = handler.get_openmetrics();
-  taken.push_back("b 2");
+  std::string taken = handler.get_openmetrics();
+  taken += "b 2\n";
 
-  EXPECT_EQ(handler.get_openmetrics().size(), 1u);
-}
-
-TEST(MetricsHandler, TheSourceListIsNotStolenFromTheCaller) {
-  // set_openmetrics() takes a non-const reference; it must copy rather than
-  // move, or the caller's own list is emptied behind its back.
-  metrics_handler handler;
-  std::list<std::string> lines = {"a 1", "b 2"};
-  handler.set_openmetrics(lines);
-
-  EXPECT_EQ(lines.size(), 2u);
+  EXPECT_EQ(handler.get_openmetrics(), "a 1\n# EOF\n");
 }

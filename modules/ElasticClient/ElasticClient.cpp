@@ -119,6 +119,23 @@ bool ElasticClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
       timeout = 30;
     }
 
+    // An https submission whose `verify mode` carries no peer-verifying token
+    // sends the configured Elasticsearch credentials to whichever server
+    // answers. Say so, as the Icinga and NRDP clients already do for their
+    // targets. Once per load rather than per submission: this is an
+    // observation about the configuration, and events are submitted
+    // continuously. Only when credentials are configured - without them the
+    // exposure is the submitted data alone, which the `verify mode` setting
+    // description already spells out.
+    if (!address.empty() && (!user.empty() || !api_key.empty())) {
+      const http::parsed_url parsed = http::parse_url(address);
+      if (parsed.protocol == "https" && socket_helpers::client_verify_mode_disables_verification(verify_mode)) {
+        NSC_LOG_MESSAGE("TLS certificate verification is disabled for " + parsed.host + " (verify mode: " + (verify_mode.empty() ? "<not set>" : verify_mode) +
+                        "): the Elasticsearch credentials are sent to whichever server answers. Set verify mode = peer, or peer-cert with ca pointing at "
+                        "the self-signed certificate, unless this is intentional.");
+      }
+    }
+
     hostname_ = socket_helpers::expand_hostname(hostname_);
 
     nscapi::core_helper ch(get_core(), get_id());

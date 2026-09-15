@@ -343,14 +343,8 @@ void session_manager_interface::add_grant(const std::string &role, const std::st
 
 std::string session_manager_interface::get_metrics() { return metrics_store.get(); }
 std::string session_manager_interface::get_metrics_v2() { return metrics_store.get_list(); }
-std::string session_manager_interface::get_open_metrics() {
-  std::string metrics;
-  for (const std::string &m : metrics_store.get_openmetrics()) {
-    metrics += m + "\n";
-  }
-  return metrics;
-}
-void session_manager_interface::set_metrics(const std::string &metrics, const std::string &metrics_list, std::list<std::string> open_metrics) {
+std::string session_manager_interface::get_open_metrics() { return metrics_store.get_openmetrics(); }
+void session_manager_interface::set_metrics(const std::string &metrics, const std::string &metrics_list, const std::string &open_metrics) {
   metrics_store.set(metrics);
   metrics_store.set_list(metrics_list);
   metrics_store.set_openmetrics(open_metrics);
