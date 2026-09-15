@@ -83,7 +83,7 @@ const itPy = hasPythonScript ? it : it.skip;
 describe("plugin threading", () => {
   let nscp: NscpInstance;
   let scriptDir: string;
-  let tracePath: string;
+  let traceDir: string;
 
   /** `nscp nrpe --command <cmd>` against our own agent. Never throws: a
    * failure has to reach the assertion as text rather than as a rejected
@@ -112,34 +112,73 @@ describe("plugin threading", () => {
     return (res.all ?? "").trim();
   }
 
-  /** The trace the slow check writes: "+" on entry, "-" on exit. */
-  function readTrace(): string[] {
-    if (!fs.existsSync(tracePath)) return [];
-    return fs
-      .readFileSync(tracePath, "utf8")
-      .split(/\r?\n/)
-      .map((l) => l.trim())
-      .filter((l) => l.length > 0);
+  /**
+   * The trace is a directory, one file per event, not a shared append-only
+   * log. Several checks record at once, and concurrent appends to one file are
+   * only atomic where O_APPEND is - which Windows is not: the CRT's append
+   * mode seeks to the end and then writes, so two writers overwrite each
+   * other. That cost real markers on the Windows runners (four callers, two
+   * lines) while Linux passed every time. Creating a distinct file per event
+   * has no shared position to race over on either platform.
+   *
+   * Each check writes `<uid>.enter` when it starts and `<uid>.exit` when it
+   * finishes, both containing a monotonic-ish timestamp in seconds.
+   */
+  interface TraceEvent {
+    uid: string;
+    kind: "enter" | "exit";
+    at: number;
   }
 
+  function readEvents(): TraceEvent[] {
+    if (!fs.existsSync(traceDir)) return [];
+    const events: TraceEvent[] = [];
+    for (const name of fs.readdirSync(traceDir)) {
+      const m = /^(.+)\.(enter|exit)$/.exec(name);
+      if (!m) continue;
+      const raw = fs.readFileSync(path.join(traceDir, name), "utf8").trim();
+      const at = Number.parseFloat(raw);
+      if (!Number.isFinite(at)) continue;
+      events.push({ uid: m[1], kind: m[2] as "enter" | "exit", at });
+    }
+    return events;
+  }
+
+  const entered = (): number => readEvents().filter((e) => e.kind === "enter").length;
+  const exited = (): number => readEvents().filter((e) => e.kind === "exit").length;
+
   function resetTrace(): void {
-    fs.writeFileSync(tracePath, "");
+    fs.rmSync(traceDir, { recursive: true, force: true });
+    fs.mkdirSync(traceDir, { recursive: true });
   }
 
   /**
-   * Highest number of slow checks that were inside the agent at the same
-   * moment, replayed from the trace. 1 means they were serialised.
+   * Highest number of checks that were inside the agent at the same moment.
+   * Pairs each enter with its exit and sweeps the resulting intervals, so it
+   * reads real overlap rather than the order lines happened to land in. 1
+   * means they were serialised.
    */
-  function peakOverlap(lines: string[]): number {
+  function peakOverlap(events: TraceEvent[]): number {
+    const starts = new Map<string, number>();
+    for (const e of events) if (e.kind === "enter") starts.set(e.uid, e.at);
+
+    const edges: Array<{ at: number; delta: number }> = [];
+    for (const e of events) {
+      if (e.kind === "enter") {
+        edges.push({ at: e.at, delta: 1 });
+      } else if (starts.has(e.uid)) {
+        edges.push({ at: e.at, delta: -1 });
+      }
+    }
+    // Close before opening at the same instant, so two checks that merely
+    // abut are not counted as overlapping.
+    edges.sort((a, b) => a.at - b.at || a.delta - b.delta);
+
     let depth = 0;
     let peak = 0;
-    for (const line of lines) {
-      if (line.startsWith("+")) {
-        depth += 1;
-        peak = Math.max(peak, depth);
-      } else if (line.startsWith("-")) {
-        depth -= 1;
-      }
+    for (const edge of edges) {
+      depth += edge.delta;
+      peak = Math.max(peak, depth);
     }
     return peak;
   }
@@ -147,7 +186,7 @@ describe("plugin threading", () => {
   beforeAll(async () => {
     nscp = new NscpInstance();
     scriptDir = nscp.scratch("threading");
-    tracePath = path.join(scriptDir, "trace.log");
+    traceDir = path.join(scriptDir, "trace");
     resetTrace();
 
     // A check that genuinely blocks its dispatch thread: CheckExternalScripts
@@ -157,21 +196,25 @@ describe("plugin threading", () => {
     const slowScript = path.join(scriptDir, "slow.py");
     // JSON.stringify produces a correctly escaped literal for Python too, so
     // a Windows path survives whichever separator it carries.
-    const traceLiteral = JSON.stringify(tracePath);
+    const traceLiteral = JSON.stringify(traceDir);
     fs.writeFileSync(
       slowScript,
       [
-        "import os, sys, time",
+        "import os, sys, time, uuid",
         "",
-        `TRACE = ${traceLiteral}`,
+        `TRACE_DIR = ${traceLiteral}`,
+        "UID = uuid.uuid4().hex",
         "",
-        "def mark(sign):",
-        '    with open(TRACE, "a") as f:',
-        '        f.write("%s %d\\n" % (sign, os.getpid()))',
+        "def mark(kind):",
+        "    # One file per event: appending to a shared log is not atomic on",
+        "    # Windows and markers went missing there. See the test's helpers.",
+        '    p = os.path.join(TRACE_DIR, "%s.%s" % (UID, kind))',
+        '    with open(p, "w") as f:',
+        '        f.write("%.6f" % time.time())',
         "",
-        'mark("+")',
+        'mark("enter")',
         `time.sleep(${SLOW_MS / 1000})`,
-        'mark("-")',
+        'mark("exit")',
         'print("OK: slow done")',
         "sys.exit(0)",
         "",
@@ -233,15 +276,18 @@ describe("plugin threading", () => {
       [
         "from NSCP import Registry, Core, status, sleep",
         "",
-        "import threading",
+        "import os, threading, time, uuid",
         "",
         "plugin_id = 0",
         "",
-        `TRACE = ${JSON.stringify(tracePath)}`,
+        `TRACE_DIR = ${JSON.stringify(traceDir)}`,
         "",
-        "def mark(sign):",
-        '    with open(TRACE, "a") as f:',
-        '        f.write("%s %d\\n" % (sign, threading.get_ident()))',
+        "def mark(uid, kind):",
+        "    # One file per event; a shared append-only log loses markers on",
+        "    # Windows. See the test's trace helpers.",
+        '    p = os.path.join(TRACE_DIR, "%s.%s" % (uid, kind))',
+        '    with open(p, "w") as f:',
+        '        f.write("%.6f" % time.time())',
         "",
         "def inner(arguments):",
         "    return (status.OK, 'inner reached')",
@@ -266,9 +312,10 @@ describe("plugin threading", () => {
         "    # NSCP.sleep parks the thread with the GIL released",
         "    # (thread_unlocker -> PyEval_SaveThread), so other threads must",
         "    # be able to run Python while this one sits here.",
-        '    mark("+")',
+        "    uid = uuid.uuid4().hex",
+        '    mark(uid, "enter")',
         `    sleep(${SLOW_MS})`,
-        '    mark("-")',
+        '    mark(uid, "exit")',
         "    return (status.OK, 'slept')",
         "",
         "def init(pid, plugin_alias, script_alias):",
@@ -332,7 +379,7 @@ describe("plugin threading", () => {
 
     for (const r of results) expect(r).toContain("slow done");
 
-    const trace = readTrace();
+    const trace = readEvents();
     const peak = peakOverlap(trace);
 
     // A failure here is almost always one CI-only observation, so make sure
@@ -340,11 +387,11 @@ describe("plugin threading", () => {
     const serialisedMs = callers * SLOW_MS;
     const budgetMs = serialisedMs * 0.75;
     if (peak <= 1 || elapsed >= budgetMs) {
-      console.error(`peak=${peak} elapsed=${elapsed}ms trace=[${trace.join(" ")}]`);
+      console.error(`peak=${peak} elapsed=${elapsed}ms events=${trace.length}`);
     }
 
-    expect(trace.filter((l) => l.startsWith("+"))).toHaveLength(callers);
-    expect(trace.filter((l) => l.startsWith("-"))).toHaveLength(callers);
+    expect(trace.filter((e) => e.kind === "enter")).toHaveLength(callers);
+    expect(trace.filter((e) => e.kind === "exit")).toHaveLength(callers);
 
     // The point of the suite: the agent had more than one of them inside it
     // at the same time. A core that dispatched under a single lock scores 1
@@ -362,8 +409,10 @@ describe("plugin threading", () => {
   itScript("keeps a different module answering while one module is blocked", async () => {
     resetTrace();
 
-    const entered = () => readTrace().some((l) => l.startsWith("+"));
-    const exits = () => readTrace().filter((l) => l.startsWith("-")).length;
+    // Live counts straight off the trace directory: one file per event, so a
+    // reader never sees a half-written shared log.
+    const hasEntered = () => entered() > 0;
+    const exits = () => exited();
 
     // Hold CheckExternalScripts busy, then ask CheckHelpers for something
     // trivial. If a slow check could block the whole dispatch path, no fast
@@ -373,10 +422,10 @@ describe("plugin threading", () => {
     // Wait for the slow check to actually be inside the agent rather than
     // assuming a fixed sleep was long enough on this machine.
     const readyBy = Date.now() + 30_000;
-    while (!entered() && Date.now() < readyBy) {
+    while (!hasEntered() && Date.now() < readyBy) {
       await new Promise((r) => setTimeout(r, 25));
     }
-    expect(entered()).toBe(true);
+    expect(hasEntered()).toBe(true);
 
     // Count the fast checks that demonstrably came back while the slow one was
     // still inside the agent: its entry marker written, its exit marker not.
@@ -473,14 +522,14 @@ describe("plugin threading", () => {
     for (const r of await Promise.all(inFlight)) expect(r).toContain("slept");
     const elapsed = Date.now() - started;
 
-    const trace = readTrace();
+    const trace = readEvents();
     const peak = peakOverlap(trace);
     if (peak <= 1) {
-      console.error(`peak=${peak} elapsed=${elapsed}ms trace=[${trace.join(" ")}]`);
+      console.error(`peak=${peak} elapsed=${elapsed}ms events=${trace.length}`);
     }
 
-    expect(trace.filter((l) => l.startsWith("+"))).toHaveLength(callers);
-    expect(trace.filter((l) => l.startsWith("-"))).toHaveLength(callers);
+    expect(trace.filter((e) => e.kind === "enter")).toHaveLength(callers);
+    expect(trace.filter((e) => e.kind === "exit")).toHaveLength(callers);
 
     // The point: more than one Python check was inside at once. A GIL held
     // across the sleep would score 1 here however fast the machine is.
