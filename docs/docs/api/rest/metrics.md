@@ -156,7 +156,7 @@ openmetrics format = legacy
 
 to get that body back byte for byte while a dashboard or recording rule built
 on the old names is migrated. The setting is deprecated and will be removed in
-0.24.0.
+a future release.
 
 ### Prometheus scrape config
 

@@ -248,7 +248,7 @@ unix:
             reproduces the pre-0.22 body byte for byte - `<name> <value>` lines with dots, spaces and
             colons left in the names, and values truncated to six significant digits - for a dashboard
             or recording rule that has not been migrated yet. The legacy format is deprecated and will
-            be removed in 0.24.0.'
+            be removed in a future release.'
           sample: false
           title: OPENMETRICS EXPOSITION FORMAT
         password:
@@ -407,7 +407,7 @@ windows:
             reproduces the pre-0.22 body byte for byte - `<name> <value>` lines with dots, spaces and
             colons left in the names, and values truncated to six significant digits - for a dashboard
             or recording rule that has not been migrated yet. The legacy format is deprecated and will
-            be removed in 0.24.0.'
+            be removed in a future release.'
           sample: false
           title: OPENMETRICS EXPOSITION FORMAT
         password:

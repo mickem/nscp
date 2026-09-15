@@ -45,8 +45,8 @@ What to do:
   ```
 
   which reproduces the old body byte for byte. It is deprecated and **will be
-  removed in 0.24.0**, so use it as a migration window rather than a setting to
-  leave in place.
+  removed in a future release**, so use it as a migration window rather than a
+  setting to leave in place.
 
 Two keys can now want the same metric name (`mem.used.%` and
 `mem.used percent` both render as `mem_used_percent`). The first metric of the

@@ -231,7 +231,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
                   "rewritten to the `[a-zA-Z_][a-zA-Z0-9_]*` grammar (`system.mem.physical.%` becomes `system_mem_physical_percent`), every family "
                   "carries a `# TYPE` line, the body ends with `# EOF` and values keep their full precision. `legacy` reproduces the pre-0.22 body byte "
                   "for byte - `<name> <value>` lines with dots, spaces and colons left in the names, and values truncated to six significant digits - "
-                  "for a dashboard or recording rule that has not been migrated yet. The legacy format is deprecated and will be removed in 0.24.0.");
+                  "for a dashboard or recording rule that has not been migrated yet. The legacy format is deprecated and will be removed in a future release.");
   settings.alias()
       .add_key_to_settings()
       .add_string("certificate", sh::string_key(&certificate, "${certificate-path}/certificate.pem"), "TLS Certificate",

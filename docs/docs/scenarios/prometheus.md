@@ -264,8 +264,8 @@ openmetrics format = legacy
 ```
 
 This reproduces the pre-0.22 exposition byte for byte. It is deprecated and
-will be removed in 0.24.0, so treat it as a migration window rather than a
-setting to leave in place.
+will be removed in a future release, so treat it as a migration window rather
+than a setting to leave in place.
 
 ### TLS / self-signed certificate
 
