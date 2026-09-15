@@ -487,3 +487,69 @@ TEST(DiskFree, LargeValues) {
   EXPECT_EQ(d.get_free_pct(), 25);
   EXPECT_EQ(d.get_used_pct(), 75);
 }
+
+// ============================================================================
+// Metrics metadata: what a scraper is told about these values beyond the
+// number. A metric with no help is an anonymous series on somebody's
+// Prometheus, and a byte count typed without its unit reads as a bare number.
+// ============================================================================
+
+namespace {
+
+const PB::Metrics::Metric *metric_named(const PB::Metrics::MetricsBundle &bundle, const std::string &key) {
+  for (const PB::Metrics::Metric &m : bundle.value()) {
+    if (m.key() == key) return &m;
+  }
+  return nullptr;
+}
+
+}  // namespace
+
+TEST(DiskFree, BuildMetricsDescribesEveryValue) {
+  disk_free_check::disk_free d;
+  d.name = "C:";
+  d.total = 4000000000000LL;
+  d.free = 1000000000000LL;
+  d.user_free = 1000000000000LL;
+
+  PB::Metrics::MetricsBundle bundle;
+  d.build_metrics(&bundle);
+
+  ASSERT_EQ(bundle.value_size(), 6);
+  for (const PB::Metrics::Metric &m : bundle.value()) {
+    EXPECT_FALSE(m.desc().empty()) << "no help text for " << m.key();
+  }
+  const PB::Metrics::Metric *total = metric_named(bundle, "C:.total");
+  ASSERT_NE(total, nullptr);
+  EXPECT_EQ(total->unit(), "bytes");
+  EXPECT_TRUE(total->has_gauge_value());
+  EXPECT_EQ(total->gauge_value().value(), 4000000000000.0);
+  // A share is not measured in anything the spec names, and the key already
+  // says `_pct`, so it carries help and no unit.
+  const PB::Metrics::Metric *used_pct = metric_named(bundle, "C:.used_pct");
+  ASSERT_NE(used_pct, nullptr);
+  EXPECT_EQ(used_pct->unit(), "");
+}
+
+TEST(DiskIo, BuildMetricsDescribesEveryValueAndOnlyUnitsTheLatencies) {
+  disk_io_check::disk_io d;
+  d.name = "sda";
+  d.read_bytes_per_sec = 1024;
+  d.read_latency = 2.5;
+
+  PB::Metrics::MetricsBundle bundle;
+  d.build_metrics(&bundle);
+
+  ASSERT_EQ(bundle.value_size(), 11);
+  for (const PB::Metrics::Metric &m : bundle.value()) {
+    EXPECT_FALSE(m.desc().empty()) << "no help text for " << m.key();
+  }
+  const PB::Metrics::Metric *latency = metric_named(bundle, "sda.read_latency");
+  ASSERT_NE(latency, nullptr);
+  EXPECT_EQ(latency->unit(), "milliseconds");
+  // A per-second rate takes no unit: `bytes` would claim the sample is a byte
+  // count, and the endpoint would suffix the metric name to match.
+  const PB::Metrics::Metric *rate = metric_named(bundle, "sda.read_bytes_per_sec");
+  ASSERT_NE(rate, nullptr);
+  EXPECT_EQ(rate->unit(), "");
+}

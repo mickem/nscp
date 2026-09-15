@@ -13,6 +13,13 @@
 // precision, the family grouping and the terminator are what a scraper depends
 // on, and each of them is a regression that would otherwise only show up as a
 // silently dropped series on somebody's Prometheus.
+//
+// Since the metadata sweep they also pin what a producer's `help`, `unit`,
+// type and labels turn into, and the one place the two expositions genuinely
+// differ: OpenMetrics names a counter family `foo` and its sample `foo_total`,
+// the older Prometheus text format names both `foo_total`. Rendering one body
+// and serving it to both readers is what that costs - every counter loses its
+// type for one of them.
 
 #include "openmetrics_renderer.hpp"
 
@@ -41,16 +48,45 @@ class snapshot {
     return b;
   }
 
-  static void gauge(PB::Metrics::MetricsBundle *b, const std::string &key, const double value) {
+  static PB::Metrics::Metric *gauge(PB::Metrics::MetricsBundle *b, const std::string &key, const double value) {
     PB::Metrics::Metric *m = b->add_value();
     m->set_key(key);
     m->mutable_gauge_value()->set_value(value);
+    return m;
   }
 
-  static void string_metric(PB::Metrics::MetricsBundle *b, const std::string &key, const std::string &value) {
+  static PB::Metrics::Metric *counter(PB::Metrics::MetricsBundle *b, const std::string &key, const double value) {
+    PB::Metrics::Metric *m = b->add_value();
+    m->set_key(key);
+    m->mutable_counter_value()->set_value(value);
+    return m;
+  }
+
+  static PB::Metrics::Metric *untyped(PB::Metrics::MetricsBundle *b, const std::string &key, const double value) {
+    PB::Metrics::Metric *m = b->add_value();
+    m->set_key(key);
+    m->mutable_untyped_value()->set_value(value);
+    return m;
+  }
+
+  static PB::Metrics::Metric *string_metric(PB::Metrics::MetricsBundle *b, const std::string &key, const std::string &value) {
     PB::Metrics::Metric *m = b->add_value();
     m->set_key(key);
     m->mutable_string_value()->set_value(value);
+    return m;
+  }
+
+  static PB::Metrics::Metric *described(PB::Metrics::Metric *m, const std::string &help, const std::string &unit = "") {
+    m->set_desc(help);
+    if (!unit.empty()) m->set_unit(unit);
+    return m;
+  }
+
+  static PB::Metrics::Metric *labelled(PB::Metrics::Metric *m, const std::string &name, const std::string &value) {
+    PB::Common::KeyValue *dim = m->add_dims();
+    dim->set_key(name);
+    dim->set_value(value);
+    return m;
   }
 
   const PB::Metrics::MetricsMessage &message() const { return message_; }
@@ -61,6 +97,14 @@ class snapshot {
 };
 
 bool contains(const std::string &haystack, const std::string &needle) { return haystack.find(needle) != std::string::npos; }
+
+// The exposition a scraper that negotiated OpenMetrics 1.0 gets.
+std::string render(const snapshot &shot, std::vector<std::string> *problems = nullptr) {
+  return openmetrics::render(shot.message(), openmetrics::dialect::openmetrics_1_0, problems);
+}
+
+// The exposition everything that did not negotiate gets.
+std::string render_text(const snapshot &shot) { return openmetrics::render(shot.message(), openmetrics::dialect::prometheus_text_0_0_4); }
 
 }  // namespace
 
@@ -174,7 +218,8 @@ TEST(OpenmetricsRenderer, AnEmptySnapshotIsStillAValidDocument) {
   // A scrape before the first metrics tick must not return a body a parser
   // rejects - `# EOF` is what makes an empty document well-formed.
   const PB::Metrics::MetricsMessage empty;
-  EXPECT_EQ(openmetrics::render(empty), "# EOF\n");
+  EXPECT_EQ(openmetrics::render(empty, openmetrics::dialect::openmetrics_1_0), "# EOF\n");
+  EXPECT_EQ(openmetrics::render(empty, openmetrics::dialect::prometheus_text_0_0_4), "# EOF\n");
 }
 
 TEST(OpenmetricsRenderer, EveryFamilyCarriesATypeAndTheBodyEndsWithEof) {
@@ -184,7 +229,7 @@ TEST(OpenmetricsRenderer, EveryFamilyCarriesATypeAndTheBodyEndsWithEof) {
   snapshot::gauge(mem, "physical.total", 17175158784.0);
   snapshot::gauge(mem, "physical.%", 73.0);
 
-  const std::string body = openmetrics::render(s.message());
+  const std::string body = render(s);
 
   EXPECT_EQ(body,
             "# TYPE system_mem_physical_total gauge\n"
@@ -202,25 +247,47 @@ TEST(OpenmetricsRenderer, NestedBundlesBecomeTheNamePrefix) {
   PB::Metrics::MetricsBundle *disk = s.bundle("disk");
   snapshot::gauge(disk, "free.C:.total", 255000000000.0);
 
-  const std::string body = openmetrics::render(s.message());
+  const std::string body = render(s);
 
   EXPECT_TRUE(contains(body, "system_cpu_core_0_idle 95\n"));
   EXPECT_TRUE(contains(body, "disk_free_C_total 255000000000\n"));
 }
 
-TEST(OpenmetricsRenderer, StringMetricsAreSkipped) {
-  // Uptime, boot time and MAC addresses have no numeric sample. They need an
-  // `info` family and the metadata that goes with it; until then they must not
-  // leak out as a bare name with no value, which would break the whole body.
+TEST(OpenmetricsRenderer, StringMetricsBecomeTheBundlesInfoFamily) {
+  // Uptime, boot time and MAC addresses have no numeric sample, so they are
+  // labels of one always-1 series - the `node_uname_info` shape. Before the
+  // metadata work they were dropped, and a Prometheus user could not see the
+  // host's uptime string at all.
+  snapshot s;
+  PB::Metrics::MetricsBundle *up = s.bundle("uptime");
+  snapshot::gauge(up, "ticks.raw", 84135.0);
+  snapshot::string_metric(up, "uptime", "1d 12:30");
+  snapshot::string_metric(up, "boot", "2026-09-13 01:15");
+
+  const std::string body = render(s);
+
+  EXPECT_EQ(body,
+            "# TYPE uptime_ticks_raw gauge\n"
+            "uptime_ticks_raw 84135\n"
+            "# TYPE uptime info\n"
+            "uptime_info{uptime=\"1d 12:30\",boot=\"2026-09-13 01:15\"} 1\n"
+            "# EOF\n");
+}
+
+TEST(OpenmetricsRenderer, AnInfoFamilyIsAGaugeForTheOlderTextFormat) {
+  // `info` arrived with OpenMetrics 1.0. The older parser rejects a `# TYPE`
+  // it does not know, and rejecting it costs the scrape every metric in the
+  // body, not just this one - so that reader gets the gauge-valued-1 spelling
+  // exporters used before the type existed, naming the sample rather than the
+  // family.
   snapshot s;
   PB::Metrics::MetricsBundle *up = s.bundle("uptime");
   snapshot::string_metric(up, "uptime", "1d 12:30");
-  snapshot::gauge(up, "ticks.raw", 84135.0);
 
-  const std::string body = openmetrics::render(s.message());
-
-  EXPECT_FALSE(contains(body, "1d 12:30"));
-  EXPECT_TRUE(contains(body, "uptime_ticks_raw 84135\n"));
+  EXPECT_EQ(render_text(s),
+            "# TYPE uptime_info gauge\n"
+            "uptime_info{uptime=\"1d 12:30\"} 1\n"
+            "# EOF\n");
 }
 
 TEST(OpenmetricsRenderer, EachFamilyIsEmittedOnceUnderItsOwnType) {
@@ -234,7 +301,7 @@ TEST(OpenmetricsRenderer, EachFamilyIsEmittedOnceUnderItsOwnType) {
   PB::Metrics::MetricsBundle *b = s.bundle("other");
   snapshot::gauge(b, "value", 2.0);
 
-  const std::string body = openmetrics::render(s.message());
+  const std::string body = render(s);
 
   EXPECT_EQ(body,
             "# TYPE dup_value gauge\n"
@@ -255,7 +322,7 @@ TEST(OpenmetricsRenderer, TwoKeysCollidingOnOneNameKeepTheFirstAndAreReported) {
   snapshot::gauge(mem, "used percent", 99.0);
 
   std::vector<std::string> problems;
-  const std::string body = openmetrics::render(s.message(), &problems);
+  const std::string body = render(s, &problems);
 
   EXPECT_EQ(body,
             "# TYPE mem_used_percent gauge\n"
@@ -275,7 +342,7 @@ TEST(OpenmetricsRenderer, ChildBundlesAreRenderedBeforeTheParentsOwnValues) {
   PB::Metrics::MetricsBundle *cpu = snapshot::child(system, "cpu");
   snapshot::gauge(cpu, "total.idle", 95.0);
 
-  const std::string body = openmetrics::render(s.message());
+  const std::string body = render(s);
 
   EXPECT_LT(body.find("system_cpu_total_idle"), body.find("system_refresh_interval"));
 }
@@ -287,42 +354,376 @@ TEST(OpenmetricsRenderer, EveryEmittedLineMatchesTheExpositionGrammar) {
   snapshot s;
   PB::Metrics::MetricsBundle *system = s.bundle("system");
   PB::Metrics::MetricsBundle *cpu = snapshot::child(system, "cpu");
-  snapshot::gauge(cpu, "core 0.idle", 95.0);
+  snapshot::described(snapshot::gauge(cpu, "core 0.idle", 95.0), "Share of CPU time spent idle", "percent");
   snapshot::gauge(cpu, "total.idle", 91.5);
   PB::Metrics::MetricsBundle *net = snapshot::child(system, "network");
-  snapshot::gauge(net, "Ethernet 1.BytesReceivedPersec", 343.0);
+  snapshot::labelled(snapshot::gauge(net, "Ethernet 1.BytesReceivedPersec", 343.0), "nic", "Ethernet 1");
   PB::Metrics::MetricsBundle *disk = s.bundle("disk");
-  snapshot::gauge(disk, "free.C:.total", 255000000000.0);
+  snapshot::described(snapshot::gauge(disk, "free.C:.total", 255000000000.0), "Size of the volume", "bytes");
+  snapshot::counter(disk, "free.C:.errors", 2.0);
   snapshot::string_metric(disk, "free.C:.label", "System");
 
-  const std::string body = openmetrics::render(s.message());
+  for (const openmetrics::dialect dialect : {openmetrics::dialect::openmetrics_1_0, openmetrics::dialect::prometheus_text_0_0_4}) {
+    const std::string body = openmetrics::render(s.message(), dialect);
 
-  ASSERT_GE(body.size(), 6u);
-  EXPECT_EQ(body.substr(body.size() - 6), "# EOF\n");
+    ASSERT_GE(body.size(), 6u);
+    EXPECT_EQ(body.substr(body.size() - 6), "# EOF\n");
 
-  size_t line_start = 0;
-  int samples = 0;
-  while (line_start < body.size()) {
-    const size_t line_end = body.find('\n', line_start);
-    ASSERT_NE(line_end, std::string::npos) << "the body must not end mid-line";
-    const std::string line = body.substr(line_start, line_end - line_start);
-    line_start = line_end + 1;
-    if (!line.empty() && line[0] == '#') continue;
+    size_t line_start = 0;
+    int samples = 0;
+    while (line_start < body.size()) {
+      const size_t line_end = body.find('\n', line_start);
+      ASSERT_NE(line_end, std::string::npos) << "the body must not end mid-line";
+      const std::string line = body.substr(line_start, line_end - line_start);
+      line_start = line_end + 1;
+      if (!line.empty() && line[0] == '#') continue;
 
-    const size_t space = line.find(' ');
-    ASSERT_NE(space, std::string::npos) << "sample line without a value: " << line;
-    const std::string name = line.substr(0, space);
-    const std::string value = line.substr(space + 1);
-    ASSERT_FALSE(name.empty()) << line;
-    EXPECT_TRUE((name[0] >= 'a' && name[0] <= 'z') || (name[0] >= 'A' && name[0] <= 'Z') || name[0] == '_') << "name starts illegally: " << line;
-    for (const char c : name) {
-      EXPECT_TRUE((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') << "illegal character in name: " << line;
+      // A sample is `name[{labels}] value`; a label value is quoted and may
+      // hold anything, spaces included, so the name ends at the brace when
+      // there is one.
+      const size_t brace = line.find('{');
+      const size_t close = brace == std::string::npos ? std::string::npos : line.find('}', brace);
+      if (brace != std::string::npos) ASSERT_NE(close, std::string::npos) << "unterminated label set: " << line;
+      const size_t space = line.find(' ', close == std::string::npos ? 0 : close);
+      ASSERT_NE(space, std::string::npos) << "sample line without a value: " << line;
+      const std::string name = line.substr(0, brace == std::string::npos ? space : brace);
+      const std::string value = line.substr(space + 1);
+      ASSERT_FALSE(name.empty()) << line;
+      EXPECT_TRUE((name[0] >= 'a' && name[0] <= 'z') || (name[0] >= 'A' && name[0] <= 'Z') || name[0] == '_') << "name starts illegally: " << line;
+      for (const char c : name) {
+        EXPECT_TRUE((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') << "illegal character in name: " << line;
+      }
+      EXPECT_EQ(value.find(' '), std::string::npos) << "value carries a space: " << line;
+      EXPECT_FALSE(value.empty()) << line;
+      ++samples;
     }
-    EXPECT_EQ(value.find(' '), std::string::npos) << "value carries a space: " << line;
-    EXPECT_FALSE(value.empty()) << line;
-    ++samples;
+    // Four gauges, one counter and the info series the string folds into.
+    EXPECT_EQ(samples, 6);
   }
-  EXPECT_EQ(samples, 4);
+}
+
+// --- metadata ---------------------------------------------------------------
+
+TEST(OpenmetricsRenderer, HelpTextBecomesTheHelpLine) {
+  snapshot s;
+  PB::Metrics::MetricsBundle *mem = s.bundle("mem");
+  snapshot::described(snapshot::gauge(mem, "used", 42.0), "Physical memory in use");
+
+  EXPECT_EQ(render(s),
+            "# HELP mem_used Physical memory in use\n"
+            "# TYPE mem_used gauge\n"
+            "mem_used 42\n"
+            "# EOF\n");
+}
+
+TEST(OpenmetricsRenderer, AMetricWithNoHelpOfItsOwnInheritsTheBundles) {
+  // How a section of near-identical metrics - one per core, one per NIC - gets
+  // help text without every producer repeating it per metric.
+  snapshot s;
+  PB::Metrics::MetricsBundle *cpu = s.bundle("cpu");
+  cpu->set_desc("CPU time over the last 5 minutes");
+  snapshot::gauge(cpu, "core_0.idle", 95.0);
+  snapshot::described(snapshot::gauge(cpu, "core_1.idle", 91.0), "Something more specific");
+
+  const std::string body = render(s);
+
+  EXPECT_TRUE(contains(body, "# HELP cpu_core_0_idle CPU time over the last 5 minutes\n"));
+  EXPECT_TRUE(contains(body, "# HELP cpu_core_1_idle Something more specific\n"));
+}
+
+TEST(OpenmetricsRenderer, HelpTextIsEscapedSoOneLineStaysOneLine) {
+  // A backslash and a line feed are the two things that have to be escaped; a
+  // carriage return has no spelling at all and would end the line early.
+  EXPECT_EQ(openmetrics::escape_help("a\\b"), "a\\\\b");
+  EXPECT_EQ(openmetrics::escape_help("two\nlines"), "two\\nlines");
+  EXPECT_EQ(openmetrics::escape_help("crlf\r\nhere"), "crlf\\nhere");
+  // A quote needs no escape in HELP, and escaping it would leave the backslash
+  // visible in the text a reader sees.
+  EXPECT_EQ(openmetrics::escape_help("a \"quoted\" word"), "a \"quoted\" word");
+}
+
+TEST(OpenmetricsRenderer, ADeclaredUnitIsEmittedAndEndsTheName) {
+  // OpenMetrics requires the name of a family that declares a unit to end with
+  // it, so the producer says `bytes` once and the suffix follows.
+  snapshot s;
+  PB::Metrics::MetricsBundle *mem = s.bundle("mem");
+  snapshot::described(snapshot::gauge(mem, "physical.used", 17175158784.0), "Physical memory in use", "bytes");
+
+  EXPECT_EQ(render(s),
+            "# HELP mem_physical_used_bytes Physical memory in use\n"
+            "# TYPE mem_physical_used_bytes gauge\n"
+            "# UNIT mem_physical_used_bytes bytes\n"
+            "mem_physical_used_bytes 17175158784\n"
+            "# EOF\n");
+}
+
+TEST(OpenmetricsRenderer, ANameThatAlreadyEndsInItsUnitIsNotSuffixedTwice) {
+  // `system.mem.physical.%` sanitises to `..._percent` and a frequency key is
+  // already `..._mhz`, so declaring the unit there adds the `# UNIT` line and
+  // renames nothing.
+  snapshot s;
+  PB::Metrics::MetricsBundle *mem = s.bundle("mem");
+  snapshot::described(snapshot::gauge(mem, "physical.%", 73.0), "Share of physical memory in use", "percent");
+  PB::Metrics::MetricsBundle *cpu = s.bundle("cpu");
+  snapshot::described(snapshot::gauge(cpu, "core_0.current_mhz", 2400.0), "Frequency the core is running at", "mhz");
+
+  const std::string body = render(s);
+
+  EXPECT_TRUE(contains(body, "mem_physical_percent 73\n"));
+  EXPECT_FALSE(contains(body, "mem_physical_percent_percent"));
+  EXPECT_TRUE(contains(body, "cpu_core_0_current_mhz 2400\n"));
+  EXPECT_FALSE(contains(body, "current_mhz_mhz"));
+}
+
+// --- types ------------------------------------------------------------------
+
+TEST(OpenmetricsRenderer, ACounterCarriesTheTotalSuffixOnItsSample) {
+  snapshot s;
+  PB::Metrics::MetricsBundle *scheduler = s.bundle("scheduler");
+  snapshot::described(snapshot::counter(scheduler, "jobs", 1847.0), "Scheduled checks started since the agent was started");
+
+  EXPECT_EQ(render(s),
+            "# HELP scheduler_jobs Scheduled checks started since the agent was started\n"
+            "# TYPE scheduler_jobs counter\n"
+            "scheduler_jobs_total 1847\n"
+            "# EOF\n");
+}
+
+TEST(OpenmetricsRenderer, TheOlderTextFormatNamesTheSampleInsteadOfTheFamily) {
+  // The whole reason two bodies exist. OpenMetrics says `# TYPE foo counter`
+  // describes the family whose sample is `foo_total`; the Prometheus text
+  // format has no families, so its `# TYPE` has to name `foo_total` or the
+  // counter is read as untyped.
+  snapshot s;
+  PB::Metrics::MetricsBundle *scheduler = s.bundle("scheduler");
+  snapshot::described(snapshot::counter(scheduler, "jobs", 1847.0), "Scheduled checks started since the agent was started");
+
+  EXPECT_EQ(render_text(s),
+            "# HELP scheduler_jobs_total Scheduled checks started since the agent was started\n"
+            "# TYPE scheduler_jobs_total counter\n"
+            "scheduler_jobs_total 1847\n"
+            "# EOF\n");
+}
+
+TEST(OpenmetricsRenderer, ACounterWithAUnitTakesBothSuffixesInOrder) {
+  snapshot s;
+  PB::Metrics::MetricsBundle *cpu = s.bundle("process");
+  snapshot::described(snapshot::counter(cpu, "cpu", 12.5), "CPU time this process has used", "seconds");
+
+  EXPECT_TRUE(contains(render(s), "process_cpu_seconds_total 12.5\n"));
+  EXPECT_TRUE(contains(render(s), "# UNIT process_cpu_seconds seconds\n"));
+}
+
+TEST(OpenmetricsRenderer, AnUntypedValueIsSpelledDifferentlyByTheTwoFormats) {
+  snapshot s;
+  PB::Metrics::MetricsBundle *b = s.bundle("odd");
+  snapshot::untyped(b, "value", 7.0);
+
+  EXPECT_TRUE(contains(render(s), "# TYPE odd_value unknown\n"));
+  EXPECT_TRUE(contains(render_text(s), "# TYPE odd_value untyped\n"));
+}
+
+TEST(OpenmetricsRenderer, AGaugeNamedLikeACountersSampleCannotTakeThatName) {
+  // A counter family `foo` owns `foo_total` as well as `foo`, so a gauge whose
+  // key sanitises to `foo_total` has to be dropped rather than emitted as a
+  // second series of the counter's name.
+  snapshot s;
+  PB::Metrics::MetricsBundle *b = s.bundle("jobs");
+  snapshot::counter(b, "run", 3.0);
+  snapshot::gauge(b, "run.total", 9.0);
+
+  std::vector<std::string> problems;
+  const std::string body = render(s, &problems);
+
+  EXPECT_EQ(body,
+            "# TYPE jobs_run counter\n"
+            "jobs_run_total 3\n"
+            "# EOF\n");
+  ASSERT_EQ(problems.size(), 1u);
+  EXPECT_TRUE(contains(problems[0], "jobs_run_total"));
+}
+
+TEST(OpenmetricsRenderer, OneNameCannotCarryTwoTypes) {
+  // One `# TYPE` line per family, so the second metric has nowhere to go.
+  snapshot s;
+  PB::Metrics::MetricsBundle *b = s.bundle("mixed");
+  snapshot::gauge(b, "value", 1.0);
+  snapshot::counter(b, "value", 2.0);
+
+  std::vector<std::string> problems;
+  const std::string body = render(s, &problems);
+
+  EXPECT_EQ(body,
+            "# TYPE mixed_value gauge\n"
+            "mixed_value 1\n"
+            "# EOF\n");
+  EXPECT_EQ(problems.size(), 1u);
+}
+
+// --- labels -----------------------------------------------------------------
+
+TEST(OpenmetricsRenderer, LabelsPutEveryInstanceOfAFamilyUnderOneType) {
+  snapshot s;
+  PB::Metrics::MetricsBundle *cpu = s.bundle("cpu");
+  PB::Metrics::Metric *first = snapshot::gauge(cpu, "core 0.idle", 95.0);
+  first->set_alias("idle");
+  snapshot::described(snapshot::labelled(first, "core", "0"), "Share of CPU time spent idle", "percent");
+  PB::Metrics::Metric *second = snapshot::gauge(cpu, "total.idle", 91.0);
+  second->set_alias("idle");
+  snapshot::described(snapshot::labelled(second, "core", "total"), "Share of CPU time spent idle", "percent");
+
+  EXPECT_EQ(render(s),
+            "# HELP cpu_idle_percent Share of CPU time spent idle\n"
+            "# TYPE cpu_idle_percent gauge\n"
+            "# UNIT cpu_idle_percent percent\n"
+            "cpu_idle_percent{core=\"0\"} 95\n"
+            "cpu_idle_percent{core=\"total\"} 91\n"
+            "# EOF\n");
+}
+
+TEST(OpenmetricsRenderer, LabelValuesAreEscaped) {
+  // A Windows device path is all backslashes, and an adapter description can
+  // carry a quote; either one unescaped ends the label set early and costs the
+  // scraper the whole body.
+  EXPECT_EQ(openmetrics::escape_label_value("\\Device\\HarddiskVolume1"), "\\\\Device\\\\HarddiskVolume1");
+  EXPECT_EQ(openmetrics::escape_label_value("Intel(R) \"Pro\" NIC"), "Intel(R) \\\"Pro\\\" NIC");
+  EXPECT_EQ(openmetrics::escape_label_value("two\nlines"), "two\\nlines");
+}
+
+TEST(OpenmetricsRenderer, ALabelNameIsHeldToTheSameGrammarAsAMetricName) {
+  snapshot s;
+  PB::Metrics::MetricsBundle *net = s.bundle("net");
+  snapshot::labelled(snapshot::gauge(net, "sent", 1.0), "network card", "Ethernet 1");
+
+  EXPECT_TRUE(contains(render(s), "net_sent{network_card=\"Ethernet 1\"} 1\n"));
+}
+
+TEST(OpenmetricsRenderer, TwoMetricsWithTheSameNameAndTheSameLabelsStillCollide) {
+  // Labels make a family hold several series; they do not make it hold the
+  // same series twice, which is what a strict parser rejects the body over.
+  snapshot s;
+  PB::Metrics::MetricsBundle *cpu = s.bundle("cpu");
+  PB::Metrics::Metric *first = snapshot::gauge(cpu, "a.idle", 95.0);
+  first->set_alias("idle");
+  snapshot::labelled(first, "core", "0");
+  PB::Metrics::Metric *second = snapshot::gauge(cpu, "b.idle", 91.0);
+  second->set_alias("idle");
+  snapshot::labelled(second, "core", "0");
+
+  std::vector<std::string> problems;
+  const std::string body = render(s, &problems);
+
+  EXPECT_EQ(body,
+            "# TYPE cpu_idle gauge\n"
+            "cpu_idle{core=\"0\"} 95\n"
+            "# EOF\n");
+  ASSERT_EQ(problems.size(), 1u);
+  EXPECT_TRUE(contains(problems[0], "cpu.b.idle"));
+}
+
+TEST(OpenmetricsRenderer, StringsOfDifferentInstancesBecomeDifferentInfoSeries) {
+  // One NIC's MAC address and link state belong on one line; the next NIC's
+  // belong on the next, not folded into the first.
+  snapshot s;
+  PB::Metrics::MetricsBundle *net = s.bundle("net");
+  PB::Metrics::Metric *mac = snapshot::string_metric(net, "eth0.mac", "00:11:22");
+  mac->set_alias("mac");
+  snapshot::labelled(mac, "nic", "eth0");
+  PB::Metrics::Metric *state = snapshot::string_metric(net, "eth0.state", "up");
+  state->set_alias("state");
+  snapshot::labelled(state, "nic", "eth0");
+  PB::Metrics::Metric *other = snapshot::string_metric(net, "eth1.mac", "00:33:44");
+  other->set_alias("mac");
+  snapshot::labelled(other, "nic", "eth1");
+
+  EXPECT_EQ(render(s),
+            "# TYPE net info\n"
+            "net_info{nic=\"eth0\",mac=\"00:11:22\",state=\"up\"} 1\n"
+            "net_info{nic=\"eth1\",mac=\"00:33:44\"} 1\n"
+            "# EOF\n");
+}
+
+TEST(OpenmetricsRenderer, TheRootBundleWithNoKeyStillProducesUsableNames) {
+  // A Python script's metrics arrive under a bundle whose key is the empty
+  // string. The joined path then starts with the separator, and a name may not
+  // begin with an underscore, so it borrows the `metric_` prefix - which is
+  // what a script's metrics have scraped as since the renderer landed. The
+  // info family has nothing but the bundle path to be named after, so it falls
+  // back to the same placeholder a name that sanitises away entirely gets.
+  snapshot s;
+  PB::Metrics::MetricsBundle *root = s.bundle("");
+  snapshot::gauge(root, "myscript.requests", 42.0);
+  snapshot::string_metric(root, "myscript.status", "ok");
+
+  EXPECT_EQ(render(s),
+            "# TYPE metric_myscript_requests gauge\n"
+            "metric_myscript_requests 42\n"
+            "# TYPE metric info\n"
+            "metric_info{myscript_status=\"ok\"} 1\n"
+            "# EOF\n");
+}
+
+// --- the aggregate types ----------------------------------------------------
+
+TEST(OpenmetricsRenderer, ASummaryRendersItsQuantilesSumAndCount) {
+  // No producer builds one yet, but the message has been in the schema since
+  // 2015 and a renderer that dropped it would emit a family with a `# TYPE`
+  // and no samples.
+  snapshot s;
+  PB::Metrics::MetricsBundle *b = s.bundle("rpc");
+  PB::Metrics::Metric *m = b->add_value();
+  m->set_key("duration");
+  m->set_desc("How long a call took");
+  PB::Metrics::Summary *summary = m->mutable_summary_value();
+  summary->set_sample_count(4);
+  summary->set_sample_sum(10.5);
+  PB::Metrics::Quantile *q = summary->add_quantile();
+  q->set_quantile(0.5);
+  q->set_value(2.0);
+
+  EXPECT_EQ(render(s),
+            "# HELP rpc_duration How long a call took\n"
+            "# TYPE rpc_duration summary\n"
+            "rpc_duration{quantile=\"0.5\"} 2\n"
+            "rpc_duration_sum 10.5\n"
+            "rpc_duration_count 4\n"
+            "# EOF\n");
+}
+
+TEST(OpenmetricsRenderer, AHistogramRendersItsBucketsSumAndCount) {
+  snapshot s;
+  PB::Metrics::MetricsBundle *b = s.bundle("rpc");
+  PB::Metrics::Metric *m = b->add_value();
+  m->set_key("size");
+  PB::Metrics::Histogram *histogram = m->mutable_histogram_value();
+  histogram->set_sample_count(3);
+  histogram->set_sample_sum(30.0);
+  PB::Metrics::Bucket *bucket = histogram->add_bucket();
+  bucket->set_upper_bound(10.0);
+  bucket->set_cumulative_count(2);
+
+  EXPECT_EQ(render(s),
+            "# TYPE rpc_size histogram\n"
+            "rpc_size_bucket{le=\"10\"} 2\n"
+            "rpc_size_sum 30\n"
+            "rpc_size_count 3\n"
+            "# EOF\n");
+}
+
+// --- what a producer that declares nothing still gets -----------------------
+
+TEST(OpenmetricsRenderer, AMetricWithNoMetadataRendersExactlyAsItAlwaysDid) {
+  // Every out-of-tree module, and every module here before the sweep: a key
+  // and a number. It must keep working, without a `# HELP` or `# UNIT` line
+  // invented for it.
+  snapshot s;
+  PB::Metrics::MetricsBundle *b = s.bundle("plugin");
+  snapshot::gauge(b, "value", 5.0);
+
+  EXPECT_EQ(render(s),
+            "# TYPE plugin_value gauge\n"
+            "plugin_value 5\n"
+            "# EOF\n");
 }
 
 // --- the legacy escape hatch ------------------------------------------------

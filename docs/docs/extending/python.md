@@ -518,6 +518,43 @@ def init(plugin_id, plugin_alias, script_alias):
     reg.fetch_metrics(my_metrics)
 ```
 
+##### Describing a metric
+
+A bare number says nothing about what it is, so it scrapes as an anonymous
+gauge on [`/api/v2/openmetrics`](../api/rest/metrics.md#openmetrics). Return a
+`dict` in place of the value to say more:
+
+```python
+def my_metrics():
+    return {
+        "my_script.requests": {
+            "value": 42,
+            "help": "Requests this script has handled since it started",
+            "type": "counter",
+        },
+        "my_script.latency": {
+            "value": 17.3,
+            "help": "Time the last request took",
+            "unit": "milliseconds",
+        },
+        "my_script.status": "ok",
+    }
+```
+
+| Key     | Required | Meaning |
+|---------|----------|---------|
+| `value` | yes      | The reading, as a string, int or float — exactly what you would have returned on its own. A dict without it is skipped. |
+| `help`  | no       | One line describing what the value is. Becomes the `# HELP` line. |
+| `unit`  | no       | What the value is measured in (`bytes`, `seconds`, `percent`, …). Becomes the `# UNIT` line, and the metric name is made to end in it, which OpenMetrics requires of a metric that declares one. Leave it off for a plain count and for a per-second rate. |
+| `type`  | no       | `gauge` (the default), `counter` for a value that only grows while the script runs, or `unknown`. Anything else is reported as a gauge and logged once, so a typo is visible. |
+
+Both forms may be mixed in one dict, and a plain value keeps meaning exactly
+what it always did: a gauge with no description. A string value, in either
+form, becomes a label of the bundle's `_info` family rather than a sample.
+
+The metadata is only read by the OpenMetrics endpoint. The JSON endpoints,
+Graphite, collectd and `submit_metrics` see the same keys and values as before.
+
 #### `Registry.query`
 
 ```python

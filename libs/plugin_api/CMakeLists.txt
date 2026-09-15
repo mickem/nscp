@@ -83,10 +83,13 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_helper_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper_test.cpp
     LIBRARIES
         GTest::gtest
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}
+        nscp_protobuf
         ${EXTRA_LIBS}
         ${Boost_DATE_TIME_LIBRARY}
         ${Boost_PROGRAM_OPTIONS_LIBRARY}

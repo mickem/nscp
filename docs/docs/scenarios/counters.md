@@ -127,6 +127,30 @@ check_pdh counter=disk_q time=30s
 The named-counter form also sidesteps shell-escaping pain (the counter path is in the config file,
 which is plain UTF-8) and lets you reuse the same definition from many checks.
 
+### Describing a counter for Prometheus
+
+Every predefined counter is also published on
+[`/api/v2/openmetrics`](../api/rest/metrics.md#openmetrics), as
+`system_metrics_pdh_<name>`. Nobody but you knows what
+`\\PhysicalDisk(_Total)\\Avg. Disk Write Queue Length` measures, so the counter
+definition is where you say:
+
+```ini
+[/settings/system/windows/counters/disk_q]
+collection strategy = rrd
+counter             = \\PhysicalDisk(_Total)\\Avg. Disk Write Queue Length
+help                = Average write queue length across all physical disks
+unit                =
+```
+
+| Key    | Effect |
+|--------|--------|
+| `help` | Becomes the `# HELP` line of the metric. Defaults to the counter path, which is better than nothing but reads like a path. |
+| `unit` | Becomes the `# UNIT` line, and the metric name is made to end in `_<unit>`, which OpenMetrics requires of a metric that declares one. Leave it empty for a plain count, a queue length or a per-second rate. |
+
+Neither key changes what `check_pdh` returns or what the JSON metrics endpoint
+reports — they only describe the counter to a scraper.
+
 ### When to predefine vs. check by path
 
 | Use a named/predefined counter when…       | Use a direct path when…              |

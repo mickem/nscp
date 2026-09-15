@@ -6,10 +6,11 @@
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_metrics_helper.hpp>
+#include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/functions_convert.hpp>
 #include <nscapi/protobuf/functions_status.hpp>
-#include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_submit.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nscapi/settings/proxy.hpp>
@@ -272,8 +273,8 @@ void Scheduler::run_schedules(const PB::Commands::QueryRequestMessage::Request &
   // below catches the direct case with a clearer message).
   static thread_local bool in_run_schedules = false;
   if (in_run_schedules) {
-    return nscapi::protobuf::functions::set_response_bad(*response,
-                                                         "run_schedules invoked from within run_schedules (a schedule runs run_schedules?); refusing to recurse");
+    return nscapi::protobuf::functions::set_response_bad(
+        *response, "run_schedules invoked from within run_schedules (a schedule runs run_schedules?); refusing to recurse");
   }
   in_run_schedules = true;
   struct reset_guard {
@@ -360,41 +361,27 @@ void Scheduler::run_schedules(const PB::Commands::QueryRequestMessage::Request &
 }
 
 void Scheduler::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
+  using nscapi::metrics::describe;
+  using nscapi::metrics::metric;
+
   PB::Metrics::MetricsBundle *bundle = response->add_bundles();
   bundle->set_key("scheduler");
+  describe(bundle, "The scheduler that runs the configured schedules");
   if (scheduler_.get_scheduler().has_metrics()) {
-    const auto tasks = scheduler_.get_scheduler().get_metric_executed();
-    const auto submitted = scheduler_.get_scheduler().get_metric_compleated();
-    const auto errors = scheduler_.get_scheduler().get_metric_errors();
-    const auto threads = scheduler_.get_scheduler().get_metric_threads();
-    const auto queue = scheduler_.get_scheduler().get_metric_ql();
-    const auto avg_time = scheduler_.get_scheduler().get_avg_time();
-    const auto rate = scheduler_.get_scheduler().get_metric_rate();
-
-    PB::Metrics::Metric *m = bundle->add_value();
-    m->set_key("jobs");
-    m->mutable_gauge_value()->set_value(static_cast<double>(tasks));
-    m = bundle->add_value();
-    m->set_key("submitted");
-    m->mutable_gauge_value()->set_value(static_cast<double>(submitted));
-    m = bundle->add_value();
-    m->set_key("errors");
-    m->mutable_gauge_value()->set_value(static_cast<double>(errors));
-    m = bundle->add_value();
-    m->set_key("threads");
-    m->mutable_gauge_value()->set_value(static_cast<double>(threads));
-    m = bundle->add_value();
-    m->set_key("queue");
-    m->mutable_gauge_value()->set_value(static_cast<double>(queue));
-    m = bundle->add_value();
-    m->set_key("avgtime");
-    m->mutable_gauge_value()->set_value(static_cast<double>(avg_time));
-    m = bundle->add_value();
-    m->set_key("rate");
-    m->mutable_gauge_value()->set_value(static_cast<double>(rate));
+    // Three of these only grow for the lifetime of the agent, so they are
+    // counters and `rate(scheduler_jobs_total[5m])` is the checks per second
+    // the schedules actually produce. The rest describe the pool right now.
+    metric(bundle, "jobs").help("Scheduled checks started since the agent was started").counter(scheduler_.get_scheduler().get_metric_executed());
+    metric(bundle, "submitted").help("Scheduled checks completed since the agent was started").counter(scheduler_.get_scheduler().get_metric_compleated());
+    metric(bundle, "errors").help("Scheduled checks that failed since the agent was started").counter(scheduler_.get_scheduler().get_metric_errors());
+    metric(bundle, "threads").help("Threads currently in the scheduler pool").gauge(scheduler_.get_scheduler().get_metric_threads());
+    metric(bundle, "queue").help("Scheduled checks waiting for a free thread").gauge(scheduler_.get_scheduler().get_metric_ql());
+    metric(bundle, "avgtime")
+        .help("Average wall clock time one scheduled check took to run")
+        .unit("milliseconds")
+        .gauge(scheduler_.get_scheduler().get_avg_time());
+    metric(bundle, "rate").help("Scheduled checks completed per second since the agent was started").gauge(scheduler_.get_scheduler().get_metric_rate());
   } else {
-    PB::Metrics::Metric *m = bundle->add_value();
-    m->set_key("metrics.available");
-    m->mutable_gauge_value()->set_value(0);
+    metric(bundle, "metrics.available").help("Whether the scheduler is collecting metrics at all").gauge(0);
   }
 }

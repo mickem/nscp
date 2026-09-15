@@ -3,12 +3,10 @@
 
 #pragma once
 
-#include <boost/thread/mutex.hpp>
-#include <memory>
-#include <vector>
 #include <Request.h>
 #include <StreamResponse.h>
 
+#include <boost/thread/mutex.hpp>
 #include <list>
 #include <memory>
 #include <net/socket/allowed_hosts.hpp>
@@ -68,8 +66,7 @@ struct session_manager_interface {
   session_manager_interface();
 
   bool process_auth_header(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response);
-  bool process_auth_header(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response,
-                           std::string *matched_grant = nullptr);
+  bool process_auth_header(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response, std::string *matched_grant = nullptr);
   // Handle the legacy `password` HTTP header used by Icinga's
   // check_nscp_api (and any client that follows the same convention). The
   // header carries the password only; the user is implied to be "admin".
@@ -94,7 +91,8 @@ struct session_manager_interface {
   std::string get_metrics();
   std::string get_metrics_v2();
   std::string get_open_metrics();
-  void set_metrics(const std::string &metrics, const std::string &metrics_list, const std::string &open_metrics);
+  std::string get_prometheus_metrics();
+  void set_metrics(const std::string &metrics, const std::string &metrics_list, const std::string &open_metrics, const std::string &prometheus_metrics);
 
   void add_log_message(bool is_error, const error_handler_interface::log_entry &entry) const;
   error_handler_interface *get_log_data() const;

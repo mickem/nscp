@@ -910,7 +910,24 @@ void pdh_thread::set_path(const std::string mem_path, const std::string cpu_path
   legacy_filters_.set_path(legacy_path);
 }
 
-void pdh_thread::add_counter(const PDH::pdh_object &counter) { configs_.push_back(counter); }
+void pdh_thread::add_counter(const PDH::pdh_object &counter) {
+  configs_.push_back(counter);
+  // The counter path is the honest default description: it is what the
+  // operator wrote, and it says more than nothing at all.
+  counter_meta meta;
+  meta.help = counter.help.empty() ? counter.path : counter.help;
+  meta.unit = counter.unit;
+  counter_meta_[counter.alias] = meta;
+}
+
+pdh_thread::counter_meta_map pdh_thread::get_counter_meta() {
+  boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+  if (!readLock.owns_lock()) {
+    NSC_LOG_ERROR("Failed to get Mutex for: counter metadata");
+    return counter_meta_map();
+  }
+  return counter_meta_map(counter_meta_);
+}
 
 void pdh_thread::add_realtime_mem_filter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
   try {
