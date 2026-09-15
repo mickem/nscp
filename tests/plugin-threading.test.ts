@@ -231,9 +231,17 @@ describe("plugin threading", () => {
     fs.writeFileSync(
       pyScript,
       [
-        "from NSCP import Registry, Core, status",
+        "from NSCP import Registry, Core, status, sleep",
+        "",
+        "import threading",
         "",
         "plugin_id = 0",
+        "",
+        `TRACE = ${JSON.stringify(tracePath)}`,
+        "",
+        "def mark(sign):",
+        '    with open(TRACE, "a") as f:',
+        '        f.write("%s %d\\n" % (sign, threading.get_ident()))',
         "",
         "def inner(arguments):",
         "    return (status.OK, 'inner reached')",
@@ -254,6 +262,15 @@ describe("plugin threading", () => {
         "    import ctypes",
         "    return (status.OK, 'native ok %d' % ctypes.sizeof(ctypes.c_int))",
         "",
+        "def sleeper(arguments):",
+        "    # NSCP.sleep parks the thread with the GIL released",
+        "    # (thread_unlocker -> PyEval_SaveThread), so other threads must",
+        "    # be able to run Python while this one sits here.",
+        '    mark("+")',
+        `    sleep(${SLOW_MS})`,
+        '    mark("-")',
+        "    return (status.OK, 'slept')",
+        "",
         "def init(pid, plugin_alias, script_alias):",
         "    global plugin_id",
         "    plugin_id = pid",
@@ -261,6 +278,7 @@ describe("plugin threading", () => {
         "    reg.simple_function('py_inner', inner, 'innermost self-query target')",
         "    reg.simple_function('py_nested', nested, 'queries a command its own module serves')",
         "    reg.simple_function('py_native', native, 'imports a C extension module')",
+        "    reg.simple_function('py_sleep', sleeper, 'parks with the GIL released')",
         "",
       ].join("\n"),
     );
@@ -430,6 +448,44 @@ describe("plugin threading", () => {
     // "undefined symbol: PyTuple_Type" - which takes protobuf, and so the
     // bundled scripts, down with it. A pure-Python script never notices.
     expect(await nrpe("py_native")).toContain("native ok");
+  });
+
+  itPy("runs concurrent python checks that release the GIL while parked", async () => {
+    // NSCP.sleep drops the GIL for the duration (thread_unlocker wraps
+    // PyEval_SaveThread), so three of these must sit inside the agent at the
+    // same time rather than taking turns - and an unrelated module must stay
+    // answerable throughout.
+    //
+    // Worth stating what this does NOT depend on: the reload barrier in
+    // dll_plugin only makes a dispatch wait while loadModuleEx is running on
+    // the module. No reload happens here, so dispatch costs nothing, and the
+    // GIL is the only thing being contended.
+    resetTrace();
+    const callers = 3;
+
+    const started = Date.now();
+    const inFlight = Array.from({ length: callers }, () => nrpe("py_sleep"));
+
+    // An unrelated module while all three are parked.
+    await new Promise((r) => setTimeout(r, SLOW_MS / 4));
+    expect(await nrpe("check_ok", ["message=awake"])).toContain("awake");
+
+    for (const r of await Promise.all(inFlight)) expect(r).toContain("slept");
+    const elapsed = Date.now() - started;
+
+    const trace = readTrace();
+    const peak = peakOverlap(trace);
+    if (peak <= 1) {
+      console.error(`peak=${peak} elapsed=${elapsed}ms trace=[${trace.join(" ")}]`);
+    }
+
+    expect(trace.filter((l) => l.startsWith("+"))).toHaveLength(callers);
+    expect(trace.filter((l) => l.startsWith("-"))).toHaveLength(callers);
+
+    // The point: more than one Python check was inside at once. A GIL held
+    // across the sleep would score 1 here however fast the machine is.
+    expect(peak).toBeGreaterThan(1);
+    expect(elapsed).toBeLessThan(callers * SLOW_MS * 0.75);
   });
 
   itPy("lets a python script query a command its own module serves", async () => {
