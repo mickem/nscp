@@ -334,6 +334,54 @@ TEST(simple_scheduler_running, stop_clears_thread_count) {
   EXPECT_EQ(s.get_threads(), 0u);
 }
 
+TEST(simple_scheduler_running, restart_after_stop_runs_tasks_again) {
+  // start() is the only place that re-opens the door. start_threads() used to
+  // clear stop_requested_ too, which is what let the watchdog re-open it
+  // underneath a stop() that was already joining; the workers then never saw
+  // the stop and wait_all() hung. Restarting has to keep working without it.
+  simple_scheduler::scheduler s;
+  counting_handler h;
+  h.reschedule_after = false;
+  s.set_handler(&h);
+  s.set_threads(2);
+  s.add_task("once", boost::posix_time::seconds(0), 0.0);
+  s.start();
+  EXPECT_TRUE(wait_for([&] { return h.calls.load() >= 1; }, std::chrono::seconds(5)));
+  s.stop();
+
+  const int after_stop = h.calls.load();
+  s.set_threads(2);
+  s.add_task("twice", boost::posix_time::seconds(0), 0.0);
+  s.start();
+  EXPECT_TRUE(wait_for([&] { return h.calls.load() > after_stop; }, std::chrono::seconds(5)));
+  s.stop();
+  s.unset_handler();
+}
+
+TEST(simple_scheduler_running, stop_returns_while_the_pool_is_being_resized) {
+  // set_threads() grows the pool the same way the watchdog does when items run
+  // late. Racing it against stop() used to be able to create a worker while
+  // wait_all() was joining, or to clear the stop flag a worker had not read
+  // yet - either way stop() never returned.
+  simple_scheduler::scheduler s;
+  counting_handler h;
+  h.reschedule_after = true;
+  s.set_handler(&h);
+  s.set_threads(2);
+  s.add_task("spin", boost::posix_time::seconds(0), 0.0);
+  s.start();
+  EXPECT_TRUE(wait_for([&] { return h.calls.load() >= 1; }, std::chrono::seconds(5)));
+
+  std::thread resizer([&] {
+    for (int i = 3; i < 9; ++i) s.set_threads(static_cast<std::size_t>(i));
+  });
+  s.stop();
+  resizer.join();
+  // A second stop() must also return: the first one left the flags set.
+  s.stop();
+  s.unset_handler();
+}
+
 TEST(simple_scheduler_running, prepare_shutdown_is_idempotent_with_stop) {
   simple_scheduler::scheduler s;
   s.set_threads(2);

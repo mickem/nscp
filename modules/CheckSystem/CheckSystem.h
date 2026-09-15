@@ -17,6 +17,12 @@
 class CheckSystem : public nscapi::impl::simple_plugin {
  private:
   CheckMemory memoryChecker;
+  // A reload replaces the collector while checks are running: the core calls
+  // loadModuleEx(reloadStart) on the live module without waiting for the
+  // threads that are inside handleCommand. Publishing the pointer atomically
+  // and taking a copy in every check keeps the old instance alive until the
+  // last check that observed it returns, instead of freeing its mutexes and
+  // buffers under a check that is reading them.
   std::shared_ptr<pdh_thread> collector;
 
   typedef std::map<std::string, std::string> counter_map_type;
@@ -34,6 +40,11 @@ class CheckSystem : public nscapi::impl::simple_plugin {
   // Configured timezone for `check_uptime`, cached in loadModuleEx (issue #365).
   // See `include/nscp_time.hpp` for the supported value syntax.
   std::string timezone_;
+
+  // The collector as the check threads must read it. Never dereference the
+  // member directly from a check: a reload can replace it between the test and
+  // the call.
+  std::shared_ptr<pdh_thread> get_collector() const { return std::atomic_load(&collector); }
 
  public:
   CheckSystem() {}

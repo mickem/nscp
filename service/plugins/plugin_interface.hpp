@@ -47,6 +47,13 @@ class plugin_interface : public logging::logging_subscriber {
   virtual ~plugin_interface() = default;
 
   virtual bool load_plugin(NSCAPI::moduleLoadMode mode) = 0;
+  // True when the last reload had to go ahead with calls into the module still
+  // in flight. Only the DLL plugin holds calls off during a reload; everything
+  // else has nothing to race with.
+  virtual bool reload_raced() const { return false; }
+  // True when the calling thread is itself executing inside this module, i.e.
+  // the request asking for this is being served by the module it names.
+  virtual bool is_dispatching_on_this_thread() const { return false; }
   virtual bool has_start() = 0;
   virtual bool start_plugin() = 0;
   virtual bool has_prepare_shutdown() = 0;

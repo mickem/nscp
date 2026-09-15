@@ -8,9 +8,14 @@
 check_mk::packet handler_impl::process() {
   // find_command reads the command map that register_command and unload_all
   // rewrite, and the definition it returns points at a script unload_all
-  // deletes. Hold the dispatch lock across the lookup and the call that uses
-  // it, the way LUAScript's own query path does.
-  boost::shared_lock<boost::shared_mutex> dispatch(scripts_->dispatch_mutex());
+  // deletes. Stay registered as a dispatcher across the lookup and the call
+  // that uses it, the way LUAScript's own query path does: unload_all waits
+  // for the scripts that are running.
+  const scripts::script_manager<lua::lua_traits>::dispatch_guard dispatch(*scripts_);
+  if (!dispatch.entered()) {
+    NSC_LOG_ERROR_STD("check_mk callback is unloading");
+    return check_mk::packet();
+  }
   boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts_->find_command("check_mk", "s_callback");
   if (!cmd) {
     NSC_LOG_ERROR_STD("No check_mk callback found!");

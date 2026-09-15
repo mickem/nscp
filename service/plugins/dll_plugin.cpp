@@ -46,11 +46,58 @@ nsclient::core::dll_plugin::dll_plugin(const unsigned int id, const boost::files
       fOnEvent(nullptr) {
   load_dll();
 }
+nsclient::core::dll_plugin::reload_barrier::reload_barrier(dll_plugin &owner, NSCAPI::moduleLoadMode mode) : owner_(owner), held_(false) {
+  if (mode != NSCAPI::reloadStart) return;
+  boost::unique_lock<boost::mutex> lock(owner_.dispatch_mutex_);
+  // Another reload is already applying settings to this module: let it finish
+  // first, so the two do not interleave inside loadModuleEx.
+  const boost::thread::id self = boost::this_thread::get_id();
+  while (owner_.reloading_ && owner_.reloading_thread_ != self) {
+    owner_.dispatch_resumed_.wait(lock);
+  }
+  if (owner_.reloading_) return;  // already ours, further up this stack
+  // Close the door, then wait for whoever is already inside. Calls made by
+  // this thread are not waited for: a handler that triggered the reload is one
+  // of them, further up this stack, and can never leave before we return.
+  owner_.reloading_ = true;
+  owner_.reloading_thread_ = self;
+  owner_.reload_raced_ = false;
+  held_ = true;
+  const boost::system_time deadline = boost::get_system_time() + boost::posix_time::seconds(5);
+  while (owner_.dispatchers_.size() != owner_.dispatchers_.count(self)) {
+    if (!owner_.dispatch_idle_.timed_wait(lock, deadline)) {
+      // A check has been running for five seconds and is still inside. The
+      // reload cannot be refused - the core purges a module whose load returns
+      // false - and it cannot wait forever without stalling the scheduler that
+      // drives it, so go ahead and record it for the caller to report. The
+      // modules that replace an object on reload publish it atomically for
+      // exactly this remaining window.
+      owner_.reload_raced_ = true;
+      break;
+    }
+  }
+}
+nsclient::core::dll_plugin::reload_barrier::~reload_barrier() {
+  if (!held_) return;
+  {
+    boost::lock_guard<boost::mutex> lock(owner_.dispatch_mutex_);
+    owner_.reloading_ = false;
+    owner_.reloading_thread_ = boost::thread::id();
+  }
+  owner_.dispatch_resumed_.notify_all();
+}
 nsclient::core::dll_plugin::dispatch_lock::dispatch_lock(dll_plugin &owner) : owner_(owner), entered_(false) {
-  boost::lock_guard<boost::mutex> guard(owner_.dispatch_mutex_);
+  boost::unique_lock<boost::mutex> guard(owner_.dispatch_mutex_);
   // Only the bookkeeping is serialised, never the dispatch itself: two callers
   // arriving at the same module from different transports both go straight in.
   const boost::thread::id self = boost::this_thread::get_id();
+  // A reload is rewriting what the handlers read: wait for it rather than run
+  // against settings that are half applied, or against an object loadModuleEx
+  // is in the middle of replacing. The reloading thread itself must not wait -
+  // loadModuleEx calls the core, which dispatches back in here.
+  while (owner_.reloading_ && owner_.reloading_thread_ != self) {
+    owner_.dispatch_resumed_.wait(guard);
+  }
   // A thread already inside may re-enter even once an unload has started. It
   // is one of the calls that unload is waiting for, so the module cannot go
   // away underneath it - and refusing would fail the outer call (a check_multi
@@ -66,7 +113,11 @@ nsclient::core::dll_plugin::dispatch_lock::~dispatch_lock() {
   // into itself nests, and the outer call is still running.
   const std::multiset<boost::thread::id>::iterator it = owner_.dispatchers_.find(boost::this_thread::get_id());
   if (it != owner_.dispatchers_.end()) owner_.dispatchers_.erase(it);
-  if (owner_.dispatchers_.empty()) owner_.dispatch_idle_.notify_all();
+  // Notify on every departure, not only when the set empties: unload and
+  // reload both wait for "nothing left but my own calls", which is reached
+  // with the waiter's own entries still in the set. Waiting for empty meant
+  // that waiter was never woken and always ran out its five seconds.
+  owner_.dispatch_idle_.notify_all();
 }
 
 /**
@@ -77,8 +128,18 @@ nsclient::core::dll_plugin::~dll_plugin() {
     try {
       dll_plugin::unload_plugin();
     } catch (const plugin_exception &) {
-      // ...
+      // Refused because calls into the module were still in flight. Leaving it
+      // loaded is the whole point of that refusal, so the library must stay
+      // mapped too - see below.
     }
+  }
+  if (leaked_) {
+    // unload_plugin() decided the module was still in use and deliberately
+    // left it loaded rather than call into an instance being destroyed.
+    // Unmapping the library here would undo that: the thread still inside
+    // returns to an address that is no longer mapped. Leaking the mapping for
+    // the rest of the process is the cheaper half of the same trade.
+    return;
   }
   try {
     unload_dll();
@@ -128,9 +189,18 @@ void nsclient::core::dll_plugin::load_dll() {
   loadRemoteProcs_();
 }
 
+bool nsclient::core::dll_plugin::is_dispatching_on_this_thread() const {
+  boost::lock_guard<boost::mutex> guard(dispatch_mutex_);
+  return dispatchers_.find(boost::this_thread::get_id()) != dispatchers_.end();
+}
+
 bool nsclient::core::dll_plugin::load_plugin(NSCAPI::moduleLoadMode mode) {
   if ((loaded_ || loading_) && mode != NSCAPI::reloadStart) return true;
   if (!fLoadModule) throw plugin_exception(get_alias_or_name(), "Critical error (fLoadModule)");
+  // A reload runs loadModuleEx on the live module. Hold the dispatches off
+  // while it does: until now every handler ran straight through the settings
+  // the reload was rewriting.
+  const reload_barrier barrier(*this, mode);
   loading_ = true;
   if (fLoadModule(get_id(), get_alias().c_str(), mode)) {
     loaded_ = true;
@@ -443,6 +513,7 @@ void nsclient::core::dll_plugin::unload_plugin() {
         // module is much cheaper than calling into one whose instance has been
         // destroyed.
         unloading_ = false;
+        leaked_ = true;
         throw plugin_exception(get_alias_or_name(), "Refused to unload: calls into the module were still in flight after 5s");
       }
     }

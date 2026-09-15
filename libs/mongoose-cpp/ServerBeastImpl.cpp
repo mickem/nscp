@@ -13,6 +13,7 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/ssl.hpp>
+#include <boost/thread/thread.hpp>
 #include <boost/version.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <chrono>
@@ -486,6 +487,18 @@ void ServerBeastImpl::stop() {
     acceptor_->close(ec);
   }
   if (work_guard_) work_guard_->reset();
+
+  // Stopping the server from the thread that runs it: a request handler took a
+  // route that unloads the module (the core refuses that, this is the backstop
+  // for any other path). Joining here would join this thread with itself,
+  // which throws rather than returning, and the throw would escape a
+  // destructor further up. Let it go instead: the acceptor is closed and the
+  // work guard dropped, so run() returns as soon as this handler does.
+  if (thread_->get_id() == boost::this_thread::get_id()) {
+    thread_->detach();
+    thread_.reset();
+    return;
+  }
 
   thread_->join();
   thread_.reset();

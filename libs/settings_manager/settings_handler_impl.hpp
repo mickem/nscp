@@ -314,10 +314,15 @@ class settings_handler_impl : public settings_core {
   }
 
   void set_instance(std::string alias, std::string key) {
+    // Built before the lock is taken: creating an http instance fetches the
+    // configuration over the network, and holding instance_mutex_ across that
+    // would stall every settings read in the process for as long as the
+    // fetch takes.
+    instance_raw_ptr instance = create_instance(alias, key);
+    if (!instance) throw settings_exception(__FILE__, __LINE__, "set_instance Failed to create instance for: " + key);
     boost::unique_lock<boost::timed_mutex> mutex(instance_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
     if (!mutex.owns_lock()) throw settings_exception(__FILE__, __LINE__, "set_instance Failed to get mutex, cant get access settings");
-    instance_ = create_instance(alias, key);
-    if (!instance_) throw settings_exception(__FILE__, __LINE__, "set_instance Failed to create instance for: " + key);
+    instance_ = instance;
   }
 
   bool supports_updates() override;

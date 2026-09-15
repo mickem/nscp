@@ -934,11 +934,16 @@ class simple_client {
     return resp;
   }
 
+  // timeout_seconds bounds each individual read and write; 0 waits forever.
+  // Pass one whenever the caller is a long-lived thread that must not be
+  // wedged by a peer that accepts the connection and then says nothing.
   static bool download(std::string protocol, const std::string &server, const std::string &port, std::string path, std::string tls_version,
-                       std::string verify_mode, std::string ca, std::ostream &os, std::string &error_msg, const proxy_config &proxy = proxy_config()) {
+                       std::string verify_mode, std::string ca, std::ostream &os, std::string &error_msg, const proxy_config &proxy = proxy_config(),
+                       unsigned int timeout_seconds = 0) {
     try {
       request rq("GET", server, std::move(path));
-      const http_client_options options(std::move(protocol), std::move(tls_version), std::move(verify_mode), std::move(ca), proxy);
+      http_client_options options(std::move(protocol), std::move(tls_version), std::move(verify_mode), std::move(ca), proxy);
+      options.timeout_seconds_ = timeout_seconds;
       simple_client c(options);
       c.execute(os, server, port, rq);
       return true;

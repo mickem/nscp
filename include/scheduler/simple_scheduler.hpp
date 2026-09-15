@@ -167,7 +167,10 @@ class scheduler : public boost::noncopyable {
   std::atomic<bool> stop_requested_;
   std::atomic<bool> running_;
   std::atomic<bool> has_watchdog_;
-  std::size_t thread_count_;
+  // Incremented by the watchdog when it scales the pool up, written by
+  // set_threads() and stop() on the module thread, and read by the metrics
+  // task: the same cross-thread pattern as the flags above.
+  std::atomic<std::size_t> thread_count_;
   // Read by every worker on each tick and written by the module's load/unload
   // path, so a plain pointer here is a data race independent of what it points
   // at. Callers must still join the workers (stop()) before clearing it -
@@ -183,6 +186,12 @@ class scheduler : public boost::noncopyable {
   std::string tz_;
 
   boost::mutex mutex_;
+  // Serialises pool changes against shutdown. The watchdog scales the pool up
+  // from inside the pool itself, so creating a thread must never overlap the
+  // wait_all() in stop(). Held only across the flag writes and create_thread,
+  // never across the join - stop() would otherwise wait for the watchdog while
+  // the watchdog waits for this lock.
+  boost::mutex pool_mutex_;
   tasks_list_type tasks_;
   schedule_queue_type queue_;
   boost::mutex idle_thread_mutex_;
@@ -249,6 +258,10 @@ class scheduler : public boost::noncopyable {
   void reschedule(const task& item, boost::posix_time::ptime now_time);
   void reschedule_at(const std::string& tag, int id, boost::posix_time::ptime new_time, bool suppress_late_warning = false);
   void start_threads();
+  // Non-blocking scale-up used by the watchdog; see the definition.
+  void scale_up();
+  // Spawns any missing workers and the watchdog. Caller must hold pool_mutex_.
+  void spawn_missing_locked();
 
   void log_error(const char* file, const int line, const std::string& err) const {
     if (handler* h = handler_.load()) h->on_error(file, line, err);
