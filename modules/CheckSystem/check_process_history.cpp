@@ -38,23 +38,15 @@ std::string process_record::show() const {
 }
 
 void process_record::build_metrics(PB::Metrics::MetricsBundle *section) const {
-  using nscapi::metrics::metric;
-  metric(section, "first_seen")
-      .instance(exe)
-      .label("exe", exe)
-      .help("When the collector first saw this process, as a Unix timestamp")
-      .unit("seconds")
-      .gauge(first_seen);
-  metric(section, "last_seen")
-      .instance(exe)
-      .label("exe", exe)
-      .help("When the collector last saw this process, as a Unix timestamp")
-      .unit("seconds")
-      .gauge(last_seen);
+  using nscapi::metrics::for_instance;
+  using nscapi::metrics::instance_scope;
+  const instance_scope proc = for_instance(section, exe, "exe");
+  proc.metric("first_seen").help("When the collector first saw this process, as a Unix timestamp").unit("seconds").gauge(first_seen);
+  proc.metric("last_seen").help("When the collector last saw this process, as a Unix timestamp").unit("seconds").gauge(last_seen);
   // Only ever grows while the agent runs, so a scraper may rate() it to see
   // how often a process is being restarted.
-  metric(section, "times_seen").instance(exe).label("exe", exe).help("Collector samples this process was found in").counter(times_seen);
-  metric(section, "currently_running").instance(exe).label("exe", exe).help("Whether the process is running right now").gauge(get_currently_running_i());
+  proc.metric("times_seen").help("Collector samples this process was found in").counter(times_seen);
+  proc.metric("currently_running").help("Whether the process is running right now").gauge(get_currently_running_i());
 }
 
 // Simple error reporter that does nothing (we don't want to spam logs during enumeration)

@@ -674,10 +674,20 @@ std::string metric_meta(const py::dict &value, const char *key) {
 // empty value is skipped too, since `x=""` and an absent `x` are the same
 // series to a scraper, so emitting one would silently collide with a sample
 // that has it filled in.
-void set_metric_labels(PB::Metrics::Metric *metric, const py::dict &value) {
+void set_metric_labels(PB::Metrics::Metric *metric, const py::dict &value, const std::string &key) {
   if (!value.has_key("labels")) return;
   const py::extract<py::dict> labelExtr(value["labels"]);
-  if (!labelExtr.check()) return;
+  if (!labelExtr.check()) {
+    // A list of tuples or a bare string is the shape somebody reaches for
+    // first, and silently publishing the metric unlabelled leaves them
+    // reading a scrape that is missing the dimension with nothing to say why.
+    // Once per key, like the unknown-type path, rather than every ten seconds.
+    static std::set<std::string> reported;
+    if (reported.insert(key).second) {
+      NSC_LOG_ERROR("Ignoring the labels on '" + key + "': labels must be a dict of strings. Publishing the metric without them.");
+    }
+    return;
+  }
   const py::dict labels = labelExtr;
   const py::list names = labels.keys();
   for (int i = 0; i < len(names); ++i) {
@@ -774,7 +784,7 @@ void script_wrapper::function_wrapper::fetch_metrics(std::string &request) const
               help = metric_meta(described, "help");
               unit = metric_meta(described, "unit");
               type = metric_meta(described, "type");
-              set_metric_labels(&metric, described);
+              set_metric_labels(&metric, described, key);
             }
 
             metric.set_key(key);

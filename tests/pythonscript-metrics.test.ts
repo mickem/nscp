@@ -56,6 +56,13 @@ def my_metrics():
             "value": 6,
             "labels": {"good": "yes", "numeric": 8080, "empty": ""},
         },
+        # Labels that are not a dict (a list of tuples is the shape people
+        # reach for first) are ignored, the metric is still published, and the
+        # agent logs why once.
+        "pyfixture.bad_labels": {
+            "value": 9,
+            "labels": [("queue", "inbound")],
+        },
         # A type nobody recognises falls back to a gauge rather than vanishing.
         "pyfixture.typo": {"value": 7, "type": "not-a-type"},
         # A dict with no value at all has nothing to publish.
@@ -154,6 +161,9 @@ describe("PythonScript metrics", () => {
     // A non-string label value and an empty one are both dropped; the usable
     // one still lands.
     expect(text).toMatch(/^metric_pyfixture_partly_labelled\{good="yes"\} 6$/m);
+    // Labels that are not a dict at all: the reading still publishes, without
+    // them, rather than the whole metric vanishing.
+    expect(text).toMatch(/^metric_pyfixture_bad_labels 9$/m);
 
     // A dict with no `value` has nothing to publish, and must not leave a
     // keyed metric with no sample behind.
@@ -184,6 +194,7 @@ describe("PythonScript metrics", () => {
     // script gains them without its Graphite path or its dashboard moving.
     expect(metrics[".pyfixture.queue_depth"]).toBe(5);
     expect(metrics[".pyfixture.partly_labelled"]).toBe(6);
+    expect(metrics[".pyfixture.bad_labels"]).toBe(9);
     expect(metrics[".pyfixture.novalue"]).toBeUndefined();
   });
 });

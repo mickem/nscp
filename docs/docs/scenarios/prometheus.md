@@ -225,7 +225,7 @@ Available on **both platforms** from `CheckSystem`:
 | `system_network_*`         | `received`, `sent`, `total` (bytes/s), labelled by `nic`                          |
 | `system_temperature_*`     | thermal sensors, labelled by `zone` (WMI/ACPI on Windows, sysfs on Linux)        |
 | `system_battery_*`         | charge/health, labelled by `battery`, on machines that have one                   |
-| `system_cpu_frequency_*`   | current/max clock, labelled by `cpu`, where exposed                              |
+| `system_cpu_frequency_*`   | current/max clock, labelled by `cpu` (a socket on Windows), where exposed        |
 | `system_process_history_*` | `times_seen` / `currently_running`, labelled by `exe` (opt-in, below)            |
 
 Add `CheckDisk` (either platform) and you also get `disk_io_*` (throughput,
@@ -265,6 +265,9 @@ Platform differences to be aware of:
   OpenMetrics endpoint, where both platforms scrape as
   `system_cpu_idle_percent{core="0"}`; the JSON endpoints still show the
   platform's own spelling.
+- **PDH counter instances** carry a `pdh_instance` label, not `instance` —
+  Prometheus uses `instance` for the scrape target and renames an exported one
+  to `exported_instance`.
 - **PDH counters** (`system_metrics_*`) are Windows-only: predefine them in
   `[/settings/system/windows/counters/<name>]` (see
   [Performance Counter (PDH) Monitoring](counters.md)) and they appear on the

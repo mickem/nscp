@@ -28,6 +28,13 @@
 //
 //   metric(cpu, "idle").instance("core 0").label("core", "0").unit("percent").gauge(load.idle);
 //
+// A producer publishing a whole section for one instance says it once, with
+// `for_instance()`, and each metric line is then only about the metric:
+//
+//   const auto disk = for_instance(section, name, "disk");
+//   disk.metric("reads_per_sec").help("Read operations per second").gauge(reads);
+//   disk.metric("queue_length").help("Requests queued on the disk").gauge(queued);
+//
 // `instance()` composes the key exactly as the concatenation did (`core
 // 0.idle`), so the flat and nested JSON views, the web UI dashboard, Graphite,
 // collectd and Python all see a byte-identical snapshot; `label()` records the
@@ -198,6 +205,46 @@ inline std::string core_label(const std::string &cpu_key) {
   // it to an empty label would drop the label entirely - and a sample missing
   // the label that tells it apart from its siblings collides with them.
   return core.empty() ? cpu_key : core;
+}
+
+// One instance's worth of a section: the key prefix and the dimension that
+// every metric of this loop iteration shares.
+//
+// The producers publish these in blocks - eleven disk-IO counters for one
+// device, nine WMI fields for one adapter - and spelling
+// `.instance(name).label("disk", name)` on each line makes ninety-odd call
+// sites mostly punctuation, with the dimension to get wrong ninety times
+// instead of once. Saying it once also means a producer whose label value is
+// not its key prefix (a Windows CPU socket, a normalised core number) states
+// that difference in one place.
+class instance_scope {
+ public:
+  instance_scope(PB::Metrics::MetricsBundle *bundle, std::string instance, std::string label, std::string value)
+      : bundle_(bundle), instance_(std::move(instance)), label_(std::move(label)), value_(std::move(value)) {}
+
+  // One metric of this instance, ready for its help, unit and value.
+  metric_builder metric(const std::string &name) const { return nscapi::metrics::metric(bundle_, name).instance(instance_).label(label_, value_); }
+
+ private:
+  PB::Metrics::MetricsBundle *bundle_;
+  std::string instance_;
+  std::string label_;
+  std::string value_;
+};
+
+// Publish a section's metrics for one instance. `instance` is the key prefix,
+// exactly as the concatenation spelled it, and `label` is the dimension name.
+inline instance_scope for_instance(PB::Metrics::MetricsBundle *bundle, std::string instance, std::string label) {
+  std::string value = instance;
+  return instance_scope(bundle, std::move(instance), std::move(label), std::move(value));
+}
+
+// The same, where the label value is not the key prefix. Two producers need
+// it: a CPU-load key is `core 0` where the label is the bare `0`, and a
+// Windows processor's key is its model name where the dimension that actually
+// tells two sockets apart is the device id.
+inline instance_scope for_instance(PB::Metrics::MetricsBundle *bundle, std::string instance, std::string label, std::string value) {
+  return instance_scope(bundle, std::move(instance), std::move(label), std::move(value));
 }
 
 // Help text for a whole bundle, used for every metric in it that declares none

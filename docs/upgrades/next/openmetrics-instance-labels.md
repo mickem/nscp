@@ -31,15 +31,20 @@ The same move applies to every producer with an instance in its key:
 
 | Bundle                   | Label      | Value                                                       |
 |--------------------------|------------|-------------------------------------------------------------|
-| `system.cpu`             | `core`     | `0`, `1`, … and `total` for the aggregate                    |
-| `system.cpu_frequency`   | `cpu`      | the sysfs core on Linux, the WMI processor name on Windows   |
-| `system.network`         | `nic`      | the interface as the OS names it                             |
-| `system.temperature`     | `zone`     | the thermal zone or sensor                                   |
-| `system.battery`         | `battery`  | the battery; absent for a single unnamed battery             |
-| `system.process_history` | `exe`      | the executable name                                          |
-| `system.metrics`         | `instance` | the PDH instance, for a counter configured with instances    |
-| `disk.io`                | `disk`     | the device                                                   |
-| `disk.free`              | `drive`    | the drive or mount point                                     |
+| `system.cpu`             | `core`         | `0`, `1`, … and `total` for the aggregate                                     |
+| `system.cpu_frequency`   | `cpu`          | the sysfs core on Linux; the processor `DeviceID` (`CPU0`) on Windows          |
+| `system.network`         | `nic`          | the interface as the OS names it — the adapter description on Windows          |
+| `system.temperature`     | `zone`         | the thermal zone or sensor                                                     |
+| `system.battery`         | `battery`      | the battery; absent for a single unnamed battery                               |
+| `system.process_history` | `exe`          | the executable name                                                            |
+| `system.metrics`         | `pdh_instance` | the PDH instance, for a counter configured with instances                      |
+| `disk.io`                | `disk`         | the device                                                                     |
+| `disk.free`              | `drive`        | the drive or mount point                                                       |
+
+`pdh_instance` rather than `instance`: Prometheus attaches its own `instance`
+label (the scrape target) to every sample, and under the default
+`honor_labels: false` an exported `instance` is renamed `exported_instance`, so
+a query against `instance` would match the host rather than the counter.
 
 What to do:
 

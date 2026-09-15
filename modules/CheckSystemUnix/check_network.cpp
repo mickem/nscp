@@ -115,12 +115,13 @@ void build_network_metrics(PB::Metrics::MetricsBundle *parent, const nics_type &
   bundle->set_key("network");
   describe(bundle, "Traffic per network interface, sampled by the background collector");
   for (const network_interface &v : data) {
+    const instance_scope nic = for_instance(bundle, v.name, "nic");
     // Rates, so no unit: a name ending in `_bytes` would say the sample is a
     // byte count, and `bytes per second` is not a unit OpenMetrics knows.
-    metric(bundle, "received").instance(v.name).label("nic", v.name).help("Bytes received per second").gauge(v.rx_bytes_per_sec);
-    metric(bundle, "sent").instance(v.name).label("nic", v.name).help("Bytes sent per second").gauge(v.tx_bytes_per_sec);
-    metric(bundle, "total").instance(v.name).label("nic", v.name).help("Bytes sent and received per second").gauge(v.get_total());
-    metric(bundle, "status").instance(v.name).label("nic", v.name).help("Link state of the interface").info(v.status);
+    nic.metric("received").help("Bytes received per second").gauge(v.rx_bytes_per_sec);
+    nic.metric("sent").help("Bytes sent per second").gauge(v.tx_bytes_per_sec);
+    nic.metric("total").help("Bytes sent and received per second").gauge(v.get_total());
+    nic.metric("status").help("Link state of the interface").info(v.status);
   }
 }
 

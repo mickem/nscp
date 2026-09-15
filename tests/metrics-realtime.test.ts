@@ -188,11 +188,27 @@ function checkExposition(text: string, openmetrics: boolean): Map<string, string
       // Every label name is legal and every value is quoted. An empty label set
       // (`name{}`) is not emitted at all - it reads as a different series from
       // the bare name to some tooling.
+      //
+      // Matched pair by pair rather than split on commas: a label value is free
+      // text, so an adapter description like `Foo,Bar Adapter` puts a comma
+      // inside the quotes and any split would tear a valid line in half. The
+      // regex consumes a whole quoted value, escapes included, and the walk
+      // then insists the pairs it matched account for the entire label set.
       const labels = sample![2].slice(1, -1);
       expect(labels).not.toBe("");
-      for (const pair of labels.split(/,(?=[a-zA-Z_])/)) {
-        expect(pair).toMatch(/^[a-zA-Z_][a-zA-Z0-9_]*="(?:[^"\\]|\\.)*"$/);
+      const pair = /([a-zA-Z_][a-zA-Z0-9_]*)="((?:[^"\\]|\\.)*)"/y;
+      let consumed = 0;
+      for (;;) {
+        pair.lastIndex = consumed;
+        const match = pair.exec(labels);
+        expect(match).not.toBeNull();
+        consumed = pair.lastIndex;
+        if (consumed >= labels.length) break;
+        // Exactly one comma between two pairs, and nothing after the last.
+        expect(labels[consumed]).toBe(",");
+        consumed += 1;
       }
+      expect(consumed).toBe(labels.length);
     }
     const series = `${sample![1]}${sample![2] ?? ""}`;
     // The same series twice in one body is a duplicate a scraper rejects.

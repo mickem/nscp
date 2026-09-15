@@ -74,19 +74,27 @@ std::string cpu_frequency::get_l3_cache_human(parsers::where::evaluation_context
 
 void cpu_frequency::build_metrics(PB::Metrics::MetricsBundle *section) const {
   using nscapi::metrics::describe;
-  using nscapi::metrics::metric;
+  using nscapi::metrics::for_instance;
+  using nscapi::metrics::instance_scope;
+  // `Win32_Processor.Name` is the model string, so it is the same on every
+  // socket of a multi-socket machine: labelling with it would give both
+  // sockets the same series and the second would be dropped from every
+  // scrape as a duplicate. `DeviceID` ("CPU0", "CPU1") is the per-socket
+  // identity, which is what the dimension has to be. The key keeps the
+  // model name, because the key is what the JSON view and Graphite read.
+  const instance_scope cpu = for_instance(section, name, "cpu", socket_id);
   describe(section, "Clock frequency and cache sizes per processor, as reported by WMI");
   // The two frequency keys already end in the unit, so declaring it adds a
   // `# UNIT` line and leaves the family name alone.
-  metric(section, "current_mhz").instance(name).label("cpu", name).help("Frequency the processor is running at").unit("mhz").gauge(current_mhz);
-  metric(section, "max_mhz").instance(name).label("cpu", name).help("Highest frequency the processor can run at").unit("mhz").gauge(max_mhz);
-  metric(section, "frequency_pct").instance(name).label("cpu", name).help("Current frequency as a share of the maximum").gauge(get_frequency_pct());
-  metric(section, "cores").instance(name).label("cpu", name).help("Physical cores on the processor").gauge(number_of_cores);
-  metric(section, "logical_processors").instance(name).label("cpu", name).help("Logical processors the processor presents").gauge(number_of_logical_processors);
+  cpu.metric("current_mhz").help("Frequency the processor is running at").unit("mhz").gauge(current_mhz);
+  cpu.metric("max_mhz").help("Highest frequency the processor can run at").unit("mhz").gauge(max_mhz);
+  cpu.metric("frequency_pct").help("Current frequency as a share of the maximum").gauge(get_frequency_pct());
+  cpu.metric("cores").help("Physical cores on the processor").gauge(number_of_cores);
+  cpu.metric("logical_processors").help("Logical processors the processor presents").gauge(number_of_logical_processors);
   // No fabricated 0 when WMI had no load sample this cycle: absent is absent.
-  if (load_pct) metric(section, "load_pct").instance(name).label("cpu", name).help("Load on the processor").unit("percent").gauge(load_pct.value());
-  metric(section, "l2_cache").instance(name).label("cpu", name).help("Size of the level 2 cache").unit("bytes").gauge(l2_cache);
-  metric(section, "l3_cache").instance(name).label("cpu", name).help("Size of the level 3 cache").unit("bytes").gauge(l3_cache);
+  if (load_pct) cpu.metric("load_pct").help("Load on the processor").unit("percent").gauge(load_pct.value());
+  cpu.metric("l2_cache").help("Size of the level 2 cache").unit("bytes").gauge(l2_cache);
+  cpu.metric("l3_cache").help("Size of the level 3 cache").unit("bytes").gauge(l3_cache);
 }
 
 cpus_type cpu_frequency_data::query_wmi(HANDLE abort_event) {

@@ -1324,13 +1324,22 @@ class add_visitor : public boost::static_visitor<> {
     // out rather than composed from the family name - which is also why the
     // split has to be recorded where it is still known: a counter name can
     // itself contain dots.
+    //
+    // The dimension is `pdh_instance`, not `instance`: Prometheus attaches its
+    // own `instance` label (the scrape target) to every sample, and under the
+    // default `honor_labels: false` an exported one is renamed
+    // `exported_instance`. A query written against `instance` would match the
+    // host rather than the counter instance and quietly return nothing - and
+    // the scenario page's own `by (instance)` examples do mean the host.
     if (dims.family.empty()) return nscapi::metrics::metric(b, key).help(meta.help).unit(meta.unit);
-    return nscapi::metrics::metric(b, dims.family).key(key).label("instance", dims.instance).help(meta.help).unit(meta.unit);
+    return nscapi::metrics::metric(b, dims.family).key(key).label("pdh_instance", dims.instance).help(meta.help).unit(meta.unit);
   }
 };
 void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
   using nscapi::metrics::core_label;
   using nscapi::metrics::describe;
+  using nscapi::metrics::for_instance;
+  using nscapi::metrics::instance_scope;
   using nscapi::metrics::metric;
 
   PB::Metrics::MetricsBundle *bundle = response->add_bundles();
@@ -1396,16 +1405,11 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
       // The key keeps Windows' `core 0` spelling; `core_label` reduces it to
       // the bare number so the label reads the same here as it does on Linux,
       // where the key is `core_0`.
-      const std::string core = core_label(v.first);
-      metric(section, "idle").instance(v.first).label("core", core).help("Share of CPU time spent idle").unit("percent").gauge(v.second.idle);
-      metric(section, "total")
-          .instance(v.first)
-          .label("core", core)
-          .help("Share of CPU time spent doing anything but idling")
-          .unit("percent")
-          .gauge(v.second.user + v.second.kernel);
-      metric(section, "user").instance(v.first).label("core", core).help("Share of CPU time spent in user space").unit("percent").gauge(v.second.user);
-      metric(section, "kernel").instance(v.first).label("core", core).help("Share of CPU time spent in the kernel").unit("percent").gauge(v.second.kernel);
+      const instance_scope c = for_instance(section, v.first, "core", core_label(v.first));
+      c.metric("idle").help("Share of CPU time spent idle").unit("percent").gauge(v.second.idle);
+      c.metric("total").help("Share of CPU time spent doing anything but idling").unit("percent").gauge(v.second.user + v.second.kernel);
+      c.metric("user").help("Share of CPU time spent in user space").unit("percent").gauge(v.second.user);
+      c.metric("kernel").help("Share of CPU time spent in the kernel").unit("percent").gauge(v.second.kernel);
     }
   } catch (...) {
     NSC_LOG_ERROR("Failed to getch memory metrics: ");
