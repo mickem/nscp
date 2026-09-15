@@ -24,12 +24,38 @@ if(NOT WIN32)
         ${PROJECT_BINARY_DIR}/unix-nsclient.conf
         @ONLY
     )
+    # nsclient.ini holds the web admin password, the NRPE/NSCA passwords and
+    # every submit-client token, in plaintext by design (CVE-2025-34078, notice
+    # 040): the file *is* the credential store, so the boundary around it is the
+    # filesystem. install() with no PERMISSIONS gave it the default 0644, which
+    # put all of that in reach of every local account - and those credentials
+    # are accepted by the agent's own listeners, which run checks and external
+    # scripts. 0640 here, and the post-install scripts give the group to the
+    # service account so the daemon can still read its own configuration.
     install(
         FILES
             ${PROJECT_BINARY_DIR}/unix-nsclient.conf
         DESTINATION ${ETC_TARGET_FOLDER}/nsclient
         COMPONENT configs
+        PERMISSIONS
+            OWNER_READ
+            OWNER_WRITE
+            GROUP_READ
         RENAME nsclient.ini
+    )
+    # The directory itself: 0750, so a local account cannot even enumerate what
+    # configuration fragments exist. Ownership is set in the post-install
+    # scripts - the nsclient group does not exist at package build time.
+    install(
+        DIRECTORY
+        DESTINATION ${ETC_TARGET_FOLDER}/nsclient
+        DIRECTORY_PERMISSIONS
+            OWNER_READ
+            OWNER_WRITE
+            OWNER_EXECUTE
+            GROUP_READ
+            GROUP_EXECUTE
+        COMPONENT configs
     )
     # ${LOG_TARGET_FOLDER} is the full log dir (e.g. /var/log/nsclient). Create
     # it empty: a DIRECTORY argument with no source names only the destination.
@@ -40,6 +66,11 @@ if(NOT WIN32)
     # scripts chown the directory but not its contents - so the service, running
     # unprivileged, could never open its own log file and every log line was
     # dropped. See docs/design/linux-writable-state.md.
+    #
+    # 0750, not 0755: debug logs echo check arguments and settings paths, which
+    # is the same class of disclosure as the configuration file above. The
+    # service account owns the directory (set in the post-install scripts) and
+    # the log file itself is created 0640 by simple_file_logger.
     install(
         DIRECTORY
         DESTINATION ${LOG_TARGET_FOLDER}
@@ -49,8 +80,6 @@ if(NOT WIN32)
             OWNER_EXECUTE
             GROUP_READ
             GROUP_EXECUTE
-            WORLD_READ
-            WORLD_EXECUTE
         COMPONENT logs
     )
     # Template the unit so WorkingDirectory/PIDFile/ExecStart track the chosen

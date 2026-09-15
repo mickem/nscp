@@ -16,8 +16,8 @@ namespace json = boost::json;
 legacy_controller::legacy_controller(const std::shared_ptr<session_manager_interface> &session, const nscapi::core_wrapper *core, unsigned int plugin_id,
                                      const std::shared_ptr<client::cli_client> &client)
     : session(session), core(core), plugin_id(plugin_id), client(client), status("ok") {
-  addRoute("POST", "/query.pb", this, &legacy_controller::run_query_pb);
-  addRoute("POST", "/settings/query.pb", this, &legacy_controller::settings_query_pb);
+  // The raw-protobuf routes (POST /query.pb, POST /settings/query.pb) were
+  // removed: see the comment on the class in legacy_controller.hpp.
   addRoute("GET", "/log/status", this, &legacy_controller::log_status);
   // State-changing endpoints must be POST so that they cannot be triggered by
   // a cross-origin <img>/<a>/<form> CSRF gadget that an authenticated admin
@@ -59,40 +59,6 @@ void legacy_controller::console_exec(Mongoose::Request &request, Mongoose::Strea
 
   client->handle_command(command);
   response.append("{\"status\" : \"ok\"}");
-}
-
-void legacy_controller::settings_query_pb(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-  if (!session->is_logged_in("legacy", request, response)) return;
-  std::string response_pb;
-  if (!core->settings_query(request.getData(), response_pb)) {
-    response.setCodeServerError("500 Query failed");
-    return;
-  }
-  response.append(response_pb);
-}
-void legacy_controller::run_query_pb(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-  if (!session->is_logged_in("legacy", request, response)) return;
-  // Raw-protobuf passthrough: forwarded verbatim. The newer
-  // query_controller (v2 `/api/vX/queries/...`) is the supported way to
-  // invoke checks from HTTP - it stamps identity metadata so the core
-  // permission layer can attribute calls. This legacy endpoint is
-  // deliberately left unstamped: callers using it should be migrated to
-  // the v2 controller, and a strict default-deny policy will block this
-  // path because the subject resolves to "*" (no caller module known)
-  // rather than to WEBServer. That's the intended behaviour for a
-  // deprecated endpoint.
-  std::string response_pb;
-  if (!core->query(request.getData(), response_pb)) {
-    response.setCodeServerError("500 Query failed");
-    return;
-  }
-  response.append(response_pb);
-}
-void legacy_controller::run_exec_pb(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-  if (!session->is_logged_in("legacy", request, response)) return;
-  std::string response_pb;
-  if (!core->exec_command("*", request.getData(), response_pb)) return;
-  response.append(response_pb);
 }
 
 void legacy_controller::auth_token(Mongoose::Request &request, Mongoose::StreamResponse &response) {

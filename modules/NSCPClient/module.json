@@ -1,7 +1,7 @@
 {
 	"module"		: {
 		"title"			: "NSCP Client",
-		"description"	: "NSCP client can be used both from command line and from queries to check remote systems via NSCP (REST)",
+		"description"	: "NSCP client can be used both from command line and from queries to check remote systems over their REST API",
 		"name"			: "NSCPClient",
 		"alias"			: "nscp",
 		"version"		: "auto"
@@ -21,16 +21,8 @@
 			"description" : "Request remote information via NSCP.",
 			"mapping"	: false
 		},
-		"exec_remote_nscp" : { 
-			"description" : "Execute remote script via NSCP.",
-			"mapping"	: false
-		},
-		"submit_remote_nscp" : { 
-			"description" : "Submit information to remote host via NSCP.",
-			"mapping"	: false
-		},
 		"remote_nscpforward" : { 
-			"description" : "Forward the request as-is to remote host via NSCP.",
+			"description" : "Forward the request to a remote host via NSCP (the command and its arguments are re-issued against the remote agent's REST API).",
 			"mapping"	: false
 		}
 	},

@@ -21,7 +21,13 @@ namespace {
 // temp directory.  Mirrors what NSCSettingsImpl does in production.
 class http_test_core : public mock_settings_core {
  public:
-  explicit http_test_core(boost::filesystem::path cache) : cache_(std::move(cache)) {}
+  // These tests drive a plain-HTTP loopback server because standing up TLS for
+  // every case would test asio, not settings_http. Production refuses a
+  // non-https settings source unless boot.ini opts in, so opt in by default
+  // here; the plaintext_* tests below pass false to pin the refusal.
+  explicit http_test_core(boost::filesystem::path cache, bool allow_plaintext = true) : cache_(std::move(cache)) {
+    set_allow_plaintext(allow_plaintext);
+  }
 
   std::string expand_path(std::string key) override {
     if (key == CACHE_FOLDER) return cache_.string();
@@ -102,6 +108,65 @@ unsigned short closed_port() {
 }
 
 std::string unreachable_url(const std::string &path) { return "http://127.0.0.1:" + std::to_string(closed_port()) + path; }
+
+// A listener that records whether anything ever spoke HTTP to it. Unlike
+// loopback_http it does not assume a client turns up: the destructor dials its
+// own port so the blocking accept returns and the thread can be joined. That
+// is what makes it usable to prove that a fetch never happened.
+class loopback_listener {
+ public:
+  loopback_listener() : port_(0), served_(false) {
+    std::promise<unsigned short> p;
+    std::future<unsigned short> f = p.get_future();
+    thread_ = std::thread([this, prom = std::move(p)]() mutable {
+      try {
+        boost::asio::io_context io;
+        tcp::acceptor acceptor(io, {tcp::v4(), 0});
+        prom.set_value(acceptor.local_endpoint().port());
+        tcp::socket socket(io);
+        acceptor.accept(socket);
+        boost::asio::streambuf req;
+        boost::system::error_code ec;
+        boost::asio::read_until(socket, req, "\r\n\r\n", ec);
+        std::istream is(&req);
+        std::string line;
+        std::getline(is, line);
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        // The destructor's own unblocking connection sends nothing, so an
+        // empty request line means no client ever asked for anything.
+        served_ = !line.empty();
+      } catch (...) {
+      }
+    });
+    port_ = f.get();
+  }
+
+  ~loopback_listener() { stop(); }
+
+  unsigned short port() const { return port_; }
+
+  bool served() {
+    stop();
+    return served_;
+  }
+
+ private:
+  void stop() {
+    if (!thread_.joinable()) return;
+    try {
+      boost::asio::io_context io;
+      tcp::socket probe(io);
+      boost::system::error_code ec;
+      probe.connect(tcp::endpoint(boost::asio::ip::make_address("127.0.0.1"), port_), ec);
+    } catch (...) {
+    }
+    thread_.join();
+  }
+
+  unsigned short port_;
+  std::atomic<bool> served_;
+  std::thread thread_;
+};
 
 
 }  // namespace
@@ -440,4 +505,44 @@ TEST(settings_http, attachment_target_and_source_agree_on_the_host) {
   const std::string host = str::utils::getToken(boost::asio::ip::host_name(), '.').first;
   EXPECT_EQ(target, "/etc/nsclient/" + host + ".ini");
   EXPECT_EQ(source.path, "/hosts/" + host + ".ini");
+}
+
+// --- plain http:// settings sources -----------------------------------------
+//
+// The remote store is the agent's entire configuration - [/modules], external
+// script definitions, submit-client credentials - re-fetched at boot and on
+// every housekeeping pass. Over plain http nothing authenticates the server,
+// so anyone on path, or anyone who can answer for the host name via DHCP or
+// DNS, owns every agent pointed at it. It has to be refused, not warned about.
+
+TEST(settings_http, plaintext_source_is_refused_by_default) {
+  loopback_listener server;
+  temp_dir cache;
+  http_test_core core(cache.path(), false);
+  settings::settings_http s(&core, "test", http_url(server.port()));
+
+  EXPECT_FALSE(server.served());
+}
+
+TEST(settings_http, plaintext_source_is_fetched_when_boot_ini_allows_it) {
+  // The escape hatch has to actually work: a lab or air-gapped network that
+  // sets [tls] allow plaintext = true still gets its configuration.
+  loopback_http server("HTTP/1.0 200 OK\r\nContent-Length: 0\r\n\r\n");
+  temp_dir cache;
+  http_test_core core(cache.path(), true);
+  settings::settings_http s(&core, "test", http_url(server.port()));
+
+  EXPECT_FALSE(server.request_line().empty());
+}
+
+TEST(settings_http, a_url_without_a_scheme_is_refused_like_plain_http) {
+  // parse() leaves the protocol empty for "127.0.0.1:port/path", and the
+  // client then opens a plain socket just the same - so the guard cannot key
+  // on the literal string "http".
+  loopback_listener server;
+  temp_dir cache;
+  http_test_core core(cache.path(), false);
+  settings::settings_http s(&core, "test", "127.0.0.1:" + std::to_string(server.port()) + "/settings.ini");
+
+  EXPECT_FALSE(server.served());
 }

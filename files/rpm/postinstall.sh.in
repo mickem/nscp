@@ -1,18 +1,68 @@
 # $1 refers to the number of installed instances (1=install, 2=upgrade)
 
+# The account the unit runs as, on install and on upgrade alike: a host
+# installed before the permissions below existed has to be fixed by upgrading,
+# and that needs the same group the fresh install needs.
+#
+# getent, not `grep -q nsclient /etc/passwd`: that matched any line merely
+# containing the string - an `nsclient-exporter` account, or a home directory
+# or GECOS field mentioning nsclient - and then skipped creating the account
+# entirely.
+if ! getent passwd nsclient >/dev/null 2>&1; then
+    useradd --system --no-create-home --shell /sbin/nologin nsclient
+fi
+if ! getent group nsclient >/dev/null 2>&1; then
+    groupadd --system nsclient
+fi
+if ! id -nG nsclient 2>/dev/null | tr ' ' '\n' | grep -qx nsclient; then
+    usermod -a -G nsclient nsclient
+fi
+
+# Which group the service account is actually in. Normally "nsclient", created
+# above - but on a host where the account was made by hand, or by a useradd
+# with USERGROUPS_ENAB no, its primary group can be something else, and every
+# chown below has to name a group the daemon is really in or it locks the
+# daemon out of its own files. Empty only when there is no such account at all,
+# which the unit (User=nsclient) could not start under either way.
+svc_group="$(id -gn nsclient 2>/dev/null || true)"
+if id -nG nsclient 2>/dev/null | tr ' ' '\n' | grep -qx nsclient; then
+    svc_group=nsclient
+fi
+
+# nsclient.ini carries the web admin password, the NRPE/NSCA passwords and the
+# submit-client tokens in plaintext - that is what the file is for, so the
+# filesystem is the boundary around it. Keep it root-owned and writable only by
+# root, readable by the service account through a group, and unreadable by
+# everyone else. The package already ships 0750/0640 root:root, so the group
+# has to be handed over here or the daemon cannot read its own configuration.
+#
+# Before the service is started or restarted below, so the daemon comes up
+# already able to read it.
+if [ -n "$svc_group" ]; then
+    chown "root:$svc_group" @NSCP_PKGSYSCONFDIR@
+    chmod 0750 @NSCP_PKGSYSCONFDIR@
+    if [ -f @NSCP_PKGSYSCONFDIR@/nsclient.ini ]; then
+        chown "root:$svc_group" @NSCP_PKGSYSCONFDIR@/nsclient.ini
+        chmod 0640 @NSCP_PKGSYSCONFDIR@/nsclient.ini
+    fi
+else
+    # No such account: the unit runs as User=nsclient, so the service could not
+    # start either way. Relax nothing, say what is wrong.
+    echo "NSClient++: no 'nsclient' account; @NSCP_PKGSYSCONFDIR@ is left root-only and the service will not start." >&2
+    echo "NSClient++: create the account, then chown root:<its group> and chmod 0640 @NSCP_PKGSYSCONFDIR@/nsclient.ini." >&2
+fi
+
 if [ "$1" -eq 1 ]; then
     # Initial installation
 
-    # Create nsclient user and group if they don't exist
-    if ! grep -q nsclient /etc/passwd; then
-        useradd --system --no-create-home --shell /sbin/nologin nsclient
-    fi
-
     # Create log + state folders if they don't exist
     mkdir -p @NSCP_LOGDIR@
-    chown nsclient:nsclient @NSCP_LOGDIR@
     mkdir -p @NSCP_PKGSTATEDIR@
-    chown nsclient:nsclient @NSCP_PKGSTATEDIR@
+    if [ -n "$svc_group" ]; then
+        chown "nsclient:$svc_group" @NSCP_LOGDIR@
+        chmod 0750 @NSCP_LOGDIR@
+        chown "nsclient:$svc_group" @NSCP_PKGSTATEDIR@
+    fi
 
     if command -v systemctl >/dev/null 2>&1; then
         systemctl daemon-reload

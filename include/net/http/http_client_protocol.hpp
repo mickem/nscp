@@ -52,9 +52,18 @@ class protocol : public boost::noncopyable {
   bool has_data() const { return current_state_ == has_data_to_send; }
   bool wants_data() const { return current_state_ == wants_data_to_read; }
 
-  bool on_read(std::size_t) {
+  // Only the bytes this read actually delivered. buffer_ is shared with the
+  // outbound side (get_inbound() and get_outbound() are the same vector) and
+  // is still sized to the request that was just sent, so appending all of it
+  // appends whatever the read did not overwrite - the tail of our own request.
+  // A short reply such as "HTTP/1.1 403 ..." came back with `Connection: close`
+  // and the `password:` header we sent glued onto its body. The read loop
+  // re-arms after every on_read, so each call must contribute only its own
+  // bytes or earlier ones are repeated too.
+  bool on_read(std::size_t bytes) {
     if (current_state_ == wants_data_to_read) {
-      responseData_.insert(responseData_.end(), buffer_.begin(), buffer_.end());
+      if (bytes > buffer_.size()) bytes = buffer_.size();
+      responseData_.insert(responseData_.end(), buffer_.begin(), buffer_.begin() + static_cast<std::ptrdiff_t>(bytes));
       return true;
     }
     set_state(done);

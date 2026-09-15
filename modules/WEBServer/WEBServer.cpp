@@ -83,8 +83,8 @@ class WEBServerLogger : public WebLogger {
 
 namespace {
 // True if a WEB role's comma-separated grant string confers the bare `legacy`
-// permission - the token the deprecated /query.pb and /query/{name}
-// query-dispatch routes check for. What matters is the permission, not the
+// permission - the token the deprecated /query/{name} query-dispatch route
+// checks for. What matters is the permission, not the
 // role name: a custom role (e.g. `cucumber = legacy,login.get`) that includes
 // this grant is exactly as powerful as the built-in `legacy` role. We match
 // the literal token and deliberately not `*`, because a wildcard role
@@ -345,7 +345,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   // `console.exec` explicitly, normally only under the `full` role (which is
   // already a wildcard).
   // `legacy` is registered but NOT seeded (seed=false): it unlocks the
-  // deprecated /query.pb and /query/{name} routes, which dispatch through the
+  // deprecated /query/{name} route, which dispatches through the
   // same command registry as the versioned query API, so a `legacy` token can
   // run any registered check/command (including configured external scripts).
   // Fresh installs should not carry it unless an operator adds it on purpose;
@@ -403,13 +403,10 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       // grant includes the `legacy` token unlocks the query-dispatch routes.
       if (grant_confers_legacy(grant)) {
         NSC_LOG_ERROR("SECURITY: WEB role '" + name +
-                      "' grants the 'legacy' permission, which unlocks the deprecated /query.pb and /query/{name} "
-                      "endpoints. Any user with this role can run ANY registered check or command (including configured "
-                      "CheckExternalScripts commands) even without 'queries.execute'. It ALSO unlocks POST "
-                      "/settings/query.pb, which reads settings WITHOUT the redaction the /api/v2/settings endpoints "
-                      "apply (exposing stored secrets in cleartext) and can WRITE settings - without holding "
-                      "'settings.get'/'settings.put'. Only grant 'legacy' to roles for trusted legacy systems that "
-                      "cannot use the versioned /api/v2/queries and /api/v2/settings endpoints.");
+                      "' grants the 'legacy' permission, which unlocks the deprecated /query/{name} "
+                      "endpoint. Any user with this role can run ANY registered check or command (including configured "
+                      "CheckExternalScripts commands) even without 'queries.execute'. Only grant 'legacy' to roles for "
+                      "trusted legacy systems that cannot use the versioned /api/v2/queries endpoints.");
       }
     });
 
@@ -802,8 +799,8 @@ bool WEBServer::cli_add_user(const PB::Commands::ExecuteRequestMessage::Request 
         for (const pf::settings_query::key_values &val : rq.get_query_key_response()) {
           if (val.matches(roles_path, role) && grant_confers_legacy(val.get_string())) {
             result << "WARNING: role '" << role
-                   << "' grants the 'legacy' permission, which unlocks the deprecated /query.pb and /query/{name} "
-                      "endpoints. A user with it can run any registered check or command (including any configured "
+                   << "' grants the 'legacy' permission, which unlocks the deprecated /query/{name} "
+                      "endpoint. A user with it can run any registered check or command (including any configured "
                       "external scripts) even without 'queries.execute'. Only use it for a trusted legacy system that "
                       "cannot use the versioned /api/v2/queries endpoints."
                    << std::endl;
@@ -902,8 +899,8 @@ bool WEBServer::cli_add_role(const PB::Commands::ExecuteRequestMessage::Request 
       result << " " << g << std::endl;
     }
     if (grant_confers_legacy(grant)) {
-      result << "WARNING: this role grants the 'legacy' permission, which unlocks the deprecated /query.pb and "
-                "/query/{name} endpoints. A user with it can run any registered check or command (including any "
+      result << "WARNING: this role grants the 'legacy' permission, which unlocks the deprecated "
+                "/query/{name} endpoint. A user with it can run any registered check or command (including any "
                 "configured external scripts) even without 'queries.execute'. Only use it for trusted legacy systems."
              << std::endl;
     }
@@ -1265,7 +1262,7 @@ void WEBServer::ensure_role(role_map &roles, const nscapi::settings_helper::sett
   settings.register_key_string(role_path, role, "Role for " + reason, "Default role for " + reason, value);
   // `seed == false` registers the schema but does not create the role on a
   // fresh install. Used for `legacy`, which is powerful (it unlocks the
-  // deprecated /query.pb and /query/{name} query-dispatch endpoints) and
+  // deprecated /query/{name} query-dispatch endpoint) and
   // should not exist unless an operator adds it deliberately. Existing
   // installs already carry the role in their config, so `roles` contains it
   // by the time this runs and they keep working unchanged.

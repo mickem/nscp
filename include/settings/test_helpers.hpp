@@ -66,6 +66,7 @@ class mock_settings_core : public settings::settings_core {
         tls_version_("1.3"),
         tls_verify_("none"),
         tls_ca_(),
+        allow_plaintext_(false),
         reload_flag_(false),
         dirty_flag_(false),
         ready_flag_(true) {}
@@ -92,6 +93,7 @@ class mock_settings_core : public settings::settings_core {
   std::string get_tls_version() const override { return tls_version_; }
   std::string get_tls_verify_mode() const override { return tls_verify_; }
   std::string get_tls_ca() const override { return tls_ca_; }
+  bool get_allow_plaintext() const override { return allow_plaintext_; }
 
   // --- the rest: no-ops / empty defaults -------------------------------------
   boost::optional<key_description> get_registered_key(std::string, std::string) override { return boost::none; }
@@ -124,6 +126,7 @@ class mock_settings_core : public settings::settings_core {
   // Test-side knobs:
   void set_proxy_url(std::string url) { proxy_url_ = std::move(url); }
   void set_no_proxy(std::string list) { no_proxy_ = std::move(list); }
+  void set_allow_plaintext(bool value) { allow_plaintext_ = value; }
 
  private:
   nsclient::logging::logger_instance logger_;
@@ -132,6 +135,7 @@ class mock_settings_core : public settings::settings_core {
   std::string tls_version_;
   std::string tls_verify_;
   std::string tls_ca_;
+  bool allow_plaintext_;
   bool reload_flag_;
   bool dirty_flag_;
   bool ready_flag_;

@@ -17,7 +17,13 @@ runs:
   steps:
     - name: Download
       run: |
-        curl -L https://github.com/leethomason/tinyxml2/archive/refs/tags/${{ inputs.version }}.zip --output tinyxml2.zip
+        curl -fL --retry 8 --retry-delay 15 --retry-max-time 300 https://github.com/leethomason/tinyxml2/archive/refs/tags/${{ inputs.version }}.zip --output tinyxml2.zip
+      working-directory: tmp
+      shell: bash
+
+    - name: Verify checksum
+      run: |
+        "$GITHUB_WORKSPACE/.github/scripts/verify-checksum.sh" tinyxml2 "${{ inputs.version }}" tinyxml2.zip
       working-directory: tmp
       shell: bash
 

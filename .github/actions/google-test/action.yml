@@ -33,6 +33,10 @@ runs:
       shell: bash
       run: |
         git clone --depth 1 --branch release-${{ inputs.version }} https://github.com/google/googletest.git
+        # A tag is a movable pointer; the commit it names is what actually gets
+        # compiled and linked into the test binaries. See
+        # .github/dependency-checksums.txt.
+        "$GITHUB_WORKSPACE/.github/scripts/verify-commit.sh" googletest "${{ inputs.version }}" googletest
     - id: setup
       run: |
         if ("${{ inputs.architecture }}" -eq "x64") {
