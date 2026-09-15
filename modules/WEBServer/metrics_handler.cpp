@@ -16,6 +16,12 @@ void metrics_handler::set_list(const std::string &metrics) {
   metrics_list_ = metrics;
 }
 
+void metrics_handler::set_described(const std::string &metrics) {
+  boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+  if (!lock.owns_lock()) return;
+  metrics_described_ = metrics;
+}
+
 void metrics_handler::set_openmetrics(const std::string &openmetrics, const std::string &prometheus_text) {
   boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!lock.owns_lock()) return;
@@ -35,6 +41,12 @@ std::string metrics_handler::get_list() {
   boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!lock.owns_lock()) return "";
   return metrics_list_;
+}
+
+std::string metrics_handler::get_described() {
+  boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+  if (!lock.owns_lock()) return "";
+  return metrics_described_;
 }
 
 std::string metrics_handler::get_openmetrics() {

@@ -3,7 +3,8 @@
 NSClient++ exposes the metrics gathered by the running modules
 (`CheckSystem`, `CheckDisk`, …) through three endpoints:
 
-* [List metrics](#list-metrics) — `/api/v2/metrics` (JSON)
+* [List metrics](#list-metrics) — `/api/v2/metrics` (JSON), with
+  [`?meta=1`](#described-metrics) for what each metric means
 * [OpenMetrics](#openmetrics) — `/api/v2/openmetrics` (text exposition)
 * [Legacy /metrics](#legacy-metrics) — root `/metrics` (nested JSON)
 
@@ -60,6 +61,72 @@ a fractional part are returned as JSON numbers. String-valued metrics
 
 ```
 curl -s -k -u admin https://localhost:8443/api/v2/metrics | python -m json.tool
+```
+
+<a id="described-metrics"></a>
+### Describing the metrics (`?meta=1`)
+
+The flat map says what a metric reads, not what it means. `?meta=1` answers
+with the same keys and values plus the metadata the
+[OpenMetrics exposition](#metadata) is built from — the help text, the unit,
+the type and the labels — so a dashboard can print `12 592 123 904 bytes`
+rather than a bare number, from one request.
+
+```
+GET /api/v2/metrics?meta=1
+```
+
+`?meta=true` and `?meta=yes` mean the same thing. Anything else, `?meta=0`
+included, is the plain flat map above: the described document is a different
+shape, so it is opt-in and nothing that reads `/api/v2/metrics` today changes.
+
+```json
+{
+    "metrics": {
+        "system.mem.physical.used": 5123456789,
+        "system.cpu.core 0.idle": 93,
+        "system.uptime.uptime": "1d 12:30",
+        "workers.jobs": 1847
+    },
+    "metadata": {
+        "system.mem.physical.used": {
+            "type": "gauge",
+            "help": "Physical memory in use",
+            "unit": "bytes"
+        },
+        "system.cpu.core 0.idle": {
+            "type": "gauge",
+            "help": "Share of CPU time spent idle",
+            "unit": "percent",
+            "labels": { "core": "0" }
+        },
+        "system.uptime.uptime": {
+            "type": "info",
+            "help": "Uptime as a human readable string"
+        },
+        "workers.jobs": {
+            "type": "counter",
+            "help": "Scheduled jobs the agent has started since it was started"
+        }
+    }
+}
+```
+
+`metrics` is byte for byte what the endpoint returns without `meta`, and
+`metadata` is keyed by the same keys. Every entry has a `type` — one of
+`gauge`, `counter`, `unknown`, `info`, `summary` or `histogram`, as
+[Types](#types) describes them; `help`, `unit` and `labels` appear only where
+the producing module declared them, so a metric published through the bare
+`add_metric()` shorthand (an out-of-tree module, a Python script returning a
+plain number) carries its type and nothing it never said. `help` falls back to
+the bundle's description exactly as the exposition's `# HELP` does.
+
+The keys are the flat keys, unchanged: the metadata never renames anything.
+The OpenMetrics *family* name is derived from the key and the unit and is not
+repeated here — see [Metric names](#metric-names) for the mapping.
+
+```
+curl -s -k -u admin 'https://localhost:8443/api/v2/metrics?meta=1' | python -m json.tool
 ```
 
 ## OpenMetrics

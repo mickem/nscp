@@ -1179,16 +1179,52 @@ json::value gauge_to_json(double v) {
   }
   return json::value(v);
 }
+
+// The OpenMetrics type of a metric, spelled as the exposition spells it, for
+// the described JSON view. A string has no numeric sample and becomes a label
+// of its bundle's `_info` family, so it reports as `info` here rather than as
+// a type the `/api/v2/metrics` reader could mistake for a number.
+const char *metric_type_name(const PB::Metrics::Metric &v) {
+  if (v.has_counter_value()) return "counter";
+  if (v.has_untyped_value()) return "unknown";
+  if (v.has_string_value()) return "info";
+  if (v.has_summary_value()) return "summary";
+  if (v.has_histogram_value()) return "histogram";
+  return "gauge";
+}
+
+// What a producer said one metric means: the `# HELP` text (falling back to
+// the bundle's, exactly as the exposition falls back), the unit, the type and
+// the labels. Only the parts that were declared are emitted, so a metric a
+// module publishes through the bare `add_metric()` shorthand carries its type
+// and nothing it never said.
+json::value describe_metric(const PB::Metrics::Metric &v, const PB::Metrics::MetricsBundle &b) {
+  json::object meta;
+  meta.insert(json::object::value_type("type", std::string(metric_type_name(v))));
+  const std::string &help = v.desc().empty() ? b.desc() : v.desc();
+  if (!help.empty()) meta.insert(json::object::value_type("help", help));
+  if (!v.unit().empty()) meta.insert(json::object::value_type("unit", v.unit()));
+  if (v.dims_size() > 0) {
+    json::object labels;
+    for (const PB::Common::KeyValue &dim : v.dims()) {
+      labels.insert(json::object::value_type(dim.key(), dim.value()));
+    }
+    meta.insert(json::object::value_type("labels", labels));
+  }
+  return json::value(meta);
+}
 }  // namespace
 
-// The two JSON renderings of a snapshot. The OpenMetrics exposition used to be
-// built in the same pass; it lives in openmetrics_renderer.cpp now, because a
-// conformant document has to group samples into families and cannot be
-// appended a line at a time.
-void build_metrics(json::object &metrics, json::object &metrics_list, const std::string &trail, const PB::Metrics::MetricsBundle &b) {
+// The three JSON renderings of a snapshot: the nested blob of `/metrics`, the
+// flat list of `/api/v2/metrics`, and the per-key metadata that same endpoint
+// serves for `?meta=1`. The OpenMetrics exposition used to be built in the same
+// pass; it lives in openmetrics_renderer.cpp now, because a conformant document
+// has to group samples into families and cannot be appended a line at a time.
+void build_metrics(json::object &metrics, json::object &metrics_list, json::object &metrics_meta, const std::string &trail,
+                   const PB::Metrics::MetricsBundle &b) {
   json::object node;
   for (const PB::Metrics::MetricsBundle &b2 : b.children()) {
-    build_metrics(node, metrics_list, trail + "." + b2.key(), b2);
+    build_metrics(node, metrics_list, metrics_meta, trail + "." + b2.key(), b2);
   }
   for (const PB::Metrics::Metric &v : b.value()) {
     // Any numeric type, not just a gauge: a producer that types a monotonic
@@ -1201,17 +1237,28 @@ void build_metrics(json::object &metrics, json::object &metrics_list, const std:
     } else if (v.has_string_value()) {
       node.insert(json::object::value_type(v.key(), v.string_value().value()));
       metrics_list.insert(json::object::value_type(trail + "." + v.key(), v.string_value().value()));
+    } else {
+      // Nothing the flat views can show, so nothing to describe either: the
+      // metadata document is keyed by the same keys as the value document.
+      continue;
     }
+    metrics_meta.insert(json::object::value_type(trail + "." + v.key(), describe_metric(v, b)));
   }
   metrics.insert(json::object::value_type(b.key(), node));
 }
 void WEBServer::submitMetrics(const PB::Metrics::MetricsMessage &response) const {
-  json::object metrics, metrics_list;
+  json::object metrics, metrics_list, metrics_meta;
   for (const PB::Metrics::MetricsMessage::Response &p : response.payload()) {
     for (const PB::Metrics::MetricsBundle &b : p.bundles()) {
-      build_metrics(metrics, metrics_list, b.key(), b);
+      build_metrics(metrics, metrics_list, metrics_meta, b.key(), b);
     }
   }
+  // `?meta=1` answers with both halves in one document rather than a second
+  // endpoint to correlate: a dashboard that wants to print "12 592 123 904
+  // bytes" needs the value and the unit from the same snapshot.
+  json::object described;
+  described.insert(json::object::value_type("metrics", metrics_list));
+  described.insert(json::object::value_type("metadata", metrics_meta));
   std::string open_metrics;
   std::string prometheus_text;
   if (openmetrics_legacy_) {
@@ -1237,7 +1284,7 @@ void WEBServer::submitMetrics(const PB::Metrics::MetricsMessage &response) const
       NSC_LOG_ERROR(problem);
     }
   }
-  session->set_metrics(json::serialize(metrics), json::serialize(metrics_list), open_metrics, prometheus_text);
+  session->set_metrics(json::serialize(metrics), json::serialize(metrics_list), json::serialize(described), open_metrics, prometheus_text);
   client->push_metrics(response);
 }
 

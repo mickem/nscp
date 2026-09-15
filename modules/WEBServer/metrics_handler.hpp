@@ -7,7 +7,8 @@
 #include <string>
 
 // The latched renderings of the last metrics snapshot: the nested JSON of
-// `/metrics`, the flat JSON of `/api/v2/metrics`, and the two text expositions
+// `/metrics`, the flat JSON of `/api/v2/metrics`, the described JSON that same
+// endpoint serves for `?meta=1`, and the two text expositions
 // `/api/v2/openmetrics` negotiates between. Each is a finished body, rendered
 // once by the metrics thread and handed to any number of HTTP workers verbatim.
 //
@@ -25,6 +26,11 @@
 struct metrics_handler {
   void set(const std::string &metrics);
   void set_list(const std::string &metrics);
+  // The same snapshot with the metadata the OpenMetrics renderer reads - the
+  // help text, unit, type and labels - alongside each value, for a consumer
+  // that reads keys and wants to say what they mean. Latched separately so the
+  // plain flat list stays exactly what it was.
+  void set_described(const std::string &metrics);
   void set_openmetrics(const std::string &openmetrics, const std::string &prometheus_text);
   // `application/openmetrics-text; version=1.0.0`.
   std::string get_openmetrics();
@@ -32,10 +38,12 @@ struct metrics_handler {
   std::string get_prometheus_text();
   std::string get();
   std::string get_list();
+  std::string get_described();
 
  private:
   std::string metrics_;
   std::string metrics_list_;
+  std::string metrics_described_;
   std::string open_metrics_;
   std::string prometheus_text_;
   boost::timed_mutex mutex_;

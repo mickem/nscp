@@ -340,10 +340,13 @@ TEST_F(SessionManagerTest, Metrics) {
   // used to join a list of lines, and is not allowed to reshape the document
   // the renderer produced (dropping its trailing newline would be enough to
   // make the exposition invalid).
-  smi.set_metrics("metrics", "metrics_list", "# TYPE open_metrics counter\nopen_metrics_total 1\n# EOF\n",
+  smi.set_metrics("metrics", "metrics_list", "metrics_described", "# TYPE open_metrics counter\nopen_metrics_total 1\n# EOF\n",
                   "# TYPE open_metrics_total counter\nopen_metrics_total 1\n# EOF\n");
   EXPECT_EQ(smi.get_metrics(), "metrics");
   EXPECT_EQ(smi.get_metrics_v2(), "metrics_list");
+  // `?meta=1` is its own latch: the plain flat list must keep being exactly
+  // what it was for everything that does not ask for the metadata.
+  EXPECT_EQ(smi.get_metrics_v2_described(), "metrics_described");
   EXPECT_EQ(smi.get_open_metrics(), "# TYPE open_metrics counter\nopen_metrics_total 1\n# EOF\n");
   // The negotiated bodies are separate latches: serving one to a reader that
   // asked for the other loses the type of every counter.
