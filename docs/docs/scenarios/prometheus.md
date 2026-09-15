@@ -245,9 +245,9 @@ Platform differences to be aware of:
 
 ## Common Gotchas
 
-### Metric names changed in 0.22
+### Metric names changed
 
-Up to 0.21 the endpoint emitted the JSON keys verbatim, so names carried dots,
+The endpoint used to emit the JSON keys verbatim, so names carried dots,
 spaces and colons (`system_mem_commited.avail`, `system_cpu_core 0.idle`) and
 the documented workaround was to rewrite them with `metric_relabel_configs`.
 The agent does that itself now, by the rules above, so **drop any
@@ -263,7 +263,7 @@ updating. To buy time for that, put the old body back:
 openmetrics format = legacy
 ```
 
-This reproduces the pre-0.22 exposition byte for byte. It is deprecated and
+This reproduces the old exposition byte for byte. It is deprecated and
 will be removed in a future release, so treat it as a migration window rather
 than a setting to leave in place.
 

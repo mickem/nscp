@@ -145,7 +145,7 @@ either way - the Prometheus text parser reads `# EOF` as an ordinary comment.
 
 ### The legacy exposition
 
-Before 0.22 the endpoint emitted `<name> <value>` lines with the JSON keys
+The endpoint used to emit `<name> <value>` lines with the JSON keys
 pasted in verbatim (dots, spaces, `%` and colons included), no metadata, no
 terminator, and values truncated to six significant digits. Set
 
