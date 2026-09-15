@@ -224,3 +224,24 @@ TEST(CheckCpuFrequency, BuildMetricsEmitsPerCoreValues) {
   }
   EXPECT_TRUE(saw_current);
 }
+
+TEST(CheckCpuFrequency, BuildMetricsDescribesWhatEveryValueIs) {
+  // Without this every core's frequency scrapes as an anonymous number on
+  // /api/v2/openmetrics. The section's description is the fallback for metrics
+  // that declare none of their own, so both have to be there.
+  PB::Metrics::MetricsBundle parent;
+  const cpus_type data = {make_cpu("cpu0", 1800, 3600, 400)};
+  cpu_frequency_check::build_cpu_frequency_metrics(&parent, data);
+
+  ASSERT_EQ(parent.children_size(), 1);
+  const PB::Metrics::MetricsBundle &bundle = parent.children(0);
+  EXPECT_FALSE(bundle.desc().empty());
+  for (const PB::Metrics::Metric &m : bundle.value()) {
+    EXPECT_FALSE(m.desc().empty()) << "no help text for " << m.key();
+    // The two frequency keys already end in their unit, so declaring it adds
+    // a `# UNIT` line without renaming the metric; the percentage does not
+    // declare one.
+    const bool is_mhz = m.key().size() > 4 && m.key().compare(m.key().size() - 4, 4, "_mhz") == 0;
+    EXPECT_EQ(m.unit(), is_mhz ? "mhz" : "") << m.key();
+  }
+}

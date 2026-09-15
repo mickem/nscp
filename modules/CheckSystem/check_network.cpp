@@ -142,33 +142,50 @@ void network_interface::read_prd(wmi_impl::row r, long long delta) {
 }
 
 void network_interface::build_metrics(PB::Metrics::MetricsBundle *section) const {
-  using namespace nscapi::metrics;
+  using nscapi::metrics::describe;
+  using nscapi::metrics::metric;
 
   section->set_key("network");
-  // The adapter name comes straight from WMI, so it is `Ethernet 1` or
-  // `Intel(R) Ethernet Connection ... #2` - a string that made a terrible
-  // family name and makes a perfectly good label value.
-  const auto value = [&](const std::string &metric_name, const auto v) { metric(section, metric_name).instance(name).label("nic", name).gauge(v); };
-  const auto text = [&](const std::string &metric_name, const std::string &v) { metric(section, metric_name).instance(name).label("nic", name).info(v); };
-  text("NetConnectionID", NetConnectionID);
-  text("MACAddress", MACAddress);
-  // Status, enabled and speed are WMI display strings, not numbers - `Speed`
-  // reads `1000000000` or `Unknown`, and `SpeedBps` beside it is the parsed
-  // one. They stay text; the renderer skips them either way until info
-  // families land, and then they carry the `nic` label recorded here.
-  text("NetConnectionStatus", NetConnectionStatus);
-  text("NetEnabled", NetEnabled);
-  text("Speed", Speed);
+  describe(section, "Network adapters and their traffic, as reported by WMI");
+  // The five WMI properties are strings, including Speed - they describe the
+  // adapter rather than measure it, so they fold into the section's info
+  // family instead of becoming samples.
+  metric(section, "NetConnectionID").instance(name).label("nic", name).help("Name Windows shows for the connection").info(NetConnectionID);
+  metric(section, "MACAddress").instance(name).label("nic", name).help("Hardware address of the adapter").info(MACAddress);
+  metric(section, "NetConnectionStatus").instance(name).label("nic", name).help("Connection state Windows reports for the adapter").info(NetConnectionStatus);
+  metric(section, "NetEnabled").instance(name).label("nic", name).help("Whether the adapter is enabled").info(NetEnabled);
+  metric(section, "Speed").instance(name).label("nic", name).help("Negotiated link speed in bits per second, as WMI spells it").info(Speed);
   if (has_prd) {
-    value("BytesReceivedPersec", BytesReceivedPersec);
-    value("BytesSentPersec", BytesSentPersec);
-    value("BytesTotalPersec", BytesTotalPersec);
-    value("PacketsReceivedPersec", PacketsReceivedPersec);
-    value("PacketsSentPersec", PacketsSentPersec);
-    value("PacketsReceivedErrors", PacketsReceivedErrors);
-    value("PacketsOutboundErrors", PacketsOutboundErrors);
-    value("PacketsReceivedDiscarded", PacketsReceivedDiscarded);
-    value("PacketsOutboundDiscarded", PacketsOutboundDiscarded);
+    // Per-second rates, so no unit: the sample is a rate, not a byte or packet
+    // count, and a `_bytes` suffix would say otherwise.
+    metric(section, "BytesReceivedPersec").instance(name).label("nic", name).help("Bytes received per second").gauge(BytesReceivedPersec);
+    metric(section, "BytesSentPersec").instance(name).label("nic", name).help("Bytes sent per second").gauge(BytesSentPersec);
+    metric(section, "BytesTotalPersec").instance(name).label("nic", name).help("Bytes sent and received per second").gauge(BytesTotalPersec);
+    metric(section, "PacketsReceivedPersec").instance(name).label("nic", name).help("Packets received per second").gauge(PacketsReceivedPersec);
+    metric(section, "PacketsSentPersec").instance(name).label("nic", name).help("Packets sent per second").gauge(PacketsSentPersec);
+    // WMI hands these four over as running totals, but query_prd() has already
+    // turned them into per-second rates like the five above - so they are
+    // gauges, not counters, however much their names read like counts.
+    metric(section, "PacketsReceivedErrors")
+        .instance(name)
+        .label("nic", name)
+        .help("Inbound packets per second that could not be received because of an error")
+        .gauge(PacketsReceivedErrors);
+    metric(section, "PacketsOutboundErrors")
+        .instance(name)
+        .label("nic", name)
+        .help("Outbound packets per second that could not be sent because of an error")
+        .gauge(PacketsOutboundErrors);
+    metric(section, "PacketsReceivedDiscarded")
+        .instance(name)
+        .label("nic", name)
+        .help("Inbound packets per second discarded although no error was found")
+        .gauge(PacketsReceivedDiscarded);
+    metric(section, "PacketsOutboundDiscarded")
+        .instance(name)
+        .label("nic", name)
+        .help("Outbound packets per second discarded although no error was found")
+        .gauge(PacketsOutboundDiscarded);
   }
 }
 

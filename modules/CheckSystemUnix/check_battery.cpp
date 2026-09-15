@@ -193,20 +193,46 @@ std::string battery_info::show() const {
 }
 
 void battery_info::build_metrics(PB::Metrics::MetricsBundle *section) const {
-  using namespace nscapi::metrics;
-  const auto value = [&](const std::string &metric_name, const long long v) { metric(section, metric_name).instance(name).label("battery", name).gauge(v); };
-  const auto text = [&](const std::string &metric_name, const std::string &v) { metric(section, metric_name).instance(name).label("battery", name).info(v); };
-  value("charge", charge_percent);
-  value("health", health_percent);
-  text("status", status);
-  text("power_source", power_source);
-  text("battery_present", get_battery_present());
-  if (time_remaining >= 0) value("time_remaining", time_remaining);
-  if (charge_rate > 0) value("charge_rate", charge_rate);
-  if (discharge_rate > 0) value("discharge_rate", discharge_rate);
-  if (design_capacity > 0) value("design_capacity", design_capacity);
-  if (full_capacity > 0) value("full_capacity", full_capacity);
-  if (remaining_capacity > 0) value("remaining_capacity", remaining_capacity);
+  using nscapi::metrics::metric;
+  metric(section, "charge").instance(name).label("battery", name).help("Charge left in the battery").unit("percent").gauge(charge_percent);
+  metric(section, "health")
+      .instance(name)
+      .label("battery", name)
+      .help("Full charge capacity as a share of the design capacity")
+      .unit("percent")
+      .gauge(health_percent);
+  metric(section, "status").instance(name).label("battery", name).help("What the battery is doing (charging, discharging, full)").info(status);
+  metric(section, "power_source").instance(name).label("battery", name).help("Whether the machine is on mains or on battery").info(power_source);
+  // A string today ("true"/"false"), and the key is what the JSON view and the
+  // web UI read, so it stays one.
+  metric(section, "battery_present").instance(name).label("battery", name).help("Whether a battery is fitted at all").info(get_battery_present());
+  if (time_remaining >= 0)
+    metric(section, "time_remaining").instance(name).label("battery", name).help("Time left at the current rate").unit("seconds").gauge(time_remaining);
+  if (charge_rate > 0)
+    metric(section, "charge_rate").instance(name).label("battery", name).help("Rate the battery is charging at").unit("milliwatts").gauge(charge_rate);
+  if (discharge_rate > 0)
+    metric(section, "discharge_rate").instance(name).label("battery", name).help("Rate the battery is discharging at").unit("milliwatts").gauge(discharge_rate);
+  if (design_capacity > 0)
+    metric(section, "design_capacity")
+        .instance(name)
+        .label("battery", name)
+        .help("Capacity the battery was built with")
+        .unit("milliwatthours")
+        .gauge(design_capacity);
+  if (full_capacity > 0)
+    metric(section, "full_capacity")
+        .instance(name)
+        .label("battery", name)
+        .help("Capacity the battery charges to today")
+        .unit("milliwatthours")
+        .gauge(full_capacity);
+  if (remaining_capacity > 0)
+    metric(section, "remaining_capacity")
+        .instance(name)
+        .label("battery", name)
+        .help("Capacity left in the battery")
+        .unit("milliwatthours")
+        .gauge(remaining_capacity);
 }
 
 batteries_type read_battery() { return read_battery_from(POWER_SUPPLY_PATH); }
@@ -331,6 +357,7 @@ void build_battery_metrics(PB::Metrics::MetricsBundle *parent) {
 
   PB::Metrics::MetricsBundle *section = parent->add_children();
   section->set_key("battery");
+  nscapi::metrics::describe(section, "Battery and mains state, as reported by /sys/class/power_supply");
   for (const battery_info &b : batteries) {
     b.build_metrics(section);
   }

@@ -82,10 +82,20 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
       ;
     // clang-format on
 
+    // The `scripts` callback only records what it finds; notify() below is
+    // what runs it, and at that point there is no Python interpreter yet -
+    // constructing a script takes the GIL, and `python_script::init()` cannot
+    // run any earlier because the two settings it needs are read by this same
+    // walk. Clear the list first so a reload does not load every script twice.
+    pending_scripts_.clear();
+
     settings.register_all();
     settings.notify();
 
     python_script::init(python_cache, python_lib);
+
+    // Now that the interpreter exists, the recorded scripts can be loaded.
+    load_pending_scripts();
 
   } catch (...) {
     NSC_LOG_ERROR_STD("Exception caught: <UNKNOWN EXCEPTION>");
@@ -94,12 +104,17 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
   return true;
 }
 
-void PythonScript::loadScript(std::string alias, std::string file) {
-  if (!provider_) {
-    NSC_LOG_ERROR_STD("Could not find script: no provider " + file);
-  } else {
-    provider_->add_command(alias, file, alias_);
+void PythonScript::loadScript(std::string alias, std::string file) { pending_scripts_.emplace_back(alias, file); }
+
+void PythonScript::load_pending_scripts() {
+  for (const std::pair<std::string, std::string> &script : pending_scripts_) {
+    if (!provider_) {
+      NSC_LOG_ERROR_STD("Could not find script: no provider " + script.second);
+    } else {
+      provider_->add_command(script.first, script.second, alias_);
+    }
   }
+  pending_scripts_.clear();
 }
 
 bool PythonScript::unloadModule() {

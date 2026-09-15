@@ -126,14 +126,18 @@ std::string os_updates_obj::show() const {
 }
 
 void os_updates_obj::build_metrics(PB::Metrics::MetricsBundle *section) const {
-  using namespace nscapi::metrics;
-  add_metric(section, "count", count);
-  add_metric(section, "security", security);
-  add_metric(section, "critical", critical);
-  add_metric(section, "important", important);
-  add_metric(section, "defender", defender);
-  add_metric(section, "rollups", rollups);
-  add_metric(section, "reboot_required", reboot_required);
+  using nscapi::metrics::describe;
+  using nscapi::metrics::metric;
+  describe(section, "Updates Windows Update is offering the machine right now");
+  // All gauges: this is what is pending at this instant, and it drops back to
+  // zero when the updates are installed.
+  metric(section, "count").help("Updates available to install").gauge(count);
+  metric(section, "security").help("Of those, the ones classified as security updates").gauge(security);
+  metric(section, "critical").help("Of those, the ones classified as critical").gauge(critical);
+  metric(section, "important").help("Of those, the ones classified as important").gauge(important);
+  metric(section, "defender").help("Of those, the Microsoft Defender definition updates").gauge(defender);
+  metric(section, "rollups").help("Of those, the monthly rollups").gauge(rollups);
+  metric(section, "reboot_required").help("Of those, the ones that need a reboot to finish").gauge(reboot_required);
 }
 
 void os_updates_obj::recompute() {

@@ -5,6 +5,7 @@
 
 #include <boost/filesystem/operations.hpp>
 #include <boost/unordered_set.hpp>
+#include <nscapi/nscapi_metrics_helper.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <settings/settings_core.hpp>
 
@@ -788,34 +789,25 @@ bool NSClientT::service_controller::is_started() {
 }
 
 PB::Metrics::MetricsBundle NSClientT::ownMetricsFetcher() {
+  using nscapi::metrics::describe;
+  using nscapi::metrics::metric;
+
   PB::Metrics::MetricsBundle bundle;
   bundle.set_key("workers");
+  describe(&bundle, "The agent's own scheduler thread pool");
   if (scheduler_.get_scheduler().has_metrics()) {
-    boost::uint64_t taskes_ = scheduler_.get_scheduler().get_metric_executed();
-    boost::uint64_t submitted_ = scheduler_.get_scheduler().get_metric_compleated();
-    boost::uint64_t errors_ = scheduler_.get_scheduler().get_metric_errors();
-    boost::uint64_t threads = scheduler_.get_scheduler().get_metric_threads();
-
-    PB::Metrics::Metric *m = bundle.add_value();
-    m->set_key("jobs");
-    m->mutable_gauge_value()->set_value(static_cast<double>(taskes_));
-    m = bundle.add_value();
-    m->set_key("submitted");
-    m->mutable_gauge_value()->set_value(static_cast<double>(submitted_));
-    m = bundle.add_value();
-    m->set_key("errors");
-    m->mutable_gauge_value()->set_value(static_cast<double>(errors_));
-    m = bundle.add_value();
-    m->set_key("threads");
-    m->mutable_gauge_value()->set_value(static_cast<double>(threads));
-    m = bundle.add_value();
-    m->set_key("refresh_interval");
-    m->mutable_gauge_value()->set_value(scheduler_.get_metrics_interval());
-
+    // Executed, completed and errored only ever grow while the agent runs, so
+    // they are counters: a scraper may take a rate of them, and the reset on
+    // restart is the one thing a counter is defined to survive.
+    metric(&bundle, "jobs").help("Scheduled jobs the agent has started since it was started").counter(scheduler_.get_scheduler().get_metric_executed());
+    metric(&bundle, "submitted")
+        .help("Scheduled jobs the agent has completed since it was started")
+        .counter(scheduler_.get_scheduler().get_metric_compleated());
+    metric(&bundle, "errors").help("Scheduled jobs that failed since the agent was started").counter(scheduler_.get_scheduler().get_metric_errors());
+    metric(&bundle, "threads").help("Threads currently in the scheduler pool").gauge(scheduler_.get_scheduler().get_metric_threads());
+    metric(&bundle, "refresh_interval").help("How often the agent collects a metrics snapshot").unit("seconds").gauge(scheduler_.get_metrics_interval());
   } else {
-    PB::Metrics::Metric *m = bundle.add_value();
-    m->set_key("metrics.available");
-    m->mutable_gauge_value()->set_value(0);
+    metric(&bundle, "metrics.available").help("Whether the scheduler is collecting metrics at all").gauge(0);
   }
   return bundle;
 }

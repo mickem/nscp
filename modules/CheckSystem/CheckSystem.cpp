@@ -39,13 +39,13 @@
 #include "check_pending_reboot.hpp"
 #include "check_printjobs.hpp"
 #include "check_printqueue.hpp"
-#include "check_w32time.hpp"
 #include "check_process.hpp"
 #include "check_process_history.hpp"
 #include "check_registry.hpp"
 #include "check_service.h"
 #include "check_swap_io.hpp"
 #include "check_temperature.hpp"
+#include "check_w32time.hpp"
 #include "counter_filter.hpp"
 #include "filter.hpp"
 #include "module.hpp"
@@ -351,6 +351,8 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         PDH::pdh_object counter;
         counter.alias = object->get_alias();
         counter.path = object->counter;
+        counter.help = object->help;
+        counter.unit = object->unit;
 
         counter.set_strategy(object->collection_strategy);
         counter.set_instances(object->instances);
@@ -1261,48 +1263,124 @@ void CheckSystem::add_rrd_counter(std::string key, std::string query) {
   pdh_checker.add_rrd_counter(nscapi::settings_proxy::create(get_id(), get_core()), key, query);
 }
 
-// Publishes one PDH/process metric, whatever the variant turned out to hold.
-// The builder it carries has already been given the key and - for a counter
-// with instances - the family name and the `instance` label, so the visitor
-// only has to pick the right terminator. It is copied per call because a
-// terminator is what writes the metric, and the visitor is handed to
-// `apply_visitor` as a const reference.
+// What to say about one entry of the collector's metrics hash. Most of them
+// are configured PDH counters, described by whatever the operator wrote next
+// to the counter; the three the collector adds itself are described here.
+//
+// A counter key is `pdh.<alias>` for a plain counter and
+// `pdh.<alias>.<instance>` for one with instances, and an alias may itself
+// contain dots, so trim a segment at a time from the right and take the first
+// alias that matches.
+pdh_thread::counter_meta meta_for(const pdh_thread::counter_meta_map &meta, const std::string &key) {
+  pdh_thread::counter_meta builtin;
+  if (key == "procs.handles") {
+    builtin.help = "Open handles on the machine";
+    return builtin;
+  }
+  if (key == "procs.threads") {
+    builtin.help = "Threads on the machine";
+    return builtin;
+  }
+  if (key == "procs.procs") {
+    builtin.help = "Processes on the machine";
+    return builtin;
+  }
+  if (key.compare(0, 4, "pdh.") != 0) return pdh_thread::counter_meta();
+  std::string candidate = key.substr(4);
+  while (!candidate.empty()) {
+    const pdh_thread::counter_meta_map::const_iterator found = meta.find(candidate);
+    if (found != meta.end()) return found->second;
+    const std::string::size_type at = candidate.rfind('.');
+    if (at == std::string::npos) break;
+    candidate = candidate.substr(0, at);
+  }
+  return pdh_thread::counter_meta();
+}
+
 class add_visitor : public boost::static_visitor<> {
-  nscapi::metrics::metric_builder b;
+  PB::Metrics::MetricsBundle *b;
+  const std::string &key;
+  // Held by value: the visitor outlives nothing in particular and two short
+  // strings are cheaper than reasoning about whose they are.
+  const pdh_thread::counter_meta meta;
+  // Set for a counter configured with instances, which publishes one key per
+  // instance. Empty family means the key is the whole name, which is every
+  // counter without them.
+  const pdh_thread::dimension dims;
 
  public:
-  explicit add_visitor(nscapi::metrics::metric_builder b) : b(std::move(b)) {}
-  void operator()(const long long &i) const { nscapi::metrics::metric_builder(b).gauge(i); }
-  void operator()(const std::string &s) const { nscapi::metrics::metric_builder(b).info(s); }
-  void operator()(const double &d) const { nscapi::metrics::metric_builder(b).gauge(d); }
+  add_visitor(PB::Metrics::MetricsBundle *b, const std::string &key, pdh_thread::counter_meta meta, pdh_thread::dimension dims)
+      : b(b), key(key), meta(std::move(meta)), dims(std::move(dims)) {}
+  // A PDH counter is whatever the operator pointed it at, so there is no
+  // honest type to give it beyond gauge - and no help or unit either, unless
+  // they said.
+  void operator()(const long long &i) const { build().gauge(i); }
+  void operator()(const std::string &s) const { build().info(s); }
+  void operator()(const double &d) const { build().gauge(d); }
+
+ private:
+  nscapi::metrics::metric_builder build() const {
+    // The instance is the *last* segment of a PDH key, so the key is spelled
+    // out rather than composed from the family name - which is also why the
+    // split has to be recorded where it is still known: a counter name can
+    // itself contain dots.
+    if (dims.family.empty()) return nscapi::metrics::metric(b, key).help(meta.help).unit(meta.unit);
+    return nscapi::metrics::metric(b, dims.family).key(key).label("instance", dims.instance).help(meta.help).unit(meta.unit);
+  }
 };
 void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
-  using namespace nscapi::metrics;
+  using nscapi::metrics::core_label;
+  using nscapi::metrics::describe;
+  using nscapi::metrics::metric;
 
   PB::Metrics::MetricsBundle *bundle = response->add_bundles();
   bundle->set_key("system");
-  add_metric(bundle, "refresh_interval", 1ll);
-  add_metric(bundle, "network_refresh_interval", static_cast<long long>(collector->min_threshold_ + 2));
+  metric(bundle, "refresh_interval").help("How often the background collector samples the system").unit("seconds").gauge(1);
+  metric(bundle, "network_refresh_interval")
+      .help("How often the background collector samples network adapters")
+      .unit("seconds")
+      .gauge(static_cast<long long>(collector->min_threshold_ + 2));
   try {
     PB::Metrics::MetricsBundle *mem = bundle->add_children();
     mem->set_key("mem");
+    describe(mem, "Memory as reported by GlobalMemoryStatusEx");
     CheckMemory::memData mem_data = memoryChecker.getMemoryStatus();
-    add_metric(mem, "commited.avail", mem_data.commited.avail);
-    add_metric(mem, "commited.total", mem_data.commited.total);
-    add_metric(mem, "commited.used", mem_data.commited.total - mem_data.commited.avail);
-    add_metric(mem, "commited.%", mem_data.commited.total == 0 ? 0 : (100 * mem_data.commited.avail) / mem_data.commited.total);
-    add_metric(mem, "virtual.avail", mem_data.virt.avail);
-    add_metric(mem, "virtual.total", mem_data.virt.total);
-    add_metric(mem, "virtual.used", mem_data.virt.total - mem_data.virt.avail);
-    add_metric(mem, "virtual.%", mem_data.virt.total == 0 ? 0 : (100 * mem_data.virt.avail) / mem_data.virt.total);
-    add_metric(mem, "page.avail", mem_data.page.avail);
-    add_metric(mem, "page.total", mem_data.page.total);
-    add_metric(mem, "page.used", mem_data.page.total - mem_data.page.avail);
-    add_metric(mem, "page.%", mem_data.page.total == 0 ? 0 : (100 * mem_data.commited.avail) / mem_data.commited.total);
-    add_metric(mem, "physical.avail", mem_data.phys.avail);
-    add_metric(mem, "physical.total", mem_data.phys.total);
-    add_metric(mem, "physical.used", mem_data.phys.total - mem_data.phys.avail);
-    add_metric(mem, "physical.%", mem_data.phys.total == 0 ? 0 : (100 * mem_data.commited.avail) / mem_data.commited.total);
+    // Four families per section, and the `%` key already sanitises to
+    // `_percent`, so declaring the unit adds a `# UNIT` line and renames
+    // nothing.
+    metric(mem, "commited.avail").help("Commit charge still available").unit("bytes").gauge(mem_data.commited.avail);
+    metric(mem, "commited.total").help("Commit limit of the machine").unit("bytes").gauge(mem_data.commited.total);
+    metric(mem, "commited.used").help("Commit charge in use").unit("bytes").gauge(mem_data.commited.total - mem_data.commited.avail);
+    metric(mem, "commited.%")
+        .help("Share of the commit limit still available")
+        .unit("percent")
+        .gauge(mem_data.commited.total == 0 ? 0 : (100 * mem_data.commited.avail) / mem_data.commited.total);
+    metric(mem, "virtual.avail").help("Virtual address space still available to this process").unit("bytes").gauge(mem_data.virt.avail);
+    metric(mem, "virtual.total").help("Virtual address space of this process").unit("bytes").gauge(mem_data.virt.total);
+    metric(mem, "virtual.used").help("Virtual address space this process has used").unit("bytes").gauge(mem_data.virt.total - mem_data.virt.avail);
+    metric(mem, "virtual.%")
+        .help("Share of the virtual address space still available")
+        .unit("percent")
+        .gauge(mem_data.virt.total == 0 ? 0 : (100 * mem_data.virt.avail) / mem_data.virt.total);
+    metric(mem, "page.avail").help("Page file space still available").unit("bytes").gauge(mem_data.page.avail);
+    metric(mem, "page.total").help("Page file space in total").unit("bytes").gauge(mem_data.page.total);
+    metric(mem, "page.used").help("Page file space in use").unit("bytes").gauge(mem_data.page.total - mem_data.page.avail);
+    // Both of these used to divide the *commit charge* by the commit limit
+    // while guarding on their own total, so they published the commit figure
+    // under a page-file and a physical-memory name - and divided by zero
+    // whenever a machine reported a page file or physical memory but no commit
+    // limit. Each reads its own numbers now.
+    metric(mem, "page.%")
+        .help("Share of the page file still available")
+        .unit("percent")
+        .gauge(mem_data.page.total == 0 ? 0 : (100 * mem_data.page.avail) / mem_data.page.total);
+    metric(mem, "physical.avail").help("Physical memory still available").unit("bytes").gauge(mem_data.phys.avail);
+    metric(mem, "physical.total").help("Physical memory fitted in the machine").unit("bytes").gauge(mem_data.phys.total);
+    metric(mem, "physical.used").help("Physical memory in use").unit("bytes").gauge(mem_data.phys.total - mem_data.phys.avail);
+    metric(mem, "physical.%")
+        .help("Share of physical memory still available")
+        .unit("percent")
+        .gauge(mem_data.phys.total == 0 ? 0 : (100 * mem_data.phys.avail) / mem_data.phys.total);
   } catch (CheckMemoryException &e) {
     NSC_LOG_ERROR("Failed to getch memory metrics: " + e.reason());
   }
@@ -1310,6 +1388,7 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
   try {
     PB::Metrics::MetricsBundle *section = bundle->add_children();
     section->set_key("cpu");
+    describe(section, "CPU time over the last 5 minutes, per core and totalled");
 
     std::map<std::string, windows::system_info::load_entry> vals = collector->get_cpu_load(5);
     typedef std::map<std::string, windows::system_info::load_entry>::value_type vt;
@@ -1318,10 +1397,15 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
       // the bare number so the label reads the same here as it does on Linux,
       // where the key is `core_0`.
       const std::string core = core_label(v.first);
-      metric(section, "idle").instance(v.first).label("core", core).gauge(v.second.idle);
-      metric(section, "total").instance(v.first).label("core", core).gauge(v.second.user + v.second.kernel);
-      metric(section, "user").instance(v.first).label("core", core).gauge(v.second.user);
-      metric(section, "kernel").instance(v.first).label("core", core).gauge(v.second.kernel);
+      metric(section, "idle").instance(v.first).label("core", core).help("Share of CPU time spent idle").unit("percent").gauge(v.second.idle);
+      metric(section, "total")
+          .instance(v.first)
+          .label("core", core)
+          .help("Share of CPU time spent doing anything but idling")
+          .unit("percent")
+          .gauge(v.second.user + v.second.kernel);
+      metric(section, "user").instance(v.first).label("core", core).help("Share of CPU time spent in user space").unit("percent").gauge(v.second.user);
+      metric(section, "kernel").instance(v.first).label("core", core).help("Share of CPU time spent in the kernel").unit("percent").gauge(v.second.kernel);
     }
   } catch (...) {
     NSC_LOG_ERROR("Failed to getch memory metrics: ");
@@ -1330,6 +1414,7 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
   try {
     PB::Metrics::MetricsBundle *section = bundle->add_children();
     section->set_key("uptime");
+    describe(section, "How long the machine has been up");
     unsigned long long value = nscpGetTickCount64();
     if (value == 0) value = GetTickCount();
     value /= 1000;
@@ -1338,10 +1423,13 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
     boost::posix_time::ptime epoch(boost::gregorian::date(1970, 1, 1));
     boost::posix_time::ptime boot = now - boost::posix_time::time_duration(0, 0, value);
 
-    add_metric(section, "ticks.raw", value);
-    add_metric(section, "boot.raw", value);
-    add_metric(section, "uptime", str::format::itos_as_time(value * 1000));
-    add_metric(section, "boot", str::format::format_date(boot));
+    metric(section, "ticks.raw").help("Time since the machine booted").unit("seconds").gauge(value);
+    // Historically the same number as ticks.raw, not the boot timestamp its
+    // name suggests. Kept as it is because dashboards and Graphite trees read
+    // the key; the help says what the value really is.
+    metric(section, "boot.raw").help("Time since the machine booted, the same value as ticks.raw").unit("seconds").gauge(value);
+    metric(section, "uptime").help("Time since the machine booted, human readable").info(str::format::itos_as_time(value * 1000));
+    metric(section, "boot").help("When the machine booted, human readable").info(str::format::format_date(boot));
   } catch (...) {
     NSC_LOG_ERROR("Failed to getch memory metrics: ");
   }
@@ -1349,17 +1437,17 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
   try {
     PB::Metrics::MetricsBundle *section = bundle->add_children();
     section->set_key("metrics");
+    describe(section, "Performance counters the agent samples, plus the machine's handle, thread and process counts");
 
-    // A counter configured with instances publishes one key per instance
-    // (`pdh.<counter>.<instance>`). The key stays exactly that; the label is
-    // what lets the instances of one counter be queried as a family, which is
-    // the whole reason an operator configures a wildcard counter.
+    const pdh_thread::counter_meta_map meta = collector->get_counter_meta();
+    // A counter configured with instances publishes one key per instance. The
+    // key stays exactly that; the label is what lets the instances of one
+    // counter be queried as a family, which is the whole reason an operator
+    // configures a wildcard counter in the first place.
     const pdh_thread::dimension_hash dimensions = collector->get_metric_dimensions();
     for (const pdh_thread::metrics_hash::value_type &e : collector->get_metrics()) {
       const pdh_thread::dimension_hash::const_iterator dim = dimensions.find(e.first);
-      metric_builder builder = metric(section, dim == dimensions.end() ? e.first : dim->second.family);
-      if (dim != dimensions.end()) builder.key(e.first).label("instance", dim->second.instance);
-      add_visitor adder(builder);
+      add_visitor adder(section, e.first, meta_for(meta, e.first), dim == dimensions.end() ? pdh_thread::dimension() : dim->second);
       boost::apply_visitor(adder, e.second);
     }
   } catch (...) {
@@ -1426,15 +1514,15 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
     if (!history.empty()) {
       PB::Metrics::MetricsBundle *section = bundle->add_children();
       section->set_key("process_history");
-      using namespace nscapi::metrics;
+      describe(section, "Which processes the collector has seen since the agent started");
       long long running = 0;
       for (const process_history_check::process_record &rec : history) {
         rec.build_metrics(section);
         if (rec.currently_running) ++running;
       }
-      add_metric(section, "count", static_cast<long long>(history.size()));
-      add_metric(section, "running", running);
-      add_metric(section, "unique_processes", static_cast<long long>(history.size()));
+      metric(section, "count").help("Distinct executables seen since the agent started").gauge(static_cast<long long>(history.size()));
+      metric(section, "running").help("Of those, the ones running right now").gauge(running);
+      metric(section, "unique_processes").help("Distinct executables seen since the agent started").gauge(static_cast<long long>(history.size()));
     }
   } catch (...) {
     NSC_LOG_ERROR("Failed to get process history metrics");
@@ -1445,8 +1533,16 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
     if (!filter_counts.empty()) {
       PB::Metrics::MetricsBundle *section = bundle->add_children();
       section->set_key("realtime");
+      describe(section, "How often each configured real-time filter has matched");
       for (const auto &e : filter_counts) {
-        add_metric(section, e.first, e.second);
+        // `<alias>.fired` and `<alias>.errors`, both only growing while the
+        // agent runs, so a scraper may rate() them to see how often a filter
+        // is firing or failing.
+        const bool errors = e.first.size() > 7 && e.first.compare(e.first.size() - 7, 7, ".errors") == 0;
+        metric(section, e.first)
+            .help(errors ? "Errors this real-time filter has hit since the agent was started"
+                         : "Times this real-time filter has matched since the agent was started")
+            .counter(e.second);
       }
     }
   } catch (...) {

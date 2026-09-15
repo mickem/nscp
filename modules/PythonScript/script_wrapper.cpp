@@ -3,12 +3,11 @@
 
 #include "script_wrapper.hpp"
 
-#include <set>
-#include <map>
-#include <cstring>
-#include <boost/thread/mutex.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/thread.hpp>
+#include <boost/thread/mutex.hpp>
+#include <cstring>
+#include <map>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -18,10 +17,9 @@
 #include <nscapi/protobuf/functions_copy.hpp>
 #include <nscapi/protobuf/functions_exec.hpp>
 #include <nscapi/protobuf/functions_submit.hpp>
+#include <set>
 #include <str/format.hpp>
 #include <str/utf8.hpp>
-#include <utility>
-#include <vector>
 
 #include "PythonScript.h"
 #include "script_identity.hpp"
@@ -621,10 +619,11 @@ void build_metrics(py::dict &metrics, const PB::Metrics::MetricsBundle &b, const
   }
 
   for (const PB::Metrics::Metric &v : b.value()) {
+    double value = 0;
     if (v.has_string_value())
       metrics[p + "." + v.key()] = v.string_value().value();
-    else if (v.has_gauge_value())
-      metrics[p + "." + v.key()] = str::xtos(v.gauge_value().value());
+    else if (nscapi::metrics::numeric_value(v, value))
+      metrics[p + "." + v.key()] = str::xtos(value);
   }
 }
 
@@ -657,62 +656,80 @@ void script_wrapper::function_wrapper::submit_metrics(const std::string &request
   }
 }
 namespace {
-// One entry of the dict a `fetch_metrics` callback returns.
-//
-// A scalar is the metric's value, as it has always been. A dict is the long
-// form, which exists so a script can say more about a metric than its value:
-//
-//     {"queue.depth": {"value": 42, "labels": {"queue": "inbound"}}}
-//
-// `labels` is what makes several instances of one thing queryable as a family
-// on the OpenMetrics endpoint, exactly as the built-in per-core and per-NIC
-// metrics now are. The flat key is untouched either way, so `submit_metrics`,
-// the JSON endpoints and Graphite see the same snapshot as before.
-//
-// Anything that is neither a scalar nor a dict with a usable `value` is
-// skipped rather than published as a keyless, valueless metric - which is what
-// a dict used to produce here, since the metric was added to the bundle before
-// its type was ever checked.
-void add_metric_from_python(PB::Metrics::MetricsBundle *bundle, const std::string &key, const py::object &entry) {
-  py::object value = entry;
-  std::vector<std::pair<std::string, std::string> > labels;
+// A string field of the dict form, or "" when it is missing or is not a string.
+std::string metric_meta(const py::dict &value, const char *key) {
+  if (!value.has_key(key)) return "";
+  const py::extract<std::string> extracter(value[key]);
+  return extracter.check() ? std::string(extracter) : std::string();
+}
 
-  py::extract<py::dict> dictExtr(entry);
-  if (dictExtr.check()) {
-    const py::dict spec = dictExtr;
-    if (!spec.has_key("value")) return;
-    value = spec["value"];
-    if (spec.has_key("labels")) {
-      py::extract<py::dict> labelExtr(spec["labels"]);
-      if (labelExtr.check()) {
-        const py::dict raw = labelExtr;
-        const py::list label_keys = raw.keys();
-        for (int i = 0; i < len(label_keys); ++i) {
-          py::extract<std::string> name(label_keys[i]);
-          py::extract<std::string> text(raw[label_keys[i]]);
-          if (name.check() && text.check()) labels.push_back(std::make_pair(name(), text()));
-        }
-      }
-    }
+// The `labels` field of the dict form, written onto the metric as dimensions.
+// Only the OpenMetrics renderer reads them, and it reads them alongside the
+// key, so a script gains labels without its metric moving in the flat JSON
+// view, in Graphite or in a `submit_metrics` callback.
+//
+// A label whose name or value is not a string is skipped rather than
+// stringified: guessing at what `{"port": 8080}` was meant to mean is how a
+// label value ends up spelled differently from one release to the next. An
+// empty value is skipped too, since `x=""` and an absent `x` are the same
+// series to a scraper, so emitting one would silently collide with a sample
+// that has it filled in.
+void set_metric_labels(PB::Metrics::Metric *metric, const py::dict &value) {
+  if (!value.has_key("labels")) return;
+  const py::extract<py::dict> labelExtr(value["labels"]);
+  if (!labelExtr.check()) return;
+  const py::dict labels = labelExtr;
+  const py::list names = labels.keys();
+  for (int i = 0; i < len(names); ++i) {
+    const py::extract<std::string> name(names[i]);
+    const py::extract<std::string> text(labels[names[i]]);
+    if (!name.check() || !text.check()) continue;
+    if (std::string(name).empty() || std::string(text).empty()) continue;
+    PB::Common::KeyValue *dim = metric->add_dims();
+    dim->set_key(name);
+    dim->set_value(text);
   }
+}
 
-  nscapi::metrics::metric_builder builder = nscapi::metrics::metric(bundle, key);
-  for (const std::pair<std::string, std::string> &l : labels) builder.label(l.first, l.second);
-
-  py::extract<std::string> strExtr(value);
+// Sets the metric's value from a Python scalar, typed as `type` says. Returns
+// false for a value that is neither a string nor a number, which is the one
+// case where there is nothing to report at all.
+bool set_metric_value(PB::Metrics::Metric *metric, const py::object &value, const std::string &type, const std::string &key) {
+  const py::extract<std::string> strExtr(value);
   if (strExtr.check()) {
-    builder.info(strExtr());
-    return;
+    metric->mutable_string_value()->set_value(strExtr);
+    return true;
   }
-  py::extract<long long> intExtr(value);
+  double number = 0;
+  const py::extract<int> intExtr(value);
   if (intExtr.check()) {
-    builder.gauge(intExtr());
-    return;
+    number = intExtr;
+  } else {
+    const py::extract<double> dblExtr(value);
+    if (!dblExtr.check()) return false;
+    number = dblExtr;
   }
-  py::extract<double> dblExtr(value);
-  if (dblExtr.check()) {
-    builder.gauge(dblExtr());
+  if (type.empty() || type == "gauge") {
+    metric->mutable_gauge_value()->set_value(number);
+    return true;
   }
+  if (type == "counter") {
+    metric->mutable_counter_value()->set_value(number);
+    return true;
+  }
+  if (type == "unknown" || type == "untyped") {
+    metric->mutable_untyped_value()->set_value(number);
+    return true;
+  }
+  // A typo here would otherwise be invisible: the metric would quietly be a
+  // gauge and the script author would never find out. Said once per key and
+  // spelling rather than on every snapshot, which is every ten seconds.
+  static std::set<std::string> reported;
+  if (reported.insert(key + "\x1f" + type).second) {
+    NSC_LOG_ERROR("Unknown metric type '" + type + "' for '" + key + "', expected gauge, counter or unknown. Reporting it as a gauge.");
+  }
+  metric->mutable_gauge_value()->set_value(number);
+  return true;
 }
 }  // namespace
 
@@ -737,9 +754,35 @@ void script_wrapper::function_wrapper::fetch_metrics(std::string &request) const
 
           for (int i = 0; i < len(keys); ++i) {
             py::object curArg = dic[keys[i]];
-            if (curArg) {
-              add_metric_from_python(bundle, py::extract<std::string>(keys[i]), curArg);
+            if (!curArg) continue;
+            const std::string key = py::extract<std::string>(keys[i]);
+
+            // A scalar is a gauge with no description, as it always was. A
+            // dict is the same value with the metadata a bare number cannot
+            // carry: {"value": 42, "help": "...", "unit": "bytes",
+            // "type": "counter", "labels": {"queue": "inbound"}}.
+            py::object scalar = curArg;
+            std::string help;
+            std::string unit;
+            std::string type;
+            PB::Metrics::Metric metric;
+            const py::extract<py::dict> dictExtr(curArg);
+            if (dictExtr.check()) {
+              const py::dict described = dictExtr;
+              if (!described.has_key("value")) continue;
+              scalar = described["value"];
+              help = metric_meta(described, "help");
+              unit = metric_meta(described, "unit");
+              type = metric_meta(described, "type");
+              set_metric_labels(&metric, described);
             }
+
+            metric.set_key(key);
+            if (!help.empty()) metric.set_desc(help);
+            if (!unit.empty()) metric.set_unit(unit);
+            // Only append once there is something to append: a metric with a
+            // key and no value is a line every consumer skips anyway.
+            if (set_metric_value(&metric, scalar, type, key)) bundle->add_value()->CopyFrom(metric);
           }
         }
       } catch (const py::error_already_set &) {

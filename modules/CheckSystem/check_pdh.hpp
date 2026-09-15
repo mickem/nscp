@@ -28,6 +28,8 @@ struct counter_config_object : public nscapi::settings_objects::object_instance_
   std::string type;
   std::string flags;
   std::string resolution;
+  std::string help;
+  std::string unit;
 
   counter_config_object(std::string alias, std::string path)
       : parent(alias, path), collection_strategy("static"), instances("auto"), type("double"), resolution("auto") {}

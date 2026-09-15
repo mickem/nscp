@@ -56,10 +56,8 @@ metric. Each distinct collision is logged once (again after a settings reload)
 naming the metric that was dropped and the name it collided on. Nothing shipped
 produces such a pair; a predefined PDH counter or a Python script can.
 
-Everything is still typed as a gauge, since no module declares metadata yet, so
-`promtool check metrics` reports a naming-convention warning for each gauge
-whose key ends in `total` or `count`. Prometheus scrapes them regardless; the
-warnings clear when those metrics are typed as counters.
+The same release also gives every metric a description, a unit and a real type;
+that renames some families again and is covered by its own note below.
 
 See the [REST metrics reference](../api/rest/metrics.md#openmetrics) and the
 [Prometheus scenario](../scenarios/prometheus.md) for the full rules.

@@ -1,208 +1,353 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
-// The metric builder, pinned on the one property the whole design rests on:
-// a labelled metric writes the same `key` the old concatenation wrote.
+// How a module declares a metric.
 //
-// Everything downstream of the protobuf except the OpenMetrics renderer reads
-// `key` and nothing else - the flat and nested JSON endpoints, the web UI's
-// dashboard, Graphite's carbon path, collectd, and the dict handed to a Python
-// `submit_metrics` callback. If a builder call moves a key, every one of those
-// moves with it, silently, on somebody's existing dashboard. So the tests below
-// spell out the key each call produces rather than asserting that it is
-// "reasonable".
+// The builder is the one choke point every producer goes through, so what it
+// writes into the protobuf is what the OpenMetrics endpoint, the JSON views,
+// Graphite, collectd and the Python bridge all read. A field it forgets to set
+// is a metric that scrapes as an anonymous number; a field it sets that the old
+// `add_metric` did not is a change to a wire format four consumers parse.
 
 #include <gtest/gtest.h>
 
 #include <nscapi/nscapi_metrics_helper.hpp>
-
 #include <string>
-
-using namespace nscapi::metrics;
 
 namespace {
 
-const PB::Metrics::Metric &only(const PB::Metrics::MetricsBundle &b) {
-  EXPECT_EQ(b.value_size(), 1);
-  return b.value(0);
+const PB::Metrics::Metric &only(const PB::Metrics::MetricsBundle &bundle) {
+  EXPECT_EQ(bundle.value_size(), 1);
+  return bundle.value(0);
 }
 
 }  // namespace
 
-// --- keys -------------------------------------------------------------------
+// --- the shorthand ----------------------------------------------------------
 
-TEST(MetricBuilder, AMetricWithNoInstanceKeepsItsNameAsTheKey) {
-  PB::Metrics::MetricsBundle b;
-  metric(&b, "refresh_interval").gauge(1ll);
+TEST(MetricsHelper, AddMetricStillWritesNothingButAKeyAndAGauge) {
+  // Out-of-tree modules call this, and a metric they declared before the
+  // metadata existed must keep producing exactly the same bytes - in
+  // particular it must not gain an invented description.
+  PB::Metrics::MetricsBundle bundle;
+  nscapi::metrics::add_metric(&bundle, "used", 42ll);
 
-  EXPECT_EQ(only(b).key(), "refresh_interval");
-  EXPECT_EQ(only(b).gauge_value().value(), 1.0);
+  const PB::Metrics::Metric &m = only(bundle);
+  EXPECT_EQ(m.key(), "used");
+  EXPECT_TRUE(m.has_gauge_value());
+  EXPECT_EQ(m.gauge_value().value(), 42.0);
+  EXPECT_EQ(m.desc(), "");
+  EXPECT_EQ(m.unit(), "");
+  EXPECT_EQ(m.alias(), "");
+  EXPECT_EQ(m.dims_size(), 0);
 }
 
-TEST(MetricBuilder, AnInstanceIsPrependedExactlyAsConcatenationDidIt) {
-  // `add_metric(cpu, name + ".idle", ...)`, spelled as a builder call. The
-  // dotted key is what the web UI's metric parser splits on, so this is the
-  // assertion that says the dashboard did not move.
-  PB::Metrics::MetricsBundle b;
-  metric(&b, "idle").instance("core 0").label("core", "0").gauge(95.0);
+TEST(MetricsHelper, AddMetricKeepsItsFourOverloads) {
+  PB::Metrics::MetricsBundle bundle;
+  nscapi::metrics::add_metric(&bundle, "signed", -7ll);
+  nscapi::metrics::add_metric(&bundle, "unsigned", static_cast<unsigned long long>(17175158784ull));
+  nscapi::metrics::add_metric(&bundle, "real", 0.5);
+  nscapi::metrics::add_metric(&bundle, "text", std::string("1d 12:30"));
 
-  EXPECT_EQ(only(b).key(), "core 0.idle");
+  ASSERT_EQ(bundle.value_size(), 4);
+  EXPECT_EQ(bundle.value(0).gauge_value().value(), -7.0);
+  EXPECT_EQ(bundle.value(1).gauge_value().value(), 17175158784.0);
+  EXPECT_EQ(bundle.value(2).gauge_value().value(), 0.5);
+  EXPECT_TRUE(bundle.value(3).has_string_value());
+  EXPECT_EQ(bundle.value(3).string_value().value(), "1d 12:30");
 }
 
-TEST(MetricBuilder, AnEmptyInstanceLeavesTheKeyAlone) {
+// --- the builder ------------------------------------------------------------
+
+TEST(MetricsHelper, TheBuilderWritesTheKeyHelpUnitAndValue) {
+  PB::Metrics::MetricsBundle bundle;
+  nscapi::metrics::metric(&bundle, "physical.used").help("Physical memory in use").unit("bytes").gauge(17175158784ll);
+
+  const PB::Metrics::Metric &m = only(bundle);
+  EXPECT_EQ(m.key(), "physical.used");
+  EXPECT_EQ(m.desc(), "Physical memory in use");
+  EXPECT_EQ(m.unit(), "bytes");
+  EXPECT_TRUE(m.has_gauge_value());
+  EXPECT_EQ(m.gauge_value().value(), 17175158784.0);
+}
+
+TEST(MetricsHelper, TheOrderOfTheMetadataCallsDoesNotMatter) {
+  PB::Metrics::MetricsBundle a;
+  PB::Metrics::MetricsBundle b;
+  nscapi::metrics::metric(&a, "k").help("h").unit("bytes").gauge(1);
+  nscapi::metrics::metric(&b, "k").unit("bytes").help("h").gauge(1);
+
+  EXPECT_EQ(a.SerializeAsString(), b.SerializeAsString());
+}
+
+TEST(MetricsHelper, EachTerminalCallPicksTheType) {
+  // Which member of the oneof is set *is* the metric's type, for the
+  // OpenMetrics renderer and for collectd's DERIVE mapping alike.
+  PB::Metrics::MetricsBundle bundle;
+  nscapi::metrics::metric(&bundle, "gauge").gauge(1);
+  nscapi::metrics::metric(&bundle, "counter").counter(2);
+  nscapi::metrics::metric(&bundle, "untyped").untyped(3);
+  nscapi::metrics::metric(&bundle, "info").info("up");
+
+  ASSERT_EQ(bundle.value_size(), 4);
+  EXPECT_TRUE(bundle.value(0).has_gauge_value());
+  EXPECT_TRUE(bundle.value(1).has_counter_value());
+  EXPECT_EQ(bundle.value(1).counter_value().value(), 2.0);
+  EXPECT_TRUE(bundle.value(2).has_untyped_value());
+  EXPECT_TRUE(bundle.value(3).has_string_value());
+  EXPECT_EQ(bundle.value(3).string_value().value(), "up");
+}
+
+TEST(MetricsHelper, TheBuilderTakesWhateverArithmeticTypeTheProducerHas) {
+  // The producers hand over ints, longs, size_ts, unsigned long longs and
+  // doubles straight out of the APIs they read; needing a cast at every call
+  // site is how a sweep of two hundred of them goes wrong.
+  PB::Metrics::MetricsBundle bundle;
+  nscapi::metrics::metric(&bundle, "int").gauge(1);
+  nscapi::metrics::metric(&bundle, "size").gauge(static_cast<std::size_t>(2));
+  nscapi::metrics::metric(&bundle, "ull").gauge(static_cast<unsigned long long>(3));
+  nscapi::metrics::metric(&bundle, "double").gauge(4.5);
+
+  ASSERT_EQ(bundle.value_size(), 4);
+  EXPECT_EQ(bundle.value(3).gauge_value().value(), 4.5);
+}
+
+TEST(MetricsHelper, AMetricThatDeclaresNoMetadataCarriesNone) {
+  // An empty help or unit must stay unset rather than become an empty string:
+  // the renderer decides whether to emit a `# HELP` line by asking whether
+  // there is one.
+  PB::Metrics::MetricsBundle bundle;
+  nscapi::metrics::metric(&bundle, "k").gauge(1);
+
+  EXPECT_EQ(only(bundle).desc(), "");
+  EXPECT_EQ(only(bundle).unit(), "");
+}
+
+TEST(MetricsHelper, NothingIsAppendedUntilTheValueIsGiven) {
+  // The builder holds the metadata and appends on the terminal call, so a
+  // producer that builds one and drops it cannot leave a keyed metric with no
+  // value in the snapshot.
+  PB::Metrics::MetricsBundle bundle;
+  {
+    nscapi::metrics::metric_builder abandoned(&bundle, "never");
+  }
+  EXPECT_EQ(bundle.value_size(), 0);
+
+  nscapi::metrics::metric(&bundle, "given").gauge(1);
+  EXPECT_EQ(bundle.value_size(), 1);
+}
+
+TEST(MetricsHelper, DescribeSetsTheBundlesFallbackHelp) {
+  PB::Metrics::MetricsBundle bundle;
+  nscapi::metrics::describe(&bundle, "Memory as reported by the kernel");
+
+  EXPECT_EQ(bundle.desc(), "Memory as reported by the kernel");
+}
+
+// --- reading a metric back --------------------------------------------------
+
+TEST(MetricsHelper, NumericValueReadsEveryNumericType) {
+  // The JSON views, Graphite, Elastic and the Python dict forward numbers and
+  // do not care about the type. Before this they read `gauge_value` alone, so
+  // typing a metric as a counter would have made it vanish from all four.
+  PB::Metrics::MetricsBundle bundle;
+  nscapi::metrics::metric(&bundle, "gauge").gauge(1.5);
+  nscapi::metrics::metric(&bundle, "counter").counter(2.5);
+  nscapi::metrics::metric(&bundle, "untyped").untyped(3.5);
+
+  double value = 0;
+  ASSERT_TRUE(nscapi::metrics::numeric_value(bundle.value(0), value));
+  EXPECT_EQ(value, 1.5);
+  ASSERT_TRUE(nscapi::metrics::numeric_value(bundle.value(1), value));
+  EXPECT_EQ(value, 2.5);
+  ASSERT_TRUE(nscapi::metrics::numeric_value(bundle.value(2), value));
+  EXPECT_EQ(value, 3.5);
+}
+
+TEST(MetricsHelper, NumericValueRefusesAStringAndLeavesTheOutputAlone) {
+  PB::Metrics::MetricsBundle bundle;
+  nscapi::metrics::metric(&bundle, "info").info("1d 12:30");
+
+  double value = 99;
+  EXPECT_FALSE(nscapi::metrics::numeric_value(only(bundle), value));
+  EXPECT_EQ(value, 99);
+}
+
+TEST(MetricsHelper, NumericValueRefusesAMetricWithNoValueAtAll) {
+  // A metric a producer keyed but never valued, and the aggregate types, which
+  // have no single number to hand over.
+  PB::Metrics::MetricsBundle bundle;
+  bundle.add_value()->set_key("empty");
+  bundle.add_value()->mutable_summary_value()->set_sample_count(3);
+
+  double value = 99;
+  EXPECT_FALSE(nscapi::metrics::numeric_value(bundle.value(0), value));
+  EXPECT_FALSE(nscapi::metrics::numeric_value(bundle.value(1), value));
+  EXPECT_EQ(value, 99);
+}
+
+// --- instances and labels ---------------------------------------------------
+//
+// The property all of these circle: a labelled metric writes the same `key` the
+// concatenation it replaces wrote. Everything downstream of the protobuf except
+// the OpenMetrics renderer reads `key` and nothing else, so a builder call that
+// moved one would move a dashboard on every upgraded host, silently. The tests
+// spell out the key each call produces rather than asserting it is reasonable.
+
+TEST(MetricsHelper, AnInstanceIsPrependedExactlyAsConcatenationDidIt) {
+  // `metric(cpu, name + ".idle")`, spelled as a builder call. The dotted key is
+  // what the web UI's metric parser splits on and what Graphite turns into a
+  // carbon path.
+  PB::Metrics::MetricsBundle bundle;
+  nscapi::metrics::metric(&bundle, "idle").instance("core 0").label("core", "0").gauge(95.0);
+
+  EXPECT_EQ(only(bundle).key(), "core 0.idle");
+}
+
+TEST(MetricsHelper, TheAliasIsTheFamilyNameWithTheInstanceTakenBackOut) {
+  PB::Metrics::MetricsBundle bundle;
+  nscapi::metrics::metric(&bundle, "idle").instance("core 0").label("core", "0").gauge(95.0);
+
+  const PB::Metrics::Metric &m = only(bundle);
+  EXPECT_EQ(m.alias(), "idle");
+  ASSERT_EQ(m.dims_size(), 1);
+  EXPECT_EQ(m.dims(0).key(), "core");
+  EXPECT_EQ(m.dims(0).value(), "0");
+}
+
+TEST(MetricsHelper, NoLabelsMeansNoAlias) {
+  // The two travel together on purpose: an alias names the family that several
+  // labelled samples share, and the renderer reading it without labels to tell
+  // those samples apart would collapse every instance into one series.
+  PB::Metrics::MetricsBundle bundle;
+  nscapi::metrics::metric(&bundle, "idle").instance("core 0").gauge(95.0);
+
+  EXPECT_EQ(only(bundle).key(), "core 0.idle");
+  EXPECT_EQ(only(bundle).alias(), "");
+}
+
+TEST(MetricsHelper, AnEmptyInstanceLeavesTheKeyAlone) {
   // Windows publishes a single unnamed battery under a bare key, having built
   // the prefix as `name.empty() ? "" : name + "."`. An empty instance has to
-  // mean that, not a leading dot.
-  PB::Metrics::MetricsBundle b;
-  metric(&b, "charge_percent").instance("").label("battery", "").gauge(80ll);
+  // mean that, not a leading dot - and the empty label that would come with it
+  // is dropped rather than written.
+  PB::Metrics::MetricsBundle bundle;
+  nscapi::metrics::metric(&bundle, "charge_percent").instance("").label("battery", "").gauge(80ll);
 
-  EXPECT_EQ(only(b).key(), "charge_percent");
-  EXPECT_EQ(only(b).dims_size(), 0);
+  EXPECT_EQ(only(bundle).key(), "charge_percent");
+  EXPECT_EQ(only(bundle).dims_size(), 0);
+  EXPECT_EQ(only(bundle).alias(), "");
 }
 
-TEST(MetricBuilder, AProducerCanSpellTheKeyOutWhenTheInstanceIsNotAPrefix) {
-  // A PDH counter publishes `pdh.<counter>.<instance>` - the instance last -
-  // so the key cannot be composed from the family name and the instance.
-  PB::Metrics::MetricsBundle b;
-  metric(&b, "pdh.\\Processor(*)\\% Idle Time").key("pdh.\\Processor(*)\\% Idle Time._Total").label("instance", "_Total").gauge(95ll);
+TEST(MetricsHelper, AProducerCanSpellTheKeyOutWhenTheInstanceIsNotAPrefix) {
+  // A PDH counter publishes `pdh.<counter>.<instance>` - the instance last - so
+  // the key cannot be composed from the family name and the instance.
+  PB::Metrics::MetricsBundle bundle;
+  nscapi::metrics::metric(&bundle, "pdh.\\Processor(*)\\% Idle Time").key("pdh.\\Processor(*)\\% Idle Time._Total").label("instance", "_Total").gauge(95ll);
 
-  EXPECT_EQ(only(b).key(), "pdh.\\Processor(*)\\% Idle Time._Total");
-  EXPECT_EQ(only(b).alias(), "pdh.\\Processor(*)\\% Idle Time");
+  const PB::Metrics::Metric &m = only(bundle);
+  EXPECT_EQ(m.key(), "pdh.\\Processor(*)\\% Idle Time._Total");
+  EXPECT_EQ(m.alias(), "pdh.\\Processor(*)\\% Idle Time");
 }
 
-TEST(MetricBuilder, TheLastOfInstanceAndKeyWins) {
-  PB::Metrics::MetricsBundle b;
-  metric(&b, "idle").instance("core 0").key("spelled.out").label("core", "0").gauge(1.0);
+TEST(MetricsHelper, TheLastOfInstanceAndKeyWins) {
+  PB::Metrics::MetricsBundle bundle;
+  nscapi::metrics::metric(&bundle, "idle").instance("core 0").key("spelled.out").label("core", "0").gauge(1.0);
 
-  EXPECT_EQ(only(b).key(), "spelled.out");
+  EXPECT_EQ(only(bundle).key(), "spelled.out");
 }
 
-// --- labels -----------------------------------------------------------------
+TEST(MetricsHelper, LabelsAreRecordedInTheOrderTheyWereAdded) {
+  // The renderer emits them in this order, and a stable order is what keeps a
+  // scraper from seeing the same series renamed between two scrapes.
+  PB::Metrics::MetricsBundle bundle;
+  nscapi::metrics::metric(&bundle, "sent").instance("eth0").label("nic", "eth0").label("kind", "physical").gauge(343ll);
 
-TEST(MetricBuilder, LabelsAreRecordedInTheOrderTheyWereAdded) {
-  // The renderer emits them in this order, and a stable order is what stops a
-  // scraper seeing the same series renamed between two scrapes.
-  PB::Metrics::MetricsBundle b;
-  metric(&b, "sent").instance("eth0").label("nic", "eth0").label("mac", "00:11:22").gauge(343ll);
-
-  const PB::Metrics::Metric &m = only(b);
+  const PB::Metrics::Metric &m = only(bundle);
   ASSERT_EQ(m.dims_size(), 2);
   EXPECT_EQ(m.dims(0).key(), "nic");
-  EXPECT_EQ(m.dims(0).value(), "eth0");
-  EXPECT_EQ(m.dims(1).key(), "mac");
-  EXPECT_EQ(m.dims(1).value(), "00:11:22");
+  EXPECT_EQ(m.dims(1).key(), "kind");
 }
 
-TEST(MetricBuilder, TheAliasIsTheFamilyNameWithTheInstanceTakenBackOut) {
-  PB::Metrics::MetricsBundle b;
-  metric(&b, "idle").instance("core 0").label("core", "0").gauge(95.0);
-
-  EXPECT_EQ(only(b).alias(), "idle");
-}
-
-TEST(MetricBuilder, NoLabelsMeansNoAlias) {
-  // The two travel together on purpose: an alias names the family that several
-  // labelled samples share, and without labels to tell those samples apart a
-  // renderer reading it would collapse them into one series.
-  PB::Metrics::MetricsBundle b;
-  metric(&b, "idle").instance("core 0").gauge(95.0);
-
-  EXPECT_EQ(only(b).key(), "core 0.idle");
-  EXPECT_EQ(only(b).alias(), "");
-}
-
-TEST(MetricBuilder, AnEmptyLabelKeyOrValueIsDropped) {
+TEST(MetricsHelper, AnEmptyLabelKeyOrValueIsDropped) {
   // `x=""` and an absent `x` are the same series in OpenMetrics, so a sample
-  // carrying an empty label would silently collide with one that has it
-  // filled in. Dropping it here lets a producer pass a field that is sometimes
-  // missing - a NIC with no MAC, a zone with no label file - unguarded.
-  PB::Metrics::MetricsBundle b;
-  metric(&b, "temperature").instance("acpitz").label("zone", "acpitz").label("label", "").label("", "x").gauge(42ll);
+  // carrying an empty label would silently collide with one that has it filled
+  // in. Dropping it here lets a producer pass a field that is sometimes missing
+  // - a NIC with no MAC, a zone with no label file - without guarding the call.
+  PB::Metrics::MetricsBundle bundle;
+  nscapi::metrics::metric(&bundle, "temperature").instance("acpitz").label("zone", "acpitz").label("label", "").label("", "x").gauge(42ll);
 
-  const PB::Metrics::Metric &m = only(b);
+  const PB::Metrics::Metric &m = only(bundle);
   ASSERT_EQ(m.dims_size(), 1);
   EXPECT_EQ(m.dims(0).key(), "zone");
 }
 
-// --- values -----------------------------------------------------------------
+TEST(MetricsHelper, LabelsComposeWithTheMetadataAndEveryTerminator) {
+  // The instance and the dimension are orthogonal to help, unit and type: a
+  // per-core counter declares all of it in one expression.
+  PB::Metrics::MetricsBundle bundle;
+  nscapi::metrics::metric(&bundle, "times_seen").instance("nscp").label("exe", "nscp").help("Samples seen in").unit("seconds").counter(7ll);
 
-TEST(MetricBuilder, EachTerminatorWritesItsOwnOneofMember) {
-  PB::Metrics::MetricsBundle b;
-  metric(&b, "a").gauge(1.5);
-  metric(&b, "b").gauge(2ll);
-  metric(&b, "c").gauge(static_cast<unsigned long long>(3));
-  metric(&b, "d").info("text");
-
-  ASSERT_EQ(b.value_size(), 4);
-  EXPECT_TRUE(b.value(0).has_gauge_value());
-  EXPECT_EQ(b.value(0).gauge_value().value(), 1.5);
-  EXPECT_TRUE(b.value(1).has_gauge_value());
-  EXPECT_EQ(b.value(1).gauge_value().value(), 2.0);
-  EXPECT_TRUE(b.value(2).has_gauge_value());
-  EXPECT_EQ(b.value(2).gauge_value().value(), 3.0);
-  EXPECT_TRUE(b.value(3).has_string_value());
-  EXPECT_EQ(b.value(3).string_value().value(), "text");
+  const PB::Metrics::Metric &m = only(bundle);
+  EXPECT_EQ(m.key(), "nscp.times_seen");
+  EXPECT_EQ(m.alias(), "times_seen");
+  EXPECT_EQ(m.desc(), "Samples seen in");
+  EXPECT_EQ(m.unit(), "seconds");
+  EXPECT_TRUE(m.has_counter_value());
+  ASSERT_EQ(m.dims_size(), 1);
+  EXPECT_EQ(m.dims(0).value(), "nscp");
 }
 
-TEST(MetricBuilder, ABuilderThatIsNeverTerminatedAddsNothing) {
-  // The metric is written by the terminator, not by the constructor, so an
-  // abandoned expression cannot leave a keyless, valueless metric in the
-  // bundle for the renderer to trip over.
-  PB::Metrics::MetricsBundle b;
-  metric(&b, "idle").instance("core 0").label("core", "0");
+TEST(MetricsHelper, AStringMetricCarriesItsInstanceLabelsToo) {
+  // Strings become labels of their bundle's `_info` family, and which series of
+  // that family they land on is decided by exactly these dimensions - so one
+  // NIC's MAC address and link state share a line and the next NIC's do not.
+  PB::Metrics::MetricsBundle bundle;
+  nscapi::metrics::metric(&bundle, "status").instance("eth0").label("nic", "eth0").info("up");
 
-  EXPECT_EQ(b.value_size(), 0);
+  const PB::Metrics::Metric &m = only(bundle);
+  EXPECT_EQ(m.key(), "eth0.status");
+  EXPECT_EQ(m.alias(), "status");
+  EXPECT_TRUE(m.has_string_value());
+  ASSERT_EQ(m.dims_size(), 1);
+  EXPECT_EQ(m.dims(0).key(), "nic");
 }
 
-// --- the add_metric shorthand -----------------------------------------------
+TEST(MetricsHelper, NothingIsAppendedUntilAnInstancedMetricIsValuedEither) {
+  PB::Metrics::MetricsBundle bundle;
+  nscapi::metrics::metric(&bundle, "idle").instance("core 0").label("core", "0");
 
-TEST(MetricBuilder, TheAddMetricOverloadsAreUnchanged) {
-  // Out-of-tree modules call these, and a producer with nothing to say about
-  // dimensions should not have to reach for a builder to say so.
-  PB::Metrics::MetricsBundle b;
-  add_metric(&b, "a", 1ll);
-  add_metric(&b, "b", static_cast<unsigned long long>(2));
-  add_metric(&b, "c", std::string("three"));
-  add_metric(&b, "d", 4.5);
-
-  ASSERT_EQ(b.value_size(), 4);
-  for (const PB::Metrics::Metric &m : b.value()) {
-    EXPECT_EQ(m.alias(), "");
-    EXPECT_EQ(m.dims_size(), 0);
-  }
-  EXPECT_EQ(b.value(0).gauge_value().value(), 1.0);
-  EXPECT_EQ(b.value(2).string_value().value(), "three");
-  EXPECT_EQ(b.value(3).gauge_value().value(), 4.5);
+  EXPECT_EQ(bundle.value_size(), 0);
 }
 
 // --- the core label ---------------------------------------------------------
 
-TEST(MetricBuilder, CoreLabelReadsTheSameOnBothPlatformsSpellings) {
+TEST(MetricsHelper, CoreLabelReadsTheSameOnBothPlatformsSpellings) {
   // Linux normalises the CPU-load key to `core_0` before publishing it and
-  // Windows leaves it as `core 0`. That difference is a fact about keys
+  // Windows leaves it as `core 0`. That difference is a fact about keys that
   // dashboards already read, and it must not reach the label, where it would
   // make one core look like two depending on which host reported it.
-  EXPECT_EQ(core_label("core 0"), "0");
-  EXPECT_EQ(core_label("core_0"), "0");
-  EXPECT_EQ(core_label("core 15"), "15");
+  EXPECT_EQ(nscapi::metrics::core_label("core 0"), "0");
+  EXPECT_EQ(nscapi::metrics::core_label("core_0"), "0");
+  EXPECT_EQ(nscapi::metrics::core_label("core 15"), "15");
 }
 
-TEST(MetricBuilder, CoreLabelKeepsTheAggregateAsItsOwnValue) {
+TEST(MetricsHelper, CoreLabelKeepsTheAggregateAsItsOwnValue) {
   // `core="total"` mirrors the JSON key and keeps `sum by (core)` honest; the
   // cost is that `sum without (core)` double-counts, which the reference
   // documentation calls out rather than the code papering over.
-  EXPECT_EQ(core_label("total"), "total");
+  EXPECT_EQ(nscapi::metrics::core_label("total"), "total");
 }
 
-TEST(MetricBuilder, CoreLabelLeavesAnythingItDoesNotRecogniseAlone) {
-  // Better a label value that reads oddly than one that has been truncated by
-  // a prefix rule guessing at a key shape it has never seen.
-  EXPECT_EQ(core_label("core"), "core");
-  EXPECT_EQ(core_label("cpu0"), "cpu0");
-  EXPECT_EQ(core_label("corexyz"), "corexyz");
-  EXPECT_EQ(core_label(""), "");
-  // And a separator with nothing after it stays whole: an empty label value is
+TEST(MetricsHelper, CoreLabelLeavesAnythingItDoesNotRecogniseAlone) {
+  // Better a label value that reads oddly than one truncated by a prefix rule
+  // guessing at a key shape it has never seen.
+  EXPECT_EQ(nscapi::metrics::core_label("core"), "core");
+  EXPECT_EQ(nscapi::metrics::core_label("cpu0"), "cpu0");
+  EXPECT_EQ(nscapi::metrics::core_label("corexyz"), "corexyz");
+  EXPECT_EQ(nscapi::metrics::core_label(""), "");
+  // A separator with nothing after it stays whole: an empty label value is
   // dropped, and a sample missing the label that tells it apart from its
   // siblings collides with them.
-  EXPECT_EQ(core_label("core_"), "core_");
+  EXPECT_EQ(nscapi::metrics::core_label("core_"), "core_");
 }

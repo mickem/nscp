@@ -89,8 +89,7 @@ void check_network(std::shared_ptr<pdh_thread> collector, const PB::Commands::Qu
 
   filter_type filter;
   filter_helper.add_options("throughput > 10000", "throughput > 100000", "", filter.get_filter_syntax(), "critical");
-  filter_helper.add_syntax("${status}: ${list}", "${name} >${sent_human}/s <${received_human}/s", "${name}", "",
-                           "%(status): Network interfaces seem ok.");
+  filter_helper.add_syntax("${status}: ${list}", "${name} >${sent_human}/s <${received_human}/s", "${name}", "", "%(status): Network interfaces seem ok.");
 
   if (!filter_helper.parse_options()) return;
   if (!filter_helper.build_filter(filter)) return;
@@ -114,11 +113,14 @@ void build_network_metrics(PB::Metrics::MetricsBundle *parent, const nics_type &
 
   PB::Metrics::MetricsBundle *bundle = parent->add_children();
   bundle->set_key("network");
+  describe(bundle, "Traffic per network interface, sampled by the background collector");
   for (const network_interface &v : data) {
-    metric(bundle, "received").instance(v.name).label("nic", v.name).gauge(v.rx_bytes_per_sec);
-    metric(bundle, "sent").instance(v.name).label("nic", v.name).gauge(v.tx_bytes_per_sec);
-    metric(bundle, "total").instance(v.name).label("nic", v.name).gauge(v.get_total());
-    metric(bundle, "status").instance(v.name).label("nic", v.name).info(v.status);
+    // Rates, so no unit: a name ending in `_bytes` would say the sample is a
+    // byte count, and `bytes per second` is not a unit OpenMetrics knows.
+    metric(bundle, "received").instance(v.name).label("nic", v.name).help("Bytes received per second").gauge(v.rx_bytes_per_sec);
+    metric(bundle, "sent").instance(v.name).label("nic", v.name).help("Bytes sent per second").gauge(v.tx_bytes_per_sec);
+    metric(bundle, "total").instance(v.name).label("nic", v.name).help("Bytes sent and received per second").gauge(v.get_total());
+    metric(bundle, "status").instance(v.name).label("nic", v.name).help("Link state of the interface").info(v.status);
   }
 }
 

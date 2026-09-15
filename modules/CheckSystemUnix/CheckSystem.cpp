@@ -226,11 +226,13 @@ bool read_uptime_seconds(double &uptime_secs) {
 }  // namespace
 
 void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
-  using namespace nscapi::metrics;
+  using nscapi::metrics::core_label;
+  using nscapi::metrics::describe;
+  using nscapi::metrics::metric;
 
   PB::Metrics::MetricsBundle *bundle = response->add_bundles();
   bundle->set_key("system");
-  add_metric(bundle, "refresh_interval", 1ll);
+  metric(bundle, "refresh_interval").help("How often the background collector samples the system").unit("seconds").gauge(1);
 
   if (!collector_) return;
 
@@ -238,6 +240,7 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
   try {
     PB::Metrics::MetricsBundle *cpu = bundle->add_children();
     cpu->set_key("cpu");
+    describe(cpu, "CPU time over the last 5 minutes, per core and totalled");
     if (collector_->has_cpu_data()) {
       const auto vals = collector_->get_cpu_load(5);
       for (const auto &v : vals) {
@@ -249,10 +252,15 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
         // its own, so `sum by (core)` has something to group on and the Windows
         // `core 0` / Linux `core_0` split stays out of the label value.
         const std::string core = core_label(name);
-        metric(cpu, "idle").instance(name).label("core", core).gauge(load.idle);
-        metric(cpu, "user").instance(name).label("core", core).gauge(load.user);
-        metric(cpu, "kernel").instance(name).label("core", core).gauge(load.kernel);
-        metric(cpu, "total").instance(name).label("core", core).gauge(load.user + load.kernel);
+        metric(cpu, "idle").instance(name).label("core", core).help("Share of CPU time spent idle").unit("percent").gauge(load.idle);
+        metric(cpu, "user").instance(name).label("core", core).help("Share of CPU time spent in user space").unit("percent").gauge(load.user);
+        metric(cpu, "kernel").instance(name).label("core", core).help("Share of CPU time spent in the kernel").unit("percent").gauge(load.kernel);
+        metric(cpu, "total")
+            .instance(name)
+            .label("core", core)
+            .help("Share of CPU time spent doing anything but idling")
+            .unit("percent")
+            .gauge(load.user + load.kernel);
       }
     }
   } catch (const std::exception &e) {
@@ -265,14 +273,17 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
   try {
     PB::Metrics::MetricsBundle *mem = bundle->add_children();
     mem->set_key("mem");
+    describe(mem, "Memory as reported by /proc/meminfo");
     if (collector_->has_memory_data()) {
       const memory_info m = collector_->get_memory(1);
       auto add_mem_section = [&](const std::string &prefix, unsigned long long total, unsigned long long avail) {
         const unsigned long long used = total > avail ? total - avail : 0;
-        add_metric(mem, prefix + ".total", total);
-        add_metric(mem, prefix + ".avail", avail);
-        add_metric(mem, prefix + ".used", used);
-        add_metric(mem, prefix + ".%", str::format::calc_pct_round(used, total));
+        metric(mem, prefix + ".total").help("Total " + prefix + " memory").unit("bytes").gauge(total);
+        metric(mem, prefix + ".avail").help("Free " + prefix + " memory").unit("bytes").gauge(avail);
+        metric(mem, prefix + ".used").help("Used " + prefix + " memory").unit("bytes").gauge(used);
+        // The key already ends in `%`, which sanitises to `_percent`, so the
+        // unit adds a `# UNIT` line without renaming anything.
+        metric(mem, prefix + ".%").help("Share of " + prefix + " memory in use").unit("percent").gauge(str::format::calc_pct_round(used, total));
       };
       add_mem_section("physical", m.physical.total, m.physical.free);
       add_mem_section("cached", m.cached.total, m.cached.free);
@@ -288,15 +299,19 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
   try {
     PB::Metrics::MetricsBundle *up = bundle->add_children();
     up->set_key("uptime");
+    describe(up, "How long the machine has been up, as read from /proc/uptime");
     double uptime_secs = 0;
     if (read_uptime_seconds(uptime_secs)) {
       const auto value = static_cast<unsigned long long>(uptime_secs);
       const boost::posix_time::ptime now = nscp_time::now(timezone_);
       const boost::posix_time::ptime boot = now - boost::posix_time::time_duration(0, 0, static_cast<long>(value));
-      add_metric(up, "ticks.raw", static_cast<long long>(value));
-      add_metric(up, "boot.raw", static_cast<long long>(value));
-      add_metric(up, "uptime", str::format::itos_as_time(value * 1000));
-      add_metric(up, "boot", str::format::format_date(boot));
+      metric(up, "ticks.raw").help("Time since the machine booted").unit("seconds").gauge(value);
+      // Historically the same number as ticks.raw, not the boot timestamp its
+      // name suggests. Kept as it is because dashboards and Graphite trees read
+      // the key; the help says what the value really is.
+      metric(up, "boot.raw").help("Time since the machine booted, the same value as ticks.raw").unit("seconds").gauge(value);
+      metric(up, "uptime").help("Time since the machine booted, human readable").info(str::format::itos_as_time(value * 1000));
+      metric(up, "boot").help("When the machine booted, human readable").info(str::format::format_date(boot));
     }
   } catch (const std::exception &e) {
     NSC_LOG_ERROR(std::string("Failed to fetch uptime metrics: ") + e.what());

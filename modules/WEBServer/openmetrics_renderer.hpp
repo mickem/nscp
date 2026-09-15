@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-// Renders the latched metrics snapshot as an OpenMetrics text exposition.
+// Renders the latched metrics snapshot as a metrics exposition.
 //
 // This is a pure function of the protobuf message: no settings, no logging, no
 // clock. It used to be three lines inside `WEBServer.cpp::build_metrics`,
@@ -16,26 +16,29 @@
 // `# TYPE`, no `# EOF`, and six-significant-digit values (a 16 GB memory
 // reading went out as `1.6554e+10`).
 //
-// A metric that a producer built through `nscapi::metrics::metric()` with an
-// instance and one or more labels arrives carrying `Metric::alias` (the family
-// name, with the instance taken back out of it) and `Metric::dims` (the
-// dimensions). Those samples group: one `# TYPE` for `system_cpu_idle` and one
-// sample per core under it, rather than a family per core. A metric with no
-// dims renders from its key exactly as before, so a producer that has not been
-// swept, or an out-of-tree module, is unaffected.
-//
-// What is deliberately *not* here yet: `# HELP`, `# UNIT`, counters and info
-// families all need metadata that no producer sets today. Those arrive with
-// the metrics-metadata work.
-//
-// One consequence of typing everything as a gauge: a key that already ends in
-// `total` or `count` (`system.network.eth0.total`, `system.os_updates.count`)
-// produces a gauge family whose name carries a suffix OpenMetrics reserves for
-// counters and summaries. Prometheus reads it, and `promtool check metrics`
-// warns about it; typing those metrics as counters is what fixes it, and that
-// is the metadata work rather than something to paper over with a rename the
-// same work would undo.
+// Everything a scraper is told about a metric beyond its value comes from the
+// producer: `Metric.desc` is the `# HELP` text (falling back to the bundle's
+// `desc`), `Metric.unit` the `# UNIT`, `Metric.dims` the labels, and which
+// member of the `value` oneof is set is the type. A producer that declares
+// none of them still renders, as an anonymous gauge - which is what every
+// out-of-tree module does, and what every module in this repository did before
+// the metadata sweep.
 namespace openmetrics {
+
+// Which of the two expositions to render. They are the same document except
+// where the two specifications disagree about naming, which is exactly the
+// metadata lines of a counter and of an info family: OpenMetrics names the
+// family (`# TYPE foo counter`, sample `foo_total`), the Prometheus text
+// format names the sample (`# TYPE foo_total counter`). A body rendered for
+// one and served to the other loses the type of every counter, so the endpoint
+// renders both and serves whichever matches the `Content-Type` it answers with.
+enum class dialect {
+  // `application/openmetrics-text; version=1.0.0`. What Prometheus asks for.
+  openmetrics_1_0,
+  // `text/plain; version=0.0.4`. The older Prometheus text format, and what
+  // everything that does not negotiate gets.
+  prometheus_text_0_0_4
+};
 
 // Map one protobuf key or bundle key onto the OpenMetrics name grammar
 // (`[a-zA-Z_][a-zA-Z0-9_]*` - colons are reserved for recording rules and are
@@ -51,42 +54,54 @@ namespace openmetrics {
 //     name has to start with a letter or an underscore, and OpenMetrics
 //     separately reserves every name *beginning* with an underscore, so `_`
 //     would only trade one non-conformance for another.
+//
+// Used for label names too, which share the grammar.
 std::string sanitize_name(const std::string &raw);
-
-// The same mapping for a label name, which shares the metric-name grammar.
-// Producers use fixed, already-legal names; what needs cleaning is the
-// operator-defined end - a PDH counter's instance dimension, or the `labels`
-// dict a Python script returns. The borrowed prefix is `label_` rather than
-// `metric_` so a name that needed rescuing says what it is.
-std::string sanitize_label_name(const std::string &raw);
-
-// Escape a label value for the exposition. Only three characters have to be
-// spelled differently (`\\`, `\"` and a newline as `\n`) and all three turn up
-// in real values: a Windows volume reads `\Device\HarddiskVolume1`, and a WMI
-// adapter description can carry a quote.
-std::string escape_label_value(const std::string &raw);
 
 // Render one sample value. Finite values go through `str::render_shortest`
 // (integers stay integers, no six-digit truncation); the three non-finite
 // values have their own spelling in OpenMetrics.
 std::string render_value(double value);
 
-// The `Content-Type` to answer a scrape carrying this `Accept` header with.
-// The body is the same either way - the Prometheus text parser treats `# UNIT`
-// and `# EOF` as ordinary comments - so this is purely about letting a client
-// that asked for OpenMetrics 1.0 see that it got it.
+// `# HELP` text: only a backslash and a line feed have to be escaped, and a
+// carriage return has no spelling at all, so it is dropped.
+std::string escape_help(const std::string &raw);
+
+// A label value, which is a quoted string: backslash, double quote and line
+// feed. Live cases are a Windows device path (`\Device\HarddiskVolume1`) and
+// an adapter description with a quote in it.
+std::string escape_label_value(const std::string &raw);
+
+// Which exposition the request's `Accept` header asks for, and the
+// `Content-Type` to answer it with. Kept together so the body served and the
+// type declared can never disagree.
+dialect dialect_for(const std::string &accept);
 std::string content_type_for(const std::string &accept);
+std::string content_type_for(dialect dialect);
 
 // Render the whole snapshot. Samples of one family are emitted contiguously
 // under a single `# TYPE`, families in the order they were first seen, and the
-// body ends with the `# EOF` that OpenMetrics 1.0 requires.
+// body ends with the `# EOF` that OpenMetrics 1.0 requires (and that the older
+// format reads as a comment).
 //
 // `problems` collects one human-readable line per metric that was dropped
-// because a different metric already claimed its series - either the family
-// name, since two keys can sanitise to the same one (`foo.bar` and `foo bar`),
-// or the family name together with an identical label set. The caller logs
-// them; the renderer keeps the first and never emits a duplicate series.
-std::string render(const PB::Metrics::MetricsMessage &response, std::vector<std::string> *problems = nullptr);
+// because a different metric already claimed its family name (two keys can
+// sanitise to the same name - `foo.bar` and `foo bar`). The caller logs them;
+// the renderer keeps the first and never emits a duplicate family.
+std::string render(const PB::Metrics::MetricsMessage &response, dialect dialect, std::vector<std::string> *problems = nullptr);
+
+// Both bodies of one snapshot.
+struct exposition {
+  std::string openmetrics;
+  std::string prometheus_text;
+};
+
+// What the endpoint actually calls: the two bodies differ only in a handful of
+// metadata lines, so the snapshot is walked once and the families it produces
+// are emitted twice. Rendering each body on its own would allocate every
+// family, sample and label string a second time on every metrics tick, and
+// would report each producer problem twice over.
+exposition render_both(const PB::Metrics::MetricsMessage &response, std::vector<std::string> *problems = nullptr);
 
 // The exposition as it was emitted before the renderer existed: one
 // `<bundle path>_<key> <value>` line per gauge, keys verbatim, values through

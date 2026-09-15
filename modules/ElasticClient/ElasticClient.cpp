@@ -3,7 +3,6 @@
 
 #include "ElasticClient.h"
 
-#include <str/saturate.hpp>
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/json.hpp>
@@ -16,11 +15,13 @@
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_metrics_helper.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nscapi/settings/proxy.hpp>
 #include <nsclient/logger/logger_helper.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <str/format.hpp>
+#include <str/saturate.hpp>
 #include <str/utils.hpp>
 
 #include "elastic_bulk.hpp"
@@ -279,8 +280,9 @@ void build_metrics(json::object &metrics, const std::string trail, const PB::Met
   }
   for (const PB::Metrics::Metric &v : b.value()) {
     std::string key = trail.empty() ? boost::replace_all_copy(v.key(), ".", "_") : trail + "_" + boost::replace_all_copy(v.key(), ".", "_");
-    if (v.has_gauge_value())
-      node.insert(json::object::value_type(key, gauge_to_json(v.gauge_value().value())));
+    double value = 0;
+    if (nscapi::metrics::numeric_value(v, value))
+      node.insert(json::object::value_type(key, gauge_to_json(value)));
     else if (v.has_string_value())
       node.insert(json::object::value_type(key, v.string_value().value()));
   }

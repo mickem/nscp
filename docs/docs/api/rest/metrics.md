@@ -66,9 +66,11 @@ curl -s -k -u admin https://localhost:8443/api/v2/metrics | python -m json.tool
 
 Returns the same snapshot in
 [OpenMetrics](https://openmetrics.io/) text exposition format, suitable for
-Prometheus scraping. Only gauge values are emitted; string-valued metrics
-are skipped. Metrics measured per core, NIC, drive or process are grouped into
-one family carrying a [label](#labels) rather than one family per instance.
+Prometheus scraping. Every metric carries a description, a type and, where the
+value is measured in something, a unit; string-valued metrics become labels of
+their section's `_info` family. A metric measured once per core, NIC, drive or
+process is one family carrying a [label](#labels) rather than one family per
+instance.
 
 | Key       | Value                |
 |-----------|----------------------|
@@ -85,31 +87,80 @@ GET /api/v2/openmetrics
 ### Response
 
 ```
-# TYPE system_cpu_idle gauge
-system_cpu_idle{core="0"} 95
-system_cpu_idle{core="1"} 91
-system_cpu_idle{core="total"} 93
+# HELP system_mem_physical_total_bytes Physical memory fitted in the machine
+# TYPE system_mem_physical_total_bytes gauge
+# UNIT system_mem_physical_total_bytes bytes
+system_mem_physical_total_bytes 17175158784
+# HELP system_mem_physical_percent Share of physical memory still available
 # TYPE system_mem_physical_percent gauge
+# UNIT system_mem_physical_percent percent
 system_mem_physical_percent 73
-# TYPE system_mem_physical_total gauge
-system_mem_physical_total 17175158784
-# TYPE disk_free_total gauge
-disk_free_total{drive="/"} 255000000000
+# HELP system_cpu_idle_percent Share of CPU time spent idle
+# TYPE system_cpu_idle_percent gauge
+# UNIT system_cpu_idle_percent percent
+system_cpu_idle_percent{core="0"} 95
+system_cpu_idle_percent{core="1"} 91
+system_cpu_idle_percent{core="total"} 93
+# HELP workers_jobs Scheduled jobs the agent has started since it was started
+# TYPE workers_jobs counter
+workers_jobs_total 1847
+# TYPE system_uptime info
+system_uptime_info{uptime="1d 12:30",boot="2026-09-13 01:15"} 1
 # EOF
 ```
 
 Every family carries a `# TYPE` line and the body ends with the `# EOF`
 terminator OpenMetrics 1.0 requires, so a strict parser accepts the document
-as it stands. `# HELP` and `# UNIT` are not emitted yet: no module declares a
-description or a unit for its metrics.
+as it stands.
 
-One consequence of everything being typed as a gauge: a metric whose key ends
-in `total` or `count` (`system.network.eth0.total`,
-`system.os_updates.count`) becomes a gauge family carrying a suffix the spec
-reserves for counters and summaries. Prometheus scrapes it without complaint,
-but `promtool check metrics` reports a naming-convention warning for each such
-family. Typing those metrics as counters is what resolves it, and that needs
-the per-metric metadata the modules do not declare yet.
+### Metadata
+
+Every built-in metric declares what it is. A module hands the agent a
+description, a unit and a type along with the value, and the exposition turns
+them into the three metadata lines:
+
+| Declared by the module | Emitted as                            |
+|------------------------|---------------------------------------|
+| description            | `# HELP <name> <description>`          |
+| unit                   | `# UNIT <name> <unit>`, and the family name is made to end in `_<unit>` |
+| type                   | `# TYPE <name> <type>`                 |
+
+A metric that declares no description of its own inherits its section's, which
+is how the per-core and per-NIC families are described without repeating the
+same sentence for every instance.
+
+Units are only declared where the value really is measured in something:
+`bytes`, `seconds`, `percent`, `celsius`, `milliseconds`, `mhz`. A per-second
+rate (`system.network.eth0.received`, `disk.io.sda.read_bytes_per_sec`)
+declares none — the sample is a rate, and a name ending in `_bytes` would say
+otherwise. Neither does a plain count.
+
+Because OpenMetrics requires the name of a family that declares a unit to end
+with that unit, declaring one can rename the family:
+`system_mem_physical_total` became `system_mem_physical_total_bytes`. A key
+that already ends in its unit keeps the name it had, which covers every `.%`
+key (`system_mem_physical_percent`) and the clock frequencies
+(`system_cpu_frequency_core_0_current_mhz`).
+
+### Types
+
+| Protobuf value    | Type        | Sample                          | Used for |
+|-------------------|-------------|---------------------------------|----------|
+| `gauge_value`     | `gauge`     | `name{…} v`                     | anything that can go down again — the great majority |
+| `counter_value`   | `counter`   | `name_total{…} v`               | a count that only grows while the agent runs: jobs run, errors seen, `times_seen` |
+| `untyped_value`   | `unknown`   | `name{…} v`                     | a number whose direction is genuinely unknown |
+| `string_value`    | `info`      | `<section>_info{key="value",…} 1` | uptime, boot time, MAC address, power source |
+| `summary_value`   | `summary`   | `name{quantile="…"}`, `name_sum`, `name_count` | nothing yet |
+| `histogram_value` | `histogram` | `name_bucket{le="…"}`, `name_sum`, `name_count` | nothing yet |
+
+The strings of one section fold into a single always-1 series carrying them as
+labels — the `node_uname_info` shape — so `system.uptime.uptime` and
+`system.uptime.boot` scrape as one `system_uptime_info` sample. They used to be
+dropped entirely.
+
+A metric that declares nothing at all still renders, as an anonymous gauge
+with no `# HELP` and no `# UNIT`. That is what a Python script's plain number
+and an out-of-tree module's `add_metric` produce.
 
 ### Metric names
 
@@ -146,14 +197,14 @@ is one family with a label, not one family per instance. The instance stays in
 the JSON key exactly where it was; the label is additive.
 
 ```
-# TYPE system_cpu_idle gauge
-system_cpu_idle{core="0"} 95
-system_cpu_idle{core="1"} 91
-system_cpu_idle{core="total"} 93
+# TYPE system_cpu_idle_percent gauge
+system_cpu_idle_percent{core="0"} 95
+system_cpu_idle_percent{core="1"} 91
+system_cpu_idle_percent{core="total"} 93
 ```
 
-so `sum by (core)` has something to group on, a Grafana variable has a label
-to bind to, and the family names no longer depend on how many cores or NICs a
+so `sum by (core)` has something to group on, a Grafana variable has a label to
+bind to, and the family names no longer depend on how many cores or NICs a
 particular host has. The same metric is still `system.cpu.core_0.idle` on
 `/api/v2/metrics`.
 
@@ -174,20 +225,30 @@ JSON key. It means `sum by (core)` stays honest but `sum without (core)`
 double-counts — exclude it explicitly:
 
 ```promql
-sum without (core) (system_cpu_idle{core!="total"})
+sum without (core) (system_cpu_idle_percent{core!="total"})
+```
+
+The labels also decide which series of a section's `_info` family a string
+metric lands on, so one NIC's link state, MAC address and speed share a line
+and the next NIC's get their own:
+
+```
+# TYPE system_network info
+system_network_info{nic="Ethernet 1",MACAddress="00:11:22:33:44:55",NetConnectionStatus="Connected"} 1
+system_network_info{nic="Ethernet 2",MACAddress="00:11:22:33:44:66",NetConnectionStatus="Disconnected"} 1
 ```
 
 Label names follow the same grammar as metric names and are rewritten the same
-way, which matters only for the operator-defined ones (a PDH instance, a
-Python script's labels). Label values are free text and are escaped rather
-than rewritten: `\`, `"` and a newline are the three characters spelled
-differently, so a Windows volume reads
-`drive="\\Device\\HarddiskVolume1"`. A label with an empty value is
-dropped, because `x=""` and an absent `x` are the same series.
+way, which matters only for the operator-defined ones (a PDH instance, a Python
+script's labels). Label values are free text and are escaped rather than
+rewritten: `\`, `"` and a newline are the three characters spelled
+differently, so a Windows volume reads `drive="\\Device\\HarddiskVolume1"`.
+A label with an empty value is dropped, because `x=""` and an absent `x` are
+the same series.
 
 Two samples of one family that end up with the same label set are the same
-series, so the first is kept and the rest are dropped and logged, exactly as
-for two keys colliding on one name.
+series, so the first is kept and the rest dropped and logged, exactly as for
+two keys colliding on one name.
 
 A metric with no labels — most of `system.mem`, the uptime and scheduler
 sections, anything published by a module that does not set dimensions —
@@ -197,8 +258,30 @@ renders from its key as before.
 
 The endpoint answers `application/openmetrics-text; version=1.0.0;
 charset=utf-8` when the request's `Accept` header names that type, and
-`text/plain; version=0.0.4; charset=utf-8` otherwise. The body is the same
-either way - the Prometheus text parser reads `# EOF` as an ordinary comment.
+`text/plain; version=0.0.4; charset=utf-8` otherwise. Prometheus asks for the
+first; anything that does not negotiate gets the second.
+
+The two bodies are not quite the same document, because the two specifications
+disagree about what the metadata lines of a counter name. OpenMetrics names the
+*family*, whose sample then carries the `_total` suffix; the older Prometheus
+text format has no families, so its metadata lines name the sample itself:
+
+```text
+# Accept: application/openmetrics-text;version=1.0.0
+# TYPE workers_jobs counter
+workers_jobs_total 1847
+
+# Accept: anything else
+# TYPE workers_jobs_total counter
+workers_jobs_total 1847
+```
+
+The same applies to `info`, which does not exist in the older format at all
+and is written there as a gauge valued 1. Everything else — every gauge, every
+`# HELP`, `# UNIT` and `# EOF` line — is identical, and the sample lines are
+identical in both. The agent renders both bodies from one snapshot and serves
+whichever matches the `Content-Type` it answers with, so the body a client
+gets always matches the format it was told it is reading.
 
 ### The legacy exposition
 

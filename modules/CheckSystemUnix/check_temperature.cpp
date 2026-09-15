@@ -229,10 +229,16 @@ void build_temperature_metrics(PB::Metrics::MetricsBundle *parent) {
 
   PB::Metrics::MetricsBundle *section = parent->add_children();
   section->set_key("temperature");
+  describe(section, "Temperature per thermal zone, as reported by the kernel");
 
   zones_type zones = read_temperature();
   for (const zones_type::value_type &v : zones) {
-    metric(section, "temperature").instance(v.get_name()).label("zone", v.get_name()).gauge(v.get_temperature_i());
+    metric(section, "temperature")
+        .instance(v.get_name())
+        .label("zone", v.get_name())
+        .help("Temperature of the zone")
+        .unit("celsius")
+        .gauge(v.get_temperature_i());
   }
 }
 

@@ -38,12 +38,23 @@ std::string process_record::show() const {
 }
 
 void process_record::build_metrics(PB::Metrics::MetricsBundle *section) const {
-  using namespace nscapi::metrics;
-  const auto value = [&](const std::string &metric_name, const auto v) { metric(section, metric_name).instance(exe).label("exe", exe).gauge(v); };
-  value("first_seen", first_seen);
-  value("last_seen", last_seen);
-  value("times_seen", times_seen);
-  value("currently_running", get_currently_running_i());
+  using nscapi::metrics::metric;
+  metric(section, "first_seen")
+      .instance(exe)
+      .label("exe", exe)
+      .help("When the collector first saw this process, as a Unix timestamp")
+      .unit("seconds")
+      .gauge(first_seen);
+  metric(section, "last_seen")
+      .instance(exe)
+      .label("exe", exe)
+      .help("When the collector last saw this process, as a Unix timestamp")
+      .unit("seconds")
+      .gauge(last_seen);
+  // Only ever grows while the agent runs, so a scraper may rate() it to see
+  // how often a process is being restarted.
+  metric(section, "times_seen").instance(exe).label("exe", exe).help("Collector samples this process was found in").counter(times_seen);
+  metric(section, "currently_running").instance(exe).label("exe", exe).help("Whether the process is running right now").gauge(get_currently_running_i());
 }
 
 // Simple error reporter that does nothing (we don't want to spam logs during enumeration)
@@ -148,8 +159,8 @@ long long process_history_data::get_count() {
 }
 
 void process_history_data::build_metrics(PB::Metrics::MetricsBundle *section) {
-  using namespace nscapi::metrics;
-  add_metric(section, "unique_processes", get_count());
+  using nscapi::metrics::metric;
+  metric(section, "unique_processes").help("Distinct executables seen since the agent started").gauge(get_count());
 }
 
 namespace check {

@@ -77,28 +77,6 @@ using `.value()` everywhere is what stops that edit from silently becoming UB.
 Uniformity is the point: a reviewer should never have to trace control flow to
 decide whether a given dereference is safe.
 
-## Metrics
-- A module publishes metrics from `fetchMetrics()` through
-  `nscapi::metrics`. A metric measured once per core, NIC, drive, sensor or
-  process declares that through the builder rather than by pasting the instance
-  into the key:
-  `metric(bundle, "idle").instance("core 0").label("core", "0").gauge(v);`
-  `instance()` composes the key exactly as concatenation did, so the flat and
-  nested JSON endpoints, the web UI dashboard, Graphite, collectd and Python
-  all see a byte-identical snapshot; `label()` is what turns N families into
-  one family with N samples on `/api/v2/openmetrics`. The bare
-  `add_metric(bundle, key, value)` overloads stay the shorthand for a metric
-  with no instance and no dimensions.
-- **Never move a metric key to improve a metric name.** The key is what every
-  consumer except the OpenMetrics renderer reads, and a key that moves moves a
-  dashboard on every upgraded host, silently. Name the family through the
-  builder and let the renderer do the naming; if a key really has to change,
-  that is an upgrade note of its own.
-- A label value must mean the same thing on every platform. Windows spells a
-  CPU core `core 0` and Linux `core_0`; that difference belongs in the key,
-  which is why `core_label()` exists, and must not reach the label, where it
-  would make one core look like two across a fleet.
-
 ## Check command options
 - Boolean check options must be declared as
   `po::value<bool>(&x)->implicit_value(true)->default_value(false)`,
@@ -169,6 +147,54 @@ decide whether a given dereference is safe.
 - Unit-test binaries have no generated module glue, so they must define the
   plugin singleton themselves (normally provided by `NSC_WRAP_DLL()`):
   `nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();`
+
+## Metrics
+- A module publishes metrics from `fetchMetrics()`, through the builder in
+  `nscapi/nscapi_metrics_helper.hpp`:
+  `metric(bundle, "physical.used").help("Physical memory in use").unit("bytes").gauge(v);`
+  A new metric **declares at least `help`**, and `unit` whenever the value is
+  measured in something. The bare `add_metric(bundle, key, value)` overloads
+  still work and are kept for out-of-tree modules, but everything they produce
+  is an anonymous gauge on `/api/v2/openmetrics`. `describe(bundle, "…")` gives
+  a whole section one description, which every metric in it that declares none
+  of its own inherits — the cheap way to describe a per-core or per-NIC family.
+- The terminal call is the metric's **type**, and it is a real decision.
+  `counter(v)` is only for a value that is monotonic for the lifetime of the
+  process (jobs run, errors seen, `times_seen`); `gauge(v)` is for anything that
+  can go down again, including names that read like counts (a per-second packet
+  rate, the number of pending updates). A gauge read as a counter produces
+  nonsense at every dip, so **check how the value is computed before typing it**
+  — the WMI `Packets*Errors` fields are named like totals and are converted to
+  per-second rates before they reach the bundle. `info(s)` is for a string; it
+  becomes a label of the bundle's `_info` family.
+- **Units are only declared where the value is measured in something**
+  (`bytes`, `seconds`, `percent`, `celsius`, `milliseconds`, `mhz`). A
+  per-second rate declares none: the exposition appends the unit to the family
+  name, and `..._received_bytes` would claim the sample is a byte count. A key
+  that already ends in its unit (`.%` sanitises to `_percent`, `current_mhz`)
+  keeps the name it had, so declaring the unit there is free.
+- **A metric measured once per instance says so with `instance()` and
+  `label()`**, rather than pasting the instance into the key and letting it
+  become a family name:
+  `metric(cpu, "idle").instance("core 0").label("core", "0").unit("percent").gauge(v);`
+  `instance()` composes the key exactly as the concatenation did, so every
+  consumer that reads keys sees a byte-identical snapshot; `label()` is what
+  turns N families into one family with N samples on `/api/v2/openmetrics`, and
+  what splits a section's `_info` family into one series per instance. Use
+  `key()` instead of `instance()` when the historical key does not put the
+  instance first (a PDH counter puts it last).
+- **A label value must mean the same thing on every platform.** Windows spells
+  a CPU core `core 0` and Linux `core_0`; that difference belongs in the key,
+  which is what `core_label()` strips, and must not reach the label, where it
+  would make one core look like two across a fleet.
+- **The key is the wire format.** `/api/v2/metrics`, `/metrics`, the web UI
+  dashboard, Graphite, collectd and Python `submit_metrics` all read
+  `Metric.key`; only the OpenMetrics renderer reads `desc`, `unit`, `dims` and
+  `alias`. So metadata and labels never move a key, and a consumer that
+  forwards numbers reads them through `nscapi::metrics::numeric_value()` rather
+  than `has_gauge_value()` — otherwise retyping a metric as a counter silently
+  drops it from that consumer. Never move a key to improve a metric name: name
+  the family through the builder and let the renderer do the naming.
 
 ## Documentation for new commands
 Every new check command needs, under `docs/samples/`:

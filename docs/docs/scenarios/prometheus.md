@@ -117,36 +117,45 @@ From the agent (or anywhere allowed to reach it):
 curl -k -u prometheus:<password> https://<agent>:8443/api/v2/openmetrics
 ```
 
-Expected output is an OpenMetrics document: a `# TYPE` line per family, its
-samples under it, and a closing `# EOF`. On a Windows host:
+Expected output is an OpenMetrics document: `# HELP`, `# TYPE` and where
+applicable `# UNIT` per family, one `<name> <value>` sample per line, and a
+closing `# EOF`. On a Windows host:
 
 ```text
-# TYPE system_mem_commited_avail gauge
-system_mem_commited_avail 12592123904
-# TYPE system_mem_commited_total gauge
-system_mem_commited_total 17175158784
+# HELP system_mem_commited_avail_bytes Commit charge still available
+# TYPE system_mem_commited_avail_bytes gauge
+# UNIT system_mem_commited_avail_bytes bytes
+system_mem_commited_avail_bytes 12592123904
+# HELP system_mem_commited_percent Share of the commit limit still available
 # TYPE system_mem_commited_percent gauge
+# UNIT system_mem_commited_percent percent
 system_mem_commited_percent 73
-# TYPE system_cpu_idle gauge
-system_cpu_idle{core="total"} 95
-system_cpu_idle{core="0"} 93
-# TYPE system_uptime_ticks_raw gauge
-system_uptime_ticks_raw 84135
+# HELP system_cpu_idle_percent Share of CPU time spent idle
+# TYPE system_cpu_idle_percent gauge
+# UNIT system_cpu_idle_percent percent
+system_cpu_idle_percent{core="0"} 93
+system_cpu_idle_percent{core="total"} 95
+# TYPE system_uptime info
+system_uptime_info{uptime="1d 12:30",boot="2026-09-13 01:15"} 1
+# HELP workers_jobs Scheduled jobs the agent has started since it was started
+# TYPE workers_jobs counter
+workers_jobs_total 1847
 # EOF
 ```
 
 On a Linux host:
 
 ```text
-# TYPE system_cpu_idle gauge
-system_cpu_idle{core="total"} 97.8293
-system_cpu_idle{core="0"} 96.4
-# TYPE system_cpu_user gauge
-system_cpu_user{core="total"} 1.19519
-# TYPE system_mem_physical_total gauge
-system_mem_physical_total 16554000000
-# TYPE system_mem_swap_percent gauge
-system_mem_swap_percent 26
+# HELP system_cpu_idle_percent Share of CPU time spent idle
+# TYPE system_cpu_idle_percent gauge
+# UNIT system_cpu_idle_percent percent
+system_cpu_idle_percent{core="0"} 96.4
+system_cpu_idle_percent{core="total"} 97.8293
+# HELP system_mem_physical_total_bytes Total physical memory
+# TYPE system_mem_physical_total_bytes gauge
+# UNIT system_mem_physical_total_bytes bytes
+system_mem_physical_total_bytes 16554000000
+# HELP system_network_received Bytes received per second
 # TYPE system_network_received gauge
 system_network_received{nic="eth0"} 343
 # EOF
@@ -155,11 +164,15 @@ system_network_received{nic="eth0"} 343
 Metric names are rewritten to the OpenMetrics grammar: `.` and any other
 character outside `[a-zA-Z0-9_]` becomes `_`, a run of them collapses to one,
 `%` becomes the word `percent`, and a name that would not start with a letter
-borrows a `metric_` prefix. The mapping is deterministic, so the same reading
-always lands on the same series. Anything measured per core, NIC, drive or
-process is one family with a label rather than one family per instance. See the
-[REST metrics reference](../api/rest/metrics.md#metric-names) for the full
-table and [Labels](../api/rest/metrics.md#labels) for the label per bundle.
+borrows a `metric_` prefix. A family that declares a unit is then made to end
+in it, which is what OpenMetrics requires of one — hence
+`system_mem_physical_total_bytes`. The mapping is deterministic, so the same
+reading always lands on the same series. Anything measured per core, NIC,
+drive or process is one family with a label rather than one family per
+instance. See the [REST metrics
+reference](../api/rest/metrics.md#metric-names) for the full table,
+[Metadata](../api/rest/metrics.md#metadata) for the unit rules and
+[Labels](../api/rest/metrics.md#labels) for the label each section carries.
 
 If you get HTTP 401, the credentials or role grant are wrong; if you get a
 TLS error, see "TLS / self-signed certificate" below.
@@ -206,7 +219,7 @@ Available on **both platforms** from `CheckSystem`:
 
 | Family prefix              | Examples                                                                         |
 |----------------------------|----------------------------------------------------------------------------------|
-| `system_cpu_*`             | `system_cpu_idle`, `..._user`, `..._kernel`, `..._total`, labelled by `core`     |
+| `system_cpu_*`             | `system_cpu_idle_percent`, `..._user_*`, `..._kernel_*`, labelled by `core`      |
 | `system_mem_*`             | families differ per platform — see below                                        |
 | `system_uptime_*`          | `system_uptime_ticks_raw`, `system_uptime_boot_raw`                              |
 | `system_network_*`         | `received`, `sent`, `total` (bytes/s), labelled by `nic`                          |
@@ -225,7 +238,7 @@ work:
 
 ```promql
 # busiest core on each host
-min by (instance) (system_cpu_idle{core!="total"})
+min by (instance) (system_cpu_idle_percent{core!="total"})
 
 # total received bytes/s across every interface
 sum by (instance) (system_network_received)
@@ -239,6 +252,9 @@ aggregates over cores (`sum without (core)` would double-count). The full
 label-per-bundle table is in the [REST metrics
 reference](../api/rest/metrics.md#labels).
 
+`# HELP` says what each one is, so `curl`ing the endpoint (or Grafana's metric
+browser) is enough to find out what a family means without coming back here.
+
 Platform differences to be aware of:
 
 - **Memory families** follow what the OS exposes: Windows publishes
@@ -247,8 +263,8 @@ Platform differences to be aware of:
 - **Per-core CPU naming**: Linux normalises core names to `core_0`, `core_1`,
   …; Windows names them `core 0` (with a space). Neither reaches the
   OpenMetrics endpoint, where both platforms scrape as
-  `system_cpu_idle{core="0"}`; the JSON endpoints still show the platform's own
-  spelling.
+  `system_cpu_idle_percent{core="0"}`; the JSON endpoints still show the
+  platform's own spelling.
 - **PDH counters** (`system_metrics_*`) are Windows-only: predefine them in
   `[/settings/system/windows/counters/<name>]` (see
   [Performance Counter (PDH) Monitoring](counters.md)) and they appear on the
@@ -310,28 +326,43 @@ allowed hosts = 127.0.0.1, 10.0.0.0/24
 
 Or per-module under `[/settings/WEB/server]`.
 
-### No `# HELP` lines, and `promtool` still warns
+### Counters, and what `rate()` is safe on
 
-Every family carries a `# TYPE ... gauge` line and the body ends with `# EOF`,
-so the document parses as OpenMetrics 1.0. What is still missing is the
-descriptive metadata: no module declares a help text or a unit for its metrics
-yet, so no `# HELP` or `# UNIT` lines are emitted and everything is typed as a
-gauge — including the handful of readings that are really monotonic counters.
+A metric is typed as a `counter` only where the value is monotonic for the
+lifetime of the agent — `workers_jobs`, `scheduler_jobs`, `scheduler_errors`,
+`system_process_history_<exe>_times_seen` and the real-time filter counts.
+Those are the ones `rate()` and `increase()` are meaningful on, and their
+sample carries the `_total` suffix the spec reserves for them.
 
-That has one visible consequence. `promtool check metrics` lints naming
-conventions as well as syntax, and a gauge whose key already ends in `total` or
-`count` (`system_network_eth0_total`, `system_os_updates_count`) carries a
-suffix reserved for counters and summaries, so it reports one warning per such
-family. Prometheus itself scrapes them without complaint. Typing those metrics
-as counters is what clears the warnings, and that arrives with the metadata
-work rather than with a rename it would immediately undo.
+Everything else is a gauge, including names that read like counts:
+`system_network_<nic>_total` is a per-second rate, `system_os_updates_count` is
+how many updates are pending right now, and both drop back down. Taking a
+`rate()` of either produces nonsense at every dip.
 
-### Strings are skipped
+`promtool check metrics` lints naming conventions as well as syntax, so it
+still warns about a gauge whose name ends in `total` or `count` (a suffix the
+spec reserves) and about the units that are not the spec's base ones —
+`_milliseconds` where it would prefer seconds, `_mhz` where it would prefer
+hertz. Those readings are genuinely in those units and the JSON endpoint
+reports the same number, so the agent says what it measured rather than
+rescaling it behind the reader's back.
 
-Some bundles include string-typed entries (e.g. `system_uptime_uptime` is the
-human-readable "1d 12:30"). These don't appear on the OpenMetrics endpoint —
-only numeric gauges do. Use the JSON `/api/v2/metrics` endpoint if you need
-the strings.
+### Strings arrive as an `_info` family
+
+Some bundles include string-typed entries — `system.uptime.uptime` is the
+human-readable "1d 12:30", `system.battery.power_source` is `ac` or `battery`.
+They have no numeric sample, so each section folds its strings into one
+always-1 series carrying them as labels, the same shape as node_exporter's
+`node_uname_info`:
+
+```text
+# TYPE system_uptime info
+system_uptime_info{uptime="1d 12:30",boot="2026-09-13 01:15"} 1
+```
+
+Query them with `system_uptime_info` and read the label, or use the JSON
+`/api/v2/metrics` endpoint, which still reports each string under its own key.
+Before the metadata work these were dropped from the exposition entirely.
 
 ---
 
