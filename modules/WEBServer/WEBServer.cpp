@@ -22,8 +22,8 @@
 #include <nscapi/protobuf/settings_functions.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <str/format.hpp>
-#include <str/xtos.hpp>
 #include <utility>
+#include <vector>
 
 #include "alias_controller.hpp"
 #include "api_controller.hpp"
@@ -40,6 +40,7 @@
 #include "metrics_controller.hpp"
 #include "modules_controller.hpp"
 #include "openmetrics_controller.hpp"
+#include "openmetrics_renderer.hpp"
 #include "password_hash.hpp"
 #include "query_controller.hpp"
 #include "results_controller.hpp"
@@ -100,7 +101,12 @@ bool grant_confers_legacy(const std::string &grant) {
 }  // namespace
 
 WEBServer::WEBServer()
-    : simple_plugin(), session(new session_manager_interface()), events_(new event_store()), results_(new result_store()), last_log_index(0) {}
+    : simple_plugin(),
+      session(new session_manager_interface()),
+      events_(new event_store()),
+      results_(new result_store()),
+      openmetrics_legacy_(false),
+      last_log_index(0) {}
 WEBServer::~WEBServer() = default;
 
 bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
@@ -109,6 +115,14 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   if (!client) {
     log_handler.reset(new error_handler());
     client.reset(new client::cli_client(std::make_shared<web_cli_handler>(log_handler, get_core(), get_id())));
+  }
+
+  // A reload can change the keys a module publishes, so let the renderer's
+  // collision reports be said again rather than staying silenced by a run that
+  // is no longer the current configuration.
+  {
+    const boost::mutex::scoped_lock lock(openmetrics_problem_mutex_);
+    reported_openmetrics_problems_.clear();
   }
 
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
@@ -210,7 +224,14 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
                   "`?password=...` / `?TOKEN=...` query-string mechanism. The fallback was removed for security in 340b8db1 because URL parameters "
                   "leak into browser history, proxy logs and Referer headers. Defaults to 'Icinga/check_nscp_api' so Icinga's bundled check_nscp_api "
                   "plugin keeps working without admitting any other client that happens to mention Icinga in its User-Agent. Set to empty string to "
-                  "disable the fallback entirely.");
+                  "disable the fallback entirely.")
+      .add_string("openmetrics format", nscapi::settings_helper::string_fun_key([this](auto value) { this->set_openmetrics_format(value); }, "openmetrics"),
+                  "OPENMETRICS EXPOSITION FORMAT",
+                  "Which exposition /api/v2/openmetrics serves. `openmetrics` (the default) emits a conformant OpenMetrics document: metric names are "
+                  "rewritten to the `[a-zA-Z_][a-zA-Z0-9_]*` grammar (`system.mem.physical.%` becomes `system_mem_physical_percent`), every family "
+                  "carries a `# TYPE` line, the body ends with `# EOF` and values keep their full precision. `legacy` reproduces the previous body byte "
+                  "for byte - `<name> <value>` lines with dots, spaces and colons left in the names, and values truncated to six significant digits - "
+                  "for a dashboard or recording rule that has not been migrated yet. The legacy format is deprecated and will be removed in a future release.");
   settings.alias()
       .add_key_to_settings()
       .add_string("certificate", sh::string_key(&certificate, "${certificate-path}/certificate.pem"), "TLS Certificate",
@@ -1163,17 +1184,19 @@ json::value gauge_to_json(double v) {
 }
 }  // namespace
 
-void build_metrics(json::object &metrics, json::object &metrics_list, std::list<std::string> &openmetrics, const std::string &trail,
-                   const std::string &opentrail, const PB::Metrics::MetricsBundle &b) {
+// The two JSON renderings of a snapshot. The OpenMetrics exposition used to be
+// built in the same pass; it lives in openmetrics_renderer.cpp now, because a
+// conformant document has to group samples into families and cannot be
+// appended a line at a time.
+void build_metrics(json::object &metrics, json::object &metrics_list, const std::string &trail, const PB::Metrics::MetricsBundle &b) {
   json::object node;
   for (const PB::Metrics::MetricsBundle &b2 : b.children()) {
-    build_metrics(node, metrics_list, openmetrics, trail + "." + b2.key(), opentrail + "_" + b2.key(), b2);
+    build_metrics(node, metrics_list, trail + "." + b2.key(), b2);
   }
   for (const PB::Metrics::Metric &v : b.value()) {
     if (v.has_gauge_value()) {
       node.insert(json::object::value_type(v.key(), gauge_to_json(v.gauge_value().value())));
       metrics_list.insert(json::object::value_type(trail + "." + v.key(), gauge_to_json(v.gauge_value().value())));
-      openmetrics.push_back(opentrail + "_" + v.key() + " " + str::xtos(v.gauge_value().value()));
     } else if (v.has_string_value()) {
       node.insert(json::object::value_type(v.key(), v.string_value().value()));
       metrics_list.insert(json::object::value_type(trail + "." + v.key(), v.string_value().value()));
@@ -1183,14 +1206,42 @@ void build_metrics(json::object &metrics, json::object &metrics_list, std::list<
 }
 void WEBServer::submitMetrics(const PB::Metrics::MetricsMessage &response) const {
   json::object metrics, metrics_list;
-  std::list<std::string> openmetrics;
   for (const PB::Metrics::MetricsMessage::Response &p : response.payload()) {
     for (const PB::Metrics::MetricsBundle &b : p.bundles()) {
-      build_metrics(metrics, metrics_list, openmetrics, b.key(), b.key(), b);
+      build_metrics(metrics, metrics_list, b.key(), b);
     }
   }
-  session->set_metrics(json::serialize(metrics), json::serialize(metrics_list), openmetrics);
+  std::string open_metrics;
+  if (openmetrics_legacy_) {
+    open_metrics = openmetrics::render_legacy(response);
+  } else {
+    // Sanitising is lossy, so two keys can want the same family name. The
+    // renderer keeps the first and hands back a line per metric it dropped;
+    // that is a producer bug the operator has to see, not something to hide -
+    // but only once, since the same bad key collides again on every snapshot.
+    std::vector<std::string> problems;
+    open_metrics = openmetrics::render(response, &problems);
+    for (const std::string &problem : problems) {
+      {
+        const boost::mutex::scoped_lock lock(openmetrics_problem_mutex_);
+        if (!reported_openmetrics_problems_.insert(problem).second) continue;
+      }
+      NSC_LOG_ERROR(problem);
+    }
+  }
+  session->set_metrics(json::serialize(metrics), json::serialize(metrics_list), open_metrics);
   client->push_metrics(response);
+}
+
+void WEBServer::set_openmetrics_format(const std::string &value) {
+  if (value == "legacy") {
+    openmetrics_legacy_ = true;
+    return;
+  }
+  if (value != "openmetrics") {
+    NSC_LOG_ERROR("Unknown 'openmetrics format' value '" + value + "', expected 'openmetrics' or 'legacy'. Serving the conformant OpenMetrics format.");
+  }
+  openmetrics_legacy_ = false;
 }
 
 void WEBServer::add_user(const std::string &key, const std::string &arg) {

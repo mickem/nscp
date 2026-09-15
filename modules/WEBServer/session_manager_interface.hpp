@@ -94,7 +94,7 @@ struct session_manager_interface {
   std::string get_metrics();
   std::string get_metrics_v2();
   std::string get_open_metrics();
-  void set_metrics(const std::string &metrics, const std::string &metrics_list, std::list<std::string> open_metrics);
+  void set_metrics(const std::string &metrics, const std::string &metrics_list, const std::string &open_metrics);
 
   void add_log_message(bool is_error, const error_handler_interface::log_entry &entry) const;
   error_handler_interface *get_log_data() const;

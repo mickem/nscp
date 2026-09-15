@@ -52,6 +52,7 @@ set(SRCS
     login_controller.cpp
     metrics_controller.cpp
     openmetrics_controller.cpp
+    openmetrics_renderer.cpp
     metadata_controller.cpp
     events_controller.cpp
     web_installer.cpp
@@ -100,6 +101,7 @@ if(WIN32)
         settings_controller.hpp
         metrics_controller.hpp
         openmetrics_controller.hpp
+        openmetrics_renderer.hpp
         metadata_controller.hpp
         results_controller.hpp
         result_store.hpp
@@ -145,6 +147,8 @@ NSCP_CREATE_TEST(
         error_handler_test.cpp
         metrics_handler.cpp
         metrics_handler_test.cpp
+        openmetrics_renderer.cpp
+        openmetrics_renderer_test.cpp
         event_store.cpp
         event_store_test.cpp
         result_store.cpp
@@ -176,6 +180,10 @@ NSCP_CREATE_TEST(
     LIBRARIES
         GTest::gtest
         GTest::gtest_main
+        # openmetrics_renderer.cpp walks PB::Metrics messages, so the test
+        # needs the generated protobuf code (and the dependency that puts
+        # protobuf/metrics.pb.h in the build tree before we compile).
+        nscp_protobuf
         ${Boost_FILESYSTEM_LIBRARY}
         ${Boost_DATE_TIME_LIBRARY}
         ${Boost_REGEX_LIBRARY}

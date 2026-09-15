@@ -40,6 +40,7 @@ Section for WEB (WEBServer.dll) (check_WEB) protocol options.
 | [certificate key](#tls-private-key)                                  |                                     | TLS private key                    |
 | [disable admin user](#disable-admin-user)                            | false                               | DISABLE ADMIN USER                 |
 | [legacy query auth user agents](#legacy-query-string-auth-allowlist) | Icinga/check_nscp_api               | LEGACY QUERY-STRING AUTH ALLOWLIST |
+| [openmetrics format](#openmetrics-exposition-format)                 | openmetrics                         | OPENMETRICS EXPOSITION FORMAT      |
 | [password](#password)                                                |                                     | Password                           |
 | [port](#server-port)                                                 | 8443                                | Server port                        |
 | [threads](#server-threads)                                           | 10                                  | Server threads                     |
@@ -57,6 +58,7 @@ cache allowed hosts=true
 certificate=${certificate-path}/certificate.pem
 disable admin user=false
 legacy query auth user agents=Icinga/check_nscp_api
+openmetrics format=openmetrics
 port=8443
 threads=10
 ```
@@ -283,6 +285,26 @@ Comma-separated list of User-Agent substrings (case-insensitive) for clients all
 [/settings/WEB/server]
 # LEGACY QUERY-STRING AUTH ALLOWLIST
 legacy query auth user agents=Icinga/check_nscp_api
+```
+
+#### OPENMETRICS EXPOSITION FORMAT <a id="/settings/WEB/server/openmetrics format"></a>
+
+Which exposition /api/v2/openmetrics serves. \`openmetrics\` (the default) emits a conformant OpenMetrics document: metric names are rewritten to the \`[a-zA-Z_][a-zA-Z0-9_]*\` grammar (\`system.mem.physical.%\` becomes \`system_mem_physical_percent\`), every family carries a \`# TYPE\` line, the body ends with \`# EOF\` and values keep their full precision. \`legacy\` reproduces the previous body byte for byte - \`<name> <value>\` lines with dots, spaces and colons left in the names, and values truncated to six significant digits - for a dashboard or recording rule that has not been migrated yet. The legacy format is deprecated and will be removed in a future release.
+
+
+| Key            | Description                                   |
+|----------------|-----------------------------------------------|
+| Path:          | [/settings/WEB/server](#/settings/WEB/server) |
+| Key:           | openmetrics format                            |
+| Default value: | `openmetrics`                                 |
+
+
+**Sample:**
+
+```
+[/settings/WEB/server]
+# OPENMETRICS EXPOSITION FORMAT
+openmetrics format=openmetrics
 ```
 
 #### Password <a id="/settings/WEB/server/password"></a>

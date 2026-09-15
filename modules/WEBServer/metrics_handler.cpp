@@ -16,7 +16,7 @@ void metrics_handler::set_list(const std::string &metrics) {
   metrics_list_ = metrics;
 }
 
-void metrics_handler::set_openmetrics(std::list<std::string> &metrics) {
+void metrics_handler::set_openmetrics(const std::string &metrics) {
   boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!lock.owns_lock()) return;
   open_metrics_ = metrics;
@@ -34,8 +34,8 @@ std::string metrics_handler::get_list() {
   return metrics_list_;
 }
 
-std::list<std::string> metrics_handler::get_openmetrics() {
+std::string metrics_handler::get_openmetrics() {
   boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-  if (!lock.owns_lock()) return std::list<std::string>();
+  if (!lock.owns_lock()) return "";
   return open_metrics_;
 }
