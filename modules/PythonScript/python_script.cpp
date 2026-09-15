@@ -281,7 +281,21 @@ void python_script::_exec(const std::string &scriptfile) {
 
       py::object sFile = pystr2(scriptfile);
       FILE *fp = _Py_fopen_obj(sFile.ptr(), "r");
-      PyRun_File(fp, scriptfile.c_str(), Py_file_input, localDict->ptr(), localDict->ptr());
+      if (fp == NULL) {
+        // The file was there when find_file looked, but opening it failed:
+        // permissions, an exclusive lock, or it went away in between. Running
+        // with a NULL stream reads it inside the tokenizer, which is a crash
+        // with no Python exception to catch.
+        NSC_LOG_ERROR("Failed to open script: " + scriptfile);
+        script_wrapper::log_exception(__FILE__, __LINE__, scriptfile);
+        return;
+      }
+      // PyRun_File does not close the stream it is handed, so every load and
+      // every reload leaked a descriptor; PyRun_FileEx closes it on all paths.
+      // A NULL result means the script raised: surface it as a load failure
+      // rather than leaving the exception set for an unrelated call to find.
+      py::handle<> result(py::allow_null(PyRun_FileEx(fp, scriptfile.c_str(), Py_file_input, localDict->ptr(), localDict->ptr(), 1)));
+      if (!result) throw py::error_already_set();
     } catch (py::error_already_set &) {
       NSC_LOG_ERROR("Failed to load script: " + scriptfile);
       script_wrapper::log_exception(__FILE__, __LINE__, scriptfile);

@@ -74,7 +74,11 @@ bool lua::lua_wrapper::get_raw_string(std::string &str, int pos) {
 int lua::lua_wrapper::get_int(int pos) {
   if (pos == -1) pos = lua_gettop(L);
   if (pos == 0) return 0;
-  if (is_string(pos)) return str::stox<int>(lua_tostring(L, pos));
+  // Every caller of this is inside a lua_CFunction, and Lua is compiled as C:
+  // an exception thrown here unwinds through lua_pcall's setjmp frames, which
+  // is undefined and in practice terminates the agent. A string that is not a
+  // number reads as 0, the same as any other type this cannot convert.
+  if (is_string(pos)) return str::stox<int>(lua_tostring(L, pos), 0);
   if (is_number(pos)) return static_cast<int>(lua_tonumber(L, pos));
   return 0;
 }
@@ -284,7 +288,11 @@ void lua::lua_wrapper::log_stack() {
 
 int lua::lua_wrapper::error(std::string s) {
   NSC_LOG_ERROR_STD("Lua raised an error: " + s);
-  return luaL_error(L, s.c_str());
+  // The message is data, not a format: it routinely quotes something the
+  // script passed in (a channel or command name), and luaL_error runs it
+  // through lua_pushvfstring. A % in there consumed an argument that was
+  // never pushed, so `Submissions():get("mrpe%s")` read a wild pointer.
+  return luaL_error(L, "%s", s.c_str());
 }
 
 lua::lua_wrapper::stack_trace lua::lua_wrapper::get_stack_trace(int level) {

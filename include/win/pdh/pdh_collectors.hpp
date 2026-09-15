@@ -148,13 +148,19 @@ class rrd_collector : public base_collector<T> {
   boost::circular_buffer<T> values;
 
  public:
+  // A buffer of zero (or fewer) entries holds nothing: push_back is a no-op on
+  // a circular_buffer of capacity 0, so the buffer stays empty and back() -
+  // which every read below calls, once a second from the collector thread -
+  // dereferences a pointer into storage that was never allocated.
   explicit rrd_collector(pdh_object config) : base_collector<T>(config) {
+    if (config.buffer_size <= 0) throw pdh_exception(this->get_name(), "Buffer size must be at least one second");
     values.resize(config.buffer_size);
     for (int i = 0; i < config.buffer_size; i++) {
       values[i] = 0;
     }
   }
-  explicit rrd_collector(int size) : base_collector<T>(pdh_object()), values(size) {
+  explicit rrd_collector(int size) : base_collector<T>(pdh_object()) {
+    if (size <= 0) throw pdh_exception(this->get_name(), "Buffer size must be at least one second");
     values.resize(size);
     for (int i = 0; i < size; i++) {
       values[i] = 0;
