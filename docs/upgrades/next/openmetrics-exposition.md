@@ -194,11 +194,27 @@ Smaller changes that come with it:
   stores `path;core=0` as the metric name.
 
 * **CollectdClient mappings can read the labels and the types.** A variable set
-  to `label:core` expands to the distinct values of that label, instead of a
+  to `label:core` expands to every distinct value of that label, instead of a
   regular expression over the flat keys that has to know whether the platform
   spells a core `core 0` or `core_0`; and a metric expression spelled `auto:`
   sends whatever the producing module declared a counter as a collectd DERIVE
   and everything else as a GAUGE. The built-in default mappings are unchanged.
+  Note that a label includes the aggregates the exposition labels — `label:core`
+  yields `total` alongside `0`, `1`, … — so a template built from it can name a
+  metric that does not exist, which is skipped rather than sent.
+
+* **A collectd value list naming a metric the snapshot does not carry is no
+  longer sent as a zero.** The value expression resolved a missing key to an
+  empty string and forwarded the `0` that parsed out of it, so a mapping naming
+  a metric this platform or configuration never produces reported a
+  measurement nobody took — which is what the platform-specific default
+  mappings exist to avoid. Such a value list is now skipped, in whole: a
+  collectd value list is positional, so dropping one value of several would
+  have the receiver read the next metric's number under this one's type. A
+  `derive:` expression also splits on `,` like `gauge:` always did, instead of
+  looking the whole `a,b` string up as one key and sending a single zero. Only
+  hand-written mappings are affected, and only where they were reporting
+  zeroes.
 
 See the [REST metrics reference](../api/rest/metrics.md#openmetrics) and the
 [Prometheus scenario](../scenarios/prometheus.md) for the full rules.
