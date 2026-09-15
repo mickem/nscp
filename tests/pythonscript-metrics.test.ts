@@ -110,7 +110,7 @@ describe("PythonScript metrics", () => {
   it("publishes a script's metrics with the metadata the script declared", async () => {
     const text = await poll(
       () => getText(key, "application/openmetrics-text;version=1.0.0"),
-      (t) => /^pyfixture_plain /m.test(t),
+      (t) => /^metric_pyfixture_plain /m.test(t),
     );
 
     // The bare number: a gauge, no help, no unit - exactly as before.
