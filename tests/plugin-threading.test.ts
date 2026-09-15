@@ -48,6 +48,9 @@ const NRPE_PORT = 15666;
 
 /** How long the slow check blocks for, in milliseconds. */
 const SLOW_MS = 2000;
+/** How long `lua_parked` sits with the Lua lock dropped. Long enough that
+ * every caller is demonstrably inside the interpreter at once. */
+const PARK_MS = 400;
 
 /**
  * Absolute path to a Python interpreter, or null if there is none. Asked for
@@ -248,8 +251,25 @@ describe("plugin threading", () => {
         "-- LUAScript querying a command LUAScript serves: core -> module ->",
         "-- core -> same module, all on one thread.",
         "local function nested(command, args)",
+        "  -- Held across the core call, which drops the Lua lock. If another",
+        "  -- thread could run on this invocation's stack while we are in the",
+        "  -- core, this local is what comes back wrong.",
+        "  local sentinel = 'sentinel-' .. tostring(#args)",
         "  local code, msg, perf = core:simple_query('lua_inner', {})",
-        "  return 'ok', 'nested saw: ' .. tostring(msg)",
+        "  return 'ok', 'nested saw: ' .. tostring(msg) .. ' [' .. sentinel .. ']'",
+        "end",
+        "",
+        "-- The shape that used to corrupt the interpreter: park with the lua",
+        "-- lock released so several invocations are certain to be inside it at",
+        "-- once, each with live locals, and only then call into the core. The",
+        "-- tag is this caller's alone, so a crossed stack shows up as another",
+        "-- caller's tag coming back rather than as a subtle timing miss.",
+        "local function parked(command, args)",
+        "  local tag = tostring(args[1])",
+        "  local sentinel = 'sentinel-' .. tag",
+        `  nscp.sleep(${PARK_MS})`,
+        "  local code, msg, perf = core:simple_query('lua_inner', {})",
+        "  return 'ok', 'parked ' .. tag .. ' saw: ' .. tostring(msg) .. ' [' .. sentinel .. ']'",
         "end",
         "",
         "-- Two levels of the same thing.",
@@ -263,6 +283,7 @@ describe("plugin threading", () => {
         "reg:simple_function('lua_inner', inner, 'innermost self-query target')",
         "reg:simple_function('lua_nested', nested, 'queries a command its own module serves')",
         "reg:simple_function('lua_deep', deep, 'two levels of self-query')",
+        "reg:simple_function('lua_parked', parked, 'parks with the lua lock released, then queries the core')",
         "",
       ].join("\n"),
     );
@@ -554,30 +575,45 @@ describe("plugin threading", () => {
     expect(await nrpe("check_ok", ["message=still-alive"])).toContain("still-alive");
   });
 
-  // KNOWN DEFECT - skipped because it kills the agent, not because it is
-  // flaky. Two callers running the same Lua script at once, where the script
-  // calls back into the core, corrupt the interpreter and the process dies
-  // with SIGSEGV (or a Lua PANIC -> abort). Reproduced on this branch and on
-  // an unmodified main, so it predates the concurrency fixes; four concurrent
-  // `lua_nested` calls took three rounds to bring the agent down.
-  //
-  // Mechanism: lua_core.hpp's prep_function hands out `information->
-  // user_data.L`, i.e. one lua_State per *script*, shared by every concurrent
-  // invocation of every function in it. lua_script.cpp drops the interpreter
-  // lock around core calls (`lua::lua_gil::release` in the simple_query
-  // binding), so while one thread is inside the core a second thread pushes
-  // onto and runs the very same lua_State. Two threads driving one Lua stack
-  // corrupts it: a local that cannot be nil reads back as nil, and then the
-  // process dies.
-  //
-  // Fixing it means giving each invocation its own execution state (a
-  // lua_newthread coroutine off the script's state is the usual answer) or
-  // holding the lock across core calls. Both are a change to the Lua
-  // threading model rather than a tweak, so this is left failing-by-omission
-  // and documented here instead of being papered over. Un-skip once fixed.
-  it.skip("serves concurrent scripted checks that call back into the core", async () => {
-    const results = await Promise.all(Array.from({ length: 4 }, () => nrpe("lua_nested")));
-    for (const r of results) expect(r).toContain("nested saw: inner reached");
+  it("serves concurrent scripted checks that call back into the core", async () => {
+    // The case that used to kill the agent, and the reason LUAScript now runs
+    // every invocation on its own coroutine.
+    //
+    // What it used to do: lua_core.hpp's prep_function handed out
+    // `information->user_data.L`, one lua_State per *script*, shared by every
+    // concurrent invocation of every function in it. lua_script.cpp drops the
+    // interpreter lock around core calls and around nscp.sleep, so while one
+    // thread was parked a second pushed its arguments onto - and ran on - the
+    // very same Lua stack, right through the first one's live frame. A local
+    // that could not be nil read back as nil and the process died with SIGSEGV
+    // or a Lua PANIC.
+    //
+    // `lua_parked` makes that overlap certain rather than lucky: every caller
+    // drops the lock for PARK_MS before it calls the core, so all of them are
+    // inside the interpreter together with live locals on their stacks. Each
+    // carries a tag of its own, so a crossed stack surfaces as another
+    // caller's tag coming back, not as a timing near-miss.
+    //
+    // A coroutine off the script's state has its own stack while sharing the
+    // globals, registry and heap, so every tag must survive and the agent must
+    // still be answering afterwards.
+    const callers = 4;
+    const rounds = 3;
+    for (let round = 0; round < rounds; round++) {
+      const started = Date.now();
+      const tags = Array.from({ length: callers }, (_, i) => `r${round}c${i}`);
+      const results = await Promise.all(tags.map((tag) => nrpe("lua_parked", [tag])));
+      const elapsed = Date.now() - started;
+
+      results.forEach((r, i) => {
+        expect(r).toContain(`parked ${tags[i]} saw: inner reached [sentinel-${tags[i]}]`);
+      });
+
+      // ...and they really were concurrent, so the assertions above are about
+      // a shared interpreter rather than about four calls taking turns.
+      expect(elapsed).toBeLessThan(callers * PARK_MS * 0.75);
+    }
+
     expect(await nrpe("check_ok", ["message=still-alive"])).toContain("still-alive");
   });
 

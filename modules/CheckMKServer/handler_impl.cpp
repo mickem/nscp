@@ -27,9 +27,11 @@ check_mk::packet handler_impl::process() {
   // scheduler tick may be executing on the same lua_State on yet another
   // thread. Lua has no internal locking, so concurrent pcall (let alone the
   // full collection below) corrupts the interpreter heap. Hold the GIL across
-  // the whole sequence, including prep_function's pushes. See lua::lua_gil.
+  // the whole sequence, including the coroutine this invocation runs on and
+  // prep_function's pushes onto it. See lua::lua_gil and lua::lua_thread.
   lua::lua_gil::guard gil;
-  lua::lua_wrapper instance(lua::lua_runtime::prep_function(cmd.value().information, cmd.value().function));
+  lua::lua_thread thread(cmd.value().information);
+  lua::lua_wrapper instance(lua::lua_runtime::prep_function(thread, cmd.value().function));
   int args = 1;
   if (cmd.value().function.object_ref != 0) {
     args = 2;

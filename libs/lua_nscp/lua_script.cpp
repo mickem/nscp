@@ -232,8 +232,13 @@ int lua::core_wrapper::reload(lua_State *L) {
   if (lua_instance.size() < 1) return lua_instance.error("Incorrect syntax: reload([<module>]);");
   std::string module = "module";
   const std::string target = lua_instance.pop_string();
-  lua::lua_gil::release unlocked;
-  get_core(lua_instance)->reload(target);
+  {
+    // Scoped like every other core call here: a release left open to the end
+    // of the function is one edit away from being skipped by a longjmp out of
+    // luaL_error, which would leave the GIL unlocked for good.
+    lua::lua_gil::release unlocked;
+    get_core(lua_instance)->reload(target);
+  }
   return 0;
 }
 int lua::core_wrapper::log(lua_State *L) {

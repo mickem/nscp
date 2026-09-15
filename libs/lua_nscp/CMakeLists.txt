@@ -56,4 +56,27 @@ if(LUA_FOUND OR LUA_SOURCE_FOUND)
     if(CMAKE_COMPILER_IS_GNUCXX)
         nscp_apply_pic(${TARGET})
     endif(CMAKE_COMPILER_IS_GNUCXX)
+
+    # The threading model itself: the GIL's depth arithmetic and the
+    # per-invocation coroutine. Both are pure library logic, so they are
+    # testable wherever Lua was found.
+    NSCP_CREATE_TEST(
+        lua_threading_test
+        SOURCES
+            lua_threading_test.cpp
+            # lua_nscp's core_wrapper::log() calls nscapi::logging::parse, which
+            # the Windows plugin_api DLL does not export.
+            ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+        LIBRARIES
+            GTest::gtest_main
+            ${NSCP_DEF_PLUGIN_LIB}
+            lua_nscp
+            ${LUA_LIBRARIES}
+            ${Boost_THREAD_LIBRARY}
+            ${Boost_DATE_TIME_LIBRARY}
+        INCLUDES
+            ${NSCP_INCLUDEDIR}
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${LUA_INCLUDE_DIR}
+    )
 endif()

@@ -19,6 +19,36 @@ boost::recursive_mutex &lua::lua_gil::mutex() {
   return m;
 }
 
+unsigned &lua::lua_gil::depth() {
+  static thread_local unsigned d = 0;
+  return d;
+}
+
+lua::lua_gil::release::release() : held_(depth()) {
+  depth() = 0;
+  for (unsigned i = 0; i < held_; ++i) mutex().unlock();
+}
+
+lua::lua_gil::release::~release() {
+  for (unsigned i = 0; i < held_; ++i) mutex().lock();
+  depth() = held_;
+}
+
+lua::lua_thread::lua_thread(const lua::script_information *information) : lua_thread(information->user_data.L.get_state()) {}
+
+lua::lua_thread::lua_thread(lua_State *parent) : parent_(parent), state_(nullptr), ref_(LUA_NOREF) {
+  state_ = lua_newthread(parent_);
+  // Pops the thread off the parent's stack and keeps it reachable for the GC
+  // until we hand the ref back. The parent's top is restored by the pop, so a
+  // parent that is itself mid-call (a script body that queried the core) is
+  // left exactly as it was.
+  ref_ = luaL_ref(parent_, LUA_REGISTRYINDEX);
+}
+
+lua::lua_thread::~lua_thread() {
+  if (ref_ != LUA_NOREF) luaL_unref(parent_, LUA_REGISTRYINDEX, ref_);
+}
+
 void lua::lua_runtime::register_query(const std::string &command, const std::string &description) {
   throw lua_exception("The method or operation is not implemented(reg_query).");
 }
@@ -31,7 +61,8 @@ void lua::lua_runtime::on_query(std::string command, script_information *informa
                                 const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                                 const PB::Commands::QueryRequestMessage &request_message) {
   lua_gil::guard gil;
-  lua_wrapper lua(prep_function(information, function));
+  lua_thread thread(information);
+  lua_wrapper lua(prep_function(thread, function));
   int args = 2;
   if (function.object_ref != 0) args = 3;
   if (simple) {
@@ -76,7 +107,8 @@ void lua::lua_runtime::on_query(std::string command, script_information *informa
 void lua::lua_runtime::exec_main(script_information *information, const std::vector<std::string> &opts,
                                  PB::Commands::ExecuteResponseMessage::Response *response) {
   lua_gil::guard gil;
-  lua_wrapper lua(prep_function(information, "main"));
+  lua_thread thread(information);
+  lua_wrapper lua(prep_function(thread, "main"));
   lua.push_array(opts);
   if (lua.pcall(1, 2, 0) != 0) return nscapi::protobuf::functions::set_response_bad(*response, "Failed to handle command main: " + lua.pop_string());
   NSCAPI::nagiosReturn ret = NSCAPI::exec_return_codes::returnERROR;
@@ -95,7 +127,8 @@ void lua::lua_runtime::on_exec(std::string command, script_information *informat
                                const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response,
                                const PB::Commands::ExecuteRequestMessage &request_message) {
   lua_gil::guard gil;
-  lua_wrapper lua(prep_function(information, function));
+  lua_thread thread(information);
+  lua_wrapper lua(prep_function(thread, function));
   int args = 2;
   if (function.object_ref != 0) args = 3;
   if (simple) {
@@ -138,7 +171,8 @@ void lua::lua_runtime::on_exec(std::string command, script_information *informat
 void lua::lua_runtime::on_submit(std::string channel, script_information *information, lua::lua_traits::function_type function, bool simple,
                                  const PB::Commands::QueryResponseMessage::Response &request, PB::Commands::SubmitResponseMessage::Response *response) {
   lua_gil::guard gil;
-  lua_wrapper lua(prep_function(information, function));
+  lua_thread thread(information);
+  lua_wrapper lua(prep_function(thread, function));
   // cmd_args is the leading self argument (1 when the handler is a bound method,
   // 0 otherwise); the fixed channel/command/... args are added on at each pcall.
   int cmd_args = 0;
@@ -190,8 +224,13 @@ void lua::lua_runtime::on_submit(std::string channel, script_information *inform
 
 void lua::lua_runtime::create_user_data(scripts::script_information<lua_traits> *info) { info->user_data.base_path_ = base_path; }
 
+// load/start/unload all drive the script's own lua_State. A settings reload
+// runs them on the reload thread while handlers are live on the io pools, so
+// they need the GIL exactly as a query does - without it a reload re-ran a
+// script body straight into an interpreter another thread was using.
 void lua::lua_runtime::load(scripts::script_information<lua_traits> *info) {
   const std::string &script_base_path = info->user_data.base_path_;
+  lua_gil::guard gil;
   lua_wrapper lua_instance(info->user_data.L);
   lua_instance.set_userdata(lua::lua_traits::user_data_tag, info);
   lua_instance.openlibs();
@@ -200,22 +239,28 @@ void lua::lua_runtime::load(scripts::script_information<lua_traits> *info) {
     plugin->load(lua_instance);
   }
   lua_instance.append_path(script_base_path + "/scripts/lua/lib/?.lua;" + script_base_path + "scripts/lua/?;");
-  if (lua_instance.loadfile(info->script) != 0) throw lua::lua_exception("Failed to load script: " + info->script + ": " + lua_instance.pop_string());
-  if (lua_instance.pcall(0, 0, 0) != 0) throw lua::lua_exception("Failed to execute script: " + info->script + ": " + lua_instance.pop_string());
-  lua_instance.gc(LUA_GCCOLLECT, 0);
+  // The chunk runs on its own stack like any other invocation: a script body
+  // is free to call into the core, which drops the GIL, and the parent state's
+  // stack must not be live across that. See lua_thread.
+  lua_thread thread(info);
+  lua_wrapper chunk(thread.state());
+  if (chunk.loadfile(info->script) != 0) throw lua::lua_exception("Failed to load script: " + info->script + ": " + chunk.pop_string());
+  if (chunk.pcall(0, 0, 0) != 0) throw lua::lua_exception("Failed to execute script: " + info->script + ": " + chunk.pop_string());
+  chunk.gc(LUA_GCCOLLECT, 0);
 }
 void lua::lua_runtime::start(scripts::script_information<lua_traits> *info) {
-  lua_wrapper lua_instance(info->user_data.L);
+  lua_gil::guard gil;
+  lua_thread thread(info);
+  lua_wrapper lua_instance(thread.state());
   lua_instance.getglobal("on_start");
-  if (lua_instance.is_function()) {
-    lua_instance.getglobal("on_start");
-    if (lua_instance.pcall(0, 0, 0) != 0) {
-      throw lua_exception("Failed to start script: " + info->script + ": " + lua_instance.pop_string());
-    }
+  if (!lua_instance.is_function()) return;
+  if (lua_instance.pcall(0, 0, 0) != 0) {
+    throw lua_exception("Failed to start script: " + info->script + ": " + lua_instance.pop_string());
   }
 }
 
 void lua::lua_runtime::unload(scripts::script_information<lua_traits> *info) {
+  lua_gil::guard gil;
   lua_wrapper lua_instance(info->user_data.L);
   for (lua_runtime_plugin_type &plugin : plugins) {
     plugin->unload(lua_instance);
