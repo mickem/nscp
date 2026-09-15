@@ -148,6 +148,39 @@ decide whether a given dereference is safe.
   plugin singleton themselves (normally provided by `NSC_WRAP_DLL()`):
   `nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();`
 
+## Metrics
+- A module publishes metrics from `fetchMetrics()`, through the builder in
+  `nscapi/nscapi_metrics_helper.hpp`:
+  `metric(bundle, "physical.used").help("Physical memory in use").unit("bytes").gauge(v);`
+  A new metric **declares at least `help`**, and `unit` whenever the value is
+  measured in something. The bare `add_metric(bundle, key, value)` overloads
+  still work and are kept for out-of-tree modules, but everything they produce
+  is an anonymous gauge on `/api/v2/openmetrics`. `describe(bundle, "…")` gives
+  a whole section one description, which every metric in it that declares none
+  of its own inherits — the cheap way to describe a per-core or per-NIC family.
+- The terminal call is the metric's **type**, and it is a real decision.
+  `counter(v)` is only for a value that is monotonic for the lifetime of the
+  process (jobs run, errors seen, `times_seen`); `gauge(v)` is for anything that
+  can go down again, including names that read like counts (a per-second packet
+  rate, the number of pending updates). A gauge read as a counter produces
+  nonsense at every dip, so **check how the value is computed before typing it**
+  — the WMI `Packets*Errors` fields are named like totals and are converted to
+  per-second rates before they reach the bundle. `info(s)` is for a string; it
+  becomes a label of the bundle's `_info` family.
+- **Units are only declared where the value is measured in something**
+  (`bytes`, `seconds`, `percent`, `celsius`, `milliseconds`, `mhz`). A
+  per-second rate declares none: the exposition appends the unit to the family
+  name, and `..._received_bytes` would claim the sample is a byte count. A key
+  that already ends in its unit (`.%` sanitises to `_percent`, `current_mhz`)
+  keeps the name it had, so declaring the unit there is free.
+- **The key is the wire format.** `/api/v2/metrics`, `/metrics`, the web UI
+  dashboard, Graphite, collectd and Python `submit_metrics` all read
+  `Metric.key`; only the OpenMetrics renderer reads `desc`, `unit`, `dims` and
+  `alias`. So metadata never moves a key, and a consumer that forwards numbers
+  reads them through `nscapi::metrics::numeric_value()` rather than
+  `has_gauge_value()` — otherwise retyping a metric as a counter silently drops
+  it from that consumer.
+
 ## Documentation for new commands
 Every new check command needs, under `docs/samples/`:
 - `<Module>_<command>_samples.md` — usage examples with real captured output.

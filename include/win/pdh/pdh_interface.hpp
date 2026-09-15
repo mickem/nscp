@@ -87,6 +87,12 @@ enum resolution_struct { resolution_auto, resolution_english, resolution_index }
 struct pdh_object {
   std::string path;
   std::string alias;
+  // What the counter measures, and in what. Operator supplied, and used only
+  // to describe the counter's metric on the OpenMetrics endpoint - an operator
+  // naming a counter `disk_queue_length` is the only one who knows what it is.
+  // Empty help falls back to the counter path.
+  std::string help;
+  std::string unit;
 
   types::data_type_struct type;
   types::data_format_struct format;
@@ -107,7 +113,11 @@ struct pdh_object {
   void set_alias(const std::string &alias_) { alias = alias_; }
 
   pdh_object()
-      : type(types::type_int64), format(types::format_large), strategy_(types::static_value), buffer_size(0), flags_(format_double),
+      : type(types::type_int64),
+        format(types::format_large),
+        strategy_(types::static_value),
+        buffer_size(0),
+        flags_(format_double),
         resolution_(types::resolution_auto) {}
 
   void set_default_buffer_size(const std::string &buffer_size_);

@@ -142,24 +142,42 @@ void network_interface::read_prd(wmi_impl::row r, long long delta) {
 }
 
 void network_interface::build_metrics(PB::Metrics::MetricsBundle *section) const {
-  using namespace nscapi::metrics;
+  using nscapi::metrics::describe;
+  using nscapi::metrics::metric;
 
   section->set_key("network");
-  add_metric(section, name + ".NetConnectionID", NetConnectionID);
-  add_metric(section, name + ".MACAddress", MACAddress);
-  add_metric(section, name + ".NetConnectionStatus", NetConnectionStatus);
-  add_metric(section, name + ".NetEnabled", NetEnabled);
-  add_metric(section, name + ".Speed", Speed);
+  describe(section, "Network adapters and their traffic, as reported by WMI");
+  // The five WMI properties are strings, including Speed - they describe the
+  // adapter rather than measure it, so they fold into the section's info
+  // family instead of becoming samples.
+  metric(section, name + ".NetConnectionID").help("Name Windows shows for the connection").info(NetConnectionID);
+  metric(section, name + ".MACAddress").help("Hardware address of the adapter").info(MACAddress);
+  metric(section, name + ".NetConnectionStatus").help("Connection state Windows reports for the adapter").info(NetConnectionStatus);
+  metric(section, name + ".NetEnabled").help("Whether the adapter is enabled").info(NetEnabled);
+  metric(section, name + ".Speed").help("Negotiated link speed in bits per second, as WMI spells it").info(Speed);
   if (has_prd) {
-    add_metric(section, name + ".BytesReceivedPersec", BytesReceivedPersec);
-    add_metric(section, name + ".BytesSentPersec", BytesSentPersec);
-    add_metric(section, name + ".BytesTotalPersec", BytesTotalPersec);
-    add_metric(section, name + ".PacketsReceivedPersec", PacketsReceivedPersec);
-    add_metric(section, name + ".PacketsSentPersec", PacketsSentPersec);
-    add_metric(section, name + ".PacketsReceivedErrors", PacketsReceivedErrors);
-    add_metric(section, name + ".PacketsOutboundErrors", PacketsOutboundErrors);
-    add_metric(section, name + ".PacketsReceivedDiscarded", PacketsReceivedDiscarded);
-    add_metric(section, name + ".PacketsOutboundDiscarded", PacketsOutboundDiscarded);
+    // Per-second rates, so no unit: the sample is a rate, not a byte or packet
+    // count, and a `_bytes` suffix would say otherwise.
+    metric(section, name + ".BytesReceivedPersec").help("Bytes received per second").gauge(BytesReceivedPersec);
+    metric(section, name + ".BytesSentPersec").help("Bytes sent per second").gauge(BytesSentPersec);
+    metric(section, name + ".BytesTotalPersec").help("Bytes sent and received per second").gauge(BytesTotalPersec);
+    metric(section, name + ".PacketsReceivedPersec").help("Packets received per second").gauge(PacketsReceivedPersec);
+    metric(section, name + ".PacketsSentPersec").help("Packets sent per second").gauge(PacketsSentPersec);
+    // WMI hands these four over as running totals, but query_prd() has already
+    // turned them into per-second rates like the five above - so they are
+    // gauges, not counters, however much their names read like counts.
+    metric(section, name + ".PacketsReceivedErrors")
+        .help("Inbound packets per second that could not be received because of an error")
+        .gauge(PacketsReceivedErrors);
+    metric(section, name + ".PacketsOutboundErrors")
+        .help("Outbound packets per second that could not be sent because of an error")
+        .gauge(PacketsOutboundErrors);
+    metric(section, name + ".PacketsReceivedDiscarded")
+        .help("Inbound packets per second discarded although no error was found")
+        .gauge(PacketsReceivedDiscarded);
+    metric(section, name + ".PacketsOutboundDiscarded")
+        .help("Outbound packets per second discarded although no error was found")
+        .gauge(PacketsOutboundDiscarded);
   }
 }
 

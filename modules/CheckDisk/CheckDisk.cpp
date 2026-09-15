@@ -9,12 +9,10 @@
 
 #include <algorithm>
 #include <cctype>
-#include <limits>
 #include <compat.hpp>
-#include <nscapi/macros.hpp>
-#include <str/format.hpp>
-#include <str/utf8.hpp>
 #include <file_helpers.hpp>
+#include <limits>
+#include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_metrics_helper.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
@@ -25,15 +23,17 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/helpers.hpp>
+#include <str/format.hpp>
+#include <str/utf8.hpp>
 
 #include "check_disk_health.hpp"
 #include "check_disk_write.hpp"
 #include "check_drive.hpp"
 #include "check_files.hpp"
 #include "check_mount.hpp"
-#include "check_single_file.hpp"
 #include "check_shadowcopy.hpp"
 #include "check_share.hpp"
+#include "check_single_file.hpp"
 #include "check_storagepool.hpp"
 #include "check_uncpath.hpp"
 #include "file_finder.hpp"
@@ -269,6 +269,7 @@ void CheckDisk::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
   if (!disks.empty()) {
     PB::Metrics::MetricsBundle *section = bundle->add_children();
     section->set_key("io");
+    describe(section, "Disk I/O per physical disk, sampled by the background collector");
     for (const disk_io_check::disks_type::value_type &v : disks) {
       v.build_metrics(section);
     }
@@ -278,6 +279,7 @@ void CheckDisk::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
   if (!drives.empty()) {
     PB::Metrics::MetricsBundle *section = bundle->add_children();
     section->set_key("free");
+    describe(section, "Space per mounted volume");
     for (const disk_free_check::drives_type::value_type &v : drives) {
       v.build_metrics(section);
     }

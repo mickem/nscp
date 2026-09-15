@@ -2659,6 +2659,14 @@ windows:
             description: Extra flags to configure the counter (nocap100, 1000, noscale)
             sample: true
             title: FLAGS
+          help:
+            advanced: false
+            default_value: ''
+            description: 'One line describing what this counter measures. Emitted as the # HELP line of
+              the counter''s metric on /api/v2/openmetrics; the counter path is used when this is empty.
+              Nothing else reads it.'
+            sample: true
+            title: COUNTER DESCRIPTION
           instances:
             advanced: false
             default_value: ''
@@ -2693,6 +2701,15 @@ windows:
             description: The type of counter to use long, large and double
             sample: true
             title: COUNTER TYPE
+          unit:
+            advanced: false
+            default_value: ''
+            description: 'What the counter''s value is measured in (bytes, seconds, percent, ...). Emitted
+              as the # UNIT line on /api/v2/openmetrics, and appended to the metric name there, which
+              OpenMetrics requires of a metric that declares a unit. Leave empty for a plain count or
+              a rate.'
+            sample: true
+            title: COUNTER UNIT
     /settings/system/windows/real-time/checks:
       info:
         advanced: false

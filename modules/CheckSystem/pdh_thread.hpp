@@ -38,6 +38,15 @@ class pdh_thread {
   typedef boost::variant<std::string, long long, double> value_type;
   typedef boost::unordered_map<std::string, value_type> metrics_hash;
 
+  // What an operator said a configured counter measures. Keyed by the counter
+  // alias, which is the segment of the metric key after `pdh.` and before any
+  // instance, so fetchMetrics can find it from the key alone.
+  struct counter_meta {
+    std::string help;
+    std::string unit;
+  };
+  typedef std::map<std::string, counter_meta> counter_meta_map;
+
  private:
   typedef boost::unordered_map<std::string, PDH::pdh_instance> lookup_type;
   typedef std::list<std::string> error_list;
@@ -55,6 +64,7 @@ class pdh_thread {
   nscapi::core_wrapper *core_;
 
   metrics_hash metrics;
+  counter_meta_map counter_meta_;
 
   std::list<PDH::pdh_object> configs_;
   std::list<PDH::pdh_instance> counters_;
@@ -126,6 +136,8 @@ class pdh_thread {
   // off or the collector has not yet completed its first two samples.
   process_checks::cpu_delta_map get_process_cpu_deltas();
   metrics_hash get_metrics();
+  // The help and unit of every configured counter, for the metrics walk.
+  counter_meta_map get_counter_meta();
 
   // Whether a collector is turned off via the `disable` setting (whole-token
   // match, see disable_list.hpp).

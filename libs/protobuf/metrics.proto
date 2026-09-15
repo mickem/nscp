@@ -33,8 +33,20 @@ message Bucket {
 
 
 message Metric {
+	// The name of this metric within its bundle. Joined with the bundle path by
+	// a "." it is the key of the flat JSON view (/api/v2/metrics), the Graphite
+	// path and the collectd identifier, so it is the one field no consumer may
+	// see move: producers keep composing it exactly as before, and the metadata
+	// below is what the OpenMetrics exposition reads instead.
 	string key = 1;
+	// Labels for the OpenMetrics exposition. Only the OpenMetrics renderer reads
+	// them; every flat consumer keeps reading `key`, so a metric whose key still
+	// embeds its instance ("core 0.idle") can carry core="0" here without
+	// renaming anything.
 	repeated PB.Common.KeyValue dims = 11;
+	// Which member is set is the metric's OpenMetrics type: gauge, counter
+	// (rendered with the `_total` suffix the spec requires), unknown, summary,
+	// histogram - or, for a string, a label of the bundle's `_info` family.
 	oneof value {
 		PB.Common.OptionalFloat gauge_value = 5;
 		PB.Common.OptionalString string_value = 6;
@@ -44,8 +56,18 @@ message Metric {
 		Histogram histogram_value = 10;
 	}
 
+	// The OpenMetrics family name relative to the bundle, when it differs from
+	// `key` - which it does exactly when the key embeds an instance that `dims`
+	// carries as a label ("core 0.idle" -> alias "idle", dims core="0"). Empty
+	// means the key is the name.
 	string alias = 3;
+	// One line of help text, emitted as `# HELP`. A metric without one falls
+	// back to its bundle's `desc`.
 	string desc = 4;
+	// The unit of the value ("bytes", "seconds", "percent", ...), emitted as
+	// `# UNIT` and appended to the family name, which OpenMetrics requires a
+	// unit-carrying family to end with. Empty for a unitless count.
+	string unit = 12;
 }
 
 message MetricsBundle {
@@ -54,6 +76,7 @@ message MetricsBundle {
 	repeated MetricsBundle children = 6;
 
 	string alias = 3;
+	// Help text for every metric of this bundle that declares none of its own.
 	string desc = 4;
 }
 
