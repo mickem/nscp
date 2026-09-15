@@ -4,9 +4,9 @@
  * A script returns a dict of readings once per metrics interval. A bare number
  * is a gauge with no description, which is all a script could ever say — so on
  * /api/v2/openmetrics its metrics were names and numbers with nothing telling a
- * scraper what they meant. A value may now be a dict carrying `help`, `unit`
- * and `type` alongside the number; this pins both forms, and that the flat JSON
- * view sees the same keys and values either way.
+ * scraper what they meant. A value may now be a dict carrying `help`,
+ * `unit`, `type` and `labels` alongside the number; this pins both forms, and
+ * that the flat JSON view sees the same keys and values either way.
  *
  * A script's metrics arrive under a bundle with no key at all, so the joined
  * name starts with the separator and borrows the `metric_` prefix a name may
@@ -42,6 +42,26 @@ def my_metrics():
             "value": 4096,
             "help": "Size of the last payload",
             "unit": "bytes",
+        },
+        # Labels, which is how a script says what a reading is *of*. The key
+        # is untouched; only the OpenMetrics endpoint reads them.
+        "pyfixture.queue_depth": {
+            "value": 5,
+            "help": "Messages waiting on the queue",
+            "labels": {"queue": "inbound", "region": "eu-west"},
+        },
+        # A label whose value is not a string, or is empty, is skipped rather
+        # than guessed at - an empty label is the same series as no label.
+        "pyfixture.partly_labelled": {
+            "value": 6,
+            "labels": {"good": "yes", "numeric": 8080, "empty": ""},
+        },
+        # Labels that are not a dict (a list of tuples is the shape people
+        # reach for first) are ignored, the metric is still published, and the
+        # agent logs why once.
+        "pyfixture.bad_labels": {
+            "value": 9,
+            "labels": [("queue", "inbound")],
         },
         # A type nobody recognises falls back to a gauge rather than vanishing.
         "pyfixture.typo": {"value": 7, "type": "not-a-type"},
@@ -134,6 +154,17 @@ describe("PythonScript metrics", () => {
     expect(text).toMatch(/^# TYPE metric_pyfixture_typo gauge$/m);
     expect(text).toMatch(/^metric_pyfixture_typo 7$/m);
 
+    // The labels a script declared reach the sample, in the order it wrote
+    // them, and nothing else does.
+    expect(text).toMatch(/^metric_pyfixture_queue_depth\{queue="inbound",region="eu-west"\} 5$/m);
+    expect(text).toMatch(/^# HELP metric_pyfixture_queue_depth Messages waiting on the queue$/m);
+    // A non-string label value and an empty one are both dropped; the usable
+    // one still lands.
+    expect(text).toMatch(/^metric_pyfixture_partly_labelled\{good="yes"\} 6$/m);
+    // Labels that are not a dict at all: the reading still publishes, without
+    // them, rather than the whole metric vanishing.
+    expect(text).toMatch(/^metric_pyfixture_bad_labels 9$/m);
+
     // A dict with no `value` has nothing to publish, and must not leave a
     // keyed metric with no sample behind.
     expect(text).not.toMatch(/pyfixture_novalue/);
@@ -159,6 +190,11 @@ describe("PythonScript metrics", () => {
     expect(metrics[".pyfixture.requests"]).toBe(42);
     expect(metrics[".pyfixture.size"]).toBe(4096);
     expect(metrics[".pyfixture.status"]).toBe("ok");
+    // A labelled metric keeps its key here too: the labels are additive, so a
+    // script gains them without its Graphite path or its dashboard moving.
+    expect(metrics[".pyfixture.queue_depth"]).toBe(5);
+    expect(metrics[".pyfixture.partly_labelled"]).toBe(6);
+    expect(metrics[".pyfixture.bad_labels"]).toBe(9);
     expect(metrics[".pyfixture.novalue"]).toBeUndefined();
   });
 });

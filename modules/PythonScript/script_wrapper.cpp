@@ -717,6 +717,44 @@ std::string metric_meta(const py::dict &value, const char *key) {
   return extracter.check() ? std::string(extracter) : std::string();
 }
 
+// The `labels` field of the dict form, written onto the metric as dimensions.
+// Only the OpenMetrics renderer reads them, and it reads them alongside the
+// key, so a script gains labels without its metric moving in the flat JSON
+// view, in Graphite or in a `submit_metrics` callback.
+//
+// A label whose name or value is not a string is skipped rather than
+// stringified: guessing at what `{"port": 8080}` was meant to mean is how a
+// label value ends up spelled differently from one release to the next. An
+// empty value is skipped too, since `x=""` and an absent `x` are the same
+// series to a scraper, so emitting one would silently collide with a sample
+// that has it filled in.
+void set_metric_labels(PB::Metrics::Metric *metric, const py::dict &value, const std::string &key) {
+  if (!value.has_key("labels")) return;
+  const py::extract<py::dict> labelExtr(value["labels"]);
+  if (!labelExtr.check()) {
+    // A list of tuples or a bare string is the shape somebody reaches for
+    // first, and silently publishing the metric unlabelled leaves them
+    // reading a scrape that is missing the dimension with nothing to say why.
+    // Once per key, like the unknown-type path, rather than every ten seconds.
+    static std::set<std::string> reported;
+    if (reported.insert(key).second) {
+      NSC_LOG_ERROR("Ignoring the labels on '" + key + "': labels must be a dict of strings. Publishing the metric without them.");
+    }
+    return;
+  }
+  const py::dict labels = labelExtr;
+  const py::list names = labels.keys();
+  for (int i = 0; i < len(names); ++i) {
+    const py::extract<std::string> name(names[i]);
+    const py::extract<std::string> text(labels[names[i]]);
+    if (!name.check() || !text.check()) continue;
+    if (std::string(name).empty() || std::string(text).empty()) continue;
+    PB::Common::KeyValue *dim = metric->add_dims();
+    dim->set_key(name);
+    dim->set_value(text);
+  }
+}
+
 // Sets the metric's value from a Python scalar, typed as `type` says. Returns
 // false for a value that is neither a string nor a number, which is the one
 // case where there is nothing to report at all.
@@ -787,11 +825,12 @@ void script_wrapper::function_wrapper::fetch_metrics(std::string &request) const
             // A scalar is a gauge with no description, as it always was. A
             // dict is the same value with the metadata a bare number cannot
             // carry: {"value": 42, "help": "...", "unit": "bytes",
-            // "type": "counter"}.
+            // "type": "counter", "labels": {"queue": "inbound"}}.
             py::object scalar = curArg;
             std::string help;
             std::string unit;
             std::string type;
+            PB::Metrics::Metric metric;
             const py::extract<py::dict> dictExtr(curArg);
             if (dictExtr.check()) {
               const py::dict described = dictExtr;
@@ -800,9 +839,9 @@ void script_wrapper::function_wrapper::fetch_metrics(std::string &request) const
               help = metric_meta(described, "help");
               unit = metric_meta(described, "unit");
               type = metric_meta(described, "type");
+              set_metric_labels(&metric, described, key);
             }
 
-            PB::Metrics::Metric metric;
             metric.set_key(key);
             if (!help.empty()) metric.set_desc(help);
             if (!unit.empty()) metric.set_unit(unit);

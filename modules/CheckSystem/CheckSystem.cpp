@@ -1332,9 +1332,14 @@ class add_visitor : public boost::static_visitor<> {
   // Held by value: the visitor outlives nothing in particular and two short
   // strings are cheaper than reasoning about whose they are.
   const pdh_thread::counter_meta meta;
+  // Set for a counter configured with instances, which publishes one key per
+  // instance. Empty family means the key is the whole name, which is every
+  // counter without them.
+  const pdh_thread::dimension dims;
 
  public:
-  add_visitor(PB::Metrics::MetricsBundle *b, const std::string &key, pdh_thread::counter_meta meta) : b(b), key(key), meta(std::move(meta)) {}
+  add_visitor(PB::Metrics::MetricsBundle *b, const std::string &key, pdh_thread::counter_meta meta, pdh_thread::dimension dims)
+      : b(b), key(key), meta(std::move(meta)), dims(std::move(dims)) {}
   // A PDH counter is whatever the operator pointed it at, so there is no
   // honest type to give it beyond gauge - and no help or unit either, unless
   // they said.
@@ -1343,10 +1348,27 @@ class add_visitor : public boost::static_visitor<> {
   void operator()(const double &d) const { build().gauge(d); }
 
  private:
-  nscapi::metrics::metric_builder build() const { return nscapi::metrics::metric(b, key).help(meta.help).unit(meta.unit); }
+  nscapi::metrics::metric_builder build() const {
+    // The instance is the *last* segment of a PDH key, so the key is spelled
+    // out rather than composed from the family name - which is also why the
+    // split has to be recorded where it is still known: a counter name can
+    // itself contain dots.
+    //
+    // The dimension is `pdh_instance`, not `instance`: Prometheus attaches its
+    // own `instance` label (the scrape target) to every sample, and under the
+    // default `honor_labels: false` an exported one is renamed
+    // `exported_instance`. A query written against `instance` would match the
+    // host rather than the counter instance and quietly return nothing - and
+    // the scenario page's own `by (instance)` examples do mean the host.
+    if (dims.family.empty()) return nscapi::metrics::metric(b, key).help(meta.help).unit(meta.unit);
+    return nscapi::metrics::metric(b, dims.family).key(key).label("pdh_instance", dims.instance).help(meta.help).unit(meta.unit);
+  }
 };
 void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
+  using nscapi::metrics::core_label;
   using nscapi::metrics::describe;
+  using nscapi::metrics::for_instance;
+  using nscapi::metrics::instance_scope;
   using nscapi::metrics::metric;
 
   const std::shared_ptr<pdh_thread> collector = get_collector();
@@ -1412,10 +1434,14 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
     std::map<std::string, windows::system_info::load_entry> vals = collector->get_cpu_load(5);
     typedef std::map<std::string, windows::system_info::load_entry>::value_type vt;
     for (vt v : vals) {
-      metric(section, v.first + ".idle").help("Share of CPU time spent idle").unit("percent").gauge(v.second.idle);
-      metric(section, v.first + ".total").help("Share of CPU time spent doing anything but idling").unit("percent").gauge(v.second.user + v.second.kernel);
-      metric(section, v.first + ".user").help("Share of CPU time spent in user space").unit("percent").gauge(v.second.user);
-      metric(section, v.first + ".kernel").help("Share of CPU time spent in the kernel").unit("percent").gauge(v.second.kernel);
+      // The key keeps Windows' `core 0` spelling; `core_label` reduces it to
+      // the bare number so the label reads the same here as it does on Linux,
+      // where the key is `core_0`.
+      const instance_scope c = for_instance(section, v.first, "core", core_label(v.first));
+      c.metric("idle").help("Share of CPU time spent idle").unit("percent").gauge(v.second.idle);
+      c.metric("total").help("Share of CPU time spent doing anything but idling").unit("percent").gauge(v.second.user + v.second.kernel);
+      c.metric("user").help("Share of CPU time spent in user space").unit("percent").gauge(v.second.user);
+      c.metric("kernel").help("Share of CPU time spent in the kernel").unit("percent").gauge(v.second.kernel);
     }
   } catch (...) {
     NSC_LOG_ERROR("Failed to getch memory metrics: ");
@@ -1450,8 +1476,14 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
     describe(section, "Performance counters the agent samples, plus the machine's handle, thread and process counts");
 
     const pdh_thread::counter_meta_map meta = collector->get_counter_meta();
+    // A counter configured with instances publishes one key per instance. The
+    // key stays exactly that; the label is what lets the instances of one
+    // counter be queried as a family, which is the whole reason an operator
+    // configures a wildcard counter in the first place.
+    const pdh_thread::dimension_hash dimensions = collector->get_metric_dimensions();
     for (const pdh_thread::metrics_hash::value_type &e : collector->get_metrics()) {
-      add_visitor adder(section, e.first, meta_for(meta, e.first));
+      const pdh_thread::dimension_hash::const_iterator dim = dimensions.find(e.first);
+      add_visitor adder(section, e.first, meta_for(meta, e.first), dim == dimensions.end() ? pdh_thread::dimension() : dim->second);
       boost::apply_visitor(adder, e.second);
     }
   } catch (...) {

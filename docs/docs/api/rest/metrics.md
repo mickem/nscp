@@ -68,7 +68,9 @@ Returns the same snapshot in
 [OpenMetrics](https://openmetrics.io/) text exposition format, suitable for
 Prometheus scraping. Every metric carries a description, a type and, where the
 value is measured in something, a unit; string-valued metrics become labels of
-their section's `_info` family.
+their section's `_info` family. A metric measured once per core, NIC, drive or
+process is one family carrying a [label](#labels) rather than one family per
+instance.
 
 | Key       | Value                |
 |-----------|----------------------|
@@ -93,6 +95,12 @@ system_mem_physical_total_bytes 17175158784
 # TYPE system_mem_physical_percent gauge
 # UNIT system_mem_physical_percent percent
 system_mem_physical_percent 73
+# HELP system_cpu_idle_percent Share of CPU time spent idle
+# TYPE system_cpu_idle_percent gauge
+# UNIT system_cpu_idle_percent percent
+system_cpu_idle_percent{core="0"} 95
+system_cpu_idle_percent{core="1"} 91
+system_cpu_idle_percent{core="total"} 93
 # HELP workers_jobs Scheduled jobs the agent has started since it was started
 # TYPE workers_jobs counter
 workers_jobs_total 1847
@@ -181,6 +189,82 @@ that was dropped and the name it collided on.
 Values keep their full precision: an integral value is written out in full
 (`17175158784`, not `1.7175e+10`), so a sample equals the number
 `/api/v2/metrics` reports for the same key.
+
+### Labels
+
+A metric measured once per core, NIC, drive, thermal zone, battery or process
+is one family with a label, not one family per instance. The instance stays in
+the JSON key exactly where it was; the label is additive.
+
+```
+# TYPE system_cpu_idle_percent gauge
+system_cpu_idle_percent{core="0"} 95
+system_cpu_idle_percent{core="1"} 91
+system_cpu_idle_percent{core="total"} 93
+```
+
+so `sum by (core)` has something to group on, a Grafana variable has a label to
+bind to, and the family names no longer depend on how many cores or NICs a
+particular host has. The same metric is still `system.cpu.core_0.idle` on
+`/api/v2/metrics`.
+
+| Bundle                     | Label      | Value                                                        |
+|----------------------------|------------|--------------------------------------------------------------|
+| `system.cpu`               | `core`         | `0`, `1`, … and `total` for the aggregate                  |
+| `system.cpu_frequency`     | `cpu`          | the sysfs core (`cpu0`, `total`) on Linux; the processor's `DeviceID` (`CPU0`, `CPU1`) on Windows, which is one per socket |
+| `system.network`           | `nic`          | the interface as the OS names it — `eth0` on Linux, the adapter *description* on Windows (`Intel(R) Ethernet Connection I219-LM`), not the friendly `Ethernet 1` |
+| `system.temperature`       | `zone`         | the thermal zone or sensor                                 |
+| `system.battery`           | `battery`      | the battery (`BAT0`); absent for a single unnamed battery  |
+| `system.process_history`   | `exe`          | the executable name                                        |
+| `system.metrics`           | `pdh_instance` | the PDH instance, for a counter configured with instances  |
+| `disk.io`                  | `disk`         | the device (`sda`, `_Total`)                               |
+| `disk.free`                | `drive`        | the drive or mount point (`C:`, `/`)                       |
+
+The Windows `nic` value is the adapter description because that is what the
+metric key has always been, and a key may not move. The friendly connection
+name is published beside it as the `NetConnectionID` label of the same
+`system_network_info` series, so a dashboard can show one and group on the
+other.
+
+`pdh_instance` is deliberately not called `instance`: Prometheus attaches its
+own `instance` label — the scrape target — to every sample, and under the
+default `honor_labels: false` an exported `instance` is renamed
+`exported_instance`. A query written against `instance` would match the host
+instead of the counter instance and quietly return nothing.
+
+`core="total"` is the all-cores aggregate, mirroring the `system.cpu.total.*`
+JSON key. It means `sum by (core)` stays honest but `sum without (core)`
+double-counts — exclude it explicitly:
+
+```promql
+sum without (core) (system_cpu_idle_percent{core!="total"})
+```
+
+The labels also decide which series of a section's `_info` family a string
+metric lands on, so one NIC's link state, MAC address and speed share a line
+and the next NIC's get their own:
+
+```
+# TYPE system_network info
+system_network_info{nic="Intel(R) Ethernet Connection I219-LM",NetConnectionID="Ethernet 1",MACAddress="00:11:22:33:44:55"} 1
+system_network_info{nic="Realtek PCIe GbE Family Controller",NetConnectionID="Ethernet 2",MACAddress="00:11:22:33:44:66"} 1
+```
+
+Label names follow the same grammar as metric names and are rewritten the same
+way, which matters only for the operator-defined ones (a PDH instance, a Python
+script's labels). Label values are free text and are escaped rather than
+rewritten: `\`, `"` and a newline are the three characters spelled
+differently, so a Windows volume reads `drive="\\Device\\HarddiskVolume1"`.
+A label with an empty value is dropped, because `x=""` and an absent `x` are
+the same series.
+
+Two samples of one family that end up with the same label set are the same
+series, so the first is kept and the rest dropped and logged, exactly as for
+two keys colliding on one name.
+
+A metric with no labels — most of `system.mem`, the uptime and scheduler
+sections, anything published by a module that does not set dimensions —
+renders from its key as before.
 
 ### Content type
 

@@ -231,7 +231,10 @@ bool read_uptime_seconds(double &uptime_secs) {
 }  // namespace
 
 void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
+  using nscapi::metrics::core_label;
   using nscapi::metrics::describe;
+  using nscapi::metrics::for_instance;
+  using nscapi::metrics::instance_scope;
   using nscapi::metrics::metric;
 
   PB::Metrics::MetricsBundle *bundle = response->add_bundles();
@@ -253,10 +256,14 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
         std::string name = v.first;
         // Normalize "core 0" -> "core_0" (web UI prefers underscore-separated keys)
         std::replace(name.begin(), name.end(), ' ', '_');
-        metric(cpu, name + ".idle").help("Share of CPU time spent idle").unit("percent").gauge(load.idle);
-        metric(cpu, name + ".user").help("Share of CPU time spent in user space").unit("percent").gauge(load.user);
-        metric(cpu, name + ".kernel").help("Share of CPU time spent in the kernel").unit("percent").gauge(load.kernel);
-        metric(cpu, name + ".total").help("Share of CPU time spent doing anything but idling").unit("percent").gauge(load.user + load.kernel);
+        // The key keeps that per-core spelling; the label carries the core on
+        // its own, so `sum by (core)` has something to group on and the Windows
+        // `core 0` / Linux `core_0` split stays out of the label value.
+        const instance_scope c = for_instance(cpu, name, "core", core_label(name));
+        c.metric("idle").help("Share of CPU time spent idle").unit("percent").gauge(load.idle);
+        c.metric("user").help("Share of CPU time spent in user space").unit("percent").gauge(load.user);
+        c.metric("kernel").help("Share of CPU time spent in the kernel").unit("percent").gauge(load.kernel);
+        c.metric("total").help("Share of CPU time spent doing anything but idling").unit("percent").gauge(load.user + load.kernel);
       }
     }
   } catch (const std::exception &e) {

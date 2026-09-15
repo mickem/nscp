@@ -547,6 +547,27 @@ def my_metrics():
 | `help`  | no       | One line describing what the value is. Becomes the `# HELP` line. |
 | `unit`  | no       | What the value is measured in (`bytes`, `seconds`, `percent`, …). Becomes the `# UNIT` line, and the metric name is made to end in it, which OpenMetrics requires of a metric that declares one. Leave it off for a plain count and for a per-second rate. |
 | `type`  | no       | `gauge` (the default), `counter` for a value that only grows while the script runs, or `unknown`. Anything else is reported as a gauge and logged once, so a typo is visible. |
+| `labels`| no       | A `dict` of strings that becomes the metric's [labels](../api/rest/metrics.md#labels), the same way the built-in per-core and per-NIC metrics are labelled. |
+
+`labels` is how a script says what one reading is *of*, rather than what it
+means:
+
+```python
+def my_metrics():
+    return {
+        "my_script.queue_depth": {
+            "value": 42,
+            "help": "Messages waiting on the queue",
+            "labels": {"queue": "inbound", "region": "eu-west"},
+        },
+    }
+```
+
+which scrapes as `my_script_queue_depth{queue="inbound",region="eu-west"} 42`.
+A label whose name or value is not a string is skipped rather than guessed at,
+and an empty value is skipped too, since `x=""` and an absent `x` are the same
+series to a scraper. On a string value the labels decide which series of the
+bundle's `_info` family the string lands on.
 
 A unit becomes part of the metric name, so it has to be spelled in
 `[a-zA-Z0-9_]`; anything else is rewritten the way a name is (`bytes/sec`
@@ -559,8 +580,9 @@ Both forms may be mixed in one dict, and a plain value keeps meaning exactly
 what it always did: a gauge with no description. A string value, in either
 form, becomes a label of the bundle's `_info` family rather than a sample.
 
-The metadata is only read by the OpenMetrics endpoint. The JSON endpoints,
-Graphite, collectd and `submit_metrics` see the same keys and values as before.
+The metadata and the labels are only read by the OpenMetrics endpoint. The
+JSON endpoints, Graphite, collectd and `submit_metrics` see the same keys and
+values as before.
 
 #### `Registry.query`
 

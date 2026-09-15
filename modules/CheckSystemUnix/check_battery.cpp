@@ -193,21 +193,22 @@ std::string battery_info::show() const {
 }
 
 void battery_info::build_metrics(PB::Metrics::MetricsBundle *section) const {
-  using nscapi::metrics::metric;
-  metric(section, name + ".charge").help("Charge left in the battery").unit("percent").gauge(charge_percent);
-  metric(section, name + ".health").help("Full charge capacity as a share of the design capacity").unit("percent").gauge(health_percent);
-  metric(section, name + ".status").help("What the battery is doing (charging, discharging, full)").info(status);
-  metric(section, name + ".power_source").help("Whether the machine is on mains or on battery").info(power_source);
+  using nscapi::metrics::for_instance;
+  using nscapi::metrics::instance_scope;
+  const instance_scope bat = for_instance(section, name, "battery");
+  bat.metric("charge").help("Charge left in the battery").unit("percent").gauge(charge_percent);
+  bat.metric("health").help("Full charge capacity as a share of the design capacity").unit("percent").gauge(health_percent);
+  bat.metric("status").help("What the battery is doing (charging, discharging, full)").info(status);
+  bat.metric("power_source").help("Whether the machine is on mains or on battery").info(power_source);
   // A string today ("true"/"false"), and the key is what the JSON view and the
   // web UI read, so it stays one.
-  metric(section, name + ".battery_present").help("Whether a battery is fitted at all").info(get_battery_present());
-  if (time_remaining >= 0) metric(section, name + ".time_remaining").help("Time left at the current rate").unit("seconds").gauge(time_remaining);
-  if (charge_rate > 0) metric(section, name + ".charge_rate").help("Rate the battery is charging at").unit("milliwatts").gauge(charge_rate);
-  if (discharge_rate > 0) metric(section, name + ".discharge_rate").help("Rate the battery is discharging at").unit("milliwatts").gauge(discharge_rate);
-  if (design_capacity > 0) metric(section, name + ".design_capacity").help("Capacity the battery was built with").unit("milliwatthours").gauge(design_capacity);
-  if (full_capacity > 0) metric(section, name + ".full_capacity").help("Capacity the battery charges to today").unit("milliwatthours").gauge(full_capacity);
-  if (remaining_capacity > 0)
-    metric(section, name + ".remaining_capacity").help("Capacity left in the battery").unit("milliwatthours").gauge(remaining_capacity);
+  bat.metric("battery_present").help("Whether a battery is fitted at all").info(get_battery_present());
+  if (time_remaining >= 0) bat.metric("time_remaining").help("Time left at the current rate").unit("seconds").gauge(time_remaining);
+  if (charge_rate > 0) bat.metric("charge_rate").help("Rate the battery is charging at").unit("milliwatts").gauge(charge_rate);
+  if (discharge_rate > 0) bat.metric("discharge_rate").help("Rate the battery is discharging at").unit("milliwatts").gauge(discharge_rate);
+  if (design_capacity > 0) bat.metric("design_capacity").help("Capacity the battery was built with").unit("milliwatthours").gauge(design_capacity);
+  if (full_capacity > 0) bat.metric("full_capacity").help("Capacity the battery charges to today").unit("milliwatthours").gauge(full_capacity);
+  if (remaining_capacity > 0) bat.metric("remaining_capacity").help("Capacity left in the battery").unit("milliwatthours").gauge(remaining_capacity);
 }
 
 batteries_type read_battery() { return read_battery_from(POWER_SUPPLY_PATH); }

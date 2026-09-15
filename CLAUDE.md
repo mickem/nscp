@@ -173,13 +173,28 @@ decide whether a given dereference is safe.
   name, and `..._received_bytes` would claim the sample is a byte count. A key
   that already ends in its unit (`.%` sanitises to `_percent`, `current_mhz`)
   keeps the name it had, so declaring the unit there is free.
+- **A metric measured once per instance says so with `instance()` and
+  `label()`**, rather than pasting the instance into the key and letting it
+  become a family name:
+  `metric(cpu, "idle").instance("core 0").label("core", "0").unit("percent").gauge(v);`
+  `instance()` composes the key exactly as the concatenation did, so every
+  consumer that reads keys sees a byte-identical snapshot; `label()` is what
+  turns N families into one family with N samples on `/api/v2/openmetrics`, and
+  what splits a section's `_info` family into one series per instance. Use
+  `key()` instead of `instance()` when the historical key does not put the
+  instance first (a PDH counter puts it last).
+- **A label value must mean the same thing on every platform.** Windows spells
+  a CPU core `core 0` and Linux `core_0`; that difference belongs in the key,
+  which is what `core_label()` strips, and must not reach the label, where it
+  would make one core look like two across a fleet.
 - **The key is the wire format.** `/api/v2/metrics`, `/metrics`, the web UI
   dashboard, Graphite, collectd and Python `submit_metrics` all read
   `Metric.key`; only the OpenMetrics renderer reads `desc`, `unit`, `dims` and
-  `alias`. So metadata never moves a key, and a consumer that forwards numbers
-  reads them through `nscapi::metrics::numeric_value()` rather than
-  `has_gauge_value()` — otherwise retyping a metric as a counter silently drops
-  it from that consumer.
+  `alias`. So metadata and labels never move a key, and a consumer that
+  forwards numbers reads them through `nscapi::metrics::numeric_value()` rather
+  than `has_gauge_value()` — otherwise retyping a metric as a counter silently
+  drops it from that consumer. Never move a key to improve a metric name: name
+  the family through the builder and let the renderer do the naming.
 
 ## Documentation for new commands
 Every new check command needs, under `docs/samples/`:

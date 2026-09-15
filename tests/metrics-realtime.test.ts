@@ -184,6 +184,32 @@ function checkExposition(text: string, openmetrics: boolean): Map<string, string
         line,
       );
     expect(sample).not.toBeNull();
+    if (sample![2] !== undefined) {
+      // Every label name is legal and every value is quoted. An empty label set
+      // (`name{}`) is not emitted at all - it reads as a different series from
+      // the bare name to some tooling.
+      //
+      // Matched pair by pair rather than split on commas: a label value is free
+      // text, so an adapter description like `Foo,Bar Adapter` puts a comma
+      // inside the quotes and any split would tear a valid line in half. The
+      // regex consumes a whole quoted value, escapes included, and the walk
+      // then insists the pairs it matched account for the entire label set.
+      const labels = sample![2].slice(1, -1);
+      expect(labels).not.toBe("");
+      const pair = /([a-zA-Z_][a-zA-Z0-9_]*)="((?:[^"\\]|\\.)*)"/y;
+      let consumed = 0;
+      for (;;) {
+        pair.lastIndex = consumed;
+        const match = pair.exec(labels);
+        expect(match).not.toBeNull();
+        consumed = pair.lastIndex;
+        if (consumed >= labels.length) break;
+        // Exactly one comma between two pairs, and nothing after the last.
+        expect(labels[consumed]).toBe(",");
+        consumed += 1;
+      }
+      expect(consumed).toBe(labels.length);
+    }
     const series = `${sample![1]}${sample![2] ?? ""}`;
     // The same series twice in one body is a duplicate a scraper rejects.
     expect(seenSeries.has(series)).toBe(false);
@@ -332,6 +358,93 @@ describe("metrics and real-time checks", () => {
     const families = checkExposition(text, false);
     expect([...families.keys()].some((name) => name.endsWith("_total"))).toBe(true);
     expect([...families.values()]).not.toContain("info");
+  });
+
+  it("renders per-instance metrics as one labelled family", async () => {
+    // Before labels every core was its own family (`system_cpu_core_0_idle`),
+    // so `sum by (core)` had nothing to sum over, a Grafana variable had no
+    // label to bind to, and the family names differed between two hosts with
+    // different core counts. Now it is one family with a `core` label, and the
+    // all-cores aggregate rides along as `core="total"`.
+    const text = await poll(
+      () => getText(key, "/api/v2/openmetrics"),
+      (t) => /^system_cpu_idle_percent\{/m.test(t),
+    );
+
+    expect(text).toMatch(/^# TYPE system_cpu_idle_percent gauge$/m);
+    expect(text).toMatch(/^system_cpu_idle_percent\{core="total"\} -?[\d.]+$/m);
+    // A machine with one core still reports `core 0` alongside the aggregate.
+    expect(text).toMatch(/^system_cpu_idle_percent\{core="0"\} -?[\d.]+$/m);
+
+    // One `# TYPE` for however many cores this runner has, and every sample of
+    // the family under it.
+    expect(text.match(/^# TYPE system_cpu_idle_percent /gm) ?? []).toHaveLength(1);
+    const samples = text.match(/^system_cpu_idle_percent\{core="[^"]*"\} /gm) ?? [];
+    expect(samples.length).toBeGreaterThanOrEqual(2);
+
+    // The label never carries the key's per-platform spelling: Linux publishes
+    // `core_0` as the JSON key and Windows `core 0`, and neither may reach the
+    // label, where it would make one core look like two across a fleet.
+    expect(text).not.toMatch(/^system_cpu_idle_percent\{core="core/m);
+  });
+
+  it("labels the other per-instance producers too", async () => {
+    const text = await poll(
+      () => getText(key, "/api/v2/openmetrics"),
+      (t) => /^disk_free_total_bytes\{drive="/m.test(t) && /^system_network_/m.test(t),
+    );
+
+    // CheckDisk: one `disk_free_total_bytes` family with a `drive` label per
+    // filesystem, rather than one family per drive letter or mount point.
+    expect(text).toMatch(/^# TYPE disk_free_total_bytes gauge$/m);
+    expect(text).toMatch(/^disk_free_total_bytes\{drive="[^"]+"\} \d+$/m);
+    // And the network counters, whose family name used to embed a WMI adapter
+    // description or a Linux interface name.
+    const received = onWindows ? "system_network_BytesReceivedPersec" : "system_network_received";
+    expect(text).toMatch(new RegExp(`^# TYPE ${received} gauge$`, "m"));
+    expect(text).toMatch(new RegExp(`^${received}\\{nic="[^"]+"\\} -?[\\d.]+$`, "m"));
+  });
+
+  it("gives each instance its own info series", async () => {
+    // A string metric becomes a label of its bundle's `_info` family, and which
+    // series of that family it lands on is decided by the instance labels. So
+    // one NIC's link state (and, on Windows, its MAC address and speed) share a
+    // line, and the next NIC's get their own - rather than every NIC's strings
+    // piling onto one series under label names like `eth0_status`.
+    const text = await poll(
+      () => getText(key, "/api/v2/openmetrics", "application/openmetrics-text;version=1.0.0"),
+      (t) => /^system_network_info\{/m.test(t),
+    );
+
+    const series = text.match(/^system_network_info\{[^}]*\} 1$/gm) ?? [];
+    expect(series.length).toBeGreaterThanOrEqual(1);
+    for (const line of series) expect(line).toMatch(/\bnic="[^"]+"/);
+    // The instance is a label, never part of a label's name.
+    expect(text).not.toMatch(/^system_network_info\{[^}]*[a-z0-9]_status=/m);
+  });
+
+  it("keeps the flat JSON keys exactly where they were", async () => {
+    // The contract that makes the label sweep safe to ship: labels are
+    // additive, and `key` stays authoritative for everyone who reads keys - the
+    // flat and nested JSON endpoints, the web UI dashboard, Graphite's carbon
+    // path, collectd and Python. A label that moved a key would move a
+    // dashboard on every upgraded host, silently.
+    const metrics = await poll(
+      () => getMetrics(key),
+      (m) => Object.keys(m).some((k) => k.startsWith("system.cpu.")),
+    );
+    const keys = Object.keys(metrics);
+
+    // The per-core CPU keys keep their platform spelling, instance and all.
+    const core = onWindows ? "system.cpu.core 0." : "system.cpu.core_0.";
+    expect(keys.some((k) => k.startsWith(core))).toBe(true);
+    expect(keys).toContain("system.cpu.total.idle");
+    // Per-drive and per-NIC keys keep the instance in the middle of the key.
+    expect(keys.some((k) => /^disk\.free\..+\.free_pct$/.test(k))).toBe(true);
+    expect(keys.some((k) => /^system\.network\..+\./.test(k))).toBe(true);
+    // Nothing leaked the label syntax, or a unit suffix, into a key.
+    expect(keys.filter((k) => k.includes("{") || k.includes("}"))).toEqual([]);
+    expect(keys).not.toContain("system.mem.physical.total_bytes");
   });
 
   it("keeps full precision, so a sample equals the JSON value for the same key", async () => {

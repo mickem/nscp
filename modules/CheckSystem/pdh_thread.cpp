@@ -187,8 +187,14 @@ void pdh_thread::write_metrics(const spi_container &handles, const windows::syst
 
     for (const lookup_type::value_type &e : lookups_) {
       if (e.second->has_instances()) {
+        const std::string family = "pdh." + e.first;
         for (const PDH::pdh_instance &i : e.second->get_instances()) {
-          metrics["pdh." + e.first + "." + i->get_name()] = i->get_int_value();
+          const std::string key = family + "." + i->get_name();
+          metrics[key] = i->get_int_value();
+          dimension d;
+          d.family = family;
+          d.instance = i->get_name();
+          metric_dimensions[key] = d;
         }
       } else {
         metrics["pdh." + e.first] = e.second->get_int_value();
@@ -854,6 +860,15 @@ pdh_thread::metrics_hash pdh_thread::get_metrics() {
     return metrics_hash();
   }
   return metrics_hash(metrics);
+}
+
+pdh_thread::dimension_hash pdh_thread::get_metric_dimensions() {
+  boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
+  if (!readLock.owns_lock()) {
+    NSC_LOG_ERROR("Failed to get Mutex for: metric dimensions");
+    return dimension_hash();
+  }
+  return dimension_hash(metric_dimensions);
 }
 
 bool pdh_thread::start() {

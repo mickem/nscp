@@ -20,20 +20,22 @@
 namespace disk_io_check {
 
 void disk_io::build_metrics(PB::Metrics::MetricsBundle *section) const {
-  using nscapi::metrics::metric;
+  using nscapi::metrics::for_instance;
+  using nscapi::metrics::instance_scope;
+  const instance_scope io = for_instance(section, name, "disk");
   // The eight rates carry no unit: they are already per-second values, and a
   // name ending in `_bytes` would claim the sample is a byte count.
-  metric(section, name + ".read_bytes_per_sec").help("Bytes read per second").gauge(read_bytes_per_sec);
-  metric(section, name + ".write_bytes_per_sec").help("Bytes written per second").gauge(write_bytes_per_sec);
-  metric(section, name + ".reads_per_sec").help("Read operations per second").gauge(reads_per_sec);
-  metric(section, name + ".writes_per_sec").help("Write operations per second").gauge(writes_per_sec);
-  metric(section, name + ".queue_length").help("Requests queued on the disk").gauge(queue_length);
-  metric(section, name + ".percent_disk_time").help("Share of the interval the disk was busy").gauge(percent_disk_time);
-  metric(section, name + ".percent_idle_time").help("Share of the interval the disk was idle").gauge(percent_idle_time);
-  metric(section, name + ".split_io_per_sec").help("Split I/O operations per second").gauge(split_io_per_sec);
-  metric(section, name + ".read_latency").help("Average time one read took over the interval").unit("milliseconds").gauge(read_latency);
-  metric(section, name + ".write_latency").help("Average time one write took over the interval").unit("milliseconds").gauge(write_latency);
-  metric(section, name + ".total_latency").help("Average time one operation took over the interval").unit("milliseconds").gauge(total_latency);
+  io.metric("read_bytes_per_sec").help("Bytes read per second").gauge(read_bytes_per_sec);
+  io.metric("write_bytes_per_sec").help("Bytes written per second").gauge(write_bytes_per_sec);
+  io.metric("reads_per_sec").help("Read operations per second").gauge(reads_per_sec);
+  io.metric("writes_per_sec").help("Write operations per second").gauge(writes_per_sec);
+  io.metric("queue_length").help("Requests queued on the disk").gauge(queue_length);
+  io.metric("percent_disk_time").help("Share of the interval the disk was busy").gauge(percent_disk_time);
+  io.metric("percent_idle_time").help("Share of the interval the disk was idle").gauge(percent_idle_time);
+  io.metric("split_io_per_sec").help("Split I/O operations per second").gauge(split_io_per_sec);
+  io.metric("read_latency").help("Average time one read took over the interval").unit("milliseconds").gauge(read_latency);
+  io.metric("write_latency").help("Average time one write took over the interval").unit("milliseconds").gauge(write_latency);
+  io.metric("total_latency").help("Average time one operation took over the interval").unit("milliseconds").gauge(total_latency);
 }
 
 disks_type disk_io_data::get() {
@@ -117,13 +119,15 @@ void check_disk_io(const PB::Commands::QueryRequestMessage::Request &request, PB
 namespace disk_free_check {
 
 void disk_free::build_metrics(PB::Metrics::MetricsBundle *section) const {
-  using nscapi::metrics::metric;
-  metric(section, name + ".total").help("Size of the volume").unit("bytes").gauge(total);
-  metric(section, name + ".free").help("Free space on the volume").unit("bytes").gauge(free);
-  metric(section, name + ".used").help("Used space on the volume").unit("bytes").gauge(total - free);
-  metric(section, name + ".user_free").help("Free space the querying user may actually use, after quotas").unit("bytes").gauge(user_free);
-  metric(section, name + ".free_pct").help("Free space as a share of the volume").gauge(get_free_pct());
-  metric(section, name + ".used_pct").help("Used space as a share of the volume").gauge(get_used_pct());
+  using nscapi::metrics::for_instance;
+  using nscapi::metrics::instance_scope;
+  const instance_scope vol = for_instance(section, name, "drive");
+  vol.metric("total").help("Size of the volume").unit("bytes").gauge(total);
+  vol.metric("free").help("Free space on the volume").unit("bytes").gauge(free);
+  vol.metric("used").help("Used space on the volume").unit("bytes").gauge(total - free);
+  vol.metric("user_free").help("Free space the querying user may actually use, after quotas").unit("bytes").gauge(user_free);
+  vol.metric("free_pct").help("Free space as a share of the volume").gauge(get_free_pct());
+  vol.metric("used_pct").help("Used space as a share of the volume").gauge(get_used_pct());
 }
 
 void disk_free_data::set(const drives_type &drives) {

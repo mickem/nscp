@@ -233,7 +233,8 @@ void build_temperature_metrics(PB::Metrics::MetricsBundle *parent) {
 
   zones_type zones = read_temperature();
   for (const zones_type::value_type &v : zones) {
-    metric(section, v.get_name() + ".temperature").help("Temperature of the zone").unit("celsius").gauge(v.get_temperature_i());
+    const instance_scope zone = for_instance(section, v.get_name(), "zone");
+    zone.metric("temperature").help("Temperature of the zone").unit("celsius").gauge(v.get_temperature_i());
   }
 }
 
