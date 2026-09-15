@@ -1253,12 +1253,6 @@ void WEBServer::submitMetrics(const PB::Metrics::MetricsMessage &response) const
       build_metrics(metrics, metrics_list, metrics_meta, b.key(), b);
     }
   }
-  // `?meta=1` answers with both halves in one document rather than a second
-  // endpoint to correlate: a dashboard that wants to print "12 592 123 904
-  // bytes" needs the value and the unit from the same snapshot.
-  json::object described;
-  described.insert(json::object::value_type("metrics", metrics_list));
-  described.insert(json::object::value_type("metadata", metrics_meta));
   std::string open_metrics;
   std::string prometheus_text;
   if (openmetrics_legacy_) {
@@ -1284,7 +1278,11 @@ void WEBServer::submitMetrics(const PB::Metrics::MetricsMessage &response) const
       NSC_LOG_ERROR(problem);
     }
   }
-  session->set_metrics(json::serialize(metrics), json::serialize(metrics_list), json::serialize(described), open_metrics, prometheus_text);
+  // The metadata half only. `?meta=1` answers with it joined to the flat list
+  // - a dashboard that wants to print "12 592 123 904 bytes" needs the value
+  // and the unit from the same snapshot - but the join happens where the two
+  // are read, so a snapshot is never held twice over.
+  session->set_metrics(json::serialize(metrics), json::serialize(metrics_list), json::serialize(metrics_meta), open_metrics, prometheus_text);
   client->push_metrics(response);
 }
 
