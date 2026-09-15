@@ -59,14 +59,12 @@ class CheckDisk : public nscapi::impl::simple_plugin {
   void checkDriveSize(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   void checkFiles(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 
-  // Read-only view of the collector the module owns; null until loadModuleEx()
-  // has created it. Exists so the unit test can assert on the intervals
-  // loadModuleEx parsed out of the settings - the clamping and the fallbacks
-  // it applies have no other observable effect.
-  const collector_thread *get_collector() const { return get_collector_ptr().get(); }
-
-  // The collector as the check threads must read it. Never dereference the
-  // member directly from a check: a reload can replace it between the test and
-  // the call.
+  // The collector as every caller must read it: a shared_ptr, never a raw
+  // pointer into one. Returning `get_collector_ptr().get()` would hand back a
+  // pointer whose owning temporary dies at the end of the caller's expression,
+  // so a reload replacing the member could free the collector under a caller
+  // that still held it - the very race the atomic publication above exists to
+  // close. Never dereference the member directly either: a reload can replace
+  // it between the test and the call.
   std::shared_ptr<collector_thread> get_collector_ptr() const { return std::atomic_load(&collector_); }
 };

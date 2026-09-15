@@ -47,7 +47,11 @@ class CheckDiskModule : public ::testing::Test {
   // way, but no collector thread is spawned and no host tag is published.
   bool load() { return module_.loadModuleEx("test_disk", NSCAPI::dontStart); }
 
-  const collector_thread &collector() const { return *module_.get_collector(); }
+  // Hold the shared_ptr for the caller's expression rather than taking a raw
+  // pointer out of a temporary: the module hands out ownership precisely so
+  // nobody ends up with a pointer it can free.
+  std::shared_ptr<collector_thread> collector_ptr() const { return module_.get_collector_ptr(); }
+  const collector_thread &collector() const { return *module_.get_collector_ptr(); }
 
   CheckDisk module_;
 };
@@ -67,7 +71,7 @@ PB::Commands::QueryRequestMessage::Request make_request(const std::string &comma
 
 TEST_F(CheckDiskModule, LoadModuleCreatesCollectorWithDefaults) {
   ASSERT_TRUE(load());
-  ASSERT_NE(module_.get_collector(), nullptr);
+  ASSERT_NE(collector_ptr(), nullptr);
   EXPECT_EQ(collector().collection_interval, 10);
   EXPECT_EQ(collector().trend_interval, 300);
   EXPECT_EQ(collector().trend_retention, 7 * 24 * 3600);
@@ -75,7 +79,7 @@ TEST_F(CheckDiskModule, LoadModuleCreatesCollectorWithDefaults) {
   EXPECT_TRUE(collector().disable_.empty());
 }
 
-TEST_F(CheckDiskModule, NoCollectorBeforeLoadModule) { EXPECT_EQ(module_.get_collector(), nullptr); }
+TEST_F(CheckDiskModule, NoCollectorBeforeLoadModule) { EXPECT_EQ(collector_ptr(), nullptr); }
 
 // ============================================================================
 // Collector settings: values that parse

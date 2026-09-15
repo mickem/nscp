@@ -29,7 +29,13 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     // package.path for require(), so it must be the install base ("${base-path}"),
     // not "${scripts}" (which already points at the scripts dir and would double it).
     lua_runtime_ = std::make_shared<lua::lua_runtime>(utf8::cvt<std::string>(get_core()->expand_path("${base-path}")));
-    scripts_.reset(new scripts::script_manager<lua::lua_traits>(lua_runtime_, nscp_runtime_, get_id(), utf8::cvt<std::string>(alias)));
+    // Published atomically, and read the same way everywhere below: a check
+    // thread copying this member while a reload replaces it is a data race on
+    // the shared_ptr itself, not merely on what it points at. The reload
+    // barrier in dll_plugin serialises the two today, but the barrier is a
+    // property of the caller - this makes the member safe on its own terms.
+    std::atomic_store(&scripts_,
+                      std::make_shared<scripts::script_manager<lua::lua_traits> >(lua_runtime_, nscp_runtime_, get_id(), utf8::cvt<std::string>(alias)));
 
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
     settings.set_alias(alias, "lua");
@@ -50,7 +56,7 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     // 			addAllScriptsFrom(scriptDirectory_);
     // 		}
 
-    scripts_->load_all();
+    std::atomic_load(&scripts_)->load_all();
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("load", e);
     return false;
@@ -64,7 +70,7 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 bool LUAScript::startModule() {
   try {
-    scripts_->start_all();
+    std::atomic_load(&scripts_)->start_all();
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("start", e);
     return false;
@@ -88,7 +94,15 @@ bool LUAScript::loadScript(std::string alias, std::string file) {
       return false;
     }
     NSC_DEBUG_MSG_STD("Adding script: " + ofile.value().string());
-    scripts_->add(alias, ofile.value().string());
+    // Reached from settings.notify() inside loadModuleEx, so the manager the
+    // same call just published is there - but read it the same way as
+    // everywhere else rather than touching the member directly.
+    const std::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts = std::atomic_load(&scripts_);
+    if (!scripts) {
+      NSC_LOG_ERROR("Failed to add script, module is not loaded: " + file);
+      return false;
+    }
+    scripts->add(alias, ofile.value().string());
     return true;
   } catch (...) {
     NSC_LOG_ERROR_EX("load script");
@@ -97,9 +111,13 @@ bool LUAScript::loadScript(std::string alias, std::string file) {
 }
 
 bool LUAScript::unloadModule() {
-  if (scripts_) {
-    scripts_->unload_all();
-    scripts_.reset();
+  // Take the manager out of the member first, then work through the local
+  // copy: a check thread that loaded the pointer just before this keeps the
+  // manager alive until it returns, and one arriving after sees null.
+  const std::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts =
+      std::atomic_exchange(&scripts_, std::shared_ptr<scripts::script_manager<lua::lua_traits> >());
+  if (scripts) {
+    scripts->unload_all();
   }
   return true;
 }
@@ -110,7 +128,7 @@ void LUAScript::query_fallback(const PB::Commands::QueryRequestMessage::Request 
   // an unload on another thread otherwise deletes the script (and its
   // lua_State) while it runs. A script that queries a command its own module
   // serves lands here again on this thread, which the counter allows.
-  const std::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts = scripts_;
+  const std::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts = std::atomic_load(&scripts_);
   if (!scripts) return nscapi::protobuf::functions::set_response_bad(*response, "Module is not loaded");
   const scripts::script_manager<lua::lua_traits>::dispatch_guard dispatch(*scripts);
   if (!dispatch.entered()) return nscapi::protobuf::functions::set_response_bad(*response, "Module is unloading");
@@ -196,7 +214,12 @@ void LUAScript::execute_script(const PB::Commands::ExecuteRequestMessage::Reques
     nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + file);
     return;
   }
-  scripts::script_information<lua::lua_traits> *info = scripts_->add("", ofile.value().string());
+  const std::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts = std::atomic_load(&scripts_);
+  if (!scripts) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Module is not loaded");
+    return;
+  }
+  scripts::script_information<lua::lua_traits> *info = scripts->add("", ofile.value().string());
   lua_runtime_->load(info);
   std::vector<std::string> opts(script_options.begin(), script_options.end());
   lua_runtime_->exec_main(info, opts, response);
@@ -204,7 +227,7 @@ void LUAScript::execute_script(const PB::Commands::ExecuteRequestMessage::Reques
 
 void LUAScript::handleNotification(const std::string &channel, const PB::Commands::QueryResponseMessage::Response &request,
                                    PB::Commands::SubmitResponseMessage::Response *response, const PB::Commands::SubmitRequestMessage &request_message) {
-  const std::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts = scripts_;
+  const std::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts = std::atomic_load(&scripts_);
   if (!scripts) return;
   const scripts::script_manager<lua::lua_traits>::dispatch_guard dispatch(*scripts);
   if (!dispatch.entered()) return;
