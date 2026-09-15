@@ -11,6 +11,7 @@
 #include <cstring>
 #include <list>
 #include <map>
+#include <set>
 #include <sstream>
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
@@ -249,9 +250,19 @@ struct collectd_builder {
   typedef std::multimap<std::string, std::string> variables_map;
   typedef std::list<metric_container> metrics_list;
   typedef std::list<collectd::packet> packet_list;
+  // Label name -> the distinct values the snapshot carried for it, which is
+  // what a `label:` variable expands to. Sorted rather than insertion-ordered
+  // so two agents reporting the same cores render them in the same order.
+  typedef std::map<std::string, std::set<std::string> > labels_map;
 
   variables_map variables;
   metrics_map metrics;
+  // The keys whose producer typed them as a counter. collectd's DERIVE is the
+  // same idea - a value that only grows, whose rate is what matters - so
+  // `auto:` maps one onto the other rather than making the operator restate a
+  // type the agent already knows.
+  std::set<std::string> counters;
+  labels_map labels;
   metrics_list rendererd_metrics;
   unsigned long long time_hr;
   unsigned long long interval_hr;
@@ -266,8 +277,24 @@ struct collectd_builder {
  private:
   std::list<expanded_keys> expand_keyword(const std::string &keyword, const std::string &value);
 
+  // Whether the value expression names metrics the agent typed as counters.
+  // `auto:` decides on the first key it can resolve and applies that to the
+  // whole list: a collectd value list keeps its gauges and its derives in two
+  // separate vectors, so a list that mixed the two would go out reordered.
+  bool resolves_to_derive(const std::string &keys) const {
+    for (const std::string &vkey : str::utils::split_lst(keys, ",")) {
+      if (vkey.empty() || (vkey[0] >= '0' && vkey[0] <= '9')) continue;
+      if (metrics.find(vkey) == metrics.end()) continue;
+      return counters.find(vkey) != counters.end();
+    }
+    return false;
+  }
+
   void add_value(metric_container &metric, std::string value) {
     str::utils::token svalue = str::utils::split2(value, ":");
+    // `auto:` is the same expression with the type left to the producer: a
+    // metric declared as a counter becomes a DERIVE, everything else a GAUGE.
+    if (svalue.first == "auto") svalue.first = resolves_to_derive(svalue.second) ? "derive" : "gauge";
     if (svalue.first == "gauge") {
       for (const std::string &vkey : str::utils::split_lst(svalue.second, ",")) {
         if (vkey.size() > 0 && vkey[0] >= '0' && vkey[0] <= '9')
@@ -335,6 +362,12 @@ struct collectd_builder {
   }
 
   void add_variable(std::string key, std::string value);
+  // One dimension the snapshot carried, so a `label:` variable has something
+  // to expand to. Repeats are folded; an empty name or value is ignored.
+  void add_label(const std::string &name, const std::string &value) {
+    if (name.empty() || value.empty()) return;
+    labels[name].insert(value);
+  }
   void set_time(unsigned long long time_hr_, unsigned long long interval_hr_) {
     time_hr = time_hr_;
     interval_hr = interval_hr_;
@@ -449,6 +482,9 @@ struct collectd_builder {
     if (packet.get_size() > 0) packets.push_back(packet);
   }
   void set_metric(const ::std::string &key, const std::string &value);
+  // The same, remembering that the producer typed this one as a counter, for
+  // `auto:` to read.
+  void set_metric(const ::std::string &key, const std::string &value, bool is_counter);
 };
 
 }  // namespace collectd

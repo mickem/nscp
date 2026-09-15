@@ -356,6 +356,151 @@ TEST(CollectdBuilder, ExpandsVariablesFromMatchingMetricNames) {
   EXPECT_NE(std::find(values.begin(), values.end(), 200), values.end());
 }
 
+// A `label:` variable expands from the dimensions the producer declared
+// rather than from a regular expression over the flat keys. The keys spell a
+// core `core 0` on Windows and `core_0` on Linux; the label is `0` on both, so
+// one mapping works on both.
+TEST(CollectdBuilder, ExpandsVariablesFromMetricLabels) {
+  collectd::collectd_builder b;
+  b.set_time(1ULL << 30, 1ULL << 30);
+  b.set_host("h");
+  b.set_metric("system.cpu.core 0.user", "100");
+  b.add_label("core", "0");
+  b.set_metric("system.cpu.core 1.user", "200");
+  b.add_label("core", "1");
+  b.add_variable("core", "label:core");
+  b.add_metric("cpu-${core}/cpu-user", "derive:system.cpu.core ${core}.user");
+
+  collectd::collectd_builder::packet_list packets;
+  b.render(packets);
+  std::vector<decoded_value_list> all;
+  for (const auto &pk : packets) {
+    const auto lists = decode_packet(pk.get_buffer());
+    all.insert(all.end(), lists.begin(), lists.end());
+  }
+  ASSERT_EQ(all.size(), 2u);
+  std::vector<std::string> instances;
+  std::vector<int64_t> values;
+  for (const auto &vl : all) {
+    EXPECT_EQ(vl.plugin, "cpu");
+    ASSERT_EQ(vl.derives.size(), 1u);
+    instances.push_back(vl.plugin_instance);
+    values.push_back(vl.derives[0]);
+  }
+  EXPECT_NE(std::find(instances.begin(), instances.end(), "0"), instances.end());
+  EXPECT_NE(std::find(instances.begin(), instances.end(), "1"), instances.end());
+  EXPECT_NE(std::find(values.begin(), values.end(), 100), values.end());
+  EXPECT_NE(std::find(values.begin(), values.end(), 200), values.end());
+}
+
+TEST(CollectdBuilder, RepeatedLabelValuesExpandOnce) {
+  // Every metric of a bundle carries the instance label, so the same value
+  // arrives once per metric; expanding it once per occurrence would send the
+  // same value list several times over.
+  collectd::collectd_builder b;
+  b.set_time(1ULL << 30, 1ULL << 30);
+  b.set_host("h");
+  b.set_metric("disk.io.sda.reads", "5");
+  b.add_label("disk", "sda");
+  b.set_metric("disk.io.sda.writes", "6");
+  b.add_label("disk", "sda");
+  b.add_variable("disk", "label:disk");
+  b.add_metric("disk-${disk}/disk_ops-read", "gauge:disk.io.${disk}.reads");
+
+  collectd::collectd_builder::packet_list packets;
+  b.render(packets);
+  std::size_t value_lists = 0;
+  for (const auto &pk : packets) value_lists += decode_packet(pk.get_buffer()).size();
+  EXPECT_EQ(value_lists, 1u);
+}
+
+TEST(CollectdBuilder, AnUnknownLabelExpandsToNothing) {
+  collectd::collectd_builder b;
+  b.set_time(1ULL << 30, 1ULL << 30);
+  b.set_host("h");
+  b.set_metric("system.cpu.total.user", "100");
+  b.add_variable("core", "label:core");
+  b.add_metric("cpu-${core}/cpu-user", "derive:system.cpu.core ${core}.user");
+
+  collectd::collectd_builder::packet_list packets;
+  b.render(packets);
+  std::size_t value_lists = 0;
+  for (const auto &pk : packets) value_lists += decode_packet(pk.get_buffer()).size();
+  EXPECT_EQ(value_lists, 0u);
+}
+
+// `auto:` takes the type from the producer: a counter is collectd's DERIVE, a
+// value that can go down again is a GAUGE.
+TEST(CollectdBuilder, AutoSendsACounterAsDerive) {
+  collectd::collectd_builder b;
+  b.set_time(1ULL << 30, 1ULL << 30);
+  b.set_host("h");
+  b.set_metric("workers.jobs", "1847", true);
+  b.add_metric("nscp-/total_operations", "auto:workers.jobs");
+
+  collectd::collectd_builder::packet_list packets;
+  b.render(packets);
+  const auto lists = decode_packet(packets.front().get_buffer());
+  ASSERT_EQ(lists.size(), 1u);
+  ASSERT_EQ(lists[0].value_types.size(), 1u);
+  EXPECT_EQ(lists[0].value_types[0], 2);  // DERIVE
+  ASSERT_EQ(lists[0].derives.size(), 1u);
+  EXPECT_EQ(lists[0].derives[0], 1847);
+}
+
+TEST(CollectdBuilder, AutoSendsAGaugeAsGauge) {
+  collectd::collectd_builder b;
+  b.set_time(1ULL << 30, 1ULL << 30);
+  b.set_host("h");
+  b.set_metric("system.mem.physical.used", "42.5", false);
+  b.add_metric("memory-/memory-used", "auto:system.mem.physical.used");
+
+  collectd::collectd_builder::packet_list packets;
+  b.render(packets);
+  const auto lists = decode_packet(packets.front().get_buffer());
+  ASSERT_EQ(lists.size(), 1u);
+  ASSERT_EQ(lists[0].value_types.size(), 1u);
+  EXPECT_EQ(lists[0].value_types[0], 1);  // GAUGE
+  ASSERT_EQ(lists[0].gauges.size(), 1u);
+  EXPECT_DOUBLE_EQ(lists[0].gauges[0], 42.5);
+}
+
+TEST(CollectdBuilder, AMetricWithNoDeclaredTypeIsAGaugeUnderAuto) {
+  // The two-argument set_metric is what an out-of-tree producer's metric goes
+  // through; nothing said it was monotonic, so `auto:` must not claim it is.
+  collectd::collectd_builder b;
+  b.set_time(1ULL << 30, 1ULL << 30);
+  b.set_host("h");
+  b.set_metric("plugin.value", "7");
+  b.add_metric("plugin-/gauge", "auto:plugin.value");
+
+  collectd::collectd_builder::packet_list packets;
+  b.render(packets);
+  const auto lists = decode_packet(packets.front().get_buffer());
+  ASSERT_EQ(lists.size(), 1u);
+  ASSERT_EQ(lists[0].value_types.size(), 1u);
+  EXPECT_EQ(lists[0].value_types[0], 1);
+}
+
+TEST(CollectdBuilder, RetypingAMetricAsAGaugeClearsTheCounterFlag) {
+  // The builder is rebuilt per snapshot, but a producer may retype a key
+  // between two of them; a stale counter flag would keep sending a gauge as a
+  // DERIVE.
+  collectd::collectd_builder b;
+  b.set_time(1ULL << 30, 1ULL << 30);
+  b.set_host("h");
+  b.set_metric("plugin.value", "7", true);
+  b.set_metric("plugin.value", "7", false);
+  b.add_metric("plugin-/gauge", "auto:plugin.value");
+
+  collectd::collectd_builder::packet_list packets;
+  b.render(packets);
+  const auto lists = decode_packet(packets.front().get_buffer());
+  ASSERT_EQ(lists.size(), 1u);
+  ASSERT_EQ(lists[0].value_types.size(), 1u);
+  EXPECT_EQ(lists[0].value_types[0], 1);
+}
+
 TEST(CollectdBuilder, UnmatchedVariableProducesNoMetrics) {
   collectd::collectd_builder b;
   b.set_time(1ULL << 30, 1ULL << 30);

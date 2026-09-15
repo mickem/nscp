@@ -99,12 +99,12 @@ interval=10
 
 ### METRIC MAPPINGS <a id="/settings/collectd/client/metrics"></a>
 
-Mapping of collectd keys (e.g. cpu-total/cpu-user) to value expressions (e.g. derive:system.cpu.total.user). When empty a built-in default set is used.
+Mapping of collectd keys (e.g. cpu-total/cpu-user) to value expressions (e.g. derive:system.cpu.total.user). The expression is `gauge:`, `derive:` or `auto:` followed by the metric key(s); `auto:` takes the type from the metric itself, sending whatever the producing module declared as a counter as a DERIVE and everything else as a GAUGE. When empty a built-in default set is used.
 
 
 
 ```ini
-# Mapping of collectd keys (e.g. cpu-total/cpu-user) to value expressions (e.g. derive:system.cpu.total.user). When empty a built-in default set is used.
+# Mapping of collectd keys (e.g. cpu-total/cpu-user) to value expressions (e.g. derive:system.cpu.total.user). The expression is `gauge:`, `derive:` or `auto:` followed by the metric key(s); `auto:` takes the type from the metric itself, sending whatever the producing module declared as a counter as a DERIVE and everything else as a GAUGE. When empty a built-in default set is used.
 [/settings/collectd/client/metrics]
 ```
 
@@ -154,11 +154,11 @@ timeout=30
 
 ### VARIABLE DEFINITIONS <a id="/settings/collectd/client/variables"></a>
 
-Variables used to expand ${...} placeholders in metric keys. Each value is a regular expression matched against metric names; the captured groups become the variable's values. When empty a built-in default set is used.
+Variables used to expand ${...} placeholders in metric keys. Each value is either `label:<name>`, which expands to the distinct values of that metric label (`label:core`, `label:nic`, `label:drive` - the same dimensions the OpenMetrics exposition renders, and spelled the same on every platform), or a regular expression matched against metric names, whose captured groups become the variable's values. When empty a built-in default set is used.
 
 
 
 ```ini
-# Variables used to expand ${...} placeholders in metric keys. Each value is a regular expression matched against metric names; the captured groups become the variable's values. When empty a built-in default set is used.
+# Variables used to expand ${...} placeholders in metric keys. Each value is either `label:<name>`, which expands to the distinct values of that metric label (`label:core`, `label:nic`, `label:drive` - the same dimensions the OpenMetrics exposition renders, and spelled the same on every platform), or a regular expression matched against metric names, whose captured groups become the variable's values. When empty a built-in default set is used.
 [/settings/collectd/client/variables]
 ```
