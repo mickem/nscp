@@ -85,7 +85,7 @@ class fleet_sync {
   // fleet.ini + staged scripts) actually changed: a state that renders no
   // different output is recorded but does not trigger a service reload.
   bool apply_state(const onboarding::desired_state &state, std::vector<std::string> &errors, bool &stale, bool &reload_needed);
-  bool fetch_bundle(const onboarding::bundle_info &bundle, std::string &bytes, std::string &error, bool &gone);
+  bool fetch_bundle(const onboarding::bundle_info &bundle, const onboarding::bundle_descriptor &descriptor, std::string &bytes, std::string &error, bool &gone);
 
   // max_response_bytes overrides the HTTP client's default body cap for this
   // call (0 keeps the default, which is generous for JSON but far below a

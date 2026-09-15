@@ -17,7 +17,7 @@ import crypto from "crypto";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { NscpInstance, makeZip, bundleEntry, makeCertPem } from "@fixtures/index";
+import { NscpInstance, makeZip, bundleEntry, makeCertPem, FLEET_TENANT_ID } from "@fixtures/index";
 
 jest.setTimeout(300_000);
 
@@ -84,6 +84,7 @@ describe("fleet sync under continuous apply/reload", () => {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(
             JSON.stringify({
+              tenant_id: FLEET_TENANT_ID,
               state_hash: `h-${round}`,
               next_poll_in_seconds: 1,
               merged_config_json: {},

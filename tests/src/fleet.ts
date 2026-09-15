@@ -83,10 +83,58 @@ export function makeZip(entries: ZipEntry[]): Buffer {
   return Buffer.concat([...locals, cd, eocd]);
 }
 
-/** Ed25519 signature over the 32-byte SHA-256 digest, base64 - the fleet wire format. */
-export function signBundle(privateKey: crypto.KeyObject, bytes: Buffer): string {
-  const digest = crypto.createHash("sha256").update(bytes).digest();
-  return crypto.sign(null, digest, privateKey).toString("base64");
+/**
+ * The tenant these fixtures pretend to serve. Real responses carry the tenant
+ * id because it is the first field of every bundle's signing descriptor and
+ * the agent cannot derive it from its certificate (which carries the slug).
+ */
+export const FLEET_TENANT_ID = 7;
+
+/** A bundle's identity, as its signature covers it. */
+export interface BundleDescriptor {
+  tenantId?: number;
+  id: string;
+  name: string;
+  version: string;
+  format?: string;
+  sha256: string;
+}
+
+/**
+ * The exact bytes a bundle signature covers: a version prefix followed by six
+ * NUL-separated fields. Mirrors `fleet_core::bundlesig` on the server and
+ * `onboarding::bundle_descriptor::signing_bytes` in the agent - if the three
+ * ever disagree, nothing verifies.
+ *
+ *   nsclient-fleet/bundle-sig/v2 \0 tenant_id \0 id \0 name \0 version \0 format \0 sha256
+ *
+ * Signing the digest alone (the v1 protocol) bound nothing about *which*
+ * bundle the bytes were, so an old signed blob could be re-advertised under a
+ * different id, name or version and still verify. Priority is deliberately
+ * absent: it belongs to a group assignment, not to the bundle.
+ */
+export function bundleSigningBytes(descriptor: BundleDescriptor): Buffer {
+  const fields = [
+    String(descriptor.tenantId ?? FLEET_TENANT_ID),
+    descriptor.id,
+    descriptor.name,
+    descriptor.version,
+    descriptor.format ?? "plain",
+    descriptor.sha256,
+  ];
+  return Buffer.concat([
+    Buffer.from("nsclient-fleet/bundle-sig/v2", "utf8"),
+    ...fields.map((field) => Buffer.concat([Buffer.from([0]), Buffer.from(field, "utf8")])),
+  ]);
+}
+
+/**
+ * Ed25519 signature over the bundle descriptor, base64 - the fleet wire
+ * format. Ed25519 hashes internally, so the descriptor is signed directly
+ * rather than being digested first.
+ */
+export function signBundle(privateKey: crypto.KeyObject, descriptor: BundleDescriptor): string {
+  return crypto.sign(null, bundleSigningBytes(descriptor), privateKey).toString("base64");
 }
 
 export function sha256Hex(bytes: Buffer): string {
@@ -109,17 +157,23 @@ export function makeCertPem(days: number, commonName = "fleet-agent"): string {
 }
 
 /** One bundle as it appears in a desired-state response. */
+/**
+ * A desired-state bundle entry. `extra` is merged *before* signing, so a test
+ * that overrides a signed field (name, version, format, sha256) still gets a
+ * valid signature; a test that wants a bad one overrides after the call.
+ */
 export function bundleEntry(id: string, zip: Buffer, signingKey: crypto.KeyObject, extra: Record<string, unknown> = {}) {
-  return {
+  const entry = {
     id,
     name: id,
     version: "1.0",
     sha256: sha256Hex(zip),
-    signature: signBundle(signingKey, zip),
     url: `/agent/v1/bundles/${id}`,
     priority: 100,
+    format: "plain",
     ...extra,
   };
+  return { ...entry, signature: signBundle(signingKey, entry as unknown as BundleDescriptor) };
 }
 
 /** Where a verified bundle is cached on disk (id + first 16 digest chars). */

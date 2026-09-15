@@ -24,18 +24,64 @@ struct bundle_info {
   std::string name;
   std::string version;
   std::string sha256;     // hex digest of the bundle bytes
-  std::string signature;  // base64 Ed25519 signature over the 32-byte digest
+  std::string signature;  // base64 Ed25519 signature over the descriptor below
   std::string url;        // server-relative download path
   long long priority = 0;
-  std::string format;  // "plain" or "enc-v1"; advisory, the envelope magic decides
+  std::string format;  // "plain" or "enc-v1"; advisory for decryption (the envelope
+                       // magic decides that), but signed, so it must be exact
 };
 
 struct desired_state {
+  // The tenant these bundles belong to. Part of what every bundle signature
+  // covers, and the agent cannot derive it - our certificate carries the tenant
+  // *slug*, not this id - so the server sends it. There is nothing to trust in
+  // the value: the signing key is per tenant, so a wrong one simply fails
+  // verification.
+  long long tenant_id = 0;
   std::string state_hash;
   unsigned long next_poll_in_seconds = 60;
   std::string merged_config_json;  // serialized JSON object; "{}" when empty
   std::vector<bundle_info> bundles;  // sorted by ascending priority (apply order)
 };
+
+// What a bundle's Ed25519 signature actually covers: the identity the server
+// advertised for the bundle, together with the digest of its bytes.
+//
+// Signing the digest alone (the v1 protocol this replaces) bound nothing about
+// *which* bundle those bytes are - it said only "this tenant's server saw this
+// blob once" - so an old signed blob could be re-advertised under a different
+// id, name or version and still verify. Only the encrypted format's AAD closed
+// name and version, and only for that format.
+//
+// Every field is read out of the desired-state response verbatim; nothing here
+// is reconstructed locally, because what is being verified is the server's own
+// claim about what this bundle is. The server side is fleet_core::bundlesig.
+struct bundle_descriptor {
+  long long tenant_id = 0;
+  std::string bundle_id;
+  std::string name;
+  std::string version;
+  std::string format;      // "plain" or "enc-v1"
+  std::string sha256_hex;  // lowercase hex digest of the bundle bytes
+
+  // The exact bytes signed and verified: a version prefix followed by six
+  // NUL-separated fields. Ed25519 hashes internally, so these are signed
+  // directly rather than digested first.
+  //
+  //   nsclient-fleet/bundle-sig/v2 \0 tenant_id \0 id \0 name \0 version \0 format \0 sha256
+  //
+  // The separator is what keeps the encoding unambiguous: every field is a
+  // ULID, an integer, or a token from a grammar with no NUL in it (which
+  // parse_desired_state enforces on the way in), so no two distinct bundles
+  // can produce the same bytes. Priority is deliberately absent - it belongs
+  // to a group assignment, not to the bundle, and the same bundle legitimately
+  // carries different priorities in different groups.
+  std::string signing_bytes() const;
+};
+
+// The descriptor for one bundle of a desired state: pairs the state's tenant
+// with the bundle's own advertised fields.
+bundle_descriptor describe_bundle(long long tenant_id, const bundle_info &bundle);
 
 // Parse a 200 desired-state response body. Throws onboarding_error
 // (non-retryable) when required fields are missing or malformed.
@@ -52,6 +98,11 @@ struct desired_state {
 //   signature   base64 (<=512 chars)
 //   url         a server-relative path ("/..."), no control characters,
 //               spaces or '#', because it is appended to the pinned base url
+//   name        no NUL, because they are fields of the NUL-separated bundle
+//   version     signing descriptor and a NUL in one would let a single
+//   format      signature cover two different bundles
+// tenant_id is required whenever the response carries bundles (it is needed to
+// build that descriptor) and ignored when it does not.
 // next_poll_in_seconds is clamped to 1..86400 (nonsense values fall back to
 // the 60s default) so a bad response cannot park the agent forever, and a
 // bundles field that is present but not an array is an error rather than
@@ -87,10 +138,13 @@ class sha256_stream {
   void *ctx_;  // EVP_MD_CTX; opaque so this header does not drag in OpenSSL
 };
 
-// Verify a bundle: `signature_b64` must be an Ed25519 signature over the
-// 32-byte SHA-256 digest of `bytes` (not the raw bytes), made by the key in
-// `pub_pem`. Returns false and sets `error` on any mismatch or parse failure.
-bool verify_bundle(const std::string &pub_pem, const std::string &bytes, const std::string &sha256_hex_expected, const std::string &signature_b64,
+// Verify a bundle, in two steps that must both pass:
+//   integrity    SHA-256 of `bytes` equals `descriptor.sha256_hex`
+//   authenticity `signature_b64` is an Ed25519 signature by the key in
+//                `pub_pem` over `descriptor.signing_bytes()` - not over the
+//                raw bytes, and not over their digest alone
+// Returns false and sets `error` on any mismatch or parse failure.
+bool verify_bundle(const std::string &pub_pem, const std::string &bytes, const bundle_descriptor &descriptor, const std::string &signature_b64,
                    std::string &error);
 
 // RFC 7396 JSON Merge Patch: objects deep-merge, scalars/arrays replace
