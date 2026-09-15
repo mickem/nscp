@@ -12,6 +12,46 @@
 
 	<!-- DEFAULT MONITORING TOOL -->
 	<Property Id="MONITORING_TOOL">GENERIC</Property>
+
+	<!-- MANAGEMENT SERVER (ManagementServerDlg)
+	     Where this agent's configuration comes from: NONE (it is configured on
+	     this machine, the default and what every installer before this one
+	     did), FLEET (an NSClient fleet server manages it) or WEB (an
+	     nsclient.ini served over HTTP(S)).
+
+	     On a silent install it is derived rather than given: FLEET_SERVER means
+	     FLEET, a http(s) CONFIGURATION_TYPE means WEB - so the command lines
+	     that already do either keep working unchanged.
+
+	     Secure so a value picked in the UI, or passed on the command line,
+	     survives the handover to the elevated half of the install. -->
+	<Property Id="MANAGEMENT_SERVER" Secure="yes">NONE</Property>
+	<!-- The WEB url, as typed. ApplyManagement is what turns it into
+	     CONFIGURATION_TYPE once it has been checked. -->
+	<Property Id="MANAGEMENT_URL" Secure="yes" />
+	<!-- The one opt-out of verifying who is on the other end, for both managed
+	     modes: a plain http url, or a certificate that cannot be verified.
+	     Maps to FLEET_INSECURE / TLS_VERIFY_MODE=none, per mode - the two are
+	     about different connections and are never seeded from each other. -->
+	<Property Id="MANAGEMENT_INSECURE" Secure="yes" />
+	<!-- The CA file for the WEB mode, projected onto TLS_CA once the answer is
+	     final. See MANAGEMENT_CA in keys.hpp for why it is not bound to TLS_CA
+	     directly. -->
+	<Property Id="MANAGEMENT_CA" Secure="yes" />
+	<!-- Set by DetectManagement when the mode was worked out from FLEET_SERVER
+	     or CONFIGURATION_TYPE rather than asked for by name. Secure because it
+	     has to travel with MANAGEMENT_SERVER: on a basic-UI install both
+	     sequences run DetectManagement, and a second pass sees the mode the
+	     first one wrote and would call it named. If the mode crosses to the
+	     elevated half and this does not, a command line written before this
+	     page existed would silently get the modern-layout migration. -->
+	<Property Id="MGMT_DERIVED" Secure="yes" />
+	<!-- Four more are set by these actions and read in the same sequence, so
+	     they are deliberately not declared: MGMT_ENROLLED (this host already
+	     carries an enrollment manifest), MGMT_SET_LAYOUT and MGMT_SET_TLS_CA
+	     (the modern layout and the CA path were this page's doing, so an
+	     abandoned answer can take them back) and MGMT_ERROR (what
+	     ApplyManagement rejected, shown by ManagementErrorDlg). -->
 	
 	<!-- CONFIGURE THE INSTALLER -->
 	<Property Id="ALLOW_CONFIGURATION">1</Property>
@@ -42,6 +82,15 @@
 	<Property Id="FLEET_REQUIRE_ENCRYPTED_BUNDLES" Secure="yes" />
 	<Property Id="ExecEnrollFleet" Hidden="yes" />
 
+	<!-- The settings transport the installer uses when CONFIGURATION_TYPE (or
+	     IMPORT_CONFIG) is a url. Declared to mark them Secure: the management
+	     server page writes TLS_CA in the UI sequence, and a public property set
+	     there only reaches the elevated half of a managed install when it is
+	     listed in SecureCustomProperties. -->
+	<Property Id="TLS_VERSION" Secure="yes" />
+	<Property Id="TLS_VERIFY_MODE" Secure="yes" />
+	<Property Id="TLS_CA" Secure="yes" />
+
 	<!-- OPERATOR-SUPPLIED TLS MATERIAL (GitHub #568)
 	     Paths to PEM files on the installing machine, installed into
 	     ${certificate-path} as certificate.pem / certificate_key.pem / ca.pem
@@ -53,7 +102,7 @@
 	<Property Id="CERTIFICATE_KEY" Secure="yes" />
 	<Property Id="CERTIFICATE_CA" Secure="yes" />
 
-	<!-- On-disk layout (experimental, no UI yet): LAYOUT=modern keeps the
+	<!-- On-disk layout (experimental): LAYOUT=modern keeps the
 	     writable state in %ProgramData%\NSClient++, restricted to SYSTEM and
 	     administrators, while the program stays in Program Files. LAYOUT=legacy
 	     keeps everything in the install folder, which is the default.
@@ -61,8 +110,9 @@
 	     Deliberately has no default value here. An absent property means "keep
 	     whatever this host already uses", read from its boot.ini, so an upgrade
 	     neither moves an installation that did not ask to move nor moves a
-	     modern one back because the property was not repeated. Secure so it
-	     survives a managed or elevated install. -->
+	     modern one back because the property was not repeated. A fresh install
+	     that picked a management server defaults it to modern instead - see
+	     ApplyManagement. Secure so it survives a managed or elevated install. -->
 	<Property Id="LAYOUT" Secure="yes" />
 	<Property Id="ExecPrepareLayout" Hidden="yes" />
 

@@ -23,7 +23,10 @@ See [Supported platforms](supported-platforms.md) for the Windows and Linux vers
   - [Features](#features)
   - [Silent install](#silent-install)
   - [Debugging](#debugging)
-- [Specifying your monitoring tool](#specifying-your-monitoring-tool)
+- [Choosing a management server](#choosing-a-management-server)
+  - [Management server MSI properties](#management-server-msi-properties)
+  - [What a managed mode changes](#what-a-managed-mode-changes)
+  - [Specifying a local baseline](#specifying-a-local-baseline)
 - [Enrolling with a fleet server](#enrolling-with-a-fleet-server)
   - [Fleet MSI properties](#fleet-msi-properties)
   - [Running the installer with fleet arguments](#running-the-installer-with-fleet-arguments)
@@ -247,12 +250,10 @@ A list of all the MSI options can be found below.
 | CONF_WEB            | Enabled WEB Server                                                                                                      |
 | NRPEMODE            | NRPE Mode (LEGACY, SECURE for using ceretificates)                                                                      |
 | NSCLIENT_PWD        | Password to use for check_nt (and web server)                                                                           |
-| CONF_INCLUDES       | Additional files to include in the config syntax: <alias>;<file> For instance CONF_INCLUDES=op5;op5.ini;local;local.ini |
-| OP5_SERVER          | OP5 Server if you want to automatically submit passive checks via Op5 northbound API.                                   |
-| OP5_USER            | The username to login with on the OP5_SERVER                                                                            |
-| OP5_PASSWORD        | The password to login with on the OP5_SERVER                                                                            |
-| OP5_HOSTGROUPS      | Additional hostgroups to add to the host.                                                                               |
-| OP5_CONTACTGROUP    | Additional contactgroups to add to the host.                                                                            |
+| CONF_INCLUDES       | Additional files to include in the config syntax: <alias>;<file> For instance CONF_INCLUDES=local;local.ini             |
+| MANAGEMENT_SERVER   | Where the configuration comes from: `NONE` (this machine, the default), `FLEET` or `WEB` - see [Choosing a management server](#choosing-a-management-server) |
+| MANAGEMENT_URL      | The configuration url for `MANAGEMENT_SERVER=WEB`; the same thing as CONFIGURATION_TYPE pointed at a http(s) url         |
+| MANAGEMENT_INSECURE | Set to 1 to allow an unverified connection to the management server: a plain `http://` url, or a certificate that cannot be verified |
 | NO_SERVICE          | Set to 1 to disable installing the service (then you can manually create and activate the service when needed)          |
 | TLS_VERSION         | The TLS version to use (1.0, 1.1, 1.2, *1.3*)                                                                           |
 | TLS_VERIFY_MODE     | The TLS verify mode to use (none, *peer*, fail_if_no_peer_cert)                                                         |
@@ -325,7 +326,7 @@ NSClient++ consists of the following features most which can be disabled when do
 | Feature Name      | Title                  | Description                                                                               |
 |-------------------|------------------------|-------------------------------------------------------------------------------------------|
 | CheckPlugins      | Check Plugins          | Various plugins to check your system. (Includes all check plugins)                        |
-| ExtraClientPlugin | Various client plugins | Plugins to connect to various systems such as syslog, graphite and smtp                   |
+| ExtraClientPlugin | Various client plugins | Plugins to connect to various systems such as syslog, graphite, smtp and op5              |
 | FirewallConfig    | Firewall Exception     | A firewall exception to allow NSClient++ to open ports                                    |
 | LuaScript         | Lua Scripting          | Allows running INTERNAL scripts written in Lua                                            |
 | NRPEPlugins       | NRPE Support           | NRPE Server Plugin. Support for the more versatile NRPE protocol (check_nrpe)             |
@@ -338,7 +339,6 @@ NSClient++ consists of the following features most which can be disabled when do
 | SampleScripts     | Scripts                | Scripts for checking and testing various aspects of your computer and NSClient++          |
 | Shortcuts         | Shortcuts              | Main Service shortcuts                                                                    |
 | WEBPlugins        | WEB Server             | NSClient WEB Server. Use this to administrate or check NSClient via a browser or REST API |
-| OP5Monitoring     | OP5 Monitoring         | Scripts/config for the op5 monitoring system.                                             |
 
 ### Silent install
 
@@ -361,32 +361,94 @@ This is done by adding `/l* log.txt` to the command line (you can of course chan
 
 > *BEWARE:* The log file can contain sensitive information such as passwords so be careful when sharing it with others.
 
-## Specifying your monitoring tool
+## Choosing a management server
 
-There is an option which can be used to define a base-line for your monitoring tool.
-If you do not have a supported monitoring tool you can set it to "none" which will use the generic configuration which 
-works with all monitoring tools.
+The first page of the interactive installer asks where this machine's configuration comes from. It is the one choice
+that changes what the rest of the installer does, and `MANAGEMENT_SERVER` is the same choice on a command line:
+
+| Mode    | What it means                                                                                                   |
+|---------|-----------------------------------------------------------------------------------------------------------------|
+| `NONE`  | This machine keeps its own configuration. The default, and what every NSClient++ installer has always done.        |
+| `FLEET` | An [NSClient fleet server](fleet.md) manages it. The installer enrolls the host while it installs.                 |
+| `WEB`   | An `nsclient.ini` served over HTTP(S) is the configuration, re-read by the service as it changes.                  |
+
+```batch
+rem Managed by a fleet server (the properties come from the install command it generated)
+msiexec /qn /i NSCP-<version>-x64.msi MANAGEMENT_SERVER=FLEET ^
+  FLEET_SERVER=https://fleet.example.com FLEET_TOKEN=<bootstrap-token>
+
+rem Configuration served over HTTPS
+msiexec /qn /i NSCP-<version>-x64.msi MANAGEMENT_SERVER=WEB ^
+  MANAGEMENT_URL=https://config.example.com/nsclient.ini
+```
+
+You rarely have to pass `MANAGEMENT_SERVER` on a silent install: a command line that gives `FLEET_SERVER`, or a
+`CONFIGURATION_TYPE` that is a http(s) url, has chosen a management server already and the installer treats it as one.
+Naming it is how you also ask for the on-disk layout below.
+
+### Management server MSI properties
+
+| Property              | Mode    | What it does                                                                                                  |
+|-----------------------|---------|---------------------------------------------------------------------------------------------------------------|
+| `MANAGEMENT_SERVER`   | all     | `NONE`, `FLEET` or `WEB`. Derived from `FLEET_SERVER` / `CONFIGURATION_TYPE` when it is not given.              |
+| `MANAGEMENT_URL`      | `WEB`   | Url of the configuration file. The same thing as `CONFIGURATION_TYPE` pointed at a http(s) url.                 |
+| `MANAGEMENT_INSECURE` | both    | `1` allows an unverified connection: a plain `http://` url, or a certificate that cannot be verified.           |
+| `FLEET_*`             | `FLEET` | The enrollment itself - see [Fleet MSI properties](#fleet-msi-properties).                                      |
+| `TLS_CA`              | `WEB`   | The issuing CA of the configuration server, when it is not in the machine's trusted root store.                 |
+
+### What a managed mode changes
+
+Both managed modes do the same three things, and they follow from the same fact: the configuration is not this
+machine's to write.
+
+- **The configuration and module pages are skipped.** There is nothing local left to choose.
+- **No local baseline is written.** Not the allowed hosts, not the generated password, not the module list. A value
+  set locally [wins over the one the management server sends](fleet.md#step-5-send-it-some-configuration), so a
+  baseline written at install time would quietly shadow the configuration you maintain centrally. The only thing
+  written is what points at the management server.
+- **A fresh install uses the [modern layout](#on-disk-layout-layout).** State that somebody else owns has no business
+  sitting in Program Files where every user can read it. Only a fresh install, and only when the mode was asked for by
+  name or picked on the page: the migration is one-way, so a deployment script that has always passed `FLEET_SERVER`
+  keeps the layout it has until it passes `LAYOUT=modern` (or `MANAGEMENT_SERVER=FLEET`) as well. `LAYOUT` always wins
+  where it is given.
+
+Plain HTTP needs `MANAGEMENT_INSECURE=1` in both modes. In one it would send the enrollment token in cleartext; in the
+other it fetches the file that becomes the whole configuration of the agent, external script definitions included.
+
+### Specifying a local baseline
+
+In `NONE` mode `MONITORING_TOOL` picks what the installer writes into a fresh configuration. `GENERIC`, the default,
+writes the usual starting point (allowed hosts, a generated password, the common check plugins, NRPE). Anything else -
+`none`, by convention - writes nothing and leaves the existing or shipped configuration to speak for itself. `OP5` is
+still accepted and now means `GENERIC`; the baseline it used to select went with the op5 page.
 
 ```
 msiexec /i NSCP-<version>.msi MONITORING_TOOL=none
 ```
 
-### Silent op5 install
+### Submitting to an op5 server
 
-To enable active checks via NRPE from OP5 you can set the `MONITORING_TOOL` option to `OP5`.
+The op5 profile was retired with the page that offered it, but the `Op5Client` module is still shipped, under the
+*Various client plugins* feature. Configure it after installing - in `nsclient.ini` under `[/settings/op5]`, or with
+`nscp op5 install`:
 
+```ini
+[/modules]
+Op5Client = enabled
+
+[/settings/op5]
+server = https://op5.example.com
+user = monitor
+password = <password>
 ```
-msiexec /i NSClient++.msi MONITORING_TOOL=OP5
-```
 
-### Silent op5 install (Northbound)
-
-To enable passive reports via OP5s Northbound API you can set the `OP5_SERVER`, `OP5_USER` and `OP5_PASSWORD` options.
-In this case setting `MONITORING_TOOL` is done automatically when ever `OP5_SERVER` is detected.
-
-```
-msiexec /i NSClient++.msi OP5_SERVER=https://op5.com OP5_USER=monitor OP5_PASSWORD=rotinom
-```
+<!-- @formatter:off -->
+!!! warning "The `OP5_*` MSI properties do not work"
+    `OP5_SERVER`, `OP5_USER`, `OP5_PASSWORD`, `OP5_HOSTGROUPS` and `OP5_CONTACTGROUP` are read by the installer from
+    a property name nothing ever fills in, so passing them on the command line has always been silently ignored. This
+    is a long-standing bug rather than something the retirement of the op5 profile changed, and it is why they are not
+    in the options table above. Configure the module as shown instead.
+<!-- @formatter:on -->
 
 ## Enrolling with a fleet server
 
@@ -626,6 +688,9 @@ This will then copy the config file from the server and use that as the configur
 This is useful if you do not have a good way to manage Windows Machines.
 
 ## Use configuration from a HTTP server
+
+This is what [`MANAGEMENT_SERVER=WEB`](#choosing-a-management-server) selects on the first page of the installer; the
+properties below are the same thing from a command line.
 
 A simple way to manage NSClient++ configuration is to use the HTTP configuration backend.
 This way you can manage the configuration from a central server and all your clients will automatically pick up

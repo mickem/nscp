@@ -1,0 +1,48 @@
+# MONITORING_TOOL=OP5 on a deployment script that has not been updated.
+#
+# The op5 baseline went away with the page that offered it, and an unknown
+# MONITORING_TOOL has always meant "write no baseline at all" - which would
+# leave these installs with no allowed hosts, no password and no check modules.
+# So OP5 is still accepted and means GENERIC, and this case is that promise:
+# the configuration below is the one normal-install.yaml gets.
+command_line: ["msiexec.exe", "/i", "$MSI-FILE", "/qn", "/l*", "log.txt", "ADDLOCAL=ALL", "MONITORING_TOOL=OP5" ]
+replace_password: true
+boot.ini: |
+  [settings]
+  1 = ini://${shared-path}/nsclient.ini
+
+nsclient.ini: |
+  [/modules]
+  checkdisk = enabled
+  checkeventlog = enabled
+  checkexternalscripts = enabled
+  checkhelpers = enabled
+  checknscp = enabled
+  checksystem = enabled
+  nrpeserver = enabled
+  webserver = enabled
+
+  [/settings/NRPE/server]
+  insecure = false
+  tls version = tlsv1.2+
+  verify mode = peer-cert
+
+  [/settings/default]
+  allowed hosts = 127.0.0.1
+  password = $$PASSWORD$$
+
+# The feature is gone, so its content must be too - but the client module it
+# used to ship is not op5 configuration and stays.
+# The op5 script components were harvested into the same Directory row as the
+# ordinary scripts (Name="scripts"), so these four installed flat beside them -
+# not into a scripts\op5 subfolder, which was declared and never used.
+forbidden_files:
+  op5-config:
+    - op5.ini
+    - scripts/check_ad.vbs
+    - scripts/check_time.vbs
+    - scripts/restart_service.ps1
+    - scripts/services.vbs
+required_files:
+  op5-client:
+    - modules/Op5Client.dll

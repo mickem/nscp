@@ -3,8 +3,8 @@ EXPORTS
 	ScheduleWriteConfig
 	ExecWriteConfig
 	TranslateSid
-	ApplyTool
-	DetectTool
+	ApplyManagement
+	DetectManagement
 	BackupConfig
 	ReadLayout
 	SchedulePrepareLayout

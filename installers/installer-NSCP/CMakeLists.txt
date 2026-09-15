@@ -12,12 +12,11 @@ set(SRCS
     ../ui/InvalidConfigDlg2.wxs
     ../ui/InvalidConfigDlg3.wxs
     ../ui/SelectConfigurationDlg.wxs
-    ../ui/MonitoringToolDlg.wxs
+    ../ui/ManagementServerDlg.wxs
+    ../ui/ManagementErrorDlg.wxs
     ../ui/WixUI_MondoNSCP.wxs
     ../common/web.wxs
     ../common/scripts.wxs
-    ../common/op5_scripts.wxs
-    ../common/op5_config.wxs
 )
 if(USE_STATIC_RUNTIME)
     set(RUNTIME "static")
@@ -84,8 +83,6 @@ set(WIX_CANDLE_FLAGS
     "-dWebHelpSource=${NSCP_PROJECT_BINARY_DIR_NATIVE}\\docs\\html"
     "-dWebSource=${NSCP_PROJECT_BINARY_DIR}\\web"
     "-dScriptSource=${NSCP_PROJECT_BINARY_DIR}\\scripts"
-    "-dOP5ScriptSource=${NSCP_PROJECT_BINARY_DIR}\\scripts\\op5"
-    "-dOP5ConfigSource=${NSCP_PROJECT_BINARY_DIR}"
     "-dInSource=${CMAKE_CURRENT_SOURCE_DIR}"
     "-dResources=${CMAKE_SOURCE_DIR}/resources"
     "-dInstallerDllPath=${NSCP_PROJECT_BINARY_DIR_NATIVE}/../installer_lib/Release"
@@ -140,8 +137,6 @@ add_dependencies(
     build_docs_html
     copy_scripts
     copy_resources
-    copy_op5_config
-    copy_op5_scripts
 )
 
 set_target_properties(

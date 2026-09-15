@@ -14,11 +14,18 @@
 <!--
 First-time install dialog sequence:
 - WixUI_WelcomeDlg
-- MonitoringToolDlg
+- ManagementServerDlg
 - WixUI_SetupTypeDlg
   - Typical: ConfigureDlg / InvalidConfigDlg1 / VerifyReadyDlg
   - Custom: CustomizeDlg / SelectConfigurationDlg / ConfigureDlg / VerifyReadyDlg
   - Complete: SelectConfigurationDlg / ConfigureDlg / VerifyReadyDlg
+
+A management server (MANAGEMENT_SERVER = FLEET or WEB) takes every branch
+above straight to VerifyReadyDlg: the configuration comes from the management
+server, so there is nothing left for SelectConfigurationDlg and ConfigureDlg to
+ask. ImportConfig still has to run on the way - it is what reads (or downloads)
+the configuration and decides whether the installer may write to it - so the
+buttons that used to leave it to SelectConfigurationDlg trigger it themselves.
 
 Maintenance dialog sequence:
 - WixUI_MaintenanceWelcomeDlg
@@ -41,6 +48,9 @@ Patch dialog sequence:
       <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
       <Property Id="WixUI_Mode" Value="Mondo" />
 
+      <!-- Spawned by ManagementServerDlg rather than published to, so nothing
+           else references its fragment. -->
+      <DialogRef Id="ManagementErrorDlg" />
       <DialogRef Id="ErrorDlg" />
       <DialogRef Id="FatalError" />
       <DialogRef Id="FilesInUse" />
@@ -52,27 +62,40 @@ Patch dialog sequence:
 
       <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999">1</Publish>
 
-      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="MonitoringToolDlg">1</Publish>
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="ManagementServerDlg">1</Publish>
 
-      <Publish Dialog="MonitoringToolDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg">1</Publish>
-      <Publish Dialog="MonitoringToolDlg" Control="Next" Event="NewDialog" Value="SetupTypeDlg">1</Publish>
+      <Publish Dialog="ManagementServerDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg">1</Publish>
+      <!-- The dialog itself runs ApplyManagement first (DoAction, unordered).
+           It reports what it could not accept in MGMT_ERROR, and we stay on the
+           page so the value can be corrected - enrollment burns a one-time
+           token, so a bad server or token has to be caught here rather than
+           after Install has been clicked. -->
+      <Publish Dialog="ManagementServerDlg" Control="Next" Event="SpawnDialog" Value="ManagementErrorDlg" Order="1"><![CDATA[MGMT_ERROR <> ""]]></Publish>
+      <Publish Dialog="ManagementServerDlg" Control="Next" Event="NewDialog" Value="SetupTypeDlg" Order="2"><![CDATA[MGMT_ERROR = ""]]></Publish>
 
-      <Publish Dialog="SetupTypeDlg" Control="Back" Event="NewDialog" Value="MonitoringToolDlg">1</Publish>
+      <Publish Dialog="SetupTypeDlg" Control="Back" Event="NewDialog" Value="ManagementServerDlg">1</Publish>
       <Publish Dialog="SetupTypeDlg" Control="TypicalButton" Event="NewDialog" Value="InvalidConfigDlg1" Order="1">CONF_HAS_ERRORS = "1"</Publish>
-      <Publish Dialog="SetupTypeDlg" Control="TypicalButton" Event="NewDialog" Value="ConfigureDlg" Order="2">CONF_CAN_CHANGE = "1"</Publish>
+      <Publish Dialog="SetupTypeDlg" Control="TypicalButton" Event="NewDialog" Value="ConfigureDlg" Order="2">CONF_CAN_CHANGE = "1" AND MANAGEMENT_SERVER = "NONE"</Publish>
       <Publish Dialog="SetupTypeDlg" Control="TypicalButton" Event="NewDialog" Value="VerifyReadyDlg" Order="3">1</Publish>
       <Publish Dialog="SetupTypeDlg" Control="TypicalButton" Event="DoAction" Value="ImportConfig">1</Publish>
 
       <Publish Dialog="SetupTypeDlg" Control="CustomButton" Event="NewDialog" Value="CustomizeDlg">1</Publish>
+      <Publish Dialog="SetupTypeDlg" Control="CompleteButton" Event="DoAction" Value="ImportConfig"><![CDATA[MANAGEMENT_SERVER <> "NONE"]]></Publish>
       <Publish Dialog="SetupTypeDlg" Control="CompleteButton" Event="NewDialog" Value="InvalidConfigDlg1" Order="1">CONF_HAS_ERRORS = "1"</Publish>
-      <Publish Dialog="SetupTypeDlg" Control="CompleteButton" Event="NewDialog" Value="SelectConfigurationDlg" Order="2">CONF_OLD_FOUND="0"</Publish>
-      <Publish Dialog="SetupTypeDlg" Control="CompleteButton" Event="NewDialog" Value="ConfigureDlg" Order="3">CONF_CAN_CHANGE = "1"</Publish>
+      <!-- Complete used to offer SelectConfigurationDlg here on a condition
+           reading CONF_OLD_FOUND="0" - a property nothing has ever set, so the
+           route was never taken and Complete has always behaved like Typical.
+           Removed rather than repaired: which store the configuration lives in
+           is what Custom is for, and picking which of the two was meant is not
+           a decision to make while deleting a dead condition. -->
+      <Publish Dialog="SetupTypeDlg" Control="CompleteButton" Event="NewDialog" Value="ConfigureDlg" Order="3">CONF_CAN_CHANGE = "1" AND MANAGEMENT_SERVER = "NONE"</Publish>
       <Publish Dialog="SetupTypeDlg" Control="CompleteButton" Event="NewDialog" Value="VerifyReadyDlg" Order="4">1</Publish>
 
       <Publish Dialog="CustomizeDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg" Order="1">WixUI_InstallMode = "Change"</Publish>
       <Publish Dialog="CustomizeDlg" Control="Back" Event="NewDialog" Value="SetupTypeDlg" Order="2">WixUI_InstallMode = "InstallCustom"</Publish>
+      <Publish Dialog="CustomizeDlg" Control="Next" Event="DoAction" Value="ImportConfig"><![CDATA[MANAGEMENT_SERVER <> "NONE"]]></Publish>
       <Publish Dialog="CustomizeDlg" Control="Next" Event="NewDialog" Value="InvalidConfigDlg1" Order="1">CONF_HAS_ERRORS = "1"</Publish>
-      <Publish Dialog="CustomizeDlg" Control="Next" Event="NewDialog" Value="SelectConfigurationDlg" Order="2">CONF_CAN_CHANGE = "1"</Publish>
+      <Publish Dialog="CustomizeDlg" Control="Next" Event="NewDialog" Value="SelectConfigurationDlg" Order="2">CONF_CAN_CHANGE = "1" AND MANAGEMENT_SERVER = "NONE"</Publish>
       <Publish Dialog="CustomizeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="3">1</Publish>
 
       <Publish Dialog="InvalidConfigDlg1" Control="Back" Event="NewDialog" Value="CustomizeDlg" Order="1">WixUI_InstallMode = "Change" OR WixUI_InstallMode = "InstallCustom"</Publish>
@@ -109,7 +132,10 @@ Patch dialog sequence:
       <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="SetupTypeDlg" Order="2">WixUI_InstallMode = "InstallTypical" OR WixUI_InstallMode = "InstallComplete"</Publish>
       <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg" Order="3">WixUI_InstallMode = "Repair" OR WixUI_InstallMode = "Remove"</Publish>
       <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="4">WixUI_InstallMode = "Update"</Publish>
-      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="ConfigureDlg" Order="5">CONF_CAN_CHANGE = "1"</Publish>
+      <!-- Guarded like the forward paths: the install modes above claim every
+           Back that can reach here, but a managed install must not be able to
+           land on the page whose values would shadow the management server. -->
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="ConfigureDlg" Order="5">CONF_CAN_CHANGE = "1" AND MANAGEMENT_SERVER = "NONE"</Publish>
       <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="InvalidConfigDlg1" Order="6">CONF_HAS_ERRORS = "1"</Publish>
 
       <Publish Dialog="MaintenanceWelcomeDlg" Control="Next" Event="NewDialog" Value="MaintenanceTypeDlg">1</Publish>
