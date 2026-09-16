@@ -45,6 +45,12 @@ std::vector<std::string> split_list(const std::string &value) {
   return out;
 }
 
+std::string join_list(const std::vector<std::string> &values) {
+  std::string out;
+  for (const std::string &value : values) out += (out.empty() ? "" : ", ") + value;
+  return out;
+}
+
 /** Route the worker's log lines through the core, which is the only reason this exists. */
 class core_logger : public gearman::worker_logger {
  public:
@@ -143,7 +149,7 @@ bool GearmanClient::build_config(const std::string &alias, gearman::worker_confi
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("gearman", alias, "worker");
 
-  std::string servers, key, key_file, hostgroups, servicegroups, host_names;
+  std::string servers, mode_name = "agent", key, key_file, hostgroups, servicegroups, host_names;
   bool encryption = true, insecure = false, shared_queues = false;
   unsigned int workers = 2;
   int timeout_return = 2;
@@ -157,6 +163,14 @@ bool GearmanClient::build_config(const std::string &alias, gearman::worker_confi
         "Comma separated list of gearmand job servers as host or host:port (port defaults to 4730), tried in order. "
         "This is the same list mod_gearman's worker.conf gives as repeated server= lines. The agent always connects outbound, "
         "so no port is opened on this host.")
+
+    .add_string("mode", sh::string_key(&mode_name, "agent"), "WORKER MODE",
+        "Which deployment this is, 'agent' or 'proxy'. An agent answers for itself: it runs the checks of the host it is installed on, and refuses a job "
+        "for any other host (see 'host names'). A proxy answers for others: it runs every check on the queues it registered, whichever host the core meant "
+        "it for, which is what a check_command naming its own target - check_nrpe host=$HOSTADDRESS$ command=check_cpu, check_wmi target=$HOSTADDRESS$ - "
+        "needs (the agent reads a check's arguments as key=value or --long, not as the Nagios plugin's -H). Proxy mode is "
+        "how one domain-joined Windows box monitors a whole hostgroup without an agent, or an open port, on any of them; it is also the bigger target, since "
+        "anyone who can queue a job on those queues reaches everything the proxy's own credentials reach.")
 
     .add_bool("encryption", sh::bool_key(&encryption, true), "ENCRYPT PAYLOADS",
         "Whether jobs and results travel inside the AES-256 envelope (mod_gearman's encryption=yes). Leave this on: with it off "
@@ -178,7 +192,8 @@ bool GearmanClient::build_config(const std::string &alias, gearman::worker_confi
     .add_string("hostgroups", sh::string_key(&hostgroups, ""), "HOSTGROUP QUEUES",
         "Comma separated hostgroup names, one queue each: 'windows' registers hostgroup_windows. These have to match the "
         "hostgroups= line in the core's module.conf, which is what decides that a check goes to gearmand at all. In agent mode "
-        "the usual arrangement is one hostgroup per host.")
+        "the usual arrangement is one hostgroup per host; a proxy takes one group for every host it monitors, and two proxies on the same group share "
+        "the load and cover each other with no further configuration.")
 
     .add_string("servicegroups", sh::string_key(&servicegroups, ""), "SERVICEGROUP QUEUES",
         "Comma separated servicegroup names, one queue each: 'db' registers servicegroup_db. Matches servicegroups= in the "
@@ -192,7 +207,8 @@ bool GearmanClient::build_config(const std::string &alias, gearman::worker_confi
     .add_string("host names", sh::string_key(&host_names, ""), "EXTRA HOST NAMES",
         "Comma separated extra names this agent answers for, on top of its own host name. A queue carries the checks of every "
         "host in its group and the protocol does not say which worker a job was meant for, so a job for any other name is "
-        "refused. Set this when the core knows the host under a different name than the operating system does.")
+        "refused. Set this when the core knows the host under a different name than the operating system does. Agent mode only: "
+        "a proxy answers for every host on its queues and ignores this.")
 
     .add_int("workers", sh::uint_key(&workers, 2), "WORKER THREADS",
         "Number of worker threads, each with its own connection. Two is plenty for one host's own checks.")
@@ -296,7 +312,25 @@ bool GearmanClient::build_config(const std::string &alias, gearman::worker_confi
   const std::string::size_type dot = local_host.find('.');
   if (dot != std::string::npos) config.host_names.insert(boost::algorithm::to_lower_copy(local_host.substr(0, dot)));
   for (const std::string &name : split_list(host_names)) config.host_names.insert(boost::algorithm::to_lower_copy(name));
-  config.bind_to_host = true;
+
+  const std::string mode = boost::algorithm::to_lower_copy(boost::trim_copy(mode_name));
+  if (mode == "agent") {
+    config.bind_to_host = true;
+  } else if (mode == "proxy") {
+    config.bind_to_host = false;
+    // Worth one line in the log: from here on this agent runs whatever the
+    // queue carries, for whatever host, so the queue and its key are the only
+    // thing between a job and everything this host can reach.
+    NSC_LOG_MESSAGE("gearman: running in proxy mode: every check on " + join_list(config.queues) +
+                    " is executed here whichever host it names, through this agent's own commands and credentials. Keep the key to these queues to the "
+                    "hosts that should have it.");
+    if (!split_list(host_names).empty())
+      NSC_LOG_MESSAGE("gearman: 'host names' is set but has no effect in proxy mode: a proxy answers for every host on its queues, which is the point of it.");
+  } else {
+    NSC_LOG_ERROR_STD("gearman: unknown mode '" + mode_name +
+                      "'. Use 'agent' (this host's own checks only, the default) or 'proxy' (run the checks of every host on the registered queues).");
+    return false;
+  }
 
   config.workers = workers;
   config.timeout_return = timeout_return;

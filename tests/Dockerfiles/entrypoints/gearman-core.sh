@@ -15,7 +15,16 @@
 #      $GEARMAN_HOSTGROUP into the gearmand queue `hostgroup_<name>`;
 #   4. the core itself, in the foreground.
 #
-# The object config is the one from the GearmanClient plan: one `nscp`
+# Two object configurations, selected by GEARMAN_SCENARIO:
+#
+#   agent (default)  the host `nscp-test` is the agent itself, and every
+#                    check is a bare query it answers for itself;
+#   proxy            the host `nrpe-target` has no agent of its own, and
+#                    every check names it through check_nrpe, so the worker
+#                    on the queue runs the checks of a host it is not. See
+#                    tests/gearman-proxy.test.ts.
+#
+# The agent object config is the one from the GearmanClient plan: one `nscp`
 # command whose command line is `$ARG1$`, one host `nscp-test` in the test
 # hostgroup, and three services. The worker on the other side of gearmand
 # (the TypeScript stub in tests/src/gearman.ts, or the GearmanClient module
@@ -36,6 +45,20 @@
 #                     sleeps), so the check overruns the job's `timeout` and
 #                     the agent's timeout handling is exercised against a
 #                     real core
+#
+# The proxy object config points every check at PROXY_TARGET_ADDRESS (as the
+# core's own $HOSTADDRESS$ macro) and PROXY_TARGET_PORT, which the test fills
+# in with an NRPE server it runs itself:
+#
+#   host nrpe-target  check_nrpe host=$HOSTADDRESS$ … command=check_version
+#   service remote    … command=$PROXY_TARGET_COMMAND
+#   service down      … port=$PROXY_DEAD_PORT, nothing listening there
+#
+# Written `host=` and `port=` rather than the Nagios plugin's `-H` and `-p`:
+# a check command's arguments reach the agent as separate tokens, and a first
+# token of two characters puts the agent's own parser into key=value mode, so
+# `-H 127.0.0.1` arrives as an option with no value. The long forms
+# (`--host 127.0.0.1`) work as well.
 #
 # The timeout the core puts in the job is service_check_timeout /
 # host_check_timeout below, three seconds.
@@ -70,6 +93,14 @@ GEARMAN_ENCRYPTION="${GEARMAN_ENCRYPTION:-yes}"
 GEARMAN_HOSTGROUP="${GEARMAN_HOSTGROUP:-gearman-test}"
 GEARMAN_DEBUG="${GEARMAN_DEBUG:-0}"
 CHECK_INTERVAL="${CHECK_INTERVAL:-5}"
+GEARMAN_SCENARIO="${GEARMAN_SCENARIO:-agent}"
+# Proxy scenario only: where the checks the proxy runs are aimed. The address
+# is resolved by the *worker*, not by the core, so a loopback address here is
+# the NRPE server on the machine running the agent.
+PROXY_TARGET_ADDRESS="${PROXY_TARGET_ADDRESS:-127.0.0.1}"
+PROXY_TARGET_PORT="${PROXY_TARGET_PORT:-15667}"
+PROXY_TARGET_COMMAND="${PROXY_TARGET_COMMAND:-check_target}"
+PROXY_DEAD_PORT="${PROXY_DEAD_PORT:-15999}"
 WORK="${WORK:-/gearman-test}"
 CAPTURE_DIR="${CAPTURE_DIR:-}"
 
@@ -119,7 +150,22 @@ for bin in "$CORE_BIN" "$SEND_GEARMAN"; do
   fi
 done
 
-echo ">> core=$GEARMAN_CORE bin=$CORE_BIN neb=$NEB_MODULE key=<${#GEARMAN_KEY} bytes> encryption=$GEARMAN_ENCRYPTION hostgroup=$GEARMAN_HOSTGROUP"
+case "$GEARMAN_SCENARIO" in
+  agent|proxy) ;;
+  *)
+    echo "!! GEARMAN_SCENARIO must be agent or proxy, got '$GEARMAN_SCENARIO'" >&2
+    exit 2
+    ;;
+esac
+# The fixtures are captured from the agent scenario's own checks (a host job
+# and the `helper` service job), so capturing from the proxy one would wait
+# for a service that does not exist there.
+if [ -n "$CAPTURE_DIR" ] && [ "$GEARMAN_SCENARIO" != "agent" ]; then
+  echo "!! capture mode needs GEARMAN_SCENARIO=agent, got '$GEARMAN_SCENARIO'" >&2
+  exit 2
+fi
+
+echo ">> core=$GEARMAN_CORE bin=$CORE_BIN neb=$NEB_MODULE key=<${#GEARMAN_KEY} bytes> encryption=$GEARMAN_ENCRYPTION hostgroup=$GEARMAN_HOSTGROUP scenario=$GEARMAN_SCENARIO"
 
 # ---------------------------------------------------------------------------
 # Directory layout. Everything the core writes lives under $WORK/var so the
@@ -168,7 +214,9 @@ perfdata=no
 EOF
 
 # ---------------------------------------------------------------------------
-# 3. Object config (identical for both cores).
+# 3. Object config (identical for both cores): the preamble every scenario
+#    shares - period, the `nscp` command, a contact that notifies nobody and
+#    the hostgroup the NEB module routes.
 # ---------------------------------------------------------------------------
 cat > "$ETC/objects.cfg" <<EOF
 define timeperiod {
@@ -210,7 +258,13 @@ define hostgroup {
   hostgroup_name  $GEARMAN_HOSTGROUP
   alias           Hosts checked through gearmand
 }
+EOF
 
+# ---------------------------------------------------------------------------
+# 3b. The checks themselves, one set per scenario.
+# ---------------------------------------------------------------------------
+if [ "$GEARMAN_SCENARIO" = "agent" ]; then
+cat >> "$ETC/objects.cfg" <<EOF
 define host {
   host_name              nscp-test
   alias                  NSClient++ under test
@@ -269,6 +323,57 @@ define service {
   notifications_enabled  0
 }
 EOF
+else
+# Proxy scenario. Nothing is installed on nrpe-target and nothing here knows
+# where the worker is: every check names its own target through the core's
+# \$HOSTADDRESS\$ macro, and the worker that grabs the job runs it for a host
+# it is not. That is the whole difference between the two modes.
+cat >> "$ETC/objects.cfg" <<EOF
+define host {
+  host_name              nrpe-target
+  alias                  A host with no agent of its own
+  address                $PROXY_TARGET_ADDRESS
+  hostgroups             $GEARMAN_HOSTGROUP
+  check_command          nscp!check_nrpe host=\$HOSTADDRESS\$ port=$PROXY_TARGET_PORT command=check_version insecure=true
+  check_interval         $CHECK_INTERVAL
+  retry_interval         $CHECK_INTERVAL
+  max_check_attempts     1
+  check_period           24x7
+  contacts               nobody
+  notification_interval  0
+  notification_period    24x7
+  notifications_enabled  0
+}
+
+define service {
+  host_name              nrpe-target
+  service_description    remote
+  check_command          nscp!check_nrpe host=\$HOSTADDRESS\$ port=$PROXY_TARGET_PORT command=$PROXY_TARGET_COMMAND insecure=true
+  check_interval         $CHECK_INTERVAL
+  retry_interval         $CHECK_INTERVAL
+  max_check_attempts     1
+  check_period           24x7
+  contacts               nobody
+  notification_interval  0
+  notification_period    24x7
+  notifications_enabled  0
+}
+
+define service {
+  host_name              nrpe-target
+  service_description    down
+  check_command          nscp!check_nrpe host=\$HOSTADDRESS\$ port=$PROXY_DEAD_PORT command=check_ok insecure=true
+  check_interval         $CHECK_INTERVAL
+  retry_interval         $CHECK_INTERVAL
+  max_check_attempts     1
+  check_period           24x7
+  contacts               nobody
+  notification_interval  0
+  notification_period    24x7
+  notifications_enabled  0
+}
+EOF
+fi
 
 # ---------------------------------------------------------------------------
 # 4. Core config. The two cores accept the same keys except the user/group

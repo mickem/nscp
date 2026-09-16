@@ -587,8 +587,9 @@ TEST_F(WorkerTest, extra_host_names_are_answered_for) {
 }
 
 TEST_F(WorkerTest, without_host_binding_any_host_is_executed) {
-  // The branch proxy mode switches on. The setting that reaches it, and the
-  // remote-capable command lines that make it useful, come with proxy mode.
+  // Proxy mode: `mode = proxy` clears the binding, and the command line the
+  // core defines names its own target, so the check runs for a host this
+  // agent is not.
   config_.bind_to_host = false;
   start();
   ASSERT_TRUE(wait_until([this] { return !server_.abilities().empty(); }));

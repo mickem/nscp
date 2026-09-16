@@ -1,6 +1,6 @@
 /**
- * GearmanClient plan, step 3: the worker loop, in agent mode, against a real
- * gearmand.
+ * GearmanClient plan, steps 3 and 5: the worker loop, in both modes, against
+ * a real gearmand.
  *
  * The test plays the monitoring core. It puts encrypted check jobs on the
  * queue the NEB module would submit to, then registers on the result queue
@@ -61,7 +61,7 @@ async function waitFor<T>(produce: () => Promise<T | null>, timeoutMs = 60_000):
   }
 }
 
-dockerOrSkip()("Mod-Gearman worker (agent mode)", () => {
+dockerOrSkip()("Mod-Gearman worker", () => {
   let gearmand: StartedTestContainer;
   let server: GearmanServer;
   let scriptsDir: string;
@@ -349,6 +349,89 @@ dockerOrSkip()("Mod-Gearman worker (agent mode)", () => {
   });
 
   // -------------------------------------------------------------------------
+  // Proxy mode
+  // -------------------------------------------------------------------------
+
+  describe("a worker in proxy mode", () => {
+    let agent: Agent;
+
+    beforeAll(async () => {
+      agent = await startAgent(
+        "worker-proxy",
+        // `host names` is set as well, and deliberately: a proxy is normally
+        // configured by taking an agent's configuration and changing the one
+        // line, and the leftover must not narrow what it answers for.
+        { mode: "proxy", "host names": HOSTNAME },
+        {
+          // The target the core expanded is an argument, and an external
+          // script takes none unless it is told to.
+          "/settings/external scripts": { timeout: "60", "allow arguments": "true" },
+          "/settings/external scripts/scripts": {
+            // Stands in for check_nrpe and friends: what matters here is that
+            // the target the core expanded into the command line arrives at
+            // the check. The real remote chain is gearman-proxy.test.ts.
+            // `$ARG1$` because an external script substitutes its arguments
+            // rather than appending them.
+            target: `${writeScript("target", '#!/bin/sh\necho "OK: asked $1"\n')} $ARG1$`,
+          },
+        },
+      );
+      expect(await waitForRegistration(agent.queue)).toBe(true);
+    });
+
+    afterAll(async () => {
+      await agent?.stop();
+    });
+
+    it("runs a service check for a host it is not", async () => {
+      await agent.submit({
+        host_name: "win-db01",
+        service_description: "CPU load",
+        command_line: "check_ok message=answered-for-win-db01",
+      });
+      const result = await agent.nextResult();
+      expect(result).not.toBeNull();
+      // Answered under the core's own host name, not the proxy's: the core
+      // files the result against the host it scheduled the check for.
+      expect(result!.host_name).toBe("win-db01");
+      expect(result!.service_description).toBe("CPU load");
+      expect(result!.return_code).toBe("0");
+      expect(result!.output).toContain("answered-for-win-db01");
+    });
+
+    it("runs a host check for a host it is not", async () => {
+      await agent.submit({
+        type: "host",
+        host_name: "win-srv02",
+        service_description: undefined,
+        command_line: "check_ok message=win-srv02-is-up",
+      });
+      const result = await agent.nextResult();
+      expect(result).not.toBeNull();
+      expect(result!.type).toBe("active");
+      expect(result!.host_name).toBe("win-srv02");
+      expect(result!.service_description).toBeUndefined();
+      expect(result!.output).toContain("win-srv02-is-up");
+    });
+
+    it("hands the check the target the core expanded into the command line", async () => {
+      if (onWindows) return;
+      // What `nscp!check_nrpe -H $HOSTADDRESS$ …` amounts to: the job carries
+      // the target, and the check has to receive it as an argument of its own.
+      await agent.submit({ host_name: "win-db01", command_line: "target 10.0.0.5" });
+      const result = await agent.nextResult();
+      expect(result!.return_code).toBe("0");
+      expect(result!.output).toBe("OK: asked 10.0.0.5");
+    });
+
+    it("says on start what it will run, and that the host names no longer apply", () => {
+      expect(agent.nscp.capturedStdout()).toContain("running in proxy mode");
+      expect(agent.nscp.capturedStdout()).toContain(`hostgroup_worker-proxy`);
+      expect(agent.nscp.capturedStdout()).toContain("no effect in proxy mode");
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // max age
   // -------------------------------------------------------------------------
 
@@ -485,6 +568,19 @@ dockerOrSkip()("Mod-Gearman worker (agent mode)", () => {
       expect(await bootWith({ server: `127.0.0.1:${HOST_PORT}`, key: KEY })).toContain(
         "no queue to answer",
       );
+    });
+
+    it("refuses to start in a mode it does not know rather than picking one", async () => {
+      // Silently falling back to agent would leave a proxy refusing every
+      // check it was deployed for; silently falling back to proxy would run
+      // every host's checks on a host that was meant to answer for itself.
+      const output = await bootWith({
+        server: `127.0.0.1:${HOST_PORT}`,
+        key: KEY,
+        hostgroups: "badmode",
+        mode: "gateway",
+      });
+      expect(output).toContain("unknown mode 'gateway'");
     });
 
     it("refuses to start with no server to connect to", async () => {

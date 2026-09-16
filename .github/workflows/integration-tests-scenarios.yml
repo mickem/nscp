@@ -54,8 +54,9 @@ jobs:
     runs-on: ${{ inputs.runner }}
     # The Mod-Gearman suites build a Nagios Core + nagios-mod-gearman image
     # from release tarballs, which is a couple of minutes on a cold layer
-    # cache, and then run two monitoring cores end to end against the agent.
-    timeout-minutes: 45
+    # cache, and then run two monitoring cores end to end against the agent -
+    # three runs in all, since proxy mode takes the Naemon image a second time.
+    timeout-minutes: 50
 
     steps:
       - uses: actions/checkout@v6

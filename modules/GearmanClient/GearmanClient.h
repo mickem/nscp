@@ -16,10 +16,12 @@
  * NSClient++ query and submits the result back. Nothing is ever accepted
  * inbound, so a monitored host needs no open port.
  *
- * Only agent mode is implemented: a job is refused unless its `host_name` is
- * one this agent answers for. Proxy mode - one agent running the checks of a
- * whole hostgroup through NRPEClient, NSCPClient or CheckWMI - is the same
- * loop with that binding switched off, and arrives in a later release.
+ * Two deployments, one loop, told apart by the `mode` setting. An *agent*
+ * answers for the host it runs on: a job is refused unless its `host_name` is
+ * one this agent answers for. A *proxy* answers for others: the binding is
+ * off, and the check_command the core defines names its own target, so one
+ * box runs a whole hostgroup's checks through NRPEClient, NSCPClient or
+ * CheckWMI without an agent, or an open port, on any of them.
  */
 class GearmanClient : public nscapi::impl::simple_plugin {
  public:
