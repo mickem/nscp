@@ -38,7 +38,7 @@ CHECK_MODULES = ['CheckSystem', 'CheckExternalScripts', 'CheckDisk', 'CheckHelpe
 CLIENT_MODULES = ['GraphiteClient', 'IcingaClient', 'NRDPClient', 'NRPEClient', 'NRPEServer',
                   'NSCAClient', 'NSCANgClient', 'NSCAServer', 'NSClientServer', 'SMTPClient',
                   'SyslogClient', 'CollectdClient', 'Op5Client', 'CheckNSCP', 'ElasticClient', 'NSCPClient',
-                  'CheckMKClient', 'CheckMKServer']
+                  'CheckMKClient', 'CheckMKServer', 'GearmanClient']
 GENERIC_MODULES = ['CommandClient', 'DotnetPlugins', 'LUAScript', 'PythonScript', 'Scheduler',
                    'SimpleCache', 'SimpleFileWriter', 'WEBServer']
 IGNORED_MODULES = ['CauseCrashes', 'SamplePluginSimple']
