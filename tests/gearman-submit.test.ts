@@ -205,6 +205,55 @@ dockerOrSkip()("Mod-Gearman submit channel", () => {
       expect((await reading)!.output).toBe("in the clear");
     });
 
+    it("reports a gearmand that is not there rather than claiming success", async () => {
+      // A background job is fire and forget on the wire, so without waiting
+      // for the acknowledgement a submission would report success for a result
+      // that never left the socket - the one thing a passive channel must not
+      // do, since nobody is waiting for the check on the other side either.
+      const out = await submit([
+        "address=127.0.0.1:1",
+        `key=${KEY}`,
+        "command=unreachable",
+        "result=0",
+        "message=nope",
+      ]);
+      expect(out).not.toContain("Submission successful");
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // The refusals, with nothing to fall back on
+  // ---------------------------------------------------------------------
+
+  describe("submit_gearman with no target configured", () => {
+    // These cannot live in the block above, and the reason is the point of
+    // this one. `client::configuration::get_target` applies the `default`
+    // target object whenever the named one is not found, and applies it
+    // *under* whatever the command line says - so with a `default` in the
+    // settings, `address=` alone still inherits that target's key, and
+    // `target=missing` quietly becomes `target=default`. Both refusals are
+    // real (verified below) but neither is reachable from an agent that has
+    // a working target configured, which is why they have an instance with
+    // no `/settings/gearman/client/targets` at all.
+    let nscp: NscpInstance;
+
+    async function submit(args: string[]): Promise<string> {
+      const r = await nscp.run(
+        ["client", "--module", "GearmanClient", "--boot", "--query", "submit_gearman", ...args],
+        { allowFailure: true },
+      );
+      return r.all ?? `${r.stdout}\n${r.stderr}`;
+    }
+
+    beforeAll(async () => {
+      nscp = new NscpInstance();
+      await nscp.configure({ "/modules": { GearmanClient: "enabled" } });
+    });
+
+    afterAll(async () => {
+      await nscp?.stop();
+    });
+
     it("refuses an encrypted submission with no key", async () => {
       // The key is the only thing separating a result this agent filed from
       // one anybody who can reach gearmand made up.
@@ -219,22 +268,17 @@ dockerOrSkip()("Mod-Gearman submit channel", () => {
     });
 
     it("says where to name a gearmand when none was", async () => {
-      const out = await submit(["command=nowhere", "result=0", "message=nope", "target=missing"]);
+      const out = await submit(["command=nowhere", "result=0", "message=nope"]);
+      expect(out).toMatch(/address=<host>:<port>|targets/i);
       expect(out).not.toContain("Submission successful");
     });
 
-    it("reports a gearmand that is not there rather than claiming success", async () => {
-      // A background job is fire and forget on the wire, so without waiting
-      // for the acknowledgement a submission would report success for a result
-      // that never left the socket - the one thing a passive channel must not
-      // do, since nobody is waiting for the check on the other side either.
-      const out = await submit([
-        "address=127.0.0.1:1",
-        `key=${KEY}`,
-        "command=unreachable",
-        "result=0",
-        "message=nope",
-      ]);
+    it("says the same for a target name that does not exist", async () => {
+      // Nothing to fall back to here, so the unknown name reads as what it
+      // is. With a `default` configured it would have been submitted there
+      // instead - the framework's behaviour, not this module's.
+      const out = await submit(["command=nowhere", "result=0", "message=nope", "target=missing"]);
+      expect(out).toMatch(/address=<host>:<port>|targets/i);
       expect(out).not.toContain("Submission successful");
     });
   });
