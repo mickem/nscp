@@ -5,7 +5,9 @@ for byte as they left the wire, plus the result payloads their `send_gearman`
 tools produce. They are the reference the GearmanClient module's decoder and
 encoder (and the TypeScript fixture in `tests/src/gearman.ts`) are tested
 against: `tests/gearman-fixtures.test.ts` decrypts every file and proves that
-re-encrypting the decrypted text reproduces the captured bytes exactly.
+re-encrypting the decrypted text reproduces the captured bytes exactly, and the
+module's own `gearman_crypt_test` and `gearman_job_test` do the same in C++,
+through the envelope and through the job and result text formats.
 
 | File                                | Produced by                                                          |
 | ----------------------------------- | -------------------------------------------------------------------- |
