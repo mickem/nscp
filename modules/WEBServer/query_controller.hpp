@@ -25,6 +25,7 @@ class query_controller : public Mongoose::RegexpController {
 
   void get_queries(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
   void get_query(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
+  void get_query_help(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
   void query_command(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
   void execute_query(std::string module, arg_vector args, Mongoose::StreamResponse &response);
   void execute_query_nagios(std::string module, arg_vector args, Mongoose::StreamResponse &response);

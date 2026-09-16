@@ -258,6 +258,35 @@ Enter `cores`in the arguments field and click `Execute` again.
 
 And there you have it the CPU load for each core.
 
+### The arguments field knows the check
+
+The `Arguments` field is the same prompt the interactive console gives you,
+without the console. It reads the check's own options and filter keywords from
+the agent and uses them while you type:
+
+* **Syntax highlighting.** Option names, values, filter expressions and syntax
+  templates are coloured apart, and a keyword the check does *not* offer is
+  shown in red — so `filter=fre < 10%` is visibly wrong before you run a check
+  that would otherwise run happily and quietly match nothing.
+* **Completion.** Start typing an option name and the check's parameters are
+  offered; type inside `filter=`, `warning=` or a `${...}` placeholder and its
+  filter keywords are offered instead. `Ctrl+Space` asks for the list
+  explicitly, arrow keys move through it, `Tab` or `Enter` accepts one.
+* **Help, next to the field.** The panel below lists every option with its
+  default and description and every filter keyword the check offers, and
+  describes whatever the cursor is currently on. Clicking an entry puts it into
+  the argument line. The options and keywords every check shares are folded
+  into their own section, so the handful this check defines itself stay
+  visible.
+
+An expression with spaces in it is several arguments unless you quote it —
+which the highlighting shows you, because only the first of them is coloured as
+a filter. Write `"filter=free < 10%"` (or `filter="free < 10%"`) and the whole
+expression is read as one.
+
+The same information is available over REST as
+[`GET /api/v2/queries/{query}/help`](../api/rest/queries.md#get-query-help).
+
 
 ## Loading modules via Web Interface
 

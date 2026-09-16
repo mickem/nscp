@@ -1,5 +1,11 @@
 ﻿import Stack from "@mui/material/Stack";
-import { nsclientApi, QueryExecutionResult, useExecuteQueryMutation, useGetQueryQuery } from "../api/api.ts";
+import {
+  nsclientApi,
+  QueryExecutionResult,
+  useExecuteQueryMutation,
+  useGetQueryHelpQuery,
+  useGetQueryQuery,
+} from "../api/api.ts";
 import {
   Accordion,
   AccordionDetails,
@@ -21,12 +27,16 @@ import { Toolbar } from "../components/atoms/Toolbar.tsx";
 import { Spacing } from "../components/atoms/Spacing.tsx";
 import { RefreshButton } from "../components/atoms/RefreshButton.tsx";
 import { useAppDispatch } from "../store/store.ts";
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import { QueryResultChip } from "../components/atoms/QueryResultChip.tsx";
 import Trail from "../components/atoms/Trail.tsx";
+import SyntaxArgumentsField, { SyntaxArgumentsFieldHandle } from "../components/atoms/SyntaxArgumentsField.tsx";
+import QueryHelpPanel from "../components/QueryHelpPanel.tsx";
+import { makeVocabulary } from "../common/queryHelp.ts";
+import { contextAt, CursorContext } from "../common/syntax.ts";
 
 const CMD_REGEXP = /\\?.|^$/g;
 
@@ -36,9 +46,16 @@ export default function Query() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { data: query } = useGetQueryQuery(id || "");
+  // The check's own options and filter keywords, so the argument line can be
+  // highlighted and completed against what this check actually accepts rather
+  // than against a generic guess at the grammar.
+  const { data: help, isFetching: helpLoading } = useGetQueryHelpQuery(id || "", { skip: !id });
   const [executeQuery] = useExecuteQueryMutation();
   const [args, setArgs] = useState<string>("");
+  const [context, setContext] = useState<CursorContext>(() => contextAt("", 0));
+  const argumentsRef = useRef<SyntaxArgumentsFieldHandle>(null);
   const [result, setResult] = useState<QueryExecutionResult | undefined>(undefined);
+  const vocabulary = useMemo(() => makeVocabulary(help), [help]);
 
   // `warning` / `critical` can now be a Nagios range string like "4:5"
   // (issue #748); `value` / `minimum` / `maximum` are always numeric.
@@ -104,15 +121,16 @@ export default function Query() {
           </Typography>
           <Typography variant="body2">{query?.description}</Typography>
           <Typography variant="body2">Check provided by the <Chip label={query?.plugin} size="small" onClick={() => navigate("/modules/" + query?.plugin)}/> module.</Typography>
-          <Stack direction="row" spacing={1} sx={{ width: 1, paddingTop: 3 }}>
+          <Stack direction="row" spacing={1} sx={{ width: 1, paddingTop: 3, alignItems: "flex-start" }}>
             <TextField label="Command" variant="outlined" size="small" value={query?.name || ""} disabled={true} />
-            <TextField
-              label="Arguments"
-              variant="outlined"
-              size="small"
+            <SyntaxArgumentsField
+              ref={argumentsRef}
               value={args}
-              fullWidth
-              onChange={(e) => setArgs(e.target.value)}
+              onChange={setArgs}
+              vocabulary={vocabulary}
+              onContextChange={setContext}
+              onSubmit={doExecuteQuery}
+              placeholder={"filter=free < 10% \"warning=free < 20%\""}
             />
           </Stack>
         </CardContent>
@@ -125,6 +143,17 @@ export default function Query() {
             Clear Result
           </Button>
         </CardActions>
+      </Card>
+      <Card>
+        <CardContent>
+          <QueryHelpPanel
+            queryName={query?.name || id || ""}
+            vocabulary={vocabulary}
+            context={context}
+            loading={helpLoading}
+            onInsert={(entry) => argumentsRef.current?.insert(entry)}
+          />
+        </CardContent>
       </Card>
       {result && (
         <Stack>

@@ -79,13 +79,16 @@ query_intro_template = u"""{{query.info.description}}
 query_args_template = u"""{% if query.params %}{% for help in query.params -%}{%- if help.is_simple %}
 <a id="{{help.name|md_prefix_lnk(query.key)}}"></a>{% endif %}{%- endfor %}
 {% set table = [] -%}
+{#- "N/A" belongs to an option that takes no value at all (help, show-default):
+    BOOL with no default. A boolean option declared the way checks declare one
+    - value<bool> with an implicit value, so that REST can pass `x=true` - is
+    also BOOL, but it has a real default and the reader wants to see it. -#}
 {% for help in query.params -%}
-    {%- if help.is_simple %}{% if help.content_type == 4 -%}
-        {% do table.append([help.name, 'N/A', help.long_description|firstline]) %}{% else -%}
-        {% do table.append([help.name, help.default_value, help.long_description|firstline]) %}{%- endif %}
-    {%- else %}{% if help.content_type == 4 -%}
-        {% do table.append([help.name|md_prefix_lnk(query.key)|md_self_link(help.name), 'N/A', help.long_description|firstline]) %}{% else -%}
-        {% do table.append([help.name|md_prefix_lnk(query.key)|md_self_link(help.name), help.default_value, help.long_description|firstline]) %}{%- endif %}
+    {%- set shown_default = help.default_value if help.default_value else ('N/A' if help.content_type == 4 else '') -%}
+    {%- if help.is_simple %}
+        {% do table.append([help.name, shown_default, help.long_description|firstline]) %}
+    {%- else %}
+        {% do table.append([help.name|md_prefix_lnk(query.key)|md_self_link(help.name), shown_default, help.long_description|firstline]) %}
     {%- endif %}
 {%- endfor %}
 {{table|rst_table('Option', 'Default Value', 'Description')}}

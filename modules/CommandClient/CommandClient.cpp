@@ -264,6 +264,7 @@ std::shared_ptr<command_client::console_editor> CommandClient::make_editor() con
     return items;
   };
   hooks.parameters = [this](const std::string &query) { return client->list_parameters(query); };
+  hooks.keywords = [this](const std::string &query) { return client->list_keywords(query); };
   editor->install(hooks);
 
   std::vector<command_client::editor_item> builtins;

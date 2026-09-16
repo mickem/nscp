@@ -161,6 +161,45 @@ interface Query {
   execute_url: string;
 }
 
+/**
+ * One option a query accepts, as the module described it to the registry.
+ * `default_value` is the value the check uses when the option is left out;
+ * `content_type` is "bool" for a flag and "string" for everything else.
+ */
+export interface QueryParameterHelp {
+  name: string;
+  default_value: string;
+  required: boolean;
+  repeatable: boolean;
+  content_type: string;
+  short_description: string;
+  long_description: string;
+}
+
+/**
+ * One filter keyword a query offers. The name carries a trailing "()" when the
+ * keyword is a filter function rather than a variable - that suffix is how the
+ * registry spells the difference, and it is passed on verbatim so the client
+ * can split them the same way the interactive console does.
+ */
+export interface QueryFieldHelp {
+  name: string;
+  short_description: string;
+  long_description: string;
+}
+
+/** Everything the agent knows about how to call one query. */
+export interface QueryHelp {
+  name: string;
+  /**
+   * The command the filter keywords belong to. Differs from `name` only for an
+   * alias, which declares none of its own and borrows the target's.
+   */
+  keyword_source: string;
+  parameters: QueryParameterHelp[];
+  fields: QueryFieldHelp[];
+}
+
 export interface ExecuteQueryArgs {
   query: string;
   args: string[];
@@ -459,6 +498,12 @@ export const nsclientApi = createApi({
       }),
       providesTags: (_result, _error, id) => [{ type: "Query", id }],
     }),
+    getQueryHelp: builder.query<QueryHelp, string>({
+      query: (id) => ({
+        url: `/v2/queries/${id}/help`,
+      }),
+      providesTags: (_result, _error, id) => [{ type: "Query", id }],
+    }),
     executeQuery: builder.mutation<QueryExecutionResult, ExecuteQueryArgs>({
       query: ({ query, args }) => ({
         url: `/v2/queries/${query}/commands/execute?${encodeArgs(args)}`,
@@ -646,6 +691,7 @@ export const {
   useGetQueriesQuery,
   useGetAliasesQuery,
   useGetQueryQuery,
+  useGetQueryHelpQuery,
   useExecuteQueryMutation,
   useExecuteNagiosQueryMutation,
   useGetScriptsQuery,

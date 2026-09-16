@@ -35,6 +35,27 @@ Replxx::Color color_for(const token_kind kind) {
       return Replxx::Color::BRIGHTMAGENTA;
     case token_kind::punctuation:
       return Replxx::Color::GRAY;
+    // Inside a filter expression or a syntax template, each kind takes the
+    // dim shade of whatever it is the expression-level counterpart of: a
+    // keyword resolves the way a query name does (GREEN to its BRIGHTGREEN),
+    // a filter function is run the way a builtin verb is (CYAN to its
+    // BRIGHTCYAN), an operator is punctuation the way an option name is
+    // (BROWN to its YELLOW). On a line where half the characters sit inside
+    // an expression, the command itself still has to be the brightest thing
+    // on it.
+    case token_kind::keyword:
+      return Replxx::Color::GREEN;
+    // The exception, deliberately: wrong is wrong at either level, and a
+    // keyword that does not exist deserves the same red as a query that does
+    // not.
+    case token_kind::unknown_keyword:
+      return Replxx::Color::BRIGHTRED;
+    case token_kind::function:
+      return Replxx::Color::CYAN;
+    case token_kind::expression_op:
+      return Replxx::Color::BROWN;
+    case token_kind::number:
+      return Replxx::Color::BRIGHTBLUE;
     case token_kind::value:
     case token_kind::plain:
     default:
@@ -188,6 +209,10 @@ void console_editor::install(const editor_hooks &hooks) {
   });
 
   rx.set_highlighter_callback([this](const std::string &input, Replxx::colors_t &colors) {
+    // Same caveat as the completion callback: this reaches the registry, and
+    // does so from the thread replxx draws on. Bounded to one round trip per
+    // query, which is why it is affordable here at all.
+    load_keywords(input);
     const std::vector<token_kind> kinds = classify(input, impl_->vocab);
     const std::size_t count = colors.size() < kinds.size() ? colors.size() : kinds.size();
     for (std::size_t i = 0; i < count; i++) colors[i] = color_for(kinds[i]);
@@ -275,6 +300,16 @@ void console_editor::load_all_modules() {
   // a lookup that costs this much on every keystroke would be worse than a
   // prompt that offers nothing.
   impl_->vocab.modules.complete = true;
+}
+
+void console_editor::load_keywords(const std::string &input) {
+  if (!impl_->hooks.keywords) return;
+  const std::string query = needs_keywords(input, impl_->vocab);
+  if (query.empty()) return;
+  // Cached under the query name whatever came back, empty list included: a
+  // check that is not filter based has no keywords, and asking again on the
+  // next keystroke would turn that into a round trip per character.
+  impl_->vocab.keywords[query] = make_keyword_vocabulary(impl_->hooks.keywords(query));
 }
 
 bool console_editor::read_line(std::string &line) {
