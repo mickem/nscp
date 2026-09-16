@@ -40,6 +40,7 @@ import {
   dockerOrSkip,
   parseStatusDat,
   trackContainerLogs,
+  writeEchoScript,
   type StartedTestContainer,
   type StatusDat,
 } from "@fixtures/index";
@@ -161,10 +162,11 @@ dockerOrSkip()("a proxy running a whole hostgroup's checks", () => {
     );
 
     // The monitored host: an ordinary agent with an NRPE server and one check
-    // of its own. Nothing here knows about gearman.
+    // of its own. Nothing here knows about gearman. The core runs in a
+    // container but both agents run on the host, so the check's script has to
+    // be in the host's own flavour.
     scriptsDir = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-gearman-proxy-"));
-    const script = path.join(scriptsDir, "target.sh");
-    fs.writeFileSync(script, `#!/bin/sh\necho '${TARGET_OUTPUT}'\n`, { mode: 0o755 });
+    const script = writeEchoScript(scriptsDir, "target", TARGET_OUTPUT);
 
     target = new NscpInstance();
     await target.configure({
@@ -184,7 +186,7 @@ dockerOrSkip()("a proxy running a whole hostgroup's checks", () => {
         dh: bundledSecurityFile("nrpe_dh_2048.pem"),
       },
       "/settings/external scripts": { timeout: "30" },
-      "/settings/external scripts/scripts": { check_target: `/bin/sh ${script}` },
+      "/settings/external scripts/scripts": { check_target: script },
     });
     await target.waitForPortFree(NRPE_PORT);
     target.start();

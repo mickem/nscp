@@ -46,6 +46,7 @@ import {
   dockerOrSkip,
   parseStatusDat,
   trackContainerLogs,
+  writeSleepScript,
   type StartedTestContainer,
   type StatusDat,
 } from "@fixtures/index";
@@ -178,11 +179,10 @@ dockerOrSkip()("a real Mod-Gearman core driving the agent", () => {
 
       // The core's `slow` service calls this; the agent has nothing of its
       // own that blocks, and the point is a check that outlives the job's
-      // three-second timeout. POSIX only, which is fine: this suite needs
-      // docker, and the Windows runners have none.
+      // three-second timeout. The cores run in containers but the agent runs
+      // on the host, so the script has to be in the host's own flavour.
       scriptsDir = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-gearman-core-"));
-      const slow = path.join(scriptsDir, "slow.sh");
-      fs.writeFileSync(slow, "#!/bin/sh\nsleep 10\necho 'OK: finally'\n", { mode: 0o755 });
+      const slow = writeSleepScript(scriptsDir, "slow", 10, "OK: finally");
 
       nscp = new NscpInstance();
       await nscp.configure({
@@ -212,7 +212,7 @@ dockerOrSkip()("a real Mod-Gearman core driving the agent", () => {
         },
         "/settings/gearman/client": { hostname: HOSTNAME },
         "/settings/external scripts": { timeout: "60" },
-        "/settings/external scripts/scripts": { check_slow: `/bin/sh ${slow}` },
+        "/settings/external scripts/scripts": { check_slow: slow },
       });
       startedAt = Math.floor(Date.now() / 1000);
       nscp.start();
@@ -236,16 +236,15 @@ dockerOrSkip()("a real Mod-Gearman core driving the agent", () => {
     });
 
     it("is visible in the core's own gearman tooling", async () => {
-      // What an operator on the core box looks at. The flags differ between
-      // ConSol's gearman_top and the Nagios fork's, and a non-batch build
-      // would sit in its curses loop forever, so the probe is bounded and
-      // falls back to gearadmin: the assertion is about the registration
-      // being visible from the core side, not about one tool's options.
+      // What an operator on the core box looks at. Both flavours take the
+      // same short options - and only short ones, so `--host=`/`--batch` get
+      // it to print its usage and exit 0, which is not a failure any `||`
+      // fallback would catch. `-b` prints one table and exits instead of
+      // sitting in its refresh loop; `timeout` bounds it either way.
       const probe = await container.exec([
         "sh",
         "-c",
-        `timeout 10 "$GEARMAN_TOP" --host=127.0.0.1:${GEARMAN_PORT} --batch 2>&1 ` +
-          `|| gearadmin --port=${GEARMAN_PORT} --status`,
+        `timeout 10 "$GEARMAN_TOP" -H 127.0.0.1:${GEARMAN_PORT} -b 2>&1`,
       ]);
       expect(probe.output).toContain(QUEUE);
     });
