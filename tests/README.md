@@ -90,6 +90,7 @@ Docker-using scenarios (skipped when `NSCP_SKIP_DOCKER=1`):
 | `tests/check_nt-client.test.ts`   | (new) NSClientServer vs the real nagios-plugins check_nt, incl. the `allow` gate                                                                                                               |
 | `tests/fleet-server-live.test.ts` | (new) the agent against a **real** nsclient-fleet server, built from its newest GitHub release                                                                                                 |
 | `tests/gearman-fixtures.test.ts`  | (new) Mod-Gearman: the gearmand image, and Naemon + Nagios Core 4.5 images scheduling checks through gearmand to a stub worker (`src/gearman.ts`); its fixture round-trip block is docker-free |
+| `tests/gearman-worker.test.ts`    | (new) Mod-Gearman: the agent's own worker loop, with the test playing the core against the gearmand image                                                                                      |
 
 Docker-free scenarios (always run, including in no-docker CI pipelines):
 
@@ -145,6 +146,13 @@ blocks build `Dockerfiles/gearmand.Dockerfile`, `naemon-gearman.Dockerfile` (Con
 on a cold cache) and drive a real core through gearmand to a stub worker in the test. To run the core block against a
 core you started yourself instead (for example `Dockerfiles/entrypoints/gearman-core.sh` run natively), set
 `NSCP_GEARMAN_LIVE=<name>:<gearmand port>:<status.dat path>`.
+
+`gearman-worker.test.ts` is the third step: the GearmanClient module answering for real. It needs only the gearmand
+image - the test itself plays the core, putting encrypted jobs on the hostgroup queue and reading the answers off the
+result queue - so it is the fast, deterministic tier where the worker's edge cases live (host binding, `max age`,
+timeouts, the wrong key, unencrypted payloads, the refusals that keep a misconfigured worker from starting, and
+reconnecting after gearmand restarts). It publishes gearmand on host port **14731**, fixed so the reconnect case
+survives a container restart. The real cores arrive with step 4.
 
 The MSI tests (`tests/msi/`) stay Windows-only and are not part of this harness.
 

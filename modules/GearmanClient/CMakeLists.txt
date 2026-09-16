@@ -12,6 +12,8 @@ set(SRCS
     gearman_protocol.cpp
     gearman_crypt.cpp
     gearman_job.cpp
+    gearman_connection.cpp
+    gearman_worker.cpp
     ${NSCP_INCLUDEDIR}/bytes/base64.c
     ${NSCP_DEF_PLUGIN_CPP}
 )
@@ -34,6 +36,8 @@ if(WIN32)
         gearman_protocol.hpp
         gearman_crypt.hpp
         gearman_job.hpp
+        gearman_connection.hpp
+        gearman_worker.hpp
         ${NSCP_INCLUDEDIR}/bytes/base64.h
         ${NSCP_DEF_PLUGIN_HPP}
     )
@@ -45,6 +49,8 @@ NSCP_DEBUG_SYMBOLS(${TARGET})
 target_link_libraries(
     ${TARGET}
     ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
     ${NSCP_DEF_PLUGIN_LIB}
     ${EXTRA_LIBS}
 )
@@ -96,6 +102,31 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/bytes/base64.c
     LIBRARIES
         GTest::gtest_main
+        ${EXTRA_LIBS}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${OPENSSL_INCLUDE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+# The worker loop, driven against an in-process fake gearmand over a real
+# socket on the loopback interface. No core, no gearmand, no check: the
+# executor and the logger are stubs, which is the whole point of them being
+# interfaces.
+NSCP_CREATE_TEST(
+    gearman_worker_test
+    SOURCES
+        gearman_worker_test.cpp
+        gearman_worker.cpp
+        gearman_connection.cpp
+        gearman_protocol.cpp
+        gearman_crypt.cpp
+        gearman_job.cpp
+        ${NSCP_INCLUDEDIR}/bytes/base64.c
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
         ${EXTRA_LIBS}
     INCLUDES
         ${NSCP_INCLUDEDIR}

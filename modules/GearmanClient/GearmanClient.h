@@ -6,6 +6,8 @@
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <string>
 
+#include "gearman_worker.hpp"
+
 /**
  * Mod-Gearman worker for NSClient++.
  *
@@ -14,10 +16,10 @@
  * NSClient++ query and submits the result back. Nothing is ever accepted
  * inbound, so a monitored host needs no open port.
  *
- * This is the skeleton: the payload codec, the crypto and the job and result
- * text formats are implemented and tested (`gearman_protocol`,
- * `gearman_crypt`, `gearman_job`), but the connection and the worker loop that
- * use them are not here yet, so loading the module currently does nothing.
+ * Only agent mode is implemented: a job is refused unless its `host_name` is
+ * one this agent answers for. Proxy mode - one agent running the checks of a
+ * whole hostgroup through NRPEClient, NSCPClient or CheckWMI - is the same
+ * loop with that binding switched off, and arrives in a later release.
  */
 class GearmanClient : public nscapi::impl::simple_plugin {
  public:
@@ -26,4 +28,15 @@ class GearmanClient : public nscapi::impl::simple_plugin {
 
   bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
   bool unloadModule();
+
+ private:
+  /**
+   * Read the settings into a worker configuration. Returns false, having
+   * logged why, when the module must not start: no server, no queues, or a
+   * key that would leave the payloads readable by anyone who can reach
+   * gearmand.
+   */
+  bool build_config(const std::string &alias, gearman::worker_config &config);
+
+  gearman::worker_pool pool_;
 };
