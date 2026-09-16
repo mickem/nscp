@@ -5,6 +5,7 @@
 
 #include <win/sysinfo/sysinfo.h>
 
+#include <boost/algorithm/string.hpp>
 #include <boost/assign/list_of.hpp>
 #include <boost/json.hpp>
 #include <boost/program_options.hpp>
@@ -205,7 +206,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   registry_access_.reset();
 
   fresh->set_path(settings.alias().get_settings_path("real-time/memory"), settings.alias().get_settings_path("real-time/cpu"),
-                      settings.alias().get_settings_path("real-time/process"), settings.alias().get_settings_path("real-time/checks"));
+                  settings.alias().get_settings_path("real-time/process"), settings.alias().get_settings_path("real-time/checks"));
 
   // clang-format off
   settings.alias().add_path_to_settings()
@@ -396,7 +397,30 @@ std::string qoute(const std::string &s) {
   return "\"" + s + "\"";
 }
 
-bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool porcelain, bool json, std::string filter, std::string &result) {
+// Every filter has to match, which is what makes them narrow rather than
+// replace: `--list SQL --filter Transactions` is the SQL counters that also
+// mention Transactions. An empty filter matches everything, so a bare
+// `--filter` is a no-op rather than an error.
+//
+// Case-insensitive, because this is the counter *browser*: you run it because
+// you do not know the name yet, and `--list disk` finding nothing while
+// `--list Disk` finds hundreds is a trap rather than a feature. PDH
+// capitalises inconsistently on its own (`% Idle Time`, `Avg. Disk sec/Read`),
+// and a localised Windows spells the names in a language whose casing nobody
+// is going to guess.
+//
+// The fold is byte-wise ASCII. On a localised install the non-ASCII part of a
+// name still has to be typed as it is spelled - which is what copying it out
+// of an earlier listing gives you anyway.
+static bool matches(const std::vector<std::string> &filters, const std::string &line) {
+  for (const std::string &filter : filters) {
+    if (!boost::algorithm::icontains(line, filter)) return false;
+  }
+  return true;
+}
+
+bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool porcelain, bool json, const std::vector<std::string> &filters,
+                 std::string &result) {
   if (!porcelain && !json) {
     result += "Listing counters\n";
     result += "---------------------------\n";
@@ -413,14 +437,14 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
           // instance enumeration is skipped or unavailable.
           for (const std::string &count : obj.counters) {
             std::string line = "\\" + obj.name + "\\" + count;
-            if (!filter.empty() && line.find(filter) == std::string::npos) continue;
+            if (!matches(filters, line)) continue;
             data.push_back(json::value(line));
           }
         } else {
           for (const std::string &inst : obj.instances) {
             for (const std::string &count : obj.counters) {
               std::string line = "\\" + obj.name + "(" + inst + ")\\" + count;
-              if (!filter.empty() && line.find(filter) == std::string::npos) continue;
+              if (!matches(filters, line)) continue;
               data.push_back(json::value(line));
             }
           }
@@ -429,21 +453,21 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
         for (const std::string &inst : obj.instances) {
           std::string line = "\\" + obj.name + "(" + inst + ")\\";
           total++;
-          if (!filter.empty() && line.find(filter) == std::string::npos) continue;
+          if (!matches(filters, line)) continue;
           result += "instance," + qoute(obj.name) + "," + qoute(inst) + "\n";
           match++;
         }
         for (const std::string &count : obj.counters) {
           std::string line = "\\" + obj.name + "\\" + count;
           total++;
-          if (!filter.empty() && line.find(filter) == std::string::npos) continue;
+          if (!matches(filters, line)) continue;
           result += "counter," + qoute(obj.name) + "," + qoute(count) + "\n";
           match++;
         }
         if (obj.instances.empty() && obj.counters.empty()) {
           std::string line = "\\" + obj.name + "\\";
           total++;
-          if (!filter.empty() && line.find(filter) == std::string::npos) continue;
+          if (!matches(filters, line)) continue;
           result += "counter," + qoute(obj.name) + ",,\n";
           match++;
         } else if (!obj.error.empty()) {
@@ -456,7 +480,7 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
           for (const std::string &count : obj.counters) {
             std::string line = "\\" + obj.name + "(" + inst + ")\\" + count;
             total++;
-            if (!filter.empty() && line.find(filter) == std::string::npos) continue;
+            if (!matches(filters, line)) continue;
             boost::tuple<bool, std::string> status;
             if (validate) {
               status = validate_counter(line);
@@ -470,7 +494,7 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
         for (const std::string &count : obj.counters) {
           std::string line = "\\" + obj.name + "\\" + count;
           total++;
-          if (!filter.empty() && line.find(filter) == std::string::npos) continue;
+          if (!matches(filters, line)) continue;
           boost::tuple<bool, std::string> status;
           if (validate) {
             status = validate_counter(line);
@@ -499,6 +523,7 @@ int CheckSystem::commandLineExec(const int, const std::string &command, const st
     namespace po = boost::program_options;
 
     std::string lookup, counter, list_string, computer, username, password;
+    std::vector<std::string> filter_strings;
     po::options_description desc("Allowed options");
     // clang-format off
     desc.add_options()
@@ -518,7 +543,9 @@ int CheckSystem::commandLineExec(const int, const std::string &command, const st
       ("no-counters", "Do not recurse and list/validate counters for any matching items")
       ("no-instances", "Do not recurse and list/validate instances for any matching items")
       ("counter", po::value<std::string>(&counter)->implicit_value(""), "Specify which counter to work with")
-      ("filter", po::value<std::string>(&counter)->implicit_value(""), "Specify a filter to match (substring matching)")
+      ("filter", po::value<std::vector<std::string> >(&filter_strings)->implicit_value(std::vector<std::string>(1, ""), ""),
+        "Narrow the listing to the items which also match this (substring, case insensitive, matched against the whole \\object(instance)\\counter path).\n"
+        "Applied on top of the value given to --list rather than replacing it, and repeatable: --list SQL --filter Databases --filter tempdb lists what matches all three.")
       ;
     // clang-format on
     boost::program_options::variables_map vm;
@@ -543,7 +570,17 @@ int CheckSystem::commandLineExec(const int, const std::string &command, const st
     bool no_objects = vm.count("no-counters");
     bool no_instances = vm.count("no-instances");
     bool list = vm.count("list") || (validate && counter.empty());
-    if (counter.empty()) counter = list_string;
+    // Everything anyone asked for a match on, in one place. --list/--validate
+    // carry one as their value, --filter adds more, and --counter names the
+    // object to work with - which narrows the listing just as much. They used
+    // to share a single variable, so the last one written won and --filter
+    // silently discarded what --list had been given.
+    std::vector<std::string> filters;
+    if (!list_string.empty()) filters.push_back(list_string);
+    for (const std::string &f : filter_strings) {
+      if (!f.empty()) filters.push_back(f);
+    }
+    if (!counter.empty()) filters.push_back(counter);
 
     if (vm.count("help") || (vm.count("check") == 0 && vm.count("list") == 0 && vm.count("validate") == 0 && lookup.empty())) {
       std::stringstream ss;
@@ -557,13 +594,13 @@ int CheckSystem::commandLineExec(const int, const std::string &command, const st
       if (all) {
         // If we specified all list all counters
         PDH::Enumerations::Objects lst = PDH::Enumerations::EnumObjects(!no_instances, !no_objects);
-        return render_list(lst, validate, porcelain, json, counter, result) ? NSCAPI::exec_return_codes::returnOK : NSCAPI::exec_return_codes::returnERROR;
+        return render_list(lst, validate, porcelain, json, filters, result) ? NSCAPI::exec_return_codes::returnOK : NSCAPI::exec_return_codes::returnERROR;
       } else {
         if (vm.count("counter")) {
           // If we specify a counter object we will only list instances of that
           PDH::Enumerations::Objects lst;
           lst.push_back(PDH::Enumerations::EnumObject(counter, !no_instances, !no_objects));
-          return render_list(lst, validate, porcelain, json, counter, result) ? NSCAPI::exec_return_codes::returnOK : NSCAPI::exec_return_codes::returnERROR;
+          return render_list(lst, validate, porcelain, json, filters, result) ? NSCAPI::exec_return_codes::returnOK : NSCAPI::exec_return_codes::returnERROR;
         } else {
           // If we specify no query we will list all configured counters
           int count = 0, match = 0;
@@ -580,7 +617,7 @@ int CheckSystem::commandLineExec(const int, const std::string &command, const st
             std::string line = v.first + " = " + v.second;
             boost::tuple<bool, std::string> status;
             count++;
-            if (!counter.empty() && line.find(utf8::cvt<std::string>(counter)) == std::string::npos) continue;
+            if (!matches(filters, line)) continue;
 
             if (validate) status = validate_counter(v.second);
 

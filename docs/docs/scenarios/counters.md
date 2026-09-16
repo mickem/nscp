@@ -57,6 +57,23 @@ Filter for keywords:
 nscp sys -- --list Disk --all
 ```
 
+Add `--filter` to narrow that down — every filter has to match, and it is
+matched against the whole `\object(instance)\counter` path, so one can name the
+object and the next the counter. Repeat it as often as you need:
+
+```
+nscp sys -- --list Disk --all --filter Queue --filter Avg.
+\LogicalDisk(C:)\Avg. Disk Queue Length
+\LogicalDisk(C:)\Avg. Disk Read Queue Length
+\LogicalDisk(C:)\Avg. Disk Write Queue Length
+```
+
+Matching is a plain substring test and ignores case, so `--list disk` finds the
+same counters as `--list Disk` — you are looking for a name you do not know yet,
+and PDH capitalises its own inconsistently. `--no-instances` leaves the
+per-instance expansion out, which is what you want while you are still hunting
+for the counter *name*.
+
 List instances of a counter that has them (e.g. per-disk, per-network-interface):
 
 ```
