@@ -21,9 +21,12 @@ FROM debian:bookworm-slim AS builder
 ARG NAGIOS_VERSION
 ARG NMG_VERSION
 
+# unzip is one of Nagios Core's configure-time hard requirements (it
+# unpacks the bundled Angular tarballs for the CGIs); without it configure
+# stops at "Cannot continue without unzip!" long before anything compiles.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates curl \
-        build-essential autoconf automake libtool pkg-config \
+        build-essential autoconf automake libtool pkg-config unzip \
         libgearman-dev libssl-dev libltdl-dev libncurses-dev \
     && rm -rf /var/lib/apt/lists/*
 
