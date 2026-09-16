@@ -22,6 +22,54 @@ bool takes_absent_module(const std::string &verb) { return verb == "load" || ver
 // the registered queries rather than the modules.
 bool takes_query(const std::string &verb) { return verb == "desc" || verb == "keywords"; }
 
+// ... and the verbs that take flags rather than a name at all, so that
+// `plugins --<tab>` offers what there is to pick from. They accept more than
+// one, hence every argument position rather than just the first.
+bool takes_module_filter(const std::string &verb) { return verb == "plugins" || verb == "modules"; }
+
+// Check options whose value is a filter expression in the where language -
+// the set modern_filter::cli_helper registers (add_filter_option,
+// add_warn_option, add_crit_option, add_ok_option), short aliases included.
+bool takes_expression(const std::string &option) {
+  return option == "filter" || option == "warning" || option == "warn" || option == "critical" || option == "crit" || option == "ok";
+}
+
+// ... and those whose value is a syntax template: literal text carrying
+// ${...} and %(...) placeholders, each holding an expression in that same
+// language. `perf-config` is deliberately not here: it is a third grammar
+// whose keys name performance counters rather than filter keywords.
+bool takes_template(const std::string &option) {
+  return option == "top-syntax" || option == "ok-syntax" || option == "empty-syntax" || option == "detail-syntax" || option == "perf-syntax";
+}
+
+bool takes_keywords(const std::string &option) { return takes_expression(option) || takes_template(option); }
+
+// The words the expression language reserves for itself: the boolean
+// connectives, the spelled-out comparison operators, and `str`. Matched
+// case-insensitively, as the grammar matches them (charset::no_case).
+bool is_expression_word(const std::string &lower) {
+  return lower == "and" || lower == "or" || lower == "not" || lower == "in" || lower == "like" || lower == "regexp" || lower == "le" || lower == "lt" ||
+         lower == "eq" || lower == "ne" || lower == "ge" || lower == "gt" || lower == "str";
+}
+
+std::string to_lower(const std::string &text) {
+  std::string ret = text;
+  for (char &c : ret) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  return ret;
+}
+
+// The option name as the parser sees it: `--filter`, `-filter` and `filter`
+// are the same option, and option names are lower case throughout.
+std::string option_name(const std::string &text) {
+  std::size_t start = 0;
+  while (start < text.size() && text[start] == '-') start++;
+  return to_lower(text.substr(start));
+}
+
+bool is_word_char(const char c) { return std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '_'; }
+bool is_word_start(const char c) { return std::isalpha(static_cast<unsigned char>(c)) != 0 || c == '_'; }
+bool is_digit(const char c) { return std::isdigit(static_cast<unsigned char>(c)) != 0; }
+
 bool is_space(const char c) { return c == ' ' || c == '\t'; }
 bool is_quote(const char c) { return c == '"' || c == '\''; }
 
@@ -103,6 +151,19 @@ bool starts_with_ci(const std::string &candidate, const std::string &prefix) {
   return true;
 }
 
+// ... and the same test anywhere in the name, for the fallback in complete().
+// Every module is called Check-something and every query check_something, so
+// the part you remember is rarely the part you have to type first.
+bool contains_ci(const std::string &candidate, const std::string &needle) {
+  if (needle.size() > candidate.size()) return false;
+  for (std::size_t start = 0; start + needle.size() <= candidate.size(); ++start) {
+    std::size_t i = 0;
+    while (i < needle.size() && std::tolower(static_cast<unsigned char>(candidate[start + i])) == std::tolower(static_cast<unsigned char>(needle[i]))) i++;
+    if (i == needle.size()) return true;
+  }
+  return false;
+}
+
 // Strip surrounding quotes so `load "CheckDisk"` still resolves.
 std::string unquote(const std::string &text) {
   if (text.size() >= 2 && is_quote(text.front()) && text.back() == text.front()) return text.substr(1, text.size() - 2);
@@ -140,22 +201,214 @@ void paint(std::vector<token_kind> &colors, const std::vector<std::size_t> &inde
   for (std::size_t i = first; i < last && i < colors.size(); i++) colors[i] = kind;
 }
 
-// Classify one argument token: `--flag`, `key=value`, `"quoted"` or a bare word.
-void paint_argument(std::vector<token_kind> &colors, const std::vector<std::size_t> &index, const token &t) {
-  const std::size_t eq = split_point(t.text);
+// What a name inside an expression is. `call` says it was followed by '(' and
+// so names a filter function rather than a variable.
+//
+// Silence is the default: with no keyword list yet (the first keystroke after
+// an `=`, or a query that turned out to declare none) nothing is known, and a
+// name we cannot check is not a name we can call wrong. The same restraint
+// classify() shows towards a module name before the full lookup has run.
+token_kind classify_keyword(const std::string &name, const bool call, const keyword_vocabulary *kv) {
+  // A dotted name is not a filter keyword at all - the grammar's variable_name
+  // admits no '.' - so it reached the template from some other expansion
+  // layer. Say nothing about it.
+  if (name.find('.') != std::string::npos) return token_kind::plain;
+  if (kv == nullptr || !kv->complete) return token_kind::plain;
+  if (contains(call ? kv->functions : kv->variables, name)) return call ? token_kind::function : token_kind::keyword;
+  return token_kind::unknown_keyword;
+}
+
+// Paint `text` - which occupies the line from byte `from` - as a filter
+// expression, following include/parsers/where/grammar/grammar.cpp. Partial
+// input is the normal case here (the user is still typing), so every scan
+// ends politely at the end of the text rather than insisting on a closer.
+void paint_expression(std::vector<token_kind> &colors, const std::vector<std::size_t> &index, const std::size_t from, const std::string &text,
+                      const keyword_vocabulary *kv) {
+  const std::size_t n = text.size();
+  std::size_t i = 0;
+  while (i < n) {
+    const char c = text[i];
+    if (is_space(c)) {
+      i++;
+      continue;
+    }
+    // 'a string literal'. The grammar has no escapes inside one, so the first
+    // closing quote ends it.
+    if (c == '\'') {
+      std::size_t j = i + 1;
+      while (j < n && text[j] != '\'') j++;
+      if (j < n) j++;
+      paint(colors, index, from + i, from + j, token_kind::quoted);
+      i = j;
+      continue;
+    }
+    if (is_word_start(c)) {
+      std::size_t j = i;
+      while (j < n && (is_word_char(text[j]) || text[j] == '.')) j++;
+      const std::string word = text.substr(i, j - i);
+      const std::string lower = to_lower(word);
+      if (is_expression_word(lower)) {
+        paint(colors, index, from + i, from + j, token_kind::expression_op);
+        i = j;
+        // `str(...)` takes a raw run of characters rather than an expression:
+        // the grammar's string_literal_ex is everything up to the first ')'.
+        if (lower == "str") {
+          std::size_t k = j;
+          while (k < n && is_space(text[k])) k++;
+          if (k < n && text[k] == '(') {
+            std::size_t close = k + 1;
+            while (close < n && text[close] != ')') close++;
+            if (close < n) close++;
+            paint(colors, index, from + k, from + close, token_kind::quoted);
+            i = close;
+          }
+        }
+        continue;
+      }
+      // A name followed by '(' is a function call. The grammar runs under a
+      // space skipper, so `convert_size (size)` is one too - look past it.
+      std::size_t k = j;
+      while (k < n && is_space(text[k])) k++;
+      const bool call = k < n && text[k] == '(';
+      paint(colors, index, from + i, from + j, classify_keyword(word, call, kv));
+      i = j;
+      continue;
+    }
+    if (is_digit(c)) {
+      std::size_t j = i;
+      while (j < n && (is_digit(text[j]) || text[j] == '.')) j++;
+      // One trailing letter or '%' is the unit of the number+unit lexeme
+      // (10%, 1G, 5m); a longer run is a separate token.
+      if (j < n && (std::isalpha(static_cast<unsigned char>(text[j])) != 0 || text[j] == '%') && (j + 1 >= n || !is_word_char(text[j + 1]))) j++;
+      paint(colors, index, from + i, from + j, token_kind::number);
+      i = j;
+      continue;
+    }
+    if (c == '<' || c == '>' || c == '!' || c == '=' || c == '&' || c == '|' || c == '(' || c == ')' || c == ',') {
+      std::size_t j = i + 1;
+      if ((c == '<' || c == '>' || c == '!') && j < n && text[j] == '=') j++;
+      paint(colors, index, from + i, from + j, token_kind::expression_op);
+      i = j;
+      continue;
+    }
+    i++;
+  }
+}
+
+// Where the ')' closing a `%(` placeholder is, mirroring
+// find_placeholder_close in parsers/expression/expression.cpp: balanced
+// parens with quoted strings skipped, falling back to the first ')'. Kept
+// local because this file stays clear of the parser libraries - but the two
+// must agree, or the prompt would colour a placeholder differently from the
+// way the engine reads it.
+std::size_t placeholder_close(const std::string &text, const std::size_t body_start) {
+  const std::size_t n = text.size();
+  std::size_t j = body_start;
+  int depth = 1;
+  while (j < n && depth > 0) {
+    const char c = text[j];
+    if (c == '\'') {
+      j++;
+      while (j < n && text[j] != '\'') j++;
+      if (j < n) j++;
+      continue;
+    }
+    if (c == '(') {
+      depth++;
+    } else if (c == ')' && --depth == 0) {
+      return j;
+    }
+    j++;
+  }
+  j = body_start;
+  while (j < n && text[j] != ')') j++;
+  return j < n ? j : std::string::npos;
+}
+
+// Paint `text` as a syntax template: literal text carrying ${...} and %(...)
+// placeholders. The literal parts stay a plain value - they are output, not
+// code - and each placeholder body is an expression in its own right.
+void paint_template(std::vector<token_kind> &colors, const std::vector<std::size_t> &index, const std::size_t from, const std::string &text,
+                    const keyword_vocabulary *kv) {
+  const std::size_t n = text.size();
+  paint(colors, index, from, from + n, token_kind::value);
+  std::size_t i = 0;
+  while (i + 1 < n) {
+    const bool dollar = text[i] == '$' && text[i + 1] == '{';
+    const bool percent = text[i] == '%' && text[i + 1] == '(';
+    if (!dollar && !percent) {
+      i++;
+      continue;
+    }
+    const std::size_t body = i + 2;
+    const std::size_t close = dollar ? text.find('}', body) : placeholder_close(text, body);
+    if (close == std::string::npos || close <= body) {
+      // Still being typed, or empty. The engine emits the '$' or '%' as
+      // literal text in that case, so leave it looking like one.
+      i++;
+      continue;
+    }
+    paint(colors, index, from + i, from + body, token_kind::expression_op);
+    paint_expression(colors, index, from + body, text.substr(body, close - body), kv);
+    paint(colors, index, from + close, from + close + 1, token_kind::expression_op);
+    i = close + 1;
+  }
+}
+
+// Classify one argument token: `--flag`, `key=value`, `"quoted"` or a bare
+// word. `is_query` says the command on the line is a registered query, which
+// is what makes `filter=` a filter expression rather than an opaque value;
+// `kv` is that query's keyword list, when it has been fetched.
+void paint_argument(std::vector<token_kind> &colors, const std::vector<std::size_t> &index, const std::size_t begin, const std::string &text, const bool quoted,
+                    const bool is_query, const keyword_vocabulary *kv) {
+  const std::size_t eq = split_point(text);
   if (eq == std::string::npos) {
-    if (!t.text.empty() && t.text[0] == '-') {
-      paint(colors, index, t.begin, t.end, token_kind::option);
+    // `"filter=free < 10%"` - the whole argument wrapped in quotes, which is
+    // how most command lines spell it - is a single token whose '=' sits
+    // inside the quoted run, where split_point cannot see it. Unwrap and
+    // classify what is inside; the quotes themselves stay quoted. Only when
+    // there is an '=' in there: a plain quoted value is still a quoted value.
+    if (text.size() >= 2 && is_quote(text[0]) && text[text.size() - 1] == text[0]) {
+      const std::string inner = text.substr(1, text.size() - 2);
+      if (split_point(inner) != std::string::npos) {
+        paint(colors, index, begin, begin + 1, token_kind::quoted);
+        paint(colors, index, begin + text.size() - 1, begin + text.size(), token_kind::quoted);
+        paint_argument(colors, index, begin + 1, inner, false, is_query, kv);
+        return;
+      }
+    }
+    if (!text.empty() && text[0] == '-') {
+      paint(colors, index, begin, begin + text.size(), token_kind::option);
     } else {
-      paint(colors, index, t.begin, t.end, t.quoted ? token_kind::quoted : token_kind::value);
+      paint(colors, index, begin, begin + text.size(), quoted ? token_kind::quoted : token_kind::value);
     }
     return;
   }
-  paint(colors, index, t.begin, t.begin + eq, token_kind::option);
-  paint(colors, index, t.begin + eq, t.begin + eq + 1, token_kind::punctuation);
-  const std::string value = t.text.substr(eq + 1);
+  paint(colors, index, begin, begin + eq, token_kind::option);
+  paint(colors, index, begin + eq, begin + eq + 1, token_kind::punctuation);
+  const std::string value = text.substr(eq + 1);
   const bool value_quoted = !value.empty() && is_quote(value[0]);
-  paint(colors, index, t.begin + eq + 1, t.end, value_quoted ? token_kind::quoted : token_kind::value);
+  const std::string option = option_name(text.substr(0, eq));
+  if (is_query && takes_keywords(option)) {
+    // A quoted value is an expression with quotes around it, not an opaque
+    // string: colour the quotes and read what is between them.
+    std::size_t body_begin = begin + eq + 1;
+    std::string body = value;
+    if (value_quoted) {
+      const bool closed = body.size() >= 2 && body[body.size() - 1] == body[0];
+      paint(colors, index, body_begin, body_begin + 1, token_kind::quoted);
+      if (closed) paint(colors, index, begin + text.size() - 1, begin + text.size(), token_kind::quoted);
+      body = body.substr(1, closed ? body.size() - 2 : std::string::npos);
+      body_begin++;
+    }
+    if (takes_expression(option)) {
+      paint_expression(colors, index, body_begin, body, kv);
+    } else {
+      paint_template(colors, index, body_begin, body, kv);
+    }
+    return;
+  }
+  paint(colors, index, begin + eq + 1, begin + text.size(), value_quoted ? token_kind::quoted : token_kind::value);
 }
 
 }  // namespace
@@ -187,6 +440,13 @@ std::vector<token_kind> classify(const std::string &input, const vocabulary &voc
   }
   paint(colors, index, tokens[0].begin, tokens[0].end, verb_kind);
 
+  // A filter expression only means something on a query, and only its own
+  // keywords can appear in it. Looked up once for the whole line; absent
+  // simply means nobody has fetched them yet (see keyword_vocabulary).
+  const bool is_query = contains(vocab.queries, verb);
+  const std::map<std::string, keyword_vocabulary>::const_iterator kv_it = vocab.keywords.find(verb);
+  const keyword_vocabulary *kv = kv_it == vocab.keywords.end() ? nullptr : &kv_it->second;
+
   for (std::size_t n = 1; n < tokens.size(); n++) {
     const token &t = tokens[n];
     // The first argument of a module verb, or of `desc`, names something we
@@ -205,9 +465,48 @@ std::vector<token_kind> classify(const std::string &input, const vocabulary &voc
       }
       continue;
     }
-    paint_argument(colors, index, t);
+    paint_argument(colors, index, t.begin, t.text, t.quoted, is_query, kv);
   }
   return colors;
+}
+
+keyword_vocabulary make_keyword_vocabulary(const std::vector<std::string> &fields) {
+  keyword_vocabulary kv;
+  // The registry spells a filter function with a trailing "()" and a variable
+  // without (filter_handler_impl::get_filter_syntax), which is the only thing
+  // that tells the two apart in the field list.
+  for (const std::string &field : fields) {
+    if (field.size() > 2 && field.compare(field.size() - 2, 2, "()") == 0) {
+      kv.functions.insert(field.substr(0, field.size() - 2));
+    } else {
+      kv.variables.insert(field);
+    }
+  }
+  // A query that reported no fields at all is not a filter based check (or is
+  // not one we could read), so there is nothing to check names against and
+  // nothing worth saying about them. The caller still caches the answer, so
+  // this is not asked again.
+  kv.complete = !kv.variables.empty() || !kv.functions.empty();
+  return kv;
+}
+
+std::string needs_keywords(const std::string &input, const vocabulary &vocab) {
+  const std::vector<token> tokens = tokenize(input);
+  if (tokens.size() < 2) return "";
+  const std::string verb = unquote(tokens[0].text);
+  if (!contains(vocab.queries, verb)) return "";
+  if (vocab.keywords.find(verb) != vocab.keywords.end()) return "";
+  // Only once something on the line can actually use them: a query called
+  // with nothing but a `drive=c:` never needs a keyword list, and asking for
+  // one would be a registry round trip spent on nothing.
+  for (std::size_t n = 1; n < tokens.size(); n++) {
+    std::string text = tokens[n].text;
+    if (text.size() >= 2 && is_quote(text[0]) && text[text.size() - 1] == text[0]) text = text.substr(1, text.size() - 2);
+    const std::size_t eq = split_point(text);
+    if (eq == std::string::npos) continue;
+    if (takes_keywords(option_name(text.substr(0, eq)))) return verb;
+  }
+  return "";
 }
 
 completion_context analyze(const std::string &input) {
@@ -250,6 +549,10 @@ std::vector<std::string> complete(const std::string &input, const vocabulary &vo
     }
   } else if (ctx.word_index == 1 && takes_query(ctx.command)) {
     candidates.insert(candidates.end(), vocab.queries.begin(), vocab.queries.end());
+  } else if (ctx.word_index >= 1 && takes_module_filter(ctx.command)) {
+    candidates.push_back("--all");
+    candidates.push_back("--loaded");
+    candidates.push_back("--unloaded");
   } else if (split_point(ctx.prefix) == std::string::npos && parameters_of) {
     // Argument position of a real query: offer its parameters as `name=`, and
     // only while the user is still typing the name - once there is an `=` the
@@ -262,6 +565,16 @@ std::vector<std::string> complete(const std::string &input, const vocabulary &vo
   std::vector<std::string> matches;
   for (const std::string &candidate : candidates) {
     if (starts_with_ci(candidate, ctx.prefix)) matches.push_back(candidate);
+  }
+  // Nothing starts with what was typed, so try it as a substring: `load syst`
+  // finds CheckSystem. Strictly a fallback, because a prefix that does match
+  // is the stronger signal - mixing the two would dilute the common prefix
+  // the editor extends the line by, and `load check` would stop filling in
+  // "Check" the moment some unrelated module had "check" in the middle.
+  if (matches.empty()) {
+    for (const std::string &candidate : candidates) {
+      if (contains_ci(candidate, ctx.prefix)) matches.push_back(candidate);
+    }
   }
   std::sort(matches.begin(), matches.end());
   matches.erase(std::unique(matches.begin(), matches.end()), matches.end());
