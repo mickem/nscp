@@ -4,10 +4,10 @@
 // The latched metrics snapshot the REST and OpenMetrics endpoints read.
 //
 // The daemon's metrics thread writes it once a second and any number of HTTP
-// workers read it; the four representations (the JSON blob, the flat list and
-// the two negotiated text expositions) are independent latches, and confusing
-// them serves a scrape the wrong body. Nothing covered that separation, nor the
-// empty state a scrape gets before the first write.
+// workers read it; the five representations (the JSON blob, the flat list, the
+// described JSON and the two negotiated text expositions) are independent
+// latches, and confusing them serves a scrape the wrong body. Nothing covered
+// that separation, nor the empty state a scrape gets before the first write.
 
 #include "metrics_handler.hpp"
 
@@ -21,6 +21,7 @@ TEST(MetricsHandler, ReadsAreEmptyBeforeTheFirstWrite) {
   metrics_handler handler;
   EXPECT_EQ(handler.get(), "");
   EXPECT_EQ(handler.get_list(), "");
+  EXPECT_EQ(handler.get_described(), "");
   EXPECT_EQ(handler.get_openmetrics(), "");
   EXPECT_EQ(handler.get_prometheus_text(), "");
 }
@@ -33,8 +34,35 @@ TEST(MetricsHandler, TheJsonBlobRoundTrips) {
 
 TEST(MetricsHandler, TheFlatListRoundTrips) {
   metrics_handler handler;
-  handler.set_list("cpu\nmem\n");
+  handler.set_list("cpu\nmem\n", "{}");
   EXPECT_EQ(handler.get_list(), "cpu\nmem\n");
+}
+
+TEST(MetricsHandler, TheDescribedBodyJoinsTheListAndItsMetadata) {
+  // Composed on read rather than latched, so the handler never holds a second
+  // copy of a snapshot's values for a body most installs never fetch.
+  metrics_handler handler;
+  handler.set_list("{\"cpu\":42}", "{\"cpu\":{\"type\":\"gauge\"}}");
+  EXPECT_EQ(handler.get_described(), "{\"metrics\":{\"cpu\":42},\"metadata\":{\"cpu\":{\"type\":\"gauge\"}}}");
+  // And the plain list is untouched by the joining.
+  EXPECT_EQ(handler.get_list(), "{\"cpu\":42}");
+}
+
+TEST(MetricsHandler, TheDescribedBodyIsNeverHalfAJoin) {
+  // Before the first write there is nothing to join, and emitting
+  // `{"metrics":,"metadata":}` would be invalid JSON rather than an empty
+  // body. Every other reader answers "" until the metrics thread has run once.
+  metrics_handler handler;
+  EXPECT_EQ(handler.get_described(), "");
+}
+
+TEST(MetricsHandler, TheValuesAndTheirMetadataAreWrittenTogether) {
+  // They are two halves of one document, so a scrape must never see the values
+  // of this snapshot beside the metadata of the last.
+  metrics_handler handler;
+  handler.set_list("{\"a\":1}", "{\"a\":{\"type\":\"gauge\"}}");
+  handler.set_list("{\"b\":2}", "{\"b\":{\"type\":\"counter\"}}");
+  EXPECT_EQ(handler.get_described(), "{\"metrics\":{\"b\":2},\"metadata\":{\"b\":{\"type\":\"counter\"}}}");
 }
 
 TEST(MetricsHandler, TheOpenmetricsExpositionRoundTrips) {
@@ -53,7 +81,7 @@ TEST(MetricsHandler, TheRepresentationsAreIndependent) {
   // rendering; writing one must not disturb the others.
   metrics_handler handler;
   handler.set("{\"cpu\":42}");
-  handler.set_list("cpu");
+  handler.set_list("cpu", "{}");
   handler.set_openmetrics("nscp_cpu 42\n# EOF\n", "nscp_cpu 42\n# EOF\n");
 
   handler.set("{\"cpu\":43}");

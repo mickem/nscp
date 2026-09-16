@@ -30,6 +30,15 @@ const onWindows = process.platform === "win32";
 const SELF_EXE = onWindows ? "nscp.exe" : "nscp";
 const SYSTEM_PATH = onWindows ? "/settings/system/windows" : "/settings/system/unix";
 
+/** `/api/v2/metrics?meta=1`: the flat map plus what each key means. */
+interface DescribedMetrics {
+  metrics: Record<string, unknown>;
+  metadata: Record<
+    string,
+    { type: string; help?: string; unit?: string; labels?: Record<string, string> }
+  >;
+}
+
 interface RestEvent {
   index: number;
   event: string;
@@ -445,6 +454,70 @@ describe("metrics and real-time checks", () => {
     // Nothing leaked the label syntax, or a unit suffix, into a key.
     expect(keys.filter((k) => k.includes("{") || k.includes("}"))).toEqual([]);
     expect(keys).not.toContain("system.mem.physical.total_bytes");
+  });
+
+  it("describes every key it reports when asked for the metadata", async () => {
+    // `?meta=1` is what lets a dashboard print "12 592 123 904 bytes" rather
+    // than a bare number: the same keys and values as the plain flat map, plus
+    // the help text, unit, type and labels the OpenMetrics exposition is built
+    // from, out of one request and one snapshot.
+    const described = await poll(
+      () => getJson<DescribedMetrics>(key, "/api/v2/metrics?meta=1"),
+      (d) => Object.keys(d.metrics ?? {}).some((k) => k.startsWith("system.mem.")),
+    );
+
+    expect(described.metrics).toBeDefined();
+    expect(described.metadata).toBeDefined();
+    // The metadata is keyed by the same keys as the values - no renaming, no
+    // unit suffix, no label syntax.
+    expect(Object.keys(described.metadata).sort()).toEqual(Object.keys(described.metrics).sort());
+
+    // Every entry names a type, and it is one the exposition knows.
+    const types = new Set(Object.values(described.metadata).map((m) => m.type));
+    for (const type of types) {
+      expect(["gauge", "counter", "unknown", "info", "summary", "histogram"]).toContain(type);
+    }
+    // The snapshot really carries the metadata the producers declare, rather
+    // than being well-formed by carrying none of it.
+    expect(types.has("gauge")).toBe(true);
+    expect(types.has("counter")).toBe(true);
+
+    const total = described.metadata["system.mem.physical.total"];
+    expect(total).toBeDefined();
+    expect(total.type).toBe("gauge");
+    expect(total.unit).toBe("bytes");
+    expect(total.help).toBeTruthy();
+
+    // A per-instance metric reports the dimension the exposition labels it
+    // with, without the key having moved.
+    const core = onWindows ? "system.cpu.core 0.idle" : "system.cpu.core_0.idle";
+    expect(described.metadata[core]?.labels?.core).toBe("0");
+
+    // And a string metric is an `info`, with no unit to claim.
+    const uptime = described.metadata["system.uptime.uptime"];
+    expect(uptime?.type).toBe("info");
+    expect(uptime?.unit).toBeUndefined();
+  });
+
+  it("leaves /api/v2/metrics exactly as it was without ?meta", async () => {
+    // The described document is a different shape, so it has to be opt-in:
+    // anything reading the endpoint today - the bundled web UI included - must
+    // see the flat key/value map and nothing else.
+    const plain = await poll(
+      () => getMetrics(key),
+      (m) => Object.keys(m).some((k) => k.startsWith("system.mem.")),
+    );
+    expect(plain.metadata).toBeUndefined();
+    expect(Object.keys(plain).some((k) => k.startsWith("system.mem."))).toBe(true);
+
+    // `?meta=0` is not a request for it either.
+    const off = await getJson<Record<string, unknown>>(key, "/api/v2/metrics?meta=0");
+    expect(off.metadata).toBeUndefined();
+    expect(Object.keys(off).some((k) => k.startsWith("system."))).toBe(true);
+
+    // The values under `metrics` are the same document the plain call returns.
+    const described = await getJson<DescribedMetrics>(key, "/api/v2/metrics?meta=true");
+    expect(Object.keys(described.metrics).some((k) => k.startsWith("system.mem."))).toBe(true);
   });
 
   it("keeps full precision, so a sample equals the JSON value for the same key", async () => {

@@ -273,6 +273,34 @@ If you only want scheduled-check perfdata and not the firehose of system
 metrics, simply don't load `CheckSystem` (or load it only for the specific
 `check_*` commands you schedule).
 
+### Carbon tags
+
+A metric measured once per core, NIC, drive or process carries the instance as
+a **label** as well as in its key — the same dimension the
+[OpenMetrics endpoint](../api/rest/metrics.md#labels) renders. Graphite 1.1 and
+later can store those as carbon tags, which makes the instance queryable
+instead of just a path segment:
+
+```ini
+[/settings/graphite/client/targets/default]
+metric tags = true
+```
+
+The metric path is **unchanged** — the key still spells the instance out — so
+the whisper tree stays exactly where it is and existing dashboards keep working;
+the tags are appended to the path carbon already had:
+
+```
+nsclient.my-host.system.cpu.core_0.idle;core=0 93 1714973400
+nsclient.my-host.disk.free.C:.free_pct;drive=C: 41 1714973400
+```
+
+Leave it **off** (the default) for a carbon older than 1.1: without tag support
+the receiver stores the whole `path;core=0` string as the metric name, which
+renames every series that carries a label. Tag names and values are scrubbed
+the same way paths are, so a label coming from a NIC description or a Python
+script cannot inject an extra tag or an extra line.
+
 ---
 
 ## Step 5 — Set the Hostname
