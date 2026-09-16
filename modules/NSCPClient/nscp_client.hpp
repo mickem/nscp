@@ -77,6 +77,44 @@ inline std::string build_query_path(const std::string &base, const std::string &
   return path;
 }
 
+// Split a text/plain query body into (message, perfdata).
+//
+// execute_query_text writes one "message[|perf]\n" per response line, so a
+// check with long output answers with several of them. Splitting the whole
+// body on its first '|' would keep only the first line as the message and
+// hand everything after it - newlines, later lines and their own '|' - to the
+// performance-data parser, which then reports garbage counters and loses the
+// output. Split per line instead: the messages rejoin with newlines, the way
+// a Nagios plugin writes long output, and the perfdata concatenates with a
+// space, the way multiple perf strings combine.
+inline std::pair<std::string, std::string> parse_query_body(const std::string &raw_body) {
+  // The endpoint terminates every line, so the body normally ends in a
+  // newline. Drop the trailing ones here as well as at the call site, so this
+  // never yields a spurious empty last message.
+  std::string body = raw_body;
+  while (!body.empty() && (body[body.size() - 1] == '\n' || body[body.size() - 1] == '\r')) body.erase(body.size() - 1);
+
+  std::string message, perf;
+  std::string::size_type pos = 0;
+  while (pos <= body.size()) {
+    std::string::size_type eol = body.find('\n', pos);
+    std::string line = body.substr(pos, eol == std::string::npos ? std::string::npos : eol - pos);
+    if (!line.empty() && line[line.size() - 1] == '\r') line.erase(line.size() - 1);
+
+    const str::utils::token parts = str::utils::getToken(line, '|');
+    if (!message.empty()) message += "\n";
+    message += parts.first;
+    if (!parts.second.empty()) {
+      if (!perf.empty()) perf += " ";
+      perf += parts.second;
+    }
+
+    if (eol == std::string::npos) break;
+    pos = eol + 1;
+  }
+  return std::make_pair(message, perf);
+}
+
 struct connection_data : public socket_helpers::connection_info {
   std::string password;
   std::string path;
@@ -257,8 +295,8 @@ struct nscp_client_handler : public client::handler_interface {
       const http::response response = client.process_request(packet);
 
       std::string body = response.get_payload();
-      // One line is the normal case; keep any further lines, minus the
-      // trailing newline the endpoint writes after each.
+      // The endpoint writes a newline after every line, including the last;
+      // drop it so the trailing one does not become an empty final message.
       while (!body.empty() && (body[body.size() - 1] == '\n' || body[body.size() - 1] == '\r')) body.erase(body.size() - 1);
 
       const NSCAPI::nagiosReturn code = nscp_client::status_to_nagios(response.status_code_);
@@ -267,7 +305,7 @@ struct nscp_client_handler : public client::handler_interface {
         // than returning an empty check result.
         return boost::make_tuple(code, "Remote agent answered " + str::xtos(response.status_code_) + " " + response.status_message_, std::string());
       }
-      const str::utils::token rdata = str::utils::getToken(body, '|');
+      const std::pair<std::string, std::string> rdata = nscp_client::parse_query_body(body);
       return boost::make_tuple(code, rdata.first, rdata.second);
     } catch (std::runtime_error &e) {
       return boost::make_tuple(NSCAPI::query_return_codes::returnUNKNOWN, "Socket error: " + utf8::utf8_from_native(e.what()), std::string());

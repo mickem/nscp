@@ -339,6 +339,61 @@ TEST(NscpStatusMapping, AnythingElseIsUnknownRatherThanOk) {
   EXPECT_EQ(nscp_client::status_to_nagios(0), NSCAPI::query_return_codes::returnUNKNOWN);
 }
 
+TEST(NscpQueryBody, OneLineSplitsIntoMessageAndPerf) {
+  const std::pair<std::string, std::string> r = nscp_client::parse_query_body("OK: all good|'load'=1;2;3");
+  EXPECT_EQ(r.first, "OK: all good");
+  EXPECT_EQ(r.second, "'load'=1;2;3");
+}
+
+TEST(NscpQueryBody, AMessageWithoutPerfdataKeepsAnEmptyPerf) {
+  const std::pair<std::string, std::string> r = nscp_client::parse_query_body("OK: nothing to measure");
+  EXPECT_EQ(r.first, "OK: nothing to measure");
+  EXPECT_EQ(r.second, "");
+}
+
+TEST(NscpQueryBody, EveryLineContributesItsOwnMessageAndPerf) {
+  // execute_query_text writes one "message[|perf]" per response line. Splitting
+  // the whole body on its first '|' used to fold every later line into the
+  // perfdata, where the perf parser turned it into garbage counters and the
+  // output was lost.
+  const std::pair<std::string, std::string> r = nscp_client::parse_query_body("first line|'a'=1\nsecond line|'b'=2");
+  EXPECT_EQ(r.first, "first line\nsecond line");
+  EXPECT_EQ(r.second, "'a'=1 'b'=2");
+}
+
+TEST(NscpQueryBody, ALineWithoutPerfdataDoesNotIntroduceASeparator) {
+  const std::pair<std::string, std::string> r = nscp_client::parse_query_body("header\ndetail|'a'=1");
+  EXPECT_EQ(r.first, "header\ndetail");
+  EXPECT_EQ(r.second, "'a'=1");
+}
+
+TEST(NscpQueryBody, OnlyTheFirstPipeOnALineSplitsIt) {
+  // A message may legitimately contain a '|' after the perfdata separator has
+  // already been found; everything past the first one is perfdata.
+  const std::pair<std::string, std::string> r = nscp_client::parse_query_body("msg|'a'=1;2|3");
+  EXPECT_EQ(r.first, "msg");
+  EXPECT_EQ(r.second, "'a'=1;2|3");
+}
+
+TEST(NscpQueryBody, CarriageReturnsAreNotPartOfTheMessage) {
+  const std::pair<std::string, std::string> r = nscp_client::parse_query_body("first|'a'=1\r\nsecond|'b'=2");
+  EXPECT_EQ(r.first, "first\nsecond");
+  EXPECT_EQ(r.second, "'a'=1 'b'=2");
+}
+
+TEST(NscpQueryBody, TheTrailingNewlineDoesNotBecomeAnEmptyLine) {
+  // The endpoint terminates every line, so the body it sends ends in one.
+  const std::pair<std::string, std::string> r = nscp_client::parse_query_body("only line|'a'=1\n");
+  EXPECT_EQ(r.first, "only line");
+  EXPECT_EQ(r.second, "'a'=1");
+}
+
+TEST(NscpQueryBody, AnEmptyBodyStaysEmpty) {
+  const std::pair<std::string, std::string> r = nscp_client::parse_query_body("");
+  EXPECT_EQ(r.first, "");
+  EXPECT_EQ(r.second, "");
+}
+
 TEST(NscpClientHandler, GetCommandPrefersAliasThenCommand) {
   test_client h;
   EXPECT_EQ(h.get_command("alias", "cmd"), "alias");
