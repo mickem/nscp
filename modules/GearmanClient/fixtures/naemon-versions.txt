@@ -1,0 +1,7 @@
+core=naemon
+core: Naemon Core 1.5.2
+tools: send_gearman: version 5.2.5 running on libgearman 1.1.20+ds
+gearmand: 1.1.20+ds
+encryption=yes
+key=nscp-test-key
+hostgroup=gearman-test

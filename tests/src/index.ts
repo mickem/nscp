@@ -10,3 +10,4 @@ export * from "./eventlog";
 export * from "./fleet";
 export * from "./fleet-server";
 export * from "./live-target";
+export * from "./gearman";
