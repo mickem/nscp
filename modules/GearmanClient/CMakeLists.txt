@@ -15,7 +15,9 @@ set(SRCS
     gearman_connection.cpp
     gearman_worker.cpp
     ${NSCP_INCLUDEDIR}/bytes/base64.c
+    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_DEF_PLUGIN_CPP}
+    ${NSCP_CLIENT_CPP}
 )
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
@@ -38,8 +40,12 @@ if(WIN32)
         gearman_job.hpp
         gearman_connection.hpp
         gearman_worker.hpp
+        gearman_client.hpp
+        gearman_handler.hpp
         ${NSCP_INCLUDEDIR}/bytes/base64.h
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
         ${NSCP_DEF_PLUGIN_HPP}
+        ${NSCP_CLIENT_HPP}
     )
 endif(WIN32)
 
@@ -49,6 +55,7 @@ NSCP_DEBUG_SYMBOLS(${TARGET})
 target_link_libraries(
     ${TARGET}
     ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_THREAD_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${NSCP_DEF_PLUGIN_LIB}
@@ -138,3 +145,35 @@ if(NSCP_BUILD_TESTS)
     target_compile_definitions(gearman_crypt_test PRIVATE GEARMAN_FIXTURE_DIR="${GEARMAN_FIXTURES}")
     target_compile_definitions(gearman_job_test PRIVATE GEARMAN_FIXTURE_DIR="${GEARMAN_FIXTURES}")
 endif()
+
+# The plugin shell around the two halves: the settings each registers, the
+# channel the submit half listens on, and that a worker section which is
+# absent or unusable does not take that channel down with it. The wire
+# formats and the worker loop have their own tests above.
+NSCP_CREATE_TEST(
+    gearman_module_test
+    SOURCES
+        gearman_module_test.cpp
+        "${TARGET}.cpp"
+        gearman_protocol.cpp
+        gearman_crypt.cpp
+        gearman_job.cpp
+        gearman_connection.cpp
+        gearman_worker.cpp
+        ${NSCP_INCLUDEDIR}/bytes/base64.c
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+        ${NSCP_DEF_PLUGIN_CPP}
+        ${NSCP_CLIENT_CPP}
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+        ${EXTRA_LIBS}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${OPENSSL_INCLUDE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)

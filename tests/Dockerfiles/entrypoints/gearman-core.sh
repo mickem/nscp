@@ -45,6 +45,10 @@
 #                     sleeps), so the check overruns the job's `timeout` and
 #                     the agent's timeout handling is exercised against a
 #                     real core
+#   service passive active checks off, so the core never schedules it and the
+#                     only thing that can move it is a result the agent
+#                     submits into check_results itself - the passive channel
+#                     of tests/gearman-submit.test.ts, seen from the core
 #
 # The proxy object config points every check at PROXY_TARGET_ADDRESS (as the
 # core's own $HOSTADDRESS$ macro) and PROXY_TARGET_PORT, which the test fills
@@ -321,6 +325,27 @@ define service {
   notification_interval  0
   notification_period    24x7
   notifications_enabled  0
+}
+
+# Passive only. The core never schedules this one, so nothing the worker does
+# can move it: whatever shows up here arrived on check_results, which is the
+# passive channel. A check_command is still required by both cores' parsers,
+# and is never run.
+define service {
+  host_name               nscp-test
+  service_description     passive
+  check_command           nscp!check_ok message=never-run
+  active_checks_enabled   0
+  passive_checks_enabled  1
+  check_freshness         0
+  check_interval          $CHECK_INTERVAL
+  retry_interval          $CHECK_INTERVAL
+  max_check_attempts      1
+  check_period            24x7
+  contacts                nobody
+  notification_interval   0
+  notification_period     24x7
+  notifications_enabled   0
 }
 EOF
 else

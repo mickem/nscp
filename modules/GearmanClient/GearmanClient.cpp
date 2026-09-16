@@ -7,18 +7,24 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/thread.hpp>
+#include <ctime>
 #include <fstream>
 #include <list>
 #include <memory>
+#include <net/socket/socket_helpers.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_metrics_helper.hpp>
 #include <nscapi/protobuf/functions_query.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nscapi/settings/proxy.hpp>
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
 #include <vector>
+
+#include "gearman_client.hpp"
+#include "gearman_handler.hpp"
 
 #ifndef WIN32
 #include <sys/stat.h>
@@ -142,10 +148,11 @@ class core_query_executor : public gearman::query_executor {
 
 }  // namespace
 
-GearmanClient::GearmanClient() = default;
+GearmanClient::GearmanClient()
+    : client_("gearman", std::make_shared<gearman_client::gearman_client_handler>(), std::make_shared<gearman_handler::options_reader_impl>()) {}
 GearmanClient::~GearmanClient() = default;
 
-bool GearmanClient::build_config(const std::string &alias, gearman::worker_config &config) {
+GearmanClient::worker_setup GearmanClient::build_config(const std::string &alias, gearman::worker_config &config) {
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("gearman", alias, "worker");
 
@@ -237,19 +244,29 @@ bool GearmanClient::build_config(const std::string &alias, gearman::worker_confi
   settings.register_all();
   settings.notify();
 
+  const std::vector<std::string> groups = split_list(hostgroups);
+  const std::vector<std::string> service_groups = split_list(servicegroups);
+
+  if (servers.empty() && groups.empty() && service_groups.empty() && !shared_queues) {
+    // Nothing in the worker section at all. That is a deployment, not a
+    // mistake: the module is also the passive channel below, and an
+    // installation replacing NSCA with Mod-Gearman configures only that half.
+    NSC_DEBUG_MSG("gearman: no worker configured; the module is loaded for its submit channel only.");
+    return worker_setup::disabled;
+  }
   if (servers.empty()) {
     NSC_LOG_ERROR_STD("gearman: no job server configured. Set /settings/gearman/worker/server to the gearmand the core submits to.");
-    return false;
+    return worker_setup::invalid;
   }
   try {
     config.servers = gearman::parse_server_list(servers);
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_STD(std::string("gearman: could not read the server list: ") + e.what());
-    return false;
+    return worker_setup::invalid;
   }
   if (config.servers.empty()) {
     NSC_LOG_ERROR_STD("gearman: the server list is empty.");
-    return false;
+    return worker_setup::invalid;
   }
 
   if (key.empty() && !key_file.empty()) {
@@ -257,7 +274,7 @@ bool GearmanClient::build_config(const std::string &alias, gearman::worker_confi
     std::ifstream stream(path.c_str());
     if (!stream) {
       NSC_LOG_ERROR_STD("gearman: could not read the key file: " + path);
-      return false;
+      return worker_setup::invalid;
     }
     std::getline(stream, key);
     boost::trim_right(key);
@@ -279,20 +296,20 @@ bool GearmanClient::build_config(const std::string &alias, gearman::worker_confi
     NSC_LOG_ERROR_STD(
         "gearman: encryption is on but no key is set. The key is the only thing separating a check the core scheduled from one anybody who can reach "
         "gearmand made up, so the module will not start without it. Set 'key' (or 'key file') to the same value as the core's module.conf.");
-    return false;
+    return worker_setup::invalid;
   }
   if (!encryption && !insecure) {
     NSC_LOG_ERROR_STD(
         "gearman: encryption is off but 'insecure' is not set. Unencrypted payloads let anyone who can reach gearmand read and forge this host's checks; "
         "set 'insecure = true' to say that is intended.");
-    return false;
+    return worker_setup::invalid;
   }
   if (!encryption) {
     NSC_LOG_ERROR_STD("gearman: running with encryption disabled. Check jobs and results are plain base64 on the wire and are neither secret nor verified.");
   }
 
-  for (const std::string &group : split_list(hostgroups)) config.queues.push_back("hostgroup_" + group);
-  for (const std::string &group : split_list(servicegroups)) config.queues.push_back("servicegroup_" + group);
+  for (const std::string &group : groups) config.queues.push_back("hostgroup_" + group);
+  for (const std::string &group : service_groups) config.queues.push_back("servicegroup_" + group);
   if (shared_queues) {
     config.queues.emplace_back("host");
     config.queues.emplace_back("service");
@@ -301,7 +318,7 @@ bool GearmanClient::build_config(const std::string &alias, gearman::worker_confi
     NSC_LOG_ERROR_STD(
         "gearman: no queue to answer. Set 'hostgroups' (and/or 'servicegroups') to the groups the core's module.conf routes through gearmand; a worker with "
         "no registered queue never receives a check.");
-    return false;
+    return worker_setup::invalid;
   }
 
   const std::string local_host = boost::asio::ip::host_name();
@@ -329,7 +346,7 @@ bool GearmanClient::build_config(const std::string &alias, gearman::worker_confi
   } else {
     NSC_LOG_ERROR_STD("gearman: unknown mode '" + mode_name +
                       "'. Use 'agent' (this host's own checks only, the default) or 'proxy' (run the checks of every host on the registered queues).");
-    return false;
+    return worker_setup::invalid;
   }
 
   config.workers = workers;
@@ -337,17 +354,106 @@ bool GearmanClient::build_config(const std::string &alias, gearman::worker_confi
   config.max_age = max_age;
   config.client_id = "nscp-" + local_host;
   config.source = "NSClient++ " + utf8::cvt<std::string>(get_core()->getApplicationVersionString()) + " on " + local_host;
-  return true;
+  return worker_setup::ready;
+}
+
+void GearmanClient::build_client(const std::string &alias) {
+  sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
+  settings.set_alias("gearman", alias, "client");
+  client_.set_path(settings.alias().get_settings_path("targets"));
+
+  // clang-format off
+  settings.alias().add_path_to_settings()
+    ("Gearman submit channel", "Section for submitting passive results into a Mod-Gearman result queue (GearmanClient.dll).")
+
+    ("handlers", sh::fun_values_path([this](auto key, auto value) { this->add_command(key, value); }),
+        "CLIENT HANDLER SECTION", "",
+        "CLIENT HANDLER", "For more configuration options add a dedicated section")
+
+    ("targets", sh::fun_values_path([this](auto key, auto value) { this->add_target(key, value); }),
+        "REMOTE TARGET DEFINITIONS", "",
+        "TARGET", "For more configuration options add a dedicated section")
+    ;
+  // clang-format on
+
+  settings.alias()
+      .add_key_to_settings()
+
+      .add_string("hostname", sh::string_key(&hostname_, "auto"), "HOSTNAME",
+                  "The host name results are filed under on the core, which has to be the name the core knows this host by. Set this to auto (default) to "
+                  "use the name of this computer.\n\n"
+                  "auto\tHostname\n"
+                  "${host}\tHostname\n"
+                  "${host_lc}\tHostname in lowercase\n"
+                  "${host_uc}\tHostname in uppercase\n"
+                  "${domain}\tDomainname\n"
+                  "${domain_lc}\tDomainname in lowercase\n"
+                  "${domain_uc}\tDomainname in uppercase\n"
+                  "${address_ipv4}\tIPv4 address of the computer\n"
+                  "${address_ipv6}\tIPv6 address of the computer (lowercase, compressed)\n")
+
+      .add_string("channel", sh::string_key(&channel_, "GEARMAN"), "CHANNEL",
+                  "The channel to listen to. A Scheduler entry (or any other submitting module) naming this channel has its results pushed into the "
+                  "target's result queue, which is how this module replaces NSCA in a Mod-Gearman installation.");
+
+  settings.register_all();
+  settings.notify();
+
+  client_.finalize(nscapi::settings_proxy::create(get_id(), get_core()));
+
+  nscapi::core_helper core(get_core(), get_id());
+  core.register_channel(channel_);
+
+  hostname_ = socket_helpers::expand_hostname(hostname_);
+  client_.set_sender(hostname_);
+}
+
+void GearmanClient::add_target(const std::string &key, const std::string &args) {
+  try {
+    client_.add_target(nscapi::settings_proxy::create(get_id(), get_core()), key, args);
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR_EXR("gearman: failed to add target: " + key, e);
+  } catch (...) {
+    NSC_LOG_ERROR_EX("gearman: failed to add target: " + key);
+  }
+}
+
+void GearmanClient::add_command(const std::string &key, const std::string &args) {
+  try {
+    nscapi::core_helper core(get_core(), get_id());
+    const std::string command = client_.add_command(key, args);
+    if (!command.empty()) core.register_command(command.c_str(), "Gearman relay for: " + key);
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR_EXR("gearman: failed to add command: " + key, e);
+  } catch (...) {
+    NSC_LOG_ERROR_EX("gearman: failed to add command: " + key);
+  }
 }
 
 bool GearmanClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   // A reload calls this again on the live module while the previous workers
   // are still grabbing jobs, so they go first - otherwise each reload leaves
-  // another set of them registered on the same queue.
+  // another set of them registered on the same queue. The submit channel's
+  // targets and relay commands are rebuilt from scratch for the same reason:
+  // the settings callbacks in build_client() append, so a reload that did not
+  // clear them first would duplicate every entry.
   if (!pool_.stop()) NSC_LOG_MESSAGE("gearman: a check was still running when the workers were stopped; it will finish on its own.");
+  client_.clear();
+
+  try {
+    build_client(alias);
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR_EXR("gearman: failed to read the submit channel configuration", e);
+    return false;
+  }
 
   gearman::worker_config config;
-  if (!build_config(alias, config)) return false;
+  const worker_setup setup = build_config(alias, config);
+  // The two halves are independent deployments, so a worker section that
+  // cannot be used does not take the submit channel down with it: the reason
+  // has already been logged as an error, and an installation using this module
+  // only to replace NSCA keeps working.
+  if (setup != worker_setup::ready) return true;
 
   if (mode != NSCAPI::normalStart && mode != NSCAPI::reloadStart) return true;
 
@@ -360,5 +466,50 @@ bool GearmanClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 
 bool GearmanClient::unloadModule() {
   if (!pool_.stop()) NSC_LOG_MESSAGE("gearman: a check outlived the shutdown wait; it will finish on its own.");
+  client_.clear();
   return true;
+}
+
+void GearmanClient::handleNotification(const std::string &, const PB::Commands::SubmitRequestMessage &request_message,
+                                       PB::Commands::SubmitResponseMessage *response_message) {
+  client_.do_submit(request_message, *response_message);
+}
+
+bool GearmanClient::commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage &request, PB::Commands::ExecuteResponseMessage &response) {
+  if (target_mode == NSCAPI::target_module) {
+    return client_.do_exec(request, response, "submit_");
+  }
+  return false;
+}
+
+void GearmanClient::query_fallback(const PB::Commands::QueryRequestMessage &request_message, PB::Commands::QueryResponseMessage &response_message) {
+  client_.do_query(request_message, response_message);
+}
+
+void GearmanClient::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
+  using nscapi::metrics::describe;
+  using nscapi::metrics::metric;
+
+  PB::Metrics::MetricsBundle *bundle = response->add_bundles();
+  bundle->set_key("gearman");
+  describe(bundle, "The Mod-Gearman worker pool: what it has taken off the queues and whether it is still there to take more");
+
+  const gearman::worker_counters &counters = pool_.counters();
+  // Jobs and errors only ever grow for the lifetime of the agent, so
+  // `rate(gearman_worker_jobs_total[5m])` is the checks per second this agent
+  // actually answers. The other two describe the pool right now and can go
+  // back down, which is what makes them gauges.
+  metric(bundle, "worker.jobs").help("Check jobs taken off a queue since the agent was started").counter(counters.jobs.load());
+  metric(bundle, "worker.errors")
+      .help("Connection failures, undecodable payloads and results that could not be submitted, since the agent was started")
+      .counter(counters.errors.load());
+  metric(bundle, "worker.connected").help("Worker threads currently holding a live connection to a job server").gauge(counters.connected.load());
+
+  // Seconds since the last job was grabbed, which is what an operator watches:
+  // a worker that is connected but has not been given a check in an hour means
+  // the core stopped routing, not that the agent is down. -1 rather than 0 for
+  // "no job yet": a zero would read as a check having just arrived.
+  const long long last = counters.last_job_time.load();
+  const long long age = last == 0 ? -1 : static_cast<long long>(std::time(nullptr)) - last;
+  metric(bundle, "worker.last_job_age").help("Seconds since the last check job was grabbed, or -1 if none has been").unit("seconds").gauge(age);
 }

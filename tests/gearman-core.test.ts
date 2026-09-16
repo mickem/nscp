@@ -24,9 +24,15 @@
  * shows what the *core* made of the result, not what the agent thinks it
  * sent, which is the whole point of testing against a real core.
  *
+ * The same suite also covers the other direction, the passive channel of step
+ * 6: the agent submits a result into `check_results` itself, and the core -
+ * which never scheduled that check - files it as a passive one. Only a real
+ * core can say that the result text is one its result thread accepts.
+ *
  * Everything that can be tested without Nagios or Naemon is in
- * gearman-worker.test.ts instead; that tier is fast and scripted, so it is
- * where the edge cases live. What is here is what only these images can say.
+ * gearman-worker.test.ts and gearman-submit.test.ts instead; those tiers are
+ * fast and scripted, so they are where the edge cases live. What is here is
+ * what only these images can say.
  */
 import * as fs from "fs";
 import * as os from "os";
@@ -196,6 +202,15 @@ dockerOrSkip()("a real Mod-Gearman core driving the agent", () => {
           "host names": HOSTNAME,
           workers: "2",
         },
+        // The passive half. `hostname` is what the results are filed under,
+        // and it has to be the name the core knows this host by - here the
+        // one the entrypoint defines, not whatever the test machine is
+        // called.
+        "/settings/gearman/client/targets/default": {
+          address: `127.0.0.1:${HOST_PORT}`,
+          key: KEY,
+        },
+        "/settings/gearman/client": { hostname: HOSTNAME },
         "/settings/external scripts": { timeout: "60" },
         "/settings/external scripts/scripts": { check_slow: `/bin/sh ${slow}` },
       });
@@ -280,6 +295,42 @@ dockerOrSkip()("a real Mod-Gearman core driving the agent", () => {
       // `timeout return` defaults to 2, CRITICAL.
       expect(slow.current_state).toBe("2");
       expect(slow.check_type).toBe("0");
+    });
+
+    it("files a submitted result as a passive check on a service it never scheduled", async () => {
+      // The `passive` service has active checks off, so the worker is never
+      // handed a job for it: whatever the core shows here arrived through
+      // check_results, which is the whole of the passive channel.
+      const submitted = Math.floor(Date.now() / 1000);
+      const out = await nscp.run(
+        [
+          "client",
+          "--module",
+          "GearmanClient",
+          "--boot",
+          "--query",
+          "submit_gearman",
+          "command=passive",
+          "result=1",
+          "message=submitted by the agent|'queue'=3;5;10",
+        ],
+        { allowFailure: true },
+      );
+      expect(out.all ?? out.stdout).toContain("Submission successful");
+
+      const passive = await serviceResult(
+        "passive",
+        (f) => f.plugin_output.includes("submitted by the agent"),
+        submitted,
+      );
+      expect(passive.plugin_output).toContain("submitted by the agent");
+      // 1 is a passive check: the core knows it did not run this itself,
+      // which is what distinguishes the channel from the worker above.
+      expect(passive.check_type).toBe("1");
+      expect(passive.current_state).toBe("1");
+      // The performance data survived the `message|perfdata` line the core
+      // parses, the same way it does for an active result.
+      expect(passive.performance_data).toContain("queue");
     });
 
     it("picks the checks back up after the core and its job server restart", async () => {
