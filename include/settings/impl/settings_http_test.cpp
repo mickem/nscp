@@ -6,10 +6,12 @@
 #include <atomic>
 #include <boost/asio.hpp>
 #include <future>
+#include <memory>
 #include <settings/impl/settings_http.hpp>
 #include <settings/test_helpers.hpp>
 #include <str/utils.hpp>
 #include <thread>
+#include <vector>
 
 using settings_test::mock_settings_core;
 using settings_test::temp_dir;
@@ -36,6 +38,51 @@ class http_test_core : public mock_settings_core {
 
  private:
   boost::filesystem::path cache_;
+};
+
+// Records what was logged, and at which level.
+//
+// The level matters beyond tidiness: the MSI's ImportConfig custom action
+// boots the existing configuration through settings_http and treats any
+// error-level line as "this host's configuration could not be read", which
+// makes it discard the operator's CONFIGURATION_TYPE. An advisory about a
+// fetch that was skipped - the agent carries on with its cached copy - must
+// therefore not be logged as an error, or every upgrade of a host with a
+// plain-http settings url fails configuration import.
+class recording_logger : public settings_test::null_logger {
+ public:
+  void warning(const std::string &, const char *, const int, const std::string &message) override { warnings_.push_back(message); }
+  void error(const std::string &, const char *, const int, const std::string &message) override { errors_.push_back(message); }
+
+  bool should_warning() const override { return true; }
+  bool should_error() const override { return true; }
+
+  const std::vector<std::string> &warnings() const { return warnings_; }
+  const std::vector<std::string> &errors() const { return errors_; }
+
+  static bool any_contains(const std::vector<std::string> &haystack, const std::string &needle) {
+    for (const std::string &entry : haystack) {
+      if (entry.find(needle) != std::string::npos) return true;
+    }
+    return false;
+  }
+
+ private:
+  std::vector<std::string> warnings_;
+  std::vector<std::string> errors_;
+};
+
+// http_test_core with a logger the test can read back.
+class recording_http_core : public http_test_core {
+ public:
+  recording_http_core(boost::filesystem::path cache, bool allow_plaintext)
+      : http_test_core(std::move(cache), allow_plaintext), recorder_(std::make_shared<recording_logger>()) {}
+
+  nsclient::logging::logger_instance get_logger() const override { return recorder_; }
+  const recording_logger &recorded() const { return *recorder_; }
+
+ private:
+  std::shared_ptr<recording_logger> recorder_;
 };
 
 // One-shot HTTP server: accepts a single connection, replies with the canned
@@ -513,7 +560,9 @@ TEST(settings_http, attachment_target_and_source_agree_on_the_host) {
 // script definitions, submit-client credentials - re-fetched at boot and on
 // every housekeeping pass. Over plain http nothing authenticates the server,
 // so anyone on path, or anyone who can answer for the host name via DHCP or
-// DNS, owns every agent pointed at it. It has to be refused, not warned about.
+// DNS, owns every agent pointed at it. The fetch has to be refused outright,
+// not merely warned about and then performed anyway. (The refusal itself is
+// logged as a warning rather than an error - see the level test below.)
 
 TEST(settings_http, plaintext_source_is_refused_by_default) {
   loopback_listener server;
@@ -522,6 +571,23 @@ TEST(settings_http, plaintext_source_is_refused_by_default) {
   settings::settings_http s(&core, "test", http_url(server.port()));
 
   EXPECT_FALSE(server.served());
+}
+
+TEST(settings_http, the_plaintext_refusal_is_a_warning_not_an_error) {
+  // Refusing the fetch is not a failed configuration read: initial_load()
+  // carries on with the cached copy, so the agent boots with the
+  // configuration it already had. Logging it as an error would make the MSI
+  // upgrade path treat the host's configuration as unreadable - and because
+  // the refusal is standing policy rather than a transient fetch failure, it
+  // would fail on every upgrade, forever.
+  loopback_listener server;
+  temp_dir cache;
+  recording_http_core core(cache.path(), false);
+  settings::settings_http s(&core, "test", http_url(server.port()));
+
+  EXPECT_FALSE(server.served());
+  EXPECT_TRUE(recording_logger::any_contains(core.recorded().warnings(), "Refusing to fetch settings"));
+  EXPECT_FALSE(recording_logger::any_contains(core.recorded().errors(), "Refusing to fetch settings"));
 }
 
 TEST(settings_http, plaintext_source_is_fetched_when_boot_ini_allows_it) {

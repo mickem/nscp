@@ -232,12 +232,24 @@ class settings_http : public settings::settings_interface_impl {
     if (url.protocol != "https") {
       const std::string how = url.protocol.empty() ? "a url with no scheme, which is fetched over a plain socket" : "plain " + url.protocol;
       if (!get_core()->get_allow_plaintext()) {
-        get_logger()->error("settings", __FILE__, __LINE__,
-                            "Refusing to fetch settings from " + url.to_log_safe_string() + " over " + how +
-                                ": the transport does not authenticate the server, and this download is the agent's entire configuration "
-                                "(including external script definitions, i.e. command execution). Use https://, or set "
-                                "'allow plaintext = true' under [tls] in boot.ini if you accept that anyone who can answer for this host "
-                                "controls this agent.");
+        // Warning, not error, for the same reason the verify-mode advisories
+        // below are: the MSI's ImportConfig custom action boots the existing
+        // configuration through this very code path and treats any
+        // error-level message as a failed settings read, discarding the
+        // CONFIGURATION_TYPE the operator asked for. A host configured with a
+        // plain-http settings url would then fail configuration import on
+        // every upgrade, permanently - the refusal is a standing policy, not
+        // a transient fetch failure, so it would never clear.
+        //
+        // Skipping the fetch is not a failed read either: initial_load()
+        // carries on with the cached copy, so the agent boots with the
+        // configuration it already had. Loud in the log, not an outage.
+        get_logger()->warning("settings", __FILE__, __LINE__,
+                              "Refusing to fetch settings from " + url.to_log_safe_string() + " over " + how +
+                                  ": the transport does not authenticate the server, and this download is the agent's entire configuration "
+                                  "(including external script definitions, i.e. command execution). The previously cached configuration is "
+                                  "used instead. Use https://, or set 'allow plaintext = true' under [tls] in boot.ini if you accept that "
+                                  "anyone who can answer for this host controls this agent.");
         return false;
       }
       get_logger()->warning("settings", __FILE__, __LINE__,
