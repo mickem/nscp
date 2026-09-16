@@ -28,10 +28,13 @@ import {
   NscpInstance,
   REST_URL,
   Wait,
-  dockerOrSkip,
+  externalGearmand,
+  gearmandOrSkip,
   grabPayload,
+  runQueue,
   trackContainerLogs,
   type EnvelopeOptions,
+  type GearmanServer,
   type StartedTestContainer,
 } from "@fixtures/index";
 
@@ -45,10 +48,16 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-dockerOrSkip()("Mod-Gearman submit channel", () => {
-  let gearmand: StartedTestContainer;
+gearmandOrSkip()("Mod-Gearman submit channel", () => {
+  let gearmand: StartedTestContainer | undefined;
+  let server: GearmanServer;
 
   beforeAll(async () => {
+    const external = externalGearmand();
+    if (external) {
+      server = external;
+      return;
+    }
     const image = await GenericContainer.fromDockerfile(
       path.resolve(__dirname),
       "Dockerfiles/gearmand.Dockerfile",
@@ -60,6 +69,7 @@ dockerOrSkip()("Mod-Gearman submit channel", () => {
         .start(),
       "gearmand",
     );
+    server = { host: "127.0.0.1", port: HOST_PORT };
   });
 
   afterAll(async () => {
@@ -78,7 +88,7 @@ dockerOrSkip()("Mod-Gearman submit channel", () => {
     envelope: EnvelopeOptions = { key: KEY },
     timeoutMs = 60_000,
   ): Promise<Record<string, string> | null> {
-    const reader = await GearmanWorker.connect("127.0.0.1", HOST_PORT, [queue]);
+    const reader = await GearmanWorker.connect(server.host, server.port, [queue]);
     try {
       const grabbed = await grabPayload(reader, envelope, timeoutMs);
       if (!grabbed) return null;
@@ -112,9 +122,9 @@ dockerOrSkip()("Mod-Gearman submit channel", () => {
         // A configured target, so the block covers both ways of naming the
         // gearmand: this one, and the bare address= below.
         "/settings/gearman/client/targets/default": {
-          address: `127.0.0.1:${HOST_PORT}`,
+          address: `${server.host}:${server.port}`,
           key: KEY,
-          queue: "submit_default",
+          queue: runQueue("submit_default"),
         },
       });
     });
@@ -124,7 +134,7 @@ dockerOrSkip()("Mod-Gearman submit channel", () => {
     });
 
     it("files a service result the core's result thread would accept", async () => {
-      const reading = nextResult("submit_default");
+      const reading = nextResult(runQueue("submit_default"));
       const out = await submit(["command=cpu", "result=1", "message=cpu is busy|'load'=80%;70;90"]);
       expect(out).toContain("Submission successful");
 
@@ -151,7 +161,7 @@ dockerOrSkip()("Mod-Gearman submit channel", () => {
     it("files a host result with no service_description", async () => {
       // The `host_check` alias is the convention NSCA and NRDP use, and a
       // result with no service_description is a host result to both cores.
-      const reading = nextResult("submit_default");
+      const reading = nextResult(runQueue("submit_default"));
       await submit(["alias=host_check", "result=2", "message=host is down"]);
 
       const result = await reading;
@@ -163,11 +173,11 @@ dockerOrSkip()("Mod-Gearman submit channel", () => {
     });
 
     it("honours a gearmand named on the command line, and its own queue", async () => {
-      const reading = nextResult("submit_adhoc");
+      const reading = nextResult(runQueue("submit_adhoc"));
       const out = await submit([
-        `address=127.0.0.1:${HOST_PORT}`,
+        `address=${server.host}:${server.port}`,
         `key=${KEY}`,
-        "queue=submit_adhoc",
+        `queue=${runQueue("submit_adhoc")}`,
         "command=adhoc",
         "result=0",
         "message=one off",
@@ -180,7 +190,7 @@ dockerOrSkip()("Mod-Gearman submit channel", () => {
       // encryption=false alone is refused: the payload would be plain base64,
       // readable and forgeable by anyone who can reach gearmand.
       const refused = await submit([
-        `address=127.0.0.1:${HOST_PORT}`,
+        `address=${server.host}:${server.port}`,
         "encryption=false",
         "command=plain",
         "result=0",
@@ -191,12 +201,12 @@ dockerOrSkip()("Mod-Gearman submit channel", () => {
 
       // With `insecure` it goes, and the payload really is plain base64 - the
       // reader below is given no key at all.
-      const reading = nextResult("submit_plain", { key: "", encryption: false });
+      const reading = nextResult(runQueue("submit_plain"), { key: "", encryption: false });
       const sent = await submit([
-        `address=127.0.0.1:${HOST_PORT}`,
+        `address=${server.host}:${server.port}`,
         "encryption=false",
         "insecure=true",
-        "queue=submit_plain",
+        `queue=${runQueue("submit_plain")}`,
         "command=plain",
         "result=0",
         "message=in the clear",
@@ -258,7 +268,7 @@ dockerOrSkip()("Mod-Gearman submit channel", () => {
       // The key is the only thing separating a result this agent filed from
       // one anybody who can reach gearmand made up.
       const out = await submit([
-        `address=127.0.0.1:${HOST_PORT}`,
+        `address=${server.host}:${server.port}`,
         "command=nokey",
         "result=0",
         "message=nope",
@@ -311,15 +321,15 @@ dockerOrSkip()("Mod-Gearman submit channel", () => {
         "/settings/core": { "metrics interval": "1s" },
         "/settings/gearman/client": { channel: "GEARMAN" },
         "/settings/gearman/client/targets/default": {
-          address: `127.0.0.1:${HOST_PORT}`,
+          address: `${server.host}:${server.port}`,
           key: KEY,
-          queue: "submit_scheduled",
+          queue: runQueue("submit_scheduled"),
         },
         // A worker as well, so the metrics below describe a real pool. Its own
         // hostgroup, and nothing ever queues a job there: what is asserted is
         // that the counters exist and that the connection is reported.
         "/settings/gearman/worker": {
-          server: `127.0.0.1:${HOST_PORT}`,
+          server: `${server.host}:${server.port}`,
           key: KEY,
           hostgroups: "submit-metrics",
           workers: "1",
@@ -351,7 +361,7 @@ dockerOrSkip()("Mod-Gearman submit channel", () => {
     });
 
     it("pushes a scheduled check into the result queue with no NSCA involved", async () => {
-      const result = await nextResult("submit_scheduled");
+      const result = await nextResult(runQueue("submit_scheduled"));
       expect(result).not.toBeNull();
       expect(result!.type).toBe("passive");
       // The schedule's name is the service the core files it under.
@@ -364,13 +374,13 @@ dockerOrSkip()("Mod-Gearman submit channel", () => {
       // `encryption=true` arrives as a single token over REST. A boolean
       // declared as a bool_switch rejects exactly that with "does not take any
       // arguments", and only over REST - which is how it ships broken.
-      const reading = nextResult("submit_rest");
+      const reading = nextResult(runQueue("submit_rest"));
       const res = await request(REST_URL)
         .get("/api/v1/queries/submit_gearman/commands/execute")
         .query({
-          address: `127.0.0.1:${HOST_PORT}`,
+          address: `${server.host}:${server.port}`,
           key: KEY,
-          queue: "submit_rest",
+          queue: runQueue("submit_rest"),
           encryption: "true",
           command: "rest_check",
           result: "1",

@@ -23,9 +23,11 @@ import {
   Wait,
   adminStatus,
   adminWorkers,
-  dockerOrSkip,
+  externalGearmand,
   formatCoreTime,
+  gearmandOrSkip,
   grabPayload,
+  runQueue,
   submitCheckJob,
   trackContainerLogs,
   type CheckJob,
@@ -61,8 +63,8 @@ async function waitFor<T>(produce: () => Promise<T | null>, timeoutMs = 60_000):
   }
 }
 
-dockerOrSkip()("Mod-Gearman worker", () => {
-  let gearmand: StartedTestContainer;
+gearmandOrSkip()("Mod-Gearman worker", () => {
+  let gearmand: StartedTestContainer | undefined;
   let server: GearmanServer;
   let scriptsDir: string;
 
@@ -79,6 +81,11 @@ dockerOrSkip()("Mod-Gearman worker", () => {
 
   beforeAll(async () => {
     scriptsDir = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-gearman-"));
+    const external = externalGearmand();
+    if (external) {
+      server = external;
+      return;
+    }
     const image = await GenericContainer.fromDockerfile(
       path.resolve(__dirname),
       "Dockerfiles/gearmand.Dockerfile",
@@ -123,8 +130,11 @@ dockerOrSkip()("Mod-Gearman worker", () => {
     worker: Record<string, string> = {},
     extra: Record<string, Record<string, string>> = {},
   ): Promise<Agent> {
-    const queue = `hostgroup_${group}`;
-    const resultQueue = `results_${group}`;
+    // The suffix goes on the group, not on the queue: the agent builds its
+    // own queue name from `hostgroups`, so the two have to agree.
+    const runGroup = runQueue(group);
+    const queue = `hostgroup_${runGroup}`;
+    const resultQueue = `results_${runGroup}`;
     const nscp = new NscpInstance();
     await nscp.configure({
       "/modules": {
@@ -133,9 +143,9 @@ dockerOrSkip()("Mod-Gearman worker", () => {
         GearmanClient: "enabled",
       },
       "/settings/gearman/worker": {
-        server: `127.0.0.1:${HOST_PORT}`,
+        server: `${server.host}:${server.port}`,
         key: KEY,
-        hostgroups: group,
+        hostgroups: runGroup,
         "host names": HOSTNAME,
         workers: "1",
         ...worker,
@@ -144,7 +154,7 @@ dockerOrSkip()("Mod-Gearman worker", () => {
     });
     nscp.start();
 
-    let reader = await GearmanWorker.connect("127.0.0.1", HOST_PORT, [resultQueue]);
+    let reader = await GearmanWorker.connect(server.host, server.port, [resultQueue]);
 
     return {
       nscp,
@@ -174,7 +184,7 @@ dockerOrSkip()("Mod-Gearman worker", () => {
       },
       async reopenReader() {
         reader.close();
-        reader = await GearmanWorker.connect("127.0.0.1", HOST_PORT, [resultQueue]);
+        reader = await GearmanWorker.connect(server.host, server.port, [resultQueue]);
       },
       async stop() {
         reader.close();
@@ -187,7 +197,7 @@ dockerOrSkip()("Mod-Gearman worker", () => {
   async function waitForRegistration(queue: string): Promise<boolean> {
     const found = await waitFor(async () => {
       try {
-        const entry = (await adminStatus("127.0.0.1", HOST_PORT)).get(queue);
+        const entry = (await adminStatus(server.host, server.port)).get(queue);
         return entry && entry.workers > 0 ? entry : null;
       } catch {
         // The server may still be coming back up after a restart.
@@ -223,7 +233,7 @@ dockerOrSkip()("Mod-Gearman worker", () => {
     });
 
     it("shows up in the admin protocol under a name that identifies it", async () => {
-      const mine = (await adminWorkers("127.0.0.1", HOST_PORT)).filter((w) =>
+      const mine = (await adminWorkers(server.host, server.port)).filter((w) =>
         w.functions.includes(agent.queue),
       );
       expect(mine.length).toBe(1);
@@ -550,14 +560,14 @@ dockerOrSkip()("Mod-Gearman worker", () => {
     }
 
     it("refuses to start encrypted with no key rather than using a well-known one", async () => {
-      expect(await bootWith({ server: `127.0.0.1:${HOST_PORT}`, hostgroups: "nokey" })).toContain(
-        "no key is set",
-      );
+      expect(
+        await bootWith({ server: `${server.host}:${server.port}`, hostgroups: "nokey" }),
+      ).toContain("no key is set");
     });
 
     it("refuses to start unencrypted unless that is said explicitly", async () => {
       const output = await bootWith({
-        server: `127.0.0.1:${HOST_PORT}`,
+        server: `${server.host}:${server.port}`,
         hostgroups: "noinsecure",
         encryption: "false",
       });
@@ -565,7 +575,7 @@ dockerOrSkip()("Mod-Gearman worker", () => {
     });
 
     it("refuses to start with no queue to answer", async () => {
-      expect(await bootWith({ server: `127.0.0.1:${HOST_PORT}`, key: KEY })).toContain(
+      expect(await bootWith({ server: `${server.host}:${server.port}`, key: KEY })).toContain(
         "no queue to answer",
       );
     });
@@ -575,7 +585,7 @@ dockerOrSkip()("Mod-Gearman worker", () => {
       // check it was deployed for; silently falling back to proxy would run
       // every host's checks on a host that was meant to answer for itself.
       const output = await bootWith({
-        server: `127.0.0.1:${HOST_PORT}`,
+        server: `${server.host}:${server.port}`,
         key: KEY,
         hostgroups: "badmode",
         mode: "gateway",
@@ -603,14 +613,14 @@ dockerOrSkip()("Mod-Gearman worker", () => {
     // The console is driven over a pipe rather than through NscpInstance
     // because `reload` is typed at the `nscp test` prompt.
     it("leaves exactly one worker registered, and it still answers", async () => {
-      const group = "worker-reload";
+      const group = runQueue("worker-reload");
       const queue = `hostgroup_${group}`;
       const resultQueue = `results_${group}`;
       const nscp = new NscpInstance();
       await nscp.configure({
         "/modules": { CheckHelpers: "enabled", GearmanClient: "enabled" },
         "/settings/gearman/worker": {
-          server: `127.0.0.1:${HOST_PORT}`,
+          server: `${server.host}:${server.port}`,
           key: KEY,
           hostgroups: group,
           "host names": HOSTNAME,
@@ -628,7 +638,7 @@ dockerOrSkip()("Mod-Gearman worker", () => {
       );
       const stdin = proc.stdin;
       if (!stdin) throw new Error("no stdin pipe");
-      const reader = await GearmanWorker.connect("127.0.0.1", HOST_PORT, [resultQueue]);
+      const reader = await GearmanWorker.connect(server.host, server.port, [resultQueue]);
 
       async function runOne(message: string): Promise<Record<string, string> | null> {
         await submitCheckJob(
@@ -653,7 +663,7 @@ dockerOrSkip()("Mod-Gearman worker", () => {
 
       try {
         expect(await waitForRegistration(queue)).toBe(true);
-        expect((await adminStatus("127.0.0.1", HOST_PORT)).get(queue)?.workers).toBe(2);
+        expect((await adminStatus(server.host, server.port)).get(queue)?.workers).toBe(2);
         expect((await runOne("before"))?.output).toContain("before");
 
         stdin.write("reload\n");
@@ -663,7 +673,7 @@ dockerOrSkip()("Mod-Gearman worker", () => {
         // Two, not four: the module stopped its own workers before starting
         // the new ones.
         const after = await waitFor(async () => {
-          const entry = (await adminStatus("127.0.0.1", HOST_PORT)).get(queue);
+          const entry = (await adminStatus(server.host, server.port)).get(queue);
           return entry && entry.workers === 2 ? entry : null;
         }, 30_000);
         expect(after?.workers).toBe(2);
@@ -686,7 +696,12 @@ dockerOrSkip()("Mod-Gearman worker", () => {
   // Reconnect
   // -------------------------------------------------------------------------
 
-  describe("when gearmand goes away", () => {
+  /**
+   * Restarting the job server is the one thing only the container can do, so
+   * this block skips when the suite was pointed at an external gearmand.
+   */
+  const reconnectDescribe = externalGearmand() ? describe.skip : describe;
+  reconnectDescribe("when gearmand goes away", () => {
     let agent: Agent;
 
     beforeAll(async () => {
@@ -699,7 +714,7 @@ dockerOrSkip()("Mod-Gearman worker", () => {
     });
 
     it("reconnects, re-registers and answers again", async () => {
-      await gearmand.restart();
+      await gearmand!.restart();
       // The registration is server state, so seeing it again means the agent
       // noticed and announced itself - not merely that the port is open.
       expect(await waitForRegistration(agent.queue)).toBe(true);

@@ -93,6 +93,21 @@ Docker-using scenarios (skipped when `NSCP_SKIP_DOCKER=1`):
 | `tests/gearman-worker.test.ts`    | (new) Mod-Gearman: the agent's own worker loop, with the test playing the core against the gearmand image                                                                                      |
 | `tests/gearman-core.test.ts`      | (new) Mod-Gearman end to end: the agent answering the checks a real Naemon and a real Nagios Core 4.5 schedule, asserted on the core's own status file                                         |
 
+The two gearman suites that only need a **job server** — `gearman-worker` and
+`gearman-submit` — also run without docker when `NSCP_GEARMAND=host:port` names
+an already-running gearmand (port defaults to 4730):
+
+```sh
+gearmand --listen=127.0.0.1 --port=14731 &
+NSCP_GEARMAND=127.0.0.1:14731 npx jest --runInBand gearman-worker
+```
+
+Docker stays the default — it pins the gearmand version and starts with empty
+queues — and the one case an external server cannot serve, restarting the job
+server under the agent to prove it reconnects, skips itself. The suites that
+need a monitoring core (`gearman-core`, `gearman-proxy`, `gearman-fixtures`)
+have no such escape hatch: there is nothing to point them at but the images.
+
 Docker-free scenarios (always run, including in no-docker CI pipelines):
 
 | File                                    | Notes                                                                                        |

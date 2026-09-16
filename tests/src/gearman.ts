@@ -812,3 +812,64 @@ export function parseStatusDat(text: string): StatusDat {
   }
   return out;
 }
+
+// ---------------------------------------------------------------------------
+// Where the job server comes from
+// ---------------------------------------------------------------------------
+
+/**
+ * An already-running gearmand to use instead of the container, named by
+ * `NSCP_GEARMAND=host:port` (port defaults to 4730).
+ *
+ * The suites below need a job server, not a container: every assertion is
+ * made over the wire against `127.0.0.1:<port>`, and the image exists only
+ * to put a gearmand there. Docker stays the default because it pins the
+ * version and starts clean, but an environment that has a gearmand and no
+ * docker daemon - a developer box with the distribution package, or a
+ * session whose egress policy blocks the registry - can still run the tier
+ * rather than skip it.
+ *
+ * The one thing an external server cannot provide is `restart()`, so the
+ * reconnect case guards on `usesContainer()`.
+ */
+export function externalGearmand(): GearmanServer | null {
+  const raw = process.env.NSCP_GEARMAND?.trim();
+  if (!raw) return null;
+  const at = raw.lastIndexOf(":");
+  if (at <= 0) return { host: raw, port: 4730 };
+  const port = Number(raw.slice(at + 1));
+  if (!Number.isInteger(port) || port <= 0) {
+    throw new Error(`NSCP_GEARMAND is not host:port: ${raw}`);
+  }
+  return { host: raw.slice(0, at), port };
+}
+
+/**
+ * `describe` when the gearman tier can run at all - either docker is
+ * available or `NSCP_GEARMAND` names a job server - and `describe.skip`
+ * otherwise. Use in place of `dockerOrSkip()` on a suite that only wants
+ * a gearmand.
+ */
+export function gearmandOrSkip(): jest.Describe {
+  if (externalGearmand()) return describe;
+  return process.env.NSCP_SKIP_DOCKER === "1" ? describe.skip : describe;
+}
+
+/**
+ * A suffix unique to this run of the suite, appended to every queue name the
+ * gearman suites use.
+ *
+ * gearmand holds a background job until somebody registers for its queue, so
+ * a result a case did not read stays there. With the container that is
+ * harmless - the next run gets an empty server - but an external gearmand
+ * (see `externalGearmand`) outlives the run, and a leftover from the last one
+ * is then handed to the first reader of the next, which reads as the agent
+ * answering the wrong check. Naming the queues per run keeps each run's
+ * traffic to itself without asking the job server to forget anything.
+ */
+export const RUN_SUFFIX = `${process.pid.toString(36)}_${Date.now().toString(36).slice(-5)}`;
+
+/** `name` with this run's suffix: `check_results` -> `check_results_9x_k3l2z`. */
+export function runQueue(name: string): string {
+  return `${name}_${RUN_SUFFIX}`;
+}
