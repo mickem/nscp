@@ -91,6 +91,7 @@ Docker-using scenarios (skipped when `NSCP_SKIP_DOCKER=1`):
 | `tests/fleet-server-live.test.ts` | (new) the agent against a **real** nsclient-fleet server, built from its newest GitHub release                                                                                                 |
 | `tests/gearman-fixtures.test.ts`  | (new) Mod-Gearman: the gearmand image, and Naemon + Nagios Core 4.5 images scheduling checks through gearmand to a stub worker (`src/gearman.ts`); its fixture round-trip block is docker-free |
 | `tests/gearman-worker.test.ts`    | (new) Mod-Gearman: the agent's own worker loop, with the test playing the core against the gearmand image                                                                                      |
+| `tests/gearman-core.test.ts`      | (new) Mod-Gearman end to end: the agent answering the checks a real Naemon and a real Nagios Core 4.5 schedule, asserted on the core's own status file                                         |
 
 Docker-free scenarios (always run, including in no-docker CI pipelines):
 
@@ -152,7 +153,15 @@ image - the test itself plays the core, putting encrypted jobs on the hostgroup 
 result queue - so it is the fast, deterministic tier where the worker's edge cases live (host binding, `max age`,
 timeouts, the wrong key, unencrypted payloads, the refusals that keep a misconfigured worker from starting, and
 reconnecting after gearmand restarts). It publishes gearmand on host port **14731**, fixed so the reconnect case
-survives a container restart. The real cores arrive with step 4.
+survives a container restart.
+
+`gearman-core.test.ts` is the fourth step: the same agent against the real cores, once per image. The core containers
+schedule the checks (`check_always_ok check_ok …`, `check_ok message=hello`, a collector-backed `check_cpu`, and a
+`check_slow` external script the agent supplies so one check overruns the job's timeout), and the assertions read the
+core's own `status.dat` out of the container - `plugin_output`, `performance_data`, `current_state`, `check_type=0` for
+an active result and a `last_check` newer than the test. That file is the only uniform probe: Nagios Core has no REST
+API, and Naemon writes the same format. The suite publishes gearmand on host port **14732**, again fixed, for the case
+that restarts the whole core container and expects the agent to re-register and keep answering.
 
 The MSI tests (`tests/msi/`) stay Windows-only and are not part of this harness.
 

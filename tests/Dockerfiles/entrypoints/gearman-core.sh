@@ -17,10 +17,28 @@
 #
 # The object config is the one from the GearmanClient plan: one `nscp`
 # command whose command line is `$ARG1$`, one host `nscp-test` in the test
-# hostgroup, and two services (`helper`, `slow`). The worker on the other
-# side of gearmand (the TypeScript stub in tests/src/gearman.ts today, the
-# GearmanClient module later) receives the fully expanded `$ARG1$` as the
-# job's command_line.
+# hostgroup, and three services. The worker on the other side of gearmand
+# (the TypeScript stub in tests/src/gearman.ts, or the GearmanClient module
+# in tests/gearman-core.test.ts) receives the fully expanded `$ARG1$` as the
+# job's command_line, so every check here is written as an NSClient++ query
+# an agent can actually answer:
+#
+#   host nscp-test  check_always_ok check_ok message=host-is-up
+#                     a wrapped query, so the path proves more than one
+#                     command dispatch
+#   service helper  check_ok message=hello        plain query, message only
+#   service cpu     check_cpu "warning=usage gt 101" …
+#                     collector-backed, for the performance data - and
+#                     written with `gt` rather than `>`, which the agent's
+#                     metacharacter guard refuses by default
+#   service slow    check_slow
+#                     supplied by the worker (an external script that
+#                     sleeps), so the check overruns the job's `timeout` and
+#                     the agent's timeout handling is exercised against a
+#                     real core
+#
+# The timeout the core puts in the job is service_check_timeout /
+# host_check_timeout below, three seconds.
 #
 # Which core is driven is selected by GEARMAN_CORE (nagios|naemon); every
 # path has a sensible default for the docker image and can be overridden
@@ -198,7 +216,7 @@ define host {
   alias                  NSClient++ under test
   address                127.0.0.1
   hostgroups             $GEARMAN_HOSTGROUP
-  check_command          nscp!check_always_ok
+  check_command          nscp!check_always_ok check_ok message=host-is-up
   check_interval         $CHECK_INTERVAL
   retry_interval         $CHECK_INTERVAL
   max_check_attempts     1
@@ -225,8 +243,22 @@ define service {
 
 define service {
   host_name              nscp-test
+  service_description    cpu
+  check_command          nscp!check_cpu "warning=usage gt 101" "critical=usage gt 101"
+  check_interval         $CHECK_INTERVAL
+  retry_interval         $CHECK_INTERVAL
+  max_check_attempts     1
+  check_period           24x7
+  contacts               nobody
+  notification_interval  0
+  notification_period    24x7
+  notifications_enabled  0
+}
+
+define service {
+  host_name              nscp-test
   service_description    slow
-  check_command          nscp!check_timeout timeout=30
+  check_command          nscp!check_slow
   check_interval         $CHECK_INTERVAL
   retry_interval         $CHECK_INTERVAL
   max_check_attempts     1

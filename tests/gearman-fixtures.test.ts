@@ -106,8 +106,13 @@ describe("Mod-Gearman payload fixtures", () => {
         target_queue: QUEUE,
         host_name: "nscp-test",
         timeout: "3",
-        command_line: "check_always_ok",
       });
+      // A prefix rather than the whole line: these payloads were captured
+      // when the host's check_command was the bare `check_always_ok`, and
+      // step 4 gave it the wrapped query an agent can answer. What the
+      // fixture is evidence of is the envelope and the field order, not
+      // which check the test host happens to run.
+      expect(job.command_line).toMatch(/^check_always_ok\b/);
       expect(job.service_description).toBeUndefined();
       expect(job.core_time).toMatch(/^\d{10}\.\d{6}$/);
     });
@@ -533,7 +538,10 @@ coreDescribe("a real core scheduling checks through gearmand", () => {
         // the job handle, exactly as the real workers do.
         await worker.complete(grabbed.job);
       }
-      expect(seen.host).toMatchObject({ type: "host", command_line: "check_always_ok" });
+      expect(seen.host).toMatchObject({
+        type: "host",
+        command_line: "check_always_ok check_ok message=host-is-up",
+      });
       expect(seen["service:helper"]).toMatchObject({
         type: "service",
         service_description: "helper",
@@ -542,7 +550,7 @@ coreDescribe("a real core scheduling checks through gearmand", () => {
       expect(seen["service:slow"]).toMatchObject({
         type: "service",
         service_description: "slow",
-        command_line: "check_timeout timeout=30",
+        command_line: "check_slow",
       });
     });
 

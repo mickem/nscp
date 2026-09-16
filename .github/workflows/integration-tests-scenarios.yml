@@ -52,7 +52,10 @@ env:
 jobs:
   scenarios:
     runs-on: ${{ inputs.runner }}
-    timeout-minutes: 30
+    # The Mod-Gearman suites build a Nagios Core + nagios-mod-gearman image
+    # from release tarballs, which is a couple of minutes on a cold layer
+    # cache, and then run two monitoring cores end to end against the agent.
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v6
@@ -104,6 +107,9 @@ jobs:
         # ports (5666, 5667, 5668, 8443, 6556) so suites cannot
         # parallelise on the host. The cmk-site suite stays gated
         # behind `RUN_CMK_SITE_TEST=1` because it pulls a ~500MB image.
+        # The gearman suites are not gated: they build their own images
+        # (gearmand, Naemon + mod_gearman, Nagios Core + nagios-mod-gearman)
+        # and are the only place the agent meets a real monitoring core.
         run: npm test -- --ci
 
       - name: Upload JUnit results

@@ -74,6 +74,13 @@ GEARMAN_CORE=naemon CORE_BIN=/opt/naemon/bin/naemon \
   tests/Dockerfiles/entrypoints/gearman-core.sh
 ```
 
+The host job payloads were captured when the test host's `check_command` was
+the bare `check_always_ok`; step 4 of the plan gave it a query a real agent can
+answer (`check_always_ok check_ok message=host-is-up`), so a regenerated
+`*-job-host.b64` carries the longer command line. The test asserts the
+`check_always_ok` prefix rather than the whole line, since what these files are
+evidence of is the envelope and the field order.
+
 The job payloads carry the capture time in `core_time` (and `start_time` /
 `next_check` for Nagios), so regenerating changes those files; the
 `*-result-active-service.b64` payloads use fixed times and are stable across
