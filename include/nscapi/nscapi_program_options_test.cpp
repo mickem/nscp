@@ -5,6 +5,7 @@
 
 #include <gtest/gtest.h>
 
+#include <map>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -144,6 +145,9 @@ TEST(program_options_default_value, strips_an_implicit_value) {
   const std::string stripped = npo::extract_default_value(desc.options()[0]->format_parameter());
   EXPECT_EQ(std::string::npos, stripped.find("arg")) << "no boost decoration may survive, got: " << stripped;
   EXPECT_EQ(std::string::npos, stripped.find('[')) << "no boost decoration may survive, got: " << stripped;
+  // The default, not the implicit value: boost renders both, and "" would pass
+  // the two checks above while telling the reader nothing.
+  EXPECT_EQ("0", stripped);
 }
 
 TEST(program_options_default_value, input_without_a_default_has_none) {
@@ -329,6 +333,96 @@ TEST(program_options_standard_filter, warn_and_crit_are_aliases) {
 
   EXPECT_EQ("w>1", filter.warn_string);
   EXPECT_EQ("c>2", filter.crit_string);
+}
+
+//////////////////////////////////////////////////////////////////////////
+// help_pb
+//
+// The machine-readable half of the help: what the registry answers with, and
+// therefore what `desc`/`keywords` at the prompt and the web UI's argument
+// editor read. The content type is the interesting part - it is what tells a
+// consumer whether an option takes a value.
+//////////////////////////////////////////////////////////////////////////
+
+PB::Registry::ParameterDetails parse_help_pb(const po::options_description &desc) {
+  PB::Registry::ParameterDetails details;
+  EXPECT_TRUE(details.ParseFromString(npo::help_pb(desc)));
+  return details;
+}
+
+const PB::Registry::ParameterDetail *find_parameter(const PB::Registry::ParameterDetails &details, const std::string &name) {
+  for (const PB::Registry::ParameterDetail &p : details.parameter()) {
+    if (p.name() == name) return &p;
+  }
+  return nullptr;
+}
+
+TEST(program_options_help_pb, reports_a_boolean_option_as_boolean) {
+  // How every check declares a flag: a value<bool> with an implicit value,
+  // because REST passes a flag as the single token `show-all=true` and
+  // bool_switch rejects that. It still takes a token, so nothing but the
+  // declared type tells it apart from a string option - and a consumer that
+  // cannot tell completes it as `show-all=` and produces something REST
+  // refuses.
+  po::options_description desc;
+  bool show_all = false;
+  desc.add_options()("show-all", po::value<bool>(&show_all)->implicit_value(true)->default_value(false), "Show all");
+
+  const PB::Registry::ParameterDetails details = parse_help_pb(desc);
+  const PB::Registry::ParameterDetail *p = find_parameter(details, "show-all");
+  ASSERT_NE(nullptr, p);
+  EXPECT_EQ(PB::Common::BOOL, p->content_type());
+  // And it keeps its default: unlike a switch, a flag declared this way has a
+  // value it takes when left out, and that is worth reporting.
+  EXPECT_EQ("false", p->default_value());
+}
+
+TEST(program_options_help_pb, reports_a_switch_as_boolean_with_no_default) {
+  // An option that takes no token at all. BOOL with an empty default value is
+  // the pair that says "a switch" - which is what makes the reference docs
+  // print N/A in its Default Value column rather than an empty cell.
+  po::options_description desc;
+  desc.add_options()("help", "Show help");
+
+  const PB::Registry::ParameterDetails details = parse_help_pb(desc);
+  const PB::Registry::ParameterDetail *p = find_parameter(details, "help");
+  ASSERT_NE(nullptr, p);
+  EXPECT_EQ(PB::Common::BOOL, p->content_type());
+  EXPECT_EQ("", p->default_value());
+}
+
+TEST(program_options_help_pb, reports_anything_that_takes_a_value_as_a_string) {
+  // Everything else stays a string, including the numeric options: the
+  // distinction that matters to a consumer is "does this take a value", and
+  // retyping the rest would only move the guesswork somewhere else.
+  po::options_description desc;
+  std::string filter;
+  int count = 0;
+  desc.add_options()("filter", po::value<std::string>(&filter), "Filter")("count", po::value<int>(&count)->default_value(3), "Count");
+
+  const PB::Registry::ParameterDetails details = parse_help_pb(desc);
+  ASSERT_NE(nullptr, find_parameter(details, "filter"));
+  EXPECT_EQ(PB::Common::STRING, find_parameter(details, "filter")->content_type());
+  ASSERT_NE(nullptr, find_parameter(details, "count"));
+  EXPECT_EQ(PB::Common::STRING, find_parameter(details, "count")->content_type());
+  EXPECT_EQ("3", find_parameter(details, "count")->default_value());
+}
+
+TEST(program_options_help_pb, carries_the_filter_keywords_with_their_descriptions) {
+  // The other half of the payload: the filter keywords, which the registry
+  // spells with a trailing "()" when they are functions.
+  po::options_description desc;
+  npo::field_map fields;
+  fields["free"] = "Free space";
+  fields["convert_bytes()"] = "Convert a byte value";
+
+  PB::Registry::ParameterDetails details;
+  ASSERT_TRUE(details.ParseFromString(npo::help_pb(desc, fields)));
+  ASSERT_EQ(2, details.fields_size());
+  std::map<std::string, std::string> seen;
+  for (const PB::Registry::FieldDetail &f : details.fields()) seen[f.name()] = f.long_description();
+  EXPECT_EQ("Free space", seen["free"]);
+  EXPECT_EQ("Convert a byte value", seen["convert_bytes()"]);
 }
 
 }  // namespace

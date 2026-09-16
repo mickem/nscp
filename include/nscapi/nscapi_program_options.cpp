@@ -195,12 +195,23 @@ std::string nscapi::program_options::extract_default_value(const std::string &ar
 }
 
 namespace {
-// Boolean options (po::value<bool>) get their defaults rendered by boost as
-// "0"/"1"; translate to "false"/"true" so help texts and the generated docs
-// show the value the user would actually pass (x=true).
+// Whether the option was declared as a boolean.
+//
+// A check's flags are `value<bool>()->implicit_value(true)`, never
+// bool_switch: checks are driven over REST, which passes a flag as the single
+// token `x=true`, and bool_switch rejects that. So a flag still takes a token
+// and `max_tokens()` cannot tell it from a string option - the declared type
+// is the only thing that can.
+bool is_boolean_option(const po::option_description &op) {
+  return dynamic_cast<const po::typed_value<bool> *>(op.semantic().get()) != nullptr;
+}
+
+// Boolean options get their defaults rendered by boost as "0"/"1"; translate
+// to "false"/"true" so help texts and the generated docs show the value the
+// user would actually pass (x=true).
 std::string format_default_value(const po::option_description &op) {
   std::string value = nscapi::program_options::extract_default_value(op.format_parameter());
-  if (dynamic_cast<const po::typed_value<bool> *>(op.semantic().get()) != nullptr) {
+  if (is_boolean_option(op)) {
     if (value == "0") return "false";
     if (value == "1") return "true";
   }
@@ -301,9 +312,18 @@ std::string nscapi::program_options::help_pb(const po::options_description &desc
     detail->set_name(op->long_name());
     bool hasargs = op->semantic()->max_tokens() != 0;
     if (hasargs) {
-      detail->set_content_type(PB::Common::STRING);
+      // Takes a token, so this is where a flag ends up too (see
+      // is_boolean_option). A consumer that cannot tell the two apart gets it
+      // wrong in a way that only shows over REST: the web prompt completes a
+      // flag as `x=true` and a string option as `x=`, and a bare `x` is
+      // refused with "does not take any arguments". Reported with the same
+      // predicate format_default_value uses, so the type and the rendering of
+      // the default can never disagree.
+      detail->set_content_type(is_boolean_option(*op) ? PB::Common::BOOL : PB::Common::STRING);
       detail->set_default_value(format_default_value(*op));
     } else
+      // Takes no token at all: `help`, `help-pb`, `show-default`. Reported as
+      // BOOL with no default value, which is the pair that says "a switch".
       detail->set_content_type(PB::Common::BOOL);
     std::string ldesc = op->description();
     std::string::size_type pos = ldesc.find("\n");
