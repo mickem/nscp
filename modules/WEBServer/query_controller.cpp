@@ -26,6 +26,7 @@ query_controller::query_controller(const int version, const std::shared_ptr<sess
     : RegexpController(version == 1 ? "/api/v1/queries" : "/api/v2/queries"), session(session), core(core), plugin_id(plugin_id) {
   addRoute("GET", "/?$", this, &query_controller::get_queries);
   addRoute("GET", "/([^/]+)/?$", this, &query_controller::get_query);
+  addRoute("GET", "/([^/]+)/help/?$", this, &query_controller::get_query_help);
   addRoute("GET", "/([^/]+)/commands/([^/]*)/?$", this, &query_controller::query_command);
 }
 
@@ -103,6 +104,137 @@ void query_controller::get_query(Mongoose::Request &request, boost::smatch &what
       node["description"] = i.info().description();
     }
   }
+  response.setCodeOk();
+  response.append(json::serialize(node));
+}
+
+namespace {
+// The command an alias stands for, dug out of its description - the registry
+// records it nowhere else. Mirrors alias_target() in client/simple_client.cpp;
+// the two must agree, or the web prompt would offer a different keyword list
+// from the one the interactive console offers for the same name.
+std::string alias_target(const std::string &description) {
+  static const char *prefixes[] = {"Alias for: ", "Alternative name for: "};
+  for (const char *prefix : prefixes) {
+    const std::size_t len = std::string(prefix).size();
+    if (description.compare(0, len, prefix) == 0) return boost::algorithm::trim_copy(description.substr(len));
+  }
+  return "";
+}
+
+// `help-pb` for one command: the parameters it accepts and the filter
+// keywords it offers. `found` distinguishes "no such command" from "a command
+// that declares nothing", which the caller reports differently.
+bool fetch_help(const nscapi::core_wrapper *core, const std::string &command, PB::Registry::ParameterDetails &details, std::string &description) {
+  PB::Registry::RegistryRequestMessage rrm;
+  PB::Registry::RegistryRequestMessage::Request *payload = rrm.add_payload();
+  payload->mutable_inventory()->set_name(command);
+  // With a name set this is what makes the core ask the module for its help,
+  // which is where the parameters and the filter keywords come from.
+  payload->mutable_inventory()->set_fetch_all(true);
+  payload->mutable_inventory()->add_type(PB::Registry::ItemType::QUERY);
+  std::string str_response;
+  core->registry_query(rrm.SerializeAsString(), str_response);
+
+  PB::Registry::RegistryResponseMessage pb_response;
+  pb_response.ParseFromString(str_response);
+  bool found = false;
+  for (const PB::Registry::RegistryResponseMessage::Response &r : pb_response.payload()) {
+    for (const PB::Registry::RegistryResponseMessage::Response::Inventory &i : r.inventory()) {
+      if (i.name() != command) continue;
+      found = true;
+      details = i.parameters();
+      description = i.info().description();
+    }
+  }
+  return found;
+}
+
+const char *content_type_name(const PB::Common::DataType type) {
+  switch (type) {
+    case PB::Common::INT:
+      return "int";
+    case PB::Common::STRING:
+      return "string";
+    case PB::Common::FLOAT:
+      return "float";
+    case PB::Common::BOOL:
+      return "bool";
+    case PB::Common::LIST:
+      return "list";
+    default:
+      return "";
+  }
+}
+}  // namespace
+
+// The vocabulary of one query: every option it takes and every filter keyword
+// it offers, with the descriptions the module wrote for them. This is what the
+// interactive console reads to highlight and complete a command line
+// (`desc`/`keywords` in client/simple_client.cpp); the web UI reads it for the
+// same reason, so a filter can be written against what the check actually
+// offers rather than against memory.
+void query_controller::get_query_help(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
+  if (!session->is_logged_in("queries.get", request, response)) return;
+
+  if (!validate_arguments(1, what, response)) return;
+  const std::string command = what.str(1);
+
+  PB::Registry::ParameterDetails details;
+  std::string description;
+  if (!fetch_help(core, command, details, description)) {
+    response.setCodeNotFound("Query not found");
+    return;
+  }
+
+  // An alias declares no keywords of its own - its filter expressions are
+  // written in the keywords of the command it stands for, so that is the list
+  // worth answering with. A single hop: the registry never produces an alias
+  // of an alias.
+  std::string keyword_source = command;
+  if (details.fields_size() == 0) {
+    const std::string target = alias_target(description);
+    if (!target.empty()) {
+      const std::string target_command = target.substr(0, target.find(' '));
+      PB::Registry::ParameterDetails target_details;
+      std::string ignored;
+      if (fetch_help(core, target_command, target_details, ignored) && target_details.fields_size() > 0) {
+        keyword_source = target_command;
+        details.mutable_fields()->CopyFrom(target_details.fields());
+        // An alias takes the target's options too, and declares none itself.
+        if (details.parameter_size() == 0) details.mutable_parameter()->CopyFrom(target_details.parameter());
+      }
+    }
+  }
+
+  json::object node;
+  node["name"] = command;
+  node["keyword_source"] = keyword_source;
+  json::array parameters;
+  for (const PB::Registry::ParameterDetail &p : details.parameter()) {
+    json::object item;
+    item["name"] = p.name();
+    item["default_value"] = p.default_value();
+    item["required"] = p.required();
+    item["repeatable"] = p.repeatable();
+    item["content_type"] = content_type_name(p.content_type());
+    item["short_description"] = p.short_description();
+    item["long_description"] = p.long_description();
+    parameters.push_back(item);
+  }
+  node["parameters"] = parameters;
+  json::array fields;
+  for (const PB::Registry::FieldDetail &f : details.fields()) {
+    json::object item;
+    // The registry spells a filter function with a trailing "()" and a
+    // variable without it; the name is passed on exactly as registered so the
+    // client can tell the two apart the same way the console does.
+    item["name"] = f.name();
+    item["short_description"] = f.short_description();
+    item["long_description"] = f.long_description();
+    fields.push_back(item);
+  }
+  node["fields"] = fields;
   response.setCodeOk();
   response.append(json::serialize(node));
 }
