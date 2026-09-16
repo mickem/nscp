@@ -33,10 +33,23 @@ query_controller::query_controller(const int version, const std::shared_ptr<sess
 void query_controller::get_queries(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
   if (!session->is_logged_in("queries.list", request, response)) return;
 
-  std::string fetch_all = request.get("all", "true");
   PB::Registry::RegistryRequestMessage rrm;
   PB::Registry::RegistryRequestMessage::Request *payload = rrm.add_payload();
-  payload->mutable_inventory()->set_fetch_all(fetch_all == "true");
+  // Never fetch_all here, and the `all` query parameter is deliberately
+  // ignored. For a QUERY inventory that flag makes the core run *every*
+  // registered command with `help-pb` to collect its parameters
+  // (registry_query_handler::inventory_queries), and this endpoint does not
+  // emit parameters at all - the JSON below is byte-identical either way.
+  //
+  // It used to default to true, so listing the queries executed every check on
+  // the box: measured at 6.4s against 0.15s with a dozen modules loaded (92
+  // commands), and it held a WEB server thread for all of it. That is what made
+  // opening the Queries page - or loading a module, after which the UI
+  // refreshes the list - freeze the whole web UI, static assets included.
+  //
+  // A caller that wants a command's parameters asks for that one command:
+  // /queries/<name>/help, which fetches exactly it.
+  payload->mutable_inventory()->set_fetch_all(false);
   payload->mutable_inventory()->add_type(PB::Registry::ItemType::QUERY);
   std::string str_response;
   core->registry_query(rrm.SerializeAsString(), str_response);
