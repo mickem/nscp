@@ -548,7 +548,6 @@ NSCP_CREATE_TEST(
         # http transport even when the test drives it over plain http.
         ${CMAKE_SOURCE_DIR}/modules/IcingaClient/icinga_client_test.cpp
         ${CMAKE_SOURCE_DIR}/modules/IcingaClient/icinga.cpp
-        ${NSCP_INCLUDEDIR}/json/use_json.cpp
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
         ${NSCP_INCLUDEDIR}/bytes/base64.c
@@ -558,6 +557,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
         ${NSCP_CLIENT_CPP}
     LIBRARIES
+        nscp_json
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}
         ${Boost_THREAD_LIBRARY}

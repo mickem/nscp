@@ -40,7 +40,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #endif
-const int socket_helpers::connection_info::backlog_default = 0;
 
 namespace ip = boost::asio::ip;
 

@@ -60,8 +60,8 @@ NSCP_CREATE_TEST(
     elastic_test
     SOURCES
         ElasticClient_test.cpp
-        ${NSCP_INCLUDEDIR}/json/use_json.cpp
     LIBRARIES
+        nscp_json
         GTest::gtest_main
         ${Boost_DATE_TIME_LIBRARY}
     INCLUDES
@@ -78,11 +78,11 @@ NSCP_CREATE_TEST(
         elastic_module_test.cpp
         "${TARGET}.cpp"
         ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.cpp
-        ${NSCP_INCLUDEDIR}/json/use_json.cpp
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
         ${NSCP_INCLUDEDIR}/bytes/base64.c
         ${NSCP_DEF_PLUGIN_CPP}
     LIBRARIES
+        nscp_json
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}
         ${Boost_FILESYSTEM_LIBRARY}

@@ -256,7 +256,15 @@ struct connection_info {
 #endif
   };
 
-  static const int backlog_default;
+  // constexpr, not a plain static const with an out-of-line definition: the
+  // definition used to be compiled into every consumer along with the rest of
+  // socket_helpers.cpp, but that file now lives only in nscp_net. A class
+  // static is a data symbol, and reaching one across a DLL boundary needs
+  // __declspec(dllimport) on the declaration - an exported .def entry alone is
+  // not enough, so every consumer failed to link (LNK2001). C++17 makes a
+  // constexpr static member implicitly inline, so each translation unit gets
+  // the value directly and no symbol has to cross the boundary at all.
+  static constexpr int backlog_default = 0;
   std::string address;
   int back_log;
   std::string port_;

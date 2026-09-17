@@ -159,7 +159,6 @@ NSCP_CREATE_TEST(
         upload_staging_test.cpp
         ${NSCP_INCLUDEDIR}/bytes/base64.c
         ${NSCP_INCLUDEDIR}/bytes/unzip.cpp
-        ${NSCP_INCLUDEDIR}/json/use_json.cpp
         ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp
         # web_installer.cpp pulls in net/http/client.hpp which references
         # socket_helpers::tls_method_parser / verify_mode_parser at link
@@ -176,6 +175,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper_singleton.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.cpp
     LIBRARIES
+        nscp_json
         GTest::gtest
         GTest::gtest_main
         # openmetrics_renderer.cpp walks PB::Metrics messages, so the test

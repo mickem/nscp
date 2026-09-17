@@ -70,10 +70,10 @@ NSCP_CREATE_TEST(
         op5_client.cpp
         ${NSCP_DEF_PLUGIN_CPP}
         ${NSCP_CLIENT_CPP}
-        ${NSCP_INCLUDEDIR}/json/use_json.cpp
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
         ${NSCP_INCLUDEDIR}/bytes/base64.c
     LIBRARIES
+        nscp_json
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}
         ${Boost_FILESYSTEM_LIBRARY}

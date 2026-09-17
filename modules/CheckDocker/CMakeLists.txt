@@ -84,9 +84,9 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
         ${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.cpp
-        ${NSCP_INCLUDEDIR}/json/use_json.cpp
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
+        nscp_json
         GTest::gtest_main
         nscp_protobuf
         ${NSCP_FILTER_LIB}
