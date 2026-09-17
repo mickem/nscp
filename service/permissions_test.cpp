@@ -262,3 +262,42 @@ TEST(Permissions, exec_toggle_does_not_affect_query_is_allowed) {
   EXPECT_TRUE(p.is_allowed("WEBServer:admin", "CheckSystem.check_cpu"));
   EXPECT_FALSE(p.is_allowed("WEBServer:guest", "CheckSystem.check_cpu"));
 }
+
+// ============================================================================
+// replace(): a reload installs the whole policy at once
+// ============================================================================
+
+TEST(Permissions, replace_swaps_flags_and_rules_together) {
+  // The reload used to clear the rules, set the flags one by one and then add
+  // one rule per settings read. A decision landing anywhere in the middle saw
+  // the policy enabled with no rules and denied. replace() is what makes the
+  // old policy answer right up until the new one is complete.
+  permissions p;
+  p.set_enabled(true);
+  p.add_rule("NRPEServer", "CheckSystem.check_cpu");
+  EXPECT_TRUE(p.is_allowed("NRPEServer", "CheckSystem.check_cpu"));
+
+  permissions::policy fresh;
+  fresh.enabled = true;
+  fresh.allow_exec = false;
+  fresh.add_rule("NRPEServer", "CheckSystem.check_drivesize");
+
+  p.replace(std::move(fresh));
+  EXPECT_EQ(p.rule_count(), 1u);
+  EXPECT_FALSE(p.is_allowed("NRPEServer", "CheckSystem.check_cpu")) << "the previous rule table must be gone, not merged";
+  EXPECT_TRUE(p.is_allowed("NRPEServer", "CheckSystem.check_drivesize"));
+  EXPECT_FALSE(p.is_exec_allowed()) << "the flags travel with the rules";
+}
+
+TEST(Permissions, replace_with_an_empty_policy_disables_enforcement) {
+  permissions p;
+  p.set_enabled(true);
+  p.add_rule("NRPEServer", "CheckSystem.check_cpu");
+  EXPECT_FALSE(p.is_allowed("WEBServer", "CheckSystem.check_cpu"));
+
+  p.replace(permissions::policy());
+  EXPECT_EQ(p.rule_count(), 0u);
+  EXPECT_FALSE(p.is_enabled());
+  // Disabled means allow, which is the documented rollout default.
+  EXPECT_TRUE(p.is_allowed("WEBServer", "CheckSystem.check_cpu"));
+}

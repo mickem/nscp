@@ -280,6 +280,18 @@ struct object_handler : boost::noncopyable {
     templates.clear();
   }
 
+  // Take over `other`'s objects and templates, handing it this one's.
+  //
+  // How a table rebuilt off to the side is published: add() deliberately
+  // returns an existing object unread, so re-walking the settings into the
+  // live table leaves a changed address, port or password stale until the
+  // agent restarts. Building a fresh table and swapping it in re-reads
+  // everything and drops what the configuration no longer names.
+  void swap_objects(object_handler &other) {
+    objects.swap(other.objects);
+    templates.swap(other.templates);
+  }
+
   std::string to_string() const {
     std::stringstream ss;
     ss << "Objects: ";

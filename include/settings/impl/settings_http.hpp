@@ -415,7 +415,15 @@ class settings_http : public settings::settings_interface_impl {
     migrate_legacy_cache_file(remote_url, local_file);
     if (cache_remote_file(remote_url, local_file.string())) {
       clear_cache();
-      fetch_attachments(add_child("remote_http_file", "ini://" + local_file.string()));
+      // Re-point child_instance at the child clear_cache() just dropped.
+      // Leaving it on the old one gave the store two INI children for the same
+      // file: getter() read the new one out of children_, while
+      // get_real_sections / get_real_keys enumerated the old one. Enumeration
+      // and lookup then disagreed until the next restart - which is how
+      // [/modules] discovery in reloadPlugins() kept seeing the key set from
+      // before the remote configuration changed.
+      child_instance = add_child("remote_http_file", "ini://" + local_file.string());
+      fetch_attachments(child_instance);
       get_core()->set_reload(true);
     }
   }

@@ -141,3 +141,54 @@ TEST(rrd_buffer, varying_push_correct_average_over_window) {
   double avg = buf.get_average(20).value;
   EXPECT_DOUBLE_EQ(avg, 2.0);
 }
+
+// ============================================================================
+// Warm-up: the buffers are allocated full of value-initialised slots, which are
+// not samples. Averaging them in reported a busy host as idle for as long as it
+// took the window to fill (COL-5).
+// ============================================================================
+
+TEST(rrd_buffer, has_data_is_false_until_something_is_pushed) {
+  rrd_buffer<double_value> buf;
+  EXPECT_FALSE(buf.has_data());
+  buf.push(double_value(1.0));
+  EXPECT_TRUE(buf.has_data());
+}
+
+TEST(rrd_buffer, short_window_is_not_diluted_by_unsampled_slots) {
+  rrd_buffer<double_value> buf;
+  // Ten seconds of a fully loaded host.
+  for (int i = 0; i < 10; ++i) buf.push(double_value(100.0));
+  // A 60 second window has only ten samples behind it; they all say 100.
+  EXPECT_DOUBLE_EQ(buf.get_average(60).value, 100.0);
+}
+
+TEST(rrd_buffer, five_minute_window_answers_from_the_seconds_sampled_so_far) {
+  rrd_buffer<double_value> buf;
+  // Thirty seconds in, not one minute bucket exists yet - and `time=5m` is a
+  // default window of check_cpu on both platforms.
+  for (int i = 0; i < 30; ++i) buf.push(double_value(90.0));
+  EXPECT_DOUBLE_EQ(buf.get_average(300).value, 90.0);
+}
+
+TEST(rrd_buffer, five_minute_window_uses_the_minutes_it_has) {
+  rrd_buffer<double_value> buf;
+  // Exactly one completed minute of 50, then half a minute of 10. The five
+  // minute window has one minute bucket to work with, and reports it.
+  for (int i = 0; i < 60; ++i) buf.push(double_value(50.0));
+  for (int i = 0; i < 30; ++i) buf.push(double_value(10.0));
+  EXPECT_DOUBLE_EQ(buf.get_average(300).value, 50.0);
+}
+
+TEST(rrd_buffer, empty_buffer_reports_zero_rather_than_dividing_by_nothing) {
+  rrd_buffer<double_value> buf;
+  EXPECT_DOUBLE_EQ(buf.get_average(60).value, 0.0);
+  EXPECT_DOUBLE_EQ(buf.get_average(300).value, 0.0);
+}
+
+TEST(rrd_buffer, hour_window_falls_back_to_the_minutes_sampled) {
+  rrd_buffer<double_value> buf;
+  // Two minutes of samples; nothing has reached the hours tier yet.
+  for (int i = 0; i < 120; ++i) buf.push(double_value(7.0));
+  EXPECT_DOUBLE_EQ(buf.get_average(2 * 60 * 60).value, 7.0);
+}

@@ -11,6 +11,7 @@
 #include <boost/thread/shared_mutex.hpp>
 #include <boost/unordered_map.hpp>
 #include <atomic>
+#include <cstdint>
 #include <nscp_time.hpp>
 #include <parsers/cron/cron_parser.hpp>
 #include <queue>
@@ -167,10 +168,35 @@ class scheduler : public boost::noncopyable {
   std::atomic<bool> stop_requested_;
   std::atomic<bool> running_;
   std::atomic<bool> has_watchdog_;
-  // Incremented by the watchdog when it scales the pool up, written by
-  // set_threads() and stop() on the module thread, and read by the metrics
-  // task: the same cross-thread pattern as the flags above.
+  // The configured pool size: how many workers the pool wants. Incremented by
+  // the watchdog when it scales up, written by set_threads() on the module
+  // thread, read by the metrics task - the same cross-thread pattern as the
+  // flags above. stop() deliberately leaves it alone: it used to zero this,
+  // which made `stop(); start();` bring the pool back up with no workers at
+  // all.
   std::atomic<std::size_t> thread_count_;
+  // How many workers have actually been spawned. Kept apart from
+  // threads_.count(), which also counts the watchdog - comparing against that
+  // made the first scale-up raise the target without spawning anything, and
+  // made the workers.threads metric report one worker more than the pool had.
+  // Also supplies the worker id, so the ids stay unique across scale-ups
+  // instead of restarting at 100.
+  std::atomic<std::size_t> spawned_workers_;
+  // Execution counters.
+  //
+  // Members, not the file-scope volatiles they used to be: those were
+  // process-wide, so the core scheduler and the Scheduler module summed into
+  // the same numbers, and `volatile` orders nothing between threads. The
+  // accumulators are 64-bit, which retires the old "reset both when the total
+  // passes 4e9" pair - two separate stores that workers added between, so the
+  // average went briefly nonsensical every time it fired.
+  std::atomic<std::uint32_t> metric_executed_;
+  std::atomic<std::uint32_t> metric_completed_;
+  std::atomic<std::uint32_t> metric_errors_;
+  std::atomic<std::uint64_t> metric_time_ms_;
+  std::atomic<std::uint64_t> metric_count_;
+  // Seconds since the epoch at the last start(), for the completion rate.
+  std::atomic<std::uint64_t> metric_start_;
   // Read by every worker on each tick and written by the module's load/unload
   // path, so a plain pointer here is a data race independent of what it points
   // at. Callers must still join the workers (stop()) before clearing it -
@@ -201,7 +227,21 @@ class scheduler : public boost::noncopyable {
   scoped_thread_group threads_;
 
  public:
-  scheduler() : schedule_id_(0), stop_requested_(false), running_(false), has_watchdog_(false), thread_count_(10), handler_(nullptr), error_threshold_(5) {}
+  scheduler()
+      : schedule_id_(0),
+        stop_requested_(false),
+        running_(false),
+        has_watchdog_(false),
+        thread_count_(10),
+        spawned_workers_(0),
+        metric_executed_(0),
+        metric_completed_(0),
+        metric_errors_(0),
+        metric_time_ms_(0),
+        metric_count_(0),
+        metric_start_(0),
+        handler_(nullptr),
+        error_threshold_(5) {}
   ~scheduler() { stop(); }
 
   void set_handler(handler* handler) { handler_ = handler; }

@@ -99,6 +99,15 @@ bool CheckMKServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
   // caches the latest result per service name and emits them as cached
   // <<<mrpe>>> / <<<local>>> entries on the next agent fetch.
   {
+    // Publish before registering: the moment a channel is registered a peer
+    // module can submit to it, and handleNotification must already be able to
+    // recognise the name.
+    notification_config fresh;
+    fresh.channel_mrpe = channel_mrpe_;
+    fresh.channel_local = channel_local_;
+    fresh.submission_ttl = submission_ttl_;
+    notification_.set(std::move(fresh));
+
     nscapi::core_helper core_h(get_core(), get_id());
     if (!channel_mrpe_.empty()) core_h.register_channel(channel_mrpe_);
     if (!channel_local_.empty()) core_h.register_channel(channel_local_);
@@ -189,10 +198,13 @@ int result_to_status_code(PB::Common::ResultCode r) {
 
 void CheckMKServer::handleNotification(const std::string &channel, const PB::Commands::SubmitRequestMessage &request_message,
                                        PB::Commands::SubmitResponseMessage *response_message) {
+  // One snapshot for the whole call: a reload landing halfway through must not
+  // be able to match the channel against the old name and stamp the new ttl.
+  const std::shared_ptr<const notification_config> config = notification_.get();
   check_mk::submission_store::kind kind;
-  if (channel == channel_mrpe_) {
+  if (channel == config->channel_mrpe) {
     kind = check_mk::submission_store::kind_mrpe;
-  } else if (channel == channel_local_) {
+  } else if (channel == config->channel_local) {
     kind = check_mk::submission_store::kind_local;
   } else {
     nscapi::protobuf::functions::set_response_bad(*response_message->add_payload(), "Unknown channel: " + channel);
@@ -203,7 +215,7 @@ void CheckMKServer::handleNotification(const std::string &channel, const PB::Com
   for (const PB::Commands::QueryResponseMessage::Response &payload : request_message.payload()) {
     check_mk::cached_result r;
     r.generated = now;
-    r.ttl = submission_ttl_;
+    r.ttl = config->submission_ttl;
     r.code = result_to_status_code(payload.result());
 
     // Concatenate all response lines into a single message + the perf data

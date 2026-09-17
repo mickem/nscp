@@ -79,7 +79,10 @@ class win32_service : public TBase {
   // ssStatus and the checkpoint are written from both threads.
   boost::mutex status_mutex_;
   DWORD checkpoint_ = 1;
-  SERVICE_STATUS ssStatus;
+  // Zero-initialised: the SCM can send a control - INTERROGATE in particular -
+  // before _service_main has reported its first SERVICE_START_PENDING, and the
+  // no-argument overload below would then report whatever was on the stack.
+  SERVICE_STATUS ssStatus = {};
   SERVICE_STATUS_HANDLE sshStatusHandle;
   SERVICE_TABLE_ENTRY *dispatchTable;
   DWORD dwControlsAccepted;
@@ -225,7 +228,17 @@ class win32_service : public TBase {
     _report_status_to_SCMgr(SERVICE_STOPPED, 0);
   }
 
-  BOOL _report_status_to_SCMgr() { return _report_status_to_SCMgr(ssStatus.dwCurrentState, 0); }
+  // Re-report the current state, e.g. in answer to an SCM INTERROGATE. The
+  // state is read under status_mutex_ like every other access: this runs on
+  // the SCM control thread while _service_main / _handle_start write it.
+  BOOL _report_status_to_SCMgr() {
+    DWORD current;
+    {
+      boost::lock_guard<boost::mutex> lock(status_mutex_);
+      current = ssStatus.dwCurrentState;
+    }
+    return _report_status_to_SCMgr(current, 0);
+  }
 
   /**
    * Sets the current status of the service and reports it to the Service Control Manager

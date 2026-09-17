@@ -102,7 +102,9 @@ class CheckHelpers final : public nscapi::impl::simple_plugin {
                     const forwarded_identity &id);
 
  private:
-  void add_alias(const std::string &key, const std::string &command);
+  // Fills the table being built, not the one queries are reading: loadModuleEx
+  // hands the finished one over with aliases_.replace().
+  void add_alias(alias::simple_command_map &aliases, const std::string &key, const std::string &command);
   void handle_alias(const alias::simple_command &cd, const std::list<std::string> &args, PB::Commands::QueryResponseMessage::Response *response,
                     const forwarded_identity &id) const;
 };

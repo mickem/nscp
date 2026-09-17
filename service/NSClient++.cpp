@@ -716,17 +716,22 @@ bool NSClientT::do_reload(const std::string module) {
 NSCAPI::errorReturn NSClientT::reload(const std::string module) {
   try {
     std::string task = module;
-    bool delayed = false;
+    // Reloading runs loadModuleEx on live modules, and that must not happen on
+    // a thread owned by one of them: a check served on an NRPE io thread that
+    // calls core.reload() would make the NRPE module stop - and join - the very
+    // pool the caller is running in. Scheduling the work is what keeps the two
+    // apart, so everything is delayed unless the caller explicitly asks for
+    // "instant,". The old default was inline for "service" and for bare module
+    // names, which is exactly how a scripted reload could kill a listener.
+    bool delayed = true;
     if (module.size() > 8 && module.substr(0, 8) == "delayed,") {
       task = module.substr(8);
       delayed = true;
     } else if (module.size() > 6 && module.substr(0, 6) == "delay,") {
       task = module.substr(6);
       delayed = true;
-    } else if (module.size() > 6 && module.substr(0, 8) == "instant,") {
+    } else if (module.size() > 8 && module.substr(0, 8) == "instant,") {
       task = module.substr(8);
-      delayed = false;
-    } else if (module == "service") {
       delayed = false;
     }
     if (delayed) {

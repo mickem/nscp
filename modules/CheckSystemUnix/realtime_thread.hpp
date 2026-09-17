@@ -12,6 +12,12 @@
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/settings/proxy.hpp>
 #include <nsclient/nsclient_exception.hpp>
+#include <rrd_buffer.hpp>
+
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -133,93 +139,30 @@ struct memory_info {
   }
 };
 
-/**
- * PDH collector thread (gathers performance data and allows for clients to retrieve it)
- *
- * @version 1.0
- * first version
- *
- * @date 02-13-2005
- */
-template <class T>
-struct rrd_buffer {
-  typedef T value_type;
-  typedef boost::circular_buffer<T> list_type;
-  typedef typename list_type::const_iterator const_iterator;
-  list_type seconds;
-  list_type minutes;
-  list_type hours;
-  int second_counter;
-  int minute_counter;
-
- public:
-  rrd_buffer() : second_counter(0), minute_counter(0) {
-    seconds.resize(60);
-    minutes.resize(60);
-    hours.resize(24);
-  }
-
-  bool has_data() const { return !seconds.empty() && seconds.size() > 0; }
-
-  value_type get_average(long time) const {
-    value_type ret;
-    if (time <= 0) time = 1;
-
-    if (time <= static_cast<long>(seconds.size())) {
-      long count = std::min(time, static_cast<long>(seconds.size()));
-      for (const_iterator cit = seconds.end() - count; cit != seconds.end(); ++cit) {
-        ret.add(*cit);
-      }
-      ret.normalize(count);
-      return ret;
-    }
-    time /= 60;
-    if (time <= static_cast<long>(minutes.size())) {
-      long count = std::min(time, static_cast<long>(minutes.size()));
-      for (const_iterator cit = minutes.end() - count; cit != minutes.end(); ++cit) {
-        ret.add(*cit);
-      }
-      ret.normalize(count);
-      return ret;
-    }
-    time /= 60;
-    if (time >= 24) throw nsclient::nsclient_exception("Size larger than buffer");
-    long count = std::min(time, static_cast<long>(hours.size()));
-    for (const_iterator cit = hours.end() - count; cit != hours.end(); ++cit) {
-      ret.add(*cit);
-    }
-    ret.normalize(count);
-    return ret;
-  }
-  value_type calculate_avg(list_type &buffer) const {
-    value_type ret;
-    for (const value_type &entry : buffer) {
-      ret.add(entry);
-    }
-    ret.normalize(buffer.size());
-    return ret;
-  }
-
-  void push(const value_type &value) {
-    seconds.push_back(value);
-    if (second_counter++ >= 59) {
-      second_counter = 0;
-      T avg = calculate_avg(seconds);
-      minutes.push_back(avg);
-      if (minute_counter++ >= 59) {
-        minute_counter = 0;
-        T avg = calculate_avg(minutes);
-        hours.push_back(avg);
-      }
-    }
-  }
-};
-
 class pdh_thread {
  private:
   std::shared_ptr<boost::thread> thread_;
   mutable boost::shared_mutex mutex_;
-  bool stop_requested_;
+  // Written by stop() on the core thread, read by the collector's loop
+  // condition. A plain bool gave the compiler licence to hoist the read out of
+  // the loop - only the opaque sleep and log calls kept it honest - and there
+  // was no happens-before between the write and the read either.
+  std::atomic<bool> stop_requested_;
+  // Signalled by stop() so the collector leaves its one-second wait at once.
+  // sleep_for() is not interruptible, so every stop - which, since the
+  // collector is rebuilt on every reload, means every reload - used to cost up
+  // to a second of join latency. The Windows sibling and CheckDisk have always
+  // used an interruptible primitive.
+  mutable std::mutex stop_mutex_;
+  std::condition_variable stop_cond_;
+
+  // Wait up to `seconds`, returning early if a stop has been requested.
+  // Returns true when the collector should keep going.
+  bool wait_for_tick(int seconds) {
+    std::unique_lock<std::mutex> lock(stop_mutex_);
+    stop_cond_.wait_for(lock, std::chrono::seconds(seconds), [this] { return stop_requested_.load(); });
+    return !stop_requested_.load();
+  }
 
   nscapi::core_wrapper *core_;
   int plugin_id_;

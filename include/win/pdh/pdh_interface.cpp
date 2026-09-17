@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
+#include <boost/thread/lock_guard.hpp>
+#include <boost/thread/mutex.hpp>
 #include <str/format.hpp>
 #include <str/utf8.hpp>
 #include <str/utils.hpp>
@@ -11,16 +13,31 @@
 #include <win/pdh/thread_Safe_impl.hpp>
 
 namespace PDH {
+// The chosen implementation, swapped from the collector thread (pdh_thread
+// picks fast vs thread-safe as it starts) while every PDH user on an RPC
+// thread copies it out of here. Assigning a shared_ptr concurrently with
+// copying it is a data race on the pointer itself, whatever it points at, and
+// the lazy default below made two threads able to create two different
+// implementations - a PDHQuery that subscribed to the first would then be
+// registered on an object nobody references. One mutex covers both.
 std::shared_ptr<impl_interface> factory::instance;
+namespace {
+boost::mutex &instance_mutex() {
+  static boost::mutex mutex;
+  return mutex;
+}
+}  // namespace
 
-void factory::set_thread_safe() { instance = std::make_shared<ThreadedSafePDH>(); }
-void factory::set_native() { instance = std::make_shared<NativeExternalPDH>(); }
-void factory::set_impl(std::shared_ptr<impl_interface> impl) { instance = std::move(impl); }
+void factory::set_thread_safe() { set_impl(std::make_shared<ThreadedSafePDH>()); }
+void factory::set_native() { set_impl(std::make_shared<NativeExternalPDH>()); }
+void factory::set_impl(std::shared_ptr<impl_interface> impl) {
+  boost::lock_guard<boost::mutex> lock(instance_mutex());
+  instance = std::move(impl);
+}
 
 std::shared_ptr<impl_interface> factory::get_impl() {
+  boost::lock_guard<boost::mutex> lock(instance_mutex());
   if (!instance) {
-    // instance = std::make_shared<NativeExternalPDH>();
-    // instance = new PDH::NativeExternalPDH();
     instance = std::make_shared<ThreadedSafePDH>();
   }
   return instance;

@@ -5,6 +5,10 @@
 
 #include "perf_filter.hpp"
 
+#ifdef WIN32
+#include <windows.h>
+#endif
+
 #include <algorithm>
 #include <boost/program_options.hpp>
 #include <boost/thread/thread.hpp>
@@ -34,9 +38,16 @@ bool CheckHelpers::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
     aliases_.set_path(settings.alias().get_settings_path("alias"));
 
+    // The core re-enters this with reloadStart on the live module. Collect the
+    // aliases into a local and hand the finished table over below: adding into
+    // the live map re-balanced it under the queries reading it, and since
+    // nothing ever removed an entry an alias deleted from the ini kept
+    // resolving until the agent was restarted.
+    alias::simple_command_map fresh_aliases = alias::make_simple_command_map();
+
     // clang-format off
     settings.alias().add_path_to_settings()
-      ("alias", sh::fun_values_path([this](auto key, auto value) { this->add_alias(key, value); }),
+      ("alias", sh::fun_values_path([this, &fresh_aliases](auto key, auto value) { this->add_alias(fresh_aliases, key, value); }),
         "Command aliases",
         "A list of aliases for already-defined commands (with arguments).\n"
         "An alias is an internal command that has been predefined to provide a single command without arguments. "
@@ -51,6 +62,8 @@ bool CheckHelpers::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     settings.register_all();
     settings.notify();
     settings.clear();
+
+    aliases_.replace(fresh_aliases);
 
     // Each alias is a flat `name = command line` entry under the section
     // above. No per-alias subdirectory, no built-in seed aliases - this
@@ -74,6 +87,35 @@ bool CheckHelpers::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
   return true;
 }
 
+namespace {
+#ifdef WIN32
+// Keep this DLL mapped for the remaining life of the process.
+//
+// A check_timeout worker that overran its timeout is still executing when
+// unloadModule returns, and it never took a dispatch_lock, so the core's
+// in-flight wait does not see it. Detaching it is the only option - joining
+// would hang shutdown behind the very command that would not come back - but
+// the thread body is a lambda in this module, so when ~dll_plugin unmaps the
+// library the worker returns to an address that is no longer mapped. The heap
+// state it touches is already owned by a shared_ptr; the code is not, and
+// pinning is what keeps it there. One abandoned mapping (the module can no
+// longer be unloaded and reloaded without restarting the service) in exchange
+// for not crashing when the wrapped command finally returns.
+void pin_this_module() {
+  // Any address inside the module image identifies it; PIN makes the reference
+  // permanent, so the handle is deliberately never released.
+  static const char anchor = 0;
+  HMODULE self = nullptr;
+  GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN, reinterpret_cast<LPCWSTR>(&anchor), &self);
+}
+#else
+// dlclose() on a library whose code is still executing is the same hazard, but
+// there is no portable equivalent of PIN. The module is only ever unmapped at
+// process exit on unix builds of the agent, so the window does not arise.
+void pin_this_module() {}
+#endif
+}  // namespace
+
 bool CheckHelpers::unloadModule() {
   std::list<std::shared_ptr<boost::thread>> workers;
   {
@@ -81,7 +123,11 @@ bool CheckHelpers::unloadModule() {
     workers.swap(orphaned_workers_);
   }
   for (const std::shared_ptr<boost::thread> &worker : workers) {
-    if (!worker->timed_join(boost::posix_time::seconds(1))) worker->detach();
+    if (!worker->timed_join(boost::posix_time::seconds(1))) {
+      NSC_LOG_ERROR("A check_timeout worker is still running its wrapped command; keeping the module mapped so it has somewhere to return to");
+      pin_this_module();
+      worker->detach();
+    }
   }
   return true;
 }
@@ -99,9 +145,9 @@ void CheckHelpers::park_worker(std::shared_ptr<boost::thread> worker) {
   orphaned_workers_.push_back(std::move(worker));
 }
 
-void CheckHelpers::add_alias(const std::string &key, const std::string &arg) {
+void CheckHelpers::add_alias(alias::simple_command_map &aliases, const std::string &key, const std::string &arg) {
   try {
-    aliases_.add(key, arg);
+    aliases.add(key, arg);
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("Failed to add alias '" + key + "': ", e);
   }

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
 #include <boost/date_time/gregorian/gregorian.hpp>
-#include <boost/interprocess/detail/atomic.hpp>
 #include <scheduler/simple_scheduler.hpp>
 #include <str/utf8.hpp>
 
@@ -10,54 +9,41 @@ boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970, 1, 1));
 
 namespace simple_scheduler {
 
-volatile uint32_t metric_executed = 0;
-volatile uint32_t metric_compleated = 0;
-volatile uint32_t metric_errors = 0;
-volatile uint32_t metric_time = 0;
-volatile uint32_t metric_count = 0;
-volatile uint32_t metric_max_time = 0;
-volatile uint32_t metric_start = 0;
-using namespace boost::interprocess::ipcdetail;
-inline void my_atomic_add(volatile boost::uint32_t *mem, boost::uint32_t value) {
-  uint32_t old, c(atomic_read32(mem));
-  while ((old = atomic_cas32(mem, c + value, c)) != c) {
-    c = old;
-  }
-}
-
 bool scheduler::has_metrics() const { return true; }
 
-int scheduler::get_metric_executed() const { return atomic_read32(&metric_executed); }
-int scheduler::get_metric_compleated() const { return atomic_read32(&metric_compleated); }
-int scheduler::get_metric_errors() const { return atomic_read32(&metric_errors); }
+int scheduler::get_metric_executed() const { return static_cast<int>(metric_executed_.load()); }
+int scheduler::get_metric_compleated() const { return static_cast<int>(metric_completed_.load()); }
+int scheduler::get_metric_errors() const { return static_cast<int>(metric_errors_.load()); }
+// The configured pool size. It no longer over-reports: the watchdog used to
+// raise this without spawning anything, because it compared the target against
+// threads_.count(), which counts the watchdog itself and so found the pool
+// already full. spawn_missing_locked() counts workers now, so the target and
+// the pool agree again.
 std::size_t scheduler::get_metric_threads() const { return thread_count_; }
 std::size_t scheduler::get_metric_ql() { return queue_.size(); }
 int scheduler::get_avg_time() const {
-  const uint32_t t = atomic_read32(&metric_time);
-  const uint32_t c = atomic_read32(&metric_count);
+  const std::uint64_t c = metric_count_.load();
   if (c == 0) {
     return 0;
   }
-  if (t > 4000000000) {
-    atomic_write32(&metric_time, 0);
-    atomic_write32(&metric_count, 0);
-  }
-  return t / c;
+  // No reset: the accumulators are 64-bit, so there is nothing to wrap and
+  // nothing to zero out from under the workers adding to them.
+  return static_cast<int>(metric_time_ms_.load() / c);
 }
 
 int scheduler::get_metric_rate() const {
   const boost::posix_time::time_duration diff = now() - time_t_epoch;
-  const uint32_t total_time = static_cast<uint32_t>(diff.total_seconds()) - metric_start;
-  const uint32_t count = atomic_read32(&metric_compleated);
-  if (total_time == 0) {
+  const std::uint64_t start = metric_start_.load();
+  const std::uint64_t seconds = static_cast<std::uint64_t>(diff.total_seconds());
+  if (start == 0 || seconds <= start) {
     return 0;
   }
-  return count / total_time;
+  return static_cast<int>(metric_completed_.load() / (seconds - start));
 }
 
 void scheduler::start() {
   boost::posix_time::time_duration diff = now() - time_t_epoch;
-  metric_start = static_cast<uint32_t>(diff.total_seconds());
+  metric_start_ = static_cast<std::uint64_t>(diff.total_seconds());
   log_trace(__FILE__, __LINE__, "starting all threads");
   {
     // Opening the door is the starter's job alone. start_threads() used to
@@ -98,8 +84,11 @@ void scheduler::stop() {
     has_watchdog_ = false;
     threads_.interrupt_all();
     threads_.wait_all();
+    // The pool is empty again, but the configured size stays: start() reuses
+    // it, and zeroing it here meant a restarted scheduler had no workers until
+    // something called set_threads() again.
+    spawned_workers_ = 0;
   }
-  thread_count_ = 0;
   log_trace(__FILE__, __LINE__, "Thread pool contains: " + str::xtos(threads_.count()));
 }
 
@@ -238,14 +227,14 @@ void scheduler::thread_proc(const int id) {
         continue;
       } catch (...) {
         if (!queue_.push(instance.value())) {
-          atomic_inc32(&metric_errors);
+          metric_errors_++;
           log_error(__FILE__, __LINE__, "Failed to push item");
         }
         continue;
       }
 
       boost::posix_time::ptime now_time = now();
-      atomic_inc32(&metric_executed);
+      metric_executed_++;
       op_task_object item = get_task(instance.value().schedule_id);
       if (item) {
         try {
@@ -257,31 +246,31 @@ void scheduler::thread_proc(const int id) {
           }
           boost::posix_time::time_duration duration = now() - now_time;
 
-          my_atomic_add(&metric_time, static_cast<uint32_t>(duration.total_milliseconds()));
-          atomic_inc32(&metric_count);
+          metric_time_ms_ += static_cast<std::uint64_t>(duration.total_milliseconds());
+          metric_count_++;
           if (to_reschedule) {
             reschedule(item.value(), now_time);
-            atomic_inc32(&metric_compleated);
+            metric_completed_++;
           } else {
-            atomic_inc32(&metric_errors);
+            metric_errors_++;
             log_trace(__FILE__, __LINE__, "Abandoning: " + item.value().to_string());
           }
         } catch (...) {
-          atomic_inc32(&metric_errors);
+          metric_errors_++;
           log_error(__FILE__, __LINE__, "UNKNOWN ERROR RUNNING TASK: " + item.value().tag);
           reschedule(item.value(), now_time);
         }
       } else {
-        atomic_inc32(&metric_errors);
+        metric_errors_++;
         log_error(__FILE__, __LINE__, "Task not found: " + str::xtos(instance.value().schedule_id));
       }
     }
   } catch (const boost::thread_interrupted &) {
   } catch (const std::exception &e) {
-    atomic_inc32(&metric_errors);
+    metric_errors_++;
     log_error(__FILE__, __LINE__, "Exception in scheduler thread (thread will be killed): " + utf8::utf8_from_native(e.what()));
   } catch (...) {
-    atomic_inc32(&metric_errors);
+    metric_errors_++;
     log_error(__FILE__, __LINE__, "Exception in scheduler thread (thread will be killed)");
   }
   log_trace(__FILE__, __LINE__, "Terminating thread: " + str::xtos(id));
@@ -329,12 +318,17 @@ void scheduler::scale_up() {
 
 void scheduler::spawn_missing_locked() {
   if (!running_ || stop_requested_) return;
-  std::size_t missing_threads = 0;
-  if (thread_count_ > threads_.count()) missing_threads = thread_count_ - threads_.count();
-  if (missing_threads > 0 && missing_threads <= thread_count_) {
-    for (std::size_t i = 0; i < missing_threads; i++) {
-      const boost::function<void()> f = [this, i]() { this->thread_proc(static_cast<int>(100 + i)); };
+  // Against spawned_workers_, not threads_.count(): the latter also counts the
+  // watchdog, so the first scale-up found the pool already "full" and only
+  // raised the target.
+  const std::size_t target = thread_count_;
+  const std::size_t running = spawned_workers_;
+  if (target > running) {
+    for (std::size_t i = running; i < target; i++) {
+      const int id = static_cast<int>(100 + i);
+      const boost::function<void()> f = [this, id]() { this->thread_proc(id); };
       threads_.create_thread(f);
+      spawned_workers_++;
     }
   }
   if (!has_watchdog_) {

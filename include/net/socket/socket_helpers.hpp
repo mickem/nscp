@@ -366,63 +366,6 @@ boost::optional<long> peer_certificate_expiry_days(SSL* ssl);
 namespace io {
 void set_result(boost::optional<boost::system::error_code>* a, const boost::system::error_code& b);
 
-struct timed_writer : std::enable_shared_from_this<timed_writer> {
-  boost::asio::io_context& io_service;
-  boost::asio::steady_timer timer;
-
-  boost::optional<boost::system::error_code> timer_result;
-  boost::optional<boost::system::error_code> read_result;
-
-  explicit timed_writer(boost::asio::io_context& io_service) : io_service(io_service), timer(io_service) {}
-  ~timed_writer() {
-    // cancel() can throw, and an exception escaping a destructor risks
-    // std::terminate during stack unwinding. The non-throwing cancel(ec)
-    // overload is deprecated/removed under BOOST_ASIO_NO_DEPRECATED, so we use
-    // the throwing overload and swallow any error here.
-    try {
-      timer.cancel();
-    } catch (...) {
-    }
-  }
-  void start_timer(const std::chrono::milliseconds duration) {
-    timer.expires_after(duration);
-    auto self(shared_from_this());
-    timer.async_wait([self](const auto& e) { self->set_result(&self->timer_result, e); });
-  }
-  void stop_timer() { timer.cancel(); }
-
-  template <typename AsyncWriteStream, typename MutableBufferSequence>
-  void write(AsyncWriteStream& stream, MutableBufferSequence& buffer) {
-    auto self(shared_from_this());
-    async_write(stream, buffer, [self](const auto& e) { self->set_result(&self->read_result, e); });
-  }
-
-  template <typename AsyncWriteStream, typename Socket, typename MutableBufferSequence>
-  bool write_and_wait(AsyncWriteStream& stream, Socket& socket, const MutableBufferSequence& buffer) {
-    write(stream, buffer);
-    return wait(socket);
-  }
-
-  template <typename Socket>
-  bool wait(Socket& socket) {
-    io_service.restart();
-    while (io_service.run_one()) {
-      if (read_result) {
-        read_result.reset();
-        return true;
-      } else if (timer_result) {
-        socket.close();
-        return false;
-      }
-    }
-    return false;
-  }
-
-  void set_result(boost::optional<boost::system::error_code>* a, boost::system::error_code ec) {
-    if (!ec) a->reset(ec);
-  }
-};
-
 template <typename AsyncWriteStream, typename RawSocket, typename MutableBufferSequence>
 bool write_with_timeout(boost::asio::io_context& io_service, AsyncWriteStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffers,
                         const std::chrono::milliseconds duration) {
@@ -458,63 +401,6 @@ bool write_with_timeout(boost::asio::io_context& io_service, AsyncWriteStream& s
 
   return false;
 }
-
-struct timed_reader : std::enable_shared_from_this<timed_reader> {
-  boost::asio::io_context& io_service;
-  std::chrono::milliseconds duration;
-  boost::asio::steady_timer timer;
-
-  boost::optional<boost::system::error_code> timer_result;
-  boost::optional<boost::system::error_code> write_result;
-
-  explicit timed_reader(boost::asio::io_context& io_service) : io_service(io_service), duration(0), timer(io_service) {}
-  ~timed_reader() {
-    // cancel() can throw, and an exception escaping a destructor risks
-    // std::terminate during stack unwinding. The non-throwing cancel(ec)
-    // overload is deprecated/removed under BOOST_ASIO_NO_DEPRECATED, so we use
-    // the throwing overload and swallow any error here.
-    try {
-      timer.cancel();
-    } catch (...) {
-    }
-  }
-
-  void start_timer(const std::chrono::milliseconds duration_) {
-    timer.expires_after(duration_);
-    auto self(shared_from_this());
-    timer.async_wait([self](const auto& e) { self->set_result(&self->timer_result, e); });
-  }
-  void stop_timer() { timer.cancel(); }
-
-  template <typename AsyncWriteStream, typename MutableBufferSequence>
-  void read(AsyncWriteStream& stream, const MutableBufferSequence& buffers) {
-    auto self(shared_from_this());
-    async_read(stream, buffers, [self](const auto& e) { self->set_result(&self->write_result, e); });
-  }
-
-  template <typename AsyncWriteStream, typename Socket, typename MutableBufferSequence>
-  bool read_and_wait(AsyncWriteStream& stream, Socket& socket, const MutableBufferSequence& buffers) {
-    read(stream, buffers);
-    return wait(socket);
-  }
-  template <typename Socket>
-  bool wait(Socket& socket) {
-    io_service.restart();
-    while (io_service.run_one()) {
-      if (write_result) {
-        write_result.reset();
-        return true;
-      } else if (timer_result) {
-        socket.close();
-        return false;
-      }
-    }
-    return false;
-  }
-  void set_result(boost::optional<boost::system::error_code>* a, boost::system::error_code ec) {
-    if (!ec) a->reset(ec);
-  }
-};
 
 template <typename AsyncReadStream, typename RawSocket, typename MutableBufferSequence>
 bool read_with_timeout(boost::asio::io_context& io_service, AsyncReadStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffers,

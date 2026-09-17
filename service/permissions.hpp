@@ -34,15 +34,54 @@ namespace core {
 // doc spec (docs/design/core-permissions.md) is the source of truth.
 class permissions {
  public:
-  permissions() : enabled_(false), allow_exec_(true), log_denials_(true), log_allows_(false) {}
+  struct rule {
+    std::string subject;               // pattern, may include * and ?
+    std::vector<std::string> objects;  // each pattern, may include * and ?
+  };
+
+  // The whole enforcement state: the flags and the rule table together.
+  //
+  // Grouping them is what makes a reload a single swap (see replace()) rather
+  // than a sequence of individually locked writes that a decision can land in
+  // the middle of.
+  struct policy {
+    bool enabled = false;
+    bool allow_exec = true;
+    bool log_denials = true;
+    bool log_allows = false;
+    std::vector<rule> rules;
+
+    // Parse one `subject = objects,...` line from
+    // [/settings/permissions/policies] and append it. Whitespace around the
+    // list separators is stripped; a line naming no object is dropped.
+    void add_rule(const std::string& subject_pattern, const std::string& objects_csv) {
+      rule r;
+      r.subject = subject_pattern;
+      std::string token;
+      for (const char c : objects_csv) {
+        if (c == ',') {
+          const std::string trimmed = trim(token);
+          if (!trimmed.empty()) r.objects.push_back(trimmed);
+          token.clear();
+        } else {
+          token.push_back(c);
+        }
+      }
+      const std::string trimmed = trim(token);
+      if (!trimmed.empty()) r.objects.push_back(trimmed);
+      if (!r.objects.empty()) rules.push_back(std::move(r));
+    }
+  };
+
+  permissions() = default;
 
   void set_enabled(bool v) {
     std::lock_guard<std::mutex> lk(mutex_);
-    enabled_ = v;
+    policy_.enabled = v;
   }
   bool is_enabled() const {
     std::lock_guard<std::mutex> lk(mutex_);
-    return enabled_;
+    return policy_.enabled;
   }
 
   // Global exec toggle. Per-command policies in the rule table apply
@@ -60,31 +99,31 @@ class permissions {
   // lockdown flip it to false.
   void set_allow_exec(bool v) {
     std::lock_guard<std::mutex> lk(mutex_);
-    allow_exec_ = v;
+    policy_.allow_exec = v;
   }
   bool is_exec_allowed() const {
     std::lock_guard<std::mutex> lk(mutex_);
     // When the policy system is disabled, exec is always allowed (same
     // bypass as is_allowed). When enabled, the toggle decides.
-    return !enabled_ || allow_exec_;
+    return !policy_.enabled || policy_.allow_exec;
   }
 
   void set_log_denials(bool v) {
     std::lock_guard<std::mutex> lk(mutex_);
-    log_denials_ = v;
+    policy_.log_denials = v;
   }
   bool should_log_denials() const {
     std::lock_guard<std::mutex> lk(mutex_);
-    return log_denials_;
+    return policy_.log_denials;
   }
 
   void set_log_allows(bool v) {
     std::lock_guard<std::mutex> lk(mutex_);
-    log_allows_ = v;
+    policy_.log_allows = v;
   }
   bool should_log_allows() const {
     std::lock_guard<std::mutex> lk(mutex_);
-    return log_allows_;
+    return policy_.log_allows;
   }
 
   // Add a rule. `subject_pattern` is the subject side of the policy (one
@@ -94,7 +133,7 @@ class permissions {
   // appends rather than replaces - rules are additive.
   void add_rule(const std::string& subject_pattern, const std::string& objects_csv) {
     std::lock_guard<std::mutex> lk(mutex_);
-    add_rule_locked(subject_pattern, objects_csv);
+    policy_.add_rule(subject_pattern, objects_csv);
   }
 
   // Drop all rules. Used on settings reload before re-registering the
@@ -103,12 +142,28 @@ class permissions {
   // policies are re-added.
   void clear_rules() {
     std::lock_guard<std::mutex> lk(mutex_);
-    rules_.clear();
+    policy_.rules.clear();
+  }
+
+  // Install a complete policy in one step.
+  //
+  // Rebuilding in place - clear_rules(), then a setter per flag, then one
+  // add_rule per key, each taking and releasing the lock, with a settings
+  // read between them - left the table visibly empty for the whole rebuild.
+  // An NRPE or web worker deciding in that window saw `enabled` true with no
+  // rules and denied: a burst of "permissions: denied" UNKNOWN results on
+  // every reload, and Scheduler-forwarded checks tagged nscp.query_denied and
+  // never submitted. Fail-closed, so never a bypass - but a reload should not
+  // cost a poll interval of false alarms either. Build the whole thing
+  // off to the side and swap it in here.
+  void replace(policy p) {
+    std::lock_guard<std::mutex> lk(mutex_);
+    policy_ = std::move(p);
   }
 
   std::size_t rule_count() const {
     std::lock_guard<std::mutex> lk(mutex_);
-    return rules_.size();
+    return policy_.rules.size();
   }
 
   // The policy decision. `subject` is `module[:principal]` (use
@@ -124,8 +179,8 @@ class permissions {
   // option may be worth reintroducing then.)
   bool is_allowed(const std::string& subject, const std::string& object) const {
     std::lock_guard<std::mutex> lk(mutex_);
-    if (!enabled_) return true;
-    for (const auto& rule : rules_) {
+    if (!policy_.enabled) return true;
+    for (const auto& rule : policy_.rules) {
       if (!subject_matches(rule.subject, subject)) continue;
       for (const auto& obj_pattern : rule.objects) {
         if (object_matches(obj_pattern, object)) return true;
@@ -147,31 +202,6 @@ class permissions {
   static std::string make_object(const std::string& module, const std::string& command) {
     if (module.empty()) return command;
     return module + "." + command;
-  }
-
- private:
-  struct rule {
-    std::string subject;               // pattern, may include * and ?
-    std::vector<std::string> objects;  // each pattern, may include * and ?
-  };
-
-  // No-mutex variant for use from inside already-locked methods.
-  void add_rule_locked(const std::string& subject_pattern, const std::string& objects_csv) {
-    rule r;
-    r.subject = subject_pattern;
-    std::string token;
-    for (const char c : objects_csv) {
-      if (c == ',') {
-        const std::string trimmed = trim(token);
-        if (!trimmed.empty()) r.objects.push_back(trimmed);
-        token.clear();
-      } else {
-        token.push_back(c);
-      }
-    }
-    const std::string trimmed = trim(token);
-    if (!trimmed.empty()) r.objects.push_back(trimmed);
-    if (!r.objects.empty()) rules_.push_back(std::move(r));
   }
 
   static std::string trim(const std::string& s) {
@@ -254,11 +284,7 @@ class permissions {
   }
 
   mutable std::mutex mutex_;
-  bool enabled_;
-  bool allow_exec_;
-  bool log_denials_;
-  bool log_allows_;
-  std::vector<rule> rules_;
+  policy policy_;
 };
 
 }  // namespace core

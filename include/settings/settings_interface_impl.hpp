@@ -141,7 +141,24 @@ class settings_interface_impl : public settings_interface {
     }
   }
 
-  virtual std::list<std::shared_ptr<settings_interface>> get_children() { return children_; }
+  // Every walk of children_ that is not already inside MUTEX_GUARD() goes
+  // through this.
+  //
+  // clear_cache() empties the list under the lock from a scheduler or web
+  // thread (do_reload("settings"), settings_http::reload_data) while
+  // reloadPlugins() copies the children, the web "settings diff" endpoint
+  // walks get_changes() and the SETTINGS task runs house_keeping(). The
+  // watchdog grows the scheduler pool to ten workers, so two of those overlap
+  // with no configuration at all - and an unlocked walk then reads a list node
+  // that clear() has freed. Copying under the lock also keeps every child
+  // alive for the duration of the walk, and releasing before calling into them
+  // preserves the instance -> child lock order.
+  parent_list_type copy_children() {
+    MUTEX_GUARD();
+    return children_;
+  }
+
+  virtual std::list<std::shared_ptr<settings_interface>> get_children() { return copy_children(); }
 
   template <class T>
   typename T::op_type getter(std::string path, std::string key) {
@@ -682,9 +699,10 @@ class settings_interface_impl : public settings_interface {
 
   virtual std::string to_string() {
     std::string ret = get_info();
-    if (!children_.empty()) {
+    const parent_list_type children = copy_children();
+    if (!children.empty()) {
       ret += "parents = [";
-      for (parent_list_type::value_type i : children_) {
+      for (parent_list_type::value_type i : children) {
         ret += i->to_string();
       }
       ret += "]";
@@ -695,7 +713,7 @@ class settings_interface_impl : public settings_interface {
   inline std::string make_skey(std::string path, std::string key) { return path + "." + key; }
 
   virtual void house_keeping() {
-    for (parent_list_type::value_type i : children_) {
+    for (parent_list_type::value_type i : copy_children()) {
       i->house_keeping();
     }
   }
@@ -782,7 +800,7 @@ class settings_interface_impl : public settings_interface {
     }
 
     // Recurse into child stores (e.g. included config files)
-    for (parent_list_type::value_type i : children_) {
+    for (parent_list_type::value_type i : copy_children()) {
       change_list child_changes = i->get_changes();
       result.insert(result.end(), child_changes.begin(), child_changes.end());
     }

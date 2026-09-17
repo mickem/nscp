@@ -10,6 +10,7 @@
 #include <nscapi/protobuf/functions_convert.hpp>
 #include <nscapi/protobuf/functions_perfdata.hpp>
 #include <nscapi/protobuf/functions_query.hpp>
+#include <nscapi/settings/snapshot.hpp>
 #include <str/format.hpp>
 
 namespace syslog_client {
@@ -116,9 +117,13 @@ struct syslog_client_handler : public client::handler_interface {
   // which splits on the first colon - an IPv6 literal from ${address_ipv6}
   // would reach the wire as "2001". Nothing else in this module reads the
   // sender container, so there is nothing to keep in sync.
-  std::string hostname;
+  //
+  // Rewritten by loadModuleEx on every reload while submissions are running on
+  // the channel threads, so it is published as a snapshot rather than assigned
+  // in place: a submission reads one whole name, not a string mid-rewrite.
+  nscapi::settings::snapshot<std::string> hostname;
 
-  void set_hostname(std::string value) { hostname = std::move(value); }
+  void set_hostname(std::string value) { hostname.set(std::move(value)); }
 
   bool query(client::destination_container _sender, client::destination_container _target, const PB::Commands::QueryRequestMessage &_request_message,
              PB::Commands::QueryResponseMessage &_response_message) {
@@ -148,7 +153,7 @@ struct syslog_client_handler : public client::handler_interface {
     // applies. "-" (the RFC 5424 nil value) holds the position when neither
     // is known, rather than shifting the remaining fields left.
     std::string host_field = sender.get_host();
-    if (host_field.empty()) host_field = hostname;
+    if (host_field.empty()) host_field = *hostname.get();
     if (host_field.empty()) host_field = "-";
 
     std::list<std::string> messages;

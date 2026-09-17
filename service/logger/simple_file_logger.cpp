@@ -3,6 +3,7 @@
 
 #include "simple_file_logger.hpp"
 
+#include <boost/thread/lock_guard.hpp>
 #include <boost/filesystem.hpp>
 #include <file_helpers.hpp>
 #include <nscapi/protobuf/log.hpp>
@@ -39,6 +40,10 @@ static bool reported_log_failure = false;
 static bool reported_mkdir_failure = false;
 
 void simple_file_logger::do_log(const std::string data) {
+  // Held for the whole of the rotation and the append: the two are one
+  // operation, and a second thread deciding to truncate while the first is
+  // writing loses lines.
+  boost::lock_guard<boost::mutex> lock(mutex_);
   if (file_.empty()) return;
   try {
     if (max_size_ != 0 && boost::filesystem::exists(file_.c_str()) && boost::filesystem::file_size(file_.c_str()) > max_size_) {
@@ -152,16 +157,20 @@ void simple_file_logger::asynch_configure() {
   try {
     config_data config = do_config(false);
 
+    // Resolve outside the lock - expand_path calls into the settings store -
+    // then publish the three fields together.
+    std::string file = settings_manager::get_proxy()->expand_path(config.file);
+    if (file.empty()) file = base_path() + "nsclient.log";
+    if (file.find('\\') == std::string::npos && file.find('/') == std::string::npos) {
+      file = base_path() + file;
+    }
+    if (file == "none") {
+      file = "";
+    }
+    boost::lock_guard<boost::mutex> lock(mutex_);
     format_ = config.format;
     max_size_ = config.max_size;
-    file_ = settings_manager::get_proxy()->expand_path(config.file);
-    if (file_.empty()) file_ = base_path() + "nsclient.log";
-    if (file_.find('\\') == std::string::npos && file_.find('/') == std::string::npos) {
-      file_ = base_path() + file_;
-    }
-    if (file_ == "none") {
-      file_ = "";
-    }
+    file_ = file;
   } catch (const std::exception &) {
     // ignored, since this might be after shutdown...
   } catch (...) {

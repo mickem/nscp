@@ -124,6 +124,15 @@ struct fixture {
 
   fixture() { config.set_path("/settings/test/targets"); }
 
+  // Register an alias the way reading settings would have, then publish it:
+  // add_command() fills the generation loadModuleEx is building, and
+  // finalize() is what normally hands it over.
+  std::string add_command(const std::string &name, const std::string &command) {
+    const std::string key = config.add_command(name, command);
+    config.publish();
+    return key;
+  }
+
   // Install a target object the way reading settings would have.
   void add_target(const std::string &alias, const std::map<std::string, std::string> &options) {
     auto obj = std::make_shared<nscapi::settings_objects::object_instance_interface>(alias, "/settings/test/targets");
@@ -267,7 +276,7 @@ TEST(destination_container, a_host_from_the_request_header_is_applied) {
 TEST(client_configuration, add_command_splits_the_command_from_its_arguments) {
   fixture f;
 
-  const std::string key = f.config.add_command("check_alias", "check_cpu warn=10 crit=20");
+  const std::string key = f.add_command("check_alias", "check_cpu warn=10 crit=20");
 
   EXPECT_EQ(key, "check_alias");
   ASSERT_EQ(f.config.commands.count("check_alias"), 1u);
@@ -279,7 +288,7 @@ TEST(client_configuration, add_command_lower_cases_the_alias) {
   // Command lookup is done on the lower-cased name, so the key has to match.
   fixture f;
 
-  const std::string key = f.config.add_command("CHECK_Alias", "check_cpu");
+  const std::string key = f.add_command("CHECK_Alias", "check_cpu");
 
   EXPECT_EQ(key, "check_alias");
   EXPECT_EQ(f.config.commands.count("check_alias"), 1u);
@@ -288,10 +297,27 @@ TEST(client_configuration, add_command_lower_cases_the_alias) {
 TEST(client_configuration, add_command_keeps_quoted_arguments_together) {
   fixture f;
 
-  f.config.add_command("check_alias", "check_cpu \"filter=core = 'total'\"");
+  f.add_command("check_alias", "check_cpu \"filter=core = 'total'\"");
 
   ASSERT_EQ(f.config.commands["check_alias"].arguments.size(), 1u);
   EXPECT_EQ(f.config.commands["check_alias"].arguments.front(), "filter=core = 'total'");
+}
+
+TEST(client_configuration, a_rebuild_replaces_the_table_rather_than_merging_into_it) {
+  // What a settings reload does: set_path() starts a new generation, the
+  // settings walk fills it, and finalize()/publish() hands it over. The live
+  // table answers unchanged until then, and what the configuration no longer
+  // names does not survive.
+  fixture f;
+  f.add_command("old_alias", "check_cpu");
+  ASSERT_EQ(f.config.commands.count("old_alias"), 1u);
+
+  f.config.set_path("/settings/test/targets");
+  EXPECT_EQ(f.config.commands.count("old_alias"), 1u) << "the live table must keep answering until the new one is published";
+
+  f.add_command("new_alias", "check_memory");
+  EXPECT_EQ(f.config.commands.count("new_alias"), 1u);
+  EXPECT_EQ(f.config.commands.count("old_alias"), 0u) << "an alias dropped from the configuration must not survive the reload";
 }
 
 // ---------------------------------------------------------------------------
@@ -461,7 +487,7 @@ TEST(client_query, help_pb_on_a_forward_command_is_answered_locally) {
 
 TEST(client_query, an_alias_is_expanded_to_the_command_it_names) {
   fixture f;
-  f.config.add_command("my_alias", "forward_check");
+  f.add_command("my_alias", "forward_check");
   PB::Commands::QueryResponseMessage response;
 
   f.config.do_query(fixture::query_request("my_alias"), response);

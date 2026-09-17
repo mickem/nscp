@@ -33,7 +33,7 @@ namespace sh = nscapi::settings_helper;
  * Default c-tor
  * @return
  */
-ElasticClient::ElasticClient() : started(false), timeout(30) {}
+ElasticClient::ElasticClient() : started(false) {}
 
 /**
  * Default d-tor
@@ -44,13 +44,17 @@ ElasticClient::~ElasticClient() {}
 bool ElasticClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   try {
     std::string events;
+    // The settings bind straight into a local, not into the live
+    // configuration: on a reload the send paths keep reading the published
+    // snapshot untouched until the complete new one replaces it below.
+    config fresh;
 
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
     settings.set_alias("elastic", alias, "client");
 
     settings.alias()
         .add_key_to_settings()
-        .add_string("hostname", sh::string_key(&hostname_, "auto"), "HOSTNAME",
+        .add_string("hostname", sh::string_key(&fresh.hostname, "auto"), "HOSTNAME",
                     "The host name of the monitored computer.\nSet this to auto (default) to use the windows name of the computer.\n\n"
                     "auto\tHostname\n"
                     "${host}\tHostname\n"
@@ -70,43 +74,43 @@ bool ElasticClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 
         .add_string("events", sh::string_key(&events, "eventlog:*,logfile:*"), "Event", "The events to subscribe to such as eventlog:* or logfile:mylog.")
 
-        .add_string("address", sh::string_key(&address), "Elastic address", "The address to send data to (http://127.0.0.1:9200/_bulk).")
+        .add_string("address", sh::string_key(&fresh.address), "Elastic address", "The address to send data to (http://127.0.0.1:9200/_bulk).")
 
-        .add_string("user", sh::string_key(&user, ""), "Elastic user",
+        .add_string("user", sh::string_key(&fresh.user, ""), "Elastic user",
                     "The username used to authenticate against Elasticsearch (basic authentication). Leave empty to send no credentials.")
-        .add_password("password", sh::string_key(&password, ""), "Elastic password",
+        .add_password("password", sh::string_key(&fresh.password, ""), "Elastic password",
                       "The password used to authenticate against Elasticsearch (basic authentication).")
-        .add_password("api key", sh::string_key(&api_key, ""), "Elastic API key",
+        .add_password("api key", sh::string_key(&fresh.api_key, ""), "Elastic API key",
                       "An Elasticsearch API key (the base64 encoded id:key value as returned when the key is created), sent as 'Authorization: ApiKey ...'. "
                       "Takes precedence over user/password when both are set.")
 
-        .add_string("tls version", sh::string_key(&tls_version, "1.2+"), "TLS version",
+        .add_string("tls version", sh::string_key(&fresh.tls_version, "1.2+"), "TLS version",
                     "The TLS version to use when connecting over https (1.0, 1.1, 1.2, 1.2+ or 1.3).")
-        .add_string("verify mode", sh::string_key(&verify_mode, "peer"), "TLS verify mode",
+        .add_string("verify mode", sh::string_key(&fresh.verify_mode, "peer"), "TLS verify mode",
                     "How to verify the Elasticsearch server certificate when connecting over https. 'peer' (the default) validates the certificate chain and "
                     "hostname against the configured CA. Set to 'none' to disable verification - this is insecure and lets an on-path attacker read the "
                     "submitted data and any configured credentials.")
-        .add_string("ca", sh::path_key(&ca, "${ca-path}"), "Certificate authority",
+        .add_string("ca", sh::path_key(&fresh.ca, "${ca-path}"), "Certificate authority",
                     "The certificate authority bundle used to verify the Elasticsearch server certificate (used when 'verify mode' is not 'none').")
 
-        .add_int("timeout", sh::int_key(&timeout, 30), "Timeout",
+        .add_int("timeout", sh::int_key(&fresh.timeout, 30), "Timeout",
                  "Timeout (in seconds) for each connect, read and write when talking to Elasticsearch. 0 waits forever.")
 
-        .add_string("event index", sh::string_key(&event_index, "nsclient_event-%(date)"), "Elastic index used for events",
+        .add_string("event index", sh::string_key(&fresh.event_index, "nsclient_event-%(date)"), "Elastic index used for events",
                     "The elastic index to use for events (log messages).")
-        .add_string("event type", sh::string_key(&event_type, ""), "Elastic type used for events",
+        .add_string("event type", sh::string_key(&fresh.event_type, ""), "Elastic type used for events",
                     "The elastic type to use for events (log messages). Only set this for Elasticsearch 6.x or older: mapping types were removed in "
                     "Elasticsearch 8, which rejects requests that carry a type.")
 
-        .add_string("metrics index", sh::string_key(&metrics_index, "nsclient_metrics-%(date)"), "Elastic index used for metrics",
+        .add_string("metrics index", sh::string_key(&fresh.metrics_index, "nsclient_metrics-%(date)"), "Elastic index used for metrics",
                     "The elastic index to use for metrics.")
-        .add_string("metrics type", sh::string_key(&metrics_type, ""), "Elastic type used for metrics",
+        .add_string("metrics type", sh::string_key(&fresh.metrics_type, ""), "Elastic type used for metrics",
                     "The elastic type to use for metrics. Only set this for Elasticsearch 6.x or older: mapping types were removed in Elasticsearch 8, "
                     "which rejects requests that carry a type.")
 
-        .add_string("nsclient log index", sh::string_key(&nsclient_index, "nsclient_log-%(date)"), "Elastic index used for the nsclient log",
+        .add_string("nsclient log index", sh::string_key(&fresh.nsclient_index, "nsclient_log-%(date)"), "Elastic index used for the nsclient log",
                     "The elastic index to use for the NSClient++ log.")
-        .add_string("nsclient log type", sh::string_key(&nsclient_type, ""), "Elastic type used for the nsclient log",
+        .add_string("nsclient log type", sh::string_key(&fresh.nsclient_type, ""), "Elastic type used for the nsclient log",
                     "The elastic type to use for the NSClient++ log. Only set this for Elasticsearch 6.x or older: mapping types were removed in "
                     "Elasticsearch 8, which rejects requests that carry a type.")
 
@@ -115,9 +119,9 @@ bool ElasticClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
     settings.register_all();
     settings.notify();
 
-    if (timeout < 0) {
-      NSC_LOG_ERROR("Invalid elastic timeout (negative): " + str::xtos(timeout) + ", using 30 seconds");
-      timeout = 30;
+    if (fresh.timeout < 0) {
+      NSC_LOG_ERROR("Invalid elastic timeout (negative): " + str::xtos(fresh.timeout) + ", using 30 seconds");
+      fresh.timeout = 30;
     }
 
     // An https submission whose `verify mode` carries no peer-verifying token
@@ -128,16 +132,21 @@ bool ElasticClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
     // continuously. Only when credentials are configured - without them the
     // exposure is the submitted data alone, which the `verify mode` setting
     // description already spells out.
-    if (!address.empty() && (!user.empty() || !api_key.empty())) {
-      const http::parsed_url parsed = http::parse_url(address);
-      if (parsed.protocol == "https" && socket_helpers::client_verify_mode_disables_verification(verify_mode)) {
-        NSC_LOG_MESSAGE("TLS certificate verification is disabled for " + parsed.host + " (verify mode: " + (verify_mode.empty() ? "<not set>" : verify_mode) +
+    if (!fresh.address.empty() && (!fresh.user.empty() || !fresh.api_key.empty())) {
+      const http::parsed_url parsed = http::parse_url(fresh.address);
+      if (parsed.protocol == "https" && socket_helpers::client_verify_mode_disables_verification(fresh.verify_mode)) {
+        NSC_LOG_MESSAGE("TLS certificate verification is disabled for " + parsed.host +
+                        " (verify mode: " + (fresh.verify_mode.empty() ? "<not set>" : fresh.verify_mode) +
                         "): the Elasticsearch credentials are sent to whichever server answers. Set verify mode = peer, or peer-cert with ca pointing at "
                         "the self-signed certificate, unless this is intentional.");
       }
     }
 
-    hostname_ = socket_helpers::expand_hostname(hostname_);
+    fresh.hostname = socket_helpers::expand_hostname(fresh.hostname);
+
+    // One store, after every field is final: from here on the send paths see
+    // the new configuration whole.
+    config_.set(std::move(fresh));
 
     nscapi::core_helper ch(get_core(), get_id());
     ch.register_event(events);
@@ -169,7 +178,8 @@ bool ElasticClient::unloadModule() {
   return true;
 }
 
-void ElasticClient::send_to_elastic(const std::string &index, const std::string &type, const std::vector<std::string> &payloads, bool log_errors) const {
+void ElasticClient::send_to_elastic(const config &cfg, const std::string &index, const std::string &type, const std::vector<std::string> &payloads,
+                                    bool log_errors) const {
   if (payloads.empty()) {
     return;
   }
@@ -180,25 +190,25 @@ void ElasticClient::send_to_elastic(const std::string &index, const std::string 
   }
 
   try {
-    const http::parsed_url parsed = http::parse_url(address);
+    const http::parsed_url parsed = http::parse_url(cfg.address);
     if (parsed.host.empty()) {
       if (log_errors) {
-        NSC_LOG_ERROR("Invalid elastic address: " + address);
+        NSC_LOG_ERROR("Invalid elastic address: " + cfg.address);
       }
       return;
     }
-    http::http_client_options opts(parsed.protocol, tls_version, verify_mode, ca);
-    opts.timeout_seconds_ = static_cast<unsigned int>(timeout < 0 ? 0 : timeout);
+    http::http_client_options opts(parsed.protocol, cfg.tls_version, cfg.verify_mode, cfg.ca);
+    opts.timeout_seconds_ = static_cast<unsigned int>(cfg.timeout < 0 ? 0 : cfg.timeout);
     http::request rq("POST", parsed.host, parsed.path, payload);
     rq.add_header("Content-Type", "application/x-ndjson");
     rq.add_header("Content-Length", str::xtos(payload.size()));
     // Never log the Authorization header value: the API key is a bearer
     // credential and the basic form is base64(user:password), trivially
     // reversible.
-    if (!api_key.empty()) {
-      rq.add_header("Authorization", "ApiKey " + api_key);
-    } else if (!user.empty()) {
-      rq.add_header("Authorization", "Basic " + bytes::base64_encode(user + ":" + password));
+    if (!cfg.api_key.empty()) {
+      rq.add_header("Authorization", "ApiKey " + cfg.api_key);
+    } else if (!cfg.user.empty()) {
+      rq.add_header("Authorization", "Basic " + bytes::base64_encode(cfg.user + ":" + cfg.password));
     }
     http::simple_client c(opts);
     const http::response r = c.fetch(parsed.host, parsed.port, rq);
@@ -239,7 +249,8 @@ void ElasticClient::send_to_elastic(const std::string &index, const std::string 
 }
 
 void ElasticClient::onEvent(const PB::Commands::EventMessage &request, const std::string &buffer) {
-  if (!started || address.empty()) {
+  const std::shared_ptr<const config> cfg = config_.get();
+  if (!started || cfg->address.empty()) {
     return;
   }
   const std::string now = boost::posix_time::to_iso_extended_string(boost::posix_time::microsec_clock::universal_time());
@@ -256,10 +267,10 @@ void ElasticClient::onEvent(const PB::Commands::EventMessage &request, const std
       }
     }
     node["@timestamp"] = time;
-    node["hostname"] = hostname_;
+    node["hostname"] = cfg->hostname;
     payloads.push_back(json::serialize(node));
   }
-  send_to_elastic(event_index, event_type, payloads, true);
+  send_to_elastic(*cfg, cfg->event_index, cfg->event_type, payloads, true);
 }
 
 namespace {
@@ -289,12 +300,13 @@ void build_metrics(json::object &metrics, const std::string trail, const PB::Met
   metrics.insert(json::object::value_type(b.key(), node));
 }
 void ElasticClient::submitMetrics(const PB::Metrics::MetricsMessage &response) {
-  if (!started || address.empty()) {
+  const std::shared_ptr<const config> cfg = config_.get();
+  if (!started || cfg->address.empty()) {
     return;
   }
   json::object metrics;
   metrics["@timestamp"] = boost::posix_time::to_iso_extended_string(boost::posix_time::microsec_clock::universal_time());
-  metrics["hostname"] = hostname_;
+  metrics["hostname"] = cfg->hostname;
   for (const PB::Metrics::MetricsMessage::Response &p : response.payload()) {
     for (const PB::Metrics::MetricsBundle &b : p.bundles()) {
       build_metrics(metrics, "", b);
@@ -303,11 +315,12 @@ void ElasticClient::submitMetrics(const PB::Metrics::MetricsMessage &response) {
 
   std::vector<std::string> payloads;
   payloads.push_back(json::serialize(metrics));
-  send_to_elastic(metrics_index, metrics_type, payloads, true);
+  send_to_elastic(*cfg, cfg->metrics_index, cfg->metrics_type, payloads, true);
 }
 
 void ElasticClient::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
-  if (!started || address.empty()) {
+  const std::shared_ptr<const config> cfg = config_.get();
+  if (!started || cfg->address.empty()) {
     return;
   }
 
@@ -318,12 +331,12 @@ void ElasticClient::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
   node["line"] = message.line();
   node["level"] = nsclient::logging::logger_helper::render_log_level_long(message.level());
   node["@timestamp"] = boost::posix_time::to_iso_extended_string(boost::posix_time::microsec_clock::universal_time());
-  node["hostname"] = hostname_;
+  node["hostname"] = cfg->hostname;
 
   // Never log errors for our own log messages: a failing send would otherwise
   // log an error, which is forwarded here again, forever.
   bool log = message.sender() != "elastic";
   std::vector<std::string> payloads;
   payloads.push_back(json::serialize(node));
-  send_to_elastic(nsclient_index, nsclient_type, payloads, log);
+  send_to_elastic(*cfg, cfg->nsclient_index, cfg->nsclient_type, payloads, log);
 }

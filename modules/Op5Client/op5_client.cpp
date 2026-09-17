@@ -34,7 +34,21 @@ op5_client::op5_client(const nscapi::core_wrapper *core, int plugin_id, op5_conf
  * Default d-tor
  * @return
  */
-op5_client::~op5_client() {}
+op5_client::~op5_client() {
+  // The constructor starts thread_proc, so the destructor has to end it.
+  // Without this any path that destroys the client without going through
+  // Op5Client::unloadModule - an unloadModule that threw, static teardown at
+  // DLL unload when the core never called NSUnloadModule, a test fixture -
+  // destroyed a joinable boost::thread. Depending on the Boost version that
+  // either detaches (and thread_proc goes on dereferencing a freed `this`,
+  // locking a mutex inside freed memory) or terminates the process.
+  try {
+    stop();
+  } catch (...) {
+    // A destructor has nowhere to report to, and letting it out would
+    // terminate.
+  }
+}
 
 #define HTTP_HDR_AUTH "Authorization"
 #define HTTP_HDR_AUTH_BASIC "Basic "
@@ -338,7 +352,9 @@ void op5_client::stop() {
   if (thread_) {
     stop_thread_ = true;
     thread_->interrupt();
-    thread_->join();
+    // Never join from the thread itself: that throws rather than returning,
+    // and from the destructor the throw would escape.
+    if (thread_->get_id() != boost::this_thread::get_id()) thread_->join();
   }
   thread_.reset();
 }
@@ -363,6 +379,15 @@ void op5_client::thread_proc() {
     register_host(hostname, hostgroups, contactgroups);
 
     while (true) {
+      // Checked at the top as well as after the round below: interrupt() has
+      // nothing to hit while the thread is inside a timed_lock, which is not
+      // an interruption point, so stop() relies on the flag being read.
+      if (stop_thread_) {
+        if (deregister) {
+          deregister_host(hostname);
+        }
+        return;
+      }
       try {
         NSC_TRACE_MSG("Running op5 checks...");
         std::string status;
@@ -370,15 +395,20 @@ void op5_client::thread_proc() {
           NSC_LOG_ERROR("Failed to submit host ok status: " + status);
         }
 
+        // Stays empty when the lock cannot be had, so the loop below runs no
+        // checks this round and the thread goes on to the stop check and the
+        // sleep. It used to `continue` instead, which skipped both: while the
+        // lock stayed unobtainable the thread hot-looped, re-sending the host
+        // check over HTTP every time round.
         op5_config::check_map copy;
         {
           boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-          if (!lock.owns_lock()) {
+          if (lock.owns_lock()) {
+            interval = config_.interval;
+            copy = config_.checks;
+          } else {
             NSC_LOG_ERROR("Failed to run checks");
-            continue;
           }
-          interval = config_.interval;
-          copy = config_.checks;
         }
         std::string response;
         nscapi::core_helper ch(get_core(), get_id());

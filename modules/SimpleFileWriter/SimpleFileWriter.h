@@ -8,6 +8,7 @@
 #include <list>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
+#include <nscapi/settings/snapshot.hpp>
 
 struct config_object {
   std::string time_format;
@@ -20,11 +21,24 @@ class SimpleFileWriter : public nscapi::impl::simple_plugin {
       index_lookup_function;
   typedef std::list<index_lookup_function> index_lookup_type;
 
+  // Everything handleNotification reads, published in one store.
+  //
+  // loadModuleEx re-runs on every reload while submissions are arriving on
+  // other modules' threads. build_syntax only ever appended, and nothing
+  // cleared the two lists, so after N reloads every written line carried N
+  // copies of the syntax - and a submission landing mid-reload walked a
+  // std::list whose nodes were being re-linked under it.
+  struct writer_config {
+    config_object config;
+    std::string filename;
+    index_lookup_type syntax_host_lookup;
+    index_lookup_type syntax_service_lookup;
+  };
+
  private:
-  index_lookup_type syntax_service_lookup_, syntax_host_lookup_;
-  std::string filename_;
+  nscapi::settings::snapshot<writer_config> config_;
+  // Serialises the append itself, nothing else.
   boost::shared_mutex cache_mutex_;
-  config_object config_;
 
  public:
   SimpleFileWriter() {}

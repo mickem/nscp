@@ -3,6 +3,8 @@
 
 #include "DotnetPlugins.h"
 
+#include <chrono>
+
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <nscapi/macros.hpp>
@@ -70,6 +72,16 @@ fs::path DotnetPlugins::resolve_assembly(const fs::path &root, const std::string
 
 bool DotnetPlugins::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   try {
+    // The core re-enters this with reloadStart on the live module. Retire what
+    // is loaded before reading the configuration again: without this every
+    // reload created a second managed instance of every plugin, left the first
+    // one running, and registered the same commands again - so query_fallback
+    // answered from whichever instance happened to come first. Clearing
+    // configured_ as well is what lets a plugin removed from the ini actually
+    // go away.
+    unload_plugins();
+    configured_.clear();
+
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
     settings.set_alias(alias, "dotnet");
     settings_path_ = settings.alias().get_settings_path("");
@@ -248,11 +260,15 @@ bool DotnetPlugins::load_plugin(plugin_entry &entry, NSCAPI::moduleLoadMode mode
   return true;
 }
 
-bool DotnetPlugins::unloadModule() {
+void DotnetPlugins::unload_plugins() {
   std::vector<plugin_entry> plugins;
   {
-    std::lock_guard<std::mutex> lock(plugins_mutex_);
+    std::unique_lock<std::mutex> lock(plugins_mutex_);
+    // Shut the door, then wait for the log handler to come back out: it holds
+    // copies of the handles we are about to release.
+    unloading_ = true;
     plugins.swap(plugins_);
+    messages_idle_.wait_for(lock, std::chrono::seconds(5), [this] { return messages_in_flight_ == 0; });
   }
   for (plugin_entry &entry : plugins) {
     if (entry.handle && bridge_.unload) {
@@ -263,6 +279,14 @@ bool DotnetPlugins::unloadModule() {
       }
     }
   }
+  {
+    std::lock_guard<std::mutex> lock(plugins_mutex_);
+    unloading_ = false;
+  }
+}
+
+bool DotnetPlugins::unloadModule() {
+  unload_plugins();
   configured_.clear();
   return true;
 }
@@ -392,15 +416,21 @@ void DotnetPlugins::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
   // nothing at all unless a loaded plugin actually exposes a message handler.
   std::vector<plugin_entry> targets;
   {
-    std::lock_guard<std::mutex> lock(plugins_mutex_);
+    std::unique_lock<std::mutex> lock(plugins_mutex_);
+    // An unload has started: the handles below are being released, so do not
+    // touch them. Unlike a query this path is not gated by the core.
+    if (unloading_) return;
     for (const plugin_entry &entry : plugins_) {
       if (message.sender() == entry.alias) return;
     }
     for (const plugin_entry &entry : plugins_) {
       if (entry.messages) targets.push_back(entry);
     }
+    if (targets.empty() || bridge_.message == nullptr) return;
+    // Count in before releasing the lock: unload_plugins waits for this to
+    // drop back to zero before it releases a single handle.
+    ++messages_in_flight_;
   }
-  if (targets.empty() || bridge_.message == nullptr) return;
   PB::Log::LogEntry single;
   single.add_entry()->CopyFrom(message);
   const std::string buffer = single.SerializeAsString();
@@ -411,6 +441,11 @@ void DotnetPlugins::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
       // Loggers cannot log.
     }
   }
+  {
+    std::lock_guard<std::mutex> lock(plugins_mutex_);
+    --messages_in_flight_;
+  }
+  messages_idle_.notify_all();
 }
 
 std::int32_t DotnetPlugins::dispatch(std::int32_t op, const char *str, const std::string &request, std::string &response) {

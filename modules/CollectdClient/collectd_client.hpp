@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <atomic>
+
 #include <boost/thread/mutex.hpp>
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -142,6 +144,8 @@ struct collectd_client_handler : public client::handler_interface {
     variables_.clear();
     metrics_.clear();
   }
+  // Written by loadModuleEx on every reload and read by the metrics thread; a
+  // plain 64-bit member tears on the 32-bit Windows build.
   void set_interval(unsigned long long seconds) { interval_seconds_ = seconds; }
 
   bool query(client::destination_container sender, client::destination_container target, const PB::Commands::QueryRequestMessage &request_message,
@@ -214,7 +218,7 @@ struct collectd_client_handler : public client::handler_interface {
 
     // Interval reported to collectd: a per-target "interval" overrides the
     // module-level default (interval_seconds_) when set.
-    const unsigned long long interval = static_cast<unsigned long long>(target.get_int_data("interval", static_cast<int>(interval_seconds_)));
+    const unsigned long long interval = static_cast<unsigned long long>(target.get_int_data("interval", static_cast<int>(interval_seconds_.load())));
 
     // collectd "high-resolution" time/interval are in units of 2^-30 seconds.
     builder.set_time(now_seconds << 30, interval << 30);
@@ -269,7 +273,7 @@ struct collectd_client_handler : public client::handler_interface {
   mutable boost::mutex mappings_mutex_;
   mapping_list variables_;
   mapping_list metrics_;
-  unsigned long long interval_seconds_;
+  std::atomic<unsigned long long> interval_seconds_;
   const mapping_list default_variables_ = default_variables();
   const mapping_list default_metrics_ = default_metrics();
 };

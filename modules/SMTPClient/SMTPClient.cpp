@@ -55,7 +55,7 @@ bool SMTPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     // do. ${ca-path} expands to the distribution's own bundle on unix and to
     // the Windows ROOT store the service exports at boot; it is what a target
     // that does not name its own `ca` verifies against.
-    handler_->default_ca = get_core()->expand_path("${ca-path}");
+    handler_->default_ca.set(get_core()->expand_path("${ca-path}"));
 
     client_.finalize(nscapi::settings_proxy::create(get_id(), get_core()));
 

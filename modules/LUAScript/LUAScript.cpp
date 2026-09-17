@@ -24,18 +24,18 @@ namespace po = boost::program_options;
 bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
   try {
     root_ = get_core()->expand_path("${scripts}");
-    nscp_runtime_ = std::make_shared<scripts::nscp::nscp_runtime_impl>(get_id(), get_core());
+    const std::shared_ptr<scripts::nscp::nscp_runtime_impl> nscp_runtime = std::make_shared<scripts::nscp::nscp_runtime_impl>(get_id(), get_core());
     // The lua runtime appends "/scripts/lua/lib/?.lua" to this base when building
     // package.path for require(), so it must be the install base ("${base-path}"),
     // not "${scripts}" (which already points at the scripts dir and would double it).
-    lua_runtime_ = std::make_shared<lua::lua_runtime>(utf8::cvt<std::string>(get_core()->expand_path("${base-path}")));
-    // Published atomically, and read the same way everywhere below: a check
-    // thread copying this member while a reload replaces it is a data race on
-    // the shared_ptr itself, not merely on what it points at. The reload
-    // barrier in dll_plugin serialises the two today, but the barrier is a
-    // property of the caller - this makes the member safe on its own terms.
-    std::atomic_store(&scripts_,
-                      std::make_shared<scripts::script_manager<lua::lua_traits> >(lua_runtime_, nscp_runtime_, get_id(), utf8::cvt<std::string>(alias)));
+    const std::shared_ptr<lua::lua_runtime> lua_runtime =
+        std::make_shared<lua::lua_runtime>(utf8::cvt<std::string>(get_core()->expand_path("${base-path}")));
+    // The replacement generation is built in a local and published at the end.
+    // Until then the manager that is serving checks is the old one, untouched:
+    // a reload neither exposes a half-loaded script list nor takes the manager
+    // away from a check that is already running on it.
+    const std::shared_ptr<scripts::script_manager<lua::lua_traits> > fresh =
+        std::make_shared<scripts::script_manager<lua::lua_traits> >(lua_runtime, nscp_runtime, get_id(), utf8::cvt<std::string>(alias));
 
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
     settings.set_alias(alias, "lua");
@@ -43,7 +43,7 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     // clang-format off
     settings.alias().add_path_to_settings()
 
-      ("scripts", sh::fun_values_path([this] (auto key, auto value) { this->loadScript(key, value); }),
+      ("scripts", sh::fun_values_path([this, fresh] (auto key, auto value) { this->loadScript(fresh, key, value); }),
 	      "Lua scripts", "A list of scripts available to run from the LuaScript module.",
 	      "Script", "A lua script to load")
       ;
@@ -56,7 +56,19 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     // 			addAllScriptsFrom(scriptDirectory_);
     // 		}
 
-    std::atomic_load(&scripts_)->load_all();
+    fresh->load_all();
+
+    // Publish, then retire the generation it replaces. Dropping the previous
+    // manager without unloading it leaked every script it owned - each with its
+    // own lua_State - once per reload; unload_all waits out the checks still
+    // running on it before deleting them. Published atomically, and read the
+    // same way everywhere below: a check thread copying this member while a
+    // reload replaces it is a data race on the shared_ptr itself, not merely on
+    // what it points at.
+    lua_runtime_ = lua_runtime;
+    nscp_runtime_ = nscp_runtime;
+    const std::shared_ptr<scripts::script_manager<lua::lua_traits> > previous = std::atomic_exchange(&scripts_, fresh);
+    if (previous) previous->unload_all();
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("load", e);
     return false;
@@ -81,7 +93,7 @@ bool LUAScript::startModule() {
 
   return true;
 }
-bool LUAScript::loadScript(std::string alias, std::string file) {
+bool LUAScript::loadScript(const std::shared_ptr<scripts::script_manager<lua::lua_traits> > &scripts, std::string alias, std::string file) {
   try {
     if (file.empty()) {
       file = alias;
@@ -94,10 +106,6 @@ bool LUAScript::loadScript(std::string alias, std::string file) {
       return false;
     }
     NSC_DEBUG_MSG_STD("Adding script: " + ofile.value().string());
-    // Reached from settings.notify() inside loadModuleEx, so the manager the
-    // same call just published is there - but read it the same way as
-    // everywhere else rather than touching the member directly.
-    const std::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts = std::atomic_load(&scripts_);
     if (!scripts) {
       NSC_LOG_ERROR("Failed to add script, module is not loaded: " + file);
       return false;

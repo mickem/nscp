@@ -54,6 +54,13 @@ class plugin_interface : public logging::logging_subscriber {
   // True when the calling thread is itself executing inside this module, i.e.
   // the request asking for this is being served by the module it names.
   virtual bool is_dispatching_on_this_thread() const { return false; }
+  // Give up on the module without calling into it or unmapping it. Used when a
+  // module has to be taken out of every registry while a thread is still
+  // executing inside it: unloading would run its teardown on that very thread
+  // and then pull the code it is going to return into out from under it.
+  // Leaking the mapping for the rest of the process is the cheaper half of
+  // that trade. Only the DLL plugin maps anything, so the default is a no-op.
+  virtual void leak_plugin() {}
   virtual bool has_start() = 0;
   virtual bool start_plugin() = 0;
   virtual bool has_prepare_shutdown() = 0;

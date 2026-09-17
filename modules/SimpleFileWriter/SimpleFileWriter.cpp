@@ -111,6 +111,10 @@ bool SimpleFileWriter::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
   std::string syntax_host;
   std::string syntax_service;
   std::string channel;
+  // Built from scratch every time and published at the end, so a reload
+  // replaces the syntax rather than appending another copy of it to what is
+  // already there.
+  writer_config fresh;
   try {
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 
@@ -143,11 +147,11 @@ bool SimpleFileWriter::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
                     "${alias-or-command} = alias if set otherwise command, ${message} = the message data (no escape), ${result} or ${result_number} = The "
                     "result status (number), ${epoch} = seconds since unix epoch, ${time} = time using time-format.")
 
-        .add_file("file", sh::path_key(&filename_, "output.txt"), "FILE TO WRITE TO", "The filename to write output to.")
+        .add_file("file", sh::path_key(&fresh.filename, "output.txt"), "FILE TO WRITE TO", "The filename to write output to.")
 
         .add_string("channel", sh::string_key(&channel, "FILE"), "CHANNEL", "The channel to listen to.")
 
-        .add_string("time-syntax", sh::string_key(&config_.time_format, "%Y-%m-%d %H:%M:%S"), "TIME SYNTAX",
+        .add_string("time-syntax", sh::string_key(&fresh.config.time_format, "%Y-%m-%d %H:%M:%S"), "TIME SYNTAX",
                     "The date format using strftime format flags. This is the time of writing the message as messages currently does not have a source time.");
 
     settings.register_all();
@@ -163,9 +167,10 @@ bool SimpleFileWriter::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
       syntax_service = syntax;
     }
     parsers::simple_expression parser;
-    parsers::simple_expression::result_type result_host, result_service;
-    build_syntax(parser, syntax_host, syntax_host_lookup_);
-    build_syntax(parser, syntax_service, syntax_service_lookup_);
+    build_syntax(parser, syntax_host, fresh.syntax_host_lookup);
+    build_syntax(parser, syntax_service, fresh.syntax_service_lookup);
+
+    config_.set(std::move(fresh));
 
   } catch (nsclient::nsclient_exception &e) {
     NSC_LOG_ERROR_EXR("Failed to register command: ", e);
@@ -218,16 +223,14 @@ void SimpleFileWriter::handleNotification(const std::string &, const PB::Command
                                           PB::Commands::SubmitResponseMessage::Response *response, const PB::Commands::SubmitRequestMessage &request_message) {
   std::string key;
 
-  if (!request.alias().empty() || !request.command().empty()) {
-    for (index_lookup_function &f : syntax_service_lookup_) {
-      key += f(config_, request.command(), request_message.header(), request);
-    }
-  } else {
-    for (index_lookup_function &f : syntax_host_lookup_) {
-      key += f(config_, request.command(), request_message.header(), request);
-    }
+  // One snapshot for the whole submission: the syntax that renders the line and
+  // the file it is written to come from the same generation.
+  const std::shared_ptr<const writer_config> cfg = config_.get();
+  const index_lookup_type &lookup =
+      (!request.alias().empty() || !request.command().empty()) ? cfg->syntax_service_lookup : cfg->syntax_host_lookup;
+  for (const index_lookup_function &f : lookup) {
+    key += f(cfg->config, request.command(), request_message.header(), request);
   }
-  std::string data = request.SerializeAsString();
   {
     boost::unique_lock<boost::shared_mutex> lock(cache_mutex_);
     if (!lock) {
@@ -235,7 +238,7 @@ void SimpleFileWriter::handleNotification(const std::string &, const PB::Command
       return;
     }
     std::ofstream out;
-    out.open(filename_.c_str(), std::ios::out | std::ios::app);
+    out.open(cfg->filename.c_str(), std::ios::out | std::ios::app);
     out << key << std::endl;
   }
   nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), true, "message has been written");

@@ -137,6 +137,9 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
   // True when this thread is one of the calls currently inside the module.
   bool is_dispatching_on_this_thread() const override;
 
+  // Abandon the module without calling into it and without unmapping it.
+  void leak_plugin() override;
+
   bool load_plugin(NSCAPI::moduleLoadMode mode) override;
   bool has_start() override;
   bool start_plugin() override;

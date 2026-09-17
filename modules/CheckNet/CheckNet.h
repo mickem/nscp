@@ -3,13 +3,16 @@
 
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
+#include <nscapi/settings/snapshot.hpp>
 
 class CheckNet : public nscapi::impl::simple_plugin {
   // Path to the trusted CA bundle, resolved once from ${ca-path} during
   // loadModuleEx and reused by every check_http invocation. Avoids hitting
   // the path expander on the hot path and gives us a single, consistent
   // value across the module's lifetime.
-  std::string default_ca_;
+  // Re-resolved by loadModuleEx on every reload while checks are running on
+  // the server pools: published as a snapshot so a check reads one whole path.
+  nscapi::settings::snapshot<std::string> default_ca_;
 
  public:
   CheckNet() {};

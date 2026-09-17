@@ -205,6 +205,22 @@ struct script_manager {
   script_manager(std::shared_ptr<script_runtime_interface<script_trait> > script_runtime_, std::shared_ptr<nscp_runtime_interface> nscp_runtime, int plugin_id,
                  std::string plugin_alias)
       : script_runtime(script_runtime_), nscp_runtime(nscp_runtime), plugin_id(plugin_id), script_id(0), plugin_alias(plugin_alias) {}
+
+  // The manager owns raw script_information pointers, each holding a script
+  // state (a lua_State for the lua traits). Without this, dropping a manager -
+  // which is what a reload does when it builds a replacement - leaked the whole
+  // generation: the states, the user data and the registrations.
+  ~script_manager() {
+    try {
+      unload_all();
+    } catch (...) {
+      // Nothing useful to do from a destructor, and letting it out would
+      // terminate: the module is going away either way.
+    }
+  }
+  script_manager(const script_manager &) = delete;
+  script_manager &operator=(const script_manager &) = delete;
+
   script_information<script_trait> *add(std::string alias, std::string script) {
     script_information<script_trait> *info =
         new script_information_impl<script_trait>(this, nscp_runtime->get_settings_provider(), nscp_runtime->get_core_provider());
@@ -212,7 +228,15 @@ struct script_manager {
     info->plugin_id = plugin_id;
     info->script = script;
     info->script_alias = alias;
-    info->script_id = script_id++;
+    {
+      // Under the lock, like the insert below: two concurrent
+      // `nscp lua execute` calls otherwise handed out the same id and one of
+      // the two entries was silently overwritten and leaked. The id has to be
+      // final before create_user_data, which reads it, so this cannot simply
+      // move into the insert.
+      boost::lock_guard<boost::mutex> lock(mutex_);
+      info->script_id = script_id++;
+    }
     script_runtime->create_user_data(info);
     {
       boost::lock_guard<boost::mutex> lock(mutex_);

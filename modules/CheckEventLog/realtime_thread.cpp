@@ -85,6 +85,31 @@ void real_time_thread::thread_proc_body() {
     handles.push_back(h);
     active.push_back(el);
   }
+
+  // notify() creates a Win32 event that only un_notify() closes, and the loop
+  // below leaves on two paths that never called it: the stop signal and the
+  // give-up after a hundred errors. A reload stops and restarts this thread,
+  // so a fleet-managed host reloading every few minutes grew one handle per
+  // monitored log per reload. The logfile thread got the equivalent fix; here
+  // a guard covers every exit, including a throw.
+  struct subscription_guard {
+    eventlog_list &logs;
+    std::vector<HANDLE> &handles;
+    subscription_guard(eventlog_list &logs_, std::vector<HANDLE> &handles_) : logs(logs_), handles(handles_) {}
+    subscription_guard(const subscription_guard &) = delete;
+    subscription_guard &operator=(const subscription_guard &) = delete;
+    ~subscription_guard() {
+      // handles[0] is the stop signal, which this thread does not own.
+      for (std::size_t i = 0; i < logs.size() && i + 1 < handles.size(); i++) {
+        try {
+          logs[i]->un_notify(handles[i + 1]);
+        } catch (...) {
+          // Nothing useful to do while unwinding.
+        }
+      }
+    }
+  } unsubscribe(active, handles);
+
   helper.touch_all();
 
   // `run on startup` submissions are delivered from inside the loop rather

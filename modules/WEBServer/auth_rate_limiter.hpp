@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <boost/unordered/unordered_map.hpp>
 #include <ctime>
 #include <mutex>
@@ -60,13 +61,18 @@ class auth_rate_limiter {
   // slower than this.
   static constexpr long kBurstGapSeconds = 2;
 
+  // Written by loadModuleEx on every reload, on the scheduler thread, and read
+  // by the HTTP thread on every authentication attempt - so they are atomics
+  // rather than plain ints. Reading max_failures_ once per call also keeps a
+  // reload from flipping the limiter off between the guard and the bookkeeping
+  // below.
   void set_max_failures(int v) { max_failures_ = v; }
   void set_block_seconds(int v) { block_seconds_ = v; }
-  int get_max_failures() const { return max_failures_; }
-  int get_block_seconds() const { return block_seconds_; }
+  int get_max_failures() const { return max_failures_.load(); }
+  int get_block_seconds() const { return block_seconds_.load(); }
 
   bool is_blocked(const std::string& ip) {
-    if (max_failures_ <= 0) return false;
+    if (max_failures_.load() <= 0) return false;
     std::lock_guard<std::mutex> g(mu);
     const auto it = entries.find(ip);
     if (it == entries.end()) return false;
@@ -78,7 +84,8 @@ class auth_rate_limiter {
   // record_failure with an explicit clock, so a test can drive the burst
   // window, the escalation and the decay without waiting any of them out.
   void record_failure_at(const std::string& ip, std::time_t now) {
-    if (max_failures_ <= 0) return;
+    const int max_failures = max_failures_.load();
+    if (max_failures <= 0) return;
     std::lock_guard<std::mutex> g(mu);
     auto& e = entries[ip];
     // An IP that has been quiet since well after its last block ended is
@@ -86,7 +93,7 @@ class auth_rate_limiter {
     if (e.blocked_until != 0 && now > e.blocked_until + kOffenseDecaySeconds) e.offenses = 0;
     if (e.failures == 0) e.first_failure = now;
     e.failures++;
-    if (e.failures >= max_failures_) {
+    if (e.failures >= max_failures) {
       if (is_burst(now - e.first_failure)) {
         if (e.offenses < kMaxBackoffShift + 1) e.offenses++;
       } else {
@@ -94,7 +101,7 @@ class auth_rate_limiter {
         // rounds this client has already been through.
         e.offenses = 1;
       }
-      e.blocked_until = now + block_duration_seconds(block_seconds_, e.offenses);
+      e.blocked_until = now + block_duration_seconds(block_seconds_.load(), e.offenses);
       e.failures = 0;
       e.first_failure = 0;
     }
@@ -104,7 +111,8 @@ class auth_rate_limiter {
   // fast enough to count as automated. Free of any per-IP state, so the
   // threshold can be asserted directly.
   bool is_burst(std::time_t elapsed) const {
-    const long gaps = max_failures_ > 1 ? max_failures_ - 1 : 1;
+    const int max_failures = max_failures_.load();
+    const long gaps = max_failures > 1 ? max_failures - 1 : 1;
     return elapsed < gaps * kBurstGapSeconds;
   }
 
@@ -152,6 +160,6 @@ class auth_rate_limiter {
   };
   boost::unordered_map<std::string, entry> entries;
   std::mutex mu;
-  int max_failures_ = kDefaultMaxFailures;
-  int block_seconds_ = kDefaultBlockSeconds;
+  std::atomic<int> max_failures_{kDefaultMaxFailures};
+  std::atomic<int> block_seconds_{kDefaultBlockSeconds};
 };

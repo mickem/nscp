@@ -30,7 +30,9 @@ NSCPClient::~NSCPClient() {}
 
 bool NSCPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
   try {
-    client_.clear();
+    // No clear() here: set_path() below starts a fresh generation and
+    // finalize() publishes it, so a reload replaces the targets without ever
+    // showing a request an empty table.
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
     settings.set_alias("NSCP", alias, "client");
 

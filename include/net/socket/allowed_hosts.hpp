@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <mutex>
 #include <boost/asio/ip/address.hpp>
 #include <list>
@@ -29,7 +30,11 @@ struct allowed_hosts_manager {
   std::list<host_record_v4> entries_v4;
   std::list<host_record_v6> entries_v6;
   std::list<std::string> sources;
-  bool cached;
+  // Written by the settings callback on the reload thread and read on every
+  // accepting thread before the lock is taken, so it is an atomic rather than
+  // a plain bool. Written through set_cached() for the same reason - the
+  // settings binding used to hand out the address of the raw member.
+  std::atomic<bool> cached;
   // set_source()/refresh() rewrite the lists on the settings thread while
   // is_allowed() walks them on every accepting thread. A plain mutex, not a
   // shared_mutex: installer_lib compiles this header as its own C++14 project
@@ -41,16 +46,19 @@ struct allowed_hosts_manager {
 
   allowed_hosts_manager() : cached(true) {}
   allowed_hosts_manager(const allowed_hosts_manager &other)
-      : entries_v4(other.entries_v4), entries_v6(other.entries_v6), sources(other.sources), cached(other.cached) {}
+      : entries_v4(other.entries_v4), entries_v6(other.entries_v6), sources(other.sources), cached(other.cached.load()) {}
   allowed_hosts_manager &operator=(const allowed_hosts_manager &other) {
     if (this != &other) {
       entries_v4 = other.entries_v4;
       entries_v6 = other.entries_v6;
       sources = other.sources;
-      cached = other.cached;
+      cached = other.cached.load();
     }
     return *this;
   }
+
+  void set_cached(const bool value) { cached = value; }
+  bool is_cached() const { return cached.load(); }
 
   void set_source(const std::string &source);
   addr_v4 lookup_mask_v4(std::string mask);
@@ -74,7 +82,7 @@ struct allowed_hosts_manager {
     // BREAKING CHANGE from earlier versions: deployments that relied on
     // `allowed hosts =` (empty) to accept any source must set
     // `allowed hosts = 0.0.0.0/0,::/0` to keep the same behaviour.
-    if (!cached) refresh(errors);
+    if (!cached.load()) refresh(errors);
     std::lock_guard<std::mutex> lock(entries_mutex_);
     if (entries_v4.empty() && entries_v6.empty()) {
       errors.emplace_back("allowed_hosts is empty - rejecting all connections (set `allowed hosts = 0.0.0.0/0,::/0` to allow all)");

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/thread/locks.hpp>
@@ -34,9 +35,15 @@ class settings_handler_impl : public settings_core {
   reg_paths_type registred_paths_;
   tpl_desc_type registered_tpls_;
   nsclient::logging::logger_instance logger_;
-  bool ready_flag;
-  bool dirty_flag;
-  bool reload_flag;
+  // Three flags with three different writers and three different readers:
+  // set_reload(true) from the http instance's house_keeping on a scheduler
+  // worker, set_reload(false) from reloadPlugins() / clear_cache() on another
+  // worker or on the web thread, set_dirty() from every web `settings --set`,
+  // and is_dirty() read by the web status query. Atomics, so a reload request
+  // is neither missed nor seen twice.
+  std::atomic<bool> ready_flag;
+  std::atomic<bool> dirty_flag;
+  std::atomic<bool> reload_flag;
 
  public:
   settings_handler_impl(nsclient::logging::logger_instance logger) : logger_(logger), ready_flag(false), dirty_flag(false), reload_flag(false) {

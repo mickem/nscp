@@ -67,10 +67,38 @@ class connection : public std::enable_shared_from_this<connection<protocol_type,
 
   //////////////////////////////////////////////////////////////////////////
   // High level connection start/stop
+
+  // What the acceptor calls. start() itself can be slow - for check_mk
+  // on_connect() generates the entire agent output - and handle_accept runs on
+  // the accept strand shared by both acceptors, so doing it there stalled
+  // every other accept on this server while nine pool threads sat idle.
+  // Posting hands the connection to its own strand, which is where all of its
+  // other handlers already run, and is also what makes the plain-TCP and TLS
+  // transports behave the same way (over TLS on_connect() already ran on the
+  // connection strand, from the handshake handler).
+  void post_start() {
+    auto self(this->shared_from_this());
+    boost::asio::post(strand_, [self]() {
+      try {
+        self->start();
+      } catch (const std::exception& e) {
+        self->protocol_->log_error(__FILE__, __LINE__, std::string("Failed to start connection: ") + utf8::utf8_from_native(e.what()));
+        self->on_done(false);
+      } catch (...) {
+        self->protocol_->log_error(__FILE__, __LINE__, "Failed to start connection: UNKNOWN");
+        self->on_done(false);
+      }
+    });
+  }
+
   virtual void start() {
     trace("start()");
+    // The deadline is armed before on_connect(), not after it. on_connect() is
+    // where the protocol does its first real work, and for check_mk that is
+    // the whole agent run: until now it had no deadline at all, so a wedged
+    // handler held the connection open indefinitely.
+    set_timeout(protocol_->get_info().timeout);
     if (protocol_->on_connect()) {
-      set_timeout(protocol_->get_info().timeout);
       do_process();
     } else {
       on_done(false);
@@ -323,7 +351,20 @@ class ssl_connection : public connection<protocol_type, N> {
         // request. The protocol just won't see an identity.
         parent_type::protocol_->log_error(__FILE__, __LINE__, "Failed to extract peer Subject CN after TLS handshake");
       }
-      parent_type::start();
+      // Guarded exactly as handle_accept guards the plain-TCP start(). This
+      // runs from the handshake completion handler, so anything on_connect()
+      // throws - an NSCA encryption_exception, a check_mk handler running Lua,
+      // a bad_alloc - would otherwise leave through io_context::run() with no
+      // catch above it.
+      try {
+        parent_type::start();
+      } catch (const std::exception &ex) {
+        parent_type::protocol_->log_error(__FILE__, __LINE__, std::string("Failed to start TLS connection: ") + utf8::utf8_from_native(ex.what()));
+        parent_type::on_done(false);
+      } catch (...) {
+        parent_type::protocol_->log_error(__FILE__, __LINE__, "Failed to start TLS connection: UNKNOWN");
+        parent_type::on_done(false);
+      }
     } else {
       const int reason = ERR_GET_REASON(e.value());
       if (reason == SSL_R_NO_SHARED_CIPHER) {

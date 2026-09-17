@@ -41,5 +41,7 @@ class CheckMKClient : public nscapi::impl::simple_plugin {
  private:
   void add_command(std::string key, std::string args);
   void add_target(std::string key, std::string args);
-  bool add_script(std::string alias, std::string file);
+  // Takes the generation being built: during a reload the published one is
+  // still serving queries and must not be touched.
+  bool add_script(const std::shared_ptr<scripts::script_manager<lua::lua_traits> > &scripts, std::string alias, std::string file);
 };

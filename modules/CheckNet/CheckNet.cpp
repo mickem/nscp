@@ -36,7 +36,7 @@ bool CheckNet::loadModuleEx(const std::string &, NSCAPI::moduleLoadMode) {
   // detected at configure time because its location differs per family
   // (CONFIG_CA_PATH). check_http hands this through as the default `ca` so HTTPS
   // checks against public-CA-signed servers validate out of the box.
-  default_ca_ = get_core()->expand_path("${ca-path}");
+  default_ca_.set(get_core()->expand_path("${ca-path}"));
   return true;
 }
 
@@ -148,22 +148,22 @@ void CheckNet::check_dns(const PB::Commands::QueryRequestMessage::Request &reque
   check_net::check_dns(request, response);
 }
 void CheckNet::check_http(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) const {
-  check_net::check_http(default_ca_, request, response);
+  check_net::check_http(*default_ca_.get(), request, response);
 }
 void CheckNet::check_nsclient_web_online(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) const {
-  check_net::check_nsclient_web_online(default_ca_, request, response);
+  check_net::check_nsclient_web_online(*default_ca_.get(), request, response);
 }
 void CheckNet::check_apache_status(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) const {
-  check_net::check_apache_status(default_ca_, request, response);
+  check_net::check_apache_status(*default_ca_.get(), request, response);
 }
 void CheckNet::check_nginx_status(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) const {
-  check_net::check_nginx_status(default_ca_, request, response);
+  check_net::check_nginx_status(*default_ca_.get(), request, response);
 }
 void CheckNet::check_phpfpm_status(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) const {
-  check_net::check_phpfpm_status(default_ca_, request, response);
+  check_net::check_phpfpm_status(*default_ca_.get(), request, response);
 }
 void CheckNet::check_tomcat_status(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) const {
-  check_net::check_tomcat_status(default_ca_, request, response);
+  check_net::check_tomcat_status(*default_ca_.get(), request, response);
 }
 void CheckNet::check_connections(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_net::check_connections(request, response);

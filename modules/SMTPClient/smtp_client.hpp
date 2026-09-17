@@ -13,6 +13,7 @@
 #include <nscapi/protobuf/functions_response.hpp>
 #include <nscapi/protobuf/functions_submit.hpp>
 #include <nscapi/protobuf/metrics.hpp>
+#include <nscapi/settings/snapshot.hpp>
 #include <str/utils.hpp>
 
 #include "smtp.hpp"
@@ -93,7 +94,12 @@ struct smtp_client_handler : client::handler_interface {
   // fallback those paths dropped back to OpenSSL's built-in verify paths -
   // which on Windows do not include the certificate store, the exact hole the
   // `ca` setting exists to close.
-  std::string default_ca;
+  //
+  // loadModuleEx re-runs on every reload, on the scheduler thread, while
+  // submissions are in flight on the channel threads: published as a snapshot
+  // so a submission reads one whole path rather than a string being rewritten
+  // underneath it.
+  nscapi::settings::snapshot<std::string> default_ca;
 
   bool query(client::destination_container, client::destination_container, const PB::Commands::QueryRequestMessage&,
              PB::Commands::QueryResponseMessage&) override {
@@ -109,7 +115,7 @@ struct smtp_client_handler : client::handler_interface {
     // Fold the fallback in before tracing, so the trace shows the bundle the
     // submission will actually verify against. An explicit `ca` - including
     // `none`, which asks for OpenSSL's defaults - is left alone.
-    if (con.ca_path.empty()) con.ca_path = default_ca;
+    if (con.ca_path.empty()) con.ca_path = *default_ca.get();
     NSC_TRACE_ENABLED() { NSC_TRACE_MSG("SMTP target: " + con.to_string()); }
 
     smtp::connection_config cfg;

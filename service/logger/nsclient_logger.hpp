@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <boost/thread/lock_guard.hpp>
 #include <boost/thread/mutex.hpp>
 #include <list>
 #include <memory>
@@ -25,27 +26,44 @@ class nsclient_logger : public logger_impl, public logging_subscriber {
   nsclient_logger();
   ~nsclient_logger() override;
 
+  // The three mutators block rather than giving up after five seconds.
+  //
+  // remove()/clear() are what remove_plugin and purge_broken_plugin use to
+  // drop a module's log subscription, and a timeout there left a destroyed
+  // plugin's shared_ptr in the list - the static-destruction hazard
+  // plugin_manager.hpp documents. The critical section is now a list
+  // operation and nothing else (see on_log_message), so there is nothing left
+  // to wait five seconds for.
   void add(const logging_subscriber_instance &subscriber) {
-    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-    if (!lock.owns_lock()) return;
+    boost::lock_guard<boost::timed_mutex> lock(mutex_);
     subscribers_.push_back(subscriber);
   }
   void clear() {
-    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-    if (!lock.owns_lock()) return;
+    boost::lock_guard<boost::timed_mutex> lock(mutex_);
     subscribers_.clear();
   }
   void remove(const logging_subscriber_instance &subscriber) {
-    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-    if (!lock.owns_lock()) return;
+    boost::lock_guard<boost::timed_mutex> lock(mutex_);
     subscribers_.remove(subscriber);
   }
 
   void on_log_message(const std::string &data) override {
-    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-    if (!lock.owns_lock()) return;
-    if (subscribers_.empty()) return;
-    for (logging_subscriber_instance &s : subscribers_) {
+    // Snapshot under the lock, dispatch outside it.
+    //
+    // With the console backend - the default for `nscp test` and
+    // `nscp client` - subscribers are called synchronously on the logging
+    // thread, so a log-handler module that logs from inside its own handler
+    // arrived back here on the thread already holding this mutex: it waited
+    // out the five seconds and then dropped the line. The copy also keeps each
+    // subscriber alive for its call, which is what lets remove() block without
+    // the two deadlocking.
+    std::list<logging_subscriber_instance> subscribers;
+    {
+      boost::lock_guard<boost::timed_mutex> lock(mutex_);
+      if (subscribers_.empty()) return;
+      subscribers = subscribers_;
+    }
+    for (logging_subscriber_instance &s : subscribers) {
       s->on_log_message(data);
     }
   }

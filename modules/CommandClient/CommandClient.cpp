@@ -41,7 +41,6 @@ namespace sh = nscapi::settings_helper;
 // see a consistent value without surprising the compiler. Lock-free on
 // every platform we care about.
 std::atomic<bool> is_running{false};
-boost::thread input_thread;
 
 namespace {
 // The prompt currently drawing the console, if any. Held behind a mutex and
@@ -347,15 +346,20 @@ bool CommandClient::commandLineExec(const int target_mode, const PB::Commands::E
     nscapi::protobuf::functions::set_response_good(*response, "Shutdown requested");
     return true;
   }
-  if (is_running) {
-    NSC_LOG_ERROR("Command client is already running!");
-  }
-
   // Mark running *before* installing the signal/console handlers and starting
   // the input thread. If a SIGTERM/SIGINT (or Ctrl+C) arrives in that window
   // it sets is_running=false; were the input thread to set it true on startup
   // it would clobber that and lose the shutdown request.
-  is_running = true;
+  //
+  // The exchange is also the "already running" check: this used to log and
+  // then carry on, and the second call move-assigned onto the joinable thread
+  // the first one was sitting in join() on - which detaches the first loop or
+  // terminates the process, depending on the Boost version.
+  if (is_running.exchange(true)) {
+    NSC_LOG_ERROR("Command client is already running!");
+    nscapi::protobuf::functions::set_response_bad(*response, "Command client is already running (only one console at a time)");
+    return true;
+  }
 
 #ifdef WIN32
   if (!SetConsoleCtrlHandler(consoleHandler, TRUE)) {
@@ -398,7 +402,11 @@ bool CommandClient::commandLineExec(const int target_mode, const PB::Commands::E
     NSC_DEBUG_MSG("Enter command to execute, help for help or exit to exit...");
   }
 
-  input_thread = boost::thread([this, editor]() {
+  // A local, not a global: only this call ever waits for it, and a global
+  // made a second concurrent console assign onto the one the first was
+  // joining. It is joined right below, so the functor - and the reference to
+  // the editor it holds - is gone before the editor is torn down.
+  boost::thread input_thread([this, editor]() {
     if (editor) {
       this->interactive_input_loop(editor);
     } else {
@@ -406,9 +414,6 @@ bool CommandClient::commandLineExec(const int target_mode, const PB::Commands::E
     }
   });
   input_thread.join();
-  // Release the thread object so it stops holding a copy of the functor (and
-  // through it a reference to the editor we are about to tear down).
-  input_thread = boost::thread();
 
   if (editor) {
     // Drop the shared reference the logging thread reaches us through, and

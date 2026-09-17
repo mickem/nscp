@@ -69,6 +69,30 @@ class server : boost::noncopyable {
   std::shared_ptr<connection_type> new_connection_v6_;
   boost::thread_group thread_group_;
 
+  // Connections that have been accepted and not yet torn themselves down.
+  //
+  // Weakly, deliberately: a connection is kept alive by the handlers it has
+  // outstanding, and this list must not be what keeps it alive. It exists so
+  // stop() can close the sockets of whatever is still connected - see there.
+  // Touched from the accept strand and from stop(), hence the mutex.
+  mutable boost::mutex connections_mutex_;
+  std::list<std::weak_ptr<connection_type> > connections_;
+
+  void track_connection(const std::shared_ptr<connection_type> &connection) {
+    boost::lock_guard<boost::mutex> lock(connections_mutex_);
+    // Drop what has already gone while we are here: the list is only ever
+    // walked on stop(), so this is the only pruning it gets.
+    connections_.remove_if([](const std::weak_ptr<connection_type> &w) { return w.expired(); });
+    connections_.push_back(connection);
+  }
+
+  std::list<std::weak_ptr<connection_type> > take_connections() {
+    boost::lock_guard<boost::mutex> lock(connections_mutex_);
+    std::list<std::weak_ptr<connection_type> > ret;
+    ret.swap(connections_);
+    return ret;
+  }
+
  public:
   server(const connection_info &info, typename protocol_type::handler_type handler)
       : is_shutting_down_(false),
@@ -183,9 +207,35 @@ class server : boost::noncopyable {
     }
 
     for (std::size_t i = 0; i < info_.thread_pool_size; ++i) {
-      thread_group_.create_thread([this]() { io_service_.run(); });
+      thread_group_.create_thread([this]() { this->run_io_service(); });
     }
     return true;
+  }
+
+  // The pool thread body.
+  //
+  // boost::thread calls std::terminate on an uncaught exception, and
+  // io_context::run() rethrows whatever a handler threw. For plain TCP every
+  // handler is already inside handle_accept's catch-all, but the TLS path
+  // enters the protocol from handle_handshake, and a std::bad_alloc can come
+  // out of any handler on any transport - so one throw took the whole service
+  // down. Catch it here, log it, and go back into run(): the exception cost
+  // that one connection, not the agent.
+  void run_io_service() {
+    while (true) {
+      try {
+        io_service_.run();
+        return;  // No more work and nothing threw: this thread is done.
+      } catch (const std::exception &e) {
+        logger_->log_error(__FILE__, __LINE__, std::string("Exception escaped a connection handler: ") + utf8::utf8_from_native(e.what()));
+      } catch (...) {
+        logger_->log_error(__FILE__, __LINE__, "Exception escaped a connection handler: UNKNOWN");
+      }
+      // run() returns as soon as it rethrows, leaving the io_context's work
+      // in place, so re-entering it resumes the remaining connections. Once
+      // the server is stopping there is nothing left to resume.
+      if (is_shutting_down_) return;
+    }
   }
 
   bool setup_acceptor(boost::asio::ip::tcp::acceptor &acceptor, ip::tcp::endpoint &endpoint, bool reopen, bool reuse, const std::string &address) {
@@ -267,6 +317,22 @@ class server : boost::noncopyable {
     thread_group_.join_all();
     acceptor_v4.close();
     acceptor_v6.close();
+    // Now that no thread is running, close whatever is still connected - the
+    // same reasoning as the acceptors above, so no strand is needed.
+    // io_context::stop() only keeps new handlers from being dispatched; it
+    // does not touch an accepted socket. Without this the client connections
+    // stayed open, and their connection objects alive, until unloadModule
+    // destroyed the server - which is a later step the core may not reach for
+    // some time, and prepareShutdown runs well before it.
+    for (const std::weak_ptr<connection_type> &weak : take_connections()) {
+      if (const std::shared_ptr<connection_type> connection = weak.lock()) {
+        try {
+          connection->on_done(false);
+        } catch (...) {
+          // Best effort: the process is going away either way.
+        }
+      }
+    }
   }
 
  private:
@@ -282,7 +348,12 @@ class server : boost::noncopyable {
       if (!e) {
         std::list<std::string> errors;
         if (logger_->on_accept(slot->get_socket(), threads_--)) {
-          slot->start();
+          // Not slot->start(): that runs the protocol's on_connect() here, on
+          // the accept strand both acceptors share, so a slow one blocks every
+          // other accept on this server. post_start() hands it to the
+          // connection's own strand.
+          track_connection(slot);
+          slot->post_start();
         } else {
           slot->on_done(false);
         }
@@ -307,11 +378,6 @@ class server : boost::noncopyable {
     } catch (...) {
       logger_->log_error(__FILE__, __LINE__, "Failed to create new connection: UNKNOWN");
     }
-  }
-
-  void restart() {
-    stop();
-    start();
   }
 
   connection_type *create_connection() {

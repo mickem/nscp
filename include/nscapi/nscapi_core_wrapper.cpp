@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
 #include <atomic>
+#include <chrono>
+#include <cstdint>
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_helper.hpp>
 #include <nsclient/nsclient_exception.hpp>
@@ -48,13 +50,25 @@ nscapi::core_wrapper::~core_wrapper() { delete pimpl; }
 //////////////////////////////////////////////////////////////////////////
 
 bool nscapi::core_wrapper::should_log(NSCAPI::nagiosReturn msgType) const {
-  // Read on every log call from any thread, so the cached level is one
-  // atomic rather than two plain statics racing each other.
+  // Read on every log call from any thread, so the cached level is one atomic
+  // rather than two plain statics racing each other.
+  //
+  // The cache is re-read once a second rather than filled once and kept
+  // forever: `nscp settings --set /settings/log level=debug` and reload, or a
+  // module calling NSAPISetLoglevel, changes the core's level at run time, and
+  // a module that had already logged once never saw it - the new level took
+  // effect for the core and for every module loaded afterwards, but not for
+  // the ones already running. Asking the core on every call instead is a
+  // string comparison chain behind a function pointer, which is why this is
+  // cached at all; a steady_clock read costs about what the atomic load does.
   static std::atomic<int> cached{-1};
+  static std::atomic<std::int64_t> cached_at{0};
+  const std::int64_t now = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
   int level = cached.load(std::memory_order_relaxed);
-  if (level < 0) {
+  if (level < 0 || now != cached_at.load(std::memory_order_relaxed)) {
     level = static_cast<int>(get_loglevel());
     cached.store(level, std::memory_order_relaxed);
+    cached_at.store(now, std::memory_order_relaxed);
   }
   return logging::matches(static_cast<NSCAPI::log_level::level>(level), msgType);
 }

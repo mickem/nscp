@@ -26,10 +26,10 @@
 
 namespace sh = nscapi::settings_helper;
 
-CheckExternalScripts::CheckExternalScripts() : kill_tree(false) {}
+CheckExternalScripts::CheckExternalScripts() {}
 CheckExternalScripts::~CheckExternalScripts() {}
 
-void CheckExternalScripts::addAllScriptsFrom(std::string str_path) {
+void CheckExternalScripts::addAllScriptsFrom(const std::shared_ptr<script_provider_interface> &provider, const bool allow_args, std::string str_path) {
   std::string pattern = "*.*";
   boost::filesystem::path path(str_path);
   if (!boost::filesystem::is_directory(path)) {
@@ -59,10 +59,10 @@ void CheckExternalScripts::addAllScriptsFrom(std::string str_path) {
     if (!is_directory(itr->status())) {
       std::string name = file_helpers::meta::get_filename(itr->path());
       std::string cmd = itr->path().string();
-      if (allowArgs_) {
+      if (allow_args) {
         cmd += " %ARGS%";
       }
-      if (regex_match(name, re)) add_command(name, cmd);
+      if (regex_match(name, re)) add_command(provider, allow_args, name, cmd);
     }
   }
 }
@@ -72,7 +72,15 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
     settings.set_alias(alias, "external scripts");
 
-    aliases_.set_path(settings.alias().get_settings_path("alias"));
+    // Everything below builds a complete new generation in locals. Nothing a
+    // query can reach is touched until the three publishes at the end, so a
+    // reload never exposes a half-populated command table or a half-assigned
+    // setting - and the generation a running query holds stays alive until it
+    // is finished with it.
+    config fresh;
+    const std::shared_ptr<alias::command_handler> fresh_aliases = std::make_shared<alias::command_handler>();
+
+    fresh_aliases->set_path(settings.alias().get_settings_path("alias"));
     std::string wrappings_path = settings.alias().get_settings_path("wrappings");
     boost::filesystem::path scriptRoot;
     std::string scriptDirectory;
@@ -83,7 +91,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
       ("wrappings", sh::string_map_path(&wrappings)
 	      , "Script wrappings", "A list of templates for defining script commands.\nEnter any command line here and they will be expanded by scripts placed under the wrapped scripts section. %SCRIPT% will be replaced by the actual script an %ARGS% will be replaced by any given arguments.",
 	      "WRAPPING", "An external script wrapping")
-      ("alias", sh::fun_values_path([this] (auto key, auto value) { this->add_alias(key, value); }),
+      ("alias", sh::fun_values_path([this, fresh_aliases] (auto key, auto value) { this->add_alias(fresh_aliases, key, value); }),
 	      "Command aliases", "A list of aliases for already defined commands (with arguments).\n"
 	      "An alias is an internal command that has been predefined to provide a single command without arguments. Be careful so you don't create loops (ie check_loop=check_a, check_a=check_loop)",
 	      "ALIAS", "Query alias")
@@ -119,56 +127,57 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
       settings.set_static_key(wrappings_path, "bat", wrappings["bat"]);
     }
 
-    if (aliases_.empty()) {
+    if (fresh_aliases->empty()) {
       NSC_DEBUG_MSG("No aliases found (adding default)");
 
-      add_alias("alias_cpu", "check_cpu");
-      add_alias("alias_cpu_ex", "check_cpu \"warn=load > $ARG1$\" \"crit=load > $ARG2$\" time=5m time=1m time=30s");
-      add_alias("alias_mem", "check_memory");
-      add_alias("alias_top_memory_users",
+      add_alias(fresh_aliases, "alias_cpu", "check_cpu");
+      add_alias(fresh_aliases, "alias_cpu_ex", "check_cpu \"warn=load > $ARG1$\" \"crit=load > $ARG2$\" time=5m time=1m time=30s");
+      add_alias(fresh_aliases, "alias_mem", "check_memory");
+      add_alias(fresh_aliases, "alias_top_memory_users",
                 "filter_perf sort=normal limit=5 command=check_process arguments \"warn=working_set > 3G\" \"crit=working_set > 4G\" \"detail-syntax=%(exe) "
                 "ws=%(working_set)\"");
-      add_alias("alias_top_memory_users_ex",
+      add_alias(fresh_aliases, "alias_top_memory_users_ex",
                 "filter_perf sort=normal limit=5 command=check_process arguments \"warn=working_set > $ARG1$\" \"crit=working_set > $ARG2$\" "
                 "\"detail-syntax=%(exe) ws=%(working_set)\"");
-      add_alias("alias_up", "check_uptime");
-      add_alias("alias_disk", "check_drivesize");
-      add_alias("alias_disk_loose", "check_drivesize");
-      add_alias("alias_volumes", "check_drivesize");
-      add_alias("alias_volumes_loose", "check_drivesize");
-      add_alias("alias_service", "check_service");
-      add_alias("alias_service_ex", "check_service \"exclude=Net Driver HPZ12\" \"exclude=Pml Driver HPZ12\" exclude=stisvc");
-      add_alias("alias_process", "check_process \"process=$ARG1$\" \"crit=state != 'started'\"");
-      add_alias("alias_process_stopped", "check_process \"process=$ARG1$\" \"crit=state != 'stopped'\"");
-      add_alias("alias_process_count", "check_process \"process=$ARG1$\" \"warn=count > $ARG2$\" \"crit=count > $ARG3$\"");
-      add_alias("alias_process_hung", "check_process \"filter=is_hung\" \"crit=count>0\"");
-      add_alias("alias_event_log", "check_eventlog");
-      add_alias("alias_file_size",
+      add_alias(fresh_aliases, "alias_up", "check_uptime");
+      add_alias(fresh_aliases, "alias_disk", "check_drivesize");
+      add_alias(fresh_aliases, "alias_disk_loose", "check_drivesize");
+      add_alias(fresh_aliases, "alias_volumes", "check_drivesize");
+      add_alias(fresh_aliases, "alias_volumes_loose", "check_drivesize");
+      add_alias(fresh_aliases, "alias_service", "check_service");
+      add_alias(fresh_aliases, "alias_service_ex", "check_service \"exclude=Net Driver HPZ12\" \"exclude=Pml Driver HPZ12\" exclude=stisvc");
+      add_alias(fresh_aliases, "alias_process", "check_process \"process=$ARG1$\" \"crit=state != 'started'\"");
+      add_alias(fresh_aliases, "alias_process_stopped", "check_process \"process=$ARG1$\" \"crit=state != 'stopped'\"");
+      add_alias(fresh_aliases, "alias_process_count", "check_process \"process=$ARG1$\" \"warn=count > $ARG2$\" \"crit=count > $ARG3$\"");
+      add_alias(fresh_aliases, "alias_process_hung", "check_process \"filter=is_hung\" \"crit=count>0\"");
+      add_alias(fresh_aliases, "alias_event_log", "check_eventlog");
+      add_alias(fresh_aliases, "alias_file_size",
                 "check_files \"path=$ARG1$\" \"crit=size > $ARG2$\" \"top-syntax=${list}\" \"detail-syntax=${filename] ${size}\" max-dir-depth=10");
-      add_alias("alias_file_age",
+      add_alias(fresh_aliases, "alias_file_age",
                 "check_files \"path=$ARG1$\" \"crit=written > $ARG2$\" \"top-syntax=${list}\" \"detail-syntax=${filename] ${written}\" max-dir-depth=10");
-      add_alias("alias_sched_all", "check_tasksched show-all \"syntax=${title}: ${exit_code}\" \"crit=exit_code ne 0\"");
-      add_alias("alias_sched_long",
+      add_alias(fresh_aliases, "alias_sched_all", "check_tasksched show-all \"syntax=${title}: ${exit_code}\" \"crit=exit_code ne 0\"");
+      add_alias(fresh_aliases, "alias_sched_long",
                 "check_tasksched \"filter=status = 'running'\" \"detail-syntax=${title} (${most_recent_run_time})\" \"crit=most_recent_run_time < -$ARG1$\"");
-      add_alias("alias_sched_task", "check_tasksched show-all \"filter=title eq '$ARG1$'\" \"detail-syntax=${title} (${exit_code})\" \"crit=exit_code ne 0\"");
+      add_alias(fresh_aliases, "alias_sched_task",
+                "check_tasksched show-all \"filter=title eq '$ARG1$'\" \"detail-syntax=${title} (${exit_code})\" \"crit=exit_code ne 0\"");
       //			add_alias("alias_updates", "check_updates -warning 0 -critical 0");
     }
 
     settings.alias()
         .add_key_to_settings()
-        .add_int("timeout", sh::uint_key(&timeout, 60), "Command timeout",
+        .add_int("timeout", sh::uint_key(&fresh.timeout, 60), "Command timeout",
                  "The maximum time in seconds that a command can execute. (if more then this execution will be aborted). NOTICE this only affects external "
                  "commands not internal ones.")
-        .add_bool("kill tree", sh::bool_key(&kill_tree, false), "Kill process tree",
+        .add_bool("kill tree", sh::bool_key(&fresh.kill_tree, false), "Kill process tree",
                   "Kill all child processes (notice this might accidentally kill other processes if PIDs are reused when killing the process).")
 
-        .add_bool("allow arguments", sh::bool_key(&allowArgs_, false), "Allow arguments when executing external scripts",
+        .add_bool("allow arguments", sh::bool_key(&fresh.allow_args, false), "Allow arguments when executing external scripts",
                   "This option determines whether or not we will allow clients to specify arguments to commands that are executed. NOTICE this governs "
                   "external script commands only. Command aliases (the alias section) always substitute their client arguments into the internal command they "
                   "wrap regardless of this setting, because they dispatch to another internal check rather than spawning a process - the wrapped check's own "
                   "argument handling applies. Restrict which commands an alias may reach through the query permissions, not this flag.")
 
-        .add_bool("allow nasty characters", sh::bool_key(&allowNasty_, false), "Allow certain potentially dangerous characters in arguments",
+        .add_bool("allow nasty characters", sh::bool_key(&fresh.allow_nasty, false), "Allow certain potentially dangerous characters in arguments",
                   "This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments.")
 
         .add_file("script path", sh::string_key(&scriptDirectory), "Load all scripts in a given folder",
@@ -185,18 +194,21 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
     settings.register_all();
     settings.notify();
     settings.clear();
-    provider_.reset(new script_provider(get_id(), get_core(), settings.alias().get_settings_path("scripts"), scriptRoot, wrappings));
+    const std::shared_ptr<script_provider_interface> fresh_provider(
+        new script_provider(get_id(), get_core(), settings.alias().get_settings_path("scripts"), scriptRoot, wrappings));
 
     // clang-format off
     settings.alias().add_path_to_settings()
 
       ("External script settings", "General settings for the external scripts module (CheckExternalScripts).")
 
-      ("scripts", sh::fun_values_path([this] (auto key, auto value) { this->add_command(key, value); }),
+      ("scripts", sh::fun_values_path([this, fresh_provider, allow_args = fresh.allow_args] (auto key, auto value)
+	      { this->add_command(fresh_provider, allow_args, key, value); }),
       "External scripts", "A list of scripts available to run from the CheckExternalScripts module. Syntax is: `command=script arguments`",
       "SCRIPT", "For more configuration options add a dedicated section (if you add a new section you can customize the user and various other advanced features)")
 
-      ("wrapped scripts", sh::fun_values_path([this] (auto key, auto value) { this->add_wrapping(key, value); }),
+      ("wrapped scripts", sh::fun_values_path([this, fresh_provider, allow_args = fresh.allow_args] (auto key, auto value)
+	      { this->add_wrapping(fresh_provider, allow_args, key, value); }),
       "Wrapped scripts", "A list of wrapped scripts (ie. script using a template mechanism).\nThe template used will be defined by the extension of the script. Thus a foo.ps1 will use the ps1 wrapping from the wrappings section.",
       "WRAPPED SCRIPT", "A wrapped script definitions")
 
@@ -237,16 +249,23 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
     settings.notify();
 
     if (!scriptDirectory.empty()) {
-      addAllScriptsFrom(scriptDirectory);
+      addAllScriptsFrom(fresh_provider, fresh.allow_args, scriptDirectory);
     }
 
-    aliases_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
-    aliases_.add_missing(nscapi::settings_proxy::create(get_id(), get_core()), "default", "");
+    fresh_aliases->add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
+    fresh_aliases->add_missing(nscapi::settings_proxy::create(get_id(), get_core()), "default", "");
 
-    root_ = get_base_path();
+    fresh.root = get_base_path();
+
+    // Publish the completed generation. Ordering matters only in that a query
+    // arriving between the two stores sees one old table and one new one,
+    // which is a stale answer rather than a corrupt one.
+    config_.set(fresh);
+    std::atomic_store(&provider_, fresh_provider);
+    std::atomic_store(&aliases_, fresh_aliases);
 
     nscapi::core_helper core(get_core(), get_id());
-    for (const std::shared_ptr<alias::command_object> &o : aliases_.get_object_list()) {
+    for (const std::shared_ptr<alias::command_object> &o : fresh_aliases->get_object_list()) {
       const std::string arguments = o->get_argument();
       core.register_alias(o->get_alias(), "Alias for: " + o->command + (arguments.empty() ? "" : " " + arguments));
     }
@@ -275,11 +294,12 @@ bool CheckExternalScripts::commandLineExec(const int target_mode, const PB::Comm
       nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp ext-scr [add|list|show|install|delete] --help");
       return true;
     } else {
-      if (!provider_) {
+      const std::shared_ptr<script_provider_interface> provider = get_provider();
+      if (!provider) {
         nscapi::protobuf::functions::set_response_bad(*response, "Failed to create provider");
         return true;
       }
-      extscr_cli client(provider_);
+      extscr_cli client(provider);
       return client.run(command, request, response);
     }
   } catch (const std::exception &e) {
@@ -292,20 +312,20 @@ bool CheckExternalScripts::commandLineExec(const int target_mode, const PB::Comm
   return false;
 }
 
-void CheckExternalScripts::add_command(std::string key, std::string arg) {
+void CheckExternalScripts::add_command(const std::shared_ptr<script_provider_interface> &provider, const bool allow_args, std::string key, std::string arg) {
   try {
-    if (!provider_) {
+    if (!provider) {
       NSC_LOG_ERROR("Failed to add (no provider): " + key);
       return;
     }
-    provider_->add_command(key, arg);
+    provider->add_command(key, arg);
     if (arg.find("$ARG") != std::string::npos) {
-      if (!allowArgs_) {
+      if (!allow_args) {
         NSC_DEBUG_MSG_STD("Detected a $ARG??$ expression with allowed arguments flag set to false (perhaps this is not the intent)");
       }
     }
     if (arg.find("%ARG") != std::string::npos) {
-      if (!allowArgs_) {
+      if (!allow_args) {
         NSC_DEBUG_MSG_STD("Detected a %ARG??% expression with allowed arguments flag set to false (perhaps this is not the intent)");
       }
     }
@@ -315,9 +335,9 @@ void CheckExternalScripts::add_command(std::string key, std::string arg) {
     NSC_LOG_ERROR_EX("Failed to add: " + key);
   }
 }
-void CheckExternalScripts::add_alias(std::string key, std::string arg) {
+void CheckExternalScripts::add_alias(const std::shared_ptr<alias::command_handler> &aliases, std::string key, std::string arg) {
   try {
-    aliases_.add(nscapi::settings_proxy::create(get_id(), get_core()), key, arg);
+    aliases->add(nscapi::settings_proxy::create(get_id(), get_core()), key, arg);
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("Failed to add: " + key, e);
   } catch (...) {
@@ -325,32 +345,37 @@ void CheckExternalScripts::add_alias(std::string key, std::string arg) {
   }
 }
 
-void CheckExternalScripts::add_wrapping(std::string key, std::string command) {
-  if (!provider_) {
+void CheckExternalScripts::add_wrapping(const std::shared_ptr<script_provider_interface> &provider, const bool allow_args, std::string key,
+                                        std::string command) {
+  if (!provider) {
     NSC_LOG_ERROR("Failed to add: " + key);
     return;
   }
-  add_command(key, provider_->generate_wrapped_command(command));
+  add_command(provider, allow_args, key, provider->generate_wrapped_command(command));
 }
 
 void CheckExternalScripts::query_fallback(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                                           const PB::Commands::QueryRequestMessage &) {
-  if (!provider_) {
+  // One reference to each generation for the whole query: a reload landing
+  // mid-call cannot then free the provider this thread is inside.
+  const std::shared_ptr<script_provider_interface> provider = get_provider();
+  const std::shared_ptr<alias::command_handler> aliases = get_aliases();
+  if (!provider) {
     NSC_LOG_ERROR_STD("No provider found: " + request.command());
     nscapi::protobuf::functions::set_response_bad(*response, "No command or alias found matching: " + request.command());
     return;
   }
-  commands::command_object_instance command_def = provider_->find_command(request.command());
+  commands::command_object_instance command_def = provider->find_command(request.command());
 
   std::list<std::string> args;
   for (int i = 0; i < request.arguments_size(); ++i) {
     args.push_back(request.arguments(i));
   }
   if (command_def) {
-    handle_command(*command_def, args, response);
+    handle_command(*config_.get(), *command_def, args, response);
     return;
   }
-  alias::command_object_instance alias_def = aliases_.find_object(request.command());
+  alias::command_object_instance alias_def = aliases ? aliases->find_object(request.command()) : alias::command_object_instance();
   if (alias_def) {
     handle_alias(*alias_def, args, response);
     return;
@@ -359,7 +384,7 @@ void CheckExternalScripts::query_fallback(const PB::Commands::QueryRequestMessag
   nscapi::protobuf::functions::set_response_bad(*response, "No command or alias found matching: " + request.command());
 }
 
-void CheckExternalScripts::handle_command(const commands::command_object &cd, const std::list<std::string> &args,
+void CheckExternalScripts::handle_command(const config &cfg, const commands::command_object &cd, const std::list<std::string> &args,
                                           PB::Commands::QueryResponseMessage::Response *response) {
   std::string cmdline = cd.command;
   std::string all, allesc;
@@ -392,11 +417,11 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
   std::vector<std::string> argv;
   bool argv_ok = template_parse_error.empty();
   std::vector<std::string> validated_user_args;
-  if (allowArgs_) {
+  if (cfg.allow_args) {
     int i = 1;
     validated_user_args.reserve(args.size());
     for (const std::string &str : args) {
-      if (!allowNasty_ && str.find_first_of(NASTY_METACHARS) != std::string::npos) {
+      if (!cfg.allow_nasty && str.find_first_of(NASTY_METACHARS) != std::string::npos) {
         nscapi::protobuf::functions::set_response_bad(*response,
                                                       "Request contained illegal characters set /settings/external scripts/allow nasty characters=true!");
         return;
@@ -467,7 +492,7 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
   // those characters enable shell injection here, so apply the stricter
   // SHELL_METACHARS set to the user-supplied argument values on this fallback
   // path only (operators can still opt out with `allow nasty characters`).
-  if (!argv_ok && !allowNasty_ && !validated_user_args.empty()) {
+  if (!argv_ok && !cfg.allow_nasty && !validated_user_args.empty()) {
     for (const std::string &ua : validated_user_args) {
       if (ua.find_first_of(SHELL_METACHARS) != std::string::npos) {
         NSC_LOG_ERROR_STD("Refusing '" + cd.get_alias() +
@@ -509,7 +534,7 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
   }
 #endif
 
-  process::exec_arguments arg(root_, cmdline, timeout, cd.encoding, cd.session, cd.display, !cd.no_fork, kill_tree);
+  process::exec_arguments arg(cfg.root, cmdline, cfg.timeout, cd.encoding, cd.session, cd.display, !cd.no_fork, cfg.kill_tree);
   if (argv_ok) {
     arg.argv = argv;
   }

@@ -97,9 +97,9 @@ void pdh_thread::thread_proc() {
   }
 
   while (!stop_requested_) {
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-
-    if (stop_requested_) break;
+    // Interruptible: stop() signals the condition variable, so a reload does
+    // not pay up to a second of join latency per collector.
+    if (!wait_for_tick(1)) break;
 
     try {
       // Collect CPU data
@@ -523,7 +523,11 @@ bool pdh_thread::start() {
 }
 
 bool pdh_thread::stop() {
-  stop_requested_ = true;
+  {
+    std::lock_guard<std::mutex> lock(stop_mutex_);
+    stop_requested_ = true;
+  }
+  stop_cond_.notify_all();
   if (thread_) {
     thread_->join();
     // Idempotent: the destructor calls stop() again after unloadModule did.

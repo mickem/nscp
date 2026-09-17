@@ -6,6 +6,7 @@
 #include <Request.h>
 #include <StreamResponse.h>
 
+#include <atomic>
 #include <boost/thread/mutex.hpp>
 #include <list>
 #include <memory>
@@ -33,7 +34,9 @@ struct session_manager_interface {
   // grant table when no user is logged in. An operator who genuinely wants
   // anonymous access has to flip this on AND register the role - one
   // accidental knob is not enough to expose anything.
-  bool allow_anonymous_ = false;
+  // Written by a settings callback on the scheduler thread on every reload and
+  // read by the HTTP thread on every authorisation decision.
+  std::atomic<bool> allow_anonymous_{false};
 
   // Case-insensitive substrings matched against a request's User-Agent. When
   // any pattern matches, the request is allowed to authenticate via the
@@ -105,6 +108,7 @@ struct session_manager_interface {
   void set_allowed_hosts(const std::string &host);
   void set_allowed_hosts_cache(bool value);
   void set_allow_anonymous(bool value) { allow_anonymous_ = value; }
+
   void set_auth_rate_limit_max_failures(int value) { rate_limiter.set_max_failures(value); }
   void set_auth_rate_limit_block_seconds(int value) { rate_limiter.set_block_seconds(value); }
 

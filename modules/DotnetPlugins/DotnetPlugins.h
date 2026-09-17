@@ -4,6 +4,7 @@
 #pragma once
 
 #include <boost/filesystem/path.hpp>
+#include <condition_variable>
 #include <cstdint>
 #include <functional>
 #include <map>
@@ -89,6 +90,11 @@ class DotnetPlugins : public nscapi::impl::simple_plugin {
   bool load_plugin(plugin_entry &entry, NSCAPI::moduleLoadMode mode);
   boost::filesystem::path resolve_plugin_root() const;
   std::int32_t dispatch(std::int32_t op, const char *str, const std::string &request, std::string &response);
+  // Retire every loaded plugin: takes the list out under the lock, waits for
+  // the log handler to leave, then unloads each managed instance. Used by both
+  // unloadModule and the start of a reload, which would otherwise load every
+  // plugin a second time on top of the first.
+  void unload_plugins();
 
   std::string settings_path_;
   std::string runtime_root_;
@@ -100,6 +106,15 @@ class DotnetPlugins : public nscapi::impl::simple_plugin {
   // threads than the one loading and unloading the module.
   std::mutex plugins_mutex_;
   std::vector<plugin_entry> plugins_;
+  // handleLogMessage snapshots plugins_ under the lock and then calls the
+  // managed side outside it, because a managed call can come back into the
+  // core. The core does not dispatch-gate handleMessage (a module that logs
+  // from inside its own unload would deadlock on the gate), so without this
+  // count a log line racing an unload called a GCHandle bridge_.unload had
+  // already released. unload_plugins waits for the count to reach zero.
+  std::condition_variable messages_idle_;
+  int messages_in_flight_ = 0;
+  bool unloading_ = false;
   bridge_functions bridge_;
   std::shared_ptr<dotnet::host> host_;
 };

@@ -49,8 +49,6 @@ spi_container pdh_thread::fetch_spi(error_list &errors) {
   return ret;
 }
 
-bool first_time = true;
-
 void pdh_thread::sample_process_cpu(error_list &errors) {
   // The system-wide process table (walked cheaply in a single syscall, as in
   // fetch_spi) already carries per-process CreateTime/KernelTime/UserTime, so
@@ -125,9 +123,9 @@ void pdh_thread::sample_process_cpu(error_list &errors) {
   have_prev_proc_cpu_ = true;
 }
 
-bool pdh_thread::try_setup_pdh_counters(PDH::PDHQuery &pdh, bool log_failures_as_errors) {
-  counters_.clear();
-  lookups_.clear();
+bool pdh_thread::try_setup_pdh_counters(PDH::PDHQuery &pdh, bool log_failures_as_errors, std::list<PDH::pdh_instance> &counters, lookup_type &lookups) {
+  counters.clear();
+  lookups.clear();
   pdh.removeAllCounters();
 
   for (const PDH::pdh_object &obj : configs_) {
@@ -142,8 +140,8 @@ bool pdh_thread::try_setup_pdh_counters(PDH::PDHQuery &pdh, bool log_failures_as
         NSC_DEBUG_MSG("Loading counter: " + instance->get_name() + " = " + instance->get_counter());
         pdh.addCounter(instance);
       }
-      counters_.push_back(instance);
-      lookups_[instance->get_name()] = instance;
+      counters.push_back(instance);
+      lookups[instance->get_name()] = instance;
     } catch (const std::exception &e) {
       if (log_failures_as_errors) {
         NSC_LOG_ERROR_EXR("Failed to add counter " + obj.alias, e);
@@ -153,7 +151,7 @@ bool pdh_thread::try_setup_pdh_counters(PDH::PDHQuery &pdh, bool log_failures_as
     }
   }
 
-  if (counters_.empty()) {
+  if (counters.empty()) {
     if (log_failures_as_errors) {
       NSC_LOG_MESSAGE("No PDH counters could be resolved (performance counters disabled)");
     }
@@ -205,10 +203,10 @@ void pdh_thread::write_metrics(const spi_container &handles, const windows::syst
     metrics["procs.threads"] = handles.threads;
     metrics["procs.procs"] = handles.procs;
   } catch (const PDH::pdh_exception &e) {
-    if (first_time) {
+    if (first_gather_) {
       // If this is the first run an error will be thrown since the data is not yet available
       // This is "ok" but perhaps another solution would be better, but this works :)
-      first_time = false;
+      first_gather_ = false;
     } else {
       errors.push_back("Failed to query performance counters: " + e.reason());
     }
@@ -269,11 +267,22 @@ void pdh_thread::thread_proc() {
   // is sometimes not complete when the service starts shortly after boot,
   // which previously left PDH disabled until the next service restart (#634).
   if (!configs_.empty()) {
+    // The write lock is released for the retries and taken again for the
+    // publish. The back-off adds up to 31 s, and holding the collector's write
+    // lock across it made check_cpu, check_pdh, check_load, check_process
+    // delta=true and fetchMetrics all wait out their own 5 s timeout and
+    // answer "Failed to get Mutex" for the first half-minute after a boot with
+    // a slow perflib - which to a poller looks exactly like a hung agent. The
+    // counters are built into locals and swapped in, the copy-then-publish
+    // shape network_data::fetch already uses.
+    setup_lock.unlock();
+    std::list<PDH::pdh_instance> fresh_counters;
+    lookup_type fresh_lookups;
     const DWORD backoff_ms[] = {1000, 2000, 4000, 8000, 16000, 30000};
     const int max_attempts = sizeof(backoff_ms) / sizeof(backoff_ms[0]);
     for (int attempt = 0; attempt < max_attempts; ++attempt) {
       const bool is_last_attempt = (attempt + 1 == max_attempts);
-      if (try_setup_pdh_counters(pdh, is_last_attempt)) {
+      if (try_setup_pdh_counters(pdh, is_last_attempt, fresh_counters, fresh_lookups)) {
         check_pdh = true;
         break;
       }
@@ -285,6 +294,9 @@ void pdh_thread::thread_proc() {
         }
       }
     }
+    setup_lock.lock();
+    counters_.swap(fresh_counters);
+    lookups_.swap(fresh_lookups);
   }
 
   bool has_mem_realtime = !mem_filters_.empty() || !legacy_filters_.empty();
@@ -769,6 +781,19 @@ process_checks::cpu_delta_map pdh_thread::get_process_cpu_deltas() {
     return process_checks::cpu_delta_map();
   }
   return process_checks::cpu_delta_map(proc_cpu_deltas_);
+}
+
+bool pdh_thread::has_cpu_data() {
+  // The PDH counters keep their own collectors, filled as soon as the counter
+  // is added; there is no warm-up buffer of zeros to guard against.
+  if (this->use_pdh_for_cpu) return true;
+  if (is_disabled("cpu")) return false;
+  boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+  if (!readLock.owns_lock()) {
+    NSC_LOG_ERROR("Failed to get Mutex for: cpu");
+    return false;
+  }
+  return cpu.has_data();
 }
 
 std::map<std::string, windows::system_info::load_entry> pdh_thread::get_cpu_load(long seconds) {

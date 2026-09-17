@@ -17,7 +17,6 @@ class ThreadedSafePDH : public NativeExternalPDH {
   ThreadedSafePDH() {}
 
   bool reload() override;
-  bool reload_unsafe();
 
   void add_listener(subscriber* sub) override;
   void remove_listener(subscriber* sub) override;

@@ -111,7 +111,17 @@ static std::string readFromFile(buffer_type &buffer, const HANDLE file_handle) {
 }
 
 boost::timed_mutex mutex_;
-std::list<HANDLE> pids_;
+// Live children, for kill_all() at unload.
+//
+// The pid travels with the handle so kill_all can tell whether the handle
+// still names the process it was registered for. Windows recycles handle
+// values as aggressively as it recycles pids, and a stale entry here would
+// have TerminateProcess kill whatever the service opened next.
+struct registered_pid {
+  HANDLE handle;
+  DWORD pid;
+};
+std::list<registered_pid> pids_;
 
 namespace {
 // Restrict what a child inherits to its own two pipe ends.
@@ -229,23 +239,61 @@ struct inherit_reset {
 }  // namespace
 
 void process::kill_all() {
-  const boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-  if (!lock.owns_lock()) return;
-  for (const HANDLE &h : pids_) {
-    TerminateProcess(h, 5);
+  const boost::lock_guard<boost::timed_mutex> lock(mutex_);
+  for (const registered_pid &p : pids_) {
+    // Only ever a handle this spawn still owns: remove_proc blocks, so an
+    // entry is dropped before its handle is closed. The pid check is the
+    // second line of defence against a handle value that has been recycled.
+    if (GetProcessId(p.handle) != p.pid) continue;
+    TerminateProcess(p.handle, 5);
   }
 }
 
-void register_proc(HANDLE hProcess) {
-  const boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
-  if (!lock.owns_lock()) return;
-  pids_.push_back(hProcess);
+// Both block rather than giving up after a second.
+//
+// remove_proc() timing out left the handle value in the list while the spawn
+// went on to close it, and kill_all() then called TerminateProcess on a closed
+// - and possibly reused - handle. The critical section is a list push or a
+// list walk, so there is nothing here worth a timeout.
+void register_proc(HANDLE hProcess, DWORD pid) {
+  const boost::lock_guard<boost::timed_mutex> lock(mutex_);
+  registered_pid entry = {hProcess, pid};
+  pids_.push_back(entry);
 }
 void remove_proc(HANDLE process) {
-  const boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
-  if (!lock.owns_lock()) return;
-  pids_.remove_if([process](HANDLE other) { return other == process; });
+  const boost::lock_guard<boost::timed_mutex> lock(mutex_);
+  pids_.remove_if([process](const registered_pid &other) { return other.handle == process; });
 }
+
+namespace {
+// Owns the two handles CreateProcess hands back and the kill_all registration.
+//
+// Every early return used to leak them: the `fork` path returned straight
+// after the spawn, and so did the timeout path after TerminateProcess - one
+// leaked process handle per timed-out or fire-and-forget script, for the life
+// of the service. Deregistering before closing is the order kill_all relies
+// on.
+struct spawned_process {
+  HANDLE process;
+  HANDLE thread;
+  bool registered;
+
+  explicit spawned_process(const PROCESS_INFORMATION &pi) : process(pi.hProcess), thread(pi.hThread), registered(false) {}
+  spawned_process(const spawned_process &) = delete;
+  spawned_process &operator=(const spawned_process &) = delete;
+
+  void register_for_kill_all(DWORD pid) {
+    register_proc(process, pid);
+    registered = true;
+  }
+
+  ~spawned_process() {
+    if (registered) remove_proc(process);
+    if (thread != nullptr) CloseHandle(thread);
+    if (process != nullptr) CloseHandle(process);
+  }
+};
+}  // namespace
 int process::execute_process(const exec_arguments &args, std::string &output) {
   generic_handle hChildOutR, hChildOutW, hChildInR, hChildInW;
   generic_handle pHandle;
@@ -419,6 +467,10 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
   if (spawn_lock.owns_lock()) spawn_lock.unlock();
 
   if (processOK) {
+    // From here on the two handles CreateProcess returned are owned, and the
+    // kill_all registration is dropped, by this object - on every path out,
+    // including the fork and timeout returns below.
+    spawned_process child(pi);
     DWORD state = 0;
     // Trace the spawn so an operator can correlate "spawn -> kill -> exit"
     // log entries when triaging a hung or runaway script. The full command
@@ -436,7 +488,7 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
       output = "Command started successfully";
       return NSCAPI::query_return_codes::returnOK;
     }
-    register_proc(pi.hProcess);
+    child.register_for_kill_all(pi.dwProcessId);
     DWORD dwAvail = 0;
     std::string str;
     buffer_type buffer(BUFF_SIZE);
@@ -504,8 +556,6 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
     }
     output = utf8::cvt<std::string>(utf8::from_encoding(str, args.encoding));
 
-    remove_proc(pi.hProcess);
-    CloseHandle(pi.hThread);
     if (state == WAIT_TIMEOUT) {
       // Internal `timeout=` exceeded. Try a graceful CTRL-C first, then fall
       // back to TerminateProcess. Previously this path was effectively
@@ -553,7 +603,6 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
         result = NSCAPI::query_return_codes::returnUNKNOWN;
       }
     }
-    CloseHandle(pi.hProcess);
     return result;
   }
   const DWORD error = spawn_error;

@@ -27,6 +27,7 @@
 #include <cstddef>
 #include <functional>
 #include <map>
+#include <mutex>
 #include <string>
 #include <utility>
 
@@ -53,25 +54,65 @@ class kvp_map {
   void add(const std::string &name, const std::string &raw) {
     if (name.empty()) return;
     const std::string key = normalize(name);
+    // Outside the lock: the parser logs, and logging can reach back into the
+    // module that owns this map.
     boost::optional<Value> parsed = parser_(key, raw);
     if (!parsed) return;
+    std::lock_guard<std::mutex> lock(mutex_);
     entries_[key] = std::move(parsed.value());
   }
 
+  // Take over `other`'s entries, in one step.
+  //
+  // A settings reload runs on the scheduler thread while queries are resolving
+  // names against this map. Adding into the live map re-balanced the tree under
+  // a reader, and because nothing ever removed an entry an alias deleted from
+  // the ini went on resolving until the agent was restarted. Build the
+  // replacement in a local and hand it over here: a lookup sees either the
+  // whole old table or the whole new one, and what is gone is gone.
+  void replace(kvp_map &other) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    entries_.swap(other.entries_);
+  }
+
+  void clear() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    entries_.clear();
+  }
+
   boost::optional<Value> find(const std::string &name) const {
-    const auto it = entries_.find(normalize(name));
+    const std::string key = normalize(name);
+    std::lock_guard<std::mutex> lock(mutex_);
+    const auto it = entries_.find(key);
     if (it == entries_.end()) return boost::none;
     return it->second;
   }
 
-  bool contains(const std::string &name) const { return entries_.find(normalize(name)) != entries_.end(); }
+  bool contains(const std::string &name) const {
+    const std::string key = normalize(name);
+    std::lock_guard<std::mutex> lock(mutex_);
+    return entries_.find(key) != entries_.end();
+  }
 
-  bool empty() const { return entries_.empty(); }
-  std::size_t size() const { return entries_.size(); }
+  bool empty() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return entries_.empty();
+  }
+  std::size_t size() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return entries_.size();
+  }
 
+  // Walks a copy: `fn` is caller code that may query, log or add, and holding
+  // the lock across it would deadlock the moment it comes back here.
   template <class F>
   void for_each(F &&fn) const {
-    for (const auto &kv : entries_) fn(kv.first, kv.second);
+    std::map<std::string, Value> snapshot;
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      snapshot = entries_;
+    }
+    for (const auto &kv : snapshot) fn(kv.first, kv.second);
   }
 
  private:
@@ -80,6 +121,9 @@ class kvp_map {
   std::string path_;
   parse_fn parser_;
   bool case_insensitive_;
+  // Guards entries_ only. Every accessor takes it: the settings callbacks run
+  // on the reload thread and the lookups on whatever thread serves the query.
+  mutable std::mutex mutex_;
   std::map<std::string, Value> entries_;
 };
 

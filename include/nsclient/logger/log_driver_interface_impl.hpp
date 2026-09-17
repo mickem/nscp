@@ -7,16 +7,24 @@
 #include <nsclient/logger/log_level.hpp>
 #include <nsclient/logger/log_message_factory.hpp>
 #include <nsclient/logger/logger.hpp>
+
+#include <atomic>
 #include <string>
 
 namespace nsclient {
 namespace logging {
 
 class log_driver_interface_impl : public log_driver_interface {
-  bool console_log_;
-  bool oneline_;
-  bool no_std_err_;
-  bool is_running_;
+  // Written by set_config()/startup()/shutdown() on whatever thread the module
+  // calling NSAPISetLogOption happens to use - CommandClient taking the
+  // console over for its prompt is the case that matters - and read by
+  // is_console() / is_started() on every thread that logs. Atomics: these are
+  // flags, so there is nothing to lock, but a plain bool here is a data race
+  // and a stale or torn read decides whether a line reaches the console.
+  std::atomic<bool> console_log_;
+  std::atomic<bool> oneline_;
+  std::atomic<bool> no_std_err_;
+  std::atomic<bool> is_running_;
 
  public:
   log_driver_interface_impl() : console_log_(false), oneline_(false), no_std_err_(false), is_running_(false) {}

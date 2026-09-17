@@ -356,8 +356,10 @@ std::string client::configuration::add_command(const std::string &name, const st
   std::string key = boost::algorithm::to_lower_copy(name);
   data.key = key;
   {
+    // Into the generation being built; finalize() publishes it. See
+    // configuration::set_path().
     boost::unique_lock<boost::shared_mutex> lock(tables_mutex_);
-    commands[data.key] = data;
+    staging_commands[data.key] = data;
   }
   return key;
 }
@@ -376,7 +378,10 @@ client::destination_container client::configuration::get_target(const std::strin
 
 client::destination_container client::configuration::get_sender() const {
   destination_container s;
-  s.set_address(default_sender);
+  {
+    boost::shared_lock<boost::shared_mutex> lock(tables_mutex_);
+    s.set_address(default_sender);
+  }
   return s;
 }
 
@@ -817,9 +822,16 @@ void client::configuration::do_metrics(const PB::Metrics::MetricsMessage &reques
 }
 
 void client::configuration::finalize(const std::shared_ptr<nscapi::settings_proxy> &settings) {
-  boost::unique_lock<boost::shared_mutex> lock(tables_mutex_);
-  targets.add_samples(settings);
-  targets.add_missing(settings, "default", "");
+  {
+    boost::unique_lock<boost::shared_mutex> lock(tables_mutex_);
+    staging_targets.add_samples(settings);
+    staging_targets.add_missing(settings, "default", "");
+  }
+  // Until this line the live tables are whatever the previous load left there,
+  // which is what keeps a reload from showing a request an empty or
+  // half-filled target table; after it, what the configuration no longer names
+  // is gone from here too.
+  publish();
 }
 void payload_builder::set_result(const std::string &value) {
   if (is_submit()) {

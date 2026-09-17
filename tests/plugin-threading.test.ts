@@ -308,6 +308,17 @@ describe("plugin threading", () => {
         "    import ctypes",
         "    return (status.OK, 'native ok %d' % ctypes.sizeof(ctypes.c_int))",
         "",
+        "def reloader(arguments):",
+        "    # A scripted reload from inside a check the NRPE listener is",
+        "    # serving. The reload re-runs loadModuleEx on every live module,",
+        "    # NRPEServer's stops and joins its io pool - and this check is",
+        "    # running on one of those threads. Until the core started routing",
+        "    # every reload through the scheduler, that joined this thread with",
+        "    # itself and left the listener permanently dead.",
+        "    core = Core.get(plugin_id)",
+        "    core.reload('service')",
+        "    return (status.OK, 'reload requested')",
+        "",
         "def sleeper(arguments):",
         "    # NSCP.sleep parks the thread with the GIL released",
         "    # (thread_unlocker -> PyEval_SaveThread), so other threads must",
@@ -326,6 +337,7 @@ describe("plugin threading", () => {
         "    reg.simple_function('py_nested', nested, 'queries a command its own module serves')",
         "    reg.simple_function('py_native', native, 'imports a C extension module')",
         "    reg.simple_function('py_sleep', sleeper, 'parks with the GIL released')",
+        "    reg.simple_function('py_reload', reloader, 'reloads the agent from inside a check')",
         "",
       ].join("\n"),
     );
@@ -579,6 +591,24 @@ describe("plugin threading", () => {
     const results = await Promise.all(Array.from({ length: 4 }, () => nrpe("lua_nested")));
     for (const r of results) expect(r).toContain("nested saw: inner reached");
     expect(await nrpe("check_ok", ["message=still-alive"])).toContain("still-alive");
+  });
+
+  itPy("survives a check that reloads the whole agent from inside the listener", async () => {
+    // NET-2: the reload has to happen somewhere other than the thread serving
+    // this request. If it runs inline, NRPEServer::loadModuleEx stops its own
+    // server from one of that server's io threads - the join throws, the
+    // listener is already shut, and the core then purges the module. The
+    // symptom is not a failed check but an agent that never answers over NRPE
+    // again, so the assertion that matters is the one after it.
+    expect(await nrpe("py_reload")).toContain("reload requested");
+
+    // The reload is queued, so give the scheduler a moment to run it before
+    // asking whether the listener survived it.
+    await new Promise((r) => setTimeout(r, 2000));
+
+    expect(await nrpe("check_ok", ["message=listener-alive"])).toContain("listener-alive");
+    // And the module that ran the reload is still registered.
+    expect(await nrpe("py_inner")).toContain("inner reached");
   });
 
   itScript("keeps serving checks while the agent reloads", async () => {

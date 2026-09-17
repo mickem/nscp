@@ -5,16 +5,28 @@
 
 namespace PDH {
 bool ThreadedSafePDH::reload() {
-  boost::unique_lock<boost::shared_mutex> lock(mutex_);
-  if (!lock.owns_lock()) throw pdh_exception("Failed to get mutex for reload");
-  return reload_unsafe();
-}
-
-bool ThreadedSafePDH::reload_unsafe() {
-  for (subscriber_list::const_iterator cit = subscribers_.begin(); cit != subscribers_.end(); ++cit) (*cit)->on_unload();
-  unload_procs();
-  load_procs();
-  for (subscriber_list::const_iterator cit = subscribers_.begin(); cit != subscribers_.end(); ++cit) (*cit)->on_reload();
+  // The subscribers are called with the lock released.
+  //
+  // mutex_ is a plain shared_mutex, and the only subscriber there is
+  // (PDHQuery) calls straight back into this object from both callbacks -
+  // on_unload() into PdhCloseQuery, on_reload() into PdhOpenQuery - each of
+  // which takes the same lock on the same thread. Calling them under it
+  // blocked the caller on itself, forever. No caller reaches this today, but
+  // this is the implementation that advertises itself as the thread-safe one.
+  subscriber_list subscribers;
+  {
+    boost::unique_lock<boost::shared_mutex> lock(mutex_);
+    if (!lock.owns_lock()) throw pdh_exception("Failed to get mutex for reload");
+    subscribers = subscribers_;
+  }
+  for (subscriber_list::const_iterator cit = subscribers.begin(); cit != subscribers.end(); ++cit) (*cit)->on_unload();
+  {
+    boost::unique_lock<boost::shared_mutex> lock(mutex_);
+    if (!lock.owns_lock()) throw pdh_exception("Failed to get mutex for reload");
+    unload_procs();
+    load_procs();
+  }
+  for (subscriber_list::const_iterator cit = subscribers.begin(); cit != subscribers.end(); ++cit) (*cit)->on_reload();
   return true;
 }
 
@@ -106,15 +118,21 @@ pdh_error ThreadedSafePDH::PdhCollectQueryData(const PDH_HQUERY hQuery) {
   return pdh_error(pPdhCollectQueryData(hQuery));
 }
 pdh_error ThreadedSafePDH::PdhValidatePath(const LPCWSTR szFullPathBuffer, const bool force_reload) {
+  pdh_error status;
+  {
+    boost::unique_lock<boost::shared_mutex> lock(mutex_);
+    if (!lock.owns_lock()) throw pdh_exception("Failed to get mutex for PdhValidatePath");
+    if (pPdhValidatePath == nullptr) throw pdh_exception("Failed to initialize PdhValidatePath :(");
+    status = pdh_error(pPdhValidatePath(szFullPathBuffer));
+  }
+  if (!status.is_error() || !force_reload) return status;
+  // reload() takes and releases the lock itself, and calls the subscribers
+  // outside it - see there for why it must not be called with it held.
+  reload();
   boost::unique_lock<boost::shared_mutex> lock(mutex_);
   if (!lock.owns_lock()) throw pdh_exception("Failed to get mutex for PdhValidatePath");
   if (pPdhValidatePath == nullptr) throw pdh_exception("Failed to initialize PdhValidatePath :(");
-  pdh_error status = pdh_error(pPdhValidatePath(szFullPathBuffer));
-  if (status.is_error() && force_reload) {
-    reload_unsafe();
-    status = pdh_error(pPdhValidatePath(szFullPathBuffer));
-  }
-  return status;
+  return pdh_error(pPdhValidatePath(szFullPathBuffer));
 }
 pdh_error ThreadedSafePDH::PdhEnumObjects(const LPCWSTR szDataSource, const LPCWSTR szMachineName, const LPWSTR mszObjectList, const LPDWORD pcchBufferSize,
                                           const DWORD dwDetailLevel, const BOOL bRefresh) {

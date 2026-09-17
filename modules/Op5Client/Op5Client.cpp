@@ -29,7 +29,12 @@ Op5Client::Op5Client() {}
  * Default d-tor
  * @return
  */
-Op5Client::~Op5Client() {}
+Op5Client::~Op5Client() {
+  // Belt and braces with ~op5_client, which also stops the thread: this is the
+  // path unloadModule normally takes, and a module destroyed without it (an
+  // unloadModule that threw) must still not leave the worker running.
+  if (client) client->stop();
+}
 
 #define HTTP_HDR_AUTH "Authorization"
 #define HTTP_HDR_AUTH_BASIC "Basic "

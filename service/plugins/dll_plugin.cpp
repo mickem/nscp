@@ -194,6 +194,22 @@ bool nsclient::core::dll_plugin::is_dispatching_on_this_thread() const {
   return dispatchers_.find(boost::this_thread::get_id()) != dispatchers_.end();
 }
 
+void nsclient::core::dll_plugin::leak_plugin() {
+  {
+    boost::lock_guard<boost::mutex> guard(dispatch_mutex_);
+    // Shut the door so no further dispatch enters, and clear the flags
+    // unload_plugin() keys off so neither it nor the destructor calls
+    // fUnLoadModule: the thread that made us give up is still running inside
+    // the module, and its teardown would run on that thread.
+    unloading_ = true;
+    loaded_ = false;
+    loading_ = false;
+  }
+  unloaded_ = true;
+  // Keeps ~dll_plugin from unmapping the library the stuck thread returns into.
+  leaked_ = true;
+}
+
 bool nsclient::core::dll_plugin::load_plugin(NSCAPI::moduleLoadMode mode) {
   if ((loaded_ || loading_) && mode != NSCAPI::reloadStart) return true;
   if (!fLoadModule) throw plugin_exception(get_alias_or_name(), "Critical error (fLoadModule)");

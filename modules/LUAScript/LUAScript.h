@@ -38,7 +38,9 @@ class LUAScript : public nscapi::impl::simple_plugin {
 
   bool reload(std::wstring &msg);
 
-  bool loadScript(std::string alias, std::string file);
+  // Fills the generation being built, which is not the one checks are reading
+  // until loadModuleEx publishes it.
+  bool loadScript(const std::shared_ptr<scripts::script_manager<lua::lua_traits> > &scripts, std::string alias, std::string file);
   //	NSCAPI::nagiosReturn execute_and_load(std::list<std::wstring> args, std::wstring &message);
   //	NSCAPI::nagiosReturn handleSimpleNotification(const std::wstring channel, const std::wstring source, const std::wstring command, NSCAPI::nagiosReturn
   // code, std::wstring msg, std::wstring perf); 	NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request,

@@ -770,6 +770,13 @@ void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &re
         *response, "CPU load sampling is disabled (remove cpu from disable in /settings/system/windows to use check_cpu)");
   }
 
+  if (!collector->has_cpu_data()) {
+    // The collector is up but has not sampled yet - the first tick is a second
+    // away, and a reload starts a fresh collector. Say so rather than average
+    // the buffer's empty slots and report an idle CPU.
+    return nscapi::protobuf::functions::set_response_bad(*response, "No CPU data available yet (collector still initializing)");
+  }
+
   for (const std::string &time : times) {
     long seconds;
     try {

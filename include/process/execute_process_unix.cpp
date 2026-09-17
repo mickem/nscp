@@ -60,7 +60,6 @@ const char kOutputTruncMarker[] = "\n[output truncated]";
 const std::size_t kOutputContentCap = MAX_OUTPUT_BYTES - (sizeof(kOutputTruncMarker) - 1);
 }  // namespace
 
-bool early_timeout = false;
 typedef hlp::buffer<char> buffer_type;
 
 namespace {
@@ -359,7 +358,6 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
 }  // namespace
 
 int process::execute_process(const process::exec_arguments& args, std::string& output) {
-  early_timeout = false;
   // The run-as settings (user/domain/password) are implemented by the Windows
   // launcher only (LogonUser + CreateProcessAsUser). This launcher never read
   // them, so a script an operator had sandboxed with `user = nobody` ran as the

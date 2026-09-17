@@ -85,6 +85,11 @@ class pdh_thread {
   std::list<PDH::pdh_object> configs_;
   std::list<PDH::pdh_instance> counters_;
   rrd_buffer<windows::system_info::cpu_load> cpu;
+  // "Swallow the first gather error": the first tick has nothing to delta
+  // against, so PDH throws and that is expected. A member, not a file-scope
+  // flag - a reload builds a second collector, which found the flag already
+  // cleared and reported its own expected first-tick error as a real one.
+  bool first_gather_ = true;
   // Unix-style load averages folded from queue length + busy cores each tick
   // (guarded by mutex_; see check_load.hpp).
   load_check::load_avg_state load_avg_;
@@ -138,6 +143,11 @@ class pdh_thread {
   std::map<std::string, double> get_average(std::string counter, long seconds);
   std::map<std::string, long long> get_int_value(std::string counter);
   std::map<std::string, windows::system_info::load_entry> get_cpu_load(long seconds);
+  // True once the collector has folded at least one CPU sample into the
+  // buffer. check_cpu answers with the documented no-data message while this
+  // is false: the buffer is allocated full of zero slots, so without it the
+  // first checks after a start or a reload reported a saturated host as 0 %.
+  bool has_cpu_data();
   // Snapshot of the synthetic load averages; samples == 0 until the collector
   // has completed its first tick (or when load sampling is disabled).
   load_check::load_avg_state get_load_avg();
@@ -191,7 +201,11 @@ class pdh_thread {
   // log_failures_as_errors selects the log level used for failures (true on
   // the final attempt so the user sees what went wrong, false during retries
   // to avoid spamming the log on transient boot races).
-  bool try_setup_pdh_counters(PDH::PDHQuery &pdh, bool log_failures_as_errors);
+  // Builds the counter list and lookup map into the two out-parameters rather
+  // than into the members: the retry loop that drives this waits up to 31 s in
+  // total, and the members may not be rewritten while the collector's write
+  // lock is released (see thread_proc).
+  bool try_setup_pdh_counters(PDH::PDHQuery &pdh, bool log_failures_as_errors, std::list<PDH::pdh_instance> &counters, lookup_type &lookups);
 
   filters::mem::filter_config_handler mem_filters_;
   filters::cpu::filter_config_handler cpu_filters_;

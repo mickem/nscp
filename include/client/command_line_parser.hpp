@@ -314,6 +314,7 @@ struct configuration : public boost::noncopyable {
   typedef nscapi::settings_objects::object_handler<nscapi::settings_objects::object_instance_interface, options_reader_interface> object_handler_type;
   handler_type handler;
   options_reader_type reader;
+  // The live tables, read by the query, submission and metrics threads.
   object_handler_type targets;
 
   std::string title;
@@ -322,7 +323,7 @@ struct configuration : public boost::noncopyable {
   command_type commands;
 
   configuration(const std::string &caption, handler_type handler, const options_reader_type &reader)
-      : handler(std::move(handler)), reader(reader), targets(reader) {}
+      : handler(std::move(handler)), reader(reader), targets(reader), staging_targets(reader) {}
 
   std::string to_string() {
     std::stringstream ss;
@@ -331,22 +332,64 @@ struct configuration : public boost::noncopyable {
     return ss.str();
   }
 
-  void set_path(const std::string &path) { targets.set_path(path); }
+  // Starts a rebuild as well as setting the path: every client module calls
+  // this once at the top of loadModuleEx, before walking the targets.
+  //
+  // The walk fills the staging tables, and finalize() publishes them. Filling
+  // the live ones instead meant a reload was either lossy or racy, depending
+  // on the module: the three that clear() first emptied the target table and
+  // then repopulated it key by key, so a request in that window got an empty
+  // destination ("connect to : failed"), while the ones that do not clear
+  // never re-read an existing target at all, so a changed address, port or
+  // password stayed stale until the agent was restarted.
+  void set_path(const std::string &path) {
+    boost::unique_lock<boost::shared_mutex> lock(tables_mutex_);
+    targets.set_path(path);
+    staging_targets.set_path(path);
+    staging_targets.clear();
+    staging_commands.clear();
+  }
 
-  void set_sender(const std::string &_sender) { default_sender = _sender; }
+  // Written at the end of loadModuleEx - which the core also runs with
+  // reloadStart on the live module - while channel, scheduler and metrics
+  // threads are inside do_submit / do_metrics reading it. Same table, same
+  // lock as `commands` and `targets`.
+  void set_sender(const std::string &_sender) {
+    boost::unique_lock<boost::shared_mutex> lock(tables_mutex_);
+    default_sender = _sender;
+  }
 
   destination_container get_target(const std::string &name) const;
   destination_container get_sender() const;
 
   void add_target(const std::shared_ptr<nscapi::settings_proxy> &proxy, const std::string &key, const std::string &value) {
+    // Into the generation being built. The lock is held across object->read()
+    // - a settings query - but only workers looking at the *live* tables would
+    // care, and they do not take it for this.
     boost::unique_lock<boost::shared_mutex> lock(tables_mutex_);
-    targets.add(proxy, key, value);
+    staging_targets.add(proxy, key, value);
   }
   std::string add_command(const std::string &name, const std::string &args);
+
+  // Swap the generation built since set_path() into the live tables.
+  //
+  // finalize() calls this once it has added the samples and the default
+  // target; it is public so a test can publish without a settings store.
+  void publish() {
+    boost::unique_lock<boost::shared_mutex> lock(tables_mutex_);
+    targets.swap_objects(staging_targets);
+    commands.swap(staging_commands);
+    staging_targets.clear();
+    staging_commands.clear();
+  }
+  // Drops both generations. Only unloadModule wants this; a reload goes
+  // through set_path() + finalize() instead.
   void clear() {
     boost::unique_lock<boost::shared_mutex> lock(tables_mutex_);
     targets.clear();
     commands.clear();
+    staging_targets.clear();
+    staging_commands.clear();
   }
   void finalize(const std::shared_ptr<nscapi::settings_proxy> &settings);
   // Locked lookups: a settings reload rewrites `commands` and `targets` on
@@ -379,6 +422,12 @@ struct configuration : public boost::noncopyable {
   client_pre_fun client_pre;
 
  private:
+  // The generation loadModuleEx is building. Nothing outside loadModuleEx
+  // reads these; finalize() swaps them into the live tables above in one step,
+  // so a request sees either the whole old configuration or the whole new one.
+  object_handler_type staging_targets;
+  command_type staging_commands;
+
   mutable boost::shared_mutex tables_mutex_;
   boost::program_options::options_description create_descriptor(const std::string &command, client::destination_container &source,
                                                                 client::destination_container &destination) const;

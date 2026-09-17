@@ -481,12 +481,21 @@ void ServerBeastImpl::stop() {
   //      expires_after deadline at the worst).
   //   4. ioc_.run() exits naturally with no pending operations, so
   //      ~io_context() has nothing left to destroy.
-  if (acceptor_ && acceptor_->is_open()) {
-    boost::system::error_code ec;
-    acceptor_->cancel(ec);
-    acceptor_->close(ec);
-  }
-  if (work_guard_) work_guard_->reset();
+  //
+  // Step 1 runs on the io thread, not here. basic_socket_acceptor is
+  // documented "Shared objects: Unsafe", and the accept coroutine is sitting
+  // inside async_accept on that thread: cancelling and closing from the
+  // caller's thread mutates the acceptor's reactor registration concurrently
+  // with it, which happens to work on epoll and is undefined by asio's
+  // contract. Posting hands the acceptor back to the one thread that owns it.
+  const auto release = [this]() {
+    if (acceptor_ && acceptor_->is_open()) {
+      boost::system::error_code ec;
+      acceptor_->cancel(ec);
+      acceptor_->close(ec);
+    }
+    if (work_guard_) work_guard_->reset();
+  };
 
   // Stopping the server from the thread that runs it: a request handler took a
   // route that unloads the module (the core refuses that, this is the backstop
@@ -494,11 +503,23 @@ void ServerBeastImpl::stop() {
   // which throws rather than returning, and the throw would escape a
   // destructor further up. Let it go instead: the acceptor is closed and the
   // work guard dropped, so run() returns as soon as this handler does.
+  //
+  // The release runs inline here rather than posted: this *is* the io thread,
+  // so there is no race to avoid, and a posted handler would run after stop()
+  // - and after whoever is tearing the server down - has returned, on a `this`
+  // that no longer exists.
   if (thread_->get_id() == boost::this_thread::get_id()) {
+    release();
     thread_->detach();
     thread_.reset();
     return;
   }
+
+  // Foreign thread: post and then join, which is also what keeps `this` alive
+  // until the handler has run. If run() has already returned the handler is
+  // never dispatched, and the acceptor_.reset() below closes it with no other
+  // thread left to race.
+  asio::post(ioc_, release);
 
   thread_->join();
   thread_.reset();

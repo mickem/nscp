@@ -136,7 +136,11 @@ class value_collector : public base_collector<T> {
     return static_cast<double>(value);
   }
   void update(T newValue) override {
-    boost::shared_lock<boost::shared_mutex> lock(mutex_);
+    // A writer takes the exclusive lock. With a shared one - which is what
+    // this used to take - the collector thread's store ran concurrently with
+    // the check threads' loads, and on the x86 build a 64-bit value can tear
+    // between them. rrd_collector::update below always had this right.
+    boost::unique_lock<boost::shared_mutex> lock(mutex_);
     if (!lock.owns_lock()) throw pdh_exception(get_name(), "Could not get mutex");
     value = newValue;
   }

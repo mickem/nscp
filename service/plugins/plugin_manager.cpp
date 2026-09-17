@@ -283,17 +283,23 @@ void nsclient::core::plugin_manager::load_permissions() {
                         "object patterns (module.command). Rules merge additively.",
                         true, false);
 
-    permissions_.clear_rules();
+    // Assemble the whole policy first, then install it in one step. Rebuilding
+    // in place meant every worker deciding during the reload - and each rule
+    // costs a settings read - saw the policy enabled with an empty rule table
+    // and denied. Fail-closed, but a reload should not produce a burst of
+    // denials either.
+    permissions::policy policy;
     const std::string enabled = settings->get_string(section, "enabled", "false");
-    permissions_.set_enabled(enabled == "true" || enabled == "1");
-    permissions_.set_log_denials(settings->get_string(section, "log denials", "true") != "false");
-    permissions_.set_log_allows(settings->get_string(section, "log allows", "false") == "true");
-    permissions_.set_allow_exec(settings->get_string(section, "allow exec", "true") != "false");
+    policy.enabled = enabled == "true" || enabled == "1";
+    policy.log_denials = settings->get_string(section, "log denials", "true") != "false";
+    policy.log_allows = settings->get_string(section, "log allows", "false") == "true";
+    policy.allow_exec = settings->get_string(section, "allow exec", "true") != "false";
 
     for (const std::string &subject : settings->get_keys(policies_section)) {
       const std::string objects = settings->get_string(policies_section, subject, "");
-      permissions_.add_rule(subject, objects);
+      policy.add_rule(subject, objects);
     }
+    permissions_.replace(std::move(policy));
     LOG_DEBUG_CORE_STD("permissions: loaded " + str::xtos(permissions_.rule_count()) + " rule(s), enabled=" + (permissions_.is_enabled() ? "true" : "false"));
   } catch (const std::exception &e) {
     LOG_ERROR_CORE_STD("permissions: failed to load: " + utf8::utf8_from_native(e.what()));
@@ -410,13 +416,26 @@ void nsclient::core::plugin_manager::start_plugins(NSCAPI::moduleLoadMode mode) 
 void nsclient::core::plugin_manager::purge_broken_plugin(const unsigned long plugin_id) {
   const boost::recursive_mutex::scoped_lock lifecycle(lifecycle_mutex_);
   const auto plugin = plugin_list_.find_by_id(plugin_id);
+  // The call that broke this module can be running inside it: a script served
+  // on a server module's own io thread that reloads the agent, whose
+  // loadModuleEx then fails. Unlike remove_plugin we cannot simply refuse -
+  // the module is broken and has to come out of every registry - but we must
+  // not call its teardown on the thread executing inside it, and dropping the
+  // last reference here would unmap the code that thread is going to return
+  // into. Deregister it and leak the mapping instead.
+  const bool serving_this_thread = plugin && plugin->is_dispatching_on_this_thread();
   plugin_list_.remove(plugin_id);
   commands_.remove_plugin(plugin_id);
   channels_.remove_plugin(plugin_id);
   event_subscribers_.remove_plugin(plugin_id);
   metrics_fetchers_.remove_plugin(plugin_id);
   metrics_submitters_.remove_plugin(plugin_id);
-  if (plugin) {
+  if (plugin && serving_this_thread) {
+    log_instance_->remove_subscriber(plugin);
+    LOG_ERROR_CORE_STD("Left " + plugin->get_alias_or_name() +
+                       " mapped but deregistered: the call that broke it is still being served by that module, so it cannot be unloaded from here");
+    plugin->leak_plugin();
+  } else if (plugin) {
     log_instance_->remove_subscriber(plugin);
     try {
       plugin->unload_plugin();

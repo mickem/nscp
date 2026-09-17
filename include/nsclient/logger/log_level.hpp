@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <string>
 
 namespace nsclient {
@@ -17,17 +18,20 @@ class log_level {
   static constexpr int debug = 50;    // Debug messages
   static constexpr int trace = 99;    // Trace messages
 
-  int current_level_;
+  // set() runs from NSAPISetLoglevel on whatever thread the module uses, while
+  // every should_*() below is read on every logging thread. An atomic, for the
+  // same reason as the driver flags.
+  std::atomic<int> current_level_;
 
  public:
   log_level() : current_level_(info) {}
 
-  bool should_trace() const { return current_level_ >= trace; }
-  bool should_debug() const { return current_level_ >= debug; }
-  bool should_info() const { return current_level_ >= info; }
-  bool should_warning() const { return current_level_ >= warning; }
-  bool should_error() const { return current_level_ >= error; }
-  bool should_critical() const { return current_level_ >= critical; }
+  bool should_trace() const { return current_level_.load() >= trace; }
+  bool should_debug() const { return current_level_.load() >= debug; }
+  bool should_info() const { return current_level_.load() >= info; }
+  bool should_warning() const { return current_level_.load() >= warning; }
+  bool should_error() const { return current_level_.load() >= error; }
+  bool should_critical() const { return current_level_.load() >= critical; }
 
   bool set(const std::string& level);
 

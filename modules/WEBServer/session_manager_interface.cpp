@@ -359,7 +359,7 @@ error_handler_interface *session_manager_interface::get_log_data() const { retur
 void session_manager_interface::reset_log() const { log_data->reset(); }
 
 void session_manager_interface::set_allowed_hosts(const std::string &host) { allowed_hosts.set_source(host); }
-void session_manager_interface::set_allowed_hosts_cache(const bool value) { allowed_hosts.cached = value; }
+void session_manager_interface::set_allowed_hosts_cache(const bool value) { allowed_hosts.set_cached(value); }
 
 bool session_manager_interface::is_allowed(const std::string &ip) {
   std::list<std::string> errors;
