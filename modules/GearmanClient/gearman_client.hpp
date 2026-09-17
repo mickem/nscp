@@ -41,13 +41,6 @@
  */
 namespace gearman_client {
 
-/**
- * The output one result carries. The same bound the worker uses: long enough
- * for a detail-syntax line with performance data, and short of putting a
- * runaway check's output on the wire.
- */
-const std::size_t max_output_length = 8 * 1024;
-
 struct connection_data {
   std::string host;
   std::string port;
@@ -150,7 +143,7 @@ struct gearman_client_handler final : public client::handler_interface {
     // One `source` for the whole submission: what an operator reads in the
     // core to tell which agent filed a passive result, in the same shape the
     // worker writes for an active one.
-    const std::string source = "NSClient++ " + utf8::cvt<std::string>(GET_CORE()->getApplicationVersionString()) + " on " + con.sender_hostname;
+    const std::string source = gearman::format_source(utf8::cvt<std::string>(GET_CORE()->getApplicationVersionString()), con.sender_hostname);
 
     std::list<gearman::check_result> results;
     for (const PB::Commands::QueryResponseMessage::Response &item : request_message.payload()) {
@@ -165,7 +158,7 @@ struct gearman_client_handler final : public client::handler_interface {
       // result, and a result with no service_description is a host result.
       if (alias != "host_check") result.service_description = alias;
       result.return_code = nscapi::protobuf::functions::gbp_to_nagios_status(item.result());
-      result.output = nscapi::protobuf::functions::query_data_to_nagios_string(item, max_output_length);
+      result.output = nscapi::protobuf::functions::query_data_to_nagios_string(item, gearman::max_output_length);
       // A passive result describes a check that has already been run, and the
       // agent knows nothing more precise about when: both cores read the pair
       // as the check's window and show the latency from it.
@@ -191,13 +184,12 @@ struct gearman_client_handler final : public client::handler_interface {
       gearman::connection socket;
       socket.connect(gearman::server_address(con.host, con.port), static_cast<unsigned int>(con.timeout));
       for (const gearman::check_result &result : results) {
-        // The unique id gearmand deduplicates a foreground job by. It is not
-        // consulted for a background job, but it is what `gearman_top` shows,
-        // so it names the check rather than being a random string.
-        const std::string unique = result.is_service() ? result.host_name + "-" + result.service_description : result.host_name;
-        socket.send(gearman::packet_type::submit_job_bg, {con.queue, unique, gearman::encode_payload(gearman::format_result(result), con.crypto)},
-                    static_cast<unsigned int>(con.timeout));
-        await_job_created(socket, con);
+        // Waiting for the acknowledgement is what a passive channel owes its
+        // caller: a background job is fire and forget as far as gearmand is
+        // concerned, so without it a submission would report success for a
+        // result that never left the socket buffer - and unlike an active
+        // check, nobody is waiting for this one on the other side either.
+        socket.submit_background(con.queue, gearman::encode_payload(gearman::format_result(result), con.crypto), static_cast<unsigned int>(con.timeout));
       }
       socket.close();
       nscapi::protobuf::functions::set_response_good(*payload, "Submission successful");
@@ -208,32 +200,6 @@ struct gearman_client_handler final : public client::handler_interface {
     } catch (...) {
       nscapi::protobuf::functions::set_response_bad(*payload, "Unknown error -- REPORT THIS!");
     }
-  }
-
- private:
-  /**
-   * Wait for the acknowledgement that the result is on the queue.
-   *
-   * A background job is fire and forget as far as gearmand is concerned, so
-   * without this a submission would report success for a result that never
-   * left the socket buffer - which is the one thing a passive channel must not
-   * do, since nobody is waiting for the check on the other side either.
-   */
-  static void await_job_created(gearman::connection &socket, const connection_data &con) {
-    gearman::packet reply;
-    // A NOOP can arrive at any moment and only means there is work waiting for
-    // a worker; this connection registered for none, but a server that sends
-    // one anyway must not be mistaken for one that lost the result.
-    for (int seen = 0; seen < 4; ++seen) {
-      if (socket.receive(reply, static_cast<unsigned int>(con.timeout)) != gearman::connection::receive_result::ok) {
-        throw gearman::connection_error(con.get_endpoint_string() + " did not acknowledge the submitted result");
-      }
-      if (reply.type == gearman::packet_type::job_created) return;
-      if (reply.type == gearman::packet_type::error) {
-        throw gearman::connection_error(con.get_endpoint_string() + " reported an error: " + reply.arg(0) + ": " + reply.arg(1));
-      }
-    }
-    throw gearman::connection_error(con.get_endpoint_string() + " did not acknowledge the submitted result");
   }
 };
 }  // namespace gearman_client

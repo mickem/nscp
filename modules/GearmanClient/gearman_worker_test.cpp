@@ -117,6 +117,13 @@ class fake_gearmand {
   /** Close whatever the workers are connected on, so they have to reconnect. */
   void drop_connections() { drop_generation_.fetch_add(1); }
 
+  /**
+   * Record submitted results but never answer JOB_CREATED - a gearmand that
+   * took the payload and then went quiet, which is the one case a worker must
+   * not resolve by sending the result again.
+   */
+  void withhold_acknowledgements() { withhold_acks_.store(true); }
+
  private:
   struct queued_job {
     std::string function;
@@ -251,11 +258,30 @@ class fake_gearmand {
         return write(socket, packet_type::job_assign, {next_handle(), job.function, job.payload});
       }
       case packet_type::submit_job_bg: {
+        const std::string queue = request.arg(0);
+        const std::string unique = request.arg(1);
+        std::string handle;
         {
           std::lock_guard<std::mutex> lock(mutex_);
-          submissions_.push_back({request.arg(0), request.arg(1), request.arg(2)});
+          // Real gearmand behaviour, and the reason a result carries no unique
+          // id: a submission whose (function, unique) pair is already queued is
+          // coalesced into that job - the earlier handle comes back and the new
+          // payload is dropped, for a background job as much as a foreground
+          // one. An empty unique never coalesces.
+          const auto existing = unique.empty() ? queued_uniques_.end() : queued_uniques_.find(std::make_pair(queue, unique));
+          if (existing != queued_uniques_.end()) {
+            handle = existing->second;
+          } else {
+            handle = next_handle();
+            if (!unique.empty()) queued_uniques_.emplace(std::make_pair(queue, unique), handle);
+            submissions_.push_back({queue, unique, request.arg(2)});
+          }
         }
-        return write(socket, packet_type::job_created, {next_handle()});
+        // The payload is on the queue either way; only the acknowledgement is
+        // withheld, which is what makes a resend a duplicate rather than a
+        // recovery.
+        if (withhold_acks_.load()) return true;
+        return write(socket, packet_type::job_created, {handle});
       }
       case packet_type::work_complete: {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -285,12 +311,15 @@ class fake_gearmand {
   std::atomic<int> live_{0};
   std::atomic<int> drop_generation_{0};
   std::atomic<int> handle_counter_{1};
+  std::atomic<bool> withhold_acks_{false};
 
   std::mutex mutex_;
   std::vector<queued_job> jobs_;
   std::vector<std::string> abilities_;
   std::vector<std::string> client_ids_;
   std::vector<submission> submissions_;
+  /** (function, unique) -> the handle it was first given; see submit_job_bg. */
+  std::map<std::pair<std::string, std::string>, std::string> queued_uniques_;
   std::vector<std::string> completed_;
   std::vector<std::string> failed_;
 };
@@ -493,9 +522,13 @@ TEST_F(WorkerTest, runs_a_service_check_and_submits_the_result) {
   EXPECT_EQ(calls[0].timeout, 10u);
 
   EXPECT_EQ(server_.submissions().front().queue, default_result_queue);
-  // The unique id is what keeps two results for the same service from being
-  // queued twice over; mod_gearman builds it the same way.
-  EXPECT_EQ(server_.submissions().front().unique, "win-srv01-CPU load");
+  // No unique id, and that is the point: gearmand coalesces a submission onto
+  // a job already queued under the same function and unique id, answering with
+  // the older handle and dropping the payload. Naming the check here would
+  // mean that while the core is behind, every result for a service whose
+  // previous result is still queued is silently thrown away. mod_gearman's own
+  // result senders send none either.
+  EXPECT_EQ(server_.submissions().front().unique, "");
 
   const check_result result = first_result();
   EXPECT_EQ(result.type, "active");
@@ -523,7 +556,46 @@ TEST_F(WorkerTest, a_host_check_carries_no_service_description) {
   const check_result result = first_result();
   EXPECT_EQ(result.host_name, local_name);
   EXPECT_TRUE(result.service_description.empty());
-  EXPECT_EQ(server_.submissions().front().unique, local_name);
+  // A host result carries no unique id either, for the same reason.
+  EXPECT_EQ(server_.submissions().front().unique, "");
+}
+
+TEST_F(WorkerTest, a_second_result_for_one_service_is_not_coalesced_away) {
+  // The consequence of the empty unique id, seen from the job server: while
+  // the core is behind, the first result is still queued when the second
+  // arrives, and the second has to land beside it rather than be folded into
+  // it. The fake coalesces on a non-empty unique exactly as gearmand does, so
+  // this fails the moment a result carries one again.
+  start();
+  ASSERT_TRUE(wait_until([this] { return !server_.abilities().empty(); }));
+  server_.queue_job(test_queue, make_job(local_name, "CPU load", "check_cpu"));
+  ASSERT_TRUE(wait_for_submission(1));
+  server_.queue_job(test_queue, make_job(local_name, "CPU load", "check_cpu"));
+  ASSERT_TRUE(wait_for_submission(2));
+  const auto submissions = server_.submissions();
+  ASSERT_EQ(submissions.size(), 2u);
+  EXPECT_EQ(submissions[0].unique, "");
+  EXPECT_EQ(submissions[1].unique, "");
+}
+
+TEST_F(WorkerTest, a_result_whose_acknowledgement_is_lost_is_not_sent_again) {
+  // The payload reached gearmand; only the JOB_CREATED did not. Sending it a
+  // second time would file the same check twice on the core, and nothing
+  // downstream could tell the duplicate from a real second check - so the
+  // worker reports the loss instead of retrying.
+  server_.withhold_acknowledgements();
+  start();
+  ASSERT_TRUE(wait_until([this] { return !server_.abilities().empty(); }));
+  server_.queue_job(test_queue, make_job(local_name, "CPU load", "check_cpu"));
+  ASSERT_TRUE(wait_for_submission(1));
+
+  // Long enough for a resend to have shown up: the acknowledgement times out
+  // after idle_timeout, and the worker then reconnects and goes back to
+  // grabbing, which is the window one would appear in.
+  std::this_thread::sleep_for(std::chrono::milliseconds(config_.idle_timeout * 1000 + 1000));
+  EXPECT_EQ(server_.submissions().size(), 1u);
+  EXPECT_EQ(executor_->calls().size(), 1u);
+  EXPECT_TRUE(logger_->logged("error", "could not confirm a result"));
 }
 
 TEST_F(WorkerTest, newlines_in_the_output_survive_the_round_trip) {

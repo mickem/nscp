@@ -275,6 +275,26 @@ gearmandOrSkip()("Mod-Gearman worker", () => {
       expect(result!.return_code).toBe("0");
     });
 
+    it("files a second result for the same service beside the first", async () => {
+      // gearmand coalesces a background job onto one already queued under the
+      // same function and unique id: the older handle comes back and the new
+      // payload is dropped. A result therefore carries no unique id at all,
+      // because the case it would break is precisely the one that matters -
+      // the core is behind, so the previous result for this service is still
+      // sitting on the queue when the next one arrives. Both are read back
+      // here only after both have been submitted, which is what keeps that
+      // window open.
+      await agent.submit({ command_line: "check_ok message=first" });
+      await agent.submit({ command_line: "check_ok message=second" });
+      const first = await agent.nextResult();
+      const second = await agent.nextResult();
+      expect(first).not.toBeNull();
+      expect(second).not.toBeNull();
+      const outputs = [first!.output, second!.output].sort();
+      expect(outputs[0]).toContain("first");
+      expect(outputs[1]).toContain("second");
+    });
+
     it("carries the check's status through", async () => {
       await agent.submit({ command_line: "check_critical message=bad" });
       const result = await agent.nextResult();

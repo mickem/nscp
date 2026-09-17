@@ -4,8 +4,9 @@
 #include "gearman_connection.hpp"
 
 #include <algorithm>
-#include <boost/algorithm/string/trim.hpp>
 #include <chrono>
+#include <memory>
+#include <str/utils_no_boost.hpp>
 
 namespace gearman {
 
@@ -20,17 +21,18 @@ const unsigned int poll_slice_ms = 250;
 
 /** Read granularity. A job is a few hundred bytes; this is one read for all of it. */
 const std::size_t read_chunk_size = 8 * 1024;
+
+/**
+ * How many packets may arrive between `SUBMIT_JOB_BG` and its `JOB_CREATED`.
+ * Only a `NOOP` legitimately gets in the way, and only once, so anything past
+ * a handful means the stream is no longer what we think it is.
+ */
+const int max_packets_before_job_created = 8;
 }  // namespace
 
 std::vector<server_address> parse_server_list(const std::string &spec) {
   std::vector<server_address> servers;
-  std::string::size_type pos = 0;
-  while (pos <= spec.size()) {
-    const std::string::size_type comma = spec.find(',', pos);
-    const std::string entry = boost::trim_copy(spec.substr(pos, comma == std::string::npos ? std::string::npos : comma - pos));
-    pos = comma == std::string::npos ? spec.size() + 1 : comma + 1;
-    if (entry.empty()) continue;
-
+  for (const std::string &entry : str::utils::split_trimmed(spec, ",")) {
     // An IPv6 literal is full of colons, so only a colon outside the brackets
     // separates the port: `[::1]:4730` is host `::1` port 4730, while `::1`
     // on its own is the whole host.
@@ -111,18 +113,44 @@ void connection::close() {
 
 void connection::connect(const server_address &server, const unsigned int timeout_seconds) {
   close();
+  server_ = server;
 
+  // The lookup is asynchronous for the same reason every other call here is.
+  // A blocking `resolve()` answers to the platform resolver's own timeout,
+  // which is tens of seconds on a black-holed name server - spent on a worker
+  // thread that is supposed to notice a shutdown within its own deadline, so
+  // a settings reload or a service stop waits the whole thing out.
+  //
+  // The handler writes into shared state rather than into this frame, which is
+  // what makes the abandonment below safe: a lookup that is already inside
+  // getaddrinfo cannot be interrupted by anybody, but it can be left to finish
+  // into a state object that outlives it and that nobody reads.
+  struct resolve_state {
+    bool done = false;
+    boost::system::error_code error;
+    boost::asio::ip::tcp::resolver::results_type endpoints;
+  };
+  const std::shared_ptr<resolve_state> resolution = std::make_shared<resolve_state>();
   boost::asio::ip::tcp::resolver resolver(io_);
-  boost::system::error_code resolve_error;
-  const auto endpoints = resolver.resolve(server.host, server.port, boost::asio::ip::resolver_base::numeric_service, resolve_error);
-  if (resolve_error) throw connection_error("Failed to resolve " + server.to_string() + ": " + resolve_error.message());
+  resolver.async_resolve(server.host, server.port, boost::asio::ip::resolver_base::numeric_service,
+                         [resolution](const boost::system::error_code &e, const boost::asio::ip::tcp::resolver::results_type &r) {
+                           resolution->error = e;
+                           resolution->endpoints = r;
+                           resolution->done = true;
+                         });
+  if (!run_for(resolution->done, timeout_seconds * 1000)) {
+    resolver.cancel();
+    throw connection_error("Timed out resolving " + server.to_string() + " after " + std::to_string(timeout_seconds) + "s");
+  }
+  if (resolution->error) throw connection_error("Failed to resolve " + server.to_string() + ": " + resolution->error.message());
 
   bool done = false;
   boost::system::error_code connect_error;
-  boost::asio::async_connect(socket_, endpoints, [&done, &connect_error](const boost::system::error_code &e, const boost::asio::ip::tcp::endpoint &) {
-    connect_error = e;
-    done = true;
-  });
+  boost::asio::async_connect(socket_, resolution->endpoints,
+                             [&done, &connect_error](const boost::system::error_code &e, const boost::asio::ip::tcp::endpoint &) {
+                               connect_error = e;
+                               done = true;
+                             });
   if (!run_for(done, timeout_seconds * 1000)) {
     // The handler still holds references to `done` and `connect_error`, so it
     // has to run before this frame goes away.
@@ -204,6 +232,32 @@ connection::receive_result connection::receive(packet &out, const unsigned int t
     const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count();
     run_for(read_done_, static_cast<unsigned int>(std::min<long long>(poll_slice_ms, remaining > 0 ? remaining : 1)));
   }
+}
+
+void connection::submit_background(const std::string &queue, const std::string &payload, const unsigned int timeout_seconds,
+                                   const std::function<bool()> &should_stop) {
+  // The empty unique id is load-bearing; see the header for what gearmand
+  // does with a result queue when it is not empty.
+  send(packet_type::submit_job_bg, {queue, std::string(), payload}, timeout_seconds);
+
+  // Past this point the payload has left this host and gearmand may already
+  // have queued it, so every way out is an `unconfirmed_submission`: what the
+  // caller must not do is send it a second time. That includes the server
+  // answering ERROR, which says it rejected *a* packet and not which one.
+  const std::string endpoint = server_.to_string();
+  for (int seen = 0; seen < max_packets_before_job_created; ++seen) {
+    packet reply;
+    if (receive(reply, timeout_seconds, should_stop) != receive_result::ok) {
+      throw unconfirmed_submission(endpoint + " did not acknowledge the submitted result");
+    }
+    if (reply.type == packet_type::job_created) return;
+    if (reply.type == packet_type::error) {
+      throw unconfirmed_submission(endpoint + " reported an error: " + reply.arg(0) + ": " + reply.arg(1));
+    }
+    // A NOOP can arrive at any moment and only means there is work waiting for
+    // a worker, which is not what this connection is waiting for.
+  }
+  throw unconfirmed_submission(endpoint + " did not acknowledge the submitted result");
 }
 
 }  // namespace gearman

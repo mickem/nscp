@@ -23,26 +23,10 @@ const unsigned int backoff_cap_ms = 60000;
 /** Granularity of an interruptible sleep: how long a shutdown can be held up by a backoff. */
 const unsigned int sleep_slice_ms = 100;
 
-/**
- * How many packets may arrive between `SUBMIT_JOB_BG` and its `JOB_CREATED`.
- * Only `NOOP` legitimately gets in the way, and only once, so anything past a
- * handful means the stream is no longer what we think it is.
- */
-const int max_packets_before_job_created = 8;
-
 unsigned int backoff_ms(const unsigned int failures) {
   unsigned int delay = backoff_base_ms;
   for (unsigned int i = 1; i < failures && delay < backoff_cap_ms; ++i) delay *= 2;
   return std::min(delay, backoff_cap_ms);
-}
-
-std::string join(const std::vector<std::string> &values, const std::string &separator) {
-  std::string out;
-  for (const std::string &value : values) {
-    if (!out.empty()) out.append(separator);
-    out.append(value);
-  }
-  return out;
 }
 
 bool has_nasty_characters(const std::string &value) { return value.find_first_of(NASTY_METACHARS) != std::string::npos; }
@@ -51,7 +35,12 @@ bool has_nasty_characters(const std::string &value) { return value.find_first_of
 
 worker::worker(std::string id, const worker_config &config, std::shared_ptr<query_executor> executor, std::shared_ptr<worker_logger> logger,
                std::shared_ptr<worker_counters> counters)
-    : id_(std::move(id)), config_(config), executor_(std::move(executor)), logger_(std::move(logger)), counters_(std::move(counters)) {}
+    : id_(std::move(id)),
+      config_(config),
+      host_names_text_(str::utils::joinEx(config.host_names, ", ")),
+      executor_(std::move(executor)),
+      logger_(std::move(logger)),
+      counters_(std::move(counters)) {}
 
 void worker::stop() { stop_.store(true); }
 
@@ -105,7 +94,7 @@ void worker::connect() {
 
   registered_ = true;
   ++counters_->connected;
-  logger_->info(id_ + " connected to " + current_server_.to_string() + " for " + join(config_.queues, ", "));
+  logger_->info(id_ + " connected to " + current_server_.to_string() + " for " + str::utils::joinEx(config_.queues, ", "));
 }
 
 void worker::disconnect() {
@@ -207,8 +196,7 @@ void worker::handle_job(const packet &assignment) {
   // waiting for its orphan timeout on every check, which looks exactly like
   // the agent being down.
   if (config_.bind_to_host && !answers_for(job.host_name)) {
-    logger_->warning(id_ + ": refusing a check for " + what + " from " + queue + ": this agent answers for " +
-                     join(std::vector<std::string>(config_.host_names.begin(), config_.host_names.end()), ", ") +
+    logger_->warning(id_ + ": refusing a check for " + what + " from " + queue + ": this agent answers for " + host_names_text_ +
                      ". Use proxy mode, or add the name to 'host names'.");
     answer(job, nagios_unknown, "Not run: this NSClient++ agent does not answer for " + job.host_name + ".", started, handle);
     return;
@@ -283,8 +271,7 @@ void worker::answer(const check_job &job, const int return_code, const std::stri
   result.exited_ok = 1;
 
   const std::string queue = job.result_queue.empty() ? default_result_queue : job.result_queue;
-  const std::string unique = job.is_service() ? job.host_name + "-" + job.service_description : job.host_name;
-  submit(queue, unique, encode_payload(format_result(result), config_.crypto));
+  submit(queue, encode_payload(format_result(result), config_.crypto));
 
   if (connection_ && connection_->is_open()) {
     // The data is empty on purpose: the core reads results off check_results,
@@ -295,40 +282,37 @@ void worker::answer(const check_job &job, const int return_code, const std::stri
   }
 }
 
-void worker::await_job_created() {
-  const std::function<bool()> should_stop = [this] { return stopping(); };
-  for (int seen = 0; seen < max_packets_before_job_created; ++seen) {
-    packet reply;
-    if (connection_->receive(reply, config_.idle_timeout, should_stop) != connection::receive_result::ok) {
-      throw connection_error("gearmand did not acknowledge the submitted result");
-    }
-    if (reply.type == packet_type::job_created) return;
-    if (reply.type == packet_type::error) throw connection_error("gearmand reported an error: " + reply.arg(0) + ": " + reply.arg(1));
-    // A NOOP can arrive at any time and only means there is work waiting,
-    // which we are about to ask for anyway.
-  }
-  throw connection_error("gearmand did not acknowledge the submitted result");
-}
-
-void worker::submit(const std::string &queue, const std::string &unique, const std::string &payload) {
+void worker::submit(const std::string &queue, const std::string &payload) {
   try {
-    connection_->send(packet_type::submit_job_bg, {queue, unique, payload});
-    await_job_created();
+    connection_->submit_background(queue, payload, config_.idle_timeout, [this] { return stopping(); });
+    return;
+  } catch (const unconfirmed_submission &e) {
+    // The result is already on the wire. Whether gearmand queued it before the
+    // acknowledgement went missing is exactly what cannot be known from here,
+    // so it is not sent again: a duplicate is indistinguishable from a real
+    // second check on the core, while a missing one shows up as a check that
+    // went stale. The connection goes, because what is left on it is a reply
+    // to a packet nobody is waiting for any more.
+    disconnect();
+    if (stopping()) {
+      logger_->debug(id_ + ": stopped before " + queue + " acknowledged a result; not retrying, gearmand may already have it.");
+      return;
+    }
+    ++counters_->errors;
+    logger_->error(id_ + ": could not confirm a result submitted to " + queue + " (" + e.what() + "); not retrying, gearmand may already have it.");
     return;
   } catch (const std::exception &e) {
     ++counters_->errors;
     logger_->warning(id_ + ": could not submit a result to " + queue + " (" + e.what() + "); retrying on a new connection.");
   }
 
-  // The worker's own connection is unusable. A result is the only thing the
-  // core is waiting for, so it gets one more chance on a connection of its
-  // own rather than waiting out the reconnect back in the loop.
+  // Only the payload that never left this host reaches here. The worker's own
+  // connection is unusable, and a result is the one thing the core is waiting
+  // for, so it gets a connection of its own rather than waiting out the
+  // reconnect back in the loop.
   disconnect();
   if (stopping()) {
-    // A shutdown is the one case where the first attempt most likely arrived
-    // and only its acknowledgement was cut short; retrying then files the
-    // same result on the core twice.
-    logger_->debug(id_ + ": not retrying a result submission while shutting down.");
+    logger_->debug(id_ + ": not opening a connection for a result submission while shutting down.");
     return;
   }
   try {
@@ -337,11 +321,7 @@ void worker::submit(const std::string &queue, const std::string &unique, const s
     // against a host that never scheduled the check.
     connection retry;
     retry.connect(current_server_, config_.connect_timeout);
-    retry.send(packet_type::submit_job_bg, {queue, unique, payload});
-    packet reply;
-    if (retry.receive(reply, config_.idle_timeout) != connection::receive_result::ok || reply.type != packet_type::job_created) {
-      throw connection_error("gearmand did not acknowledge the submitted result");
-    }
+    retry.submit_background(queue, payload, config_.idle_timeout);
     retry.close();
   } catch (const std::exception &e) {
     ++counters_->errors;

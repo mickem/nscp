@@ -39,6 +39,21 @@ class connection_error : public std::runtime_error {
   explicit connection_error(const std::string &what) : std::runtime_error(what) {}
 };
 
+/**
+ * Thrown when a submission reached the wire but its acknowledgement did not
+ * come back.
+ *
+ * The distinction is the whole point of the type: a payload that never left
+ * can be sent again on a fresh connection, and one that may already be on the
+ * queue cannot - a result the core files twice is a worse failure than one it
+ * never sees, because nothing downstream can tell the duplicate from a real
+ * second check.
+ */
+class unconfirmed_submission : public connection_error {
+ public:
+  explicit unconfirmed_submission(const std::string &what) : connection_error(what) {}
+};
+
 /** One entry of the `server` setting: `host` or `host:port`. */
 struct server_address {
   std::string host;
@@ -96,6 +111,32 @@ class connection {
    */
   receive_result receive(packet &out, unsigned int timeout_seconds, const std::function<bool()> &should_stop = std::function<bool()>());
 
+  /**
+   * Put one payload on `queue` as a background job and wait for its
+   * `JOB_CREATED`.
+   *
+   * The unique id is deliberately empty, and that is not an omission.
+   * gearmand coalesces a submission onto an existing job with the same
+   * function and unique id - for a background job as much as a foreground one
+   * - answering with the older job's handle and dropping the payload just
+   * sent. On a result queue that is silent data loss: while the core is
+   * behind, every result for a host whose earlier result is still queued is
+   * thrown away, and the submitter is told the submission succeeded.
+   * mod_gearman's own result senders pass no unique id for exactly this
+   * reason; its `use_uniq_jobs` option is about check *jobs*, where
+   * collapsing a duplicate check is the wanted behaviour.
+   *
+   * Waiting for the acknowledgement is what separates "gearmand has it" from
+   * "it is still in a socket buffer", which a background job does not
+   * otherwise tell you.
+   *
+   * Throws `connection_error` while the payload has not left this host, and
+   * `unconfirmed_submission` once it has; see that type for why a caller must
+   * treat the two differently.
+   */
+  void submit_background(const std::string &queue, const std::string &payload, unsigned int timeout_seconds,
+                         const std::function<bool()> &should_stop = std::function<bool()>());
+
  private:
   /** Run the io_context for at most `ms`, then report whether `flag` was set. */
   bool run_for(bool &flag, unsigned int ms);
@@ -104,6 +145,9 @@ class connection {
 
   boost::asio::io_context io_;
   boost::asio::ip::tcp::socket socket_;
+
+  /** Where `connect` last went, so a failure can name the server it was for. */
+  server_address server_;
 
   /** Bytes read but not yet decoded into a packet. */
   std::string buffer_;

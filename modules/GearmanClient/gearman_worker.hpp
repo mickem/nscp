@@ -154,13 +154,20 @@ class worker {
 
   /** Build, submit and complete the answer to one job. */
   void answer(const check_job &job, int return_code, const std::string &output, const std::string &start_time, const std::string &handle);
-  /** `SUBMIT_JOB_BG` the result, retrying once on a fresh connection. */
-  void submit(const std::string &queue, const std::string &unique, const std::string &payload);
-  /** Consume the `JOB_CREATED` acknowledgement so it is not read as a job. */
-  void await_job_created();
+  /**
+   * Put the result on its queue, retrying once on a fresh connection - but
+   * only while the first attempt is known not to have reached gearmand.
+   */
+  void submit(const std::string &queue, const std::string &payload);
 
   const std::string id_;
   const worker_config config_;
+  /**
+   * `config_.host_names` as one line, for the message a refused job carries.
+   * Built once: the set does not change for the life of a worker, and a core
+   * pointed at the wrong agent refuses every check it is sent.
+   */
+  const std::string host_names_text_;
   const std::shared_ptr<query_executor> executor_;
   const std::shared_ptr<worker_logger> logger_;
   /**
