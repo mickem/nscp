@@ -4,6 +4,7 @@
 #include "gearman_protocol.hpp"
 
 #include <algorithm>
+#include <boost/endian/conversion.hpp>
 #include <cstring>
 
 namespace gearman {
@@ -13,16 +14,12 @@ namespace {
 const char magic_request[4] = {'\0', 'R', 'E', 'Q'};
 const char magic_response[4] = {'\0', 'R', 'E', 'S'};
 
-std::uint32_t read_be32(const char *data) {
-  return (static_cast<std::uint32_t>(static_cast<unsigned char>(data[0])) << 24) | (static_cast<std::uint32_t>(static_cast<unsigned char>(data[1])) << 16) |
-         (static_cast<std::uint32_t>(static_cast<unsigned char>(data[2])) << 8) | static_cast<std::uint32_t>(static_cast<unsigned char>(data[3]));
-}
+std::uint32_t read_be32(const char *data) { return boost::endian::load_big_u32(reinterpret_cast<const unsigned char *>(data)); }
 
 void append_be32(std::string &target, std::uint32_t value) {
-  target.push_back(static_cast<char>((value >> 24) & 0xff));
-  target.push_back(static_cast<char>((value >> 16) & 0xff));
-  target.push_back(static_cast<char>((value >> 8) & 0xff));
-  target.push_back(static_cast<char>(value & 0xff));
+  unsigned char bytes[4];
+  boost::endian::store_big_u32(bytes, value);
+  target.append(reinterpret_cast<const char *>(bytes), sizeof(bytes));
 }
 
 /**

@@ -3,7 +3,6 @@
 
 #include "filter_config_object.hpp"
 
-#include <boost/algorithm/string.hpp>
 #include <boost/date_time.hpp>
 #include <boost/optional.hpp>
 #include <nscapi/protobuf/functions_exec.hpp>
@@ -31,12 +30,7 @@ void filter_config_object::set_data(std::string file_string) {
 void filter_config_object::set_datas(std::string file_string) {
   if (file_string.empty()) return;
   data.clear();
-  // "a, b" must match "b", not " b": split_lst does not trim, so strip the
-  // whitespace around each entry here.
-  for (std::string s : str::utils::split_lst(file_string, std::string(","))) {
-    boost::algorithm::trim(s);
-    if (!s.empty()) data.push_back(s);
-  }
+  for (const std::string& s : str::utils::split_trimmed(file_string, ",")) data.push_back(s);
 }
 
 void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool /*oneliner*/, bool is_sample) {
@@ -81,12 +75,7 @@ void filter_config_object::set_data(std::string file_string) {
 void filter_config_object::set_datas(std::string file_string) {
   if (file_string.empty()) return;
   data.clear();
-  // "a, b" must match "b", not " b": split_lst does not trim, so strip the
-  // whitespace around each entry here.
-  for (std::string s : str::utils::split_lst(file_string, std::string(","))) {
-    boost::algorithm::trim(s);
-    if (!s.empty()) data.push_back(s);
-  }
+  for (const std::string& s : str::utils::split_trimmed(file_string, ",")) data.push_back(s);
 }
 
 void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool /*oneliner*/, bool is_sample) {
@@ -129,12 +118,7 @@ void filter_config_object::set_data(std::string file_string) {
 void filter_config_object::set_datas(std::string file_string) {
   if (file_string.empty()) return;
   data.clear();
-  // "a, b" must match "b", not " b": split_lst does not trim, so strip the
-  // whitespace around each entry here.
-  for (std::string s : str::utils::split_lst(file_string, std::string(","))) {
-    boost::algorithm::trim(s);
-    if (!s.empty()) data.push_back(s);
-  }
+  for (const std::string& s : str::utils::split_trimmed(file_string, ",")) data.push_back(s);
 }
 
 void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool /*oneliner*/, bool is_sample) {

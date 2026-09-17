@@ -3,7 +3,6 @@
 
 #include "GearmanClient.h"
 
-#include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/thread.hpp>
@@ -20,6 +19,7 @@
 #include <nscapi/settings/helper.hpp>
 #include <nscapi/settings/proxy.hpp>
 #include <str/utf8.hpp>
+#include <str/utils.hpp>
 #include <str/xtos.hpp>
 #include <vector>
 
@@ -41,21 +41,6 @@ namespace {
  * unbounded string here would put a runaway check's output on the wire.
  */
 const std::size_t max_output_length = 8 * 1024;
-
-std::vector<std::string> split_list(const std::string &value) {
-  std::vector<std::string> out;
-  if (value.empty()) return out;
-  boost::split(out, value, boost::is_any_of(","));
-  for (std::string &entry : out) boost::trim(entry);
-  out.erase(std::remove_if(out.begin(), out.end(), [](const std::string &entry) { return entry.empty(); }), out.end());
-  return out;
-}
-
-std::string join_list(const std::vector<std::string> &values) {
-  std::string out;
-  for (const std::string &value : values) out += (out.empty() ? "" : ", ") + value;
-  return out;
-}
 
 /** Route the worker's log lines through the core, which is the only reason this exists. */
 class core_logger : public gearman::worker_logger {
@@ -244,8 +229,8 @@ GearmanClient::worker_setup GearmanClient::build_config(const std::string &alias
   settings.register_all();
   settings.notify();
 
-  const std::vector<std::string> groups = split_list(hostgroups);
-  const std::vector<std::string> service_groups = split_list(servicegroups);
+  const std::vector<std::string> groups = str::utils::split_trimmed(hostgroups, ",");
+  const std::vector<std::string> service_groups = str::utils::split_trimmed(servicegroups, ",");
 
   if (servers.empty() && groups.empty() && service_groups.empty() && !shared_queues) {
     // Nothing in the worker section at all. That is a deployment, not a
@@ -328,7 +313,7 @@ GearmanClient::worker_setup GearmanClient::build_config(const std::string &alias
   // the agent being down.
   const std::string::size_type dot = local_host.find('.');
   if (dot != std::string::npos) config.host_names.insert(boost::algorithm::to_lower_copy(local_host.substr(0, dot)));
-  for (const std::string &name : split_list(host_names)) config.host_names.insert(boost::algorithm::to_lower_copy(name));
+  for (const std::string &name : str::utils::split_trimmed(host_names, ",")) config.host_names.insert(boost::algorithm::to_lower_copy(name));
 
   const std::string mode = boost::algorithm::to_lower_copy(boost::trim_copy(mode_name));
   if (mode == "agent") {
@@ -338,10 +323,10 @@ GearmanClient::worker_setup GearmanClient::build_config(const std::string &alias
     // Worth one line in the log: from here on this agent runs whatever the
     // queue carries, for whatever host, so the queue and its key are the only
     // thing between a job and everything this host can reach.
-    NSC_LOG_MESSAGE("gearman: running in proxy mode: every check on " + join_list(config.queues) +
+    NSC_LOG_MESSAGE("gearman: running in proxy mode: every check on " + str::utils::joinEx(config.queues, ", ") +
                     " is executed here whichever host it names, through this agent's own commands and credentials. Keep the key to these queues to the "
                     "hosts that should have it.");
-    if (!split_list(host_names).empty())
+    if (!str::utils::split_trimmed(host_names, ",").empty())
       NSC_LOG_MESSAGE("gearman: 'host names' is set but has no effect in proxy mode: a proxy answers for every host on its queues, which is the point of it.");
   } else {
     NSC_LOG_ERROR_STD("gearman: unknown mode '" + mode_name +

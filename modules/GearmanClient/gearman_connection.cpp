@@ -4,6 +4,7 @@
 #include "gearman_connection.hpp"
 
 #include <algorithm>
+#include <boost/algorithm/string/trim.hpp>
 #include <chrono>
 
 namespace gearman {
@@ -19,13 +20,6 @@ const unsigned int poll_slice_ms = 250;
 
 /** Read granularity. A job is a few hundred bytes; this is one read for all of it. */
 const std::size_t read_chunk_size = 8 * 1024;
-
-std::string trim(const std::string &value) {
-  const std::string::size_type first = value.find_first_not_of(" \t\r\n");
-  if (first == std::string::npos) return std::string();
-  const std::string::size_type last = value.find_last_not_of(" \t\r\n");
-  return value.substr(first, last - first + 1);
-}
 }  // namespace
 
 std::vector<server_address> parse_server_list(const std::string &spec) {
@@ -33,7 +27,7 @@ std::vector<server_address> parse_server_list(const std::string &spec) {
   std::string::size_type pos = 0;
   while (pos <= spec.size()) {
     const std::string::size_type comma = spec.find(',', pos);
-    const std::string entry = trim(spec.substr(pos, comma == std::string::npos ? std::string::npos : comma - pos));
+    const std::string entry = boost::trim_copy(spec.substr(pos, comma == std::string::npos ? std::string::npos : comma - pos));
     pos = comma == std::string::npos ? spec.size() + 1 : comma + 1;
     if (entry.empty()) continue;
 
