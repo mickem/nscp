@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <ctime>
 #include <map>
 #include <stdexcept>
@@ -44,6 +45,24 @@ std::string field(const field_map &fields, const std::string &key, const std::st
 
 /** The queue a worker submits a result to when the job names none. */
 extern const char *const default_result_queue;
+
+/**
+ * The plugin output one result carries, whoever built it: the worker's answer
+ * to a job and the submit channel's passive result are the same text on the
+ * same queue, so they get the same bound. Long enough for a detail-syntax line
+ * with performance data; mod_gearman's own workers read a plugin's stdout with
+ * no limit at all, but the core truncates on its side anyway and an unbounded
+ * string here would put a runaway check's output on the wire.
+ */
+const std::size_t max_output_length = 8 * 1024;
+
+/**
+ * The `source` line a result carries: what an operator reads in the core to
+ * tell which agent filed it. Built here so an active result from the worker
+ * and a passive one from the submit channel are indistinguishable in the core,
+ * which is the point of them.
+ */
+std::string format_source(const std::string &version, const std::string &host_name);
 
 /** A check the core scheduled and handed to the queue. */
 struct check_job {

@@ -10,6 +10,8 @@ namespace gearman {
 
 const char *const default_result_queue = "check_results";
 
+std::string format_source(const std::string &version, const std::string &host_name) { return "NSClient++ " + version + " on " + host_name; }
+
 namespace {
 
 const char *const job_prefix = "type=";

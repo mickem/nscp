@@ -34,19 +34,14 @@ namespace sh = nscapi::settings_helper;
 
 namespace {
 
-/**
- * The plugin output a result carries. Long enough for a detail-syntax line
- * with performance data; mod_gearman's own workers read a plugin's stdout
- * with no limit at all, but the core truncates on its side anyway and an
- * unbounded string here would put a runaway check's output on the wire.
- */
-const std::size_t max_output_length = 8 * 1024;
-
 /** Route the worker's log lines through the core, which is the only reason this exists. */
 class core_logger : public gearman::worker_logger {
  public:
   void error(const std::string &message) override { NSC_LOG_ERROR_STD("gearman: " + message); }
-  void warning(const std::string &message) override { NSC_LOG_MESSAGE("gearman: " + message); }
+  // A refused job, a check that overran and a result that could not be
+  // confirmed are warnings, and `log level = warning` is the setting where an
+  // operator most needs to see them: at info they would be filtered out there.
+  void warning(const std::string &message) override { NSC_LOG_WARNING("gearman: " + message); }
   void info(const std::string &message) override { NSC_DEBUG_MSG("gearman: " + message); }
   void debug(const std::string &message) override { NSC_TRACE_MSG("gearman: " + message); }
 };
@@ -60,10 +55,11 @@ class core_logger : public gearman::worker_logger {
 struct query_state {
   void run(nscapi::core_wrapper *core, const int plugin_id, const std::string &command, const std::list<std::string> &arguments) {
     nscapi::core_helper helper(core, plugin_id);
-    // The module's own id as the caller: a job carries no upstream identity
-    // (gearmand does not authenticate anybody), so the permission policy sees
-    // the GearmanClient module and nothing more specific.
-    ok = helper.simple_query_on_behalf_of(str::xtos(plugin_id), "", command, arguments, response);
+    // A plain query, stamped with this module's own id. A job carries no
+    // upstream identity - gearmand authenticates nobody - so there is nothing
+    // to forward, and saying so with simple_query_on_behalf_of(own id, "")
+    // only reads as if there were.
+    ok = helper.simple_query(command, arguments, response);
   }
   bool ok = false;
   std::string response;
@@ -96,7 +92,7 @@ class core_query_executor : public gearman::query_executor {
     }
 
     std::string message, perf;
-    result.return_code = nscapi::protobuf::functions::parse_simple_query_response(state->response, message, perf, max_output_length);
+    result.return_code = nscapi::protobuf::functions::parse_simple_query_response(state->response, message, perf, gearman::max_output_length);
     result.output = perf.empty() ? message : message + "|" + perf;
     return result;
   }
@@ -231,6 +227,7 @@ GearmanClient::worker_setup GearmanClient::build_config(const std::string &alias
 
   const std::vector<std::string> groups = str::utils::split_trimmed(hostgroups, ",");
   const std::vector<std::string> service_groups = str::utils::split_trimmed(servicegroups, ",");
+  const std::vector<std::string> extra_host_names = str::utils::split_trimmed(host_names, ",");
 
   if (servers.empty() && groups.empty() && service_groups.empty() && !shared_queues) {
     // Nothing in the worker section at all. That is a deployment, not a
@@ -313,7 +310,7 @@ GearmanClient::worker_setup GearmanClient::build_config(const std::string &alias
   // the agent being down.
   const std::string::size_type dot = local_host.find('.');
   if (dot != std::string::npos) config.host_names.insert(boost::algorithm::to_lower_copy(local_host.substr(0, dot)));
-  for (const std::string &name : str::utils::split_trimmed(host_names, ",")) config.host_names.insert(boost::algorithm::to_lower_copy(name));
+  for (const std::string &name : extra_host_names) config.host_names.insert(boost::algorithm::to_lower_copy(name));
 
   const std::string mode = boost::algorithm::to_lower_copy(boost::trim_copy(mode_name));
   if (mode == "agent") {
@@ -326,7 +323,7 @@ GearmanClient::worker_setup GearmanClient::build_config(const std::string &alias
     NSC_LOG_MESSAGE("gearman: running in proxy mode: every check on " + str::utils::joinEx(config.queues, ", ") +
                     " is executed here whichever host it names, through this agent's own commands and credentials. Keep the key to these queues to the "
                     "hosts that should have it.");
-    if (!str::utils::split_trimmed(host_names, ",").empty())
+    if (!extra_host_names.empty())
       NSC_LOG_MESSAGE("gearman: 'host names' is set but has no effect in proxy mode: a proxy answers for every host on its queues, which is the point of it.");
   } else {
     NSC_LOG_ERROR_STD("gearman: unknown mode '" + mode_name +
@@ -338,7 +335,7 @@ GearmanClient::worker_setup GearmanClient::build_config(const std::string &alias
   config.timeout_return = timeout_return;
   config.max_age = max_age;
   config.client_id = "nscp-" + local_host;
-  config.source = "NSClient++ " + utf8::cvt<std::string>(get_core()->getApplicationVersionString()) + " on " + local_host;
+  config.source = gearman::format_source(utf8::cvt<std::string>(get_core()->getApplicationVersionString()), local_host);
   return worker_setup::ready;
 }
 
