@@ -1,8 +1,4 @@
-module: GearmanClient
-namespace: client
-platforms:
-- unix
-unix:
+common:
   info:
     description: 'Run checks scheduled by a Naemon or Nagios Core through Mod-Gearman: the agent connects
       out to a gearmand job server, grabs the checks queued for it and answers them as native NSClient++
@@ -434,3 +430,8 @@ unix:
         repeatable: false
         required: false
         short_description: Acknowledge sending results unencrypted; required together with encryption=false
+module: GearmanClient
+namespace: client
+platforms:
+- unix
+- windows
