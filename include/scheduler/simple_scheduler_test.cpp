@@ -323,15 +323,16 @@ TEST(simple_scheduler_running, handle_schedule_fires_for_zero_duration_task) {
   s.unset_handler();
 }
 
-TEST(simple_scheduler_running, stop_clears_thread_count) {
+TEST(simple_scheduler_running, stop_keeps_the_configured_pool_size) {
   simple_scheduler::scheduler s;
   s.set_threads(2);
   s.start();
   s.stop();
-  // stop() explicitly writes thread_count_ to zero after waiting for the
-  // worker pool to drain. This is what callers see via get_metric_threads
-  // / get_threads after shutdown.
-  EXPECT_EQ(s.get_threads(), 0u);
+  // stop() drains the pool but leaves the *configured* size alone: it is what
+  // start() spawns from. Zeroing it here - which is what stop() used to do -
+  // meant a restarted scheduler came back up with no workers at all until
+  // something called set_threads() again.
+  EXPECT_EQ(s.get_threads(), 2u);
 }
 
 TEST(simple_scheduler_running, restart_after_stop_runs_tasks_again) {
@@ -350,7 +351,9 @@ TEST(simple_scheduler_running, restart_after_stop_runs_tasks_again) {
   s.stop();
 
   const int after_stop = h.calls.load();
-  s.set_threads(2);
+  // Deliberately no second set_threads(): start() alone has to bring the
+  // workers back. stop() used to zero the configured size, so without that
+  // call the restarted pool had nothing to run the task.
   s.add_task("twice", boost::posix_time::seconds(0), 0.0);
   s.start();
   EXPECT_TRUE(wait_for([&] { return h.calls.load() > after_stop; }, std::chrono::seconds(5)));
@@ -391,7 +394,7 @@ TEST(simple_scheduler_running, prepare_shutdown_is_idempotent_with_stop) {
   // rather than hanging.
   s.prepare_shutdown();
   s.stop();
-  EXPECT_EQ(s.get_threads(), 0u);
+  EXPECT_EQ(s.get_threads(), 2u) << "the configured size is what start() spawns from; stop() drains the pool, it does not forget how big it was";
 }
 
 TEST(simple_scheduler_running, no_handler_does_not_crash) {
