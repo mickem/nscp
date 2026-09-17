@@ -16,6 +16,12 @@ which is what lets a Mod-Gearman installation drop NSCA.
     the protocol, the encryption or the job format — so the agent is
     configured identically for both. Where a path or a binary name differs,
     this page shows both.
+
+!!! tip "Try it before you build it"
+    `examples/mod-gearman/` in the source tree is a one-command lab: a
+    container with Naemon, the NEB module, a gearmand and a web UI, plus a
+    ready-made agent configuration. `docker compose up` and point an agent at
+    it — everything on this page can be tried there first.
 <!-- @formatter:on -->
 ---
 
@@ -93,7 +99,6 @@ CheckHelpers  = enabled   ; check_ok, check_and_forward
 ; Proxy mode only — the modules the proxy reaches its targets with:
 NRPEClient    = enabled
 ;NSCPClient   = enabled
-;CheckWMI     = enabled
 ```
 
 On the monitoring server: a running `gearmand` reachable from the agent, and
@@ -467,3 +472,5 @@ reach at all.
   the alternative when an inbound port is acceptable.
 - [Prometheus Scraping](prometheus.md) — where the `gearman.worker.*` metrics
   above are exposed.
+- `examples/mod-gearman/` in the source tree — a throwaway Naemon +
+  Mod-Gearman + gearmand container to try all of the above against.
