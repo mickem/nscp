@@ -27,7 +27,12 @@ add_definitions(${NSCP_GLOBAL_DEFINES})
 add_definitions(-DUSE_SSL)
 set(EXTRA_LIBS ${EXTRA_LIBS} ${OPENSSL_LIBRARIES})
 if(WIN32)
-    set(EXTRA_LIBS ${EXTRA_LIBS} CRYPT32)
+    # libcrypto's BIO layer calls into winsock (BIO_sock_init, BIO_lookup and
+    # the socket BIOs), so anything linking the static libcrypto needs ws2_32
+    # as well. The module and the worker test pull it in through Boost.Asio's
+    # auto-link pragma; the crypt and job tests never touch a socket and would
+    # otherwise fail with 30 unresolved externals out of libcrypto.
+    set(EXTRA_LIBS ${EXTRA_LIBS} CRYPT32 ws2_32)
 endif(WIN32)
 include_directories(${OPENSSL_INCLUDE_DIR})
 
