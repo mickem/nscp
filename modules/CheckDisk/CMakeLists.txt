@@ -26,7 +26,6 @@ set(SRCS
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
     ${NSCP_ERROR_CPP}
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
     ${NSCP_INCLUDEDIR}/compat.cpp
 )
 

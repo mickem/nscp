@@ -53,7 +53,6 @@ set(service_SRCS
     ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.cpp
     ${NSCP_INCLUDEDIR}/nsclient/logger/log_message_factory.cpp
     ${NSCP_INCLUDEDIR}/pid_file.cpp
-    ${NSCP_INCLUDEDIR}/json/use_json.cpp
     ${NSCP_INCLUDEDIR}/nscp/layout_migration.cpp
     ../resources/nsclient.ico
 )
@@ -212,6 +211,8 @@ target_link_libraries(
     settings_manager
     expression_parser
     nscp_miniz
+    nscp_json
+    nscp_net
 )
 
 source_group("NSCP API" REGULAR_EXPRESSION .*include/nscapi/.*)

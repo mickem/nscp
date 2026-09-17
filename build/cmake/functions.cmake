@@ -371,6 +371,21 @@ macro(NSCP_MAKE_LIBRARY _TARGET _SRCS)
     else(USE_STATIC_RUNTIME)
         add_library(${_TARGET} SHARED ${_NSCP_LIB_EXCLUDE} ${_SRCS})
         SET_LIBRARY_OUT_FOLDER(${_TARGET})
+        # Windows exports nothing from a DLL unless it is asked to, and these
+        # libraries only ever annotated a fraction of their surface with
+        # __declspec(dllexport) (the NSCAPI_EXPORT / NSCAPI_PROTOBUF_EXPORT
+        # macros). Everything else - nscapi_helper, the settings helpers,
+        # nscapi_program_options, utf8 - was therefore unreachable from a
+        # module, and every module compiled its own copy of the source
+        # instead. Export the whole surface so a module can link what is
+        # already in the DLL. ELF already behaves this way, which is why only
+        # the Windows build carried the duplication.
+        set_target_properties(
+            ${_TARGET}
+            PROPERTIES
+                WINDOWS_EXPORT_ALL_SYMBOLS
+                    ON
+        )
         # These are package-PRIVATE libraries they install under NSCP_PKGLIBDIR alongside the modules, not the public
         # libdir, and ship no public ABI. So no SOVERSION/VERSION symlink chain (dead weight + a lintian remark for a
         # private lib). On Windows the VERSION property is harmless but equally unnecessary here.

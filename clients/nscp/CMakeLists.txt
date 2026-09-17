@@ -7,12 +7,7 @@ project(clients)
 set(SRCS
     ${SRCS}
     check_nscp.cpp
-    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_INCLUDEDIR}/bytes/base64.c
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
-    ${NSCP_CLIENT_CPP}
     ../../resources/nsclient.ico
 )
 
@@ -60,6 +55,8 @@ endif(WIN32 AND NOT CMAKE_CL_64)
 
 target_link_libraries(
     ${TARGET}
+    nscp_client
+    nscp_net
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_THREAD_LIBRARY}

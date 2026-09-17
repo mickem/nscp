@@ -15,9 +15,7 @@ set(SRCS
     check_docker_df.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
-    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_INCLUDEDIR}/bytes/base64.c
-    ${NSCP_INCLUDEDIR}/json/use_json.cpp
 )
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
@@ -57,6 +55,8 @@ OPENSSL_LINK_FIX(${TARGET})
 
 target_link_libraries(
     ${TARGET}
+    nscp_json
+    nscp_net
     ${NSCP_DEF_PLUGIN_LIB}
     ${NSCP_FILTER_LIB}
     expression_parser

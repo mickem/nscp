@@ -11,8 +11,6 @@ set(SRCS
     "${TARGET}.cpp"
     ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.cpp
     ${NSCP_DEF_PLUGIN_CPP}
-    ${NSCP_INCLUDEDIR}/json/use_json.cpp
-    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_INCLUDEDIR}/bytes/base64.c
 )
 
@@ -48,6 +46,8 @@ OPENSSL_LINK_FIX(${TARGET})
 
 target_link_libraries(
     ${TARGET}
+    nscp_json
+    nscp_net
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_DATE_TIME_LIBRARY}

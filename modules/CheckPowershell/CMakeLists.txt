@@ -12,6 +12,10 @@ set(SRCS
     block_allocator.cpp
     ${NSCP_INCLUDEDIR}/managed/convert.cpp
     ${NSCP_INCLUDEDIR}/managed/core_impl.cpp
+    # This module is a /clr "thin" plugin: it links no NSCP library at all
+    # (see the empty target_link_libraries below) and compiles the pieces of
+    # the API it needs itself. So these two stay here even though the rest of
+    # the modules now take them from plugin_api.
     ${NSCP_INCLUDEDIR}/str/utf8.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp

@@ -1327,13 +1327,20 @@ endforeach(
 #
 # ##############################################################################
 
-set(NSCP_DEF_PLUGIN_CPP
-    ${NSCP_INCLUDEDIR}/str/utf8.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_impl.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
-)
+# Sources every plugin must compile *itself*.
+#
+# This list used to carry utf8.cpp, nscapi_helper.cpp, settings/helper.cpp and
+# nscapi_program_options.cpp as well. The first three were *already* in the
+# plugin_api library that every one of these targets links, so each of the
+# 40-odd modules shipped a second, private copy of the same object code (10 MB
+# of it for settings/helper.cpp alone across the module set) for no benefit;
+# nscapi_program_options.cpp has been moved there too. See libs/plugin_api.
+#
+# nscapi_plugin_impl.cpp stays here on purpose: it reads
+# nscapi::plugin_singleton, which is defined *per module* by the generated
+# module.cpp (NSC_WRAP_DLL). Moving it into the shared library would bind every
+# module to the library's singleton instead of its own.
+set(NSCP_DEF_PLUGIN_CPP ${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_impl.cpp)
 set(NSCP_DEF_PLUGIN_HPP
     ${NSCP_INCLUDEDIR}/str/utf8.hpp
     ${NSCP_INCLUDEDIR}/str/format.hpp
@@ -1362,10 +1369,9 @@ set(NSCP_FILTER_LIB
     perfconfig_parser
 )
 
-set(NSCP_CLIENT_CPP
-    ${NSCP_INCLUDEDIR}/str/utf8.cpp
-    ${NSCP_INCLUDEDIR}/client/command_line_parser.cpp
-)
+# Only unit tests still compile the client parser directly (they exercise it
+# without a core); the modules and the check_* executables link nscp_client.
+set(NSCP_CLIENT_CPP ${NSCP_INCLUDEDIR}/client/command_line_parser.cpp)
 set(NSCP_CLIENT_HPP
     ${NSCP_INCLUDEDIR}/str/utf8.hpp
     ${NSCP_INCLUDEDIR}/client/command_line_parser.hpp

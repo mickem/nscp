@@ -24,6 +24,9 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/nscapi/settings/filter.cpp
     ${NSCP_INCLUDEDIR}/nscapi/settings/proxy.cpp
     ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
+    ${NSCP_INCLUDEDIR}/metrics/metrics_store_map.cpp
 )
 
 if(WIN32)
@@ -42,6 +45,9 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/nscapi/settings/proxy.hpp
         ${NSCP_INCLUDEDIR}/nscapi/settings/object.hpp
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.hpp
+        ${NSCP_INCLUDEDIR}/metrics/metrics_store_map.hpp
         ${NSCP_INCLUDEDIR}/nscapi/macros.hpp
     )
 endif(WIN32)
