@@ -1,0 +1,12 @@
+{
+	"module"		: {
+		"title"			: "NCPA server",
+		"description"	: "A server that speaks the Nagios Cross-Platform Agent (NCPA) HTTP API so Nagios Core and Nagios XI can poll this agent with the stock check_ncpa.py plugin.",
+		"name"			: "NCPAServer",
+		"alias"			: "ncpa",
+		"version"		: "auto",
+		"reload"		: true
+	},
+	"metrics" : "consume",
+	"prepare_shutdown" : true
+}

@@ -59,6 +59,7 @@ nav:
       - Network Checks: scenarios/network-checks.md
       - Host Security Posture: scenarios/security-posture.md
       - Active Monitoring with NRPE: scenarios/nrpe.md
+      - Active Monitoring with NCPA: scenarios/ncpa.md
       - Passive Monitoring (NSCA/NRDP): scenarios/passive-monitoring-nsca.md
       - Passive Monitoring (NSCA-NG): scenarios/passive-monitoring-nsca-ng.md
       - Passive Monitoring (Icinga 2): scenarios/passive-monitoring-icinga.md
@@ -88,6 +89,7 @@ nav:
         - CheckWMI (Windows): reference/windows/CheckWMI.md
       - Clients & Servers:
         - WEBServer: reference/generic/WEBServer.md
+        - NCPAServer: reference/generic/NCPAServer.md
         - NRPEServer: reference/client/NRPEServer.md
         - NRPEClient: reference/client/NRPEClient.md
         - NSClientServer: reference/windows/NSClientServer.md

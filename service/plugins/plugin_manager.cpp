@@ -59,6 +59,11 @@ std::string installer_feature_hint(const std::string &module) {
       {"NSClientServer", "check_nt support"},
       // WEB Server
       {"WEBServer", "WEB Server"},
+      // NCPA support. Its own feature rather than part of "WEB Server": it is a
+      // second, separately configured HTTPS listener, so an operator can serve
+      // NCPA without exposing the web UI (and the other way round). It does
+      // share the mongoose runtime that feature also installs.
+      {"NCPAServer", "NCPA support"},
       // NSCA plugin
       {"NSCAClient", "NSCA plugin"},
       {"NSCAServer", "NSCA plugin"},

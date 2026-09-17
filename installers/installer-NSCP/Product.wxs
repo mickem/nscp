@@ -136,6 +136,9 @@
             <Component Id="WEBServer" Guid="6B28E09F-E5C3-458F-9C60-E9335AEE44D3" Win64="$(var.Win64)">
               <File Id="WEBServerDLL" Name="WEBServer.dll" DiskId="1" Source="$(var.Source)/modules/WEBServer.dll" Vital="no" />
             </Component>
+            <Component Id="NCPAServer" Guid="3F5B1C64-9A72-4E38-8C05-1D6E9B2A47F1" Win64="$(var.Win64)">
+              <File Id="NCPAServerDLL" Name="NCPAServer.dll" DiskId="1" Source="$(var.Source)/modules/NCPAServer.dll" Vital="no" />
+            </Component>
             <Component Id="NSCA" Guid="C2C9E95A-28A6-4ea0-BF71-73B8CE509369" Win64="$(var.Win64)">
               <File Id="NSCAClientDLL" Name="NSCAClient.dll" DiskId="1" Source="$(var.Source)/modules/NSCAClient.dll" Vital="no" />
               <File Id="NSCAServerDLL" Name="NSCAServer.dll" DiskId="1" Source="$(var.Source)/modules/NSCAServer.dll" Vital="no" />
@@ -336,6 +339,18 @@
         <Feature Id="WEBPlugins" Title="WEB Server" Description="NSClient WEB Server. Use this to administrate or check NSClient via a browser or REST API" Level="1" Absent="allow">
           <ComponentRef Id="WEBServer" />
           <ComponentGroupRef Id="WEBResources" />
+          <?if "$(var.Runtime)" = "dynamic"?>
+            <ComponentRef Id="MongooseLibs" />
+          <?endif?>
+        </Feature>
+        <!-- Its own feature rather than part of "WEB Server": the NCPA server is
+             a second, separately configured HTTPS listener on port 5693, so an
+             operator can serve NCPA without exposing the web UI (and the other
+             way round). It shares the mongoose runtime, which is why that
+             component is referenced here too - MSI reference-counts it, so
+             installing both features installs one copy. -->
+        <Feature Id="NCPAPlugins" Title="NCPA support" Description="NCPA server. Lets Nagios Core and Nagios XI poll this agent with the stock check_ncpa plugin and the XI NCPA wizard" Level="1" Absent="allow">
+          <ComponentRef Id="NCPAServer" />
           <?if "$(var.Runtime)" = "dynamic"?>
             <ComponentRef Id="MongooseLibs" />
           <?endif?>

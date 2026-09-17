@@ -60,6 +60,7 @@ direction (active vs. passive) and protocol that matches your setup.
 | Scenario                                                      | Description                                                                      |
 |---------------------------------------------------------------|----------------------------------------------------------------------------------|
 | [Active Monitoring with NRPE](nrpe.md)                        | Let the monitoring server poll NSClient++ over NRPE (Nagios-style active checks) |
+| [Active Monitoring with NCPA](ncpa.md)                        | Answer the Nagios NCPA API on HTTPS/5693 so Nagios Core and XI can poll with the stock check_ncpa plugin |
 | [Passive Monitoring (NSCA/NRDP)](passive-monitoring-nsca.md)  | Have NSClient++ push results to your monitoring server on a schedule             |
 | [Passive Monitoring (NSCA-NG)](passive-monitoring-nsca-ng.md) | TLS-PSK successor to NSCA — modern crypto, same passive-push pattern             |
 | [Passive Monitoring (Icinga 2)](passive-monitoring-icinga.md) | Submit scheduled check results to the Icinga 2 REST API                          |
