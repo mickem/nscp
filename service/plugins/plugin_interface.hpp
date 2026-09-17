@@ -63,6 +63,9 @@ class plugin_interface : public logging::logging_subscriber {
   virtual std::string getName() = 0;
   virtual std::string getDescription() = 0;
   virtual std::string get_version() = 0;
+  // Whether the module declared itself experimental (module.json). A module
+  // built before the flag existed does not report one, hence the default.
+  virtual bool is_experimental() { return false; }
 
   virtual bool hasCommandHandler() = 0;
   virtual NSCAPI::nagiosReturn handleCommand(std::string request, std::string &reply) = 0;

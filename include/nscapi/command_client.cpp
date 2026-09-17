@@ -17,6 +17,7 @@ void register_command(command_proxy_ptr &core_, PB::Registry::RegistryRequestMes
   regitem->set_name(v->name);
   regitem->mutable_info()->set_title(v->name);
   regitem->mutable_info()->set_description(v->description);
+  regitem->mutable_info()->set_experimental(v->experimental);
   for (const std::string &alias : v->aliases) {
     regitem->add_alias(alias);
   }

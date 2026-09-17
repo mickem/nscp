@@ -33,6 +33,7 @@ import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import { QueryResultChip } from "../components/atoms/QueryResultChip.tsx";
 import Trail from "../components/atoms/Trail.tsx";
+import ExperimentalChip from "../components/atoms/ExperimentalChip.tsx";
 import SyntaxArgumentsField, { SyntaxArgumentsFieldHandle } from "../components/atoms/SyntaxArgumentsField.tsx";
 import QueryHelpPanel from "../components/QueryHelpPanel.tsx";
 import { makeVocabulary } from "../common/queryHelp.ts";
@@ -116,9 +117,10 @@ export default function Query() {
       </Toolbar>
       <Card>
         <CardContent>
-          <Typography gutterBottom sx={{ color: "text.secondary", fontSize: 14 }}>
-            {query?.name}
-          </Typography>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center", paddingBottom: 1 }}>
+            <Typography sx={{ color: "text.secondary", fontSize: 14 }}>{query?.name}</Typography>
+            {query?.experimental && <ExperimentalChip />}
+          </Stack>
           <Typography variant="body2">{query?.description}</Typography>
           <Typography variant="body2">Check provided by the <Chip label={query?.plugin} size="small" onClick={() => navigate("/modules/" + query?.plugin)}/> module.</Typography>
           <Stack direction="row" spacing={1} sx={{ width: 1, paddingTop: 3, alignItems: "flex-start" }}>

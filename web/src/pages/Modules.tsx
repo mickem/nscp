@@ -10,6 +10,7 @@ import CheckIcon from "@mui/icons-material/Check";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
 import CheckBoxOutlineBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank";
 import Trail from "../components/atoms/Trail.tsx";
+import ExperimentalChip from "../components/atoms/ExperimentalChip.tsx";
 import FilterField from "../components/atoms/FilterField.tsx";
 import { useMemo, useState } from "react";
 
@@ -37,7 +38,11 @@ export default function Modules() {
     if (!modules) return [];
     if (!needle) return modules;
     return modules.filter((m) =>
-      [m.name, m.id, m.description].some((f) => (f ?? "").toLowerCase().includes(needle)),
+      // "experimental" is matched as if it were a word in the row, so the
+      // filter field doubles as a way to list what is still moving.
+      [m.name, m.id, m.description, m.experimental ? "experimental" : ""].some((f) =>
+        (f ?? "").toLowerCase().includes(needle),
+      ),
     );
   }, [modules, needle]);
 
@@ -64,7 +69,15 @@ export default function Modules() {
           <ListItem key={module.id} alignItems="flex-start">
             <ListItemButton onClick={() => navigate(`/modules/${module.id}`)} dense>
               <ListItemIcon>{getIcon(module)}</ListItemIcon>
-              <ListItemText primary={module.name} secondary={module.description} />
+              <ListItemText
+                primary={
+                  <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                    <span>{module.name}</span>
+                    {module.experimental && <ExperimentalChip dense />}
+                  </Stack>
+                }
+                secondary={module.description}
+              />
             </ListItemButton>
           </ListItem>
         ))}

@@ -233,6 +233,11 @@ Modules can be loaded and unloaded at runtime and they provide various features 
 If we click on `Queries` in the web interface we will see a list of available queries.
 In the list you will find `check_cpu` so lets try it out.
 
+Some entries in this list — and in the `Modules` list — carry an
+**Experimental** chip. That check or module works and is there to be used, but
+it is new enough that its options, filter keywords and output may still change
+in a coming release, so expect to revisit it after an upgrade.
+
 ![select check_cpu](../images/web-select-check_cpu.png)
 
 Then you are met with a screen which looks a bit like this:

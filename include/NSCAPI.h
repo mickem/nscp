@@ -38,6 +38,16 @@ const int isInvalidBufferLen = -2;
 const int target_module = 1;
 const int target_any = 0;
 
+// Module flags, as reported by the optional NSGetModuleFlags export. A module
+// built before the export existed simply does not have it, and the core reads
+// no flags for it - so "none" has to stay the meaning of a missing export.
+namespace module_flags {
+const int none = 0;
+// The module is experimental: it works, but its commands, options or output
+// may still change. Declared as "experimental": true in module.json.
+const int experimental = 0x01;
+}  // namespace module_flags
+
 namespace message {
 const int processed = 0x01;
 const int routed = 0x02;
@@ -134,6 +144,8 @@ typedef NSCAPI::errorReturn (*lpGetName)(char *, unsigned int);
 typedef NSCAPI::errorReturn (*lpGetDescription)(char *, unsigned int);
 typedef NSCAPI::errorReturn (*lpModuleHelperInit)(unsigned int, ::nscapi::core_api::lpNSAPILoader f);
 typedef NSCAPI::errorReturn (*lpGetVersion)(int *major, int *minor, int *revision);
+// Optional: modules generated before this export existed do not have it.
+typedef NSCAPI::errorReturn (*lpGetFlags)(int *flags);
 typedef NSCAPI::errorReturn (*lpDeleteBuffer)(char **buffer);
 
 typedef NSCAPI::errorReturn (*lpLoadModule)(unsigned int plugin_id, const char *alias, int mode);

@@ -4,7 +4,8 @@
 		"description"	: "NSCA-NG client can be used both from command line and from queries to submit passive checks via NSCA-NG (TLS-based NSCA next generation)",
 		"name"			: "NSCANgClient",
 		"alias"			: "nsca-ng",
-		"version"		: "auto"
+		"version"		: "auto",
+		"experimental"	: true
 	},
 	
 	"settings"		: {
@@ -15,7 +16,8 @@
 		"fallback" : "raw",
 		"submit_nsca_ng" : {
 			"description" : "Submit information to the remote NSCA-NG server. Custom relay commands defined under [/settings/NSCA-NG/client/handlers] are registered automatically using the same `submit_<alias>` naming convention.",
-			"mapping"	: false
+			"mapping"	: false,
+			"experimental" : true
 		}
 	},
 

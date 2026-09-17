@@ -6,6 +6,7 @@ windows:
   info:
     description: 'Check Microsoft SQL Server: connectivity, databases, backups, agent jobs and custom
       queries.'
+    experimental: true
     title: CheckMSSQL
   paths:
     /settings/mssql:
@@ -131,6 +132,7 @@ windows:
         short_description: ''
       info:
         description: Check SQL Server connectivity and health (version, edition, uptime).
+        experimental: true
       params:
       - content_type: 2
         default_value: localhost
@@ -283,6 +285,7 @@ windows:
         short_description: ''
       info:
         description: Check the age of the last full/differential/log backup per database.
+        experimental: true
       params:
       - content_type: 2
         default_value: 'false'
@@ -464,6 +467,7 @@ windows:
         short_description: ''
       info:
         description: Check database state, recovery model and data/log size.
+        experimental: true
       params:
       - content_type: 2
         default_value: localhost
@@ -619,6 +623,7 @@ windows:
         short_description: ''
       info:
         description: Check SQL Server Agent job status.
+        experimental: true
       params:
       - content_type: 2
         default_value: localhost
@@ -748,6 +753,7 @@ windows:
         warning: ''
       info:
         description: Run a custom T-SQL query and apply thresholds to the returned rows.
+        experimental: true
       params:
       - content_type: 2
         default_value: ''

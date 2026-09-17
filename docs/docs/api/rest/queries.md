@@ -46,11 +46,17 @@ GET /api/v2/queries
         "name": "check_cpu",
         "title": "check_cpu",
         "description": "Check that the load of the CPU(s) are within bounds.",
+        "experimental": false,
         "metadata": {},
         "query_url": "https://localhost:8443/api/v2/queries/check_cpu/"
     }
 ]
 ```
+
+`experimental` marks a check command that works but is still young: its
+options, filter keywords and output may change in a coming release. The module
+declares it (`module.json`), the agent reports it, and `nscp test` and the web
+UI show it next to the command name.
 
 ### Example
 
@@ -81,6 +87,7 @@ GET /api/v2/queries/check_cpu
     "name": "check_cpu",
     "title": "check_cpu",
     "description": "Check that the load of the CPU(s) are within bounds.",
+    "experimental": false,
     "metadata": {},
     "execute_url":        "https://localhost:8443/api/v2/queries/check_cpu/commands/execute",
     "execute_nagios_url": "https://localhost:8443/api/v2/queries/check_cpu/commands/execute_nagios"

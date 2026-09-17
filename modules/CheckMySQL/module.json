@@ -4,11 +4,12 @@
 		"description"		: "Check MySQL, MariaDB, Percona and other MySQL-compatible servers: connectivity, health and custom queries.",
 		"name"			: "CheckMySQL",
 		"alias"			: "mysql",
-		"version"		: "auto"
+		"version"		: "auto",
+		"experimental"	: true
 	},
 
 	"commands" : {
-		"check_mysql"		: "Check MySQL/MariaDB server connectivity and health (version, flavor, uptime, connections).",
-		"check_mysql_query"	: "Run a custom SQL query and apply thresholds to the returned rows."
+		"check_mysql"		: { "description" : "Check MySQL/MariaDB server connectivity and health (version, flavor, uptime, connections).", "experimental" : true },
+		"check_mysql_query"	: { "description" : "Run a custom SQL query and apply thresholds to the returned rows.", "experimental" : true }
 	}
 }

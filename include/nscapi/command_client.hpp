@@ -18,18 +18,31 @@ namespace command_helper {
 
 typedef std::shared_ptr<nscapi::command_proxy> command_proxy_ptr;
 
+// Whether a command's interface is still expected to change. This is a type
+// of its own rather than a bool because the registration helper is overloaded
+// on (command, description) and (command, alias, description): a trailing bool
+// would win over the three-string overload for a call like
+// ("check_x", "alias", "description"), since a const char* converts to bool.
+enum class stability { stable, experimental };
+
 struct command_info {
   std::string name;
   std::string description;
   std::list<std::string> aliases;
+  // The command is experimental: it works, but its options, keywords or output
+  // may still change. Declared as "experimental": true in module.json and
+  // carried to the registry so the CLI, web UI and docs can say so.
+  bool experimental;
 
-  command_info(std::string name, std::string description_) : name(name), description(description_) {}
+  command_info(std::string name, std::string description_, stability stability_ = stability::stable)
+      : name(name), description(description_), experimental(stability_ == stability::experimental) {}
 
-  command_info(const command_info& obj) : name(obj.name), description(obj.description), aliases(obj.aliases) {}
+  command_info(const command_info& obj) : name(obj.name), description(obj.description), aliases(obj.aliases), experimental(obj.experimental) {}
   command_info& operator=(const command_info& obj) {
     name = obj.name;
     description = obj.description;
     aliases = obj.aliases;
+    experimental = obj.experimental;
     return *this;
   }
 
@@ -42,13 +55,13 @@ class NSCAPI_EXPORT register_command_helper {
   register_command_helper(command_registry* owner_) : owner(owner_) {}
   virtual ~register_command_helper() {}
 
-  register_command_helper& operator()(std::string command, std::string description) {
-    add(std::shared_ptr<command_info>(new command_info(command, description)));
+  register_command_helper& operator()(std::string command, std::string description, stability stability_ = stability::stable) {
+    add(std::shared_ptr<command_info>(new command_info(command, description, stability_)));
     return *this;
   }
 
-  register_command_helper& operator()(std::string command, std::string alias, std::string description) {
-    std::shared_ptr<command_info> d = std::shared_ptr<command_info>(new command_info(command, description));
+  register_command_helper& operator()(std::string command, std::string alias, std::string description, stability stability_ = stability::stable) {
+    std::shared_ptr<command_info> d = std::shared_ptr<command_info>(new command_info(command, description, stability_));
     d->add_alias(alias);
     add(d);
     return *this;

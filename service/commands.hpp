@@ -39,6 +39,9 @@ class commands : boost::noncopyable {
     std::string description;
     unsigned int plugin_id;
     std::string name;
+    // The command was declared experimental by its module (module.json): it
+    // works, but its options, keywords or output may still change.
+    bool experimental = false;
   };
 
   typedef std::shared_ptr<core::plugin_interface> plugin_type;
@@ -138,7 +141,7 @@ class commands : boost::noncopyable {
     if (pit != plugins_.end()) plugins_.erase(pit);
   }
 
-  void register_command(unsigned long plugin_id, std::string cmd, std::string desc) {
+  void register_command(unsigned long plugin_id, std::string cmd, std::string desc, bool experimental = false) {
     boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
     if (!writeLock.owns_lock()) {
       log_error(__FILE__, __LINE__, "Failed to get mutex", cmd);
@@ -152,6 +155,7 @@ class commands : boost::noncopyable {
     descriptions_[lc].description = desc;
     descriptions_[lc].plugin_id = plugin_id;
     descriptions_[lc].name = cmd;
+    descriptions_[lc].experimental = experimental;
     commands_[lc] = plugins_[plugin_id];
   }
   void unregister_command(unsigned long plugin_id, std::string cmd) {
@@ -181,7 +185,7 @@ class commands : boost::noncopyable {
     description_list_type::iterator dit = descriptions_.find(lc);
     if (dit != descriptions_.end() && dit->second.plugin_id == plugin_id) descriptions_.erase(dit);
   }
-  void register_alias(unsigned long plugin_id, std::string cmd, std::string desc) {
+  void register_alias(unsigned long plugin_id, std::string cmd, std::string desc, bool experimental = false) {
     boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
     if (!writeLock.owns_lock()) {
       log_error(__FILE__, __LINE__, "Failed to get mutex", cmd);
@@ -192,6 +196,8 @@ class commands : boost::noncopyable {
     descriptions_[lc].description = desc;
     descriptions_[lc].plugin_id = plugin_id;
     descriptions_[lc].name = cmd;
+    // An alias is as experimental as the command it stands for.
+    descriptions_[lc].experimental = experimental;
     aliases_[lc] = plugins_[plugin_id];
   }
 

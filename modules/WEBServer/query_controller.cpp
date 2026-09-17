@@ -73,6 +73,7 @@ void query_controller::get_queries(Mongoose::Request &request, boost::smatch &wh
       }
       node["metadata"] = keys;
       node["description"] = i.info().description();
+      node["experimental"] = i.info().experimental();
       root.push_back(node);
     }
   }
@@ -115,6 +116,7 @@ void query_controller::get_query(Mongoose::Request &request, boost::smatch &what
       }
       node["metadata"] = keys;
       node["description"] = i.info().description();
+      node["experimental"] = i.info().experimental();
     }
   }
   response.setCodeOk();

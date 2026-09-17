@@ -4,17 +4,18 @@
 		"description"		: "Checks for applications and server roles on Windows: IIS (web sites, application pools, worker processes, HTTP.sys request queues) and Remote Desktop Services (CAL licensing, session host load, Connection Broker).",
 		"name"			: "CheckWindowsApps",
 		"alias"			: "windowsapps",
-		"version"		: "auto"
+		"version"		: "auto",
+		"experimental"	: true
 	},
 
 	"commands" : {
-		"check_iis_app_pools"	: "Check IIS application pools (state, uptime, recycles).",
-		"check_iis_sites"	: "Check IIS web sites (state, connections, traffic).",
-		"check_iis_worker_processes"	: "Check IIS worker processes (active and served requests per w3wp).",
-		"check_iis_request_queues"	: "Check HTTP.sys request queues (length, rejections, age).",
-		"check_rds_licenses"	: "Check Remote Desktop licensing (CAL key packs: issued versus available licenses).",
-		"check_rds_sessions"	: "Check session counts on a session host (active, inactive, total).",
-		"check_rds_session_load"	: "Check per-session resource usage (CPU, working set, protocol bytes).",
-		"check_rds_broker"	: "Check the Remote Desktop Connection Broker counterset (failed/pending connections)."
+		"check_iis_app_pools"	: { "description" : "Check IIS application pools (state, uptime, recycles).", "experimental" : true },
+		"check_iis_sites"	: { "description" : "Check IIS web sites (state, connections, traffic).", "experimental" : true },
+		"check_iis_worker_processes"	: { "description" : "Check IIS worker processes (active and served requests per w3wp).", "experimental" : true },
+		"check_iis_request_queues"	: { "description" : "Check HTTP.sys request queues (length, rejections, age).", "experimental" : true },
+		"check_rds_licenses"	: { "description" : "Check Remote Desktop licensing (CAL key packs: issued versus available licenses).", "experimental" : true },
+		"check_rds_sessions"	: { "description" : "Check session counts on a session host (active, inactive, total).", "experimental" : true },
+		"check_rds_session_load"	: { "description" : "Check per-session resource usage (CPU, working set, protocol bytes).", "experimental" : true },
+		"check_rds_broker"	: { "description" : "Check the Remote Desktop Connection Broker counterset (failed/pending connections).", "experimental" : true }
 	}
 }

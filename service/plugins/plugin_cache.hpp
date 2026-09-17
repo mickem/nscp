@@ -26,8 +26,10 @@ struct plugin_cache_item {
   std::string desc;
   std::string version;
   bool is_loaded;
+  // The module declared itself experimental in its module.json.
+  bool experimental;
 
-  plugin_cache_item() : id(0), is_loaded(false) {}
+  plugin_cache_item() : id(0), is_loaded(false), experimental(false) {}
   plugin_cache_item(const plugin_type& other);
   plugin_cache_item(const plugin_cache_item& other) = default;
   plugin_cache_item& operator=(const plugin_cache_item& other) {
@@ -39,6 +41,7 @@ struct plugin_cache_item {
     desc = other.desc;
     version = other.version;
     is_loaded = other.is_loaded;
+    experimental = other.experimental;
     return *this;
   }
 };

@@ -67,6 +67,22 @@ describe("nscp test console", () => {
     expect(out).toContain("OK: it's");
   });
 
+  it("marks experimental commands in the listings and in desc", async () => {
+    // CheckDisk carries both kinds: check_drivesize has been there for years,
+    // check_single_file is one of the recent additions its module.json marks
+    // as experimental.
+    await nscp.configure({ "/modules": { CheckHelpers: "enabled", CheckDisk: "enabled" } });
+    const out = await runConsole("queries\ndesc check_single_file\ndesc check_drivesize\nexit\n");
+
+    expect(out).toMatch(/check_single_file \(experimental\)/);
+    // The settled command is listed without a marker of any kind.
+    expect(out).toMatch(/check_drivesize\s+Check the size/);
+    expect(out).not.toMatch(/check_drivesize \(experimental\)/);
+    // `desc` says it in words, since that is where the reader decides whether
+    // to build a check on it.
+    expect(out).toMatch(/Status:\s+Experimental - options, keywords and output may still change/);
+  });
+
   it("exec passes dashed options to the module without promoting one to the command", async () => {
     // `exec CheckSystem --list SQL --all` used to send "--list" as the command
     // and every module refused it: a module's command line starts with its

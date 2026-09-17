@@ -13,9 +13,9 @@
 
 	"commands" : {
 		"check_docker"			: "Check the state of docker containers, optionally requiring specific containers to be running.",
-		"check_docker_info"		: "Check that the docker daemon is healthy: version plus container and image counts.",
-		"check_docker_stats"	: "Check per-container resource usage: CPU percent and memory versus limit.",
-		"check_docker_restarts"	: "Detect container restart loops and out-of-memory kills.",
-		"check_docker_df"		: "Check docker disk usage: images, containers, volumes, build cache and reclaimable space."
+		"check_docker_info"		: { "description" : "Check that the docker daemon is healthy: version plus container and image counts.", "experimental" : true },
+		"check_docker_stats"	: { "description" : "Check per-container resource usage: CPU percent and memory versus limit.", "experimental" : true },
+		"check_docker_restarts"	: { "description" : "Detect container restart loops and out-of-memory kills.", "experimental" : true },
+		"check_docker_df"		: { "description" : "Check docker disk usage: images, containers, volumes, build cache and reclaimable space.", "experimental" : true }
 	}
 }

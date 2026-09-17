@@ -29,6 +29,7 @@ nsclient::core::dll_plugin::dll_plugin(const unsigned int id, const boost::files
       fPrepareShutdown(nullptr),
       fGetName(nullptr),
       fGetVersion(nullptr),
+      fGetFlags(nullptr),
       fGetDescription(nullptr),
       fHasCommandHandler(nullptr),
       fHasMessageHandler(nullptr),
@@ -257,6 +258,26 @@ bool nsclient::core::dll_plugin::getVersion(int *major, int *minor, int *revisio
   } catch (...) {
     throw plugin_exception(get_alias_or_name(), "Unhandled exception in getVersion.");
   }
+}
+/**
+ * Whether the module declared itself experimental in its module.json.
+ *
+ * Reported through the optional NSGetModuleFlags export, so a module built
+ * before flags existed - or one that fails to answer - is simply not
+ * experimental. Never throws: this is metadata for a listing, and a module
+ * that cannot describe itself must still be listed.
+ *
+ * @return true if the module set the experimental flag
+ */
+bool nsclient::core::dll_plugin::is_experimental() {
+  if (!isLoaded() || fGetFlags == nullptr) return false;
+  int flags = NSCAPI::module_flags::none;
+  try {
+    if (fGetFlags(&flags) != NSCAPI::api_return_codes::isSuccess) return false;
+  } catch (...) {
+    return false;
+  }
+  return (flags & NSCAPI::module_flags::experimental) != 0;
 }
 /**
  * Returns true if the plug in has a command handler.
@@ -539,6 +560,7 @@ void nsclient::core::dll_plugin::unload_dll() {
   fPrepareShutdown = nullptr;
   fGetName = nullptr;
   fGetVersion = nullptr;
+  fGetFlags = nullptr;
   fGetDescription = nullptr;
   fHasCommandHandler = nullptr;
   fHasMessageHandler = nullptr;
@@ -602,6 +624,10 @@ void nsclient::core::dll_plugin::loadRemoteProcs_(void) {
 
     fGetVersion = (nscapi::plugin_api::lpGetVersion)module_.load_proc("NSGetModuleVersion");
     if (!fGetVersion) throw plugin_exception(get_alias_or_name(), "Could not load NSGetModuleVersion");
+
+    // Optional: modules built before module flags existed do not export this,
+    // which simply means they declare no flags.
+    fGetFlags = (nscapi::plugin_api::lpGetFlags)module_.load_proc("NSGetModuleFlags");
 
     fGetDescription = (nscapi::plugin_api::lpGetDescription)module_.load_proc("NSGetModuleDescription");
     if (!fGetDescription) throw plugin_exception(get_alias_or_name(), "Could not load NSGetModuleDescription");

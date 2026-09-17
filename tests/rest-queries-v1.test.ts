@@ -55,6 +55,7 @@ describe("REST queries (v1)", () => {
         ).toEqual([
           {
             description: "Mock query used during tests",
+            experimental: false,
             metadata: {},
             name: "mock_query",
             plugin: luaScriptPlugin,
@@ -79,6 +80,7 @@ describe("REST queries (v1)", () => {
         ).toEqual([
           {
             description: "Mock query used during tests",
+            experimental: false,
             metadata: {},
             name: "mock_query",
             plugin: luaScriptPlugin,
@@ -102,6 +104,7 @@ describe("REST queries (v1)", () => {
           execute_nagios_url:
             "https://127.0.0.1:8443/api/v1/queries/mock_query/commands/execute_nagios",
           execute_url: "https://127.0.0.1:8443/api/v1/queries/mock_query/commands/execute",
+          experimental: false,
           metadata: {},
           name: "mock_query",
           plugin: luaScriptPlugin,

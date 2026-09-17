@@ -99,6 +99,17 @@ decide whether a given dereference is safe.
   **same name** on that class. Omit the `"metrics"` key unless the class
   implements `fetchMetrics()` — `"metrics":"produce"` generates a call to it and
   will fail to link otherwise.
+- **A new module or command is marked experimental in `module.json`.** Add
+  `"experimental": true` inside the `"module"` object for a whole module, and
+  on each command entry (converting the `"name": "description"` shorthand to
+  `"name": { "description": "...", "experimental": true }`) for a single check.
+  The flag rides the registry into `nscp test` (an `(experimental)` suffix in
+  `queries`/`aliases`/`list`/`plugins`, a `Status:` line in `desc`), the REST
+  `experimental` field the web UI renders as a chip, and the reference docs
+  (marker in the command table, admonition on the command). Drop the flag once
+  the command's options, keywords and output have settled — that is the only
+  thing it promises. A zip bundle declares the same key at the top level of its
+  `module.json`.
 - Cross-platform data acquisition uses the win/unix shim: platform-neutral
   sources plus an `if(WIN32) … _win.cpp else() … _unix.cpp` split in
   `CMakeLists.txt`, behind a shared filter/interface header (see `CheckDisk`).
