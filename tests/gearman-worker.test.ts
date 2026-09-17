@@ -112,6 +112,8 @@ gearmandOrSkip()("Mod-Gearman worker", () => {
     nscp: NscpInstance;
     /** The queue the core would submit this agent's checks to. */
     queue: string;
+    /** The queue the agent answers on, which the reader below is registered for. */
+    resultQueue: string;
     /** Read the next result the agent submits, or null if none arrives in time. */
     nextResult(envelope?: EnvelopeOptions): Promise<Record<string, string> | null>;
     /** Put a job on this agent's queue, as the NEB module would. */
@@ -159,6 +161,7 @@ gearmandOrSkip()("Mod-Gearman worker", () => {
     return {
       nscp,
       queue,
+      resultQueue,
       async nextResult(envelope: EnvelopeOptions = { key: KEY }) {
         const grabbed = await grabPayload(reader, envelope, 60_000);
         if (!grabbed) return null;
@@ -204,6 +207,19 @@ gearmandOrSkip()("Mod-Gearman worker", () => {
         return null;
       }
     });
+    return found !== null;
+  }
+
+  /** Wait until `queue` holds at least `count` jobs, as gearmand counts them. */
+  async function waitForQueued(queue: string, count: number): Promise<boolean> {
+    const found = await waitFor(async () => {
+      try {
+        const entry = (await adminStatus(server.host, server.port)).get(queue);
+        return entry && entry.queued >= count ? entry : null;
+      } catch {
+        return null;
+      }
+    }, 30_000);
     return found !== null;
   }
 
@@ -281,11 +297,21 @@ gearmandOrSkip()("Mod-Gearman worker", () => {
       // payload is dropped. A result therefore carries no unique id at all,
       // because the case it would break is precisely the one that matters -
       // the core is behind, so the previous result for this service is still
-      // sitting on the queue when the next one arrives. Both are read back
-      // here only after both have been submitted, which is what keeps that
-      // window open.
+      // sitting on the queue when the next one arrives. Nothing reads the
+      // result queue until both are on it, which is what holds that window
+      // open here.
+      //
+      // The *job* queue coalesces the same way, and there it is wanted - it is
+      // what mod_gearman's use_uniq_jobs is for, and the NEB module does send
+      // a unique id on a job. So the second check is queued only once the
+      // first has come back as a result: two identical checks queued at once
+      // would collapse before the agent ever saw the second, which is a
+      // different mechanism from the one under test.
       await agent.submit({ command_line: "check_ok message=first" });
+      expect(await waitForQueued(agent.resultQueue, 1)).toBe(true);
       await agent.submit({ command_line: "check_ok message=second" });
+      expect(await waitForQueued(agent.resultQueue, 2)).toBe(true);
+
       const first = await agent.nextResult();
       const second = await agent.nextResult();
       expect(first).not.toBeNull();
