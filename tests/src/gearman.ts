@@ -789,11 +789,14 @@ export function parseStatusDat(text: string): StatusDat {
     hosts: new Map(),
     services: new Map(),
   };
-  const blockRe = /^(\w+)\s*\{\s*\n([\s\S]*?)\n\s*\}/gm;
-  let m: RegExpExecArray | null;
-  while ((m = blockRe.exec(text)) !== null) {
-    const fields = parseKeyValueText(m[2].replace(/^\s+/gm, ""));
-    switch (m[1]) {
+  // Scanned a line at a time rather than with a block regex: a status.dat is
+  // whatever the core wrote, and `{\s*\n([\s\S]*?)\n\s*}` backtracks
+  // quadratically over a file whose blocks never close.
+  let kind: string | null = null;
+  let body: string[] = [];
+  const closeBlock = () => {
+    const fields = parseKeyValueText(body.join("\n"));
+    switch (kind) {
       case "info":
         out.info = fields;
         break;
@@ -809,6 +812,23 @@ export function parseStatusDat(text: string): StatusDat {
       default:
         break;
     }
+    kind = null;
+    body = [];
+  };
+  for (const rawLine of text.split("\n")) {
+    const line = rawLine.replace(/\r$/, "");
+    const trimmed = line.trim();
+    if (kind === null) {
+      const open = /^(\w+)[ \t]*\{$/.exec(trimmed);
+      if (open) kind = open[1];
+      continue;
+    }
+    if (trimmed === "}") {
+      closeBlock();
+      continue;
+    }
+    // Only the indentation goes: a value may legitimately end in a space.
+    body.push(line.replace(/^[ \t]+/, ""));
   }
   return out;
 }
