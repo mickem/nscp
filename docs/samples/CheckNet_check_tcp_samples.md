@@ -110,6 +110,91 @@ check_tcp host=secure.example.com port=443 ssl=true verify=peer ca=/etc/ssl/cert
 OK: secure.example.com:443 ok in 21ms
 ```
 
+**Report who the certificate is for and who issued it:**
+
+```
+check_tcp host=secure.example.com port=443 ssl=true "top-syntax=${list}" "detail-syntax=cn=${cert_cn} issuer=${cert_issuer_cn} sans=${cert_sans}"
+OK: cn=www.example.com issuer=R11 sans=DNS:example.com,DNS:www.example.com
+```
+
+**Alert when a renewal moves the certificate to a different CA:**
+
+```
+check_tcp host=secure.example.com port=443 ssl=true "crit=cert_issuer_cn != 'R11'" "top-syntax=${list}" "detail-syntax=issuer=${cert_issuer_cn}"
+CRITICAL: issuer=E5
+```
+
+**Report why an untrusted chain did not verify (without refusing to connect):**
+
+```
+check_tcp host=internal.example.com port=443 ssl=true "top-syntax=${list}" "detail-syntax=verify=${cert_verify}"
+OK: verify=unable to get local issuer certificate
+```
+
+**Require the names the certificate must cover (`sans=`):**
+
+```
+check_tcp host=secure.example.com port=443 ssl=true sans=example.com,www.example.com "top-syntax=${list}" "detail-syntax=${result} missing=[${missing_sans}]"
+OK: ok missing=[]
+```
+
+```
+check_tcp host=secure.example.com port=443 ssl=true sans=example.com,mail.example.com "top-syntax=${list}" "detail-syntax=${result} missing=[${missing_sans}]"
+CRITICAL: san_missing missing=[mail.example.com]
+```
+
+**A required name with no certificate at all is still a missing name:**
+
+```
+check_http url=https://www.example.com sans=www.example.com onredirect=follow "detail-syntax=${result} missing=[${missing_sans}]"
+CRITICAL: san_missing missing=[www.example.com]
+```
+
+**Check a virtual host reached by IP (`sni=` drives verification too):**
+
+```
+check_tcp host=10.0.0.5 port=443 ssl=true verify=peer ca=/etc/ssl/certs sni=www.example.com
+OK: 10.0.0.5:443 ok in 24ms
+```
+
+**Check the certificate on a STARTTLS service (mail submission, LDAP, databases):**
+
+```
+check_tcp host=mail.example.com starttls=smtp "warn=ssl_expiry_days < 30" "top-syntax=${list}" "detail-syntax=${result} cert=${has_certificate} cn=${cert_cn}"
+OK: ok cert=1 cn=mail.example.com
+```
+
+```
+check_tcp host=db.example.com starttls=postgres "crit=ssl_expiry_days < 10" "top-syntax=${list}" "detail-syntax=${result} days=${ssl_expiry_days}"
+OK: ok days=362
+```
+
+```
+check_tcp host=ldap.example.com starttls=ldap "top-syntax=${list}" "detail-syntax=${result} cn=${cert_cn}"
+OK: ok cn=ldap.example.com
+```
+
+**A server that declines the upgrade is reported, not waited out:**
+
+```
+check_tcp host=mail.example.com starttls=smtp "top-syntax=${list}" "detail-syntax=${result}"
+CRITICAL: starttls_refused
+```
+
+**A peer that hangs up is a disconnect, not a timeout:**
+
+```
+check_tcp host=mail.example.com starttls=smtp "top-syntax=${list}" "detail-syntax=${result}"
+CRITICAL: starttls_disconnected
+```
+
+**Verify against a hashed CA directory as well as a bundle file:**
+
+```
+check_tcp host=secure.example.com port=443 ssl=true verify=peer ca=/etc/ssl/certs
+OK: secure.example.com:443 ok in 19ms
+```
+
 **Default check via NRPE:**
 
 ```

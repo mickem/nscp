@@ -10,6 +10,8 @@
 #include <parsers/where/filter_handler_impl.hpp>
 #include <string>
 
+#include "check_net_cert.hpp"
+
 namespace check_net {
 namespace check_http_filter {
 
@@ -22,9 +24,10 @@ struct filter_obj {
   long long status_code;
   long long time;
   long long size;
-  // Days until the served certificate expires; empty when the connection was
-  // plain http or no certificate was presented.
-  boost::optional<long long> ssl_expiry_days;
+  // The served certificate. cert.has_certificate is the guard: the expiry is
+  // legitimately negative for an expired certificate, so "plain http, or a
+  // peer that presented none" cannot be encoded as a value.
+  cert::cert_fields cert;
   std::string status_message;
   std::string body;
   std::string result;
@@ -53,8 +56,8 @@ struct filter_obj {
   long long get_code() const { return status_code; }
   long long get_time() const { return time; }
   long long get_size() const { return size; }
-  long long get_ssl_expiry_days() const { return ssl_expiry_days ? ssl_expiry_days.value() : -1; }
-  boost::optional<long long> get_ssl_expiry_days_opt() const { return ssl_expiry_days; }
+  long long get_ssl_expiry_days() const { return cert.expiry_days.get_value_or(-1); }
+  boost::optional<long long> get_ssl_expiry_days_opt() const { return cert.expiry_days; }
   std::string get_status() const { return status_message; }
   std::string get_body() const { return body; }
   std::string get_result() const { return result; }
