@@ -66,29 +66,47 @@ SUITES=integration tools/coverage/run.sh     # from the repo root
 That builds `build-coverage/` with `-DNSCP_COVERAGE=ON`, runs this suite against
 it and writes `coverage/integration.html`. It works because `NscpInstance.stop()`
 stops the daemon with SIGTERM rather than SIGKILL — gcov only flushes its
-counters from an `atexit` handler. See the *Coverage reports* section of
+counters from an `atexit` handler. See the _Coverage reports_ section of
 `build.md` for the details and the caveats.
 
 ## What runs
 
 Docker-using scenarios (skipped when `NSCP_SKIP_DOCKER=1`):
 
-| File                              | Replaces                               |
-| --------------------------------- | -------------------------------------- |
-| `tests/nrdp-submit.test.ts`       | `tests/nrdp/run-test.bat`              |
-| `tests/nsca-ciphers.test.ts`      | `tests/nsca/run-test.bat`              |
-| `tests/nsca-ng-submit.test.ts`    | `tests/nsca-ng/run-test.bat`           |
-| `tests/smtp-send.test.ts`         | `tests/smtp/run-test.bat`              |
-| `tests/nrpe-tls.test.ts`          | `tests/nrpe/run-test.bat`              |
-| `tests/http_proxy-nrdp.test.ts`   | `tests/http_proxy/run-test.bat`        |
-| `tests/check_mk-agent.test.ts`    | `tests/check_mk/run-test.bat`          |
-| `tests/check_mk-site.test.ts`     | `tests/check_mk/run-test-cmk-site.bat` |
-| `tests/icinga-submit.test.ts`     | `tests/icinga/run-test.bat`            |
-| `tests/icinga-client-api.test.ts` | `tests/icinga-client/run-test.bat`     |
-| `tests/graphite-submit.test.ts`   | (new) GraphiteClient metrics + submit  |
-| `tests/graphite-tls.test.ts`      | (new) GraphiteClient TLS (socat proxy) |
-| `tests/check_nt-client.test.ts`   | (new) NSClientServer vs the real nagios-plugins check_nt, incl. the `allow` gate |
-| `tests/fleet-server-live.test.ts` | (new) the agent against a **real** nsclient-fleet server, built from its newest GitHub release |
+| File                              | Replaces                                                                                                                                                                                       |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tests/nrdp-submit.test.ts`       | `tests/nrdp/run-test.bat`                                                                                                                                                                      |
+| `tests/nsca-ciphers.test.ts`      | `tests/nsca/run-test.bat`                                                                                                                                                                      |
+| `tests/nsca-ng-submit.test.ts`    | `tests/nsca-ng/run-test.bat`                                                                                                                                                                   |
+| `tests/smtp-send.test.ts`         | `tests/smtp/run-test.bat`                                                                                                                                                                      |
+| `tests/nrpe-tls.test.ts`          | `tests/nrpe/run-test.bat`                                                                                                                                                                      |
+| `tests/http_proxy-nrdp.test.ts`   | `tests/http_proxy/run-test.bat`                                                                                                                                                                |
+| `tests/check_mk-agent.test.ts`    | `tests/check_mk/run-test.bat`                                                                                                                                                                  |
+| `tests/check_mk-site.test.ts`     | `tests/check_mk/run-test-cmk-site.bat`                                                                                                                                                         |
+| `tests/icinga-submit.test.ts`     | `tests/icinga/run-test.bat`                                                                                                                                                                    |
+| `tests/icinga-client-api.test.ts` | `tests/icinga-client/run-test.bat`                                                                                                                                                             |
+| `tests/graphite-submit.test.ts`   | (new) GraphiteClient metrics + submit                                                                                                                                                          |
+| `tests/graphite-tls.test.ts`      | (new) GraphiteClient TLS (socat proxy)                                                                                                                                                         |
+| `tests/check_nt-client.test.ts`   | (new) NSClientServer vs the real nagios-plugins check_nt, incl. the `allow` gate                                                                                                               |
+| `tests/fleet-server-live.test.ts` | (new) the agent against a **real** nsclient-fleet server, built from its newest GitHub release                                                                                                 |
+| `tests/gearman-fixtures.test.ts`  | (new) Mod-Gearman: the gearmand image, and Naemon + Nagios Core 4.5 images scheduling checks through gearmand to a stub worker (`src/gearman.ts`); its fixture round-trip block is docker-free |
+| `tests/gearman-worker.test.ts`    | (new) Mod-Gearman: the agent's own worker loop, with the test playing the core against the gearmand image                                                                                      |
+| `tests/gearman-core.test.ts`      | (new) Mod-Gearman end to end: the agent answering the checks a real Naemon and a real Nagios Core 4.5 schedule, asserted on the core's own status file                                         |
+
+The two gearman suites that only need a **job server** — `gearman-worker` and
+`gearman-submit` — also run without docker when `NSCP_GEARMAND=host:port` names
+an already-running gearmand (port defaults to 4730):
+
+```sh
+gearmand --listen=127.0.0.1 --port=14731 &
+NSCP_GEARMAND=127.0.0.1:14731 npx jest --runInBand gearman-worker
+```
+
+Docker stays the default — it pins the gearmand version and starts with empty
+queues — and the one case an external server cannot serve, restarting the job
+server under the agent to prove it reconnects, skips itself. The suites that
+need a monitoring core (`gearman-core`, `gearman-proxy`, `gearman-fixtures`)
+have no such escape hatch: there is nothing to point them at but the images.
 
 Docker-free scenarios (always run, including in no-docker CI pipelines):
 
@@ -127,14 +145,38 @@ every fake kept passing). It resolves the **newest GitHub release** of `mickem/n
 image around that release's musl binary, rather than pulling `ghcr.io/mickem/nsclient-fleet:latest`, because the
 published image can lag the release by a protocol version. Knobs:
 
-| Variable                     | Effect                                                                     |
-| ---------------------------- | -------------------------------------------------------------------------- |
-| `NSCP_FLEET_SERVER_VERSION`  | Pin the release (`0.1.0`) instead of asking the GitHub API                  |
-| `NSCP_FLEET_SERVER_IMAGE`    | Skip the build and run this image (e.g. one built from a server working tree) |
-| `GITHUB_TOKEN`               | Used for the release lookup when set; the anonymous API allows 60 calls/hour |
+| Variable                    | Effect                                                                        |
+| --------------------------- | ----------------------------------------------------------------------------- |
+| `NSCP_FLEET_SERVER_VERSION` | Pin the release (`0.1.0`) instead of asking the GitHub API                    |
+| `NSCP_FLEET_SERVER_IMAGE`   | Skip the build and run this image (e.g. one built from a server working tree) |
+| `GITHUB_TOKEN`              | Used for the release lookup when set; the anonymous API allows 60 calls/hour  |
 
 It publishes the server on host port **19443** (fixed, because the server must be told its own address before it starts),
 so a local fleet server on 9443 does not collide. The built image is cached as `nscp-it/nsclient-fleet:<version>`.
+
+`gearman-fixtures.test.ts` is the first step of the GearmanClient (Mod-Gearman worker) plan. Its docker-free block
+decrypts the payloads captured from both Mod-Gearman flavours (`modules/GearmanClient/fixtures/`, regenerated with the
+`capture.sh` there) and proves the TypeScript envelope in `src/gearman.ts` reproduces them byte for byte; the docker
+blocks build `Dockerfiles/gearmand.Dockerfile`, `naemon-gearman.Dockerfile` (ConSol Labs packages) and
+`nagios-gearman.Dockerfile` (Nagios Core and nagios-mod-gearman built from their release tarballs, a couple of minutes
+on a cold cache) and drive a real core through gearmand to a stub worker in the test. To run the core block against a
+core you started yourself instead (for example `Dockerfiles/entrypoints/gearman-core.sh` run natively), set
+`NSCP_GEARMAN_LIVE=<name>:<gearmand port>:<status.dat path>`.
+
+`gearman-worker.test.ts` is the third step: the GearmanClient module answering for real. It needs only the gearmand
+image - the test itself plays the core, putting encrypted jobs on the hostgroup queue and reading the answers off the
+result queue - so it is the fast, deterministic tier where the worker's edge cases live (host binding, `max age`,
+timeouts, the wrong key, unencrypted payloads, the refusals that keep a misconfigured worker from starting, and
+reconnecting after gearmand restarts). It publishes gearmand on host port **14731**, fixed so the reconnect case
+survives a container restart.
+
+`gearman-core.test.ts` is the fourth step: the same agent against the real cores, once per image. The core containers
+schedule the checks (`check_always_ok check_ok …`, `check_ok message=hello`, a collector-backed `check_cpu`, and a
+`check_slow` external script the agent supplies so one check overruns the job's timeout), and the assertions read the
+core's own `status.dat` out of the container - `plugin_output`, `performance_data`, `current_state`, `check_type=0` for
+an active result and a `last_check` newer than the test. That file is the only uniform probe: Nagios Core has no REST
+API, and Naemon writes the same format. The suite publishes gearmand on host port **14732**, again fixed, for the case
+that restarts the whole core container and expects the agent to re-register and keep answering.
 
 The MSI tests (`tests/msi/`) stay Windows-only and are not part of this harness.
 

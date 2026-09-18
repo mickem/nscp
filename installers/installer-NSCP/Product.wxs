@@ -153,6 +153,7 @@
               <File Id="SyslogClient" Name="SyslogClient.dll" DiskId="1" Source="$(var.Source)/modules/SyslogClient.dll" Vital="no" />
               <File Id="NRDPClient" Name="NRDPClient.dll" DiskId="1" Source="$(var.Source)/modules/NRDPClient.dll" Vital="no" />
               <File Id="IcingaClient" Name="IcingaClient.dll" DiskId="1" Source="$(var.Source)/modules/IcingaClient.dll" Vital="no" />
+              <File Id="GearmanClient" Name="GearmanClient.dll" DiskId="1" Source="$(var.Source)/modules/GearmanClient.dll" Vital="no" />
               <File Id="CollectdClient" Name="CollectdClient.dll" DiskId="1" Source="$(var.Source)/modules/CollectdClient.dll" Vital="no" />
               <File Id="NSCPClient" Name="NSCPClient.dll" DiskId="1" Source="$(var.Source)/modules/NSCPClient.dll" Vital="no" />
             </Component>
@@ -349,7 +350,7 @@
         <Feature Id="ElasticPlugin" Title="Elastic plugin" Description="Plugin to submit passive results and metrics to an Elastic server" Level="1" Absent="allow">
           <ComponentRef Id="ElasticClient" />
         </Feature>
-        <Feature Id="ExtraClientPlugin" Title="Various client plugins" Description="Plugins to connect to various systems: syslog, graphite, SMTP, NRDP, Icinga, collectd, and the NSCP protocol" Level="1" Absent="allow">
+        <Feature Id="ExtraClientPlugin" Title="Various client plugins" Description="Plugins to connect to various systems: syslog, graphite, SMTP, NRDP, Icinga, Mod-Gearman, collectd, and the NSCP protocol" Level="1" Absent="allow">
           <ComponentRef Id="ExtraClients" />
         </Feature>
         <Feature Id="PythonScript" Title="Python Scripting" Description="Allows running INTERNAL scripts written in Python" Level="1" Absent="allow">

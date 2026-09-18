@@ -73,6 +73,7 @@ std::string installer_feature_hint(const std::string &module) {
       {"SyslogClient", "Various client plugins"},
       {"NRDPClient", "Various client plugins"},
       {"IcingaClient", "Various client plugins"},
+      {"GearmanClient", "Various client plugins"},
       {"CollectdClient", "Various client plugins"},
       {"NSCPClient", "Various client plugins"},
       // Lua Scripting

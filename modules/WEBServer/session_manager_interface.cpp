@@ -72,11 +72,7 @@ session_manager_interface::session_manager_interface() : log_data(std::make_uniq
 }
 
 void session_manager_interface::set_legacy_query_auth_user_agents(const std::string &csv) {
-  auto list = std::make_shared<std::vector<std::string>>();
-  for (const std::string &raw : str::utils::split_lst(csv, std::string(","))) {
-    std::string pat = boost::algorithm::trim_copy(raw);
-    if (!pat.empty()) list->push_back(std::move(pat));
-  }
+  auto list = std::make_shared<std::vector<std::string>>(str::utils::split_trimmed(csv, ","));
   boost::lock_guard<boost::mutex> lock(legacy_query_auth_mutex_);
   legacy_query_auth_user_agents_ = list;
 }

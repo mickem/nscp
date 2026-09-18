@@ -1,0 +1,7 @@
+core=nagios
+core: Nagios Core 4.5.14
+tools: nagios-send-gearman: version 1.0.1 running on libgearman 1.1.20+ds
+gearmand: 1.1.20+ds
+encryption=yes
+key=nscp-test-key
+hostgroup=gearman-test

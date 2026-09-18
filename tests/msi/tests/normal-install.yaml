@@ -103,6 +103,7 @@ required_files:
     - modules/ElasticClient.dll
     # Various client plugins (ExtraClientPlugin)
     - modules/CollectdClient.dll
+    - modules/GearmanClient.dll
     - modules/GraphiteClient.dll
     - modules/IcingaClient.dll
     - modules/NRDPClient.dll

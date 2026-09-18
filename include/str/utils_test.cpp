@@ -134,6 +134,14 @@ TEST(str_utils, split2_multi_char_delimiter) {
 }
 
 // ============================================================================
+TEST(str_utils, split_trimmed_trims_and_drops_empty) {
+  EXPECT_EQ(str::utils::split_trimmed(" a, b ,,c,", ","), (std::vector<std::string>{"a", "b", "c"}));
+  EXPECT_EQ(str::utils::split_trimmed("", ","), std::vector<std::string>{});
+  EXPECT_EQ(str::utils::split_trimmed(" , ", ","), std::vector<std::string>{});
+  EXPECT_EQ(str::utils::split_trimmed("only", ","), std::vector<std::string>{"only"});
+  EXPECT_EQ(str::utils::split_trimmed("a::b", "::"), (std::vector<std::string>{"a", "b"}));
+}
+
 // Tests for split_lst (from utils_no_boost.hpp)
 // ============================================================================
 TEST(str_utils, split_lst_basic) {
