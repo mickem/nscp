@@ -29,7 +29,9 @@ Three settings make up the security configuration; all live under `[/settings/NS
     to answer at all. The client sends it with `check_nt -s <password>`. Since the protocol transmits it in cleartext
     on every request, use a password dedicated to check_nt and used nowhere else. A wrong or missing password is
     answered with a generic `ERROR: Bad request.` so the reply does not reveal whether the password or the request was
-    the problem.
+    the problem. The stored value may be the clear text or the hashed form (`pbkdf2-sha256$…`) that `nscp web install`
+    and `nscp web password --set` write to `[/settings/default]`; the client always sends the clear text, and the hash
+    string itself is not accepted as a password.
 *   **`allowed hosts`** - restrict which addresses may connect at all. This is the strongest control the protocol
     offers; limit it to your monitoring server(s), e.g. `allowed hosts = 127.0.0.1,192.168.0.10`.
 *   **`use ssl`** - defaults to `true`, but the standard nagios-plugins `check_nt` cannot speak TLS, so

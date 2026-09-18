@@ -40,7 +40,7 @@
 #include "modules_controller.hpp"
 #include "openmetrics_controller.hpp"
 #include "openmetrics_renderer.hpp"
-#include "password_hash.hpp"
+#include <nscp/password_hash.hpp>
 #include "query_controller.hpp"
 #include "results_controller.hpp"
 #include "scripts_controller.hpp"
@@ -768,7 +768,7 @@ bool WEBServer::cli_add_user(const PB::Commands::ExecuteRequestMessage::Request 
         return true;
       }
       password_for_display = password;
-    } else if (web_password::is_hashed(password)) {
+    } else if (password_hash::is_hashed(password)) {
       // Existing on-disk hash; nothing to migrate, nothing to show.
       password_for_display = "(unchanged)";
     } else if (password_was_supplied) {
@@ -806,11 +806,11 @@ bool WEBServer::cli_add_user(const PB::Commands::ExecuteRequestMessage::Request 
       }
     }
 
-    // Hash the per-user password before persisting. The /settings/default
-    // password (shared with NRPE / NSCA / NSClient) is untouched - those
-    // protocols still need the plaintext to compare on the wire.
-    if (!web_password::is_hashed(password)) {
-      const std::string hashed = web_password::hash_password(password);
+    // Hash the per-user password before persisting. The shared
+    // /settings/default password is not this command's business; `nscp web
+    // password --set` is what rotates (and hashes) that one.
+    if (!password_hash::is_hashed(password)) {
+      const std::string hashed = password_hash::hash_password(password);
       if (hashed.empty()) {
         nscapi::protobuf::functions::set_response_bad(*response, "Failed to hash password (RNG / KDF failure)");
         return true;
@@ -1062,17 +1062,34 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
       // and the boot loop then re-applies the stale on-disk hash over the
       // seeded value, so the new password is silently ignored until the
       // user manually deletes the admin row.
-      s.set("/settings/default", "password", password);
+      //
+      // Both rows get the hashed form. The shared default is read by the
+      // WEB seed and by check_nt, which verify through password_hash and so
+      // take either form; only NSCA needs the clear text, and it keeps a
+      // password of its own under /settings/NSCA/server. When no --password
+      // was given the value is whatever is on disk already, which may be a
+      // hash from an earlier install - store it as it is rather than hashing
+      // it a second time (a double hash would lock the admin out).
+      const bool already_hashed = password_hash::is_hashed(password);
+      std::string stored = password;
+      if (!already_hashed) {
+        const std::string hashed = password_hash::hash_password(password);
+        if (!hashed.empty()) {
+          stored = hashed;
+        }
+        // KDF failure: fall back to the clear text (still verifies).
+      }
+      s.set("/settings/default", "password", stored);
 
       const std::string admin_path = path + "/users/admin";
-      std::string hashed_admin = web_password::hash_password(password);
-      if (hashed_admin.empty()) {
-        hashed_admin = password;  // KDF failure: fall back to plaintext (still verifies)
-      }
-      s.set(admin_path, "password", hashed_admin);
+      s.set(admin_path, "password", stored);
       s.set(admin_path, "role", "full");
 
-      result << "Login using this password " << password << std::endl;
+      if (already_hashed) {
+        result << "Keeping the existing password (stored hashed, so it cannot be shown); pass --password to set a new one." << std::endl;
+      } else {
+        result << "Login using this password " << password << std::endl;
+      }
     }
 
     s.save();
@@ -1099,15 +1116,20 @@ bool WEBServer::password(const PB::Commands::ExecuteRequestMessage::Request &req
   po::options_description desc;
 
   std::string password;
-  bool display = false, setweb = false;
+  bool display = false, only_web = false;
 
   desc.add_options()("help", "Show help.")
 
-      ("set,s", po::value<std::string>(&password), "Set the new password")
+      ("set,s", po::value<std::string>(&password),
+       "Set the new password. It is stored hashed (pbkdf2-sha256$...) in the shared /settings/default/password, which the WEB admin seed and "
+       "check_nt read, and in the admin user's row under /settings/WEB/server/users/admin when that row exists. An agent that also serves NSCA "
+       "keeps a clear-text password of its own under /settings/NSCA/server, since NSCA derives its encryption key from the clear text.")
 
-          ("display,d", po::bool_switch(&display), "Display the current configured password")
+          ("display,d", po::bool_switch(&display), "Display the current configured password (only possible while it is still stored in clear text)")
 
-              ("only-web", po::bool_switch(&setweb), "Set the password for WebServer only (if not specified the default password is used)")
+              ("only-web", po::bool_switch(&only_web),
+               "Set the password for the WEB server only (the admin user's row, or the /settings/WEB/server override when no admin row exists) and "
+               "leave the shared /settings/default/password alone")
 
       ;
   try {
@@ -1143,15 +1165,63 @@ bool WEBServer::password(const PB::Commands::ExecuteRequestMessage::Request &req
     settings.notify();
     if (password.empty())
       nscapi::protobuf::functions::set_response_good(*response, "No password set you will not be able to login");
+    else if (password_hash::is_hashed(password))
+      nscapi::protobuf::functions::set_response_good(*response,
+                                                     "The password is stored hashed and cannot be displayed. Use `nscp web password --set <password>` to replace it.");
     else
-      nscapi::protobuf::functions::set_response_good(*response, "Current password: " + password);
+      nscapi::protobuf::functions::set_response_good(
+          *response, "Current password: " + password +
+                         "\nThe password is stored in clear text; `nscp web password --set <password>` stores it hashed (re-setting the same value works).");
   } else if (!password.empty()) {
+    // The clear text is hashed here; a value that already carries the hash
+    // prefix (copied from another agent) is stored as it is.
+    std::string stored = password;
+    if (!password_hash::is_hashed(password)) {
+      stored = password_hash::hash_password(password);
+      if (stored.empty()) {
+        nscapi::protobuf::functions::set_response_bad(*response, "Failed to hash password (RNG / KDF failure)");
+        return true;
+      }
+    }
+
+    // Since the admin login checks the per-user row when there is one, the
+    // shared key alone would change nothing on an agent that has booted the
+    // WEB server before: the row is updated too. Without a row the first
+    // boot seeds it from the WEB override or, failing that, the shared key.
+    const std::string admin_path = "/settings/WEB/server/users/admin";
+    const std::string web_path = "/settings/WEB/server";
+    pf::settings_query q(get_id());
+    q.get(admin_path, "password", "");
+    q.get(admin_path, "role", "");
+    q.get(web_path, "password", "");
+    get_core()->settings_query(q.request(), q.response());
+    if (!q.validate_response()) {
+      nscapi::protobuf::functions::set_response_bad(*response, q.get_response_error());
+      return true;
+    }
+    bool admin_row_exists = false;
+    bool web_override_exists = false;
+    for (const pf::settings_query::key_values &val : q.get_query_key_response()) {
+      if (val.matches(admin_path, "password") || val.matches(admin_path, "role")) {
+        if (!val.get_string().empty()) admin_row_exists = true;
+      } else if (val.matches(web_path, "password")) {
+        if (!val.get_string().empty()) web_override_exists = true;
+      }
+    }
+
+    std::stringstream result;
     nscapi::protobuf::functions::settings_query s(get_id());
-    if (setweb) {
-      s.set("/settings/default", "password", password);
-      s.set("/settings/WEB/server", "password", "");
-    } else {
-      s.set("/settings/WEB/server", "password", password);
+    if (!only_web) {
+      s.set("/settings/default", "password", stored);
+      result << "Password updated (stored hashed) in /settings/default." << std::endl;
+    }
+    if (admin_row_exists) {
+      s.set(admin_path, "password", stored);
+      result << "Password updated (stored hashed) for the admin user (" << admin_path << ")." << std::endl;
+    }
+    if (web_override_exists || (only_web && !admin_row_exists)) {
+      s.set(web_path, "password", stored);
+      result << "Password updated (stored hashed) in " << web_path << "." << std::endl;
     }
 
     s.save();
@@ -1160,7 +1230,8 @@ bool WEBServer::password(const PB::Commands::ExecuteRequestMessage::Request &req
       nscapi::protobuf::functions::set_response_bad(*response, s.get_response_error());
       return true;
     }
-    nscapi::protobuf::functions::set_response_good(*response, "Password updated successfully, please restart nsclient++ for changes to affect.");
+    result << "Please restart nsclient++ for the change to take effect.";
+    nscapi::protobuf::functions::set_response_good(*response, result.str());
   } else {
     nscapi::protobuf::functions::set_response_bad(*response, nscapi::program_options::help(desc));
   }
@@ -1341,12 +1412,14 @@ void WEBServer::ensure_user(const nscapi::settings_helper::settings_registry &se
   // normalStart loop populates session from users_).
   session->add_user(user, role, password);
   const std::string the_path = path + "/" + user;
-  // Per-user passwords on disk are stored hashed. The default password
-  // under /settings/default/password (shared with NRPE / NSCA / NSClient)
-  // is left alone; only this per-user slot is migrated.
+  // Per-user passwords on disk are stored hashed. The value we were handed
+  // is the resolved /settings/default/password (or its WEB override), which
+  // is itself a hash on an agent set up by `nscp web install`, and a
+  // clear-text value on one where the operator wrote the key by hand; only
+  // this per-user slot is migrated, the shared key is left as it is.
   std::string stored = password;
-  if (!stored.empty() && !web_password::is_hashed(stored)) {
-    const std::string hashed = web_password::hash_password(stored);
+  if (!stored.empty() && !password_hash::is_hashed(stored)) {
+    const std::string hashed = password_hash::hash_password(stored);
     if (!hashed.empty()) {
       stored = hashed;
     }

@@ -15,7 +15,7 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/settings/helper.hpp>
-#include <str/constant_time.hpp>
+#include <nscp/password_hash.hpp>
 #include <str/utils.hpp>
 
 namespace sh = nscapi::settings_helper;
@@ -179,7 +179,10 @@ bool NSClientServer::isPasswordOk(std::string remotePassword) {
     NSC_LOG_ERROR_STD("Using check_nt without a password is a security risk, please configure passwords (or better yet switch protocols).");
     return false;
   }
-  return str::constant_time_eq(localPassword, remotePassword);
+  // The stored value is either the clear-text password or the hashed form
+  // that `nscp web install` / `nscp web password --set` write to the shared
+  // /settings/default/password; both compare in constant time.
+  return password_hash::verify_password(remotePassword, localPassword);
 }
 
 void log_bad_command(const std::string &cmd) {

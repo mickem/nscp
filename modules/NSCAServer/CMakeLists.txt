@@ -13,6 +13,7 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp
     ${NSCP_INCLUDEDIR}/bytes/crc32.cpp
+    ${NSCP_INCLUDEDIR}/nscp/password_hash.cpp
     ${NSCP_DEF_PLUGIN_CPP}
 )
 

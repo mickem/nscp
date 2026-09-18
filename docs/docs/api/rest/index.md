@@ -85,6 +85,10 @@ You can change the password from the command line:
 nscp web password --set icinga
 ```
 
+Both commands store the password hashed (`pbkdf2-sha256$…`), in `/settings/default` and in the `admin` user's row. A
+clear-text value written by hand, as in the example above, is accepted too; `nscp web password --set` with the same
+value hashes it in place.
+
 ## Quick start
 
 ### Root endpoint

@@ -24,8 +24,8 @@ WEBServer = enabled
 ```
 
 You also need a password for the `admin` user (set during install or with
-`nscp settings --path /settings/default --key password --set ...`) and the
-machine must be reachable on port `8443` from your browser.
+`nscp web password --set ...`) and the machine must be reachable on port
+`8443` from your browser.
 
 <!-- @formatter:off -->
 !!! note
@@ -60,9 +60,10 @@ view = *
 
 [/settings/WEB/server/users/admin]
 role = full
+password = pbkdf2-sha256$100000$5b3f…$9c1a…
 
 [/settings/default]
-password = gKn6egFIKgo38bu6ZPN06d6pUueYVy1M
+password = pbkdf2-sha256$100000$5b3f…$9c1a…
 allowed hosts = 127.0.0.1
 
 [/modules]
@@ -211,10 +212,12 @@ Next up we need to login:
 ![web login](../images/web-login.png)
 
 Here you can login with the username `admin` and the password you set during installation.
-If you do not remember the password you can reset it using the command line:
+The password is stored as a salted hash, so it cannot be read back out of the
+configuration; if you do not remember it you can set a new one from the
+command line:
 
 ```
-nscp settings --path /settings/default --key password --set your_password
+nscp web password --set your_password
 ```
 Once you have logged in you will be presented with the NSClient++ web interface.
 
