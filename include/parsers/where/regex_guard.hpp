@@ -33,24 +33,24 @@ namespace where {
 // at the start of every check (modern_filter::start_match). A thread that never
 // calls it - a module matching outside the filter engine - simply keeps the
 // budget it has; the first reset makes it exact.
-NSCAPI_EXPORT void reset_regex_budget();
+NSCP_WHERE_EXPORT void reset_regex_budget();
 
 // Budget in milliseconds. Deliberately generous: a legitimate filter over a
 // large event log spends far less, and anything approaching this is either a
 // pathological pattern or a subject nobody meant to hand it. Exposed so tests
 // can lower it instead of burning the real budget.
-NSCAPI_EXPORT void set_regex_budget_ms(unsigned long budget_ms);
-NSCAPI_EXPORT unsigned long get_regex_budget_ms();
+NSCP_WHERE_EXPORT void set_regex_budget_ms(unsigned long budget_ms);
+NSCP_WHERE_EXPORT unsigned long get_regex_budget_ms();
 
 // True when this thread has spent its budget. Matching keeps refusing until the
 // next reset.
-NSCAPI_EXPORT bool regex_budget_exhausted();
+NSCP_WHERE_EXPORT bool regex_budget_exhausted();
 
 // Longest subject handed to the matcher. Backtracking cost grows with the
 // subject, and no real check keyword is a megabyte long; a longer one is
 // refused rather than truncated, because a silent truncation would turn a
 // non-match into a match (or the other way round) with nothing to show for it.
-NSCAPI_EXPORT std::size_t max_regex_subject_bytes();
+NSCP_WHERE_EXPORT std::size_t max_regex_subject_bytes();
 
 }  // namespace where
 }  // namespace parsers
