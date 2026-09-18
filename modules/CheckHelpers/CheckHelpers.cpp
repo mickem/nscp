@@ -27,16 +27,28 @@
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
+namespace {
+void add_alias(alias::simple_command_map &aliases, const std::string &key, const std::string &arg) {
+  try {
+    aliases.add(key, arg);
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR_EXR("Failed to add alias '" + key + "': ", e);
+  }
+}
+}  // namespace
+
 bool CheckHelpers::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
   try {
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
     settings.set_alias(alias, "check helpers");
 
-    aliases_.set_path(settings.alias().get_settings_path("alias"));
+    // Built aside, published once complete: see the member.
+    const std::shared_ptr<alias::simple_command_map> aliases = std::make_shared<alias::simple_command_map>(alias::make_simple_command_map());
+    aliases->set_path(settings.alias().get_settings_path("alias"));
 
     // clang-format off
     settings.alias().add_path_to_settings()
-      ("alias", sh::fun_values_path([this](auto key, auto value) { this->add_alias(key, value); }),
+      ("alias", sh::fun_values_path([aliases](auto key, auto value) { add_alias(*aliases, key, value); }),
         "Command aliases",
         "A list of aliases for already-defined commands (with arguments).\n"
         "An alias is an internal command that has been predefined to provide a single command without arguments. "
@@ -60,10 +72,19 @@ bool CheckHelpers::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     nscapi::core_helper core(get_core(), get_id());
     // The whole command line, arguments included: it is what `desc <alias>`
     // at the prompt shows as the command the alias runs.
-    aliases_.for_each([&core](const std::string &name, const alias::simple_command &def) {
+    std::set<std::string> registered;
+    aliases->for_each([&core, &registered](const std::string &name, const alias::simple_command &def) {
       const std::string arguments = def.get_argument();
       core.register_alias(name, "Alias for: " + def.command + (arguments.empty() ? "" : " " + arguments));
+      registered.insert(name);
     });
+    // An alias dropped from the ini is dropped from the core too, or it kept
+    // resolving - to a definition that no longer existed - until a restart.
+    for (const std::string &name : registered_aliases_) {
+      if (registered.count(name) == 0) core.unregister_command(name);
+    }
+    registered_aliases_.swap(registered);
+    std::atomic_store(&aliases_, std::shared_ptr<const alias::simple_command_map>(aliases));
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("loading CheckHelpers", e);
     return false;
@@ -99,13 +120,6 @@ void CheckHelpers::park_worker(std::shared_ptr<boost::thread> worker) {
   orphaned_workers_.push_back(std::move(worker));
 }
 
-void CheckHelpers::add_alias(const std::string &key, const std::string &arg) {
-  try {
-    aliases_.add(key, arg);
-  } catch (const std::exception &e) {
-    NSC_LOG_ERROR_EXR("Failed to add alias '" + key + "': ", e);
-  }
-}
 
 CheckHelpers::forwarded_identity CheckHelpers::extract_identity(const PB::Commands::QueryRequestMessage &request_message) {
   // Pull the upstream caller identity off the header metadata stamped by
@@ -124,7 +138,8 @@ CheckHelpers::forwarded_identity CheckHelpers::extract_identity(const PB::Comman
 
 void CheckHelpers::query_fallback(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                                   const PB::Commands::QueryRequestMessage &request_message) {
-  const boost::optional<alias::simple_command> alias_def = aliases_.find(request.command());
+  const std::shared_ptr<const alias::simple_command_map> aliases = std::atomic_load(&aliases_);
+  const boost::optional<alias::simple_command> alias_def = aliases ? aliases->find(request.command()) : boost::none;
   if (!alias_def) {
     nscapi::protobuf::functions::set_response_bad(*response, "No alias found matching: " + request.command());
     return;

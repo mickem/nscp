@@ -324,7 +324,18 @@ class stub_core {
       out->mutable_result()->set_code(PB::Common::Result::STATUS_OK);
       if (!req.payload(i).has_registration()) continue;
       const PB::Registry::RegistryRequestMessage::Request::Registration &reg = req.payload(i).registration();
-      if (reg.unregister()) continue;
+      if (reg.unregister()) {
+        // The core drops the name whatever type it was registered as; so
+        // does this, so a test can see a reload retract what it registered.
+        for (std::vector<std::pair<int, std::string> >::iterator it = self.registrations_.begin(); it != self.registrations_.end();) {
+          if (it->second == reg.name()) {
+            it = self.registrations_.erase(it);
+          } else {
+            ++it;
+          }
+        }
+        continue;
+      }
       self.registrations_.push_back(std::make_pair(static_cast<int>(reg.type()), reg.name()));
       for (int a = 0; a < reg.alias_size(); ++a) {
         self.registrations_.push_back(std::make_pair(static_cast<int>(reg.type()), reg.alias(a)));
