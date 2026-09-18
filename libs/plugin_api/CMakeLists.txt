@@ -58,7 +58,19 @@ if(APPLE)
 endif()
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
-NSCP_MAKE_LIBRARY(${TARGET} "${SRCS}" EXPORT_ALL_SYMBOLS)
+# The public surface is annotated with NSCAPI_EXPORT (nscapi/dll_defines.hpp),
+# which most of these headers already used - what forced export-all was the
+# handful that never did. Four of those are annotated now: settings/helper.hpp,
+# nscapi_program_options.hpp, nscapi_metrics_helper.hpp and metrics_store_map.hpp.
+# So the wholesale export can go; libs/client/CMakeLists.txt says why that is
+# worth doing.
+#
+# utf8.cpp and nscapi_helper.cpp are still built here because this library uses
+# them, but their headers stay unannotated and every consumer keeps compiling
+# its own copy. They are small enough that duplicating them is cheaper than
+# putting an export macro in headers this much of the tree includes; the
+# reasoning is with NSCP_DEF_PLUGIN_CPP in the top-level CMakeLists.
+NSCP_MAKE_LIBRARY(${TARGET} "${SRCS}")
 NSCP_FORCE_INCLUDE(
     ${TARGET}
     "${BUILD_ROOT_FOLDER}/include/nscapi/dll_defines_protobuf.hpp"

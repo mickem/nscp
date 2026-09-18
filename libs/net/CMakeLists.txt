@@ -32,6 +32,10 @@ add_definitions(${NSCP_GLOBAL_DEFINES})
 set(SRCS
     ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp
+    # Compiled in rather than imported: utf8 is deliberately not part of
+    # plugin_api's exported surface (see NSCP_DEF_PLUGIN_CPP in the top-level
+    # CMakeLists), and on Windows a DLL must resolve all of its symbols.
+    ${NSCP_INCLUDEDIR}/str/utf8.cpp
 )
 
 if(WIN32)
@@ -47,8 +51,6 @@ NSCP_MAKE_LIBRARY(${TARGET} "${SRCS}")
 target_link_libraries(
     ${TARGET}
     PUBLIC
-        # utf8::to_unicode / utf8::wstring_to_string live in plugin_api; on
-        # Windows a DLL must resolve all of its symbols at link time.
         ${PLUGIN_API_TARGET}
         ${Boost_FILESYSTEM_LIBRARY}
         ${Boost_THREAD_LIBRARY}

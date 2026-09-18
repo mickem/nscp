@@ -13,6 +13,10 @@ set(SRCS
     check_nrpe.cpp
     ${NSCP_INCLUDEDIR}/net/nrpe/packet.cpp
     ${NSCP_INCLUDEDIR}/bytes/crc32.cpp
+    # Called directly by this executable and exported by no library
+    # (see NSCP_DEF_PLUGIN_CPP in the top-level CMakeLists).
+    ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
     ../../resources/nsclient.ico
 )
 

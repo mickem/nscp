@@ -25,7 +25,12 @@ include_directories(${BOOST_INCLUDE_DIRS})
 link_directories(${BOOST_LIB_DIRS})
 add_definitions(${NSCP_GLOBAL_DEFINES})
 
-set(SRCS ${NSCP_INCLUDEDIR}/client/command_line_parser.cpp)
+set(SRCS
+    ${NSCP_INCLUDEDIR}/client/command_line_parser.cpp
+    # Compiled in rather than imported, as in libs/net: utf8 is deliberately not
+    # part of plugin_api's exported surface.
+    ${NSCP_INCLUDEDIR}/str/utf8.cpp
+)
 
 if(WIN32)
     set(SRCS

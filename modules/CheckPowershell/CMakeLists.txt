@@ -4,6 +4,12 @@ set(TARGET CheckPowershell)
 
 project(${TARGET})
 
+# Compiles plugin_api sources (utf8.cpp, ...) into this target rather than
+# linking the library, so the NSCAPI_EXPORT on their declarations must not say
+# dllimport - MSVC accepts a dllimport-declared function defined locally, but
+# only with LNK4217 on every use.
+add_definitions(-D${PLUGIN_API_TARGET}_NOLIB)
+
 CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 set(SRCS

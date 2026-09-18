@@ -596,7 +596,13 @@ function(NSCP_CREATE_TEST _TARGET)
     # (command_line_parser.cpp, socket_helpers.cpp, ...) straight into the test
     # binary so they can drive them without a core. __declspec(dllimport) on a
     # symbol the same binary defines does not link, so neuter the export macros.
-    target_compile_definitions(${_TARGET} PRIVATE nscp_client_NOLIB nscp_net_NOLIB)
+    target_compile_definitions(
+        ${_TARGET}
+        PRIVATE
+            ${PLUGIN_API_TARGET}_NOLIB
+            nscp_client_NOLIB
+            nscp_net_NOLIB
+    )
     if(ARG_LIBRARIES)
         target_link_libraries(${_TARGET} ${ARG_LIBRARIES})
     endif()
