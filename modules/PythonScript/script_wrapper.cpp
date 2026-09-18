@@ -52,8 +52,20 @@ std::string pystr(py::object o) {
   try {
     if (o.ptr() == Py_None) return "";
     if (PyUnicode_Check(o.ptr())) {
-      std::string s = PyBytes_AsString(PyUnicode_AsEncodedString(o.ptr(), "utf-8", "Error"));
-      return s;
+      // A str can hold lone surrogates - that is how Python hands back a file
+      // name or an environment value which is not valid UTF-8 - and encoding
+      // those raises. "Error" was not a registered error handler either, so
+      // the lookup itself raised, and the NULL that came back went straight
+      // into PyBytes_AsString, which reads Py_TYPE(NULL). "replace" cannot
+      // fail, and the bytes object is owned here rather than leaked.
+      py::handle<> encoded(py::allow_null(PyUnicode_AsEncodedString(o.ptr(), "utf-8", "replace")));
+      char *buffer = NULL;
+      Py_ssize_t size = 0;
+      if (!encoded || PyBytes_AsStringAndSize(encoded.get(), &buffer, &size) == -1 || buffer == NULL) {
+        PyErr_Clear();
+        return "Unable to encode python string";
+      }
+      return std::string(buffer, size);
     }
     return py::extract<std::string>(o);
   } catch (const std::exception &e) {

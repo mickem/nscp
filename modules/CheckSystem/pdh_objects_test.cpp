@@ -210,11 +210,22 @@ TEST(PdhObject, SetBufferSizeEmptyLeavesUnchanged) {
   EXPECT_EQ(o.buffer_size, 42);
 }
 
-TEST(PdhObject, SetBufferSizeInvalidResetsToZero) {
+TEST(PdhObject, SetBufferSizeInvalidIsRefused) {
+  // Storing a zero here overrode the 60m default the rrd strategy sets, and a
+  // buffer of no entries holds no values for the counter to report.
   PDH::pdh_object o;
   o.buffer_size = 99;
-  o.set_buffer_size("not-a-time");
-  EXPECT_EQ(o.buffer_size, 0);
+  EXPECT_THROW(o.set_buffer_size("not-a-time"), PDH::pdh_exception);
+  EXPECT_EQ(o.buffer_size, 99);
+}
+
+TEST(PdhObject, SetBufferSizeZeroOrNegativeIsRefused) {
+  PDH::pdh_object o;
+  o.set_strategy("rrd");
+  EXPECT_THROW(o.set_buffer_size("0"), PDH::pdh_exception);
+  EXPECT_THROW(o.set_buffer_size("-5s"), PDH::pdh_exception);
+  // The default the strategy set stands.
+  EXPECT_EQ(o.buffer_size, 3600);
 }
 
 // ============================================================================
