@@ -105,11 +105,14 @@ runs:
     # FindCryptoPP.cmake) and cryptdll's MAC post-build step shells out to a
     # Win32 cryptest.exe, which has nothing to say about an ARM64 DLL nobody
     # ships.
+    # WindowsTargetPlatformVersion is pinned because the runner still carries the
+    # Windows 8.1 SDK for the legacy XP build and 8.1 has no ARM64 toolchain;
+    # the project itself names no SDK, so it would take whatever msbuild picks.
     - name: Build (ARM64)
       if: inputs.architecture == 'arm64' && steps.cache.outputs.cache-hit != 'true'
       run: |
-        msbuild cryptlib.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }}
-        msbuild cryptlib.vcxproj /p:Configuration=Debug /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }}
+        msbuild cryptlib.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }} /p:WindowsTargetPlatformVersion=10.0
+        msbuild cryptlib.vcxproj /p:Configuration=Debug /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }} /p:WindowsTargetPlatformVersion=10.0
       working-directory: tmp/cryptopp
       shell: cmd
 

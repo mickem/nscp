@@ -353,31 +353,40 @@ jobs:
         curl -sSfL --retry 8 --retry-delay 15 --retry-max-time 300 -o tmp/check_nsclient.exe "$url"
         .github/scripts/verify-checksum.sh "check_nsclient-${{ inputs.architecture }}" "${ver}" tmp/check_nsclient.exe
 
+    # Everything that only differs on ARM64, in one place.
+    #
+    # The SDK has to be pinned: the runner reports itself as Windows 6.2 and
+    # carries the Windows 8.1 SDK for the legacy XP build, so CMake selects 8.1
+    # - "Selecting Windows SDK version 8.1 to target Windows 6.2.9200" - and
+    # 8.1 has no ARM64 toolchain, which surfaces as "No CMAKE_C_COMPILER could
+    # be found". The quotes are load-bearing under pwsh: unquoted, the argument
+    # is split into -DCMAKE_SYSTEM_VERSION=10 plus a stray ".0", CMake shrugs
+    # and falls straight back to 8.1.
+    - id: cmake_options
+      run: |
+        if ("${{ inputs.architecture }}" -eq "arm64") {
+          echo 'sdk="-DCMAKE_SYSTEM_VERSION=10.0"' >> $env:GITHUB_OUTPUT
+          echo "extra=-D NSCP_WITH_PYTHON=OFF -D PROTOBUF_PROTOC_EXECUTABLE=${{ steps.protobuf.outputs.protoc_unix }}" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "sdk=" >> $env:GITHUB_OUTPUT
+          echo "extra=" >> $env:GITHUB_OUTPUT
+        }
+      shell: pwsh
+
     - name: CMake (installer_lib)
       working-directory: tmp/installer_lib
       run: |
 
-        cmake ../../installer_lib -T ${{ steps.setup.outputs.toolset }} -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -DBOOST_ROOT=${{ steps.paths.outputs.static_boost_root }} -DBOOST_LIBRARYDIR=${{ steps.paths.outputs.static_boost_librarydir }} -DOPENSSL_ROOT_DIR=${{ steps.openssl-static.outputs.path_unix }} -DBUILD_VERSION=${{ inputs.version }}
+        cmake ../../installer_lib -T ${{ steps.setup.outputs.toolset }} -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -DBOOST_ROOT=${{ steps.paths.outputs.static_boost_root }} -DBOOST_LIBRARYDIR=${{ steps.paths.outputs.static_boost_librarydir }} -DOPENSSL_ROOT_DIR=${{ steps.openssl-static.outputs.path_unix }} -DBUILD_VERSION=${{ inputs.version }} ${{ steps.cmake_options.outputs.sdk }}
     - name: Build installer_lib
       working-directory: tmp/installer_lib
       run: |
         msbuild installer_lib.sln /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
   
-    # -D NSCP_WITH_PYTHON / -D PROTOBUF_PROTOC_EXECUTABLE only differ from the
-    # defaults on ARM64; see the setup step for why.
-    - id: cmake_options
-      run: |
-        if ("${{ inputs.architecture }}" -eq "arm64") {
-          echo "extra=-D NSCP_WITH_PYTHON=OFF -D PROTOBUF_PROTOC_EXECUTABLE=${{ steps.protobuf.outputs.protoc_unix }}" >> $env:GITHUB_OUTPUT
-        } else {
-          echo "extra=" >> $env:GITHUB_OUTPUT
-        }
-      shell: pwsh
-
     - name: CMake (NSCP)
       working-directory: tmp/nscp
       run: |
-        cmake ../.. -T ${{ steps.setup.outputs.toolset }} -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -D BUILD_VERSION=${{ inputs.version }} -D CRT_MERGE_MODULE_NAME=Microsoft_VC143_CRT ${{ steps.cmake_options.outputs.extra }}
+        cmake ../.. -T ${{ steps.setup.outputs.toolset }} -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -D BUILD_VERSION=${{ inputs.version }} -D CRT_MERGE_MODULE_NAME=Microsoft_VC143_CRT ${{ steps.cmake_options.outputs.sdk }} ${{ steps.cmake_options.outputs.extra }}
 
     - name: Build nsclient
       working-directory: tmp/nscp

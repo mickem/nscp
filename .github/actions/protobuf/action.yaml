@@ -75,6 +75,16 @@ runs:
         } else {
           echo "cross=false" >> $env:GITHUB_OUTPUT
         }
+        # The runner reports itself as Windows 6.2 and has the Windows 8.1 SDK
+        # installed for the legacy XP build, so CMake picks 8.1 - "Selecting
+        # Windows SDK version 8.1 to target Windows 6.2.9200" - and 8.1 has no
+        # ARM64 toolchain at all, which surfaces as "No CMAKE_C_COMPILER could
+        # be found". Only the SDK is pinned; the toolset stays as asked.
+        if ("${{ inputs.architecture }}" -eq "arm64") {
+          echo "sdk=-DCMAKE_SYSTEM_VERSION=10.0" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "sdk=" >> $env:GITHUB_OUTPUT
+        }
         if ("${{ inputs.runtime }}" -eq "dynamic") {
           echo "shared_libs=TRUE" >> $env:GITHUB_OUTPUT
         } else {
@@ -109,7 +119,7 @@ runs:
 
     - name: CMake
       run: |
-        cmake -DBUILD_SHARED_LIBS=${{ steps.setup.outputs.shared_libs }} -Dprotobuf_WITH_ZLIB=OFF -G "Visual Studio 17" -T ${{ steps.setup.outputs.cmake_toolset }} -A ${{ steps.setup.outputs.platform }} ..
+        cmake -DBUILD_SHARED_LIBS=${{ steps.setup.outputs.shared_libs }} -Dprotobuf_WITH_ZLIB=OFF -G "Visual Studio 17" -T ${{ steps.setup.outputs.cmake_toolset }} -A ${{ steps.setup.outputs.platform }} ${{ steps.setup.outputs.sdk }} ..
       working-directory: tmp/protobuf-${{ inputs.version }}/build
       shell: cmd
 

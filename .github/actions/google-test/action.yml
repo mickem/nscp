@@ -44,6 +44,16 @@ runs:
           "arm64" { echo "platform=ARM64" >> $env:GITHUB_OUTPUT }
           default { echo "platform=x64"   >> $env:GITHUB_OUTPUT }
         }
+        # The runner reports itself as Windows 6.2 and has the Windows 8.1 SDK
+        # installed for the legacy XP build, so CMake picks 8.1 - "Selecting
+        # Windows SDK version 8.1 to target Windows 6.2.9200" - and 8.1 has no
+        # ARM64 toolchain at all, which surfaces as "No CMAKE_C_COMPILER could
+        # be found". Only the SDK is pinned; the toolset stays as asked.
+        if ("${{ inputs.architecture }}" -eq "arm64") {
+          echo "sdk=-DCMAKE_SYSTEM_VERSION=10.0" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "sdk=" >> $env:GITHUB_OUTPUT
+        }
         if ("${{ inputs.runtime }}" -eq "dynamic") {
           echo "shared_libs=TRUE" >> $env:GITHUB_OUTPUT
         } else {
@@ -56,7 +66,7 @@ runs:
       working-directory: tmp/googletest
       shell: cmd
       run: |
-        cmake -S . -G "Visual Studio 17" -B build -DCMAKE_INSTALL_PREFIX=install -DBUILD_SHARED_LIBS=${{ steps.setup.outputs.shared_libs }} -T ${{ inputs.toolset }} -A ${{ steps.setup.outputs.platform }}
+        cmake -S . -G "Visual Studio 17" -B build -DCMAKE_INSTALL_PREFIX=install -DBUILD_SHARED_LIBS=${{ steps.setup.outputs.shared_libs }} -T ${{ inputs.toolset }} -A ${{ steps.setup.outputs.platform }} ${{ steps.setup.outputs.sdk }}
 
     - name: Build Google Test
       working-directory: tmp/googletest
