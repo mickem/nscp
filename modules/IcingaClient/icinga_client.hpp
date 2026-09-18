@@ -4,6 +4,7 @@
 #pragma once
 
 #include <bytes/base64.hpp>
+#include <mutex>
 #include <net/http/client.hpp>
 #include <net/socket/socket_helpers.hpp>
 #include <nscapi/macros.hpp>
@@ -13,6 +14,7 @@
 #include <nscapi/protobuf/functions_query.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <ostream>
+#include <set>
 #include <sstream>
 #include <string>
 
@@ -164,11 +166,16 @@ struct icinga_client_handler : client::handler_interface {
     NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Sender configuration: " + sender.to_string()); }
     NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Target configuration: " + target.to_string()); }
 
-    if (con.protocol == "https" && socket_helpers::client_verify_mode_disables_verification(con.verify_mode)) {
-      NSC_LOG_MESSAGE("TLS certificate verification is disabled for " + con.get_endpoint_string() + " (verify mode: " +
-                      (con.verify_mode.empty() ? "<not set>" : con.verify_mode) +
+    // Once per target, not once per submission: this runs on every passive
+    // result, so a target left on `verify mode = none` would write the same
+    // line 1440 times a day on a 60 s schedule and bury the log it is meant to
+    // stand out in. The NRDP client gates its identical warning the same way.
+    if (con.protocol == "https" && socket_helpers::client_verify_mode_disables_verification(con.verify_mode) &&
+        first_warning_for(con.get_endpoint_string() + "|" + con.verify_mode)) {
+      NSC_LOG_MESSAGE("TLS certificate verification is disabled for " + con.get_endpoint_string() +
+                      " (verify mode: " + (con.verify_mode.empty() ? "<not set>" : con.verify_mode) +
                       "): the Icinga API credentials are sent to whichever server answers. Set verify mode = peer, or peer-cert with ca pointing at the "
-                      "self-signed certificate, unless this is intentional.");
+                      "self-signed certificate, unless this is intentional. This is logged once per target while the service runs.");
     }
 
     for (const ::PB::Commands::QueryResponseMessage_Response &p : request_message.payload()) {
@@ -176,6 +183,22 @@ struct icinga_client_handler : client::handler_interface {
     }
     return true;
   }
+
+  // True the first time `key` (endpoint plus verify mode, so a reconfigured
+  // target warns again) is seen. The handler outlives every submission - one
+  // instance per loaded module - and submissions arrive on channel threads, so
+  // the set is shared state and needs the lock. Bounded: ad-hoc `nscp client`
+  // submissions can name an unlimited number of endpoints, and a warning
+  // repeated after a wrap is better than a map that only grows.
+  bool first_warning_for(const std::string &key) {
+    static constexpr std::size_t kMaxRemembered = 64;
+    std::lock_guard<std::mutex> guard(warned_mutex_);
+    if (warned_targets_.size() >= kMaxRemembered) warned_targets_.clear();
+    return warned_targets_.insert(key).second;
+  }
+
+  std::mutex warned_mutex_;
+  std::set<std::string> warned_targets_;
 
   static void submit_one(PB::Commands::SubmitResponseMessage::Response *payload, const connection_data &con,
                          const PB::Commands::QueryResponseMessage::Response &p) {

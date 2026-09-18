@@ -187,6 +187,7 @@ void NSCSettingsImpl::boot(std::string key) {
     tls_version_ = utf8::cvt<std::string>(boot_conf.GetValue(L"tls", L"version", utf8::cvt<std::wstring>(tls_version_).c_str()));
     tls_verify_mode_ = utf8::cvt<std::string>(boot_conf.GetValue(L"tls", L"verify mode", utf8::cvt<std::wstring>(tls_verify_mode_).c_str()));
     tls_ca_ = utf8::cvt<std::string>(boot_conf.GetValue(L"tls", L"ca", utf8::cvt<std::wstring>(tls_ca_).c_str()));
+    allow_plaintext_ = boot_conf.GetBoolValue(L"tls", L"allow plaintext", allow_plaintext_);
     proxy_url_ = utf8::cvt<std::string>(boot_conf.GetValue(L"proxy", L"url", L""));
     no_proxy_ = utf8::cvt<std::string>(boot_conf.GetValue(L"proxy", L"no_proxy", L""));
 

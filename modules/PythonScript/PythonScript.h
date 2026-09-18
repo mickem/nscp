@@ -8,6 +8,9 @@
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/metrics.hpp>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "boost_python_wrapper.hpp"
 #include "script_interface.hpp"
@@ -18,6 +21,11 @@ class PythonScript : public nscapi::impl::simple_plugin {
   std::string alias_;
 
   std::shared_ptr<script_provider_interface> provider_;
+  // The scripts the settings walk found, in the order it found them. They
+  // cannot be loaded as they are discovered: loading one constructs a
+  // `python_script`, which takes the GIL, and the interpreter is only
+  // initialised once the walk has produced the settings `init()` needs.
+  std::vector<std::pair<std::string, std::string> > pending_scripts_;
 
  public:
   PythonScript() {}
@@ -39,5 +47,8 @@ class PythonScript : public nscapi::impl::simple_plugin {
   void execute_script(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
 
  private:
+  // Settings callback: records the script for `load_pending_scripts()`.
   void loadScript(std::string alias, std::string script);
+  // Loads what the settings walk recorded. Called once the interpreter is up.
+  void load_pending_scripts();
 };

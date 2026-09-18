@@ -3,27 +3,30 @@
 
 #pragma once
 
-// We are using the Visual Studio Compiler and building Shared libraries
+// Export control for the nscp_mongoose shared library.
+//
+// This used to call its macro NSCAPI_EXPORT, the same name nscapi/dll_defines.hpp
+// uses, and both define it unconditionally. Any translation unit that included
+// the two - every WEBServer source does - got a C4005 redefinition, and the
+// linkage of one library's symbols was then decided by the other's header
+// depending on include order. It was loud but ignored, and in WEBServer_test,
+// where plugin_api_NOLIB makes the nscapi macro expand to nothing, losing the
+// race would have left the mongoose classes emitted into the test instead of
+// imported.
+//
+// So this library says NSCP_MONGOOSE_EXPORT, as plugin_api, nscp_protobuf,
+// nscp_net, nscp_client and nscp_where_filter each say their own.
 
 #if defined(_WIN32)
 #if defined(lib_mongoose_NOLIB)
-#define NSCAPI_EXPORT
+#define NSCP_MONGOOSE_EXPORT
 #else
 #if defined(lib_mongoose_EXPORTS)
-#define NSCAPI_EXPORT __declspec(dllexport)
+#define NSCP_MONGOOSE_EXPORT __declspec(dllexport)
 #else
-#define NSCAPI_EXPORT __declspec(dllimport)
+#define NSCP_MONGOOSE_EXPORT __declspec(dllimport)
 #endif /* lib_mongoose_EXPORTS */
 #endif /* lib_mongoose_NOLIB */
-#else  /* defined (_WIN32) */
-#if defined(lib_mongoose_NOLIB)
-#define NSCAPI_EXPORT
-#else
-#if defined(lib_mongoose_EXPORTS)
-//      #define NSCAPI_EXPORT __attribute__ ((visibility("default")))
-#define NSCAPI_EXPORT
-#else
-#define NSCAPI_EXPORT
-#endif /* lib_mongoose_EXPORTS */
-#endif /* lib_mongoose_NOLIB */
+#else  /* defined(_WIN32) */
+#define NSCP_MONGOOSE_EXPORT
 #endif

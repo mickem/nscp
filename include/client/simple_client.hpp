@@ -71,6 +71,12 @@ class cli_client {
   // The parameter names a query accepts, for `key=` completion. Empty when the
   // query is unknown or declares none.
   std::vector<std::string> list_parameters(const std::string &query) const;
+  // The filter keywords a query offers - the same list `keywords` prints, and
+  // what a filter expression or a syntax template may name. A filter function
+  // is reported with its trailing "()", exactly as the registry spells it, so
+  // the caller can tell the two apart. Empty for a query that is not a filter
+  // based check.
+  std::vector<std::string> list_keywords(const std::string &query) const;
 };
 typedef std::shared_ptr<cli_handler> cli_handler_ptr;
 }  // namespace client

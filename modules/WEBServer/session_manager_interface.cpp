@@ -72,11 +72,7 @@ session_manager_interface::session_manager_interface() : log_data(std::make_uniq
 }
 
 void session_manager_interface::set_legacy_query_auth_user_agents(const std::string &csv) {
-  auto list = std::make_shared<std::vector<std::string>>();
-  for (const std::string &raw : str::utils::split_lst(csv, std::string(","))) {
-    std::string pat = boost::algorithm::trim_copy(raw);
-    if (!pat.empty()) list->push_back(std::move(pat));
-  }
+  auto list = std::make_shared<std::vector<std::string>>(str::utils::split_trimmed(csv, ","));
   boost::lock_guard<boost::mutex> lock(legacy_query_auth_mutex_);
   legacy_query_auth_user_agents_ = list;
 }
@@ -104,7 +100,7 @@ bool session_manager_interface::process_auth_header(const std::string &grant, Mo
 }
 
 bool session_manager_interface::process_auth_header(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response,
-                                                   std::string *matched_grant) {
+                                                    std::string *matched_grant) {
   const std::string remote_ip = request.getRemoteIp();
   if (rate_limiter.is_blocked(remote_ip)) {
     NSC_LOG_ERROR("Rate-limited authentication attempt from " + remote_ip);
@@ -270,8 +266,7 @@ bool session_manager_interface::store_user_in_response(const std::string &user, 
   return true;
 }
 
-void session_manager_interface::store_session_in_response(const std::string &token, const std::string &user,
-                                                          Mongoose::StreamResponse &response) const {
+void session_manager_interface::store_session_in_response(const std::string &token, const std::string &user, Mongoose::StreamResponse &response) const {
   response.setCookie("token", token);
   response.setCookie("uid", user);
 }
@@ -343,17 +338,14 @@ void session_manager_interface::add_grant(const std::string &role, const std::st
 
 std::string session_manager_interface::get_metrics() { return metrics_store.get(); }
 std::string session_manager_interface::get_metrics_v2() { return metrics_store.get_list(); }
-std::string session_manager_interface::get_open_metrics() {
-  std::string metrics;
-  for (const std::string &m : metrics_store.get_openmetrics()) {
-    metrics += m + "\n";
-  }
-  return metrics;
-}
-void session_manager_interface::set_metrics(const std::string &metrics, const std::string &metrics_list, std::list<std::string> open_metrics) {
+std::string session_manager_interface::get_metrics_v2_described() { return metrics_store.get_described(); }
+std::string session_manager_interface::get_open_metrics() { return metrics_store.get_openmetrics(); }
+std::string session_manager_interface::get_prometheus_metrics() { return metrics_store.get_prometheus_text(); }
+void session_manager_interface::set_metrics(const std::string &metrics, const std::string &metrics_list, const std::string &metrics_metadata,
+                                            const std::string &open_metrics, const std::string &prometheus_metrics) {
   metrics_store.set(metrics);
-  metrics_store.set_list(metrics_list);
-  metrics_store.set_openmetrics(open_metrics);
+  metrics_store.set_list(metrics_list, metrics_metadata);
+  metrics_store.set_openmetrics(open_metrics, prometheus_metrics);
 }
 
 void session_manager_interface::add_log_message(const bool is_error, const error_handler_interface::log_entry &entry) const {

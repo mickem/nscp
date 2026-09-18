@@ -93,6 +93,27 @@ TEST_F(CommandsTest, RegisterAndResolveAlias) {
   EXPECT_EQ(commands_->describe("check_foo_alias").plugin_id, 1u);
 }
 
+TEST_F(CommandsTest, CommandsAreStableUnlessRegisteredAsExperimental) {
+  commands_->register_command(1, "check_stable", "a settled check");
+  commands_->register_command(1, "check_new", "a young check", true);
+  EXPECT_FALSE(commands_->describe("check_stable").experimental);
+  EXPECT_TRUE(commands_->describe("check_new").experimental);
+}
+
+TEST_F(CommandsTest, AliasCarriesTheExperimentalFlagOfItsCommand) {
+  commands_->register_alias(1, "check_new_alias", "Alternative name for: check_new", true);
+  EXPECT_TRUE(commands_->describe("check_new_alias").experimental);
+}
+
+TEST_F(CommandsTest, ReRegisteringACommandReplacesTheExperimentalFlag) {
+  // A module that drops the flag (the check settled) must not leave the old
+  // value behind: register_command overwrites the whole description entry.
+  commands_->register_command(1, "check_foo", "foo check", true);
+  ASSERT_TRUE(commands_->describe("check_foo").experimental);
+  commands_->register_command(1, "check_foo", "foo check");
+  EXPECT_FALSE(commands_->describe("check_foo").experimental);
+}
+
 TEST_F(CommandsTest, UnregisterCommand) {
   commands_->register_command(1, "check_foo", "foo check");
   commands_->unregister_command(1, "check_foo");

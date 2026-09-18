@@ -32,6 +32,7 @@ import Button from "@mui/material/Button";
 import ModuleSettings from "../components/ModuleSettings.tsx";
 import NscpAlert from "../components/atoms/NscpAlert.tsx";
 import Trail from "../components/atoms/Trail.tsx";
+import ExperimentalChip, { EXPERIMENTAL_TOOLTIP } from "../components/atoms/ExperimentalChip.tsx";
 
 export default function Module() {
   const { id = "" } = useParams();
@@ -144,9 +145,10 @@ export default function Module() {
       </Toolbar>
       <Card>
         <CardContent>
-          <Typography gutterBottom sx={{ color: "text.secondary", fontSize: 14 }}>
-            {module?.title}
-          </Typography>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center", paddingBottom: 1 }}>
+            <Typography sx={{ color: "text.secondary", fontSize: 14 }}>{module?.title}</Typography>
+            {module?.experimental && <ExperimentalChip />}
+          </Stack>
           <Typography variant="body2" component="div">
             {module?.description}
           </Typography>
@@ -199,8 +201,22 @@ export default function Module() {
             </Typography>
             <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, paddingBottom: 2 }}>
               {myQueries?.map((query) => (
-                <Tooltip key={query.name} title={query.description || ""} arrow>
-                  <Chip label={query.name} size="small" onClick={() => navigate("/queries/" + query.name)} />
+                <Tooltip
+                  key={query.name}
+                  title={
+                    query.experimental
+                      ? `${query.description || ""}\n${EXPERIMENTAL_TOOLTIP}`
+                      : query.description || ""
+                  }
+                  arrow
+                >
+                  <Chip
+                    label={query.experimental ? `${query.name} (experimental)` : query.name}
+                    size="small"
+                    color={query.experimental ? "warning" : "default"}
+                    variant={query.experimental ? "outlined" : "filled"}
+                    onClick={() => navigate("/queries/" + query.name)}
+                  />
                 </Tooltip>
               ))}
             </Box>

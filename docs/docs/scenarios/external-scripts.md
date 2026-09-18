@@ -346,11 +346,24 @@ performance-data section, or split the check into multiple smaller checks.
 
 ## Running a Script as a Different User
 
+On Windows a script section can carry the account to run as:
+
 ```ini
 [/settings/external scripts/scripts/check_as_admin]
 command  = scripts\check_admin_resource.bat
 user     = Administrator
 password = s3cr3t_p@ssword
+```
+
+The `user`, `domain` and `password` keys are Windows-only. On Linux a script
+with any of them set is refused (the check returns UNKNOWN and the script does
+not run) rather than silently executed as the service account. Use `sudo` in
+the command instead and grant it in `sudoers` (`NOPASSWD`, with `-n` so the
+check can never block on a password prompt):
+
+```ini
+[/settings/external scripts/scripts/check_as_nobody]
+command = sudo -n -u nobody /usr/lib/nagios/plugins/check_something
 ```
 
 ---

@@ -32,7 +32,7 @@
  * A response to a request
  */
 namespace Mongoose {
-class NSCAPI_EXPORT Response {
+class NSCP_MONGOOSE_EXPORT Response {
  public:
   Response();
   virtual ~Response() = default;

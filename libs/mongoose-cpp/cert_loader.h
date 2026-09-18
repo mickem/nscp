@@ -8,7 +8,7 @@
 
 // Shared cert/key file loading used by both `ServerMongooseImpl` and
 // `ServerBeastImpl`. Kept private to libs/mongoose-cpp/ (no
-// NSCAPI_EXPORT) — only the two server implementations need it, and
+// NSCP_MONGOOSE_EXPORT) — only the two server implementations need it, and
 // keeping it out of the public surface avoids growing the wrapper
 // while we still expect to delete the mongoose backend (Phase 5).
 

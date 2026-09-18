@@ -1,9 +1,10 @@
 #### About `remote_nscpforward`
 
 `remote_nscpforward` is the module's relay command: it is meant to pass a
-request through to a remote NSClient++ agent over the NSCP protocol **as-is**,
-without interpreting it, so that this host can act as a proxy for agents a
-monitoring server cannot address directly.
+request through to a remote NSClient++ agent **as-is**, without interpreting it,
+so that this host can act as a proxy for agents a monitoring server cannot
+address directly. The command and its arguments are re-issued against the remote
+agent's REST API.
 
 ##### The registered name does not dispatch
 
@@ -31,4 +32,4 @@ For an NSCP relay today, register the module's own `fallback` handler on the
 target, which routes unmatched requests through the same client without going
 via this command name. Where an explicit command is needed and the far end is
 NSClient++, [`check_remote_nscp`](#check_remote_nscp) forwards a named check and
-returns its full structured result.
+returns its result, message and performance data alike.

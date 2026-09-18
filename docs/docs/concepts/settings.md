@@ -130,9 +130,9 @@ $ nscp settings --migrate-to registry
 $ nscp settings --migrate-to registry://HKEY_LOCAL_MACHINE/software/NSClient++
 ```
 
-### http settings
+### https settings
 
-Http/Https is a regular ini file (see above) except that it is loaded remotely and refreshed periodically.
+Https is a regular ini file (see above) except that it is loaded remotely and refreshed periodically.
 The refresh period is configurable and if the file has changed NSClient++ will reload and re-read the new configuration.
 If it is not possible to fetch the latest configuration NSClient++ will keep using the last one it received.
 
@@ -140,8 +140,29 @@ examples:
 
 ```shell
 # Use remote configuration.
-nscp settings --switch http://www.myserver.com/nsclient.ini
+nscp settings --switch https://www.myserver.com/nsclient.ini
 ```
+
+!!! warning "Use https, not http"
+
+    The remote store is the agent's entire configuration: `[/modules]`, the external script
+    definitions, the credentials the submit clients use. Plain `http://` does not authenticate
+    the server at all, so anyone on the network path - or anyone who can answer for the host
+    name through DHCP or DNS - decides what your agents run, as SYSTEM or root. It is re-fetched
+    at boot and on every housekeeping pass, so one answered query is enough.
+
+    NSClient++ therefore **refuses** a settings url, an `[/includes]` entry or an
+    `[/attachments]` source that is not `https://`, and logs why. If you genuinely need plain
+    http - a lab, an air-gapped network - opt in explicitly in `boot.ini`:
+
+    ```ini
+    [tls]
+    allow plaintext = true
+    ```
+
+    The fetch then happens and is logged as `INSECURE` every time. See also
+    [`verify mode`](#using-tls) below: an https url whose certificate
+    is not verified is no better than plain http.
 
 In the nsclient.ini file you can specify a series of attachments which will be downloaded (for instance scripts).
 
@@ -149,7 +170,7 @@ Adding a script:
 
 ```ini
 [/attachments]
-scripts/myscript.bat = http://www.myserver.com/myscript.bat
+scripts/myscript.bat = https://www.myserver.com/myscript.bat
 ```
 
 The key is where the file is written and the value is where it is fetched from. Both sides take
@@ -168,7 +189,7 @@ This lets a script generate the configuration per host instead of serving a stat
 
 ```ini
 [settings]
-1 = http://nsclient.mydom.local/nsclient/nsclient.php?RootFolder=myhost/&Filename=nsclient.ini
+1 = https://nsclient.mydom.local/nsclient/nsclient.php?RootFolder=myhost/&Filename=nsclient.ini
 2 = ini://${shared-path}/nsclient.ini
 ```
 
@@ -189,7 +210,7 @@ agent asks for its own configuration:
 
 ```ini
 [settings]
-1 = http://cfgsrv/nsclient.php?host=${hostname}
+1 = https://cfgsrv/nsclient.php?host=${hostname}
 ```
 
 | Placeholder | Expands to |
@@ -202,7 +223,7 @@ Each of the three also has a `_lc` and a `_uc` variant (`${hostname_lc}`, `${hos
 lower- or upper-cases the result.
 
 Placeholders are expanded before the url is parsed, so they may appear anywhere in it - in the
-query, in the path (`http://cfgsrv/hosts/${host}/nsclient.ini`) or even in the host name. They are
+query, in the path (`https://cfgsrv/hosts/${host}/nsclient.ini`) or even in the host name. They are
 expanded before percent-encoding, so a host name containing a character that needs escaping is
 escaped rather than corrupting the request. The cache file name is derived from the expanded url,
 so each host caches its own configuration.
@@ -212,7 +233,7 @@ at the settings url:
 
 | Where | Example |
 |---|---|
-| A settings url | `[settings] 1 = http://cfgsrv/hosts/${host}.ini` |
+| A settings url | `[settings] 1 = https://cfgsrv/hosts/${host}.ini` |
 | An attachment's source url | `[/attachments] scripts/local.bat = https://cfgsrv/${host}.bat` |
 | An attachment's target path | `[/attachments] ${shared-path}/${host}.ini = https://cfgsrv/${host}.ini` |
 | An included file | `[/includes] client = ${host}-nsclient.ini` |
@@ -264,11 +285,12 @@ verify mode = peer
 ca = c:\program files\NSClient++\security\ca.pem
 ```
 
-| Key         | Default Value | Values          | Description                                                                |
-|-------------|---------------|-----------------|----------------------------------------------------------------------------|
-| version     | 1.3           | 1.0, 1.1, 1.3   | The TLS version to use.                                                    |
-| verify mode | peer          | none, peer      | The verify mode to use (Set this to none to use self signed certificates). |
-| ca          | `${ca-path}`  | Path to CA file | The path to the CA certificate to use. Defaults to the platform CA bundle: the auto-exported Windows ROOT store on Windows, the distribution bundle on Linux. |
+| Key             | Default Value | Values          | Description                                                                |
+|-----------------|---------------|-----------------|----------------------------------------------------------------------------|
+| version         | 1.3           | 1.0, 1.1, 1.3   | The TLS version to use.                                                    |
+| verify mode     | peer          | none, peer      | The verify mode to use (Set this to none to use self signed certificates). |
+| ca              | `${ca-path}`  | Path to CA file | The path to the CA certificate to use. Defaults to the platform CA bundle: the auto-exported Windows ROOT store on Windows, the distribution bundle on Linux. |
+| allow plaintext | false         | true, false     | Allow a settings url, `[/includes]` entry or `[/attachments]` source that is not `https://`. Off by default: such a fetch is refused and logged. When on, every plaintext fetch is logged as `INSECURE`. |
 
 ##### Upgrading to verified settings downloads
 

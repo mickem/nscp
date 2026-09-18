@@ -30,7 +30,18 @@ runs:
 
     - name: Download protobuf
       run: |
-            curl -L https://github.com/protocolbuffers/protobuf/releases/download/v${{ inputs.version }}/protobuf-all-${{ inputs.version }}.zip --output protobuf.zip
+            curl -fL --retry 8 --retry-delay 15 --retry-max-time 300 https://github.com/protocolbuffers/protobuf/releases/download/v${{ inputs.version }}/protobuf-all-${{ inputs.version }}.zip --output protobuf.zip
+      working-directory: tmp
+      shell: cmd
+
+    - name: Verify checksum
+      run: |
+        "$GITHUB_WORKSPACE/.github/scripts/verify-checksum.sh" protobuf "${{ inputs.version }}" protobuf.zip
+      working-directory: tmp
+      shell: bash
+
+    - name: Unpack protobuf
+      run: |
             7z x protobuf.zip
       working-directory: tmp
       shell: cmd

@@ -3,7 +3,10 @@
 
 #include <gtest/gtest.h>
 
+#include <limits>
+#include <sstream>
 #include <str/number_format.hpp>
+#include <string>
 
 // The default has to render byte for byte what the checks always rendered, so
 // that a check nobody configured keeps its output (#1428).
@@ -90,4 +93,50 @@ TEST(number_format, RenderFixedClampsRunawayDecimals) {
   str::number_format fmt;
   fmt.decimals = 1000000000;
   EXPECT_EQ(str::render_number(1.5, fmt), "1.500000000000000");
+}
+
+// `render_shortest` is the machine-readable counterpart of everything above:
+// no locale, no configured decimals, just the shortest string that reads back
+// as the same double. It exists because `str::xtos` is a bare stringstream -
+// six significant digits - which is fine for a check message and wrong for an
+// exposition a scraper parses (a 16 GB memory reading left as "1.6554e+10").
+TEST(number_format, RenderShortestKeepsEveryDigitOfAnIntegralValue) {
+  EXPECT_EQ(str::render_shortest(16554000000.0), "16554000000");
+  EXPECT_EQ(str::render_shortest(12592123904.0), "12592123904");
+  EXPECT_EQ(str::render_shortest(0.0), "0");
+  EXPECT_EQ(str::render_shortest(-42.0), "-42");
+}
+
+TEST(number_format, RenderShortestNeverGrowsAFractionIntoNoise) {
+  // The naive "print 17 digits" answer turns 0.1 into 0.10000000000000001.
+  EXPECT_EQ(str::render_shortest(0.1), "0.1");
+  EXPECT_EQ(str::render_shortest(1.0 / 3.0), "0.3333333333333333");
+  EXPECT_EQ(str::render_shortest(97.8293), "97.8293");
+}
+
+TEST(number_format, RenderShortestRoundTripsExactly) {
+  // The contract: whatever comes out parses back as the identical double, for
+  // awkward values as much as round ones.
+  const double values[] = {0.1, 1.0 / 3.0, 1e-300, 1.7976931348623157e308, 2.2250738585072014e-308, 1234567.891011, -0.000123456789};
+  for (const double value : values) {
+    std::istringstream back(str::render_shortest(value));
+    back.imbue(std::locale::classic());
+    double parsed = 0;
+    back >> parsed;
+    EXPECT_EQ(parsed, value) << "did not round trip: " << str::render_shortest(value);
+  }
+}
+
+TEST(number_format, RenderShortestHandlesValuesTooLargeForAnInt64) {
+  // The integral fast path casts to long long, so anything outside its range
+  // has to take the general path rather than trip undefined behaviour.
+  EXPECT_EQ(str::render_shortest(1e19), "1e+19");
+  EXPECT_EQ(str::render_shortest(-1e19), "-1e+19");
+}
+
+TEST(number_format, RenderShortestNeverReturnsAnEmptyString) {
+  // Non-finite values belong to the caller (each exposition format spells them
+  // differently), but they must still produce something.
+  EXPECT_FALSE(str::render_shortest(std::numeric_limits<double>::quiet_NaN()).empty());
+  EXPECT_FALSE(str::render_shortest(std::numeric_limits<double>::infinity()).empty());
 }

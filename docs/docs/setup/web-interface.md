@@ -115,8 +115,8 @@ rather than as a legacy `?TOKEN=` parameter.
 !!! danger "The `legacy` role is powerful — only for legacy integrations"
     The `legacy` role (`legacy,login.get`) exists so that old clients which
     predate the versioned REST API can still run checks, through the
-    deprecated `POST /query.pb` and `GET /query/{name}` endpoints. Those
-    endpoints dispatch through the **same command registry** as the modern
+    deprecated `GET /query/{name}` endpoint. That endpoint dispatches
+    through the **same command registry** as the modern
     `GET /api/v2/queries/{name}/commands/execute` API, so a token holding only
     the `legacy` grant can run **any** check or command registered on the
     agent — including any `CheckExternalScripts` command an operator has
@@ -233,6 +233,11 @@ Modules can be loaded and unloaded at runtime and they provide various features 
 If we click on `Queries` in the web interface we will see a list of available queries.
 In the list you will find `check_cpu` so lets try it out.
 
+Some entries in this list — and in the `Modules` list — carry an
+**Experimental** chip. That check or module works and is there to be used, but
+it is new enough that its options, filter keywords and output may still change
+in a coming release, so expect to revisit it after an upgrade.
+
 ![select check_cpu](../images/web-select-check_cpu.png)
 
 Then you are met with a screen which looks a bit like this:
@@ -257,6 +262,35 @@ Enter `cores`in the arguments field and click `Execute` again.
 ![check_cpu cores](../images/web-check_cpu-cores.png)
 
 And there you have it the CPU load for each core.
+
+### The arguments field knows the check
+
+The `Arguments` field is the same prompt the interactive console gives you,
+without the console. It reads the check's own options and filter keywords from
+the agent and uses them while you type:
+
+* **Syntax highlighting.** Option names, values, filter expressions and syntax
+  templates are coloured apart, and a keyword the check does *not* offer is
+  shown in red — so `filter=fre < 10%` is visibly wrong before you run a check
+  that would otherwise run happily and quietly match nothing.
+* **Completion.** Start typing an option name and the check's parameters are
+  offered; type inside `filter=`, `warning=` or a `${...}` placeholder and its
+  filter keywords are offered instead. `Ctrl+Space` asks for the list
+  explicitly, arrow keys move through it, `Tab` or `Enter` accepts one.
+* **Help, next to the field.** The panel below lists every option with its
+  default and description and every filter keyword the check offers, and
+  describes whatever the cursor is currently on. Clicking an entry puts it into
+  the argument line. The options and keywords every check shares are folded
+  into their own section, so the handful this check defines itself stay
+  visible.
+
+An expression with spaces in it is several arguments unless you quote it —
+which the highlighting shows you, because only the first of them is coloured as
+a filter. Write `"filter=free < 10%"` (or `filter="free < 10%"`) and the whole
+expression is read as one.
+
+The same information is available over REST as
+[`GET /api/v2/queries/{query}/help`](../api/rest/queries.md#get-query-help).
 
 
 ## Loading modules via Web Interface

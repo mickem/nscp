@@ -407,6 +407,36 @@ TEST(http_response, parse_status_line_no_space) {
   EXPECT_EQ(p.status_code_, 500u);
 }
 
+// Every test above fed a status line with no reason phrase, which no real
+// server sends. "HTTP/1.1 200 OK" used to be cast whole - "200 OK" - to an
+// int, which throws boost::bad_lexical_cast out of the response constructor,
+// so every single reply from a real HTTP server failed to parse.
+TEST(http_response, parse_status_line_with_reason_phrase) {
+  http::response p;
+  p.parse_status_line("HTTP/1.1 200 OK");
+  EXPECT_EQ(p.status_code_, 200u);
+  EXPECT_EQ(p.http_version_, "HTTP/1.1");
+  EXPECT_EQ(p.status_message_, "OK");
+}
+
+// The agent encodes the Nagios result in the status, so these four are the
+// ones the check path depends on reading correctly.
+TEST(http_response, parse_status_line_keeps_multi_word_reason_phrase) {
+  http::response p;
+  p.parse_status_line("HTTP/1.1 503 Service Unavailable");
+  EXPECT_EQ(p.status_code_, 503u);
+  EXPECT_EQ(p.status_message_, "Service Unavailable");
+}
+
+// The whole-buffer path is what the socket client actually calls.
+TEST(http_response, parses_a_real_response_off_the_wire) {
+  const std::string raw = "HTTP/1.1 202 Accepted\r\nContent-Type: text/plain\r\n\r\nWARNING: getting warm|'a label'=1";
+  const http::response r{std::vector<char>(raw.begin(), raw.end())};
+  EXPECT_EQ(r.status_code_, 202u);
+  EXPECT_EQ(r.status_message_, "Accepted");
+  EXPECT_EQ(r.get_payload(), "WARNING: getting warm|'a label'=1");
+}
+
 // =============================================================================
 // http::response tests
 // =============================================================================
@@ -1139,9 +1169,21 @@ TEST(http_response, construct_from_raw_data_without_status_line_terminator_is_em
   EXPECT_TRUE(p.payload_.empty());
 }
 
-TEST(http_response, parse_status_line_invalid_status_code_throws) {
+// This used to assert that an unparseable status code throws, which is what
+// the old lexical_cast did. It is the wrong contract: parse_status_line runs
+// inside the response(vector<char>) constructor on bytes a remote peer chose,
+// so throwing there propagates out of a constructor and past the caller. It
+// was not even self-consistent - a status line with no space at all has always
+// returned 500 rather than throwing. So a code we cannot read is 500 too,
+// which keeps it out of every is_2xx() path.
+TEST(http_response, parse_status_line_unreadable_status_code_is_500) {
   http::response p;
-  EXPECT_ANY_THROW(p.parse_status_line("HTTP/1.1 ABC"));
+  EXPECT_NO_THROW(p.parse_status_line("HTTP/1.1 ABC"));
+  EXPECT_EQ(p.status_code_, 500u);
+
+  http::response q;
+  EXPECT_NO_THROW(q.parse_status_line("HTTP/1.1 not-a-number Bad"));
+  EXPECT_EQ(q.status_code_, 500u);
 }
 
 TEST(http_packet_helpers, find_header_break_matches_lf_cr) {

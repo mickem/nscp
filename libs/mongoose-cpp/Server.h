@@ -16,7 +16,7 @@
  */
 namespace Mongoose {
 
-class NSCAPI_EXPORT WebLogger {
+class NSCP_MONGOOSE_EXPORT WebLogger {
  public:
   virtual ~WebLogger() = default;
   virtual void log_error(const std::string &message) = 0;
@@ -26,7 +26,7 @@ class NSCAPI_EXPORT WebLogger {
 
 typedef std::shared_ptr<WebLogger> WebLoggerPtr;
 
-class NSCAPI_EXPORT Server {
+class NSCP_MONGOOSE_EXPORT Server {
  public:
   static Server *make_server(const WebLoggerPtr &logger);
 

@@ -375,6 +375,42 @@ TEST_F(SettingsManagerBootTest, TlsSectionDefaultsWhenAbsent) {
   EXPECT_EQ(impl.get_tls_ca(), "${ca-path}");
 }
 
+TEST_F(SettingsManagerBootTest, PlaintextSettingsSourcesAreNotAllowedByDefault) {
+  // A plain http:// settings source has no server authentication at all, and
+  // the store it delivers is the agent's whole configuration. Off unless it is
+  // written out, and written out as an unambiguous boolean.
+  write_boot_ini("");
+
+  settings_manager::NSCSettingsImpl impl(provider_.get());
+  impl.boot("");
+
+  EXPECT_FALSE(impl.get_allow_plaintext());
+}
+
+TEST_F(SettingsManagerBootTest, PlaintextSettingsSourcesCanBeAllowedExplicitly) {
+  write_boot_ini(
+      "[tls]\n"
+      "allow plaintext=true\n");
+
+  settings_manager::NSCSettingsImpl impl(provider_.get());
+  impl.boot("");
+
+  EXPECT_TRUE(impl.get_allow_plaintext());
+}
+
+TEST_F(SettingsManagerBootTest, AnUnparsableAllowPlaintextKeepsTheSafeDefault) {
+  // Anything that is not recognisably a "yes" leaves the flag off: a typo in
+  // this key must not be the thing that opens the transport.
+  write_boot_ini(
+      "[tls]\n"
+      "allow plaintext=maybe\n");
+
+  settings_manager::NSCSettingsImpl impl(provider_.get());
+  impl.boot("");
+
+  EXPECT_FALSE(impl.get_allow_plaintext());
+}
+
 TEST_F(SettingsManagerBootTest, TlsVerificationCanStillBeDisabledExplicitly) {
   // The insecure mode remains reachable, but only by writing it out - which is
   // the point: `none` can no longer be arrived at by omission.
@@ -563,11 +599,25 @@ TEST_F(SettingsHandlerTest, GetRegisteredKeyModulesHasSyntheticBoolDesc) {
 // or, conversely, non-secret strings get hidden in cred manager.
 // ---------------------------------------------------------------------------
 
-TEST_F(SettingsHandlerTest, IsSensitiveKeyDefaultsFalse) { EXPECT_FALSE(impl_->is_sensitive_key("/settings/default", "password")); }
+TEST_F(SettingsHandlerTest, IsSensitiveKeyDefaultsFalse) { EXPECT_FALSE(impl_->is_sensitive_key("/settings/sample", "some key")); }
 
 TEST_F(SettingsHandlerTest, AddSensitiveKeyMakesItSensitive) {
-  impl_->add_sensitive_key(0xffff, "/settings/default", "password");
+  impl_->add_sensitive_key(0xffff, "/settings/sample", "some key");
+  EXPECT_TRUE(impl_->is_sensitive_key("/settings/sample", "some key"));
+}
+
+TEST_F(SettingsHandlerTest, DefaultPasswordIsSensitiveWithoutAnyModule) {
+  // The shared password is core-owned: NRPE, NSCA, NSClient and the web
+  // server all fall back to it, but only some of them declare it with
+  // add_password. An agent running none of those (check modules only) must
+  // still redact it rather than print it in a `settings` dump.
   EXPECT_TRUE(impl_->is_sensitive_key("/settings/default", "password"));
+}
+
+TEST_F(SettingsHandlerTest, SeededSensitiveKeyDoesNotBleedToNeighbours) {
+  // Seeding is still an exact (path, key) entry - no name-based matching.
+  EXPECT_FALSE(impl_->is_sensitive_key("/settings/default", "allowed hosts"));
+  EXPECT_FALSE(impl_->is_sensitive_key("/settings/NRPE/server", "password"));
 }
 
 TEST_F(SettingsHandlerTest, SensitiveKeyIsExactPathPlusKey) {

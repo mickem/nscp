@@ -118,6 +118,11 @@ describe("Scheduler run_schedules", () => {
       "/settings/scheduler/schedules/secondcheck": { command: "check_ok" },
     });
 
+    // The WEBServer binds the one fixed REST port, and a stranger on it (the
+    // previous suite's agent, or a locally installed nscp service) would let
+    // waitForPort succeed against something that is not our agent - the login
+    // below then fails with a mystifying 403. Fail here with the real reason.
+    await nscp.waitForPortFree(8443, { timeoutMs: 30_000 });
     nscp.start();
     await nscp.waitForPort(8443, { timeoutMs: 30_000 });
     const login = await request(REST_URL)

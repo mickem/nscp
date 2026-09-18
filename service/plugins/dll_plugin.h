@@ -50,10 +50,41 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
   std::multiset<boost::thread::id> dispatchers_;
   // Set by unload_plugin before it waits: no dispatch may enter after it.
   bool unloading_ = false;
+  // Set by load_plugin(reloadStart) for as long as loadModuleEx runs on the
+  // live module. A reload rewrites the settings the handlers read and often
+  // replaces the objects behind them, so dispatches wait it out instead of
+  // running against half-applied configuration. Only the reloading thread may
+  // enter meanwhile: loadModuleEx registers commands and reads settings
+  // through the core, which can dispatch straight back into this module.
+  bool reloading_ = false;
+  boost::thread::id reloading_thread_;
+  boost::condition_variable dispatch_resumed_;
+  // Set when the drain above expired and the reload went ahead anyway. This
+  // class has no logger, so the caller reports it.
+  std::atomic<bool> reload_raced_{false};
+  // Set when unload_plugin() refused to tear the module down because calls
+  // were still inside it. The destructor then leaves the library mapped: the
+  // refusal is worthless if the mapping goes away anyway.
+  std::atomic<bool> leaked_{false};
+
+  // Holds the reload barrier for the duration of loadModuleEx and lets go
+  // again however that call leaves - fLoadModule is foreign code that may
+  // throw.
+  class reload_barrier {
+    dll_plugin &owner_;
+    bool held_;
+
+   public:
+    reload_barrier(dll_plugin &owner, NSCAPI::moduleLoadMode mode);
+    ~reload_barrier();
+    reload_barrier(const reload_barrier &) = delete;
+    reload_barrier &operator=(const reload_barrier &) = delete;
+  };
 
   // Registers this thread as being inside the module for as long as it lives.
-  // Never blocks. Entering is refused once an unload has started, which the
-  // entry points check through entered().
+  // Blocks only while a reload is applying new settings. Entering is refused
+  // once an unload has started, which the entry points check through
+  // entered().
   class dispatch_lock {
     dll_plugin &owner_;
     bool entered_;
@@ -78,6 +109,9 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
   nscapi::plugin_api::lpPrepareShutdown fPrepareShutdown;
   nscapi::plugin_api::lpGetName fGetName;
   nscapi::plugin_api::lpGetVersion fGetVersion;
+  // Optional export: a module built before module flags existed has none, and
+  // is then read as declaring no flags at all.
+  nscapi::plugin_api::lpGetFlags fGetFlags;
   nscapi::plugin_api::lpGetDescription fGetDescription;
   nscapi::plugin_api::lpHasCommandHandler fHasCommandHandler;
   nscapi::plugin_api::lpHasMessageHandler fHasMessageHandler;
@@ -99,6 +133,13 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
   dll_plugin(const unsigned int id, const boost::filesystem::path file, std::string alias);
   ~dll_plugin() override;
 
+  // True when the last reload started while calls into the module were still
+  // in flight and the five second drain expired.
+  bool reload_raced() const override { return reload_raced_; }
+
+  // True when this thread is one of the calls currently inside the module.
+  bool is_dispatching_on_this_thread() const override;
+
   bool load_plugin(NSCAPI::moduleLoadMode mode) override;
   bool has_start() override;
   bool start_plugin() override;
@@ -108,6 +149,7 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
 
   std::string getName() override;
   std::string getDescription() override;
+  bool is_experimental() override;
   bool hasCommandHandler() override;
   bool hasNotificationHandler() override;
   bool hasMessageHandler() override;

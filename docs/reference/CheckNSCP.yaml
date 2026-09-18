@@ -263,6 +263,7 @@ common:
       info:
         description: Check if there is a newer version of NSClient++ available on GitHub. The result is
           cached (default 24 hours) to avoid hitting the GitHub API rate limit.
+        experimental: true
     check_nscp_version:
       common_fields:
       - count

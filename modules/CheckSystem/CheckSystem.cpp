@@ -5,6 +5,7 @@
 
 #include <win/sysinfo/sysinfo.h>
 
+#include <boost/algorithm/string.hpp>
 #include <boost/assign/list_of.hpp>
 #include <boost/json.hpp>
 #include <boost/program_options.hpp>
@@ -19,6 +20,7 @@
 #include <nscp_time.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <set>
+#include <utility>
 #include <win/com_helpers.hpp>
 #include <win/pdh/pdh_enumerations.hpp>
 #include <win/services.hpp>
@@ -38,13 +40,13 @@
 #include "check_pending_reboot.hpp"
 #include "check_printjobs.hpp"
 #include "check_printqueue.hpp"
-#include "check_w32time.hpp"
 #include "check_process.hpp"
 #include "check_process_history.hpp"
 #include "check_registry.hpp"
 #include "check_service.h"
 #include "check_swap_io.hpp"
 #include "check_temperature.hpp"
+#include "check_w32time.hpp"
 #include "counter_filter.hpp"
 #include "filter.hpp"
 #include "module.hpp"
@@ -187,8 +189,13 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   std::map<std::string, std::string> service_tags;
   // A reload replaces the collector: stop the running one first so its
   // threads are joined before the checks start reading the new instance.
-  if (collector) collector->stop();
-  collector.reset(new pdh_thread(get_core(), get_id()));
+  // Publish the replacement atomically and configure it through the local
+  // copy: a check running right now holds its own reference to whichever
+  // instance it read, so the old one dies when that check returns rather than
+  // under it (the member is read by every check thread, see get_collector()).
+  if (const std::shared_ptr<pdh_thread> previous = std::atomic_load(&collector)) previous->stop();
+  const std::shared_ptr<pdh_thread> fresh = std::make_shared<pdh_thread>(get_core(), get_id());
+  std::atomic_store(&collector, fresh);
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("system", alias, "windows");
   pdh_checker.counters_.set_path(settings.alias().get_settings_path("counters"));
@@ -198,8 +205,8 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   pdh_checker.counter_access_.reset();
   registry_access_.reset();
 
-  collector->set_path(settings.alias().get_settings_path("real-time/memory"), settings.alias().get_settings_path("real-time/cpu"),
-                      settings.alias().get_settings_path("real-time/process"), settings.alias().get_settings_path("real-time/checks"));
+  fresh->set_path(settings.alias().get_settings_path("real-time/memory"), settings.alias().get_settings_path("real-time/cpu"),
+                  settings.alias().get_settings_path("real-time/process"), settings.alias().get_settings_path("real-time/checks"));
 
   // clang-format off
   settings.alias().add_path_to_settings()
@@ -214,19 +221,19 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         "A name defined here can be used as key=<name> in any access mode, and is the only thing accepted when "
         "'registry access' is set to predefined.")
 
-    ("real-time/memory", sh::fun_values_path([this] (auto key, auto value) { collector->add_realtime_mem_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
+    ("real-time/memory", sh::fun_values_path([this, fresh] (auto key, auto value) { fresh->add_realtime_mem_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
         "Realtime memory filters", "A set of filters to use in real-time mode",
         "FILTER", "For more configuration options add a dedicated section")
 
-    ("real-time/cpu", sh::fun_values_path([this] (auto key, auto value) { collector->add_realtime_cpu_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
+    ("real-time/cpu", sh::fun_values_path([this, fresh] (auto key, auto value) { fresh->add_realtime_cpu_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
         "Realtime cpu filters", "A set of filters to use in real-time mode",
         "FILTER", "For more configuration options add a dedicated section")
 
-    ("real-time/process", sh::fun_values_path([this] (auto key, auto value) { collector->add_realtime_proc_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
+    ("real-time/process", sh::fun_values_path([this, fresh] (auto key, auto value) { fresh->add_realtime_proc_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
         "Realtime process filters", "A set of filters to use in real-time mode",
         "FILTER", "For more configuration options add a dedicated section")
 
-    ("real-time/checks", sh::fun_values_path([this] (auto key, auto value) { collector->add_realtime_legacy_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
+    ("real-time/checks", sh::fun_values_path([this, fresh] (auto key, auto value) { fresh->add_realtime_legacy_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
         "Legacy generic filters", "A set of filters to use in real-time mode",
         "FILTER", "For more configuration options add a dedicated section")
 
@@ -269,24 +276,24 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         "also allow HKLM\\SOFTWARE\\MyAppOther. An entry containing * or ? is matched as a wildcard against the whole key instead. Both hive spellings "
         "(HKLM and HKEY_LOCAL_MACHINE) mean the same thing on either side of the comparison.")
 
-  .add_string("default buffer length", sh::string_key(&collector->default_buffer_size, "1h"),
+  .add_string("default buffer length", sh::string_key(&fresh->default_buffer_size, "1h"),
         "Default buffer time", "Used to define the default size of range buffer checks (ie. CPU).")
-  .add_string("subsystem", sh::string_key(&collector->subsystem, "default"),
+  .add_string("subsystem", sh::string_key(&fresh->subsystem, "default"),
     "PDH subsystem", "Set which pdh subsystem to use.\nCurrently default and thread-safe are supported where thread-safe is slower but required if you have some problematic counters.", true)
 
-    .add_bool("fetch core loads", sh::bool_key(&collector->read_core_load, true),
+    .add_bool("fetch core loads", sh::bool_key(&fresh->read_core_load, true),
         "Fetch core load", "Set to false to use a different API for fetching CPU load (will not provide core load, and will not show exact same values as task manager).", true)
 
-    .add_bool("use pdh for cpu", sh::bool_key(&collector->use_pdh_for_cpu, false),
+    .add_bool("use pdh for cpu", sh::bool_key(&fresh->use_pdh_for_cpu, false),
       "Use PDH to fetch CPU load", "When using PDH you might get better accuracy and hel alleviate invalid CPU values on multi core systems. The drawback is that PDH counters are sometimes missing and have invalid indexes so your milage may vary", true)
 
-    .add_bool("process history", sh::bool_key(&collector->process_history_enabled, false),
+    .add_bool("process history", sh::bool_key(&fresh->process_history_enabled, false),
       "Track process history", "Enable tracking of process history for use with check_process_history and check_process_history_new commands.")
 
-    .add_bool("process cpu", sh::bool_key(&collector->process_cpu_enabled, false),
+    .add_bool("process cpu", sh::bool_key(&fresh->process_cpu_enabled, false),
       "Sample per-process CPU", "Sample per-process CPU usage once a second in the background so that 'check_process delta=true' can report CPU% without stalling the check for a second. Off by default (adds one system-process-table query per second); required for the delta=true CPU fields.")
 
-    .add_string("disable", sh::string_key(&collector->disable_, ""),
+    .add_string("disable", sh::string_key(&fresh->disable_, ""),
         "Disable automatic checks", "A comma separated list of checks to disable in the collector: battery,cpu,handles,load,network,temperature,cpu_frequency,os_updates,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
     ;
 
@@ -323,13 +330,13 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   if (!pdh_checker.counter_access_.get_config_error().empty()) NSC_LOG_ERROR_STD(pdh_checker.counter_access_.get_config_error());
   if (!registry_access_.get_config_error().empty()) NSC_LOG_ERROR_STD(registry_access_.get_config_error());
 
-  collector->ensure_default(nscapi::settings_proxy::create(get_id(), get_core()));
-  collector->add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
+  fresh->ensure_default(nscapi::settings_proxy::create(get_id(), get_core()));
+  fresh->add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
   pdh_checker.counters_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
 
   if (!pdh_checker.counters_.has_object("disk_queue_length")) add_counter("disk_queue_length", "\\PhysicalDisk($INSTANCE$)\\% Disk Time");
   if (!pdh_checker.counters_.has_object("memory_pages_sec")) add_counter("memory_pages_sec", "\\Memory\\Pages/sec");
-  if (collector->use_pdh_for_cpu) {
+  if (fresh->use_pdh_for_cpu) {
     if (!pdh_checker.counters_.has_object("cpu_total")) add_rrd_counter("cpu_total", "\\Processor Information($INSTANCE$)\\% Processor Utility");
     if (!pdh_checker.counters_.has_object("cpu_kernel")) add_rrd_counter("cpu_kernel", "\\Processor Information($INSTANCE$)\\% Privileged Utility");
   }
@@ -350,6 +357,8 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         PDH::pdh_object counter;
         counter.alias = object->get_alias();
         counter.path = object->counter;
+        counter.help = object->help;
+        counter.unit = object->unit;
 
         counter.set_strategy(object->collection_strategy);
         counter.set_instances(object->instances);
@@ -358,12 +367,12 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         counter.add_flags(object->flags);
         counter.set_resolution(object->resolution);
 
-        collector->add_counter(counter);
+        fresh->add_counter(counter);
       } catch (const PDH::pdh_exception &e) {
         NSC_LOG_ERROR("Failed to load: " + object->get_alias() + ": " + e.reason());
       }
     }
-    collector->start();
+    fresh->start();
   }
 
   return true;
@@ -375,6 +384,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
  * @return true if successfully, false if not (if not things might be bad)
  */
 bool CheckSystem::unloadModule() {
+  const std::shared_ptr<pdh_thread> collector = get_collector();
   if (collector && !collector->stop()) {
     NSC_LOG_ERROR("Could not exit the thread, memory leak and potential corruption may be the result...");
   }
@@ -387,7 +397,30 @@ std::string qoute(const std::string &s) {
   return "\"" + s + "\"";
 }
 
-bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool porcelain, bool json, std::string filter, std::string &result) {
+// Every filter has to match, which is what makes them narrow rather than
+// replace: `--list SQL --filter Transactions` is the SQL counters that also
+// mention Transactions. An empty filter matches everything, so a bare
+// `--filter` is a no-op rather than an error.
+//
+// Case-insensitive, because this is the counter *browser*: you run it because
+// you do not know the name yet, and `--list disk` finding nothing while
+// `--list Disk` finds hundreds is a trap rather than a feature. PDH
+// capitalises inconsistently on its own (`% Idle Time`, `Avg. Disk sec/Read`),
+// and a localised Windows spells the names in a language whose casing nobody
+// is going to guess.
+//
+// The fold is byte-wise ASCII. On a localised install the non-ASCII part of a
+// name still has to be typed as it is spelled - which is what copying it out
+// of an earlier listing gives you anyway.
+static bool matches(const std::vector<std::string> &filters, const std::string &line) {
+  for (const std::string &filter : filters) {
+    if (!boost::algorithm::icontains(line, filter)) return false;
+  }
+  return true;
+}
+
+bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool porcelain, bool json, const std::vector<std::string> &filters,
+                 std::string &result) {
   if (!porcelain && !json) {
     result += "Listing counters\n";
     result += "---------------------------\n";
@@ -404,14 +437,14 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
           // instance enumeration is skipped or unavailable.
           for (const std::string &count : obj.counters) {
             std::string line = "\\" + obj.name + "\\" + count;
-            if (!filter.empty() && line.find(filter) == std::string::npos) continue;
+            if (!matches(filters, line)) continue;
             data.push_back(json::value(line));
           }
         } else {
           for (const std::string &inst : obj.instances) {
             for (const std::string &count : obj.counters) {
               std::string line = "\\" + obj.name + "(" + inst + ")\\" + count;
-              if (!filter.empty() && line.find(filter) == std::string::npos) continue;
+              if (!matches(filters, line)) continue;
               data.push_back(json::value(line));
             }
           }
@@ -420,21 +453,21 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
         for (const std::string &inst : obj.instances) {
           std::string line = "\\" + obj.name + "(" + inst + ")\\";
           total++;
-          if (!filter.empty() && line.find(filter) == std::string::npos) continue;
+          if (!matches(filters, line)) continue;
           result += "instance," + qoute(obj.name) + "," + qoute(inst) + "\n";
           match++;
         }
         for (const std::string &count : obj.counters) {
           std::string line = "\\" + obj.name + "\\" + count;
           total++;
-          if (!filter.empty() && line.find(filter) == std::string::npos) continue;
+          if (!matches(filters, line)) continue;
           result += "counter," + qoute(obj.name) + "," + qoute(count) + "\n";
           match++;
         }
         if (obj.instances.empty() && obj.counters.empty()) {
           std::string line = "\\" + obj.name + "\\";
           total++;
-          if (!filter.empty() && line.find(filter) == std::string::npos) continue;
+          if (!matches(filters, line)) continue;
           result += "counter," + qoute(obj.name) + ",,\n";
           match++;
         } else if (!obj.error.empty()) {
@@ -447,7 +480,7 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
           for (const std::string &count : obj.counters) {
             std::string line = "\\" + obj.name + "(" + inst + ")\\" + count;
             total++;
-            if (!filter.empty() && line.find(filter) == std::string::npos) continue;
+            if (!matches(filters, line)) continue;
             boost::tuple<bool, std::string> status;
             if (validate) {
               status = validate_counter(line);
@@ -461,7 +494,7 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
         for (const std::string &count : obj.counters) {
           std::string line = "\\" + obj.name + "\\" + count;
           total++;
-          if (!filter.empty() && line.find(filter) == std::string::npos) continue;
+          if (!matches(filters, line)) continue;
           boost::tuple<bool, std::string> status;
           if (validate) {
             status = validate_counter(line);
@@ -490,6 +523,7 @@ int CheckSystem::commandLineExec(const int, const std::string &command, const st
     namespace po = boost::program_options;
 
     std::string lookup, counter, list_string, computer, username, password;
+    std::vector<std::string> filter_strings;
     po::options_description desc("Allowed options");
     // clang-format off
     desc.add_options()
@@ -509,7 +543,9 @@ int CheckSystem::commandLineExec(const int, const std::string &command, const st
       ("no-counters", "Do not recurse and list/validate counters for any matching items")
       ("no-instances", "Do not recurse and list/validate instances for any matching items")
       ("counter", po::value<std::string>(&counter)->implicit_value(""), "Specify which counter to work with")
-      ("filter", po::value<std::string>(&counter)->implicit_value(""), "Specify a filter to match (substring matching)")
+      ("filter", po::value<std::vector<std::string> >(&filter_strings)->implicit_value(std::vector<std::string>(1, ""), ""),
+        "Narrow the listing to the items which also match this (substring, case insensitive, matched against the whole \\object(instance)\\counter path).\n"
+        "Applied on top of the value given to --list rather than replacing it, and repeatable: --list SQL --filter Databases --filter tempdb lists what matches all three.")
       ;
     // clang-format on
     boost::program_options::variables_map vm;
@@ -534,7 +570,17 @@ int CheckSystem::commandLineExec(const int, const std::string &command, const st
     bool no_objects = vm.count("no-counters");
     bool no_instances = vm.count("no-instances");
     bool list = vm.count("list") || (validate && counter.empty());
-    if (counter.empty()) counter = list_string;
+    // Everything anyone asked for a match on, in one place. --list/--validate
+    // carry one as their value, --filter adds more, and --counter names the
+    // object to work with - which narrows the listing just as much. They used
+    // to share a single variable, so the last one written won and --filter
+    // silently discarded what --list had been given.
+    std::vector<std::string> filters;
+    if (!list_string.empty()) filters.push_back(list_string);
+    for (const std::string &f : filter_strings) {
+      if (!f.empty()) filters.push_back(f);
+    }
+    if (!counter.empty()) filters.push_back(counter);
 
     if (vm.count("help") || (vm.count("check") == 0 && vm.count("list") == 0 && vm.count("validate") == 0 && lookup.empty())) {
       std::stringstream ss;
@@ -548,13 +594,13 @@ int CheckSystem::commandLineExec(const int, const std::string &command, const st
       if (all) {
         // If we specified all list all counters
         PDH::Enumerations::Objects lst = PDH::Enumerations::EnumObjects(!no_instances, !no_objects);
-        return render_list(lst, validate, porcelain, json, counter, result) ? NSCAPI::exec_return_codes::returnOK : NSCAPI::exec_return_codes::returnERROR;
+        return render_list(lst, validate, porcelain, json, filters, result) ? NSCAPI::exec_return_codes::returnOK : NSCAPI::exec_return_codes::returnERROR;
       } else {
         if (vm.count("counter")) {
           // If we specify a counter object we will only list instances of that
           PDH::Enumerations::Objects lst;
           lst.push_back(PDH::Enumerations::EnumObject(counter, !no_instances, !no_objects));
-          return render_list(lst, validate, porcelain, json, counter, result) ? NSCAPI::exec_return_codes::returnOK : NSCAPI::exec_return_codes::returnERROR;
+          return render_list(lst, validate, porcelain, json, filters, result) ? NSCAPI::exec_return_codes::returnOK : NSCAPI::exec_return_codes::returnERROR;
         } else {
           // If we specify no query we will list all configured counters
           int count = 0, match = 0;
@@ -571,7 +617,7 @@ int CheckSystem::commandLineExec(const int, const std::string &command, const st
             std::string line = v.first + " = " + v.second;
             boost::tuple<bool, std::string> status;
             count++;
-            if (!counter.empty() && line.find(utf8::cvt<std::string>(counter)) == std::string::npos) continue;
+            if (!matches(filters, line)) continue;
 
             if (validate) status = validate_counter(v.second);
 
@@ -713,6 +759,9 @@ void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &re
   }
 
   if (!filter_helper.build_filter(filter)) return;
+
+  const std::shared_ptr<pdh_thread> collector = get_collector();
+  if (!collector) return nscapi::protobuf::functions::set_response_bad(*response, "Collector is not running");
 
   if (collector->is_disabled("cpu") && !collector->use_pdh_for_cpu) {
     // Without this guard the check would answer from a buffer that is never
@@ -894,6 +943,8 @@ void CheckSystem::check_os_version(const PB::Commands::QueryRequestMessage::Requ
 
 void CheckSystem::check_network(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   try {
+    const std::shared_ptr<pdh_thread> collector = get_collector();
+    if (!collector) return nscapi::protobuf::functions::set_response_bad(*response, "Collector is not running");
     network_check::check::check_network(request, response, collector->get_network());
   } catch (const std::exception &e) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to get network data: " + std::string(e.what()));
@@ -902,6 +953,8 @@ void CheckSystem::check_network(const PB::Commands::QueryRequestMessage::Request
 
 void CheckSystem::check_temperature(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   try {
+    const std::shared_ptr<pdh_thread> collector = get_collector();
+    if (!collector) return nscapi::protobuf::functions::set_response_bad(*response, "Collector is not running");
     temperature_check::check::check_temperature(request, response, collector->get_temperature());
   } catch (const std::exception &e) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to get temperature data: " + std::string(e.what()));
@@ -910,6 +963,8 @@ void CheckSystem::check_temperature(const PB::Commands::QueryRequestMessage::Req
 
 void CheckSystem::check_cpu_frequency(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   try {
+    const std::shared_ptr<pdh_thread> collector = get_collector();
+    if (!collector) return nscapi::protobuf::functions::set_response_bad(*response, "Collector is not running");
     cpu_frequency_check::check::check_cpu_frequency(request, response, collector->get_cpu_frequency());
   } catch (const std::exception &e) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to get CPU frequency data: " + std::string(e.what()));
@@ -918,6 +973,8 @@ void CheckSystem::check_cpu_frequency(const PB::Commands::QueryRequestMessage::R
 
 void CheckSystem::check_battery(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   try {
+    const std::shared_ptr<pdh_thread> collector = get_collector();
+    if (!collector) return nscapi::protobuf::functions::set_response_bad(*response, "Collector is not running");
     battery_check::check::check_battery(request, response, collector->get_battery());
   } catch (const std::exception &e) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to get battery data: " + std::string(e.what()));
@@ -926,6 +983,8 @@ void CheckSystem::check_battery(const PB::Commands::QueryRequestMessage::Request
 
 void CheckSystem::check_os_updates(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   try {
+    const std::shared_ptr<pdh_thread> collector = get_collector();
+    if (!collector) return nscapi::protobuf::functions::set_response_bad(*response, "Collector is not running");
     os_updates_check::check::check_os_updates(request, response, collector->get_os_updates());
   } catch (const std::exception &e) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to get OS updates data: " + std::string(e.what()));
@@ -934,6 +993,8 @@ void CheckSystem::check_os_updates(const PB::Commands::QueryRequestMessage::Requ
 
 void CheckSystem::check_process_history(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   try {
+    const std::shared_ptr<pdh_thread> collector = get_collector();
+    if (!collector) return nscapi::protobuf::functions::set_response_bad(*response, "Collector is not running");
     process_history_check::check::check_process_history(request, response, collector->get_process_history());
   } catch (const std::exception &e) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to get process history data: " + std::string(e.what()));
@@ -942,6 +1003,8 @@ void CheckSystem::check_process_history(const PB::Commands::QueryRequestMessage:
 
 void CheckSystem::check_process_history_new(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   try {
+    const std::shared_ptr<pdh_thread> collector = get_collector();
+    if (!collector) return nscapi::protobuf::functions::set_response_bad(*response, "Collector is not running");
     process_history_check::check::check_process_history_new(request, response, collector->get_process_history());
   } catch (const std::exception &e) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to get process history data: " + std::string(e.what()));
@@ -1149,6 +1212,8 @@ void CheckSystem::checkProcState(PB::Commands::QueryRequestMessage::Request &req
   check_process(request, response);
 }
 void CheckSystem::check_process(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  const std::shared_ptr<pdh_thread> collector = get_collector();
+  if (!collector) return nscapi::protobuf::functions::set_response_bad(*response, "Collector is not running");
   process_checks::active::check(request, response, collector->get_process_cpu_deltas(), collector->process_cpu_enabled);
 }
 
@@ -1192,6 +1257,8 @@ void CheckSystem::checkCounter(PB::Commands::QueryRequestMessage::Request &reque
 }
 
 void CheckSystem::check_pdh(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  const std::shared_ptr<pdh_thread> collector = get_collector();
+  if (!collector) return nscapi::protobuf::functions::set_response_bad(*response, "Collector is not running");
   pdh_checker.check_pdh(collector, request, response);
 }
 
@@ -1216,6 +1283,8 @@ void CheckSystem::check_installed_software(const PB::Commands::QueryRequestMessa
 }
 
 void CheckSystem::check_load(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  const std::shared_ptr<pdh_thread> collector = get_collector();
+  if (!collector) return nscapi::protobuf::functions::set_response_bad(*response, "Collector is not running");
   load_check::check_load(request, response, collector);
 }
 
@@ -1260,53 +1329,136 @@ void CheckSystem::add_rrd_counter(std::string key, std::string query) {
   pdh_checker.add_rrd_counter(nscapi::settings_proxy::create(get_id(), get_core()), key, query);
 }
 
+// What to say about one entry of the collector's metrics hash. Most of them
+// are configured PDH counters, described by whatever the operator wrote next
+// to the counter; the three the collector adds itself are described here.
+//
+// A counter key is `pdh.<alias>` for a plain counter and
+// `pdh.<alias>.<instance>` for one with instances, and an alias may itself
+// contain dots, so trim a segment at a time from the right and take the first
+// alias that matches.
+pdh_thread::counter_meta meta_for(const pdh_thread::counter_meta_map &meta, const std::string &key) {
+  pdh_thread::counter_meta builtin;
+  if (key == "procs.handles") {
+    builtin.help = "Open handles on the machine";
+    return builtin;
+  }
+  if (key == "procs.threads") {
+    builtin.help = "Threads on the machine";
+    return builtin;
+  }
+  if (key == "procs.procs") {
+    builtin.help = "Processes on the machine";
+    return builtin;
+  }
+  if (key.compare(0, 4, "pdh.") != 0) return pdh_thread::counter_meta();
+  std::string candidate = key.substr(4);
+  while (!candidate.empty()) {
+    const pdh_thread::counter_meta_map::const_iterator found = meta.find(candidate);
+    if (found != meta.end()) return found->second;
+    const std::string::size_type at = candidate.rfind('.');
+    if (at == std::string::npos) break;
+    candidate = candidate.substr(0, at);
+  }
+  return pdh_thread::counter_meta();
+}
+
 class add_visitor : public boost::static_visitor<> {
   PB::Metrics::MetricsBundle *b;
   const std::string &key;
+  // Held by value: the visitor outlives nothing in particular and two short
+  // strings are cheaper than reasoning about whose they are.
+  const pdh_thread::counter_meta meta;
+  // Set for a counter configured with instances, which publishes one key per
+  // instance. Empty family means the key is the whole name, which is every
+  // counter without them.
+  const pdh_thread::dimension dims;
 
  public:
-  add_visitor(PB::Metrics::MetricsBundle *b, const std::string &key) : b(b), key(key) {}
-  void operator()(const long long &i) const {
-    using namespace nscapi::metrics;
-    add_metric(b, key, i);
-  }
+  add_visitor(PB::Metrics::MetricsBundle *b, const std::string &key, pdh_thread::counter_meta meta, pdh_thread::dimension dims)
+      : b(b), key(key), meta(std::move(meta)), dims(std::move(dims)) {}
+  // A PDH counter is whatever the operator pointed it at, so there is no
+  // honest type to give it beyond gauge - and no help or unit either, unless
+  // they said.
+  void operator()(const long long &i) const { build().gauge(i); }
+  void operator()(const std::string &s) const { build().info(s); }
+  void operator()(const double &d) const { build().gauge(d); }
 
-  void operator()(const std::string &s) const {
-    using namespace nscapi::metrics;
-    add_metric(b, key, s);
-  }
-  void operator()(const double &d) const {
-    using namespace nscapi::metrics;
-    add_metric(b, key, d);
+ private:
+  nscapi::metrics::metric_builder build() const {
+    // The instance is the *last* segment of a PDH key, so the key is spelled
+    // out rather than composed from the family name - which is also why the
+    // split has to be recorded where it is still known: a counter name can
+    // itself contain dots.
+    //
+    // The dimension is `pdh_instance`, not `instance`: Prometheus attaches its
+    // own `instance` label (the scrape target) to every sample, and under the
+    // default `honor_labels: false` an exported one is renamed
+    // `exported_instance`. A query written against `instance` would match the
+    // host rather than the counter instance and quietly return nothing - and
+    // the scenario page's own `by (instance)` examples do mean the host.
+    if (dims.family.empty()) return nscapi::metrics::metric(b, key).help(meta.help).unit(meta.unit);
+    return nscapi::metrics::metric(b, dims.family).key(key).label("pdh_instance", dims.instance).help(meta.help).unit(meta.unit);
   }
 };
 void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
-  using namespace nscapi::metrics;
+  using nscapi::metrics::core_label;
+  using nscapi::metrics::describe;
+  using nscapi::metrics::for_instance;
+  using nscapi::metrics::instance_scope;
+  using nscapi::metrics::metric;
+
+  const std::shared_ptr<pdh_thread> collector = get_collector();
+  if (!collector) return;
 
   PB::Metrics::MetricsBundle *bundle = response->add_bundles();
   bundle->set_key("system");
-  add_metric(bundle, "refresh_interval", 1ll);
-  add_metric(bundle, "network_refresh_interval", static_cast<long long>(collector->min_threshold_ + 2));
+  metric(bundle, "refresh_interval").help("How often the background collector samples the system").unit("seconds").gauge(1);
+  metric(bundle, "network_refresh_interval")
+      .help("How often the background collector samples network adapters")
+      .unit("seconds")
+      .gauge(static_cast<long long>(collector->min_threshold_ + 2));
   try {
     PB::Metrics::MetricsBundle *mem = bundle->add_children();
     mem->set_key("mem");
+    describe(mem, "Memory as reported by GlobalMemoryStatusEx");
     CheckMemory::memData mem_data = memoryChecker.getMemoryStatus();
-    add_metric(mem, "commited.avail", mem_data.commited.avail);
-    add_metric(mem, "commited.total", mem_data.commited.total);
-    add_metric(mem, "commited.used", mem_data.commited.total - mem_data.commited.avail);
-    add_metric(mem, "commited.%", mem_data.commited.total == 0 ? 0 : (100 * mem_data.commited.avail) / mem_data.commited.total);
-    add_metric(mem, "virtual.avail", mem_data.virt.avail);
-    add_metric(mem, "virtual.total", mem_data.virt.total);
-    add_metric(mem, "virtual.used", mem_data.virt.total - mem_data.virt.avail);
-    add_metric(mem, "virtual.%", mem_data.virt.total == 0 ? 0 : (100 * mem_data.virt.avail) / mem_data.virt.total);
-    add_metric(mem, "page.avail", mem_data.page.avail);
-    add_metric(mem, "page.total", mem_data.page.total);
-    add_metric(mem, "page.used", mem_data.page.total - mem_data.page.avail);
-    add_metric(mem, "page.%", mem_data.page.total == 0 ? 0 : (100 * mem_data.commited.avail) / mem_data.commited.total);
-    add_metric(mem, "physical.avail", mem_data.phys.avail);
-    add_metric(mem, "physical.total", mem_data.phys.total);
-    add_metric(mem, "physical.used", mem_data.phys.total - mem_data.phys.avail);
-    add_metric(mem, "physical.%", mem_data.phys.total == 0 ? 0 : (100 * mem_data.commited.avail) / mem_data.commited.total);
+    // Four families per section, and the `%` key already sanitises to
+    // `_percent`, so declaring the unit adds a `# UNIT` line and renames
+    // nothing.
+    metric(mem, "commited.avail").help("Commit charge still available").unit("bytes").gauge(mem_data.commited.avail);
+    metric(mem, "commited.total").help("Commit limit of the machine").unit("bytes").gauge(mem_data.commited.total);
+    metric(mem, "commited.used").help("Commit charge in use").unit("bytes").gauge(mem_data.commited.total - mem_data.commited.avail);
+    metric(mem, "commited.%")
+        .help("Share of the commit limit still available")
+        .unit("percent")
+        .gauge(mem_data.commited.total == 0 ? 0 : (100 * mem_data.commited.avail) / mem_data.commited.total);
+    metric(mem, "virtual.avail").help("Virtual address space still available to this process").unit("bytes").gauge(mem_data.virt.avail);
+    metric(mem, "virtual.total").help("Virtual address space of this process").unit("bytes").gauge(mem_data.virt.total);
+    metric(mem, "virtual.used").help("Virtual address space this process has used").unit("bytes").gauge(mem_data.virt.total - mem_data.virt.avail);
+    metric(mem, "virtual.%")
+        .help("Share of the virtual address space still available")
+        .unit("percent")
+        .gauge(mem_data.virt.total == 0 ? 0 : (100 * mem_data.virt.avail) / mem_data.virt.total);
+    metric(mem, "page.avail").help("Page file space still available").unit("bytes").gauge(mem_data.page.avail);
+    metric(mem, "page.total").help("Page file space in total").unit("bytes").gauge(mem_data.page.total);
+    metric(mem, "page.used").help("Page file space in use").unit("bytes").gauge(mem_data.page.total - mem_data.page.avail);
+    // Both of these used to divide the *commit charge* by the commit limit
+    // while guarding on their own total, so they published the commit figure
+    // under a page-file and a physical-memory name - and divided by zero
+    // whenever a machine reported a page file or physical memory but no commit
+    // limit. Each reads its own numbers now.
+    metric(mem, "page.%")
+        .help("Share of the page file still available")
+        .unit("percent")
+        .gauge(mem_data.page.total == 0 ? 0 : (100 * mem_data.page.avail) / mem_data.page.total);
+    metric(mem, "physical.avail").help("Physical memory still available").unit("bytes").gauge(mem_data.phys.avail);
+    metric(mem, "physical.total").help("Physical memory fitted in the machine").unit("bytes").gauge(mem_data.phys.total);
+    metric(mem, "physical.used").help("Physical memory in use").unit("bytes").gauge(mem_data.phys.total - mem_data.phys.avail);
+    metric(mem, "physical.%")
+        .help("Share of physical memory still available")
+        .unit("percent")
+        .gauge(mem_data.phys.total == 0 ? 0 : (100 * mem_data.phys.avail) / mem_data.phys.total);
   } catch (CheckMemoryException &e) {
     NSC_LOG_ERROR("Failed to getch memory metrics: " + e.reason());
   }
@@ -1314,14 +1466,19 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
   try {
     PB::Metrics::MetricsBundle *section = bundle->add_children();
     section->set_key("cpu");
+    describe(section, "CPU time over the last 5 minutes, per core and totalled");
 
     std::map<std::string, windows::system_info::load_entry> vals = collector->get_cpu_load(5);
     typedef std::map<std::string, windows::system_info::load_entry>::value_type vt;
     for (vt v : vals) {
-      add_metric(section, v.first + ".idle", v.second.idle);
-      add_metric(section, v.first + ".total", v.second.user + v.second.kernel);
-      add_metric(section, v.first + ".user", v.second.user);
-      add_metric(section, v.first + ".kernel", v.second.kernel);
+      // The key keeps Windows' `core 0` spelling; `core_label` reduces it to
+      // the bare number so the label reads the same here as it does on Linux,
+      // where the key is `core_0`.
+      const instance_scope c = for_instance(section, v.first, "core", core_label(v.first));
+      c.metric("idle").help("Share of CPU time spent idle").unit("percent").gauge(v.second.idle);
+      c.metric("total").help("Share of CPU time spent doing anything but idling").unit("percent").gauge(v.second.user + v.second.kernel);
+      c.metric("user").help("Share of CPU time spent in user space").unit("percent").gauge(v.second.user);
+      c.metric("kernel").help("Share of CPU time spent in the kernel").unit("percent").gauge(v.second.kernel);
     }
   } catch (...) {
     NSC_LOG_ERROR("Failed to getch memory metrics: ");
@@ -1330,6 +1487,7 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
   try {
     PB::Metrics::MetricsBundle *section = bundle->add_children();
     section->set_key("uptime");
+    describe(section, "How long the machine has been up");
     unsigned long long value = nscpGetTickCount64();
     if (value == 0) value = GetTickCount();
     value /= 1000;
@@ -1338,10 +1496,13 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
     boost::posix_time::ptime epoch(boost::gregorian::date(1970, 1, 1));
     boost::posix_time::ptime boot = now - boost::posix_time::time_duration(0, 0, value);
 
-    add_metric(section, "ticks.raw", value);
-    add_metric(section, "boot.raw", value);
-    add_metric(section, "uptime", str::format::itos_as_time(value * 1000));
-    add_metric(section, "boot", str::format::format_date(boot));
+    metric(section, "ticks.raw").help("Time since the machine booted").unit("seconds").gauge(value);
+    // Historically the same number as ticks.raw, not the boot timestamp its
+    // name suggests. Kept as it is because dashboards and Graphite trees read
+    // the key; the help says what the value really is.
+    metric(section, "boot.raw").help("Time since the machine booted, the same value as ticks.raw").unit("seconds").gauge(value);
+    metric(section, "uptime").help("Time since the machine booted, human readable").info(str::format::itos_as_time(value * 1000));
+    metric(section, "boot").help("When the machine booted, human readable").info(str::format::format_date(boot));
   } catch (...) {
     NSC_LOG_ERROR("Failed to getch memory metrics: ");
   }
@@ -1349,9 +1510,17 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
   try {
     PB::Metrics::MetricsBundle *section = bundle->add_children();
     section->set_key("metrics");
+    describe(section, "Performance counters the agent samples, plus the machine's handle, thread and process counts");
 
+    const pdh_thread::counter_meta_map meta = collector->get_counter_meta();
+    // A counter configured with instances publishes one key per instance. The
+    // key stays exactly that; the label is what lets the instances of one
+    // counter be queried as a family, which is the whole reason an operator
+    // configures a wildcard counter in the first place.
+    const pdh_thread::dimension_hash dimensions = collector->get_metric_dimensions();
     for (const pdh_thread::metrics_hash::value_type &e : collector->get_metrics()) {
-      add_visitor adder(section, e.first);
+      const pdh_thread::dimension_hash::const_iterator dim = dimensions.find(e.first);
+      add_visitor adder(section, e.first, meta_for(meta, e.first), dim == dimensions.end() ? pdh_thread::dimension() : dim->second);
       boost::apply_visitor(adder, e.second);
     }
   } catch (...) {
@@ -1418,15 +1587,15 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
     if (!history.empty()) {
       PB::Metrics::MetricsBundle *section = bundle->add_children();
       section->set_key("process_history");
-      using namespace nscapi::metrics;
+      describe(section, "Which processes the collector has seen since the agent started");
       long long running = 0;
       for (const process_history_check::process_record &rec : history) {
         rec.build_metrics(section);
         if (rec.currently_running) ++running;
       }
-      add_metric(section, "count", static_cast<long long>(history.size()));
-      add_metric(section, "running", running);
-      add_metric(section, "unique_processes", static_cast<long long>(history.size()));
+      metric(section, "count").help("Distinct executables seen since the agent started").gauge(static_cast<long long>(history.size()));
+      metric(section, "running").help("Of those, the ones running right now").gauge(running);
+      metric(section, "unique_processes").help("Distinct executables seen since the agent started").gauge(static_cast<long long>(history.size()));
     }
   } catch (...) {
     NSC_LOG_ERROR("Failed to get process history metrics");
@@ -1437,8 +1606,16 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
     if (!filter_counts.empty()) {
       PB::Metrics::MetricsBundle *section = bundle->add_children();
       section->set_key("realtime");
+      describe(section, "How often each configured real-time filter has matched");
       for (const auto &e : filter_counts) {
-        add_metric(section, e.first, e.second);
+        // `<alias>.fired` and `<alias>.errors`, both only growing while the
+        // agent runs, so a scraper may rate() them to see how often a filter
+        // is firing or failing.
+        const bool errors = e.first.size() > 7 && e.first.compare(e.first.size() - 7, 7, ".errors") == 0;
+        metric(section, e.first)
+            .help(errors ? "Errors this real-time filter has hit since the agent was started"
+                         : "Times this real-time filter has matched since the agent was started")
+            .counter(e.second);
       }
     }
   } catch (...) {

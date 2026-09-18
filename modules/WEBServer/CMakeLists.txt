@@ -52,17 +52,14 @@ set(SRCS
     login_controller.cpp
     metrics_controller.cpp
     openmetrics_controller.cpp
+    openmetrics_renderer.cpp
     metadata_controller.cpp
     events_controller.cpp
     web_installer.cpp
-    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
-    ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp
-    ${NSCP_INCLUDEDIR}/client/simple_client.cpp
-    ${NSCP_INCLUDEDIR}/metrics/metrics_store_map.cpp
     ${NSCP_INCLUDEDIR}/bytes/base64.c
     ${NSCP_INCLUDEDIR}/bytes/unzip.cpp
+    ${NSCP_INCLUDEDIR}/client/simple_client.cpp
     ${NSCP_DEF_PLUGIN_CPP}
-    ${NSCP_INCLUDEDIR}/json/use_json.cpp
 )
 
 add_definitions(-DMG_ENABLE_HTTP_WEBSOCKET=0)
@@ -94,12 +91,12 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/client/simple_client.hpp
         ${NSCP_INCLUDEDIR}/metrics/metrics_store_map.hpp
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
-        ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp
         info_controller.hpp
         tags_controller.hpp
         settings_controller.hpp
         metrics_controller.hpp
         openmetrics_controller.hpp
+        openmetrics_renderer.hpp
         metadata_controller.hpp
         results_controller.hpp
         result_store.hpp
@@ -113,6 +110,9 @@ OPENSSL_LINK_FIX(${TARGET})
 
 target_link_libraries(
     ${TARGET}
+    nscp_client
+    nscp_json
+    nscp_net
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_REGEX_LIBRARY}
@@ -145,6 +145,8 @@ NSCP_CREATE_TEST(
         error_handler_test.cpp
         metrics_handler.cpp
         metrics_handler_test.cpp
+        openmetrics_renderer.cpp
+        openmetrics_renderer_test.cpp
         event_store.cpp
         event_store_test.cpp
         result_store.cpp
@@ -157,7 +159,6 @@ NSCP_CREATE_TEST(
         upload_staging_test.cpp
         ${NSCP_INCLUDEDIR}/bytes/base64.c
         ${NSCP_INCLUDEDIR}/bytes/unzip.cpp
-        ${NSCP_INCLUDEDIR}/json/use_json.cpp
         ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp
         # web_installer.cpp pulls in net/http/client.hpp which references
         # socket_helpers::tls_method_parser / verify_mode_parser at link
@@ -174,8 +175,13 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper_singleton.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.cpp
     LIBRARIES
+        nscp_json
         GTest::gtest
         GTest::gtest_main
+        # openmetrics_renderer.cpp walks PB::Metrics messages, so the test
+        # needs the generated protobuf code (and the dependency that puts
+        # protobuf/metrics.pb.h in the build tree before we compile).
+        nscp_protobuf
         ${Boost_FILESYSTEM_LIBRARY}
         ${Boost_DATE_TIME_LIBRARY}
         ${Boost_REGEX_LIBRARY}

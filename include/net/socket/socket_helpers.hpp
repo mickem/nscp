@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <net/dll_defines.hpp>
+
 #include <boost/asio.hpp>
 #include <boost/optional.hpp>
 #include <chrono>
@@ -31,12 +33,12 @@ namespace socket_helpers {
 // out to clients - and the CA private key to ca_key_path(cert) beside it,
 // again readable only by us. Distributing the CA key would let any recipient
 // mint client certificates and walk through `verify mode = peer-cert`.
-void write_certs(const std::string& cert, bool ca);
+NSCP_NET_EXPORT void write_certs(const std::string& cert, bool ca);
 
 // Where write_certs() puts the private key belonging to a CA certificate:
 // the same directory and extension with a "-key" suffix on the stem, so
 // `.../ca.pem` becomes `.../ca-key.pem`.
-std::string ca_key_path(const std::string& ca_certificate);
+NSCP_NET_EXPORT std::string ca_key_path(const std::string& ca_certificate);
 
 #ifdef WIN32
 // Lock a file down to LOCAL SYSTEM and the local Administrators group,
@@ -44,7 +46,7 @@ std::string ca_key_path(const std::string& ca_certificate);
 // `Users: Read & Execute`) cannot leave a private key world-readable.
 // Mirrors nsclient::windows_acl::protect_directory, which is not linked into
 // the modules that generate certificates.
-bool restrict_to_owner(const std::string& path, std::list<std::string>& errors);
+NSCP_NET_EXPORT bool restrict_to_owner(const std::string& path, std::list<std::string>& errors);
 #endif
 // Extract the peer certificate's Subject DN from an established SSL
 // session and format it as an RFC 2253 string (e.g.
@@ -57,7 +59,7 @@ bool restrict_to_owner(const std::string& path, std::list<std::string>& errors);
 // `fail-if-no-peer-cert` with a `ca path` pointing at the trusted
 // issuer. Otherwise the returned DN is attacker-supplied and must NOT
 // be used for authorization decisions.
-std::string extract_peer_subject_dn(void* ssl);
+NSCP_NET_EXPORT std::string extract_peer_subject_dn(void* ssl);
 
 // Whether a peer certificate's CN is usable as a policy principal.
 //
@@ -69,7 +71,7 @@ std::string extract_peer_subject_dn(void* ssl);
 // then simply has no identity); everything else, including UTF-8, a space
 // and a wildcard CN like `*.example.com`, is left alone. `max_length` bounds
 // what ends up in a log line.
-bool is_valid_peer_principal(const std::string& cn);
+NSCP_NET_EXPORT bool is_valid_peer_principal(const std::string& cn);
 constexpr std::size_t max_peer_principal_length = 255;
 
 // A rejected CN rendered safe to put in a log line: the characters that got
@@ -77,7 +79,7 @@ constexpr std::size_t max_peer_principal_length = 255;
 // each is replaced by \xNN and the result is truncated. Without this a
 // rejected CN is invisible and the resulting drop to a bare policy subject
 // cannot be diagnosed.
-std::string escape_for_log(const std::string& value);
+NSCP_NET_EXPORT std::string escape_for_log(const std::string& value);
 
 // Format an X509 certificate's Subject as an RFC 2253 DN string.
 // Exposed for unit testing (so tests can construct an X509 in memory
@@ -93,7 +95,7 @@ std::string escape_for_log(const std::string& value);
 // first `=`), so DN strings cannot be used as policy keys today.
 // Prefer extract_peer_subject_cn / format_subject_cn_only when the
 // result will be written to nsclient.ini as a settings key.
-std::string format_subject_dn_rfc2253(void* x509);
+NSCP_NET_EXPORT std::string format_subject_dn_rfc2253(void* x509);
 
 // Extract just the CN (common name) value from the peer certificate's
 // Subject. Returns empty when there is no peer cert, no CN entry, or
@@ -101,15 +103,15 @@ std::string format_subject_dn_rfc2253(void* x509);
 // is the safe choice for INI-stored permission policies because the
 // resulting principal contains no `=` and round-trips through the
 // settings store unchanged.
-std::string extract_peer_subject_cn(void* ssl);
+NSCP_NET_EXPORT std::string extract_peer_subject_cn(void* ssl);
 
 // Format-only counterpart to extract_peer_subject_cn. Returns the CN
 // value of `x509`'s Subject, or empty when no CN entry is present.
 // Same void* / openssl-isolation convention as
 // format_subject_dn_rfc2253. Exposed for unit testing.
-std::string format_subject_cn_only(void* x509);
+NSCP_NET_EXPORT std::string format_subject_cn_only(void* x509);
 #endif
-void validate_certificate(const std::string& certificate, std::list<std::string>& list);
+NSCP_NET_EXPORT void validate_certificate(const std::string& certificate, std::list<std::string>& list);
 
 // Substitute the host name placeholders in `spec`: ${hostname}, ${hostname_lc}
 // and ${hostname_uc} are the system host name as reported; ${host}, ${domain},
@@ -132,7 +134,7 @@ void validate_certificate(const std::string& certificate, std::list<std::string>
 // is not a host name spec - a settings context or an attachment path, say -
 // since it only ever replaces a placeholder and never reinterprets the string
 // as a whole (see the "auto" shorthands in expand_hostname).
-std::string expand_hostname_placeholders(std::string spec);
+NSCP_NET_EXPORT std::string expand_hostname_placeholders(std::string spec);
 
 // The same substitution, but every substituted value is first passed through
 // sanitize_path_component. Use this - not the plain variant - whenever the
@@ -141,27 +143,27 @@ std::string expand_hostname_placeholders(std::string spec);
 // (DHCP can set it on some systems), and a value carrying '/', '\' or a
 // dots-only component must not be able to redirect a path the agent reads or
 // writes with its (typically root/SYSTEM) privileges.
-std::string expand_hostname_placeholders_in_path(std::string spec);
+NSCP_NET_EXPORT std::string expand_hostname_placeholders_in_path(std::string spec);
 
 // Format an IPv6 address for the ${address_ipv6*} placeholders: `compressed`
 // picks between the RFC 5952 elided form (2001:db8::7) and the fully
 // zero-padded eight-group form (2001:0db8:0000:0000:0000:0000:0000:0007),
 // `uppercase` the case of the hex digits. Exposed for unit testing - the
 // placeholder machinery resolves the address itself.
-std::string format_ipv6(const boost::asio::ip::address_v6& address, bool uppercase, bool compressed);
+NSCP_NET_EXPORT std::string format_ipv6(const boost::asio::ip::address_v6& address, bool uppercase, bool compressed);
 
 // Reduce `value` to characters safe inside a single path component: letters,
 // digits, '.', '_' and '-' pass, anything else becomes '_', and a value that
 // is nothing but dots ("." / "..") becomes "_". A legal RFC-952 host name
 // comes through unchanged.
-std::string sanitize_path_component(std::string value);
+NSCP_NET_EXPORT std::string sanitize_path_component(std::string value);
 
 // Resolve a hostname spec used by the various submit-clients.
 //   "auto"     -> system host name as-is
 //   "auto-lc"  -> system host name, lower-cased
 //   "auto-uc"  -> system host name, upper-cased
 //   anything else: expand_hostname_placeholders above.
-std::string expand_hostname(std::string spec);
+NSCP_NET_EXPORT std::string expand_hostname(std::string spec);
 
 class socket_exception : public std::exception {
   std::string error;
@@ -246,17 +248,25 @@ struct connection_info {
       return ss.str();
     }
 #ifdef USE_SSL
-    void configure_ssl_context(boost::asio::ssl::context& context, std::list<std::string>& errors) const;
-    boost::asio::ssl::context::verify_mode get_verify_mode() const;
-    long get_tls_min_version() const;
-    long get_tls_max_version() const;
-    boost::asio::ssl::context::file_format get_certificate_format() const;
-    boost::asio::ssl::context::file_format get_certificate_key_format() const;
-    long get_ctx_opts() const;
+    NSCP_NET_EXPORT void configure_ssl_context(boost::asio::ssl::context& context, std::list<std::string>& errors) const;
+    NSCP_NET_EXPORT boost::asio::ssl::context::verify_mode get_verify_mode() const;
+    NSCP_NET_EXPORT long get_tls_min_version() const;
+    NSCP_NET_EXPORT long get_tls_max_version() const;
+    NSCP_NET_EXPORT boost::asio::ssl::context::file_format get_certificate_format() const;
+    NSCP_NET_EXPORT boost::asio::ssl::context::file_format get_certificate_key_format() const;
+    NSCP_NET_EXPORT long get_ctx_opts() const;
 #endif
   };
 
-  static const int backlog_default;
+  // constexpr, not a plain static const with an out-of-line definition: the
+  // definition used to be compiled into every consumer along with the rest of
+  // socket_helpers.cpp, but that file now lives only in nscp_net. A class
+  // static is a data symbol, and reaching one across a DLL boundary needs
+  // __declspec(dllimport) on the declaration - an exported .def entry alone is
+  // not enough, so every consumer failed to link (LNK2001). C++17 makes a
+  // constexpr static member implicitly inline, so each translation unit gets
+  // the value directly and no symbol has to cross the boundary at all.
+  static constexpr int backlog_default = 0;
   std::string address;
   int back_log;
   std::string port_;
@@ -292,14 +302,14 @@ struct connection_info {
     return *this;
   }
 
-  std::list<std::string> validate_ssl() const;
-  std::list<std::string> validate() const;
+  NSCP_NET_EXPORT std::list<std::string> validate_ssl() const;
+  NSCP_NET_EXPORT std::list<std::string> validate() const;
 #ifdef USE_SSL
   // True when the parsed `verify mode` actually asks for the peer's
   // certificate to be validated. Without verify_peer the handshake accepts
   // whatever certificate the other end presents, so `ssl = true` on its own
   // buys encryption with no authentication at all.
-  bool verifies_peer() const;
+  NSCP_NET_EXPORT bool verifies_peer() const;
 #endif
 
   bool get_reuse() const { return reuse; }
@@ -307,7 +317,7 @@ struct connection_info {
   unsigned short get_int_port() const { return str::stox<unsigned short>(port_); }
   std::string get_address() const { return address; }
   std::string get_endpoint_string() const { return address + ":" + get_port(); }
-  long get_ctx_opts() const;
+  NSCP_NET_EXPORT long get_ctx_opts() const;
 
   std::string to_string() const {
     std::stringstream ss;
@@ -335,7 +345,7 @@ struct connection_info {
 //
 // Lives outside USE_SSL because it is pure string logic and its callers are
 // built with or without OpenSSL.
-bool client_verify_mode_disables_verification(const std::string& verify_mode);
+NSCP_NET_EXPORT bool client_verify_mode_disables_verification(const std::string& verify_mode);
 
 #ifdef USE_SSL
 // Parse a `tls version` setting into the context method to construct.
@@ -345,26 +355,26 @@ bool client_verify_mode_disables_verification(const std::string& verify_mode);
 // sides support; the floor a '+' form asks for is NOT part of the method -
 // apply it with apply_tls_min_version() on the constructed context, or the
 // '+' silently means "any".
-boost::asio::ssl::context_base::method tls_method_parser(const std::string& tls_version);
+NSCP_NET_EXPORT boost::asio::ssl::context_base::method tls_method_parser(const std::string& tls_version);
 // The minimum protocol version a `tls version` setting asks for: the matching
 // SSL TLS1_x_VERSION constant for a '+' form ("1.2+"), 0 when the setting
 // carries no floor (exact versions pin via the method; "any" has no floor).
-long tls_min_version_parser(const std::string& tls_version);
+NSCP_NET_EXPORT long tls_min_version_parser(const std::string& tls_version);
 // Apply the floor a '+' form asks for to a constructed context; no-op for
 // settings without one. Every context built from tls_method_parser() needs
 // this, or "1.2+" degrades to "any".
-void apply_tls_min_version(boost::asio::ssl::context& ctx, const std::string& tls_version);
-boost::asio::ssl::verify_mode verify_mode_parser(const std::string& verify_mode);
+NSCP_NET_EXPORT void apply_tls_min_version(boost::asio::ssl::context& ctx, const std::string& tls_version);
+NSCP_NET_EXPORT boost::asio::ssl::verify_mode verify_mode_parser(const std::string& verify_mode);
 
 // Whole days until the peer's certificate expires, negative once it already
 // has. Returns none when the peer presented no certificate at all, so a caller
 // can tell that apart from "expired a day ago" - collapsing both to -1 loses a
 // distinction that matters when the number drives an alert.
-boost::optional<long> peer_certificate_expiry_days(SSL* ssl);
+NSCP_NET_EXPORT boost::optional<long> peer_certificate_expiry_days(SSL* ssl);
 #endif
 
 namespace io {
-void set_result(boost::optional<boost::system::error_code>* a, const boost::system::error_code& b);
+NSCP_NET_EXPORT void set_result(boost::optional<boost::system::error_code>* a, const boost::system::error_code& b);
 
 struct timed_writer : std::enable_shared_from_this<timed_writer> {
   boost::asio::io_context& io_service;

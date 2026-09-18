@@ -157,4 +157,34 @@ describe("REST query (legacy)", () => {
         });
       });
   });
+
+  // The raw-protobuf endpoint is gone. It handed the remote core a message
+  // whose header the caller wrote, which is how a caller picked the identity
+  // the permission layer attributed the call to - and its only consumer was
+  // NSClient++'s own NSCPClient, which now uses /api/v2/queries like
+  // everything else. This route must not come back: the JSON route below is
+  // what a legacy client (Icinga's check_nscp_api) actually uses.
+  it("no longer serves the raw protobuf endpoint", async () => {
+    await request(REST_URL)
+      .post("/query.pb")
+      .set("Authorization", `Bearer ${key}`)
+      .set("Content-Type", "application/octet-stream")
+      .send(Buffer.from([0x0a, 0x00]))
+      .trustLocalhost(true)
+      .expect(404);
+  });
+
+  it("still serves the legacy JSON query route the `legacy` grant is for", async () => {
+    // check_nscp_api asks for GET /query/<command>, not the protobuf route;
+    // removing one must not take the other with it.
+    await request(REST_URL)
+      .get("/query/check_ok")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true)
+      .expect(200)
+      .then((response) => {
+        expect(response.body.payload[0].command).toEqual("check_ok");
+        expect(response.body.payload[0].result).toEqual("OK");
+      });
+  });
 });

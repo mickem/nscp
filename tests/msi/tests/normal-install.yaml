@@ -106,6 +106,7 @@ required_files:
     # module still ships, only the op5 configuration and scripts went away.
     - modules/Op5Client.dll
     - modules/CollectdClient.dll
+    - modules/GearmanClient.dll
     - modules/GraphiteClient.dll
     - modules/IcingaClient.dll
     - modules/NRDPClient.dll

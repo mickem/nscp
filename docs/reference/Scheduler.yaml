@@ -132,6 +132,7 @@ common:
       info:
         description: Run configured schedules now instead of waiting for their interval and submit the
           results as passive checks.
+        experimental: true
       params:
       - content_type: 2
         default_value: ''

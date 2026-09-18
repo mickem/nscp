@@ -26,7 +26,7 @@ import crypto from "crypto";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { NscpInstance, makeZip, bundleEntry, cacheFileName, makeCertPem, sha256Hex, signBundle } from "@fixtures/index";
+import { NscpInstance, makeZip, bundleEntry, cacheFileName, makeCertPem, sha256Hex, signBundle, FLEET_TENANT_ID } from "@fixtures/index";
 
 jest.setTimeout(180_000);
 
@@ -162,6 +162,7 @@ describe("fleet sync against a hostile server", () => {
     return {
       code: 200,
       body: JSON.stringify({
+        tenant_id: FLEET_TENANT_ID,
         state_hash: hash,
         next_poll_in_seconds: 1,
         merged_config_json: {},
@@ -453,6 +454,7 @@ describe("fleet sync against a hostile server", () => {
       {
         name: "bundle id with a traversal",
         body: JSON.stringify({
+          tenant_id: FLEET_TENANT_ID,
           state_hash: "h-badid",
           next_poll_in_seconds: 1,
           bundles: [{ ...bundleEntry("b-good", goodZip, signingKeys.privateKey), id: "../../../../etc/cron.d/x" }],
@@ -461,6 +463,7 @@ describe("fleet sync against a hostile server", () => {
       {
         name: "short sha256",
         body: JSON.stringify({
+          tenant_id: FLEET_TENANT_ID,
           state_hash: "h-badsha",
           next_poll_in_seconds: 1,
           bundles: [{ ...bundleEntry("b-good", goodZip, signingKeys.privateKey), sha256: "beef" }],
@@ -469,9 +472,30 @@ describe("fleet sync against a hostile server", () => {
       {
         name: "absolute bundle url",
         body: JSON.stringify({
+          tenant_id: FLEET_TENANT_ID,
           state_hash: "h-badurl",
           next_poll_in_seconds: 1,
           bundles: [{ ...bundleEntry("b-good", goodZip, signingKeys.privateKey), url: "http://127.0.0.1:1/evil.zip" }],
+        }),
+      },
+      {
+        // Without it no descriptor can be built, so every bundle in the
+        // response is unverifiable: a clear parse error beats a misleading
+        // "signature verification failed".
+        name: "bundles without a tenant_id",
+        body: JSON.stringify({
+          state_hash: "h-notenant",
+          next_poll_in_seconds: 1,
+          bundles: [bundleEntry("b-good", goodZip, signingKeys.privateKey)],
+        }),
+      },
+      {
+        name: "bundle name with a NUL",
+        body: JSON.stringify({
+          tenant_id: FLEET_TENANT_ID,
+          state_hash: "h-nulname",
+          next_poll_in_seconds: 1,
+          bundles: [{ ...bundleEntry("b-good", goodZip, signingKeys.privateKey), name: "a\u0000b" }],
         }),
       },
       {

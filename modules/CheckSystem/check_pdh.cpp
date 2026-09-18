@@ -40,7 +40,13 @@ void counter_config_object::read(nscapi::settings_helper::settings_impl_interfac
       .add_string("flags", sh::string_key(&flags), "FLAGS", "Extra flags to configure the counter (nocap100, 1000, noscale)")
       .add_string("resolution", sh::string_key(&resolution), "COUNTER RESOLUTION",
                   "How to resolve the counter name against the system locale: auto (localized, then English, then index expansion - the default), english "
-                  "(force English counter names regardless of the system language) or index (expand numeric counter indexes to their localized names)");
+                  "(force English counter names regardless of the system language) or index (expand numeric counter indexes to their localized names)")
+      .add_string("help", sh::string_key(&help), "COUNTER DESCRIPTION",
+                  "One line describing what this counter measures. Emitted as the # HELP line of the counter's metric on /api/v2/openmetrics; the counter "
+                  "path is used when this is empty. Nothing else reads it.")
+      .add_string("unit", sh::string_key(&unit), "COUNTER UNIT",
+                  "What the counter's value is measured in (bytes, seconds, percent, ...). Emitted as the # UNIT line on /api/v2/openmetrics, and appended "
+                  "to the metric name there, which OpenMetrics requires of a metric that declares a unit. Leave empty for a plain count or a rate.");
 
   settings.register_all();
   settings.notify();
@@ -139,7 +145,7 @@ void check::add_rrd_counter(std::shared_ptr<nscapi::settings_proxy> proxy, std::
   }
 }
 
-void check::check_pdh(std::shared_ptr<pdh_thread> &collector, const PB::Commands::QueryRequestMessage::Request &request,
+void check::check_pdh(const std::shared_ptr<pdh_thread> &collector, const PB::Commands::QueryRequestMessage::Request &request,
                       PB::Commands::QueryResponseMessage::Response *response) {
   typedef filter filter_type;
   modern_filter::data_container data;

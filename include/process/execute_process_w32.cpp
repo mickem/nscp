@@ -12,6 +12,7 @@
 #include <win/tool-helper.h>
 
 #include <boost/thread.hpp>
+#include <boost/thread/locks.hpp>
 #include <bytes/buffer.hpp>
 #include <bytes/char_buffer.hpp>
 #include <error/error.hpp>
@@ -23,6 +24,7 @@
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
 #include <string>
+#include <vector>
 #include <win/sysinfo/win_sysinfo.hpp>
 #include <win/userenv.hpp>
 
@@ -111,6 +113,121 @@ static std::string readFromFile(buffer_type &buffer, const HANDLE file_handle) {
 boost::timed_mutex mutex_;
 std::list<HANDLE> pids_;
 
+namespace {
+// Restrict what a child inherits to its own two pipe ends.
+//
+// Checks run concurrently, and CreateProcess with bInheritHandles=TRUE hands
+// the child *every* inheritable handle in the service: while script A is being
+// spawned, script B's stdio pipe ends exist and are inheritable, so A ends up
+// holding B's stdout - it can read B's output and write a forged result into
+// it. With `user =` configured the child is the lower-privileged account that
+// sandbox was meant to contain. PROC_THREAD_ATTRIBUTE_HANDLE_LIST (Vista+)
+// names exactly which handles cross, whatever else happens to be inheritable.
+//
+// The XP toolset (v141_xp, _WIN32_WINNT=0x0501) has none of this in its
+// headers, so the types and constants are spelled out here and the three entry
+// points are resolved at run time; on an OS without them the spawn falls back
+// to being serialised under spawn_mutex_ with the pipe ends made
+// non-inheritable again before the lock is released, so two concurrent spawns
+// can never see each other's ends. Other inheritable handles still cross on
+// that path, which is what the OS offers.
+struct startupinfoex_compat {
+  STARTUPINFOW StartupInfo;
+  PVOID lpAttributeList;
+};
+const DWORD kExtendedStartupInfoPresent = 0x00080000;  // EXTENDED_STARTUPINFO_PRESENT
+const DWORD_PTR kProcThreadAttributeHandleList = 0x00020002;  // PROC_THREAD_ATTRIBUTE_HANDLE_LIST
+
+typedef BOOL(WINAPI *tInitializeProcThreadAttributeList)(PVOID lpAttributeList, DWORD dwAttributeCount, DWORD dwFlags, PSIZE_T lpSize);
+typedef BOOL(WINAPI *tUpdateProcThreadAttribute)(PVOID lpAttributeList, DWORD dwFlags, DWORD_PTR Attribute, PVOID lpValue, SIZE_T cbSize, PVOID lpPreviousValue,
+                                                 PSIZE_T lpReturnSize);
+typedef VOID(WINAPI *tDeleteProcThreadAttributeList)(PVOID lpAttributeList);
+
+struct proc_thread_attribute_api {
+  tInitializeProcThreadAttributeList initialize;
+  tUpdateProcThreadAttribute update;
+  tDeleteProcThreadAttributeList remove;
+  bool available() const { return initialize != nullptr && update != nullptr && remove != nullptr; }
+};
+
+const proc_thread_attribute_api &attribute_api() {
+  // kernel32 is always mapped, so GetModuleHandle (no LoadLibrary, nothing to
+  // free) is enough. Resolved once; a null triple means "pre-Vista".
+  static const proc_thread_attribute_api api = [] {
+    proc_thread_attribute_api a = {nullptr, nullptr, nullptr};
+    const HMODULE kernel32 = GetModuleHandleW(L"kernel32.dll");
+    if (kernel32 != nullptr) {
+      a.initialize = reinterpret_cast<tInitializeProcThreadAttributeList>(GetProcAddress(kernel32, "InitializeProcThreadAttributeList"));
+      a.update = reinterpret_cast<tUpdateProcThreadAttribute>(GetProcAddress(kernel32, "UpdateProcThreadAttribute"));
+      a.remove = reinterpret_cast<tDeleteProcThreadAttributeList>(GetProcAddress(kernel32, "DeleteProcThreadAttributeList"));
+    }
+    return a;
+  }();
+  return api;
+}
+
+// An attribute list carrying one PROC_THREAD_ATTRIBUTE_HANDLE_LIST entry. The
+// handle array it points at must outlive the CreateProcess call, so it is
+// owned here alongside the list.
+struct inherit_list {
+  std::vector<BYTE> storage;
+  std::vector<HANDLE> handles;
+  PVOID list;
+  inherit_list() : list(nullptr) {}
+  inherit_list(const inherit_list &) = delete;
+  inherit_list &operator=(const inherit_list &) = delete;
+  ~inherit_list() {
+    if (list != nullptr) attribute_api().remove(list);
+  }
+  // False when the API is missing or the list could not be built; the caller
+  // then takes the serialised fallback.
+  bool build(HANDLE first, HANDLE second) {
+    const proc_thread_attribute_api &api = attribute_api();
+    if (!api.available()) return false;
+    handles.push_back(first);
+    handles.push_back(second);
+    SIZE_T size = 0;
+    api.initialize(nullptr, 1, 0, &size);
+    if (size == 0) return false;
+    storage.assign(size, 0);
+    if (!api.initialize(storage.data(), 1, 0, &size)) return false;
+    list = storage.data();
+    if (!api.update(list, 0, kProcThreadAttributeHandleList, handles.data(), handles.size() * sizeof(HANDLE), nullptr, nullptr)) {
+      api.remove(list);
+      list = nullptr;
+      return false;
+    }
+    return true;
+  }
+};
+
+boost::mutex spawn_mutex_;
+
+bool set_inheritable(HANDLE handle, bool inheritable) { return SetHandleInformation(handle, HANDLE_FLAG_INHERIT, inheritable ? HANDLE_FLAG_INHERIT : 0) != 0; }
+
+// Takes the child-side pipe ends out of circulation again: explicitly once
+// the spawn has returned, and from the destructor on every other way out of
+// execute_process, so no early return leaves them inheritable while the
+// fallback lock is already released. Runs once; reads the handles through
+// their owners so a closed (null) one - or a fork spawn that never created
+// pipes - is skipped rather than a stale value touched.
+struct inherit_reset {
+  generic_handle &first;
+  generic_handle &second;
+  bool done;
+  inherit_reset(generic_handle &first_, generic_handle &second_) : first(first_), second(second_), done(false) {}
+  inherit_reset(const inherit_reset &) = delete;
+  inherit_reset &operator=(const inherit_reset &) = delete;
+  ~inherit_reset() { run(); }
+  void run() {
+    if (done) return;
+    done = true;
+    if (first.get() != NULL) set_inheritable(first.get(), false);
+    if (second.get() != NULL) set_inheritable(second.get(), false);
+  }
+};
+}  // namespace
+
 void process::kill_all() {
   const boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!lock.owns_lock()) return;
@@ -152,18 +269,29 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
     }
   }
 
+  // Both pipes are created non-inheritable. Only the two ends the child uses
+  // (its stdin read end, its stdout/stderr write end) are marked inheritable,
+  // and only immediately before the spawn (arm_inheritance below). The
+  // parent's ends never cross into any child: with every end inheritable, a
+  // concurrently spawned script inherited this one's read end and could read
+  // - or, holding the write end too, forge - its output.
   SECURITY_ATTRIBUTES sec;
   sec.nLength = sizeof(SECURITY_ATTRIBUTES);
   sec.bInheritHandle = FALSE;
   sec.lpSecurityDescriptor = nullptr;
   if (!args.fork) {
-    sec.bInheritHandle = TRUE;
-    CreatePipe(hChildInR.ref(), hChildInW.ref(), &sec, 0);
-    CreatePipe(hChildOutR.ref(), hChildOutW.ref(), &sec, 0);
+    if (!CreatePipe(hChildInR.ref(), hChildInW.ref(), &sec, 0) || !CreatePipe(hChildOutR.ref(), hChildOutW.ref(), &sec, 0)) {
+      output = "Failed to create pipes for " + args.alias + ": " + error::lookup::last_error();
+      return NSCAPI::query_return_codes::returnUNKNOWN;
+    }
   }
 
-  STARTUPINFO si;
-  ZeroMemory(&si, sizeof(STARTUPINFOW));
+  // STARTUPINFOEX with the child's two pipe ends as the explicit inherit list.
+  // When the attribute API is missing (pre-Vista) the plain STARTUPINFO is
+  // passed and the spawn is serialised below instead.
+  startupinfoex_compat siex;
+  ZeroMemory(&siex, sizeof(siex));
+  STARTUPINFOW &si = siex.StartupInfo;
   si.cb = sizeof(STARTUPINFOW);
   if (args.fork) {
     si.dwFlags = STARTF_USESHOWWINDOW;
@@ -175,6 +303,21 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
   }
   si.wShowWindow = SW_HIDE;
   if (args.display) si.wShowWindow = SW_SHOW;
+
+  // With the API present the list is the protection, so a failure to build
+  // it is a failed spawn rather than a silent fall back to full inheritance
+  // (the serialised fallback below only protects when every spawn takes it).
+  inherit_list inherit;
+  bool restrict_inheritance = false;
+  if (!args.fork && attribute_api().available()) {
+    if (!inherit.build(hChildInR.get(), hChildOutW.get())) {
+      output = "Failed to build the handle inherit list for " + args.alias + ": " + error::lookup::last_error();
+      return NSCAPI::query_return_codes::returnUNKNOWN;
+    }
+    restrict_inheritance = true;
+    si.cb = sizeof(startupinfoex_compat);
+    siex.lpAttributeList = inherit.list;
+  }
 
   // Build the command line. If the caller supplied an argv vector we lock the
   // executable via lpApplicationName and produce a properly-escaped command
@@ -202,6 +345,26 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
   if (!args.fork) {
     creation_flags |= CREATE_NEW_PROCESS_GROUP;
   }
+  if (restrict_inheritance) {
+    creation_flags |= kExtendedStartupInfoPresent;
+  }
+  // Without an inherit list, two spawns must not overlap: a spawn's child-side
+  // ends are inheritable only while it holds this lock, from arm_inheritance()
+  // just before its CreateProcess call until reset_inherit runs after it. The
+  // lock is taken before the ends are marked, never after - otherwise a spawn
+  // already inside CreateProcess under the lock would inherit them.
+  boost::unique_lock<boost::mutex> spawn_lock(spawn_mutex_, boost::defer_lock);
+  // Declared after the lock so it runs before the lock is released on any
+  // early return below.
+  inherit_reset reset_inherit(hChildInR, hChildOutW);
+  const auto arm_inheritance = [&]() -> bool {
+    if (args.fork) return true;
+    if (!restrict_inheritance && !spawn_lock.owns_lock()) spawn_lock.lock();
+    return set_inheritable(hChildInR.get(), true) && set_inheritable(hChildOutW.get(), true);
+  };
+  // CreateProcessWithLogonW runs through the secondary logon service and
+  // takes no inherit list; it duplicates only the std handles into the child.
+  const DWORD logon_creation_flags = creation_flags & ~kExtendedStartupInfoPresent;
   if (pHandle) {
     impersonator imp(pHandle);
     if (!imp.isActive()) {
@@ -214,15 +377,21 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
       return NSCAPI::query_return_codes::returnUNKNOWN;
     }
 
+    if (!arm_inheritance()) {
+      output = "Failed to prepare pipes for " + args.alias + ": " + error::lookup::last_error();
+      return NSCAPI::query_return_codes::returnUNKNOWN;
+    }
     processOK = CreateProcessAsUser(pHandle.get(), lpApplicationName, tmpCmd.get(), nullptr, nullptr, args.fork ? FALSE : TRUE,
                                     creation_flags | CREATE_UNICODE_ENVIRONMENT, environment.get(), utf8::cvt<std::wstring>(args.root_path).c_str(), &si, &pi);
     if (!processOK) {
       imp.close();
       const DWORD error = GetLastError();
       if (error == ERROR_PRIVILEGE_NOT_HELD) {
+        STARTUPINFOW logon_si = si;
+        logon_si.cb = sizeof(STARTUPINFOW);
         processOK = CreateProcessWithLogonW(utf8::cvt<std::wstring>(args.user).c_str(), utf8::cvt<std::wstring>(args.domain).c_str(),
-                                            utf8::cvt<std::wstring>(args.password).c_str(), LOGON_WITH_PROFILE, lpApplicationName, tmpCmd.get(), creation_flags,
-                                            nullptr, utf8::cvt<std::wstring>(args.root_path).c_str(), &si, &pi);
+                                            utf8::cvt<std::wstring>(args.password).c_str(), LOGON_WITH_PROFILE, lpApplicationName, tmpCmd.get(),
+                                            logon_creation_flags, nullptr, utf8::cvt<std::wstring>(args.root_path).c_str(), &logon_si, &pi);
       } else {
         if (error == ERROR_BAD_EXE_FORMAT) {
           output =
@@ -234,9 +403,20 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
       }
     }
   } else {
+    if (!arm_inheritance()) {
+      output = "Failed to prepare pipes for " + args.alias + ": " + error::lookup::last_error();
+      return NSCAPI::query_return_codes::returnUNKNOWN;
+    }
     processOK = CreateProcess(lpApplicationName, tmpCmd.get(), nullptr, nullptr, args.fork ? FALSE : TRUE, creation_flags, nullptr,
                               utf8::cvt<std::wstring>(args.root_path).c_str(), &si, &pi);
   }
+  // Captured here: the reset and unlock below may touch the thread's last
+  // error, and the failure report at the end reads this local instead.
+  const DWORD spawn_error = GetLastError();
+  // The child has its copies now (or was never created); nothing spawned from
+  // here on may pick these up. Done before the fallback lock is released.
+  reset_inherit.run();
+  if (spawn_lock.owns_lock()) spawn_lock.unlock();
 
   if (processOK) {
     DWORD state = 0;
@@ -376,7 +556,7 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
     CloseHandle(pi.hProcess);
     return result;
   }
-  DWORD error = GetLastError();
+  const DWORD error = spawn_error;
   if (error == ERROR_BAD_EXE_FORMAT) {
     output = "Failed to execute " + args.alias + " seems more like a script maybe you need a script executable first: " + error::lookup::last_error(error);
   } else {

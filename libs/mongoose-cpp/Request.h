@@ -20,7 +20,7 @@
  * Request is a wrapper for the clients requests
  */
 namespace Mongoose {
-class NSCAPI_EXPORT Request {
+class NSCP_MONGOOSE_EXPORT Request {
  public:
   typedef std::pair<std::string, std::string> arg_entry;
   typedef std::vector<arg_entry> arg_vector;

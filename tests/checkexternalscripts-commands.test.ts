@@ -4,8 +4,17 @@
  *
  * These cover the security-relevant behaviour of the module: the `ext-scr
  * install` argument-lockdown tool (cross-platform), and — on the Unix launcher —
- * the command timeout on a runaway script and the shell-fallback metacharacter
- * guard.
+ * These cover the security-relevant behaviour of the module: the `ext-scr
+ * install` argument-lockdown tool (cross-platform), and — on the Unix launcher —
+ * the command timeout on a runaway script, the shell-fallback metacharacter
+ * guard, and the refusal of the Windows-only run-as (`user`/`password`) keys;
+ * plus output capture on the Windows launcher.
+ *
+ * The Unix launcher has a gtest of its own that pins the captured bytes
+ * exactly, `include/process/execute_process_unix_test.cpp`. Its CMake target
+ * is built `if(NOT WIN32)` and there is no w32 counterpart, so the Windows
+ * block at the bottom is the only thing standing between a launcher change
+ * and a silent loss of check output on Windows.
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -18,6 +27,9 @@ jest.setTimeout(120_000);
 // The timeout / shell-fallback cases drive the POSIX launcher (fork/execvp,
 // /bin/sh, /bin/echo), so they only run off Windows.
 const onUnix = process.platform === "win32" ? describe.skip : describe;
+// ...and the capture cases drive the Windows one (CreatePipe, the
+// STARTUPINFOEX inherit list, the chunked ReadFile drain).
+const onWindows = process.platform === "win32" ? describe : describe.skip;
 
 describe("CheckExternalScripts — ext-scr install argument lockdown (settings path)", () => {
   let nscp: NscpInstance;
@@ -115,6 +127,34 @@ onUnix("CheckExternalScripts — command timeout enforcement (POSIX launcher)", 
     const { out } = await query("check_hello");
     expect(out).toMatch(/hello-from-script/);
   });
+
+  it("hands the script only its own stdio, not the service's descriptors", async () => {
+    // The pipe is created close-on-exec and the child closes everything above
+    // stderr before the exec, so nothing the service holds (sockets, the log
+    // file, another script's pipe) is the script's to read or write. `ls` lists
+    // its own descriptor table: 0-2 plus the directory it is reading (3).
+    if (!fs.existsSync("/proc/self/fd")) return;
+    fs.writeFileSync(path.join(scriptsDir, "fds.sh"), "#!/bin/sh\nls /proc/self/fd\n", {
+      mode: 0o755,
+    });
+    await nscp.configure({
+      "/modules": { CheckExternalScripts: "enabled" },
+      "/settings/external scripts": { timeout: "10" },
+      "/settings/external scripts/scripts": {
+        check_fds: `/bin/sh ${path.join(scriptsDir, "fds.sh")}`,
+      },
+    });
+
+    const { out } = await query("check_fds");
+
+    const fds = out
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => /^\d+$/.test(line))
+      .map(Number);
+    expect(fds).toEqual(expect.arrayContaining([0, 1, 2]));
+    expect(fds.filter((fd) => fd > 3)).toEqual([]);
+  });
 });
 
 onUnix("CheckExternalScripts — shell-fallback metacharacter guard (POSIX launcher)", () => {
@@ -159,5 +199,203 @@ onUnix("CheckExternalScripts — shell-fallback metacharacter guard (POSIX launc
     const out = await query("plainvalue");
     expect(out).toMatch(/plainvalue/);
     expect(out).not.toMatch(/illegal characters/i);
+  });
+});
+
+onUnix("CheckExternalScripts — run-as user settings are refused (POSIX launcher)", () => {
+  // `user`, `domain` and `password` are implemented by the Windows launcher
+  // only. The Unix launcher used to ignore them silently, so a script an
+  // operator had sandboxed with `user = nobody` ran as the service identity.
+  // The command must now fail with a message pointing at sudo, and the script
+  // must not run at all.
+  let nscp: NscpInstance;
+  let scriptsDir: string;
+  let marker: string;
+
+  beforeAll(() => {
+    scriptsDir = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-extscr-runas-"));
+    marker = path.join(scriptsDir, "ran.marker");
+    fs.writeFileSync(path.join(scriptsDir, "hello.sh"), `#!/bin/sh\ntouch "${marker}"\necho hello-from-script\n`, { mode: 0o755 });
+    nscp = new NscpInstance();
+  });
+
+  afterAll(() => {
+    fs.rmSync(scriptsDir, { recursive: true, force: true });
+  });
+
+  async function query(command: string) {
+    const r = await nscp.run(["client", "--module", "CheckExternalScripts", "--boot", "--query", command], { allowFailure: true });
+    return r.all ?? `${r.stdout}\n${r.stderr}`;
+  }
+
+  /**
+   * Write the ini directly (rather than `nscp settings --set`, which only adds
+   * keys) so each case starts from exactly the script section it names.
+   */
+  function configure(extra: string[]) {
+    const ini = [
+      "[/modules]",
+      "CheckExternalScripts = enabled",
+      "",
+      "[/settings/external scripts]",
+      "timeout = 10",
+      "",
+      "[/settings/external scripts/scripts/check_as_user]",
+      `command = /bin/sh ${path.join(scriptsDir, "hello.sh")}`,
+      ...extra,
+      "",
+    ].join("\n");
+    fs.writeFileSync(nscp.settingsFile, ini);
+  }
+
+  it("refuses a script configured with `user` and points at sudo", async () => {
+    configure(["user = nobody"]);
+    const out = await query("check_as_user");
+    expect(out).toMatch(/only supported on Windows/i);
+    expect(out).toMatch(/sudo/);
+    expect(out).not.toMatch(/hello-from-script/);
+    expect(fs.existsSync(marker)).toBe(false);
+  });
+
+  it("refuses a script configured with only a `password`, without echoing it", async () => {
+    configure(["password = s3cr3t-run-as"]);
+    const out = await query("check_as_user");
+    expect(out).toMatch(/only supported on Windows/i);
+    expect(out).not.toMatch(/s3cr3t-run-as/);
+    expect(out).not.toMatch(/hello-from-script/);
+    expect(fs.existsSync(marker)).toBe(false);
+  });
+
+  it("still runs the same script once the run-as keys are removed", async () => {
+    configure([]);
+    const out = await query("check_as_user");
+    expect(out).toMatch(/hello-from-script/);
+    expect(out).not.toMatch(/only supported on Windows/i);
+  });
+});
+
+onWindows("CheckExternalScripts — output capture (Windows launcher)", () => {
+  // Everything here asserts on the *content* the agent read back, not merely
+  // that the command succeeded: a launcher that hands the child the wrong
+  // pipe end, or that stops draining early, still "works" by every other
+  // measure while returning truncated or empty output.
+  let nscp: NscpInstance;
+  let scriptsDir: string;
+
+  const MARKER = "nscp-win-capture-7c1f";
+  // Comfortably past the launcher's ~4 KiB read chunk, so the drain loop has
+  // to run many times and stitch the pieces back together in order.
+  const BIG_LINES = 200;
+  const BIG_FILL = "A".repeat(200);
+  const lineTag = (n: number) => `LINE${String(n).padStart(3, "0")}`;
+
+  const script = (name: string) => path.join(scriptsDir, name);
+
+  beforeAll(() => {
+    scriptsDir = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-extscr-win-"));
+    fs.writeFileSync(script("hello.bat"), `@echo off\r\necho OK: ${MARKER}\r\n`);
+    fs.writeFileSync(script("stderr.bat"), `@echo off\r\necho ${MARKER}-on-stderr 1>&2\r\n`);
+    fs.writeFileSync(
+      script("critical.bat"),
+      `@echo off\r\necho ${MARKER}-critical\r\nexit /b 2\r\n`,
+    );
+    const big = ["@echo off"];
+    for (let i = 1; i <= BIG_LINES; i++) {
+      big.push(`echo ${lineTag(i)}-${BIG_FILL}`);
+    }
+    fs.writeFileSync(script("big.bat"), `${big.join("\r\n")}\r\n`);
+    // ping is the batch-file sleep that needs no console: -n 31 waits ~30s.
+    fs.writeFileSync(
+      script("sleeper.bat"),
+      `@echo off\r\nping -n 31 127.0.0.1 >nul\r\necho done\r\n`,
+    );
+    nscp = new NscpInstance();
+  });
+
+  afterAll(() => {
+    fs.rmSync(scriptsDir, { recursive: true, force: true });
+  });
+
+  async function configure(scripts: Record<string, string>, timeout = "30") {
+    await nscp.configure({
+      "/modules": { CheckExternalScripts: "enabled" },
+      "/settings/external scripts": { timeout },
+      "/settings/external scripts/scripts": scripts,
+    });
+  }
+
+  /** Boot the module and run one script command via the client-query path. */
+  async function query(command: string) {
+    const r = await nscp.run(
+      ["client", "--module", "CheckExternalScripts", "--boot", "--query", command],
+      {
+        allowFailure: true,
+      },
+    );
+    return { out: r.all ?? `${r.stdout}\n${r.stderr}`, code: r.exitCode };
+  }
+
+  it("reads a script's output back verbatim", async () => {
+    await configure({ check_hello: `cmd /c ${script("hello.bat")}` });
+
+    const { out, code } = await query("check_hello");
+
+    expect(out).toContain(`OK: ${MARKER}`);
+    expect(code).toBe(0);
+  });
+
+  it("reads output from a script the launcher starts directly", async () => {
+    // No `cmd /c` and no backslash, so the template tokenises and the argv
+    // path is taken: CreateProcess with lpApplicationName and the inherit
+    // list, rather than the legacy single-string command line.
+    await configure({ check_direct: script("hello.bat").replace(/\\/g, "/") });
+
+    const { out } = await query("check_direct");
+
+    expect(out).toContain(`OK: ${MARKER}`);
+  });
+
+  it("reads output far larger than one read buffer, complete and in order", async () => {
+    await configure({ check_big: `cmd /c ${script("big.bat")}` });
+
+    const { out } = await query("check_big");
+
+    // Every line is present exactly once, so nothing was dropped between two
+    // reads of the pipe...
+    expect(out.match(/LINE\d{3}-/g) ?? []).toHaveLength(BIG_LINES);
+    // ...the first and the last both survived...
+    expect(out).toContain(`${lineTag(1)}-${BIG_FILL}`);
+    expect(out).toContain(`${lineTag(BIG_LINES)}-${BIG_FILL}`);
+    // ...and they came back in the order the script printed them.
+    expect(out.indexOf(`${lineTag(1)}-`)).toBeLessThan(out.indexOf(`${lineTag(BIG_LINES)}-`));
+  });
+
+  it("captures what a script writes to stderr", async () => {
+    await configure({ check_stderr: `cmd /c ${script("stderr.bat")}` });
+
+    const { out } = await query("check_stderr");
+
+    expect(out).toContain(`${MARKER}-on-stderr`);
+  });
+
+  it("maps a script's exit code to the check status", async () => {
+    await configure({ check_critical: `cmd /c ${script("critical.bat")}` });
+
+    const { out, code } = await query("check_critical");
+
+    expect(out).toContain(`${MARKER}-critical`);
+    expect(code).toBe(2); // CRITICAL
+  });
+
+  it("kills a script that exceeds the timeout and reports it", async () => {
+    await configure({ check_sleeper: `cmd /c ${script("sleeper.bat")}` }, "2");
+
+    const started = Date.now();
+    const { out } = await query("check_sleeper");
+    const elapsed = (Date.now() - started) / 1000;
+
+    // Enforced near the 2s timeout, nowhere near the script's 30s ping.
+    expect(elapsed).toBeLessThan(25);
+    expect(out).toMatch(/did.?n.?t terminate|timeout/i);
   });
 });

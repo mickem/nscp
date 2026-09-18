@@ -1,0 +1,30 @@
+{
+	"module"		: {
+		"title"			: "Gearman Client",
+		"description"	: "Run checks scheduled by a Naemon or Nagios Core through Mod-Gearman: the agent connects out to a gearmand job server, grabs the checks queued for it and answers them as native NSClient++ queries. It also submits passive results into the same result queue, which is what lets a Mod-Gearman installation drop NSCA",
+		"name"			: "GearmanClient",
+		"alias"			: "gearman",
+		"version"		: "auto",
+		"experimental"	: true
+	},
+
+	"settings"		: {
+		"default_alias"	: "gearman"
+	},
+
+	"commands" : {
+		"fallback" : "raw",
+		"submit_gearman" : {
+			"description" : "Submit a passive check result into a Mod-Gearman result queue.",
+			"mapping"	: false
+		}
+	},
+
+	"metrics" : "produce",
+
+	"channels" : "raw",
+
+	"command line exec" : "raw",
+
+	"log messages" : false
+}

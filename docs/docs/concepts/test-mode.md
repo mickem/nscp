@@ -67,6 +67,19 @@ arguments. The module verbs go by state rather than offering everything —
 `load` and `enable` offer the modules that are *not* already loaded or enabled,
 `unload` and `disable` the ones that are.
 
+Names match on what you typed anywhere in them, not only at the front, so you
+do not have to remember which half of a name comes first:
+
+```
+nscp> load syst⇥
+nscp> load CheckSystem
+```
+
+The prefix still wins where it matches: `load check⇥` offers the modules that
+*start* with it, and only when nothing starts with what you typed does the
+match widen to the middle of the name. Case does not matter either way, and the
+completion corrects it — `load checkd⇥` gives you `CheckDisk`.
+
 The first `load`/`enable` completion in a session pauses for a moment. To know
 what is available but not loaded, the agent has to look in the module directory
 and open each module it finds there; it does that once and remembers the
@@ -77,6 +90,31 @@ What you type is coloured as you type it. The colour that matters is the one
 for a name that does not resolve — a query the agent has not registered, or a
 module it cannot find, shows up in red before you press `Enter`, which is
 usually a typo or a module you forgot to enable.
+
+That extends inside a filter. The value of `filter`, `warning`, `warn`,
+`critical`, `crit` and `ok` is read as the expression it is, and the value of
+`top-syntax`, `detail-syntax`, `ok-syntax`, `empty-syntax` and `perf-syntax` as
+the template it is — keywords, filter functions, operators, numbers and string
+literals each get their own colour, and a keyword the check does not offer goes
+red:
+
+```
+nscp> check_drive "warning=fre < 20%"
+                            ↑ red: check_drive has free, not fre
+```
+
+This is the error that otherwise costs the most time, because nothing goes
+wrong: an expression naming a keyword that does not exist parses, matches
+nothing, and the check comes back a confident `OK`. The same colouring catches
+`size > 100GB`, where the unit has to be a single letter (`100G`), and a
+misspelt placeholder in `detail-syntax=${fre}`.
+
+The keywords come from the check itself — the list `keywords <query>` prints —
+so they are always the ones that query actually offers, an alias's target
+included. They are looked up the first time you type an `=` after one of those
+options and remembered from then on, so only that one keystroke pays for it.
+Until then, and for a check that is not filter based, names are left uncoloured
+rather than marked wrong.
 
 Log messages arriving while you are mid-command are printed above the prompt
 and the line you were typing is redrawn underneath, so a busy agent does not
@@ -91,8 +129,10 @@ cost you the command you were halfway through.
 | `queries`                          | List every registered query |
 | `aliases`                          | List every query alias |
 | `list`                             | List queries and aliases |
-| `plugins`                          | List every module and whether it is loaded |
+| `plugins [--all\|--loaded\|--unloaded]` | List modules and whether each is loaded |
+| `modules [--all\|--loaded\|--unloaded]` | Same thing (alias for `plugins`) |
 | `desc <query>`                     | Describe a query and its parameters |
+| `keywords <query>`                 | List the filter keywords a query offers |
 | `metrics [prefix]`                 | Show the metrics collected so far |
 | `settings`                         | Dump the effective settings |
 | `exec <target> <command> [args]`   | Run a command on one specific module |
@@ -105,6 +145,36 @@ cost you the command you were halfway through.
 `load` and `unload` are the fast loop when you are working out which module
 provides a check: they take effect immediately and are forgotten on exit, while
 `enable`/`disable` write to the configuration and survive a restart.
+
+`plugins` on its own lists what is running, which is what you usually want:
+
+```
+nscp> plugins
+[X]  CheckSystem    Various system related checks, such as CPU load, ...
+[X]  CommandClient  A command line client, generally not used except with "nscp test".
+```
+
+A module or check command that is still young carries an `(experimental)`
+marker after its name — in `plugins`, in `queries`/`aliases`/`list`, and as a
+`Status:` line in `desc`:
+
+```
+nscp> queries
+check_cpu                       Check that the load of the CPU(s) are within bounds.
+check_temperature (experimental)  Check ACPI thermal zone temperatures.
+```
+
+It means the check works and is meant to be used, but its options, filter
+keywords and output may change in a coming release — so pin what you depend on
+and expect to revisit it after an upgrade.
+
+`--unloaded` is the other half — the modules sitting in the module directory
+that nothing has loaded — and `--all` is both in one list, sorted by name.
+`--loaded` spells out the default. The first `--all` or `--unloaded` pauses:
+to know what is there but not loaded, the agent has to read every module in the
+directory. It reads their metadata only — nothing is started — and it remembers
+the answer, so only the first one pays for it. This is the same scan the first
+`load`/`enable` completion does, and either one warms it for the other.
 
 ## History
 

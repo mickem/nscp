@@ -1,0 +1,439 @@
+common:
+  info:
+    description: 'Run checks scheduled by a Naemon or Nagios Core through Mod-Gearman: the agent connects
+      out to a gearmand job server, grabs the checks queued for it and answers them as native NSClient++
+      queries. It also submits passive results into the same result queue, which is what lets a Mod-Gearman
+      installation drop NSCA'
+    experimental: true
+    title: GearmanClient
+  paths:
+    /settings/gearman/client:
+      info:
+        advanced: false
+        description: Section for submitting passive results into a Mod-Gearman result queue (GearmanClient.dll).
+        subkey: false
+        title: Gearman submit channel
+      keys:
+        channel:
+          advanced: false
+          default_value: GEARMAN
+          description: The channel to listen to. A Scheduler entry (or any other submitting module) naming
+            this channel has its results pushed into the target's result queue, which is how this module
+            replaces NSCA in a Mod-Gearman installation.
+          sample: false
+          title: CHANNEL
+        hostname:
+          advanced: false
+          default_value: auto
+          description: "The host name results are filed under on the core, which has to be the name the\
+            \ core knows this host by. Set this to auto (default) to use the name of this computer.\n\n\
+            auto\tHostname\n${host}\tHostname\n${host_lc}\tHostname in lowercase\n${host_uc}\tHostname\
+            \ in uppercase\n${domain}\tDomainname\n${domain_lc}\tDomainname in lowercase\n${domain_uc}\t\
+            Domainname in uppercase\n${address_ipv4}\tIPv4 address of the computer\n${address_ipv6}\t\
+            IPv6 address of the computer (lowercase, compressed)\n"
+          sample: false
+          title: HOSTNAME
+    /settings/gearman/client/handlers:
+      info:
+        advanced: false
+        description: ''
+        subkey: true
+        title: CLIENT HANDLER SECTION
+    /settings/gearman/client/targets:
+      info:
+        advanced: false
+        description: ''
+        subkey: true
+        title: REMOTE TARGET DEFINITIONS
+      sample:
+        keys:
+          address:
+            advanced: false
+            default_value: ''
+            description: Target host address
+            sample: true
+            title: TARGET ADDRESS
+          allow host override:
+            advanced: true
+            default_value: 'false'
+            description: 'Let a request (a REST query, an NRPE argument or `nscp client`) send this target''s
+              *configured* credentials to a destination the request names. Off by default: when a request
+              moves the destination (`host=`, `port=`, `address=`) or reroutes it through a proxy of its
+              own (`proxy=`, `no-proxy=`) and the password or token going with it is the one configured
+              here, the call is refused, since otherwise anyone able to run the module''s commands could
+              direct the configured credentials to a host of their choosing. This setting is only consulted
+              in that case: a target with no credentials, a request that supplies its own password/token,
+              and a request that neither moves nor reroutes the destination are all unaffected. To reach
+              another server with its own credentials, prefer configuring it as a separate target and
+              selecting it with `target=`.'
+            sample: true
+            title: ALLOW HOST OVERRIDE
+          encryption:
+            advanced: false
+            default_value: 'true'
+            description: 'Whether the result travels inside the AES-256 envelope (mod_gearman''s encryption=yes).
+              Leave this on: with it off the payload is plain base64 and anyone who can reach gearmand
+              can read and forge the results this agent files. Turning it off also requires ''insecure
+              = true''.'
+            sample: true
+            title: ENCRYPT PAYLOADS
+          host:
+            advanced: true
+            default_value: ''
+            description: The target server to report results to.
+            sample: true
+            title: TARGET HOST
+          insecure:
+            advanced: false
+            default_value: 'false'
+            description: Acknowledge that 'encryption = false' submits results with no protection at all.
+              Without this a submission to this target is refused rather than sent in the clear.
+            sample: true
+            title: ALLOW UNENCRYPTED PAYLOADS
+          key:
+            advanced: false
+            default_value: ''
+            description: The shared password from the core's module.conf (key=), the same value the worker
+              section uses. At most 32 bytes are used, as in mod_gearman.
+            sample: true
+            title: SHARED KEY
+          port:
+            advanced: true
+            default_value: ''
+            description: The target server port
+            sample: true
+            title: TARGET PORT
+          queue:
+            advanced: false
+            default_value: check_results
+            description: The queue the core's result thread reads. Only change this when the core's module.conf
+              names a different result queue; a result on a queue nobody reads is silently discarded by
+              gearmand.
+            sample: true
+            title: RESULT QUEUE
+          retries:
+            advanced: false
+            default_value: '3'
+            description: Number of times to retry sending.
+            sample: true
+            title: RETRIES
+          timeout:
+            advanced: false
+            default_value: '30'
+            description: Timeout (in seconds) when reading/writing packets to/from sockets.
+            sample: true
+            title: TIMEOUT
+    /settings/gearman/worker:
+      info:
+        advanced: false
+        description: Section for the Mod-Gearman worker (GearmanClient.dll).
+        subkey: false
+        title: Gearman worker
+      keys:
+        allow arguments:
+          advanced: false
+          default_value: 'true'
+          description: 'Whether a job may carry arguments. On by default, unlike NRPE: the core has already
+            expanded $ARGn$ before the job was queued, so a check_command defined on the core is nothing
+            but arguments and turning this off leaves only bare commands.'
+          sample: false
+          title: COMMAND ARGUMENT PROCESSING
+        allow nasty characters:
+          advanced: false
+          default_value: 'false'
+          description: 'Whether a job may contain nasty (as in |`&><''"\[]{}) characters. Same guard and
+            same default as NRPEServer. Note that this rejects a threshold written the Nagios way, ''warn=load>80'',
+            because ''>'' is in the set: write it as ''warn=load gt 80'' in the core''s check_command,
+            which the filter language understands and which needs no exception here, or turn this on if
+            the command lines cannot be changed.'
+          sample: false
+          title: COMMAND ALLOW NASTY META CHARS
+        allow shared queues:
+          advanced: false
+          default_value: 'false'
+          description: Also register the generic 'host' and 'service' queues that every check without
+            a group lands on. Off by default because a Windows agent registering there grabs checks meant
+            for every other host in the installation, including the Linux ones.
+          sample: false
+          title: ANSWER THE GENERIC QUEUES
+        encryption:
+          advanced: false
+          default_value: 'true'
+          description: 'Whether jobs and results travel inside the AES-256 envelope (mod_gearman''s encryption=yes).
+            Leave this on: with it off the payloads are plain base64 and anyone who can reach gearmand
+            can read and forge checks. Turning it off also requires ''insecure = true''.'
+          sample: false
+          title: ENCRYPT PAYLOADS
+        host names:
+          advanced: false
+          default_value: ''
+          description: 'Comma separated extra names this agent answers for, on top of its own host name.
+            A queue carries the checks of every host in its group and the protocol does not say which
+            worker a job was meant for, so a job for any other name is refused. Set this when the core
+            knows the host under a different name than the operating system does. Agent mode only: a proxy
+            answers for every host on its queues and ignores this.'
+          sample: false
+          title: EXTRA HOST NAMES
+        hostgroups:
+          advanced: false
+          default_value: ''
+          description: 'Comma separated hostgroup names, one queue each: ''windows'' registers hostgroup_windows.
+            These have to match the hostgroups= line in the core''s module.conf, which is what decides
+            that a check goes to gearmand at all. In agent mode the usual arrangement is one hostgroup
+            per host; a proxy takes one group for every host it monitors, and two proxies on the same
+            group share the load and cover each other with no further configuration.'
+          sample: false
+          title: HOSTGROUP QUEUES
+        insecure:
+          advanced: false
+          default_value: 'false'
+          description: Acknowledge that 'encryption = false' sends and accepts check jobs with no protection
+            at all. Without this the module refuses to start unencrypted.
+          sample: false
+          title: ALLOW UNENCRYPTED PAYLOADS
+        key:
+          advanced: false
+          default_value: ''
+          description: The shared password from the core's module.conf (key=). At most 32 bytes are used,
+            as in mod_gearman. Use 'key file' instead to keep it out of the configuration file.
+          sample: false
+          title: SHARED KEY
+        key file:
+          advanced: false
+          default_value: ''
+          description: 'Path to a file whose first line is the shared key, like mod_gearman''s keyfile=.
+            Takes effect only when ''key'' is empty. Restrict it to the account the agent runs as: anyone
+            who can read it can inject checks into every queue this agent serves.'
+          sample: false
+          title: SHARED KEY FILE
+        max age:
+          advanced: false
+          default_value: '0'
+          description: Refuse a job whose core_time is more than this many seconds in the past, answering
+            unknown instead of running it (0 disables). After an outage the queue holds a backlog of checks
+            whose answers describe a moment that has passed.
+          sample: false
+          title: DISCARD JOBS OLDER THAN
+        mode:
+          advanced: false
+          default_value: agent
+          description: 'Which deployment this is, ''agent'' or ''proxy''. An agent answers for itself:
+            it runs the checks of the host it is installed on, and refuses a job for any other host (see
+            ''host names''). A proxy answers for others: it runs every check on the queues it registered,
+            whichever host the core meant it for, which is what a check_command naming its own target
+            - check_nrpe host=$HOSTADDRESS$ command=check_cpu, check_wmi target=$HOSTADDRESS$ - needs
+            (the agent reads a check''s arguments as key=value or --long, not as the Nagios plugin''s
+            -H). Proxy mode is how one domain-joined Windows box monitors a whole hostgroup without an
+            agent, or an open port, on any of them; it is also the bigger target, since anyone who can
+            queue a job on those queues reaches everything the proxy''s own credentials reach.'
+          sample: false
+          title: WORKER MODE
+        server:
+          advanced: false
+          default_value: ''
+          description: Comma separated list of gearmand job servers as host or host:port (port defaults
+            to 4730), tried in order. This is the same list mod_gearman's worker.conf gives as repeated
+            server= lines. The agent always connects outbound, so no port is opened on this host.
+          sample: false
+          title: GEARMAND SERVERS
+        servicegroups:
+          advanced: false
+          default_value: ''
+          description: 'Comma separated servicegroup names, one queue each: ''db'' registers servicegroup_db.
+            Matches servicegroups= in the core''s module.conf.'
+          sample: false
+          title: SERVICEGROUP QUEUES
+        timeout return:
+          advanced: false
+          default_value: '2'
+          description: 'The status reported when a check does not finish inside the timeout the core put
+            in the job: 0 ok, 1 warning, 2 critical, 3 unknown. Same meaning as mod_gearman''s timeout_return.'
+          sample: false
+          title: STATUS ON TIMEOUT
+        workers:
+          advanced: false
+          default_value: '2'
+          description: Number of worker threads, each with its own connection. Two is plenty for one host's
+            own checks.
+          sample: false
+          title: WORKER THREADS
+  queries:
+    submit_gearman:
+      common_options:
+        help: ''
+        help-pb: ''
+        help-short: ''
+        show-default: ''
+      info:
+        description: Submit a passive check result into a Mod-Gearman result queue.
+        experimental: true
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The host of the host running the server
+        name: host
+        repeatable: false
+        required: false
+        short_description: The host of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The port of the host running the server
+        name: port
+        repeatable: false
+        required: false
+        short_description: The port of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The address (host:port) of the host running the server
+        name: address
+        repeatable: false
+        required: false
+        short_description: The address (host:port) of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of seconds before connection times out (default=10)
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Number of seconds before connection times out (default=10)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Target to use (lookup connection info from config)
+        name: target
+        repeatable: false
+        required: false
+        short_description: Target to use (lookup connection info from config)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of times ti retry a failed connection attempt (default=2)
+        name: retry
+        repeatable: false
+        required: false
+        short_description: Number of times ti retry a failed connection attempt (default=2)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: legacy version of retry
+        name: retries
+        repeatable: false
+        required: false
+        short_description: legacy version of retry
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: source-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: sender-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The name of the command that the remote daemon should run
+        name: command
+        repeatable: false
+        required: false
+        short_description: The name of the command that the remote daemon should run
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Same as command
+        name: alias
+        repeatable: false
+        required: false
+        short_description: Same as command
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Message
+        name: message
+        repeatable: false
+        required: false
+        short_description: Message
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Result code either a number or OK, WARN, CRIT, UNKNOWN
+        name: result
+        repeatable: false
+        required: false
+        short_description: Result code either a number or OK, WARN, CRIT, UNKNOWN
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Separator to use for the batch command (default is |)
+        name: separator
+        repeatable: false
+        required: false
+        short_description: Separator to use for the batch command (default is |)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Add multiple records using the separator format is: command|result|message'
+        name: batch
+        repeatable: false
+        required: false
+        short_description: 'Add multiple records using the separator format is: command|result|message'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The shared key from the core's module.conf (key=)
+        name: key
+        repeatable: false
+        required: false
+        short_description: The shared key from the core's module.conf (key=)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Same as key
+        name: password
+        repeatable: false
+        required: false
+        short_description: Same as key
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The queue the core reads results from (default check_results)
+        name: queue
+        repeatable: false
+        required: false
+        short_description: The queue the core reads results from (default check_results)
+      - content_type: 4
+        default_value: 'true'
+        is_simple: false
+        long_description: Whether to wrap the result in the AES-256 envelope (default true)
+        name: encryption
+        repeatable: false
+        required: false
+        short_description: Whether to wrap the result in the AES-256 envelope (default true)
+      - content_type: 4
+        default_value: 'true'
+        is_simple: false
+        long_description: Acknowledge sending results unencrypted; required together with encryption=false
+        name: insecure
+        repeatable: false
+        required: false
+        short_description: Acknowledge sending results unencrypted; required together with encryption=false
+module: GearmanClient
+namespace: client
+platforms:
+- unix
+- windows

@@ -34,6 +34,22 @@ std::list<collectd::collectd_builder::expanded_keys> collectd::collectd_builder:
 }
 
 void collectd::collectd_builder::add_variable(std::string key, std::string value) {
+  // `label:<name>` expands to the distinct values the snapshot carried for
+  // that dimension. The alternative - and what every built-in mapping still
+  // does - is a regular expression over the flat metric keys, which has to
+  // spell out how the key embeds its instance: Windows writes
+  // `system.cpu.core 0.user` and Linux `system.cpu.core_0.user`, so the same
+  // mapping needs two regexes. The dimension is the same on both.
+  static const std::string label_prefix = "label:";
+  if (value.compare(0, label_prefix.size(), label_prefix) == 0) {
+    const labels_map::const_iterator it = labels.find(value.substr(label_prefix.size()));
+    if (it == labels.end()) return;
+    for (const std::string &v : it->second) {
+      variables.insert(std::make_pair(key, v));
+    }
+    return;
+  }
+
   boost::regex re(value);
 
   boost::smatch what;
@@ -47,3 +63,11 @@ void collectd::collectd_builder::add_variable(std::string key, std::string value
 }
 
 void collectd::collectd_builder::set_metric(const ::std::string &key, const std::string &value) { metrics[key] = value; }
+
+void collectd::collectd_builder::set_metric(const ::std::string &key, const std::string &value, const bool is_counter) {
+  metrics[key] = value;
+  if (is_counter)
+    counters.insert(key);
+  else
+    counters.erase(key);
+}

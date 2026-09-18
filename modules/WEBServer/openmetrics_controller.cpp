@@ -8,6 +8,7 @@
 #include <boost/regex.hpp>
 
 #include "helpers.hpp"
+#include "openmetrics_renderer.hpp"
 
 openmetrics_controller::openmetrics_controller(const int version, const std::shared_ptr<session_manager_interface> &session, const nscapi::core_wrapper *core,
                                                unsigned int plugin_id)
@@ -18,5 +19,13 @@ openmetrics_controller::openmetrics_controller(const int version, const std::sha
 void openmetrics_controller::get_openmetrics(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
   if (!session->is_logged_in("openmetrics.list", request, response)) return;
 
-  response.append(session->get_open_metrics());
+  // Negotiate rather than falling back to the server default of `text/plain`
+  // with no version: a scraper that asks for OpenMetrics 1.0 and is answered
+  // with a bare `text/plain` parses the body with the older Prometheus text
+  // parser instead. The two bodies differ - the metadata lines of a counter
+  // name the family in one format and the sample in the other - so the body
+  // and the type are chosen from one decision rather than two.
+  const openmetrics::dialect dialect = openmetrics::dialect_for(request.readHeader("Accept"));
+  response.setHeader("Content-Type", openmetrics::content_type_for(dialect));
+  response.append(dialect == openmetrics::dialect::openmetrics_1_0 ? session->get_open_metrics() : session->get_prometheus_metrics());
 }

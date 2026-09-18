@@ -63,6 +63,12 @@ struct editor_hooks {
   // process, not once per refresh.)
   std::function<std::vector<editor_module>()> all_modules;
   std::function<std::vector<std::string>(const std::string &)> parameters;
+  // The filter keywords of one query, as the registry spells them (a function
+  // carries its trailing "()"). Asked at most once per query per refresh, and
+  // only for a line that has an option which could use them - see
+  // needs_keywords(). One round trip, from the highlighter, the first time you
+  // type the `=` of a `filter=`; free for every keystroke after it.
+  std::function<std::vector<std::string>(const std::string &)> keywords;
 };
 
 class console_editor {
@@ -115,6 +121,9 @@ class console_editor {
   // The lazy half of refresh_vocabulary(): asks `all_modules` once and folds
   // the answer into the vocabulary. Called from the completion callback.
   void load_all_modules();
+  // The same for the filter keywords of whichever query is on the line, folded
+  // in before the line is classified. Called from the highlighter callback.
+  void load_keywords(const std::string &input);
 
   struct impl;
   std::unique_ptr<impl> impl_;

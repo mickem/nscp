@@ -106,6 +106,73 @@ TEST(ErrorHandlerStatus, ResetClearsBothTheTallyAndTheBuffer) {
   EXPECT_EQ(count, 0u);
 }
 
+// --- the size cap ------------------------------------------------------------
+
+TEST(ErrorHandlerCap, KeepsTheNewestEntriesOnceFull) {
+  // The buffer is fed by every log line in the agent, including the error
+  // logged for each *rejected* request - which an unauthenticated peer can
+  // produce at will. It therefore has to be a ring rather than a list that
+  // only a logged-in admin can empty.
+  error_handler handler;
+  handler.set_max_entries(4);
+  fill(handler, 6);
+
+  std::size_t count = 0;
+  const error_handler::log_list page = handler.get_messages({}, 0, 10, count);
+
+  EXPECT_EQ(count, 4u);
+  EXPECT_EQ(messages_of(page), (std::vector<std::string>{"message 2", "message 3", "message 4", "message 5"}));
+}
+
+TEST(ErrorHandlerCap, TheDefaultCapIsAThousandEntries) {
+  error_handler handler;
+  fill(handler, error_handler::kDefaultMaxEntries + 10);
+
+  std::size_t count = 0;
+  const error_handler::log_list page = handler.get_messages({}, 0, 1, count);
+
+  EXPECT_EQ(count, error_handler::kDefaultMaxEntries);
+  ASSERT_EQ(page.size(), 1u);
+  EXPECT_EQ(page.front().message, "message 10");  // the first ten fell off the front
+}
+
+TEST(ErrorHandlerCap, DroppedEntriesDoNotRewindTheErrorTally) {
+  // The badge reports what the agent reported, not what is still buffered:
+  // an error scrolling out of the ring must not make the count go down.
+  error_handler handler;
+  handler.set_max_entries(2);
+  handler.add_message(true, entry(0, "error", "boom"));
+  fill(handler, 4);
+
+  const error_handler::status status = handler.get_status();
+  EXPECT_EQ(status.error_count, 3u);  // "boom" plus the two odd-indexed errors
+  EXPECT_EQ(status.last_error, "message 3");
+}
+
+TEST(ErrorHandlerCap, LoweringTheCapTrimsWhatIsAlreadyBuffered) {
+  error_handler handler;
+  fill(handler, 6);
+  handler.set_max_entries(2);
+
+  std::size_t count = 0;
+  const error_handler::log_list page = handler.get_messages({}, 0, 10, count);
+  EXPECT_EQ(count, 2u);
+  EXPECT_EQ(messages_of(page), (std::vector<std::string>{"message 4", "message 5"}));
+}
+
+TEST(ErrorHandlerCap, ACapOfZeroStillKeepsTheMostRecentEntry) {
+  // Refusing to store anything would make the log view permanently empty,
+  // which reads as "the agent logged nothing" rather than "misconfigured".
+  error_handler handler;
+  handler.set_max_entries(0);
+  fill(handler, 3);
+
+  std::size_t count = 0;
+  const error_handler::log_list page = handler.get_messages({}, 0, 10, count);
+  EXPECT_EQ(count, 1u);
+  EXPECT_EQ(messages_of(page), (std::vector<std::string>{"message 2"}));
+}
+
 // --- unfiltered paging -------------------------------------------------------
 
 TEST(ErrorHandlerPaging, UnfilteredPagingIsZeroBasedAndHalfOpen) {

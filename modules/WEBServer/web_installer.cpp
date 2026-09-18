@@ -3,6 +3,7 @@
 
 #include "web_installer.hpp"
 
+#include "upload_staging.hpp"
 #include "web_installer_detail.hpp"
 
 #include <config.h>
@@ -22,11 +23,14 @@
 #endif
 
 #include <chrono>
+#include <cstring>
 #include <ctime>
 #include <fstream>
 #include <iomanip>
 #include <sstream>
+#include <string>
 #include <utility>
+#include <vector>
 
 namespace fs = boost::filesystem;
 namespace json = boost::json;
@@ -134,6 +138,10 @@ namespace {
 
 constexpr int kMaxRedirects = 5;
 constexpr auto kManifestFile = ".nscp-web-manifest.json";
+// Prefix of the per-install staging directory created under ${web-path}. Only
+// this file creates directories by that name, which is what lets a leftover be
+// recognised and removed rather than mistaken for operator content.
+constexpr auto kStagingPrefix = "nscp-web-stage-";
 // Default GitHub release URL base. Overridable via --url; the project's own
 // fork/mirror is enough for the default install.
 constexpr auto kDefaultUrlBase = "https://github.com/mickem/nscp/releases/download";
@@ -219,8 +227,8 @@ std::string sha256_hex(const std::string& bytes) {
 }
 #else
 // This build has no OpenSSL, so the bundle integrity check can't run. Fail
-// closed rather than silently installing unverified content: sha256_file()
-// propagates this and install() reports it (return 1). Mirrors
+// closed rather than silently installing unverified content: install()
+// catches this and reports it (return 1). Mirrors
 // http::simple_client, which likewise throws for HTTPS in no-TLS builds — and
 // since the download path needs HTTPS to reach GitHub, it would fail there too.
 std::string sha256_hex(const std::string& /*bytes*/) {
@@ -228,12 +236,31 @@ std::string sha256_hex(const std::string& /*bytes*/) {
 }
 #endif
 
-std::string sha256_file(const fs::path& path) {
-  std::ifstream in(path.string(), std::ios::binary);
-  if (!in) throw std::runtime_error("Cannot open for hashing: " + path.string());
-  std::ostringstream buf;
-  buf << in.rdbuf();
-  return sha256_hex(buf.str());
+// A private, owner-only directory to drop the bundle zip in before it is
+// unpacked. The zip used to be written to ${temp} (/tmp, or C:\Windows\Temp
+// for a SYSTEM service) under a name derived from the agent's own version, so
+// it was entirely predictable: a local user could pre-create a symlink there
+// and have the root-owned install truncate a file of their choosing, or
+// pre-create a file they own and swap its contents between the hash check and
+// the extraction. Neither works against a directory that is created fresh, is
+// named randomly, and is only reachable through a root-owned parent.
+fs::path make_staging_dir(const fs::path& parent, std::string& error) {
+  boost::system::error_code ec;
+  fs::create_directories(parent, ec);
+  for (int attempt = 0; attempt < 4; ++attempt) {
+    const fs::path candidate = parent / fs::unique_path(std::string(kStagingPrefix) + "%%%%%%%%%%%%%%%%");
+    boost::system::error_code mk_ec;
+    // create_directory (not create_directories): it returns false rather than
+    // succeeding when the name is already taken, so a planted directory is a
+    // retry rather than something we would then write into.
+    if (!fs::create_directory(candidate, mk_ec) || mk_ec) continue;
+    boost::system::error_code perm_ec;
+    fs::permissions(candidate, fs::owner_all, perm_ec);
+    error.clear();
+    return candidate;
+  }
+  error = "Failed to create a staging directory under " + parent.string();
+  return fs::path();
 }
 
 std::string iso8601_utc_now() {
@@ -304,11 +331,39 @@ std::vector<std::string> extract_all(const fs::path& zip_path, const fs::path& d
   return extracted;
 }
 
+bool is_staging_dir(const fs::path& p) { return p.filename().string().compare(0, std::strlen(kStagingPrefix), kStagingPrefix) == 0; }
+
+// Remove a staging directory a previous run left behind. The directory is
+// normally removed by the guard in install(), but a process that is killed
+// between creating it and finishing the extraction leaves one - and since
+// nothing else in ${web-path} is named like this, a leftover is unambiguously
+// ours. Without this sweep it would be counted as content by
+// web_path_contains_files() below, so every later install would refuse with
+// "already contains files (no install manifest)" while `uninstall-ui`, which
+// only removes what the manifest lists, could not clear it either.
+void remove_stale_staging_dirs(const fs::path& web_path) {
+  boost::system::error_code ec;
+  if (!fs::is_directory(web_path, ec)) return;
+  std::vector<fs::path> stale;
+  for (fs::directory_iterator it(web_path, ec), end; it != end; ++it) {
+    if (fs::is_directory(it->status()) && is_staging_dir(it->path())) stale.push_back(it->path());
+  }
+  for (const fs::path& p : stale) {
+    boost::system::error_code rm_ec;
+    fs::remove_all(p, rm_ec);
+  }
+}
+
 bool web_path_contains_files(const fs::path& web_path) {
   boost::system::error_code ec;
   if (!fs::is_directory(web_path, ec)) return false;
-  fs::directory_iterator it(web_path, ec), end;
-  return it != end;
+  for (fs::directory_iterator it(web_path, ec), end; it != end; ++it) {
+    // A staging directory is this installer's own scratch space, never
+    // operator content: it must not be what makes an install refuse.
+    if (is_staging_dir(it->path())) continue;
+    return true;
+  }
+  return false;
 }
 
 bool write_manifest(const fs::path& web_path, const std::string& version, const std::string& source_url, const std::string& sha256,
@@ -353,11 +408,12 @@ int web_installer::install(const options& opts, std::ostream& out) const {
   const std::string asset_sha = "NSCP-Web-" + version + ".sha256";
 
   const fs::path web_path = resolve_("${web-path}");
-  const fs::path temp_path = resolve_("${temp}");
 
   out << "Web bundle install" << std::endl;
   out << "  version: " << version << std::endl;
   out << "  target : " << web_path.string() << std::endl;
+
+  remove_stale_staging_dirs(web_path);
 
   if (web_path_contains_files(web_path) && !opts.force) {
     // Refuse silently-destructive installs. If a previous install is present
@@ -373,19 +429,19 @@ int web_installer::install(const options& opts, std::ostream& out) const {
     return 2;
   }
 
-  fs::path zip_local;
+  // The bundle is carried in memory from here on: it is hashed, verified and
+  // only then written, once, into a staging directory this process creates. A
+  // file that is never re-read cannot be swapped between the check and the
+  // use, and nothing on a shared path is ever opened for writing.
+  std::string zip_body;
   std::string expected_hash;
   std::string source_url;
-  // True when zip_local started in --from but got copied to temp because
-  // it lived under web_path (see the --force branch below). The cleanup
-  // logic at the end uses this to decide whether to remove zip_local.
-  bool stashed_from_path = false;
 
   if (!opts.from_path.empty()) {
-    zip_local = opts.from_path;
-    source_url = "file://" + fs::absolute(zip_local).string();
-    if (!fs::is_regular_file(zip_local)) {
-      out << "Local zip not found: " << zip_local << std::endl;
+    const fs::path from_path = opts.from_path;
+    source_url = "file://" + fs::absolute(from_path).string();
+    if (!fs::is_regular_file(from_path)) {
+      out << "Local zip not found: " << from_path << std::endl;
       return 1;
     }
     // Optional sibling sha256 file (basename + .sha256, e.g. foo.zip.sha256,
@@ -395,9 +451,9 @@ int web_installer::install(const options& opts, std::ostream& out) const {
     // error: the user asked for verification by placing it there, so silently
     // downgrading to "no checksum" would defeat the point (this mirrors the
     // strict handling of the downloaded manifest below).
-    fs::path sha_file = zip_local.string() + ".sha256";
+    fs::path sha_file = from_path.string() + ".sha256";
     if (!fs::is_regular_file(sha_file)) {
-      sha_file = zip_local.parent_path() / (zip_local.stem().string() + ".sha256");
+      sha_file = from_path.parent_path() / (from_path.stem().string() + ".sha256");
     }
     if (fs::is_regular_file(sha_file)) {
       std::string raw;
@@ -410,6 +466,13 @@ int web_installer::install(const options& opts, std::ostream& out) const {
         out << "Checksum file is malformed (expected SHA-256 hex + filename): " << sha_file << std::endl;
         return 1;
       }
+    }
+    // Read the bundle before anything below can wipe web_path: --from may
+    // point at a zip that lives inside it (`--from ${web-path}/saved.zip
+    // --force`), and the wipe would otherwise destroy the source.
+    if (!opts.dry_run && !read_file(from_path, zip_body)) {
+      out << "Failed to read local zip: " << from_path << std::endl;
+      return 1;
     }
     out << "  source : " << source_url << std::endl;
   } else {
@@ -434,41 +497,35 @@ int web_installer::install(const options& opts, std::ostream& out) const {
       return 1;
     }
 
-    std::string zip_body;
     if (!http_get(ca, url_zip, zip_body, final_url, error)) {
       out << "Failed to fetch web bundle (" << url_zip << "): " << error << std::endl;
       return 1;
     }
     source_url = url_zip;
-
-    boost::system::error_code ec;
-    fs::create_directories(temp_path, ec);
-    zip_local = temp_path / ("nsclient-web-" + version + ".zip");
-    if (!write_file(zip_local, zip_body)) {
-      out << "Failed to write temp zip: " << zip_local << std::endl;
-      return 1;
-    }
   }
 
   if (opts.dry_run) {
-    out << "Dry-run: would verify and extract " << zip_local << " to " << web_path << std::endl;
+    out << "Dry-run: would verify and extract the bundle to " << web_path << std::endl;
     return 0;
   }
 
-  // Hash + verify before touching the destination, so a tampered/corrupt
-  // download never half-installs.
+  // Hash + verify the bytes we are about to install, before touching the
+  // destination, so a tampered or corrupt download never half-installs. The
+  // digest is taken over the in-memory body rather than by re-reading a file:
+  // re-reading is what opened the window where the content that was hashed and
+  // the content that gets extracted need not be the same bytes.
   std::string actual_hash;
   try {
-    actual_hash = sha256_file(zip_local);
+    actual_hash = sha256_hex(zip_body);
   } catch (const std::exception& e) {
-    out << "Failed to hash " << zip_local << ": " << e.what() << std::endl;
+    out << "Failed to hash the web bundle: " << e.what() << std::endl;
     return 1;
   }
   if (!expected_hash.empty() && actual_hash != expected_hash) {
     out << "SHA-256 mismatch!" << std::endl;
     out << "  expected: " << expected_hash << std::endl;
     out << "  actual  : " << actual_hash << std::endl;
-    out << "Leaving tampered file in place for inspection: " << zip_local << std::endl;
+    out << "Nothing was written; " << web_path << " is untouched." << std::endl;
     return 3;
   }
   if (expected_hash.empty()) {
@@ -478,38 +535,38 @@ int web_installer::install(const options& opts, std::ostream& out) const {
   }
 
   // Wipe destination if --force; in the non-force branch we already returned
-  // above when files existed. Guard against the case where zip_local lives
-  // *inside* web_path (e.g. `--from ${web-path}/saved.zip --force`): wiping
-  // web_path would delete the source out from under us before extract_all
-  // can re-open it. Copy it into the temp dir first.
+  // above when files existed. A --from zip that lives inside web_path is no
+  // longer a special case: its bytes were read into memory before we got here.
   if (opts.force && fs::exists(web_path)) {
-    boost::system::error_code rel_ec;
-    const fs::path zip_abs = fs::absolute(zip_local).lexically_normal();
-    const fs::path web_abs = fs::absolute(web_path).lexically_normal();
-    const fs::path rel = zip_abs.lexically_relative(web_abs);
-    const bool under_web = !rel.empty() && rel.begin() != rel.end() && rel.begin()->string() != "..";
-    if (under_web) {
-      boost::system::error_code mk_ec;
-      fs::create_directories(temp_path, mk_ec);
-      const fs::path stash = temp_path / fs::unique_path("nsclient-web-stash-%%%%-%%%%.zip");
-      boost::system::error_code cp_ec;
-      fs::copy_file(zip_local, stash, cp_ec);
-      if (cp_ec) {
-        out << "Failed to stash source zip before wipe (" << zip_local << " -> " << stash << "): " << cp_ec.message() << std::endl;
-        return 1;
-      }
-      zip_local = stash;
-      // Mark this stash as ours so the cleanup at the end of install() removes
-      // it even though the user passed --from.
-      stashed_from_path = true;
-    }
     boost::system::error_code ec;
     fs::remove_all(web_path, ec);
   }
   boost::system::error_code ec;
   fs::create_directories(web_path, ec);
 
+  // The zip has to exist as a file for the archive reader to open it, so stage
+  // it under the (root-owned) install directory rather than anywhere shared,
+  // in a directory created for this one install and removed with it.
   std::string err;
+  const fs::path staging_dir = make_staging_dir(web_path, err);
+  if (staging_dir.empty()) {
+    out << err << std::endl;
+    return 1;
+  }
+  struct staging_guard {
+    fs::path path;
+    ~staging_guard() {
+      boost::system::error_code ec;
+      fs::remove_all(path, ec);
+    }
+  } cleanup{staging_dir};
+
+  const fs::path zip_local = upload_staging::stage(staging_dir, zip_body, err);
+  if (zip_local.empty()) {
+    out << "Failed to stage the web bundle: " << err << std::endl;
+    return 1;
+  }
+
   const std::vector<std::string> files = extract_all(zip_local, web_path, err);
   if (files.empty()) {
     out << "Extraction failed: " << err << std::endl;
@@ -521,21 +578,16 @@ int web_installer::install(const options& opts, std::ostream& out) const {
     return 1;
   }
 
-  // Best-effort cleanup of the temp download or the stashed copy of a
-  // --from zip. Leave it on failure so the user can re-check, but on success
-  // it has served its purpose. We never remove the user's original --from
-  // path — only the temp file we created.
-  if (opts.from_path.empty() || stashed_from_path) {
-    boost::system::error_code rm_ec;
-    fs::remove(zip_local, rm_ec);
-  }
-
   out << "Installed " << files.size() << " file(s) to " << web_path << "." << std::endl;
   return 0;
 }
 
 int web_installer::uninstall(const bool force, std::ostream& out) const {
   const fs::path web_path = resolve_("${web-path}");
+  // The manifest lists bundle entries only, so a staging directory a killed
+  // install left behind would survive an uninstall and keep ${web-path}
+  // non-empty forever.
+  remove_stale_staging_dirs(web_path);
   std::string error;
   json::object manifest;
   if (!read_manifest(web_path, manifest, error)) {

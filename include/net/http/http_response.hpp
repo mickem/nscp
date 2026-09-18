@@ -56,15 +56,28 @@ struct response {
     }
   }
 
+  // "HTTP/1.1 200 OK" -> version, code, reason phrase. The reason phrase is
+  // optional on the wire (RFC 7230 s3.1.2 allows it to be empty) but every
+  // real server sends one, so the code has to be taken as the first token
+  // rather than as everything after the first space - casting "200 OK" to an
+  // int throws, and this runs inside a constructor.
   void parse_status_line(const std::string &line) {
     const std::string::size_type pos = line.find(' ');
     if (pos == std::string::npos) {
       http_version_ = line;
       status_code_ = 500;
-    } else {
-      http_version_ = line.substr(0, pos);
-      status_code_ = str::stox<int>(line.substr(pos + 1));
+      return;
     }
+    http_version_ = line.substr(0, pos);
+    const std::string rest = line.substr(pos + 1);
+    const std::string::size_type code_end = rest.find(' ');
+    // A status line we cannot read is a broken peer, not an OK: 500 keeps it
+    // out of every is_2xx() path rather than throwing past the caller.
+    status_code_ = str::stox<unsigned int>(code_end == std::string::npos ? rest : rest.substr(0, code_end), 500);
+    if (code_end == std::string::npos) return;
+    status_message_ = rest.substr(code_end + 1);
+    while (!status_message_.empty() && (status_message_[status_message_.size() - 1] == '\r' || status_message_[status_message_.size() - 1] == '\n'))
+      status_message_.erase(status_message_.size() - 1);
   }
 
   void add_header(std::string key, std::string value) {

@@ -87,7 +87,7 @@ jobs:
     - name: Install components
       uses: ./.github/actions/update-msvc
 
-    - uses: ilammy/msvc-dev-cmd@v1
+    - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
       name: Setup msvc environment
       with:
         toolset: "14.1"
@@ -100,9 +100,9 @@ jobs:
         mkdir tmp\installer_lib
       shell: cmd
 
-    - uses: shogo82148/actions-setup-perl@v1
+    - uses: shogo82148/actions-setup-perl@ac3202722f5744e62a8fa3af3e1aaaebb08861f3 # v1
       with:
-        perl-version: 'latest'
+        perl-version: '5.40'
         distribution: strawberry
 
     - name: setup python dependencies
@@ -186,11 +186,17 @@ jobs:
         echo "python_path=$path_unix" >> $env:GITHUB_OUTPUT
       shell: pwsh
 
-    - uses: DamianReeves/write-file-action@master
-      name: Write NSClient++ cmake config
-      with:
-        path: tmp/nscp/build.cmake
-        contents: |
+    # Written with a plain heredoc rather than a third-party file-writing
+    # action: this job later receives the code-signing credentials, so every
+    # action that runs in it is part of the trust boundary around them.
+    # The heredoc delimiter is quoted, so ${PROTOBUF_ROOT} stays literal for
+    # cmake; the ${{ }} expressions are substituted by Actions before the
+    # shell ever sees the script.
+    - name: Write NSClient++ cmake config
+      shell: bash
+      run: |
+        mkdir -p tmp/nscp
+        cat > tmp/nscp/build.cmake <<'BUILD_CMAKE'
             set(Boost_USE_STATIC_RUNTIME ON)
             set(Boost_USE_STATIC_LIBS ON)
             SET(USE_STATIC_RUNTIME TRUE)
@@ -212,6 +218,7 @@ jobs:
             set(MONGOOSE_SOURCE_DIR "${{ steps.mongoose.outputs.path_unix }}")
             set(MINIZ_INCLUDE_DIR "${{ steps.miniz.outputs.path_unix }}")
             set(CHECK_NSCLIENT_MISSING TRUE)
+        BUILD_CMAKE
 
     - name: Make python dist
       working-directory: tmp/nscp

@@ -1,0 +1,37 @@
+# A Naemon with Mod-Gearman, a gearmand and a web UI, for trying the
+# NSClient++ GearmanClient module against something real.
+#
+#   docker compose up --build        start it (the first build takes a minute)
+#   http://localhost:8088/thruk/     the web UI
+#   docker compose restart           pick up an edit in conf/
+#   docker compose down              throw it all away
+#
+# Nothing is persisted: the container keeps its state in memory and the next
+# `up` starts from nothing, which is what you want from a lab.
+services:
+  gearman-lab:
+    build: .
+    image: nscp-mod-gearman-lab
+    container_name: nscp-mod-gearman-lab
+    ports:
+      # gearmand. This is what the agent's `server` setting points at; from
+      # an agent on this same machine that is 127.0.0.1:4730.
+      #
+      # Both ports are published on the loopback address only. Neither
+      # gearmand nor this Thruk asks anybody for a password, so the lab has
+      # no business being reachable from another machine. To run the agent
+      # on a different box anyway, drop the `127.0.0.1:` prefix on the
+      # gearman port, put the lab on a network you control, and change the
+      # key in conf/module.conf first.
+      - "127.0.0.1:${LAB_GEARMAN_PORT:-4730}:4730"
+      # Thruk. 8080 is a busy port on a developer machine (IIS, another
+      # container, http.sys); if the web UI refuses the connection while the
+      # container says it is up, that is what happened - set LAB_WEB_PORT to
+      # something else, or put it in a .env file next to this one.
+      - "127.0.0.1:${LAB_WEB_PORT:-8088}:8080"
+    volumes:
+      # The two files worth editing, bind-mounted so an edit plus a
+      # `docker compose restart` is the whole loop.
+      - ./conf/objects.cfg:/etc/naemon/conf.d/gearman-lab.cfg:ro
+      - ./conf/module.conf:/etc/mod-gearman/module.conf:ro
+    stop_grace_period: 5s

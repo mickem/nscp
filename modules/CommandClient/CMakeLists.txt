@@ -12,7 +12,6 @@ set(SRCS
     console_editor.cpp
     console_syntax.cpp
     ${NSCP_INCLUDEDIR}/client/simple_client.cpp
-    ${NSCP_INCLUDEDIR}/metrics/metrics_store_map.cpp
     ${NSCP_DEF_PLUGIN_CPP}
 )
 
@@ -35,6 +34,7 @@ NSCP_DEBUG_SYMBOLS(${TARGET})
 
 target_link_libraries(
     ${TARGET}
+    nscp_client
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
     ${Boost_DATE_TIME_LIBRARY}

@@ -6,6 +6,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/optional.hpp>
+#include <boost/thread/recursive_mutex.hpp>
 #include <memory>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/metrics.hpp>
@@ -62,6 +63,14 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   plugin_cache plugin_cache_;
   event_subscribers event_subscribers_;
   permissions permissions_;
+  // Serialises whole plugin lifecycle operations - load, reload, unload,
+  // purge, start and stop - against each other. The individual registries are
+  // each locked, but a lifecycle operation is a sequence of steps across all
+  // of them, and two of those running at once interleave: a web request
+  // loading a module while the scheduler reloads, or two queued reloads on
+  // different workers. Recursive because these call one another
+  // (load_single_plugin -> add_plugin, start_plugins -> purge_broken_plugin).
+  boost::recursive_mutex lifecycle_mutex_;
 
  public:
   plugin_manager(path_instance path_, logging::logger_instance log_instance);

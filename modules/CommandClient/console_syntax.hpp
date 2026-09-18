@@ -13,6 +13,7 @@
 // functions from the registry.
 
 #include <functional>
+#include <map>
 #include <set>
 #include <string>
 #include <vector>
@@ -40,6 +41,22 @@ enum class token_kind {
   quoted,
   // The `=` joining an option to its value.
   punctuation,
+  // Inside a filter expression (filter=, warning=, ...) or a syntax template
+  // (top-syntax=, detail-syntax=, ...): a name the check actually offers as a
+  // keyword, and one it does not. The second is the whole point - `fre < 10%`
+  // is visibly wrong before you press enter, which is otherwise a check that
+  // runs and quietly matches nothing.
+  keyword,
+  unknown_keyword,
+  // A filter function, `convert_size(...)`. Only the name is painted; its
+  // arguments are classified on their own.
+  function,
+  // An operator or a keyword of the expression language itself: `<`, `like`,
+  // `and`, `not in`, and the `${`/`%(`/`}`/`)` that delimit a template
+  // reference.
+  expression_op,
+  // A number (with its unit, if it has one) inside an expression.
+  number,
 };
 
 // What the prompt knows about modules.
@@ -63,6 +80,21 @@ struct module_vocabulary {
   bool complete = false;
 };
 
+// The filter keywords of one query: what a filter expression or a syntax
+// template may name. Both sets come from the same registry field list, split
+// on the trailing "()" the registry uses to mark a function.
+//
+// Fetched per query and cached, because classify() runs on every keystroke and
+// a registry round trip per character is not affordable. `complete` is false
+// until that fetch has happened, and until it has, an unrecognised name is
+// merely unknown to us rather than wrong - the same restraint
+// module_vocabulary applies to a module we have not looked for yet.
+struct keyword_vocabulary {
+  std::set<std::string> variables;
+  std::set<std::string> functions;
+  bool complete = false;
+};
+
 // A snapshot of what names currently mean something. Cheap to copy; the prompt
 // refreshes it after anything that can change the registry (load, unload,
 // enable, disable, reload).
@@ -71,12 +103,28 @@ struct vocabulary {
   // Queries and query aliases merged: they are interchangeable when typed.
   std::set<std::string> queries;
   module_vocabulary modules;
+  // Keyed by query name; absent means "not fetched yet", which classify()
+  // treats exactly like an incomplete keyword_vocabulary.
+  std::map<std::string, keyword_vocabulary> keywords;
 };
 
 // Builds a vocabulary that knows only the loaded modules - the cheap half.
 // Fill in vocab.modules.all / .enabled / .complete afterwards once the
-// expensive lookup has run.
+// expensive lookup has run, and vocab.keywords as queries are typed.
 vocabulary make_vocabulary(const std::vector<std::string> &builtins, const std::vector<std::string> &queries, const std::vector<std::string> &loaded_modules);
+
+// Splits a query's registry field list into variables and functions. The
+// registry marks a function by a trailing "()" on its name; that suffix is not
+// part of the name and is dropped here.
+keyword_vocabulary make_keyword_vocabulary(const std::vector<std::string> &fields);
+
+// The query whose filter keywords `input` needs before it can be fully
+// highlighted, or empty when it needs none - because the command is not a
+// query, because nothing on the line takes an expression or a template, or
+// because they are already in `vocab`. The editor calls this to keep the
+// registry lookup off the per-keystroke path: at most one round trip per
+// query, and none at all for a line that would not use the answer.
+std::string needs_keywords(const std::string &input, const vocabulary &vocab);
 
 // One token_kind per code point of `input`. Size always equals the number of
 // code points, which is what replxx's highlighter callback requires - not the
@@ -103,6 +151,11 @@ bool needs_all_modules(const std::string &input);
 
 // Candidates for the word under the cursor, sorted and de-duplicated. Each
 // candidate is a whole word: the caller replaces `prefix` with it.
+//
+// Matched on the prefix first and, only when that finds nothing, anywhere in
+// the name - so `load syst` still resolves CheckSystem. The fallback is what
+// makes the names typeable: every module is Check-something and every query
+// check_something, so the distinguishing part is never at the front.
 //
 // `parameters_of` supplies the parameter names a query accepts, so that
 // `check_drive fi<tab>` can offer `filter=`. It is a callback rather than part

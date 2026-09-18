@@ -3,20 +3,21 @@
 
 #include "script_wrapper.hpp"
 
-#include <set>
-#include <map>
-#include <cstring>
-#include <boost/thread/mutex.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/thread.hpp>
+#include <boost/thread/mutex.hpp>
+#include <cstring>
+#include <map>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_metrics_helper.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/functions_convert.hpp>
 #include <nscapi/protobuf/functions_copy.hpp>
 #include <nscapi/protobuf/functions_exec.hpp>
 #include <nscapi/protobuf/functions_submit.hpp>
+#include <set>
 #include <str/format.hpp>
 #include <str/utf8.hpp>
 
@@ -51,8 +52,20 @@ std::string pystr(py::object o) {
   try {
     if (o.ptr() == Py_None) return "";
     if (PyUnicode_Check(o.ptr())) {
-      std::string s = PyBytes_AsString(PyUnicode_AsEncodedString(o.ptr(), "utf-8", "Error"));
-      return s;
+      // A str can hold lone surrogates - that is how Python hands back a file
+      // name or an environment value which is not valid UTF-8 - and encoding
+      // those raises. "Error" was not a registered error handler either, so
+      // the lookup itself raised, and the NULL that came back went straight
+      // into PyBytes_AsString, which reads Py_TYPE(NULL). "replace" cannot
+      // fail, and the bytes object is owned here rather than leaked.
+      py::handle<> encoded(py::allow_null(PyUnicode_AsEncodedString(o.ptr(), "utf-8", "replace")));
+      char *buffer = NULL;
+      Py_ssize_t size = 0;
+      if (!encoded || PyBytes_AsStringAndSize(encoded.get(), &buffer, &size) == -1 || buffer == NULL) {
+        PyErr_Clear();
+        return "Unable to encode python string";
+      }
+      return std::string(buffer, size);
     }
     return py::extract<std::string>(o);
   } catch (const std::exception &e) {
@@ -339,13 +352,19 @@ py::tuple script_wrapper::function_wrapper::register_event(std::string event, Py
 
 int script_wrapper::function_wrapper::handle_query(const std::string cmd, const std::string &request, std::string &response) const {
   try {
+    // The GIL is what serialises these maps: registration runs from Python and
+    // therefore holds it, so take it before the lookup and keep it for the
+    // call. The lookup used to run bare, and the iterator was kept across the
+    // acquisition that followed - so a script's init() inserting into the same
+    // map during a reload could rebalance the tree between the two and leave
+    // the iterator pointing at a moved node.
+    thread_locker locker;
     functions::function_map_type::iterator it = functions::get()->normal_functions.find(cmd);
     if (it == functions::get()->normal_functions.end()) {
       NSC_LOG_ERROR_STD("Failed to find python function: " + cmd);
       return NSCAPI::cmd_return_codes::returnIgnored;
     }
     {
-      thread_locker locker;
       try {
         py::tuple ret = py::call<py::tuple>(py::object(it->second).ptr(), cmd, request);
         if (ret.ptr() == Py_None) {
@@ -368,13 +387,19 @@ int script_wrapper::function_wrapper::handle_query(const std::string cmd, const 
 
 int script_wrapper::function_wrapper::handle_simple_query(const std::string cmd, std::list<std::string> arguments, std::string &msg, std::string &perf) const {
   try {
+    // The GIL is what serialises these maps: registration runs from Python and
+    // therefore holds it, so take it before the lookup and keep it for the
+    // call. The lookup used to run bare, and the iterator was kept across the
+    // acquisition that followed - so a script's init() inserting into the same
+    // map during a reload could rebalance the tree between the two and leave
+    // the iterator pointing at a moved node.
+    thread_locker locker;
     functions::function_map_type::iterator it = functions::get()->simple_functions.find(cmd);
     if (it == functions::get()->simple_functions.end()) {
       NSC_LOG_ERROR_STD("Failed to find python function: " + cmd);
       return NSCAPI::cmd_return_codes::returnIgnored;
     }
     {
-      thread_locker locker;
 
       try {
         py::list l;
@@ -409,21 +434,31 @@ int script_wrapper::function_wrapper::handle_simple_query(const std::string cmd,
 }
 
 bool script_wrapper::function_wrapper::has_function(const std::string command) {
+  // Same maps as the dispatch paths: read them under the GIL.
+  thread_locker locker;
   return functions::get()->normal_functions.find(command) != functions::get()->normal_functions.end();
 }
 bool script_wrapper::function_wrapper::has_simple(const std::string command) {
+  // Same maps as the dispatch paths: read them under the GIL.
+  thread_locker locker;
   return functions::get()->simple_functions.find(command) != functions::get()->simple_functions.end();
 }
 
 int script_wrapper::function_wrapper::handle_exec(const std::string cmd, const std::string &request, std::string &response) const {
   try {
+    // The GIL is what serialises these maps: registration runs from Python and
+    // therefore holds it, so take it before the lookup and keep it for the
+    // call. The lookup used to run bare, and the iterator was kept across the
+    // acquisition that followed - so a script's init() inserting into the same
+    // map during a reload could rebalance the tree between the two and leave
+    // the iterator pointing at a moved node.
+    thread_locker locker;
     functions::function_map_type::iterator it = functions::get()->normal_cmdline.find(cmd);
     if (it == functions::get()->normal_cmdline.end()) {
       NSC_LOG_ERROR_STD("Failed to find python function: " + cmd);
       return NSCAPI::cmd_return_codes::returnIgnored;
     }
     {
-      thread_locker locker;
       try {
         py::tuple ret = py::call<py::tuple>(py::object(it->second).ptr(), cmd, request);
         if (ret.ptr() == Py_None) {
@@ -449,6 +484,13 @@ int script_wrapper::function_wrapper::handle_exec(const std::string cmd, const s
 
 int script_wrapper::function_wrapper::handle_simple_exec(const std::string cmd, std::list<std::string> arguments, std::string &result) const {
   try {
+    // The GIL is what serialises these maps: registration runs from Python and
+    // therefore holds it, so take it before the lookup and keep it for the
+    // call. The lookup used to run bare, and the iterator was kept across the
+    // acquisition that followed - so a script's init() inserting into the same
+    // map during a reload could rebalance the tree between the two and leave
+    // the iterator pointing at a moved node.
+    thread_locker locker;
     functions::function_map_type::iterator it = functions::get()->simple_cmdline.find(cmd);
     if (it == functions::get()->simple_cmdline.end()) {
       result = "Failed to find python function: " + cmd;
@@ -456,7 +498,6 @@ int script_wrapper::function_wrapper::handle_simple_exec(const std::string cmd, 
       return NSCAPI::cmd_return_codes::returnIgnored;
     }
     {
-      thread_locker locker;
       try {
         py::tuple ret = py::call<py::tuple>(py::object(it->second).ptr(), convert(arguments));
         if (ret.ptr() == Py_None) {
@@ -483,21 +524,31 @@ int script_wrapper::function_wrapper::handle_simple_exec(const std::string cmd, 
 }
 
 bool script_wrapper::function_wrapper::has_message_handler(const std::string channel) {
+  // Same maps as the dispatch paths: read them under the GIL.
+  thread_locker locker;
   return functions::get()->normal_handler.find(channel) != functions::get()->normal_handler.end();
 }
 bool script_wrapper::function_wrapper::has_simple_message_handler(const std::string channel) {
+  // Same maps as the dispatch paths: read them under the GIL.
+  thread_locker locker;
   return functions::get()->simple_handler.find(channel) != functions::get()->simple_handler.end();
 }
 
 int script_wrapper::function_wrapper::handle_message(const std::string channel, const std::string &request, std::string &response) const {
   try {
+    // The GIL is what serialises these maps: registration runs from Python and
+    // therefore holds it, so take it before the lookup and keep it for the
+    // call. The lookup used to run bare, and the iterator was kept across the
+    // acquisition that followed - so a script's init() inserting into the same
+    // map during a reload could rebalance the tree between the two and leave
+    // the iterator pointing at a moved node.
+    thread_locker locker;
     functions::function_map_type::iterator it = functions::get()->normal_handler.find(channel);
     if (it == functions::get()->normal_handler.end()) {
       NSC_LOG_ERROR_STD("Failed to find python handler: " + channel);
       return NSCAPI::api_return_codes::hasFailed;
     }
     {
-      thread_locker locker;
       int ret_code = NSCAPI::api_return_codes::hasFailed;
       try {
         py::object memoryView(py::handle<>(PyMemoryView_FromMemory(const_cast<char *>(request.c_str()), static_cast<Py_ssize_t>(request.size()), PyBUF_READ)));
@@ -525,13 +576,19 @@ int script_wrapper::function_wrapper::handle_message(const std::string channel, 
 int script_wrapper::function_wrapper::handle_simple_message(const std::string channel, const std::string source, const std::string command, const int code,
                                                             const std::string &msg, const std::string &perf) const {
   try {
+    // The GIL is what serialises these maps: registration runs from Python and
+    // therefore holds it, so take it before the lookup and keep it for the
+    // call. The lookup used to run bare, and the iterator was kept across the
+    // acquisition that followed - so a script's init() inserting into the same
+    // map during a reload could rebalance the tree between the two and leave
+    // the iterator pointing at a moved node.
+    thread_locker locker;
     functions::function_map_type::iterator it = functions::get()->simple_handler.find(channel);
     if (it == functions::get()->simple_handler.end()) {
       NSC_LOG_ERROR_STD("Failed to find python handler: " + channel);
       return NSCAPI::api_return_codes::hasFailed;
     }
     {
-      thread_locker locker;
       try {
         py::object ret = py::call<py::object>(py::object(it->second).ptr(), channel, source, command, nagios_return_to_py(code), pystr(msg), perf);
         int ret_code = NSCAPI::api_return_codes::hasFailed;
@@ -556,15 +613,22 @@ int script_wrapper::function_wrapper::handle_simple_message(const std::string ch
 }
 
 bool script_wrapper::function_wrapper::has_event_handler(const std::string channel) {
+  // Same maps as the dispatch paths: read them under the GIL.
+  thread_locker locker;
   return functions::get()->normal_handler.find(channel) != functions::get()->normal_handler.end();
 }
 bool script_wrapper::function_wrapper::has_simple_event_handler(const std::string channel) {
+  // Same maps as the dispatch paths: read them under the GIL.
+  thread_locker locker;
   return functions::get()->simple_handler.find(channel) != functions::get()->simple_handler.end();
 }
 
 void script_wrapper::function_wrapper::on_event(const std::string event, const std::string &request) const {
   try {
     // Hold the table for the whole call: the iterator points into it.
+    // Under the GIL for the lookup too: registration inserts into this map
+    // from Python, so the GIL is what keeps the two apart.
+    thread_locker locker;
     const std::shared_ptr<functions> fns = functions::get();
     functions::function_map_type::iterator it = fns->normal_handler.find(event);
     if (it == fns->normal_handler.end()) {
@@ -572,7 +636,6 @@ void script_wrapper::function_wrapper::on_event(const std::string event, const s
       return;
     }
     {
-      thread_locker locker;
       try {
         py::call<py::object>(py::object(it->second).ptr(), event, request);
       } catch (py::error_already_set &) {
@@ -587,6 +650,9 @@ void script_wrapper::function_wrapper::on_event(const std::string event, const s
 }
 void script_wrapper::function_wrapper::on_simple_event(const std::string event, const py::dict &data) const {
   try {
+    // Under the GIL for the lookup too: registration inserts into this map
+    // from Python, so the GIL is what keeps the two apart.
+    thread_locker locker;
     const std::shared_ptr<functions> fns = functions::get();
     functions::function_map_type::iterator it = fns->simple_handler.find(event);
     if (it == fns->simple_handler.end()) {
@@ -618,10 +684,11 @@ void build_metrics(py::dict &metrics, const PB::Metrics::MetricsBundle &b, const
   }
 
   for (const PB::Metrics::Metric &v : b.value()) {
+    double value = 0;
     if (v.has_string_value())
       metrics[p + "." + v.key()] = v.string_value().value();
-    else if (v.has_gauge_value())
-      metrics[p + "." + v.key()] = str::xtos(v.gauge_value().value());
+    else if (nscapi::metrics::numeric_value(v, value))
+      metrics[p + "." + v.key()] = str::xtos(value);
   }
 }
 
@@ -638,8 +705,9 @@ void script_wrapper::function_wrapper::submit_metrics(const std::string &request
     }
 
     try {
+      // The list itself is registered from Python, so walk it under the GIL.
+      thread_locker inner_locker;
       for (functions::function_list_type::value_type &v : functions::get()->submit_metrics) {
-        thread_locker inner_locker;
         try {
           py::call<py::object>(py::object(v).ptr(), metrics, pystr(""));
         } catch (py::error_already_set &) {
@@ -653,14 +721,103 @@ void script_wrapper::function_wrapper::submit_metrics(const std::string &request
     }
   }
 }
+namespace {
+// A string field of the dict form, or "" when it is missing or is not a string.
+std::string metric_meta(const py::dict &value, const char *key) {
+  if (!value.has_key(key)) return "";
+  const py::extract<std::string> extracter(value[key]);
+  return extracter.check() ? std::string(extracter) : std::string();
+}
+
+// The `labels` field of the dict form, written onto the metric as dimensions.
+// Only the OpenMetrics renderer reads them, and it reads them alongside the
+// key, so a script gains labels without its metric moving in the flat JSON
+// view, in Graphite or in a `submit_metrics` callback.
+//
+// A label whose name or value is not a string is skipped rather than
+// stringified: guessing at what `{"port": 8080}` was meant to mean is how a
+// label value ends up spelled differently from one release to the next. An
+// empty value is skipped too, since `x=""` and an absent `x` are the same
+// series to a scraper, so emitting one would silently collide with a sample
+// that has it filled in.
+void set_metric_labels(PB::Metrics::Metric *metric, const py::dict &value, const std::string &key) {
+  if (!value.has_key("labels")) return;
+  const py::extract<py::dict> labelExtr(value["labels"]);
+  if (!labelExtr.check()) {
+    // A list of tuples or a bare string is the shape somebody reaches for
+    // first, and silently publishing the metric unlabelled leaves them
+    // reading a scrape that is missing the dimension with nothing to say why.
+    // Once per key, like the unknown-type path, rather than every ten seconds.
+    static std::set<std::string> reported;
+    if (reported.insert(key).second) {
+      NSC_LOG_ERROR("Ignoring the labels on '" + key + "': labels must be a dict of strings. Publishing the metric without them.");
+    }
+    return;
+  }
+  const py::dict labels = labelExtr;
+  const py::list names = labels.keys();
+  for (int i = 0; i < len(names); ++i) {
+    const py::extract<std::string> name(names[i]);
+    const py::extract<std::string> text(labels[names[i]]);
+    if (!name.check() || !text.check()) continue;
+    if (std::string(name).empty() || std::string(text).empty()) continue;
+    PB::Common::KeyValue *dim = metric->add_dims();
+    dim->set_key(name);
+    dim->set_value(text);
+  }
+}
+
+// Sets the metric's value from a Python scalar, typed as `type` says. Returns
+// false for a value that is neither a string nor a number, which is the one
+// case where there is nothing to report at all.
+bool set_metric_value(PB::Metrics::Metric *metric, const py::object &value, const std::string &type, const std::string &key) {
+  const py::extract<std::string> strExtr(value);
+  if (strExtr.check()) {
+    metric->mutable_string_value()->set_value(strExtr);
+    return true;
+  }
+  double number = 0;
+  const py::extract<int> intExtr(value);
+  if (intExtr.check()) {
+    number = intExtr;
+  } else {
+    const py::extract<double> dblExtr(value);
+    if (!dblExtr.check()) return false;
+    number = dblExtr;
+  }
+  if (type.empty() || type == "gauge") {
+    metric->mutable_gauge_value()->set_value(number);
+    return true;
+  }
+  if (type == "counter") {
+    metric->mutable_counter_value()->set_value(number);
+    return true;
+  }
+  if (type == "unknown" || type == "untyped") {
+    metric->mutable_untyped_value()->set_value(number);
+    return true;
+  }
+  // A typo here would otherwise be invisible: the metric would quietly be a
+  // gauge and the script author would never find out. Said once per key and
+  // spelling rather than on every snapshot, which is every ten seconds.
+  static std::set<std::string> reported;
+  if (reported.insert(key + "\x1f" + type).second) {
+    NSC_LOG_ERROR("Unknown metric type '" + type + "' for '" + key + "', expected gauge, counter or unknown. Reporting it as a gauge.");
+  }
+  metric->mutable_gauge_value()->set_value(number);
+  return true;
+}
+}  // namespace
+
 void script_wrapper::function_wrapper::fetch_metrics(std::string &request) const {
   PB::Metrics::MetricsMessage::Response payload;
   PB::Metrics::MetricsBundle *bundle = payload.add_bundles();
   bundle->set_key("");
 
   try {
+    // The list itself is registered from Python, so walk it under the GIL.
+    thread_locker locker;
     for (functions::function_list_type::value_type &v : functions::get()->fetch_metrics) {
-      thread_locker locker;
       try {
         py::object ret = py::call<py::object>(py::object(v).ptr());
 #if BOOST_VERSION > 104200
@@ -674,26 +831,35 @@ void script_wrapper::function_wrapper::fetch_metrics(std::string &request) const
 
           for (int i = 0; i < len(keys); ++i) {
             py::object curArg = dic[keys[i]];
-            if (curArg) {
-              PB::Metrics::Metric *value = bundle->add_value();
-              value->set_key(py::extract<std::string>(keys[i]));
+            if (!curArg) continue;
+            const std::string key = py::extract<std::string>(keys[i]);
 
-              py::extract<std::string> strExtr(dic[keys[i]]);
-              if (strExtr.check()) {
-                value->mutable_string_value()->set_value(strExtr);
-                continue;
-              }
-              py::extract<int> intExtr(dic[keys[i]]);
-              if (intExtr.check()) {
-                value->mutable_gauge_value()->set_value(intExtr);
-                continue;
-              }
-              py::extract<double> dblExtr(dic[keys[i]]);
-              if (dblExtr.check()) {
-                value->mutable_gauge_value()->set_value(dblExtr);
-                continue;
-              }
+            // A scalar is a gauge with no description, as it always was. A
+            // dict is the same value with the metadata a bare number cannot
+            // carry: {"value": 42, "help": "...", "unit": "bytes",
+            // "type": "counter", "labels": {"queue": "inbound"}}.
+            py::object scalar = curArg;
+            std::string help;
+            std::string unit;
+            std::string type;
+            PB::Metrics::Metric metric;
+            const py::extract<py::dict> dictExtr(curArg);
+            if (dictExtr.check()) {
+              const py::dict described = dictExtr;
+              if (!described.has_key("value")) continue;
+              scalar = described["value"];
+              help = metric_meta(described, "help");
+              unit = metric_meta(described, "unit");
+              type = metric_meta(described, "type");
+              set_metric_labels(&metric, described, key);
             }
+
+            metric.set_key(key);
+            if (!help.empty()) metric.set_desc(help);
+            if (!unit.empty()) metric.set_unit(unit);
+            // Only append once there is something to append: a metric with a
+            // key and no value is a line every consumer skips anyway.
+            if (set_metric_value(&metric, scalar, type, key)) bundle->add_value()->CopyFrom(metric);
           }
         }
       } catch (const py::error_already_set &) {
@@ -713,13 +879,19 @@ bool script_wrapper::function_wrapper::has_submit_metrics() { return true; }
 bool script_wrapper::function_wrapper::has_metrics_fetcher() { return true; }
 
 bool script_wrapper::function_wrapper::has_cmdline(const std::string command) {
+  // Same maps as the dispatch paths: read them under the GIL.
+  thread_locker locker;
   return functions::get()->normal_cmdline.find(command) != functions::get()->normal_cmdline.end();
 }
 bool script_wrapper::function_wrapper::has_simple_cmdline(const std::string command) {
+  // Same maps as the dispatch paths: read them under the GIL.
+  thread_locker locker;
   return functions::get()->simple_cmdline.find(command) != functions::get()->simple_cmdline.end();
 }
 
 std::string script_wrapper::function_wrapper::get_commands() {
+  // Same maps as the dispatch paths: read them under the GIL.
+  thread_locker locker;
   std::string str;
   for (const functions::function_map_type::value_type &i : functions::get()->normal_functions) {
     str::format::append_list(str, i.first, ", ");

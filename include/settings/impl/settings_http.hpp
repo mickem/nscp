@@ -37,6 +37,13 @@
 namespace settings {
 class settings_http : public settings::settings_interface_impl {
  private:
+  // Deadline for a single read or write while fetching the configuration. The
+  // scheduler's SETTINGS task drives this refresh, and every settings read in
+  // the process waits behind the instance it is refreshing, so a server that
+  // accepts the connection and then goes quiet must not be able to hold it
+  // open indefinitely.
+  static const unsigned int download_timeout_seconds = 30;
+
   std::string url_;
   boost::filesystem::path local_file_;
   net::url remote_url;
@@ -211,6 +218,53 @@ class settings_http : public settings::settings_interface_impl {
       }
     } guard{tmp_file};
 
+    // Plain http:// carries no authentication of the server at all, and this
+    // download *is* the agent's configuration: [/modules], external script
+    // definitions, the lot. Anyone on path, or anyone who can answer for the
+    // host name through DHCP or DNS, therefore owns every agent that boots
+    // against such a url - and it is re-fetched on every housekeeping pass, so
+    // one answered query is enough. Refuse by default. `[tls] allow plaintext
+    // = true` in boot.ini is the escape hatch for a lab or an air-gapped
+    // network, and it still logs on every fetch.
+    //
+    // This sits in cache_remote_file rather than at the settings-source entry
+    // point on purpose: the settings url, an [/includes] entry inside a fetched
+    // file, and an [/attachments] target all arrive here, and all three deliver
+    // the same thing.
+    //
+    // Anything that is not https counts, not just a literal "http": a url with
+    // no scheme at all parses to an empty protocol and is fetched over a plain
+    // socket just the same, and an [/attachments] value is not validated
+    // anywhere before it gets here.
+    if (url.protocol != "https") {
+      const std::string how = url.protocol.empty() ? "a url with no scheme, which is fetched over a plain socket" : "plain " + url.protocol;
+      if (!get_core()->get_allow_plaintext()) {
+        // Warning, not error, for the same reason the verify-mode advisories
+        // below are: the MSI's ImportConfig custom action boots the existing
+        // configuration through this very code path and treats any
+        // error-level message as a failed settings read, discarding the
+        // CONFIGURATION_TYPE the operator asked for. A host configured with a
+        // plain-http settings url would then fail configuration import on
+        // every upgrade, permanently - the refusal is a standing policy, not
+        // a transient fetch failure, so it would never clear.
+        //
+        // Skipping the fetch is not a failed read either: initial_load()
+        // carries on with the cached copy, so the agent boots with the
+        // configuration it already had. Loud in the log, not an outage.
+        get_logger()->warning("settings", __FILE__, __LINE__,
+                              "Refusing to fetch settings from " + url.to_log_safe_string() + " over " + how +
+                                  ": the transport does not authenticate the server, and this download is the agent's entire configuration "
+                                  "(including external script definitions, i.e. command execution). The previously cached configuration is "
+                                  "used instead. Use https://, or set 'allow plaintext = true' under [tls] in boot.ini if you accept that "
+                                  "anyone who can answer for this host controls this agent.");
+        return false;
+      }
+      get_logger()->warning("settings", __FILE__, __LINE__,
+                            "INSECURE: fetching settings from " + url.to_log_safe_string() + " over " + how +
+                                " because [tls] allow plaintext = true is set in boot.ini. The server is not authenticated: anyone on path "
+                                "controls this agent's entire configuration, including external script definitions.");
+    }
+
     std::ofstream os(tmp_file.string().c_str(), std::ofstream::binary);
 
     try {
@@ -278,7 +332,7 @@ class settings_http : public settings::settings_interface_impl {
       // being asked for, and a settings url that selects its configuration with
       // parameters is useless without it (issue #460).
       if (!http::simple_client::download(url.protocol, url.host, url.get_port_string(def_port), url.get_request_path(), tls_version, verify_mode, ca, os,
-                                         error, proxy)) {
+                                         error, proxy, download_timeout_seconds)) {
         os.close();
         get_logger()->error("settings", __FILE__, __LINE__, "Failed to download " + tmp_file.string() + ": " + error);
         if (boost::filesystem::is_regular_file(local_file)) {

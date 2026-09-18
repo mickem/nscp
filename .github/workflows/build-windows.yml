@@ -112,7 +112,7 @@ jobs:
     - name: Install components
       uses: ./.github/actions/update-msvc
 
-    - uses: ilammy/msvc-dev-cmd@v1
+    - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
       name: Setup msvc environment
       with:
         toolset: ${{ steps.setup.outputs.vs_toolset }}
@@ -125,9 +125,9 @@ jobs:
         mkdir tmp\installer_lib
       shell: cmd
 
-    - uses: shogo82148/actions-setup-perl@v1
+    - uses: shogo82148/actions-setup-perl@ac3202722f5744e62a8fa3af3e1aaaebb08861f3 # v1
       with:
-        perl-version: 'latest'
+        perl-version: '5.40'
         distribution: strawberry
 
     - name: setup python dependencies
@@ -195,7 +195,7 @@ jobs:
 
     - name: Build Boost (static)
       id: static_boost
-      uses: mickem/build-boost@v1
+      uses: mickem/build-boost@c11609010636c8b5b6e66c6848565252ad134323 # v1
       with:
         version: ${{ ENV.BOOST_VERSION }}
         libraries: system filesystem
@@ -207,7 +207,7 @@ jobs:
           
     - name: Build Boost (regular)
       id: boost
-      uses: mickem/build-boost@v1
+      uses: mickem/build-boost@c11609010636c8b5b6e66c6848565252ad134323 # v1
       with:
         version: ${{ ENV.BOOST_VERSION }}
         libraries: system filesystem thread regex date_time program_options python chrono json
@@ -228,11 +228,17 @@ jobs:
         echo "python_path=$path_unix" >> $env:GITHUB_OUTPUT
       shell: pwsh
 
-    - uses: DamianReeves/write-file-action@master
-      name: Write NSClient++ cmake config
-      with:
-        path: tmp/nscp/build.cmake
-        contents: |
+    # Written with a plain heredoc rather than a third-party file-writing
+    # action: this job later receives the code-signing credentials, so every
+    # action that runs in it is part of the trust boundary around them.
+    # The heredoc delimiter is quoted, so ${CMAKE_CURRENT_SOURCE_DIR} and
+    # friends stay literal for cmake; the ${{ }} expressions are substituted
+    # by Actions before the shell ever sees the script.
+    - name: Write NSClient++ cmake config
+      shell: bash
+      run: |
+        mkdir -p tmp/nscp
+        cat > tmp/nscp/build.cmake <<'BUILD_CMAKE'
             SET(USE_STATIC_RUNTIME FALSE)
             SET(LIBRARY_ROOT_FOLDER	"${{ env.GITHUB_WORKSPACE }}")
             SET(BOOST_ROOT "${{ steps.paths.outputs.boost_root }}")
@@ -252,6 +258,7 @@ jobs:
             set(MINIZ_INCLUDE_DIR "${{ steps.miniz.outputs.path_unix }}")
             set(MARIADB_ROOT_DIR "${{ steps.mariadb.outputs.path_unix }}")
             set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/tmp")
+        BUILD_CMAKE
 
     - name: Make python dist
       working-directory: tmp/nscp
@@ -262,13 +269,17 @@ jobs:
         & "$env:Python_ROOT_DIR\python" ..\..\build\python\mk_pyzip.py --source ${{ env.Python_ROOT_DIR }} --version python311
       shell: pwsh
 
+    # This binary is not built here - it is fetched and then shipped inside the
+    # signed MSI, so its digest has to be pinned in the repository like every
+    # other dependency. See .github/dependency-checksums.txt.
     - name: Download check_nsclient from mickem/check_nsclient
       shell: bash
       run: |
         ver=$(cat .check_nsclient_version | tr -d '[:space:]')
         url="https://github.com/mickem/check_nsclient/releases/download/${ver}/check_nsclient-${ver}-windows-${{ inputs.architecture }}.exe"
         echo "Fetching $url"
-        curl -sSfL -o tmp/check_nsclient.exe "$url"
+        curl -sSfL --retry 8 --retry-delay 15 --retry-max-time 300 -o tmp/check_nsclient.exe "$url"
+        .github/scripts/verify-checksum.sh "check_nsclient-${{ inputs.architecture }}" "${ver}" tmp/check_nsclient.exe
 
     - name: CMake (installer_lib)
       working-directory: tmp/installer_lib

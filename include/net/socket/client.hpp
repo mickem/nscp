@@ -78,11 +78,21 @@ class connection : public std::enable_shared_from_this<connection<protocol_type>
       return resolve_ec;
     }
 
-    boost::system::error_code error = boost::asio::error::host_not_found;
-    for (auto it = endpoints.begin(); error && it != endpoints.end(); ++it) {
-      get_socket().close();
-      get_socket().lowest_layer().connect(it->endpoint(), error);
+    // Asynchronous under the connection's timeout: a blocking connect ignores
+    // it entirely, so a peer that accepts and then says nothing, or an address
+    // that black-holes the SYN, wedged whichever thread was submitting - a
+    // scheduler worker, or the thread running a check - for as long as the
+    // operating system took to give up.
+    boost::optional<boost::system::error_code> connect_result;
+    get_socket().close();
+    auto self(this->shared_from_this());
+    boost::asio::async_connect(get_socket().lowest_layer(), endpoints,
+                               [self, &connect_result](const boost::system::error_code &e, const auto &) { connect_result = e; });
+    if (!run_until(connect_result)) {
+      trace("Timed out connecting to: " + host + ":" + port);
+      return boost::asio::error::make_error_code(boost::asio::error::timed_out);
     }
+    const boost::system::error_code error = connect_result.value();
     if (error) {
       trace("Failed to connect to: " + host + ":" + port);
       return error;
@@ -168,6 +178,28 @@ class connection : public std::enable_shared_from_this<connection<protocol_type>
       handler_->log_error(__FILE__, __LINE__, "Failed to send data: " + utf8::utf8_from_native(e.message()));
       cancel_timer();
     }
+  }
+
+  // Runs one asynchronous operation until it completes or the connection's
+  // timeout expires, and leaves nothing pending either way: on a timeout the
+  // socket is closed and the aborted completion drained, so the handler cannot
+  // fire later against a caller that has already returned.
+  bool run_until(boost::optional<boost::system::error_code> &result) {
+    start_timer();
+    io_service_.restart();
+    while (!result && !timer_result_ && io_service_.run_one()) {
+    }
+    if (result) {
+      cancel_timer();
+      return true;
+    }
+    close_socket();
+    timer_result_.reset();
+    io_service_.restart();
+    while (!result && io_service_.run_one()) {
+    }
+    cancel_timer();
+    return false;
   }
 
   virtual bool wait() {
@@ -284,7 +316,18 @@ class ssl_connection : public connection<protocol_type> {
           return boost::asio::error::make_error_code(boost::asio::error::operation_aborted);
         }
       }
-      ssl_socket_.handshake(boost::asio::ssl::stream_base::client, error);
+      // Under the connection's timeout, like the connect above: a blocking
+      // handshake let a peer that completed the TCP connect and then never
+      // answered the ClientHello hold the submitting thread for good.
+      boost::optional<boost::system::error_code> handshake_result;
+      auto self(this->shared_from_this());
+      ssl_socket_.async_handshake(boost::asio::ssl::stream_base::client,
+                                  [self, &handshake_result](const boost::system::error_code &e) { handshake_result = e; });
+      if (!this->run_until(handshake_result)) {
+        this->log_error(__FILE__, __LINE__, "SSL handshake timed out");
+        return boost::asio::error::make_error_code(boost::asio::error::timed_out);
+      }
+      error = handshake_result.value();
       if (error) {
         this->log_error(__FILE__, __LINE__, "SSL handshake failed: " + utf8::utf8_from_native(error.message()));
       }

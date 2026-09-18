@@ -1,0 +1,184 @@
+cmake_minimum_required(VERSION 3.10)
+
+set(TARGET GearmanClient)
+
+project(${TARGET})
+
+CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+
+set(SRCS
+    ${SRCS}
+    "${TARGET}.cpp"
+    gearman_protocol.cpp
+    gearman_crypt.cpp
+    gearman_job.cpp
+    gearman_connection.cpp
+    gearman_worker.cpp
+    ${NSCP_INCLUDEDIR}/bytes/base64.c
+    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+    ${NSCP_DEF_PLUGIN_CPP}
+    ${NSCP_CLIENT_CPP}
+)
+
+add_definitions(${NSCP_GLOBAL_DEFINES})
+
+# module.cmake skips the whole module without OpenSSL: the payload envelope is
+# AES from the EVP API, so there is no unencrypted mode worth building.
+add_definitions(-DUSE_SSL)
+set(EXTRA_LIBS ${EXTRA_LIBS} ${OPENSSL_LIBRARIES})
+if(WIN32)
+    # libcrypto's BIO layer calls into winsock (BIO_sock_init, BIO_lookup and
+    # the socket BIOs), so anything linking the static libcrypto needs ws2_32
+    # as well. The module and the worker test pull it in through Boost.Asio's
+    # auto-link pragma; the crypt and job tests never touch a socket and would
+    # otherwise fail with 30 unresolved externals out of libcrypto.
+    set(EXTRA_LIBS ${EXTRA_LIBS} CRYPT32 ws2_32)
+endif(WIN32)
+include_directories(${OPENSSL_INCLUDE_DIR})
+
+if(WIN32)
+    set(SRCS
+        ${SRCS}
+        "${TARGET}.h"
+        gearman_protocol.hpp
+        gearman_crypt.hpp
+        gearman_job.hpp
+        gearman_connection.hpp
+        gearman_worker.hpp
+        gearman_client.hpp
+        gearman_handler.hpp
+        ${NSCP_INCLUDEDIR}/bytes/base64.h
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
+        ${NSCP_DEF_PLUGIN_HPP}
+        ${NSCP_CLIENT_HPP}
+    )
+endif(WIN32)
+
+add_library(${TARGET} MODULE ${SRCS})
+NSCP_DEBUG_SYMBOLS(${TARGET})
+
+target_link_libraries(
+    ${TARGET}
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${NSCP_DEF_PLUGIN_LIB}
+    ${EXTRA_LIBS}
+)
+OPENSSL_LINK_FIX(${TARGET})
+include(${BUILD_CMAKE_FOLDER}/module.cmake)
+
+# The payloads captured from the real cores. The crypto and text-format tests
+# assert against them byte for byte, so they need the directory at build time.
+set(GEARMAN_FIXTURES "${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
+
+# The gearman binary protocol on its own: encoding, decoding, and the bounds
+# that keep a stream that is not gearmand from being followed anywhere.
+NSCP_CREATE_TEST(
+    gearman_protocol_test
+    SOURCES
+        gearman_protocol_test.cpp
+        gearman_protocol.cpp
+    LIBRARIES
+        GTest::gtest_main
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+# The AES envelope, against payloads produced by ConSol's mod_gearman and by
+# the nagios-mod-gearman fork.
+NSCP_CREATE_TEST(
+    gearman_crypt_test
+    SOURCES
+        gearman_crypt_test.cpp
+        gearman_crypt.cpp
+        ${NSCP_INCLUDEDIR}/bytes/base64.c
+    LIBRARIES
+        GTest::gtest_main
+        ${EXTRA_LIBS}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${OPENSSL_INCLUDE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+# The job and result text formats, round-tripped through the same fixtures.
+NSCP_CREATE_TEST(
+    gearman_job_test
+    SOURCES
+        gearman_job_test.cpp
+        gearman_job.cpp
+        gearman_crypt.cpp
+        ${NSCP_INCLUDEDIR}/bytes/base64.c
+    LIBRARIES
+        GTest::gtest_main
+        ${EXTRA_LIBS}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${OPENSSL_INCLUDE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+# The worker loop, driven against an in-process fake gearmand over a real
+# socket on the loopback interface. No core, no gearmand, no check: the
+# executor and the logger are stubs, which is the whole point of them being
+# interfaces.
+NSCP_CREATE_TEST(
+    gearman_worker_test
+    SOURCES
+        gearman_worker_test.cpp
+        gearman_worker.cpp
+        gearman_connection.cpp
+        gearman_protocol.cpp
+        gearman_crypt.cpp
+        gearman_job.cpp
+        ${NSCP_INCLUDEDIR}/bytes/base64.c
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+        ${EXTRA_LIBS}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${OPENSSL_INCLUDE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+if(NSCP_BUILD_TESTS)
+    target_compile_definitions(gearman_crypt_test PRIVATE GEARMAN_FIXTURE_DIR="${GEARMAN_FIXTURES}")
+    target_compile_definitions(gearman_job_test PRIVATE GEARMAN_FIXTURE_DIR="${GEARMAN_FIXTURES}")
+endif()
+
+# The plugin shell around the two halves: the settings each registers, the
+# channel the submit half listens on, and that a worker section which is
+# absent or unusable does not take that channel down with it. The wire
+# formats and the worker loop have their own tests above.
+NSCP_CREATE_TEST(
+    gearman_module_test
+    SOURCES
+        gearman_module_test.cpp
+        "${TARGET}.cpp"
+        gearman_protocol.cpp
+        gearman_crypt.cpp
+        gearman_job.cpp
+        gearman_connection.cpp
+        gearman_worker.cpp
+        ${NSCP_INCLUDEDIR}/bytes/base64.c
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+        ${NSCP_DEF_PLUGIN_CPP}
+        ${NSCP_CLIENT_CPP}
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+        ${EXTRA_LIBS}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${OPENSSL_INCLUDE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)

@@ -39,7 +39,7 @@ std::string process_record::get_last_seen_s() const {
 
 typedef process_record filter_obj;
 
-typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj>> native_context;
 struct filter_obj_handler : public native_context {
   filter_obj_handler();
 };
@@ -171,14 +171,18 @@ void build_process_history_metrics(PB::Metrics::MetricsBundle *parent, const his
 
   PB::Metrics::MetricsBundle *bundle = parent->add_children();
   bundle->set_key("process_history");
+  describe(bundle, "Which processes the collector has seen since the agent started");
   long long running = 0;
   for (const process_record &rec : data) {
-    add_metric(bundle, rec.exe + ".times_seen", rec.times_seen);
-    add_metric(bundle, rec.exe + ".currently_running", rec.get_currently_running_i());
+    const instance_scope proc = for_instance(bundle, rec.exe, "exe");
+    // Only ever grows while the agent runs, so a scraper may rate() it to see
+    // how often a process is being restarted.
+    proc.metric("times_seen").help("Collector samples this process was found in").counter(rec.times_seen);
+    proc.metric("currently_running").help("Whether the process is running right now").gauge(rec.get_currently_running_i());
     if (rec.currently_running) ++running;
   }
-  add_metric(bundle, "count", static_cast<long long>(data.size()));
-  add_metric(bundle, "running", running);
+  metric(bundle, "count").help("Distinct processes seen since the agent started").gauge(static_cast<long long>(data.size()));
+  metric(bundle, "running").help("Of those, the ones running right now").gauge(running);
 }
 
 }  // namespace process_history_check

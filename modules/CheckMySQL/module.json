@@ -4,7 +4,8 @@
 		"description"		: "Check MySQL, MariaDB, Percona and other MySQL-compatible servers: connectivity, health and custom queries.",
 		"name"			: "CheckMySQL",
 		"alias"			: "mysql",
-		"version"		: "auto"
+		"version"		: "auto",
+		"experimental"	: true
 	},
 
 	"commands" : {

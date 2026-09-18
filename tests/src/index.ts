@@ -8,4 +8,7 @@ export * from "./rest-fixture";
 export * from "./queries";
 export * from "./eventlog";
 export * from "./fleet";
+export * from "./fleet-server";
 export * from "./live-target";
+export * from "./gearman";
+export * from "./module-manifests";

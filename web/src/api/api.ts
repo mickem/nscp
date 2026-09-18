@@ -110,6 +110,8 @@ export interface ModuleListItem {
   description: string;
   enabled: boolean;
   loaded: boolean;
+  /** The module declared itself experimental: usable, but still moving. */
+  experimental: boolean;
   metadata: {
     alias: string;
     plugin_id: string;
@@ -126,6 +128,8 @@ interface Module {
   enabled: boolean;
   description: string;
   loaded: boolean;
+  /** The module declared itself experimental: usable, but still moving. */
+  experimental: boolean;
   metadata: {
     alias: string;
     plugin_id: string;
@@ -141,6 +145,8 @@ interface QueryListItem {
   title: string;
   plugin: string;
   description: string;
+  /** The command declared itself experimental: usable, but still moving. */
+  experimental: boolean;
   query_url: string;
 }
 
@@ -149,6 +155,8 @@ export interface AliasListItem {
   title: string;
   plugin: string;
   description: string;
+  /** Inherited from the command the alias stands for. */
+  experimental: boolean;
   alias_url: string;
 }
 
@@ -157,8 +165,49 @@ interface Query {
   title: string;
   plugin: string;
   description: string;
+  /** The command declared itself experimental: usable, but still moving. */
+  experimental: boolean;
   execute_nagios_url: string;
   execute_url: string;
+}
+
+/**
+ * One option a query accepts, as the module described it to the registry.
+ * `default_value` is the value the check uses when the option is left out;
+ * `content_type` is "bool" for a flag and "string" for everything else.
+ */
+export interface QueryParameterHelp {
+  name: string;
+  default_value: string;
+  required: boolean;
+  repeatable: boolean;
+  content_type: string;
+  short_description: string;
+  long_description: string;
+}
+
+/**
+ * One filter keyword a query offers. The name carries a trailing "()" when the
+ * keyword is a filter function rather than a variable - that suffix is how the
+ * registry spells the difference, and it is passed on verbatim so the client
+ * can split them the same way the interactive console does.
+ */
+export interface QueryFieldHelp {
+  name: string;
+  short_description: string;
+  long_description: string;
+}
+
+/** Everything the agent knows about how to call one query. */
+export interface QueryHelp {
+  name: string;
+  /**
+   * The command the filter keywords belong to. Differs from `name` only for an
+   * alias, which declares none of its own and borrows the target's.
+   */
+  keyword_source: string;
+  parameters: QueryParameterHelp[];
+  fields: QueryFieldHelp[];
 }
 
 export interface ExecuteQueryArgs {
@@ -459,6 +508,12 @@ export const nsclientApi = createApi({
       }),
       providesTags: (_result, _error, id) => [{ type: "Query", id }],
     }),
+    getQueryHelp: builder.query<QueryHelp, string>({
+      query: (id) => ({
+        url: `/v2/queries/${id}/help`,
+      }),
+      providesTags: (_result, _error, id) => [{ type: "Query", id }],
+    }),
     executeQuery: builder.mutation<QueryExecutionResult, ExecuteQueryArgs>({
       query: ({ query, args }) => ({
         url: `/v2/queries/${query}/commands/execute?${encodeArgs(args)}`,
@@ -574,6 +629,20 @@ export const nsclientApi = createApi({
         },
       }),
     }),
+    // Revoking the session token server-side is the other half of logging
+    // out: without it the bearer stays valid for its full eight hours, so a
+    // token captured from a shared machine, a browser profile backup or a
+    // proxy log keeps full access long after the admin pressed "log out".
+    // Errors are not surfaced - the client-side state is cleared either way,
+    // and a token the server has already forgotten (or a server that is gone)
+    // must not leave the UI logged in.
+    logout: builder.mutation<void, void>({
+      query: () => ({
+        url: "/v2/login",
+        method: "DELETE",
+        responseHandler: async () => undefined,
+      }),
+    }),
     getMetrics: builder.query<Metrics, void>({
       query: () => ({
         url: "/v2/metrics",
@@ -646,6 +715,7 @@ export const {
   useGetQueriesQuery,
   useGetAliasesQuery,
   useGetQueryQuery,
+  useGetQueryHelpQuery,
   useExecuteQueryMutation,
   useExecuteNagiosQueryMutation,
   useGetScriptsQuery,
@@ -663,6 +733,7 @@ export const {
   useGetLogStatusQuery,
   useResetLogStatusMutation,
   useLoginMutation,
+  useLogoutMutation,
   useGetMetricsQuery,
   useGetCounterMetadataQuery,
   useGetChannelMetadataQuery,

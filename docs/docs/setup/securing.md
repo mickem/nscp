@@ -85,6 +85,76 @@ If you want to verify a target before relying on it, submit a synthetic passive 
 $ nscp nrdp --module submit --target default --host myhost --command check_ok --message "test"
 ```
 
+## Mod-Gearman
+
+Mod-Gearman is a **pull** protocol: the agent connects out to a `gearmand` job
+server, registers on a queue and runs whatever checks the monitoring core put
+there. Nothing listens on the monitored host, which is the security win. What
+you get in exchange is a shared-secret model with some sharp edges, because
+the protocol has no better one to offer:
+
+> `gearmand` has no authentication, and the payload envelope is AES-256 in
+> **ECB** mode with the password used directly as the key. It hides content.
+> It does **not** authenticate the sender and it does **not** prevent replay.
+> **Anyone holding the key can queue jobs onto a queue a worker listens on,
+> and can forge results for any host the core monitors.**
+
+That is the protocol's design (it is the same for mod_gearman's own workers),
+and this module cannot fix it — only contain it. The containment:
+
+1. **Never run without a key.** The agent refuses to start with
+   `encryption = true` (the default) and no `key`. Turning encryption off
+   additionally requires `insecure = true`, and logs a warning on every start.
+   Use `key file` to keep the secret out of `nsclient.ini`, and restrict that
+   file to the account the agent runs as — on Linux the module warns when it
+   is group- or world-readable; on Windows, set the ACL yourself.
+2. **Register the fewest queues.** Only `hostgroups` / `servicegroups` are
+   registered by default. `allow shared queues` adds the generic `host` and
+   `service` queues, which carry every check in the installation — leave it
+   off.
+3. **Prefer agent mode where it fits.** In `mode = agent` a job naming any
+   other host is answered UNKNOWN rather than executed, so a leaked key buys
+   an attacker only this host's own command surface.
+4. **Treat a proxy as a privileged host.** In `mode = proxy` a job can drive
+   the proxy's `NRPEClient`, `NSCPClient` and `CheckWMI` at any host those can
+   reach, using any credentials stored in the proxy's configuration. Give each
+   proxy queue its own key, scope those credentials to monitoring, and put the
+   proxy and `gearmand` on a network you control.
+5. **Expire replays.** Set `max age` to a little more than the check interval.
+   A job older than that is answered UNKNOWN instead of run, which both
+   discards a replayed job and stops a post-outage backlog from being executed
+   late.
+6. **Cap the command surface.** A job can only invoke commands the agent
+   already exposes, and the `allow arguments` / `allow nasty characters`
+   guards are NRPEServer's. There is no shell fallback. Use the
+   [permission policy](#permission-policy) to restrict `GearmanClient` to the
+   exact commands the core actually schedules.
+
+A minimal hardened worker:
+
+```ini
+[/modules]
+GearmanClient = enabled
+
+[/settings/gearman/worker]
+server     = gearmand.example.com:4730
+; Keep the secret out of the config file; lock the file to the service account.
+key file   = ${shared-path}/gearman.key
+hostgroups = win-srv01
+; Agent mode is the default: refuse a job that names another host.
+mode       = agent
+; A little over the check interval, so a replayed or stale job is not run.
+max age    = 600
+```
+
+The passive channel (`/settings/gearman/client`) uses the same key and the
+same reasoning — a forged result is a forged alert. It refuses to submit
+encrypted without a key, and refuses `encryption = false` unless the target
+also sets `insecure = true`.
+
+For the full setup on either core see
+[Mod-Gearman](../scenarios/mod-gearman.md).
+
 ## Http/Https/WebServer
 
 The WEB module exposes the REST API and the web UI over HTTP or HTTPS on port `8443` by default. In any production
@@ -169,7 +239,7 @@ Options:
     * `client` — adds query listing; needed for the legacy `check_nscp_api` integration.
     * `full` — admin (settings, modules, scripts). Avoid for monitoring callers.
     * `legacy` — `legacy,login.get`. **Dangerous — do not use for normal clients.** It unlocks the deprecated
-      `POST /query.pb` and `GET /query/{name}` endpoints, which dispatch through the same command registry as the
+      `GET /query/{name}` endpoint, which dispatches through the same command registry as the
       versioned query API. A `legacy`-only token can therefore run **any** registered check or command — including any
       configured `CheckExternalScripts` command, which can amount to arbitrary command execution — even though it lacks
       `queries.execute`. The danger is the **`legacy` grant token itself**, not the role name: any role whose grant
@@ -829,3 +899,6 @@ If two-way TLS is not yet in place, the compensating controls are:
 | CheckDisk `file access`                         | `any`         | `predefined` (or `allowed`) wherever callers may pass arguments          |
 | `check_registry_*` `registry access`            | `any`         | `predefined` (or `allowed`) wherever callers may pass arguments          |
 | `check_eventlog` `log access`                   | `any`         | `predefined` (or `allowed`) wherever callers may pass arguments          |
+| `GearmanClient` `encryption` / `key`            | on / empty    | always set a key; never `encryption = false` outside a lab               |
+| `GearmanClient` `mode`                          | `agent`       | keep `agent` unless a proxy is needed; treat a proxy as a privileged host |
+| `GearmanClient` `allow shared queues`           | `false`       | leave `false` — the generic queues carry every host's checks             |

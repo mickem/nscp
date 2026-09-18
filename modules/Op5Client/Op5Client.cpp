@@ -6,6 +6,7 @@
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/asio.hpp>
 #include <boost/json.hpp>
+#include <net/http/client.hpp>
 #include <net/socket/socket_helpers.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -128,6 +129,21 @@ bool Op5Client::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
     nscapi::core_helper core(get_core(), get_id());
     core.register_channel(channel_);
+
+    // An https call whose `verify mode` carries no peer-verifying token sends
+    // the configured Op5 credentials to whichever server answers. Say so, as
+    // the Icinga and NRDP clients already do for their targets. Once per load
+    // rather than per call: this is an observation about the configuration,
+    // and the background thread calls the API continuously.
+    if (!config.url.empty() && !config.username.empty()) {
+      const http::parsed_url parsed = http::parse_url(config.url);
+      if (parsed.protocol == "https" && socket_helpers::client_verify_mode_disables_verification(config.verify_mode)) {
+        NSC_LOG_MESSAGE("TLS certificate verification is disabled for " + parsed.host +
+                        " (verify mode: " + (config.verify_mode.empty() ? "<not set>" : config.verify_mode) +
+                        "): the Op5 credentials are sent to whichever server answers. Set verify mode = peer, or peer-cert with ca pointing at the "
+                        "self-signed certificate, unless this is intentional.");
+      }
+    }
 
     config.hostname = socket_helpers::expand_hostname(config.hostname);
 

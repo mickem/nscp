@@ -10,16 +10,23 @@ void metrics_handler::set(const std::string &metrics) {
   if (!lock.owns_lock()) return;
   metrics_ = metrics;
 }
-void metrics_handler::set_list(const std::string &metrics) {
+void metrics_handler::set_list(const std::string &metrics, const std::string &metadata) {
   boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!lock.owns_lock()) return;
+  // Latched together: `?meta=1` joins them into one document, and a scrape
+  // must never see the values from this snapshot beside the metadata of the
+  // last one.
   metrics_list_ = metrics;
+  metrics_metadata_ = metadata;
 }
 
-void metrics_handler::set_openmetrics(std::list<std::string> &metrics) {
+void metrics_handler::set_openmetrics(const std::string &openmetrics, const std::string &prometheus_text) {
   boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!lock.owns_lock()) return;
-  open_metrics_ = metrics;
+  // Latched together: a scrape must never be able to see one body from this
+  // snapshot and the other from the previous one.
+  open_metrics_ = openmetrics;
+  prometheus_text_ = prometheus_text;
 }
 
 std::string metrics_handler::get() {
@@ -34,8 +41,24 @@ std::string metrics_handler::get_list() {
   return metrics_list_;
 }
 
-std::list<std::string> metrics_handler::get_openmetrics() {
+std::string metrics_handler::get_described() {
   boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-  if (!lock.owns_lock()) return std::list<std::string>();
+  if (!lock.owns_lock()) return "";
+  // Both halves are serialized JSON documents, so joining them is textual. An
+  // empty half means nothing has been written yet - the same empty body every
+  // other reader gets before the first snapshot, rather than `{"metrics":,}`.
+  if (metrics_list_.empty() || metrics_metadata_.empty()) return "";
+  return "{\"metrics\":" + metrics_list_ + ",\"metadata\":" + metrics_metadata_ + "}";
+}
+
+std::string metrics_handler::get_openmetrics() {
+  boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+  if (!lock.owns_lock()) return "";
   return open_metrics_;
+}
+
+std::string metrics_handler::get_prometheus_text() {
+  boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+  if (!lock.owns_lock()) return "";
+  return prometheus_text_;
 }

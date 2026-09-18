@@ -28,6 +28,8 @@ struct counter_config_object : public nscapi::settings_objects::object_instance_
   std::string type;
   std::string flags;
   std::string resolution;
+  std::string help;
+  std::string unit;
 
   counter_config_object(std::string alias, std::string path)
       : parent(alias, path), collection_strategy("static"), instances("auto"), type("double"), resolution("auto") {}
@@ -80,7 +82,7 @@ struct check {
 
   check() : counter_access_("counter", "counters", "/settings/system/windows") {}
 
-  void check_pdh(std::shared_ptr<pdh_thread> &collector, const PB::Commands::QueryRequestMessage::Request &request,
+  void check_pdh(const std::shared_ptr<pdh_thread> &collector, const PB::Commands::QueryRequestMessage::Request &request,
                  PB::Commands::QueryResponseMessage::Response *response);
   void add_counter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
   void add_rrd_counter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);

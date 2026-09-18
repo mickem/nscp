@@ -173,15 +173,26 @@ struct collectd_client_handler : public client::handler_interface {
     }
     for (const PB::Metrics::Metric &v : b.value()) {
       if (v.has_gauge_value()) {
-        builder.set_metric(mypath + "." + v.key(), str::xtos(v.gauge_value().value()));
+        builder.set_metric(mypath + "." + v.key(), str::xtos(v.gauge_value().value()), false);
       } else if (v.has_counter_value()) {
-        builder.set_metric(mypath + "." + v.key(), str::xtos(v.counter_value().value()));
+        // The producer says this one only grows, which is collectd's DERIVE.
+        // A mapping that spells `auto:` picks that up; one that spells
+        // `gauge:` or `derive:` keeps saying what it always said.
+        builder.set_metric(mypath + "." + v.key(), str::xtos(v.counter_value().value()), true);
       } else if (v.has_untyped_value()) {
-        builder.set_metric(mypath + "." + v.key(), str::xtos(v.untyped_value().value()));
+        builder.set_metric(mypath + "." + v.key(), str::xtos(v.untyped_value().value()), false);
       } else if (v.has_string_value()) {
-        builder.set_metric(mypath + "." + v.key(), v.string_value().value());
+        builder.set_metric(mypath + "." + v.key(), v.string_value().value(), false);
       } else {
         NSC_LOG_ERROR_EX("Unsupported metrics type for: " + mypath + "." + v.key());
+        continue;
+      }
+      // The dimensions the metric carries, for a `label:` variable to expand
+      // from. Collected for every metric, not only the ones a mapping names:
+      // the variables are expanded before the metric templates that reference
+      // them, so a label has to be known by the time the first one is read.
+      for (const PB::Common::KeyValue &dim : v.dims()) {
+        builder.add_label(dim.key(), dim.value());
       }
     }
   }

@@ -60,6 +60,7 @@ void alias_controller::get_aliases(Mongoose::Request &request, boost::smatch & /
       }
       node["metadata"] = keys;
       node["description"] = i.info().description();
+      node["experimental"] = i.info().experimental();
       root.push_back(node);
     }
   }

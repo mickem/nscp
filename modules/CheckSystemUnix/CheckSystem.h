@@ -11,6 +11,12 @@
 #include "realtime_thread.hpp"
 
 class CheckSystem : public nscapi::impl::simple_plugin {
+  // A reload replaces the collector while checks are running: the core calls
+  // loadModuleEx(reloadStart) on the live module without waiting for the
+  // threads that are inside handleCommand. Publishing the pointer atomically
+  // and taking a copy in every check keeps the old instance alive until the
+  // last check that observed it returns, instead of freeing its buffers under
+  // a check that is reading them.
   std::shared_ptr<pdh_thread> collector_;
 
   // Configured timezone for `check_uptime`, cached in loadModuleEx (issue #365).
@@ -48,6 +54,7 @@ class CheckSystem : public nscapi::impl::simple_plugin {
   void check_process_history(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   void check_process_history_new(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 
-  // Accessor for the collector thread (used by check_cpu)
-  std::shared_ptr<pdh_thread> get_collector() { return collector_; }
+  // The collector as the check threads must read it. Never copy the member
+  // directly from a check: a reload can replace it while the copy is taken.
+  std::shared_ptr<pdh_thread> get_collector() const { return std::atomic_load(&collector_); }
 };

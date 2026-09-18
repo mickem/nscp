@@ -23,6 +23,7 @@ import { RefreshButton } from "../components/atoms/RefreshButton.tsx";
 import { useAppDispatch } from "../store/store.ts";
 import Trail from "../components/atoms/Trail.tsx";
 import FilterField from "../components/atoms/FilterField.tsx";
+import ExperimentalChip from "../components/atoms/ExperimentalChip.tsx";
 import { useMemo, useState } from "react";
 
 type SortKey = "name" | "plugin" | "description";
@@ -33,6 +34,7 @@ interface Row {
   name: string;
   plugin: string;
   description: string;
+  experimental: boolean;
 }
 
 export default function Queries() {
@@ -79,7 +81,9 @@ export default function Queries() {
     const visible = queries.filter((q) => !isLegacyCheckAlias(q.name));
     const matched = needle
       ? visible.filter((q) =>
-          [q.name, q.plugin, q.description].some((f) =>
+          // "experimental" matches as if it were a word in the row, so the
+          // filter field doubles as a way to list what is still moving.
+          [q.name, q.plugin, q.description, q.experimental ? "experimental" : ""].some((f) =>
             (f ?? "").toLowerCase().includes(needle),
           ),
         )
@@ -92,7 +96,7 @@ export default function Queries() {
     const visible: AliasListItem[] = aliases.filter((a) => !isLegacyCheckAlias(a.name));
     const matched = needle
       ? visible.filter((a) =>
-          [a.name, a.plugin, a.description].some((f) =>
+          [a.name, a.plugin, a.description, a.experimental ? "experimental" : ""].some((f) =>
             (f ?? "").toLowerCase().includes(needle),
           ),
         )
@@ -167,7 +171,12 @@ export default function Queries() {
             onClick={() => navigate(`/queries/${row.name}`)}
             sx={{ cursor: "pointer" }}
           >
-            <TableCell sx={{ fontFamily: "monospace" }}>{row.name}</TableCell>
+            <TableCell sx={{ fontFamily: "monospace" }}>
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                <span>{row.name}</span>
+                {row.experimental && <ExperimentalChip dense />}
+              </Stack>
+            </TableCell>
             <TableCell>
               <Typography variant="body2" color="text.secondary">
                 {row.plugin}

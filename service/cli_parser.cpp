@@ -195,6 +195,7 @@ cli_parser::alias_map cli_parser::get_aliases() {
   aliases["nrdp"] = "NRDPClient";
   aliases["nsca-ng"] = "NSCANgClient";
   aliases["icinga"] = "IcingaClient";
+  aliases["gearman"] = "GearmanClient";
   aliases["graphite"] = "GraphiteClient";
   aliases["eventlog"] = "CheckEventLog";
   aliases["python"] = "PythonScript";

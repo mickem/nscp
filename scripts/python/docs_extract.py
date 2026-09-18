@@ -38,7 +38,7 @@ CHECK_MODULES = ['CheckSystem', 'CheckExternalScripts', 'CheckDisk', 'CheckHelpe
 CLIENT_MODULES = ['GraphiteClient', 'IcingaClient', 'NRDPClient', 'NRPEClient', 'NRPEServer',
                   'NSCAClient', 'NSCANgClient', 'NSCAServer', 'NSClientServer', 'SMTPClient',
                   'SyslogClient', 'CollectdClient', 'Op5Client', 'CheckNSCP', 'ElasticClient', 'NSCPClient',
-                  'CheckMKClient', 'CheckMKServer']
+                  'CheckMKClient', 'CheckMKServer', 'GearmanClient']
 GENERIC_MODULES = ['CommandClient', 'DotnetPlugins', 'LUAScript', 'PythonScript', 'Scheduler',
                    'SimpleCache', 'SimpleFileWriter', 'WEBServer']
 IGNORED_MODULES = ['CauseCrashes', 'SamplePluginSimple']
@@ -268,6 +268,10 @@ def match_option_marker(long_description):
 
 def ser_command(cinfo, unexpand, commons):
     d = {'info': {'description': cinfo.info.description}}
+    # Only stored when set, so the YAML of the (many) stable commands does not
+    # grow a "experimental: false" line each.
+    if cinfo.info.experimental:
+        d['info']['experimental'] = True
     params = []
     common_options = {}
     for p in cinfo.parameters.parameter:
@@ -339,6 +343,8 @@ def serialize_module(root, module, minfo, unexpand, commons):
             'description': minfo.info.description,
         },
     }
+    if minfo.info.experimental:
+        slice['info']['experimental'] = True
     queries = {}
     for (c, cinfo) in sorted(root.commands.items()):
         if cinfo.info.description.startswith('Legacy version of'):
@@ -352,6 +358,9 @@ def serialize_module(root, module, minfo, unexpand, commons):
     for (c, cinfo) in sorted(root.aliases.items()):
         if module in cinfo.info.plugin:
             aliases[c] = {'description': cinfo.info.description}
+            # An alias is as experimental as the command it stands for.
+            if cinfo.info.experimental:
+                aliases[c]['experimental'] = True
     if aliases:
         slice['aliases'] = aliases
 

@@ -24,7 +24,7 @@
  */
 namespace Mongoose {
 
-class NSCAPI_EXPORT ServerMongooseImpl final : public Server {
+class NSCP_MONGOOSE_EXPORT ServerMongooseImpl final : public Server {
  public:
   /**
    * Constructs the server

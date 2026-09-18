@@ -53,7 +53,6 @@ set(service_SRCS
     ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.cpp
     ${NSCP_INCLUDEDIR}/nsclient/logger/log_message_factory.cpp
     ${NSCP_INCLUDEDIR}/pid_file.cpp
-    ${NSCP_INCLUDEDIR}/json/use_json.cpp
     ${NSCP_INCLUDEDIR}/nscp/layout_migration.cpp
     ../resources/nsclient.ico
 )
@@ -212,6 +211,8 @@ target_link_libraries(
     settings_manager
     expression_parser
     nscp_miniz
+    nscp_json
+    nscp_net
 )
 
 source_group("NSCP API" REGULAR_EXPRESSION .*include/nscapi/.*)
@@ -234,10 +235,10 @@ NSCP_CREATE_TEST(
         permissions.hpp
         tag_repository_test.cpp
         tag_repository.hpp
-        ${NSCP_INCLUDEDIR}/json/use_json.cpp
         ../include/parsers/cron/cron_parser.hpp
         ${NSCP_INCLUDEDIR}/win/shellapi.cpp
     LIBRARIES
+        nscp_json
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}
         ${EXTRA_LIBS}
@@ -294,7 +295,6 @@ NSCP_CREATE_TEST(
         settings_query_handler.cpp
         settings_query_handler_test.cpp
         plugins/plugin_cache.cpp
-        ${NSCP_INCLUDEDIR}/json/use_json.cpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_query.cpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_response.cpp
         ${NSCP_INCLUDEDIR}/nsclient/logger/log_level.cpp
@@ -302,6 +302,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nsclient/logger/log_message_factory.cpp
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
+        nscp_json
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}
         ${EXTRA_LIBS}
@@ -333,9 +334,9 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/bytes/unzip.cpp
         path_manager.cpp
         ${service_test_SRCS}
-        ${NSCP_INCLUDEDIR}/json/use_json.cpp
         ${NSCP_INCLUDEDIR}/win/shellapi.cpp
     LIBRARIES
+        nscp_json
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}
         ${EXTRA_LIBS}

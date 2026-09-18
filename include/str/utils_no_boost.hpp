@@ -3,8 +3,10 @@
 
 #pragma once
 
+#include <cctype>
 #include <list>
 #include <string>
+#include <vector>
 
 namespace str {
 namespace utils {
@@ -77,6 +79,26 @@ inline std::string unescape(const std::string& str) {
 //
 // Split
 //
+/**
+ * Split a settings-style list ("a, b,,c") on `key`, trimming the whitespace
+ * around every entry and dropping the empty ones. Unlike split_lst, which
+ * keeps the raw pieces, this is the shape every comma-separated option wants.
+ */
+inline std::vector<std::string> split_trimmed(const std::string& str, const std::string& key) {
+  std::vector<std::string> ret;
+  const std::string::size_type step = key.empty() ? 1 : key.size();
+  std::string::size_type pos = 0;
+  while (pos <= str.size()) {
+    std::string::size_type end = str.find(key, pos);
+    if (end == std::string::npos || key.empty()) end = str.size();
+    std::string::size_type first = pos, last = end;
+    while (first < last && std::isspace(static_cast<unsigned char>(str[first]))) ++first;
+    while (last > first && std::isspace(static_cast<unsigned char>(str[last - 1]))) --last;
+    if (first < last) ret.push_back(str.substr(first, last - first));
+    pos = end + step;
+  }
+  return ret;
+}
 template <class T>
 void split(T& ret, const std::string& str, const std::string& key) {
   std::string::size_type pos = 0, lpos = 0;

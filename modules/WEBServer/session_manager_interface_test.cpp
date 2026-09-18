@@ -6,9 +6,9 @@
 #include <Helpers.h>
 #include <StreamResponse.h>
 #include <gtest/gtest.h>
-#include <nscapi/nscapi_helper_singleton.hpp>
 
 #include <list>
+#include <nscapi/nscapi_helper_singleton.hpp>
 #include <string>
 
 // Provide the nscapi singleton expected by NSC_LOG_ERROR / NSC_DEBUG_MSG
@@ -17,7 +17,7 @@
 // binary there's no plugin wrapper, so we instantiate it ourselves the same
 // way modern_filter_test.cpp and friends do. Without it the linker has
 // nothing to relocate against for any TU that emits the log macros.
-nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();
+nscapi::helper_singleton* nscapi::plugin_singleton = new nscapi::helper_singleton();
 
 // Mocks for Mongoose::Request only
 namespace MockMongoose {
@@ -115,7 +115,7 @@ TEST_F(SessionManagerTest, StoreUserInResponseFailsClosedWhenCsprngFails) {
   // A CSPRNG failure must not produce a half-formed session: no token cookie,
   // no uid cookie, and a false return so the caller refuses the request.
   Mongoose::StreamResponse resp;
-  token_store::set_rand_bytes_for_test([](unsigned char *, int) { return 0; });
+  token_store::set_rand_bytes_for_test([](unsigned char*, int) { return 0; });
   const bool stored = smi.store_user_in_response("user", resp);
   token_store::set_rand_bytes_for_test(nullptr);
   EXPECT_FALSE(stored);
@@ -336,10 +336,21 @@ TEST_F(SessionManagerTest, RateLimiterBlocksAfterRepeatedFailures) {
 }
 
 TEST_F(SessionManagerTest, Metrics) {
-  smi.set_metrics("metrics", "metrics_list", {"open_metrics"});
+  // The OpenMetrics body is stored and served verbatim - the session manager
+  // used to join a list of lines, and is not allowed to reshape the document
+  // the renderer produced (dropping its trailing newline would be enough to
+  // make the exposition invalid).
+  smi.set_metrics("metrics", "{\"cpu\":1}", "{\"cpu\":{\"type\":\"gauge\"}}", "# TYPE open_metrics counter\nopen_metrics_total 1\n# EOF\n",
+                  "# TYPE open_metrics_total counter\nopen_metrics_total 1\n# EOF\n");
   EXPECT_EQ(smi.get_metrics(), "metrics");
-  EXPECT_EQ(smi.get_metrics_v2(), "metrics_list");
-  EXPECT_EQ(smi.get_open_metrics(), "open_metrics\n");
+  // The plain flat list keeps being exactly what it was for everything that
+  // does not ask for the metadata; `?meta=1` gets it joined to its metadata.
+  EXPECT_EQ(smi.get_metrics_v2(), "{\"cpu\":1}");
+  EXPECT_EQ(smi.get_metrics_v2_described(), "{\"metrics\":{\"cpu\":1},\"metadata\":{\"cpu\":{\"type\":\"gauge\"}}}");
+  EXPECT_EQ(smi.get_open_metrics(), "# TYPE open_metrics counter\nopen_metrics_total 1\n# EOF\n");
+  // The negotiated bodies are separate latches: serving one to a reader that
+  // asked for the other loses the type of every counter.
+  EXPECT_EQ(smi.get_prometheus_metrics(), "# TYPE open_metrics_total counter\nopen_metrics_total 1\n# EOF\n");
 }
 
 TEST_F(SessionManagerTest, LogData) {

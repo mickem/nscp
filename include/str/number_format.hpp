@@ -3,9 +3,11 @@
 
 #pragma once
 
+#include <cmath>
 #include <iomanip>
 #include <locale>
 #include <sstream>
+#include <str/saturate.hpp>
 #include <string>
 
 namespace str {
@@ -88,5 +90,64 @@ inline std::string apply_separators(const std::string &plain, const number_forma
 }
 
 inline std::string render_number(const double value, const number_format &fmt) { return apply_separators(render_fixed(value, fmt.decimals), fmt); }
+
+// Render `value` as the shortest decimal string that reads back as the very
+// same double, C-locale, never in scientific notation for an integral value.
+//
+// This exists because `str::xtos(double)` is a bare `stringstream <<`, which
+// means six significant digits: a 16 GB memory reading leaves as
+// "1.6554e+10" and a byte counter is rounded to the nearest 100 KB. That is
+// fine for a human-readable message and wrong for a machine-read exposition
+// such as OpenMetrics, where the scraped sample must equal the number the
+// JSON endpoint reports for the same metric.
+//
+// Integral values that fit an int64 are rendered as integers ("12592123904"),
+// matching what the JSON endpoints already do (see `gauge_to_json`).
+// Otherwise the shortest round-tripping representation wins: precisions are
+// tried in turn and the first one that parses back bit-identical is kept, so
+// 0.1 stays "0.1" rather than becoming "0.10000000000000001".
+//
+// Non-finite values are the caller's problem - each exposition format spells
+// them differently (OpenMetrics wants "NaN", "+Inf", "-Inf") - and are only
+// handled here so that no input can produce an empty string.
+inline std::string render_shortest(const double value) {
+  std::ostringstream ss;
+  ss.imbue(std::locale::classic());
+  if (!std::isfinite(value)) {
+    ss << value;
+    return ss.str();
+  }
+  // Range first, then integrality: casting an out-of-range double to long long
+  // is undefined behaviour, so `fits_int64` has to gate the cast rather than
+  // sit beside it.
+  if (fits_int64(value) && std::trunc(value) == value) {
+    ss << static_cast<long long>(value);
+    return ss.str();
+  }
+  // A double needs at most 17 significant decimal digits to round trip and
+  // almost always fewer, so start at 15 rather than at 1: the default float
+  // format drops trailing zeros, so 0.1 comes out "0.1" at any precision that
+  // round trips, and the loop costs at most three iterations instead of
+  // seventeen. Both streams are built once and reused - this runs per gauge on
+  // the metrics thread, once per `metrics interval`.
+  //
+  // std::to_chars(double) answers this in one call, but its floating-point
+  // overload needs a newer standard library than the oldest toolchain this
+  // project still builds with (the XP target); swap to it once that goes.
+  std::istringstream back;
+  back.imbue(std::locale::classic());
+  for (int precision = 15; precision <= 17; ++precision) {
+    ss.str(std::string());
+    ss.clear();
+    ss << std::setprecision(precision) << value;
+    const std::string candidate = ss.str();
+    back.clear();
+    back.str(candidate);
+    double parsed = 0;
+    back >> parsed;
+    if (!back.fail() && parsed == value) return candidate;
+  }
+  return ss.str();
+}
 
 }  // namespace str

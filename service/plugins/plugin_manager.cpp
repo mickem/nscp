@@ -73,6 +73,7 @@ std::string installer_feature_hint(const std::string &module) {
       {"SyslogClient", "Various client plugins"},
       {"NRDPClient", "Various client plugins"},
       {"IcingaClient", "Various client plugins"},
+      {"GearmanClient", "Various client plugins"},
       {"CollectdClient", "Various client plugins"},
       {"NSCPClient", "Various client plugins"},
       {"Op5Client", "Various client plugins"},
@@ -343,6 +344,7 @@ void nsclient::core::plugin_manager::load_all_plugins() {
 }
 
 bool nsclient::core::plugin_manager::load_single_plugin(const std::string &plugin, const std::string &alias, bool start) {
+  const boost::recursive_mutex::scoped_lock lifecycle(lifecycle_mutex_);
   try {
     const plugin_type instance = add_plugin(plugin, alias);
     if (!instance) {
@@ -378,6 +380,7 @@ bool nsclient::core::plugin_manager::load_single_plugin(const std::string &plugi
 }
 
 void nsclient::core::plugin_manager::start_plugins(NSCAPI::moduleLoadMode mode) {
+  const boost::recursive_mutex::scoped_lock lifecycle(lifecycle_mutex_);
   std::set<long> broken;
   for (const plugin_type &plugin : plugin_list_.get_plugins()) {
     LOG_DEBUG_CORE_STD("Loading plugin: " + plugin->getModule())
@@ -385,6 +388,8 @@ void nsclient::core::plugin_manager::start_plugins(NSCAPI::moduleLoadMode mode) 
       if (!plugin->load_plugin(mode)) {
         LOG_ERROR_CORE_STD("Plugin refused to load: " + plugin->getModule());
         broken.insert(plugin->get_id());
+      } else if (plugin->reload_raced()) {
+        LOG_ERROR_CORE_STD("Reloaded " + plugin->get_alias_or_name() + " while calls into it were still running: a check held it for over 5s");
       }
     } catch (const plugin_exception &e) {
       broken.insert(plugin->get_id());
@@ -403,6 +408,7 @@ void nsclient::core::plugin_manager::start_plugins(NSCAPI::moduleLoadMode mode) 
 }
 
 void nsclient::core::plugin_manager::purge_broken_plugin(const unsigned long plugin_id) {
+  const boost::recursive_mutex::scoped_lock lifecycle(lifecycle_mutex_);
   const auto plugin = plugin_list_.find_by_id(plugin_id);
   plugin_list_.remove(plugin_id);
   commands_.remove_plugin(plugin_id);
@@ -412,12 +418,22 @@ void nsclient::core::plugin_manager::purge_broken_plugin(const unsigned long plu
   metrics_submitters_.remove_plugin(plugin_id);
   if (plugin) {
     log_instance_->remove_subscriber(plugin);
-    plugin->unload_plugin();
+    try {
+      plugin->unload_plugin();
+    } catch (const plugin_exception &e) {
+      // The module refused because calls into it are still running. It has
+      // already been removed from every registry above, so let the purge
+      // finish; the library stays mapped and the module stays loaded until the
+      // process ends. Throwing here instead aborted the caller - start_plugins
+      // purges outside any try - and left the cache saying it was loaded.
+      LOG_ERROR_CORE_STD("Failed to unload broken plugin: " + e.reason());
+    }
   }
   plugin_cache_.remove_plugin(plugin_id);
 }
 
 void nsclient::core::plugin_manager::post_start_plugins() {
+  const boost::recursive_mutex::scoped_lock lifecycle(lifecycle_mutex_);
   std::set<long> broken;
   for (const plugin_type &plugin : plugin_list_.get_plugins()) {
     if (!plugin->has_start()) {
@@ -454,6 +470,7 @@ void nsclient::core::plugin_manager::post_start_plugins() {
  * Scheduler can finish in-flight queries and submissions cleanly.
  */
 void nsclient::core::plugin_manager::prepare_shutdown_plugins() {
+  const boost::recursive_mutex::scoped_lock lifecycle(lifecycle_mutex_);
   for (const plugin_type &p : plugin_list_.get_plugins()) {
     if (!p) continue;
     if (!p->has_prepare_shutdown()) continue;
@@ -472,6 +489,7 @@ void nsclient::core::plugin_manager::prepare_shutdown_plugins() {
  * Unload all plug-ins
  */
 void nsclient::core::plugin_manager::stop_plugins() {
+  const boost::recursive_mutex::scoped_lock lifecycle(lifecycle_mutex_);
   commands_.remove_all();
   channels_.remove_all();
   event_subscribers_.remove_all();
@@ -526,6 +544,12 @@ boost::optional<boost::filesystem::path> nsclient::core::plugin_manager::find_fi
 
 nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::only_load_module(const std::string &module, const std::string &alias,
                                                                                              bool &loaded) {
+  // Held here as well as in add_plugin, so the duplicate check and the append
+  // that follows it in add_plugin cannot be split by another loader: two
+  // threads both passing find_duplicate for the same file ended up with two
+  // instances of one module - two listeners on one port, two collectors - and
+  // only one of them findable by name afterwards.
+  const boost::recursive_mutex::scoped_lock lifecycle(lifecycle_mutex_);
   loaded = false;
   boost::optional<boost::filesystem::path> real_file = find_file(module);
   if (!real_file) {
@@ -548,6 +572,7 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::only
  * @param plugin The plug-in instance to load. The pointer is managed by the
  */
 nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::add_plugin(const std::string &file_name, const std::string &alias) {
+  const boost::recursive_mutex::scoped_lock lifecycle(lifecycle_mutex_);
   try {
     bool loaded = false;
     plugin_type plugin = only_load_module(file_name, alias, loaded);
@@ -590,10 +615,14 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::add_
 }
 
 bool nsclient::core::plugin_manager::reload_plugin(const std::string &module) {
+  const boost::recursive_mutex::scoped_lock lifecycle(lifecycle_mutex_);
   const plugin_type plugin = plugin_list_.find_by_alias(module);
   if (plugin) {
     LOG_DEBUG_CORE_STD(std::string("Reloading: ") + plugin->get_alias_or_name());
     plugin->load_plugin(NSCAPI::reloadStart);
+    if (plugin->reload_raced()) {
+      LOG_ERROR_CORE_STD("Reloaded " + plugin->get_alias_or_name() + " while calls into it were still running: a check held it for over 5s");
+    }
     return true;
   }
   LOG_ERROR_CORE("Failed to reload plugin " + module);
@@ -601,23 +630,47 @@ bool nsclient::core::plugin_manager::reload_plugin(const std::string &module) {
 }
 
 bool nsclient::core::plugin_manager::remove_plugin(const std::string &name) {
+  const boost::recursive_mutex::scoped_lock lifecycle(lifecycle_mutex_);
   const plugin_type plugin = plugin_list_.find_by_module(name);
   if (!plugin) {
     LOG_ERROR_CORE("Module " + name + " was not found.");
     return false;
   }
+  // The request asking for this is being served by the module it names: the
+  // web server unloading WEBServer, a script unloading the module hosting it.
+  // Removing it now drops the last reference, and the destructor unmaps the
+  // library while this thread is still executing inside it - the call returns
+  // to an address that is no longer mapped. The module also has to stop its
+  // own listener from that listener's thread on the way, which joins the
+  // calling thread with itself.
+  if (plugin->is_dispatching_on_this_thread()) {
+    LOG_ERROR_CORE_STD("Refused to unload " + plugin->get_alias_or_name() + ": the request asking for it is being served by that module");
+    return false;
+  }
   unsigned int plugin_id = plugin->get_id();
+  // Unload before deregistering. The module can refuse - calls into it may
+  // still be in flight - and it then keeps running and serving. Deregistering
+  // first meant such a refusal left it half removed: still loaded and
+  // answering nothing, gone from every registry, no longer findable by name to
+  // retry, and still listed as loaded in the cache because the throw skipped
+  // that line. Unloading first leaves the module exactly as it was.
+  // The module stops receiving log messages the moment unload_plugin sets its
+  // unloaded flag, so the subscription below need not be dropped first.
+  try {
+    plugin->unload_plugin();
+  } catch (const plugin_exception &e) {
+    LOG_ERROR_CORE_STD("Failed to unload " + name + ": " + e.reason());
+    return false;
+  }
   plugin_list_.remove(plugin_id);
   commands_.remove_plugin(plugin_id);
   channels_.remove_plugin(plugin_id);
   event_subscribers_.remove_plugin(plugin_id);
   metrics_fetchers_.remove_plugin(plugin_id);
   metrics_submitters_.remove_plugin(plugin_id);
-  // Drop the log subscription before the module goes: the logger otherwise
-  // keeps the plugin alive and the next log line calls into a module whose
-  // instance has been torn down.
+  // Drop the log subscription: the logger otherwise keeps the plugin alive and
+  // the next log line calls into a module whose instance has been torn down.
   log_instance_->remove_subscriber(plugin);
-  plugin->unload_plugin();
   plugin_cache_.remove_plugin(plugin_id);
   return true;
 }
@@ -669,13 +722,23 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::find
 // create_simple_query_request_as in include/nscapi/nscapi_core_helper.cpp):
 //
 //   nscp.caller_plugin_id  - numeric plugin id of the caller. Set
-//                            unconditionally by core_helper, so the
-//                            calling DLL cannot fake it without
-//                            rewriting core_helper. Resolved here to a
-//                            module name via the trusted plugin_cache.
+//                            unconditionally by core_helper. Resolved
+//                            here to a module name via the trusted
+//                            plugin_cache.
 //   nscp.principal         - sub-identity (web user, NRPE client tag,
 //                            CLI OS user, ...). Optional; empty when
 //                            unset.
+//
+// Both keys are only trustworthy for a request built *in process*: a
+// module calling through core_helper cannot set them to anything else
+// without rewriting core_helper. They are NOT trustworthy for a request
+// whose bytes came off the wire - whoever composed the protobuf composed
+// its header too. No endpoint hands a caller-supplied QueryRequestMessage
+// to core->query any more (the raw-protobuf route that did was removed);
+// every HTTP path now builds the message itself and stamps the keys from
+// the authenticated session, as query_controller::stamp_identity does.
+// Anything that reintroduces a pass-through must do the same, or refuse a
+// request that carries them - otherwise the caller picks its own subject.
 //
 // Both keys are best-effort: legacy simple_query (no _as) sends neither,
 // and direct NSAPIInject invocations may send neither either. An

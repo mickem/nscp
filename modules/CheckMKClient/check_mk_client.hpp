@@ -114,8 +114,10 @@ struct check_mk_client_handler : public client::handler_interface {
       check_mk::packet packet = client.process_request(dummy);
       // As in CheckMKServer: the command map is rewritten by register_command
       // and unload_all, and the definition points at a script unload_all
-      // deletes, so hold the dispatch lock across the lookup and the call.
-      boost::shared_lock<boost::shared_mutex> dispatch(scripts_->dispatch_mutex());
+      // deletes, so stay registered as a dispatcher across the lookup and the
+      // call - unload_all waits for the scripts that are running.
+      const scripts::script_manager<lua::lua_traits>::dispatch_guard dispatch(*scripts_);
+      if (!dispatch.entered()) return;
       boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts_->find_command("check_mk", "c_callback");
       if (cmd) {
         parse_data(cmd.value().information, cmd.value().function, packet);

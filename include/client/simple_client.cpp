@@ -48,6 +48,14 @@ static void create_registry_query(const nscapi::core_wrapper *core, const std::s
 
 typedef std::vector<std::string> table_row;
 
+// Whether `command` is `verb`, alone or followed by arguments. The prompt
+// hands handle_command() the whole line, so every verb that takes arguments
+// has to make this distinction, and `plugin` must not answer to `plugins`.
+static bool is_verb(const std::string &command, const std::string &verb) {
+  if (command == verb) return true;
+  return command.size() > verb.size() && command.compare(0, verb.size(), verb) == 0 && (command[verb.size()] == ' ' || command[verb.size()] == '\t');
+}
+
 // The first line of a possibly multi-line text, trimmed. Lists get one line
 // per entry; `desc` shows the full text where there is room for it.
 static std::string first_line(const std::string &text) {
@@ -82,6 +90,17 @@ static std::string render_table(const std::vector<table_row> &rows, const std::s
 
 typedef ::PB::Registry::RegistryResponseMessage::Response::Inventory inventory_entry;
 
+// The marker appended to the name of an experimental item in every listing.
+// It is a suffix on the name rather than a column of its own so the tables
+// keep the shape they have when nothing is experimental.
+static const char *EXPERIMENTAL_MARKER = " (experimental)";
+
+// `name`, with the marker when the registry says the item is experimental.
+static std::string decorate_name(const inventory_entry &inv) {
+  if (!inv.info().experimental()) return inv.name();
+  return inv.name() + EXPERIMENTAL_MARKER;
+}
+
 static bool is_loaded(const inventory_entry &inv) {
   for (int i = 0; i < inv.info().metadata_size(); i++) {
     if (inv.info().metadata(i).key() == "loaded" && inv.info().metadata(i).value() == "true") return true;
@@ -101,23 +120,51 @@ static bool collect_entries(const PB::Registry::RegistryResponseMessage &respons
   return true;
 }
 
-// `name  description` for queries and aliases; `[X] name  description` for
-// modules. Nothing found is reported as such rather than as an empty screen.
-static std::string render_inventory(const std::vector<PB::Registry::RegistryResponseMessage> &responses, const bool with_loaded_marker) {
+// `name  description` for queries and aliases. Nothing found is reported as
+// such rather than as an empty screen. Modules have their own renderer, which
+// has a loaded marker and a filter to apply - see render_modules.
+static std::string render_inventory(const std::vector<PB::Registry::RegistryResponseMessage> &responses) {
   std::vector<table_row> rows;
   for (const PB::Registry::RegistryResponseMessage &response : responses) {
     std::vector<inventory_entry> entries;
     std::string error;
     if (!collect_entries(response, entries, error)) return error;
-    for (const inventory_entry &i : entries) {
-      table_row row;
-      if (with_loaded_marker) row.push_back(is_loaded(i) ? "[X]" : "[ ]");
-      row.push_back(i.name());
-      row.push_back(i.info().description());
-      rows.push_back(row);
-    }
+    for (const inventory_entry &i : entries) rows.push_back({decorate_name(i), i.info().description()});
   }
   return rows.empty() ? "Nothing found" : render_table(rows);
+}
+
+// Which modules `plugins` lists. `loaded` is the cheap answer - a walk of the
+// core's in-memory plugin list - while the other two need the module-directory
+// scan behind fetch_all, because a module nobody has loaded is only visible
+// there. That scan reads each file's metadata; it does not start anything.
+enum class module_filter { loaded, unloaded, all };
+
+// `plugins [--all|--loaded|--unloaded]`: the modules, with `[X]`/`[ ]` for
+// whether each one is running right now. Sorted by name, which is the only
+// order that makes the full list readable - the registry hands them over in
+// load order, and for `--all` that is a directory scan's order.
+static std::string render_modules(const nscapi::core_wrapper *core, const module_filter filter) {
+  PB::Registry::RegistryResponseMessage response;
+  create_registry_query(core, "", PB::Registry::ItemType::MODULE, response, filter != module_filter::loaded);
+  std::vector<inventory_entry> entries;
+  std::string error;
+  if (!collect_entries(response, entries, error)) return error;
+
+  std::vector<table_row> rows;
+  for (const inventory_entry &i : entries) {
+    const bool loaded = is_loaded(i);
+    if (filter == module_filter::loaded && !loaded) continue;
+    if (filter == module_filter::unloaded && loaded) continue;
+    rows.push_back({loaded ? "[X]" : "[ ]", decorate_name(i), i.info().description()});
+  }
+  std::sort(rows.begin(), rows.end(), [](const table_row &a, const table_row &b) { return a[1] < b[1]; });
+  if (!rows.empty()) return render_table(rows);
+  // Say which question came back empty: "nothing found" after `--unloaded` is
+  // a different fact from the same words after `--loaded`.
+  if (filter == module_filter::unloaded) return "Every module in the module directory is loaded";
+  if (filter == module_filter::loaded) return "No modules are loaded";
+  return "No modules found";
 }
 
 // An alias is registered with a description of the form "Alias for: <command
@@ -224,6 +271,11 @@ static std::string render_description(const client::cli_handler_ptr &handler, co
   } else {
     header.push_back({"Description:", inv.info().description()});
   }
+  // An alias is as experimental as what it runs, so either entry saying so is
+  // enough - and `desc` is where a reader decides whether to depend on it.
+  if (inv.info().experimental() || parameters_from->info().experimental()) {
+    header.push_back({"Status:", "Experimental - options, keywords and output may still change"});
+  }
   const std::string defaults = show_default(handler, parameters_of);
   if (!defaults.empty()) header.push_back({"Default:", parameters_of + " " + defaults});
   std::string out = render_table(header);
@@ -276,7 +328,8 @@ const std::vector<command_info> &builtin_commands() {
       {"aliases", "", "list all available query aliases"},
       {"alias", "", "list all available query aliases (alias for aliases)"},
       {"list", "", "list queries and aliases"},
-      {"plugins", "", "list all plugins and whether they are loaded"},
+      {"plugins", "[--all|--loaded|--unloaded]", "list plugins and whether they are loaded (loaded ones by default)"},
+      {"modules", "[--all|--loaded|--unloaded]", "list plugins and whether they are loaded (alias for plugins)"},
       {"desc", "<query>", "describe a query and its parameters"},
       {"keywords", "<query>", "list the filter keywords of a query with their descriptions"},
       {"metrics", "[prefix]", "show the metrics collected so far"},
@@ -386,11 +439,59 @@ std::vector<std::string> cli_client::list_parameters(const std::string &query) c
   return ret;
 }
 
-void cli_client::handle_command(const std::string &command) {
-  if (command == "plugins") {
+// Like list_parameters, but for the filter keywords - and following an alias
+// to its target, since an alias declares none of its own and its filter
+// expressions are written in the target's keywords. That is also where the
+// names are hardest to remember, which is the case highlighting is for.
+std::vector<std::string> cli_client::list_keywords(const std::string &query) const {
+  std::vector<std::string> ret;
+  if (query.empty()) return ret;
+  const nscapi::core_wrapper *core = handler->get_core();
+  std::string command = query;
+  for (int hop = 0; hop < 2; hop++) {
     PB::Registry::RegistryResponseMessage response_message;
-    create_registry_query(handler->get_core(), "", PB::Registry::ItemType::MODULE, response_message);
-    handler->output_message(render_inventory({response_message}, true));
+    create_registry_query(core, command, PB::Registry::ItemType::QUERY, response_message);
+    std::string target;
+    for (const ::PB::Registry::RegistryResponseMessage::Response &pl : response_message.payload()) {
+      for (const ::PB::Registry::RegistryResponseMessage_Response_Inventory &i : pl.inventory()) {
+        if (i.name() != command) continue;
+        for (int f = 0; f < i.parameters().fields_size(); f++) {
+          ret.push_back(i.parameters().fields(f).name());
+        }
+        if (target.empty()) target = alias_target(i.info().description());
+      }
+    }
+    // An alias has no fields of its own, so only follow it when that is what
+    // we found; a target that is itself an alias is not something the registry
+    // produces, hence the single hop.
+    if (!ret.empty() || target.empty()) break;
+    command = target.substr(0, target.find(' '));
+  }
+  return ret;
+}
+
+void cli_client::handle_command(const std::string &command) {
+  if (is_verb(command, "plugins") || is_verb(command, "modules")) {
+    std::list<std::string> args;
+    str::utils::parse_prompt_command(command, args);
+    args.pop_front();
+    // Loaded only unless asked otherwise: that is the answer the core already
+    // has, and the one anyone wants when they are checking what is running.
+    module_filter filter = module_filter::loaded;
+    for (const std::string &arg : args) {
+      const std::string flag = arg.compare(0, 2, "--") == 0 ? arg.substr(2) : arg;
+      if (flag == "all") {
+        filter = module_filter::all;
+      } else if (flag == "loaded") {
+        filter = module_filter::loaded;
+      } else if (flag == "unloaded") {
+        filter = module_filter::unloaded;
+      } else {
+        handler->output_message("Unknown option: " + arg + "\nUsage: plugins [--all|--loaded|--unloaded]");
+        return;
+      }
+    }
+    handler->output_message(render_modules(handler->get_core(), filter));
   } else if (command == "help") {
     handler->output_message(render_help());
   } else if (command == "reload") {
@@ -514,11 +615,11 @@ void cli_client::handle_command(const std::string &command) {
   } else if (command == "queries" || command == "commands") {
     PB::Registry::RegistryResponseMessage response_message;
     create_registry_query(handler->get_core(), "", PB::Registry::ItemType::QUERY, response_message);
-    handler->output_message(render_inventory({response_message}, false));
+    handler->output_message(render_inventory({response_message}));
   } else if (command == "aliases" || command == "alias") {
     PB::Registry::RegistryResponseMessage response_message;
     create_registry_query(handler->get_core(), "", PB::Registry::ItemType::QUERY_ALIAS, response_message);
-    handler->output_message(render_inventory({response_message}, false));
+    handler->output_message(render_inventory({response_message}));
   } else if (command.size() > 5 && command.substr(0, 4) == "desc") {
     const std::string name = boost::algorithm::trim_copy(command.substr(5));
     PB::Registry::RegistryResponseMessage response_message;
@@ -544,7 +645,7 @@ void cli_client::handle_command(const std::string &command) {
     PB::Registry::RegistryResponseMessage queries, aliases;
     create_registry_query(handler->get_core(), "", PB::Registry::ItemType::QUERY, queries);
     create_registry_query(handler->get_core(), "", PB::Registry::ItemType::QUERY_ALIAS, aliases);
-    handler->output_message(render_inventory({queries, aliases}, false));
+    handler->output_message(render_inventory({queries, aliases}));
   } else if (command.size() >= 7 && command.substr(0, 7) == "metrics") {
     for (const metrics::metrics_store::values_map::value_type &v : metrics_store.get(command.substr(7))) {
       handler->output_message(v.first + "=" + v.second);

@@ -4,7 +4,6 @@
 #include "check_cpu_frequency.h"
 
 #include <boost/filesystem.hpp>
-
 #include <cctype>
 #include <fstream>
 #include <locale>
@@ -156,11 +155,15 @@ void build_cpu_frequency_metrics(PB::Metrics::MetricsBundle *parent, const cpus_
 
   PB::Metrics::MetricsBundle *bundle = parent->add_children();
   bundle->set_key("cpu_frequency");
+  describe(bundle, "Clock frequency per CPU core, as reported by the kernel");
 
   for (const cpus_type::value_type &v : data) {
-    add_metric(bundle, v.name + ".current_mhz", v.current_mhz);
-    add_metric(bundle, v.name + ".max_mhz", v.max_mhz);
-    add_metric(bundle, v.name + ".frequency_pct", v.get_frequency_pct());
+    const instance_scope cpu = for_instance(bundle, v.name, "cpu");
+    // The keys already end in the unit, so declaring it adds a `# UNIT` line
+    // and leaves the family name alone.
+    cpu.metric("current_mhz").help("Frequency the core is running at").unit("mhz").gauge(v.current_mhz);
+    cpu.metric("max_mhz").help("Highest frequency the core can run at").unit("mhz").gauge(v.max_mhz);
+    cpu.metric("frequency_pct").help("Current frequency as a share of the maximum").gauge(v.get_frequency_pct());
   }
 }
 

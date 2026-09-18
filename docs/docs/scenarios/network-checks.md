@@ -347,7 +347,7 @@ check_dns host=myapp.example.com
 **Require a specific resolution result:**
 
 ```
-check_dns host=myapp.example.com server=8.8.8.8 "crit=address != '93.184.216.34'"
+check_dns host=myapp.example.com server=8.8.8.8 expected=93.184.216.34
 ```
 
 **Query a specific record type** (`A`, `AAAA`, `MX`, `TXT`, `CNAME`, `NS`, `SOA`, `PTR`):

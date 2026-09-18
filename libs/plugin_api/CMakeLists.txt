@@ -24,6 +24,9 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/nscapi/settings/filter.cpp
     ${NSCP_INCLUDEDIR}/nscapi/settings/proxy.cpp
     ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
+    ${NSCP_INCLUDEDIR}/metrics/metrics_store_map.cpp
 )
 
 if(WIN32)
@@ -42,6 +45,9 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/nscapi/settings/proxy.hpp
         ${NSCP_INCLUDEDIR}/nscapi/settings/object.hpp
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.hpp
+        ${NSCP_INCLUDEDIR}/metrics/metrics_store_map.hpp
         ${NSCP_INCLUDEDIR}/nscapi/macros.hpp
     )
 endif(WIN32)
@@ -52,6 +58,18 @@ if(APPLE)
 endif()
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
+# The public surface is annotated with NSCAPI_EXPORT (nscapi/dll_defines.hpp),
+# which most of these headers already used - what forced export-all was the
+# handful that never did. Four of those are annotated now: settings/helper.hpp,
+# nscapi_program_options.hpp, nscapi_metrics_helper.hpp and metrics_store_map.hpp.
+# So the wholesale export can go; libs/client/CMakeLists.txt says why that is
+# worth doing.
+#
+# utf8.cpp and nscapi_helper.cpp are still built here because this library uses
+# them, but their headers stay unannotated and every consumer keeps compiling
+# its own copy. They are small enough that duplicating them is cheaper than
+# putting an export macro in headers this much of the tree includes; the
+# reasoning is with NSCP_DEF_PLUGIN_CPP in the top-level CMakeLists.
 NSCP_MAKE_LIBRARY(${TARGET} "${SRCS}")
 NSCP_FORCE_INCLUDE(
     ${TARGET}
@@ -83,10 +101,13 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_helper_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper_test.cpp
     LIBRARIES
         GTest::gtest
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}
+        nscp_protobuf
         ${EXTRA_LIBS}
         ${Boost_DATE_TIME_LIBRARY}
         ${Boost_PROGRAM_OPTIONS_LIBRARY}

@@ -13,7 +13,6 @@ set(SRCS
     script_provider.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_ERROR_CPP}
-    ${NSCP_INCLUDEDIR}/json/use_json.cpp
 )
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
@@ -54,6 +53,7 @@ NSCP_DEBUG_SYMBOLS(${TARGET})
 
 target_link_libraries(
     ${TARGET}
+    nscp_json
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_REGEX_LIBRARY}
     ${NSCP_DEF_PLUGIN_LIB}
