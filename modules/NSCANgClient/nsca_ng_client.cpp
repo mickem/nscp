@@ -160,11 +160,16 @@ boost::asio::ssl::context make_ssl_context(const connection_data &con) {
   // configuring the context after the stream exists would leave the live SSL
   // at its defaults, silently skipping peer verification.
   std::list<std::string> errors;
-  con.ssl.configure_ssl_context(ctx, errors);
+  std::list<std::string> caller_safe_errors;
+  con.ssl.configure_ssl_context(ctx, errors, &caller_safe_errors);
   if (!errors.empty()) {
+    // The detail names the configured paths and the OpenSSL reason, so it goes
+    // to the log; the submission response gets the caller-safe summary only.
     std::string joined;
     for (const auto &e : errors) joined += (joined.empty() ? "" : "; ") + e;
-    throw socket_helpers::socket_exception("TLS configuration error: " + joined);
+    std::string safe;
+    for (const auto &e : caller_safe_errors) safe += (safe.empty() ? "" : "; ") + e;
+    throw socket_helpers::socket_exception("TLS configuration error: " + safe, "TLS configuration error: " + joined);
   }
 
   const auto vmode = con.ssl.get_verify_mode();
@@ -565,6 +570,9 @@ submit_outcome do_send_once(const connection_data &con, const PB::Commands::Subm
     r.ok = true;
     return r;
   } catch (const socket_helpers::socket_exception &e) {
+    // The detail can name a request-supplied path and why it failed to load,
+    // so it goes to the log only; the caller gets what() alone.
+    if (e.has_detail()) NSC_LOG_ERROR_STD(e.detail());
     r.error_message = std::string("NSCA-NG network error: ") + e.what();
     r.retryable = true;
     return r;

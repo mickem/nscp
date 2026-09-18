@@ -30,8 +30,17 @@ namespace smtp {
 //     injection.
 //   * DATA payload is dot-stuffed per RFC 5321 5.2.7.
 class smtp_exception : public std::runtime_error {
+  // Log-only text. `ca` is a request option on submit_smtp, so the reason a
+  // bundle failed to load - "No such file or directory", "Permission denied" -
+  // must not travel back in the submission result, where it answers "does this
+  // path exist and can the service read it?" for any file on the host.
+  std::string diagnostic_;
+
  public:
   using std::runtime_error::runtime_error;
+  smtp_exception(const std::string& what, std::string diagnostic) : std::runtime_error(what), diagnostic_(std::move(diagnostic)) {}
+  const std::string& detail() const { return diagnostic_; }
+  bool has_detail() const { return !diagnostic_.empty(); }
 };
 
 struct connection_config {

@@ -141,7 +141,9 @@ struct smtp_client_handler : client::handler_interface {
         smtp::send(cfg, msg);
         nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), source_alias, true, "Email sent successfully");
       } catch (const smtp::smtp_exception& e) {
-        NSC_LOG_ERROR(std::string("SMTP send failed: ") + e.what());
+        // The detail can name a request-supplied path and why it failed to
+        // load, so it stays in the log; the submit response gets what() alone.
+        NSC_LOG_ERROR(std::string("SMTP send failed: ") + e.what() + (e.has_detail() ? " (" + e.detail() + ")" : ""));
         nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), source_alias, false,
                                                                            std::string("SMTP send failed: ") + e.what());
       }
