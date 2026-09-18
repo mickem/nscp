@@ -355,13 +355,10 @@ macro(NSCP_MAKE_LIBRARY _TARGET _SRCS)
     # library was never built.
     set(_NSCP_LIB_EXCLUDE "")
     set(_NSCP_INSTALL_OPTIONAL "")
-    set(_NSCP_LIB_EXPORT_ALL FALSE)
     foreach(_NSCP_LIB_ARG ${ARGN})
         if(_NSCP_LIB_ARG STREQUAL "EXCLUDE_FROM_ALL")
             set(_NSCP_LIB_EXCLUDE EXCLUDE_FROM_ALL)
             set(_NSCP_INSTALL_OPTIONAL OPTIONAL)
-        elseif(_NSCP_LIB_ARG STREQUAL "EXPORT_ALL_SYMBOLS")
-            set(_NSCP_LIB_EXPORT_ALL TRUE)
         endif()
     endforeach()
     if(USE_STATIC_RUNTIME)
@@ -376,30 +373,17 @@ macro(NSCP_MAKE_LIBRARY _TARGET _SRCS)
     else(USE_STATIC_RUNTIME)
         add_library(${_TARGET} SHARED ${_NSCP_LIB_EXCLUDE} ${_SRCS})
         SET_LIBRARY_OUT_FOLDER(${_TARGET})
-        # Opt-in, and deliberately not the default.
+        # Windows exports nothing from a DLL unless asked, and there is no
+        # WINDOWS_EXPORT_ALL_SYMBOLS here on purpose: every library in this tree
+        # says what is public through its own macro, from its own dll_defines.hpp
+        # (NSCAPI_EXPORT, NSCP_NET_EXPORT, NSCP_CLIENT_EXPORT, NSCP_WHERE_EXPORT,
+        # NSCAPI_PROTOBUF_EXPORT, and BOOST_JSON_DECL inside nscp_json).
         #
-        # Windows exports nothing from a DLL unless asked, and a few of these
-        # libraries never annotated their surface with __declspec(dllexport):
-        # nscapi_helper, the settings helpers, nscapi_program_options, utf8,
-        # socket_helpers, command_line_parser. Those are unreachable from a
-        # module unless the whole surface is exported, which is why
-        # plugin_api, nscp_net and nscp_client ask for it.
-        #
-        # The cost is why the others do not. An exported symbol is a root the
-        # linker may not discard, so /OPT:REF stops pruning anything in the
-        # DLL - the library keeps code no caller reaches. Libraries that
-        # already say what is public (nscp_protobuf, nscp_where_filter,
-        # nscp_mongoose, lua, and Boost.JSON inside nscp_json, which annotates
-        # itself through BOOST_JSON_DECL) pay that for nothing, so they are
-        # left alone.
-        if(_NSCP_LIB_EXPORT_ALL)
-            set_target_properties(
-                ${_TARGET}
-                PROPERTIES
-                    WINDOWS_EXPORT_ALL_SYMBOLS
-                        ON
-            )
-        endif()
+        # Exporting everything instead is not free: an exported symbol is a root
+        # the linker may not discard, so /OPT:REF stops pruning anywhere in the
+        # DLL and the library keeps code no caller reaches. Measured on
+        # nscp_where_filter, which shipped both ways: 1.66 MB exporting
+        # everything against 0.80 MB annotated.
         # These are package-PRIVATE libraries they install under NSCP_PKGLIBDIR alongside the modules, not the public
         # libdir, and ship no public ABI. So no SOVERSION/VERSION symlink chain (dead weight + a lintian remark for a
         # private lib). On Windows the VERSION property is harmless but equally unnecessary here.
@@ -592,10 +576,21 @@ function(NSCP_CREATE_TEST _TARGET)
         "SOURCES;LIBRARIES;INCLUDES"
     )
     add_executable(${_TARGET} ${ARG_SOURCES})
-    # No test links the shared libraries; they compile the sources they need
-    # (command_line_parser.cpp, socket_helpers.cpp, ...) straight into the test
-    # binary so they can drive them without a core. __declspec(dllimport) on a
-    # symbol the same binary defines does not link, so neuter the export macros.
+    # Tests compile the library sources they need (command_line_parser.cpp,
+    # socket_helpers.cpp, settings/helper.cpp, ...) straight into the test binary
+    # so they can drive them without a core, and a declaration saying
+    # __declspec(dllimport) for a symbol the same binary defines gives C4273 at
+    # compile time and LNK4217 on every use. So the export macros are neutered.
+    #
+    # Note what this does NOT say: no test links nscp_client or nscp_net, but
+    # most of them do link plugin_api, through NSCP_DEF_PLUGIN_LIB. Neutering
+    # plugin_api_NOLIB there is safe only because a reference without dllimport
+    # still resolves through the import library, via a thunk for a function.
+    # That does not hold for data: plugin_api exports the vtable of
+    # nscapi::settings_proxy, and a test that both sets this define and needs
+    # that vtable from the DLL would fail with LNK2001. None does today - every
+    # test that constructs one compiles proxy.cpp itself - but a new one that
+    # hits it should drop the define for that target rather than work around it.
     target_compile_definitions(
         ${_TARGET}
         PRIVATE
