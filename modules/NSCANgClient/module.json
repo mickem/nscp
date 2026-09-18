@@ -16,8 +16,7 @@
 		"fallback" : "raw",
 		"submit_nsca_ng" : {
 			"description" : "Submit information to the remote NSCA-NG server. Custom relay commands defined under [/settings/NSCA-NG/client/handlers] are registered automatically using the same `submit_<alias>` naming convention.",
-			"mapping"	: false,
-			"experimental" : true
+			"mapping"	: false
 		}
 	},
 

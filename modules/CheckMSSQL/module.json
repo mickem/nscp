@@ -9,10 +9,10 @@
 	},
 
 	"commands" : {
-		"check_mssql"			: { "description" : "Check SQL Server connectivity and health (version, edition, uptime).", "experimental" : true },
-		"check_mssql_query"		: { "description" : "Run a custom T-SQL query and apply thresholds to the returned rows.", "experimental" : true },
-		"check_mssql_databases"		: { "description" : "Check database state, recovery model and data/log size.", "experimental" : true },
-		"check_mssql_backup"		: { "description" : "Check the age of the last full/differential/log backup per database.", "experimental" : true },
-		"check_mssql_jobs"		: { "description" : "Check SQL Server Agent job status.", "experimental" : true }
+		"check_mssql"			: "Check SQL Server connectivity and health (version, edition, uptime).",
+		"check_mssql_query"		: "Run a custom T-SQL query and apply thresholds to the returned rows.",
+		"check_mssql_databases"		: "Check database state, recovery model and data/log size.",
+		"check_mssql_backup"		: "Check the age of the last full/differential/log backup per database.",
+		"check_mssql_jobs"		: "Check SQL Server Agent job status."
 	}
 }

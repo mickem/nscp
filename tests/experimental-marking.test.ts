@@ -148,4 +148,39 @@ describe("experimental marking", () => {
       );
     }
   });
+  it("makes a module's own flag cover the commands it registers", async () => {
+    // A module that is experimental as a whole says so once, at the top of its
+    // module.json, and its commands carry no flag of their own - so this is
+    // the only place that inheritance is visible. Which module provides it is
+    // read from the manifests: any one that declares itself experimental and
+    // leaves its commands undeclared, and that this build actually has.
+    const listed: Listed[] = await get("/api/v2/modules?all=true");
+    const candidates = listed
+      .map((m) => manifests.get(m.name))
+      .filter((m): m is NonNullable<typeof m> => !!m && m.experimental && m.commands.size > 0);
+    if (candidates.length === 0) return; // nothing declares itself experimental any more
+
+    // Loading can fail for reasons of its own (a module needing configuration
+    // this instance does not have), so try the candidates in turn.
+    let loadedModule: (typeof candidates)[number] | undefined;
+    for (const candidate of candidates) {
+      const result = await get(`/api/v2/modules/${candidate.name}/commands/load`);
+      if (result?.result === 0) {
+        loadedModule = candidate;
+        break;
+      }
+    }
+    expect(loadedModule).toBeDefined();
+
+    const queries: Listed[] = await get("/api/v2/queries");
+    const mine = queries.filter((q) => q.plugin === loadedModule!.name);
+    expect(mine.length).toBeGreaterThan(0);
+    for (const query of mine) {
+      expect({ name: query.name, experimental: query.experimental }).toEqual({
+        name: query.name,
+        experimental: true,
+      });
+    }
+  });
+
 });

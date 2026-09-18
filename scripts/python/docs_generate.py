@@ -676,6 +676,11 @@ class DocumentationGenerator(object):
 
     # -- section renderers --
     def render_queries(self, module, slices, present):
+        # A module that is itself experimental has said so at the top of the
+        # page, and every command it owns inherits the flag - so the per
+        # command admonition below would repeat it once per section. The
+        # markers in the command table stay, since a row is read on its own.
+        module_experimental = any(is_experimental(slices[p].get('info', {})) for p in present)
         # Union of query names across the platforms that provide any.
         names = set()
         for p in present:
@@ -749,7 +754,7 @@ class DocumentationGenerator(object):
             note = availability_note(effective_platforms(qpresent, desc), present)
             if note:
                 out.append(note)
-            if any(is_experimental(slices[p]['queries'][name]) for p in qpresent):
+            if not module_experimental and any(is_experimental(slices[p]['queries'][name]) for p in qpresent):
                 out.append(experimental_note('check command'))
 
             prepared = {p: prepare_query(slices[p]['queries'][name], name,

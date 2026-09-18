@@ -20,7 +20,12 @@ export interface ModuleManifest {
   name: string;
   /** The module itself declares `"experimental": true`. */
   experimental: boolean;
-  /** Command name -> whether that command declares itself experimental. */
+  /**
+   * Command name -> whether that command is experimental: its own declaration
+   * or, since a module's flag covers everything it registers, the module's.
+   * This is the effective answer the agent reports, which is what a manifest
+   * that marks the whole module instead of each command relies on.
+   */
   commands: Map<string, boolean>;
   /** The same, keyed by the lower-cased name the registry reports. */
   byLowerName: Map<string, boolean>;
@@ -35,17 +40,18 @@ function parse(name: string, text: string): ModuleManifest {
     module?: { experimental?: boolean };
     commands?: Record<string, string | RawCommand>;
   };
+  const experimental = raw.module?.experimental === true;
   const commands = new Map<string, boolean>();
   for (const [command, value] of Object.entries(raw.commands ?? {})) {
     // "fallback" is a dispatch directive, not a command.
     if (command === "fallback") continue;
-    commands.set(command, typeof value === "object" && value?.experimental === true);
+    commands.set(command, experimental || (typeof value === "object" && value?.experimental === true));
   }
   // The registry keys commands case-insensitively and reports the lower-cased
   // key, which is how the legacy `checkDriveSize` spellings come back.
   const byLowerName = new Map<string, boolean>();
   for (const [command, experimental] of commands) byLowerName.set(command.toLowerCase(), experimental);
-  return { name, experimental: raw.module?.experimental === true, commands, byLowerName };
+  return { name, experimental, commands, byLowerName };
 }
 
 /** Every module.json in the source tree, keyed by module name. */
@@ -71,7 +77,7 @@ export function moduleManifest(name: string): ModuleManifest {
   return manifest;
 }
 
-/** The commands `manifest` declares experimental (or, with `false`, the rest). */
+/** The commands `manifest` makes experimental (or, with `false`, the rest). */
 export function commandsDeclaring(manifest: ModuleManifest, experimental: boolean): string[] {
   return [...manifest.commands.entries()]
     .filter(([, value]) => value === experimental)

@@ -55,8 +55,9 @@ GET /api/v2/queries
 
 `experimental` marks a check command that works but is still young: its
 options, filter keywords and output may change in a coming release. The module
-declares it (`module.json`), the agent reports it, and `nscp test` and the web
-UI show it next to the command name.
+declares it (`module.json`) — either on the command or on itself, in which case
+every command it provides reports it — and `nscp test` and the web UI show it
+next to the command name.
 
 ### Example
 

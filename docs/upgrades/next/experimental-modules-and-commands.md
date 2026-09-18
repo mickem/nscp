@@ -23,7 +23,8 @@ stability: pin the options and syntax you depend on, and re-read the command's
 reference page after an upgrade. Marks are removed as the commands settle.
 
 If you build your own modules, declare it in `module.json` — `"experimental":
-true` inside `"module"` for the whole module, or on a single command entry:
+true` inside `"module"` for the whole module, which covers every command it
+registers, or on a single command entry when only that check is new:
 
 ```json
 "commands": {

@@ -100,15 +100,21 @@ decide whether a given dereference is safe.
   implements `fetchMetrics()` — `"metrics":"produce"` generates a call to it and
   will fail to link otherwise.
 - **A new module or command is marked experimental in `module.json`.** Add
-  `"experimental": true` inside the `"module"` object for a whole module, and
-  on each command entry (converting the `"name": "description"` shorthand to
-  `"name": { "description": "...", "experimental": true }`) for a single check.
-  The flag rides the registry into `nscp test` (an `(experimental)` suffix in
+  `"experimental": true` inside the `"module"` object for a whole module, or on
+  a single command entry (converting the `"name": "description"` shorthand to
+  `"name": { "description": "...", "experimental": true }`) for one check.
+  **A module's flag covers every command it registers**, so mark the module —
+  not each entry — when a whole module is new; per-command flags are for a
+  settled module that gains a new check. The core resolves the inheritance when
+  the registry is read (`registry_query_handler::is_experimental`), so it also
+  covers commands a script module registers at runtime. The flag rides the
+  registry into `nscp test` (an `(experimental)` suffix in
   `queries`/`aliases`/`list`/`plugins`, a `Status:` line in `desc`), the REST
   `experimental` field the web UI renders as a chip, and the reference docs
-  (marker in the command table, admonition on the command). Drop the flag once
-  the command's options, keywords and output have settled — that is the only
-  thing it promises. A zip bundle declares the same key at the top level of its
+  (marker in the command table, admonition on the command — or once on the
+  module, when the module itself carries the flag). Drop the flag once the
+  options, keywords and output have settled — that is the only thing it
+  promises. A zip bundle declares the same key at the top level of its
   `module.json`.
 - Cross-platform data acquisition uses the win/unix shim: platform-neutral
   sources plus an `if(WIN32) … _win.cpp else() … _unix.cpp` split in

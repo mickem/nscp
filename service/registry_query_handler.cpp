@@ -31,6 +31,18 @@ void registry_query_handler::parse(PB::Registry::RegistryResponseMessage &respon
   }
 }
 
+// Whether a command is experimental as far as the registry is concerned: its
+// own declaration, or that of the module that registered it. A module that
+// declares itself experimental says so once, at the top of its module.json,
+// rather than on every command it owns - and the same then holds for commands
+// a script module registers at runtime.
+bool registry_query_handler::is_experimental(const nsclient::commands::command_info &info) {
+  if (info.experimental) return true;
+  const boost::optional<plugin_cache_item> plugin = plugins_->get_plugin_cache()->find_plugin_info(info.plugin_id);
+  if (!plugin) return false;
+  return plugin.value().experimental;
+}
+
 void registry_query_handler::inventory_queries(const PB::Registry::RegistryRequestMessage::Request::Inventory &q,
                                                PB::Registry::RegistryResponseMessage::Response *rp) {
   if (!q.name().empty()) {
@@ -42,7 +54,7 @@ void registry_query_handler::inventory_queries(const PB::Registry::RegistryReque
       rpp->mutable_info()->add_plugin(plugins_->get_plugin_cache()->find_plugin_alias(info.plugin_id));
       rpp->mutable_info()->set_title(info.name);
       rpp->mutable_info()->set_description(info.description);
-      rpp->mutable_info()->set_experimental(info.experimental);
+      rpp->mutable_info()->set_experimental(is_experimental(info));
       if (q.fetch_all()) {
         PB::Commands::QueryRequestMessage req;
         PB::Commands::QueryRequestMessage::Request *p = req.add_payload();
@@ -64,7 +76,7 @@ void registry_query_handler::inventory_queries(const PB::Registry::RegistryReque
       rpp->mutable_info()->add_plugin(plugins_->get_plugin_cache()->find_plugin_alias(info.plugin_id));
       rpp->mutable_info()->set_title(info.name);
       rpp->mutable_info()->set_description(info.description);
-      rpp->mutable_info()->set_experimental(info.experimental);
+      rpp->mutable_info()->set_experimental(is_experimental(info));
       if (q.fetch_all()) {
         std::string resp;
         PB::Commands::QueryRequestMessage req;
@@ -202,7 +214,7 @@ void registry_query_handler::parse_inventory(const PB::Registry::RegistryRequest
         rpp->mutable_info()->add_plugin(plugins_->get_plugin_cache()->find_plugin_alias(info.plugin_id));
         rpp->mutable_info()->set_title(info.name);
         rpp->mutable_info()->set_description(info.description);
-        rpp->mutable_info()->set_experimental(info.experimental);
+        rpp->mutable_info()->set_experimental(is_experimental(info));
       }
     }
     if (type == PB::Registry::ItemType::MODULE || type == PB::Registry::ItemType::ALL) {
