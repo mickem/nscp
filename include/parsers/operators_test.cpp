@@ -814,10 +814,12 @@ class RegexBudget : public ::testing::Test {
 
 TEST_F(RegexBudget, CatastrophicBacktrackingIsReportedAsCostNotSyntax) {
   auto ctx = make_context();
-  // Boost.Regex gives up on this at its state-count ceiling and throws a
-  // std::runtime_error, which used to be reported as "Invalid syntax in
-  // regular expression" - sending the operator to hunt for a typo in a pattern
-  // that is perfectly well formed.
+  // Boost.Regex gives up on this at its state-count ceiling. Which exception
+  // it uses to say so depends on the version - a bare std::runtime_error on
+  // Boost 1.75 (Rocky 9), a regex_error carrying error_complexity on newer
+  // ones - and it used to be reported differently in each case, one of them as
+  // a problem with the pattern or the data. Both are the same refusal, so both
+  // have to read as one: a cost, in a pattern that is perfectly well formed.
   const std::string subject(10000, 'a');
   const auto result = eval_bin_op(op_regexp, make_string(subject + "!"), make_string("(a+)+$"), ctx);
   EXPECT_FALSE(result.is_true());
