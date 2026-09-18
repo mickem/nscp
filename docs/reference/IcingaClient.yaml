@@ -1,7 +1,6 @@
 common:
   info:
     description: Icinga 2 client submits passive check results to an Icinga 2 server via the REST API
-    experimental: true
     title: IcingaClient
   paths:
     /settings/icinga/client:
@@ -162,7 +161,6 @@ common:
         show-default: ''
       info:
         description: Submit information to the remote Icinga 2 Server.
-        experimental: true
       params:
       - content_type: 2
         default_value: ''

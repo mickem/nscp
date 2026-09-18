@@ -863,7 +863,6 @@ unix:
         short_description: ''
       info:
         description: Check battery charge level, power source and health.
-        experimental: true
     check_cpu:
       common_fields:
       - count
@@ -967,7 +966,6 @@ unix:
     check_cpu_frequency:
       info:
         description: Check the CPU clock frequency (current vs max) per core.
-        experimental: true
     check_cpu_utilization:
       common_fields:
       - count
@@ -1116,7 +1114,6 @@ unix:
       info:
         description: 'Check host identity: hostname, canonical FQDN and DNS domain, with drift detection
           for the name mismatches that silently break auth and monitoring.'
-        experimental: true
     check_installed_software:
       common_fields:
       - count
@@ -1200,7 +1197,6 @@ unix:
       info:
         description: 'Check installed software packages via the system package manager (dpkg/rpm/pacman):
           inventory, unwanted/EOL software policy and recent-install detection.'
-        experimental: true
     check_kernel_memory:
       common_fields:
       - count
@@ -1278,7 +1274,6 @@ unix:
       info:
         description: 'Check kernel memory-manager health: slab bytes (reclaimable/unreclaimable), page-cache
           bytes and page-fault rates — the kernel-leak and fault-storm signals free-RAM thresholds miss.'
-        experimental: true
     check_kernel_stats:
       common_fields:
       - count
@@ -1344,7 +1339,6 @@ unix:
         short_description: ''
       info:
         description: 'Check kernel activity: context-switch rate, fork rate and live thread count.'
-        experimental: true
       params:
       - content_type: 2
         default_value: ''
@@ -1429,7 +1423,6 @@ unix:
         short_description: ''
       info:
         description: Check the system load average (1/5/15 minutes).
-        experimental: true
       params:
       - content_type: 2
         default_value: 'false'
@@ -1724,7 +1717,6 @@ unix:
         short_description: ''
       info:
         description: Check for available OS package updates via the system package manager (apt/dnf/yum/zypper/pacman).
-        experimental: true
     check_os_version:
       common_fields:
       - count
@@ -2131,7 +2123,6 @@ unix:
       info:
         description: Check the history of processes seen since NSClient++ started (requires 'process history
           = true').
-        experimental: true
       params:
       - content_type: 2
         default_value: ''
@@ -2213,7 +2204,6 @@ unix:
       info:
         description: Check for processes first seen within a recent time window (requires 'process history
           = true').
-        experimental: true
       params:
       - content_type: 2
         default_value: 5m
@@ -2442,7 +2432,6 @@ unix:
         short_description: ''
       info:
         description: Check the swap in/out paging rate.
-        experimental: true
     check_temperature:
       common_fields:
       - count
@@ -2500,7 +2489,6 @@ unix:
         short_description: ''
       info:
         description: Check temperature sensors (thermal zones / hwmon).
-        experimental: true
 windows:
   aliases:
     check_counter:
@@ -3598,7 +3586,6 @@ windows:
         short_description: ''
       info:
         description: Check battery status including charge level, power source, and battery health.
-        experimental: true
     check_cpu:
       common_fields:
       - count
@@ -3804,7 +3791,6 @@ windows:
         short_description: ''
       info:
         description: Check CPU clock frequency (current vs max) per processor.
-        experimental: true
     check_hardware:
       common_fields:
       - count
@@ -3904,7 +3890,6 @@ windows:
       info:
         description: 'Check hardware inventory (vendor, model, serial, chassis type, memory modules) with
           pinned-expectation alerting: serial changed, DIMM dropped, laptop in a server fleet.'
-        experimental: true
     check_hostname:
       common_fields:
       - count
@@ -3985,7 +3970,6 @@ windows:
       info:
         description: 'Check host identity: hostname, FQDN, DNS domain and domain-join state, with drift
           detection for the name mismatches that silently break auth and monitoring.'
-        experimental: true
     check_installed_software:
       common_fields:
       - count
@@ -4090,7 +4074,6 @@ windows:
       info:
         description: 'Check installed software from the registry Uninstall hives (64-bit, 32-bit and per-user
           views): inventory, unwanted/EOL software policy and recent-install detection.'
-        experimental: true
     check_kernel_memory:
       common_fields:
       - count
@@ -4169,7 +4152,6 @@ windows:
         description: 'Check kernel memory-manager health: paged/nonpaged pool bytes, file-cache bytes
           and page-fault rates â€” the pool-exhaustion and hard-fault-storm signals free-RAM thresholds
           miss.'
-        experimental: true
     check_kernel_stats:
       common_fields:
       - count
@@ -4237,7 +4219,6 @@ windows:
       info:
         description: 'Check system-wide kernel activity: context-switch and system-call rates plus live
           process and thread counts.'
-        experimental: true
       params:
       - content_type: 2
         default_value: ''
@@ -4253,7 +4234,6 @@ windows:
       info:
         description: Check the system load average (1/5/15 minutes), synthesised from the processor queue
           length plus busy cores.
-        experimental: true
     check_memory:
       common_fields:
       - count
@@ -4654,7 +4634,6 @@ windows:
         short_description: ''
       info:
         description: Check for available Windows updates via the Windows Update Agent (WUA) API.
-        experimental: true
       params:
       - content_type: 2
         default_value: ''
@@ -4924,7 +4903,6 @@ windows:
       info:
         description: 'Check installed-hotfix hygiene: how long since the newest hotfix was installed and
           whether specific required hotfixes are present.'
-        experimental: true
       params:
       - content_type: 2
         default_value: ''
@@ -5256,7 +5234,6 @@ windows:
       info:
         description: Check whether the system is waiting for a reboot, aggregating the servicing, Windows
           Update, file-rename, computer-rename and domain-join signals.
-        experimental: true
     check_printjobs:
       common_fields:
       - count
@@ -5385,7 +5362,6 @@ windows:
       info:
         description: 'Check individual Windows print jobs: document, owner, size, pages, age and spooler
           status of every queued job.'
-        experimental: true
     check_printqueue:
       common_fields:
       - count
@@ -5497,7 +5473,6 @@ windows:
       info:
         description: 'Check Windows print queues: queue depth, oldest-job age, offline and error states
           plus the driver, port and sharing of each printer.'
-        experimental: true
     check_process:
       common_fields:
       - count
@@ -5803,7 +5778,6 @@ windows:
       info:
         description: Check the history of processes that have been running since NSClient++ started. Useful
           for verifying if certain applications have been executed.
-        experimental: true
       params:
       - content_type: 2
         default_value: ''
@@ -5885,7 +5859,6 @@ windows:
       info:
         description: Check for new processes that appeared within a specified time window. Useful for
           detecting unexpected or unauthorized applications.
-        experimental: true
       params:
       - content_type: 2
         default_value: 5m
@@ -5991,7 +5964,6 @@ windows:
       info:
         description: Check existence, last-write time, and child counts of one or more Windows registry
           keys.
-        experimental: true
       params:
       - content_type: 2
         default_value: ''
@@ -6139,7 +6111,6 @@ windows:
         short_description: ''
       info:
         description: Check the type, content, and size of one or more Windows registry values.
-        experimental: true
       params:
       - content_type: 2
         default_value: ''
@@ -6474,7 +6445,6 @@ windows:
         short_description: ''
       info:
         description: 'Check system paging (swap) I/O rates: pages/bytes paged in and out per second.'
-        experimental: true
     check_temperature:
       common_fields:
       - count
@@ -6536,7 +6506,6 @@ windows:
         short_description: ''
       info:
         description: Check ACPI thermal zone temperatures.
-        experimental: true
     check_w32time:
       common_fields:
       - count
@@ -6664,4 +6633,3 @@ windows:
       info:
         description: 'Check the Windows Time service: whether the machine is following a time source at
           all, which one, the computed clock offset and the configured peers.'
-        experimental: true

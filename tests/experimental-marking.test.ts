@@ -4,33 +4,39 @@
  * into a registry registration flag (commands) and the NSGetModuleFlags export
  * (modules), and the agent reports it on every listing it serves.
  *
- * What is asserted here is the REST surface, which is what the web UI reads;
- * the `nscp test` console markers are covered in command-client-console.test.ts.
+ * Every expectation here is read from the module.json manifests in the source
+ * tree rather than written down again, because which commands carry the flag
+ * is *meant* to change: a command keeps it until its options and output
+ * settle, then loses it. What is being tested is that whatever the manifest
+ * declares is what the API reports - in both directions - not that any
+ * particular check is experimental today.
  *
- * The commands used are picked for stable properties rather than behaviour:
- * `check_drivesize` is a long-settled CheckDisk command and `check_single_file`
- * is one of the ones added recently, so one must come back unmarked and the
- * other marked. If a command is later declared stable, move the assertion to
- * whichever command is experimental then - the point is that both answers are
- * reported, not that these two particular checks stay as they are.
+ * The REST surface is what the web UI reads; the `nscp test` console markers
+ * are covered in command-client-console.test.ts.
  */
 import request from "supertest";
-import { NscpInstance, REST_URL, setupQueryNscp } from "@fixtures/index";
+import { NscpInstance, REST_URL, moduleManifest, moduleManifests, setupQueryNscp } from "@fixtures/index";
 
 jest.setTimeout(300_000);
 
+/** The module the agent is started with: present and loadable on both platforms. */
+const LOADED_MODULE = "CheckDisk";
+
 interface Listed {
   name: string;
+  plugin?: string;
   experimental?: boolean;
 }
 
 describe("experimental marking", () => {
   let nscp: NscpInstance;
   let key: string;
+  const manifests = moduleManifests();
+  const loaded = moduleManifest(LOADED_MODULE);
 
   beforeAll(async () => {
     nscp = new NscpInstance();
-    key = await setupQueryNscp(nscp, "CheckDisk");
+    key = await setupQueryNscp(nscp, LOADED_MODULE);
   });
 
   afterAll(async () => {
@@ -47,39 +53,99 @@ describe("experimental marking", () => {
     return response.body;
   }
 
-  it("reports the flag on every query, marking only the experimental ones", async () => {
+  it("reports each query exactly as its module declares it", async () => {
     const queries: Listed[] = await get("/api/v2/queries");
-    const byName = (name: string) => queries.find((q) => q.name === name);
-
-    // Every entry carries the field: a consumer can read it without having to
-    // treat "missing" as a third answer.
     expect(queries.length).toBeGreaterThan(0);
+
+    // Every entry carries the field, so a consumer never has to treat
+    // "missing" as a third answer.
     for (const query of queries) {
       expect(typeof query.experimental).toBe("boolean");
     }
-    expect(byName("check_drivesize")?.experimental).toBe(false);
-    expect(byName("check_single_file")?.experimental).toBe(true);
+
+    // Compare against the manifest of whichever module owns each query. A
+    // query whose name the manifest does not list (an alias, or a command a
+    // script registered) has nothing to compare against and is skipped.
+    const compared: string[] = [];
+    for (const query of queries) {
+      const manifest = query.plugin ? manifests.get(query.plugin) : undefined;
+      const declared = manifest?.byLowerName.get(query.name.toLowerCase());
+      if (declared === undefined) continue;
+      compared.push(query.name);
+      expect({ name: query.name, experimental: query.experimental }).toEqual({
+        name: query.name,
+        experimental: declared,
+      });
+    }
+    expect(compared.length).toBeGreaterThan(0);
   });
 
   it("reports the flag when a single query is fetched", async () => {
-    expect((await get("/api/v2/queries/check_single_file")).experimental).toBe(true);
-    expect((await get("/api/v2/queries/check_drivesize")).experimental).toBe(false);
+    // Take the names from the listing rather than the manifest, so the request
+    // uses exactly the spelling the registry answers to. One of each kind,
+    // where the loaded module still has both.
+    const queries: Listed[] = await get("/api/v2/queries");
+    const mine = queries.filter(
+      (q) => q.plugin === LOADED_MODULE && loaded.byLowerName.has(q.name.toLowerCase()),
+    );
+    const pick = (experimental: boolean) =>
+      mine.find((q) => loaded.byLowerName.get(q.name.toLowerCase()) === experimental);
+
+    let checked = 0;
+    for (const experimental of [true, false]) {
+      const query = pick(experimental);
+      if (!query) continue;
+      const fetched = await get(`/api/v2/queries/${query.name}`);
+      expect({ name: query.name, experimental: fetched.experimental }).toEqual({
+        name: query.name,
+        experimental,
+      });
+      checked++;
+    }
+    expect(checked).toBeGreaterThan(0);
   });
 
-  it("reports the flag on a loaded module", async () => {
-    const modules: Listed[] = await get("/api/v2/modules");
+  it("reports each module exactly as its manifest declares it", async () => {
+    // ?all=true walks the module directory, so this covers modules that are
+    // loaded and modules that are only on disk - the latter answered from the
+    // flags export without the module ever being started.
+    const modules: Listed[] = await get("/api/v2/modules?all=true");
+    expect(modules.length).toBeGreaterThan(0);
+
+    const compared: string[] = [];
     for (const module of modules) {
       expect(typeof module.experimental).toBe("boolean");
+      const manifest = manifests.get(module.name);
+      if (!manifest) continue;
+      compared.push(module.name);
+      expect({ name: module.name, experimental: module.experimental }).toEqual({
+        name: module.name,
+        experimental: manifest.experimental,
+      });
     }
-    // CheckDisk itself is a settled module; only some of its commands are new.
-    expect(modules.find((m) => m.name === "CheckDisk")?.experimental).toBe(false);
+    // The loaded module is always among them, so this can only fail if the
+    // listing stopped naming modules the way the manifests do.
+    expect(compared).toContain(LOADED_MODULE);
   });
 
-  it("reports the flag for a module that is not loaded", async () => {
-    // CheckSecurity is declared experimental and is not enabled here, so the
-    // answer has to come from the on-disk inventory - the core reads the
-    // module's flags export without starting it.
-    expect((await get("/api/v2/modules/CheckSecurity")).experimental).toBe(true);
-    expect((await get("/api/v2/modules/CheckHelpers")).experimental).toBe(false);
+  it("reports the flag for a module fetched by name while it is not loaded", async () => {
+    // Fetching one module by name is the path that inventories it on disk.
+    // Any module that is built but not loaded here will do; which ones exist
+    // differs per platform and build, so take them from the listing.
+    const modules: Listed[] = await get("/api/v2/modules?all=true");
+    const candidates = modules.filter((m) => m.name !== LOADED_MODULE && manifests.has(m.name));
+    expect(candidates.length).toBeGreaterThan(0);
+
+    // Prefer one of each kind, so the "true" answer is exercised whenever a
+    // module on this machine declares it.
+    const pick = (experimental: boolean) =>
+      candidates.find((m) => manifests.get(m.name)!.experimental === experimental);
+    for (const module of [pick(true), pick(false)]) {
+      if (!module) continue;
+      const declared = manifests.get(module.name)!.experimental;
+      expect({ name: module.name, experimental: (await get(`/api/v2/modules/${module.name}`)).experimental }).toEqual(
+        { name: module.name, experimental: declared },
+      );
+    }
   });
 });

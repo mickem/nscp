@@ -4,8 +4,7 @@
 		"description"	: "Icinga 2 client submits passive check results to an Icinga 2 server via the REST API",
 		"name"			: "IcingaClient",
 		"alias"			: "icinga2",
-		"version"		: "auto",
-		"experimental"	: true
+		"version"		: "auto"
 	},
 
 	"settings"		: {
@@ -16,8 +15,7 @@
 		"fallback" : "raw",
 		"submit_icinga" : {
 			"description" : "Submit information to the remote Icinga 2 Server.",
-			"mapping"	: false,
-			"experimental" : true
+			"mapping"	: false
 		}
 	},
 

@@ -1,6 +1,6 @@
 ---
 icon: "🧪"
-modules: [core, docs, CheckDisk, CheckDocker, CheckMSSQL, CheckMySQL, CheckNSCP, CheckNet, CheckSecurity, CheckSystem, CheckSystemUnix, CheckWindowsApps, IcingaClient, NSCANgClient, Scheduler]
+modules: [core, docs, CheckDisk, CheckDocker, CheckMSSQL, CheckMySQL, CheckNSCP, CheckNet, CheckSecurity, CheckWindowsApps, NSCANgClient, Scheduler]
 action: none
 ---
 **New modules and check commands are now marked *experimental*.** Nothing to do
@@ -14,11 +14,10 @@ the REST API reports it as an `experimental` field on
 [aliases](../api/rest/aliases.md), and the reference documentation renders a
 marker in the command tables plus a note on the command itself.
 
-Everything added in the last six months is marked: the recently added `check_*`
-commands in `CheckDisk`, `CheckDocker`, `CheckNet`, `CheckNSCP`, `CheckSystem`,
-`CheckSystemUnix` and `Scheduler`, plus the whole of the `CheckMSSQL`,
-`CheckMySQL`, `CheckSecurity`, `CheckWindowsApps`, `IcingaClient` and
-`NSCANgClient` modules.
+The recently added `check_*` commands of `CheckDisk`, `CheckDocker`, `CheckNet`,
+`CheckNSCP` and `Scheduler` are marked, as are the `CheckMSSQL`, `CheckMySQL`,
+`CheckSecurity`, `CheckWindowsApps` and `NSCANgClient` modules in full.
+
 The marker is not a warning that a check is broken — it is a statement about
 stability: pin the options and syntax you depend on, and re-read the command's
 reference page after an upgrade. Marks are removed as the commands settle.
