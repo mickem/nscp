@@ -3,10 +3,14 @@
 
 #include "token_store.hpp"
 
+#include <cstdlib>
+#include <iomanip>
 #include <random>
+#include <sstream>
 #include <vector>
 
 #ifdef USE_SSL
+#include <openssl/evp.h>
 #include <openssl/rand.h>
 #endif
 
@@ -85,6 +89,34 @@ std::string token_store::generate_token(const int len) {
   return ret;
 }
 
+#ifdef USE_SSL
+bool token_store::has_hashing() { return true; }
+
+std::string token_store::hash_token(const std::string &in) {
+  unsigned char md[EVP_MAX_MD_SIZE];
+  unsigned int md_len = 0;
+  EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+  if (ctx == nullptr) return std::string();
+  const bool ok =
+      EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr) == 1 && EVP_DigestUpdate(ctx, in.data(), in.size()) == 1 && EVP_DigestFinal_ex(ctx, md, &md_len) == 1;
+  EVP_MD_CTX_free(ctx);
+  if (!ok) return std::string();
+  std::ostringstream oss;
+  oss << std::hex << std::setfill('0');
+  for (unsigned int i = 0; i < md_len; ++i) {
+    oss << std::setw(2) << static_cast<int>(md[i]);
+  }
+  return oss.str();
+}
+#else
+// No OpenSSL: no hash, and therefore no persistence. Such a build cannot
+// serve TLS either, so there is no session worth carrying across a restart;
+// the in-memory map falls back to keying by the raw token (key_for).
+bool token_store::has_hashing() { return false; }
+
+std::string token_store::hash_token(const std::string &) { return std::string(); }
+#endif
+
 // `grants` is guarded by the same mutex as `tokens`: add_user / add_grant run
 // from the settings load path while can() is on the per-request authorisation
 // path, so they are not naturally serialised against each other.
@@ -98,7 +130,77 @@ void token_store::add_user(const std::string &user, const std::string &role) {
   grants.add_user(user, role);
 }
 
+std::string token_store::get_role(const std::string &user) const {
+  const std::lock_guard<std::mutex> lock(mutex_);
+  return grants.get_role(user);
+}
+
 void token_store::add_grant(const std::string &role, const std::string &grant) {
   const std::lock_guard<std::mutex> lock(mutex_);
   grants.add_role(role, grant);
 }
+
+namespace session_persistence {
+namespace {
+constexpr char kSeparator = '\t';
+constexpr const char *kVersion = "1";
+
+// A hash key is what generate_for() and hash_token() produce: 64 lowercase
+// hex characters. Rejecting anything else keeps a hand-edited or corrupted
+// row - or, in the worst case, a raw token that some future code path wrote
+// by mistake - from being loaded back as a live session.
+bool is_hash_key(const std::string &key) {
+  if (key.size() != 64) return false;
+  for (const char c : key) {
+    if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))) return false;
+  }
+  return true;
+}
+}  // namespace
+
+std::string serialize_session(const token_store::persisted_session &session) {
+  // A tab in any field would make the record ambiguous on the way back in.
+  // User names come from settings, so this is a configuration mistake rather
+  // than an attack, but a session that cannot be read back is worse than one
+  // that was never written.
+  if (session.user.find(kSeparator) != std::string::npos) return std::string();
+  if (session.fingerprint.find(kSeparator) != std::string::npos) return std::string();
+  if (session.user.empty()) return std::string();
+  std::ostringstream oss;
+  oss << kVersion << kSeparator << session.user << kSeparator << static_cast<long long>(session.created) << kSeparator << session.fingerprint;
+  return oss.str();
+}
+
+bool parse_session(const std::string &key, const std::string &value, token_store::persisted_session &out) {
+  // An empty value is a tombstone: the core storage has no delete, so a
+  // retired row is blanked instead of removed.
+  if (value.empty()) return false;
+  if (!is_hash_key(key)) return false;
+  // Split on exactly three separators. Not str::utils::split_lst: it drops a
+  // trailing empty field, and the fingerprint field is legitimately empty for
+  // a session issued through the fingerprint-less generate_for() overload.
+  const std::string::size_type p1 = value.find(kSeparator);
+  if (p1 == std::string::npos) return false;
+  const std::string::size_type p2 = value.find(kSeparator, p1 + 1);
+  if (p2 == std::string::npos) return false;
+  const std::string::size_type p3 = value.find(kSeparator, p2 + 1);
+  if (p3 == std::string::npos) return false;
+  const std::string version = value.substr(0, p1);
+  const std::string user = value.substr(p1 + 1, p2 - p1 - 1);
+  const std::string created = value.substr(p2 + 1, p3 - p2 - 1);
+  const std::string fingerprint = value.substr(p3 + 1);
+  // A fourth separator means a field we do not understand - refuse rather
+  // than silently keep the prefix.
+  if (fingerprint.find(kSeparator) != std::string::npos) return false;
+  if (version != kVersion) return false;
+  if (user.empty()) return false;
+  if (created.empty() || created.find_first_not_of("0123456789") != std::string::npos) return false;
+  const long long epoch = std::strtoll(created.c_str(), nullptr, 10);
+  if (epoch <= 0) return false;
+  out.hash = key;
+  out.user = user;
+  out.created = static_cast<time_t>(epoch);
+  out.fingerprint = fingerprint;
+  return true;
+}
+}  // namespace session_persistence

@@ -1,0 +1,182 @@
+/**
+ * Web sessions survive a restart of the agent.
+ *
+ * Session tokens used to live only in the WEBServer module's memory, so
+ * restarting the agent logged every web user out. They are now written to the
+ * core storage (`${data-path}/nsclient.db`) at a clean shutdown and read back
+ * at boot — hashed, and bound to the credentials they were issued against, so
+ * a logout or a password/role change still invalidates them.
+ *
+ * What this suite pins:
+ *   a) a key issued before a clean stop still authenticates after the restart
+ *   b) a key that was logged out (DELETE /api/v2/login) does not
+ *   c) a key whose user's password changed while the agent was down does not
+ *   d) a settings reload (POST /api/v2/settings/command) keeps keys valid
+ *   e) a user configured with a PLAINTEXT password has to log in again after a
+ *      restart — the documented limitation, because user_manager re-salts a
+ *      plaintext password on every boot and the credential fingerprint the
+ *      session is bound to therefore changes
+ *
+ * The `persistent` user's password is stored pre-hashed, which is what
+ * `nscp web install` writes for `admin` and the only form whose fingerprint is
+ * stable across processes. The two literals below were produced with:
+ *
+ *   python3 -c "import hashlib,binascii
+ *   s=binascii.unhexlify('000102030405060708090a0b0c0d0e0f')
+ *   print('pbkdf2-sha256\$100000\$'+s.hex()+'\$'+
+ *         hashlib.pbkdf2_hmac('sha256',b'persistent-password',s,100000,32).hex())"
+ *
+ * i.e. PBKDF2-HMAC-SHA256, 100000 iterations, 16-byte salt, 32-byte output,
+ * formatted as password_hash.cpp writes it.
+ */
+import request from "supertest";
+import { NscpInstance, REST_URL, setupRestNscp } from "@fixtures/index";
+
+jest.setTimeout(900_000);
+
+/** PBKDF2 form of "persistent-password" (see the header comment). */
+const HASHED_PASSWORD =
+  "pbkdf2-sha256$100000$000102030405060708090a0b0c0d0e0f$76576a36d586f4591939d6e1a842c8af99e53ec4a711f1d997f55a9b72298fb0";
+/** PBKDF2 form of "rotated-password" — the same user, after the change. */
+const HASHED_PASSWORD_ROTATED =
+  "pbkdf2-sha256$100000$101112131415161718191a1b1c1d1e1f$e171b8232960a553000e07e32ea94c9bdb60882dbf601799472c93d7a9ec19c4";
+
+const USER_PATH = "/settings/WEB/server/users/persistent";
+
+describe("REST session persistence", () => {
+  let nscp: NscpInstance;
+
+  /** Log in with Basic auth and return the issued session key. */
+  async function login(user: string, password: string): Promise<string> {
+    const response = await request(REST_URL)
+      .get("/api/v2/login")
+      .auth(user, password)
+      .trustLocalhost(true)
+      .expect(200);
+    expect(response.body.user).toEqual(user);
+    expect(response.body.key).toBeTruthy();
+    return response.body.key as string;
+  }
+
+  /** The status GET /api/v2/login answers with for a bearer key. */
+  async function statusFor(key: string): Promise<number> {
+    const response = await request(REST_URL)
+      .get("/api/v2/login")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true);
+    return response.status;
+  }
+
+  /**
+   * Stop the agent the way a service stop does (SIGTERM), then start it again
+   * on the same work dir so it reads back the nsclient.db it just wrote. The
+   * generous stop timeout matters: a SIGKILL would skip the storage save and
+   * the suite would be testing nothing.
+   */
+  async function restart(): Promise<void> {
+    await nscp.stop({ timeout: 30_000 });
+    await nscp.waitForPortFree(8443, { timeoutMs: 30_000 });
+    nscp.start();
+    await nscp.waitForPort(8443, { timeoutMs: 30_000 });
+  }
+
+  beforeAll(async () => {
+    nscp = new NscpInstance();
+    // Applied before setupRestNscp so everything lands in the INI in one go,
+    // while the agent is not running.
+    await nscp.configure({
+      [USER_PATH]: { role: "full", password: HASHED_PASSWORD },
+      "/settings/WEB/server/users/plaintext": {
+        role: "full",
+        password: "plaintext-password",
+      },
+    });
+    await setupRestNscp(nscp);
+  });
+
+  afterAll(async () => {
+    await nscp?.stop();
+  });
+
+  // The keys are threaded through the cases in order: a restart is expensive,
+  // so the suite does three of them rather than one per assertion.
+  let survivingKey = "";
+  let plaintextKey = "";
+  let secondKey = "";
+
+  it("issues keys for a hashed-password and a plaintext-password user", async () => {
+    survivingKey = await login("persistent", "persistent-password");
+    plaintextKey = await login("plaintext", "plaintext-password");
+    expect(await statusFor(survivingKey)).toEqual(200);
+    expect(await statusFor(plaintextKey)).toEqual(200);
+  });
+
+  it("keeps a hashed-password user's key valid across a restart", async () => {
+    await restart();
+    expect(await statusFor(survivingKey)).toEqual(200);
+  });
+
+  it("does not carry a plaintext-password user's key across a restart", async () => {
+    // Documented limitation: a plaintext INI password is re-salted by
+    // user_manager on every boot, so the credential fingerprint the session
+    // was bound to no longer matches and the session is dropped on import.
+    expect(await statusFor(plaintextKey)).toEqual(403);
+    // ... and logging in again works, so this is a re-login, not a lockout.
+    plaintextKey = await login("plaintext", "plaintext-password");
+    expect(await statusFor(plaintextKey)).toEqual(200);
+  });
+
+  it("keeps keys valid across a settings reload", async () => {
+    secondKey = await login("persistent", "persistent-password");
+    await request(REST_URL)
+      .post("/api/v2/settings/command")
+      .set("Authorization", `Bearer ${secondKey}`)
+      .send({ command: "reload" })
+      .trustLocalhost(true)
+      .expect(200);
+    // The reload is scheduled, not immediate: give it a couple of seconds and
+    // assert the key stayed valid throughout rather than at one instant.
+    const deadline = Date.now() + 5_000;
+    while (Date.now() < deadline) {
+      expect(await statusFor(secondKey)).toEqual(200);
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    expect(await statusFor(survivingKey)).toEqual(200);
+  });
+
+  it("does not restore a key that was logged out before the stop", async () => {
+    await request(REST_URL)
+      .delete("/api/v2/login")
+      .set("Authorization", `Bearer ${survivingKey}`)
+      .trustLocalhost(true)
+      .expect(200);
+    expect(await statusFor(survivingKey)).toEqual(403);
+    await restart();
+    expect(await statusFor(survivingKey)).toEqual(403);
+    // The key that was NOT logged out still works, so the restart itself is
+    // not what invalidated the revoked one.
+    expect(await statusFor(secondKey)).toEqual(200);
+  });
+
+  it("does not restore a key after the user's password changed", async () => {
+    await nscp.stop({ timeout: 30_000 });
+    await nscp.waitForPortFree(8443, { timeoutMs: 30_000 });
+    await nscp.run([
+      "settings",
+      "--path",
+      USER_PATH,
+      "--key",
+      "password",
+      "--set",
+      HASHED_PASSWORD_ROTATED,
+    ]);
+    nscp.start();
+    await nscp.waitForPort(8443, { timeoutMs: 30_000 });
+
+    expect(await statusFor(secondKey)).toEqual(403);
+    // The new password works, so the user is usable - only the old sessions
+    // are gone.
+    const rotatedKey = await login("persistent", "rotated-password");
+    expect(await statusFor(rotatedKey)).toEqual(200);
+  });
+});

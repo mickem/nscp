@@ -56,6 +56,9 @@ class WEBServer : public nscapi::impl::simple_plugin {
  private:
   void add_user(const std::string &key, const std::string &arg);
   void set_openmetrics_format(const std::string &value);
+  // Write the live web sessions back to the core storage at shutdown. Called
+  // from unloadModule, which runs just before the core saves nsclient.db.
+  void persist_sessions();
 
   // Which exposition `/api/v2/openmetrics` serves. Written by loadModuleEx,
   // which a settings reload re-enters on the live module, and read by the
@@ -89,6 +92,10 @@ class WEBServer : public nscapi::impl::simple_plugin {
   // neither start listening on a channel nor move to a different one. Empty
   // until the cache has been switched on across a restart.
   std::string registered_result_channel_;
+  // Session rows read out of the core storage at boot, so the ones that are
+  // no longer live at shutdown can be blanked instead of kept for ever (the
+  // storage API has no delete).
+  std::set<std::string> persisted_keys_;
   std::shared_ptr<Mongoose::Server> server;
 
   web_server::user_config users_;

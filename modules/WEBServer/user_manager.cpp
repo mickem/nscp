@@ -32,10 +32,26 @@ void user_manager::add_user(const std::string& user, const std::string& password
     users[user] = password;
     return;
   }
+  // Re-adding the same plaintext password must leave the stored value alone.
+  // Hashing it again would mint a fresh salt, and anything watching the
+  // stored hash to notice a credential change - the session fingerprint in
+  // session_manager_interface::fingerprint_for_user - would read that as a
+  // rotation and log the user out on every settings reload. Note this only
+  // holds within one process: a restart starts from an empty table, so a
+  // plaintext password IS re-salted at boot and its sessions do not survive.
+  const auto it = users.find(user);
+  if (it != users.end() && !it->second.empty() && web_password::verify_password(password, it->second)) {
+    return;
+  }
   const std::string h = web_password::hash_password(password);
   users[user] = h.empty() ? password : h;
 }
 
 bool user_manager::has_user(const std::string& user) const { return users.find(user) != users.end(); }
+
+std::string user_manager::get_hash(const std::string& user) const {
+  const auto it = users.find(user);
+  return it == users.end() ? std::string() : it->second;
+}
 
 void user_manager::remove_user(const std::string& user) { users.erase(user); }

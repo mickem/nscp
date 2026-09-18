@@ -5,8 +5,11 @@
 
 #include <gtest/gtest.h>
 
+#include <iomanip>
 #include <set>
+#include <sstream>
 #include <string>
+#include <vector>
 
 TEST(TokenStoreTest, GenerateToken) {
   const std::string token1 = token_store::generate_token(32);
@@ -286,4 +289,205 @@ TEST(TokenStoreTest, ValidateRejectsUnknownToken) {
   std::string user = "sentinel";
   EXPECT_FALSE(store.validate("no-such-token", user));
   EXPECT_EQ(user, "sentinel");
+}
+
+// --- Hash-keyed storage and persistence --------------------------------------
+//
+// The map is keyed by the SHA-256 of the token, never by the token itself, so
+// neither a memory dump nor nsclient.db hands anybody a working bearer
+// credential. These tests pin that, plus the snapshot/restore pair the
+// WEBServer module uses to carry sessions across a restart.
+
+TEST(TokenStoreTest, MapIsKeyedByTheHashNotTheRawToken) {
+  token_store store;
+  const std::string token = store.generate_for("test_user");
+  ASSERT_FALSE(token.empty());
+  const std::string key = token_store::key_for(token);
+  if (token_store::has_hashing()) {
+    EXPECT_NE(key, token) << "key_for returned the raw token";
+    EXPECT_EQ(key.size(), 64u) << "a SHA-256 hex digest is 64 characters";
+  }
+  // Whatever the key is, looking the session up by the raw token works and
+  // looking it up by the key does not (the key is not itself a token).
+  EXPECT_TRUE(store.is_valid(token));
+  EXPECT_EQ(store.get_user(token), "test_user");
+  if (token_store::has_hashing()) {
+    EXPECT_FALSE(store.is_valid(key));
+  }
+}
+
+TEST(TokenStoreTest, HashTokenIsStableAndDistinct) {
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  EXPECT_EQ(token_store::hash_token("abc"), token_store::hash_token("abc"));
+  EXPECT_NE(token_store::hash_token("abc"), token_store::hash_token("abd"));
+  // Known answer: SHA-256("abc").
+  EXPECT_EQ(token_store::hash_token("abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+}
+
+TEST(TokenStoreTest, SnapshotNeverContainsTheRawToken) {
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  token_store store;
+  const std::string token = store.generate_for("test_user", "fp1");
+  ASSERT_FALSE(token.empty());
+  const auto snap = store.snapshot(token_store::now());
+  ASSERT_EQ(snap.size(), 1u);
+  const token_store::persisted_session &s = snap.front();
+  EXPECT_NE(s.hash, token) << "the raw token leaked into the snapshot";
+  EXPECT_EQ(s.hash, token_store::hash_token(token));
+  EXPECT_EQ(s.user, "test_user");
+  EXPECT_EQ(s.fingerprint, "fp1");
+}
+
+TEST(TokenStoreTest, SnapshotSkipsExpiredEntries) {
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  token_store store;
+  ASSERT_FALSE(store.generate_for("test_user", "fp1").empty());
+  EXPECT_EQ(store.snapshot(token_store::now()).size(), 1u);
+  EXPECT_TRUE(store.snapshot(token_store::now() + HOURS_TO_SECONDS(TOKEN_EXPIRATION_HOURS + 1)).empty());
+}
+
+TEST(TokenStoreTest, FingerprintForResolvesAndExpires) {
+  token_store store;
+  const std::string token = store.generate_for("test_user", "fp1");
+  EXPECT_EQ(store.fingerprint_for(token, token_store::now()), "fp1");
+  EXPECT_EQ(store.fingerprint_for(token, token_store::now() + HOURS_TO_SECONDS(TOKEN_EXPIRATION_HOURS + 1)), "");
+  EXPECT_EQ(store.fingerprint_for("nonexistent", token_store::now()), "");
+}
+
+TEST(TokenStoreTest, RestoreRoundTripsASession) {
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  token_store source;
+  const std::string token = source.generate_for("test_user", "fp1");
+  ASSERT_FALSE(token.empty());
+  const auto snap = source.snapshot(token_store::now());
+  ASSERT_EQ(snap.size(), 1u);
+
+  token_store target;
+  EXPECT_FALSE(target.is_valid(token)) << "fresh store must not know the token";
+  EXPECT_TRUE(target.restore(snap.front(), token_store::now()));
+  // The raw token the client still holds now authenticates against the new
+  // store, which is the whole point of persisting sessions.
+  EXPECT_TRUE(target.is_valid(token));
+  EXPECT_EQ(target.get_user(token), "test_user");
+  EXPECT_EQ(target.fingerprint_for(token), "fp1");
+}
+
+TEST(TokenStoreTest, RestoreSkipsExpiredAndMalformedRecords) {
+  token_store store;
+  token_store::persisted_session s;
+  s.hash = std::string(64, 'a');
+  s.user = "test_user";
+  s.created = token_store::now() - HOURS_TO_SECONDS(TOKEN_EXPIRATION_HOURS + 1);
+  EXPECT_FALSE(store.restore(s, token_store::now())) << "an expired record must not be restored";
+
+  s.created = token_store::now();
+  s.user = "";
+  EXPECT_FALSE(store.restore(s, token_store::now())) << "a record without a user must not be restored";
+
+  s.user = "test_user";
+  s.hash = "";
+  EXPECT_FALSE(store.restore(s, token_store::now())) << "a record without a hash must not be restored";
+}
+
+TEST(TokenStoreTest, RestoreDoesNotOverwriteALiveEntry) {
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  token_store store;
+  const std::string token = store.generate_for("live_user", "fp-live");
+  ASSERT_FALSE(token.empty());
+  token_store::persisted_session s;
+  s.hash = token_store::hash_token(token);
+  s.user = "stale_user";
+  s.created = token_store::now();
+  s.fingerprint = "fp-stale";
+  EXPECT_FALSE(store.restore(s, token_store::now()));
+  EXPECT_EQ(store.get_user(token), "live_user") << "the live entry was overwritten from disk";
+}
+
+TEST(TokenStoreTest, RestoreRespectsTheCap) {
+  // A nsclient.db holding more rows than the cap must not be able to push the
+  // live map past it - the cap is the defensive boundary, whichever side the
+  // sessions arrive from. restore() goes through the same sweep generate_for()
+  // does, so it evicts rather than refuses; what is pinned here is that the
+  // map stays bounded.
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  token_store store;
+  const time_t now = token_store::now();
+  for (int i = 0; i < 5000; ++i) {
+    token_store::persisted_session s;
+    // 64 hex characters, unique per i - what parse_session accepts as a key.
+    std::ostringstream oss;
+    oss << std::hex << std::setw(64) << std::setfill('0') << i;
+    s.hash = oss.str();
+    s.user = "user" + std::to_string(i);
+    // Spread the creation times so eviction has an unambiguous "oldest".
+    s.created = now - i;
+    store.restore(s, now);
+  }
+  EXPECT_LE(store.snapshot(now).size(), 4096u) << "live count exceeded the documented cap";
+}
+
+// --- Serialisation -----------------------------------------------------------
+
+TEST(SessionPersistenceTest, SerialiseParseRoundTrip) {
+  token_store::persisted_session in;
+  in.hash = std::string(64, 'a');
+  in.user = "test_user";
+  in.created = 1700000000;
+  in.fingerprint = "deadbeef";
+  const std::string value = session_persistence::serialize_session(in);
+  EXPECT_EQ(value, "1\ttest_user\t1700000000\tdeadbeef");
+
+  token_store::persisted_session out;
+  ASSERT_TRUE(session_persistence::parse_session(in.hash, value, out));
+  EXPECT_EQ(out.hash, in.hash);
+  EXPECT_EQ(out.user, in.user);
+  EXPECT_EQ(out.created, in.created);
+  EXPECT_EQ(out.fingerprint, in.fingerprint);
+}
+
+TEST(SessionPersistenceTest, SerialiseRefusesAmbiguousRecords) {
+  token_store::persisted_session in;
+  in.hash = std::string(64, 'a');
+  in.created = 1700000000;
+  in.user = "bad\tuser";
+  EXPECT_TRUE(session_persistence::serialize_session(in).empty()) << "a tab in the user makes the record ambiguous";
+  in.user = "test_user";
+  in.fingerprint = "bad\tfingerprint";
+  EXPECT_TRUE(session_persistence::serialize_session(in).empty());
+  in.fingerprint = "";
+  in.user = "";
+  EXPECT_TRUE(session_persistence::serialize_session(in).empty());
+}
+
+TEST(SessionPersistenceTest, ParseAcceptsAnEmptyFingerprintField) {
+  token_store::persisted_session out;
+  ASSERT_TRUE(session_persistence::parse_session(std::string(64, 'a'), "1\ttest_user\t1700000000\t", out));
+  EXPECT_EQ(out.fingerprint, "");
+}
+
+TEST(SessionPersistenceTest, ParseRejectsMalformedValues) {
+  const std::string key(64, 'a');
+  token_store::persisted_session out;
+  // An empty value is the tombstone convention the core storage uses in place
+  // of a delete - it is not a session.
+  EXPECT_FALSE(session_persistence::parse_session(key, "", out));
+  EXPECT_FALSE(session_persistence::parse_session(key, "garbage", out));
+  EXPECT_FALSE(session_persistence::parse_session(key, "1\ttest_user\t1700000000", out)) << "too few fields";
+  EXPECT_FALSE(session_persistence::parse_session(key, "1\ttest_user\t1700000000\tfp\textra", out)) << "too many fields";
+  EXPECT_FALSE(session_persistence::parse_session(key, "2\ttest_user\t1700000000\tfp", out)) << "unknown version";
+  EXPECT_FALSE(session_persistence::parse_session(key, "1\t\t1700000000\tfp", out)) << "empty user";
+  EXPECT_FALSE(session_persistence::parse_session(key, "1\ttest_user\tnotanumber\tfp", out)) << "non-numeric timestamp";
+  EXPECT_FALSE(session_persistence::parse_session(key, "1\ttest_user\t0\tfp", out)) << "zero timestamp";
+  EXPECT_FALSE(session_persistence::parse_session(key, "1\ttest_user\t-5\tfp", out)) << "negative timestamp";
+}
+
+TEST(SessionPersistenceTest, ParseRejectsKeysThatAreNotHashes) {
+  token_store::persisted_session out;
+  const std::string value = "1\ttest_user\t1700000000\tfp";
+  EXPECT_FALSE(session_persistence::parse_session("", value, out));
+  EXPECT_FALSE(session_persistence::parse_session("tooshort", value, out));
+  // A raw 32-character token is exactly what must never be accepted as a key.
+  EXPECT_FALSE(session_persistence::parse_session(std::string(32, 'a'), value, out));
+  EXPECT_FALSE(session_persistence::parse_session(std::string(64, 'A'), value, out)) << "uppercase is not our hex";
+  EXPECT_FALSE(session_persistence::parse_session(std::string(64, 'z'), value, out)) << "not hex at all";
 }

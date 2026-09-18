@@ -83,6 +83,10 @@ class WEBServerLogger : public WebLogger {
 };
 
 namespace {
+// Core-storage context the web sessions are kept under in nsclient.db. Key =
+// the SHA-256 of the session token; value = session_persistence's record.
+constexpr const char *kSessionStorageContext = "web.sessions";
+
 // True if a WEB role's comma-separated grant string confers the bare `legacy`
 // permission - the token the deprecated /query/{name} query-dispatch route
 // checks for. What matters is the permission, not the
@@ -461,6 +465,31 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       session->add_user("admin", "full", admin_password);
     }
 
+    // Every user and role is in place now, so the sessions persisted at the
+    // last clean shutdown can be vetted against the current configuration and
+    // put back. Restarting the agent used to log every web user out; it no
+    // longer does. Only the SHA-256 of each token was ever written, and a row
+    // is only accepted when the user still exists and their credential
+    // fingerprint still matches - so a password or role change invalidates a
+    // stored session exactly as it invalidates a live one.
+    try {
+      nscapi::core_helper core(get_core(), get_id());
+      std::list<token_store::persisted_session> stored;
+      for (const nscapi::core_helper::storage_map::value_type &e : core.get_storage_strings(kSessionStorageContext)) {
+        // An empty value is a row retired on an earlier shutdown; it is
+        // already blank, so there is no need to remember it for tombstoning.
+        if (e.second.empty()) continue;
+        persisted_keys_.insert(e.first);
+        token_store::persisted_session parsed;
+        if (session_persistence::parse_session(e.first, e.second, parsed)) stored.push_back(parsed);
+      }
+      session->import_sessions(stored);
+    } catch (const std::exception &e) {
+      NSC_LOG_ERROR("Failed to restore web sessions: " + utf8::utf8_from_native(e.what()));
+    } catch (...) {
+      NSC_LOG_ERROR_EX("restoring web sessions");
+    }
+
     WebLoggerPtr logger(new WEBServerLogger(log_errors, log_info, log_debug));
     server.reset(Server::make_server(logger));
     if (cert_missing) {
@@ -552,6 +581,7 @@ void WEBServer::prepareShutdown() {
 }
 
 bool WEBServer::unloadModule() {
+  bool ok = true;
   try {
     if (server) {
       server->stop();
@@ -559,9 +589,45 @@ bool WEBServer::unloadModule() {
     }
   } catch (...) {
     NSC_LOG_ERROR_EX("unload");
-    return false;
+    ok = false;
   }
-  return true;
+  // Persist regardless of how the server stop went - a failure to close the
+  // listener is no reason to throw away everybody's session. This mirrors
+  // CheckEventLog / CheckLogFile, which write their bookmarks from
+  // unloadModule for the same reason: the core saves nsclient.db right after
+  // unloadPlugins() returns (NSClientT::stop_nsclient), so this is the last
+  // point at which anything can be handed to it.
+  try {
+    persist_sessions();
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR("Failed to persist web sessions: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    NSC_LOG_ERROR_EX("persisting web sessions");
+  }
+  return ok;
+}
+
+void WEBServer::persist_sessions() {
+  if (!session) return;
+  nscapi::core_helper core(get_core(), get_id());
+  std::set<std::string> live;
+  for (const token_store::persisted_session &s : session->export_sessions()) {
+    const std::string value = session_persistence::serialize_session(s);
+    if (value.empty()) continue;
+    live.insert(s.hash);
+    // private_data: the row binds a session to a user. It is only a hash, so
+    // it is not a credential, but it is not something to hand out either.
+    core.put_storage(kSessionStorageContext, s.hash, value, true, false);
+  }
+  // A session that was revoked (logout, password change) or expired while we
+  // ran is simply not in the snapshot, so it is not written back - but its
+  // row from the previous run would otherwise sit in nsclient.db for ever.
+  // The storage API has no delete, so blank the value: import skips empty
+  // entries, which is the same as not having one.
+  for (const std::string &key : persisted_keys_) {
+    if (live.find(key) == live.end()) core.put_storage(kSessionStorageContext, key, "", true, false);
+  }
+  persisted_keys_ = live;
 }
 
 void WEBServer::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
