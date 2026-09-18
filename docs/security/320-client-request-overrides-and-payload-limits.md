@@ -63,8 +63,11 @@ clients and had no upper bound below `INT_MAX`. One submission naming
 2147483647 allocated about 2 GB per payload — CSPRNG output for NSCA, a zeroed
 packet for NRPE. On 32-bit builds that is an allocation failure per call; on
 64-bit, memory exhaustion from a few concurrent requests. The server side
-already refused such lengths. Both clients now clamp to 65536 (and up from a
-minimum of 16), logging once when they do.
+already refused such lengths. Each client now clamps to what its own protocol
+accepts — 65536 for NSCA, and 1 MiB for NRPE, the ceiling its v3/v4 decoder
+already enforces — and up from a minimum of 16, logging once when it does. The
+bound exists to stop a multi-gigabyte allocation, not to shrink either
+protocol: a 1 MiB NRPE payload is a supported configuration and still works.
 
 **What to do:** nothing on a default install. If callers pass `verify=`,
 `insecure=`, `ca=`, `recipient=` or `sender=` to a target that carries a

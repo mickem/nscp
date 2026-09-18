@@ -31,6 +31,16 @@ TEST(PayloadLimits, TheMaximumItselfIsAllowed) {
   EXPECT_TRUE(reason.empty()) << reason;
 }
 
+TEST(PayloadLimits, AMebibyteNrpePayloadIsSupported) {
+  // The NRPE v3/v4 decoder accepts payloads up to 1 MiB and
+  // scripts/python/test_nrpe.py drives an SSL exchange at exactly that size,
+  // so the clamp must not shrink it. A tighter bound here passes every unit
+  // test and then fails the integration suite, which is how it was caught.
+  std::string reason;
+  EXPECT_EQ(net::payload::clamp(1048576, net::payload::max_nrpe_payload_length, "NRPE", reason), 1048576u);
+  EXPECT_TRUE(reason.empty()) << reason;
+}
+
 TEST(PayloadLimits, AnAbsurdLengthIsClampedAndExplained) {
   std::string reason;
   EXPECT_EQ(net::payload::clamp(2147483647, net::payload::max_nsca_payload_length, "NSCA", reason), net::payload::max_nsca_payload_length);

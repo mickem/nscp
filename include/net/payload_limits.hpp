@@ -20,9 +20,15 @@ namespace payload {
 // NSCA is 512 bytes in the reference implementation; forks raise it, but the
 // packet is a fixed-size struct so nothing sane goes near 64 KiB.
 constexpr unsigned int max_nsca_payload_length = 65536;
-// NRPE v2 uses 1024 by default (recompiled agents use 4096 or 16384); v3/v4
-// carry the length on the wire and the decoder refuses more than 1 MiB.
-constexpr unsigned int max_nrpe_payload_length = 65536;
+// NRPE v2 uses 1024 by default and recompiled agents use 4096 or 16384, but
+// v3/v4 carry the length on the wire and this agent's own decoder accepts up
+// to 1 MiB (see nrpe::packet). That ceiling is the bound to enforce here: the
+// finding is that a caller could name a value near INT_MAX and get a
+// multi-gigabyte allocation, not that large-but-supported payloads should
+// stop working. Clamping to 64 KiB instead would have silently shrunk the
+// protocol - scripts/python/test_nrpe.py exercises a 1 MiB payload end to
+// end, and it is a supported configuration.
+constexpr unsigned int max_nrpe_payload_length = 1024 * 1024;
 // Below this the packet builders have no room for their own headers and the
 // substr-based split logic underflows.
 constexpr unsigned int min_payload_length = 16;
