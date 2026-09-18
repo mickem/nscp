@@ -61,12 +61,17 @@ jobs:
     with:
       architecture: x64
       version: ${{ needs.get-version.outputs.version }}
+  # Only the newest RedHat release on a pull request: the older ones differ in
+  # packaged library versions and the python the tests run under, not in
+  # anything a change to NSClient++ is likely to break on its own. The release
+  # build still produces all of them.
   build-redhat:
     needs: [get-version, create-test-bundle]
     uses: ./.github/workflows/build-redhat.yml
     with:
       architecture: x64
       version: ${{ needs.get-version.outputs.version }}
+      distros: latest
   build-web:
     needs: get-version
     uses: ./.github/workflows/build-web.yml

@@ -98,6 +98,8 @@ jobs:
     with:
       architecture: x64
       version: ${{ needs.get-version.outputs.version }}
+      # Every supported RedHat release; the feature build takes the newest only.
+      distros: all
   build-web:
     needs: get-version
     uses: ./.github/workflows/build-web.yml

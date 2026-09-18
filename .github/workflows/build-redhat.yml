@@ -15,42 +15,60 @@ on:
         type: string
         description: 'Version to build'
         required: true
+      distros:
+        type: string
+        description: >-
+          Which RedHat releases to build: "all" for every supported release, or
+          "latest" for the newest one only. Release builds want all of them;
+          a pull request gets the newest, where a change that breaks the RPM
+          build breaks it too.
+        required: false
+        default: all
 
 jobs:
+  # The matrix has to be computed rather than written out: `include:` entries
+  # cannot carry an `if:`, and a skipped matrix job is still a queued runner.
+  matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.pick.outputs.build }}
+    steps:
+    - id: pick
+      shell: bash
+      run: |
+        set -euo pipefail
+        all='[
+          {"distro":"rocky","distro_version":"9", "python_version":"python39", "arch":"x64",  "rpm_arch":"x86_64", "cpack_arch":"amd64","runner":"ubuntu-latest"},
+          {"distro":"rocky","distro_version":"9", "python_version":"python39", "arch":"arm64","rpm_arch":"aarch64","cpack_arch":"arm64","runner":"ubuntu-24.04-arm"},
+          {"distro":"rocky","distro_version":"10","python_version":"python312","arch":"x64",  "rpm_arch":"x86_64", "cpack_arch":"amd64","runner":"ubuntu-latest"},
+          {"distro":"rocky","distro_version":"10","python_version":"python312","arch":"arm64","rpm_arch":"aarch64","cpack_arch":"arm64","runner":"ubuntu-24.04-arm"}
+        ]'
+        case "${{ inputs.distros }}" in
+          all)
+            selected=$(jq -c . <<< "$all")
+            ;;
+          latest)
+            # "Newest" is read off the list rather than named, so adding
+            # Rocky 11 here is the only edit needed.
+            selected=$(jq -c \
+              '(map(.distro_version | tonumber) | max | tostring) as $v
+               | map(select(.distro_version == $v))' <<< "$all")
+            ;;
+          *)
+            echo "::error::Unknown distros value '${{ inputs.distros }}' (expected 'all' or 'latest')"
+            exit 1
+            ;;
+        esac
+        echo "Building: $(jq -r 'map("\(.distro) \(.distro_version) \(.arch)") | join(", ")' <<< "$selected")"
+        echo "build=$selected" >> "$GITHUB_OUTPUT"
+
   build-rpm:
+    needs: matrix
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - distro: rocky
-            distro_version: "9"
-            python_version: python39
-            arch: x64
-            rpm_arch: x86_64
-            cpack_arch: amd64
-            runner: ubuntu-latest
-          - distro: rocky
-            distro_version: "9"
-            python_version: python39
-            arch: arm64
-            rpm_arch: aarch64
-            cpack_arch: arm64
-            runner: ubuntu-24.04-arm
-          - distro: rocky
-            distro_version: "10"
-            python_version: python312
-            arch: x64
-            rpm_arch: x86_64
-            cpack_arch: amd64
-            runner: ubuntu-latest
-          - distro: rocky
-            distro_version: "10"
-            python_version: python312
-            arch: arm64
-            rpm_arch: aarch64
-            cpack_arch: arm64
-            runner: ubuntu-24.04-arm
+        include: ${{ fromJson(needs.matrix.outputs.build) }}
     container:
       image: rockylinux/rockylinux:${{ matrix.distro_version }}
       options: --user root
