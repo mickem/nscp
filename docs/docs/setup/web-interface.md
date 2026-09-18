@@ -115,8 +115,8 @@ rather than as a legacy `?TOKEN=` parameter.
 !!! danger "The `legacy` role is powerful — only for legacy integrations"
     The `legacy` role (`legacy,login.get`) exists so that old clients which
     predate the versioned REST API can still run checks, through the
-    deprecated `POST /query.pb` and `GET /query/{name}` endpoints. Those
-    endpoints dispatch through the **same command registry** as the modern
+    deprecated `GET /query/{name}` endpoint. That endpoint dispatches
+    through the **same command registry** as the modern
     `GET /api/v2/queries/{name}/commands/execute` API, so a token holding only
     the `legacy` grant can run **any** check or command registered on the
     agent — including any `CheckExternalScripts` command an operator has

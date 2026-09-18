@@ -15,7 +15,7 @@ runs:
   using: composite
   steps:
     - name: Sign binaries
-      uses: azure/trusted-signing-action@v0.5.1
+      uses: azure/trusted-signing-action@0d74250c661747df006298d0fb49944c10f16e03 # v0.5.1
       with:
         azure-tenant-id: ${{ inputs.azure-tenant-id }}
         azure-client-id: ${{ inputs.azure-client-id }}

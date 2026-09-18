@@ -5,8 +5,9 @@ check_remote_nscp host=192.168.56.103 command=check_drivesize
 WARNING: WARNING C:\: 91.2GB/100GB used|'C:\ used'=91.2GB;80;90;0;100 'C:\ used %'=91%;80;90;0;100
 ```
 
-Unlike NRPE, the result travels as structured data, so the performance data
-arrives intact regardless of length.
+Unlike NRPE, the transport imposes no payload ceiling and the remote builds its
+performance data without truncation, so the result arrives intact regardless of
+length.
 
 **Pass arguments to the remote check (`argument=`, repeatable):**
 
@@ -19,12 +20,13 @@ OK: OK All 1 drive(s) are ok
 
 Put the host, password and TLS material under
 `[/settings/NSCP/client/targets/...]` so credentials stay out of process
-listings:
+listings. The password is the remote agent's web `admin` user's password, and
+that user needs a role granting `queries.execute`:
 
 ```ini
 [/settings/NSCP/client/targets/web01]
 address = nscp://192.168.56.103:8443
-password = <shared secret>
+password = <the remote's admin password>
 verify mode = peer
 ca = /etc/nsclient/ca.pem
 ```

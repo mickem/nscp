@@ -723,13 +723,23 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::find
 // create_simple_query_request_as in include/nscapi/nscapi_core_helper.cpp):
 //
 //   nscp.caller_plugin_id  - numeric plugin id of the caller. Set
-//                            unconditionally by core_helper, so the
-//                            calling DLL cannot fake it without
-//                            rewriting core_helper. Resolved here to a
-//                            module name via the trusted plugin_cache.
+//                            unconditionally by core_helper. Resolved
+//                            here to a module name via the trusted
+//                            plugin_cache.
 //   nscp.principal         - sub-identity (web user, NRPE client tag,
 //                            CLI OS user, ...). Optional; empty when
 //                            unset.
+//
+// Both keys are only trustworthy for a request built *in process*: a
+// module calling through core_helper cannot set them to anything else
+// without rewriting core_helper. They are NOT trustworthy for a request
+// whose bytes came off the wire - whoever composed the protobuf composed
+// its header too. No endpoint hands a caller-supplied QueryRequestMessage
+// to core->query any more (the raw-protobuf route that did was removed);
+// every HTTP path now builds the message itself and stamps the keys from
+// the authenticated session, as query_controller::stamp_identity does.
+// Anything that reintroduces a pass-through must do the same, or refuse a
+// request that carries them - otherwise the caller picks its own subject.
 //
 // Both keys are best-effort: legacy simple_query (no _as) sends neither,
 // and direct NSAPIInject invocations may send neither either. An

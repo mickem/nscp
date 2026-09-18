@@ -1,0 +1,54 @@
+# SHA-256 digests of the build dependencies the Windows workflow downloads.
+#
+# Everything listed here ends up inside artifacts this project Authenticode-
+# signs, and every one of them is fetched from a release asset over the
+# network. TLS proves who served the bytes, not what the bytes are: a
+# compromised or re-uploaded upstream asset arrives under a valid certificate
+# and would be signed and shipped without anyone noticing. A digest committed
+# here makes changing what the build consumes a reviewable change to this file.
+#
+# Format, one dependency per line, whitespace-separated:
+#
+#   <name> <version> <sha256|commit|unrecorded> [# comment]
+#
+# A 64-hex value is the SHA-256 of the downloaded file, checked by
+# .github/scripts/verify-checksum.sh. A 40-hex value is a git commit id, for a
+# dependency the build clones rather than downloads, checked by
+# .github/scripts/verify-commit.sh - a tag is a movable pointer, the commit is
+# not.
+#
+# `unrecorded` means the value for that version has not been captured yet: the
+# build warns and continues. A *missing* line fails the build, so bumping a
+# version cannot silently skip verification.
+#
+# To record one, on a machine that can reach the upstream host:
+#
+#   curl -sSfL <the exact url the action downloads> -o dep.bin
+#   sha256sum dep.bin
+#
+# and paste the digest in place of `unrecorded`. Cross-check it against the
+# upstream project's own published checksum or signature where one exists
+# (OpenSSL and Lua publish both) - re-hashing whatever the download happens to
+# return only records what you were served, which is not the same as verifying
+# it.
+#
+# name          version   sha256 or commit
+
+openssl         3.5.8     unrecorded
+protobuf        21.12     unrecorded
+cryptopp        8.9.0     unrecorded
+lua             5.4.8     unrecorded
+tinyxml2        10.1.0    unrecorded
+mongoose        7.23      unrecorded
+miniz           3.1.1     unrecorded
+mariadb         3.4.9     unrecorded
+
+# Cloned, not downloaded: this is the commit `release-1.12.1` names today.
+googletest      1.12.1    58d77fa8070e8cec2dc1ed015d66b454c8d78850
+
+# The prebuilt check_nsclient.exe, which ships inside the signed MSI. Keyed by
+# the version in .check_nsclient_version; one line per architecture, since the
+# release publishes a separate binary for each.
+check_nsclient-x64      1.1.0   unrecorded
+check_nsclient-x86      1.1.0   unrecorded
+check_nsclient-arm64    1.1.0   unrecorded

@@ -713,9 +713,8 @@ UNKNOWN: Unknown command(s): nightly_backup
 
 This is the usual reason to reach for a transport designed for passive results
 instead — [NSCA-ng](NSCANgClient.md), [NRDP](NRDPClient.md) or
-[NSCA](NSCAClient.md) — or, if the far end is NSClient++,
-[`submit_remote_nscp`](NSCPClient.md#submit_remote_nscp), which has no payload
-ceiling and carries performance data as structured data.
+[NSCA](NSCAClient.md). Submitting passive results to an NSClient++ agent over
+NSCP is not available: the agent's REST API has no endpoint for it.
 
 **Nothing listening:**
 

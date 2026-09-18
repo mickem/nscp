@@ -117,7 +117,16 @@ inline std::string default_for(const std::string &key, const layout current) {
       // writable by the account the service runs as, which on unix rules out
       // the package directory ${shared-path} points at.
       {FLEET_FOLDER_KEY, FLEET_FOLDER},
-#ifndef WIN32
+#ifdef WIN32
+      // boot.ini's default location, unchanged from when this was a literal in
+      // the build configuration: next to the executable. Expressing it as a
+      // token is what makes `--path-override boot-conf=...` work here as it
+      // already did on unix - the CLI documents the override as available, and
+      // boot.ini is the only place some settings (the TLS options that govern
+      // fetching a remote configuration) can be written at all, so a host that
+      // cannot relocate it cannot set them from a test or a sandbox.
+      {"boot-conf", "${exe-path}/boot.ini"},
+#else
       {"shared-path", UNIX_SHARED_PATH_FOLDER},
       {"data-path", UNIX_DATA_PATH_FOLDER},
       // ${etc} tracks this build's config root (NSCP_SYSCONFDIR) so user

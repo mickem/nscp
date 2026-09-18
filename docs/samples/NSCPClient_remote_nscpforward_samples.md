@@ -25,14 +25,14 @@ NSCPClient = enabled
 
 [/settings/NSCP/client/targets/default]
 address = nscp://10.0.2.50:8443
-password = <shared secret>
+password = <the remote's admin password>
 verify mode = peer
 ca = /etc/nsclient/ca.pem
 ```
 
 From the monitoring server the relay is then invisible — it addresses the relay
 and gets the far agent's result, with status, message and performance data
-intact, because NSCP carries the request and response as structured data.
+intact.
 
 **Forwarding a named check explicitly:**
 

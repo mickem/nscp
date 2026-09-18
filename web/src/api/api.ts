@@ -619,6 +619,20 @@ export const nsclientApi = createApi({
         },
       }),
     }),
+    // Revoking the session token server-side is the other half of logging
+    // out: without it the bearer stays valid for its full eight hours, so a
+    // token captured from a shared machine, a browser profile backup or a
+    // proxy log keeps full access long after the admin pressed "log out".
+    // Errors are not surfaced - the client-side state is cleared either way,
+    // and a token the server has already forgotten (or a server that is gone)
+    // must not leave the UI logged in.
+    logout: builder.mutation<void, void>({
+      query: () => ({
+        url: "/v2/login",
+        method: "DELETE",
+        responseHandler: async () => undefined,
+      }),
+    }),
     getMetrics: builder.query<Metrics, void>({
       query: () => ({
         url: "/v2/metrics",
@@ -709,6 +723,7 @@ export const {
   useGetLogStatusQuery,
   useResetLogStatusMutation,
   useLoginMutation,
+  useLogoutMutation,
   useGetMetricsQuery,
   useGetCounterMetadataQuery,
   useGetChannelMetadataQuery,

@@ -375,6 +375,42 @@ TEST_F(SettingsManagerBootTest, TlsSectionDefaultsWhenAbsent) {
   EXPECT_EQ(impl.get_tls_ca(), "${ca-path}");
 }
 
+TEST_F(SettingsManagerBootTest, PlaintextSettingsSourcesAreNotAllowedByDefault) {
+  // A plain http:// settings source has no server authentication at all, and
+  // the store it delivers is the agent's whole configuration. Off unless it is
+  // written out, and written out as an unambiguous boolean.
+  write_boot_ini("");
+
+  settings_manager::NSCSettingsImpl impl(provider_.get());
+  impl.boot("");
+
+  EXPECT_FALSE(impl.get_allow_plaintext());
+}
+
+TEST_F(SettingsManagerBootTest, PlaintextSettingsSourcesCanBeAllowedExplicitly) {
+  write_boot_ini(
+      "[tls]\n"
+      "allow plaintext=true\n");
+
+  settings_manager::NSCSettingsImpl impl(provider_.get());
+  impl.boot("");
+
+  EXPECT_TRUE(impl.get_allow_plaintext());
+}
+
+TEST_F(SettingsManagerBootTest, AnUnparsableAllowPlaintextKeepsTheSafeDefault) {
+  // Anything that is not recognisably a "yes" leaves the flag off: a typo in
+  // this key must not be the thing that opens the transport.
+  write_boot_ini(
+      "[tls]\n"
+      "allow plaintext=maybe\n");
+
+  settings_manager::NSCSettingsImpl impl(provider_.get());
+  impl.boot("");
+
+  EXPECT_FALSE(impl.get_allow_plaintext());
+}
+
 TEST_F(SettingsManagerBootTest, TlsVerificationCanStillBeDisabledExplicitly) {
   // The insecure mode remains reachable, but only by writing it out - which is
   // the point: `none` can no longer be arrived at by omission.

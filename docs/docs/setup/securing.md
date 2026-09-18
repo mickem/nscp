@@ -239,7 +239,7 @@ Options:
     * `client` — adds query listing; needed for the legacy `check_nscp_api` integration.
     * `full` — admin (settings, modules, scripts). Avoid for monitoring callers.
     * `legacy` — `legacy,login.get`. **Dangerous — do not use for normal clients.** It unlocks the deprecated
-      `POST /query.pb` and `GET /query/{name}` endpoints, which dispatch through the same command registry as the
+      `GET /query/{name}` endpoint, which dispatches through the same command registry as the
       versioned query API. A `legacy`-only token can therefore run **any** registered check or command — including any
       configured `CheckExternalScripts` command, which can amount to arbitrary command execution — even though it lacks
       `queries.execute`. The danger is the **`legacy` grant token itself**, not the role name: any role whose grant
