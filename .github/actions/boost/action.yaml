@@ -96,6 +96,17 @@ runs:
             if (-not (Test-Path $archive)) {
                 throw "Could not download Boost $version from any known source"
             }
+
+            # Same policy as every other downloaded dependency: TLS says who
+            # served the bytes, not what they are, and this archive ends up
+            # inside an Authenticode-signed artifact. Forward slashes because
+            # the script runs under Git Bash, where a backslash is an escape.
+            $unix = $archive.Replace('\', '/')
+            & bash "$env:GITHUB_WORKSPACE/.github/scripts/verify-checksum.sh" boost $version $unix
+            if ($LASTEXITCODE -ne 0) {
+                Remove-Item $archive -Force -ErrorAction SilentlyContinue
+                throw "Boost $version failed checksum verification"
+            }
         }
 
         if (-not (Test-Path (Join-Path $boostDir 'bootstrap.bat'))) {
