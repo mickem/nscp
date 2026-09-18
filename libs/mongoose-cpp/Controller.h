@@ -17,7 +17,7 @@
  * the requests
  */
 namespace Mongoose {
-class NSCAPI_EXPORT Controller {
+class NSCP_MONGOOSE_EXPORT Controller {
  public:
   virtual ~Controller() = default;
   /**

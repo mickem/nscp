@@ -35,7 +35,7 @@
  */
 namespace Mongoose {
 
-class NSCAPI_EXPORT ServerBeastImpl final : public Server {
+class NSCP_MONGOOSE_EXPORT ServerBeastImpl final : public Server {
  public:
   explicit ServerBeastImpl(WebLoggerPtr logger);
   ~ServerBeastImpl() override;

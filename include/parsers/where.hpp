@@ -26,6 +26,6 @@ struct parser {
 // other modules can route a string through the where-grammar without each
 // module needing to link parser internals. Used by modern_filter's
 // detail-syntax placeholder routing. Returns an empty node_type on failure.
-NSCAPI_EXPORT node_type parse_expression(object_factory factory, const std::string &expr);
+NSCP_WHERE_EXPORT node_type parse_expression(object_factory factory, const std::string &expr);
 }  // namespace where
 }  // namespace parsers

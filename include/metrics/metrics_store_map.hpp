@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <nscapi/dll_defines.hpp>
+
 #include <boost/thread.hpp>
 #include <map>
 #include <nscapi/protobuf/metrics.hpp>
@@ -12,8 +14,8 @@ namespace metrics {
 
 struct metrics_store {
   typedef std::map<std::string, std::string> values_map;
-  void set(const PB::Metrics::MetricsMessage &response);
-  values_map get(const std::string &filter) const;
+  NSCAPI_EXPORT void set(const PB::Metrics::MetricsMessage &response);
+  NSCAPI_EXPORT values_map get(const std::string &filter) const;
 
  private:
   values_map values_;

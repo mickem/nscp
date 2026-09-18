@@ -9,9 +9,7 @@ CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 set(SRCS
     ${SRCS}
     "${TARGET}.cpp"
-    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_DEF_PLUGIN_CPP}
-    ${NSCP_CLIENT_CPP}
 )
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
@@ -28,11 +26,27 @@ if(WIN32)
     )
 endif(WIN32)
 
+# The static (XP) build links nscp_net as a static library, and its
+# socket_helpers.obj is compiled with USE_SSL, so pulling it in drags a
+# statically linked OpenSSL into this module - which has never done TLS and
+# does not define USE_SSL. Compile the one file privately there instead, as
+# this module did before nscp_net existed. The shared build is unaffected: the
+# DLL keeps its OpenSSL to itself.
+if(USE_STATIC_RUNTIME)
+    set(SRCS ${SRCS} ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp)
+    add_definitions(-Dnscp_net_NOLIB)
+    set(NSCP_NET_LIB "")
+else()
+    set(NSCP_NET_LIB nscp_net)
+endif()
+
 add_library(${TARGET} MODULE ${SRCS})
 NSCP_DEBUG_SYMBOLS(${TARGET})
 
 target_link_libraries(
     ${TARGET}
+    nscp_client
+    ${NSCP_NET_LIB}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${NSCP_DEF_PLUGIN_LIB}

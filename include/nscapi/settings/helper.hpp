@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <nscapi/dll_defines.hpp>
+
 #include <boost/filesystem/path.hpp>
 #include <boost/function.hpp>
 #include <list>
@@ -26,32 +28,32 @@ class key_interface {
 };
 typedef std::shared_ptr<key_interface> key_type;
 
-key_type string_key(std::string* val, const std::string& def);
-key_type string_key(std::string* val);
-key_type int_key(int* val, int def = 0);
-key_type size_key(std::size_t* val, std::size_t def = 0);
-key_type uint_key(unsigned int* val, unsigned int def);
-key_type uint_key(unsigned int* val);
-key_type bool_key(bool* val, bool def);
-key_type bool_key(bool* val);
-key_type path_key(std::string* val, std::string def);
-key_type path_key(std::string* val);
-key_type path_key(boost::filesystem::path* val, std::string def);
-key_type path_key(boost::filesystem::path* val);
+NSCAPI_EXPORT key_type string_key(std::string* val, const std::string& def);
+NSCAPI_EXPORT key_type string_key(std::string* val);
+NSCAPI_EXPORT key_type int_key(int* val, int def = 0);
+NSCAPI_EXPORT key_type size_key(std::size_t* val, std::size_t def = 0);
+NSCAPI_EXPORT key_type uint_key(unsigned int* val, unsigned int def);
+NSCAPI_EXPORT key_type uint_key(unsigned int* val);
+NSCAPI_EXPORT key_type bool_key(bool* val, bool def);
+NSCAPI_EXPORT key_type bool_key(bool* val);
+NSCAPI_EXPORT key_type path_key(std::string* val, std::string def);
+NSCAPI_EXPORT key_type path_key(std::string* val);
+NSCAPI_EXPORT key_type path_key(boost::filesystem::path* val, std::string def);
+NSCAPI_EXPORT key_type path_key(boost::filesystem::path* val);
 
-key_type string_fun_key(boost::function<void(std::string)> fun, std::string def);
-key_type string_fun_key(boost::function<void(std::string)> fun);
-key_type cstring_fun_key(boost::function<void(const char*)> fun);
-key_type cstring_fun_key(boost::function<void(const char*)> fun, std::string def);
-key_type path_fun_key(boost::function<void(std::string)> fun, std::string def);
-key_type path_fun_key(boost::function<void(std::string)> fun);
-key_type bool_fun_key(boost::function<void(bool)> fun, bool def);
-key_type bool_fun_key(boost::function<void(bool)> fun);
-key_type int_fun_key(boost::function<void(int)> fun, int def);
-key_type int_fun_key(boost::function<void(int)> fun);
+NSCAPI_EXPORT key_type string_fun_key(boost::function<void(std::string)> fun, std::string def);
+NSCAPI_EXPORT key_type string_fun_key(boost::function<void(std::string)> fun);
+NSCAPI_EXPORT key_type cstring_fun_key(boost::function<void(const char*)> fun);
+NSCAPI_EXPORT key_type cstring_fun_key(boost::function<void(const char*)> fun, std::string def);
+NSCAPI_EXPORT key_type path_fun_key(boost::function<void(std::string)> fun, std::string def);
+NSCAPI_EXPORT key_type path_fun_key(boost::function<void(std::string)> fun);
+NSCAPI_EXPORT key_type bool_fun_key(boost::function<void(bool)> fun, bool def);
+NSCAPI_EXPORT key_type bool_fun_key(boost::function<void(bool)> fun);
+NSCAPI_EXPORT key_type int_fun_key(boost::function<void(int)> fun, int def);
+NSCAPI_EXPORT key_type int_fun_key(boost::function<void(int)> fun);
 
-key_type fun_values_path(boost::function<void(std::string, std::string)> fun);
-key_type string_map_path(std::map<std::string, std::string>* val);
+NSCAPI_EXPORT key_type fun_values_path(boost::function<void(std::string, std::string)> fun);
+NSCAPI_EXPORT key_type string_map_path(std::map<std::string, std::string>* val);
 
 enum type_of_key { key_type_string, key_type_int, key_type_bool, key_type_file, key_type_password, key_type_path, key_type_template };
 struct description_container {
@@ -81,11 +83,11 @@ class settings_paths_easy_init {
   settings_paths_easy_init(std::string path, settings_registry* owner) : path_(std::move(path)), owner(owner), is_sample(false) {}
   settings_paths_easy_init(std::string path, settings_registry* owner, const bool is_sample) : path_(std::move(path)), owner(owner), is_sample(is_sample) {}
 
-  settings_paths_easy_init& operator()(key_type value, std::string title, std::string description, std::string subkeytitle, std::string subkeydescription);
-  settings_paths_easy_init& operator()(std::string title, std::string description);
-  settings_paths_easy_init& operator()(std::string path, std::string title, std::string description);
-  settings_paths_easy_init& operator()(std::string path, key_type value, std::string title, std::string description);
-  settings_paths_easy_init& operator()(std::string path, key_type value, std::string title, std::string description, std::string subkeytitle,
+  NSCAPI_EXPORT settings_paths_easy_init& operator()(key_type value, std::string title, std::string description, std::string subkeytitle, std::string subkeydescription);
+  NSCAPI_EXPORT settings_paths_easy_init& operator()(std::string title, std::string description);
+  NSCAPI_EXPORT settings_paths_easy_init& operator()(std::string path, std::string title, std::string description);
+  NSCAPI_EXPORT settings_paths_easy_init& operator()(std::string path, key_type value, std::string title, std::string description);
+  NSCAPI_EXPORT settings_paths_easy_init& operator()(std::string path, key_type value, std::string title, std::string description, std::string subkeytitle,
                                        std::string subkeydescription);
 
  private:
@@ -101,7 +103,7 @@ class settings_tpl_easy_init {
  public:
   settings_tpl_easy_init(std::string path, settings_registry* owner) : path_(std::move(path)), owner(owner), is_sample(false) {}
 
-  settings_tpl_easy_init& operator()(std::string path, std::string icon, std::string title, std::string desc, std::string fields);
+  NSCAPI_EXPORT settings_tpl_easy_init& operator()(std::string path, std::string icon, std::string title, std::string desc, std::string fields);
 
  private:
   void add(const std::shared_ptr<tpl_info>& d) const;
@@ -124,11 +126,11 @@ class settings_keys_easy_init {
 
   virtual ~settings_keys_easy_init() = default;
 
-  settings_keys_easy_init& add_string(std::string key_name, key_type value, std::string title, std::string description, bool advanced = false);
-  settings_keys_easy_init& add_bool(std::string key_name, key_type value, std::string title, std::string description, bool advanced = false);
-  settings_keys_easy_init& add_int(std::string key_name, key_type value, std::string title, std::string description, bool advanced = false);
-  settings_keys_easy_init& add_file(std::string key_name, key_type value, std::string title, std::string description, bool advanced = false);
-  settings_keys_easy_init& add_password(std::string key_name, key_type value, std::string title, std::string description, bool advanced = false);
+  NSCAPI_EXPORT settings_keys_easy_init& add_string(std::string key_name, key_type value, std::string title, std::string description, bool advanced = false);
+  NSCAPI_EXPORT settings_keys_easy_init& add_bool(std::string key_name, key_type value, std::string title, std::string description, bool advanced = false);
+  NSCAPI_EXPORT settings_keys_easy_init& add_int(std::string key_name, key_type value, std::string title, std::string description, bool advanced = false);
+  NSCAPI_EXPORT settings_keys_easy_init& add_file(std::string key_name, key_type value, std::string title, std::string description, bool advanced = false);
+  NSCAPI_EXPORT settings_keys_easy_init& add_password(std::string key_name, key_type value, std::string title, std::string description, bool advanced = false);
 
  private:
   void add(const std::shared_ptr<key_info>& d) const;
@@ -263,7 +265,7 @@ class settings_registry {
                              const std::string& defaultValue) const {
     core_->register_key(path, key, "password", title, description, defaultValue, false, false, true);
   }
-  void register_all() const;
+  NSCAPI_EXPORT void register_all() const;
   void clear() {
     keys_.clear();
     paths_.clear();
@@ -271,7 +273,7 @@ class settings_registry {
 
   std::string expand_path(const std::string& path) const { return core_->expand_path(path); }
 
-  void notify() const;
+  NSCAPI_EXPORT void notify() const;
 };
 }  // namespace settings_helper
 }  // namespace nscapi

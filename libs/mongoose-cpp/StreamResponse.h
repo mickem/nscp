@@ -14,7 +14,7 @@
  * A stream response to a request
  */
 namespace Mongoose {
-class NSCAPI_EXPORT StreamResponse : public Response {
+class NSCP_MONGOOSE_EXPORT StreamResponse : public Response {
   std::stringstream ss;
   int response_code;
 

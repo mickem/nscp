@@ -13,7 +13,6 @@ set(SRCS
     script_wrapper.cpp
     extscr_cli.cpp
     script_provider.cpp
-    ${NSCP_INCLUDEDIR}/json/use_json.cpp
     ${NSCP_DEF_PLUGIN_CPP}
 )
 
@@ -81,6 +80,7 @@ set(BOOST_PYTHON_LIBRARY ${Boost_${BOOST_PYTHON_VERSION_UPPER}_LIBRARY})
 
 target_link_libraries(
     ${TARGET}
+    nscp_json
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_THREAD_LIBRARY}

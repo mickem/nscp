@@ -10,10 +10,7 @@ set(SRCS
     ${SRCS}
     "${TARGET}.cpp"
     "handler_impl.cpp"
-    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
-    ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp
     ${NSCP_INCLUDEDIR}/net/check_mk/lua/lua_check_mk.cpp
-    ${NSCP_INCLUDEDIR}/metrics/metrics_store_map.cpp
     ${NSCP_DEF_PLUGIN_CPP}
 )
 
@@ -61,6 +58,7 @@ endif()
 
 target_link_libraries(
     ${TARGET}
+    nscp_net
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
     ${NSCP_DEF_PLUGIN_LIB}

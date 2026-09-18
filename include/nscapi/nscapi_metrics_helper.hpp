@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <nscapi/dll_defines.hpp>
+
 #include <nscapi/protobuf/metrics.hpp>
 #include <string>
 #include <utility>
@@ -62,10 +64,10 @@ namespace metrics {
 
 // The no-metadata shorthand. Kept for out-of-tree modules and for the places
 // where a key is all that is known (a PDH counter, a Python script's dict).
-void add_metric(PB::Metrics::MetricsBundle *b, const std::string &key, long long value);
-void add_metric(PB::Metrics::MetricsBundle *b, const std::string &key, unsigned long long value);
-void add_metric(PB::Metrics::MetricsBundle *b, const std::string &key, std::string value);
-void add_metric(PB::Metrics::MetricsBundle *b, const std::string &key, double value);
+NSCAPI_EXPORT void add_metric(PB::Metrics::MetricsBundle *b, const std::string &key, long long value);
+NSCAPI_EXPORT void add_metric(PB::Metrics::MetricsBundle *b, const std::string &key, unsigned long long value);
+NSCAPI_EXPORT void add_metric(PB::Metrics::MetricsBundle *b, const std::string &key, std::string value);
+NSCAPI_EXPORT void add_metric(PB::Metrics::MetricsBundle *b, const std::string &key, double value);
 
 // Accumulates the metadata and appends the metric on the terminal call, so a
 // half-built metric can never reach the bundle. Deliberately not reusable: one
