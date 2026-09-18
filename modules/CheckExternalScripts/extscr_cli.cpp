@@ -60,6 +60,35 @@ bool extscr_cli::validate_sandbox(boost::filesystem::path pscript, PB::Commands:
   return true;
 }
 
+namespace {
+// weakly_canonical, falling back to the lexical path when resolution fails -
+// the same treatment validate_sandbox gives both sides of its comparison.
+boost::filesystem::path resolve(const boost::filesystem::path &path) {
+  boost::system::error_code ec;
+  const boost::filesystem::path resolved = boost::filesystem::weakly_canonical(path, ec);
+  return ec ? path : resolved;
+}
+}  // namespace
+
+bool extscr_cli::validate_import_source(const boost::filesystem::path &source, PB::Commands::ExecuteResponseMessage::Response *response) {
+  const boost::filesystem::path real_source = resolve(source);
+  // ${temp} is where the REST PUT /api/v2/scripts route stages an upload
+  // before handing it to `add --import`; ${shared-path} and the script root
+  // are the two locations an operator keeps scripts in.
+  const std::string roots[] = {provider_->get_root().string(), provider_->get_core()->expand_path("${shared-path}"),
+                               provider_->get_core()->expand_path("${temp}")};
+  for (const std::string &root : roots) {
+    if (root.empty()) continue;
+    if (file_helpers::checks::path_contains_file(resolve(root), real_source)) return true;
+  }
+  // Deliberately without the resolved path or the list of roots: naming them
+  // would answer "where does this agent keep its scripts" and "does this path
+  // exist" for a caller who is being refused.
+  nscapi::protobuf::functions::set_response_bad(
+      *response, "Importing is only allowed from the script folder, ${shared-path} or the upload staging area. Copy the script there first.");
+  return false;
+}
+
 void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
   po::variables_map vm;
   po::options_description desc;
@@ -308,6 +337,12 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
   boost::filesystem::path script_root = provider_->get_root();
 
   if (!import_script.empty()) {
+    // The sandbox that keeps `show` and `delete` inside the script root is
+    // only worth anything if nothing can be carried into it first: `add
+    // --import /etc/shadow` followed by `show` is otherwise an arbitrary file
+    // read with the agent's privileges, for the same principals that reach
+    // the legacy /exec route.
+    if (!validate_import_source(provider_->get_core()->expand_path(import_script), response)) return;
     file = script_root / file_helpers::meta::get_filename(file);
     script = "scripts\\" + file_helpers::meta::get_filename(file);
     if (boost::filesystem::exists(file)) {

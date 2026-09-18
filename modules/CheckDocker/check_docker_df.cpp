@@ -183,16 +183,17 @@ void check_df(const settings &defaults, const PB::Commands::QueryRequestMessage:
   filter_helper.add_syntax("${status}: ${list}", "${message}", "docker", "%(status): No disk usage information returned", "");
   // clang-format off
   filter_helper.get_desc().add_options()
-    ("host", po::value<std::string>(&endpoint)->default_value(endpoint), "The local docker daemon socket (named pipe on Windows, unix socket elsewhere).")
+    ("host", po::value<std::string>(&endpoint)->default_value(endpoint), "The local docker daemon socket (named pipe on Windows, unix socket elsewhere). Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator decision, not a request one.")
     ("timeout", po::value<int>(&timeout)->default_value(timeout), "Timeout for talking to the daemon, in seconds (this endpoint is slow on large hosts).")
     ;
   // clang-format on
 
   if (!filter_helper.parse_options()) return;
 
-  // See check_containers for why the endpoint must be constrained.
+  // See check_containers for why the endpoint must be constrained, and why a
+  // request may not choose it.
   std::string endpoint_error;
-  if (!is_local_docker_endpoint(endpoint, endpoint_error)) {
+  if (!is_configured_docker_endpoint(endpoint, defaults.endpoint, endpoint_error) || !is_local_docker_endpoint(endpoint, endpoint_error)) {
     return nscapi::protobuf::functions::set_response_bad(*response, endpoint_error);
   }
 

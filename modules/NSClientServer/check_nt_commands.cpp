@@ -139,6 +139,12 @@ bool map_request(int code, const std::string &raw_args, mapped_command &out) {
     case REQ_FILEAGE:
       out.command = "check_files";
       out.arguments.push_back("path=" + raw_args);
+      // max-depth=0 ("the named directory only, no recursion"): the original
+      // check_nt FILEAGE reported the age of one file. Mapped onto check_files
+      // with unlimited recursion it answered with every file in the whole tree
+      // beneath the argument and its mtime, so an authenticated check_nt
+      // client could enumerate C:\Users or /home one request at a time.
+      out.arguments.push_back("max-depth=0");
       out.arguments.push_back("crit=age<0");
       out.arguments.push_back("detail-syntax=${file} ${written}");
       out.arguments.push_back("top-syntax=${list}");

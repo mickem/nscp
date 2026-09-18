@@ -206,6 +206,10 @@ TEST(CheckNtMapRequest, FileAgeChecksTheRequestedPath) {
   const std::vector<std::string> args(out.arguments.begin(), out.arguments.end());
   EXPECT_EQ(args[0], "path=C:\\some\\file.txt");
   EXPECT_TRUE(has_arg(args, "crit=age<0"));
+  // Without the cap a directory argument answered with every file beneath it
+  // and its mtime, so an authenticated check_nt client could walk any tree the
+  // agent can read. FILEAGE reports one file's age, which is depth 0.
+  EXPECT_TRUE(has_arg(args, "max-depth=0"));
 }
 
 TEST(CheckNtMapRequest, InlineAndUnknownCodesAreNotMapped) {

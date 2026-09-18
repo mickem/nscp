@@ -641,6 +641,33 @@ which can and cannot be checked by class, and what a refusal looks like - is in
 This is the companion to the [permission policy](#permission-policy) above: that one restricts *which* checks a caller
 may run, this one restricts *what* those checks may reach.
 
+### Checks that connect somewhere else
+
+A separate group of checks does not read this host at all - it connects to another one, with the destination and the
+credentials in the arguments:
+
+| Check | Arguments | What an unrestricted argument decides |
+|-------|-----------|---------------------------------------|
+| `check_wmi` | `target=`, `user=`, `password=`, `namespace=` | which machine is queried over DCOM, and with which account |
+| `check_mysql` | `host=`, `port=`, `user=`, `password=` | which MySQL/MariaDB server is connected to, and with which account |
+| `check_mssql` | the ODBC connection string | the driver, the server, the credentials and every other connection attribute |
+| `check_uncpath` | `path=`, `user=`, `password=` | which SMB share this host authenticates to |
+
+Read these as what they are: **remote-connection primitives, run from the agent's network position and with the agent's
+privileges.** A caller who can pass arguments to them gets two things. First, server-side request forgery - the agent
+will connect to any host named, from inside whatever network it lives in, which on a monitoring host is often a better
+vantage point than wherever the caller sits. Second, an outbound authentication attempt this host makes on the caller's
+behalf, with credentials the caller supplied.
+
+Only `check_wmi` has a gate of its own: with `query access` set to anything but `any`, `target=` must name an entry in
+`[/settings/wmi/targets]`. For the other three the argument controls are the whole answer, so:
+
+* keep `allow arguments = false` on the NRPE, NSCA and check_nt listeners;
+* give REST users the [`restricted` role](#adding-a-dedicated-user) or a command allow-list rather than
+  `queries.execute` at large;
+* put the host and the credentials in a command definition and let the caller name the definition - the difference
+  between "run this check" and "connect wherever you like".
+
 ## Remote code execution: understanding the attack surface
 
 NSClient++ is, by design, a remote-administration agent. Several modules can ultimately cause arbitrary code to run on
