@@ -17,6 +17,7 @@
 #include <nscapi/protobuf/functions_status.hpp>
 #include <nscapi/protobuf/nagios.hpp>
 #include <nscapi/settings/helper.hpp>
+#include <process/argv_quote.hpp>
 #include <process/execute_process.hpp>
 #include <str/format.hpp>
 #include <str/utils.hpp>
@@ -370,6 +371,12 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
   // attacker-controlled $ARGn$ from becoming extra argv tokens / shell
   // metacharacters.
   //
+  // With one exception, handled below: a .bat or .cmd target still goes through
+  // cmd.exe, because CreateProcess cannot execute a batch file and re-launches
+  // `cmd.exe /c` for it. argv isolation pins WHICH program runs but not how
+  // cmd.exe parses the line it is handed, so those arguments are validated
+  // against the shell set.
+  //
   // parse_command uses boost::escaped_list_separator with `\` as the escape
   // character, which throws "unknown escape sequence" the moment it sees a
   // backslash followed by anything other than `\`, ` ` or `"`. Windows-style
@@ -391,12 +398,42 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
   }
   std::vector<std::string> argv;
   bool argv_ok = template_parse_error.empty();
+  // A .bat or .cmd target is a shell target whether or not argv isolation is
+  // available: CreateProcess cannot run a batch file, so it re-launches
+  // `cmd.exe /c <command line>` and cmd.exe re-parses that line by its own
+  // rules. lpApplicationName pins which program runs, but not how cmd.exe
+  // reads the arguments - `%VAR%` still expands, `^` still escapes, and a CR
+  // or LF ends the statement so whatever follows is parsed as a fresh command.
+  // So hold the caller's argument values to the stricter shell set here too,
+  // not only on the single-string fallback below. (Harmless on Unix, where a
+  // file named .bat is not special; the check is on the name because that is
+  // what decides cmd.exe's involvement on the platform where it matters.)
+  // The template's first token. When parse_command could not tokenise it (a
+  // backslash path, which is the common Windows case) fall back to reading the
+  // token by hand - honouring a quoted path, since `"C:\Program Files\x.bat"`
+  // is exactly the shape that would otherwise be missed.
+  const auto first_token = [](const std::string &command) -> std::string {
+    if (!command.empty() && command.front() == '"') {
+      const std::string::size_type close = command.find('"', 1);
+      if (close != std::string::npos) return command.substr(1, close - 1);
+    }
+    return command.substr(0, command.find_first_of(" \t"));
+  };
+  const std::string target_program = argv_template.empty() ? first_token(cd.command) : argv_template[0];
+  const bool batch_target = process::is_batch_target(target_program);
+  const char *arg_metachars = batch_target ? SHELL_METACHARS : NASTY_METACHARS;
   std::vector<std::string> validated_user_args;
   if (allowArgs_) {
     int i = 1;
     validated_user_args.reserve(args.size());
     for (const std::string &str : args) {
-      if (!allowNasty_ && str.find_first_of(NASTY_METACHARS) != std::string::npos) {
+      if (!allowNasty_ && str.find_first_of(arg_metachars) != std::string::npos) {
+        if (batch_target) {
+          NSC_LOG_ERROR_STD("Refusing '" + cd.get_alias() +
+                            "': the command runs a .bat/.cmd file, which Windows executes through cmd.exe, so arguments are held to the stricter shell "
+                            "rules. Rewrite the script as an .exe or a .ps1 invoked explicitly, or set /settings/external scripts/allow nasty "
+                            "characters=true to override.");
+        }
         nscapi::protobuf::functions::set_response_bad(*response,
                                                       "Request contained illegal characters set /settings/external scripts/allow nasty characters=true!");
         return;

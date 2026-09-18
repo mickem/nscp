@@ -329,6 +329,25 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
   LPCWSTR lpApplicationName = nullptr;
   std::wstring cmd_line_w;
   if (!args.argv.empty()) {
+    // Last line of defence for a batch target, independent of whatever the
+    // caller validated. CreateProcess re-launches `cmd.exe /c <command line>`
+    // for a .bat or .cmd, and cmd.exe treats a CR or LF as a statement
+    // separator: everything after one is parsed as a fresh command, with no
+    // quote to break out of. There is no legitimate reason for a newline
+    // inside an argument to a batch file, so refuse rather than try to escape
+    // it - `allow nasty characters` deliberately does not reach here, because
+    // this is not about what the argument means to the script but about
+    // whether it stays one argument at all.
+    if (process::is_batch_target(args.argv[0])) {
+      for (const std::string &arg : args.argv) {
+        if (arg.find_first_of("\r\n") != std::string::npos) {
+          output = "Refusing to run " + args.alias +
+                   ": an argument contains a line break and the command is a .bat/.cmd file, which Windows runs through cmd.exe - a line break there ends "
+                   "the statement and everything after it is executed as a separate command.";
+          return NSCAPI::query_return_codes::returnUNKNOWN;
+        }
+      }
+    }
     app_name_storage = utf8::cvt<std::wstring>(args.argv[0]);
     lpApplicationName = app_name_storage.c_str();
     cmd_line_w = process::build_command_line_w(args.argv);
