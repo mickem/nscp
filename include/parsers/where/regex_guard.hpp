@@ -52,5 +52,10 @@ NSCP_WHERE_EXPORT bool regex_budget_exhausted();
 // non-match into a match (or the other way round) with nothing to show for it.
 NSCP_WHERE_EXPORT std::size_t max_regex_subject_bytes();
 
+// Report time spent inside the matcher against this thread's budget. Called by
+// the matching code in operators.cpp; the counter itself lives beside the rest
+// of the budget state, in regex_guard.cpp.
+NSCP_WHERE_EXPORT void charge_regex_time_ms(unsigned long spent_ms);
+
 }  // namespace where
 }  // namespace parsers
