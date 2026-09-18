@@ -510,7 +510,15 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
       h.setPropertyKeyAndDefault(CONF_NSCA, L"1", L"");
       h.setPropertyKeyAndDefault(CONF_WEB, L"", L"");
       h.setPropertyKeyAndDefault(CONF_NSCLIENT, L"1", L"");
-      h.setPropertyKeyAndDefault(NRPEMODE, L"LEGACY", L"");
+      // The op5 profile used to force LEGACY here, and op5.ini pinned
+      // `verify mode = none` / `insecure = true` on top, so picking op5 on the
+      // monitoring-tool page silently produced an anonymous-DH NRPE listener
+      // authenticated by nothing but the allowed-hosts IP list - with argument
+      // pass-through on. Default to the same SECURE mode the generic profile
+      // uses; the configuration page now shows the NRPE mode radio group for
+      // op5 too, so an operator whose op5 server runs a legacy check_nrpe can
+      // still choose LEGACY, as a visible decision.
+      h.setPropertyKeyAndDefault(NRPEMODE, L"SECURE", L"");
 
       h.setPropertyKeyAndDefault(CONF_INCLUDES, L"op5;op5.ini", L"");
       h.setPropertyKeyAndDefault(CONFIGURATION_TYPE, L"registry://HKEY_LOCAL_MACHINE/software/NSClient++", L"");

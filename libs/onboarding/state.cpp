@@ -44,6 +44,7 @@ std::string serialize_state(const onboarding::enrolled_identity &state) {
   for (const std::string &key : state.bundle_keys) bundle_keys.push_back(json::value(json::string_view(key.data(), key.size())));
   object["bundle_keys"] = bundle_keys;
   object["require_encrypted_bundles"] = state.require_encrypted_bundles;
+  object["allow_plaintext"] = state.allow_plaintext;
   return json::serialize(object);
 }
 
@@ -62,22 +63,31 @@ std::string read_state_string(const json::object &object, const char *key, const
   return result;
 }
 
-// Write `data` to `path` and flush it all the way to disk. The state file
-// holds the only copy of the private key so a torn write here would strand
-// the host; on POSIX the file is created 0600 as it holds secret material.
-void write_file_durable(const std::string &path, const std::string &data) {
-#ifdef WIN32
-  FILE *file = nullptr;
-  if (fopen_s(&file, path.c_str(), "wb") != 0 || file == nullptr) {
-    throw onboarding::onboarding_error("Failed to open " + path + " for writing", false);
+#ifndef WIN32
+// Open the directory holding `path` without following a symlink at its last
+// component, and hand back the file name inside it. ${data-path} and
+// ${fleet-folder} are owned by the service account, so `.../fleet` is itself a
+// name that account can swap for a symlink; refusing to traverse it is what
+// keeps the openat() below provably inside the directory we looked at. The
+// components above it are root-owned by construction (packaging creates
+// ${data-path} under a root directory), so they need no such treatment.
+int open_parent_dir_nofollow(const std::string &path, std::string &name) {
+  const fs::path p(path);
+  name = p.filename().string();
+  if (name.empty() || name == "." || name == "..") {
+    throw onboarding::onboarding_error("Refusing to write " + path + ": it does not name a file", false);
   }
-  const bool ok = fwrite(data.data(), 1, data.size(), file) == data.size() && fflush(file) == 0 && _commit(_fileno(file)) == 0;
-  fclose(file);
-#else
-  const int fd = ::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
+  const fs::path dir = p.parent_path();
+  const std::string dir_path = dir.empty() ? std::string(".") : dir.string();
+  const int fd = ::open(dir_path.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
   if (fd < 0) {
-    throw onboarding::onboarding_error("Failed to open " + path + " for writing", false);
+    throw onboarding::onboarding_error("Failed to open the directory holding " + path + " (" + dir_path + "): " + std::strerror(errno), false);
   }
+  return fd;
+}
+
+// Write `data` to the already-open descriptor and flush it all the way to disk.
+bool write_all_and_sync(int fd, const std::string &data) {
   bool ok = true;
   std::size_t offset = 0;
   while (ok && offset < data.size()) {
@@ -88,8 +98,54 @@ void write_file_durable(const std::string &path, const std::string &data) {
       offset += static_cast<std::size_t>(written);
     }
   }
-  ok = ok && ::fsync(fd) == 0;
+  return ok && ::fsync(fd) == 0;
+}
+#endif
+
+// Write `data` to `path` and flush it all the way to disk, refusing to write
+// through a symlink. The state file holds the only copy of the private key so a
+// torn write here would strand the host; on POSIX the file is created 0600 as it
+// holds secret material.
+//
+// `path` is the temporary the caller renames into place, and it lives in a
+// directory the (untrusted) service account owns, so the name can be
+// pre-created. O_EXCL|O_NOFOLLOW is what stops root writing through
+// `agent-state.json.tmp -> /etc/shadow`; a stale temporary from a crashed run is
+// unlinked first, and because the unlink and the create are both relative to a
+// descriptor we already opened O_NOFOLLOW, losing the race between them costs a
+// failed enrollment rather than a followed link.
+void write_file_durable(const std::string &path, const std::string &data) {
+#ifdef WIN32
+  FILE *file = nullptr;
+  if (fopen_s(&file, path.c_str(), "wb") != 0 || file == nullptr) {
+    throw onboarding::onboarding_error("Failed to open " + path + " for writing", false);
+  }
+  const bool ok = fwrite(data.data(), 1, data.size(), file) == data.size() && fflush(file) == 0 && _commit(_fileno(file)) == 0;
+  fclose(file);
+#else
+  std::string name;
+  const int dir_fd = open_parent_dir_nofollow(path, name);
+  if (::unlinkat(dir_fd, name.c_str(), 0) != 0 && errno != ENOENT) {
+    const std::string reason = std::strerror(errno);
+    ::close(dir_fd);
+    throw onboarding::onboarding_error("Failed to remove the stale temporary " + path + ": " + reason, false);
+  }
+  const int fd = ::openat(dir_fd, name.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+  if (fd < 0) {
+    const std::string reason = std::strerror(errno);
+    ::close(dir_fd);
+    throw onboarding::onboarding_error("Failed to open " + path + " for writing: " + reason, false);
+  }
+  const bool ok = write_all_and_sync(fd, data);
   ::close(fd);
+  if (!ok) {
+    ::unlinkat(dir_fd, name.c_str(), 0);
+  }
+  ::close(dir_fd);
+  if (!ok) {
+    throw onboarding::onboarding_error("Failed to write " + path, false);
+  }
+  return;
 #endif
   if (!ok) {
     boost::system::error_code ignored;
@@ -99,6 +155,37 @@ void write_file_durable(const std::string &path, const std::string &data) {
 }
 
 }  // namespace
+
+void onboarding::create_file_exclusive(const std::string &path, const std::string &data, const int mode) {
+#ifdef WIN32
+  static_cast<void>(mode);
+  // Windows is not affected: the installer and the service both run as SYSTEM,
+  // so there is no unprivileged account that could pre-create the name. Keep
+  // the "do not write through something that is already there" half anyway, so
+  // the two platforms agree on what the call means.
+  FILE *file = nullptr;
+  if (fopen_s(&file, path.c_str(), "wbx") != 0 || file == nullptr) {
+    throw onboarding_error("Failed to create " + path, false);
+  }
+  const bool ok = fwrite(data.data(), 1, data.size(), file) == data.size() && fflush(file) == 0;
+  fclose(file);
+  if (!ok) throw onboarding_error("Failed to write " + path, false);
+#else
+  std::string name;
+  const int dir_fd = open_parent_dir_nofollow(path, name);
+  const int fd = ::openat(dir_fd, name.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, mode);
+  if (fd < 0) {
+    const std::string reason = std::strerror(errno);
+    ::close(dir_fd);
+    throw onboarding_error("Failed to create " + path + ": " + reason, false);
+  }
+  const bool ok = write_all_and_sync(fd, data);
+  ::close(fd);
+  if (!ok) ::unlinkat(dir_fd, name.c_str(), 0);
+  ::close(dir_fd);
+  if (!ok) throw onboarding_error("Failed to write " + path, false);
+#endif
+}
 
 void onboarding::save_state(const enrolled_identity &state, const std::string &path) {
   const std::string tmp = path + ".tmp";
@@ -325,6 +412,14 @@ boost::optional<onboarding::enrolled_identity> onboarding::load_state(const std:
     if (require_encrypted != nullptr) {
       if (!require_encrypted->is_bool()) throw std::runtime_error("require_encrypted_bundles is not a boolean");
       result.require_encrypted_bundles = require_encrypted->as_bool();
+    }
+    // Absent in a manifest written before the field existed. False is the safe
+    // reading: such a host refuses a plaintext management url rather than
+    // inheriting an allowance nobody recorded.
+    const json::value *allow_plaintext = root.if_contains("allow_plaintext");
+    if (allow_plaintext != nullptr) {
+      if (!allow_plaintext->is_bool()) throw std::runtime_error("allow_plaintext is not a boolean");
+      result.allow_plaintext = allow_plaintext->as_bool();
     }
     return result;
   } catch (const std::exception &e) {

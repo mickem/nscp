@@ -529,4 +529,47 @@ describe("nscp enroll (fleet onboarding CLI)", () => {
       expect(`${r.stdout}\n${r.stderr}`).not.toMatch(/local configuration/i);
     });
   });
+
+  // --- the management url the server names ----------------------------------
+  //
+  // mtls_url is where every later call goes: desired state, bundle downloads,
+  // renewal. On anything but https the client certificate and the pinned server
+  // certificate are not used at all - there is no TLS layer to use them - so
+  // the channel that applies configuration and runs signed bundles would be
+  // unauthenticated, with nothing in the log.
+
+  describe("plaintext management url", () => {
+    /** Answer /enroll/v1 with an otherwise valid payload naming `url`. */
+    function respondWithMtlsUrl(url: string): typeof responder {
+      return (_req, res) => {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ...okResponse(), mtls_url: url }));
+      };
+    }
+
+    it("records the operator's allowance when --insecure accepts a plaintext one", async () => {
+      // --insecure is the single opt-in for an unauthenticated enrollment, and
+      // it covers the url the response names as well as the one it was posted
+      // to. Recording it is what lets the sync loop honour the decision and say
+      // on every start that this host's management channel is unauthenticated -
+      // rather than a second, invisible allowance.
+      for (const url of ["http://mtls.example.com:8443", "mtls.example.com:8443"]) {
+        responder = respondWithMtlsUrl(url);
+        const stateFile = path.join(nscp.scratch(`enroll_plaintext_${url.length}`), "agent-state.json");
+        const r = await enroll(["--state-file", stateFile]);
+        expect(r.exitCode).toBe(0);
+        expect(readState(stateFile).mtls_url).toBe(url);
+        expect(readState(stateFile).allow_plaintext).toBe(true);
+      }
+    });
+
+    it("records no plaintext allowance for an https management url", async () => {
+      responder = respondOk;
+      const stateFile = path.join(nscp.scratch("enroll_https_mtls"), "agent-state.json");
+      const r = await enroll(["--state-file", stateFile]);
+      expect(r.exitCode).toBe(0);
+      expect(readState(stateFile).mtls_url).toBe("https://mtls.example.com:8443");
+      expect(readState(stateFile).allow_plaintext).toBe(false);
+    });
+  });
 });

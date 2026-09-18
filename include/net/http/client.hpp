@@ -772,6 +772,17 @@ class simple_client {
       socket_ = std::make_unique<unix_socket>(io_service_);
 #endif
     } else {
+      // A client certificate or a pinned CA on a non-TLS transport is a
+      // configuration that cannot do what it says: there is no handshake to
+      // present the certificate in and no peer certificate to pin, so both are
+      // silently dropped and the caller gets an unauthenticated plain socket
+      // while believing it has a mutually authenticated one. That is how a
+      // plaintext fleet management url turned the pinned mTLS channel into
+      // cleartext. Refuse rather than downgrade.
+      if (options.identity_.has_client_cert() || options.identity_.is_pinned()) {
+        throw socket_helpers::socket_exception("Refusing to use a client certificate or a pinned CA over '" + options.protocol_ +
+                                               "': neither can protect a connection that is not TLS. Use an https:// url.");
+      }
       socket_ = std::make_unique<tcp_socket>(io_service_);
     }
     socket_->set_address_family(options.address_family_);

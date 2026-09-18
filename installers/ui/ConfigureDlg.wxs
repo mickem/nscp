@@ -25,19 +25,20 @@
           <Condition Action="show">NOT MONITORING_TOOL = "OP5" OR WixUI_InstallMode = "InstallCustom"</Condition>
           <Condition Action="hide">MONITORING_TOOL = "OP5" AND NOT WixUI_InstallMode = "InstallCustom"</Condition>
         </Control>
-        <Control Id="checkNRPELabel" Type="CheckBox" X="50" Y="130" Width="260" Height="15" Property="KEY_CONF_NRPE" Text="Enable &amp;NRPE server (check_nrpe)" CheckBoxValue="1">
-          <Condition Action="show">NOT MONITORING_TOOL = "OP5" OR WixUI_InstallMode = "InstallCustom"</Condition>
-          <Condition Action="hide">MONITORING_TOOL = "OP5" AND NOT WixUI_InstallMode = "InstallCustom"</Condition>
-        </Control>
+        <!-- The NRPE checkbox and the mode radio group below it stay visible
+             for op5 as well: the profile turns NRPE on, and the mode it runs
+             in is a security decision the operator has to see. -->
+        <Control Id="checkNRPELabel" Type="CheckBox" X="50" Y="130" Width="260" Height="15" Property="KEY_CONF_NRPE" Text="Enable &amp;NRPE server (check_nrpe)" CheckBoxValue="1" />
         <Control Type="RadioButtonGroup" Property="KEY_NRPEMODE" Id="setNRPEMode" Width="252" Height="35" X="68" Y="145">
           <RadioButtonGroup Property="KEY_NRPEMODE">
             <RadioButton Text="Insecure mode (Use allowed hosts for authentication)" Height="15" Value="LEGACY" Width="250" X="0" Y="0" />
             <RadioButton Text="Secure (Use certificates for authentication)" Height="15" Value="SECURE" Width="250" X="0" Y="15" />
           </RadioButtonGroup>
-          <Condition Action="enable">KEY_CONF_NRPE AND NOT MONITORING_TOOL = "OP5"</Condition>
-          <Condition Action="disable">NOT KEY_CONF_NRPE OR MONITORING_TOOL = "OP5"</Condition>
-          <Condition Action="show">NOT MONITORING_TOOL = "OP5" OR WixUI_InstallMode = "InstallCustom"</Condition>
-          <Condition Action="hide">MONITORING_TOOL = "OP5" AND NOT WixUI_InstallMode = "InstallCustom"</Condition>
+          <!-- Shown and enabled for op5 as well. The op5 profile used to hide
+               this and force the insecure mode, so an operator never saw that
+               choosing op5 meant an NRPE listener with no peer verification. -->
+          <Condition Action="enable">KEY_CONF_NRPE</Condition>
+          <Condition Action="disable">NOT KEY_CONF_NRPE</Condition>
         </Control>
         <Control Id="checkNSCALabel" Type="CheckBox" X="50" Y="180" Width="260" Height="15" Property="KEY_CONF_NSCA" Text="Enable N&amp;SCA client" CheckBoxValue="1">
           <Condition Action="show">NOT MONITORING_TOOL = "OP5" OR WixUI_InstallMode = "InstallCustom"</Condition>

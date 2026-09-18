@@ -209,15 +209,17 @@ common:
         verify mode:
           advanced: true
           default_value: none
-          description: "Comma separated list of verification flags to set on the SSL socket.\n\nnone\t\
-            The server will not send a client certificate request to the client, so the client will not\
-            \ send a certificate.\npeer\tThe server sends a client certificate request to the client and\
-            \ the certificate returned (if any) is checked.\nfail-if-no-cert\tif the client did not return\
-            \ a certificate, the TLS/SSL handshake is immediately terminated. This flag must be used together\
-            \ with peer.\npeer-cert\tAlias for peer and fail-if-no-cert.\nworkarounds\tVarious bug workarounds.\n\
-            single\tAlways create a new key when using tmp_dh parameters.\nclient-once\tOnly request a\
-            \ client certificate on the initial TLS/SSL handshake. This flag must be used together with\
-            \ verify-peer\n\n\n"
+          description: "Comma separated list of verification flags to set on the SSL socket. An unknown\
+            \ flag is rejected and the listener refuses to start, so a typo cannot quietly leave the peer\
+            \ unverified.\n\nnone\tThe server will not send a client certificate request to the client,\
+            \ so the client will not send a certificate.\npeer (or certificate)\tThe server sends a client\
+            \ certificate request to the client and the certificate returned (if any) is checked.\nfail-if-no-cert\
+            \ (or fail-if-no-peer-cert, client-certificate)\tif the client did not return a certificate,\
+            \ the TLS/SSL handshake is immediately terminated. This flag must be used together with peer.\n\
+            peer-cert\tAlias for peer and fail-if-no-cert.\nworkarounds\tVarious bug workarounds.\nsingle\t\
+            Always create a new key when using tmp_dh parameters.\nclient-once\tOnly request a client\
+            \ certificate on the initial TLS/SSL handshake. This flag must be used together with verify-peer\n\
+            \n\n"
           sample: false
           title: VERIFY MODE
     /settings/default:

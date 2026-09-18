@@ -34,21 +34,41 @@
 #
 # name          version   sha256 or commit
 
-openssl         3.5.8     unrecorded
-protobuf        21.12     unrecorded
-cryptopp        8.9.0     unrecorded
-lua             5.4.8     unrecorded
-tinyxml2        10.1.0    unrecorded
-mongoose        7.23      unrecorded
-miniz           3.1.1     unrecorded
-mariadb         3.4.9     unrecorded
+# Downloaded release assets, verified by sha256.
+#
+# openssl was cross-checked against the .sha256 OpenSSL publishes next to the
+# asset. protobuf, cryptopp and miniz publish no checksum of their own, so the
+# digests here record the bytes a fetch returned; they still turn a later
+# substitution of the asset into a build failure, which is what this file is
+# for.
+openssl         3.5.8     a8f84a39918ec6415ce765d9b429d313ba97b8143169c172e734b9514464f5b2  # matches the upstream openssl-3.5.8.tar.gz.sha256
+protobuf        21.12     29b0f6b6d5714f212b8549cd0cb6fc531672630e41fb99d445421bc4d1bbb9cd
+cryptopp        8.9.0     4cc0ccc324625b80b695fcd3dee63a66f1a460d3e51b71640cdbfc4cd1a3779c
+miniz           3.1.1     cb28402bb2af93bdc331b60d16807e89727d1712a2d0a7ba0cac79a3e406fe40
 
-# Cloned, not downloaded: this is the commit `release-1.12.1` names today.
+# Still unrecorded: the digest has to be taken on a machine that can reach
+# www.lua.org, and cross-checked against the md5/sha256 Lua publishes on the
+# same page.
+lua             5.4.8     unrecorded
+
+# Cloned, not downloaded, and pinned to the commit rather than the tag.
+#
+# These used to be fetched as the zip/tar.gz GitHub generates for a tag. That
+# archive is not a release artifact anybody signs, and the tag it is generated
+# from can be moved; the commit cannot. Recording the commit and cloning at the
+# tag verifies the same thing a digest would, without depending on an archive
+# whose bytes are a server-side product. Each value is the commit the tag
+# resolves to (annotated tags peeled: mariadb's v3.4.9 tag object is
+# cc4d78c4..., the commit it points at is the one below).
 googletest      1.12.1    58d77fa8070e8cec2dc1ed015d66b454c8d78850
+tinyxml2        10.1.0    57eea48c5bfc354ac45d53b2eb499e66c80d63e0
+mongoose        7.23      02bdbb9ed6f0a8f7c42228c6e7cb35d748b60551
+mariadb         3.4.9     64e9fe09fea6a017bab92e19a08d2301e3da5b56
 
 # The prebuilt check_nsclient.exe, which ships inside the signed MSI. Keyed by
-# the version in .check_nsclient_version; one line per architecture, since the
-# release publishes a separate binary for each.
-check_nsclient-x64      1.1.0   unrecorded
-check_nsclient-x86      1.1.0   unrecorded
-check_nsclient-arm64    1.1.0   unrecorded
+# the version in .check_nsclient_version; one line per architecture the Windows
+# workflow builds, which is x64 and x86. There is no Windows arm64 build and
+# upstream publishes no arm64 binary; if one is ever added, its line has to be
+# added here too - a missing line fails the build, which is the point.
+check_nsclient-x64      1.1.0   32c09f4918aa7b03c29c4abee2e3b4208888228d0c39cead2c4694bcd3b44ff2
+check_nsclient-x86      1.1.0   415eaa3903569828df4c4fc7ad91149d8159445a3abdab84bf0016cb33fe6ef3

@@ -152,7 +152,18 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       // confusingly-spelled ones. Going through the parsed value is the
       // only spelling-independent check.
       const bool ssl_on = info_.ssl.enabled;
-      const auto parsed_vm = info_.ssl.get_verify_mode();
+      // get_verify_mode() throws on a token it does not recognise. That
+      // refusal has to be reported here rather than escape loadModuleEx: the
+      // listener below is what fails closed on a bad mode, and a module that
+      // threw out of load would take the rest of its start-up with it.
+      boost::asio::ssl::context::verify_mode parsed_vm = boost::asio::ssl::context_base::verify_none;
+      try {
+        parsed_vm = info_.ssl.get_verify_mode();
+      } catch (const socket_helpers::socket_exception &e) {
+        NSC_LOG_ERROR_STD("NRPEServer: 'verify mode' is not valid (" + utf8::utf8_from_native(e.reason()) +
+                          "), so 'client identity source = cn' cannot be honoured. Refusing to start.");
+        return false;
+      }
       const bool wants_peer = (parsed_vm & boost::asio::ssl::context_base::verify_peer) != 0;
       const bool wants_fail = (parsed_vm & boost::asio::ssl::context_base::verify_fail_if_no_peer_cert) != 0;
       const bool has_ca = !info_.ssl.ca_path.empty();

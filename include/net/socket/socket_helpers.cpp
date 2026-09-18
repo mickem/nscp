@@ -470,14 +470,25 @@ void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asi
 
 boost::asio::ssl::context::verify_mode socket_helpers::connection_info::ssl_opts::get_verify_mode() const {
   boost::asio::ssl::context::verify_mode mode = boost::asio::ssl::context_base::verify_none;
-  for (const std::string &key : str::utils::split_lst(verify_mode, std::string(","))) {
+  for (const std::string &raw : str::utils::split_lst(verify_mode, std::string(","))) {
+    const std::string key = boost::algorithm::trim_copy(raw);
+    // A trailing comma or a stray blank between two commas is punctuation, not
+    // a token; rejecting it would refuse a listener over a typo that changes
+    // nothing.
+    if (key.empty()) continue;
     if (key == "client-once")
       mode |= boost::asio::ssl::context_base::verify_client_once;
     else if (key == "none")
       mode |= boost::asio::ssl::context_base::verify_none;
-    else if (key == "peer")
+    else if (key == "peer" || key == "certificate")
       mode |= boost::asio::ssl::context_base::verify_peer;
-    else if (key == "fail-if-no-cert")
+    // `fail-if-no-peer-cert` is the spelling the permissions guide, the
+    // `client identity source` help text and OpenSSL itself use, and it was
+    // silently dropped here: the listener then asked for a client certificate
+    // and completed the handshake when none arrived, so an operator who
+    // believed mutual TLS was on was running an IP filter. Both spellings, and
+    // the client parser's `client-certificate`, mean the same bit.
+    else if (key == "fail-if-no-cert" || key == "fail-if-no-peer-cert" || key == "client-certificate")
       mode |= boost::asio::ssl::context_base::verify_fail_if_no_peer_cert;
     else if (key == "peer-cert") {
       mode |= boost::asio::ssl::context_base::verify_peer;
@@ -492,6 +503,18 @@ boost::asio::ssl::context::verify_mode socket_helpers::connection_info::ssl_opts
     // silently turned on or off - but this is the same mask
     // `client identity source = cn` gates on, so it is worth keeping exact.
     // get_ctx_opts() honours them instead, where they take effect.
+    else if (key == "workarounds" || key == "single") {
+      // Accepted here, applied in get_ctx_opts().
+    } else {
+      // Anything else is a typo, and a typo used to degrade the listener in
+      // the direction of accepting more: `peer,fail-if-no-peer-cert` resolved
+      // to bare `verify_peer`. Refuse instead, so the mistake is a listener
+      // that does not start rather than one that does not verify. The message
+      // carries the offending token because the whole string is often long.
+      throw socket_exception("Invalid tls verify mode: " + key +
+                             " (valid: none, peer (or certificate), fail-if-no-cert (or fail-if-no-peer-cert, client-certificate), peer-cert, client-once, "
+                             "workarounds, single)");
+    }
   }
   return mode;
 }
@@ -577,7 +600,10 @@ long socket_helpers::connection_info::ssl_opts::get_ctx_opts() const {
   // rather than `ssl options` (see socket_settings_helper.hpp). Honour them
   // from there so an existing configuration keeps working - but as context
   // options, which is what they are.
-  for (const std::string &key : str::utils::split_lst(verify_mode, std::string(","))) {
+  for (const std::string &raw : str::utils::split_lst(verify_mode, std::string(","))) {
+    // Trimmed exactly as get_verify_mode() trims, so a spaced-out list does not
+    // parse one way for the verify bits and another way for the context flags.
+    const std::string key = boost::algorithm::trim_copy(raw);
     if (key == "workarounds") opts |= boost::asio::ssl::context::default_workarounds;
     if (key == "single") opts |= boost::asio::ssl::context::single_dh_use;
   }

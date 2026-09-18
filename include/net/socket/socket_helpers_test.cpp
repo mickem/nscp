@@ -634,6 +634,73 @@ TEST(SslOptsVerifyMode, CommaDelimited) {
   EXPECT_NE(+mode & +boost::asio::ssl::context_base::verify_fail_if_no_peer_cert, 0);
 }
 
+// The spelling the permissions guide, the `client identity source` help text
+// and OpenSSL itself use. It was not in the server vocabulary, and an unknown
+// token was dropped, so `peer,fail-if-no-peer-cert` resolved to bare
+// verify_peer: the listener asked for a client certificate and completed the
+// handshake when none arrived. Mutual TLS an operator believed was on was an
+// IP filter.
+TEST(SslOptsVerifyMode, DocumentedFailIfNoPeerCertSpellingSetsTheBit) {
+  socket_helpers::connection_info::ssl_opts opts;
+  opts.verify_mode = "peer,fail-if-no-peer-cert";
+  const auto mode = opts.get_verify_mode();
+  EXPECT_NE(+mode & +boost::asio::ssl::context_base::verify_peer, 0);
+  EXPECT_NE(+mode & +boost::asio::ssl::context_base::verify_fail_if_no_peer_cert, 0);
+}
+
+TEST(SslOptsVerifyMode, ClientCertificateAndCertificateAliases) {
+  socket_helpers::connection_info::ssl_opts opts;
+  opts.verify_mode = "certificate,client-certificate";
+  const auto mode = opts.get_verify_mode();
+  EXPECT_NE(+mode & +boost::asio::ssl::context_base::verify_peer, 0);
+  EXPECT_NE(+mode & +boost::asio::ssl::context_base::verify_fail_if_no_peer_cert, 0);
+}
+
+TEST(SslOptsVerifyMode, WhitespaceAroundTokensIsIgnored) {
+  socket_helpers::connection_info::ssl_opts opts;
+  opts.verify_mode = " peer , fail-if-no-peer-cert ,";
+  const auto mode = opts.get_verify_mode();
+  EXPECT_NE(+mode & +boost::asio::ssl::context_base::verify_peer, 0);
+  EXPECT_NE(+mode & +boost::asio::ssl::context_base::verify_fail_if_no_peer_cert, 0);
+  // And the context-option half of the same string trims identically, so a
+  // spaced-out list cannot mean one thing to the verify bits and another to
+  // the context flags.
+  opts.verify_mode = "peer , workarounds";
+  EXPECT_NE(opts.get_ctx_opts() & +boost::asio::ssl::context::default_workarounds, 0);
+}
+
+TEST(SslOptsVerifyMode, UnknownTokenIsRejected) {
+  // Fail closed: the listener that cannot parse its own verify mode must not
+  // come up with whatever bits survived the typo.
+  for (const char *mode : {"bogus", "peer,fail-if-no-peer-cet", "Peer", "peer-certificate", "none,typo"}) {
+    socket_helpers::connection_info::ssl_opts opts;
+    opts.verify_mode = mode;
+    EXPECT_THROW(opts.get_verify_mode(), socket_helpers::socket_exception) << "verify mode: '" << mode << "'";
+  }
+}
+
+TEST(SslOptsVerifyMode, RejectionNamesTheOffendingToken) {
+  socket_helpers::connection_info::ssl_opts opts;
+  opts.verify_mode = "peer,fail-if-no-peer-cet";
+  try {
+    opts.get_verify_mode();
+    FAIL() << "expected a socket_exception";
+  } catch (const socket_helpers::socket_exception &e) {
+    EXPECT_NE(e.reason().find("fail-if-no-peer-cet"), std::string::npos) << e.reason();
+  }
+}
+
+// Every token the server parser accepts, accepted. This is the list the
+// settings description advertises; if one is added there it belongs here too.
+TEST(SslOptsVerifyMode, EveryAdvertisedTokenParses) {
+  for (const char *mode : {"", "none", "peer", "certificate", "fail-if-no-cert", "fail-if-no-peer-cert", "client-certificate", "peer-cert", "client-once",
+                           "workarounds", "single"}) {
+    socket_helpers::connection_info::ssl_opts opts;
+    opts.verify_mode = mode;
+    EXPECT_NO_THROW(opts.get_verify_mode()) << "verify mode: '" << mode << "'";
+  }
+}
+
 // =============================================================================
 // SSL-specific: get_tls_min_version
 // =============================================================================

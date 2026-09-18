@@ -56,7 +56,7 @@ runs:
       shell: cmd
 
     - id: cache
-      uses: actions/cache@v3
+      uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c # v3
       with:
         key: ${{ runner.os }}-openssl-${{ inputs.version }}-no-shared-${{ inputs.architecture }}-${{ inputs.runtime }}
         path: |

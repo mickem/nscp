@@ -48,11 +48,12 @@ struct settings_helper {
             true)
 
         .add_string("verify mode", nscapi::settings_helper::string_key(&info_.ssl.verify_mode, "none"), "VERIFY MODE",
-                    "Comma separated list of verification flags to set on the SSL socket.\n\n"
+                    "Comma separated list of verification flags to set on the SSL socket. An unknown flag is rejected and the listener refuses to "
+                    "start, so a typo cannot quietly leave the peer unverified.\n\n"
                     "none\tThe server will not send a client certificate request to the client, so the client will not send a certificate.\n"
-                    "peer\tThe server sends a client certificate request to the client and the certificate returned (if any) is checked.\n"
-                    "fail-if-no-cert\tif the client did not return a certificate, the TLS/SSL handshake is immediately terminated. This flag must be used "
-                    "together with peer.\n"
+                    "peer (or certificate)\tThe server sends a client certificate request to the client and the certificate returned (if any) is checked.\n"
+                    "fail-if-no-cert (or fail-if-no-peer-cert, client-certificate)\tif the client did not return a certificate, the TLS/SSL handshake is "
+                    "immediately terminated. This flag must be used together with peer.\n"
                     "peer-cert\tAlias for peer and fail-if-no-cert.\n"
                     "workarounds\tVarious bug workarounds.\n"
                     "single\tAlways create a new key when using tmp_dh parameters.\n"
