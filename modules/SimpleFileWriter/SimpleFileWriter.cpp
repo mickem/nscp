@@ -111,6 +111,10 @@ bool SimpleFileWriter::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
   std::string syntax_host;
   std::string syntax_service;
   std::string channel;
+  // Read into locals and published under the lock at the end: a reload
+  // rewriting the members in place raced the submissions reading them.
+  std::string filename;
+  config_object config;
   try {
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 
@@ -143,12 +147,12 @@ bool SimpleFileWriter::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
                     "${alias-or-command} = alias if set otherwise command, ${message} = the message data (no escape), ${result} or ${result_number} = The "
                     "result status (number), ${epoch} = seconds since unix epoch, ${time} = time using time-format.")
 
-        .add_file("file", sh::path_key(&filename_, "output.txt", "${log-path}"), "FILE TO WRITE TO",
+        .add_file("file", sh::path_key(&filename, "output.txt", "${log-path}"), "FILE TO WRITE TO",
                   "The filename to write output to. A bare file name is taken relative to the log folder; an absolute path is used as given.")
 
         .add_string("channel", sh::string_key(&channel, "FILE"), "CHANNEL", "The channel to listen to.")
 
-        .add_string("time-syntax", sh::string_key(&config_.time_format, "%Y-%m-%d %H:%M:%S"), "TIME SYNTAX",
+        .add_string("time-syntax", sh::string_key(&config.time_format, "%Y-%m-%d %H:%M:%S"), "TIME SYNTAX",
                     "The date format using strftime format flags. This is the time of writing the message as messages currently does not have a source time.");
 
     settings.register_all();
@@ -163,11 +167,20 @@ bool SimpleFileWriter::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     if (syntax_service.empty()) {
       syntax_service = syntax;
     }
+    // Built aside and swapped in whole. Appending to the members meant every
+    // reload wrote one more copy of the syntax on every line, and re-linked
+    // the list under a submission iterating it.
     parsers::simple_expression parser;
-    parsers::simple_expression::result_type result_host, result_service;
-    build_syntax(parser, syntax_host, syntax_host_lookup_);
-    build_syntax(parser, syntax_service, syntax_service_lookup_);
-
+    index_lookup_type host_lookup, service_lookup;
+    build_syntax(parser, syntax_host, host_lookup);
+    build_syntax(parser, syntax_service, service_lookup);
+    {
+      boost::unique_lock<boost::shared_mutex> lock(cache_mutex_);
+      syntax_host_lookup_.swap(host_lookup);
+      syntax_service_lookup_.swap(service_lookup);
+      filename_ = filename;
+      config_ = config;
+    }
   } catch (nsclient::nsclient_exception &e) {
     NSC_LOG_ERROR_EXR("Failed to register command: ", e);
     return false;
@@ -218,23 +231,20 @@ void build_syntax(parsers::simple_expression &parser, std::string &syntax, Simpl
 void SimpleFileWriter::handleNotification(const std::string &, const PB::Commands::QueryResponseMessage::Response &request,
                                           PB::Commands::SubmitResponseMessage::Response *response, const PB::Commands::SubmitRequestMessage &request_message) {
   std::string key;
-
+  // One lock across building the line and appending it: the syntax and the
+  // file name are replaced together by a reload, and the appends have to be
+  // serialised anyway for the lines not to interleave.
+  boost::unique_lock<boost::shared_mutex> lock(cache_mutex_);
   if (!request.alias().empty() || !request.command().empty()) {
-    for (index_lookup_function &f : syntax_service_lookup_) {
+    for (const index_lookup_function &f : syntax_service_lookup_) {
       key += f(config_, request.command(), request_message.header(), request);
     }
   } else {
-    for (index_lookup_function &f : syntax_host_lookup_) {
+    for (const index_lookup_function &f : syntax_host_lookup_) {
       key += f(config_, request.command(), request_message.header(), request);
     }
   }
-  std::string data = request.SerializeAsString();
   {
-    boost::unique_lock<boost::shared_mutex> lock(cache_mutex_);
-    if (!lock) {
-      nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), false, "Failed to get lock");
-      return;
-    }
     std::ofstream out;
     out.open(filename_.c_str(), std::ios::out | std::ios::app);
     out << key << std::endl;
