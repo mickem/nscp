@@ -25,7 +25,7 @@ if(WIN32)
     )
 endif(WIN32)
 
-NSCP_MAKE_LIBRARY(${TARGET} "${SRCS}")
+NSCP_MAKE_LIBRARY(${TARGET} "${SRCS}" EXPORT_ALL_SYMBOLS)
 
 target_link_libraries(
     ${TARGET}

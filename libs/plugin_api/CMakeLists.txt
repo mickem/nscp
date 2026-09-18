@@ -58,7 +58,7 @@ if(APPLE)
 endif()
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
-NSCP_MAKE_LIBRARY(${TARGET} "${SRCS}")
+NSCP_MAKE_LIBRARY(${TARGET} "${SRCS}" EXPORT_ALL_SYMBOLS)
 NSCP_FORCE_INCLUDE(
     ${TARGET}
     "${BUILD_ROOT_FOLDER}/include/nscapi/dll_defines_protobuf.hpp"
