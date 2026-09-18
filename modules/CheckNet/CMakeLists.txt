@@ -20,7 +20,6 @@ set(SRCS
     check_nsclient_web_online_parse.cpp
     check_connections.cpp
     check_ntp_offset.cpp
-    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_INCLUDEDIR}/bytes/base64.c
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
@@ -53,6 +52,8 @@ NSCP_DEBUG_SYMBOLS(${TARGET})
 
 target_link_libraries(
     ${TARGET}
+    nscp_net
+    nscp_json
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_REGEX_LIBRARY}
     ${Boost_CHRONO_LIBRARY}
@@ -99,6 +100,7 @@ NSCP_CREATE_TEST(
     LIBRARIES
         GTest::gtest_main
         nscp_protobuf
+        nscp_json
         ${NSCP_FILTER_LIB}
         expression_parser
         ${PLUGIN_API_TARGET}

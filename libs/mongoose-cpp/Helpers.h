@@ -11,7 +11,7 @@
  * A stream response to a request
  */
 namespace Mongoose {
-struct NSCAPI_EXPORT Helpers {
+struct NSCP_MONGOOSE_EXPORT Helpers {
   static std::string encode_b64(const std::string &str);
   static std::string decode_b64(const std::string &str);
 };

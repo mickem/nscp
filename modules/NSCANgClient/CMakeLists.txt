@@ -12,9 +12,7 @@ set(SRCS
     nsca_ng.cpp
     nsca_ng_client.cpp
     nsca_ng_handler.cpp
-    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_DEF_PLUGIN_CPP}
-    ${NSCP_CLIENT_CPP}
 )
 
 # Headers listed unconditionally so IDE projects show them on Linux too.
@@ -53,6 +51,8 @@ OPENSSL_LINK_FIX(${TARGET})
 
 target_link_libraries(
     ${TARGET}
+    nscp_client
+    nscp_net
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${NSCP_DEF_PLUGIN_LIB}

@@ -15,7 +15,7 @@
 
 namespace parsers {
 namespace where {
-class NSCAPI_EXPORT error_handler_interface {
+class NSCP_WHERE_EXPORT error_handler_interface {
  public:
   virtual ~error_handler_interface() = default;
   virtual void log_error(std::string error) = 0;
@@ -31,12 +31,12 @@ class NSCAPI_EXPORT error_handler_interface {
 // evaluated with no current object). Callers in modern_filter::match_post
 // use it to surface UNKNOWN instead of silently treating an unresolvable
 // expression as OK or as a sure verdict.
-struct NSCAPI_EXPORT force_match_result {
+struct NSCP_WHERE_EXPORT force_match_result {
   bool matched = false;
   bool is_unsure = false;
 };
 
-struct NSCAPI_EXPORT engine_filter {
+struct NSCP_WHERE_EXPORT engine_filter {
   typedef std::shared_ptr<error_handler_interface> error_handler;
   typedef evaluation_context execution_context_type;
   parser ast_parser;
@@ -64,7 +64,7 @@ struct NSCAPI_EXPORT engine_filter {
   std::string to_string() const;
 };
 
-struct NSCAPI_EXPORT engine {
+struct NSCP_WHERE_EXPORT engine {
   typedef std::shared_ptr<error_handler_interface> error_handler;
   typedef evaluation_context execution_context_type;
 

@@ -11,7 +11,6 @@ set(SRCS
     "${TARGET}.cpp"
     extscr_cli.cpp
     script_provider.cpp
-    ${NSCP_INCLUDEDIR}/json/use_json.cpp
     ${NSCP_DEF_PLUGIN_CPP}
 )
 
@@ -32,6 +31,7 @@ NSCP_DEBUG_SYMBOLS(${TARGET})
 
 target_link_libraries(
     ${TARGET}
+    nscp_json
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_THREAD_LIBRARY}

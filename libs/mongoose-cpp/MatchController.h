@@ -21,7 +21,7 @@
  * the requests
  */
 namespace Mongoose {
-class NSCAPI_EXPORT MatchController : public Controller {
+class NSCP_MONGOOSE_EXPORT MatchController : public Controller {
  public:
   MatchController() = default;
   explicit MatchController(std::string prefix);

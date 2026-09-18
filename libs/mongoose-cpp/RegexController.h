@@ -26,7 +26,7 @@ struct route_info {
   RegexpRequestHandlerBase *function;
 };
 
-class NSCAPI_EXPORT RegexpController : public Controller {
+class NSCP_MONGOOSE_EXPORT RegexpController : public Controller {
  public:
   explicit RegexpController(std::string prefix);
   ~RegexpController() override;
