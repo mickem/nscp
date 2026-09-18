@@ -8,5 +8,58 @@ PIDFile=@NSCP_PKGSTATEDIR@/nscp.pid
 
 ExecStart=@NSCP_SBINDIR@/nscp service --log-backend threaded-file --run --pid @NSCP_PKGSTATEDIR@/nscp.pid
 
+# Sandboxing.
+#
+# The agent already runs as an unprivileged account, but it also executes
+# operator-defined and fleet-delivered scripts by design, so the blast radius
+# of anything that goes wrong in one of them is worth bounding. Everything
+# below is chosen so a monitoring agent can still do its job: the filesystem
+# stays readable, since reading it is most of what the checks do.
+#
+# Override any of these for a local setup with a drop-in rather than by editing
+# this file, which a package upgrade replaces:
+#   systemctl edit nsclient
+
+# A private /tmp of its own, so nothing the agent or a script writes there is
+# visible to other users, and nothing another user plants there is visible to
+# it. This is the one that neutralises most /tmp-based attacks on the service.
+PrivateTmp=yes
+
+# The whole filesystem hierarchy read-only except what is named below. Reads
+# are unaffected, so every check that inspects files, mounts or processes keeps
+# working; what changes is that the agent cannot write outside its own state
+# and log directories.
+ProtectSystem=strict
+ReadWritePaths=@NSCP_PKGSTATEDIR@ @NSCP_LOGDIR@
+
+# read-only rather than yes: a monitoring agent is routinely asked about
+# /home - a check on files under it, or on the mount it sits on - and `yes`
+# replaces it with an empty directory, which would make those checks answer
+# about nothing at all. Read-only keeps the answers correct while stopping the
+# service writing there.
+ProtectHome=read-only
+
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+
+# 0640 for files the service creates, which is what gives the log file its
+# mode instead of leaving it to whatever umask the manager happened to have.
+UMask=0027
+
+# Deliberately NOT set: NoNewPrivileges=yes.
+#
+# It would be the obvious next line, and it breaks a documented setup. The
+# `user =` key on an external script is Windows-only, and the Unix launcher
+# tells operators to sandbox a script by writing `sudo -n -u <account>` into
+# the command instead. sudo needs setuid, which NoNewPrivileges forbids, so
+# turning it on here would make every one of those scripts fail. Enable it with
+# a drop-in if no script on this host escalates:
+#   [Service]
+#   NoNewPrivileges=yes
+
 [Install]
 WantedBy=multi-user.target

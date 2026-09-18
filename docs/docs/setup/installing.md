@@ -405,6 +405,16 @@ server url and the bootstrap token it gives you:
 msiexec /qn /i NSCP-<version>-x64.msi FLEET_SERVER=https://fleet.example.com FLEET_TOKEN=<bootstrap-token>
 ```
 
+<!-- @formatter:off -->
+!!! warning "Enrolling makes the server an administrator of this host"
+    The configuration a fleet server sends is an ordinary include of the settings store, so
+    it can enable script execution, define the scripts and rewrite the fleet settings
+    themselves: a fleet server can run code as `SYSTEM` on every host enrolled with it. That
+    is the same trust any configuration-management system has, and it is why the enrollment
+    link has to be a verified one. See
+    [What the fleet server can do to a host](fleet.md#what-the-fleet-server-can-do-to-a-host).
+<!-- @formatter:on -->
+
 ### Fleet MSI properties
 
 `FLEET_SERVER` is what turns enrollment on; everything else refines it.

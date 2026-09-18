@@ -398,7 +398,41 @@ onboarding::enrolled_identity onboarding::parse_renew_response(const std::string
   result.private_key_pem = fresh_identity.private_key_pem;
   result.cert_pem = detail::require_string(root, "cert_pem", "Renewal response");
   result.ca_pem = detail::require_string(root, "ca_pem", "Renewal response");
-  result.bundle_signing_pub_pem = detail::require_string(root, "bundle_signing_pub_pem", "Renewal response");
+  const std::string new_signing_key = detail::require_string(root, "bundle_signing_pub_pem", "Renewal response");
+  // The bundle signing key is the one thing in this response the fleet server
+  // is not supposed to be able to choose. Bundles are signed offline so that a
+  // compromised server cannot forge one; if the server can hand out a new
+  // verification key at renewal, it can sign whatever it likes from then on and
+  // the offline key stops meaning anything.
+  //
+  // Renewal happens over the pinned mTLS channel, so the server is
+  // authenticated - but by itself, which is exactly the authority in question.
+  // A rotation is therefore accepted only when the *old* key endorses the new
+  // one: `bundle_signing_pub_sig` is a detached Ed25519 signature over the new
+  // PEM, made by the key this host already has. A server that does not send one
+  // cannot rotate the key here; the operator re-enrolls, which is a deliberate
+  // act by someone who holds the offline key.
+  //
+  // The server's own TLS certificate (`mtls_server_cert_pem`) is different and
+  // is accepted as before: it authenticates the channel, the old pin
+  // authenticated the channel this arrived on, and refusing it would break
+  // ordinary certificate rotation.
+  if (new_signing_key != current.bundle_signing_pub_pem && !current.bundle_signing_pub_pem.empty()) {
+    const json::value *signature = root.if_contains("bundle_signing_pub_sig");
+    if (signature == nullptr || !signature->is_string()) {
+      throw onboarding_error(
+          "Renewal response rotates the bundle signing key without a bundle_signing_pub_sig endorsing it with the previous key. Keeping the current key; "
+          "re-enroll this host to adopt a new one.",
+          false);
+    }
+    std::string error;
+    if (!verify_ed25519(current.bundle_signing_pub_pem, new_signing_key, std::string(signature->as_string().c_str()), error)) {
+      throw onboarding_error("Renewal response rotates the bundle signing key but bundle_signing_pub_sig did not verify with the previous key (" + error +
+                                 "). Keeping the current key; re-enroll this host to adopt a new one.",
+                             false);
+    }
+  }
+  result.bundle_signing_pub_pem = new_signing_key;
   result.mtls_server_cert_pem = detail::require_string(root, "mtls_server_cert_pem", "Renewal response");
   return result;
 }

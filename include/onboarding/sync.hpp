@@ -147,6 +147,11 @@ class sha256_stream {
 bool verify_bundle(const std::string &pub_pem, const std::string &bytes, const bundle_descriptor &descriptor, const std::string &signature_b64,
                    std::string &error);
 
+// Verify a detached Ed25519 signature (base64) over `message` with the key in
+// `pub_pem`. The half of verify_bundle that is not about bundles; renewal uses
+// it to check that a new bundle signing key was endorsed by the old one.
+bool verify_ed25519(const std::string &pub_pem, const std::string &message, const std::string &signature_b64, std::string &error);
+
 // RFC 7396 JSON Merge Patch: objects deep-merge, scalars/arrays replace
 // wholesale, null deletes the key. Returns the patched value.
 boost::json::value json_merge_patch(const boost::json::value &target, const boost::json::value &patch);

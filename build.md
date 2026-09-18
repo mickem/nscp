@@ -997,9 +997,13 @@ gcovr --add-tracefile coverage/unit.json \
       --filter '.*/module\.cpp$' --txt glue.txt --print-summary
 ```
 
-`CauseCrashes` is not built at all for coverage (`-DBUILD_MODULE_CauseCrashes=OFF`):
-nothing exercises a module whose only job is to crash the daemon, and if
-anything did, the crash would take the unflushed gcov counters with it.
+`CauseCrashes` is not built at all for coverage: nothing exercises a module
+whose only job is to crash the daemon, and if anything did, the crash would
+take the unflushed gcov counters with it. It is off in every build now - it is
+a diagnostic module gated behind `-DBUILD_TESTING_MODULES=ON`, so no package
+contains it - and the coverage script keeps passing
+`-DBUILD_MODULE_CauseCrashes=OFF` so a caller who turns the testing modules on
+still gets a coverage build without it.
 
 Four things are worth knowing before trusting the numbers:
 

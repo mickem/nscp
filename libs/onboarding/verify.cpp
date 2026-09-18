@@ -112,14 +112,7 @@ onboarding::bundle_descriptor onboarding::describe_bundle(const long long tenant
   return descriptor;
 }
 
-bool onboarding::verify_bundle(const std::string &pub_pem, const std::string &bytes, const bundle_descriptor &descriptor,
-                               const std::string &signature_b64, std::string &error) {
-  const std::string digest = sha256_raw(bytes);
-  if (to_hex(digest) != to_lower(descriptor.sha256_hex)) {
-    error = "checksum mismatch: expected " + descriptor.sha256_hex + " got " + to_hex(digest);
-    return false;
-  }
-
+bool onboarding::verify_ed25519(const std::string &pub_pem, const std::string &message, const std::string &signature_b64, std::string &error) {
   const std::size_t max_len = b64::b64_decode(nullptr, signature_b64.size(), nullptr, 0);
   if (max_len == 0) {
     error = "invalid base64 signature";
@@ -136,25 +129,32 @@ bool onboarding::verify_bundle(const std::string &pub_pem, const std::string &by
   const std::unique_ptr<BIO, bio_deleter> bio(BIO_new_mem_buf(pub_pem.data(), static_cast<int>(pub_pem.size())));
   const std::unique_ptr<EVP_PKEY, evp_pkey_deleter> key(bio ? PEM_read_bio_PUBKEY(bio.get(), nullptr, nullptr, nullptr) : nullptr);
   if (!key) {
-    error = "invalid bundle signing public key";
+    error = "invalid signing public key";
     return false;
   }
   const std::unique_ptr<EVP_MD_CTX, evp_md_ctx_deleter> ctx(EVP_MD_CTX_new());
-  // Ed25519 is a one-shot algorithm that hashes internally, so the descriptor
-  // is verified directly rather than being digested first. The digest computed
-  // above is what the integrity check used; it reaches the signature only as
-  // the hex string inside the descriptor.
+  // Ed25519 is a one-shot algorithm that hashes internally, so the message is
+  // verified directly rather than being digested first.
   if (!ctx || EVP_DigestVerifyInit(ctx.get(), nullptr, nullptr, nullptr, key.get()) != 1) {
     error = "failed to initialize signature verification";
     return false;
   }
-  const std::string signed_bytes = descriptor.signing_bytes();
   if (EVP_DigestVerify(ctx.get(), reinterpret_cast<const unsigned char *>(signature.data()), signature.size(),
-                       reinterpret_cast<const unsigned char *>(signed_bytes.data()), signed_bytes.size()) != 1) {
+                       reinterpret_cast<const unsigned char *>(message.data()), message.size()) != 1) {
     error = "signature verification failed";
     return false;
   }
   return true;
+}
+
+bool onboarding::verify_bundle(const std::string &pub_pem, const std::string &bytes, const bundle_descriptor &descriptor,
+                               const std::string &signature_b64, std::string &error) {
+  const std::string digest = sha256_raw(bytes);
+  if (to_hex(digest) != to_lower(descriptor.sha256_hex)) {
+    error = "checksum mismatch: expected " + descriptor.sha256_hex + " got " + to_hex(digest);
+    return false;
+  }
+  return verify_ed25519(pub_pem, descriptor.signing_bytes(), signature_b64, error);
 }
 
 long onboarding::days_until_expiry(const std::string &cert_pem) {
