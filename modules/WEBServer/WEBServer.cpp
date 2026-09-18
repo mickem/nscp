@@ -132,6 +132,8 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   std::string port;
   std::string certificate;
   std::string key;
+  std::string tls_version;
+  std::string allowed_ciphers;
   std::string admin_password;
   int threads;
   bool allow_insecure = false;
@@ -237,7 +239,14 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       .add_key_to_settings()
       .add_string("certificate", sh::string_key(&certificate, "${certificate-path}/certificate.pem"), "TLS Certificate",
                   "Ssl certificate to use for the ssl server")
-      .add_string("certificate key", sh::string_key(&key), "TLS private key", "The private key for the certificate if not in the same file");
+      .add_string("certificate key", sh::string_key(&key), "TLS private key", "The private key for the certificate if not in the same file")
+      .add_string("tls version", sh::string_key(&tls_version, "1.2+"), "TLS version to use",
+                  "Which TLS versions the listener will negotiate, in the same vocabulary as the NRPE and NSCA listeners: an exact version (1.0, 1.1, "
+                  "1.2, 1.3), a trailing + for that version or later, or `any`. The default 1.2+ allows TLS 1.2 and TLS 1.3. Honoured on builds using "
+                  "the beast web backend (all Linux packages); the mongoose backend drives TLS through its own stack and logs that it is ignoring this.")
+      .add_string("allowed ciphers", sh::string_key(&allowed_ciphers), "ALLOWED CIPHERS",
+                  "OpenSSL cipher list the listener is restricted to. Empty (the default) leaves the library's own selection in place. Same backend "
+                  "caveat as `tls version`.");
   settings.alias()
       .add_key_to_settings("results")
       .add_bool("enabled", sh::bool_key(&result_enabled, false), "ENABLE THE PASSIVE RESULT CACHE",
@@ -462,7 +471,12 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     }
 
     WebLoggerPtr logger(new WEBServerLogger(log_errors, log_info, log_debug));
+    // Where an unhandled handler exception goes. The client gets a bare 500;
+    // the reason ends up here, in the agent log, rather than being echoed to
+    // a caller that need not have authenticated.
+    Mongoose::Controller::setErrorSink([](const std::string &message) { NSC_LOG_ERROR(message); });
     server.reset(Server::make_server(logger));
+    server->setTlsOptions(tls_version, allowed_ciphers);
     if (cert_missing) {
       NSC_LOG_ERROR("Certificate not found (disabling SSL): " + certificate);
     } else {

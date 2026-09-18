@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <functional>
 #include <string>
 
 #include "Request.h"
@@ -41,5 +42,22 @@ class NSCP_MONGOOSE_EXPORT Controller {
    */
   static Response* serverInternalError(const std::string& message);
   static Response* documentMissing(const std::string& message);
+
+  /**
+   * Sink for text that must reach the agent log but never a client. Installed
+   * once by the server; unset it is a no-op.
+   */
+  typedef std::function<void(const std::string&)> error_sink;
+  static void setErrorSink(error_sink sink);
+
+  /**
+   * Answer an unhandled handler exception.
+   *
+   * The detail goes to the sink above and a generic body to the caller. It
+   * used to be returned verbatim - make_address on an unavailable peer
+   * address, bad_optional_access, a regex_error - to a client that need not
+   * have authenticated, which is free reconnaissance of the agent's internals.
+   */
+  static Response* internalErrorFromException(const std::string& detail);
 };
 }  // namespace Mongoose

@@ -14,7 +14,11 @@ login_controller::login_controller(const int version, const std::shared_ptr<sess
 }
 
 void login_controller::is_loggedin(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_logged_in("login.get", request, response)) return;
+  // log_in, not is_logged_in: this is the one route whose job is to hand a
+  // session token back, so it is the only one that adds to the token store.
+  // Every other route authenticates without minting one, which is what keeps
+  // a monitoring poll from evicting live UI sessions.
+  if (!session->log_in("login.get", request, response)) return;
 
   std::string user, key;
   session_manager_interface::get_user_from_response(response, user, key);
