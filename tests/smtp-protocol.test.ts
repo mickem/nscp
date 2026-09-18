@@ -278,7 +278,14 @@ describe("SMTP protocol and arguments", () => {
       });
 
       expect(r.exitCode).not.toBe(0);
-      expect(`${r.stdout}${r.stderr}`).toContain("failed to load CA bundle");
+      // Two halves, deliberately: the submission result says which part of the
+      // setup failed, and the log - and only the log - names the path and the
+      // reason. `ca` is a request option on submit_smtp, so reporting "no such
+      // file" / "permission denied" back to whoever asked turns a submission
+      // into a file-existence oracle over the whole filesystem.
+      const output = `${r.stdout}${r.stderr}`;
+      expect(output).toContain("failed to load the configured CA bundle");
+      expect(output).toContain("/nonexistent/no-such-ca-bundle.pem");
     } finally {
       await server.close();
     }

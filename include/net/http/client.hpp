@@ -341,7 +341,13 @@ struct ssl_socket final : generic_socket {
   net::address_family address_family_ = net::address_family::any;
   std::string sni_;  // TLS SNI / verification hostname override (empty = use the connected host)
   proxy_config proxy_;
-  bool pinned_;  // pinned peer cert: verify against it only, no hostname check
+  bool pinned_;  // pinned peer cert: verify against it only
+  // The pin, parsed. `pinned_ca_pem` is whatever the enrollment response
+  // returned, and a server that hands out its issuer rather than its leaf used
+  // to turn the pin into "trust this CA for any name" - weaker than ordinary
+  // verification, not stronger. So the leaf's SPKI digest is checked at
+  // handshake time, and a PEM that is itself a CA keeps hostname verification.
+  socket_helpers::pinned_certificate pin_;
   boost::asio::io_context &io_;
   unsigned int timeout_ = 0;
 
@@ -380,7 +386,13 @@ struct ssl_socket final : generic_socket {
       try {
         context.load_verify_file(ca);
       } catch (const std::exception &e) {
-        throw socket_helpers::socket_exception("Failed to load CA " + ca + ": " + e.what());
+        // The path and the OpenSSL reason go in the log-only detail: `ca=` is
+        // a request option on several clients, so echoing "No such file",
+        // "Permission denied" or "no start line" back to the caller turns a
+        // submission into a file-existence oracle over the whole filesystem,
+        // with the agent's privileges.
+        throw socket_helpers::socket_exception("Failed to load the CA bundle for this connection (see the agent log for the reason)",
+                                               "Failed to load CA " + ca + ": " + e.what());
       }
     }
     if (identity.is_pinned()) {
@@ -395,7 +407,8 @@ struct ssl_socket final : generic_socket {
         context.use_certificate_chain(boost::asio::buffer(identity.cert_pem));
         context.use_private_key(boost::asio::buffer(identity.key_pem), boost::asio::ssl::context::pem);
       } catch (const std::exception &e) {
-        throw socket_helpers::socket_exception(std::string("Failed to load client certificate/key: ") + e.what());
+        throw socket_helpers::socket_exception("Failed to load the client certificate/key for this connection (see the agent log for the reason)",
+                                               std::string("Failed to load client certificate/key: ") + e.what());
       }
     }
     if (!alpn.empty()) {
@@ -421,7 +434,56 @@ struct ssl_socket final : generic_socket {
         sni_(std::move(sni)),
         proxy_(std::move(proxy)),
         pinned_(identity.is_pinned()),
-        io_(io_service) {}
+        pin_(identity.is_pinned() ? socket_helpers::parse_pinned_certificate(identity.pinned_ca_pem) : socket_helpers::pinned_certificate()),
+        io_(io_service) {
+    // A pin that cannot be parsed is not a pin. Refusing here rather than
+    // falling back to "trust it as a CA and skip the hostname check", which is
+    // the combination that has no identity check left in it at all.
+    if (pinned_ && !pin_.valid) {
+      throw socket_helpers::socket_exception("Refusing to connect: the pinned server certificate could not be parsed (" + pin_.error + ")");
+    }
+  }
+
+  // Decide what the handshake actually has to prove about the peer.
+  //
+  // Three cases, and only the first was handled before:
+  //
+  //  - no pin: ordinary verification, so the chain must be trusted and the
+  //    name must match.
+  //  - pinned to a leaf certificate: the pin IS the identity, so the leaf's
+  //    SubjectPublicKeyInfo must be the pinned one. The subject rarely matches
+  //    the host dialed, so the name is not checked - but the key is, which is
+  //    what makes this a pin rather than "one more trusted root". Digesting the
+  //    SPKI rather than the whole certificate means the server can renew with
+  //    the same key without breaking every enrolled agent.
+  //  - pinned to a CA certificate: the PEM names an issuer, not a server, so it
+  //    cannot speak for identity on its own. Chain verification against it is
+  //    all it gives, and the name in the leaf is the only thing left that ties
+  //    the connection to the host intended - so hostname verification stays on.
+  //    Without this a server that handed out its intermediate (or a public CA)
+  //    made the agent accept any certificate under it, for any name: weaker
+  //    than not pinning at all.
+  void apply_verify_callback(const std::string &tls_name) {
+    if (!pinned_) {
+      ssl_socket_.set_verify_callback(boost::asio::ssl::host_name_verification(tls_name));
+      return;
+    }
+    if (pin_.is_ca) {
+      ssl_socket_.set_verify_callback(boost::asio::ssl::host_name_verification(tls_name));
+      return;
+    }
+    const std::string expected = pin_.spki_sha256;
+    ssl_socket_.set_verify_callback([expected](const bool preverified, boost::asio::ssl::verify_context &ctx) -> bool {
+      if (!preverified) return false;
+      // Only the leaf carries the pinned key; the rest of the chain is
+      // whatever the server chose to send and is already covered by
+      // preverified.
+      if (X509_STORE_CTX_get_error_depth(ctx.native_handle()) != 0) return true;
+      X509 *cert = X509_STORE_CTX_get_current_cert(ctx.native_handle());
+      const std::string actual = socket_helpers::certificate_spki_sha256(cert);
+      return !actual.empty() && actual == expected;
+    });
+  }
 
   void set_address_family(const net::address_family af) override { address_family_ = af; }
 
@@ -461,11 +523,7 @@ struct ssl_socket final : generic_socket {
     if (!tls_name.empty()) {
       SSL_set_tlsext_host_name(ssl_socket_.native_handle(), tls_name.c_str());
     }
-    // A pinned peer certificate is the identity check itself; its subject
-    // rarely matches the host we dialed, so hostname verification is skipped.
-    if (!pinned_) {
-      ssl_socket_.set_verify_callback(boost::asio::ssl::host_name_verification(tls_name));
-    }
+    apply_verify_callback(tls_name);
 
     handshake(error);
   }
@@ -603,9 +661,7 @@ struct ssl_socket final : generic_socket {
     if (!tls_name.empty()) {
       SSL_set_tlsext_host_name(ssl_socket_.native_handle(), tls_name.c_str());
     }
-    if (!pinned_) {
-      ssl_socket_.set_verify_callback(boost::asio::ssl::host_name_verification(tls_name));
-    }
+    apply_verify_callback(tls_name);
     handshake(error);
     if (error) {
       throw socket_helpers::socket_exception("TLS handshake via proxy tunnel failed: " + error.message());

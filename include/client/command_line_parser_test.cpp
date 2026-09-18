@@ -105,7 +105,18 @@ struct module_reader : client::options_reader_interface {
         "token", po::value<std::string>()->notifier([&destination](const auto &v) { destination.set_string_data("token", v); }), "The token to use")(
         "proxy", po::value<std::string>()->notifier([&destination](const auto &v) { destination.set_string_data("proxy", v); }), "The proxy to use")(
         "no-proxy", po::value<std::string>()->notifier([&destination](const auto &v) { destination.set_string_data("no proxy", v); }),
-        "Hosts that bypass the proxy");
+        "Hosts that bypass the proxy")(
+        "verify", po::value<std::string>()->notifier([&destination](const auto &v) { destination.set_string_data("verify mode", v); }),
+        "How to verify the server certificate")(
+        "ca", po::value<std::string>()->notifier([&destination](const auto &v) { destination.set_string_data("ca", v); }), "The CA bundle to verify against")(
+        "insecure-skip-verify", po::value<bool>()->implicit_value(true)->notifier([&destination](const auto &v) {
+          destination.set_bool_data("insecure-skip-verify", v);
+        }),
+        "Skip certificate validation")(
+        "recipient", po::value<std::string>()->notifier([&destination](const auto &v) { destination.set_string_data("recipient", v); }),
+        "Who the message is addressed to")(
+        "sender", po::value<std::string>()->notifier([&destination](const auto &v) { destination.set_string_data("sender", v); }),
+        "Who the message claims to be from");
   }
   object_instance create(std::string alias, std::string path) override {
     return std::make_shared<nscapi::settings_objects::object_instance_interface>(alias, path);
@@ -1099,6 +1110,218 @@ TEST(client_route_override, the_exec_path_is_guarded_as_well) {
   ASSERT_GE(response.payload_size(), 1);
   EXPECT_NE(response.payload(0).result(), PB::Common::ResultCode::OK);
   EXPECT_NE(response.payload(0).message().find("--proxy"), std::string::npos) << response.payload(0).message();
+}
+
+// ---------------------------------------------------------------------------
+// Transport security is the third way a request reaches past the guard: the
+// destination and the proxy both stay exactly what the target named, and
+// `verify=none` simply stops the agent checking that the host answering for
+// that name is the configured server. The credentials then go to whoever won
+// the DNS race. `ca=` is guarded with them because it is a file path the
+// caller picks and the load result is observable.
+// ---------------------------------------------------------------------------
+
+TEST(client_transport_override, a_credentialed_target_refuses_a_request_chosen_verify_mode) {
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}, {"verify mode", "peer"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--verify", "none"}), response);
+
+  EXPECT_EQ(f.handler->query_calls, 0) << "nothing must go on the wire";
+  ASSERT_EQ(response.payload_size(), 1);
+  EXPECT_NE(response.payload(0).result(), PB::Common::ResultCode::OK);
+  EXPECT_NE(first_message(response).find("'default' carries credentials"), std::string::npos) << first_message(response);
+  EXPECT_NE(first_message(response).find("--verify"), std::string::npos) << first_message(response);
+}
+
+TEST(client_transport_override, the_rest_style_verify_token_is_guarded_too) {
+  // submit_nrdp verify=none command=x result=0 message=x, as a REST caller
+  // with queries.execute would send it.
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}, {"verify mode", "peer"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"verify=none"}), response);
+
+  EXPECT_EQ(f.handler->query_calls, 0) << first_message(response);
+  EXPECT_NE(first_message(response).find("carries credentials"), std::string::npos) << first_message(response);
+}
+
+TEST(client_transport_override, introducing_a_verify_mode_the_target_never_set_is_an_override) {
+  // The target relied on the module default; a request may not replace it.
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--verify", "none"}), response);
+
+  EXPECT_EQ(f.handler->query_calls, 0) << first_message(response);
+  EXPECT_NE(first_message(response).find("carries credentials"), std::string::npos) << first_message(response);
+}
+
+TEST(client_transport_override, a_request_supplied_ca_path_is_refused) {
+  // C-4: the load result is reported back, so a caller able to choose the path
+  // learns whether it exists and is readable by the service account.
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}, {"ca", "/etc/ssl/certs/ca-bundle.crt"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--ca", "/etc/shadow"}), response);
+
+  EXPECT_EQ(f.handler->query_calls, 0) << first_message(response);
+  EXPECT_NE(first_message(response).find("--ca"), std::string::npos) << first_message(response);
+}
+
+TEST(client_transport_override, a_valued_boolean_insecure_flag_is_guarded) {
+  fixture f;
+  f.add_target("default", {{"address", "smtp://smtp.example.com:587"}, {"password", "s3cret"}, {"insecure-skip-verify", "false"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"insecure-skip-verify=true"}), response);
+
+  EXPECT_EQ(f.handler->query_calls, 0) << first_message(response);
+  EXPECT_NE(first_message(response).find("carries credentials"), std::string::npos) << first_message(response);
+}
+
+TEST(client_transport_override, repeating_the_configured_verify_mode_is_not_an_override) {
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}, {"verify mode", "peer"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--verify", "peer"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.get_string_data("verify mode"), "peer");
+}
+
+TEST(client_transport_override, a_request_that_brings_its_own_credentials_may_choose_the_transport) {
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "configured"}, {"verify mode", "peer"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--verify", "none", "--token", "mine"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.get_string_data("verify mode"), "none");
+}
+
+TEST(client_transport_override, a_target_without_credentials_still_accepts_a_verify_mode) {
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"verify mode", "peer"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--verify", "none"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+}
+
+TEST(client_transport_override, allow_host_override_lets_the_request_choose_the_transport) {
+  fixture f;
+  f.add_target("default",
+               {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}, {"verify mode", "peer"}, {"allow host override", "true"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--verify", "none"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.get_string_data("token"), "s3cret");
+}
+
+TEST(client_transport_override, the_exec_path_is_guarded_as_well) {
+  fixture f;
+  f.add_target("default", {{"address", "https://nrdp.example.com/nrdp/"}, {"token", "s3cret"}, {"verify mode", "peer"}});
+  PB::Commands::ExecuteRequestMessage request;
+  PB::Commands::ExecuteRequestMessage::Request *payload = request.add_payload();
+  payload->set_command("exec_something");
+  payload->add_arguments("--verify");
+  payload->add_arguments("none");
+  PB::Commands::ExecuteResponseMessage response;
+
+  f.config.do_exec(request, response, "");
+
+  EXPECT_EQ(f.handler->exec_calls, 0);
+  ASSERT_GE(response.payload_size(), 1);
+  EXPECT_NE(response.payload(0).message().find("--verify"), std::string::npos) << response.payload(0).message();
+}
+
+// ---------------------------------------------------------------------------
+// submit_smtp addresses a message with the target's authenticated mailbox, so
+// a caller choosing both ends of it is using the agent as an open relay. Same
+// terms as the other guards, with its own opt-in key.
+// ---------------------------------------------------------------------------
+
+TEST(client_recipient_override, a_credentialed_target_refuses_a_request_chosen_recipient) {
+  fixture f;
+  f.add_target("default", {{"address", "smtp://smtp.example.com:587"}, {"password", "s3cret"}, {"recipient", "ops@example.com"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--recipient", "anyone@example.org"}), response);
+
+  EXPECT_EQ(f.handler->query_calls, 0) << first_message(response);
+  EXPECT_NE(first_message(response).find("'default' carries credentials"), std::string::npos) << first_message(response);
+  EXPECT_NE(first_message(response).find("--recipient"), std::string::npos) << first_message(response);
+}
+
+TEST(client_recipient_override, the_sender_is_guarded_the_same_way) {
+  fixture f;
+  f.add_target("default", {{"address", "smtp://smtp.example.com:587"}, {"password", "s3cret"}, {"sender", "nscp@example.com"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"sender=ceo@example.com"}), response);
+
+  EXPECT_EQ(f.handler->query_calls, 0) << first_message(response);
+  EXPECT_NE(first_message(response).find("carries credentials"), std::string::npos) << first_message(response);
+}
+
+TEST(client_recipient_override, repeating_the_configured_recipient_is_not_an_override) {
+  fixture f;
+  f.add_target("default", {{"address", "smtp://smtp.example.com:587"}, {"password", "s3cret"}, {"recipient", "ops@example.com"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--recipient", "ops@example.com"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+}
+
+TEST(client_recipient_override, the_dedicated_opt_in_permits_it_without_opening_the_host) {
+  fixture f;
+  f.add_target("default", {{"address", "smtp://smtp.example.com:587"},
+                           {"password", "s3cret"},
+                           {"recipient", "ops@example.com"},
+                           {"allow recipient override", "true"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--recipient", "anyone@example.org"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.get_string_data("recipient"), "anyone@example.org");
+}
+
+TEST(client_recipient_override, the_recipient_opt_in_does_not_open_the_destination) {
+  // The whole point of a separate key: choosing who an alert goes to is a much
+  // smaller decision than choosing the server the credentials are sent to.
+  fixture f;
+  f.add_target("default", {{"address", "smtp://smtp.example.com:587"},
+                           {"password", "s3cret"},
+                           {"recipient", "ops@example.com"},
+                           {"allow recipient override", "true"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--host", "attacker.example"}), response);
+
+  EXPECT_EQ(f.handler->query_calls, 0) << first_message(response);
+  EXPECT_NE(first_message(response).find("carries credentials"), std::string::npos) << first_message(response);
+}
+
+TEST(client_recipient_override, a_target_without_credentials_still_accepts_a_recipient) {
+  fixture f;
+  f.add_target("default", {{"address", "smtp://smtp.example.com:587"}, {"recipient", "ops@example.com"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--recipient", "anyone@example.org"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
 }
 
 // ---------------------------------------------------------------------------
