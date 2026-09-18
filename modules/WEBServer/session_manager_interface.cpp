@@ -252,13 +252,14 @@ std::list<std::string> session_manager_interface::boot() {
 bool session_manager_interface::store_user_in_response(const std::string &user, Mongoose::StreamResponse &response) {
   const std::string token = tokens.generate_for(user, fingerprint_for_user(user));
   if (token.empty()) {
-    // generate_for only returns empty when the CSPRNG failed. token_store
-    // deliberately has no logging of its own (nor do grant_store /
-    // user_manager) - this is the layer that reports, and refusing here is
-    // what makes the fail-closed contract in generate_token() meaningful.
+    // generate_for only returns empty when the CSPRNG failed, or the SHA-256
+    // the token is stored under did. token_store deliberately has no logging
+    // of its own (nor do grant_store / user_manager) - this is the layer that
+    // reports, and refusing here is what makes the fail-closed contract in
+    // generate_token() meaningful.
     NSC_LOG_ERROR(
-        "SECURITY: refused to issue a session token because the cryptographic RNG (RAND_bytes) failed. No session was "
-        "created. Authentication will keep failing until the OpenSSL RNG is usable again.");
+        "SECURITY: refused to issue a session token because OpenSSL failed (the cryptographic RNG or the SHA-256 digest). No session was "
+        "created. Authentication will keep failing until OpenSSL is usable again.");
     return false;
   }
   response.setCookie("token", token);
@@ -311,38 +312,34 @@ bool session_manager_interface::can(const grant_options &grants, Mongoose::Strea
 }
 
 void session_manager_interface::add_user(const std::string &user, const std::string &role, const std::string &password) {
-  // Rotating credentials for an existing user must invalidate any tokens
-  // previously issued to them - otherwise a stolen token survives a password
-  // change. Re-adding a user *unchanged* is not a rotation, though, and that
-  // is the common case: every settings reload replays the whole user table,
-  // and so does every start (over the sessions restored from nsclient.db).
-  // Revoking there would log every web user out on each reload. So compare
-  // the credential fingerprint across the update and only revoke when it
-  // actually moved. On the first add of a user there is nothing to revoke.
-  const bool known = users.has_user(user);
-  const std::string before = known ? fingerprint_for_user(user) : std::string();
-
+  // Re-adding (or rotating credentials for) an existing user must invalidate
+  // any tokens previously issued to them - otherwise a stolen token survives a
+  // password change. Persisted sessions are not affected: at boot the user
+  // table is populated before import_sessions() runs, and a settings reload
+  // re-enters loadModuleEx on the live module without replaying the users.
+  tokens.revoke_tokens_for_user(user);
   tokens.add_user(user, role);
   users.add_user(user, password);
-
-  if (known && fingerprint_for_user(user) != before) {
-    tokens.revoke_tokens_for_user(user);
-  }
 }
 
 std::string session_manager_interface::fingerprint_for_user(const std::string &user) const {
-  if (user.empty()) return "";
+  // No user, no credentials to fingerprint - and no hash of "\n" that would
+  // read as one.
+  if (user.empty() || !users.has_user(user)) return "";
   // The stored password value, not the password: user_manager holds a PBKDF2
   // string (salt included), so this changes on any password change - and, for
   // a plaintext INI password, on every boot, because add_user re-salts it.
   const std::string material = tokens.get_role(user) + "\n" + users.get_hash(user);
-  const std::string hashed = token_store::hash_token(material);
-  // A build with no hash function persists nothing (token_store::snapshot
-  // drops every entry there), so the unhashed material never reaches disk.
-  // Falling back to it keeps the comparison in add_user meaningful, which is
-  // what actually revokes a session on a password change.
-  return hashed.empty() ? material : hashed;
+  // No hash, no fingerprint. The alternative - the material itself - would
+  // copy the stored password value into every token entry, and in a build
+  // without OpenSSL that value is the cleartext password. Nothing is lost:
+  // such a build persists no sessions (token_store::snapshot), and import
+  // refuses a session whose current fingerprint is empty, so the binding is
+  // simply not offered rather than offered unsafely.
+  return token_store::hash_token(material);
 }
+
+bool session_manager_interface::mark_session_persistent(const std::string &token) { return tokens.mark_persistent(token); }
 
 std::list<token_store::persisted_session> session_manager_interface::export_sessions() const { return tokens.snapshot(token_store::now()); }
 

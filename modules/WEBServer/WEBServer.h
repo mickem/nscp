@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include <atomic>
 #include <Server.h>
 
+#include <atomic>
 #include <boost/thread/mutex.hpp>
 #include <client/simple_client.hpp>
 #include <memory>
@@ -92,10 +92,10 @@ class WEBServer : public nscapi::impl::simple_plugin {
   // neither start listening on a channel nor move to a different one. Empty
   // until the cache has been switched on across a restart.
   std::string registered_result_channel_;
-  // Session rows read out of the core storage at boot, so the ones that are
-  // no longer live at shutdown can be blanked instead of kept for ever (the
-  // storage API has no delete).
-  std::set<std::string> persisted_keys_;
+  // `persist sessions`: whether the session table is written to the core
+  // storage at shutdown and read back at boot. Written by loadModuleEx, read
+  // by persist_sessions() from unloadModule; both run on the lifecycle thread.
+  bool persist_sessions_ = true;
   std::shared_ptr<Mongoose::Server> server;
 
   web_server::user_config users_;

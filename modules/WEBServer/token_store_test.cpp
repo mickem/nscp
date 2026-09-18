@@ -23,9 +23,7 @@ TEST(TokenStoreTest, GenerateTokenCharsetAndLengths) {
   // Every character must come from the [0-9A-Za-z] alphabet regardless of the
   // requested length (guards against the CSPRNG rejection-sampling loop
   // emitting a stray byte).
-  const auto is_alnum = [](char c) {
-    return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
-  };
+  const auto is_alnum = [](char c) { return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'); };
   for (const int len : {1, 2, 16, 32, 64, 129}) {
     const std::string t = token_store::generate_token(len);
     EXPECT_EQ(static_cast<int>(t.size()), len);
@@ -324,11 +322,43 @@ TEST(TokenStoreTest, HashTokenIsStableAndDistinct) {
   EXPECT_EQ(token_store::hash_token("abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
 }
 
+TEST(TokenStoreTest, SnapshotOnlyContainsSessionsMarkedPersistent) {
+  // Every Basic-auth request mints a token nobody ever sees; only the key
+  // handed out by the login endpoint is marked, and only that is exported.
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  token_store store;
+  const std::string volatile_token = store.generate_for("test_user", "fp1");
+  const std::string held_token = store.generate_for("test_user", "fp1");
+  ASSERT_FALSE(volatile_token.empty());
+  ASSERT_FALSE(held_token.empty());
+  EXPECT_TRUE(store.snapshot(token_store::now()).empty()) << "an unmarked session was exported";
+
+  EXPECT_TRUE(store.mark_persistent(held_token));
+  const auto snap = store.snapshot(token_store::now());
+  ASSERT_EQ(snap.size(), 1u);
+  EXPECT_EQ(snap.front().hash, token_store::hash_token(held_token));
+  // Marking is idempotent, and marking is not minting: the volatile one still
+  // authenticates in this process, it just does not leave it.
+  EXPECT_TRUE(store.mark_persistent(held_token));
+  EXPECT_EQ(store.snapshot(token_store::now()).size(), 1u);
+  EXPECT_TRUE(store.is_valid(volatile_token));
+}
+
+TEST(TokenStoreTest, MarkPersistentRefusesUnknownAndExpiredTokens) {
+  token_store store;
+  const std::string token = store.generate_for("test_user", "fp1");
+  ASSERT_FALSE(token.empty());
+  EXPECT_FALSE(store.mark_persistent("nonexistent"));
+  EXPECT_FALSE(store.mark_persistent(token, token_store::now() + HOURS_TO_SECONDS(TOKEN_EXPIRATION_HOURS + 1)));
+  EXPECT_TRUE(store.mark_persistent(token));
+}
+
 TEST(TokenStoreTest, SnapshotNeverContainsTheRawToken) {
   if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
   token_store store;
   const std::string token = store.generate_for("test_user", "fp1");
   ASSERT_FALSE(token.empty());
+  ASSERT_TRUE(store.mark_persistent(token));
   const auto snap = store.snapshot(token_store::now());
   ASSERT_EQ(snap.size(), 1u);
   const token_store::persisted_session &s = snap.front();
@@ -341,17 +371,10 @@ TEST(TokenStoreTest, SnapshotNeverContainsTheRawToken) {
 TEST(TokenStoreTest, SnapshotSkipsExpiredEntries) {
   if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
   token_store store;
-  ASSERT_FALSE(store.generate_for("test_user", "fp1").empty());
+  const std::string token = store.generate_for("test_user", "fp1");
+  ASSERT_TRUE(store.mark_persistent(token));
   EXPECT_EQ(store.snapshot(token_store::now()).size(), 1u);
   EXPECT_TRUE(store.snapshot(token_store::now() + HOURS_TO_SECONDS(TOKEN_EXPIRATION_HOURS + 1)).empty());
-}
-
-TEST(TokenStoreTest, FingerprintForResolvesAndExpires) {
-  token_store store;
-  const std::string token = store.generate_for("test_user", "fp1");
-  EXPECT_EQ(store.fingerprint_for(token, token_store::now()), "fp1");
-  EXPECT_EQ(store.fingerprint_for(token, token_store::now() + HOURS_TO_SECONDS(TOKEN_EXPIRATION_HOURS + 1)), "");
-  EXPECT_EQ(store.fingerprint_for("nonexistent", token_store::now()), "");
 }
 
 TEST(TokenStoreTest, RestoreRoundTripsASession) {
@@ -359,6 +382,7 @@ TEST(TokenStoreTest, RestoreRoundTripsASession) {
   token_store source;
   const std::string token = source.generate_for("test_user", "fp1");
   ASSERT_FALSE(token.empty());
+  ASSERT_TRUE(source.mark_persistent(token));
   const auto snap = source.snapshot(token_store::now());
   ASSERT_EQ(snap.size(), 1u);
 
@@ -369,7 +393,11 @@ TEST(TokenStoreTest, RestoreRoundTripsASession) {
   // store, which is the whole point of persisting sessions.
   EXPECT_TRUE(target.is_valid(token));
   EXPECT_EQ(target.get_user(token), "test_user");
-  EXPECT_EQ(target.fingerprint_for(token), "fp1");
+  // A restored session was held by a client, so it stays exportable for the
+  // next shutdown without anybody having to mark it again.
+  const auto again = target.snapshot(token_store::now());
+  ASSERT_EQ(again.size(), 1u);
+  EXPECT_EQ(again.front().fingerprint, "fp1");
 }
 
 TEST(TokenStoreTest, RestoreSkipsExpiredAndMalformedRecords) {
@@ -414,7 +442,7 @@ TEST(TokenStoreTest, RestoreRespectsTheCap) {
   const time_t now = token_store::now();
   for (int i = 0; i < 5000; ++i) {
     token_store::persisted_session s;
-    // 64 hex characters, unique per i - what parse_session accepts as a key.
+    // 64 hex characters, unique per i - what parse_sessions accepts as a hash.
     std::ostringstream oss;
     oss << std::hex << std::setw(64) << std::setfill('0') << i;
     s.hash = oss.str();
@@ -428,66 +456,85 @@ TEST(TokenStoreTest, RestoreRespectsTheCap) {
 
 // --- Serialisation -----------------------------------------------------------
 
+namespace {
+token_store::persisted_session make_session(const char fill, const std::string &user, const time_t created, const std::string &fingerprint) {
+  token_store::persisted_session s;
+  s.hash = std::string(64, fill);
+  s.user = user;
+  s.created = created;
+  s.fingerprint = fingerprint;
+  return s;
+}
+}  // namespace
+
 TEST(SessionPersistenceTest, SerialiseParseRoundTrip) {
-  token_store::persisted_session in;
-  in.hash = std::string(64, 'a');
-  in.user = "test_user";
-  in.created = 1700000000;
-  in.fingerprint = "deadbeef";
-  const std::string value = session_persistence::serialize_session(in);
-  EXPECT_EQ(value, "1\ttest_user\t1700000000\tdeadbeef");
+  std::list<token_store::persisted_session> in;
+  in.push_back(make_session('a', "test_user", 1700000000, "deadbeef"));
+  in.push_back(make_session('b', "other_user", 1700000001, ""));
+  const std::string value = session_persistence::serialize_sessions(in);
+  EXPECT_EQ(value, "1\n" + std::string(64, 'a') + "\ttest_user\t1700000000\tdeadbeef\n" + std::string(64, 'b') + "\tother_user\t1700000001\t");
 
-  token_store::persisted_session out;
-  ASSERT_TRUE(session_persistence::parse_session(in.hash, value, out));
-  EXPECT_EQ(out.hash, in.hash);
-  EXPECT_EQ(out.user, in.user);
-  EXPECT_EQ(out.created, in.created);
-  EXPECT_EQ(out.fingerprint, in.fingerprint);
+  const auto out = session_persistence::parse_sessions(value);
+  ASSERT_EQ(out.size(), 2u);
+  EXPECT_EQ(out.front().hash, in.front().hash);
+  EXPECT_EQ(out.front().user, "test_user");
+  EXPECT_EQ(out.front().created, 1700000000);
+  EXPECT_EQ(out.front().fingerprint, "deadbeef");
+  EXPECT_EQ(out.back().hash, in.back().hash);
+  EXPECT_EQ(out.back().user, "other_user");
+  EXPECT_EQ(out.back().fingerprint, "") << "an empty fingerprint field must round-trip";
 }
 
-TEST(SessionPersistenceTest, SerialiseRefusesAmbiguousRecords) {
-  token_store::persisted_session in;
-  in.hash = std::string(64, 'a');
-  in.created = 1700000000;
-  in.user = "bad\tuser";
-  EXPECT_TRUE(session_persistence::serialize_session(in).empty()) << "a tab in the user makes the record ambiguous";
-  in.user = "test_user";
-  in.fingerprint = "bad\tfingerprint";
-  EXPECT_TRUE(session_persistence::serialize_session(in).empty());
-  in.fingerprint = "";
-  in.user = "";
-  EXPECT_TRUE(session_persistence::serialize_session(in).empty());
+TEST(SessionPersistenceTest, AnEmptyTableSerialisesToAnEmptyValue) {
+  // "" is what the module writes for "no sessions" (and with persistence
+  // switched off), and what an earlier run that wrote nothing looks like.
+  EXPECT_EQ(session_persistence::serialize_sessions({}), "");
+  EXPECT_TRUE(session_persistence::parse_sessions("").empty());
 }
 
-TEST(SessionPersistenceTest, ParseAcceptsAnEmptyFingerprintField) {
-  token_store::persisted_session out;
-  ASSERT_TRUE(session_persistence::parse_session(std::string(64, 'a'), "1\ttest_user\t1700000000\t", out));
-  EXPECT_EQ(out.fingerprint, "");
+TEST(SessionPersistenceTest, SerialiseLeavesOutRecordsThatCannotBeReadBack) {
+  std::list<token_store::persisted_session> in;
+  in.push_back(make_session('a', "bad\tuser", 1700000000, "fp"));
+  in.push_back(make_session('b', "bad\nuser", 1700000000, "fp"));
+  in.push_back(make_session('c', "test_user", 1700000000, "bad\tfingerprint"));
+  in.push_back(make_session('d', "", 1700000000, "fp"));
+  token_store::persisted_session raw = make_session('e', "test_user", 1700000000, "fp");
+  raw.hash = std::string(32, 'e');  // a raw token, not a hash
+  in.push_back(raw);
+  EXPECT_EQ(session_persistence::serialize_sessions(in), "") << "none of these can be represented";
+
+  // ... and one bad record does not take the good ones down with it.
+  in.push_back(make_session('f', "good_user", 1700000000, "fp"));
+  EXPECT_EQ(session_persistence::serialize_sessions(in), "1\n" + std::string(64, 'f') + "\tgood_user\t1700000000\tfp");
 }
 
-TEST(SessionPersistenceTest, ParseRejectsMalformedValues) {
-  const std::string key(64, 'a');
-  token_store::persisted_session out;
-  // An empty value is the tombstone convention the core storage uses in place
-  // of a delete - it is not a session.
-  EXPECT_FALSE(session_persistence::parse_session(key, "", out));
-  EXPECT_FALSE(session_persistence::parse_session(key, "garbage", out));
-  EXPECT_FALSE(session_persistence::parse_session(key, "1\ttest_user\t1700000000", out)) << "too few fields";
-  EXPECT_FALSE(session_persistence::parse_session(key, "1\ttest_user\t1700000000\tfp\textra", out)) << "too many fields";
-  EXPECT_FALSE(session_persistence::parse_session(key, "2\ttest_user\t1700000000\tfp", out)) << "unknown version";
-  EXPECT_FALSE(session_persistence::parse_session(key, "1\t\t1700000000\tfp", out)) << "empty user";
-  EXPECT_FALSE(session_persistence::parse_session(key, "1\ttest_user\tnotanumber\tfp", out)) << "non-numeric timestamp";
-  EXPECT_FALSE(session_persistence::parse_session(key, "1\ttest_user\t0\tfp", out)) << "zero timestamp";
-  EXPECT_FALSE(session_persistence::parse_session(key, "1\ttest_user\t-5\tfp", out)) << "negative timestamp";
+TEST(SessionPersistenceTest, ParseSkipsMalformedRecordsAndKeepsTheRest) {
+  const std::string good = std::string(64, 'a') + "\tgood_user\t1700000000\tfp";
+  const std::string bad[] = {
+      "garbage",
+      std::string(64, 'b') + "\ttest_user\t1700000000",             // too few fields
+      std::string(64, 'b') + "\ttest_user\t1700000000\tfp\textra",  // too many fields
+      std::string(64, 'b') + "\t\t1700000000\tfp",                  // empty user
+      std::string(64, 'b') + "\ttest_user\tnotanumber\tfp",         // non-numeric timestamp
+      std::string(64, 'b') + "\ttest_user\t0\tfp",                  // zero timestamp
+      std::string(64, 'b') + "\ttest_user\t-5\tfp",                 // negative timestamp
+      "tooshort\ttest_user\t1700000000\tfp",                        // not a hash
+      std::string(32, 'b') + "\ttest_user\t1700000000\tfp",         // a raw token is exactly what must never load
+      std::string(64, 'B') + "\ttest_user\t1700000000\tfp",         // uppercase is not our hex
+      std::string(64, 'z') + "\ttest_user\t1700000000\tfp",         // not hex at all
+  };
+  for (const std::string &line : bad) {
+    const auto out = session_persistence::parse_sessions("1\n" + line + "\n" + good);
+    ASSERT_EQ(out.size(), 1u) << "record was not skipped: " << line;
+    EXPECT_EQ(out.front().user, "good_user");
+  }
+  // A blank line is ignored too (a trailing newline is not a record).
+  EXPECT_EQ(session_persistence::parse_sessions("1\n" + good + "\n").size(), 1u);
 }
 
-TEST(SessionPersistenceTest, ParseRejectsKeysThatAreNotHashes) {
-  token_store::persisted_session out;
-  const std::string value = "1\ttest_user\t1700000000\tfp";
-  EXPECT_FALSE(session_persistence::parse_session("", value, out));
-  EXPECT_FALSE(session_persistence::parse_session("tooshort", value, out));
-  // A raw 32-character token is exactly what must never be accepted as a key.
-  EXPECT_FALSE(session_persistence::parse_session(std::string(32, 'a'), value, out));
-  EXPECT_FALSE(session_persistence::parse_session(std::string(64, 'A'), value, out)) << "uppercase is not our hex";
-  EXPECT_FALSE(session_persistence::parse_session(std::string(64, 'z'), value, out)) << "not hex at all";
+TEST(SessionPersistenceTest, ParseRejectsAnUnknownOrMissingVersion) {
+  const std::string good = std::string(64, 'a') + "\tgood_user\t1700000000\tfp";
+  EXPECT_TRUE(session_persistence::parse_sessions("2\n" + good).empty()) << "unknown version";
+  EXPECT_TRUE(session_persistence::parse_sessions(good).empty()) << "a record where the version should be";
+  EXPECT_TRUE(session_persistence::parse_sessions("1").empty()) << "a version and nothing else is an empty table";
 }

@@ -477,90 +477,42 @@ TEST_F(SessionManagerTest, IsLoggedInWithToken) {
 // --- Credential fingerprints and session persistence --------------------------
 //
 // A session is bound to the credentials it was authorised against: the user's
-// role plus the password value user_manager stores for them. Re-applying the
-// same configuration (every settings reload does) must leave sessions alone;
-// an actual password or role change must still revoke them, in memory and
-// across a restart.
+// role plus the password value user_manager stores for them. In memory a
+// password or role change revokes through add_user (ReAddingUserRevokesAll
+// TheirTokens above); across a restart it is the fingerprint check on import
+// that does it, which is what these tests pin. Only a session the client was
+// handed - marked through mark_session_persistent by the login endpoint - is
+// exported at all.
 
 namespace {
 // A password already in PBKDF2 form is stored verbatim, so its fingerprint is
-// stable across re-adds and across processes. This is what `nscp web install`
-// writes for `admin`, and the only kind of password whose sessions survive a
-// restart.
+// stable across processes. This is what the first boot writes for `admin`,
+// and the only kind of password whose sessions survive a restart.
 std::string hashed(const std::string& password) {
   const std::string h = web_password::hash_password(password);
   return h.empty() ? password : h;
 }
 }  // namespace
 
-TEST(SessionPersistence, ReAddingAnUnchangedUserKeepsTheirTokens) {
-  // The regression this guards: add_user() used to revoke unconditionally, so
-  // every settings reload - and every restore-at-boot - logged everybody out.
-  session_manager_interface smi;
-  const std::string password = hashed("secret");
-  smi.add_user("user", "full", password);
-  smi.add_grant("full", "*");
-  const std::string token = smi.generate_token("user");
-  ASSERT_FALSE(token.empty());
-  ASSERT_TRUE(smi.validate_token(token));
-
-  smi.add_user("user", "full", password);
-  EXPECT_TRUE(smi.validate_token(token)) << "an unchanged re-add revoked the session";
-}
-
-TEST(SessionPersistence, ReAddingAnUnchangedPlaintextUserKeepsTheirTokens) {
-  // A plaintext INI password is hashed on the way in. Re-hashing it on every
-  // reload would mint a new salt and look like a rotation, so user_manager
-  // keeps the stored value when the password still verifies. (This only holds
-  // within one process - see the restart caveat on fingerprint_for_user.)
-  session_manager_interface smi;
-  smi.add_user("user", "full", "secret");
-  smi.add_grant("full", "*");
-  const std::string token = smi.generate_token("user");
-  ASSERT_FALSE(token.empty());
-  smi.add_user("user", "full", "secret");
-  EXPECT_TRUE(smi.validate_token(token));
-  EXPECT_TRUE(smi.validate_user("user", "secret"));
-}
-
-TEST(SessionPersistence, ChangingThePasswordRevokesTheirTokens) {
-  // The original protection: a stolen token must not survive a password
-  // change.
+TEST(SessionPersistence, OnlySessionsHandedToAClientAreExported) {
+  // process_auth_header mints a token on every Basic-auth request; only the
+  // login endpoint returns one to the client and marks it. The rest stay in
+  // memory until they expire and never reach nsclient.db.
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
   session_manager_interface smi;
   smi.add_user("user", "full", hashed("secret"));
   smi.add_grant("full", "*");
-  const std::string token = smi.generate_token("user");
-  ASSERT_TRUE(smi.validate_token(token));
-
-  smi.add_user("user", "full", hashed("a-different-secret"));
-  EXPECT_FALSE(smi.validate_token(token));
-}
-
-TEST(SessionPersistence, ChangingTheRoleRevokesTheirTokens) {
-  // A demotion has to take effect immediately: the token carries the uid, and
-  // the grants are resolved from the role at request time, but leaving the
-  // session alive would keep a browser tab that had already authorised in an
-  // ambiguous state. The fingerprint covers the role for exactly this reason.
-  session_manager_interface smi;
-  const std::string password = hashed("secret");
-  smi.add_user("user", "full", password);
-  smi.add_grant("full", "*");
-  smi.add_grant("restricted", "login.get");
-  const std::string token = smi.generate_token("user");
-  ASSERT_TRUE(smi.validate_token(token));
-
-  smi.add_user("user", "restricted", password);
-  EXPECT_FALSE(smi.validate_token(token));
-}
-
-TEST(SessionPersistence, FirstAddOfAUserHasNothingToRevoke) {
-  session_manager_interface smi;
-  smi.add_user("user", "full", hashed("secret"));
-  smi.add_grant("full", "*");
-  const std::string other = smi.generate_token("user");
-  // Adding an unrelated user must not disturb an existing session.
-  smi.add_user("second", "full", hashed("other"));
-  EXPECT_TRUE(smi.validate_token(other));
+  const std::string in_passing = smi.generate_token("user");
+  const std::string handed_out = smi.generate_token("user");
+  ASSERT_FALSE(in_passing.empty());
+  ASSERT_FALSE(handed_out.empty());
+  EXPECT_TRUE(smi.export_sessions().empty());
+  EXPECT_FALSE(smi.mark_session_persistent("not-a-session"));
+  EXPECT_TRUE(smi.mark_session_persistent(handed_out));
+  const auto sessions = smi.export_sessions();
+  ASSERT_EQ(sessions.size(), 1u);
+  EXPECT_EQ(sessions.front().hash, token_store::hash_token(handed_out));
+  EXPECT_TRUE(smi.validate_token(in_passing)) << "unmarked is not invalid, only volatile";
 }
 
 TEST(SessionPersistence, ExportedSessionsCarryOnlyHashes) {
@@ -569,6 +521,7 @@ TEST(SessionPersistence, ExportedSessionsCarryOnlyHashes) {
   smi.add_user("user", "full", hashed("secret"));
   smi.add_grant("full", "*");
   const std::string token = smi.generate_token("user");
+  ASSERT_TRUE(smi.mark_session_persistent(token));
   ASSERT_FALSE(token.empty());
 
   const auto sessions = smi.export_sessions();
@@ -586,6 +539,7 @@ TEST(SessionPersistence, ImportRestoresASessionForAnUnchangedUser) {
   before.add_user("user", "full", password);
   before.add_grant("full", "*");
   const std::string token = before.generate_token("user");
+  ASSERT_TRUE(before.mark_session_persistent(token));
   ASSERT_FALSE(token.empty());
   const auto sessions = before.export_sessions();
   ASSERT_EQ(sessions.size(), 1u);
@@ -606,6 +560,7 @@ TEST(SessionPersistence, ImportDropsSessionsForAnUnknownUser) {
   before.add_user("user", "full", hashed("secret"));
   before.add_grant("full", "*");
   const std::string token = before.generate_token("user");
+  ASSERT_TRUE(before.mark_session_persistent(token));
   const auto sessions = before.export_sessions();
   ASSERT_EQ(sessions.size(), 1u);
 
@@ -623,6 +578,7 @@ TEST(SessionPersistence, ImportDropsSessionsWhoseFingerprintMoved) {
   before.add_user("user", "full", hashed("secret"));
   before.add_grant("full", "*");
   const std::string token = before.generate_token("user");
+  ASSERT_TRUE(before.mark_session_persistent(token));
   const auto sessions = before.export_sessions();
   ASSERT_EQ(sessions.size(), 1u);
 
@@ -648,6 +604,7 @@ TEST(SessionPersistence, ImportDropsExpiredSessions) {
   before.add_user("user", "full", password);
   before.add_grant("full", "*");
   const std::string token = before.generate_token("user");
+  ASSERT_TRUE(before.mark_session_persistent(token));
   auto sessions = before.export_sessions();
   ASSERT_EQ(sessions.size(), 1u);
   // The agent was down for longer than a session lives.
@@ -660,6 +617,23 @@ TEST(SessionPersistence, ImportDropsExpiredSessions) {
   EXPECT_FALSE(after.validate_token(token));
 }
 
+TEST(SessionPersistence, FingerprintIsAHashOrNothing) {
+  // The fingerprint is folded from the role and the stored password value; it
+  // must never be that material itself, which in a build without OpenSSL is
+  // the cleartext password. No hash function, no fingerprint.
+  session_manager_interface smi;
+  smi.add_user("user", "full", hashed("secret"));
+  const std::string fp = smi.fingerprint_for_user("user");
+  if (token_store::has_hashing()) {
+    EXPECT_EQ(fp.size(), 64u);
+    EXPECT_EQ(fp.find("secret"), std::string::npos);
+    EXPECT_EQ(fp.find("full"), std::string::npos);
+  } else {
+    EXPECT_TRUE(fp.empty());
+  }
+  EXPECT_TRUE(smi.fingerprint_for_user("nobody").empty());
+}
+
 TEST(SessionPersistence, RevokedSessionsAreNotExported) {
   // logout (login_controller::logout) and revoke_tokens_for_user both drop the
   // entry from the live map, and the export reads that map at shutdown - so a
@@ -669,6 +643,7 @@ TEST(SessionPersistence, RevokedSessionsAreNotExported) {
   smi.add_user("user", "full", hashed("secret"));
   smi.add_grant("full", "*");
   const std::string token = smi.generate_token("user");
+  ASSERT_TRUE(smi.mark_session_persistent(token));
   ASSERT_EQ(smi.export_sessions().size(), 1u);
   smi.revoke_token(token);
   EXPECT_TRUE(smi.export_sessions().empty());

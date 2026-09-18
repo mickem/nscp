@@ -28,11 +28,14 @@ class token_store {
     // issued through the fingerprint-less generate_for() overload, which is
     // then never persisted.
     std::string fingerprint;
-    // True when `key` really is a hash of the raw token rather than the raw
-    // token itself. Only a hashed entry may leave the process (see
-    // snapshot()) - a build with no hash function keys the map by the raw
-    // token, and a raw token must never be written to disk.
-    bool hashed{false};
+    // Only a session the client was actually handed - the key returned by
+    // GET /api/v2/login - is worth carrying across a restart. Every Basic-auth
+    // request mints a token too (process_auth_header), and a monitoring
+    // system polling with Basic auth mints thousands of them that nobody
+    // ever sees again; persisting those would fill nsclient.db with sessions
+    // no client holds. So a token is born volatile and snapshot() only exports
+    // the ones marked through mark_persistent().
+    bool persistent{false};
   };
   typedef boost::unordered_map<std::string, token_entry> token_map;
 
@@ -121,13 +124,12 @@ class token_store {
   // a restart.
   static bool has_hashing();
 
-  // The map key for a raw token: its hash where one is available, the raw
-  // token otherwise. Public so tests can assert the map really is keyed by
-  // the hash and not by the token.
-  static std::string key_for(const std::string &token) {
-    const std::string hashed = hash_token(token);
-    return hashed.empty() ? token : hashed;
-  }
+  // The map key for a raw token: its hash where this build has one, the raw
+  // token otherwise. In a hashing build a failed digest yields "", which no
+  // entry is ever stored under (generate_for refuses to mint in that case),
+  // so the lookup simply misses. Public so tests can assert the map really is
+  // keyed by the hash and not by the token.
+  static std::string key_for(const std::string &token) { return has_hashing() ? hash_token(token) : token; }
 
   bool is_valid(const std::string &token) { return is_valid(token, now()); }
 
@@ -182,22 +184,13 @@ class token_store {
     return "";
   }
 
-  // The credential fingerprint a live token was issued against, or "" when
-  // the token is unknown or expired.
-  std::string fingerprint_for(const std::string &token) const { return fingerprint_for(token, now()); }
-
-  std::string fingerprint_for(const std::string &token, const time_t now) const {
-    const std::string key = key_for(token);
-    const std::lock_guard<std::mutex> lock(mutex_);
-    const auto cit = tokens.find(key);
-    if (cit != tokens.end() && !has_token_expired(cit->second.created, now)) {
-      return cit->second.fingerprint;
-    }
-    return "";
-  }
-
   std::string generate_for(const std::string &user) { return generate_for(user, ""); }
 
+  // Returns "" when no session could be minted: the CSPRNG failed, or (in a
+  // hashing build) the digest did. The second case matters as much as the
+  // first: storing the raw token under a key every later lookup would hash
+  // would hand the client a credential that 403s until it expires and that
+  // revoke() cannot find either. Callers treat "" as a failure to issue.
   std::string generate_for(const std::string &user, const std::string &fingerprint) {
     // Generate before taking the lock: the CSPRNG call does not need it, and
     // an empty result means the CSPRNG failed, in which case no session may
@@ -207,8 +200,8 @@ class token_store {
     if (token.empty()) return token;
     // Hash outside the lock too - it is pure, and the raw token is only ever
     // returned to the caller, never stored.
-    const std::string hashed = hash_token(token);
-    const std::string key = hashed.empty() ? token : hashed;
+    const std::string key = key_for(token);
+    if (key.empty()) return std::string();
     const time_t t = now();
     const std::lock_guard<std::mutex> lock(mutex_);
     sweep_expired_locked(t);
@@ -216,19 +209,33 @@ class token_store {
     entry.user = user;
     entry.created = t;
     entry.fingerprint = fingerprint;
-    entry.hashed = !hashed.empty();
     tokens[key] = entry;
     return token;
   }
 
-  // Every live, unexpired session that may leave the process. An entry keyed
-  // by a raw token (no hash function in this build) is deliberately left out:
-  // exporting it would write the bearer credential itself to disk.
+  // Flag a live session as one the client holds (see token_entry::persistent).
+  // Returns false when the token is unknown or expired.
+  bool mark_persistent(const std::string &token) { return mark_persistent(token, now()); }
+
+  bool mark_persistent(const std::string &token, const time_t now) {
+    const std::string key = key_for(token);
+    const std::lock_guard<std::mutex> lock(mutex_);
+    const auto it = tokens.find(key);
+    if (it == tokens.end() || has_token_expired(it->second.created, now)) return false;
+    it->second.persistent = true;
+    return true;
+  }
+
+  // Every live, unexpired session that may leave the process: the ones a
+  // client was handed (mark_persistent). A build with no hash function keys
+  // the map by the raw token, and exporting that would write the bearer
+  // credential itself to disk, so it exports nothing at all.
   std::list<persisted_session> snapshot(const time_t now) const {
     std::list<persisted_session> ret;
+    if (!has_hashing()) return ret;
     const std::lock_guard<std::mutex> lock(mutex_);
     for (const auto &e : tokens) {
-      if (!e.second.hashed) continue;
+      if (!e.second.persistent) continue;
       if (has_token_expired(e.second.created, now)) continue;
       persisted_session s;
       s.hash = e.first;
@@ -257,7 +264,8 @@ class token_store {
     entry.user = session.user;
     entry.created = session.created;
     entry.fingerprint = session.fingerprint;
-    entry.hashed = true;
+    // It was exported, so it was held by a client; keep it exportable.
+    entry.persistent = true;
     tokens[session.hash] = entry;
     return true;
   }
@@ -286,21 +294,30 @@ class token_store {
   void add_grant(const std::string &role, const std::string &grant);
 };
 
-// Serialising a session for the core storage (`nsclient.db`). The storage key
-// is the token hash and the value is a tab-separated record led by a format
-// version, so a later format can be told apart from this one rather than
-// silently mis-parsed:
+// Serialising the session table for the core storage (`nsclient.db`). The
+// whole table goes into ONE storage row, replaced at every shutdown. The core
+// storage has no delete, so one row per session would have left a blank
+// tombstone behind for every session that ever expired or logged out - and
+// nothing would ever have removed them. One row has nothing to tombstone: an
+// empty table is written as an empty value, and a single put replaces
+// whatever the previous run left.
 //
-//     1<TAB><user><TAB><created-epoch><TAB><fingerprint>
+// The value is a format version on the first line, then one record per line:
 //
-// An empty value is the tombstone convention the core storage uses in place
-// of a delete (see CheckLogFile), so parse_session rejects it.
+//     1
+//     <hash><TAB><user><TAB><created-epoch><TAB><fingerprint>
+//     ...
+//
+// A later format bumps the version so it is told apart from this one rather
+// than silently mis-parsed.
 namespace session_persistence {
-// The value half of the record. Returns "" when the session cannot be
-// represented (a user containing a tab would make the record ambiguous).
-std::string serialize_session(const token_store::persisted_session &session);
+// The storage row for a session table. A session that cannot be represented
+// (a user containing a tab or a newline would make the record ambiguous, a
+// hash that is not one) is left out. An empty table serialises to "".
+std::string serialize_sessions(const std::list<token_store::persisted_session> &sessions);
 
-// Parse one storage row. Returns false - leaving `out` untouched - for an
-// empty or malformed value, an unknown version, or a key that is not a hash.
-bool parse_session(const std::string &key, const std::string &value, token_store::persisted_session &out);
+// Parse a storage row back into a session table. Returns an empty list for
+// an empty or unversioned value; a malformed record is skipped, the rest of
+// the table still loads.
+std::list<token_store::persisted_session> parse_sessions(const std::string &value);
 }  // namespace session_persistence

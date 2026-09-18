@@ -18,6 +18,13 @@ void login_controller::is_loggedin(Mongoose::Request &request, boost::smatch &wh
 
   std::string user, key;
   session_manager_interface::get_user_from_response(response, user, key);
+  // This is the one place a session token is handed to a client, so this is
+  // the one place a session becomes worth keeping across a restart. The token
+  // a Basic-auth request on any other route mints in passing is never
+  // returned to anyone and is left volatile.
+  if (!key.empty()) {
+    session->mark_session_persistent(key);
+  }
   json::object root;
   root["user"] = user;
   root["key"] = key;

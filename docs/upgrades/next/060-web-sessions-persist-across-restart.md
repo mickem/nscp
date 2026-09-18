@@ -1,15 +1,15 @@
 ---
 icon: "🔒"
 modules: [WEBServer]
-action: none
+action: conditional
 ---
-**Web sessions now survive a restart of the agent.** Nothing to do. Restarting
-the service used to log every web UI and REST user out, because session tokens
-lived only in the web server's memory. They are now written to
-`${data-path}/nsclient.db` at a clean shutdown and read back at the next start,
-so a browser tab — or a script holding a bearer key — keeps working across a
-service restart or an upgrade. What is stored is only the SHA-256 of each
-token, never the token itself, in memory as well as on disk; see the
+**Web sessions now survive a restart of the agent.** Restarting the service
+used to log every web UI and REST user out, because session tokens lived only
+in the web server's memory. The sessions handed out by `/api/v2/login` are now
+written to `${data-path}/nsclient.db` at a clean shutdown and read back at the
+next start, so a browser tab — or a script holding a bearer key — keeps working
+across a service restart or an upgrade. What is stored is only the SHA-256 of
+each token, never the token itself, in memory as well as on disk; see the
 [security notice](../security/notices.md#web-sessions-tokens-hashed-in-memory-and-at-rest-bound-to-a-credential-fingerprint).
 
 Everything that ended a session before still ends it:
@@ -24,12 +24,32 @@ Everything that ended a session before still ends it:
   dropped instead of restored. Removing the user from the configuration drops
   them as well.
 
+**If you relied on a restart to end every session** — after a suspected token
+leak, say — that no longer happens by itself. You have three ways to
+invalidate sessions now:
+
+| To end                       | Do                                                                                                   |
+|------------------------------|------------------------------------------------------------------------------------------------------|
+| one session                  | `DELETE /api/v2/login` with that key (the web UI's *log out*)                                          |
+| every session of one user    | change that user's password (`nscp web add-user --user <user> --password <new>`), or their role        |
+| every session at once        | set `persist sessions = false` under `[/settings/WEB/server]` and restart; set it back afterwards if you want sessions to survive the next restart |
+
+```ini
+[/settings/WEB/server]
+; Keep sessions in memory only, as before: every restart ends every session.
+persist sessions = false
+```
+
+A row an earlier run wrote is ignored while the setting is off and blanked at
+the next shutdown, so switching it back on does not bring anything back from
+before it was switched off.
+
 One limitation, worth knowing if you see users having to log in again anyway:
 **a user whose password is configured in cleartext** under
 `[/settings/WEB/server/users/<user>]` is re-hashed with a fresh salt on every
 boot, so their credential fingerprint changes and their sessions are not
 restored. A password already stored in its hashed form (`pbkdf2-sha256$…`,
-which is what `nscp web install` writes for `admin`) is stable and its sessions
+which is what the first boot writes for `admin`) is stable and its sessions
 do survive. `nscp web add-user --user <user> --role <role>` rewrites an existing
 cleartext password as a hash (leave `--password` out to keep the password the
 user already has), if you want the same for a user you added by hand.

@@ -16,6 +16,19 @@
  *      restart — the documented limitation, because user_manager re-salts a
  *      plaintext password on every boot and the credential fingerprint the
  *      session is bound to therefore changes
+ *   f) the token a Basic-auth request mints in passing (every request does;
+ *      it comes back as a `token` cookie) is never persisted — only the key
+ *      the login endpoint hands out is, so a monitoring system polling with
+ *      Basic auth does not fill nsclient.db
+ *   g) `persist sessions = false` restores the old behaviour: a restart ends
+ *      every session, which is the documented way to invalidate them all
+ *
+ * Windows is skipped: the fixture's stop() there is a SIGKILL (there is no
+ * signal a Node parent can send a Windows child that nscp turns into a clean
+ * shutdown), so the agent never reaches the shutdown path that writes
+ * nsclient.db and every "survives a restart" case would fail for a reason
+ * that has nothing to do with the code under test. The C++ side is platform
+ * neutral and is covered by the WEBServer_test unit tests on every platform.
  *
  * The `persistent` user's password is stored pre-hashed, which is what
  * `nscp web install` writes for `admin` and the only form whose fingerprint is
@@ -43,7 +56,9 @@ const HASHED_PASSWORD_ROTATED =
 
 const USER_PATH = "/settings/WEB/server/users/persistent";
 
-describe("REST session persistence", () => {
+const notOnWindows = process.platform === "win32" ? describe.skip : describe;
+
+notOnWindows("REST session persistence", () => {
   let nscp: NscpInstance;
 
   /** Log in with Basic auth and return the issued session key. */
@@ -58,13 +73,47 @@ describe("REST session persistence", () => {
     return response.body.key as string;
   }
 
-  /** The status GET /api/v2/login answers with for a bearer key. */
+  /**
+   * The status GET /api/v2/login answers with for a bearer key. Note that
+   * presenting a key to the login endpoint is what marks its session as held
+   * by a client (that is the endpoint that hands keys out), so a token that
+   * must stay volatile is probed through infoStatusFor() instead.
+   */
   async function statusFor(key: string): Promise<number> {
     const response = await request(REST_URL)
       .get("/api/v2/login")
       .set("Authorization", `Bearer ${key}`)
       .trustLocalhost(true);
     return response.status;
+  }
+
+  /** The status GET /api/v2/info answers with for a bearer key. */
+  async function infoStatusFor(key: string): Promise<number> {
+    const response = await request(REST_URL)
+      .get("/api/v2/info")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true);
+    return response.status;
+  }
+
+  /**
+   * Poll until the server answers a request at all. A settings reload tears
+   * the listener down and brings it back, and a request that lands in
+   * between is refused rather than answered; that is the reload, not the
+   * session.
+   */
+  async function waitForAnswer(probe: () => Promise<number>, timeoutMs: number): Promise<number> {
+    const deadline = Date.now() + timeoutMs;
+    let lastError: unknown;
+    while (Date.now() < deadline) {
+      try {
+        return await probe();
+      } catch (error) {
+        lastError = error;
+        await new Promise((r) => setTimeout(r, 250));
+      }
+    }
+    throw new Error(`server did not answer within ${timeoutMs} ms: ${String(lastError)}`);
   }
 
   /**
@@ -103,6 +152,7 @@ describe("REST session persistence", () => {
   let survivingKey = "";
   let plaintextKey = "";
   let secondKey = "";
+  let inPassingToken = "";
 
   it("issues keys for a hashed-password and a plaintext-password user", async () => {
     survivingKey = await login("persistent", "persistent-password");
@@ -111,9 +161,30 @@ describe("REST session persistence", () => {
     expect(await statusFor(plaintextKey)).toEqual(200);
   });
 
+  it("mints a volatile token for a Basic-auth request on any other route", async () => {
+    // Every Basic-auth request creates a session and echoes its token as a
+    // cookie; nothing but the login endpoint ever returns one to a client on
+    // purpose. This one works for as long as the process lives...
+    const response = await request(REST_URL)
+      .get("/api/v2/info")
+      .auth("persistent", "persistent-password")
+      .trustLocalhost(true)
+      .expect(200);
+    const cookies = ([] as string[]).concat(response.headers["set-cookie"] ?? []);
+    const match = cookies.map((c) => /^token=([A-Za-z0-9]+)/.exec(c)).find((m) => m);
+    expect(match).toBeTruthy();
+    inPassingToken = match![1];
+    expect(await infoStatusFor(inPassingToken)).toEqual(200);
+  });
+
   it("keeps a hashed-password user's key valid across a restart", async () => {
     await restart();
     expect(await statusFor(survivingKey)).toEqual(200);
+  });
+
+  it("does not carry a Basic-auth request's token across a restart", async () => {
+    // ... but it was never handed out, so it was never persisted.
+    expect(await infoStatusFor(inPassingToken)).toEqual(403);
   });
 
   it("does not carry a plaintext-password user's key across a restart", async () => {
@@ -134,13 +205,11 @@ describe("REST session persistence", () => {
       .send({ command: "reload" })
       .trustLocalhost(true)
       .expect(200);
-    // The reload is scheduled, not immediate: give it a couple of seconds and
-    // assert the key stayed valid throughout rather than at one instant.
-    const deadline = Date.now() + 5_000;
-    while (Date.now() < deadline) {
-      expect(await statusFor(secondKey)).toEqual(200);
-      await new Promise((r) => setTimeout(r, 250));
-    }
+    // The reload is scheduled, not immediate, and it recreates the listener:
+    // give it a couple of seconds, tolerate the refused connections while the
+    // socket is down, and assert the key is still valid once it is back.
+    await new Promise((r) => setTimeout(r, 2_000));
+    expect(await waitForAnswer(() => statusFor(secondKey), 30_000)).toEqual(200);
     expect(await statusFor(survivingKey)).toEqual(200);
   });
 
@@ -176,7 +245,48 @@ describe("REST session persistence", () => {
     expect(await statusFor(secondKey)).toEqual(403);
     // The new password works, so the user is usable - only the old sessions
     // are gone.
-    const rotatedKey = await login("persistent", "rotated-password");
+    rotatedKey = await login("persistent", "rotated-password");
     expect(await statusFor(rotatedKey)).toEqual(200);
+  });
+
+  let rotatedKey = "";
+
+  it("ends every session at a restart when persist sessions is off", async () => {
+    await nscp.stop({ timeout: 30_000 });
+    await nscp.waitForPortFree(8443, { timeoutMs: 30_000 });
+    await nscp.run([
+      "settings",
+      "--path",
+      "/settings/WEB/server",
+      "--key",
+      "persist sessions",
+      "--set",
+      "false",
+    ]);
+    nscp.start();
+    await nscp.waitForPort(8443, { timeoutMs: 30_000 });
+    // The row an earlier run wrote is ignored...
+    expect(await statusFor(rotatedKey)).toEqual(403);
+    const volatileKey = await login("persistent", "rotated-password");
+    expect(await statusFor(volatileKey)).toEqual(200);
+
+    // ... and blanked at this shutdown, so switching persistence back on does
+    // not resurrect anything from before it was switched off.
+    await nscp.stop({ timeout: 30_000 });
+    await nscp.waitForPortFree(8443, { timeoutMs: 30_000 });
+    await nscp.run([
+      "settings",
+      "--path",
+      "/settings/WEB/server",
+      "--key",
+      "persist sessions",
+      "--set",
+      "true",
+    ]);
+    nscp.start();
+    await nscp.waitForPort(8443, { timeoutMs: 30_000 });
+    expect(await statusFor(rotatedKey)).toEqual(403);
+    expect(await statusFor(volatileKey)).toEqual(403);
+    expect(await statusFor(await login("persistent", "rotated-password"))).toEqual(200);
   });
 });
