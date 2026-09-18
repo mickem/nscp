@@ -259,6 +259,7 @@ if(USE_STATIC_RUNTIME)
         -Dnscp_protobuf_NOLIB
         -D${PLUGIN_API_TARGET}_NOLIB
         -Dnscp_where_filter_NOLIB
+        -Dnscp_client_NOLIB
         -Djson_protobuf_NOLIB
         -Dlua_protobuf_NOLIB
         -Dlib_mongoose_NOLIB

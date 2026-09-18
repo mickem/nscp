@@ -592,6 +592,11 @@ function(NSCP_CREATE_TEST _TARGET)
         "SOURCES;LIBRARIES;INCLUDES"
     )
     add_executable(${_TARGET} ${ARG_SOURCES})
+    # No test links the shared libraries; they compile the sources they need
+    # (command_line_parser.cpp, socket_helpers.cpp, ...) straight into the test
+    # binary so they can drive them without a core. __declspec(dllimport) on a
+    # symbol the same binary defines does not link, so neuter the export macros.
+    target_compile_definitions(${_TARGET} PRIVATE nscp_client_NOLIB)
     if(ARG_LIBRARIES)
         target_link_libraries(${_TARGET} ${ARG_LIBRARIES})
     endif()

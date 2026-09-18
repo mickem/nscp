@@ -5,6 +5,15 @@ cmake_minimum_required(VERSION 3.10)
 # check_nscp / check_nrpe executables. Twelve targets compiled
 # command_line_parser.cpp privately at ~580 KB of object code each.
 #
+# The public surface is annotated with NSCP_CLIENT_EXPORT (client/dll_defines.hpp)
+# rather than exported wholesale with WINDOWS_EXPORT_ALL_SYMBOLS. Export-all made
+# every symbol a root the linker may not discard, so /OPT:REF stopped pruning and
+# the DLL kept code no caller reaches; nscp_where_filter measured at 1.66 MB that
+# way against 0.80 MB annotated. A missed annotation is not a silent bug: the
+# consumer fails to link with LNK2019, which the Windows CI build catches. It is
+# only ever caught there, though - the unix builds export everything by default,
+# so the macro expands to nothing and a missing one is invisible.
+#
 # simple_client.cpp deliberately stays out: it logs through the NSC_LOG_* macros,
 # which expand to GET_CORE() -> nscapi::plugin_singleton, the global each module
 # defines for itself in its generated module.cpp. A shared library cannot resolve
@@ -25,7 +34,7 @@ if(WIN32)
     )
 endif(WIN32)
 
-NSCP_MAKE_LIBRARY(${TARGET} "${SRCS}" EXPORT_ALL_SYMBOLS)
+NSCP_MAKE_LIBRARY(${TARGET} "${SRCS}")
 
 target_link_libraries(
     ${TARGET}
