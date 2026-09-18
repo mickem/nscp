@@ -165,13 +165,25 @@ std::string expand_hostname(std::string spec);
 
 class socket_exception : public std::exception {
   std::string error;
+  // Diagnostic text that must never reach a caller. A request may supply the
+  // file paths this layer opens (`ca=`, `certificate=`), and the reason a
+  // load failed - "No such file or directory", "Permission denied", "no start
+  // line" - answers "does this path exist and can the service read it?" for
+  // any path, with the agent's privileges. So the reason goes in here and is
+  // logged, while what() stays generic and is what a check response shows.
+  std::string diagnostic;
 
  public:
   //////////////////////////////////////////////////////////////////////////
   /// Constructor takes an error message.
   /// @param error the error message
   explicit socket_exception(std::string error) noexcept : error(std::move(error)) {}
-  socket_exception(const socket_exception& other) noexcept : socket_exception(other.reason()) {}
+  //////////////////////////////////////////////////////////////////////////
+  /// Constructor takes a caller-safe message and a log-only diagnostic.
+  /// @param error the error message shown to the caller
+  /// @param diagnostic the detail that only goes to the agent log
+  socket_exception(std::string error, std::string diagnostic) noexcept : error(std::move(error)), diagnostic(std::move(diagnostic)) {}
+  socket_exception(const socket_exception& other) noexcept : error(other.error), diagnostic(other.diagnostic) {}
   ~socket_exception() noexcept override = default;
 
   //////////////////////////////////////////////////////////////////////////
@@ -179,6 +191,10 @@ class socket_exception : public std::exception {
   /// @return the error message
   const char* what() const noexcept override { return error.c_str(); }
   std::string reason() const { return error; }
+  //////////////////////////////////////////////////////////////////////////
+  /// Retrieve the log-only detail, empty when there is none.
+  std::string detail() const { return diagnostic; }
+  bool has_detail() const { return !diagnostic.empty(); }
 };
 
 struct connection_info {
@@ -246,7 +262,15 @@ struct connection_info {
       return ss.str();
     }
 #ifdef USE_SSL
-    void configure_ssl_context(boost::asio::ssl::context& context, std::list<std::string>& errors) const;
+    // `errors` collects the full diagnostic, including the file paths and the
+    // OpenSSL reason. Several of those paths (`ca`, `certificate`, `dh`) are
+    // request options on the client modules, so a caller that gets the reason
+    // back can use a submission to ask "does this path exist and can the
+    // service read it?" about any file. Pass `caller_safe_errors` wherever the
+    // outcome is reported to whoever made the request: it receives a message
+    // naming what failed and nothing else, while `errors` goes to the log.
+    void configure_ssl_context(boost::asio::ssl::context& context, std::list<std::string>& errors,
+                               std::list<std::string>* caller_safe_errors = nullptr) const;
     boost::asio::ssl::context::verify_mode get_verify_mode() const;
     long get_tls_min_version() const;
     long get_tls_max_version() const;
@@ -361,6 +385,35 @@ boost::asio::ssl::verify_mode verify_mode_parser(const std::string& verify_mode)
 // can tell that apart from "expired a day ago" - collapsing both to -1 loses a
 // distinction that matters when the number drives an alert.
 boost::optional<long> peer_certificate_expiry_days(SSL* ssl);
+
+// A pinned server certificate, parsed once so the pin can be enforced as a pin.
+//
+// Adding the pinned PEM to the trust store and turning hostname verification
+// off - which is what pinning used to mean here - is only a pin when the PEM is
+// the server's own leaf certificate. Hand out an intermediate or a public CA
+// instead and the same code accepts *any* certificate that chains to it, for
+// any name, which is weaker than ordinary verification rather than stronger.
+// So the leaf's SubjectPublicKeyInfo digest is recorded and compared at
+// handshake time, and a PEM that is itself a CA keeps the hostname check.
+struct pinned_certificate {
+  // Lower-case hex SHA-256 of the certificate's SubjectPublicKeyInfo. The SPKI
+  // rather than the whole certificate, so a server that renews with the same
+  // key keeps matching its pin.
+  std::string spki_sha256;
+  // basicConstraints says CA:TRUE. Then the PEM names an issuer, not a server,
+  // and the only identity check available is the name in the certificate it
+  // signed - so hostname verification has to stay on.
+  bool is_ca = false;
+  // False when the PEM could not be parsed at all; `error` says why.
+  bool valid = false;
+  std::string error;
+};
+
+pinned_certificate parse_pinned_certificate(const std::string& pem);
+
+// SPKI SHA-256 of an X509, in the same form parse_pinned_certificate produces.
+// Empty when the digest cannot be computed.
+std::string certificate_spki_sha256(X509* cert);
 #endif
 
 namespace io {

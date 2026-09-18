@@ -522,7 +522,13 @@ TEST(SmtpCaBundle, AnUnreadableBundleFailsTheSubmission) {
     smtp::send(cfg, msg);
     FAIL() << "expected the missing CA bundle to fail the submission";
   } catch (const smtp_exception &e) {
-    EXPECT_NE(std::string(e.what()).find("failed to load CA bundle"), std::string::npos) << e.what();
+    // `ca` is a request option on submit_smtp, so the path and the reason it
+    // failed to load stay in the log-only detail: reported back they answer
+    // "does this path exist and can the service read it?" for any file.
+    EXPECT_NE(std::string(e.what()).find("failed to load the configured CA bundle"), std::string::npos) << e.what();
+    EXPECT_EQ(std::string(e.what()).find(cfg.ca_path), std::string::npos) << "the path must not travel back to the caller: " << e.what();
+    ASSERT_TRUE(e.has_detail());
+    EXPECT_NE(e.detail().find(cfg.ca_path), std::string::npos) << e.detail();
   }
 }
 
@@ -548,7 +554,7 @@ TEST(SmtpCaBundle, TheBundleIsIgnoredWhenVerificationIsWaived) {
     FAIL() << "expected the connection to port 1 to fail";
   } catch (const smtp_exception &e) {
     // It must get as far as the connection - i.e. past the CA setup entirely.
-    EXPECT_EQ(std::string(e.what()).find("failed to load CA bundle"), std::string::npos) << e.what();
+    EXPECT_EQ(std::string(e.what()).find("CA bundle"), std::string::npos) << e.what();
     EXPECT_NE(std::string(e.what()).find("connect failed"), std::string::npos) << e.what();
   }
 }

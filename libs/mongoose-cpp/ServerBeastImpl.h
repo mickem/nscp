@@ -45,6 +45,7 @@ class NSCAPI_EXPORT ServerBeastImpl final : public Server {
   void registerController(Controller* controller) override;
   void setSsl(std::string& certificate, std::string& key) override;
   void setBodyLimit(std::size_t bytes) override;
+  void setTlsOptions(const std::string& tls_version, const std::string& ciphers) override;
 
   /** Per-connection HTTP body cap. Default 1 MiB. */
   static constexpr std::size_t kDefaultBodyLimit = 1u * 1024u * 1024u;
@@ -76,6 +77,12 @@ class NSCAPI_EXPORT ServerBeastImpl final : public Server {
   std::string cert_pem_;
   std::string key_pem_;
   bool use_tls_ = false;
+  // The TLS version range and cipher list the operator configured. Defaults
+  // to "1.2+" so the listener keeps accepting TLS 1.2 while now also being
+  // able to negotiate TLS 1.3, which the hard-coded tlsv12_server method made
+  // impossible on every Linux build.
+  std::string tls_version_ = "1.2+";
+  std::string ciphers_;
   std::size_t body_limit_ = kDefaultBodyLimit;
   // Snapshot-on-read protection for `controllers_`. registerController()
   // may be called from any thread; dispatch coroutines copy the vector

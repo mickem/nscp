@@ -396,6 +396,18 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
     int i = 1;
     validated_user_args.reserve(args.size());
     for (const std::string &str : args) {
+      // A NUL is refused whatever `allow nasty characters` says, because it is
+      // not a metacharacter the operator can decide to allow: CreateProcessW
+      // reads lpCommandLine as a C string, so an argument of `x\0` truncates
+      // the command line there and every operator-fixed argument after the
+      // substitution point silently disappears - `check.exe $ARG1$ --read-only`
+      // becomes `check.exe x`. Protobuf strings carry NUL and REST forwards URL
+      // parameters verbatim, so a caller can send one. On unix only the single
+      // argv element is truncated, which is still not what the template says.
+      if (str.find('\0') != std::string::npos) {
+        nscapi::protobuf::functions::set_response_bad(*response, "Request contained a NUL byte in an argument, which would truncate the command line.");
+        return;
+      }
       if (!allowNasty_ && str.find_first_of(NASTY_METACHARS) != std::string::npos) {
         nscapi::protobuf::functions::set_response_bad(*response,
                                                       "Request contained illegal characters set /settings/external scripts/allow nasty characters=true!");

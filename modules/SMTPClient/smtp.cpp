@@ -637,7 +637,9 @@ void send(const connection_config& cfg, const message& msg) {
     if (!cfg.ca_path.empty() && cfg.ca_path != "none") {
       boost::system::error_code ec;
       ssl_ctx.load_verify_file(cfg.ca_path, ec);
-      if (ec) throw smtp_exception("failed to load CA bundle '" + cfg.ca_path + "': " + ec.message());
+      if (ec)
+        throw smtp_exception("failed to load the configured CA bundle (see the agent log for the reason)",
+                             "failed to load CA bundle '" + cfg.ca_path + "': " + ec.message());
     } else {
       ssl_ctx.set_default_verify_paths();
     }

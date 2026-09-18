@@ -15,6 +15,8 @@
 #include <memory>
 #include <net/address_family.hpp>
 #include <net/socket/socket_helpers.hpp>
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <parsers/filter/cli_helper.hpp>
@@ -237,7 +239,12 @@ void run_tcp_check(const std::string &host, unsigned short port, int timeout_ms,
         try {
           ctx.load_verify_file(ca_file);
         } catch (const std::exception &e) {
-          out.result = std::string("error: failed to load CA: ") + e.what();
+          // `ca=` is a check argument, so the OpenSSL reason ("No such file or
+          // directory", "Permission denied", "no start line") must not travel
+          // back in the result: it answers "does this path exist and can the
+          // service read it?" for any file the agent can reach.
+          NSC_LOG_ERROR_STD(std::string("Failed to load CA ") + ca_file + ": " + e.what());
+          out.result = "error: failed to load the CA bundle (see the agent log for the reason)";
           return;
         }
       }

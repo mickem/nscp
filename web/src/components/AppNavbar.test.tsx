@@ -57,7 +57,7 @@ describe("AppNavbar", () => {
   it("clears the session when logging out", async () => {
     const { store } = setup({ errors: 0, last_error: "" });
     expect(store.getState().auth.token).toBe("test-token");
-    localStorage.setItem("token", "test-token");
+    sessionStorage.setItem("token", "test-token");
 
     await userEvent.click(screen.getByRole("button", { name: "account of current user" }));
     await userEvent.click(await screen.findByRole("menuitem", { name: "Logout" }));
@@ -66,8 +66,8 @@ describe("AppNavbar", () => {
     // revoke the token, so the click returns before the state has changed.
     await waitFor(() => expect(store.getState().auth.token).toBeUndefined());
     // Not just forgotten by this browser: the persisted copy goes too, rather
-    // than sitting in localStorage until something happens to notice it.
-    expect(localStorage.getItem("token")).toBeNull();
+    // than sitting in storage until something happens to notice it.
+    expect(sessionStorage.getItem("token")).toBeNull();
   });
 
   it("revokes the session token on the server when logging out", async () => {
@@ -93,7 +93,7 @@ describe("AppNavbar", () => {
       // The failure that matters is not a rejected request but a silent one: an
       // agent that has stopped, or a network that swallows the DELETE. Logout
       // gives the revoke a bounded window and then abandons it - otherwise the
-      // browser stays signed in, with the bearer still in localStorage, for
+      // browser stays signed in, with the bearer still in storage, for
       // however long the platform's own timeout is.
       //
       // Real timers on purpose: React Testing Library's polling does not
@@ -108,7 +108,7 @@ describe("AppNavbar", () => {
       const { store } = renderWithProviders(<AppNavbar handleDrawerToggle={() => {}} />, {
         preloadedState: authenticatedState,
       });
-      localStorage.setItem("token", "test-token");
+      sessionStorage.setItem("token", "test-token");
 
       await userEvent.click(screen.getByRole("button", { name: "account of current user" }));
       await userEvent.click(await screen.findByRole("menuitem", { name: "Logout" }));
@@ -121,7 +121,7 @@ describe("AppNavbar", () => {
       await waitFor(() => expect(store.getState().auth.token).toBeUndefined(), {
         timeout: LOGOUT_REVOKE_TIMEOUT_MS + 3000,
       });
-      expect(localStorage.getItem("token")).toBeNull();
+      expect(sessionStorage.getItem("token")).toBeNull();
     },
     LOGOUT_REVOKE_TIMEOUT_MS + 8000,
   );

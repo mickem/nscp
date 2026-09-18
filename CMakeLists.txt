@@ -1446,7 +1446,13 @@ else()
 
     # Debian-specific (Dependencies, etc.)
     set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
-    set(CPACK_DEBIAN_PACKAGE_DEPENDS "adduser, sudo")
+    # No `sudo`: the agent itself never calls it. It was pulled in because the
+    # documentation suggests `sudo nscp web install-ui`, which is a one-off
+    # administrative step on a machine whose administrator already has whatever
+    # they use to become root. An external script that escalates with sudo
+    # still works - the binary is simply no longer this package's business to
+    # install.
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "adduser")
     set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Michael Medin <michael@medin.name>")
     set(CPACK_DEBIAN_PACKAGE_LICENSE "Apache-2.0 OR GPL-2.0-only")
 

@@ -6,6 +6,7 @@
 #include <client/command_line_parser.hpp>
 #include <net/nsca/client/nsca_client_protocol.hpp>
 #include <net/nsca/nsca_packet.hpp>
+#include <net/payload_limits.hpp>
 #include <net/socket/client.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -23,6 +24,9 @@ struct connection_data : public socket_helpers::connection_info {
   int time_delta;
   std::string encoding;
   std::string timezone;
+  // Set when `payload length` was out of range and had to be clamped; logged
+  // once by the caller rather than from this constructor.
+  std::string payload_length_warning;
 
   connection_data(client::destination_container arguments, client::destination_container sender) {
     address = arguments.address.host;
@@ -37,7 +41,7 @@ struct connection_data : public socket_helpers::connection_info {
     ssl.verify_mode = arguments.get_string_data("verify mode");
     timeout = arguments.get_int_data("timeout", 30);
     retry = arguments.get_int_data("retries", 3);
-    buffer_length = arguments.get_int_data("payload length", 512);
+    buffer_length = net::payload::clamp(arguments.get_int_data("payload length", 512), net::payload::max_nsca_payload_length, "NSCA", payload_length_warning);
     password = arguments.get_string_data("password");
     encryption = arguments.get_string_data("encryption");
     encoding = arguments.get_string_data("encoding");
@@ -120,11 +124,18 @@ struct nsca_client_handler final : public client::handler_interface {
       // Unknown algorithm name: send() resolves it again and reports the
       // error in the submission response.
     }
-    unsigned int len = 512;
+    if (!con.payload_length_warning.empty()) NSC_LOG_ERROR_STD(con.payload_length_warning);
+    // `buffer length` is the legacy spelling of `payload length`; both are
+    // request options, so both go through the same clamp before they size a
+    // packet buffer.
+    int requested_len = 512;
     if (target.has_data("buffer length"))
-      len = target.get_int_data("buffer length", 512);
+      requested_len = target.get_int_data("buffer length", 512);
     else if (target.has_data("payload length"))
-      len = target.get_int_data("payload length", 512);
+      requested_len = target.get_int_data("payload length", 512);
+    std::string len_warning;
+    const unsigned int len = net::payload::clamp(requested_len, net::payload::max_nsca_payload_length, "NSCA", len_warning);
+    if (!len_warning.empty() && len_warning != con.payload_length_warning) NSC_LOG_ERROR_STD(len_warning);
     std::list<nsca::packet> list;
     for (const PB::Commands::QueryResponseMessage::Response &payload : request_message.payload()) {
       nsca::packet packet(sender.get_host(), len, 0);

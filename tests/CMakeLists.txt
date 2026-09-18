@@ -204,6 +204,7 @@ if(OPENSSL_FOUND)
         net_test
         SOURCES
             ${NSCP_INCLUDEDIR}/net/net_test.cpp
+            ${NSCP_INCLUDEDIR}/net/payload_limits_test.cpp
             ${NSCP_INCLUDEDIR}/net/pinger_test.cpp
             ${NSCP_INCLUDEDIR}/net/http/client_test.cpp
             ${NSCP_INCLUDEDIR}/net/http/proxy_config_test.cpp
