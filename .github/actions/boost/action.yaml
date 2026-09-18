@@ -125,11 +125,11 @@ runs:
 
         Push-Location $boostDir
         try {
-            # b2 itself has to run on the *host*, so it is bootstrapped under a
-            # plain x64 environment even when the target is ARM64. The job's
-            # ambient environment is the cross one (msvc-dev-cmd set it up for
-            # amd64_arm64), and building b2.exe with that compiler would produce
-            # an ARM64 binary the runner cannot execute.
+            # Two different environments, for two different reasons.
+            #
+            # b2.exe itself has to run on the *host*, so it is bootstrapped
+            # under a plain x64 environment: building it with the cross
+            # compiler would produce an ARM64 binary the runner cannot execute.
             if (-not (Test-Path '.\b2.exe')) {
                 cmd /c "call `"$vcvarsall`" x64 && bootstrap.bat"
                 if ($LASTEXITCODE -ne 0) { throw 'bootstrap.bat failed' }
@@ -147,16 +147,27 @@ runs:
                 'toolset=msvc'
             )
             switch ($platform) {
-                'x86'   { $b2Args += 'address-model=32' }
-                'x64'   { $b2Args += 'address-model=64' }
-                'arm64' { $b2Args += @('architecture=arm', 'address-model=64') }
+                'x86'   { $b2Args += 'address-model=32'; $targetVcvars = 'amd64_x86' }
+                'x64'   { $b2Args += 'address-model=64'; $targetVcvars = 'x64' }
+                'arm64' {
+                    $b2Args += @('architecture=arm', 'address-model=64')
+                    $targetVcvars = 'amd64_arm64'
+                }
                 default { throw "Unsupported platform '$platform'" }
             }
             $b2Args += $libraries | ForEach-Object { "--with-$_" }
 
+            # The build itself runs under the environment for the *target*,
+            # because b2 compiles with whichever cl.exe is on PATH. Under a
+            # plain x64 environment it puts x64 objects in an arm_64 directory
+            # and the DLLs fail to link with "LNK1112: module machine type
+            # 'x64' conflicts with target machine type 'ARM64'" - and the
+            # static libraries do not fail at all, since lib.exe just archives
+            # what it is given, so the wrong architecture would travel silently
+            # into installer_lib.
             $commandLine = '.\b2.exe ' + ($b2Args -join ' ')
-            Write-Host "* $commandLine"
-            cmd /c "call `"$vcvarsall`" x64 && $commandLine"
+            Write-Host "* [$targetVcvars] $commandLine"
+            cmd /c "call `"$vcvarsall`" $targetVcvars && $commandLine"
             if ($LASTEXITCODE -ne 0) { throw 'b2 failed' }
         } finally {
             Pop-Location
