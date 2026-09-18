@@ -429,6 +429,15 @@ struct operator_regexp : pattern_binary_operator_impl {
     const auto charge = [started]() {
       regex_spent_ms += static_cast<unsigned long>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started).count());
     };
+    // One wording for "the matcher ran out of road", used by both catch blocks
+    // below: which one a given Boost raises it through is an accident of the
+    // version, and the operator needs the same advice either way.
+    const auto too_expensive = [&context, &regexp](const char *detail) {
+      context->error("Regular expression '" + regexp +
+                     "' is too expensive to match against this data (it backtracks exponentially): anchor it, or replace a nested quantifier such as "
+                     "(a+)+ with a single one. " +
+                     detail);
+    };
     try {
       const boost::regex &re = compiled_regex(regexp);
       const bool matched = boost::regex_match(subject, re);
@@ -445,10 +454,7 @@ struct operator_regexp : pattern_binary_operator_impl {
       // expression that does this once does it on every record, and the budget
       // is what stops the check spending the afternoon on it.
       if (e.code() == boost::regex_constants::error_complexity || e.code() == boost::regex_constants::error_stack) {
-        context->error("Regular expression '" + regexp +
-                       "' is too expensive to match against this data (it backtracks exponentially): anchor it, or replace a nested quantifier such as "
-                       "(a+)+ with a single one. " +
-                       e.what());
+        too_expensive(e.what());
       } else {
         // Invalid regex is a config error from the user, not a missing-object
         // condition, but the user-visible expectation is the same: surface
@@ -458,10 +464,20 @@ struct operator_regexp : pattern_binary_operator_impl {
       }
       return value_container::create_int(false, /*is_unsure=*/true);
     } catch (const std::runtime_error &e) {
-      // Any other runtime failure from the matcher. Still not a syntax error,
-      // so do not call it one.
       charge();
-      context->error("Regular expression '" + regexp + "' could not be matched against this data: " + e.what());
+      // The same ceiling, raised the old way. Boost 1.75 - which Rocky 9 ships,
+      // so this is the branch its build takes - throws the match-time
+      // complexity limit as a bare std::runtime_error, not as a regex_error, so
+      // the code test above never sees it; newer Boost raises it as
+      // error_complexity and takes the branch above. Reporting it as "could not
+      // be matched against this data" read as though the data were at fault.
+      //
+      // Anything arriving here came out of regex_match, not out of compiling
+      // the pattern: a pattern that does not compile throws bad_expression,
+      // which is a regex_error and is caught above. So the expression is well
+      // formed and what failed was the cost of running it - which is what the
+      // shared message says.
+      too_expensive(e.what());
       return value_container::create_int(false, /*is_unsure=*/true);
     } catch (...) {
       charge();
