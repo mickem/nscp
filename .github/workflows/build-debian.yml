@@ -31,6 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       build: ${{ steps.pick.outputs.build }}
+      test: ${{ steps.pick.outputs.test }}
     steps:
     - id: pick
       shell: bash
@@ -40,11 +41,12 @@ jobs:
         # it, so it does not end up in the job names. `dotnet` says whether the
         # distribution packages the .NET SDK: Ubuntu does, Debian does not, and
         # the managed plugin API and its C# sample are skipped where it is
-        # absent.
+        # absent. `integration_tests` says whether the integration suite runs
+        # against the entry, and is dropped the same way.
         all='[
-          {"group":"default",      "distro":"ubuntu","distro_version":"24.04",  "lua_package":"liblua5.4-dev","python_version":"python312","arch":"x64",  "deb_arch":"amd64","runner":"ubuntu-latest",  "dotnet":"true"},
-          {"group":"default",      "distro":"ubuntu","distro_version":"24.04",  "lua_package":"liblua5.4-dev","python_version":"python312","arch":"arm64","deb_arch":"arm64","runner":"ubuntu-24.04-arm","dotnet":"true"},
-          {"group":"raspberry-pi", "distro":"debian","distro_version":"trixie", "lua_package":"liblua5.4-dev","python_version":"python313","arch":"arm64","deb_arch":"arm64","runner":"ubuntu-24.04-arm","dotnet":"false"}
+          {"group":"default",      "distro":"ubuntu","distro_version":"24.04",  "lua_package":"liblua5.4-dev","python_version":"python312","arch":"x64",  "deb_arch":"amd64","runner":"ubuntu-latest",  "dotnet":"true", "integration_tests":true},
+          {"group":"default",      "distro":"ubuntu","distro_version":"24.04",  "lua_package":"liblua5.4-dev","python_version":"python312","arch":"arm64","deb_arch":"arm64","runner":"ubuntu-24.04-arm","dotnet":"true", "integration_tests":true},
+          {"group":"raspberry-pi", "distro":"debian","distro_version":"trixie", "lua_package":"liblua5.4-dev","python_version":"python313","arch":"arm64","deb_arch":"arm64","runner":"ubuntu-24.04-arm","dotnet":"false","integration_tests":true}
         ]'
         case "${{ inputs.targets }}" in
           default) selected=$(jq -c '[.[] | select(.group == "default")] | map(del(.group))' <<< "$all") ;;
@@ -54,8 +56,12 @@ jobs:
             exit 1
             ;;
         esac
+        tested=$(jq -c 'map(select(.integration_tests)) | map(del(.integration_tests))' <<< "$selected")
+        selected=$(jq -c 'map(del(.integration_tests))' <<< "$selected")
         echo "Building: $(jq -r 'map("\(.distro) \(.distro_version) \(.arch)") | join(", ")' <<< "$selected")"
+        echo "Testing:  $(jq -r 'if length == 0 then "(none)" else map("\(.distro) \(.distro_version) \(.arch)") | join(", ") end' <<< "$tested")"
         echo "build=$selected" >> "$GITHUB_OUTPUT"
+        echo "test=$tested" >> "$GITHUB_OUTPUT"
 
   build-deb:
     needs: matrix
@@ -244,22 +250,16 @@ jobs:
       run: |
         ctest --output-on-failure -C Release
 
+  # Derived from the same list the packages are built from: the Raspberry Pi
+  # (debian trixie) entry was built but never integration-tested while this
+  # matrix was maintained by hand.
   integration-tests:
-    needs: build-deb
+    needs: [matrix, build-deb]
+    if: needs.matrix.outputs.test != '[]'
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - distro: ubuntu
-            distro_version: "24.04"
-            arch: x64
-            deb_arch: amd64
-            runner: ubuntu-latest
-          - distro: ubuntu
-            distro_version: "24.04"
-            arch: arm64
-            deb_arch: arm64
-            runner: ubuntu-24.04-arm
+        include: ${{ fromJson(needs.matrix.outputs.test) }}
     uses: ./.github/workflows/integration-tests-linux.yml
     with:
       architecture: ${{ matrix.arch }}

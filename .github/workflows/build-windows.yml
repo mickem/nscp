@@ -368,6 +368,11 @@ jobs:
         if ("${{ inputs.architecture }}" -eq "arm64") {
           echo 'sdk="-DCMAKE_SYSTEM_VERSION=10.0"' >> $env:GITHUB_OUTPUT
           $extra += '-D NSCP_WITH_PYTHON=OFF'
+          # Microsoft ships no ARM64 CRT merge module for this toolset, so the
+          # ARM64 MSI is knowingly built without the Visual C++ runtime. The
+          # upgrade note and the README tell operators to install the ARM64
+          # redistributable. Every other architecture still fails hard.
+          $extra += '-D NSCP_ALLOW_MISSING_CRT_MERGE_MODULE=ON'
           $extra += '-D PROTOBUF_PROTOC_EXECUTABLE=${{ steps.protobuf.outputs.protoc_unix }}'
         } else {
           echo "sdk=" >> $env:GITHUB_OUTPUT

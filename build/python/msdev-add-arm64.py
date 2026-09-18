@@ -57,6 +57,16 @@ CLCOMPILE = re.compile(r"([ \t]*)<ClCompile Include=\"[^\"]+\"\s*/>(\r?\n)")
 
 NEON_SOURCE = "neon_simd.cpp"
 
+# What counts as "already added": a ClCompile item for the file, not the mere
+# appearance of the name. Upstream could list it as a <None> item, name it in
+# a comment or ship it under a <ClInclude>, and a bare substring test would
+# then skip the insertion and leave CPU_ProbeNEON unresolved at link time -
+# silently, and only on ARM64.
+NEON_CLCOMPILE = re.compile(
+    r"<ClCompile\s+Include=\"(?:[^\"]*[\\/])?%s\"" % re.escape(NEON_SOURCE),
+    re.I,
+)
+
 
 def to_arm64(block):
     """Rewrite one cloned x64 block so it describes the ARM64 platform."""
@@ -73,7 +83,7 @@ def to_arm64(block):
 
 def add_neon_source(text):
     """Add neon_simd.cpp to the source list, conditioned on ARM64."""
-    if NEON_SOURCE in text:
+    if NEON_CLCOMPILE.search(text):
         return text, 0
     entries = list(CLCOMPILE.finditer(text))
     if not entries:

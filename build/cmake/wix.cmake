@@ -261,19 +261,13 @@ if(WIN32)
 
     macro(WIX_FIND_MERGE_MODULE _VAR _FILE)
         # The redistributable merge modules are named per architecture
-        # (Microsoft_VC143_CRT_x64.msm, ..._arm64.msm). CMAKE_CL_64 only says
-        # "64 bit", so an ARM64 build would otherwise bundle the x64 CRT.
+        # (Microsoft_VC143_CRT_x64.msm, ..._arm64.msm), so bundling the x64
+        # CRT into an ARM64 package is a real possibility to guard against.
         #
         # The name is deliberately private: this is a macro, not a function, so
         # a plain ARCH here would overwrite the caller's - and the caller does
         # have one, which it passes to candle as -arch.
-        if(CMAKE_VS_PLATFORM_NAME STREQUAL "ARM64")
-            set(_WIX_MSM_ARCH arm64)
-        elseif(CMAKE_CL_64)
-            set(_WIX_MSM_ARCH x64)
-        else()
-            set(_WIX_MSM_ARCH x86)
-        endif()
+        nscp_target_arch(_WIX_MSM_ARCH)
         set(_WIX_MSM_DIRS
             "$ENV{VCInstallDir}/Redist/MSVC/v145/MergeModules"
             "$ENV{VCInstallDir}/Redist/MSVC/v143/MergeModules"

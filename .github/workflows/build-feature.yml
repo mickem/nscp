@@ -45,10 +45,17 @@ jobs:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-  # TEMPORARY (drop before merge): ARM64 belongs on release builds only, but it
-  # has never actually run past "Build Boost", so this branch needs one real
-  # run to prove the rest of the path.
+  # TEMPORARY (reverted before merge, see below): ARM64 belongs on release
+  # builds only, but it has never actually run past "Build Boost", so this
+  # branch needs one real run to prove the rest of the path.
+  #
+  # Removing this means `git revert e36c6492`, not dropping the tip commit -
+  # it is several commits down, and a squash merge would carry it in. The
+  # branch guard is the backstop for exactly that: if this does reach main,
+  # the job is skipped on every other pull request instead of quietly adding
+  # a fourth Windows build to all of them.
   build-server-arm64:
+    if: github.head_ref == 'claude/busy-maxwell-9lpc4a'
     needs: [get-version, create-test-bundle]
     uses: ./.github/workflows/build-windows.yml
     with:
@@ -74,9 +81,11 @@ jobs:
     with:
       architecture: x64
       version: ${{ needs.get-version.outputs.version }}
-      # TEMPORARY (drop before merge): proves the new Raspberry Pi OS entry
-      # builds. Release builds keep "all"; pull requests go back to "default".
-      targets: all
+      # TEMPORARY (reverted before merge, with the ARM64 job above): proves
+      # the new Raspberry Pi OS entry builds. Release builds keep "all";
+      # pull requests get "default". Guarded on the branch for the same
+      # reason as the job above - on main this reads "default" again.
+      targets: ${{ github.head_ref == 'claude/busy-maxwell-9lpc4a' && 'all' || 'default' }}
   # Only the newest RedHat release on a pull request: the older ones differ in
   # packaged library versions and the python the tests run under, not in
   # anything a change to NSClient++ is likely to break on its own. The release
@@ -87,7 +96,7 @@ jobs:
     with:
       architecture: x64
       version: ${{ needs.get-version.outputs.version }}
-      distros: latest
+      targets: default
   build-web:
     needs: get-version
     uses: ./.github/workflows/build-web.yml

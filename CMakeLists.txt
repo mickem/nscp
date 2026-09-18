@@ -658,14 +658,14 @@ string(
 )
 string(TIMESTAMP NSCP_VERSION_DATE "%Y-%m-%d" UTC)
 if(WIN32)
-    # CMAKE_CL_64 only means "64-bit pointers", which is just as true of an
-    # ARM64 cross build, so it cannot tell x64 and ARM64 apart. The generator's
-    # platform name can, and it has to: this string names the MSI and the ZIP,
-    # and the release pipeline uploads those two by their exact names
-    # (NSCP-<version>-ARM64.msi / .zip), failing the job when they are missing.
-    if(CMAKE_VS_PLATFORM_NAME STREQUAL "ARM64")
+    # This string names the MSI, the ZIP and the docs zip, and the release
+    # pipeline uploads those by their exact names (NSCP-<version>-ARM64.msi
+    # and friends), failing the job when they are missing - so it has to
+    # distinguish x64 from ARM64, which "64-bit pointers" does not.
+    nscp_target_arch(_NSCP_ARCH)
+    if(_NSCP_ARCH STREQUAL "arm64")
         set(VERSION_ARCH ARM64)
-    elseif(CMAKE_CL_64)
+    elseif(_NSCP_ARCH STREQUAL "x64")
         set(VERSION_ARCH x64)
     else()
         set(VERSION_ARCH Win32)

@@ -24,12 +24,13 @@ find_path(
 
 # Crypto++ stages its libraries under $(Platform)/Output/$(Configuration), so
 # the directory is named after the Visual Studio platform verbatim: Win32, x64
-# or ARM64. CMAKE_VS_PLATFORM_NAME is that name; CMAKE_CL_64 only says "64 bit"
-# and would send an ARM64 build looking for x64 libraries.
-set(CRYPTOPP_LIB_ROOT)
-if(CMAKE_VS_PLATFORM_NAME)
-    set(CRYPTOPP_LIB_ROOT ${CRYPTOPP_INCLUDE_DIR}/${CMAKE_VS_PLATFORM_NAME})
-elseif(CMAKE_CL_64)
+# or ARM64. That tree is always produced by msbuild (see
+# .github/actions/cryptopp), so the names are the msbuild ones whatever
+# generator consumes them here.
+nscp_target_arch(_CRYPTOPP_ARCH)
+if(_CRYPTOPP_ARCH STREQUAL "arm64")
+    set(CRYPTOPP_LIB_ROOT ${CRYPTOPP_INCLUDE_DIR}/ARM64)
+elseif(_CRYPTOPP_ARCH STREQUAL "x64")
     set(CRYPTOPP_LIB_ROOT ${CRYPTOPP_INCLUDE_DIR}/x64)
 else()
     set(CRYPTOPP_LIB_ROOT ${CRYPTOPP_INCLUDE_DIR}/Win32)

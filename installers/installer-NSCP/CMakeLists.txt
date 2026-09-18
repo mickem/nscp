@@ -38,15 +38,9 @@ endif()
 
 set(LOCALIZATIONS en-us)
 
-# candle names the target architecture x86 / x64 / arm64, while
-# CMAKE_VS_PLATFORM_NAME spells it Win32 / x64 / ARM64. CMAKE_CL_64 alone only
-# distinguishes bitness and would label an ARM64 build as x64.
-set(ARCH x86)
-if(CMAKE_VS_PLATFORM_NAME STREQUAL "ARM64")
-    set(ARCH arm64)
-elseif(CMAKE_CL_64)
-    set(ARCH x64)
-endif()
+# candle spells the target architecture x86 / x64 / arm64, which is exactly
+# the canonical form.
+nscp_target_arch(ARCH)
 
 # PythonScript is skipped whenever the Python development libraries or
 # Boost.Python are missing - on a cross-compiled ARM64 build, both are. The MSI
@@ -86,9 +80,24 @@ message(
 # much later as "LGHT0103: The system cannot find the file
 # 'CRT_MERGE_MODULE-NOTFOUND'", naming nothing that helps - decide here whether
 # the MSI can bundle the CRT at all and tell the .wxs about it.
+# An MSI without the CRT installs an agent that cannot start on a clean
+# machine, and it does so quietly - the package builds, signs and uploads. So
+# a missing merge module stays a hard error, and the one configuration that is
+# knowingly shipped without it has to say so out loud.
+option(
+    NSCP_ALLOW_MISSING_CRT_MERGE_MODULE
+    "Build the MSI without the Visual C++ runtime when no merge module exists for the target architecture"
+    OFF
+)
 if(CRT_MERGE_MODULE)
     set(HAS_CRT_MERGE_MODULE "true")
-else()
+elseif(NOT RUNTIME STREQUAL "dynamic")
+    # A static-runtime build (the legacy XP package) links the CRT in and
+    # never references the merge module, so not finding one is not a problem
+    # it has.
+    set(HAS_CRT_MERGE_MODULE "false")
+    set(CRT_MERGE_MODULE "none")
+elseif(NSCP_ALLOW_MISSING_CRT_MERGE_MODULE)
     set(HAS_CRT_MERGE_MODULE "false")
     # A placeholder rather than an empty string: candle still gets the define,
     # and the .wxs never dereferences it because the branch that would is
@@ -96,7 +105,12 @@ else()
     set(CRT_MERGE_MODULE "none")
     message(
         WARNING
-        "No ${CRT_MERGE_MODULE_NAME} merge module for this architecture: the MSI will not install the Visual C++ runtime, which has to be present on the target machine already."
+        "No ${CRT_MERGE_MODULE_NAME} merge module for this architecture and NSCP_ALLOW_MISSING_CRT_MERGE_MODULE is set: the MSI will not install the Visual C++ runtime, which has to be present on the target machine already."
+    )
+else()
+    message(
+        FATAL_ERROR
+        "No ${CRT_MERGE_MODULE_NAME} merge module found for this architecture. The MSI would install an agent that cannot start without the Visual C++ runtime. Install the matching redistributable merge module, or set NSCP_ALLOW_MISSING_CRT_MERGE_MODULE=ON to ship without it deliberately."
     )
 endif()
 message(STATUS "Installer: CRT merge module bundled: ${HAS_CRT_MERGE_MODULE}")

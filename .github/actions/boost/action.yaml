@@ -51,10 +51,27 @@ outputs:
 runs:
   using: composite
   steps:
+    # Boost is the most expensive dependency in the job by a wide margin, and
+    # the ARM64 build calls this action twice (static, then shared). The key
+    # covers everything that changes the output: the version, the target, the
+    # configuration, both link flags and the library set. The destination
+    # directory is deliberately not in the key - it is where the result is
+    # put, not what the result is - but it is what gets cached, so the two
+    # invocations in a job must keep using different directories, which they
+    # do.
+    - id: cache
+      uses: actions/cache@v3
+      with:
+        key: ${{ runner.os }}-boost-${{ inputs.version }}-${{ inputs.platform }}-${{ inputs.configuration }}-static${{ inputs.static }}-rt${{ inputs.static-runtime }}-${{ inputs.libraries }}
+        path: |
+          ${{ inputs.directory || format('{0}/boost', runner.workspace) }}
+
     - id: build
       shell: pwsh
       run: |
         $ErrorActionPreference = 'Stop'
+
+        $cacheHit = '${{ steps.cache.outputs.cache-hit }}' -eq 'true'
 
         $version = '${{ inputs.version }}'
         $platform = '${{ inputs.platform }}'
@@ -116,6 +133,22 @@ runs:
             if ($LASTEXITCODE -ne 0) { throw "Extracting $archive failed" }
         }
 
+        $libraryDir = "$boostDir\stage\$platform\$configuration\lib"
+
+        # A cache hit still has to produce the outputs and prove the tree is
+        # the one that was cached, since a partially-restored cache would
+        # otherwise surface much later as a link error.
+        if ($cacheHit) {
+            $cached = @(Get-ChildItem -Path $libraryDir -Filter '*.lib' -ErrorAction SilentlyContinue)
+            if ($cached.Count -gt 0) {
+                Write-Host "* Cache hit: $($cached.Count) libraries already in $libraryDir"
+                echo "root=$boostDir" >> $env:GITHUB_OUTPUT
+                echo "librarydir=$libraryDir" >> $env:GITHUB_OUTPUT
+                exit 0
+            }
+            Write-Host "! Cache hit but $libraryDir holds no libraries; building from source."
+        }
+
         $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
         $vsPath = & $vswhere -latest -products * -property installationPath
         if (-not $vsPath) { throw 'vswhere found no Visual Studio installation' }
@@ -173,7 +206,6 @@ runs:
             Pop-Location
         }
 
-        $libraryDir = "$boostDir\stage\$platform\$configuration\lib"
         # b2 reports success even when it skipped every target it was asked
         # for, so check that something actually landed rather than letting
         # FindBoost report a confusing "not found" much later.
@@ -182,6 +214,17 @@ runs:
             throw "b2 reported success but produced no libraries in $libraryDir"
         }
         Write-Host "* Built $($built.Count) libraries in $libraryDir"
+
+        # b2's intermediate tree is larger than everything that is actually
+        # wanted here - the headers and stage/lib - and only the latter is
+        # read downstream. actions/cache saves in its post step, so removing
+        # this now keeps it out of the cache entry rather than pushing
+        # gigabytes of object files into the repository's cache quota.
+        $objDir = Join-Path $boostDir 'bin.v2'
+        if (Test-Path $objDir) {
+            Write-Host "* Removing b2 intermediates in $objDir"
+            Remove-Item -Recurse -Force $objDir -ErrorAction SilentlyContinue
+        }
 
         echo "root=$boostDir" >> $env:GITHUB_OUTPUT
         echo "librarydir=$libraryDir" >> $env:GITHUB_OUTPUT

@@ -687,6 +687,40 @@ macro(NSCP_FORCE_INCLUDE _TARGET _SRC)
     endif(WIN32)
 endmacro()
 
+# Canonical target architecture: x86, x64 or arm64.
+#
+# There were five copies of this decision in the tree and they did not agree.
+# Most branched on CMAKE_CL_64, which only means "64-bit pointers" and so
+# calls an ARM64 build x64; the rest branched on CMAKE_VS_PLATFORM_NAME, which
+# is right but only exists under the Visual Studio generators, so a Ninja
+# build on a native ARM64 host fell back to the same wrong answer.
+#
+# MSVC_<lang>_ARCHITECTURE_ID comes from compiler identification rather than
+# from the generator, so it is set for Ninja and NMake too. Its spelling has
+# varied over CMake releases (X86 vs x86), hence the lowercasing.
+function(nscp_target_arch _out)
+    set(_id "")
+    if(MSVC_CXX_ARCHITECTURE_ID)
+        string(TOLOWER "${MSVC_CXX_ARCHITECTURE_ID}" _id)
+    elseif(MSVC_C_ARCHITECTURE_ID)
+        string(TOLOWER "${MSVC_C_ARCHITECTURE_ID}" _id)
+    elseif(CMAKE_VS_PLATFORM_NAME)
+        string(TOLOWER "${CMAKE_VS_PLATFORM_NAME}" _id)
+    endif()
+
+    if(_id STREQUAL "arm64" OR _id STREQUAL "arm64ec")
+        set(${_out} arm64 PARENT_SCOPE)
+    elseif(_id STREQUAL "x64" OR _id STREQUAL "amd64")
+        set(${_out} x64 PARENT_SCOPE)
+    elseif(_id STREQUAL "x86" OR _id STREQUAL "win32")
+        set(${_out} x86 PARENT_SCOPE)
+    elseif(CMAKE_CL_64)
+        set(${_out} x64 PARENT_SCOPE)
+    else()
+        set(${_out} x86 PARENT_SCOPE)
+    endif()
+endfunction()
+
 macro(find_redist _TARGET_VAR)
     get_filename_component(_VS_BIN_FOLDER ${CMAKE_LINKER} PATH)
     get_filename_component(_VS_ROOT_FOLDER ${_VS_BIN_FOLDER} PATH)
@@ -703,17 +737,10 @@ macro(find_redist _TARGET_VAR)
     elseif(MSVC80)
         set(_VC_VERSION "80")
     endif()
-    # CMAKE_CL_64 is true for any 64-bit target, ARM64 included, so on its own
-    # it would pick the x64 redistributable for an ARM64 package. The glob
-    # below finds nothing on a current VS layout either way, but a wrong
-    # architecture here would be worse than an empty list.
-    if(CMAKE_VS_PLATFORM_NAME STREQUAL "ARM64")
-        set(_VC_ARCH arm64)
-    elseif(CMAKE_CL_64)
-        set(_VC_ARCH x64)
-    else()
-        set(_VC_ARCH x86)
-    endif()
+    # The glob below finds nothing on a current VS layout on any
+    # architecture, but a wrong architecture here would be worse than an
+    # empty list.
+    nscp_target_arch(_VC_ARCH)
     set(_redit_folder
         "${_VS_ROOT_FOLDER}/redist/${_VC_ARCH}/Microsoft.VC${_VC_VERSION}.CRT"
     )
