@@ -28,14 +28,19 @@ running `nscp client` or `nscp test` from a user-writable folder therefore let
 whoever could write there supply the library. The fallback resolves against
 `${exe-path}` now, which is what it was always meant to name.
 
-#### Windows module dependencies resolved through PATH
+#### Windows module dependencies still resolve through the legacy search order
 
-Modules were loaded with `LoadLibrary`, which resolves their imports through the
-legacy search order, current directory and `PATH` included. They now load with
-`LoadLibraryExW` under `LOAD_LIBRARY_SEARCH_DEFAULT_DIRS` after
-`SetDefaultDllDirectories`, plus the module's own directory — so the application
-directory, `System32` and the plugin folder, and nothing else. Where the API is
-unavailable (the XP toolset) the behaviour is as before.
+Modules are loaded with `LoadLibrary`, which resolves their *imports* through
+the legacy search order, current directory and `PATH` included. Narrowing that
+to the default search directories was attempted and reverted: those flags take
+only a fully qualified path, and confining the search also stops a module
+finding the shared libraries it links against, which the agent's own plugins
+do. It needs its own change, made and verified on Windows, rather than riding
+along with this one.
+
+What is fixed here is the path the loader is *given* — the two items above —
+which is where a caller had influence. Resolving a module's imports is a
+hardening item with no caller-controlled input, and it is tracked separately.
 
 #### A settings `Control.LOAD` could name an http:// store
 
