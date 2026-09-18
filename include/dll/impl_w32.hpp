@@ -61,7 +61,23 @@ class impl : public boost::noncopyable {
         kernel == nullptr ? nullptr : reinterpret_cast<BOOL(WINAPI *)(DWORD)>(::GetProcAddress(kernel, "SetDefaultDllDirectories"));
     if (load_library_ex_w != nullptr && set_default_dll_directories != nullptr) {
       set_default_dll_directories(kSearchDefaultDirs);
-      handle_ = load_library_ex_w(module_.native().c_str(), nullptr, kSearchDefaultDirs | kSearchDllLoadDir);
+      // The LOAD_LIBRARY_SEARCH_* flags take a fully qualified path and
+      // nothing else. Refusing to resolve a relative name against the current
+      // directory is the point of them, but LoadLibraryExW does not then fall
+      // back to anything - it simply fails - and callers do name modules
+      // relatively (`modules/CheckHelpers.dll`). So the path is completed
+      // here, and the separators made native, because the same flags reject a
+      // path containing forward slashes.
+      boost::filesystem::path target = module_;
+      try {
+        if (!target.is_absolute()) target = boost::filesystem::absolute(target);
+        target.make_preferred();
+      } catch (const std::exception &) {
+        // current_path() failed; the unqualified path will fail the load and
+        // report its own error, which is better than throwing from here.
+        target = module_;
+      }
+      handle_ = load_library_ex_w(target.native().c_str(), nullptr, kSearchDefaultDirs | kSearchDllLoadDir);
     } else {
       handle_ = LoadLibrary(module_.native().c_str());
     }
