@@ -21,6 +21,10 @@ class SimpleFileWriter : public nscapi::impl::simple_plugin {
   typedef std::list<index_lookup_function> index_lookup_type;
 
  private:
+  // Everything handleNotification reads, published together under
+  // cache_mutex_: loadModuleEx builds the new syntax and settings aside and
+  // swaps them in whole, so a reload never appends to a list a submission is
+  // iterating and never leaves a half-applied line format.
   index_lookup_type syntax_service_lookup_, syntax_host_lookup_;
   std::string filename_;
   boost::shared_mutex cache_mutex_;
