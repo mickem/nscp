@@ -50,6 +50,11 @@ This complements the other two certificate checks: `check_http`'s
 inspects certificates at rest (files on disk, the Windows certificate store)
 rather than ones served over a connection.
 
+> `ssl_expiry_days` also renders `no certificate` for a certificate that *was*
+> served but whose `notAfter` could not be read. Reporting that as a day count
+> would let `crit=ssl_expiry_days < 1` fire on a parse failure; `has_certificate`
+> is what tells the two apart.
+
 #### Certificate identity (`cert_cn`, `cert_sans`, `cert_issuer_cn`, …)
 
 Alongside the expiry, `check_tcp` reports who the certificate is for and who
@@ -81,6 +86,15 @@ the chain regardless, it just does not fail the handshake over the result. That
 is what lets a check report *why* a chain is untrusted without refusing to
 connect. It is not an authentication result on its own — only a successful
 handshake under `verify=peer` is that.
+
+When the handshake **fails**, `cert_verify` carries the chain's verdict only if
+that verdict is itself a failure — which is the case worth reading, since it is
+then the reason the handshake failed. It is left empty when the connection died
+before any chain was checked (a reset, a timeout, a rejected TLS version),
+because OpenSSL reports `X509_V_OK` for "never verified anything" as well as
+for "verified fine". So `crit=cert_verify != 'ok'` fires on both a bad chain
+and a connection that never got far enough to check one, and never reads a
+clean chain into a failure that had nothing to do with certificates.
 
 #### Requiring names with `sans=`
 
@@ -150,13 +164,26 @@ Supported protocols, with the plaintext port each defaults to:
 `starttls=` implies `ssl=true` and sets the default port, so `host=` alone is
 usually enough. The port defaulted to is always the **cleartext** one (143, not
 993) — the implicit-TLS ports are what the `simap` / `spop` / `ssmtp` service
-presets are for.
+presets are for. For the same reason `starttls=` cannot be combined with a
+`service=` preset: the preset waits for a greeting that is not sent again after
+the upgrade, so the two together would sit out the timeout. The check says so
+rather than failing mysteriously.
 
-A server that declines the upgrade reports `result=starttls_refused` rather
-than waiting out the timeout, which the default `critical` filter alerts on.
-For MySQL that includes a server that never advertised `CLIENT_SSL` in its
-handshake, so "this server has TLS turned off" reads as a refusal rather than a
-handshake failure.
+How a negotiation can end:
+
+| `result` | Meaning |
+| --- | --- |
+| `ok` | The upgrade succeeded and the certificate was read |
+| `starttls_refused` | The server answered, declining the upgrade |
+| `starttls_disconnected` | The peer closed or reset the connection mid-negotiation |
+| `starttls_timeout` | No answer inside `timeout=`, or the negotiation outgrew its buffer budget |
+| `tls_handshake_failed` | The server agreed, but the TLS handshake itself failed |
+
+All but `ok` trip the default `critical` filter (`result != 'ok'`). A refusal
+is an *answer*, so it is reported immediately rather than waited out; for MySQL
+that includes a server that never advertised `CLIENT_SSL` in its handshake, so
+"this server has TLS turned off" reads as a refusal rather than a handshake
+failure.
 
 #### CA bundles and CA directories
 

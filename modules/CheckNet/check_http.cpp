@@ -44,8 +44,8 @@ filter_obj_handler::filter_obj_handler() {
   registry_
       .add_optional_int_var("ssl_expiry_days", [](auto obj) { return obj->get_ssl_expiry_days_opt(); }, "no certificate",
                             "Days until the server's TLS certificate expires; negative if already expired. Renders as 'no certificate' (and compares false "
-                            "against every number) for plain http, so `ssl_expiry_days < 30` cannot fire there; `ssl_expiry_days = 'no certificate'` tests "
-                            "for that state.")
+                            "against every number) for plain http, and for a certificate whose notAfter could not be read, so `ssl_expiry_days < 30` cannot "
+                            "fire on either; `ssl_expiry_days = 'no certificate'` tests for that state.")
       .add_int_perf("", "", "_ssl_expiry_days");
   cert::register_keywords<filter_obj>(registry_, &filter_obj::cert);
 }
@@ -139,12 +139,17 @@ void run_http_check(const std::string &url_in, const http_check_options &opt, ch
       // followed by a plain http one, and keeping the earlier hop's certificate
       // would report one for a URL that never presented it.
       out.cert = cert::cert_fields();
-      out.cert.verify_result = client.peer_verify_result();
       // Recomputed per hop for the same reason: what sans= asserts is a
-      // property of the certificate actually served by the URL we end on.
-      san_failed = false;
-      if (const auto info = client.peer_certificate_details_opt())
-        san_failed = !cert::populate(out.cert, info.value(), opt.required_sans);
+      // property of the certificate actually served by the URL we end on - and
+      // a hop that served none has not met a sans= requirement either, which
+      // is exactly what a redirect down to plain http looks like.
+      const auto info = client.peer_certificate_details_opt();
+      // Unambiguous here: fetch() throws on a failed handshake, so reaching
+      // this line means one completed, and a plain-http hop reports an empty
+      // verdict rather than a misleading "ok".
+      out.cert.verify_result = client.peer_verify_result();
+      san_failed = info ? !cert::populate(out.cert, info.value(), opt.required_sans)
+                        : !cert::require_without_certificate(out.cert, opt.required_sans);
 
       // Follow redirects when asked to, up to the configured limit.
       if (opt.follow_redirects && redirects < opt.max_redirs && is_redirect(resp.status_code_)) {

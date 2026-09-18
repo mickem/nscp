@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <boost/regex.hpp>
 #include <string>
 #include <vector>
 
@@ -64,6 +65,22 @@ const preset *find_preset(const std::string &name);
 // The supported protocol names, space separated, for an error message.
 std::string supported_protocols();
 
+// A preset's patterns, compiled. Built once per check and handed to
+// classify_line for every line: compiling inside the classifier turned each
+// received line into two regex constructions, and a peer is free to send lines
+// until the negotiation budget runs out.
+//
+// An invalid pattern (only reachable from a malformed preset) compiles to an
+// empty regex, which classify_line treats as "no match" - a typo in the table
+// degrades to a timeout rather than throwing mid-check.
+struct compiled_preset {
+  boost::regex greeting_expect;
+  boost::regex preamble_expect;
+  boost::regex command_expect;
+  boost::regex failure;
+};
+compiled_preset compile(const preset &p);
+
 // What one received line means for the step being awaited.
 enum class verdict {
   pending,  // neither an answer nor an error: keep reading
@@ -71,10 +88,9 @@ enum class verdict {
   failed,   // the server refused
 };
 
-// Classify a single received line. An invalid regex (only reachable from a
-// malformed preset) is treated as "no match" rather than throwing, so a typo
-// in the table degrades to a timeout instead of an exception mid-check.
-verdict classify_line(const std::string &line, const std::string &expect_regex, const std::string &failure_regex);
+// Classify a single received line against an already-compiled pair of
+// patterns. An empty regex never matches.
+verdict classify_line(const std::string &line, const boost::regex &expect, const boost::regex &failure);
 
 // Pull the complete lines out of a receive buffer, leaving any trailing
 // partial line behind for the next read. Handles CRLF and bare LF; the
@@ -107,9 +123,16 @@ bool mysql_server_supports_ssl(const std::string &handshake_packet);
 
 // LDAP StartTLS: the extended request carrying OID 1.3.6.1.4.1.1466.20037.
 std::string ldap_starttls_request();
-// What an LDAP reply buffer says so far. Pending means the response is not
-// complete enough to judge yet.
+// What an LDAP reply buffer says so far. Pending until the *whole* LDAPMessage
+// has arrived - judging on the resultCode alone would leave the rest of the
+// PDU in the kernel buffer, where the TLS handshake then reads it as a record
+// and fails against a healthy server.
 verdict ldap_reply_verdict(const std::string &buffer);
+
+// Total size of the BER element at the start of `buffer`, header included.
+// False when the length header has not fully arrived, or carries an encoding
+// LDAP never uses (indefinite length, or one too large to represent).
+bool ber_element_length(const std::string &buffer, std::size_t &total);
 
 }  // namespace starttls
 }  // namespace check_net

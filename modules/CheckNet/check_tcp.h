@@ -63,10 +63,7 @@ struct filter_obj {
   // Registered form of ssl_expiry_days: optional — no certificate, no value.
   // An expired certificate keeps its (negative) day count; only the absence
   // of a certificate is 'no certificate'.
-  boost::optional<long long> get_ssl_expiry_days_opt() const {
-    if (!cert.has_certificate) return boost::none;
-    return cert.expiry_days;
-  }
+  boost::optional<long long> get_ssl_expiry_days_opt() const { return cert.expiry_days; }
 
   filter_obj() : port(0), time(0), connected(false) {}
   virtual ~filter_obj() = default;
@@ -83,7 +80,7 @@ struct filter_obj {
   // The non-optional form keeps the historic -1 sentinel for "no certificate";
   // the registered keyword is the optional one above, which has no sentinel to
   // confuse with an expired certificate's negative count.
-  long long get_ssl_expiry_days() const { return cert.has_certificate ? cert.expiry_days : -1; }
+  long long get_ssl_expiry_days() const { return cert.expiry_days.get_value_or(-1); }
 
   // Called once the peer's response has been read, so a specialised check can
   // derive extra fields from it (check_ssh parses the identification string).
