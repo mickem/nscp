@@ -9,6 +9,7 @@
 #include <nscapi/command_alias.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -23,7 +24,15 @@ class CheckHelpers final : public nscapi::impl::simple_plugin {
   // object_handler-based command_handler that CheckExternalScripts uses -
   // aliases here are leaf definitions, so the per-alias subdirectory and
   // template/parent machinery just added configuration noise.
-  alias::simple_command_map aliases_;
+  //
+  // Published whole and replaced whole on every load, read with atomic_load:
+  // query_fallback looks aliases up on whatever thread a check arrives on,
+  // and a map appended to in place under those readers was a race, and one
+  // that never forgot an alias removed from the ini.
+  std::shared_ptr<const alias::simple_command_map> aliases_;
+  // The alias names registered with the core by the last load, so the next
+  // one can unregister those that went away. Only touched by loadModuleEx.
+  std::set<std::string> registered_aliases_;
 
   // check_timeout workers that outlived their caller. They own their state
   // through a shared_ptr, so the caller returning is safe; this list exists
@@ -33,7 +42,7 @@ class CheckHelpers final : public nscapi::impl::simple_plugin {
   void park_worker(std::shared_ptr<boost::thread> worker);
 
  public:
-  CheckHelpers() : aliases_(alias::make_simple_command_map()) {}
+  CheckHelpers() {}
   ~CheckHelpers() {}
 
   // Module lifecycle - load registers the alias settings section.
@@ -102,7 +111,6 @@ class CheckHelpers final : public nscapi::impl::simple_plugin {
                     const forwarded_identity &id);
 
  private:
-  void add_alias(const std::string &key, const std::string &command);
   void handle_alias(const alias::simple_command &cd, const std::list<std::string> &args, PB::Commands::QueryResponseMessage::Response *response,
                     const forwarded_identity &id) const;
 };
