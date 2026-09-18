@@ -30,8 +30,9 @@ endif(WIN32)
 # socket_helpers.obj is compiled with USE_SSL, so pulling it in drags a
 # statically linked OpenSSL into this module - which has never done TLS and
 # does not define USE_SSL. Compile the one file privately there instead, as
-# this module did before nscp_net existed. The shared build is unaffected: the
-# DLL keeps its OpenSSL to itself.
+# this module did before nscp_net existed. The shared build is unaffected:
+# nscp_net.dll imports OpenSSL from libcrypto-3-*.dll / libssl-3-*.dll, and
+# nothing of that reaches a module that links nscp_net.
 if(USE_STATIC_RUNTIME)
     set(SRCS ${SRCS} ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp)
     add_definitions(-Dnscp_net_NOLIB)

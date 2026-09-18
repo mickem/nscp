@@ -9,8 +9,17 @@ inputs:
     description: The openssl architecture to build
     required: true
   runtime:
-    description: The openssl architecture to build
+    description: The C runtime to link against, dynamic (/MD) or static (/MT)
     default: dynamic
+  linkage:
+    description: >-
+      How OpenSSL itself is built: `static` produces only libcrypto.lib and
+      libssl.lib as static libraries, `shared` produces libcrypto-3-x64.dll
+      and libssl-3-x64.dll (libcrypto-3.dll / libssl-3.dll on x86) with
+      import libraries of the same names as the static build, plus
+      libcrypto_static.lib / libssl_static.lib for a consumer that still needs
+      to link it in (installer_lib, which msiexec loads on its own).
+    default: static
 outputs:
   path:
     description: The path to the openssl folder
@@ -30,9 +39,14 @@ runs:
           echo "cmd=VC-WIN32" >> $env:GITHUB_OUTPUT
         }
         if ("${{ inputs.runtime }}" -eq "dynamic") {
-          echo "shared_flags=" >> $env:GITHUB_OUTPUT
+          echo "runtime_flags=" >> $env:GITHUB_OUTPUT
         } else {
-          echo "shared_flags=-MT" >> $env:GITHUB_OUTPUT
+          echo "runtime_flags=-MT" >> $env:GITHUB_OUTPUT
+        }
+        if ("${{ inputs.linkage }}" -eq "shared") {
+          echo "linkage_flags=shared" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "linkage_flags=no-shared" >> $env:GITHUB_OUTPUT
         }
       shell: pwsh
 
@@ -58,7 +72,13 @@ runs:
     - id: cache
       uses: actions/cache@v3
       with:
-        key: ${{ runner.os }}-openssl-${{ inputs.version }}-no-shared-${{ inputs.architecture }}-${{ inputs.runtime }}
+        # The linkage flag is part of the key, so a static and a shared build
+        # of the same version never share a cache entry (the static key spells
+        # "no-shared", as it always did).
+        key: ${{ runner.os }}-openssl-${{ inputs.version }}-${{ steps.setup.outputs.linkage_flags }}-${{ inputs.architecture }}-${{ inputs.runtime }}
+        # The two globs cover every linkage: the static libraries, and for a
+        # shared build the import libraries, the versioned DLLs and their
+        # _static twins.
         path: |
           tmp/openssl-${{ inputs.version }}/libcrypto*.*
           tmp/openssl-${{ inputs.version }}/libssl*.*
@@ -97,7 +117,7 @@ runs:
 
     - name: Build openssl
       run: |
-          perl Configure ${{ steps.setup.outputs.cmd }} no-asm no-shared ${{ steps.setup.outputs.shared_flags }}
+          perl Configure ${{ steps.setup.outputs.cmd }} no-asm ${{ steps.setup.outputs.linkage_flags }} ${{ steps.setup.outputs.runtime_flags }}
           nmake
       working-directory: tmp/openssl-${{ inputs.version }}
       shell: cmd

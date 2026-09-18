@@ -457,12 +457,22 @@ else(USE_STATIC_RUNTIME)
                 )
             endif()
         endforeach()
+        # Third-party libraries linked through an import library ship the DLL
+        # it stands for. Protobuf names the two alike (libprotobuf.lib ->
+        # libprotobuf.dll); OpenSSL puts its version and architecture in the
+        # DLL name only (libcrypto.lib -> libcrypto-3-x64.dll, or
+        # libcrypto-3.dll on x86), hence the glob. A static library has no DLL
+        # beside it - libcrypto_static.lib from a shared OpenSSL build, or
+        # libcrypto.lib from a no-shared one - and copies nothing, which is
+        # what makes OPENSSL_USE_STATIC_LIBS still work: the modules then
+        # carry OpenSSL themselves, as they did before it became a DLL.
         set(LIBS
             LIB_EAY
             SSL_EAY
             PROTOBUF_LIBRARY
         )
         foreach(LIB ${LIBS})
+            set(${LIB}_RUNTIME_DLL "")
             string(
                 REPLACE ".lib"
                 ".dll"
@@ -470,12 +480,8 @@ else(USE_STATIC_RUNTIME)
                 "${${LIB}_RELEASE}"
             )
             if(EXISTS "${${LIB}_RELEASE_DLL}")
-                get_filename_component(_NAME "${${LIB}_RELEASE_DLL}" NAME)
-                message(STATUS " + ${_NAME}")
-                COPY_FILE("${${LIB}_RELEASE_DLL}" ${PROJECT_BINARY_DIR})
-                install(FILES "${${LIB}_RELEASE_DLL}" DESTINATION .)
+                set(FILES "${${LIB}_RELEASE_DLL}")
             else()
-                get_filename_component(_PATH "${${LIB}_RELEASE_DLL}" DIRECTORY)
                 string(
                     REPLACE ".lib"
                     "*.dll"
@@ -483,14 +489,55 @@ else(USE_STATIC_RUNTIME)
                     "${${LIB}_RELEASE}"
                 )
                 file(GLOB FILES ${LIB_PATTERN})
-                foreach(FILE ${FILES})
-                    get_filename_component(_NAME "${FILE}" NAME)
-                    message(STATUS " + ${_NAME}")
-                    COPY_FILE("${FILE}" ${PROJECT_BINARY_DIR})
-                    install(FILES "${FILE}" DESTINATION .)
-                endforeach()
             endif()
+            list(LENGTH FILES _COUNT)
+            if(_COUNT GREATER 1)
+                # Two DLLs matching one import library (say a libcrypto-3-x64
+                # next to a libcrypto-1_1-x64) cannot both be the right one, and
+                # the installer needs exactly one name.
+                message(
+                    FATAL_ERROR
+                    "More than one DLL matches ${${LIB}_RELEASE}: ${FILES}"
+                )
+            endif()
+            foreach(FILE ${FILES})
+                get_filename_component(_NAME "${FILE}" NAME)
+                message(STATUS " + ${_NAME}")
+                COPY_FILE("${FILE}" ${PROJECT_BINARY_DIR})
+                install(FILES "${FILE}" DESTINATION .)
+                set(${LIB}_RUNTIME_DLL "${FILE}")
+            endforeach()
         endforeach()
+        # The MSI lists its files by name, and the OpenSSL names vary with the
+        # version and the architecture, so hand them over (see
+        # installers/installer-NSCP/RUNTIME_DLL.wxs). Both or neither: an
+        # OpenSSL tree with one DLL of the pair is broken, not static.
+        if(LIB_EAY_RUNTIME_DLL AND SSL_EAY_RUNTIME_DLL)
+            get_filename_component(
+                NSCP_OPENSSL_CRYPTO_DLL
+                "${LIB_EAY_RUNTIME_DLL}"
+                NAME
+            )
+            get_filename_component(
+                NSCP_OPENSSL_SSL_DLL
+                "${SSL_EAY_RUNTIME_DLL}"
+                NAME
+            )
+            message(
+                STATUS
+                "OpenSSL is shipped as ${NSCP_OPENSSL_CRYPTO_DLL} + ${NSCP_OPENSSL_SSL_DLL}"
+            )
+        elseif(LIB_EAY_RUNTIME_DLL OR SSL_EAY_RUNTIME_DLL)
+            message(
+                FATAL_ERROR
+                "Found only one of the OpenSSL DLLs (crypto: '${LIB_EAY_RUNTIME_DLL}', ssl: '${SSL_EAY_RUNTIME_DLL}')"
+            )
+        elseif(OPENSSL_FOUND)
+            message(
+                STATUS
+                "OpenSSL is linked statically (no DLL next to ${LIB_EAY_RELEASE})"
+            )
+        endif()
     endif()
 endif(USE_STATIC_RUNTIME)
 

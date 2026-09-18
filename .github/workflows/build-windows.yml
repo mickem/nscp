@@ -143,12 +143,18 @@ jobs:
         toolset: ${{ steps.setup.outputs.toolset }}
         target_folder: './tmp/nscp'
 
+    # OpenSSL is built as DLLs and shipped next to nscp.exe (like nscp_net.dll
+    # and the other shared libraries) rather than linked into every module.
+    # The same build also yields libcrypto_static.lib / libssl_static.lib,
+    # which installer_lib below keeps linking: it is a custom action DLL that
+    # msiexec loads before anything is installed, so it has to stand alone.
     - id: openssl
       uses: ./.github/actions/openssl
       with:
         version: ${{ ENV.OPENSSL_VERSION }}
         architecture: ${{ inputs.architecture }}
         runtime: 'dynamic'
+        linkage: 'shared'
 
     - id: protobuf
       uses: ./.github/actions/protobuf
@@ -247,7 +253,11 @@ jobs:
             SET(PROTOBUF_ROOT "${{ steps.protobuf.outputs.path_unix }}")
             SET(PROTOBUF_LIBRARYDIR "${PROTOBUF_ROOT}/build/Release")
             SET(OPENSSL_ROOT_DIR "${{ steps.openssl.outputs.path_unix }}")
-            SET(OPENSSL_USE_STATIC_LIBS TRUE)
+            # Link the import libraries and ship libcrypto-3-*.dll / libssl-3-*.dll
+            # (CMakeLists.txt copies them into the build tree and the MSI and zip
+            # pick them up from there). installer_lib is configured separately
+            # below and keeps OPENSSL_USE_STATIC_LIBS on.
+            SET(OPENSSL_USE_STATIC_LIBS FALSE)
             SET(LUA_SOURCE_ROOT "${{ steps.lua.outputs.path_unix }}")
             SET(Python3_ROOT_DIR "${{ steps.paths.outputs.python_path }}")
             SET(Python3_FIND_STRATEGY LOCATION)
