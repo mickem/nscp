@@ -145,9 +145,6 @@ jobs:
 
     # OpenSSL is built as DLLs and shipped next to nscp.exe (like nscp_net.dll
     # and the other shared libraries) rather than linked into every module.
-    # The same build also yields libcrypto_static.lib / libssl_static.lib,
-    # which installer_lib below keeps linking: it is a custom action DLL that
-    # msiexec loads before anything is installed, so it has to stand alone.
     - id: openssl
       uses: ./.github/actions/openssl
       with:
@@ -155,6 +152,21 @@ jobs:
         architecture: ${{ inputs.architecture }}
         runtime: 'dynamic'
         linkage: 'shared'
+
+    # installer_lib is the custom action DLL msiexec extracts on its own and
+    # loads before anything is installed, so it links OpenSSL statically and
+    # against the static C runtime. The _static.lib pair a shared build leaves
+    # behind is compiled against the DLL runtime and does not link into it
+    # (unresolved __imp_ CRT symbols), hence a second, no-shared -MT build in
+    # a folder of its own.
+    - id: openssl-static
+      uses: ./.github/actions/openssl
+      with:
+        version: ${{ ENV.OPENSSL_VERSION }}
+        architecture: ${{ inputs.architecture }}
+        runtime: 'static'
+        linkage: 'static'
+        suffix: '-static'
 
     - id: protobuf
       uses: ./.github/actions/protobuf
@@ -256,7 +268,7 @@ jobs:
             # Link the import libraries and ship libcrypto-3-*.dll / libssl-3-*.dll
             # (CMakeLists.txt copies them into the build tree and the MSI and zip
             # pick them up from there). installer_lib is configured separately
-            # below and keeps OPENSSL_USE_STATIC_LIBS on.
+            # below, against the static OpenSSL build.
             SET(OPENSSL_USE_STATIC_LIBS FALSE)
             SET(LUA_SOURCE_ROOT "${{ steps.lua.outputs.path_unix }}")
             SET(Python3_ROOT_DIR "${{ steps.paths.outputs.python_path }}")
@@ -295,7 +307,7 @@ jobs:
       working-directory: tmp/installer_lib
       run: |
 
-        cmake ../../installer_lib -T ${{ steps.setup.outputs.toolset }} -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -DBOOST_ROOT=${{ steps.paths.outputs.static_boost_root }} -DBOOST_LIBRARYDIR=${{ steps.paths.outputs.static_boost_librarydir }} -DOPENSSL_ROOT_DIR=${{ steps.openssl.outputs.path_unix }} -DBUILD_VERSION=${{ inputs.version }}
+        cmake ../../installer_lib -T ${{ steps.setup.outputs.toolset }} -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -DBOOST_ROOT=${{ steps.paths.outputs.static_boost_root }} -DBOOST_LIBRARYDIR=${{ steps.paths.outputs.static_boost_librarydir }} -DOPENSSL_ROOT_DIR=${{ steps.openssl-static.outputs.path_unix }} -DBUILD_VERSION=${{ inputs.version }}
     - name: Build installer_lib
       working-directory: tmp/installer_lib
       run: |

@@ -13,13 +13,21 @@ inputs:
     default: dynamic
   linkage:
     description: >-
-      How OpenSSL itself is built: `static` produces only libcrypto.lib and
+      How OpenSSL itself is built: `static` produces libcrypto.lib and
       libssl.lib as static libraries, `shared` produces libcrypto-3-x64.dll
       and libssl-3-x64.dll (libcrypto-3.dll / libssl-3.dll on x86) with
-      import libraries of the same names as the static build, plus
-      libcrypto_static.lib / libssl_static.lib for a consumer that still needs
-      to link it in (installer_lib, which msiexec loads on its own).
+      import libraries of the same names. A shared build also leaves
+      libcrypto_static.lib / libssl_static.lib behind, but those are compiled
+      against the DLL C runtime whatever `runtime` says, so a static-runtime
+      consumer (installer_lib) cannot link them; it needs a `static` build of
+      its own, see `suffix`.
     default: static
+  suffix:
+    description: >-
+      Appended to the build folder (tmp/openssl-<version><suffix>) and to the
+      cache key, so that one job can hold two builds of the same version, say
+      a shared one for the product and a static one for installer_lib.
+    default: ''
 outputs:
   path:
     description: The path to the openssl folder
@@ -48,11 +56,14 @@ runs:
         } else {
           echo "linkage_flags=no-shared" >> $env:GITHUB_OUTPUT
         }
+        echo "dir=openssl-${{ inputs.version }}${{ inputs.suffix }}" >> $env:GITHUB_OUTPUT
       shell: pwsh
 
+    # A second run of this action in the same job (another suffix) finds the
+    # tarball from the first one and skips the download.
     - name: Download openssl
       run: |
-            curl -fL --retry 8 --retry-delay 15 --retry-max-time 300 https://github.com/openssl/openssl/releases/download/openssl-${{ inputs.version }}/openssl-${{ inputs.version }}.tar.gz --output openssl-${{ inputs.version }}.tar.gz
+            if not exist openssl-${{ inputs.version }}.tar.gz curl -fL --retry 8 --retry-delay 15 --retry-max-time 300 https://github.com/openssl/openssl/releases/download/openssl-${{ inputs.version }}/openssl-${{ inputs.version }}.tar.gz --output openssl-${{ inputs.version }}.tar.gz
       working-directory: tmp
       shell: cmd
 
@@ -62,64 +73,74 @@ runs:
       working-directory: tmp
       shell: bash
 
+    # The tarball unpacks to openssl-<version>. A suffixed build is unpacked
+    # through a scratch folder and moved into place, so it never touches the
+    # unsuffixed tree an earlier run of this action may have built already.
     - name: Unpack openssl
       run: |
-            7z x openssl-${{ inputs.version }}.tar.gz
-            7z x openssl-${{ inputs.version }}.tar
+            7z x -y openssl-${{ inputs.version }}.tar.gz
+            if "${{ inputs.suffix }}"=="" (
+              7z x -y openssl-${{ inputs.version }}.tar
+            ) else (
+              7z x -y openssl-${{ inputs.version }}.tar -o${{ steps.setup.outputs.dir }}.unpack
+              move ${{ steps.setup.outputs.dir }}.unpack\openssl-${{ inputs.version }} ${{ steps.setup.outputs.dir }}
+              rmdir ${{ steps.setup.outputs.dir }}.unpack
+            )
       working-directory: tmp
       shell: cmd
 
     - id: cache
       uses: actions/cache@v3
       with:
-        # The linkage flag is part of the key, so a static and a shared build
-        # of the same version never share a cache entry (the static key spells
-        # "no-shared", as it always did).
-        key: ${{ runner.os }}-openssl-${{ inputs.version }}-${{ steps.setup.outputs.linkage_flags }}-${{ inputs.architecture }}-${{ inputs.runtime }}
+        # The linkage flag and the suffix are part of the key, so a static
+        # and a shared build of the same version never share a cache entry
+        # (with no suffix the static key spells "no-shared", as it always
+        # did, so the legacy build keeps its cache).
+        key: ${{ runner.os }}-openssl-${{ inputs.version }}${{ inputs.suffix }}-${{ steps.setup.outputs.linkage_flags }}-${{ inputs.architecture }}-${{ inputs.runtime }}
         # The two globs cover every linkage: the static libraries, and for a
         # shared build the import libraries, the versioned DLLs and their
         # _static twins.
         path: |
-          tmp/openssl-${{ inputs.version }}/libcrypto*.*
-          tmp/openssl-${{ inputs.version }}/libssl*.*
-          tmp/openssl-${{ inputs.version }}/include/crypto/dso_conf.h
-          tmp/openssl-${{ inputs.version }}/include/crypto/bn_conf.h
-          tmp/openssl-${{ inputs.version }}/include/internal/param_names.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/asn1.h          
-          tmp/openssl-${{ inputs.version }}/include/openssl/asn1t.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/bio.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/cmp.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/cms.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/comp.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/conf.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/configuration.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/core_names.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/crmf.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/crypto.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/ct.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/err.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/ess.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/fipskey.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/lhash.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/ocsp.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/opensslv.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/pkcs12.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/pkcs7.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/safestack.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/srp.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/ssl.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/ui.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/x509.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/x509v3.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/x509_acert.h
-          tmp/openssl-${{ inputs.version }}/include/openssl/x509_vfy.h
+          tmp/${{ steps.setup.outputs.dir }}/libcrypto*.*
+          tmp/${{ steps.setup.outputs.dir }}/libssl*.*
+          tmp/${{ steps.setup.outputs.dir }}/include/crypto/dso_conf.h
+          tmp/${{ steps.setup.outputs.dir }}/include/crypto/bn_conf.h
+          tmp/${{ steps.setup.outputs.dir }}/include/internal/param_names.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/asn1.h          
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/asn1t.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/bio.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/cmp.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/cms.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/comp.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/conf.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/configuration.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/core_names.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/crmf.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/crypto.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/ct.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/err.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/ess.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/fipskey.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/lhash.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/ocsp.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/opensslv.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/pkcs12.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/pkcs7.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/safestack.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/srp.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/ssl.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/ui.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/x509.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/x509v3.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/x509_acert.h
+          tmp/${{ steps.setup.outputs.dir }}/include/openssl/x509_vfy.h
 
 
     - name: Build openssl
       run: |
           perl Configure ${{ steps.setup.outputs.cmd }} no-asm ${{ steps.setup.outputs.linkage_flags }} ${{ steps.setup.outputs.runtime_flags }}
           nmake
-      working-directory: tmp/openssl-${{ inputs.version }}
+      working-directory: tmp/${{ steps.setup.outputs.dir }}
       shell: cmd
       if: ${{ steps.cache.outputs.cache-hit != 'true' }}
 
@@ -130,4 +151,4 @@ runs:
         echo "path=$path" >> $env:GITHUB_OUTPUT
         echo "path_unix=$path_unix" >> $env:GITHUB_OUTPUT
       shell: pwsh
-      working-directory: tmp/openssl-${{ inputs.version }}
+      working-directory: tmp/${{ steps.setup.outputs.dir }}
