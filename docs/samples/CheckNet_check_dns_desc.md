@@ -1,8 +1,9 @@
 #### About `check_dns`
 
-`check_dns` resolves a name and checks how long it took and what came back. One
-record is returned per looked-up host, so `host=` can be repeated to probe
-several names in one check.
+`check_dns` resolves a name and checks how long it took and what came back. It
+looks up exactly one name per invocation and returns a single record: `host=`
+(alias `lookup=`) takes one value, and repeating it replaces the previous one
+rather than adding a second lookup. Probe several names with one check each.
 
 By default it asks for an `A` record through the system resolver, warns when the
 lookup takes longer than 1000 ms, and goes critical when `result` is anything
