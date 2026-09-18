@@ -17,3 +17,4 @@ first if a workflow relied on importing from elsewhere. `PUT /api/v2/scripts` is
 unaffected. On Windows, a script that prints in exact buffer-sized chunks no
 longer parks a worker thread past the timeout, and a timed-out or forked script
 no longer leaks a process handle.
+See the [security notice](../security/notices.md#script-execution-and-check-arguments-nul-truncation-import-sandbox-pipe-reads-handle-leak-docker-endpoint-remote-connection-checks).

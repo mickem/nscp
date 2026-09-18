@@ -66,6 +66,11 @@ typedef hlp::buffer<char> buffer_type;
 // captured string is a strict <= MAX_OUTPUT_BYTES bound (marker included).
 static const char kOutputTruncMarker[] = "\n[output truncated]";
 static const std::size_t kOutputContentCap = MAX_OUTPUT_BYTES - (sizeof(kOutputTruncMarker) - 1);
+// How long the post-wait drain may spend collecting what is still buffered.
+// Generous for a process that has exited (the pipe is finite and this only
+// reads what is already there), and short enough that a child still writing
+// cannot hold the worker thread away from the kill that follows.
+static const DWORD kFinalDrainBudgetMs = 2000;
 
 struct generic_closer {
   static void close(HANDLE handle) { ::CloseHandle(handle); }
@@ -115,8 +120,10 @@ static std::string readFromFile(buffer_type &buffer, const HANDLE file_handle, c
   DWORD dwRead = 0;
   const DWORD retval = ReadFile(file_handle, buffer, to_read, &dwRead, nullptr);
   if (retval == 0 || dwRead == 0 || dwRead > to_read) return std::string();
-  buffer[dwRead] = 0;
-  return std::string(static_cast<const char *>(buffer));
+  // Sized from dwRead, not read as a C string. A script writing UTF-16, or any
+  // binary, produces NUL bytes, and terminating at the first one silently cut
+  // the output at that byte - which for UTF-16 is usually the second one.
+  return std::string(static_cast<const char *>(buffer), dwRead);
 }
 
 boost::timed_mutex mutex_;
@@ -515,6 +522,16 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
     // Final drain. Each pass reads only what PeekNamedPipe reports, so several
     // are needed for more than one buffer's worth - and re-peeking is what
     // keeps this from blocking if a write end is still open elsewhere.
+    //
+    // Bounded, because closing our write ends does not stop the child: it
+    // holds its own inherited copy. A child that never stops writing
+    // (`:loop / echo x / goto loop`) refills the pipe as fast as this empties
+    // it, so an unbounded drain never returns - and on the timeout path the
+    // kill below is what it is standing in front of, so the worker would hang
+    // exactly where the timeout was supposed to save it. The deadline is the
+    // drain's own, not the command's: a process that exited normally is owed
+    // its remaining output even if it used its whole timeout producing it.
+    const DWORD drain_start_ms = GetTickCount();
     for (;;) {
       dwAvail = 0;
       if (!::PeekNamedPipe(hChildOutR.get(), nullptr, 0, nullptr, &dwAvail, nullptr) || dwAvail == 0) break;
@@ -524,6 +541,7 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
         str.append(chunk, 0, kOutputContentCap - str.size());
         if (str.size() >= kOutputContentCap) str.append(kOutputTruncMarker);
       }
+      if (GetTickCount() - drain_start_ms >= kFinalDrainBudgetMs) break;
     }
     output = utf8::cvt<std::string>(utf8::from_encoding(str, args.encoding));
 

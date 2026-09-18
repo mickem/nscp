@@ -62,13 +62,22 @@ every socket and pipe on the host, performed as `SYSTEM` or `root`. Which daemon
 the agent talks to is now settled by `endpoint` under `[/settings/docker]`; a
 request repeating that value is still accepted, one replacing it is not.
 
-#### `check_nt` FILEAGE listed whole directory trees
+#### `check_nt` FILEAGE listed whole directory trees, and answered with an arbitrary file
 
-The legacy `FILEAGE` request maps onto `check_files`, and did so with unlimited
-recursion: a directory argument answered with every file beneath it and its
-modification time, so an authenticated `check_nt` client could enumerate
-`C:\Users` or `/home` one request at a time. `fileage` is in the default `allow`
-set. The mapping now passes `max-depth=0`.
+The legacy `FILEAGE` request mapped onto `check_files` with unlimited recursion:
+a directory argument answered with every file beneath it and its modification
+time, so an authenticated `check_nt` client could enumerate `C:\Users` or
+`/home` one request at a time. `fileage` is in the default `allow` set.
+
+The listing was only half of it. `FILEAGE` answers with a single number, and the
+response is built from the first performance value the check produced. Matching
+more than one file therefore reported whichever the directory walk emitted
+first: not the oldest, not the newest, just arbitrary. A caller asking the age
+of a directory got a number that looked authoritative and meant nothing.
+
+Both come from the same cause, so both are fixed the same way: the request now
+maps onto `check_single_file`, which stats exactly one path. There is only ever
+one candidate, so the age is defined, and there is nothing to enumerate.
 
 #### Checks that connect somewhere else are documented as such
 

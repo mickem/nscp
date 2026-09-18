@@ -202,14 +202,33 @@ TEST(CheckNtMapRequest, CounterPassesTheRawCounterPathThrough) {
 TEST(CheckNtMapRequest, FileAgeChecksTheRequestedPath) {
   mapped_command out;
   ASSERT_TRUE(map_request(REQ_FILEAGE, "C:\\some\\file.txt", out));
-  EXPECT_EQ(out.command, "check_files");
+  // check_single_file, not check_files. FILEAGE answers with a single age and
+  // format_response reads perf(0) for it, so a check that can match more than
+  // one file hands the client an arbitrary one of them.
+  EXPECT_EQ(out.command, "check_single_file");
   const std::vector<std::string> args(out.arguments.begin(), out.arguments.end());
-  EXPECT_EQ(args[0], "path=C:\\some\\file.txt");
+  EXPECT_EQ(args[0], "file=C:\\some\\file.txt");
   EXPECT_TRUE(has_arg(args, "crit=age<0"));
-  // Without the cap a directory argument answered with every file beneath it
-  // and its mtime, so an authenticated check_nt client could walk any tree the
-  // agent can read. FILEAGE reports one file's age, which is depth 0.
-  EXPECT_TRUE(has_arg(args, "max-depth=0"));
+}
+
+TEST(CheckNtMapRequest, FileAgeCannotBeAskedToWalkADirectory) {
+  // The reason for check_single_file, pinned: a directory argument must not be
+  // able to match more than one file. FILEAGE returns a single age taken from
+  // the first performance value, so matching several reports an arbitrary one
+  // of them - and lists the rest to a caller who should not be enumerating
+  // anything. check_single_file stats one path, so neither is expressible.
+  mapped_command out;
+  ASSERT_TRUE(map_request(REQ_FILEAGE, "C:\\Users", out));
+  EXPECT_EQ(out.command, "check_single_file");
+  const std::vector<std::string> args(out.arguments.begin(), out.arguments.end());
+  // No argument may reintroduce multi-file matching. `path=` is deliberately
+  // not checked: check_single_file accepts it as an alias for `file=`, so it
+  // names one file there and would be a rename, not a regression.
+  for (const std::string &arg : args) {
+    EXPECT_EQ(arg.find("max-depth"), std::string::npos) << arg;
+    EXPECT_EQ(arg.find("pattern="), std::string::npos) << arg;
+    EXPECT_EQ(arg.find("recursive"), std::string::npos) << arg;
+  }
 }
 
 TEST(CheckNtMapRequest, InlineAndUnknownCodesAreNotMapped) {

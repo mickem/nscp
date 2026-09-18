@@ -195,7 +195,13 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
   std::stringstream result;
   if (ciphers == "ALL:!MD5:@STRENGTH:@SECLEVEL=0") {
     insecure = "true";
-  } else if (ciphers == "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH") {
+    // Both spellings of the secure preset. The `!aNULL` one is what the server
+    // writes now; the one without it is what older installs have on disk. A
+    // re-run has to recognise the string it just wrote, or `nrpe install`
+    // reports "Inconsistent insecure option will overwrite" on a host it
+    // configured itself a moment earlier - a downgrade warning for a downgrade
+    // that is not happening.
+  } else if (ciphers == "ALL:!aNULL:!ADH:!LOW:!EXP:!MD5:@STRENGTH" || ciphers == "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH") {
     insecure = "false";
   } else if (!ciphers.empty()) {
     result << "WARNING: Inconsistent insecure option will overwrite: ciphers=" << ciphers << " with ALL:!MD5:@STRENGTH:@SECLEVEL=0\n";

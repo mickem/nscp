@@ -11,3 +11,4 @@ pipe is refused. The agent would otherwise connect to any local socket or
 read-only probe of the host as `SYSTEM` or `root`. Check definitions that spell
 out `host=` keep working as long as they name the configured endpoint; otherwise
 drop the argument or change the setting.
+See the [security notice](../security/notices.md#script-execution-and-check-arguments-nul-truncation-import-sandbox-pipe-reads-handle-leak-docker-endpoint-remote-connection-checks).

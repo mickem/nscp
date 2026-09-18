@@ -153,13 +153,26 @@ maybeDescribe("CheckDocker commands", () => {
     expect(out).toMatch(/total'?=\d+B/); // perf from the threshold
   });
 
-  it("reports an unreachable daemon distinctly", async () => {
+  // `host=` may now only repeat the configured endpoint, and that check runs
+  // before the endpoint is validated or connected to. So neither of these gets
+  // as far as the connect or the traversal check: both are refused for naming
+  // an endpoint the request does not get to choose. The shape-level refusals
+  // ("expected an absolute path", "path traversal is not allowed") still guard
+  // the *setting* and are covered by docker_endpoint_test; the connect failure
+  // message is covered by check_docker_test through its injected fetcher.
+  it("refuses a request-supplied endpoint that names an unreachable socket", async () => {
     const out = await query("check_docker", ["host=/tmp/nscp-no-such-daemon.sock"]);
-    expect(out).toMatch(/Failed to connect to docker daemon at '\/tmp\/nscp-no-such-daemon\.sock'/);
+    expect(out).toMatch(/Refusing a request-supplied docker endpoint/);
+    expect(out).toMatch(/\[\/settings\/docker\]/);
   });
 
-  it("refuses a non-local endpoint", async () => {
+  it("refuses a request-supplied endpoint that tries to traverse", async () => {
     const out = await query("check_docker", ["host=../../etc/passwd"]);
-    expect(out).toMatch(/Refusing docker endpoint/);
+    expect(out).toMatch(/Refusing a request-supplied docker endpoint/);
+  });
+
+  it("does not echo the endpoint the caller asked for", async () => {
+    const out = await query("check_docker", ["host=/tmp/nscp-secret-probe.sock"]);
+    expect(out).not.toMatch(/nscp-secret-probe/);
   });
 });

@@ -1,5 +1,5 @@
 ---
-icon: "🔧"
+icon: "🔧 🔒"
 modules: [core]
 action: none
 ---
@@ -12,3 +12,4 @@ address (`192.*.1.1`), or one combined with an explicit `/mask`, is reported as
 a configuration error, and an unparseable numeric entry is now an error beside
 the others rather than an exception. Nothing to do; if you have been avoiding
 `*` because it stopped a listener, it works.
+See the [security notice](../security/notices.md#listeners-the-insecure-nrpe-cipher-string-a-key-nrpe-install-never-wrote-and-in-allowed-hosts).
