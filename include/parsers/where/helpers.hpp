@@ -11,21 +11,21 @@
 namespace parsers {
 namespace where {
 namespace helpers {
-NSCAPI_EXPORT std::string type_to_string(value_type type);
-NSCAPI_EXPORT bool type_is_int(value_type type);
-NSCAPI_EXPORT bool type_is_float(value_type type);
-NSCAPI_EXPORT bool type_is_string(value_type type);
-NSCAPI_EXPORT value_type get_return_type(operators op, value_type type);
-NSCAPI_EXPORT std::string operator_to_string(operators const &identifier);
-NSCAPI_EXPORT bool is_comparison_operator(operators op);
-NSCAPI_EXPORT value_type infer_binary_type(const object_converter &converter, operators op, node_type &left, node_type &right);
-NSCAPI_EXPORT bool can_convert(value_type src, value_type dst);
-NSCAPI_EXPORT bool is_upper(operators op);
-NSCAPI_EXPORT bool is_lower(operators op);
+NSCP_WHERE_EXPORT std::string type_to_string(value_type type);
+NSCP_WHERE_EXPORT bool type_is_int(value_type type);
+NSCP_WHERE_EXPORT bool type_is_float(value_type type);
+NSCP_WHERE_EXPORT bool type_is_string(value_type type);
+NSCP_WHERE_EXPORT value_type get_return_type(operators op, value_type type);
+NSCP_WHERE_EXPORT std::string operator_to_string(operators const &identifier);
+NSCP_WHERE_EXPORT bool is_comparison_operator(operators op);
+NSCP_WHERE_EXPORT value_type infer_binary_type(const object_converter &converter, operators op, node_type &left, node_type &right);
+NSCP_WHERE_EXPORT bool can_convert(value_type src, value_type dst);
+NSCP_WHERE_EXPORT bool is_upper(operators op);
+NSCP_WHERE_EXPORT bool is_lower(operators op);
 
 typedef boost::tuple<long long, double, std::string> read_arg_type;
-NSCAPI_EXPORT read_arg_type read_arguments(const evaluation_context &context, const node_type &subject, const std::string &default_unit);
-NSCAPI_EXPORT node_type add_convert_node(node_type subject, value_type new_type);
+NSCP_WHERE_EXPORT read_arg_type read_arguments(const evaluation_context &context, const node_type &subject, const std::string &default_unit);
+NSCP_WHERE_EXPORT node_type add_convert_node(node_type subject, value_type new_type);
 }  // namespace helpers
 }  // namespace where
 }  // namespace parsers

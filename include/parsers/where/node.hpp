@@ -19,7 +19,7 @@
 #endif
 namespace parsers {
 namespace where {
-class NSCAPI_EXPORT filter_exception : public std::exception {
+class NSCP_WHERE_EXPORT filter_exception : public std::exception {
   std::string what_;
 
  public:
@@ -50,7 +50,7 @@ enum operators {
   op_not_regexp,
 };
 
-enum NSCAPI_EXPORT value_type {
+enum NSCP_WHERE_EXPORT value_type {
   type_invalid = 99,
   type_tbd = 66,
   type_multi = 88,
@@ -102,7 +102,7 @@ enum NSCAPI_EXPORT value_type {
   type_custom_4 = 4096 + 4
 };
 
-enum NSCAPI_EXPORT object_match {
+enum NSCP_WHERE_EXPORT object_match {
   none,
   match,
   ok,
@@ -110,7 +110,7 @@ enum NSCAPI_EXPORT object_match {
   critical,
 };
 
-struct NSCAPI_EXPORT value_container {
+struct NSCP_WHERE_EXPORT value_container {
   boost::optional<long long> i_value;
   boost::optional<double> f_value;
   boost::optional<std::string> s_value;
@@ -271,7 +271,7 @@ struct performance_node {
   performance_node_type perf_node_type;
   performance_node() = default;
 };
-struct NSCAPI_EXPORT performance_collector {
+struct NSCP_WHERE_EXPORT performance_collector {
   typedef std::map<std::string, performance_node> boundaries_type;
 
  private:
@@ -329,7 +329,7 @@ struct object_factory_interface : object_converter_interface {
 };
 typedef std::shared_ptr<object_factory_interface> object_factory;
 
-struct NSCAPI_EXPORT any_node {
+struct NSCP_WHERE_EXPORT any_node {
  private:
   value_type type;
 
@@ -377,25 +377,25 @@ struct list_node_interface : any_node {
 typedef std::shared_ptr<list_node_interface> list_node_type;
 
 struct factory {
-  static NSCAPI_EXPORT node_type create_list(const std::list<std::string> &other);
-  static NSCAPI_EXPORT list_node_type create_list();
-  static NSCAPI_EXPORT node_type create_list(const std::list<long long> &other);
-  static NSCAPI_EXPORT node_type create_list(const std::list<double> &other);
-  static NSCAPI_EXPORT node_type create_bin_op(const operators &op, node_type lhs, node_type rhs);
-  static NSCAPI_EXPORT node_type create_un_op(operators op, const node_type &node);
-  static NSCAPI_EXPORT node_type create_conversion(node_type node);
-  static NSCAPI_EXPORT node_type create_fun(const object_factory &factory, const std::string &op, const node_type &node);
-  static NSCAPI_EXPORT node_type create_string(const std::string &value);
-  static NSCAPI_EXPORT node_type create_int(const long long &value);
-  static NSCAPI_EXPORT node_type create_float(const double &value);
-  static NSCAPI_EXPORT node_type create_ios(const long long &value);
-  static NSCAPI_EXPORT node_type create_ios(const std::string &value);
-  static NSCAPI_EXPORT node_type create_ios(const double &value);
-  static NSCAPI_EXPORT node_type create_neg_int(const long long &value);
-  static NSCAPI_EXPORT node_type create_variable(const object_factory &factory, const std::string &name);
-  static NSCAPI_EXPORT node_type create_false();
-  static NSCAPI_EXPORT node_type create_true();
-  static NSCAPI_EXPORT node_type create_num(value_container value);
+  static NSCP_WHERE_EXPORT node_type create_list(const std::list<std::string> &other);
+  static NSCP_WHERE_EXPORT list_node_type create_list();
+  static NSCP_WHERE_EXPORT node_type create_list(const std::list<long long> &other);
+  static NSCP_WHERE_EXPORT node_type create_list(const std::list<double> &other);
+  static NSCP_WHERE_EXPORT node_type create_bin_op(const operators &op, node_type lhs, node_type rhs);
+  static NSCP_WHERE_EXPORT node_type create_un_op(operators op, const node_type &node);
+  static NSCP_WHERE_EXPORT node_type create_conversion(node_type node);
+  static NSCP_WHERE_EXPORT node_type create_fun(const object_factory &factory, const std::string &op, const node_type &node);
+  static NSCP_WHERE_EXPORT node_type create_string(const std::string &value);
+  static NSCP_WHERE_EXPORT node_type create_int(const long long &value);
+  static NSCP_WHERE_EXPORT node_type create_float(const double &value);
+  static NSCP_WHERE_EXPORT node_type create_ios(const long long &value);
+  static NSCP_WHERE_EXPORT node_type create_ios(const std::string &value);
+  static NSCP_WHERE_EXPORT node_type create_ios(const double &value);
+  static NSCP_WHERE_EXPORT node_type create_neg_int(const long long &value);
+  static NSCP_WHERE_EXPORT node_type create_variable(const object_factory &factory, const std::string &name);
+  static NSCP_WHERE_EXPORT node_type create_false();
+  static NSCP_WHERE_EXPORT node_type create_true();
+  static NSCP_WHERE_EXPORT node_type create_num(value_container value);
 };
 }  // namespace where
 }  // namespace parsers
