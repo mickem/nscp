@@ -259,6 +259,8 @@ if(USE_STATIC_RUNTIME)
         -Dnscp_protobuf_NOLIB
         -D${PLUGIN_API_TARGET}_NOLIB
         -Dnscp_where_filter_NOLIB
+        -Dnscp_client_NOLIB
+        -Dnscp_net_NOLIB
         -Djson_protobuf_NOLIB
         -Dlua_protobuf_NOLIB
         -Dlib_mongoose_NOLIB
@@ -1332,12 +1334,34 @@ endforeach(
 #
 # ##############################################################################
 
+# Sources every plugin must compile *itself*.
+#
+# This list used to carry settings/helper.cpp and nscapi_program_options.cpp as
+# well. Those were already in the plugin_api library that every one of these
+# targets links, so each of the 40-odd modules shipped a second, private copy of
+# the same object code for no benefit - 103 KB per module for settings/helper.cpp
+# and 61 KB for nscapi_program_options.cpp. They are shared now; see
+# libs/plugin_api.
+#
+# utf8.cpp and nscapi_helper.cpp stay here, deliberately, even though plugin_api
+# also builds them. Sharing a source across the DLL boundary means annotating its
+# header, and these two are not worth what that costs. Linked on their own they
+# are about 8 KB and 33 KB, against 103 KB and 61 KB for the two that moved, so
+# the whole saving across the module set is a few hundred kilobytes. utf8.hpp in
+# particular is included almost everywhere in the tree, so putting an export
+# macro in it drags nscapi/dll_defines.hpp - and the NSCAPI_EXPORT name that
+# parsers/where/ and libs/mongoose-cpp/ also define - into translation units
+# that have nothing to do with the plugin API, including every source of
+# nscp_where_filter. Duplicating a few kilobytes is the cheaper trade.
+#
+# nscapi_plugin_impl.cpp stays here for a different reason: it reads
+# nscapi::plugin_singleton, which is defined *per module* by the generated
+# module.cpp (NSC_WRAP_DLL). Moving it into the shared library would bind every
+# module to the library's singleton instead of its own.
 set(NSCP_DEF_PLUGIN_CPP
     ${NSCP_INCLUDEDIR}/str/utf8.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_impl.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
 )
 set(NSCP_DEF_PLUGIN_HPP
     ${NSCP_INCLUDEDIR}/str/utf8.hpp
@@ -1367,6 +1391,9 @@ set(NSCP_FILTER_LIB
     perfconfig_parser
 )
 
+# Only unit tests still compile the client parser directly (they exercise it
+# without a core); the modules and the check_* executables link nscp_client.
+# utf8.cpp comes along because the parser calls it and it is not exported.
 set(NSCP_CLIENT_CPP
     ${NSCP_INCLUDEDIR}/str/utf8.cpp
     ${NSCP_INCLUDEDIR}/client/command_line_parser.cpp

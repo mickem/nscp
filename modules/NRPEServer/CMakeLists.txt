@@ -10,8 +10,6 @@ set(SRCS
     ${SRCS}
     "${TARGET}.cpp"
     ${NSCP_INCLUDEDIR}/net/nrpe/packet.cpp
-    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
-    ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp
     ${NSCP_INCLUDEDIR}/bytes/crc32.cpp
     ${NSCP_DEF_PLUGIN_CPP}
 )
@@ -55,6 +53,7 @@ OPENSSL_LINK_FIX(${TARGET})
 
 target_link_libraries(
     ${TARGET}
+    nscp_net
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
     ${NSCP_DEF_PLUGIN_LIB}

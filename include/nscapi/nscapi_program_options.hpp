@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <nscapi/dll_defines.hpp>
+
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <str/utf8.hpp>
@@ -45,7 +47,7 @@ class program_options_exception : public std::exception {
   const char *what() const noexcept override { return error.c_str(); }
 };
 
-std::vector<po::option> option_parser_kvp(std::vector<std::string> &args, const std::string &break_at);
+NSCAPI_EXPORT std::vector<po::option> option_parser_kvp(std::vector<std::string> &args, const std::string &break_at);
 
 class basic_command_line_parser : public po::basic_command_line_parser<char> {
  public:
@@ -74,10 +76,10 @@ class basic_command_line_parser : public po::basic_command_line_parser<char> {
   basic_command_line_parser(const std::vector<std::string> &arguments) : po::basic_command_line_parser<char>(arguments) {}
 };
 
-void add_help(po::options_description &desc);
-po::options_description create_desc(const std::string command);
-po::options_description create_desc(const PB::Commands::QueryRequestMessage::Request &request);
-po::options_description create_desc(const PB::Commands::ExecuteRequestMessage::Request &request);
+NSCAPI_EXPORT void add_help(po::options_description &desc);
+NSCAPI_EXPORT po::options_description create_desc(const std::string command);
+NSCAPI_EXPORT po::options_description create_desc(const PB::Commands::QueryRequestMessage::Request &request);
+NSCAPI_EXPORT po::options_description create_desc(const PB::Commands::ExecuteRequestMessage::Request &request);
 
 /* Given a string 'par', that contains no newline characters
    outputs it to 'os' with wordwrapping, that is, as several
@@ -88,26 +90,26 @@ po::options_description create_desc(const PB::Commands::ExecuteRequestMessage::R
    line is no longer than 'line_length'.
 
 */
-void format_paragraph(std::ostream &os, std::string par, std::size_t indent, std::size_t line_length);
+NSCAPI_EXPORT void format_paragraph(std::ostream &os, std::string par, std::size_t indent, std::size_t line_length);
 
-void format_description(std::ostream &os, const std::string &desc, std::size_t first_column_width, unsigned line_length);
+NSCAPI_EXPORT void format_description(std::ostream &os, const std::string &desc, std::size_t first_column_width, unsigned line_length);
 
-std::string extract_default_value(const std::string &arg);
+NSCAPI_EXPORT std::string extract_default_value(const std::string &arg);
 
-std::string help(const po::options_description &desc, const std::string &extra_info = "");
+NSCAPI_EXPORT std::string help(const po::options_description &desc, const std::string &extra_info = "");
 
-std::string help_short(const po::options_description &desc, const std::string &extra_info = "");
+NSCAPI_EXPORT std::string help_short(const po::options_description &desc, const std::string &extra_info = "");
 
 template <class T>
 void invalid_syntax(const po::options_description &desc, const std::string &, const std::string &error, T &response) {
   nscapi::protobuf::functions::set_response_bad(response, help_short(desc, error));
 }
 
-std::string make_csv(const std::string &s);
-std::string help_csv(const po::options_description &desc, const std::string &);
-std::string help_pb(const po::options_description &desc, const field_map &fields);
-std::string help_pb(const po::options_description &desc);
-std::string help_show_default(const po::options_description &desc);
+NSCAPI_EXPORT std::string make_csv(const std::string &s);
+NSCAPI_EXPORT std::string help_csv(const po::options_description &desc, const std::string &);
+NSCAPI_EXPORT std::string help_pb(const po::options_description &desc, const field_map &fields);
+NSCAPI_EXPORT std::string help_pb(const po::options_description &desc);
+NSCAPI_EXPORT std::string help_show_default(const po::options_description &desc);
 
 typedef std::vector<std::string> unrecognized_map;
 

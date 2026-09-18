@@ -49,13 +49,11 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/win/pdh/pdh_resolver.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/thread_safe_impl.cpp
     ${NSCP_ERROR_CPP}
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
     ${NSCP_INCLUDEDIR}/win/wmi/wmi_query.cpp
     ${NSCP_INCLUDEDIR}/win/processes.cpp
     ${NSCP_INCLUDEDIR}/win/services.cpp
     ${NSCP_INCLUDEDIR}/win/sysinfo/sysinfo.cpp
     ${NSCP_INCLUDEDIR}/compat.cpp
-    ${NSCP_INCLUDEDIR}/json/use_json.cpp
 )
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
@@ -121,6 +119,7 @@ NSCP_DEBUG_SYMBOLS(${TARGET})
 
 target_link_libraries(
     ${TARGET}
+    nscp_json
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_REGEX_LIBRARY}
     ${Boost_THREAD_LIBRARY}

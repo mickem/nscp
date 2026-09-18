@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <net/dll_defines.hpp>
+
 #include <mutex>
 #include <boost/asio/ip/address.hpp>
 #include <list>
@@ -52,10 +54,10 @@ struct allowed_hosts_manager {
     return *this;
   }
 
-  void set_source(const std::string &source);
+  NSCP_NET_EXPORT void set_source(const std::string &source);
   addr_v4 lookup_mask_v4(std::string mask);
   addr_v6 lookup_mask_v6(std::string mask);
-  void refresh(std::list<std::string> &errors);
+  NSCP_NET_EXPORT void refresh(std::list<std::string> &errors);
 
   template <class T>
   static bool match_host(const T &allowed, const T &mask, const T &remote) {
@@ -117,6 +119,6 @@ struct allowed_hosts_manager {
     errors.emplace_back("IP address not allowed");
     return false;
   }
-  std::string to_string() const;
+  NSCP_NET_EXPORT std::string to_string() const;
 };
 }  // namespace socket_helpers

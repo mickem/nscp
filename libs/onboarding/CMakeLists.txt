@@ -33,10 +33,7 @@ set(onboarding_SRCS
     sync.cpp
     verify.cpp
     bundle_crypto.cpp
-    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_INCLUDEDIR}/bytes/base64.c
-    ${NSCP_INCLUDEDIR}/str/utf8.cpp
-    ${NSCP_INCLUDEDIR}/json/use_json.cpp
 )
 if(WIN32)
     set(onboarding_SRCS
@@ -55,6 +52,9 @@ add_library(${TARGET} STATIC ${onboarding_SRCS})
 target_link_libraries(
     ${TARGET}
     ${EXTRA_LIBS}
+    nscp_net
+    nscp_json
+    ${PLUGIN_API_TARGET}
 )
 
 set_target_properties(

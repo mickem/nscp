@@ -9,11 +9,8 @@ CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 set(SRCS
     ${SRCS}
     "${TARGET}.cpp"
-    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_INCLUDEDIR}/net/check_mk/lua/lua_check_mk.cpp
-    ${NSCP_INCLUDEDIR}/metrics/metrics_store_map.cpp
     ${NSCP_DEF_PLUGIN_CPP}
-    ${NSCP_CLIENT_CPP}
 )
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
@@ -63,6 +60,8 @@ endif()
 
 target_link_libraries(
     ${TARGET}
+    nscp_client
+    nscp_net
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_THREAD_LIBRARY}
