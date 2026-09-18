@@ -83,6 +83,11 @@ class WEBServerLogger : public WebLogger {
 };
 
 namespace {
+// Where the web sessions are kept in nsclient.db: one row, holding the whole
+// table in session_persistence's format, replaced at every clean shutdown.
+constexpr const char *kSessionStorageContext = "web.sessions";
+constexpr const char *kSessionStorageKey = "sessions";
+
 // True if a WEB role's comma-separated grant string confers the bare `legacy`
 // permission - the token the deprecated /query/{name} query-dispatch route
 // checks for. What matters is the permission, not the
@@ -191,6 +196,11 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
           "ALLOW ANONYMOUS ACCESS",
           "When false (the default) any role named `anonymous` registered via /settings/WEB/server/roles is ignored and the WEB server never answers an "
           "unauthenticated request. Set to true only if you intentionally want to expose endpoints (via the `anonymous` role grants) without authentication.")
+      .add_bool("persist sessions", sh::bool_key(&persist_sessions_, true), "PERSIST SESSIONS",
+                "When true (the default) the sessions handed out by /api/v2/login are written to ${data-path}/nsclient.db at a clean shutdown and "
+                "restored at the next start, so a restart does not log every web user out. Only the SHA-256 of each token is stored, and a session is "
+                "only restored while the user's password and role are unchanged. Set to false to keep sessions in memory only: every restart then "
+                "ends every session, which is also the way to invalidate all of them at once without rotating passwords.")
       .add_bool("disable admin user", sh::bool_key(&disable_admin_user, false), "DISABLE ADMIN USER",
                 "When true, suppress the built-in `admin` user entirely. The default admin is not seeded on first boot, any pre-existing `admin` entry in "
                 "/settings/WEB/server/users is ignored at load time, and the fallback that auto-creates admin when no users are configured is skipped. "
@@ -461,6 +471,30 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       session->add_user("admin", "full", admin_password);
     }
 
+    // Every user and role is in place now, so the sessions persisted at the
+    // last clean shutdown can be vetted against the current configuration and
+    // put back. Restarting the agent used to log every web user out; it no
+    // longer does. Only the SHA-256 of each token was ever written, and a row
+    // is only accepted when the user still exists and their credential
+    // fingerprint still matches - so a password or role change invalidates a
+    // stored session exactly as it invalidates a live one.
+    // With `persist sessions = false` whatever an earlier run left is
+    // ignored, and persist_sessions() blanks it at the next shutdown.
+    if (persist_sessions_) {
+      try {
+        nscapi::core_helper core(get_core(), get_id());
+        const nscapi::core_helper::storage_map stored = core.get_storage_strings(kSessionStorageContext);
+        const auto row = stored.find(kSessionStorageKey);
+        if (row != stored.end()) {
+          session->import_sessions(session_persistence::parse_sessions(row->second));
+        }
+      } catch (const std::exception &e) {
+        NSC_LOG_ERROR("Failed to restore web sessions: " + utf8::utf8_from_native(e.what()));
+      } catch (...) {
+        NSC_LOG_ERROR_EX("restoring web sessions");
+      }
+    }
+
     WebLoggerPtr logger(new WEBServerLogger(log_errors, log_info, log_debug));
     server.reset(Server::make_server(logger));
     if (cert_missing) {
@@ -552,6 +586,7 @@ void WEBServer::prepareShutdown() {
 }
 
 bool WEBServer::unloadModule() {
+  bool ok = true;
   try {
     if (server) {
       server->stop();
@@ -559,9 +594,38 @@ bool WEBServer::unloadModule() {
     }
   } catch (...) {
     NSC_LOG_ERROR_EX("unload");
-    return false;
+    ok = false;
   }
-  return true;
+  // Persist regardless of how the server stop went - a failure to close the
+  // listener is no reason to throw away everybody's session. This mirrors
+  // CheckEventLog / CheckLogFile, which write their bookmarks from
+  // unloadModule for the same reason: the core saves nsclient.db right after
+  // unloadPlugins() returns (NSClientT::stop_nsclient), so this is the last
+  // point at which anything can be handed to it.
+  try {
+    persist_sessions();
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR("Failed to persist web sessions: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    NSC_LOG_ERROR_EX("persisting web sessions");
+  }
+  return ok;
+}
+
+void WEBServer::persist_sessions() {
+  if (!session) return;
+  // The whole table is one row, replaced wholesale: a session that was
+  // revoked (logout, password change) or expired while we ran is simply not
+  // in the snapshot, so it is not written back, and there is no per-session
+  // row left behind to tombstone. With persistence switched off the row is
+  // blanked, so a table written by an earlier run does not outlive the
+  // setting. The row is bounded by the token cap, and in practice holds a
+  // handful of entries: only sessions handed out by /api/v2/login are in it.
+  const std::string value = persist_sessions_ ? session_persistence::serialize_sessions(session->export_sessions()) : std::string();
+  // private_data: the row binds sessions to users. Hashes only, so not a
+  // credential, but not something to hand out either.
+  nscapi::core_helper core(get_core(), get_id());
+  core.put_storage(kSessionStorageContext, kSessionStorageKey, value, true, false);
 }
 
 void WEBServer::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
@@ -1339,7 +1403,6 @@ void WEBServer::ensure_user(const nscapi::settings_helper::settings_registry &se
   // First-boot path: seed the user row both in settings (for persistence)
   // and in the session (so it can authenticate this run before the
   // normalStart loop populates session from users_).
-  session->add_user(user, role, password);
   const std::string the_path = path + "/" + user;
   // Per-user passwords on disk are stored hashed. The default password
   // under /settings/default/password (shared with NRPE / NSCA / NSClient)
@@ -1351,6 +1414,12 @@ void WEBServer::ensure_user(const nscapi::settings_helper::settings_registry &se
       stored = hashed;
     }
   }
+  // Seed the session with the SAME hash that goes to disk. Handing it the
+  // plaintext would have user_manager hash it under a second salt, and a
+  // session's credential fingerprint is built from the stored hash - so the
+  // sessions of this first run would never match the hash every later boot
+  // reads from the INI, and the first restart would log admin out.
+  session->add_user(user, role, stored);
   settings.register_key_password(the_path, "password", "Password for " + reason, "Password name for" + reason, stored);
   settings.set_static_key(the_path, "password", stored);
   settings.register_key_string(the_path, "role", "Role for " + reason, "Role name for" + reason, role);

@@ -51,3 +51,14 @@ The returned `key` can be used as a bearer token on subsequent calls:
 curl -k -s -H 'Authorization: Bearer eyJhbGciOi…' https://localhost:8443/api/v2/info
 ```
 
+A key is valid for eight hours from the login that issued it, and survives a
+restart of the agent: the keys this endpoint has handed out are written to
+`${data-path}/nsclient.db` at a clean shutdown and read back at the next start
+(only the SHA-256 of a key is ever stored; the session a Basic-auth request on
+any other route creates in passing is not written out at all). `DELETE
+/api/v2/login` revokes a key immediately, and so does a change to the user's
+password or role. `persist sessions = false` under `[/settings/WEB/server]`
+switches this off, so that a restart ends every session as it used to. A user
+whose password is configured in cleartext is the one exception to the restart
+part - see the [Upgrading](../../setup/upgrading.md) page.
+

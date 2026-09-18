@@ -38,4 +38,9 @@ void user_manager::add_user(const std::string& user, const std::string& password
 
 bool user_manager::has_user(const std::string& user) const { return users.find(user) != users.end(); }
 
+std::string user_manager::get_hash(const std::string& user) const {
+  const auto it = users.find(user);
+  return it == users.end() ? std::string() : it->second;
+}
+
 void user_manager::remove_user(const std::string& user) { users.erase(user); }

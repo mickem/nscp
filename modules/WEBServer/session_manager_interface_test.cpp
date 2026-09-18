@@ -11,6 +11,8 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <string>
 
+#include "password_hash.hpp"
+
 // Provide the nscapi singleton expected by NSC_LOG_ERROR / NSC_DEBUG_MSG
 // macros that fire from session_manager_interface.cpp. Production code gets
 // this from `NSC_WRAP_DLL()` in the auto-generated module.cpp; in the test
@@ -470,4 +472,179 @@ TEST_F(SessionManagerTest, IsLoggedInWithToken) {
 
   EXPECT_TRUE(smi.is_logged_in("something:read", req, resp));
   EXPECT_EQ(resp.getCookie("token"), token);
+}
+
+// --- Credential fingerprints and session persistence --------------------------
+//
+// A session is bound to the credentials it was authorised against: the user's
+// role plus the password value user_manager stores for them. In memory a
+// password or role change revokes through add_user (ReAddingUserRevokesAll
+// TheirTokens above); across a restart it is the fingerprint check on import
+// that does it, which is what these tests pin. Only a session the client was
+// handed - marked through mark_session_persistent by the login endpoint - is
+// exported at all.
+
+namespace {
+// A password already in PBKDF2 form is stored verbatim, so its fingerprint is
+// stable across processes. This is what the first boot writes for `admin`,
+// and the only kind of password whose sessions survive a restart.
+std::string hashed(const std::string& password) {
+  const std::string h = web_password::hash_password(password);
+  return h.empty() ? password : h;
+}
+}  // namespace
+
+TEST(SessionPersistence, OnlySessionsHandedToAClientAreExported) {
+  // process_auth_header mints a token on every Basic-auth request; only the
+  // login endpoint returns one to the client and marks it. The rest stay in
+  // memory until they expire and never reach nsclient.db.
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  session_manager_interface smi;
+  smi.add_user("user", "full", hashed("secret"));
+  smi.add_grant("full", "*");
+  const std::string in_passing = smi.generate_token("user");
+  const std::string handed_out = smi.generate_token("user");
+  ASSERT_FALSE(in_passing.empty());
+  ASSERT_FALSE(handed_out.empty());
+  EXPECT_TRUE(smi.export_sessions().empty());
+  EXPECT_FALSE(smi.mark_session_persistent("not-a-session"));
+  EXPECT_TRUE(smi.mark_session_persistent(handed_out));
+  const auto sessions = smi.export_sessions();
+  ASSERT_EQ(sessions.size(), 1u);
+  EXPECT_EQ(sessions.front().hash, token_store::hash_token(handed_out));
+  EXPECT_TRUE(smi.validate_token(in_passing)) << "unmarked is not invalid, only volatile";
+}
+
+TEST(SessionPersistence, ExportedSessionsCarryOnlyHashes) {
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  session_manager_interface smi;
+  smi.add_user("user", "full", hashed("secret"));
+  smi.add_grant("full", "*");
+  const std::string token = smi.generate_token("user");
+  ASSERT_TRUE(smi.mark_session_persistent(token));
+  ASSERT_FALSE(token.empty());
+
+  const auto sessions = smi.export_sessions();
+  ASSERT_EQ(sessions.size(), 1u);
+  EXPECT_NE(sessions.front().hash, token) << "the raw token was exported";
+  EXPECT_EQ(sessions.front().user, "user");
+  EXPECT_FALSE(sessions.front().fingerprint.empty());
+}
+
+TEST(SessionPersistence, ImportRestoresASessionForAnUnchangedUser) {
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  const std::string password = hashed("secret");
+
+  session_manager_interface before;
+  before.add_user("user", "full", password);
+  before.add_grant("full", "*");
+  const std::string token = before.generate_token("user");
+  ASSERT_TRUE(before.mark_session_persistent(token));
+  ASSERT_FALSE(token.empty());
+  const auto sessions = before.export_sessions();
+  ASSERT_EQ(sessions.size(), 1u);
+
+  // A second process with the same configuration: the token the client still
+  // holds keeps working.
+  session_manager_interface after;
+  after.add_user("user", "full", password);
+  after.add_grant("full", "*");
+  EXPECT_FALSE(after.validate_token(token));
+  EXPECT_EQ(after.import_sessions(sessions), 1u);
+  EXPECT_TRUE(after.validate_token(token));
+}
+
+TEST(SessionPersistence, ImportDropsSessionsForAnUnknownUser) {
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  session_manager_interface before;
+  before.add_user("user", "full", hashed("secret"));
+  before.add_grant("full", "*");
+  const std::string token = before.generate_token("user");
+  ASSERT_TRUE(before.mark_session_persistent(token));
+  const auto sessions = before.export_sessions();
+  ASSERT_EQ(sessions.size(), 1u);
+
+  // The user was removed from the configuration while the agent was down.
+  session_manager_interface after;
+  after.add_user("someone-else", "full", hashed("secret"));
+  after.add_grant("full", "*");
+  EXPECT_EQ(after.import_sessions(sessions), 0u);
+  EXPECT_FALSE(after.validate_token(token));
+}
+
+TEST(SessionPersistence, ImportDropsSessionsWhoseFingerprintMoved) {
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  session_manager_interface before;
+  before.add_user("user", "full", hashed("secret"));
+  before.add_grant("full", "*");
+  const std::string token = before.generate_token("user");
+  ASSERT_TRUE(before.mark_session_persistent(token));
+  const auto sessions = before.export_sessions();
+  ASSERT_EQ(sessions.size(), 1u);
+
+  // Password changed in the INI while the agent was down.
+  session_manager_interface changed_password;
+  changed_password.add_user("user", "full", hashed("a-different-secret"));
+  changed_password.add_grant("full", "*");
+  EXPECT_EQ(changed_password.import_sessions(sessions), 0u);
+  EXPECT_FALSE(changed_password.validate_token(token));
+
+  // Role changed in the INI while the agent was down.
+  session_manager_interface changed_role;
+  changed_role.add_user("user", "restricted", hashed("secret"));
+  changed_role.add_grant("restricted", "login.get");
+  EXPECT_EQ(changed_role.import_sessions(sessions), 0u);
+  EXPECT_FALSE(changed_role.validate_token(token));
+}
+
+TEST(SessionPersistence, ImportDropsExpiredSessions) {
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  const std::string password = hashed("secret");
+  session_manager_interface before;
+  before.add_user("user", "full", password);
+  before.add_grant("full", "*");
+  const std::string token = before.generate_token("user");
+  ASSERT_TRUE(before.mark_session_persistent(token));
+  auto sessions = before.export_sessions();
+  ASSERT_EQ(sessions.size(), 1u);
+  // The agent was down for longer than a session lives.
+  sessions.front().created -= HOURS_TO_SECONDS(TOKEN_EXPIRATION_HOURS + 1);
+
+  session_manager_interface after;
+  after.add_user("user", "full", password);
+  after.add_grant("full", "*");
+  EXPECT_EQ(after.import_sessions(sessions), 0u);
+  EXPECT_FALSE(after.validate_token(token));
+}
+
+TEST(SessionPersistence, FingerprintIsAHashOrNothing) {
+  // The fingerprint is folded from the role and the stored password value; it
+  // must never be that material itself, which in a build without OpenSSL is
+  // the cleartext password. No hash function, no fingerprint.
+  session_manager_interface smi;
+  smi.add_user("user", "full", hashed("secret"));
+  const std::string fp = smi.fingerprint_for_user("user");
+  if (token_store::has_hashing()) {
+    EXPECT_EQ(fp.size(), 64u);
+    EXPECT_EQ(fp.find("secret"), std::string::npos);
+    EXPECT_EQ(fp.find("full"), std::string::npos);
+  } else {
+    EXPECT_TRUE(fp.empty());
+  }
+  EXPECT_TRUE(smi.fingerprint_for_user("nobody").empty());
+}
+
+TEST(SessionPersistence, RevokedSessionsAreNotExported) {
+  // logout (login_controller::logout) and revoke_tokens_for_user both drop the
+  // entry from the live map, and the export reads that map at shutdown - so a
+  // revoked session is simply never written back.
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  session_manager_interface smi;
+  smi.add_user("user", "full", hashed("secret"));
+  smi.add_grant("full", "*");
+  const std::string token = smi.generate_token("user");
+  ASSERT_TRUE(smi.mark_session_persistent(token));
+  ASSERT_EQ(smi.export_sessions().size(), 1u);
+  smi.revoke_token(token);
+  EXPECT_TRUE(smi.export_sessions().empty());
 }
