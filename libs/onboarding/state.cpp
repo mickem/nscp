@@ -13,8 +13,12 @@
 #include "json_util.hpp"
 
 #ifdef WIN32
+#include <fcntl.h>
 #include <io.h>
+#include <share.h>
+#include <sys/stat.h>
 
+#include <algorithm>
 #include <cstdio>
 #else
 #include <dirent.h>
@@ -163,12 +167,30 @@ void onboarding::create_file_exclusive(const std::string &path, const std::strin
   // so there is no unprivileged account that could pre-create the name. Keep
   // the "do not write through something that is already there" half anyway, so
   // the two platforms agree on what the call means.
-  FILE *file = nullptr;
-  if (fopen_s(&file, path.c_str(), "wbx") != 0 || file == nullptr) {
+  // _sopen_s with _O_EXCL rather than fopen_s with an "x" in the mode string.
+  // Both ask for the same thing, but an unsupported mode string does not come
+  // back as an error: it reaches the CRT's invalid-parameter handler, which
+  // ends the process with STATUS_STACK_BUFFER_OVERRUN (0xC0000409). That is a
+  // __fastfail, not an exception, so the try/catch the caller wraps this in
+  // cannot soften it - `nscp enroll` simply died on every successful
+  // enrollment, and only on the XP toolset, whose older CRT rejects the mode.
+  // Spelling the request in flags keeps the exclusive-create guarantee and
+  // works on every toolset this builds with.
+  int fd = -1;
+  if (_sopen_s(&fd, path.c_str(), _O_WRONLY | _O_CREAT | _O_EXCL | _O_BINARY, _SH_DENYNO, _S_IREAD | _S_IWRITE) != 0 || fd == -1) {
     throw onboarding_error("Failed to create " + path, false);
   }
-  const bool ok = fwrite(data.data(), 1, data.size(), file) == data.size() && fflush(file) == 0;
-  fclose(file);
+  bool ok = true;
+  std::size_t offset = 0;
+  while (ok && offset < data.size()) {
+    const unsigned int chunk = static_cast<unsigned int>((std::min)(data.size() - offset, static_cast<std::size_t>(1u << 20)));
+    const int written = _write(fd, data.data() + offset, chunk);
+    if (written <= 0)
+      ok = false;
+    else
+      offset += static_cast<std::size_t>(written);
+  }
+  _close(fd);
   if (!ok) throw onboarding_error("Failed to write " + path, false);
 #else
   std::string name;
