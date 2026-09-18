@@ -18,3 +18,13 @@ MSI and the Python Scripting feature does not appear in the installer. An
 ARM64 host that needs internal Python scripts should run the x64 package under
 emulation. `CheckExternalScripts` is unaffected and can still run a
 system-installed `python.exe`.
+
+One more difference, and this one needs action on a fresh machine: **the ARM64
+MSI does not install the Visual C++ runtime**. The x64 and 32-bit installers
+bundle it as a merge module, but Microsoft ships no ARM64 merge module for the
+toolset this is built with, so there is nothing to bundle. Install the
+[Visual C++ Redistributable for ARM64](https://aka.ms/vs/17/release/vc_redist.arm64.exe)
+before the agent, or the service will fail to start with a missing
+`vcruntime140.dll`. Most machines already have it — anything that has run a
+recent ARM64 desktop application will — and upgrades over an existing install
+are unaffected.

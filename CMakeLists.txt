@@ -228,10 +228,6 @@ if(WIN32)
         -DBOOST_AUTO_LINK_SYSTEM
         -DBOOST_ALL_NO_LIB
     )
-
-    install(FILES "${PROJECT_BINARY_DIR}/_ctypes.pyd" DESTINATION .)
-    install(FILES "${PROJECT_BINARY_DIR}/_socket.pyd" DESTINATION .)
-    install(FILES "${PROJECT_BINARY_DIR}/unicodedata.pyd" DESTINATION .)
 endif()
 if(WIN32)
     # Target windows version
@@ -376,6 +372,15 @@ if(WIN32 AND Python3_Development_FOUND)
             ${PROJECT_BINARY_DIR}/python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.zip
         DESTINATION .
     )
+    # The extension modules the bundled runtime cannot do without. They are
+    # produced by the same "make python dist" step as the zip above, so they
+    # belong under the same condition - installing them unconditionally made
+    # CPack fail with "file INSTALL cannot find .../_ctypes.pyd" on any build
+    # without the Python development libraries, the ARM64 cross build being
+    # the first one to have them missing.
+    install(FILES "${PROJECT_BINARY_DIR}/_ctypes.pyd" DESTINATION .)
+    install(FILES "${PROJECT_BINARY_DIR}/_socket.pyd" DESTINATION .)
+    install(FILES "${PROJECT_BINARY_DIR}/unicodedata.pyd" DESTINATION .)
     # Copy python binaries
     string(
         REPLACE ".lib"

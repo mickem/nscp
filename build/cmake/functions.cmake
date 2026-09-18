@@ -703,11 +703,17 @@ macro(find_redist _TARGET_VAR)
     elseif(MSVC80)
         set(_VC_VERSION "80")
     endif()
-    if(CMAKE_CL_64)
+    # CMAKE_CL_64 is true for any 64-bit target, ARM64 included, so on its own
+    # it would pick the x64 redistributable for an ARM64 package. The glob
+    # below finds nothing on a current VS layout either way, but a wrong
+    # architecture here would be worse than an empty list.
+    if(CMAKE_VS_PLATFORM_NAME STREQUAL "ARM64")
+        set(_VC_ARCH arm64)
+    elseif(CMAKE_CL_64)
         set(_VC_ARCH x64)
-    else(CMAKE_CL_64)
+    else()
         set(_VC_ARCH x86)
-    endif(CMAKE_CL_64)
+    endif()
     set(_redit_folder
         "${_VS_ROOT_FOLDER}/redist/${_VC_ARCH}/Microsoft.VC${_VC_VERSION}.CRT"
     )
