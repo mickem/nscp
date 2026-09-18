@@ -19,6 +19,36 @@
 #include <utility>
 
 namespace socket_helpers {
+
+// Everything a certificate check reports about the peer's certificate, read
+// once straight after the handshake. Gathered in one struct because each field
+// costs another trip through the X509 and the caller wants all of them.
+//
+// Declared outside the USE_SSL guard because it is plain data: the socket
+// abstractions that hand it out are compiled with and without OpenSSL, and a
+// build without it simply never fills one in.
+struct peer_certificate {
+  // Whole days until notAfter, negative once expired. Same value and same
+  // flooring as peer_certificate_expiry_days().
+  long expiry_days = 0;
+  // Subject and issuer as RFC 2253 strings, e.g. `CN=www.example.com,O=Acme`.
+  std::string subject;
+  std::string issuer;
+  // The commonName component of each, or empty when the DN carries none.
+  // Modern certificates identify the host through SANs, so an empty
+  // subject_cn is normal and not an error.
+  std::string subject_cn;
+  std::string issuer_cn;
+  // subjectAltName entries, rendered as the `DNS:`/`IP:` forms openssl prints.
+  // Only dNSName and iPAddress are kept: they are the two a monitoring check
+  // can assert on.
+  std::list<std::string> sans;
+  // Subject equals issuer. A self-signed certificate is not necessarily a
+  // problem (an internal CA root is one), which is why this is reported rather
+  // than judged.
+  bool self_signed = false;
+};
+
 #ifdef USE_SSL
 // Generate a self-signed certificate and write it to `cert`.
 //
@@ -356,11 +386,36 @@ long tls_min_version_parser(const std::string& tls_version);
 void apply_tls_min_version(boost::asio::ssl::context& ctx, const std::string& tls_version);
 boost::asio::ssl::verify_mode verify_mode_parser(const std::string& verify_mode);
 
+// Point a context at a trust anchor: a PEM bundle *file* or a hashed
+// certificate *directory* (OpenSSL's -CApath layout). Which one is decided by
+// what is on disk, so operators can hand either to a `ca` option - a directory
+// is what every distribution actually ships (/etc/ssl/certs), and
+// load_verify_file() on one fails with an opaque OpenSSL error. An empty path
+// or the literal "none" is a no-op. Throws socket_exception on failure.
+void load_verify_location(boost::asio::ssl::context& ctx, const std::string& ca);
+
 // Whole days until the peer's certificate expires, negative once it already
 // has. Returns none when the peer presented no certificate at all, so a caller
 // can tell that apart from "expired a day ago" - collapsing both to -1 loses a
 // distinction that matters when the number drives an alert.
 boost::optional<long> peer_certificate_expiry_days(SSL* ssl);
+
+// Read the peer's certificate details. none when there is no peer certificate
+// (a plain connection, or a peer that presented none), which the caller must
+// keep distinct from an expired one - see peer_certificate_expiry_days.
+boost::optional<peer_certificate> peer_certificate_details(SSL* ssl);
+
+// OpenSSL's verdict on the chain, as the human-readable string behind
+// SSL_get_verify_result: "ok" when the chain verified, otherwise the reason
+// ("unable to get local issuer certificate", "certificate has expired", ...).
+//
+// The verdict is recorded whether or not `verify` was on: with verification
+// off OpenSSL still walks the chain and stores the result, it just does not
+// fail the handshake over it. That is what lets a check report *why* a chain
+// is untrusted without refusing to connect - and why this string alone must
+// never be read as "the peer is authenticated". Only the handshake succeeding
+// under a verifying mode means that.
+std::string peer_verify_result(SSL* ssl);
 #endif
 
 namespace io {

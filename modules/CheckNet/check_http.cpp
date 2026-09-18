@@ -47,6 +47,7 @@ filter_obj_handler::filter_obj_handler() {
                             "against every number) for plain http, so `ssl_expiry_days < 30` cannot fire there; `ssl_expiry_days = 'no certificate'` tests "
                             "for that state.")
       .add_int_perf("", "", "_ssl_expiry_days");
+  cert::register_keywords<filter_obj>(registry_, &filter_obj::cert);
 }
 
 }  // namespace check_http_filter
@@ -76,6 +77,8 @@ struct http_check_options {
   std::string verify_mode = "none";
   std::string ca_file;
   std::string sni;
+  // Names the certificate must cover through subjectAltName.
+  std::vector<std::string> required_sans;
   bool follow_redirects = false;
   int max_redirs = 15;
   net::address_family address_family = net::address_family::any;
@@ -92,6 +95,7 @@ void run_http_check(const std::string &url_in, const http_check_options &opt, ch
   const auto start = boost::chrono::steady_clock::now();
   std::string current = url_in;
   int redirects = 0;
+  bool san_failed = false;
 
   try {
     while (true) {
@@ -132,10 +136,15 @@ void run_http_check(const std::string &url_in, const http_check_options &opt, ch
       // throw on non-2xx — we want to inspect any status code / body ourselves.
       const http::response resp = client.fetch(u.host, u.port, rq);
       // Assign unconditionally: with follow-redirects an https hop can be
-      // followed by a plain http one, and keeping the earlier hop's expiry
-      // would report a certificate for a URL that never presented one.
-      const boost::optional<long> expiry = client.peer_certificate_expiry_days_opt();
-      out.ssl_expiry_days = expiry ? boost::optional<long long>(static_cast<long long>(expiry.value())) : boost::none;
+      // followed by a plain http one, and keeping the earlier hop's certificate
+      // would report one for a URL that never presented it.
+      out.cert = cert::cert_fields();
+      out.cert.verify_result = client.peer_verify_result();
+      // Recomputed per hop for the same reason: what sans= asserts is a
+      // property of the certificate actually served by the URL we end on.
+      san_failed = false;
+      if (const auto info = client.peer_certificate_details_opt())
+        san_failed = !cert::populate(out.cert, info.value(), opt.required_sans);
 
       // Follow redirects when asked to, up to the configured limit.
       if (opt.follow_redirects && redirects < opt.max_redirs && is_redirect(resp.status_code_)) {
@@ -160,7 +169,14 @@ void run_http_check(const std::string &url_in, const http_check_options &opt, ch
         }
       }
 
-      if (!opt.expected_body.empty() && out.body.find(opt.expected_body) == std::string::npos) {
+      if (san_failed) {
+        // A name the operator required that the certificate does not cover is
+        // the answer the check was asked for, so it lands in `result`, where
+        // the default critical filter already looks. The response is still
+        // reported: the status code and body say whether the service is up,
+        // which is worth knowing alongside the certificate problem.
+        out.result = "san_missing";
+      } else if (!opt.expected_body.empty() && out.body.find(opt.expected_body) == std::string::npos) {
         out.result = "no_match";
       } else {
         // Redirects we were not asked to follow count as ok, hence < 400.
@@ -197,6 +213,7 @@ void check_http(const std::string &default_ca_file, const PB::Commands::QueryReq
   std::string ca_file;
   std::string address_family_arg;
   std::vector<std::string> json_paths_raw;
+  std::string required_sans_arg;
 
   http_check_options opt;
 
@@ -229,6 +246,9 @@ void check_http(const std::string &default_ca_file, const PB::Commands::QueryReq
         "How to handle 3xx redirects: 'follow' to follow the Location, 'ok' (default) to report the redirect as-is.")
     ("max-redirs", po::value<int>(&opt.max_redirs)->default_value(15), "Maximum number of redirects to follow (with --onredirect follow).")
     ("sni", po::value<std::string>(&opt.sni), "TLS Server Name Indication / verification hostname override (defaults to the URL host).")
+    ("sans", po::value<std::string>(&required_sans_arg),
+        "Comma separated names the certificate must cover through subjectAltName, e.g. www.example.com,example.com. Wildcard entries match "
+        "one label (*.example.com covers www.example.com). A missing name sets result=san_missing and lists it in the missing_sans keyword.")
     ("tls-version", po::value<std::string>(&opt.tls_version)->default_value("tlsv1.2+"),
         "TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).")
     ("verify", po::value<std::string>(&opt.verify_mode)->default_value("peer"),
@@ -254,6 +274,7 @@ void check_http(const std::string &default_ca_file, const PB::Commands::QueryReq
   }
 
   opt.ca_file = ca_file;
+  opt.required_sans = cert::parse_required_sans(required_sans_arg);
   opt.follow_redirects = boost::algorithm::to_lower_copy(onredirect) == "follow";
   // A body without an explicit method means POST (matches curl / check_http_go).
   if (!opt.post_data.empty() && opt.method == "GET") opt.method = "POST";

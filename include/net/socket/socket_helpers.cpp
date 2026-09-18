@@ -6,6 +6,7 @@
 #include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
 #include <cstdio>
+#include <cstring>
 #include <iomanip>
 #include <net/socket/socket_helpers.hpp>
 #include <sstream>
@@ -27,6 +28,11 @@
 #include <openssl/bio.h>
 #include <openssl/ssl.h>
 #include <openssl/x509.h>
+// GENERAL_NAMES / the subjectAltName decoder. Included for every SSL build,
+// not just non-Windows: peer_certificate_details() needs it everywhere. It has
+// to stay ahead of windows.h, which is what the ordering below already
+// guarantees - wincrypt.h redefines X509_NAME and friends as macros.
+#include <openssl/x509v3.h>
 #endif
 #ifdef WIN32
 // After boost/asio.hpp, which pulls winsock2.h in first; accctrl/aclapi then
@@ -239,16 +245,11 @@ void socket_helpers::validate_certificate(const std::string &certificate, std::l
 }
 
 #ifdef USE_SSL
-std::string socket_helpers::format_subject_dn_rfc2253(void *x509) {
-  if (!x509) return {};
-  const auto cert = static_cast<X509 *>(x509);
+namespace {
+// Render an X509_NAME (a subject or an issuer) as an RFC 2253 string.
+std::string format_name_rfc2253(const X509_NAME *name) {
   std::string result;
-  // X509_get_subject_name returns an internal pointer owned by the
-  // cert - do NOT free it. Const-cast because the OpenSSL signature
-  // for X509_NAME_print_ex takes a non-const pointer (the function
-  // itself is read-only; this is purely a header signature concern).
-  const X509_NAME *subject = X509_get_subject_name(cert);
-  if (!subject) return result;
+  if (!name) return result;
   BIO *bio = BIO_new(BIO_s_mem());
   if (!bio) return result;
   // RFC 2253 (XN_FLAG_RFC2253) is the canonical, sortable, escape-safe
@@ -261,7 +262,7 @@ std::string socket_helpers::format_subject_dn_rfc2253(void *x509) {
   // identity-map indirection comparing DNs as strings would mismatch
   // an issued-as-UTF-8 cert against an operator-typed handle.
   const unsigned long fmt = XN_FLAG_RFC2253 & ~ASN1_STRFLGS_ESC_MSB;
-  if (X509_NAME_print_ex(bio, subject, 0, fmt) > 0) {
+  if (X509_NAME_print_ex(bio, name, 0, fmt) > 0) {
     BUF_MEM *mem = nullptr;
     BIO_get_mem_ptr(bio, &mem);
     if (mem && mem->data && mem->length > 0) {
@@ -270,6 +271,80 @@ std::string socket_helpers::format_subject_dn_rfc2253(void *x509) {
   }
   BIO_free(bio);
   return result;
+}
+
+// The commonName component of a DN, decoded to UTF-8, or empty when the DN
+// carries none. Certificates have identified the host through subjectAltName
+// since RFC 2818 was superseded, so a missing CN is ordinary, not an error.
+std::string format_name_common_name(const X509_NAME *name) {
+  if (!name) return {};
+  // X509_NAME_get_index_by_NID / _get_entry take a non-const X509_NAME even
+  // though they only read it; the const_cast is a header-signature concern.
+  X509_NAME *mutable_name = const_cast<X509_NAME *>(name);
+  const int index = X509_NAME_get_index_by_NID(mutable_name, NID_commonName, -1);
+  if (index < 0) return {};
+  const X509_NAME_ENTRY *entry = X509_NAME_get_entry(mutable_name, index);
+  if (!entry) return {};
+  ASN1_STRING *data = X509_NAME_ENTRY_get_data(const_cast<X509_NAME_ENTRY *>(entry));
+  if (!data) return {};
+  unsigned char *utf8 = nullptr;
+  const int length = ASN1_STRING_to_UTF8(&utf8, data);
+  if (length < 0 || utf8 == nullptr) return {};
+  std::string result(reinterpret_cast<const char *>(utf8), static_cast<std::size_t>(length));
+  OPENSSL_free(utf8);
+  // A NUL inside the CN is the classic "www.good.com\0www.evil.com" trick:
+  // a C-string consumer sees only the part before it. Nothing downstream here
+  // is a C string, but a truncated-looking value in a check's output would
+  // read as the attacker intends, so reject the whole component instead.
+  if (result.find('\0') != std::string::npos) return {};
+  return result;
+}
+
+// Render one subjectAltName entry the way `openssl x509 -text` prints it.
+// Only dNSName and iPAddress produce a value - the other GENERAL_NAME forms
+// (email, URI, directoryName, ...) are not what a reachability check asserts
+// on, and rendering them would put unvalidated shapes into the keyword.
+std::string format_general_name(const GENERAL_NAME *general_name) {
+  if (!general_name) return {};
+  if (general_name->type == GEN_DNS) {
+    const ASN1_IA5STRING *dns = general_name->d.dNSName;
+    if (!dns) return {};
+    const unsigned char *data = ASN1_STRING_get0_data(dns);
+    const int length = ASN1_STRING_length(dns);
+    if (!data || length <= 0) return {};
+    std::string value(reinterpret_cast<const char *>(data), static_cast<std::size_t>(length));
+    // Same embedded-NUL trick as above, and here it is the one that actually
+    // defeats name matching in naive clients. Drop the entry entirely.
+    if (value.find('\0') != std::string::npos) return {};
+    return "DNS:" + value;
+  }
+  if (general_name->type == GEN_IPADD) {
+    const ASN1_OCTET_STRING *ip = general_name->d.iPAddress;
+    if (!ip) return {};
+    const unsigned char *data = ASN1_STRING_get0_data(ip);
+    const int length = ASN1_STRING_length(ip);
+    if (!data) return {};
+    if (length == 4) {
+      std::ostringstream os;
+      os << "IP:" << static_cast<int>(data[0]) << "." << static_cast<int>(data[1]) << "." << static_cast<int>(data[2]) << "." << static_cast<int>(data[3]);
+      return os.str();
+    }
+    if (length == 16) {
+      boost::asio::ip::address_v6::bytes_type bytes;
+      std::memcpy(bytes.data(), data, bytes.size());
+      return "IP:" + boost::asio::ip::make_address_v6(bytes).to_string();
+    }
+    return {};
+  }
+  return {};
+}
+}  // namespace
+
+std::string socket_helpers::format_subject_dn_rfc2253(void *x509) {
+  if (!x509) return {};
+  // X509_get_subject_name returns an internal pointer owned by the cert - do
+  // NOT free it.
+  return format_name_rfc2253(X509_get_subject_name(static_cast<X509 *>(x509)));
 }
 
 std::string socket_helpers::extract_peer_subject_dn(void *ssl) {
@@ -1102,6 +1177,77 @@ boost::optional<long> socket_helpers::peer_certificate_expiry_days(SSL *ssl) {
   if (ok != 1) return boost::none;
   if (seconds < 0) days -= 1;
   return static_cast<long>(days);
+}
+
+boost::optional<socket_helpers::peer_certificate> socket_helpers::peer_certificate_details(SSL *ssl) {
+  if (ssl == nullptr) return boost::none;
+  // SSL_get_peer_certificate bumps the refcount; we own this pointer and must
+  // free it on every return path.
+  X509 *cert = SSL_get_peer_certificate(ssl);
+  if (cert == nullptr) return boost::none;
+
+  peer_certificate info;
+
+  // Same flooring as peer_certificate_expiry_days(): drop the sub-day
+  // remainder downwards so the value stays negative exactly while the
+  // certificate is expired. A failure to read notAfter leaves expiry_days at
+  // 0, which no threshold can mistake for "plenty of time".
+  int days = 0;
+  int seconds = 0;
+  if (ASN1_TIME_diff(&days, &seconds, nullptr, X509_get0_notAfter(cert)) == 1) {
+    if (seconds < 0) days -= 1;
+    info.expiry_days = static_cast<long>(days);
+  }
+
+  const X509_NAME *subject = X509_get_subject_name(cert);
+  const X509_NAME *issuer = X509_get_issuer_name(cert);
+  info.subject = format_name_rfc2253(subject);
+  info.issuer = format_name_rfc2253(issuer);
+  info.subject_cn = format_name_common_name(subject);
+  info.issuer_cn = format_name_common_name(issuer);
+  // Compare the DNs structurally rather than as the strings above: X509_NAME_cmp
+  // is the canonical comparison, and two DNs that render identically are not
+  // necessarily equal (nor the reverse).
+  info.self_signed = subject != nullptr && issuer != nullptr && X509_NAME_cmp(subject, issuer) == 0;
+
+  auto *names = static_cast<GENERAL_NAMES *>(X509_get_ext_d2i(cert, NID_subject_alt_name, nullptr, nullptr));
+  if (names != nullptr) {
+    const int count = sk_GENERAL_NAME_num(names);
+    for (int i = 0; i < count; i++) {
+      const std::string rendered = format_general_name(sk_GENERAL_NAME_value(names, i));
+      if (!rendered.empty()) info.sans.push_back(rendered);
+    }
+    GENERAL_NAMES_free(names);
+  }
+
+  X509_free(cert);
+  return info;
+}
+
+std::string socket_helpers::peer_verify_result(SSL *ssl) {
+  if (ssl == nullptr) return {};
+  const long result = SSL_get_verify_result(ssl);
+  const char *text = X509_verify_cert_error_string(result);
+  if (text == nullptr) return "verify error " + str::xtos(result);
+  return text;
+}
+
+void socket_helpers::load_verify_location(boost::asio::ssl::context &ctx, const std::string &ca) {
+  if (ca.empty() || ca == "none") return;
+  boost::system::error_code ec;
+  // A directory is the -CApath layout (hashed symlinks), which is what every
+  // distribution ships as /etc/ssl/certs; a file is a concatenated PEM bundle.
+  // is_directory()'s error_code overload cannot throw, and a path that does not
+  // exist falls through to load_verify_file() so the error names the file.
+  const bool directory = boost::filesystem::is_directory(ca, ec) && !ec;
+  try {
+    if (directory)
+      ctx.add_verify_path(ca);
+    else
+      ctx.load_verify_file(ca);
+  } catch (const std::exception &e) {
+    throw socket_exception("Failed to load CA " + ca + ": " + e.what());
+  }
 }
 
 #endif
