@@ -173,9 +173,13 @@ Adding a script:
 scripts/myscript.bat = https://www.myserver.com/myscript.bat
 ```
 
-The key is where the file is written and the value is where it is fetched from. Both sides take
-the [host name placeholders](#host-name-placeholders) below, and the key additionally takes the
-usual path tokens, so one configuration can give every agent in a fleet its own file:
+The key is where the file is written and the value is where it is fetched from. A relative key
+such as `scripts/myscript.bat` is resolved against `${shared-path}` (the installation folder on
+Windows, `/usr/lib/nsclient` on Linux - see [File layout](file-layout.md)), so the example above
+lands the script in the `scripts` folder however the agent was started. The folder is created if
+it does not exist yet. Both sides take the [host name placeholders](#host-name-placeholders)
+below, and the key additionally takes the usual path tokens, so one configuration can give every
+agent in a fleet its own file:
 
 ```ini
 [/attachments]

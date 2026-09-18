@@ -81,8 +81,24 @@ class settings_http : public settings::settings_interface_impl {
   // written to with the service's privileges, and the host name - which DHCP
   // can set on some systems - must not be able to smuggle a separator or a
   // ".." into it.
+  //
+  // A target that is still relative once the tokens are expanded - the
+  // documented `scripts/myscript.bat` form - is anchored on ${shared-path},
+  // the folder the configuration and everything else the agent writes are
+  // defined against. Without that anchor the path is relative to the
+  // process's working directory, which is the installation folder when an
+  // operator runs `nscp test` from it and nothing useful otherwise: the
+  // Windows service starts in System32, and the MSI's ImportConfig custom
+  // action wherever msiexec happens to be. Both then fail to create
+  // `scripts/foo.tmp` (no such folder there), and the installer treated the
+  // resulting error as a broken configuration and threw the CONFIGURATION_TYPE
+  // away (issue #1557). A root-relative or drive-relative spelling
+  // (`\foo`, `C:foo`) is not a plain relative path and is left alone.
   static std::string resolve_attachment_target(settings_core *core, const std::string &key) {
-    return core->expand_path(socket_helpers::expand_hostname_placeholders_in_path(key));
+    const std::string expanded = core->expand_path(socket_helpers::expand_hostname_placeholders_in_path(key));
+    const boost::filesystem::path path(expanded);
+    if (expanded.empty() || path.has_root_name() || path.has_root_directory()) return expanded;
+    return (boost::filesystem::path(core->expand_path("${shared-path}")) / path).string();
   }
 
   settings_http(settings::settings_core *core, std::string alias, std::string context) : settings::settings_interface_impl(core, alias, context) {
@@ -265,7 +281,33 @@ class settings_http : public settings::settings_interface_impl {
                                 "controls this agent's entire configuration, including external script definitions.");
     }
 
+    // The download is streamed straight into tmp_file, which sits beside its
+    // final name, so the target folder has to exist before the stream is
+    // opened - creating it after the download (as the rename below used to be
+    // the first to do) is too late. An attachment is what usually needs this:
+    // `scripts/` or a per-host folder that nothing else has created yet.
+    {
+      boost::system::error_code ec;
+      const boost::filesystem::path parent = tmp_file.parent_path();
+      if (!parent.empty() && !boost::filesystem::exists(parent, ec)) boost::filesystem::create_directories(parent, ec);
+      if (ec) {
+        get_logger()->error("settings", __FILE__, __LINE__,
+                            "Failed to create the folder for " + local_file.string() + " (fetched from " + url.to_log_safe_string() + "): " + ec.message());
+        return false;
+      }
+    }
+
     std::ofstream os(tmp_file.string().c_str(), std::ofstream::binary);
+    if (!os.is_open()) {
+      // Do not fetch what cannot be written: an unopened ofstream swallows
+      // the download silently, and the failure then surfaced later as the
+      // (misleading) "cached settings not found" below - with the server log
+      // showing the file was served just fine.
+      get_logger()->error("settings", __FILE__, __LINE__,
+                          "Failed to open " + tmp_file.string() + " for writing (fetching " + url.to_log_safe_string() + " as " + local_file.string() +
+                              "): check that the folder exists and that the service account can write to it");
+      return false;
+    }
 
     try {
       std::string error;
@@ -344,7 +386,9 @@ class settings_http : public settings::settings_interface_impl {
       os.close();
 
       if (!boost::filesystem::is_regular_file(tmp_file)) {
-        get_logger()->error("settings", __FILE__, __LINE__, "Failed to find cached settings: " + tmp_file.string());
+        get_logger()->error("settings", __FILE__, __LINE__,
+                            "Downloaded " + url.to_log_safe_string() + " but the file was not written to " + tmp_file.string() +
+                                ": check that the service account can write to that folder");
         return false;
       }
 
@@ -426,9 +470,8 @@ class settings_http : public settings::settings_interface_impl {
         // local_file alone. The guard removes the now-redundant tmp_file
         // (issue #370).
       } else {
-        if (!boost::filesystem::exists(local_file.parent_path())) {
-          boost::filesystem::create_directories(local_file.parent_path());
-        }
+        // The folder exists by now: it was created before the download, since
+        // tmp_file lives in it too.
         boost::filesystem::rename(tmp_file, local_file);
         guard.active = false;  // tmp_file has been moved into place
       }

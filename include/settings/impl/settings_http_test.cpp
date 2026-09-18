@@ -534,12 +534,82 @@ TEST(settings_http, attachment_target_expands_the_full_host_name) {
             "/etc/nsclient/" + boost::asio::ip::host_name() + ".ini");
 }
 
-TEST(settings_http, attachment_target_without_a_placeholder_is_unchanged) {
-  // Attachments have always been declared as plain paths; those must resolve
-  // exactly as before.
+TEST(settings_http, attachment_target_with_an_absolute_path_is_unchanged) {
+  // An attachment declared with a full path, spelled out or through a token,
+  // is written exactly where it says.
   attachment_core core;
-  EXPECT_EQ(settings::settings_http::resolve_attachment_target(&core, "scripts/myscript.bat"), "scripts/myscript.bat");
   EXPECT_EQ(settings::settings_http::resolve_attachment_target(&core, "${shared-path}/scripts/myscript.bat"), "/etc/nsclient/scripts/myscript.bat");
+  EXPECT_EQ(settings::settings_http::resolve_attachment_target(&core, "/opt/checks/myscript.sh"), "/opt/checks/myscript.sh");
+}
+
+// --- issue #1557: relative attachment targets --------------------------------
+
+TEST(settings_http, attachment_target_with_a_relative_path_is_anchored_on_the_shared_path) {
+  // The documented form, `scripts/myscript.bat`, used to be relative to the
+  // working directory: fine from an `nscp test` started in the installation
+  // folder, and nowhere else. The Windows service starts in System32 and the
+  // MSI's ImportConfig custom action wherever msiexec runs, so both failed to
+  // open `scripts/myscript.bat.tmp` and the installer then discarded the
+  // configuration it had been asked to import.
+  attachment_core core;
+  EXPECT_EQ(settings::settings_http::resolve_attachment_target(&core, "scripts/myscript.bat"), "/etc/nsclient/scripts/myscript.bat");
+  EXPECT_EQ(settings::settings_http::resolve_attachment_target(&core, "myscript.bat"), "/etc/nsclient/myscript.bat");
+}
+
+TEST(settings_http, attachment_target_is_anchored_after_the_placeholders_are_expanded) {
+  // ${host}.ini is a relative path once the host name is in - it is the
+  // expanded path that decides, not the spelling in the configuration.
+  attachment_core core;
+  const std::string host = str::utils::getToken(boost::asio::ip::host_name(), '.').first;
+  EXPECT_EQ(settings::settings_http::resolve_attachment_target(&core, "${host}.ini"), "/etc/nsclient/" + host + ".ini");
+}
+
+TEST(settings_http, attachment_is_written_into_a_folder_that_does_not_exist_yet) {
+  // The download is streamed into <target>.tmp beside its final name, so the
+  // folder has to exist before the stream is opened. It used to be created
+  // only after the download, by which time the unopened stream had silently
+  // dropped every byte - the settings server's log showed the file served,
+  // and the agent reported "Failed to find cached settings".
+  loopback_http settings_server("HTTP/1.0 200 OK\r\nContent-Length: 0\r\n\r\n");
+  loopback_http attachment_server("HTTP/1.0 200 OK\r\nContent-Length: 5\r\n\r\nhello");
+  temp_dir cache;
+  recording_http_core core(cache.path(), true);
+  settings::settings_http s(&core, "test", http_url(settings_server.port()));
+
+  const boost::filesystem::path target = cache.path() / "scripts" / "check_lsi_raid.pl";
+  ASSERT_FALSE(boost::filesystem::exists(target.parent_path()));
+  s.cache_remote_file(net::parse(http_url(attachment_server.port(), "/check_lsi_raid.pl")), target.string());
+
+  ASSERT_TRUE(boost::filesystem::is_regular_file(target));
+  EXPECT_EQ(file_helpers::read_file_as_string(target), "hello");
+  EXPECT_FALSE(boost::filesystem::exists(target.string() + ".tmp"));
+  EXPECT_FALSE(recording_logger::any_contains(core.recorded().errors(), target.string()));
+  EXPECT_FALSE(recording_logger::any_contains(core.recorded().errors(), "Downloaded"));
+}
+
+TEST(settings_http, an_attachment_that_cannot_be_written_is_reported_and_never_fetched) {
+  // A regular file sits where the target's folder should be, so no amount of
+  // create_directories helps. The failure has to name the attachment (not
+  // the settings cache, which is what the old message blamed) and the fetch
+  // must not happen at all - there is nowhere to put it.
+  loopback_http settings_server("HTTP/1.0 200 OK\r\nContent-Length: 0\r\n\r\n");
+  loopback_listener attachment_server;
+  temp_dir cache;
+  recording_http_core core(cache.path(), true);
+  settings::settings_http s(&core, "test", http_url(settings_server.port()));
+
+  const boost::filesystem::path blocker = cache.path() / "scripts";
+  {
+    std::ofstream os(blocker.string().c_str());
+    os << "not a folder";
+  }
+  const boost::filesystem::path target = blocker / "check.pl";
+  EXPECT_FALSE(s.cache_remote_file(net::parse(http_url(attachment_server.port(), "/check.pl")), target.string()));
+
+  EXPECT_FALSE(attachment_server.served());
+  EXPECT_FALSE(boost::filesystem::exists(target));
+  EXPECT_TRUE(recording_logger::any_contains(core.recorded().errors(), target.string()));
+  EXPECT_FALSE(recording_logger::any_contains(core.recorded().errors(), "cached settings"));
 }
 
 TEST(settings_http, attachment_target_and_source_agree_on_the_host) {
