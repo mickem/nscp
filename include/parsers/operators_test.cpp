@@ -9,6 +9,7 @@
 #include <parsers/where/helpers.hpp>
 #include <parsers/where/list_node.hpp>
 #include <parsers/where/node.hpp>
+#include <parsers/where/regex_guard.hpp>
 #include <parsers/where/value_node.hpp>
 #include <string>
 
@@ -785,6 +786,116 @@ TEST(OperatorRegexp, FloatPatternNoMatch) {
   auto ctx = make_context();
   auto result = eval_bin_op(op_regexp, make_float(3.14), make_string("9.*"), ctx);
   EXPECT_FALSE(result.is_true());
+}
+
+// ======================================================================
+// operator_regexp — resource limits
+// ======================================================================
+//
+// Both halves of a `=~` are untrusted: the pattern comes from a filter,
+// warning or critical argument, and the subject is whatever the check is
+// looking at, which a local unprivileged user can usually plant. See
+// parsers/where/regex_guard.hpp.
+
+// Restores whatever budget the rest of the suite runs with, so a test that
+// spends it cannot leak into the next one.
+class RegexBudget : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    saved_ = parsers::where::get_regex_budget_ms();
+    parsers::where::reset_regex_budget();
+  }
+  void TearDown() override {
+    parsers::where::set_regex_budget_ms(saved_);
+    parsers::where::reset_regex_budget();
+  }
+  unsigned long saved_ = 0;
+};
+
+TEST_F(RegexBudget, CatastrophicBacktrackingIsReportedAsCostNotSyntax) {
+  auto ctx = make_context();
+  // Boost.Regex gives up on this at its state-count ceiling and throws a
+  // std::runtime_error, which used to be reported as "Invalid syntax in
+  // regular expression" - sending the operator to hunt for a typo in a pattern
+  // that is perfectly well formed.
+  const std::string subject(10000, 'a');
+  const auto result = eval_bin_op(op_regexp, make_string(subject + "!"), make_string("(a+)+$"), ctx);
+  EXPECT_FALSE(result.is_true());
+  ASSERT_TRUE(ctx->has_error());
+  EXPECT_NE(ctx->get_error().find("too expensive"), std::string::npos) << ctx->get_error();
+}
+
+TEST_F(RegexBudget, AnExhaustedBudgetRefusesFurtherMatches) {
+  auto ctx = make_context();
+  // A filter is evaluated once per record, so the per-match ceiling is not the
+  // interesting bound - the per-check total is. Spend it, then check that the
+  // next record is refused rather than costing another second.
+  parsers::where::set_regex_budget_ms(1);
+  const std::string subject(10000, 'a');
+  eval_bin_op(op_regexp, make_string(subject + "!"), make_string("(a+)+$"), ctx);
+  ASSERT_TRUE(parsers::where::regex_budget_exhausted()) << "the first match should have spent a 1ms budget";
+
+  auto ctx2 = make_context();
+  const auto result = eval_bin_op(op_regexp, make_string("hello"), make_string("hello"), ctx2);
+  EXPECT_FALSE(result.is_true()) << "refused, so unsure-false rather than a verdict";
+  ASSERT_TRUE(ctx2->has_error());
+  EXPECT_NE(ctx2->get_error().find("gave up"), std::string::npos) << ctx2->get_error();
+}
+
+TEST_F(RegexBudget, ResetOpensAFreshBudget) {
+  auto ctx = make_context();
+  parsers::where::set_regex_budget_ms(1);
+  const std::string subject(10000, 'a');
+  eval_bin_op(op_regexp, make_string(subject + "!"), make_string("(a+)+$"), ctx);
+  ASSERT_TRUE(parsers::where::regex_budget_exhausted());
+
+  // What modern_filter::start_match() does for every check: one pathological
+  // filter costs its own check and no other.
+  parsers::where::set_regex_budget_ms(30000);
+  parsers::where::reset_regex_budget();
+  EXPECT_FALSE(parsers::where::regex_budget_exhausted());
+  auto ctx2 = make_context();
+  const auto result = eval_bin_op(op_regexp, make_string("hello"), make_string("hello"), ctx2);
+  EXPECT_TRUE(result.is_true());
+  EXPECT_FALSE(ctx2->has_error());
+}
+
+TEST_F(RegexBudget, AnOversizedSubjectIsRefusedNotTruncated) {
+  auto ctx = make_context();
+  // Truncating would silently turn a non-match into a match, or the other way
+  // round, with nothing to show for it.
+  const std::string subject(parsers::where::max_regex_subject_bytes() + 1, 'x');
+  const auto result = eval_bin_op(op_regexp, make_string(subject), make_string("x*"), ctx);
+  EXPECT_FALSE(result.is_true());
+  ASSERT_TRUE(ctx->has_error());
+  EXPECT_NE(ctx->get_error().find("Refusing to match"), std::string::npos) << ctx->get_error();
+}
+
+TEST_F(RegexBudget, AnInvalidPatternIsStillReportedAsSyntax) {
+  // The complexity path must not swallow the ordinary "your filter did not
+  // compile" case.
+  auto ctx = make_context();
+  auto bin_op = op_factory::get_binary_operator(op_regexp, make_string("test"), make_string("[invalid"));
+  bin_op->evaluate(ctx, make_string("test"), make_string("[invalid"));
+  ASSERT_TRUE(ctx->has_error());
+  EXPECT_NE(ctx->get_error().find("Invalid syntax"), std::string::npos) << ctx->get_error();
+}
+
+TEST_F(RegexBudget, TheCompiledPatternCacheDoesNotChangeVerdicts) {
+  // Patterns are cached per thread, and the cache is small enough to evict.
+  // Cycling through more patterns than it holds, twice, must give the same
+  // answers both times.
+  for (int pass = 0; pass < 2; ++pass) {
+    for (int i = 0; i < 40; ++i) {
+      auto ctx = make_context();
+      const std::string pattern = "value" + std::to_string(i) + ".*";
+      const auto hit = eval_bin_op(op_regexp, make_string("value" + std::to_string(i) + "-x"), make_string(pattern), ctx);
+      EXPECT_TRUE(hit.is_true()) << "pass " << pass << " i " << i;
+      const auto miss = eval_bin_op(op_regexp, make_string("other"), make_string(pattern), ctx);
+      EXPECT_FALSE(miss.is_true()) << "pass " << pass << " i " << i;
+      EXPECT_FALSE(ctx->has_error());
+    }
+  }
 }
 
 // ======================================================================

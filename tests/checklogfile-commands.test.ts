@@ -19,6 +19,7 @@ import * as path from "path";
 import {
   NscpInstance,
   OK,
+  UNKNOWN,
   WARNING,
   executeQuery,
   messageOf,
@@ -415,5 +416,66 @@ describe("CheckLogFile check_logfile", () => {
     const missing = path.join(scratch, "does-not-exist.log");
     const res = await check(missing, { bookmark: "it-missing" });
     expect(messageOf(res)).toMatch(/Failed to open file/i);
+  });
+
+  // --- max-size ------------------------------------------------------------
+  //
+  // The file is matched in memory. Without a ceiling one call with the default
+  // max-lines=0 and no bookmark read the whole target - which the caller names
+  // - and did file-sized matching work on it, so a remote caller could inflate
+  // the agent to the size of any file it could reach.
+
+  it("refuses a file larger than max-size when there is no bookmark", async () => {
+    const file = newLog("ERROR one\n".repeat(200)); // 2000 bytes
+    const res = await check(file, { "max-size": "500" });
+    expect(res.result).toBe(UNKNOWN);
+    expect(messageOf(res)).toMatch(/larger than max-size/i);
+    // The message has to name the ways out, or the operator is stuck.
+    expect(messageOf(res)).toMatch(/bookmark/i);
+    expect(messageOf(res)).toMatch(/max-lines/i);
+  });
+
+  it("reads a file under max-size normally", async () => {
+    const file = newLog("ERROR one\nINFO two\nERROR three\n");
+    const res = await check(file, { "max-size": "64m" });
+    expect(res.result).toBe(WARNING);
+    expect(messageOf(res)).toMatch(/2\/3/);
+  });
+
+  it("accepts a size suffix", async () => {
+    const file = newLog("ERROR one\n".repeat(200));
+    // 1k is under the file size, 1m is over it: the suffix has to be read.
+    expect(messageOf(await check(file, { "max-size": "1k" }))).toMatch(/larger than max-size/i);
+    expect(messageOf(await check(file, { "max-size": "1m" }))).toMatch(/200\/200/);
+  });
+
+  it("rejects a max-size that is not a size", async () => {
+    const file = newLog("ERROR one\n");
+    expect(messageOf(await check(file, { "max-size": "lots" }))).toMatch(/Invalid max-size/i);
+  });
+
+  it("paces a bookmarked read instead of refusing it, losing nothing", async () => {
+    // With a bookmark there IS a position to resume from, so a backlog larger
+    // than the ceiling is worked through over several checks rather than
+    // reported as an error. Each line must still be reported exactly once.
+    const file = newLog("ERROR one\nERROR two\nERROR three\nERROR four\n");
+    const bookmark = "it-max-size-paced";
+
+    // "ERROR one\n" is 10 bytes, so a 12-byte ceiling takes one line per run.
+    const first = await check(file, { bookmark, "max-size": "12" });
+    expect(messageOf(first)).toMatch(/1\/1/);
+
+    const second = await check(file, { bookmark, "max-size": "12" });
+    expect(messageOf(second)).toMatch(/1\/1/);
+
+    // Raise the ceiling and the rest arrives in one go - and nothing that was
+    // already reported comes back.
+    const rest = await check(file, { bookmark, "max-size": "1m" });
+    expect(messageOf(rest)).toMatch(/2\/2/);
+
+    // Nothing left.
+    const done = await check(file, { bookmark, "max-size": "1m" });
+    expect(done.result).toBe(OK);
+    expect(messageOf(done)).toMatch(/Nothing found/i);
   });
 });

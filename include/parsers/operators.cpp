@@ -9,9 +9,14 @@
 #include <parsers/helpers.hpp>
 #include <parsers/operators.hpp>
 #include <parsers/where/helpers.hpp>
+#include <parsers/where/regex_guard.hpp>
 #include <parsers/where/value_node.hpp>
 #include <str/format.hpp>
 #include <str/xtos.hpp>
+
+#include <chrono>
+#include <list>
+#include <utility>
 
 #ifdef _WIN32
 #pragma warning(disable : 4100)
@@ -19,6 +24,56 @@
 
 namespace parsers {
 namespace where {
+
+namespace {
+// Per-thread regex budget. See regex_guard.hpp for why it exists.
+const unsigned long default_regex_budget_ms = 30000;
+const std::size_t regex_subject_cap = 1024u * 1024u;
+// Compiled patterns, most recently used first. A filter is evaluated once per
+// record, and the pattern is the same every time, so compiling it per record
+// was pure waste on top of the matching itself. Small because a single filter
+// expression holds a handful of patterns at most.
+const std::size_t regex_cache_entries = 16;
+
+thread_local unsigned long regex_budget_ms = default_regex_budget_ms;
+thread_local unsigned long regex_spent_ms = 0;
+thread_local std::list<std::pair<std::string, boost::regex> > *regex_cache = nullptr;
+
+// Owns the thread-local cache for the life of the thread. A raw thread_local
+// object of a type with a non-trivial destructor is awkward across the DLL
+// boundary this file is compiled into, so the list is heap-allocated and
+// released by this holder.
+struct regex_cache_holder {
+  ~regex_cache_holder() {
+    delete regex_cache;
+    regex_cache = nullptr;
+  }
+};
+thread_local regex_cache_holder regex_cache_owner;
+
+const boost::regex &compiled_regex(const std::string &pattern) {
+  if (regex_cache == nullptr) regex_cache = new std::list<std::pair<std::string, boost::regex> >();
+  for (auto it = regex_cache->begin(); it != regex_cache->end(); ++it) {
+    if (it->first == pattern) {
+      regex_cache->splice(regex_cache->begin(), *regex_cache, it);
+      return regex_cache->front().second;
+    }
+  }
+  // Throws boost::bad_expression for an invalid pattern, which the caller
+  // reports; nothing is cached in that case, so a bad pattern cannot evict a
+  // good one.
+  regex_cache->emplace_front(pattern, boost::regex(pattern));
+  if (regex_cache->size() > regex_cache_entries) regex_cache->pop_back();
+  return regex_cache->front().second;
+}
+}  // namespace
+
+void reset_regex_budget() { regex_spent_ms = 0; }
+void set_regex_budget_ms(const unsigned long budget_ms) { regex_budget_ms = budget_ms; }
+unsigned long get_regex_budget_ms() { return regex_budget_ms; }
+bool regex_budget_exhausted() { return regex_spent_ms >= regex_budget_ms; }
+std::size_t max_regex_subject_bytes() { return regex_subject_cap; }
+
 namespace operator_impl {
 
 struct simple_bool_binary_operator_impl : binary_operator_impl {
@@ -353,18 +408,63 @@ struct operator_regexp : pattern_binary_operator_impl {
       return value_container::create_int(false, /*is_unsure=*/true);
     }
     const std::string regexp = pattern.get_string();
+    // Refuse before matching, not after: the point is not to spend the time.
+    // An exhausted budget is reported once per remaining record, which is
+    // noisy but honest - every one of them is a record whose filter did not
+    // get a verdict, and the check ends UNKNOWN rather than quietly clean.
+    if (regex_budget_exhausted()) {
+      context->error("Regular expression matching gave up after " + str::xtos(get_regex_budget_ms()) +
+                     "ms on this check: the expression '" + regexp +
+                     "' backtracks too much for the data it is matching. Anchor it, replace a nested quantifier such as (a+)+ with a single one, or narrow "
+                     "the filter so fewer records reach it.");
+      return value_container::create_int(false, /*is_unsure=*/true);
+    }
+    if (subject.size() > max_regex_subject_bytes()) {
+      context->error("Refusing to match a regular expression against " + str::xtos(subject.size()) + " bytes (limit " +
+                     str::xtos(max_regex_subject_bytes()) +
+                     "): backtracking cost grows with the subject. Truncating it would silently change the verdict, so the record is reported instead.");
+      return value_container::create_int(false, /*is_unsure=*/true);
+    }
+    const std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
+    const auto charge = [started]() {
+      regex_spent_ms += static_cast<unsigned long>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started).count());
+    };
     try {
-      const boost::regex re(regexp);
+      const boost::regex &re = compiled_regex(regexp);
       const bool matched = boost::regex_match(subject, re);
+      charge();
       return value_container::create_int(negate ? !matched : matched, is_unsure);
-    } catch (const boost::bad_expression &e) {
-      // Invalid regex is a config error from the user, not a missing-object
-      // condition, but the user-visible expectation is the same: surface
-      // UNKNOWN rather than silently OK so the user knows their filter
-      // string didn't compile. Return unsure-false for match_post to escalate.
-      context->error("Invalid syntax in regular expression:" + regexp + " error: " + e.what());
+    } catch (const boost::regex_error &e) {
+      charge();
+      // Boost raises the same exception type for "this pattern does not
+      // compile" and for "this match ran past the state-count ceiling", and
+      // only the code tells them apart. Reporting the second as invalid syntax
+      // - which is what happened before - sends the operator hunting for a typo
+      // in a pattern that is perfectly well formed, when what they actually
+      // have is catastrophic backtracking. Charge the time either way: an
+      // expression that does this once does it on every record, and the budget
+      // is what stops the check spending the afternoon on it.
+      if (e.code() == boost::regex_constants::error_complexity || e.code() == boost::regex_constants::error_stack) {
+        context->error("Regular expression '" + regexp +
+                       "' is too expensive to match against this data (it backtracks exponentially): anchor it, or replace a nested quantifier such as "
+                       "(a+)+ with a single one. " +
+                       e.what());
+      } else {
+        // Invalid regex is a config error from the user, not a missing-object
+        // condition, but the user-visible expectation is the same: surface
+        // UNKNOWN rather than silently OK so the user knows their filter
+        // string didn't compile. Return unsure-false for match_post to escalate.
+        context->error("Invalid syntax in regular expression:" + regexp + " error: " + e.what());
+      }
+      return value_container::create_int(false, /*is_unsure=*/true);
+    } catch (const std::runtime_error &e) {
+      // Any other runtime failure from the matcher. Still not a syntax error,
+      // so do not call it one.
+      charge();
+      context->error("Regular expression '" + regexp + "' could not be matched against this data: " + e.what());
       return value_container::create_int(false, /*is_unsure=*/true);
     } catch (...) {
+      charge();
       context->error("Invalid syntax in regular expression:" + regexp);
       return value_container::create_int(false, /*is_unsure=*/true);
     }
