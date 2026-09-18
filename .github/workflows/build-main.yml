@@ -62,6 +62,20 @@ jobs:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  # Cross-compiled on the x64 runner: the unit tests and the Windows
+  # integration suite are skipped inside build-windows.yml because the host
+  # cannot execute ARM64 binaries. Release builds only - a PR does not need a
+  # fourth Windows build to tell it whether the change compiles.
+  build-server-arm64:
+    needs: [get-version, create-test-bundle]
+    uses: ./.github/workflows/build-windows.yml
+    with:
+      architecture: arm64
+      version: ${{ needs.get-version.outputs.version }}
+    secrets:
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
   build-x86-static:
     needs: get-version
     uses: ./.github/workflows/build-windows-legacy.yml
@@ -91,7 +105,7 @@ jobs:
       version: ${{ needs.get-version.outputs.version }}
 
   release:
-    needs: [get-version, build-server-x64, build-server-x86, build-x86-static, build-debian, build-redhat, build-web]
+    needs: [get-version, build-server-x64, build-server-x86, build-server-arm64, build-x86-static, build-debian, build-redhat, build-web]
     uses: ./.github/workflows/release.yml
     with:
       version: ${{ needs.get-version.outputs.version }}

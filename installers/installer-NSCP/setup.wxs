@@ -3,6 +3,10 @@
 	<?define ProgramFiles = "ProgramFiles64Folder" ?>
 	<?define Win64 = "yes" ?>
 	<?define Platform = "x64" ?>
+	<?elseif "$(var.arch)" = "arm64"?>
+	<?define ProgramFiles = "ProgramFiles64Folder" ?>
+	<?define Win64 = "yes" ?>
+	<?define Platform = "arm64" ?>
 	<?else?>
 	<?define ProgramFiles = "ProgramFilesFolder" ?>
 	<?define Win64 = "no" ?>

@@ -41,10 +41,13 @@ runs:
 
     - id: setup
       run: |
-        if ("${{ inputs.architecture }}" -eq "x64") {
-          echo "cmd=VC-WIN64A" >> $env:GITHUB_OUTPUT
-        } else {
-          echo "cmd=VC-WIN32" >> $env:GITHUB_OUTPUT
+        # The target triplet has to be named explicitly: Configure otherwise
+        # guesses from the host, and a cross build for ARM64 would silently
+        # produce x86 libraries that fail to link into the ARM64 daemon.
+        switch ("${{ inputs.architecture }}") {
+          "x64"   { echo "cmd=VC-WIN64A" >> $env:GITHUB_OUTPUT }
+          "arm64" { echo "cmd=VC-WIN64-ARM" >> $env:GITHUB_OUTPUT }
+          default { echo "cmd=VC-WIN32" >> $env:GITHUB_OUTPUT }
         }
         if ("${{ inputs.runtime }}" -eq "dynamic") {
           echo "runtime_flags=" >> $env:GITHUB_OUTPUT

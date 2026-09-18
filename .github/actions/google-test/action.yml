@@ -39,10 +39,10 @@ runs:
         "$GITHUB_WORKSPACE/.github/scripts/verify-commit.sh" googletest "${{ inputs.version }}" googletest
     - id: setup
       run: |
-        if ("${{ inputs.architecture }}" -eq "x64") {
-          echo "platform=x64" >> $env:GITHUB_OUTPUT
-        } else {
-          echo "platform=Win32" >> $env:GITHUB_OUTPUT
+        switch ("${{ inputs.architecture }}") {
+          "x86"   { echo "platform=Win32" >> $env:GITHUB_OUTPUT }
+          "arm64" { echo "platform=ARM64" >> $env:GITHUB_OUTPUT }
+          default { echo "platform=x64"   >> $env:GITHUB_OUTPUT }
         }
         if ("${{ inputs.runtime }}" -eq "dynamic") {
           echo "shared_libs=TRUE" >> $env:GITHUB_OUTPUT

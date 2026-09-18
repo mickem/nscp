@@ -22,8 +22,14 @@ find_path(
         /usr/include
 )
 
+# Crypto++ stages its libraries under $(Platform)/Output/$(Configuration), so
+# the directory is named after the Visual Studio platform verbatim: Win32, x64
+# or ARM64. CMAKE_VS_PLATFORM_NAME is that name; CMAKE_CL_64 only says "64 bit"
+# and would send an ARM64 build looking for x64 libraries.
 set(CRYPTOPP_LIB_ROOT)
-if(CMAKE_CL_64)
+if(CMAKE_VS_PLATFORM_NAME)
+    set(CRYPTOPP_LIB_ROOT ${CRYPTOPP_INCLUDE_DIR}/${CMAKE_VS_PLATFORM_NAME})
+elseif(CMAKE_CL_64)
     set(CRYPTOPP_LIB_ROOT ${CRYPTOPP_INCLUDE_DIR}/x64)
 else()
     set(CRYPTOPP_LIB_ROOT ${CRYPTOPP_INCLUDE_DIR}/Win32)

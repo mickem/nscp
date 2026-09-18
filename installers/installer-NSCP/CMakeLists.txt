@@ -38,10 +38,26 @@ endif()
 
 set(LOCALIZATIONS en-us)
 
+# candle names the target architecture x86 / x64 / arm64, while
+# CMAKE_VS_PLATFORM_NAME spells it Win32 / x64 / ARM64. CMAKE_CL_64 alone only
+# distinguishes bitness and would label an ARM64 build as x64.
 set(ARCH x86)
-if(CMAKE_CL_64)
+if(CMAKE_VS_PLATFORM_NAME STREQUAL "ARM64")
+    set(ARCH arm64)
+elseif(CMAKE_CL_64)
     set(ARCH x64)
-endif(CMAKE_CL_64)
+endif()
+
+# PythonScript is skipped whenever the Python development libraries or
+# Boost.Python are missing - on a cross-compiled ARM64 build, both are. The MSI
+# references PythonScript.dll and the embedded runtime by name, so the same
+# condition has to reach the .wxs or light fails on the missing files.
+if("PythonScript" IN_LIST ALL_MODULE_NAMES)
+    set(HAS_PYTHON "true")
+else()
+    set(HAS_PYTHON "false")
+endif()
+message(STATUS "Installer: python components included: ${HAS_PYTHON}")
 
 #WIX_FIND_MERGE_MODULE(CRT_MERGE_MODULE "Microsoft_VC143_CRT")
 # Name of the Visual C++ CRT merge module to bundle in the MSI installer.
@@ -108,6 +124,7 @@ set(WIX_CANDLE_FLAGS
     # python bump stays a one-line change in build.cmake instead of a
     # hunt through .wxs files.
     -dBoostPythonVersion=${NSCP_BOOST_PYTHON_VERSION}
+    -dHasPython=${HAS_PYTHON}
     -dWixUILicenseRtf=${CMAKE_CURRENT_SOURCE_DIR}/License.rtf
 )
 # The OpenSSL DLLs, when OpenSSL is linked through import libraries rather

@@ -1,0 +1,165 @@
+---
+name: Build Boost
+description: >-
+  Download and build Boost with b2, including for ARM64.
+
+  This is a drop-in replacement for mickem/build-boost (same inputs, same two
+  outputs, same on-disk layout) for the one case that action cannot serve: it
+  shells out to cmake-common's `boost-build --platform ...`, whose Platform enum
+  is exactly x86/x64/auto, so `--platform arm64` aborts with "invalid platform"
+  before anything is compiled. That is what failed the ARM64 Windows build in
+  April 2026 and got it disabled in #1223.
+
+  The b2 invocation mirrors cmake-common's so the two produce interchangeable
+  trees - most importantly --layout=system (plain boost_system.lib rather than
+  the versioned name) and --stagedir=stage/<platform>/<configuration>, both of
+  which the rest of the pipeline and FindBoost rely on.
+inputs:
+  version:
+    description: Boost version to build, e.g. 1.86.0
+    required: true
+  libraries:
+    description: Space-separated list of libraries to build
+    required: true
+  platform:
+    description: Target platform (x86, x64 or arm64)
+    required: false
+    default: x64
+  configuration:
+    description: Configuration to build
+    required: false
+    default: Release
+  static:
+    description: Build static libraries
+    required: false
+    default: '0'
+  static-runtime:
+    description: Link against the static runtime
+    required: false
+    default: '0'
+  directory:
+    description: Destination directory (defaults to <workspace>/boost)
+    required: false
+    default: ''
+outputs:
+  root:
+    description: Root Boost directory
+    value: ${{ steps.build.outputs.root }}
+  librarydir:
+    description: Directory holding the built Boost libraries
+    value: ${{ steps.build.outputs.librarydir }}
+runs:
+  using: composite
+  steps:
+    - id: build
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+
+        $version = '${{ inputs.version }}'
+        $platform = '${{ inputs.platform }}'
+        $configuration = '${{ inputs.configuration }}'
+        $static = '${{ inputs.static }}' -eq '1'
+        $staticRuntime = '${{ inputs.static-runtime }}' -eq '1'
+        $libraries = '${{ inputs.libraries }}'.Split(
+            ' ', [System.StringSplitOptions]::RemoveEmptyEntries)
+        if (-not $libraries) {
+            throw 'No Boost libraries selected; building them all is never what we want here.'
+        }
+
+        $baseDir = '${{ runner.workspace }}'
+        $boostDir = '${{ inputs.directory }}'
+        if (-not $boostDir) { $boostDir = Join-Path $baseDir 'boost' }
+
+        $dirName = 'boost_' + $version.Replace('.', '_')
+        # The archive is kept next to the build trees so the second invocation
+        # of this action in a job (static Boost, then the regular one) reuses
+        # the download instead of fetching 130MB again.
+        $archive = Join-Path $baseDir "$dirName.tar.gz"
+
+        if (-not (Test-Path $archive)) {
+            # Same two sources, in the same order, as cmake-common uses.
+            $urls = @(
+                "https://archives.boost.io/release/$version/source/$dirName.tar.gz",
+                "https://sourceforge.net/projects/boost/files/boost/$version/$dirName.tar.gz/download"
+            )
+            foreach ($url in $urls) {
+                Write-Host "* Trying $url"
+                try {
+                    Invoke-WebRequest -Uri $url -OutFile $archive -UseBasicParsing
+                    break
+                } catch {
+                    Write-Host "! $url failed: $($_.Exception.Message)"
+                    if (Test-Path $archive) { Remove-Item $archive -Force }
+                }
+            }
+            if (-not (Test-Path $archive)) {
+                throw "Could not download Boost $version from any known source"
+            }
+        }
+
+        if (-not (Test-Path (Join-Path $boostDir 'bootstrap.bat'))) {
+            Write-Host "* Extracting $archive to $boostDir"
+            New-Item -ItemType Directory -Force -Path $boostDir | Out-Null
+            tar -xf $archive -C $boostDir --strip-components=1
+            if ($LASTEXITCODE -ne 0) { throw "Extracting $archive failed" }
+        }
+
+        $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+        $vsPath = & $vswhere -latest -products * -property installationPath
+        if (-not $vsPath) { throw 'vswhere found no Visual Studio installation' }
+        $vcvarsall = Join-Path $vsPath 'VC\Auxiliary\Build\vcvarsall.bat'
+        if (-not (Test-Path $vcvarsall)) { throw "No vcvarsall.bat at $vcvarsall" }
+        Write-Host "* Visual Studio: $vsPath"
+
+        Push-Location $boostDir
+        try {
+            # b2 itself has to run on the *host*, so it is bootstrapped under a
+            # plain x64 environment even when the target is ARM64. The job's
+            # ambient environment is the cross one (msvc-dev-cmd set it up for
+            # amd64_arm64), and building b2.exe with that compiler would produce
+            # an ARM64 binary the runner cannot execute.
+            if (-not (Test-Path '.\b2.exe')) {
+                cmd /c "call `"$vcvarsall`" x64 && bootstrap.bat"
+                if ($LASTEXITCODE -ne 0) { throw 'bootstrap.bat failed' }
+            }
+
+            $link = if ($static) { 'static' } else { 'shared' }
+            $runtimeLink = if ($staticRuntime) { 'static' } else { 'shared' }
+
+            $b2Args = @(
+                '--layout=system'
+                "--stagedir=stage/$platform/$configuration"
+                "variant=$($configuration.ToLower())"
+                "link=$link"
+                "runtime-link=$runtimeLink"
+                'toolset=msvc'
+            )
+            switch ($platform) {
+                'x86'   { $b2Args += 'address-model=32' }
+                'x64'   { $b2Args += 'address-model=64' }
+                'arm64' { $b2Args += @('architecture=arm', 'address-model=64') }
+                default { throw "Unsupported platform '$platform'" }
+            }
+            $b2Args += $libraries | ForEach-Object { "--with-$_" }
+
+            $commandLine = '.\b2.exe ' + ($b2Args -join ' ')
+            Write-Host "* $commandLine"
+            cmd /c "call `"$vcvarsall`" x64 && $commandLine"
+            if ($LASTEXITCODE -ne 0) { throw 'b2 failed' }
+        } finally {
+            Pop-Location
+        }
+
+        $libraryDir = "$boostDir\stage\$platform\$configuration\lib"
+        # b2 reports success even when it skipped every target it was asked
+        # for, so check that something actually landed rather than letting
+        # FindBoost report a confusing "not found" much later.
+        $built = @(Get-ChildItem -Path $libraryDir -Filter '*.lib' -ErrorAction SilentlyContinue)
+        if ($built.Count -eq 0) {
+            throw "b2 reported success but produced no libraries in $libraryDir"
+        }
+        Write-Host "* Built $($built.Count) libraries in $libraryDir"
+
+        echo "root=$boostDir" >> $env:GITHUB_OUTPUT
+        echo "librarydir=$libraryDir" >> $env:GITHUB_OUTPUT

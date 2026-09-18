@@ -88,6 +88,22 @@ jobs:
             exit 1
           }
         }
+        # Everything that follows from "the host cannot run what we are
+        # building", collected in one place:
+        #
+        #  - Boost.Python needs an ARM64 libpython, and there is none to build
+        #    against, so the component is dropped from the Boost build and the
+        #    daemon is configured without embedded Python. PythonScript and the
+        #    bundled runtime fall out of the MSI with it.
+        #  - protoc is a build tool, so CMake is handed the host-native one the
+        #    protobuf action builds alongside the ARM64 libraries.
+        if ("${{ inputs.architecture }}" -eq "arm64") {
+          echo "boost_libraries=system filesystem thread regex date_time program_options chrono json" >> $env:GITHUB_OUTPUT
+          echo "with_python=false" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "boost_libraries=system filesystem thread regex date_time program_options python chrono json" >> $env:GITHUB_OUTPUT
+          echo "with_python=true" >> $env:GITHUB_OUTPUT
+        }
       shell: pwsh
 
     - id: python
@@ -211,8 +227,14 @@ jobs:
         architecture: ${{ inputs.architecture }}
         toolset: ${{ steps.setup.outputs.toolset }}
 
+    # mickem/build-boost drives cmake-common, whose Platform enum is x86/x64
+    # only: `--platform arm64` aborts with "invalid platform" before compiling
+    # anything, which is what broke the ARM64 build in April 2026 (#1223). The
+    # in-repo action below builds the same tree with b2 directly. x86 and x64
+    # stay on the action that has been shipping releases for years.
     - name: Build Boost (static)
       id: static_boost
+      if: inputs.architecture != 'arm64'
       uses: mickem/build-boost@c11609010636c8b5b6e66c6848565252ad134323 # v1
       with:
         version: ${{ ENV.BOOST_VERSION }}
@@ -222,26 +244,53 @@ jobs:
         static: 1
         static-runtime: 1
         directory: ${{ runner.workspace }}/static_boost
-          
+
     - name: Build Boost (regular)
       id: boost
+      if: inputs.architecture != 'arm64'
       uses: mickem/build-boost@c11609010636c8b5b6e66c6848565252ad134323 # v1
       with:
         version: ${{ ENV.BOOST_VERSION }}
-        libraries: system filesystem thread regex date_time program_options python chrono json
+        libraries: ${{ steps.setup.outputs.boost_libraries }}
         platform: ${{ inputs.architecture }}
         configuration: Release
-  
+
+    - name: Build Boost (static, ARM64)
+      id: static_boost_arm64
+      if: inputs.architecture == 'arm64'
+      uses: ./.github/actions/boost
+      with:
+        version: ${{ ENV.BOOST_VERSION }}
+        libraries: system filesystem
+        platform: ${{ inputs.architecture }}
+        configuration: Release
+        static: '1'
+        static-runtime: '1'
+        directory: ${{ runner.workspace }}/static_boost
+
+    - name: Build Boost (regular, ARM64)
+      id: boost_arm64
+      if: inputs.architecture == 'arm64'
+      uses: ./.github/actions/boost
+      with:
+        version: ${{ ENV.BOOST_VERSION }}
+        libraries: ${{ steps.setup.outputs.boost_libraries }}
+        platform: ${{ inputs.architecture }}
+        configuration: Release
+
     - id: paths
       run: |
-        $path_unix="${{ steps.boost.outputs.root }}".replace('\','/')
-        echo "boost_root=$path_unix" >> $env:GITHUB_OUTPUT
-        $path_unix="${{ steps.boost.outputs.librarydir }}".replace('\','/')
-        echo "boost_librarydir=$path_unix" >> $env:GITHUB_OUTPUT
-        $path_unix="${{ steps.static_boost.outputs.root }}".replace('\','/')
-        echo "static_boost_root=$path_unix" >> $env:GITHUB_OUTPUT
-        $path_unix="${{ steps.static_boost.outputs.librarydir }}".replace('\','/')
-        echo "static_boost_librarydir=$path_unix" >> $env:GITHUB_OUTPUT
+        # Only one of each pair of Boost steps ran, so take whichever reported
+        # a path rather than repeating the architecture test here.
+        function Pick([string]$a, [string]$b, [string]$what) {
+          $value = if ($a) { $a } else { $b }
+          if (-not $value) { Write-Error "No Boost step produced a $what"; exit 1 }
+          return $value.replace('\','/')
+        }
+        echo "boost_root=$(Pick '${{ steps.boost.outputs.root }}' '${{ steps.boost_arm64.outputs.root }}' 'root')" >> $env:GITHUB_OUTPUT
+        echo "boost_librarydir=$(Pick '${{ steps.boost.outputs.librarydir }}' '${{ steps.boost_arm64.outputs.librarydir }}' 'library directory')" >> $env:GITHUB_OUTPUT
+        echo "static_boost_root=$(Pick '${{ steps.static_boost.outputs.root }}' '${{ steps.static_boost_arm64.outputs.root }}' 'static root')" >> $env:GITHUB_OUTPUT
+        echo "static_boost_librarydir=$(Pick '${{ steps.static_boost.outputs.librarydir }}' '${{ steps.static_boost_arm64.outputs.librarydir }}' 'static library directory')" >> $env:GITHUB_OUTPUT
         $path_unix="${{ env.Python_ROOT_DIR }}".replace('\','/')
         echo "python_path=$path_unix" >> $env:GITHUB_OUTPUT
       shell: pwsh
@@ -283,6 +332,7 @@ jobs:
         BUILD_CMAKE
 
     - name: Make python dist
+      if: steps.setup.outputs.with_python == 'true'
       working-directory: tmp/nscp
       run: |
         # --version must match the NSCP_BOOST_PYTHON_VERSION cmake variable
@@ -313,10 +363,21 @@ jobs:
       run: |
         msbuild installer_lib.sln /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
   
+    # -D NSCP_WITH_PYTHON / -D PROTOBUF_PROTOC_EXECUTABLE only differ from the
+    # defaults on ARM64; see the setup step for why.
+    - id: cmake_options
+      run: |
+        if ("${{ inputs.architecture }}" -eq "arm64") {
+          echo "extra=-D NSCP_WITH_PYTHON=OFF -D PROTOBUF_PROTOC_EXECUTABLE=${{ steps.protobuf.outputs.protoc_unix }}" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "extra=" >> $env:GITHUB_OUTPUT
+        }
+      shell: pwsh
+
     - name: CMake (NSCP)
       working-directory: tmp/nscp
       run: |
-        cmake ../.. -T ${{ steps.setup.outputs.toolset }} -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -D BUILD_VERSION=${{ inputs.version }} -D CRT_MERGE_MODULE_NAME=Microsoft_VC143_CRT
+        cmake ../.. -T ${{ steps.setup.outputs.toolset }} -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -D BUILD_VERSION=${{ inputs.version }} -D CRT_MERGE_MODULE_NAME=Microsoft_VC143_CRT ${{ steps.cmake_options.outputs.extra }}
 
     - name: Build nsclient
       working-directory: tmp/nscp
@@ -358,6 +419,7 @@ jobs:
     # under tmp/nscp to keep the artifact's root where it is) and the
     # integration job copies it into the extracted modules/dotnet folder.
     - name: Stage the C# sample plugin for the integration tests
+      if: inputs.architecture != 'arm64'
       shell: bash
       run: |
         mkdir -p tmp/nscp/dotnet-sample
@@ -370,7 +432,7 @@ jobs:
           tmp/nscp/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}-docs.zip
           tmp/nscp/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}.zip
           tmp/nscp/installers/installer-NSCP/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}.msi
-          tmp/nscp/NSCP-${{ inputs.version }}-${{ inputs.platform }}-symbols.zip
+          tmp/nscp/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}-symbols.zip
           tmp/nscp/dotnet-sample/
         if-no-files-found: error
 

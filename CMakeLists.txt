@@ -307,6 +307,16 @@ include(${BUILD_CMAKE_FOLDER}/GoogleProtoBuf.cmake)
 # functions.cmake so NSCP_CREATE_TEST can honour it.
 option(NSCP_BUILD_TESTS "Build the unit tests (requires Google Test)" ON)
 
+# Embedding CPython needs development libraries built for the *target*
+# architecture. A cross-compiled Windows ARM64 build has none: neither
+# setup-python nor python.org ships an ARM64 interpreter that runs on the x64
+# build host, and pointing the build at the host's x64 libpython links an x64
+# import library into an ARM64 DLL. Turning this off asks for the interpreter
+# alone - the build still needs it for code generation - and PythonScript, the
+# Boost.Python component and the bundled runtime drop out exactly as they do on
+# a host without libpython.
+option(NSCP_WITH_PYTHON "Embed CPython (builds the PythonScript module)" ON)
+
 include(${BUILD_CMAKE_FOLDER}/functions.cmake)
 
 # ##############################################################################

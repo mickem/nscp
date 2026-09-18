@@ -260,11 +260,16 @@ if(WIN32)
     endmacro(ADD_WIX_INSTALLER)
 
     macro(WIX_FIND_MERGE_MODULE _VAR _FILE)
-        if(CMAKE_CL_64)
+        # The redistributable merge modules are named per architecture
+        # (Microsoft_VC143_CRT_x64.msm, ..._arm64.msm). CMAKE_CL_64 only says
+        # "64 bit", so an ARM64 build would otherwise bundle the x64 CRT.
+        if(CMAKE_VS_PLATFORM_NAME STREQUAL "ARM64")
+            set(ARCH arm64)
+        elseif(CMAKE_CL_64)
             set(ARCH x64)
-        else(CMAKE_CL_64)
+        else()
             set(ARCH x86)
-        endif(CMAKE_CL_64)
+        endif()
         find_file(
             ${_VAR}
             NAMES
