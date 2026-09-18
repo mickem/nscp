@@ -5,6 +5,7 @@
 
 #include <boost/json.hpp>
 #include <boost/unordered_set.hpp>
+#include <net/net.hpp>
 #include <nscapi/protobuf/functions_query.hpp>
 #include <nscapi/protobuf/settings.hpp>
 
@@ -337,9 +338,33 @@ void settings_query_handler::parse_update(const PB::Settings::SettingsRequestMes
   }
   rp->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
 }
+namespace {
+// A Control LOAD/SAVE names the store to migrate from or to, and
+// create_instance() honours every protocol it knows - including http and
+// https. So a caller able to issue a settings Control (a settings.put grant
+// over REST, or a script plugin issuing a settings query) could make the agent
+// pull its entire configuration - [/modules], external script definitions, the
+// lot - from a host of their choosing, or push the local configuration,
+// credentials included, to one.
+//
+// Migration is an operation between the stores on this machine. A remote
+// settings source is a deliberate operator decision that belongs in boot.ini,
+// where notice 280 already requires it to be https.
+bool is_local_settings_context(const std::string &context) {
+  const net::url url = net::parse(context);
+  return url.protocol != "http" && url.protocol != "https";
+}
+}  // namespace
+
 void settings_query_handler::parse_control(const PB::Settings::SettingsRequestMessage::Request::Control &p,
                                            PB::Settings::SettingsResponseMessage::Response *rp) {
   rp->mutable_control();
+  if (!p.context().empty() && !is_local_settings_context(p.context())) {
+    rp->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_ERROR);
+    rp->mutable_result()->set_message(
+        "Refusing a remote settings context: migration works between the stores on this host. Configure a remote settings source in boot.ini instead.");
+    return;
+  }
   if (p.command() == PB::Settings::Command::LOAD) {
     if (!p.context().empty())
       settings_manager::get_core()->migrate_from("master", p.context());

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/thread/locks.hpp>
@@ -246,7 +247,37 @@ class settings_handler_impl : public settings_core {
     }
     return boost::none;
   }
+  // Whether a key's *name* says it holds a credential, whatever module owns
+  // it and whether or not that module is loaded here.
+  //
+  // The registered set only ever holds what the modules currently loaded
+  // declared through add_password. So a secret left in nsclient.ini for a
+  // module that is disabled or not installed on this host - an NRPE client
+  // target password, a WEB password on a host with WEBServer off, an NRDP
+  // token - was printed in the clear by GET /api/v2/settings to any
+  // settings.get role and by `nscp settings --list` without --load-all. The
+  // names are the same handful all through the tree, so match on them too.
+  //
+  // Deliberately erring towards masking: a key that only looks like a secret
+  // costs an operator one `--show` of that key, while missing one prints a
+  // credential to whoever asked.
+  static bool key_name_reads_as_secret(const std::string &path, const std::string &key) {
+    const std::string lower_key = boost::algorithm::to_lower_copy(key);
+    static const char *const needles[] = {"password", "passwd", "passphrase", "token", "secret", "apikey", "api key", "api-key", "credential"};
+    for (const char *needle : needles) {
+      if (lower_key.find(needle) != std::string::npos) return true;
+    }
+    // A bare `key` is a credential on a target object - it is the third
+    // spelling of the NRDP token - but everywhere else it names a file
+    // (`certificate key`, `dh key`), which is a path and not a secret.
+    if (lower_key == "key") {
+      return boost::algorithm::to_lower_copy(path).find("/targets") != std::string::npos;
+    }
+    return false;
+  }
+
   bool is_sensitive_key(const std::string path, const std::string key) override {
+    if (key_name_reads_as_secret(path, key)) return true;
     boost::shared_lock<boost::shared_mutex> readLock(registry_mutex_, boost::get_system_time() + boost::posix_time::milliseconds(5000));
     if (!readLock.owns_lock()) {
       throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex: " + path);

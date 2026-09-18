@@ -615,14 +615,50 @@ TEST_F(SettingsHandlerTest, DefaultPasswordIsSensitiveWithoutAnyModule) {
 }
 
 TEST_F(SettingsHandlerTest, SeededSensitiveKeyDoesNotBleedToNeighbours) {
-  // Seeding is still an exact (path, key) entry - no name-based matching.
+  // A registered entry is still an exact (path, key) pair: it says nothing
+  // about the keys beside it.
   EXPECT_FALSE(impl_->is_sensitive_key("/settings/default", "allowed hosts"));
-  EXPECT_FALSE(impl_->is_sensitive_key("/settings/NRPE/server", "password"));
+}
+
+// ---------------------------------------------------------------------------
+// The name-based fallback.
+//
+// The registered set only ever holds what the modules currently *loaded*
+// declared, so a secret left in nsclient.ini for a module that is disabled or
+// not installed on this host - an NRPE client target password, a WEB password
+// with WEBServer off, an NRDP token - was returned in clear by
+// GET /api/v2/settings and by `nscp settings --list` without --load-all.
+// ---------------------------------------------------------------------------
+
+TEST_F(SettingsHandlerTest, AKeyThatReadsAsASecretIsMaskedWithoutItsModule) {
+  // No module has registered any of these in this fixture.
+  EXPECT_TRUE(impl_->is_sensitive_key("/settings/NRPE/server", "password"));
+  EXPECT_TRUE(impl_->is_sensitive_key("/settings/NRDP/client/targets/default", "token"));
+  EXPECT_TRUE(impl_->is_sensitive_key("/settings/WEB/server", "admin password"));
+  EXPECT_TRUE(impl_->is_sensitive_key("/settings/something", "API KEY")) << "matched case-insensitively";
+  EXPECT_TRUE(impl_->is_sensitive_key("/settings/something", "client secret"));
+  EXPECT_TRUE(impl_->is_sensitive_key("/settings/something", "passphrase"));
+}
+
+TEST_F(SettingsHandlerTest, ABareKeyIsOnlyASecretOnATarget) {
+  // `key` is the NRDP token's third spelling and appears on target objects;
+  // everywhere else it names a file, which is a path and not a secret.
+  EXPECT_TRUE(impl_->is_sensitive_key("/settings/NRDP/client/targets/default", "key"));
+  EXPECT_FALSE(impl_->is_sensitive_key("/settings/NRPE/server", "key"));
+  EXPECT_FALSE(impl_->is_sensitive_key("/settings/NRPE/server", "certificate key"));
+  EXPECT_FALSE(impl_->is_sensitive_key("/settings/NRPE/server", "dh key"));
+}
+
+TEST_F(SettingsHandlerTest, OrdinarySettingsAreNotMasked) {
+  for (const char *key : {"allowed hosts", "port", "timeout", "verify mode", "allow arguments", "certificate"}) {
+    EXPECT_FALSE(impl_->is_sensitive_key("/settings/NRPE/server", key)) << key;
+  }
 }
 
 TEST_F(SettingsHandlerTest, SensitiveKeyIsExactPathPlusKey) {
   // The implementation combines path + "|||" + key, so a sensitive flag on
-  // "/a"."x" must NOT bleed into "/b"."x" or "/a"."y".
+  // "/a"."x" must NOT bleed into "/b"."x" or "/a"."y". (Names that read as a
+  // secret are matched separately; "x" and "y" do not.)
   impl_->add_sensitive_key(0xffff, "/a", "x");
   EXPECT_TRUE(impl_->is_sensitive_key("/a", "x"));
   EXPECT_FALSE(impl_->is_sensitive_key("/b", "x"));

@@ -1230,6 +1230,94 @@ TEST(SyncRenewHostile, TheServerCannotMoveUsToAnotherServer) {
   EXPECT_EQ(renewed.private_key_pem, "NEW-KEY") << "the key must come from our own CSR, never from the response";
 }
 
+// ---------------------------------------------------------------------------
+// The bundle signing key is the one thing in a renewal response the server is
+// not supposed to be able to choose: bundles are signed offline precisely so a
+// compromised server cannot forge one. A renewal arrives over the pinned mTLS
+// channel, so it is authenticated - by the server, which is the authority in
+// question. A rotation is therefore only accepted when the key being replaced
+// endorsed its replacement.
+// ---------------------------------------------------------------------------
+
+namespace {
+std::string renew_body(const std::string &signing_key, const std::string &signature = std::string()) {
+  json::object root;
+  root["cert_pem"] = "NEW-CERT";
+  root["ca_pem"] = "NEW-CA";
+  root["bundle_signing_pub_pem"] = signing_key;
+  root["mtls_server_cert_pem"] = "NEW-MTLS-CERT";
+  if (!signature.empty()) root["bundle_signing_pub_sig"] = signature;
+  return json::serialize(root);
+}
+}  // namespace
+
+TEST(SyncRenewSigningKey, AnUnchangedKeyNeedsNoEndorsement) {
+  onboarding::enrolled_identity current;
+  current.bundle_signing_pub_pem = "THE-KEY";
+  const onboarding::enrolled_identity renewed = onboarding::parse_renew_response(renew_body("THE-KEY"), onboarding::identity(), current);
+  EXPECT_EQ(renewed.bundle_signing_pub_pem, "THE-KEY");
+}
+
+TEST(SyncRenewSigningKey, AnUnsignedRotationIsRefused) {
+  onboarding::enrolled_identity current;
+  current.bundle_signing_pub_pem = "THE-KEY";
+  EXPECT_THROW(onboarding::parse_renew_response(renew_body("SOMEONE-ELSES-KEY"), onboarding::identity(), current), onboarding::onboarding_error);
+}
+
+TEST(SyncRenewSigningKey, ARotationSignedByTheOldKeyIsAccepted) {
+  const pkey_ptr old_key = generate_ed25519();
+  const pkey_ptr new_key = generate_ed25519();
+  const std::string new_pem = public_key_pem(new_key.get());
+  onboarding::enrolled_identity current;
+  current.bundle_signing_pub_pem = public_key_pem(old_key.get());
+
+  const onboarding::enrolled_identity renewed =
+      onboarding::parse_renew_response(renew_body(new_pem, sign_raw(old_key.get(), new_pem)), onboarding::identity(), current);
+
+  EXPECT_EQ(renewed.bundle_signing_pub_pem, new_pem);
+}
+
+TEST(SyncRenewSigningKey, ARotationSignedByTheNewKeyIsRefused) {
+  // Self-endorsement proves nothing: anyone able to generate a key can do it.
+  const pkey_ptr old_key = generate_ed25519();
+  const pkey_ptr new_key = generate_ed25519();
+  const std::string new_pem = public_key_pem(new_key.get());
+  onboarding::enrolled_identity current;
+  current.bundle_signing_pub_pem = public_key_pem(old_key.get());
+
+  EXPECT_THROW(onboarding::parse_renew_response(renew_body(new_pem, sign_raw(new_key.get(), new_pem)), onboarding::identity(), current),
+               onboarding::onboarding_error);
+}
+
+TEST(SyncRenewSigningKey, AnEndorsementOverSomethingElseIsRefused) {
+  // The signature has to cover the key being installed, not just verify.
+  const pkey_ptr old_key = generate_ed25519();
+  const pkey_ptr new_key = generate_ed25519();
+  const std::string new_pem = public_key_pem(new_key.get());
+  onboarding::enrolled_identity current;
+  current.bundle_signing_pub_pem = public_key_pem(old_key.get());
+
+  EXPECT_THROW(onboarding::parse_renew_response(renew_body(new_pem, sign_raw(old_key.get(), "something else")), onboarding::identity(), current),
+               onboarding::onboarding_error);
+}
+
+TEST(SyncRenewSigningKey, AFirstKeyNeedsNoEndorsement) {
+  // Nothing to endorse it with: a host with no key yet is mid-enrollment, and
+  // that path is authenticated by the bootstrap token instead.
+  onboarding::enrolled_identity current;
+  const onboarding::enrolled_identity renewed = onboarding::parse_renew_response(renew_body("FIRST-KEY"), onboarding::identity(), current);
+  EXPECT_EQ(renewed.bundle_signing_pub_pem, "FIRST-KEY");
+}
+
+TEST(SyncVerifyEd25519, VerifiesADetachedSignature) {
+  const pkey_ptr key = generate_ed25519();
+  std::string error;
+  EXPECT_TRUE(onboarding::verify_ed25519(public_key_pem(key.get()), "hello", sign_raw(key.get(), "hello"), error)) << error;
+  EXPECT_FALSE(onboarding::verify_ed25519(public_key_pem(key.get()), "hello!", sign_raw(key.get(), "hello"), error));
+  EXPECT_FALSE(onboarding::verify_ed25519(public_key_pem(key.get()), "hello", "not base64 !!!", error));
+  EXPECT_FALSE(onboarding::verify_ed25519("not a key", "hello", sign_raw(key.get(), "hello"), error));
+}
+
 // --- state report payload ---------------------------------------------------
 
 TEST(SyncReport, BuildStateReport) {
