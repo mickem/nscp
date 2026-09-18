@@ -99,7 +99,15 @@ bool DotnetPlugins::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
     // clang-format on
 
     settings.register_all();
+    // Rebuilt from the section on every load: an entry removed from the ini
+    // would otherwise still be loaded by the next reload.
+    configured_.clear();
     settings.notify();
+    // A reload: the instances loaded last time go before the section is
+    // loaded again. Left in place, every reload added a second copy of each
+    // plugin - registering its commands again, and answering queries from
+    // whichever copy came first in the list.
+    unload_plugins();
 
     if (configured_.empty()) {
       NSC_DEBUG_MSG_STD("No .NET plugins configured under " + settings_path_ + "/plugins");
@@ -248,7 +256,7 @@ bool DotnetPlugins::load_plugin(plugin_entry &entry, NSCAPI::moduleLoadMode mode
   return true;
 }
 
-bool DotnetPlugins::unloadModule() {
+void DotnetPlugins::unload_plugins() {
   std::vector<plugin_entry> plugins;
   {
     std::lock_guard<std::mutex> lock(plugins_mutex_);
@@ -263,6 +271,10 @@ bool DotnetPlugins::unloadModule() {
       }
     }
   }
+}
+
+bool DotnetPlugins::unloadModule() {
+  unload_plugins();
   configured_.clear();
   return true;
 }
