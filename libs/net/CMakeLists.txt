@@ -16,6 +16,13 @@ cmake_minimum_required(VERSION 3.10)
 # which need neither, and cost over a megabyte in the static (XP) build where
 # OpenSSL is linked in rather than loaded.
 
+# The public surface is annotated with NSCP_NET_EXPORT (net/dll_defines.hpp)
+# rather than exported wholesale with WINDOWS_EXPORT_ALL_SYMBOLS, for the reason
+# libs/client/CMakeLists.txt gives: export-all turns every symbol into a root the
+# linker may not discard, so /OPT:REF stops pruning. That matters more here than
+# anywhere else, because the unreachable code it pins down is a statically linked
+# OpenSSL.
+
 set(TARGET nscp_net)
 
 include_directories(${BOOST_INCLUDE_DIRS})
@@ -35,7 +42,7 @@ if(WIN32)
     )
 endif(WIN32)
 
-NSCP_MAKE_LIBRARY(${TARGET} "${SRCS}" EXPORT_ALL_SYMBOLS)
+NSCP_MAKE_LIBRARY(${TARGET} "${SRCS}")
 
 target_link_libraries(
     ${TARGET}

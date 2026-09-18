@@ -24,6 +24,9 @@ if(WIN32)
         -D_USING_V110_SDK71_
         -DSTRSAFE_NO_DEPRECATE
         -Dplugin_api_NOLIB
+        # socket_helpers.cpp is compiled in below rather than linked from
+        # nscp_net, so its declarations must not say dllimport.
+        -Dnscp_net_NOLIB
     )
 endif()
 set(Boost_USE_STATIC_LIBS ON)
