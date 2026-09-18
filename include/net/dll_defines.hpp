@@ -5,11 +5,10 @@
 
 // Export control for the nscp_net shared library.
 //
-// Its own macro name for the same reason client/dll_defines.hpp has one: the
-// NSCAPI_EXPORT that nscapi/, parsers/where/ and libs/mongoose-cpp/ share is
-// defined behind `#ifndef NSCAPI_EXPORT` in all three, so in a translation
-// unit including more than one of them the first one seen decides
-// dllexport-vs-dllimport for the rest.
+// Its own macro name for the same reason client/dll_defines.hpp has one: every
+// library here names its export macro after itself, so that no translation unit
+// including two of these headers can have one library's linkage decided by the
+// other's. See parsers/where/dll_defines.hpp for what that used to cost.
 //
 // nscp_net_EXPORTS is defined by CMake while building the library itself.
 // nscp_net_NOLIB is defined by a consumer that compiles socket_helpers.cpp /

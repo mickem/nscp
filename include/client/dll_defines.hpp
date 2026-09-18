@@ -5,13 +5,14 @@
 
 // Export control for the nscp_client shared library.
 //
-// Deliberately its own macro name rather than the NSCAPI_EXPORT that
-// nscapi/, parsers/where/ and libs/mongoose-cpp/ all share: those three guard
-// their definition with `#ifndef NSCAPI_EXPORT`, so in a translation unit that
-// includes more than one of them whichever header lands first decides
-// dllexport-vs-dllimport for the others. Adding a fourth user of that name
-// would widen the trap; nscp_protobuf already avoids it the same way with
-// NSCAPI_PROTOBUF_EXPORT.
+// Deliberately its own macro name, not the NSCAPI_EXPORT that nscapi/ uses.
+// Sharing one name across libraries is how a translation unit ends up having
+// one library's linkage decided by another library's header: unconditional
+// definitions collide with C4005 and the last include wins, and a definition
+// behind `#ifndef` forfeits silently. parsers/where/ and libs/mongoose-cpp/
+// both did this and both now have their own name, as nscp_protobuf always did
+// with NSCAPI_PROTOBUF_EXPORT. See parsers/where/dll_defines.hpp for the
+// failure it caused.
 //
 // nscp_client_EXPORTS is defined by CMake while building the library itself.
 // nscp_client_NOLIB is defined by a consumer that compiles

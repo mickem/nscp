@@ -12,7 +12,7 @@
  * A stream response to a request
  */
 namespace mcp {
-class NSCAPI_EXPORT string_response : public Mongoose::Response {
+class NSCP_MONGOOSE_EXPORT string_response : public Mongoose::Response {
  private:
   std::string data;
   int response_code;
