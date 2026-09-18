@@ -34,6 +34,7 @@ struct scheduler : public simple_scheduler::handler {
 
   void start();
   void stop();
+  bool is_running() const { return tasks.is_running(); }
 
   void add_task(const schedule_metadata::task_source source, const std::string interval, const std::string info = "");
 
