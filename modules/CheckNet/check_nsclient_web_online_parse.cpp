@@ -7,7 +7,7 @@
 
 #include "check_nsclient_web_online.h"
 
-#include <boost/json/src.hpp>
+#include <boost/json.hpp>
 
 namespace json = boost::json;
 

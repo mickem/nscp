@@ -48,10 +48,14 @@ endif(WIN32)
 
 NSCP_MAKE_LIBRARY(${TARGET} "${SRCS}")
 
+# No plugin_api here: neither socket_helpers.cpp nor allowed_hosts.cpp includes
+# an nscapi header. It was listed while utf8 came from plugin_api; utf8.cpp is
+# compiled in above now, so the dependency is gone. Keeping it would hand every
+# consumer a load-time DLL it may not want - the service compiles its own
+# settings helper under plugin_api_NOLIB and had no such dependency before.
 target_link_libraries(
     ${TARGET}
     PUBLIC
-        ${PLUGIN_API_TARGET}
         ${Boost_FILESYSTEM_LIBRARY}
         ${Boost_THREAD_LIBRARY}
         ${Boost_SYSTEM_LIBRARY}
