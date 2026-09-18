@@ -11,6 +11,7 @@ set(SRCS
     "${TARGET}.cpp"
     filter.cpp
     check_tcp.cpp
+    check_starttls.cpp
     check_dns.cpp
     check_http.cpp
     check_http_json.cpp
@@ -33,6 +34,8 @@ if(WIN32)
         "${TARGET}.h"
         filter.hpp
         check_tcp.h
+        check_starttls.hpp
+        check_net_cert.hpp
         check_dns.h
         check_http.h
         check_http_fetch.hpp
@@ -71,6 +74,13 @@ if(OPENSSL_FOUND)
     if(WIN32)
         target_link_libraries(${TARGET} CRYPT32)
     endif(WIN32)
+    # The unit test compiles with -DUSE_SSL too (add_definitions is directory
+    # wide), and the certificate keywords pull in boost::asio::ssl, so it needs
+    # the same libraries or it fails to link on ERR_reason_error_string.
+    set(CHECK_NET_TEST_SSL_LIBRARIES ${OPENSSL_LIBRARIES})
+    if(WIN32)
+        list(APPEND CHECK_NET_TEST_SSL_LIBRARIES CRYPT32)
+    endif(WIN32)
 endif(OPENSSL_FOUND)
 
 if(WIN32)
@@ -90,6 +100,7 @@ NSCP_CREATE_TEST(
         check_http_json_test.cpp
         check_http_json.cpp
         check_webserver_test.cpp
+        check_starttls.cpp
         check_webserver_parse.cpp
         filter.cpp
         check_nsclient_web_online_parse.cpp
@@ -109,6 +120,7 @@ NSCP_CREATE_TEST(
         ${Boost_DATE_TIME_LIBRARY}
         ${Boost_PROGRAM_OPTIONS_LIBRARY}
         ${Boost_REGEX_LIBRARY}
+        ${CHECK_NET_TEST_SSL_LIBRARIES}
     INCLUDES
         ${NSCP_INCLUDEDIR}
         ${CMAKE_CURRENT_SOURCE_DIR}

@@ -10,6 +10,7 @@
 #include <parsers/where/filter_handler_impl.hpp>
 #include <string>
 
+#include "check_net_cert.hpp"
 #include "check_ssh_internal.hpp"
 
 namespace check_net {
@@ -54,18 +55,17 @@ struct filter_obj {
   bool connected;
 
   // TLS peer certificate, populated only when the connection was wrapped in
-  // TLS and the peer actually presented one. `has_certificate` is the guard:
-  // ssl_expiry_days is legitimately negative for an expired certificate, so the
-  // -1 it carries otherwise cannot be told apart from "expired yesterday".
-  bool has_certificate = false;
-  long long ssl_expiry_days = -1;
+  // TLS and the peer actually presented one. `cert.has_certificate` is the
+  // guard: the expiry is legitimately negative for an expired certificate, so
+  // the -1 it carries otherwise cannot be told apart from "expired yesterday".
+  cert::cert_fields cert;
 
   // Registered form of ssl_expiry_days: optional — no certificate, no value.
   // An expired certificate keeps its (negative) day count; only the absence
   // of a certificate is 'no certificate'.
   boost::optional<long long> get_ssl_expiry_days_opt() const {
-    if (!has_certificate) return boost::none;
-    return ssl_expiry_days;
+    if (!cert.has_certificate) return boost::none;
+    return cert.expiry_days;
   }
 
   filter_obj() : port(0), time(0), connected(false) {}
@@ -79,8 +79,11 @@ struct filter_obj {
   std::string get_result() const { return result; }
   std::string get_response() const { return response; }
   long long get_connected() const { return connected ? 1 : 0; }
-  long long get_has_certificate() const { return has_certificate ? 1 : 0; }
-  long long get_ssl_expiry_days() const { return ssl_expiry_days; }
+  long long get_has_certificate() const { return cert.has_certificate ? 1 : 0; }
+  // The non-optional form keeps the historic -1 sentinel for "no certificate";
+  // the registered keyword is the optional one above, which has no sentinel to
+  // confuse with an expired certificate's negative count.
+  long long get_ssl_expiry_days() const { return cert.has_certificate ? cert.expiry_days : -1; }
 
   // Called once the peer's response has been read, so a specialised check can
   // derive extra fields from it (check_ssh parses the identification string).

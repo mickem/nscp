@@ -118,3 +118,29 @@ OK: https://example.com -> 200 ok (1256B in 74ms)
 check_http url=https://www.google.com "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 7" "detail-syntax=cert expires in ${ssl_expiry_days} days"
 OK: cert expires in 58 days
 ```
+
+**Report the certificate's identity, not just its expiry:**
+
+```
+check_http url=https://www.example.com "detail-syntax=cn=${cert_cn} issuer=${cert_issuer_cn} sans=${cert_sans}"
+OK: cn=www.example.com issuer=R11 sans=DNS:example.com,DNS:www.example.com
+```
+
+**Require the names the certificate must cover (`sans=`):**
+
+```
+check_http url=https://www.example.com sans=example.com,www.example.com "detail-syntax=${result} missing=[${missing_sans}]"
+OK: ok missing=[]
+```
+
+```
+check_http url=https://www.example.com sans=mail.example.com "detail-syntax=${result} code=${code} missing=[${missing_sans}]"
+CRITICAL: san_missing code=200 missing=[mail.example.com]
+```
+
+**Report why a chain did not verify:**
+
+```
+check_http url=https://internal.example.com verify=none "detail-syntax=verify=${cert_verify}"
+OK: verify=unable to get local issuer certificate
+```

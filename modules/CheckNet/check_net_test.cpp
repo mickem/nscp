@@ -17,6 +17,8 @@
 #include "check_ping_internal.hpp"
 #include "check_ntp_internal.hpp"
 #include "check_ntp_offset.h"
+#include "check_net_cert.hpp"
+#include "check_starttls.hpp"
 #include "check_tcp.h"
 #include "filter.hpp"
 
@@ -291,8 +293,8 @@ TEST(CheckTcp, filter_obj_certificate_defaults_to_absent) {
 
 TEST(CheckTcp, filter_obj_certificate_getters) {
   check_net::check_tcp_filter::filter_obj o;
-  o.has_certificate = true;
-  o.ssl_expiry_days = 42;
+  o.cert.has_certificate = true;
+  o.cert.expiry_days = 42;
   EXPECT_EQ(o.get_has_certificate(), 1);
   EXPECT_EQ(o.get_ssl_expiry_days(), 42);
 }
@@ -304,21 +306,21 @@ TEST(CheckTcp, optional_ssl_expiry_maps_absence_to_none) {
   check_net::check_tcp_filter::filter_obj o;
   EXPECT_FALSE(o.get_ssl_expiry_days_opt());
 
-  o.has_certificate = true;
-  o.ssl_expiry_days = -7;  // expired last week: a value, not an absence
+  o.cert.has_certificate = true;
+  o.cert.expiry_days = -7;  // expired last week: a value, not an absence
   ASSERT_TRUE(o.get_ssl_expiry_days_opt());
-  EXPECT_EQ(-7, *o.get_ssl_expiry_days_opt());
+  EXPECT_EQ(-7, o.get_ssl_expiry_days_opt().value());
 
-  o.ssl_expiry_days = 42;
-  EXPECT_EQ(42, *o.get_ssl_expiry_days_opt());
+  o.cert.expiry_days = 42;
+  EXPECT_EQ(42, o.get_ssl_expiry_days_opt().value());
 }
 
 TEST(CheckTcp, filter_obj_expired_certificate_is_negative_but_present) {
   // The case has_certificate exists for: an expired certificate reports a
   // negative day count, which must not read as "there was no certificate".
   check_net::check_tcp_filter::filter_obj o;
-  o.has_certificate = true;
-  o.ssl_expiry_days = -7;
+  o.cert.has_certificate = true;
+  o.cert.expiry_days = -7;
   EXPECT_EQ(o.get_has_certificate(), 1);
   EXPECT_EQ(o.get_ssl_expiry_days(), -7);
 }
@@ -1069,4 +1071,342 @@ TEST(CheckConnections, linux_tcp_state_known_values) {
 TEST(CheckConnections, linux_tcp_state_unknown_value) {
   EXPECT_STREQ(check_net::check_connections_internal::linux_tcp_state(0x42), "UNKNOWN");
   EXPECT_STREQ(check_net::check_connections_internal::linux_tcp_state(0), "UNKNOWN");
+}
+
+// ============================================================================
+// Certificate keywords - subjectAltName matching (check_net_cert.hpp)
+// ============================================================================
+
+namespace {
+using check_net::cert::find_missing_sans;
+using check_net::cert::name_matches;
+using check_net::cert::parse_required_sans;
+}  // namespace
+
+TEST(CertSans, exact_match_is_case_and_dot_insensitive) {
+  EXPECT_TRUE(name_matches("DNS:www.example.com", "www.example.com"));
+  // DNS names are case-insensitive, and a fully qualified name may carry the
+  // root dot; neither may make a present name look missing.
+  EXPECT_TRUE(name_matches("DNS:WWW.Example.COM", "www.example.com"));
+  EXPECT_TRUE(name_matches("DNS:www.example.com.", "www.example.com"));
+  EXPECT_TRUE(name_matches("DNS:www.example.com", "WWW.EXAMPLE.COM."));
+  EXPECT_FALSE(name_matches("DNS:www.example.com", "www.example.org"));
+}
+
+TEST(CertSans, ip_entries_match_without_their_prefix) {
+  EXPECT_TRUE(name_matches("IP:127.0.0.1", "127.0.0.1"));
+  EXPECT_TRUE(name_matches("IP:::1", "::1"));
+  EXPECT_FALSE(name_matches("IP:127.0.0.1", "127.0.0.2"));
+}
+
+TEST(CertSans, wildcard_covers_exactly_one_label) {
+  // RFC 6125: the '*' is the whole leftmost label and stands for exactly one.
+  EXPECT_TRUE(name_matches("DNS:*.example.com", "www.example.com"));
+  EXPECT_TRUE(name_matches("DNS:*.example.com", "mail.example.com"));
+  // The bare domain is NOT covered by its own wildcard - the mistake that
+  // makes a certificate look fine until the apex record is checked.
+  EXPECT_FALSE(name_matches("DNS:*.example.com", "example.com"));
+  // Nor is a deeper name.
+  EXPECT_FALSE(name_matches("DNS:*.example.com", "a.b.example.com"));
+  // Nor an empty label.
+  EXPECT_FALSE(name_matches("DNS:*.example.com", ".example.com"));
+  // A wildcard never covers a different domain.
+  EXPECT_FALSE(name_matches("DNS:*.example.com", "www.example.org"));
+}
+
+TEST(CertSans, asking_for_a_wildcard_requires_the_wildcard_entry) {
+  // Asserting that a certificate really is a wildcard: only the wildcard entry
+  // itself satisfies it, never a concrete name it happens to cover.
+  EXPECT_TRUE(name_matches("DNS:*.example.com", "*.example.com"));
+  EXPECT_FALSE(name_matches("DNS:www.example.com", "*.example.com"));
+}
+
+TEST(CertSans, empty_names_never_match) {
+  EXPECT_FALSE(name_matches("", "www.example.com"));
+  EXPECT_FALSE(name_matches("DNS:", "www.example.com"));
+  EXPECT_FALSE(name_matches("DNS:www.example.com", ""));
+}
+
+TEST(CertSans, missing_names_are_reported_in_the_order_asked_for) {
+  const std::list<std::string> sans{"DNS:www.example.com", "DNS:*.cdn.example.com"};
+  EXPECT_TRUE(find_missing_sans(sans, {"www.example.com", "img.cdn.example.com"}).empty());
+
+  const std::vector<std::string> missing = find_missing_sans(sans, {"example.com", "www.example.com", "mail.example.com"});
+  ASSERT_EQ(missing.size(), 2u);
+  EXPECT_EQ(missing[0], "example.com");
+  EXPECT_EQ(missing[1], "mail.example.com");
+}
+
+TEST(CertSans, a_certificate_with_no_sans_is_missing_everything) {
+  // The CN is deliberately not consulted: a name carried only by the CN has
+  // not been a valid identity since RFC 2818 was superseded.
+  const std::vector<std::string> missing = find_missing_sans({}, {"www.example.com"});
+  ASSERT_EQ(missing.size(), 1u);
+  EXPECT_EQ(missing[0], "www.example.com");
+}
+
+TEST(CertSans, requirement_list_parsing_trims_and_drops_blanks) {
+  const std::vector<std::string> names = parse_required_sans(" www.example.com , example.com ,, ");
+  ASSERT_EQ(names.size(), 2u);
+  EXPECT_EQ(names[0], "www.example.com");
+  EXPECT_EQ(names[1], "example.com");
+  EXPECT_TRUE(parse_required_sans("").empty());
+  EXPECT_TRUE(parse_required_sans(" , ").empty());
+}
+
+TEST(CertSans, populate_copies_every_field_and_joins_the_sans) {
+  socket_helpers::peer_certificate info;
+  info.expiry_days = 41;
+  info.subject = "CN=www.example.com,O=Acme";
+  info.issuer = "CN=R11,O=Lets Encrypt";
+  info.subject_cn = "www.example.com";
+  info.issuer_cn = "R11";
+  info.self_signed = false;
+  info.sans = {"DNS:www.example.com", "DNS:example.com"};
+
+  check_net::cert::cert_fields fields;
+  EXPECT_TRUE(check_net::cert::populate(fields, info, {"example.com"}));
+  EXPECT_TRUE(fields.has_certificate);
+  EXPECT_EQ(fields.expiry_days, 41);
+  EXPECT_EQ(fields.subject, "CN=www.example.com,O=Acme");
+  EXPECT_EQ(fields.issuer_cn, "R11");
+  EXPECT_EQ(fields.sans, "DNS:www.example.com,DNS:example.com");
+  EXPECT_TRUE(fields.missing_sans.empty());
+
+  check_net::cert::cert_fields with_missing;
+  EXPECT_FALSE(check_net::cert::populate(with_missing, info, {"example.com", "mail.example.com"}));
+  EXPECT_EQ(with_missing.missing_sans, "mail.example.com");
+  // Even when a name is missing the rest of the certificate is still reported:
+  // the check's message needs it to say *which* certificate fell short.
+  EXPECT_TRUE(with_missing.has_certificate);
+  EXPECT_EQ(with_missing.subject_cn, "www.example.com");
+}
+
+// ============================================================================
+// STARTTLS - presets and the pure protocol logic (check_starttls.hpp)
+// ============================================================================
+
+namespace {
+namespace st = check_net::starttls;
+}  // namespace
+
+TEST(StartTls, preset_lookup_is_case_insensitive) {
+  const st::preset *smtp = st::find_preset("SMTP");
+  ASSERT_NE(smtp, nullptr);
+  EXPECT_EQ(smtp->port, 25);
+  EXPECT_EQ(smtp->kind, st::negotiation::line);
+  EXPECT_EQ(st::find_preset("smtp"), smtp);
+  EXPECT_EQ(st::find_preset("xmpp"), nullptr);
+  EXPECT_EQ(st::find_preset(""), nullptr);
+}
+
+TEST(StartTls, presets_default_to_the_plaintext_port) {
+  // Every one of these upgrades from the cleartext port, never the
+  // implicit-TLS one: 143 not 993, 110 not 995, 25 not 465.
+  EXPECT_EQ(st::find_preset("imap")->port, 143);
+  EXPECT_EQ(st::find_preset("pop3")->port, 110);
+  EXPECT_EQ(st::find_preset("ftp")->port, 21);
+  EXPECT_EQ(st::find_preset("ldap")->port, 389);
+  EXPECT_EQ(st::find_preset("postgres")->port, 5432);
+  EXPECT_EQ(st::find_preset("mysql")->port, 3306);
+}
+
+TEST(StartTls, binary_protocols_declare_their_own_negotiation) {
+  EXPECT_EQ(st::find_preset("postgres")->kind, st::negotiation::postgres);
+  EXPECT_EQ(st::find_preset("mysql")->kind, st::negotiation::mysql);
+  EXPECT_EQ(st::find_preset("ldap")->kind, st::negotiation::ldap);
+}
+
+TEST(StartTls, supported_protocols_lists_every_preset) {
+  const std::string supported = st::supported_protocols();
+  for (const char *name : {"smtp", "lmtp", "pop3", "imap", "ftp", "nntp", "sieve", "irc", "postgres", "mysql", "ldap"}) {
+    EXPECT_NE(supported.find(name), std::string::npos) << name << " missing from: " << supported;
+    // The listed name must be one find_preset() actually accepts, or the
+    // error message sends operators down a dead end.
+    EXPECT_NE(st::find_preset(name), nullptr) << name;
+  }
+}
+
+TEST(StartTls, smtp_multiline_reply_only_matches_on_the_final_line) {
+  const st::preset *smtp = st::find_preset("smtp");
+  ASSERT_NE(smtp, nullptr);
+  // 250- is a continuation; only 250<space> ends the capability list, which is
+  // what keeps STARTTLS from being sent into the middle of one.
+  EXPECT_EQ(st::classify_line("250-PIPELINING", smtp->preamble_expect, smtp->failure_regex), st::verdict::pending);
+  EXPECT_EQ(st::classify_line("250-STARTTLS", smtp->preamble_expect, smtp->failure_regex), st::verdict::pending);
+  EXPECT_EQ(st::classify_line("250 HELP", smtp->preamble_expect, smtp->failure_regex), st::verdict::matched);
+}
+
+TEST(StartTls, smtp_error_replies_fail_instead_of_waiting_out_the_deadline) {
+  const st::preset *smtp = st::find_preset("smtp");
+  ASSERT_NE(smtp, nullptr);
+  EXPECT_EQ(st::classify_line("220 mail.example.com ESMTP", smtp->greeting_expect, smtp->failure_regex), st::verdict::matched);
+  EXPECT_EQ(st::classify_line("454 TLS not available", smtp->command_expect, smtp->failure_regex), st::verdict::failed);
+  EXPECT_EQ(st::classify_line("502 command not implemented", smtp->command_expect, smtp->failure_regex), st::verdict::failed);
+  EXPECT_EQ(st::classify_line("220 Ready to start TLS", smtp->command_expect, smtp->failure_regex), st::verdict::matched);
+}
+
+TEST(StartTls, imap_matches_its_own_tag) {
+  const st::preset *imap = st::find_preset("imap");
+  ASSERT_NE(imap, nullptr);
+  EXPECT_EQ(st::classify_line("* OK [CAPABILITY IMAP4rev1] Dovecot ready", imap->greeting_expect, imap->failure_regex), st::verdict::matched);
+  // Untagged chatter before the tagged reply must not be read as the answer.
+  EXPECT_EQ(st::classify_line("* CAPABILITY IMAP4rev1 STARTTLS", imap->command_expect, imap->failure_regex), st::verdict::pending);
+  EXPECT_EQ(st::classify_line("a001 OK Begin TLS negotiation now.", imap->command_expect, imap->failure_regex), st::verdict::matched);
+  EXPECT_EQ(st::classify_line("a001 BAD Unknown command", imap->command_expect, imap->failure_regex), st::verdict::failed);
+  EXPECT_EQ(st::classify_line("a001 NO TLS unavailable", imap->command_expect, imap->failure_regex), st::verdict::failed);
+}
+
+TEST(StartTls, pop3_status_indicators) {
+  const st::preset *pop3 = st::find_preset("pop3");
+  ASSERT_NE(pop3, nullptr);
+  EXPECT_EQ(st::classify_line("+OK POP3 ready", pop3->greeting_expect, pop3->failure_regex), st::verdict::matched);
+  EXPECT_EQ(st::classify_line("-ERR unknown command", pop3->command_expect, pop3->failure_regex), st::verdict::failed);
+}
+
+TEST(StartTls, irc_numerics_are_matched_mid_line) {
+  const st::preset *irc = st::find_preset("irc");
+  ASSERT_NE(irc, nullptr);
+  // IRC replies carry a server prefix, so the numeric is never at the start.
+  EXPECT_EQ(st::classify_line(":irc.example.com 670 * :STARTTLS successful", irc->command_expect, irc->failure_regex), st::verdict::matched);
+  EXPECT_EQ(st::classify_line(":irc.example.com 691 * :STARTTLS failed", irc->command_expect, irc->failure_regex), st::verdict::failed);
+  EXPECT_EQ(st::classify_line(":irc.example.com 421 STARTTLS :Unknown command", irc->command_expect, irc->failure_regex), st::verdict::failed);
+  EXPECT_EQ(st::classify_line(":irc.example.com NOTICE * :*** Looking up your hostname", irc->command_expect, irc->failure_regex), st::verdict::pending);
+}
+
+TEST(StartTls, a_failure_reply_wins_over_a_matching_expect) {
+  // Failure is classified first on purpose: a protocol whose refusal shares a
+  // shape with its go-ahead must not be read as success.
+  EXPECT_EQ(st::classify_line("220 ok", "^220", "^220"), st::verdict::failed);
+}
+
+TEST(StartTls, line_splitting_keeps_a_partial_line_buffered) {
+  std::string buffer = "220 first\r\n250 second\n250 par";
+  const std::vector<std::string> lines = st::take_complete_lines(buffer);
+  ASSERT_EQ(lines.size(), 2u);
+  EXPECT_EQ(lines[0], "220 first");  // CRLF stripped
+  EXPECT_EQ(lines[1], "250 second"); // bare LF handled too
+  EXPECT_EQ(buffer, "250 par");      // the incomplete tail survives for the next read
+
+  // Feeding the rest completes it without losing the prefix.
+  buffer += "tial\r\n";
+  const std::vector<std::string> rest = st::take_complete_lines(buffer);
+  ASSERT_EQ(rest.size(), 1u);
+  EXPECT_EQ(rest[0], "250 partial");
+  EXPECT_TRUE(buffer.empty());
+}
+
+TEST(StartTls, line_splitting_on_an_empty_or_partial_buffer_yields_nothing) {
+  std::string empty;
+  EXPECT_TRUE(st::take_complete_lines(empty).empty());
+  std::string partial = "220 no newline yet";
+  EXPECT_TRUE(st::take_complete_lines(partial).empty());
+  EXPECT_EQ(partial, "220 no newline yet");
+}
+
+TEST(StartTls, postgres_ssl_request_is_the_documented_packet) {
+  const std::string packet = st::postgres_ssl_request();
+  ASSERT_EQ(packet.size(), 8u);
+  // int32 length = 8, then the magic request code 80877103, both big-endian.
+  EXPECT_EQ(static_cast<unsigned char>(packet[0]), 0x00);
+  EXPECT_EQ(static_cast<unsigned char>(packet[1]), 0x00);
+  EXPECT_EQ(static_cast<unsigned char>(packet[2]), 0x00);
+  EXPECT_EQ(static_cast<unsigned char>(packet[3]), 0x08);
+  EXPECT_EQ(static_cast<unsigned char>(packet[4]), 0x04);
+  EXPECT_EQ(static_cast<unsigned char>(packet[5]), 0xD2);
+  EXPECT_EQ(static_cast<unsigned char>(packet[6]), 0x16);
+  EXPECT_EQ(static_cast<unsigned char>(packet[7]), 0x2F);
+}
+
+TEST(StartTls, postgres_reply_is_a_single_byte) {
+  EXPECT_TRUE(st::postgres_accepts('S'));
+  EXPECT_FALSE(st::postgres_accepts('N'));  // server built or configured without TLS
+  EXPECT_FALSE(st::postgres_accepts('E'));  // an error response
+}
+
+TEST(StartTls, mysql_ssl_request_sets_client_ssl_and_continues_the_sequence) {
+  const std::string packet = st::mysql_ssl_request();
+  ASSERT_EQ(packet.size(), 36u);  // 4-byte header + the 32-byte SSLRequest body
+  // Header: 3-byte little-endian payload length, then the sequence number.
+  EXPECT_EQ(static_cast<unsigned char>(packet[0]), 32);
+  EXPECT_EQ(static_cast<unsigned char>(packet[1]), 0);
+  EXPECT_EQ(static_cast<unsigned char>(packet[2]), 0);
+  // 1, because the server's handshake packet was 0.
+  EXPECT_EQ(static_cast<unsigned char>(packet[3]), 1);
+
+  const unsigned long capabilities = static_cast<unsigned char>(packet[4]) | (static_cast<unsigned long>(static_cast<unsigned char>(packet[5])) << 8) |
+                                     (static_cast<unsigned long>(static_cast<unsigned char>(packet[6])) << 16) |
+                                     (static_cast<unsigned long>(static_cast<unsigned char>(packet[7])) << 24);
+  EXPECT_TRUE((capabilities & 0x00000800u) != 0) << "CLIENT_SSL must be set - it is the request";
+  EXPECT_TRUE((capabilities & 0x00000200u) != 0) << "CLIENT_PROTOCOL_41 makes this the 32-byte form";
+  // The 23 reserved bytes must be zero.
+  for (std::size_t i = 13; i < packet.size(); i++) EXPECT_EQ(static_cast<unsigned char>(packet[i]), 0) << "reserved byte " << i;
+}
+
+TEST(StartTls, mysql_handshake_completeness_reads_the_packet_header) {
+  EXPECT_FALSE(st::mysql_handshake_complete(""));
+  EXPECT_FALSE(st::mysql_handshake_complete(std::string("\x03\x00\x00", 3)));  // header itself incomplete
+  // Header says 3 payload bytes; only 2 have arrived.
+  EXPECT_FALSE(st::mysql_handshake_complete(std::string("\x03\x00\x00\x00\x0a\x38", 6)));
+  EXPECT_TRUE(st::mysql_handshake_complete(std::string("\x03\x00\x00\x00\x0a\x38\x2e", 7)));
+  // Anything beyond the first packet is still "complete".
+  EXPECT_TRUE(st::mysql_handshake_complete(std::string("\x03\x00\x00\x00\x0a\x38\x2e\x30", 8)));
+}
+
+TEST(StartTls, mysql_server_capability_decides_whether_ssl_is_requested) {
+  // A HandshakeV10 packet: header, protocol version 10, server version,
+  // connection id, auth data, filler, then capability_flags_1.
+  const auto handshake = [](const unsigned int capabilities) {
+    std::string payload;
+    payload.push_back(static_cast<char>(0x0A));
+    payload += "8.0.33";
+    payload.push_back('\0');
+    payload.append(4, '\x01');  // connection id
+    payload.append(8, '\x02');  // auth-plugin-data-part-1
+    payload.push_back('\0');    // filler
+    payload.push_back(static_cast<char>(capabilities & 0xFF));
+    payload.push_back(static_cast<char>((capabilities >> 8) & 0xFF));
+    std::string packet;
+    packet.push_back(static_cast<char>(payload.size() & 0xFF));
+    packet.push_back(static_cast<char>((payload.size() >> 8) & 0xFF));
+    packet.push_back(static_cast<char>((payload.size() >> 16) & 0xFF));
+    packet.push_back('\0');
+    return packet + payload;
+  };
+
+  EXPECT_TRUE(st::mysql_server_supports_ssl(handshake(0x0800)));          // CLIENT_SSL alone
+  EXPECT_TRUE(st::mysql_server_supports_ssl(handshake(0xFFFF)));          // among everything else
+  EXPECT_FALSE(st::mysql_server_supports_ssl(handshake(0x0200)));         // CLIENT_PROTOCOL_41 but no TLS
+  EXPECT_FALSE(st::mysql_server_supports_ssl(handshake(0x0000)));
+  // Nothing usable: never ask a server that has not said it can.
+  EXPECT_FALSE(st::mysql_server_supports_ssl(""));
+  EXPECT_FALSE(st::mysql_server_supports_ssl(std::string("\x02\x00\x00\x00\xff\xff", 6)));  // not protocol 10
+}
+
+TEST(StartTls, ldap_request_carries_the_starttls_oid) {
+  const std::string request = st::ldap_starttls_request();
+  ASSERT_EQ(request.size(), 31u);
+  EXPECT_EQ(static_cast<unsigned char>(request[0]), 0x30);  // SEQUENCE
+  EXPECT_EQ(static_cast<unsigned char>(request[1]), 29);    // length of the rest
+  EXPECT_EQ(static_cast<unsigned char>(request[2]), 0x02);  // INTEGER messageID
+  EXPECT_EQ(static_cast<unsigned char>(request[4]), 0x01);  // messageID = 1
+  EXPECT_EQ(static_cast<unsigned char>(request[5]), 0x77);  // [APPLICATION 23] ExtendedRequest
+  EXPECT_EQ(static_cast<unsigned char>(request[7]), 0x80);  // [0] requestName
+  EXPECT_EQ(static_cast<unsigned char>(request[8]), 22);    // OID length
+  EXPECT_NE(request.find("1.3.6.1.4.1.1466.20037"), std::string::npos);
+}
+
+TEST(StartTls, ldap_reply_verdict_reads_the_result_code) {
+  // [APPLICATION 24] response, then resultCode as ENUMERATED(len 1).
+  const std::string success("\x30\x0c\x02\x01\x01\x78\x07\x0a\x01\x00\x04\x00\x04\x00", 14);
+  EXPECT_EQ(st::ldap_reply_verdict(success), st::verdict::matched);
+
+  // resultCode 53 (unwillingToPerform) - what a server without TLS answers.
+  const std::string refused("\x30\x0c\x02\x01\x01\x78\x07\x0a\x01\x35\x04\x00\x04\x00", 14);
+  EXPECT_EQ(st::ldap_reply_verdict(refused), st::verdict::failed);
+
+  // Nothing decidable yet: keep reading rather than guessing.
+  EXPECT_EQ(st::ldap_reply_verdict(""), st::verdict::pending);
+  EXPECT_EQ(st::ldap_reply_verdict(std::string("\x30\x0c\x02\x01\x01", 5)), st::verdict::pending);
+  EXPECT_EQ(st::ldap_reply_verdict(std::string("\x30\x0c\x02\x01\x01\x78", 6)), st::verdict::pending);
 }

@@ -237,19 +237,100 @@ function closedPort(): Promise<number> {
   });
 }
 
+
+/**
+ * A line-oriented plaintext server that upgrades to TLS when the client asks.
+ * `rules` are tried in order against each received line; the first whose regex
+ * matches sends its reply, and the one marked `upgrade` hands the socket to
+ * TLS afterwards - which is exactly the shape of SMTP/IMAP/POP3 STARTTLS.
+ */
+interface StarttlsRule {
+  match: RegExp;
+  reply: string;
+  upgrade?: boolean;
+}
+
+function startStarttlsServer(greeting: string, rules: StarttlsRule[], cert: CertPair): Promise<Listener> {
+  return new Promise((resolve) => {
+    const srv = net.createServer((sock) => {
+      sock.on("error", () => {});
+      if (greeting) sock.write(greeting);
+      let buffered = "";
+      const onData = (chunk: Buffer) => {
+        buffered += chunk.toString("latin1");
+        for (;;) {
+          const nl = buffered.indexOf("\n");
+          if (nl < 0) break;
+          const line = buffered.slice(0, nl).replace(/\r$/, "");
+          buffered = buffered.slice(nl + 1);
+          const rule = rules.find((r) => r.match.test(line));
+          if (!rule) continue;
+          sock.write(rule.reply);
+          if (rule.upgrade) {
+            sock.removeListener("data", onData);
+            const upgraded = new tls.TLSSocket(sock, {
+              isServer: true,
+              key: cert.keyPem,
+              cert: cert.certPem,
+            });
+            upgraded.on("error", () => {});
+            upgraded.on("secure", () => upgraded.end());
+            return;
+          }
+        }
+      };
+      sock.on("data", onData);
+    });
+    srv.listen(0, "127.0.0.1", () => resolve(track({ port: portOf(srv), close: closeNetServer(srv) })));
+  });
+}
+
+/**
+ * A PostgreSQL listener that answers the 8-byte SSLRequest packet. With a cert
+ * it replies 'S' and upgrades; with null it replies 'N', which is what a server
+ * built or configured without TLS does.
+ */
+function startPostgresStarttlsServer(cert: CertPair | null): Promise<Listener> {
+  return new Promise((resolve) => {
+    const srv = net.createServer((sock) => {
+      sock.on("error", () => {});
+      sock.once("data", (chunk: Buffer) => {
+        const wellFormed =
+          chunk.length >= 8 && chunk.readInt32BE(0) === 8 && chunk.readInt32BE(4) === 80877103;
+        if (!wellFormed || !cert) {
+          sock.end(Buffer.from("N"));
+          return;
+        }
+        sock.write(Buffer.from("S"));
+        const upgraded = new tls.TLSSocket(sock, {
+          isServer: true,
+          key: cert.keyPem,
+          cert: cert.certPem,
+        });
+        upgraded.on("error", () => {});
+        upgraded.on("secure", () => upgraded.end());
+      });
+    });
+    srv.listen(0, "127.0.0.1", () => resolve(track({ port: portOf(srv), close: closeNetServer(srv) })));
+  });
+}
+
 describe("CheckNet commands", () => {
   let nscp: NscpInstance;
   let key: string;
   let serverCert: CertPair;
+  let caCert: CertPair;
 
   beforeAll(async () => {
     nscp = new NscpInstance();
     // Self-signed cert with SAN DNS:localhost + IP:127.0.0.1 (365-day validity)
     // used by the TLS test servers below.
-    serverCert = generateCertChain({
+    const bundle = generateCertChain({
       outDir: nscp.scratch("checknet_certs"),
       signed: { server: { commonName: "localhost", isServer: true } },
-    }).signed.server;
+    });
+    serverCert = bundle.signed.server;
+    caCert = bundle.ca;
     key = await setupQueryNscp(nscp, "CheckNet");
   });
 
@@ -424,6 +505,264 @@ describe("CheckNet commands", () => {
     });
     expect(q.result).toBe(OK);
     expect(messageOf(q)).toBe("cert=1");
+  });
+
+  // --- check_tcp: certificate keywords --------------------------------------
+
+  it("check_tcp reports the certificate subject, issuer and SANs", async () => {
+    const s = await startTlsGreeter("220 secure service\r\n", serverCert);
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      ssl: "true",
+      "top-syntax": "${list}",
+      "detail-syntax": "cn=${cert_cn} issuer=${cert_issuer_cn} self=${cert_self_signed} sans=${cert_sans}",
+    });
+    expect(q.result).toBe(OK);
+    const message = messageOf(q);
+    expect(message).toContain("cn=localhost");
+    // The fixture server cert is issued by the fixture CA, so it is NOT
+    // self-signed - the distinction the keyword exists to make.
+    expect(message).toContain("issuer=root-ca");
+    expect(message).toContain("self=0");
+    expect(message).toContain("DNS:localhost");
+    expect(message).toContain("IP:127.0.0.1");
+  });
+
+  it("check_tcp reports why an untrusted chain did not verify", async () => {
+    // cert_verify is recorded even with verify=none: this is the check that
+    // reports an untrusted chain without refusing to connect.
+    const s = await startTlsGreeter("220 secure service\r\n", serverCert);
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      ssl: "true",
+      verify: "none",
+      "top-syntax": "${list}",
+      "detail-syntax": "verify=${cert_verify}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).not.toBe("verify=ok");
+    expect(messageOf(q)).toMatch(/verify=.+/);
+  });
+
+  it("check_tcp reports cert_verify=ok once the CA is trusted", async () => {
+    const s = await startTlsGreeter("220 secure service\r\n", serverCert);
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      ssl: "true",
+      verify: "peer",
+      ca: caCert.certPath,
+      sni: "localhost",
+      "top-syntax": "${list}",
+      "detail-syntax": "verify=${cert_verify}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toBe("verify=ok");
+  });
+
+  it("check_tcp sni= drives which name the certificate is verified against", async () => {
+    const s = await startTlsGreeter("220 secure service\r\n", serverCert);
+    // The certificate carries DNS:localhost, so verifying against that name
+    // succeeds even though the connection was made to 127.0.0.1.
+    const matching = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      ssl: "true",
+      verify: "peer",
+      ca: caCert.certPath,
+      sni: "localhost",
+    });
+    expect(matching.result).toBe(OK);
+
+    const other = await startTlsGreeter("220 secure service\r\n", serverCert);
+    // A name the certificate does not carry must fail the handshake, or sni=
+    // would be a way to silently skip hostname verification.
+    const mismatched = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(other.port),
+      ssl: "true",
+      verify: "peer",
+      ca: caCert.certPath,
+      sni: "wrong.example.com",
+      "top-syntax": "${list}",
+      "detail-syntax": "${result}",
+    });
+    expect(mismatched.result).toBe(CRITICAL);
+    expect(messageOf(mismatched)).toBe("tls_handshake_failed");
+  });
+
+  it("check_tcp accepts a CA directory as well as a bundle file", async () => {
+    // /etc/ssl/certs is a hashed directory on every distribution, and
+    // load_verify_file() on one fails with an opaque OpenSSL error. The
+    // directory here has no hash links, so verification still fails - but it
+    // must fail on the chain, not on "failed to load CA".
+    const s = await startTlsGreeter("220 secure service\r\n", serverCert);
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      ssl: "true",
+      verify: "peer",
+      ca: nscp.scratch("checknet_certs"),
+      "top-syntax": "${list}",
+      "detail-syntax": "${result}",
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toBe("tls_handshake_failed");
+    expect(messageOf(q)).not.toContain("failed to load CA");
+  });
+
+  // --- check_tcp: required subjectAltNames ----------------------------------
+
+  it("check_tcp sans= passes when the certificate covers every name", async () => {
+    const s = await startTlsGreeter("220 secure service\r\n", serverCert);
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      ssl: "true",
+      sans: "localhost,127.0.0.1",
+      "top-syntax": "${list}",
+      "detail-syntax": "${result} missing=[${missing_sans}]",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toBe("ok missing=[]");
+  });
+
+  it("check_tcp sans= fails and names what the certificate is missing", async () => {
+    const s = await startTlsGreeter("220 secure service\r\n", serverCert);
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      ssl: "true",
+      sans: "localhost,mail.example.com",
+      "top-syntax": "${list}",
+      "detail-syntax": "${result} missing=[${missing_sans}]",
+    });
+    // The default critical filter is result != 'ok', so san_missing alerts
+    // without the operator writing a threshold for it.
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toBe("san_missing missing=[mail.example.com]");
+  });
+
+  // --- check_tcp: STARTTLS ---------------------------------------------------
+
+  it("check_tcp starttls=smtp upgrades a cleartext session and reads the cert", async () => {
+    // The multi-line 250 reply is the part that has to be consumed whole:
+    // sending STARTTLS into the middle of the capability list would hang.
+    const s = await startStarttlsServer(
+      "220 mail.example.com ESMTP\r\n",
+      [
+        { match: /^EHLO/i, reply: "250-mail.example.com\r\n250-PIPELINING\r\n250 STARTTLS\r\n" },
+        { match: /^STARTTLS/i, reply: "220 Ready to start TLS\r\n", upgrade: true },
+      ],
+      serverCert,
+    );
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      starttls: "smtp",
+      "top-syntax": "${list}",
+      "detail-syntax": "${result} cert=${has_certificate} cn=${cert_cn}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toBe("ok cert=1 cn=localhost");
+  });
+
+  it("check_tcp starttls=imap upgrades on the tagged reply", async () => {
+    const s = await startStarttlsServer(
+      "* OK [CAPABILITY IMAP4rev1 STARTTLS] Dovecot ready\r\n",
+      [{ match: /STARTTLS/i, reply: "a001 OK Begin TLS negotiation now.\r\n", upgrade: true }],
+      serverCert,
+    );
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      starttls: "imap",
+      warning: "ssl_expiry_days < 30",
+      "top-syntax": "${list}",
+      "detail-syntax": "${result} cert=${has_certificate}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toBe("ok cert=1");
+  });
+
+  it("check_tcp starttls=pop3 upgrades on STLS", async () => {
+    const s = await startStarttlsServer(
+      "+OK POP3 ready\r\n",
+      [{ match: /^STLS/i, reply: "+OK Begin TLS\r\n", upgrade: true }],
+      serverCert,
+    );
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      starttls: "pop3",
+      "top-syntax": "${list}",
+      "detail-syntax": "${result} cert=${has_certificate}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toBe("ok cert=1");
+  });
+
+  it("check_tcp reports a server that refuses to upgrade", async () => {
+    // A refusal is an answer, not a timeout: it has to land as its own result
+    // word rather than waiting out the deadline.
+    const s = await startStarttlsServer(
+      "220 mail.example.com ESMTP\r\n",
+      [
+        { match: /^EHLO/i, reply: "250 mail.example.com\r\n" },
+        { match: /^STARTTLS/i, reply: "454 TLS not available due to temporary reason\r\n" },
+      ],
+      serverCert,
+    );
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      starttls: "smtp",
+      timeout: "4000",
+      "top-syntax": "${list}",
+      "detail-syntax": "${result} cert=${has_certificate}",
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toBe("starttls_refused cert=0");
+  });
+
+  it("check_tcp starttls=postgres speaks the SSLRequest packet", async () => {
+    const s = await startPostgresStarttlsServer(serverCert);
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      starttls: "postgres",
+      "top-syntax": "${list}",
+      "detail-syntax": "${result} cert=${has_certificate} cn=${cert_cn}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toBe("ok cert=1 cn=localhost");
+  });
+
+  it("check_tcp reports a postgres server with TLS turned off", async () => {
+    const s = await startPostgresStarttlsServer(null);
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      starttls: "postgres",
+      timeout: "4000",
+      "top-syntax": "${list}",
+      "detail-syntax": "${result}",
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toBe("starttls_refused");
+  });
+
+  it("check_tcp rejects an unknown starttls protocol with the supported list", async () => {
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: "25",
+      starttls: "telepathy",
+    });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toContain("Unknown starttls protocol");
+    expect(messageOf(q)).toContain("smtp");
   });
 
   // --- check_ssh ------------------------------------------------------------
@@ -639,6 +978,52 @@ describe("CheckNet commands", () => {
     expect(m).not.toBeNull();
     // The generated cert is valid for 365 days, so a few hundred days remain.
     expect(Number(m?.[1])).toBeGreaterThan(300);
+  });
+
+  it("check_http exposes the same certificate keywords as check_tcp", async () => {
+    // The vocabulary is shared on purpose: a filter written for one check has
+    // to work verbatim against the other.
+    const s = await startHttp((_req, res) => {
+      res.writeHead(200);
+      res.end("secure");
+    }, serverCert);
+    const q = await executeQuery(key, "check_http", {
+      url: `https://127.0.0.1:${s.port}/`,
+      verify: "none",
+      "detail-syntax": "cn=${cert_cn} issuer=${cert_issuer_cn} sans=${cert_sans}",
+    });
+    expect(q.result).toBe(OK);
+    const message = messageOf(q);
+    expect(message).toContain("cn=localhost");
+    expect(message).toContain("issuer=root-ca");
+    expect(message).toContain("DNS:localhost");
+  });
+
+  it("check_http sans= fails on a name the certificate does not cover", async () => {
+    const s = await startHttp((_req, res) => {
+      res.writeHead(200);
+      res.end("secure");
+    }, serverCert);
+
+    const covered = await executeQuery(key, "check_http", {
+      url: `https://127.0.0.1:${s.port}/`,
+      verify: "none",
+      sans: "localhost",
+      "detail-syntax": "${result} missing=[${missing_sans}]",
+    });
+    expect(covered.result).toBe(OK);
+    expect(messageOf(covered)).toContain("ok missing=[]");
+
+    const missing = await executeQuery(key, "check_http", {
+      url: `https://127.0.0.1:${s.port}/`,
+      verify: "none",
+      sans: "www.example.com",
+      "detail-syntax": "${result} code=${code} missing=[${missing_sans}]",
+    });
+    expect(missing.result).toBe(CRITICAL);
+    // The response is still reported alongside the certificate problem: the
+    // status code says whether the service itself is up.
+    expect(messageOf(missing)).toContain("san_missing code=200 missing=[www.example.com]");
   });
 
   it("check_http reports no certificate when a redirect lands on plain http", async () => {
