@@ -23,6 +23,16 @@ namespace po = boost::program_options;
 
 bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
   try {
+    // A reload builds a new generation of scripts below, so take the previous
+    // one down first, the way unloadModule does. Its manager owns every
+    // script and the lua_State each one holds; merely replacing the pointer
+    // leaked all of them on every reload, and left the core with every
+    // command registered a second time by the generation that followed.
+    // unload_all waits for the checks still running a script before deleting
+    // it; a check arriving in between sees no manager and is refused.
+    const std::shared_ptr<scripts::script_manager<lua::lua_traits> > previous =
+        std::atomic_exchange(&scripts_, std::shared_ptr<scripts::script_manager<lua::lua_traits> >());
+    if (previous) previous->unload_all();
     root_ = get_core()->expand_path("${scripts}");
     nscp_runtime_ = std::make_shared<scripts::nscp::nscp_runtime_impl>(get_id(), get_core());
     // The lua runtime appends "/scripts/lua/lib/?.lua" to this base when building

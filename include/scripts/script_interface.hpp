@@ -205,6 +205,18 @@ struct script_manager {
   script_manager(std::shared_ptr<script_runtime_interface<script_trait> > script_runtime_, std::shared_ptr<nscp_runtime_interface> nscp_runtime, int plugin_id,
                  std::string plugin_alias)
       : script_runtime(script_runtime_), nscp_runtime(nscp_runtime), plugin_id(plugin_id), script_id(0), plugin_alias(plugin_alias) {}
+  // The scripts are owned raw, each with its interpreter state, so a manager
+  // that goes away still holding some would leak every one of them. A module
+  // normally calls unload_all() itself, and this is then a no-op.
+  ~script_manager() {
+    try {
+      unload_all();
+    } catch (...) {
+      // A script's unload hook failing must not escape a destructor.
+    }
+  }
+  script_manager(const script_manager &) = delete;
+  script_manager &operator=(const script_manager &) = delete;
   script_information<script_trait> *add(std::string alias, std::string script) {
     script_information<script_trait> *info =
         new script_information_impl<script_trait>(this, nscp_runtime->get_settings_provider(), nscp_runtime->get_core_provider());
