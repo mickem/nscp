@@ -16,7 +16,9 @@ Look for a file named `NSCP-<version>-x64.msi` and launch it.
 
 The installer will walk you through a few screens:
 
-1. **Select monitoring tool** — choose `Generic` if you are not using Op5 Monitor.
+1. **Select management server** — choose `None` to configure this machine locally, which is what the rest of this
+   guide assumes. The other two answers hand the configuration to an
+   [NSClient fleet server](setup/fleet.md) or to a file served over HTTPS, and skip the pages below.
 2. **Select configuration** — the default (ini file) is the right choice for getting started.
 3. **Basic settings** — enter the IP address of your monitoring server in the **Allowed hosts** field and note the generated password; you will need it to access the web interface.
 4. **Enable common checks** — leave this checked so that CPU, memory, and disk checks are available immediately.

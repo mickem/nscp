@@ -65,7 +65,6 @@ AGENT_INSTRUCTIONS.md
 
 # ─── Local / custom content ───────────────────────────────────────────────────
 # Custom installers not part of the main repo
-installers/installer-op5
 # Build artefacts and packages
 packages/*
 # Legacy code not tracked

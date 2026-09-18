@@ -76,12 +76,11 @@ std::string installer_feature_hint(const std::string &module) {
       {"GearmanClient", "Various client plugins"},
       {"CollectdClient", "Various client plugins"},
       {"NSCPClient", "Various client plugins"},
+      {"Op5Client", "Various client plugins"},
       // Lua Scripting
       {"LUAScript", "Lua Scripting"},
       // .NET plugin support
       {"DotnetPlugins", ".NET plugin support"},
-      // OP5 Monitoring system
-      {"Op5Client", "OP5 Monitoring system"},
       // Elastic plugin
       {"ElasticClient", "Elastic plugin"},
       // Check Plugins (the bulk of the check_* modules)

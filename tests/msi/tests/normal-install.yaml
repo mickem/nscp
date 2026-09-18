@@ -102,6 +102,9 @@ required_files:
     # Elastic plugin (ElasticPlugin)
     - modules/ElasticClient.dll
     # Various client plugins (ExtraClientPlugin)
+    # Op5Client moved here when the OP5Monitoring feature was retired; the
+    # module still ships, only the op5 configuration and scripts went away.
+    - modules/Op5Client.dll
     - modules/CollectdClient.dll
     - modules/GearmanClient.dll
     - modules/GraphiteClient.dll
