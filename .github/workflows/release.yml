@@ -49,6 +49,11 @@ jobs:
       with:
         name: NSCP-${{ inputs.version }}-ubuntu-24.04-arm64
 
+    # Raspberry Pi OS 64-bit (and Debian 13 arm64, which it is built from)
+    - uses: actions/download-artifact@v7
+      with:
+        name: NSCP-${{ inputs.version }}-debian-trixie-arm64
+
     # RedHat (rocky) artifacts
     - uses: actions/download-artifact@v7
       with:
@@ -104,6 +109,7 @@ jobs:
           NSCP-${{ inputs.version }}-ARM64-symbols.zip
           NSCP-${{ inputs.version }}-ubuntu-24.04-amd64.deb
           NSCP-${{ inputs.version }}-ubuntu-24.04-arm64.deb
+          NSCP-${{ inputs.version }}-debian-trixie-arm64.deb
           NSCP-${{ inputs.version }}-rocky-9-x86_64.rpm
           NSCP-${{ inputs.version }}-rocky-9-aarch64.rpm
           NSCP-${{ inputs.version }}-rocky-10-x86_64.rpm

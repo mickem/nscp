@@ -92,6 +92,9 @@ jobs:
     with:
       architecture: x64
       version: ${{ needs.get-version.outputs.version }}
+      # Adds the Raspberry Pi OS / Debian package; the feature build stays on
+      # the Ubuntu pair.
+      targets: all
   build-redhat:
     needs: [get-version, create-test-bundle]
     uses: ./.github/workflows/build-redhat.yml

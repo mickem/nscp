@@ -15,28 +15,55 @@ on:
         type: string
         description: 'Version to build'
         required: true
+      targets:
+        type: string
+        description: >-
+          Which Debian-family packages to build: "default" for the Ubuntu LTS
+          pair, or "all" to add the Raspberry Pi OS / Debian package. Release
+          builds want all of them.
+        required: false
+        default: default
 
 jobs:
+  # Computed rather than written out: `include:` entries cannot carry an `if:`,
+  # and a matrix job that skips itself still queues a runner.
+  matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.pick.outputs.build }}
+    steps:
+    - id: pick
+      shell: bash
+      run: |
+        set -euo pipefail
+        # `group` selects the entry here and is dropped before the matrix sees
+        # it, so it does not end up in the job names. `dotnet` says whether the
+        # distribution packages the .NET SDK: Ubuntu does, Debian does not, and
+        # the managed plugin API and its C# sample are skipped where it is
+        # absent.
+        all='[
+          {"group":"default",      "distro":"ubuntu","distro_version":"24.04",  "lua_package":"liblua5.4-dev","python_version":"python312","arch":"x64",  "deb_arch":"amd64","runner":"ubuntu-latest",  "dotnet":"true"},
+          {"group":"default",      "distro":"ubuntu","distro_version":"24.04",  "lua_package":"liblua5.4-dev","python_version":"python312","arch":"arm64","deb_arch":"arm64","runner":"ubuntu-24.04-arm","dotnet":"true"},
+          {"group":"raspberry-pi", "distro":"debian","distro_version":"trixie", "lua_package":"liblua5.4-dev","python_version":"python313","arch":"arm64","deb_arch":"arm64","runner":"ubuntu-24.04-arm","dotnet":"false"}
+        ]'
+        case "${{ inputs.targets }}" in
+          default) selected=$(jq -c '[.[] | select(.group == "default")] | map(del(.group))' <<< "$all") ;;
+          all)     selected=$(jq -c 'map(del(.group))' <<< "$all") ;;
+          *)
+            echo "::error::Unknown targets value '${{ inputs.targets }}' (expected 'default' or 'all')"
+            exit 1
+            ;;
+        esac
+        echo "Building: $(jq -r 'map("\(.distro) \(.distro_version) \(.arch)") | join(", ")' <<< "$selected")"
+        echo "build=$selected" >> "$GITHUB_OUTPUT"
+
   build-deb:
+    needs: matrix
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - distro: ubuntu
-            distro_version: "24.04"
-            lua_package: liblua5.4-dev
-            python_version: python312
-            arch: x64
-            deb_arch: amd64
-            runner: ubuntu-latest
-          - distro: ubuntu
-            distro_version: "24.04"
-            lua_package: liblua5.4-dev
-            python_version: python312
-            arch: arm64
-            deb_arch: arm64
-            runner: ubuntu-24.04-arm
+        include: ${{ fromJson(needs.matrix.outputs.build) }}
     container:
       image: ${{ matrix.distro }}:${{ matrix.distro_version }}
 
@@ -58,7 +85,14 @@ jobs:
         # ccache: see the "Configure ccache" step below. zstd: actions/cache
         # compresses with it when present and falls back to a slower gzip when
         # it is not.
-        retry env DEBIAN_FRONTEND=noninteractive apt-get install -y git curl unzip libboost-all-dev libgtest-dev protobuf-compiler libprotobuf-dev openssl libssl-dev libgmock-dev libcrypto++-dev ${{ matrix.lua_package }} cmake build-essential python3-pip libdbus-1-dev libzip-dev libtinyxml2-dev libmariadb-dev pkg-config ccache zstd dotnet-sdk-8.0
+        # dotnet-sdk-8.0 is in Ubuntu's archive but not in Debian's, so it is
+        # only asked for where the matrix says it exists; the managed plugin
+        # API and the C# sample skip themselves when the SDK is missing.
+        dotnet_packages=""
+        if [ "${{ matrix.dotnet }}" = "true" ]; then
+          dotnet_packages="dotnet-sdk-8.0"
+        fi
+        retry env DEBIAN_FRONTEND=noninteractive apt-get install -y git curl unzip libboost-all-dev libgtest-dev protobuf-compiler libprotobuf-dev openssl libssl-dev libgmock-dev libcrypto++-dev ${{ matrix.lua_package }} cmake build-essential python3-pip libdbus-1-dev libzip-dev libtinyxml2-dev libmariadb-dev pkg-config ccache zstd $dotnet_packages
 
     - uses: actions/checkout@v6
 
@@ -191,6 +225,7 @@ jobs:
     # the package, so it travels next to the package in the artifact and the
     # integration job copies it into the installed modules/dotnet folder.
     - name: Stage the C# sample plugin for the integration tests
+      if: matrix.dotnet == 'true'
       shell: bash
       run: |
         mkdir -p dotnet-sample
