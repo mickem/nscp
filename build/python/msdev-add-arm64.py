@@ -15,6 +15,17 @@ ItemDefinitionGroup that exists for x64 is cloned for ARM64, with the linker's
 target machine switched over. Everything else in the project is keyed on
 $(Configuration) alone and applies unchanged.
 
+One source file has to be added as well. neon_simd.cpp is absent from
+cryptlib.vcxproj -- it is the only non-PowerPC, non-test source the project
+leaves out -- because nothing on x86 or x64 needs it. On ARM64 it does:
+cpu.cpp calls CPU_ProbeNEON(), which neon_simd.cpp defines (as a plain
+`return true` under _M_ARM64), so without it every consumer of cryptlib fails
+with "LNK2019: unresolved external symbol CryptoPP::CPU_ProbeNEON". The entry
+is conditioned on the ARM64 platform, so an x86 or x64 build of a patched tree
+compiles exactly the same set of files it does today. The file defines only
+CPU_ProbeNEON and CPU_ProbeARMv7, neither of which exists elsewhere in the
+project, so it adds no duplicate symbols.
+
 The transformation is textual rather than via ElementTree on purpose: msbuild
 projects live in a default XML namespace, and a round-trip through ElementTree
 rewrites every tag with an ns0: prefix, which makes the result unreadable in a
@@ -41,6 +52,11 @@ ITEM_DEFINITION_GROUP = re.compile(
     re.DOTALL,
 )
 
+# Any self-closing ClCompile entry, used to find where the source list ends.
+CLCOMPILE = re.compile(r"([ \t]*)<ClCompile Include=\"[^\"]+\"\s*/>(\r?\n)")
+
+NEON_SOURCE = "neon_simd.cpp"
+
 
 def to_arm64(block):
     """Rewrite one cloned x64 block so it describes the ARM64 platform."""
@@ -53,6 +69,25 @@ def to_arm64(block):
     )
     block = block.replace('Label="X64 Configuration"', 'Label="ARM64 Configuration"')
     return block
+
+
+def add_neon_source(text):
+    """Add neon_simd.cpp to the source list, conditioned on ARM64."""
+    if NEON_SOURCE in text:
+        return text, 0
+    entries = list(CLCOMPILE.finditer(text))
+    if not entries:
+        return text, 0
+    # Appended after the last entry rather than inserted near the front: the
+    # project notes that the order of the first three sources matters.
+    last = entries[-1]
+    indent, newline = last.group(1), last.group(2)
+    entry = '%s<ClCompile Include="%s" Condition="\'$(Platform)\'==\'ARM64\'" />%s' % (
+        indent,
+        NEON_SOURCE,
+        newline,
+    )
+    return text[: last.end()] + entry + text[last.end() :], 1
 
 
 def patch(text):
@@ -74,6 +109,8 @@ def patch(text):
             added += 1
         out.append(text[last:])
         text = "".join(out)
+    text, neon = add_neon_source(text)
+    added += neon
     return text, added
 
 
