@@ -26,17 +26,18 @@ namespace parsers {
 namespace where {
 
 namespace {
-// Per-thread regex budget. See regex_guard.hpp for why it exists.
-const unsigned long default_regex_budget_ms = 30000;
-const std::size_t regex_subject_cap = 1024u * 1024u;
+// The budget itself (and the thread-local counters behind it) lives in
+// regex_guard.cpp, which is compiled only into nscp_where_filter; this file is
+// also compiled straight into parsers_where_test, so defining an exported
+// symbol here would be defined twice on Windows. Only the pattern cache, which
+// nothing outside this file uses, stays.
+//
 // Compiled patterns, most recently used first. A filter is evaluated once per
 // record, and the pattern is the same every time, so compiling it per record
 // was pure waste on top of the matching itself. Small because a single filter
 // expression holds a handful of patterns at most.
 const std::size_t regex_cache_entries = 16;
 
-thread_local unsigned long regex_budget_ms = default_regex_budget_ms;
-thread_local unsigned long regex_spent_ms = 0;
 thread_local std::list<std::pair<std::string, boost::regex> > *regex_cache = nullptr;
 
 // Owns the thread-local cache for the life of the thread. A raw thread_local
@@ -68,11 +69,6 @@ const boost::regex &compiled_regex(const std::string &pattern) {
 }
 }  // namespace
 
-void reset_regex_budget() { regex_spent_ms = 0; }
-void set_regex_budget_ms(const unsigned long budget_ms) { regex_budget_ms = budget_ms; }
-unsigned long get_regex_budget_ms() { return regex_budget_ms; }
-bool regex_budget_exhausted() { return regex_spent_ms >= regex_budget_ms; }
-std::size_t max_regex_subject_bytes() { return regex_subject_cap; }
 
 namespace operator_impl {
 
@@ -427,7 +423,7 @@ struct operator_regexp : pattern_binary_operator_impl {
     }
     const std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
     const auto charge = [started]() {
-      regex_spent_ms += static_cast<unsigned long>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started).count());
+      charge_regex_time_ms(static_cast<unsigned long>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started).count()));
     };
     // One wording for "the matcher ran out of road", used by both catch blocks
     // below: which one a given Boost raises it through is an accident of the
