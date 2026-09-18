@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { loginViaLocalStorage, mockApi } from "./mock-api";
+import { loginViaSessionStorage, mockApi } from "./mock-api";
 
 test.beforeEach(async ({ page }) => {
   await mockApi(page);
-  await loginViaLocalStorage(page);
+  await loginViaSessionStorage(page);
 });
 
 // The permanent sidebar drawer (desktop layout) holds the navigation items.
