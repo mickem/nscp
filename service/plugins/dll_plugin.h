@@ -109,6 +109,9 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
   nscapi::plugin_api::lpPrepareShutdown fPrepareShutdown;
   nscapi::plugin_api::lpGetName fGetName;
   nscapi::plugin_api::lpGetVersion fGetVersion;
+  // Optional export: a module built before module flags existed has none, and
+  // is then read as declaring no flags at all.
+  nscapi::plugin_api::lpGetFlags fGetFlags;
   nscapi::plugin_api::lpGetDescription fGetDescription;
   nscapi::plugin_api::lpHasCommandHandler fHasCommandHandler;
   nscapi::plugin_api::lpHasMessageHandler fHasMessageHandler;
@@ -146,6 +149,7 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
 
   std::string getName() override;
   std::string getDescription() override;
+  bool is_experimental() override;
   bool hasCommandHandler() override;
   bool hasNotificationHandler() override;
   bool hasMessageHandler() override;

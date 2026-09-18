@@ -31,6 +31,18 @@ void registry_query_handler::parse(PB::Registry::RegistryResponseMessage &respon
   }
 }
 
+// Whether a command is experimental as far as the registry is concerned: its
+// own declaration, or that of the module that registered it. A module that
+// declares itself experimental says so once, at the top of its module.json,
+// rather than on every command it owns - and the same then holds for commands
+// a script module registers at runtime.
+bool registry_query_handler::is_experimental(const nsclient::commands::command_info &info) {
+  if (info.experimental) return true;
+  const boost::optional<plugin_cache_item> plugin = plugins_->get_plugin_cache()->find_plugin_info(info.plugin_id);
+  if (!plugin) return false;
+  return plugin.value().experimental;
+}
+
 void registry_query_handler::inventory_queries(const PB::Registry::RegistryRequestMessage::Request::Inventory &q,
                                                PB::Registry::RegistryResponseMessage::Response *rp) {
   if (!q.name().empty()) {
@@ -42,6 +54,7 @@ void registry_query_handler::inventory_queries(const PB::Registry::RegistryReque
       rpp->mutable_info()->add_plugin(plugins_->get_plugin_cache()->find_plugin_alias(info.plugin_id));
       rpp->mutable_info()->set_title(info.name);
       rpp->mutable_info()->set_description(info.description);
+      rpp->mutable_info()->set_experimental(is_experimental(info));
       if (q.fetch_all()) {
         PB::Commands::QueryRequestMessage req;
         PB::Commands::QueryRequestMessage::Request *p = req.add_payload();
@@ -63,6 +76,7 @@ void registry_query_handler::inventory_queries(const PB::Registry::RegistryReque
       rpp->mutable_info()->add_plugin(plugins_->get_plugin_cache()->find_plugin_alias(info.plugin_id));
       rpp->mutable_info()->set_title(info.name);
       rpp->mutable_info()->set_description(info.description);
+      rpp->mutable_info()->set_experimental(is_experimental(info));
       if (q.fetch_all()) {
         std::string resp;
         PB::Commands::QueryRequestMessage req;
@@ -132,6 +146,7 @@ void registry_query_handler::add_module(PB::Registry::RegistryResponseMessage::R
   rpp->mutable_info()->add_plugin(plugin.dll);
   rpp->mutable_info()->set_title(plugin.title);
   rpp->mutable_info()->set_description(plugin.desc);
+  rpp->mutable_info()->set_experimental(plugin.experimental);
   PB::Common::KeyValue *kvp = rpp->mutable_info()->add_metadata();
   kvp->set_key("plugin_id");
   kvp->set_value(str::xtos(plugin.id));
@@ -199,6 +214,7 @@ void registry_query_handler::parse_inventory(const PB::Registry::RegistryRequest
         rpp->mutable_info()->add_plugin(plugins_->get_plugin_cache()->find_plugin_alias(info.plugin_id));
         rpp->mutable_info()->set_title(info.name);
         rpp->mutable_info()->set_description(info.description);
+        rpp->mutable_info()->set_experimental(is_experimental(info));
       }
     }
     if (type == PB::Registry::ItemType::MODULE || type == PB::Registry::ItemType::ALL) {
@@ -248,14 +264,18 @@ void registry_query_handler::parse_registration(const PB::Registry::RegistryRequ
       plugins_->get_commands()->unregister_command(registration.plugin_id(), registration.name());
       for (const std::string &alias : registration.alias()) plugins_->get_commands()->unregister_command(registration.plugin_id(), alias);
     } else {
-      plugins_->get_commands()->register_command(registration.plugin_id(), registration.name(), registration.info().description());
+      plugins_->get_commands()->register_command(registration.plugin_id(), registration.name(), registration.info().description(),
+                                                 registration.info().experimental());
       std::string description = "Alternative name for: " + registration.name();
-      for (const std::string &alias : registration.alias()) plugins_->get_commands()->register_alias(registration.plugin_id(), alias, description);
+      for (const std::string &alias : registration.alias())
+        plugins_->get_commands()->register_alias(registration.plugin_id(), alias, description, registration.info().experimental());
     }
   } else if (registration.type() == PB::Registry::ItemType::QUERY_ALIAS) {
-    plugins_->get_commands()->register_alias(registration.plugin_id(), registration.name(), registration.info().description());
+    plugins_->get_commands()->register_alias(registration.plugin_id(), registration.name(), registration.info().description(),
+                                            registration.info().experimental());
     for (int i = 0; i < registration.alias_size(); i++) {
-      plugins_->get_commands()->register_alias(registration.plugin_id(), registration.alias(i), registration.info().description());
+      plugins_->get_commands()->register_alias(registration.plugin_id(), registration.alias(i), registration.info().description(),
+                                               registration.info().experimental());
     }
   } else if (registration.type() == PB::Registry::ItemType::HANDLER) {
     plugins_->get_channels()->register_listener(registration.plugin_id(), registration.name());
@@ -317,6 +337,7 @@ plugin_cache_item registry_query_handler::inventory_plugin_on_disk(nsclient::cor
     itm.desc = instance->getDescription();
     itm.id = instance->get_id();
     itm.is_loaded = false;
+    itm.experimental = instance->is_experimental();
     list.push_back(itm);
   } catch (const std::exception &e) {
     LOG_ERROR_CORE("Failed to load " + plugin + ": " + utf8::utf8_from_native(e.what()));

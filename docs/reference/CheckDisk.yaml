@@ -292,6 +292,7 @@ common:
         short_description: ''
       info:
         description: Combined per-drive health check (free space + I/O metrics).
+        experimental: true
     check_disk_io:
       common_fields:
       - count
@@ -428,6 +429,7 @@ common:
         short_description: ''
       info:
         description: Check disk I/O performance metrics (throughput, IOPS, queue length, busy time).
+        experimental: true
     check_disk_write:
       common_fields:
       - count
@@ -507,6 +509,7 @@ common:
       info:
         description: Verify that a disk is writable by creating a test file, writing to it, reading it
           back and deleting it.
+        experimental: true
       params:
       - content_type: 2
         default_value: ''
@@ -881,6 +884,7 @@ common:
       info:
         description: Check VSS shadow-copy (Volume Shadow Copy) recency, count and shadow-storage usage
           per volume. Windows only.
+        experimental: true
     check_share:
       common_fields:
       - count
@@ -951,6 +955,7 @@ common:
       info:
         description: 'Check Windows SMB shares: list them, or verify that specific required shares exist.
           Windows only.'
+        experimental: true
       params:
       - content_type: 2
         default_value: ''
@@ -1124,6 +1129,7 @@ common:
       info:
         description: Check various aspects of a single file (size, age, line count, version, ...). Simpler
           alternative to check_files when you only need to inspect one specific file.
+        experimental: true
       params:
       - content_type: 2
         default_value: ''
@@ -1268,6 +1274,7 @@ common:
         short_description: ''
       info:
         description: Check Storage Spaces pool health and capacity. Windows only.
+        experimental: true
     check_uncpath:
       common_fields:
       - count
@@ -1374,6 +1381,7 @@ common:
         short_description: ''
       info:
         description: Check free space on a UNC path (server share), with optional alternate credentials.
+        experimental: true
       params:
       - content_type: 2
         default_value: ''
@@ -1766,6 +1774,7 @@ unix:
         short_description: ''
       info:
         description: Check that a filesystem is mounted with the expected fstype and options.
+        experimental: true
       params:
       - content_type: 2
         default_value: ''
@@ -2119,3 +2128,4 @@ windows:
     check_mount:
       info:
         description: Check that a filesystem is mounted with the expected fstype and options.
+        experimental: true

@@ -41,6 +41,12 @@ option optimize_for = LITE_RUNTIME;
 
 		bool advanced = 8;
 		repeated string plugin = 9;
+
+		// Set when the item (module or query) is still experimental: it works,
+		// but its options, keywords or output may change in a coming release.
+		// Declared in the module's module.json and rendered as a marker by the
+		// CLI, the web UI and the reference documentation.
+		bool experimental = 10;
 	};
 	message KeyWordDescription {
 		string parameter = 1;

@@ -4,6 +4,7 @@ common:
       out to a gearmand job server, grabs the checks queued for it and answers them as native NSClient++
       queries. It also submits passive results into the same result queue, which is what lets a Mod-Gearman
       installation drop NSCA'
+    experimental: true
     title: GearmanClient
   paths:
     /settings/gearman/client:
@@ -265,6 +266,7 @@ common:
         show-default: ''
       info:
         description: Submit a passive check result into a Mod-Gearman result queue.
+        experimental: true
       params:
       - content_type: 2
         default_value: ''

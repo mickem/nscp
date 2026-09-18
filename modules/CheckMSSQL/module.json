@@ -4,7 +4,8 @@
 		"description"		: "Check Microsoft SQL Server: connectivity, databases, backups, agent jobs and custom queries.",
 		"name"			: "CheckMSSQL",
 		"alias"			: "mssql",
-		"version"		: "auto"
+		"version"		: "auto",
+		"experimental"	: true
 	},
 
 	"commands" : {

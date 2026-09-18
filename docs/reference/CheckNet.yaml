@@ -106,6 +106,7 @@ common:
         short_description: ''
       info:
         description: Check an Apache httpd server via its mod_status page (server-status?auto).
+        experimental: true
       params:
       - content_type: 2
         default_value: http://127.0.0.1/server-status
@@ -270,6 +271,7 @@ common:
         short_description: ''
       info:
         description: Count active TCP/UDP connections and report counts per protocol and TCP state.
+        experimental: true
     check_dns:
       common_fields:
       - count
@@ -343,6 +345,7 @@ common:
         short_description: ''
       info:
         description: Resolve a host name and check the response time and resulting addresses.
+        experimental: true
       params:
       - content_type: 2
         default_value: ''
@@ -525,6 +528,7 @@ common:
         short_description: ''
       info:
         description: Send an HTTP/HTTPS request and check the response status, time, size and body.
+        experimental: true
       params:
       - content_type: 2
         default_value: ''
@@ -822,6 +826,7 @@ common:
         short_description: ''
       info:
         description: Check an NGINX server via its stub_status page.
+        experimental: true
       params:
       - content_type: 2
         default_value: http://127.0.0.1/nginx_status
@@ -884,6 +889,7 @@ common:
     check_nsclient_web_online:
       info:
         description: Query the REST API of a remote NSClient++ agent (reachability or a remote check).
+        experimental: true
     check_ntp_offset:
       common_fields:
       - count
@@ -976,6 +982,7 @@ common:
         short_description: ''
       info:
         description: Query an NTP server and check the offset between the local clock and the server.
+        experimental: true
       params:
       - content_type: 2
         default_value: ''
@@ -1145,6 +1152,7 @@ common:
         short_description: ''
       info:
         description: Check a PHP-FPM pool via its status page.
+        experimental: true
       params:
       - content_type: 2
         default_value: http://127.0.0.1/status
@@ -1474,6 +1482,7 @@ common:
         short_description: ''
       info:
         description: Connect to an SSH port and verify the server presents a valid SSH banner.
+        experimental: true
       params:
       - content_type: 2
         default_value: ''
@@ -1653,6 +1662,7 @@ common:
       info:
         description: Connect to a TCP port and optionally send/expect data to check that a service is
           reachable.
+        experimental: true
       params:
       - content_type: 2
         default_value: ''
@@ -1882,6 +1892,7 @@ common:
         short_description: ''
       info:
         description: Check an Apache Tomcat server via the manager status page (XML).
+        experimental: true
       params:
       - content_type: 2
         default_value: http://127.0.0.1:8080/manager/status

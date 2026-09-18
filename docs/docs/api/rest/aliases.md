@@ -51,6 +51,7 @@ GET /api/v2/aliases
         "title": "mock_alias",
         "description": "Alias for: mock_query",
         "plugin": "CheckHelpers",
+        "experimental": false,
         "metadata": {},
         "query_url": "https://localhost:8443/api/v2/queries/mock_alias/"
     }

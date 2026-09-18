@@ -25,6 +25,11 @@ NSClient++ distinguishes two flags on every module:
 without disabling it (it will come back on the next start), and you can mark
 a module enabled in the configuration without forcing it to load right now.
 
+A third field, `experimental`, is not a status but a property of the module
+itself: the module works, but it is new enough that its commands, options and
+output may still change between releases. It is declared by the module and is
+also reported per check command by the [queries API](queries.md).
+
 ## List modules
 
 Returns all currently loaded modules. Pass `?all=true` to also include
@@ -60,6 +65,7 @@ GET /api/v2/modules
         "description": "Module used to execute external scripts",
         "loaded": true,
         "enabled": true,
+        "experimental": false,
         "metadata": { "plugin_id": "0" },
         "load_url":    "https://localhost:8443/api/v2/modules/CheckExternalScripts/commands/load",
         "unload_url":  "https://localhost:8443/api/v2/modules/CheckExternalScripts/commands/unload",
@@ -109,6 +115,7 @@ GET /api/v2/modules/WEBServer
     "description": "A server that listens for incoming HTTP connections...",
     "loaded": true,
     "enabled": true,
+    "experimental": false,
     "metadata": { "plugin_id": "1" },
     "load_url":    "https://localhost:8443/api/v2/modules/WEBServer/commands/load",
     "unload_url":  "https://localhost:8443/api/v2/modules/WEBServer/commands/unload",

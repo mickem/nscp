@@ -20,6 +20,7 @@ EXPORTS
 	NSGetModuleName
 	NSGetModuleDescription
 	NSGetModuleVersion
+	NSGetModuleFlags
 	NSHasCommandHandler
 	NSHasMessageHandler
 	NSHandleMessage
@@ -382,6 +383,7 @@ void {{module.name}}Module::registerCommands() {
             "The filter is written using the filter query language and in it you can use various filter keywords to define the filtering logic.\\n"
             "The filter keywords can also be used to create the bound expressions for the warning and critical which defines when a check returns warning or critical."
 {% endif %}
+            , {% if cmd.experimental %}ch::stability::experimental{% else %}ch::stability::stable{% endif %}
         )
 {% else %}
         (
@@ -393,6 +395,7 @@ void {{module.name}}Module::registerCommands() {
             "The filter is written using the filter query language and in it you can use various filter keywords to define the filtering logic.\\n"
             "The filter keywords can also be used to create the bound expressions for the warning and critical which defines when a check returns warning or critical."
 {% endif %}
+            , {% if cmd.experimental %}ch::stability::experimental{% else %}ch::stability::stable{% endif %}
         )
 {% endif %}
 {% endfor %}
@@ -683,6 +686,9 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
 	extern int NSGetModuleVersion(int *major, int *minor, int *revision) {
 		return nscapi::basic_wrapper_static<plugin_impl_class>::NSGetModuleVersion(major, minor, revision);
 	}
+	extern int NSGetModuleFlags(int *flags) {
+		return nscapi::basic_wrapper_static<plugin_impl_class>::NSGetModuleFlags(flags);
+	}
 	extern int NSUnloadModule(unsigned int id) {
 		int ret;
 		{
@@ -775,6 +781,7 @@ extern "C" void NSDeleteBuffer(char**buffer);
 extern "C" int NSGetModuleName(char* buf, int buflen);
 extern "C" int NSGetModuleDescription(char* buf, int buflen);
 extern "C" int NSGetModuleVersion(int *major, int *minor, int *revision);
+extern "C" int NSGetModuleFlags(int *flags);
 extern "C" NSCAPI::boolReturn NSHasCommandHandler(unsigned int plugin_id);
 extern "C" NSCAPI::boolReturn NSHasMessageHandler(unsigned int plugin_id);
 extern "C" void NSHandleMessage(unsigned int plugin_id, const char* data, unsigned int len);
@@ -839,6 +846,13 @@ public:
 	}
 	static std::string getModuleDescription() {
 		return "{{module.description|cstring}}";
+	}
+	/**
+	* Module flags (NSCAPI::module_flags), declared in module.json.
+	* @return the flags describing this module
+	*/
+	static int getModuleFlags() {
+		return {% if module.experimental %}NSCAPI::module_flags::experimental{% else %}NSCAPI::module_flags::none{% endif %};
 	}
 
 {% if module.commands or module.command_fallback%}
@@ -943,7 +957,8 @@ class Module:
 	version = None
 	loaders = "both"
 	managed = False
-	
+	experimental = False
+
 	def __init__(self, data):
 		if data['name']:
 			self.name = data['name']
@@ -955,6 +970,11 @@ class Module:
 			self.title = data['title']
 		if 'managed' in data and data['managed']:
 			self.managed = data['managed']
+		# "experimental": the module is usable but its commands/options may
+		# still change; the core reports it and the CLI, web UI and reference
+		# documentation render it as a marker.
+		if 'experimental' in data and data['experimental']:
+			self.experimental = True
 		if data['version']:
 			if data['version'] == 'auto':
 				self.version = None
@@ -983,6 +1003,7 @@ class Command:
 	no_mapping = False
 	raw_mapping = False
 	nagios = False
+	experimental = False
 
 	def __init__(self, name, description, types = [], alias = []):
 		self.name = name
@@ -994,6 +1015,7 @@ class Command:
 		self.no_mapping = False
 		self.raw_mapping = False
 		self.nagios = False
+		self.experimental = False
 
 	def __repr__(self):
 		if self.alias:
@@ -1011,6 +1033,7 @@ def parse_commands(data):
 			no_mapping = False
 			raw_mapping = False
 			nagios = False
+			experimental = False
 			types = ""
 			if key == "fallback" and value:
 				command_fallback = True
@@ -1030,6 +1053,8 @@ def parse_commands(data):
 					request = True
 				if 'nagios' in value and value['nagios']:
 					nagios = True
+				if 'experimental' in value and value['experimental']:
+					experimental = True
 				if 'mapping' in value:
 					if value['mapping'] == 'nagios':
 						nagios = True
@@ -1056,6 +1081,8 @@ def parse_commands(data):
 					cmd.no_mapping = True
 				if raw_mapping:
 					cmd.raw_mapping = True
+				if experimental:
+					cmd.experimental = True
 				commands.append(cmd)
 
 def parse_module(data):

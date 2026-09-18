@@ -110,6 +110,8 @@ export interface ModuleListItem {
   description: string;
   enabled: boolean;
   loaded: boolean;
+  /** The module declared itself experimental: usable, but still moving. */
+  experimental: boolean;
   metadata: {
     alias: string;
     plugin_id: string;
@@ -126,6 +128,8 @@ interface Module {
   enabled: boolean;
   description: string;
   loaded: boolean;
+  /** The module declared itself experimental: usable, but still moving. */
+  experimental: boolean;
   metadata: {
     alias: string;
     plugin_id: string;
@@ -141,6 +145,8 @@ interface QueryListItem {
   title: string;
   plugin: string;
   description: string;
+  /** The command declared itself experimental: usable, but still moving. */
+  experimental: boolean;
   query_url: string;
 }
 
@@ -149,6 +155,8 @@ export interface AliasListItem {
   title: string;
   plugin: string;
   description: string;
+  /** Inherited from the command the alias stands for. */
+  experimental: boolean;
   alias_url: string;
 }
 
@@ -157,6 +165,8 @@ interface Query {
   title: string;
   plugin: string;
   description: string;
+  /** The command declared itself experimental: usable, but still moving. */
+  experimental: boolean;
   execute_nagios_url: string;
   execute_url: string;
 }

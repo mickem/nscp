@@ -11,3 +11,4 @@ export * from "./fleet";
 export * from "./fleet-server";
 export * from "./live-target";
 export * from "./gearman";
+export * from "./module-manifests";

@@ -19,7 +19,7 @@
  *     in this directory runs it.
  */
 import execa from "execa";
-import { NscpInstance } from "@fixtures/index";
+import { NscpInstance, commandsDeclaring, moduleManifest } from "@fixtures/index";
 
 jest.setTimeout(120_000);
 
@@ -65,6 +65,44 @@ describe("nscp test console", () => {
     expect(out).toContain("OK: a b");
     expect(out).toContain('OK: say "hi"');
     expect(out).toContain("OK: it's");
+  });
+
+  it("marks experimental commands in the listings and in desc", async () => {
+    // Which of CheckDisk's commands are experimental is read from its
+    // module.json rather than written down here: the flag is meant to come
+    // off as a command settles, and a test that names today's answers would
+    // fail on that alone.
+    const manifest = moduleManifest("CheckDisk");
+    const experimental = commandsDeclaring(manifest, true);
+    const stable = commandsDeclaring(manifest, false);
+    expect(stable.length).toBeGreaterThan(0);
+
+    await nscp.configure({ "/modules": { CheckHelpers: "enabled", CheckDisk: "enabled" } });
+    const described = [experimental[0], stable[0]].filter(Boolean);
+    const out = await runConsole(
+      ["queries", ...described.map((c) => `desc ${c}`), "exit", ""].join("\n"),
+    );
+
+    // Registration comes from the manifest and does not depend on the platform,
+    // so every command it declares is in the listing - marked exactly as it is
+    // declared. The listing lowercases names, hence the case-insensitive match.
+    const lower = out.toLowerCase();
+    const shown = (command: string) => ({
+      command,
+      listed: lower.includes(command.toLowerCase()),
+      marked: lower.includes(`${command.toLowerCase()} (experimental)`),
+    });
+    for (const command of experimental) {
+      expect(shown(command)).toEqual({ command, listed: true, marked: true });
+    }
+    for (const command of stable) {
+      expect(shown(command)).toEqual({ command, listed: true, marked: false });
+    }
+
+    // `desc` says it in words, since that is where the reader decides whether
+    // to build a check on it - and says nothing for a settled command.
+    const status = /Status:\s+Experimental - options, keywords and output may still change/g;
+    expect(out.match(status)?.length ?? 0).toBe(described[0] && experimental.length ? 1 : 0);
   });
 
   it("exec passes dashed options to the module without promoting one to the command", async () => {

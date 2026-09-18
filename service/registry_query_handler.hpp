@@ -38,6 +38,7 @@ class registry_query_handler {
 
  private:
   logging::logger_instance get_logger() const { return logger_; }
+  bool is_experimental(const nsclient::commands::command_info &info);
   void add_module(PB::Registry::RegistryResponseMessage::Response *rp, const plugin_cache_item &plugin, bool is_enabled);
   plugin_cache_item inventory_plugin_on_disk(plugin_cache::plugin_cache_list_type &list, std::string plugin);
 };

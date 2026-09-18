@@ -122,6 +122,18 @@ struct basic_wrapper_static {
     }
     return NSCAPI::api_return_codes::hasFailed;
   }
+  // Module flags (NSCAPI::module_flags) the core reads when it inventories a
+  // module: today only "experimental". The generated module class derives the
+  // value from module.json, so a module that declares nothing reports none.
+  static int NSGetModuleFlags(int *flags) {
+    try {
+      *flags = impl_class::getModuleFlags();
+      return NSCAPI::api_return_codes::isSuccess;
+    } catch (...) {
+      NSC_LOG_CRITICAL("Unknown exception in: NSGetModuleFlags");
+    }
+    return NSCAPI::api_return_codes::hasFailed;
+  }
   static int NSGetModuleVersion(int *major, int *minor, int *revision) {
     try {
       nscapi::module_version version = impl_class::getModuleVersion();

@@ -2,6 +2,7 @@ common:
   info:
     description: 'Check MySQL, MariaDB, Percona and other MySQL-compatible servers: connectivity, health
       and custom queries.'
+    experimental: true
     title: CheckMySQL
   paths:
     /settings/mysql:
@@ -154,6 +155,7 @@ common:
         short_description: ''
       info:
         description: Check MySQL/MariaDB server connectivity and health (version, flavor, uptime, connections).
+        experimental: true
       params:
       - content_type: 2
         default_value: localhost
@@ -263,6 +265,7 @@ common:
         warning: ''
       info:
         description: Run a custom SQL query and apply thresholds to the returned rows.
+        experimental: true
       params:
       - content_type: 2
         default_value: ''

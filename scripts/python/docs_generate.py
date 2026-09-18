@@ -348,7 +348,9 @@ documented on the [common options](common-options.md) page.
         {%- elif query.description.startswith('Alias for:') -%}
             {% set desc = query.description[11:]|rst_link('query') -%}
         {%- endif -%}
-        {% do table.append([mk, (module.namespace + '/' + module.key + '.md#' + query.key)|md_link(query.key), query.os, desc]) -%}
+        {% set cmd_link = (module.namespace + '/' + module.key + '.md#' + query.key)|md_link(query.key) -%}
+        {% if query.experimental %}{% set cmd_link = cmd_link + marker %}{% endif -%}
+        {% do table.append([mk, cmd_link, query.os, desc]) -%}
     {%- endfor -%}
 {%- endfor -%}
 {{table|rst_table('Module', 'Command', 'OS', 'Description')}}
@@ -357,7 +359,9 @@ documented on the [common options](common-options.md) page.
 
 {% set table = [] -%}
 {% for key,module in modules|dictsort  -%}
-    {% do table.append([module.namespace, (module.namespace + '/' + module.key + '.md')|md_link(module.key), module.os, module.description|firstline]) -%}
+    {% set mod_link = (module.namespace + '/' + module.key + '.md')|md_link(module.key) -%}
+    {% if module.experimental %}{% set mod_link = mod_link + marker %}{% endif -%}
+    {% do table.append([module.namespace, mod_link, module.os, module.description|firstline]) -%}
 {%- endfor -%}
 {{table|rst_table('Type', 'Module', 'OS', 'Description')}}
 """
@@ -489,6 +493,28 @@ def availability_note(present, all_present):
         return ''
     labels = ', '.join(PLATFORM_LABEL[p] for p in PLATFORM_ORDER if p in present)
     return '*Available on %s only.*\n' % labels
+
+
+# --- Experimental marker. -------------------------------------------------------
+# A module or command whose module.json says "experimental": true is usable but
+# still moving: its options, keywords and output may change. The agent reports
+# the flag through the registry (docs_extract.py stores it), and it is rendered
+# twice here - as a marker in the index/command tables, and as an admonition on
+# the item itself.
+EXPERIMENTAL_MARKER = ' *(experimental)*'
+
+
+def experimental_note(what):
+    # Admonition placed directly under a module title or a command heading.
+    return ('!!! warning "Experimental"\n\n'
+            '    This %s is experimental: it works, but its options, filter keywords\n'
+            '    and output may change in a future release. Please try it and report\n'
+            '    anything that does not behave the way you expect.\n' % what)
+
+
+def is_experimental(item):
+    # Queries and module info carry the flag under "info"; aliases carry it flat.
+    return bool((item or {}).get('experimental') or (item or {}).get('info', {}).get('experimental'))
 
 
 def declared_platforms(desc):
@@ -650,6 +676,11 @@ class DocumentationGenerator(object):
 
     # -- section renderers --
     def render_queries(self, module, slices, present):
+        # A module that is itself experimental has said so at the top of the
+        # page, and every command it owns inherits the flag - so the per
+        # command admonition below would repeat it once per section. The
+        # markers in the command table stay, since a row is read on its own.
+        module_experimental = any(is_experimental(slices[p].get('info', {})) for p in present)
         # Union of query names across the platforms that provide any.
         names = set()
         for p in present:
@@ -676,7 +707,10 @@ class DocumentationGenerator(object):
                 cell = make_rst_link(desc[11:], 'query')
             else:
                 cell = first_line(desc)
-            rows.append([make_md_self_link(name), cell])
+            link = make_md_self_link(name)
+            if any(is_experimental(slices[p].get('queries', {}).get(name)) for p in present):
+                link += EXPERIMENTAL_MARKER
+            rows.append([link, cell])
         out.append(render_rst_table(rows, 'Command', 'Description'))
 
         # Aliases table (union).
@@ -700,7 +734,10 @@ class DocumentationGenerator(object):
                     cell = 'Alias for: ' + make_rst_link(desc[11:], 'query')
                 else:
                     cell = first_line(desc)
-                rows.append([name, cell])
+                label = name
+                if any(is_experimental(slices[p].get('aliases', {}).get(name)) for p in present):
+                    label += EXPERIMENTAL_MARKER
+                rows.append([label, cell])
             out.append(render_rst_table(rows, 'Command', 'Description'))
 
         # Per-query sections. Each content section (intro / args / filter keywords)
@@ -717,6 +754,8 @@ class DocumentationGenerator(object):
             note = availability_note(effective_platforms(qpresent, desc), present)
             if note:
                 out.append(note)
+            if not module_experimental and any(is_experimental(slices[p]['queries'][name]) for p in qpresent):
+                out.append(experimental_note('check command'))
 
             prepared = {p: prepare_query(slices[p]['queries'][name], name,
                                          module, self.sample_folder,
@@ -892,6 +931,8 @@ class DocumentationGenerator(object):
         note = availability_note(present, PLATFORM_ORDER)
         if note:
             out.append(note)
+        if any(is_experimental(slices[p].get('info', {})) for p in present):
+            out.append(experimental_note('module'))
         out.append(per_platform(present, lambda p: slices[p].get('info', {}).get('description', '')))
         out.append('')
         if ext_desc:
@@ -930,12 +971,14 @@ class DocumentationGenerator(object):
                 for qn, q in slices[p].get('queries', {}).items():
                     if qn not in queries:
                         queries[qn] = {'key': qn, 'description': q.get('info', {}).get('description', ''),
-                                       'platforms': []}
+                                       'experimental': False, 'platforms': []}
+                    queries[qn]['experimental'] = queries[qn]['experimental'] or is_experimental(q)
                     queries[qn]['platforms'].append(p)
             for q in queries.values():
                 q['os'] = os_label(effective_platforms(q.pop('platforms'), q['description']))
             model[name] = {'key': name, 'namespace': namespace, 'os': os_label(present),
-                           'description': description, 'queries': queries}
+                           'description': description, 'queries': queries,
+                           'experimental': any(is_experimental(slices[p].get('info', {})) for p in present)}
         return model
 
     def render_common_page(self, output_dir):
@@ -968,7 +1011,7 @@ class DocumentationGenerator(object):
         self.render_common_page(output_dir)
 
         index_model = self.build_index_model(modules)
-        text = self.index.render(modules=index_model)
+        text = self.index.render(modules=index_model, marker=EXPERIMENTAL_MARKER)
         render_template(text, '%s/docs/reference/index.md' % output_dir)
         print('Rendered %d modules into %s/docs/reference' % (len(modules), output_dir))
 

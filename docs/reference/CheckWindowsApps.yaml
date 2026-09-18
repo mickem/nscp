@@ -7,6 +7,7 @@ windows:
     description: 'Checks for applications and server roles on Windows: IIS (web sites, application pools,
       worker processes, HTTP.sys request queues) and Remote Desktop Services (CAL licensing, session host
       load, Connection Broker).'
+    experimental: true
     title: CheckWindowsApps
   queries:
     check_iis_app_pools:
@@ -80,6 +81,7 @@ windows:
         short_description: ''
       info:
         description: Check IIS application pools (state, uptime, recycles).
+        experimental: true
     check_iis_request_queues:
       common_fields:
       - count
@@ -141,6 +143,7 @@ windows:
         short_description: ''
       info:
         description: Check HTTP.sys request queues (length, rejections, age).
+        experimental: true
     check_iis_sites:
       common_fields:
       - count
@@ -215,6 +218,7 @@ windows:
         short_description: ''
       info:
         description: Check IIS web sites (state, connections, traffic).
+        experimental: true
       params:
       - content_type: 2
         default_value: 'false'
@@ -291,6 +295,7 @@ windows:
         short_description: ''
       info:
         description: Check IIS worker processes (active and served requests per w3wp).
+        experimental: true
     check_rds_broker:
       common_fields:
       - count
@@ -353,6 +358,7 @@ windows:
         short_description: ''
       info:
         description: Check the Remote Desktop Connection Broker counterset (failed/pending connections).
+        experimental: true
       params:
       - content_type: 2
         default_value: 'false'
@@ -439,6 +445,7 @@ windows:
         short_description: ''
       info:
         description: 'Check Remote Desktop licensing (CAL key packs: issued versus available licenses).'
+        experimental: true
     check_rds_session_load:
       common_fields:
       - count
@@ -500,6 +507,7 @@ windows:
         short_description: ''
       info:
         description: Check per-session resource usage (CPU, working set, protocol bytes).
+        experimental: true
       params:
       - content_type: 2
         default_value: 'false'
@@ -577,3 +585,4 @@ windows:
         short_description: ''
       info:
         description: Check session counts on a session host (active, inactive, total).
+        experimental: true

@@ -278,6 +278,7 @@ unix:
       info:
         description: 'Check docker disk usage: images, containers, volumes, build cache and reclaimable
           space.'
+        experimental: true
       params:
       - content_type: 2
         default_value: /var/run/docker.sock
@@ -375,6 +376,7 @@ unix:
         short_description: ''
       info:
         description: 'Check that the docker daemon is healthy: version plus container and image counts.'
+        experimental: true
       params:
       - content_type: 2
         default_value: /var/run/docker.sock
@@ -467,6 +469,7 @@ unix:
         short_description: ''
       info:
         description: Detect container restart loops and out-of-memory kills.
+        experimental: true
       params:
       - content_type: 2
         default_value: /var/run/docker.sock
@@ -567,6 +570,7 @@ unix:
         short_description: ''
       info:
         description: 'Check per-container resource usage: CPU percent and memory versus limit.'
+        experimental: true
       params:
       - content_type: 2
         default_value: /var/run/docker.sock
@@ -865,6 +869,7 @@ windows:
       info:
         description: 'Check docker disk usage: images, containers, volumes, build cache and reclaimable
           space.'
+        experimental: true
       params:
       - content_type: 2
         default_value: \\.\pipe\docker_engine
@@ -962,6 +967,7 @@ windows:
         short_description: ''
       info:
         description: 'Check that the docker daemon is healthy: version plus container and image counts.'
+        experimental: true
       params:
       - content_type: 2
         default_value: \\.\pipe\docker_engine
@@ -1054,6 +1060,7 @@ windows:
         short_description: ''
       info:
         description: Detect container restart loops and out-of-memory kills.
+        experimental: true
       params:
       - content_type: 2
         default_value: \\.\pipe\docker_engine
@@ -1154,6 +1161,7 @@ windows:
         short_description: ''
       info:
         description: 'Check per-container resource usage: CPU percent and memory versus limit.'
+        experimental: true
       params:
       - content_type: 2
         default_value: \\.\pipe\docker_engine

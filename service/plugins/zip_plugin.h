@@ -44,6 +44,7 @@ class zip_plugin : public boost::noncopyable, public plugin_interface {
   logging::logger_instance logger_;
   std::string name_;
   std::string description_;
+  bool experimental_ = false;
 
   std::list<script_def> scripts_;
   std::set<std::string> modules_;
@@ -63,6 +64,7 @@ class zip_plugin : public boost::noncopyable, public plugin_interface {
 
   std::string getName() override;
   std::string getDescription() override;
+  bool is_experimental() override { return experimental_; }
   bool hasCommandHandler() override { return false; }
   bool hasNotificationHandler() override { return false; }
   bool hasMessageHandler() override { return false; }

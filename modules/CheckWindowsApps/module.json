@@ -4,7 +4,8 @@
 		"description"		: "Checks for applications and server roles on Windows: IIS (web sites, application pools, worker processes, HTTP.sys request queues) and Remote Desktop Services (CAL licensing, session host load, Connection Broker).",
 		"name"			: "CheckWindowsApps",
 		"alias"			: "windowsapps",
-		"version"		: "auto"
+		"version"		: "auto",
+		"experimental"	: true
 	},
 
 	"commands" : {

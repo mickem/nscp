@@ -63,6 +63,7 @@ describe("REST modules (v1)", () => {
           {
             description: "Loads and processes internal Lua scripts",
             enabled: true,
+            experimental: false,
             id: luaScriptModule,
             load_url: expect.stringMatching(
               /^https:\/\/127\.0\.0\.1:8443\/api\/v1\/modules\/L[Uu][Aa]Script\/commands\/load$/,
@@ -105,6 +106,7 @@ describe("REST modules (v1)", () => {
           {
             description: "Loads and processes internal Lua scripts",
             enabled: true,
+            experimental: false,
             id: luaScriptModule,
             load_url: expect.stringMatching(
               /^https:\/\/127\.0\.0\.1:8443\/api\/v1\/modules\/L[Uu][Aa]Script\/commands\/load$/,
@@ -126,6 +128,7 @@ describe("REST modules (v1)", () => {
           {
             description: "Use this module to check the health and status of NSClient++ it self",
             enabled: false,
+            experimental: false,
             id: "CheckNSCP",
             load_url: "https://127.0.0.1:8443/api/v1/modules/CheckNSCP/commands/load",
             loaded: false,
@@ -155,6 +158,7 @@ describe("REST modules (v1)", () => {
           disable_url: "https://127.0.0.1:8443/api/v1/modules/CheckNSCP/commands/disable",
           enable_url: "https://127.0.0.1:8443/api/v1/modules/CheckNSCP/commands/enable",
           enabled: false,
+          experimental: false,
           id: "CheckNSCP",
           load_url: "https://127.0.0.1:8443/api/v1/modules/CheckNSCP/commands/load",
           loaded: false,
@@ -193,6 +197,7 @@ describe("REST modules (v1)", () => {
           disable_url: "https://127.0.0.1:8443/api/v1/modules/CheckNSCP/commands/disable",
           enable_url: "https://127.0.0.1:8443/api/v1/modules/CheckNSCP/commands/enable",
           enabled: false,
+          experimental: false,
           id: "CheckNSCP",
           load_url: "https://127.0.0.1:8443/api/v1/modules/CheckNSCP/commands/load",
           loaded: true,
@@ -231,6 +236,7 @@ describe("REST modules (v1)", () => {
           disable_url: "https://127.0.0.1:8443/api/v1/modules/CheckNSCP/commands/disable",
           enable_url: "https://127.0.0.1:8443/api/v1/modules/CheckNSCP/commands/enable",
           enabled: true,
+          experimental: false,
           id: "CheckNSCP",
           load_url: "https://127.0.0.1:8443/api/v1/modules/CheckNSCP/commands/load",
           loaded: true,

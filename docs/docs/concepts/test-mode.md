@@ -154,6 +154,20 @@ nscp> plugins
 [X]  CommandClient  A command line client, generally not used except with "nscp test".
 ```
 
+A module or check command that is still young carries an `(experimental)`
+marker after its name — in `plugins`, in `queries`/`aliases`/`list`, and as a
+`Status:` line in `desc`:
+
+```
+nscp> queries
+check_cpu                       Check that the load of the CPU(s) are within bounds.
+check_temperature (experimental)  Check ACPI thermal zone temperatures.
+```
+
+It means the check works and is meant to be used, but its options, filter
+keywords and output may change in a coming release — so pin what you depend on
+and expect to revisit it after an upgrade.
+
 `--unloaded` is the other half — the modules sitting in the module directory
 that nothing has loaded — and `--all` is both in one list, sorted by name.
 `--loaded` spells out the default. The first `--all` or `--unloaded` pauses:

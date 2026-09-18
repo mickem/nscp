@@ -2,6 +2,7 @@ common:
   info:
     description: 'CheckSecurity checks host security posture: certificate expiry and (on Windows) the
       firewall profile state.'
+    experimental: true
     title: CheckSecurity
   queries:
     check_activation:
@@ -110,6 +111,7 @@ common:
       info:
         description: 'Check the Windows activation/licensing state: license status, remaining grace or
           KMS renewal period and genuineness. Windows only.'
+        experimental: true
       params:
       - content_type: 2
         default_value: 'false'
@@ -193,6 +195,7 @@ common:
       info:
         description: Check registered antivirus products' enabled/up-to-date state (Windows Security Center).
           Windows only.
+        experimental: true
     check_bitlocker:
       common_fields:
       - count
@@ -254,6 +257,7 @@ common:
         short_description: ''
       info:
         description: Check BitLocker drive-encryption protection status per volume. Windows only.
+        experimental: true
     check_certificate:
       common_fields:
       - count
@@ -389,6 +393,7 @@ common:
       info:
         description: Check X.509 certificate expiry/validity/hygiene from files (all platforms) or the
           Windows certificate store.
+        experimental: true
       params:
       - content_type: 2
         default_value: ''
@@ -534,6 +539,7 @@ common:
       info:
         description: 'Check Microsoft Defender status: signature/scan age, real-time and tamper protection,
           engine/signature versions. Windows only.'
+        experimental: true
     check_file_security:
       common_fields:
       - count
@@ -648,6 +654,7 @@ common:
       info:
         description: Check the owner and DACL of files, folders or service binaries; alerts on world-writable
           paths and unexpected owners. Windows only.
+        experimental: true
       params:
       - content_type: 2
         default_value: ''
@@ -767,6 +774,7 @@ common:
       info:
         description: Check the Windows firewall profile (Domain/Private/Public) enabled state. Windows
           only.
+        experimental: true
     check_firewall_rules:
       common_fields:
       - count
@@ -902,6 +910,7 @@ common:
       info:
         description: 'Check individual Windows firewall rules: assert that specific rules exist and are
           enabled, and find inbound allow rules that restrict neither address nor port. Windows only.'
+        experimental: true
       params:
       - content_type: 2
         default_value: ''
@@ -991,6 +1000,7 @@ common:
       info:
         description: Check local group membership (default Administrators) and alert on members not on
           an expected allow-list. Windows only.
+        experimental: true
       params:
       - content_type: 2
         default_value: ''
@@ -1093,6 +1103,7 @@ common:
       info:
         description: 'Check local user account hygiene: enabled/disabled, locked, password-required/expires,
           built-in admin/guest. Windows only.'
+        experimental: true
     check_nla:
       common_fields:
       - count
@@ -1151,6 +1162,7 @@ common:
       info:
         description: Check the Network Location Awareness profile (public/private/domain) per network.
           Windows only.
+        experimental: true
     check_secureboot:
       common_fields:
       - count
@@ -1205,6 +1217,7 @@ common:
         short_description: ''
       info:
         description: Check whether UEFI Secure Boot is enabled. Windows only.
+        experimental: true
     check_users:
       common_fields:
       - count
@@ -1267,6 +1280,7 @@ common:
         short_description: ''
       info:
         description: Check the count and detail of logged-on / RDP sessions (Windows and Linux).
+        experimental: true
 module: CheckSecurity
 namespace: check
 platforms:

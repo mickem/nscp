@@ -52,6 +52,8 @@ TEST(PluginCacheItemTest, DefaultConstructor) {
   EXPECT_EQ(item.id, 0u);
   EXPECT_TRUE(item.dll.empty());
   EXPECT_FALSE(item.is_loaded);
+  // A module says it is experimental; nothing says it for it.
+  EXPECT_FALSE(item.experimental);
 }
 TEST(PluginCacheItemTest, CopyConstructor) {
   nsclient::core::plugin_cache_item item1;
@@ -59,10 +61,15 @@ TEST(PluginCacheItemTest, CopyConstructor) {
   item1.dll = "test.dll";
   item1.alias = "test_alias";
   item1.is_loaded = true;
+  item1.experimental = true;
   nsclient::core::plugin_cache_item item2(item1);
   EXPECT_EQ(item2.id, 42u);
   EXPECT_EQ(item2.dll, "test.dll");
   EXPECT_TRUE(item2.is_loaded);
+  EXPECT_TRUE(item2.experimental);
+  nsclient::core::plugin_cache_item item3;
+  item3 = item1;
+  EXPECT_TRUE(item3.experimental);
 }
 TEST_F(PluginCacheTest, InitialState) {
   EXPECT_FALSE(cache_->has_all());

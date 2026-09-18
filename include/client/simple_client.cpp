@@ -90,6 +90,17 @@ static std::string render_table(const std::vector<table_row> &rows, const std::s
 
 typedef ::PB::Registry::RegistryResponseMessage::Response::Inventory inventory_entry;
 
+// The marker appended to the name of an experimental item in every listing.
+// It is a suffix on the name rather than a column of its own so the tables
+// keep the shape they have when nothing is experimental.
+static const char *EXPERIMENTAL_MARKER = " (experimental)";
+
+// `name`, with the marker when the registry says the item is experimental.
+static std::string decorate_name(const inventory_entry &inv) {
+  if (!inv.info().experimental()) return inv.name();
+  return inv.name() + EXPERIMENTAL_MARKER;
+}
+
 static bool is_loaded(const inventory_entry &inv) {
   for (int i = 0; i < inv.info().metadata_size(); i++) {
     if (inv.info().metadata(i).key() == "loaded" && inv.info().metadata(i).value() == "true") return true;
@@ -118,7 +129,7 @@ static std::string render_inventory(const std::vector<PB::Registry::RegistryResp
     std::vector<inventory_entry> entries;
     std::string error;
     if (!collect_entries(response, entries, error)) return error;
-    for (const inventory_entry &i : entries) rows.push_back({i.name(), i.info().description()});
+    for (const inventory_entry &i : entries) rows.push_back({decorate_name(i), i.info().description()});
   }
   return rows.empty() ? "Nothing found" : render_table(rows);
 }
@@ -145,7 +156,7 @@ static std::string render_modules(const nscapi::core_wrapper *core, const module
     const bool loaded = is_loaded(i);
     if (filter == module_filter::loaded && !loaded) continue;
     if (filter == module_filter::unloaded && loaded) continue;
-    rows.push_back({loaded ? "[X]" : "[ ]", i.name(), i.info().description()});
+    rows.push_back({loaded ? "[X]" : "[ ]", decorate_name(i), i.info().description()});
   }
   std::sort(rows.begin(), rows.end(), [](const table_row &a, const table_row &b) { return a[1] < b[1]; });
   if (!rows.empty()) return render_table(rows);
@@ -259,6 +270,11 @@ static std::string render_description(const client::cli_handler_ptr &handler, co
     }
   } else {
     header.push_back({"Description:", inv.info().description()});
+  }
+  // An alias is as experimental as what it runs, so either entry saying so is
+  // enough - and `desc` is where a reader decides whether to depend on it.
+  if (inv.info().experimental() || parameters_from->info().experimental()) {
+    header.push_back({"Status:", "Experimental - options, keywords and output may still change"});
   }
   const std::string defaults = show_default(handler, parameters_of);
   if (!defaults.empty()) header.push_back({"Default:", parameters_of + " " + defaults});

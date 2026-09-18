@@ -98,6 +98,11 @@ void nsclient::core::zip_plugin::read_metadata(const std::string &data) {
     auto root = json::parse(data).as_object();
     name_ = root["name"].as_string().c_str();
     description_ = root["description"].as_string().c_str();
+    // Optional: a bundle can declare itself experimental the same way a
+    // compiled module does, and is then marked as such wherever it is listed.
+    if (root.contains("experimental")) {
+      experimental_ = root["experimental"].as_bool();
+    }
 
     if (root.contains("scripts")) {
       for (const auto &s : root["scripts"].as_array()) {
