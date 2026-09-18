@@ -258,11 +258,20 @@ describe("plugin threading", () => {
         "  return 'ok', 'deep saw: ' .. tostring(msg)",
         "end",
         "",
+        "-- A reload of the whole service asked for from inside a check the",
+        "-- NRPE server is serving: run on this thread it would restart the",
+        "-- listener from one of its own pool threads.",
+        "local function reloader(command, args)",
+        "  core:reload('service')",
+        "  return 'ok', 'reload requested'",
+        "end",
+        "",
         "local reg = Registry()",
         "reg:simple_function('lua_busy', busy, 'cpu work, never releases the lua lock')",
         "reg:simple_function('lua_inner', inner, 'innermost self-query target')",
         "reg:simple_function('lua_nested', nested, 'queries a command its own module serves')",
         "reg:simple_function('lua_deep', deep, 'two levels of self-query')",
+        "reg:simple_function('lua_reload', reloader, 'reloads the service from inside a check')",
         "",
       ].join("\n"),
     );
@@ -596,5 +605,28 @@ describe("plugin threading", () => {
 
     // Still alive and answering after all of that.
     expect(await nrpe("check_ok", ["message=after-reload"])).toContain("after-reload");
+  });
+
+  it("survives a reload of the service requested from inside a check", async () => {
+    // core:reload("service") from a check served over NRPE. Applied on the
+    // calling thread, the NRPE server's own reload would stop the listener and
+    // join its pool from one of the pool's threads; the failed load then had
+    // the core purge the module out from under the thread still inside it,
+    // and the listener stayed dead. The core has to hand the reload to its
+    // scheduler instead, so the check answers first and the reload - which
+    // does restart the listener - applies after it.
+    expect(await nrpe("lua_reload")).toContain("reload requested");
+
+    // The listener goes down and comes back while the deferred reload applies;
+    // keep asking until it is there again rather than assuming how long that
+    // takes on this machine.
+    let out = "";
+    const deadline = Date.now() + 60_000;
+    while (Date.now() < deadline) {
+      out = await nrpe("check_ok", ["message=after-scripted-reload"]);
+      if (out.includes("after-scripted-reload")) break;
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    expect(out).toContain("after-scripted-reload");
   });
 });

@@ -729,6 +729,20 @@ NSCAPI::errorReturn NSClientT::reload(const std::string module) {
     } else if (module == "service") {
       delayed = false;
     }
+    // A reload that reaches loadModuleEx on the thread of a check the module
+    // is serving cannot be run inline: a script calling core.reload("service")
+    // from a check invoked over NRPE would have the NRPE server stop and join
+    // its own thread pool from one of its members, and the failed load would
+    // then purge the module out from under the thread still inside it. Every
+    // module is reloaded by "service", and a bare module name is only a problem
+    // when it names the module this thread is inside; "settings" touches no
+    // module at all. Hand those to the scheduler, whose worker is not inside
+    // any module, exactly as "delayed," does; the call then returns before the
+    // reload has applied, which is the only order in which it can apply.
+    if (!delayed && task != "settings" && scheduler_.is_running() && plugins_->is_dispatching_on_this_thread(task == "service" ? "" : task)) {
+      LOG_DEBUG_CORE_STD("Reload of " + task + " requested from inside a call into a module: deferring it to the scheduler");
+      delayed = true;
+    }
     if (delayed) {
       LOG_TRACE_CORE("Delayed reload");
       scheduler_.add_task(task_scheduler::schedule_metadata::RELOAD, "", task);
