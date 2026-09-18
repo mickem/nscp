@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
-#include "password_hash.hpp"
+#include <nscp/password_hash.hpp>
 
 #include "sha256.hpp"
 
@@ -17,7 +17,7 @@
 #include <str/constant_time.hpp>
 #include <vector>
 
-namespace web_password {
+namespace password_hash {
 namespace {
 constexpr int kPbkdf2Iterations = 100000;
 constexpr int kPbkdf2HashBytes = 32;
@@ -83,4 +83,4 @@ bool verify_password(const std::string& password, const std::string& stored) {
 std::string hash_password(const std::string& password) { return password; }
 bool verify_password(const std::string& password, const std::string& stored) { return str::constant_time_eq(password, stored); }
 #endif
-}  // namespace web_password
+}  // namespace password_hash

@@ -4,4 +4,7 @@
 #pragma once
 
 #define DEFAULT_PASSWORD_NAME "Password"
-#define DEFAULT_PASSWORD_DESC "Password used to authenticate against server"
+#define DEFAULT_PASSWORD_DESC                                                                                                                     \
+  "Password used to authenticate against server. Stored hashed (pbkdf2-sha256$...) when written by `nscp web install` or `nscp web "         \
+  "password --set`; a clear-text value is still accepted. NSCA derives its encryption key from the clear-text value, so an agent "           \
+  "that serves NSCA keeps a clear-text password under /settings/NSCA/server."

@@ -185,7 +185,9 @@ A quick breakdown of the options:
   port from `8443` to `8080` when it is the default. Session keys and passwords then travel in clear, so only for
   loopback or behind a TLS-terminating proxy.
 * `--port`: Listening port (default `8443`).
-* `--password`: Admin password. If omitted, a random one is generated and printed.
+* `--password`: Admin password. If omitted, a random one is generated and printed. It is stored hashed, both as the
+  shared `/settings/default/password` and in the `admin` user's row; `nscp web password --set` rotates it later (see
+  [Passwords](#passwords)).
 * `--disable-admin`: Lock out the built-in admin user — no admin row is created, the REST script-upload endpoint
   becomes unreachable. Recommended for monitoring-only deployments. Mutually exclusive with `--password`; create a
   dedicated user separately (see below).
@@ -306,7 +308,9 @@ What it does **not** expose, to be fair:
   `CheckExternalScripts`. The realistic risk is therefore **credential capture and read access to system metrics**, not
   remote code execution. The server-side authentication itself is sound (constant-time password compare, an empty
   password is refused, a single generic error string with no username/oracle) — it is the *transport* that is broken,
-  and that cannot be fixed within the protocol.
+  and that cannot be fixed within the protocol. The stored value may be the clear text or the hashed form
+  `nscp web install` / `nscp web password --set` write to `[/settings/default]`; the client sends the clear text
+  either way, and the hash string itself does not authenticate.
 
 If you must keep it running for a legacy monitoring system:
 
@@ -435,9 +439,23 @@ layout, and what moves.
 
 ## Passwords
 
-NSClient++ has among other secrets an admin password which out-of-the box is stored in a config file.
-This is insecure and not recommended.
-There are two simple way to solve this:
+The passwords the agent *checks* are stored hashed (salted PBKDF2-SHA256, `pbkdf2-sha256$…` in the file): the per-user
+web passwords that `nscp web add-user` writes, and the shared `/settings/default/password` that `nscp web install`
+generates or `nscp web password --set` sets. The web admin seed and the check_nt server verify a login against either a
+hash or a clear-text value, so a password written by hand keeps working; re-setting it hashes it in place:
+
+```commandline
+$ nscp web password --set "<the password>"
+```
+
+`nscp web password --display` can only show a password while it is still in clear text; once hashed, set a new one if it
+is lost. The one server that needs the clear text is `NSCAServer`, whose encryption key *is* the password: it refuses to
+load on a hashed shared password, so an agent that serves NSCA gets a clear-text `password` of its own under
+`[/settings/NSCA/server]`. The Windows MSI still writes the value typed into its configuration dialog in clear text.
+
+That leaves the secrets the agent has to *use* rather than check — client-side passwords, tokens and keys for the
+protocols and checks that reach out — which a hash cannot protect. Out of the box those sit in clear text in the config
+file, which is not recommended. There are two simple ways to solve this:
 
 1. Store the config file in the profile of the user.
 2. Store secrets in credential manager.
@@ -858,8 +876,8 @@ Apply the usual transport / network hygiene on top:
 
 - Use a real TLS certificate (do not let the agent silently fall back to HTTP on port 8080).
 - Firewall the WEB port (`8443`) to your monitoring network only.
-- Move the `/settings/default/password` into the credential manager so it's not sitting in cleartext alongside the
-  config (see the Passwords section above).
+- The `/settings/default/password` is stored hashed once `nscp web install` or `nscp web password --set` has written
+  it; move the remaining clear-text secrets into the credential manager (see the Passwords section above).
 
 #### When you actually need administration over WEB
 

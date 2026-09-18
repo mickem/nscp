@@ -11,6 +11,7 @@ set(SRCS
     "${TARGET}.cpp"
     ${NSCP_INCLUDEDIR}/net/nsca/nsca_packet.cpp
     ${NSCP_INCLUDEDIR}/bytes/crc32.cpp
+    ${NSCP_INCLUDEDIR}/nscp/password_hash.cpp
     ${NSCP_DEF_PLUGIN_CPP}
 )
 

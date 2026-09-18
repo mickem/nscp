@@ -18,6 +18,7 @@
  * the payload echoed after "NSClient - ", which is what the deny
  * assertions key on.
  */
+import * as crypto from "crypto";
 import * as path from "path";
 import {
   DOCKER_HOST_ALLOWED_HOSTS,
@@ -51,9 +52,11 @@ dockerOrSkip()("check_nt (legacy NSClient) integration", () => {
 
   /**
    * (Re)configure and (re)start nscp with the NSClient (check_nt) server.
-   * Leaving `allow` undefined keeps the built-in default ("any").
+   * Leaving `allow` undefined keeps the built-in default ("any");
+   * `storedPassword` is what goes into the INI (the clear text, or the
+   * hashed form `nscp web install` writes).
    */
-  async function startNsclient(allow?: string): Promise<void> {
+  async function startNsclient(allow?: string, storedPassword: string = PASSWORD): Promise<void> {
     await nscp.stop();
     await nscp.configure({
       // CheckSystem serves UPTIME/CPULOAD/MEMUSE/PROCSTATE; CheckDisk
@@ -61,7 +64,7 @@ dockerOrSkip()("check_nt (legacy NSClient) integration", () => {
       "/modules": { NSClientServer: "enabled", CheckSystem: "enabled", CheckDisk: "enabled" },
       "/settings/default": {
         "allowed hosts": DOCKER_HOST_ALLOWED_HOSTS,
-        password: PASSWORD,
+        password: storedPassword,
       },
       "/settings/NSClient/server": {
         // The real check_nt never learned TLS, and the server now
@@ -239,6 +242,34 @@ dockerOrSkip()("check_nt (legacy NSClient) integration", () => {
       const r = await checkNt(["-v", "CLIENTVERSION"], { allowFailure: true });
       expect(r.exitCode).toBe(3);
       expect(r.all).toContain("ERROR: Command not allowed.");
+    });
+  });
+
+  describe("with the shared password stored hashed", () => {
+    // The form `nscp web install` / `nscp web password --set` write to
+    // /settings/default/password; the server verifies the clear text the
+    // client sends against it.
+    const salt = crypto.randomBytes(16);
+    const hash = crypto.pbkdf2Sync(PASSWORD, salt, 100000, 32, "sha256");
+    const stored = `pbkdf2-sha256$100000$${salt.toString("hex")}$${hash.toString("hex")}`;
+
+    beforeAll(async () => {
+      await startNsclient(undefined, stored);
+    });
+
+    it("the real check_nt still authenticates with the clear-text password", async () => {
+      const r = await checkNt(["-v", "CLIENTVERSION"]);
+      expect(r.exitCode).toBe(0);
+      expect(r.all).toMatch(/\d+\.\d+\.\d+/);
+    });
+
+    it("a wrong password is still rejected with the generic error", async () => {
+      const r = await checkNt(["-v", "UPTIME"], {
+        password: "not-the-password",
+        allowFailure: true,
+      });
+      expect(r.exitCode).toBe(3);
+      expect(r.all).toContain("ERROR: Bad request.");
     });
   });
 });

@@ -10,6 +10,7 @@
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/settings/helper.hpp>
+#include <nscp/password_hash.hpp>
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
 
@@ -75,6 +76,17 @@ bool NSCAServer::loadModuleEx(const std::string &alias, const NSCAPI::moduleLoad
     encryption_ = nscp::encryption::helpers::encryption_to_int(encryption_name_);
   } catch (const nscp::encryption::encryption_exception &e) {
     NSC_LOG_ERROR_STD("Refusing to start NSCA server: " + utf8::utf8_from_native(e.what()));
+    return false;
+  }
+  if (encryption_ != nscp::encryption::helpers::no_encryption && password_hash::is_hashed(password_)) {
+    // The NSCA key is derived from the password string itself, so a hashed
+    // value is not a usable key: no client knows it, and starting anyway would
+    // silently reject every submission. `nscp web install` and `nscp web
+    // password --set` write the shared /settings/default/password hashed;
+    // an agent that also serves NSCA keeps a clear-text key of its own.
+    NSC_LOG_ERROR_STD("Refusing to start NSCA server: the password is stored hashed (pbkdf2-sha256$...), but NSCA encryption (" + encryption_name_ +
+                      ") derives its key from the clear-text password. Set a clear-text password under /settings/NSCA/server (password=...) "
+                      "instead of sharing the hashed /settings/default/password, or set encryption = none.");
     return false;
   }
   if (encryption_ != nscp::encryption::helpers::no_encryption && password_.empty()) {
