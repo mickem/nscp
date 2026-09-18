@@ -11,7 +11,7 @@
 
   <Product Id="*" Name="$(var.App.Title) ($(var.arch))" Language="1033" Version="$(var.Version.Tag)" Manufacturer="MySolutions NORDIC" UpgradeCode="$(var.UpgradeCode)">
 
-    <Package InstallerVersion="405" Id="*" Description="A simple windows monitor agent for (amongst others) Nagios."
+    <Package InstallerVersion="$(var.InstallerVersion)" Id="*" Description="A simple windows monitor agent for (amongst others) Nagios."
 						 Comments="This will appear in the file summary stream." Compressed="yes" Languages="1033" Platform="$(var.Platform)" />
 
     <Upgrade Id="$(var.UpgradeCode)">
@@ -29,7 +29,9 @@
       <Directory Id="$(var.ProgramFiles)">
         <Directory Id="INSTALLLOCATION" Name="$(var.App.Path)">
           <?if "$(var.Runtime)" = "dynamic"?>
+          <?if "$(var.HasCRTMergeModule)" = "true"?>
           <Merge Id="VCRedist110" SourceFile="$(var.CRTMergeModule)" DiskId="1" Language="0" />
+          <?endif?>
           <?endif ?>
           <Component Id="NSCPEXE" Guid="5C45463A-4AE9-4325-96DB-6E239C034F93" Win64="$(var.Win64)">
             <File Id="NSClientEXE" Name="nscp.exe" DiskId="1" KeyPath="yes" Source="$(var.Source)/nscp.exe" Vital="yes" />
@@ -289,7 +291,9 @@
         <ComponentRef Id="NSClientConfigUser" />
 
         <?if "$(var.Runtime)" = "dynamic"?>
+        <?if "$(var.HasCRTMergeModule)" = "true"?>
         <MergeRef Id="VCRedist110"/>
+        <?endif?>
         <ComponentRef Id="LibCommon"/>
         <ComponentRef Id="LibNSCP"/>
         <?endif?>

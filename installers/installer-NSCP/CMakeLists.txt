@@ -80,12 +80,26 @@ message(
     STATUS
     "CRT_MERGE_MODULE (${CRT_MERGE_MODULE_NAME}): ${CRT_MERGE_MODULE}"
 )
-if(NOT CRT_MERGE_MODULE)
+# Visual Studio ships the redistributable merge modules per architecture, and
+# which of them are installed depends on which build tools are present. Rather
+# than passing the literal "...-NOTFOUND" on to candle - where it resurfaces
+# much later as "LGHT0103: The system cannot find the file
+# 'CRT_MERGE_MODULE-NOTFOUND'", naming nothing that helps - decide here whether
+# the MSI can bundle the CRT at all and tell the .wxs about it.
+if(CRT_MERGE_MODULE)
+    set(HAS_CRT_MERGE_MODULE "true")
+else()
+    set(HAS_CRT_MERGE_MODULE "false")
+    # A placeholder rather than an empty string: candle still gets the define,
+    # and the .wxs never dereferences it because the branch that would is
+    # preprocessed away.
+    set(CRT_MERGE_MODULE "none")
     message(
         WARNING
-        "CRT_MERGE_MODULE not found for ${CRT_MERGE_MODULE_NAME}: ${CRT_MERGE_MODULE}"
+        "No ${CRT_MERGE_MODULE_NAME} merge module for this architecture: the MSI will not install the Visual C++ runtime, which has to be present on the target machine already."
     )
-endif(NOT CRT_MERGE_MODULE)
+endif()
+message(STATUS "Installer: CRT merge module bundled: ${HAS_CRT_MERGE_MODULE}")
 
 set(WIX_CANDLE_FLAGS
     -dboost=true
@@ -113,7 +127,8 @@ set(WIX_CANDLE_FLAGS
     "-dApp.UpgradeCode=0B36E3B7-0042-452d-B376-57E0C07ADDBB"
     -dSource=${NSCP_PROJECT_BINARY_DIR}
     -dHelpers=${NSCP_PROJECT_BINARY_DIR}/installer-dlls
-    -dCRTMergeModule=${CRT_MERGE_MODULE}
+    "-dCRTMergeModule=${CRT_MERGE_MODULE}"
+    -dHasCRTMergeModule=${HAS_CRT_MERGE_MODULE}
     -dRuntime=${RUNTIME}
     -dDotNet=${NSCP_DOTNET_MANAGED}
     # Python version string (e.g. "python311", "python312"). The installer
