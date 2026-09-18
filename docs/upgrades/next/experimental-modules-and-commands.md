@@ -1,6 +1,6 @@
 ---
 icon: "🧪"
-modules: [core, docs, CheckDisk, CheckDocker, CheckMSSQL, CheckMySQL, CheckNSCP, CheckNet, CheckSecurity, CheckWindowsApps, NSCANgClient, Scheduler]
+modules: [core, docs, CheckDisk, CheckDocker, CheckMSSQL, CheckMySQL, CheckNSCP, CheckNet, CheckSecurity, CheckWindowsApps, GearmanClient, NSCANgClient, Scheduler]
 action: none
 ---
 **New modules and check commands are now marked *experimental*.** Nothing to do
@@ -16,7 +16,8 @@ marker in the command tables plus a note on the command itself.
 
 The recently added `check_*` commands of `CheckDisk`, `CheckDocker`, `CheckNet`,
 `CheckNSCP` and `Scheduler` are marked, as are the `CheckMSSQL`, `CheckMySQL`,
-`CheckSecurity`, `CheckWindowsApps` and `NSCANgClient` modules in full.
+`CheckSecurity`, `CheckWindowsApps`, `GearmanClient` and `NSCANgClient` modules
+in full.
 
 The marker is not a warning that a check is broken — it is a statement about
 stability: pin the options and syntax you depend on, and re-read the command's
