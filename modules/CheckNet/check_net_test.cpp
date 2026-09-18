@@ -17,6 +17,8 @@
 #include "check_ping_internal.hpp"
 #include "check_ntp_internal.hpp"
 #include "check_ntp_offset.h"
+#include <boost/regex.hpp>
+
 #include "check_net_cert.hpp"
 #include "check_starttls.hpp"
 #include "check_tcp.h"
@@ -1156,7 +1158,7 @@ TEST(CertSans, requirement_list_parsing_trims_and_drops_blanks) {
 
 TEST(CertSans, populate_copies_every_field_and_joins_the_sans) {
   socket_helpers::peer_certificate info;
-  info.expiry_days = 41;
+  info.expiry_days = 41L;
   info.subject = "CN=www.example.com,O=Acme";
   info.issuer = "CN=R11,O=Lets Encrypt";
   info.subject_cn = "www.example.com";
@@ -1167,7 +1169,7 @@ TEST(CertSans, populate_copies_every_field_and_joins_the_sans) {
   check_net::cert::cert_fields fields;
   EXPECT_TRUE(check_net::cert::populate(fields, info, {"example.com"}));
   EXPECT_TRUE(fields.has_certificate);
-  EXPECT_EQ(fields.expiry_days, 41);
+  EXPECT_EQ(fields.expiry_days.value(), 41);
   EXPECT_EQ(fields.subject, "CN=www.example.com,O=Acme");
   EXPECT_EQ(fields.issuer_cn, "R11");
   EXPECT_EQ(fields.sans, "DNS:www.example.com,DNS:example.com");
@@ -1230,54 +1232,59 @@ TEST(StartTls, supported_protocols_lists_every_preset) {
 TEST(StartTls, smtp_multiline_reply_only_matches_on_the_final_line) {
   const st::preset *smtp = st::find_preset("smtp");
   ASSERT_NE(smtp, nullptr);
+  const st::compiled_preset p = st::compile(*smtp);
   // 250- is a continuation; only 250<space> ends the capability list, which is
   // what keeps STARTTLS from being sent into the middle of one.
-  EXPECT_EQ(st::classify_line("250-PIPELINING", smtp->preamble_expect, smtp->failure_regex), st::verdict::pending);
-  EXPECT_EQ(st::classify_line("250-STARTTLS", smtp->preamble_expect, smtp->failure_regex), st::verdict::pending);
-  EXPECT_EQ(st::classify_line("250 HELP", smtp->preamble_expect, smtp->failure_regex), st::verdict::matched);
+  EXPECT_EQ(st::classify_line("250-PIPELINING", p.preamble_expect, p.failure), st::verdict::pending);
+  EXPECT_EQ(st::classify_line("250-STARTTLS", p.preamble_expect, p.failure), st::verdict::pending);
+  EXPECT_EQ(st::classify_line("250 HELP", p.preamble_expect, p.failure), st::verdict::matched);
 }
 
 TEST(StartTls, smtp_error_replies_fail_instead_of_waiting_out_the_deadline) {
   const st::preset *smtp = st::find_preset("smtp");
   ASSERT_NE(smtp, nullptr);
-  EXPECT_EQ(st::classify_line("220 mail.example.com ESMTP", smtp->greeting_expect, smtp->failure_regex), st::verdict::matched);
-  EXPECT_EQ(st::classify_line("454 TLS not available", smtp->command_expect, smtp->failure_regex), st::verdict::failed);
-  EXPECT_EQ(st::classify_line("502 command not implemented", smtp->command_expect, smtp->failure_regex), st::verdict::failed);
-  EXPECT_EQ(st::classify_line("220 Ready to start TLS", smtp->command_expect, smtp->failure_regex), st::verdict::matched);
+  const st::compiled_preset p = st::compile(*smtp);
+  EXPECT_EQ(st::classify_line("220 mail.example.com ESMTP", p.greeting_expect, p.failure), st::verdict::matched);
+  EXPECT_EQ(st::classify_line("454 TLS not available", p.command_expect, p.failure), st::verdict::failed);
+  EXPECT_EQ(st::classify_line("502 command not implemented", p.command_expect, p.failure), st::verdict::failed);
+  EXPECT_EQ(st::classify_line("220 Ready to start TLS", p.command_expect, p.failure), st::verdict::matched);
 }
 
 TEST(StartTls, imap_matches_its_own_tag) {
   const st::preset *imap = st::find_preset("imap");
   ASSERT_NE(imap, nullptr);
-  EXPECT_EQ(st::classify_line("* OK [CAPABILITY IMAP4rev1] Dovecot ready", imap->greeting_expect, imap->failure_regex), st::verdict::matched);
+  const st::compiled_preset p = st::compile(*imap);
+  EXPECT_EQ(st::classify_line("* OK [CAPABILITY IMAP4rev1] Dovecot ready", p.greeting_expect, p.failure), st::verdict::matched);
   // Untagged chatter before the tagged reply must not be read as the answer.
-  EXPECT_EQ(st::classify_line("* CAPABILITY IMAP4rev1 STARTTLS", imap->command_expect, imap->failure_regex), st::verdict::pending);
-  EXPECT_EQ(st::classify_line("a001 OK Begin TLS negotiation now.", imap->command_expect, imap->failure_regex), st::verdict::matched);
-  EXPECT_EQ(st::classify_line("a001 BAD Unknown command", imap->command_expect, imap->failure_regex), st::verdict::failed);
-  EXPECT_EQ(st::classify_line("a001 NO TLS unavailable", imap->command_expect, imap->failure_regex), st::verdict::failed);
+  EXPECT_EQ(st::classify_line("* CAPABILITY IMAP4rev1 STARTTLS", p.command_expect, p.failure), st::verdict::pending);
+  EXPECT_EQ(st::classify_line("a001 OK Begin TLS negotiation now.", p.command_expect, p.failure), st::verdict::matched);
+  EXPECT_EQ(st::classify_line("a001 BAD Unknown command", p.command_expect, p.failure), st::verdict::failed);
+  EXPECT_EQ(st::classify_line("a001 NO TLS unavailable", p.command_expect, p.failure), st::verdict::failed);
 }
 
 TEST(StartTls, pop3_status_indicators) {
   const st::preset *pop3 = st::find_preset("pop3");
   ASSERT_NE(pop3, nullptr);
-  EXPECT_EQ(st::classify_line("+OK POP3 ready", pop3->greeting_expect, pop3->failure_regex), st::verdict::matched);
-  EXPECT_EQ(st::classify_line("-ERR unknown command", pop3->command_expect, pop3->failure_regex), st::verdict::failed);
+  const st::compiled_preset p = st::compile(*pop3);
+  EXPECT_EQ(st::classify_line("+OK POP3 ready", p.greeting_expect, p.failure), st::verdict::matched);
+  EXPECT_EQ(st::classify_line("-ERR unknown command", p.command_expect, p.failure), st::verdict::failed);
 }
 
 TEST(StartTls, irc_numerics_are_matched_mid_line) {
   const st::preset *irc = st::find_preset("irc");
   ASSERT_NE(irc, nullptr);
+  const st::compiled_preset p = st::compile(*irc);
   // IRC replies carry a server prefix, so the numeric is never at the start.
-  EXPECT_EQ(st::classify_line(":irc.example.com 670 * :STARTTLS successful", irc->command_expect, irc->failure_regex), st::verdict::matched);
-  EXPECT_EQ(st::classify_line(":irc.example.com 691 * :STARTTLS failed", irc->command_expect, irc->failure_regex), st::verdict::failed);
-  EXPECT_EQ(st::classify_line(":irc.example.com 421 STARTTLS :Unknown command", irc->command_expect, irc->failure_regex), st::verdict::failed);
-  EXPECT_EQ(st::classify_line(":irc.example.com NOTICE * :*** Looking up your hostname", irc->command_expect, irc->failure_regex), st::verdict::pending);
+  EXPECT_EQ(st::classify_line(":irc.example.com 670 * :STARTTLS successful", p.command_expect, p.failure), st::verdict::matched);
+  EXPECT_EQ(st::classify_line(":irc.example.com 691 * :STARTTLS failed", p.command_expect, p.failure), st::verdict::failed);
+  EXPECT_EQ(st::classify_line(":irc.example.com 421 STARTTLS :Unknown command", p.command_expect, p.failure), st::verdict::failed);
+  EXPECT_EQ(st::classify_line(":irc.example.com NOTICE * :*** Looking up your hostname", p.command_expect, p.failure), st::verdict::pending);
 }
 
 TEST(StartTls, a_failure_reply_wins_over_a_matching_expect) {
   // Failure is classified first on purpose: a protocol whose refusal shares a
   // shape with its go-ahead must not be read as success.
-  EXPECT_EQ(st::classify_line("220 ok", "^220", "^220"), st::verdict::failed);
+  EXPECT_EQ(st::classify_line("220 ok", boost::regex("^220"), boost::regex("^220")), st::verdict::failed);
 }
 
 TEST(StartTls, line_splitting_keeps_a_partial_line_buffered) {
@@ -1409,4 +1416,94 @@ TEST(StartTls, ldap_reply_verdict_reads_the_result_code) {
   EXPECT_EQ(st::ldap_reply_verdict(""), st::verdict::pending);
   EXPECT_EQ(st::ldap_reply_verdict(std::string("\x30\x0c\x02\x01\x01", 5)), st::verdict::pending);
   EXPECT_EQ(st::ldap_reply_verdict(std::string("\x30\x0c\x02\x01\x01\x78", 6)), st::verdict::pending);
+}
+
+// --- review follow-ups ------------------------------------------------------
+
+TEST(CertSans, a_required_name_with_no_certificate_is_missing_not_satisfied) {
+  // The case sans= exists to catch: nothing was served, so nothing covers the
+  // names. Reporting ok here would pass the check that was supposed to fail.
+  check_net::cert::cert_fields fields;
+  EXPECT_FALSE(check_net::cert::require_without_certificate(fields, {"www.example.com", "example.com"}));
+  EXPECT_EQ(fields.missing_sans, "www.example.com,example.com");
+  EXPECT_FALSE(fields.has_certificate);
+
+  // Nothing required means nothing to fail.
+  check_net::cert::cert_fields none;
+  EXPECT_TRUE(check_net::cert::require_without_certificate(none, {}));
+  EXPECT_TRUE(none.missing_sans.empty());
+}
+
+TEST(CertSans, an_unreadable_expiry_is_not_a_day_count) {
+  // notAfter that did not parse leaves the expiry empty rather than 0: a 0
+  // would make `crit=ssl_expiry_days < 1` fire on a parse failure. The
+  // certificate itself is still reported as present.
+  socket_helpers::peer_certificate info;
+  info.subject_cn = "www.example.com";
+  ASSERT_FALSE(info.expiry_days);
+
+  check_net::cert::cert_fields fields;
+  EXPECT_TRUE(check_net::cert::populate(fields, info, {}));
+  EXPECT_TRUE(fields.has_certificate);
+  EXPECT_FALSE(fields.expiry_days);
+
+  check_net::check_tcp_filter::filter_obj o;
+  o.cert = fields;
+  EXPECT_EQ(o.get_has_certificate(), 1);
+  EXPECT_FALSE(o.get_ssl_expiry_days_opt());  // no number, so no threshold can fire
+  EXPECT_EQ(o.get_ssl_expiry_days(), -1);
+}
+
+TEST(StartTls, ldap_reply_waits_for_the_whole_pdu) {
+  // The resultCode sits near the front of the response, so a PDU split across
+  // TCP segments can carry it while matchedDN and diagnosticMessage are still
+  // in flight. Answering there would leave those bytes for the TLS handshake
+  // to read as a record, failing against a server that did the right thing.
+  const std::string complete("\x30\x0c\x02\x01\x01\x78\x07\x0a\x01\x00\x04\x00\x04\x00", 14);
+  ASSERT_EQ(st::ldap_reply_verdict(complete), st::verdict::matched);
+
+  // Every prefix of it - including the ones that already contain 0A 01 00 -
+  // must stay pending.
+  for (std::size_t n = 1; n < complete.size(); n++)
+    EXPECT_EQ(st::ldap_reply_verdict(complete.substr(0, n)), st::verdict::pending) << "prefix of length " << n;
+}
+
+TEST(StartTls, ldap_reply_length_header_forms) {
+  std::size_t total = 0;
+  // Short form: the length is the byte itself.
+  EXPECT_TRUE(st::ber_element_length(std::string("\x30\x0c", 2), total));
+  EXPECT_EQ(total, 14u);
+  // Long form: 0x81 means one length byte follows.
+  EXPECT_TRUE(st::ber_element_length(std::string("\x30\x81\x84", 3), total));
+  EXPECT_EQ(total, 3u + 0x84u);
+  // Long form whose length bytes have not all arrived yet.
+  EXPECT_FALSE(st::ber_element_length(std::string("\x30\x82\x01", 3), total));
+  // Indefinite length is not something LDAP emits.
+  EXPECT_FALSE(st::ber_element_length(std::string("\x30\x80", 2), total));
+  // Header still arriving.
+  EXPECT_FALSE(st::ber_element_length(std::string("\x30", 1), total));
+}
+
+TEST(StartTls, ldap_reply_rejects_what_is_not_an_ldap_message) {
+  // Not a SEQUENCE: no amount of further reading turns this into a reply, so
+  // fail rather than sit on it until the deadline.
+  EXPECT_EQ(st::ldap_reply_verdict(std::string("\x05\x00", 2)), st::verdict::failed);
+  EXPECT_EQ(st::ldap_reply_verdict("not ldap at all"), st::verdict::failed);
+  // A complete PDU carrying no resultCode is not going to grow one.
+  EXPECT_EQ(st::ldap_reply_verdict(std::string("\x30\x03\x02\x01\x01", 5)), st::verdict::failed);
+}
+
+TEST(StartTls, compiled_patterns_match_what_the_preset_describes) {
+  // compile() is what the engine actually classifies against, so an empty
+  // table entry has to compile to a regex that never matches - not to one that
+  // matches everything.
+  const st::preset *irc = st::find_preset("irc");
+  ASSERT_NE(irc, nullptr);
+  const st::compiled_preset p = st::compile(*irc);
+  EXPECT_TRUE(p.greeting_expect.empty()) << "irc has no greeting to wait for";
+  EXPECT_TRUE(p.preamble_expect.empty());
+  EXPECT_FALSE(p.command_expect.empty());
+  // An empty expect never matches, so a step guarded on it is skipped rather
+  // than satisfied by the first line that arrives.
+  EXPECT_EQ(st::classify_line(":irc.example.com NOTICE * :hi", p.greeting_expect, p.failure), st::verdict::pending);
 }

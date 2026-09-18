@@ -29,8 +29,10 @@ namespace socket_helpers {
 // build without it simply never fills one in.
 struct peer_certificate {
   // Whole days until notAfter, negative once expired. Same value and same
-  // flooring as peer_certificate_expiry_days().
-  long expiry_days = 0;
+  // flooring as peer_certificate_expiry_days(), which shares its implementation.
+  // none when notAfter could not be read - a certificate whose date does not
+  // parse has no day count, and must not be reported as 0.
+  boost::optional<long> expiry_days;
   // Subject and issuer as RFC 2253 strings, e.g. `CN=www.example.com,O=Acme`.
   std::string subject;
   std::string issuer;
@@ -416,6 +418,16 @@ boost::optional<peer_certificate> peer_certificate_details(SSL* ssl);
 // never be read as "the peer is authenticated". Only the handshake succeeding
 // under a verifying mode means that.
 std::string peer_verify_result(SSL* ssl);
+
+// True when that verdict is X509_V_OK.
+//
+// Only meaningful after a handshake that SUCCEEDED. After one that failed it
+// is ambiguous: OpenSSL reports X509_V_OK both when the chain was fine and
+// something else broke, and when verification never ran at all - a reset, a
+// timeout, a rejected TLS version. A caller handling a failed handshake can
+// use it to tell "no chain reason to report" from a real one, but must never
+// read it as "the peer verified".
+bool peer_verify_ok(SSL* ssl);
 #endif
 
 namespace io {

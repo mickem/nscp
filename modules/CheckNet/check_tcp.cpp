@@ -37,8 +37,9 @@ filter_obj_handler::filter_obj_handler() {
   registry_
       .add_optional_int_var("ssl_expiry_days", [](auto obj) { return obj->get_ssl_expiry_days_opt(); }, "no certificate",
                             "Whole days until the peer's TLS certificate expires; negative once it has expired. Renders as 'no certificate' (and compares "
-                            "false against every number) when the connection is not TLS or the peer presented none, so `ssl_expiry_days < 30` cannot fire "
-                            "on a plain connection; `ssl_expiry_days = 'no certificate'` tests for that state.")
+                            "false against every number) when the connection is not TLS, the peer presented none, or the certificate's notAfter could not "
+                            "be read - so `ssl_expiry_days < 30` cannot fire on any of them; `ssl_expiry_days = 'no certificate'` tests for that state, and "
+                            "has_certificate tells a served-but-unreadable certificate apart from no certificate at all.")
       .add_int_perf("", "", "_ssl_expiry_days");
   registry_
       .add_int_var("has_certificate", parsers::where::type_int, &filter_obj::get_has_certificate,
@@ -181,21 +182,36 @@ using steady_clock = std::chrono::steady_clock;
 // the deadline alone would let it push megabytes into an agent's memory first.
 const std::size_t max_negotiation_bytes = 64 * 1024;
 
+// Why a read stopped. A peer that hangs up is not a peer that went quiet, and
+// collapsing the two would describe an instant disconnect as a timeout - the
+// slowest-sounding answer for the fastest failure there is.
+enum class read_outcome {
+  data,          // something arrived and was appended
+  timed_out,     // the deadline passed, or the negotiation outgrew its budget
+  disconnected,  // the peer closed, reset, or the socket failed
+};
+
 // Append whatever arrives on the socket to `buffer`, bounded by `deadline` and
-// by max_negotiation_bytes. False on timeout, overrun, eof or error - each of
-// which ends a negotiation with no answer either way.
-bool read_some_until(tcp::socket &socket, boost::asio::io_context &io_service, const steady_clock::time_point deadline, std::string &buffer) {
-  if (steady_clock::now() >= deadline) return false;
-  if (buffer.size() >= max_negotiation_bytes) return false;
+// by max_negotiation_bytes.
+read_outcome read_some_until(tcp::socket &socket, boost::asio::io_context &io_service, const steady_clock::time_point deadline, std::string &buffer) {
+  if (steady_clock::now() >= deadline) return read_outcome::timed_out;
+  // Outgrowing the budget is a timeout in the sense that matters: the
+  // negotiation did not finish inside what it was given.
+  if (buffer.size() >= max_negotiation_bytes) return read_outcome::timed_out;
   char chunk[1024];
   boost::system::error_code read_ec = boost::asio::error::would_block;
   std::size_t received = 0;
   bool read_done = false;
+  bool deadline_hit = false;
   boost::asio::steady_timer timer(io_service);
 
   timer.expires_at(deadline);
   timer.async_wait([&](const boost::system::error_code &ec) {
     if (!ec && !read_done) {
+      // Recorded here rather than inferred from the clock afterwards: closing
+      // the socket makes the read fail with operation_aborted, which is
+      // otherwise indistinguishable from the peer having reset it.
+      deadline_hit = true;
       boost::system::error_code ignore;
       socket.close(ignore);
     }
@@ -215,9 +231,10 @@ bool read_some_until(tcp::socket &socket, boost::asio::io_context &io_service, c
 
   io_service.run();
   io_service.restart();
-  if (read_ec) return false;
+  if (deadline_hit) return read_outcome::timed_out;
+  if (read_ec) return read_outcome::disconnected;
   buffer.append(chunk, received);
-  return true;
+  return read_outcome::data;
 }
 
 bool write_all(tcp::socket &socket, const std::string &data) {
@@ -227,16 +244,26 @@ bool write_all(tcp::socket &socket, const std::string &data) {
   return !ec;
 }
 
-// Read lines until one answers the step being awaited. `pending` means the
-// deadline ran out, or the peer hung up, with no answer either way.
-starttls::verdict await_line(tcp::socket &socket, boost::asio::io_context &io_service, const steady_clock::time_point deadline, std::string &buffer,
-                            const char *expect, const char *failure) {
+// How one step of a negotiation ended. Distinct from starttls::verdict because
+// "no answer" splits into two outcomes the operator needs told apart.
+enum class step_result { matched, refused, timed_out, disconnected };
+
+// Map a read that produced no answer onto the step that was waiting for one.
+step_result step_from_read(const read_outcome outcome) {
+  return outcome == read_outcome::disconnected ? step_result::disconnected : step_result::timed_out;
+}
+
+// Read lines until one answers the step being awaited.
+step_result await_line(tcp::socket &socket, boost::asio::io_context &io_service, const steady_clock::time_point deadline, std::string &buffer,
+                       const boost::regex &expect, const boost::regex &failure) {
   for (;;) {
     for (const std::string &line : starttls::take_complete_lines(buffer)) {
       const starttls::verdict answered = starttls::classify_line(line, expect, failure);
-      if (answered != starttls::verdict::pending) return answered;
+      if (answered == starttls::verdict::matched) return step_result::matched;
+      if (answered == starttls::verdict::failed) return step_result::refused;
     }
-    if (!read_some_until(socket, io_service, deadline, buffer)) return starttls::verdict::pending;
+    const read_outcome outcome = read_some_until(socket, io_service, deadline, buffer);
+    if (outcome != read_outcome::data) return step_from_read(outcome);
   }
 }
 
@@ -249,36 +276,50 @@ bool negotiate_starttls(tcp::socket &socket, boost::asio::io_context &io_service
   // that trickles out a line at a time must not be able to extend it
   // indefinitely.
   const steady_clock::time_point deadline = steady_clock::now() + std::chrono::milliseconds(timeout_ms);
+  // Compiled once per check rather than once per received line: the patterns
+  // are fixed table data, and a chatty peer can push thousands of lines at the
+  // classifier before the budget runs out.
+  const starttls::compiled_preset patterns = starttls::compile(preset);
   std::string buffer;
 
   const auto refuse = [&out](const char *reason) {
     out.result = reason;
     return false;
   };
-  const auto step = [&](const char *expect, const char *failure) {
+  const auto failed = [&refuse](const step_result result) {
+    if (result == step_result::refused) return refuse("starttls_refused");
+    if (result == step_result::disconnected) return refuse("starttls_disconnected");
+    return refuse("starttls_timeout");
+  };
+  const auto step = [&](const boost::regex &expect, const boost::regex &failure) {
     return await_line(socket, io_service, deadline, buffer, expect, failure);
   };
+  // A read that produced no answer, for the binary protocols that do their own
+  // framing instead of going through await_line().
+  const auto stalled = [&failed](const read_outcome outcome) { return failed(step_from_read(outcome)); };
 
   switch (preset.kind) {
     case starttls::negotiation::line: {
-      if (preset.greeting_expect[0] != '\0') {
-        const starttls::verdict greeted = step(preset.greeting_expect, preset.failure_regex);
-        if (greeted != starttls::verdict::matched) return refuse(greeted == starttls::verdict::failed ? "starttls_refused" : "starttls_timeout");
+      if (!patterns.greeting_expect.empty()) {
+        const step_result greeted = step(patterns.greeting_expect, patterns.failure);
+        if (greeted != step_result::matched) return failed(greeted);
       }
       if (preset.preamble[0] != '\0') {
         if (!write_all(socket, preset.preamble)) return refuse("starttls_write_failed");
-        const starttls::verdict answered = step(preset.preamble_expect, preset.failure_regex);
-        if (answered != starttls::verdict::matched) return refuse(answered == starttls::verdict::failed ? "starttls_refused" : "starttls_timeout");
+        const step_result answered = step(patterns.preamble_expect, patterns.failure);
+        if (answered != step_result::matched) return failed(answered);
       }
       if (!write_all(socket, preset.command)) return refuse("starttls_write_failed");
-      const starttls::verdict upgraded = step(preset.command_expect, preset.failure_regex);
-      if (upgraded != starttls::verdict::matched) return refuse(upgraded == starttls::verdict::failed ? "starttls_refused" : "starttls_timeout");
+      const step_result upgraded = step(patterns.command_expect, patterns.failure);
+      if (upgraded != step_result::matched) return failed(upgraded);
       return true;
     }
     case starttls::negotiation::postgres: {
       if (!write_all(socket, starttls::postgres_ssl_request())) return refuse("starttls_write_failed");
-      while (buffer.empty())
-        if (!read_some_until(socket, io_service, deadline, buffer)) return refuse("starttls_timeout");
+      while (buffer.empty()) {
+        const read_outcome outcome = read_some_until(socket, io_service, deadline, buffer);
+        if (outcome != read_outcome::data) return stalled(outcome);
+      }
       // 'N' is a server built without TLS, or one with it turned off.
       return starttls::postgres_accepts(buffer[0]) ? true : refuse("starttls_refused");
     }
@@ -286,8 +327,10 @@ bool negotiate_starttls(tcp::socket &socket, boost::asio::io_context &io_service
       // The server speaks first, and the SSLRequest continues that packet's
       // sequence number, so the handshake packet has to be off the wire before
       // we answer.
-      while (!starttls::mysql_handshake_complete(buffer))
-        if (!read_some_until(socket, io_service, deadline, buffer)) return refuse("starttls_timeout");
+      while (!starttls::mysql_handshake_complete(buffer)) {
+        const read_outcome outcome = read_some_until(socket, io_service, deadline, buffer);
+        if (outcome != read_outcome::data) return stalled(outcome);
+      }
       // The server publishes CLIENT_SSL in that packet. Asking a server that
       // did not advertise it just gets the connection dropped, which would
       // read as a handshake failure rather than the plain "no TLS here" it is.
@@ -304,7 +347,8 @@ bool negotiate_starttls(tcp::socket &socket, boost::asio::io_context &io_service
         const starttls::verdict answered = starttls::ldap_reply_verdict(buffer);
         if (answered == starttls::verdict::matched) return true;
         if (answered == starttls::verdict::failed) return refuse("starttls_refused");
-        if (!read_some_until(socket, io_service, deadline, buffer)) return refuse("starttls_timeout");
+        const read_outcome outcome = read_some_until(socket, io_service, deadline, buffer);
+        if (outcome != read_outcome::data) return stalled(outcome);
       }
     }
   }
@@ -438,27 +482,41 @@ void run_tcp_check(const std::string &host, unsigned short port, const tcp_check
       io_service.run();
       io_service.restart();
 
-      // OpenSSL records its verdict on the chain whether or not `verify` asked
-      // it to enforce one, and the verdict survives a failed handshake - which
-      // is the case that most needs a reason ("unable to get local issuer
-      // certificate" rather than a bare tls_handshake_failed).
-      out.cert.verify_result = socket_helpers::peer_verify_result(ssl_stream.native_handle());
+      // The peer certificate is readable whether or not the handshake completed,
+      // and regardless of `verify` - so an expiry check needs no trust decision,
+      // and a handshake that failed *because* of the chain can still say so.
+      const auto info = socket_helpers::peer_certificate_details(ssl_stream.native_handle());
+
+      // OpenSSL's verdict on the chain, which it records whether or not `verify`
+      // asked it to enforce one - that is what lets an untrusted chain be
+      // reported without refusing to connect.
+      //
+      // After a handshake that FAILED, X509_V_OK is ambiguous: OpenSSL reports
+      // it both when the chain was fine and something else broke, and when
+      // verification never ran at all (a reset, a timeout, a rejected TLS
+      // version). Reporting "ok" there would stand a clean chain next to a
+      // connection that never checked one, and `crit=cert_verify != 'ok'`
+      // would stay quiet on every one of them. A verdict that is NOT ok is the
+      // reason the handshake failed, and is exactly what the keyword is for -
+      // so it is kept, and only the ambiguous "ok" is dropped.
+      if (!hs_ec || !socket_helpers::peer_verify_ok(ssl_stream.native_handle()))
+        out.cert.verify_result = socket_helpers::peer_verify_result(ssl_stream.native_handle());
 
       if (hs_ec) {
         out.result = "tls_handshake_failed";
         return;
       }
 
-      // Read the peer certificate straight after the handshake: it is available
-      // regardless of `verify`, so an expiry check needs no trust decision.
-      if (const auto info = socket_helpers::peer_certificate_details(ssl_stream.native_handle())) {
-        if (!cert::populate(out.cert, info.value(), opt.required_sans)) {
-          // A name the operator required that the certificate does not cover is
-          // the answer the check was asked for, so it lands in `result`, where
-          // the default critical filter already looks.
-          out.result = "san_missing";
-          return;
-        }
+      // A name the operator required that the certificate does not cover is the
+      // answer the check was asked for, so it lands in `result`, where the
+      // default critical filter already looks. No certificate at all fails the
+      // same requirement: it is the one case `sans=` exists to catch, and
+      // staying silent there would report ok.
+      const bool sans_held = info ? cert::populate(out.cert, info.value(), opt.required_sans)
+                                  : cert::require_without_certificate(out.cert, opt.required_sans);
+      if (!sans_held) {
+        out.result = "san_missing";
+        return;
       }
 
       tcp_converse(ssl_stream, socket, io_service, opt.timeout_ms, opt.send_data, opt.expect, opt.expect_regex, out);
@@ -569,6 +627,17 @@ void check_tcp_impl(const PB::Commands::QueryRequestMessage::Request &request, P
     preset = find_service_preset(service);
     if (preset == nullptr) return nscapi::protobuf::functions::set_response_bad(*response, "Unknown service preset: " + service);
   }
+
+  // A service preset describes a conversation that starts with the server's
+  // greeting; after a STARTTLS upgrade that greeting has already been consumed
+  // in the clear and is never sent again. Applying the preset's expect on top
+  // would wait out the whole timeout and report read_failed against a server
+  // that is working perfectly, so refuse the combination rather than fail
+  // mysteriously. (`forced` is check_ssh, which is never a STARTTLS service.)
+  if (opt.starttls_preset != nullptr && preset != nullptr)
+    return nscapi::protobuf::functions::set_response_bad(
+        *response, "starttls= cannot be combined with the '" + std::string(preset->name) +
+                       "' service preset: the preset waits for a greeting that is not sent again after the upgrade. Use one or the other.");
 
   if (preset != nullptr) {
     if (port == 0) port = preset->port;

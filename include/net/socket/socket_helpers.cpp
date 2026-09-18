@@ -1152,31 +1152,45 @@ boost::asio::ssl::verify_mode socket_helpers::verify_mode_parser(const std::stri
   return mode;
 }
 
+namespace {
+// Whole days until a certificate's notAfter. The single definition of the
+// value: both peer_certificate_expiry_days() and peer_certificate_details()
+// go through here, so the two can never drift apart on the rounding.
+//
+// ASN1_TIME_diff splits the interval into whole days plus leftover seconds,
+// both carrying the sign of the interval. We report whole days and drop the
+// remainder, so a certificate with 23 hours left reads as 0 rather than
+// rounding up to a reassuring 1.
+//
+// Dropping the remainder has to round DOWN, not toward zero. A certificate
+// that expired three hours ago comes back as days=0, seconds=-10800: taking
+// days as-is reports 0, which is indistinguishable from "23 hours left" and
+// leaves an already-expired certificate looking merely urgent. Any threshold
+// written the obvious way ("critical when < 0") would never fire during the
+// first day of expiry. Flooring keeps the useful invariant that the value is
+// negative if and only if the certificate has expired, and never reports more
+// time than actually remains.
+//
+// none when notAfter cannot be read at all. That is NOT a day count of 0: a
+// caller that stored 0 would make `critical when < 1` fire on a certificate
+// whose date simply failed to parse.
+boost::optional<long> certificate_expiry_days(const X509 *cert) {
+  if (cert == nullptr) return boost::none;
+  int days = 0;
+  int seconds = 0;
+  if (ASN1_TIME_diff(&days, &seconds, nullptr, X509_get0_notAfter(cert)) != 1) return boost::none;
+  if (seconds < 0) days -= 1;
+  return static_cast<long>(days);
+}
+}  // namespace
+
 boost::optional<long> socket_helpers::peer_certificate_expiry_days(SSL *ssl) {
   if (ssl == nullptr) return boost::none;
   X509 *cert = SSL_get_peer_certificate(ssl);
   if (cert == nullptr) return boost::none;
-
-  // ASN1_TIME_diff splits the interval into whole days plus leftover seconds,
-  // both carrying the sign of the interval. We report whole days and drop the
-  // remainder, so a certificate with 23 hours left reads as 0 rather than
-  // rounding up to a reassuring 1.
-  //
-  // Dropping the remainder has to round DOWN, not toward zero. A certificate
-  // that expired three hours ago comes back as days=0, seconds=-10800: taking
-  // days as-is reports 0, which is indistinguishable from "23 hours left" and
-  // leaves an already-expired certificate looking merely urgent. Any threshold
-  // written the obvious way ("critical when < 0") would never fire during the
-  // first day of expiry. Flooring keeps the useful invariant that the value is
-  // negative if and only if the certificate has expired, and never reports more
-  // time than actually remains.
-  int days = 0;
-  int seconds = 0;
-  const int ok = ASN1_TIME_diff(&days, &seconds, nullptr, X509_get0_notAfter(cert));
+  const boost::optional<long> expiry = certificate_expiry_days(cert);
   X509_free(cert);
-  if (ok != 1) return boost::none;
-  if (seconds < 0) days -= 1;
-  return static_cast<long>(days);
+  return expiry;
 }
 
 boost::optional<socket_helpers::peer_certificate> socket_helpers::peer_certificate_details(SSL *ssl) {
@@ -1188,16 +1202,9 @@ boost::optional<socket_helpers::peer_certificate> socket_helpers::peer_certifica
 
   peer_certificate info;
 
-  // Same flooring as peer_certificate_expiry_days(): drop the sub-day
-  // remainder downwards so the value stays negative exactly while the
-  // certificate is expired. A failure to read notAfter leaves expiry_days at
-  // 0, which no threshold can mistake for "plenty of time".
-  int days = 0;
-  int seconds = 0;
-  if (ASN1_TIME_diff(&days, &seconds, nullptr, X509_get0_notAfter(cert)) == 1) {
-    if (seconds < 0) days -= 1;
-    info.expiry_days = static_cast<long>(days);
-  }
+  // Stays optional: an unreadable notAfter is not a day count, and collapsing
+  // it to a number would make an expiry threshold fire on a parse failure.
+  info.expiry_days = certificate_expiry_days(cert);
 
   const X509_NAME *subject = X509_get_subject_name(cert);
   const X509_NAME *issuer = X509_get_issuer_name(cert);
@@ -1230,6 +1237,11 @@ std::string socket_helpers::peer_verify_result(SSL *ssl) {
   const char *text = X509_verify_cert_error_string(result);
   if (text == nullptr) return "verify error " + str::xtos(result);
   return text;
+}
+
+bool socket_helpers::peer_verify_ok(SSL *ssl) {
+  if (ssl == nullptr) return true;
+  return SSL_get_verify_result(ssl) == X509_V_OK;
 }
 
 void socket_helpers::load_verify_location(boost::asio::ssl::context &ctx, const std::string &ca) {

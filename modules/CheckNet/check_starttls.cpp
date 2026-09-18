@@ -3,6 +3,7 @@
 
 #include "check_starttls.hpp"
 
+#include <boost/algorithm/string.hpp>
 #include <boost/regex.hpp>
 #include <cstdint>
 #include <string>
@@ -41,16 +42,31 @@ const preset presets[] = {
     {"ldap", 389, negotiation::ldap, "", "", "", "", "", ""},
 };
 
-char lower(const char c) {
-  if (c >= 'A' && c <= 'Z') return static_cast<char>(c - 'A' + 'a');
-  return c;
+// Compile one pattern, or an empty regex when the table entry is empty or
+// malformed. classify_line() never matches an empty regex, so a bad pattern
+// degrades to "no answer" rather than throwing out of a check.
+boost::regex compile_pattern(const char *pattern) {
+  if (pattern == nullptr || pattern[0] == '\0') return boost::regex();
+  try {
+    return boost::regex(pattern, boost::regex::icase);
+  } catch (const std::exception &) {
+    return boost::regex();
+  }
 }
 
 }  // namespace
 
+compiled_preset compile(const preset &p) {
+  compiled_preset compiled;
+  compiled.greeting_expect = compile_pattern(p.greeting_expect);
+  compiled.preamble_expect = compile_pattern(p.preamble_expect);
+  compiled.command_expect = compile_pattern(p.command_expect);
+  compiled.failure = compile_pattern(p.failure_regex);
+  return compiled;
+}
+
 const preset *find_preset(const std::string &name) {
-  std::string needle = name;
-  for (char &c : needle) c = lower(c);
+  const std::string needle = boost::algorithm::to_lower_copy(name);
   for (const preset &p : presets)
     if (needle == p.name) return &p;
   return nullptr;
@@ -65,15 +81,16 @@ std::string supported_protocols() {
   return result;
 }
 
-verdict classify_line(const std::string &line, const std::string &expect_regex, const std::string &failure_regex) {
+verdict classify_line(const std::string &line, const boost::regex &expect, const boost::regex &failure) {
   try {
     // Failure first: a protocol whose refusal shares a shape with its
     // go-ahead must not be read as success.
-    if (!failure_regex.empty() && boost::regex_search(line, boost::regex(failure_regex, boost::regex::icase))) return verdict::failed;
-    if (!expect_regex.empty() && boost::regex_search(line, boost::regex(expect_regex, boost::regex::icase))) return verdict::matched;
+    if (!failure.empty() && boost::regex_search(line, failure)) return verdict::failed;
+    if (!expect.empty() && boost::regex_search(line, expect)) return verdict::matched;
   } catch (const std::exception &) {
-    // Only reachable from a malformed preset; degrade to "keep reading" so the
-    // check times out with a protocol message rather than an exception.
+    // A match that runs away (stack or complexity limits) is not an answer;
+    // degrade to "keep reading" so the check reports a protocol result rather
+    // than an exception.
     return verdict::pending;
   }
   return verdict::pending;
@@ -179,21 +196,53 @@ std::string ldap_starttls_request() {
   return request;
 }
 
+bool ber_element_length(const std::string &buffer, std::size_t &total) {
+  if (buffer.size() < 2) return false;
+  const auto first = static_cast<unsigned char>(buffer[1]);
+  if (first < 0x80) {  // short form: the length is the byte itself
+    total = 2 + first;
+    return true;
+  }
+  if (first == 0x80) return false;  // indefinite length: never used by LDAP
+  const std::size_t count = first & 0x7F;
+  if (count > sizeof(std::size_t)) return false;  // a length we could not hold
+  if (buffer.size() < 2 + count) return false;    // the header is still arriving
+  std::size_t length = 0;
+  for (std::size_t i = 0; i < count; i++) length = (length << 8) | static_cast<unsigned char>(buffer[2 + i]);
+  total = 2 + count + length;
+  return true;
+}
+
 verdict ldap_reply_verdict(const std::string &buffer) {
-  // The full reply is an LDAPMessage wrapping an ExtendedResponse
-  // ([APPLICATION 24] = 0x78) whose first component is the resultCode, an
-  // ENUMERATED (0x0A) of length 1. Rather than decoding BER properly we look
-  // for that three-byte shape right after the response tag, which is the only
-  // place it can occur in a well-formed StartTLS reply. Anything else keeps
-  // the caller reading until the deadline.
+  if (buffer.empty()) return verdict::pending;
+  // Anything that is not an LDAPMessage SEQUENCE is not a StartTLS reply, and
+  // no amount of further reading will make it one.
+  if (static_cast<unsigned char>(buffer[0]) != 0x30) return verdict::failed;
+
+  // Wait for the WHOLE PDU, not just the bytes that happen to carry the
+  // answer. The resultCode sits near the front, so on a response split across
+  // TCP segments it can arrive well before matchedDN and diagnosticMessage do.
+  // Proceeding there would hand those trailing bytes to the TLS handshake,
+  // which reads them as a malformed record and fails against a server that did
+  // exactly the right thing.
+  std::size_t total = 0;
+  if (!ber_element_length(buffer, total)) return verdict::pending;
+  if (buffer.size() < total) return verdict::pending;
+
+  // Inside the complete PDU: an ExtendedResponse ([APPLICATION 24] = 0x78)
+  // whose first component is the resultCode, an ENUMERATED (0x0A) of length 1.
+  // Rather than decoding BER in full we look for that three-byte shape after
+  // the response tag, which is the only place it can occur in a well-formed
+  // StartTLS reply.
   const std::size_t response = buffer.find(static_cast<char>(0x78));
-  if (response == std::string::npos) return verdict::pending;
-  for (std::size_t i = response + 1; i + 2 < buffer.size(); i++) {
+  if (response == std::string::npos || response >= total) return verdict::failed;
+  for (std::size_t i = response + 1; i + 2 < total; i++) {
     if (static_cast<unsigned char>(buffer[i]) != 0x0A) continue;
     if (static_cast<unsigned char>(buffer[i + 1]) != 0x01) continue;
     return static_cast<unsigned char>(buffer[i + 2]) == 0x00 ? verdict::matched : verdict::failed;
   }
-  return verdict::pending;
+  // A complete PDU with no resultCode in it is not going to grow one.
+  return verdict::failed;
 }
 
 }  // namespace starttls

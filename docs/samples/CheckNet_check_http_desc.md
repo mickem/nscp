@@ -88,7 +88,9 @@ check_http url=https://www.example.com/ sans=example.com,www.example.com
 
 All of these describe the **last** hop: with `onredirect=follow`, an https hop
 followed by a plain http one reports no certificate at all, and `sans=` is
-evaluated against the certificate served by the URL actually checked.
+evaluated against the certificate served by the URL actually checked. A hop
+that served no certificate covers no names, so a `sans=` requirement fails
+there rather than passing by default.
 
 `cert_verify` is recorded even when the chain does not verify, so a check can
 report *why* a certificate is untrusted. It is not an authentication result on

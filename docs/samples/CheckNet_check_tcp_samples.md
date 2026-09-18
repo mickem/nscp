@@ -143,6 +143,13 @@ check_tcp host=secure.example.com port=443 ssl=true sans=example.com,mail.exampl
 CRITICAL: san_missing missing=[mail.example.com]
 ```
 
+**A required name with no certificate at all is still a missing name:**
+
+```
+check_http url=https://www.example.com sans=www.example.com onredirect=follow "detail-syntax=${result} missing=[${missing_sans}]"
+CRITICAL: san_missing missing=[www.example.com]
+```
+
 **Check a virtual host reached by IP (`sni=` drives verification too):**
 
 ```
@@ -172,6 +179,13 @@ OK: ok cn=ldap.example.com
 ```
 check_tcp host=mail.example.com starttls=smtp "top-syntax=${list}" "detail-syntax=${result}"
 CRITICAL: starttls_refused
+```
+
+**A peer that hangs up is a disconnect, not a timeout:**
+
+```
+check_tcp host=mail.example.com starttls=smtp "top-syntax=${list}" "detail-syntax=${result}"
+CRITICAL: starttls_disconnected
 ```
 
 **Verify against a hashed CA directory as well as a bundle file:**

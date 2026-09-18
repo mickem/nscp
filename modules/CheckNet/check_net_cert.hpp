@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
+#include <boost/optional.hpp>
 #include <list>
 #include <memory>
 #include <net/socket/socket_helpers.hpp>
@@ -26,7 +27,12 @@ struct cert_fields {
   // The guard for all of it. expiry_days is legitimately negative for an
   // expired certificate, so "no certificate" cannot be encoded as a value.
   bool has_certificate = false;
-  long long expiry_days = 0;
+  // Whole days until the certificate expires. Empty when there is no
+  // certificate at all, and also when one was served whose notAfter could not
+  // be read - neither is a number, and reporting either as one would let an
+  // expiry threshold fire on something that is not an expiry. Tell the two
+  // apart with has_certificate.
+  boost::optional<long long> expiry_days;
   std::string subject;
   std::string issuer;
   std::string subject_cn;
@@ -106,6 +112,17 @@ inline std::vector<std::string> find_missing_sans(const std::list<std::string> &
   return missing;
 }
 
+// Record that every required name is missing because there was no certificate
+// to carry them. A check asked to require names and handed no certificate has
+// not met the requirement - staying silent there would report ok for the one
+// case the option exists to catch. Returns false whenever names were required,
+// mirroring populate()'s "did the requirement hold" result.
+inline bool require_without_certificate(cert_fields &out, const std::vector<std::string> &required_sans) {
+  if (required_sans.empty()) return true;
+  out.missing_sans = boost::algorithm::join(required_sans, ",");
+  return false;
+}
+
 // Split a comma separated `sans=` value into the names to require.
 inline std::vector<std::string> parse_required_sans(const std::string &value) {
   std::vector<std::string> names;
@@ -121,7 +138,7 @@ inline std::vector<std::string> parse_required_sans(const std::string &value) {
 // the caller's cue to fail the check's `result`.
 inline bool populate(cert_fields &out, const socket_helpers::peer_certificate &info, const std::vector<std::string> &required_sans) {
   out.has_certificate = true;
-  out.expiry_days = info.expiry_days;
+  if (info.expiry_days) out.expiry_days = static_cast<long long>(info.expiry_days.value());
   out.subject = info.subject;
   out.issuer = info.issuer;
   out.subject_cn = info.subject_cn;
