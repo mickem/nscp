@@ -344,34 +344,14 @@ jobs:
     # This binary is not built here - it is fetched and then shipped inside the
     # signed MSI, so its digest has to be pinned in the repository like every
     # other dependency. See .github/dependency-checksums.txt.
-    # mickem/check_nsclient publishes windows-x64 and windows-x86 but, as of
-    # 1.1.0, no windows-arm64 - the URL below 404s. The build carries on without
-    # it rather than blocking the whole ARM64 package on one helper binary:
-    # CHECK_NSCLIENT_MISSING is an existing, supported configuration, and the
-    # MSI already conditions its component on $(var.has_client). Delete this
-    # branch once the asset exists; nothing else has to change, and the digest
-    # line for it is already in dependency-checksums.txt.
-    #
-    # Only ARM64 gets that treatment: a missing x64 or x86 binary is a broken
-    # release, not a gap.
     - name: Download check_nsclient from mickem/check_nsclient
-      id: check_nsclient
       shell: bash
       run: |
         ver=$(cat .check_nsclient_version | tr -d '[:space:]')
         url="https://github.com/mickem/check_nsclient/releases/download/${ver}/check_nsclient-${ver}-windows-${{ inputs.architecture }}.exe"
         echo "Fetching $url"
-        if curl -sSfL --retry 8 --retry-delay 15 --retry-max-time 300 -o tmp/check_nsclient.exe "$url"; then
-          .github/scripts/verify-checksum.sh "check_nsclient-${{ inputs.architecture }}" "${ver}" tmp/check_nsclient.exe
-          echo "missing=FALSE" >> "$GITHUB_OUTPUT"
-        elif [ "${{ inputs.architecture }}" = "arm64" ]; then
-          echo "::warning::check_nsclient ${ver} has no windows-arm64 asset; building the ARM64 package without the bundled check_nsclient."
-          rm -f tmp/check_nsclient.exe
-          echo "missing=TRUE" >> "$GITHUB_OUTPUT"
-        else
-          echo "::error::Could not download $url"
-          exit 1
-        fi
+        curl -sSfL --retry 8 --retry-delay 15 --retry-max-time 300 -o tmp/check_nsclient.exe "$url"
+        .github/scripts/verify-checksum.sh "check_nsclient-${{ inputs.architecture }}" "${ver}" tmp/check_nsclient.exe
 
     # Everything that only differs on ARM64, in one place.
     #
@@ -391,9 +371,6 @@ jobs:
           $extra += '-D PROTOBUF_PROTOC_EXECUTABLE=${{ steps.protobuf.outputs.protoc_unix }}'
         } else {
           echo "sdk=" >> $env:GITHUB_OUTPUT
-        }
-        if ("${{ steps.check_nsclient.outputs.missing }}" -eq "TRUE") {
-          $extra += '-D CHECK_NSCLIENT_MISSING=TRUE'
         }
         echo "extra=$($extra -join ' ')" >> $env:GITHUB_OUTPUT
       shell: pwsh

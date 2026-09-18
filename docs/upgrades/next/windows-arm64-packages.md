@@ -18,9 +18,3 @@ MSI and the Python Scripting feature does not appear in the installer. An
 ARM64 host that needs internal Python scripts should run the x64 package under
 emulation. `CheckExternalScripts` is unaffected and can still run a
 system-installed `python.exe`.
-
-The ARM64 package also ships without the bundled `check_nsclient.exe`, because
-[check_nsclient](https://github.com/mickem/check_nsclient/releases) publishes no
-ARM64 build yet. It is a stand-alone Nagios check plugin rather than part of the
-agent, so nothing in the agent depends on it; download the x64 build, which runs
-under emulation, if you need it on an ARM64 host.
