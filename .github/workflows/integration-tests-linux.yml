@@ -45,6 +45,16 @@ on:
         type: string
         description: 'Distribution version (e.g., 20.04, 9)'
         required: true
+      dotnet:
+        type: string
+        description: >-
+          Whether the distribution packages the .NET runtime. Debian does not,
+          so the package built for it has no managed plugin API and there is
+          no runtime to install here either. Mirrors the `dotnet` flag on the
+          build matrix; the managed assertions in the suite already skip
+          themselves when NSCP.Core.dll is absent.
+        required: false
+        default: 'true'
 
 env:
   PYTHON_VERSION: 3.11
@@ -69,7 +79,11 @@ jobs:
             done
           }
           retry apt-get update
-          retry env DEBIAN_FRONTEND=noninteractive apt-get install -y git python3 python3-pip python3-venv nodejs npm dotnet-runtime-8.0
+          packages="git python3 python3-pip python3-venv nodejs npm"
+          if [ "${{ inputs.dotnet }}" = "true" ]; then
+            packages="$packages dotnet-runtime-8.0"
+          fi
+          retry env DEBIAN_FRONTEND=noninteractive apt-get install -y $packages
 
       - name: Install base dependencies (RPM)
         if: inputs.package-type == 'rpm'
@@ -102,7 +116,11 @@ jobs:
           # than taking the older build that matches the installed runtime. It
           # can only widen what resolves - if no installable candidate exists the
           # install still fails loudly, exactly as it does now.
-          retry dnf install -y --allowerasing --nobest coreutils bash file findutils git boost-devel gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build nodejs python3-devel dbus-devel bash nodejs coreutils procps-ng dotnet-runtime-8.0
+          packages="coreutils bash file findutils git boost-devel gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build nodejs python3-devel dbus-devel bash nodejs coreutils procps-ng"
+          if [ "${{ inputs.dotnet }}" = "true" ]; then
+            packages="$packages dotnet-runtime-8.0"
+          fi
+          retry dnf install -y --allowerasing --nobest $packages
 
       - uses: actions/checkout@v6
 

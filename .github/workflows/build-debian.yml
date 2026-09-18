@@ -56,7 +56,12 @@ jobs:
             exit 1
             ;;
         esac
-        tested=$(jq -c 'map(select(.integration_tests)) | map(del(.integration_tests))' <<< "$selected")
+        # Only the fields the integration workflow consumes: the extra build
+        # fields would otherwise land in the job name, and the check names are
+        # what branch protection matches on.
+        tested=$(jq -c '
+          map(select(.integration_tests))
+          | map({distro, distro_version, arch, deb_arch, runner, dotnet})' <<< "$selected")
         selected=$(jq -c 'map(del(.integration_tests))' <<< "$selected")
         echo "Building: $(jq -r 'map("\(.distro) \(.distro_version) \(.arch)") | join(", ")' <<< "$selected")"
         echo "Testing:  $(jq -r 'if length == 0 then "(none)" else map("\(.distro) \(.distro_version) \(.arch)") | join(", ") end' <<< "$tested")"
@@ -254,6 +259,11 @@ jobs:
   # (debian trixie) entry was built but never integration-tested while this
   # matrix was maintained by hand.
   integration-tests:
+    # Named explicitly so the check name does not move: `dotnet` has to ride
+    # the matrix entry (it is what the build was configured with), but every
+    # matrix key lands in the default job name, and the check names are what
+    # branch protection matches on.
+    name: integration-tests (${{ matrix.distro }}, ${{ matrix.distro_version }}, ${{ matrix.arch }}, ${{ matrix.deb_arch }}, ${{ matrix.runner }})
     needs: [matrix, build-deb]
     if: needs.matrix.outputs.test != '[]'
     strategy:
@@ -271,3 +281,4 @@ jobs:
       distro: ${{ matrix.distro }}
       distro_version: ${{ matrix.distro_version }}
       runner: ${{ matrix.runner }}
+      dotnet: ${{ matrix.dotnet }}

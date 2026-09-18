@@ -67,9 +67,13 @@ jobs:
             exit 1
             ;;
         esac
-        tested=$(jq -c 'map(select(.integration_tests))' <<< "$selected")
+        # Only the fields the integration workflow consumes: the extra build
+        # fields would otherwise land in the job name, and the check names are
+        # what branch protection matches on.
+        tested=$(jq -c '
+          map(select(.integration_tests))
+          | map({distro, distro_version, arch, rpm_arch, runner})' <<< "$selected")
         selected=$(jq -c 'map(del(.integration_tests))' <<< "$selected")
-        tested=$(jq -c 'map(del(.integration_tests))' <<< "$tested")
         echo "Building: $(jq -r 'map("\(.distro) \(.distro_version) \(.arch)") | join(", ")' <<< "$selected")"
         echo "Testing:  $(jq -r 'if length == 0 then "(none)" else map("\(.distro) \(.distro_version) \(.arch)") | join(", ") end' <<< "$tested")"
         echo "build=$selected" >> "$GITHUB_OUTPUT"
