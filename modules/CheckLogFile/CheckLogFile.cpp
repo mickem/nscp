@@ -344,7 +344,7 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
   }
   // 0 means no ceiling, which is what the old behaviour was. Represent it as
   // "everything" so the read path has one shape.
-  if (max_bytes == 0) max_bytes = std::numeric_limits<std::uint64_t>::max();
+  if (max_bytes == 0) max_bytes = (std::numeric_limits<std::uint64_t>::max)();
 
   const bool newest_first = newest == "first";
   if (!newest_first && newest != "last") {
