@@ -110,6 +110,20 @@ set(WIX_CANDLE_FLAGS
     -dBoostPythonVersion=${NSCP_BOOST_PYTHON_VERSION}
     -dWixUILicenseRtf=${CMAKE_CURRENT_SOURCE_DIR}/License.rtf
 )
+# The OpenSSL DLLs, when OpenSSL is linked through import libraries rather
+# than statically. Their names carry the version and the architecture
+# (libcrypto-3-x64.dll, libcrypto-3.dll, ...), so the top-level CMakeLists.txt
+# resolves them from the import library it found and RUNTIME_DLL.wxs takes
+# them from these defines; a static OpenSSL leaves them undefined and the
+# installer ships no DLL.
+if(NSCP_OPENSSL_CRYPTO_DLL AND NSCP_OPENSSL_SSL_DLL)
+    list(
+        APPEND
+        WIX_CANDLE_FLAGS
+        -dOpenSSLCryptoDll=${NSCP_OPENSSL_CRYPTO_DLL}
+        -dOpenSSLSslDll=${NSCP_OPENSSL_SSL_DLL}
+    )
+endif()
 source_group(Generated FILES ${SRCS})
 # set_source_files_properties(${WIXOBJ_LIST} ${WIX_DEST} PROPERTIES GENERATED 1)
 

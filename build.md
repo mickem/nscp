@@ -114,7 +114,7 @@ path); on Linux the system packages are found automatically.
 |------------------------------------------------|---------------------------------------------------|
 | `BOOST_ROOT` / `BOOST_LIBRARYDIR`              | Boost headers / compiled libraries                |
 | `Boost_USE_STATIC_RUNTIME`                     | link Boost against the static runtime             |
-| `OPENSSL_ROOT_DIR` / `OPENSSL_USE_STATIC_LIBS` | OpenSSL install / static linking                  |
+| `OPENSSL_ROOT_DIR` / `OPENSSL_USE_STATIC_LIBS` | OpenSSL install / static linking (see below)      |
 | `PROTOBUF_LIBRARYDIR`                          | compiled Protocol Buffers libraries               |
 | `CRYPTOPP_ROOT`                                | Crypto++ build directory                          |
 | `LUA_SOURCE_DIR`                               | unpacked Lua source (built from source)           |
@@ -184,7 +184,29 @@ curl -L https://github.com/openssl/openssl/releases/download/openssl-%OPENSSL_VE
 7z x openssl-%OPENSSL_VERSION%.tar
 
 cd %BUILD_FOLDER%\openssl-%OPENSSL_VERSION%
-perl Configure VC-WIN64A no-asm no-shared
+perl Configure VC-WIN64A no-asm shared
+nmake
+```
+
+`shared` builds OpenSSL as DLLs: `libcrypto-3-x64.dll` and `libssl-3-x64.dll`
+with the import libraries `libcrypto.lib` / `libssl.lib`. NSClient++ links
+the import libraries and ships the two DLLs next to `nscp.exe`, the same way
+it ships `nscp_net.dll` and the Boost DLLs, instead of linking a private
+OpenSSL into every module.
+
+The installer library needs a second, static build. It runs inside `msiexec`
+before anything is installed, so it links OpenSSL and the C runtime
+statically, and the `libcrypto_static.lib` / `libssl_static.lib` a shared
+build leaves behind are compiled against the DLL runtime and do not link into
+it. Unpack the same tarball a second time into its own folder:
+
+```commandline
+cd %BUILD_FOLDER%
+7z x openssl-%OPENSSL_VERSION%.tar -oopenssl-static-tmp
+move openssl-static-tmp\openssl-%OPENSSL_VERSION% openssl-%OPENSSL_VERSION%-static
+rmdir openssl-static-tmp
+cd openssl-%OPENSSL_VERSION%-static
+perl Configure VC-WIN64A no-asm no-shared -MT
 nmake
 ```
 
@@ -338,7 +360,7 @@ Two of those options matter more than they look:
 
 - **`WITH_SSL=SCHANNEL`** puts the connector on the platform TLS stack. The
   alternative (`OPENSSL`) links a second OpenSSL beside the one NSClient++
-  already links statically.
+  already ships.
 - **The `..._STATIC` plugin options** compile the authentication plugins into
   `libmariadb.dll`. By default they are separate DLLs loaded from a plugin
   directory baked in at compile time - a path that does not exist on a target
@@ -365,7 +387,7 @@ leaves `CheckMySQL` out entirely.
 cd %BUILD_FOLDER%
 mkdir installer_lib
 cd installer_lib 
-cmake %SOURCE_ROOT%/installer_lib -T v141 -G "Visual Studio 18" -A x64 -DBOOST_ROOT=%BUILD_FOLDER%\boost_%BOOST_VERSION_%_static -DBOOST_LIBRARYDIR=%BUILD_FOLDER%\boost_%BOOST_VERSION_%_static/stage/lib -DOPENSSL_ROOT_DIR=%BUILD_FOLDER%\openssl-%OPENSSL_VERSION% -DBUILD_VERSION=%NSCP_VERSION% 
+cmake %SOURCE_ROOT%/installer_lib -T v141 -G "Visual Studio 18" -A x64 -DBOOST_ROOT=%BUILD_FOLDER%\boost_%BOOST_VERSION_%_static -DBOOST_LIBRARYDIR=%BUILD_FOLDER%\boost_%BOOST_VERSION_%_static/stage/lib -DOPENSSL_ROOT_DIR=%BUILD_FOLDER%\openssl-%OPENSSL_VERSION%-static -DBUILD_VERSION=%NSCP_VERSION% 
 msbuild installer_lib.sln /p:Configuration=Release /p:Platform=x64
 ```
 
@@ -391,7 +413,7 @@ SET(BOOST_ROOT "BUILD_FOLDER/boost_VERSION")
 SET(NSCP_BOOST_PYTHON_VERSION "python311")
 SET(BOOST_LIBRARYDIR "BUILD_FOLDER/boost_VERSION/stage/lib")
 SET(PROTOBUF_LIBRARYDIR "BUILD_FOLDER/protobuf-VERSION/build/Release")
-SET(OPENSSL_USE_STATIC_LIBS TRUE)
+SET(OPENSSL_USE_STATIC_LIBS FALSE)
 SET(OPENSSL_ROOT_DIR "BUILD_FOLDER/openssl-VERSION")
 SET(LUA_SOURCE_DIR "BUILD_FOLDER/lua-VERSION/src")
 SET(CRYPTOPP_ROOT "BUILD_FOLDER/CRYPTOPP_VERSION")
@@ -400,6 +422,13 @@ SET(MONGOOSE_SOURCE_DIR "BUILD_FOLDER/mongoose-VERSION")
 SET(MINIZ_INCLUDE_DIR "BUILD_FOLDER/miniz-VERSION")
 SET(MARIADB_ROOT_DIR "BUILD_FOLDER/mariadb-connector-c-VERSION/install")
 ```
+
+> `OPENSSL_USE_STATIC_LIBS FALSE` links the OpenSSL import libraries; cmake
+> then copies `libcrypto-3-x64.dll` and `libssl-3-x64.dll` into the build
+> folder (it reports `OpenSSL is shipped as ...`), and the zip and the MSI pick
+> them up from there. `TRUE` with a `no-shared` OpenSSL tree links it into
+> every module instead and ships no DLL; that is how the Win32 static build
+> below works.
 
 > `FindMariaDB` caches what it resolves, so pointing `MARIADB_ROOT_DIR` at a
 > different tree later has no effect until the stale entries are dropped:
