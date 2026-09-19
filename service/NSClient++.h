@@ -13,6 +13,7 @@
 #include "scheduler_handler.hpp"
 #include "storage_manager.hpp"
 
+#include "fact_repository.hpp"
 #include "tag_repository.hpp"
 
 class NSClientT;
@@ -50,6 +51,11 @@ class NSClientT : public nsclient::core::core_interface {
   // web UI and the fleet sync. Created in the constructor and never replaced,
   // so handing the shared_ptr to other threads is safe.
   nsclient::core::tag_repository_instance tags_;
+  // The host inventory (facts): produced by modules through fetchFacts on the
+  // core's schedule, served on /api/v2/facts and hashed into the fleet state
+  // report. Empty until an operator enables a fact set in [/settings/facts].
+  // Created in the constructor and never replaced, like tags_.
+  nsclient::core::fact_repository_instance facts_;
   // Path overrides supplied via --path-override on the command line. Applied to
   // path_ inside load_configuration_1, after init_settings has loaded
   // boot.ini's [paths] section, so CLI wins over boot.ini.
@@ -103,6 +109,7 @@ class NSClientT : public nsclient::core::core_interface {
   nsclient::core::plugin_cache* get_plugin_cache() { return plugins_->get_plugin_cache(); }
   nsclient::core::storage_manager_instance get_storage_manager() override { return storage_manager_; }
   nsclient::core::tag_repository_instance get_tag_repository() { return tags_; }
+  nsclient::core::fact_repository_instance get_fact_repository() { return facts_; }
 
   struct service_controller {
     std::string service;
@@ -121,12 +128,18 @@ class NSClientT : public nsclient::core::core_interface {
   service_controller get_service_control();
 
   void process_metrics();
+  // Run one facts round. `reason` is what producers see: startup, scheduled,
+  // reload or manual (the console verb and POST /api/v2/facts/refresh).
+  void process_facts(const std::string &reason);
 
  private:
   void reloadPlugins();
   void unloadPlugins();
   // Start the fleet sync thread when the enrollment manifest exists (no-op
   // otherwise, and in builds without OpenSSL).
+  // Register [/settings/facts] and, when a fact set is enabled, schedule the
+  // refresh round. Done at boot, before the first round runs.
+  void boot_facts();
   void boot_fleet_sync();
   void stop_fleet_sync();
 

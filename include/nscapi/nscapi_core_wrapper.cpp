@@ -40,6 +40,7 @@ nscapi::core_wrapper::core_wrapper()
       fNSAPIStorageQuery(nullptr),
       fNSAPISetTag(nullptr),
       fNSAPIGetTags(nullptr),
+      fNSAPIFactsQuery(nullptr),
       fNSAPISetLogOption(nullptr) {}
 nscapi::core_wrapper::~core_wrapper() { delete pimpl; }
 
@@ -282,6 +283,49 @@ std::string nscapi::core_wrapper::get_tags_json() const {
 }
 
 namespace {
+// Serialise a facts request by hand: two fixed ops and, for get, a path the
+// core validates anyway. Pulling a JSON library into the wrapper for this
+// would put it in every module that links the plugin API.
+std::string facts_request(const std::string &op, const std::string &path) {
+  std::string request = "{\"op\":\"" + op + "\"";
+  if (!path.empty()) {
+    std::string escaped;
+    for (const char c : path) {
+      if (c == '"' || c == '\\') escaped.push_back('\\');
+      escaped.push_back(c);
+    }
+    request += ",\"path\":\"" + escaped + "\"";
+  }
+  return request + "}";
+}
+}  // namespace
+
+std::string nscapi::core_wrapper::get_facts_json(const std::string &path) const {
+  if (!fNSAPIFactsQuery) return "{}";
+  const std::string request = facts_request("get", path);
+  char *buffer = nullptr;
+  unsigned int buffer_size = 0;
+  const bool retC = NSCAPI::api_ok(fNSAPIFactsQuery(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
+  std::string response;
+  if (buffer_size > 0 && buffer != nullptr) {
+    response = std::string(buffer, buffer_size);
+  }
+  DestroyBuffer(&buffer);
+  if (!retC || response.empty()) return "{}";
+  return response;
+}
+
+bool nscapi::core_wrapper::refresh_facts() const {
+  if (!fNSAPIFactsQuery) return false;
+  const std::string request = facts_request("refresh", "");
+  char *buffer = nullptr;
+  unsigned int buffer_size = 0;
+  const bool retC = NSCAPI::api_ok(fNSAPIFactsQuery(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
+  DestroyBuffer(&buffer);
+  return retC;
+}
+
+namespace {
 // Skip JSON insignificant whitespace.
 void tags_skip_ws(const std::string &s, std::size_t &i) {
   while (i < s.size() && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r')) ++i;
@@ -451,6 +495,7 @@ bool nscapi::core_wrapper::load_endpoints(core_api::lpNSAPILoader f) {
   fNSAPISetTag = reinterpret_cast<core_api::lpNSAPISetTag>(f("NSAPISetTag"));
   fNSAPIGetTags = reinterpret_cast<core_api::lpNSAPIGetTags>(f("NSAPIGetTags"));
   fNSAPISetLogOption = reinterpret_cast<core_api::lpNSAPISetLogOption>(f("NSAPISetLogOption"));
+  fNSAPIFactsQuery = reinterpret_cast<core_api::lpNSAPIFactsQuery>(f("NSAPIFactsQuery"));
 
   return true;
 }

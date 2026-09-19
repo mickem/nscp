@@ -259,7 +259,9 @@ NSClientT::NSClientT()
       path_(new nsclient::core::path_manager(log_instance_)),
       plugins_(new nsclient::core::plugin_manager(path_, log_instance_)),
       storage_manager_(new nsclient::core::storage_manager(path_, log_instance_)),
-      tags_(new nsclient::core::tag_repository()) {
+      tags_(new nsclient::core::tag_repository()),
+      facts_(new nsclient::core::fact_repository()) {
+  plugins_->set_fact_repository(facts_);
   provider_ = new nscp_settings_provider(path_, log_instance_);
   log_instance_->startup();
 }
@@ -492,6 +494,7 @@ bool NSClientT::boot_start_plugins(bool boot) {
                                                "How many threads will run in the background to maintain the various core helper tasks.", "1", true, false);
     int count = str::stox<int>(settings_manager::get_settings()->get_string("/settings/core", "settings maintenance threads", "1"));
     scheduler_.set_threads(count);
+    boot_facts();
     scheduler_.start();
   }
   try {
@@ -503,10 +506,63 @@ bool NSClientT::boot_start_plugins(bool boot) {
     return false;
   }
   if (boot) {
+    // One round before the fleet loop sends its first state report, so a fresh
+    // host reports the inventory it has rather than an empty document it will
+    // correct a minute later.
+    process_facts("startup");
     boot_fleet_sync();
   }
   LOG_DEBUG_CORE(utf8::cvt<std::string>(APPLICATION_NAME " - " CURRENT_SERVICE_VERSION " Started!"));
   return true;
+}
+
+// Register the facts section and, when anything is enabled, the round that
+// refreshes it. The per-set keys are registered by the producers themselves
+// (from their loadModuleEx), so this only owns the section and the two keys
+// that pace it.
+//
+// Nothing is collected until a set is enabled: an empty section is the
+// default, which is why the task is not registered at all when the section is
+// empty. There is deliberately no global `enabled` switch - an empty section
+// is "off" - and no implicit enablement: loading CheckSystem does not turn on
+// `os`, and enrolling does not turn on anything.
+void NSClientT::boot_facts() {
+  try {
+    const std::string path = "/settings/facts";
+    settings_manager::get_core()->register_path(0xffff, path, "Host inventory (facts)",
+                                                "Which inventory fact sets this host collects and reports. Nothing is collected until a set is enabled "
+                                                "here; each producing module registers the keys for the sets it can produce.",
+                                                true, false);
+    settings_manager::get_core()->register_key(0xffff, path, "interval", "string", "Refresh interval",
+                                               "How often the core asks every module to refresh the fact sets that are enabled.", "1h", true, false);
+    settings_manager::get_core()->register_key(0xffff, path, "max size", "int", "Maximum document size",
+                                               "Serialised size budget for the whole facts document. A fact set that would take the document past it is "
+                                               "rejected, and the previous value of that set is kept.",
+                                               str::xtos(nsclient::core::fact_repository::default_max_size), true, false);
+
+    const std::string max_size = settings_manager::get_settings()->get_string(path, "max size", str::xtos(nsclient::core::fact_repository::default_max_size));
+    try {
+      facts_->set_max_size(str::stox<std::size_t>(max_size));
+    } catch (const std::exception &e) {
+      LOG_ERROR_CORE_STD("Invalid facts 'max size' value '" + max_size + "', keeping the default: " + utf8::utf8_from_native(e.what()));
+    }
+
+    if (plugins_->read_enabled_facts().empty()) {
+      LOG_DEBUG_CORE("No fact sets are enabled, facts will not be collected");
+      return;
+    }
+    const std::string interval = settings_manager::get_settings()->get_string(path, "interval", "1h");
+    try {
+      scheduler_.add_task(task_scheduler::schedule_metadata::FACTS, interval);
+    } catch (const std::exception &e) {
+      LOG_ERROR_CORE_STD("Invalid facts 'interval' value '" + interval + "', falling back to '1h': " + utf8::utf8_from_native(e.what()));
+      scheduler_.add_task(task_scheduler::schedule_metadata::FACTS, "1h");
+    }
+  } catch (const std::exception &e) {
+    LOG_ERROR_CORE_STD("Failed to configure facts: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    LOG_ERROR_CORE("Failed to configure facts");
+  }
 }
 
 // Start the fleet configuration sync loop - but only when this host has been
@@ -698,6 +754,10 @@ void NSClientT::reloadPlugins() {
   // TODO: a module *disabled* since the last load is still left running; that
   // needs unloading a live plugin, which is a different problem from this one.
   settings_manager::get_core()->set_reload(false);
+  // The reloaded configuration may have enabled or disabled fact sets, and a
+  // set that is no longer enabled has to leave the document now rather than at
+  // the next hourly round.
+  process_facts("reload");
 }
 
 bool NSClientT::do_reload(const std::string module) {
@@ -830,6 +890,7 @@ PB::Metrics::MetricsBundle NSClientT::ownMetricsFetcher() {
   return bundle;
 }
 void NSClientT::process_metrics() { plugins_->process_metrics(ownMetricsFetcher()); }
+void NSClientT::process_facts(const std::string &reason) { plugins_->process_facts(reason); }
 
 #ifdef _WIN32
 void NSClientT::handle_session_change(unsigned long dwSessionId, bool logon) {}

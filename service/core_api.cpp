@@ -256,6 +256,86 @@ NSCAPI::errorReturn NSAPIGetTags(char **response_buffer, unsigned int *response_
   return NSCAPI::api_return_codes::hasFailed;
 }
 
+namespace {
+// The facts envelope every op returns: the document (or the subtree asked
+// for), plus what a consumer needs to render and cache it - the revision and
+// hash it can poll on, when the last round ran, which sets are enabled, and
+// which of them could not be collected.
+boost::json::object build_facts_response(const std::string &path) {
+  const nsclient::core::fact_repository_instance facts = mainClient->get_fact_repository();
+  boost::json::object root;
+  root["revision"] = facts->get_revision();
+  root["hash"] = facts->get_hash();
+  root["collected"] = facts->get_collected();
+  boost::json::array enabled;
+  for (const std::string &id : facts->get_enabled()) enabled.push_back(boost::json::value(id));
+  root["enabled"] = enabled;
+  boost::json::object errors;
+  for (const std::pair<const std::string, std::string> &error : facts->get_errors()) errors[error.first] = error.second;
+  root["errors"] = errors;
+  if (path.empty()) {
+    root["facts"] = facts->get_all();
+    return root;
+  }
+  // A subtree the document does not have is not an error here: the REST layer
+  // turns `found: false` into a 404 and the console prints "no such path".
+  root["path"] = path;
+  const boost::optional<boost::json::value> subtree = facts->get(path);
+  root["found"] = subtree.is_initialized();
+  if (subtree.is_initialized()) root["facts"] = subtree.value();
+  return root;
+}
+}  // namespace
+
+// Read side of the facts repository, shaped like the other query entry points:
+// a JSON request in, a JSON response out.
+//
+//   { "op": "get" }                          the whole document
+//   { "op": "get", "path": "software" }      one subtree
+//   { "op": "refresh" }                      run a round, then the document
+//
+// There is no set op on purpose. Facts are produced by fetchFacts on the
+// core's schedule from the sets [/settings/facts] enables, so a module cannot
+// push inventory the operator did not ask for.
+NSCAPI::errorReturn NSAPIFactsQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer,
+                                    unsigned int *response_buffer_len) {
+  try {
+    std::string op = "get";
+    std::string path;
+    // An empty request is "get the whole document": the console's bare `facts`
+    // verb sends nothing at all.
+    const std::string request = request_buffer == nullptr ? std::string() : std::string(request_buffer, request_buffer_len);
+    if (!request.empty()) {
+      const boost::json::value parsed = boost::json::parse(request);
+      const boost::json::object *root = parsed.if_object();
+      if (root == nullptr) {
+        LOG_ERROR(mainClient, "Facts query error: the request is not a JSON object");
+        return NSCAPI::api_return_codes::hasFailed;
+      }
+      const boost::json::value *op_value = root->if_contains("op");
+      if (op_value != nullptr && op_value->is_string()) op = std::string(op_value->as_string());
+      const boost::json::value *path_value = root->if_contains("path");
+      if (path_value != nullptr && path_value->is_string()) path = std::string(path_value->as_string());
+    }
+    if (op == "refresh") {
+      mainClient->process_facts("manual");
+    } else if (op != "get") {
+      LOG_ERROR(mainClient, "Facts query error: unknown op '" + op + "'");
+      return NSCAPI::api_return_codes::hasFailed;
+    }
+    const std::string response = boost::json::serialize(build_facts_response(path));
+    *response_buffer_len = static_cast<unsigned int>(response.size());
+    *response_buffer = new char[*response_buffer_len + 10];
+    memcpy(*response_buffer, response.c_str(), *response_buffer_len);
+    return NSCAPI::api_return_codes::isSuccess;
+  } catch (const std::exception &e) {
+    LOG_ERROR(mainClient, "Facts query error: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    LOG_ERROR(mainClient, "Unknown facts query error");
+  }
+  return NSCAPI::api_return_codes::hasFailed;
+}
+
 nscapi::core_api::FUNPTR NSAPILoader(const char *buffer) {
   if (strcmp(buffer, "NSAPIGetApplicationName") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIGetApplicationName);
   if (strcmp(buffer, "NSAPIGetApplicationVersionStr") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIGetApplicationVersionStr);
@@ -275,6 +355,7 @@ nscapi::core_api::FUNPTR NSAPILoader(const char *buffer) {
   if (strcmp(buffer, "NSAPIStorageQuery") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSCAPIStorageQuery);
   if (strcmp(buffer, "NSAPISetTag") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPISetTag);
   if (strcmp(buffer, "NSAPIGetTags") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIGetTags);
+  if (strcmp(buffer, "NSAPIFactsQuery") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIFactsQuery);
   if (strcmp(buffer, "NSAPISetLogOption") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPISetLogOption);
   mainClient->get_logger()->critical("api", __FILE__, __LINE__, "Function not found: " + std::string(buffer));
   return NULL;

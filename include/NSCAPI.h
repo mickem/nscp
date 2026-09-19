@@ -130,6 +130,14 @@ typedef NSCAPI::errorReturn (*lpNSAPIStorageQuery)(const char *, const unsigned 
 typedef NSCAPI::errorReturn (*lpNSAPISetTag)(const char *, const char *);
 typedef NSCAPI::errorReturn (*lpNSAPIGetTags)(char **, unsigned int *);
 
+// Host facts: the opt-in inventory document (see service/fact_repository.hpp).
+// One query entry point, taking a JSON request - { "op": "get", "path": "os" }
+// or { "op": "refresh" } - and returning the facts envelope as JSON (free with
+// NSAPIDestroyBuffer). Read only: facts are produced through fetchFacts on a
+// schedule the core drives, so there is no push-style counterpart to
+// NSAPISetTag and the enable list stays authoritative.
+typedef NSCAPI::errorReturn (*lpNSAPIFactsQuery)(const char *, const unsigned int, char **, unsigned int *);
+
 // Change one logging option at runtime. Takes the same strings as the --log
 // command line switch: a severity ("debug", "trace", ...) or a log-driver
 // option ("console", "no-console", "oneline", "no-std-err"). A module that
@@ -174,6 +182,12 @@ typedef NSCAPI::errorReturn (*lpCommandLineExec)(unsigned int plugin_id, const i
 typedef NSCAPI::errorReturn (*lpHandleSchedule)(unsigned int plugin_id, const char *in_buffer, const unsigned int in_buffer_len);
 
 typedef NSCAPI::errorReturn (*lpFetchMetrics)(unsigned int plugin_id, char **return_buffer, unsigned int *return_buffer_len);
+// Facts producer. The request names the fact sets the core wants this round
+// and why; the response carries the sets the module produced and, per set, why
+// one it was asked for is missing. Both are UTF-8 JSON strings - facts are
+// JSON on every consumer, so there is nothing to convert on the way out.
+typedef NSCAPI::errorReturn (*lpFetchFacts)(unsigned int plugin_id, const char *request_buffer, const unsigned int request_buffer_len, char **return_buffer,
+                                            unsigned int *return_buffer_len);
 typedef NSCAPI::errorReturn (*lpSubmitMetrics)(unsigned int plugin_id, const char *buffer, const unsigned int buffer_len);
 
 typedef NSCAPI::errorReturn (*lpOnEvent)(unsigned int plugin_id, const char *buffer, const unsigned int buffer_len);
