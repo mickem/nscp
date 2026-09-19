@@ -193,7 +193,13 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
       ("External script settings", "General settings for the external scripts module (CheckExternalScripts).")
 
       ("scripts", sh::fun_values_path([this] (auto key, auto value) { this->add_command(key, value); }),
-      "External scripts", "A list of scripts available to run from the CheckExternalScripts module. Syntax is: `command=script arguments`",
+      "External scripts", "A list of scripts available to run from the CheckExternalScripts module. Syntax is: `command=script arguments`.\n"
+      "The value is a command line handed to the operating system, not a path the agent resolves, so it is NOT searched for and "
+      "`${...}` path tokens are NOT expanded here: `${scripts}/check_foo.sh` reaches the shell literally and fails. A name with no "
+      "directory separator (`check_foo.sh`) is looked up on PATH rather than in the script folder. A relative name that does contain "
+      "one (`scripts/check_foo.sh`) is resolved against the service's working directory, which is the installation directory on "
+      "Windows and whatever the unit or init script set on Linux - so prefer an absolute path unless you are keeping the "
+      "conventional `scripts\\check_foo.bat` form.",
       "SCRIPT", "For more configuration options add a dedicated section (if you add a new section you can customize the user and various other advanced features)")
 
       ("wrapped scripts", sh::fun_values_path([this] (auto key, auto value) { this->add_wrapping(key, value); }),

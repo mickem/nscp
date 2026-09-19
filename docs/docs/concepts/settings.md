@@ -522,9 +522,39 @@ Settings that *write* files now name the folder they own, and a relative value l
 Prefer naming the folder explicitly anyway — `${scripts}/check.bat` says what you mean, where
 `scripts/check.bat` only works if you already know which base it is measured from.
 
-A script *name* is a different thing and is not covered by this. `[/settings/external scripts]`
-entries are resolved by searching the script folder, which is why a bare `check_foo.bat` works
-there: the search either finds it or reports that it could not.
+A script *name* is a different thing and is not covered by this. `[/settings/python/scripts]` and
+`[/settings/lua/scripts]` entries are resolved by **searching**, so a bare `check_foo.py` is found
+in the module's script folder and the search either finds it or reports that it could not:
+
+| Written as | Found at |
+|---|---|
+| `check_foo.py` | `${scripts}/python/check_foo.py`, or `${scripts}/check_foo.py` |
+| `sub/check_foo.py` | `${scripts}/python/sub/check_foo.py`, or `${scripts}/sub/check_foo.py` |
+
+Lua is the same with `lua` in place of `python`. The search also tries the value as-is first, so a
+name that happens to exist relative to the service's working directory wins — see the warning
+below.
+
+### External scripts resolve differently
+
+`[/settings/external scripts/scripts]` does **not** work this way, and the difference catches
+people out. The value is a command line, not a path: it is handed to the operating system to
+execute, so there is no search and, importantly, **no `${...}` expansion**. Writing
+`${scripts}/check_foo.sh` there does not work — the token reaches the shell literally.
+
+| Written as | What happens |
+|---|---|
+| `${scripts}/check_foo.sh` | **fails** — tokens are not expanded for external scripts |
+| `check_foo.sh` | **fails** — a name with no directory separator is looked up on `PATH`, not in the current directory |
+| `scripts/check_foo.sh` | resolved relative to the service's working directory |
+| `/opt/nscp/scripts/check_foo.sh` | works, always |
+
+The conventional `scripts\check_foo.bat` works on a normal install because the working directory
+happens to contain `scripts`: on Windows the service starts external scripts with the installation
+directory as their working directory, and on Linux the shipped systemd unit sets `WorkingDirectory`
+to the package directory. Neither is something the configuration states, so **prefer an absolute
+path** for an external script, or keep the conventional relative form and be aware it depends on
+how the agent was started.
 
 ### Overriding
 
