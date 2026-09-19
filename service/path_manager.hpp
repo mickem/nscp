@@ -9,10 +9,28 @@
 #include <memory>
 #include <nsclient/logger/logger.hpp>
 #include <nscp/path_defaults.hpp>
+#include <stdexcept>
 #include <string>
 
 namespace nsclient {
 namespace core {
+
+// A ${token} named something this installation cannot resolve.
+//
+// This used to be silent: an unrecognised key resolved to the executable's
+// directory, so `${scripst}/x.bat` became a real path under the install folder
+// and whatever depended on it quietly went to the wrong place (#458). A typo in
+// a path is an operator error and is now reported as one.
+//
+// Derives from std::exception on purpose. The two layers that expand
+// operator-supplied paths already catch it and report per item -
+// settings_registry::notify() names the key it was configuring, and
+// init_settings() reports a failed settings load - so raising this surfaces the
+// bad token with context instead of terminating anything.
+class path_expansion_error : public std::runtime_error {
+ public:
+  explicit path_expansion_error(const std::string &what) : std::runtime_error(what) {}
+};
 
 class path_manager {
   typedef std::map<std::string, std::string> paths_type;
@@ -80,6 +98,11 @@ class path_manager {
   // ordinary substitution instead of starting a fresh, unbounded chain.
   std::string resolve_folder(const std::string& key, int depth);
   std::string get_path_for_key(const std::string& key, int depth);
+
+  // Discard overrides that do not name an absolute location, reporting each
+  // one. Called after the map is installed so that an override written in
+  // terms of other tokens resolves the same way it will in service.
+  void drop_unusable_overrides(paths_type& map, const char* source);
 
   // Resolve ${nrpe-dh}: the first candidate folder that actually holds the
   // shipped DH parameters, or the last candidate when none of them do.

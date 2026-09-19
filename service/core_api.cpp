@@ -30,7 +30,22 @@
 extern std::shared_ptr<NSClient> mainClient;  // Global core instance forward declaration.
 
 NSCAPI::errorReturn NSAPIExpandPath(const char *key, char *buffer, unsigned int bufLen) {
-  return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, mainClient->get_path()->expand_path(key), NSCAPI::api_return_codes::isSuccess);
+  // Nothing may be thrown across this boundary: modules reach it through a
+  // function pointer from a separately compiled DLL, and unwinding into one is
+  // undefined. Now that an unknown ${token} is reported rather than silently
+  // resolved, catch it here, log what was wrong with it, and answer with a
+  // plain failure code - nscapi::core_wrapper::expand_path turns that back
+  // into an exception on the caller's own side of the boundary, where
+  // settings_registry::notify() catches it and names the key being configured.
+  try {
+    return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, mainClient->get_path()->expand_path(key), NSCAPI::api_return_codes::isSuccess);
+  } catch (const std::exception &e) {
+    LOG_ERROR(mainClient, std::string("Failed to expand path: ") + e.what());
+    return NSCAPI::api_return_codes::hasFailed;
+  } catch (...) {
+    LOG_ERROR(mainClient, std::string("Failed to expand path: ") + (key == nullptr ? "" : key));
+    return NSCAPI::api_return_codes::hasFailed;
+  }
 }
 
 NSCAPI::errorReturn NSAPIGetApplicationName(char *buffer, unsigned int bufLen) {
