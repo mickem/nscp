@@ -288,6 +288,10 @@
         <ComponentRef Id="LibNSCP"/>
         <?endif?>
         <ComponentRef Id="RequiredPlugins"/>
+        <!-- scripts\custom, on MainProgram rather than SampleScripts so an
+             operator who deselects our example scripts still gets a folder to
+             put their own in. See installers/common/scripts.wxs. -->
+        <ComponentRef Id="ScriptsCustomFolder"/>
         <Feature Id="FirewallConfig" Title="Firewall Exception" Description="A firewall exception to allow NSClient++ to open ports" Level="1" Absent="allow">
           <ComponentRef Id="FWException" />
         </Feature>
