@@ -231,6 +231,10 @@ NSCP_CREATE_TEST(
         # Path handling driven through the real settings registry rather than a
         # stub, so the join between the two is covered and not just each half.
         path_settings_integration_test.cpp
+        # Shared by the script modules: which folders a configured script may
+        # be loaded from. Header-only, so it is tested here rather than in a
+        # module that would drag an interpreter in.
+        ${NSCP_INCLUDEDIR}/nscp/script_roots_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
         acl_test.cpp
         ${NSCP_INCLUDEDIR}/win/acl.cpp

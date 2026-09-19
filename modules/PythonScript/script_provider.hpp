@@ -8,6 +8,8 @@
 #include <string>
 
 #include "python_script.hpp"
+#include <nscp/script_roots.hpp>
+
 #include "script_interface.hpp"
 
 struct script_provider : public script_provider_interface {
@@ -19,6 +21,10 @@ struct script_provider : public script_provider_interface {
 
   typedef std::list<std::shared_ptr<python_script>> instance_list_type;
   instance_list_type instances_;
+  // Folders a configured script may be loaded from. Set before any script
+  // is added; an empty list refuses everything, which is what a caller that
+  // forgot to set it should get.
+  nscp::scripts::allowed_roots allowed_roots_;
 
  public:
   script_provider(int id, nscapi::core_wrapper *core, boost::filesystem::path root);
@@ -26,6 +32,8 @@ struct script_provider : public script_provider_interface {
   unsigned int get_id();
   nscapi::core_wrapper *get_core();
   std::shared_ptr<nscapi::settings_proxy> get_settings_proxy();
+
+  void set_allowed_roots(nscp::scripts::allowed_roots roots) override { allowed_roots_ = std::move(roots); }
 
   boost::filesystem::path get_root();
   boost::optional<boost::filesystem::path> find_file(std::string file);
