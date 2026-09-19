@@ -66,6 +66,68 @@ TEST_F(PathManagerTest, ExpandPathNoVariables) {
   EXPECT_EQ(pm->expand_path(path), path);
 }
 
+// --- resolve_path ------------------------------------------------------------
+// expand_path substitutes tokens and deliberately does not make anything
+// absolute: an operator may point a setting anywhere on the filesystem. But a
+// value with no token and no root only means something relative to the process
+// working directory, which differs per platform and per launch method. A
+// consumer that owns a namespace names it here so a bare name lands there.
+
+TEST_F(PathManagerTest, ResolvePathRootsABareNameAtTheGivenRoot) {
+  pm->set_overrides({{"log-path", "/var/log/nscp"}});
+  EXPECT_EQ(pm->resolve_path("nsclient.log", "${log-path}"), "/var/log/nscp/nsclient.log");
+}
+
+TEST_F(PathManagerTest, ResolvePathRootsARelativeSubdirectoryToo) {
+  pm->set_overrides({{"shared-path", "/srv/nscp"}});
+  EXPECT_EQ(pm->resolve_path("scripts/myscript.bat", "${shared-path}"), "/srv/nscp/scripts/myscript.bat");
+}
+
+TEST_F(PathManagerTest, ResolvePathLeavesAnAbsolutePathAlone) {
+  pm->set_overrides({{"log-path", "/var/log/nscp"}});
+  // The operator pointed somewhere specific; that is theirs to decide.
+  EXPECT_EQ(pm->resolve_path("/var/log/elsewhere.log", "${log-path}"), "/var/log/elsewhere.log");
+}
+
+TEST_F(PathManagerTest, ResolvePathExpandsTokensAndDoesNotRootTheResult) {
+  pm->set_overrides({{"shared-path", "/srv/nscp"}, {"log-path", "/var/log/nscp"}});
+  // Already rooted once the token is substituted, so the default root must not
+  // be applied on top of it.
+  EXPECT_EQ(pm->resolve_path("${shared-path}/x.log", "${log-path}"), "/srv/nscp/x.log");
+}
+
+TEST_F(PathManagerTest, ResolvePathKeepsAnUnsetValueUnset) {
+  // "" means "not configured" on a good number of path options, and their
+  // consumers test .empty(). Rooting it would turn "no certificate key" into a
+  // certificate key named after the root directory.
+  pm->set_overrides({{"log-path", "/var/log/nscp"}});
+  EXPECT_EQ(pm->resolve_path("", "${log-path}"), "");
+}
+
+TEST_F(PathManagerTest, ResolvePathKeepsTheNoPathSentinel) {
+  pm->set_overrides({{"log-path", "/var/log/nscp"}});
+  EXPECT_EQ(pm->resolve_path("none", "${log-path}"), "none");
+}
+
+TEST_F(PathManagerTest, ResolvePathReportsARootThatIsNotOne) {
+  // Every call site passes a literal, so this is a programming error rather
+  // than operator input - and a silent pass-through would leave the value
+  // resolving against the working directory, which is the bug being fixed.
+  EXPECT_THROW(pm->resolve_path("x.log", "not-a-root"), nsclient::core::path_expansion_error);
+}
+
+TEST_F(PathManagerTest, ResolvePathReportsAnUnknownTokenInTheValue) {
+  EXPECT_THROW(pm->resolve_path("${no-such-token}/x.log", "${log-path}"), nsclient::core::path_expansion_error);
+}
+
+TEST_F(PathManagerTest, ResolvePathAlwaysYieldsAnAbsolutePathForOrdinaryInput) {
+  // The property the write-side consumers actually depend on.
+  for (const char *value : {"x.log", "sub/x.log", "./x.log"}) {
+    const std::string resolved = pm->resolve_path(value, "${log-path}");
+    EXPECT_TRUE(boost::filesystem::path(resolved).is_absolute()) << value << " resolved to a relative path: " << resolved;
+  }
+}
+
 TEST_F(PathManagerTest, GetFolderUnknownKeyIsReported) {
   // An unknown key is a typo, and it used to resolve to the executable's
   // directory - so `${scripst}/x.bat` was not an error but a real path under

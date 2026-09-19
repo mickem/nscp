@@ -96,7 +96,20 @@ class typed_key : public key_interface {
 };
 
 struct lookup_path_processor : post_processor {
-  std::string process(const settings_impl_interface_ptr core_, const std::string value) override { return core_->expand_path(value); }
+  // The folder a bare name belongs in, or empty to leave a relative value as
+  // the operator wrote it. Held here, next to the key declaration that supplied
+  // it, because by the time the value reaches the expander the key it came from
+  // is gone - and which folder is right is a property of the key, not of the
+  // string.
+  std::string default_root_;
+
+  lookup_path_processor() = default;
+  explicit lookup_path_processor(std::string default_root) : default_root_(std::move(default_root)) {}
+
+  std::string process(const settings_impl_interface_ptr core_, const std::string value) override {
+    if (default_root_.empty()) return core_->expand_path(value);
+    return core_->resolve_path(value, default_root_);
+  }
 };
 
 class typed_kvp_value : public key_interface {
@@ -238,6 +251,10 @@ key_type int_fun_key(boost::function<void(int)> fun) {
 
 key_type path_key(std::string *val, std::string def) {
   key_type r(new typed_key(new string_storer(val), std::move(def), new lookup_path_processor()));
+  return r;
+}
+key_type path_key(std::string *val, std::string def, std::string default_root) {
+  key_type r(new typed_key(new string_storer(val), std::move(def), new lookup_path_processor(std::move(default_root))));
   return r;
 }
 key_type path_key(std::string *val) {
