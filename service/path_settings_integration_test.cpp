@@ -41,6 +41,13 @@ namespace sh = nscapi::settings_helper;
 
 namespace {
 
+// Boost's operator/ appends the *preferred* separator, so a join that reads
+// "/var/log/nscp/x" on POSIX reads "/var/log/nscp\\x" on Windows. These tests
+// are about which directory a value lands in, not how the separator is spelt,
+// so compare the generic (forward-slash) form. Values produced by token
+// substitution alone keep whatever the operator typed and need no such care.
+static std::string generic(const std::string &path) { return boost::filesystem::path(path).generic_string(); }
+
 class silent_logger : public nsclient::logging::log_interface {
  public:
   void trace(const std::string &, const char *, int, const std::string &) override {}
@@ -172,14 +179,14 @@ TEST_F(PathSettingsIntegrationTest, PathKeyWithARootPutsABareNameInThatFolder) {
   std::string value;
   backend_->set("/settings/test", "file", "nsclient.log");
   notify_one("file", sh::path_key(&value, "", "${log-path}"));
-  EXPECT_EQ(value, "/var/log/nscp/nsclient.log");
+  EXPECT_EQ(generic(value), "/var/log/nscp/nsclient.log");
 }
 
 TEST_F(PathSettingsIntegrationTest, PathKeyWithARootPutsARelativeSubdirectoryInThatFolder) {
   std::string value;
   backend_->set("/settings/test", "file", "scripts/check_lsi_raid.pl");
   notify_one("file", sh::path_key(&value, "", "${shared-path}"));
-  EXPECT_EQ(value, "/srv/nscp/scripts/check_lsi_raid.pl");
+  EXPECT_EQ(generic(value), "/srv/nscp/scripts/check_lsi_raid.pl");
 }
 
 TEST_F(PathSettingsIntegrationTest, PathKeyWithARootLeavesAnAbsoluteValueAlone) {
@@ -211,7 +218,7 @@ TEST_F(PathSettingsIntegrationTest, PathKeyWithARootAppliesToTheDefaultValueToo)
   // rooting is written to whatever the working directory happens to be.
   std::string value;
   notify_one("file", sh::path_key(&value, "output.txt", "${log-path}"));
-  EXPECT_EQ(value, "/var/log/nscp/output.txt");
+  EXPECT_EQ(generic(value), "/var/log/nscp/output.txt");
 }
 
 TEST_F(PathSettingsIntegrationTest, PathKeyWithARootKeepsAnUnsetValueUnset) {
@@ -229,7 +236,7 @@ TEST_F(PathSettingsIntegrationTest, ABootIniOverrideMovesWhereABareNameLands) {
   paths_->set_overrides({{"log-path", "/elsewhere/logs"}});
   backend_->set("/settings/test", "file", "nsclient.log");
   notify_one("file", sh::path_key(&value, "", "${log-path}"));
-  EXPECT_EQ(value, "/elsewhere/logs/nsclient.log");
+  EXPECT_EQ(generic(value), "/elsewhere/logs/nsclient.log");
 }
 
 TEST_F(PathSettingsIntegrationTest, ACliOverrideBeatsBootIniAllTheWayToTheKey) {
@@ -238,7 +245,7 @@ TEST_F(PathSettingsIntegrationTest, ACliOverrideBeatsBootIniAllTheWayToTheKey) {
   paths_->set_cli_overrides({{"log-path", "/from/cli"}});
   backend_->set("/settings/test", "file", "nsclient.log");
   notify_one("file", sh::path_key(&value, "", "${log-path}"));
-  EXPECT_EQ(value, "/from/cli/nsclient.log");
+  EXPECT_EQ(generic(value), "/from/cli/nsclient.log");
 }
 
 TEST_F(PathSettingsIntegrationTest, ARelativeOverrideIsDroppedSoTheKeyStillGetsAnAbsolutePath) {
