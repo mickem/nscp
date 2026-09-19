@@ -101,6 +101,13 @@ class path_manager {
   // called once, before init_settings(), from the CLI parser plumbing.
   void set_cli_overrides(paths_type overrides);
 
+  // Check every installed override and discard the ones that do not name an
+  // absolute location, reporting each. Call once after the settings bootstrap
+  // has applied boot.ini's [layout] and [paths]: the CLI layer is installed
+  // before that point and cannot be judged until the rest of the picture
+  // exists. Idempotent.
+  void validate_overrides();
+
   // Select the on-disk layout (Windows only in practice; a no-op elsewhere
   // because the unix defaults are absolute). Called from the settings
   // bootstrap once boot.ini has been read, before the main settings store is

@@ -155,8 +155,13 @@ void nsclient::core::path_manager::drop_unusable_overrides(paths_type &map, cons
       const std::string resolved = expand_path_impl(it->second, 0);
       if (resolved.empty())
         why = "it expands to nothing";
-      else if (!boost::filesystem::path(resolved).is_absolute())
-        why = "it is not an absolute path (it resolves to '" + resolved + "')";
+      else if (!nscp::paths::names_a_root(resolved))
+        // The same predicate resolve_path() uses to decide whether a value
+        // already names a location. Deliberately shared: the alternative was
+        // is_absolute() here and names_a_root() there, which meant a Windows
+        // root-relative `\\logs` was accepted when written in a setting and
+        // rejected when written as the override for that same folder.
+        why = "it does not name an absolute location (it resolves to '" + resolved + "')";
     } catch (const path_expansion_error &e) {
       why = e.what();
     }
@@ -170,7 +175,7 @@ void nsclient::core::path_manager::drop_unusable_overrides(paths_type &map, cons
     // service, "/" under a bare init, the package directory under the shipped
     // systemd unit. An operator cannot predict which, so we do not guess for
     // them; we say so and use the default.
-    LOG_ERROR_CORE("Ignoring " + std::string(source) + " path override '" + it->first + " = " + it->second + "': " + why +
+    LOG_ERROR_CORE("Ignoring the " + std::string(source) + " entry '" + it->first + " = " + it->second + "': " + why +
                    ". A path token has to resolve to an absolute path; using the built-in default for ${" + it->first + "} instead.");
     it = map.erase(it);
   }
@@ -189,8 +194,24 @@ void nsclient::core::path_manager::add_overrides(paths_type overrides) {
 }
 
 void nsclient::core::path_manager::set_cli_overrides(paths_type overrides) {
+  // Installed without validating, unlike the boot.ini layer. This runs before
+  // init_settings(), so boot.ini has been read neither for [layout] - which on
+  // Windows decides what ${shared-path} means - nor for [paths], whose entries
+  // an operator is explicitly allowed to build a CLI override out of. Judging
+  // an override against a half-built picture would reject perfectly good ones
+  // and resolve the rest against the wrong layout. validate_overrides() does it
+  // once the picture is complete.
   cli_overrides_ = std::move(overrides);
+}
+
+void nsclient::core::path_manager::validate_overrides() {
+  // Called once the bootstrap has applied boot.ini's [layout] and [paths], so
+  // every token an override may legitimately name now resolves. Idempotent: an
+  // override that already passed simply passes again, which is what lets the
+  // boot.ini layer be checked when it is installed and re-checked here without
+  // the two disagreeing.
   drop_unusable_overrides(cli_overrides_, "--path-override");
+  drop_unusable_overrides(overrides_, "boot.ini [paths]");
 }
 
 std::string nsclient::core::path_manager::getFolder(const std::string &key) { return resolve_folder(key, 0); }

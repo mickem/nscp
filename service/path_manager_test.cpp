@@ -842,7 +842,30 @@ TEST_F(PathManagerTest, ARelativeOverrideIsDroppedSoTheDefaultApplies) {
 TEST_F(PathManagerTest, ARelativeCliOverrideIsDroppedToo) {
   const std::string built_in = pm->getFolder("log-path");
   pm->set_cli_overrides({{"log-path", "../logs"}});
+  pm->validate_overrides();
   EXPECT_EQ(pm->getFolder("log-path"), built_in);
+}
+
+TEST_F(PathManagerTest, ACliOverrideIsNotJudgedBeforeBootIniHasBeenApplied) {
+  // set_cli_overrides runs before init_settings, so boot.ini has been read for
+  // neither [layout] nor [paths]. An override built from an operator's own
+  // token - which the documentation explicitly allows - would look like a typo
+  // if it were judged at that point, and be dropped before the token it names
+  // ever existed.
+  pm->set_cli_overrides({{"log-path", "${my-own-folder}/logs"}});
+  pm->set_overrides({{"my-own-folder", "/srv/mine"}});
+  pm->validate_overrides();
+  EXPECT_EQ(pm->getFolder("log-path"), "${my-own-folder}/logs");
+  EXPECT_EQ(pm->expand_path("${log-path}"), "/srv/mine/logs");
+}
+
+TEST_F(PathManagerTest, ValidateOverridesIsIdempotent) {
+  // The boot.ini layer is checked when it is installed and checked again here;
+  // a second pass must not start discarding entries that already passed.
+  pm->set_overrides({{"log-path", "/var/log/keepme"}});
+  pm->validate_overrides();
+  pm->validate_overrides();
+  EXPECT_EQ(pm->getFolder("log-path"), "/var/log/keepme");
 }
 
 TEST_F(PathManagerTest, AnOverrideThatExpandsToAnAbsolutePathIsKept) {
