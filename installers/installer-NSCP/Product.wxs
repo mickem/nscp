@@ -11,7 +11,7 @@
 
   <Product Id="*" Name="$(var.App.Title) ($(var.arch))" Language="1033" Version="$(var.Version.Tag)" Manufacturer="MySolutions NORDIC" UpgradeCode="$(var.UpgradeCode)">
 
-    <Package InstallerVersion="405" Id="*" Description="A simple windows monitor agent for (amongst others) Nagios."
+    <Package InstallerVersion="$(var.InstallerVersion)" Id="*" Description="A simple windows monitor agent for (amongst others) Nagios."
 						 Comments="This will appear in the file summary stream." Compressed="yes" Languages="1033" Platform="$(var.Platform)" />
 
     <Upgrade Id="$(var.UpgradeCode)">
@@ -21,13 +21,17 @@
 
     <?if "$(var.arch)" = "x64"?>
     <Condition Message="x64 bit version not supported on Win32 bit platform (get Win32 instead)">VersionNT64</Condition>
+    <?elseif "$(var.arch)" = "arm64"?>
+    <Condition Message="ARM64 version not supported on this platform (get x64 or Win32 instead)">VersionNT64</Condition>
     <?endif?>
     <Media Id="1" Cabinet="Product.cab" EmbedCab="yes" CompressionLevel="high" />
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="$(var.ProgramFiles)">
         <Directory Id="INSTALLLOCATION" Name="$(var.App.Path)">
           <?if "$(var.Runtime)" = "dynamic"?>
+          <?if "$(var.HasCRTMergeModule)" = "true"?>
           <Merge Id="VCRedist110" SourceFile="$(var.CRTMergeModule)" DiskId="1" Language="0" />
+          <?endif?>
           <?endif ?>
           <Component Id="NSCPEXE" Guid="5C45463A-4AE9-4325-96DB-6E239C034F93" Win64="$(var.Win64)">
             <File Id="NSClientEXE" Name="nscp.exe" DiskId="1" KeyPath="yes" Source="$(var.Source)/nscp.exe" Vital="yes" />
@@ -144,9 +148,11 @@
             <Component Id="NSCANg" Guid="B2E1A5D7-3F46-4C8B-9E2D-7A6C8F1B2D4E" Win64="$(var.Win64)">
               <File Id="NSCANgClientDLL" Name="NSCANgClient.dll" DiskId="1" Source="$(var.Source)/modules/NSCANgClient.dll" Vital="no" />
             </Component>
+            <?if "$(var.HasPython)" = "true"?>
             <Component Id="PythonScript" Guid="49C2120D-634D-48ef-B82E-F2E9B219A768" Win64="$(var.Win64)">
               <File Id="PythonScript" Name="PythonScript.dll" DiskId="1" Source="$(var.Source)/modules/PythonScript.dll" Vital="no" />
             </Component>
+            <?endif?>
             <Component Id="ExtraClients" Guid="57D203AF-0A5F-4fca-BA6E-8B8767F97B8D" Win64="$(var.Win64)">
               <File Id="GraphiteClient" Name="GraphiteClient.dll" DiskId="1" Source="$(var.Source)/modules/GraphiteClient.dll" Vital="no" />
               <File Id="SMTPClient" Name="SMTPClient.dll" DiskId="1" Source="$(var.Source)/modules/SMTPClient.dll" Vital="no" />
@@ -224,6 +230,7 @@
               <File Id="ModElasticClient.dll" Name="ElasticClient.dll" DiskId="1" Source="$(var.Source)/modules/ElasticClient.dll" Vital="no" />
             </Component>
           </Directory>
+          <?if "$(var.HasPython)" = "true"?>
           <Component Id="PythonBin" Guid="2802DD6D-C4F2-4BDF-BBE8-A96A041AF899" Win64="$(var.Win64)">
             <File Id="PythonDLL" Name="$(var.BoostPythonVersion).dll" DiskId="1" Source="$(var.Source)/$(var.BoostPythonVersion).dll" Vital="no" />
             <File Id="PythonZIP" Name="$(var.BoostPythonVersion).zip" DiskId="1" Source="$(var.Source)/$(var.BoostPythonVersion).zip" Vital="no" />
@@ -231,6 +238,7 @@
             <File Id="PythonPYD2" Name="unicodedata.pyd" DiskId="1" Source="$(var.Source)/unicodedata.pyd" Vital="no" />
             <File Id="PythonPYD3" Name="_ctypes.pyd" DiskId="1" Source="$(var.Source)/_ctypes.pyd" Vital="no" />
           </Component>
+          <?endif?>
           <?if "$(var.Runtime)" = "dynamic"?>
             <Component Id="LuaLibs" Guid="513b45d4-c0f4-4531-9baf-0db466e4e51c" Win64="$(var.Win64)">
               <File Id="LuaDLL" Name="lua.dll" DiskId="1" Source="$(var.Source)/lua.dll" Vital="no" />
@@ -283,7 +291,9 @@
         <ComponentRef Id="NSClientConfigUser" />
 
         <?if "$(var.Runtime)" = "dynamic"?>
+        <?if "$(var.HasCRTMergeModule)" = "true"?>
         <MergeRef Id="VCRedist110"/>
+        <?endif?>
         <ComponentRef Id="LibCommon"/>
         <ComponentRef Id="LibNSCP"/>
         <?endif?>
@@ -353,12 +363,14 @@
         <Feature Id="ExtraClientPlugin" Title="Various client plugins" Description="Plugins to connect to various systems: syslog, graphite, SMTP, NRDP, Icinga, Mod-Gearman, collectd, and the NSCP protocol" Level="1" Absent="allow">
           <ComponentRef Id="ExtraClients" />
         </Feature>
+        <?if "$(var.HasPython)" = "true"?>
         <Feature Id="PythonScript" Title="Python Scripting" Description="Allows running INTERNAL scripts written in Python" Level="1" Absent="allow">
           <ComponentRef Id="PythonScript" />
           <Feature Id="PythonScriptPythonRuntime" Title="Python Runtime" Description="Runtime environment for Python (if you already have Python installed, do not install this)" Level="1" Absent="allow">
             <ComponentRef Id="PythonBin" />
           </Feature>
         </Feature>
+        <?endif?>
         <Feature Id="LuaScript" Title="Lua Scripting" Description="Allows running INTERNAL scripts written in Lua" Level="1" Absent="allow">
           <ComponentRef Id="LuaScript" />
           <?if "$(var.Runtime)" = "dynamic"?>

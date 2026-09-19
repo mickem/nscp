@@ -260,25 +260,51 @@ if(WIN32)
     endmacro(ADD_WIX_INSTALLER)
 
     macro(WIX_FIND_MERGE_MODULE _VAR _FILE)
-        if(CMAKE_CL_64)
-            set(ARCH x64)
-        else(CMAKE_CL_64)
-            set(ARCH x86)
-        endif(CMAKE_CL_64)
+        # The redistributable merge modules are named per architecture
+        # (Microsoft_VC143_CRT_x64.msm, ..._arm64.msm), so bundling the x64
+        # CRT into an ARM64 package is a real possibility to guard against.
+        #
+        # The name is deliberately private: this is a macro, not a function, so
+        # a plain ARCH here would overwrite the caller's - and the caller does
+        # have one, which it passes to candle as -arch.
+        nscp_target_arch(_WIX_MSM_ARCH)
+        set(_WIX_MSM_DIRS
+            "$ENV{VCInstallDir}/Redist/MSVC/v145/MergeModules"
+            "$ENV{VCInstallDir}/Redist/MSVC/v143/MergeModules"
+            "$ENV{VCInstallDir}/Redist/MSVC/v142/MergeModules"
+            ${WIX_MERGE_MODULE_PATH}
+            "$ENV{ProgramFiles}/Common Files/Merge Modules"
+            "c:/Program Files/Microsoft Visual Studio/2022/Community/VC/Redist/MSVC/v143/MergeModules"
+            ${WIX_POSSIBLE_ROOT_DIRS}
+        )
         find_file(
             ${_VAR}
             NAMES
                 "${_FILE}.msm"
-                "${_FILE}_${ARCH}.msm"
+                "${_FILE}_${_WIX_MSM_ARCH}.msm"
             PATHS
-                "$ENV{VCInstallDir}/Redist/MSVC/v145/MergeModules"
-                "$ENV{VCInstallDir}/Redist/MSVC/v143/MergeModules"
-                "$ENV{VCInstallDir}/Redist/MSVC/v142/MergeModules"
-                ${WIX_MERGE_MODULE_PATH}
-                "$ENV{ProgramFiles}/Common Files/Merge Modules"
-                "c:/Program Files/Microsoft Visual Studio/2022/Community/VC/Redist/MSVC/v143/MergeModules"
-                ${WIX_POSSIBLE_ROOT_DIRS}
+                ${_WIX_MSM_DIRS}
         )
+        if(NOT ${_VAR})
+            # Which merge modules a machine has depends on which build tools
+            # were installed, so "not found" is a fact about this machine, not
+            # about the name. Print what is actually there: that is the only
+            # thing that tells a CI log apart from a typo.
+            message(
+                STATUS
+                "No ${_FILE}.msm / ${_FILE}_${_WIX_MSM_ARCH}.msm found. Merge modules present:"
+            )
+            foreach(_WIX_MSM_DIR ${_WIX_MSM_DIRS})
+                file(GLOB _WIX_MSM_FOUND "${_WIX_MSM_DIR}/*.msm")
+                if(_WIX_MSM_FOUND)
+                    message(STATUS "  ${_WIX_MSM_DIR}:")
+                    foreach(_WIX_MSM ${_WIX_MSM_FOUND})
+                        get_filename_component(_WIX_MSM_NAME ${_WIX_MSM} NAME)
+                        message(STATUS "    ${_WIX_MSM_NAME}")
+                    endforeach()
+                endif()
+            endforeach()
+        endif()
         set(${_VAR} ${${_VAR}} PARENT_SCOPE)
     endmacro(WIX_FIND_MERGE_MODULE)
 endif(WIN32)

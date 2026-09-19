@@ -37,6 +37,9 @@ jobs:
     - uses: actions/download-artifact@v7
       with:
         name: NSCP-${{ inputs.version }}-Win32-legacy-xp
+    - uses: actions/download-artifact@v7
+      with:
+        name: NSCP-${{ inputs.version }}-ARM64
 
     # Ubuntu artifacts
     - uses: actions/download-artifact@v7
@@ -45,6 +48,11 @@ jobs:
     - uses: actions/download-artifact@v7
       with:
         name: NSCP-${{ inputs.version }}-ubuntu-24.04-arm64
+
+    # Raspberry Pi OS 64-bit (and Debian 13 arm64, which it is built from)
+    - uses: actions/download-artifact@v7
+      with:
+        name: NSCP-${{ inputs.version }}-debian-trixie-arm64
 
     # RedHat (rocky) artifacts
     - uses: actions/download-artifact@v7
@@ -69,6 +77,7 @@ jobs:
         mv NSCP-${{ inputs.version }}-x64-docs.zip NSCP-${{ inputs.version }}-docs.zip
         rm NSCP-${{ inputs.version }}-Win32-docs.zip
         rm NSCP-${{ inputs.version }}-Win32-legacy-xp-docs.zip
+        rm NSCP-${{ inputs.version }}-ARM64-docs.zip
       shell: pwsh
 
     - name: Create Release
@@ -89,14 +98,18 @@ jobs:
           NSCP-${{ inputs.version }}-x64.zip
           NSCP-${{ inputs.version }}-Win32.zip
           NSCP-${{ inputs.version }}-Win32-legacy-xp.zip
+          NSCP-${{ inputs.version }}-ARM64.zip
           installers/installer-NSCP/NSCP-${{ inputs.version }}-x64.msi
           installers/installer-NSCP/NSCP-${{ inputs.version }}-Win32.msi
           installers/installer-NSCP/NSCP-${{ inputs.version }}-Win32-legacy-xp.msi
+          installers/installer-NSCP/NSCP-${{ inputs.version }}-ARM64.msi
           NSCP-${{ inputs.version }}-x64-symbols.zip
           NSCP-${{ inputs.version }}-Win32-symbols.zip
           NSCP-${{ inputs.version }}-Win32-legacy-xp-symbols.zip
+          NSCP-${{ inputs.version }}-ARM64-symbols.zip
           NSCP-${{ inputs.version }}-ubuntu-24.04-amd64.deb
           NSCP-${{ inputs.version }}-ubuntu-24.04-arm64.deb
+          NSCP-${{ inputs.version }}-debian-trixie-arm64.deb
           NSCP-${{ inputs.version }}-rocky-9-x86_64.rpm
           NSCP-${{ inputs.version }}-rocky-9-aarch64.rpm
           NSCP-${{ inputs.version }}-rocky-10-x86_64.rpm

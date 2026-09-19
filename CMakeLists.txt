@@ -228,10 +228,6 @@ if(WIN32)
         -DBOOST_AUTO_LINK_SYSTEM
         -DBOOST_ALL_NO_LIB
     )
-
-    install(FILES "${PROJECT_BINARY_DIR}/_ctypes.pyd" DESTINATION .)
-    install(FILES "${PROJECT_BINARY_DIR}/_socket.pyd" DESTINATION .)
-    install(FILES "${PROJECT_BINARY_DIR}/unicodedata.pyd" DESTINATION .)
 endif()
 if(WIN32)
     # Target windows version
@@ -307,6 +303,16 @@ include(${BUILD_CMAKE_FOLDER}/GoogleProtoBuf.cmake)
 # functions.cmake so NSCP_CREATE_TEST can honour it.
 option(NSCP_BUILD_TESTS "Build the unit tests (requires Google Test)" ON)
 
+# Embedding CPython needs development libraries built for the *target*
+# architecture. A cross-compiled Windows ARM64 build has none: neither
+# setup-python nor python.org ships an ARM64 interpreter that runs on the x64
+# build host, and pointing the build at the host's x64 libpython links an x64
+# import library into an ARM64 DLL. Turning this off asks for the interpreter
+# alone - the build still needs it for code generation - and PythonScript, the
+# Boost.Python component and the bundled runtime drop out exactly as they do on
+# a host without libpython.
+option(NSCP_WITH_PYTHON "Embed CPython (builds the PythonScript module)" ON)
+
 include(${BUILD_CMAKE_FOLDER}/functions.cmake)
 
 # ##############################################################################
@@ -366,6 +372,15 @@ if(WIN32 AND Python3_Development_FOUND)
             ${PROJECT_BINARY_DIR}/python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.zip
         DESTINATION .
     )
+    # The extension modules the bundled runtime cannot do without. They are
+    # produced by the same "make python dist" step as the zip above, so they
+    # belong under the same condition - installing them unconditionally made
+    # CPack fail with "file INSTALL cannot find .../_ctypes.pyd" on any build
+    # without the Python development libraries, the ARM64 cross build being
+    # the first one to have them missing.
+    install(FILES "${PROJECT_BINARY_DIR}/_ctypes.pyd" DESTINATION .)
+    install(FILES "${PROJECT_BINARY_DIR}/_socket.pyd" DESTINATION .)
+    install(FILES "${PROJECT_BINARY_DIR}/unicodedata.pyd" DESTINATION .)
     # Copy python binaries
     string(
         REPLACE ".lib"
@@ -643,10 +658,18 @@ string(
 )
 string(TIMESTAMP NSCP_VERSION_DATE "%Y-%m-%d" UTC)
 if(WIN32)
-    set(VERSION_ARCH Win32)
-    if(CMAKE_CL_64)
+    # This string names the MSI, the ZIP and the docs zip, and the release
+    # pipeline uploads those by their exact names (NSCP-<version>-ARM64.msi
+    # and friends), failing the job when they are missing - so it has to
+    # distinguish x64 from ARM64, which "64-bit pointers" does not.
+    nscp_target_arch(_NSCP_ARCH)
+    if(_NSCP_ARCH STREQUAL "arm64")
+        set(VERSION_ARCH ARM64)
+    elseif(_NSCP_ARCH STREQUAL "x64")
         set(VERSION_ARCH x64)
-    endif(CMAKE_CL_64)
+    else()
+        set(VERSION_ARCH Win32)
+    endif()
     if(USE_STATIC_RUNTIME)
         set(RELEASE_SUFFIX "-legacy-xp")
     else(USE_STATIC_RUNTIME)

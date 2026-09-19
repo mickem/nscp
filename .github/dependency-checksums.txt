@@ -42,6 +42,7 @@ tinyxml2        10.1.0    unrecorded
 mongoose        7.23      unrecorded
 miniz           3.1.1     unrecorded
 mariadb         3.4.9     unrecorded
+boost           1.86.0    unrecorded
 
 # Cloned, not downloaded: this is the commit `release-1.12.1` names today.
 googletest      1.12.1    58d77fa8070e8cec2dc1ed015d66b454c8d78850
@@ -49,6 +50,6 @@ googletest      1.12.1    58d77fa8070e8cec2dc1ed015d66b454c8d78850
 # The prebuilt check_nsclient.exe, which ships inside the signed MSI. Keyed by
 # the version in .check_nsclient_version; one line per architecture, since the
 # release publishes a separate binary for each.
-check_nsclient-x64      1.1.0   unrecorded
-check_nsclient-x86      1.1.0   unrecorded
-check_nsclient-arm64    1.1.0   unrecorded
+check_nsclient-x64      1.1.1   b876044e71cd969bf7d3b00d18786817b6f8021692229e401f382683d342ff8d
+check_nsclient-x86      1.1.1   98b1e899bdf33bfe589516067e15ec5fe1eb6427658212d0aa811062dcd78ccf
+check_nsclient-arm64    1.1.1   b449918136a4a6ece28dc18b49bb5a121e316c3ec18027e030f566e1a0b69095

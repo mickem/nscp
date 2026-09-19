@@ -142,15 +142,6 @@ string(
     ${NSCP_VERSION_NUMBER}
 )
 string(TIMESTAMP NSCP_VERSION_DATE "%Y-%m-%d" UTC)
-if(WIN32)
-    set(VERSION_ARCH Win32)
-    if(CMAKE_CL_64)
-        set(VERSION_ARCH x64)
-    endif(CMAKE_CL_64)
-else(WIN32)
-    set(VERSION_ARCH Unknown)
-endif(WIN32)
-
 set(INSTALL_FILES_BASE "")
 
 set(CONFIG_BOOT_CONF_LOCATION
