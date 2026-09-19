@@ -78,6 +78,10 @@ class plugin_interface : public logging::logging_subscriber {
   virtual NSCAPI::nagiosReturn on_event(const std::string &request) = 0;
   virtual bool hasMetricsFetcher() = 0;
   virtual NSCAPI::nagiosReturn fetchMetrics(std::string &request) = 0;
+  // Facts producers. Unlike metrics the core hands over a request: which fact
+  // sets the operator enabled and why this round is happening.
+  virtual bool hasFactsFetcher() = 0;
+  virtual NSCAPI::nagiosReturn fetchFacts(const std::string &request, std::string &response) = 0;
   virtual bool hasMetricsSubmitter() = 0;
   virtual NSCAPI::nagiosReturn submitMetrics(const std::string &request) = 0;
   virtual bool has_command_line_exec() = 0;

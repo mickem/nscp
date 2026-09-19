@@ -6,6 +6,8 @@
 #include <map>
 #include <nsclient/logger/logger.hpp>
 #include <service/system_service.hpp>
+#include <string>
+#include <vector>
 
 #include "nsclient_core_interface.hpp"
 #include "plugins/plugin_cache.hpp"
@@ -13,6 +15,7 @@
 #include "scheduler_handler.hpp"
 #include "storage_manager.hpp"
 
+#include "fact_repository.hpp"
 #include "tag_repository.hpp"
 
 class NSClientT;
@@ -50,6 +53,17 @@ class NSClientT : public nsclient::core::core_interface {
   // web UI and the fleet sync. Created in the constructor and never replaced,
   // so handing the shared_ptr to other threads is safe.
   nsclient::core::tag_repository_instance tags_;
+  // Host facts: structured inventory published by modules through fetchFacts
+  // and read by the REST API, the web UI and the fleet sync. Created in the
+  // constructor and never replaced, like tags_, so the shared_ptr can be
+  // handed to other threads. Empty until a fact set is enabled in
+  // [/settings/facts] - nothing is collected by default.
+  nsclient::core::fact_repository_instance facts_;
+  // Whether the recurring facts round has been registered with the scheduler.
+  // It is registered on the first round that has something to collect, so a
+  // host with nothing enabled never runs one, and a fleet bundle that enables
+  // a set later gets its round without a restart.
+  bool facts_scheduled_ = false;
   // Path overrides supplied via --path-override on the command line. Applied to
   // path_ inside load_configuration_1, after init_settings has loaded
   // boot.ini's [paths] section, so CLI wins over boot.ini.
@@ -103,6 +117,7 @@ class NSClientT : public nsclient::core::core_interface {
   nsclient::core::plugin_cache* get_plugin_cache() { return plugins_->get_plugin_cache(); }
   nsclient::core::storage_manager_instance get_storage_manager() override { return storage_manager_; }
   nsclient::core::tag_repository_instance get_tag_repository() { return tags_; }
+  nsclient::core::fact_repository_instance get_fact_repository() { return facts_; }
 
   struct service_controller {
     std::string service;
@@ -121,6 +136,15 @@ class NSClientT : public nsclient::core::core_interface {
   service_controller get_service_control();
 
   void process_metrics();
+  // Run one facts round. `reason` is `startup`, `scheduled`, `reload` or
+  // `manual` and reaches the producers unchanged. Reads the enabled fact set
+  // ids out of [/settings/facts] every time, so enabling a set through a
+  // fleet bundle takes effect on the next round without a restart.
+  void process_facts(const std::string &reason);
+  // The fact set ids currently enabled, in the order they are read. Public so
+  // the console and the REST API can report what is on without duplicating the
+  // settings reading.
+  std::vector<std::string> get_enabled_facts();
 
  private:
   void reloadPlugins();
@@ -131,4 +155,8 @@ class NSClientT : public nsclient::core::core_interface {
   void stop_fleet_sync();
 
   PB::Metrics::MetricsBundle ownMetricsFetcher();
+  // Register [/settings/facts] and, when any set is enabled, the facts round.
+  // Called at boot and again after a settings reload, because the enabled set
+  // can change under the running agent.
+  void boot_facts(const std::string &reason);
 };

@@ -75,6 +75,7 @@ class zip_plugin : public boost::noncopyable, public plugin_interface {
   NSCAPI::nagiosReturn on_event(const std::string &request) override;
   NSCAPI::nagiosReturn fetchMetrics(std::string &request) override;
   NSCAPI::nagiosReturn submitMetrics(const std::string &request) override;
+  NSCAPI::nagiosReturn fetchFacts(const std::string &request, std::string &response) override;
   void handleMessage(const char *data, unsigned int len) override;
   int commandLineExec(bool targeted, std::string &request, std::string &reply) override;
   bool has_command_line_exec() override { return false; }
@@ -87,6 +88,10 @@ class zip_plugin : public boost::noncopyable, public plugin_interface {
 
   bool hasMetricsFetcher() override { return false; }
   bool hasMetricsSubmitter() override { return false; }
+  // Script producers are a later phase (docs/plans/facts.md section 4.7): a
+  // script-produced fact set needs its own enablement key and documentation,
+  // so a zip bundle declares none until that exists.
+  bool hasFactsFetcher() override { return false; }
 
   std::string getModule() override;
 

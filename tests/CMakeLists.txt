@@ -737,6 +737,16 @@ NSCP_CREATE_TEST(
 )
 
 NSCP_CREATE_TEST(
+    sha256_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/algorithms/sha256_test.cpp
+    LIBRARIES
+        GTest::gtest_main
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+NSCP_CREATE_TEST(
     handle_test
     SOURCES
         ${NSCP_INCLUDEDIR}/handle_test.cpp

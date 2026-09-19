@@ -211,6 +211,10 @@ NSCAPI::nagiosReturn nsclient::core::zip_plugin::fetchMetrics(std::string &) { t
 
 NSCAPI::nagiosReturn nsclient::core::zip_plugin::submitMetrics(const std::string &) { throw plugin_exception(get_alias_or_name(), "cannot handle commands"); }
 
+NSCAPI::nagiosReturn nsclient::core::zip_plugin::fetchFacts(const std::string &, std::string &) {
+  throw plugin_exception(get_alias_or_name(), "cannot handle commands");
+}
+
 void nsclient::core::zip_plugin::handleMessage(const char *, unsigned int) { throw plugin_exception(get_alias_or_name(), "cannot handle commands"); }
 
 int nsclient::core::zip_plugin::commandLineExec(bool, std::string &, std::string &) { throw plugin_exception(get_alias_or_name(), "cannot handle commands"); }

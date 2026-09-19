@@ -5,6 +5,7 @@
 
 #include <config.h>
 
+#include <boost/json.hpp>
 #include <boost/unordered_map.hpp>
 #include <file_helpers.hpp>
 #include <nscapi/protobuf/functions_exec.hpp>
@@ -137,6 +138,7 @@ nsclient::core::plugin_manager::plugin_manager(path_instance path_, logging::log
       channels_(log_instance_),
       metrics_fetchers_(log_instance_),
       metrics_submitters_(log_instance_),
+      facts_fetchers_(log_instance_),
       plugin_cache_(log_instance_),
       event_subscribers_(log_instance_) {}
 
@@ -417,6 +419,8 @@ void nsclient::core::plugin_manager::purge_broken_plugin(const unsigned long plu
   event_subscribers_.remove_plugin(plugin_id);
   metrics_fetchers_.remove_plugin(plugin_id);
   metrics_submitters_.remove_plugin(plugin_id);
+  facts_fetchers_.remove_plugin(plugin_id);
+  if (facts_) facts_->remove_owned_by(static_cast<unsigned int>(plugin_id));
   if (plugin) {
     log_instance_->remove_subscriber(plugin);
     try {
@@ -496,6 +500,7 @@ void nsclient::core::plugin_manager::stop_plugins() {
   event_subscribers_.remove_all();
   metrics_fetchers_.remove_all();
   metrics_submitters_.remove_all();
+  facts_fetchers_.remove_all();
   for (const plugin_type &p : plugin_list_.get_plugins()) {
     try {
       if (p) {
@@ -593,6 +598,9 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::add_
     if (plugin->hasMetricsSubmitter()) {
       metrics_submitters_.add_plugin(plugin);
     }
+    if (plugin->hasFactsFetcher()) {
+      facts_fetchers_.add_plugin(plugin);
+    }
     if (plugin->hasMessageHandler()) {
       log_instance_->add_subscriber(plugin);
     }
@@ -669,6 +677,8 @@ bool nsclient::core::plugin_manager::remove_plugin(const std::string &name) {
   event_subscribers_.remove_plugin(plugin_id);
   metrics_fetchers_.remove_plugin(plugin_id);
   metrics_submitters_.remove_plugin(plugin_id);
+  facts_fetchers_.remove_plugin(plugin_id);
+  if (facts_) facts_->remove_owned_by(static_cast<unsigned int>(plugin_id));
   // Drop the log subscription: the logger otherwise keeps the plugin alive and
   // the next log line calls into a module whose instance has been torn down.
   log_instance_->remove_subscriber(plugin);
@@ -1271,6 +1281,125 @@ PB::Metrics::MetricsMessage nsclient::core::plugin_manager::process_metrics(PB::
   f.render();
   metrics_submitters_.do_all([&f](auto key) { return f.digest(key); });
   return f.result;
+}
+
+namespace {
+// Resolve a dotted fact set id inside the `sets` object a producer returned.
+// `software.installed` is `sets["software"]["installed"]`: the producer writes
+// the nesting (out.set("software").list("installed")) and the core reads it
+// back by the id the operator enabled, so neither side has to know how the
+// other spells it.
+const boost::json::value *resolve_set(const boost::json::object &sets, const std::string &fact_set) {
+  const std::string::size_type dot = fact_set.find('.');
+  const boost::json::value *top = sets.if_contains(dot == std::string::npos ? fact_set : fact_set.substr(0, dot));
+  if (top == nullptr || dot == std::string::npos) return top;
+  if (!top->is_object()) return nullptr;
+  return top->get_object().if_contains(fact_set.substr(dot + 1));
+}
+}  // namespace
+
+bool nsclient::core::plugin_manager::has_facts_fetchers() {
+  bool any = false;
+  facts_fetchers_.do_all([&any](auto) { any = true; });
+  return any;
+}
+
+void nsclient::core::plugin_manager::process_facts(const std::vector<std::string> &enabled, const std::string &reason) {
+  const fact_repository_instance repository = facts_;
+  if (!repository) return;
+
+  // A set that is no longer enabled goes before anything else runs, so an
+  // operator who turns inventory off sees it leave on the next round rather
+  // than when its producer next happens to answer.
+  const std::set<std::string> wanted(enabled.begin(), enabled.end());
+  repository->retain_only(wanted);
+  if (wanted.empty()) return;
+
+  boost::json::object request_object;
+  boost::json::array enabled_array;
+  for (const std::string &fact_set : wanted) enabled_array.push_back(boost::json::value(fact_set));
+  request_object["enabled"] = enabled_array;
+  request_object["reason"] = reason;
+  const std::string request = boost::json::serialize(request_object);
+
+  facts_fetchers_.do_all([this, &request, &wanted, &repository](const plugin_type &p) {
+    const unsigned int plugin_id = p->get_id();
+    std::string response;
+    try {
+      p->fetchFacts(request, response);
+    } catch (const plugin_exception &e) {
+      LOG_ERROR_CORE("Failed to fetch facts from " + p->get_alias_or_name() + ": " + e.reason());
+      return;
+    } catch (const std::exception &e) {
+      LOG_ERROR_CORE("Failed to fetch facts from " + p->get_alias_or_name() + ": " + utf8::utf8_from_native(e.what()));
+      return;
+    } catch (...) {
+      LOG_ERROR_CORE("Failed to fetch facts from " + p->get_alias_or_name() + ": UNKNOWN EXCEPTION");
+      return;
+    }
+
+    boost::json::value parsed;
+    try {
+      parsed = boost::json::parse(response);
+    } catch (const std::exception &e) {
+      LOG_ERROR_CORE("Unreadable facts response from " + p->get_alias_or_name() + ": " + utf8::utf8_from_native(e.what()));
+      return;
+    }
+    if (!parsed.is_object()) {
+      LOG_ERROR_CORE("Unreadable facts response from " + p->get_alias_or_name() + ": not a JSON object");
+      return;
+    }
+    const boost::json::object &body = parsed.get_object();
+
+    const boost::json::value *errors = body.if_contains("errors");
+    if (errors != nullptr && errors->is_object()) {
+      for (const auto &entry : errors->get_object()) {
+        const std::string fact_set(entry.key());
+        if (wanted.find(fact_set) == wanted.end()) continue;
+        if (!entry.value().is_string()) continue;
+        const std::string message(entry.value().get_string());
+        // Log once per distinct message per set: a producer that cannot read
+        // the DMI table says so on every round, and repeating it every hour
+        // would bury everything else.
+        const auto previous = repository->get_errors();
+        const auto held = previous.find(fact_set);
+        if (held == previous.end() || held->second != message) {
+          LOG_ERROR_CORE("Failed to collect facts for " + fact_set + " (" + p->get_alias_or_name() + "): " + message);
+        }
+        repository->set_error(fact_set, plugin_id, message);
+      }
+    }
+
+    const boost::json::value *sets = body.if_contains("sets");
+    if (sets == nullptr || !sets->is_object()) return;
+    for (const std::string &fact_set : wanted) {
+      const boost::json::value *value = resolve_set(sets->get_object(), fact_set);
+      // Absent means "not answered this round", which deliberately leaves the
+      // previous value in place: a transient failure must not blank the
+      // inventory the server is holding.
+      if (value == nullptr) continue;
+      if (value->is_null()) {
+        // An explicit null is the producer saying the data is gone for good -
+        // the docker socket disappeared - not that this round failed.
+        repository->remove(fact_set);
+        repository->clear_error(fact_set);
+        continue;
+      }
+      std::string error;
+      const auto result = repository->set(fact_set, plugin_id, *value, error);
+      if (result == fact_repository::set_result::rejected) {
+        const std::string message = "not stored: " + error;
+        const auto previous = repository->get_errors();
+        const auto held = previous.find(fact_set);
+        if (held == previous.end() || held->second != message) {
+          LOG_ERROR_CORE("Rejected the " + fact_set + " fact set from " + p->get_alias_or_name() + ": " + error);
+        }
+        repository->set_error(fact_set, plugin_id, message);
+      } else {
+        repository->clear_error(fact_set);
+      }
+    }
+  });
 }
 
 bool nsclient::core::plugin_manager::enable_plugin(std::string name) {

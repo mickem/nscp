@@ -39,6 +39,9 @@ EXPORTS
 {% if module.metrics == "consume" or module.metrics == "both" %}
 	NSSubmitMetrics
 {% endif %}
+{% if module.facts %}
+	NSFetchFacts
+{% endif %}
 {% if module.events %}
 	NSOnEvent
 {% endif %}
@@ -110,6 +113,9 @@ using namespace Google::Protobuf;
 #include <nscapi/protobuf/command.hpp>
 {% if module.metrics %}
 #include <nscapi/protobuf/metrics.hpp>
+{% endif %}
+{% if module.facts %}
+#include <nscapi/nscapi_facts_helper.hpp>
 {% endif %}
 {%if module.log_handler %}
 #include <nscapi/protobuf/log.hpp>
@@ -617,6 +623,29 @@ int {{module.name}}Module::submitMetrics(const std::string &request) {
 }
 {% endif %}
 
+{% if module.facts %}
+int {{module.name}}Module::fetchFacts(const std::string &request, std::string &reply) {
+	const nscapi::facts::request facts_request = nscapi::facts::request::parse(request);
+	nscapi::facts::response facts_response;
+	try {
+		impl_->fetchFacts(facts_request, facts_response);
+	} catch (const std::exception &e) {
+		// One producer throwing must not cost the round every other set it
+		// already wrote, so what was built is still returned and the failure is
+		// reported against the sets this module owns.
+{% for fact in module.facts %}
+		facts_response.error("{{fact.name}}", std::string("Failed to collect facts: ") + utf8::utf8_from_native(e.what()));
+{% endfor %}
+	} catch (...) {
+{% for fact in module.facts %}
+		facts_response.error("{{fact.name}}", "Failed to collect facts: unknown exception");
+{% endfor %}
+	}
+	reply = facts_response.serialize();
+	return NSCAPI::api_return_codes::isSuccess;
+}
+{% endif %}
+
 {% if module.events %}
 NSCAPI::nagiosReturn {{module.name}}Module::onRAWEvent(const std::string &request) {
 	try {
@@ -755,6 +784,12 @@ extern int NSSubmitMetrics(unsigned int plugin_id, const char* buffer, const uns
 	return wrapper.NSSubmitMetrics(buffer, buffer_len); 
 }
 {% endif %}
+{% if module.facts %}
+extern int NSFetchFacts(unsigned int plugin_id, const char* request_buffer, const unsigned int request_buffer_len, char** response_buffer, unsigned int *response_buffer_len) {
+	nscapi::facts_wrapper<plugin_impl_class> wrapper(plugin_instance.get(plugin_id));
+	return wrapper.NSFetchFacts(request_buffer, request_buffer_len, response_buffer, response_buffer_len); 
+}
+{% endif %}
 {% if module.events %}
 extern int NSOnEvent(unsigned int id, const char* buffer, unsigned int buffer_len) {
 	nscapi::event_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
@@ -799,6 +834,9 @@ extern "C" int NSFetchMetrics(unsigned int plugin_id, char** response_buffer, un
 {% endif %}
 {% if module.metrics == "consume" or module.metrics == "both" %}
 extern "C" int NSSubmitMetrics(unsigned int plugin_id, const char* buffer, const unsigned int buffer_len);
+{% endif %}
+{% if module.facts %}
+extern "C" int NSFetchFacts(unsigned int plugin_id, const char* request_buffer, const unsigned int request_buffer_len, char** response_buffer, unsigned int *response_buffer_len);
 {% endif %}
 {% if module.events %}
 extern "C" int NSOnEvent(unsigned int plugin_id, const char* buffer, unsigned int buffer_len);
@@ -922,6 +960,13 @@ public:
 	void submitMetrics(const PB::MetricsMetricsMessage::Response &response);
 	*/
 {% endif %}
+{% if module.facts %}
+	int fetchFacts(const std::string &request, std::string &reply);
+	/*
+	Add the following to {{module.name}}
+	void fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response);
+	*/
+{% endif %}
 	// exposed functions
 {%if options.hasRegisterCommand %}
 	void registerCommands();
@@ -947,6 +992,7 @@ channels = False
 on_start = False
 prepare_shutdown = False
 metrics = False
+facts = []
 events = False
 
 class Module:
@@ -1021,6 +1067,33 @@ class Command:
 		if self.alias:
 			return '%s (%s)'%(self.name, self.alias)
 		return '%s'%self.name
+
+class Fact:
+	"""One fact set a module can produce.
+
+	The id is the dotted path the settings, the console and the docs speak
+	about - `os`, `software.installed` - and the description is what the
+	operator reads before enabling it, so it states the content and the cost.
+	"""
+	name = ''
+	description = ''
+
+	def __init__(self, name, description):
+		self.name = name
+		self.description = description
+
+	def __repr__(self):
+		return self.name
+
+def parse_facts(data):
+	global facts
+	if not data:
+		return
+	for key, value in data.items():
+		if type(value) is dict:
+			facts.append(Fact(key, value.get('description', value.get('desc', ''))))
+		else:
+			facts.append(Fact(key, value))
 
 def parse_commands(data):
 	global commands, command_fallback, command_fallback_raw
@@ -1117,6 +1190,8 @@ for key, value in data.items():
 			log_handler = True
 	elif key == "metrics":
 		metrics = value
+	elif key == "facts":
+		parse_facts(value)
 	elif key == "events":
 		events = value
 	elif key == "on_start":
@@ -1159,6 +1234,7 @@ module.commands = commands
 module.cli = cli
 module.channels = channels
 module.metrics = metrics
+module.facts = facts
 module.log_handler = log_handler
 module.command_fallback = command_fallback
 module.command_fallback_raw = command_fallback_raw

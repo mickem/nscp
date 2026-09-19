@@ -277,6 +277,9 @@ TEST_F(ZipPluginTest, advertises_no_handlers_or_metrics) {
   EXPECT_FALSE(plugin->has_routing_handler());
   EXPECT_FALSE(plugin->hasMetricsFetcher());
   EXPECT_FALSE(plugin->hasMetricsSubmitter());
+  // Script-produced fact sets are a later phase; until then a zip bundle is
+  // not asked for facts and its fetchFacts throws like its other handlers.
+  EXPECT_FALSE(plugin->hasFactsFetcher());
 }
 
 TEST_F(ZipPluginTest, log_messages_are_swallowed) {

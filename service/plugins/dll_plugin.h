@@ -127,6 +127,7 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
   nscapi::plugin_api::lpRouteMessage fRouteMessage;
   nscapi::plugin_api::lpFetchMetrics fFetchMetrics;
   nscapi::plugin_api::lpSubmitMetrics fSubmitMetrics;
+  nscapi::plugin_api::lpFetchFacts fFetchFacts;
   nscapi::plugin_api::lpOnEvent fOnEvent;
 
  public:
@@ -160,6 +161,7 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
   NSCAPI::nagiosReturn on_event(const std::string &request) override;
   NSCAPI::nagiosReturn fetchMetrics(std::string &request) override;
   NSCAPI::nagiosReturn submitMetrics(const std::string &request) override;
+  NSCAPI::nagiosReturn fetchFacts(const std::string &request, std::string &response) override;
   void handleMessage(const char *data, unsigned int len) override;
   int commandLineExec(bool targeted, std::string &request, std::string &reply) override;
   bool has_command_line_exec() override;
@@ -172,6 +174,8 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
 
   bool hasMetricsFetcher() override { return fFetchMetrics != nullptr; }
   bool hasMetricsSubmitter() override { return fSubmitMetrics != nullptr; }
+  // A module built before facts existed simply does not export NSFetchFacts.
+  bool hasFactsFetcher() override { return fFetchFacts != nullptr; }
 
   std::string getModule() override {
 #ifndef WIN32
@@ -200,6 +204,8 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
   NSCAPI::nagiosReturn on_event(const char *request_buffer, const unsigned int request_buffer_len);
   NSCAPI::nagiosReturn fetchMetrics(char **response_buffer, unsigned int *response_buffer_len);
   NSCAPI::nagiosReturn submitMetrics(const char *buffer, const unsigned int buffer_len);
+  NSCAPI::nagiosReturn fetchFacts(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer,
+                                  unsigned int *response_buffer_len);
   int commandLineExec(bool targeted, const char *request, const unsigned int request_len, char **reply, unsigned int *reply_len);
   bool getVersion(int *major, int *minor, int *revision);
 
