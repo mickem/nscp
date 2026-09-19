@@ -325,9 +325,13 @@ static std::string render_description(const client::cli_handler_ptr &handler, co
 
 static void render_facts_value(const boost::json::value &value, const std::string &indent, std::string &out);
 
-static void render_facts_object(const boost::json::object &object, const std::string &indent, std::string &out) {
+// `skip` is the one key already rendered by the caller (a record's id, which
+// leads its entry). Skipped rather than erased from a copy: boost::json::object
+// erases by swapping in the last element, which would reorder every record.
+static void render_facts_object(const boost::json::object &object, const std::string &indent, std::string &out, const char *skip = nullptr) {
   for (const auto &field : object) {
     const std::string key(field.key());
+    if (skip != nullptr && key == skip) continue;
     if (field.value().is_object() || field.value().is_array()) {
       out += "\n" + indent + key + ":";
       render_facts_value(field.value(), indent + "  ", out);
@@ -358,9 +362,7 @@ static void render_facts_value(const boost::json::value &value, const std::strin
         // of its fields hang under it.
         const boost::json::value *id = entry.get_object().if_contains("id");
         out += "\n" + indent + "- " + (id != nullptr && id->is_string() ? std::string(id->get_string()) : std::string("(no id)"));
-        boost::json::object rest = entry.get_object();
-        rest.erase("id");
-        render_facts_object(rest, indent + "    ", out);
+        render_facts_object(entry.get_object(), indent + "    ", out, "id");
       }
       return;
     }

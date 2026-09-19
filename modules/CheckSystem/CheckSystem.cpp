@@ -12,6 +12,7 @@
 #include <compat.hpp>
 #include <map>
 #include <memory>
+#include <nscapi/nscapi_facts_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_metrics_helper.hpp>
 #include <nscapi/nscapi_program_options.hpp>
@@ -324,6 +325,23 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     "}")
     ;
   // clang-format on
+
+  // The fact sets this module can produce. Registering them here is what
+  // documents them and lists them in `nscp test` -> `facts list`; the core
+  // decides which are enabled and says so in the fetchFacts request.
+  nscapi::facts::declare(settings, "os", "Collect operating system facts",
+                         "What this machine runs: family, edition name, version and kernel build, architecture, boot time, whether a reboot is pending "
+                         "and the BIOS version. Costs nothing to collect beyond one WMI query for the BIOS fields.");
+  nscapi::facts::declare(settings, "identity", "Collect host identity facts",
+                         "What this machine calls itself: DNS host name, NetBIOS name, FQDN, DNS domain and whether it is domain-joined. Costs "
+                         "nothing to collect.");
+  nscapi::facts::declare(settings, "hardware", "Collect hardware facts",
+                         "What this machine is made of: vendor, model, serial, asset tag, chassis, UUID, CPU core count, total memory and the "
+                         "populated memory modules. Read from WMI, one query per class. Low cost.");
+  nscapi::facts::declare(settings, "network.interfaces", "Collect network interface facts",
+                         "Every network adapter: connection name, MAC address, IP addresses, link speed and link state. The record ids are the same "
+                         "adapter names check_network reports on. Costs nothing to collect.");
+
   settings.register_all();
   settings.notify();
 

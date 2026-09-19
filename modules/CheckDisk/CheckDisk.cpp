@@ -13,6 +13,7 @@
 #include <file_helpers.hpp>
 #include <limits>
 #include <nscapi/macros.hpp>
+#include <nscapi/nscapi_facts_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_metrics_helper.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
@@ -145,6 +146,14 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         "How much used-space history is kept per drive; bounds the largest useful trend-window. Duration, e.g. 7d.", true)
     ;
   // clang-format on
+  // The fact set this module can produce. Registering it here is what
+  // documents it and lists it in `nscp test` -> `facts list`; the core
+  // resolves whether it is enabled and says so in the fetchFacts request, so
+  // nothing is read back.
+  nscapi::facts::declare(settings, "storage.volumes", "Collect volume inventory",
+                         "Every mounted filesystem this host has: mount point (drive letter on Windows), backing device, filesystem, size, type and "
+                         "volume label. The record ids are the same drive names check_drivesize reports on. Costs nothing to collect.");
+
   settings.register_all();
   settings.notify();
 

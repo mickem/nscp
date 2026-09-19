@@ -3,7 +3,9 @@
 
 #include <config.h>
 
+#include <algorithm>
 #include <boost/filesystem/operations.hpp>
+#include <boost/json.hpp>
 #include <boost/unordered_set.hpp>
 #include <nscapi/nscapi_metrics_helper.hpp>
 #include <nscapi/settings/helper.hpp>
@@ -853,9 +855,55 @@ std::vector<std::string> NSClientT::get_enabled_facts() {
   return enabled;
 }
 
+// The core's own fact set. Small, cheap and always available, which is why it
+// is produced here rather than by a module: it describes the agent, and the
+// agent is the one thing no module can be relied on to know about.
+//
+// The loaded-module list is the one configuration-adjacent thing facts carry,
+// and it is opt-in like everything else. Nothing here names the enrollment
+// identity - only whether this host has one - because the state report is
+// deliberately free of configuration and the facts document must not become
+// the way around that.
+void NSClientT::publish_agent_facts(const unsigned int plugin_id) {
+  boost::json::object agent;
+  agent["version"] = CURRENT_SERVICE_VERSION;
+  try {
+    const std::string hostname = socket_helpers::expand_hostname("auto");
+    if (!hostname.empty()) agent["hostname"] = hostname;
+  } catch (const std::exception &e) {
+    LOG_DEBUG_CORE_STD("Could not read the host name for the agent facts: " + utf8::utf8_from_native(e.what()));
+  }
+  boost::json::array modules;
+  for (const auto &plugin : plugins_->get_plugin_cache()->get_list()) {
+    if (!plugin.is_loaded) continue;
+    modules.push_back(boost::json::value(plugin.dll));
+  }
+  agent["modules"] = modules;
+#ifdef HAVE_ONBOARDING
+  agent["enrolled"] = static_cast<bool>(get_fleet_sync());
+#else
+  agent["enrolled"] = false;
+#endif
+
+  std::string error;
+  if (facts_->set("agent", plugin_id, agent, error) == nsclient::core::fact_repository::set_result::rejected) {
+    LOG_ERROR_CORE_STD("Rejected the agent fact set: " + error);
+    facts_->set_error("agent", plugin_id, "not stored: " + error);
+  } else {
+    facts_->clear_error("agent");
+  }
+}
+
 void NSClientT::process_facts(const std::string &reason) {
   try {
-    plugins_->process_facts(get_enabled_facts(), reason);
+    const std::vector<std::string> enabled = get_enabled_facts();
+    plugins_->process_facts(enabled, reason);
+    // After the modules, because process_facts() drops what is no longer
+    // enabled before it runs and `agent` would otherwise be dropped again on
+    // the same round it was written.
+    if (std::find(enabled.begin(), enabled.end(), "agent") != enabled.end()) {
+      publish_agent_facts(nsclient::core::fact_repository::core_plugin_id());
+    }
   } catch (const std::exception &e) {
     LOG_ERROR_CORE_STD("Failed to collect facts: " + utf8::utf8_from_native(e.what()));
   } catch (...) {
@@ -884,6 +932,12 @@ void NSClientT::boot_facts(const std::string &reason) {
                                              "document past it is rejected whole and the previous value is kept.",
                                              "1048576", true, false);
 
+  // The core's own set, registered here because the core produces it.
+  settings_manager::get_core()->register_key(fact_repository::core_plugin_id(), FACTS_PATH, "agent", "bool", "Collect agent facts",
+                                             "What this agent is: its version, the host name it reports, the modules it has loaded and whether it is "
+                                             "enrolled with a fleet server (never the enrollment identity itself). Costs nothing to collect.",
+                                             "false", false, false);
+
   const std::string max_size = settings_manager::get_settings()->get_string(FACTS_PATH, fact_repository::max_size_key(), "1048576");
   try {
     const long long parsed = str::stox<long long>(max_size);
@@ -898,7 +952,10 @@ void NSClientT::boot_facts(const std::string &reason) {
     // again: a default install pays nothing for facts beyond an empty
     // document and its hash, and a bundle that enables a set later gets its
     // round without a restart.
-    if (!plugins_->has_facts_fetchers()) {
+    // Only a set a *module* has to produce is worth warning about: `agent` is
+    // the core's own, and a host that enabled just that one needs no producer.
+    const bool needs_a_module = std::any_of(enabled.begin(), enabled.end(), [](const std::string &id) { return id != "agent"; });
+    if (needs_a_module && !plugins_->has_facts_fetchers()) {
       LOG_ERROR_CORE_STD("A fact set is enabled in " + std::string(FACTS_PATH) +
                          " but no loaded module produces facts: check that the module owning it is enabled in [/modules]");
     }

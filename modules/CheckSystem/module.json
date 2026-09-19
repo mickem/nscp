@@ -57,6 +57,13 @@
 	},
 	"metrics" : "produce",
 
+	"facts" : {
+		"os"                 : "Collect operating system facts",
+		"identity"           : "Collect host identity facts",
+		"hardware"           : "Collect hardware facts",
+		"network.interfaces" : "Collect network interface facts"
+	},
+
 	"command line exec" : "legacy",
 	
 	"log messages" : false

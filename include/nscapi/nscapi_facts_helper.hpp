@@ -6,6 +6,7 @@
 #include <ctime>
 #include <memory>
 #include <nscapi/dll_defines.hpp>
+#include <nscapi/settings/helper.hpp>
 #include <string>
 #include <utility>
 #include <vector>
@@ -194,6 +195,28 @@ class NSCAPI_EXPORT response {
   std::unique_ptr<detail::node> sets_;
   std::vector<std::pair<std::string, std::string> > errors_;
 };
+
+// Declare a fact set this module can produce.
+//
+// A fact set is enabled in `[/settings/facts]`, a section the core owns, and
+// a module declares its sets by registering their keys there from
+// `loadModuleEx`. That registration is the whole declaration: it is what puts
+// the set in `nscp settings --generate`, in the reference documentation and in
+// `nscp test` -> `facts list`, and what tells an operator what the set holds
+// and what it costs before they turn it on.
+//
+// The module never reads the value back. The core resolves the enabled list
+// and sends it in the request, which is what keeps "nothing is collected until
+// a fact set is enabled" in one place instead of in every producer - so the
+// key is registered with a sink that discards what it parses.
+//
+//   nscapi::facts::declare(settings, "storage.volumes", "Collect volume inventory",
+//                          "Every mounted filesystem: mount point, filesystem, size and type. Costs nothing to collect.");
+//
+// `description` states the content and the cost, because that is what the
+// operator is deciding about.
+NSCAPI_EXPORT void declare(nscapi::settings_helper::settings_registry &settings, const std::string &fact_set, const std::string &title,
+                           const std::string &description);
 
 // Escape and quote a string as a JSON string literal. Exposed for the tests
 // and for the generated glue, which reports a producer's exception as one.

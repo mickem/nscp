@@ -34,6 +34,8 @@ set(SRCS
     check_hardware.cpp
     check_hostname.cpp
     check_kernel_memory.cpp
+    facts.cpp
+    facts_gather.cpp
     check_kernel_stats.cpp
     check_printqueue.cpp
     check_printjobs.cpp
@@ -134,6 +136,8 @@ target_link_libraries(
     Advapi32
     # NetGetJoinInformation (check_hostname).
     Netapi32
+    # GetAdaptersAddresses (the network.interfaces fact set).
+    Iphlpapi
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 source_group("pdh" REGULAR_EXPRESSION .*include/pdh/.*)
@@ -193,6 +197,8 @@ NSCP_CREATE_TEST(
         check_hardware.cpp
         check_hostname.cpp
         check_kernel_memory.cpp
+        facts_test.cpp
+        facts_gather.cpp
         check_kernel_stats.cpp
         check_printqueue.cpp
         check_printjobs.cpp

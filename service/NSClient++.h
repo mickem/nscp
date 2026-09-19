@@ -159,4 +159,8 @@ class NSClientT : public nsclient::core::core_interface {
   // Called at boot and again after a settings reload, because the enabled set
   // can change under the running agent.
   void boot_facts(const std::string &reason);
+  // Produce the core's own `agent` fact set. Not a fetchFacts producer: the
+  // core is not a plugin, and what it publishes is a handful of values it
+  // already holds.
+  void publish_agent_facts(unsigned int plugin_id);
 };

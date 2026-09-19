@@ -34,6 +34,8 @@ set(SRCS
     check_battery.cpp
     check_network.cpp
     check_process_history.cpp
+    facts.cpp
+    facts_gather.cpp
 )
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
@@ -97,6 +99,8 @@ NSCP_CREATE_TEST(
         check_installed_software.cpp
         check_hostname_test.cpp
         check_hostname.cpp
+        facts_test.cpp
+        facts_gather.cpp
         check_kernel_memory_test.cpp
         check_kernel_memory.cpp
         check_os_version_test.cpp

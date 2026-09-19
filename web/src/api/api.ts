@@ -88,12 +88,7 @@ export type Tags = { [key: string]: string };
  * (which volumes exist, what the hardware is), as opposed to tags, which are
  * the flat strings a fleet selector matches on.
  */
-export type FactValue =
-  | string
-  | number
-  | boolean
-  | FactValue[]
-  | { [key: string]: FactValue };
+export type FactValue = string | number | boolean | FactValue[] | { [key: string]: FactValue };
 
 export interface Facts {
   /** Bumps on every effective change; 0 on a host with nothing enabled. */
@@ -286,12 +281,7 @@ export interface SettingsCommand {
   command: "load" | "save" | "reload";
 }
 
-export type SettingsDiffChangeType =
-  | "modified"
-  | "added"
-  | "removed"
-  | "path_added"
-  | "path_removed";
+export type SettingsDiffChangeType = "modified" | "added" | "removed" | "path_added" | "path_removed";
 
 export interface SettingsDiffEntry {
   path: string;
@@ -608,11 +598,7 @@ export const nsclientApi = createApi({
           ...settings,
         },
       }),
-      invalidatesTags: () => [
-        { type: "Settings" },
-        { type: "SettingsStatus" },
-        { type: "SettingsDescriptions" },
-      ],
+      invalidatesTags: () => [{ type: "Settings" }, { type: "SettingsStatus" }, { type: "SettingsDescriptions" }],
     }),
     // DELETE /v2/settings<path>            -> remove the entire path
     // DELETE /v2/settings<path>?key=<name> -> remove a single key
@@ -633,11 +619,7 @@ export const nsclientApi = createApi({
           }
         },
       }),
-      invalidatesTags: () => [
-        { type: "Settings" },
-        { type: "SettingsStatus" },
-        { type: "SettingsDescriptions" },
-      ],
+      invalidatesTags: () => [{ type: "Settings" }, { type: "SettingsStatus" }, { type: "SettingsDescriptions" }],
     }),
     settingsCommand: builder.mutation<string, SettingsCommand>({
       query: (settings) => ({
@@ -728,10 +710,7 @@ export const nsclientApi = createApi({
         const channels = Array.isArray(raw)
           ? raw.map((c) => ({
               value: c.name,
-              label:
-                c.plugins && c.plugins.length > 0
-                  ? `${c.name} (${c.plugins.join(", ")})`
-                  : c.name,
+              label: c.plugins && c.plugins.length > 0 ? `${c.name} (${c.plugins.join(", ")})` : c.name,
             }))
           : [];
         // Synthetic destinations (not registered as channels) — surface them

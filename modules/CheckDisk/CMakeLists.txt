@@ -22,6 +22,7 @@ set(SRCS
     check_shadowcopy.cpp
     check_share.cpp
     collector_thread.cpp
+    facts.cpp
     filter.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
@@ -34,6 +35,7 @@ if(WIN32)
         ${SRCS}
         check_drive_win.cpp
         check_disk_io_win.cpp
+        facts_volumes_win.cpp
         file_finder_win.cpp
         filter_win.cpp
         ${NSCP_INCLUDEDIR}/win/wmi/wmi_query.cpp
@@ -51,6 +53,7 @@ if(WIN32)
         check_shadowcopy.hpp
         check_share.hpp
         collector_thread.hpp
+        facts_volumes.hpp
         file_finder.hpp
         filter.hpp
         ${NSCP_DEF_PLUGIN_HPP}
@@ -65,6 +68,7 @@ else()
         ${SRCS}
         check_drive_unix.cpp
         check_disk_io_unix.cpp
+        facts_volumes_unix.cpp
         file_finder_unix.cpp
         filter_unix.cpp
     )
@@ -134,6 +138,8 @@ if(WIN32)
             check_drive_win.cpp
             check_files.cpp
             check_single_file.cpp
+            facts.cpp
+            facts_volumes_win.cpp
             check_uncpath.cpp
             check_storagepool.cpp
             check_shadowcopy.cpp
@@ -196,6 +202,8 @@ else()
             check_disk_write_test.cpp
             check_drive_unix.cpp
             drive_trend_test.cpp
+            facts.cpp
+            facts_volumes_unix.cpp
             check_files.cpp
             check_files_checksum_test.cpp
             check_disk_access_test.cpp

@@ -21,5 +21,8 @@
 		"checkFiles"		: "Legacy version of check_drivesize",
 		"checkDriveSize"	: "Legacy version of check_drivesize"
 	},
-	"metrics" : "produce"
+	"metrics" : "produce",
+	"facts" : {
+		"storage.volumes" : "Collect the host's volume inventory"
+	}
 }

@@ -18,11 +18,7 @@ import { Toolbar } from "../components/atoms/Toolbar.tsx";
 import { Spacing } from "../components/atoms/Spacing.tsx";
 import { RefreshButton } from "../components/atoms/RefreshButton.tsx";
 import FilterField from "../components/atoms/FilterField.tsx";
-import {
-  FactValue,
-  useGetFactsQuery,
-  useRefreshFactsMutation,
-} from "../api/api.ts";
+import { FactValue, useGetFactsQuery, useRefreshFactsMutation } from "../api/api.ts";
 
 // The INI an operator pastes to turn a fact set on. Shown verbatim on the
 // empty state, because "nothing is collected until you enable a set" is the
@@ -72,9 +68,7 @@ function RecordTable({ records }: { records: { [key: string]: FactValue }[] }) {
           {records.map((record, index) => (
             <TableRow hover key={renderScalar(record.id ?? index)}>
               {columns.map((column) => (
-                <TableCell key={column}>
-                  {record[column] === undefined ? "" : renderScalar(record[column])}
-                </TableCell>
+                <TableCell key={column}>{record[column] === undefined ? "" : renderScalar(record[column])}</TableCell>
               ))}
             </TableRow>
           ))}
@@ -89,16 +83,14 @@ function RecordTable({ records }: { records: { [key: string]: FactValue }[] }) {
  * below it. A fact set is shallow by construction (the core caps it at six
  * levels), so this recursion is bounded.
  */
-function FactObject({
-  value,
-  prefix,
-}: {
-  value: { [key: string]: FactValue };
-  prefix: string;
-}) {
+function FactObject({ value, prefix }: { value: { [key: string]: FactValue }; prefix: string }) {
   const entries = Object.entries(value);
-  const scalars = entries.filter(([, v]) => v === null || typeof v !== "object" || (Array.isArray(v) && !isRecordList(v)));
-  const nested = entries.filter(([, v]) => v !== null && typeof v === "object" && (!Array.isArray(v) || isRecordList(v)));
+  const scalars = entries.filter(
+    ([, v]) => v === null || typeof v !== "object" || (Array.isArray(v) && !isRecordList(v)),
+  );
+  const nested = entries.filter(
+    ([, v]) => v !== null && typeof v === "object" && (!Array.isArray(v) || isRecordList(v)),
+  );
 
   return (
     <Stack direction="column" spacing={1}>
@@ -166,8 +158,7 @@ export default function Inventory() {
     // Match the set name or anything in it, so "ext4" finds the volume list
     // without the user knowing which set holds it.
     return all.filter(
-      ([name, value]) =>
-        name.toLowerCase().includes(needle) || JSON.stringify(value).toLowerCase().includes(needle),
+      ([name, value]) => name.toLowerCase().includes(needle) || JSON.stringify(value).toLowerCase().includes(needle),
     );
   }, [facts, needle]);
 
@@ -205,16 +196,15 @@ export default function Inventory() {
         <Alert severity="info">
           <AlertTitle>No inventory is being collected</AlertTitle>
           <Typography variant="body2" gutterBottom>
-            Facts are opt-in: this agent collects nothing about the host until a fact set is
-            enabled. Add the sets you want to the configuration, or enable them for a whole group
-            from the fleet server.
+            Facts are opt-in: this agent collects nothing about the host until a fact set is enabled. Add the sets you
+            want to the configuration, or enable them for a whole group from the fleet server.
           </Typography>
           <Typography component="pre" variant="body2" sx={{ mt: 1, fontFamily: "monospace" }}>
             {ENABLE_EXAMPLE}
           </Typography>
           <Typography variant="body2" sx={{ mt: 1 }}>
-            The sets this agent can collect, and what each one costs, are listed by{" "}
-            <code>nscp test</code> → <code>facts list</code>.
+            The sets this agent can collect, and what each one costs, are listed by <code>nscp test</code> →{" "}
+            <code>facts list</code>.
           </Typography>
         </Alert>
       )}
@@ -231,8 +221,8 @@ export default function Inventory() {
 
       {facts && !nothingEnabled && (
         <Typography variant="caption" color="text.secondary">
-          Document hash {facts.hash.slice(0, 12)} — the fleet server compares this to tell whether
-          the inventory changed.
+          Document hash {facts.hash.slice(0, 12)} — the fleet server compares this to tell whether the inventory
+          changed.
         </Typography>
       )}
     </Stack>

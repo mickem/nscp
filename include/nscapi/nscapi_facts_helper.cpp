@@ -182,6 +182,13 @@ std::string quote(const std::string &text) {
   return out;
 }
 
+void declare(nscapi::settings_helper::settings_registry &settings, const std::string &fact_set, const std::string &title, const std::string &description) {
+  // The value goes nowhere on purpose: see the header. A `bool_key` would need
+  // somewhere to write, and the only honest place for that is a member nothing
+  // reads - which is worse than a sink that says so.
+  settings.add_key_to_path("/settings/facts").add_bool(fact_set, nscapi::settings_helper::bool_fun_key([](bool) {}, false), title, description);
+}
+
 std::string to_iso8601(const std::time_t when) { return format_time(when, "%Y-%m-%dT%H:%M:%SZ"); }
 std::string to_date(const std::time_t when) { return format_time(when, "%Y-%m-%d"); }
 
