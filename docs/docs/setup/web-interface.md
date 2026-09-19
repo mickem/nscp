@@ -78,10 +78,16 @@ port = 8443
 |--------------|----------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
 | `full`       | `*`                                                                                          | Administration: settings, modules, scripts.                              |
 | `client`     | `public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list` | A monitoring client that also browses the agent.       |
-| `monitoring` | `public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list`                 | A monitoring server running checks with arguments, and scraping metrics. |
+| `monitoring` | `public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list,facts.get`       | A monitoring server running checks with arguments, scraping metrics and reading the host's inventory. |
 | `restricted` | `public,queries.execute.noargs,aliases.list,login.get`                                       | A monitoring server that may run checks but **not pass arguments**.      |
 | `metrics`    | `public,metrics.list,openmetrics.list,login.get`                                             | A Prometheus scraper: reads metrics, runs nothing.                       |
 | `legacy`     | `legacy,login.get`                                                                           | Old clients only — see the warning below. Not created on a fresh install. |
+
+`facts.get` reads the host's [inventory](../api/rest/facts.md), which is what
+a monitoring server uses to decide what to monitor. `facts.refresh`, which
+makes every producer collect immediately, is deliberately **not** in
+`monitoring`: it is the expensive operation on that endpoint, so it stays with
+`full`.
 
 The `metrics` role covers `/api/v2/metrics` and `/api/v2/openmetrics` and
 nothing else — a scraper never needs to run a check, so it should not hold

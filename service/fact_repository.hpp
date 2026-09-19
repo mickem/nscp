@@ -252,13 +252,26 @@ class fact_repository {
   }
 
   // Whether `id` is a well-formed fact set id: one or two snake_case
-  // components. Shared with the settings registration so an id that cannot be
-  // stored cannot be enabled either.
+  // components, and not one of the two knobs [/settings/facts] carries
+  // alongside the sets. Shared with the settings registration so an id that
+  // cannot be stored cannot be enabled either.
   static bool is_valid_id(const std::string &id) {
+    if (is_reserved_key(id)) return false;
     std::vector<std::string> path;
     std::string error;
     return split_id(id, path, error);
   }
+
+  // The keys in [/settings/facts] that configure the collection rather than
+  // name a fact set. `interval` is a well-formed id, so the two are reserved
+  // here, once, rather than filtered by every reader of the section.
+  static const char *interval_key() { return "interval"; }
+  static const char *max_size_key() { return "max size"; }
+  static bool is_reserved_key(const std::string &key) { return key == interval_key() || key == max_size_key(); }
+
+  // The core itself owns a fact set (the `agent` one) and registers the two
+  // keys above, under the reserved plugin id every core registration uses.
+  static unsigned int core_plugin_id() { return 0xffff; }
 
  private:
   struct owned_set {

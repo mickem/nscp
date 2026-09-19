@@ -824,19 +824,18 @@ PB::Metrics::MetricsBundle NSClientT::ownMetricsFetcher() {
 }
 void NSClientT::process_metrics() { plugins_->process_metrics(ownMetricsFetcher()); }
 
-// The two keys [/settings/facts] carries that are not fact set ids. A fact set
-// may not be called either of them; both are plain enough words that reserving
-// them is cheaper than a second section nobody would look in.
+// The section the fact sets and their two knobs live under. The knob names
+// themselves are reserved by the repository, which is also what refuses them
+// as fact set ids.
 static const char *FACTS_PATH = "/settings/facts";
-static const char *FACTS_INTERVAL_KEY = "interval";
-static const char *FACTS_MAX_SIZE_KEY = "max size";
 
 std::vector<std::string> NSClientT::get_enabled_facts() {
+  using nsclient::core::fact_repository;
   std::vector<std::string> enabled;
   try {
     for (const std::string &key : settings_manager::get_settings()->get_keys(FACTS_PATH)) {
-      if (key == FACTS_INTERVAL_KEY || key == FACTS_MAX_SIZE_KEY) continue;
-      if (!nsclient::core::fact_repository::is_valid_id(key)) {
+      if (fact_repository::is_reserved_key(key)) continue;
+      if (!fact_repository::is_valid_id(key)) {
         LOG_ERROR_CORE_STD("Ignoring '" + key.substr(0, 64) + "' in " + FACTS_PATH +
                            ": a fact set id is one or two snake_case words, e.g. os or software.installed");
         continue;
@@ -865,26 +864,27 @@ void NSClientT::process_facts(const std::string &reason) {
 }
 
 void NSClientT::boot_facts(const std::string &reason) {
+  using nsclient::core::fact_repository;
   // The section itself is registered whatever is in it, so `nscp settings
   // --generate` and the reference docs describe it on a host that has never
   // enabled anything. The per-set keys are registered by their producers from
   // loadModuleEx, which is what makes each one document its content and cost.
-  settings_manager::get_core()->register_path(0xffff, FACTS_PATH, "FACTS",
+  settings_manager::get_core()->register_path(fact_repository::core_plugin_id(), FACTS_PATH, "FACTS",
                                               "Inventory this agent collects about the host and publishes on /api/v2/facts (and, when enrolled, to the "
                                               "fleet server). Nothing is collected until a fact set is enabled here: add the set's id with a value of "
                                               "true, e.g. `os = true`. The available ids and what each one costs are listed by `nscp test` -> `facts "
                                               "list` and in the modules' reference documentation.",
                                               false, false);
-  settings_manager::get_core()->register_key(0xffff, FACTS_PATH, FACTS_INTERVAL_KEY, "string", "Refresh interval",
+  settings_manager::get_core()->register_key(fact_repository::core_plugin_id(), FACTS_PATH, fact_repository::interval_key(), "string", "Refresh interval",
                                              "How often every enabled fact set is refreshed. Inventory changes slowly, and a producer with expensive "
                                              "data (installed software, pending updates) paces itself on top of this.",
                                              "1h", true, false);
-  settings_manager::get_core()->register_key(0xffff, FACTS_PATH, FACTS_MAX_SIZE_KEY, "int", "Maximum document size",
+  settings_manager::get_core()->register_key(fact_repository::core_plugin_id(), FACTS_PATH, fact_repository::max_size_key(), "int", "Maximum document size",
                                              "The largest facts document, in bytes, this agent will hold and upload. A fact set that would push the "
                                              "document past it is rejected whole and the previous value is kept.",
                                              "1048576", true, false);
 
-  const std::string max_size = settings_manager::get_settings()->get_string(FACTS_PATH, FACTS_MAX_SIZE_KEY, "1048576");
+  const std::string max_size = settings_manager::get_settings()->get_string(FACTS_PATH, fact_repository::max_size_key(), "1048576");
   try {
     const long long parsed = str::stox<long long>(max_size);
     if (parsed > 0) facts_->set_max_size(static_cast<std::size_t>(parsed));
@@ -902,7 +902,7 @@ void NSClientT::boot_facts(const std::string &reason) {
       LOG_ERROR_CORE_STD("A fact set is enabled in " + std::string(FACTS_PATH) +
                          " but no loaded module produces facts: check that the module owning it is enabled in [/modules]");
     }
-    const std::string interval = settings_manager::get_settings()->get_string(FACTS_PATH, FACTS_INTERVAL_KEY, "1h");
+    const std::string interval = settings_manager::get_settings()->get_string(FACTS_PATH, fact_repository::interval_key(), "1h");
     try {
       scheduler_.add_task(task_scheduler::schedule_metadata::FACTS, interval);
     } catch (const std::exception &e) {

@@ -215,6 +215,17 @@ TEST(FactRepository, AnIdWithMoreThanTwoComponentsIsNotAFactSet) {
   EXPECT_TRUE(fact_repository::is_valid_id("software.installed"));
 }
 
+// [/settings/facts] holds the sets and two knobs in the same section, and
+// `interval` is a well-formed id, so it has to be refused as one or the
+// section would be ambiguous.
+TEST(FactRepository, TheSettingsKnobsAreNotFactSetIds) {
+  EXPECT_FALSE(fact_repository::is_valid_id(fact_repository::interval_key()));
+  EXPECT_FALSE(fact_repository::is_valid_id(fact_repository::max_size_key()));
+  EXPECT_TRUE(fact_repository::is_reserved_key("interval"));
+  EXPECT_TRUE(fact_repository::is_reserved_key("max size"));
+  EXPECT_FALSE(fact_repository::is_reserved_key("os"));
+}
+
 TEST(FactRepository, ASetThatWouldPushTheDocumentPastTheSizeCapIsRejected) {
   fact_repository repo;
   repo.set_max_size(256);

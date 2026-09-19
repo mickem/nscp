@@ -40,6 +40,8 @@ target_link_libraries(
     ${Boost_DATE_TIME_LIBRARY}
     ${NSCP_DEF_PLUGIN_LIB}
     ${EXTRA_LIBS}
+    # simple_client renders the facts envelope the core returns, which is JSON.
+    nscp_json
     # The interactive prompt (line editing, history, completion, colours).
     # Carries its own PUBLIC include dir and REPLXX_STATIC define.
     replxx

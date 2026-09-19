@@ -321,6 +321,8 @@ std::string nscapi::core_wrapper::get_facts_json(const std::string &path) const 
 
 std::string nscapi::core_wrapper::refresh_facts() const { return facts_query(fNSAPIFactsQuery, *this, "{\"op\":\"refresh\"}"); }
 
+std::string nscapi::core_wrapper::list_facts() const { return facts_query(fNSAPIFactsQuery, *this, "{\"op\":\"list\"}"); }
+
 namespace {
 // Skip JSON insignificant whitespace.
 void tags_skip_ws(const std::string &s, std::size_t &i) {

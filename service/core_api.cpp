@@ -6,6 +6,7 @@
 #include <config.h>
 #include <string.h>
 
+#include <algorithm>
 #include <boost/json.hpp>
 
 #include <nscapi/nscapi_helper.hpp>
@@ -18,6 +19,7 @@
 #include <nscapi/protobuf/settings.hpp>
 #include <nsclient/logger/logger.hpp>
 
+#include "../libs/settings_manager/settings_manager_impl.h"
 #include "registry_query_handler.hpp"
 #include "settings_query_handler.hpp"
 #include "storage_query_handler.hpp"
@@ -266,6 +268,43 @@ NSCAPI::errorReturn NSAPIFactsQuery(const char *request_buffer, const unsigned i
       if (op_value != nullptr && op_value->is_string()) op = std::string(op_value->get_string());
       const boost::json::value *path_value = body.if_contains("path");
       if (path_value != nullptr && path_value->is_string()) path = std::string(path_value->get_string());
+    }
+    if (op == "list") {
+      // What fact sets this agent could collect, from the settings keys the
+      // producers registered: every one carries the title and description the
+      // operator reads before enabling it, and the module that owns it. Kept
+      // on this API rather than the registry because a fact set is declared by
+      // registering its settings key, so there is exactly one source.
+      const std::vector<std::string> enabled_now = mainClient->get_enabled_facts();
+      boost::json::array sets;
+      for (const std::string &key : settings_manager::get_core()->get_reg_keys("/settings/facts", false)) {
+        if (!nsclient::core::fact_repository::is_valid_id(key)) continue;
+        boost::json::object entry;
+        entry["id"] = key;
+        entry["enabled"] = std::find(enabled_now.begin(), enabled_now.end(), key) != enabled_now.end();
+        const auto described = settings_manager::get_core()->get_registered_key("/settings/facts", key);
+        if (described.is_initialized()) {
+          entry["title"] = described.value().title;
+          entry["description"] = described.value().description;
+          boost::json::array producers;
+          for (const unsigned int plugin : described.value().plugins) {
+            // The core registers its own sets under a reserved id that is not
+            // in the plugin cache, so it is named rather than looked up.
+            producers.push_back(boost::json::value(plugin == nsclient::core::fact_repository::core_plugin_id()
+                                                       ? std::string("core")
+                                                       : mainClient->get_plugin_cache()->find_plugin_alias(plugin)));
+          }
+          entry["producers"] = producers;
+        }
+        sets.push_back(entry);
+      }
+      boost::json::object listing;
+      listing["sets"] = sets;
+      const std::string listed = boost::json::serialize(listing);
+      *response_buffer_len = static_cast<unsigned int>(listed.size());
+      *response_buffer = new char[*response_buffer_len + 10];
+      memcpy(*response_buffer, listed.c_str(), *response_buffer_len);
+      return NSCAPI::api_return_codes::isSuccess;
     }
     if (op == "refresh") {
       mainClient->process_facts("manual");

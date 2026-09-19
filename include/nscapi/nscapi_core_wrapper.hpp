@@ -114,6 +114,11 @@ class NSCAPI_EXPORT core_wrapper {
   // definition - it is what asks every producer to collect now - so it is the
   // explicit-refresh path, never a read.
   std::string refresh_facts() const;
+  // What fact sets this agent could collect, whether or not any is enabled:
+  //   {"sets":[{"id":"os","enabled":false,"title":"…","description":"…","producers":["CheckSystem"]}]}
+  // Read off the settings keys the producers registered, so the listing and
+  // the thing an operator edits cannot drift apart.
+  std::string list_facts() const;
 
   bool load_endpoints(core_api::lpNSAPILoader f);
   void set_alias(const std::string default_alias, const std::string alias);

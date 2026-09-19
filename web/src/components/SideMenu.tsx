@@ -7,6 +7,7 @@ import MessageIcon from "@mui/icons-material/Message";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
 import ShowChartIcon from "@mui/icons-material/ShowChart";
+import InventoryIcon from "@mui/icons-material/Inventory2Outlined";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { useNavigate, useLocation } from "react-router";
 
@@ -68,6 +69,14 @@ export default function SideMenu() {
               <ShowChartIcon />
             </ListItemIcon>
             <ListItemText primary="Metrics" />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton selected={isActive("/inventory")} onClick={() => navigate("/inventory")}>
+            <ListItemIcon>
+              <InventoryIcon />
+            </ListItemIcon>
+            <ListItemText primary="Inventory" />
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>

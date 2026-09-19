@@ -10,6 +10,7 @@ import Query from "./pages/Query.tsx";
 import Module from "./pages/Module.tsx";
 import Settings from "./pages/Settings.tsx";
 import Metrics from "./pages/Metrics.tsx";
+import Inventory from "./pages/Inventory.tsx";
 import Events from "./pages/Events.tsx";
 import About from "./pages/About.tsx";
 
@@ -40,6 +41,7 @@ export default function Router() {
             <Route index={true} element={<Queries />} />
           </Route>
           <Route path={"metrics"} element={<Metrics />} />
+          <Route path={"inventory"} element={<Inventory />} />
           <Route path={"events"} element={<Events />} />
           <Route path={"about"} element={<About />} />
         </Route>

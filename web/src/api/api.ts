@@ -82,6 +82,31 @@ interface Info {
 /** Host tags: key=value facts contributed by modules (e.g. drives=c:,d:). */
 export type Tags = { [key: string]: string };
 
+/**
+ * One node of the facts document: an object, a list of records, a list of
+ * strings, or a scalar. Facts are the structured inventory modules publish
+ * (which volumes exist, what the hardware is), as opposed to tags, which are
+ * the flat strings a fleet selector matches on.
+ */
+export type FactValue =
+  | string
+  | number
+  | boolean
+  | FactValue[]
+  | { [key: string]: FactValue };
+
+export interface Facts {
+  /** Bumps on every effective change; 0 on a host with nothing enabled. */
+  revision: number;
+  /** sha256 of the canonical document — also the response's ETag. */
+  hash: string;
+  /** The fact set ids enabled in [/settings/facts]; empty by default. */
+  enabled: string[];
+  /** Per-set collection failures, keyed by fact set id. */
+  errors: { [factSet: string]: string };
+  facts: { [factSet: string]: FactValue };
+}
+
 interface Version {
   version: string;
 }
@@ -362,6 +387,7 @@ export const ALL_API_TAGS = [
   "Endpoints",
   "Info",
   "Tags",
+  "Facts",
   "Version",
   "Logs",
   "Modules",
@@ -385,6 +411,7 @@ export const nsclientApi = createApi({
     "Endpoints",
     "Info",
     "Tags",
+    "Facts",
     "Version",
     "Logs",
     "Modules",
@@ -424,6 +451,21 @@ export const nsclientApi = createApi({
         url: "/v2/tags",
       }),
       providesTags: ["Tags"],
+    }),
+    getFacts: builder.query<Facts, void>({
+      query: () => ({
+        url: "/v2/facts",
+      }),
+      providesTags: ["Facts"],
+    }),
+    refreshFacts: builder.mutation<Facts, void>({
+      query: () => ({
+        url: "/v2/facts/refresh",
+        method: "POST",
+      }),
+      // A refresh asks every producer to collect now, so the document that
+      // comes back is the new one — invalidate so the page renders it.
+      invalidatesTags: ["Facts"],
     }),
     getLogs: builder.query<Page<LogRecord[]>, LogQuery>({
       query: ({ page, size, level }) => ({
@@ -709,6 +751,8 @@ export const {
   useGetInfoQuery,
   useGetVersionQuery,
   useGetTagsQuery,
+  useGetFactsQuery,
+  useRefreshFactsMutation,
   useGetLogsQuery,
   useGetModulesQuery,
   useGetModuleQuery,

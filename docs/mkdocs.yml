@@ -130,6 +130,7 @@ nav:
       - Scripts: api/rest/scripts.md
       - Logs: api/rest/logs.md
       - Results: api/rest/results.md
+      - Facts: api/rest/facts.md
       - Legacy API: api/rest/legacy.md
   - FAQ: faq.md
 
