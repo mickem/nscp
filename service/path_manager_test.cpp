@@ -66,10 +66,34 @@ TEST_F(PathManagerTest, ExpandPathNoVariables) {
   EXPECT_EQ(pm->expand_path(path), path);
 }
 
-TEST_F(PathManagerTest, GetFolderUnknownKey) {
-  std::string key = "unknown-key";
-  std::string result = pm->getFolder(key);
-  EXPECT_FALSE(result.empty());
+TEST_F(PathManagerTest, GetFolderUnknownKeyIsReported) {
+  // An unknown key is a typo, and it used to resolve to the executable's
+  // directory - so `${scripst}/x.bat` was not an error but a real path under
+  // the install folder, and whatever depended on it went somewhere nobody was
+  // looking (#458). Report it instead.
+  EXPECT_THROW(pm->getFolder("unknown-key"), nsclient::core::path_expansion_error);
+}
+
+TEST_F(PathManagerTest, UnknownTokenInAPathIsReported) {
+  EXPECT_THROW(pm->expand_path("${definitely-not-a-known-key}/file.ini"), nsclient::core::path_expansion_error);
+}
+
+TEST_F(PathManagerTest, UnknownTokenErrorNamesTheToken) {
+  // The message is the whole point: an operator has to be able to find the
+  // line they mistyped.
+  try {
+    pm->expand_path("${scripst}/check.bat");
+    FAIL() << "expected an unknown token to be reported";
+  } catch (const nsclient::core::path_expansion_error &e) {
+    EXPECT_NE(std::string(e.what()).find("scripst"), std::string::npos) << "message did not name the token: " << e.what();
+  }
+}
+
+TEST_F(PathManagerTest, AnOverrideMakesAnOtherwiseUnknownTokenResolvable) {
+  // The error is "no such path is configured", not "not on a fixed list": an
+  // operator may introduce their own token in boot.ini and use it.
+  pm->set_overrides({{"my-own-folder", "/srv/mine"}});
+  EXPECT_EQ(pm->expand_path("${my-own-folder}/x.ini"), "/srv/mine/x.ini");
 }
 
 TEST_F(PathManagerTest, ExpandPathWithVariables) {
@@ -736,11 +760,43 @@ TEST_F(PathManagerTest, OverridesReplaceRatherThanMerge) {
   EXPECT_EQ(pm->getFolder("log-path"), "/second");
 }
 
-TEST_F(PathManagerTest, OverridesIgnoredForUnknownKeyFallback) {
-  // Unknown keys still fall through to getBasePath, even if overrides are set
-  // for other keys.
+TEST_F(PathManagerTest, OverridesForOtherKeysDoNotMakeAnUnknownKeyResolvable) {
+  // Setting an override for one key says nothing about another: the unknown
+  // one is still a typo and still reported.
   pm->set_overrides({{"certificate-path", "/x"}});
-  EXPECT_FALSE(pm->getFolder("definitely-not-a-known-key").empty());
+  EXPECT_THROW(pm->getFolder("definitely-not-a-known-key"), nsclient::core::path_expansion_error);
+}
+
+TEST_F(PathManagerTest, ARelativeOverrideIsDroppedSoTheDefaultApplies) {
+  // A relative override would be read and written relative to the service's
+  // working directory, which is System32 for a Windows service and "/" under a
+  // bare init - unpredictable, and invisible until something lands in the
+  // wrong place. Drop it and use the built-in default, which is absolute.
+  const std::string built_in = pm->getFolder("scripts");
+  pm->set_overrides({{"scripts", "myscripts"}});
+  EXPECT_EQ(pm->getFolder("scripts"), built_in);
+}
+
+TEST_F(PathManagerTest, ARelativeCliOverrideIsDroppedToo) {
+  const std::string built_in = pm->getFolder("log-path");
+  pm->set_cli_overrides({{"log-path", "../logs"}});
+  EXPECT_EQ(pm->getFolder("log-path"), built_in);
+}
+
+TEST_F(PathManagerTest, AnOverrideThatExpandsToAnAbsolutePathIsKept) {
+  // Rejection is on the *resolved* value, not on how it was written: an
+  // override built from other tokens is the documented way to relocate a
+  // folder and has to keep working.
+  pm->set_overrides({{"scripts", "${base-path}/custom-scripts"}});
+  const std::string resolved = pm->getFolder("scripts");
+  EXPECT_NE(resolved.find("custom-scripts"), std::string::npos);
+  EXPECT_TRUE(boost::filesystem::path(pm->expand_path("${scripts}")).is_absolute());
+}
+
+TEST_F(PathManagerTest, AnOverrideNamingAnUnknownTokenIsDropped) {
+  const std::string built_in = pm->getFolder("scripts");
+  pm->set_overrides({{"scripts", "${no-such-token}/mine"}});
+  EXPECT_EQ(pm->getFolder("scripts"), built_in);
 }
 
 TEST_F(PathManagerTest, OverrideValuesCanBeTemplates) {

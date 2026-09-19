@@ -6,6 +6,7 @@
 #include <config.h>
 
 #include <boost/filesystem.hpp>
+#include <iostream>
 #include <map>
 #include <string>
 
@@ -84,8 +85,15 @@ class client_path_resolver {
     const std::string def = default_for(key, layout_);
     if (!def.empty()) return def;
 
-    // Last resort: the executable's directory, never an empty (and therefore
-    // root-relative) path from a typo in a settings file.
+    // An unknown token is a typo. The service raises it as an error; a client
+    // cannot - `main` has no handler, so throwing here would abort a Nagios
+    // plugin with no usable output. Say so on stderr (Nagios reads stdout, so
+    // this does not corrupt the check result) and carry on with the historical
+    // answer, which at least is not an empty, root-relative path.
+    if (!is_known_key(key, layout_)) {
+      std::cerr << "nscp: unknown path token ${" << key << "} - check the spelling, or define it in the [paths] section of boot.ini. Using "
+                << executable_dir().string() << std::endl;
+    }
     return executable_dir().string();
   }
 

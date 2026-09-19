@@ -132,23 +132,65 @@ std::string nsclient::core::path_manager::get_path_for_key(const std::string &ke
   if (key == "shared-path") return getBasePath().string();
 #endif
 
-  // Anything we have no answer for resolves to the executable's directory,
-  // which is the historical behaviour and keeps a typo in a settings file from
-  // expanding to an empty (and therefore root-relative) path.
-  return getBasePath().string();
+  // A token we have no answer for is a typo, and saying so is the whole point.
+  // This used to resolve to the executable's directory, which meant
+  // `${scripst}/x.bat` was not an error but a real path under the install
+  // folder - so the file went somewhere nobody was looking and nothing
+  // complained (#458). An operator cannot fix what is never reported.
+  throw path_expansion_error("Unknown path token ${" + key + "}: no such path is configured. Check the spelling, or define it in the [paths] section of "
+                                                            "boot.ini.");
 }
 
 void nsclient::core::path_manager::set_layout(const nscp::paths::layout value) { layout_ = value; }
 
-void nsclient::core::path_manager::set_overrides(paths_type overrides) { overrides_ = std::move(overrides); }
+void nsclient::core::path_manager::drop_unusable_overrides(paths_type &map, const char *source) {
+  // Run after the map is installed, not before, because an override may be
+  // written in terms of other tokens ("scripts = ${shared-path}/mine") and one
+  // override may reference another. Expanding here therefore sees the same
+  // answers the rest of the service will.
+  for (auto it = map.begin(); it != map.end();) {
+    std::string why;
+    try {
+      const std::string resolved = expand_path_impl(it->second, 0);
+      if (resolved.empty())
+        why = "it expands to nothing";
+      else if (!boost::filesystem::path(resolved).is_absolute())
+        why = "it is not an absolute path (it resolves to '" + resolved + "')";
+    } catch (const path_expansion_error &e) {
+      why = e.what();
+    }
+    if (why.empty()) {
+      ++it;
+      continue;
+    }
+    // Dropped rather than kept, so the compiled-in default applies: that is a
+    // defined absolute location, where a relative override is read and written
+    // relative to the service's working directory - System32 for a Windows
+    // service, "/" under a bare init, the package directory under the shipped
+    // systemd unit. An operator cannot predict which, so we do not guess for
+    // them; we say so and use the default.
+    LOG_ERROR_CORE("Ignoring " + std::string(source) + " path override '" + it->first + " = " + it->second + "': " + why +
+                   ". A path token has to resolve to an absolute path; using the built-in default for ${" + it->first + "} instead.");
+    it = map.erase(it);
+  }
+}
+
+void nsclient::core::path_manager::set_overrides(paths_type overrides) {
+  overrides_ = std::move(overrides);
+  drop_unusable_overrides(overrides_, "boot.ini [paths]");
+}
 
 void nsclient::core::path_manager::add_overrides(paths_type overrides) {
   for (auto &kv : overrides) {
     overrides_[kv.first] = std::move(kv.second);
   }
+  drop_unusable_overrides(overrides_, "boot.ini [paths]");
 }
 
-void nsclient::core::path_manager::set_cli_overrides(paths_type overrides) { cli_overrides_ = std::move(overrides); }
+void nsclient::core::path_manager::set_cli_overrides(paths_type overrides) {
+  cli_overrides_ = std::move(overrides);
+  drop_unusable_overrides(cli_overrides_, "--path-override");
+}
 
 std::string nsclient::core::path_manager::getFolder(const std::string &key) { return resolve_folder(key, 0); }
 
@@ -192,6 +234,11 @@ std::string nsclient::core::path_manager::expand_path_impl(std::string file, con
         ret += expand_path_impl(resolve_folder(e.name, depth + 1), depth + 1);
     }
     return ret;
+  } catch (const path_expansion_error &) {
+    // An unknown token is a reportable configuration error, not a failure to
+    // be flattened into an empty string: the callers that expand
+    // operator-supplied paths catch this and name what they were configuring.
+    throw;
   } catch (...) {
     LOG_ERROR_CORE("Failed to expand path: " + utf8::cvt<std::string>(file));
     return "";

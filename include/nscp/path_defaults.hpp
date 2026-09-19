@@ -165,6 +165,32 @@ inline std::string default_for(const std::string &key, const layout current) {
   return it == defaults.end() ? std::string() : it->second;
 }
 
+// True when `key` names a token this build knows how to resolve.
+//
+// Separate from default_for because that function returns an empty string for
+// two very different things: "this key has no *static* default" (shared-path on
+// the Windows legacy layout, which the caller answers from its own executable
+// location) and "never heard of this key". Only the second is an operator
+// error, and being able to tell them apart is what lets an unknown token be
+// reported instead of quietly resolving to the installation directory - the
+// behaviour behind #458, where a `${host}` written in a path before 0.17 did
+// not fail but silently produced a mangled name.
+//
+// The dynamic tokens are listed here rather than in each caller so that the
+// service and the two standalone clients cannot drift apart about which tokens
+// exist - the same reason the static table above lives here.
+inline bool is_known_key(const std::string &key, const layout current) {
+  // Resolved by a runtime lookup in the caller rather than by the table above:
+  // the executable's own location, the OS temp folder, the ${nrpe-dh}
+  // filesystem probe, and ${shared-path}, whose Windows legacy answer is
+  // deliberately absent from the table.
+  if (key == "base-path" || key == "exe-path" || key == "temp" || key == "nrpe-dh" || key == "shared-path") return true;
+#ifdef WIN32
+  if (key == "data-path" || key == "appdata" || key == "common-appdata") return true;
+#endif
+  return !default_for(key, current).empty();
+}
+
 // Substitute every ${token} in `file` using `resolve`, repeatedly, since a
 // default may itself be written in terms of another token
 // (${certificate-path} -> ${shared-path}/security -> ...).
