@@ -278,7 +278,35 @@ class settings_http : public settings::settings_interface_impl {
                                 "controls this agent's entire configuration, including external script definitions.");
     }
 
+    // Create the directory before opening the stream, not after the download.
+    // The tmp file sits beside its target, so a target whose folder does not
+    // exist - `scripts\` is absent entirely when the Windows installer's sample
+    // scripts are deselected - meant this ofstream silently failed to open. The
+    // body was then written into a dead stream, which is why the settings
+    // server's log showed the file being served while nothing appeared on disk,
+    // and the only symptom was "Failed to find cached settings: <target>.tmp"
+    // eighty lines further down - a message about the wrong thing entirely
+    // (#1557). create_directories on the *tmp* path also covers the target,
+    // since the two share a parent.
+    boost::system::error_code dir_error;
+    const boost::filesystem::path parent = tmp_file.parent_path();
+    if (!parent.empty() && !boost::filesystem::is_directory(parent, dir_error)) {
+      boost::filesystem::create_directories(parent, dir_error);
+      if (dir_error) {
+        get_logger()->error("settings", __FILE__, __LINE__,
+                            "Failed to create directory '" + parent.string() + "' for " + local_file.string() + ": " + dir_error.message());
+        return false;
+      }
+    }
+
     std::ofstream os(tmp_file.string().c_str(), std::ofstream::binary);
+    if (!os) {
+      // Report the actual failure. Letting a dead stream through turns "cannot
+      // write here" into a download that appears to work and a confusing error
+      // about a missing cache file.
+      get_logger()->error("settings", __FILE__, __LINE__, "Failed to open '" + tmp_file.string() + "' for writing; cannot save " + local_file.string());
+      return false;
+    }
 
     try {
       std::string error;
