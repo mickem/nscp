@@ -475,6 +475,26 @@ common:
         short_description: Only examine the newest <N> lines of each file (0, the default, means every
           line).
       - content_type: 2
+        default_value: 64m
+        is_simple: false
+        long_description: 'Most bytes of a single file this check reads into memory at once (0 means no
+          limit).
+
+          A file is matched in memory, so without a ceiling one call at the default `max-lines=0` with
+          no bookmark reads the whole target - which the caller names - and does file-sized matching work
+          on it. Accepts a size suffix (`512k`, `64m`, `2g`).
+
+          With a bookmark the limit is a pacing device and nothing is lost: the check consumes up to this
+          much per run, the position advances over what it read, and the next run continues - a large
+          backlog is worked through over several checks. Without a bookmark there is no position to resume
+          from, so a file larger than the limit is reported as UNKNOWN instead of being silently half-read;
+          add a `bookmark`, a `max-lines`, or raise this.'
+        name: max-size
+        repeatable: false
+        required: false
+        short_description: Most bytes of a single file this check reads into memory at once (0 means no
+          limit).
+      - content_type: 2
         default_value: last
         is_simple: false
         long_description: 'Which end of the file holds the newest line: `last` (the default: lines are
