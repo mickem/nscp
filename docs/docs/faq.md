@@ -307,10 +307,13 @@ All these options will result in the following configuration:
 certificate key =
 certificate = ${certificate-path}/certificate.pem
 ssl options =
-allowed ciphers = ADH
-ssl = true
+allowed ciphers = ALL:!MD5:@STRENGTH:@SECLEVEL=0
+use ssl = true
 insecure = true
 ```
+
+`use ssl`, not `ssl`: the server registers the former, and a stray `ssl = true`
+is read by nothing at all.
 
 If you instead opt to use the more secure standard SSL approach used in NSClient++ you can easily install NSClient++ on a Linux system as well.
 

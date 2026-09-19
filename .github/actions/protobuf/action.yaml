@@ -24,6 +24,11 @@ outputs:
   path_unix:
     description: The path to the protobuf folder
     value:  ${{ steps.path.outputs.path_unix }}
+  protoc_unix:
+    description: >-
+      The protoc that runs on the *host*: the same one as in the target tree for
+      a native build, a separate x64 build when cross-compiling.
+    value:  ${{ steps.path.outputs.protoc_unix }}
 runs:
   using: composite
   steps:
@@ -52,13 +57,33 @@ runs:
         key: ${{ runner.os }}-protobuf-${{ inputs.version }}-${{ inputs.architecture }}-${{ inputs.runtime }}-${{ inputs.toolset }}
         path: |
           tmp/protobuf-${{ inputs.version }}/build/Release
+          tmp/protobuf-${{ inputs.version }}/build_host/Release
 
     - id: setup
       run: |
-        if ("${{ inputs.architecture }}" -eq "x64") {
-          echo "platform=x64" >> $env:GITHUB_OUTPUT
+        switch ("${{ inputs.architecture }}") {
+          "x86"   { echo "platform=Win32" >> $env:GITHUB_OUTPUT }
+          "arm64" { echo "platform=ARM64" >> $env:GITHUB_OUTPUT }
+          default { echo "platform=x64"   >> $env:GITHUB_OUTPUT }
+        }
+        # protoc is a *build* tool: the NSCP build runs it to generate the
+        # .pb.cc sources. Cross-compiling for ARM64 produces a protoc.exe the
+        # x64 runner cannot execute, so a second, host-native one is built
+        # alongside it and handed to CMake.
+        if ("${{ inputs.architecture }}" -eq "arm64") {
+          echo "cross=true" >> $env:GITHUB_OUTPUT
         } else {
-          echo "platform=Win32" >> $env:GITHUB_OUTPUT
+          echo "cross=false" >> $env:GITHUB_OUTPUT
+        }
+        # The runner reports itself as Windows 6.2 and has the Windows 8.1 SDK
+        # installed for the legacy XP build, so CMake picks 8.1 - "Selecting
+        # Windows SDK version 8.1 to target Windows 6.2.9200" - and 8.1 has no
+        # ARM64 toolchain at all, which surfaces as "No CMAKE_C_COMPILER could
+        # be found". Only the SDK is pinned; the toolset stays as asked.
+        if ("${{ inputs.architecture }}" -eq "arm64") {
+          echo "sdk=-DCMAKE_SYSTEM_VERSION=10.0" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "sdk=" >> $env:GITHUB_OUTPUT
         }
         if ("${{ inputs.runtime }}" -eq "dynamic") {
           echo "shared_libs=TRUE" >> $env:GITHUB_OUTPUT
@@ -85,9 +110,16 @@ runs:
       shell: cmd
       if: ${{ steps.cache.outputs.cache-hit != 'true' }}
 
+    - name: Prepare (host protoc)
+      run: |
+        mkdir build_host
+      working-directory: tmp/protobuf-${{ inputs.version }}
+      shell: cmd
+      if: ${{ steps.cache.outputs.cache-hit != 'true' && steps.setup.outputs.cross == 'true' }}
+
     - name: CMake
       run: |
-        cmake -DBUILD_SHARED_LIBS=${{ steps.setup.outputs.shared_libs }} -Dprotobuf_WITH_ZLIB=OFF -G "Visual Studio 17" -T ${{ steps.setup.outputs.cmake_toolset }} -A ${{ steps.setup.outputs.platform }} ..
+        cmake -DBUILD_SHARED_LIBS=${{ steps.setup.outputs.shared_libs }} -Dprotobuf_WITH_ZLIB=OFF -G "Visual Studio 17" -T ${{ steps.setup.outputs.cmake_toolset }} -A ${{ steps.setup.outputs.platform }} ${{ steps.setup.outputs.sdk }} ..
       working-directory: tmp/protobuf-${{ inputs.version }}/build
       shell: cmd
 
@@ -101,11 +133,31 @@ runs:
       shell: cmd
       if: ${{ steps.cache.outputs.cache-hit != 'true' }}
 
+    # Only protoc itself, and only for the host architecture: the libraries the
+    # daemon links against still come from the target build above.
+    - name: Build host protoc
+      run: |
+        cmake -Dprotobuf_WITH_ZLIB=OFF -Dprotobuf_BUILD_TESTS=OFF -G "Visual Studio 17" -T ${{ inputs.toolset }} -A x64 ..
+        msbuild protoc.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=${{ inputs.toolset }}
+      working-directory: tmp/protobuf-${{ inputs.version }}/build_host
+      shell: cmd
+      if: ${{ steps.cache.outputs.cache-hit != 'true' && steps.setup.outputs.cross == 'true' }}
+
     - id: path
       run: |
         $path=$pwd.path
         $path_unix=$pwd.path.replace('\','/')
         echo "path=$path" >> $env:GITHUB_OUTPUT
         echo "path_unix=$path_unix" >> $env:GITHUB_OUTPUT
+        if ("${{ steps.setup.outputs.cross }}" -eq "true") {
+          $protoc = "$path_unix/build_host/Release/protoc.exe"
+        } else {
+          $protoc = "$path_unix/build/Release/protoc.exe"
+        }
+        if (-not (Test-Path $protoc)) {
+          Write-Error "protoc was not built: $protoc does not exist"
+          exit 1
+        }
+        echo "protoc_unix=$protoc" >> $env:GITHUB_OUTPUT
       shell: pwsh
       working-directory: tmp/protobuf-${{ inputs.version }}

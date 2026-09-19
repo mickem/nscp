@@ -22,8 +22,15 @@ find_path(
         /usr/include
 )
 
-set(CRYPTOPP_LIB_ROOT)
-if(CMAKE_CL_64)
+# Crypto++ stages its libraries under $(Platform)/Output/$(Configuration), so
+# the directory is named after the Visual Studio platform verbatim: Win32, x64
+# or ARM64. That tree is always produced by msbuild (see
+# .github/actions/cryptopp), so the names are the msbuild ones whatever
+# generator consumes them here.
+nscp_target_arch(_CRYPTOPP_ARCH)
+if(_CRYPTOPP_ARCH STREQUAL "arm64")
+    set(CRYPTOPP_LIB_ROOT ${CRYPTOPP_INCLUDE_DIR}/ARM64)
+elseif(_CRYPTOPP_ARCH STREQUAL "x64")
     set(CRYPTOPP_LIB_ROOT ${CRYPTOPP_INCLUDE_DIR}/x64)
 else()
     set(CRYPTOPP_LIB_ROOT ${CRYPTOPP_INCLUDE_DIR}/Win32)

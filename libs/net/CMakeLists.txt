@@ -20,8 +20,10 @@ cmake_minimum_required(VERSION 3.10)
 # rather than exported wholesale with WINDOWS_EXPORT_ALL_SYMBOLS, for the reason
 # libs/client/CMakeLists.txt gives: export-all turns every symbol into a root the
 # linker may not discard, so /OPT:REF stops pruning. That matters more here than
-# anywhere else, because the unreachable code it pins down is a statically linked
-# OpenSSL.
+# anywhere else, because in the static (XP) build the unreachable code it pins
+# down is a statically linked OpenSSL. The shared build links the OpenSSL import
+# libraries and ships libcrypto-3-*.dll / libssl-3-*.dll beside nscp.exe, so
+# there nscp_net.dll carries no OpenSSL of its own either way.
 
 set(TARGET nscp_net)
 

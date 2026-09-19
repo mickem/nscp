@@ -10,13 +10,19 @@ message(STATUS "Looking for dependencies:")
 # code generation). The *development* libraries are only needed to embed Python
 # in the PythonScript module, so they are optional — a missing libpython simply
 # disables that one module.
-find_package(
-    Python3
-    COMPONENTS
-        Interpreter
-    OPTIONAL_COMPONENTS
-        Development
-)
+# NSCP_WITH_PYTHON=OFF asks for the interpreter only, for the cross-compiled
+# case where the host's development libraries are the wrong architecture.
+if(NSCP_WITH_PYTHON)
+    find_package(
+        Python3
+        COMPONENTS
+            Interpreter
+        OPTIONAL_COMPONENTS
+            Development
+    )
+else()
+    find_package(Python3 COMPONENTS Interpreter)
+endif()
 find_package(TinyXML2)
 find_package(CryptoPP)
 find_package(Lua)
@@ -157,6 +163,15 @@ endif()
 # Boost_FOUND=FALSE and fail the whole build (see the required-dependency check
 # in the top-level CMakeLists). The PythonScript module checks
 # Boost_<version>_FOUND itself before building.
+# Kept as one variable, keyword included: dropping Boost.Python leaves
+# OPTIONAL_COMPONENTS with nothing to name, which find_package rejects.
+set(_nscp_optional_boost_components)
+if(NSCP_WITH_PYTHON)
+    set(_nscp_optional_boost_components
+        OPTIONAL_COMPONENTS
+        ${NSCP_BOOST_PYTHON_VERSION}
+    )
+endif()
 find_package(
     Boost 1.75
     COMPONENTS
@@ -169,8 +184,7 @@ find_package(
         json
         container
         ${_nscp_extra_boost_components}
-    OPTIONAL_COMPONENTS
-        ${NSCP_BOOST_PYTHON_VERSION}
+    ${_nscp_optional_boost_components}
 )
 find_package(Mkdocs)
 find_package(Dotnet)
@@ -189,6 +203,8 @@ else()
 endif()
 if(Python3_Development_FOUND)
     message(STATUS " - python(lib) found: ${Python3_LIBRARIES}")
+elseif(NOT NSCP_WITH_PYTHON)
+    message(STATUS " - python(lib) skipped: NSCP_WITH_PYTHON=OFF")
 else()
     message(
         STATUS

@@ -104,3 +104,87 @@ TEST(AllowedHostsTest, MixedV4AndV6) {
   EXPECT_FALSE(manager.is_allowed(make_address("127.0.0.2"), errors));
   EXPECT_FALSE(manager.is_allowed(make_address("::2"), errors));
 }
+// ---------------------------------------------------------------------------
+// The `*` range syntax. The setting's own help text and the permissions docs
+// have advertised it for years; make_address threw on it instead, outside the
+// try that wraps the DNS branch, so the exception escaped refresh() and (with
+// `cache allowed hosts = true`) loadModuleEx - the listener never started.
+// ---------------------------------------------------------------------------
+
+TEST(AllowedHostsTest, TrailingWildcardIsATwentyFourBitRange) {
+  allowed_hosts_manager manager;
+  manager.set_source("192.168.1.*");
+  std::list<std::string> errors;
+  manager.refresh(errors);
+
+  EXPECT_TRUE(errors.empty()) << (errors.empty() ? "" : errors.front());
+  EXPECT_TRUE(manager.is_allowed(make_address("192.168.1.1"), errors));
+  EXPECT_TRUE(manager.is_allowed(make_address("192.168.1.254"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("192.168.2.1"), errors));
+}
+
+TEST(AllowedHostsTest, ShorterWildcardsWidenTheRange) {
+  allowed_hosts_manager manager;
+  manager.set_source("10.*");
+  std::list<std::string> errors;
+  manager.refresh(errors);
+
+  EXPECT_TRUE(errors.empty()) << (errors.empty() ? "" : errors.front());
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.1"), errors));
+  EXPECT_TRUE(manager.is_allowed(make_address("10.255.255.255"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("11.0.0.1"), errors));
+}
+
+TEST(AllowedHostsTest, ABareWildcardIsEveryAddress) {
+  allowed_hosts_manager manager;
+  manager.set_source("*");
+  std::list<std::string> errors;
+  manager.refresh(errors);
+
+  EXPECT_TRUE(errors.empty()) << (errors.empty() ? "" : errors.front());
+  EXPECT_TRUE(manager.is_allowed(make_address("8.8.8.8"), errors));
+}
+
+TEST(AllowedHostsTest, WildcardsMayRepeatPerOctet) {
+  allowed_hosts_manager manager;
+  manager.set_source("192.168.*.*");
+  std::list<std::string> errors;
+  manager.refresh(errors);
+
+  EXPECT_TRUE(errors.empty()) << (errors.empty() ? "" : errors.front());
+  EXPECT_TRUE(manager.is_allowed(make_address("192.168.7.9"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("192.169.7.9"), errors));
+}
+
+TEST(AllowedHostsTest, AWildcardInTheMiddleIsAnError) {
+  // Not a prefix, so there is no range it could mean.
+  allowed_hosts_manager manager;
+  manager.set_source("192.*.1.1");
+  std::list<std::string> errors;
+  manager.refresh(errors);
+
+  EXPECT_FALSE(errors.empty());
+  EXPECT_FALSE(manager.is_allowed(make_address("192.168.1.1"), errors));
+}
+
+TEST(AllowedHostsTest, AWildcardWithAMaskIsAnError) {
+  allowed_hosts_manager manager;
+  manager.set_source("192.168.1.*/24");
+  std::list<std::string> errors;
+  manager.refresh(errors);
+
+  EXPECT_FALSE(errors.empty());
+}
+
+TEST(AllowedHostsTest, AnUnparseableNumericAddressIsReportedNotThrown) {
+  // The throw used to escape refresh(); with `cache allowed hosts = true` the
+  // plugin manager then dropped the whole module.
+  allowed_hosts_manager manager;
+  manager.set_source("192.168.1.999,10.0.0.1");
+  std::list<std::string> errors;
+
+  ASSERT_NO_THROW(manager.refresh(errors));
+  EXPECT_FALSE(errors.empty());
+  // The good entry in the same list still works.
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.1"), errors));
+}

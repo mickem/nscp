@@ -46,6 +46,11 @@ protobuf        21.12     29b0f6b6d5714f212b8549cd0cb6fc531672630e41fb99d445421b
 cryptopp        8.9.0     4cc0ccc324625b80b695fcd3dee63a66f1a460d3e51b71640cdbfc4cd1a3779c
 miniz           3.1.1     cb28402bb2af93bdc331b60d16807e89727d1712a2d0a7ba0cac79a3e406fe40
 
+# Still unrecorded: boost.org serves the archive from a redirect chain, so the
+# digest has to be taken on a machine that can reach it and cross-checked
+# against the SHA256 the Boost release page publishes.
+boost           1.86.0    unrecorded
+
 # Still unrecorded: the digest has to be taken on a machine that can reach
 # www.lua.org, and cross-checked against the md5/sha256 Lua publishes on the
 # same page.
@@ -66,9 +71,9 @@ mongoose        7.23      02bdbb9ed6f0a8f7c42228c6e7cb35d748b60551
 mariadb         3.4.9     64e9fe09fea6a017bab92e19a08d2301e3da5b56
 
 # The prebuilt check_nsclient.exe, which ships inside the signed MSI. Keyed by
-# the version in .check_nsclient_version; one line per architecture the Windows
-# workflow builds, which is x64 and x86. There is no Windows arm64 build and
-# upstream publishes no arm64 binary; if one is ever added, its line has to be
-# added here too - a missing line fails the build, which is the point.
-check_nsclient-x64      1.1.0   32c09f4918aa7b03c29c4abee2e3b4208888228d0c39cead2c4694bcd3b44ff2
-check_nsclient-x86      1.1.0   415eaa3903569828df4c4fc7ad91149d8159445a3abdab84bf0016cb33fe6ef3
+# the version in .check_nsclient_version; one line per architecture, since the
+# release publishes a separate binary for each. A missing line fails the build,
+# so adding an architecture cannot silently skip verification.
+check_nsclient-x64      1.1.1   b876044e71cd969bf7d3b00d18786817b6f8021692229e401f382683d342ff8d
+check_nsclient-x86      1.1.1   98b1e899bdf33bfe589516067e15ec5fe1eb6427658212d0aa811062dcd78ccf
+check_nsclient-arm64    1.1.1   b449918136a4a6ece28dc18b49bb5a121e316c3ec18027e030f566e1a0b69095

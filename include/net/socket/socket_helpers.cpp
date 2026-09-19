@@ -25,6 +25,7 @@
 // that builds with SSL support. boost::asio::ssl already drags openssl
 // in on Windows, so this is just making the symbol visibility explicit.
 #include <openssl/bio.h>
+#include <openssl/pem.h>
 #include <openssl/ssl.h>
 #include <openssl/x509.h>
 #endif
@@ -417,41 +418,55 @@ void socket_helpers::io::set_result(boost::optional<boost::system::error_code> *
   }
 }
 #ifdef USE_SSL
-void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asio::ssl::context &context, std::list<std::string> &errors) const {
+void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asio::ssl::context &context, std::list<std::string> &errors,
+                                                                     std::list<std::string> *caller_safe_errors) const {
   boost::system::error_code er;
+  // `detail` names the path and the OpenSSL reason and is for the log; `safe`
+  // says only which part of the TLS configuration failed and is what a caller
+  // may be told. Reporting the reason for a caller-supplied path turns a
+  // submission into a file-existence oracle over the whole filesystem.
+  const auto fail = [&errors, caller_safe_errors](const std::string &detail, const std::string &safe) {
+    errors.push_back(detail);
+    if (caller_safe_errors != nullptr) caller_safe_errors->push_back(safe);
+  };
   if (!certificate.empty() && certificate != "none") {
     context.use_certificate_chain_file(certificate, er);
-    if (er) errors.push_back("Failed to load certificate " + certificate + ": " + utf8::utf8_from_native(er.message()));
+    if (er) fail("Failed to load certificate " + certificate + ": " + utf8::utf8_from_native(er.message()), "Failed to load the configured certificate");
     if (!certificate_key.empty() && certificate_key != "none") {
       context.use_private_key_file(certificate_key, get_certificate_key_format(), er);
-      if (er) errors.push_back("Failed to load certificate key " + certificate_key + ": " + utf8::utf8_from_native(er.message()));
+      if (er)
+        fail("Failed to load certificate key " + certificate_key + ": " + utf8::utf8_from_native(er.message()),
+             "Failed to load the configured certificate key");
     } else {
       context.use_private_key_file(certificate, get_certificate_key_format(), er);
-      if (er) errors.push_back("Failed to load certificate (as key) " + certificate + ": " + utf8::utf8_from_native(er.message()));
+      if (er)
+        fail("Failed to load certificate (as key) " + certificate + ": " + utf8::utf8_from_native(er.message()),
+             "Failed to load the configured certificate key");
     }
   }
   context.set_verify_mode(get_verify_mode(), er);
-  if (er) errors.push_back("Failed to set verify mode: " + utf8::utf8_from_native(er.message()));
+  if (er) fail("Failed to set verify mode: " + utf8::utf8_from_native(er.message()), "Failed to set the TLS verify mode");
   if (SSL_CTX_set_min_proto_version(context.native_handle(), get_tls_min_version()) == 0) {
-    errors.emplace_back("Failed to set min tls version");
+    fail("Failed to set min tls version", "Failed to set the minimum TLS version");
   }
   if (SSL_CTX_set_max_proto_version(context.native_handle(), get_tls_max_version()) == 0) {
-    errors.emplace_back("Failed to set max tls version");
+    fail("Failed to set max tls version", "Failed to set the maximum TLS version");
   }
   if (!allowed_ciphers.empty()) {
     ::ERR_clear_error();
     if (SSL_CTX_set_cipher_list(context.native_handle(), allowed_ciphers.c_str()) == 0) {
-      errors.push_back("Failed to set ciphers " + allowed_ciphers + ": " + utf8::utf8_from_native(ERR_reason_error_string(ERR_get_error())));
+      fail("Failed to set ciphers " + allowed_ciphers + ": " + utf8::utf8_from_native(ERR_reason_error_string(ERR_get_error())),
+           "Failed to set the allowed TLS ciphers");
     }
   }
   if (!dh_key.empty() && dh_key != "none") {
     context.use_tmp_dh_file(dh_key, er);
-    if (er) errors.push_back("Failed to set dh file " + dh_key + ": " + utf8::utf8_from_native(er.message()));
+    if (er) fail("Failed to set dh file " + dh_key + ": " + utf8::utf8_from_native(er.message()), "Failed to load the configured DH parameters");
   }
 
   if (!ca_path.empty()) {
     context.load_verify_file(ca_path, er);
-    if (er) errors.push_back("Failed to load CA " + ca_path + ": " + utf8::utf8_from_native(er.message()));
+    if (er) fail("Failed to load CA " + ca_path + ": " + utf8::utf8_from_native(er.message()), "Failed to load the configured CA bundle");
   }
   if (debug_verify) {
     context.set_verify_callback([](const bool preverified, boost::asio::ssl::verify_context &v_ctx) -> bool {
@@ -1100,6 +1115,59 @@ boost::asio::ssl::verify_mode socket_helpers::verify_mode_parser(const std::stri
       throw socket_exception("Invalid tls verify mode: " + key);
   }
   return mode;
+}
+
+std::string socket_helpers::certificate_spki_sha256(X509 *cert) {
+  if (cert == nullptr) return {};
+  X509_PUBKEY *pubkey = X509_get_X509_PUBKEY(cert);
+  if (pubkey == nullptr) return {};
+  unsigned char *der = nullptr;
+  const int len = i2d_X509_PUBKEY(pubkey, &der);
+  if (len <= 0 || der == nullptr) return {};
+  unsigned char digest[EVP_MAX_MD_SIZE] = {};
+  unsigned int digest_len = 0;
+  const int ok = EVP_Digest(der, static_cast<std::size_t>(len), digest, &digest_len, EVP_sha256(), nullptr);
+  OPENSSL_free(der);
+  if (ok != 1) return {};
+  static const char *const hex = "0123456789abcdef";
+  std::string out;
+  out.reserve(static_cast<std::size_t>(digest_len) * 2);
+  for (unsigned int i = 0; i < digest_len; i++) {
+    out.push_back(hex[digest[i] >> 4]);
+    out.push_back(hex[digest[i] & 0x0f]);
+  }
+  return out;
+}
+
+socket_helpers::pinned_certificate socket_helpers::parse_pinned_certificate(const std::string &pem) {
+  pinned_certificate result;
+  if (pem.empty()) {
+    result.error = "empty";
+    return result;
+  }
+  BIO *bio = BIO_new_mem_buf(pem.data(), static_cast<int>(pem.size()));
+  if (bio == nullptr) {
+    result.error = "out of memory";
+    return result;
+  }
+  X509 *cert = PEM_read_bio_X509(bio, nullptr, nullptr, nullptr);
+  BIO_free(bio);
+  if (cert == nullptr) {
+    result.error = "not a PEM certificate";
+    return result;
+  }
+  result.spki_sha256 = certificate_spki_sha256(cert);
+  // X509_check_ca returns non-zero for anything usable as an issuer, which is
+  // exactly the case the pin cannot speak for: such a PEM says "trust whatever
+  // this signed", so the name in the leaf is the only identity left to check.
+  result.is_ca = X509_check_ca(cert) != 0;
+  X509_free(cert);
+  if (result.spki_sha256.empty()) {
+    result.error = "could not digest the public key";
+    return result;
+  }
+  result.valid = true;
+  return result;
 }
 
 boost::optional<long> socket_helpers::peer_certificate_expiry_days(SSL *ssl) {

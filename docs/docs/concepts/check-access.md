@@ -445,6 +445,52 @@ for restricting a web user to a fixed list of commands. An access mode and a
 permission policy answer different questions, and a tight deployment usually
 wants both.
 
+## Checks that connect somewhere else
+
+The access modes above bound what a check reads *on this host*. A second group
+of checks connects somewhere on the network, with the host, the credentials and
+sometimes the entire query chosen by the caller:
+
+| Check | Arguments | What a caller decides |
+|-------|-----------|-----------------------|
+| `check_wmi` | `target=`, `user=`, `password=`, `namespace=` | which machine is queried over DCOM, and with which account |
+| `check_mysql` | `host=`, `port=`, `user=`, `password=`, `database=` | which MySQL/MariaDB server is connected to, and with which account |
+| `check_mssql` | the ODBC connection string | the driver, the server, the credentials and every other connection attribute |
+| `check_uncpath` | `path=`, `user=`, `password=` | which SMB share this host authenticates to |
+
+These are the checks' purpose — monitoring a database from the agent that sits
+next to it is the normal case — but they are worth reading as what they are:
+**remote-connection primitives, executed from the agent's network position and
+with the agent's privileges.** Where the caller supplies the argument, two
+things follow.
+
+* **Server-side request forgery.** The agent will connect to any host the
+  caller names, from inside whatever network the agent lives in. A monitoring
+  host on a management VLAN is often a far better vantage point than wherever
+  the caller is.
+* **Credentials the caller brought.** `user=` and `password=` are honoured as
+  given, so the agent will authenticate to a server of the caller's choosing
+  with credentials of the caller's choosing. That is an outbound authentication
+  attempt this host makes on someone else's behalf.
+
+None of this is reachable from a caller who cannot pass arguments. The controls
+are the ones that decide that, rather than a mode setting of their own:
+
+* Leave `allow arguments = false` on the NRPE, NSCA and check_nt listeners
+  unless a specific check needs it (see the
+  [securing guide](../setup/securing.md)).
+* Give REST users the no-arguments
+  [`restricted` role](../setup/securing.md#adding-a-dedicated-user), or a
+  command allow-list, rather than `queries.execute` at large.
+* Configure the connection in the check definition and let the caller name only
+  the definition. A command alias with the host and credentials baked in is the
+  difference between "run this check" and "connect wherever you like".
+
+`check_wmi` is the one of the four with a gate of its own: with `query access`
+set to anything other than `any`, `target=` must name an entry in
+`[/settings/wmi/targets]` (see above). The others have no named-target setting
+today, so for them the argument controls above are the whole answer.
+
 ## What a refusal looks like
 
 The check returns `UNKNOWN` with a message naming what was rejected and the

@@ -107,3 +107,44 @@ TEST(docker_endpoint, traversal_is_rejected) {
 }
 
 #endif
+
+// ---------------------------------------------------------------------------
+// is_configured_docker_endpoint: even a perfectly local endpoint is the
+// operator's to choose. A caller who can name it makes the agent connect to
+// any socket or pipe on the host and reports back what happened, which is a
+// read-only probe with the agent's privileges.
+// ---------------------------------------------------------------------------
+
+namespace {
+std::string configured_rejection(const std::string &requested, const std::string &configured) {
+  std::string error;
+  if (docker_checks::is_configured_docker_endpoint(requested, configured, error)) return "";
+  return error.empty() ? "<refused without a reason>" : error;
+}
+}  // namespace
+
+TEST(docker_endpoint_configured, repeating_the_configured_endpoint_is_allowed) {
+  EXPECT_EQ(configured_rejection("/run/docker.sock", "/run/docker.sock"), "");
+}
+
+TEST(docker_endpoint_configured, repeating_the_platform_default_is_allowed_when_nothing_is_configured) {
+  EXPECT_EQ(configured_rejection(docker_checks::default_docker_endpoint(), ""), "");
+}
+
+TEST(docker_endpoint_configured, another_local_endpoint_is_refused) {
+  const std::string error = configured_rejection("/run/user/1000/docker.sock", "/run/docker.sock");
+  ASSERT_FALSE(error.empty());
+  EXPECT_NE(error.find("[/settings/docker]"), std::string::npos) << error;
+}
+
+TEST(docker_endpoint_configured, the_refusal_does_not_echo_the_requested_path) {
+  // Echoing it back is half the oracle: it confirms the agent read the value.
+  const std::string error = configured_rejection("/run/secret-probe.sock", "/run/docker.sock");
+  EXPECT_EQ(error.find("/run/secret-probe.sock"), std::string::npos) << error;
+}
+
+#ifdef WIN32
+TEST(docker_endpoint_configured, pipe_names_compare_case_insensitively) {
+  EXPECT_EQ(configured_rejection("\\\\.\\PIPE\\Docker_Engine", "\\\\.\\pipe\\docker_engine"), "");
+}
+#endif

@@ -62,15 +62,26 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       ;
 
   socket_helpers::settings_helper::add_core_server_opts(settings, info_);
-  // The "insecure" preset relaxes SECLEVEL and removes the cert path so it
-  // can interop with very old check_nrpe builds that have no certificate.
-  // It deliberately keeps !ADH: anonymous Diffie-Hellman gives encryption
-  // with no peer authentication, which means any reachable client speaks the
-  // protocol successfully and the channel can be MITMed undetected. Legacy
-  // check_nrpe works fine with non-anonymous suites, so there is no
-  // compatibility reason to permit ADH.
+  // The "insecure" preset relaxes SECLEVEL and removes the cert path so it can
+  // interop with very old check_nrpe builds that have no certificate. It is an
+  // anonymous mode by construction: with no server certificate loaded, the only
+  // suites that can complete a handshake at all are the anonymous ones, so
+  // there is nothing here to authenticate the peer and the traffic can be read
+  // or altered by anyone on the path. loadModuleEx logs that as an error.
+  //
+  // The cipher string used to carry !ADH, with a comment claiming that kept
+  // anonymous suites out. It never did: in an OpenSSL cipher string ADH names
+  // the anonymous *finite-field* Diffie-Hellman suites only, while the
+  // anonymous elliptic-curve ones are AECDH - !aNULL is the alias covering
+  // both. And !aNULL here would have left no usable suite at all, so the mode
+  // would simply have stopped working. The string now says what the mode is
+  // rather than implying a protection it cannot provide, and matches what
+  // `nscp nrpe install --insecure` writes.
+  //
+  // The secure preset keeps !ADH for belt and braces; at the default security
+  // level OpenSSL refuses every anonymous suite regardless.
   std::string certificate = insecure ? "" : "${certificate-path}/certificate.pem";
-  std::string opts = insecure ? "ALL:!ADH:!MD5:@STRENGTH:@SECLEVEL=0" : "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH";
+  std::string opts = insecure ? "ALL:!MD5:@STRENGTH:@SECLEVEL=0" : "ALL:!aNULL:!ADH:!LOW:!EXP:!MD5:@STRENGTH";
   // ${nrpe-dh}, not ${certificate-path}: the DH parameters are shipped with the
   // package and stay where the installer put them, which on the Windows modern
   // layout is no longer where ${certificate-path} points.

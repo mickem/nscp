@@ -66,6 +66,11 @@ typedef hlp::buffer<char> buffer_type;
 // captured string is a strict <= MAX_OUTPUT_BYTES bound (marker included).
 static const char kOutputTruncMarker[] = "\n[output truncated]";
 static const std::size_t kOutputContentCap = MAX_OUTPUT_BYTES - (sizeof(kOutputTruncMarker) - 1);
+// How long the post-wait drain may spend collecting what is still buffered.
+// Generous for a process that has exited (the pipe is finite and this only
+// reads what is already there), and short enough that a child still writing
+// cannot hold the worker thread away from the kill that follows.
+static const DWORD kFinalDrainBudgetMs = 2000;
 
 struct generic_closer {
   static void close(HANDLE handle) { ::CloseHandle(handle); }
@@ -97,17 +102,28 @@ struct impersonator {
   bool isActive() const { return active; }
 };
 
-static std::string readFromFile(buffer_type &buffer, const HANDLE file_handle) {
-  DWORD dwRead = 0;
-  std::string str;
+// Reads at most `available` bytes - the count PeekNamedPipe just reported - in
+// one bounded pass.
+//
+// The loop this replaces kept calling ReadFile as long as the previous read
+// had filled the whole chunk, and ReadFile on a pipe blocks until at least one
+// byte arrives. A script that wrote exact multiples of the chunk size and then
+// stalled therefore parked the worker thread inside this function with no
+// deadline check at all, past the wall-clock timeout, until the child wrote
+// again or exited - one wedged worker per invocation, from anyone able to
+// influence how much a script prints. Reading only what is known to be
+// buffered can never block, and the caller re-peeks, so nothing is lost.
+static std::string readFromFile(buffer_type &buffer, const HANDLE file_handle, const DWORD available) {
   const DWORD chunk_size = static_cast<DWORD>(buffer.size()) - 10;
-  do {
-    const DWORD retval = ReadFile(file_handle, buffer, chunk_size, &dwRead, nullptr);
-    if (retval == 0 || dwRead <= 0 || dwRead > chunk_size) return str;
-    buffer[dwRead] = 0;
-    str += buffer;
-  } while (dwRead == chunk_size);
-  return str;
+  const DWORD to_read = available < chunk_size ? available : chunk_size;
+  if (to_read == 0) return std::string();
+  DWORD dwRead = 0;
+  const DWORD retval = ReadFile(file_handle, buffer, to_read, &dwRead, nullptr);
+  if (retval == 0 || dwRead == 0 || dwRead > to_read) return std::string();
+  // Sized from dwRead, not read as a C string. A script writing UTF-16, or any
+  // binary, produces NUL bytes, and terminating at the first one silently cut
+  // the output at that byte - which for UTF-16 is usually the second one.
+  return std::string(static_cast<const char *>(buffer), dwRead);
 }
 
 boost::timed_mutex mutex_;
@@ -432,6 +448,15 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
       NSC_TRACE_MSG("Spawned external script: alias='" + args.alias + "' pid=" + str::xtos(pi.dwProcessId) + " timeout=" + str::xtos(effective_timeout) +
                     "s fork=" + (args.fork ? "true" : "false"));
     }
+    // Own both handles from here on. Every early return below - the fork
+    // shortcut, the timeout branch, a failed GetExitCodeProcess - used to skip
+    // the CloseHandle at the very bottom, so each forked or timed-out
+    // invocation leaked a process handle and kept the process object alive in
+    // a service that runs for months. A caller who can make a script hang
+    // through its arguments (an unreachable ping host with a long wait) drives
+    // that remotely.
+    generic_handle process_handle(pi.hProcess);
+    generic_handle thread_handle(pi.hThread);
     if (args.fork) {
       output = "Command started successfully";
       return NSCAPI::query_return_codes::returnOK;
@@ -465,7 +490,7 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
         break;
       }
       if (dwAvail > 0) {
-        const std::string chunk = readFromFile(buffer, hChildOutR.get());
+        const std::string chunk = readFromFile(buffer, hChildOutR.get(), dwAvail);
         // Append up to the cap; past it drop the excess but keep draining so the
         // child never blocks on a full pipe.
         if (str.size() < kOutputContentCap) {
@@ -494,18 +519,34 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
     hChildInR.close();
     hChildOutW.close();
 
-    dwAvail = 0;
-    if (::PeekNamedPipe(hChildOutR.get(), nullptr, 0, nullptr, &dwAvail, nullptr) && dwAvail > 0) {
-      const std::string chunk = readFromFile(buffer, hChildOutR.get());
+    // Final drain. Each pass reads only what PeekNamedPipe reports, so several
+    // are needed for more than one buffer's worth - and re-peeking is what
+    // keeps this from blocking if a write end is still open elsewhere.
+    //
+    // Bounded, because closing our write ends does not stop the child: it
+    // holds its own inherited copy. A child that never stops writing
+    // (`:loop / echo x / goto loop`) refills the pipe as fast as this empties
+    // it, so an unbounded drain never returns - and on the timeout path the
+    // kill below is what it is standing in front of, so the worker would hang
+    // exactly where the timeout was supposed to save it. The deadline is the
+    // drain's own, not the command's: a process that exited normally is owed
+    // its remaining output even if it used its whole timeout producing it.
+    const DWORD drain_start_ms = GetTickCount();
+    for (;;) {
+      dwAvail = 0;
+      if (!::PeekNamedPipe(hChildOutR.get(), nullptr, 0, nullptr, &dwAvail, nullptr) || dwAvail == 0) break;
+      const std::string chunk = readFromFile(buffer, hChildOutR.get(), dwAvail);
+      if (chunk.empty()) break;
       if (str.size() < kOutputContentCap) {
         str.append(chunk, 0, kOutputContentCap - str.size());
         if (str.size() >= kOutputContentCap) str.append(kOutputTruncMarker);
       }
+      if (GetTickCount() - drain_start_ms >= kFinalDrainBudgetMs) break;
     }
     output = utf8::cvt<std::string>(utf8::from_encoding(str, args.encoding));
 
     remove_proc(pi.hProcess);
-    CloseHandle(pi.hThread);
+    thread_handle.close();
     if (state == WAIT_TIMEOUT) {
       // Internal `timeout=` exceeded. Try a graceful CTRL-C first, then fall
       // back to TerminateProcess. Previously this path was effectively
@@ -553,7 +594,6 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
         result = NSCAPI::query_return_codes::returnUNKNOWN;
       }
     }
-    CloseHandle(pi.hProcess);
     return result;
   }
   const DWORD error = spawn_error;

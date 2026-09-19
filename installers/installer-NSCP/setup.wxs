@@ -3,9 +3,16 @@
 	<?define ProgramFiles = "ProgramFiles64Folder" ?>
 	<?define Win64 = "yes" ?>
 	<?define Platform = "x64" ?>
+	<?define InstallerVersion = "405" ?>
+	<?elseif "$(var.arch)" = "arm64"?>
+	<?define ProgramFiles = "ProgramFiles64Folder" ?>
+	<?define Win64 = "yes" ?>
+	<?define Platform = "arm64" ?>
+	<?define InstallerVersion = "500" ?>
 	<?else?>
 	<?define ProgramFiles = "ProgramFilesFolder" ?>
 	<?define Win64 = "no" ?>
 	<?define Platform = "x86" ?>
+	<?define InstallerVersion = "405" ?>
 	<?endif?>
 </Include>

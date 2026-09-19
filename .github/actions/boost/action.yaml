@@ -1,0 +1,230 @@
+---
+name: Build Boost
+description: >-
+  Download and build Boost with b2, including for ARM64.
+
+  This is a drop-in replacement for mickem/build-boost (same inputs, same two
+  outputs, same on-disk layout) for the one case that action cannot serve: it
+  shells out to cmake-common's `boost-build --platform ...`, whose Platform enum
+  is exactly x86/x64/auto, so `--platform arm64` aborts with "invalid platform"
+  before anything is compiled. That is what failed the ARM64 Windows build in
+  April 2026 and got it disabled in #1223.
+
+  The b2 invocation mirrors cmake-common's so the two produce interchangeable
+  trees - most importantly --layout=system (plain boost_system.lib rather than
+  the versioned name) and --stagedir=stage/<platform>/<configuration>, both of
+  which the rest of the pipeline and FindBoost rely on.
+inputs:
+  version:
+    description: Boost version to build, e.g. 1.86.0
+    required: true
+  libraries:
+    description: Space-separated list of libraries to build
+    required: true
+  platform:
+    description: Target platform (x86, x64 or arm64)
+    required: false
+    default: x64
+  configuration:
+    description: Configuration to build
+    required: false
+    default: Release
+  static:
+    description: Build static libraries
+    required: false
+    default: '0'
+  static-runtime:
+    description: Link against the static runtime
+    required: false
+    default: '0'
+  directory:
+    description: Destination directory (defaults to <workspace>/boost)
+    required: false
+    default: ''
+outputs:
+  root:
+    description: Root Boost directory
+    value: ${{ steps.build.outputs.root }}
+  librarydir:
+    description: Directory holding the built Boost libraries
+    value: ${{ steps.build.outputs.librarydir }}
+runs:
+  using: composite
+  steps:
+    # Boost is the most expensive dependency in the job by a wide margin, and
+    # the ARM64 build calls this action twice (static, then shared). The key
+    # covers everything that changes the output: the version, the target, the
+    # configuration, both link flags and the library set. The destination
+    # directory is deliberately not in the key - it is where the result is
+    # put, not what the result is - but it is what gets cached, so the two
+    # invocations in a job must keep using different directories, which they
+    # do.
+    - id: cache
+      uses: actions/cache@v3
+      with:
+        key: ${{ runner.os }}-boost-${{ inputs.version }}-${{ inputs.platform }}-${{ inputs.configuration }}-static${{ inputs.static }}-rt${{ inputs.static-runtime }}-${{ inputs.libraries }}
+        path: |
+          ${{ inputs.directory || format('{0}/boost', runner.workspace) }}
+
+    - id: build
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+
+        $cacheHit = '${{ steps.cache.outputs.cache-hit }}' -eq 'true'
+
+        $version = '${{ inputs.version }}'
+        $platform = '${{ inputs.platform }}'
+        $configuration = '${{ inputs.configuration }}'
+        $static = '${{ inputs.static }}' -eq '1'
+        $staticRuntime = '${{ inputs.static-runtime }}' -eq '1'
+        $libraries = '${{ inputs.libraries }}'.Split(
+            ' ', [System.StringSplitOptions]::RemoveEmptyEntries)
+        if (-not $libraries) {
+            throw 'No Boost libraries selected; building them all is never what we want here.'
+        }
+
+        $baseDir = '${{ runner.workspace }}'
+        $boostDir = '${{ inputs.directory }}'
+        if (-not $boostDir) { $boostDir = Join-Path $baseDir 'boost' }
+
+        $dirName = 'boost_' + $version.Replace('.', '_')
+        # The archive is kept next to the build trees so the second invocation
+        # of this action in a job (static Boost, then the regular one) reuses
+        # the download instead of fetching 130MB again.
+        $archive = Join-Path $baseDir "$dirName.tar.gz"
+
+        if (-not (Test-Path $archive)) {
+            # Same two sources, in the same order, as cmake-common uses.
+            $urls = @(
+                "https://archives.boost.io/release/$version/source/$dirName.tar.gz",
+                "https://sourceforge.net/projects/boost/files/boost/$version/$dirName.tar.gz/download"
+            )
+            foreach ($url in $urls) {
+                Write-Host "* Trying $url"
+                try {
+                    Invoke-WebRequest -Uri $url -OutFile $archive -UseBasicParsing
+                    break
+                } catch {
+                    Write-Host "! $url failed: $($_.Exception.Message)"
+                    if (Test-Path $archive) { Remove-Item $archive -Force }
+                }
+            }
+            if (-not (Test-Path $archive)) {
+                throw "Could not download Boost $version from any known source"
+            }
+
+            # Same policy as every other downloaded dependency: TLS says who
+            # served the bytes, not what they are, and this archive ends up
+            # inside an Authenticode-signed artifact. Forward slashes because
+            # the script runs under Git Bash, where a backslash is an escape.
+            $unix = $archive.Replace('\', '/')
+            & bash "$env:GITHUB_WORKSPACE/.github/scripts/verify-checksum.sh" boost $version $unix
+            if ($LASTEXITCODE -ne 0) {
+                Remove-Item $archive -Force -ErrorAction SilentlyContinue
+                throw "Boost $version failed checksum verification"
+            }
+        }
+
+        if (-not (Test-Path (Join-Path $boostDir 'bootstrap.bat'))) {
+            Write-Host "* Extracting $archive to $boostDir"
+            New-Item -ItemType Directory -Force -Path $boostDir | Out-Null
+            tar -xf $archive -C $boostDir --strip-components=1
+            if ($LASTEXITCODE -ne 0) { throw "Extracting $archive failed" }
+        }
+
+        $libraryDir = "$boostDir\stage\$platform\$configuration\lib"
+
+        # A cache hit still has to produce the outputs and prove the tree is
+        # the one that was cached, since a partially-restored cache would
+        # otherwise surface much later as a link error.
+        if ($cacheHit) {
+            $cached = @(Get-ChildItem -Path $libraryDir -Filter '*.lib' -ErrorAction SilentlyContinue)
+            if ($cached.Count -gt 0) {
+                Write-Host "* Cache hit: $($cached.Count) libraries already in $libraryDir"
+                echo "root=$boostDir" >> $env:GITHUB_OUTPUT
+                echo "librarydir=$libraryDir" >> $env:GITHUB_OUTPUT
+                exit 0
+            }
+            Write-Host "! Cache hit but $libraryDir holds no libraries; building from source."
+        }
+
+        $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+        $vsPath = & $vswhere -latest -products * -property installationPath
+        if (-not $vsPath) { throw 'vswhere found no Visual Studio installation' }
+        $vcvarsall = Join-Path $vsPath 'VC\Auxiliary\Build\vcvarsall.bat'
+        if (-not (Test-Path $vcvarsall)) { throw "No vcvarsall.bat at $vcvarsall" }
+        Write-Host "* Visual Studio: $vsPath"
+
+        Push-Location $boostDir
+        try {
+            # Two different environments, for two different reasons.
+            #
+            # b2.exe itself has to run on the *host*, so it is bootstrapped
+            # under a plain x64 environment: building it with the cross
+            # compiler would produce an ARM64 binary the runner cannot execute.
+            if (-not (Test-Path '.\b2.exe')) {
+                cmd /c "call `"$vcvarsall`" x64 && bootstrap.bat"
+                if ($LASTEXITCODE -ne 0) { throw 'bootstrap.bat failed' }
+            }
+
+            $link = if ($static) { 'static' } else { 'shared' }
+            $runtimeLink = if ($staticRuntime) { 'static' } else { 'shared' }
+
+            $b2Args = @(
+                '--layout=system'
+                "--stagedir=stage/$platform/$configuration"
+                "variant=$($configuration.ToLower())"
+                "link=$link"
+                "runtime-link=$runtimeLink"
+                'toolset=msvc'
+            )
+            switch ($platform) {
+                'x86'   { $b2Args += 'address-model=32'; $targetVcvars = 'amd64_x86' }
+                'x64'   { $b2Args += 'address-model=64'; $targetVcvars = 'x64' }
+                'arm64' {
+                    $b2Args += @('architecture=arm', 'address-model=64')
+                    $targetVcvars = 'amd64_arm64'
+                }
+                default { throw "Unsupported platform '$platform'" }
+            }
+            $b2Args += $libraries | ForEach-Object { "--with-$_" }
+
+            # The build itself runs under the environment for the *target*,
+            # because b2 compiles with whichever cl.exe is on PATH. Under a
+            # plain x64 environment it puts x64 objects in an arm_64 directory
+            # and the DLLs fail to link with "LNK1112: module machine type
+            # 'x64' conflicts with target machine type 'ARM64'" - and the
+            # static libraries do not fail at all, since lib.exe just archives
+            # what it is given, so the wrong architecture would travel silently
+            # into installer_lib.
+            $commandLine = '.\b2.exe ' + ($b2Args -join ' ')
+            Write-Host "* [$targetVcvars] $commandLine"
+            cmd /c "call `"$vcvarsall`" $targetVcvars && $commandLine"
+            if ($LASTEXITCODE -ne 0) { throw 'b2 failed' }
+        } finally {
+            Pop-Location
+        }
+
+        # b2 reports success even when it skipped every target it was asked
+        # for, so check that something actually landed rather than letting
+        # FindBoost report a confusing "not found" much later.
+        $built = @(Get-ChildItem -Path $libraryDir -Filter '*.lib' -ErrorAction SilentlyContinue)
+        if ($built.Count -eq 0) {
+            throw "b2 reported success but produced no libraries in $libraryDir"
+        }
+        Write-Host "* Built $($built.Count) libraries in $libraryDir"
+
+        # b2's intermediate tree is larger than everything that is actually
+        # wanted here - the headers and stage/lib - and only the latter is
+        # read downstream. actions/cache saves in its post step, so removing
+        # this now keeps it out of the cache entry rather than pushing
+        # gigabytes of object files into the repository's cache quota.
+        $objDir = Join-Path $boostDir 'bin.v2'
+        if (Test-Path $objDir) {
+            Write-Host "* Removing b2 intermediates in $objDir"
+            Remove-Item -Recurse -Force $objDir -ErrorAction SilentlyContinue
+        }
+
+        echo "root=$boostDir" >> $env:GITHUB_OUTPUT
+        echo "librarydir=$libraryDir" >> $env:GITHUB_OUTPUT

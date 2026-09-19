@@ -21,4 +21,11 @@ class extscr_cli {
 
  private:
   bool validate_sandbox(boost::filesystem::path pscript, PB::Commands::ExecuteResponseMessage::Response *response);
+  // `add --import` copies a file into the script root, where `show` then
+  // returns its bytes: without this the sandbox that confines show and delete
+  // is a formality, since any file the service can read can be brought inside
+  // it first. The source has to live in the script root, in ${shared-path} or
+  // in the upload staging area under ${temp} - the three places a script is
+  // legitimately imported from.
+  bool validate_import_source(const boost::filesystem::path &source, PB::Commands::ExecuteResponseMessage::Response *response);
 };

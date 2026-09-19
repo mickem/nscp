@@ -101,7 +101,7 @@ void check_restarts(const settings &defaults, const PB::Commands::QueryRequestMe
   filter_helper.add_syntax("${status}: ${list}", "${names}: ${restart_count} restarts, ${container_state}", "${names}", "No containers found", "");
   // clang-format off
   filter_helper.get_desc().add_options()
-    ("host", po::value<std::string>(&endpoint)->default_value(endpoint), "The local docker daemon socket (named pipe on Windows, unix socket elsewhere).")
+    ("host", po::value<std::string>(&endpoint)->default_value(endpoint), "The local docker daemon socket (named pipe on Windows, unix socket elsewhere). Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator decision, not a request one.")
     ("timeout", po::value<int>(&timeout)->default_value(timeout), "Timeout for talking to the daemon, in seconds.")
     ("container", po::value<std::vector<std::string>>(&only), "Only inspect the named container (repeatable).")
     ;
@@ -109,9 +109,10 @@ void check_restarts(const settings &defaults, const PB::Commands::QueryRequestMe
 
   if (!filter_helper.parse_options()) return;
 
-  // See check_containers for why the endpoint must be constrained.
+  // See check_containers for why the endpoint must be constrained, and why a
+  // request may not choose it.
   std::string endpoint_error;
-  if (!is_local_docker_endpoint(endpoint, endpoint_error)) {
+  if (!is_configured_docker_endpoint(endpoint, defaults.endpoint, endpoint_error) || !is_local_docker_endpoint(endpoint, endpoint_error)) {
     return nscapi::protobuf::functions::set_response_bad(*response, endpoint_error);
   }
 

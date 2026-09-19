@@ -56,7 +56,7 @@ runs:
       shell: bash
 
     # WITH_SSL=SCHANNEL keeps the connector on the platform TLS stack instead of
-    # pulling in a second OpenSSL next to the one NSClient++ links statically.
+    # pulling in a second OpenSSL next to the one NSClient++ already ships.
     #
     # The auth plugins are built STATIC on purpose. By default the connector
     # loads them as separate DLLs out of a plugin directory baked in at compile
