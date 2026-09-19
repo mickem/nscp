@@ -125,6 +125,14 @@ export async function mockApi(page: Page, overrides: Overrides = {}) {
     switch (path) {
       case "/api/v2/login": {
         const auth = route.request().headers()["authorization"] || "";
+        // Logging out revokes the bearer server-side before the client forgets
+        // it, so the same route answers DELETE with the token it issued.
+        if (route.request().method() === "DELETE") {
+          if (auth === `Bearer ${E2E_TOKEN}`) {
+            return json(route, {});
+          }
+          return route.fulfill({ status: 403, body: "Forbidden" });
+        }
         const expected = `Basic ${Buffer.from(`${E2E_USER}:${E2E_PASSWORD}`).toString("base64")}`;
         if (auth === expected) {
           return json(route, { key: E2E_TOKEN, user: E2E_USER });
@@ -164,9 +172,15 @@ export async function mockApi(page: Page, overrides: Overrides = {}) {
   });
 }
 
-/** Seed the persisted token so the app boots straight into the shell. */
-export async function loginViaLocalStorage(page: Page) {
+/**
+ * Seed the persisted token so the app boots straight into the shell.
+ *
+ * sessionStorage, not localStorage: that is where useAuthentication keeps the
+ * bearer, so seeding anywhere else lands on the login screen instead of the
+ * shell. Kept in step with TOKEN_STORAGE_KEY in src/common/hooks/auth.ts.
+ */
+export async function loginViaSessionStorage(page: Page) {
   await page.addInitScript((token: string) => {
-    window.localStorage.setItem("token", token);
+    window.sessionStorage.setItem("token", token);
   }, E2E_TOKEN);
 }

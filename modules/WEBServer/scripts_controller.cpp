@@ -16,17 +16,45 @@
 
 #define EXT_SCR "CheckExternalScripts"
 #define PY_SCR "PythonScript"
+#define LUA_SCR "LUAScript"
 
 namespace json = boost::json;
 
+// Map the URL's first segment to the module that owns that script runtime.
+//
+// Anything unrecognised used to be passed straight through, and the same
+// string became both the permission suffix and the module exec_command() was
+// sent to. A role granted `scripts.*` or `scripts.add.*` rather than a
+// specific runtime could therefore drive the add/delete/show/list verbs of any
+// loaded module that implements them; on PUT and DELETE the segment may even
+// be empty, which asked the core to exec against "". Allow-list instead, and
+// let the callers answer 400 for anything else.
+//
+// `lua` is mapped here for the first time: get_runtimes has always advertised
+// it, but this function never translated it, so /api/v2/scripts/lua addressed
+// a module named "lua", which does not exist. The module names themselves stay
+// addressable so the permission suffixes do not change.
+//
+// Returns an empty string when the runtime is not one of the three.
 std::string get_runtime(const std::string &runtime) {
-  if (runtime == "ext") {
+  if (runtime == "ext" || runtime == EXT_SCR) {
     return EXT_SCR;
   }
-  if (runtime == "py") {
+  if (runtime == "py" || runtime == PY_SCR) {
     return PY_SCR;
   }
-  return runtime;
+  if (runtime == "lua" || runtime == LUA_SCR) {
+    return LUA_SCR;
+  }
+  return "";
+}
+
+// Answer 400 for an unknown runtime. Called before the permission check so an
+// unknown segment never reaches `can()` as a grant suffix either.
+bool validate_runtime(const std::string &runtime, Mongoose::StreamResponse &response) {
+  if (!runtime.empty()) return true;
+  response.setCodeBadRequest("Unknown script runtime: expected one of ext, py, lua");
+  return false;
 }
 
 bool validate_response(const PB::Commands::ExecuteResponseMessage &resp, Mongoose::StreamResponse &response) {
@@ -102,6 +130,7 @@ void scripts_controller::get_scripts(Mongoose::Request &request, boost::smatch &
     return;
   }
   std::string runtime = get_runtime(what.str(1));
+  if (!validate_runtime(runtime, response)) return;
 
   std::string fetch_all = request.get("all", "false");
 
@@ -134,6 +163,7 @@ void scripts_controller::get_script(Mongoose::Request &request, boost::smatch &w
     return;
   }
   std::string runtime = get_runtime(what.str(1));
+  if (!validate_runtime(runtime, response)) return;
   std::string script = what.str(2);
   if (!name_safety::is_safe_script_name(script)) {
     response.setCodeBadRequest("Invalid script name");
@@ -167,6 +197,7 @@ void scripts_controller::add_script(Mongoose::Request &request, boost::smatch &w
     return;
   }
   std::string runtime = get_runtime(what.str(1));
+  if (!validate_runtime(runtime, response)) return;
   std::string script = what.str(2);
   // Reject traversal up front - the URL pattern (.+) accepts slashes and the
   // script name is forwarded as `--script <name>` to CheckExternalScripts /
@@ -231,6 +262,7 @@ void scripts_controller::delete_script(Mongoose::Request &request, boost::smatch
     return;
   }
   std::string runtime = get_runtime(what.str(1));
+  if (!validate_runtime(runtime, response)) return;
   std::string script = what.str(2);
   if (!name_safety::is_safe_script_name(script)) {
     response.setCodeBadRequest("Invalid script name");

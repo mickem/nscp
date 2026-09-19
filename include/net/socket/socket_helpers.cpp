@@ -28,6 +28,13 @@
 #include <openssl/pem.h>
 #include <openssl/ssl.h>
 #include <openssl/x509.h>
+// Under USE_SSL, and here rather than with the other project headers above:
+// it names TLS1_2_VERSION and friends, so it needs <openssl/ssl.h> first and
+// must not be pulled into a build without SSL - on Windows the OpenSSL include
+// directory is only on the path for the targets that link it, so an
+// unconditional include broke every module test that compiles this file
+// without SSL.
+#include <net/tls_versions.hpp>
 #endif
 #ifdef WIN32
 // After boost/asio.hpp, which pulls winsock2.h in first; accctrl/aclapi then
@@ -510,29 +517,13 @@ boost::asio::ssl::context::verify_mode socket_helpers::connection_info::ssl_opts
   return mode;
 }
 
+// The table of `tls version` spellings now lives in <net/tls_versions.hpp>, so
+// the beast web backend - which cannot link this library - resolves the
+// setting from the same list instead of its own copy. Drifting apart is
+// exactly what left documented spellings rejected as "Invalid tls version"
+// (which for an NRPE listener surfaces as "listener failed to start").
 namespace {
-// The one table of `tls version` spellings, so the places that have to
-// understand the setting cannot drift apart again - drifting apart is exactly
-// what left documented spellings rejected as "Invalid tls version" (which for
-// an NRPE listener surfaces as "listener failed to start"). `spec` is the
-// setting lower-cased with any trailing '+' already stripped; "any" is not
-// handled here because it means different things to a floor and to a ceiling.
-bool lookup_tls_version(const std::string &spec, long &version) {
-  if (spec == "tlsv1.3" || spec == "tls1.3" || spec == "1.3") {
-    version = TLS1_3_VERSION;
-  } else if (spec == "tlsv1.2" || spec == "tls1.2" || spec == "1.2") {
-    version = TLS1_2_VERSION;
-  } else if (spec == "tlsv1.1" || spec == "tls1.1" || spec == "1.1") {
-    version = TLS1_1_VERSION;
-  } else if (spec == "tlsv1.0" || spec == "tls1.0" || spec == "1.0") {
-    version = TLS1_VERSION;
-  } else if (spec == "sslv3" || spec == "ssl3") {
-    version = SSL3_VERSION;
-  } else {
-    return false;
-  }
-  return true;
-}
+using tls_versions::lookup;
 }  // namespace
 
 long socket_helpers::connection_info::ssl_opts::get_tls_min_version() const {
@@ -545,7 +536,7 @@ long socket_helpers::connection_info::ssl_opts::get_tls_min_version() const {
     return 0;
   }
   long version = 0;
-  if (!lookup_tls_version(tmp, version)) {
+  if (!lookup(tmp, version)) {
     throw socket_exception("Invalid tls version: " + tmp);
   }
   return version;
@@ -570,7 +561,7 @@ long socket_helpers::connection_info::ssl_opts::get_tls_max_version() const {
     return TLS1_3_VERSION;
   }
   long version = 0;
-  if (!lookup_tls_version(tmp, version)) {
+  if (!lookup(tmp, version)) {
     throw socket_exception("Invalid tls version: " + tmp);
   }
   return version;
@@ -1059,7 +1050,7 @@ long socket_helpers::tls_min_version_parser(const std::string &tls_version) {
   // '+' forms - threw here and took the listener down with it, the same
   // failure the '+' forms above were fixed for.
   long version = 0;
-  if (!lookup_tls_version(tmp, version)) {
+  if (!lookup(tmp, version)) {
     throw socket_exception("Invalid tls version: " + tls_version);
   }
   return version;

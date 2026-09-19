@@ -42,8 +42,10 @@ if (!window.matchMedia) {
 }
 
 afterEach(() => {
-  // Tests seed tokens through localStorage (the auth hook persists there);
-  // make sure state never leaks from one test into the next.
+  // Tests seed tokens through sessionStorage (where the auth hook persists
+  // them); localStorage is cleared too because logout still sweeps a token
+  // left there by an older build. Make sure neither leaks between tests.
+  sessionStorage.clear();
   localStorage.clear();
   vi.unstubAllGlobals();
 });

@@ -100,7 +100,7 @@ bool session_manager_interface::process_auth_header(const std::string &grant, Mo
 }
 
 bool session_manager_interface::process_auth_header(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response,
-                                                    std::string *matched_grant) {
+                                                    std::string *matched_grant, const bool issue_token) {
   const std::string remote_ip = request.getRemoteIp();
   if (rate_limiter.is_blocked(remote_ip)) {
     NSC_LOG_ERROR("Rate-limited authentication attempt from " + remote_ip);
@@ -131,7 +131,7 @@ bool session_manager_interface::process_auth_header(const grant_options &grants,
       return false;
     }
     rate_limiter.record_success(remote_ip);
-    if (!store_user_in_response(user_and_password.first, response)) {
+    if (!store_user_in_response(user_and_password.first, response, issue_token)) {
       response.setCodeServerError("500 Failed to issue token");
       return false;
     }
@@ -161,7 +161,7 @@ bool session_manager_interface::process_password_header(const std::string &grant
 }
 
 bool session_manager_interface::process_password_header(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response,
-                                                        const std::string &password, std::string *matched_grant) {
+                                                        const std::string &password, std::string *matched_grant, const bool issue_token) {
   const std::string remote_ip = request.getRemoteIp();
   if (rate_limiter.is_blocked(remote_ip)) {
     NSC_LOG_ERROR("Rate-limited authentication attempt from " + remote_ip);
@@ -188,7 +188,7 @@ bool session_manager_interface::process_password_header(const grant_options &gra
     return false;
   }
   rate_limiter.record_success(remote_ip);
-  if (!store_user_in_response(kImplicitUser, response)) {
+  if (!store_user_in_response(kImplicitUser, response, issue_token)) {
     response.setCodeServerError("500 Failed to issue token");
     return false;
   }
@@ -199,8 +199,12 @@ bool session_manager_interface::is_logged_in(const std::string &grant, Mongoose:
   return is_logged_in(grant_options{grant}, request, response);
 }
 
+bool session_manager_interface::log_in(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response) {
+  return is_logged_in(grant_options{grant}, request, response, nullptr, true);
+}
+
 bool session_manager_interface::is_logged_in(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response,
-                                             std::string *matched_grant) {
+                                             std::string *matched_grant, const bool issue_token) {
   std::list<std::string> errors;
   if (!allowed_hosts.is_allowed(boost::asio::ip::make_address(request.getRemoteIp()), errors)) {
     const std::string error = str::utils::joinEx(errors, ", ");
@@ -209,7 +213,7 @@ bool session_manager_interface::is_logged_in(const grant_options &grants, Mongoo
     return false;
   }
   if (has_auth_header(request)) {
-    return process_auth_header(grants, request, response, matched_grant);
+    return process_auth_header(grants, request, response, matched_grant, issue_token);
   }
   // Legacy `password` HTTP header used by Icinga's check_nscp_api (and any
   // other plugin that follows the same convention). The header carries just
@@ -220,7 +224,7 @@ bool session_manager_interface::is_logged_in(const grant_options &grants, Mongoo
   // Basic auth path uses.
   const std::string password_header = request.readHeader("password");
   if (!password_header.empty()) {
-    return process_password_header(grants, request, response, password_header, matched_grant);
+    return process_password_header(grants, request, response, password_header, matched_grant, issue_token);
   }
   const std::string token = find_token(request, *this);
   if (token.empty()) {
@@ -249,7 +253,15 @@ std::list<std::string> session_manager_interface::boot() {
   return errors;
 }
 
-bool session_manager_interface::store_user_in_response(const std::string &user, Mongoose::StreamResponse &response) {
+bool session_manager_interface::store_user_in_response(const std::string &user, Mongoose::StreamResponse &response, const bool issue_token) {
+  if (!issue_token) {
+    // No token, no store entry: can() authorises from the request-scoped
+    // identity alone, and a caller that re-authenticates on every request has
+    // no session to keep. This is what stops a monitoring poll from evicting
+    // live UI sessions out of the 4096-entry store.
+    response.setContext("uid", user);
+    return true;
+  }
   const std::string token = tokens.generate_for(user);
   if (token.empty()) {
     // generate_for only returns empty when the CSPRNG failed. token_store
@@ -261,23 +273,29 @@ bool session_manager_interface::store_user_in_response(const std::string &user, 
         "created. Authentication will keep failing until the OpenSSL RNG is usable again.");
     return false;
   }
-  response.setCookie("token", token);
-  response.setCookie("uid", user);
+  // setContext, not setCookie: this is request-scoped state for the
+  // permission check and the login routes, not something the client is meant
+  // to store. Emitted as a Set-Cookie it was a second copy of the bearer on
+  // every authenticated response, which nothing ever read back - no request
+  // path authenticates from a Cookie header - while looking to the next
+  // reader like a working session mechanism.
+  response.setContext("token", token);
+  response.setContext("uid", user);
   return true;
 }
 
 void session_manager_interface::store_session_in_response(const std::string &token, const std::string &user, Mongoose::StreamResponse &response) const {
-  response.setCookie("token", token);
-  response.setCookie("uid", user);
+  response.setContext("token", token);
+  response.setContext("uid", user);
 }
 
 void session_manager_interface::get_user_from_response(const Mongoose::StreamResponse &response, std::string &user, std::string &key) {
-  user = response.getCookie("uid");
-  key = response.getCookie("token");
+  user = response.getContext("uid");
+  key = response.getContext("token");
 }
 
 bool session_manager_interface::has_grant(const std::string &grant, const Mongoose::StreamResponse &response) {
-  const std::string uid = response.getCookie("uid");
+  const std::string uid = response.getContext("uid");
   if (uid.empty()) {
     // Only consult the "anonymous" grants if anonymous access is explicitly
     // enabled. Without this guard, an operator who configured an

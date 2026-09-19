@@ -103,15 +103,18 @@ void legacy_controller::auth_token(Mongoose::Request &request, Mongoose::StreamR
   // Same contract as the header form: the password alone, the user implied to
   // be "admin". On success it generates the session token and stores it in the
   // response cookie, which is where the legacy body/header below read it from.
-  if (!session->process_password_header("login.get", request, response, request.get("password"))) {
+  // The last argument mints a session token: this endpoint's whole purpose is
+  // to hand one back, so it is one of the two routes that still add to the
+  // token store. Every other route authenticates without one.
+  if (!session->process_password_header(session_manager_interface::grant_options{"login.get"}, request, response, request.get("password"), nullptr, true)) {
     return;
   }
   std::string user, token;
   session_manager_interface::get_user_from_response(response, user, token);
   if (token.empty()) {
-    // Not reachable today: process_password_header stores a freshly generated
-    // token in the response cookie on every success, and getCookie reads that
-    // same map back. Guarded anyway because the entire purpose of this
+    // Not reachable today: process_password_header with issue_token stores a
+    // freshly generated token in the response context, and get_user_from_response
+    // reads that same map back. Guarded anyway because the entire purpose of this
     // endpoint is to hand back a usable token - answering "ok" with an empty
     // one would leave the caller with a 200 it cannot authenticate with, and
     // nothing in the type system ties the two halves together.

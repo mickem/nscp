@@ -106,7 +106,12 @@ jobs:
     - id: build-web
       working-directory: web
       run: |
-        npm install
+        # npm ci, not npm install: install tolerates a lockfile that has drifted
+        # from package.json and rewrites it, so the bytes shipped in the web zip
+        # and in the MSI's bundled web/dist would not be the ones
+        # package-lock.json names. ci fails instead, and the .sha256 manifest the
+        # installer verifies then attests a dependency tree someone reviewed.
+        npm ci
         npm run build
 
     - name: Install components
