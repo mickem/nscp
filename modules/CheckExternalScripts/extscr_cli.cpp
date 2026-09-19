@@ -176,9 +176,17 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
     boost::filesystem::recursive_directory_iterator iter(dir), eod;
     for (boost::filesystem::path const &i : boost::make_iterator_range(iter, eod)) {
       std::string s = i.string();
-      if (boost::algorithm::starts_with(s, rel.string())) s = s.substr(rel.string().size());
-      if (s.size() == 0) continue;
-      if (s[0] == '\\' || s[0] == '/') s = s.substr(1);
+      // Relative to the install base when the file is under it, which is the
+      // case on Windows and is what `show` and the web UI's script list have
+      // always been handed. When it is not - the normal case on unix, where
+      // ${scripts} is not below ${base-path} - the path is left absolute.
+      // It used to have its leading separator sliced off regardless, leaving a
+      // rootless `usr/lib/nsclient/scripts/x` that named no file at all.
+      if (boost::algorithm::starts_with(s, rel.string())) {
+        s = s.substr(rel.string().size());
+        if (!s.empty() && (s[0] == '\\' || s[0] == '/')) s = s.substr(1);
+      }
+      if (s.empty()) continue;
       // Skip scripts under a `lib` folder unless --include-lib was given. The
       // previous test used a substring match on the whole path (so a `libs` or
       // `calibrate` folder was wrongly excluded) AND never consulted the parsed
@@ -375,6 +383,13 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
     nscapi::protobuf::functions::set_response_good(*response, npo::help(desc));
     return;
   }
+  if (script.empty()) {
+    // The destination name comes from --script, not from --import: with it
+    // empty the join below produced the script root itself, and the import
+    // copied over that directory path instead of into it.
+    nscapi::protobuf::functions::set_response_bad(*response, "No script specified add --script");
+    return;
+  }
   boost::filesystem::path file = provider_->get_core()->expand_path(script);
   boost::filesystem::path script_root = provider_->get_root();
 
@@ -386,7 +401,26 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
     // the legacy /exec route.
     if (!validate_import_source(provider_->get_core()->expand_path(import_script), response)) return;
     file = script_root / file_helpers::meta::get_filename(file);
+    // What gets recorded has to be runnable as-is, because this module
+    // resolves nothing: the value is handed to the shell (or to execvp)
+    // verbatim, with no ${...} expansion and no search of the script folder.
+    //
+    // On Windows the launcher starts the child with ${base-path} as its
+    // working directory and ${scripts} sits directly below it, so the
+    // historical relative spelling resolves and is kept - it is what every
+    // existing nsclient.ini and the web UI's script list show.
+    //
+    // Everywhere else it resolved to nothing at all: the backslash is an
+    // ordinary filename character on unix, ${scripts} is not below
+    // ${base-path} (/usr/lib/nsclient/scripts versus /usr/sbin), and the unix
+    // launcher does not set a working directory for the child in the first
+    // place - so the imported script exited 127 the moment it was run.
+    // Record where the file actually is instead.
+#ifdef WIN32
     script = "scripts\\" + file_helpers::meta::get_filename(file);
+#else
+    script = file.string();
+#endif
     if (boost::filesystem::exists(file)) {
       if (replace) {
         boost::filesystem::remove(file);
@@ -396,6 +430,13 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
       }
     }
     try {
+      // copy_file does not create the destination directory, and nothing
+      // guarantees ${scripts} exists: on Windows it only materialises when the
+      // sample scripts feature is selected, and a ${scripts} override points
+      // somewhere that was never populated at all. Without this the import
+      // failed with a bare "No such file or directory" naming a path the
+      // operator had no reason to create by hand.
+      boost::filesystem::create_directories(file.parent_path());
       boost::filesystem::copy_file(import_script, file);
     } catch (const std::exception &e) {
       nscapi::protobuf::functions::set_response_bad(*response, "Failed to import script: " + utf8::utf8_from_native(e.what()));
