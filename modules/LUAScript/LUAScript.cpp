@@ -15,6 +15,7 @@
 #include <nscapi/protobuf/functions_exec.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <nscapi/settings/helper.hpp>
+#include <str/utils.hpp>
 
 #include "extscr_cli.h"
 
@@ -40,7 +41,22 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
     settings.set_alias(alias, "lua");
 
+    // Rebuilt on every load: loadModuleEx runs again on a settings reload, and
+    // a list that only ever grew would keep folders an operator had removed.
+    allowed_roots_ = nscp::scripts::allowed_roots();
+    allowed_roots_.add(root_.string());
+
     // clang-format off
+    settings.alias().add_key_to_settings()
+      .add_string("additional script roots", sh::string_fun_key([this](const std::string &value) { this->add_script_roots(value); }, ""),
+        "ADDITIONAL SCRIPT ROOTS",
+        "Comma separated list of extra folders scripts may be loaded from, on top of the script folder itself. "
+        "A script configured below has to live inside one of these, so that a path which climbs out of the script "
+        "folder (`../foo.lua`) is refused rather than loaded. Add the folders of any scripts that are not installed "
+        "with NSClient++ - a plugin package's own libexec directory, for example. Path tokens are expanded, so "
+        "`${shared-path}/extra` works.", true)
+      ;
+
     settings.alias().add_path_to_settings()
 
       ("scripts", sh::fun_values_path([this] (auto key, auto value) { this->loadScript(key, value); }),
@@ -68,6 +84,15 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
   return true;
 }
 
+void LUAScript::add_script_roots(const std::string &value) {
+  for (const std::string &entry : str::utils::split_lst(value, std::string(","))) {
+    std::string trimmed = entry;
+    boost::algorithm::trim(trimmed);
+    if (trimmed.empty()) continue;
+    allowed_roots_.add(get_core()->expand_path(trimmed));
+  }
+}
+
 bool LUAScript::startModule() {
   try {
     std::atomic_load(&scripts_)->start_all();
@@ -91,6 +116,16 @@ bool LUAScript::loadScript(std::string alias, std::string file) {
     boost::optional<boost::filesystem::path> ofile = lua::lua_script::find_script(root_, file);
     if (!ofile) {
       NSC_LOG_ERROR("Failed to find script: " + file);
+      return false;
+    }
+    // The search ends with the value joined onto the script folder, and that
+    // join does not stop it climbing back out: `../foo.lua` resolves to
+    // ${scripts}/../foo.lua and would otherwise load from the installation
+    // directory. The ext-scr CLI has always held show/delete inside the script
+    // root; this is the same check on the path that actually runs code.
+    if (!allowed_roots_.allows(ofile.value())) {
+      NSC_LOG_ERROR("Refusing to load script outside the allowed roots: " + ofile.value().string() + " (allowed: " + allowed_roots_.describe() +
+                    "). Add its folder to 'additional script roots' under the lua section if it belongs there.");
       return false;
     }
     NSC_DEBUG_MSG_STD("Adding script: " + ofile.value().string());
@@ -160,7 +195,14 @@ bool LUAScript::commandLineExec(const int target_mode, const PB::Commands::Execu
     }
 
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
-    auto provider = std::make_shared<script_provider>(get_id(), get_core(), get_core()->expand_path("${base-path}"));
+    // ${scripts}, not ${base-path}. The two are the same folder apart on
+    // Windows, where ${scripts} is ${exe-path}/scripts - so appending
+    // "scripts/lua" to the install base happened to land in the right place
+    // there, and nowhere near it on Linux, where ${base-path} is the directory
+    // holding the binary (/usr/sbin) while ${scripts} is under the package
+    // directory. Naming the token that already means "the scripts folder"
+    // removes the assumption instead of re-deriving it.
+    auto provider = std::make_shared<script_provider>(get_id(), get_core(), get_core()->expand_path("${scripts}"));
 
     extscr_cli client(provider);
     if (client.run(command, request, response)) {

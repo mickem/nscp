@@ -8,6 +8,7 @@
 #include <nscapi/protobuf/log.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nsclient/logger/logger_helper.hpp>
+#include <nscp/path_defaults.hpp>
 #include <str/format.hpp>
 #include <vector>
 
@@ -30,7 +31,14 @@ namespace impl {
 
 namespace sh = nscapi::settings_helper;
 
-simple_file_logger::simple_file_logger(std::string file) : max_size_(0), format_("%Y-%m-%d %H:%M:%S") { file_ = base_path() + file; }
+simple_file_logger::simple_file_logger(std::string file) : max_size_(0), format_("%Y-%m-%d %H:%M:%S") {
+  // operator/, not string concatenation: base_path() is the installation
+  // directory with no trailing separator, so "+" produced
+  // "<install dir>nsclient.log" on Windows. On unix base_path() is empty and
+  // the join is a no-op, which is the behaviour this bootstrap logger has
+  // always had there.
+  file_ = (boost::filesystem::path(base_path()) / file).string();
+}
 std::string simple_file_logger::base_path() {
 #ifdef WIN32
   return shellapi::get_module_file_name().string();
@@ -145,8 +153,9 @@ simple_file_logger::config_data simple_file_logger::do_config(const bool log_fau
         ("log/file", "Logfile", "Configure log file properties.");
 
     settings.add_key_to_settings("log")
-        .add_file("file name", sh::string_key(&ret.file, DEFAULT_LOG_LOCATION), "Log file name",
-                  "The file to write log data to. Set this to none to disable log to file.")
+        .add_file("file name", sh::path_key(&ret.file, DEFAULT_LOG_LOCATION, "${log-path}"), "Log file name",
+                  "The file to write log data to. A bare file name is taken relative to the log folder; an absolute path is used as given. "
+                  "Set this to none to disable log to file.")
 
         .add_string("date format", sh::string_key(&ret.format, "%Y-%m-%d %H:%M:%S"), "Date format",
                     "The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can receive.");
@@ -157,11 +166,12 @@ simple_file_logger::config_data simple_file_logger::do_config(const bool log_fau
 
     settings.register_all();
     settings.notify();
-
-#ifdef WIN32
-    if (ret.file == "/nsclient.log") ret.file = "${exe-path}/nsclient.log";
-#endif
-    ret.file = settings.expand_path(ret.file);
+    // Nothing more to do to ret.file: the key is registered as a path_key rooted
+    // at ${log-path}, so notify() has already expanded its tokens and rooted a
+    // bare name. This used to re-expand here, and on Windows first rewrote a
+    // literal "/nsclient.log" to ${exe-path}/nsclient.log - a rewrite that can
+    // no longer fire, and which would put the log back beside the executable
+    // rather than in the log folder the modern layout selects.
   } catch (const std::exception &e) {
     if (log_fault) logger_helper::log_fatal(std::string("Failed to configure logger: ") + e.what());
   } catch (...) {
@@ -177,14 +187,17 @@ void simple_file_logger::asynch_configure() {
 
     format_ = config.format;
     max_size_ = config.max_size;
-    file_ = settings_manager::get_proxy()->expand_path(config.file);
-    if (file_.empty()) file_ = base_path() + "nsclient.log";
-    if (file_.find('\\') == std::string::npos && file_.find('/') == std::string::npos) {
-      file_ = base_path() + file_;
-    }
-    if (file_ == "none") {
+    // `none` switches file logging off, and is tested before anything joins a
+    // directory onto it - the rooting below would otherwise turn the sentinel
+    // into a real file called `none` inside the log folder.
+    if (nscp::paths::is_no_path(config.file)) {
       file_ = "";
+      return;
     }
+    // The key is registered as a path rooted at ${log-path}, so a bare name is
+    // already absolute by here. An unset value still needs the default name,
+    // and it is rooted the same way rather than left to the working directory.
+    file_ = config.file.empty() ? settings_manager::get_proxy()->resolve_path("nsclient.log", "${log-path}") : config.file;
   } catch (const std::exception &) {
     // ignored, since this might be after shutdown...
   } catch (...) {

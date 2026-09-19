@@ -5,6 +5,7 @@
 
 #include <config.h>
 
+#include <nscp/path_rooting.hpp>
 #include <parsers/expression/expression.hpp>
 #include <str/utf8.hpp>
 
@@ -132,23 +133,86 @@ std::string nsclient::core::path_manager::get_path_for_key(const std::string &ke
   if (key == "shared-path") return getBasePath().string();
 #endif
 
-  // Anything we have no answer for resolves to the executable's directory,
-  // which is the historical behaviour and keeps a typo in a settings file from
-  // expanding to an empty (and therefore root-relative) path.
-  return getBasePath().string();
+  // A token we have no answer for is a typo, and saying so is the whole point.
+  // This used to resolve to the executable's directory, which meant
+  // `${scripst}/x.bat` was not an error but a real path under the install
+  // folder - so the file went somewhere nobody was looking and nothing
+  // complained (#458). An operator cannot fix what is never reported.
+  throw path_expansion_error("Unknown path token ${" + key + "}: no such path is configured. Check the spelling, or define it in the [paths] section of "
+                                                            "boot.ini.");
 }
 
 void nsclient::core::path_manager::set_layout(const nscp::paths::layout value) { layout_ = value; }
 
-void nsclient::core::path_manager::set_overrides(paths_type overrides) { overrides_ = std::move(overrides); }
+void nsclient::core::path_manager::drop_unusable_overrides(paths_type &map, const char *source) {
+  // Run after the map is installed, not before, because an override may be
+  // written in terms of other tokens ("scripts = ${shared-path}/mine") and one
+  // override may reference another. Expanding here therefore sees the same
+  // answers the rest of the service will.
+  for (auto it = map.begin(); it != map.end();) {
+    std::string why;
+    try {
+      const std::string resolved = expand_path_impl(it->second, 0);
+      if (resolved.empty())
+        why = "it expands to nothing";
+      else if (!nscp::paths::names_a_root(resolved))
+        // The same predicate resolve_path() uses to decide whether a value
+        // already names a location. Deliberately shared: the alternative was
+        // is_absolute() here and names_a_root() there, which meant a Windows
+        // root-relative `\\logs` was accepted when written in a setting and
+        // rejected when written as the override for that same folder.
+        why = "it does not name an absolute location (it resolves to '" + resolved + "')";
+    } catch (const path_expansion_error &e) {
+      why = e.what();
+    }
+    if (why.empty()) {
+      ++it;
+      continue;
+    }
+    // Dropped rather than kept, so the compiled-in default applies: that is a
+    // defined absolute location, where a relative override is read and written
+    // relative to the service's working directory - System32 for a Windows
+    // service, "/" under a bare init, the package directory under the shipped
+    // systemd unit. An operator cannot predict which, so we do not guess for
+    // them; we say so and use the default.
+    LOG_ERROR_CORE("Ignoring the " + std::string(source) + " entry '" + it->first + " = " + it->second + "': " + why +
+                   ". A path token has to resolve to an absolute path; using the built-in default for ${" + it->first + "} instead.");
+    it = map.erase(it);
+  }
+}
+
+void nsclient::core::path_manager::set_overrides(paths_type overrides) {
+  overrides_ = std::move(overrides);
+  drop_unusable_overrides(overrides_, "boot.ini [paths]");
+}
 
 void nsclient::core::path_manager::add_overrides(paths_type overrides) {
   for (auto &kv : overrides) {
     overrides_[kv.first] = std::move(kv.second);
   }
+  drop_unusable_overrides(overrides_, "boot.ini [paths]");
 }
 
-void nsclient::core::path_manager::set_cli_overrides(paths_type overrides) { cli_overrides_ = std::move(overrides); }
+void nsclient::core::path_manager::set_cli_overrides(paths_type overrides) {
+  // Installed without validating, unlike the boot.ini layer. This runs before
+  // init_settings(), so boot.ini has been read neither for [layout] - which on
+  // Windows decides what ${shared-path} means - nor for [paths], whose entries
+  // an operator is explicitly allowed to build a CLI override out of. Judging
+  // an override against a half-built picture would reject perfectly good ones
+  // and resolve the rest against the wrong layout. validate_overrides() does it
+  // once the picture is complete.
+  cli_overrides_ = std::move(overrides);
+}
+
+void nsclient::core::path_manager::validate_overrides() {
+  // Called once the bootstrap has applied boot.ini's [layout] and [paths], so
+  // every token an override may legitimately name now resolves. Idempotent: an
+  // override that already passed simply passes again, which is what lets the
+  // boot.ini layer be checked when it is installed and re-checked here without
+  // the two disagreeing.
+  drop_unusable_overrides(cli_overrides_, "--path-override");
+  drop_unusable_overrides(overrides_, "boot.ini [paths]");
+}
 
 std::string nsclient::core::path_manager::getFolder(const std::string &key) { return resolve_folder(key, 0); }
 
@@ -163,6 +227,10 @@ std::string nsclient::core::path_manager::resolve_folder(const std::string &key,
 
 std::string nsclient::core::path_manager::expand_path(std::string file) { return expand_path_impl(std::move(file), 0); }
 
+std::string nsclient::core::path_manager::resolve_path(std::string file, const std::string &default_root) {
+  return nscp::paths::root_path(std::move(file), default_root, [this](std::string value) { return expand_path_impl(std::move(value), 0); });
+}
+
 std::string nsclient::core::path_manager::expand_path_impl(std::string file, const int depth) {
   // Cycle guard: a settings cycle ("${a}" -> "${b}" -> "${a}") used to
   // recurse without bound and either stack-overflow the service (uncatchable
@@ -176,6 +244,11 @@ std::string nsclient::core::path_manager::expand_path_impl(std::string file, con
   }
   try {
     if (file.empty()) return file;
+    // `none` names no file at all (log file off, ca -> the library's own trust
+    // store). It is a sentinel rather than a path, so it passes through
+    // untouched - and, because it never reaches the joining logic, it cannot
+    // be turned into a file literally called `none`.
+    if (nscp::paths::is_no_path(file)) return file;
     parsers::simple_expression::result_type expr;
     parsers::simple_expression::parse(file, expr);
 
@@ -187,6 +260,11 @@ std::string nsclient::core::path_manager::expand_path_impl(std::string file, con
         ret += expand_path_impl(resolve_folder(e.name, depth + 1), depth + 1);
     }
     return ret;
+  } catch (const path_expansion_error &) {
+    // An unknown token is a reportable configuration error, not a failure to
+    // be flattened into an empty string: the callers that expand
+    // operator-supplied paths catch this and name what they were configuring.
+    throw;
   } catch (...) {
     LOG_ERROR_CORE("Failed to expand path: " + utf8::cvt<std::string>(file));
     return "";

@@ -16,7 +16,11 @@ nscapi::core_wrapper* script_provider::get_core() { return core_; }
 
 std::shared_ptr<nscapi::settings_proxy> script_provider::get_settings_proxy() { return std::make_shared<nscapi::settings_proxy>(get_id(), get_core()); }
 
-boost::filesystem::path script_provider::get_root() { return root_ / "scripts" / "python"; }
+// root_ is already ${scripts}, so this must not prepend "scripts" again.
+// It used to, which made the import destination and the sandbox root
+// ${scripts}/scripts/python - a folder find_file never searches and that
+// does not exist on a normal install.
+boost::filesystem::path script_provider::get_root() { return root_ / "python"; }
 
 boost::optional<boost::filesystem::path> script_provider::find_file(std::string file) {
   std::list<boost::filesystem::path> checks;
@@ -42,6 +46,17 @@ void script_provider::add_command(std::string script_alias, std::string script, 
     boost::optional<boost::filesystem::path> ofile = find_file(script);
     if (!ofile) {
       get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to find script: " + script);
+      return;
+    }
+    // The search ends with the value joined onto the script folder, which does
+    // not stop it climbing back out: `../foo.py` resolves to ${scripts}/../foo.py
+    // and would otherwise load from the installation directory. The ext-scr CLI
+    // has always held show/delete inside the script root; this is the same check
+    // on the path that actually runs code.
+    if (!allowed_roots_.allows(ofile.value())) {
+      get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__,
+                      "Refusing to load script outside the allowed roots: " + ofile.value().string() + " (allowed: " + allowed_roots_.describe() +
+                          "). Add its folder to 'additional script roots' under the python section if it belongs there.");
       return;
     }
     std::string script_file = ofile.value().string();

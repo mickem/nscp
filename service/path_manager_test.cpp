@@ -46,15 +46,123 @@ class PathManagerTest : public ::testing::Test {
 
 TEST_F(PathManagerTest, ExpandPathEmpty) { EXPECT_EQ(pm->expand_path(""), ""); }
 
+// `none` names no file at all - file logging off, `ca` falling back to the TLS
+// library's own trust store. It is a sentinel rather than a path, so it has to
+// come back from the expander byte-identical: every consumer compares against
+// the bare literal, and the write side must never join it onto a directory and
+// create a file called `none`.
+TEST_F(PathManagerTest, ExpandPathLeavesTheNoPathSentinelAlone) { EXPECT_EQ(pm->expand_path("none"), "none"); }
+
+// Only the exact sentinel is special. A real file that merely starts with
+// those letters, or names `none` inside a directory, is an ordinary path.
+TEST_F(PathManagerTest, ExpandPathTreatsNoneLikeAnyOtherNameWhenItIsPartOfAPath) {
+  EXPECT_EQ(pm->expand_path("none.log"), "none.log");
+  EXPECT_EQ(pm->expand_path("/var/log/none"), "/var/log/none");
+  EXPECT_EQ(pm->expand_path("None"), "None");
+}
+
 TEST_F(PathManagerTest, ExpandPathNoVariables) {
   std::string path = "/usr/local/bin";
   EXPECT_EQ(pm->expand_path(path), path);
 }
 
-TEST_F(PathManagerTest, GetFolderUnknownKey) {
-  std::string key = "unknown-key";
-  std::string result = pm->getFolder(key);
-  EXPECT_FALSE(result.empty());
+// --- resolve_path ------------------------------------------------------------
+// expand_path substitutes tokens and deliberately does not make anything
+// absolute: an operator may point a setting anywhere on the filesystem. But a
+// value with no token and no root only means something relative to the process
+// working directory, which differs per platform and per launch method. A
+// consumer that owns a namespace names it here so a bare name lands there.
+
+// Boost's operator/ appends the *preferred* separator, so a join that reads
+// "/var/log/nscp/x" on POSIX reads "/var/log/nscp\\x" on Windows. These tests
+// are about which directory a value lands in, not how the separator is spelt,
+// so compare the generic (forward-slash) form. Values produced by token
+// substitution alone keep whatever the operator typed and need no such care.
+static std::string generic(const std::string &path) { return boost::filesystem::path(path).generic_string(); }
+
+TEST_F(PathManagerTest, ResolvePathRootsABareNameAtTheGivenRoot) {
+  pm->set_overrides({{"log-path", "/var/log/nscp"}});
+  EXPECT_EQ(generic(pm->resolve_path("nsclient.log", "${log-path}")), "/var/log/nscp/nsclient.log");
+}
+
+TEST_F(PathManagerTest, ResolvePathRootsARelativeSubdirectoryToo) {
+  pm->set_overrides({{"shared-path", "/srv/nscp"}});
+  EXPECT_EQ(generic(pm->resolve_path("scripts/myscript.bat", "${shared-path}")), "/srv/nscp/scripts/myscript.bat");
+}
+
+TEST_F(PathManagerTest, ResolvePathLeavesAnAbsolutePathAlone) {
+  pm->set_overrides({{"log-path", "/var/log/nscp"}});
+  // The operator pointed somewhere specific; that is theirs to decide.
+  EXPECT_EQ(pm->resolve_path("/var/log/elsewhere.log", "${log-path}"), "/var/log/elsewhere.log");
+}
+
+TEST_F(PathManagerTest, ResolvePathExpandsTokensAndDoesNotRootTheResult) {
+  pm->set_overrides({{"shared-path", "/srv/nscp"}, {"log-path", "/var/log/nscp"}});
+  // Already rooted once the token is substituted, so the default root must not
+  // be applied on top of it.
+  EXPECT_EQ(pm->resolve_path("${shared-path}/x.log", "${log-path}"), "/srv/nscp/x.log");
+}
+
+TEST_F(PathManagerTest, ResolvePathKeepsAnUnsetValueUnset) {
+  // "" means "not configured" on a good number of path options, and their
+  // consumers test .empty(). Rooting it would turn "no certificate key" into a
+  // certificate key named after the root directory.
+  pm->set_overrides({{"log-path", "/var/log/nscp"}});
+  EXPECT_EQ(pm->resolve_path("", "${log-path}"), "");
+}
+
+TEST_F(PathManagerTest, ResolvePathKeepsTheNoPathSentinel) {
+  pm->set_overrides({{"log-path", "/var/log/nscp"}});
+  EXPECT_EQ(pm->resolve_path("none", "${log-path}"), "none");
+}
+
+TEST_F(PathManagerTest, ResolvePathReportsARootThatIsNotOne) {
+  // Every call site passes a literal, so this is a programming error rather
+  // than operator input - and a silent pass-through would leave the value
+  // resolving against the working directory, which is the bug being fixed.
+  EXPECT_THROW(pm->resolve_path("x.log", "not-a-root"), nsclient::core::path_expansion_error);
+}
+
+TEST_F(PathManagerTest, ResolvePathReportsAnUnknownTokenInTheValue) {
+  EXPECT_THROW(pm->resolve_path("${no-such-token}/x.log", "${log-path}"), nsclient::core::path_expansion_error);
+}
+
+TEST_F(PathManagerTest, ResolvePathAlwaysYieldsAnAbsolutePathForOrdinaryInput) {
+  // The property the write-side consumers actually depend on.
+  for (const char *value : {"x.log", "sub/x.log", "./x.log"}) {
+    const std::string resolved = pm->resolve_path(value, "${log-path}");
+    EXPECT_TRUE(boost::filesystem::path(resolved).is_absolute()) << value << " resolved to a relative path: " << resolved;
+  }
+}
+
+TEST_F(PathManagerTest, GetFolderUnknownKeyIsReported) {
+  // An unknown key is a typo, and it used to resolve to the executable's
+  // directory - so `${scripst}/x.bat` was not an error but a real path under
+  // the install folder, and whatever depended on it went somewhere nobody was
+  // looking (#458). Report it instead.
+  EXPECT_THROW(pm->getFolder("unknown-key"), nsclient::core::path_expansion_error);
+}
+
+TEST_F(PathManagerTest, UnknownTokenInAPathIsReported) {
+  EXPECT_THROW(pm->expand_path("${definitely-not-a-known-key}/file.ini"), nsclient::core::path_expansion_error);
+}
+
+TEST_F(PathManagerTest, UnknownTokenErrorNamesTheToken) {
+  // The message is the whole point: an operator has to be able to find the
+  // line they mistyped.
+  try {
+    pm->expand_path("${scripst}/check.bat");
+    FAIL() << "expected an unknown token to be reported";
+  } catch (const nsclient::core::path_expansion_error &e) {
+    EXPECT_NE(std::string(e.what()).find("scripst"), std::string::npos) << "message did not name the token: " << e.what();
+  }
+}
+
+TEST_F(PathManagerTest, AnOverrideMakesAnOtherwiseUnknownTokenResolvable) {
+  // The error is "no such path is configured", not "not on a fixed list": an
+  // operator may introduce their own token in boot.ini and use it.
+  pm->set_overrides({{"my-own-folder", "/srv/mine"}});
+  EXPECT_EQ(pm->expand_path("${my-own-folder}/x.ini"), "/srv/mine/x.ini");
 }
 
 TEST_F(PathManagerTest, ExpandPathWithVariables) {
@@ -721,11 +829,66 @@ TEST_F(PathManagerTest, OverridesReplaceRatherThanMerge) {
   EXPECT_EQ(pm->getFolder("log-path"), "/second");
 }
 
-TEST_F(PathManagerTest, OverridesIgnoredForUnknownKeyFallback) {
-  // Unknown keys still fall through to getBasePath, even if overrides are set
-  // for other keys.
+TEST_F(PathManagerTest, OverridesForOtherKeysDoNotMakeAnUnknownKeyResolvable) {
+  // Setting an override for one key says nothing about another: the unknown
+  // one is still a typo and still reported.
   pm->set_overrides({{"certificate-path", "/x"}});
-  EXPECT_FALSE(pm->getFolder("definitely-not-a-known-key").empty());
+  EXPECT_THROW(pm->getFolder("definitely-not-a-known-key"), nsclient::core::path_expansion_error);
+}
+
+TEST_F(PathManagerTest, ARelativeOverrideIsDroppedSoTheDefaultApplies) {
+  // A relative override would be read and written relative to the service's
+  // working directory, which is System32 for a Windows service and "/" under a
+  // bare init - unpredictable, and invisible until something lands in the
+  // wrong place. Drop it and use the built-in default, which is absolute.
+  const std::string built_in = pm->getFolder("scripts");
+  pm->set_overrides({{"scripts", "myscripts"}});
+  EXPECT_EQ(pm->getFolder("scripts"), built_in);
+}
+
+TEST_F(PathManagerTest, ARelativeCliOverrideIsDroppedToo) {
+  const std::string built_in = pm->getFolder("log-path");
+  pm->set_cli_overrides({{"log-path", "../logs"}});
+  pm->validate_overrides();
+  EXPECT_EQ(pm->getFolder("log-path"), built_in);
+}
+
+TEST_F(PathManagerTest, ACliOverrideIsNotJudgedBeforeBootIniHasBeenApplied) {
+  // set_cli_overrides runs before init_settings, so boot.ini has been read for
+  // neither [layout] nor [paths]. An override built from an operator's own
+  // token - which the documentation explicitly allows - would look like a typo
+  // if it were judged at that point, and be dropped before the token it names
+  // ever existed.
+  pm->set_cli_overrides({{"log-path", "${my-own-folder}/logs"}});
+  pm->set_overrides({{"my-own-folder", "/srv/mine"}});
+  pm->validate_overrides();
+  EXPECT_EQ(pm->getFolder("log-path"), "${my-own-folder}/logs");
+  EXPECT_EQ(pm->expand_path("${log-path}"), "/srv/mine/logs");
+}
+
+TEST_F(PathManagerTest, ValidateOverridesIsIdempotent) {
+  // The boot.ini layer is checked when it is installed and checked again here;
+  // a second pass must not start discarding entries that already passed.
+  pm->set_overrides({{"log-path", "/var/log/keepme"}});
+  pm->validate_overrides();
+  pm->validate_overrides();
+  EXPECT_EQ(pm->getFolder("log-path"), "/var/log/keepme");
+}
+
+TEST_F(PathManagerTest, AnOverrideThatExpandsToAnAbsolutePathIsKept) {
+  // Rejection is on the *resolved* value, not on how it was written: an
+  // override built from other tokens is the documented way to relocate a
+  // folder and has to keep working.
+  pm->set_overrides({{"scripts", "${base-path}/custom-scripts"}});
+  const std::string resolved = pm->getFolder("scripts");
+  EXPECT_NE(resolved.find("custom-scripts"), std::string::npos);
+  EXPECT_TRUE(boost::filesystem::path(pm->expand_path("${scripts}")).is_absolute());
+}
+
+TEST_F(PathManagerTest, AnOverrideNamingAnUnknownTokenIsDropped) {
+  const std::string built_in = pm->getFolder("scripts");
+  pm->set_overrides({{"scripts", "${no-such-token}/mine"}});
+  EXPECT_EQ(pm->getFolder("scripts"), built_in);
 }
 
 TEST_F(PathManagerTest, OverrideValuesCanBeTemplates) {

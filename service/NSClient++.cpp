@@ -306,6 +306,11 @@ bool NSClientT::load_configuration_1() {
   if (!settings_manager::init_settings(provider_, context_)) {
     return false;
   }
+  // Now that boot.ini's [layout] and [paths] have been applied, the overrides
+  // can be judged: until this point a CLI override built from an operator's own
+  // [paths] token looks like a typo, and on Windows ${shared-path} still reads
+  // as the legacy layout whatever boot.ini selected.
+  path_->validate_overrides();
   return true;
 }
 
@@ -346,7 +351,8 @@ bool NSClientT::load_configuration_2(const bool override_log) {
 
     settings.add_key_to_settings("crash")
         .add_bool("archive", sh::bool_key(&crash_archive, true), "ARCHIVE CRASHREPORTS", "Archive crash reports in the archive folder")
-        .add_string("archive folder", sh::path_key(&crash_folder, CRASH_ARCHIVE_FOLDER), "CRASH ARCHIVE LOCATION", "The folder to archive crash dumps in");
+        .add_string("archive folder", sh::path_key(&crash_folder, CRASH_ARCHIVE_FOLDER, "${" CRASH_ARCHIVE_FOLDER_KEY "}"), "CRASH ARCHIVE LOCATION",
+                    "The folder to archive crash dumps in. A relative name is taken relative to the crash folder; an absolute path is used as given.");
 
     settings.register_all();
     settings.notify();
@@ -522,9 +528,15 @@ void NSClientT::boot_fleet_sync() {
                                                    "The enrollment manifest written by `nscp enroll` (certificates, keys and server urls). "
                                                    "Fleet sync only runs when this file exists.",
                                                    DEFAULT_FLEET_STATE_LOCATION));
-    config.managed_path =
-        path_->expand_path(reg_key("managed path", "Managed path",
-                                   "Directory where the synced configuration (fleet.ini), scripts and the bundle cache are kept.", "${" FLEET_FOLDER_KEY "}"));
+    // Rooted at ${fleet-folder}: the sync *writes* this tree - the rendered
+    // fleet.ini, the staged scripts, the bundle cache - so a relative value
+    // would scatter it wherever the service happened to be started from.
+    config.managed_path = path_->resolve_path(
+        reg_key("managed path", "Managed path",
+                "Directory where the synced configuration (fleet.ini), scripts and the bundle cache are kept. A relative name is taken relative to the "
+                "fleet folder; an absolute path is used as given.",
+                "${" FLEET_FOLDER_KEY "}"),
+        "${" FLEET_FOLDER_KEY "}");
     config.hostname = socket_helpers::expand_hostname(
         reg_key("hostname", "Hostname", "Hostname reported as a tag to the fleet server. Set to auto (default) to use this machine's hostname.", "auto"));
     config.tls_version = reg_key("tls version", "TLS version", "The TLS version used when connecting to the fleet server.", "tlsv1.2+");

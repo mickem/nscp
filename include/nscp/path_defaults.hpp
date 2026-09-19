@@ -57,6 +57,27 @@ inline bool is_known_layout(const std::string &value) { return value.empty() || 
 
 inline const char *layout_name(const layout value) { return value == layout::modern ? "modern" : "legacy"; }
 
+// The "this names no file at all" sentinel.
+//
+// A handful of path-typed settings accept `none` to mean "disabled" rather
+// than naming a location: the log file (`none` switches file logging off), and
+// every `ca` option (`none` falls back to the TLS library's own trust store).
+// Consumers have always compared against the bare literal - see the `ca !=
+// "none"` tests in settings_http, SMTPClient and CheckNet, and the log file's
+// documented "Set this to none to disable log to file".
+//
+// It is a sentinel, not a path, which makes it the expander's business: it has
+// to survive expansion untouched, and it must never be joined onto a default
+// root. Centralising the test here is what stops each consumer re-deciding
+// what "no path" looks like - and, on the write side, what stops `none` being
+// turned into a real file called `none` in whatever directory happened to be
+// current.
+//
+// Exact match, lower case, because that is what every existing consumer
+// compares against; widening it would start swallowing a file genuinely named
+// `None` on a case-insensitive filesystem.
+inline bool is_no_path(const std::string &value) { return value == "none"; }
+
 // True for the shipped Diffie-Hellman parameter files (nrpe_dh_512.pem,
 // nrpe_dh_2048.pem). They are package content rather than machine state, so
 // two very different pieces of code have to agree on what "the DH files" are:
@@ -144,6 +165,32 @@ inline std::string default_for(const std::string &key, const layout current) {
   return it == defaults.end() ? std::string() : it->second;
 }
 
+// True when `key` names a token this build knows how to resolve.
+//
+// Separate from default_for because that function returns an empty string for
+// two very different things: "this key has no *static* default" (shared-path on
+// the Windows legacy layout, which the caller answers from its own executable
+// location) and "never heard of this key". Only the second is an operator
+// error, and being able to tell them apart is what lets an unknown token be
+// reported instead of quietly resolving to the installation directory - the
+// behaviour behind #458, where a `${host}` written in a path before 0.17 did
+// not fail but silently produced a mangled name.
+//
+// The dynamic tokens are listed here rather than in each caller so that the
+// service and the two standalone clients cannot drift apart about which tokens
+// exist - the same reason the static table above lives here.
+inline bool is_known_key(const std::string &key, const layout current) {
+  // Resolved by a runtime lookup in the caller rather than by the table above:
+  // the executable's own location, the OS temp folder, the ${nrpe-dh}
+  // filesystem probe, and ${shared-path}, whose Windows legacy answer is
+  // deliberately absent from the table.
+  if (key == "base-path" || key == "exe-path" || key == "temp" || key == "nrpe-dh" || key == "shared-path") return true;
+#ifdef WIN32
+  if (key == "data-path" || key == "appdata" || key == "common-appdata") return true;
+#endif
+  return !default_for(key, current).empty();
+}
+
 // Substitute every ${token} in `file` using `resolve`, repeatedly, since a
 // default may itself be written in terms of another token
 // (${certificate-path} -> ${shared-path}/security -> ...).
@@ -160,6 +207,8 @@ inline std::string default_for(const std::string &key, const layout current) {
 // else.
 template <typename Resolver>
 std::string expand_tokens(std::string file, const Resolver &resolve, const int depth_limit = 32) {
+  // Same sentinel rule the service's expander applies - see is_no_path.
+  if (is_no_path(file)) return file;
   for (int depth = 0; depth < depth_limit; ++depth) {
     const std::string::size_type start = file.find("${");
     if (start == std::string::npos) return file;

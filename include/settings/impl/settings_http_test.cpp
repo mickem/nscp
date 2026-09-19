@@ -534,12 +534,45 @@ TEST(settings_http, attachment_target_expands_the_full_host_name) {
             "/etc/nsclient/" + boost::asio::ip::host_name() + ".ini");
 }
 
-TEST(settings_http, attachment_target_without_a_placeholder_is_unchanged) {
-  // Attachments have always been declared as plain paths; those must resolve
-  // exactly as before.
+TEST(settings_http, a_relative_attachment_target_lands_under_the_shared_path) {
+  // The documented form is a bare relative name, and expanding it left it
+  // relative - so the file was written relative to the service's working
+  // directory: C:\Windows\System32 for a Windows service, "/" under a bare
+  // init script. On Linux the shipped systemd unit happens to set
+  // WorkingDirectory to the package directory, which *is* ${shared-path}, so it
+  // landed correctly there by accident - and that accident is why nobody
+  // noticed. Root it explicitly: same answer on unix, same answer everywhere
+  // else now too.
   attachment_core core;
-  EXPECT_EQ(settings::settings_http::resolve_attachment_target(&core, "scripts/myscript.bat"), "scripts/myscript.bat");
+  // generic_string(): the join uses boost's preferred separator, which is a
+  // backslash on Windows. The folder it lands in is what matters here.
+  EXPECT_EQ(boost::filesystem::path(settings::settings_http::resolve_attachment_target(&core, "scripts/myscript.bat")).generic_string(),
+            "/etc/nsclient/scripts/myscript.bat");
+}
+
+TEST(settings_http, an_attachment_target_written_with_a_token_is_unchanged) {
+  attachment_core core;
   EXPECT_EQ(settings::settings_http::resolve_attachment_target(&core, "${shared-path}/scripts/myscript.bat"), "/etc/nsclient/scripts/myscript.bat");
+}
+
+TEST(settings_http, an_absolute_attachment_target_is_left_where_the_operator_put_it) {
+  // Rooting applies only to a value that names no location of its own. Pointing
+  // an attachment somewhere specific stays the operator's call.
+  attachment_core core;
+  EXPECT_EQ(settings::settings_http::resolve_attachment_target(&core, "/srv/elsewhere/myscript.bat"), "/srv/elsewhere/myscript.bat");
+}
+
+TEST(settings_http, an_attachment_target_naming_an_unknown_token_is_reported) {
+  // The caller skips just this attachment and keeps the configuration it has
+  // already loaded; what must not happen is a silent write to the wrong place.
+  class throwing_core : public attachment_core {
+   public:
+    std::string expand_path(std::string key) override {
+      if (key.find("${nope}") != std::string::npos) throw nscp::paths::path_expansion_error("Unknown path token ${nope}");
+      return attachment_core::expand_path(std::move(key));
+    }
+  } core;
+  EXPECT_THROW(settings::settings_http::resolve_attachment_target(&core, "${nope}/x.ini"), nscp::paths::path_expansion_error);
 }
 
 TEST(settings_http, attachment_target_and_source_agree_on_the_host) {

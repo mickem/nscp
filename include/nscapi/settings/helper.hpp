@@ -37,6 +37,16 @@ NSCAPI_EXPORT key_type uint_key(unsigned int* val);
 NSCAPI_EXPORT key_type bool_key(bool* val, bool def);
 NSCAPI_EXPORT key_type bool_key(bool* val);
 NSCAPI_EXPORT key_type path_key(std::string* val, std::string def);
+// As above, but a value that resolves to neither a token nor a root is taken
+// relative to `default_root` (a token, e.g. "${log-path}") instead of to the
+// process working directory - which is C:\Windows\System32 for a Windows
+// service and differs again under systemd or from the command line.
+//
+// Declare the root here, beside the key, so a reviewer can see where a bare
+// name lands without tracing the value through the expander. Use it for a
+// setting whose consumer owns a folder; leave it off when the operator is
+// simply naming a location anywhere on the filesystem.
+NSCAPI_EXPORT key_type path_key(std::string* val, std::string def, std::string default_root);
 NSCAPI_EXPORT key_type path_key(std::string* val);
 NSCAPI_EXPORT key_type path_key(boost::filesystem::path* val, std::string def);
 NSCAPI_EXPORT key_type path_key(boost::filesystem::path* val);
