@@ -27,7 +27,11 @@ namespace fs = boost::filesystem;
 
 #define SCRIPT_PATH "/settings/lua/scripts"
 #define MODULE_NAME "LuaScript"
-#define REL_SCRIPT_PATH "scripts\\lua\\"
+// Relative to ${scripts}, matching what find_script searches: it tries
+// root / <value>, so "lua/x.lua" resolves to ${scripts}/lua/x.lua - where
+// add --import now writes it. Was "scripts\\lua\\", which belonged to the old
+// ${base-path} root and only resolved on Windows.
+#define REL_SCRIPT_PATH "lua/"
 
 namespace json = boost::json;
 

@@ -28,7 +28,13 @@ namespace fs = boost::filesystem;
 
 #define SCRIPT_PATH "/settings/python/scripts"
 #define MODULE_NAME "PythonScript"
-#define REL_SCRIPT_PATH "scripts\\python\\"
+// Relative to ${scripts}, matching what the loader searches: find_file tries
+// root_ / <value>, so "python/x.py" resolves to ${scripts}/python/x.py - which
+// is where add --import now writes it. It was "scripts\\python\\", which paired
+// with the old doubled root and only ever resolved on Windows, where a
+// backslash is a separator. Forward slash so the stored value means the same
+// thing on both platforms.
+#define REL_SCRIPT_PATH "python/"
 
 namespace json = boost::json;
 
