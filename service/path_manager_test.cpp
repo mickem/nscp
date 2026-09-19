@@ -73,14 +73,21 @@ TEST_F(PathManagerTest, ExpandPathNoVariables) {
 // working directory, which differs per platform and per launch method. A
 // consumer that owns a namespace names it here so a bare name lands there.
 
+// Boost's operator/ appends the *preferred* separator, so a join that reads
+// "/var/log/nscp/x" on POSIX reads "/var/log/nscp\\x" on Windows. These tests
+// are about which directory a value lands in, not how the separator is spelt,
+// so compare the generic (forward-slash) form. Values produced by token
+// substitution alone keep whatever the operator typed and need no such care.
+static std::string generic(const std::string &path) { return boost::filesystem::path(path).generic_string(); }
+
 TEST_F(PathManagerTest, ResolvePathRootsABareNameAtTheGivenRoot) {
   pm->set_overrides({{"log-path", "/var/log/nscp"}});
-  EXPECT_EQ(pm->resolve_path("nsclient.log", "${log-path}"), "/var/log/nscp/nsclient.log");
+  EXPECT_EQ(generic(pm->resolve_path("nsclient.log", "${log-path}")), "/var/log/nscp/nsclient.log");
 }
 
 TEST_F(PathManagerTest, ResolvePathRootsARelativeSubdirectoryToo) {
   pm->set_overrides({{"shared-path", "/srv/nscp"}});
-  EXPECT_EQ(pm->resolve_path("scripts/myscript.bat", "${shared-path}"), "/srv/nscp/scripts/myscript.bat");
+  EXPECT_EQ(generic(pm->resolve_path("scripts/myscript.bat", "${shared-path}")), "/srv/nscp/scripts/myscript.bat");
 }
 
 TEST_F(PathManagerTest, ResolvePathLeavesAnAbsolutePathAlone) {
