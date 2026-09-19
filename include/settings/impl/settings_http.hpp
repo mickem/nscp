@@ -440,7 +440,18 @@ class settings_http : public settings::settings_interface_impl {
     if (!child) return;
     string_list keys = child->get_keys("/attachments");
     for (const std::string &k : keys) {
-      std::string target = resolve_attachment_target(get_core(), k);
+      std::string target;
+      try {
+        target = resolve_attachment_target(get_core(), k);
+      } catch (const std::exception &e) {
+        // An unknown ${token} in the target is now an error rather than
+        // something that quietly resolved to the installation directory. Skip
+        // the one attachment and keep going: the configuration this agent has
+        // already loaded is worth more than the add-on file, and aborting here
+        // would take the whole settings load down with it.
+        get_logger()->error("settings", __FILE__, __LINE__, "Skipping attachment '" + k + "': " + e.what());
+        continue;
+      }
       op_string str = child->get_string("/attachments", k);
       if (!str) continue;
       net::url source = parse_settings_url(str.value());

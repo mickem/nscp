@@ -250,10 +250,17 @@ agent reads or writes.
 > **New in 0.17:** `${hostname}`, `${hostname_lc}` and `${hostname_uc}`, and host name placeholders
 > in attachment targets and in `[/includes]` (issue
 > [#458](https://github.com/mickem/nscp/issues/458)). The other placeholders already existed for the
-> submit clients; this makes them available across the settings subsystem too. Note that an unknown
-> `${...}` token in a path is not an error: it resolves to the installation directory. A `${host}`
-> written in one of these places before this release therefore did not fail, it silently produced a
-> path with the installation directory embedded in it.
+> submit clients; this makes them available across the settings subsystem too.
+
+An unrecognised path token is an error, and the setting that carried it is reported and skipped
+rather than applied. Up to and including 0.18 it was not: an unknown `${...}` quietly resolved to
+the installation directory, so a mistyped `${scripst}/check.bat` was not rejected but turned into a
+real path under the install folder — and whatever depended on it went somewhere nobody was looking.
+That is also what made a pre-0.17 `${host}` in a path fail silently rather than loudly.
+
+The tokens are not a closed list: anything you define in boot.ini's `[paths]` section is a valid
+token everywhere a path is read. Only a token that is neither built in nor defined there is an
+error.
 
 If the query carries a credential (`?token=...`), note that it is still sent in clear text unless
 the url is `https://`. NSClient++ keeps query parameters out of its own log and out of the settings
@@ -436,8 +443,18 @@ Path overrides can also be supplied per-invocation on the command line, which
 takes precedence over anything in `boot.ini` for the keys it specifies:
 
 ```shell
-nscp client --path-override module-path=/build/modules --path-override log-path=. ...
+nscp client --path-override module-path=/build/modules --path-override log-path=/build/logs ...
 ```
+
+An override has to name an **absolute** location, whether it comes from
+`[paths]` or from `--path-override`. It may be written in terms of other tokens
+(`scripts = ${shared-path}/mine`) as long as the result is absolute. An override
+that resolves to a relative path, or that names a token which does not exist, is
+reported and ignored, and the built-in default is used instead — a relative one
+would be read and written relative to the service's working directory, which is
+`C:\Windows\System32` for a Windows service, `/` under a bare init script and the
+package directory under the shipped systemd unit. Nothing useful can be written
+against a base that changes with how the agent was started.
 
 <!-- @formatter:off -->
 !!! note "Moved in 0.12.5"
