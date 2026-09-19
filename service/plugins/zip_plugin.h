@@ -74,6 +74,7 @@ class zip_plugin : public boost::noncopyable, public plugin_interface {
   bool has_on_event() override { return false; }
   NSCAPI::nagiosReturn on_event(const std::string &request) override;
   NSCAPI::nagiosReturn fetchMetrics(std::string &request) override;
+  NSCAPI::nagiosReturn fetchFacts(const std::string &request, std::string &response) override;
   NSCAPI::nagiosReturn submitMetrics(const std::string &request) override;
   void handleMessage(const char *data, unsigned int len) override;
   int commandLineExec(bool targeted, std::string &request, std::string &reply) override;
@@ -86,6 +87,7 @@ class zip_plugin : public boost::noncopyable, public plugin_interface {
                      unsigned int *new_buffer_len) override;
 
   bool hasMetricsFetcher() override { return false; }
+  bool hasFactsFetcher() override { return false; }
   bool hasMetricsSubmitter() override { return false; }
 
   std::string getModule() override;
