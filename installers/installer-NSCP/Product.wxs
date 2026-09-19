@@ -207,6 +207,14 @@
             <Component Id="DotNetPlugins" Guid="E57F4EE3-D5A6-46ED-BC99-018708258154" Win64="$(var.Win64)">
               <File Id="ModDotnetPlugins.dll" Name="DotnetPlugins.dll" DiskId="1" Source="$(var.Source)/modules/DotnetPlugins.dll" Vital="no" />
             </Component>
+            <!--
+            PowerShell scripts: the native module and the managed script host
+            that goes beside the plugin API. The PowerShell engine is not
+            bundled either; the host loads it from an installed PowerShell 7.
+            -->
+            <Component Id="PowerShellScript" Guid="CED141DD-4883-4E80-BB43-359B4D21188D" Win64="$(var.Win64)">
+              <File Id="ModPowerShellScript.dll" Name="PowerShellScript.dll" DiskId="1" Source="$(var.Source)/modules/PowerShellScript.dll" Vital="no" />
+            </Component>
             <?if $(var.DotNet) = "true"?>
             <Directory Id="INSTALLLOCATION_MODS_DOTNET" Name="dotnet">
               <Component Id="LibDotNet" Guid="29AC2A9A-D1D1-4E86-BEE0-5428C86422F6" Win64="$(var.Win64)">
@@ -214,6 +222,10 @@
                 <File Id="DOTNET_CORE_DEPS" Name="NSCP.Core.deps.json" DiskId="1" Source="$(var.Source)/modules/dotnet/NSCP.Core.deps.json" Vital="no" />
                 <File Id="DOTNET_CORE_RTCFG" Name="NSCP.Core.runtimeconfig.json" DiskId="1" Source="$(var.Source)/modules/dotnet/NSCP.Core.runtimeconfig.json" Vital="no" />
                 <File Id="DOTNET_PB" Name="Google.Protobuf.dll" DiskId="1" Source="$(var.Source)/modules/dotnet/Google.Protobuf.dll" Vital="no" />
+              </Component>
+              <Component Id="LibPowerShell" Guid="CE5AE239-3FD9-4CE5-8965-32F3E4136F9B" Win64="$(var.Win64)">
+                <File Id="DOTNET_PS" Name="NSCP.PowerShell.dll" DiskId="1" Source="$(var.Source)/modules/dotnet/NSCP.PowerShell.dll" Vital="no" />
+                <File Id="DOTNET_PS_DEPS" Name="NSCP.PowerShell.deps.json" DiskId="1" Source="$(var.Source)/modules/dotnet/NSCP.PowerShell.deps.json" Vital="no" />
               </Component>
             </Directory>
             <?endif?>
@@ -295,6 +307,12 @@
           <ComponentRef Id="DotNetPlugins" />
           <?if $(var.DotNet) = "true"?>
           <ComponentRef Id="LibDotNet" />
+          <?endif?>
+        </Feature>
+        <Feature Id="PowerShellScriptSupport" Title="PowerShell script support" Description="Run PowerShell scripts inside NSClient++. Requires an installed .NET runtime (8.0 or later) and PowerShell 7." Level="1" Absent="allow">
+          <ComponentRef Id="PowerShellScript" />
+          <?if $(var.DotNet) = "true"?>
+          <ComponentRef Id="LibPowerShell" />
           <?endif?>
         </Feature>
       </Feature>

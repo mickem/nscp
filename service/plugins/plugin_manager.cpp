@@ -80,6 +80,8 @@ std::string installer_feature_hint(const std::string &module) {
       {"LUAScript", "Lua Scripting"},
       // .NET plugin support
       {"DotnetPlugins", ".NET plugin support"},
+      // PowerShell script support
+      {"PowerShellScript", "PowerShell script support"},
       // OP5 Monitoring system
       {"Op5Client", "OP5 Monitoring system"},
       // Elastic plugin

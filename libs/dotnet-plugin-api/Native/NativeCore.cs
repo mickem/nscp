@@ -12,7 +12,7 @@ namespace NSCP.Core.Native
     /// <summary>
     /// The operations the native module exposes through its single core
     /// callback. Must match <c>dotnet::core_op</c> in
-    /// modules/DotnetPlugins/dotnet_bridge.hpp.
+    /// include/dotnet/bridge.hpp.
     /// </summary>
     internal enum CoreOp
     {
@@ -23,10 +23,11 @@ namespace NSCP.Core.Native
         Settings = 5,
         Registry = 6,
         Log = 7,
+        ExpandPath = 8,
     }
 
     /// <summary>
-    /// <see cref="ICore"/> backed by the C++ module. Every call marshals the
+    /// <see cref="ICore"/> backed by the C++ host module. Every call marshals the
     /// request bytes to the native side and collects the response through a
     /// write callback, so no memory crosses the boundary with ambiguous
     /// ownership. All function pointers are cdecl: on 32-bit Windows the
@@ -100,6 +101,15 @@ namespace NSCP.Core.Native
         public bool reload(string module)
         {
             return Call(CoreOp.Reload, module ?? string.Empty, Array.Empty<byte>()).result;
+        }
+
+        public string expandPath(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return path ?? string.Empty;
+            var res = Call(CoreOp.ExpandPath, path, Array.Empty<byte>());
+            // A core that does not know the operation (or a detached plugin)
+            // leaves the path as it was rather than handing back nothing.
+            return res.result && res.data.Length > 0 ? System.Text.Encoding.UTF8.GetString(res.data) : path;
         }
 
         public Result settings(byte[] request)

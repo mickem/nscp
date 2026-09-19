@@ -9,14 +9,15 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <dotnet/bridge.hpp>
+#include <dotnet/host.hpp>
+#include <dotnet/runtime.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/log.hpp>
 #include <string>
 #include <vector>
 
-#include "dotnet_bridge.hpp"
-#include "dotnet_host.hpp"
 
 /**
  * Hosts plugins written for .NET (C#, F#, ...) inside NSClient++.
@@ -66,23 +67,11 @@ class DotnetPlugins : public nscapi::impl::simple_plugin {
   static boost::filesystem::path resolve_assembly(const boost::filesystem::path &root, const std::string &alias, const std::string &value,
                                                   const std::function<bool(const boost::filesystem::path &)> &exists);
 
-  // The core callback handed to managed code (see dotnet_bridge.hpp).
+  // The core callback handed to managed code (see include/dotnet/bridge.hpp).
   static std::int32_t NSCP_DOTNET_CALL core_callback(void *ctx, std::int32_t op, const char *str, const std::uint8_t *data, std::int32_t len,
                                                      dotnet::write_fn write, void *wctx);
 
  private:
-  struct bridge_functions {
-    dotnet::managed_load_fn load = nullptr;
-    dotnet::managed_start_fn start = nullptr;
-    dotnet::managed_unload_fn unload = nullptr;
-    dotnet::managed_describe_fn describe = nullptr;
-    dotnet::managed_query_fn query = nullptr;
-    dotnet::managed_submit_fn submit = nullptr;
-    dotnet::managed_exec_fn exec = nullptr;
-    dotnet::managed_message_fn message = nullptr;
-    dotnet::managed_has_message_fn has_message = nullptr;
-  };
-
   void add_plugin(const std::string &key, const std::string &value);
   bool start_runtime();
   bool resolve_bridge();
@@ -100,6 +89,6 @@ class DotnetPlugins : public nscapi::impl::simple_plugin {
   // threads than the one loading and unloading the module.
   std::mutex plugins_mutex_;
   std::vector<plugin_entry> plugins_;
-  bridge_functions bridge_;
+  dotnet::bridge_functions bridge_;
   std::shared_ptr<dotnet::host> host_;
 };

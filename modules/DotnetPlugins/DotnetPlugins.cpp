@@ -19,28 +19,6 @@ namespace {
 
 const char *const default_factory = "NSCP.Plugin.PluginFactory";
 
-void NSCP_DOTNET_CALL append_to_string(void *wctx, const std::uint8_t *data, std::int32_t len) {
-  if (wctx == nullptr || data == nullptr || len <= 0) return;
-  static_cast<std::string *>(wctx)->append(reinterpret_cast<const char *>(data), static_cast<std::size_t>(len));
-}
-
-std::string collect(dotnet::managed_describe_fn describe, void *handle) {
-  std::string out;
-  if (describe && handle) describe(handle, &append_to_string, &out);
-  return out;
-}
-
-const std::uint8_t *bytes_of(const std::string &s) { return reinterpret_cast<const std::uint8_t *>(s.data()); }
-std::int32_t length_of(const std::string &s) { return static_cast<std::int32_t>(s.size()); }
-
-template <typename Fn>
-bool resolve(dotnet::host &host, const fs::path &assembly, const char *name, Fn &out, std::string &error) {
-  void *fn = host.get_function(assembly, dotnet::bridge_type_name, name, error);
-  if (fn == nullptr) return false;
-  out = reinterpret_cast<Fn>(fn);
-  return true;
-}
-
 bool is_enabled_word(const std::string &value) {
   return value.empty() || boost::iequals(value, "enabled") || boost::iequals(value, "1") || boost::iequals(value, "true") || boost::iequals(value, "on") ||
          boost::iequals(value, "yes");
@@ -204,20 +182,13 @@ bool DotnetPlugins::start_runtime() {
 }
 
 bool DotnetPlugins::resolve_bridge() {
-  if (bridge_.load != nullptr) return true;
+  if (bridge_.resolved()) return true;
   const fs::path bridge_assembly = root_ / dotnet::bridge_assembly;
   std::string error;
-  bridge_functions fns;
-  const bool ok = resolve(*host_, bridge_assembly, "Load", fns.load, error) && resolve(*host_, bridge_assembly, "Start", fns.start, error) &&
-                  resolve(*host_, bridge_assembly, "Unload", fns.unload, error) && resolve(*host_, bridge_assembly, "Describe", fns.describe, error) &&
-                  resolve(*host_, bridge_assembly, "Query", fns.query, error) && resolve(*host_, bridge_assembly, "Submit", fns.submit, error) &&
-                  resolve(*host_, bridge_assembly, "Exec", fns.exec, error) && resolve(*host_, bridge_assembly, "Message", fns.message, error) &&
-                  resolve(*host_, bridge_assembly, "HasMessageHandler", fns.has_message, error);
-  if (!ok) {
+  if (!dotnet::resolve_bridge(*host_, bridge_assembly, bridge_, error)) {
     NSC_LOG_ERROR("Failed to load the managed plugin API from " + dotnet::path_to_utf8(bridge_assembly) + ": " + error);
     return false;
   }
-  bridge_ = fns;
   return true;
 }
 
@@ -233,7 +204,7 @@ bool DotnetPlugins::load_plugin(plugin_entry &entry, NSCAPI::moduleLoadMode mode
     return false;
   }
   std::vector<std::string> info;
-  boost::split(info, collect(bridge_.describe, entry.handle), boost::is_any_of("\n"));
+  boost::split(info, dotnet::describe_plugin(bridge_.describe, entry.handle), boost::is_any_of("\n"));
   entry.name = info.size() > 0 ? info[0] : entry.alias;
   entry.version = info.size() > 1 ? info[1] : "";
   if (bridge_.start(entry.handle, mode) == 0) {
@@ -287,7 +258,7 @@ void DotnetPlugins::query_fallback(const PB::Commands::QueryRequestMessage::Requ
   for (plugin_entry &entry : plugins) {
     std::string response_buffer;
     const std::int32_t rc =
-        bridge_.query(entry.handle, command.c_str(), bytes_of(request_buffer), length_of(request_buffer), &append_to_string, &response_buffer);
+        bridge_.query(entry.handle, command.c_str(), dotnet::bytes_of(request_buffer), dotnet::length_of(request_buffer), &dotnet::append_to_string, &response_buffer);
     if (rc == dotnet::query_ignored) continue;
     if (rc != dotnet::query_handled) {
       return nscapi::protobuf::functions::set_response_bad(*response, "Command " + command + " failed in .NET plugin " + entry.alias);
@@ -323,7 +294,7 @@ void DotnetPlugins::handleNotification(const std::string &channel, const PB::Com
   for (plugin_entry &entry : plugins) {
     std::string response_buffer;
     const std::int32_t rc =
-        bridge_.submit(entry.handle, channel.c_str(), bytes_of(request_buffer), length_of(request_buffer), &append_to_string, &response_buffer);
+        bridge_.submit(entry.handle, channel.c_str(), dotnet::bytes_of(request_buffer), dotnet::length_of(request_buffer), &dotnet::append_to_string, &response_buffer);
     if (rc == dotnet::query_ignored) continue;
     if (rc != dotnet::query_handled) {
       return nscapi::protobuf::functions::set_response_bad(*response, "Submission on " + channel + " failed in .NET plugin " + entry.alias);
@@ -364,8 +335,8 @@ bool DotnetPlugins::commandLineExec(const int target_mode, const PB::Commands::E
 
   for (plugin_entry &entry : plugins) {
     std::string response_buffer;
-    const std::int32_t rc = bridge_.exec(entry.handle, request_message.header().recipient_id().c_str(), command.c_str(), bytes_of(request_buffer),
-                                         length_of(request_buffer), &append_to_string, &response_buffer);
+    const std::int32_t rc = bridge_.exec(entry.handle, request_message.header().recipient_id().c_str(), command.c_str(), dotnet::bytes_of(request_buffer),
+                                         dotnet::length_of(request_buffer), &dotnet::append_to_string, &response_buffer);
     if (rc == dotnet::query_ignored) continue;
     if (rc != dotnet::query_handled) {
       nscapi::protobuf::functions::set_response_bad(*response, "Command " + command + " failed in .NET plugin " + entry.alias);
@@ -406,7 +377,7 @@ void DotnetPlugins::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
   const std::string buffer = single.SerializeAsString();
   for (plugin_entry &entry : targets) {
     try {
-      bridge_.message(entry.handle, bytes_of(buffer), length_of(buffer));
+      bridge_.message(entry.handle, dotnet::bytes_of(buffer), dotnet::length_of(buffer));
     } catch (...) {
       // Loggers cannot log.
     }
@@ -431,6 +402,9 @@ std::int32_t DotnetPlugins::dispatch(std::int32_t op, const char *str, const std
     case dotnet::op_log:
       get_core()->log(request);
       return 1;
+    case dotnet::op_expand_path:
+      response = get_core()->expand_path(text);
+      return 1;
     default:
       NSC_LOG_ERROR("Unknown core operation requested by .NET plugin: " + std::to_string(op));
       return 0;
@@ -445,7 +419,7 @@ std::int32_t NSCP_DOTNET_CALL DotnetPlugins::core_callback(void *ctx, std::int32
     const std::string request = (data != nullptr && len > 0) ? std::string(reinterpret_cast<const char *>(data), static_cast<std::size_t>(len)) : std::string();
     std::string response;
     const std::int32_t rc = self->dispatch(op, str, request, response);
-    if (write != nullptr && !response.empty()) write(wctx, bytes_of(response), length_of(response));
+    if (write != nullptr && !response.empty()) write(wctx, dotnet::bytes_of(response), dotnet::length_of(response));
     return rc;
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("core call from .NET plugin", e);

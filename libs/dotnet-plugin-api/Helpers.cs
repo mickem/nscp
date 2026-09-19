@@ -75,14 +75,44 @@ namespace NSCP.Helpers
             this.plugin_id = plugin_id;
         }
 
+        /// <summary>The keys configured under <paramref name="path"/>.</summary>
         public List<string> getKeys(string path)
         {
             List<string> ret = new List<string>();
+            // include_keys is what makes the core answer with the keys rather
+            // than the child sections; without it this returned the paths
+            // below `path` and never the keys in it.
+            foreach (Node node in query(path, false, true))
+            {
+                ret.Add(node.Key);
+            }
+            return ret;
+        }
+
+        /// <summary>The sections below <paramref name="path"/>, relative to it.</summary>
+        public List<string> getSections(string path)
+        {
+            List<string> ret = new List<string>();
+            foreach (Node node in query(path, true, false))
+            {
+                string child = node.Path ?? "";
+                if (child.Length < path.Length) continue;
+                child = child.Substring(path.Length);
+                if (child.StartsWith("/")) child = child.Substring(1);
+                ret.Add(child);
+            }
+            return ret;
+        }
+
+        /// <summary>The nodes the core answers a settings query with; empty on failure.</summary>
+        private IEnumerable<Node> query(string path, bool recursive, bool includeKeys)
+        {
             SettingsRequestMessage newMessage = new SettingsRequestMessage();
             SettingsRequestMessage.Types.Request.Types.Query newQuery = new SettingsRequestMessage.Types.Request.Types.Query();
             newQuery.Node = new Node();
             newQuery.Node.Path = path;
-            newQuery.Recursive = false;
+            newQuery.Recursive = recursive;
+            newQuery.IncludeKeys = includeKeys;
             SettingsRequestMessage.Types.Request request = new SettingsRequestMessage.Types.Request();
             request.PluginId = plugin_id;
             request.Query = newQuery;
@@ -92,26 +122,23 @@ namespace NSCP.Helpers
 
             if (!res.result)
             {
-                log.error("Failed to get value: " + path);
-                return ret;
+                log.error("Failed to list: " + path);
+                return new List<Node>();
             }
             SettingsResponseMessage response_message = SettingsResponseMessage.Parser.ParseFrom(res.data);
-            if (response_message.Payload == null || response_message.Payload.Count == 0 || response_message.Payload[0].Result == null)
+            if (response_message.Payload == null || response_message.Payload.Count == 0 || response_message.Payload[0].Result == null ||
+                response_message.Payload[0].Query == null)
             {
-                log.error("Failed to get value: " + path);
-                return ret;
+                log.error("Failed to list: " + path);
+                return new List<Node>();
             }
 
             if (response_message.Payload[0].Result.Code != PB.Common.Result.Types.StatusCodeType.StatusOk)
             {
-                log.error("Failed to get value: " + path);
-                return ret;
+                log.error("Failed to list: " + path);
+                return new List<Node>();
             }
-            foreach (Node node in response_message.Payload[0].Query.Nodes)
-            {
-                ret.Add(node.Value);
-            }
-            return ret;
+            return response_message.Payload[0].Query.Nodes;
         }
 
 

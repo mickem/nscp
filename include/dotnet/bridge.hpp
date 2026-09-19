@@ -29,14 +29,16 @@ enum core_op : std::int32_t {
   op_settings = 5,
   op_registry = 6,
   op_log = 7,
+  op_expand_path = 8,
 };
 
 // Response sink: the callee pushes response bytes back into the caller's buffer.
 typedef void(NSCP_DOTNET_CALL *write_fn)(void *wctx, const std::uint8_t *data, std::int32_t len);
 
 // managed -> native: int core(ctx, op, str, data, len, write, wctx); returns 1 on
-// success, 0 on failure. `str` carries the target/channel/module for the
-// operations that have one (NUL-terminated UTF-8), else NULL.
+// success, 0 on failure. `str` carries the target/channel/module - or, for
+// op_expand_path, the path to expand - for the operations that have one
+// (NUL-terminated UTF-8), else NULL.
 typedef std::int32_t(NSCP_DOTNET_CALL *core_fn)(void *ctx, std::int32_t op, const char *str, const std::uint8_t *data, std::int32_t len, write_fn write,
                                                 void *wctx);
 

@@ -115,9 +115,11 @@ nav:
         - PythonScript: reference/generic/PythonScript.md
         - LUAScript: reference/generic/LUAScript.md
         - DotnetPlugins: reference/generic/DotnetPlugins.md
+        - PowerShellScript: reference/generic/PowerShellScript.md
   - Extending:
       - Overview: extending/index.md
       - Python Scripts: extending/python.md
+      - PowerShell Scripts: extending/powershell.md
       - .NET Plugins: extending/dotnet.md
       - Zip Modules: extending/zip-modules.md
       - Plugin API Reference: extending/plugin-api.md

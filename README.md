@@ -121,6 +121,8 @@ your environment:
 | **ExternalScripts** | Reuse PowerShell, batch, shell, or any existing tooling. Simplest path. [Guide](https://docs.nsclient.org/scenarios/external-scripts/) |
 | **LuaScripts**      | In-process scripts with no extra runtime to install — runs anywhere NSClient++ does.                                     |
 | **PythonScripts**   | Full Python inside the agent; great power, but you need Python installed on the host. [Guide](https://docs.nsclient.org/extending/python/) |
+| **PowerShellScripts** | PowerShell 7 inside the agent: register checks, call back into NSClient++, keep state between checks. Experimental. [Guide](https://docs.nsclient.org/extending/powershell/) |
+| **.NET plugins**    | C#, F#, ... hosted in-process on an installed .NET runtime. [Guide](https://docs.nsclient.org/extending/dotnet/)         |
 | **Native modules**  | C++ plugins using the [plugin API](https://docs.nsclient.org/extending/plugin-api/) — maximum control, maximum effort.   |
 | **Zip modules**     | Bundle scripts + config as a redistributable add-on. [Guide](https://docs.nsclient.org/extending/zip-modules/)           |
 

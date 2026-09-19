@@ -120,7 +120,11 @@ Everything a plugin needs from NSClient++ goes through `ICore`:
 | `settings(bytes)`             | `SettingsRequestMessage` → `SettingsResponseMessage`  | Read / write / register settings (see `SettingsHelper`)   |
 | `registry(bytes)`             | `RegistryRequestMessage` → `RegistryResponseMessage`  | Register commands (see `RegistryHelper`)                  |
 | `log(bytes)`                  | `LogEntry`                                            | Log through the agent (see `LogHelper`)                   |
+| `expandPath(path)`            |                                                       | Expand `${base-path}`, `${scripts}`, ... in a path        |
 | `reload(module)`              |                                                       | Ask the core to reload a module                           |
+
+A settings value read through `settings(...)` comes back as it is configured, so a path value still reads
+`${scripts}/...`; pass it through `expandPath` before using it.
 
 ## Building
 

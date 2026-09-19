@@ -57,6 +57,24 @@ These script run inside NSClient++ and can interact with NSClient++.
 
 - Slightly awkward to distribute third party modules.
 
+## PowerShell Scripts
+
+Scripts written in PowerShell, run inside NSClient++ by the PowerShellScript module rather than by
+starting `pwsh` for every check. See [PowerShell scripts](powershell.md).
+
+**Pros:**
+
+- Very Powerful in that your script can do whatever you want and you can interact with NSClient++.
+- Supports queries, command-line commands, passive results, settings and logging.
+- Stateful as the scripts run in the background: modules, sessions and connections are set up once.
+- No forking overhead, and none of the quoting pain of the `ps1` external-script wrapping.
+
+**Cons:**
+
+- Requires a .NET runtime (8.0 or newer) and PowerShell 7 on the monitored machine; Windows PowerShell 5.1
+  cannot be used.
+- One script answers its checks one at a time (its runspace is shared).
+
 ## .NET plugins
 
 Plugins written for .NET (C#, F#, ...) hosted in-process by the DotnetPlugins module, on Windows and Linux.

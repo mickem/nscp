@@ -91,10 +91,7 @@ CPP_TEMPLATE = """#include "module.hpp"
 #define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
 #include <windows.h>
 #endif
-{%if module.managed %}
-#include <managed/convert.hpp>
-using namespace Google::Protobuf;
-{% else %}
+
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
@@ -118,7 +115,7 @@ using namespace Google::Protobuf;
 #include <nscapi/command_proxy.hpp>
 #include <nscapi/command_client.hpp>
 namespace ch = nscapi::command_helper;
-{% endif %}
+
 
 #include <str/utf8.hpp>
 
@@ -155,11 +152,7 @@ bool {{module.name}}Module::loadModuleEx(std::string alias, NSCAPI::moduleLoadMo
 {% else %}
 		return true;
 {% endif %}
-{%if module.managed %}
-	} catch (System::Exception ^e) {
-		NSC_LOG_ERROR("Failed to load CheckPowershell: " + to_nstring(e->Message));
-		return false;
-{% endif %}
+
 	} catch (std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to load {{module.name}}: ", e);
 		return false;
@@ -177,11 +170,7 @@ bool {{module.name}}Module::loadModuleEx(std::string alias, NSCAPI::moduleLoadMo
 bool {{module.name}}Module::startModule() {
 	try {
 		return impl_->startModule();
-{%if module.managed %}
-	} catch (System::Exception ^e) {
-		NSC_LOG_ERROR("Failed to load CheckPowershell: " + to_nstring(e->Message));
-		return false;
-{% endif %}
+
 	} catch (std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to load {{module.name}}: ", e);
 		return false;
@@ -237,15 +226,11 @@ bool {{module.name}}Module::unloadModule() {
  * @return status code
  */
 NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &request, std::string &response) {
-{%if module.managed %}
-	PB::Commands::QueryResponseMessage^ response_message = gcnew PB::Commands::QueryResponseMessage();
-{% else %}
+
 	PB::Commands::QueryResponseMessage response_message;
-{% endif %}
+
 	try {
-{%if module.managed %}
-		PB::Commands::QueryRequestMessage^ request_message = PB::Commands::QueryRequestMessage::Parser->ParseFrom(to_pbd(request));
-{% else %}
+
 		PB::Commands::QueryRequestMessage request_message;
 		request_message.ParseFromString(request);
 		nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_message.header());
@@ -253,17 +238,14 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &
 		if (!impl_) {
 			return NSCAPI::cmd_return_codes::returnIgnored;
 		}
-{% endif %}
+
 {% if module.command_fallback_raw %}
 				impl_->query_fallback(request_message, response_message);
 {% else %}
-{%if module.managed %}
-		for (int i=0;i<request_message->Payload->Count;i++) {
-			PB::Commands::QueryRequestMessage::Types::Request^ request_payload = request_message->Payload[i];
-{% else %}
+
 		for (int i=0;i<request_message.payload_size();i++) {
 			PB::Commands::QueryRequestMessage::Request request_payload = request_message.payload(i);
-{% endif %}
+
 			if (!impl_) {
 				return NSCAPI::cmd_return_codes::returnIgnored;
 {% for cmd in module.commands %}
@@ -316,40 +298,16 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &
 {% endfor %}
 {% if module.command_fallback %}
 			} else {
-{%if module.managed %}
-				PB::Commands::QueryResponseMessage::Types::Response^ query_builder = gcnew PB::Commands::QueryResponseMessage::Types::Response();
-				query_builder->Command = request_payload->Command;
-				impl_->query_fallback(request_payload, query_builder, request_message);
-				response_message->Payload->Add(query_builder);
-{% else %}
+
 				PB::Commands::QueryResponseMessage::Response *response_payload = response_message.add_payload();
 				response_payload->set_command(request_payload.command());
 				impl_->query_fallback(request_payload, response_payload, request_message);
-{% endif %}
+
 {% endif %}
 			}
 		}
 {% endif %}
-{%if module.managed %}
-	} catch (System::Exception ^e) {
-        response_message->Payload->Clear();
-		PB::Commands::QueryResponseMessage::Types::Response^ query_builder = gcnew PB::Commands::QueryResponseMessage::Types::Response();
-		query_builder->Result = PB::Common::ResultCode::Unknown;
-		response_message->Payload->Add(query_builder);
-	} catch (const std::exception &e) {
-        response_message->Payload->Clear();
-		PB::Commands::QueryResponseMessage::Types::Response^ query_builder = gcnew PB::Commands::QueryResponseMessage::Types::Response();
-		query_builder->Result = PB::Common::ResultCode::Unknown;
-		response_message->Payload->Add(query_builder);
-	} catch (...) {
-        response_message->Payload->Clear();
-		PB::Commands::QueryResponseMessage::Types::Response^ query_builder = gcnew PB::Commands::QueryResponseMessage::Types::Response();
-		query_builder->Result = PB::Common::ResultCode::Unknown;
-		response_message->Payload->Add(query_builder);
-	}
-	response = to_nstring(MessageExtensions::ToByteArray(response_message));
-	return NSCAPI::cmd_return_codes::isSuccess;
-{% else %}
+
 	} catch (const std::exception &e) {
         response_message.clear_payload();
         ::PB::Commands::QueryResponseMessage::Response *payload = response_message.add_payload();
@@ -365,7 +323,7 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &
 	}
     response_message.SerializeToString(&response);
     return NSCAPI::cmd_return_codes::isSuccess;
-{% endif %}
+
 }
 
 {%if options.hasRegisterCommand %}
@@ -638,17 +596,11 @@ NSCAPI::nagiosReturn {{module.name}}Module::onRAWEvent(const std::string &reques
 }
 {% endif %}
 
-{% if module.managed %}
-#pragma managed(push, off)
-BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved) {
-	return TRUE;
-}
-#pragma managed(pop)
-{% else %}
+
 #ifdef _WIN32
 	BOOL APIENTRY DllMain(HANDLE, DWORD, LPVOID) { return TRUE; }
 #endif
-{% endif %}
+
 	nscapi::helper_singleton* nscapi::plugin_singleton = new nscapi::helper_singleton();
 	typedef {{module.name}}Module plugin_impl_class;
 	static nscapi::plugin_instance_data<plugin_impl_class> plugin_instance{};
@@ -956,7 +908,6 @@ class Module:
 	alias = ''
 	version = None
 	loaders = "both"
-	managed = False
 	experimental = False
 
 	def __init__(self, data):
@@ -968,8 +919,6 @@ class Module:
 			self.description = data['description']
 		if data['title']:
 			self.title = data['title']
-		if 'managed' in data and data['managed']:
-			self.managed = data['managed']
 		# "experimental": the module is usable but its commands/options may
 		# still change; the core reports it and the CLI, web UI and reference
 		# documentation render it as a marker.
@@ -1173,8 +1122,6 @@ env.filters['rcstring'] = escape_rcstring
 
 options.moduleBaseclass = 'nscapi::impl::simple_plugin'
 options.hasRegisterCommand = len(module.commands) > 0
-if module.managed:
-	options.moduleBaseclass = 'nscapi::impl::thin_plugin'
 
 data = {'module': module, 'options': options}
 print(f'Writing files: module.hpp, module.cpp, module.def in {options.target}')

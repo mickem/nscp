@@ -58,6 +58,14 @@ namespace NSCP.Core
         Result submit(string channel, byte[] request);
         bool reload(string module);
 
+        /// <summary>
+        /// Expand the NSClient++ path variables in <paramref name="path"/>
+        /// (<c>${base-path}</c>, <c>${scripts}</c>, <c>${module-path}</c>, ...).
+        /// A settings value read through <see cref="settings"/> comes back as
+        /// configured, so a plugin that reads a path key expands it here.
+        /// </summary>
+        string expandPath(string path);
+
         Result settings(byte[] request);
         Result registry(byte[] request);
         void log(byte[] request);

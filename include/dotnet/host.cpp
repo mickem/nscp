@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
-#include "dotnet_host.hpp"
+#include <dotnet/host.hpp>
 
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
@@ -26,8 +26,8 @@
 // They carry the calling convention of every entry point: HOSTFXR_CALLTYPE for
 // hostfxr's exports and CORECLR_DELEGATE_CALLTYPE for the delegates it hands
 // back, which differ on 32-bit Windows.
-#include "hostfxr/coreclr_delegates.h"
-#include "hostfxr/hostfxr.h"
+#include <dotnet/hostfxr/coreclr_delegates.h>
+#include <dotnet/hostfxr/hostfxr.h>
 
 namespace fs = boost::filesystem;
 

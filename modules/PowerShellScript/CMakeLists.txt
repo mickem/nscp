@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-set(TARGET DotnetPlugins)
+set(TARGET PowerShellScript)
 
 project(${TARGET})
 
@@ -37,11 +37,11 @@ target_link_libraries(
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 
 NSCP_CREATE_TEST(
-    dotnet_plugins_test
+    powershell_script_test
     SOURCES
-        dotnet_plugins_test.cpp
-        # The module class: its value resolution is plain C++ and the log
-        # macros only need the plugin singleton the test defines itself.
+        powershell_script_test.cpp
+        # The module class: the command-line normalisation is plain C++ and the
+        # log macros only need the plugin singleton the test defines itself.
         "${TARGET}.cpp"
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_impl.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp

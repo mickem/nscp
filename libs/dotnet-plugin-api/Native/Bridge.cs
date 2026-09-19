@@ -14,14 +14,14 @@ using NSCP.Helpers;
 namespace NSCP.Core.Native
 {
     /// <summary>
-    /// Entry points the C++ DotnetPlugins module resolves through
+    /// Entry points the C++ host module (DotnetPlugins, PowerShellScript) resolves through
     /// <c>load_assembly_and_get_function_pointer</c>. All of them are
     /// <see cref="UnmanagedCallersOnlyAttribute"/> with a C (cdecl) ABI; strings
     /// are NUL-terminated UTF-8 and responses travel through a write callback.
     /// The convention is spelled out because on 32-bit Windows the default for
     /// unmanaged function pointers is stdcall, which does not match the C++
     /// side and crashes the process on the first call.
-    /// Must be kept in sync with modules/DotnetPlugins/dotnet_bridge.hpp.
+    /// Must be kept in sync with include/dotnet/bridge.hpp.
     /// </summary>
     public static unsafe class Bridge
     {

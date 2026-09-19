@@ -72,7 +72,10 @@ struct hostfxr_location {
 hostfxr_location find_hostfxr(const std::vector<boost::filesystem::path> &roots);
 
 // A loaded runtime. There can be only one runtime per process, and it cannot be
-// unloaded, so this is a process-wide singleton that survives module reloads.
+// unloaded, so this is a singleton that survives module reloads. Each module
+// linking this library has its own instance; the second one to initialize is
+// answered with Success_HostAlreadyInitialized and handed a delegate into the
+// runtime the first one started, so the runtime itself stays shared.
 class host {
  public:
   static std::shared_ptr<host> instance();

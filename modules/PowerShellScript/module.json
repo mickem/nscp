@@ -1,0 +1,20 @@
+{
+	"module"		: {
+		"title"			: "PowerShell script",
+		"description"	: "Loads and processes PowerShell scripts in-process, so a script can register checks and talk back to NSClient++",
+		"name"			: "PowerShellScript",
+		"alias"			: "powershell",
+		"version"		: "auto",
+		"experimental"	: true
+	},
+
+	"settings"		: {
+		"default_alias"	: "powershell"
+	},
+
+	"commands" : {
+		"fallback" : "true"
+	},
+	"command line exec" : "true",
+	"channels" : true
+}
