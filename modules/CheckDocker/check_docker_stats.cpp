@@ -113,7 +113,7 @@ void check_stats(const settings &defaults, const PB::Commands::QueryRequestMessa
   filter_helper.add_syntax("${status}: ${list}", "${names}: cpu ${cpu_pct}%, memory ${memory} (${memory_pct}%)", "${names}", "No running containers", "");
   // clang-format off
   filter_helper.get_desc().add_options()
-    ("host", po::value<std::string>(&endpoint)->default_value(endpoint), "The local docker daemon socket (named pipe on Windows, unix socket elsewhere).")
+    ("host", po::value<std::string>(&endpoint)->default_value(endpoint), "The local docker daemon socket (named pipe on Windows, unix socket elsewhere). Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator decision, not a request one.")
     ("timeout", po::value<int>(&timeout)->default_value(timeout), "Timeout for talking to the daemon, in seconds.")
     ("container", po::value<std::vector<std::string>>(&only), "Only sample the named container (repeatable). Sampling takes about a second per container, so scope this check on busy hosts.")
     ;
@@ -121,9 +121,10 @@ void check_stats(const settings &defaults, const PB::Commands::QueryRequestMessa
 
   if (!filter_helper.parse_options()) return;
 
-  // See check_containers for why the endpoint must be constrained.
+  // See check_containers for why the endpoint must be constrained, and why a
+  // request may not choose it.
   std::string endpoint_error;
-  if (!is_local_docker_endpoint(endpoint, endpoint_error)) {
+  if (!is_configured_docker_endpoint(endpoint, defaults.endpoint, endpoint_error) || !is_local_docker_endpoint(endpoint, endpoint_error)) {
     return nscapi::protobuf::functions::set_response_bad(*response, endpoint_error);
   }
 

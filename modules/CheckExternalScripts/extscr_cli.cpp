@@ -16,6 +16,11 @@
 #include <nscapi/protobuf/settings_functions.hpp>
 #include <string>
 
+#ifndef WIN32
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
+
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 namespace pf = nscapi::protobuf::functions;
@@ -58,6 +63,72 @@ bool extscr_cli::validate_sandbox(boost::filesystem::path pscript, PB::Commands:
     return false;
   }
   return true;
+}
+
+namespace {
+// weakly_canonical, falling back to the lexical path when resolution fails -
+// the same treatment validate_sandbox gives both sides of its comparison.
+boost::filesystem::path resolve(const boost::filesystem::path &path) {
+  boost::system::error_code ec;
+  const boost::filesystem::path resolved = boost::filesystem::weakly_canonical(path, ec);
+  return ec ? path : resolved;
+}
+
+// True when this file is one the service itself created and nobody else can
+// rewrite.
+//
+// Needed only for ${temp}. The script root and ${shared-path} are the agent's
+// own directories, but ${temp} is the *shared* temp directory - `/tmp`, or
+// `C:\Windows\Temp` for a SYSTEM service - which is why the REST upload route
+// stages there under a random, exclusively created, owner-only name (see
+// upload_staging.hpp). Accepting any path under ${temp}, as this first did,
+// threw that away: a local account can drop a file in `/tmp` and have it
+// imported and registered as a command that runs as the service account.
+//
+// Ownership is the discriminator, not the name - a name pattern is something
+// an attacker can simply match. On Windows this returns true and the path is
+// admitted on the directory check alone; expressing "created by us" there
+// means reading the DACL, and the honest thing is to leave that to a change
+// that can be tested on Windows rather than guess at it here.
+bool is_our_own_file(const boost::filesystem::path &path) {
+#ifdef WIN32
+  (void)path;
+  return true;
+#else
+  struct stat st = {};
+  if (::stat(path.string().c_str(), &st) != 0) return false;
+  if (!S_ISREG(st.st_mode)) return false;
+  if (st.st_uid != ::geteuid()) return false;
+  // Writable by anyone else means the content can still change between this
+  // check and the copy below.
+  return (st.st_mode & (S_IWGRP | S_IWOTH)) == 0;
+#endif
+}
+}  // namespace
+
+bool extscr_cli::validate_import_source(const boost::filesystem::path &source, PB::Commands::ExecuteResponseMessage::Response *response) {
+  const boost::filesystem::path real_source = resolve(source);
+  // The script root and ${shared-path} are the agent's own directories: being
+  // inside one is enough.
+  const std::string owned_roots[] = {provider_->get_root().string(), provider_->get_core()->expand_path("${shared-path}")};
+  for (const std::string &root : owned_roots) {
+    if (root.empty()) continue;
+    if (file_helpers::checks::path_contains_file(resolve(root), real_source)) return true;
+  }
+  // ${temp} is where the REST PUT /api/v2/scripts route stages an upload before
+  // handing it to `add --import`, so it has to be reachable - but it is shared
+  // with every local account, so being inside it proves nothing on its own. The
+  // staged file is ours and owner-only; a planted one is not.
+  const std::string temp_root = provider_->get_core()->expand_path("${temp}");
+  if (!temp_root.empty() && file_helpers::checks::path_contains_file(resolve(temp_root), real_source) && is_our_own_file(real_source)) {
+    return true;
+  }
+  // Deliberately without the resolved path or the list of roots: naming them
+  // would answer "where does this agent keep its scripts" and "does this path
+  // exist" for a caller who is being refused.
+  nscapi::protobuf::functions::set_response_bad(
+      *response, "Importing is only allowed from the script folder, ${shared-path} or the upload staging area. Copy the script there first.");
+  return false;
 }
 
 void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
@@ -308,6 +379,12 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
   boost::filesystem::path script_root = provider_->get_root();
 
   if (!import_script.empty()) {
+    // The sandbox that keeps `show` and `delete` inside the script root is
+    // only worth anything if nothing can be carried into it first: `add
+    // --import /etc/shadow` followed by `show` is otherwise an arbitrary file
+    // read with the agent's privileges, for the same principals that reach
+    // the legacy /exec route.
+    if (!validate_import_source(provider_->get_core()->expand_path(import_script), response)) return;
     file = script_root / file_helpers::meta::get_filename(file);
     script = "scripts\\" + file_helpers::meta::get_filename(file);
     if (boost::filesystem::exists(file)) {

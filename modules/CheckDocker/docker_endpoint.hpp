@@ -33,6 +33,38 @@ inline std::string default_docker_endpoint() {
 #endif
 }
 
+// True when the endpoint a request asked for is the one the operator
+// configured.
+//
+// Being local is not enough. `host=` is a check argument, so any caller who
+// can run the check - over REST anyone holding `queries.execute` - chooses
+// which absolute unix socket path or \\.\pipe\<name> the agent connects to
+// and issues GET /containers/json against, and the status code or parse error
+// comes back in the check result. That is a read-only probe of every socket
+// and pipe on the host, performed as root or SYSTEM. Which daemon this agent
+// talks to is an operator decision, so `endpoint` under [/settings/docker] is
+// where it is made; a request repeating that value changes nothing and is
+// allowed, so existing command definitions that spell out `host=` keep
+// working.
+//
+// On mismatch `error` says where to configure it, without echoing the value
+// the caller asked for.
+inline bool is_configured_docker_endpoint(const std::string &requested, const std::string &configured, std::string &error) {
+  const std::string effective = configured.empty() ? default_docker_endpoint() : configured;
+#ifdef WIN32
+  // Pipe names are case-insensitive on Windows, so a differently-cased
+  // spelling of the configured endpoint is the same endpoint.
+  const bool same = requested.size() == effective.size() && starts_with_ci(requested, effective);
+#else
+  const bool same = requested == effective;
+#endif
+  if (same) return true;
+  error =
+      "Refusing a request-supplied docker endpoint: the daemon this agent talks to is set with `endpoint` under [/settings/docker], not by the request. "
+      "Remove host= from the check, or change the setting.";
+  return false;
+}
+
 // True when `host` names a docker endpoint on this machine.
 //
 // `--host` is a check argument, so it arrives from whoever can run the check -

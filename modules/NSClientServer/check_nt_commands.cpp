@@ -137,8 +137,24 @@ bool map_request(int code, const std::string &raw_args, mapped_command &out) {
       out.arguments.push_back("counter=" + raw_args);
       return true;
     case REQ_FILEAGE:
-      out.command = "check_files";
-      out.arguments.push_back("path=" + raw_args);
+      // check_single_file, not check_files: FILEAGE answers with one number,
+      // and format_response below reads perf(0) to get it. Mapped onto
+      // check_files, a directory argument produced one performance value per
+      // file and the client was handed whichever the walk emitted first - not
+      // the oldest, not the newest, just arbitrary - while the message listed
+      // every file beneath it and its mtime, so an authenticated caller could
+      // enumerate C:\Users or /home one request at a time. Capping the depth
+      // narrowed the listing but left the number just as arbitrary.
+      //
+      // A check that stats exactly one path cannot do either: there is only
+      // ever one candidate, so the age is defined and there is nothing to
+      // enumerate. A directory argument now fails instead of answering.
+      out.command = "check_single_file";
+      out.arguments.push_back("file=" + raw_args);
+      // age is only emitted as performance data when a threshold names it,
+      // and format_response needs perf(0) to be the age. age is never
+      // negative, so this arms the perf counter without ever firing. It also
+      // keeps check_single_file out of its no-thresholds UNKNOWN default.
       out.arguments.push_back("crit=age<0");
       out.arguments.push_back("detail-syntax=${file} ${written}");
       out.arguments.push_back("top-syntax=${list}");

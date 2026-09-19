@@ -195,7 +195,13 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
   std::stringstream result;
   if (ciphers == "ALL:!MD5:@STRENGTH:@SECLEVEL=0") {
     insecure = "true";
-  } else if (ciphers == "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH") {
+    // Both spellings of the secure preset. The `!aNULL` one is what the server
+    // writes now; the one without it is what older installs have on disk. A
+    // re-run has to recognise the string it just wrote, or `nrpe install`
+    // reports "Inconsistent insecure option will overwrite" on a host it
+    // configured itself a moment earlier - a downgrade warning for a downgrade
+    // that is not happening.
+  } else if (ciphers == "ALL:!aNULL:!ADH:!LOW:!EXP:!MD5:@STRENGTH" || ciphers == "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH") {
     insecure = "false";
   } else if (!ciphers.empty()) {
     result << "WARNING: Inconsistent insecure option will overwrite: ciphers=" << ciphers << " with ALL:!MD5:@STRENGTH:@SECLEVEL=0\n";
@@ -258,7 +264,11 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
     s.set("/settings/default", "allowed hosts", allowed_hosts);
     s.set(MAIN_MODULES_SECTION, "NRPEServer", "enabled");
     s.set("/settings/NRPE/server", "port", port);
-    s.set("/settings/NRPE/server", "ssl", "true");
+    // `use ssl`, not `ssl`: the server registers the former, so writing `ssl`
+    // reported that NRPE was enabled via SSL while leaving a key nothing reads.
+    // On a host where an operator had previously set `use ssl = false` the
+    // listener then stayed plaintext while this command claimed otherwise.
+    s.set("/settings/NRPE/server", "use ssl", "true");
     if (insecure == "true") {
       result << "WARNING: NRPE is currently insecure." << std::endl;
       s.set("/settings/NRPE/server", "insecure", "true");
@@ -291,7 +301,10 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
       }
 
       s.set("/settings/NRPE/server", "insecure", "false");
-      s.set("/settings/NRPE/server", "allowed ciphers", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
+      // Same string as the module's own secure default. !aNULL covers both
+      // families of anonymous suites (ADH is the finite-field half, AECDH the
+      // elliptic-curve one); !ADH stays for readers who look for it.
+      s.set("/settings/NRPE/server", "allowed ciphers", "ALL:!aNULL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
       s.set("/settings/NRPE/server", "ssl options", "no-sslv2,no-sslv3");
       s.set("/settings/NRPE/server", "verify mode", verify);
       s.set("/settings/NRPE/server", "ca", ca);
