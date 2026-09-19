@@ -568,6 +568,10 @@ to the package directory. Neither is something the configuration states, so **pr
 path** for an external script, or keep the conventional relative form and be aware it depends on
 how the agent was started.
 
+`nscp ext-scr add --import <file>` writes that value for you, and picks the spelling that works on
+the platform it runs on: `scripts\<name>` on Windows, where the working directory is known, and the
+destination's absolute path everywhere else.
+
 ### Overriding
 
 All paths can also be overridden using the `[paths]` section in `boot.ini`.
