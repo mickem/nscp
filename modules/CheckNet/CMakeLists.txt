@@ -53,7 +53,7 @@ NSCP_DEBUG_SYMBOLS(${TARGET})
 target_link_libraries(
     ${TARGET}
     nscp_net
-    nscp_json
+    ${Boost_JSON_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_REGEX_LIBRARY}
     ${Boost_CHRONO_LIBRARY}
@@ -100,7 +100,7 @@ NSCP_CREATE_TEST(
     LIBRARIES
         GTest::gtest_main
         nscp_protobuf
-        nscp_json
+        ${Boost_JSON_LIBRARY}
         ${NSCP_FILTER_LIB}
         expression_parser
         ${PLUGIN_API_TARGET}

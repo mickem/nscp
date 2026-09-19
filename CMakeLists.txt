@@ -282,6 +282,12 @@ else(USE_STATIC_RUNTIME)
         ${NSCP_GLOBAL_DEFINES}
         -DBOOST_THREAD_DYN_LINK
         -DBOOST_PROGRAM_OPTIONS_DYN_LINK
+        # Boost.JSON is linked rather than compiled into each consumer, so its
+        # declarations must be dllimport: without this BOOST_JSON_DECL stays
+        # empty and every consumer fails to link against the import library.
+        # The static (XP) build leaves it undefined on purpose, exactly as it
+        # does for thread and program_options above.
+        -DBOOST_JSON_DYN_LINK
     )
     set(BUILD_SHARED_LIBS ON)
     if(WIN32)
@@ -432,6 +438,7 @@ else(USE_STATIC_RUNTIME)
         set(LIBS
             DATE_TIME
             FILESYSTEM
+            JSON
             PROGRAM_OPTIONS
             "${BOOST_PYTHON_VERSION_UPPER}"
             "REGEX"

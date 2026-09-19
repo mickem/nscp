@@ -211,7 +211,7 @@ target_link_libraries(
     settings_manager
     expression_parser
     nscp_miniz
-    nscp_json
+    ${Boost_JSON_LIBRARY}
     nscp_net
 )
 
@@ -238,7 +238,7 @@ NSCP_CREATE_TEST(
         ../include/parsers/cron/cron_parser.hpp
         ${NSCP_INCLUDEDIR}/win/shellapi.cpp
     LIBRARIES
-        nscp_json
+        ${Boost_JSON_LIBRARY}
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}
         ${EXTRA_LIBS}
@@ -302,7 +302,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nsclient/logger/log_message_factory.cpp
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
-        nscp_json
+        ${Boost_JSON_LIBRARY}
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}
         ${EXTRA_LIBS}
@@ -336,7 +336,7 @@ NSCP_CREATE_TEST(
         ${service_test_SRCS}
         ${NSCP_INCLUDEDIR}/win/shellapi.cpp
     LIBRARIES
-        nscp_json
+        ${Boost_JSON_LIBRARY}
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}
         ${EXTRA_LIBS}

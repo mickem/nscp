@@ -53,7 +53,7 @@ target_link_libraries(
     ${TARGET}
     ${EXTRA_LIBS}
     nscp_net
-    nscp_json
+    ${Boost_JSON_LIBRARY}
     ${PLUGIN_API_TARGET}
 )
 
