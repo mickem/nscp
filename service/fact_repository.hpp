@@ -200,6 +200,19 @@ class fact_repository {
     return canonical(boost::json::value(build_document()));
   }
 
+  // The document, its digest and the revision they belong to, read under one
+  // lock. Anything that ships the document *with* its hash has to use this:
+  // reading them in two calls lets a producer land between them, and the
+  // server then receives a document whose hash does not describe it - which
+  // reads as an agent that lies about its own inventory.
+  void snapshot(std::string &document, std::string &hash, unsigned long long &revision) const {
+    boost::unique_lock<boost::mutex> lock(mutex_);
+    document = canonical(boost::json::value(build_document()));
+    if (!hash_) hash_ = algorithms::sha256_hex(document);
+    hash = hash_.value();
+    revision = revision_;
+  }
+
   // Monotonic change counter: starts at 0 (empty repository) and increments on
   // every effective change. Pollers compare it instead of diffing.
   unsigned long long get_revision() const {

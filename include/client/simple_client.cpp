@@ -460,7 +460,7 @@ static std::string render_facts_list(const std::string &body) {
     rows.push_back({id != nullptr && id->is_string() ? std::string(id->get_string()) : std::string("?"),
                     on != nullptr && on->is_bool() && on->get_bool() ? "enabled" : "disabled", by.empty() ? "?" : by, text});
   }
-  return render_table(rows) + "\n\nEnable a set with `" + std::string("os = true") + "` under [/settings/facts] in the configuration.";
+  return render_table(rows) + "\n\nEnable a set with `<id> = true` under [/settings/facts] in the configuration.";
 }
 
 namespace client {

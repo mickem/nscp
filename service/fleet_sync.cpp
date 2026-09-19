@@ -396,7 +396,14 @@ void fleet_sync::note_server_facts_hash(const std::string &body) {
 
 void fleet_sync::maybe_upload_facts() {
   if (!facts_) return;
-  const unsigned long long revision = facts_->get_revision();
+  // The document, its digest and the revision they belong to, read together:
+  // reading them separately would let a producer land in between and send the
+  // server a document whose hash does not describe it.
+  std::string document;
+  std::string hash;
+  unsigned long long revision = 0;
+  facts_->snapshot(document, hash, revision);
+
   const bool changed = !facts_uploaded_ || revision != uploaded_facts_revision_;
   if (!changed && !facts_upload_requested_) return;
   // An older server has no such route. Asking it once per poll forever would
@@ -404,11 +411,22 @@ void fleet_sync::maybe_upload_facts() {
   // carrying a facts_hash clears this again.
   if (server_has_no_facts_ && !facts_upload_requested_) return;
 
+  // Built before the call, so a document this agent somehow produced malformed
+  // is a producer bug reported here rather than a transport failure retried
+  // for ever.
+  std::string body;
   try {
-    const std::string document = facts_->get_document();
-    const std::string hash = facts_->get_hash();
     const std::string collected_at = str::format::format_date(::time(nullptr), "%Y-%m-%dT%H:%M:%SZ");
-    const std::string body = onboarding::build_facts_upload(hash, collected_at, document);
+    body = onboarding::build_facts_upload(hash, collected_at, document);
+  } catch (const std::exception &e) {
+    log_error(std::string("Cannot upload host facts: ") + e.what());
+    uploaded_facts_revision_ = revision;
+    facts_uploaded_ = true;
+    facts_upload_requested_ = false;
+    return;
+  }
+
+  try {
     const http::response response = do_call("POST", facts_path, body);
     note_transport_success();
 
@@ -437,13 +455,6 @@ void fleet_sync::maybe_upload_facts() {
       return;
     }
 
-    uploaded_facts_revision_ = revision;
-    facts_uploaded_ = true;
-    facts_upload_requested_ = false;
-  } catch (const onboarding::onboarding_error &e) {
-    // A document this agent built and cannot serialise is a bug in a producer,
-    // not a transport failure; retrying it every poll would only repeat.
-    log_error(std::string("Cannot upload host facts: ") + e.what());
     uploaded_facts_revision_ = revision;
     facts_uploaded_ = true;
     facts_upload_requested_ = false;

@@ -295,6 +295,36 @@ TEST(FactRepository, TheHashMovesWhenTheDocumentChangesAndIsStableWhenItDoesNot)
   EXPECT_NE(before, repo.get_hash());
 }
 
+// Anything that ships the document together with its hash has to read them
+// together, or a producer landing between the two reads sends the server a
+// document whose hash does not describe it.
+TEST(FactRepository, TheSnapshotsHashDescribesTheSnapshotsDocument) {
+  fact_repository repo;
+  store(repo, "os", R"({"family":"linux"})");
+  store(repo, "hardware", R"({"vendor":"Dell Inc."})");
+
+  std::string document;
+  std::string hash;
+  unsigned long long revision = 0;
+  repo.snapshot(document, hash, revision);
+
+  EXPECT_EQ(repo.get_document(), document);
+  EXPECT_EQ(algorithms::sha256_hex(document), hash);
+  EXPECT_EQ(repo.get_revision(), revision);
+}
+
+TEST(FactRepository, TheSnapshotOfAnEmptyRepositoryIsTheEmptyDocument) {
+  const fact_repository repo;
+  std::string document;
+  std::string hash;
+  unsigned long long revision = 0;
+  repo.snapshot(document, hash, revision);
+
+  EXPECT_EQ("{}", document);
+  EXPECT_EQ(algorithms::sha256_hex("{}"), hash);
+  EXPECT_EQ(0u, revision);
+}
+
 TEST(FactRepository, RemovingEveryFactSetReturnsTheEmptyDocumentHash) {
   fact_repository repo;
   const std::string empty = repo.get_hash();

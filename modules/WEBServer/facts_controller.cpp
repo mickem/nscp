@@ -111,6 +111,7 @@ void facts_controller::refresh_facts(Mongoose::Request &request, boost::smatch &
   try {
     tag_response(response, json::parse(body));
   } catch (const std::exception &) {
+    // As above: an unparsable envelope costs the ETag, not the answer.
   }
   response.get_headers()["Content-Type"] = "application/json";
   response.append(body);
