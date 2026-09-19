@@ -1232,12 +1232,18 @@ TEST(SyncRenewHostile, TheServerCannotMoveUsToAnotherServer) {
 
 // --- state report payload ---------------------------------------------------
 
+namespace {
+// The digest of the canonical empty facts document - what an agent with no
+// fact set enabled reports, which is every agent by default.
+const char *EMPTY_FACTS_HASH = "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a";
+}  // namespace
+
 TEST(SyncReport, BuildStateReport) {
   std::vector<onboarding::installed_bundle> bundles;
   bundles.push_back({"b1", "1.0"});
   std::map<std::string, std::string> tags;
   tags["os"] = "windows";
-  const json::object root = json::parse(onboarding::build_state_report(std::string("h1"), bundles, {"oops"}, tags, false)).as_object();
+  const json::object root = json::parse(onboarding::build_state_report(std::string("h1"), bundles, {"oops"}, tags, false, EMPTY_FACTS_HASH)).as_object();
   EXPECT_EQ(root.at("applied_state_hash").as_string(), "h1");
   EXPECT_EQ(root.at("bundles_installed").as_array().at(0).as_object().at("id").as_string(), "b1");
   EXPECT_EQ(root.at("errors").as_array().at(0).as_string(), "oops");
@@ -1245,18 +1251,18 @@ TEST(SyncReport, BuildStateReport) {
 }
 
 TEST(SyncReport, OmitsHashAfterFailedApply) {
-  const json::object root = json::parse(onboarding::build_state_report(boost::none, {}, {}, {}, false)).as_object();
+  const json::object root = json::parse(onboarding::build_state_report(boost::none, {}, {}, {}, false, EMPTY_FACTS_HASH)).as_object();
   EXPECT_EQ(root.if_contains("applied_state_hash"), nullptr);
 }
 
 TEST(SyncReport, ReportsWhetherLocalConfigurationOutranksTheFleet) {
   // Always present, both ways round: the server distinguishes "no local
   // overrides" from an older agent that says nothing at all.
-  const json::object without = json::parse(onboarding::build_state_report(boost::none, {}, {}, {}, false)).as_object();
+  const json::object without = json::parse(onboarding::build_state_report(boost::none, {}, {}, {}, false, EMPTY_FACTS_HASH)).as_object();
   ASSERT_NE(without.if_contains("local_config_present"), nullptr);
   EXPECT_FALSE(without.at("local_config_present").as_bool());
 
-  const json::object with = json::parse(onboarding::build_state_report(boost::none, {}, {}, {}, true)).as_object();
+  const json::object with = json::parse(onboarding::build_state_report(boost::none, {}, {}, {}, true, EMPTY_FACTS_HASH)).as_object();
   EXPECT_TRUE(with.at("local_config_present").as_bool());
 }
 
@@ -1266,16 +1272,105 @@ TEST(SyncReport, LocalConfigFlagCarriesNoConfigurationContent) {
   // holds passwords. Guard the payload, not just the boolean.
   std::map<std::string, std::string> tags;
   tags["os"] = "linux";
-  const std::string payload = onboarding::build_state_report(std::string("h1"), {}, {}, tags, true);
+  const std::string payload = onboarding::build_state_report(std::string("h1"), {}, {}, tags, true, EMPTY_FACTS_HASH);
   const json::object root = json::parse(payload).as_object();
   // Exactly the members the report is allowed to have.
   for (const auto &member : root) {
     const std::string name(member.key());
     EXPECT_TRUE(name == "applied_state_hash" || name == "bundles_installed" || name == "errors" || name == "reported_tags" ||
-                name == "local_config_present")
+                name == "local_config_present" || name == "facts_hash")
         << "unexpected member in the state report: " << name;
   }
   EXPECT_TRUE(root.at("local_config_present").as_bool());
+}
+
+// The report carries the inventory *digest*, never the inventory. The report
+// goes out every minute and the document changes per day, so this is what lets
+// the server notice a change without being sent one - and it is what keeps the
+// report's privacy contract exactly as it was.
+
+TEST(SyncReport, CarriesTheFactsHashAndNotTheFacts) {
+  const json::object root = json::parse(onboarding::build_state_report(std::string("h1"), {}, {}, {}, false, "abc123")).as_object();
+  EXPECT_EQ(root.at("facts_hash").as_string(), "abc123");
+  EXPECT_EQ(root.if_contains("facts"), nullptr) << "the document itself must never ride the state report";
+}
+
+// A host with facts switched off still reports a hash. That is what lets the
+// server tell "inventory was turned off" apart from "this agent is too old to
+// have any" - the second has no facts_hash at all.
+TEST(SyncReport, AnAgentWithNoFactsEnabledStillReportsAHash) {
+  const json::object root = json::parse(onboarding::build_state_report(boost::none, {}, {}, {}, false, EMPTY_FACTS_HASH)).as_object();
+  EXPECT_EQ(root.at("facts_hash").as_string(), EMPTY_FACTS_HASH);
+}
+
+// --- facts upload payload ----------------------------------------------------
+
+TEST(SyncFacts, BuildFactsUpload) {
+  const std::string payload = onboarding::build_facts_upload("abc123", "2026-09-01T04:12:09Z", R"({"os":{"family":"linux"}})");
+  const json::object root = json::parse(payload).as_object();
+  EXPECT_EQ(root.at("facts_hash").as_string(), "abc123");
+  EXPECT_EQ(root.at("collected_at").as_string(), "2026-09-01T04:12:09Z");
+  EXPECT_EQ(root.at("facts").as_object().at("os").as_object().at("family").as_string(), "linux");
+  for (const auto &member : root) {
+    const std::string name(member.key());
+    EXPECT_TRUE(name == "facts_hash" || name == "collected_at" || name == "facts") << "unexpected member in the facts upload: " << name;
+  }
+}
+
+// Switching inventory off has to reach the server, or it keeps serving what it
+// last held. So the empty document is uploaded, not skipped.
+TEST(SyncFacts, AnEmptyDocumentIsSentAsAnEmptyObject) {
+  const json::object root = json::parse(onboarding::build_facts_upload(EMPTY_FACTS_HASH, "2026-09-01T04:12:09Z", "")).as_object();
+  EXPECT_TRUE(root.at("facts").as_object().empty());
+  const json::object braces = json::parse(onboarding::build_facts_upload(EMPTY_FACTS_HASH, "2026-09-01T04:12:09Z", "{}")).as_object();
+  EXPECT_TRUE(braces.at("facts").as_object().empty());
+}
+
+// The document the agent sends is the one it hashed, so the server digests the
+// same bytes: key order is the agent's canonical order and no whitespace is
+// introduced.
+TEST(SyncFacts, TheDocumentSurvivesTheUploadByteForByte) {
+  const std::string document = R"({"os":{"boot_time":"2026-09-01T04:12:09Z","family":"linux","version":"6.8.0"},"storage":{"volumes":[{"fs":"ext4","id":"/"}]}})";
+  const std::string payload = onboarding::build_facts_upload("abc123", "2026-09-01T04:12:09Z", document);
+  EXPECT_NE(std::string::npos, payload.find(document)) << payload;
+}
+
+TEST(SyncFacts, ADocumentThatIsNotAJsonObjectIsRefused) {
+  EXPECT_THROW(onboarding::build_facts_upload("h", "t", "not json"), onboarding::onboarding_error);
+  EXPECT_THROW(onboarding::build_facts_upload("h", "t", "[1,2,3]"), onboarding::onboarding_error);
+  EXPECT_THROW(onboarding::build_facts_upload("h", "t", "\"a string\""), onboarding::onboarding_error);
+}
+
+// --- the facts hash a server response carries --------------------------------
+
+TEST(SyncFacts, ReadsTheFactsHashOutOfAServerResponse) {
+  const auto hash = onboarding::parse_server_facts_hash(R"({"state_hash":"s1","facts_hash":"abc123"})");
+  ASSERT_TRUE(hash.is_initialized());
+  EXPECT_EQ("abc123", hash.value());
+}
+
+// A response without the key means the server does not do facts, which is not
+// a request for the document.
+TEST(SyncFacts, AResponseWithoutAFactsHashAsksForNothing) {
+  EXPECT_FALSE(onboarding::parse_server_facts_hash(R"({"state_hash":"s1"})").is_initialized());
+  EXPECT_FALSE(onboarding::parse_server_facts_hash("{}").is_initialized());
+  EXPECT_FALSE(onboarding::parse_server_facts_hash("").is_initialized());
+}
+
+// A junk value that could never match ours would make the agent upload the
+// whole document on every single poll, so it is ignored rather than acted on.
+TEST(SyncFacts, AFactsHashThatIsNotAHashIsIgnored) {
+  EXPECT_FALSE(onboarding::parse_server_facts_hash(R"({"facts_hash":""})").is_initialized());
+  EXPECT_FALSE(onboarding::parse_server_facts_hash(R"({"facts_hash":"not a hash"})").is_initialized());
+  EXPECT_FALSE(onboarding::parse_server_facts_hash(R"({"facts_hash":"../../etc/passwd"})").is_initialized());
+  EXPECT_FALSE(onboarding::parse_server_facts_hash(R"({"facts_hash":123})").is_initialized());
+  EXPECT_FALSE(onboarding::parse_server_facts_hash(R"({"facts_hash":{"a":1}})").is_initialized());
+  EXPECT_FALSE(onboarding::parse_server_facts_hash(R"({"facts_hash":")" + std::string(200, 'a') + R"("})").is_initialized());
+}
+
+TEST(SyncFacts, AResponseThatIsNotJsonAsksForNothing) {
+  EXPECT_FALSE(onboarding::parse_server_facts_hash("not json at all").is_initialized());
+  EXPECT_FALSE(onboarding::parse_server_facts_hash("[1,2,3]").is_initialized());
 }
 
 // build_state_report takes strings from outside (bundle names and versions
@@ -1293,7 +1388,7 @@ TEST(SyncReportHostile, ErrorTextAndTagsCannotBreakTheJson) {
   errors.push_back(std::string("with a nul\0inside", 17));
   errors.push_back("unicode é日本 \xC3\xA9");
 
-  const std::string payload = onboarding::build_state_report(std::string("h\"1"), bundles, errors, tags, false);
+  const std::string payload = onboarding::build_state_report(std::string("h\"1"), bundles, errors, tags, false, EMPTY_FACTS_HASH);
   json::object root;
   ASSERT_NO_THROW(root = json::parse(payload).as_object()) << payload;
   EXPECT_EQ(root.at("applied_state_hash").as_string(), "h\"1");
@@ -1305,7 +1400,7 @@ TEST(SyncReportHostile, ErrorTextAndTagsCannotBreakTheJson) {
 }
 
 TEST(SyncReportHostile, EmptyReportIsStillWellFormed) {
-  const json::object root = json::parse(onboarding::build_state_report(boost::none, {}, {}, {}, false)).as_object();
+  const json::object root = json::parse(onboarding::build_state_report(boost::none, {}, {}, {}, false, EMPTY_FACTS_HASH)).as_object();
   EXPECT_TRUE(root.at("bundles_installed").as_array().empty());
   EXPECT_TRUE(root.at("errors").as_array().empty());
   EXPECT_TRUE(root.at("reported_tags").as_object().empty()) << "the server relies on the keys existing";

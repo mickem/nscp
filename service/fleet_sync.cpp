@@ -3,6 +3,8 @@
 
 #include "fleet_sync.hpp"
 
+#include <algorithms/sha256.hpp>
+
 #include <algorithm>
 #include <boost/filesystem.hpp>
 #include <boost/json.hpp>
@@ -13,6 +15,7 @@
 #include <onboarding/bundle_crypto.hpp>
 #include <random>
 #include <sstream>
+#include <str/format.hpp>
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
 #include <utility>
@@ -57,6 +60,7 @@ const char *desired_state_path = "/agent/v1/desired-state";
 const char *state_report_path = "/agent/v1/state-report";
 const char *renew_path = "/agent/v1/renew";
 const char *heartbeat_path = "/agent/v1/heartbeat";
+const char *facts_path = "/agent/v1/facts";
 // Renew when the client certificate has fewer days than this left.
 const long renew_threshold_days = 14;
 // Longest we will ever sleep between polls, whatever the server asks for
@@ -190,8 +194,12 @@ fleet_sync::manifest_status fleet_sync::check_manifest(const std::string &state_
 }
 
 fleet_sync::fleet_sync(nsclient::logging::logger_instance logger, fleet_config config, nsclient::core::tag_repository_instance tags,
-                       reload_function request_reload)
-    : logger_(std::move(logger)), config_(std::move(config)), tags_(std::move(tags)), request_reload_(std::move(request_reload)) {
+                       nsclient::core::fact_repository_instance facts, reload_function request_reload)
+    : logger_(std::move(logger)),
+      config_(std::move(config)),
+      tags_(std::move(tags)),
+      facts_(std::move(facts)),
+      request_reload_(std::move(request_reload)) {
   thread_ = std::make_shared<boost::thread>([this] { this->thread_proc(); });
 }
 
@@ -362,6 +370,88 @@ void fleet_sync::save_applied_state() const {
   write_file(fs::path(config_.managed_path) / "applied-state.json", json::serialize(root));
 }
 
+std::string fleet_sync::facts_hash() const {
+  // A host with facts switched off still reports a hash - the digest of the
+  // empty document - so the server can tell "inventory off" apart from "agent
+  // too old to have any".
+  static const std::string empty_document_hash = algorithms::sha256_hex("{}");
+  return facts_ ? facts_->get_hash() : empty_document_hash;
+}
+
+void fleet_sync::note_server_facts_hash(const std::string &body) {
+  const boost::optional<std::string> theirs = onboarding::parse_server_facts_hash(body);
+  // A response without the key means the server does not do facts, which is
+  // not a trigger: only a hash that is actually different is.
+  if (!theirs.is_initialized()) return;
+  // The server answered with a facts_hash, so it does understand the route
+  // after all - a 404 earlier was about something else, or the server was
+  // upgraded under us.
+  server_has_no_facts_ = false;
+  if (theirs.value() != facts_hash()) {
+    // The server holds a different inventory than we do: a restore, or this
+    // host re-added server-side. Upload regardless of what we think we sent.
+    facts_upload_requested_ = true;
+  }
+}
+
+void fleet_sync::maybe_upload_facts() {
+  if (!facts_) return;
+  const unsigned long long revision = facts_->get_revision();
+  const bool changed = !facts_uploaded_ || revision != uploaded_facts_revision_;
+  if (!changed && !facts_upload_requested_) return;
+  // An older server has no such route. Asking it once per poll forever would
+  // be a log line and a request per minute for nothing; a server response
+  // carrying a facts_hash clears this again.
+  if (server_has_no_facts_ && !facts_upload_requested_) return;
+
+  try {
+    const std::string document = facts_->get_document();
+    const std::string hash = facts_->get_hash();
+    const std::string collected_at = str::format::format_date(::time(nullptr), "%Y-%m-%dT%H:%M:%SZ");
+    const std::string body = onboarding::build_facts_upload(hash, collected_at, document);
+    const http::response response = do_call("POST", facts_path, body);
+    note_transport_success();
+
+    if (response.status_code_ == 404 || response.status_code_ == 405) {
+      // Not an error an operator can act on: this fleet server predates
+      // facts. Said once, at debug, and then never again.
+      if (!server_has_no_facts_) log_debug("Fleet server does not accept host facts (" + str::xtos(response.status_code_) + "): not uploading inventory");
+      server_has_no_facts_ = true;
+      facts_upload_requested_ = false;
+      return;
+    }
+    if (response.status_code_ == 413) {
+      // This one the operator must see: the inventory is too big for the
+      // server, and only they can decide which set to turn off. Named once
+      // per document, so it does not repeat every poll.
+      log_error("The fleet server rejected this host's inventory as too large (413). Disable the largest fact sets in [/settings/facts]; `nscp test` -> "
+                "`facts list` shows what is enabled. Document size: " +
+                str::xtos(static_cast<long long>(document.size())) + " bytes");
+      uploaded_facts_revision_ = revision;
+      facts_uploaded_ = true;
+      facts_upload_requested_ = false;
+      return;
+    }
+    if (!response.is_2xx()) {
+      log_error("Failed to upload host facts: " + str::xtos(response.status_code_) + " " + response.payload_);
+      return;
+    }
+
+    uploaded_facts_revision_ = revision;
+    facts_uploaded_ = true;
+    facts_upload_requested_ = false;
+  } catch (const onboarding::onboarding_error &e) {
+    // A document this agent built and cannot serialise is a bug in a producer,
+    // not a transport failure; retrying it every poll would only repeat.
+    log_error(std::string("Cannot upload host facts: ") + e.what());
+    uploaded_facts_revision_ = revision;
+    facts_uploaded_ = true;
+    facts_upload_requested_ = false;
+  } catch (const std::exception &e) {
+    log_transport_failure("Facts upload", utf8::utf8_from_native(e.what()));
+  }
+}
+
 void fleet_sync::report_state(const boost::optional<std::string> &applied_hash, const std::vector<std::string> &errors) {
   try {
     // Capture the revision BEFORE reading the tags: if a module updates a tag
@@ -370,13 +460,15 @@ void fleet_sync::report_state(const boost::optional<std::string> &applied_hash, 
     // No probe configured (a test harness, say) reads as "nothing local", which
     // is the same answer an un-configured host gives.
     const bool local_config = config_.local_config_probe ? config_.local_config_probe() : false;
-    const std::string body = onboarding::build_state_report(applied_hash, installed_, errors, collect_tags(), local_config);
+    const std::string body = onboarding::build_state_report(applied_hash, installed_, errors, collect_tags(), local_config, facts_hash());
     const http::response response = do_call("POST", state_report_path, body);
     note_transport_success();
     if (!response.is_2xx()) {
       log_error("Failed to submit state report: " + str::xtos(response.status_code_) + " " + response.payload_);
       return;
     }
+    // The server may answer with the inventory hash it holds for this host.
+    note_server_facts_hash(response.payload_);
     reported_tag_revision_ = tag_revision;
     tags_reported_ = true;
   } catch (const std::exception &e) {
@@ -624,6 +716,10 @@ unsigned long fleet_sync::poll_once() {
     return std::min(backoff, poll_interval_ * 5);
   }
   note_transport_success();
+  // Both the 304 and the 200 body may carry the inventory hash the server
+  // holds for this host, which is how a server restore or a host re-added
+  // server-side asks for the document back.
+  note_server_facts_hash(response.payload_);
 
   if (response.status_code_ == 304) {
     failures_ = 0;
@@ -749,6 +845,9 @@ void fleet_sync::run() {
     log_transport_failure("Fleet heartbeat", utf8::utf8_from_native(e.what()));
   }
   report_state(current_hash_.empty() ? boost::optional<std::string>() : boost::optional<std::string>(current_hash_), std::vector<std::string>());
+  // Once at startup, with the empty document too: a server that held
+  // inventory for this host from before needs to learn it was switched off.
+  maybe_upload_facts();
 
   while (true) {
     const unsigned long sleep_seconds = poll_once();
@@ -765,6 +864,9 @@ void fleet_sync::run() {
       if (tags_ && (!tags_reported_ || tags_->get_revision() != reported_tag_revision_)) {
         report_state(current_hash_.empty() ? boost::optional<std::string>() : boost::optional<std::string>(current_hash_), std::vector<std::string>());
       }
+      // The inventory changes far more slowly than the poll, so in steady
+      // state this is one repository read and nothing on the wire.
+      maybe_upload_facts();
     }
     boost::this_thread::sleep_for(boost::chrono::milliseconds(with_jitter_ms(sleep_seconds)));
   }

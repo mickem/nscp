@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 
+#include "fact_repository.hpp"
 #include "tag_repository.hpp"
 
 struct fleet_config {
@@ -63,7 +64,8 @@ class fleet_sync {
   // description (who owns the file, who we are running as).
   static manifest_status check_manifest(const std::string &state_file, std::string &detail);
 
-  fleet_sync(nsclient::logging::logger_instance logger, fleet_config config, nsclient::core::tag_repository_instance tags, reload_function request_reload);
+  fleet_sync(nsclient::logging::logger_instance logger, fleet_config config, nsclient::core::tag_repository_instance tags,
+             nsclient::core::fact_repository_instance facts, reload_function request_reload);
   ~fleet_sync();
   void stop();
 
@@ -92,6 +94,18 @@ class fleet_sync {
   // bundle): bundle downloads pass the larger max_bundle_script_bytes.
   http::response do_call(const char *verb, const std::string &path, const std::string &payload = "", std::size_t max_response_bytes = 0);
   void report_state(const boost::optional<std::string> &applied_hash, const std::vector<std::string> &errors);
+  // The digest of this host's inventory, or the digest of the empty document
+  // when facts are switched off - which is the default, and is exactly what
+  // lets the server tell "inventory off" from "agent too old to have any".
+  std::string facts_hash() const;
+  // Upload the inventory document when the server does not already hold it.
+  // A no-op while the server has never mentioned facts and our own document
+  // has not moved since the last successful upload.
+  void maybe_upload_facts();
+  // Act on a `facts_hash` a server response carried: one that differs from
+  // ours means the server wants the document (a restore, or a host re-added
+  // server-side), and one that is absent means the server does not do facts.
+  void note_server_facts_hash(const std::string &body);
   void maybe_renew();
   std::map<std::string, std::string> collect_tags() const;
 
@@ -121,6 +135,21 @@ class fleet_sync {
   nsclient::core::tag_repository_instance tags_;
   unsigned long long reported_tag_revision_ = 0;
   bool tags_reported_ = false;
+  // The core's fact repository: this host's inventory. Unlike tags it is not
+  // merged into the state report - the report carries only its hash - and the
+  // document goes up on its own call when it changes.
+  nsclient::core::fact_repository_instance facts_;
+  // The document revision behind the last *successful* upload, so a failed
+  // one is retried rather than forgotten.
+  unsigned long long uploaded_facts_revision_ = 0;
+  bool facts_uploaded_ = false;
+  // Set once the server answers 404/405 on the facts route: an older server
+  // that does not do facts. Uploads stop until the agent restarts or a server
+  // response carries a facts_hash, which says it does after all.
+  bool server_has_no_facts_ = false;
+  // True when a server response carried a facts_hash that is not ours: the
+  // server is asking for the document even though we think it has it.
+  bool facts_upload_requested_ = false;
   reload_function request_reload_;
 
   onboarding::enrolled_identity identity_;

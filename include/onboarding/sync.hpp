@@ -169,9 +169,31 @@ struct installed_bundle {
 //
 // `local_config_present` reports THAT the host carries local configuration
 // outranking the fleet-managed values, never what that configuration is.
+//
+// `facts_hash` is the digest of this host's inventory document - the hash of
+// `{}` when nothing is enabled, which is the default. It is a hash and not
+// the document: the report goes out every minute and the inventory changes
+// per day, so what the report carries is enough for the server to notice a
+// change and ask for the document (build_facts_upload below), and nothing
+// more. That also keeps the report's privacy contract exactly as it was.
 std::string build_state_report(const boost::optional<std::string> &applied_state_hash, const std::vector<installed_bundle> &bundles_installed,
                                const std::vector<std::string> &errors, const std::map<std::string, std::string> &reported_tags,
-                               bool local_config_present);
+                               bool local_config_present, const std::string &facts_hash);
+
+// --- facts upload payload -----------------------------------------------------
+
+// Build a /agent/v1/facts body: the inventory document, its digest and when it
+// was collected. `facts_document` is the agent's canonical serialisation,
+// passed through verbatim so the server digests the same bytes the agent
+// hashed; an empty one is sent as `{}`.
+std::string build_facts_upload(const std::string &facts_hash, const std::string &collected_at, const std::string &facts_document);
+
+// The `facts_hash` a server response carries, meaning "this is the inventory I
+// hold for you". An agent whose own hash differs uploads; a response without
+// the key means the server does not do facts, which is not a trigger. Returns
+// none when the key is absent, not an object, or not a plausible hash - a
+// malformed value must not make the agent upload on every poll.
+boost::optional<std::string> parse_server_facts_hash(const std::string &body);
 
 // --- transport error classification ------------------------------------------
 
