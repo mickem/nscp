@@ -544,7 +544,10 @@ TEST(settings_http, a_relative_attachment_target_lands_under_the_shared_path) {
   // noticed. Root it explicitly: same answer on unix, same answer everywhere
   // else now too.
   attachment_core core;
-  EXPECT_EQ(settings::settings_http::resolve_attachment_target(&core, "scripts/myscript.bat"), "/etc/nsclient/scripts/myscript.bat");
+  // generic_string(): the join uses boost's preferred separator, which is a
+  // backslash on Windows. The folder it lands in is what matters here.
+  EXPECT_EQ(boost::filesystem::path(settings::settings_http::resolve_attachment_target(&core, "scripts/myscript.bat")).generic_string(),
+            "/etc/nsclient/scripts/myscript.bat");
 }
 
 TEST(settings_http, an_attachment_target_written_with_a_token_is_unchanged) {
