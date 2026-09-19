@@ -32,6 +32,7 @@ class NSCAPI_EXPORT core_wrapper {
   core_api::lpNSAPISetTag fNSAPISetTag;
   core_api::lpNSAPIGetTags fNSAPIGetTags;
   core_api::lpNSAPISetLogOption fNSAPISetLogOption;
+  core_api::lpNSAPIFactsQuery fNSAPIFactsQuery;
 
  public:
   core_wrapper();
@@ -83,6 +84,24 @@ class NSCAPI_EXPORT core_wrapper {
   // for a passthrough consumer (the web tags controller); a module that wants
   // to read tags should prefer the typed get_tags() below.
   std::string get_tags_json() const;
+
+  // Host facts: the opt-in inventory document the core collects from modules
+  // on a schedule. Read only - a producer publishes through fetchFacts, not
+  // through a setter - and, like the tag calls, degrading gracefully on a core
+  // that predates the API.
+  //
+  // The envelope is returned as it comes off the core:
+  //   { "revision": N, "hash": "...", "collected": "...", "enabled": [...],
+  //     "facts": { ... }, "errors": { ... } }
+  // and, with a path, "facts" is that subtree plus a "found" flag. It is
+  // handed back as a string rather than parsed here because the wrapper is
+  // linked into every module and parsing belongs where the consumer already
+  // has a JSON library - nscapi::facts::parse_document (nscapi_facts_helper)
+  // does it for a module that wants the tree.
+  std::string get_facts_json(const std::string &path = "") const;
+  // Run a facts round now (the `manual` reason). False on a core without the
+  // API, or when the round could not be run.
+  bool refresh_facts() const;
 
   // Change one logging option at runtime; takes the same strings as the --log
   // switch (a severity, or a driver option such as "no-console"). Returns

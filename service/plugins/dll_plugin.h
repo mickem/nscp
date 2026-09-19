@@ -126,6 +126,7 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
   nscapi::plugin_api::lpHasRoutingHandler fHasRoutingHandler;
   nscapi::plugin_api::lpRouteMessage fRouteMessage;
   nscapi::plugin_api::lpFetchMetrics fFetchMetrics;
+  nscapi::plugin_api::lpFetchFacts fFetchFacts;
   nscapi::plugin_api::lpSubmitMetrics fSubmitMetrics;
   nscapi::plugin_api::lpOnEvent fOnEvent;
 
@@ -159,6 +160,7 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
   bool has_on_event() override;
   NSCAPI::nagiosReturn on_event(const std::string &request) override;
   NSCAPI::nagiosReturn fetchMetrics(std::string &request) override;
+  NSCAPI::nagiosReturn fetchFacts(const std::string &request, std::string &response) override;
   NSCAPI::nagiosReturn submitMetrics(const std::string &request) override;
   void handleMessage(const char *data, unsigned int len) override;
   int commandLineExec(bool targeted, std::string &request, std::string &reply) override;
@@ -171,6 +173,9 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
                      unsigned int *new_buffer_len) override;
 
   bool hasMetricsFetcher() override { return fFetchMetrics != nullptr; }
+  // A module built before facts existed simply has no NSFetchFacts export, so
+  // the core never asks it for any.
+  bool hasFactsFetcher() override { return fFetchFacts != nullptr; }
   bool hasMetricsSubmitter() override { return fSubmitMetrics != nullptr; }
 
   std::string getModule() override {
@@ -199,6 +204,8 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
                                           unsigned int *response_buffer_len);
   NSCAPI::nagiosReturn on_event(const char *request_buffer, const unsigned int request_buffer_len);
   NSCAPI::nagiosReturn fetchMetrics(char **response_buffer, unsigned int *response_buffer_len);
+  NSCAPI::nagiosReturn fetchFacts(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer,
+                                  unsigned int *response_buffer_len);
   NSCAPI::nagiosReturn submitMetrics(const char *buffer, const unsigned int buffer_len);
   int commandLineExec(bool targeted, const char *request, const unsigned int request_len, char **reply, unsigned int *reply_len);
   bool getVersion(int *major, int *minor, int *revision);

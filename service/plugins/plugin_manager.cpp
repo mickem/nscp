@@ -5,6 +5,8 @@
 
 #include <config.h>
 
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/json.hpp>
 #include <boost/unordered_map.hpp>
 #include <file_helpers.hpp>
 #include <nscapi/protobuf/functions_exec.hpp>
@@ -137,6 +139,7 @@ nsclient::core::plugin_manager::plugin_manager(path_instance path_, logging::log
       channels_(log_instance_),
       metrics_fetchers_(log_instance_),
       metrics_submitters_(log_instance_),
+      facts_fetchers_(log_instance_),
       plugin_cache_(log_instance_),
       event_subscribers_(log_instance_) {}
 
@@ -417,6 +420,10 @@ void nsclient::core::plugin_manager::purge_broken_plugin(const unsigned long plu
   event_subscribers_.remove_plugin(plugin_id);
   metrics_fetchers_.remove_plugin(plugin_id);
   metrics_submitters_.remove_plugin(plugin_id);
+  facts_fetchers_.remove_plugin(plugin_id);
+  // Whatever this module contributed to the inventory goes with it: a frozen
+  // fact set from a module that is no longer running is worse than none.
+  if (facts_) facts_->remove_owned_by(static_cast<unsigned int>(plugin_id));
   if (plugin) {
     log_instance_->remove_subscriber(plugin);
     try {
@@ -496,6 +503,7 @@ void nsclient::core::plugin_manager::stop_plugins() {
   event_subscribers_.remove_all();
   metrics_fetchers_.remove_all();
   metrics_submitters_.remove_all();
+  facts_fetchers_.remove_all();
   for (const plugin_type &p : plugin_list_.get_plugins()) {
     try {
       if (p) {
@@ -593,6 +601,9 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::add_
     if (plugin->hasMetricsSubmitter()) {
       metrics_submitters_.add_plugin(plugin);
     }
+    if (plugin->hasFactsFetcher()) {
+      facts_fetchers_.add_plugin(plugin);
+    }
     if (plugin->hasMessageHandler()) {
       log_instance_->add_subscriber(plugin);
     }
@@ -669,6 +680,10 @@ bool nsclient::core::plugin_manager::remove_plugin(const std::string &name) {
   event_subscribers_.remove_plugin(plugin_id);
   metrics_fetchers_.remove_plugin(plugin_id);
   metrics_submitters_.remove_plugin(plugin_id);
+  facts_fetchers_.remove_plugin(plugin_id);
+  // Whatever this module contributed to the inventory goes with it: a frozen
+  // fact set from a module that is no longer running is worse than none.
+  if (facts_) facts_->remove_owned_by(static_cast<unsigned int>(plugin_id));
   // Drop the log subscription: the logger otherwise keeps the plugin alive and
   // the next log line calls into a module whose instance has been torn down.
   log_instance_->remove_subscriber(plugin);
@@ -1271,6 +1286,163 @@ PB::Metrics::MetricsMessage nsclient::core::plugin_manager::process_metrics(PB::
   f.render();
   metrics_submitters_.do_all([&f](auto key) { return f.digest(key); });
   return f.result;
+}
+
+namespace {
+// The one section facts are configured from. One bool key per fact set id,
+// plus the two keys below which pace the round rather than name a set.
+const std::string facts_section = "/settings/facts";
+bool is_facts_control_key(const std::string &key) { return key == "interval" || key == "max size"; }
+
+// An id is covered when it is enabled outright, or when something one level
+// inside it is: a module returns the whole `software` set even when only
+// `software.installed` was asked for, and the repository prunes the rest.
+bool covered_by_enabled(const std::string &id, const std::set<std::string> &enabled) {
+  if (enabled.count(id) > 0) return true;
+  const std::string prefix = id + ".";
+  for (const std::string &candidate : enabled) {
+    if (candidate.size() > prefix.size() && candidate.compare(0, prefix.size(), prefix) == 0) return true;
+  }
+  return false;
+}
+
+std::string utc_now() { return boost::posix_time::to_iso_extended_string(boost::posix_time::second_clock::universal_time()) + "Z"; }
+}  // namespace
+
+std::set<std::string> nsclient::core::plugin_manager::read_enabled_facts() {
+  std::set<std::string> enabled;
+  try {
+    for (const std::string &key : settings_manager::get_settings()->get_keys(facts_section)) {
+      if (is_facts_control_key(key)) continue;
+      const std::string value = settings_manager::get_settings()->get_string(facts_section, key, "false");
+      if (equals_enabled(value)) enabled.insert(key);
+    }
+  } catch (const settings::settings_exception &e) {
+    LOG_ERROR_CORE_STD("Failed to read " + facts_section + ": " + utf8::utf8_from_native(e.what()));
+  } catch (const std::exception &e) {
+    LOG_ERROR_CORE_STD("Failed to read " + facts_section + ": " + utf8::utf8_from_native(e.what()));
+  }
+  return enabled;
+}
+
+void nsclient::core::plugin_manager::log_fact_problem_once(const std::string &key, const std::string &message, std::set<std::string> &failing) {
+  failing.insert(key);
+  {
+    const boost::mutex::scoped_lock lock(fact_errors_mutex_);
+    const std::map<std::string, std::string>::const_iterator it = logged_fact_errors_.find(key);
+    if (it != logged_fact_errors_.end() && it->second == message) return;
+    logged_fact_errors_[key] = message;
+  }
+  LOG_WARN_CORE_STD("facts: " + key + ": " + message);
+}
+
+void nsclient::core::plugin_manager::forget_fixed_fact_problems(const std::set<std::string> &failing) {
+  const boost::mutex::scoped_lock lock(fact_errors_mutex_);
+  for (std::map<std::string, std::string>::iterator it = logged_fact_errors_.begin(); it != logged_fact_errors_.end();) {
+    if (failing.count(it->first) > 0) {
+      ++it;
+    } else {
+      it = logged_fact_errors_.erase(it);
+    }
+  }
+}
+
+std::string nsclient::core::plugin_manager::apply_facts_response(const std::string &response, const unsigned int plugin_id,
+                                                                 const std::set<std::string> &enabled, fact_repository &facts,
+                                                                 std::map<std::string, std::string> &errors, std::vector<std::string> *ignored) {
+  if (response.empty()) return "";
+  boost::json::value parsed;
+  try {
+    parsed = boost::json::parse(response);
+  } catch (const std::exception &e) {
+    return std::string("returned facts that are not JSON: ") + utf8::utf8_from_native(e.what());
+  }
+  const boost::json::object *root = parsed.if_object();
+  if (root == nullptr) return "returned facts that are not a JSON object";
+
+  const boost::json::value *sets = root->if_contains("sets");
+  if (sets != nullptr && sets->is_object()) {
+    for (const boost::json::key_value_pair &entry : sets->as_object()) {
+      const std::string id(entry.key());
+      if (!covered_by_enabled(id, enabled)) {
+        if (ignored != nullptr) ignored->push_back(id);
+        continue;
+      }
+      // An explicit null drops the set (the docker socket went away). Not
+      // returning a set at all leaves the last value in place, so a transient
+      // failure never blanks the inventory.
+      if (entry.value().is_null()) {
+        facts.remove(id);
+        continue;
+      }
+      std::string error;
+      if (facts.set(id, plugin_id, entry.value(), error) == fact_repository::set_result::rejected) errors[id] = error;
+    }
+  }
+
+  // What the producer could not collect. Reported next to the document so a
+  // consumer can tell "not collected" from "nothing to report".
+  const boost::json::value *reported = root->if_contains("errors");
+  if (reported != nullptr && reported->is_object()) {
+    for (const boost::json::key_value_pair &entry : reported->as_object()) {
+      if (!entry.value().is_string()) continue;
+      errors[std::string(entry.key())] = std::string(entry.value().as_string());
+    }
+  }
+  return "";
+}
+
+void nsclient::core::plugin_manager::collect_facts_from(const plugin_type &plugin, const std::string &request, const std::set<std::string> &enabled,
+                                                        std::map<std::string, std::string> &errors, std::set<std::string> &failing) {
+  const std::string module = plugin->get_alias_or_name();
+  std::string response;
+  try {
+    plugin->fetchFacts(request, response);
+  } catch (const plugin_exception &e) {
+    log_fact_problem_once("module " + module, e.reason(), failing);
+    return;
+  } catch (const std::exception &e) {
+    log_fact_problem_once("module " + module, utf8::utf8_from_native(e.what()), failing);
+    return;
+  }
+
+  std::map<std::string, std::string> reported;
+  std::vector<std::string> ignored;
+  const std::string failure = apply_facts_response(response, plugin->get_id(), enabled, *facts_, reported, &ignored);
+  if (!failure.empty()) {
+    log_fact_problem_once("module " + module, failure, failing);
+    return;
+  }
+  for (const std::string &id : ignored) {
+    LOG_DEBUG_CORE_STD("facts: ignoring '" + id + "' from " + module + ": nothing enables it");
+  }
+  for (const std::pair<const std::string, std::string> &problem : reported) {
+    errors[problem.first] = problem.second;
+    log_fact_problem_once(problem.first, problem.second, failing);
+  }
+}
+
+void nsclient::core::plugin_manager::process_facts(const std::string &reason) {
+  if (!facts_) return;
+  const std::set<std::string> enabled = read_enabled_facts();
+  // Done first and unconditionally: a set that was switched off has to leave
+  // the document even when no producer runs this round.
+  facts_->retain_only(enabled);
+  std::map<std::string, std::string> errors;
+  std::set<std::string> failing;
+  if (!enabled.empty()) {
+    boost::json::object request;
+    boost::json::array ids;
+    for (const std::string &id : enabled) ids.push_back(boost::json::value(id));
+    request["enabled"] = ids;
+    request["reason"] = reason;
+    const std::string request_string = boost::json::serialize(request);
+    facts_fetchers_.do_all(
+        [this, &request_string, &enabled, &errors, &failing](plugin_type plugin) { collect_facts_from(plugin, request_string, enabled, errors, failing); });
+  }
+  forget_fixed_fact_problems(failing);
+  facts_->set_errors(errors);
+  facts_->mark_collected(utc_now());
 }
 
 bool nsclient::core::plugin_manager::enable_plugin(std::string name) {

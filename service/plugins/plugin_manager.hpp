@@ -6,13 +6,18 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/optional.hpp>
+#include <boost/thread/mutex.hpp>
 #include <boost/thread/recursive_mutex.hpp>
+#include <map>
 #include <memory>
+#include <set>
+#include <vector>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/metrics.hpp>
 #include <nsclient/logger/logger.hpp>
 
 #include "../channels.hpp"
+#include "../fact_repository.hpp"
 #include "../commands.hpp"
 #include "../path_manager.hpp"
 #include "../permissions.hpp"
@@ -60,6 +65,16 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   channels channels_;
   simple_plugins_list metrics_fetchers_;
   simple_plugins_list metrics_submitters_;
+  simple_plugins_list facts_fetchers_;
+  // Where the fact sets producers return are stored. Handed over by the core
+  // at boot; null in the tests and in any build path that never boots facts,
+  // where a facts round is simply a no-op.
+  fact_repository_instance facts_;
+  // The last error reported for each fact set, so a producer that cannot
+  // collect something logs the reason once rather than every round. Guarded by
+  // its own mutex: the facts round runs on the scheduler pool.
+  boost::mutex fact_errors_mutex_;
+  std::map<std::string, std::string> logged_fact_errors_;
   plugin_cache plugin_cache_;
   event_subscribers event_subscribers_;
   permissions permissions_;
@@ -133,6 +148,34 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   // feed non-plugin consumers from the same snapshot.
   PB::Metrics::MetricsMessage process_metrics(PB::Metrics::MetricsBundle bundle);
 
+  // Run one facts round: read the enabled fact sets from [/settings/facts],
+  // ask every producer for them and apply what comes back to `facts`. `reason`
+  // is what the producers see (startup, scheduled, reload or manual), so an
+  // expensive collector can decide to hand back its last snapshot instead of
+  // collecting again. Sets nobody enables are dropped from the repository, so
+  // this is also what turning a set off does.
+  void process_facts(const std::string &reason);
+
+  // The repository facts rounds write to. Also what lets unloading a module
+  // take its fact sets with it.
+  void set_fact_repository(const fact_repository_instance &facts) { facts_ = facts; }
+
+  // The fact set ids enabled in [/settings/facts]. Public because the boot
+  // sequence asks before it decides whether to schedule facts at all.
+  std::set<std::string> read_enabled_facts();
+
+  // Apply one producer's response to `facts`: the sets it returned, the ones
+  // it explicitly dropped (an null) and the ones it says it could not
+  // collect. A set the response carries that nothing enabled is skipped and
+  // named in `ignored`; a set the repository refuses lands in `errors` with
+  // the reason. Returns an empty string when the response could be read at
+  // all, and otherwise why it could not.
+  //
+  // Static and free of the settings store so the JSON contract between a
+  // module and the core can be tested directly.
+  static std::string apply_facts_response(const std::string &response, unsigned int plugin_id, const std::set<std::string> &enabled, fact_repository &facts,
+                                          std::map<std::string, std::string> &errors, std::vector<std::string> *ignored = nullptr);
+
   bool enable_plugin(std::string name);
   bool disable_plugin(std::string name);
 
@@ -144,6 +187,21 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   std::string get_plugin_module_name(unsigned int plugin_id);
 
   plugin_type add_plugin(const std::string &file_name, const std::string &alias);
+
+  // Ask one producer for the enabled fact sets and apply what it returns.
+  // Collection errors (the module said it could not collect a set) and
+  // rejections (the core would not store what it returned) both end up in
+  // `errors`, which is what /api/v2/facts reports per set.
+  void collect_facts_from(const plugin_type &plugin, const std::string &request, const std::set<std::string> &enabled,
+                          std::map<std::string, std::string> &errors, std::set<std::string> &failing);
+  // Log a facts problem the first time it is seen, and again only when the
+  // message changes. A producer that cannot read a registry hive says so
+  // every round; the log should not. `failing` collects what is still wrong
+  // this round, for forget_fixed_fact_problems().
+  void log_fact_problem_once(const std::string &key, const std::string &message, std::set<std::string> &failing);
+  // Forget the problems that are gone, so the same failure coming back later
+  // is logged again rather than swallowed by the memo.
+  void forget_fixed_fact_problems(const std::set<std::string> &failing);
 
   plugin_alias_list_type find_all_plugins();
   plugin_alias_list_type find_all_active_plugins();

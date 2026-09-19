@@ -26,6 +26,7 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/nscapi_facts_helper.cpp
     ${NSCP_INCLUDEDIR}/metrics/metrics_store_map.cpp
 )
 
@@ -47,6 +48,7 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.hpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.hpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_facts_helper.hpp
         ${NSCP_INCLUDEDIR}/metrics/metrics_store_map.hpp
         ${NSCP_INCLUDEDIR}/nscapi/macros.hpp
     )
@@ -87,6 +89,9 @@ target_link_libraries(
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     nscp_protobuf
+    # The facts builder is JSON, so every module that links the plugin API
+    # gets Boost.JSON through it rather than compiling its own copy.
+    nscp_json
     ${EXTRA_LIBS}
 )
 add_dependencies(${TARGET} nscp_protobuf)
@@ -103,11 +108,14 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_facts_helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_facts_helper_test.cpp
     LIBRARIES
         GTest::gtest
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}
         nscp_protobuf
+        nscp_json
         ${EXTRA_LIBS}
         ${Boost_DATE_TIME_LIBRARY}
         ${Boost_PROGRAM_OPTIONS_LIBRARY}

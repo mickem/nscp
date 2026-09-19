@@ -43,6 +43,7 @@ nsclient::core::dll_plugin::dll_plugin(const unsigned int id, const boost::files
       fHasRoutingHandler(nullptr),
       fRouteMessage(nullptr),
       fFetchMetrics(nullptr),
+      fFetchFacts(nullptr),
       fSubmitMetrics(nullptr),
       fOnEvent(nullptr) {
   load_dll();
@@ -445,6 +446,29 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::fetchMetrics(char **returnBuffe
   }
 }
 
+NSCAPI::nagiosReturn nsclient::core::dll_plugin::fetchFacts(const std::string &request, std::string &response) {
+  char *buffer = nullptr;
+  unsigned int len = 0;
+  const NSCAPI::nagiosReturn ret = fetchFacts(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &len);
+  if (buffer != nullptr) {
+    response = std::string(buffer, len);
+    deleteBuffer(&buffer);
+  }
+  return ret;
+}
+
+NSCAPI::nagiosReturn nsclient::core::dll_plugin::fetchFacts(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer,
+                                                            unsigned int *response_buffer_len) {
+  if (!isLoaded() || !loaded_ || fFetchFacts == nullptr) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
+  dispatch_lock dispatch(*this);
+  if (!dispatch.entered()) throw plugin_exception(get_alias_or_name(), "Library is unloading");
+  try {
+    return fFetchFacts(get_id(), request_buffer, request_buffer_len, response_buffer, response_buffer_len);
+  } catch (...) {
+    throw plugin_exception(get_alias_or_name(), "Unhanded exception in fFetchFacts.");
+  }
+}
+
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::submitMetrics(const std::string &request) {
   return submitMetrics(request.c_str(), static_cast<unsigned int>(request.size()));
 }
@@ -575,6 +599,7 @@ void nsclient::core::dll_plugin::unload_dll() {
   fRouteMessage = nullptr;
   fHandleSchedule = nullptr;
   fFetchMetrics = nullptr;
+  fFetchFacts = nullptr;
   fSubmitMetrics = nullptr;
   fOnEvent = nullptr;
   module_.unload_library();
@@ -658,6 +683,7 @@ void nsclient::core::dll_plugin::loadRemoteProcs_(void) {
 
     fHandleSchedule = (nscapi::plugin_api::lpHandleSchedule)module_.load_proc("NSHandleSchedule");
     fFetchMetrics = (nscapi::plugin_api::lpFetchMetrics)module_.load_proc("NSFetchMetrics");
+    fFetchFacts = (nscapi::plugin_api::lpFetchFacts)module_.load_proc("NSFetchFacts");
     fSubmitMetrics = (nscapi::plugin_api::lpSubmitMetrics)module_.load_proc("NSSubmitMetrics");
     fOnEvent = (nscapi::plugin_api::lpOnEvent)module_.load_proc("NSOnEvent");
   } catch (plugin_exception &e) {
