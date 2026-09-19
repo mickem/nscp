@@ -70,7 +70,7 @@ NSCP_DEBUG_SYMBOLS(${TARGET})
 # is the only target in the project that was relying on the difference.
 target_link_libraries(
     ${TARGET}
-    nscp_json
+    ${Boost_JSON_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_REGEX_LIBRARY}
     ${Boost_THREAD_LIBRARY}

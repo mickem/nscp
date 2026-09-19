@@ -80,7 +80,7 @@ set(BOOST_PYTHON_LIBRARY ${Boost_${BOOST_PYTHON_VERSION_UPPER}_LIBRARY})
 
 target_link_libraries(
     ${TARGET}
-    nscp_json
+    ${Boost_JSON_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_THREAD_LIBRARY}

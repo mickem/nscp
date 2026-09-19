@@ -58,7 +58,7 @@ OPENSSL_LINK_FIX(${TARGET})
 
 target_link_libraries(
     ${TARGET}
-    nscp_json
+    ${Boost_JSON_LIBRARY}
     nscp_net
     ${NSCP_DEF_PLUGIN_LIB}
     ${NSCP_FILTER_LIB}
@@ -79,7 +79,7 @@ NSCP_CREATE_TEST(
     SOURCES
         kube_pod_status_test.cpp
     LIBRARIES
-        nscp_json
+        ${Boost_JSON_LIBRARY}
         GTest::gtest_main
 )
 
@@ -102,7 +102,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.cpp
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
-        nscp_json
+        ${Boost_JSON_LIBRARY}
         nscp_net
         GTest::gtest_main
         nscp_protobuf
