@@ -46,6 +46,21 @@ class PathManagerTest : public ::testing::Test {
 
 TEST_F(PathManagerTest, ExpandPathEmpty) { EXPECT_EQ(pm->expand_path(""), ""); }
 
+// `none` names no file at all - file logging off, `ca` falling back to the TLS
+// library's own trust store. It is a sentinel rather than a path, so it has to
+// come back from the expander byte-identical: every consumer compares against
+// the bare literal, and the write side must never join it onto a directory and
+// create a file called `none`.
+TEST_F(PathManagerTest, ExpandPathLeavesTheNoPathSentinelAlone) { EXPECT_EQ(pm->expand_path("none"), "none"); }
+
+// Only the exact sentinel is special. A real file that merely starts with
+// those letters, or names `none` inside a directory, is an ordinary path.
+TEST_F(PathManagerTest, ExpandPathTreatsNoneLikeAnyOtherNameWhenItIsPartOfAPath) {
+  EXPECT_EQ(pm->expand_path("none.log"), "none.log");
+  EXPECT_EQ(pm->expand_path("/var/log/none"), "/var/log/none");
+  EXPECT_EQ(pm->expand_path("None"), "None");
+}
+
 TEST_F(PathManagerTest, ExpandPathNoVariables) {
   std::string path = "/usr/local/bin";
   EXPECT_EQ(pm->expand_path(path), path);
