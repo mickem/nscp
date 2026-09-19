@@ -8,7 +8,6 @@
 #include <cstdio>
 #include <iomanip>
 #include <net/socket/socket_helpers.hpp>
-#include <net/tls_versions.hpp>
 #include <sstream>
 #include <str/format.hpp>
 #include <str/utf8.hpp>
@@ -28,6 +27,13 @@
 #include <openssl/bio.h>
 #include <openssl/ssl.h>
 #include <openssl/x509.h>
+// Under USE_SSL, and here rather than with the other project headers above:
+// it names TLS1_2_VERSION and friends, so it needs <openssl/ssl.h> first and
+// must not be pulled into a build without SSL - on Windows the OpenSSL include
+// directory is only on the path for the targets that link it, so an
+// unconditional include broke every module test that compiles this file
+// without SSL.
+#include <net/tls_versions.hpp>
 #endif
 #ifdef WIN32
 // After boost/asio.hpp, which pulls winsock2.h in first; accctrl/aclapi then
