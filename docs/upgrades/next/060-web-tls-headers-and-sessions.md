@@ -11,7 +11,14 @@ carries `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
 frame will stop working, which is the point. `[/settings/WEB/server]` gains
 `tls version` (default `1.2+`) and `allowed ciphers`, honoured on the beast
 backend that every Linux package uses; it was pinned to TLS 1.2 only before, and
-ignored both keys. The mongoose backend logs that it cannot apply them. A token
+ignored both keys. The vocabulary is the one the NRPE and NSCA listeners use,
+with one exception: `tls version = sslv3` is refused rather than started,
+because this listener never serves SSL 3.0 and pinning the range to it would
+mean a listener that accepts no handshake at all. A value this listener cannot
+honour — an unknown version, or a cipher list OpenSSL rejects — stops it
+starting rather than silently leaving the defaults in place. The mongoose
+backend cannot apply either key and logs that it is ignoring a value the
+operator set; it stays quiet about one left at its default. A token
 is issued only by the login routes now, so a monitoring poll authenticating with
 Basic auth no longer fills the 4096-entry store and evicts live UI sessions — a
 script that logs in through Basic auth and reuses a token must take it from

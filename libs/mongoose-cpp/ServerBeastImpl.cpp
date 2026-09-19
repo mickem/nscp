@@ -23,6 +23,8 @@
 #include <string>
 #include <utility>
 
+#include <net/tls_versions.hpp>
+
 #include "Helpers.h"
 #include "Request.h"
 #include "Response.h"
@@ -257,35 +259,12 @@ void ServerBeastImpl::setTlsOptions(const std::string& tls_version, const std::s
 }
 
 namespace {
-// The TLS version vocabulary the NRPE and NSCA listeners use, so one setting
-// means the same thing everywhere in the agent: an exact version, a trailing
-// `+` for "that version or later", or `any`.
-//
-// Duplicated here rather than shared with socket_helpers because this library
-// deliberately does not link the agent's socket layer; the list is five
-// constants and a suffix test, and a divergence would show up immediately in
-// the settings documentation, which is generated from one description.
-bool lookup_tls_version(const std::string& spec, long& version) {
-  if (spec == "tlsv1.3" || spec == "tls1.3" || spec == "1.3") {
-    version = TLS1_3_VERSION;
-  } else if (spec == "tlsv1.2" || spec == "tls1.2" || spec == "1.2") {
-    version = TLS1_2_VERSION;
-  } else if (spec == "tlsv1.1" || spec == "tls1.1" || spec == "1.1") {
-    version = TLS1_1_VERSION;
-  } else if (spec == "tlsv1.0" || spec == "tls1.0" || spec == "1.0") {
-    version = TLS1_VERSION;
-  } else if (spec == "sslv3" || spec == "ssl3") {
-    version = SSL3_VERSION;
-  } else {
-    return false;
-  }
-  return true;
-}
-
-// Resolve a `tls version` spec into an OpenSSL min/max pair. Returns false
-// with `error` filled in for a spelling nobody can honour, so the listener
-// refuses to start rather than quietly serving whatever the library defaults
-// to.
+// Resolve a `tls version` spec into an OpenSSL min/max pair, from the same
+// table the NRPE and NSCA listeners read (<net/tls_versions.hpp>), so one
+// setting means the same thing everywhere in the agent: an exact version, a
+// trailing `+` for "that version or later", or `any`. Returns false with
+// `error` filled in for a spelling this listener cannot honour, so it refuses
+// to start rather than quietly serving whatever the library defaults to.
 bool resolve_tls_range(const std::string& spec, long& min_version, long& max_version, std::string& error) {
   std::string lower = boost::algorithm::to_lower_copy(spec);
   boost::algorithm::trim(lower);
@@ -296,10 +275,25 @@ bool resolve_tls_range(const std::string& spec, long& min_version, long& max_ver
   }
   const bool open_ended = lower.back() == '+';
   if (open_ended) lower.pop_back();
-  if (!lookup_tls_version(lower, min_version)) {
+  if (!tls_versions::lookup(lower, min_version)) {
     error = "Invalid tls version: " + spec;
     return false;
   }
+  if (!open_ended && min_version == SSL3_VERSION) {
+    // The context below excludes SSL 3.0 unconditionally, and rightly so:
+    // POODLE, and most OpenSSL builds no longer compile it in. Pinning both
+    // ends of the range to it would therefore start a listener that reports
+    // success and then fails every handshake, with nothing logged. Say so
+    // instead. (`sslv3+` is a floor, not a pin, and stays accepted - it is
+    // raised below.)
+    error = "Invalid tls version: " + spec + " (SSL 3.0 is never served; use 1.0+ for the widest range this listener accepts)";
+    return false;
+  }
+  // A floor of SSL 3.0 means "oldest we speak" rather than SSL 3.0 itself, and
+  // SSL_CTX_set_min_proto_version(SSL3_VERSION) fails outright on a build
+  // without SSL 3.0. Raise it to the oldest version that can actually be
+  // negotiated; no_sslv3 already decides the rest.
+  if (min_version == SSL3_VERSION) min_version = TLS1_VERSION;
   max_version = open_ended ? TLS1_3_VERSION : min_version;
   return true;
 }
@@ -336,12 +330,13 @@ void ServerBeastImpl::dispatch(const http::request<http::string_body>& req, http
     res.body() = "Document not found";
     res.set(http::field::content_type, "text/plain");
     // The 404 for an unmatched URL never goes through a Response, so it needs
-    // the same treatment directly. A framed 404 is still a framed page.
-    res.set(http::field::x_frame_options, "DENY");
-    res.set("X-Content-Type-Options", "nosniff");
-    res.set("Referrer-Policy", "no-referrer");
-    res.set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
-    if (is_ssl) res.set("Strict-Transport-Security", "max-age=31536000");
+    // the same treatment directly. A framed 404 is still a framed page. From
+    // the shared list rather than written out again: this used to hand-roll a
+    // third, narrower policy, and a test asserting only frame-ancestors kept
+    // the divergence invisible.
+    for (const auto& header : Helpers::security_headers(is_ssl)) {
+      res.set(header.first, header.second);
+    }
     res.prepare_payload();
   }
 }

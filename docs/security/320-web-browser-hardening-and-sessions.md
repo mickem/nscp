@@ -33,9 +33,14 @@ with asio's `tlsv12_server` method, which pins *both* ends of the version range
 to TLS 1.2, so TLS 1.3 could never be negotiated. It also honoured neither
 `tls version` nor `allowed ciphers`, which the NRPE and NSCA listeners have
 always taken. Both settings now exist under `[/settings/WEB/server]` and are
-honoured, with `tls version` defaulting to `1.2+`. The mongoose backend drives
-TLS through its own stack, which exposes neither knob; it logs that it is
-ignoring them rather than pretending otherwise.
+honoured, with `tls version` defaulting to `1.2+`. A value this listener cannot
+honour stops it starting rather than quietly leaving the library defaults in
+place, since falling back is the opposite of what an operator narrowing the
+setting asked for; `tls version = sslv3` is refused outright, because the
+context excludes SSL 3.0 and a range pinned to it would start a listener that
+completes no handshake at all. The mongoose backend drives TLS through its own
+stack, which exposes neither knob; it logs that it is ignoring a value the
+operator set rather than pretending otherwise.
 
 #### Every Basic-auth request minted a persistent session token
 

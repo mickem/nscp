@@ -128,7 +128,7 @@ TEST_F(SessionManagerTest, StoreUserInResponseCanSkipMintingAToken) {
 
 TEST_F(SessionManagerTest, StoreUserInResponseFailsClosedWhenCsprngFails) {
   // A CSPRNG failure must not produce a half-formed session: no token cookie,
-  // no uid cookie, and a false return so the caller refuses the request.
+  // no uid context, and a false return so the caller refuses the request.
   Mongoose::StreamResponse resp;
   token_store::set_rand_bytes_for_test([](unsigned char*, int) { return 0; });
   const bool stored = smi.store_user_in_response("user", resp);

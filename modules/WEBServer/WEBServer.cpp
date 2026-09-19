@@ -83,6 +83,11 @@ class WEBServerLogger : public WebLogger {
 };
 
 namespace {
+// The stock `tls version`. Named because two places have to agree on it: the
+// setting's registered default, and the test below it for whether the operator
+// chose the value at all.
+const char *const kDefaultTlsVersion = "1.2+";
+
 // True if a WEB role's comma-separated grant string confers the bare `legacy`
 // permission - the token the deprecated /query/{name} query-dispatch route
 // checks for. What matters is the permission, not the
@@ -240,10 +245,13 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       .add_string("certificate", sh::string_key(&certificate, "${certificate-path}/certificate.pem"), "TLS Certificate",
                   "Ssl certificate to use for the ssl server")
       .add_string("certificate key", sh::string_key(&key), "TLS private key", "The private key for the certificate if not in the same file")
-      .add_string("tls version", sh::string_key(&tls_version, "1.2+"), "TLS version to use",
+      .add_string("tls version", sh::string_key(&tls_version, kDefaultTlsVersion), "TLS version to use",
                   "Which TLS versions the listener will negotiate, in the same vocabulary as the NRPE and NSCA listeners: an exact version (1.0, 1.1, "
-                  "1.2, 1.3), a trailing + for that version or later, or `any`. The default 1.2+ allows TLS 1.2 and TLS 1.3. Honoured on builds using "
-                  "the beast web backend (all Linux packages); the mongoose backend drives TLS through its own stack and logs that it is ignoring this.")
+                  "1.2, 1.3), a trailing + for that version or later, or `any`. The default 1.2+ allows TLS 1.2 and TLS 1.3. `sslv3` is the one "
+                  "spelling those listeners take that this one does not: the web listener never serves SSL 3.0, so pinning the range to it would accept no "
+                  "handshake at all and is refused at startup (`sslv3+`, a floor rather than a pin, is accepted). A version this listener cannot honour "
+                  "stops it starting rather than falling back to a default. Honoured on builds using the beast web backend (all Linux packages); the "
+                  "mongoose backend drives TLS through its own stack and logs that it is ignoring a value you set.")
       .add_string("allowed ciphers", sh::string_key(&allowed_ciphers), "ALLOWED CIPHERS",
                   "OpenSSL cipher list the listener is restricted to. Empty (the default) leaves the library's own selection in place. Same backend "
                   "caveat as `tls version`.");
@@ -474,9 +482,28 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     // Where an unhandled handler exception goes. The client gets a bare 500;
     // the reason ends up here, in the agent log, rather than being echoed to
     // a caller that need not have authenticated.
-    Mongoose::Controller::setErrorSink([](const std::string &message) { NSC_LOG_ERROR(message); });
+    //
+    // Installed once. The sink is a process-global std::function and a settings
+    // reload re-enters loadModuleEx on the live module while the previous
+    // server's worker threads may still be inside internalErrorFromException
+    // reading it; reassigning it under them is the reload hazard CLAUDE.md
+    // warns about, and Controller.h documents the sink as installed once. The
+    // lambda captures nothing and logs through the plugin singleton, so the one
+    // installed first stays correct.
+    //
+    // Not gated on normalStart alone: a module first enabled *during* a reload
+    // arrives here with reloadStart, and that agent would then have no sink at
+    // all - handler exceptions would be answered but never logged.
+    if (mode == NSCAPI::normalStart || !Mongoose::Controller::hasErrorSink()) {
+      Mongoose::Controller::setErrorSink([](const std::string &message) { NSC_LOG_ERROR(message); });
+    }
     server.reset(Server::make_server(logger));
-    server->setTlsOptions(tls_version, allowed_ciphers);
+    // An untouched `tls version` is passed as empty rather than as its default
+    // value: the mongoose backend cannot honour the setting and logs that it is
+    // ignoring it, which on a stock agent would mean an error on every start
+    // and reload about a setting nobody wrote. The beast backend applies the
+    // same default itself when handed an empty string.
+    server->setTlsOptions(tls_version == kDefaultTlsVersion ? std::string() : tls_version, allowed_ciphers);
     if (cert_missing) {
       NSC_LOG_ERROR("Certificate not found (disabling SSL): " + certificate);
     } else {

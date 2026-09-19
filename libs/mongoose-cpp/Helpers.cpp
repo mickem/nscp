@@ -9,6 +9,8 @@
 #include "Response.h"
 
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace Mongoose {
 
@@ -36,16 +38,24 @@ const char *const kContentSecurityPolicy =
     "default-src 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; "
     "style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'";
 
+std::vector<std::pair<std::string, std::string> > Helpers::security_headers(const bool is_tls) {
+  std::vector<std::pair<std::string, std::string> > headers;
+  headers.emplace_back("Content-Security-Policy", kContentSecurityPolicy);
+  headers.emplace_back("X-Frame-Options", "DENY");
+  headers.emplace_back("X-Content-Type-Options", "nosniff");
+  headers.emplace_back("Referrer-Policy", "no-referrer");
+  // Only over TLS: sent over cleartext it is ignored by browsers anyway, and
+  // the agent supports a deliberate cleartext mode behind a proxy.
+  if (is_tls) headers.emplace_back("Strict-Transport-Security", "max-age=31536000");
+  return headers;
+}
+
 void Helpers::add_security_headers(Response &response, const bool is_tls) {
   // hasHeader, so a controller that deliberately set its own policy (a future
   // embeddable view, say) keeps it.
-  if (!response.hasHeader("Content-Security-Policy")) response.setHeader("Content-Security-Policy", kContentSecurityPolicy);
-  if (!response.hasHeader("X-Frame-Options")) response.setHeader("X-Frame-Options", "DENY");
-  if (!response.hasHeader("X-Content-Type-Options")) response.setHeader("X-Content-Type-Options", "nosniff");
-  if (!response.hasHeader("Referrer-Policy")) response.setHeader("Referrer-Policy", "no-referrer");
-  // Only over TLS: sent over cleartext it is ignored by browsers anyway, and
-  // the agent supports a deliberate cleartext mode behind a proxy.
-  if (is_tls && !response.hasHeader("Strict-Transport-Security")) response.setHeader("Strict-Transport-Security", "max-age=31536000");
+  for (const std::pair<std::string, std::string> &header : security_headers(is_tls)) {
+    if (!response.hasHeader(header.first)) response.setHeader(header.first, header.second);
+  }
 }
 
 }  // namespace Mongoose

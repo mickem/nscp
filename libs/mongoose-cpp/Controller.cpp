@@ -19,6 +19,8 @@ Controller::error_sink& sink() {
 
 void Controller::setErrorSink(error_sink new_sink) { sink() = std::move(new_sink); }
 
+bool Controller::hasErrorSink() { return static_cast<bool>(sink()); }
+
 Response* Controller::internalErrorFromException(const std::string& detail) {
   if (sink()) sink()("Unhandled exception while handling a request: " + detail);
   auto* response = new StreamResponse;

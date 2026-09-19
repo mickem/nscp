@@ -74,7 +74,7 @@ struct session_manager_interface {
   // about three and a half hours and then evicted the operator's UI session
   // within minutes, and any authenticated user of any role could do the same
   // deliberately in 4096 requests. Only the login route needs a token handed
-  // back; every other route needs the uid cookie, which is what can() reads.
+  // back; every other route needs the uid context, which is what can() reads.
   bool process_auth_header(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response);
   bool process_auth_header(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response, std::string *matched_grant = nullptr,
                            bool issue_token = false);
@@ -139,7 +139,7 @@ struct session_manager_interface {
   bool validate_user(const std::string &user, const std::string &password);
   // Returns false when no session could be created (CSPRNG failure); the
   // caller must not treat the request as authenticated.
-  // With `issue_token` false only the `uid` cookie is set, which is all can()
+  // With `issue_token` false only the `uid` context is set, which is all can()
   // consults; no entry is added to the token store and the call cannot fail.
   bool store_user_in_response(const std::string &user, Mongoose::StreamResponse &response, bool issue_token = true);
   void store_session_in_response(const std::string &token, const std::string &user, Mongoose::StreamResponse &response) const;

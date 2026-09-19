@@ -89,10 +89,13 @@ class NSCP_MONGOOSE_EXPORT Server {
    * trailing `+` for "that version or later", or `any`. `ciphers` is an
    * OpenSSL cipher list, empty meaning the library default.
    *
-   * Honoured by the Beast backend. The mongoose backend drives TLS through
-   * mongoose's own stack, which does not expose either knob; it logs that the
-   * settings are being ignored rather than pretending to apply them. Must be
-   * called before `start()`.
+   * Honoured by the Beast backend, which also applies its own default when
+   * handed an empty `tls_version` - so a caller passes empty for a setting the
+   * operator never touched. The mongoose backend drives TLS through mongoose's
+   * own stack, which does not expose either knob; it logs that a value the
+   * operator set is being ignored rather than pretending to apply it, and
+   * records the limitation at debug level when nothing was set. Must be called
+   * before `start()`.
    */
   virtual void setTlsOptions(const std::string & /*tls_version*/, const std::string & /*ciphers*/) {}
 };

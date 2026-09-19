@@ -56,6 +56,15 @@ describe("REST security headers", () => {
     expectHardened(response.headers);
   });
 
+  it("puts them on a 404, the one answer that never builds a response object", async () => {
+    // An unmatched URL is written straight to the wire by the backend rather
+    // than going through a controller, so it is the answer most likely to be
+    // missed when the headers are applied on the way out. A framed 404 is
+    // still a framed page.
+    const response = await request(REST_URL).get("/no-such-path-here").trustLocalhost(true).expect(404);
+    expectHardened(response.headers);
+  });
+
   it("does not hand the session credential back as a cookie", async () => {
     // The server used to set the bearer as an HttpOnly `token` cookie (and the
     // user as `uid`) on every authenticated response. No request path ever

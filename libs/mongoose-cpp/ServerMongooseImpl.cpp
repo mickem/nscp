@@ -85,6 +85,16 @@ void ServerMongooseImpl::setTlsOptions(const std::string &tls_version, const std
   // protocol-version range nor a cipher list. Saying so is the point: an
   // operator who narrowed either setting must know it did not take effect on
   // this backend rather than believe the listener was hardened.
+  //
+  // Only for a value the operator chose, though. WEBServer passes an empty
+  // `tls version` when the setting is still at its default, because an error
+  // on every start and reload of every stock Windows agent - naming a setting
+  // nobody wrote - is noise that teaches operators to ignore the log. The
+  // backend's limitation is still recorded, at debug level.
+  if (tls_version.empty() && ciphers.empty()) {
+    logger_->log_debug("The mongoose web backend drives TLS through its own stack: 'tls version' and 'allowed ciphers' have no effect here.");
+    return;
+  }
   if (!tls_version.empty()) {
     logger_->log_error("Ignoring 'tls version = " + tls_version + "': the mongoose web backend does not expose the TLS protocol version.");
   }
@@ -287,7 +297,15 @@ void ServerMongooseImpl::onHttpRequest(mg_connection *connection, mg_http_messag
       return;
     }
   }
-  mg_http_reply(connection, HTTP_NOT_FOUND, "", "Document not found");
+  // Same headers as every other answer: this path never builds a Response, so
+  // it assembles them from the shared list itself. A framed 404 is still a
+  // framed page.
+  std::ostringstream not_found_headers;
+  not_found_headers << "Content-Type: text/plain\r\n";
+  for (const auto &header : Helpers::security_headers(is_ssl)) {
+    not_found_headers << header.first << ": " << header.second << "\r\n";
+  }
+  mg_http_reply(connection, HTTP_NOT_FOUND, not_found_headers.str().c_str(), "Document not found");
 }
 
 }  // namespace Mongoose

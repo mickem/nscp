@@ -281,6 +281,71 @@ TEST(ServerImpl, ReturnsHttp404ForUnknownRoute) {
   EXPECT_EQ(resp.status, 404);
 }
 
+TEST(ServerImpl, UnknownRoute404CarriesSecurityHeaders) {
+  // The 404 for an unmatched URL is written straight to the wire with
+  // mg_http_reply and never builds a Response, so it used to be the one answer
+  // that carried none of the hardening headers. A framed 404 is still a framed
+  // page, and rest-security-headers.test.ts promises them on every response.
+  const int port = choose_port_base() + 21;
+  auto* controller = new MatchController();
+  controller->registerRoute("GET", "/known", new FixedHandler(200, "ok"));
+
+  ServerFixture fx;
+  fx.start(port, controller);
+
+  auto resp = raw_fetch(bind_url(port) + "/missing", make_get_request("/missing", port));
+
+  fx.server->stop();
+
+  ASSERT_TRUE(resp.received);
+  EXPECT_EQ(resp.status, 404);
+
+  auto header_value = [&resp](const std::string& name) {
+    for (const auto& kv : resp.headers) {
+      if (kv.first.size() == name.size() &&
+          std::equal(kv.first.begin(), kv.first.end(), name.begin(),
+                     [](char a, char b) { return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b)); })) {
+        return kv.second;
+      }
+    }
+    return std::string();
+  };
+
+  const std::string csp = header_value("Content-Security-Policy");
+  EXPECT_NE(csp.find("frame-ancestors 'none'"), std::string::npos) << csp;
+  EXPECT_EQ(header_value("X-Frame-Options"), "DENY");
+  EXPECT_EQ(header_value("X-Content-Type-Options"), "nosniff");
+  EXPECT_EQ(header_value("Referrer-Policy"), "no-referrer");
+}
+
+// ---- setTlsOptions on a backend that cannot honour it ----------------------
+
+TEST(ServerImpl, SetTlsOptionsIsQuietForAnUnsetSetting) {
+  // WEBServer passes an empty `tls version` when the operator never changed it.
+  // Logging an error about it would fire on every start and reload of every
+  // stock agent using this backend, naming a setting nobody wrote - so the
+  // limitation is recorded at debug level instead.
+  auto logger = std::make_shared<CollectingLogger>();
+  const std::unique_ptr<Server> server(Server::make_server(logger));
+  server->setTlsOptions("", "");
+
+  EXPECT_TRUE(logger->errors.empty()) << "unexpected error: " << (logger->errors.empty() ? std::string() : logger->errors.front());
+  ASSERT_EQ(logger->debugs.size(), 1u);
+  EXPECT_NE(logger->debugs.front().find("no effect"), std::string::npos) << logger->debugs.front();
+}
+
+TEST(ServerImpl, SetTlsOptionsWarnsForAnOperatorChosenValue) {
+  // An operator who narrowed either setting must learn it did not take effect
+  // here, rather than believe the listener was hardened.
+  auto logger = std::make_shared<CollectingLogger>();
+  const std::unique_ptr<Server> server(Server::make_server(logger));
+  server->setTlsOptions("1.3", "ECDHE-RSA-AES256-GCM-SHA384");
+
+  ASSERT_EQ(logger->errors.size(), 2u);
+  EXPECT_NE(logger->errors[0].find("tls version = 1.3"), std::string::npos) << logger->errors[0];
+  EXPECT_NE(logger->errors[1].find("allowed ciphers"), std::string::npos) << logger->errors[1];
+}
+
 TEST(ServerImpl, RespectsHttpVerb) {
   const int port = choose_port_base() + 2;
   auto* controller = new MatchController();

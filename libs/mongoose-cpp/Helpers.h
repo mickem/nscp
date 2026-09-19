@@ -4,6 +4,8 @@
 #pragma once
 
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "dll_defines.hpp"
 
@@ -30,5 +32,11 @@ struct NSCP_MONGOOSE_EXPORT Helpers {
   // Applied by both backends just before the response is written, so it covers
   // static files, API answers and error pages alike.
   static void add_security_headers(Response &response, bool is_tls);
+
+  // The same headers as a name/value list, for the paths that do not build a
+  // Response at all - the 404 an unmatched URL gets on either backend, which
+  // both write straight to the wire. Three hand-rolled copies is how the
+  // policies drifted apart the first time; this is the one list.
+  static std::vector<std::pair<std::string, std::string> > security_headers(bool is_tls);
 };
 }  // namespace Mongoose

@@ -49,6 +49,11 @@ class NSCP_MONGOOSE_EXPORT Controller {
    */
   typedef std::function<void(const std::string&)> error_sink;
   static void setErrorSink(error_sink sink);
+  // Whether a sink is already installed. The sink is process-global and read
+  // by request threads, so a caller that may run again on a live server (a
+  // settings reload re-entering loadModuleEx) installs only when there is
+  // nothing to replace, rather than swapping it under them.
+  static bool hasErrorSink();
 
   /**
    * Answer an unhandled handler exception.
