@@ -4,6 +4,7 @@
 #pragma once
 
 #include <list>
+#include <nscp/path_rooting.hpp>
 #include <string>
 
 namespace nscapi {
@@ -74,6 +75,18 @@ class settings_impl_interface {
   virtual string_list get_keys(std::string path) = 0;
 
   virtual std::string expand_path(std::string key) = 0;
+
+  // expand_path, then root the answer at `default_root` if it does not name a
+  // location of its own - for a setting whose consumer owns a folder and whose
+  // bare names belong in it. See nscp/path_rooting.hpp for why the two are
+  // separate jobs.
+  //
+  // Non-virtual, and composed from expand_path on purpose: every implementer of
+  // this interface (including each test double) would otherwise have to grow a
+  // method that could only ever be written this one way.
+  std::string resolve_path(std::string key, const std::string &default_root) {
+    return nscp::paths::root_path(std::move(key), default_root, [this](std::string value) { return this->expand_path(std::move(value)); });
+  }
 
   virtual void remove_key(std::string path, std::string key) = 0;
   virtual void remove_path(std::string path) = 0;

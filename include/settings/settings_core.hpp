@@ -6,6 +6,7 @@
 #include <boost/filesystem/path.hpp>
 #include <map>
 #include <nsclient/logger/logger.hpp>
+#include <nscp/path_rooting.hpp>
 #include <set>
 #include <settings/settings_interface.hpp>
 #include <string>
@@ -238,6 +239,17 @@ class settings_core {
   virtual std::string to_string() = 0;
 
   virtual std::string expand_path(std::string key) = 0;
+
+  // expand_path, then root the answer at `default_root` if it does not name a
+  // location of its own - for a value whose consumer owns a folder and whose
+  // bare names belong in it, such as an [/attachments] target. See
+  // nscp/path_rooting.hpp for why expansion and rooting are separate jobs.
+  //
+  // Non-virtual and composed from expand_path so no implementer has to grow a
+  // method that could only ever be written this one way.
+  std::string resolve_path(std::string key, const std::string &default_root) {
+    return nscp::paths::root_path(std::move(key), default_root, [this](std::string value) { return this->expand_path(std::move(value)); });
+  }
 
   virtual std::string expand_context(const std::string &key) = 0;
 

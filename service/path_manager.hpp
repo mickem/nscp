@@ -9,7 +9,7 @@
 #include <memory>
 #include <nsclient/logger/logger.hpp>
 #include <nscp/path_defaults.hpp>
-#include <stdexcept>
+#include <nscp/path_rooting.hpp>
 #include <string>
 
 namespace nsclient {
@@ -27,10 +27,11 @@ namespace core {
 // settings_registry::notify() names the key it was configuring, and
 // init_settings() reports a failed settings load - so raising this surfaces the
 // bad token with context instead of terminating anything.
-class path_expansion_error : public std::runtime_error {
- public:
-  explicit path_expansion_error(const std::string &what) : std::runtime_error(what) {}
-};
+//
+// Defined with the rooting helper rather than here, because modules raise the
+// same error on their own side of the plugin ABI and cannot include this
+// header. Aliased for the core's own callers.
+using path_expansion_error = nscp::paths::path_expansion_error;
 
 class path_manager {
   typedef std::map<std::string, std::string> paths_type;
@@ -61,6 +62,29 @@ class path_manager {
   explicit path_manager(const logging::log_client_accessor& log_instance_);
   std::string getFolder(const std::string& key);
   std::string expand_path(std::string file);
+
+  // expand_path, then root the answer at `default_root` when what came back
+  // does not name a location of its own.
+  //
+  // expand_path substitutes tokens; it does not make anything absolute, and it
+  // must not - an operator is entitled to point a setting anywhere on the
+  // filesystem, and `/var/log/mine.log` is a perfectly good answer. But a value
+  // with no token and no root is only meaningful relative to *something*, and
+  // the thing it has been relative to until now is the process working
+  // directory: C:\Windows\System32 for a Windows service, "/" under a bare init
+  // script, the package directory under the shipped systemd unit. That is not a
+  // base an operator can predict, and on the write side it means a file the
+  // agent creates lands somewhere nobody looks.
+  //
+  // So the consumer names the root it owns - `${shared-path}` for an
+  // attachment, `${log-path}` for the log - and a bare name resolves there
+  // instead. Only consumers that genuinely own a namespace should call this; a
+  // script *name* is resolved by its provider's search list, not by this.
+  //
+  // `default_root` is a compile-time literal at every call site, so a root that
+  // does not itself resolve to an absolute location is a programming error and
+  // is raised as one rather than quietly ignored.
+  std::string resolve_path(std::string file, const std::string& default_root);
 
   // Install the path-override map. Intended to be called exactly once from
   // the settings bootstrap, before any other code resolves paths through
