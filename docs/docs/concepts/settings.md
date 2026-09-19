@@ -535,6 +535,18 @@ Lua is the same with `lua` in place of `python`. The search also tries the value
 name that happens to exist relative to the service's working directory wins — see the warning
 below.
 
+Whatever the search finds has to be **inside the script folder**, or inside a folder you have named
+as an additional root. A value that climbs out of it (`../foo.py`) or points somewhere else
+entirely is refused, with the allowed folders named in the log. Scripts the agent does not
+ship — a plugin package's own `libexec`, a vendor directory — are allowed by listing them:
+
+```ini
+[/settings/python]
+additional script roots = /usr/lib/nagios/plugins, ${shared-path}/vendor
+```
+
+Entries are comma separated and each is expanded, so path tokens work.
+
 ### External scripts resolve differently
 
 `[/settings/external scripts/scripts]` does **not** work this way, and the difference catches
