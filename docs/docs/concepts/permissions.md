@@ -150,6 +150,13 @@ Required guardrails (the module refuses to start otherwise):
   otherwise an attacker could present any self-signed cert and choose their own CN.
 - `ca path` must be non-empty and point at the issuer you trust.
 
+`verify_mode` is parsed strictly: `peer` (or `certificate`), `fail-if-no-cert`
+(or `fail-if-no-peer-cert`, `client-certificate`), `peer-cert`, `client-once`,
+`none`, `workarounds` and `single` are the whole vocabulary, and any other
+token makes the listener refuse to start. That is deliberate — the previous
+behaviour dropped an unrecognised token, which turned a typo into a server that
+requested a client certificate and then accepted its absence.
+
 Pin to a **private CA** that only issues certs to your monitoring fleet. A public CA or the system trust store
 defeats the gate — anyone with a certificate from that CA could pick a CN of their choosing.
 

@@ -15,31 +15,17 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Download
+    # Cloned at the tag rather than downloaded as a generated tag archive: see
+    # the tinyxml2 action for why the commit is the thing worth pinning.
+    - name: Clone
       run: |
-        curl -fL --retry 8 --retry-delay 15 --retry-max-time 300 https://github.com/cesanta/mongoose/archive/refs/tags/${{ inputs.version }}.zip --output mongoose.zip
+        git clone --quiet --depth 1 --branch "${{ inputs.version }}" https://github.com/cesanta/mongoose.git "mongoose-${{ inputs.version }}"
       working-directory: tmp
       shell: bash
 
-    - name: Verify checksum
+    - name: Verify commit
       run: |
-        "$GITHUB_WORKSPACE/.github/scripts/verify-checksum.sh" mongoose "${{ inputs.version }}" mongoose.zip
-      working-directory: tmp
-      shell: bash
-
-    - name: Unzip on windows
-      if: runner.os == 'Windows'
-      run: |
-        7z x mongoose.zip
-        del mongoose.zip
-      working-directory: tmp
-      shell: cmd
-
-    - name: Unzip on linux
-      if: runner.os != 'Windows'
-      run: |
-          unzip mongoose.zip
-          rm mongoose.zip
+        "$GITHUB_WORKSPACE/.github/scripts/verify-commit.sh" mongoose "${{ inputs.version }}" "mongoose-${{ inputs.version }}"
       working-directory: tmp
       shell: bash
 

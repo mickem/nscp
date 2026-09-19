@@ -33,6 +33,13 @@ struct fleet_config {
   // because the sync outlives configuration reloads - including the ones it
   // triggers itself - and the answer can change under it.
   std::function<bool()> local_config_probe;
+  // Allow a management url (`mtls_url`) that is not https. Off by default: the
+  // client certificate and the pinned server certificate protect nothing on a
+  // plain socket, so a plaintext url leaves desired state and signed-bundle
+  // delivery - remote code execution - unauthenticated. Comes from the same
+  // `[tls] allow plaintext` boot.ini key that allows a plaintext settings
+  // source, which is the same question about the same agent.
+  bool allow_plaintext = false;
 };
 
 // The post-enrollment fleet sync loop (see the fleet agent integration
@@ -137,6 +144,10 @@ class fleet_sync {
   // to be unreachable, secondary traffic (renewal) is skipped until a
   // call succeeds again, and repeated identical errors stay out of the error log.
   bool transport_ok_ = true;
+  // The management url is not https, and the operator opted into that. Kept so
+  // do_call does not attach a client certificate and a pin to a plain socket,
+  // which the http client refuses outright.
+  bool plaintext_channel_ = false;
   std::string last_transport_error_;
   unsigned long transport_failures_ = 0;
 

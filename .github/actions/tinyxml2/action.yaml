@@ -15,31 +15,20 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Download
+    # Cloned at the tag rather than downloaded as a generated tag archive, so
+    # what the build compiles can be pinned to an immutable commit. A tag is a
+    # movable pointer and the zip GitHub generates for it is not a release
+    # artifact anyone signs; the commit is the thing that cannot change under
+    # us. Same treatment as googletest.
+    - name: Clone
       run: |
-        curl -fL --retry 8 --retry-delay 15 --retry-max-time 300 https://github.com/leethomason/tinyxml2/archive/refs/tags/${{ inputs.version }}.zip --output tinyxml2.zip
+        git clone --quiet --depth 1 --branch "${{ inputs.version }}" https://github.com/leethomason/tinyxml2.git "tinyxml2-${{ inputs.version }}"
       working-directory: tmp
       shell: bash
 
-    - name: Verify checksum
+    - name: Verify commit
       run: |
-        "$GITHUB_WORKSPACE/.github/scripts/verify-checksum.sh" tinyxml2 "${{ inputs.version }}" tinyxml2.zip
-      working-directory: tmp
-      shell: bash
-
-    - name: Unzip on windows
-      if: runner.os == 'Windows'
-      run: |
-        7z x tinyxml2.zip
-        del tinyxml2.zip
-      working-directory: tmp
-      shell: cmd
-
-    - name: Unzip on linux
-      if: runner.os != 'Windows'
-      run: |
-          unzip tinyxml2.zip
-          rm tinyxml2.zip
+        "$GITHUB_WORKSPACE/.github/scripts/verify-commit.sh" tinyxml2 "${{ inputs.version }}" "tinyxml2-${{ inputs.version }}"
       working-directory: tmp
       shell: bash
 

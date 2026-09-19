@@ -960,6 +960,11 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
       return 1;
     }
 
+    // Carried into the response check as well: the server names the management
+    // url there, and a plaintext one turns the pinned mTLS channel into an
+    // unauthenticated plain socket. Same opt-in, same reasoning.
+    request.allow_plaintext = insecure;
+
     // Load paths/settings so ${certificate-path} (and any tokens in a user
     // supplied --state-file) can be resolved.
     if (!core_->load_configuration_1()) {
@@ -1055,8 +1060,20 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
       const boost::filesystem::path fleet_dir = boost::filesystem::path(fleet_ini).parent_path();
       if (!fleet_dir.empty()) boost::filesystem::create_directories(fleet_dir, fs_error);
       if (!boost::filesystem::exists(fleet_ini, fs_error)) {
-        std::ofstream placeholder(fleet_ini.c_str());
-        placeholder << "; Managed by the fleet sync - populated on the first sync." << std::endl;
+        // Through the onboarding helper, not an ofstream: enrollment runs as
+        // root and ${fleet-folder} is handed to the service account below, so
+        // `fleet.ini` is a name that account can pre-create as a symlink. The
+        // helper creates it O_EXCL|O_NOFOLLOW inside a directory it opened the
+        // same way, so a planted link fails the placeholder rather than letting
+        // root truncate whatever it points at. A failure here is not fatal -
+        // the sync writes the real file - so it is reported and enrollment
+        // continues.
+        try {
+          onboarding::create_file_exclusive(fleet_ini, "; Managed by the fleet sync - populated on the first sync.\n", 0644);
+        } catch (const std::exception &e) {
+          std::cerr << "WARNING: failed to create the fleet.ini placeholder: " << utf8::utf8_from_native(e.what()) << std::endl;
+          std::cerr << "The first sync writes it; if this keeps happening, check what " << fleet_ini << " is." << std::endl;
+        }
       }
       // The sync writes fleet.ini, applied-state.json, the bundle cache and the
       // script tree here, all as the service account.
