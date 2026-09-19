@@ -19,17 +19,18 @@ std::shared_ptr<nscapi::settings_proxy> script_provider::get_settings_proxy() {
   return std::shared_ptr<nscapi::settings_proxy>(new nscapi::settings_proxy(get_id(), get_core()));
 }
 
-boost::filesystem::path script_provider::get_root() { return root_ / "scripts" / "lua"; }
+// root_ is ${scripts}; the "scripts" segment that used to sit here belonged
+// to the old ${base-path} root and doubled the folder once that changed.
+boost::filesystem::path script_provider::get_root() { return root_ / "lua"; }
 
 boost::optional<boost::filesystem::path> script_provider::find_file(std::string file) {
   std::list<boost::filesystem::path> checks;
   checks.push_back(file);
   checks.push_back(file + ".lua");
-  checks.push_back(root_ / "scripts" / "lua" / file);
-  checks.push_back(root_ / "scripts" / "lua" / (file + ".lua"));
-  checks.push_back(root_ / "scripts" / file);
-  checks.push_back(root_ / "scripts" / (file + ".lua"));
+  checks.push_back(root_ / "lua" / file);
+  checks.push_back(root_ / "lua" / (file + ".lua"));
   checks.push_back(root_ / file);
+  checks.push_back(root_ / (file + ".lua"));
   for (boost::filesystem::path c : checks) {
     if (boost::filesystem::exists(c) && boost::filesystem::is_regular_file(c)) return boost::optional<boost::filesystem::path>(c);
   }

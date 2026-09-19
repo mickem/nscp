@@ -16,7 +16,11 @@ nscapi::core_wrapper* script_provider::get_core() { return core_; }
 
 std::shared_ptr<nscapi::settings_proxy> script_provider::get_settings_proxy() { return std::make_shared<nscapi::settings_proxy>(get_id(), get_core()); }
 
-boost::filesystem::path script_provider::get_root() { return root_ / "scripts" / "python"; }
+// root_ is already ${scripts}, so this must not prepend "scripts" again.
+// It used to, which made the import destination and the sandbox root
+// ${scripts}/scripts/python - a folder find_file never searches and that
+// does not exist on a normal install.
+boost::filesystem::path script_provider::get_root() { return root_ / "python"; }
 
 boost::optional<boost::filesystem::path> script_provider::find_file(std::string file) {
   std::list<boost::filesystem::path> checks;

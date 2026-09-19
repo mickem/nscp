@@ -40,4 +40,20 @@ target_link_libraries(
     lua_nscp
 )
 
+# The provider's script lookup needs only a core wrapper with no endpoints, so
+# which folders it searches is unit-testable without the Lua runtime.
+NSCP_CREATE_TEST(
+    LUAScript_provider_test
+    SOURCES
+        script_provider_test.cpp
+        script_provider.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
