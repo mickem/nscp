@@ -117,9 +117,17 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
     fs::recursive_directory_iterator iter(dir), eod;
     for (fs::path const &i : boost::make_iterator_range(iter, eod)) {
       std::string s = i.string();
-      if (boost::algorithm::starts_with(s, rel.string())) s = s.substr(rel.string().size());
+      // Relative to the install base when the file is under it, which is the
+      // case on Windows and is what `show` and the web UI's script list have
+      // always been handed. When it is not - the normal case on unix, where
+      // ${scripts} is not below ${base-path} - the path is left absolute.
+      // It used to have its leading separator sliced off regardless, leaving a
+      // rootless `usr/lib/nsclient/scripts/x` that named no file at all.
+      if (boost::algorithm::starts_with(s, rel.string())) {
+        s = s.substr(rel.string().size());
+        if (!s.empty() && (s[0] == '\\' || s[0] == '/')) s = s.substr(1);
+      }
       if (s.empty()) continue;
-      if (s[0] == '\\' || s[0] == '/') s = s.substr(1);
       fs::path clone = i.parent_path();
       if (fs::is_regular_file(i) && !boost::algorithm::contains(clone.string(), "lib")) {
         if (json) {
@@ -266,6 +274,13 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
       }
     }
     try {
+      // copy_file does not create the destination directory, and nothing
+      // guarantees it exists: ${scripts}/lua only materialises on Windows when
+      // the sample scripts feature is selected, and a ${scripts} override
+      // points somewhere that was never populated at all. Without this the
+      // import failed with a bare "No such file or directory" naming a path
+      // the operator had no reason to create by hand.
+      fs::create_directories(file.parent_path());
       fs::copy_file(import_script, file);
     } catch (const std::exception &e) {
       nscapi::protobuf::functions::set_response_bad(*response, "Failed to import script: " + utf8::utf8_from_native(e.what()));
