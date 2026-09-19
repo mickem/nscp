@@ -28,6 +28,7 @@
 #include <nscapi/protobuf/log.hpp>
 #include <settings/test_helpers.hpp>
 #include <sstream>
+#include <str/utils.hpp>
 #include <string>
 
 #include "../libs/settings_manager/settings_manager_impl.h"
@@ -192,12 +193,22 @@ namespace {
 class test_provider : public settings_manager::provider_interface {
  public:
   test_provider() : logger_(settings_test::make_null_logger()) {}
-  std::string expand_path(std::string file) override { return file; }
+
+  // Resolve ${log-path} the way the real path manager would, so the rooting
+  // the log file name now goes through has something absolute to root at. The
+  // suite points it at its own temp directory.
+  std::string expand_path(std::string file) override {
+    if (!log_path_.empty()) str::utils::replace(file, "${log-path}", log_path_);
+    return file;
+  }
+  void set_log_path(const std::string& path) { log_path_ = path; }
+
   nsclient::logging::logger_instance get_logger() const override { return logger_; }
   void apply_path_overrides(std::map<std::string, std::string>) override {}
 
  private:
   nsclient::logging::logger_instance logger_;
+  std::string log_path_;
 };
 
 // Enters a directory for the duration of a test and restores the previous
@@ -222,6 +233,7 @@ class SimpleFileLoggerSettingsTest : public ::testing::Test {
   void SetUp() override {
     settings_manager::destroy_settings();
     provider_ = std::make_unique<test_provider>();
+    provider_->set_log_path(dir_.path().string());
   }
 
   void TearDown() override { settings_manager::destroy_settings(); }
@@ -375,14 +387,17 @@ TEST_F(SimpleFileLoggerSettingsTest, FileNameNoneSurvivesPathExpansion) {
   EXPECT_EQ(logger.do_config(false).file, "none");
 }
 
-#ifndef WIN32
-TEST_F(SimpleFileLoggerSettingsTest, ABareFileNameLandsNextToTheBinary) {
-  // No path separator in the configured name: base_path() (empty on POSIX,
-  // i.e. the working directory) is prepended. Run from inside the temp dir so
-  // the resolved-relative-to-cwd behaviour is exercised without depending on
-  // the working directory the suite happened to be started in being writable
-  // (it is not, for instance, when ctest runs from a read-only tree).
-  const cwd_guard cwd(dir_.path());
+TEST_F(SimpleFileLoggerSettingsTest, ABareFileNameLandsInTheLogFolder) {
+  // A bare name is rooted at ${log-path} rather than left relative. It used to
+  // resolve against the process working directory - System32 for a Windows
+  // service, whatever the shell was for `nscp test` - which is not something an
+  // operator can predict, so the log went wherever the agent happened to be
+  // started from.
+  //
+  // The fixture points ${log-path} at its own temp directory. Run from
+  // somewhere else entirely, so a regression that quietly went back to the
+  // working directory fails this rather than passing by coincidence.
+  const cwd_guard cwd(boost::filesystem::temp_directory_path());
   const std::string name = "simple_file_logger_bare.log";
   boot_with(
       "[/settings/log]\n"
@@ -392,9 +407,22 @@ TEST_F(SimpleFileLoggerSettingsTest, ABareFileNameLandsNextToTheBinary) {
   logger.asynch_configure();
   logger.do_log(make_entry(PB::Log::LogEntry_Entry_Level_LOG_INFO, "t", "f", 1, "bare-name"));
 
+  EXPECT_EQ(logger.get_file(), (dir_.path() / name).string());
   EXPECT_TRUE(boost::filesystem::exists(dir_.path() / name));
+  EXPECT_FALSE(boost::filesystem::exists(boost::filesystem::temp_directory_path() / name)) << "the log landed in the working directory";
 }
-#endif
+
+TEST_F(SimpleFileLoggerSettingsTest, AnAbsoluteFileNameIsLeftWhereTheOperatorPutIt) {
+  // Rooting applies only to a name that carries no location of its own.
+  const boost::filesystem::path target = dir_.path() / "explicit" / "chosen.log";
+  boot_with(
+      "[/settings/log]\n"
+      "file name = " + target.string() + "\n");
+
+  simple_file_logger logger(unique_name("absolute"));
+  logger.asynch_configure();
+  EXPECT_EQ(logger.get_file(), target.string());
+}
 
 TEST_F(SimpleFileLoggerSettingsTest, ARotatedTargetThatIsADirectoryIsSurvived) {
   // With a max size configured, do_log stats the target before writing; a

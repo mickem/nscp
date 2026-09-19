@@ -81,8 +81,21 @@ class settings_http : public settings::settings_interface_impl {
   // written to with the service's privileges, and the host name - which DHCP
   // can set on some systems - must not be able to smuggle a separator or a
   // ".." into it.
+  // Rooted at ${shared-path}, because an attachment target is a *destination*.
+  // The documented form has always been a bare relative name
+  // ("scripts/myscript.bat = https://..."), and expanding it left it relative,
+  // so the file was written relative to the service's working directory:
+  // C:\Windows\System32 for a Windows service, "/" under a bare init script.
+  // On Linux the shipped systemd unit sets WorkingDirectory to the package
+  // directory, which is ${shared-path} - so it landed correctly there by
+  // accident, and that accident is why this went unnoticed.
+  //
+  // ${shared-path} keeps the unix answer byte-identical and gives every other
+  // platform and launch method the same one. A target that names a root of its
+  // own is left alone: pointing an attachment anywhere on the filesystem stays
+  // the operator's call.
   static std::string resolve_attachment_target(settings_core *core, const std::string &key) {
-    return core->expand_path(socket_helpers::expand_hostname_placeholders_in_path(key));
+    return core->resolve_path(socket_helpers::expand_hostname_placeholders_in_path(key), "${shared-path}");
   }
 
   settings_http(settings::settings_core *core, std::string alias, std::string context) : settings::settings_interface_impl(core, alias, context) {

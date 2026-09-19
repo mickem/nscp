@@ -170,7 +170,7 @@ Adding a script:
 
 ```ini
 [/attachments]
-scripts/myscript.bat = https://www.myserver.com/myscript.bat
+${scripts}/myscript.bat = https://www.myserver.com/myscript.bat
 ```
 
 The key is where the file is written and the value is where it is fetched from. Both sides take
@@ -181,6 +181,12 @@ usual path tokens, so one configuration can give every agent in a fleet its own 
 [/attachments]
 ${shared-path}/${host}-nsclient.ini = https://nsclient.mydom.local/nsclient/hosts/${host}-nsclient.ini
 ```
+
+Name the target with a path token, or with an absolute path if you want it somewhere specific. A
+bare relative name such as `scripts/myscript.bat` still works and is taken relative to
+`${shared-path}` — but say which folder you mean, because the relative form used to be resolved
+against the service's working directory and that is not something you can predict from the
+configuration.
 
 #### Query parameters
 

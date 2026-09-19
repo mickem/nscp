@@ -5,6 +5,7 @@
 
 #include <config.h>
 
+#include <nscp/path_rooting.hpp>
 #include <parsers/expression/expression.hpp>
 #include <str/utf8.hpp>
 
@@ -204,6 +205,10 @@ std::string nsclient::core::path_manager::resolve_folder(const std::string &key,
 }
 
 std::string nsclient::core::path_manager::expand_path(std::string file) { return expand_path_impl(std::move(file), 0); }
+
+std::string nsclient::core::path_manager::resolve_path(std::string file, const std::string &default_root) {
+  return nscp::paths::root_path(std::move(file), default_root, [this](std::string value) { return expand_path_impl(std::move(value), 0); });
+}
 
 std::string nsclient::core::path_manager::expand_path_impl(std::string file, const int depth) {
   // Cycle guard: a settings cycle ("${a}" -> "${b}" -> "${a}") used to

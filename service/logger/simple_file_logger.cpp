@@ -153,8 +153,9 @@ simple_file_logger::config_data simple_file_logger::do_config(const bool log_fau
         ("log/file", "Logfile", "Configure log file properties.");
 
     settings.add_key_to_settings("log")
-        .add_file("file name", sh::string_key(&ret.file, DEFAULT_LOG_LOCATION), "Log file name",
-                  "The file to write log data to. Set this to none to disable log to file.")
+        .add_file("file name", sh::path_key(&ret.file, DEFAULT_LOG_LOCATION, "${log-path}"), "Log file name",
+                  "The file to write log data to. A bare file name is taken relative to the log folder; an absolute path is used as given. "
+                  "Set this to none to disable log to file.")
 
         .add_string("date format", sh::string_key(&ret.format, "%Y-%m-%d %H:%M:%S"), "Date format",
                     "The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can receive.");
@@ -185,24 +186,17 @@ void simple_file_logger::asynch_configure() {
 
     format_ = config.format;
     max_size_ = config.max_size;
-    const std::string configured = settings_manager::get_proxy()->expand_path(config.file);
-    // `none` switches file logging off. Tested before anything joins a
-    // directory onto it: the bare-name branch below prepends base_path(),
-    // which is non-empty on Windows, so the sentinel used to be mangled into a
-    // real file called "<install dir>none" and logging stayed on there.
-    if (nscp::paths::is_no_path(configured)) {
+    // `none` switches file logging off, and is tested before anything joins a
+    // directory onto it - the rooting below would otherwise turn the sentinel
+    // into a real file called `none` inside the log folder.
+    if (nscp::paths::is_no_path(config.file)) {
       file_ = "";
       return;
     }
-    file_ = configured;
-    if (file_.empty()) file_ = "nsclient.log";
-    if (file_.find('\\') == std::string::npos && file_.find('/') == std::string::npos) {
-      // A bare file name is taken relative to the installation directory, not
-      // to whatever the working directory happens to be (System32 for a
-      // Windows service). operator/ supplies the separator - the string
-      // concatenation this replaces produced "<install dir>nsclient.log".
-      file_ = (boost::filesystem::path(base_path()) / file_).string();
-    }
+    // The key is registered as a path rooted at ${log-path}, so a bare name is
+    // already absolute by here. An unset value still needs the default name,
+    // and it is rooted the same way rather than left to the working directory.
+    file_ = config.file.empty() ? settings_manager::get_proxy()->resolve_path("nsclient.log", "${log-path}") : config.file;
   } catch (const std::exception &) {
     // ignored, since this might be after shutdown...
   } catch (...) {
