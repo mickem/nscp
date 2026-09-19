@@ -114,4 +114,29 @@
             <Directory Id="dirEAE7F9BEB0F783B5EC9C5AC27AB441E6" Name="lua" />
         </DirectoryRef>
     </Fragment>
+    <!-- scripts\custom: where an operator's own scripts go.
+
+         Deliberately NOT part of ScriptResources. That group is referenced only
+         by the SampleScripts feature, so everything in it disappears under
+         `REMOVE=SampleScripts` - and because a directory only materialises when
+         a component is installed into it, deselecting the samples used to leave
+         no scripts\ directory at all. An operator who wants none of our examples
+         still needs somewhere to put their own, so this component hangs off
+         MainProgram (Absent="disallow") and always installs.
+
+         CreateFolder rather than a File: there is nothing to ship. The folder is
+         the point, and a placeholder .bat would be picked up as a runnable
+         command by CheckExternalScripts' `script path` option. MSI removes the
+         folder on uninstall only if it is empty, so anything an operator put
+         there is left alone. -->
+    <Fragment>
+        <DirectoryRef Id="dirC722990CDCB916A6A44099040A99483A">
+            <Directory Id="dirScriptsCustom" Name="custom" />
+        </DirectoryRef>
+    </Fragment>
+    <Fragment>
+        <Component Id="ScriptsCustomFolder" Directory="dirScriptsCustom" Guid="{054163D4-48A0-4EDB-A3F0-70096086677A}">
+            <CreateFolder />
+        </Component>
+    </Fragment>
 </Wix>
