@@ -91,9 +91,10 @@ NSCP_CREATE_TEST(
         ${Boost_DATE_TIME_LIBRARY}
         ${OPENSSL_LIBRARIES}
         ${NSCP_DEF_PLUGIN_LIB}
-        # OpenSSL's bundled CAPI engine on Windows pulls in Crypt32. The
-        # module target picks this up via EXTRA_LIBS; the test target needs
-        # it spelled out separately.
+        # OpenSSL's bundled CAPI engine on Windows pulls in Crypt32 when
+        # OpenSSL is linked statically (the XP build); with the OpenSSL DLLs
+        # it is redundant but harmless. The module target picks this up via
+        # EXTRA_LIBS; the test target needs it spelled out separately.
         ${NSCA_NG_TEST_EXTRA_LIBS}
     INCLUDES
         ${NSCP_INCLUDEDIR}

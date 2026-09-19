@@ -138,10 +138,14 @@ TEST_F(NrpeModule, InstallWithACaWritesTheHardenedProfile) {
   const std::string out = cli({"install", "--ca", "/etc/nscp/ca.pem"}, &handled);
 
   EXPECT_TRUE(handled);
-  EXPECT_EQ(wrote("ssl"), "true");
+  // `use ssl` is the key the server registers; `ssl` was written for years and
+  // read by nothing, so an install on a host with `use ssl = false` reported
+  // encryption while leaving the listener in plaintext.
+  EXPECT_EQ(wrote("use ssl"), "true");
+  EXPECT_EQ(wrote("ssl"), "") << "the key the server never reads must not be written any more";
   EXPECT_EQ(wrote("insecure"), "false");
   EXPECT_EQ(wrote("ca"), "/etc/nscp/ca.pem");
-  EXPECT_EQ(wrote("allowed ciphers"), "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
+  EXPECT_EQ(wrote("allowed ciphers"), "ALL:!aNULL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
   EXPECT_EQ(wrote("ssl options"), "no-sslv2,no-sslv3");
   EXPECT_NE(out.find("Enabling NRPE via SSL"), std::string::npos) << out;
 }
@@ -200,7 +204,7 @@ TEST_F(NrpeModule, InstallWithVerifyNoneStillWritesModernCiphers) {
 
   EXPECT_EQ(wrote("insecure"), "false");
   EXPECT_EQ(wrote("verify mode"), "none");
-  EXPECT_EQ(wrote("allowed ciphers"), "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
+  EXPECT_EQ(wrote("allowed ciphers"), "ALL:!aNULL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
 }
 
 // ============================================================================
@@ -216,6 +220,9 @@ TEST_F(NrpeModule, InsecureInstallWritesTheLegacyProfileAndWarns) {
   const std::string out = cli({"install", "--insecure"});
 
   EXPECT_EQ(wrote("insecure"), "true");
+  // Matches the module's own insecure default. The mode loads no certificate,
+  // so only anonymous suites can complete a handshake: an !ADH (or !aNULL)
+  // here would either be cosmetic or break the mode outright.
   EXPECT_EQ(wrote("allowed ciphers"), "ALL:!MD5:@STRENGTH:@SECLEVEL=0");
   EXPECT_EQ(wrote("verify mode"), "");
   EXPECT_EQ(wrote("ca"), "");

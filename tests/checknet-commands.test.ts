@@ -1331,8 +1331,11 @@ describe("CheckNet commands", () => {
         critical: "code != 200",
       });
       // Assert the CA failure separately from the result, so a broken trust
-      // store reads as itself instead of as a generic CRITICAL.
-      expect(messageOf(q)).not.toMatch(/Failed to load CA/);
+      // store reads as itself instead of as a generic CRITICAL. The message no
+      // longer names the path or the OpenSSL reason - that detail is a
+      // file-existence oracle when `ca=` comes from the request, so it goes to
+      // the agent log - but it still says which part of the setup failed.
+      expect(messageOf(q)).not.toMatch(/failed to load .*CA bundle/i);
       expect(q.result).toBe(OK);
     });
   });

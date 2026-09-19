@@ -215,8 +215,37 @@ TEST(CheckDocker, RemoteEndpointIsRefused) {
   const std::string remote = "host=../../etc/passwd";
 #endif
   EXPECT_EQ(run_containers(daemon.factory(), {remote}, response), PB::Common::ResultCode::UNKNOWN);
-  EXPECT_NE(join_lines(response).find("Refusing docker endpoint"), std::string::npos) << join_lines(response);
+  // Refused before the "is it local" test even runs: the endpoint is an
+  // operator decision now, so anything the request names that is not the
+  // configured value is turned away whether it is local or not.
+  EXPECT_NE(join_lines(response).find("Refusing a request-supplied docker endpoint"), std::string::npos) << join_lines(response);
   EXPECT_TRUE(daemon.last_path.empty());  // never reached the transport
+}
+
+TEST(CheckDocker, AnotherLocalEndpointIsRefusedToo) {
+  // Being local is not enough. The agent would connect to any socket or pipe
+  // named and report the status code or parse error, which is a read-only
+  // probe of the host performed as root or SYSTEM.
+  fake_daemon daemon;
+  daemon.payload = "[]";
+  PB::Commands::QueryResponseMessage::Response response;
+#ifdef WIN32
+  const std::string other = "host=\\\\.\\pipe\\something_else";
+#else
+  const std::string other = "host=/run/user/1000/docker.sock";
+#endif
+  EXPECT_EQ(run_containers(daemon.factory(), {other}, response), PB::Common::ResultCode::UNKNOWN);
+  EXPECT_NE(join_lines(response).find("[/settings/docker]"), std::string::npos) << join_lines(response);
+  EXPECT_TRUE(daemon.last_path.empty());
+}
+
+TEST(CheckDocker, RepeatingTheConfiguredEndpointIsStillAccepted) {
+  // Existing command definitions that spell out host= keep working.
+  fake_daemon daemon;
+  daemon.payload = "[]";
+  PB::Commands::QueryResponseMessage::Response response;
+  const std::string same = "host=" + docker_checks::default_docker_endpoint();
+  EXPECT_NE(run_containers(daemon.factory(), {same}, response), PB::Common::ResultCode::UNKNOWN) << join_lines(response);
 }
 
 // --- check_docker_info -------------------------------------------------------

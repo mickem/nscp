@@ -24,7 +24,7 @@ distribute them. Pinned versions live in `.github/workflows/build-windows.yml`.
 
 | Component                              | Notes                                   | License       |
 |----------------------------------------|-----------------------------------------|---------------|
-| OpenSSL                                | TLS/crypto; Windows binary (3.x)        | Apache-2.0    |
+| OpenSSL                                | TLS/crypto; Windows DLLs (3.x)          | Apache-2.0    |
 | Crypto++ (Wei Dai et al.)              | crypto; Windows binary                  | BSL-1.0       |
 | Protocol Buffers (Google)              | serialization; Windows binary           | BSD-3-Clause  |
 | Boost                                  | Windows binary (statically linked)      | BSL-1.0       |

@@ -78,7 +78,14 @@ struct smtp_target_object : nscapi::targets::target_object {
         .add_bool("insecure-skip-verify", sh::bool_fun_key([this](auto value) { this->set_property_bool("insecure-skip-verify", value); }, false),
                   "SKIP TLS CERT VERIFY",
                   "When true, skip certificate validation on the server. Only safe for self-signed test environments; never set this on a production "
-                  "submission service.");
+                  "submission service.")
+
+        .add_bool("allow recipient override", sh::bool_fun_key([this](auto value) { this->set_property_bool("allow recipient override", value); }, false),
+                  "ALLOW RECIPIENT OVERRIDE",
+                  "Let a request choose `recipient=` and `sender=` while this target's configured AUTH credentials are used. Off by default: the agent "
+                  "holds the mailbox credentials, so a caller able to run submit_smtp would otherwise be able to send mail of their choosing through the "
+                  "operator's authenticated account. Only consulted when the target carries a password: a request that supplies its own credentials, and "
+                  "one that keeps the configured addresses, are unaffected. `allow host override = true` implies this.");
   }
 };
 

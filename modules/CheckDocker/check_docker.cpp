@@ -165,7 +165,7 @@ void check_containers(const settings &defaults, const PB::Commands::QueryRequest
   filter_helper.add_syntax("${status}: ${list}", "${names}=${container_state}", "${names}", "No containers found", "");
   // clang-format off
   filter_helper.get_desc().add_options()
-    ("host", po::value<std::string>(&endpoint)->default_value(endpoint), "The local docker daemon socket (named pipe on Windows, unix socket elsewhere).")
+    ("host", po::value<std::string>(&endpoint)->default_value(endpoint), "The local docker daemon socket (named pipe on Windows, unix socket elsewhere). Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator decision, not a request one.")
     ("timeout", po::value<int>(&timeout)->default_value(timeout), "Timeout for talking to the daemon, in seconds.")
     ("all", po::value<bool>(&all)->implicit_value(true)->default_value(false), "Include stopped containers (docker ps -a); by default only running containers are listed.")
     ("container", po::value<std::vector<std::string>>(&required), "Name of a container that must exist (repeatable). Implies all; a name the daemon does not know gets container_state 'missing'.")
@@ -177,10 +177,13 @@ void check_containers(const settings &defaults, const PB::Commands::QueryRequest
   // `host` is a check argument, so it arrives from whoever can run this check
   // - over REST that is anyone holding `queries.execute`. On Windows it is
   // handed to CreateFileA: a UNC target such as \\attacker\pipe\x would make
-  // this host authenticate to a remote server over SMB. Constrain it to a
-  // local endpoint before it gets anywhere near the transport.
+  // this host authenticate to a remote server over SMB. And even a local
+  // endpoint of the caller's choosing is a probe: the agent connects to it and
+  // reports the status code or parse error. Which daemon this agent talks to
+  // is settled by `endpoint` under [/settings/docker]; a request may repeat
+  // that value but not replace it.
   std::string endpoint_error;
-  if (!is_local_docker_endpoint(endpoint, endpoint_error)) {
+  if (!is_configured_docker_endpoint(endpoint, defaults.endpoint, endpoint_error) || !is_local_docker_endpoint(endpoint, endpoint_error)) {
     return nscapi::protobuf::functions::set_response_bad(*response, endpoint_error);
   }
 
@@ -285,16 +288,17 @@ void check_info(const settings &defaults, const PB::Commands::QueryRequestMessag
                            "%(status): No daemon information returned", "");
   // clang-format off
   filter_helper.get_desc().add_options()
-    ("host", po::value<std::string>(&endpoint)->default_value(endpoint), "The local docker daemon socket (named pipe on Windows, unix socket elsewhere).")
+    ("host", po::value<std::string>(&endpoint)->default_value(endpoint), "The local docker daemon socket (named pipe on Windows, unix socket elsewhere). Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator decision, not a request one.")
     ("timeout", po::value<int>(&timeout)->default_value(timeout), "Timeout for talking to the daemon, in seconds.")
     ;
   // clang-format on
 
   if (!filter_helper.parse_options()) return;
 
-  // See check_containers for why the endpoint must be constrained.
+  // See check_containers for why the endpoint must be constrained, and why a
+  // request may not choose it.
   std::string endpoint_error;
-  if (!is_local_docker_endpoint(endpoint, endpoint_error)) {
+  if (!is_configured_docker_endpoint(endpoint, defaults.endpoint, endpoint_error) || !is_local_docker_endpoint(endpoint, endpoint_error)) {
     return nscapi::protobuf::functions::set_response_bad(*response, endpoint_error);
   }
 

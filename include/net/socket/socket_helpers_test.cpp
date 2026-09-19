@@ -1534,3 +1534,80 @@ TEST(EscapeForLog, OverlongValuesAreTruncated) {
   const std::string result = socket_helpers::escape_for_log(std::string(socket_helpers::max_peer_principal_length + 10, 'a'));
   EXPECT_EQ(result, std::string(socket_helpers::max_peer_principal_length, 'a') + "...");
 }
+
+// ---------------------------------------------------------------------------
+// parse_pinned_certificate / certificate_spki_sha256
+//
+// A "pin" that only adds the PEM to the trust store and turns hostname
+// verification off is a pin only when the PEM is the server's own leaf. Hand
+// out a CA instead and the same code accepts anything that chains to it, for
+// any name - weaker than ordinary verification, not stronger. These two
+// helpers are what lets the client tell the cases apart and match a leaf by
+// its key rather than by trusting its issuer.
+// ---------------------------------------------------------------------------
+
+namespace {
+class PinnedCertificateFixture : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    dir_ = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-pin-%%%%-%%%%");
+    boost::filesystem::create_directories(dir_);
+  }
+  void TearDown() override {
+    boost::system::error_code ignored;
+    boost::filesystem::remove_all(dir_, ignored);
+  }
+  // write_certs is the only certificate generator this library has, so it is
+  // what the fixture uses: `false` produces a leaf (key and certificate in one
+  // file), `true` a CA certificate with basicConstraints CA:TRUE.
+  std::string generate(const std::string &name, const bool ca) {
+    const std::string path = (dir_ / name).string();
+    socket_helpers::write_certs(path, ca);
+    std::ifstream in(path.c_str(), std::ios::binary);
+    const std::string content((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    // Keep only the certificate: a pinned PEM is a certificate, never a key.
+    const std::string::size_type begin = content.find("-----BEGIN CERTIFICATE-----");
+    if (begin == std::string::npos) return content;
+    const std::string::size_type end = content.find("-----END CERTIFICATE-----", begin);
+    if (end == std::string::npos) return content.substr(begin);
+    return content.substr(begin, end - begin + std::string("-----END CERTIFICATE-----\n").size());
+  }
+  boost::filesystem::path dir_;
+};
+}  // namespace
+
+TEST_F(PinnedCertificateFixture, ALeafCertificateParsesAndIsNotACa) {
+  const socket_helpers::pinned_certificate pin = socket_helpers::parse_pinned_certificate(generate("leaf.pem", false));
+  ASSERT_TRUE(pin.valid) << pin.error;
+  EXPECT_FALSE(pin.is_ca) << "a leaf must not be treated as an issuer, or the pin degrades to trusting a CA";
+  EXPECT_EQ(pin.spki_sha256.size(), 64u) << "SHA-256 as lower-case hex";
+  EXPECT_EQ(pin.spki_sha256.find_first_not_of("0123456789abcdef"), std::string::npos);
+}
+
+TEST_F(PinnedCertificateFixture, ACaCertificateIsRecognised) {
+  const socket_helpers::pinned_certificate pin = socket_helpers::parse_pinned_certificate(generate("ca.pem", true));
+  ASSERT_TRUE(pin.valid) << pin.error;
+  EXPECT_TRUE(pin.is_ca) << "a CA PEM cannot speak for identity, so hostname verification has to stay on";
+}
+
+TEST_F(PinnedCertificateFixture, DifferentCertificatesHaveDifferentDigests) {
+  const socket_helpers::pinned_certificate one = socket_helpers::parse_pinned_certificate(generate("one.pem", false));
+  const socket_helpers::pinned_certificate two = socket_helpers::parse_pinned_certificate(generate("two.pem", false));
+  ASSERT_TRUE(one.valid && two.valid);
+  EXPECT_NE(one.spki_sha256, two.spki_sha256);
+}
+
+TEST_F(PinnedCertificateFixture, TheDigestIsStableAcrossParses) {
+  const std::string pem = generate("stable.pem", false);
+  EXPECT_EQ(socket_helpers::parse_pinned_certificate(pem).spki_sha256, socket_helpers::parse_pinned_certificate(pem).spki_sha256);
+}
+
+TEST(PinnedCertificate, RubbishIsRefusedRatherThanTreatedAsAPin) {
+  for (const std::string pem : {std::string(""), std::string("not a certificate"), std::string("-----BEGIN CERTIFICATE-----\nnope\n")}) {
+    const socket_helpers::pinned_certificate pin = socket_helpers::parse_pinned_certificate(pem);
+    EXPECT_FALSE(pin.valid) << "accepted '" << pem << "'";
+    EXPECT_FALSE(pin.error.empty());
+  }
+}
+
+TEST(PinnedCertificate, ANullCertificateHasNoDigest) { EXPECT_TRUE(socket_helpers::certificate_spki_sha256(nullptr).empty()); }

@@ -210,6 +210,7 @@ if(OPENSSL_FOUND)
         net_test
         SOURCES
             ${NSCP_INCLUDEDIR}/net/net_test.cpp
+            ${NSCP_INCLUDEDIR}/net/payload_limits_test.cpp
             ${NSCP_INCLUDEDIR}/net/pinger_test.cpp
             ${NSCP_INCLUDEDIR}/net/http/client_test.cpp
             ${NSCP_INCLUDEDIR}/net/http/proxy_config_test.cpp
@@ -591,11 +592,13 @@ NSCP_CREATE_TEST(
         ${Boost_THREAD_LIBRARY}
         ${Boost_DATE_TIME_LIBRARY}
         ${EXTRA_LIBS}
-        # The Windows builds link OpenSSL statically, and libcrypto's CAPI
-        # engine / winstore STORE loader call into the Windows certificate
-        # store, so Crypt32 has to be on the link line. Module targets get it
-        # from their own EXTRA_LIBS; a test target has to spell it out (same
-        # as net_test / settings_http_test above).
+        # The static (XP) Windows build links OpenSSL statically, and
+        # libcrypto's CAPI engine / winstore STORE loader call into the
+        # Windows certificate store, so Crypt32 has to be on the link line.
+        # The shared build links the OpenSSL import libraries, where the DLL
+        # brings its own Crypt32 and the extra entry is harmless. Module
+        # targets get it from their own EXTRA_LIBS; a test target has to
+        # spell it out (same as net_test / settings_http_test above).
         $<$<PLATFORM_ID:Windows>:CRYPT32>
     INCLUDES
         ${NSCP_INCLUDEDIR}

@@ -245,6 +245,11 @@ struct nrdp_client_handler : client::handler_interface {
       } else {
         nscapi::protobuf::functions::set_response_good(*payload, ret.get<1>());
       }
+    } catch (const socket_helpers::socket_exception &e) {
+      // The detail can name a request-supplied path and why it failed to
+      // load, so it goes to the log only; the caller gets what() alone.
+      if (e.has_detail()) NSC_LOG_ERROR_STD(e.detail());
+      nscapi::protobuf::functions::set_response_bad(*payload, "Socket error: " + utf8::utf8_from_native(e.what()));
     } catch (const std::runtime_error &e) {
       nscapi::protobuf::functions::set_response_bad(*payload, "Socket error: " + utf8::utf8_from_native(e.what()));
     } catch (const std::exception &e) {

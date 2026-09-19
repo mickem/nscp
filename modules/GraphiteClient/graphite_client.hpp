@@ -476,10 +476,14 @@ struct graphite_client_handler : public client::handler_interface {
       if (con.ssl.enabled) {
         boost::asio::ssl::context ctx(boost::asio::ssl::context::sslv23);
         std::list<std::string> errors;
-        con.ssl.configure_ssl_context(ctx, errors);
+        std::list<std::string> caller_safe_errors;
+        con.ssl.configure_ssl_context(ctx, errors, &caller_safe_errors);
         if (!errors.empty()) {
+          // The detail names the configured paths and the OpenSSL reason, so
+          // it goes to the log; the caller gets the safe summary only.
+          for (const std::string &e : errors) NSC_LOG_ERROR_STD(e);
           std::string emsg;
-          for (const std::string &e : errors) emsg += (emsg.empty() ? "" : "; ") + e;
+          for (const std::string &e : caller_safe_errors) emsg += (emsg.empty() ? "" : "; ") + e;
           return boost::make_tuple(false, "TLS setup failed: " + emsg);
         }
         boost::asio::ssl::stream<boost::asio::ip::tcp::socket> stream(io_service, ctx);
