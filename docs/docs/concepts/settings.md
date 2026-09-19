@@ -259,7 +259,7 @@ agent reads or writes.
 > submit clients; this makes them available across the settings subsystem too.
 
 An unrecognised path token is an error, and the setting that carried it is reported and skipped
-rather than applied. Up to and including 0.18 it was not: an unknown `${...}` quietly resolved to
+rather than applied. It did not used to be: an unknown `${...}` quietly resolved to
 the installation directory, so a mistyped `${scripst}/check.bat` was not rejected but turned into a
 real path under the install folder — and whatever depended on it went somewhere nobody was looking.
 That is also what made a pre-0.17 `${host}` in a path fail silently rather than loudly.
@@ -403,29 +403,72 @@ You can do this for the service as well by editing the service start command.
 
 ## Paths
 
-Paths can be used in various places in the settings store to locate files. To facilitate reusable paths, there are a
-number
-of path variables that can be used.
+Anywhere the configuration names a file or a folder you can write a `${token}` instead of a literal
+path, and the agent substitutes it when it reads the setting. That is what lets one configuration
+file work on a Windows install under `C:\Program Files`, a Linux package under `/usr/lib/nsclient`,
+and a relocated installation — without any of them spelling out where they are.
 
-| Key              | Value (Windows)                 | Value (Linux)          | Comment                                                                |
-|------------------|---------------------------------|------------------------|------------------------------------------------------------------------|
-| certificate-path | ${shared-path}/security         | ${shared-path}/security | Shipped and admin-supplied certificates. Read-only at runtime on Linux. |
-| module-path      | ${exe-path}/modules             | ${shared-path}/modules | Moves with `shared-path` on Linux.                                     |
-| web-path         | ${shared-path}/web              | ${shared-path}/web     |                                                                        |
-| scripts          | ${exe-path}/scripts             | ${shared-path}/scripts |                                                                        |
-| cache-folder     | ${shared-path}/cache            | ${shared-path}/cache   |                                                                        |
-| crash-folder     | ${shared-path}/crash-dumps      | ${shared-path}/crash-dumps |                                                                    |
-| log-path         | ${shared-path}/log              | /var/log/nsclient      | Created and owned by the service account by the package.               |
-| common-appdata   | %ProgramData%                   | N/A                    | Backs `${shared-path}` on the modern Windows layout.                   |
-| fleet-folder     | ${shared-path}/fleet            | ${data-path}/fleet     | Everything the fleet sync owns: `fleet.ini`, staged scripts, bundle cache. Must be writable by the service account. |
-| data-path        | The user's profile folder.      | /var/lib/nsclient      | Writable per-machine state on Linux; also `${appdata}` on Windows.     |
-| base-path        | Path of NSClient++ exe file     |                        | This will in the future change to an actual shared path.               |
-| temp             | The temporary file path         | /tmp                   |                                                                        |
-| shared-path      | Path of NSClient++ exe file     | /usr/lib/nsclient      | The package directory on Linux: root-owned, not written at runtime.    |
-| exe-path         | Path of NSClient++ exe file     |                        |                                                                        |
-| common-appdata   | Application data for all users. | N/A                    | The file system directory that contains application data for all users |
-| appdata          | The user's profile folder.      | N/A                    |                                                                        |
-| etc              | N/A                             | /etc                   | Linux only                                                             |
+### How a path is resolved
+
+1. **Tokens are substituted**, and the result is substituted again, because a token's value may
+   itself contain tokens. `${certificate-path}` is `${shared-path}/security`, which on the modern
+   Windows layout is `${common-appdata}/NSClient++/security`. This is why moving one folder moves
+   everything defined relative to it.
+2. **Each token is looked up in this order**, first match wins:
+
+    | Precedence | Source |
+    |---|---|
+    | 1 (highest) | `--path-override <key>=<value>` on the command line |
+    | 2 | the `[paths]` section of `boot.ini` |
+    | 3 (lowest) | the compiled-in default from the table below |
+
+3. **An unknown token is an error.** The setting that carried it is reported by name and skipped,
+   rather than applied. It previously resolved, silently, to the installation directory,
+   so a mistyped `${scripst}/check.bat` became a real path under the install folder and whatever
+   depended on it went somewhere nobody was looking. Note that the token set is *open*: anything you
+   define in `[paths]` is a valid token everywhere, so this only rejects names that are neither
+   built in nor defined by you.
+
+Two rules apply to the value once the tokens are gone:
+
+* **`none` means "no file at all"** and is never treated as a path. It is accepted by the log file
+  (`[/settings/log] file name = none` switches file logging off) and by every `ca` option, where it
+  falls back to the TLS library's own trust store.
+* **A value that names no location of its own is taken relative to the folder its setting owns**,
+  for the settings that *write* files — see [Relative paths](#relative-paths) below.
+
+An absolute path is always used exactly as written. Pointing a setting anywhere on the filesystem
+stays your decision; tokens are a convenience, not a restriction.
+
+### The tokens
+
+`Kind` says where the value comes from: **static** is the table below, **runtime** is a lookup the
+binary makes about its own location or the OS, and **probe** means the answer depends on what is
+actually on disk.
+
+| Key              | Kind    | Value (Windows)            | Value (Linux)              | Comment                                                                |
+|------------------|---------|----------------------------|----------------------------|------------------------------------------------------------------------|
+| exe-path         | runtime | Folder holding `nscp.exe`  | Folder holding `nscp`      | Where the running binary lives. `base-path` is a synonym.              |
+| base-path        | runtime | Folder holding `nscp.exe`  | Folder holding `nscp`      | Synonym for `exe-path`.                                                |
+| shared-path      | mixed   | `${exe-path}` (legacy), `${common-appdata}/NSClient++` (modern) | /usr/lib/nsclient | Moves with `[layout] mode` on Windows. The package directory on Linux: root-owned, not written at runtime. |
+| data-path        | runtime | The user's profile folder  | /var/lib/nsclient          | Writable per-machine state on Linux; the same as `${appdata}` on Windows. |
+| certificate-path | static  | ${shared-path}/security    | ${shared-path}/security    | Shipped and admin-supplied certificates. Read-only at runtime on Linux. |
+| module-path      | static  | ${exe-path}/modules        | ${shared-path}/modules     |                                                                        |
+| web-path         | static  | ${shared-path}/web         | ${shared-path}/web         | Stays with the program, never in the writable state — see [File layout](file-layout.md#the-web-root-stays-with-the-program). |
+| scripts          | static  | ${exe-path}/scripts        | ${shared-path}/scripts     |                                                                        |
+| cache-folder     | static  | ${shared-path}/cache       | ${shared-path}/cache       | Where a downloaded configuration is cached.                            |
+| crash-folder     | static  | ${shared-path}/crash-dumps | ${shared-path}/crash-dumps |                                                                        |
+| log-path         | static  | ${shared-path}/log         | /var/log/nsclient          | Created and owned by the service account by the package.               |
+| fleet-folder     | static  | ${shared-path}/fleet       | ${data-path}/fleet         | Everything the fleet sync owns: `fleet.ini`, staged scripts, bundle cache. Must be writable by the service account. |
+| ca-path          | static  | ${certificate-path}/windows-ca.pem | the distribution's CA bundle | Trusted CA bundle used when a check names none of its own. Detected at build time on Linux. |
+| temp             | runtime | The OS temporary folder    | /tmp                       | Shared with every other account on the machine.                        |
+| common-appdata   | runtime | %ProgramData%              | N/A                        | Backs `${shared-path}` on the modern Windows layout.                   |
+| appdata          | runtime | The user's profile folder  | N/A                        | Windows only; same value as `${data-path}`.                            |
+| etc              | static  | N/A                        | /etc                       | Linux only; tracks the build's `--prefix`.                             |
+| boot-conf        | special | ${exe-path}/boot.ini       | ${etc}/nsclient/boot.ini   | See [Special tokens](#special-tokens).                                 |
+| nrpe-dh          | probe   | whichever candidate holds the files | same               | See [Special tokens](#special-tokens).                                 |
+| modern-nrpe-dh   | static  | ${certificate-path}        | ${certificate-path}        | Candidate behind `${nrpe-dh}`.                                         |
+| legacy-nrpe-dh   | static  | ${exe-path}/security       | ${certificate-path}        | Candidate behind `${nrpe-dh}`; the two candidates coincide on Linux.   |
 
 The Linux values above are for a default `--prefix=/usr` package build; a build
 with another prefix moves them together (see the packaging variables in
@@ -435,6 +478,55 @@ owns it, see [File layout](file-layout.md).
 On Windows, `${shared-path}` — and therefore everything defined relative to it —
 depends on which layout the installation uses. `boot.ini`'s `[layout] mode`
 selects it; see [File layout](file-layout.md#windows).
+
+### Special tokens
+
+Two tokens do not behave like the rest, and both will surprise you if you assume they do.
+
+**`${nrpe-dh}` is a lookup, not a fixed path.** The shipped Diffie-Hellman parameters are package
+content, so on Windows the installer leaves them beside the executable while `${certificate-path}`
+moves to `%ProgramData%` under the modern layout — one fixed value cannot name both. So it is
+resolved by looking: it answers `${modern-nrpe-dh}` when that folder actually contains
+`nrpe_dh_*.pem`, and `${legacy-nrpe-dh}` otherwise. The lookup runs on every resolution, by design,
+so the answer follows the files when an upgrade or a layout migration moves them. You can override
+either candidate, or `nrpe-dh` itself to skip the lookup entirely. See
+[File layout](file-layout.md#nrpe-dh).
+
+**`${boot-conf}` is resolved before `[paths]` is read.** It names `boot.ini` itself, and `[paths]`
+lives *inside* `boot.ini` — so a `[paths] boot-conf = ...` entry cannot take effect, because the
+file would have to be found before it could be read. This is deliberate rather than an oversight.
+Only `--path-override boot-conf=...` relocates it:
+
+```shell
+nscp --path-override boot-conf=/etc/nsclient/test-boot.ini service --run
+```
+
+### Relative paths
+
+A value that carries neither a token nor a leading `/` (or drive letter) only means something
+relative to *some* folder. That folder used to be the service's working directory, which is
+`C:\Windows\System32` for a Windows service, `/` under a bare init script, the package directory
+under the shipped systemd unit, and the shell's directory for `nscp test` — four different answers
+from the same configuration file, none of them visible in it.
+
+Settings that *write* files now name the folder they own, and a relative value lands there:
+
+| Setting | Relative values land in |
+|---|---|
+| `[/attachments]` target | `${shared-path}` |
+| `[/settings/log] file name` | `${log-path}` |
+| `[/settings/crash] archive folder` | `${crash-folder}` |
+| `[/settings/fleet] managed path` | `${fleet-folder}` |
+| `[/settings/filewriter] file` | `${log-path}` |
+
+Prefer naming the folder explicitly anyway — `${scripts}/check.bat` says what you mean, where
+`scripts/check.bat` only works if you already know which base it is measured from.
+
+A script *name* is a different thing and is not covered by this. `[/settings/external scripts]`
+entries are resolved by searching the script folder, which is why a bare `check_foo.bat` works
+there: the search either finds it or reports that it could not.
+
+### Overriding
 
 All paths can also be overridden using the `[paths]` section in `boot.ini`.
 
