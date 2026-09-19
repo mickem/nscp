@@ -37,8 +37,12 @@ if(MKDOCS_FOUND)
         )
     else()
         set(MODULE_ARG "module-path=${CMAKE_BINARY_DIR}/modules")
-        set(LOG_ARG "log-path=.")
-        set(DATA_ARGS "data-path=.")
+        # Absolute, not ".": a path override has to name an absolute location or
+        # it is refused and the built-in default applies - which here would be
+        # /var/log/nsclient and /var/lib/nsclient, neither writable by the CI
+        # runner that builds the docs.
+        set(LOG_ARG "log-path=${CMAKE_CURRENT_BINARY_DIR}")
+        set(DATA_ARGS "data-path=${CMAKE_CURRENT_BINARY_DIR}")
         # docs_extract.py imports the generated *_pb2.py, which PythonScript adds to
         # sys.path from ${scripts}/python/lib. Point ${scripts} at the build tree
         # (where protoc generated them) so this works without `make install`.

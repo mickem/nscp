@@ -166,11 +166,12 @@ simple_file_logger::config_data simple_file_logger::do_config(const bool log_fau
 
     settings.register_all();
     settings.notify();
-
-#ifdef WIN32
-    if (ret.file == "/nsclient.log") ret.file = "${exe-path}/nsclient.log";
-#endif
-    ret.file = settings.expand_path(ret.file);
+    // Nothing more to do to ret.file: the key is registered as a path_key rooted
+    // at ${log-path}, so notify() has already expanded its tokens and rooted a
+    // bare name. This used to re-expand here, and on Windows first rewrote a
+    // literal "/nsclient.log" to ${exe-path}/nsclient.log - a rewrite that can
+    // no longer fire, and which would put the log back beside the executable
+    // rather than in the log folder the modern layout selects.
   } catch (const std::exception &e) {
     if (log_fault) logger_helper::log_fatal(std::string("Failed to configure logger: ") + e.what());
   } catch (...) {
