@@ -256,6 +256,11 @@ set(SRCS
     ../libs/onboarding/enroll.cpp
     ../libs/onboarding/state.cpp
     ../libs/onboarding/bundle_crypto.cpp
+    # Boost.JSON compiled in, header-only. The rest of the tree links the
+    # Boost.JSON library instead, but the installer custom actions run inside
+    # msiexec before anything is installed, so they link the static runtime,
+    # a static OpenSSL and a Boost built with system and filesystem only (see
+    # build.md). This is the one place that still needs its own copy.
     ${NSCP_INCLUDEDIR}/json/use_json.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
     ${NSCP_INCLUDEDIR}/str/utf8.cpp

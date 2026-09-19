@@ -376,8 +376,8 @@ macro(NSCP_MAKE_LIBRARY _TARGET _SRCS)
         # Windows exports nothing from a DLL unless asked, and there is no
         # WINDOWS_EXPORT_ALL_SYMBOLS here on purpose: every library in this tree
         # says what is public through its own macro, from its own dll_defines.hpp
-        # (NSCAPI_EXPORT, NSCP_NET_EXPORT, NSCP_CLIENT_EXPORT, NSCP_WHERE_EXPORT,
-        # NSCAPI_PROTOBUF_EXPORT, and BOOST_JSON_DECL inside nscp_json).
+        # (NSCAPI_EXPORT, NSCP_NET_EXPORT, NSCP_CLIENT_EXPORT, NSCP_WHERE_EXPORT
+        # and NSCAPI_PROTOBUF_EXPORT).
         #
         # Exporting everything instead is not free: an exported symbol is a root
         # the linker may not discard, so /OPT:REF stops pruning anywhere in the

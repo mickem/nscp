@@ -9,7 +9,9 @@ install is smaller: about a fifth on Debian and RedHat, and on Windows every
 TLS-capable module sheds the private copy of OpenSSL that used to make up most
 of it. New libraries ship next to `nscp.exe`: `nscp_net.dll` (socket and TLS
 helpers), `nscp_client.dll` (the client-side command line handling the sender
-modules share), `nscp_json.dll` (Boost.JSON), and OpenSSL itself as
+modules share), `boost_json.dll` (Boost.JSON, which every JSON-speaking module
+used to compile into itself and which is now linked from the Boost build like
+the other Boost libraries), and OpenSSL itself as
 `libcrypto-3-x64.dll` and `libssl-3-x64.dll` (`libcrypto-3.dll` and
 `libssl-3.dll` on 32-bit) — one copy for the whole service, where before each
 of NRPE, NSCA, check_mk, the web server, the HTTP clients and the checksum
