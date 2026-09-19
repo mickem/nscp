@@ -160,7 +160,14 @@ bool LUAScript::commandLineExec(const int target_mode, const PB::Commands::Execu
     }
 
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
-    auto provider = std::make_shared<script_provider>(get_id(), get_core(), get_core()->expand_path("${base-path}"));
+    // ${scripts}, not ${base-path}. The two are the same folder apart on
+    // Windows, where ${scripts} is ${exe-path}/scripts - so appending
+    // "scripts/lua" to the install base happened to land in the right place
+    // there, and nowhere near it on Linux, where ${base-path} is the directory
+    // holding the binary (/usr/sbin) while ${scripts} is under the package
+    // directory. Naming the token that already means "the scripts folder"
+    // removes the assumption instead of re-deriving it.
+    auto provider = std::make_shared<script_provider>(get_id(), get_core(), get_core()->expand_path("${scripts}"));
 
     extscr_cli client(provider);
     if (client.run(command, request, response)) {
