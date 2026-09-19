@@ -8,6 +8,7 @@
 #include <boost/filesystem.hpp>
 #include <iostream>
 #include <map>
+#include <set>
 #include <string>
 
 #include <nscp/boot_layout.hpp>
@@ -45,6 +46,10 @@ namespace paths {
 class client_path_resolver {
   layout layout_;
   std::map<std::string, std::string> overrides_;
+  // Tokens already reported as unknown, so each is named once however many
+  // times it is resolved. Mutable because reporting is a side effect of a
+  // logically const lookup.
+  mutable std::set<std::string> reported_;
 
  public:
   // Reads boot.ini once. A missing or unreadable file means the legacy layout
@@ -78,6 +83,11 @@ class client_path_resolver {
     if (key == "temp") return temp_dir();
 #ifdef WIN32
     if (key == "common-appdata") return shellapi::get_special_folder_path(CSIDL_COMMON_APPDATA, executable_dir()).string();
+    // As path_manager answers them. Without these two the client agreed with
+    // the service that ${appdata} and ${data-path} are real tokens - is_known_key
+    // says so - and then quietly handed back the executable's directory for
+    // both, which is the silent fallback this is all meant to remove.
+    if (key == "data-path" || key == "appdata") return shellapi::get_special_folder_path(CSIDL_APPDATA, executable_dir()).string();
 #endif
 
     // Everything else comes from the table the service uses, so the two cannot
@@ -90,7 +100,11 @@ class client_path_resolver {
     // plugin with no usable output. Say so on stderr (Nagios reads stdout, so
     // this does not corrupt the check result) and carry on with the historical
     // answer, which at least is not an empty, root-relative path.
-    if (!is_known_key(key, layout_)) {
+    // Once per token, not once per substitution: expand_tokens resolves each
+    // occurrence separately, so a value naming the same typo twice would
+    // otherwise report it twice, and a client that expands several settings
+    // would repeat it for each.
+    if (!is_known_key(key, layout_) && reported_.insert(key).second) {
       std::cerr << "nscp: unknown path token ${" << key << "} - check the spelling, or define it in the [paths] section of boot.ini. Using "
                 << executable_dir().string() << std::endl;
     }

@@ -3,23 +3,23 @@ icon: "🔧"
 modules: [core]
 action: conditional
 ---
-**`file name = none` now really disables the log on Windows, and a bare log
-file name gains its missing separator.** Nothing to do unless
-`[/settings/log] file name` is set to `none` or to a name with no directory in
-it; unix installations are unaffected either way.
+**`file name = none` now really switches the log off on Windows.** Nothing to do
+unless `[/settings/log] file name` is set to `none`. Unix installations already
+behaved correctly.
 
-The log file name was joined to the installation directory by string
-concatenation, and the `none` sentinel was tested only *after* that join. On
-Windows, where the installation directory is not empty, both went wrong:
+`none` is documented as "no log file", but the name was joined to the
+installation directory before the sentinel was tested. On Windows, where that
+directory is not empty, `none` became a real file called
+`C:\Program Files\NSClient++none` and file logging stayed on. On unix the join
+contributed nothing, so the sentinel survived and the setting worked.
 
-| `file name` | Wrote to (before) | Writes to (now) |
-|---|---|---|
-| `none` | `C:\Program Files\NSClient++none` | nothing — file logging is off, as documented |
-| `nsclient.log` | `C:\Program Files\NSClient++nsclient.log` | `C:\Program Files\NSClient++\nsclient.log` |
+If this applied to you, the stray file is left where it is — delete it once you
+have checked you do not need its contents.
 
-So a Windows host that had switched file logging off was still writing a log,
-and one using a bare file name was writing it beside the installation
-directory rather than inside it. If either applies, the old file is left where
-it is — delete it once you have checked you do not need its contents.
+`none` is now recognised by the path expander itself, so it is equally safe in
+every setting that accepts it, including every `ca` option where it means "use
+the TLS library's own trust store".
 
-An absolute path, or any name containing `/` or `\`, was never affected.
+Where a bare log **file name** ends up is a separate change with its own note —
+see the one about relative paths being taken relative to the folder their
+setting owns, which covers the log file on both platforms.

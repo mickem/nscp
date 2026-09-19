@@ -868,8 +868,13 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
           return 1;
         }
         resolve_state_file();
-        const std::string managed_path =
-            core_->get_path()->expand_path(settings_manager::get_settings()->get_string("/settings/fleet", "managed path", "${" FLEET_FOLDER_KEY "}"));
+        // resolve_path with the same root the service uses (NSClientT::boot_fleet_sync).
+        // This deletes a directory tree, so agreeing with the service about which
+        // one is the whole job: with a relative value, plain expand_path resolved
+        // it against the current directory, so unenroll removed something else -
+        // or nothing - and reported success while the synced tree stayed on disk.
+        const std::string managed_path = core_->get_path()->resolve_path(
+            settings_manager::get_settings()->get_string("/settings/fleet", "managed path", "${" FLEET_FOLDER_KEY "}"), "${" FLEET_FOLDER_KEY "}");
         bool removed_any = false;
         if (!settings_manager::get_settings()->get_string("/includes", "fleet", "").empty()) {
           settings_manager::get_settings()->remove_key("/includes", "fleet");

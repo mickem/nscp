@@ -306,6 +306,11 @@ bool NSClientT::load_configuration_1() {
   if (!settings_manager::init_settings(provider_, context_)) {
     return false;
   }
+  // Now that boot.ini's [layout] and [paths] have been applied, the overrides
+  // can be judged: until this point a CLI override built from an operator's own
+  // [paths] token looks like a typo, and on Windows ${shared-path} still reads
+  // as the legacy layout whatever boot.ini selected.
+  path_->validate_overrides();
   return true;
 }
 
