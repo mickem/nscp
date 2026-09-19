@@ -8,6 +8,7 @@
 #include <nscapi/protobuf/log.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nsclient/logger/logger_helper.hpp>
+#include <nscp/path_defaults.hpp>
 #include <str/format.hpp>
 #include <vector>
 
@@ -30,7 +31,14 @@ namespace impl {
 
 namespace sh = nscapi::settings_helper;
 
-simple_file_logger::simple_file_logger(std::string file) : max_size_(0), format_("%Y-%m-%d %H:%M:%S") { file_ = base_path() + file; }
+simple_file_logger::simple_file_logger(std::string file) : max_size_(0), format_("%Y-%m-%d %H:%M:%S") {
+  // operator/, not string concatenation: base_path() is the installation
+  // directory with no trailing separator, so "+" produced
+  // "<install dir>nsclient.log" on Windows. On unix base_path() is empty and
+  // the join is a no-op, which is the behaviour this bootstrap logger has
+  // always had there.
+  file_ = (boost::filesystem::path(base_path()) / file).string();
+}
 std::string simple_file_logger::base_path() {
 #ifdef WIN32
   return shellapi::get_module_file_name().string();
@@ -177,13 +185,23 @@ void simple_file_logger::asynch_configure() {
 
     format_ = config.format;
     max_size_ = config.max_size;
-    file_ = settings_manager::get_proxy()->expand_path(config.file);
-    if (file_.empty()) file_ = base_path() + "nsclient.log";
-    if (file_.find('\\') == std::string::npos && file_.find('/') == std::string::npos) {
-      file_ = base_path() + file_;
-    }
-    if (file_ == "none") {
+    const std::string configured = settings_manager::get_proxy()->expand_path(config.file);
+    // `none` switches file logging off. Tested before anything joins a
+    // directory onto it: the bare-name branch below prepends base_path(),
+    // which is non-empty on Windows, so the sentinel used to be mangled into a
+    // real file called "<install dir>none" and logging stayed on there.
+    if (nscp::paths::is_no_path(configured)) {
       file_ = "";
+      return;
+    }
+    file_ = configured;
+    if (file_.empty()) file_ = "nsclient.log";
+    if (file_.find('\\') == std::string::npos && file_.find('/') == std::string::npos) {
+      // A bare file name is taken relative to the installation directory, not
+      // to whatever the working directory happens to be (System32 for a
+      // Windows service). operator/ supplies the separator - the string
+      // concatenation this replaces produced "<install dir>nsclient.log".
+      file_ = (boost::filesystem::path(base_path()) / file_).string();
     }
   } catch (const std::exception &) {
     // ignored, since this might be after shutdown...

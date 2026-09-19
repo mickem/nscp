@@ -57,6 +57,27 @@ inline bool is_known_layout(const std::string &value) { return value.empty() || 
 
 inline const char *layout_name(const layout value) { return value == layout::modern ? "modern" : "legacy"; }
 
+// The "this names no file at all" sentinel.
+//
+// A handful of path-typed settings accept `none` to mean "disabled" rather
+// than naming a location: the log file (`none` switches file logging off), and
+// every `ca` option (`none` falls back to the TLS library's own trust store).
+// Consumers have always compared against the bare literal - see the `ca !=
+// "none"` tests in settings_http, SMTPClient and CheckNet, and the log file's
+// documented "Set this to none to disable log to file".
+//
+// It is a sentinel, not a path, which makes it the expander's business: it has
+// to survive expansion untouched, and it must never be joined onto a default
+// root. Centralising the test here is what stops each consumer re-deciding
+// what "no path" looks like - and, on the write side, what stops `none` being
+// turned into a real file called `none` in whatever directory happened to be
+// current.
+//
+// Exact match, lower case, because that is what every existing consumer
+// compares against; widening it would start swallowing a file genuinely named
+// `None` on a case-insensitive filesystem.
+inline bool is_no_path(const std::string &value) { return value == "none"; }
+
 // True for the shipped Diffie-Hellman parameter files (nrpe_dh_512.pem,
 // nrpe_dh_2048.pem). They are package content rather than machine state, so
 // two very different pieces of code have to agree on what "the DH files" are:
@@ -160,6 +181,8 @@ inline std::string default_for(const std::string &key, const layout current) {
 // else.
 template <typename Resolver>
 std::string expand_tokens(std::string file, const Resolver &resolve, const int depth_limit = 32) {
+  // Same sentinel rule the service's expander applies - see is_no_path.
+  if (is_no_path(file)) return file;
   for (int depth = 0; depth < depth_limit; ++depth) {
     const std::string::size_type start = file.find("${");
     if (start == std::string::npos) return file;

@@ -176,6 +176,11 @@ std::string nsclient::core::path_manager::expand_path_impl(std::string file, con
   }
   try {
     if (file.empty()) return file;
+    // `none` names no file at all (log file off, ca -> the library's own trust
+    // store). It is a sentinel rather than a path, so it passes through
+    // untouched - and, because it never reaches the joining logic, it cannot
+    // be turned into a file literally called `none`.
+    if (nscp::paths::is_no_path(file)) return file;
     parsers::simple_expression::result_type expr;
     parsers::simple_expression::parse(file, expr);
 

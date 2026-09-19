@@ -355,6 +355,24 @@ TEST_F(SimpleFileLoggerSettingsTest, FileNameNoneDisablesTheFileLog) {
   logger.asynch_configure();
   EXPECT_NO_THROW(logger.do_log(make_entry(PB::Log::LogEntry_Entry_Level_LOG_INFO, "t", "f", 1, "dropped")));
   EXPECT_FALSE(boost::filesystem::exists("none"));
+  // Assert the resolved target directly, not just that no file called "none"
+  // turned up in the working directory. The sentinel used to be mangled by the
+  // bare-name branch - which prepends base_path(), non-empty on Windows - into
+  // a real file called "<install dir>none", so logging stayed on and wrote
+  // somewhere this test never looked.
+  EXPECT_EQ(logger.get_file(), "") << "file logging was not disabled; target resolved to: " << logger.get_file();
+}
+
+TEST_F(SimpleFileLoggerSettingsTest, FileNameNoneSurvivesPathExpansion) {
+  // `none` is a sentinel, not a path: it must come back from the expander
+  // untouched so the check above sees it. Guards the expander contract from
+  // the consumer's side - path_manager has the matching test.
+  boot_with(
+      "[/settings/log]\n"
+      "file name = none\n");
+
+  simple_file_logger logger(unique_name("disabled-config"));
+  EXPECT_EQ(logger.do_config(false).file, "none");
 }
 
 #ifndef WIN32
