@@ -24,9 +24,19 @@ STATE_DIR=/var/lib/${NAME}
 LOG_DIR=/var/log/${NAME}
 DATA_DIR=/srv/${NAME}
 
-if [ "$(ps -p 1 -o comm=)" != "systemd" ]; then
-  echo "SKIP: systemd is not PID 1 here, cannot start a unit." >&2
+if ! command -v systemd-analyze >/dev/null 2>&1 || [ "$(id -u)" != "0" ]; then
+  echo "SKIP: needs systemd-analyze and root." >&2
   exit 0
+fi
+
+# Rendering and verifying the unit needs only systemd-analyze; starting it
+# needs systemd as PID 1, which a container is not. Do as much as the machine
+# allows rather than skipping the lot - the render is where this script's own
+# bugs live.
+CAN_START=1
+if [ "$(ps -p 1 -o comm=)" != "systemd" ]; then
+  echo "NOTE: systemd is not PID 1 here; rendering and verifying only." >&2
+  CAN_START=0
 fi
 
 cleanup() {
@@ -34,6 +44,7 @@ cleanup() {
   rm -f "$UNIT_PATH" "$PROBE_PATH"
   systemctl daemon-reload >/dev/null 2>&1 || true
   rm -rf "$STATE_DIR" "$LOG_DIR" "$DATA_DIR"
+  userdel "$NAME" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -78,11 +89,26 @@ render_unit() {
     echo "Environment=PROBE_STATE=${PROBE_STATE:-1} PROBE_LOGS=${PROBE_LOGS:-1}"
     echo "ExecStart=${PROBE_PATH}"
   } >> "$UNIT_PATH"
-  systemctl daemon-reload
+  [ "$CAN_START" = "1" ] && systemctl daemon-reload
+
+  # Verify what was rendered, not the template: systemd-analyze takes a unit
+  # *name*, and refuses "nsclient.service.in" with "Failed to prepare
+  # filename ...: Invalid argument".
+  PROBLEMS=$(systemd-analyze verify "$UNIT_PATH" 2>&1 || true)
+  if [ -n "$PROBLEMS" ]; then
+    echo "FAIL: systemd-analyze reported a problem with the unit"
+    echo "$PROBLEMS"
+    exit 1
+  fi
+  echo "   unit verifies"
 }
 
 run_case() {
   echo "== $1"
+  if [ "$CAN_START" != "1" ]; then
+    echo "   skipped (no systemd), unit verified above"
+    return 0
+  fi
   systemctl reset-failed ${NAME}.service >/dev/null 2>&1 || true
   if ! systemctl start ${NAME}.service; then
     echo "FAIL: the unit did not start"
@@ -97,17 +123,6 @@ run_case() {
   fi
   echo "   ok"
 }
-
-echo "== systemd-analyze verify"
-# The only expected complaint is the absent ExecStart binary on a host where
-# nothing is installed; anything else is a problem with the unit.
-PROBLEMS=$(systemd-analyze verify "$UNIT_IN" 2>&1 | grep -v "is not executable" || true)
-if [ -n "$PROBLEMS" ]; then
-  echo "FAIL: systemd-analyze reported a problem with the unit"
-  echo "$PROBLEMS"
-  exit 1
-fi
-echo "   ok"
 
 mkdir -p "$DATA_DIR" && chown "$NAME" "$DATA_DIR"
 
