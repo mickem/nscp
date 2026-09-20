@@ -377,7 +377,8 @@ What the agent does with a sealed bundle:
 - The download is verified exactly as before: the published SHA-256 and the Ed25519 signature
   cover the sealed envelope. Only then is it opened, with the key whose fingerprint the
   envelope names. The plaintext exists on disk only while it is being unpacked; the cache
-  keeps the envelope.
+  keeps the envelope. A cache hit is re-verified on every apply rather than trusted because
+  it is already on disk, so tampering with the cached file is caught too.
 - The bundle's name and version are bound twice over: into the signature, which covers the
   bundle's whole identity (tenant, id, name, version, format and digest) rather than just its
   bytes, and into the seal itself. A server that re-labels a sealed bundle — serving last
@@ -399,8 +400,9 @@ which are refused with an error in the state report.
 <!-- @formatter:off -->
 !!! warning "The flag covers bundles, not the managed configuration"
     The desired state itself — the merged configuration rendered into `fleet.ini` — carries
-    no signature and is applied whatever this flag says. Sealing bundles narrows what the
-    server can put on disk as a *file*; it does not make the server untrusted. See
+    no signature and is applied whatever this flag says. Sealing decides who may author a
+    bundle's contents; it does not narrow what the configuration is allowed to tell this
+    agent to do. See
     [What the fleet server can do to a host](#what-the-fleet-server-can-do-to-a-host).
 <!-- @formatter:on -->
 
@@ -438,10 +440,12 @@ an MDM — and it is the reason the enrollment step matters so much:
 - **Treat the server as a production admin host.** Whoever can write a desired state on it
   has the run of every enrolled machine. Access to the server's configuration UI is
   administrator access to the fleet.
-- **Bundle signing and sealing bound a smaller problem.** Offline signing stops a
-  compromised server forging bundle *contents*, and `--require-encrypted-bundles` stops it
-  reading them. Neither covers the desired state, so neither turns an untrusted server into
-  a safe one.
+- **Bundle signing and sealing are strong — and they only cover bundles.** A bundle is
+  signed offline, so a compromised server cannot forge one; a sealed bundle is AES-256-GCM
+  with its name and version as additional data, so that server cannot read it, alter it, or
+  re-label it either. Only a key holder can produce a bundle at all. None of that reaches
+  the desired state, which is rendered into `fleet.ini` verbatim and unsigned — so these
+  controls bound what arrives *as a bundle*, and do not make an untrusted server safe.
 - **A host can opt out of being managed.** Local configuration takes precedence over
   `fleet.ini`, and leaving the fleet is one command (below). Both are host-side decisions,
   which is the point.
