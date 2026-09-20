@@ -28,6 +28,7 @@ required_files:
     - boost_chrono.dll
     - boost_date_time.dll
     - boost_filesystem.dll
+    - boost_json.dll
     - boost_program_options.dll
     - boost_python311.dll
     - boost_regex.dll
@@ -41,7 +42,6 @@ required_files:
     # code that used to be compiled into every module.
     - nscp_net.dll
     - nscp_client.dll
-    - nscp_json.dll
     # OpenSSL, shipped as DLLs rather than linked into each module. The
     # installer only lists them when the build hands their names over, so if
     # that wiring ever breaks the MSI still builds and installs and every TLS

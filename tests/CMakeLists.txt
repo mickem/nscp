@@ -558,7 +558,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
         ${NSCP_CLIENT_CPP}
     LIBRARIES
-        nscp_json
+        ${Boost_JSON_LIBRARY}
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}
         ${Boost_THREAD_LIBRARY}

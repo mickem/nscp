@@ -492,7 +492,7 @@ xcopy boost_%BOOST_VERSION_% boost_%BOOST_VERSION_%_static /E /I
 
 cd %BUILD_FOLDER%\boost_%BOOST_VERSION_%_static
 call bootstrap.bat
-b2.exe --layout=system address-model=32 toolset=msvc-14.1 variant=release link=static runtime-link=static warnings=off define=BOOST_USE_WINAPI_VERSION=0x501 define=BOOST_NO_CXX17_HDR_SHARED_MUTEX -d0 --with-system --with-filesystem --with-thread --with-regex --with-date_time --with-program_options --with-python --with-chrono
+b2.exe --layout=system address-model=32 toolset=msvc-14.1 variant=release link=static runtime-link=static warnings=off define=BOOST_USE_WINAPI_VERSION=0x501 define=BOOST_NO_CXX17_HDR_SHARED_MUTEX -d0 --with-system --with-filesystem --with-thread --with-regex --with-date_time --with-program_options --with-python --with-chrono --with-json --with-container
 cd ..
 ```
 
