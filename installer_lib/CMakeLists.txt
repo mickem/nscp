@@ -254,6 +254,10 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/win/credentials.hpp
     "${TARGET}.def"
     installer_helper.hpp
+    keys.hpp
+    # Header only, and free of MSI, so tests/CMakeLists.txt can build
+    # nrpe_mode_test.cpp against it on every platform.
+    nrpe_mode.hpp
     ${NSCP_INCLUDEDIR}/win/service_control.hpp
     ${NSCP_ERROR_CPP}
     ${NSCP_ERROR_HPP}

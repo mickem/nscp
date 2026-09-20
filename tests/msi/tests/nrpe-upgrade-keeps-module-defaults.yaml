@@ -1,0 +1,62 @@
+# Upgrading a host that has an NRPE listener configured but names neither of the
+# two keys the installer's presets are built from.
+#
+# `[/settings/NRPE/server] port = 5666` and nothing else is a perfectly ordinary
+# working listener: NRPEServer's own defaults give it TLS with `verify mode =
+# none`, so pollers connect without a client certificate. The installer used to
+# read "no insecure, no verify mode" as "nothing configured here" and write the
+# secure preset, which made that listener start requiring client certificates on
+# an upgrade that asked for nothing - the same failure as #1558 reached from the
+# other side.
+#
+# The section exists and holds keys, so the operator has configured this
+# listener; only a host with no NRPE configuration at all gets a preset. The
+# section must therefore come back with exactly the one key it went in with, and
+# in particular with no `verify mode` added.
+command_line: ["msiexec.exe", "/i", "$MSI-FILE", "/qn", "/l*", "log.txt", "ADDLOCAL=ALL" ]
+replace_password: true
+
+upgrade:
+  boot.ini: |
+    [settings]
+    1 = ini://${shared-path}/nsclient.ini
+
+  nsclient.ini: |
+    [/modules]
+    checkdisk = enabled
+    checkeventlog = enabled
+    checkexternalscripts = enabled
+    checkhelpers = enabled
+    checknscp = enabled
+    checksystem = enabled
+    nrpeserver = enabled
+    webserver = enabled
+
+    [/settings/NRPE/server]
+    port = 5666
+
+    [/settings/default]
+    allowed hosts = 127.0.0.1
+    password = $$PASSWORD$$
+
+boot.ini: |
+  [settings]
+  1 = ini://${shared-path}/nsclient.ini
+
+nsclient.ini: |
+  [/modules]
+  checkdisk = enabled
+  checkeventlog = enabled
+  checkexternalscripts = enabled
+  checkhelpers = enabled
+  checknscp = enabled
+  checksystem = enabled
+  nrpeserver = enabled
+  webserver = enabled
+
+  [/settings/NRPE/server]
+  port = 5666
+
+  [/settings/default]
+  allowed hosts = 127.0.0.1
+  password = $$PASSWORD$$

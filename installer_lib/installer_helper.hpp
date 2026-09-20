@@ -127,6 +127,10 @@ class msi_helper {
   }
   std::wstring getProperyKey(std::wstring key) { return getMsiPropery(PREFIX_KEY + key); }
   std::wstring getProperyValue(std::wstring key) { return getMsiPropery(key); }
+  // What ImportConfig recorded as already being in the configuration. Empty
+  // means it recorded nothing, which is not the same as "the default is empty":
+  // see propertyNotDefault above, and asked_for_mode() in nrpe_mode.hpp.
+  std::wstring getProperyDefault(std::wstring key) { return getMsiPropery(PREFIX_DEF + key); }
 
  private:
   void setMsiProperty(std::wstring key, std::wstring value) { MsiSetProperty(hInstall_, key.c_str(), value.c_str()); }
