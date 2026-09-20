@@ -1,0 +1,35 @@
+# Selecting a management server: the configuration is served over HTTPS.
+#
+# MANAGEMENT_SERVER=WEB is the silent form of the Select Management Server
+# page. Two things follow from it, and this case pins both:
+#
+#  - the configuration is the file at MANAGEMENT_URL, so boot.ini points there
+#    and nothing local is written. The agent would otherwise shadow what the
+#    management server sends, which is the whole reason the page skips the
+#    configuration and module dialogs.
+#  - a fresh install that asked for a management server gets the modern
+#    layout, so the state somebody else owns is not sitting in Program Files
+#    where every user can read it.
+#
+# No TLS_* properties: the certificate is verified against the Windows ROOT
+# store, as boot.ini-rest-config-verified.yaml does. If that fetch fails the
+# installer falls back to a local ini and the url never reaches boot.ini, so
+# asserting on the url is what makes the whole chain testable.
+command_line: ["msiexec.exe", "/i", "$MSI-FILE", "/qn", "/l*", "log.txt", "ADDLOCAL=ALL", "MANAGEMENT_SERVER=WEB", "MANAGEMENT_URL=https://raw.githubusercontent.com/mickem/nscp/refs/heads/main/tests/msi/nsclient.ini" ]
+replace_password: true
+
+# The configuration follows the layout; boot.ini does not - it is what tells
+# the agent where the rest lives.
+config_folder: "%ProgramData%\\NSClient++"
+
+boot.ini: |
+  [settings]
+  1 = https://raw.githubusercontent.com/mickem/nscp/refs/heads/main/tests/msi/nsclient.ini
+
+  [layout]
+  mode = modern
+
+# Empty, and that is the point: the http settings store cannot be written by
+# the installer, and in a managed mode there is nothing it should want to
+# write. What is here is the shipped template, which carries comments only.
+nsclient.ini: ""

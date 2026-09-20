@@ -457,6 +457,57 @@ std::wstring read_map_data(msi_helper &h) {
   return ret;
 }
 
+// Small helpers shared by every custom action below. They live here, rather
+// than beside the fleet actions they were written for, because the management
+// server page needs the same url and path handling before anything has been
+// installed.
+namespace {
+
+bool is_true(const std::wstring &value) {
+  const std::wstring v = boost::algorithm::to_lower_copy(boost::algorithm::trim_copy(value));
+  return v == L"1" || v == L"true" || v == L"yes";
+}
+
+std::wstring url_scheme(const std::wstring &url) {
+  const std::wstring::size_type sep = url.find(L"://");
+  if (sep == std::wstring::npos) return L"";
+  return boost::algorithm::to_lower_copy(url.substr(0, sep));
+}
+
+std::string url_scheme(const std::string &url) {
+  const std::string::size_type sep = url.find("://");
+  if (sep == std::string::npos) return "";
+  return boost::algorithm::to_lower_copy(url.substr(0, sep));
+}
+
+// ${shared-path}, ${exe-path} and ${base-path} all mean the install folder to
+// the installer, exactly as installer_settings_provider::expand_path resolves
+// them. Used to turn the compiled-in CERT_FOLDER token into a real path
+// without booting the settings subsystem (which the deferred action cannot do
+// before the configuration has been written).
+std::string expand_install_path(const std::string &token, const std::string &install_folder, const std::string &shared_folder) {
+  std::string result = token;
+  // ${shared-path} is where the writable state lives, which is the install
+  // folder only on the legacy layout. Callers that have not been taught about
+  // the layout pass the install folder for both and get the old behaviour.
+  str::utils::replace(result, "${shared-path}", shared_folder.empty() ? install_folder : shared_folder);
+  str::utils::replace(result, "${exe-path}", install_folder);
+  str::utils::replace(result, "${base-path}", install_folder);
+  return result;
+}
+
+// MsiGetTargetPath hands back a trailing backslash; strip it so the paths we
+// build (and log) do not come out as "...\NSClient++\/security".
+std::string as_install_folder(const std::wstring &target) {
+  std::string folder = utf8::cvt<std::string>(target);
+  while (!folder.empty() && (folder.back() == '\\' || folder.back() == '/')) {
+    folder.pop_back();
+  }
+  return folder;
+}
+
+}  // namespace
+
 void dump_config(msi_helper &h, std::wstring title) {
   h.dumpReason(title);
   for (const auto key : {ALLOWED_HOSTS, NSCLIENT_PWD, CONF_SCHEDULER, CONF_CHECKS, CONF_NRPE, CONF_NSCA, CONF_WEB, CONF_NSCLIENT, NRPEMODE, CONFIGURATION_TYPE,
@@ -468,82 +519,526 @@ void dump_config(msi_helper &h, std::wstring title) {
   h.dumpProperty(INT_CONF_CAN_CHANGE_REASON);
   h.dumpProperty(INT_NSCP_ERROR);
   h.dumpProperty(INT_NSCP_ERROR_CONTEXT);
+  h.dumpProperty(MANAGEMENT_SERVER);
+  h.dumpProperty(MANAGEMENT_URL);
+  h.dumpProperty(MGMT_ENROLLED);
+  h.dumpProperty(MGMT_DERIVED);
+  h.dumpProperty(MGMT_ERROR);
+  h.dumpProperty(LAYOUT_MODE);
 }
 
-extern "C" UINT __stdcall DetectTool(MSIHANDLE hInstall) {
-  msi_helper h(hInstall, L"DetectTool");
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Management server (MANAGEMENT_SERVER, ManagementServerDlg)
+//
+// Where this agent's configuration comes from, and the first thing the
+// installer asks:
+//
+//   NONE   this machine keeps its own configuration - what every installer
+//          before this one did, and still the default. MONITORING_TOOL picks
+//          the baseline that is written, as it always has.
+//   FLEET  an NSClient fleet server manages it: enroll while installing
+//          (FLEET_SERVER + FLEET_TOKEN, the install command the fleet server
+//          generated) and let the first sync bring the configuration down.
+//   WEB    an nsclient.ini served over HTTP(S) is the configuration
+//          (CONFIGURATION_TYPE), re-read by the service as it changes.
+//
+// Neither managed mode writes a local baseline. A value in nsclient.ini wins
+// over the one the management server sends, so a baseline written here would
+// quietly shadow the configuration the operator maintains centrally - the
+// module list included. The only thing written is what points at the
+// management server.
+//
+// Both also default a *fresh* install to the modern layout: a machine whose
+// state is managed elsewhere has no reason to keep that state in Program
+// Files, where every user can read it.
+
+namespace {
+
+std::wstring trimmed_property(msi_helper &h, const std::wstring &property) { return boost::algorithm::trim_copy(h.getMsiPropery(property)); }
+
+bool is_http_url(const std::wstring &value) {
+  const std::wstring scheme = url_scheme(value);
+  return scheme == L"https" || scheme == L"http";
+}
+
+// Which mode this install runs in. A question of what was asked for rather
+// than of what was typed on the page: a command line naming a fleet server or
+// a http(s) configuration url has picked a management server whether or not it
+// knows the property exists, so every `FLEET_SERVER=...` deployment script
+// written before this page existed lands in FLEET without being changed.
+bool management_server_named(msi_helper &h) {
+  const std::wstring requested = boost::algorithm::to_upper_copy(trimmed_property(h, MANAGEMENT_SERVER));
+  return requested == MANAGEMENT_SERVER_FLEET || requested == MANAGEMENT_SERVER_WEB;
+}
+
+std::wstring detect_management_server(msi_helper &h) {
+  const std::wstring requested = boost::algorithm::to_upper_copy(trimmed_property(h, MANAGEMENT_SERVER));
+  if (requested == MANAGEMENT_SERVER_FLEET || requested == MANAGEMENT_SERVER_WEB) return requested;
+  if (!trimmed_property(h, FLEET_SERVER).empty()) return MANAGEMENT_SERVER_FLEET;
+  if (is_http_url(trimmed_property(h, CONFIGURATION_TYPE))) return MANAGEMENT_SERVER_WEB;
+  return MANAGEMENT_SERVER_NONE;
+}
+
+// Where the service looks for this host's enrollment manifest, which depends
+// on the layout it uses. Its existence is what "already enrolled" means.
+std::string enrollment_manifest(msi_helper &h) {
+  const std::string install_folder = as_install_folder(h.getTargetPath(L"INSTALLLOCATION"));
+  const resolved_shared_folder shared = shared_folder_for(resolve_layout(install_folder, L""), install_folder);
+  // Unresolved means this host is on the modern layout but %ProgramData%
+  // could not be determined, so the folder handed back is the install folder -
+  // not where the manifest is. Looking there would report an enrolled host as
+  // unenrolled; say we do not know instead.
+  if (!shared.resolved) return "";
+  return expand_install_path(std::string(CERT_FOLDER) + "/agent-state.json", install_folder, shared.folder);
+}
+
+// A full UI install, where these actions are run by the page rather than by
+// the sequence - so there is somewhere to show a refusal, and the values on
+// screen are the operator's current answer rather than a command line.
+bool full_ui(msi_helper &h) { return trimmed_property(h, L"UILevel") == L"5"; }
+
+// Did somebody ask for this mode, or was it worked out from a command line
+// that predates this page? A derived mode asked for a fleet server or a
+// configuration url and nothing else, so it gets neither the new refusals nor
+// a different on-disk layout: `CONFIGURATION_TYPE=http://...` has been a
+// documented way to install for years. The page always counts as asking.
+bool mode_was_chosen(msi_helper &h) { return trimmed_property(h, MGMT_DERIVED) != L"1" || full_ui(h); }
+
+bool wants_insecure(msi_helper &h) { return is_true(h.getMsiPropery(MANAGEMENT_INSECURE)); }
+
+bool file_is_missing(const std::wstring &path) {
+  boost::system::error_code ec;
+  return !boost::filesystem::exists(boost::filesystem::path(utf8::cvt<std::string>(path)), ec);
+}
+
+// The refusals an enrollment is held to, in one place because they are read
+// twice: by the page, before Install is clicked, and by ScheduleEnrollFleet,
+// before the bootstrap token is spent. A rule added to only one of them would
+// reappear after the token was gone - which is the whole reason the page
+// checks at all. Empty means accepted.
+//
+// The wording names both the property and the field, so the same sentence
+// works in an install log and in a dialog.
+struct fleet_settings {
+  std::wstring server;
+  std::wstring token;
+  std::wstring verify_mode;
+  std::wstring bundle_keys;
+  std::wstring ca;
+  bool insecure = false;
+  // No server is an answer in two places: an enrolled host keeps the identity
+  // it has, and an install that passes only bundle keys is rotating them.
+  bool server_optional = false;
+};
+
+std::wstring fleet_refusal(const fleet_settings &s) {
+  // Checked first, so a host rotating its bundle keys is told about a bad key
+  // rather than about a missing server url.
+  const std::vector<std::string> keys = onboarding::split_bundle_keys(utf8::cvt<std::string>(s.bundle_keys));
+  for (std::size_t i = 0; i < keys.size(); ++i) {
+    std::string raw_key, key_error;
+    if (!onboarding::parse_bundle_key(keys[i], raw_key, key_error)) {
+      return L"Bundle key " + std::to_wstring(i + 1) + L" of " + std::to_wstring(keys.size()) + L" is not a valid key: " + utf8::cvt<std::wstring>(key_error) +
+             L".\n\nPaste it exactly as the fleet server showed it when it was created (44 base64 characters); separate several with commas.";
+    }
+  }
+  if (!s.ca.empty() && file_is_missing(s.ca)) {
+    return L"The CA file (FLEET_CA) was not found on this machine:\n\n" + s.ca +
+           L"\n\nIt is read while this machine is being installed, so copy the fleet server's issuing certificate here first.";
+  }
+  if (s.server.empty()) {
+    if (s.server_optional) return L"";
+    return L"Enter the url of the fleet server (FLEET_SERVER), for example https://fleet.example.com.\n\nIt is the first half of the install command the "
+           L"fleet server generated.";
+  }
+  const std::wstring scheme = url_scheme(s.server);
+  if (scheme != L"https" && scheme != L"http") {
+    return L"The fleet server (FLEET_SERVER) must be a url including the scheme, for example https://fleet.example.com.\n\nGot: " + s.server;
+  }
+  // The bootstrap token exchanges for this host's client certificate; over
+  // plain HTTP anyone on the network path can read it and enroll as this host.
+  if (scheme == L"http" && !s.insecure) {
+    return L"Refusing to enroll over plain HTTP: the enrollment token would be sent in cleartext, so anyone on the network path could read it and enroll "
+           L"as this machine.\n\nUse an https:// url, or allow an unverified connection (MANAGEMENT_INSECURE=1, the box on the page).";
+  }
+  // The enrollment response carries the certificate this agent pins for every
+  // later call and the key it trusts for bundles, so an unverified enrollment
+  // hands both to whoever answered.
+  if (boost::algorithm::iequals(s.verify_mode, L"none") && !s.insecure) {
+    return L"Refusing to enroll without verifying the fleet server certificate (FLEET_VERIFY_MODE=none). The enrollment response carries the certificate "
+           L"this agent pins and the key it trusts for executable bundles.\n\nName the issuing CA instead, or allow an unverified connection "
+           L"(MANAGEMENT_INSECURE=1, the box on the page).";
+  }
+  if (s.token.empty()) {
+    return L"Enter the enrollment token (FLEET_TOKEN) from the install command the fleet server generated.\n\nIt is one-time and valid for an hour, so "
+           L"generate a fresh install command if this one has been used.";
+  }
+  return L"";
+}
+
+// The page's half: the same rules, read off the properties it collects.
+std::wstring validate_fleet(msi_helper &h) {
+  fleet_settings s;
+  s.server = trimmed_property(h, FLEET_SERVER);
+  s.token = trimmed_property(h, FLEET_TOKEN);
+  s.verify_mode = trimmed_property(h, FLEET_VERIFY_MODE);
+  s.bundle_keys = trimmed_property(h, FLEET_BUNDLE_KEY);
+  s.ca = trimmed_property(h, FLEET_CA);
+  s.insecure = is_true(h.getMsiPropery(FLEET_INSECURE));
+  // An enrolled host keeps the identity it has: there is nothing to enroll,
+  // and the fields are there for rotating a bundle key.
+  s.server_optional = trimmed_property(h, MGMT_ENROLLED) == L"1";
+  return fleet_refusal(s);
+}
+
+// The configuration url, once it has been checked. Empty return value means
+// accepted; `url` then holds what CONFIGURATION_TYPE should become.
+std::wstring validate_web(msi_helper &h, std::wstring &url) {
+  url = trimmed_property(h, MANAGEMENT_URL);
+  if (url.empty()) url = trimmed_property(h, CONFIGURATION_TYPE);
+  if (url.empty()) {
+    return L"Enter the url of the configuration file, for example https://config.example.com/nsclient.ini.";
+  }
+  const std::wstring scheme = url_scheme(url);
+  if (scheme != L"https" && scheme != L"http") {
+    return L"The configuration url must include the scheme, for example https://config.example.com/nsclient.ini.";
+  }
+  // That file becomes the whole configuration of the agent, external script
+  // definitions included, so whoever can answer for the address owns the
+  // machine. Downloading it unauthenticated is a decision, not a default.
+  if (scheme == L"http" && !is_true(h.getMsiPropery(MANAGEMENT_INSECURE))) {
+    return L"Refusing to fetch the configuration over plain HTTP: that file becomes the whole configuration of this agent, including the scripts it "
+           L"runs, so anyone who can answer for that address would own this machine.\n\nUse an https:// url, or pass MANAGEMENT_INSECURE=1 (the 'Allow "
+           L"an unverified connection' box on the page).";
+  }
+  std::wstring ca = trimmed_property(h, MANAGEMENT_CA);
+  if (ca.empty()) ca = trimmed_property(h, L"TLS_CA");
+  if (!ca.empty() && file_is_missing(ca)) {
+    return L"The CA file was not found on this machine:\n\n" + ca;
+  }
+  return L"";
+}
+
+// Write nothing locally except what points at the management server: every
+// key set to its own default value, which is what propertyNotDefault() in
+// ScheduleWriteConfig tests before it writes anything.
+void apply_managed_profile(msi_helper &h, const std::wstring &configuration_type) {
+  for (const auto key : {ALLOWED_HOSTS, NSCLIENT_PWD, CONF_SCHEDULER, CONF_CHECKS, CONF_NRPE, CONF_NSCA, CONF_WEB, CONF_NSCLIENT}) {
+    h.setPropertyKeyAndDefault(key, L"", L"");
+  }
+  h.setPropertyKeyAndDefault(NRPEMODE, L"SECURE", L"SECURE");
+  h.setPropertyKeyAndDefault(CONF_INCLUDES, L"", L"");
+  h.setPropertyKeyAndDefault(CONFIGURATION_TYPE, configuration_type, configuration_type);
+}
+
+// A fresh install whose configuration is managed elsewhere defaults to the
+// modern layout. Three things have to hold first:
+//
+//  - it is a fresh install. The move is one-way, and a deployment script that
+//    repeats FLEET_SERVER on every upgrade must not migrate the host behind
+//    the operator's back.
+//  - LAYOUT was not given. An explicit layout always wins.
+//  - somebody asked for this mode: named it in MANAGEMENT_SERVER, or picked it
+//    on the page. A mode derived from a FLEET_SERVER or CONFIGURATION_TYPE
+//    command line written before this page existed asked for a management
+//    server, not for a different on-disk layout, and an unattended install
+//    must not quietly get one it did not ask for.
+void default_modern_layout(msi_helper &h) {
+  if (!mode_was_chosen(h)) {
+    h.logMessage("Keeping the default layout: the management server was derived from the command line, not asked for.");
+    return;
+  }
+  if (!trimmed_property(h, LAYOUT_MODE).empty()) return;
+  const std::string install_folder = as_install_folder(h.getTargetPath(L"INSTALLLOCATION"));
+  boost::system::error_code ec;
+  if (boost::filesystem::exists(boost::filesystem::path(install_folder) / "boot.ini", ec)) {
+    h.logMessage("Keeping the layout this host already uses: a management server does not migrate an existing installation.");
+    return;
+  }
+  h.logMessage("Fresh install with a management server: using the modern layout.");
+  h.setPropertyValue(LAYOUT_MODE, L"modern");
+  // Ours, so ours to take back if the operator goes Back and answers None.
+  h.setPropertyValue(MGMT_SET_LAYOUT, L"1");
+}
+
+// Take back what an abandoned answer left behind.
+//
+// Everything downstream keys off the individual properties rather than off
+// MANAGEMENT_SERVER: ScheduleEnrollFleet enrolls because FLEET_SERVER is set,
+// boot.ini records `verify mode = none` because TLS_VERIFY_MODE says so, and
+// the layout migration runs because LAYOUT does. So a value typed under one
+// answer still takes effect under another unless it is cleared - a fleet
+// server typed, then Back, then None, would enroll the host anyway.
+//
+// Full UI only. On a command line nothing was abandoned: every property there
+// was passed on purpose, and clearing one would be overruling the operator.
+void clear_abandoned_answer(msi_helper &h, const std::wstring &mode) {
+  if (!full_ui(h)) return;
+
+  // The box is hidden rather than cleared when the answer is None, so its
+  // value survives an abandoned managed answer and would keep every take-back
+  // below from firing. Clear it first, then read it.
+  if (mode == MANAGEMENT_SERVER_NONE && !trimmed_property(h, MANAGEMENT_INSECURE).empty()) {
+    h.setPropertyValue(MANAGEMENT_INSECURE, L"");
+  }
+  const bool insecure = wants_insecure(h);
+
+  if (mode != MANAGEMENT_SERVER_FLEET) {
+    for (const auto key : {FLEET_SERVER, FLEET_TOKEN, FLEET_BUNDLE_KEY, FLEET_REQUIRE_ENCRYPTED_BUNDLES, FLEET_INSECURE, FLEET_VERIFY_MODE}) {
+      if (!trimmed_property(h, key).empty()) h.setPropertyValue(key, L"");
+    }
+  } else if (!insecure) {
+    if (!trimmed_property(h, FLEET_INSECURE).empty()) h.setPropertyValue(FLEET_INSECURE, L"");
+  }
+
+  // Both of these are taken back only where a marker says this page set them.
+  // The box is not evidence enough: it is seeded from TLS_VERIFY_MODE in WEB
+  // mode only, so an `IMPORT_CONFIG=https://... TLS_VERIFY_MODE=none` install
+  // answering None or Fleet has the box empty and its own verify mode would be
+  // cleared out from under it - and the import would then fail to verify.
+  if ((mode != MANAGEMENT_SERVER_WEB || !insecure) && trimmed_property(h, MGMT_SET_TLS_VERIFY) == L"1") {
+    h.setPropertyValue(L"TLS_VERIFY_MODE", L"");
+    h.setPropertyValue(MGMT_SET_TLS_VERIFY, L"");
+  }
+  if (mode != MANAGEMENT_SERVER_WEB && trimmed_property(h, MGMT_SET_TLS_CA) == L"1") {
+    h.setPropertyValue(L"TLS_CA", L"");
+    h.setPropertyValue(MGMT_SET_TLS_CA, L"");
+  }
+
+  // The url itself. ImportConfig reads the raw CONFIGURATION_TYPE, not the
+  // KEY_ copy the mode branches write, so a http(s) url left over from an
+  // abandoned Web answer still becomes this host's settings store - and, being
+  // unwritable, still turns the local baseline off. Only a url: which local
+  // store the configuration lives in is SelectConfigurationDlg's question and
+  // none of this page's business.
+  if (mode != MANAGEMENT_SERVER_WEB && is_http_url(trimmed_property(h, CONFIGURATION_TYPE))) {
+    h.logMessage(L"No web configuration after all: dropping the url from " + std::wstring(CONFIGURATION_TYPE) + L".");
+    h.setPropertyValue(CONFIGURATION_TYPE, L"");
+  }
+
+  // Both managed modes want the modern layout, so only an answer of None takes
+  // the default back.
+  if (mode == MANAGEMENT_SERVER_NONE && trimmed_property(h, MGMT_SET_LAYOUT) == L"1") {
+    h.logMessage("No management server after all: taking back the modern layout default.");
+    h.setPropertyValue(LAYOUT_MODE, L"");
+    h.setPropertyValue(MGMT_SET_LAYOUT, L"");
+  }
+}
+
+// A refusal reaches the operator differently depending on how they install.
+// On the page it goes into MGMT_ERROR and the dialog keeps them there to fix
+// it. On a command line there is no page to keep them on, so the install fails
+// instead of quietly installing an agent that is managed by nobody - which is
+// what ScheduleEnrollFleet already does for the fleet half.
+UINT refuse_management(msi_helper &h, const std::wstring &error) {
+  if (full_ui(h)) {
+    h.logMessage(L"Refusing the management server settings: " + error);
+    h.setPropertyValue(MGMT_ERROR, error);
+    dump_config(h, L"After ApplyManagement");
+    return ERROR_SUCCESS;
+  }
+  h.errorMessage(error);
+  return ERROR_INSTALL_FAILURE;
+}
+}  // namespace
+
+extern "C" UINT __stdcall DetectManagement(MSIHANDLE hInstall) {
+  msi_helper h(hInstall, L"DetectManagement");
 
   try {
-    h.logMessage("Detecting monitoring tool config");
-    if (!boost::algorithm::trim_copy(h.getMsiPropery(OP5_SERVER)).empty()) {
-      h.setPropertyValue(MONITORING_TOOL, MONITORING_TOOL_OP5);
+    h.logMessage("Detecting the management server");
+    // Recorded before anything overwrites the property: a mode that was named
+    // rather than worked out is a mode somebody asked for, which is what
+    // decides whether this install may also change the on-disk layout.
+    const bool named = management_server_named(h);
+    std::wstring mode = detect_management_server(h);
+
+    // An enrolled host is fleet managed whether or not this install command
+    // says so: it already reads the fleet server's configuration, so offering
+    // it the local configuration pages would be offering to shadow it.
+    try {
+      const std::string manifest = enrollment_manifest(h);
+      boost::system::error_code ec;
+      if (!manifest.empty() && boost::filesystem::exists(manifest, ec)) {
+        h.logMessage("This host is already enrolled: " + manifest);
+        h.setPropertyValue(MGMT_ENROLLED, L"1");
+        const boost::optional<onboarding::enrolled_identity> current = onboarding::load_state(manifest);
+        if (current) {
+          h.setPropertyValue(MGMT_ENROLLED_SERVER, utf8::cvt<std::wstring>(current.value().server_url));
+        }
+        // Not an override: an install command that explicitly asks for
+        // another mode still gets it. NONE is also the default, and on an
+        // enrolled host defaulting to "write the local configuration" is how
+        // a fleet-managed machine gets its configuration shadowed.
+        if (mode == MANAGEMENT_SERVER_NONE) mode = MANAGEMENT_SERVER_FLEET;
+      }
+    } catch (const installer_exception &e) {
+      h.logMessage(L"Could not look for an existing enrollment: " + e.what());
+    } catch (const std::exception &e) {
+      // Best effort: a manifest we cannot look for only means the page asks
+      // the questions it would have asked anyway.
+      h.logMessage(L"Could not look for an existing enrollment: " + utf8::to_unicode(e.what()));
     }
-    std::wstring tool = h.getMsiPropery(MONITORING_TOOL);
-    h.logMessage(L"Detected monitoring tool is: " + tool);
-    dump_config(h, L"After DetectTool");
+
+    // Seed the page's fields from a command line that already says the same
+    // thing, so the box reads "on" next to a FLEET_INSECURE=1 that is on and
+    // the take-back below never removes the operator's own value.
+    //
+    // Per mode, and never across: FLEET_INSECURE is about the enrollment
+    // call, TLS_VERIFY_MODE about the configuration download, and they are
+    // not interchangeable. Seeding one from the other would let
+    // TLS_VERIFY_MODE=none on the command line switch off the enrollment's
+    // refusal to send a bootstrap token over plain HTTP.
+    if (trimmed_property(h, MANAGEMENT_INSECURE).empty()) {
+      const bool already_insecure = mode == MANAGEMENT_SERVER_FLEET
+                                        ? is_true(h.getMsiPropery(FLEET_INSECURE))
+                                        : mode == MANAGEMENT_SERVER_WEB && boost::algorithm::iequals(trimmed_property(h, L"TLS_VERIFY_MODE"), L"none");
+      if (already_insecure) h.setPropertyValue(MANAGEMENT_INSECURE, L"1");
+    }
+    // The same for the CA field. The page writes MANAGEMENT_CA and
+    // ApplyManagement projects it onto TLS_CA, so that a path typed under Web
+    // and then abandoned can be taken back without touching a TLS_CA the
+    // operator passed for something else (an IMPORT_CONFIG=https:// install).
+    if (trimmed_property(h, MANAGEMENT_CA).empty() && mode == MANAGEMENT_SERVER_WEB) {
+      h.setPropertyValue(MANAGEMENT_CA, trimmed_property(h, L"TLS_CA"));
+    }
+    if (!named && mode != MANAGEMENT_SERVER_NONE) h.setPropertyValue(MGMT_DERIVED, L"1");
+    h.setPropertyValue(MANAGEMENT_SERVER, mode);
+    if (mode == MANAGEMENT_SERVER_WEB && trimmed_property(h, MANAGEMENT_URL).empty()) {
+      // So the page shows the url the command line gave.
+      h.setPropertyValue(MANAGEMENT_URL, trimmed_property(h, CONFIGURATION_TYPE));
+    }
+    h.logMessage(L"Management server: " + mode);
+    dump_config(h, L"After DetectManagement");
   } catch (installer_exception &e) {
-    h.logMessage(L"Failed to detect monitoring tool: " + e.what());
+    h.logMessage(L"Failed to detect the management server: " + e.what());
     return ERROR_SUCCESS;
   } catch (nsclient::nsclient_exception &e) {
-    h.logMessage(L"Failed to detect monitoring tool: " + utf8::cvt<std::wstring>(e.reason()));
+    h.logMessage(L"Failed to detect the management server: " + utf8::cvt<std::wstring>(e.reason()));
     return ERROR_SUCCESS;
   } catch (...) {
-    h.logMessage(L"Failed to detect monitoring tool: Unknown exception");
+    h.logMessage(L"Failed to detect the management server: Unknown exception");
     return ERROR_SUCCESS;
   }
   return ERROR_SUCCESS;
 }
 
-extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
-  msi_helper h(hInstall, L"ApplyTool");
+extern "C" UINT __stdcall ApplyManagement(MSIHANDLE hInstall) {
+  msi_helper h(hInstall, L"ApplyManagement");
   try {
-    dump_config(h, L"Before ApplyTool");
+    dump_config(h, L"Before ApplyManagement");
 
-    h.logMessage("Applying monitoring tool config");
-    std::wstring tool = h.getMsiPropery(MONITORING_TOOL);
+    // Cleared first: the page spawns the error dialog whenever this is set, so
+    // a value corrected after a refusal has to be able to clear it again.
+    h.setPropertyValue(MGMT_ERROR, L"");
 
-    if (tool == MONITORING_TOOL_OP5) {
-      h.logMessage(L"Setting base config as Op5");
-      h.setPropertyKeyAndDefault(NSCLIENT_PWD, L"", L"");
-      h.setPropertyKeyAndDefault(CONF_CHECKS, L"1", L"");
-      h.setPropertyKeyAndDefault(CONF_NRPE, L"1", L"");
-      h.setPropertyKeyAndDefault(CONF_NSCA, L"1", L"");
-      h.setPropertyKeyAndDefault(CONF_WEB, L"", L"");
-      h.setPropertyKeyAndDefault(CONF_NSCLIENT, L"1", L"");
-      h.setPropertyKeyAndDefault(NRPEMODE, L"LEGACY", L"");
+    // The property, not the derivation: DetectManagement has already run and
+    // written what it worked out, and in a full UI install the page has had
+    // its say since. Re-deriving here would quietly overrule an operator who
+    // passed FLEET_SERVER on the command line and then picked None on the
+    // page. Only a property that is not there at all falls back.
+    std::wstring mode = boost::algorithm::to_upper_copy(trimmed_property(h, MANAGEMENT_SERVER));
+    if (mode.empty()) mode = detect_management_server(h);
+    // Anything unrecognised is None, the answer detect_management_server also
+    // gives it. Left as typed it would be neither: this action would write the
+    // local baseline while every dialog condition, which tests for NONE by
+    // name, skipped the pages that baseline belongs to.
+    if (mode != MANAGEMENT_SERVER_FLEET && mode != MANAGEMENT_SERVER_WEB && mode != MANAGEMENT_SERVER_NONE) {
+      h.logMessage(L"Unknown MANAGEMENT_SERVER '" + mode + L"'; using " + MANAGEMENT_SERVER_NONE + L". Use NONE, FLEET or WEB.");
+      mode = MANAGEMENT_SERVER_NONE;
+    }
+    h.setPropertyValue(MANAGEMENT_SERVER, mode);
+    h.logMessage(L"Applying management server: " + mode);
 
-      h.setPropertyKeyAndDefault(CONF_INCLUDES, L"op5;op5.ini", L"");
-      h.setPropertyKeyAndDefault(CONFIGURATION_TYPE, L"registry://HKEY_LOCAL_MACHINE/software/NSClient++", L"");
-      h.setFeatureLocal(L"OP5Monitoring");
-      h.setConfCanChange(true, L"Op5 applied");
-    } else if (tool == L"GENERIC") {
-      h.logMessage(L"Setting base config as Generic");
-      h.setPropertyKeyAndDefault(ALLOWED_HOSTS, L"127.0.0.1", L"");
+    // The operator may have been here before and answered differently.
+    clear_abandoned_answer(h, mode);
+    // A derived mode is not held to the page's refusals; see mode_was_chosen.
+    const bool check = mode_was_chosen(h);
 
-      h.setPropertyKeyAndDefault(NSCLIENT_PWD, genpwd(16), L"");
-      h.setPropertyKeyAndDefault(CONF_CHECKS, L"1", L"");
-      h.setPropertyKeyAndDefault(CONF_NRPE, L"1", L"");
-      h.setPropertyKeyAndDefault(CONF_NSCA, L"", L"");
-      h.setPropertyKeyAndDefault(CONF_WEB, L"1", L"");
-      h.setPropertyKeyAndDefault(CONF_NSCLIENT, L"", L"");
-      h.setPropertyKeyAndDefault(NRPEMODE, L"SECURE", L"");
+    if (mode == MANAGEMENT_SERVER_FLEET) {
+      // Projected before the check, not after: FLEET_INSECURE is then the one
+      // flag both this validation and ScheduleEnrollFleet read, with no second
+      // opinion about what counts as insecure.
+      if (wants_insecure(h)) {
+        h.setPropertyValue(FLEET_INSECURE, L"1");
+      }
+      const std::wstring error = check ? validate_fleet(h) : std::wstring();
+      if (!error.empty()) return refuse_management(h, error);
+      // The configuration stays local and ordinary - it is the include of the
+      // fleet-managed file that ScheduleWriteConfig adds that makes this host
+      // managed - but nothing else is written into it.
+      apply_managed_profile(h, L"ini://${shared-path}/nsclient.ini");
+      default_modern_layout(h);
+    } else if (mode == MANAGEMENT_SERVER_WEB) {
+      std::wstring url;
+      std::wstring error = validate_web(h, url);
+      // A derived mode is not held to the page's refusals - except the one
+      // refusal a command line cannot trip: WEB mode is derived *from* a url,
+      // so an empty one means the mode was asked for and the url forgotten.
+      if (!check && !url.empty()) error.clear();
+      if (!error.empty()) return refuse_management(h, error);
+      if (wants_insecure(h)) {
+        // Both halves of "do not check who answered": the download this
+        // installer does, and every later refresh the service does from the
+        // same boot.ini. Marked, so that abandoning this answer takes back
+        // this value and no other.
+        h.setPropertyValue(L"TLS_VERIFY_MODE", L"none");
+        h.setPropertyValue(MGMT_SET_TLS_VERIFY, L"1");
+      }
+      const std::wstring ca = trimmed_property(h, MANAGEMENT_CA);
+      if (!ca.empty()) {
+        h.setPropertyValue(L"TLS_CA", ca);
+        h.setPropertyValue(MGMT_SET_TLS_CA, L"1");
+      }
+      apply_managed_profile(h, url);
+      default_modern_layout(h);
+    } else {
+      const std::wstring tool = trimmed_property(h, MONITORING_TOOL);
+      // OP5 selected a baseline of its own until the page that offered it was
+      // retired. It stays accepted, and means the generic baseline: a
+      // deployment script that still passes it should get a configured agent,
+      // not one with no allowed hosts, no password and no check modules.
+      if (boost::algorithm::iequals(tool, L"OP5")) {
+        h.logMessage(L"MONITORING_TOOL=OP5 is retired; using the generic base config.");
+      }
+      if (boost::algorithm::iequals(tool, L"GENERIC") || boost::algorithm::iequals(tool, L"OP5")) {
+        h.logMessage(L"Setting base config as Generic");
+        h.setPropertyKeyAndDefault(ALLOWED_HOSTS, L"127.0.0.1", L"");
 
-      h.setPropertyKeyAndDefault(CONF_INCLUDES, L"", L"");
-      h.setPropertyKeyAndDefault(CONFIGURATION_TYPE, L"ini://${shared-path}/nsclient.ini", L"");
-      h.setFeatureAbsent(L"OP5Monitoring");
-      h.setConfCanChange(true, L"Generic applied");
+        h.setPropertyKeyAndDefault(NSCLIENT_PWD, genpwd(16), L"");
+        h.setPropertyKeyAndDefault(CONF_CHECKS, L"1", L"");
+        h.setPropertyKeyAndDefault(CONF_NRPE, L"1", L"");
+        h.setPropertyKeyAndDefault(CONF_NSCA, L"", L"");
+        h.setPropertyKeyAndDefault(CONF_WEB, L"1", L"");
+        h.setPropertyKeyAndDefault(CONF_NSCLIENT, L"", L"");
+        h.setPropertyKeyAndDefault(NRPEMODE, L"SECURE", L"");
+
+        h.setPropertyKeyAndDefault(CONF_INCLUDES, L"", L"");
+        h.setPropertyKeyAndDefault(CONFIGURATION_TYPE, L"ini://${shared-path}/nsclient.ini", L"");
+      } else {
+        // MONITORING_TOOL=none: no baseline, the existing configuration (or
+        // the shipped default) is left to speak for itself.
+        h.logMessage(L"No base config requested (MONITORING_TOOL=" + tool + L")");
+      }
     }
 
+    // Whatever the mode, the answer is the same and ImportConfig has the last
+    // word on it: it is the one that reads the store and finds out whether the
+    // installer may write to it (an http one, for instance, it may not). Saying
+    // yes here is what lets it get that far.
     h.setConfCanChange(true, L"Default config set from profile");
     h.setPropertyIfEmpty(CONFIGURATION_TYPE, L"ini://${shared-path}/nsclient.ini");
 
-    dump_config(h, L"After ApplyTool");
+    dump_config(h, L"After ApplyManagement");
 
   } catch (installer_exception &e) {
-    h.logMessage(L"Failed to apply monitoring tool: " + e.what());
+    h.logMessage(L"Failed to apply the management server: " + e.what());
+    return ERROR_SUCCESS;
+  } catch (const std::exception &e) {
+    h.logMessage(L"Failed to apply the management server: " + utf8::to_unicode(e.what()));
     return ERROR_SUCCESS;
   } catch (...) {
-    h.logMessage(L"Failed to apply monitoring tool: Unknown exception");
+    h.logMessage(L"Failed to apply the management server: Unknown exception");
     return ERROR_SUCCESS;
   }
   return ERROR_SUCCESS;
@@ -1197,49 +1692,6 @@ extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
 
 namespace {
 
-bool is_true(const std::wstring &value) {
-  const std::wstring v = boost::algorithm::to_lower_copy(boost::algorithm::trim_copy(value));
-  return v == L"1" || v == L"true" || v == L"yes";
-}
-
-std::wstring url_scheme(const std::wstring &url) {
-  const std::wstring::size_type sep = url.find(L"://");
-  if (sep == std::wstring::npos) return L"";
-  return boost::algorithm::to_lower_copy(url.substr(0, sep));
-}
-
-std::string url_scheme(const std::string &url) {
-  const std::string::size_type sep = url.find("://");
-  if (sep == std::string::npos) return "";
-  return boost::algorithm::to_lower_copy(url.substr(0, sep));
-}
-
-// ${shared-path}, ${exe-path} and ${base-path} all mean the install folder to
-// the installer, exactly as installer_settings_provider::expand_path resolves
-// them. Used to turn the compiled-in CERT_FOLDER token into a real path
-// without booting the settings subsystem (which the deferred action cannot do
-// before the configuration has been written).
-std::string expand_install_path(const std::string &token, const std::string &install_folder, const std::string &shared_folder) {
-  std::string result = token;
-  // ${shared-path} is where the writable state lives, which is the install
-  // folder only on the legacy layout. Callers that have not been taught about
-  // the layout pass the install folder for both and get the old behaviour.
-  str::utils::replace(result, "${shared-path}", shared_folder.empty() ? install_folder : shared_folder);
-  str::utils::replace(result, "${exe-path}", install_folder);
-  str::utils::replace(result, "${base-path}", install_folder);
-  return result;
-}
-
-// MsiGetTargetPath hands back a trailing backslash; strip it so the paths we
-// build (and log) do not come out as "...\NSClient++\/security".
-std::string as_install_folder(const std::wstring &target) {
-  std::string folder = utf8::cvt<std::string>(target);
-  while (!folder.empty() && (folder.back() == '\\' || folder.back() == '/')) {
-    folder.pop_back();
-  }
-  return folder;
-}
-
 // The sync worker renders the fleet-managed configuration into the fleet folder
 // on its first run. Create a placeholder so the include ScheduleWriteConfig adds
 // is not a dangling reference until then - also when the host was already
@@ -1843,18 +2295,29 @@ extern "C" UINT __stdcall ScheduleEnrollFleet(MSIHANDLE hInstall) {
       h.logMessage(L"No FLEET_SERVER given: not enrolling with a fleet server");
       return ERROR_SUCCESS;
     }
-    // Every key is checked here, before anything is installed: a paste error
-    // found in the deferred half would fail the install after the bootstrap
-    // token has been spent. The message names the position, never the value.
-    const std::vector<std::string> keys = onboarding::split_bundle_keys(utf8::cvt<std::string>(bundle_keys));
-    for (std::size_t i = 0; i < keys.size(); ++i) {
-      std::string raw_key, key_error;
-      if (!onboarding::parse_bundle_key(keys[i], raw_key, key_error)) {
-        h.errorMessage(L"FLEET_BUNDLE_KEY entry " + std::to_wstring(i + 1) + L" of " + std::to_wstring(keys.size()) + L" is not a valid bundle key: " +
-                       utf8::cvt<std::wstring>(key_error) +
-                       L". Pass the key exactly as the fleet server showed it when it was created (44 base64 characters); separate several with commas.");
-        return ERROR_INSTALL_FAILURE;
-      }
+    const std::wstring token = boost::algorithm::trim_copy(h.getMsiPropery(FLEET_TOKEN));
+    const std::wstring verify_mode = boost::algorithm::trim_copy(h.getMsiPropery(FLEET_VERIFY_MODE));
+    const bool insecure = is_true(h.getMsiPropery(FLEET_INSECURE));
+
+    // The same rules the page applies, from the same implementation: every
+    // refusal here is one the page has already made, so reaching this point
+    // with a bad value means the install was unattended. A paste error caught
+    // here still costs nothing; caught in the deferred half it would cost the
+    // bootstrap token. The messages name the position of a bad key, never its
+    // value.
+    fleet_settings settings;
+    settings.server = server;
+    settings.token = token;
+    settings.verify_mode = verify_mode;
+    settings.bundle_keys = bundle_keys;
+    settings.ca = boost::algorithm::trim_copy(h.getMsiPropery(FLEET_CA));
+    settings.insecure = insecure;
+    // Rotating the bundle keys of an already enrolled host needs no server.
+    settings.server_optional = true;
+    const std::wstring refusal = fleet_refusal(settings);
+    if (!refusal.empty()) {
+      h.errorMessage(refusal);
+      return ERROR_INSTALL_FAILURE;
     }
     if (server.empty()) {
       // Key rotation on an already enrolled host, e.g. an upgrade run with only
@@ -1862,45 +2325,6 @@ extern "C" UINT __stdcall ScheduleEnrollFleet(MSIHANDLE hInstall) {
       h.logMessage(L"No FLEET_SERVER given: updating the bundle keys / encrypted-bundle requirement of this host's existing enrollment");
       return schedule_enroll_fleet(h, L"", L"", L"", false, bundle_keys, require_encrypted_bundles);
     }
-    const std::wstring token = boost::algorithm::trim_copy(h.getMsiPropery(FLEET_TOKEN));
-    const std::wstring verify_mode = boost::algorithm::trim_copy(h.getMsiPropery(FLEET_VERIFY_MODE));
-    const bool insecure = is_true(h.getMsiPropery(FLEET_INSECURE));
-    const std::wstring scheme = url_scheme(server);
-
-    // Everything below fails the install rather than installing an agent that
-    // silently never joined the fleet: enrollment was asked for explicitly, and
-    // a host that is not enrolled is not managed.
-    if (token.empty()) {
-      h.errorMessage(
-          L"FLEET_SERVER was given but FLEET_TOKEN is empty. Generate an install command on the fleet server and pass its bootstrap token as "
-          L"FLEET_TOKEN=<token>.");
-      return ERROR_INSTALL_FAILURE;
-    }
-    if (scheme != L"https" && scheme != L"http") {
-      h.errorMessage(L"FLEET_SERVER must be a url including the scheme, for example https://fleet.example.com (got: " + server + L").");
-      return ERROR_INSTALL_FAILURE;
-    }
-    // The bootstrap token exchanges for a client certificate; over plain HTTP
-    // anyone on the network path can read it and enroll as this host. Same
-    // rule as `nscp enroll`: opt in with FLEET_INSECURE=1.
-    if (scheme == L"http" && !insecure) {
-      h.errorMessage(
-          L"Refusing to enroll over plain HTTP: the bootstrap token would be sent in cleartext, so anyone on the network path could read it and "
-          L"enroll as this host. Use an https:// FLEET_SERVER url, or pass FLEET_INSECURE=1 to allow plain HTTP anyway.");
-      return ERROR_INSTALL_FAILURE;
-    }
-    // Enrollment is where this agent decides who the fleet server is: the
-    // response carries the certificate every later call pins against and the
-    // key that authorises executable bundles. Handing both to whoever answers
-    // an unverified connection is a decision the operator has to make out loud.
-    if (boost::algorithm::iequals(verify_mode, L"none") && !insecure) {
-      h.errorMessage(
-          L"Refusing to enroll without verifying the fleet server certificate (FLEET_VERIFY_MODE=none). The enrollment response supplies the "
-          L"certificate this agent pins for every later call and the key it trusts for executable bundles, so an unverified enrollment hands both "
-          L"to whoever answers. Point FLEET_CA at the issuing CA (recommended), or pass FLEET_INSECURE=1 to accept it anyway.");
-      return ERROR_INSTALL_FAILURE;
-    }
-
     // The include of the fleet-managed configuration is written by
     // ScheduleWriteConfig, and only when it is allowed to change the
     // configuration - the exact test repeated here, so we fail precisely when

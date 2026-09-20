@@ -10,6 +10,13 @@
 # If that export is missing, or the fetch fails or is reported as an error, the
 # installer falls back to a local ini and boot.ini does not carry the URL - so
 # asserting on the URL here is what makes the whole chain testable.
+#
+# It also pins the other half of the management-server rule: a http(s)
+# CONFIGURATION_TYPE *is* a managed install, so the installer treats it as one
+# - but the mode was derived from a command line written before the page
+# existed, so the layout stays as it was. No [layout] section below, and the
+# configuration is still beside the executable. MANAGEMENT_SERVER=WEB is how
+# you ask for the move (management-web.yaml).
 command_line: ["msiexec.exe", "/i", "$MSI-FILE", "/qn", "/l*", "log.txt", "ADDLOCAL=ALL", "CONFIGURATION_TYPE=https://raw.githubusercontent.com/mickem/nscp/refs/heads/main/tests/msi/nsclient.ini" ]
 replace_password: true
 boot.ini: |

@@ -35,12 +35,53 @@
 #define CONF_NSCLIENT L"CONF_NSCLIENT"
 #define CONF_WMI L"CONF_WMI"
 #define NRPEMODE L"NRPEMODE"
+// The local baseline this install starts from: GENERIC (the default) writes
+// the configuration the installer has always written, anything else - "none",
+// by convention - writes none of it. Ignored entirely when a management server
+// is selected: there the configuration is not ours to write.
 #define MONITORING_TOOL L"MONITORING_TOOL"
 #define CONFIGURATION_TYPE L"CONFIGURATION_TYPE"
 #define CONF_INCLUDES L"CONF_INCLUDES"
 #define IMPORT_CONFIG L"IMPORT_CONFIG"
 
-#define MONITORING_TOOL_OP5 L"OP5"
+// Where this agent's configuration comes from (ManagementServerDlg):
+// MANAGEMENT_SERVER is NONE (configured on this machine), FLEET (an NSClient
+// fleet server manages it) or WEB (an nsclient.ini served over HTTP(S)). On a
+// silent install it is derived from FLEET_SERVER / CONFIGURATION_TYPE, so a
+// command line that predates the property still lands in the right mode.
+#define MANAGEMENT_SERVER L"MANAGEMENT_SERVER"
+#define MANAGEMENT_SERVER_NONE L"NONE"
+#define MANAGEMENT_SERVER_FLEET L"FLEET"
+#define MANAGEMENT_SERVER_WEB L"WEB"
+// The WEB url as typed on the page, before it becomes CONFIGURATION_TYPE.
+#define MANAGEMENT_URL L"MANAGEMENT_URL"
+// The one opt-out of verifying who is on the other end, for both managed
+// modes: a plain http url, or a server certificate that cannot be verified.
+#define MANAGEMENT_INSECURE L"MANAGEMENT_INSECURE"
+// The CA file typed on the page. Projected onto TLS_CA in WEB mode rather
+// than bound to it directly, so that a path typed under Web and then
+// abandoned can be taken back without disturbing a TLS_CA the operator passed
+// for something else. MGMT_SET_TLS_CA records that the projection happened.
+#define MANAGEMENT_CA L"MANAGEMENT_CA"
+#define MGMT_SET_TLS_CA L"MGMT_SET_TLS_CA"
+#define MGMT_SET_TLS_VERIFY L"MGMT_SET_TLS_VERIFY"
+// Set when the modern layout was this page's idea rather than the operator's,
+// so that going Back and answering None can undo it. The migration is one-way
+// once it has run, so the undo has to happen before the install does.
+#define MGMT_SET_LAYOUT L"MGMT_SET_LAYOUT"
+// Set by DetectManagement when the mode was worked out from FLEET_SERVER or
+// CONFIGURATION_TYPE rather than asked for by name. Such a command line
+// predates this page: it asked for a fleet server or a configuration url, not
+// for a different on-disk layout, so it does not get one.
+#define MGMT_DERIVED L"MGMT_DERIVED"
+// What ApplyManagement refused, shown by ManagementErrorDlg. Empty means the
+// values were accepted, so the page may move on.
+#define MGMT_ERROR L"MGMT_ERROR"
+// Set by DetectManagement when this host already carries an enrollment
+// manifest: the page then offers to keep that enrollment instead of asking for
+// a server and a one-time token it has no use for.
+#define MGMT_ENROLLED L"MGMT_ENROLLED"
+#define MGMT_ENROLLED_SERVER L"MGMT_ENROLLED_SERVER"
 
 // Fleet onboarding: enroll this host against an NSClient fleet server during
 // install. FLEET_SERVER + FLEET_TOKEN come from the install command generated

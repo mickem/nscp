@@ -1484,8 +1484,6 @@ set(MAIN_NSCP_TARGET "nscp")
 
 add_subdirectory("service")
 add_subdirectory("scripts")
-add_subdirectory("op5/config")
-add_subdirectory("op5/scripts")
 add_subdirectory("web")
 add_subdirectory("files")
 if(NSCP_BUILD_TESTS)
