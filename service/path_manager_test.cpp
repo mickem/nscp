@@ -754,6 +754,39 @@ TEST_F(PathManagerTest, WebRootIsNotWritableStateOnUnix) {
 #endif
 }
 
+TEST_F(PathManagerTest, ARelativeBootConfOverrideIsRefusedImmediatelyRatherThanDeferred) {
+  // Every other CLI override is installed unvalidated and judged later, once
+  // boot.ini's [layout] and [paths] have been read. ${boot-conf} cannot wait:
+  // it names boot.ini, so init_settings() consumes it before that point. Left
+  // to the deferred check it would be used once - to read a file relative to
+  // the working directory - and then dropped, so the bootstrap would have read
+  // one file while every later ${boot-conf} expansion named another.
+  pm->set_cli_overrides({{"boot-conf", "relative-boot.ini"}});
+
+  // Dropped at install time, not at validate time: the default is already in
+  // force before anything reads boot.ini.
+  const std::string before_validate = pm->expand_path("${boot-conf}");
+  EXPECT_EQ(before_validate.find("relative-boot.ini"), std::string::npos) << before_validate;
+  EXPECT_TRUE(nscp::paths::names_a_root(before_validate)) << before_validate;
+
+  pm->validate_overrides();
+  EXPECT_EQ(pm->expand_path("${boot-conf}"), before_validate);
+}
+
+TEST_F(PathManagerTest, AnAbsoluteBootConfOverrideIsStillHonoured) {
+  // The whole point of the override - relocating boot.ini for a test or a
+  // sandbox - has to keep working.
+#ifdef WIN32
+  const std::string target = "C:\\sandbox\\boot.ini";
+#else
+  const std::string target = "/sandbox/boot.ini";
+#endif
+  pm->set_cli_overrides({{"boot-conf", target}});
+  EXPECT_EQ(pm->expand_path("${boot-conf}"), target);
+  pm->validate_overrides();
+  EXPECT_EQ(pm->expand_path("${boot-conf}"), target);
+}
+
 TEST_F(PathManagerTest, FleetFolderExpandsAndIsWritableByTheService) {
   // The fleet sync rewrites everything under this folder as the account the
   // service runs as, so it must resolve fully...

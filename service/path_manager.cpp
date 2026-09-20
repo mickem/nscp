@@ -202,6 +202,23 @@ void nsclient::core::path_manager::set_cli_overrides(paths_type overrides) {
   // and resolve the rest against the wrong layout. validate_overrides() does it
   // once the picture is complete.
   cli_overrides_ = std::move(overrides);
+
+  // ...with one exception, because one key cannot wait. ${boot-conf} names
+  // boot.ini itself, so init_settings() consumes it *before* the picture is
+  // complete and validate_overrides() can run. A relative value there would be
+  // used once, to find and read a file relative to the working directory, and
+  // then dropped - leaving the bootstrap having read one file while every later
+  // ${boot-conf} expansion names another. It also needs no deferral: it is
+  // resolved before [paths] exists, so it cannot legitimately be built out of a
+  // token boot.ini defines.
+  const paths_type::const_iterator boot = cli_overrides_.find("boot-conf");
+  if (boot != cli_overrides_.end() && !nscp::paths::names_a_root(boot->second)) {
+    get_logger()->error("core", __FILE__, __LINE__,
+                        "Ignoring --path-override boot-conf=" + boot->second +
+                            ": it has to name an absolute location, because it is used to find boot.ini before anything that could make sense of a "
+                            "relative one has been read. Using the default.");
+    cli_overrides_.erase("boot-conf");
+  }
 }
 
 void nsclient::core::path_manager::validate_overrides() {

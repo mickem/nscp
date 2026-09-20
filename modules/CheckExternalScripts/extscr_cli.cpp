@@ -419,7 +419,14 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
 #ifdef WIN32
     script = "scripts\\" + file_helpers::meta::get_filename(file);
 #else
+    // Quoted when it has to be: the recorded value is a command line, and
+    // parse_command tokenises it with boost::escaped_list_separator on spaces
+    // (with `"` as the quote character). An unquoted /opt/my scripts/x.sh would
+    // split into two argv entries and exit 127 - the very symptom recording an
+    // absolute path is meant to cure. Quote only when there is a space, so the
+    // ordinary case still reads as a plain path in nsclient.ini.
     script = file.string();
+    if (script.find(' ') != std::string::npos) script = "\"" + script + "\"";
 #endif
     if (boost::filesystem::exists(file)) {
       if (replace) {

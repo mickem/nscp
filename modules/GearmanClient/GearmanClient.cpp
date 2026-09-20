@@ -252,7 +252,11 @@ GearmanClient::worker_setup GearmanClient::build_config(const std::string &alias
   }
 
   if (key.empty() && !key_file.empty()) {
-    const std::string path = get_core()->expand_path(key_file);
+    // Already expanded: `key file` is registered as a path_key above, so
+    // notify() resolved its tokens - and reported and skipped the key if one
+    // was unknown, leaving key_file empty and this branch untaken. Expanding a
+    // second time here only risked throwing outside any catch in this module.
+    const std::string &path = key_file;
     std::ifstream stream(path.c_str());
     if (!stream) {
       NSC_LOG_ERROR_STD("gearman: could not read the key file: " + path);
