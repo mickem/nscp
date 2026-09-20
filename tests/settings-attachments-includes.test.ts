@@ -154,15 +154,27 @@ describe("settings attachments and includes", () => {
   });
 
   describe("include resolution", () => {
-    /** Put `value` in [/includes] of a local ini and report what happened. */
-    async function includeResolves(value: string): Promise<{ loaded: boolean; output: string }> {
+    /**
+     * Put `value` in [/includes] of a local ini and report what happened.
+     *
+     * `where` decides which folder the included file is written to, and it
+     * matters: a bare name is tried against DEFAULT_CONF_INI_BASE, which is
+     * `${shared-path}/` on Windows (CMakeLists.txt) and NSCP_PKGSYSCONFDIR on
+     * unix. So putting the file in ${shared-path} makes a bare include resolve
+     * on Windows and not on unix - which is a real platform difference, not
+     * something to assert away.
+     */
+    async function includeResolves(
+      value: string,
+      where: "shared" | "aside" = "shared",
+    ): Promise<{ loaded: boolean; output: string }> {
       const root = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-include-"));
       const shared = path.join(root, "shared");
+      const aside = path.join(root, "aside");
       const cwd = path.join(root, "cwd");
-      fs.mkdirSync(shared, { recursive: true });
-      fs.mkdirSync(cwd, { recursive: true });
+      for (const d of [shared, aside, cwd]) fs.mkdirSync(d, { recursive: true });
       fs.writeFileSync(
-        path.join(shared, "included.ini"),
+        path.join(where === "shared" ? shared : aside, "included.ini"),
         "[/settings/default]\nallowed hosts = from-the-include\n",
       );
 
@@ -187,14 +199,31 @@ describe("settings attachments and includes", () => {
       expect((await includeResolves("${shared-path}/included.ini")).loaded).toBe(true);
     });
 
-    it("refuses a bare relative include rather than guessing a folder for it", async () => {
-      // Unlike an attachment target, an include is not rooted at anything: it
-      // goes to create_instance, which needs a protocol it recognises or a
-      // file it can find, and a bare name is neither. Worth pinning because
-      // the two sections sit next to each other and look symmetrical.
-      const r = await includeResolves("included.ini");
+    it("does not resolve a bare include against the including file or the working directory", async () => {
+      // Unlike an attachment target, an include is not rooted at anything it
+      // can see locally: it goes to create_instance, which wants a protocol it
+      // recognises, a file it can find as given, or one under
+      // DEFAULT_CONF_INI_BASE. A file sitting next to the including ini, or in
+      // the directory the agent was started from, is none of those.
+      const r = await includeResolves("included.ini", "aside");
       expect(r.loaded).toBe(false);
       expect(r.output).toMatch(/Failed to load child included\.ini/);
+    });
+
+    it("resolves a bare include under the config base, which differs by platform", async () => {
+      // DEFAULT_CONF_INI_BASE is `ini://${shared-path}/` on Windows and
+      // NSCP_PKGSYSCONFDIR on unix (CMakeLists.txt). So the same file in
+      // ${shared-path} is reachable by bare name on one platform and not the
+      // other. Asserted per platform rather than picked to be uniform, because
+      // an operator moving a fleet config between the two will meet exactly
+      // this.
+      const r = await includeResolves("included.ini", "shared");
+      if (process.platform === "win32") {
+        expect(r.loaded).toBe(true);
+      } else {
+        expect(r.loaded).toBe(false);
+        expect(r.output).toMatch(/Failed to load child included\.ini/);
+      }
     });
 
     it("loads a remote url named directly", async () => {
@@ -448,7 +477,7 @@ describe("settings attachments and includes", () => {
   );
 
   describe("an attachment that is then included", () => {
-    it("converges on the second boot with a token, and never with a bare name", async () => {
+    it("converges on the second boot, by token everywhere and by bare name only on Windows", async () => {
       const { shared, nscp } = sandbox(
         [
           "[/attachments]",
@@ -475,7 +504,15 @@ describe("settings attachments and includes", () => {
       // `extra.ini = <url>` with `extra = extra.ini` never converges.
       const second = await boot(nscp);
       expect(second).toMatch(/from-the-attachment/);
-      expect(second).toMatch(/Failed to load child extra\.ini/);
+      // The bare include is where the platforms part company. The attachment
+      // landed in ${shared-path}, which IS DEFAULT_CONF_INI_BASE on Windows, so
+      // the natural `extra.ini = <url>` / `extra = extra.ini` pairing converges
+      // there - and does not on unix, where the config base is the sysconfdir.
+      if (process.platform === "win32") {
+        expect(second).not.toMatch(/Failed to load child extra\.ini/);
+      } else {
+        expect(second).toMatch(/Failed to load child extra\.ini/);
+      }
     });
   });
 });
