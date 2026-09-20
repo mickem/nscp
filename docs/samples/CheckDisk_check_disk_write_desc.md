@@ -28,3 +28,33 @@ Default thresholds: **critical** `has_issues = 1` (no default warning). Add
 time thresholds (e.g. `warning=total_time > 1000`) to also alert on a disk that
 is still writable but slow; keywords used in thresholds are emitted as
 performance data.
+
+#### The Linux service sandbox and the probe path
+
+The systemd unit shipped by the DEB and RPM packages sandboxes the service, and
+a sandbox that hides a writable mount makes this check report a disk fault that
+is not there. The unit is set up so that does not happen by default —
+`ProtectSystem=full` leaves `/mnt`, `/srv`, `/media`, `/opt`, `/data` and `/var`
+writable, so the usual probe targets work — but two paths are still read-only
+inside the service:
+
+| Path | Why |
+| --- | --- |
+| `/usr`, `/boot`, `/efi`, `/etc` | `ProtectSystem=full` |
+| `/home`, `/root` | `ProtectHome=read-only` |
+
+A probe under either answers **CRITICAL** with `Read-only file system`, which
+reads exactly like a failing disk. If you need to probe one of them — or if you
+tightened the unit to `ProtectSystem=strict`, which makes everything outside the
+state and log directories read-only — name the path in a drop-in:
+
+```
+systemctl edit nsclient
+```
+
+```
+[Service]
+ReadWritePaths=/home/monitoring
+```
+
+Edit a drop-in rather than the unit itself, which a package upgrade replaces.

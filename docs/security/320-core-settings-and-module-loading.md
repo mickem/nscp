@@ -73,9 +73,12 @@ The unit correctly ran as an unprivileged account and had nothing else:
 no `PrivateTmp`, no `ProtectSystem`, no `UMask`. Given the agent executes
 operator-defined and fleet-delivered scripts by design, that is a larger blast
 radius than it needs. The unit now sets `PrivateTmp=yes`,
-`ProtectSystem=strict` with `ReadWritePaths` for the state and log directories,
+`ProtectSystem=full` with `ReadWritePaths` for the state and log directories,
 `ProtectHome=read-only`, `UMask=0027` and the usual kernel-protection
-directives. `NoNewPrivileges` is deliberately left off and documented in the
+directives. `full` rather than `strict`: `strict` would make every filesystem
+read-only except the paths named, which turns `check_disk_write` on a healthy
+data mount into a CRITICAL reading `Read-only file system`. Operators who want
+it can add it with a drop-in. `NoNewPrivileges` is deliberately left off and documented in the
 unit: the Unix script launcher tells operators to sandbox a script with
 `sudo -n -u <account>`, which needs setuid.
 

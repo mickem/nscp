@@ -25,18 +25,36 @@ ExecStart=@NSCP_SBINDIR@/nscp service --log-backend threaded-file --run --pid @N
 # it. This is the one that neutralises most /tmp-based attacks on the service.
 PrivateTmp=yes
 
-# The whole filesystem hierarchy read-only except what is named below. Reads
-# are unaffected, so every check that inspects files, mounts or processes keeps
-# working; what changes is that the agent cannot write outside its own state
-# and log directories.
-ProtectSystem=strict
+# /usr, /boot, /efi and /etc read-only; the rest of the hierarchy is left
+# alone. Reads are unaffected everywhere, so every check that inspects files,
+# mounts or processes keeps working.
+#
+# `full` rather than `strict` on purpose. `strict` makes every filesystem
+# read-only except the paths named below, which breaks the checks whose job is
+# to write: `check_disk_write file=/mnt/backup/probe.dat` - the documented use
+# of that check - gets EROFS and reports CRITICAL with a "Read-only file
+# system" message indistinguishable from a real disk fault, on a mount that is
+# perfectly healthy. What `strict` adds over `full` is largely what DAC already
+# covers, since the service runs as an unprivileged account that owns nothing
+# under /srv, /mnt or /data; what it costs is a check that cannot tell the
+# truth. `full` keeps the part that matters: the agent cannot write to the
+# system binaries or to its own configuration.
+#
+# Tighten it with a drop-in if nothing on this host writes outside the state
+# and log directories. The ReadWritePaths below still applies, so only the
+# extra paths your checks and scripts write to need naming:
+#   [Service]
+#   ProtectSystem=strict
+#   ReadWritePaths=/mnt/backup
+ProtectSystem=full
 ReadWritePaths=@NSCP_PKGSTATEDIR@ @NSCP_LOGDIR@
 
 # read-only rather than yes: a monitoring agent is routinely asked about
 # /home - a check on files under it, or on the mount it sits on - and `yes`
 # replaces it with an empty directory, which would make those checks answer
 # about nothing at all. Read-only keeps the answers correct while stopping the
-# service writing there.
+# service writing there. A `check_disk_write` probe under /home therefore needs
+# a ReadWritePaths drop-in naming it, as above.
 ProtectHome=read-only
 
 ProtectKernelTunables=yes

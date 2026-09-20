@@ -5,17 +5,34 @@ action: conditional
 ---
 **The Linux systemd unit is sandboxed, the DEB no longer depends on `sudo`, and
 `CauseCrashes` is not in any package.** The unit now sets `PrivateTmp=yes`,
-`ProtectSystem=strict` with `ReadWritePaths` for the state and log directories,
+`ProtectSystem=full` with `ReadWritePaths` for the state and log directories,
 `ProtectHome=read-only`, `UMask=0027` and the kernel-protection directives.
-Reading the filesystem is unaffected, which is most of what the checks do; what
-changes is that the service and the scripts it runs cannot write outside the
-state and log directories, and see a `/tmp` of their own. If a script of yours
-writes somewhere else, add a drop-in rather than editing the unit, which an
+Reading the filesystem is unaffected, which is most of what the checks do. What
+changes is that the service and the scripts it runs get a `/tmp` of their own,
+and cannot write to `/usr`, `/boot`, `/efi`, `/etc` (`ProtectSystem=full`) or
+`/home` and `/root` (`ProtectHome=read-only`). Everywhere else — `/mnt`,
+`/srv`, `/media`, `/opt`, `/var` — stays writable, so `check_disk_write` and
+any script that writes to a data mount keep working.
+
+If a script or a `check_disk_write` probe of yours writes to one of the
+read-only paths, name it in a drop-in rather than editing the unit, which an
 upgrade replaces:
 
 ```
 systemctl edit nsclient
 ```
+
+```
+[Service]
+ReadWritePaths=/home/monitoring
+```
+
+To go the other way and make everything read-only except what is named, add
+`ProtectSystem=strict` in the same drop-in — the unit's `ReadWritePaths` still
+applies, so only the extra paths need listing. Check first that nothing the
+agent runs writes outside them: a `check_disk_write` probe on a mount you have
+not named reports CRITICAL with `Read-only file system`, which is
+indistinguishable from a real disk fault.
 
 `NoNewPrivileges` is deliberately **not** set, and the unit says why: the Unix
 script launcher tells operators to sandbox a script with `sudo -n -u <account>`,
