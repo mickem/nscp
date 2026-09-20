@@ -4,6 +4,7 @@
 #include "ServerBeastImpl.h"
 
 #include <boost/algorithm/string/case_conv.hpp>
+#include <boost/algorithm/string/trim.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/detached.hpp>
@@ -13,6 +14,7 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/ssl.hpp>
+#include <openssl/ssl.h>
 #include <boost/thread/thread.hpp>
 #include <boost/version.hpp>
 #include <nsclient/nsclient_exception.hpp>
@@ -21,6 +23,9 @@
 #include <string>
 #include <utility>
 
+#include <net/tls_versions.hpp>
+
+#include "Helpers.h"
 #include "Request.h"
 #include "Response.h"
 #include "cert_loader.h"
@@ -244,6 +249,56 @@ void ServerBeastImpl::setBodyLimit(std::size_t bytes) {
   body_limit_ = bytes;
 }
 
+void ServerBeastImpl::setTlsOptions(const std::string& tls_version, const std::string& ciphers) {
+  if (thread_) {
+    logger_->log_error("setTlsOptions() called after start() — ignored; restart the server to apply");
+    return;
+  }
+  if (!tls_version.empty()) tls_version_ = tls_version;
+  ciphers_ = ciphers;
+}
+
+namespace {
+// Resolve a `tls version` spec into an OpenSSL min/max pair, from the same
+// table the NRPE and NSCA listeners read (<net/tls_versions.hpp>), so one
+// setting means the same thing everywhere in the agent: an exact version, a
+// trailing `+` for "that version or later", or `any`. Returns false with
+// `error` filled in for a spelling this listener cannot honour, so it refuses
+// to start rather than quietly serving whatever the library defaults to.
+bool resolve_tls_range(const std::string& spec, long& min_version, long& max_version, std::string& error) {
+  std::string lower = boost::algorithm::to_lower_copy(spec);
+  boost::algorithm::trim(lower);
+  if (lower.empty() || lower == "any") {
+    min_version = 0;
+    max_version = TLS1_3_VERSION;
+    return true;
+  }
+  const bool open_ended = lower.back() == '+';
+  if (open_ended) lower.pop_back();
+  if (!tls_versions::lookup(lower, min_version)) {
+    error = "Invalid tls version: " + spec;
+    return false;
+  }
+  if (!open_ended && min_version == SSL3_VERSION) {
+    // The context below excludes SSL 3.0 unconditionally, and rightly so:
+    // POODLE, and most OpenSSL builds no longer compile it in. Pinning both
+    // ends of the range to it would therefore start a listener that reports
+    // success and then fails every handshake, with nothing logged. Say so
+    // instead. (`sslv3+` is a floor, not a pin, and stays accepted - it is
+    // raised below.)
+    error = "Invalid tls version: " + spec + " (SSL 3.0 is never served; use 1.0+ for the widest range this listener accepts)";
+    return false;
+  }
+  // A floor of SSL 3.0 means "oldest we speak" rather than SSL 3.0 itself, and
+  // SSL_CTX_set_min_proto_version(SSL3_VERSION) fails outright on a build
+  // without SSL 3.0. Raise it to the oldest version that can actually be
+  // negotiated; no_sslv3 already decides the rest.
+  if (min_version == SSL3_VERSION) min_version = TLS1_VERSION;
+  max_version = open_ended ? TLS1_3_VERSION : min_version;
+  return true;
+}
+}  // namespace
+
 void ServerBeastImpl::dispatch(const http::request<http::string_body>& req, http::response<http::string_body>& res, const std::string& remote_ip, const bool is_ssl) {
   // Snapshot the controller list under the lock. registerController()
   // may be racing with us — by copying the pointers out we let the
@@ -266,11 +321,22 @@ void ServerBeastImpl::dispatch(const http::request<http::string_body>& req, http
   }
   std::unique_ptr<Response> owner(matched);
   if (matched) {
+    // Applied here, on the way out, so every answer carries them: static
+    // files, API responses and the error pages a controller returns alike.
+    Helpers::add_security_headers(*matched, is_ssl);
     mongoose_to_beast(*matched, res, is_ssl);
   } else {
     res.result(http::status::not_found);
     res.body() = "Document not found";
     res.set(http::field::content_type, "text/plain");
+    // The 404 for an unmatched URL never goes through a Response, so it needs
+    // the same treatment directly. A framed 404 is still a framed page. From
+    // the shared list rather than written out again: this used to hand-roll a
+    // third, narrower policy, and a test asserting only frame-ancestors kept
+    // the divergence invisible.
+    for (const auto& header : Helpers::security_headers(is_ssl)) {
+      res.set(header.first, header.second);
+    }
     res.prepare_payload();
   }
 }
@@ -308,8 +374,35 @@ void ServerBeastImpl::start(const std::string& bind) {
       logger_->log_error("TLS requested for " + bind + " but no certificate/key was set");
       return;
     }
-    ssl_ctx_ = std::make_unique<asio::ssl::context>(asio::ssl::context::tlsv12_server);
+    // asio's tlsv12_server pins *both* ends of the range to TLS 1.2, so this
+    // listener could never negotiate TLS 1.3 - on every DEB/RPM build, where
+    // beast is the backend. The generic tls_server method plus an explicit
+    // floor is what the rest of the agent does, and it makes `tls version`
+    // and `allowed ciphers` mean the same here as on the NRPE and NSCA
+    // listeners.
+    long min_version = 0;
+    long max_version = 0;
+    std::string version_error;
+    if (!resolve_tls_range(tls_version_, min_version, max_version, version_error)) {
+      logger_->log_error(version_error + ". The WEB server has NOT been started.");
+      return;
+    }
+    ssl_ctx_ = std::make_unique<asio::ssl::context>(asio::ssl::context::tls_server);
     ssl_ctx_->set_options(asio::ssl::context::default_workarounds | asio::ssl::context::no_sslv2 | asio::ssl::context::no_sslv3 | asio::ssl::context::single_dh_use);
+    if (SSL_CTX_set_min_proto_version(ssl_ctx_->native_handle(), min_version) != 1 ||
+        SSL_CTX_set_max_proto_version(ssl_ctx_->native_handle(), max_version) != 1) {
+      logger_->log_error("Failed to apply tls version '" + tls_version_ + "': rejected by this OpenSSL build. The WEB server has NOT been started.");
+      ssl_ctx_.reset();
+      return;
+    }
+    if (!ciphers_.empty() && SSL_CTX_set_cipher_list(ssl_ctx_->native_handle(), ciphers_.c_str()) != 1) {
+      // Refuse rather than fall back: a cipher list that OpenSSL rejects
+      // leaves the default suite set in place, which is the opposite of what
+      // an operator narrowing it asked for.
+      logger_->log_error("Failed to apply the configured allowed ciphers: rejected by this OpenSSL build. The WEB server has NOT been started.");
+      ssl_ctx_.reset();
+      return;
+    }
     try {
       ssl_ctx_->use_certificate_chain(asio::buffer(cert_pem_));
       ssl_ctx_->use_private_key(asio::buffer(key_pem_), asio::ssl::context::pem);

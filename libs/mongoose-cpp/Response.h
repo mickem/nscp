@@ -98,6 +98,19 @@ class NSCP_MONGOOSE_EXPORT Response {
    */
   virtual std::string getCookie(std::string key) const;
 
+  /**
+   * Request-scoped state that is never serialized.
+   *
+   * The session layer records who authenticated, and the token when one was
+   * issued, so the permission check and the login routes can read it back on
+   * the way out. That used to ride in the cookie map, which meant every
+   * authenticated response carried a Set-Cookie for a session credential no
+   * request path ever reads back - the token stored twice, and a cookie that
+   * looks like a working session mechanism to whoever reads the code next.
+   */
+  virtual void setContext(std::string key, std::string value);
+  virtual std::string getContext(std::string key) const;
+
   typedef std::map<std::string, std::string> header_type;
   typedef std::map<std::string, std::pair<std::string, cookie_attrs>> cookie_type;
 
@@ -112,5 +125,6 @@ class NSCP_MONGOOSE_EXPORT Response {
   std::string reason;
   header_type headers;
   cookie_type cookies;
+  std::map<std::string, std::string> context;
 };
 }  // namespace Mongoose

@@ -104,23 +104,38 @@ TEST_F(SessionManagerTest, TokenGenerationAndValidation) {
   EXPECT_TRUE(smi.validate_token(token));
 }
 
-TEST_F(SessionManagerTest, StoreUserInResponseSetsCookies) {
+TEST_F(SessionManagerTest, StoreUserInResponseRecordsTheIdentity) {
+  // Request-scoped context, not cookies: emitted as Set-Cookie these were a
+  // second copy of the bearer on every authenticated response, which no
+  // request path ever reads back.
   Mongoose::StreamResponse resp;
   EXPECT_TRUE(smi.store_user_in_response("user", resp));
-  EXPECT_EQ(resp.getCookie("uid"), "user");
-  EXPECT_FALSE(resp.getCookie("token").empty());
+  EXPECT_EQ(resp.getContext("uid"), "user");
+  EXPECT_FALSE(resp.getContext("token").empty());
+  EXPECT_TRUE(resp.getCookie("token").empty()) << "the session credential must not be sent back as a cookie";
+  EXPECT_TRUE(resp.getCookie("uid").empty());
+}
+
+TEST_F(SessionManagerTest, StoreUserInResponseCanSkipMintingAToken) {
+  // The path every non-login route takes. can() authorises from the uid alone,
+  // so re-authenticating callers (an Icinga check_nscp_api poll) no longer add
+  // an entry to the 4096-slot store and evict live UI sessions.
+  Mongoose::StreamResponse resp;
+  EXPECT_TRUE(smi.store_user_in_response("user", resp, false));
+  EXPECT_EQ(resp.getContext("uid"), "user");
+  EXPECT_TRUE(resp.getContext("token").empty());
 }
 
 TEST_F(SessionManagerTest, StoreUserInResponseFailsClosedWhenCsprngFails) {
   // A CSPRNG failure must not produce a half-formed session: no token cookie,
-  // no uid cookie, and a false return so the caller refuses the request.
+  // no uid context, and a false return so the caller refuses the request.
   Mongoose::StreamResponse resp;
   token_store::set_rand_bytes_for_test([](unsigned char*, int) { return 0; });
   const bool stored = smi.store_user_in_response("user", resp);
   token_store::set_rand_bytes_for_test(nullptr);
   EXPECT_FALSE(stored);
-  EXPECT_TRUE(resp.getCookie("token").empty());
-  EXPECT_TRUE(resp.getCookie("uid").empty());
+  EXPECT_TRUE(resp.getContext("token").empty());
+  EXPECT_TRUE(resp.getContext("uid").empty());
 }
 
 TEST_F(SessionManagerTest, StoreSessionInResponseSetsCookies) {
@@ -129,8 +144,9 @@ TEST_F(SessionManagerTest, StoreSessionInResponseSetsCookies) {
   // up again from the token.
   Mongoose::StreamResponse resp;
   smi.store_session_in_response("validtoken", "user", resp);
-  EXPECT_EQ(resp.getCookie("token"), "validtoken");
-  EXPECT_EQ(resp.getCookie("uid"), "user");
+  EXPECT_EQ(resp.getContext("token"), "validtoken");
+  EXPECT_EQ(resp.getContext("uid"), "user");
+  EXPECT_TRUE(resp.getCookie("token").empty()) << "the session credential must not be sent back as a cookie";
 }
 
 TEST_F(SessionManagerTest, CanCheckPermissions) {
@@ -376,7 +392,9 @@ TEST_F(SessionManagerTest, ProcessAuthHeaderBasic) {
   req.get_headers()[HTTP_HDR_AUTH] = auth;
 
   EXPECT_TRUE(smi.process_auth_header("something:read", req, resp));
-  EXPECT_EQ(resp.getCookie("uid"), "user");
+  EXPECT_EQ(resp.getContext("uid"), "user");
+  // Basic auth on an ordinary route authenticates without minting a session.
+  EXPECT_TRUE(resp.getContext("token").empty());
 }
 
 // ============================================================================
@@ -459,7 +477,7 @@ TEST_F(SessionManagerTest, ProcessAuthHeaderBearer) {
   req.get_headers()[HTTP_HDR_AUTH] = auth;
 
   EXPECT_TRUE(smi.process_auth_header("something:read", req, resp));
-  EXPECT_EQ(resp.getCookie("token"), token);
+  EXPECT_EQ(resp.getContext("token"), token);
 }
 
 TEST_F(SessionManagerTest, IsLoggedInWithToken) {
@@ -469,5 +487,53 @@ TEST_F(SessionManagerTest, IsLoggedInWithToken) {
   req.get_headers()["TOKEN"] = token;
 
   EXPECT_TRUE(smi.is_logged_in("something:read", req, resp));
-  EXPECT_EQ(resp.getCookie("token"), token);
+  EXPECT_EQ(resp.getContext("token"), token);
+}
+
+// ============================================================================
+// Token minting is a login-route decision
+//
+// process_auth_header used to create an eight-hour token on every Basic or
+// `password`-header request, not only on the login routes. Each Icinga
+// check_nscp_api poll therefore made one: at the store's 4096-entry cap every
+// new login evicts the oldest live entry, so a host running 20 checks a minute
+// filled the store in about three and a half hours and then evicted the
+// operator's UI session within minutes. Any authenticated user of any role
+// could do the same on purpose with 4096 requests.
+// ============================================================================
+
+TEST_F(SessionManagerTest, RepeatedBasicAuthDoesNotFillTheTokenStore) {
+  Mongoose::Request req("127.0.0.1", false, "GET", "/", "", {}, "");
+  req.get_headers()[HTTP_HDR_AUTH] = "Basic " + Mongoose::Helpers::encode_b64("user:password");
+
+  for (int i = 0; i < 50; i++) {
+    Mongoose::StreamResponse resp;
+    ASSERT_TRUE(smi.is_logged_in("something:read", req, resp)) << "iteration " << i;
+    EXPECT_TRUE(resp.getContext("token").empty()) << "iteration " << i << " minted a session token";
+    EXPECT_EQ(resp.getContext("uid"), "user");
+  }
+}
+
+TEST_F(SessionManagerTest, TheLoginRouteStillMintsAToken) {
+  // log_in() is what GET /api/v2/login calls: handing a usable bearer back is
+  // the whole purpose of that route.
+  Mongoose::Request req("127.0.0.1", false, "GET", "/", "", {}, "");
+  Mongoose::StreamResponse resp;
+  req.get_headers()[HTTP_HDR_AUTH] = "Basic " + Mongoose::Helpers::encode_b64("user:password");
+
+  ASSERT_TRUE(smi.log_in("something:read", req, resp));
+  const std::string token = resp.getContext("token");
+  ASSERT_FALSE(token.empty());
+  EXPECT_TRUE(smi.validate_token(token)) << "the token handed back must be one the store accepts";
+}
+
+TEST_F(SessionManagerTest, ThePasswordHeaderDoesNotMintATokenEither) {
+  // The Icinga check_nscp_api convention: password only, user implied `admin`.
+  Mongoose::Request req("127.0.0.1", false, "GET", "/", "", {}, "");
+  Mongoose::StreamResponse resp;
+  req.get_headers()["password"] = "password";
+
+  smi.add_user("admin", "foo", "password");
+  ASSERT_TRUE(smi.is_logged_in("something:read", req, resp)) << "password-header auth should succeed";
+  EXPECT_TRUE(resp.getContext("token").empty());
 }
