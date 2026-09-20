@@ -10,6 +10,8 @@
 
 #include <gtest/gtest.h>
 
+#include <map>
+#include <memory>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/test_helpers.hpp>
 #include <string>
@@ -112,4 +114,61 @@ TEST_F(CheckMkModule, CommandLineExecOnlyHandlesItsOwnTargetMode) {
   PB::Commands::ExecuteResponseMessage response;
 
   EXPECT_FALSE(module_.commandLineExec(NSCAPI::target_any, request, response));
+}
+
+// ============================================================================
+// connection_data — what a target's settings turn into on the wire
+// ============================================================================
+
+namespace {
+
+client::destination_container check_mk_target_with(const std::map<std::string, std::string> &options) {
+  client::destination_container d;
+  for (const auto &o : options) d.set_string_data(o.first, o.second);
+  return d;
+}
+
+// Stands in for the module's own handler, whose expand_path goes through the
+// core. The prefix makes an expansion visible in the assertions.
+struct expanding_handler : socket_helpers::client::client_handler {
+  void log_debug(std::string, int, std::string) const override {}
+  void log_error(std::string, int, std::string) const override {}
+  std::string expand_path(std::string path) override { return "/expanded" + path; }
+};
+
+check_mk_client::connection_data check_mk_connection_for(const std::map<std::string, std::string> &options) {
+  return check_mk_client::connection_data(check_mk_target_with(options), client::destination_container(), std::make_shared<expanding_handler>());
+}
+
+}  // namespace
+
+TEST(CheckMkConnectionData, TheAgentIsVerifiedUnlessTheTargetSaysOtherwise) {
+  // An empty verify mode parses to verify_none, so "leave it unset" used to
+  // mean a TLS target encrypted the agent section without ever authenticating
+  // the agent it came from.
+  const check_mk_client::connection_data con = check_mk_connection_for({{"address", "agent.example.com"}});
+
+  EXPECT_EQ(con.ssl.verify_mode, "peer");
+  EXPECT_EQ(con.ssl.ca_path, "/expanded${ca-path}") << "the default CA is the agent's bundle, expanded through the handler";
+}
+
+TEST(CheckMkConnectionData, AnExplicitVerifyModeAndCaAreNotOverridden) {
+  EXPECT_EQ(check_mk_connection_for({{"address", "h"}, {"verify mode", "none"}}).ssl.verify_mode, "none")
+      << "an operator opting out of verification must still be honoured";
+  EXPECT_EQ(check_mk_connection_for({{"address", "h"}, {"ca", "/etc/ca.pem"}}).ssl.ca_path, "/expanded/etc/ca.pem");
+}
+
+TEST(CheckMkConnectionData, ABlankVerifyModeFallsBackToTheDefault) {
+  // `verify mode =` with nothing after it parses to verify_none, so a blank
+  // key must not be a quiet way to switch verification off - `none` is.
+  const check_mk_client::connection_data con = check_mk_connection_for({{"address", "h"}, {"verify mode", ""}, {"ca", ""}});
+
+  EXPECT_EQ(con.ssl.verify_mode, "peer");
+  EXPECT_EQ(con.ssl.ca_path, "/expanded${ca-path}");
+}
+
+TEST(CheckMkConnectionData, AMissingHandlerLeavesThePathsVerbatim) {
+  const check_mk_client::connection_data con(check_mk_target_with({{"address", "h"}}), client::destination_container());
+
+  EXPECT_EQ(con.ssl.ca_path, "${ca-path}");
 }

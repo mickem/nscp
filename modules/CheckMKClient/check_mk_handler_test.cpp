@@ -84,6 +84,30 @@ TEST(CheckMKTargetObject, ANewTargetGetsTheAgentDefaults) {
   EXPECT_EQ(target.get_property_int("retries", 0), 3);
 }
 
+TEST(CheckMKTargetObject, ANewTargetVerifiesTheAgentItCollectsFrom) {
+  // An empty verify mode parses to verify_none, so leaving it unset used to
+  // mean a TLS target encrypted the agent section without authenticating the
+  // agent it came from.
+  check_mk_handler::check_mk_target_object target("default", kTargetsPath);
+
+  EXPECT_EQ(target.get_property_string("verify mode"), "peer");
+  EXPECT_EQ(target.get_property_string("ca"), "${ca-path}") << "the macro, not a path: the settings layer expands it on read()";
+}
+
+TEST(CheckMKTargetObject, ReadAppliesTheSecureDefaultsWhenNothingIsConfigured) {
+  // The defaults are registered with the settings layer too, so an
+  // unconfigured target reads back verified - and `ca` goes through
+  // expand_path, which is what turns the macro into a bundle path.
+  auto settings = std::make_shared<fake_settings>();
+  settings->expand_prefix = "/expanded";
+
+  check_mk_handler::check_mk_target_object target("default", kTargetsPath);
+  target.read(settings, false, false);
+
+  EXPECT_EQ(target.get_property_string("verify mode"), "peer");
+  EXPECT_EQ(target.get_property_string("ca"), "/expanded${ca-path}");
+}
+
 TEST(CheckMKTargetObject, ReadPicksUpTheSslSettings) {
   auto settings = std::make_shared<fake_settings>();
   settings->values[kTargetPath] = {{"certificate", "/etc/ssl/client.pem"},

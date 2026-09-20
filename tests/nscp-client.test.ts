@@ -27,6 +27,11 @@ const PORT = 8444;
 describe("NSCP client (agent to agent)", () => {
   let server: NscpInstance;
   let client: NscpInstance;
+  // The CA the server's certificate is signed by. The client verifies the
+  // remote by default (`verify mode = peer`), so every query below has to say
+  // which anchor to trust - a real deployment points `ca` at its own CA, or at
+  // the agent's self-signed certificate with `verify mode = peer-cert`.
+  let caPath: string;
 
   /**
    * Run one query through NSCPClient against the agent above and return both
@@ -48,6 +53,7 @@ describe("NSCP client (agent to agent)", () => {
         "check_remote_nscp",
         `address=127.0.0.1:${PORT}`,
         `password=${password}`,
+        `ca=${caPath}`,
         ...args,
       ],
       { allowFailure: true },
@@ -60,13 +66,14 @@ describe("NSCP client (agent to agent)", () => {
     client = new NscpInstance();
 
     // The Linux build ships no default WEBServer certificate, so generate one
-    // and point the server at it explicitly. The client's default verify mode
-    // is `none`, which is what lets it talk to an agent's self-signed
-    // certificate at all.
+    // and point the server at it explicitly. The certificate carries
+    // DNS:localhost + IP:127.0.0.1 SANs, so it verifies against the address
+    // dialled below once `ca` names the CA that signed it.
     const certs = generateCertChain({
       outDir: server.scratch("certs"),
       signed: { server: { commonName: "localhost", isServer: true } },
     });
+    caPath = certs.ca.certPath;
 
     await server.configure({
       "/modules": {
@@ -196,6 +203,56 @@ describe("NSCP client (agent to agent)", () => {
     expect(code).toBe(3);
     expect(out).not.toMatch(/bad lexical cast|socket error/i);
     expect(out).not.toContain("all good");
+  });
+
+  // --- certificate verification ----------------------------------------------
+
+  it("refuses the remote agent when its certificate is not trusted", async () => {
+    // No ca=, so the default bundle is used and the test CA is not in it. The
+    // target's password must not reach a server that could not be
+    // authenticated.
+    const r = await client.run(
+      [
+        "client",
+        "--module",
+        "NSCPClient",
+        "--boot",
+        "--query",
+        "check_remote_nscp",
+        `address=127.0.0.1:${PORT}`,
+        `password=${PASSWORD}`,
+        "command=check_ok",
+        "argument=message=all good",
+      ],
+      { allowFailure: true },
+    );
+
+    expect(r.exitCode).toBe(3);
+    expect(r.all ?? `${r.stdout}\n${r.stderr}`).not.toContain("all good");
+  });
+
+  it("verify mode=none still reaches an agent with an untrusted certificate", async () => {
+    // The documented opt-out, for an agent still presenting the self-signed
+    // certificate it generates on first start.
+    const r = await client.run(
+      [
+        "client",
+        "--module",
+        "NSCPClient",
+        "--boot",
+        "--query",
+        "check_remote_nscp",
+        `address=127.0.0.1:${PORT}`,
+        `password=${PASSWORD}`,
+        "verify=none",
+        "command=check_ok",
+        "argument=message=all good",
+      ],
+      { allowFailure: true },
+    );
+
+    expect(r.exitCode).toBe(0);
+    expect(r.all ?? `${r.stdout}\n${r.stderr}`).toContain("all good");
   });
 
   // --- the transport itself --------------------------------------------------

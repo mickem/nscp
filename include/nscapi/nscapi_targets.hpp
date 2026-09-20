@@ -10,6 +10,21 @@
 
 namespace nscapi {
 namespace targets {
+
+// Defaults for the TLS keys `add_ssl_keys` registers on every target.
+//
+// An empty member means "register the key with no default", which is what the
+// shared helper has always done: the key shows up in the generated reference
+// and a configured value is read, but leaving it out leaves the property at
+// whatever the target object's constructor put there. A module that wants a
+// secure-by-default target fills these in instead, so the default is applied
+// by the settings layer - which matters for `ca`, whose default is a
+// ${ca-path} macro that only the settings layer expands.
+struct ssl_defaults {
+  std::string verify_mode;
+  std::string ca;
+};
+
 struct target_object : public nscapi::settings_objects::object_instance_interface {
   typedef nscapi::settings_objects::object_instance_interface parent;
 
@@ -21,7 +36,7 @@ struct target_object : public nscapi::settings_objects::object_instance_interfac
 
   NSCAPI_EXPORT virtual void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample);
 
-  NSCAPI_EXPORT void add_ssl_keys(nscapi::settings_helper::path_extension root_path);
+  NSCAPI_EXPORT void add_ssl_keys(nscapi::settings_helper::path_extension root_path, const ssl_defaults &defaults = ssl_defaults());
 
   NSCAPI_EXPORT virtual void translate(const std::string &key, const std::string &new_value);
 };

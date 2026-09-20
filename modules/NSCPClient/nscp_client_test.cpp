@@ -82,8 +82,33 @@ TEST(NscpConnectionData, CipherAndVerifyDefaultsAreTheDocumentedOnes) {
   const nscp_client::connection_data con = connection_for({{"address", "h"}});
 
   EXPECT_EQ(con.ssl.allowed_ciphers, "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH") << "the cipher list that excludes anonymous and export suites";
-  EXPECT_EQ(con.ssl.verify_mode, "none");
   EXPECT_EQ(con.ssl.certificate_key_format, "PEM");
+}
+
+TEST(NscpConnectionData, TheServerIsVerifiedUnlessTheTargetSaysOtherwise) {
+  // The target carries a password to the remote agent's REST API, so an
+  // unauthenticated peer hands that password to whoever answers for the
+  // address. An empty verify mode parses to verify_none, so the default has to
+  // be a real mode rather than "unset".
+  const nscp_client::connection_data con = connection_for({{"address", "h"}});
+
+  EXPECT_EQ(con.ssl.verify_mode, "peer");
+  EXPECT_EQ(con.ssl.ca_path, "/expanded${ca-path}") << "the default CA is the agent's bundle, expanded through the handler";
+}
+
+TEST(NscpConnectionData, AnExplicitVerifyModeAndCaAreNotOverridden) {
+  // Opting out, and the self-signed case, both have to keep working.
+  EXPECT_EQ(connection_for({{"address", "h"}, {"verify mode", "none"}}).ssl.verify_mode, "none");
+  EXPECT_EQ(connection_for({{"address", "h"}, {"ca", "/etc/ca.pem"}}).ssl.ca_path, "/expanded/etc/ca.pem");
+}
+
+TEST(NscpConnectionData, ABlankVerifyModeFallsBackToTheDefault) {
+  // `verify mode =` with nothing after it parses to verify_none, so a blank
+  // key must not be a quiet way to switch verification off - `none` is.
+  const nscp_client::connection_data con = connection_for({{"address", "h"}, {"verify mode", ""}, {"ca", ""}});
+
+  EXPECT_EQ(con.ssl.verify_mode, "peer");
+  EXPECT_EQ(con.ssl.ca_path, "/expanded${ca-path}");
 }
 
 TEST(NscpConnectionData, TlsMaterialIsCarriedAndPathsExpanded) {
@@ -91,7 +116,7 @@ TEST(NscpConnectionData, TlsMaterialIsCarriedAndPathsExpanded) {
       connection_for({{"address", "h"}, {"certificate key", "${certificate-path}/key.pem"}, {"ca", "/etc/ca.pem"}, {"verify mode", "peer-cert"}});
 
   EXPECT_EQ(con.ssl.certificate_key, "/expanded${certificate-path}/key.pem") << "the handler resolves ${...} tokens";
-  EXPECT_EQ(con.ssl.ca_path, "/etc/ca.pem");
+  EXPECT_EQ(con.ssl.ca_path, "/expanded/etc/ca.pem");
   EXPECT_EQ(con.ssl.verify_mode, "peer-cert");
 }
 
@@ -174,7 +199,8 @@ TEST(NscpTargetObject, ConstructorSetsTlsDefaults) {
   EXPECT_EQ(obj.get_property_int("timeout", 0), 30);
   EXPECT_EQ(obj.get_property_string("certificate format"), "PEM");
   EXPECT_EQ(obj.get_property_string("allowed ciphers"), "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
-  EXPECT_EQ(obj.get_property_string("verify mode"), "none");
+  EXPECT_EQ(obj.get_property_string("verify mode"), "peer") << "a target verifies the agent it forwards its password to";
+  EXPECT_EQ(obj.get_property_string("ca"), "${ca-path}") << "the macro, not a path: the settings layer expands it on read()";
   EXPECT_EQ(obj.get_property_string("password"), "");
 }
 
@@ -191,6 +217,19 @@ TEST(NscpTargetObject, ReadAppliesConfiguredSettings) {
   EXPECT_EQ(obj.get_property_string("password"), "s3cret");
   EXPECT_EQ(obj.get_property_string("verify mode"), "peer-cert");
   EXPECT_TRUE(obj.get_property_bool("ssl", false)) << "'use ssl' maps to the 'ssl' property";
+}
+
+TEST(NscpTargetObject, ReadAppliesTheSecureDefaultsWhenNothingIsConfigured) {
+  // The defaults are registered with the settings layer rather than only set
+  // on the object, so an unconfigured target still reads back verified - and
+  // `ca` comes back expanded, because it is registered as a path key.
+  auto proxy = std::make_shared<mock_settings>();
+
+  nscp_handler::nrpe_target_object obj("default", kBasePath);
+  obj.read(proxy, false, false);
+
+  EXPECT_EQ(obj.get_property_string("verify mode"), "peer");
+  EXPECT_EQ(obj.get_property_string("ca"), "${ca-path}") << "mock_settings::expand_path is the identity";
 }
 
 TEST(NscpTargetObject, TranslateDelegatesToParent) {

@@ -2179,9 +2179,42 @@ describe("CheckNet commands", () => {
       // /api/v1/info reachability probe.
       res.end(JSON.stringify({ version: "test", name: "mock" }));
     }, serverCert);
+    // ca= is what makes the default verify=peer succeed against the test CA;
+    // the check sends the remote agent's password, so it verifies by default.
     const q = await executeQuery(key, "check_nsclient_web_online", {
       url: `https://127.0.0.1:${s.port}`,
       password: "irrelevant",
+      ca: caCert.certPath,
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/reachable/i);
+  });
+
+  it("check_nsclient_web_online refuses an untrusted certificate by default", async () => {
+    // No ca=, so the agent's own bundle is used and the test CA is not in it.
+    // The password must not reach a server that could not be authenticated.
+    const s = await startHttp((req, res) => {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ version: "test", name: "mock" }));
+    }, serverCert);
+    const q = await executeQuery(key, "check_nsclient_web_online", {
+      url: `https://127.0.0.1:${s.port}`,
+      password: "irrelevant",
+    });
+    expect(q.result).toBe(CRITICAL);
+  });
+
+  it("check_nsclient_web_online verify=none still reaches an unverified agent", async () => {
+    // The documented opt-out for an agent still presenting the self-signed
+    // certificate it generates on first start.
+    const s = await startHttp((req, res) => {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ version: "test", name: "mock" }));
+    }, serverCert);
+    const q = await executeQuery(key, "check_nsclient_web_online", {
+      url: `https://127.0.0.1:${s.port}`,
+      password: "irrelevant",
+      verify: "none",
     });
     expect(q.result).toBe(OK);
     expect(messageOf(q)).toMatch(/reachable/i);
@@ -2201,6 +2234,7 @@ describe("CheckNet commands", () => {
       url: `https://127.0.0.1:${s.port}`,
       password: "irrelevant",
       command: "check_ok",
+      ca: caCert.certPath,
     });
     expect(q.result).toBe(OK);
     expect(messageOf(q)).toMatch(/remote all good/);

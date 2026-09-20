@@ -41,18 +41,43 @@ void nscapi::targets::target_object::read(nscapi::settings_helper::settings_impl
   settings.notify();
 }
 
-void nscapi::targets::target_object::add_ssl_keys(nscapi::settings_helper::path_extension root_path) {
-  root_path.add_key()
-      .add_string("dh", sh::path_fun_key([this](auto key) { this->set_property_string("dh", key); }), "DH KEY", "", true)
+void nscapi::targets::target_object::add_ssl_keys(nscapi::settings_helper::path_extension root_path, const ssl_defaults &defaults) {
+  sh::settings_keys_easy_init keys = root_path.add_key();
+  keys.add_string("dh", sh::path_fun_key([this](auto key) { this->set_property_string("dh", key); }), "DH KEY", "", true)
       .add_string("certificate", sh::path_fun_key([this](auto key) { this->set_property_string("certificate", key); }), "SSL CERTIFICATE", "", false)
       .add_string("certificate key", sh::path_fun_key([this](auto key) { this->set_property_string("certificate key", key); }), "SSL CERTIFICATE", "", true)
       .add_string("certificate format", sh::string_fun_key([this](auto key) { this->set_property_string("certificate format", key); }), "CERTIFICATE FORMAT",
-                  "", true)
-      .add_string("ca", sh::path_fun_key([this](auto key) { this->set_property_string("ca", key); }), "CA", "", true)
-      .add_string("allowed ciphers", sh::string_fun_key([this](auto key) { this->set_property_string("allowed ciphers", key); }), "ALLOWED CIPHERS",
-                  "A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH", false)
-      .add_string("verify mode", sh::string_fun_key([this](auto key) { this->set_property_string("verify mode", key); }), "VERIFY MODE", "", false)
-      .add_bool("use ssl", sh::bool_fun_key([this](auto key) { this->set_property_bool("ssl", key); }), "ENABLE SSL ENCRYPTION",
+                  "", true);
+
+  // path_fun_key (not string_fun_key) so a ${ca-path} default - or a
+  // configured value written as a macro - is expanded by the settings layer
+  // before it reaches OpenSSL. The literal "${ca-path}" would otherwise fail
+  // the load with "Failed to load CA ${ca-path}".
+  const std::string ca_description =
+      defaults.ca.empty() ? std::string("Certificate authority the server certificate is verified against.")
+                          : std::string("Certificate authority the server certificate is verified against. Defaults to " + defaults.ca +
+                                        " (the auto-generated system ROOT bundle on Windows, the distribution bundle elsewhere).");
+  if (defaults.ca.empty())
+    keys.add_string("ca", sh::path_fun_key([this](auto key) { this->set_property_string("ca", key); }), "CA", ca_description, true);
+  else
+    keys.add_string("ca", sh::path_fun_key([this](auto key) { this->set_property_string("ca", key); }, defaults.ca), "CA", ca_description, true);
+
+  keys.add_string("allowed ciphers", sh::string_fun_key([this](auto key) { this->set_property_string("allowed ciphers", key); }), "ALLOWED CIPHERS",
+                  "A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH", false);
+
+  const std::string verify_description =
+      "How to verify the server certificate. Comma separated list of options: none, peer (or certificate), peer-cert, fail-if-no-cert (or "
+      "fail-if-no-peer-cert, client-certificate). For a self signed certificate use peer-cert and point `ca` at that certificate; none leaves the "
+      "connection encrypted but the server unauthenticated, so an on-path attacker can impersonate it undetected." +
+      (defaults.verify_mode.empty() ? std::string() : std::string(" Defaults to ") + defaults.verify_mode + ".");
+  if (defaults.verify_mode.empty())
+    keys.add_string("verify mode", sh::string_fun_key([this](auto key) { this->set_property_string("verify mode", key); }), "VERIFY MODE",
+                    verify_description, false);
+  else
+    keys.add_string("verify mode", sh::string_fun_key([this](auto key) { this->set_property_string("verify mode", key); }, defaults.verify_mode),
+                    "VERIFY MODE", verify_description, false);
+
+  keys.add_bool("use ssl", sh::bool_fun_key([this](auto key) { this->set_property_bool("ssl", key); }), "ENABLE SSL ENCRYPTION",
                 "This option controls if SSL should be enabled.");
 }
 
