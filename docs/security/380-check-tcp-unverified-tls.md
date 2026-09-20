@@ -1,6 +1,6 @@
 ---
 title: "check_tcp completed TLS handshakes without verifying the server certificate"
-fixed_in: next
+fixed_in: 0.22.0
 severity: "Low"
 modules: [CheckNet]
 action: conditional

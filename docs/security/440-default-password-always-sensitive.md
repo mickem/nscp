@@ -1,6 +1,6 @@
 ---
 title: "The shared default password is always treated as sensitive"
-fixed_in: next
+fixed_in: 0.22.0
 severity: "Low"
 modules: [core]
 action: none

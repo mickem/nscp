@@ -1,6 +1,6 @@
 ---
 title: "Web server and web UI: identity metadata, log buffer, logout and bundle staging"
-fixed_in: next
+fixed_in: 0.22.0
 severity: "Medium"
 modules: [WEBServer, NSCPClient]
 action: conditional

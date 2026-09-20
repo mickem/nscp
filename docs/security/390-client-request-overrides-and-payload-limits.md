@@ -1,6 +1,6 @@
 ---
 title: "Outbound clients: transport and recipient overrides, CA error text, payload length"
-fixed_in: next
+fixed_in: 0.22.0
 severity: "Low"
 modules: [NRDPClient, NRPEClient, NSCAClient, NSCANgClient, IcingaClient, SMTPClient, GraphiteClient, CheckNet]
 action: conditional
