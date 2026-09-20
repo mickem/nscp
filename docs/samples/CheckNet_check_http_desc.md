@@ -31,8 +31,13 @@ a specific backend by IP).
 one check can cover both reachability and expiry:
 
 ```
-check_http url=https://example.com "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 7"
+check_http url=https://example.com "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 7" "detail-syntax=${url} cert expires in ${ssl_expiry_days} days"
 ```
+
+Render the keyword you threshold on. The default `detail-syntax` reports the
+HTTP outcome (`${url} -> ${code} ${result} (${size}B in ${time}ms)`), so a
+certificate threshold on its own turns the check CRITICAL while the message
+still reads `-> 200 ok` and never mentions the certificate.
 
 On a plain `http` URL there is no certificate, so `ssl_expiry_days` renders as
 `no certificate` and **every numeric comparison against it is false** — a
@@ -57,7 +62,7 @@ index into arrays, and a segment containing a literal dot can be single-quoted.
 This turns a health endpoint into a real check rather than a 200-or-not probe:
 
 ```
-check_http url=https://api.example.com/health json-path=qlen:data.queue.length "crit=qlen > 100"
+check_http url=https://api.example.com/health json-path=qlen:data.queue.length "crit=qlen > 100" "detail-syntax=${url} ${result} qlen=${qlen}"
 ```
 
 ##### Certificate identity and required names
@@ -83,7 +88,7 @@ the default `critical` filter already alerts on — and names it in
 `www.example.com` but not `example.com` itself.
 
 ```
-check_http url=https://www.example.com/ sans=example.com,www.example.com
+check_http url=https://www.example.com/ sans=example.com,www.example.com "detail-syntax=${url} ${result} code=${code} missing=[${missing_sans}]"
 ```
 
 All of these describe the **last** hop: with `onredirect=follow`, an https hop

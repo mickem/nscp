@@ -138,10 +138,13 @@ check_tcp host=secure.example.com port=443 ssl=true verify=peer ca=/etc/ssl/cert
 check_tcp host=secure.example.com port=443 ssl=true tls-version=tlsv1.2+
 ```
 
-**Match the peer's banner/response** with a regex via the `response` keyword:
+**Match the peer's banner/response** with a regex via the `response` keyword.
+`regexp` is a **full** match, so the pattern must cover the whole banner, and
+`detail-syntax` has to render `${response}` for the alert to show what was
+rejected (the default detail line only carries `result` and `time`):
 
 ```
-check_tcp host=mail.example.com port=25 "crit=response not regexp '^220'"
+check_tcp host=mail.example.com port=25 "crit=response not regexp '220.*'" "detail-syntax=${host}:${port} ${result} greeting=[${response}]"
 ```
 
 **Via NRPE:**
@@ -273,16 +276,21 @@ check_http url=https://myapp.example.com/api method=POST post-data="ping=1" cont
 check_http url=http://myapp.example.com/ onredirect=follow
 ```
 
-**Accept a set of status codes / match the body with a regex** (via the `code` and `body` keywords):
+**Accept a set of status codes / match the body with a regex** (via the `code`
+and `body` keywords). `regexp` is a **full** match, so a body pattern needs the
+surrounding `.*`; for a plain substring use `expected-body=`, which sets
+`result=no_match` and shows up in the default output:
 
 ```
-check_http url=https://myapp.example.com/ "warn=code not in (200,301,302)" "crit=body not regexp 'Welcome'"
+check_http url=https://myapp.example.com/ "warn=code not in (200,301,302)" "crit=body not regexp '.*Welcome.*'"
+check_http url=https://myapp.example.com/ expected-body="Welcome"
 ```
 
-**Warn before the TLS certificate expires** (`ssl_expiry_days`):
+**Warn before the TLS certificate expires** (`ssl_expiry_days`). Render the
+keyword you threshold on, or the alert reports only the HTTP result:
 
 ```
-check_http url=https://myapp.example.com/ "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 7"
+check_http url=https://myapp.example.com/ "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 7" "detail-syntax=${url} cert expires in ${ssl_expiry_days} days"
 ```
 
 **Verify the certificate and control the TLS version.** By default `check_http`

@@ -11,8 +11,14 @@ LDAPS, IMAPS, SMTPS, RDP, a database listener, or anything else that speaks TLS
 on a port:
 
 ```
-check_tcp host=ldap.example.com port=636 ssl=true "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 10"
+check_tcp host=ldap.example.com port=636 ssl=true "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 10" "detail-syntax=${host}:${port} cert expires in ${ssl_expiry_days} days"
 ```
+
+The `detail-syntax` is not decoration. The default one renders
+`${host}:${port} ${result} in ${time}ms`, and `result` is the *connection*
+outcome — so without it a certificate threshold flips the check to CRITICAL
+while the message still reads `ok in 10ms` and never names the certificate.
+Render the keyword you threshold on, and the alert explains itself.
 
 Two details worth knowing.
 
@@ -29,7 +35,7 @@ count and fires as it should. Test for the no-certificate state explicitly with
 the string form, or with `has_certificate`:
 
 ```
-check_tcp host=mail.example.com port=993 ssl=true "crit=ssl_expiry_days < 30 or ssl_expiry_days = 'no certificate'"
+check_tcp host=mail.example.com port=993 ssl=true "crit=ssl_expiry_days < 30 or ssl_expiry_days = 'no certificate'" "detail-syntax=${host}:${port} ${result} cert=${has_certificate} days=${ssl_expiry_days}"
 ```
 
 > **Upgrading.** `ssl_expiry_days` used to report `-1` for a connection with no
@@ -78,7 +84,7 @@ the `sans=` option below) instead. Alerting on an unexpected issuer catches a
 renewal that silently moved to a different CA:
 
 ```
-check_tcp host=secure.example.com port=443 ssl=true "crit=cert_issuer_cn != 'R11'"
+check_tcp host=secure.example.com port=443 ssl=true "crit=cert_issuer_cn != 'R11'" "detail-syntax=${host}:${port} issuer=${cert_issuer_cn}"
 ```
 
 `cert_verify` is recorded **even at the default `verify=none`**: OpenSSL walks
@@ -104,7 +110,7 @@ through subjectAltName. A name that is missing sets `result` to `san_missing`
 and lists what was missing in `missing_sans`:
 
 ```
-check_tcp host=secure.example.com port=443 ssl=true sans=example.com,www.example.com
+check_tcp host=secure.example.com port=443 ssl=true sans=example.com,www.example.com "detail-syntax=${host}:${port} ${result} missing=[${missing_sans}]"
 ```
 
 Matching follows RFC 6125: a `*.example.com` entry covers `www.example.com`
@@ -125,7 +131,7 @@ to the host connected to, so it is only needed when those differ — reaching a
 virtual host by IP, or checking one name on a shared listener:
 
 ```
-check_tcp host=10.0.0.5 port=443 ssl=true verify=peer ca=/etc/ssl/certs sni=www.example.com
+check_tcp host=10.0.0.5 port=443 ssl=true verify=peer ca=/etc/ssl/certs sni=www.example.com "detail-syntax=${host}:${port} ${result} cn=${cert_cn} verify=${cert_verify}"
 ```
 
 Because it drives verification too, a name the certificate does not carry fails
@@ -140,9 +146,9 @@ protocol's own upgrade negotiation first, then checks the certificate exactly
 as usual:
 
 ```
-check_tcp host=mail.example.com starttls=smtp "warn=ssl_expiry_days < 30"
-check_tcp host=ldap.example.com starttls=ldap "crit=ssl_expiry_days < 10"
-check_tcp host=db.example.com   starttls=postgres sans=db.example.com
+check_tcp host=mail.example.com starttls=smtp "warn=ssl_expiry_days < 30" "detail-syntax=${host}:${port} ${result} days=${ssl_expiry_days}"
+check_tcp host=ldap.example.com starttls=ldap "crit=ssl_expiry_days < 10" "detail-syntax=${host}:${port} ${result} days=${ssl_expiry_days}"
+check_tcp host=db.example.com   starttls=postgres sans=db.example.com "detail-syntax=${host}:${port} ${result} missing=[${missing_sans}]"
 ```
 
 Supported protocols, with the plaintext port each defaults to:
@@ -192,6 +198,6 @@ in OpenSSL's `-CApath` layout. `/etc/ssl/certs` is a directory on every
 distribution, so both of these work:
 
 ```
-check_tcp host=secure.example.com port=443 ssl=true verify=peer ca=/etc/ssl/certs/ca-certificates.crt
-check_tcp host=secure.example.com port=443 ssl=true verify=peer ca=/etc/ssl/certs
+check_tcp host=secure.example.com port=443 ssl=true verify=peer ca=/etc/ssl/certs/ca-certificates.crt "detail-syntax=${host}:${port} ${result} verify=${cert_verify}"
+check_tcp host=secure.example.com port=443 ssl=true verify=peer ca=/etc/ssl/certs "detail-syntax=${host}:${port} ${result} verify=${cert_verify}"
 ```
