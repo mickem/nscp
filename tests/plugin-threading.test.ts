@@ -354,23 +354,10 @@ describe("plugin threading", () => {
             },
           }
         : {}),
-      // The generated scripts live in this test's scratch directory, not under
-      // ${scripts}, and a configured script has to sit inside an allowed root
-      // to load. Naming the scratch directory is the supported way to run a
-      // script the agent does not own, and is what an operator does for a
-      // vendor plugin under /usr/lib/nagios/plugins.
-      "/settings/lua": {
-        "additional script roots": scriptDir,
-      },
       "/settings/lua/scripts": {
         threading: luaScript,
       },
-      ...(hasPythonScript
-        ? {
-            "/settings/python": { "additional script roots": scriptDir },
-            "/settings/python/scripts": { threading: pyScript },
-          }
-        : {}),
+      ...(hasPythonScript ? { "/settings/python/scripts": { threading: pyScript } } : {}),
     });
 
     await nscp.waitForPortFree(NRPE_PORT, { timeoutMs: 30_000 });

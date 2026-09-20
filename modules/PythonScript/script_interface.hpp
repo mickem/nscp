@@ -7,7 +7,6 @@
 #include <memory>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/settings/proxy.hpp>
-#include <nscp/script_roots.hpp>
 #include <string>
 
 struct script_provider_interface {
@@ -15,11 +14,6 @@ struct script_provider_interface {
   virtual unsigned int get_id() = 0;
   virtual nscapi::core_wrapper* get_core() = 0;
   virtual std::shared_ptr<nscapi::settings_proxy> get_settings_proxy() = 0;
-
-  // The folders a configured script may be loaded from. Set once the settings
-  // walk has read them and before any script is added, since this is what
-  // gates add_command.
-  virtual void set_allowed_roots(nscp::scripts::allowed_roots roots) = 0;
 
   virtual boost::filesystem::path get_root() = 0;
   virtual boost::optional<boost::filesystem::path> find_file(std::string file) = 0;

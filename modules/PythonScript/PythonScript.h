@@ -13,16 +13,11 @@
 #include <vector>
 
 #include "boost_python_wrapper.hpp"
-#include <nscp/script_roots.hpp>
-
 #include "script_interface.hpp"
 
 class PythonScript : public nscapi::impl::simple_plugin {
  private:
   boost::filesystem::path root_;
-  // Folders a configured script may be loaded from: ${scripts} plus whatever
-  // the operator adds for scripts the agent does not own.
-  nscp::scripts::allowed_roots allowed_roots_;
   std::string alias_;
 
   std::shared_ptr<script_provider_interface> provider_;
@@ -54,9 +49,6 @@ class PythonScript : public nscapi::impl::simple_plugin {
  private:
   // Settings callback: records the script for `load_pending_scripts()`.
   void loadScript(std::string alias, std::string script);
-  // Split a comma separated setting and add each entry as a root, expanding
-  // path tokens per entry rather than for the list as a whole.
-  void add_script_roots(const std::string &value);
   // Loads what the settings walk recorded. Called once the interpreter is up.
   void load_pending_scripts();
 };

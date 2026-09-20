@@ -9,7 +9,6 @@
 #include <lua/lua_script.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
-#include <nscp/script_roots.hpp>
 #include <scripts/script_interface.hpp>
 #include <scripts/script_nscp.hpp>
 
@@ -20,9 +19,6 @@ class LUAScript : public nscapi::impl::simple_plugin {
   std::shared_ptr<lua::lua_runtime> lua_runtime_;
   std::shared_ptr<scripts::nscp::nscp_runtime_impl> nscp_runtime_;
   boost::filesystem::path root_;
-  // Folders a configured script may be loaded from: ${scripts} plus
-  // whatever the operator adds for scripts the agent does not own.
-  nscp::scripts::allowed_roots allowed_roots_;
 
  public:
   LUAScript() {}
@@ -30,10 +26,6 @@ class LUAScript : public nscapi::impl::simple_plugin {
   // Module calls
   bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
   bool startModule();
-  // Split a comma separated setting and add each entry as a root, expanding
-  // path tokens per entry - ${...} is resolved for each folder, not for the
-  // list as a whole.
-  void add_script_roots(const std::string &value);
 
   bool unloadModule();
   void query_fallback(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,

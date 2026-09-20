@@ -48,17 +48,6 @@ void script_provider::add_command(std::string script_alias, std::string script, 
       get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to find script: " + script);
       return;
     }
-    // The search ends with the value joined onto the script folder, which does
-    // not stop it climbing back out: `../foo.py` resolves to ${scripts}/../foo.py
-    // and would otherwise load from the installation directory. The ext-scr CLI
-    // has always held show/delete inside the script root; this is the same check
-    // on the path that actually runs code.
-    if (!allowed_roots_.allows(ofile.value())) {
-      get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__,
-                      "Refusing to load script outside the allowed roots: " + ofile.value().string() + " (allowed: " + allowed_roots_.describe() +
-                          "). Add its folder to 'additional script roots' under the python section if it belongs there.");
-      return;
-    }
     std::string script_file = ofile.value().string();
     get_core()->log(NSCAPI::log_level::debug, __FILE__, __LINE__, "Adding script: " + script_alias + " (" + script_file + ")");
 
