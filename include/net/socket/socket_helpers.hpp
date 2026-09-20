@@ -21,6 +21,38 @@
 #include <utility>
 
 namespace socket_helpers {
+
+// Everything a certificate check reports about the peer's certificate, read
+// once straight after the handshake. Gathered in one struct because each field
+// costs another trip through the X509 and the caller wants all of them.
+//
+// Declared outside the USE_SSL guard because it is plain data: the socket
+// abstractions that hand it out are compiled with and without OpenSSL, and a
+// build without it simply never fills one in.
+struct peer_certificate {
+  // Whole days until notAfter, negative once expired. Same value and same
+  // flooring as peer_certificate_expiry_days(), which shares its implementation.
+  // none when notAfter could not be read - a certificate whose date does not
+  // parse has no day count, and must not be reported as 0.
+  boost::optional<long> expiry_days;
+  // Subject and issuer as RFC 2253 strings, e.g. `CN=www.example.com,O=Acme`.
+  std::string subject;
+  std::string issuer;
+  // The commonName component of each, or empty when the DN carries none.
+  // Modern certificates identify the host through SANs, so an empty
+  // subject_cn is normal and not an error.
+  std::string subject_cn;
+  std::string issuer_cn;
+  // subjectAltName entries, rendered as the `DNS:`/`IP:` forms openssl prints.
+  // Only dNSName and iPAddress are kept: they are the two a monitoring check
+  // can assert on.
+  std::list<std::string> sans;
+  // Subject equals issuer. A self-signed certificate is not necessarily a
+  // problem (an internal CA root is one), which is why this is reported rather
+  // than judged.
+  bool self_signed = false;
+};
+
 #ifdef USE_SSL
 // Generate a self-signed certificate and write it to `cert`.
 //
@@ -390,6 +422,14 @@ NSCP_NET_EXPORT long tls_min_version_parser(const std::string& tls_version);
 NSCP_NET_EXPORT void apply_tls_min_version(boost::asio::ssl::context& ctx, const std::string& tls_version);
 NSCP_NET_EXPORT boost::asio::ssl::verify_mode verify_mode_parser(const std::string& verify_mode);
 
+// Point a context at a trust anchor: a PEM bundle *file* or a hashed
+// certificate *directory* (OpenSSL's -CApath layout). Which one is decided by
+// what is on disk, so operators can hand either to a `ca` option - a directory
+// is what every distribution actually ships (/etc/ssl/certs), and
+// load_verify_file() on one fails with an opaque OpenSSL error. An empty path
+// or the literal "none" is a no-op. Throws socket_exception on failure.
+NSCP_NET_EXPORT void load_verify_location(boost::asio::ssl::context& ctx, const std::string& ca);
+
 // Whole days until the peer's certificate expires, negative once it already
 // has. Returns none when the peer presented no certificate at all, so a caller
 // can tell that apart from "expired a day ago" - collapsing both to -1 loses a
@@ -424,6 +464,47 @@ NSCP_NET_EXPORT pinned_certificate parse_pinned_certificate(const std::string& p
 // SPKI SHA-256 of an X509, in the same form parse_pinned_certificate produces.
 // Empty when the digest cannot be computed.
 NSCP_NET_EXPORT std::string certificate_spki_sha256(X509* cert);
+
+// Read one certificate's details. The borrowed certificate is only read; the
+// caller keeps ownership.
+//
+// Separate from peer_certificate_details() because of WHEN each is available.
+// SSL_get_peer_certificate() returns a certificate only once the chain has
+// VERIFIED: under a verifying mode, a certificate that is expired, self-signed
+// or issued by an unknown CA aborts the handshake before OpenSSL stores it, so
+// reading it afterwards says nothing about the certificate that was rejected -
+// which is the one worth reporting. A verify callback runs before that
+// decision and is handed the certificate, so it can capture the details here.
+NSCP_NET_EXPORT boost::optional<peer_certificate> certificate_details(const X509* certificate);
+
+// Read the peer's certificate details. none when there is no peer certificate
+// (a plain connection, a peer that presented none, or a handshake that failed
+// verification before OpenSSL stored one - see certificate_details), which the
+// caller must keep distinct from an expired one - see
+// peer_certificate_expiry_days.
+NSCP_NET_EXPORT boost::optional<peer_certificate> peer_certificate_details(SSL* ssl);
+
+// OpenSSL's verdict on the chain, as the human-readable string behind
+// SSL_get_verify_result: "ok" when the chain verified, otherwise the reason
+// ("unable to get local issuer certificate", "certificate has expired", ...).
+//
+// The verdict is recorded whether or not `verify` was on: with verification
+// off OpenSSL still walks the chain and stores the result, it just does not
+// fail the handshake over it. That is what lets a check report *why* a chain
+// is untrusted without refusing to connect - and why this string alone must
+// never be read as "the peer is authenticated". Only the handshake succeeding
+// under a verifying mode means that.
+NSCP_NET_EXPORT std::string peer_verify_result(SSL* ssl);
+
+// True when that verdict is X509_V_OK.
+//
+// Only meaningful after a handshake that SUCCEEDED. After one that failed it
+// is ambiguous: OpenSSL reports X509_V_OK both when the chain was fine and
+// something else broke, and when verification never ran at all - a reset, a
+// timeout, a rejected TLS version. A caller handling a failed handshake can
+// use it to tell "no chain reason to report" from a real one, but must never
+// read it as "the peer verified".
+NSCP_NET_EXPORT bool peer_verify_ok(SSL* ssl);
 #endif
 
 namespace io {
