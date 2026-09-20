@@ -40,7 +40,6 @@ nsclient.ini: |
   [/settings/NRPE/server]
   certificate key = ${certificate-path}/certificate_key.pem
   insecure = false
-  tls version = tlsv1.2+
   verify mode = peer-cert
 
   [/settings/WEB/server]

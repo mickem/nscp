@@ -728,6 +728,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
       nrpe_security.has_verify_mode = settings_manager::get_settings()->has_key("/settings/NRPE/server", "verify mode");
       nrpe_security.insecure = settings_manager::get_settings()->get_string("/settings/NRPE/server", "insecure", "");
       nrpe_security.verify_mode = settings_manager::get_settings()->get_string("/settings/NRPE/server", "verify mode", "");
+      nrpe_security.section_has_keys = !settings_manager::get_settings()->get_keys("/settings/NRPE/server").empty();
       h.logMessage(L"Old NRPE insecure: " + utf8::cvt<std::wstring>(nrpe_security.insecure));
       h.logMessage(L"Old NRPE verify: " + utf8::cvt<std::wstring>(nrpe_security.verify_mode));
 
@@ -744,7 +745,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
       } else {
         h.logMessage(L"Recording NRPE mode: key=" + utf8::cvt<std::wstring>(nrpe_props.key) + L", default=" +
                      utf8::cvt<std::wstring>(nrpe_props.default_) +
-                     (detected == installer::nrpe::mode::custom ? L" (configured as neither preset, leaving it alone)" : L""));
+                     (installer::nrpe::preset_may_be_applied(detected) ? L"" : L" (already configured, leaving it alone)"));
         h.setPropertyKeyAndDefault(NRPEMODE, utf8::cvt<std::wstring>(nrpe_props.key), utf8::cvt<std::wstring>(nrpe_props.default_));
       }
     }
@@ -897,6 +898,21 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
     data.write_string(h.getMsiPropery(L"TLS_VERIFY_MODE"));
     data.write_string(h.getMsiPropery(L"TLS_CA"));
 
+    // The NRPE transport-security preset is decided by ExecWriteConfig, not
+    // here: only the deferred half has the configuration loaded, and whether a
+    // preset would overwrite something the operator configured is a question
+    // about that configuration (#1558). This action contributes the one thing
+    // the configuration cannot answer - whether a mode was asked for - and the
+    // mode to apply if so. An empty mode means "leave NRPE alone entirely",
+    // which is what an install with the NRPE server switched off wants.
+    const std::wstring nrpe_mode = h.getProperyKey(CONF_NRPE) == L"1" ? h.getProperyKey(NRPEMODE) : std::wstring();
+    const bool nrpe_asked = installer::nrpe::asked_for_mode(utf8::cvt<std::string>(boost::algorithm::trim_copy(h.getProperyValue(NRPEMODE))),
+                                                            utf8::cvt<std::string>(h.getProperyDefault(NRPEMODE)),
+                                                            utf8::cvt<std::string>(h.getProperyKey(NRPEMODE)));
+    h.logMessage(L"NRPE mode to apply: '" + nrpe_mode + L"', asked for explicitly: " + (nrpe_asked ? L"yes" : L"no"));
+    data.write_string(nrpe_mode);
+    data.write_int(nrpe_asked ? 1 : 0);
+
     if (h.getMsiPropery(INT_CONF_CAN_CHANGE) != L"1") {
       h.logMessage(L"Configuration changes not allowed (only updating boot.ini): set CONF_CAN_CHANGE=1");
       data.write_int(0);
@@ -947,20 +963,6 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
       write_key_mod(h, data, 1, L"CheckHelpers", modval);
       write_key_mod(h, data, 1, L"CheckExternalScripts", modval);
       write_key_mod(h, data, 1, L"CheckNSCP", modval);
-    }
-    if (h.getProperyKey(CONF_NRPE) == L"1") {
-      if (h.propertyNotDefault(NRPEMODE)) {
-        const std::wstring mode = h.getProperyKey(NRPEMODE);
-        const auto nrpe_keys = installer::nrpe::preset(utf8::cvt<std::string>(mode));
-        if (nrpe_keys.empty()) {
-          h.logMessage(L"Not an NRPE mode, writing no NRPE transport security: " + mode);
-        }
-        for (const installer::nrpe::setting &s : nrpe_keys) {
-          write_key(h, data, 1, L"/settings/NRPE/server", utf8::cvt<std::wstring>(s.key), utf8::cvt<std::wstring>(s.value));
-        }
-      } else {
-        h.logMessage(L"NRPE mode unchanged, leaving the transport security in the configuration alone");
-      }
     }
 
     std::wstring defpath = L"/settings/default";
@@ -1044,6 +1046,8 @@ extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
     std::wstring tls_version = data.get_next_string();
     std::wstring tls_verify_mode = data.get_next_string();
     std::wstring tls_ca = data.get_next_string();
+    const std::string nrpe_mode = utf8::cvt<std::string>(data.get_next_string());
+    const bool nrpe_asked = data.get_next_int() == 1;
     int update_nsclient_ini = data.get_next_int();
 
     h.logMessage(L"Target: " + target);
@@ -1051,6 +1055,7 @@ extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
     h.logMessage(L"Restore: " + restore);
     h.logMessage(L"Backup: " + backup);
     h.logMessage(L"Import config: " + import_context);
+    h.logMessage("NRPE mode: " + nrpe_mode + (nrpe_asked ? " (asked for explicitly)" : " (only if NRPE is not already configured)"));
     h.logMessage(L"Update ns-client.ini: " + update_nsclient_ini ? L"Yes" : L"No");
 
     std::string source_context;
@@ -1158,6 +1163,22 @@ extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
     h.logMessage("Switching to: " + target_context);
     settings_manager::change_context(target_context);
 
+    // Read the NRPE transport security BEFORE the writes below, not after. Some
+    // of those land in the very same section - a `certificate key` from the
+    // CERTIFICATE_KEY property does - and a section that holds keys is exactly
+    // how this action recognises a listener the operator has configured. Taking
+    // the snapshot afterwards would let the installer's own writes pass for the
+    // operator's, and a fresh install with CERTIFICATE_KEY would then be denied
+    // the preset it should get.
+    installer::nrpe::server_security nrpe_security;
+    if (!nrpe_mode.empty()) {
+      nrpe_security.has_insecure = settings_manager::get_settings()->has_key("/settings/NRPE/server", "insecure");
+      nrpe_security.has_verify_mode = settings_manager::get_settings()->has_key("/settings/NRPE/server", "verify mode");
+      nrpe_security.insecure = settings_manager::get_settings()->get_string("/settings/NRPE/server", "insecure", "");
+      nrpe_security.verify_mode = settings_manager::get_settings()->get_string("/settings/NRPE/server", "verify mode", "");
+      nrpe_security.section_has_keys = !settings_manager::get_settings()->get_keys("/settings/NRPE/server").empty();
+    }
+
     while (data.has_more()) {
       unsigned int mode = data.get_next_int();
       std::string path = utf8::cvt<std::string>(data.get_next_string());
@@ -1174,6 +1195,28 @@ extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
         return ERROR_INSTALL_FAILURE;
       }
     }
+    // The NRPE transport-security preset, applied here rather than as keys in
+    // the data above because this is the first point where the configuration
+    // the install is about to keep is actually readable. An operator who named
+    // a mode gets it; otherwise the preset only fills in a host that has no
+    // NRPE listener configured at all, so an upgrade never starts requiring
+    // client certificates from one that was working without them (#1558).
+    if (!nrpe_mode.empty()) {
+      const installer::nrpe::mode detected = installer::nrpe::classify(nrpe_security);
+      if (!nrpe_asked && !installer::nrpe::preset_may_be_applied(detected)) {
+        h.logMessage("NRPE transport security is already configured and no mode was asked for: leaving it alone");
+      } else {
+        const std::vector<installer::nrpe::setting> nrpe_keys = installer::nrpe::preset(nrpe_mode);
+        if (nrpe_keys.empty()) {
+          h.logMessage("Not an NRPE mode, writing no NRPE transport security: " + nrpe_mode);
+        }
+        for (const installer::nrpe::setting &s : nrpe_keys) {
+          h.logMessage("Set NRPE key: " + s.key + " = " + s.value);
+          settings_manager::get_settings()->set_string("/settings/NRPE/server", s.key, s.value);
+        }
+      }
+    }
+
     h.logMessage("Saving settings, not updating existing keys: " + target_context);
     settings_manager::get_settings()->save(do_import);
   } catch (const installer_exception &e) {

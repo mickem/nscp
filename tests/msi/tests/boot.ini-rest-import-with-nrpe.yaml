@@ -21,8 +21,6 @@ nsclient.ini: |
   
   [/settings/NRPE/server]
   insecure = false
-  ssl options =
-  tls version = tlsv1.2+
   verify mode = peer-cert
   
   [/settings/lua/scripts]
