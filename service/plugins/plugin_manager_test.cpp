@@ -195,49 +195,36 @@ TEST(plugin_manager_extract_subject, ignores_unrelated_metadata) {
 }
 
 // The JSON contract between a facts producer and the core: what a response
-// does to the repository. Exercised directly, without the settings store or a
-// loaded module, so the contract is pinned where it is easy to read.
+// does to the repository. Exercised directly, without a loaded module, so the
+// contract is pinned where it is easy to read.
 namespace {
 std::string apply(const std::string &response, nsclient::core::fact_repository &facts, std::map<std::string, std::string> &errors,
-                  const std::set<std::string> &enabled = {"os", "software.installed", "docker"}, const unsigned int plugin_id = 1,
-                  std::vector<std::string> *ignored = nullptr) {
-  return nsclient::core::plugin_manager::apply_facts_response(response, plugin_id, enabled, facts, errors, ignored);
+                  std::set<std::string> *produced_out = nullptr, const unsigned int plugin_id = 1) {
+  std::set<std::string> produced;
+  const std::string failure = nsclient::core::plugin_manager::apply_facts_response(response, plugin_id, facts, errors, produced);
+  if (produced_out != nullptr) *produced_out = produced;
+  return failure;
 }
 }  // namespace
 
-TEST(plugin_manager_facts, a_returned_set_is_stored) {
+TEST(plugin_manager_facts, a_returned_set_is_stored_and_counts_as_produced) {
   nsclient::core::fact_repository facts;
   std::map<std::string, std::string> errors;
-  EXPECT_EQ(apply(R"({"sets":{"os":{"family":"linux"}}})", facts, errors), "");
+  std::set<std::string> produced;
+  EXPECT_EQ(apply(R"({"sets":{"os":{"family":"linux"}}})", facts, errors, &produced), "");
   EXPECT_EQ(facts.get_all().at("os").as_object().at("family").as_string(), "linux");
+  EXPECT_EQ(produced, std::set<std::string>{"os"});
   EXPECT_TRUE(errors.empty());
 }
 
-TEST(plugin_manager_facts, a_set_nobody_enabled_is_skipped) {
-  nsclient::core::fact_repository facts;
-  std::map<std::string, std::string> errors;
-  std::vector<std::string> ignored;
-  EXPECT_EQ(apply(R"({"sets":{"hardware":{"vendor":"Dell Inc."}}})", facts, errors, {"os"}, 1, &ignored), "");
-  EXPECT_TRUE(facts.get_all().empty());
-  ASSERT_EQ(ignored.size(), 1u);
-  EXPECT_EQ(ignored.front(), "hardware");
-}
-
-TEST(plugin_manager_facts, a_set_enabled_one_level_in_is_accepted_whole) {
-  nsclient::core::fact_repository facts;
-  std::map<std::string, std::string> errors;
-  EXPECT_EQ(apply(R"({"sets":{"software":{"installed":[{"id":"nscp"}]}}})", facts, errors, {"software.installed"}), "");
-  EXPECT_TRUE(facts.get_all().if_contains("software") != nullptr);
-}
-
-TEST(plugin_manager_facts, a_null_drops_the_set_and_silence_keeps_it) {
+TEST(plugin_manager_facts, a_null_drops_the_set_and_does_not_claim_it) {
   nsclient::core::fact_repository facts;
   std::map<std::string, std::string> errors;
   apply(R"({"sets":{"docker":{"version":"26.1.0"},"os":{"family":"linux"}}})", facts, errors);
-  // The next round has no docker socket and does not mention os at all.
-  apply(R"({"sets":{"docker":null}})", facts, errors);
+  std::set<std::string> produced;
+  apply(R"({"sets":{"docker":null,"os":{"family":"linux"}}})", facts, errors, &produced);
   EXPECT_TRUE(facts.get_all().if_contains("docker") == nullptr);
-  EXPECT_TRUE(facts.get_all().if_contains("os") != nullptr) << "a set that is not mentioned keeps its last value";
+  EXPECT_EQ(produced, std::set<std::string>{"os"});
 }
 
 TEST(plugin_manager_facts, a_rejected_set_is_reported_as_an_error) {
@@ -249,11 +236,24 @@ TEST(plugin_manager_facts, a_rejected_set_is_reported_as_an_error) {
   EXPECT_NE(errors.at("os").find("Family"), std::string::npos) << errors.at("os");
 }
 
-TEST(plugin_manager_facts, reported_errors_are_passed_through) {
+TEST(plugin_manager_facts, a_set_that_failed_to_collect_is_still_produced) {
   nsclient::core::fact_repository facts;
   std::map<std::string, std::string> errors;
-  EXPECT_EQ(apply(R"({"sets":{},"errors":{"software.installed":"access denied"}})", facts, errors), "");
+  std::set<std::string> produced;
+  EXPECT_EQ(apply(R"({"sets":{},"errors":{"software.installed":"access denied"}})", facts, errors, &produced), "");
   EXPECT_EQ(errors.at("software.installed"), "access denied");
+  EXPECT_EQ(produced, std::set<std::string>{"software.installed"})
+      << "a set that is enabled but failing must not be pruned as if it had been switched off";
+}
+
+TEST(plugin_manager_facts, a_module_level_error_fails_the_round) {
+  nsclient::core::fact_repository facts;
+  std::map<std::string, std::string> errors;
+  std::set<std::string> produced;
+  const std::string failure = apply(R"({"error":"Failed to collect facts: the collector threw"})", facts, errors, &produced);
+  EXPECT_NE(failure, "");
+  EXPECT_NE(failure.find("the collector threw"), std::string::npos) << failure;
+  EXPECT_TRUE(produced.empty()) << "a failed round must prune nothing";
 }
 
 TEST(plugin_manager_facts, an_unreadable_response_says_why_and_changes_nothing) {
@@ -261,6 +261,6 @@ TEST(plugin_manager_facts, an_unreadable_response_says_why_and_changes_nothing) 
   std::map<std::string, std::string> errors;
   EXPECT_NE(apply("not json", facts, errors), "");
   EXPECT_NE(apply(R"(["os"])", facts, errors), "");
-  EXPECT_EQ(apply("", facts, errors), "") << "a module with nothing to say is not an error";
+  EXPECT_NE(apply("", facts, errors), "") << "an empty buffer is a failed round, not an empty inventory";
   EXPECT_TRUE(facts.get_all().empty());
 }

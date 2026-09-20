@@ -516,25 +516,24 @@ bool NSClientT::boot_start_plugins(bool boot) {
   return true;
 }
 
-// Register the facts section and, when anything is enabled, the round that
-// refreshes it. The per-set keys are registered by the producers themselves
-// (from their loadModuleEx), so this only owns the section and the two keys
-// that pace it.
+// Register the core's facts settings and, when a module can produce facts at
+// all, the round that refreshes them.
 //
-// Nothing is collected until a set is enabled: an empty section is the
-// default, which is why the task is not registered at all when the section is
-// empty. There is deliberately no global `enabled` switch - an empty section
-// is "off" - and no implicit enablement: loading CheckSystem does not turn on
-// `os`, and enrolling does not turn on anything.
+// Enablement itself is not here: which fact sets a module produces is that
+// module's own configuration, next to everything else it is configured with,
+// so the core never reads an enable list. This section owns only the two keys
+// that pace the round, and the task is not registered at all when no loaded
+// module produces facts.
 void NSClientT::boot_facts() {
   try {
     const std::string path = "/settings/facts";
     settings_manager::get_core()->register_path(0xffff, path, "Host inventory (facts)",
-                                                "Which inventory fact sets this host collects and reports. Nothing is collected until a set is enabled "
-                                                "here; each producing module registers the keys for the sets it can produce.",
+                                                "How often the host inventory is refreshed and how large it may get. Which fact sets are collected is "
+                                                "configured in the module that produces them; nothing is collected until one is enabled there.",
                                                 true, false);
     settings_manager::get_core()->register_key(0xffff, path, "interval", "string", "Refresh interval",
-                                               "How often the core asks every module to refresh the fact sets that are enabled.", "1h", true, false);
+                                               "How often the core asks every module to refresh the fact sets it is configured to produce.", "1h", true,
+                                               false);
     settings_manager::get_core()->register_key(0xffff, path, "max size", "int", "Maximum document size",
                                                "Serialised size budget for the whole facts document. A fact set that would take the document past it is "
                                                "rejected, and the previous value of that set is kept.",
@@ -547,8 +546,8 @@ void NSClientT::boot_facts() {
       LOG_ERROR_CORE_STD("Invalid facts 'max size' value '" + max_size + "', keeping the default: " + utf8::utf8_from_native(e.what()));
     }
 
-    if (plugins_->read_enabled_facts().empty()) {
-      LOG_DEBUG_CORE("No fact sets are enabled, facts will not be collected");
+    if (!plugins_->has_facts_fetchers()) {
+      LOG_DEBUG_CORE("No loaded module produces facts, inventory will not be collected");
       return;
     }
     const std::string interval = settings_manager::get_settings()->get_string(path, "interval", "1h");

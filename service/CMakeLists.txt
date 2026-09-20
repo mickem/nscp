@@ -163,6 +163,12 @@ if(OPENSSL_FOUND)
     # (fleet_sync, started at boot when the enrollment manifest exists) - see
     # libs/onboarding. Only available when OpenSSL is present.
     add_definitions(-DHAVE_ONBOARDING)
+    # The facts document's hash is an OpenSSL digest (service/fact_repository.hpp);
+    # without OpenSSL the inventory is still collected and served, it just has
+    # no hash. Directory scoped, so the unit tests below see it too - and they
+    # need the library itself, which they do not get through onboarding.
+    add_definitions(-DHAVE_OPENSSL)
+    set(FACTS_HASH_LIBS ${OPENSSL_LIBRARIES})
     include_directories(${OPENSSL_INCLUDE_DIR})
     set(service_SRCS
         ${service_SRCS}
@@ -244,7 +250,6 @@ NSCP_CREATE_TEST(
         tag_repository.hpp
         fact_repository_test.cpp
         fact_repository.hpp
-        ${NSCP_INCLUDEDIR}/hash/sha256.hpp
         ../include/parsers/cron/cron_parser.hpp
         ${NSCP_INCLUDEDIR}/win/shellapi.cpp
     LIBRARIES
@@ -252,6 +257,7 @@ NSCP_CREATE_TEST(
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}
         ${EXTRA_LIBS}
+        ${FACTS_HASH_LIBS}
         ${Boost_DATE_TIME_LIBRARY}
         ${Boost_THREAD_LIBRARY}
         settings_manager
@@ -350,6 +356,7 @@ NSCP_CREATE_TEST(
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}
         ${EXTRA_LIBS}
+        ${FACTS_HASH_LIBS}
         ${Boost_DATE_TIME_LIBRARY}
         ${Boost_THREAD_LIBRARY}
         settings_manager

@@ -116,7 +116,6 @@ using namespace Google::Protobuf;
 {% endif %}
 {% if module.facts %}
 #include <nscapi/nscapi_facts_helper.hpp>
-#include <vector>
 {% endif %}
 {%if module.log_handler %}
 #include <nscapi/protobuf/log.hpp>
@@ -611,15 +610,14 @@ int {{module.name}}Module::fetchMetrics(std::string &reply) {
 int {{module.name}}Module::fetchFacts(const std::string &request_buffer, std::string &response_buffer) {
 	const nscapi::facts::request request(request_buffer);
 	nscapi::facts::response response;
-	// The fact sets this module declares in module.json. Used to report a
-	// failed collection against the sets that were actually being collected.
-	const std::vector<std::string> produced = { {% for id in module.facts %}"{{id}}"{% if not loop.last %}, {% endif %}{% endfor %} };
 	try {
 		impl_->fetchFacts(request, response);
 	} catch (const std::exception &e) {
-		response.error_all(request, produced, std::string("Failed to collect facts: ") + utf8::utf8_from_native(e.what()));
+		// A failed round, not an empty one: the core keeps the sets it has
+		// rather than reading silence as "no longer produced".
+		response.failed(std::string("Failed to collect facts: ") + utf8::utf8_from_native(e.what()));
 	} catch (...) {
-		response.error_all(request, produced, "Failed to collect facts");
+		response.failed("Failed to collect facts");
 	}
 	response_buffer = response.to_json();
 	return NSCAPI::api_return_codes::isSuccess;

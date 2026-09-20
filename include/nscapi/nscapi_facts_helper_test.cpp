@@ -13,29 +13,16 @@ boost::json::value document_of(const response &out) { return boost::json::parse(
 
 const boost::json::object &sets_of(const boost::json::value &document) { return document.as_object().at("sets").as_object(); }
 
-std::string request_for(const std::string &ids, const std::string &reason = "scheduled") { return "{\"enabled\":[" + ids + "],\"reason\":\"" + reason + "\"}"; }
 }  // namespace
 
-TEST(FactsRequest, ReadsTheEnabledIdsAndTheReason) {
-  const request req(request_for("\"os\",\"software.installed\"", "startup"));
+TEST(FactsRequest, ReadsTheReason) {
+  const request req(R"({"reason":"startup"})");
   EXPECT_EQ(req.reason(), "startup");
-  EXPECT_TRUE(req.wants("os"));
-  EXPECT_TRUE(req.wants("software.installed"));
-  EXPECT_FALSE(req.wants("hardware"));
-  EXPECT_FALSE(req.wants("software.hotfixes"));
 }
 
-TEST(FactsRequest, ASetIsWantedWhenOneOfItsPartsIs) {
-  const request req(request_for("\"software.installed\""));
-  EXPECT_TRUE(req.wants("software")) << "a producer gates the set first and then decides per part";
-  EXPECT_FALSE(req.wants("softwareother"));
-}
-
-TEST(FactsRequest, AnUnparseableRequestAsksForNothing) {
+TEST(FactsRequest, AnUnreadableRequestHasNoReason) {
   const request req("not json");
-  EXPECT_TRUE(req.enabled().empty());
-  EXPECT_FALSE(req.wants("os"));
-  EXPECT_TRUE(req.reason().empty());
+  EXPECT_TRUE(req.reason().empty()) << "a producer that cannot read the reason collects as on a scheduled round";
 }
 
 TEST(FactsResponse, AnEmptyResponseHasNoSets) {
@@ -159,14 +146,14 @@ TEST(FactsResponse, ErrorsAreReportedPerSet) {
   EXPECT_EQ(document.as_object().at("errors").as_object().at("software.installed").as_string(), "access denied to HKLM");
 }
 
-TEST(FactsResponse, ErrorAllOnlyTouchesWhatThisRoundWanted) {
-  const request req(request_for("\"os\""));
+TEST(FactsResponse, AFailedRoundSaysSoAtTheTopLevel) {
   response out;
-  out.error_all(req, {"os", "hardware"}, "the collector threw");
+  out.set("os").value("family", "linux");
+  out.failed("Failed to collect facts: the collector threw");
   const boost::json::value document = document_of(out);
-  const boost::json::object &errors = document.as_object().at("errors").as_object();
-  EXPECT_EQ(errors.size(), 1u);
-  EXPECT_TRUE(errors.if_contains("os") != nullptr);
+  const boost::json::object &root = document.as_object();
+  EXPECT_NE(std::string(json_to_string(root.at("error").as_string())).find("the collector threw"), std::string::npos);
+  EXPECT_TRUE(root.if_contains("sets") == nullptr) << "a failed round carries nothing, so the core keeps what it has";
 }
 
 TEST(FactsHelper, ValidatesKeysTheWayTheCoreDoes) {

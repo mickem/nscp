@@ -1289,41 +1289,8 @@ PB::Metrics::MetricsMessage nsclient::core::plugin_manager::process_metrics(PB::
 }
 
 namespace {
-// The one section facts are configured from. One bool key per fact set id,
-// plus the two keys below which pace the round rather than name a set.
-const std::string facts_section = "/settings/facts";
-bool is_facts_control_key(const std::string &key) { return key == "interval" || key == "max size"; }
-
-// An id is covered when it is enabled outright, or when something one level
-// inside it is: a module returns the whole `software` set even when only
-// `software.installed` was asked for, and the repository prunes the rest.
-bool covered_by_enabled(const std::string &id, const std::set<std::string> &enabled) {
-  if (enabled.count(id) > 0) return true;
-  const std::string prefix = id + ".";
-  for (const std::string &candidate : enabled) {
-    if (candidate.size() > prefix.size() && candidate.compare(0, prefix.size(), prefix) == 0) return true;
-  }
-  return false;
-}
-
 std::string utc_now() { return boost::posix_time::to_iso_extended_string(boost::posix_time::second_clock::universal_time()) + "Z"; }
 }  // namespace
-
-std::set<std::string> nsclient::core::plugin_manager::read_enabled_facts() {
-  std::set<std::string> enabled;
-  try {
-    for (const std::string &key : settings_manager::get_settings()->get_keys(facts_section)) {
-      if (is_facts_control_key(key)) continue;
-      const std::string value = settings_manager::get_settings()->get_string(facts_section, key, "false");
-      if (equals_enabled(value)) enabled.insert(key);
-    }
-  } catch (const settings::settings_exception &e) {
-    LOG_ERROR_CORE_STD("Failed to read " + facts_section + ": " + utf8::utf8_from_native(e.what()));
-  } catch (const std::exception &e) {
-    LOG_ERROR_CORE_STD("Failed to read " + facts_section + ": " + utf8::utf8_from_native(e.what()));
-  }
-  return enabled;
-}
 
 void nsclient::core::plugin_manager::log_fact_problem_once(const std::string &key, const std::string &message, std::set<std::string> &failing) {
   failing.insert(key);
@@ -1347,10 +1314,12 @@ void nsclient::core::plugin_manager::forget_fixed_fact_problems(const std::set<s
   }
 }
 
-std::string nsclient::core::plugin_manager::apply_facts_response(const std::string &response, const unsigned int plugin_id,
-                                                                 const std::set<std::string> &enabled, fact_repository &facts,
-                                                                 std::map<std::string, std::string> &errors, std::vector<std::string> *ignored) {
-  if (response.empty()) return "";
+std::string nsclient::core::plugin_manager::apply_facts_response(const std::string &response, const unsigned int plugin_id, fact_repository &facts,
+                                                                 std::map<std::string, std::string> &errors, std::set<std::string> &produced) {
+  // An empty buffer is not an empty inventory: a module that answered with
+  // nothing at all has not told us it stopped producing anything, so this
+  // reads as a failed round and prunes nothing.
+  if (response.empty()) return "returned no facts document";
   boost::json::value parsed;
   try {
     parsed = boost::json::parse(response);
@@ -1360,40 +1329,46 @@ std::string nsclient::core::plugin_manager::apply_facts_response(const std::stri
   const boost::json::object *root = parsed.if_object();
   if (root == nullptr) return "returned facts that are not a JSON object";
 
+  // A module that could not collect at all says so once, at the top level -
+  // the generated glue does this when a producer throws. Nothing it holds is
+  // pruned, because "I failed" is not "I no longer produce this".
+  const boost::json::value *failure = root->if_contains("error");
+  if (failure != nullptr && failure->is_string()) return json_to_string(failure->as_string());
+
   const boost::json::value *sets = root->if_contains("sets");
   if (sets != nullptr && sets->is_object()) {
     for (const boost::json::key_value_pair &entry : sets->as_object()) {
       const std::string id(entry.key());
-      if (!covered_by_enabled(id, enabled)) {
-        if (ignored != nullptr) ignored->push_back(id);
-        continue;
-      }
-      // An explicit null drops the set (the docker socket went away). Not
-      // returning a set at all leaves the last value in place, so a transient
-      // failure never blanks the inventory.
+      // An explicit null drops the set (the docker socket went away), and is
+      // deliberately not a claim to produce it.
       if (entry.value().is_null()) {
         facts.remove(id);
         continue;
       }
+      produced.insert(id);
       std::string error;
       if (facts.set(id, plugin_id, entry.value(), error) == fact_repository::set_result::rejected) errors[id] = error;
     }
   }
 
-  // What the producer could not collect. Reported next to the document so a
-  // consumer can tell "not collected" from "nothing to report".
+  // What the producer could not collect this round. Reported next to the
+  // document so a consumer can tell "not collected" from "nothing to report",
+  // and counted as produced so a set that is enabled but failing keeps the
+  // value it had.
   const boost::json::value *reported = root->if_contains("errors");
   if (reported != nullptr && reported->is_object()) {
     for (const boost::json::key_value_pair &entry : reported->as_object()) {
       if (!entry.value().is_string()) continue;
-      errors[std::string(entry.key())] = json_to_string(entry.value().as_string());
+      const std::string id(entry.key());
+      produced.insert(id);
+      errors[id] = json_to_string(entry.value().as_string());
     }
   }
   return "";
 }
 
-void nsclient::core::plugin_manager::collect_facts_from(const plugin_type &plugin, const std::string &request, const std::set<std::string> &enabled,
-                                                        std::map<std::string, std::string> &errors, std::set<std::string> &failing) {
+void nsclient::core::plugin_manager::collect_facts_from(const plugin_type &plugin, const std::string &request, std::map<std::string, std::string> &errors,
+                                                        std::set<std::string> &failing) {
   const std::string module = plugin->get_alias_or_name();
   std::string response;
   try {
@@ -1407,15 +1382,16 @@ void nsclient::core::plugin_manager::collect_facts_from(const plugin_type &plugi
   }
 
   std::map<std::string, std::string> reported;
-  std::vector<std::string> ignored;
-  const std::string failure = apply_facts_response(response, plugin->get_id(), enabled, *facts_, reported, &ignored);
+  std::set<std::string> produced;
+  const std::string failure = apply_facts_response(response, plugin->get_id(), *facts_, reported, produced);
   if (!failure.empty()) {
     log_fact_problem_once("module " + module, failure, failing);
     return;
   }
-  for (const std::string &id : ignored) {
-    LOG_DEBUG_CORE_STD("facts: ignoring '" + id + "' from " + module + ": nothing enables it");
-  }
+  // The round completed, so what this module did not mention it no longer
+  // produces: that is how a fact set turned off in a module's configuration
+  // leaves the document.
+  facts_->retain_only(plugin->get_id(), produced);
   for (const std::pair<const std::string, std::string> &problem : reported) {
     errors[problem.first] = problem.second;
     log_fact_problem_once(problem.first, problem.second, failing);
@@ -1424,22 +1400,16 @@ void nsclient::core::plugin_manager::collect_facts_from(const plugin_type &plugi
 
 void nsclient::core::plugin_manager::process_facts(const std::string &reason) {
   if (!facts_) return;
-  const std::set<std::string> enabled = read_enabled_facts();
-  // Done first and unconditionally: a set that was switched off has to leave
-  // the document even when no producer runs this round.
-  facts_->retain_only(enabled);
+  // Every producer is asked; what it returns is what its own configuration
+  // says it may produce. `reason` (startup, scheduled, reload, manual) is all
+  // the core has to say, and lets an expensive collector hand back its last
+  // snapshot instead of collecting again.
+  boost::json::object request;
+  request["reason"] = reason;
+  const std::string request_string = boost::json::serialize(request);
   std::map<std::string, std::string> errors;
   std::set<std::string> failing;
-  if (!enabled.empty()) {
-    boost::json::object request;
-    boost::json::array ids;
-    for (const std::string &id : enabled) ids.push_back(boost::json::value(id));
-    request["enabled"] = ids;
-    request["reason"] = reason;
-    const std::string request_string = boost::json::serialize(request);
-    facts_fetchers_.do_all(
-        [this, &request_string, &enabled, &errors, &failing](plugin_type plugin) { collect_facts_from(plugin, request_string, enabled, errors, failing); });
-  }
+  facts_fetchers_.do_all([this, &request_string, &errors, &failing](plugin_type plugin) { collect_facts_from(plugin, request_string, errors, failing); });
   forget_fixed_fact_problems(failing);
   facts_->set_errors(errors);
   facts_->mark_collected(utc_now());

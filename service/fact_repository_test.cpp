@@ -6,7 +6,6 @@
 #include <gtest/gtest.h>
 
 #include <boost/json.hpp>
-#include <hash/sha256.hpp>
 
 using fact_repository = nsclient::core::fact_repository;
 using set_result = nsclient::core::fact_repository::set_result;
@@ -100,42 +99,60 @@ TEST(FactRepository, ASetIsOwnedByOneModule) {
   EXPECT_EQ(store(repo, "os", 2, R"({"family":"windows"})"), set_result::changed);
 }
 
-TEST(FactRepository, RetainOnlyDropsWhatIsNoLongerEnabled) {
+TEST(FactRepository, RetainOnlyDropsWhatTheProducerNoLongerMentions) {
   fact_repository repo;
   store(repo, "os", 1, R"({"family":"linux"})");
   store(repo, "hardware", 1, R"({"vendor":"Dell Inc."})");
-  repo.retain_only({"os"});
+  // `hardware` was turned off in the module's own configuration, so the next
+  // round returns only `os`.
+  repo.retain_only(1, {"os"});
   const boost::json::object all = repo.get_all();
   EXPECT_EQ(all.size(), 1u);
   EXPECT_TRUE(all.if_contains("os") != nullptr);
   EXPECT_EQ(repo.get_enabled(), std::set<std::string>{"os"});
 }
 
-TEST(FactRepository, RetainOnlyPrunesTheChildrenNobodyEnabled) {
-  fact_repository repo;
-  store(repo, "software", 1, R"({"installed":[{"id":"nscp","version":"0.20.0"}],"hotfixes":[{"id":"KB1"}]})");
-  repo.retain_only({"software.installed"});
-  const boost::json::object all = repo.get_all();
-  ASSERT_TRUE(all.if_contains("software") != nullptr);
-  const boost::json::object &software = all.at("software").as_object();
-  EXPECT_TRUE(software.if_contains("installed") != nullptr);
-  EXPECT_TRUE(software.if_contains("hotfixes") == nullptr);
-}
-
-TEST(FactRepository, RetainOnlyWithNothingEnabledEmptiesTheDocument) {
+TEST(FactRepository, RetainOnlyLeavesOtherProducersAlone) {
   fact_repository repo;
   store(repo, "os", 1, R"({"family":"linux"})");
-  repo.retain_only(std::set<std::string>());
-  EXPECT_TRUE(repo.get_all().empty());
-  EXPECT_EQ(repo.get_canonical(), "{}");
+  store(repo, "docker", 7, R"({"version":"26.1.0"})");
+  repo.retain_only(1, {"os"});
+  EXPECT_TRUE(repo.get_all().if_contains("docker") != nullptr) << "one module's round must not touch another module's sets";
+  EXPECT_EQ(repo.get_enabled(), (std::set<std::string>{"os"}));
+  repo.retain_only(7, {"docker"});
+  EXPECT_EQ(repo.get_enabled(), (std::set<std::string>{"docker", "os"}));
 }
 
-TEST(FactRepository, RetainOnlyChangesNothingWhenEverythingIsEnabled) {
+TEST(FactRepository, AnIdInsideASetKeepsTheSet) {
+  fact_repository repo;
+  store(repo, "software", 1, R"({"installed":[{"id":"nscp"}]})");
+  repo.retain_only(1, {"software.installed"});
+  EXPECT_TRUE(repo.get_all().if_contains("software") != nullptr);
+}
+
+TEST(FactRepository, AProducerThatReturnsNothingLosesItsSets) {
+  fact_repository repo;
+  store(repo, "os", 1, R"({"family":"linux"})");
+  repo.retain_only(1, std::set<std::string>());
+  EXPECT_TRUE(repo.get_all().empty()) << "every set the module produced is now switched off in its configuration";
+  EXPECT_EQ(repo.get_canonical(), "{}");
+  EXPECT_TRUE(repo.get_enabled().empty());
+}
+
+TEST(FactRepository, RetainOnlyChangesNothingWhenTheSameSetsComeBack) {
   fact_repository repo;
   store(repo, "os", 1, R"({"family":"linux"})");
   const unsigned long long revision = repo.get_revision();
-  repo.retain_only({"os"});
+  repo.retain_only(1, {"os"});
   EXPECT_EQ(repo.get_revision(), revision);
+}
+
+TEST(FactRepository, UnloadingAModuleAlsoForgetsWhatItProduced) {
+  fact_repository repo;
+  store(repo, "os", 1, R"({"family":"linux"})");
+  repo.retain_only(1, {"os"});
+  repo.remove_owned_by(1);
+  EXPECT_TRUE(repo.get_enabled().empty());
 }
 
 TEST(FactRepository, GetReadsADottedPath) {
@@ -235,6 +252,7 @@ TEST(FactRepository, TheCanonicalFormSortsKeysAndDropsWhitespace) {
 }
 
 TEST(FactRepository, TheHashIsStableAcrossInsertionOrder) {
+  if (!fact_repository::can_hash()) GTEST_SKIP() << "built without OpenSSL: the document has no hash";
   fact_repository first;
   store(first, "os", 1, R"({"family":"linux"})");
   store(first, "hardware", 1, R"({"vendor":"Dell Inc."})");
@@ -244,10 +262,10 @@ TEST(FactRepository, TheHashIsStableAcrossInsertionOrder) {
   store(second, "os", 1, R"({"family":"linux"})");
 
   EXPECT_EQ(first.get_hash(), second.get_hash()) << "the server compares hashes, so two hosts with the same inventory must agree";
-  EXPECT_EQ(first.get_hash(), hash::sha256_hex(first.get_canonical()));
 }
 
 TEST(FactRepository, TheEmptyDocumentHashIsThePinnedValue) {
+  if (!fact_repository::can_hash()) GTEST_SKIP() << "built without OpenSSL: the document has no hash";
   const fact_repository repo;
   // sha256("{}"). Pinned because it is what a host with nothing enabled
   // reports in every state report, and the server reads it as "no inventory".
@@ -267,16 +285,4 @@ TEST(FactRepository, CollectedIsWhatTheRoundRecorded) {
   fact_repository repo;
   repo.mark_collected("2026-09-19T14:03:11Z");
   EXPECT_EQ(repo.get_collected(), "2026-09-19T14:03:11Z");
-}
-
-// The hash is a wire value, so the digest it is built on is pinned to the
-// standard vectors rather than to whatever this implementation happens to do.
-TEST(Sha256, MatchesTheKnownVectors) {
-  EXPECT_EQ(hash::sha256_hex(""), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
-  EXPECT_EQ(hash::sha256_hex("abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
-  EXPECT_EQ(hash::sha256_hex("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"), "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1");
-  // 56 bytes: the length no longer fits in the block with the terminator, so
-  // the padding spills into a second block.
-  EXPECT_EQ(hash::sha256_hex(std::string(56, 'a')), "b35439a4ac6f0948b6d6f9e3c6af0f5f590ce20f1bde7090ef7970686ec6738a");
-  EXPECT_EQ(hash::sha256_hex(std::string(1000000, 'a')), "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0");
 }

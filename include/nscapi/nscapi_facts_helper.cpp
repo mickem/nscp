@@ -51,30 +51,13 @@ request::request(const std::string &json) {
     const boost::json::value parsed = boost::json::parse(json);
     const boost::json::object *root = parsed.if_object();
     if (root == nullptr) return;
-    const boost::json::value *enabled = root->if_contains("enabled");
-    if (enabled != nullptr && enabled->is_array()) {
-      for (const boost::json::value &id : enabled->as_array()) {
-        if (id.is_string()) enabled_.insert(json_to_string(id.as_string()));
-      }
-    }
     const boost::json::value *reason = root->if_contains("reason");
     if (reason != nullptr && reason->is_string()) reason_ = json_to_string(reason->as_string());
   } catch (const std::exception &) {
-    // An unparseable request means this round asks for nothing, which is the
-    // safe reading: facts are opt-in, so producing nothing is never wrong.
-    enabled_.clear();
+    // Nothing to recover: the reason is a hint, and a producer that cannot
+    // read it simply collects as it would on a scheduled round.
+    reason_.clear();
   }
-}
-
-bool request::wants(const std::string &id) const {
-  if (enabled_.count(id) > 0) return true;
-  // `wants("software")` is true when `software.installed` is enabled: a
-  // producer gates the whole set first and then decides per part.
-  const std::string prefix = id + ".";
-  for (const std::string &candidate : enabled_) {
-    if (candidate.size() > prefix.size() && candidate.compare(0, prefix.size(), prefix) == 0) return true;
-  }
-  return false;
 }
 
 std::string response::to_json() const {
@@ -89,6 +72,13 @@ std::string response::to_json() const {
   for (const std::string &name : removed_) sets[name] = boost::json::value(nullptr);
 
   boost::json::object root;
+  // A failed round says so at the top level and carries nothing else: the
+  // core keeps what it has rather than reading silence as "stopped
+  // producing".
+  if (!failure_.empty()) {
+    root["error"] = failure_;
+    return boost::json::serialize(root);
+  }
   root["sets"] = sets;
   if (!problems_->empty()) {
     boost::json::object errors;

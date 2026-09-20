@@ -9,12 +9,21 @@
 #include <boost/thread/mutex.hpp>
 #include <cstddef>
 #include <ctime>
-#include <hash/sha256.hpp>
 #include <map>
 #include <memory>
 #include <set>
 #include <string>
 #include <vector>
+
+// The document hash is a SHA-256, which is OpenSSL's job here as everywhere
+// else in the tree. OpenSSL is optional (find_package(OpenSSL), and
+// build/docker/Dockerfile.no-openssl proves the build survives without it),
+// so a build without it collects and serves facts as usual and simply has no
+// hash to offer: the one consumer that needs it, the fleet upload, is
+// OpenSSL-only anyway, and the REST ETag is a cache optimisation.
+#ifdef HAVE_OPENSSL
+#include <openssl/evp.h>
+#endif
 
 namespace nsclient {
 namespace core {
@@ -130,6 +139,7 @@ class fact_repository {
   // the last value it collected.
   void remove_owned_by(const unsigned int plugin_id) {
     boost::unique_lock<boost::mutex> lock(mutex_);
+    declared_.erase(plugin_id);
     std::vector<std::string> owned;
     for (const std::pair<const std::string, unsigned int> &owner : owners_) {
       if (owner.second == plugin_id) owned.push_back(owner.first);
@@ -139,48 +149,28 @@ class fact_repository {
     if (changed) store(canonicalise(facts_));
   }
 
-  // Keep only what `enabled` asks for, and remember the list so consumers can
-  // report which sets are switched on.
+  // Take what one producer says it is configured to produce, and drop the
+  // sets it owns that are not on that list.
   //
-  // `enabled` holds settings ids, which are a fact set (`os`) or a dotted
-  // path one level into it (`software.installed`), because a set may split
-  // its enablement finer than the document splits its keys. So a stored set
-  // survives when it is enabled outright, or when any of its children is, and
-  // in the latter case the children nobody asked for are pruned. Everything
-  // else goes: this is what turning a set off in the configuration does.
-  void retain_only(const std::set<std::string> &enabled) {
+  // This is what turning a fact set off does: enablement lives in the
+  // producing module's own configuration (the module decides what to return),
+  // so the core learns a set was switched off by the module no longer
+  // mentioning it. Only ever called after a round that module completed - a
+  // module that failed or could not be reached keeps what it had, so a
+  // transient failure never blanks the inventory.
+  //
+  // `produced` holds the ids the module speaks about, which are a fact set
+  // (`os`) or a dotted path into one (`software.installed`), because a module
+  // may split its configuration finer than the document splits its keys.
+  void retain_only(const unsigned int plugin_id, const std::set<std::string> &produced) {
     boost::unique_lock<boost::mutex> lock(mutex_);
-    enabled_ = enabled;
-    std::vector<std::string> stored;
-    for (const boost::json::key_value_pair &entry : facts_) stored.push_back(std::string(entry.key()));
-    bool changed = false;
-    for (const std::string &fact_set : stored) {
-      if (enabled.count(fact_set) > 0) continue;
-      const std::string prefix = fact_set + ".";
-      std::set<std::string> children;
-      for (const std::string &id : enabled) {
-        if (id.size() > prefix.size() && id.compare(0, prefix.size(), prefix) == 0) children.insert(id.substr(prefix.size()));
-      }
-      if (children.empty()) {
-        changed = erase_locked(fact_set) || changed;
-        continue;
-      }
-      boost::json::value *value = facts_.if_contains(fact_set);
-      if (value == nullptr || !value->is_object()) continue;
-      boost::json::object kept;
-      for (const boost::json::key_value_pair &entry : value->as_object()) {
-        if (children.count(std::string(entry.key())) > 0) kept[entry.key()] = entry.value();
-      }
-      // kept is a subset of the same object, so nothing was pruned exactly
-      // when it still has every entry.
-      if (kept.size() == value->as_object().size()) continue;
-      if (kept.empty()) {
-        changed = erase_locked(fact_set) || changed;
-        continue;
-      }
-      *value = kept;
-      changed = true;
+    declared_[plugin_id] = produced;
+    std::vector<std::string> owned;
+    for (const std::pair<const std::string, unsigned int> &owner : owners_) {
+      if (owner.second == plugin_id && !mentions(produced, owner.first)) owned.push_back(owner.first);
     }
+    bool changed = false;
+    for (const std::string &fact_set : owned) changed = erase_locked(fact_set) || changed;
     if (changed) store(canonicalise(facts_));
   }
 
@@ -218,10 +208,21 @@ class fact_repository {
   std::string get_hash() const {
     boost::unique_lock<boost::mutex> lock(mutex_);
     if (hash_dirty_) {
-      hash_ = hash::sha256_hex(canonical_);
+      hash_ = sha256_hex(canonical_);
       hash_dirty_ = false;
     }
     return hash_;
+  }
+
+  // Whether this build can hash the document at all (see the OpenSSL note at
+  // the top). Consumers that would otherwise publish an empty hash - the REST
+  // ETag, the state report - ask first.
+  static bool can_hash() {
+#ifdef HAVE_OPENSSL
+    return true;
+#else
+    return false;
+#endif
   }
 
   // The canonical serialisation the hash is taken of - the bytes an upload
@@ -238,10 +239,16 @@ class fact_repository {
     return revision_;
   }
 
-  // The settings ids that were enabled at the last round.
+  // What the producers said they are configured to produce, at their last
+  // completed round: the honest answer to "what is this host collecting",
+  // including a set that is enabled but currently failing to collect.
   std::set<std::string> get_enabled() const {
     boost::unique_lock<boost::mutex> lock(mutex_);
-    return enabled_;
+    std::set<std::string> enabled;
+    for (const std::pair<const unsigned int, std::set<std::string>> &entry : declared_) {
+      enabled.insert(entry.second.begin(), entry.second.end());
+    }
+    return enabled;
   }
 
   // Per-set collection errors from the last round: a set that is enabled and
@@ -307,6 +314,38 @@ class fact_repository {
   static const boost::json::object &empty_object() {
     static const boost::json::object empty;
     return empty;
+  }
+
+  // The canonical form's digest, as 64 lowercase hex characters; empty in a
+  // build without OpenSSL (see the note at the top of the file).
+  static std::string sha256_hex(const std::string &bytes) {
+#ifdef HAVE_OPENSSL
+    unsigned char digest[EVP_MAX_MD_SIZE];
+    unsigned int digest_length = 0;
+    if (EVP_Digest(bytes.data(), bytes.size(), digest, &digest_length, EVP_sha256(), nullptr) != 1) return "";
+    static const char *digits = "0123456789abcdef";
+    std::string hex;
+    hex.reserve(static_cast<std::size_t>(digest_length) * 2);
+    for (unsigned int i = 0; i < digest_length; ++i) {
+      hex.push_back(digits[(digest[i] >> 4) & 0xf]);
+      hex.push_back(digits[digest[i] & 0xf]);
+    }
+    return hex;
+#else
+    (void)bytes;
+    return "";
+#endif
+  }
+
+  // An id mentions a set when it is the set, or something inside it:
+  // `software.installed` keeps the `software` set alive.
+  static bool mentions(const std::set<std::string> &ids, const std::string &fact_set) {
+    if (ids.count(fact_set) > 0) return true;
+    const std::string prefix = fact_set + ".";
+    for (const std::string &id : ids) {
+      if (id.size() > prefix.size() && id.compare(0, prefix.size(), prefix) == 0) return true;
+    }
+    return false;
   }
 
   static std::string clip(const std::string &text) { return text.size() <= 64 ? text : text.substr(0, 64) + "..."; }
@@ -434,7 +473,8 @@ class fact_repository {
   // Which plugin produced each set, so unloading a module takes its sets with
   // it and two modules cannot fight over one top-level key.
   std::map<std::string, unsigned int> owners_;
-  std::set<std::string> enabled_;
+  // What each producer last said it is configured to produce.
+  std::map<unsigned int, std::set<std::string>> declared_;
   std::map<std::string, std::string> errors_;
   std::string collected_;
   std::string canonical_;

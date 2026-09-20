@@ -18,27 +18,34 @@
 
 // How a module produces host facts.
 //
-// A facts producer is a pure function of "what is wanted": the core hands it
-// the fact set ids [/settings/facts] enables and it fills in the ones it can
-// produce. Nothing is collected for a set nobody enabled, and the module never
-// reads the settings itself to decide.
+// Which fact sets a module produces is the module's own configuration, read in
+// its loadModuleEx like everything else it is configured with. The core asks
+// every producer on a schedule and takes what it gets: the sets in the
+// response are what this module is configured to produce, so a set it stops
+// returning is dropped from the inventory, and a set it is configured to
+// produce but could not collect says so through `error()` and keeps the value
+// the core already has.
 //
 //   using namespace nscapi::facts;
 //   void CheckSystem::fetchFacts(const request &req, response &out) {
-//     if (req.wants("os")) {
+//     if (facts_os_) {
 //       section os = out.set("os");
 //       os.value("family", "windows").value("name", name).value("version", version);
 //       os.time("boot_time", boot_time);
 //     }
-//     if (req.wants("software.installed")) {
+//     if (facts_software_installed_) {
 //       record_list installed = out.set("software").list("installed");
 //       for (const auto &app : apps)
 //         installed.record(app.name).value("version", app.version).date("installed", app.installed_at);
 //     }
-//     if (req.wants("hardware")) {
+//     if (facts_hardware_) {
 //       try { /* ... */ } catch (const std::exception &e) { out.error("hardware", e.what()); }
 //     }
 //   }
+//
+// `req.reason()` is startup, scheduled, reload or manual, so a producer whose
+// collection is expensive can hand back its last snapshot instead of
+// collecting again.
 //
 // What the builder is for, beyond saving typing:
 //
@@ -256,27 +263,17 @@ class record_list {
 
 inline record_list section::list(const std::string &key) { return record_list(node_->add_child(key, detail::node::kind::array)); }
 
-// What the core asked for this round.
+// Why the core is asking, this round.
 class request {
  public:
-  // Parses the core's request; an unparseable one leaves an empty request, so
-  // a producer asked for nothing produces nothing rather than everything.
+  // Parses the core's request; an unparseable one leaves the reason empty,
+  // which reads as an ordinary scheduled round.
   NSCAPI_EXPORT explicit request(const std::string &json);
 
-  // Whether this round wants `id`. True for the id itself and for a fact set
-  // whose enablement is split finer than the document is: a producer of the
-  // `software` set can ask `wants("software")` and then decide per part with
-  // `wants("software.installed")`.
-  NSCAPI_EXPORT bool wants(const std::string &id) const;
-
-  // Why this round is running: startup, scheduled, reload or manual. A
-  // producer whose collection is expensive can use it to hand back its last
-  // snapshot instead of collecting again.
+  // startup, scheduled, reload or manual.
   const std::string &reason() const { return reason_; }
-  const std::set<std::string> &enabled() const { return enabled_; }
 
  private:
-  std::set<std::string> enabled_;
   std::string reason_;
 };
 
@@ -312,14 +309,11 @@ class response {
   // rather than silence.
   void error(const std::string &id, const std::string &message) { (*problems_)[id] = message; }
 
-  // The same message against every set of `ids` this round actually wanted.
-  // The generated module glue uses it to turn an exception out of a producer
-  // into an error on the sets that were being collected.
-  void error_all(const request &request, const std::vector<std::string> &ids, const std::string &message) {
-    for (const std::string &id : ids) {
-      if (request.wants(id)) error(id, message);
-    }
-  }
+  // This round failed outright: the producer threw, or could not run at all.
+  // Reported at the top level rather than per set, because the core must not
+  // read "I failed" as "I no longer produce any of this" and drop what it
+  // already has. The generated module glue calls this when a producer throws.
+  void failed(const std::string &message) { failure_ = message; }
 
   NSCAPI_EXPORT std::string to_json() const;
 
@@ -329,6 +323,7 @@ class response {
   // on how the set names happen to sort.
   std::vector<std::string> order_;
   std::set<std::string> removed_;
+  std::string failure_;
   std::shared_ptr<std::map<std::string, std::string>> problems_;
 };
 
