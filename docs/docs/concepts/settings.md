@@ -504,12 +504,14 @@ nscp --path-override boot-conf=/etc/nsclient/test-boot.ini service --run
 ### Relative paths
 
 A value that carries neither a token nor a leading `/` (or drive letter) only means something
-relative to *some* folder. That folder used to be the service's working directory, which is
-`C:\Windows\System32` for a Windows service, `/` under a bare init script, the package directory
-under the shipped systemd unit, and the shell's directory for `nscp test` — four different answers
-from the same configuration file, none of them visible in it.
+relative to *some* folder. Unless the setting names one, that folder is the process working
+directory: `C:\Windows\System32` for a Windows service, `/` under a bare init script,
+`${shared-path}` under the shipped systemd unit (which sets `WorkingDirectory` to the package
+directory), and the shell's directory for `nscp test` — four different answers from the same
+configuration file, none of them visible in it.
 
-Settings that *write* files now name the folder they own, and a relative value lands there:
+Settings that *write* files do name the folder they own, so a relative value lands there whatever
+the working directory is:
 
 | Setting | Relative values land in |
 |---|---|
@@ -519,8 +521,11 @@ Settings that *write* files now name the folder they own, and a relative value l
 | `[/settings/fleet] managed path` | `${fleet-folder}` |
 | `[/settings/filewriter] file` | `${log-path}` |
 
-Prefer naming the folder explicitly anyway — `${scripts}/check.bat` says what you mean, where
-`scripts/check.bat` only works if you already know which base it is measured from.
+That table is the whole of it. Every other relative value — a script name's first search
+candidate, everything under `[/settings/external scripts]`, any setting not listed above — is still
+measured against the working directory. So **prefer naming the folder explicitly**:
+`${scripts}/check.bat` says what you mean, where `scripts/check.bat` only works if you already know
+which base it is measured from, and that base depends on how the agent was started.
 
 A script *name* is a different thing and is not covered by this. `[/settings/python/scripts]` and
 `[/settings/lua/scripts]` entries are resolved by **searching**, so a bare `check_foo.py` is found
