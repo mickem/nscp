@@ -1,0 +1,232 @@
+/**
+ * Where `[/attachments]` put their files, and what `[/includes]` can name.
+ *
+ * This is the bug the path series started from (#1557). An attachment target
+ * with neither a token nor a root was resolved against the process working
+ * directory - `C:\Windows\System32` for a Windows service - so the file
+ * downloaded successfully and landed somewhere nobody looks. On Linux the
+ * shipped systemd unit happens to set WorkingDirectory to the package
+ * directory, which is what ${shared-path} resolves to, so it worked there by
+ * accident and the bug stayed hidden.
+ *
+ * settings-host-placeholders.test.ts already covers the ${host} chain, but it
+ * writes absolute paths throughout, so it never exercises the relative case
+ * that was actually broken. This does, along with the rest of the resolution
+ * rules an operator can hit.
+ *
+ * Everything asserted here was captured from the built agent first.
+ */
+import http from "http";
+import { AddressInfo } from "net";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+import { NscpInstance } from "@fixtures/index";
+
+jest.setTimeout(180_000);
+
+const PAYLOAD = "[/settings/default]\nallowed hosts = 1.2.3.4\n";
+
+describe("settings attachments and includes", () => {
+  let server: http.Server;
+  let baseUrl: string;
+  let served: Record<string, string> = {};
+
+  beforeAll(async () => {
+    server = http.createServer((req, res) => {
+      const url = decodeURIComponent(req.url ?? "/");
+      const body = served[url];
+      if (body === undefined) {
+        res.writeHead(404);
+        res.end("not found");
+        return;
+      }
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end(body);
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  });
+
+  afterAll(async () => {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+
+  /**
+   * A sandbox with its own ${shared-path}, a boot.ini that permits plain http
+   * (standing up TLS here would test OpenSSL, not path resolution), and a
+   * local bootstrap ini that includes `fleetIni` from the fake config server.
+   */
+  function sandbox(fleetIni: string) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-attach-"));
+    const shared = path.join(root, "shared");
+    // The agent runs from here: deliberately NOT the install root, so a target
+    // that fell back to the working directory shows up as a file in `cwd`.
+    const cwd = path.join(root, "cwd");
+    fs.mkdirSync(shared, { recursive: true });
+    fs.mkdirSync(cwd, { recursive: true });
+
+    const bootIni = path.join(root, "boot.ini");
+    fs.writeFileSync(bootIni, "[tls]\nallow plaintext = true\n");
+
+    served["/fleet.ini"] = fleetIni;
+    served["/payload.ini"] = PAYLOAD;
+
+    const nscp = new NscpInstance({
+      workDir: cwd,
+      settingsFile: path.join(root, "nsclient.ini"),
+      pathOverrides: { "shared-path": shared, "boot-conf": bootIni },
+    });
+    fs.writeFileSync(nscp.settingsFile, `[/includes]\nfleet = ${baseUrl}/fleet.ini\n`);
+    return { root, shared, cwd, nscp };
+  }
+
+  /** Boot the settings subsystem once and return everything it printed. */
+  async function boot(nscp: NscpInstance): Promise<string> {
+    const r = await nscp.run(["settings", "--list"], { allowFailure: true });
+    return r.all ?? `${r.stdout}\n${r.stderr}`;
+  }
+
+  describe("attachment targets", () => {
+    it("put every shape of target where the setting says, and nothing in the working directory", async () => {
+      const outside = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-attach-abs-"));
+      const absolute = path.join(outside, "absolute.ini");
+      const { shared, cwd, nscp } = sandbox(
+        [
+          "[/attachments]",
+          `bare.ini = ${baseUrl}/payload.ini`,
+          `\${shared-path}/token.ini = ${baseUrl}/payload.ini`,
+          `${absolute} = ${baseUrl}/payload.ini`,
+          `deep/nested/made-up.ini = ${baseUrl}/payload.ini`,
+          "",
+        ].join("\n"),
+      );
+
+      await boot(nscp);
+
+      // The fix: a bare name is rooted at ${shared-path}, not at wherever the
+      // agent happened to be started from.
+      expect(fs.readFileSync(path.join(shared, "bare.ini"), "utf8")).toBe(PAYLOAD);
+      // A token naming the same folder is the same answer, written explicitly.
+      expect(fs.readFileSync(path.join(shared, "token.ini"), "utf8")).toBe(PAYLOAD);
+      // An absolute target is the operator's call and is used as given.
+      expect(fs.readFileSync(absolute, "utf8")).toBe(PAYLOAD);
+      // A relative target with directories is rooted the same way, and the
+      // directories are created - the download used to fail outright because
+      // nothing made the parent, which is the other half of #1557.
+      expect(fs.readFileSync(path.join(shared, "deep", "nested", "made-up.ini"), "utf8")).toBe(
+        PAYLOAD,
+      );
+
+      // Nothing landed in the working directory. This is the assertion that
+      // would have failed before the fix, when a bare target resolved against
+      // whatever directory the agent was started from. (The fixture puts its
+      // own `security` folder here for ${certificate-path}, so look for the
+      // attachments specifically rather than for an empty directory.)
+      const strays = fs
+        .readdirSync(cwd, { withFileTypes: true })
+        .filter((e) => e.isFile() || e.name === "deep")
+        .map((e) => e.name);
+      expect(strays).toEqual([]);
+    });
+
+    it("skips one unresolvable target, names it, and keeps fetching the rest", async () => {
+      const { shared, nscp } = sandbox(
+        [
+          "[/attachments]",
+          `\${scripst}/typo.ini = ${baseUrl}/payload.ini`,
+          `survivor.ini = ${baseUrl}/payload.ini`,
+          "",
+        ].join("\n"),
+      );
+
+      const out = await boot(nscp);
+
+      // Reported with the token that was wrong, so it can be corrected...
+      expect(out).toMatch(/Skipping attachment .*\$\{scripst\}\/typo\.ini/);
+      expect(out).toMatch(/scripst/);
+      // ...and the attachment listed after it still arrives. An unknown token
+      // is an error for the setting that carries it, not for the settings
+      // load: the configuration already in hand is worth more than the add-on.
+      expect(fs.existsSync(path.join(shared, "survivor.ini"))).toBe(true);
+    });
+  });
+
+  describe("include resolution", () => {
+    /** Put `value` in [/includes] of a local ini and report what happened. */
+    async function includeResolves(value: string): Promise<{ loaded: boolean; output: string }> {
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-include-"));
+      const shared = path.join(root, "shared");
+      const cwd = path.join(root, "cwd");
+      fs.mkdirSync(shared, { recursive: true });
+      fs.mkdirSync(cwd, { recursive: true });
+      fs.writeFileSync(
+        path.join(shared, "included.ini"),
+        "[/settings/default]\nallowed hosts = from-the-include\n",
+      );
+
+      const nscp = new NscpInstance({
+        workDir: cwd,
+        settingsFile: path.join(root, "nsclient.ini"),
+        pathOverrides: { "shared-path": shared },
+      });
+      fs.writeFileSync(
+        nscp.settingsFile,
+        `[/includes]\nx = ${value.split("<shared>").join(shared)}\n`,
+      );
+      const output = await boot(nscp);
+      return { loaded: /allowed hosts=from-the-include/.test(output), output };
+    }
+
+    it("loads an absolute include", async () => {
+      expect((await includeResolves("<shared>/included.ini")).loaded).toBe(true);
+    });
+
+    it("loads an include written with a path token", async () => {
+      expect((await includeResolves("${shared-path}/included.ini")).loaded).toBe(true);
+    });
+
+    it("refuses a bare relative include rather than guessing a folder for it", async () => {
+      // Unlike an attachment target, an include is not rooted at anything: it
+      // goes to create_instance, which needs a protocol it recognises or a
+      // file it can find, and a bare name is neither. Worth pinning because
+      // the two sections sit next to each other and look symmetrical.
+      const r = await includeResolves("included.ini");
+      expect(r.loaded).toBe(false);
+      expect(r.output).toMatch(/Failed to load child included\.ini/);
+    });
+  });
+
+  describe("an attachment that is then included", () => {
+    it("converges on the second boot with a token, and never with a bare name", async () => {
+      const { shared, nscp } = sandbox(
+        [
+          "[/attachments]",
+          `extra.ini = ${baseUrl}/extra.ini`,
+          "",
+          "[/includes]",
+          "bare = extra.ini",
+          "tok = ${shared-path}/extra.ini",
+          "",
+        ].join("\n"),
+      );
+      served["/extra.ini"] = "[/settings/default]\nallowed hosts = from-the-attachment\n";
+
+      // Boot one resolves the include chain from the freshly downloaded config
+      // *before* it fetches the attachments, so neither include has a file to
+      // open yet. The download still happens.
+      const first = await boot(nscp);
+      expect(first).not.toMatch(/from-the-attachment/);
+      expect(fs.existsSync(path.join(shared, "extra.ini"))).toBe(true);
+
+      // Boot two finds it - but only through the token. This is the trap the
+      // attachment fix creates: a bare target now lands in ${shared-path},
+      // while a bare include still resolves nowhere, so the natural pairing of
+      // `extra.ini = <url>` with `extra = extra.ini` never converges.
+      const second = await boot(nscp);
+      expect(second).toMatch(/from-the-attachment/);
+      expect(second).toMatch(/Failed to load child extra\.ini/);
+    });
+  });
+});
