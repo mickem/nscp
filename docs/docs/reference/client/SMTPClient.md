@@ -205,6 +205,31 @@ against forward/reverse DNS before accepting mail.
 <a id="submit_smtp_ca"></a>
 <a id="submit_smtp_ehlo-hostname"></a>
 
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
 | Option                                                    | Default Value | Description                                                                                        |
 |-----------------------------------------------------------|---------------|----------------------------------------------------------------------------------------------------|
 | host                                                      |               | The host of the host running the server                                                            |

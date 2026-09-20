@@ -169,6 +169,22 @@ the metrics were stored — only that the connection was accepted.
 <a id="submit_graphite_batch"></a>
 <a id="submit_graphite_path"></a>
 
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
 | Option      | Default Value | Description                                                                           |
 |-------------|---------------|---------------------------------------------------------------------------------------|
 | host        |               | The host of the host running the server                                               |

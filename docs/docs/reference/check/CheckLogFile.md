@@ -328,6 +328,14 @@ UNKNOWN: Nothing found|'count'=0;0;0
 <a id="check_logfile_split"></a>
 <a id="check_logfile_files"></a>
 
+        
+        
+        
+        
+        
+        
+        
+        
 | Option                                      | Default Value | Description                                                                                                                                                                                                                                               |
 |---------------------------------------------|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [line-split](#check_logfile_line-split)     | \n            | Character string used to split a file into several lines (default `\n`).                                                                                                                                                                                  |

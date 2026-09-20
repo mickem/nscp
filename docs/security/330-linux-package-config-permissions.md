@@ -1,6 +1,6 @@
 ---
 title: "Linux packages install nsclient.ini and the log directory owner-readable"
-fixed_in: next
+fixed_in: 0.22.0
 severity: "Medium on Linux installs with multiple local accounts"
 modules: [packaging]
 action: conditional

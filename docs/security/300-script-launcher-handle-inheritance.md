@@ -1,6 +1,6 @@
 ---
 title: "External scripts inherited every inheritable handle of the service"
-fixed_in: next
+fixed_in: 0.22.0
 severity: "Medium"
 modules: [CheckExternalScripts]
 action: none

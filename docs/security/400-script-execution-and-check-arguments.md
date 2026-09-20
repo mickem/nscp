@@ -1,6 +1,6 @@
 ---
 title: "Script execution and check arguments: NUL truncation, import sandbox, pipe reads, handle leak, docker endpoint, remote-connection checks"
-fixed_in: next
+fixed_in: 0.22.0
 severity: "Low"
 modules: [CheckExternalScripts, CheckDocker, CheckWMI, CheckMySQL, CheckMSSQL, docs]
 action: conditional

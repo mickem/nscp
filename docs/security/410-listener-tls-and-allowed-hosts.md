@@ -1,6 +1,6 @@
 ---
 title: "Listeners: the insecure NRPE cipher string, a key `nrpe install` never wrote, and `*` in allowed hosts"
-fixed_in: next
+fixed_in: 0.22.0
 severity: "Low"
 modules: [NRPEServer, NRPEClient, core]
 action: conditional

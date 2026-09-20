@@ -475,6 +475,13 @@ check_cpu OK OK: CPU load is ok.
 <a id="check_and_forward_destination"></a>
 <a id="check_and_forward_source"></a>
 
+        
+        
+        
+        
+        
+        
+        
 | Option      | Default Value | Description                                                                                                          |
 |-------------|---------------|----------------------------------------------------------------------------------------------------------------------|
 | command     |               | The command to run before forwarding the result                                                                      |
@@ -545,6 +552,7 @@ CRITICAL: TODO: implement backup verification
 <a id="check_critical_options"></a>
 #### Command-line Arguments
 
+        
 | Option                             | Default Value | Description       |
 |------------------------------------|---------------|-------------------|
 | [message](#check_critical_message) | No message    | Message to return |
@@ -657,6 +665,11 @@ WARNING: WARNING /opt/claude-code: 202.746MB/229.949MB used, uptime: 5d 03:14h
 <a id="check_multi_prefix"></a>
 <a id="check_multi_suffix"></a>
 
+        
+        
+        
+        
+        
 | Option                              | Default Value | Description                                  |
 |-------------------------------------|---------------|----------------------------------------------|
 | command                             |               | Commands to run (can be used multiple times) |
@@ -805,6 +818,12 @@ WARNING: WARNING /opt/claude-code: 202.746MB/229.949MB used
 <a id="check_negate_command"></a>
 <a id="check_negate_arguments"></a>
 
+        
+        
+        
+        
+        
+        
 | Option    | Default Value | Description                             |
 |-----------|---------------|-----------------------------------------|
 | ok        |               | The state to return instead of OK       |
@@ -875,6 +894,7 @@ OK: No message
 <a id="check_ok_options"></a>
 #### Command-line Arguments
 
+        
 | Option                       | Default Value | Description       |
 |------------------------------|---------------|-------------------|
 | [message](#check_ok_message) | No message    | Message to return |
@@ -987,6 +1007,10 @@ UNKNOWN: Thread failed to return within given timeout
 <a id="check_timeout_arguments"></a>
 <a id="check_timeout_return"></a>
 
+        
+        
+        
+        
 | Option    | Default Value | Description                             |
 |-----------|---------------|-----------------------------------------|
 | timeout   |               | The timeout value                       |
@@ -1121,6 +1145,7 @@ WARNING: state test
 <a id="check_warning_options"></a>
 #### Command-line Arguments
 
+        
 | Option                            | Default Value | Description       |
 |-----------------------------------|---------------|-------------------|
 | [message](#check_warning_message) | No message    | Message to return |
@@ -1245,6 +1270,10 @@ keep their original position.
 <a id="filter_perf_command"></a>
 <a id="filter_perf_arguments"></a>
 
+        
+        
+        
+        
 | Option                      | Default Value | Description                                                 |
 |-----------------------------|---------------|-------------------------------------------------------------|
 | [sort](#filter_perf_sort)   | none          | The sort order to use: none, normal or reversed             |
@@ -1377,6 +1406,9 @@ UNKNOWN: UNKNOWN:
 <a id="render_perf_command"></a>
 <a id="render_perf_arguments"></a>
 
+        
+        
+        
 | Option                                  | Default Value | Description                             |
 |-----------------------------------------|---------------|-----------------------------------------|
 | command                                 |               | Wrapped command to execute              |
@@ -1553,6 +1585,11 @@ UNKNOWN: Invalid mode specified	...
 <a id="xform_perf_field"></a>
 <a id="xform_perf_replace"></a>
 
+        
+        
+        
+        
+        
 | Option    | Default Value | Description                                                                 |
 |-----------|---------------|-----------------------------------------------------------------------------|
 | command   |               | Wrapped command to execute                                                  |

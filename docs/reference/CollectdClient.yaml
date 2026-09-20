@@ -36,7 +36,11 @@ common:
       info:
         advanced: false
         description: Mapping of collectd keys (e.g. cpu-total/cpu-user) to value expressions (e.g. derive:system.cpu.total.user).
-          When empty a built-in default set is used.
+          The expression is `gauge:`, `derive:` or `auto:` followed by one or more comma-separated metric
+          keys; `auto:` takes the type from the metric itself, sending whatever the producing module declared
+          as a counter as a DERIVE and everything else as a GAUGE. A value list is sent only when the
+          snapshot carries every metric it names - one this platform or configuration does not produce
+          means the list is skipped, not reported as zero. When empty a built-in default set is used.
         subkey: false
         title: METRIC MAPPINGS
     /settings/collectd/client/targets:
@@ -57,14 +61,17 @@ common:
             advanced: true
             default_value: 'false'
             description: 'Let a request (a REST query, an NRPE argument or `nscp client`) send this target''s
-              *configured* credentials to a destination the request names. Off by default: when a request
-              moves the destination (`host=`, `port=`, `address=`) and the password or token going with
-              it is the one configured here, the call is refused, since otherwise anyone able to run the
-              module''s commands could direct the configured credentials to a host of their choosing.
-              This setting is only consulted in that case: a target with no credentials, a request that
-              supplies its own password/token, and a request that does not move the destination are all
-              unaffected. To reach another server with its own credentials, prefer configuring it as a
-              separate target and selecting it with `target=`.'
+              *configured* credentials to a destination the request names, or under transport settings
+              the request names. Off by default: when a request moves the destination (`host=`, `port=`,
+              `address=`), reroutes it through a proxy of its own (`proxy=`, `no-proxy=`) or changes how
+              the connection is protected (`verify=`, `insecure=`, `ca=`, `security=`, `tls-version=`,
+              the certificate and cipher keys) and the password or token going with it is the one configured
+              here, the call is refused, since otherwise anyone able to run the module''s commands could
+              direct the configured credentials to a host of their choosing, or strip the check that the
+              host answering is the configured one. This setting is only consulted in that case: a target
+              with no credentials, a request that supplies its own password/token, and a request that
+              changes none of those are all unaffected. To reach another server with its own credentials,
+              prefer configuring it as a separate target and selecting it with `target=`.'
             sample: true
             title: ALLOW HOST OVERRIDE
           host:
@@ -113,9 +120,13 @@ common:
     /settings/collectd/client/variables:
       info:
         advanced: false
-        description: Variables used to expand ${...} placeholders in metric keys. Each value is a regular
-          expression matched against metric names; the captured groups become the variable's values. When
-          empty a built-in default set is used.
+        description: Variables used to expand ${...} placeholders in metric keys. Each value is either
+          `label:<name>`, which expands to every distinct value of that metric label (`label:core`, `label:nic`,
+          `label:drive` - the same dimensions the OpenMetrics exposition renders, and spelled the same
+          on every platform), or a regular expression matched against metric names, whose captured groups
+          become the variable's values. A label includes the aggregates, so `label:core` yields `total`
+          alongside `0`, `1`, ...; a template built from it that names a metric the snapshot has no value
+          for is simply not sent. When empty a built-in default set is used.
         subkey: false
         title: VARIABLE DEFINITIONS
 module: CollectdClient

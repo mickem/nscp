@@ -1,6 +1,6 @@
 ---
 title: "Second undefined-behaviour sweep: crashes in the script hosts and the Windows collectors"
-fixed_in: next
+fixed_in: 0.22.0
 severity: "Medium"
 modules: [LUAScript, PythonScript, CheckMKServer, CheckMKClient, CheckSystem, CheckEventLog]
 action: conditional
@@ -35,4 +35,4 @@ None is known to have been exploited, and none is known to do more than crash
 the agent.
 
 **What to do:** nothing beyond upgrading, unless a counter of yours sets
-`buffer size = 0`; see the [upgrade note](../setup/upgrading.md#unreleased).
+`buffer size = 0`; see the [upgrade note](../setup/upgrading.md#0220).

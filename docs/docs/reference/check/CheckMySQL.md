@@ -1,5 +1,11 @@
 # CheckMySQL
 
+!!! warning "Experimental"
+
+    This module is experimental: it works, but its options, filter keywords
+    and output may change in a future release. Please try it and report
+    anything that does not behave the way you expect.
+
 Check MySQL, MariaDB, Percona and other MySQL-compatible servers: connectivity, health and custom queries.
 
 CheckMySQL checks MySQL, MariaDB, Percona and other MySQL-compatible database
@@ -35,10 +41,10 @@ A quick reference for all available queries (check commands) in the CheckMySQL m
 
 A list of all available queries (check commands)
 
-| Command                                 | Description                                                                                |
-|-----------------------------------------|--------------------------------------------------------------------------------------------|
-| [check_mysql](#check_mysql)             | Check MySQL/MariaDB server connectivity and health (version, flavor, uptime, connections). |
-| [check_mysql_query](#check_mysql_query) | Run a custom SQL query and apply thresholds to the returned rows.                          |
+| Command                                                  | Description                                                                                |
+|----------------------------------------------------------|--------------------------------------------------------------------------------------------|
+| [check_mysql](#check_mysql) *(experimental)*             | Check MySQL/MariaDB server connectivity and health (version, flavor, uptime, connections). |
+| [check_mysql_query](#check_mysql_query) *(experimental)* | Run a custom SQL query and apply thresholds to the returned rows.                          |
 
 ### check_mysql
 
@@ -146,6 +152,14 @@ OK: mysql 8.4.11, uptime 1011s, connections 1/151 (0%)
 <a id="check_mysql_user"></a>
 <a id="check_mysql_password"></a>
 
+        
+        
+        
+        
+        
+        
+        
+        
 | Option                                      | Default Value | Description                              |
 |---------------------------------------------|---------------|------------------------------------------|
 | [host](#check_mysql_host)                   | localhost     | MySQL/MariaDB server to connect to.      |
@@ -322,6 +336,15 @@ No query specified (use query=<SQL>)
 <a id="check_mysql_query_user"></a>
 <a id="check_mysql_query_password"></a>
 
+        
+        
+        
+        
+        
+        
+        
+        
+        
 | Option                                            | Default Value | Description                              |
 |---------------------------------------------------|---------------|------------------------------------------|
 | query                                             |               | The SQL query to execute.                |
