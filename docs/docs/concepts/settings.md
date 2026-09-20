@@ -562,11 +562,16 @@ expansion. A `${scripts}/check_foo.sh` entry reaches the shell with the token st
 | `scripts/check_foo.sh` | resolved relative to the working directory |
 | `/opt/nscp/scripts/check_foo.sh` | used as given |
 
-The conventional `scripts\check_foo.bat` works on a normal install because the working directory
-contains `scripts`: on Windows the service starts external scripts with the installation directory
-as their working directory, and on Linux the shipped systemd unit sets `WorkingDirectory` to
-`${shared-path}`. Neither is stated in the configuration, so prefer an absolute path here, or keep
-the relative form knowing it depends on how the agent was started.
+The conventional `scripts\check_foo.bat` is reliable on Windows, and by construction rather than by
+luck: the launcher starts the child with `${base-path}` as its working directory, and `${scripts}`
+is `${exe-path}/scripts` — the same folder. That holds under the modern layout too, because
+`${scripts}` stays with the program instead of moving to `%ProgramData%` with the writable state.
+
+On Linux it holds under the shipped systemd unit, which sets `WorkingDirectory` to `${shared-path}`,
+the folder `${scripts}` lives in. The difference is that the unix launcher does not set a working
+directory for the child at all — it inherits the agent's. Started any other way (by hand, from an
+init script, as a container entrypoint) a relative command is measured against whatever that
+happened to be, so prefer an absolute path there.
 
 `nscp ext-scr add --import <file>` writes that value for you, and picks the spelling that works on
 the platform it runs on: `scripts\<name>` on Windows, where the working directory is known, and the
