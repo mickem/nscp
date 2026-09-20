@@ -255,6 +255,9 @@ struct icinga_client_handler : client::handler_interface {
         nscapi::protobuf::functions::set_response_bad(*payload, err);
       }
     } catch (const socket_helpers::socket_exception &e) {
+      // The detail can name a request-supplied path and why it failed to
+      // load, so it goes to the log only; the caller gets what() alone.
+      if (e.has_detail()) NSC_LOG_ERROR_STD(e.detail());
       nscapi::protobuf::functions::set_response_bad(*payload, std::string("Network error: ") + e.what());
     } catch (const std::runtime_error &e) {
       nscapi::protobuf::functions::set_response_bad(*payload, std::string("Error: ") + e.what());

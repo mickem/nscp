@@ -24,7 +24,7 @@
  */
 namespace Mongoose {
 
-class NSCAPI_EXPORT ServerMongooseImpl final : public Server {
+class NSCP_MONGOOSE_EXPORT ServerMongooseImpl final : public Server {
  public:
   /**
    * Constructs the server
@@ -81,6 +81,7 @@ class NSCAPI_EXPORT ServerMongooseImpl final : public Server {
   void initTls(mg_connection *connection) const;
 #endif
   void setSsl(std::string &certificate, std::string &key) override;
+  void setTlsOptions(const std::string &tls_version, const std::string &ciphers) override;
 
   /**
    * Does the server handles url?

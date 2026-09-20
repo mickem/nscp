@@ -355,10 +355,12 @@ macro(NSCP_MAKE_LIBRARY _TARGET _SRCS)
     # library was never built.
     set(_NSCP_LIB_EXCLUDE "")
     set(_NSCP_INSTALL_OPTIONAL "")
-    if("${ARGN}" STREQUAL "EXCLUDE_FROM_ALL")
-        set(_NSCP_LIB_EXCLUDE EXCLUDE_FROM_ALL)
-        set(_NSCP_INSTALL_OPTIONAL OPTIONAL)
-    endif()
+    foreach(_NSCP_LIB_ARG ${ARGN})
+        if(_NSCP_LIB_ARG STREQUAL "EXCLUDE_FROM_ALL")
+            set(_NSCP_LIB_EXCLUDE EXCLUDE_FROM_ALL)
+            set(_NSCP_INSTALL_OPTIONAL OPTIONAL)
+        endif()
+    endforeach()
     if(USE_STATIC_RUNTIME)
         add_library(${_TARGET} STATIC ${_NSCP_LIB_EXCLUDE} ${_SRCS})
         nscp_apply_pic(${_TARGET})
@@ -371,6 +373,17 @@ macro(NSCP_MAKE_LIBRARY _TARGET _SRCS)
     else(USE_STATIC_RUNTIME)
         add_library(${_TARGET} SHARED ${_NSCP_LIB_EXCLUDE} ${_SRCS})
         SET_LIBRARY_OUT_FOLDER(${_TARGET})
+        # Windows exports nothing from a DLL unless asked, and there is no
+        # WINDOWS_EXPORT_ALL_SYMBOLS here on purpose: every library in this tree
+        # says what is public through its own macro, from its own dll_defines.hpp
+        # (NSCAPI_EXPORT, NSCP_NET_EXPORT, NSCP_CLIENT_EXPORT, NSCP_WHERE_EXPORT,
+        # NSCAPI_PROTOBUF_EXPORT, and BOOST_JSON_DECL inside nscp_json).
+        #
+        # Exporting everything instead is not free: an exported symbol is a root
+        # the linker may not discard, so /OPT:REF stops pruning anywhere in the
+        # DLL and the library keeps code no caller reaches. Measured on
+        # nscp_where_filter, which shipped both ways: 1.66 MB exporting
+        # everything against 0.80 MB annotated.
         # These are package-PRIVATE libraries they install under NSCP_PKGLIBDIR alongside the modules, not the public
         # libdir, and ship no public ABI. So no SOVERSION/VERSION symlink chain (dead weight + a lintian remark for a
         # private lib). On Windows the VERSION property is harmless but equally unnecessary here.
@@ -563,6 +576,28 @@ function(NSCP_CREATE_TEST _TARGET)
         "SOURCES;LIBRARIES;INCLUDES"
     )
     add_executable(${_TARGET} ${ARG_SOURCES})
+    # Tests compile the library sources they need (command_line_parser.cpp,
+    # socket_helpers.cpp, settings/helper.cpp, ...) straight into the test binary
+    # so they can drive them without a core, and a declaration saying
+    # __declspec(dllimport) for a symbol the same binary defines gives C4273 at
+    # compile time and LNK4217 on every use. So the export macros are neutered.
+    #
+    # Note what this does NOT say: no test links nscp_client or nscp_net, but
+    # most of them do link plugin_api, through NSCP_DEF_PLUGIN_LIB. Neutering
+    # plugin_api_NOLIB there is safe only because a reference without dllimport
+    # still resolves through the import library, via a thunk for a function.
+    # That does not hold for data: plugin_api exports the vtable of
+    # nscapi::settings_proxy, and a test that both sets this define and needs
+    # that vtable from the DLL would fail with LNK2001. None does today - every
+    # test that constructs one compiles proxy.cpp itself - but a new one that
+    # hits it should drop the define for that target rather than work around it.
+    target_compile_definitions(
+        ${_TARGET}
+        PRIVATE
+            ${PLUGIN_API_TARGET}_NOLIB
+            nscp_client_NOLIB
+            nscp_net_NOLIB
+    )
     if(ARG_LIBRARIES)
         target_link_libraries(${_TARGET} ${ARG_LIBRARIES})
     endif()
@@ -652,6 +687,40 @@ macro(NSCP_FORCE_INCLUDE _TARGET _SRC)
     endif(WIN32)
 endmacro()
 
+# Canonical target architecture: x86, x64 or arm64.
+#
+# There were five copies of this decision in the tree and they did not agree.
+# Most branched on CMAKE_CL_64, which only means "64-bit pointers" and so
+# calls an ARM64 build x64; the rest branched on CMAKE_VS_PLATFORM_NAME, which
+# is right but only exists under the Visual Studio generators, so a Ninja
+# build on a native ARM64 host fell back to the same wrong answer.
+#
+# MSVC_<lang>_ARCHITECTURE_ID comes from compiler identification rather than
+# from the generator, so it is set for Ninja and NMake too. Its spelling has
+# varied over CMake releases (X86 vs x86), hence the lowercasing.
+function(nscp_target_arch _out)
+    set(_id "")
+    if(MSVC_CXX_ARCHITECTURE_ID)
+        string(TOLOWER "${MSVC_CXX_ARCHITECTURE_ID}" _id)
+    elseif(MSVC_C_ARCHITECTURE_ID)
+        string(TOLOWER "${MSVC_C_ARCHITECTURE_ID}" _id)
+    elseif(CMAKE_VS_PLATFORM_NAME)
+        string(TOLOWER "${CMAKE_VS_PLATFORM_NAME}" _id)
+    endif()
+
+    if(_id STREQUAL "arm64" OR _id STREQUAL "arm64ec")
+        set(${_out} arm64 PARENT_SCOPE)
+    elseif(_id STREQUAL "x64" OR _id STREQUAL "amd64")
+        set(${_out} x64 PARENT_SCOPE)
+    elseif(_id STREQUAL "x86" OR _id STREQUAL "win32")
+        set(${_out} x86 PARENT_SCOPE)
+    elseif(CMAKE_CL_64)
+        set(${_out} x64 PARENT_SCOPE)
+    else()
+        set(${_out} x86 PARENT_SCOPE)
+    endif()
+endfunction()
+
 macro(find_redist _TARGET_VAR)
     get_filename_component(_VS_BIN_FOLDER ${CMAKE_LINKER} PATH)
     get_filename_component(_VS_ROOT_FOLDER ${_VS_BIN_FOLDER} PATH)
@@ -668,11 +737,10 @@ macro(find_redist _TARGET_VAR)
     elseif(MSVC80)
         set(_VC_VERSION "80")
     endif()
-    if(CMAKE_CL_64)
-        set(_VC_ARCH x64)
-    else(CMAKE_CL_64)
-        set(_VC_ARCH x86)
-    endif(CMAKE_CL_64)
+    # The glob below finds nothing on a current VS layout on any
+    # architecture, but a wrong architecture here would be worse than an
+    # empty list.
+    nscp_target_arch(_VC_ARCH)
     set(_redit_folder
         "${_VS_ROOT_FOLDER}/redist/${_VC_ARCH}/Microsoft.VC${_VC_VERSION}.CRT"
     )

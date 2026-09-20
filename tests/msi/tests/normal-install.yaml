@@ -17,7 +17,6 @@ nsclient.ini: |
   
   [/settings/NRPE/server]
   insecure = false
-  tls version = tlsv1.2+
   verify mode = peer-cert
 
   [/settings/default]
@@ -38,6 +37,18 @@ required_files:
     - plugin_api.dll
     - python311.dll
     - nscp_where_filter.dll
+    # The shared runtime libraries (LibNSCP in RUNTIME_DLL.wxs): the plugin
+    # code that used to be compiled into every module.
+    - nscp_net.dll
+    - nscp_client.dll
+    - nscp_json.dll
+    # OpenSSL, shipped as DLLs rather than linked into each module. The
+    # installer only lists them when the build hands their names over, so if
+    # that wiring ever breaks the MSI still builds and installs and every TLS
+    # module fails to load; this is what catches it. The installer test runs
+    # on x64 only, hence the x64 names.
+    - libcrypto-3-x64.dll
+    - libssl-3-x64.dll
     # Python runtime shipped alongside python311.dll (PythonBin component in
     # Product.wxs). PythonScript.dll cannot import the stdlib without these.
     - python311.zip

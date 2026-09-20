@@ -13,7 +13,7 @@
 
 namespace mcp {
 
-class NSCAPI_EXPORT mcp_exception {
+class NSCP_MONGOOSE_EXPORT mcp_exception {
   std::string error;
 
  public:

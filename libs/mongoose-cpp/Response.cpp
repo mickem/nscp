@@ -59,4 +59,14 @@ std::string Response::getCookie(const std::string key) const {
   return cit->second.first;
 }
 
+void Response::setContext(const std::string key, const std::string value) { context[key] = value; }
+
+std::string Response::getContext(const std::string key) const {
+  const auto it = context.find(key);
+  if (it == context.end()) {
+    return "";
+  }
+  return it->second;
+}
+
 }  // namespace Mongoose

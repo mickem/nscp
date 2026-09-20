@@ -1,0 +1,68 @@
+# The other direction: an operator who names a mode on the command line still
+# gets it applied over the configuration already on the host.
+#
+# The two cases beside this one pin down that an upgrade leaves NRPE transport
+# security alone. This one is the guard against over-correcting that into "the
+# installer can never change the mode": NRPEMODE=LEGACY on the command line is
+# an explicit request, so the legacy preset is applied and flips this secure
+# listener over - `verify mode` from peer-cert to none, and `insecure = true`.
+#
+# The bare NRPEMODE property has no default in properties.wxs, which is what
+# makes a value there unambiguously a request rather than a default standing in
+# for one.
+#
+# `tls version = tls1.3` still survives, because the preset writes only the two
+# keys that decide the mode. Before #1558 it was replaced with tlsv1.2+, which is
+# NRPEServer's own default and so was never worth writing in the first place.
+command_line: ["msiexec.exe", "/i", "$MSI-FILE", "/qn", "/l*", "log.txt", "ADDLOCAL=ALL", "NRPEMODE=LEGACY" ]
+replace_password: true
+
+upgrade:
+  boot.ini: |
+    [settings]
+    1 = ini://${shared-path}/nsclient.ini
+
+  nsclient.ini: |
+    [/modules]
+    checkdisk = enabled
+    checkeventlog = enabled
+    checkexternalscripts = enabled
+    checkhelpers = enabled
+    checknscp = enabled
+    checksystem = enabled
+    nrpeserver = enabled
+    webserver = enabled
+
+    [/settings/NRPE/server]
+    port = 5666
+    tls version = tls1.3
+    verify mode = peer-cert
+
+    [/settings/default]
+    allowed hosts = 127.0.0.1
+    password = $$PASSWORD$$
+
+boot.ini: |
+  [settings]
+  1 = ini://${shared-path}/nsclient.ini
+
+nsclient.ini: |
+  [/modules]
+  checkdisk = enabled
+  checkeventlog = enabled
+  checkexternalscripts = enabled
+  checkhelpers = enabled
+  checknscp = enabled
+  checksystem = enabled
+  nrpeserver = enabled
+  webserver = enabled
+
+  [/settings/NRPE/server]
+  insecure = true
+  port = 5666
+  tls version = tls1.3
+  verify mode = none
+
+  [/settings/default]
+  allowed hosts = 127.0.0.1
+  password = $$PASSWORD$$

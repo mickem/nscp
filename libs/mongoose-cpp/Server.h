@@ -16,7 +16,7 @@
  */
 namespace Mongoose {
 
-class NSCAPI_EXPORT WebLogger {
+class NSCP_MONGOOSE_EXPORT WebLogger {
  public:
   virtual ~WebLogger() = default;
   virtual void log_error(const std::string &message) = 0;
@@ -26,7 +26,7 @@ class NSCAPI_EXPORT WebLogger {
 
 typedef std::shared_ptr<WebLogger> WebLoggerPtr;
 
-class NSCAPI_EXPORT Server {
+class NSCP_MONGOOSE_EXPORT Server {
  public:
   static Server *make_server(const WebLoggerPtr &logger);
 
@@ -80,5 +80,23 @@ class NSCAPI_EXPORT Server {
    * `start()` for the change to take effect.
    */
   virtual void setBodyLimit(std::size_t /*bytes*/) {}
+
+  /**
+   * Restrict the TLS versions and cipher suites the listener negotiates.
+   *
+   * `tls_version` uses the same vocabulary as the NRPE and NSCA listeners:
+   * an exact version (1.0, 1.1, 1.2, 1.3, optionally spelled tlsv1.2), a
+   * trailing `+` for "that version or later", or `any`. `ciphers` is an
+   * OpenSSL cipher list, empty meaning the library default.
+   *
+   * Honoured by the Beast backend, which also applies its own default when
+   * handed an empty `tls_version` - so a caller passes empty for a setting the
+   * operator never touched. The mongoose backend drives TLS through mongoose's
+   * own stack, which does not expose either knob; it logs that a value the
+   * operator set is being ignored rather than pretending to apply it, and
+   * records the limitation at debug level when nothing was set. Must be called
+   * before `start()`.
+   */
+  virtual void setTlsOptions(const std::string & /*tls_version*/, const std::string & /*ciphers*/) {}
 };
 }  // namespace Mongoose

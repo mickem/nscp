@@ -103,6 +103,26 @@ bool client::is_address_key(const std::string &key) { return key == "host" || ke
 // them on its own.
 bool client::is_route_key(const std::string &key) { return key == "proxy" || key == "no proxy"; }
 
+// The transport-security keys. `host=` moves the credential to another host;
+// these leave the destination alone and remove the guarantee that whoever
+// answers for it is the configured server - `submit_nrdp verify=none` hands
+// the token to a DNS or on-path attacker without moving anything the address
+// guard can see. `ca`, `certificate` and `dh` are here for a second reason:
+// they are file paths, and a caller who can choose one learns from the result
+// whether that path exists and loads, with the agent's privileges.
+bool client::is_transport_key(const std::string &key) {
+  static const std::set<std::string> keys = {"verify mode",     "insecure",           "insecure-skip-verify", "use psk", "security",
+                                             "ssl",             "use ssl",            "no ssl",               "ca",      "certificate",
+                                             "certificate key", "certificate format", "allowed ciphers",      "dh",      "tls version"};
+  return keys.count(key) != 0;
+}
+
+// submit_smtp addresses a message; the submission server it authenticates to
+// is unchanged, so nothing above notices, yet the caller picked who receives
+// the mail and who it claims to be from - the agent's authenticated account
+// used as an open relay.
+bool client::is_recipient_key(const std::string &key) { return key == "recipient" || key == "sender"; }
+
 // A URL can carry the credential in its own text, where the key it is stored
 // under says nothing about it: `address = https://h/submit.php?token=SECRET`
 // is a form this project documents, and `https://user:pass@h/` is the other.
@@ -202,6 +222,81 @@ std::string client::configuration::check_host_override(const po::variables_map &
   return "The configured target '" + d.configured_target + "' carries credentials, so its " + what + " cannot be changed by the request (" + how +
          "): that would " + consequence + ". Supply the credentials with the request, configure the other host or proxy as its own target and select it "
          "with target=, or set 'allow host override = true' on the target to permit this.";
+}
+
+// Transport security is decided by the target, not by the request, whenever
+// the credentials in play are the target's own. Refusing rather than silently
+// honouring the stronger of the two: "which of these is weaker" is a judgement
+// the agent would have to make for `ca`, `security`, `tls version` and a
+// cipher list alike, and getting it wrong once means sending the credential
+// to an unverified peer. A request that brought its own credentials, or a
+// target that opted in with `allow host override`, is unaffected - exactly as
+// for the address and the proxy.
+std::string client::configuration::check_transport_override(const po::variables_map &vm, const destination_container &d) {
+  if (!d.has_inherited_credentials() || d.allow_host_override) return "";
+  const std::set<std::string> changed = d.transport_changes();
+  if (changed.empty()) return "";
+
+  // Name the options the request actually spelled out; a value that arrived as
+  // header metadata or as a bare `key=value` token has no option to name, so
+  // fall back to the keys.
+  static const struct {
+    const char *key;
+    const char *option;
+  } option_for[] = {{"verify mode", "verify"},
+                    {"verify mode", "verify-mode"},
+                    {"ca", "ca"},
+                    {"insecure", "insecure"},
+                    {"insecure-skip-verify", "insecure-skip-verify"},
+                    {"use psk", "no-psk"},
+                    {"security", "security"},
+                    {"ssl", "ssl"},
+                    {"use ssl", "use-ssl"},
+                    {"no ssl", "no-ssl"},
+                    {"certificate", "certificate"},
+                    {"certificate key", "certificate-key"},
+                    {"certificate format", "certificate-format"},
+                    {"allowed ciphers", "allowed-ciphers"},
+                    {"dh", "dh"},
+                    {"tls version", "tls-version"}};
+  std::set<std::string> named;
+  for (const auto &o : option_for) {
+    if (changed.count(o.key) == 0 || vm.count(o.option) == 0) continue;
+    named.insert(std::string("--") + o.option);
+  }
+  const std::string how = named.empty() ? ("the request changed " + str::utils::joinEx(changed, "/")) : str::utils::joinEx(named, "/");
+  return "The configured target '" + d.configured_target +
+         "' carries credentials, so the transport security of the connection cannot be changed by the request (" + how +
+         "): that decides whether the host receiving those credentials has to prove it is the configured one. Supply the credentials with the request, "
+         "configure a target with the transport settings you want and select it with target=, or set 'allow host override = true' on the target to permit "
+         "this.";
+}
+
+// Who a message is addressed to is part of what the target configures, on the
+// same terms: the agent holds the mailbox credentials, so a caller choosing
+// both ends of the message is using the agent as an authenticated relay. The
+// opt-in is its own key, because letting callers pick a recipient is a much
+// smaller decision than letting them pick the server.
+std::string client::configuration::check_recipient_override(const po::variables_map &vm, const destination_container &d) {
+  if (!d.has_inherited_credentials() || d.allow_host_override || d.allow_recipient_override) return "";
+  const std::set<std::string> changed = d.recipient_changes();
+  if (changed.empty()) return "";
+
+  std::set<std::string> named;
+  for (const std::string &key : changed) {
+    if (vm.count(key) != 0) named.insert("--" + key);
+  }
+  const std::string how = named.empty() ? ("the request changed " + str::utils::joinEx(changed, "/")) : str::utils::joinEx(named, "/");
+  return "The configured target '" + d.configured_target + "' carries credentials, so the message addressing cannot be changed by the request (" + how +
+         "): that would send mail of the caller's choosing through the configured account. Configure the addresses on the target, supply the credentials "
+         "with the request, or set 'allow recipient override = true' on the target to permit this.";
+}
+
+std::string client::configuration::check_request_overrides(const po::variables_map &vm, const destination_container &d) {
+  std::string refused = check_host_override(vm, d);
+  if (refused.empty()) refused = check_transport_override(vm, d);
+  if (refused.empty()) refused = check_recipient_override(vm, d);
+  return refused;
 }
 
 std::string client::destination_container::to_string() const {
@@ -522,7 +617,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
       }
       if (parse_failed) return;
 
-      const std::string refused = check_host_override(vm, d);
+      const std::string refused = check_request_overrides(vm, d);
       if (!refused.empty()) return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), refused);
 
       if (client_pre) {
@@ -692,7 +787,7 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
       }
       // After --target has had its say: the guard applies to whichever
       // configured target the connection ends up loaded from.
-      const std::string refused = check_host_override(vm, d);
+      const std::string refused = check_request_overrides(vm, d);
       if (!refused.empty()) {
         nscapi::protobuf::functions::set_response_bad(*response.add_payload(), refused);
         return true;

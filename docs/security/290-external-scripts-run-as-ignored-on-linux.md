@@ -1,6 +1,6 @@
 ---
 title: "External scripts: run-as settings were silently ignored on Linux"
-fixed_in: next
+fixed_in: 0.22.0
 severity: "Medium for Linux setups that set `user` on a script, none otherwise"
 modules: [CheckExternalScripts]
 action: conditional

@@ -17,7 +17,6 @@ nsclient.ini: |
   
   [/settings/NRPE/server]
   insecure = true
-  tls version = tlsv1.2+
   verify mode = none
 
   [/settings/default]

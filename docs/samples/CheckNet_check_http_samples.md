@@ -101,20 +101,63 @@ OK: https://example.com/private -> 200 ok (1200B in 88ms)
 **Follow redirects (default reports the 3xx as-is; `onredirect=follow` chases the Location):**
 
 ```
-check_http url=http://github.com onredirect=follow "detail-syntax=code=${code}"
-OK: code=200
+check_http url=http://github.com onredirect=follow "detail-syntax=${url} ${result} code=${code}"
+OK: http://github.com ok code=200|'http://github.com_code'=200;0;200 'http://github.com_size'=575830B;0;0 'http://github.com'=119ms;5000;0
 ```
 
 **Accept a set of status codes with the `code` keyword, and match the body with a regex:**
 
+`regexp` is a **full** match, not a search, so a body pattern has to cover the
+whole document — `'.*Welcome.*'`, not `'Welcome'`. For a plain substring reach
+for `expected-body=` instead: it sets `result=no_match`, which the default
+`critical` filter already alerts on and the default `detail-syntax` already
+shows.
+
 ```
-check_http url=https://example.com "warn=code not in (200,301,302)" "crit=code >= 500 or body not regexp 'Welcome'"
-OK: https://example.com -> 200 ok (1256B in 74ms)
+check_http url=https://nsclient.org/ "warn=code not in (200,301,302)" "crit=code >= 500 or body not regexp '.*NSClient.*'" "detail-syntax=${url} ${result} code=${code} (${size}B in ${time}ms)"
+OK: https://nsclient.org/ ok code=200 (80939B in 100ms)|'https://nsclient.org/_code'=200;0;500 'https://nsclient.org/_size'=80939B;0;0
 ```
 
 **Alert when the TLS certificate is about to expire (`ssl_expiry_days`):**
 
 ```
-check_http url=https://www.google.com "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 7" "detail-syntax=cert expires in ${ssl_expiry_days} days"
-OK: cert expires in 58 days
+check_http url=https://www.google.com "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 7" "detail-syntax=${url} cert expires in ${ssl_expiry_days} days"
+OK: https://www.google.com cert expires in 67 days|'https://www.google.com_size'=84168B;0;0 'https://www.google.com_ssl_expiry_days'=67;30;7
+```
+
+**Report the certificate's identity, not just its expiry:**
+
+```
+check_http url=https://www.google.com "detail-syntax=${url} cn=${cert_cn} issuer=${cert_issuer_cn} sans=${cert_sans}"
+OK: https://www.google.com cn=www.google.com issuer=WR2 sans=DNS:www.google.com|'https://www.google.com_code'=200;0;200 'https://www.google.com_size'=84080B;0;0 'https://www.google.com'=113ms;5000;0
+```
+
+**Require the names the certificate must cover (`sans=`):**
+
+```
+check_http url=https://www.google.com sans=www.google.com "detail-syntax=${url} ${result} code=${code} missing=[${missing_sans}]"
+OK: https://www.google.com ok code=200 missing=[]|'https://www.google.com_code'=200;0;200 'https://www.google.com_size'=84198B;0;0 'https://www.google.com'=91ms;5000;0
+```
+
+```
+check_http url=https://www.google.com sans=mail.google.com "detail-syntax=${url} ${result} code=${code} missing=[${missing_sans}]"
+CRITICAL: https://www.google.com san_missing code=200 missing=[mail.google.com]|'https://www.google.com_code'=200;0;200 'https://www.google.com_size'=84445B;0;0 'https://www.google.com'=123ms;5000;0
+```
+
+**A required name with no certificate at all is still a missing name:**
+
+`sans=` is evaluated against the certificate of the hop actually checked, so an
+https URL that redirects down to plain http ends on a hop that served none —
+and covers no names:
+
+```
+check_http url=https://www.example.com sans=www.example.com onredirect=follow "detail-syntax=${url} ${result} code=${code} missing=[${missing_sans}]"
+CRITICAL: http://www.example.com/ san_missing code=200 missing=[www.example.com]
+```
+
+**Report why a chain did not verify:**
+
+```
+check_http url=https://internal.example.com verify=none "detail-syntax=${url} ${result} verify=${cert_verify}"
+OK: https://internal.example.com ok verify=unable to get local issuer certificate
 ```

@@ -6,6 +6,7 @@
 #include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
 #include <cstdio>
+#include <cstring>
 #include <iomanip>
 #include <net/socket/socket_helpers.hpp>
 #include <sstream>
@@ -25,8 +26,21 @@
 // that builds with SSL support. boost::asio::ssl already drags openssl
 // in on Windows, so this is just making the symbol visibility explicit.
 #include <openssl/bio.h>
+#include <openssl/pem.h>
 #include <openssl/ssl.h>
 #include <openssl/x509.h>
+// GENERAL_NAMES / the subjectAltName decoder. Included for every SSL build,
+// not just non-Windows: peer_certificate_details() needs it everywhere. It has
+// to stay ahead of windows.h, which is what the ordering below already
+// guarantees - wincrypt.h redefines X509_NAME and friends as macros.
+#include <openssl/x509v3.h>
+// Under USE_SSL, and here rather than with the other project headers above:
+// it names TLS1_2_VERSION and friends, so it needs <openssl/ssl.h> first and
+// must not be pulled into a build without SSL - on Windows the OpenSSL include
+// directory is only on the path for the targets that link it, so an
+// unconditional include broke every module test that compiles this file
+// without SSL.
+#include <net/tls_versions.hpp>
 #endif
 #ifdef WIN32
 // After boost/asio.hpp, which pulls winsock2.h in first; accctrl/aclapi then
@@ -40,7 +54,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #endif
-const int socket_helpers::connection_info::backlog_default = 0;
 
 namespace ip = boost::asio::ip;
 
@@ -239,16 +252,11 @@ void socket_helpers::validate_certificate(const std::string &certificate, std::l
 }
 
 #ifdef USE_SSL
-std::string socket_helpers::format_subject_dn_rfc2253(void *x509) {
-  if (!x509) return {};
-  const auto cert = static_cast<X509 *>(x509);
+namespace {
+// Render an X509_NAME (a subject or an issuer) as an RFC 2253 string.
+std::string format_name_rfc2253(const X509_NAME *name) {
   std::string result;
-  // X509_get_subject_name returns an internal pointer owned by the
-  // cert - do NOT free it. Const-cast because the OpenSSL signature
-  // for X509_NAME_print_ex takes a non-const pointer (the function
-  // itself is read-only; this is purely a header signature concern).
-  const X509_NAME *subject = X509_get_subject_name(cert);
-  if (!subject) return result;
+  if (!name) return result;
   BIO *bio = BIO_new(BIO_s_mem());
   if (!bio) return result;
   // RFC 2253 (XN_FLAG_RFC2253) is the canonical, sortable, escape-safe
@@ -261,7 +269,7 @@ std::string socket_helpers::format_subject_dn_rfc2253(void *x509) {
   // identity-map indirection comparing DNs as strings would mismatch
   // an issued-as-UTF-8 cert against an operator-typed handle.
   const unsigned long fmt = XN_FLAG_RFC2253 & ~ASN1_STRFLGS_ESC_MSB;
-  if (X509_NAME_print_ex(bio, subject, 0, fmt) > 0) {
+  if (X509_NAME_print_ex(bio, name, 0, fmt) > 0) {
     BUF_MEM *mem = nullptr;
     BIO_get_mem_ptr(bio, &mem);
     if (mem && mem->data && mem->length > 0) {
@@ -270,6 +278,80 @@ std::string socket_helpers::format_subject_dn_rfc2253(void *x509) {
   }
   BIO_free(bio);
   return result;
+}
+
+// The commonName component of a DN, decoded to UTF-8, or empty when the DN
+// carries none. Certificates have identified the host through subjectAltName
+// since RFC 2818 was superseded, so a missing CN is ordinary, not an error.
+std::string format_name_common_name(const X509_NAME *name) {
+  if (!name) return {};
+  // X509_NAME_get_index_by_NID / _get_entry take a non-const X509_NAME even
+  // though they only read it; the const_cast is a header-signature concern.
+  X509_NAME *mutable_name = const_cast<X509_NAME *>(name);
+  const int index = X509_NAME_get_index_by_NID(mutable_name, NID_commonName, -1);
+  if (index < 0) return {};
+  const X509_NAME_ENTRY *entry = X509_NAME_get_entry(mutable_name, index);
+  if (!entry) return {};
+  ASN1_STRING *data = X509_NAME_ENTRY_get_data(const_cast<X509_NAME_ENTRY *>(entry));
+  if (!data) return {};
+  unsigned char *utf8 = nullptr;
+  const int length = ASN1_STRING_to_UTF8(&utf8, data);
+  if (length < 0 || utf8 == nullptr) return {};
+  std::string result(reinterpret_cast<const char *>(utf8), static_cast<std::size_t>(length));
+  OPENSSL_free(utf8);
+  // A NUL inside the CN is the classic "www.good.com\0www.evil.com" trick:
+  // a C-string consumer sees only the part before it. Nothing downstream here
+  // is a C string, but a truncated-looking value in a check's output would
+  // read as the attacker intends, so reject the whole component instead.
+  if (result.find('\0') != std::string::npos) return {};
+  return result;
+}
+
+// Render one subjectAltName entry the way `openssl x509 -text` prints it.
+// Only dNSName and iPAddress produce a value - the other GENERAL_NAME forms
+// (email, URI, directoryName, ...) are not what a reachability check asserts
+// on, and rendering them would put unvalidated shapes into the keyword.
+std::string format_general_name(const GENERAL_NAME *general_name) {
+  if (!general_name) return {};
+  if (general_name->type == GEN_DNS) {
+    const ASN1_IA5STRING *dns = general_name->d.dNSName;
+    if (!dns) return {};
+    const unsigned char *data = ASN1_STRING_get0_data(dns);
+    const int length = ASN1_STRING_length(dns);
+    if (!data || length <= 0) return {};
+    std::string value(reinterpret_cast<const char *>(data), static_cast<std::size_t>(length));
+    // Same embedded-NUL trick as above, and here it is the one that actually
+    // defeats name matching in naive clients. Drop the entry entirely.
+    if (value.find('\0') != std::string::npos) return {};
+    return "DNS:" + value;
+  }
+  if (general_name->type == GEN_IPADD) {
+    const ASN1_OCTET_STRING *ip = general_name->d.iPAddress;
+    if (!ip) return {};
+    const unsigned char *data = ASN1_STRING_get0_data(ip);
+    const int length = ASN1_STRING_length(ip);
+    if (!data) return {};
+    if (length == 4) {
+      std::ostringstream os;
+      os << "IP:" << static_cast<int>(data[0]) << "." << static_cast<int>(data[1]) << "." << static_cast<int>(data[2]) << "." << static_cast<int>(data[3]);
+      return os.str();
+    }
+    if (length == 16) {
+      boost::asio::ip::address_v6::bytes_type bytes;
+      std::memcpy(bytes.data(), data, bytes.size());
+      return "IP:" + boost::asio::ip::make_address_v6(bytes).to_string();
+    }
+    return {};
+  }
+  return {};
+}
+}  // namespace
+
+std::string socket_helpers::format_subject_dn_rfc2253(void *x509) {
+  if (!x509) return {};
+  // X509_get_subject_name returns an internal pointer owned by the cert - do
+  // NOT free it.
+  return format_name_rfc2253(X509_get_subject_name(static_cast<X509 *>(x509)));
 }
 
 std::string socket_helpers::extract_peer_subject_dn(void *ssl) {
@@ -418,41 +500,55 @@ void socket_helpers::io::set_result(boost::optional<boost::system::error_code> *
   }
 }
 #ifdef USE_SSL
-void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asio::ssl::context &context, std::list<std::string> &errors) const {
+void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asio::ssl::context &context, std::list<std::string> &errors,
+                                                                     std::list<std::string> *caller_safe_errors) const {
   boost::system::error_code er;
+  // `detail` names the path and the OpenSSL reason and is for the log; `safe`
+  // says only which part of the TLS configuration failed and is what a caller
+  // may be told. Reporting the reason for a caller-supplied path turns a
+  // submission into a file-existence oracle over the whole filesystem.
+  const auto fail = [&errors, caller_safe_errors](const std::string &detail, const std::string &safe) {
+    errors.push_back(detail);
+    if (caller_safe_errors != nullptr) caller_safe_errors->push_back(safe);
+  };
   if (!certificate.empty() && certificate != "none") {
     context.use_certificate_chain_file(certificate, er);
-    if (er) errors.push_back("Failed to load certificate " + certificate + ": " + utf8::utf8_from_native(er.message()));
+    if (er) fail("Failed to load certificate " + certificate + ": " + utf8::utf8_from_native(er.message()), "Failed to load the configured certificate");
     if (!certificate_key.empty() && certificate_key != "none") {
       context.use_private_key_file(certificate_key, get_certificate_key_format(), er);
-      if (er) errors.push_back("Failed to load certificate key " + certificate_key + ": " + utf8::utf8_from_native(er.message()));
+      if (er)
+        fail("Failed to load certificate key " + certificate_key + ": " + utf8::utf8_from_native(er.message()),
+             "Failed to load the configured certificate key");
     } else {
       context.use_private_key_file(certificate, get_certificate_key_format(), er);
-      if (er) errors.push_back("Failed to load certificate (as key) " + certificate + ": " + utf8::utf8_from_native(er.message()));
+      if (er)
+        fail("Failed to load certificate (as key) " + certificate + ": " + utf8::utf8_from_native(er.message()),
+             "Failed to load the configured certificate key");
     }
   }
   context.set_verify_mode(get_verify_mode(), er);
-  if (er) errors.push_back("Failed to set verify mode: " + utf8::utf8_from_native(er.message()));
+  if (er) fail("Failed to set verify mode: " + utf8::utf8_from_native(er.message()), "Failed to set the TLS verify mode");
   if (SSL_CTX_set_min_proto_version(context.native_handle(), get_tls_min_version()) == 0) {
-    errors.emplace_back("Failed to set min tls version");
+    fail("Failed to set min tls version", "Failed to set the minimum TLS version");
   }
   if (SSL_CTX_set_max_proto_version(context.native_handle(), get_tls_max_version()) == 0) {
-    errors.emplace_back("Failed to set max tls version");
+    fail("Failed to set max tls version", "Failed to set the maximum TLS version");
   }
   if (!allowed_ciphers.empty()) {
     ::ERR_clear_error();
     if (SSL_CTX_set_cipher_list(context.native_handle(), allowed_ciphers.c_str()) == 0) {
-      errors.push_back("Failed to set ciphers " + allowed_ciphers + ": " + utf8::utf8_from_native(ERR_reason_error_string(ERR_get_error())));
+      fail("Failed to set ciphers " + allowed_ciphers + ": " + utf8::utf8_from_native(ERR_reason_error_string(ERR_get_error())),
+           "Failed to set the allowed TLS ciphers");
     }
   }
   if (!dh_key.empty() && dh_key != "none") {
     context.use_tmp_dh_file(dh_key, er);
-    if (er) errors.push_back("Failed to set dh file " + dh_key + ": " + utf8::utf8_from_native(er.message()));
+    if (er) fail("Failed to set dh file " + dh_key + ": " + utf8::utf8_from_native(er.message()), "Failed to load the configured DH parameters");
   }
 
   if (!ca_path.empty()) {
     context.load_verify_file(ca_path, er);
-    if (er) errors.push_back("Failed to load CA " + ca_path + ": " + utf8::utf8_from_native(er.message()));
+    if (er) fail("Failed to load CA " + ca_path + ": " + utf8::utf8_from_native(er.message()), "Failed to load the configured CA bundle");
   }
   if (debug_verify) {
     context.set_verify_callback([](const bool preverified, boost::asio::ssl::verify_context &v_ctx) -> bool {
@@ -496,29 +592,13 @@ boost::asio::ssl::context::verify_mode socket_helpers::connection_info::ssl_opts
   return mode;
 }
 
+// The table of `tls version` spellings now lives in <net/tls_versions.hpp>, so
+// the beast web backend - which cannot link this library - resolves the
+// setting from the same list instead of its own copy. Drifting apart is
+// exactly what left documented spellings rejected as "Invalid tls version"
+// (which for an NRPE listener surfaces as "listener failed to start").
 namespace {
-// The one table of `tls version` spellings, so the places that have to
-// understand the setting cannot drift apart again - drifting apart is exactly
-// what left documented spellings rejected as "Invalid tls version" (which for
-// an NRPE listener surfaces as "listener failed to start"). `spec` is the
-// setting lower-cased with any trailing '+' already stripped; "any" is not
-// handled here because it means different things to a floor and to a ceiling.
-bool lookup_tls_version(const std::string &spec, long &version) {
-  if (spec == "tlsv1.3" || spec == "tls1.3" || spec == "1.3") {
-    version = TLS1_3_VERSION;
-  } else if (spec == "tlsv1.2" || spec == "tls1.2" || spec == "1.2") {
-    version = TLS1_2_VERSION;
-  } else if (spec == "tlsv1.1" || spec == "tls1.1" || spec == "1.1") {
-    version = TLS1_1_VERSION;
-  } else if (spec == "tlsv1.0" || spec == "tls1.0" || spec == "1.0") {
-    version = TLS1_VERSION;
-  } else if (spec == "sslv3" || spec == "ssl3") {
-    version = SSL3_VERSION;
-  } else {
-    return false;
-  }
-  return true;
-}
+using tls_versions::lookup;
 }  // namespace
 
 long socket_helpers::connection_info::ssl_opts::get_tls_min_version() const {
@@ -531,7 +611,7 @@ long socket_helpers::connection_info::ssl_opts::get_tls_min_version() const {
     return 0;
   }
   long version = 0;
-  if (!lookup_tls_version(tmp, version)) {
+  if (!lookup(tmp, version)) {
     throw socket_exception("Invalid tls version: " + tmp);
   }
   return version;
@@ -556,7 +636,7 @@ long socket_helpers::connection_info::ssl_opts::get_tls_max_version() const {
     return TLS1_3_VERSION;
   }
   long version = 0;
-  if (!lookup_tls_version(tmp, version)) {
+  if (!lookup(tmp, version)) {
     throw socket_exception("Invalid tls version: " + tmp);
   }
   return version;
@@ -1045,7 +1125,7 @@ long socket_helpers::tls_min_version_parser(const std::string &tls_version) {
   // '+' forms - threw here and took the listener down with it, the same
   // failure the '+' forms above were fixed for.
   long version = 0;
-  if (!lookup_tls_version(tmp, version)) {
+  if (!lookup(tmp, version)) {
     throw socket_exception("Invalid tls version: " + tls_version);
   }
   return version;
@@ -1077,31 +1157,183 @@ boost::asio::ssl::verify_mode socket_helpers::verify_mode_parser(const std::stri
   return mode;
 }
 
+std::string socket_helpers::certificate_spki_sha256(X509 *cert) {
+  if (cert == nullptr) return {};
+  X509_PUBKEY *pubkey = X509_get_X509_PUBKEY(cert);
+  if (pubkey == nullptr) return {};
+  unsigned char *der = nullptr;
+  const int len = i2d_X509_PUBKEY(pubkey, &der);
+  if (len <= 0 || der == nullptr) return {};
+  unsigned char digest[EVP_MAX_MD_SIZE] = {};
+  unsigned int digest_len = 0;
+  const int ok = EVP_Digest(der, static_cast<std::size_t>(len), digest, &digest_len, EVP_sha256(), nullptr);
+  OPENSSL_free(der);
+  if (ok != 1) return {};
+  static const char *const hex = "0123456789abcdef";
+  std::string out;
+  out.reserve(static_cast<std::size_t>(digest_len) * 2);
+  for (unsigned int i = 0; i < digest_len; i++) {
+    out.push_back(hex[digest[i] >> 4]);
+    out.push_back(hex[digest[i] & 0x0f]);
+  }
+  return out;
+}
+
+socket_helpers::pinned_certificate socket_helpers::parse_pinned_certificate(const std::string &pem) {
+  pinned_certificate result;
+  if (pem.empty()) {
+    result.error = "empty";
+    return result;
+  }
+  BIO *bio = BIO_new_mem_buf(pem.data(), static_cast<int>(pem.size()));
+  if (bio == nullptr) {
+    result.error = "out of memory";
+    return result;
+  }
+  X509 *cert = PEM_read_bio_X509(bio, nullptr, nullptr, nullptr);
+  BIO_free(bio);
+  if (cert == nullptr) {
+    result.error = "not a PEM certificate";
+    return result;
+  }
+  result.spki_sha256 = certificate_spki_sha256(cert);
+  // X509_check_ca returns non-zero for anything usable as an issuer, which is
+  // exactly the case the pin cannot speak for: such a PEM says "trust whatever
+  // this signed", so the name in the leaf is the only identity left to check.
+  result.is_ca = X509_check_ca(cert) != 0;
+  X509_free(cert);
+  if (result.spki_sha256.empty()) {
+    result.error = "could not digest the public key";
+    return result;
+  }
+  result.valid = true;
+  return result;
+}
+
+namespace {
+// Whole days until a certificate's notAfter. The single definition of the
+// value: both peer_certificate_expiry_days() and peer_certificate_details()
+// go through here, so the two can never drift apart on the rounding.
+//
+// ASN1_TIME_diff splits the interval into whole days plus leftover seconds,
+// both carrying the sign of the interval. We report whole days and drop the
+// remainder, so a certificate with 23 hours left reads as 0 rather than
+// rounding up to a reassuring 1.
+//
+// Dropping the remainder has to round DOWN, not toward zero. A certificate
+// that expired three hours ago comes back as days=0, seconds=-10800: taking
+// days as-is reports 0, which is indistinguishable from "23 hours left" and
+// leaves an already-expired certificate looking merely urgent. Any threshold
+// written the obvious way ("critical when < 0") would never fire during the
+// first day of expiry. Flooring keeps the useful invariant that the value is
+// negative if and only if the certificate has expired, and never reports more
+// time than actually remains.
+//
+// none when notAfter cannot be read at all. That is NOT a day count of 0: a
+// caller that stored 0 would make `critical when < 1` fire on a certificate
+// whose date simply failed to parse.
+boost::optional<long> certificate_expiry_days(const X509 *cert) {
+  if (cert == nullptr) return boost::none;
+  int days = 0;
+  int seconds = 0;
+  if (ASN1_TIME_diff(&days, &seconds, nullptr, X509_get0_notAfter(cert)) != 1) return boost::none;
+  if (seconds < 0) days -= 1;
+  return static_cast<long>(days);
+}
+}  // namespace
+
 boost::optional<long> socket_helpers::peer_certificate_expiry_days(SSL *ssl) {
   if (ssl == nullptr) return boost::none;
   X509 *cert = SSL_get_peer_certificate(ssl);
   if (cert == nullptr) return boost::none;
-
-  // ASN1_TIME_diff splits the interval into whole days plus leftover seconds,
-  // both carrying the sign of the interval. We report whole days and drop the
-  // remainder, so a certificate with 23 hours left reads as 0 rather than
-  // rounding up to a reassuring 1.
-  //
-  // Dropping the remainder has to round DOWN, not toward zero. A certificate
-  // that expired three hours ago comes back as days=0, seconds=-10800: taking
-  // days as-is reports 0, which is indistinguishable from "23 hours left" and
-  // leaves an already-expired certificate looking merely urgent. Any threshold
-  // written the obvious way ("critical when < 0") would never fire during the
-  // first day of expiry. Flooring keeps the useful invariant that the value is
-  // negative if and only if the certificate has expired, and never reports more
-  // time than actually remains.
-  int days = 0;
-  int seconds = 0;
-  const int ok = ASN1_TIME_diff(&days, &seconds, nullptr, X509_get0_notAfter(cert));
+  const boost::optional<long> expiry = certificate_expiry_days(cert);
   X509_free(cert);
-  if (ok != 1) return boost::none;
-  if (seconds < 0) days -= 1;
-  return static_cast<long>(days);
+  return expiry;
+}
+
+boost::optional<socket_helpers::peer_certificate> socket_helpers::certificate_details(const X509 *certificate) {
+  if (certificate == nullptr) return boost::none;
+  // The OpenSSL accessors below take a non-const X509* but do not modify it;
+  // taking the parameter as const keeps callers (the verify callback, which is
+  // handed a borrowed certificate) from assuming ownership is transferred.
+  X509 *cert = const_cast<X509 *>(certificate);
+
+  peer_certificate info;
+
+  // Stays optional: an unreadable notAfter is not a day count, and collapsing
+  // it to a number would make an expiry threshold fire on a parse failure.
+  info.expiry_days = certificate_expiry_days(cert);
+
+  const X509_NAME *subject = X509_get_subject_name(cert);
+  const X509_NAME *issuer = X509_get_issuer_name(cert);
+  info.subject = format_name_rfc2253(subject);
+  info.issuer = format_name_rfc2253(issuer);
+  info.subject_cn = format_name_common_name(subject);
+  info.issuer_cn = format_name_common_name(issuer);
+  // Compare the DNs structurally rather than as the strings above: X509_NAME_cmp
+  // is the canonical comparison, and two DNs that render identically are not
+  // necessarily equal (nor the reverse).
+  info.self_signed = subject != nullptr && issuer != nullptr && X509_NAME_cmp(subject, issuer) == 0;
+
+  auto *names = static_cast<GENERAL_NAMES *>(X509_get_ext_d2i(cert, NID_subject_alt_name, nullptr, nullptr));
+  if (names != nullptr) {
+    const int count = sk_GENERAL_NAME_num(names);
+    for (int i = 0; i < count; i++) {
+      const std::string rendered = format_general_name(sk_GENERAL_NAME_value(names, i));
+      if (!rendered.empty()) info.sans.push_back(rendered);
+    }
+    GENERAL_NAMES_free(names);
+  }
+
+  return info;
+}
+
+boost::optional<socket_helpers::peer_certificate> socket_helpers::peer_certificate_details(SSL *ssl) {
+  if (ssl == nullptr) return boost::none;
+  // SSL_get_peer_certificate bumps the refcount; we own this pointer and must
+  // free it on every return path.
+  X509 *cert = SSL_get_peer_certificate(ssl);
+  if (cert == nullptr) return boost::none;
+  const boost::optional<peer_certificate> info = certificate_details(cert);
+  X509_free(cert);
+  return info;
+}
+
+std::string socket_helpers::peer_verify_result(SSL *ssl) {
+  if (ssl == nullptr) return {};
+  const long result = SSL_get_verify_result(ssl);
+  const char *text = X509_verify_cert_error_string(result);
+  if (text == nullptr) return "verify error " + str::xtos(result);
+  return text;
+}
+
+bool socket_helpers::peer_verify_ok(SSL *ssl) {
+  if (ssl == nullptr) return true;
+  return SSL_get_verify_result(ssl) == X509_V_OK;
+}
+
+void socket_helpers::load_verify_location(boost::asio::ssl::context &ctx, const std::string &ca) {
+  if (ca.empty() || ca == "none") return;
+  boost::system::error_code ec;
+  // A directory is the -CApath layout (hashed symlinks), which is what every
+  // distribution ships as /etc/ssl/certs; a file is a concatenated PEM bundle.
+  // is_directory()'s error_code overload cannot throw, and a path that does not
+  // exist falls through to load_verify_file() so the error names the file.
+  const bool directory = boost::filesystem::is_directory(ca, ec) && !ec;
+  try {
+    if (directory)
+      ctx.add_verify_path(ca);
+    else
+      ctx.load_verify_file(ca);
+  } catch (const std::exception &e) {
+    // The path and the OpenSSL reason go in the log-only detail: `ca=` is a
+    // request option on several clients, so echoing "No such file",
+    // "Permission denied" or "no start line" back to the caller turns a
+    // submission into a file-existence oracle over the whole filesystem, with
+    // the agent's privileges.
+    throw socket_exception("Failed to load the CA bundle for this connection (see the agent log for the reason)",
+                           "Failed to load CA " + ca + ": " + e.what());
+  }
 }
 
 #endif

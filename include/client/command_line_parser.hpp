@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <client/dll_defines.hpp>
+
 #include <boost/optional.hpp>
 #include <boost/thread/locks.hpp>
 #include <boost/thread/shared_mutex.hpp>
@@ -29,17 +31,28 @@ struct cli_exception final : std::exception {
 // Keys whose values are credentials (password / token style secrets). Used to
 // mask them when a container is logged, and to decide whether a configured
 // target "carries credentials" for the host-override guard below.
-bool is_sensitive_key(const std::string &key);
+NSCP_CLIENT_EXPORT bool is_sensitive_key(const std::string &key);
 // Whether a value carries a credential in its own text, whatever its key is
 // called. An address can be `https://h/submit.php?token=SECRET` or
 // `https://user:pass@h/`, where the key ("address") says nothing about it.
-bool value_carries_credentials(const std::string &value);
+NSCP_CLIENT_EXPORT bool value_carries_credentials(const std::string &value);
 // Keys that decide where the request ends up.
-bool is_address_key(const std::string &key);
+NSCP_CLIENT_EXPORT bool is_address_key(const std::string &key);
 // Keys that decide which way the request travels to get there: an HTTP proxy
 // is handed the whole request, credentials included, so a caller choosing one
 // moves the credentials as effectively as a caller choosing the host.
-bool is_route_key(const std::string &key);
+NSCP_CLIENT_EXPORT bool is_route_key(const std::string &key);
+// Keys that decide how the connection is protected rather than where it goes:
+// the verify mode, the trust material and whether TLS is used at all. Leaving
+// the destination alone, they still decide whether the host that answers has
+// to prove it is the configured one - so they move the credentials into the
+// hands of whoever wins a DNS race.
+NSCP_CLIENT_EXPORT bool is_transport_key(const std::string &key);
+// Keys that decide who a message is addressed to. submit_smtp sends mail with
+// the target's authenticated account; the destination (the submission server)
+// is unchanged, so the address guard sees nothing, yet the caller chose both
+// ends of the message.
+NSCP_CLIENT_EXPORT bool is_recipient_key(const std::string &key);
 
 struct destination_container {
   typedef std::map<std::string, std::string> data_map;
@@ -81,8 +94,21 @@ struct destination_container {
   // the copy in `data`; a request that sets the key changes only `data`, so
   // the two differing is what "the request changed it" means.
   data_map configured_route;
+  // The transport-security keys as the target configured them, recorded the
+  // same way and for the same reason as configured_route: `verify=none` on a
+  // credentialed target leaves the destination untouched while removing the
+  // guarantee that the host answering for it is the configured one.
+  data_map configured_transport;
+  // The message addressing keys (`recipient`, `sender`) as the target
+  // configured them. Only submit_smtp has any.
+  data_map configured_recipient;
+  // Opt-in for the recipient guard, kept separate from `allow host override`:
+  // an operator may well want callers to choose who an alert goes to without
+  // also letting them choose the server the credentials are sent to.
+  bool allow_recipient_override;
 
-  destination_container() : timeout(10), retry(2), allow_host_override(false), address_from_request(false) {}
+  destination_container()
+      : timeout(10), retry(2), allow_host_override(false), address_from_request(false), allow_recipient_override(false) {}
 
   void apply(const nscapi::settings_objects::object_instance &obj) {
     // Targets layer: --target applies its object on top of the default one
@@ -93,6 +119,10 @@ struct destination_container {
     for (const auto &k : obj->get_options()) {
       if (k.first == "allow host override") {
         allow_host_override = to_permissive_bool(k.second);
+        continue;
+      }
+      if (k.first == "allow recipient override") {
+        allow_recipient_override = to_permissive_bool(k.second);
         continue;
       }
       set_string_data(k.first, k.second);
@@ -119,6 +149,8 @@ struct destination_container {
         configured_address = address.to_string();
       }
       if (is_route_key(k.first)) configured_route[k.first] = k.second;
+      if (is_transport_key(k.first)) configured_transport[k.first] = k.second;
+      if (is_recipient_key(k.first)) configured_recipient[k.first] = k.second;
     }
   }
 
@@ -135,6 +167,40 @@ struct destination_container {
     std::set<std::string> changed;
     for (const char *key : route_keys) {
       if (get_string_data(key) != lookup(configured_route, key)) changed.insert(key);
+    }
+    return changed;
+  }
+
+  // The same comparison for a recorded key map: every key either side knows
+  // about, and whether the value now in `data` is still what the target set.
+  // Keys the target never configured count too - a request is not allowed to
+  // introduce `verify mode = none` where the target relied on the default.
+  std::set<std::string> changed_against(const data_map &configured) const {
+    std::set<std::string> keys;
+    for (const auto &kv : configured) keys.insert(kv.first);
+    for (const auto &kv : data) {
+      if (configured.count(kv.first) != 0 || kv.second.empty()) continue;
+      keys.insert(kv.first);
+    }
+    std::set<std::string> changed;
+    for (const std::string &key : keys) {
+      if (get_string_data(key) != lookup(configured, key)) changed.insert(key);
+    }
+    return changed;
+  }
+
+  std::set<std::string> transport_changes() const {
+    std::set<std::string> changed;
+    for (const std::string &key : changed_against(configured_transport)) {
+      if (is_transport_key(key)) changed.insert(key);
+    }
+    return changed;
+  }
+
+  std::set<std::string> recipient_changes() const {
+    std::set<std::string> changed;
+    for (const std::string &key : changed_against(configured_recipient)) {
+      if (is_recipient_key(key)) changed.insert(key);
     }
     return changed;
   }
@@ -224,7 +290,7 @@ struct destination_container {
   void set_int_data(const std::string &key, const int value) { set_string_data(key, str::xtos(value)); }
   void set_bool_data(const std::string &key, const bool value) { set_string_data(key, value ? "true" : "false"); }
 
-  std::string to_string() const;
+  NSCP_CLIENT_EXPORT std::string to_string() const;
 };
 
 struct command_container {
@@ -288,11 +354,11 @@ enum class host_role {
 // so a module's own options_reader should not register them a second time:
 // program_options treats a repeated long name as ambiguous and refuses to
 // parse it, which makes the option unusable rather than merely duplicated.
-void add_host_options(boost::program_options::options_description &desc, destination_container &container, host_role role);
+NSCP_CLIENT_EXPORT void add_host_options(boost::program_options::options_description &desc, destination_container &container, host_role role);
 
 struct options_reader_interface : nscapi::settings_objects::object_factory_interface<nscapi::settings_objects::object_instance_interface> {
   virtual void process(boost::program_options::options_description &desc, destination_container &source, destination_container &destination) = 0;
-  void add_ssl_options(boost::program_options::options_description &desc, client::destination_container &data);
+  NSCP_CLIENT_EXPORT void add_ssl_options(boost::program_options::options_description &desc, client::destination_container &data);
 };
 typedef std::shared_ptr<options_reader_interface> options_reader_type;
 
@@ -335,20 +401,20 @@ struct configuration : public boost::noncopyable {
 
   void set_sender(const std::string &_sender) { default_sender = _sender; }
 
-  destination_container get_target(const std::string &name) const;
-  destination_container get_sender() const;
+  NSCP_CLIENT_EXPORT destination_container get_target(const std::string &name) const;
+  NSCP_CLIENT_EXPORT destination_container get_sender() const;
 
   void add_target(const std::shared_ptr<nscapi::settings_proxy> &proxy, const std::string &key, const std::string &value) {
     boost::unique_lock<boost::shared_mutex> lock(tables_mutex_);
     targets.add(proxy, key, value);
   }
-  std::string add_command(const std::string &name, const std::string &args);
+  NSCP_CLIENT_EXPORT std::string add_command(const std::string &name, const std::string &args);
   void clear() {
     boost::unique_lock<boost::shared_mutex> lock(tables_mutex_);
     targets.clear();
     commands.clear();
   }
-  void finalize(const std::shared_ptr<nscapi::settings_proxy> &settings);
+  NSCP_CLIENT_EXPORT void finalize(const std::shared_ptr<nscapi::settings_proxy> &settings);
   // Locked lookups: a settings reload rewrites `commands` and `targets` on
   // the module thread while queries, submissions and the metrics task read
   // them from workers.
@@ -363,14 +429,15 @@ struct configuration : public boost::noncopyable {
     return targets.find_object(name);
   }
 
-  void do_query(const PB::Commands::QueryRequestMessage &request, PB::Commands::QueryResponseMessage &response);
-  bool do_exec(const PB::Commands::ExecuteRequestMessage &request, PB::Commands::ExecuteResponseMessage &response, const std::string &default_command_arg);
-  void do_submit(const PB::Commands::SubmitRequestMessage &request, PB::Commands::SubmitResponseMessage &response);
+  NSCP_CLIENT_EXPORT void do_query(const PB::Commands::QueryRequestMessage &request, PB::Commands::QueryResponseMessage &response);
+  NSCP_CLIENT_EXPORT bool do_exec(const PB::Commands::ExecuteRequestMessage &request, PB::Commands::ExecuteResponseMessage &response,
+                                  const std::string &default_command_arg);
+  NSCP_CLIENT_EXPORT void do_submit(const PB::Commands::SubmitRequestMessage &request, PB::Commands::SubmitResponseMessage &response);
 
-  void do_submit_item(const PB::Commands::SubmitRequestMessage &request, const destination_container &s, destination_container d,
-                      PB::Commands::SubmitResponseMessage &response);
+  NSCP_CLIENT_EXPORT void do_submit_item(const PB::Commands::SubmitRequestMessage &request, const destination_container &s, destination_container d,
+                                         PB::Commands::SubmitResponseMessage &response);
 
-  void do_metrics(const PB::Metrics::MetricsMessage &request) const;
+  NSCP_CLIENT_EXPORT void do_metrics(const PB::Metrics::MetricsMessage &request) const;
 
   typedef boost::function<boost::program_options::options_description(client::destination_container &source, client::destination_container &destination)>
       client_desc_fun;
@@ -386,6 +453,16 @@ struct configuration : public boost::noncopyable {
   // supplied and the destination as it stands after they were applied, either
   // an empty string (proceed) or the reason the call must be refused.
   static std::string check_host_override(const boost::program_options::variables_map &vm, const destination_container &d);
+  // The same decision for the transport-security keys (`verify mode`, `ca`,
+  // `insecure`, ...): they do not move the destination, so check_host_override
+  // cannot see them, but they decide whether the configured credentials are
+  // protected on the way out.
+  static std::string check_transport_override(const boost::program_options::variables_map &vm, const destination_container &d);
+  // And for the message addressing keys (`recipient`, `sender`), which let a
+  // caller send mail of their choosing through the target's account.
+  static std::string check_recipient_override(const boost::program_options::variables_map &vm, const destination_container &d);
+  // The three guards in order; the first refusal wins.
+  static std::string check_request_overrides(const boost::program_options::variables_map &vm, const destination_container &d);
   void i_do_query(destination_container &s, destination_container &d, std::string command, const PB::Commands::QueryRequestMessage &request,
                   PB::Commands::QueryResponseMessage &response, bool use_header);
   bool i_do_exec(destination_container &s, destination_container &d, std::string command, const PB::Commands::ExecuteRequestMessage &request,

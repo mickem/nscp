@@ -150,6 +150,13 @@ struct generic_socket {
   // predate the distinction.
   virtual boost::optional<long> peer_certificate_expiry_days_opt() const { return boost::none; }
   long peer_certificate_expiry_days() const { return peer_certificate_expiry_days_opt().get_value_or(-1); }
+  // The peer's certificate in full, for a check that reports on more than the
+  // expiry (subject, issuer, SANs). none for a transport that carries no TLS.
+  virtual boost::optional<socket_helpers::peer_certificate> peer_certificate_details_opt() const { return boost::none; }
+  // OpenSSL's verdict on the chain, empty for a non-TLS transport. See
+  // socket_helpers::peer_verify_result: recorded even when verification is
+  // off, and never an authentication result on its own.
+  virtual std::string peer_verify_result() const { return {}; }
   // Applied by the client right after connecting; no-op for transports that
   // are not sockets.
   virtual void set_timeouts(unsigned int seconds) {}
@@ -341,7 +348,13 @@ struct ssl_socket final : generic_socket {
   net::address_family address_family_ = net::address_family::any;
   std::string sni_;  // TLS SNI / verification hostname override (empty = use the connected host)
   proxy_config proxy_;
-  bool pinned_;  // pinned peer cert: verify against it only, no hostname check
+  bool pinned_;  // pinned peer cert: verify against it only
+  // The pin, parsed. `pinned_ca_pem` is whatever the enrollment response
+  // returned, and a server that hands out its issuer rather than its leaf used
+  // to turn the pin into "trust this CA for any name" - weaker than ordinary
+  // verification, not stronger. So the leaf's SPKI digest is checked at
+  // handshake time, and a PEM that is itself a CA keeps hostname verification.
+  socket_helpers::pinned_certificate pin_;
   boost::asio::io_context &io_;
   unsigned int timeout_ = 0;
 
@@ -376,13 +389,10 @@ struct ssl_socket final : generic_socket {
       throw socket_helpers::socket_exception("Failed to set the minimum TLS protocol version " + str::xtos(tls_min_version) +
                                              " (TLS wire constant): rejected by this OpenSSL build");
     }
-    if (!ca.empty() && ca != "none") {
-      try {
-        context.load_verify_file(ca);
-      } catch (const std::exception &e) {
-        throw socket_helpers::socket_exception("Failed to load CA " + ca + ": " + e.what());
-      }
-    }
+    // A PEM bundle file or a hashed CA directory (/etc/ssl/certs), whichever
+    // is on disk: load_verify_file() on a directory fails with an opaque
+    // OpenSSL error, and a directory is what distributions actually ship.
+    socket_helpers::load_verify_location(context, ca);
     if (identity.is_pinned()) {
       try {
         context.add_certificate_authority(boost::asio::buffer(identity.pinned_ca_pem));
@@ -395,7 +405,8 @@ struct ssl_socket final : generic_socket {
         context.use_certificate_chain(boost::asio::buffer(identity.cert_pem));
         context.use_private_key(boost::asio::buffer(identity.key_pem), boost::asio::ssl::context::pem);
       } catch (const std::exception &e) {
-        throw socket_helpers::socket_exception(std::string("Failed to load client certificate/key: ") + e.what());
+        throw socket_helpers::socket_exception("Failed to load the client certificate/key for this connection (see the agent log for the reason)",
+                                               std::string("Failed to load client certificate/key: ") + e.what());
       }
     }
     if (!alpn.empty()) {
@@ -421,7 +432,56 @@ struct ssl_socket final : generic_socket {
         sni_(std::move(sni)),
         proxy_(std::move(proxy)),
         pinned_(identity.is_pinned()),
-        io_(io_service) {}
+        pin_(identity.is_pinned() ? socket_helpers::parse_pinned_certificate(identity.pinned_ca_pem) : socket_helpers::pinned_certificate()),
+        io_(io_service) {
+    // A pin that cannot be parsed is not a pin. Refusing here rather than
+    // falling back to "trust it as a CA and skip the hostname check", which is
+    // the combination that has no identity check left in it at all.
+    if (pinned_ && !pin_.valid) {
+      throw socket_helpers::socket_exception("Refusing to connect: the pinned server certificate could not be parsed (" + pin_.error + ")");
+    }
+  }
+
+  // Decide what the handshake actually has to prove about the peer.
+  //
+  // Three cases, and only the first was handled before:
+  //
+  //  - no pin: ordinary verification, so the chain must be trusted and the
+  //    name must match.
+  //  - pinned to a leaf certificate: the pin IS the identity, so the leaf's
+  //    SubjectPublicKeyInfo must be the pinned one. The subject rarely matches
+  //    the host dialed, so the name is not checked - but the key is, which is
+  //    what makes this a pin rather than "one more trusted root". Digesting the
+  //    SPKI rather than the whole certificate means the server can renew with
+  //    the same key without breaking every enrolled agent.
+  //  - pinned to a CA certificate: the PEM names an issuer, not a server, so it
+  //    cannot speak for identity on its own. Chain verification against it is
+  //    all it gives, and the name in the leaf is the only thing left that ties
+  //    the connection to the host intended - so hostname verification stays on.
+  //    Without this a server that handed out its intermediate (or a public CA)
+  //    made the agent accept any certificate under it, for any name: weaker
+  //    than not pinning at all.
+  void apply_verify_callback(const std::string &tls_name) {
+    if (!pinned_) {
+      ssl_socket_.set_verify_callback(boost::asio::ssl::host_name_verification(tls_name));
+      return;
+    }
+    if (pin_.is_ca) {
+      ssl_socket_.set_verify_callback(boost::asio::ssl::host_name_verification(tls_name));
+      return;
+    }
+    const std::string expected = pin_.spki_sha256;
+    ssl_socket_.set_verify_callback([expected](const bool preverified, boost::asio::ssl::verify_context &ctx) -> bool {
+      if (!preverified) return false;
+      // Only the leaf carries the pinned key; the rest of the chain is
+      // whatever the server chose to send and is already covered by
+      // preverified.
+      if (X509_STORE_CTX_get_error_depth(ctx.native_handle()) != 0) return true;
+      X509 *cert = X509_STORE_CTX_get_current_cert(ctx.native_handle());
+      const std::string actual = socket_helpers::certificate_spki_sha256(cert);
+      return !actual.empty() && actual == expected;
+    });
+  }
 
   void set_address_family(const net::address_family af) override { address_family_ = af; }
 
@@ -461,11 +521,7 @@ struct ssl_socket final : generic_socket {
     if (!tls_name.empty()) {
       SSL_set_tlsext_host_name(ssl_socket_.native_handle(), tls_name.c_str());
     }
-    // A pinned peer certificate is the identity check itself; its subject
-    // rarely matches the host we dialed, so hostname verification is skipped.
-    if (!pinned_) {
-      ssl_socket_.set_verify_callback(boost::asio::ssl::host_name_verification(tls_name));
-    }
+    apply_verify_callback(tls_name);
 
     handshake(error);
   }
@@ -474,6 +530,16 @@ struct ssl_socket final : generic_socket {
     // native_handle() is non-const; the underlying SSL* is not mutated here.
     SSL *ssl = const_cast<ssl_socket *>(this)->ssl_socket_.native_handle();
     return socket_helpers::peer_certificate_expiry_days(ssl);
+  }
+
+  boost::optional<socket_helpers::peer_certificate> peer_certificate_details_opt() const override {
+    SSL *ssl = const_cast<ssl_socket *>(this)->ssl_socket_.native_handle();
+    return socket_helpers::peer_certificate_details(ssl);
+  }
+
+  std::string peer_verify_result() const override {
+    SSL *ssl = const_cast<ssl_socket *>(this)->ssl_socket_.native_handle();
+    return socket_helpers::peer_verify_result(ssl);
   }
 
   /// Establish an HTTP CONNECT tunnel through proxy_ then perform TLS handshake.
@@ -603,9 +669,7 @@ struct ssl_socket final : generic_socket {
     if (!tls_name.empty()) {
       SSL_set_tlsext_host_name(ssl_socket_.native_handle(), tls_name.c_str());
     }
-    if (!pinned_) {
-      ssl_socket_.set_verify_callback(boost::asio::ssl::host_name_verification(tls_name));
-    }
+    apply_verify_callback(tls_name);
     handshake(error);
     if (error) {
       throw socket_helpers::socket_exception("TLS handshake via proxy tunnel failed: " + error.message());
@@ -802,6 +866,10 @@ class simple_client {
     return socket_ ? socket_->peer_certificate_expiry_days_opt() : boost::optional<long>();
   }
   long peer_certificate_expiry_days() const { return peer_certificate_expiry_days_opt().get_value_or(-1); }
+  boost::optional<socket_helpers::peer_certificate> peer_certificate_details_opt() const {
+    return socket_ ? socket_->peer_certificate_details_opt() : boost::optional<socket_helpers::peer_certificate>();
+  }
+  std::string peer_verify_result() const { return socket_ ? socket_->peer_verify_result() : std::string(); }
 
   response read_result(boost::asio::streambuf &response_buffer) const {
     std::string http_version, status_message;

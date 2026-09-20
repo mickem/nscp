@@ -1,5 +1,11 @@
 # NSCANgClient
 
+!!! warning "Experimental"
+
+    This module is experimental: it works, but its options, filter keywords
+    and output may change in a future release. Please try it and report
+    anything that does not behave the way you expect.
+
 NSCA-NG client can be used both from command line and from queries to submit passive checks via NSCA-NG (TLS-based NSCA next generation)
 
 ## Enable module
@@ -19,9 +25,9 @@ A quick reference for all available queries (check commands) in the NSCANgClient
 
 A list of all available queries (check commands)
 
-| Command                           | Description                                                                                                                                                                                              |
-|-----------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [submit_nsca_ng](#submit_nsca_ng) | Submit information to the remote NSCA-NG server. Custom relay commands defined under [/settings/NSCA-NG/client/handlers] are registered automatically using the same `submit_<alias>` naming convention. |
+| Command                                            | Description                                                                                                                                                                                              |
+|----------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [submit_nsca_ng](#submit_nsca_ng) *(experimental)* | Submit information to the remote NSCA-NG server. Custom relay commands defined under [/settings/NSCA-NG/client/handlers] are registered automatically using the same `submit_<alias>` naming convention. |
 
 ### submit_nsca_ng
 
@@ -219,38 +225,68 @@ does not need a module instance per destination.
 <a id="submit_nsca_ng_host-check"></a>
 <a id="submit_nsca_ng_max-output-length"></a>
 
-| Option                     | Default Value | Description                                                                                        |
-|----------------------------|---------------|----------------------------------------------------------------------------------------------------|
-| host                       |               | The host of the host running the server                                                            |
-| port                       |               | The port of the host running the server                                                            |
-| address                    |               | The address (host:port) of the host running the server                                             |
-| timeout                    |               | Number of seconds before connection times out (default=10)                                         |
-| target                     |               | Target to use (lookup connection info from config)                                                 |
-| retry                      |               | Number of times ti retry a failed connection attempt (default=2)                                   |
-| retries                    |               | legacy version of retry                                                                            |
-| source-host                |               | Source/sender host name (default is auto which means use the name of the actual host)              |
-| sender-host                |               | Source/sender host name (default is auto which means use the name of the actual host)              |
-| command                    |               | The name of the command that the remote daemon should run                                          |
-| alias                      |               | Same as command                                                                                    |
-| message                    |               | Message                                                                                            |
-| result                     |               | Result code either a number or OK, WARN, CRIT, UNKNOWN                                             |
-| separator                  |               | Separator to use for the batch command (default is |)                                              |
-| batch                      |               | Add multiple records using the separator format is: command|result|message                         |
-| certificate                |               | The client certificate to use                                                                      |
-| dh                         |               | The DH key to use                                                                                  |
-| certificate-key            |               | Client certificate to use                                                                          |
-| certificate-format         |               | Client certificate format                                                                          |
-| ca                         |               | Certificate authority                                                                              |
-| verify                     |               | Client certificate format                                                                          |
-| allowed-ciphers            |               | Client certificate format                                                                          |
-| [ssl](#submit_nsca_ng_ssl) | true          | Initial an ssl handshake with the server.                                                          |
-| password                   |               | The PSK password (must match the NSCA-NG server configuration)                                     |
-| identity                   |               | PSK identity string (defaults to hostname when empty)                                              |
-| hostname                   |               | Host name to report to the NSCA-NG server                                                          |
-| no-psk                     | N/A           | Disable PSK and use certificate-based TLS authentication instead                                   |
-| insecure                   | N/A           | Allow TLS connections without PSK and without peer-cert verification. Disables MITM protection.    |
-| host-check                 | N/A           | Submit every result as a Nagios host check (PROCESS_HOST_CHECK_RESULT) instead of a service check. |
-| max-output-length          |               | Maximum bytes of plugin output forwarded over the wire (default 65536)                             |
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+| Option                     | Default Value | Description                                                                                                                                                                                                                                                                                                                                                                              |
+|----------------------------|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| host                       |               | The host of the host running the server                                                                                                                                                                                                                                                                                                                                                  |
+| port                       |               | The port of the host running the server                                                                                                                                                                                                                                                                                                                                                  |
+| address                    |               | The address (host:port) of the host running the server                                                                                                                                                                                                                                                                                                                                   |
+| timeout                    |               | Number of seconds before connection times out (default=10)                                                                                                                                                                                                                                                                                                                               |
+| target                     |               | Target to use (lookup connection info from config)                                                                                                                                                                                                                                                                                                                                       |
+| retry                      |               | Number of times ti retry a failed connection attempt (default=2)                                                                                                                                                                                                                                                                                                                         |
+| retries                    |               | legacy version of retry                                                                                                                                                                                                                                                                                                                                                                  |
+| source-host                |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                                                                                                                                                                                                                                    |
+| sender-host                |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                                                                                                                                                                                                                                    |
+| command                    |               | The name of the command that the remote daemon should run                                                                                                                                                                                                                                                                                                                                |
+| alias                      |               | Same as command                                                                                                                                                                                                                                                                                                                                                                          |
+| message                    |               | Message                                                                                                                                                                                                                                                                                                                                                                                  |
+| result                     |               | Result code either a number or OK, WARN, CRIT, UNKNOWN                                                                                                                                                                                                                                                                                                                                   |
+| separator                  |               | Separator to use for the batch command (default is |)                                                                                                                                                                                                                                                                                                                                    |
+| batch                      |               | Add multiple records using the separator format is: command|result|message                                                                                                                                                                                                                                                                                                               |
+| certificate                |               | The client certificate to use                                                                                                                                                                                                                                                                                                                                                            |
+| dh                         |               | The DH key to use                                                                                                                                                                                                                                                                                                                                                                        |
+| certificate-key            |               | The private key belonging to the client certificate (when it is not in the certificate file itself)                                                                                                                                                                                                                                                                                      |
+| certificate-format         |               | Client certificate format                                                                                                                                                                                                                                                                                                                                                                |
+| ca                         |               | The certificate authority the server certificate is verified against                                                                                                                                                                                                                                                                                                                     |
+| verify                     |               | How to verify the server certificate. Comma separated list of options: none, peer (or certificate), peer-cert, fail-if-no-cert (or fail-if-no-peer-cert, client-certificate). For a self signed certificate use peer-cert and point --ca at that certificate; none leaves the connection encrypted but the server unauthenticated, so an on-path attacker can impersonate it undetected. |
+| allowed-ciphers            |               | The OpenSSL cipher list the connection is restricted to                                                                                                                                                                                                                                                                                                                                  |
+| [ssl](#submit_nsca_ng_ssl) | true          | Initial an ssl handshake with the server.                                                                                                                                                                                                                                                                                                                                                |
+| password                   |               | The PSK password (must match the NSCA-NG server configuration)                                                                                                                                                                                                                                                                                                                           |
+| identity                   |               | PSK identity string (defaults to hostname when empty)                                                                                                                                                                                                                                                                                                                                    |
+| hostname                   |               | Host name to report to the NSCA-NG server                                                                                                                                                                                                                                                                                                                                                |
+| no-psk                     | N/A           | Disable PSK and use certificate-based TLS authentication instead                                                                                                                                                                                                                                                                                                                         |
+| insecure                   | N/A           | Allow TLS connections without PSK and without peer-cert verification. Disables MITM protection.                                                                                                                                                                                                                                                                                          |
+| host-check                 | N/A           | Submit every result as a Nagios host check (PROCESS_HOST_CHECK_RESULT) instead of a service check.                                                                                                                                                                                                                                                                                       |
+| max-output-length          |               | Maximum bytes of plugin output forwarded over the wire (default 65536)                                                                                                                                                                                                                                                                                                                   |
 
 
 

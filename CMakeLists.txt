@@ -228,10 +228,6 @@ if(WIN32)
         -DBOOST_AUTO_LINK_SYSTEM
         -DBOOST_ALL_NO_LIB
     )
-
-    install(FILES "${PROJECT_BINARY_DIR}/_ctypes.pyd" DESTINATION .)
-    install(FILES "${PROJECT_BINARY_DIR}/_socket.pyd" DESTINATION .)
-    install(FILES "${PROJECT_BINARY_DIR}/unicodedata.pyd" DESTINATION .)
 endif()
 if(WIN32)
     # Target windows version
@@ -259,6 +255,8 @@ if(USE_STATIC_RUNTIME)
         -Dnscp_protobuf_NOLIB
         -D${PLUGIN_API_TARGET}_NOLIB
         -Dnscp_where_filter_NOLIB
+        -Dnscp_client_NOLIB
+        -Dnscp_net_NOLIB
         -Djson_protobuf_NOLIB
         -Dlua_protobuf_NOLIB
         -Dlib_mongoose_NOLIB
@@ -304,6 +302,16 @@ include(${BUILD_CMAKE_FOLDER}/GoogleProtoBuf.cmake)
 # without GTest (and without network access to fetch it). Defined before
 # functions.cmake so NSCP_CREATE_TEST can honour it.
 option(NSCP_BUILD_TESTS "Build the unit tests (requires Google Test)" ON)
+
+# Embedding CPython needs development libraries built for the *target*
+# architecture. A cross-compiled Windows ARM64 build has none: neither
+# setup-python nor python.org ships an ARM64 interpreter that runs on the x64
+# build host, and pointing the build at the host's x64 libpython links an x64
+# import library into an ARM64 DLL. Turning this off asks for the interpreter
+# alone - the build still needs it for code generation - and PythonScript, the
+# Boost.Python component and the bundled runtime drop out exactly as they do on
+# a host without libpython.
+option(NSCP_WITH_PYTHON "Embed CPython (builds the PythonScript module)" ON)
 
 include(${BUILD_CMAKE_FOLDER}/functions.cmake)
 
@@ -364,6 +372,15 @@ if(WIN32 AND Python3_Development_FOUND)
             ${PROJECT_BINARY_DIR}/python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.zip
         DESTINATION .
     )
+    # The extension modules the bundled runtime cannot do without. They are
+    # produced by the same "make python dist" step as the zip above, so they
+    # belong under the same condition - installing them unconditionally made
+    # CPack fail with "file INSTALL cannot find .../_ctypes.pyd" on any build
+    # without the Python development libraries, the ARM64 cross build being
+    # the first one to have them missing.
+    install(FILES "${PROJECT_BINARY_DIR}/_ctypes.pyd" DESTINATION .)
+    install(FILES "${PROJECT_BINARY_DIR}/_socket.pyd" DESTINATION .)
+    install(FILES "${PROJECT_BINARY_DIR}/unicodedata.pyd" DESTINATION .)
     # Copy python binaries
     string(
         REPLACE ".lib"
@@ -455,12 +472,22 @@ else(USE_STATIC_RUNTIME)
                 )
             endif()
         endforeach()
+        # Third-party libraries linked through an import library ship the DLL
+        # it stands for. Protobuf names the two alike (libprotobuf.lib ->
+        # libprotobuf.dll); OpenSSL puts its version and architecture in the
+        # DLL name only (libcrypto.lib -> libcrypto-3-x64.dll, or
+        # libcrypto-3.dll on x86), hence the glob. A static library has no DLL
+        # beside it - libcrypto_static.lib from a shared OpenSSL build, or
+        # libcrypto.lib from a no-shared one - and copies nothing, which is
+        # what makes OPENSSL_USE_STATIC_LIBS still work: the modules then
+        # carry OpenSSL themselves, as they did before it became a DLL.
         set(LIBS
             LIB_EAY
             SSL_EAY
             PROTOBUF_LIBRARY
         )
         foreach(LIB ${LIBS})
+            set(${LIB}_RUNTIME_DLL "")
             string(
                 REPLACE ".lib"
                 ".dll"
@@ -468,12 +495,8 @@ else(USE_STATIC_RUNTIME)
                 "${${LIB}_RELEASE}"
             )
             if(EXISTS "${${LIB}_RELEASE_DLL}")
-                get_filename_component(_NAME "${${LIB}_RELEASE_DLL}" NAME)
-                message(STATUS " + ${_NAME}")
-                COPY_FILE("${${LIB}_RELEASE_DLL}" ${PROJECT_BINARY_DIR})
-                install(FILES "${${LIB}_RELEASE_DLL}" DESTINATION .)
+                set(FILES "${${LIB}_RELEASE_DLL}")
             else()
-                get_filename_component(_PATH "${${LIB}_RELEASE_DLL}" DIRECTORY)
                 string(
                     REPLACE ".lib"
                     "*.dll"
@@ -481,14 +504,55 @@ else(USE_STATIC_RUNTIME)
                     "${${LIB}_RELEASE}"
                 )
                 file(GLOB FILES ${LIB_PATTERN})
-                foreach(FILE ${FILES})
-                    get_filename_component(_NAME "${FILE}" NAME)
-                    message(STATUS " + ${_NAME}")
-                    COPY_FILE("${FILE}" ${PROJECT_BINARY_DIR})
-                    install(FILES "${FILE}" DESTINATION .)
-                endforeach()
             endif()
+            list(LENGTH FILES _COUNT)
+            if(_COUNT GREATER 1)
+                # Two DLLs matching one import library (say a libcrypto-3-x64
+                # next to a libcrypto-1_1-x64) cannot both be the right one, and
+                # the installer needs exactly one name.
+                message(
+                    FATAL_ERROR
+                    "More than one DLL matches ${${LIB}_RELEASE}: ${FILES}"
+                )
+            endif()
+            foreach(FILE ${FILES})
+                get_filename_component(_NAME "${FILE}" NAME)
+                message(STATUS " + ${_NAME}")
+                COPY_FILE("${FILE}" ${PROJECT_BINARY_DIR})
+                install(FILES "${FILE}" DESTINATION .)
+                set(${LIB}_RUNTIME_DLL "${FILE}")
+            endforeach()
         endforeach()
+        # The MSI lists its files by name, and the OpenSSL names vary with the
+        # version and the architecture, so hand them over (see
+        # installers/installer-NSCP/RUNTIME_DLL.wxs). Both or neither: an
+        # OpenSSL tree with one DLL of the pair is broken, not static.
+        if(LIB_EAY_RUNTIME_DLL AND SSL_EAY_RUNTIME_DLL)
+            get_filename_component(
+                NSCP_OPENSSL_CRYPTO_DLL
+                "${LIB_EAY_RUNTIME_DLL}"
+                NAME
+            )
+            get_filename_component(
+                NSCP_OPENSSL_SSL_DLL
+                "${SSL_EAY_RUNTIME_DLL}"
+                NAME
+            )
+            message(
+                STATUS
+                "OpenSSL is shipped as ${NSCP_OPENSSL_CRYPTO_DLL} + ${NSCP_OPENSSL_SSL_DLL}"
+            )
+        elseif(LIB_EAY_RUNTIME_DLL OR SSL_EAY_RUNTIME_DLL)
+            message(
+                FATAL_ERROR
+                "Found only one of the OpenSSL DLLs (crypto: '${LIB_EAY_RUNTIME_DLL}', ssl: '${SSL_EAY_RUNTIME_DLL}')"
+            )
+        elseif(OPENSSL_FOUND)
+            message(
+                STATUS
+                "OpenSSL is linked statically (no DLL next to ${LIB_EAY_RELEASE})"
+            )
+        endif()
     endif()
 endif(USE_STATIC_RUNTIME)
 
@@ -594,10 +658,18 @@ string(
 )
 string(TIMESTAMP NSCP_VERSION_DATE "%Y-%m-%d" UTC)
 if(WIN32)
-    set(VERSION_ARCH Win32)
-    if(CMAKE_CL_64)
+    # This string names the MSI, the ZIP and the docs zip, and the release
+    # pipeline uploads those by their exact names (NSCP-<version>-ARM64.msi
+    # and friends), failing the job when they are missing - so it has to
+    # distinguish x64 from ARM64, which "64-bit pointers" does not.
+    nscp_target_arch(_NSCP_ARCH)
+    if(_NSCP_ARCH STREQUAL "arm64")
+        set(VERSION_ARCH ARM64)
+    elseif(_NSCP_ARCH STREQUAL "x64")
         set(VERSION_ARCH x64)
-    endif(CMAKE_CL_64)
+    else()
+        set(VERSION_ARCH Win32)
+    endif()
     if(USE_STATIC_RUNTIME)
         set(RELEASE_SUFFIX "-legacy-xp")
     else(USE_STATIC_RUNTIME)
@@ -1332,12 +1404,34 @@ endforeach(
 #
 # ##############################################################################
 
+# Sources every plugin must compile *itself*.
+#
+# This list used to carry settings/helper.cpp and nscapi_program_options.cpp as
+# well. Those were already in the plugin_api library that every one of these
+# targets links, so each of the 40-odd modules shipped a second, private copy of
+# the same object code for no benefit - 103 KB per module for settings/helper.cpp
+# and 61 KB for nscapi_program_options.cpp. They are shared now; see
+# libs/plugin_api.
+#
+# utf8.cpp and nscapi_helper.cpp stay here, deliberately, even though plugin_api
+# also builds them. Sharing a source across the DLL boundary means annotating its
+# header, and these two are not worth what that costs. Linked on their own they
+# are about 8 KB and 33 KB, against 103 KB and 61 KB for the two that moved, so
+# the whole saving across the module set is a few hundred kilobytes. utf8.hpp in
+# particular is included almost everywhere in the tree, so putting an export
+# macro in it drags nscapi/dll_defines.hpp - and the NSCAPI_EXPORT name that
+# parsers/where/ and libs/mongoose-cpp/ also define - into translation units
+# that have nothing to do with the plugin API, including every source of
+# nscp_where_filter. Duplicating a few kilobytes is the cheaper trade.
+#
+# nscapi_plugin_impl.cpp stays here for a different reason: it reads
+# nscapi::plugin_singleton, which is defined *per module* by the generated
+# module.cpp (NSC_WRAP_DLL). Moving it into the shared library would bind every
+# module to the library's singleton instead of its own.
 set(NSCP_DEF_PLUGIN_CPP
     ${NSCP_INCLUDEDIR}/str/utf8.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_impl.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
 )
 set(NSCP_DEF_PLUGIN_HPP
     ${NSCP_INCLUDEDIR}/str/utf8.hpp
@@ -1367,6 +1461,9 @@ set(NSCP_FILTER_LIB
     perfconfig_parser
 )
 
+# Only unit tests still compile the client parser directly (they exercise it
+# without a core); the modules and the check_* executables link nscp_client.
+# utf8.cpp comes along because the parser calls it and it is not exported.
 set(NSCP_CLIENT_CPP
     ${NSCP_INCLUDEDIR}/str/utf8.cpp
     ${NSCP_INCLUDEDIR}/client/command_line_parser.cpp

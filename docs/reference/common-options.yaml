@@ -44,7 +44,7 @@ options:
       '
     group: filter
   debug:
-    content_type: 2
+    content_type: 4
     description: Show debugging information in the log
     group: filter
   decimal-separator:
@@ -90,7 +90,7 @@ options:
       DEPRECATED! This is the syntax for when nothing matches the filter.'
     group: filter
   escape-html:
-    content_type: 2
+    content_type: 4
     description: Escape any < and > characters to prevent HTML encoding
     group: filter
   filter:
@@ -155,7 +155,7 @@ options:
       This is the syntax for the base names of the performance data.'
     group: filter
   show-all:
-    content_type: 2
+    content_type: 4
     description: Show details for all matches regardless of status (normally details are only showed for
       warnings and criticals).
     group: filter

@@ -2,6 +2,12 @@
 
 *Available on Windows only.*
 
+!!! warning "Experimental"
+
+    This module is experimental: it works, but its options, filter keywords
+    and output may change in a future release. Please try it and report
+    anything that does not behave the way you expect.
+
 Checks for applications and server roles on Windows: IIS (web sites, application pools, worker processes, HTTP.sys request queues) and Remote Desktop Services (CAL licensing, session host load, Connection Broker).
 
 ## Enable module
@@ -21,16 +27,16 @@ A quick reference for all available queries (check commands) in the CheckWindows
 
 A list of all available queries (check commands)
 
-| Command                                                   | Description                                                                         |
-|-----------------------------------------------------------|-------------------------------------------------------------------------------------|
-| [check_iis_app_pools](#check_iis_app_pools)               | Check IIS application pools (state, uptime, recycles).                              |
-| [check_iis_request_queues](#check_iis_request_queues)     | Check HTTP.sys request queues (length, rejections, age).                            |
-| [check_iis_sites](#check_iis_sites)                       | Check IIS web sites (state, connections, traffic).                                  |
-| [check_iis_worker_processes](#check_iis_worker_processes) | Check IIS worker processes (active and served requests per w3wp).                   |
-| [check_rds_broker](#check_rds_broker)                     | Check the Remote Desktop Connection Broker counterset (failed/pending connections). |
-| [check_rds_licenses](#check_rds_licenses)                 | Check Remote Desktop licensing (CAL key packs: issued versus available licenses).   |
-| [check_rds_session_load](#check_rds_session_load)         | Check per-session resource usage (CPU, working set, protocol bytes).                |
-| [check_rds_sessions](#check_rds_sessions)                 | Check session counts on a session host (active, inactive, total).                   |
+| Command                                                                    | Description                                                                         |
+|----------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
+| [check_iis_app_pools](#check_iis_app_pools) *(experimental)*               | Check IIS application pools (state, uptime, recycles).                              |
+| [check_iis_request_queues](#check_iis_request_queues) *(experimental)*     | Check HTTP.sys request queues (length, rejections, age).                            |
+| [check_iis_sites](#check_iis_sites) *(experimental)*                       | Check IIS web sites (state, connections, traffic).                                  |
+| [check_iis_worker_processes](#check_iis_worker_processes) *(experimental)* | Check IIS worker processes (active and served requests per w3wp).                   |
+| [check_rds_broker](#check_rds_broker) *(experimental)*                     | Check the Remote Desktop Connection Broker counterset (failed/pending connections). |
+| [check_rds_licenses](#check_rds_licenses) *(experimental)*                 | Check Remote Desktop licensing (CAL key packs: issued versus available licenses).   |
+| [check_rds_session_load](#check_rds_session_load) *(experimental)*         | Check per-session resource usage (CPU, working set, protocol bytes).                |
+| [check_rds_sessions](#check_rds_sessions) *(experimental)*                 | Check session counts on a session host (active, inactive, total).                   |
 
 ### check_iis_app_pools
 
@@ -333,6 +339,7 @@ IIS performance counters (Web Service) not available - is the Web Server (IIS) r
 <a id="check_iis_sites_options"></a>
 #### Command-line Arguments
 
+        
 | Option                                | Default Value | Description                                                                                                        |
 |---------------------------------------|---------------|--------------------------------------------------------------------------------------------------------------------|
 | [averages](#check_iis_sites_averages) | false         | Collect a second sample after one second so the rate keywords (requests_per_sec, bytes_per_sec) carry real values. |
@@ -575,6 +582,7 @@ Connection Broker counters (Remote Desktop Connection Broker Counterset) not ava
 <a id="check_rds_broker_options"></a>
 #### Command-line Arguments
 
+        
 | Option                                 | Default Value | Description                                                                  |
 |----------------------------------------|---------------|------------------------------------------------------------------------------|
 | [averages](#check_rds_broker_averages) | false         | Collect a second sample after one second so rate counters carry real values. |
@@ -828,6 +836,8 @@ Remote Desktop Services counters (Terminal Services Session) not available - is 
 <a id="check_rds_session_load_options"></a>
 #### Command-line Arguments
 
+        
+        
 | Option                                                 | Default Value | Description                                                                                                 |
 |--------------------------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------|
 | [averages](#check_rds_session_load_averages)           | false         | Collect a second sample after one second so the cpu keyword carries a real value.                           |

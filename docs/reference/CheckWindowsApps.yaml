@@ -220,7 +220,7 @@ windows:
         description: Check IIS web sites (state, connections, traffic).
         experimental: true
       params:
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Collect a second sample after one second so the rate keywords (requests_per_sec,
@@ -360,7 +360,7 @@ windows:
         description: Check the Remote Desktop Connection Broker counterset (failed/pending connections).
         experimental: true
       params:
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Collect a second sample after one second so rate counters carry real values.
@@ -509,7 +509,7 @@ windows:
         description: Check per-session resource usage (CPU, working set, protocol bytes).
         experimental: true
       params:
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Collect a second sample after one second so the cpu keyword carries a real value.
@@ -518,7 +518,7 @@ windows:
         required: false
         short_description: Collect a second sample after one second so the cpu keyword carries a real
           value.
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Skip the 'Services' aggregate instance (session 0 / system processes) and report

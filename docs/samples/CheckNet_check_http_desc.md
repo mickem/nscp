@@ -31,8 +31,13 @@ a specific backend by IP).
 one check can cover both reachability and expiry:
 
 ```
-check_http url=https://example.com "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 7"
+check_http url=https://example.com "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 7" "detail-syntax=${url} cert expires in ${ssl_expiry_days} days"
 ```
+
+Render the keyword you threshold on. The default `detail-syntax` reports the
+HTTP outcome (`${url} -> ${code} ${result} (${size}B in ${time}ms)`), so a
+certificate threshold on its own turns the check CRITICAL while the message
+still reads `-> 200 ok` and never mentions the certificate.
 
 On a plain `http` URL there is no certificate, so `ssl_expiry_days` renders as
 `no certificate` and **every numeric comparison against it is false** — a
@@ -57,5 +62,46 @@ index into arrays, and a segment containing a literal dot can be single-quoted.
 This turns a health endpoint into a real check rather than a 200-or-not probe:
 
 ```
-check_http url=https://api.example.com/health json-path=qlen:data.queue.length "crit=qlen > 100"
+check_http url=https://api.example.com/health json-path=qlen:data.queue.length "crit=qlen > 100" "detail-syntax=${url} ${result} qlen=${qlen}"
 ```
+
+##### Certificate identity and required names
+
+Beyond `ssl_expiry_days`, an https check reports who the certificate is for and
+who issued it, using the same keyword vocabulary as `check_tcp` — a filter
+written for one works verbatim against the other:
+
+| Keyword | Value |
+| --- | --- |
+| `cert_subject` | Subject as an RFC 2253 string, e.g. `CN=www.example.com,O=Acme` |
+| `cert_cn` | The subject's commonName only |
+| `cert_issuer` / `cert_issuer_cn` | Issuer, in full and as its commonName |
+| `cert_sans` | subjectAltName entries, comma separated (`DNS:host`, `IP:addr`) |
+| `cert_self_signed` | True when subject equals issuer |
+| `cert_verify` | OpenSSL's verdict on the chain: `ok`, or why it did not verify |
+| `missing_sans` | Names required via `sans=` that the certificate does not cover |
+
+`sans=` takes a comma separated list of names the certificate must cover
+through subjectAltName. A missing name sets `result` to `san_missing` — which
+the default `critical` filter already alerts on — and names it in
+`missing_sans`. Wildcards follow RFC 6125: `*.example.com` covers
+`www.example.com` but not `example.com` itself.
+
+```
+check_http url=https://www.example.com/ sans=example.com,www.example.com "detail-syntax=${url} ${result} code=${code} missing=[${missing_sans}]"
+```
+
+All of these describe the **last** hop that was reached: with
+`onredirect=follow`, an https hop followed by a plain http one reports no
+certificate at all, and `sans=` is evaluated against the certificate served by
+the URL actually checked. A hop that served no certificate covers no names, so
+a `sans=` requirement fails there rather than passing by default. A hop whose
+TLS handshake fails clears them too, rather than leaving the previous hop's
+certificate — and its `cert_verify=ok` — standing for a connection that never
+verified anything.
+
+`cert_verify` is recorded even when the chain does not verify, so a check can
+report *why* a certificate is untrusted. It is not an authentication result on
+its own — only a successful request under the default `verify=peer` is that.
+
+`ca=` accepts a PEM bundle file or a hashed CA directory (`/etc/ssl/certs`).

@@ -11,6 +11,8 @@ set(SRCS
     "${TARGET}.cpp"
     filter.cpp
     check_tcp.cpp
+    check_starttls.cpp
+    check_net_cert.cpp
     check_dns.cpp
     check_http.cpp
     check_http_json.cpp
@@ -20,7 +22,6 @@ set(SRCS
     check_nsclient_web_online_parse.cpp
     check_connections.cpp
     check_ntp_offset.cpp
-    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_INCLUDEDIR}/bytes/base64.c
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
@@ -34,6 +35,8 @@ if(WIN32)
         "${TARGET}.h"
         filter.hpp
         check_tcp.h
+        check_starttls.hpp
+        check_net_cert.hpp
         check_dns.h
         check_http.h
         check_http_fetch.hpp
@@ -53,6 +56,8 @@ NSCP_DEBUG_SYMBOLS(${TARGET})
 
 target_link_libraries(
     ${TARGET}
+    nscp_net
+    nscp_json
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_REGEX_LIBRARY}
     ${Boost_CHRONO_LIBRARY}
@@ -69,6 +74,17 @@ if(OPENSSL_FOUND)
     target_link_libraries(${TARGET} ${OPENSSL_LIBRARIES})
     if(WIN32)
         target_link_libraries(${TARGET} CRYPT32)
+    endif(WIN32)
+    # The unit test compiles with -DUSE_SSL too (add_definitions is directory
+    # wide) and includes <net/socket/socket_helpers.hpp> directly, to build the
+    # peer_certificate it hands to cert::populate(). That pulls in
+    # boost::asio::ssl, so it needs the same libraries or it fails to link on
+    # ERR_reason_error_string. Only this one test file does: check_net_cert.hpp
+    # forward declares the struct, so the module's other sources - and anything
+    # else including check_tcp.h or check_http.h - do not.
+    set(CHECK_NET_TEST_SSL_LIBRARIES ${OPENSSL_LIBRARIES})
+    if(WIN32)
+        list(APPEND CHECK_NET_TEST_SSL_LIBRARIES CRYPT32)
     endif(WIN32)
 endif(OPENSSL_FOUND)
 
@@ -89,6 +105,8 @@ NSCP_CREATE_TEST(
         check_http_json_test.cpp
         check_http_json.cpp
         check_webserver_test.cpp
+        check_starttls.cpp
+        check_net_cert.cpp
         check_webserver_parse.cpp
         filter.cpp
         check_nsclient_web_online_parse.cpp
@@ -99,6 +117,7 @@ NSCP_CREATE_TEST(
     LIBRARIES
         GTest::gtest_main
         nscp_protobuf
+        nscp_json
         ${NSCP_FILTER_LIB}
         expression_parser
         ${PLUGIN_API_TARGET}
@@ -107,6 +126,7 @@ NSCP_CREATE_TEST(
         ${Boost_DATE_TIME_LIBRARY}
         ${Boost_PROGRAM_OPTIONS_LIBRARY}
         ${Boost_REGEX_LIBRARY}
+        ${CHECK_NET_TEST_SSL_LIBRARIES}
     INCLUDES
         ${NSCP_INCLUDEDIR}
         ${CMAKE_CURRENT_SOURCE_DIR}

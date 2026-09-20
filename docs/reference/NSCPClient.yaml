@@ -41,14 +41,17 @@ common:
             advanced: true
             default_value: 'false'
             description: 'Let a request (a REST query, an NRPE argument or `nscp client`) send this target''s
-              *configured* credentials to a destination the request names. Off by default: when a request
-              moves the destination (`host=`, `port=`, `address=`) and the password or token going with
-              it is the one configured here, the call is refused, since otherwise anyone able to run the
-              module''s commands could direct the configured credentials to a host of their choosing.
-              This setting is only consulted in that case: a target with no credentials, a request that
-              supplies its own password/token, and a request that does not move the destination are all
-              unaffected. To reach another server with its own credentials, prefer configuring it as a
-              separate target and selecting it with `target=`.'
+              *configured* credentials to a destination the request names, or under transport settings
+              the request names. Off by default: when a request moves the destination (`host=`, `port=`,
+              `address=`), reroutes it through a proxy of its own (`proxy=`, `no-proxy=`) or changes how
+              the connection is protected (`verify=`, `insecure=`, `ca=`, `security=`, `tls-version=`,
+              the certificate and cipher keys) and the password or token going with it is the one configured
+              here, the call is refused, since otherwise anyone able to run the module''s commands could
+              direct the configured credentials to a host of their choosing, or strip the check that the
+              host answering is the configured one. This setting is only consulted in that case: a target
+              with no credentials, a request that supplies its own password/token, and a request that
+              changes none of those are all unaffected. To reach another server with its own credentials,
+              prefer configuring it as a separate target and selecting it with `target=`.'
             sample: true
             title: ALLOW HOST OVERRIDE
           allowed ciphers:
@@ -266,11 +269,13 @@ common:
       - content_type: 2
         default_value: ''
         is_simple: true
-        long_description: Client certificate to use
+        long_description: The private key belonging to the client certificate (when it is not in the certificate
+          file itself)
         name: certificate-key
         repeatable: false
         required: false
-        short_description: Client certificate to use
+        short_description: The private key belonging to the client certificate (when it is not in the
+          certificate file itself)
       - content_type: 2
         default_value: ''
         is_simple: true
@@ -282,28 +287,36 @@ common:
       - content_type: 2
         default_value: ''
         is_simple: true
-        long_description: Certificate authority
+        long_description: The certificate authority the server certificate is verified against
         name: ca
         repeatable: false
         required: false
-        short_description: Certificate authority
+        short_description: The certificate authority the server certificate is verified against
       - content_type: 2
         default_value: ''
         is_simple: true
-        long_description: Client certificate format
+        long_description: 'How to verify the server certificate. Comma separated list of options: none,
+          peer (or certificate), peer-cert, fail-if-no-cert (or fail-if-no-peer-cert, client-certificate).
+          For a self signed certificate use peer-cert and point --ca at that certificate; none leaves
+          the connection encrypted but the server unauthenticated, so an on-path attacker can impersonate
+          it undetected.'
         name: verify
         repeatable: false
         required: false
-        short_description: Client certificate format
+        short_description: 'How to verify the server certificate. Comma separated list of options: none,
+          peer (or certificate), peer-cert, fail-if-no-cert (or fail-if-no-peer-cert, client-certificate).
+          For a self signed certificate use peer-cert and point --ca at that certificate; none leaves
+          the connection encrypted but the server unauthenticated, so an on-path attacker can impersonate
+          it undetected.'
       - content_type: 2
         default_value: ''
         is_simple: true
-        long_description: Client certificate format
+        long_description: The OpenSSL cipher list the connection is restricted to
         name: allowed-ciphers
         repeatable: false
         required: false
-        short_description: Client certificate format
-      - content_type: 2
+        short_description: The OpenSSL cipher list the connection is restricted to
+      - content_type: 4
         default_value: 'true'
         is_simple: false
         long_description: Initial an ssl handshake with the server.
@@ -455,11 +468,13 @@ common:
       - content_type: 2
         default_value: ''
         is_simple: true
-        long_description: Client certificate to use
+        long_description: The private key belonging to the client certificate (when it is not in the certificate
+          file itself)
         name: certificate-key
         repeatable: false
         required: false
-        short_description: Client certificate to use
+        short_description: The private key belonging to the client certificate (when it is not in the
+          certificate file itself)
       - content_type: 2
         default_value: ''
         is_simple: true
@@ -471,28 +486,36 @@ common:
       - content_type: 2
         default_value: ''
         is_simple: true
-        long_description: Certificate authority
+        long_description: The certificate authority the server certificate is verified against
         name: ca
         repeatable: false
         required: false
-        short_description: Certificate authority
+        short_description: The certificate authority the server certificate is verified against
       - content_type: 2
         default_value: ''
         is_simple: true
-        long_description: Client certificate format
+        long_description: 'How to verify the server certificate. Comma separated list of options: none,
+          peer (or certificate), peer-cert, fail-if-no-cert (or fail-if-no-peer-cert, client-certificate).
+          For a self signed certificate use peer-cert and point --ca at that certificate; none leaves
+          the connection encrypted but the server unauthenticated, so an on-path attacker can impersonate
+          it undetected.'
         name: verify
         repeatable: false
         required: false
-        short_description: Client certificate format
+        short_description: 'How to verify the server certificate. Comma separated list of options: none,
+          peer (or certificate), peer-cert, fail-if-no-cert (or fail-if-no-peer-cert, client-certificate).
+          For a self signed certificate use peer-cert and point --ca at that certificate; none leaves
+          the connection encrypted but the server unauthenticated, so an on-path attacker can impersonate
+          it undetected.'
       - content_type: 2
         default_value: ''
         is_simple: true
-        long_description: Client certificate format
+        long_description: The OpenSSL cipher list the connection is restricted to
         name: allowed-ciphers
         repeatable: false
         required: false
-        short_description: Client certificate format
-      - content_type: 2
+        short_description: The OpenSSL cipher list the connection is restricted to
+      - content_type: 4
         default_value: 'true'
         is_simple: false
         long_description: Initial an ssl handshake with the server.
@@ -510,8 +533,8 @@ common:
         short_description: Password
     remote_nscpforward:
       info:
-        description: Forward the request to a remote host via NSCP (the command and its arguments
-          are re-issued against the remote agent's REST API).
+        description: Forward the request to a remote host via NSCP (the command and its arguments are
+          re-issued against the remote agent's REST API).
 module: NSCPClient
 namespace: client
 platforms:

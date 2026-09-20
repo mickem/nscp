@@ -24,6 +24,9 @@ if(WIN32)
         -D_USING_V110_SDK71_
         -DSTRSAFE_NO_DEPRECATE
         -Dplugin_api_NOLIB
+        # socket_helpers.cpp is compiled in below rather than linked from
+        # nscp_net, so its declarations must not say dllimport.
+        -Dnscp_net_NOLIB
     )
 endif()
 set(Boost_USE_STATIC_LIBS ON)
@@ -139,15 +142,6 @@ string(
     ${NSCP_VERSION_NUMBER}
 )
 string(TIMESTAMP NSCP_VERSION_DATE "%Y-%m-%d" UTC)
-if(WIN32)
-    set(VERSION_ARCH Win32)
-    if(CMAKE_CL_64)
-        set(VERSION_ARCH x64)
-    endif(CMAKE_CL_64)
-else(WIN32)
-    set(VERSION_ARCH Unknown)
-endif(WIN32)
-
 set(INSTALL_FILES_BASE "")
 
 set(CONFIG_BOOT_CONF_LOCATION
@@ -260,6 +254,10 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/win/credentials.hpp
     "${TARGET}.def"
     installer_helper.hpp
+    keys.hpp
+    # Header only, and free of MSI, so tests/CMakeLists.txt can build
+    # nrpe_mode_test.cpp against it on every platform.
+    nrpe_mode.hpp
     ${NSCP_INCLUDEDIR}/win/service_control.hpp
     ${NSCP_ERROR_CPP}
     ${NSCP_ERROR_HPP}

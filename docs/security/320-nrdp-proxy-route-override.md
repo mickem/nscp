@@ -1,6 +1,6 @@
 ---
 title: "NRDP: a request-supplied proxy sent the configured token through a caller-chosen host"
-fixed_in: next
+fixed_in: 0.22.0
 severity: "Medium"
 modules: [NRDPClient]
 action: conditional

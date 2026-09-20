@@ -182,7 +182,7 @@ check_cpu filter=none                       # include everything
 | `!=`              | `ne`                | Not equals           |
 | `>` `<` `>=` `<=` | `gt` `lt` `ge` `le` | Numeric comparison   |
 | `like`            | —                   | Substring match      |
-| `regexp`          | —                   | Regular expression   |
+| `regexp`          | —                   | Regular expression (**full** match — wrap in `.*` to search) |
 | `in`              | —                   | Membership in a list |
 | `and` `or` `not`  | —                   | Logical              |
 | `'...'`           | `str(...)`          | String literal       |
@@ -320,6 +320,16 @@ check_service "filter=name = 'NonExistentService'" empty-state=ok
 ## 5. Output Syntax — Choosing the Message Text
 
 Three options shape the message. They affect *only* the human-readable text — never the status or perfdata.
+
+<!-- @formatter:off -->
+!!! tip "Render what you filtered on"
+    The filter decides the **state**, the syntax decides the **text**, and the two share nothing. A threshold on a
+    keyword the `detail-syntax` does not mention flips the check to WARNING or CRITICAL while the message still
+    reports whatever the default line happens to carry — for example `check_tcp ... "crit=cert_issuer_cn != 'R11'"`
+    goes CRITICAL but still reads `www.example.com:443 ok in 10ms`, because the default detail line renders only
+    `result` and `time`. Whenever you threshold on something the default message does not show, add it:
+    `"detail-syntax=%(host):%(port) issuer=%(cert_issuer_cn)"`.
+<!-- @formatter:on -->
 
 | Option           | When applied                 | Default purpose           |
 |------------------|------------------------------|---------------------------|

@@ -66,12 +66,22 @@ runs:
     - id: setup
       if: steps.cache.outputs.cache-hit != 'true'
       run: |
-        if ("${{ inputs.architecture }}" -eq "x86") { 
-          echo "platform=win32" >> $env:GITHUB_OUTPUT
-        } else {
-          echo "platform=x64" >> $env:GITHUB_OUTPUT
+        switch ("${{ inputs.architecture }}") {
+          "x86"   { echo "platform=win32" >> $env:GITHUB_OUTPUT }
+          "arm64" { echo "platform=ARM64" >> $env:GITHUB_OUTPUT }
+          default { echo "platform=x64"   >> $env:GITHUB_OUTPUT }
         }
       shell: pwsh
+      working-directory: tmp/cryptopp
+
+    # Crypto++ ships Win32/x64 project configurations only, so msbuild rejects
+    # /p:Platform=ARM64 outright. The sources build fine on ARM64 - see the
+    # script for why this is boilerplate rather than a port.
+    - name: Add ARM64 project configurations
+      if: inputs.architecture == 'arm64' && steps.cache.outputs.cache-hit != 'true'
+      run: |
+        python ../../build/python/msdev-add-arm64.py cryptlib.vcxproj
+      shell: cmd
       working-directory: tmp/cryptopp
 
     - name: Convert to dynamic runtime
@@ -82,12 +92,45 @@ runs:
       working-directory: tmp/cryptopp
 
     - name: Build
-      if: steps.cache.outputs.cache-hit != 'true'
+      if: inputs.architecture != 'arm64' && steps.cache.outputs.cache-hit != 'true'
       run: |
         msbuild cryptlib.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }}
         msbuild cryptdll.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }}
         msbuild cryptlib.vcxproj /p:Configuration=Debug /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }}
         msbuild cryptdll.vcxproj /p:Configuration=Debug /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }}
+      working-directory: tmp/cryptopp
+      shell: cmd
+
+    # cryptdll is left out on ARM64: NSClient++ links the static cryptlib (see
+    # FindCryptoPP.cmake) and cryptdll's MAC post-build step shells out to a
+    # Win32 cryptest.exe, which has nothing to say about an ARM64 DLL nobody
+    # ships.
+    #
+    # WindowsTargetPlatformVersion is pinned because the runner still carries the
+    # Windows 8.1 SDK for the legacy XP build and 8.1 has no ARM64 toolchain;
+    # the project itself names no SDK, so it would take whatever msbuild picks.
+    #
+    # CRYPTOPP_ARM_ACLE_HEADER=0 keeps <arm_acle.h> out. config_asm.h turns that
+    # include on for anything defining __ARM_ACLE, which MSVC 14.4 does on
+    # ARM64 - but MSVC ships no arm_acle.h, so eleven translation units stop at
+    # "Cannot open include file: 'arm_acle.h'". Crypto++ already draws this
+    # distinction for the NEON header (`#if !defined(_M_ARM64)` around
+    # CRYPTOPP_ARM_NEON_HEADER) and simply has no matching case for ACLE. The
+    # intrinsics behind it - __crc32b and friends, which arm_simd.h calls
+    # directly under CRYPTOPP_MSC_VERSION - come from <intrin.h>, which misc.h
+    # and stdcpp.h already include on MSVC, so nothing is lost by skipping it.
+    #
+    # It is passed without the usual `%(AdditionalOptions)` tail: this step is a
+    # batch script, where a `%` that does not open a variable reference is
+    # simply dropped, so that tail arrives as a bare `(AdditionalOptions)` and
+    # cl.exe tries to open it as a source file. Nothing is lost by leaving it
+    # out either - cryptlib.vcxproj sets ClCompile's AdditionalOptions to
+    # `$(AdditionalOptions)`, so this property is the only value it ever has.
+    - name: Build (ARM64)
+      if: inputs.architecture == 'arm64' && steps.cache.outputs.cache-hit != 'true'
+      run: |
+        msbuild cryptlib.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }} /p:WindowsTargetPlatformVersion=10.0 /p:AdditionalOptions=/DCRYPTOPP_ARM_ACLE_HEADER=0
+        msbuild cryptlib.vcxproj /p:Configuration=Debug /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }} /p:WindowsTargetPlatformVersion=10.0 /p:AdditionalOptions=/DCRYPTOPP_ARM_ACLE_HEADER=0
       working-directory: tmp/cryptopp
       shell: cmd
 

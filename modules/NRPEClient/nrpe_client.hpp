@@ -8,6 +8,7 @@
 #include <mutex>
 #include <net/nrpe/client/nrpe_client_protocol.hpp>
 #include <net/nrpe/packet.hpp>
+#include <net/payload_limits.hpp>
 #include <net/socket/client.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -22,6 +23,9 @@ struct connection_data : public socket_helpers::connection_info {
   int buffer_length;
   std::string encoding;
   short version;
+  // Set when `payload length` was out of range and had to be clamped; logged
+  // once by the caller rather than from this constructor.
+  std::string payload_length_warning;
   std::shared_ptr<socket_helpers::client::client_handler> handler;
 
   connection_data(client::destination_container source, client::destination_container target, std::shared_ptr<socket_helpers::client::client_handler> handler)
@@ -53,7 +57,7 @@ struct connection_data : public socket_helpers::connection_info {
 
     timeout = target.timeout;
     retry = target.retry;
-    buffer_length = target.get_int_data("payload length", 1024);
+    buffer_length = net::payload::clamp(target.get_int_data("payload length", 1024), net::payload::max_nrpe_payload_length, "NRPE", payload_length_warning);
     encoding = target.get_string_data("encoding");
 
     if (target.has_data("no ssl")) ssl.enabled = !target.get_bool_data("no ssl");
@@ -215,6 +219,7 @@ struct nrpe_client_handler : public client::handler_interface {
 
   boost::tuple<int, std::string> send(nrpe_client::connection_data con, const std::string data) {
     try {
+      if (!con.payload_length_warning.empty()) NSC_LOG_ERROR_STD(con.payload_length_warning);
 #ifndef USE_SSL
       if (con.ssl.enabled) return boost::make_tuple(NSCAPI::query_return_codes::returnUNKNOWN, "SSL support not available (compiled without USE_SSL)");
 #endif

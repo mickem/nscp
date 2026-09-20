@@ -15,28 +15,66 @@ on:
         type: string
         description: 'Version to build'
         required: true
+      targets:
+        type: string
+        description: >-
+          Which Debian-family packages to build: "default" for the Ubuntu LTS
+          pair, or "all" to add the Raspberry Pi OS / Debian package. Release
+          builds want all of them.
+        required: false
+        default: default
 
 jobs:
+  # Computed rather than written out: `include:` entries cannot carry an `if:`,
+  # and a matrix job that skips itself still queues a runner.
+  matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.pick.outputs.build }}
+      test: ${{ steps.pick.outputs.test }}
+    steps:
+    - id: pick
+      shell: bash
+      run: |
+        set -euo pipefail
+        # `group` selects the entry here and is dropped before the matrix sees
+        # it, so it does not end up in the job names. `dotnet` says whether the
+        # distribution packages the .NET SDK: Ubuntu does, Debian does not, and
+        # the managed plugin API and its C# sample are skipped where it is
+        # absent. `integration_tests` says whether the integration suite runs
+        # against the entry, and is dropped the same way.
+        all='[
+          {"group":"default",      "distro":"ubuntu","distro_version":"24.04",  "lua_package":"liblua5.4-dev","python_version":"python312","arch":"x64",  "deb_arch":"amd64","runner":"ubuntu-latest",  "dotnet":"true", "integration_tests":true},
+          {"group":"default",      "distro":"ubuntu","distro_version":"24.04",  "lua_package":"liblua5.4-dev","python_version":"python312","arch":"arm64","deb_arch":"arm64","runner":"ubuntu-24.04-arm","dotnet":"true", "integration_tests":true},
+          {"group":"raspberry-pi", "distro":"debian","distro_version":"trixie", "lua_package":"liblua5.4-dev","python_version":"python313","arch":"arm64","deb_arch":"arm64","runner":"ubuntu-24.04-arm","dotnet":"false","integration_tests":true}
+        ]'
+        case "${{ inputs.targets }}" in
+          default) selected=$(jq -c '[.[] | select(.group == "default")] | map(del(.group))' <<< "$all") ;;
+          all)     selected=$(jq -c 'map(del(.group))' <<< "$all") ;;
+          *)
+            echo "::error::Unknown targets value '${{ inputs.targets }}' (expected 'default' or 'all')"
+            exit 1
+            ;;
+        esac
+        # Only the fields the integration workflow consumes: the extra build
+        # fields would otherwise land in the job name, and the check names are
+        # what branch protection matches on.
+        tested=$(jq -c '
+          map(select(.integration_tests))
+          | map({distro, distro_version, arch, deb_arch, runner, dotnet})' <<< "$selected")
+        selected=$(jq -c 'map(del(.integration_tests))' <<< "$selected")
+        echo "Building: $(jq -r 'map("\(.distro) \(.distro_version) \(.arch)") | join(", ")' <<< "$selected")"
+        echo "Testing:  $(jq -r 'if length == 0 then "(none)" else map("\(.distro) \(.distro_version) \(.arch)") | join(", ") end' <<< "$tested")"
+        echo "build=$selected" >> "$GITHUB_OUTPUT"
+        echo "test=$tested" >> "$GITHUB_OUTPUT"
+
   build-deb:
+    needs: matrix
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - distro: ubuntu
-            distro_version: "24.04"
-            lua_package: liblua5.4-dev
-            python_version: python312
-            arch: x64
-            deb_arch: amd64
-            runner: ubuntu-latest
-          - distro: ubuntu
-            distro_version: "24.04"
-            lua_package: liblua5.4-dev
-            python_version: python312
-            arch: arm64
-            deb_arch: arm64
-            runner: ubuntu-24.04-arm
+        include: ${{ fromJson(needs.matrix.outputs.build) }}
     container:
       image: ${{ matrix.distro }}:${{ matrix.distro_version }}
 
@@ -58,7 +96,14 @@ jobs:
         # ccache: see the "Configure ccache" step below. zstd: actions/cache
         # compresses with it when present and falls back to a slower gzip when
         # it is not.
-        retry env DEBIAN_FRONTEND=noninteractive apt-get install -y git curl unzip libboost-all-dev libgtest-dev protobuf-compiler libprotobuf-dev openssl libssl-dev libgmock-dev libcrypto++-dev ${{ matrix.lua_package }} cmake build-essential python3-pip libdbus-1-dev libzip-dev libtinyxml2-dev libmariadb-dev pkg-config ccache zstd dotnet-sdk-8.0
+        # dotnet-sdk-8.0 is in Ubuntu's archive but not in Debian's, so it is
+        # only asked for where the matrix says it exists; the managed plugin
+        # API and the C# sample skip themselves when the SDK is missing.
+        dotnet_packages=""
+        if [ "${{ matrix.dotnet }}" = "true" ]; then
+          dotnet_packages="dotnet-sdk-8.0"
+        fi
+        retry env DEBIAN_FRONTEND=noninteractive apt-get install -y git curl unzip libboost-all-dev libgtest-dev protobuf-compiler libprotobuf-dev openssl libssl-dev libgmock-dev libcrypto++-dev ${{ matrix.lua_package }} cmake build-essential python3-pip libdbus-1-dev libzip-dev libtinyxml2-dev libmariadb-dev pkg-config ccache zstd $dotnet_packages
 
     - uses: actions/checkout@v6
 
@@ -191,6 +236,7 @@ jobs:
     # the package, so it travels next to the package in the artifact and the
     # integration job copies it into the installed modules/dotnet folder.
     - name: Stage the C# sample plugin for the integration tests
+      if: matrix.dotnet == 'true'
       shell: bash
       run: |
         mkdir -p dotnet-sample
@@ -209,22 +255,21 @@ jobs:
       run: |
         ctest --output-on-failure -C Release
 
+  # Derived from the same list the packages are built from: the Raspberry Pi
+  # (debian trixie) entry was built but never integration-tested while this
+  # matrix was maintained by hand.
   integration-tests:
-    needs: build-deb
+    # Named explicitly so the check name does not move: `dotnet` has to ride
+    # the matrix entry (it is what the build was configured with), but every
+    # matrix key lands in the default job name, and the check names are what
+    # branch protection matches on.
+    name: integration-tests (${{ matrix.distro }}, ${{ matrix.distro_version }}, ${{ matrix.arch }}, ${{ matrix.deb_arch }}, ${{ matrix.runner }})
+    needs: [matrix, build-deb]
+    if: needs.matrix.outputs.test != '[]'
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - distro: ubuntu
-            distro_version: "24.04"
-            arch: x64
-            deb_arch: amd64
-            runner: ubuntu-latest
-          - distro: ubuntu
-            distro_version: "24.04"
-            arch: arm64
-            deb_arch: arm64
-            runner: ubuntu-24.04-arm
+        include: ${{ fromJson(needs.matrix.outputs.test) }}
     uses: ./.github/workflows/integration-tests-linux.yml
     with:
       architecture: ${{ matrix.arch }}
@@ -236,3 +281,4 @@ jobs:
       distro: ${{ matrix.distro }}
       distro_version: ${{ matrix.distro_version }}
       runner: ${{ matrix.runner }}
+      dotnet: ${{ matrix.dotnet }}

@@ -11,8 +11,6 @@ set(SRCS
     "${TARGET}.cpp"
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
-    ${NSCP_INCLUDEDIR}/json/use_json.cpp
-    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_INCLUDEDIR}/bytes/base64.c
 )
 
@@ -48,6 +46,8 @@ OPENSSL_LINK_FIX(${TARGET})
 
 target_link_libraries(
     ${TARGET}
+    nscp_json
+    nscp_net
     ${NSCP_DEF_PLUGIN_LIB}
     ${NSCP_FILTER_LIB}
     expression_parser
@@ -59,9 +59,9 @@ NSCP_CREATE_TEST(
     check_nscp_test
     SOURCES
         ${CMAKE_SOURCE_DIR}/modules/CheckNSCP/check_nscp_test.cpp
-        ${NSCP_INCLUDEDIR}/json/use_json.cpp
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
+        nscp_json
         GTest::gtest_main
     INCLUDES
         ${NSCP_INCLUDEDIR}
@@ -78,10 +78,10 @@ NSCP_CREATE_TEST(
         "${TARGET}.cpp"
         ${NSCP_DEF_PLUGIN_CPP}
         ${NSCP_FILTER_CPP}
-        ${NSCP_INCLUDEDIR}/json/use_json.cpp
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
         ${NSCP_INCLUDEDIR}/bytes/base64.c
     LIBRARIES
+        nscp_json
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}
         ${NSCP_FILTER_LIB}

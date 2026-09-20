@@ -1,6 +1,6 @@
 ---
 title: "Settings sources, includes and attachments are refused over plain http"
-fixed_in: next
+fixed_in: 0.22.0
 severity: "High for agents configured from an http:// settings server, none otherwise"
 modules: [core]
 action: conditional

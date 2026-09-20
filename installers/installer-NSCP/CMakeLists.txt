@@ -38,10 +38,20 @@ endif()
 
 set(LOCALIZATIONS en-us)
 
-set(ARCH x86)
-if(CMAKE_CL_64)
-    set(ARCH x64)
-endif(CMAKE_CL_64)
+# candle spells the target architecture x86 / x64 / arm64, which is exactly
+# the canonical form.
+nscp_target_arch(ARCH)
+
+# PythonScript is skipped whenever the Python development libraries or
+# Boost.Python are missing - on a cross-compiled ARM64 build, both are. The MSI
+# references PythonScript.dll and the embedded runtime by name, so the same
+# condition has to reach the .wxs or light fails on the missing files.
+if("PythonScript" IN_LIST ALL_MODULE_NAMES)
+    set(HAS_PYTHON "true")
+else()
+    set(HAS_PYTHON "false")
+endif()
+message(STATUS "Installer: python components included: ${HAS_PYTHON}")
 
 #WIX_FIND_MERGE_MODULE(CRT_MERGE_MODULE "Microsoft_VC143_CRT")
 # Name of the Visual C++ CRT merge module to bundle in the MSI installer.
@@ -64,12 +74,46 @@ message(
     STATUS
     "CRT_MERGE_MODULE (${CRT_MERGE_MODULE_NAME}): ${CRT_MERGE_MODULE}"
 )
-if(NOT CRT_MERGE_MODULE)
+# Visual Studio ships the redistributable merge modules per architecture, and
+# which of them are installed depends on which build tools are present. Rather
+# than passing the literal "...-NOTFOUND" on to candle - where it resurfaces
+# much later as "LGHT0103: The system cannot find the file
+# 'CRT_MERGE_MODULE-NOTFOUND'", naming nothing that helps - decide here whether
+# the MSI can bundle the CRT at all and tell the .wxs about it.
+# An MSI without the CRT installs an agent that cannot start on a clean
+# machine, and it does so quietly - the package builds, signs and uploads. So
+# a missing merge module stays a hard error, and the one configuration that is
+# knowingly shipped without it has to say so out loud.
+option(
+    NSCP_ALLOW_MISSING_CRT_MERGE_MODULE
+    "Build the MSI without the Visual C++ runtime when no merge module exists for the target architecture"
+    OFF
+)
+if(CRT_MERGE_MODULE)
+    set(HAS_CRT_MERGE_MODULE "true")
+elseif(NOT RUNTIME STREQUAL "dynamic")
+    # A static-runtime build (the legacy XP package) links the CRT in and
+    # never references the merge module, so not finding one is not a problem
+    # it has.
+    set(HAS_CRT_MERGE_MODULE "false")
+    set(CRT_MERGE_MODULE "none")
+elseif(NSCP_ALLOW_MISSING_CRT_MERGE_MODULE)
+    set(HAS_CRT_MERGE_MODULE "false")
+    # A placeholder rather than an empty string: candle still gets the define,
+    # and the .wxs never dereferences it because the branch that would is
+    # preprocessed away.
+    set(CRT_MERGE_MODULE "none")
     message(
         WARNING
-        "CRT_MERGE_MODULE not found for ${CRT_MERGE_MODULE_NAME}: ${CRT_MERGE_MODULE}"
+        "No ${CRT_MERGE_MODULE_NAME} merge module for this architecture and NSCP_ALLOW_MISSING_CRT_MERGE_MODULE is set: the MSI will not install the Visual C++ runtime, which has to be present on the target machine already."
     )
-endif(NOT CRT_MERGE_MODULE)
+else()
+    message(
+        FATAL_ERROR
+        "No ${CRT_MERGE_MODULE_NAME} merge module found for this architecture. The MSI would install an agent that cannot start without the Visual C++ runtime. Install the matching redistributable merge module, or set NSCP_ALLOW_MISSING_CRT_MERGE_MODULE=ON to ship without it deliberately."
+    )
+endif()
+message(STATUS "Installer: CRT merge module bundled: ${HAS_CRT_MERGE_MODULE}")
 
 set(WIX_CANDLE_FLAGS
     -dboost=true
@@ -97,7 +141,8 @@ set(WIX_CANDLE_FLAGS
     "-dApp.UpgradeCode=0B36E3B7-0042-452d-B376-57E0C07ADDBB"
     -dSource=${NSCP_PROJECT_BINARY_DIR}
     -dHelpers=${NSCP_PROJECT_BINARY_DIR}/installer-dlls
-    -dCRTMergeModule=${CRT_MERGE_MODULE}
+    "-dCRTMergeModule=${CRT_MERGE_MODULE}"
+    -dHasCRTMergeModule=${HAS_CRT_MERGE_MODULE}
     -dRuntime=${RUNTIME}
     -dDotNet=${NSCP_DOTNET_MANAGED}
     # Python version string (e.g. "python311", "python312"). The installer
@@ -108,8 +153,23 @@ set(WIX_CANDLE_FLAGS
     # python bump stays a one-line change in build.cmake instead of a
     # hunt through .wxs files.
     -dBoostPythonVersion=${NSCP_BOOST_PYTHON_VERSION}
+    -dHasPython=${HAS_PYTHON}
     -dWixUILicenseRtf=${CMAKE_CURRENT_SOURCE_DIR}/License.rtf
 )
+# The OpenSSL DLLs, when OpenSSL is linked through import libraries rather
+# than statically. Their names carry the version and the architecture
+# (libcrypto-3-x64.dll, libcrypto-3.dll, ...), so the top-level CMakeLists.txt
+# resolves them from the import library it found and RUNTIME_DLL.wxs takes
+# them from these defines; a static OpenSSL leaves them undefined and the
+# installer ships no DLL.
+if(NSCP_OPENSSL_CRYPTO_DLL AND NSCP_OPENSSL_SSL_DLL)
+    list(
+        APPEND
+        WIX_CANDLE_FLAGS
+        -dOpenSSLCryptoDll=${NSCP_OPENSSL_CRYPTO_DLL}
+        -dOpenSSLSslDll=${NSCP_OPENSSL_SSL_DLL}
+    )
+endif()
 source_group(Generated FILES ${SRCS})
 # set_source_files_properties(${WIXOBJ_LIST} ${WIX_DEST} PROPERTIES GENERATED 1)
 

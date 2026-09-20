@@ -15,42 +15,77 @@ on:
         type: string
         description: 'Version to build'
         required: true
+      targets:
+        type: string
+        description: >-
+          Which targets to build: "all" for every supported release, or
+          "default" for the newest one only. Release builds want all of them;
+          a pull request gets the newest, where a change that breaks the RPM
+          build breaks it too. Spelled the same way, with the same two values,
+          as build-debian.yml, so a value meant for one cannot be silently
+          ignored by the other.
+        required: false
+        default: all
 
 jobs:
+  # The matrix has to be computed rather than written out: `include:` entries
+  # cannot carry an `if:`, and a skipped matrix job is still a queued runner.
+  matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.pick.outputs.build }}
+      test: ${{ steps.pick.outputs.test }}
+    steps:
+    - id: pick
+      shell: bash
+      run: |
+        set -euo pipefail
+        # `integration_tests` says whether the integration suite runs against
+        # this entry; it is dropped before the build matrix sees it, so it
+        # does not show up in job names. Rocky 9 is false because its Python
+        # 3.9 does not accept the type annotations the test code uses - the
+        # package is still built and shipped.
+        all='[
+          {"distro":"rocky","distro_version":"9", "python_version":"python39", "arch":"x64",  "rpm_arch":"x86_64", "cpack_arch":"amd64","runner":"ubuntu-latest",   "integration_tests":false},
+          {"distro":"rocky","distro_version":"9", "python_version":"python39", "arch":"arm64","rpm_arch":"aarch64","cpack_arch":"arm64","runner":"ubuntu-24.04-arm","integration_tests":false},
+          {"distro":"rocky","distro_version":"10","python_version":"python312","arch":"x64",  "rpm_arch":"x86_64", "cpack_arch":"amd64","runner":"ubuntu-latest",   "integration_tests":true},
+          {"distro":"rocky","distro_version":"10","python_version":"python312","arch":"arm64","rpm_arch":"aarch64","cpack_arch":"arm64","runner":"ubuntu-24.04-arm","integration_tests":true}
+        ]'
+        case "${{ inputs.targets }}" in
+          all)
+            selected=$(jq -c . <<< "$all")
+            ;;
+          default)
+            # "Newest" is read off the list rather than named, so adding
+            # Rocky 11 above is the only edit needed.
+            selected=$(jq -c \
+              '(map(.distro_version | tonumber) | max | tostring) as $v
+               | map(select(.distro_version == $v))' <<< "$all")
+            ;;
+          *)
+            echo "::error::Unknown targets value '${{ inputs.targets }}' (expected 'default' or 'all')"
+            exit 1
+            ;;
+        esac
+        # Only the fields the integration workflow consumes: the extra build
+        # fields would otherwise land in the job name, and the check names are
+        # what branch protection matches on.
+        tested=$(jq -c '
+          map(select(.integration_tests))
+          | map({distro, distro_version, arch, rpm_arch, runner})' <<< "$selected")
+        selected=$(jq -c 'map(del(.integration_tests))' <<< "$selected")
+        echo "Building: $(jq -r 'map("\(.distro) \(.distro_version) \(.arch)") | join(", ")' <<< "$selected")"
+        echo "Testing:  $(jq -r 'if length == 0 then "(none)" else map("\(.distro) \(.distro_version) \(.arch)") | join(", ") end' <<< "$tested")"
+        echo "build=$selected" >> "$GITHUB_OUTPUT"
+        echo "test=$tested" >> "$GITHUB_OUTPUT"
+
   build-rpm:
+    needs: matrix
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - distro: rocky
-            distro_version: "9"
-            python_version: python39
-            arch: x64
-            rpm_arch: x86_64
-            cpack_arch: amd64
-            runner: ubuntu-latest
-          - distro: rocky
-            distro_version: "9"
-            python_version: python39
-            arch: arm64
-            rpm_arch: aarch64
-            cpack_arch: arm64
-            runner: ubuntu-24.04-arm
-          - distro: rocky
-            distro_version: "10"
-            python_version: python312
-            arch: x64
-            rpm_arch: x86_64
-            cpack_arch: amd64
-            runner: ubuntu-latest
-          - distro: rocky
-            distro_version: "10"
-            python_version: python312
-            arch: arm64
-            rpm_arch: aarch64
-            cpack_arch: arm64
-            runner: ubuntu-24.04-arm
+        include: ${{ fromJson(needs.matrix.outputs.build) }}
     container:
       image: rockylinux/rockylinux:${{ matrix.distro_version }}
       options: --user root
@@ -222,33 +257,16 @@ jobs:
       run: |
         ctest --output-on-failure -C Release
 
+  # Derived from the same list the packages are built from, so a new release
+  # added above is built and tested by that one edit instead of drifting until
+  # the artifact download fails.
   integration-tests:
-    needs: build-rpm
+    needs: [matrix, build-rpm]
+    if: needs.matrix.outputs.test != '[]'
     strategy:
       fail-fast: false
       matrix:
-        include:
-          # Disabled as python 3.9 does not support type annotations in some of the test code
-          #- distro: rocky
-          #  distro_version: "9"
-          #  arch: x64
-          #  rpm_arch: x86_64
-          #  runner: ubuntu-latest
-          #- distro: rocky
-          #  distro_version: "9"
-          #  arch: arm64
-          #  rpm_arch: aarch64
-          #  runner: ubuntu-24.04-arm
-          - distro: rocky
-            distro_version: "10"
-            arch: x64
-            rpm_arch: x86_64
-            runner: ubuntu-latest
-          - distro: rocky
-            distro_version: "10"
-            arch: arm64
-            rpm_arch: aarch64
-            runner: ubuntu-24.04-arm
+        include: ${{ fromJson(needs.matrix.outputs.test) }}
     uses: ./.github/workflows/integration-tests-linux.yml
     with:
       architecture: ${{ matrix.arch }}

@@ -389,7 +389,7 @@ common:
         repeatable: false
         required: false
         short_description: UDP port of the DNS server.
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Do not request recursion (RD=0).
@@ -481,12 +481,57 @@ common:
         name: body
         short_description: ''
       - generic: false
+        long_description: commonName of the certificate subject, e.g. www.example.com. Empty for a certificate
+          that identifies its hosts only through subjectAltName, which is normal - assert on cert_sans
+          instead.
+        name: cert_cn
+        short_description: ''
+      - generic: false
+        long_description: Issuer of the peer's TLS certificate as an RFC 2253 string. Empty when there
+          is no certificate.
+        name: cert_issuer
+        short_description: ''
+      - generic: false
+        long_description: commonName of the certificate issuer, e.g. R11. Use it to alert when a certificate
+          was renewed by an unexpected CA.
+        name: cert_issuer_cn
+        short_description: ''
+      - generic: false
+        long_description: subjectAltName entries of the certificate, comma separated and in the openssl
+          form (DNS:host, IP:addr). Use with like/regexp for ad-hoc matching, or the sans= option for
+          a checked requirement.
+        name: cert_sans
+        short_description: ''
+      - generic: false
+        long_description: True when the certificate's subject equals its issuer. An internal CA root is
+          legitimately self-signed, so this is reported rather than judged.
+        name: cert_self_signed
+        short_description: ''
+      - generic: false
+        long_description: Subject of the peer's TLS certificate as an RFC 2253 string, e.g. CN=www.example.com,O=Acme.
+          Empty when there is no certificate.
+        name: cert_subject
+        short_description: ''
+      - generic: false
+        long_description: 'OpenSSL''s verdict on the certificate chain: ''ok'', or why it did not verify
+          (''unable to get local issuer certificate'', ''self signed certificate'', ...). Recorded even
+          with verify=none, so a check can report an untrusted chain without refusing to connect. Empty
+          on a plain connection. NOT an authentication result on its own: only a successful handshake
+          under a verifying mode is that.'
+        name: cert_verify
+        short_description: ''
+      - generic: false
         long_description: HTTP status code
         name: code
         short_description: ''
       - generic: false
         long_description: Host part of the URL
         name: host
+        short_description: ''
+      - generic: false
+        long_description: Names given to the sans= option that the certificate does not cover, comma separated.
+          Empty when nothing was required or everything was found.
+        name: missing_sans
         short_description: ''
       - generic: false
         long_description: Path part of the URL
@@ -510,8 +555,9 @@ common:
         short_description: ''
       - generic: false
         long_description: Days until the server's TLS certificate expires; negative if already expired.
-          Renders as 'no certificate' (and compares false against every number) for plain http, so `ssl_expiry_days
-          < 30` cannot fire there; `ssl_expiry_days = 'no certificate'` tests for that state.
+          Renders as 'no certificate' (and compares false against every number) for plain http, and for
+          a certificate whose notAfter could not be read, so `ssl_expiry_days < 30` cannot fire on either;
+          `ssl_expiry_days = 'no certificate'` tests for that state.
         name: ssl_expiry_days
         short_description: ''
       - generic: false
@@ -572,7 +618,7 @@ common:
         repeatable: false
         required: false
         short_description: 'Protocol to use: http or https.'
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Force https, alias for --protocol https (ssl=true).
@@ -680,6 +726,18 @@ common:
         required: false
         short_description: TLS Server Name Indication / verification hostname override (defaults to the
           URL host).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Comma separated names the certificate must cover through subjectAltName, e.g.
+          www.example.com,example.com. Wildcard entries match one label (*.example.com covers www.example.com).
+          A missing name sets result=san_missing and lists it in the missing_sans keyword.
+        name: sans
+        repeatable: false
+        required: false
+        short_description: Comma separated names the certificate must cover through subjectAltName, e.g.
+          www.example.com,example.com. Wildcard entries match one label (*.example.com covers www.example.com).
+          A missing name sets result=san_missing and lists it in the missing_sans keyword.
       - content_type: 2
         default_value: tlsv1.2+
         is_simple: false
@@ -1304,7 +1362,7 @@ common:
         repeatable: false
         required: false
         short_description: The host to check (or multiple hosts).
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Include the total of all matching hosts
@@ -1460,8 +1518,11 @@ common:
         name: response
         short_description: ''
       - generic: false
-        long_description: Textual result of the check (ok, refused, timeout, no_match, resolve_failed,
-          ...)
+        long_description: 'Textual result of the check: ok, refused, timeout, resolve_failed, no_match,
+          read_timeout, read_failed, write_timeout, write_failed, san_missing, tls_handshake_failed, tls_handshake_timeout,
+          and the starttls_* words (starttls_refused, starttls_disconnected, starttls_timeout, starttls_overflow,
+          starttls_write_failed). The default critical filter is result != ''ok'', so every one of them
+          alerts without a threshold being written.'
         name: result
         short_description: ''
       - generic: false
@@ -1532,7 +1593,7 @@ common:
         repeatable: false
         required: false
         short_description: Optional substring expected in the response.
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Wrap the connection in TLS/SSL after connecting (ssl=true).
@@ -1540,6 +1601,20 @@ common:
         repeatable: false
         required: false
         short_description: Wrap the connection in TLS/SSL after connecting (ssl=true).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Upgrade the plaintext connection to TLS with the protocol''s own STARTTLS negotiation,
+          then check the certificate: smtp lmtp pop3 imap ftp nntp sieve irc postgres mysql ldap. Implies
+          ssl=true and sets the protocol''s default plaintext port. Use this for the services that have
+          no implicit-TLS port (submission/587, LDAP, PostgreSQL, MySQL).'
+        name: starttls
+        repeatable: false
+        required: false
+        short_description: 'Upgrade the plaintext connection to TLS with the protocol''s own STARTTLS
+          negotiation, then check the certificate: smtp lmtp pop3 imap ftp nntp sieve irc postgres mysql
+          ldap. Implies ssl=true and sets the protocol''s default plaintext port. Use this for the services
+          that have no implicit-TLS port (submission/587, LDAP, PostgreSQL, MySQL).'
       - content_type: 2
         default_value: tlsv1.2+
         is_simple: false
@@ -1551,25 +1626,57 @@ common:
         short_description: TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3,
           sslv3).
       - content_type: 2
-        default_value: none
+        default_value: peer
         is_simple: false
-        long_description: 'Certificate verify mode when --ssl is used: none (default), peer, ... (peer
-          requires --ca).'
+        long_description: 'Certificate verify mode when the connection is TLS: peer (default; the chain
+          must be trusted and the name must match), none, peer-cert, fail-if-no-cert, fail-if-no-peer-cert,
+          client-certificate. Set verify=none to reach a server whose certificate does not validate -
+          cert_verify still reports why it did not.'
         name: verify
         repeatable: false
         required: false
-        short_description: 'Certificate verify mode when --ssl is used: none (default), peer, ... (peer
-          requires --ca).'
+        short_description: 'Certificate verify mode when the connection is TLS: peer (default; the chain
+          must be trusted and the name must match), none, peer-cert, fail-if-no-cert, fail-if-no-peer-cert,
+          client-certificate. Set verify=none to reach a server whose certificate does not validate -
+          cert_verify still reports why it did not.'
       - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: CA bundle used to verify the server certificate when --ssl --verify peer is
-          used.
+        default_value: ${ca-path}
+        is_simple: false
+        long_description: 'Trust anchor used to verify the server certificate: either a PEM bundle file
+          or a hashed CA directory such as /etc/ssl/certs. Defaults to the agent''s configured bundle
+          (${ca-path}); when that is empty or ''none'' the system trust store OpenSSL was built with is
+          used instead.'
         name: ca
         repeatable: false
         required: false
-        short_description: CA bundle used to verify the server certificate when --ssl --verify peer is
-          used.
+        short_description: 'Trust anchor used to verify the server certificate: either a PEM bundle file
+          or a hashed CA directory such as /etc/ssl/certs. Defaults to the agent''s configured bundle
+          (${ca-path}); when that is empty or ''none'' the system trust store OpenSSL was built with is
+          used instead.'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'TLS Server Name Indication: the name offered to a server hosting several certificates,
+          and the name the certificate is verified against. Defaults to the host connected to; set it
+          to check a virtual host reached by IP.'
+        name: sni
+        repeatable: false
+        required: false
+        short_description: 'TLS Server Name Indication: the name offered to a server hosting several certificates,
+          and the name the certificate is verified against. Defaults to the host connected to; set it
+          to check a virtual host reached by IP.'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Comma separated names the certificate must cover through subjectAltName, e.g.
+          www.example.com,example.com. Wildcard entries match one label (*.example.com covers www.example.com).
+          A missing name sets result=san_missing and lists it in the missing_sans keyword.
+        name: sans
+        repeatable: false
+        required: false
+        short_description: Comma separated names the certificate must cover through subjectAltName, e.g.
+          www.example.com,example.com. Wildcard entries match one label (*.example.com covers www.example.com).
+          A missing name sets result=san_missing and lists it in the missing_sans keyword.
       - content_type: 2
         default_value: ''
         is_simple: true
@@ -1624,6 +1731,46 @@ common:
         warning: time > 1000
       fields:
       - generic: false
+        long_description: commonName of the certificate subject, e.g. www.example.com. Empty for a certificate
+          that identifies its hosts only through subjectAltName, which is normal - assert on cert_sans
+          instead.
+        name: cert_cn
+        short_description: ''
+      - generic: false
+        long_description: Issuer of the peer's TLS certificate as an RFC 2253 string. Empty when there
+          is no certificate.
+        name: cert_issuer
+        short_description: ''
+      - generic: false
+        long_description: commonName of the certificate issuer, e.g. R11. Use it to alert when a certificate
+          was renewed by an unexpected CA.
+        name: cert_issuer_cn
+        short_description: ''
+      - generic: false
+        long_description: subjectAltName entries of the certificate, comma separated and in the openssl
+          form (DNS:host, IP:addr). Use with like/regexp for ad-hoc matching, or the sans= option for
+          a checked requirement.
+        name: cert_sans
+        short_description: ''
+      - generic: false
+        long_description: True when the certificate's subject equals its issuer. An internal CA root is
+          legitimately self-signed, so this is reported rather than judged.
+        name: cert_self_signed
+        short_description: ''
+      - generic: false
+        long_description: Subject of the peer's TLS certificate as an RFC 2253 string, e.g. CN=www.example.com,O=Acme.
+          Empty when there is no certificate.
+        name: cert_subject
+        short_description: ''
+      - generic: false
+        long_description: 'OpenSSL''s verdict on the certificate chain: ''ok'', or why it did not verify
+          (''unable to get local issuer certificate'', ''self signed certificate'', ...). Recorded even
+          with verify=none, so a check can report an untrusted chain without refusing to connect. Empty
+          on a plain connection. NOT an authentication result on its own: only a successful handshake
+          under a verifying mode is that.'
+        name: cert_verify
+        short_description: ''
+      - generic: false
         long_description: 1 when the connection succeeded, 0 otherwise
         name: connected
         short_description: ''
@@ -1636,6 +1783,11 @@ common:
         name: host
         short_description: ''
       - generic: false
+        long_description: Names given to the sans= option that the certificate does not cover, comma separated.
+          Empty when nothing was required or everything was found.
+        name: missing_sans
+        short_description: ''
+      - generic: false
         long_description: TCP port the check connected to
         name: port
         short_description: ''
@@ -1644,15 +1796,19 @@ common:
         name: response
         short_description: ''
       - generic: false
-        long_description: Textual result of the check (ok, refused, timeout, no_match, resolve_failed,
-          ...)
+        long_description: 'Textual result of the check: ok, refused, timeout, resolve_failed, no_match,
+          read_timeout, read_failed, write_timeout, write_failed, san_missing, tls_handshake_failed, tls_handshake_timeout,
+          and the starttls_* words (starttls_refused, starttls_disconnected, starttls_timeout, starttls_overflow,
+          starttls_write_failed). The default critical filter is result != ''ok'', so every one of them
+          alerts without a threshold being written.'
         name: result
         short_description: ''
       - generic: false
         long_description: Whole days until the peer's TLS certificate expires; negative once it has expired.
           Renders as 'no certificate' (and compares false against every number) when the connection is
-          not TLS or the peer presented none, so `ssl_expiry_days < 30` cannot fire on a plain connection;
-          `ssl_expiry_days = 'no certificate'` tests for that state.
+          not TLS, the peer presented none, or the certificate's notAfter could not be read - so `ssl_expiry_days
+          < 30` cannot fire on any of them; `ssl_expiry_days = 'no certificate'` tests for that state,
+          and has_certificate tells a served-but-unreadable certificate apart from no certificate at all.
         name: ssl_expiry_days
         short_description: ''
       - generic: false
@@ -1712,7 +1868,7 @@ common:
         repeatable: false
         required: false
         short_description: Optional substring expected in the response.
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Wrap the connection in TLS/SSL after connecting (ssl=true).
@@ -1720,6 +1876,20 @@ common:
         repeatable: false
         required: false
         short_description: Wrap the connection in TLS/SSL after connecting (ssl=true).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Upgrade the plaintext connection to TLS with the protocol''s own STARTTLS negotiation,
+          then check the certificate: smtp lmtp pop3 imap ftp nntp sieve irc postgres mysql ldap. Implies
+          ssl=true and sets the protocol''s default plaintext port. Use this for the services that have
+          no implicit-TLS port (submission/587, LDAP, PostgreSQL, MySQL).'
+        name: starttls
+        repeatable: false
+        required: false
+        short_description: 'Upgrade the plaintext connection to TLS with the protocol''s own STARTTLS
+          negotiation, then check the certificate: smtp lmtp pop3 imap ftp nntp sieve irc postgres mysql
+          ldap. Implies ssl=true and sets the protocol''s default plaintext port. Use this for the services
+          that have no implicit-TLS port (submission/587, LDAP, PostgreSQL, MySQL).'
       - content_type: 2
         default_value: tlsv1.2+
         is_simple: false
@@ -1731,25 +1901,57 @@ common:
         short_description: TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3,
           sslv3).
       - content_type: 2
-        default_value: none
+        default_value: peer
         is_simple: false
-        long_description: 'Certificate verify mode when --ssl is used: none (default), peer, ... (peer
-          requires --ca).'
+        long_description: 'Certificate verify mode when the connection is TLS: peer (default; the chain
+          must be trusted and the name must match), none, peer-cert, fail-if-no-cert, fail-if-no-peer-cert,
+          client-certificate. Set verify=none to reach a server whose certificate does not validate -
+          cert_verify still reports why it did not.'
         name: verify
         repeatable: false
         required: false
-        short_description: 'Certificate verify mode when --ssl is used: none (default), peer, ... (peer
-          requires --ca).'
+        short_description: 'Certificate verify mode when the connection is TLS: peer (default; the chain
+          must be trusted and the name must match), none, peer-cert, fail-if-no-cert, fail-if-no-peer-cert,
+          client-certificate. Set verify=none to reach a server whose certificate does not validate -
+          cert_verify still reports why it did not.'
       - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: CA bundle used to verify the server certificate when --ssl --verify peer is
-          used.
+        default_value: ${ca-path}
+        is_simple: false
+        long_description: 'Trust anchor used to verify the server certificate: either a PEM bundle file
+          or a hashed CA directory such as /etc/ssl/certs. Defaults to the agent''s configured bundle
+          (${ca-path}); when that is empty or ''none'' the system trust store OpenSSL was built with is
+          used instead.'
         name: ca
         repeatable: false
         required: false
-        short_description: CA bundle used to verify the server certificate when --ssl --verify peer is
-          used.
+        short_description: 'Trust anchor used to verify the server certificate: either a PEM bundle file
+          or a hashed CA directory such as /etc/ssl/certs. Defaults to the agent''s configured bundle
+          (${ca-path}); when that is empty or ''none'' the system trust store OpenSSL was built with is
+          used instead.'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'TLS Server Name Indication: the name offered to a server hosting several certificates,
+          and the name the certificate is verified against. Defaults to the host connected to; set it
+          to check a virtual host reached by IP.'
+        name: sni
+        repeatable: false
+        required: false
+        short_description: 'TLS Server Name Indication: the name offered to a server hosting several certificates,
+          and the name the certificate is verified against. Defaults to the host connected to; set it
+          to check a virtual host reached by IP.'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Comma separated names the certificate must cover through subjectAltName, e.g.
+          www.example.com,example.com. Wildcard entries match one label (*.example.com covers www.example.com).
+          A missing name sets result=san_missing and lists it in the missing_sans keyword.
+        name: sans
+        repeatable: false
+        required: false
+        short_description: Comma separated names the certificate must cover through subjectAltName, e.g.
+          www.example.com,example.com. Wildcard entries match one label (*.example.com covers www.example.com).
+          A missing name sets result=san_missing and lists it in the missing_sans keyword.
       - content_type: 2
         default_value: ''
         is_simple: true

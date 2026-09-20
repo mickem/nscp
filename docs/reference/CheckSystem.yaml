@@ -1424,7 +1424,7 @@ unix:
       info:
         description: Check the system load average (1/5/15 minutes).
       params:
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Divide the load averages by the number of CPUs (reports the 'scaled' per-core
@@ -2021,7 +2021,7 @@ unix:
         repeatable: false
         required: false
         short_description: The process to check, set this to * to check all processes
-      - content_type: 2
+      - content_type: 4
         default_value: ''
         is_simple: false
         long_description: 'Measure CPU usage as a delta over a one second interval.
@@ -2033,7 +2033,7 @@ unix:
         repeatable: false
         required: false
         short_description: Measure CPU usage as a delta over a one second interval.
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Include the total of all matching processes
@@ -2041,7 +2041,7 @@ unix:
         repeatable: false
         required: false
         short_description: Include the total of all matching processes
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: 'Populate the username keyword with the process owner''s user name. Off by default:
@@ -5048,7 +5048,7 @@ windows:
         repeatable: false
         required: false
         short_description: Performance counter to check.
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Expand indexes in counter strings
@@ -5070,7 +5070,7 @@ windows:
           name, then the English API, then index expansion - the default), english (force English counter
           names regardless of the system language) or index (expand numeric counter indexes to their localized
           names)'
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Expand wildcards and fetch all instances
@@ -5078,7 +5078,7 @@ windows:
         repeatable: false
         required: false
         short_description: Expand wildcards and fetch all instances
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Reload counters on errors (useful to check counters which are not added at boot)
@@ -5087,7 +5087,7 @@ windows:
         required: false
         short_description: Reload counters on errors (useful to check counters which are not added at
           boot)
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Check average values (ie. wait for 1 second to collecting two samples)
@@ -5119,7 +5119,7 @@ windows:
         repeatable: false
         required: false
         short_description: Format of value (double, long, large)
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: If we should ignore errors when checking counters, for instance missing counters
@@ -5653,7 +5653,7 @@ windows:
         repeatable: false
         required: false
         short_description: The service to check, set this to * to check all services
-      - content_type: 2
+      - content_type: 4
         default_value: ''
         is_simple: true
         long_description: If all process metrics should be fetched (otherwise only status is fetched)
@@ -5661,7 +5661,7 @@ windows:
         repeatable: false
         required: false
         short_description: If all process metrics should be fetched (otherwise only status is fetched)
-      - content_type: 2
+      - content_type: 4
         default_value: ''
         is_simple: true
         long_description: If 16bit processes should be included
@@ -5669,7 +5669,7 @@ windows:
         repeatable: false
         required: false
         short_description: If 16bit processes should be included
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: 'Report CPU usage as a percentage of total CPU instead of cumulative seconds.
@@ -5682,7 +5682,7 @@ windows:
         repeatable: false
         required: false
         short_description: Report CPU usage as a percentage of total CPU instead of cumulative seconds.
-      - content_type: 2
+      - content_type: 4
         default_value: ''
         is_simple: true
         long_description: If unreadable processes should be included (will not have information)
@@ -5690,7 +5690,7 @@ windows:
         repeatable: false
         required: false
         short_description: If unreadable processes should be included (will not have information)
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Include the total of all matching files
@@ -5698,7 +5698,7 @@ windows:
         repeatable: false
         required: false
         short_description: Include the total of all matching files
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: 'Populate the username/uid keywords with the process owner. Off by default:
@@ -6001,7 +6001,7 @@ windows:
         repeatable: false
         required: false
         short_description: 'Registry view: ''default'', ''32'' (KEY_WOW64_32KEY), or ''64'' (KEY_WOW64_64KEY)'
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Recursively enumerate all sub-keys below each starting key
@@ -6158,7 +6158,7 @@ windows:
         repeatable: false
         required: false
         short_description: 'Registry view: ''default'', ''32'' (KEY_WOW64_32KEY), or ''64'' (KEY_WOW64_64KEY)'
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Recursively enumerate values in all sub-keys
@@ -6317,7 +6317,7 @@ windows:
         required: false
         short_description: The types of services to enumerate available states are active, inactive or
           all
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Set filter to classification = 'essential'
@@ -6325,7 +6325,7 @@ windows:
         repeatable: false
         required: false
         short_description: Set filter to classification = 'essential'
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Set filter to classification = 'ignored'
@@ -6333,7 +6333,7 @@ windows:
         repeatable: false
         required: false
         short_description: Set filter to classification = 'ignored'
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Set filter to classification = 'role'
@@ -6341,7 +6341,7 @@ windows:
         repeatable: false
         required: false
         short_description: Set filter to classification = 'role'
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Set filter to classification = 'supporting'
@@ -6349,7 +6349,7 @@ windows:
         repeatable: false
         required: false
         short_description: Set filter to classification = 'supporting'
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Set filter to classification = 'system'
@@ -6357,7 +6357,7 @@ windows:
         repeatable: false
         required: false
         short_description: Set filter to classification = 'system'
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Set filter to classification = 'user'
@@ -6365,7 +6365,7 @@ windows:
         repeatable: false
         required: false
         short_description: Set filter to classification = 'user'
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Emit aggregate state-count performance data (running_services/stopped_services/paused_services/pending_services/service_count)

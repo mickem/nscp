@@ -758,7 +758,7 @@ common:
         required: false
         short_description: Include the total of either (filter) all files matching the filter or (all)
           all files regardless of the filter
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Silently skip top-level paths that do not exist, instead of failing the whole
@@ -1147,7 +1147,7 @@ common:
         repeatable: false
         required: false
         short_description: Alias for file.
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Return OK instead of failing when the file does not exist. Intended for files
@@ -1673,7 +1673,7 @@ unix:
         repeatable: false
         required: false
         short_description: A list of drives (mount points) not to check
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Include the total of all matching drives
@@ -1681,7 +1681,7 @@ unix:
         repeatable: false
         required: false
         short_description: Include the total of all matching drives
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Silently skip drives named with drive= that do not exist, instead of failing
@@ -2033,7 +2033,7 @@ windows:
         repeatable: false
         required: false
         short_description: The drives to check.
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: 'DEPRECATED (manually set filter instead) Ignore drives which are not reachable
@@ -2045,7 +2045,7 @@ windows:
         required: false
         short_description: DEPRECATED (manually set filter instead) Ignore drives which are not reachable
           by the current user.
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: DEPRECATED (this is now default) Show only mounted rives i.e. drives which have
@@ -2089,7 +2089,7 @@ windows:
         repeatable: false
         required: false
         short_description: Alias for require.
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Include the total of all matching drives
@@ -2097,7 +2097,7 @@ windows:
         repeatable: false
         required: false
         short_description: Include the total of all matching drives
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: 'Silently skip drives named with drive= that do not exist, instead of failing

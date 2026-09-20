@@ -40,3 +40,10 @@ On Windows the module is part of the *Various client plugins* feature of the
 installer. See [Mod-Gearman](../scenarios/mod-gearman.md) for the full setup
 on either core, and
 [Securing NSClient++](securing.md#mod-gearman) for the shared-key model.
+
+The module is marked **experimental**, and beyond the usual meaning of that
+mark — settings, queue handling and output may still change — it has **not
+been tested at scale**. It is verified end to end against a real `gearmand` on
+both cores, but not against hundreds of hosts, a deep job backlog, or a proxy
+answering for a large hostgroup. Roll it out to a slice of the estate first
+and keep the transport you have until you are satisfied.
