@@ -75,7 +75,11 @@ operator-defined and fleet-delivered scripts by design, that is a larger blast
 radius than it needs. The unit now sets `PrivateTmp=yes`,
 `ProtectSystem=full` with `ReadWritePaths` for the state and log directories,
 `ProtectHome=read-only`, `UMask=0027` and the usual kernel-protection
-directives. `full` rather than `strict`: `strict` would make every filesystem
+directives. `UMask=0027` is what stops `nsclient.db`, `fleet.ini`,
+`applied-state.json` and the unsealed contents of a bundle landing
+world-readable: all four are written through a plain C++ `ofstream`, which asks
+for 0666 and leaves the rest to the umask. The log file is not among them — the
+logger creates that with an explicit 0640 of its own. `full` rather than `strict`: `strict` would make every filesystem
 read-only except the paths named, which turns `check_disk_write` on a healthy
 data mount into a CRITICAL reading `Read-only file system`. Operators who want
 it can add it with a drop-in. `NoNewPrivileges` is deliberately left off and documented in the

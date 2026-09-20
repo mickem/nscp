@@ -46,8 +46,26 @@ PrivateTmp=yes
 #   [Service]
 #   ProtectSystem=strict
 #   ReadWritePaths=/mnt/backup
+#
+# One caveat if you do: the read-only remount is applied to the mount tree as
+# it stands when the service starts. With systemd's default shared
+# propagation, a filesystem mounted afterwards propagates into the namespace
+# as it is - writable - so under `strict` a mount's writability depends on
+# whether it existed at start, and flips on `systemctl restart`. `full` is
+# largely immune because the paths it covers (/usr, /boot, /efi, /etc) are
+# mounted long before any service; a `strict` drop-in is not, so name the
+# mounts your checks write to and restart the service after adding one.
 ProtectSystem=full
-ReadWritePaths=@NSCP_PKGSTATEDIR@ @NSCP_LOGDIR@
+# Both prefixed with `-`: an unprefixed path that does not exist fails the
+# unit outright with "Failed to set up mount namespacing", and neither
+# directory is guaranteed to be there. The packages create both in postinst,
+# but a source install does not, and an operator who cleans out
+# /var/log/nsclient would otherwise be left with a service that will not start
+# at all. With the `-` they are used when present and skipped when not.
+#
+# These are what a ProtectSystem=strict drop-in would build on; under `full`
+# they are already writable and the lines are a no-op.
+ReadWritePaths=-@NSCP_PKGSTATEDIR@ -@NSCP_LOGDIR@
 
 # read-only rather than yes: a monitoring agent is routinely asked about
 # /home - a check on files under it, or on the mount it sits on - and `yes`
@@ -64,8 +82,15 @@ RestrictSUIDSGID=yes
 RestrictRealtime=yes
 LockPersonality=yes
 
-# 0640 for files the service creates, which is what gives the log file its
-# mode instead of leaving it to whatever umask the manager happened to have.
+# 0640 for files the service creates. Not for the log file - the logger
+# creates that itself with an explicit 0640 (simple_file_logger.cpp), which no
+# umask in play here would change. It is the bare ofstream writers that this
+# covers, because a C++ ofstream asks for 0666 and lets the umask decide:
+# nsclient.db (storage_manager.cpp), and fleet.ini, applied-state.json and the
+# unsealed contents of a bundle (fleet_sync.cpp). Those hold settings and
+# fleet-delivered material, i.e. the same disclosure as the configuration file
+# the packages ship 0640, and under the manager's usual 0022 they would land
+# world-readable.
 UMask=0027
 
 # Deliberately NOT set: NoNewPrivileges=yes.

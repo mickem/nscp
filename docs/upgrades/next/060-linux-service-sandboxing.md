@@ -29,10 +29,15 @@ ReadWritePaths=/home/monitoring
 
 To go the other way and make everything read-only except what is named, add
 `ProtectSystem=strict` in the same drop-in — the unit's `ReadWritePaths` still
-applies, so only the extra paths need listing. Check first that nothing the
-agent runs writes outside them: a `check_disk_write` probe on a mount you have
-not named reports CRITICAL with `Read-only file system`, which is
-indistinguishable from a real disk fault.
+applies, so only the extra paths need listing. Two things to check first. Make
+sure nothing the agent runs writes outside them: a `check_disk_write` probe on
+a mount you have not named reports CRITICAL with `Read-only file system`,
+indistinguishable from a real disk fault. And restart the service after any
+mount appears: the read-only remount is applied to the mount tree as it stands
+when the service starts, and a filesystem mounted afterwards propagates in
+writable, so under `strict` a mount's writability depends on whether it existed
+at start and flips on the next restart. The shipped `full` is largely immune,
+since the paths it covers are mounted long before any service.
 
 `NoNewPrivileges` is deliberately **not** set, and the unit says why: the Unix
 script launcher tells operators to sandbox a script with `sudo -n -u <account>`,

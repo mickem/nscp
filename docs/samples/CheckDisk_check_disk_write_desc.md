@@ -58,3 +58,11 @@ ReadWritePaths=/home/monitoring
 ```
 
 Edit a drop-in rather than the unit itself, which a package upgrade replaces.
+
+If you tighten the unit to `ProtectSystem=strict`, restart the service whenever
+a mount you probe appears. The read-only remount is applied to the mount tree
+as it stands when the service starts, so a filesystem mounted afterwards
+propagates into the namespace writable while everything mounted earlier is
+read-only — the same probe then answers differently depending on mount order,
+and flips on `systemctl restart`. The shipped `ProtectSystem=full` does not
+have this problem for any realistic probe target.
