@@ -136,7 +136,7 @@ windows:
       info:
         description: Check status of scheduled jobs.
       params:
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: The name of the computer that you want to connect to.
@@ -186,7 +186,7 @@ windows:
         repeatable: false
         required: false
         short_description: The folder in which the tasks to check reside.
-      - content_type: 2
+      - content_type: 4
         default_value: ''
         is_simple: true
         long_description: Recurse sub folder (defaults to true).
@@ -194,7 +194,7 @@ windows:
         repeatable: false
         required: false
         short_description: Recurse sub folder (defaults to true).
-      - content_type: 2
+      - content_type: 4
         default_value: ''
         is_simple: true
         long_description: Look for hidden tasks.

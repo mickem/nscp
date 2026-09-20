@@ -107,22 +107,28 @@ A quick reference for all available queries (check commands) in the CheckNet mod
 
 A list of all available queries (check commands)
 
-| Command                                                 | Description                                                                                 |
-|---------------------------------------------------------|---------------------------------------------------------------------------------------------|
-| [check_apache_status](#check_apache_status)             | Check an Apache httpd server via its mod_status page (server-status?auto).                  |
-| [check_connections](#check_connections)                 | Count active TCP/UDP connections and report counts per protocol and TCP state.              |
-| [check_dns](#check_dns)                                 | Resolve a host name and check the response time and resulting addresses.                    |
-| [check_http](#check_http)                               | Send an HTTP/HTTPS request and check the response status, time, size and body.              |
-| [check_nginx_status](#check_nginx_status)               | Check an NGINX server via its stub_status page.                                             |
-| [check_nsclient_web_online](#check_nsclient_web_online) | Query the REST API of a remote NSClient++ agent (reachability or a remote check).           |
-| [check_ntp_offset](#check_ntp_offset)                   | Query an NTP server and check the offset between the local clock and the server.            |
-| [check_phpfpm_status](#check_phpfpm_status)             | Check a PHP-FPM pool via its status page.                                                   |
-| [check_ping](#check_ping)                               | Ping another host and check the result.                                                     |
-| [check_ssh](#check_ssh)                                 | Connect to an SSH port and verify the server presents a valid SSH banner.                   |
-| [check_tcp](#check_tcp)                                 | Connect to a TCP port and optionally send/expect data to check that a service is reachable. |
-| [check_tomcat_status](#check_tomcat_status)             | Check an Apache Tomcat server via the manager status page (XML).                            |
+| Command                                                                  | Description                                                                                 |
+|--------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| [check_apache_status](#check_apache_status) *(experimental)*             | Check an Apache httpd server via its mod_status page (server-status?auto).                  |
+| [check_connections](#check_connections) *(experimental)*                 | Count active TCP/UDP connections and report counts per protocol and TCP state.              |
+| [check_dns](#check_dns) *(experimental)*                                 | Resolve a host name and check the response time and resulting addresses.                    |
+| [check_http](#check_http) *(experimental)*                               | Send an HTTP/HTTPS request and check the response status, time, size and body.              |
+| [check_nginx_status](#check_nginx_status) *(experimental)*               | Check an NGINX server via its stub_status page.                                             |
+| [check_nsclient_web_online](#check_nsclient_web_online) *(experimental)* | Query the REST API of a remote NSClient++ agent (reachability or a remote check).           |
+| [check_ntp_offset](#check_ntp_offset) *(experimental)*                   | Query an NTP server and check the offset between the local clock and the server.            |
+| [check_phpfpm_status](#check_phpfpm_status) *(experimental)*             | Check a PHP-FPM pool via its status page.                                                   |
+| [check_ping](#check_ping)                                                | Ping another host and check the result.                                                     |
+| [check_ssh](#check_ssh) *(experimental)*                                 | Connect to an SSH port and verify the server presents a valid SSH banner.                   |
+| [check_tcp](#check_tcp) *(experimental)*                                 | Connect to a TCP port and optionally send/expect data to check that a service is reachable. |
+| [check_tomcat_status](#check_tomcat_status) *(experimental)*             | Check an Apache Tomcat server via the manager status page (XML).                            |
 
 ### check_apache_status
+
+!!! warning "Experimental"
+
+    This check command is experimental: it works, but its options, filter keywords
+    and output may change in a future release. Please try it and report
+    anything that does not behave the way you expect.
 
 Check an Apache httpd server via its mod_status page (server-status?auto).
 
@@ -193,6 +199,13 @@ CRITICAL: http_404: 0 busy and 0 idle workers, 0 req/s, uptime 0s|'127.0.0.1_bus
 <a id="check_apache_status_username"></a>
 <a id="check_apache_status_password"></a>
 
+        
+        
+        
+        
+        
+        
+        
 | Option                                          | Default Value                  | Description                                                                                                          |
 |-------------------------------------------------|--------------------------------|----------------------------------------------------------------------------------------------------------------------|
 | [url](#check_apache_status_url)                 | http://127.0.0.1/server-status | URL of the status endpoint (http://host[:port]/path or https://...).                                                 |
@@ -292,6 +305,12 @@ This command also accepts the standard [help options](../common-options.md#stand
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_connections
+
+!!! warning "Experimental"
+
+    This check command is experimental: it works, but its options, filter keywords
+    and output may change in a future release. Please try it and report
+    anything that does not behave the way you expect.
 
 Count active TCP/UDP connections and report counts per protocol and TCP state.
 
@@ -454,6 +473,12 @@ This command also supports the [common filter keywords](../common-options.md#com
 
 ### check_dns
 
+!!! warning "Experimental"
+
+    This check command is experimental: it works, but its options, filter keywords
+    and output may change in a future release. Please try it and report
+    anything that does not behave the way you expect.
+
 Resolve a host name and check the response time and resulting addresses.
 
 #### About `check_dns`
@@ -597,6 +622,16 @@ OK: example.com -> 93.184.216.34 (1) in 3ms [ok]
 <a id="check_dns_expected"></a>
 <a id="check_dns_address-family"></a>
 
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
 | Option                                | Default Value | Description                                                                                                                                                                                                                                  |
 |---------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | host                                  |               | Hostname to look up.                                                                                                                                                                                                                         |
@@ -687,6 +722,12 @@ This command also supports the [common filter keywords](../common-options.md#com
 
 ### check_http
 
+!!! warning "Experimental"
+
+    This check command is experimental: it works, but its options, filter keywords
+    and output may change in a future release. Please try it and report
+    anything that does not behave the way you expect.
+
 Send an HTTP/HTTPS request and check the response status, time, size and body.
 
 #### About `check_http`
@@ -722,8 +763,13 @@ a specific backend by IP).
 one check can cover both reachability and expiry:
 
 ```
-check_http url=https://example.com "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 7"
+check_http url=https://example.com "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 7" "detail-syntax=${url} cert expires in ${ssl_expiry_days} days"
 ```
+
+Render the keyword you threshold on. The default `detail-syntax` reports the
+HTTP outcome (`${url} -> ${code} ${result} (${size}B in ${time}ms)`), so a
+certificate threshold on its own turns the check CRITICAL while the message
+still reads `-> 200 ok` and never mentions the certificate.
 
 On a plain `http` URL there is no certificate, so `ssl_expiry_days` renders as
 `no certificate` and **every numeric comparison against it is false** — a
@@ -748,8 +794,49 @@ index into arrays, and a segment containing a literal dot can be single-quoted.
 This turns a health endpoint into a real check rather than a 200-or-not probe:
 
 ```
-check_http url=https://api.example.com/health json-path=qlen:data.queue.length "crit=qlen > 100"
+check_http url=https://api.example.com/health json-path=qlen:data.queue.length "crit=qlen > 100" "detail-syntax=${url} ${result} qlen=${qlen}"
 ```
+
+##### Certificate identity and required names
+
+Beyond `ssl_expiry_days`, an https check reports who the certificate is for and
+who issued it, using the same keyword vocabulary as `check_tcp` — a filter
+written for one works verbatim against the other:
+
+| Keyword | Value |
+| --- | --- |
+| `cert_subject` | Subject as an RFC 2253 string, e.g. `CN=www.example.com,O=Acme` |
+| `cert_cn` | The subject's commonName only |
+| `cert_issuer` / `cert_issuer_cn` | Issuer, in full and as its commonName |
+| `cert_sans` | subjectAltName entries, comma separated (`DNS:host`, `IP:addr`) |
+| `cert_self_signed` | True when subject equals issuer |
+| `cert_verify` | OpenSSL's verdict on the chain: `ok`, or why it did not verify |
+| `missing_sans` | Names required via `sans=` that the certificate does not cover |
+
+`sans=` takes a comma separated list of names the certificate must cover
+through subjectAltName. A missing name sets `result` to `san_missing` — which
+the default `critical` filter already alerts on — and names it in
+`missing_sans`. Wildcards follow RFC 6125: `*.example.com` covers
+`www.example.com` but not `example.com` itself.
+
+```
+check_http url=https://www.example.com/ sans=example.com,www.example.com "detail-syntax=${url} ${result} code=${code} missing=[${missing_sans}]"
+```
+
+All of these describe the **last** hop that was reached: with
+`onredirect=follow`, an https hop followed by a plain http one reports no
+certificate at all, and `sans=` is evaluated against the certificate served by
+the URL actually checked. A hop that served no certificate covers no names, so
+a `sans=` requirement fails there rather than passing by default. A hop whose
+TLS handshake fails clears them too, rather than leaving the previous hop's
+certificate — and its `cert_verify=ok` — standing for a connection that never
+verified anything.
+
+`cert_verify` is recorded even when the chain does not verify, so a check can
+report *why* a certificate is untrusted. It is not an authentication result on
+its own — only a successful request under the default `verify=peer` is that.
+
+`ca=` accepts a PEM bundle file or a hashed CA directory (`/etc/ssl/certs`).
 
 **Jump to section:**
 
@@ -864,22 +951,65 @@ OK: https://example.com/private -> 200 ok (1200B in 88ms)
 **Follow redirects (default reports the 3xx as-is; `onredirect=follow` chases the Location):**
 
 ```
-check_http url=http://github.com onredirect=follow "detail-syntax=code=${code}"
-OK: code=200
+check_http url=http://github.com onredirect=follow "detail-syntax=${url} ${result} code=${code}"
+OK: http://github.com ok code=200|'http://github.com_code'=200;0;200 'http://github.com_size'=575830B;0;0 'http://github.com'=119ms;5000;0
 ```
 
 **Accept a set of status codes with the `code` keyword, and match the body with a regex:**
 
+`regexp` is a **full** match, not a search, so a body pattern has to cover the
+whole document — `'.*Welcome.*'`, not `'Welcome'`. For a plain substring reach
+for `expected-body=` instead: it sets `result=no_match`, which the default
+`critical` filter already alerts on and the default `detail-syntax` already
+shows.
+
 ```
-check_http url=https://example.com "warn=code not in (200,301,302)" "crit=code >= 500 or body not regexp 'Welcome'"
-OK: https://example.com -> 200 ok (1256B in 74ms)
+check_http url=https://nsclient.org/ "warn=code not in (200,301,302)" "crit=code >= 500 or body not regexp '.*NSClient.*'" "detail-syntax=${url} ${result} code=${code} (${size}B in ${time}ms)"
+OK: https://nsclient.org/ ok code=200 (80939B in 100ms)|'https://nsclient.org/_code'=200;0;500 'https://nsclient.org/_size'=80939B;0;0
 ```
 
 **Alert when the TLS certificate is about to expire (`ssl_expiry_days`):**
 
 ```
-check_http url=https://www.google.com "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 7" "detail-syntax=cert expires in ${ssl_expiry_days} days"
-OK: cert expires in 58 days
+check_http url=https://www.google.com "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 7" "detail-syntax=${url} cert expires in ${ssl_expiry_days} days"
+OK: https://www.google.com cert expires in 67 days|'https://www.google.com_size'=84168B;0;0 'https://www.google.com_ssl_expiry_days'=67;30;7
+```
+
+**Report the certificate's identity, not just its expiry:**
+
+```
+check_http url=https://www.google.com "detail-syntax=${url} cn=${cert_cn} issuer=${cert_issuer_cn} sans=${cert_sans}"
+OK: https://www.google.com cn=www.google.com issuer=WR2 sans=DNS:www.google.com|'https://www.google.com_code'=200;0;200 'https://www.google.com_size'=84080B;0;0 'https://www.google.com'=113ms;5000;0
+```
+
+**Require the names the certificate must cover (`sans=`):**
+
+```
+check_http url=https://www.google.com sans=www.google.com "detail-syntax=${url} ${result} code=${code} missing=[${missing_sans}]"
+OK: https://www.google.com ok code=200 missing=[]|'https://www.google.com_code'=200;0;200 'https://www.google.com_size'=84198B;0;0 'https://www.google.com'=91ms;5000;0
+```
+
+```
+check_http url=https://www.google.com sans=mail.google.com "detail-syntax=${url} ${result} code=${code} missing=[${missing_sans}]"
+CRITICAL: https://www.google.com san_missing code=200 missing=[mail.google.com]|'https://www.google.com_code'=200;0;200 'https://www.google.com_size'=84445B;0;0 'https://www.google.com'=123ms;5000;0
+```
+
+**A required name with no certificate at all is still a missing name:**
+
+`sans=` is evaluated against the certificate of the hop actually checked, so an
+https URL that redirects down to plain http ends on a hop that served none —
+and covers no names:
+
+```
+check_http url=https://www.example.com sans=www.example.com onredirect=follow "detail-syntax=${url} ${result} code=${code} missing=[${missing_sans}]"
+CRITICAL: http://www.example.com/ san_missing code=200 missing=[www.example.com]
+```
+
+**Report why a chain did not verify:**
+
+```
+check_http url=https://internal.example.com verify=none "detail-syntax=${url} ${result} verify=${cert_verify}"
+OK: https://internal.example.com ok verify=unable to get local issuer certificate
 ```
 
 
@@ -896,34 +1026,60 @@ OK: cert expires in 58 days
 <a id="check_http_expected-body"></a>
 <a id="check_http_header"></a>
 <a id="check_http_sni"></a>
+<a id="check_http_sans"></a>
 <a id="check_http_json-path"></a>
 <a id="check_http_address-family"></a>
 
-| Option                                   | Default Value                     | Description                                                                                                                                                                                                                               |
-|------------------------------------------|-----------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                                      |                                   | Full URL to check (http://host[:port]/path or https://...). May be given multiple times.                                                                                                                                                  |
-| host                                     |                                   | Hostname (used when --url is not given).                                                                                                                                                                                                  |
-| port                                     |                                   | TCP port (defaults to 80 or 443).                                                                                                                                                                                                         |
-| [path](#check_http_path)                 | /                                 | Path component of the URL.                                                                                                                                                                                                                |
-| [protocol](#check_http_protocol)         | http                              | Protocol to use: http or https.                                                                                                                                                                                                           |
-| [ssl](#check_http_ssl)                   | false                             | Force https, alias for --protocol https (ssl=true).                                                                                                                                                                                       |
-| [timeout](#check_http_timeout)           | 30000                             | Timeout in milliseconds.                                                                                                                                                                                                                  |
-| [method](#check_http_method)             | GET                               | HTTP method to use (GET, HEAD, POST, PUT, DELETE, ...).                                                                                                                                                                                   |
-| post-data                                |                                   | Request body to send; implies POST unless --method is given.                                                                                                                                                                              |
-| [content-type](#check_http_content-type) | application/x-www-form-urlencoded | Content-Type header for the request body.                                                                                                                                                                                                 |
-| username                                 |                                   | Username for HTTP Basic authentication.                                                                                                                                                                                                   |
-| password                                 |                                   | Password for HTTP Basic authentication.                                                                                                                                                                                                   |
-| expected-body                            |                                   | Substring that must appear in the body for the check to be ok.                                                                                                                                                                            |
-| [user-agent](#check_http_user-agent)     | NSClient++                        | User-Agent header value.                                                                                                                                                                                                                  |
-| header                                   |                                   | Additional request header in 'Name: value' form (may be given multiple times).                                                                                                                                                            |
-| [onredirect](#check_http_onredirect)     | ok                                | How to handle 3xx redirects: 'follow' to follow the Location, 'ok' (default) to report the redirect as-is.                                                                                                                                |
-| [max-redirs](#check_http_max-redirs)     | 15                                | Maximum number of redirects to follow (with --onredirect follow).                                                                                                                                                                         |
-| sni                                      |                                   | TLS Server Name Indication / verification hostname override (defaults to the URL host).                                                                                                                                                   |
-| [tls-version](#check_http_tls-version)   | tlsv1.2+                          | TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).                                                                                                                                                              |
-| [verify](#check_http_verify)             | peer                              | Certificate verify mode: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate.                                                                                                                                |
-| [ca](#check_http_ca)                     | ${ca-path}                        | Path to a CA bundle to use when verifying the server certificate.                                                                                                                                                                         |
-| json-path                                |                                   | Extract a value from the JSON response body as a filter keyword: 'alias:dotted.path' (repeatable). Numeric segments index arrays; single-quote a segment containing a dot. Example: --json-path qlen:data.queue.length "crit=qlen > 100". |
-| address-family                           |                                   | IP version to use: any (default, let the resolver choose), ipv4 or ipv6. Accepts 4/v4/inet and 6/v6/inet6 as aliases.                                                                                                                     |
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+| Option                                   | Default Value                     | Description                                                                                                                                                                                                                                                          |
+|------------------------------------------|-----------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                                      |                                   | Full URL to check (http://host[:port]/path or https://...). May be given multiple times.                                                                                                                                                                             |
+| host                                     |                                   | Hostname (used when --url is not given).                                                                                                                                                                                                                             |
+| port                                     |                                   | TCP port (defaults to 80 or 443).                                                                                                                                                                                                                                    |
+| [path](#check_http_path)                 | /                                 | Path component of the URL.                                                                                                                                                                                                                                           |
+| [protocol](#check_http_protocol)         | http                              | Protocol to use: http or https.                                                                                                                                                                                                                                      |
+| [ssl](#check_http_ssl)                   | false                             | Force https, alias for --protocol https (ssl=true).                                                                                                                                                                                                                  |
+| [timeout](#check_http_timeout)           | 30000                             | Timeout in milliseconds.                                                                                                                                                                                                                                             |
+| [method](#check_http_method)             | GET                               | HTTP method to use (GET, HEAD, POST, PUT, DELETE, ...).                                                                                                                                                                                                              |
+| post-data                                |                                   | Request body to send; implies POST unless --method is given.                                                                                                                                                                                                         |
+| [content-type](#check_http_content-type) | application/x-www-form-urlencoded | Content-Type header for the request body.                                                                                                                                                                                                                            |
+| username                                 |                                   | Username for HTTP Basic authentication.                                                                                                                                                                                                                              |
+| password                                 |                                   | Password for HTTP Basic authentication.                                                                                                                                                                                                                              |
+| expected-body                            |                                   | Substring that must appear in the body for the check to be ok.                                                                                                                                                                                                       |
+| [user-agent](#check_http_user-agent)     | NSClient++                        | User-Agent header value.                                                                                                                                                                                                                                             |
+| header                                   |                                   | Additional request header in 'Name: value' form (may be given multiple times).                                                                                                                                                                                       |
+| [onredirect](#check_http_onredirect)     | ok                                | How to handle 3xx redirects: 'follow' to follow the Location, 'ok' (default) to report the redirect as-is.                                                                                                                                                           |
+| [max-redirs](#check_http_max-redirs)     | 15                                | Maximum number of redirects to follow (with --onredirect follow).                                                                                                                                                                                                    |
+| sni                                      |                                   | TLS Server Name Indication / verification hostname override (defaults to the URL host).                                                                                                                                                                              |
+| sans                                     |                                   | Comma separated names the certificate must cover through subjectAltName, e.g. www.example.com,example.com. Wildcard entries match one label (*.example.com covers www.example.com). A missing name sets result=san_missing and lists it in the missing_sans keyword. |
+| [tls-version](#check_http_tls-version)   | tlsv1.2+                          | TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).                                                                                                                                                                                         |
+| [verify](#check_http_verify)             | peer                              | Certificate verify mode: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate.                                                                                                                                                           |
+| [ca](#check_http_ca)                     | ${ca-path}                        | Path to a CA bundle to use when verifying the server certificate.                                                                                                                                                                                                    |
+| json-path                                |                                   | Extract a value from the JSON response body as a filter keyword: 'alias:dotted.path' (repeatable). Numeric segments index arrays; single-quote a segment containing a dot. Example: --json-path qlen:data.queue.length "crit=qlen > 100".                            |
+| address-family                           |                                   | IP version to use: any (default, let the resolver choose), ipv4 or ipv6. Accepts 4/v4/inet and 6/v6/inet6 as aliases.                                                                                                                                                |
 
 
 
@@ -1036,24 +1192,38 @@ This command also accepts the standard [help options](../common-options.md#stand
 <a id="check_http_filter_keys"></a>
 #### Filter keywords
 
-| Option          | Description                                                                                                                                                                                                                                                                 |
-|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| body            | Body of the response (use with substr/regex matching)                                                                                                                                                                                                                       |
-| code            | HTTP status code                                                                                                                                                                                                                                                            |
-| host            | Host part of the URL                                                                                                                                                                                                                                                        |
-| path            | Path part of the URL                                                                                                                                                                                                                                                        |
-| port            | TCP port that was used                                                                                                                                                                                                                                                      |
-| protocol        | Protocol used (http or https)                                                                                                                                                                                                                                               |
-| result          | Textual result of the check (ok, error, ...)                                                                                                                                                                                                                                |
-| size            | Size of the response body in bytes                                                                                                                                                                                                                                          |
-| ssl_expiry_days | Days until the server's TLS certificate expires; negative if already expired. Renders as 'no certificate' (and compares false against every number) for plain http, so `ssl_expiry_days < 30` cannot fire there; `ssl_expiry_days = 'no certificate'` tests for that state. |
-| status_message  | HTTP status message                                                                                                                                                                                                                                                         |
-| time            | Time taken by the request in milliseconds                                                                                                                                                                                                                                   |
-| url             | Full URL that was requested                                                                                                                                                                                                                                                 |
+| Option           | Description                                                                                                                                                                                                                                                                                                                                                                                    |
+|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| body             | Body of the response (use with substr/regex matching)                                                                                                                                                                                                                                                                                                                                          |
+| cert_cn          | commonName of the certificate subject, e.g. www.example.com. Empty for a certificate that identifies its hosts only through subjectAltName, which is normal - assert on cert_sans instead.                                                                                                                                                                                                     |
+| cert_issuer      | Issuer of the peer's TLS certificate as an RFC 2253 string. Empty when there is no certificate.                                                                                                                                                                                                                                                                                                |
+| cert_issuer_cn   | commonName of the certificate issuer, e.g. R11. Use it to alert when a certificate was renewed by an unexpected CA.                                                                                                                                                                                                                                                                            |
+| cert_sans        | subjectAltName entries of the certificate, comma separated and in the openssl form (DNS:host, IP:addr). Use with like/regexp for ad-hoc matching, or the sans= option for a checked requirement.                                                                                                                                                                                               |
+| cert_self_signed | True when the certificate's subject equals its issuer. An internal CA root is legitimately self-signed, so this is reported rather than judged.                                                                                                                                                                                                                                                |
+| cert_subject     | Subject of the peer's TLS certificate as an RFC 2253 string, e.g. CN=www.example.com,O=Acme. Empty when there is no certificate.                                                                                                                                                                                                                                                               |
+| cert_verify      | OpenSSL's verdict on the certificate chain: 'ok', or why it did not verify ('unable to get local issuer certificate', 'self signed certificate', ...). Recorded even with verify=none, so a check can report an untrusted chain without refusing to connect. Empty on a plain connection. NOT an authentication result on its own: only a successful handshake under a verifying mode is that. |
+| code             | HTTP status code                                                                                                                                                                                                                                                                                                                                                                               |
+| host             | Host part of the URL                                                                                                                                                                                                                                                                                                                                                                           |
+| missing_sans     | Names given to the sans= option that the certificate does not cover, comma separated. Empty when nothing was required or everything was found.                                                                                                                                                                                                                                                 |
+| path             | Path part of the URL                                                                                                                                                                                                                                                                                                                                                                           |
+| port             | TCP port that was used                                                                                                                                                                                                                                                                                                                                                                         |
+| protocol         | Protocol used (http or https)                                                                                                                                                                                                                                                                                                                                                                  |
+| result           | Textual result of the check (ok, error, ...)                                                                                                                                                                                                                                                                                                                                                   |
+| size             | Size of the response body in bytes                                                                                                                                                                                                                                                                                                                                                             |
+| ssl_expiry_days  | Days until the server's TLS certificate expires; negative if already expired. Renders as 'no certificate' (and compares false against every number) for plain http, and for a certificate whose notAfter could not be read, so `ssl_expiry_days < 30` cannot fire on either; `ssl_expiry_days = 'no certificate'` tests for that state.                                                        |
+| status_message   | HTTP status message                                                                                                                                                                                                                                                                                                                                                                            |
+| time             | Time taken by the request in milliseconds                                                                                                                                                                                                                                                                                                                                                      |
+| url              | Full URL that was requested                                                                                                                                                                                                                                                                                                                                                                    |
 
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_nginx_status
+
+!!! warning "Experimental"
+
+    This check command is experimental: it works, but its options, filter keywords
+    and output may change in a future release. Please try it and report
+    anything that does not behave the way you expect.
 
 Check an NGINX server via its stub_status page.
 
@@ -1128,6 +1298,13 @@ CRITICAL: error: Failed to connect to 127.0.0.1:81: No connection could be made 
 <a id="check_nginx_status_username"></a>
 <a id="check_nginx_status_password"></a>
 
+        
+        
+        
+        
+        
+        
+        
 | Option                                         | Default Value                 | Description                                                                                                          |
 |------------------------------------------------|-------------------------------|----------------------------------------------------------------------------------------------------------------------|
 | [url](#check_nginx_status_url)                 | http://127.0.0.1/nginx_status | URL of the status endpoint (http://host[:port]/path or https://...).                                                 |
@@ -1227,6 +1404,12 @@ This command also supports the [common filter keywords](../common-options.md#com
 
 ### check_nsclient_web_online
 
+!!! warning "Experimental"
+
+    This check command is experimental: it works, but its options, filter keywords
+    and output may change in a future release. Please try it and report
+    anything that does not behave the way you expect.
+
 Query the REST API of a remote NSClient++ agent (reachability or a remote check).
 
 #### About `check_nsclient_web_online`
@@ -1319,6 +1502,12 @@ CRITICAL: Failed to reach https://192.168.56.10:9999: Connection refused
 
 
 ### check_ntp_offset
+
+!!! warning "Experimental"
+
+    This check command is experimental: it works, but its options, filter keywords
+    and output may change in a future release. Please try it and report
+    anything that does not behave the way you expect.
 
 Query an NTP server and check the offset between the local clock and the server.
 
@@ -1484,6 +1673,12 @@ OK: ntp.example.com root_delay=11ms root_dispersion=33ms stratum=2
 <a id="check_ntp_offset_servers"></a>
 <a id="check_ntp_offset_address-family"></a>
 
+        
+        
+        
+        
+        
+        
 | Option                               | Default Value | Description                                                                                                                                                                                                                             |
 |--------------------------------------|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | server                               |               | NTP server to query (may be given multiple times).                                                                                                                                                                                      |
@@ -1568,6 +1763,12 @@ This command also supports the [common filter keywords](../common-options.md#com
 
 ### check_phpfpm_status
 
+!!! warning "Experimental"
+
+    This check command is experimental: it works, but its options, filter keywords
+    and output may change in a future release. Please try it and report
+    anything that does not behave the way you expect.
+
 Check a PHP-FPM pool via its status page.
 
 #### About `check_phpfpm_status`
@@ -1633,6 +1834,13 @@ CRITICAL: http_404: pool : 0 active, 0 idle, 0 queued|'_active_processes'=0;0;0 
 <a id="check_phpfpm_status_username"></a>
 <a id="check_phpfpm_status_password"></a>
 
+        
+        
+        
+        
+        
+        
+        
 | Option                                          | Default Value           | Description                                                                                                          |
 |-------------------------------------------------|-------------------------|----------------------------------------------------------------------------------------------------------------------|
 | [url](#check_phpfpm_status_url)                 | http://127.0.0.1/status | URL of the status endpoint (http://host[:port]/path or https://...).                                                 |
@@ -1940,6 +2148,15 @@ Invalid size: 99999 (expected 0-65507)
 <a id="check_ping_hosts"></a>
 <a id="check_ping_address-family"></a>
 
+        
+        
+        
+        
+        
+        
+        
+        
+        
 | Option                         | Default Value          | Description                                                                                                                                                                                                                                                           |
 |--------------------------------|------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | host                           |                        | The host to check (or multiple hosts).                                                                                                                                                                                                                                |
@@ -2042,6 +2259,12 @@ This command also accepts the standard [help options](../common-options.md#stand
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_ssh
+
+!!! warning "Experimental"
+
+    This check command is experimental: it works, but its options, filter keywords
+    and output may change in a future release. Please try it and report
+    anything that does not behave the way you expect.
 
 Connect to an SSH port and verify the server presents a valid SSH banner.
 
@@ -2188,22 +2411,41 @@ OK: 192.168.56.10:22 ok in 2ms
 <a id="check_ssh_port"></a>
 <a id="check_ssh_send"></a>
 <a id="check_ssh_expect"></a>
-<a id="check_ssh_ca"></a>
+<a id="check_ssh_starttls"></a>
+<a id="check_ssh_sni"></a>
+<a id="check_ssh_sans"></a>
 <a id="check_ssh_address-family"></a>
 
-| Option                                | Default Value | Description                                                                                                           |
-|---------------------------------------|---------------|-----------------------------------------------------------------------------------------------------------------------|
-| host                                  |               | Host(s) to connect to (may be given multiple times).                                                                  |
-| hosts                                 |               | Comma separated list of hosts to connect to.                                                                          |
-| port                                  |               | TCP port to connect to.                                                                                               |
-| [timeout](#check_ssh_timeout)         | 5000          | Connection / read timeout in milliseconds.                                                                            |
-| send                                  |               | Optional payload to send after the connection is established.                                                         |
-| expect                                |               | Optional substring expected in the response.                                                                          |
-| [ssl](#check_ssh_ssl)                 | false         | Wrap the connection in TLS/SSL after connecting (ssl=true).                                                           |
-| [tls-version](#check_ssh_tls-version) | tlsv1.2+      | TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).                                 |
-| [verify](#check_ssh_verify)           | none          | Certificate verify mode when --ssl is used: none (default), peer, ... (peer requires --ca).                           |
-| ca                                    |               | CA bundle used to verify the server certificate when --ssl --verify peer is used.                                     |
-| address-family                        |               | IP version to use: any (default, let the resolver choose), ipv4 or ipv6. Accepts 4/v4/inet and 6/v6/inet6 as aliases. |
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+| Option                                | Default Value | Description                                                                                                                                                                                                                                                                                                                                        |
+|---------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| host                                  |               | Host(s) to connect to (may be given multiple times).                                                                                                                                                                                                                                                                                               |
+| hosts                                 |               | Comma separated list of hosts to connect to.                                                                                                                                                                                                                                                                                                       |
+| port                                  |               | TCP port to connect to.                                                                                                                                                                                                                                                                                                                            |
+| [timeout](#check_ssh_timeout)         | 5000          | Connection / read timeout in milliseconds.                                                                                                                                                                                                                                                                                                         |
+| send                                  |               | Optional payload to send after the connection is established.                                                                                                                                                                                                                                                                                      |
+| expect                                |               | Optional substring expected in the response.                                                                                                                                                                                                                                                                                                       |
+| [ssl](#check_ssh_ssl)                 | false         | Wrap the connection in TLS/SSL after connecting (ssl=true).                                                                                                                                                                                                                                                                                        |
+| starttls                              |               | Upgrade the plaintext connection to TLS with the protocol's own STARTTLS negotiation, then check the certificate: smtp lmtp pop3 imap ftp nntp sieve irc postgres mysql ldap. Implies ssl=true and sets the protocol's default plaintext port. Use this for the services that have no implicit-TLS port (submission/587, LDAP, PostgreSQL, MySQL). |
+| [tls-version](#check_ssh_tls-version) | tlsv1.2+      | TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).                                                                                                                                                                                                                                                              |
+| [verify](#check_ssh_verify)           | peer          | Certificate verify mode when the connection is TLS: peer (default; the chain must be trusted and the name must match), none, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate. Set verify=none to reach a server whose certificate does not validate - cert_verify still reports why it did not.                               |
+| [ca](#check_ssh_ca)                   | ${ca-path}    | Trust anchor used to verify the server certificate: either a PEM bundle file or a hashed CA directory such as /etc/ssl/certs. Defaults to the agent's configured bundle (${ca-path}); when that is empty or 'none' the system trust store OpenSSL was built with is used instead.                                                                  |
+| sni                                   |               | TLS Server Name Indication: the name offered to a server hosting several certificates, and the name the certificate is verified against. Defaults to the host connected to; set it to check a virtual host reached by IP.                                                                                                                          |
+| sans                                  |               | Comma separated names the certificate must cover through subjectAltName, e.g. www.example.com,example.com. Wildcard entries match one label (*.example.com covers www.example.com). A missing name sets result=san_missing and lists it in the missing_sans keyword.                                                                               |
+| address-family                        |               | IP version to use: any (default, let the resolver choose), ipv4 or ipv6. Accepts 4/v4/inet and 6/v6/inet6 as aliases.                                                                                                                                                                                                                              |
 
 
 
@@ -2227,9 +2469,15 @@ TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, ss
 
 <h5 id="check_ssh_verify">verify:</h5>
 
-Certificate verify mode when --ssl is used: none (default), peer, ... (peer requires --ca).
+Certificate verify mode when the connection is TLS: peer (default; the chain must be trusted and the name must match), none, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate. Set verify=none to reach a server whose certificate does not validate - cert_verify still reports why it did not.
 
-*Default Value:* `none`
+*Default Value:* `peer`
+
+<h5 id="check_ssh_ca">ca:</h5>
+
+Trust anchor used to verify the server certificate: either a PEM bundle file or a hashed CA directory such as /etc/ssl/certs. Defaults to the agent's configured bundle (${ca-path}); when that is empty or 'none' the system trust store OpenSSL was built with is used instead.
+
+*Default Value:* `${ca-path}`
 
 
 **Common options:**
@@ -2268,26 +2516,32 @@ This command also accepts the standard [help options](../common-options.md#stand
 <a id="check_ssh_filter_keys"></a>
 #### Filter keywords
 
-| Option           | Description                                                                                              |
-|------------------|----------------------------------------------------------------------------------------------------------|
-| banner           | The raw SSH identification string, e.g. SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.5                         |
-| comments         | Trailing comments of the identification string, e.g. the distribution patch level                        |
-| connected        | 1 when the connection succeeded, 0 otherwise                                                             |
-| host             | Host the check connected to                                                                              |
-| port             | TCP port the check connected to                                                                          |
-| protocol         | SSH protocol version the server announced, e.g. 2.0 or 1.99                                              |
-| protocol_major   | Major SSH protocol version as a number (2 for 2.0); use protocol_major < 2 to catch an SSHv1-only server |
-| protocol_minor   | Minor SSH protocol version as a number (0 for 2.0, 99 for 1.99)                                          |
-| response         | The data received from the peer (use with 'like'/'regexp' for custom matching)                           |
-| result           | Textual result of the check (ok, refused, timeout, no_match, resolve_failed, ...)                        |
-| software         | Software name from the version string, e.g. OpenSSH or dropbear                                          |
-| software_version | Software version number from the version string, e.g. 9.6p1 or 2022.83                                   |
-| time             | Connection time in milliseconds                                                                          |
-| version          | Software version the server announced, e.g. OpenSSH_9.6p1                                                |
+| Option           | Description                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+|------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| banner           | The raw SSH identification string, e.g. SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.5                                                                                                                                                                                                                                                                                                                                                             |
+| comments         | Trailing comments of the identification string, e.g. the distribution patch level                                                                                                                                                                                                                                                                                                                                                            |
+| connected        | 1 when the connection succeeded, 0 otherwise                                                                                                                                                                                                                                                                                                                                                                                                 |
+| host             | Host the check connected to                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| port             | TCP port the check connected to                                                                                                                                                                                                                                                                                                                                                                                                              |
+| protocol         | SSH protocol version the server announced, e.g. 2.0 or 1.99                                                                                                                                                                                                                                                                                                                                                                                  |
+| protocol_major   | Major SSH protocol version as a number (2 for 2.0); use protocol_major < 2 to catch an SSHv1-only server                                                                                                                                                                                                                                                                                                                                     |
+| protocol_minor   | Minor SSH protocol version as a number (0 for 2.0, 99 for 1.99)                                                                                                                                                                                                                                                                                                                                                                              |
+| response         | The data received from the peer (use with 'like'/'regexp' for custom matching)                                                                                                                                                                                                                                                                                                                                                               |
+| result           | Textual result of the check: ok, refused, timeout, resolve_failed, no_match, read_timeout, read_failed, write_timeout, write_failed, san_missing, tls_handshake_failed, tls_handshake_timeout, and the starttls_* words (starttls_refused, starttls_disconnected, starttls_timeout, starttls_overflow, starttls_write_failed). The default critical filter is result != 'ok', so every one of them alerts without a threshold being written. |
+| software         | Software name from the version string, e.g. OpenSSH or dropbear                                                                                                                                                                                                                                                                                                                                                                              |
+| software_version | Software version number from the version string, e.g. 9.6p1 or 2022.83                                                                                                                                                                                                                                                                                                                                                                       |
+| time             | Connection time in milliseconds                                                                                                                                                                                                                                                                                                                                                                                                              |
+| version          | Software version the server announced, e.g. OpenSSH_9.6p1                                                                                                                                                                                                                                                                                                                                                                                    |
 
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_tcp
+
+!!! warning "Experimental"
+
+    This check command is experimental: it works, but its options, filter keywords
+    and output may change in a future release. Please try it and report
+    anything that does not behave the way you expect.
 
 Connect to a TCP port and optionally send/expect data to check that a service is reachable.
 
@@ -2304,8 +2558,14 @@ LDAPS, IMAPS, SMTPS, RDP, a database listener, or anything else that speaks TLS
 on a port:
 
 ```
-check_tcp host=ldap.example.com port=636 ssl=true "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 10"
+check_tcp host=ldap.example.com port=636 ssl=true "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 10" "detail-syntax=${host}:${port} cert expires in ${ssl_expiry_days} days"
 ```
+
+The `detail-syntax` is not decoration. The default one renders
+`${host}:${port} ${result} in ${time}ms`, and `result` is the *connection*
+outcome — so without it a certificate threshold flips the check to CRITICAL
+while the message still reads `ok in 10ms` and never names the certificate.
+Render the keyword you threshold on, and the alert explains itself.
 
 Two details worth knowing.
 
@@ -2322,7 +2582,7 @@ count and fires as it should. Test for the no-certificate state explicitly with
 the string form, or with `has_certificate`:
 
 ```
-check_tcp host=mail.example.com port=993 ssl=true "crit=ssl_expiry_days < 30 or ssl_expiry_days = 'no certificate'"
+check_tcp host=mail.example.com port=993 ssl=true "crit=ssl_expiry_days < 30 or ssl_expiry_days = 'no certificate'" "detail-syntax=${host}:${port} ${result} cert=${has_certificate} days=${ssl_expiry_days}"
 ```
 
 > **Upgrading.** `ssl_expiry_days` used to report `-1` for a connection with no
@@ -2332,16 +2592,224 @@ check_tcp host=mail.example.com port=993 ssl=true "crit=ssl_expiry_days < 30 or 
 > and no expiry perfdata is emitted when there is no certificate. The same
 > change applies to `check_http`'s `ssl_expiry_days`.
 
-**Reading the certificate does not verify it.** The expiry is a property of what
-the peer served, so it is available at the default `verify=none` — a
-self-signed or otherwise untrusted certificate still reports its real remaining
-lifetime. Use `verify=peer` with a `ca=` bundle when you want the chain checked
-as well; the two are independent.
+**The certificate is verified by default.** `verify` defaults to `peer` and
+`ca=` defaults to the agent's own trust bundle (`${ca-path}`), falling back to
+the trust store OpenSSL was built with when that is empty — so a check against
+a publicly issued certificate validates out of the box, and one against a
+certificate that does not validate reports `tls_handshake_failed`.
+
+**Reading the certificate does not require verifying it.** The expiry and the
+identity keywords are properties of what the peer served, so they are readable
+without a trust decision: pass `verify=none` to reach a server whose
+certificate does not validate and still report its real remaining lifetime,
+issuer and names. `cert_verify` tells you why it did not validate either way.
+
+```
+check_tcp host=internal.example.com port=443 ssl=true verify=none "detail-syntax=${host} days=${ssl_expiry_days} verify=${cert_verify}"
+```
 
 This complements the other two certificate checks: `check_http`'s
 `ssl_expiry_days` covers HTTPS endpoints specifically, and `check_certificate`
 inspects certificates at rest (files on disk, the Windows certificate store)
 rather than ones served over a connection.
+
+> `ssl_expiry_days` also renders `no certificate` for a certificate that *was*
+> served but whose `notAfter` could not be read. Reporting that as a day count
+> would let `crit=ssl_expiry_days < 1` fire on a parse failure; `has_certificate`
+> is what tells the two apart.
+
+#### Certificate identity (`cert_cn`, `cert_sans`, `cert_issuer_cn`, …)
+
+Alongside the expiry, `check_tcp` reports who the certificate is for and who
+issued it, so a check can alert on a certificate being *replaced* as well as on
+it running out.
+
+| Keyword | Value |
+| --- | --- |
+| `cert_subject` | Subject as an RFC 2253 string, e.g. `CN=www.example.com,O=Acme` |
+| `cert_cn` | The subject's commonName only, e.g. `www.example.com` |
+| `cert_issuer` | Issuer as an RFC 2253 string |
+| `cert_issuer_cn` | The issuer's commonName, e.g. `R11` |
+| `cert_sans` | subjectAltName entries, comma separated, in the openssl form (`DNS:host`, `IP:addr`) |
+| `cert_self_signed` | True when subject equals issuer |
+| `cert_verify` | OpenSSL's verdict on the chain: `ok`, or why it did not verify |
+| `missing_sans` | Names required via `sans=` that the certificate does not cover |
+
+`cert_cn` is empty for a certificate that identifies its hosts only through
+subjectAltName, which is normal and not an error — assert on `cert_sans` (or
+the `sans=` option below) instead. Alerting on an unexpected issuer catches a
+renewal that silently moved to a different CA:
+
+```
+check_tcp host=secure.example.com port=443 ssl=true "crit=cert_issuer_cn != 'R11'" "detail-syntax=${host}:${port} issuer=${cert_issuer_cn}"
+```
+
+`cert_verify` is recorded **even at `verify=none`**: OpenSSL walks the chain
+regardless, it just does not fail the handshake over the result. That is what
+lets a check report *why* a chain is untrusted without refusing to connect. It
+is not an authentication result on its own — only a successful handshake under
+`verify=peer` is that.
+
+When the handshake **fails**, `cert_verify` carries the chain's verdict only if
+that verdict is itself a failure — which is the case worth reading, since it is
+then the reason the handshake failed. It is left empty when the connection died
+before any chain was checked (a reset, a timeout, a rejected TLS version),
+because OpenSSL reports `X509_V_OK` for "never verified anything" as well as
+for "verified fine". So `crit=cert_verify != 'ok'` fires on both a bad chain
+and a connection that never got far enough to check one, and never reads a
+clean chain into a failure that had nothing to do with certificates.
+
+**The certificate is reported even when the handshake failed.** A rejected
+certificate is exactly the one worth looking at, so `cert_cn`, `cert_sans`,
+`ssl_expiry_days` and the rest are filled in alongside
+`result=tls_handshake_failed`. An expiry threshold therefore still fires on a
+certificate that expired under `verify=peer`, rather than going quiet because
+the connection was refused over it.
+
+#### Requiring names with `sans=`
+
+`sans=` takes a comma separated list of names the certificate must cover
+through subjectAltName. A name that is missing sets `result` to `san_missing`
+— which the default `critical` filter (`result != 'ok'`) already alerts on —
+and lists what was missing in `missing_sans`:
+
+```
+check_tcp host=secure.example.com port=443 ssl=true sans=example.com,www.example.com "detail-syntax=${host}:${port} ${result} missing=[${missing_sans}]"
+```
+
+Matching follows RFC 6125: a `*.example.com` entry covers `www.example.com`
+but **not** `example.com` itself, and not `a.b.example.com`. That is the
+mistake worth checking for — a wildcard certificate that does not cover the
+apex. Asking for a literal `*.example.com` requires the wildcard entry itself,
+which is how you assert that a certificate really is a wildcard.
+
+Names are matched against subjectAltName only, never the subject CN: a name
+carried only by the CN has not been a valid identity since RFC 2818 was
+superseded, and no current browser or library accepts it.
+
+A connection that served **no** certificate does not cover a required name
+either, so `sans=` on a plain connection reports `san_missing` rather than
+`ok`. That is what forgetting `starttls=` on a submission port looks like, and
+reporting it as a pass would hide exactly the case the option exists to catch.
+
+#### `sni=` — checking a virtual host
+
+`sni=` sets the Server Name Indication offered to a server that hosts several
+certificates, **and** the name the certificate is verified against. It defaults
+to the host connected to, so it is only needed when those differ — reaching a
+virtual host by IP, or checking one name on a shared listener:
+
+```
+check_tcp host=10.0.0.5 port=443 ssl=true verify=peer ca=/etc/ssl/certs sni=www.example.com "detail-syntax=${host}:${port} ${result} cn=${cert_cn} verify=${cert_verify}"
+```
+
+Because it drives verification too, a name the certificate does not carry fails
+the handshake rather than quietly skipping the check.
+
+`sni=` only means something inside a TLS session, so it is **rejected** when
+neither `ssl=true`, a `starttls=` protocol nor an implicit-TLS `service=`
+preset is in play. Accepting it silently would return OK having asserted
+nothing — which reads exactly like a passing identity check.
+
+#### How a check can end (`result`)
+
+`result` is a short status word, and the default `critical` filter is
+`result != 'ok'` — so every value but `ok` alerts without a threshold being
+written for it.
+
+| `result` | Meaning |
+| --- | --- |
+| `ok` | Connected, and the expectations (if any) held |
+| `refused` | The port refused the connection |
+| `timeout` | The TCP connect did not complete inside `timeout=` |
+| `resolve_failed` | The host did not resolve (in the requested address family) |
+| `no_match` | Connected, but the response failed `expect=` / the preset's pattern |
+| `read_timeout` | The peer stayed silent past `timeout=` |
+| `read_failed` | The read failed for another reason |
+| `write_timeout` | The peer never accepted `send=` inside `timeout=` |
+| `write_failed` | The write failed for another reason |
+| `san_missing` | A name required with `sans=` is not covered — see below |
+| `tls_handshake_failed` | The TLS handshake was rejected (bad chain, wrong name, no shared version) |
+| `tls_handshake_timeout` | The handshake did not complete inside `timeout=` |
+| `starttls_*` | The opportunistic upgrade did not happen — see the table below |
+
+A timeout is kept distinct from the failure it is easy to confuse it with: a
+peer that went quiet (`read_timeout`) is not one that hung up (`read_failed`),
+and closing the socket to unblock the read makes both look identical at the
+error code, so the deadline is what tells them apart.
+
+#### Opportunistic TLS with `starttls=`
+
+Not every TLS service has an implicit-TLS port. Mail submission (587), LDAP,
+PostgreSQL and MySQL all start in the clear and upgrade on request, so their
+certificates are unreachable with `ssl=true` alone. `starttls=` performs the
+protocol's own upgrade negotiation first, then checks the certificate exactly
+as usual:
+
+```
+check_tcp host=mail.example.com starttls=smtp "warn=ssl_expiry_days < 30" "detail-syntax=${host}:${port} ${result} days=${ssl_expiry_days}"
+check_tcp host=ldap.example.com starttls=ldap "crit=ssl_expiry_days < 10" "detail-syntax=${host}:${port} ${result} days=${ssl_expiry_days}"
+check_tcp host=db.example.com   starttls=postgres sans=db.example.com "detail-syntax=${host}:${port} ${result} missing=[${missing_sans}]"
+```
+
+Supported protocols, with the plaintext port each defaults to:
+
+| `starttls=` | Default port | Upgrade |
+| --- | --- | --- |
+| `smtp` | 25 | `EHLO` then `STARTTLS` |
+| `lmtp` | 24 | `LHLO` then `STARTTLS` |
+| `pop3` | 110 | `STLS` |
+| `imap` | 143 | `a001 STARTTLS` |
+| `ftp` | 21 | `AUTH TLS` |
+| `nntp` | 119 | `STARTTLS` |
+| `sieve` | 4190 | `STARTTLS` |
+| `irc` | 6667 | `STARTTLS` (numeric 670) |
+| `postgres` | 5432 | SSLRequest packet |
+| `mysql` | 3306 | SSLRequest packet |
+| `ldap` | 389 | StartTLS extended request (1.3.6.1.4.1.1466.20037) |
+
+`starttls=` implies `ssl=true` and sets the default port, so `host=` alone is
+usually enough. The port defaulted to is always the **cleartext** one (143, not
+993) — the implicit-TLS ports are what the `simap` / `spop` / `ssmtp` service
+presets are for. For the same reason `starttls=` cannot be combined with a
+`service=` preset: the preset waits for a greeting that is not sent again after
+the upgrade, so the two together would sit out the timeout. The check says so
+rather than failing mysteriously.
+
+How a negotiation can end:
+
+| `result` | Meaning |
+| --- | --- |
+| `ok` | The upgrade succeeded and the certificate was read |
+| `starttls_refused` | The server answered, declining the upgrade |
+| `starttls_disconnected` | The peer closed or reset the connection mid-negotiation |
+| `starttls_timeout` | No answer inside `timeout=` |
+| `starttls_overflow` | The peer sent more than 64 KiB the negotiation could not consume |
+| `tls_handshake_failed` | The server agreed, but the TLS handshake itself failed |
+
+All but `ok` trip the default `critical` filter (`result != 'ok'`). A refusal
+is an *answer*, so it is reported immediately rather than waited out; for MySQL
+that includes a server that never advertised `CLIENT_SSL` in its handshake, so
+"this server has TLS turned off" reads as a refusal rather than a handshake
+failure. `starttls_overflow` is kept distinct from `starttls_timeout` because
+the budget that ran out is bytes rather than milliseconds — raising `timeout=`
+cannot help there. It is the answer for a peer whose reply never *ends*: the
+line engine consumes each complete line as it arrives, so a server chattering
+endless complete lines is bounded by `timeout=` as usual, while one that never
+sends the terminating newline (or floods one of the binary protocols) would
+otherwise grow the buffer without limit.
+
+#### CA bundles and CA directories
+
+`ca=` defaults to the agent's configured bundle (`${ca-path}`) and accepts
+either a concatenated PEM bundle file or a hashed CA *directory* in OpenSSL's
+`-CApath` layout. `/etc/ssl/certs` is a directory on every distribution, so
+both of these work:
+
+```
+check_tcp host=secure.example.com port=443 ssl=true verify=peer ca=/etc/ssl/certs/ca-certificates.crt "detail-syntax=${host}:${port} ${result} verify=${cert_verify}"
+check_tcp host=secure.example.com port=443 ssl=true verify=peer ca=/etc/ssl/certs "detail-syntax=${host}:${port} ${result} verify=${cert_verify}"
+```
 
 **Jump to section:**
 
@@ -2357,121 +2825,246 @@ rather than ones served over a connection.
 
 ```
 check_tcp host=127.0.0.1 port=8443
-L        cli OK: OK: 127.0.0.1:8443 ok in 0ms
-L        cli  Performance data: '127.0.0.1_8443_time'=0;1000;5000
+OK: 127.0.0.1:8443 ok in 0ms|'127.0.0.1_8443'=0ms;1000;5000
 ```
 
-**Multiple hosts via comma list:**
+**Several hosts in one call (`host=` repeated, or `hosts=` as a comma list):**
 
 ```
-check_tcp host=www.google.com host=www.ibm.com port=443 timeout=2000
-L        cli OK: OK: www.google.com:443 ok in 11ms, www.ibm.com:443 ok in 9ms
-L        cli  Performance data: 'www.google.com_443_time'=11;1000;5000 'www.ibm.com_443_time'=9;1000;5000
+check_tcp hosts=www.google.com,www.ibm.com port=443 timeout=2000
+OK: www.google.com:443 ok in 9ms, www.ibm.com:443 ok in 10ms|'www.google.com_443'=9ms;1000;5000 'www.ibm.com_443'=10ms;1000;5000
 ```
 
 **Send a payload and require an expected substring in the response:**
 
+Render `${response}` as well, or a failed match reports `no_match` without
+showing what the peer actually said:
+
 ```
-check_tcp host=smtp.gmail.com port=25 send="EHLO nsclient.org" expect="250"
-L        cli CRITICAL: CRITICAL: smtp.gmail.com:25 no_match in 25ms
-L        cli  Performance data: 'smtp.gmail.com_25_time'=25;1000;5000
+check_tcp host=smtp.gmail.com port=25 send="EHLO nsclient.org" expect="250" "detail-syntax=${host}:${port} ${result} in ${time}ms got=[${response}]"
+CRITICAL: smtp.gmail.com:25 no_match in 18ms got=[220 smtp.gmail.com ESMTP 4fb4d7f45d1cf-6aa67dc582csm2423438a12.16 - gsmtp]|'smtp.gmail.com_25'=18ms;1000;5000
 ```
 
 **Tighter thresholds:**
 
 ```
 check_tcp host=www.google.com port=443 "warn=time > 100" "crit=time > 500 or connected = 0"
-L        cli OK: OK: www.google.com:443 ok in 11ms
-L        cli  Performance data: 'www.google.com_443_connected'=1;0;0 'www.google.com_443_time'=11;100;500
+OK: www.google.com:443 ok in 5ms|'www.google.com_443_connected'=1;0;0 'www.google.com_443'=5ms;100;500
 ```
 
 **Show every host explicitly:**
 
 ```
-check_tcp host=a.example.com host=b.example.com port=80 "top-syntax=%(status): %(list)" "detail-syntax=%(host):%(port)=%(result) in %(time)ms"
-OK: a.example.com:80=ok in 14ms, b.example.com:80=ok in 19ms
+check_tcp host=www.google.com host=www.ibm.com port=443 "top-syntax=%(status): %(list)" "detail-syntax=%(host):%(port)=%(result) in %(time)ms"
+OK: www.google.com:443=ok in 13ms, www.ibm.com:443=ok in 11ms|'www.google.com_443'=13ms;1000;5000 'www.ibm.com_443'=11ms;1000;5000
 ```
 
 **Use a service preset (`ftp`, `pop`, `imap`, `smtp`, `ssh`) — sets the port, greeting and expected-response regex:**
 
 ```
-check_tcp host=mail.example.com service=smtp
-OK: mail.example.com:25 ok in 8ms
+check_tcp host=smtp.gmail.com service=smtp
+OK: smtp.gmail.com:25 ok in 14ms|'smtp.gmail.com_25'=14ms;1000;5000
 ```
 
 **Wrap the connection in TLS with `ssl=true` (e.g. to test an HTTPS listener answers):**
 
 ```
 check_tcp host=www.google.com port=443 ssl=true
-OK: www.google.com:443 ok in 11ms|'www.google.com_443_time'=11;1000;5000
+OK: www.google.com:443 ok in 10ms|'www.google.com_443'=10ms;1000;5000
 ```
 
 **Implicit-TLS service presets (`spop`, `simap`, `ssmtp`) connect over TLS and check the greeting:**
 
 ```
 check_tcp host=smtp.gmail.com service=ssmtp
-OK: smtp.gmail.com:465 ok in 16ms|'smtp.gmail.com_465_time'=16;1000;5000
+OK: smtp.gmail.com:465 ok in 18ms|'smtp.gmail.com_465'=18ms;1000;5000
 ```
 
 **Match the peer's response with a regex via the `response` keyword:**
 
+`regexp` is a **full** match, not a search, so the pattern has to cover the
+whole greeting — `'220.*'`, not `'^220'` (use `like` for a plain substring):
+
 ```
-check_tcp host=mail.example.com port=25 "crit=response not regexp '^220'"
-OK: mail.example.com:25 ok in 8ms
+check_tcp host=smtp.gmail.com service=ssmtp "crit=response not regexp '220.*'" "detail-syntax=${host}:${port} ${result} greeting=[${response}]"
+OK: smtp.gmail.com:465 ok greeting=[220 smtp.gmail.com ESMTP a640c23a62f3a-c2a3523809fsm167937966b.5 - gsmtp]|'smtp.gmail.com_465'=17ms;1000;0
 ```
+
+> **Render what you filtered on.** The default `detail-syntax` is
+> `${host}:${port} ${result} in ${time}ms`, and `result` is the *connection*
+> outcome — so a check that goes CRITICAL on a certificate or a greeting still
+> reads `ok in 10ms` and never says why. The filter decides the state, the
+> syntax decides the text, and they share nothing. Every example below therefore
+> pairs its `warn=` / `crit=` with a `detail-syntax` that renders the keyword the
+> threshold is about.
 
 **Check how long the peer's TLS certificate is still valid (`ssl_expiry_days`):**
 
 ```
-check_tcp host=secure.example.com port=443 ssl=true "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 10" "top-syntax=${list}" "detail-syntax=cert expires in ${ssl_expiry_days} days"
-OK: cert expires in 399 days|'secure.example.com_443_ssl_expiry_days'=399;30;10
+check_tcp host=www.google.com port=443 ssl=true "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 10" "detail-syntax=${host}:${port} cert expires in ${ssl_expiry_days} days"
+OK: www.google.com:443 cert expires in 67 days|'www.google.com_443_ssl_expiry_days'=67;30;10
 ```
 
 ```
-check_tcp host=expiring.example.com port=443 ssl=true "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 10" "top-syntax=${list}" "detail-syntax=cert expires in ${ssl_expiry_days} days"
-WARNING: cert expires in 19 days|'expiring.example.com_443_ssl_expiry_days'=19;30;10
+check_tcp host=expiring.example.com port=443 ssl=true "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 10" "detail-syntax=${host}:${port} cert expires in ${ssl_expiry_days} days"
+WARNING: expiring.example.com:443 cert expires in 19 days|'expiring.example.com_443_ssl_expiry_days'=19;30;10
 ```
 
 **A plain connection cannot trip the expiry threshold — and can be tested for explicitly:**
 
 ```
-check_tcp host=mail.example.com port=110 "warn=none" "crit=ssl_expiry_days < 30"
-OK: mail.example.com:110 ok in 1ms
+check_tcp host=www.google.com port=80 "warn=none" "crit=ssl_expiry_days < 30" "detail-syntax=${host}:${port} ${result} cert=${has_certificate} days=${ssl_expiry_days}"
+OK: www.google.com:80 ok cert=0 days=no certificate
 ```
 
 ```
-check_tcp host=mail.example.com port=110 "warn=none" "crit=ssl_expiry_days = 'no certificate'"
-CRITICAL: mail.example.com:110 ok in 0ms
+check_tcp host=www.google.com port=80 "warn=none" "crit=ssl_expiry_days = 'no certificate'" "detail-syntax=${host}:${port} ${result} cert=${has_certificate} days=${ssl_expiry_days}"
+CRITICAL: www.google.com:80 ok cert=0 days=no certificate
 ```
+
+`result` stays `ok` in the second one — the TCP connection really was fine, and
+it is the certificate keywords in the detail line that show what the `critical`
+filter matched on.
 
 **The certificate keywords also work through the implicit-TLS presets:**
 
 ```
-check_tcp host=imap.example.com service=simap "top-syntax=${list}" "detail-syntax=${host}:${port} cert=${has_certificate} days=${ssl_expiry_days}"
-OK: imap.example.com:993 cert=1 days=399
+check_tcp host=smtp.gmail.com service=ssmtp "detail-syntax=${host}:${port} cert=${has_certificate} days=${ssl_expiry_days} cn=${cert_cn}"
+OK: smtp.gmail.com:465 cert=1 days=67 cn=smtp.gmail.com|'smtp.gmail.com_465'=14ms;1000;5000
 ```
 
 **Without TLS there is no certificate at all:**
 
 ```
-check_tcp host=mail.example.com port=110 "top-syntax=${list}" "detail-syntax=cert=${has_certificate} days=${ssl_expiry_days}"
-OK: cert=0 days=no certificate
+check_tcp host=www.google.com port=80 "detail-syntax=${host}:${port} cert=${has_certificate} days=${ssl_expiry_days}"
+OK: www.google.com:80 cert=0 days=no certificate|'www.google.com_80'=10ms;1000;5000
 ```
 
 **Verify the server certificate when using TLS (needs a CA bundle):**
 
+`cert_verify` carries OpenSSL's verdict, so the detail line says whether the
+chain was accepted rather than only that the connection worked:
+
 ```
-check_tcp host=secure.example.com port=443 ssl=true verify=peer ca=/etc/ssl/certs/ca-certificates.crt
-OK: secure.example.com:443 ok in 21ms
+check_tcp host=www.google.com port=443 ssl=true verify=peer ca=/etc/ssl/certs/ca-certificates.crt "detail-syntax=${host}:${port} ${result} verify=${cert_verify} in ${time}ms"
+OK: www.google.com:443 ok verify=ok in 5ms|'www.google.com_443'=5ms;1000;5000
+```
+
+**Report who the certificate is for and who issued it:**
+
+```
+check_tcp host=www.google.com port=443 ssl=true "detail-syntax=${host}:${port} cn=${cert_cn} issuer=${cert_issuer_cn} sans=${cert_sans}"
+OK: www.google.com:443 cn=www.google.com issuer=WR2 sans=DNS:www.google.com|'www.google.com_443'=8ms;1000;5000
+```
+
+**Alert when a renewal moves the certificate to a different CA:**
+
+```
+check_tcp host=www.google.com port=443 ssl=true "crit=cert_issuer_cn != 'WE2'" "detail-syntax=${host}:${port} issuer=${cert_issuer_cn}"
+CRITICAL: www.google.com:443 issuer=WR2|'www.google.com_443'=22ms;1000;0
+```
+
+**A certificate that does not verify fails the check** — verification is the
+default, against the agent's own trust bundle:
+
+```
+check_tcp host=secure.example.com port=443 ssl=true "detail-syntax=${host}:${port} ${result} verify=${cert_verify}"
+CRITICAL: secure.example.com:443 tls_handshake_failed verify=self-signed certificate|'secure.example.com_443'=0ms;1000;5000
+```
+
+**Report why a chain did not verify, without refusing to connect** — `cert_verify`
+is recorded at `verify=none` too, which is how you watch a service whose
+certificate you do not trust:
+
+```
+check_tcp host=secure.example.com port=443 ssl=true verify=none "detail-syntax=${host}:${port} ${result} verify=${cert_verify}"
+OK: secure.example.com:443 ok verify=self-signed certificate|'secure.example.com_443'=5ms;1000;5000
+```
+
+**The certificate is reported even when the handshake failed**, so an expiry
+threshold still fires on the certificate that was rejected:
+
+```
+check_tcp host=secure.example.com port=443 ssl=true "detail-syntax=${host}:${port} ${result} cn=${cert_cn} days=${ssl_expiry_days} verify=${cert_verify}"
+CRITICAL: secure.example.com:443 tls_handshake_failed cn=secure.example.com days=89 verify=self-signed certificate|'secure.example.com_443'=0ms;1000;5000
+```
+
+**Trust an internal CA with `ca=`:**
+
+```
+check_tcp host=secure.example.com port=443 ssl=true ca=/etc/pki/internal-ca.pem "detail-syntax=${host}:${port} ${result} verify=${cert_verify}"
+OK: secure.example.com:443 ok verify=ok|'secure.example.com_443'=2ms;1000;5000
+```
+
+**Require the names the certificate must cover (`sans=`):**
+
+```
+check_tcp host=www.google.com port=443 ssl=true sans=www.google.com "detail-syntax=${host}:${port} ${result} missing=[${missing_sans}]"
+OK: www.google.com:443 ok missing=[]|'www.google.com_443'=7ms;1000;5000
+```
+
+```
+check_tcp host=www.google.com port=443 ssl=true sans=mail.google.com "detail-syntax=${host}:${port} ${result} missing=[${missing_sans}]"
+CRITICAL: www.google.com:443 san_missing missing=[mail.google.com]|'www.google.com_443'=5ms;1000;5000
+```
+
+**Check a virtual host reached by IP (`sni=` drives verification too):**
+
+```
+check_tcp host=142.251.156.119 port=443 ssl=true verify=peer ca=/etc/ssl/certs sni=www.google.com "detail-syntax=${host}:${port} ${result} cn=${cert_cn} verify=${cert_verify} in ${time}ms"
+OK: 142.251.156.119:443 ok cn=www.google.com verify=ok in 4ms|'142.251.156.119_443'=4ms;1000;5000
+```
+
+Without `sni=` the same connection is verified against the literal IP, which the
+certificate does not carry — and `cert_verify` is what says so:
+
+```
+check_tcp host=142.251.156.119 port=443 ssl=true verify=peer ca=/etc/ssl/certs "detail-syntax=${host}:${port} ${result} verify=${cert_verify} in ${time}ms"
+CRITICAL: 142.251.156.119:443 tls_handshake_failed verify=unspecified certificate verification error in 4ms|'142.251.156.119_443'=4ms;1000;5000
+```
+
+**Check the certificate on a STARTTLS service (mail submission, LDAP, databases):**
+
+```
+check_tcp host=smtp.gmail.com starttls=smtp "warn=ssl_expiry_days < 30" "detail-syntax=${host}:${port} ${result} cert=${has_certificate} cn=${cert_cn} days=${ssl_expiry_days}"
+OK: smtp.gmail.com:25 ok cert=1 cn=smtp.gmail.com days=67|'smtp.gmail.com_25_ssl_expiry_days'=67;30;0 'smtp.gmail.com_25'=14ms;0;5000
+```
+
+```
+check_tcp host=db.example.com starttls=postgres "crit=ssl_expiry_days < 10" "detail-syntax=${host}:${port} ${result} days=${ssl_expiry_days}"
+OK: db.example.com:5432 ok days=362|'db.example.com_5432_ssl_expiry_days'=362;0;10
+```
+
+```
+check_tcp host=ldap.example.com starttls=ldap "detail-syntax=${host}:${port} ${result} cn=${cert_cn}"
+OK: ldap.example.com:389 ok cn=ldap.example.com|'ldap.example.com_389'=6ms;1000;5000
+```
+
+**A negotiation that never reaches TLS is reported through `result`, not waited out:**
+
+```
+check_tcp host=mail.example.com starttls=smtp "detail-syntax=${host}:${port} ${result}"
+CRITICAL: mail.example.com:25 starttls_refused|'mail.example.com_25'=12ms;1000;5000
+```
+
+```
+check_tcp host=mail.example.com starttls=smtp "detail-syntax=${host}:${port} ${result}"
+CRITICAL: mail.example.com:25 starttls_disconnected|'mail.example.com_25'=9ms;1000;5000
+```
+
+**Verify against a hashed CA directory as well as a bundle file:**
+
+```
+check_tcp host=secure.example.com port=443 ssl=true verify=peer ca=/etc/ssl/certs "detail-syntax=${host}:${port} ${result} verify=${cert_verify} in ${time}ms"
+OK: secure.example.com:443 ok verify=ok in 19ms|'secure.example.com_443'=19ms;1000;5000
 ```
 
 **Default check via NRPE:**
 
 ```
 check_nscp_client --host 192.168.56.103 --command check_tcp --argument "host=192.168.56.1" --argument "port=22"
-OK: All 1 hosts are ok|'192.168.56.1_22 time'=2ms;1000;5000
+OK: 192.168.56.1:22 ok in 2ms|'192.168.56.1_22'=2ms;1000;5000
 ```
-
 
 
 
@@ -2483,24 +3076,44 @@ OK: All 1 hosts are ok|'192.168.56.1_22 time'=2ms;1000;5000
 <a id="check_tcp_port"></a>
 <a id="check_tcp_send"></a>
 <a id="check_tcp_expect"></a>
-<a id="check_tcp_ca"></a>
+<a id="check_tcp_starttls"></a>
+<a id="check_tcp_sni"></a>
+<a id="check_tcp_sans"></a>
 <a id="check_tcp_address-family"></a>
 <a id="check_tcp_service"></a>
 
-| Option                                | Default Value | Description                                                                                                                                                          |
-|---------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| host                                  |               | Host(s) to connect to (may be given multiple times).                                                                                                                 |
-| hosts                                 |               | Comma separated list of hosts to connect to.                                                                                                                         |
-| port                                  |               | TCP port to connect to.                                                                                                                                              |
-| [timeout](#check_tcp_timeout)         | 5000          | Connection / read timeout in milliseconds.                                                                                                                           |
-| send                                  |               | Optional payload to send after the connection is established.                                                                                                        |
-| expect                                |               | Optional substring expected in the response.                                                                                                                         |
-| [ssl](#check_tcp_ssl)                 | false         | Wrap the connection in TLS/SSL after connecting (ssl=true).                                                                                                          |
-| [tls-version](#check_tcp_tls-version) | tlsv1.2+      | TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).                                                                                |
-| [verify](#check_tcp_verify)           | none          | Certificate verify mode when --ssl is used: none (default), peer, ... (peer requires --ca).                                                                          |
-| ca                                    |               | CA bundle used to verify the server certificate when --ssl --verify peer is used.                                                                                    |
-| address-family                        |               | IP version to use: any (default, let the resolver choose), ipv4 or ipv6. Accepts 4/v4/inet and 6/v6/inet6 as aliases.                                                |
-| service                               |               | Service preset (ftp, pop, imap, smtp, ssh, spop, simap, ssmtp): sets a default port, greeting and expected-response regex. The s-prefixed variants use implicit TLS. |
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+| Option                                | Default Value | Description                                                                                                                                                                                                                                                                                                                                        |
+|---------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| host                                  |               | Host(s) to connect to (may be given multiple times).                                                                                                                                                                                                                                                                                               |
+| hosts                                 |               | Comma separated list of hosts to connect to.                                                                                                                                                                                                                                                                                                       |
+| port                                  |               | TCP port to connect to.                                                                                                                                                                                                                                                                                                                            |
+| [timeout](#check_tcp_timeout)         | 5000          | Connection / read timeout in milliseconds.                                                                                                                                                                                                                                                                                                         |
+| send                                  |               | Optional payload to send after the connection is established.                                                                                                                                                                                                                                                                                      |
+| expect                                |               | Optional substring expected in the response.                                                                                                                                                                                                                                                                                                       |
+| [ssl](#check_tcp_ssl)                 | false         | Wrap the connection in TLS/SSL after connecting (ssl=true).                                                                                                                                                                                                                                                                                        |
+| starttls                              |               | Upgrade the plaintext connection to TLS with the protocol's own STARTTLS negotiation, then check the certificate: smtp lmtp pop3 imap ftp nntp sieve irc postgres mysql ldap. Implies ssl=true and sets the protocol's default plaintext port. Use this for the services that have no implicit-TLS port (submission/587, LDAP, PostgreSQL, MySQL). |
+| [tls-version](#check_tcp_tls-version) | tlsv1.2+      | TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).                                                                                                                                                                                                                                                              |
+| [verify](#check_tcp_verify)           | peer          | Certificate verify mode when the connection is TLS: peer (default; the chain must be trusted and the name must match), none, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate. Set verify=none to reach a server whose certificate does not validate - cert_verify still reports why it did not.                               |
+| [ca](#check_tcp_ca)                   | ${ca-path}    | Trust anchor used to verify the server certificate: either a PEM bundle file or a hashed CA directory such as /etc/ssl/certs. Defaults to the agent's configured bundle (${ca-path}); when that is empty or 'none' the system trust store OpenSSL was built with is used instead.                                                                  |
+| sni                                   |               | TLS Server Name Indication: the name offered to a server hosting several certificates, and the name the certificate is verified against. Defaults to the host connected to; set it to check a virtual host reached by IP.                                                                                                                          |
+| sans                                  |               | Comma separated names the certificate must cover through subjectAltName, e.g. www.example.com,example.com. Wildcard entries match one label (*.example.com covers www.example.com). A missing name sets result=san_missing and lists it in the missing_sans keyword.                                                                               |
+| address-family                        |               | IP version to use: any (default, let the resolver choose), ipv4 or ipv6. Accepts 4/v4/inet and 6/v6/inet6 as aliases.                                                                                                                                                                                                                              |
+| service                               |               | Service preset (ftp, pop, imap, smtp, ssh, spop, simap, ssmtp): sets a default port, greeting and expected-response regex. The s-prefixed variants use implicit TLS.                                                                                                                                                                               |
 
 
 
@@ -2524,9 +3137,15 @@ TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, ss
 
 <h5 id="check_tcp_verify">verify:</h5>
 
-Certificate verify mode when --ssl is used: none (default), peer, ... (peer requires --ca).
+Certificate verify mode when the connection is TLS: peer (default; the chain must be trusted and the name must match), none, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate. Set verify=none to reach a server whose certificate does not validate - cert_verify still reports why it did not.
 
-*Default Value:* `none`
+*Default Value:* `peer`
+
+<h5 id="check_tcp_ca">ca:</h5>
+
+Trust anchor used to verify the server certificate: either a PEM bundle file or a hashed CA directory such as /etc/ssl/certs. Defaults to the agent's configured bundle (${ca-path}); when that is empty or 'none' the system trust store OpenSSL was built with is used instead.
+
+*Default Value:* `${ca-path}`
 
 
 **Common options:**
@@ -2565,20 +3184,34 @@ This command also accepts the standard [help options](../common-options.md#stand
 <a id="check_tcp_filter_keys"></a>
 #### Filter keywords
 
-| Option          | Description                                                                                                                                                                                                                                                                                                                                 |
-|-----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| connected       | 1 when the connection succeeded, 0 otherwise                                                                                                                                                                                                                                                                                                |
-| has_certificate | 1 when the peer presented a TLS certificate, 0 otherwise                                                                                                                                                                                                                                                                                    |
-| host            | Host the check connected to                                                                                                                                                                                                                                                                                                                 |
-| port            | TCP port the check connected to                                                                                                                                                                                                                                                                                                             |
-| response        | The data received from the peer (use with 'like'/'regexp' for custom matching)                                                                                                                                                                                                                                                              |
-| result          | Textual result of the check (ok, refused, timeout, no_match, resolve_failed, ...)                                                                                                                                                                                                                                                           |
-| ssl_expiry_days | Whole days until the peer's TLS certificate expires; negative once it has expired. Renders as 'no certificate' (and compares false against every number) when the connection is not TLS or the peer presented none, so `ssl_expiry_days < 30` cannot fire on a plain connection; `ssl_expiry_days = 'no certificate'` tests for that state. |
-| time            | Connection time in milliseconds                                                                                                                                                                                                                                                                                                             |
+| Option           | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+|------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| cert_cn          | commonName of the certificate subject, e.g. www.example.com. Empty for a certificate that identifies its hosts only through subjectAltName, which is normal - assert on cert_sans instead.                                                                                                                                                                                                                                                                                           |
+| cert_issuer      | Issuer of the peer's TLS certificate as an RFC 2253 string. Empty when there is no certificate.                                                                                                                                                                                                                                                                                                                                                                                      |
+| cert_issuer_cn   | commonName of the certificate issuer, e.g. R11. Use it to alert when a certificate was renewed by an unexpected CA.                                                                                                                                                                                                                                                                                                                                                                  |
+| cert_sans        | subjectAltName entries of the certificate, comma separated and in the openssl form (DNS:host, IP:addr). Use with like/regexp for ad-hoc matching, or the sans= option for a checked requirement.                                                                                                                                                                                                                                                                                     |
+| cert_self_signed | True when the certificate's subject equals its issuer. An internal CA root is legitimately self-signed, so this is reported rather than judged.                                                                                                                                                                                                                                                                                                                                      |
+| cert_subject     | Subject of the peer's TLS certificate as an RFC 2253 string, e.g. CN=www.example.com,O=Acme. Empty when there is no certificate.                                                                                                                                                                                                                                                                                                                                                     |
+| cert_verify      | OpenSSL's verdict on the certificate chain: 'ok', or why it did not verify ('unable to get local issuer certificate', 'self signed certificate', ...). Recorded even with verify=none, so a check can report an untrusted chain without refusing to connect. Empty on a plain connection. NOT an authentication result on its own: only a successful handshake under a verifying mode is that.                                                                                       |
+| connected        | 1 when the connection succeeded, 0 otherwise                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| has_certificate  | 1 when the peer presented a TLS certificate, 0 otherwise                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| host             | Host the check connected to                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| missing_sans     | Names given to the sans= option that the certificate does not cover, comma separated. Empty when nothing was required or everything was found.                                                                                                                                                                                                                                                                                                                                       |
+| port             | TCP port the check connected to                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| response         | The data received from the peer (use with 'like'/'regexp' for custom matching)                                                                                                                                                                                                                                                                                                                                                                                                       |
+| result           | Textual result of the check: ok, refused, timeout, resolve_failed, no_match, read_timeout, read_failed, write_timeout, write_failed, san_missing, tls_handshake_failed, tls_handshake_timeout, and the starttls_* words (starttls_refused, starttls_disconnected, starttls_timeout, starttls_overflow, starttls_write_failed). The default critical filter is result != 'ok', so every one of them alerts without a threshold being written.                                         |
+| ssl_expiry_days  | Whole days until the peer's TLS certificate expires; negative once it has expired. Renders as 'no certificate' (and compares false against every number) when the connection is not TLS, the peer presented none, or the certificate's notAfter could not be read - so `ssl_expiry_days < 30` cannot fire on any of them; `ssl_expiry_days = 'no certificate'` tests for that state, and has_certificate tells a served-but-unreadable certificate apart from no certificate at all. |
+| time             | Connection time in milliseconds                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_tomcat_status
+
+!!! warning "Experimental"
+
+    This check command is experimental: it works, but its options, filter keywords
+    and output may change in a future release. Please try it and report
+    anything that does not behave the way you expect.
 
 Check an Apache Tomcat server via the manager status page (XML).
 
@@ -2655,6 +3288,13 @@ CRITICAL:  http_401: 0/0 threads busy|'_thread_usage'=0%;75;90 '_threads_busy'=0
 <a id="check_tomcat_status_username"></a>
 <a id="check_tomcat_status_password"></a>
 
+        
+        
+        
+        
+        
+        
+        
 | Option                                          | Default Value                        | Description                                                                                                          |
 |-------------------------------------------------|--------------------------------------|----------------------------------------------------------------------------------------------------------------------|
 | [url](#check_tomcat_status_url)                 | http://127.0.0.1:8080/manager/status | URL of the status endpoint (http://host[:port]/path or https://...).                                                 |

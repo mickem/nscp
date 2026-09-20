@@ -219,6 +219,30 @@ OK: Data presumably sent successfully
 <a id="submit_syslog_tag template"></a>
 <a id="submit_syslog_message template"></a>
 
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
 | Option            | Default Value | Description                                                                           |
 |-------------------|---------------|---------------------------------------------------------------------------------------|
 | host              |               | The host of the host running the server                                               |

@@ -133,11 +133,17 @@ A quick reference for all available queries (check commands) in the Scheduler mo
 
 A list of all available queries (check commands)
 
-| Command                         | Description                                                                                                  |
-|---------------------------------|--------------------------------------------------------------------------------------------------------------|
-| [run_schedules](#run_schedules) | Run configured schedules now instead of waiting for their interval and submit the results as passive checks. |
+| Command                                          | Description                                                                                                  |
+|--------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
+| [run_schedules](#run_schedules) *(experimental)* | Run configured schedules now instead of waiting for their interval and submit the results as passive checks. |
 
 ### run_schedules
+
+!!! warning "Experimental"
+
+    This check command is experimental: it works, but its options, filter keywords
+    and output may change in a future release. Please try it and report
+    anything that does not behave the way you expect.
 
 Run configured schedules now instead of waiting for their interval and submit the results as passive checks.
 
@@ -274,6 +280,7 @@ OK: Ran 2 schedule(s): cpu, host_check
 
 <a id="run_schedules_schedule"></a>
 
+        
 | Option   | Default Value | Description                                                                                     |
 |----------|---------------|-------------------------------------------------------------------------------------------------|
 | schedule |               | Alias of a schedule to run, can be given more than once. Defaults to every configured schedule. |

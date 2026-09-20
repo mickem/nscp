@@ -200,7 +200,7 @@ windows:
         repeatable: false
         required: false
         short_description: Query timeout in seconds.
-      - content_type: 2
+      - content_type: 4
         default_value: 'true'
         is_simple: false
         long_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
@@ -287,7 +287,7 @@ windows:
         description: Check the age of the last full/differential/log backup per database.
         experimental: true
       params:
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: 'Count COPY_ONLY backups when computing the ages. Excluded by default: an ad-hoc
@@ -299,7 +299,7 @@ windows:
         short_description: 'Count COPY_ONLY backups when computing the ages. Excluded by default: an ad-hoc
           copy-only backup does not belong to the scheduled restore chain, so counting it would hide a
           failing backup job.'
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Count snapshot (VSS/third-party agent) backups when computing the ages. Excluded
@@ -375,7 +375,7 @@ windows:
         repeatable: false
         required: false
         short_description: Query timeout in seconds.
-      - content_type: 2
+      - content_type: 4
         default_value: 'true'
         is_simple: false
         long_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
@@ -535,7 +535,7 @@ windows:
         repeatable: false
         required: false
         short_description: Query timeout in seconds.
-      - content_type: 2
+      - content_type: 4
         default_value: 'true'
         is_simple: false
         long_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
@@ -691,7 +691,7 @@ windows:
         repeatable: false
         required: false
         short_description: Query timeout in seconds.
-      - content_type: 2
+      - content_type: 4
         default_value: 'true'
         is_simple: false
         long_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
@@ -829,7 +829,7 @@ windows:
         repeatable: false
         required: false
         short_description: Query timeout in seconds.
-      - content_type: 2
+      - content_type: 4
         default_value: 'true'
         is_simple: false
         long_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers

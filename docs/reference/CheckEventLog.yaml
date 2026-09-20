@@ -488,7 +488,7 @@ windows:
         repeatable: false
         required: false
         short_description: Maximum length of message for each event log message text.
-      - content_type: 2
+      - content_type: 4
         default_value: 'true'
         is_simple: false
         long_description: 'Shorthand for setting default unique index: ${log}-${source}-${id}.'

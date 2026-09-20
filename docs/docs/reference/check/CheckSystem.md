@@ -568,6 +568,8 @@ CPU Load ok
     <a id="check_cpu_time"></a>
     <a id="check_cpu_cores"></a>
 
+
+
     | Option | Default Value | Description                                                                                 |
     |--------|---------------|---------------------------------------------------------------------------------------------|
     | time   |               | The time to check                                                                           |
@@ -612,6 +614,8 @@ CPU Load ok
 
     <a id="check_cpu_time"></a>
     <a id="check_cpu_cores"></a>
+
+
 
     | Option | Default Value | Description                                                                                 |
     |--------|---------------|---------------------------------------------------------------------------------------------|
@@ -2226,6 +2230,7 @@ OK - Context Switches 57111.0/s, Process Creations 317.0/s
 
     <a id="check_kernel_stats_type"></a>
 
+
     | Option | Default Value | Description                                                                                    |
     |--------|---------------|------------------------------------------------------------------------------------------------|
     | type   |               | Select metric type(s) to show: ctxt, syscalls, processes or threads (repeatable; default: all) |
@@ -2268,6 +2273,7 @@ OK - Context Switches 57111.0/s, Process Creations 317.0/s
 === "Linux"
 
     <a id="check_kernel_stats_type"></a>
+
 
     | Option | Default Value | Description                                                                          |
     |--------|---------------|--------------------------------------------------------------------------------------|
@@ -2533,6 +2539,7 @@ OK: total load average: 2.33528, 1.84625, 1.74261
 <a id="check_load_options"></a>
 #### Command-line Arguments
 
+        
 | Option                       | Default Value | Description                                                                         |
 |------------------------------|---------------|-------------------------------------------------------------------------------------|
 | [percpu](#check_load_percpu) | false         | Divide the load averages by the number of CPUs (reports the 'scaled' per-core load) |
@@ -2681,6 +2688,7 @@ page = 8.05G, physical = 7.85G
 
     <a id="check_memory_type"></a>
 
+
     | Option | Default Value | Description                                                                                        |
     |--------|---------------|----------------------------------------------------------------------------------------------------|
     | type   |               | The type of memory to check (physical = Physical memory (RAM), committed = total memory (RAM+PAGE) |
@@ -2723,6 +2731,7 @@ page = 8.05G, physical = 7.85G
 === "Linux"
 
     <a id="check_memory_type"></a>
+
 
     | Option | Default Value | Description                                                                                        |
     |--------|---------------|----------------------------------------------------------------------------------------------------|
@@ -3197,6 +3206,7 @@ OK: eth0 >659B/s <659B/s, lo >0B/s <0B/s
 
 === "Windows"
 
+
     | Option                      | Default Value | Description                                                                                                                                                                                                                                                         |
     |-----------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
     | [mode](#check_network_mode) | interface     | Which WMI source to report from: 'interface' (default; Win32_PerfRawData_Tcpip_NetworkInterface, physical adapters only), 'adapter' (Win32_PerfRawData_Tcpip_NetworkAdapter, includes NIC team aggregates), or 'both' (every interface reported under both sources) |
@@ -3662,6 +3672,7 @@ OK: 0 updates available (0 security)
 === "Windows"
 
     <a id="check_os_updates_update-filter"></a>
+
 
     | Option        | Default Value | Description                                                                                                                                 |
     |---------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------|
@@ -4228,6 +4239,7 @@ OK: 42 hotfixes installed, newest KB5034441 on 3/12/2024 (18d ago)
 
 <a id="check_patch_age_hotfix"></a>
 
+        
 | Option | Default Value | Description                                                                                                                                                                                   |
 |--------|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | hotfix |               | A required HotFixID (repeatable). The check is CRITICAL when a requested hotfix is not installed. A bare number is matched with an implicit 'KB' prefix (hotfix=5034441 == hotfix=KB5034441). |
@@ -4439,6 +4451,16 @@ L     client OK: \\MIME-LAPTOP\Processor(0)\% processortid = 100, \\MIME-LAPTOP\
 <a id="check_pdh_time"></a>
 <a id="check_pdh_flags"></a>
 
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
 | Option                                    | Default Value | Description                                                                                                                                                                                                                                                                                 |
 |-------------------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [counter](#check_pdh_counter)             |               | Performance counter to check.                                                                                                                                                                                                                                                               |
@@ -5392,13 +5414,20 @@ bash rss=8.594MB ws=8.594MB, bash rss=9.219MB ws=9.219MB, bash rss=4.688MB ws=4.
     <a id="check_process_scan-16bit"></a>
     <a id="check_process_scan-unreadable"></a>
 
+
+
+
+
+
+
+
     | Option                                        | Default Value | Description                                                                                                                                              |
     |-----------------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
     | process                                       |               | The service to check, set this to * to check all services                                                                                                |
-    | scan-info                                     |               | If all process metrics should be fetched (otherwise only status is fetched)                                                                              |
-    | scan-16bit                                    |               | If 16bit processes should be included                                                                                                                    |
+    | scan-info                                     | N/A           | If all process metrics should be fetched (otherwise only status is fetched)                                                                              |
+    | scan-16bit                                    | N/A           | If 16bit processes should be included                                                                                                                    |
     | [delta](#check_process_delta)                 | false         | Report CPU usage as a percentage of total CPU instead of cumulative seconds.                                                                             |
-    | scan-unreadable                               |               | If unreadable processes should be included (will not have information)                                                                                   |
+    | scan-unreadable                               | N/A           | If unreadable processes should be included (will not have information)                                                                                   |
     | [total](#check_process_total)                 | false         | Include the total of all matching files                                                                                                                  |
     | [resolve-owner](#check_process_resolve-owner) | false         | Populate the username/uid keywords with the process owner. Off by default: resolving the owner name can block for seconds on domain / Azure-AD accounts. |
 
@@ -5460,10 +5489,14 @@ bash rss=8.594MB ws=8.594MB, bash rss=9.219MB ws=9.219MB, bash rss=4.688MB ws=4.
 
     <a id="check_process_process"></a>
 
+
+
+
+
     | Option                                        | Default Value | Description                                                                                                                                                                                                                                                 |
     |-----------------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
     | process                                       |               | The process to check, set this to * to check all processes                                                                                                                                                                                                  |
-    | [delta](#check_process_delta)                 |               | Measure CPU usage as a delta over a one second interval.                                                                                                                                                                                                    |
+    | [delta](#check_process_delta)                 | N/A           | Measure CPU usage as a delta over a one second interval.                                                                                                                                                                                                    |
     | [total](#check_process_total)                 | false         | Include the total of all matching processes                                                                                                                                                                                                                 |
     | [resolve-owner](#check_process_resolve-owner) | false         | Populate the username keyword with the process owner's user name. Off by default: the lookup goes through NSS and can block for seconds when it is backed by a remote directory (LDAP/SSSD). The numeric uid keyword is always populated and needs no flag. |
 
@@ -5833,6 +5866,7 @@ OK: 1 processes in history.
 
 <a id="check_process_history_process"></a>
 
+        
 | Option  | Default Value | Description                                                                                                              |
 |---------|---------------|--------------------------------------------------------------------------------------------------------------------------|
 | process |               | Filter to specific process names. Can be specified multiple times. If not specified, all processes in history are shown. |
@@ -6014,6 +6048,7 @@ OK: No new processes found.
 <a id="check_process_history_new_options"></a>
 #### Command-line Arguments
 
+        
 | Option                                  | Default Value | Description                                                                                                             |
 |-----------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------|
 | [time](#check_process_history_new_time) | 5m            | Time window to check for new processes (e.g., 5m, 1h, 30s). Processes first seen within this window are considered new. |
@@ -6229,6 +6264,12 @@ OK: All 1 registry key(s) are ok.
 <a id="check_registry_key_computer"></a>
 <a id="check_registry_key_max-depth"></a>
 
+        
+        
+        
+        
+        
+        
 | Option                                     | Default Value | Description                                                                 |
 |--------------------------------------------|---------------|-----------------------------------------------------------------------------|
 | [key](#check_registry_key_key)             |               | One or more registry key paths to check (e.g. HKLM\Software\MyApp).         |
@@ -6475,6 +6516,13 @@ OK: HKLM\Software\NSClient\InstallVersion: 0.6.0 (type=REG_SZ)
 <a id="check_registry_value_computer"></a>
 <a id="check_registry_value_max-depth"></a>
 
+        
+        
+        
+        
+        
+        
+        
 | Option                                       | Default Value | Description                                                                            |
 |----------------------------------------------|---------------|----------------------------------------------------------------------------------------|
 | [key](#check_registry_value_key)             |               | One or more registry key paths whose values to check (e.g. HKLM\Software\MyApp).       |
@@ -6808,6 +6856,18 @@ OK: All 1 service(s) are ok.
     <a id="check_service_service"></a>
     <a id="check_service_exclude"></a>
 
+
+
+
+
+
+
+
+
+
+
+
+
     | Option                                            | Default Value | Description                                                                                                                                                                           |
     |---------------------------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
     | computer                                          |               | The name of the remote computer to check                                                                                                                                              |
@@ -6916,6 +6976,9 @@ OK: All 1 service(s) are ok.
 
     <a id="check_service_service"></a>
     <a id="check_service_exclude"></a>
+
+
+
 
     | Option                        | Default Value | Description                                                                |
     |-------------------------------|---------------|----------------------------------------------------------------------------|
@@ -7586,6 +7649,7 @@ check_uptime max-unit=d "detail-syntax=uptime: ${uptime}, boot: ${boot} (${tz})"
 <a id="check_uptime_options"></a>
 #### Command-line Arguments
 
+        
 | Option                             | Default Value | Description                                                                                                                              |
 |------------------------------------|---------------|------------------------------------------------------------------------------------------------------------------------------------------|
 | [max-unit](#check_uptime_max-unit) | w             | Largest time unit used to render ${uptime}: s|m|h|d|w (default: w). For a 6-week uptime, w=>'6w 0d 00:00', d=>'42d 00:00', h=>'1008:00'. |
@@ -8783,11 +8847,13 @@ This is a section of objects. This means that you will create objects below this
 | collection strategy |               | COLLECTION STRATEGY |
 | counter             |               | COUNTER             |
 | flags               |               | FLAGS               |
+| help                |               | COUNTER DESCRIPTION |
 | instances           |               | Interpret instances |
 | is template         | false         | IS TEMPLATE         |
 | parent              | default       | PARENT              |
 | resolution          |               | COUNTER RESOLUTION  |
 | type                |               | COUNTER TYPE        |
+| unit                |               | COUNTER UNIT        |
 
 
 **Sample:**
@@ -8800,11 +8866,13 @@ This is a section of objects. This means that you will create objects below this
 #collection strategy=...
 #counter=...
 #flags=...
+#help=...
 #instances=...
 is template=false
 parent=default
 #resolution=...
 #type=...
+#unit=...
 
 ```
 

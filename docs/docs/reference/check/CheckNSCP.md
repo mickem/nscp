@@ -19,11 +19,11 @@ A quick reference for all available queries (check commands) in the CheckNSCP mo
 
 A list of all available queries (check commands)
 
-| Command                                   | Description                                                                                                                                              |
-|-------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [check_nscp](#check_nscp)                 | Check the internal health of NSClient++.                                                                                                                 |
-| [check_nscp_update](#check_nscp_update)   | Check if there is a newer version of NSClient++ available on GitHub. The result is cached (default 24 hours) to avoid hitting the GitHub API rate limit. |
-| [check_nscp_version](#check_nscp_version) | Check the version of NSClient++ which is used.                                                                                                           |
+| Command                                                  | Description                                                                                                                                              |
+|----------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [check_nscp](#check_nscp)                                | Check the internal health of NSClient++.                                                                                                                 |
+| [check_nscp_update](#check_nscp_update) *(experimental)* | Check if there is a newer version of NSClient++ available on GitHub. The result is cached (default 24 hours) to avoid hitting the GitHub API rate limit. |
+| [check_nscp_version](#check_nscp_version)                | Check the version of NSClient++ which is used.                                                                                                           |
 
 ### check_nscp
 
@@ -197,6 +197,7 @@ agent is OK|'nscp_crashes'=0;0;0 'nscp_errors'=0;0;0
 <a id="check_nscp_options"></a>
 #### Command-line Arguments
 
+        
 | Option                           | Default Value | Description                                                                                                                                               |
 |----------------------------------|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [max-unit](#check_nscp_max-unit) | w             | Largest time unit used to render ${uptime} and ${crash_age}: s|m|h|d|w (default: w). For a 6-week uptime, w=>'6w 0d 00:00', d=>'42d 00:00', h=>'1008:00'. |
@@ -260,6 +261,12 @@ This command also accepts the standard [help options](../common-options.md#stand
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_nscp_update
+
+!!! warning "Experimental"
+
+    This check command is experimental: it works, but its options, filter keywords
+    and output may change in a future release. Please try it and report
+    anything that does not behave the way you expect.
 
 Check if there is a newer version of NSClient++ available on GitHub. The result is cached (default 24 hours) to avoid hitting the GitHub API rate limit.
 
