@@ -546,12 +546,16 @@ bool write_pem(const std::string& path, const char* content) {
 
 // Synchronous TLS Beast client that doesn't verify the server cert —
 // the test cert is self-signed and we're only proving the handshake
-// completes and the response body round-trips.
-RawResponse beast_fetch_tls(const std::string& host, int port, const std::string& target) {
+// completes and the response body round-trips. `method` picks the client's
+// protocol so a test can prove which versions the listener will negotiate;
+// a version-pinned client method fails the handshake against a listener that
+// excludes that version, which is exactly the assertion.
+RawResponse beast_fetch_tls(const std::string& host, int port, const std::string& target,
+                            asio::ssl::context::method method = asio::ssl::context::tlsv12_client) {
   RawResponse out;
   try {
     asio::io_context ioc;
-    asio::ssl::context ctx(asio::ssl::context::tlsv12_client);
+    asio::ssl::context ctx(method);
     ctx.set_verify_mode(asio::ssl::verify_none);
 
     tcp::resolver resolver(ioc);
@@ -625,6 +629,217 @@ TEST(ServerBeastImpl, SchemeLessBindWithSslCertEnablesTls) {
                               << (logger->errors.empty() ? std::string("(none)") : logger->errors.front()) << ")";
   EXPECT_EQ(resp.status, 200);
   EXPECT_NE(resp.body.find("hello-tls"), std::string::npos);
+}
+
+// ---- setTlsOptions: what `tls version` and `allowed ciphers` actually do ----
+//
+// The change these cover replaced asio's tlsv12_server - which pins BOTH ends
+// of the range, so TLS 1.3 could never be negotiated on any Linux package -
+// with a generic context plus an explicit floor and ceiling. That claim was
+// previously untested: the only TLS test here handshook with a tlsv12_client,
+// which passes either way.
+
+namespace {
+
+// Write the embedded PEMs to a fresh scratch directory and hand back its path.
+// The caller removes it; on a failing assertion the leftovers are in temp,
+// which is the same trade the existing TLS test makes.
+struct TlsScratch {
+  std::string dir;
+  std::string cert;
+  std::string key;
+};
+
+bool make_tls_scratch(TlsScratch& out, const std::string& tag) {
+  out.dir = (std::filesystem::temp_directory_path() / ("server_beast_impl_test_" + tag + "_" + std::to_string(MWT_GETPID()))).string();
+  std::error_code ec;
+  std::filesystem::create_directories(out.dir, ec);
+  out.cert = out.dir + "/cert.pem";
+  out.key = out.dir + "/key.pem";
+  return write_pem(out.cert, kTestCertPem) && write_pem(out.key, kTestKeyPem);
+}
+
+// Start a TLS server with the given tls version / cipher settings, without the
+// bind-retry loop: these tests care whether start() refused, so a logged error
+// must not be read as "port busy, try the next one".
+void start_tls_server(ServerBeastImpl& server, TlsScratch& scratch, const std::string& tls_version, const std::string& ciphers, int port) {
+  std::string cert_copy = scratch.cert;
+  std::string key_copy = scratch.key;
+  server.setSsl(cert_copy, key_copy);
+  server.setTlsOptions(tls_version, ciphers);
+  server.start("127.0.0.1:" + std::to_string(port));
+}
+
+}  // namespace
+
+TEST(ServerBeastImpl, TlsVersion13IsNegotiable) {
+  TlsScratch scratch;
+  ASSERT_TRUE(make_tls_scratch(scratch, "tls13"));
+
+  auto logger = std::make_shared<CollectingLogger>();
+  std::unique_ptr<ServerBeastImpl> server(new ServerBeastImpl(logger));
+  auto* controller = new MatchController();
+  controller->registerRoute("GET", "/", new FixedHandler(200, "hello-tls13"));
+  server->registerController(controller);
+
+  std::string cert_copy = scratch.cert;
+  std::string key_copy = scratch.key;
+  server->setSsl(cert_copy, key_copy);
+  server->setTlsOptions("1.3", "");
+  const int port = start_listening(*server, logger, choose_port_base() + 50, /*scheme_less=*/true);
+  ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
+
+  // A TLS 1.3 client completes; this is the case tlsv12_server made impossible.
+  auto resp = beast_fetch_tls("127.0.0.1", port, "/", asio::ssl::context::tlsv13_client);
+  // ... and a client pinned to 1.2 is refused, proving the floor is real
+  // rather than the listener accepting everything.
+  auto refused = beast_fetch_tls("127.0.0.1", port, "/", asio::ssl::context::tlsv12_client);
+  server->stop();
+
+  std::error_code ec;
+  std::filesystem::remove_all(scratch.dir, ec);
+
+  ASSERT_TRUE(resp.received) << "TLS 1.3 handshake failed (logger errors: " << (logger->errors.empty() ? std::string("(none)") : logger->errors.front()) << ")";
+  EXPECT_EQ(resp.status, 200);
+  EXPECT_NE(resp.body.find("hello-tls13"), std::string::npos);
+  EXPECT_FALSE(refused.received) << "a TLS 1.2 client should not reach a listener pinned to 1.3";
+}
+
+TEST(ServerBeastImpl, UnknownTlsVersionLeavesServerUnstarted) {
+  TlsScratch scratch;
+  ASSERT_TRUE(make_tls_scratch(scratch, "badver"));
+
+  auto logger = std::make_shared<CollectingLogger>();
+  std::unique_ptr<ServerBeastImpl> server(new ServerBeastImpl(logger));
+  const int port = choose_port_base() + 51;
+  start_tls_server(*server, scratch, "1.4", "", port);
+
+  std::error_code ec;
+  std::filesystem::remove_all(scratch.dir, ec);
+
+  EXPECT_FALSE(wait_listening(port, std::chrono::milliseconds(300))) << "a listener came up despite an unusable tls version";
+  ASSERT_GE(logger->error_count(), 1u);
+  EXPECT_NE(logger->errors.front().find("Invalid tls version"), std::string::npos) << logger->errors.front();
+}
+
+TEST(ServerBeastImpl, ExactSslv3LeavesServerUnstarted) {
+  // sslv3 is in the shared vocabulary, but the context excludes SSL 3.0
+  // unconditionally - so pinning both ends of the range to it used to start a
+  // listener that reported success and then failed every handshake with
+  // nothing logged. It is refused up front instead.
+  TlsScratch scratch;
+  ASSERT_TRUE(make_tls_scratch(scratch, "sslv3"));
+
+  auto logger = std::make_shared<CollectingLogger>();
+  std::unique_ptr<ServerBeastImpl> server(new ServerBeastImpl(logger));
+  const int port = choose_port_base() + 52;
+  start_tls_server(*server, scratch, "sslv3", "", port);
+
+  std::error_code ec;
+  std::filesystem::remove_all(scratch.dir, ec);
+
+  EXPECT_FALSE(wait_listening(port, std::chrono::milliseconds(300))) << "a listener came up that could not have completed a handshake";
+  ASSERT_GE(logger->error_count(), 1u);
+  EXPECT_NE(logger->errors.front().find("SSL 3.0 is never served"), std::string::npos) << logger->errors.front();
+}
+
+TEST(ServerBeastImpl, Sslv3PlusIsAFloorAndStarts) {
+  // The '+' form is a floor, not a pin: it means "the oldest we speak", and
+  // has to keep working where the exact spelling is refused.
+  TlsScratch scratch;
+  ASSERT_TRUE(make_tls_scratch(scratch, "sslv3plus"));
+
+  auto logger = std::make_shared<CollectingLogger>();
+  std::unique_ptr<ServerBeastImpl> server(new ServerBeastImpl(logger));
+  auto* controller = new MatchController();
+  controller->registerRoute("GET", "/", new FixedHandler(200, "hello-floor"));
+  server->registerController(controller);
+
+  std::string cert_copy = scratch.cert;
+  std::string key_copy = scratch.key;
+  server->setSsl(cert_copy, key_copy);
+  server->setTlsOptions("sslv3+", "");
+  const int port = start_listening(*server, logger, choose_port_base() + 53, /*scheme_less=*/true);
+  ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
+
+  auto resp = beast_fetch_tls("127.0.0.1", port, "/", asio::ssl::context::tlsv12_client);
+  server->stop();
+
+  std::error_code ec;
+  std::filesystem::remove_all(scratch.dir, ec);
+
+  ASSERT_TRUE(resp.received) << "logger errors: " << (logger->errors.empty() ? std::string("(none)") : logger->errors.front());
+  EXPECT_EQ(resp.status, 200);
+}
+
+TEST(ServerBeastImpl, UnusableCipherListLeavesServerUnstarted) {
+  // Refusing is the point: a cipher list OpenSSL rejects leaves the default
+  // suite set in place, which is the opposite of what an operator narrowing it
+  // asked for.
+  TlsScratch scratch;
+  ASSERT_TRUE(make_tls_scratch(scratch, "badcipher"));
+
+  auto logger = std::make_shared<CollectingLogger>();
+  std::unique_ptr<ServerBeastImpl> server(new ServerBeastImpl(logger));
+  const int port = choose_port_base() + 54;
+  start_tls_server(*server, scratch, "1.2+", "NOT-A-REAL-CIPHER", port);
+
+  std::error_code ec;
+  std::filesystem::remove_all(scratch.dir, ec);
+
+  EXPECT_FALSE(wait_listening(port, std::chrono::milliseconds(300))) << "a listener came up with a cipher list OpenSSL rejected";
+  ASSERT_GE(logger->error_count(), 1u);
+  EXPECT_NE(logger->errors.front().find("allowed ciphers"), std::string::npos) << logger->errors.front();
+}
+
+TEST(ServerBeastImpl, SetTlsOptionsAfterStartIsRejected) {
+  ServerFixture f;
+  auto* controller = new MatchController();
+  controller->registerRoute("GET", "/", new FixedHandler(200, "ok"));
+  const int port = f.start(choose_port_base() + 55, controller);
+  ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
+
+  const std::size_t before = f.logger->error_count();
+  f.server->setTlsOptions("1.3", "");
+  f.server->stop();
+
+  EXPECT_GT(f.logger->error_count(), before) << "setTlsOptions() after start() should say it was ignored";
+}
+
+TEST(ServerBeastImpl, UnmatchedRouteCarriesTheSameSecurityHeaders) {
+  // The 404 never goes through a Response, so it assembles the headers itself
+  // - from the shared list, not a hand-rolled third policy.
+  ServerFixture f;
+  auto* controller = new MatchController();
+  controller->registerRoute("GET", "/known", new FixedHandler(200, "ok"));
+  const int port = f.start(choose_port_base() + 56, controller);
+  ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
+
+  auto resp = beast_fetch("127.0.0.1", port, "/nothing-here");
+  f.server->stop();
+
+  ASSERT_TRUE(resp.received);
+  EXPECT_EQ(resp.status, 404);
+
+  auto header_value = [&resp](const std::string& name) {
+    for (const auto& kv : resp.headers) {
+      if (kv.first.size() == name.size() &&
+          std::equal(kv.first.begin(), kv.first.end(), name.begin(),
+                     [](char a, char b) { return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b)); })) {
+        return kv.second;
+      }
+    }
+    return std::string();
+  };
+
+  // The full policy, the one add_security_headers() emits - not a narrower
+  // variant that only happens to satisfy a frame-ancestors assertion.
+  const std::string csp = header_value("Content-Security-Policy");
+  EXPECT_NE(csp.find("default-src 'self'"), std::string::npos) << csp;
+  EXPECT_NE(csp.find("frame-ancestors 'none'"), std::string::npos) << csp;
+  EXPECT_EQ(header_value("X-Frame-Options"), "DENY");
+  EXPECT_EQ(header_value("X-Content-Type-Options"), "nosniff");
+  EXPECT_EQ(header_value("Referrer-Policy"), "no-referrer");
 }
 
 // ---- Hardening: port validation, body limit, header injection, misuse ----

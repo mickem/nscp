@@ -57,7 +57,8 @@ describe("Login page", () => {
     await waitFor(() => {
       expect(store.getState().auth.token).toBe("session-key-123");
     });
-    expect(localStorage.getItem("token")).toBe("session-key-123");
+    expect(sessionStorage.getItem("token")).toBe("session-key-123");
+    expect(localStorage.getItem("token")).toBeNull();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
@@ -73,9 +74,9 @@ describe("Login page", () => {
     });
   });
 
-  it("restores a previously stored token from localStorage", async () => {
+  it("restores a previously stored token from sessionStorage", async () => {
     installFetchMock({});
-    localStorage.setItem("token", "stored-token");
+    sessionStorage.setItem("token", "stored-token");
     const { store } = renderWithProviders(<Login />, { withRouter: false });
 
     await waitFor(() => {

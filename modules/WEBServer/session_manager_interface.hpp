@@ -65,8 +65,19 @@ struct session_manager_interface {
 
   session_manager_interface();
 
+  // `issue_token` decides whether a successful Basic / `password`-header
+  // authentication also mints a session token and inserts it in the store.
+  //
+  // It used to happen on every such request, not only on the login routes, so
+  // an Icinga check_nscp_api poll minted one per check. The store evicts the
+  // oldest live entry at 4096: a host running 20 checks a minute filled it in
+  // about three and a half hours and then evicted the operator's UI session
+  // within minutes, and any authenticated user of any role could do the same
+  // deliberately in 4096 requests. Only the login route needs a token handed
+  // back; every other route needs the uid context, which is what can() reads.
   bool process_auth_header(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response);
-  bool process_auth_header(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response, std::string *matched_grant = nullptr);
+  bool process_auth_header(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response, std::string *matched_grant = nullptr,
+                           bool issue_token = false);
   // Handle the legacy `password` HTTP header used by Icinga's
   // check_nscp_api (and any client that follows the same convention). The
   // header carries the password only; the user is implied to be "admin".
@@ -74,12 +85,17 @@ struct session_manager_interface {
   // process_auth_header.
   bool process_password_header(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response, const std::string &password);
   bool process_password_header(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response, const std::string &password,
-                               std::string *matched_grant = nullptr);
+                               std::string *matched_grant = nullptr, bool issue_token = false);
   bool is_logged_in(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response);
   // When matched_grant is given it receives the alternative which authorised
   // the call, so a call site can branch on the privilege it was granted
   // without walking the (mutex-guarded) grant tree a second time.
-  bool is_logged_in(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response, std::string *matched_grant = nullptr);
+  bool is_logged_in(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response, std::string *matched_grant = nullptr,
+                    bool issue_token = false);
+  // The login routes: authenticate and, for a Basic / `password`-header
+  // caller, hand back a fresh session token. Every other route authenticates
+  // without adding to the token store - see process_auth_header.
+  bool log_in(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response);
 
   bool is_allowed(const std::string &ip);
 
@@ -123,7 +139,9 @@ struct session_manager_interface {
   bool validate_user(const std::string &user, const std::string &password);
   // Returns false when no session could be created (CSPRNG failure); the
   // caller must not treat the request as authenticated.
-  bool store_user_in_response(const std::string &user, Mongoose::StreamResponse &response);
+  // With `issue_token` false only the `uid` context is set, which is all can()
+  // consults; no entry is added to the token store and the call cannot fail.
+  bool store_user_in_response(const std::string &user, Mongoose::StreamResponse &response, bool issue_token = true);
   void store_session_in_response(const std::string &token, const std::string &user, Mongoose::StreamResponse &response) const;
   bool can(const std::string &grant, Mongoose::StreamResponse &response);
   // Satisfied by any one of the alternatives; matched_grant, when given,

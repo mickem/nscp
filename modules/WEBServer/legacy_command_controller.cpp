@@ -41,7 +41,7 @@ void legacy_command_controller::handle_query(Mongoose::Request &request, boost::
 
   // Stamp the caller identity onto the request so the core permission
   // layer can see who's asking. plugin_id is WEBServer; the principal is
-  // the authenticated user from the session cookie. Same metadata keys
+  // the authenticated user from the request-scoped session context. Same metadata keys
   // core_helper::simple_query_as uses, kept in lockstep with the
   // decision point in service/plugins/plugin_manager.cpp.
   {

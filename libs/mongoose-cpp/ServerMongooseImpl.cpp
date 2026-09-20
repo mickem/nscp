@@ -12,6 +12,7 @@
 #include <string>
 #include <utility>
 
+#include "Helpers.h"
 #include "cert_loader.h"
 
 using namespace std;
@@ -77,6 +78,29 @@ void ServerMongooseImpl::setSsl(std::string &new_certificate, std::string &new_k
 #else
   logger_->log_error("Not compiled with TLS");
 #endif
+}
+
+void ServerMongooseImpl::setTlsOptions(const std::string &tls_version, const std::string &ciphers) {
+  // mongoose drives TLS through its own stack, which exposes neither a
+  // protocol-version range nor a cipher list. Saying so is the point: an
+  // operator who narrowed either setting must know it did not take effect on
+  // this backend rather than believe the listener was hardened.
+  //
+  // Only for a value the operator chose, though. WEBServer passes an empty
+  // `tls version` when the setting is still at its default, because an error
+  // on every start and reload of every stock Windows agent - naming a setting
+  // nobody wrote - is noise that teaches operators to ignore the log. The
+  // backend's limitation is still recorded, at debug level.
+  if (tls_version.empty() && ciphers.empty()) {
+    logger_->log_debug("The mongoose web backend drives TLS through its own stack: 'tls version' and 'allowed ciphers' have no effect here.");
+    return;
+  }
+  if (!tls_version.empty()) {
+    logger_->log_error("Ignoring 'tls version = " + tls_version + "': the mongoose web backend does not expose the TLS protocol version.");
+  }
+  if (!ciphers.empty()) {
+    logger_->log_error("Ignoring 'allowed ciphers': the mongoose web backend does not expose the TLS cipher list.");
+  }
 }
 
 void ServerMongooseImpl::thread_proc() {
@@ -214,6 +238,9 @@ void ServerMongooseImpl::onHttpRequest(mg_connection *connection, mg_http_messag
       Request request = build_request(ip, message, is_ssl, method);
 
       std::unique_ptr<Response> response(ctrl->handleRequest(request));
+      // Applied here, on the way out, so every answer carries them: static
+      // files, API responses and the error pages a controller returns alike.
+      Helpers::add_security_headers(*response, is_ssl);
       std::stringstream headers;
       bool has_content_type = false;
       for (const Response::header_type::value_type &v : response->get_headers()) {
@@ -270,7 +297,15 @@ void ServerMongooseImpl::onHttpRequest(mg_connection *connection, mg_http_messag
       return;
     }
   }
-  mg_http_reply(connection, HTTP_NOT_FOUND, "", "Document not found");
+  // Same headers as every other answer: this path never builds a Response, so
+  // it assembles them from the shared list itself. A framed 404 is still a
+  // framed page.
+  std::ostringstream not_found_headers;
+  not_found_headers << "Content-Type: text/plain\r\n";
+  for (const auto &header : Helpers::security_headers(is_ssl)) {
+    not_found_headers << header.first << ": " << header.second << "\r\n";
+  }
+  mg_http_reply(connection, HTTP_NOT_FOUND, not_found_headers.str().c_str(), "Document not found");
 }
 
 }  // namespace Mongoose

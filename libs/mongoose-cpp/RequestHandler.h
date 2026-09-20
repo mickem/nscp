@@ -5,8 +5,10 @@
 #ifndef _MONGOOSE_REQUEST_HANDLER_H
 #define _MONGOOSE_REQUEST_HANDLER_H
 
+#include <memory>
 #include <string>
 
+#include "Controller.h"
 #include "Request.h"
 #include "Response.h"
 
@@ -25,17 +27,23 @@ class RequestHandler : public RequestHandlerBase {
   RequestHandler(T *controller_, const fPtr function_) : controller(controller_), function(function_) {}
 
   Response *process(Request &request) override {
-    R *response = new R;
+    // Owned for the duration: every catch below used to return a different
+    // object and leak this one, once per exception, for the life of the
+    // process. Released to the caller on the way out, which is where
+    // ownership transfers.
+    std::unique_ptr<R> response(new R);
 
     try {
       (controller->*function)(request, *response);
     } catch (std::string &exception) {
-      return Controller::serverInternalError(exception);
+      return Controller::internalErrorFromException(exception);
+    } catch (const std::exception &exception) {
+      return Controller::internalErrorFromException(exception.what());
     } catch (...) {
-      return Controller::serverInternalError("Unknown error");
+      return Controller::internalErrorFromException("Unknown error");
     }
 
-    return response;
+    return response.release();
   }
 
  protected:
