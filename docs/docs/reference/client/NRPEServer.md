@@ -28,35 +28,35 @@ NRPEServer = enabled
 
 Section for NRPE (NRPEServer.dll) (check_nrpe) protocol options.
 
-| Key                                                       | Default Value                       | Description                            |
-|-----------------------------------------------------------|-------------------------------------|----------------------------------------|
-| [allow arguments](#command-argument-processing)           | false                               | COMMAND ARGUMENT PROCESSING            |
-| [allow nasty characters](#command-allow-nasty-meta-chars) | false                               | COMMAND ALLOW NASTY META CHARS         |
-| [allowed ciphers](#allowed-ciphers)                       | ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH   | ALLOWED CIPHERS                        |
-| [allowed hosts](#allowed-hosts)                           | 127.0.0.1                           | Allowed hosts                          |
-| [bind to](#bind-to-address)                               |                                     | BIND TO ADDRESS                        |
-| [ca](#ca)                                                 | ${certificate-path}/ca.pem          | CA                                     |
-| [cache allowed hosts](#cache-list-of-allowed-hosts)       | true                                | Cache list of allowed hosts            |
-| [certificate](#ssl-certificate)                           | ${certificate-path}/certificate.pem | SSL CERTIFICATE                        |
-| [certificate format](#certificate-format)                 | PEM                                 | CERTIFICATE FORMAT                     |
-| [certificate key](#ssl-certificate)                       |                                     | SSL CERTIFICATE                        |
-| [client identity source](#client-identity-source)         | none                                | CLIENT IDENTITY SOURCE                 |
-| [debug verify](#debug-peer-certificate-verification)      | false                               | Debug peer certificate verification    |
-| [dh](#dh-key)                                             | ${nrpe-dh}/nrpe_dh_2048.pem         | DH KEY                                 |
-| [encoding](#nrpe-payload-encoding)                        |                                     | NRPE PAYLOAD ENCODING                  |
-| [expose version](#expose-version-in-ping-reply)           | true                                | EXPOSE VERSION IN PING REPLY           |
-| [extended response](#extended-response)                   | true                                | EXTENDED RESPONSE                      |
-| [insecure](#allow-insecure-chiphers-and-encryption)       | false                               | ALLOW INSECURE CHIPHERS and ENCRYPTION |
-| [payload length](#payload-length)                         | 1024                                | PAYLOAD LENGTH                         |
-| [performance data](#performance-data)                     | true                                | PERFORMANCE DATA                       |
-| [port](#port-number)                                      | 5666                                | PORT NUMBER                            |
-| [socket queue size](#listen-queue)                        | 0                                   | LISTEN QUEUE                           |
-| [ssl options](#verify-mode)                               |                                     | VERIFY MODE                            |
-| [thread pool](#thread-pool)                               | 10                                  | THREAD POOL                            |
-| [timeout](#timeout)                                       | 30                                  | TIMEOUT                                |
-| [tls version](#tls-version-to-use)                        | tlsv1.2+                            | TLS version to use                     |
-| [use ssl](#enable-ssl-encryption)                         | true                                | ENABLE SSL ENCRYPTION                  |
-| [verify mode](#verify-mode)                               | none                                | VERIFY MODE                            |
+| Key                                                       | Default Value                            | Description                            |
+|-----------------------------------------------------------|------------------------------------------|----------------------------------------|
+| [allow arguments](#command-argument-processing)           | false                                    | COMMAND ARGUMENT PROCESSING            |
+| [allow nasty characters](#command-allow-nasty-meta-chars) | false                                    | COMMAND ALLOW NASTY META CHARS         |
+| [allowed ciphers](#allowed-ciphers)                       | ALL:!aNULL:!ADH:!LOW:!EXP:!MD5:@STRENGTH | ALLOWED CIPHERS                        |
+| [allowed hosts](#allowed-hosts)                           | 127.0.0.1                                | Allowed hosts                          |
+| [bind to](#bind-to-address)                               |                                          | BIND TO ADDRESS                        |
+| [ca](#ca)                                                 | ${certificate-path}/ca.pem               | CA                                     |
+| [cache allowed hosts](#cache-list-of-allowed-hosts)       | true                                     | Cache list of allowed hosts            |
+| [certificate](#ssl-certificate)                           | ${certificate-path}/certificate.pem      | SSL CERTIFICATE                        |
+| [certificate format](#certificate-format)                 | PEM                                      | CERTIFICATE FORMAT                     |
+| [certificate key](#ssl-certificate)                       |                                          | SSL CERTIFICATE                        |
+| [client identity source](#client-identity-source)         | none                                     | CLIENT IDENTITY SOURCE                 |
+| [debug verify](#debug-peer-certificate-verification)      | false                                    | Debug peer certificate verification    |
+| [dh](#dh-key)                                             | ${nrpe-dh}/nrpe_dh_2048.pem              | DH KEY                                 |
+| [encoding](#nrpe-payload-encoding)                        |                                          | NRPE PAYLOAD ENCODING                  |
+| [expose version](#expose-version-in-ping-reply)           | true                                     | EXPOSE VERSION IN PING REPLY           |
+| [extended response](#extended-response)                   | true                                     | EXTENDED RESPONSE                      |
+| [insecure](#allow-insecure-chiphers-and-encryption)       | false                                    | ALLOW INSECURE CHIPHERS and ENCRYPTION |
+| [payload length](#payload-length)                         | 1024                                     | PAYLOAD LENGTH                         |
+| [performance data](#performance-data)                     | true                                     | PERFORMANCE DATA                       |
+| [port](#port-number)                                      | 5666                                     | PORT NUMBER                            |
+| [socket queue size](#listen-queue)                        | 0                                        | LISTEN QUEUE                           |
+| [ssl options](#verify-mode)                               |                                          | VERIFY MODE                            |
+| [thread pool](#thread-pool)                               | 10                                       | THREAD POOL                            |
+| [timeout](#timeout)                                       | 30                                       | TIMEOUT                                |
+| [tls version](#tls-version-to-use)                        | tlsv1.2+                                 | TLS version to use                     |
+| [use ssl](#enable-ssl-encryption)                         | true                                     | ENABLE SSL ENCRYPTION                  |
+| [verify mode](#verify-mode)                               | none                                     | VERIFY MODE                            |
 
 
 ```ini
@@ -64,7 +64,7 @@ Section for NRPE (NRPEServer.dll) (check_nrpe) protocol options.
 [/settings/NRPE/server]
 allow arguments=false
 allow nasty characters=false
-allowed ciphers=ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH
+allowed ciphers=ALL:!aNULL:!ADH:!LOW:!EXP:!MD5:@STRENGTH
 allowed hosts=127.0.0.1
 ca=${certificate-path}/ca.pem
 cache allowed hosts=true
@@ -138,7 +138,7 @@ The default here will differ is used in "insecure" mode or not. check_nrpe uses 
 | Path:          | [/settings/NRPE/server](#/settings/NRPE/server) |
 | Key:           | allowed ciphers                                 |
 | Advanced:      | Yes (means it is not commonly used)             |
-| Default value: | `ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH`             |
+| Default value: | `ALL:!aNULL:!ADH:!LOW:!EXP:!MD5:@STRENGTH`      |
 
 
 **Sample:**
@@ -146,7 +146,7 @@ The default here will differ is used in "insecure" mode or not. check_nrpe uses 
 ```
 [/settings/NRPE/server]
 # ALLOWED CIPHERS
-allowed ciphers=ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH
+allowed ciphers=ALL:!aNULL:!ADH:!LOW:!EXP:!MD5:@STRENGTH
 ```
 
 #### Allowed hosts <a id="/settings/NRPE/server/allowed hosts"></a>

@@ -1,5 +1,11 @@
 # CheckSecurity
 
+!!! warning "Experimental"
+
+    This module is experimental: it works, but its options, filter keywords
+    and output may change in a future release. Please try it and report
+    anything that does not behave the way you expect.
+
 CheckSecurity checks host security posture: certificate expiry and (on Windows) the firewall profile state.
 
 ## Enable module
@@ -19,21 +25,21 @@ A quick reference for all available queries (check commands) in the CheckSecurit
 
 A list of all available queries (check commands)
 
-| Command                                       | Description                                                                                                                                                                   |
-|-----------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [check_activation](#check_activation)         | Check the Windows activation/licensing state: license status, remaining grace or KMS renewal period and genuineness. Windows only.                                            |
-| [check_antivirus](#check_antivirus)           | Check registered antivirus products' enabled/up-to-date state (Windows Security Center). Windows only.                                                                        |
-| [check_bitlocker](#check_bitlocker)           | Check BitLocker drive-encryption protection status per volume. Windows only.                                                                                                  |
-| [check_certificate](#check_certificate)       | Check X.509 certificate expiry/validity/hygiene from files (all platforms) or the Windows certificate store.                                                                  |
-| [check_defender](#check_defender)             | Check Microsoft Defender status: signature/scan age, real-time and tamper protection, engine/signature versions. Windows only.                                                |
-| [check_file_security](#check_file_security)   | Check the owner and DACL of files, folders or service binaries; alerts on world-writable paths and unexpected owners. Windows only.                                           |
-| [check_firewall](#check_firewall)             | Check the Windows firewall profile (Domain/Private/Public) enabled state. Windows only.                                                                                       |
-| [check_firewall_rules](#check_firewall_rules) | Check individual Windows firewall rules: assert that specific rules exist and are enabled, and find inbound allow rules that restrict neither address nor port. Windows only. |
-| [check_group_members](#check_group_members)   | Check local group membership (default Administrators) and alert on members not on an expected allow-list. Windows only.                                                       |
-| [check_local_accounts](#check_local_accounts) | Check local user account hygiene: enabled/disabled, locked, password-required/expires, built-in admin/guest. Windows only.                                                    |
-| [check_nla](#check_nla)                       | Check the Network Location Awareness profile (public/private/domain) per network. Windows only.                                                                               |
-| [check_secureboot](#check_secureboot)         | Check whether UEFI Secure Boot is enabled. Windows only.                                                                                                                      |
-| [check_users](#check_users)                   | Check the count and detail of logged-on / RDP sessions (Windows and Linux).                                                                                                   |
+| Command                                                        | Description                                                                                                                                                                   |
+|----------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [check_activation](#check_activation) *(experimental)*         | Check the Windows activation/licensing state: license status, remaining grace or KMS renewal period and genuineness. Windows only.                                            |
+| [check_antivirus](#check_antivirus) *(experimental)*           | Check registered antivirus products' enabled/up-to-date state (Windows Security Center). Windows only.                                                                        |
+| [check_bitlocker](#check_bitlocker) *(experimental)*           | Check BitLocker drive-encryption protection status per volume. Windows only.                                                                                                  |
+| [check_certificate](#check_certificate) *(experimental)*       | Check X.509 certificate expiry/validity/hygiene from files (all platforms) or the Windows certificate store.                                                                  |
+| [check_defender](#check_defender) *(experimental)*             | Check Microsoft Defender status: signature/scan age, real-time and tamper protection, engine/signature versions. Windows only.                                                |
+| [check_file_security](#check_file_security) *(experimental)*   | Check the owner and DACL of files, folders or service binaries; alerts on world-writable paths and unexpected owners. Windows only.                                           |
+| [check_firewall](#check_firewall) *(experimental)*             | Check the Windows firewall profile (Domain/Private/Public) enabled state. Windows only.                                                                                       |
+| [check_firewall_rules](#check_firewall_rules) *(experimental)* | Check individual Windows firewall rules: assert that specific rules exist and are enabled, and find inbound allow rules that restrict neither address nor port. Windows only. |
+| [check_group_members](#check_group_members) *(experimental)*   | Check local group membership (default Administrators) and alert on members not on an expected allow-list. Windows only.                                                       |
+| [check_local_accounts](#check_local_accounts) *(experimental)* | Check local user account hygiene: enabled/disabled, locked, password-required/expires, built-in admin/guest. Windows only.                                                    |
+| [check_nla](#check_nla) *(experimental)*                       | Check the Network Location Awareness profile (public/private/domain) per network. Windows only.                                                                               |
+| [check_secureboot](#check_secureboot) *(experimental)*         | Check whether UEFI Secure Boot is enabled. Windows only.                                                                                                                      |
+| [check_users](#check_users) *(experimental)*                   | Check the count and detail of logged-on / RDP sessions (Windows and Linux).                                                                                                   |
 
 ### check_activation
 
@@ -161,6 +167,8 @@ L        cli UNKNOWN: check_activation is not supported on this platform (Window
 <a id="check_activation_options"></a>
 #### Command-line Arguments
 
+        
+        
 | Option                                         | Default Value | Description                                                                                              |
 |------------------------------------------------|---------------|----------------------------------------------------------------------------------------------------------|
 | [all-products](#check_activation_all-products) | false         | Report every licensed product with an installed key (Office, ...) instead of only Windows itself.        |
@@ -619,6 +627,13 @@ L        cli UNKNOWN: store= (certificate store) is only supported on Windows; u
 <a id="check_certificate_ca"></a>
 <a id="check_certificate_store"></a>
 
+        
+        
+        
+        
+        
+        
+        
 | Option                                    | Default Value | Description                                                                               |
 |-------------------------------------------|---------------|-------------------------------------------------------------------------------------------|
 | file                                      |               | A certificate file (PEM or DER) or a directory of them. Can be given multiple times.      |
@@ -1027,6 +1042,11 @@ L        cli UNKNOWN: check_file_security is not supported on this platform (Win
 <a id="check_file_security_expected-owner"></a>
 <a id="check_file_security_allow-write"></a>
 
+        
+        
+        
+        
+        
 | Option         | Default Value | Description                                                                                                                                                      |
 |----------------|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path           |               | File or directory to inspect (repeatable).                                                                                                                       |
@@ -1414,6 +1434,7 @@ L        cli UNKNOWN: check_firewall_rules is not supported on this platform (Wi
 
 <a id="check_firewall_rules_expect"></a>
 
+        
 | Option | Default Value | Description                                                                                                                                                                                                                                                                                        |
 |--------|---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | expect |               | A rule that must exist and be enabled (repeatable), matched on the exact rule name, case insensitively. The check is CRITICAL when no enabled rule answers for the name - whether it was deleted or merely switched off. Rule names are localized, so take them from the machine you are checking. |
@@ -1589,6 +1610,8 @@ OK: All 2 member(s) are on the expected list.
 <a id="check_group_members_group"></a>
 <a id="check_group_members_expected"></a>
 
+        
+        
 | Option   | Default Value | Description                                                                                                                                                            |
 |----------|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | group    |               | Local group to inspect (default: Administrators)                                                                                                                       |

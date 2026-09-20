@@ -1,6 +1,6 @@
 ---
 title: "Windows release build: actions pinned and a checksum gate for downloaded dependencies"
-fixed_in: next
+fixed_in: 0.22.0
 severity: "Medium (build integrity)"
 modules: [packaging]
 action: none

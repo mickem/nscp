@@ -2,6 +2,12 @@
 
 *Available on Windows only.*
 
+!!! warning "Experimental"
+
+    This module is experimental: it works, but its options, filter keywords
+    and output may change in a future release. Please try it and report
+    anything that does not behave the way you expect.
+
 Check Microsoft SQL Server: connectivity, databases, backups, agent jobs and custom queries.
 
 ## Enable module
@@ -21,13 +27,13 @@ A quick reference for all available queries (check commands) in the CheckMSSQL m
 
 A list of all available queries (check commands)
 
-| Command                                         | Description                                                          |
-|-------------------------------------------------|----------------------------------------------------------------------|
-| [check_mssql](#check_mssql)                     | Check SQL Server connectivity and health (version, edition, uptime). |
-| [check_mssql_backup](#check_mssql_backup)       | Check the age of the last full/differential/log backup per database. |
-| [check_mssql_databases](#check_mssql_databases) | Check database state, recovery model and data/log size.              |
-| [check_mssql_jobs](#check_mssql_jobs)           | Check SQL Server Agent job status.                                   |
-| [check_mssql_query](#check_mssql_query)         | Run a custom T-SQL query and apply thresholds to the returned rows.  |
+| Command                                                          | Description                                                          |
+|------------------------------------------------------------------|----------------------------------------------------------------------|
+| [check_mssql](#check_mssql) *(experimental)*                     | Check SQL Server connectivity and health (version, edition, uptime). |
+| [check_mssql_backup](#check_mssql_backup) *(experimental)*       | Check the age of the last full/differential/log backup per database. |
+| [check_mssql_databases](#check_mssql_databases) *(experimental)* | Check database state, recovery model and data/log size.              |
+| [check_mssql_jobs](#check_mssql_jobs) *(experimental)*           | Check SQL Server Agent job status.                                   |
+| [check_mssql_query](#check_mssql_query) *(experimental)*         | Run a custom T-SQL query and apply thresholds to the returned rows.  |
 
 ### check_mssql
 
@@ -126,6 +132,16 @@ OK: DBSRV01: SQL Server 16.0.4265.3 RTM Developer Edition (64-bit), uptime 144s
 <a id="check_mssql_connection-string"></a>
 <a id="check_mssql_encrypt"></a>
 
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
 | Option                                      | Default Value | Description                                                                                                    |
 |---------------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------|
 | [server](#check_mssql_server)               | localhost     | SQL Server to connect to: host, host\INSTANCE or host,port.                                                    |
@@ -325,6 +341,18 @@ OK: All 2 databases have recent backups|'master_full_age'=248s;259200;0 'msdb_fu
 <a id="check_mssql_backup_connection-string"></a>
 <a id="check_mssql_backup_encrypt"></a>
 
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
 | Option                                                     | Default Value | Description                                                                                                                                                                                      |
 |------------------------------------------------------------|---------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [include-copy-only](#check_mssql_backup_include-copy-only) | false         | Count COPY_ONLY backups when computing the ages. Excluded by default: an ad-hoc copy-only backup does not belong to the scheduled restore chain, so counting it would hide a failing backup job. |
@@ -506,6 +534,16 @@ OK: All 5 databases are ONLINE
 <a id="check_mssql_databases_connection-string"></a>
 <a id="check_mssql_databases_encrypt"></a>
 
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
 | Option                                                | Default Value | Description                                                                                                    |
 |-------------------------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------|
 | [server](#check_mssql_databases_server)               | localhost     | SQL Server to connect to: host, host\INSTANCE or host,port.                                                    |
@@ -699,6 +737,16 @@ OK: No enabled SQL Agent jobs found
 <a id="check_mssql_jobs_connection-string"></a>
 <a id="check_mssql_jobs_encrypt"></a>
 
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
 | Option                                           | Default Value | Description                                                                                                    |
 |--------------------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------|
 | [server](#check_mssql_jobs_server)               | localhost     | SQL Server to connect to: host, host\INSTANCE or host,port.                                                    |
@@ -889,6 +937,17 @@ UNKNOWN: Query returned no result set (the statement produced no columns)
 <a id="check_mssql_query_connection-string"></a>
 <a id="check_mssql_query_encrypt"></a>
 
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
 | Option                                            | Default Value | Description                                                                                                    |
 |---------------------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------|
 | query                                             |               | The T-SQL query to execute.                                                                                    |

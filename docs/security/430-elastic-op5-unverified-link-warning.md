@@ -1,6 +1,6 @@
 ---
 title: "Elastic and Op5 submissions warn about an unverified TLS link"
-fixed_in: next
+fixed_in: 0.22.0
 severity: "Low"
 modules: [ElasticClient, Op5Client]
 action: none

@@ -197,7 +197,7 @@ common:
         repeatable: false
         required: false
         short_description: Password to authenticate with.
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Require TLS on the connection.
@@ -315,7 +315,7 @@ common:
         repeatable: false
         required: false
         short_description: Password to authenticate with.
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Require TLS on the connection.

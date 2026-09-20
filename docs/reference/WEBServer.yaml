@@ -327,6 +327,13 @@ windows:
             loopback interface.
           sample: false
           title: ALLOW INSECURE (CLEARTEXT HTTP)
+        allowed ciphers:
+          advanced: false
+          default_value: ''
+          description: OpenSSL cipher list the listener is restricted to. Empty (the default) leaves the
+            library's own selection in place. Same backend caveat as `tls version`.
+          sample: false
+          title: ALLOWED CIPHERS
         allowed hosts:
           advanced: false
           default_value: 127.0.0.1
@@ -428,6 +435,20 @@ windows:
           description: The number of threads in the sever response pool.
           sample: false
           title: Server threads
+        tls version:
+          advanced: false
+          default_value: 1.2+
+          description: 'Which TLS versions the listener will negotiate, in the same vocabulary as the
+            NRPE and NSCA listeners: an exact version (1.0, 1.1, 1.2, 1.3), a trailing + for that version
+            or later, or `any`. The default 1.2+ allows TLS 1.2 and TLS 1.3. `sslv3` is the one spelling
+            those listeners take that this one does not: the web listener never serves SSL 3.0, so pinning
+            the range to it would accept no handshake at all and is refused at startup (`sslv3+`, a floor
+            rather than a pin, is accepted). A version this listener cannot honour stops it starting rather
+            than falling back to a default. Honoured on builds using the beast web backend (all Linux
+            packages); the mongoose backend drives TLS through its own stack and logs that it is ignoring
+            a value you set.'
+          sample: false
+          title: TLS version to use
     /settings/WEB/server/results:
       info:
         advanced: false

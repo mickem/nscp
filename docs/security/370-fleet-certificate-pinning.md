@@ -1,6 +1,6 @@
 ---
 title: "Fleet: the certificate pin is enforced as a pin"
-fixed_in: next
+fixed_in: 0.22.0
 severity: "Low"
 modules: [core]
 action: conditional

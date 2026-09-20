@@ -1,6 +1,6 @@
 ---
 title: "Fleet: bundle signatures cover which bundle it is, not only its bytes"
-fixed_in: next
+fixed_in: 0.22.0
 severity: "Low"
 modules: [core]
 action: required

@@ -176,6 +176,13 @@ UNKNOWN: Entry not found
 <a id="check_cache_channel"></a>
 <a id="check_cache_alias"></a>
 
+        
+        
+        
+        
+        
+        
+        
 | Option                                        | Default Value   | Description                                             |
 |-----------------------------------------------|-----------------|---------------------------------------------------------|
 | key                                           |                 | The key (will not be parsed)                            |

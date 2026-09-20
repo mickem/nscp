@@ -113,7 +113,7 @@ common:
           KMS renewal period and genuineness. Windows only.'
         experimental: true
       params:
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Report every licensed product with an installed key (Office, ...) instead of
@@ -123,7 +123,7 @@ common:
         required: false
         short_description: Report every licensed product with an installed key (Office, ...) instead of
           only Windows itself.
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Do not evaluate the genuine state (skips the SLIsGenuineLocal call); genuine_state
@@ -413,7 +413,7 @@ common:
         repeatable: false
         required: false
         short_description: Alias for file.
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Recurse into directories given via file=/path=.

@@ -192,30 +192,52 @@ OK: app-2026-09-01.log, app-2026-09-02.log, app-2026-09-03.log, ... (412 files)
 <a id="check_remote_nscp_allowed-ciphers"></a>
 <a id="check_remote_nscp_password"></a>
 
-| Option                        | Default Value | Description                                                                           |
-|-------------------------------|---------------|---------------------------------------------------------------------------------------|
-| host                          |               | The host of the host running the server                                               |
-| port                          |               | The port of the host running the server                                               |
-| address                       |               | The address (host:port) of the host running the server                                |
-| timeout                       |               | Number of seconds before connection times out (default=10)                            |
-| target                        |               | Target to use (lookup connection info from config)                                    |
-| retry                         |               | Number of times ti retry a failed connection attempt (default=2)                      |
-| retries                       |               | legacy version of retry                                                               |
-| source-host                   |               | Source/sender host name (default is auto which means use the name of the actual host) |
-| sender-host                   |               | Source/sender host name (default is auto which means use the name of the actual host) |
-| command                       |               | The name of the command that the remote daemon should run                             |
-| argument                      |               | Set command line arguments                                                            |
-| separator                     |               | Separator to use for the batch command (default is |)                                 |
-| batch                         |               | Add multiple records using the separator format is: command|argument|argument         |
-| certificate                   |               | The client certificate to use                                                         |
-| dh                            |               | The DH key to use                                                                     |
-| certificate-key               |               | Client certificate to use                                                             |
-| certificate-format            |               | Client certificate format                                                             |
-| ca                            |               | Certificate authority                                                                 |
-| verify                        |               | Client certificate format                                                             |
-| allowed-ciphers               |               | Client certificate format                                                             |
-| [ssl](#check_remote_nscp_ssl) | true          | Initial an ssl handshake with the server.                                             |
-| password                      |               | Password                                                                              |
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+| Option                        | Default Value | Description                                                                                                                                                                                                                                                                                                                                                                              |
+|-------------------------------|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| host                          |               | The host of the host running the server                                                                                                                                                                                                                                                                                                                                                  |
+| port                          |               | The port of the host running the server                                                                                                                                                                                                                                                                                                                                                  |
+| address                       |               | The address (host:port) of the host running the server                                                                                                                                                                                                                                                                                                                                   |
+| timeout                       |               | Number of seconds before connection times out (default=10)                                                                                                                                                                                                                                                                                                                               |
+| target                        |               | Target to use (lookup connection info from config)                                                                                                                                                                                                                                                                                                                                       |
+| retry                         |               | Number of times ti retry a failed connection attempt (default=2)                                                                                                                                                                                                                                                                                                                         |
+| retries                       |               | legacy version of retry                                                                                                                                                                                                                                                                                                                                                                  |
+| source-host                   |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                                                                                                                                                                                                                                    |
+| sender-host                   |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                                                                                                                                                                                                                                    |
+| command                       |               | The name of the command that the remote daemon should run                                                                                                                                                                                                                                                                                                                                |
+| argument                      |               | Set command line arguments                                                                                                                                                                                                                                                                                                                                                               |
+| separator                     |               | Separator to use for the batch command (default is |)                                                                                                                                                                                                                                                                                                                                    |
+| batch                         |               | Add multiple records using the separator format is: command|argument|argument                                                                                                                                                                                                                                                                                                            |
+| certificate                   |               | The client certificate to use                                                                                                                                                                                                                                                                                                                                                            |
+| dh                            |               | The DH key to use                                                                                                                                                                                                                                                                                                                                                                        |
+| certificate-key               |               | The private key belonging to the client certificate (when it is not in the certificate file itself)                                                                                                                                                                                                                                                                                      |
+| certificate-format            |               | Client certificate format                                                                                                                                                                                                                                                                                                                                                                |
+| ca                            |               | The certificate authority the server certificate is verified against                                                                                                                                                                                                                                                                                                                     |
+| verify                        |               | How to verify the server certificate. Comma separated list of options: none, peer (or certificate), peer-cert, fail-if-no-cert (or fail-if-no-peer-cert, client-certificate). For a self signed certificate use peer-cert and point --ca at that certificate; none leaves the connection encrypted but the server unauthenticated, so an on-path attacker can impersonate it undetected. |
+| allowed-ciphers               |               | The OpenSSL cipher list the connection is restricted to                                                                                                                                                                                                                                                                                                                                  |
+| [ssl](#check_remote_nscp_ssl) | true          | Initial an ssl handshake with the server.                                                                                                                                                                                                                                                                                                                                                |
+| password                      |               | Password                                                                                                                                                                                                                                                                                                                                                                                 |
 
 
 
@@ -308,30 +330,52 @@ NRPE when both ends are NSClient++.
 <a id="remote_nscp_query_allowed-ciphers"></a>
 <a id="remote_nscp_query_password"></a>
 
-| Option                        | Default Value | Description                                                                           |
-|-------------------------------|---------------|---------------------------------------------------------------------------------------|
-| host                          |               | The host of the host running the server                                               |
-| port                          |               | The port of the host running the server                                               |
-| address                       |               | The address (host:port) of the host running the server                                |
-| timeout                       |               | Number of seconds before connection times out (default=10)                            |
-| target                        |               | Target to use (lookup connection info from config)                                    |
-| retry                         |               | Number of times ti retry a failed connection attempt (default=2)                      |
-| retries                       |               | legacy version of retry                                                               |
-| source-host                   |               | Source/sender host name (default is auto which means use the name of the actual host) |
-| sender-host                   |               | Source/sender host name (default is auto which means use the name of the actual host) |
-| command                       |               | The name of the command that the remote daemon should run                             |
-| argument                      |               | Set command line arguments                                                            |
-| separator                     |               | Separator to use for the batch command (default is |)                                 |
-| batch                         |               | Add multiple records using the separator format is: command|argument|argument         |
-| certificate                   |               | The client certificate to use                                                         |
-| dh                            |               | The DH key to use                                                                     |
-| certificate-key               |               | Client certificate to use                                                             |
-| certificate-format            |               | Client certificate format                                                             |
-| ca                            |               | Certificate authority                                                                 |
-| verify                        |               | Client certificate format                                                             |
-| allowed-ciphers               |               | Client certificate format                                                             |
-| [ssl](#remote_nscp_query_ssl) | true          | Initial an ssl handshake with the server.                                             |
-| password                      |               | Password                                                                              |
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+| Option                        | Default Value | Description                                                                                                                                                                                                                                                                                                                                                                              |
+|-------------------------------|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| host                          |               | The host of the host running the server                                                                                                                                                                                                                                                                                                                                                  |
+| port                          |               | The port of the host running the server                                                                                                                                                                                                                                                                                                                                                  |
+| address                       |               | The address (host:port) of the host running the server                                                                                                                                                                                                                                                                                                                                   |
+| timeout                       |               | Number of seconds before connection times out (default=10)                                                                                                                                                                                                                                                                                                                               |
+| target                        |               | Target to use (lookup connection info from config)                                                                                                                                                                                                                                                                                                                                       |
+| retry                         |               | Number of times ti retry a failed connection attempt (default=2)                                                                                                                                                                                                                                                                                                                         |
+| retries                       |               | legacy version of retry                                                                                                                                                                                                                                                                                                                                                                  |
+| source-host                   |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                                                                                                                                                                                                                                    |
+| sender-host                   |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                                                                                                                                                                                                                                    |
+| command                       |               | The name of the command that the remote daemon should run                                                                                                                                                                                                                                                                                                                                |
+| argument                      |               | Set command line arguments                                                                                                                                                                                                                                                                                                                                                               |
+| separator                     |               | Separator to use for the batch command (default is |)                                                                                                                                                                                                                                                                                                                                    |
+| batch                         |               | Add multiple records using the separator format is: command|argument|argument                                                                                                                                                                                                                                                                                                            |
+| certificate                   |               | The client certificate to use                                                                                                                                                                                                                                                                                                                                                            |
+| dh                            |               | The DH key to use                                                                                                                                                                                                                                                                                                                                                                        |
+| certificate-key               |               | The private key belonging to the client certificate (when it is not in the certificate file itself)                                                                                                                                                                                                                                                                                      |
+| certificate-format            |               | Client certificate format                                                                                                                                                                                                                                                                                                                                                                |
+| ca                            |               | The certificate authority the server certificate is verified against                                                                                                                                                                                                                                                                                                                     |
+| verify                        |               | How to verify the server certificate. Comma separated list of options: none, peer (or certificate), peer-cert, fail-if-no-cert (or fail-if-no-peer-cert, client-certificate). For a self signed certificate use peer-cert and point --ca at that certificate; none leaves the connection encrypted but the server unauthenticated, so an on-path attacker can impersonate it undetected. |
+| allowed-ciphers               |               | The OpenSSL cipher list the connection is restricted to                                                                                                                                                                                                                                                                                                                                  |
+| [ssl](#remote_nscp_query_ssl) | true          | Initial an ssl handshake with the server.                                                                                                                                                                                                                                                                                                                                                |
+| password                      |               | Password                                                                                                                                                                                                                                                                                                                                                                                 |
 
 
 

@@ -474,7 +474,7 @@ common:
         repeatable: false
         required: false
         short_description: List of arguments (for wrapped command)
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: List of arguments (for wrapped command)

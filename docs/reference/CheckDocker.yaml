@@ -134,11 +134,15 @@ unix:
       - content_type: 2
         default_value: /var/run/docker.sock
         is_simple: false
-        long_description: The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+        long_description: 'The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+          Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator
+          decision, not a request one.'
         name: host
         repeatable: false
         required: false
-        short_description: The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+        short_description: 'The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+          Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator
+          decision, not a request one.'
       - content_type: 2
         default_value: '10'
         is_simple: false
@@ -147,7 +151,7 @@ unix:
         repeatable: false
         required: false
         short_description: Timeout for talking to the daemon, in seconds.
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Include stopped containers (docker ps -a); by default only running containers
@@ -283,11 +287,15 @@ unix:
       - content_type: 2
         default_value: /var/run/docker.sock
         is_simple: false
-        long_description: The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+        long_description: 'The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+          Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator
+          decision, not a request one.'
         name: host
         repeatable: false
         required: false
-        short_description: The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+        short_description: 'The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+          Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator
+          decision, not a request one.'
       - content_type: 2
         default_value: '60'
         is_simple: false
@@ -381,11 +389,15 @@ unix:
       - content_type: 2
         default_value: /var/run/docker.sock
         is_simple: false
-        long_description: The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+        long_description: 'The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+          Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator
+          decision, not a request one.'
         name: host
         repeatable: false
         required: false
-        short_description: The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+        short_description: 'The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+          Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator
+          decision, not a request one.'
       - content_type: 2
         default_value: '10'
         is_simple: false
@@ -474,11 +486,15 @@ unix:
       - content_type: 2
         default_value: /var/run/docker.sock
         is_simple: false
-        long_description: The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+        long_description: 'The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+          Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator
+          decision, not a request one.'
         name: host
         repeatable: false
         required: false
-        short_description: The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+        short_description: 'The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+          Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator
+          decision, not a request one.'
       - content_type: 2
         default_value: '10'
         is_simple: false
@@ -575,11 +591,15 @@ unix:
       - content_type: 2
         default_value: /var/run/docker.sock
         is_simple: false
-        long_description: The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+        long_description: 'The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+          Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator
+          decision, not a request one.'
         name: host
         repeatable: false
         required: false
-        short_description: The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+        short_description: 'The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+          Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator
+          decision, not a request one.'
       - content_type: 2
         default_value: '10'
         is_simple: false
@@ -725,11 +745,15 @@ windows:
       - content_type: 2
         default_value: \\.\pipe\docker_engine
         is_simple: false
-        long_description: The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+        long_description: 'The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+          Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator
+          decision, not a request one.'
         name: host
         repeatable: false
         required: false
-        short_description: The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+        short_description: 'The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+          Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator
+          decision, not a request one.'
       - content_type: 2
         default_value: '10'
         is_simple: false
@@ -738,7 +762,7 @@ windows:
         repeatable: false
         required: false
         short_description: Timeout for talking to the daemon, in seconds.
-      - content_type: 2
+      - content_type: 4
         default_value: 'false'
         is_simple: false
         long_description: Include stopped containers (docker ps -a); by default only running containers
@@ -874,11 +898,15 @@ windows:
       - content_type: 2
         default_value: \\.\pipe\docker_engine
         is_simple: false
-        long_description: The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+        long_description: 'The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+          Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator
+          decision, not a request one.'
         name: host
         repeatable: false
         required: false
-        short_description: The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+        short_description: 'The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+          Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator
+          decision, not a request one.'
       - content_type: 2
         default_value: '60'
         is_simple: false
@@ -972,11 +1000,15 @@ windows:
       - content_type: 2
         default_value: \\.\pipe\docker_engine
         is_simple: false
-        long_description: The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+        long_description: 'The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+          Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator
+          decision, not a request one.'
         name: host
         repeatable: false
         required: false
-        short_description: The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+        short_description: 'The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+          Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator
+          decision, not a request one.'
       - content_type: 2
         default_value: '10'
         is_simple: false
@@ -1065,11 +1097,15 @@ windows:
       - content_type: 2
         default_value: \\.\pipe\docker_engine
         is_simple: false
-        long_description: The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+        long_description: 'The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+          Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator
+          decision, not a request one.'
         name: host
         repeatable: false
         required: false
-        short_description: The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+        short_description: 'The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+          Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator
+          decision, not a request one.'
       - content_type: 2
         default_value: '10'
         is_simple: false
@@ -1166,11 +1202,15 @@ windows:
       - content_type: 2
         default_value: \\.\pipe\docker_engine
         is_simple: false
-        long_description: The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+        long_description: 'The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+          Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator
+          decision, not a request one.'
         name: host
         repeatable: false
         required: false
-        short_description: The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+        short_description: 'The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+          Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator
+          decision, not a request one.'
       - content_type: 2
         default_value: '10'
         is_simple: false

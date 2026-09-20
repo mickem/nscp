@@ -1,6 +1,6 @@
 ---
 title: "Web server: browser hardening headers, TLS 1.3 on Linux, session tokens and handler errors"
-fixed_in: next
+fixed_in: 0.22.0
 severity: "Low"
 modules: [WEBServer]
 action: conditional

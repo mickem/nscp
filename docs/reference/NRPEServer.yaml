@@ -26,7 +26,7 @@ common:
           title: COMMAND ALLOW NASTY META CHARS
         allowed ciphers:
           advanced: true
-          default_value: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH
+          default_value: ALL:!aNULL:!ADH:!LOW:!EXP:!MD5:@STRENGTH
           description: 'The chipers which are allowed to be used.
 
             The default here will differ is used in "insecure" mode or not. check_nrpe uses a very old

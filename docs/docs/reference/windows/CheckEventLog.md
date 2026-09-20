@@ -350,6 +350,12 @@ OK: Event log seems fine
 <a id="check_eventlog_log"></a>
 <a id="check_eventlog_truncate-message"></a>
 
+        
+        
+        
+        
+        
+        
 | Option                                   | Default Value | Description                                                                                                                                                                                                 |
 |------------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [file](#check_eventlog_file)             |               | File to read (can be specified multiple times to check multiple files.                                                                                                                                      |

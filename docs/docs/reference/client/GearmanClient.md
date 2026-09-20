@@ -1,6 +1,10 @@
 # GearmanClient
 
-*Available on Linux only.*
+!!! warning "Experimental"
+
+    This module is experimental: it works, but its options, filter keywords
+    and output may change in a future release. Please try it and report
+    anything that does not behave the way you expect.
 
 Run checks scheduled by a Naemon or Nagios Core through Mod-Gearman: the agent connects out to a gearmand job server, grabs the checks queued for it and answers them as native NSClient++ queries. It also submits passive results into the same result queue, which is what lets a Mod-Gearman installation drop NSCA
 
@@ -21,9 +25,9 @@ A quick reference for all available queries (check commands) in the GearmanClien
 
 A list of all available queries (check commands)
 
-| Command                           | Description                                                    |
-|-----------------------------------|----------------------------------------------------------------|
-| [submit_gearman](#submit_gearman) | Submit a passive check result into a Mod-Gearman result queue. |
+| Command                                            | Description                                                    |
+|----------------------------------------------------|----------------------------------------------------------------|
+| [submit_gearman](#submit_gearman) *(experimental)* | Submit a passive check result into a Mod-Gearman result queue. |
 
 ### submit_gearman
 

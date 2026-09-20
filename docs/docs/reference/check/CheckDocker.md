@@ -19,13 +19,13 @@ A quick reference for all available queries (check commands) in the CheckDocker 
 
 A list of all available queries (check commands)
 
-| Command                                         | Description                                                                                   |
-|-------------------------------------------------|-----------------------------------------------------------------------------------------------|
-| [check_docker](#check_docker)                   | Check the state of docker containers, optionally requiring specific containers to be running. |
-| [check_docker_df](#check_docker_df)             | Check docker disk usage: images, containers, volumes, build cache and reclaimable space.      |
-| [check_docker_info](#check_docker_info)         | Check that the docker daemon is healthy: version plus container and image counts.             |
-| [check_docker_restarts](#check_docker_restarts) | Detect container restart loops and out-of-memory kills.                                       |
-| [check_docker_stats](#check_docker_stats)       | Check per-container resource usage: CPU percent and memory versus limit.                      |
+| Command                                                          | Description                                                                                   |
+|------------------------------------------------------------------|-----------------------------------------------------------------------------------------------|
+| [check_docker](#check_docker)                                    | Check the state of docker containers, optionally requiring specific containers to be running. |
+| [check_docker_df](#check_docker_df) *(experimental)*             | Check docker disk usage: images, containers, volumes, build cache and reclaimable space.      |
+| [check_docker_info](#check_docker_info) *(experimental)*         | Check that the docker daemon is healthy: version plus container and image counts.             |
+| [check_docker_restarts](#check_docker_restarts) *(experimental)* | Detect container restart loops and out-of-memory kills.                                       |
+| [check_docker_stats](#check_docker_stats) *(experimental)*       | Check per-container resource usage: CPU percent and memory versus limit.                      |
 
 ### check_docker
 
@@ -122,18 +122,22 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
 
     <a id="check_docker_container"></a>
 
-    | Option                           | Default Value          | Description                                                                                                                    |
-    |----------------------------------|------------------------|--------------------------------------------------------------------------------------------------------------------------------|
-    | [host](#check_docker_host)       | \\.\pipe\docker_engine | The local docker daemon socket (named pipe on Windows, unix socket elsewhere).                                                 |
-    | [timeout](#check_docker_timeout) | 10                     | Timeout for talking to the daemon, in seconds.                                                                                 |
-    | [all](#check_docker_all)         | false                  | Include stopped containers (docker ps -a); by default only running containers are listed.                                      |
-    | container                        |                        | Name of a container that must exist (repeatable). Implies all; a name the daemon does not know gets container_state 'missing'. |
+
+
+
+
+    | Option                           | Default Value          | Description                                                                                                                                                                                                |
+    |----------------------------------|------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | [host](#check_docker_host)       | \\.\pipe\docker_engine | The local docker daemon socket (named pipe on Windows, unix socket elsewhere). Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator decision, not a request one. |
+    | [timeout](#check_docker_timeout) | 10                     | Timeout for talking to the daemon, in seconds.                                                                                                                                                             |
+    | [all](#check_docker_all)         | false                  | Include stopped containers (docker ps -a); by default only running containers are listed.                                                                                                                  |
+    | container                        |                        | Name of a container that must exist (repeatable). Implies all; a name the daemon does not know gets container_state 'missing'.                                                                             |
 
 
 
     <h5 id="check_docker_host">host:</h5>
 
-    The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+    The local docker daemon socket (named pipe on Windows, unix socket elsewhere). Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator decision, not a request one.
 
     *Default Value:* `\\.\pipe\docker_engine`
 
@@ -186,18 +190,22 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
 
     <a id="check_docker_container"></a>
 
-    | Option                           | Default Value        | Description                                                                                                                    |
-    |----------------------------------|----------------------|--------------------------------------------------------------------------------------------------------------------------------|
-    | [host](#check_docker_host)       | /var/run/docker.sock | The local docker daemon socket (named pipe on Windows, unix socket elsewhere).                                                 |
-    | [timeout](#check_docker_timeout) | 10                   | Timeout for talking to the daemon, in seconds.                                                                                 |
-    | [all](#check_docker_all)         | false                | Include stopped containers (docker ps -a); by default only running containers are listed.                                      |
-    | container                        |                      | Name of a container that must exist (repeatable). Implies all; a name the daemon does not know gets container_state 'missing'. |
+
+
+
+
+    | Option                           | Default Value        | Description                                                                                                                                                                                                |
+    |----------------------------------|----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | [host](#check_docker_host)       | /var/run/docker.sock | The local docker daemon socket (named pipe on Windows, unix socket elsewhere). Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator decision, not a request one. |
+    | [timeout](#check_docker_timeout) | 10                   | Timeout for talking to the daemon, in seconds.                                                                                                                                                             |
+    | [all](#check_docker_all)         | false                | Include stopped containers (docker ps -a); by default only running containers are listed.                                                                                                                  |
+    | container                        |                      | Name of a container that must exist (repeatable). Implies all; a name the daemon does not know gets container_state 'missing'.                                                                             |
 
 
 
     <h5 id="check_docker_host">host:</h5>
 
-    The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+    The local docker daemon socket (named pipe on Windows, unix socket elsewhere). Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator decision, not a request one.
 
     *Default Value:* `/var/run/docker.sock`
 
@@ -270,6 +278,12 @@ This command also supports the [common filter keywords](../common-options.md#com
 
 ### check_docker_df
 
+!!! warning "Experimental"
+
+    This check command is experimental: it works, but its options, filter keywords
+    and output may change in a future release. Please try it and report
+    anything that does not behave the way you expect.
+
 Check docker disk usage: images, containers, volumes, build cache and reclaimable space.
 
 #### About `check_docker_df`
@@ -333,16 +347,18 @@ OK: build cache 13752766549 (reclaimable 13752766549)|'docker build cache'=13752
 
 === "Windows"
 
-    | Option                              | Default Value          | Description                                                                           |
-    |-------------------------------------|------------------------|---------------------------------------------------------------------------------------|
-    | [host](#check_docker_df_host)       | \\.\pipe\docker_engine | The local docker daemon socket (named pipe on Windows, unix socket elsewhere).        |
-    | [timeout](#check_docker_df_timeout) | 60                     | Timeout for talking to the daemon, in seconds (this endpoint is slow on large hosts). |
+
+
+    | Option                              | Default Value          | Description                                                                                                                                                                                                |
+    |-------------------------------------|------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | [host](#check_docker_df_host)       | \\.\pipe\docker_engine | The local docker daemon socket (named pipe on Windows, unix socket elsewhere). Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator decision, not a request one. |
+    | [timeout](#check_docker_df_timeout) | 60                     | Timeout for talking to the daemon, in seconds (this endpoint is slow on large hosts).                                                                                                                      |
 
 
 
     <h5 id="check_docker_df_host">host:</h5>
 
-    The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+    The local docker daemon socket (named pipe on Windows, unix socket elsewhere). Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator decision, not a request one.
 
     *Default Value:* `\\.\pipe\docker_engine`
 
@@ -387,16 +403,18 @@ OK: build cache 13752766549 (reclaimable 13752766549)|'docker build cache'=13752
 
 === "Linux"
 
-    | Option                              | Default Value        | Description                                                                           |
-    |-------------------------------------|----------------------|---------------------------------------------------------------------------------------|
-    | [host](#check_docker_df_host)       | /var/run/docker.sock | The local docker daemon socket (named pipe on Windows, unix socket elsewhere).        |
-    | [timeout](#check_docker_df_timeout) | 60                   | Timeout for talking to the daemon, in seconds (this endpoint is slow on large hosts). |
+
+
+    | Option                              | Default Value        | Description                                                                                                                                                                                                |
+    |-------------------------------------|----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | [host](#check_docker_df_host)       | /var/run/docker.sock | The local docker daemon socket (named pipe on Windows, unix socket elsewhere). Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator decision, not a request one. |
+    | [timeout](#check_docker_df_timeout) | 60                   | Timeout for talking to the daemon, in seconds (this endpoint is slow on large hosts).                                                                                                                      |
 
 
 
     <h5 id="check_docker_df_host">host:</h5>
 
-    The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+    The local docker daemon socket (named pipe on Windows, unix socket elsewhere). Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator decision, not a request one.
 
     *Default Value:* `/var/run/docker.sock`
 
@@ -466,6 +484,12 @@ This command also supports the [common filter keywords](../common-options.md#com
 
 ### check_docker_info
 
+!!! warning "Experimental"
+
+    This check command is experimental: it works, but its options, filter keywords
+    and output may change in a future release. Please try it and report
+    anything that does not behave the way you expect.
+
 Check that the docker daemon is healthy: version plus container and image counts.
 
 #### About `check_docker_info`
@@ -517,16 +541,18 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
 
 === "Windows"
 
-    | Option                                | Default Value          | Description                                                                    |
-    |---------------------------------------|------------------------|--------------------------------------------------------------------------------|
-    | [host](#check_docker_info_host)       | \\.\pipe\docker_engine | The local docker daemon socket (named pipe on Windows, unix socket elsewhere). |
-    | [timeout](#check_docker_info_timeout) | 10                     | Timeout for talking to the daemon, in seconds.                                 |
+
+
+    | Option                                | Default Value          | Description                                                                                                                                                                                                |
+    |---------------------------------------|------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | [host](#check_docker_info_host)       | \\.\pipe\docker_engine | The local docker daemon socket (named pipe on Windows, unix socket elsewhere). Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator decision, not a request one. |
+    | [timeout](#check_docker_info_timeout) | 10                     | Timeout for talking to the daemon, in seconds.                                                                                                                                                             |
 
 
 
     <h5 id="check_docker_info_host">host:</h5>
 
-    The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+    The local docker daemon socket (named pipe on Windows, unix socket elsewhere). Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator decision, not a request one.
 
     *Default Value:* `\\.\pipe\docker_engine`
 
@@ -571,16 +597,18 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
 
 === "Linux"
 
-    | Option                                | Default Value        | Description                                                                    |
-    |---------------------------------------|----------------------|--------------------------------------------------------------------------------|
-    | [host](#check_docker_info_host)       | /var/run/docker.sock | The local docker daemon socket (named pipe on Windows, unix socket elsewhere). |
-    | [timeout](#check_docker_info_timeout) | 10                   | Timeout for talking to the daemon, in seconds.                                 |
+
+
+    | Option                                | Default Value        | Description                                                                                                                                                                                                |
+    |---------------------------------------|----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | [host](#check_docker_info_host)       | /var/run/docker.sock | The local docker daemon socket (named pipe on Windows, unix socket elsewhere). Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator decision, not a request one. |
+    | [timeout](#check_docker_info_timeout) | 10                   | Timeout for talking to the daemon, in seconds.                                                                                                                                                             |
 
 
 
     <h5 id="check_docker_info_host">host:</h5>
 
-    The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+    The local docker daemon socket (named pipe on Windows, unix socket elsewhere). Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator decision, not a request one.
 
     *Default Value:* `/var/run/docker.sock`
 
@@ -641,6 +669,12 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_docker_restarts
+
+!!! warning "Experimental"
+
+    This check command is experimental: it works, but its options, filter keywords
+    and output may change in a future release. Please try it and report
+    anything that does not behave the way you expect.
 
 Detect container restart loops and out-of-memory kills.
 
@@ -709,17 +743,20 @@ OK: app-backend: 0 restarts, up 236s, exit=0 oom=0|'app-backend restarts'=0;0;0
 
     <a id="check_docker_restarts_container"></a>
 
-    | Option                                    | Default Value          | Description                                                                    |
-    |-------------------------------------------|------------------------|--------------------------------------------------------------------------------|
-    | [host](#check_docker_restarts_host)       | \\.\pipe\docker_engine | The local docker daemon socket (named pipe on Windows, unix socket elsewhere). |
-    | [timeout](#check_docker_restarts_timeout) | 10                     | Timeout for talking to the daemon, in seconds.                                 |
-    | container                                 |                        | Only inspect the named container (repeatable).                                 |
+
+
+
+    | Option                                    | Default Value          | Description                                                                                                                                                                                                |
+    |-------------------------------------------|------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | [host](#check_docker_restarts_host)       | \\.\pipe\docker_engine | The local docker daemon socket (named pipe on Windows, unix socket elsewhere). Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator decision, not a request one. |
+    | [timeout](#check_docker_restarts_timeout) | 10                     | Timeout for talking to the daemon, in seconds.                                                                                                                                                             |
+    | container                                 |                        | Only inspect the named container (repeatable).                                                                                                                                                             |
 
 
 
     <h5 id="check_docker_restarts_host">host:</h5>
 
-    The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+    The local docker daemon socket (named pipe on Windows, unix socket elsewhere). Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator decision, not a request one.
 
     *Default Value:* `\\.\pipe\docker_engine`
 
@@ -766,17 +803,20 @@ OK: app-backend: 0 restarts, up 236s, exit=0 oom=0|'app-backend restarts'=0;0;0
 
     <a id="check_docker_restarts_container"></a>
 
-    | Option                                    | Default Value        | Description                                                                    |
-    |-------------------------------------------|----------------------|--------------------------------------------------------------------------------|
-    | [host](#check_docker_restarts_host)       | /var/run/docker.sock | The local docker daemon socket (named pipe on Windows, unix socket elsewhere). |
-    | [timeout](#check_docker_restarts_timeout) | 10                   | Timeout for talking to the daemon, in seconds.                                 |
-    | container                                 |                      | Only inspect the named container (repeatable).                                 |
+
+
+
+    | Option                                    | Default Value        | Description                                                                                                                                                                                                |
+    |-------------------------------------------|----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | [host](#check_docker_restarts_host)       | /var/run/docker.sock | The local docker daemon socket (named pipe on Windows, unix socket elsewhere). Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator decision, not a request one. |
+    | [timeout](#check_docker_restarts_timeout) | 10                   | Timeout for talking to the daemon, in seconds.                                                                                                                                                             |
+    | container                                 |                      | Only inspect the named container (repeatable).                                                                                                                                                             |
 
 
 
     <h5 id="check_docker_restarts_host">host:</h5>
 
-    The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+    The local docker daemon socket (named pipe on Windows, unix socket elsewhere). Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator decision, not a request one.
 
     *Default Value:* `/var/run/docker.sock`
 
@@ -836,6 +876,12 @@ OK: app-backend: 0 restarts, up 236s, exit=0 oom=0|'app-backend restarts'=0;0;0
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_docker_stats
+
+!!! warning "Experimental"
+
+    This check command is experimental: it works, but its options, filter keywords
+    and output may change in a future release. Please try it and report
+    anything that does not behave the way you expect.
 
 Check per-container resource usage: CPU percent and memory versus limit.
 
@@ -902,17 +948,20 @@ OK: web-frontend: cpu 1%, memory 12.4MB of 15.35GB (0%), app-backend: cpu 2%, me
 
     <a id="check_docker_stats_container"></a>
 
-    | Option                                 | Default Value          | Description                                                                                                                   |
-    |----------------------------------------|------------------------|-------------------------------------------------------------------------------------------------------------------------------|
-    | [host](#check_docker_stats_host)       | \\.\pipe\docker_engine | The local docker daemon socket (named pipe on Windows, unix socket elsewhere).                                                |
-    | [timeout](#check_docker_stats_timeout) | 10                     | Timeout for talking to the daemon, in seconds.                                                                                |
-    | container                              |                        | Only sample the named container (repeatable). Sampling takes about a second per container, so scope this check on busy hosts. |
+
+
+
+    | Option                                 | Default Value          | Description                                                                                                                                                                                                |
+    |----------------------------------------|------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | [host](#check_docker_stats_host)       | \\.\pipe\docker_engine | The local docker daemon socket (named pipe on Windows, unix socket elsewhere). Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator decision, not a request one. |
+    | [timeout](#check_docker_stats_timeout) | 10                     | Timeout for talking to the daemon, in seconds.                                                                                                                                                             |
+    | container                              |                        | Only sample the named container (repeatable). Sampling takes about a second per container, so scope this check on busy hosts.                                                                              |
 
 
 
     <h5 id="check_docker_stats_host">host:</h5>
 
-    The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+    The local docker daemon socket (named pipe on Windows, unix socket elsewhere). Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator decision, not a request one.
 
     *Default Value:* `\\.\pipe\docker_engine`
 
@@ -959,17 +1008,20 @@ OK: web-frontend: cpu 1%, memory 12.4MB of 15.35GB (0%), app-backend: cpu 2%, me
 
     <a id="check_docker_stats_container"></a>
 
-    | Option                                 | Default Value        | Description                                                                                                                   |
-    |----------------------------------------|----------------------|-------------------------------------------------------------------------------------------------------------------------------|
-    | [host](#check_docker_stats_host)       | /var/run/docker.sock | The local docker daemon socket (named pipe on Windows, unix socket elsewhere).                                                |
-    | [timeout](#check_docker_stats_timeout) | 10                   | Timeout for talking to the daemon, in seconds.                                                                                |
-    | container                              |                      | Only sample the named container (repeatable). Sampling takes about a second per container, so scope this check on busy hosts. |
+
+
+
+    | Option                                 | Default Value        | Description                                                                                                                                                                                                |
+    |----------------------------------------|----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | [host](#check_docker_stats_host)       | /var/run/docker.sock | The local docker daemon socket (named pipe on Windows, unix socket elsewhere). Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator decision, not a request one. |
+    | [timeout](#check_docker_stats_timeout) | 10                   | Timeout for talking to the daemon, in seconds.                                                                                                                                                             |
+    | container                              |                      | Only sample the named container (repeatable). Sampling takes about a second per container, so scope this check on busy hosts.                                                                              |
 
 
 
     <h5 id="check_docker_stats_host">host:</h5>
 
-    The local docker daemon socket (named pipe on Windows, unix socket elsewhere).
+    The local docker daemon socket (named pipe on Windows, unix socket elsewhere). Must match `endpoint` under [/settings/docker]: which daemon the agent talks to is an operator decision, not a request one.
 
     *Default Value:* `/var/run/docker.sock`
 

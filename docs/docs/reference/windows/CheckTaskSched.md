@@ -120,6 +120,14 @@ OK: \Microsoft\Windows\Defrag\ScheduledDefrag hidden=0
 <a id="check_tasksched_recursive"></a>
 <a id="check_tasksched_hidden"></a>
 
+        
+        
+        
+        
+        
+        
+        
+        
 | Option                                  | Default Value | Description                                                                                                                            |
 |-----------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------------------------------|
 | [force-old](#check_tasksched_force-old) | false         | The name of the computer that you want to connect to.                                                                                  |
@@ -128,8 +136,8 @@ OK: \Microsoft\Windows\Defrag\ScheduledDefrag hidden=0
 | domain                                  |               | The domain of the user specified in the user parameter.                                                                                |
 | password                                |               | The password that is used to connect to the computer. If the user name and password are not specified, then the current token is used. |
 | folder                                  |               | The folder in which the tasks to check reside.                                                                                         |
-| recursive                               |               | Recurse sub folder (defaults to true).                                                                                                 |
-| hidden                                  |               | Look for hidden tasks.                                                                                                                 |
+| recursive                               | N/A           | Recurse sub folder (defaults to true).                                                                                                 |
+| hidden                                  | N/A           | Look for hidden tasks.                                                                                                                 |
 
 
 

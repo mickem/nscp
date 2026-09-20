@@ -151,6 +151,11 @@ L        cli  Performance data: 'BuildNumber'=10240;9600;8000
 <a id="check_wmi_user"></a>
 <a id="check_wmi_password"></a>
 
+        
+        
+        
+        
+        
 | Option                            | Default Value | Description                                         |
 |-----------------------------------|---------------|-----------------------------------------------------|
 | target                            |               | The target to check (for checking remote machines). |
