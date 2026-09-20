@@ -168,10 +168,23 @@ simple_file_logger::config_data simple_file_logger::do_config(const bool log_fau
     settings.notify();
     // Nothing more to do to ret.file: the key is registered as a path_key rooted
     // at ${log-path}, so notify() has already expanded its tokens and rooted a
-    // bare name. This used to re-expand here, and on Windows first rewrote a
-    // literal "/nsclient.log" to ${exe-path}/nsclient.log - a rewrite that can
-    // no longer fire, and which would put the log back beside the executable
-    // rather than in the log folder the modern layout selects.
+    // bare name.
+    //
+    // This used to re-expand here, and on Windows first rewrote a literal
+    // "/nsclient.log" to ${exe-path}/nsclient.log. That rewrite is deliberately
+    // not reinstated, but it is worth being exact about what it did: the
+    // compiled default has long been ${log-path}/nsclient.log, so it never fired
+    // on it. It fired on an operator's own value - a config inherited from a
+    // version where a leading slash meant "the installation directory" - and on
+    // Windows "/nsclient.log" names a root, so it is now used as given and
+    // lands at C:\nsclient.log.
+    //
+    // Left out because rooting one hard-coded string against the rule every
+    // other absolute path follows is the kind of invisible special case this
+    // series exists to remove, and because ${exe-path} is the one place the log
+    // should not go: the modern layout moves the log folder out of the install
+    // directory precisely so the service is not writing there. The upgrade note
+    // on relative paths names the case instead.
   } catch (const std::exception &e) {
     if (log_fault) logger_helper::log_fatal(std::string("Failed to configure logger: ") + e.what());
   } catch (...) {
