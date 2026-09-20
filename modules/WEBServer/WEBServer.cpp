@@ -242,9 +242,15 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
                   "for a dashboard or recording rule that has not been migrated yet. The legacy format is deprecated and will be removed in a future release.");
   settings.alias()
       .add_key_to_settings()
-      .add_string("certificate", sh::string_key(&certificate, "${certificate-path}/certificate.pem"), "TLS Certificate",
+      // path_key, not string_key + a post-notify expand_path: notify() runs each
+      // key's post-processing inside a try/catch that logs and skips just that
+      // key, which is what the upgrade note promises for an unknown token.
+      // Expanding afterwards put the throw outside every catch in this module,
+      // so the generated glue caught it and failed the load - one typo in a
+      // certificate path took the whole REST API down.
+      .add_string("certificate", sh::path_key(&certificate, "${certificate-path}/certificate.pem"), "TLS Certificate",
                   "Ssl certificate to use for the ssl server")
-      .add_string("certificate key", sh::string_key(&key), "TLS private key", "The private key for the certificate if not in the same file")
+      .add_string("certificate key", sh::path_key(&key), "TLS private key", "The private key for the certificate if not in the same file")
       .add_string("tls version", sh::string_key(&tls_version, kDefaultTlsVersion), "TLS version to use",
                   "Which TLS versions the listener will negotiate, in the same vocabulary as the NRPE and NSCA listeners: an exact version (1.0, 1.1, "
                   "1.2, 1.3), a trailing + for that version or later, or `any`. The default 1.2+ allows TLS 1.2 and TLS 1.3. `sslv3` is the one "
@@ -309,8 +315,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
   settings.register_all();
   settings.notify();
-  certificate = get_core()->expand_path(certificate);
-  key = get_core()->expand_path(key);
+  // Both certificate keys are path_keys, so notify() has already expanded them.
 
   results_->set_max_entries(result_max_entries < 0 ? 0 : static_cast<std::size_t>(result_max_entries));
   results_->set_max_age(result_max_age);

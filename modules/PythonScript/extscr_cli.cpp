@@ -116,7 +116,12 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
     }
   } else {
     fs::path dir = provider_->get_core()->expand_path("${scripts}/python");
-    fs::path rel = provider_->get_core()->expand_path("${base-path}/python");
+    // ${base-path}, not ${base-path}/python: the listing walks ${scripts}/python, and on
+    // Windows ${scripts} is ${exe-path}/scripts - so the prefix that can actually
+    // match is the install base itself. With the sub-folder appended it never
+    // matched on any platform and the branch was dead, which is how the strip
+    // below came to be doing the relativising on its own.
+    fs::path rel = provider_->get_core()->expand_path("${base-path}");
     fs::recursive_directory_iterator iter(dir), eod;
     for (fs::path const &i : boost::make_iterator_range(iter, eod)) {
       std::string s = i.string();
