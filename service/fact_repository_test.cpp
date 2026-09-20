@@ -51,6 +51,15 @@ TEST(FactRepository, ReturningTheSameSetIsANoOp) {
   EXPECT_EQ(repo.get_revision(), revision) << "an hourly round that finds nothing new must not look like a change";
 }
 
+TEST(FactRepository, TheSameFactsInADifferentOrderAreStillTheSameFacts) {
+  fact_repository repo;
+  store(repo, "os", 1, R"({"family":"linux","version":"6.1.0"})");
+  const unsigned long long revision = repo.get_revision();
+  EXPECT_EQ(store(repo, "os", 1, R"({"version":"6.1.0","family":"linux"})"), set_result::unchanged)
+      << "the canonical form is what the server sees, so key order alone is not a change";
+  EXPECT_EQ(repo.get_revision(), revision);
+}
+
 TEST(FactRepository, ChangingASetBumpsRevision) {
   fact_repository repo;
   store(repo, "os", 1, R"({"family":"linux","version":"6.1.0"})");

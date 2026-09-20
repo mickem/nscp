@@ -19,6 +19,15 @@
 namespace nsclient {
 namespace core {
 
+// Copy a JSON string in full.
+//
+// boost::json::string converts to std::string only where json::string_view is
+// std::string_view; on the Boost the EL9 build uses (1.75) it is not, so the
+// conversion has to be spelled out. data()/size() rather than c_str() for the
+// same reason libs/onboarding/json_util.hpp gives: c_str() truncates at an
+// embedded nul, which turns a hostile value into a harmless looking one.
+inline std::string json_to_string(const boost::json::string &value) { return std::string(value.data(), value.size()); }
+
 // Central repository for host "facts": the opt-in inventory document modules
 // produce on a schedule (fetchFacts) and the agent serves on /api/v2/facts.
 //
@@ -86,14 +95,17 @@ class fact_repository {
       error = "fact set '" + fact_set + "' is already produced by another module";
       return set_result::rejected;
     }
-    const boost::json::value *existing = facts_.if_contains(fact_set);
-    if (existing != nullptr && *existing == value) {
+    boost::json::object candidate = facts_;
+    candidate[fact_set] = value;
+    // The canonical form decides whether anything changed: it is what the
+    // hash, the size budget and the fleet upload are all taken from, so a
+    // producer that returns the same facts in a different key order is
+    // rightly a no-op rather than a revision bump the server has to chase.
+    const std::string canonical = canonicalise(candidate);
+    if (canonical == canonical_) {
       owners_[fact_set] = plugin_id;
       return set_result::unchanged;
     }
-    boost::json::object candidate = facts_;
-    candidate[fact_set] = value;
-    const std::string canonical = canonicalise(candidate);
     if (canonical.size() > max_size_) {
       error = "fact set '" + fact_set + "' would take the facts document past the " + std::to_string(max_size_) + " byte budget";
       return set_result::rejected;
@@ -159,7 +171,9 @@ class fact_repository {
       for (const boost::json::key_value_pair &entry : value->as_object()) {
         if (children.count(std::string(entry.key())) > 0) kept[entry.key()] = entry.value();
       }
-      if (kept == value->as_object()) continue;
+      // kept is a subset of the same object, so nothing was pruned exactly
+      // when it still has every entry.
+      if (kept.size() == value->as_object().size()) continue;
       if (kept.empty()) {
         changed = erase_locked(fact_set) || changed;
         continue;
@@ -389,7 +403,7 @@ class fact_repository {
         error = "'" + path + "' holds a record without a non-empty string id";
         return false;
       }
-      const std::string key(id->as_string());
+      const std::string key = json_to_string(id->as_string());
       if (!ids.insert(key).second) {
         error = "'" + path + "' holds two records with the id '" + clip(key) + "'";
         return false;

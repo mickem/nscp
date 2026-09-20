@@ -54,11 +54,11 @@ request::request(const std::string &json) {
     const boost::json::value *enabled = root->if_contains("enabled");
     if (enabled != nullptr && enabled->is_array()) {
       for (const boost::json::value &id : enabled->as_array()) {
-        if (id.is_string()) enabled_.insert(std::string(id.as_string()));
+        if (id.is_string()) enabled_.insert(json_to_string(id.as_string()));
       }
     }
     const boost::json::value *reason = root->if_contains("reason");
-    if (reason != nullptr && reason->is_string()) reason_ = std::string(reason->as_string());
+    if (reason != nullptr && reason->is_string()) reason_ = json_to_string(reason->as_string());
   } catch (const std::exception &) {
     // An unparseable request means this round asks for nothing, which is the
     // safe reading: facts are opt-in, so producing nothing is never wrong.

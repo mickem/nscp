@@ -1386,7 +1386,7 @@ std::string nsclient::core::plugin_manager::apply_facts_response(const std::stri
   if (reported != nullptr && reported->is_object()) {
     for (const boost::json::key_value_pair &entry : reported->as_object()) {
       if (!entry.value().is_string()) continue;
-      errors[std::string(entry.key())] = std::string(entry.value().as_string());
+      errors[std::string(entry.key())] = json_to_string(entry.value().as_string());
     }
   }
   return "";

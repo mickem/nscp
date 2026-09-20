@@ -62,6 +62,15 @@
 namespace nscapi {
 namespace facts {
 
+// Copy a JSON string in full.
+//
+// boost::json::string converts to std::string only where json::string_view is
+// std::string_view; on the Boost the EL9 build uses (1.75) it is not, so the
+// conversion has to be spelled out. data()/size() rather than c_str() for the
+// same reason libs/onboarding/json_util.hpp gives: c_str() truncates at an
+// embedded nul, which turns a hostile value into a harmless looking one.
+inline std::string json_to_string(const boost::json::string &value) { return std::string(value.data(), value.size()); }
+
 // The document rules the builder enforces as it writes. They mirror
 // nsclient::core::fact_repository, which enforces them again when it accepts
 // a set - the core cannot trust a module to have used this builder.

@@ -105,7 +105,7 @@ TEST(FactsResponse, ARecordWithoutAnIdIsReported) {
   out.set("storage").list("volumes").record("").value("fs", "NTFS");
   const boost::json::value document = document_of(out);
   ASSERT_TRUE(document.as_object().if_contains("errors") != nullptr);
-  EXPECT_NE(std::string(document.as_object().at("errors").as_object().at("storage").as_string()).find("without an id"), std::string::npos);
+  EXPECT_NE(json_to_string(document.as_object().at("errors").as_object().at("storage").as_string()).find("without an id"), std::string::npos);
 }
 
 TEST(FactsResponse, NestedObjectsAndStringListsWork) {
@@ -139,7 +139,7 @@ TEST(FactsResponse, AnInvalidKeyIsDroppedAndReported) {
   const boost::json::object &os = sets_of(document).at("os").as_object();
   EXPECT_EQ(os.size(), 1u) << "the rest of the set still ships";
   ASSERT_TRUE(document.as_object().if_contains("errors") != nullptr);
-  EXPECT_NE(std::string(document.as_object().at("errors").as_object().at("os").as_string()).find("Boot Time"), std::string::npos);
+  EXPECT_NE(json_to_string(document.as_object().at("errors").as_object().at("os").as_string()).find("Boot Time"), std::string::npos);
 }
 
 TEST(FactsResponse, RemoveIsAnExplicitNull) {

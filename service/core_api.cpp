@@ -313,9 +313,9 @@ NSCAPI::errorReturn NSAPIFactsQuery(const char *request_buffer, const unsigned i
         return NSCAPI::api_return_codes::hasFailed;
       }
       const boost::json::value *op_value = root->if_contains("op");
-      if (op_value != nullptr && op_value->is_string()) op = std::string(op_value->as_string());
+      if (op_value != nullptr && op_value->is_string()) op = nsclient::core::json_to_string(op_value->as_string());
       const boost::json::value *path_value = root->if_contains("path");
-      if (path_value != nullptr && path_value->is_string()) path = std::string(path_value->as_string());
+      if (path_value != nullptr && path_value->is_string()) path = nsclient::core::json_to_string(path_value->as_string());
     }
     if (op == "refresh") {
       mainClient->process_facts("manual");
