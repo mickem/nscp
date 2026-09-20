@@ -196,6 +196,124 @@ describe("settings attachments and includes", () => {
       expect(r.loaded).toBe(false);
       expect(r.output).toMatch(/Failed to load child included\.ini/);
     });
+
+    it("loads a remote url named directly", async () => {
+      // The usual way to pull in fleet configuration: no local file, no path
+      // resolution, just the url. The bootstrap ini every case here uses does
+      // exactly this, so it is worth asserting rather than leaving implied.
+      served["/remote-include.ini"] =
+        "[/settings/default]\nallowed hosts = from-the-remote-include\n";
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-remoteinc-"));
+      const bootIni = path.join(root, "boot.ini");
+      fs.writeFileSync(bootIni, "[tls]\nallow plaintext = true\n");
+      const nscp = new NscpInstance({
+        workDir: root,
+        settingsFile: path.join(root, "nsclient.ini"),
+        pathOverrides: { "shared-path": path.join(root, "shared"), "boot-conf": bootIni },
+      });
+      fs.writeFileSync(nscp.settingsFile, `[/includes]\nextra = ${baseUrl}/remote-include.ini\n`);
+      expect(await boot(nscp)).toMatch(/allowed hosts=from-the-remote-include/);
+    });
+  });
+
+  // What attachments are actually for: shipping a check script to the fleet.
+  describe("attaching a script and running it", () => {
+    const onWindows = process.platform === "win32";
+    const ext = onWindows ? "bat" : "sh";
+    const body = onWindows
+      ? "@echo off\r\necho OK: attached script ran\r\n"
+      : "#!/bin/sh\necho 'OK: attached script ran'\n";
+
+    it("lands in ${scripts} and runs, with the command naming it absolutely", async () => {
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-attachscript-"));
+      const shared = path.join(root, "shared");
+      const scripts = path.join(shared, "scripts");
+      const cwd = path.join(root, "cwd");
+      fs.mkdirSync(scripts, { recursive: true });
+      fs.mkdirSync(cwd, { recursive: true });
+      const bootIni = path.join(root, "boot.ini");
+      fs.writeFileSync(bootIni, "[tls]\nallow plaintext = true\n");
+
+      const landed = path.join(scripts, `hello.${ext}`);
+      const runner = onWindows ? `cmd /c ${landed}` : `/bin/sh ${landed}`;
+
+      served[`/hello.${ext}`] = body;
+      served["/fleet-script.ini"] = [
+        "[/modules]",
+        "CheckExternalScripts = enabled",
+        "",
+        "[/attachments]",
+        // ${scripts} is where a script belongs, and the target expands it.
+        `\${scripts}/hello.${ext} = ${baseUrl}/hello.${ext}`,
+        "",
+        "[/settings/external scripts/scripts]",
+        // ...but the command does NOT expand it - this section is a command
+        // line handed to the OS, so it has to name the file absolutely. The
+        // two sections sit three lines apart and disagree on purpose.
+        `check_attached = ${runner}`,
+        "",
+      ].join("\n");
+
+      const nscp = new NscpInstance({
+        workDir: cwd,
+        settingsFile: path.join(root, "nsclient.ini"),
+        pathOverrides: { "shared-path": shared, scripts, "boot-conf": bootIni },
+      });
+      fs.writeFileSync(nscp.settingsFile, `[/includes]\nfleet = ${baseUrl}/fleet-script.ini\n`);
+
+      const r = await nscp.run(
+        ["client", "--module", "CheckExternalScripts", "--boot", "--query", "check_attached"],
+        { allowFailure: true },
+      );
+
+      // One boot is enough here: the command comes from the fleet file itself
+      // rather than from a file the fleet file includes, so nothing has to
+      // land on disk before it can be read.
+      expect(fs.readFileSync(landed, "utf8")).toBe(body);
+      expect(r.all ?? "").toMatch(/OK: attached script ran/);
+    });
+
+    it("shows what happens when the command uses the token instead", async () => {
+      // The mistake the asymmetry invites, pinned so the error is a known
+      // one: ${scripts} reaches the shell literally and the script is not
+      // found, even though the attachment put it exactly where the token says.
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-attachscript-tok-"));
+      const shared = path.join(root, "shared");
+      const scripts = path.join(shared, "scripts");
+      fs.mkdirSync(scripts, { recursive: true });
+      const bootIni = path.join(root, "boot.ini");
+      fs.writeFileSync(bootIni, "[tls]\nallow plaintext = true\n");
+
+      served[`/hello.${ext}`] = body;
+      served["/fleet-token.ini"] = [
+        "[/modules]",
+        "CheckExternalScripts = enabled",
+        "",
+        "[/attachments]",
+        `\${scripts}/hello.${ext} = ${baseUrl}/hello.${ext}`,
+        "",
+        "[/settings/external scripts/scripts]",
+        `check_tok = ${onWindows ? "cmd /c" : "/bin/sh"} \${scripts}/hello.${ext}`,
+        "",
+      ].join("\n");
+
+      const nscp = new NscpInstance({
+        workDir: root,
+        settingsFile: path.join(root, "nsclient.ini"),
+        pathOverrides: { "shared-path": shared, scripts, "boot-conf": bootIni },
+      });
+      fs.writeFileSync(nscp.settingsFile, `[/includes]\nfleet = ${baseUrl}/fleet-token.ini\n`);
+
+      const r = await nscp.run(
+        ["client", "--module", "CheckExternalScripts", "--boot", "--query", "check_tok"],
+        { allowFailure: true },
+      );
+
+      // The file is there...
+      expect(fs.existsSync(path.join(scripts, `hello.${ext}`))).toBe(true);
+      // ...and the command still does not find it.
+      expect(r.all ?? "").not.toMatch(/OK: attached script ran/);
+    });
   });
 
   describe("an attachment that is then included", () => {
