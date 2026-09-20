@@ -8,7 +8,9 @@
 
 #include <boost/filesystem.hpp>
 #include <fstream>
+#include <iostream>
 #include <memory>
+#include <sstream>
 #include <nsclient/logger/logger.hpp>
 #include <nscp/boot_layout.hpp>
 #include <nscp/client_path_resolver.hpp>
@@ -611,6 +613,73 @@ TEST_F(ClientPathResolverTest, ReadsTheLayoutAlongsideThePaths) {
   const nscp::paths::client_path_resolver r = resolver_with("[layout]\nmode = modern\n");
   EXPECT_EQ(r.get_layout(), nscp::paths::layout::modern);
 }
+
+TEST_F(ClientPathResolverTest, BasePathAndExePathBothNameTheExecutablesDirectory) {
+  const nscp::paths::client_path_resolver r = resolver_with("");
+  const std::string exe = nscp::paths::client_path_resolver::executable_dir().string();
+  EXPECT_EQ(r.get_folder("base-path"), exe);
+  EXPECT_EQ(r.get_folder("exe-path"), exe);
+}
+
+TEST_F(ClientPathResolverTest, APathsOverrideBeatsTheBinarysOwnLookup) {
+  // [paths] wins over the lookups only this binary can answer, not just over
+  // the table - so an operator who has to relocate ${exe-path} can, and the
+  // client follows the service rather than insisting on where it sits.
+  const nscp::paths::client_path_resolver r = resolver_with("[paths]\nexe-path = /opt/nscp\n");
+  EXPECT_EQ(r.get_folder("exe-path"), "/opt/nscp");
+  EXPECT_NE(r.get_folder("exe-path"), nscp::paths::client_path_resolver::executable_dir().string());
+}
+
+TEST_F(ClientPathResolverTest, AnUnknownTokenIsReportedOnStderrAndFallsBackToTheExeDir) {
+  // A client cannot raise the way the service does: main has no handler, and a
+  // Nagios plugin that aborts prints nothing usable. So it warns and carries
+  // on - on stderr, because Nagios reads the check result from stdout.
+  const nscp::paths::client_path_resolver r = resolver_with("");
+  std::ostringstream captured;
+  std::streambuf *const saved = std::cerr.rdbuf(captured.rdbuf());
+  const std::string got = r.get_folder("scripst");
+  std::cerr.rdbuf(saved);
+
+  EXPECT_EQ(got, nscp::paths::client_path_resolver::executable_dir().string());
+  EXPECT_NE(captured.str().find("scripst"), std::string::npos) << captured.str();
+}
+
+TEST_F(ClientPathResolverTest, AnUnknownTokenIsReportedOnceHoweverOftenItIsResolved) {
+  // expand_tokens resolves each occurrence separately, so a value naming the
+  // same typo twice would otherwise say so twice - and a client expanding
+  // several settings would repeat it for every one of them.
+  const nscp::paths::client_path_resolver r = resolver_with("");
+  std::ostringstream captured;
+  std::streambuf *const saved = std::cerr.rdbuf(captured.rdbuf());
+  r.expand_path("${scripst}/a;${scripst}/b");
+  r.get_folder("scripst");
+  std::cerr.rdbuf(saved);
+
+  const std::string out = captured.str();
+  EXPECT_NE(out.find("scripst"), std::string::npos) << out;
+  EXPECT_EQ(out.find("scripst"), out.rfind("scripst")) << "reported more than once: " << out;
+}
+
+#ifdef WIN32
+TEST_F(ClientPathResolverTest, LegacySharedPathFallsBackToTheExeDirWithoutComplaining) {
+  // The one key that is known AND reaches the fallback: under the legacy
+  // layout ${shared-path} is the executable's directory, which is why
+  // default_for deliberately has no entry for it. Every other known token
+  // either has a table entry or is answered by a lookup above, so this is the
+  // only case where the is_known_key guard on the warning does any work - and
+  // it is Windows-only, because on unix ${shared-path} comes from the table.
+  //
+  // Warning here would teach an operator to ignore the message that matters.
+  const nscp::paths::client_path_resolver r = resolver_with("[layout]\nmode = legacy\n");
+  std::ostringstream captured;
+  std::streambuf *const saved = std::cerr.rdbuf(captured.rdbuf());
+  const std::string got = r.get_folder("shared-path");
+  std::cerr.rdbuf(saved);
+
+  EXPECT_EQ(got, nscp::paths::client_path_resolver::executable_dir().string());
+  EXPECT_EQ(captured.str(), "") << captured.str();
+}
+#endif
 
 TEST(BootLayout, NoBootIniMeansLegacy) {
   // A fresh install, or one whose boot.ini has not been written yet.
