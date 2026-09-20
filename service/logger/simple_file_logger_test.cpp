@@ -26,6 +26,7 @@
 #include <map>
 #include <memory>
 #include <nscapi/protobuf/log.hpp>
+#include <nscp/path_rooting.hpp>
 #include <settings/test_helpers.hpp>
 #include <sstream>
 #include <str/utils.hpp>
@@ -422,6 +423,33 @@ TEST_F(SimpleFileLoggerSettingsTest, AnAbsoluteFileNameIsLeftWhereTheOperatorPut
   simple_file_logger logger(unique_name("absolute"));
   logger.asynch_configure();
   EXPECT_EQ(logger.get_file(), target.string());
+}
+
+TEST_F(SimpleFileLoggerSettingsTest, ALeadingSlashIsTakenAtItsWordRatherThanRewritten) {
+  // Windows used to special-case exactly "/nsclient.log" and rewrite it to
+  // ${exe-path}/nsclient.log, for configurations inherited from a version where
+  // a leading slash meant the installation directory. The rewrite is gone: a
+  // path that names a root is used as given, like every other absolute value,
+  // so on Windows this resolves against the current drive and on unix it is an
+  // ordinary absolute path.
+  //
+  // Asserted rather than merely documented because the whole point of the
+  // removal is that no hard-coded string gets moved behind the operator's back
+  // - reintroducing the shim would fail here.
+  const std::string name = "/nsclient.log";
+  boot_with(
+      "[/settings/log]\n"
+      "file name = " + name + "\n");
+
+  simple_file_logger logger(unique_name("rooted"));
+  logger.asynch_configure();
+
+  const boost::filesystem::path got(logger.get_file());
+  EXPECT_TRUE(nscp::paths::names_a_root(got)) << got.string();
+  EXPECT_EQ(got.filename(), boost::filesystem::path("nsclient.log"));
+  // Not relocated into the log folder, and not beside the executable.
+  EXPECT_NE(got, dir_.path() / "nsclient.log");
+  EXPECT_EQ(got.parent_path(), boost::filesystem::path(name).parent_path());
 }
 
 TEST_F(SimpleFileLoggerSettingsTest, ARotatedTargetThatIsADirectoryIsSurvived) {

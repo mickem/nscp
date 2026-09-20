@@ -32,6 +32,23 @@ An absolute path, a UNC path or anything written with a token is used exactly
 as given — pointing one of these somewhere specific is still yours to decide.
 `none` still means "no file" wherever it was already accepted.
 
+**One Windows value that did not used to be taken at its word now is.** If
+`[/settings/log] file name` is literally `/nsclient.log` — a value carried
+forward from a version where a leading slash meant the installation directory —
+it was quietly rewritten to `${exe-path}/nsclient.log` and the log appeared
+beside the executable. It now names a root like any other absolute path, so the
+log lands at `C:\nsclient.log`, on the root of the system drive, where the
+service may well not be permitted to write. The compiled default was never this
+value, so only a configuration that sets it explicitly is affected.
+
+Set it to what you actually want — `${log-path}/nsclient.log` for the normal
+location, or a bare `nsclient.log`, which now means the same thing:
+
+```ini
+[/settings/log]
+file name = ${log-path}/nsclient.log
+```
+
 On Linux the attachment case generally does not move: the shipped systemd unit
 sets `WorkingDirectory` to the package directory, which is what `${shared-path}`
 resolves to, so relative attachments were already landing in the right place —
