@@ -1,0 +1,18 @@
+{
+	"module"		: {
+		"title"			: "Hyper-V host and virtual machine checks",
+		"description"		: "Checks for a Hyper-V host: hypervisor health and capacity, logical processor load and the state, heartbeat, memory and snapshots of every virtual machine.",
+		"name"			: "CheckHyperV",
+		"alias"			: "hyperv",
+		"version"		: "auto",
+		"experimental"	: true
+	},
+
+	"metrics" : "produce",
+
+	"commands" : {
+		"check_hyperv_host"	: "Check the Hyper-V host: virtual machine health summary and hypervisor capacity (logical/virtual processors, partitions).",
+		"check_hyperv_cpu"	: "Check hypervisor logical processor load (guest, hypervisor and total run time) on the host.",
+		"check_hyperv_vms"	: "Check virtual machines (state, health, heartbeat, uptime, memory, processors, snapshots, replication)."
+	}
+}

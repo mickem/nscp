@@ -86,6 +86,7 @@ nav:
         - CheckSystem: reference/check/CheckSystem.md
         - CheckMSSQL (Windows): reference/windows/CheckMSSQL.md
         - CheckWindowsApps (Windows): reference/windows/CheckWindowsApps.md
+        - CheckHyperV (Windows): reference/windows/CheckHyperV.md
         - CheckTaskSched (Windows): reference/windows/CheckTaskSched.md
         - CheckWMI (Windows): reference/windows/CheckWMI.md
       - Clients & Servers:
