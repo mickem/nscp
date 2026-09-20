@@ -481,7 +481,7 @@ selects it; see [File layout](file-layout.md#windows).
 
 ### Special tokens
 
-Two tokens do not behave like the rest, and both will surprise you if you assume they do.
+Two tokens do not behave like the rest.
 
 **`${nrpe-dh}` is a lookup, not a fixed path.** The shipped Diffie-Hellman parameters are package
 content, so on Windows the installer leaves them beside the executable while `${certificate-path}`
@@ -521,11 +521,11 @@ the working directory is:
 | `[/settings/fleet] managed path` | `${fleet-folder}` |
 | `[/settings/filewriter] file` | `${log-path}` |
 
-That table is the whole of it. Every other relative value — a script name's first search
-candidate, everything under `[/settings/external scripts]`, any setting not listed above — is still
-measured against the working directory. So **prefer naming the folder explicitly**:
-`${scripts}/check.bat` says what you mean, where `scripts/check.bat` only works if you already know
-which base it is measured from, and that base depends on how the agent was started.
+That table is the complete list. Every other relative value — a script name's first search
+candidate, everything under `[/settings/external scripts]`, any setting not listed above — is
+measured against the working directory. Prefer naming the folder explicitly:
+`${scripts}/check.bat` resolves the same way however the agent was started, where
+`scripts/check.bat` depends on it.
 
 A script *name* is a different thing and is not covered by this. `[/settings/python/scripts]` and
 `[/settings/lua/scripts]` entries are resolved by **searching**, so a bare `check_foo.py` is found
@@ -536,9 +536,9 @@ in the module's script folder and the search either finds it or reports that it 
 | `check_foo.py` | `${scripts}/python/check_foo.py`, or `${scripts}/check_foo.py` |
 | `sub/check_foo.py` | `${scripts}/python/sub/check_foo.py`, or `${scripts}/sub/check_foo.py` |
 
-Lua is the same with `lua` in place of `python`. The search also tries the value as-is first, so an
-absolute path is taken as given and a relative one that happens to exist under the working
-directory wins before the script folder is consulted — one more reason to write the folder out.
+Lua is the same with `lua` in place of `python`. The search tries the value as-is first, so an
+absolute path is taken as given, and a relative one that exists under the working directory is used
+before the script folder is consulted.
 
 A script is not confined to the script folder: an absolute path anywhere on the filesystem is
 accepted, and so is a relative one that climbs out of it. Scripts the agent does not ship — a
@@ -551,24 +551,22 @@ vendor_check = /usr/lib/nagios/plugins/check_thing.py
 
 ### External scripts resolve differently
 
-`[/settings/external scripts/scripts]` does **not** work this way, and the difference catches
-people out. The value is a command line, not a path: it is handed to the operating system to
-execute, so there is no search and, importantly, **no `${...}` expansion**. Writing
-`${scripts}/check_foo.sh` there does not work — the token reaches the shell literally.
+`[/settings/external scripts/scripts]` works differently. The value is a command line rather than a
+path: it is handed to the operating system to execute, so there is no search and no `${...}`
+expansion. A `${scripts}/check_foo.sh` entry reaches the shell with the token still in it.
 
 | Written as | What happens |
 |---|---|
-| `${scripts}/check_foo.sh` | **fails** — tokens are not expanded for external scripts |
-| `check_foo.sh` | **fails** — a name with no directory separator is looked up on `PATH`, not in the current directory |
-| `scripts/check_foo.sh` | resolved relative to the service's working directory |
-| `/opt/nscp/scripts/check_foo.sh` | works, always |
+| `${scripts}/check_foo.sh` | not expanded; the token is passed through as written |
+| `check_foo.sh` | a name with no directory separator is looked up on `PATH`, not in the current directory |
+| `scripts/check_foo.sh` | resolved relative to the working directory |
+| `/opt/nscp/scripts/check_foo.sh` | used as given |
 
 The conventional `scripts\check_foo.bat` works on a normal install because the working directory
-happens to contain `scripts`: on Windows the service starts external scripts with the installation
-directory as their working directory, and on Linux the shipped systemd unit sets `WorkingDirectory`
-to the package directory. Neither is something the configuration states, so **prefer an absolute
-path** for an external script, or keep the conventional relative form and be aware it depends on
-how the agent was started.
+contains `scripts`: on Windows the service starts external scripts with the installation directory
+as their working directory, and on Linux the shipped systemd unit sets `WorkingDirectory` to
+`${shared-path}`. Neither is stated in the configuration, so prefer an absolute path here, or keep
+the relative form knowing it depends on how the agent was started.
 
 `nscp ext-scr add --import <file>` writes that value for you, and picks the spelling that works on
 the platform it runs on: `scripts\<name>` on Windows, where the working directory is known, and the
