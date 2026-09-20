@@ -150,6 +150,13 @@ struct generic_socket {
   // predate the distinction.
   virtual boost::optional<long> peer_certificate_expiry_days_opt() const { return boost::none; }
   long peer_certificate_expiry_days() const { return peer_certificate_expiry_days_opt().get_value_or(-1); }
+  // The peer's certificate in full, for a check that reports on more than the
+  // expiry (subject, issuer, SANs). none for a transport that carries no TLS.
+  virtual boost::optional<socket_helpers::peer_certificate> peer_certificate_details_opt() const { return boost::none; }
+  // OpenSSL's verdict on the chain, empty for a non-TLS transport. See
+  // socket_helpers::peer_verify_result: recorded even when verification is
+  // off, and never an authentication result on its own.
+  virtual std::string peer_verify_result() const { return {}; }
   // Applied by the client right after connecting; no-op for transports that
   // are not sockets.
   virtual void set_timeouts(unsigned int seconds) {}
@@ -382,19 +389,10 @@ struct ssl_socket final : generic_socket {
       throw socket_helpers::socket_exception("Failed to set the minimum TLS protocol version " + str::xtos(tls_min_version) +
                                              " (TLS wire constant): rejected by this OpenSSL build");
     }
-    if (!ca.empty() && ca != "none") {
-      try {
-        context.load_verify_file(ca);
-      } catch (const std::exception &e) {
-        // The path and the OpenSSL reason go in the log-only detail: `ca=` is
-        // a request option on several clients, so echoing "No such file",
-        // "Permission denied" or "no start line" back to the caller turns a
-        // submission into a file-existence oracle over the whole filesystem,
-        // with the agent's privileges.
-        throw socket_helpers::socket_exception("Failed to load the CA bundle for this connection (see the agent log for the reason)",
-                                               "Failed to load CA " + ca + ": " + e.what());
-      }
-    }
+    // A PEM bundle file or a hashed CA directory (/etc/ssl/certs), whichever
+    // is on disk: load_verify_file() on a directory fails with an opaque
+    // OpenSSL error, and a directory is what distributions actually ship.
+    socket_helpers::load_verify_location(context, ca);
     if (identity.is_pinned()) {
       try {
         context.add_certificate_authority(boost::asio::buffer(identity.pinned_ca_pem));
@@ -532,6 +530,16 @@ struct ssl_socket final : generic_socket {
     // native_handle() is non-const; the underlying SSL* is not mutated here.
     SSL *ssl = const_cast<ssl_socket *>(this)->ssl_socket_.native_handle();
     return socket_helpers::peer_certificate_expiry_days(ssl);
+  }
+
+  boost::optional<socket_helpers::peer_certificate> peer_certificate_details_opt() const override {
+    SSL *ssl = const_cast<ssl_socket *>(this)->ssl_socket_.native_handle();
+    return socket_helpers::peer_certificate_details(ssl);
+  }
+
+  std::string peer_verify_result() const override {
+    SSL *ssl = const_cast<ssl_socket *>(this)->ssl_socket_.native_handle();
+    return socket_helpers::peer_verify_result(ssl);
   }
 
   /// Establish an HTTP CONNECT tunnel through proxy_ then perform TLS handshake.
@@ -869,6 +877,10 @@ class simple_client {
     return socket_ ? socket_->peer_certificate_expiry_days_opt() : boost::optional<long>();
   }
   long peer_certificate_expiry_days() const { return peer_certificate_expiry_days_opt().get_value_or(-1); }
+  boost::optional<socket_helpers::peer_certificate> peer_certificate_details_opt() const {
+    return socket_ ? socket_->peer_certificate_details_opt() : boost::optional<socket_helpers::peer_certificate>();
+  }
+  std::string peer_verify_result() const { return socket_ ? socket_->peer_verify_result() : std::string(); }
 
   response read_result(boost::asio::streambuf &response_buffer) const {
     std::string http_version, status_message;

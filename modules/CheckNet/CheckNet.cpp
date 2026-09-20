@@ -34,8 +34,10 @@ bool CheckNet::loadModuleEx(const std::string &, NSCAPI::moduleLoadMode) {
   // expands to ${certificate-path}/windows-ca.pem on Windows (the auto-
   // generated system ROOT bundle) and on unix to the distribution's own bundle,
   // detected at configure time because its location differs per family
-  // (CONFIG_CA_PATH). check_http hands this through as the default `ca` so HTTPS
-  // checks against public-CA-signed servers validate out of the box.
+  // (CONFIG_CA_PATH). check_http, check_tcp and check_ssh hand this through as
+  // the default `ca` so a TLS check against a public-CA-signed server validates
+  // out of the box; when it resolves to nothing, each falls back to the trust
+  // store OpenSSL itself was built with.
   default_ca_ = get_core()->expand_path("${ca-path}");
   return true;
 }
@@ -138,11 +140,11 @@ void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &requ
   if (total_obj) filter.match(total_obj);
   filter_helper.post_process(filter);
 }
-void CheckNet::check_tcp(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_net::check_tcp(request, response);
+void CheckNet::check_tcp(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) const {
+  check_net::check_tcp(default_ca_, request, response);
 }
-void CheckNet::check_ssh(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_net::check_ssh(request, response);
+void CheckNet::check_ssh(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) const {
+  check_net::check_ssh(default_ca_, request, response);
 }
 void CheckNet::check_dns(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_net::check_dns(request, response);
