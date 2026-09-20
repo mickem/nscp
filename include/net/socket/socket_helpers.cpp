@@ -1251,12 +1251,12 @@ boost::optional<long> socket_helpers::peer_certificate_expiry_days(SSL *ssl) {
   return expiry;
 }
 
-boost::optional<socket_helpers::peer_certificate> socket_helpers::peer_certificate_details(SSL *ssl) {
-  if (ssl == nullptr) return boost::none;
-  // SSL_get_peer_certificate bumps the refcount; we own this pointer and must
-  // free it on every return path.
-  X509 *cert = SSL_get_peer_certificate(ssl);
-  if (cert == nullptr) return boost::none;
+boost::optional<socket_helpers::peer_certificate> socket_helpers::certificate_details(const X509 *certificate) {
+  if (certificate == nullptr) return boost::none;
+  // The OpenSSL accessors below take a non-const X509* but do not modify it;
+  // taking the parameter as const keeps callers (the verify callback, which is
+  // handed a borrowed certificate) from assuming ownership is transferred.
+  X509 *cert = const_cast<X509 *>(certificate);
 
   peer_certificate info;
 
@@ -1285,6 +1285,16 @@ boost::optional<socket_helpers::peer_certificate> socket_helpers::peer_certifica
     GENERAL_NAMES_free(names);
   }
 
+  return info;
+}
+
+boost::optional<socket_helpers::peer_certificate> socket_helpers::peer_certificate_details(SSL *ssl) {
+  if (ssl == nullptr) return boost::none;
+  // SSL_get_peer_certificate bumps the refcount; we own this pointer and must
+  // free it on every return path.
+  X509 *cert = SSL_get_peer_certificate(ssl);
+  if (cert == nullptr) return boost::none;
+  const boost::optional<peer_certificate> info = certificate_details(cert);
   X509_free(cert);
   return info;
 }

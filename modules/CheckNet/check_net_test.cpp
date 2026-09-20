@@ -5,6 +5,9 @@
 
 #include <memory>
 #include <net/address_family.hpp>
+// The full definition, which check_net_cert.hpp deliberately only forward
+// declares: these tests build a peer_certificate to hand to cert::populate().
+#include <net/socket/socket_helpers.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 
 #include "check_connections.h"
@@ -1482,6 +1485,68 @@ TEST(StartTls, ldap_reply_length_header_forms) {
   EXPECT_FALSE(st::ber_element_length(std::string("\x30\x80", 2), total));
   // Header still arriving.
   EXPECT_FALSE(st::ber_element_length(std::string("\x30", 1), total));
+}
+
+TEST(StartTls, ldap_reply_is_parsed_positionally_not_scanned_for_bytes) {
+  // A messageID whose own bytes spell 0x78 and then 0A 01. Every one of those
+  // is an ordinary value an INTEGER may hold, so a parser that searches for the
+  // ExtendedResponse tag anchors inside the message ID and then reads the next
+  // two bytes of it as the result code - here concluding "refused" from a reply
+  // that says success.
+  //
+  //   30 0e                   LDAPMessage, 14 bytes
+  //      02 03 78 0a 01       messageID = 7867905
+  //      78 07                ExtendedResponse, 7 bytes
+  //         0a 01 00          resultCode = success
+  //         04 00 04 00       matchedDN, diagnosticMessage (both empty)
+  const std::string tricky("\x30\x0e\x02\x03\x78\x0a\x01\x78\x07\x0a\x01\x00\x04\x00\x04\x00", 16);
+  EXPECT_EQ(st::ldap_reply_verdict(tricky), st::verdict::matched);
+
+  // The same shape carrying a real refusal still refuses: the walk reads the
+  // resultCode where the encoding puts it, not where a byte search lands.
+  const std::string tricky_refused("\x30\x0e\x02\x03\x78\x0a\x01\x78\x07\x0a\x01\x35\x04\x00\x04\x00", 16);
+  EXPECT_EQ(st::ldap_reply_verdict(tricky_refused), st::verdict::failed);
+
+  // A protocolOp that is not an ExtendedResponse is not a StartTLS answer, even
+  // though a bindResponse ([APPLICATION 1]) carries a resultCode in the same
+  // place and would satisfy a scan for one.
+  const std::string bind_response("\x30\x0c\x02\x01\x01\x61\x07\x0a\x01\x00\x04\x00\x04\x00", 14);
+  EXPECT_EQ(st::ldap_reply_verdict(bind_response), st::verdict::failed);
+
+  // A resultCode that is not a single byte is not one this decides on: LDAP
+  // encodes success as the one byte 0x00, so anything else is malformed rather
+  // than an invitation to keep looking for a shape that says success.
+  const std::string wide_code("\x30\x0d\x02\x01\x01\x78\x08\x0a\x02\x00\x00\x04\x00\x04\x00", 15);
+  EXPECT_EQ(st::ldap_reply_verdict(wide_code), st::verdict::failed);
+}
+
+TEST(StartTls, ber_header_reads_a_tlv_at_an_offset) {
+  st::ber_element element;
+  // Short form at the head of the buffer.
+  ASSERT_TRUE(st::ber_header(std::string("\x30\x0c\x02\x01\x01", 5), 0, element));
+  EXPECT_EQ(element.tag, 0x30);
+  EXPECT_EQ(element.content, 2u);
+  EXPECT_EQ(element.length, 12u);
+
+  // The same buffer read at the messageID, which is where the walk goes next.
+  ASSERT_TRUE(st::ber_header(std::string("\x30\x0c\x02\x01\x01", 5), 2, element));
+  EXPECT_EQ(element.tag, 0x02);
+  EXPECT_EQ(element.content, 4u);
+  EXPECT_EQ(element.length, 1u);
+
+  // Long form: 0x81 means one length byte follows, so the content starts later.
+  ASSERT_TRUE(st::ber_header(std::string("\x78\x81\x84", 3), 0, element));
+  EXPECT_EQ(element.tag, 0x78);
+  EXPECT_EQ(element.content, 3u);
+  EXPECT_EQ(element.length, 0x84u);
+
+  // A header that runs past what has arrived, at an offset as well as at zero.
+  EXPECT_FALSE(st::ber_header(std::string("\x30\x0c\x02", 3), 2, element));
+  EXPECT_FALSE(st::ber_header(std::string("\x30\x82\x01", 3), 0, element));
+  // Indefinite length is not something LDAP emits.
+  EXPECT_FALSE(st::ber_header(std::string("\x30\x80", 2), 0, element));
+  // An offset at or past the end is not a header.
+  EXPECT_FALSE(st::ber_header(std::string("\x30\x0c", 2), 2, element));
 }
 
 TEST(StartTls, ldap_reply_rejects_what_is_not_an_ldap_message) {

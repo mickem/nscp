@@ -12,6 +12,7 @@ set(SRCS
     filter.cpp
     check_tcp.cpp
     check_starttls.cpp
+    check_net_cert.cpp
     check_dns.cpp
     check_http.cpp
     check_http_json.cpp
@@ -75,8 +76,12 @@ if(OPENSSL_FOUND)
         target_link_libraries(${TARGET} CRYPT32)
     endif(WIN32)
     # The unit test compiles with -DUSE_SSL too (add_definitions is directory
-    # wide), and the certificate keywords pull in boost::asio::ssl, so it needs
-    # the same libraries or it fails to link on ERR_reason_error_string.
+    # wide) and includes <net/socket/socket_helpers.hpp> directly, to build the
+    # peer_certificate it hands to cert::populate(). That pulls in
+    # boost::asio::ssl, so it needs the same libraries or it fails to link on
+    # ERR_reason_error_string. Only this one test file does: check_net_cert.hpp
+    # forward declares the struct, so the module's other sources - and anything
+    # else including check_tcp.h or check_http.h - do not.
     set(CHECK_NET_TEST_SSL_LIBRARIES ${OPENSSL_LIBRARIES})
     if(WIN32)
         list(APPEND CHECK_NET_TEST_SSL_LIBRARIES CRYPT32)
@@ -101,6 +106,7 @@ NSCP_CREATE_TEST(
         check_http_json.cpp
         check_webserver_test.cpp
         check_starttls.cpp
+        check_net_cert.cpp
         check_webserver_parse.cpp
         filter.cpp
         check_nsclient_web_online_parse.cpp

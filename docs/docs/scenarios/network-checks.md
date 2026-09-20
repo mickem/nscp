@@ -129,12 +129,16 @@ check_tcp host=mail.example.com service=smtp
 check_tcp host=mail.example.com service=ssmtp   ; SMTP-over-TLS on port 465
 ```
 
-**Wrap the connection in TLS** and (optionally) verify the server certificate or
-pin a minimum protocol version (`tls-version` accepts `tlsv1.0`…`tlsv1.3`, `sslv3`):
+**Wrap the connection in TLS** and (optionally) pin a minimum protocol version
+(`tls-version` accepts `tlsv1.0`…`tlsv1.3`, `sslv3`). The certificate is
+verified by default, against the agent's own trust bundle; `verify=none` turns
+that off while still reading the certificate, and `ca=` points at a different
+trust anchor (a PEM bundle or a hashed directory):
 
 ```
 check_tcp host=secure.example.com port=443 ssl=true
-check_tcp host=secure.example.com port=443 ssl=true verify=peer ca=/etc/ssl/certs/ca-certificates.crt
+check_tcp host=secure.example.com port=443 ssl=true verify=none                ; read the cert, do not trust it
+check_tcp host=internal.example.com port=443 ssl=true ca=/etc/pki/internal-ca.pem
 check_tcp host=secure.example.com port=443 ssl=true tls-version=tlsv1.2+
 ```
 

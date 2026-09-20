@@ -132,17 +132,22 @@ void run_http_check(const std::string &url_in, const http_check_options &opt, ch
         rq.add_header("Content-Type", opt.content_type);
       }
 
+      // Cleared BEFORE the fetch, not after it. With follow-redirects an https
+      // hop can be followed by a plain http one, and keeping the earlier hop's
+      // certificate would report one for a URL that never presented it - but
+      // fetch() also THROWS on a failed handshake, and a clear placed after it
+      // never runs on that path. A TLS failure on a later hop would then be
+      // reported alongside the previous hop's certificate, down to
+      // cert_verify='ok' for a connection that did not verify at all.
+      out.cert = cert::cert_fields();
+
       // fetch() connects, sends, reads the full (de-chunked) body and does NOT
       // throw on non-2xx — we want to inspect any status code / body ourselves.
       const http::response resp = client.fetch(u.host, u.port, rq);
-      // Assign unconditionally: with follow-redirects an https hop can be
-      // followed by a plain http one, and keeping the earlier hop's certificate
-      // would report one for a URL that never presented it.
-      out.cert = cert::cert_fields();
-      // Recomputed per hop for the same reason: what sans= asserts is a
-      // property of the certificate actually served by the URL we end on - and
-      // a hop that served none has not met a sans= requirement either, which
-      // is exactly what a redirect down to plain http looks like.
+      // Recomputed per hop: what sans= asserts is a property of the certificate
+      // actually served by the URL we end on - and a hop that served none has
+      // not met a sans= requirement either, which is exactly what a redirect
+      // down to plain http looks like.
       const auto info = client.peer_certificate_details_opt();
       // Unambiguous here: fetch() throws on a failed handshake, so reaching
       // this line means one completed, and a plain-http hop reports an empty

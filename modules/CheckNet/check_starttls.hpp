@@ -134,5 +134,18 @@ verdict ldap_reply_verdict(const std::string &buffer);
 // LDAP never uses (indefinite length, or one too large to represent).
 bool ber_element_length(const std::string &buffer, std::size_t &total);
 
+// One BER TLV header: its tag, the offset its content starts at and that
+// content's length. The unit the LDAP reply is walked in - see ber_header.
+struct ber_element {
+  unsigned char tag = 0;
+  std::size_t content = 0;
+  std::size_t length = 0;
+};
+
+// Read the TLV header at `offset`. false when it has not fully arrived, when
+// the length uses the indefinite form (which LDAP never emits) or when it does
+// not fit in a size_t.
+bool ber_header(const std::string &buffer, std::size_t offset, ber_element &out);
+
 }  // namespace starttls
 }  // namespace check_net

@@ -465,9 +465,23 @@ NSCP_NET_EXPORT pinned_certificate parse_pinned_certificate(const std::string& p
 // Empty when the digest cannot be computed.
 NSCP_NET_EXPORT std::string certificate_spki_sha256(X509* cert);
 
+// Read one certificate's details. The borrowed certificate is only read; the
+// caller keeps ownership.
+//
+// Separate from peer_certificate_details() because of WHEN each is available.
+// SSL_get_peer_certificate() returns a certificate only once the chain has
+// VERIFIED: under a verifying mode, a certificate that is expired, self-signed
+// or issued by an unknown CA aborts the handshake before OpenSSL stores it, so
+// reading it afterwards says nothing about the certificate that was rejected -
+// which is the one worth reporting. A verify callback runs before that
+// decision and is handed the certificate, so it can capture the details here.
+NSCP_NET_EXPORT boost::optional<peer_certificate> certificate_details(const X509* certificate);
+
 // Read the peer's certificate details. none when there is no peer certificate
-// (a plain connection, or a peer that presented none), which the caller must
-// keep distinct from an expired one - see peer_certificate_expiry_days.
+// (a plain connection, a peer that presented none, or a handshake that failed
+// verification before OpenSSL stored one - see certificate_details), which the
+// caller must keep distinct from an expired one - see
+// peer_certificate_expiry_days.
 NSCP_NET_EXPORT boost::optional<peer_certificate> peer_certificate_details(SSL* ssl);
 
 // OpenSSL's verdict on the chain, as the human-readable string behind

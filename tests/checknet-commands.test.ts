@@ -359,6 +359,34 @@ function startTlsResetServer(): Promise<Listener> {
   });
 }
 
+/**
+ * A server that answers a STARTTLS negotiation with an endless reply line it
+ * never terminates. That is what the byte budget exists for: the line engine
+ * consumes each complete line as it arrives, so a peer sending unbounded *complete*
+ * lines is bounded by the deadline instead - but one that never sends the
+ * newline leaves every byte sitting in the buffer, and only a cap on that
+ * buffer stops it growing without limit.
+ */
+function startFloodServer(greeting: string): Promise<Listener> {
+  return new Promise((resolve) => {
+    const srv = net.createServer((sock) => {
+      sock.on("error", () => {});
+      // A reply that starts plausibly and then simply never ends: no CR, no LF,
+      // so nothing is ever a complete line the engine can consume and discard.
+      sock.write(greeting.replace(/\r?\n$/, ""));
+      const chunk = "x".repeat(4096);
+      const pump = () => {
+        while (sock.writable && sock.write(chunk)) {
+          /* keep going until the kernel buffer pushes back */
+        }
+      };
+      pump();
+      sock.on("drain", pump);
+    });
+    srv.listen(0, "127.0.0.1", () => resolve(track({ port: portOf(srv), close: closeNetServer(srv) })));
+  });
+}
+
 describe("CheckNet commands", () => {
   let nscp: NscpInstance;
   let key: string;
@@ -447,14 +475,16 @@ describe("CheckNet commands", () => {
   });
 
   it("check_tcp reads the certificate without verifying it", async () => {
-    // verify=none is the default: the expiry is a property of the certificate
-    // the peer served, so it must be readable without a trust decision (the
-    // fixture cert is signed by a CA nscp does not trust).
+    // The expiry is a property of the certificate the peer served, so it must
+    // be readable without a trust decision - verify=none is how you ask for
+    // that now that verification is the default (the fixture cert is signed by
+    // a CA nscp does not trust).
     const s = await startTlsGreeter("220 secure service\r\n", serverCert);
     const q = await executeQuery(key, "check_tcp", {
       host: "127.0.0.1",
       port: String(s.port),
       ssl: "true",
+      verify: "none",
       critical: "has_certificate = 0",
     });
     expect(q.result).toBe(OK);
@@ -473,6 +503,7 @@ describe("CheckNet commands", () => {
       host: "127.0.0.1",
       port: String(s.port),
       ssl: "true",
+      verify: "none",
       critical: "has_certificate = 1 and ssl_expiry_days < 30",
       "top-syntax": "${list}",
       "detail-syntax": "expires in ${ssl_expiry_days} days",
@@ -491,6 +522,7 @@ describe("CheckNet commands", () => {
       host: "127.0.0.1",
       port: String(s.port),
       ssl: "true",
+      verify: "none",
       warning: "ssl_expiry_days < 30",
     });
     expect(q.result).toBe(OK);
@@ -544,6 +576,7 @@ describe("CheckNet commands", () => {
       host: "127.0.0.1",
       port: String(s.port),
       service: "spop",
+      verify: "none",
       "top-syntax": "${list}",
       "detail-syntax": "cert=${has_certificate}",
     });
@@ -559,6 +592,7 @@ describe("CheckNet commands", () => {
       host: "127.0.0.1",
       port: String(s.port),
       ssl: "true",
+      verify: "none",
       "top-syntax": "${list}",
       "detail-syntax": "cn=${cert_cn} issuer=${cert_issuer_cn} self=${cert_self_signed} sans=${cert_sans}",
     });
@@ -665,6 +699,7 @@ describe("CheckNet commands", () => {
       host: "127.0.0.1",
       port: String(s.port),
       ssl: "true",
+      verify: "none",
       sans: "localhost,127.0.0.1",
       "top-syntax": "${list}",
       "detail-syntax": "${result} missing=[${missing_sans}]",
@@ -679,6 +714,7 @@ describe("CheckNet commands", () => {
       host: "127.0.0.1",
       port: String(s.port),
       ssl: "true",
+      verify: "none",
       sans: "localhost,mail.example.com",
       "top-syntax": "${list}",
       "detail-syntax": "${result} missing=[${missing_sans}]",
@@ -706,6 +742,7 @@ describe("CheckNet commands", () => {
       host: "127.0.0.1",
       port: String(s.port),
       starttls: "smtp",
+      verify: "none",
       "top-syntax": "${list}",
       "detail-syntax": "${result} cert=${has_certificate} cn=${cert_cn}",
     });
@@ -723,6 +760,7 @@ describe("CheckNet commands", () => {
       host: "127.0.0.1",
       port: String(s.port),
       starttls: "imap",
+      verify: "none",
       warning: "ssl_expiry_days < 30",
       "top-syntax": "${list}",
       "detail-syntax": "${result} cert=${has_certificate}",
@@ -741,6 +779,7 @@ describe("CheckNet commands", () => {
       host: "127.0.0.1",
       port: String(s.port),
       starttls: "pop3",
+      verify: "none",
       "top-syntax": "${list}",
       "detail-syntax": "${result} cert=${has_certificate}",
     });
@@ -777,6 +816,7 @@ describe("CheckNet commands", () => {
       host: "127.0.0.1",
       port: String(s.port),
       starttls: "postgres",
+      verify: "none",
       "top-syntax": "${list}",
       "detail-syntax": "${result} cert=${has_certificate} cn=${cert_cn}",
     });
@@ -876,6 +916,164 @@ describe("CheckNet commands", () => {
       critical: "cert_verify != 'ok'",
     });
     expect(alerting.result).toBe(CRITICAL);
+  });
+
+  it("check_tcp verifies the certificate by default", async () => {
+    // The default is verify=peer against the agent's configured bundle, so a
+    // certificate signed by a CA the agent does not trust fails the handshake
+    // rather than being quietly accepted. Everything below that reads a
+    // certificate without trusting it has to say verify=none.
+    const s = await startTlsGreeter("220 secure service\r\n", serverCert);
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      ssl: "true",
+      "top-syntax": "${list}",
+      "detail-syntax": "${result}",
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toBe("tls_handshake_failed");
+  });
+
+  it("check_tcp falls back to the system trust store when no bundle is configured", async () => {
+    // ca=none means "no configured bundle", which resolves to OpenSSL's own
+    // trust store rather than to no trust anchors at all. The fixture CA is in
+    // neither, so this still fails - but it must fail on the chain, which is
+    // what proves anchors were loaded and the verdict is about them.
+    const s = await startTlsGreeter("220 secure service\r\n", serverCert);
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      ssl: "true",
+      ca: "none",
+      "top-syntax": "${list}",
+      "detail-syntax": "${result} verify=[${cert_verify}]",
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toContain("tls_handshake_failed");
+    expect(messageOf(q)).not.toContain("failed to load");
+    expect(messageOf(q)).not.toContain("verify=[]");
+  });
+
+  it("check_tcp reports the certificate even when the handshake failed", async () => {
+    // A handshake that failed over the certificate is exactly when its details
+    // are worth having: an expiry threshold written for an expired certificate
+    // must still fire, and an operator needs to see which certificate was
+    // rejected. Leaving cert_* empty here silences both.
+    const s = await startTlsGreeter("220 secure service\r\n", serverCert);
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      ssl: "true",
+      verify: "peer",
+      ca: caCert.certPath,
+      sni: "wrong.example.com",
+      "top-syntax": "${list}",
+      "detail-syntax": "${result} cn=${cert_cn} issuer=${cert_issuer_cn} cert=${has_certificate} days=${ssl_expiry_days}",
+    });
+    expect(q.result).toBe(CRITICAL);
+    const message = messageOf(q);
+    expect(message).toContain("tls_handshake_failed");
+    expect(message).toContain("cn=localhost");
+    expect(message).toContain("issuer=root-ca");
+    expect(message).toContain("cert=1");
+    expect(message).toMatch(/days=\d+/);
+  });
+
+  it("check_tcp expiry thresholds fire on a certificate that failed the handshake", async () => {
+    // The consequence of the above, stated as the filter an operator writes:
+    // the number has to be there for the threshold to compare against.
+    const s = await startTlsGreeter("220 secure service\r\n", serverCert);
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      ssl: "true",
+      verify: "peer",
+      ca: caCert.certPath,
+      sni: "wrong.example.com",
+      warning: "ssl_expiry_days < 100000",
+      critical: "none",
+      "top-syntax": "${list}",
+      "detail-syntax": "days=${ssl_expiry_days}",
+    });
+    expect(q.result).toBe(WARNING);
+    expect(messageOf(q)).toMatch(/days=\d+/);
+  });
+
+  // --- check_tcp: options that need TLS to mean anything ---------------------
+
+  it("check_tcp sans= on a plain connection reports the names as missing", async () => {
+    // A plain connection served no certificate, so it covers no required name.
+    // Reporting ok would pass the check the option exists to fail - and is what
+    // forgetting starttls= on port 25 looks like.
+    const s = await startTcpGreeter("220 mail.example.com ESMTP\r\n");
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      sans: "mail.example.com",
+      "top-syntax": "${list}",
+      "detail-syntax": "${result} missing=[${missing_sans}]",
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toBe("san_missing missing=[mail.example.com]");
+  });
+
+  it("check_tcp rejects sni= without TLS rather than ignoring it", async () => {
+    // sni= names the certificate to ask for and to verify against, so with no
+    // TLS there is nothing for it to do. Accepting it silently would return OK
+    // having asserted nothing, which reads exactly like a passing check.
+    const s = await startTcpGreeter("220 mail.example.com ESMTP\r\n");
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      sni: "mail.example.com",
+    });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toContain("sni=");
+    expect(messageOf(q)).toContain("ssl=true");
+  });
+
+  it("check_tcp sni= is accepted once starttls= turns TLS on", async () => {
+    // The other half: the guard must not reject the combination that works.
+    const s = await startStarttlsServer(
+      "220 mail.example.com ESMTP\r\n",
+      [
+        { match: /^EHLO/i, reply: "250-mail.example.com\r\n250 STARTTLS\r\n" },
+        { match: /^STARTTLS/i, reply: "220 2.0.0 Ready to start TLS\r\n", upgrade: true },
+      ],
+      serverCert,
+    );
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      starttls: "smtp",
+      verify: "none",
+      sni: "localhost",
+      "top-syntax": "${list}",
+      "detail-syntax": "${result} cn=${cert_cn}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toBe("ok cn=localhost");
+  });
+
+  it("check_tcp reports a flooding peer as an overflow, not a timeout", async () => {
+    // A peer that streams an unterminated line puts every byte in the buffer
+    // and never lets the engine drain any of it. The budget that runs out is
+    // bytes, not milliseconds, so calling it a timeout sends the operator to
+    // raise timeout= - which cannot help, and with a generous timeout is
+    // exactly the case the cap exists for.
+    const s = await startFloodServer("220 mail.example.com ESMTP\r\n");
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      starttls: "smtp",
+      verify: "none",
+      timeout: "20000",
+      "top-syntax": "${list}",
+      "detail-syntax": "${result}",
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toBe("starttls_overflow");
   });
 
   it("check_tcp keeps the verdict when the chain is what failed the handshake", async () => {

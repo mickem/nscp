@@ -141,14 +141,36 @@ check_tcp host=www.google.com port=443 ssl=true "crit=cert_issuer_cn != 'WE2'" "
 CRITICAL: www.google.com:443 issuer=WR2|'www.google.com_443'=22ms;1000;0
 ```
 
-**Report why an untrusted chain did not verify (without refusing to connect):**
-
-The verdict is recorded even at the default `verify=none`, here for a
-connection made without any CA bundle:
+**A certificate that does not verify fails the check** — verification is the
+default, against the agent's own trust bundle:
 
 ```
-check_tcp host=www.google.com port=443 ssl=true "detail-syntax=${host}:${port} ${result} verify=${cert_verify}"
-OK: www.google.com:443 ok verify=unable to get local issuer certificate|'www.google.com_443'=10ms;1000;5000
+check_tcp host=secure.example.com port=443 ssl=true "detail-syntax=${host}:${port} ${result} verify=${cert_verify}"
+CRITICAL: secure.example.com:443 tls_handshake_failed verify=self-signed certificate|'secure.example.com_443'=0ms;1000;5000
+```
+
+**Report why a chain did not verify, without refusing to connect** — `cert_verify`
+is recorded at `verify=none` too, which is how you watch a service whose
+certificate you do not trust:
+
+```
+check_tcp host=secure.example.com port=443 ssl=true verify=none "detail-syntax=${host}:${port} ${result} verify=${cert_verify}"
+OK: secure.example.com:443 ok verify=self-signed certificate|'secure.example.com_443'=5ms;1000;5000
+```
+
+**The certificate is reported even when the handshake failed**, so an expiry
+threshold still fires on the certificate that was rejected:
+
+```
+check_tcp host=secure.example.com port=443 ssl=true "detail-syntax=${host}:${port} ${result} cn=${cert_cn} days=${ssl_expiry_days} verify=${cert_verify}"
+CRITICAL: secure.example.com:443 tls_handshake_failed cn=secure.example.com days=89 verify=self-signed certificate|'secure.example.com_443'=0ms;1000;5000
+```
+
+**Trust an internal CA with `ca=`:**
+
+```
+check_tcp host=secure.example.com port=443 ssl=true ca=/etc/pki/internal-ca.pem "detail-syntax=${host}:${port} ${result} verify=${cert_verify}"
+OK: secure.example.com:443 ok verify=ok|'secure.example.com_443'=2ms;1000;5000
 ```
 
 **Require the names the certificate must cover (`sans=`):**

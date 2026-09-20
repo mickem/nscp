@@ -45,11 +45,21 @@ check_tcp host=mail.example.com port=993 ssl=true "crit=ssl_expiry_days < 30 or 
 > and no expiry perfdata is emitted when there is no certificate. The same
 > change applies to `check_http`'s `ssl_expiry_days`.
 
-**Reading the certificate does not verify it.** The expiry is a property of what
-the peer served, so it is available at the default `verify=none` — a
-self-signed or otherwise untrusted certificate still reports its real remaining
-lifetime. Use `verify=peer` with a `ca=` bundle when you want the chain checked
-as well; the two are independent.
+**The certificate is verified by default.** `verify` defaults to `peer` and
+`ca=` defaults to the agent's own trust bundle (`${ca-path}`), falling back to
+the trust store OpenSSL was built with when that is empty — so a check against
+a publicly issued certificate validates out of the box, and one against a
+certificate that does not validate reports `tls_handshake_failed`.
+
+**Reading the certificate does not require verifying it.** The expiry and the
+identity keywords are properties of what the peer served, so they are readable
+without a trust decision: pass `verify=none` to reach a server whose
+certificate does not validate and still report its real remaining lifetime,
+issuer and names. `cert_verify` tells you why it did not validate either way.
+
+```
+check_tcp host=internal.example.com port=443 ssl=true verify=none "detail-syntax=${host} days=${ssl_expiry_days} verify=${cert_verify}"
+```
 
 This complements the other two certificate checks: `check_http`'s
 `ssl_expiry_days` covers HTTPS endpoints specifically, and `check_certificate`
@@ -87,11 +97,11 @@ renewal that silently moved to a different CA:
 check_tcp host=secure.example.com port=443 ssl=true "crit=cert_issuer_cn != 'R11'" "detail-syntax=${host}:${port} issuer=${cert_issuer_cn}"
 ```
 
-`cert_verify` is recorded **even at the default `verify=none`**: OpenSSL walks
-the chain regardless, it just does not fail the handshake over the result. That
-is what lets a check report *why* a chain is untrusted without refusing to
-connect. It is not an authentication result on its own — only a successful
-handshake under `verify=peer` is that.
+`cert_verify` is recorded **even at `verify=none`**: OpenSSL walks the chain
+regardless, it just does not fail the handshake over the result. That is what
+lets a check report *why* a chain is untrusted without refusing to connect. It
+is not an authentication result on its own — only a successful handshake under
+`verify=peer` is that.
 
 When the handshake **fails**, `cert_verify` carries the chain's verdict only if
 that verdict is itself a failure — which is the case worth reading, since it is
@@ -101,6 +111,13 @@ because OpenSSL reports `X509_V_OK` for "never verified anything" as well as
 for "verified fine". So `crit=cert_verify != 'ok'` fires on both a bad chain
 and a connection that never got far enough to check one, and never reads a
 clean chain into a failure that had nothing to do with certificates.
+
+**The certificate is reported even when the handshake failed.** A rejected
+certificate is exactly the one worth looking at, so `cert_cn`, `cert_sans`,
+`ssl_expiry_days` and the rest are filled in alongside
+`result=tls_handshake_failed`. An expiry threshold therefore still fires on a
+certificate that expired under `verify=peer`, rather than going quiet because
+the connection was refused over it.
 
 #### Requiring names with `sans=`
 
@@ -123,6 +140,11 @@ Names are matched against subjectAltName only, never the subject CN: a name
 carried only by the CN has not been a valid identity since RFC 2818 was
 superseded, and no current browser or library accepts it.
 
+A connection that served **no** certificate does not cover a required name
+either, so `sans=` on a plain connection reports `san_missing` rather than
+`ok`. That is what forgetting `starttls=` on a submission port looks like, and
+reporting it as a pass would hide exactly the case the option exists to catch.
+
 #### `sni=` — checking a virtual host
 
 `sni=` sets the Server Name Indication offered to a server that hosts several
@@ -136,6 +158,38 @@ check_tcp host=10.0.0.5 port=443 ssl=true verify=peer ca=/etc/ssl/certs sni=www.
 
 Because it drives verification too, a name the certificate does not carry fails
 the handshake rather than quietly skipping the check.
+
+`sni=` only means something inside a TLS session, so it is **rejected** when
+neither `ssl=true`, a `starttls=` protocol nor an implicit-TLS `service=`
+preset is in play. Accepting it silently would return OK having asserted
+nothing — which reads exactly like a passing identity check.
+
+#### How a check can end (`result`)
+
+`result` is a short status word, and the default `critical` filter is
+`result != 'ok'` — so every value but `ok` alerts without a threshold being
+written for it.
+
+| `result` | Meaning |
+| --- | --- |
+| `ok` | Connected, and the expectations (if any) held |
+| `refused` | The port refused the connection |
+| `timeout` | The TCP connect did not complete inside `timeout=` |
+| `resolve_failed` | The host did not resolve (in the requested address family) |
+| `no_match` | Connected, but the response failed `expect=` / the preset's pattern |
+| `read_timeout` | The peer stayed silent past `timeout=` |
+| `read_failed` | The read failed for another reason |
+| `write_timeout` | The peer never accepted `send=` inside `timeout=` |
+| `write_failed` | The write failed for another reason |
+| `san_missing` | A name required with `sans=` is not covered — see below |
+| `tls_handshake_failed` | The TLS handshake was rejected (bad chain, wrong name, no shared version) |
+| `tls_handshake_timeout` | The handshake did not complete inside `timeout=` |
+| `starttls_*` | The opportunistic upgrade did not happen — see the table below |
+
+A timeout is kept distinct from the failure it is easy to confuse it with: a
+peer that went quiet (`read_timeout`) is not one that hung up (`read_failed`),
+and closing the socket to unblock the read makes both look identical at the
+error code, so the deadline is what tells them apart.
 
 #### Opportunistic TLS with `starttls=`
 
@@ -182,20 +236,28 @@ How a negotiation can end:
 | `ok` | The upgrade succeeded and the certificate was read |
 | `starttls_refused` | The server answered, declining the upgrade |
 | `starttls_disconnected` | The peer closed or reset the connection mid-negotiation |
-| `starttls_timeout` | No answer inside `timeout=`, or the negotiation outgrew its buffer budget |
+| `starttls_timeout` | No answer inside `timeout=` |
+| `starttls_overflow` | The peer sent more than 64 KiB the negotiation could not consume |
 | `tls_handshake_failed` | The server agreed, but the TLS handshake itself failed |
 
 All but `ok` trip the default `critical` filter (`result != 'ok'`). A refusal
 is an *answer*, so it is reported immediately rather than waited out; for MySQL
 that includes a server that never advertised `CLIENT_SSL` in its handshake, so
 "this server has TLS turned off" reads as a refusal rather than a handshake
-failure.
+failure. `starttls_overflow` is kept distinct from `starttls_timeout` because
+the budget that ran out is bytes rather than milliseconds — raising `timeout=`
+cannot help there. It is the answer for a peer whose reply never *ends*: the
+line engine consumes each complete line as it arrives, so a server chattering
+endless complete lines is bounded by `timeout=` as usual, while one that never
+sends the terminating newline (or floods one of the binary protocols) would
+otherwise grow the buffer without limit.
 
 #### CA bundles and CA directories
 
-`ca=` accepts either a concatenated PEM bundle file or a hashed CA *directory*
-in OpenSSL's `-CApath` layout. `/etc/ssl/certs` is a directory on every
-distribution, so both of these work:
+`ca=` defaults to the agent's configured bundle (`${ca-path}`) and accepts
+either a concatenated PEM bundle file or a hashed CA *directory* in OpenSSL's
+`-CApath` layout. `/etc/ssl/certs` is a directory on every distribution, so
+both of these work:
 
 ```
 check_tcp host=secure.example.com port=443 ssl=true verify=peer ca=/etc/ssl/certs/ca-certificates.crt "detail-syntax=${host}:${port} ${result} verify=${cert_verify}"

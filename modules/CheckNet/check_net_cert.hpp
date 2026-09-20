@@ -8,10 +8,18 @@
 #include <boost/optional.hpp>
 #include <list>
 #include <memory>
-#include <net/socket/socket_helpers.hpp>
 #include <parsers/where/node.hpp>
 #include <string>
 #include <vector>
+
+// Forward declared rather than included: <net/socket/socket_helpers.hpp> drags
+// boost::asio::ssl - and with it the whole OpenSSL header set - into every
+// translation unit that includes check_tcp.h or check_http.h, when the only
+// thing here that needs it is populate(). That one lives in check_net_cert.cpp,
+// which does include it.
+namespace socket_helpers {
+struct peer_certificate;
+}
 
 namespace check_net {
 // The peer certificate as a check reports it: the fields every TLS-capable
@@ -136,20 +144,7 @@ inline std::vector<std::string> parse_required_sans(const std::string &value) {
 // Fill `out` from a peer certificate read off a live session, and apply the
 // `sans=` requirement. Returns false when a required name is missing, which is
 // the caller's cue to fail the check's `result`.
-inline bool populate(cert_fields &out, const socket_helpers::peer_certificate &info, const std::vector<std::string> &required_sans) {
-  out.has_certificate = true;
-  if (info.expiry_days) out.expiry_days = static_cast<long long>(info.expiry_days.value());
-  out.subject = info.subject;
-  out.issuer = info.issuer;
-  out.subject_cn = info.subject_cn;
-  out.issuer_cn = info.issuer_cn;
-  out.self_signed = info.self_signed;
-  out.sans = boost::algorithm::join(info.sans, ",");
-
-  const std::vector<std::string> missing = find_missing_sans(info.sans, required_sans);
-  out.missing_sans = boost::algorithm::join(missing, ",");
-  return missing.empty();
-}
+bool populate(cert_fields &out, const socket_helpers::peer_certificate &info, const std::vector<std::string> &required_sans);
 
 // Register the certificate keywords on a check's filter registry. Templated on
 // the filter object so check_tcp and check_http share one vocabulary; `field`

@@ -91,11 +91,14 @@ the default `critical` filter already alerts on — and names it in
 check_http url=https://www.example.com/ sans=example.com,www.example.com "detail-syntax=${url} ${result} code=${code} missing=[${missing_sans}]"
 ```
 
-All of these describe the **last** hop: with `onredirect=follow`, an https hop
-followed by a plain http one reports no certificate at all, and `sans=` is
-evaluated against the certificate served by the URL actually checked. A hop
-that served no certificate covers no names, so a `sans=` requirement fails
-there rather than passing by default.
+All of these describe the **last** hop that was reached: with
+`onredirect=follow`, an https hop followed by a plain http one reports no
+certificate at all, and `sans=` is evaluated against the certificate served by
+the URL actually checked. A hop that served no certificate covers no names, so
+a `sans=` requirement fails there rather than passing by default. A hop whose
+TLS handshake fails clears them too, rather than leaving the previous hop's
+certificate — and its `cert_verify=ok` — standing for a connection that never
+verified anything.
 
 `cert_verify` is recorded even when the chain does not verify, so a check can
 report *why* a certificate is untrusted. It is not an authentication result on

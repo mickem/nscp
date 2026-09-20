@@ -82,16 +82,78 @@ namespace {
 
 using boost::asio::ip::tcp;
 
+using steady_clock = std::chrono::steady_clock;
+
+// The shape every timed operation in this file shares: arm a timer that closes
+// the socket once the deadline passes, start one asynchronous operation, run
+// the io_context until whichever of the two finishes first, and report which
+// it was. Returns true when the deadline was what ended it.
+//
+// Closing the socket is what actually unblocks an operation that overran -
+// asio has no "give up on this read after N ms" - and it makes that operation
+// fail with operation_aborted, which is indistinguishable from the peer having
+// reset the connection. So the timer records that it fired, and that flag,
+// rather than the operation's error code, is what a caller reads to tell a
+// timeout from a disconnect.
+//
+// `start` is handed a `finished` callable to invoke from its own completion
+// handler; it lives in this frame and stays alive for the whole run().
+template <typename Start>
+bool run_with_deadline(tcp::socket &socket, boost::asio::io_context &io_service, const steady_clock::time_point deadline, Start start) {
+  bool done = false;
+  bool deadline_hit = false;
+  boost::asio::steady_timer timer(io_service);
+
+  timer.expires_at(deadline);
+  timer.async_wait([&](const boost::system::error_code &ec) {
+    if (!ec && !done) {
+      deadline_hit = true;
+      boost::system::error_code ignore;
+      socket.close(ignore);
+    }
+  });
+
+  const auto finished = [&]() {
+    done = true;
+    // cancel() can throw (the non-throwing cancel(ec) overload is removed
+    // under BOOST_ASIO_NO_DEPRECATED). Swallow it so an incidental failure
+    // cannot escape an asio handler and misreport an operation that worked.
+    try {
+      timer.cancel();
+    } catch (...) {
+    }
+  };
+  start(finished);
+
+  io_service.run();
+  io_service.restart();
+  return deadline_hit;
+}
+
 // Send the optional payload then read the peer's response (with a deadline) and
 // apply the expect / expect_regex matchers. Works over any stream that supports
-// boost::asio::write / async_read (a plain tcp::socket or a TLS stream). `lowest`
-// is the underlying socket, closed to unblock a read that overruns the timeout.
+// boost::asio::async_write / async_read (a plain tcp::socket or a TLS stream).
+// `lowest` is the underlying socket, closed to unblock an operation that
+// overruns the timeout.
 template <typename Stream>
 void tcp_converse(Stream &stream, tcp::socket &lowest, boost::asio::io_context &io_service, int timeout_ms, const std::string &send_data,
                   const std::string &expect, const std::string &expect_regex, check_tcp_filter::filter_obj &out) {
   if (!send_data.empty()) {
-    boost::system::error_code write_ec;
-    boost::asio::write(stream, boost::asio::buffer(send_data), write_ec);
+    // Deadlined like the read: a write blocks until the peer's receive window
+    // opens, so a peer that connects and then never reads would otherwise hold
+    // the check open indefinitely. Payloads here are small, but how small a
+    // write has to be to complete is a property of the receiver.
+    boost::system::error_code write_ec = boost::asio::error::would_block;
+    const bool timed_out = run_with_deadline(lowest, io_service, steady_clock::now() + std::chrono::milliseconds(timeout_ms), [&](const auto &finished) {
+      boost::asio::async_write(stream, boost::asio::buffer(send_data), [&](const boost::system::error_code &ec, std::size_t) {
+        write_ec = ec;
+        finished();
+      });
+    });
+    if (timed_out) {
+      out.result = "write_timeout";
+      return;
+    }
     if (write_ec) {
       out.result = "write_failed";
       return;
@@ -103,30 +165,20 @@ void tcp_converse(Stream &stream, tcp::socket &lowest, boost::asio::io_context &
   // Read whatever the peer sends within a small window, with a deadline.
   boost::asio::streambuf response_buf;
   boost::system::error_code read_ec = boost::asio::error::would_block;
-  bool read_done = false;
-  boost::asio::steady_timer timer(io_service);
-
-  timer.expires_after(std::chrono::milliseconds(timeout_ms));
-  timer.async_wait([&](const boost::system::error_code &ec) {
-    if (!ec && !read_done) {
-      boost::system::error_code ignore;
-      lowest.close(ignore);
-    }
+  const bool timed_out = run_with_deadline(lowest, io_service, steady_clock::now() + std::chrono::milliseconds(timeout_ms), [&](const auto &finished) {
+    boost::asio::async_read(stream, response_buf, boost::asio::transfer_at_least(1), [&](const boost::system::error_code &ec, std::size_t) {
+      read_ec = ec;
+      finished();
+    });
   });
 
-  boost::asio::async_read(stream, response_buf, boost::asio::transfer_at_least(1), [&](const boost::system::error_code &ec, std::size_t) {
-    read_ec = ec;
-    read_done = true;
-    // cancel() can throw (the non-throwing cancel(ec) overload is removed under
-    // BOOST_ASIO_NO_DEPRECATED). Swallow it so an incidental failure can't
-    // escape this handler and misreport a successful read.
-    try {
-      timer.cancel();
-    } catch (...) {
-    }
-  });
-
-  io_service.run();
+  // A peer that went quiet is not a peer that hung up, and the deadline is the
+  // only thing that tells them apart: closing the socket to unblock the read
+  // makes it fail with operation_aborted either way.
+  if (timed_out) {
+    out.result = "read_timeout";
+    return;
+  }
 
   // A peer that closes cleanly reports eof; a TLS peer that closes without a
   // close_notify reports stream_truncated. Both mean "no more data" — evaluate
@@ -176,20 +228,27 @@ struct tcp_check_options {
   net::address_family af = net::address_family::any;
 };
 
-using steady_clock = std::chrono::steady_clock;
-
 // How much a STARTTLS negotiation may buffer before we give up on it. A
 // greeting and a handful of capability lines are a few hundred bytes; a peer
 // that streams more than this without ever answering is not negotiating, and
 // the deadline alone would let it push megabytes into an agent's memory first.
+//
+// What this actually bounds is UNCONSUMED bytes. The line engine takes each
+// complete line out of the buffer as it arrives, so a peer chattering endless
+// complete lines is held by the deadline instead - it is answering, just never
+// with the right thing. The cap is for a reply that never ends: no newline, so
+// nothing can be drained, and every byte received stays.
 const std::size_t max_negotiation_bytes = 64 * 1024;
 
 // Why a read stopped. A peer that hangs up is not a peer that went quiet, and
 // collapsing the two would describe an instant disconnect as a timeout - the
-// slowest-sounding answer for the fastest failure there is.
+// slowest-sounding answer for the fastest failure there is. A peer that floods
+// is a third thing again: calling that a timeout sends the operator to raise
+// `timeout=`, which cannot help, because the budget that ran out was bytes.
 enum class read_outcome {
   data,          // something arrived and was appended
-  timed_out,     // the deadline passed, or the negotiation outgrew its budget
+  timed_out,     // the deadline passed with no answer
+  overflowed,    // the negotiation outgrew max_negotiation_bytes
   disconnected,  // the peer closed, reset, or the socket failed
 };
 
@@ -197,62 +256,50 @@ enum class read_outcome {
 // by max_negotiation_bytes.
 read_outcome read_some_until(tcp::socket &socket, boost::asio::io_context &io_service, const steady_clock::time_point deadline, std::string &buffer) {
   if (steady_clock::now() >= deadline) return read_outcome::timed_out;
-  // Outgrowing the budget is a timeout in the sense that matters: the
-  // negotiation did not finish inside what it was given.
-  if (buffer.size() >= max_negotiation_bytes) return read_outcome::timed_out;
+  if (buffer.size() >= max_negotiation_bytes) return read_outcome::overflowed;
   char chunk[1024];
   boost::system::error_code read_ec = boost::asio::error::would_block;
   std::size_t received = 0;
-  bool read_done = false;
-  bool deadline_hit = false;
-  boost::asio::steady_timer timer(io_service);
 
-  timer.expires_at(deadline);
-  timer.async_wait([&](const boost::system::error_code &ec) {
-    if (!ec && !read_done) {
-      // Recorded here rather than inferred from the clock afterwards: closing
-      // the socket makes the read fail with operation_aborted, which is
-      // otherwise indistinguishable from the peer having reset it.
-      deadline_hit = true;
-      boost::system::error_code ignore;
-      socket.close(ignore);
-    }
-  });
-  socket.async_read_some(boost::asio::buffer(chunk, sizeof(chunk)), [&](const boost::system::error_code &ec, const std::size_t transferred) {
-    read_ec = ec;
-    received = transferred;
-    read_done = true;
-    // cancel() can throw (the non-throwing overload is removed under
-    // BOOST_ASIO_NO_DEPRECATED); swallow it so an incidental failure cannot
-    // escape the handler and misreport a good read.
-    try {
-      timer.cancel();
-    } catch (...) {
-    }
+  const bool timed_out = run_with_deadline(socket, io_service, deadline, [&](const auto &finished) {
+    socket.async_read_some(boost::asio::buffer(chunk, sizeof(chunk)), [&](const boost::system::error_code &ec, const std::size_t transferred) {
+      read_ec = ec;
+      received = transferred;
+      finished();
+    });
   });
 
-  io_service.run();
-  io_service.restart();
-  if (deadline_hit) return read_outcome::timed_out;
+  if (timed_out) return read_outcome::timed_out;
   if (read_ec) return read_outcome::disconnected;
   buffer.append(chunk, received);
   return read_outcome::data;
 }
 
-bool write_all(tcp::socket &socket, const std::string &data) {
+// Write under the negotiation's own deadline. A synchronous write blocks until
+// the peer's receive window opens, so a peer that connects and then never reads
+// could hold the check open past timeout_ms however small the payload is - how
+// small a write has to be to complete is a property of the receiver, not of us.
+bool write_all(tcp::socket &socket, boost::asio::io_context &io_service, const steady_clock::time_point deadline, const std::string &data) {
   if (data.empty()) return true;
-  boost::system::error_code ec;
-  boost::asio::write(socket, boost::asio::buffer(data), ec);
-  return !ec;
+  boost::system::error_code write_ec = boost::asio::error::would_block;
+  const bool timed_out = run_with_deadline(socket, io_service, deadline, [&](const auto &finished) {
+    boost::asio::async_write(socket, boost::asio::buffer(data), [&](const boost::system::error_code &ec, std::size_t) {
+      write_ec = ec;
+      finished();
+    });
+  });
+  return !timed_out && !write_ec;
 }
 
 // How one step of a negotiation ended. Distinct from starttls::verdict because
 // "no answer" splits into two outcomes the operator needs told apart.
-enum class step_result { matched, refused, timed_out, disconnected };
+enum class step_result { matched, refused, timed_out, overflowed, disconnected };
 
 // Map a read that produced no answer onto the step that was waiting for one.
 step_result step_from_read(const read_outcome outcome) {
-  return outcome == read_outcome::disconnected ? step_result::disconnected : step_result::timed_out;
+  if (outcome == read_outcome::disconnected) return step_result::disconnected;
+  if (outcome == read_outcome::overflowed) return step_result::overflowed;
+  return step_result::timed_out;
 }
 
 // Read lines until one answers the step being awaited.
@@ -291,6 +338,9 @@ bool negotiate_starttls(tcp::socket &socket, boost::asio::io_context &io_service
   const auto failed = [&refuse](const step_result result) {
     if (result == step_result::refused) return refuse("starttls_refused");
     if (result == step_result::disconnected) return refuse("starttls_disconnected");
+    // Distinct from the timeout: the budget that ran out was bytes, not
+    // milliseconds, so raising `timeout=` would change nothing.
+    if (result == step_result::overflowed) return refuse("starttls_overflow");
     return refuse("starttls_timeout");
   };
   const auto step = [&](const boost::regex &expect, const boost::regex &failure) {
@@ -307,17 +357,17 @@ bool negotiate_starttls(tcp::socket &socket, boost::asio::io_context &io_service
         if (greeted != step_result::matched) return failed(greeted);
       }
       if (preset.preamble[0] != '\0') {
-        if (!write_all(socket, preset.preamble)) return refuse("starttls_write_failed");
+        if (!write_all(socket, io_service, deadline, preset.preamble)) return refuse("starttls_write_failed");
         const step_result answered = step(patterns.preamble_expect, patterns.failure);
         if (answered != step_result::matched) return failed(answered);
       }
-      if (!write_all(socket, preset.command)) return refuse("starttls_write_failed");
+      if (!write_all(socket, io_service, deadline, preset.command)) return refuse("starttls_write_failed");
       const step_result upgraded = step(patterns.command_expect, patterns.failure);
       if (upgraded != step_result::matched) return failed(upgraded);
       return true;
     }
     case starttls::negotiation::postgres: {
-      if (!write_all(socket, starttls::postgres_ssl_request())) return refuse("starttls_write_failed");
+      if (!write_all(socket, io_service, deadline, starttls::postgres_ssl_request())) return refuse("starttls_write_failed");
       while (buffer.empty()) {
         const read_outcome outcome = read_some_until(socket, io_service, deadline, buffer);
         if (outcome != read_outcome::data) return stalled(outcome);
@@ -337,14 +387,14 @@ bool negotiate_starttls(tcp::socket &socket, boost::asio::io_context &io_service
       // did not advertise it just gets the connection dropped, which would
       // read as a handshake failure rather than the plain "no TLS here" it is.
       if (!starttls::mysql_server_supports_ssl(buffer)) return refuse("starttls_refused");
-      if (!write_all(socket, starttls::mysql_ssl_request())) return refuse("starttls_write_failed");
+      if (!write_all(socket, io_service, deadline, starttls::mysql_ssl_request())) return refuse("starttls_write_failed");
       // A MySQL server acknowledges an SSLRequest by starting the handshake,
       // so there is nothing to read here - the next bytes are already TLS. One
       // with TLS disabled closes instead, which the handshake below reports.
       return true;
     }
     case starttls::negotiation::ldap: {
-      if (!write_all(socket, starttls::ldap_starttls_request())) return refuse("starttls_write_failed");
+      if (!write_all(socket, io_service, deadline, starttls::ldap_starttls_request())) return refuse("starttls_write_failed");
       for (;;) {
         const starttls::verdict answered = starttls::ldap_reply_verdict(buffer);
         if (answered == starttls::verdict::matched) return true;
@@ -355,6 +405,15 @@ bool negotiate_starttls(tcp::socket &socket, boost::asio::io_context &io_service
     }
   }
   return refuse("starttls_unsupported");
+}
+
+// A required name that nothing covered is the answer the check was asked for,
+// so it outranks how the conversation went - but not a transport failure,
+// which says the check never got far enough to judge anything. Mirrors the
+// precedence check_http applies to the same option.
+void apply_san_requirement(const bool sans_held, check_tcp_filter::filter_obj &out) {
+  if (sans_held) return;
+  if (out.result == "ok" || out.result == "no_match") out.result = "san_missing";
 }
 
 // Synchronous TCP connect with millisecond timeout. When use_tls is set a TLS
@@ -373,13 +432,11 @@ void run_tcp_check(const std::string &host, unsigned short port, const tcp_check
   boost::asio::io_context io_service;
   tcp::resolver resolver(io_service);
   tcp::socket socket(io_service);
-  boost::asio::steady_timer timer(io_service);
 
   const auto start = boost::chrono::steady_clock::now();
   boost::system::error_code connect_ec = boost::asio::error::would_block;
 
   try {
-    bool connect_done = false;
     boost::system::error_code resolve_ec;
     auto endpoints = net::resolve_for_family(resolver, opt.af, host, std::to_string(port), resolve_ec);
     if (resolve_ec || endpoints.empty()) {
@@ -390,40 +447,23 @@ void run_tcp_check(const std::string &host, unsigned short port, const tcp_check
       return;
     }
 
-    timer.expires_after(std::chrono::milliseconds(opt.timeout_ms));
-    timer.async_wait([&](const boost::system::error_code &ec) {
-      if (!ec && !connect_done) {
-        boost::system::error_code ignore;
-        socket.close(ignore);
-      }
-    });
-
-    boost::asio::async_connect(socket, endpoints, [&](const boost::system::error_code &ec, const tcp::endpoint &) {
-      connect_ec = ec;
-      connect_done = true;
-      // cancel() can throw (the non-throwing cancel(ec) overload is removed
-      // under BOOST_ASIO_NO_DEPRECATED). Swallow it so an incidental failure
-      // can't escape this handler and misreport a successful connect.
-      try {
-        timer.cancel();
-      } catch (...) {
-      }
-    });
-
-    io_service.run();
-    io_service.restart();
+    const bool connect_timed_out =
+        run_with_deadline(socket, io_service, steady_clock::now() + std::chrono::milliseconds(opt.timeout_ms), [&](const auto &finished) {
+          boost::asio::async_connect(socket, endpoints, [&](const boost::system::error_code &ec, const tcp::endpoint &) {
+            connect_ec = ec;
+            finished();
+          });
+        });
 
     const auto elapsed = boost::chrono::duration_cast<boost::chrono::milliseconds>(boost::chrono::steady_clock::now() - start).count();
     out.time = static_cast<long long>(elapsed);
 
+    if (connect_timed_out) {
+      out.result = "timeout";
+      return;
+    }
     if (connect_ec) {
-      if (connect_ec == boost::asio::error::connection_refused) {
-        out.result = "refused";
-      } else if (connect_ec == boost::asio::error::operation_aborted) {
-        out.result = "timeout";
-      } else {
-        out.result = "error";
-      }
+      out.result = connect_ec == boost::asio::error::connection_refused ? "refused" : "error";
       return;
     }
 
@@ -436,7 +476,13 @@ void run_tcp_check(const std::string &host, unsigned short port, const tcp_check
     if (opt.starttls_preset != nullptr && !negotiate_starttls(socket, io_service, opt.timeout_ms, *opt.starttls_preset, out)) return;
 
     if (!opt.use_tls) {
+      // A plain connection served no certificate, so a name required through
+      // `sans=` is not covered by one - the same answer check_http gives a
+      // redirect that lands on plain http. Reporting ok here would pass the
+      // very check the option exists to fail.
+      const bool sans_held = cert::require_without_certificate(out.cert, opt.required_sans);
       tcp_converse(socket, socket, io_service, opt.timeout_ms, opt.send_data, opt.expect, opt.expect_regex, out);
+      apply_san_requirement(sans_held, out);
     } else {
 #ifdef USE_SSL
       boost::asio::ssl::context ctx(socket_helpers::tls_method_parser(opt.tls_version));
@@ -444,9 +490,23 @@ void run_tcp_check(const std::string &host, unsigned short port, const tcp_check
       // has to be applied separately, or the '+' silently means "any".
       socket_helpers::apply_tls_min_version(ctx, opt.tls_version);
       try {
-        // Accepts a PEM bundle file or a hashed CA directory: /etc/ssl/certs is
-        // the latter on every distribution, and is what an operator reaches for.
-        socket_helpers::load_verify_location(ctx, opt.ca_file);
+        if (opt.ca_file.empty() || opt.ca_file == "none") {
+          // No bundle configured: fall back to OpenSSL's own trust store so a
+          // check against a publicly issued certificate verifies out of the
+          // box. Without this the chain has nothing to anchor to and
+          // cert_verify reads "unable to get local issuer certificate" for
+          // every correctly configured server on the internet, which makes
+          // `crit=cert_verify != 'ok'` fire on exactly the certificates it was
+          // written to bless. The configured bundle is still preferred: on
+          // Windows ${ca-path} is the exported ROOT store, and OpenSSL's
+          // default paths do not include the Windows certificate store at all.
+          ctx.set_default_verify_paths();
+        } else {
+          // Accepts a PEM bundle file or a hashed CA directory: /etc/ssl/certs
+          // is the latter on every distribution, and is what an operator
+          // reaches for.
+          socket_helpers::load_verify_location(ctx, opt.ca_file);
+        }
       } catch (const socket_helpers::socket_exception &e) {
         // `ca=` is a check argument, so the OpenSSL reason ("No such file or
         // directory", "Permission denied", "no start line") must not travel
@@ -461,6 +521,12 @@ void run_tcp_check(const std::string &host, unsigned short port, const tcp_check
         out.result = "error: failed to load the CA bundle (see the agent log for the reason)";
         return;
       }
+      // The certificate as OpenSSL handed it to verification, kept because
+      // SSL_get_peer_certificate() will not produce it afterwards - see where
+      // the verify callback below fills it in. Declared ahead of ssl_stream so
+      // it outlives the callback that stream owns and that refers to it.
+      boost::optional<socket_helpers::peer_certificate> verified_leaf;
+
       // Wrap the already-connected socket by reference so we keep the timed
       // connect above and only layer TLS on top.
       boost::asio::ssl::stream<tcp::socket &> ssl_stream(socket, ctx);
@@ -471,33 +537,48 @@ void run_tcp_check(const std::string &host, unsigned short port, const tcp_check
       // check reach a virtual host by IP and still assert the right identity.
       const std::string tls_name = opt.sni.empty() ? host : opt.sni;
       if (!tls_name.empty()) SSL_set_tlsext_host_name(ssl_stream.native_handle(), tls_name.c_str());
-      if (vmode != boost::asio::ssl::verify_none) ssl_stream.set_verify_callback(boost::asio::ssl::host_name_verification(tls_name));
+
+      // SSL_get_peer_certificate() only returns a certificate once the chain
+      // VERIFIED: under a verifying mode, one that is expired, self-signed or
+      // issued by an unknown CA aborts the handshake before OpenSSL stores it.
+      // Reading it after the failure therefore reports nothing about the very
+      // certificate that was rejected - so `crit=ssl_expiry_days < 0` would go
+      // quiet on an expired certificate, which is the case it exists for. The
+      // verify callback runs before that decision, so the details are taken
+      // there.
+      //
+      // Only installed when verification is on: at verify=none the handshake
+      // completes and OpenSSL stores the certificate the ordinary way.
+      if (vmode != boost::asio::ssl::verify_none) {
+        const boost::asio::ssl::host_name_verification host_check(tls_name);
+        ssl_stream.set_verify_callback([&verified_leaf, host_check](const bool preverified, boost::asio::ssl::verify_context &ctx) {
+          // get0_cert is the certificate verification was ASKED about - the
+          // leaf - whatever depth the callback is currently reporting on. A
+          // chain that fails at depth 1 never calls back at depth 0, so
+          // reading the current certificate instead would capture an
+          // intermediate, or nothing at all.
+          if (!verified_leaf) verified_leaf = socket_helpers::certificate_details(X509_STORE_CTX_get0_cert(ctx.native_handle()));
+          return host_check(preverified, ctx);
+        });
+      }
 
       // Handshake with the same millisecond deadline as the connect.
       boost::system::error_code hs_ec = boost::asio::error::would_block;
-      bool hs_done = false;
-      timer.expires_after(std::chrono::milliseconds(opt.timeout_ms));
-      timer.async_wait([&](const boost::system::error_code &ec) {
-        if (!ec && !hs_done) {
-          boost::system::error_code ignore;
-          socket.close(ignore);
-        }
-      });
-      ssl_stream.async_handshake(boost::asio::ssl::stream_base::client, [&](const boost::system::error_code &ec) {
-        hs_ec = ec;
-        hs_done = true;
-        try {
-          timer.cancel();
-        } catch (...) {
-        }
-      });
-      io_service.run();
-      io_service.restart();
+      const bool hs_timed_out =
+          run_with_deadline(socket, io_service, steady_clock::now() + std::chrono::milliseconds(opt.timeout_ms), [&](const auto &finished) {
+            ssl_stream.async_handshake(boost::asio::ssl::stream_base::client, [&](const boost::system::error_code &ec) {
+              hs_ec = ec;
+              finished();
+            });
+          });
 
       // The peer certificate is readable whether or not the handshake completed,
       // and regardless of `verify` - so an expiry check needs no trust decision,
       // and a handshake that failed *because* of the chain can still say so.
-      const auto info = socket_helpers::peer_certificate_details(ssl_stream.native_handle());
+      // The fallback is the rejected certificate captured during verification,
+      // which is the only copy left once a verifying handshake refused it.
+      auto info = socket_helpers::peer_certificate_details(ssl_stream.native_handle());
+      if (!info) info = verified_leaf;
 
       // OpenSSL's verdict on the chain, which it records whether or not `verify`
       // asked it to enforce one - that is what lets an untrusted chain be
@@ -511,27 +592,34 @@ void run_tcp_check(const std::string &host, unsigned short port, const tcp_check
       // would stay quiet on every one of them. A verdict that is NOT ok is the
       // reason the handshake failed, and is exactly what the keyword is for -
       // so it is kept, and only the ambiguous "ok" is dropped.
-      if (!hs_ec || !socket_helpers::peer_verify_ok(ssl_stream.native_handle()))
+      if ((!hs_ec && !hs_timed_out) || !socket_helpers::peer_verify_ok(ssl_stream.native_handle()))
         out.cert.verify_result = socket_helpers::peer_verify_result(ssl_stream.native_handle());
 
+      // Populated BEFORE the handshake verdict is acted on, because a handshake
+      // that failed over the certificate is exactly when its details are worth
+      // reporting: an expired certificate under verify=peer fails the
+      // handshake, and returning here with cert_* empty would leave
+      // `crit=ssl_expiry_days < 0` silent on the one case it was written for.
+      //
+      // No certificate at all fails a `sans=` requirement the same way: it is
+      // the case the option exists to catch, and staying silent would report ok.
+      const bool sans_held = info ? cert::populate(out.cert, info.value(), opt.required_sans)
+                                  : cert::require_without_certificate(out.cert, opt.required_sans);
+
+      if (hs_timed_out) {
+        out.result = "tls_handshake_timeout";
+        return;
+      }
       if (hs_ec) {
+        // The more specific answer, and it keeps its word: a name the
+        // certificate does not carry is already visible in missing_sans, and
+        // the handshake is why the check got no further.
         out.result = "tls_handshake_failed";
         return;
       }
 
-      // A name the operator required that the certificate does not cover is the
-      // answer the check was asked for, so it lands in `result`, where the
-      // default critical filter already looks. No certificate at all fails the
-      // same requirement: it is the one case `sans=` exists to catch, and
-      // staying silent there would report ok.
-      const bool sans_held = info ? cert::populate(out.cert, info.value(), opt.required_sans)
-                                  : cert::require_without_certificate(out.cert, opt.required_sans);
-      if (!sans_held) {
-        out.result = "san_missing";
-        return;
-      }
-
       tcp_converse(ssl_stream, socket, io_service, opt.timeout_ms, opt.send_data, opt.expect, opt.expect_regex, out);
+      apply_san_requirement(sans_held, out);
 #else
       out.result = "error: TLS requested but this build has no TLS support";
       return;
@@ -553,8 +641,8 @@ namespace {
 // argument. FilterT/ObjT let check_ssh plug in its own object, which adds the
 // parsed identification string on top of the TCP fields.
 template <typename FilterT, typename ObjT>
-void check_tcp_impl(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
-                    const service_preset *forced) {
+void check_tcp_impl(const std::string &default_ca_file, const PB::Commands::QueryRequestMessage::Request &request,
+                    PB::Commands::QueryResponseMessage::Response *response, const service_preset *forced) {
   typedef FilterT filter;
   typedef ObjT filter_obj;
 
@@ -594,11 +682,14 @@ void check_tcp_impl(const PB::Commands::QueryRequestMessage::Request &request, P
     ("starttls", po::value<std::string>(&starttls_protocol), starttls_help.c_str())
     ("tls-version", po::value<std::string>(&opt.tls_version)->default_value("tlsv1.2+"),
         "TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).")
-    ("verify", po::value<std::string>(&opt.verify_mode)->default_value("none"),
-        "Certificate verify mode when --ssl is used: none (default), peer, ... (peer requires --ca).")
-    ("ca", po::value<std::string>(&opt.ca_file),
-        "Trust anchor used to verify the server certificate when --ssl --verify peer is used: either a PEM bundle file or a hashed CA "
-        "directory such as /etc/ssl/certs.")
+    ("verify", po::value<std::string>(&opt.verify_mode)->default_value("peer"),
+        "Certificate verify mode when the connection is TLS: peer (default; the chain must be trusted and the name must match), none, "
+        "peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate. Set verify=none to reach a server whose certificate does not "
+        "validate - cert_verify still reports why it did not.")
+    ("ca", po::value<std::string>(&opt.ca_file)->default_value(default_ca_file),
+        "Trust anchor used to verify the server certificate: either a PEM bundle file or a hashed CA directory such as /etc/ssl/certs. "
+        "Defaults to the agent's configured bundle (${ca-path}); when that is empty or 'none' the system trust store OpenSSL was built "
+        "with is used instead.")
     ("sni", po::value<std::string>(&opt.sni),
         "TLS Server Name Indication: the name offered to a server hosting several certificates, and the name the certificate is verified "
         "against. Defaults to the host connected to; set it to check a virtual host reached by IP.")
@@ -658,6 +749,17 @@ void check_tcp_impl(const PB::Commands::QueryRequestMessage::Request &request, P
     if (preset->tls) opt.use_tls = true;
   }
 
+  // sni= names the certificate to ask for and to verify against, so outside a
+  // TLS session there is nothing for it to do. Silently ignoring it is the
+  // failure mode worth avoiding: the check would come back OK having asserted
+  // nothing, which reads exactly like a passing identity check. Refuse it
+  // instead and say which option turns TLS on. (`sans=` needs no such guard -
+  // a connection that served no certificate does not cover a required name,
+  // and reports san_missing.)
+  if (!opt.sni.empty() && !opt.use_tls)
+    return nscapi::protobuf::functions::set_response_bad(
+        *response, "sni= only applies to a TLS connection: add ssl=true, a starttls= protocol, or one of the implicit-TLS service presets.");
+
   if (!hosts_string.empty()) {
     std::vector<std::string> tmp;
     boost::split(tmp, hosts_string, boost::is_any_of(","));
@@ -683,12 +785,14 @@ void check_tcp_impl(const PB::Commands::QueryRequestMessage::Request &request, P
 }
 }  // namespace
 
-void check_tcp(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_tcp_impl<check_tcp_filter::filter, check_tcp_filter::filter_obj>(request, response, nullptr);
+void check_tcp(const std::string &default_ca_file, const PB::Commands::QueryRequestMessage::Request &request,
+               PB::Commands::QueryResponseMessage::Response *response) {
+  check_tcp_impl<check_tcp_filter::filter, check_tcp_filter::filter_obj>(default_ca_file, request, response, nullptr);
 }
 
-void check_ssh(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_tcp_impl<check_ssh_filter::filter, check_ssh_filter::filter_obj>(request, response, find_service_preset("SSH"));
+void check_ssh(const std::string &default_ca_file, const PB::Commands::QueryRequestMessage::Request &request,
+               PB::Commands::QueryResponseMessage::Response *response) {
+  check_tcp_impl<check_ssh_filter::filter, check_ssh_filter::filter_obj>(default_ca_file, request, response, find_service_preset("SSH"));
 }
 
 }  // namespace check_net

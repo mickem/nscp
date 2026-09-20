@@ -196,20 +196,34 @@ std::string ldap_starttls_request() {
   return request;
 }
 
-bool ber_element_length(const std::string &buffer, std::size_t &total) {
-  if (buffer.size() < 2) return false;
-  const auto first = static_cast<unsigned char>(buffer[1]);
+// One BER TLV header read at `offset`: the tag, where its content starts and
+// how long that content is. false when the header has not fully arrived, when
+// the length is the indefinite form (never used by LDAP) or when it does not
+// fit in a size_t.
+bool ber_header(const std::string &buffer, const std::size_t offset, ber_element &out) {
+  if (offset + 2 > buffer.size()) return false;
+  out.tag = static_cast<unsigned char>(buffer[offset]);
+  const auto first = static_cast<unsigned char>(buffer[offset + 1]);
   if (first < 0x80) {  // short form: the length is the byte itself
-    total = 2 + first;
+    out.content = offset + 2;
+    out.length = first;
     return true;
   }
   if (first == 0x80) return false;  // indefinite length: never used by LDAP
   const std::size_t count = first & 0x7F;
-  if (count > sizeof(std::size_t)) return false;  // a length we could not hold
-  if (buffer.size() < 2 + count) return false;    // the header is still arriving
+  if (count > sizeof(std::size_t)) return false;        // a length we could not hold
+  if (offset + 2 + count > buffer.size()) return false;  // the header is still arriving
   std::size_t length = 0;
-  for (std::size_t i = 0; i < count; i++) length = (length << 8) | static_cast<unsigned char>(buffer[2 + i]);
-  total = 2 + count + length;
+  for (std::size_t i = 0; i < count; i++) length = (length << 8) | static_cast<unsigned char>(buffer[offset + 2 + i]);
+  out.content = offset + 2 + count;
+  out.length = length;
+  return true;
+}
+
+bool ber_element_length(const std::string &buffer, std::size_t &total) {
+  ber_element element;
+  if (!ber_header(buffer, 0, element)) return false;
+  total = element.content + element.length;
   return true;
 }
 
@@ -225,24 +239,35 @@ verdict ldap_reply_verdict(const std::string &buffer) {
   // Proceeding there would hand those trailing bytes to the TLS handshake,
   // which reads them as a malformed record and fails against a server that did
   // exactly the right thing.
-  std::size_t total = 0;
-  if (!ber_element_length(buffer, total)) return verdict::pending;
+  ber_element message;
+  if (!ber_header(buffer, 0, message)) return verdict::pending;
+  const std::size_t total = message.content + message.length;
   if (buffer.size() < total) return verdict::pending;
 
-  // Inside the complete PDU: an ExtendedResponse ([APPLICATION 24] = 0x78)
-  // whose first component is the resultCode, an ENUMERATED (0x0A) of length 1.
-  // Rather than decoding BER in full we look for that three-byte shape after
-  // the response tag, which is the only place it can occur in a well-formed
-  // StartTLS reply.
-  const std::size_t response = buffer.find(static_cast<char>(0x78));
-  if (response == std::string::npos || response >= total) return verdict::failed;
-  for (std::size_t i = response + 1; i + 2 < total; i++) {
-    if (static_cast<unsigned char>(buffer[i]) != 0x0A) continue;
-    if (static_cast<unsigned char>(buffer[i + 1]) != 0x01) continue;
-    return static_cast<unsigned char>(buffer[i + 2]) == 0x00 ? verdict::matched : verdict::failed;
-  }
-  // A complete PDU with no resultCode in it is not going to grow one.
-  return verdict::failed;
+  // Walk the PDU by its shape rather than scanning it for bytes. An LDAPMessage
+  // is a SEQUENCE of messageID (INTEGER) then the protocolOp, and a StartTLS
+  // answer's protocolOp is an ExtendedResponse ([APPLICATION 24] = 0x78) whose
+  // first component is the resultCode, an ENUMERATED. Every one of those tags
+  // is an ordinary byte value that also occurs inside a length field, a message
+  // ID or a diagnosticMessage, so searching for one anchors the scan wherever
+  // it happens to hit first - a messageID of 120 is enough to do it.
+  ber_element message_id;
+  if (!ber_header(buffer, message.content, message_id)) return verdict::failed;
+  if (message_id.tag != 0x02) return verdict::failed;  // messageID is an INTEGER
+
+  ber_element response;
+  if (!ber_header(buffer, message_id.content + message_id.length, response)) return verdict::failed;
+  if (response.tag != 0x78) return verdict::failed;  // not an ExtendedResponse
+
+  ber_element result_code;
+  if (!ber_header(buffer, response.content, result_code)) return verdict::failed;
+  if (result_code.tag != 0x0A) return verdict::failed;  // resultCode is an ENUMERATED
+  // Length 0 is not a result code, and anything past the PDU is not ours to
+  // read. resultCode 0 is success; LDAP encodes it in as few bytes as it can,
+  // so success is always the single byte 0x00.
+  if (result_code.length != 1) return verdict::failed;
+  if (result_code.content + 1 > total) return verdict::failed;
+  return static_cast<unsigned char>(buffer[result_code.content]) == 0x00 ? verdict::matched : verdict::failed;
 }
 
 }  // namespace starttls
