@@ -1,0 +1,75 @@
+# Upgrading a host whose NRPE listener runs TLS without client certificates.
+#
+# This is GitHub #1558. The installer offers two NRPE presets, insecure and
+# secure, and recognised a configuration as one of them only by `insecure =
+# true` or `verify mode = peer-cert`. A listener on `verify mode = none` is
+# neither, so it fell through to "unknown" - and because the unknown branch
+# recorded nothing, DEFAULT_NRPEMODE stayed empty while KEY_NRPEMODE held its
+# properties.wxs default of SECURE. Any difference between the two is the
+# installer's signal that the operator asked for a mode, so the secure preset
+# was applied over a configuration that had asked for nothing.
+#
+# What that produced, and what this case now forbids: `verify mode` flipped to
+# peer-cert (the listener starts demanding client certificates from every
+# poller), `tls version` lowered from the pinned tls1.3 to tlsv1.2+, plus an
+# `insecure = false` and an empty `ssl options` the operator never wrote.
+#
+# Nothing on the command line names a mode, so the whole section must come back
+# exactly as it went in.
+command_line: ["msiexec.exe", "/i", "$MSI-FILE", "/qn", "/l*", "log.txt", "ADDLOCAL=ALL" ]
+replace_password: true
+
+upgrade:
+  boot.ini: |
+    [settings]
+    1 = ini://${shared-path}/nsclient.ini
+
+  nsclient.ini: |
+    [/modules]
+    checkdisk = enabled
+    checkeventlog = enabled
+    checkexternalscripts = enabled
+    checkhelpers = enabled
+    checknscp = enabled
+    checksystem = enabled
+    nrpeserver = enabled
+    webserver = enabled
+
+    [/settings/NRPE/server]
+    allow arguments = true
+    allow nasty characters = true
+    port = 5666
+    tls version = tls1.3
+    use ssl = true
+    verify mode = none
+
+    [/settings/default]
+    allowed hosts = 127.0.0.1
+    password = $$PASSWORD$$
+
+boot.ini: |
+  [settings]
+  1 = ini://${shared-path}/nsclient.ini
+
+nsclient.ini: |
+  [/modules]
+  checkdisk = enabled
+  checkeventlog = enabled
+  checkexternalscripts = enabled
+  checkhelpers = enabled
+  checknscp = enabled
+  checksystem = enabled
+  nrpeserver = enabled
+  webserver = enabled
+
+  [/settings/NRPE/server]
+  allow arguments = true
+  allow nasty characters = true
+  port = 5666
+  tls version = tls1.3
+  use ssl = true
+  verify mode = none
+
+  [/settings/default]
+  allowed hosts = 127.0.0.1
+  password = $$PASSWORD$$

@@ -812,3 +812,18 @@ NSCP_CREATE_TEST(
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )
+
+# The Windows installer's NRPE transport-security preset. installer_lib itself
+# is a separate, Windows-only CMake project (it links Msi.lib and is built by
+# its own cmake invocation in the build-windows workflow), so only the decision
+# header is compiled here - it is free of MSI and of the settings core exactly
+# so this test can run everywhere.
+NSCP_CREATE_TEST(
+    installer_nrpe_mode_test
+    SOURCES
+        ${CMAKE_SOURCE_DIR}/installer_lib/nrpe_mode_test.cpp
+    LIBRARIES
+        GTest::gtest_main
+    INCLUDES
+        ${CMAKE_SOURCE_DIR}/installer_lib
+)
