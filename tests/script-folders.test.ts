@@ -18,9 +18,12 @@
  * install root as the working directory (a Windows service, or the shipped
  * systemd unit), `neutral` runs from somewhere else entirely.
  *
- * Outcomes are read from the log rather than from a check result, because
- * "not found" and "found but refused" are different answers and a check result
- * cannot tell them apart.
+ * A script is deliberately NOT confined to the script folder: an absolute path
+ * anywhere is accepted, and so is one that climbs out with `..`. Both are
+ * pinned below so that stops being an accident.
+ *
+ * Outcomes are read from the log rather than from a check result, because a
+ * check result cannot distinguish "not found" from "found and failed".
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -30,7 +33,7 @@ import { NscpInstance } from "@fixtures/index";
 
 jest.setTimeout(180_000);
 
-type Outcome = "loaded" | "not-found" | "refused";
+type Outcome = "loaded" | "not-found";
 
 /** Lay out the probe tree under `root` for the given module's extension. */
 function buildTree(root: string, sub: string, ext: string): void {
@@ -45,7 +48,6 @@ function buildTree(root: string, sub: string, ext: string): void {
 }
 
 function classify(output: string): Outcome {
-  if (/Refusing to load script outside/.test(output)) return "refused";
   if (/Adding script:/.test(output)) return "loaded";
   return "not-found";
 }
@@ -61,7 +63,6 @@ describe("script folder resolution", () => {
     root: string;
     value: string;
     cwd: "rooted" | "neutral";
-    extraRoots?: string;
   }): Promise<Outcome> {
     // workDir is the process working directory, so pointing it at the install
     // root is what makes the CWD-first candidate fire.
@@ -78,9 +79,6 @@ describe("script folder resolution", () => {
         "[/modules]",
         `${opts.module} = enabled`,
         "",
-        ...(opts.extraRoots
-          ? [`[/settings/${opts.section}]`, `additional script roots = ${opts.extraRoots}`, ""]
-          : []),
         `[/settings/${opts.section}/scripts]`,
         `probe = ${opts.value}`,
         "",
@@ -110,15 +108,15 @@ describe("script folder resolution", () => {
   }> = [
     {
       value: (_s, e) => `a${e}`,
-      rooted: "refused",
+      rooted: "loaded",
       neutral: "not-found",
-      why: "above the script folder",
+      why: "above the script folder, reachable only via the working directory",
     },
     {
       value: (_s, e) => `../a${e}`,
-      rooted: "refused",
-      neutral: "refused",
-      why: "climbs out of the script folder",
+      rooted: "loaded",
+      neutral: "loaded",
+      why: "climbs out of the script folder, which is allowed",
     },
     {
       value: (_s, e) => `b${e}`,
@@ -202,60 +200,26 @@ describe("script folder resolution", () => {
       }
     }
 
-    // --- the sandbox, and the escape hatch for scripts we do not own --------
+    // --- a script may live anywhere ----------------------------------------
 
-    it("refuses an absolute path outside the script folder", async () => {
+    it("loads an absolute path outside the script folder", async () => {
       if (!available) return;
       const vendor = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-vendor-"));
       fs.writeFileSync(path.join(vendor, `v${ext}`), ext === ".lua" ? "-- v\n" : "# v\n");
+      // What an operator writes for a plugin the agent does not ship - a
+      // monitoring-plugins check under libexec, a vendor drop in /opt.
       expect(
         await probe({ module, section, root, value: path.join(vendor, `v${ext}`), cwd: "neutral" }),
-      ).toBe("refused");
+      ).toBe("loaded");
     });
 
-    it("loads that same script once its folder is an additional root", async () => {
+    it("loads it from the rooted working directory too", async () => {
       if (!available) return;
       const vendor = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-vendor-"));
       fs.writeFileSync(path.join(vendor, `v${ext}`), ext === ".lua" ? "-- v\n" : "# v\n");
       expect(
-        await probe({
-          module,
-          section,
-          root,
-          value: path.join(vendor, `v${ext}`),
-          cwd: "neutral",
-          extraRoots: vendor,
-        }),
+        await probe({ module, section, root, value: path.join(vendor, `v${ext}`), cwd: "rooted" }),
       ).toBe("loaded");
-    });
-
-    it("expands path tokens in the additional roots", async () => {
-      if (!available) return;
-      // ${scripts}/.. is the install root, which is where a.py sits.
-      expect(
-        await probe({
-          module,
-          section,
-          root,
-          value: `../a${ext}`,
-          cwd: "neutral",
-          extraRoots: "${scripts}/..",
-        }),
-      ).toBe("loaded");
-    });
-
-    it("keeps refusing when the additional roots name somewhere else", async () => {
-      if (!available) return;
-      expect(
-        await probe({
-          module,
-          section,
-          root,
-          value: `../a${ext}`,
-          cwd: "neutral",
-          extraRoots: "/nonexistent-root",
-        }),
-      ).toBe("refused");
     });
   });
 

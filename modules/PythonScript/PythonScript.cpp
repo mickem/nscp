@@ -14,7 +14,6 @@
 #include <nscapi/protobuf/functions_status.hpp>
 #include <nscapi/protobuf/metrics.hpp>
 #include <nscapi/settings/helper.hpp>
-#include <str/utils.hpp>
 
 #include "extscr_cli.h"
 #include "python_script.hpp"
@@ -43,23 +42,12 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
     std::string python_cache;
     std::string python_lib;
     root_ = get_core()->expand_path("${scripts}");
-    // Rebuilt on every load: loadModuleEx runs again on a settings reload, and
-    // a list that only ever grew would keep folders an operator had removed.
-    allowed_roots_ = nscp::scripts::allowed_roots();
-    allowed_roots_.add(root_.string());
 
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
     settings.set_alias(alias, "python");
 
     settings.alias()
         .add_key_to_settings()
-        .add_string("additional script roots", sh::string_fun_key([this](const std::string &value) { this->add_script_roots(value); }, ""),
-                    "ADDITIONAL SCRIPT ROOTS",
-                    "Comma separated list of extra folders scripts may be loaded from, on top of the script folder itself. "
-                    "A script configured below has to live inside one of these, so that a path which climbs out of the script "
-                    "folder (`../foo.py`) is refused rather than loaded. Add the folders of any scripts that are not installed "
-                    "with NSClient++ - a plugin package's own libexec directory, for example. Path tokens are expanded, so "
-                    "`${shared-path}/extra` works.", true)
         .add_string("python cache", sh::string_key(&python_cache), "Python cache", "Override python cache folder.")
 #ifdef __linux__
         .add_string("python lib", sh::string_key(&python_lib, DEFAULT_PYTHON_LIB), "Python lib", "The python DLL to load")
@@ -104,10 +92,6 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
     settings.register_all();
     settings.notify();
 
-    // After notify(), so the configured roots are in, and before the recorded
-    // scripts are loaded below - which is what they gate.
-    if (provider_) provider_->set_allowed_roots(allowed_roots_);
-
     python_script::init(python_cache, python_lib);
 
     // Now that the interpreter exists, the recorded scripts can be loaded.
@@ -118,15 +102,6 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
     return false;
   }
   return true;
-}
-
-void PythonScript::add_script_roots(const std::string &value) {
-  for (const std::string &entry : str::utils::split_lst(value, std::string(","))) {
-    std::string trimmed = entry;
-    boost::algorithm::trim(trimmed);
-    if (trimmed.empty()) continue;
-    allowed_roots_.add(get_core()->expand_path(trimmed));
-  }
 }
 
 void PythonScript::loadScript(std::string alias, std::string file) { pending_scripts_.emplace_back(alias, file); }

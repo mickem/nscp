@@ -536,21 +536,18 @@ in the module's script folder and the search either finds it or reports that it 
 | `check_foo.py` | `${scripts}/python/check_foo.py`, or `${scripts}/check_foo.py` |
 | `sub/check_foo.py` | `${scripts}/python/sub/check_foo.py`, or `${scripts}/sub/check_foo.py` |
 
-Lua is the same with `lua` in place of `python`. The search also tries the value as-is first, so a
-name that happens to exist relative to the service's working directory wins — see the warning
-below.
+Lua is the same with `lua` in place of `python`. The search also tries the value as-is first, so an
+absolute path is taken as given and a relative one that happens to exist under the working
+directory wins before the script folder is consulted — one more reason to write the folder out.
 
-Whatever the search finds has to be **inside the script folder**, or inside a folder you have named
-as an additional root. A value that climbs out of it (`../foo.py`) or points somewhere else
-entirely is refused, with the allowed folders named in the log. Scripts the agent does not
-ship — a plugin package's own `libexec`, a vendor directory — are allowed by listing them:
+A script is not confined to the script folder: an absolute path anywhere on the filesystem is
+accepted, and so is a relative one that climbs out of it. Scripts the agent does not ship — a
+plugin package's own `libexec`, a vendor directory — are named directly:
 
 ```ini
-[/settings/python]
-additional script roots = /usr/lib/nagios/plugins, ${shared-path}/vendor
+[/settings/python/scripts]
+vendor_check = /usr/lib/nagios/plugins/check_thing.py
 ```
-
-Entries are comma separated and each is expanded, so path tokens work.
 
 ### External scripts resolve differently
 
