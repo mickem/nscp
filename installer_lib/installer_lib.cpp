@@ -44,6 +44,7 @@
 #include "../service/windows_ca_store.hpp"
 #include "installer_helper.hpp"
 #include "keys.hpp"
+#include "nrpe_mode.hpp"
 
 const UINT COST_SERVICE_INSTALL = 2000;
 
@@ -721,20 +722,30 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
       h.setPropertyKeyAndDefaultBool(CONF_WEB, mod_enabled("WEBServer"));
     }
 
-    if (settings_manager::get_settings()->has_key("/settings/NRPE/server", "insecure") ||
-        settings_manager::get_settings()->has_key("/settings/NRPE/server", "verify mode")) {
-      std::string insecure = settings_manager::get_settings()->get_string("/settings/NRPE/server", "insecure", "");
-      std::string verify = settings_manager::get_settings()->get_string("/settings/NRPE/server", "verify mode", "");
-      h.logMessage(L"Old NRPE insecure: " + utf8::cvt<std::wstring>(insecure));
-      h.logMessage(L"Old NRPE verify: " + utf8::cvt<std::wstring>(verify));
-      if (insecure == "true" || insecure == "1") {
-        h.logMessage("Setting old NRPE mode legacy");
-        h.setPropertyKeyAndDefault(NRPEMODE, L"LEGACY", L"");
-      } else if (verify == "peer-cert") {
-        h.logMessage("Setting old NRPE mode secure");
-        h.setPropertyKeyAndDefault(NRPEMODE, L"SECURE", L"");
+    {
+      installer::nrpe::server_security nrpe_security;
+      nrpe_security.has_insecure = settings_manager::get_settings()->has_key("/settings/NRPE/server", "insecure");
+      nrpe_security.has_verify_mode = settings_manager::get_settings()->has_key("/settings/NRPE/server", "verify mode");
+      nrpe_security.insecure = settings_manager::get_settings()->get_string("/settings/NRPE/server", "insecure", "");
+      nrpe_security.verify_mode = settings_manager::get_settings()->get_string("/settings/NRPE/server", "verify mode", "");
+      h.logMessage(L"Old NRPE insecure: " + utf8::cvt<std::wstring>(nrpe_security.insecure));
+      h.logMessage(L"Old NRPE verify: " + utf8::cvt<std::wstring>(nrpe_security.verify_mode));
+
+      // A mode named on the command line arrives as the bare NRPEMODE property,
+      // which has no default in properties.wxs - so a value here means the
+      // operator asked for one, and it reaches KEY_NRPEMODE via the
+      // applyPropertyValue below.
+      const bool operator_named_a_mode = !boost::algorithm::trim_copy(h.getProperyValue(NRPEMODE)).empty();
+      const installer::nrpe::mode detected = installer::nrpe::classify(nrpe_security);
+      const installer::nrpe::recorded_properties nrpe_props =
+          installer::nrpe::record_mode(detected, utf8::cvt<std::string>(h.getProperyKey(NRPEMODE)), operator_named_a_mode);
+      if (!nrpe_props.record) {
+        h.logMessage(L"No NRPE transport security configured, the installer will write its preset");
       } else {
-        h.logMessage(L"Unknown old NRPE mode: " + h.getProperyKey(NRPEMODE));
+        h.logMessage(L"Recording NRPE mode: key=" + utf8::cvt<std::wstring>(nrpe_props.key) + L", default=" +
+                     utf8::cvt<std::wstring>(nrpe_props.default_) +
+                     (detected == installer::nrpe::mode::custom ? L" (configured as neither preset, leaving it alone)" : L""));
+        h.setPropertyKeyAndDefault(NRPEMODE, utf8::cvt<std::wstring>(nrpe_props.key), utf8::cvt<std::wstring>(nrpe_props.default_));
       }
     }
 
@@ -939,16 +950,16 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
     }
     if (h.getProperyKey(CONF_NRPE) == L"1") {
       if (h.propertyNotDefault(NRPEMODE)) {
-        std::wstring mode = h.getProperyKey(NRPEMODE);
-        write_key(h, data, 1, L"/settings/NRPE/server", L"ssl options", L"");
-        write_key(h, data, 1, L"/settings/NRPE/server", L"tls version", L"tlsv1.2+");
-        if (mode == L"LEGACY") {
-          write_key(h, data, 1, L"/settings/NRPE/server", L"insecure", L"true");
-          write_key(h, data, 1, L"/settings/NRPE/server", L"verify mode", L"none");
-        } else {
-          write_key(h, data, 1, L"/settings/NRPE/server", L"insecure", L"false");
-          write_key(h, data, 1, L"/settings/NRPE/server", L"verify mode", L"peer-cert");
+        const std::wstring mode = h.getProperyKey(NRPEMODE);
+        const auto nrpe_keys = installer::nrpe::preset(utf8::cvt<std::string>(mode));
+        if (nrpe_keys.empty()) {
+          h.logMessage(L"Not an NRPE mode, writing no NRPE transport security: " + mode);
         }
+        for (const installer::nrpe::setting &s : nrpe_keys) {
+          write_key(h, data, 1, L"/settings/NRPE/server", utf8::cvt<std::wstring>(s.key), utf8::cvt<std::wstring>(s.value));
+        }
+      } else {
+        h.logMessage(L"NRPE mode unchanged, leaving the transport security in the configuration alone");
       }
     }
 
