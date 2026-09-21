@@ -94,8 +94,21 @@ class settings_http : public settings::settings_interface_impl {
   // platform and launch method the same one. A target that names a root of its
   // own is left alone: pointing an attachment anywhere on the filesystem stays
   // the operator's call.
+  //
+  // The "unzip:" form is carried across the rooting rather than rooted with the
+  // rest of the value. cache_remote_file looks for the prefix at offset 0
+  // (substr(0, 6)), and "unzip:" names no root on either platform - a single
+  // letter is a Windows drive, six is not - so rooting the whole string would
+  // bury the prefix mid-path and the archive would be written verbatim to a
+  // file called "unzip:scripts" instead of being extracted. What the prefix
+  // introduces is a destination like any other, so it is split off, the
+  // destination behind it is rooted, and the prefix put back.
   static std::string resolve_attachment_target(settings_core *core, const std::string &key) {
-    return core->resolve_path(socket_helpers::expand_hostname_placeholders_in_path(key), "${shared-path}");
+    const std::string expanded = socket_helpers::expand_hostname_placeholders_in_path(key);
+    if (expanded.size() > 6 && expanded.substr(0, 6) == "unzip:") {
+      return "unzip:" + core->resolve_path(expanded.substr(6), "${shared-path}");
+    }
+    return core->resolve_path(expanded, "${shared-path}");
   }
 
   settings_http(settings::settings_core *core, std::string alias, std::string context) : settings::settings_interface_impl(core, alias, context) {
