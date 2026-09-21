@@ -555,6 +555,28 @@ TEST(settings_http, an_attachment_target_written_with_a_token_is_unchanged) {
   EXPECT_EQ(settings::settings_http::resolve_attachment_target(&core, "${shared-path}/scripts/myscript.bat"), "/etc/nsclient/scripts/myscript.bat");
 }
 
+TEST(settings_http, an_unzip_attachment_target_keeps_its_prefix_at_the_front) {
+  // cache_remote_file detects the archive form with substr(0, 6), so the prefix
+  // has to survive rooting at offset 0. Rooting the whole value would produce
+  // "/etc/nsclient/unzip:scripts" - no longer an archive instruction, just a
+  // very oddly named file for the download to land in.
+  attachment_core core;
+  EXPECT_EQ(boost::filesystem::path(settings::settings_http::resolve_attachment_target(&core, "unzip:scripts")).generic_string(),
+            "unzip:/etc/nsclient/scripts");
+}
+
+TEST(settings_http, an_unzip_attachment_target_roots_the_destination_behind_the_prefix) {
+  attachment_core core;
+  const std::string target = settings::settings_http::resolve_attachment_target(&core, "unzip:scripts/bundle");
+  ASSERT_EQ(target.substr(0, 6), "unzip:");
+  EXPECT_EQ(boost::filesystem::path(target.substr(6)).generic_string(), "/etc/nsclient/scripts/bundle");
+}
+
+TEST(settings_http, an_unzip_attachment_target_naming_a_root_is_left_alone) {
+  attachment_core core;
+  EXPECT_EQ(settings::settings_http::resolve_attachment_target(&core, "unzip:/srv/elsewhere"), "unzip:/srv/elsewhere");
+}
+
 TEST(settings_http, an_absolute_attachment_target_is_left_where_the_operator_put_it) {
   // Rooting applies only to a value that names no location of its own. Pointing
   // an attachment somewhere specific stays the operator's call.
