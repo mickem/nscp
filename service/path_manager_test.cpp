@@ -787,6 +787,37 @@ TEST_F(PathManagerTest, AnAbsoluteBootConfOverrideIsStillHonoured) {
   EXPECT_EQ(pm->expand_path("${boot-conf}"), target);
 }
 
+TEST_F(PathManagerTest, ABootConfOverrideWrittenWithATokenIsHonoured) {
+  // The early guard judges the resolved value, not the spelling. The built-in
+  // default is itself token-bearing (${exe-path}/boot.ini, ${etc}/nsclient/
+  // boot.ini), so rejecting the raw string would refuse the documented form and
+  // contradict the rule every other override follows.
+#ifdef WIN32
+  const std::string spelling = "${exe-path}/custom-boot.ini";
+#else
+  const std::string spelling = "${etc}/nsclient/custom-boot.ini";
+#endif
+  pm->set_cli_overrides({{"boot-conf", spelling}});
+
+  const std::string resolved = pm->expand_path("${boot-conf}");
+  EXPECT_NE(resolved.find("custom-boot.ini"), std::string::npos) << resolved;
+  EXPECT_TRUE(nscp::paths::names_a_root(resolved)) << resolved;
+  EXPECT_EQ(resolved.find("${"), std::string::npos) << resolved;
+
+  pm->validate_overrides();
+  EXPECT_EQ(pm->expand_path("${boot-conf}"), resolved);
+}
+
+TEST_F(PathManagerTest, ABootConfOverrideNamingAnUnknownTokenIsRefused) {
+  // It cannot be resolved, so it cannot be used to find boot.ini. Same outcome
+  // as a relative one: the default stays in force.
+  pm->set_cli_overrides({{"boot-conf", "${no-such-token}/boot.ini"}});
+
+  const std::string resolved = pm->expand_path("${boot-conf}");
+  EXPECT_EQ(resolved.find("no-such-token"), std::string::npos) << resolved;
+  EXPECT_TRUE(nscp::paths::names_a_root(resolved)) << resolved;
+}
+
 TEST_F(PathManagerTest, FleetFolderExpandsAndIsWritableByTheService) {
   // The fleet sync rewrites everything under this folder as the account the
   // service runs as, so it must resolve fully...

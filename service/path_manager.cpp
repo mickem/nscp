@@ -211,13 +211,33 @@ void nsclient::core::path_manager::set_cli_overrides(paths_type overrides) {
   // ${boot-conf} expansion names another. It also needs no deferral: it is
   // resolved before [paths] exists, so it cannot legitimately be built out of a
   // token boot.ini defines.
+  //
+  // It is the *resolved* value that has to name a root, not the spelling. The
+  // built-in default is itself written with a token (${exe-path}/boot.ini on
+  // Windows, ${etc}/nsclient/boot.ini on unix), so judging the raw string would
+  // reject the very form the CLI documents - and would contradict the rule the
+  // other overrides follow, that an override may be built out of tokens as long
+  // as what it comes to is absolute. The tokens that can legitimately appear
+  // here are the compile-time ones, which resolve without boot.ini; one naming
+  // a [paths] entry boot.ini has yet to define fails to expand, and that is a
+  // rejection too. expand_path_impl's depth guard covers a self-referential
+  // value.
   const paths_type::const_iterator boot = cli_overrides_.find("boot-conf");
-  if (boot != cli_overrides_.end() && !nscp::paths::names_a_root(boot->second)) {
-    get_logger()->error("core", __FILE__, __LINE__,
-                        "Ignoring --path-override boot-conf=" + boot->second +
-                            ": it has to name an absolute location, because it is used to find boot.ini before anything that could make sense of a "
-                            "relative one has been read. Using the default.");
-    cli_overrides_.erase("boot-conf");
+  if (boot != cli_overrides_.end()) {
+    std::string resolved;
+    std::string why;
+    try {
+      resolved = expand_path(boot->second);
+      if (!nscp::paths::names_a_root(resolved)) why = "it resolves to '" + resolved + "', which is not an absolute location";
+    } catch (const std::exception &e) {
+      why = std::string("it could not be resolved: ") + e.what();
+    }
+    if (!why.empty()) {
+      get_logger()->error("core", __FILE__, __LINE__,
+                          "Ignoring --path-override boot-conf=" + boot->second + ": " + why +
+                              ". It is used to find boot.ini before anything that could make sense of a relative one has been read. Using the default.");
+      cli_overrides_.erase("boot-conf");
+    }
   }
 }
 
