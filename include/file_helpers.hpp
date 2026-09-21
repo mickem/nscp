@@ -83,6 +83,37 @@ class meta {
     return path.parent_path().string();
   }
   static std::string get_filename(const std::string& file) { return get_filename(fs::path(file)); }
+
+  // `path` rewritten relative to `root` when it sits under it, and handed back
+  // untouched when it does not.
+  //
+  // That second half is the whole reason this exists. The three script CLIs
+  // each carried their own copy of this, and each one sliced the leading
+  // separator off whatever the prefix test left behind - including when the
+  // test had not matched. A path that is not under the root (the normal case
+  // on unix, where ${scripts} is nowhere near ${base-path}, and the case of a
+  // symlink reaching out of the folder) therefore came back as a rootless
+  // `usr/lib/nsclient/scripts/x`, which names no file at all and is not
+  // something `add` can be handed back.
+  //
+  // String prefix matching rather than fs::relative: what the callers want is
+  // "the spelling under this root", and a value that walks back out of the
+  // root with .. is exactly what they must not produce. The match is on whole
+  // path components, so `/opt/scripts-old/x.sh` is not treated as living under
+  // `/opt/scripts` and mangled into `-old/x.sh`.
+  static std::string relativise_to(const fs::path& root, const fs::path& path) {
+    const std::string full = path.string();
+    const std::string prefix = root.string();
+    if (prefix.empty() || full.size() < prefix.size() || full.compare(0, prefix.size(), prefix) != 0) return full;
+    const std::string relative = full.substr(prefix.size());
+    if (relative.empty()) return relative;
+    if (relative[0] == '\\' || relative[0] == '/') return relative.substr(1);
+    // A root written with a trailing separator has already consumed the
+    // boundary, so what is left is genuinely the part below it.
+    const char last = prefix[prefix.size() - 1];
+    if (last == '\\' || last == '/') return relative;
+    return full;
+  }
   static std::string get_extension(const fs::path& path) { return path.extension().string(); }
   static fs::path make_preferred(fs::path& path) { return path.make_preferred(); }
 };

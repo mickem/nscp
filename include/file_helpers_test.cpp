@@ -261,3 +261,33 @@ TEST(Patterns, SplitPatternOnExistingDirectoryReturnsEmptyPattern) {
   EXPECT_EQ(split.first, td.path());
   EXPECT_EQ(split.second, fs::path());
 }
+
+// ============================================================================
+// meta::relativise_to
+// ============================================================================
+
+TEST(Meta, RelativiseToStripsTheRootAndItsSeparator) {
+  EXPECT_EQ(meta::relativise_to("/usr/lib/nsclient/scripts", "/usr/lib/nsclient/scripts/lua/x.lua"), "lua/x.lua");
+}
+
+TEST(Meta, RelativiseToOnTheRootItselfIsEmpty) { EXPECT_EQ(meta::relativise_to("/usr/lib/nsclient/scripts", "/usr/lib/nsclient/scripts"), ""); }
+
+TEST(Meta, RelativiseToLeavesAPathOutsideTheRootAlone) {
+  // The bug the three script CLIs shared: a path that is not under the root
+  // had its leading separator sliced off anyway, leaving a rootless spelling
+  // that named no file at all.
+  EXPECT_EQ(meta::relativise_to("/opt/nsclient", "/usr/lib/nsclient/scripts/x.sh"), "/usr/lib/nsclient/scripts/x.sh");
+}
+
+TEST(Meta, RelativiseToLeavesAShorterPathAlone) { EXPECT_EQ(meta::relativise_to("/usr/lib/nsclient/scripts", "/usr"), "/usr"); }
+
+TEST(Meta, RelativiseToWithoutARootIsTheWholePath) { EXPECT_EQ(meta::relativise_to("", "/usr/lib/x.sh"), "/usr/lib/x.sh"); }
+
+TEST(Meta, RelativiseToLeavesASiblingThatMerelySharesThePrefixAlone) {
+  // "/opt/scripts-old" starts with "/opt/scripts" as a string but is not under
+  // it, so it keeps its own absolute spelling instead of being sliced into a
+  // bare "-old/x.sh" that names nothing.
+  EXPECT_EQ(meta::relativise_to("/opt/scripts", "/opt/scripts-old/x.sh"), "/opt/scripts-old/x.sh");
+}
+
+TEST(Meta, RelativiseToToleratesARootWithATrailingSeparator) { EXPECT_EQ(meta::relativise_to("/opt/scripts/", "/opt/scripts/x.sh"), "x.sh"); }

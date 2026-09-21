@@ -27,6 +27,14 @@ Two related changes:
   service's working directory — `C:\Windows\System32` for a Windows service,
   `/` under a bare init script, the package directory under the shipped systemd
   unit — so what it meant depended on how the agent happened to be started.
+  A `--path-override` that is already unusable is dropped before `boot.ini` is
+  opened, so the configuration and the folders the agent writes into can never
+  come from different trees; one written in terms of a `[paths]` token is
+  judged once that section has been read.
+* **A token that refers to itself is rejected too.** `boot-conf =
+  ${boot-conf}/boot.ini` used to expand into a growing `/boot.ini/boot.ini/…`
+  that looked absolute enough to be accepted. A cycle is now reported like any
+  other bad token, and the built-in default applies.
 
 If you scripted `--path-override log-path=.` or similar against a build tree,
 give it an absolute path instead.

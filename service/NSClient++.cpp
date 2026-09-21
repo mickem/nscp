@@ -94,6 +94,8 @@ struct nscp_settings_provider : public settings_manager::provider_interface {
   nsclient::logging::logger_instance get_logger() const { return log_instance_; }
   void apply_path_overrides(std::map<std::string, std::string> overrides) override { path_->set_overrides(std::move(overrides)); }
 
+  void validate_path_overrides() override { path_->validate_overrides(); }
+
   void apply_layout(const std::string &mode) override {
     const nscp::paths::layout selected = nscp::paths::parse_layout(mode);
     path_->set_layout(selected);
@@ -306,10 +308,12 @@ bool NSClientT::load_configuration_1() {
   if (!settings_manager::init_settings(provider_, context_)) {
     return false;
   }
-  // Now that boot.ini's [layout] and [paths] have been applied, the overrides
-  // can be judged: until this point a CLI override built from an operator's own
-  // [paths] token looks like a typo, and on Windows ${shared-path} still reads
-  // as the legacy layout whatever boot.ini selected.
+  // Idempotent backstop. The judging that matters happens inside boot(), the
+  // moment boot.ini's [layout] and [paths] have been applied and before
+  // anything below them resolves a path - that is what stops a CLI override
+  // which only becomes judgeable there from being used first. This repeats it
+  // for the case where init_settings() reached us through some other route,
+  // and costs nothing when boot() has already done it.
   path_->validate_overrides();
   return true;
 }

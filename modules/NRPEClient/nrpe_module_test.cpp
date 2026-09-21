@@ -18,8 +18,13 @@
 
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/test_helpers.hpp>
+#include <map>
+#include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
+
+#include "nrpe_client.hpp"
 
 // Test binaries have no generated module glue, so the plugin singleton
 // (normally provided by NSC_WRAP_DLL()) must be defined here.
@@ -288,4 +293,57 @@ TEST_F(NrpeModule, NoSubcommandExplainsTheUsage) {
 TEST_F(NrpeModule, UnloadIsSafe) {
   ASSERT_TRUE(load());
   EXPECT_TRUE(module_.unloadModule());
+}
+
+// ============================================================================
+// connection_data — TLS material paths
+// ============================================================================
+
+// A mistyped ${token} in a target's `certificate`, `certificate key` or `dh` is
+// an operator error that is reported rather than silently resolved to the
+// installation directory. It must not escape connection_data: that is built at
+// module load for the default target and again per check, so a throw here costs
+// the whole module or the whole check over one setting. The bad value is dropped
+// instead, which reads exactly like "not configured" - a handshake the peer can
+// refuse, reported as a failed check with the reason already in the log.
+namespace {
+struct throwing_handler : socket_helpers::client::client_handler {
+  void log_debug(std::string, int, std::string) const override {}
+  void log_error(std::string, int, std::string) const override { ++errors; }
+  std::string expand_path(std::string path) override { throw std::runtime_error("Unknown path token in " + path); }
+  mutable int errors = 0;
+};
+
+struct prefixing_handler : socket_helpers::client::client_handler {
+  void log_debug(std::string, int, std::string) const override {}
+  void log_error(std::string, int, std::string) const override {}
+  std::string expand_path(std::string path) override { return "/expanded" + path; }
+};
+
+client::destination_container nrpe_target(const std::map<std::string, std::string> &options) {
+  client::destination_container d;
+  for (const auto &o : options) d.set_string_data(o.first, o.second);
+  return d;
+}
+}  // namespace
+
+TEST(NrpeConnectionData, TlsMaterialPathsAreExpanded) {
+  const nrpe_client::connection_data con(client::destination_container(),
+                                         nrpe_target({{"address", "h"}, {"certificate", "${certificate-path}/c.pem"}, {"dh", "${nrpe-dh}/dh.pem"}}),
+                                         std::make_shared<prefixing_handler>());
+
+  EXPECT_EQ(con.ssl.certificate, "/expanded${certificate-path}/c.pem");
+  EXPECT_EQ(con.ssl.dh_key, "/expanded${nrpe-dh}/dh.pem");
+}
+
+TEST(NrpeConnectionData, AnUnresolvableTlsPathIsDroppedRatherThanThrown) {
+  const std::shared_ptr<throwing_handler> handler = std::make_shared<throwing_handler>();
+
+  std::unique_ptr<nrpe_client::connection_data> con;
+  ASSERT_NO_THROW(con.reset(new nrpe_client::connection_data(
+      client::destination_container(), nrpe_target({{"address", "h"}, {"certificate", "${typo}/c.pem"}, {"dh", "${typo}/dh.pem"}}), handler)));
+
+  EXPECT_EQ(con->ssl.certificate, "");
+  EXPECT_EQ(con->ssl.dh_key, "");
+  EXPECT_EQ(handler->errors, 2) << "each unusable setting is named once";
 }

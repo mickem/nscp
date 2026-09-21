@@ -51,8 +51,22 @@ bool CheckNSCP::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
   // there. Expanding it here without rooting made the reader measure the same
   // setting against the working directory, so the handler wrote reports to one
   // folder and check_nscp counted them in another.
-  crashFolder = proxy->resolve_path(proxy->get_string("/settings/crash", "archive folder", CRASH_ARCHIVE_FOLDER), "${" CRASH_ARCHIVE_FOLDER_KEY "}");
-  NSC_DEBUG_MSG_STD("Crash folder is: " + crashFolder.string());
+  //
+  // Guarded, because the value is the operator's and a mistyped ${token} in it
+  // is now reported rather than quietly resolved to the installation
+  // directory. Letting that escape loadModuleEx would unload the whole module
+  // - so every check_nscp command disappears over a typo in a setting only one
+  // of them reads. Leave the folder unset instead: the crash count then finds
+  // no directory and reports nothing, which is the same answer it gives on a
+  // host that has never crashed.
+  try {
+    crashFolder = proxy->resolve_path(proxy->get_string("/settings/crash", "archive folder", CRASH_ARCHIVE_FOLDER), "${" CRASH_ARCHIVE_FOLDER_KEY "}");
+    NSC_DEBUG_MSG_STD("Crash folder is: " + crashFolder.string());
+  } catch (const std::exception &e) {
+    crashFolder.clear();
+    NSC_LOG_ERROR_STD("Failed to resolve the crash archive folder (/settings/crash 'archive folder'): " + utf8::utf8_from_native(e.what()) +
+                      ". check_nscp will not count crash reports until it is fixed.");
+  }
 
   // Default the CA bundle to the trusted system store (${ca-path} expands to
   // certificate-path/windows-ca.pem on Windows, and on unix to the

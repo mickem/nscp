@@ -15,6 +15,9 @@
 
 #include <boost/filesystem.hpp>
 
+#include <utility>
+#include <vector>
+
 nsclient::core::path_manager::path_manager(const logging::log_client_accessor &log_instance_) : log_instance_(log_instance_) {}
 
 boost::filesystem::path get_exe_path() {
@@ -138,46 +141,84 @@ std::string nsclient::core::path_manager::get_path_for_key(const std::string &ke
   // `${scripst}/x.bat` was not an error but a real path under the install
   // folder - so the file went somewhere nobody was looking and nothing
   // complained (#458). An operator cannot fix what is never reported.
-  throw path_expansion_error("Unknown path token ${" + key + "}: no such path is configured. Check the spelling, or define it in the [paths] section of "
-                                                            "boot.ini.");
+  throw path_expansion_error("Unknown path token ${" + key +
+                             "}: no such path is configured. Check the spelling, or define it in the [paths] section of "
+                             "boot.ini.");
 }
 
 void nsclient::core::path_manager::set_layout(const nscp::paths::layout value) { layout_ = value; }
 
-void nsclient::core::path_manager::drop_unusable_overrides(paths_type &map, const char *source) {
-  // Run after the map is installed, not before, because an override may be
-  // written in terms of other tokens ("scripts = ${shared-path}/mine") and one
-  // override may reference another. Expanding here therefore sees the same
-  // answers the rest of the service will.
-  for (auto it = map.begin(); it != map.end();) {
+namespace {
+// ${boot-conf} names boot.ini itself, so the bootstrap consumes it *before* the
+// deferred pass below can run. "Ask again later" therefore never comes for it
+// and it has to be judged on the spot, with whatever resolves at that point.
+bool is_consumed_before_boot(const std::string &key) { return key == "boot-conf"; }
+}  // namespace
+
+std::string nsclient::core::path_manager::why_unusable(const std::string &value, bool &unresolved) {
+  unresolved = false;
+  try {
+    const std::string resolved = expand_path_impl(value, 0);
+    if (resolved.empty()) return "it expands to nothing";
+    if (!nscp::paths::names_a_root(resolved))
+      // The same predicate resolve_path() uses to decide whether a value
+      // already names a location. Deliberately shared: the alternative was
+      // is_absolute() here and names_a_root() there, which meant a Windows
+      // root-relative `\logs` was accepted when written in a setting and
+      // rejected when written as the override for that same folder.
+      return "it does not name an absolute location (it resolves to '" + resolved + "')";
+    return "";
+  } catch (const path_expansion_error &e) {
+    // Not necessarily final: an override may name a token boot.ini has yet to
+    // define. The caller decides whether this key can wait for that.
+    unresolved = true;
+    return e.what();
+  }
+}
+
+void nsclient::core::path_manager::drop_unusable_overrides(paths_type &map, const char *source, const bool defer_unresolved) {
+  // Judge a whole pass against the map as it stands, then remove, then look
+  // again - rather than erasing as we walk. Erasing in place made the outcome
+  // depend on std::map's key order: with `logs = relative` and
+  // `mine = ${logs}/x` both installed, `mine` was judged against a still
+  // present `logs` and dropped when it happened to sort first, and against the
+  // built-in default and kept when it sorted last. Same configuration, two
+  // answers. Deciding everything before removing anything makes the verdict a
+  // property of the configuration, and iterating carries a verdict that only
+  // changed because of a removal through to the end.
+  struct rejection {
+    std::string key;
+    std::string value;
     std::string why;
-    try {
-      const std::string resolved = expand_path_impl(it->second, 0);
-      if (resolved.empty())
-        why = "it expands to nothing";
-      else if (!nscp::paths::names_a_root(resolved))
-        // The same predicate resolve_path() uses to decide whether a value
-        // already names a location. Deliberately shared: the alternative was
-        // is_absolute() here and names_a_root() there, which meant a Windows
-        // root-relative `\\logs` was accepted when written in a setting and
-        // rejected when written as the override for that same folder.
-        why = "it does not name an absolute location (it resolves to '" + resolved + "')";
-    } catch (const path_expansion_error &e) {
-      why = e.what();
+  };
+  for (;;) {
+    std::vector<rejection> doomed;
+    for (const auto &kv : map) {
+      bool unresolved = false;
+      const std::string why = why_unusable(kv.second, unresolved);
+      if (why.empty()) continue;
+      // Not usable *yet*, and this key can wait: leave it for the pass that
+      // runs once boot.ini has been read. It throws rather than mis-resolving
+      // in the meantime, so nothing silently uses the wrong folder.
+      if (unresolved && defer_unresolved && !is_consumed_before_boot(kv.first)) continue;
+      doomed.push_back(rejection{kv.first, kv.second, why});
     }
-    if (why.empty()) {
-      ++it;
-      continue;
+    if (doomed.empty()) return;
+    for (const rejection &bad : doomed) {
+      // Dropped rather than kept, so the compiled-in default applies: that is a
+      // defined absolute location, where a relative override is read and written
+      // relative to the service's working directory - System32 for a Windows
+      // service, "/" under a bare init, the package directory under the shipped
+      // systemd unit. An operator cannot predict which, so we do not guess for
+      // them; we say so and use the default.
+      LOG_ERROR_CORE("Ignoring the " + std::string(source) + " entry '" + bad.key + " = " + bad.value + "': " + bad.why +
+                     ". A path token has to resolve to an absolute path; using the built-in default for ${" + bad.key + "} instead." +
+                     (is_consumed_before_boot(bad.key) ? " ${" + bad.key +
+                                                             "} is resolved to find boot.ini itself, before anything that could make sense of a "
+                                                             "relative or later-defined value has been read, so it cannot wait."
+                                                       : ""));
+      map.erase(bad.key);
     }
-    // Dropped rather than kept, so the compiled-in default applies: that is a
-    // defined absolute location, where a relative override is read and written
-    // relative to the service's working directory - System32 for a Windows
-    // service, "/" under a bare init, the package directory under the shipped
-    // systemd unit. An operator cannot predict which, so we do not guess for
-    // them; we say so and use the default.
-    LOG_ERROR_CORE("Ignoring the " + std::string(source) + " entry '" + it->first + " = " + it->second + "': " + why +
-                   ". A path token has to resolve to an absolute path; using the built-in default for ${" + it->first + "} instead.");
-    it = map.erase(it);
   }
 }
 
@@ -194,51 +235,30 @@ void nsclient::core::path_manager::add_overrides(paths_type overrides) {
 }
 
 void nsclient::core::path_manager::set_cli_overrides(paths_type overrides) {
-  // Installed without validating, unlike the boot.ini layer. This runs before
-  // init_settings(), so boot.ini has been read neither for [layout] - which on
-  // Windows decides what ${shared-path} means - nor for [paths], whose entries
-  // an operator is explicitly allowed to build a CLI override out of. Judging
-  // an override against a half-built picture would reject perfectly good ones
-  // and resolve the rest against the wrong layout. validate_overrides() does it
-  // once the picture is complete.
   cli_overrides_ = std::move(overrides);
 
-  // ...with one exception, because one key cannot wait. ${boot-conf} names
-  // boot.ini itself, so init_settings() consumes it *before* the picture is
-  // complete and validate_overrides() can run. A relative value there would be
-  // used once, to find and read a file relative to the working directory, and
-  // then dropped - leaving the bootstrap having read one file while every later
-  // ${boot-conf} expansion names another. It also needs no deferral: it is
-  // resolved before [paths] exists, so it cannot legitimately be built out of a
-  // token boot.ini defines.
+  // Judged here and not only in validate_overrides(), because these are in
+  // force for the whole of init_settings(): boot.ini is opened through
+  // ${boot-conf}, the shared folder is created and locked down through
+  // ${shared-path}, and the trust store is written through
+  // ${certificate-path}, all before the later pass runs. An override that is
+  // already definitively unusable - it resolves, and what it resolves to is
+  // not a location - therefore has to go before any of that happens, or the
+  // configuration is read out of one tree while scripts, certificates and the
+  // settings cache are written into another.
   //
-  // It is the *resolved* value that has to name a root, not the spelling. The
-  // built-in default is itself written with a token (${exe-path}/boot.ini on
-  // Windows, ${etc}/nsclient/boot.ini on unix), so judging the raw string would
-  // reject the very form the CLI documents - and would contradict the rule the
-  // other overrides follow, that an override may be built out of tokens as long
-  // as what it comes to is absolute. The tokens that can legitimately appear
-  // here are the compile-time ones, which resolve without boot.ini; one naming
-  // a [paths] entry boot.ini has yet to define fails to expand, and that is a
-  // rejection too. expand_path_impl's depth guard covers a self-referential
-  // value.
-  const paths_type::const_iterator boot = cli_overrides_.find("boot-conf");
-  if (boot != cli_overrides_.end()) {
-    std::string resolved;
-    std::string why;
-    try {
-      resolved = expand_path(boot->second);
-      if (!nscp::paths::names_a_root(resolved)) why = "it resolves to '" + resolved + "', which is not an absolute location";
-    } catch (const std::exception &e) {
-      why = std::string("it could not be resolved: ") + e.what();
-    }
-    if (!why.empty()) {
-      get_logger()->error("core", __FILE__, __LINE__,
-                          "Ignoring --path-override boot-conf=" + boot->second + ": " + why +
-                              ". It is used to find boot.ini before anything that could make sense of a relative one has been read. Using the default.");
-      cli_overrides_.erase("boot-conf");
-    }
-  }
+  // Only the verdict is taken from this early pass, never the resolved value,
+  // which is what makes it safe to run before boot.ini's [layout] has been
+  // applied: every layout answers ${shared-path} with an absolute path, so
+  // which one is in force cannot change "does this name a location?".
+  //
+  // What genuinely cannot be judged yet is deferred rather than guessed at. An
+  // override is explicitly allowed to be built out of a [paths] entry boot.ini
+  // has not been read for yet ("scripts = ${mine}/bin"), and such a value only
+  // throws while that is so - it never quietly resolves to the wrong folder -
+  // so waiting costs nothing. ${boot-conf} is the one key that cannot wait,
+  // and drop_unusable_overrides knows it by name.
+  drop_unusable_overrides(cli_overrides_, "--path-override", /*defer_unresolved=*/true);
 }
 
 void nsclient::core::path_manager::validate_overrides() {
@@ -272,12 +292,18 @@ std::string nsclient::core::path_manager::expand_path_impl(std::string file, con
   // Cycle guard: a settings cycle ("${a}" -> "${b}" -> "${a}") used to
   // recurse without bound and either stack-overflow the service (uncatchable
   // on Windows) or burn the whole stack before the catch(...) below kicked in
-  // on POSIX. Bail at a fixed depth and log loudly so an operator can
-  // identify the cycle from the surfaced error message.
+  // on POSIX. Bail at a fixed depth.
+  //
+  // Raised rather than answered with an empty string, which is how this first
+  // bailed out. Only the innermost frame saw the empty answer: every frame
+  // above it appended its own suffix to it, so a self-referential override
+  // (`boot-conf=${boot-conf}/boot.ini`) came back as `/boot.ini/boot.ini/...`
+  // - a value that names a root, which is exactly what the override check
+  // asks for, so the cycle was validated and kept. A cycle is a configuration
+  // error of the same kind as an unknown token and is reported the same way.
   if (depth > kMaxExpandDepth) {
-    LOG_ERROR_CORE("Refusing to expand path beyond " + std::to_string(kMaxExpandDepth) +
-                   " levels (cycle in boot.ini [paths]?): " + utf8::cvt<std::string>(file));
-    return "";
+    throw path_expansion_error("Refusing to expand path beyond " + std::to_string(kMaxExpandDepth) + " levels: '" + utf8::cvt<std::string>(file) +
+                               "' is part of a cycle. Check the [paths] section of boot.ini and any --path-override for a token that names itself.");
   }
   try {
     if (file.empty()) return file;

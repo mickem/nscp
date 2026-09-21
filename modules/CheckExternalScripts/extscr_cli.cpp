@@ -175,17 +175,11 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
     boost::filesystem::path rel = provider_->get_core()->expand_path("${base-path}");
     boost::filesystem::recursive_directory_iterator iter(dir), eod;
     for (boost::filesystem::path const &i : boost::make_iterator_range(iter, eod)) {
-      std::string s = i.string();
       // Relative to the install base when the file is under it, which is the
       // case on Windows and is what `show` and the web UI's script list have
       // always been handed. When it is not - the normal case on unix, where
       // ${scripts} is not below ${base-path} - the path is left absolute.
-      // It used to have its leading separator sliced off regardless, leaving a
-      // rootless `usr/lib/nsclient/scripts/x` that named no file at all.
-      if (boost::algorithm::starts_with(s, rel.string())) {
-        s = s.substr(rel.string().size());
-        if (!s.empty() && (s[0] == '\\' || s[0] == '/')) s = s.substr(1);
-      }
+      std::string s = file_helpers::meta::relativise_to(rel, i);
       if (s.empty()) continue;
       // Skip scripts under a `lib` folder unless --include-lib was given. The
       // previous test used a substring match on the whole path (so a `libs` or

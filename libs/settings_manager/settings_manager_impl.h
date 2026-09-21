@@ -27,6 +27,14 @@ struct provider_interface {
   // rest of them are built from, so the layout has to be in place first.
   // Default is a no-op for providers that have only one layout.
   virtual void apply_layout(const std::string &mode) { static_cast<void>(mode); }
+  // Judge the path overrides that could not be judged when they were
+  // installed, dropping the ones that do not resolve to an absolute location
+  // so the built-in default applies instead. Called after [layout] and
+  // [paths], before anything below resolves a path: the CLI --path-override
+  // layer goes in before boot.ini can be read, so an override written in terms
+  // of a [paths] entry only becomes judgeable here. Idempotent, and a no-op for
+  // providers that have no override layer.
+  virtual void validate_path_overrides() {}
   // Create the folder the layout points at, with whatever access control the
   // platform needs, before anything writes into it. Called after the [paths]
   // overrides so it acts on the operator's final answer, and before

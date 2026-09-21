@@ -51,9 +51,9 @@ struct connection_data : public socket_helpers::connection_info {
       ssl.dh_key = target.get_string_data("dh");
       ssl.verify_mode = target.get_string_data("verify mode", "none");
     }
-    if (!ssl.dh_key.empty()) ssl.dh_key = handler->expand_path(ssl.dh_key);
-    if (!ssl.certificate.empty()) ssl.certificate = handler->expand_path(ssl.certificate);
-    if (!ssl.certificate_key.empty()) ssl.certificate_key = handler->expand_path(ssl.certificate_key);
+    ssl.dh_key = socket_helpers::client::expand_tls_path(handler, "dh", ssl.dh_key);
+    ssl.certificate = socket_helpers::client::expand_tls_path(handler, "certificate", ssl.certificate);
+    ssl.certificate_key = socket_helpers::client::expand_tls_path(handler, "certificate key", ssl.certificate_key);
 
     timeout = target.timeout;
     retry = target.retry;

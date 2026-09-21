@@ -276,7 +276,20 @@ std::shared_ptr<command_client::console_editor> CommandClient::make_editor() con
   editor->set_builtins(builtins);
 
   editor->set_color(color_);
-  const std::string history = history_file_.empty() ? command_client::console_editor::default_history_file() : get_core()->expand_path(history_file_);
+  // Guarded: the history file is the operator's setting, and a mistyped
+  // ${token} in it is now reported rather than quietly resolved to the
+  // installation directory. Letting it escape would take down the interactive
+  // client over where its history is kept, so fall back to the default
+  // location and say so - the prompt still works, it just remembers somewhere
+  // else.
+  std::string history;
+  try {
+    history = history_file_.empty() ? command_client::console_editor::default_history_file() : get_core()->expand_path(history_file_);
+  } catch (const std::exception &e) {
+    history = command_client::console_editor::default_history_file();
+    NSC_LOG_ERROR_STD("Failed to resolve the command history file '" + history_file_ + "': " + utf8::utf8_from_native(e.what()) + ". Using " + history +
+                      " instead.");
+  }
   editor->set_history(history, history_size_);
   return editor;
 }

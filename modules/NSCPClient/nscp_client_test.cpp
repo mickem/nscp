@@ -24,6 +24,7 @@ namespace po = boost::program_options;  // nscp_handler.hpp expects the includer
 #include <boost/asio.hpp>
 #include <map>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -93,6 +94,32 @@ TEST(NscpConnectionData, TlsMaterialIsCarriedAndPathsExpanded) {
   EXPECT_EQ(con.ssl.certificate_key, "/expanded${certificate-path}/key.pem") << "the handler resolves ${...} tokens";
   EXPECT_EQ(con.ssl.ca_path, "/etc/ca.pem");
   EXPECT_EQ(con.ssl.verify_mode, "peer-cert");
+}
+
+// A mistyped ${token} in a target's certificate path is an operator error that
+// is reported rather than silently resolved. It must not escape connection_data:
+// this runs at module load for the default target and per check for every other
+// one, so a throw here costs the whole module or the whole check over one
+// setting. The bad value is dropped instead, which reads exactly like "no client
+// certificate configured" - a handshake the peer can refuse, reported as a
+// failed check with the reason already in the log.
+namespace {
+struct throwing_handler : socket_helpers::client::client_handler {
+  void log_debug(std::string, int, std::string) const override {}
+  void log_error(std::string, int, std::string) const override {}
+  std::string expand_path(std::string path) override { throw std::runtime_error("Unknown path token in " + path); }
+};
+}  // namespace
+
+TEST(NscpConnectionData, AnUnresolvableCertificatePathIsDroppedRatherThanThrown) {
+  client::destination_container target = target_with({{"address", "h"}, {"certificate key", "${typo}/k.pem"}, {"ca", "/etc/ca.pem"}});
+
+  std::unique_ptr<nscp_client::connection_data> con;
+  ASSERT_NO_THROW(con.reset(new nscp_client::connection_data(client::destination_container(), target, std::make_shared<throwing_handler>())));
+
+  EXPECT_EQ(con->ssl.certificate_key, "");
+  // `ca` is not expanded here at all, so it is unaffected by the failure.
+  EXPECT_EQ(con->ssl.ca_path, "/etc/ca.pem");
 }
 
 TEST(NscpConnectionData, TlsIsOnByDefault) {

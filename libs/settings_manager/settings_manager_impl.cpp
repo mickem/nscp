@@ -222,6 +222,15 @@ void NSCSettingsImpl::boot(std::string key) {
       provider_->apply_path_overrides(std::move(path_overrides));
     }
   }
+  // Everything below this line resolves paths - the shared folder, the trust
+  // store, the main settings store's own location - so this is the last moment
+  // at which an override that turns out to be unusable can be replaced by its
+  // built-in default instead of being used. It is also the first: the CLI
+  // --path-override layer is installed before boot.ini exists to be read, so an
+  // override written in terms of a [paths] entry could not be judged until the
+  // section above had been applied.
+  provider_->validate_path_overrides();
+
   // The folder everything below writes into has to exist, and be locked down,
   // before the first write - which is the trust store export immediately after
   // this. Runs after the [paths] overrides so it acts on the final answer.
@@ -244,19 +253,27 @@ void NSCSettingsImpl::boot(std::string key) {
   for (const std::string &k : order) {
     str::format::append_list(boot_order, to_log_safe_context(k), ", ");
   }
-  for (std::string k : order) {
-    if (context_exists(k)) {
+  for (const std::string &k : order) {
+    // context_exists() inside the try, not around it. It resolves the entry's
+    // path, so a mistyped ${token} in one of these now raises rather than
+    // quietly resolving to the installation directory - and raising from
+    // outside the try took the exception all the way out of boot(), so
+    // init_settings() returned false and the service refused to start over a
+    // typo in one candidate. A bad entry is one entry: report it, and go on to
+    // the next, which is what the loop is for.
+    try {
+      if (!context_exists(k)) continue;
       get_logger()->debug("settings", __FILE__, __LINE__, "Activating: " + to_log_safe_context(k));
-      try {
-        set_instance("master", k);
-        return;
-      } catch (const settings::settings_exception &e) {
-        get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
-      } catch (const std::exception &e) {
-        get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
-      } catch (...) {
-        get_logger()->error("settings", __FILE__, __LINE__, "Failed to activate: " + to_log_safe_context(key));
-      }
+      set_instance("master", k);
+      return;
+    } catch (const settings::settings_exception &e) {
+      get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
+    } catch (const std::exception &e) {
+      get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
+    } catch (...) {
+      // `k`, not `key`: this reports the candidate that failed, and the one
+      // passed in may well be empty here.
+      get_logger()->error("settings", __FILE__, __LINE__, "Failed to activate: " + to_log_safe_context(k));
     }
   }
   if (!key.empty()) {

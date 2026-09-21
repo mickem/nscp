@@ -23,6 +23,7 @@
 #include <fstream>
 #include <map>
 #include <memory>
+#include <nscp/path_rooting.hpp>
 #include <settings/test_helpers.hpp>
 #include <str/utils.hpp>
 #include <string>
@@ -50,6 +51,7 @@ class recording_provider : public settings_manager::provider_interface {
     layout_count_++;
     calls_.push_back("layout");
   }
+  void validate_path_overrides() override { calls_.push_back("validate-paths"); }
   void prepare_shared_folder() override { calls_.push_back("shared-folder"); }
 
   const std::map<std::string, std::string> &overrides() const { return overrides_; }
@@ -250,6 +252,45 @@ TEST_F(SettingsManagerBootTest, PathsSectionAcceptsTemplatedValues) {
   EXPECT_EQ(provider_->overrides().at("certificate-path"), "${shared-path}/security");
 }
 
+// --- a mistyped token in one [settings] entry -------------------------------
+
+namespace {
+// Resolves boot.ini exactly as recording_provider does, but raises on one
+// token - the way path_manager now answers a name it has nothing for.
+class typo_provider : public recording_provider {
+ public:
+  explicit typo_provider(std::string boot_ini_path) : recording_provider(std::move(boot_ini_path)) {}
+  std::string expand_path(std::string file) override {
+    if (file.find("${typo}") != std::string::npos) {
+      throw nscp::paths::path_expansion_error("Unknown path token ${typo}: no such path is configured.");
+    }
+    return recording_provider::expand_path(std::move(file));
+  }
+};
+}  // namespace
+
+TEST_F(SettingsManagerBootTest, AMistypedTokenInOneSettingsEntryCostsOnlyThatEntry) {
+  // The [settings] list is a list of candidates, tried in order. Resolving one
+  // of them is now able to fail - an unknown ${token} is reported rather than
+  // silently resolved to the installation directory - and that has to cost the
+  // one entry, not the boot: the check used to sit outside the per-entry catch,
+  // so the exception left boot() entirely, init_settings() returned false and
+  // the service refused to start over a typo in a line it was going to fall
+  // past anyway.
+  settings_test::write_file(boot_ini_,
+                            "[settings]\n"
+                            "1=ini://${typo}/nsclient.ini\n"
+                            "2=dummy\n");
+  typo_provider provider(boot_ini_.string());
+  settings_manager::NSCSettingsImpl impl(&provider);
+
+  ASSERT_NO_THROW(impl.boot(""));
+
+  // ...and the next candidate was actually reached and activated.
+  ASSERT_TRUE(static_cast<bool>(impl.get()));
+  EXPECT_EQ(impl.get()->get_type(), "dummy");
+}
+
 // ---------------------------------------------------------------------------
 // boot() - [tls] section
 // ---------------------------------------------------------------------------
@@ -333,6 +374,40 @@ TEST_F(SettingsManagerBootTest, SharedFolderIsPreparedAfterPathOverridesAndBefor
   ASSERT_NE(paths, calls.end());
   ASSERT_NE(shared, calls.end());
   EXPECT_LT(paths - calls.begin(), shared - calls.begin()) << "the shared folder must be prepared against the final paths";
+}
+
+TEST_F(SettingsManagerBootTest, OverridesAreJudgedAfterThePathsSectionAndBeforeAnythingUsesThem) {
+  // The CLI --path-override layer is installed before boot.ini exists to be
+  // read, so an override written in terms of a [paths] entry cannot be judged
+  // until that section has been applied - and everything after this point
+  // resolves paths with it: the shared folder, the trust store, the master
+  // store's own location. Judging it later meant a bad override was used for
+  // all of them and only then dropped, so the configuration came out of one
+  // tree and the folders the agent writes into came out of another.
+  write_boot_ini("[paths]\nshared-path=/tmp/explicit\n");
+
+  settings_manager::NSCSettingsImpl impl(provider_.get());
+  impl.boot("");
+
+  const auto &calls = provider_->calls();
+  const auto paths = std::find(calls.begin(), calls.end(), "paths");
+  const auto validate = std::find(calls.begin(), calls.end(), "validate-paths");
+  const auto shared = std::find(calls.begin(), calls.end(), "shared-folder");
+  ASSERT_NE(paths, calls.end());
+  ASSERT_NE(validate, calls.end());
+  ASSERT_NE(shared, calls.end());
+  EXPECT_LT(paths - calls.begin(), validate - calls.begin()) << "overrides were judged before boot.ini's [paths] were applied";
+  EXPECT_LT(validate - calls.begin(), shared - calls.begin()) << "the shared folder was prepared against overrides nobody had judged";
+}
+
+TEST_F(SettingsManagerBootTest, OverridesAreJudgedEvenWithoutABootIni) {
+  // There is still a CLI override layer to judge, and still a shared folder and
+  // a store that will resolve paths through it.
+  settings_manager::NSCSettingsImpl impl(provider_.get());
+  impl.boot("dummy");
+
+  const auto &calls = provider_->calls();
+  EXPECT_NE(std::find(calls.begin(), calls.end(), "validate-paths"), calls.end());
 }
 
 TEST_F(SettingsManagerBootTest, MissingBootIniStillPreparesTheSharedFolder) {

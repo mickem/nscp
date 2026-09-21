@@ -328,8 +328,40 @@ class settings_http : public settings::settings_interface_impl {
       auto tls_version = get_core()->get_tls_version();
       auto verify_mode = get_core()->get_tls_verify_mode();
       // The CA may be written as a path macro (it defaults to ${ca-path}), so
-      // it has to be expanded before OpenSSL sees it.
-      auto ca = get_core()->expand_path(get_core()->get_tls_ca());
+      // it has to be expanded before OpenSSL sees it - and a mistyped token in
+      // it is now reported rather than quietly resolving to the installation
+      // directory.
+      //
+      // That report must not escape this function. initial_load() calls this
+      // from the settings_http constructor, so an exception here fails the
+      // whole settings source, and the agent loses the cached configuration it
+      // could still have booted from. Skip the fetch instead, exactly as the
+      // plaintext refusal above does: the cached copy is used, and the log says
+      // what to fix.
+      //
+      // Skipping rather than fetching without it, even though the value is only
+      // read when verification is on: this is the setting that says who is
+      // allowed to hand this agent its entire configuration, and a fetch made
+      // while we cannot tell what it named is not one to guess at.
+      //
+      // Warning rather than error, for the same reason as the advisories below:
+      // the MSI's ImportConfig custom action reads the existing configuration
+      // back through this code path and treats any error-level message as a
+      // failed settings read, discarding the CONFIGURATION_TYPE the operator
+      // asked for. A bad token is a standing configuration error that would
+      // never clear, so an error here would break every upgrade of such a host
+      // rather than just this one fetch.
+      std::string ca;
+      try {
+        ca = get_core()->expand_path(get_core()->get_tls_ca());
+      } catch (const std::exception &e) {
+        get_logger()->warning("settings", __FILE__, __LINE__,
+                              "Refusing to fetch settings from " + url.to_log_safe_string() +
+                                  ": the [tls] ca path in boot.ini could not be resolved: " + e.what() +
+                                  ". Fix the path token, or set 'ca = none' to verify against the system trust store. The previously cached "
+                                  "configuration is used instead.");
+        return false;
+      }
 
       // This download becomes the agent's configuration. An unverified fetch
       // hands whoever answers for `url.host` full control of the host, so it
@@ -480,9 +512,9 @@ class settings_http : public settings::settings_interface_impl {
         // local_file alone. The guard removes the now-redundant tmp_file
         // (issue #370).
       } else {
-        if (!boost::filesystem::exists(local_file.parent_path())) {
-          boost::filesystem::create_directories(local_file.parent_path());
-        }
+        // No create_directories here: in this branch tmp_file is local_file
+        // with ".tmp" appended, so the block that creates the tmp file's parent
+        // before opening the stream has already created this very directory.
         boost::filesystem::rename(tmp_file, local_file);
         guard.active = false;  // tmp_file has been moved into place
       }

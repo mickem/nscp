@@ -99,6 +99,12 @@ class path_manager {
   // the boot.ini overrides and the compile-time defaults in getFolder(), so
   // these win no matter when boot.ini's [paths] are applied. Intended to be
   // called once, before init_settings(), from the CLI parser plumbing.
+  //
+  // Anything already definitively unusable is dropped here rather than in
+  // validate_overrides(), because this layer is in force for the whole of
+  // init_settings() - which opens boot.ini, creates the shared folder and
+  // writes the trust store. Only what cannot be judged until boot.ini has been
+  // read waits for that later pass.
   void set_cli_overrides(paths_type overrides);
 
   // Check every installed override and discard the ones that do not name an
@@ -130,10 +136,26 @@ class path_manager {
   std::string resolve_folder(const std::string& key, int depth);
   std::string get_path_for_key(const std::string& key, int depth);
 
+  // Why `value` cannot serve as a path override, or "" when it can. The one
+  // predicate both passes ask, so that the early CLI judgement and the full
+  // sweep cannot drift apart - which they had: the boot-conf branch that used
+  // to carry its own copy never rejected a value that expands to nothing.
+  //
+  // `unresolved` comes back true when the value named a token that does not
+  // resolve *yet*. That is a rejection for a key the bootstrap consumes before
+  // boot.ini has been read, and "ask again later" for every other one, because
+  // an override is explicitly allowed to be written in terms of a [paths]
+  // entry boot.ini has not been read for yet.
+  std::string why_unusable(const std::string& value, bool& unresolved);
+
   // Discard overrides that do not name an absolute location, reporting each
   // one. Called after the map is installed so that an override written in
   // terms of other tokens resolves the same way it will in service.
-  void drop_unusable_overrides(paths_type& map, const char* source);
+  //
+  // With `defer_unresolved` an override that merely fails to resolve yet is
+  // left in place for a later pass; without it, this is the last word and such
+  // an override goes too. Either way the map is taken to a fixed point.
+  void drop_unusable_overrides(paths_type& map, const char* source, bool defer_unresolved = false);
 
   // Resolve ${nrpe-dh}: the first candidate folder that actually holds the
   // shipped DH parameters, or the last candidate when none of them do.

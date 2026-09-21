@@ -128,18 +128,12 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
     fs::path rel = provider_->get_core()->expand_path("${scripts}");
     fs::recursive_directory_iterator iter(dir), eod;
     for (fs::path const &i : boost::make_iterator_range(iter, eod)) {
-      std::string s = i.string();
       // Relative to ${scripts} when the file is under it, which is every file
       // this loop walks, giving `python/x.py` - the same spelling `add --import`
       // records and one find_file resolves from any working directory. A file
       // reached through a symlink out of the folder is left absolute rather
-      // than mangled: the strip used to slice the leading separator off
-      // regardless, leaving a rootless `usr/lib/nsclient/scripts/x` that named
-      // no file at all.
-      if (boost::algorithm::starts_with(s, rel.string())) {
-        s = s.substr(rel.string().size());
-        if (!s.empty() && (s[0] == '\\' || s[0] == '/')) s = s.substr(1);
-      }
+      // than mangled.
+      std::string s = file_helpers::meta::relativise_to(rel, i);
       if (s.empty()) continue;
       fs::path clone = i.parent_path();
       if (fs::is_regular_file(i) && !boost::algorithm::contains(clone.string(), "lib")) {

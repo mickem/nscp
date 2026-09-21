@@ -5,10 +5,12 @@
 
 #include <boost/algorithm/string.hpp>
 #include <chrono>
+#include <memory>
 #include <net/socket/socket_helpers.hpp>
 #include <str/utf8.hpp>
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
+#include <string>
 
 using boost::asio::ip::tcp;
 
@@ -487,5 +489,31 @@ struct client_handler : private boost::noncopyable {
   virtual void log_error(std::string file, int line, std::string msg) const = 0;
   virtual std::string expand_path(std::string path) = 0;
 };
+
+// expand_path for a TLS material path that came from an operator, reporting a
+// value this installation cannot resolve instead of letting it escape.
+//
+// A target's `certificate`, `certificate key` or `dh` is expanded while a
+// connection_data is being built, which happens both when a client module
+// reads its default target at load and again per check. A mistyped ${token} in
+// one of them is now raised rather than quietly resolved to the installation
+// directory, and neither of those places is somewhere a throw belongs: at load
+// it unloads the module, so every command it serves disappears over one bad
+// setting, and per check it aborts with a message naming no setting at all.
+//
+// So name the setting and hand back nothing, which is exactly how these fields
+// read when they are not configured. A client certificate that is not sent is
+// a handshake the server refuses - a failed check, reported, with the reason
+// already in the log - rather than a connection quietly made with some other
+// file.
+inline std::string expand_tls_path(const std::shared_ptr<client_handler> &handler, const char *setting, const std::string &value) {
+  if (value.empty() || !handler) return value;
+  try {
+    return handler->expand_path(value);
+  } catch (const std::exception &e) {
+    handler->log_error(__FILE__, __LINE__, std::string("Ignoring the target's '") + setting + "' setting: '" + value + "' could not be resolved: " + e.what());
+    return "";
+  }
+}
 }  // namespace client
 }  // namespace socket_helpers

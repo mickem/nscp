@@ -656,6 +656,43 @@ TEST(settings_http, plaintext_source_is_fetched_when_boot_ini_allows_it) {
   EXPECT_FALSE(server.request_line().empty());
 }
 
+// --- a mistyped ${token} in [tls] ca ----------------------------------------
+
+namespace {
+// [tls] ca names a token this installation cannot resolve. path_manager raises
+// on that now rather than quietly answering with the installation directory.
+class bad_ca_core : public recording_http_core {
+ public:
+  explicit bad_ca_core(boost::filesystem::path cache) : recording_http_core(std::move(cache), true) {}
+
+  std::string get_tls_ca() const override { return "${typo}/ca.pem"; }
+
+  std::string expand_path(std::string key) override {
+    if (key.find("${typo}") != std::string::npos) throw nscp::paths::path_expansion_error("Unknown path token ${typo}");
+    return http_test_core::expand_path(std::move(key));
+  }
+};
+}  // namespace
+
+TEST(settings_http, an_unresolvable_ca_token_skips_the_fetch_instead_of_failing_the_source) {
+  // The expansion happens inside cache_remote_file, which initial_load() calls
+  // from the constructor - so letting the throw out took the whole settings
+  // source down, and with it the cached configuration the agent could still
+  // have booted from. It has to come out as a skipped fetch, like every other
+  // refusal in here.
+  loopback_listener server;
+  temp_dir cache;
+  bad_ca_core core(cache.path());
+
+  EXPECT_NO_THROW({ settings::settings_http s(&core, "test", http_url(server.port())); });
+
+  EXPECT_FALSE(server.served()) << "a fetch was made while [tls] ca named nothing we could resolve";
+  EXPECT_TRUE(recording_logger::any_contains(core.recorded().warnings(), "[tls] ca"));
+  // An advisory about a skipped fetch, not a failed configuration read - see
+  // the level test above for why that distinction is load-bearing.
+  EXPECT_TRUE(core.recorded().errors().empty()) << core.recorded().errors()[0];
+}
+
 TEST(settings_http, a_url_without_a_scheme_is_refused_like_plain_http) {
   // parse() leaves the protocol empty for "127.0.0.1:port/path", and the
   // client then opens a plain socket just the same - so the guard cannot key

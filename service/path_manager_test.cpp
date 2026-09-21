@@ -755,12 +755,11 @@ TEST_F(PathManagerTest, WebRootIsNotWritableStateOnUnix) {
 }
 
 TEST_F(PathManagerTest, ARelativeBootConfOverrideIsRefusedImmediatelyRatherThanDeferred) {
-  // Every other CLI override is installed unvalidated and judged later, once
-  // boot.ini's [layout] and [paths] have been read. ${boot-conf} cannot wait:
-  // it names boot.ini, so init_settings() consumes it before that point. Left
-  // to the deferred check it would be used once - to read a file relative to
-  // the working directory - and then dropped, so the bootstrap would have read
-  // one file while every later ${boot-conf} expansion named another.
+  // ${boot-conf} names boot.ini itself, so init_settings() consumes it before
+  // the deferred pass could ever run. Left to that pass it would be used once -
+  // to read a file relative to the working directory - and then dropped, so the
+  // bootstrap would have read one file while every later ${boot-conf} expansion
+  // named another.
   pm->set_cli_overrides({{"boot-conf", "relative-boot.ini"}});
 
   // Dropped at install time, not at validate time: the default is already in
@@ -816,6 +815,123 @@ TEST_F(PathManagerTest, ABootConfOverrideNamingAnUnknownTokenIsRefused) {
   const std::string resolved = pm->expand_path("${boot-conf}");
   EXPECT_EQ(resolved.find("no-such-token"), std::string::npos) << resolved;
   EXPECT_TRUE(nscp::paths::names_a_root(resolved)) << resolved;
+}
+
+// A relative --path-override is dropped when it is installed, not when
+// validate_overrides() finally runs. Everything between those two points -
+// opening boot.ini, creating and locking down the shared folder, writing the
+// trust store - resolves paths through this layer, so an override that is
+// already known to be unusable must not survive into any of it. It used to,
+// which meant the configuration was read out of one tree while scripts,
+// certificates and the settings cache went into another.
+TEST_F(PathManagerTest, ARelativeCliOverrideIsDroppedBeforeAnythingCanUseIt) {
+  nsclient::core::path_manager fresh(log_instance_);
+  const std::string built_in = fresh.expand_path("${log-path}");
+
+  pm->set_cli_overrides({{"log-path", "relative/logs"}});
+
+  const std::string before_validate = pm->expand_path("${log-path}");
+  EXPECT_EQ(before_validate, built_in) << "a relative override was in force before validate_overrides() ran";
+
+  pm->validate_overrides();
+  EXPECT_EQ(pm->expand_path("${log-path}"), built_in);
+}
+
+// The other half of the same rule: an override that merely cannot be resolved
+// *yet* is not a typo, it is an override written in terms of a [paths] entry
+// boot.ini has not been read for. It waits, and while it waits it throws rather
+// than resolving to some other folder - so nothing uses a wrong answer in the
+// meantime.
+TEST_F(PathManagerTest, ACliOverrideBuiltFromABootIniTokenWaitsForBootIni) {
+  pm->set_cli_overrides({{"module-path", "${operator-root}/mods"}});
+
+  EXPECT_THROW(pm->expand_path("${module-path}"), nsclient::core::path_expansion_error) << "an unresolved override answered with something usable";
+
+  // boot.ini's [paths] arrive, and with them the token it was written against.
+  pm->set_overrides({{"operator-root", "/opt/custom"}});
+  pm->validate_overrides();
+
+  EXPECT_EQ(pm->expand_path("${module-path}"), "/opt/custom/mods");
+}
+
+TEST_F(PathManagerTest, ACliOverrideNamingATokenBootIniNeverDefinesIsDroppedAtValidation) {
+  nsclient::core::path_manager fresh(log_instance_);
+  const std::string built_in = fresh.expand_path("${module-path}");
+
+  pm->set_cli_overrides({{"module-path", "${never-defined}/mods"}});
+  pm->validate_overrides();
+
+  EXPECT_EQ(pm->expand_path("${module-path}"), built_in);
+}
+
+// A cycle is a configuration error, not an empty string. Returning "" only ever
+// reached the innermost frame: every frame above it appended its own suffix, so
+// `boot-conf = ${boot-conf}/boot.ini` came back as `/boot.ini/boot.ini/...` -
+// which names a root, which is exactly what the override check asks for. The
+// cycle was therefore validated and kept.
+TEST_F(PathManagerTest, ASelfReferentialOverrideIsRejectedRatherThanValidated) {
+  nsclient::core::path_manager fresh(log_instance_);
+  const std::string built_in = fresh.expand_path("${boot-conf}");
+
+  pm->set_cli_overrides({{"boot-conf", "${boot-conf}/boot.ini"}});
+
+  const std::string resolved = pm->expand_path("${boot-conf}");
+  EXPECT_EQ(resolved, built_in) << "a self-referential override survived: " << resolved;
+  EXPECT_EQ(resolved.find("boot.ini/boot.ini"), std::string::npos) << resolved;
+}
+
+TEST_F(PathManagerTest, ExpandingACycleRaisesRatherThanAnsweringWithNothing) {
+  nsclient::core::path_manager fresh(log_instance_);
+  const std::string built_in = fresh.expand_path("${module-path}");
+
+  // The CLI layer defers what it cannot resolve yet, which is how a cycle gets
+  // to be asked of the expander at all. It must raise rather than answer, and
+  // then go when the deferred pass judges it.
+  pm->set_cli_overrides({{"module-path", "${module-path}/mods"}});
+  EXPECT_THROW(pm->expand_path("${module-path}"), nsclient::core::path_expansion_error);
+
+  pm->validate_overrides();
+  EXPECT_EQ(pm->expand_path("${module-path}"), built_in);
+}
+
+// Whether an override survives is a property of the configuration, not of where
+// its key happens to sort. Erasing while walking the map made it the latter: an
+// override that is only absolute because of another override about to be
+// dropped was judged against the doomed value when it sorted first, and against
+// the built-in default when it sorted last. The same configuration, written two
+// ways, therefore came out differently.
+TEST_F(PathManagerTest, AnOverrideBuiltOnARejectedOneGoesWhicheverWayTheKeysSort) {
+  nsclient::core::path_manager fresh(log_instance_);
+  const std::string default_modules = fresh.expand_path("${module-path}");
+  const std::string default_certs = fresh.expand_path("${certificate-path}");
+
+  // "certificate-path" sorts before "module-path", so this is the case where
+  // the bad override is reached first.
+  pm->set_overrides({{"certificate-path", "relative-certs"}, {"module-path", "${certificate-path}/mods"}});
+  EXPECT_EQ(pm->expand_path("${certificate-path}"), default_certs);
+  EXPECT_EQ(pm->expand_path("${module-path}"), default_modules);
+
+  // ...and this is the same configuration with the two keys swapped, so the
+  // dependent override is reached first.
+  nsclient::core::path_manager other(log_instance_);
+  other.set_overrides({{"module-path", "relative-mods"}, {"certificate-path", "${module-path}/certs"}});
+  EXPECT_EQ(other.expand_path("${module-path}"), default_modules);
+  EXPECT_EQ(other.expand_path("${certificate-path}"), default_certs);
+}
+
+// The sweep runs to a fixed point. An override can be perfectly absolute while
+// the one it is built on is still installed, and only become unusable once that
+// one has been dropped - a single pass left it behind, pointing at a token that
+// no longer resolves.
+TEST_F(PathManagerTest, AnOverrideThatOnlyGoesBadAfterADropIsDroppedToo) {
+  nsclient::core::path_manager fresh(log_instance_);
+  const std::string default_logs = fresh.expand_path("${log-path}");
+
+  // "/logs/relative-thing" is absolute, so the first pass keeps it; ${custom}
+  // is nothing once the first entry has gone, so the second pass takes it.
+  pm->set_overrides({{"custom", "relative-thing"}, {"log-path", "/logs/${custom}"}});
+
+  EXPECT_EQ(pm->expand_path("${log-path}"), default_logs);
 }
 
 TEST_F(PathManagerTest, FleetFolderExpandsAndIsWritableByTheService) {
