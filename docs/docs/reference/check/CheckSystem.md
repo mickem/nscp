@@ -35,7 +35,7 @@ A list of all available queries (check commands)
 | [check_hardware](#check_hardware)                       | Check hardware inventory (vendor, model, serial, chassis type, memory modules) with pinned-expectation alerting: serial changed, DIMM dropped, laptop in a server fleet.            |
 | [check_hostname](#check_hostname)                       | Check host identity: hostname, FQDN, DNS domain and domain-join state, with drift detection for the name mismatches that silently break auth and monitoring.                        |
 | [check_installed_software](#check_installed_software)   | Check installed software from the registry Uninstall hives (64-bit, 32-bit and per-user views): inventory, unwanted/EOL software policy and recent-install detection.               |
-| [check_kernel_memory](#check_kernel_memory)             | Check kernel memory-manager health: paged/nonpaged pool bytes, file-cache bytes and page-fault rates â€” the pool-exhaustion and hard-fault-storm signals free-RAM thresholds miss. |
+| [check_kernel_memory](#check_kernel_memory)             | Check kernel memory-manager health: paged/nonpaged pool bytes, file-cache bytes and page-fault rates — the pool-exhaustion and hard-fault-storm signals free-RAM thresholds miss. |
 | [check_kernel_stats](#check_kernel_stats)               | Check system-wide kernel activity: context-switch and system-call rates plus live process and thread counts.                                                                        |
 | [check_load](#check_load)                               | Check the system load average (1/5/15 minutes), synthesised from the processor queue length plus busy cores.                                                                        |
 | [check_memory](#check_memory)                           | Check free/used memory on the system.                                                                                                                                               |
@@ -1759,7 +1759,7 @@ OK: bash 5.2.21-2 via dpkg|'count'=1;0;0
 
 === "Windows"
 
-    Check kernel memory-manager health: paged/nonpaged pool bytes, file-cache bytes and page-fault rates â€” the pool-exhaustion and hard-fault-storm signals free-RAM thresholds miss.
+    Check kernel memory-manager health: paged/nonpaged pool bytes, file-cache bytes and page-fault rates — the pool-exhaustion and hard-fault-storm signals free-RAM thresholds miss.
 
     #### About `check_kernel_memory`
 

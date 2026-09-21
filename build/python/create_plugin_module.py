@@ -1095,7 +1095,18 @@ parser.add_option("-s", "--source", help="source FILE to read json data from", m
 parser.add_option("-t", "--target", help="target FOLDER folder to write output to", metavar="FOLDER")
 (options, args) = parser.parse_args()
 
-data = json.loads(open('%s/module.json'%options.source).read())
+# A module.json is UTF-8 - a description carrying an em dash or an ellipsis is
+# ordinary - and the generated module.cpp is written back as UTF-8 further
+# down. Without the explicit encoding, `open()` reads in the platform's ANSI
+# codepage, which on a Windows builder is cp1252: an em dash comes back as the
+# three characters cp1252 makes of its UTF-8 bytes and goes out re-encoded, so
+# the doubled bytes are compiled into the module's description and carried by
+# everything downstream of it - the registry, the REST API, `nscp test desc`
+# and the extracted reference docs. The Linux builder, where that default is
+# already UTF-8, produced the same file correctly, which is what made this look
+# like a docs bug.
+with open('%s/module.json' % options.source, encoding='utf-8') as module_json:
+	data = json.loads(module_json.read())
 for key, value in data.items():
 	if key == "module":
 		parse_module(value)

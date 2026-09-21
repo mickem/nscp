@@ -76,7 +76,7 @@ export default function Metrics() {
     }, HIGHLIGHT_MS);
     return () => clearTimeout(timer);
     // We intentionally key the effect on the response timestamp rather than
-    // result.metrics â€” running once per server response is what we want.
+    // result.metrics — running once per server response is what we want.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fulfilledTimeStamp]);
 
@@ -154,7 +154,7 @@ export default function Metrics() {
           </ToggleButton>
         </ToggleButtonGroup>
         <Spacing />
-        <FilterField value={filter} onChange={setFilter} placeholder="Filter metricsâ€¦" />
+        <FilterField value={filter} onChange={setFilter} placeholder="Filter metrics…" />
         {needle && (
           <Typography variant="body2" color="text.secondary">
             {filteredMetrics.length}/{result.metrics.length}

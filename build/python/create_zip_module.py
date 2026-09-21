@@ -5,7 +5,11 @@ import json
 import argparse
 
 def read_json(file):
-    return json.load(open(file))
+    # UTF-8, not the platform's ANSI codepage: a description with an em dash
+    # read as cp1252 on a Windows builder becomes mojibake in everything the
+    # bundle declares. See the note in create_plugin_module.py.
+    with open(file, encoding='utf-8') as f:
+        return json.load(f)
 
 def zipdir(path, ziph):
     for root, dirs, files in os.walk(path):

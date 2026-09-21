@@ -124,7 +124,7 @@ export default function Settings() {
         />
         {needle && (
           <Typography variant="body2" color="text.secondary">
-            {paths.length}/{totalPaths} sections Â· {filteredSettings.length} matches
+            {paths.length}/{totalPaths} sections · {filteredSettings.length} matches
           </Typography>
         )}
         <FormControlLabel
@@ -145,7 +145,7 @@ export default function Settings() {
       <SettingsList
         settings={filteredSettings}
         forceExpanded={!!needle}
-        emptyMessage={needle ? `No settings match â€œ${filter}â€.` : undefined}
+        emptyMessage={needle ? `No settings match “${filter}”.` : undefined}
       />
       <Snackbar open={!!error} autoHideDuration={6000} onClose={handleCloseError}>
         <Alert onClose={handleCloseError} severity="error">
