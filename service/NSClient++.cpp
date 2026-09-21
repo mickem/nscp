@@ -539,6 +539,10 @@ void NSClientT::boot_fleet_sync() {
     }
     config.nscp_version = CURRENT_SERVICE_VERSION;
     config.local_config_probe = [] { return settings_manager::has_local_configuration(); };
+    // Same boot.ini opt-in that allows a plaintext settings source: whether
+    // this agent may take its configuration over an unauthenticated channel is
+    // one question, and the fleet channel is the same channel by another name.
+    config.allow_plaintext = settings_manager::get_core()->get_allow_plaintext();
 
     std::string manifest_detail;
     const fleet_sync::manifest_status manifest = fleet_sync::check_manifest(config.state_file, manifest_detail);

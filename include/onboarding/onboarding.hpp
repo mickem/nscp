@@ -90,6 +90,18 @@ struct enrollment_request {
   // unbounded wait wedges msiexec mid-script on an unattended install with
   // nobody there to interrupt it. Same default as the fleet sync's `timeout`.
   unsigned int timeout_seconds = 60;
+
+  // Accept a management url (`mtls_url`) that is not https.
+  //
+  // The enrollment response names the url every later call uses, and that
+  // channel is the one carrying desired state and signed bundles - which is to
+  // say remote code execution. On http:// the client certificate and the
+  // server pin are not used at all (there is no TLS layer to use them), so a
+  // fleet server that answers with a plaintext url silently downgrades the
+  // management channel to unauthenticated for the life of the enrollment.
+  // Refused unless the operator asks for it with `nscp enroll --insecure`,
+  // which is also what allows a plaintext enrollment url.
+  bool allow_plaintext = false;
 };
 
 // Everything a successful enrollment returns plus the locally generated
@@ -114,6 +126,14 @@ struct enrolled_identity {
   // the same reason the keys do - in the settings store the server could
   // reach it through the fleet-managed include.
   bool require_encrypted_bundles = false;
+  // The operator enrolled with `nscp enroll --insecure` against a fleet server
+  // whose management url is not https. Recorded so the sync loop can honour
+  // that decision without a second opt-in, and so it can say on every start
+  // that this host's management channel is unauthenticated. Absent (false) in
+  // every manifest written before the field existed, which is the safe
+  // default: such a host refuses to sync over plaintext until it is
+  // re-enrolled or boot.ini opts in.
+  bool allow_plaintext = false;
 };
 
 // Parse a Retry-After header value (429/503) as RFC 9110 delay-seconds; none
@@ -142,7 +162,14 @@ enrolled_identity enroll(const enrollment_request &request, const identity &id, 
 // Parse a successful /enroll/v1 response body. `fallback_server_url` is used
 // when the response omits server_url. Throws onboarding_error (non-retryable)
 // on malformed or incomplete responses.
-enrolled_identity parse_enroll_response(const std::string &body, const identity &id, const std::string &fallback_server_url);
+enrolled_identity parse_enroll_response(const std::string &body, const identity &id, const std::string &fallback_server_url, bool allow_plaintext = false);
+
+// True when `url` names a channel that carries no TLS - either an explicit
+// non-https scheme or no scheme at all, which http::parse_url reports as an
+// empty protocol and the http client then serves over a plain socket. Used
+// wherever a stored or server-supplied management url is about to be trusted
+// with a client certificate.
+bool is_plaintext_url(const std::string &url);
 
 // Durably persist the enrolled identity as JSON: written to a temp file
 // (0600 on POSIX), fsync'd and atomically renamed over `path`, so a crash
@@ -172,5 +199,23 @@ boost::optional<enrolled_identity> load_state(const std::string &path);
 // Returns false with `error` set when the ownership change itself failed; the
 // caller reports that as a warning, never as a failed enrollment.
 bool adopt_owner(const std::string &target, const std::string &reference, std::string &error);
+
+// Create `path` and write `data` to it, refusing to write through anything that
+// is already there.
+//
+// Enrollment runs as root (`sudo nscp enroll`) over directories packaging hands
+// to the unprivileged service account, so every name under ${data-path} and
+// ${fleet-folder} is a name that account can pre-create. A plain open of such a
+// name is a root-truncates-arbitrary-file primitive: plant
+// `fleet/fleet.ini -> /etc/nologin` and root empties it. On POSIX this opens the
+// containing directory O_NOFOLLOW|O_DIRECTORY and creates the file through that
+// descriptor with O_CREAT|O_EXCL|O_NOFOLLOW, so a planted symlink or an existing
+// file makes the call fail rather than follow. An existing regular file is
+// therefore an error: callers that replace a file write a temporary and rename
+// over it, which replaces the name rather than the inode behind it.
+//
+// Throws onboarding_error on any failure. `mode` is the POSIX creation mode and
+// is ignored on Windows.
+void create_file_exclusive(const std::string &path, const std::string &data, int mode = 0600);
 
 }  // namespace onboarding

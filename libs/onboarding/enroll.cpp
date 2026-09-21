@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
 #include <algorithm>
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/json.hpp>
 #include <cctype>
@@ -142,7 +143,16 @@ boost::optional<unsigned long> onboarding::parse_retry_after(const std::string &
   return static_cast<unsigned long>(std::stoul(digits));
 }
 
-onboarding::enrolled_identity onboarding::parse_enroll_response(const std::string &body, const identity &id, const std::string &fallback_server_url) {
+bool onboarding::is_plaintext_url(const std::string &url) {
+  // parse_url reports an empty protocol for a scheme-less string, and the http
+  // client then opens a plain socket for it, so "fleet.example.com/agent" is
+  // exactly as unprotected as "http://fleet.example.com/agent" and has to be
+  // caught by the same test. Anything that is not https counts.
+  return !boost::iequals(http::parse_url(url).protocol, std::string("https"));
+}
+
+onboarding::enrolled_identity onboarding::parse_enroll_response(const std::string &body, const identity &id, const std::string &fallback_server_url,
+                                                                const bool allow_plaintext) {
   json::object root;
   try {
     root = json::parse(body).as_object();
@@ -155,8 +165,27 @@ onboarding::enrolled_identity onboarding::parse_enroll_response(const std::strin
   result.ca_pem = detail::require_string(root, "ca_pem", "Enrollment response");
   result.bundle_signing_pub_pem = detail::require_string(root, "bundle_signing_pub_pem", "Enrollment response");
   result.mtls_url = detail::require_string(root, "mtls_url", "Enrollment response");
+  // The url the server names here is where every later call goes: desired
+  // state, bundle downloads, certificate renewal. On anything but https the
+  // client certificate and the server pin are simply not used - there is no
+  // TLS layer to use them - so the whole management channel, which applies
+  // configuration and executes signed bundles, would run unauthenticated over
+  // a plain socket, with nothing in the log to say so. Refuse it here, where
+  // the manifest is still being built, rather than discover it on the first
+  // poll.
+  if (!allow_plaintext && is_plaintext_url(result.mtls_url)) {
+    throw onboarding_error(
+        "Enrollment response returned a management url that is not https: '" + result.mtls_url +
+            "'. The client certificate and the pinned server certificate cannot protect a plaintext channel, so this would leave configuration and bundle "
+            "delivery unauthenticated. Fix the fleet server's agent url, or pass --insecure to accept it anyway (testing only).",
+        false);
+  }
   result.mtls_server_cert_pem = detail::require_string(root, "mtls_server_cert_pem", "Enrollment response");
   result.server_url = detail::optional_string(root, "server_url", fallback_server_url);
+  // Carried into the manifest so the sync loop knows this channel was accepted
+  // as plaintext on purpose, and can say so on every start instead of quietly
+  // polling in the clear.
+  result.allow_plaintext = allow_plaintext && is_plaintext_url(result.mtls_url);
   return result;
 }
 
@@ -183,7 +212,7 @@ onboarding::enrolled_identity onboarding::enroll(const enrollment_request &reque
     }
     if (transient_error.empty()) {
       if (response.is_2xx()) {
-        return parse_enroll_response(response.payload_, id, request.server_url);
+        return parse_enroll_response(response.payload_, id, request.server_url, request.allow_plaintext);
       }
       if (response.status_code_ == 401 || response.status_code_ == 403) {
         // The nonce is burned server-side on first use so retrying can never
