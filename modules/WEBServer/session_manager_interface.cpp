@@ -262,7 +262,7 @@ bool session_manager_interface::store_user_in_response(const std::string &user, 
     response.setContext("uid", user);
     return true;
   }
-  const std::string token = tokens.generate_for(user);
+  const std::string token = tokens.generate_for(user, fingerprint_for_user(user));
   if (token.empty()) {
     // generate_for only returns empty when the CSPRNG failed, or the SHA-256
     // the token is stored under did. token_store deliberately has no logging
@@ -332,10 +332,49 @@ bool session_manager_interface::can(const grant_options &grants, Mongoose::Strea
 void session_manager_interface::add_user(const std::string &user, const std::string &role, const std::string &password) {
   // Re-adding (or rotating credentials for) an existing user must invalidate
   // any tokens previously issued to them - otherwise a stolen token survives a
-  // password change.
+  // password change. Persisted sessions are not affected: at boot the user
+  // table is populated before import_sessions() runs, and a settings reload
+  // re-enters loadModuleEx on the live module without replaying the users.
   tokens.revoke_tokens_for_user(user);
   tokens.add_user(user, role);
   users.add_user(user, password);
+}
+
+std::string session_manager_interface::fingerprint_for_user(const std::string &user) const {
+  // No user, no credentials to fingerprint - and no hash of "\n" that would
+  // read as one.
+  if (user.empty() || !users.has_user(user)) return "";
+  // The stored password value, not the password: user_manager holds a PBKDF2
+  // string (salt included), so this changes on any password change - and, for
+  // a plaintext INI password, on every boot, because add_user re-salts it.
+  const std::string material = tokens.get_role(user) + "\n" + users.get_hash(user);
+  // No hash, no fingerprint. The alternative - the material itself - would
+  // copy the stored password value into every token entry, and in a build
+  // without OpenSSL that value is the cleartext password. Nothing is lost:
+  // such a build persists no sessions (token_store::snapshot), and import
+  // refuses a session whose current fingerprint is empty, so the binding is
+  // simply not offered rather than offered unsafely.
+  return token_store::hash_token(material);
+}
+
+std::list<token_store::persisted_session> session_manager_interface::export_sessions() const { return tokens.snapshot(token_store::now()); }
+
+std::size_t session_manager_interface::import_sessions(const std::list<token_store::persisted_session> &sessions) {
+  const time_t now = token_store::now();
+  std::size_t restored = 0;
+  for (const token_store::persisted_session &session : sessions) {
+    // A user who is no longer configured has no sessions, whatever the file
+    // says.
+    if (!users.has_user(session.user)) continue;
+    // ... and a user whose role or password moved while the agent was down is
+    // in exactly the position add_user() revokes for: the fingerprint no
+    // longer matches, so the session is not theirs to resume.
+    const std::string current = fingerprint_for_user(session.user);
+    if (current.empty() || session.fingerprint != current) continue;
+    if (tokens.restore(session, now)) ++restored;
+  }
+  NSC_DEBUG_MSG("Restored " + std::to_string(restored) + " web sessions");
+  return restored;
 }
 
 bool session_manager_interface::validate_user(const std::string &user, const std::string &password) { return users.validate_user(user, password); }
@@ -387,4 +426,4 @@ void session_manager_interface::revoke_token(const std::string &token) { tokens.
 
 void session_manager_interface::revoke_tokens_for_user(const std::string &user) { tokens.revoke_tokens_for_user(user); }
 
-std::string session_manager_interface::generate_token(const std::string &user) { return tokens.generate_for(user); }
+std::string session_manager_interface::generate_token(const std::string &user) { return tokens.generate_for(user, fingerprint_for_user(user)); }

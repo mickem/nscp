@@ -104,3 +104,15 @@ TEST(GrantStoreTest, UserWithoutRole) {
   store.add_user("user1", "");
   EXPECT_FALSE(store.validate("user1", "perm"));
 }
+
+TEST(GrantStoreTest, GetRoleReturnsTheMappingOrNothing) {
+  grant_store store;
+  store.add_role("role1", "permission1");
+  EXPECT_EQ(store.get_role("nobody"), "");
+  store.add_user("user1", "role1");
+  EXPECT_EQ(store.get_role("user1"), "role1");
+  store.add_user("user1", "role2");
+  EXPECT_EQ(store.get_role("user1"), "role2") << "re-adding a user replaces the role";
+  store.remove_user("user1");
+  EXPECT_EQ(store.get_role("user1"), "");
+}

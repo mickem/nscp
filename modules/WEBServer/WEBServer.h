@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include <atomic>
 #include <Server.h>
 
+#include <atomic>
 #include <boost/thread/mutex.hpp>
 #include <client/simple_client.hpp>
 #include <memory>
@@ -56,6 +56,9 @@ class WEBServer : public nscapi::impl::simple_plugin {
  private:
   void add_user(const std::string &key, const std::string &arg);
   void set_openmetrics_format(const std::string &value);
+  // Write the live web sessions back to the core storage at shutdown. Called
+  // from unloadModule, which runs just before the core saves nsclient.db.
+  void persist_sessions();
 
   // Which exposition `/api/v2/openmetrics` serves. Written by loadModuleEx,
   // which a settings reload re-enters on the live module, and read by the
@@ -89,6 +92,19 @@ class WEBServer : public nscapi::impl::simple_plugin {
   // neither start listening on a channel nor move to a different one. Empty
   // until the cache has been switched on across a restart.
   std::string registered_result_channel_;
+  // `persist sessions`: whether the session table is written to the core
+  // storage at shutdown and read back at boot. Written by loadModuleEx, read
+  // by persist_sessions() from unloadModule; both run on the lifecycle thread.
+  bool persist_sessions_ = true;
+  // True once a normalStart load has taken the session table over from the
+  // core storage (or decided not to, with `persist sessions` off). Until then
+  // there is nothing to write back, and writing anyway would be destructive:
+  // every `nscp` CLI run (`nscp settings ...`, `nscp web add-user ...`) loads
+  // the module with dontStart, unloads it, and then saves nsclient.db - an
+  // unconditional export from that empty table would blank the sessions of
+  // the running service. The same goes for a load that returned early, e.g.
+  // on a missing certificate.
+  bool sessions_loaded_ = false;
   std::shared_ptr<Mongoose::Server> server;
 
   web_server::user_config users_;

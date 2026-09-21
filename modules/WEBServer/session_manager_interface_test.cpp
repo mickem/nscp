@@ -11,6 +11,8 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <string>
 
+#include "password_hash.hpp"
+
 // Provide the nscapi singleton expected by NSC_LOG_ERROR / NSC_DEBUG_MSG
 // macros that fire from session_manager_interface.cpp. Production code gets
 // this from `NSC_WRAP_DLL()` in the auto-generated module.cpp; in the test
@@ -536,4 +538,360 @@ TEST_F(SessionManagerTest, ThePasswordHeaderDoesNotMintATokenEither) {
   smi.add_user("admin", "foo", "password");
   ASSERT_TRUE(smi.is_logged_in("something:read", req, resp)) << "password-header auth should succeed";
   EXPECT_TRUE(resp.getContext("token").empty());
+}
+
+// --- Credential fingerprints and session persistence --------------------------
+//
+// A session is bound to the credentials it was authorised against: the user's
+// role plus the password value user_manager stores for them. In memory a
+// password or role change revokes through add_user (ReAddingUserRevokesAll
+// TheirTokens above); across a restart it is the fingerprint check on import
+// that does it, which is what these tests pin. Every live session is exported:
+// only log_in() mints a token, and it hands that token to the client.
+
+namespace {
+// A password already in PBKDF2 form is stored verbatim, so its fingerprint is
+// stable across processes. This is what the first boot writes for `admin`,
+// and the only kind of password whose sessions survive a restart.
+std::string hashed(const std::string& password) {
+  const std::string h = web_password::hash_password(password);
+  return h.empty() ? password : h;
+}
+}  // namespace
+
+TEST(SessionPersistence, ExportedSessionsCarryOnlyHashes) {
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  session_manager_interface smi;
+  smi.add_user("user", "full", hashed("secret"));
+  smi.add_grant("full", "*");
+  const std::string token = smi.generate_token("user");
+  ASSERT_FALSE(token.empty());
+
+  const auto sessions = smi.export_sessions();
+  ASSERT_EQ(sessions.size(), 1u);
+  EXPECT_NE(sessions.front().hash, token) << "the raw token was exported";
+  EXPECT_EQ(sessions.front().user, "user");
+  EXPECT_FALSE(sessions.front().fingerprint.empty());
+}
+
+TEST(SessionPersistence, ImportRestoresASessionForAnUnchangedUser) {
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  const std::string password = hashed("secret");
+
+  session_manager_interface before;
+  before.add_user("user", "full", password);
+  before.add_grant("full", "*");
+  const std::string token = before.generate_token("user");
+  ASSERT_FALSE(token.empty());
+  const auto sessions = before.export_sessions();
+  ASSERT_EQ(sessions.size(), 1u);
+
+  // A second process with the same configuration: the token the client still
+  // holds keeps working.
+  session_manager_interface after;
+  after.add_user("user", "full", password);
+  after.add_grant("full", "*");
+  EXPECT_FALSE(after.validate_token(token));
+  EXPECT_EQ(after.import_sessions(sessions), 1u);
+  EXPECT_TRUE(after.validate_token(token));
+}
+
+TEST(SessionPersistence, ImportDropsSessionsForAnUnknownUser) {
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  session_manager_interface before;
+  before.add_user("user", "full", hashed("secret"));
+  before.add_grant("full", "*");
+  const std::string token = before.generate_token("user");
+  const auto sessions = before.export_sessions();
+  ASSERT_EQ(sessions.size(), 1u);
+
+  // The user was removed from the configuration while the agent was down.
+  session_manager_interface after;
+  after.add_user("someone-else", "full", hashed("secret"));
+  after.add_grant("full", "*");
+  EXPECT_EQ(after.import_sessions(sessions), 0u);
+  EXPECT_FALSE(after.validate_token(token));
+}
+
+TEST(SessionPersistence, ImportDropsSessionsWhoseFingerprintMoved) {
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  session_manager_interface before;
+  before.add_user("user", "full", hashed("secret"));
+  before.add_grant("full", "*");
+  const std::string token = before.generate_token("user");
+  const auto sessions = before.export_sessions();
+  ASSERT_EQ(sessions.size(), 1u);
+
+  // Password changed in the INI while the agent was down.
+  session_manager_interface changed_password;
+  changed_password.add_user("user", "full", hashed("a-different-secret"));
+  changed_password.add_grant("full", "*");
+  EXPECT_EQ(changed_password.import_sessions(sessions), 0u);
+  EXPECT_FALSE(changed_password.validate_token(token));
+
+  // Role changed in the INI while the agent was down.
+  session_manager_interface changed_role;
+  changed_role.add_user("user", "restricted", hashed("secret"));
+  changed_role.add_grant("restricted", "login.get");
+  EXPECT_EQ(changed_role.import_sessions(sessions), 0u);
+  EXPECT_FALSE(changed_role.validate_token(token));
+}
+
+TEST(SessionPersistence, ImportDropsExpiredSessions) {
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  const std::string password = hashed("secret");
+  session_manager_interface before;
+  before.add_user("user", "full", password);
+  before.add_grant("full", "*");
+  const std::string token = before.generate_token("user");
+  auto sessions = before.export_sessions();
+  ASSERT_EQ(sessions.size(), 1u);
+  // The agent was down for longer than a session lives.
+  sessions.front().created -= HOURS_TO_SECONDS(TOKEN_EXPIRATION_HOURS + 1);
+
+  session_manager_interface after;
+  after.add_user("user", "full", password);
+  after.add_grant("full", "*");
+  EXPECT_EQ(after.import_sessions(sessions), 0u);
+  EXPECT_FALSE(after.validate_token(token));
+}
+
+TEST(SessionPersistence, FingerprintIsAHashOrNothing) {
+  // The fingerprint is folded from the role and the stored password value; it
+  // must never be that material itself, which in a build without OpenSSL is
+  // the cleartext password. No hash function, no fingerprint.
+  session_manager_interface smi;
+  smi.add_user("user", "full", hashed("secret"));
+  const std::string fp = smi.fingerprint_for_user("user");
+  if (token_store::has_hashing()) {
+    EXPECT_EQ(fp.size(), 64u);
+    EXPECT_EQ(fp.find("secret"), std::string::npos);
+    EXPECT_EQ(fp.find("full"), std::string::npos);
+  } else {
+    EXPECT_TRUE(fp.empty());
+  }
+  EXPECT_TRUE(smi.fingerprint_for_user("nobody").empty());
+}
+
+TEST(SessionPersistence, RevokedSessionsAreNotExported) {
+  // logout (login_controller::logout) and revoke_tokens_for_user both drop the
+  // entry from the live map, and the export reads that map at shutdown - so a
+  // revoked session is simply never written back.
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  session_manager_interface smi;
+  smi.add_user("user", "full", hashed("secret"));
+  smi.add_grant("full", "*");
+  const std::string token = smi.generate_token("user");
+  ASSERT_EQ(smi.export_sessions().size(), 1u);
+  smi.revoke_token(token);
+  EXPECT_TRUE(smi.export_sessions().empty());
+}
+
+// --- Restored sessions on the request path ----------------------------------
+//
+// The tests above exercise the session table directly. These go through
+// is_logged_in with a real Bearer header, which is what a browser tab does
+// after the agent came back: the token it kept must authenticate, resolve to
+// its user, and carry that user's grants.
+
+namespace {
+// A configured agent: one user with a hashed password and a role.
+void configure(session_manager_interface& smi, const std::string& password, const std::string& role = "full") {
+  smi.add_user("user", role, password);
+  smi.add_grant("full", "*");
+  smi.add_grant("readonly", "info.get");
+  // is_logged_in checks the source address first; boot() parses the source
+  // string into entries, as the SessionManagerTest fixture does.
+  smi.set_allowed_hosts("127.0.0.1");
+  smi.boot();
+}
+
+// What the previous process wrote at shutdown: one session for `user`.
+std::list<token_store::persisted_session> shutdown_with_one_session(const std::string& password, std::string& token) {
+  session_manager_interface before;
+  configure(before, password);
+  token = before.generate_token("user");
+  EXPECT_FALSE(token.empty());
+  return before.export_sessions();
+}
+}  // namespace
+
+TEST(SessionPersistence, RestoredSessionAuthenticatesABearerRequest) {
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  const std::string password = hashed("secret");
+  std::string token;
+  const auto sessions = shutdown_with_one_session(password, token);
+
+  session_manager_interface after;
+  configure(after, password);
+  ASSERT_EQ(after.import_sessions(sessions), 1u);
+
+  Mongoose::Request req("127.0.0.1", false, "GET", "/", "", {}, "");
+  Mongoose::StreamResponse resp;
+  req.get_headers()[HTTP_HDR_AUTH] = "Bearer " + token;
+  EXPECT_TRUE(after.is_logged_in("settings.put", req, resp));
+  EXPECT_EQ(resp.getContext("uid"), "user") << "the restored session must resolve to its user";
+  EXPECT_EQ(resp.getContext("token"), token);
+}
+
+TEST(SessionPersistence, RestoredSessionIsRefusedWithoutTheGrant) {
+  // Restoring a session restores identity, not privilege: grants are read
+  // from the current configuration, which may have narrowed the role.
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  const std::string password = hashed("secret");
+  std::string token;
+  const auto sessions = shutdown_with_one_session(password, token);
+
+  // Same role name, same password - the fingerprint matches - but the role
+  // now grants less.
+  session_manager_interface after;
+  after.add_user("user", "full", password);
+  after.add_grant("full", "info.get");
+  after.set_allowed_hosts("127.0.0.1");
+  after.boot();
+  ASSERT_EQ(after.import_sessions(sessions), 1u);
+
+  Mongoose::Request req("127.0.0.1", false, "GET", "/", "", {}, "");
+  req.get_headers()[HTTP_HDR_AUTH] = "Bearer " + token;
+  Mongoose::StreamResponse ok;
+  EXPECT_TRUE(after.is_logged_in("info.get", req, ok));
+  Mongoose::StreamResponse refused;
+  EXPECT_FALSE(after.is_logged_in("settings.put", req, refused));
+}
+
+TEST(SessionPersistence, RestoredSessionCanBeLoggedOut) {
+  // DELETE /api/v2/login after a restart: revoke_token with the raw token
+  // must find the restored (hash-keyed) entry, and the next shutdown must not
+  // write it back.
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  const std::string password = hashed("secret");
+  std::string token;
+  const auto sessions = shutdown_with_one_session(password, token);
+
+  session_manager_interface after;
+  configure(after, password);
+  ASSERT_EQ(after.import_sessions(sessions), 1u);
+  ASSERT_TRUE(after.validate_token(token));
+  after.revoke_token(token);
+  EXPECT_FALSE(after.validate_token(token));
+  EXPECT_TRUE(after.export_sessions().empty());
+}
+
+TEST(SessionPersistence, ImportIsIdempotent) {
+  // The same table imported twice (a reload that re-read it, say) is one set
+  // of sessions, not two, and the second pass restores nothing.
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  const std::string password = hashed("secret");
+  std::string token;
+  const auto sessions = shutdown_with_one_session(password, token);
+
+  session_manager_interface after;
+  configure(after, password);
+  EXPECT_EQ(after.import_sessions(sessions), 1u);
+  EXPECT_EQ(after.import_sessions(sessions), 0u);
+  EXPECT_EQ(after.export_sessions().size(), 1u);
+}
+
+TEST(SessionPersistence, ImportDropsASessionWithoutAFingerprint) {
+  // A row with an empty fingerprint is one no current configuration can
+  // vouch for. It must not slip through as "matches nothing, so matches".
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  const std::string password = hashed("secret");
+  std::string token;
+  auto sessions = shutdown_with_one_session(password, token);
+  sessions.front().fingerprint.clear();
+
+  session_manager_interface after;
+  configure(after, password);
+  EXPECT_EQ(after.import_sessions(sessions), 0u);
+  EXPECT_FALSE(after.validate_token(token));
+}
+
+TEST(SessionPersistence, ImportedSessionsSurviveTheNextShutdown) {
+  // Three processes in a row: the token handed out by the first must still
+  // work in the third without the client ever logging in again.
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  const std::string password = hashed("secret");
+  std::string token;
+  const auto first_shutdown = shutdown_with_one_session(password, token);
+
+  session_manager_interface second;
+  configure(second, password);
+  ASSERT_EQ(second.import_sessions(first_shutdown), 1u);
+  const auto second_shutdown = second.export_sessions();
+  ASSERT_EQ(second_shutdown.size(), 1u);
+
+  session_manager_interface third;
+  configure(third, password);
+  ASSERT_EQ(third.import_sessions(second_shutdown), 1u);
+  EXPECT_TRUE(third.validate_token(token));
+}
+
+// --- The credential fingerprint ----------------------------------------------
+
+TEST(SessionPersistence, FingerprintIsStableAcrossProcessesForTheSameConfiguration) {
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  const std::string password = hashed("secret");
+  session_manager_interface a;
+  configure(a, password);
+  session_manager_interface b;
+  configure(b, password);
+  EXPECT_EQ(a.fingerprint_for_user("user"), b.fingerprint_for_user("user"));
+}
+
+TEST(SessionPersistence, FingerprintTracksPasswordAndRole) {
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  const std::string password = hashed("secret");
+  session_manager_interface base;
+  configure(base, password);
+  session_manager_interface other_password;
+  configure(other_password, hashed("other"));
+  session_manager_interface other_role;
+  configure(other_role, password, "readonly");
+  // Different salt, same password: still a different stored value, so a
+  // different fingerprint - which is exactly why plaintext INI passwords do
+  // not survive a restart.
+  session_manager_interface resalted;
+  configure(resalted, hashed("secret"));
+
+  const std::string fp = base.fingerprint_for_user("user");
+  EXPECT_NE(fp, other_password.fingerprint_for_user("user"));
+  EXPECT_NE(fp, other_role.fingerprint_for_user("user"));
+  EXPECT_NE(fp, resalted.fingerprint_for_user("user"));
+}
+
+TEST(SessionPersistence, PlaintextPasswordsGetADifferentFingerprintEveryProcess) {
+  // The documented limitation, pinned: a cleartext INI password is hashed
+  // under a fresh salt by each process, so the session it issued does not
+  // come back.
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  std::string token;
+  session_manager_interface before;
+  configure(before, "cleartext-secret");
+  token = before.generate_token("user");
+  const auto sessions = before.export_sessions();
+
+  session_manager_interface after;
+  configure(after, "cleartext-secret");
+  EXPECT_NE(before.fingerprint_for_user("user"), after.fingerprint_for_user("user"));
+  EXPECT_EQ(after.import_sessions(sessions), 0u);
+  // ... while the user can of course still log in.
+  EXPECT_TRUE(after.validate_user("user", "cleartext-secret"));
+}
+
+TEST(SessionPersistence, StoreUserInResponseIssuesASessionWithTheUsersFingerprint) {
+  // The production mint path (Basic auth -> store_user_in_response), not the
+  // generate_token shortcut: the session it creates carries the fingerprint
+  // import will later check against.
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  session_manager_interface smi;
+  configure(smi, hashed("secret"));
+  Mongoose::StreamResponse resp;
+  ASSERT_TRUE(smi.store_user_in_response("user", resp));
+  const std::string token = resp.getContext("token");
+  ASSERT_FALSE(token.empty());
+  const auto sessions = smi.export_sessions();
+  ASSERT_EQ(sessions.size(), 1u);
+  EXPECT_EQ(sessions.front().fingerprint, smi.fingerprint_for_user("user"));
+  EXPECT_EQ(sessions.front().user, "user");
 }

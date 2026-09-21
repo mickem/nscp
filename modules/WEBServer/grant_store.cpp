@@ -13,6 +13,14 @@ void grant_store::add_role(const std::string &role, const std::string &grant) {
 
 void grant_store::add_user(const std::string &user, const std::string &role) { users[user] = role; }
 
+std::string grant_store::get_role(const std::string &user) const {
+  // Deliberately not users[user]: the subscript on the non-const map is what
+  // fetch_role uses, and it inserts an empty role for every unknown uid it is
+  // asked about.
+  const auto it = users.find(user);
+  return it == users.end() ? std::string() : it->second;
+}
+
 void grant_store::remove_role(const std::string &role) { roles.erase(role); }
 
 void grant_store::remove_user(const std::string &uid) { users.erase(uid); }

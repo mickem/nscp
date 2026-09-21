@@ -6,6 +6,7 @@
 #include <boost/unordered_set.hpp>
 #include <cstddef>
 #include <ctime>
+#include <list>
 #include <mutex>
 #include <string>
 #include <utility>
@@ -22,6 +23,11 @@ class token_store {
   struct token_entry {
     std::string user;
     time_t created{};
+    // Binds the session to the credentials it was issued against: see
+    // session_manager_interface::fingerprint_for_user. Empty for a token
+    // issued through the fingerprint-less generate_for() overload, which is
+    // then never persisted.
+    std::string fingerprint;
   };
   typedef boost::unordered_map<std::string, token_entry> token_map;
 
@@ -60,7 +66,10 @@ class token_store {
     // Still over the cap after expiring stale entries. Drop the oldest
     // tokens (longest-lived sessions) until we're back under. This is O(N)
     // but only runs when the map is full, which means N is bounded by
-    // kMaxTokens.
+    // kMaxTokens. Sessions restored from nsclient.db at boot are by
+    // construction the oldest in the table, so under cap pressure they go
+    // first; reaching the cap takes 4096 logins inside eight hours (only the
+    // login route mints a token), so this is a boundary, not a behaviour.
     while (tokens.size() >= kMaxTokens) {
       auto oldest = tokens.begin();
       for (auto it = tokens.begin(); it != tokens.end(); ++it) {
@@ -72,6 +81,16 @@ class token_store {
   }
 
  public:
+  // One live session, in the form that survives a restart. `hash` is the
+  // map key (the SHA-256 of the raw token, hex); the raw token itself is
+  // never held by this class, so it is not in here either.
+  struct persisted_session {
+    std::string hash;
+    std::string user;
+    time_t created{};
+    std::string fingerprint;
+  };
+
   // Signature of OpenSSL's RAND_bytes. Only used for the test seam below.
   using rand_bytes_fn = int (*)(unsigned char *buf, int num);
 
@@ -95,12 +114,17 @@ class token_store {
   static time_t now() { return time(nullptr); }
 
   // SHA-256 of `in`, lowercase hex. Empty when this build has no hash
-  // function at all (USE_SSL off) or the digest failed. It turns a raw bearer
-  // token into the map key stored here, so the token itself is never held.
+  // function at all (USE_SSL off) or the digest failed. This is the one
+  // hashing primitive the session layer uses: it turns a raw bearer token
+  // into the map key stored here and on disk, and it is what
+  // session_manager_interface folds the role and the stored password hash
+  // into to build a credential fingerprint.
   static std::string hash_token(const std::string &in);
 
   // True when hash_token() can produce a hash in this build. A build without
-  // one keys the map by the raw token (see key_for), as before.
+  // one keys the map by the raw token (see key_for) and persists nothing -
+  // it cannot serve TLS either, so there is no session worth carrying across
+  // a restart.
   static bool has_hashing();
 
   // The map key for a raw token: its hash where this build has one, the raw
@@ -163,12 +187,14 @@ class token_store {
     return "";
   }
 
+  std::string generate_for(const std::string &user) { return generate_for(user, ""); }
+
   // Returns "" when no session could be minted: the CSPRNG failed, or (in a
   // hashing build) the digest did. The second case matters as much as the
   // first: storing the raw token under a key every later lookup would hash
   // would hand the client a credential that 403s until it expires and that
   // revoke() cannot find either. Callers treat "" as a failure to issue.
-  std::string generate_for(const std::string &user) {
+  std::string generate_for(const std::string &user, const std::string &fingerprint) {
     // Generate before taking the lock: the CSPRNG call does not need it, and
     // an empty result means the CSPRNG failed, in which case no session may
     // be created at all. Storing a "" key would hand every tokenless request
@@ -185,8 +211,54 @@ class token_store {
     token_entry entry;
     entry.user = user;
     entry.created = t;
+    entry.fingerprint = fingerprint;
     tokens[key] = entry;
     return token;
+  }
+
+  // Every live, unexpired session, in the form that may leave the process.
+  // Every entry is one a client holds: only the login route mints a token
+  // (session_manager_interface::log_in), and it hands that token back. A
+  // build with no hash function keys the map by the raw token, and exporting
+  // that would write the bearer credential itself to disk, so it exports
+  // nothing at all.
+  std::list<persisted_session> snapshot(const time_t now) const {
+    std::list<persisted_session> ret;
+    if (!has_hashing()) return ret;
+    const std::lock_guard<std::mutex> lock(mutex_);
+    for (const auto &e : tokens) {
+      if (has_token_expired(e.second.created, now)) continue;
+      persisted_session s;
+      s.hash = e.first;
+      s.user = e.second.user;
+      s.created = e.second.created;
+      s.fingerprint = e.second.fingerprint;
+      ret.push_back(s);
+    }
+    return ret;
+  }
+
+  // Put a previously exported session back. Returns whether it was inserted.
+  // Rejects an expired record, and never overwrites a live entry - a session
+  // minted since boot is newer than anything on disk.
+  bool restore(const persisted_session &session, const time_t now) {
+    if (session.hash.empty() || session.user.empty()) return false;
+    if (has_token_expired(session.created, now)) return false;
+    const std::lock_guard<std::mutex> lock(mutex_);
+    if (tokens.find(session.hash) != tokens.end()) return false;
+    // Only sweep at the cap. The record itself was checked for expiry above,
+    // and a full sweep per restored session would make importing a table of
+    // N rows O(N^2); at the cap the sweep frees exactly one slot, so the
+    // re-check below is what keeps a file larger than the cap from pushing
+    // the map past it.
+    if (tokens.size() >= kMaxTokens) sweep_expired_locked(now);
+    if (tokens.size() >= kMaxTokens) return false;
+    token_entry entry;
+    entry.user = session.user;
+    entry.created = session.created;
+    entry.fingerprint = session.fingerprint;
+    tokens[session.hash] = entry;
+    return true;
   }
 
   void revoke(const std::string &token) {
@@ -209,5 +281,34 @@ class token_store {
   }
   bool can(const std::string &uid, const std::string &grant);
   void add_user(const std::string &user, const std::string &role);
+  std::string get_role(const std::string &user) const;
   void add_grant(const std::string &role, const std::string &grant);
 };
+
+// Serialising the session table for the core storage (`nsclient.db`). The
+// whole table goes into ONE storage row, replaced at every shutdown. The core
+// storage has no delete, so one row per session would have left a blank
+// tombstone behind for every session that ever expired or logged out - and
+// nothing would ever have removed them. One row has nothing to tombstone: an
+// empty table is written as an empty value, and a single put replaces
+// whatever the previous run left.
+//
+// The value is a format version on the first line, then one record per line:
+//
+//     1
+//     <hash><TAB><user><TAB><created-epoch><TAB><fingerprint>
+//     ...
+//
+// A later format bumps the version so it is told apart from this one rather
+// than silently mis-parsed.
+namespace session_persistence {
+// The storage row for a session table. A session that cannot be represented
+// (a user containing a tab or a newline would make the record ambiguous, a
+// hash that is not one) is left out. An empty table serialises to "".
+std::string serialize_sessions(const std::list<token_store::persisted_session> &sessions);
+
+// Parse a storage row back into a session table. Returns an empty list for
+// an empty or unversioned value; a malformed record is skipped, the rest of
+// the table still loads.
+std::list<token_store::persisted_session> parse_sessions(const std::string &value);
+}  // namespace session_persistence

@@ -7,6 +7,7 @@
 #include <StreamResponse.h>
 
 #include <boost/thread/mutex.hpp>
+#include <cstddef>
 #include <list>
 #include <memory>
 #include <net/socket/allowed_hosts.hpp>
@@ -134,6 +135,31 @@ struct session_manager_interface {
   // string. Public so legacy_controller can apply the same check at the
   // endpoint level.
   bool client_allows_legacy_query_auth(const std::string &user_agent) const;
+
+  // A value that changes whenever the credentials a session was authorised
+  // against change: SHA-256 of the user's role, a newline, and the password
+  // value user_manager stores for them (hex); "" when this build cannot hash.
+  // Recording it on the token is what makes a password or role change
+  // invalidate that user's sessions even across a restart, when the in-memory
+  // map that revoke_tokens_for_user walks is long gone.
+  //
+  // CAVEAT: a plaintext password in the INI is re-salted by
+  // user_manager::add_user on every boot, so its PBKDF2 string - and with it
+  // the fingerprint - differs on each start and those sessions do NOT survive
+  // a restart. A password already stored hashed (what the first boot writes
+  // for `admin`, and what `nscp web add-user` migrates a cleartext one to) is
+  // stable and its sessions do survive.
+  std::string fingerprint_for_user(const std::string &user) const;
+
+  // Every live session, in the form that goes into the core storage. Every
+  // one is a session a client holds, since only log_in() mints a token. Only
+  // token hashes leave the process - see token_store::snapshot.
+  std::list<token_store::persisted_session> export_sessions() const;
+
+  // Put previously exported sessions back, dropping any whose user is now
+  // unknown, whose credential fingerprint no longer matches, or which has
+  // expired. Returns how many were restored.
+  std::size_t import_sessions(const std::list<token_store::persisted_session> &sessions);
 
   std::list<std::string> boot();
   bool validate_user(const std::string &user, const std::string &password);
