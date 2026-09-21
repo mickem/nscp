@@ -200,8 +200,40 @@ jobs:
       - name: Validate manifests with winget
         shell: pwsh
         run: |
-          # winget is preinstalled on windows-latest runners.
-          winget validate --manifest dist/winget
+          # winget is preinstalled on windows-latest runners, but it is the
+          # in-box build and lags the manifest schemas published to
+          # winget-pkgs. `winget validate` exits with
+          # APPINSTALLER_CLI_ERROR_MANIFEST_VALIDATION_WARNING (0x8A150028)
+          # for a warning-only result, which would otherwise fail this step and
+          # silently leave a published release unsubmitted. Gate on errors
+          # only; surface warnings as annotations so they still get read.
+          $ErrorActionPreference = 'Continue'
+          $PSNativeCommandUseErrorActionPreference = $false
+
+          $output = & winget validate --manifest dist/winget 2>&1
+          # winget returns an HRESULT, which PowerShell may surface as a
+          # negative Int32; mask it back to the unsigned value before testing.
+          $code = [uint32](($LASTEXITCODE) -band 0xFFFFFFFFL)
+          $output | ForEach-Object { Write-Host $_ }
+
+          if ($code -eq 0) {
+              exit 0
+          }
+          # 0x8A150028 is written with an L suffix on purpose: PowerShell
+          # parses a bare hex literal that large as a negative Int32, so the
+          # comparison against the masked UInt32 would never match.
+          if ($code -eq 0x8A150028L) {
+              foreach ($line in $output) {
+                  $text = [string]$line
+                  if ($text -match '^Manifest Warning:') {
+                      Write-Host "::warning title=winget validate::$text"
+                  }
+              }
+              Write-Host 'winget reported warnings only; continuing.'
+              exit 0
+          }
+          Write-Error ("winget validate failed with 0x{0:X8}." -f $code)
+          exit 1
 
       - name: Verify rendered hashes round-trip from URL
         shell: pwsh
