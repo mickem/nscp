@@ -1,6 +1,6 @@
 ---
 title: "Fleet: the signing key cannot rotate unendorsed, and the trust boundary is written down"
-fixed_in: 0.22.0
+fixed_in: next
 severity: "Low"
 modules: [core, docs]
 action: conditional

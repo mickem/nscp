@@ -1,6 +1,6 @@
 ---
 title: "Core: module names as paths, remote settings migration, sensitive-key names, service sandboxing"
-fixed_in: 0.22.0
+fixed_in: next
 severity: "Low"
 modules: [core, packaging, NRDPClient, WEBServer]
 action: conditional
