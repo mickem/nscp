@@ -113,21 +113,26 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
     }
   } else {
     fs::path dir = provider_->get_core()->expand_path("${scripts}/lua");
-    // ${base-path}, not ${base-path}/lua: the listing walks ${scripts}/lua, and on
-    // Windows ${scripts} is ${exe-path}/scripts - so the prefix that can actually
-    // match is the install base itself. With the sub-folder appended it never
-    // matched on any platform and the branch was dead, which is how the strip
-    // below came to be doing the relativising on its own.
-    fs::path rel = provider_->get_core()->expand_path("${base-path}");
+    // Relativised against ${scripts}, the folder find_file resolves against, so
+    // that what `list` prints can be handed straight back to `add`. It used to
+    // append the sub-folder to the root, which matched on no platform and left
+    // the strip below relativising on its own; rooting at ${base-path} instead
+    // made the prefix match on Windows, but printed `scripts\lua\x` - a
+    // spelling find_file has no candidate for, so `add` then refused the very
+    // value `list` had just produced from anywhere but the install directory.
+    // ${scripts} is the prefix on both platforms and survives a [paths]
+    // override moving the folder off ${base-path} entirely.
+    fs::path rel = provider_->get_core()->expand_path("${scripts}");
     fs::recursive_directory_iterator iter(dir), eod;
     for (fs::path const &i : boost::make_iterator_range(iter, eod)) {
       std::string s = i.string();
-      // Relative to the install base when the file is under it, which is the
-      // case on Windows and is what `show` and the web UI's script list have
-      // always been handed. When it is not - the normal case on unix, where
-      // ${scripts} is not below ${base-path} - the path is left absolute.
-      // It used to have its leading separator sliced off regardless, leaving a
-      // rootless `usr/lib/nsclient/scripts/x` that named no file at all.
+      // Relative to ${scripts} when the file is under it, which is every file
+      // this loop walks, giving `lua/x.lua` - the same spelling `add --import`
+      // records and one find_file resolves from any working directory. A file
+      // reached through a symlink out of the folder is left absolute rather
+      // than mangled: the strip used to slice the leading separator off
+      // regardless, leaving a rootless `usr/lib/nsclient/scripts/x` that named
+      // no file at all.
       if (boost::algorithm::starts_with(s, rel.string())) {
         s = s.substr(rel.string().size());
         if (!s.empty() && (s[0] == '\\' || s[0] == '/')) s = s.substr(1);

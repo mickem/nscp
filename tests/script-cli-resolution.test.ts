@@ -154,6 +154,47 @@ describe("script CLI resolution", () => {
       expect(r.recorded).toBeUndefined();
     });
 
+    it("prints its listing relative to ${scripts}, and add takes it straight back", async () => {
+      if (!available) return;
+
+      const settingsFile = path.join(root, "lua-list.ini");
+      fs.writeFileSync(settingsFile, "");
+      const overrides = { scripts: path.join(root, "scripts") };
+
+      // Listed from a neutral directory on purpose: the listing must not depend
+      // on where the CLI was run, and neither must feeding it back.
+      const lister = new NscpInstance({ workDir: neutral, settingsFile, pathOverrides: overrides });
+      const listed = await lister.run(["lua", "list"], { allowFailure: true });
+      const entries = (listed.all ?? "")
+        .split("\n")
+        .map((l) => l.trim())
+        .filter((l) => /\.lua$/.test(l))
+        .map((l) => l.split("\\").join("/"));
+
+      console.log(`\n  nscp lua list, run from a neutral directory\n  ${"-".repeat(42)}\n` + entries.map((e) => `  ${e}`).join("\n"));
+
+      // ${scripts}-relative, not ${base-path}-relative and not absolute. The
+      // ${base-path} spelling (`scripts/lua/c.lua`) is the trap the test above
+      // pins: find_file has no candidate for it, so a listing printed that way
+      // is one `add` refuses from anywhere but the install directory.
+      expect(entries).toEqual(expect.arrayContaining(["lua/c.lua", "lua/foo/d.lua"]));
+      for (const e of entries) {
+        expect(path.isAbsolute(e)).toBe(false);
+        expect(e.startsWith("scripts/")).toBe(false);
+      }
+
+      // The round trip: every value the listing printed is one `add` accepts
+      // from elsewhere, and that the service then resolves.
+      const rows: Resolution[] = [];
+      for (const entry of entries) rows.push(await add(entry, "neutral"));
+      table("nscp lua add --script <what list printed>, run from a neutral directory", rows, scrub);
+      for (const r of rows) {
+        expect(r.answered).toMatch(/^Added /);
+        expect(r.recorded).toBe(r.typed);
+        expect(r.worksElsewhere).toBe(true);
+      }
+    });
+
     it("records an absolute path outside the script folder as given", async () => {
       if (!available) return;
       const vendor = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-luavendor-"));

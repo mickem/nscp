@@ -29,5 +29,11 @@ folders and only resolved on Windows, where a backslash is a separator. New
 imports record `python/<name>` / `lua/<name>`, relative to `${scripts}` and
 resolving the same way on both platforms.
 
+`list` (and the script list in `show` and the web UI) names its entries the
+same way, relative to `${scripts}`: `lua/mycheck.lua` rather than an absolute
+path or a `scripts\lua\mycheck.lua` that only resolved from the installation
+directory. So what `list` prints can be handed straight back to `add` from
+anywhere, which is what it is for.
+
 Entries written by an older version are not rewritten and keep resolving as
 before — the file they point at has not moved.
