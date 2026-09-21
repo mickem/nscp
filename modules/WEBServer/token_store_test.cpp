@@ -433,6 +433,9 @@ TEST(TokenStoreTest, RestoreRespectsTheCap) {
     s.user = "user" + std::to_string(i);
     // Spread the creation times so eviction has an unambiguous "oldest".
     s.created = now - i;
+    // Without a fingerprint the restored sessions never reach snapshot(), and
+    // the bound checked below would hold over an empty list.
+    s.fingerprint = "fp";
     store.restore(s, now);
   }
   EXPECT_LE(store.snapshot(now).size(), 4096u) << "live count exceeded the documented cap";
@@ -661,6 +664,10 @@ TEST(TokenStoreTest, RestoringTheSameRecordTwiceInsertsOnce) {
   s.hash = std::string(64, 'a');
   s.user = "test_user";
   s.created = token_store::now();
+  // Every record that reaches restore() in production came out of snapshot(),
+  // which leaves out a session with no fingerprint - so a record built by hand
+  // carries one too, or it is invisible to the snapshot() checked below.
+  s.fingerprint = "fp";
   EXPECT_TRUE(store.restore(s, token_store::now()));
   EXPECT_FALSE(store.restore(s, token_store::now())) << "a duplicate row must not count as a second restore";
   if (token_store::has_hashing()) EXPECT_EQ(store.snapshot(token_store::now()).size(), 1u);
@@ -676,6 +683,7 @@ TEST(TokenStoreTest, RestoredSessionKeepsItsOriginalExpiry) {
   s.hash = std::string(64, 'a');
   s.user = "test_user";
   s.created = now - HOURS_TO_SECONDS(TOKEN_EXPIRATION_HOURS - 1);
+  s.fingerprint = "fp";
   ASSERT_TRUE(store.restore(s, now));
   EXPECT_EQ(store.snapshot(now).size(), 1u);
   EXPECT_TRUE(store.snapshot(now + HOURS_TO_SECONDS(2)).empty()) << "the restored session outlived its original expiry";
