@@ -114,7 +114,16 @@ jobs:
           # when the release shipped. Take it off the release instead.
           $date = '${{ steps.ctx.outputs.release_date }}'
           if ([string]::IsNullOrWhiteSpace($date) -and $meta -and $meta.publishedAt) {
-              $date = ([string]$meta.publishedAt).Substring(0, 10)
+              # ConvertFrom-Json turns an ISO-8601 timestamp into a [datetime],
+              # whose default string form follows the runner's culture
+              # ("09/21/2026"). ReleaseDate wants YYYY-MM-DD, and winget
+              # rejects anything else, so format it explicitly rather than
+              # slicing the first ten characters off whatever it renders as.
+              $date = ([datetime]$meta.publishedAt).ToUniversalTime().ToString('yyyy-MM-dd')
+          }
+          if (-not [string]::IsNullOrWhiteSpace($date) -and $date -notmatch '^\d{4}-\d{2}-\d{2}$') {
+              Write-Error "Release date '$date' is not YYYY-MM-DD."
+              exit 1
           }
           Write-Host "Release date: $date"
           "date=$date" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
