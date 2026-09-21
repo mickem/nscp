@@ -203,11 +203,12 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
           "ALLOW ANONYMOUS ACCESS",
           "When false (the default) any role named `anonymous` registered via /settings/WEB/server/roles is ignored and the WEB server never answers an "
           "unauthenticated request. Set to true only if you intentionally want to expose endpoints (via the `anonymous` role grants) without authentication.")
-      .add_bool("persist sessions", sh::bool_key(&persist_sessions_, true), "PERSIST SESSIONS",
-                "When true (the default) the sessions handed out by /api/v2/login are written to ${data-path}/nsclient.db at a clean shutdown and "
-                "restored at the next start, so a restart does not log every web user out. Only the SHA-256 of each token is stored, and a session is "
-                "only restored while the user's password and role are unchanged. Set to false to keep sessions in memory only: every restart then "
-                "ends every session, which is also the way to invalidate all of them at once without rotating passwords.")
+      .add_bool("persist sessions", nscapi::settings_helper::bool_fun_key([this](auto value) { this->persist_sessions_ = value; }, true), "PERSIST SESSIONS",
+                "When true (the default) the sessions handed out by /api/v2/login are kept in ${data-path}/nsclient.db and restored at the next "
+                "start, so a restart does not log every web user out. Only the SHA-256 of each session key is stored, a session is only restored "
+                "while the user's password and role are unchanged, and logging one out removes it from the file straight away. Set to false to keep "
+                "sessions in memory only: every restart then ends every session, which is also the way to invalidate all of them at once without "
+                "rotating passwords.")
       .add_bool("disable admin user", sh::bool_key(&disable_admin_user, false), "DISABLE ADMIN USER",
                 "When true, suppress the built-in `admin` user entirely. The default admin is not seeded on first boot, any pre-existing `admin` entry in "
                 "/settings/WEB/server/users is ignored at load time, and the fallback that auto-creates admin when no users are configured is skipped. "
@@ -516,6 +517,21 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         NSC_LOG_ERROR_EX("restoring web sessions");
       }
     }
+    // Revoking has to outlive this process, not just this run: a session
+    // logged out now must not come back because the agent was killed before
+    // it could write the table at shutdown. So every revocation writes the
+    // remaining table straight to disk. The handler is installed only after
+    // the import above, so nothing can write the empty table over the stored
+    // one, and it is cleared in unloadModule before this object goes away.
+    session->set_sessions_revoked_handler([this]() {
+      try {
+        persist_sessions(true);
+      } catch (const std::exception &e) {
+        NSC_LOG_ERROR("Failed to persist web sessions after a revocation: " + utf8::utf8_from_native(e.what()));
+      } catch (...) {
+        NSC_LOG_ERROR_EX("persisting web sessions after a revocation");
+      }
+    });
 
     WebLoggerPtr logger(new WEBServerLogger(log_errors, log_info, log_debug));
     // Where an unhandled handler exception goes. The client gets a bare 500;
@@ -642,16 +658,20 @@ bool WEBServer::unloadModule() {
     NSC_LOG_ERROR_EX("unload");
     ok = false;
   }
+  // Nothing may revoke through the handler from here on: the server is down,
+  // and the callback holds `this`.
+  session->set_sessions_revoked_handler(nullptr);
   // Persist regardless of how the server stop went - a failure to close the
   // listener is no reason to throw away everybody's session. Like
   // CheckEventLog / CheckLogFile this writes from unloadModule because the
   // core saves nsclient.db right after unloadPlugins() returns
   // (NSClientT::stop_nsclient), so this is the last point at which anything
-  // can be handed to it. Unlike them, whose per-key rows make an export from
-  // an empty map a no-op, the one-row table here makes it a wipe - hence the
-  // sessions_loaded_ gate inside persist_sessions().
+  // can be handed to it - no flush needed here, that save is the flush.
+  // Unlike them, whose per-key rows make an export from an empty map a no-op,
+  // the one-row table here makes it a wipe - hence the sessions_loaded_ gate
+  // inside persist_sessions().
   try {
-    persist_sessions();
+    persist_sessions(false);
   } catch (const std::exception &e) {
     NSC_LOG_ERROR("Failed to persist web sessions: " + utf8::utf8_from_native(e.what()));
   } catch (...) {
@@ -660,23 +680,27 @@ bool WEBServer::unloadModule() {
   return ok;
 }
 
-void WEBServer::persist_sessions() {
+void WEBServer::persist_sessions(const bool flush) {
   // Only a run that took the table over at boot may hand it back. A CLI run,
   // or a load that returned early, never did, and its (empty) table says
   // nothing about the sessions of the service that is still running.
-  if (!session || !sessions_loaded_) return;
+  if (!sessions_loaded_) return;
+  // Serialised: a logout writes from the thread serving the request, and two
+  // of them at once could otherwise interleave so that the older snapshot is
+  // the one left on disk - with the session that was just revoked back in it.
+  const boost::mutex::scoped_lock lock(persist_sessions_mutex_);
   // The whole table is one row, replaced wholesale: a session that was
-  // revoked (logout, password change) or expired while we ran is simply not
-  // in the snapshot, so it is not written back, and there is no per-session
-  // row left behind to tombstone. With persistence switched off the row is
-  // blanked, so a table written by an earlier run does not outlive the
-  // setting. The row is bounded by the token cap, and in practice holds a
-  // handful of entries: only sessions handed out by /api/v2/login are in it.
+  // revoked (logout, password change) or expired is simply not in the
+  // snapshot, so it is not written back, and there is no per-session row left
+  // behind to tombstone. With persistence switched off the row is blanked, so
+  // a table written by an earlier run does not outlive the setting. The row is
+  // bounded by the token cap, and in practice holds a handful of entries: only
+  // sessions handed out by /api/v2/login are in it.
   const std::string value = persist_sessions_ ? session_persistence::serialize_sessions(session->export_sessions()) : std::string();
   // private_data: the row binds sessions to users. Hashes only, so not a
   // credential, but not something to hand out either.
   nscapi::core_helper core(get_core(), get_id());
-  core.put_storage(kSessionStorageContext, kSessionStorageKey, value, true, false);
+  core.put_storage(kSessionStorageContext, kSessionStorageKey, value, true, false, flush);
 }
 
 void WEBServer::handleLogMessage(const PB::Log::LogEntry::Entry &message) {

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <boost/thread/mutex.hpp>
 #include <boost/thread/shared_mutex.hpp>
 #include <list>
 #include <memory>
@@ -49,6 +50,12 @@ class storage_manager {
   bool has_read_;
   bool has_changed_;
   boost::shared_mutex m_mutexRW;
+  // Serialises save() with itself. save() only reads storage_, so m_mutexRW
+  // is taken shared and two savers could hold it at once - and they would
+  // then both be writing nsclient.tmp before renaming it over nsclient.db.
+  // A plugin can now ask for a save at any time (the put `flush` flag), so
+  // that is reachable rather than theoretical.
+  boost::mutex save_mutex_;
 
  public:
   storage_manager(const path_instance& path_, const logging::logger_instance& logger) : path_(path_), logger_(logger), has_read_(false), has_changed_(false) {}

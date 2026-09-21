@@ -36,6 +36,12 @@ message StorageRequestMessage {
 	message Request {
 		message Put {
 			PB.Storage.Storage.Entry entry = 1;
+			// Write the whole store to disk once this entry has been taken.
+			// The store is otherwise only written at shutdown, so a plugin
+			// holding state that must not be lost if the process is killed
+			// (the WEB server's session table) asks for it here. Off by
+			// default: a put is cheap, a save rewrites the file.
+			bool flush = 2;
 		};
 		message Get {
 			string context = 1;

@@ -4,18 +4,22 @@ modules: [WEBServer]
 action: conditional
 ---
 **You stay logged in to the web UI across a restart of the agent.** Restarting
-the service — or reapplying settings from the UI — no longer logs every web
-user out. A browser tab, and a script holding a key from `/api/v2/login`,
-keeps working across a service restart or an upgrade. Sessions still expire
-eight hours after login, and only a hash of each session key is ever kept, in
-memory and on disk; see the
+the service, or upgrading it, no longer logs every web user out: a browser tab,
+and a script holding a key from `/api/v2/login`, keeps working. Sessions still
+expire eight hours after login, and only a hash of each session key is ever
+kept, in memory and on disk; see the
 [security notice](../security/notices.md#web-sessions-survive-a-restart-of-the-agent).
 
 To end a session, use the **log out** button in the web UI, or call
-`DELETE /api/v2/login` with the key. That revokes it immediately, and a session
-that was logged out is not brought back by a restart. Changing a user's
-password or role also ends all of that user's sessions, and so does removing
-the user.
+`DELETE /api/v2/login` with the key. It stops working immediately and does not
+come back, not even if the agent is killed rather than stopped cleanly.
+
+Changing a user's password or role also ends that user's sessions, and removing
+the user ends theirs — but only from the next start of the agent. The running
+service keeps the users it read when it started, so until you restart it the
+new password does not work and the old sessions keep working. Reapplying
+settings from the UI is not enough; restart the service, or log the sessions
+out.
 
 **If you relied on a restart to log everyone out**, set
 `persist sessions = false` under `[/settings/WEB/server]`: sessions are then

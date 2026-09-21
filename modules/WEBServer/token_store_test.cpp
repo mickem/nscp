@@ -336,6 +336,25 @@ TEST(TokenStoreTest, SnapshotNeverContainsTheRawToken) {
   EXPECT_EQ(s.fingerprint, "fp1");
 }
 
+TEST(TokenStoreTest, SnapshotSkipsSessionsWithoutAFingerprint) {
+  // The fingerprint-less generate_for() overload makes a session that no
+  // import can vouch for, so it never reaches the file: exporting it would
+  // only write a record import refuses, and it is the reason every record on
+  // disk has all four fields.
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  token_store store;
+  const std::string anonymous = store.generate_for("test_user");
+  ASSERT_FALSE(anonymous.empty());
+  EXPECT_TRUE(store.is_valid(anonymous)) << "it is still a perfectly good session in memory";
+  EXPECT_TRUE(store.snapshot(token_store::now()).empty());
+
+  const std::string bound = store.generate_for("test_user", "fp1");
+  ASSERT_FALSE(bound.empty());
+  const auto snap = store.snapshot(token_store::now());
+  ASSERT_EQ(snap.size(), 1u) << "only the session with a fingerprint is exported";
+  EXPECT_EQ(snap.front().hash, token_store::hash_token(bound));
+}
+
 TEST(TokenStoreTest, SnapshotSkipsExpiredEntries) {
   if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
   token_store store;

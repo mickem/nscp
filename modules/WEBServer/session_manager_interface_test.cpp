@@ -7,6 +7,8 @@
 #include <StreamResponse.h>
 #include <gtest/gtest.h>
 
+#include <cstddef>
+#include <functional>
 #include <list>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <string>
@@ -805,6 +807,63 @@ TEST(SessionPersistence, ImportDropsASessionWithoutAFingerprint) {
   configure(after, password);
   EXPECT_EQ(after.import_sessions(sessions), 0u);
   EXPECT_FALSE(after.validate_token(token));
+}
+
+TEST(SessionPersistence, ImportKeepsSessionsWrittenWhileTheClockWasAhead) {
+  // A host with no battery-backed clock boots at the epoch (or at whatever
+  // the last write left behind) and only reaches an NTP server later, so the
+  // stored sessions are dated in the future. A future timestamp means
+  // "expired" for a live entry, and taking it that way here would drop every
+  // session such a host ever stored - and then blank the table at the next
+  // shutdown. They are restored and their eight hours start over instead.
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  const std::string password = hashed("secret");
+  std::string token;
+  auto sessions = shutdown_with_one_session(password, token);
+  sessions.front().created = token_store::now() + HOURS_TO_SECONDS(24);
+
+  session_manager_interface after;
+  configure(after, password);
+  EXPECT_EQ(after.import_sessions(sessions), 1u);
+  EXPECT_TRUE(after.validate_token(token));
+  // Re-dated to this process's clock, not kept in the future: the session
+  // expires eight hours from now rather than thirty-two.
+  const auto exported = after.export_sessions();
+  ASSERT_EQ(exported.size(), 1u);
+  EXPECT_LE(exported.front().created, token_store::now());
+}
+
+TEST(SessionPersistence, RevokingRunsTheHandlerSoTheTableCanBeWrittenOut) {
+  // Logging out has to outlive the process: the module writes the remaining
+  // table to disk from this callback, so a kill before the next clean
+  // shutdown cannot bring the revoked session back.
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  session_manager_interface smi;
+  configure(smi, hashed("secret"));
+  std::size_t calls = 0;
+  std::list<token_store::persisted_session> last_seen;
+  smi.set_sessions_revoked_handler([&smi, &calls, &last_seen]() {
+    ++calls;
+    last_seen = smi.export_sessions();
+  });
+
+  const std::string token = smi.generate_token("user");
+  ASSERT_FALSE(token.empty());
+  EXPECT_EQ(calls, 0u) << "minting a session is not a revocation";
+
+  smi.revoke_token(token);
+  EXPECT_EQ(calls, 1u);
+  EXPECT_TRUE(last_seen.empty()) << "the handler must see the table without the revoked session";
+
+  const std::string other = smi.generate_token("user");
+  smi.revoke_tokens_for_user("user");
+  EXPECT_EQ(calls, 2u);
+  EXPECT_FALSE(smi.validate_token(other));
+
+  // Removing the handler stops the notifications; nothing else changes.
+  smi.set_sessions_revoked_handler(nullptr);
+  smi.revoke_token(smi.generate_token("user"));
+  EXPECT_EQ(calls, 2u);
 }
 
 TEST(SessionPersistence, ImportedSessionsSurviveTheNextShutdown) {

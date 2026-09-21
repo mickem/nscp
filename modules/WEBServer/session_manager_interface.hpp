@@ -8,6 +8,7 @@
 
 #include <boost/thread/mutex.hpp>
 #include <cstddef>
+#include <functional>
 #include <list>
 #include <memory>
 #include <net/socket/allowed_hosts.hpp>
@@ -48,6 +49,17 @@ struct session_manager_interface {
   // as an immutable list behind a mutex-protected pointer.
   std::shared_ptr<const std::vector<std::string>> legacy_query_auth_user_agents_;
   mutable boost::mutex legacy_query_auth_mutex_;
+
+  // Called right after a session has been revoked, so the owner of the store
+  // can write the now-smaller table back to disk. Installed by WEBServer once
+  // the table has been taken over at boot, cleared before the module goes
+  // away. Published behind a mutex because a request thread revokes while the
+  // lifecycle thread installs or clears.
+  std::shared_ptr<const std::function<void()>> sessions_revoked_handler_;
+  mutable boost::mutex sessions_revoked_mutex_;
+  // Run the handler, if one is installed. Never called with a token_store
+  // lock held - the handler reads the whole table back out.
+  void notify_sessions_revoked() const;
 
  public:
   // A set of alternative grants: the caller is authorised when the role
@@ -103,6 +115,12 @@ struct session_manager_interface {
   bool validate_token(const std::string &token);
   void revoke_token(const std::string &token);
   void revoke_tokens_for_user(const std::string &user);
+  // Install (or, with an empty function, remove) the callback that runs after
+  // a revocation. A revoked session has to stop working for good, not only
+  // until the next restart, so whoever persists the table registers here and
+  // writes it out again. The handler runs on the thread that revoked, which
+  // for a logout is the thread serving the request.
+  void set_sessions_revoked_handler(std::function<void()> handler);
   std::string generate_token(const std::string &user);
 
   std::string get_metrics();
@@ -158,7 +176,9 @@ struct session_manager_interface {
 
   // Put previously exported sessions back, dropping any whose user is now
   // unknown, whose credential fingerprint no longer matches, or which has
-  // expired. Returns how many were restored.
+  // expired. A session dated in the future - this host's clock is behind the
+  // one that wrote it - is restored with its age reset rather than dropped.
+  // Returns how many were restored.
   std::size_t import_sessions(const std::list<token_store::persisted_session> &sessions);
 
   std::list<std::string> boot();

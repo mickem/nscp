@@ -56,9 +56,12 @@ class WEBServer : public nscapi::impl::simple_plugin {
  private:
   void add_user(const std::string &key, const std::string &arg);
   void set_openmetrics_format(const std::string &value);
-  // Write the live web sessions back to the core storage at shutdown. Called
-  // from unloadModule, which runs just before the core saves nsclient.db.
-  void persist_sessions();
+  // Write the live web sessions back to the core storage. Called from
+  // unloadModule, which runs just before the core saves nsclient.db, and
+  // again from the revocation handler whenever a session is logged out -
+  // there with `flush`, so the shorter table reaches the disk immediately
+  // rather than at a shutdown the process may never reach.
+  void persist_sessions(bool flush);
 
   // Which exposition `/api/v2/openmetrics` serves. Written by loadModuleEx,
   // which a settings reload re-enters on the live module, and read by the
@@ -93,9 +96,10 @@ class WEBServer : public nscapi::impl::simple_plugin {
   // until the cache has been switched on across a restart.
   std::string registered_result_channel_;
   // `persist sessions`: whether the session table is written to the core
-  // storage at shutdown and read back at boot. Written by loadModuleEx, read
-  // by persist_sessions() from unloadModule; both run on the lifecycle thread.
-  bool persist_sessions_ = true;
+  // storage and read back at boot. Written by loadModuleEx on the lifecycle
+  // thread; read by persist_sessions(), which a logout calls from the thread
+  // serving the request - hence atomic.
+  std::atomic<bool> persist_sessions_{true};
   // True once a normalStart load has taken the session table over from the
   // core storage (or decided not to, with `persist sessions` off). Until then
   // there is nothing to write back, and writing anyway would be destructive:
@@ -104,7 +108,11 @@ class WEBServer : public nscapi::impl::simple_plugin {
   // unconditional export from that empty table would blank the sessions of
   // the running service. The same goes for a load that returned early, e.g.
   // on a missing certificate.
-  bool sessions_loaded_ = false;
+  std::atomic<bool> sessions_loaded_{false};
+  // Serialises persist_sessions(). Two clients logging out at the same moment
+  // would otherwise export and write the table concurrently, and the later
+  // (staler) snapshot could be the one that lands.
+  boost::mutex persist_sessions_mutex_;
   std::shared_ptr<Mongoose::Server> server;
 
   web_server::user_config users_;

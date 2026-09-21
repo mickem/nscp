@@ -7,6 +7,7 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
+#include <map>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 #include <str/utils.hpp>
@@ -362,18 +363,41 @@ std::list<token_store::persisted_session> session_manager_interface::export_sess
 std::size_t session_manager_interface::import_sessions(const std::list<token_store::persisted_session> &sessions) {
   const time_t now = token_store::now();
   std::size_t restored = 0;
+  std::size_t from_the_future = 0;
+  // One fingerprint per user, not one per row: fingerprint_for_user() runs a
+  // SHA-256 and takes the token_store lock, and a table is typically several
+  // sessions belonging to the same few users.
+  std::map<std::string, std::string> fingerprints;
   for (const token_store::persisted_session &session : sessions) {
-    // A user who is no longer configured has no sessions, whatever the file
-    // says.
-    if (!users.has_user(session.user)) continue;
-    // ... and a user whose role or password moved while the agent was down is
-    // in exactly the position add_user() revokes for: the fingerprint no
-    // longer matches, so the session is not theirs to resume.
-    const std::string current = fingerprint_for_user(session.user);
-    if (current.empty() || session.fingerprint != current) continue;
-    if (tokens.restore(session, now)) ++restored;
+    auto cached = fingerprints.find(session.user);
+    if (cached == fingerprints.end()) {
+      cached = fingerprints.emplace(session.user, fingerprint_for_user(session.user)).first;
+    }
+    // An empty fingerprint means the user is not configured any more (or this
+    // build cannot hash), so the session is not theirs to resume; a different
+    // one means their role or password moved while the agent was down, which
+    // is exactly the position add_user() revokes for.
+    if (cached->second.empty() || session.fingerprint != cached->second) continue;
+    token_store::persisted_session record = session;
+    if (record.created > now) {
+      // The record was written by a run whose clock was ahead of this one's -
+      // in practice a host with no battery-backed clock that boots before it
+      // has reached an NTP server. Treating it as expired (which is what a
+      // future timestamp means for a live session) would drop every stored
+      // session on such a host and then blank the table at the next shutdown,
+      // losing sessions that are well inside their eight hours. Count the
+      // session from now instead: it stays bound to the same credentials, and
+      // the worst case is one full expiry window rather than a silent logout.
+      record.created = now;
+      ++from_the_future;
+    }
+    if (tokens.restore(record, now)) ++restored;
   }
-  NSC_DEBUG_MSG("Restored " + std::to_string(restored) + " web sessions");
+  if (from_the_future > 0) {
+    NSC_LOG_MESSAGE("This host's clock is behind the one that wrote " + std::to_string(from_the_future) +
+                    " stored web session(s): they were saved with a timestamp in the future. They have been restored and expire eight hours from now.");
+  }
+  NSC_DEBUG_MSG("Restored " + std::to_string(restored) + " of " + std::to_string(sessions.size()) + " stored web sessions");
   return restored;
 }
 
@@ -422,8 +446,34 @@ bool session_manager_interface::is_allowed(const std::string &ip) {
 
 bool session_manager_interface::validate_token(const std::string &token) { return tokens.is_valid(token); }
 
-void session_manager_interface::revoke_token(const std::string &token) { tokens.revoke(token); }
+void session_manager_interface::revoke_token(const std::string &token) {
+  tokens.revoke(token);
+  notify_sessions_revoked();
+}
 
-void session_manager_interface::revoke_tokens_for_user(const std::string &user) { tokens.revoke_tokens_for_user(user); }
+void session_manager_interface::revoke_tokens_for_user(const std::string &user) {
+  tokens.revoke_tokens_for_user(user);
+  notify_sessions_revoked();
+}
+
+void session_manager_interface::set_sessions_revoked_handler(std::function<void()> handler) {
+  std::shared_ptr<const std::function<void()>> published;
+  if (handler) {
+    published = std::make_shared<const std::function<void()>>(std::move(handler));
+  }
+  boost::lock_guard<boost::mutex> lock(sessions_revoked_mutex_);
+  sessions_revoked_handler_ = published;
+}
+
+void session_manager_interface::notify_sessions_revoked() const {
+  std::shared_ptr<const std::function<void()>> handler;
+  {
+    boost::lock_guard<boost::mutex> lock(sessions_revoked_mutex_);
+    handler = sessions_revoked_handler_;
+  }
+  // Outside the lock, and outside the token_store lock the revoke above
+  // released: the handler reads the whole table back out.
+  if (handler) (*handler)();
+}
 
 std::string session_manager_interface::generate_token(const std::string &user) { return tokens.generate_for(user, fingerprint_for_user(user)); }

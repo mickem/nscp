@@ -25,8 +25,8 @@ class token_store {
     time_t created{};
     // Binds the session to the credentials it was issued against: see
     // session_manager_interface::fingerprint_for_user. Empty for a token
-    // issued through the fingerprint-less generate_for() overload, which is
-    // then never persisted.
+    // issued through the fingerprint-less generate_for() overload, which
+    // snapshot() leaves out and so is never persisted.
     std::string fingerprint;
   };
   typedef boost::unordered_map<std::string, token_entry> token_map;
@@ -223,18 +223,24 @@ class token_store {
     return token;
   }
 
-  // Every live, unexpired session, in the form that may leave the process.
-  // Every entry is one a client holds: only the login route mints a token
-  // (session_manager_interface::log_in), and it hands that token back. A
-  // build with no hash function keys the map by the raw token, and exporting
-  // that would write the bearer credential itself to disk, so it exports
-  // nothing at all.
+  // Every live, unexpired session that can be put back, in the form that may
+  // leave the process. Every entry is one a client holds: only the login route
+  // mints a token (session_manager_interface::log_in), and it hands that token
+  // back. A build with no hash function keys the map by the raw token, and
+  // exporting that would write the bearer credential itself to disk, so it
+  // exports nothing at all.
   std::list<persisted_session> snapshot(const time_t now) const {
     std::list<persisted_session> ret;
     if (!has_hashing()) return ret;
     const std::lock_guard<std::mutex> lock(mutex_);
     for (const auto &e : tokens) {
       if (has_token_expired(e.second.created, now)) continue;
+      // No fingerprint, no way to check at import that the credentials the
+      // session was issued against are still the ones configured - and an
+      // unchecked session is not one to restore. Exporting it anyway would
+      // only write a record that import refuses, so it is left out here and
+      // every record on disk has all four fields.
+      if (e.second.fingerprint.empty()) continue;
       persisted_session s;
       s.hash = e.first;
       s.user = e.second.user;
@@ -247,7 +253,10 @@ class token_store {
 
   // Put a previously exported session back. Returns whether it was inserted.
   // Rejects an expired record, and never overwrites a live entry - a session
-  // minted since boot is newer than anything on disk.
+  // minted since boot is newer than anything on disk. A record dated in the
+  // future counts as expired here, as it does for a live entry; the caller
+  // that reads a table written by another run deals with a host whose clock
+  // moved backwards before calling (session_manager_interface::import_sessions).
   bool restore(const persisted_session &session, const time_t now) {
     if (session.hash.empty() || session.user.empty()) return false;
     if (has_token_expired(session.created, now)) return false;
