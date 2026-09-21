@@ -3,6 +3,8 @@
 
 #include "token_store.hpp"
 
+#include "sha256.hpp"
+
 #include <random>
 #include <vector>
 
@@ -53,6 +55,13 @@ int csprng_bytes(unsigned char *buf, const int num) {
 
 void token_store::set_rand_bytes_for_test(const rand_bytes_fn fn) { g_rand_bytes_override = fn; }
 
+namespace {
+// Test seam, null in production. See token_store::set_digest_for_test.
+token_store::digest_fn g_digest_override = nullptr;
+}  // namespace
+
+void token_store::set_digest_for_test(const digest_fn fn) { g_digest_override = fn; }
+
 std::string token_store::generate_token(const int len) {
   constexpr std::size_t alphanum_size = sizeof(alphanum) - 1;
   if (len <= 0) return std::string();
@@ -83,6 +92,22 @@ std::string token_store::generate_token(const int len) {
     }
   }
   return ret;
+}
+
+bool token_store::has_hashing() {
+  // A digest installed by set_digest_for_test() is a hash function this build
+  // has, whatever OpenSSL did or did not supply. Without that second term
+  // key_for() would skip hash_token() in a no-OpenSSL build and the seam
+  // would be a silent no-op there - functional-looking in one build only.
+  return web_digest::has_sha256() || g_digest_override != nullptr;
+}
+
+std::string token_store::hash_token(const std::string &in) {
+  if (g_digest_override != nullptr) return g_digest_override(in);
+  // "" in a build with no digest and no seam. has_hashing() is false in
+  // exactly that case, so key_for() keys by the raw token - as it always did -
+  // and never stores a key this produced.
+  return web_digest::sha256_hex(in);
 }
 
 // `grants` is guarded by the same mutex as `tokens`: add_user / add_grant run
