@@ -121,10 +121,9 @@ class token_store {
   // into to build a credential fingerprint.
   static std::string hash_token(const std::string &in);
 
-  // True when hash_token() can produce a hash in this build. A build without
-  // one keys the map by the raw token (see key_for) and persists nothing -
-  // it cannot serve TLS either, so there is no session worth carrying across
-  // a restart.
+  // True when hash_token() can produce a hash: this build has OpenSSL, or a
+  // test has installed a digest seam. A build with neither keys the map by the
+  // raw token (see key_for), as before.
   static bool has_hashing();
 
   // The map key for a raw token: its hash where this build has one, the raw
@@ -132,6 +131,10 @@ class token_store {
   // entry is ever stored under (generate_for refuses to mint in that case),
   // so the lookup simply misses. Public so tests can assert the map really is
   // keyed by the hash and not by the token.
+  //
+  // Note that a tokenless request does NOT arrive here as the empty key: in a
+  // hashing build key_for("") is SHA-256(""), a perfectly ordinary 64-character
+  // key that no session is stored under. "" is only ever the digest failing.
   static std::string key_for(const std::string &token) { return has_hashing() ? hash_token(token) : token; }
 
   bool is_valid(const std::string &token) { return is_valid(token, now()); }
@@ -197,13 +200,17 @@ class token_store {
   std::string generate_for(const std::string &user, const std::string &fingerprint) {
     // Generate before taking the lock: the CSPRNG call does not need it, and
     // an empty result means the CSPRNG failed, in which case no session may
-    // be created at all. Storing a "" key would hand every tokenless request
-    // a valid session.
+    // be created at all.
     std::string token = generate_token(32);
     if (token.empty()) return token;
     // Hash outside the lock too - it is pure, and the raw token is only ever
     // returned to the caller, never stored.
     const std::string key = key_for(token);
+    // Refuse the empty key. It is not a key any token maps to - only what a
+    // failed digest returns - so an entry stored under it is wrong twice over:
+    // unreachable, and impossible to revoke, once the digest recovers, and, for
+    // as long as the digest stays down, the single entry that every lookup in
+    // the store resolves to, tokenless requests included.
     if (key.empty()) return std::string();
     const time_t t = now();
     const std::lock_guard<std::mutex> lock(mutex_);
