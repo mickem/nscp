@@ -5,8 +5,11 @@
 
 #include <gtest/gtest.h>
 
+#include <iomanip>
 #include <set>
+#include <sstream>
 #include <string>
+#include <vector>
 
 TEST(TokenStoreTest, GenerateToken) {
   const std::string token1 = token_store::generate_token(32);
@@ -20,9 +23,7 @@ TEST(TokenStoreTest, GenerateTokenCharsetAndLengths) {
   // Every character must come from the [0-9A-Za-z] alphabet regardless of the
   // requested length (guards against the CSPRNG rejection-sampling loop
   // emitting a stray byte).
-  const auto is_alnum = [](char c) {
-    return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
-  };
+  const auto is_alnum = [](char c) { return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'); };
   for (const int len : {1, 2, 16, 32, 64, 129}) {
     const std::string t = token_store::generate_token(len);
     EXPECT_EQ(static_cast<int>(t.size()), len);
@@ -286,4 +287,119 @@ TEST(TokenStoreTest, ValidateRejectsUnknownToken) {
   std::string user = "sentinel";
   EXPECT_FALSE(store.validate("no-such-token", user));
   EXPECT_EQ(user, "sentinel");
+}
+
+// --- Hash-keyed storage -------------------------------------------------------
+//
+// The map is keyed by the SHA-256 of the token, never by the token itself, so
+// a memory dump does not hand anybody a working bearer credential. These
+// tests pin that.
+
+TEST(TokenStoreTest, MapIsKeyedByTheHashNotTheRawToken) {
+  token_store store;
+  const std::string token = store.generate_for("test_user");
+  ASSERT_FALSE(token.empty());
+  const std::string key = token_store::key_for(token);
+  if (token_store::has_hashing()) {
+    EXPECT_NE(key, token) << "key_for returned the raw token";
+    EXPECT_EQ(key.size(), 64u) << "a SHA-256 hex digest is 64 characters";
+  }
+  // Whatever the key is, looking the session up by the raw token works and
+  // looking it up by the key does not (the key is not itself a token).
+  EXPECT_TRUE(store.is_valid(token));
+  EXPECT_EQ(store.get_user(token), "test_user");
+  if (token_store::has_hashing()) {
+    EXPECT_FALSE(store.is_valid(key));
+  }
+}
+
+TEST(TokenStoreTest, HashTokenIsStableAndDistinct) {
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  EXPECT_EQ(token_store::hash_token("abc"), token_store::hash_token("abc"));
+  EXPECT_NE(token_store::hash_token("abc"), token_store::hash_token("abd"));
+  // Known answer: SHA-256("abc").
+  EXPECT_EQ(token_store::hash_token("abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+}
+
+// --- Fail-closed on a digest failure -----------------------------------------
+//
+// In a hashing build the map key is the hash. If the digest ever fails, the
+// only wrong things to do are to store the raw token (a key no later lookup
+// would hash to - the client holds a credential that 403s until it expires
+// and that revoke() cannot find) or to store under "" (every tokenless
+// request would match). The right thing is what a failed RNG already does:
+// refuse to mint.
+
+namespace {
+std::string failing_digest(const std::string &) { return std::string(); }
+std::string constant_digest(const std::string &) { return std::string(64, 'c'); }
+
+struct scoped_digest_override {
+  explicit scoped_digest_override(token_store::digest_fn fn) { token_store::set_digest_for_test(fn); }
+  ~scoped_digest_override() { token_store::set_digest_for_test(nullptr); }
+};
+}  // namespace
+
+TEST(TokenStoreTest, GenerateForRefusesToMintWhenTheDigestFails) {
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  token_store store;
+  {
+    scoped_digest_override guard(failing_digest);
+    EXPECT_TRUE(store.generate_for("test_user").empty()) << "a session was minted without a usable key";
+  }
+  // Recovery: once the digest works again, sessions are minted as normal.
+  const std::string token = store.generate_for("test_user");
+  EXPECT_FALSE(token.empty());
+  EXPECT_TRUE(store.is_valid(token));
+}
+
+TEST(TokenStoreTest, DigestFailureDoesNotOpenTheStore) {
+  // A live session exists; the digest then fails. Neither an empty token nor
+  // a random one may match anything - "" is not a key in the map.
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  token_store store;
+  const std::string token = store.generate_for("test_user");
+  ASSERT_FALSE(token.empty());
+  scoped_digest_override guard(failing_digest);
+  EXPECT_FALSE(store.is_valid(""));
+  EXPECT_FALSE(store.is_valid(token)) << "lookups fail closed while the digest is down";
+  EXPECT_EQ(store.get_user(token), "");
+}
+
+TEST(TokenStoreTest, TheMapIsKeyedByWhatTheDigestReturns) {
+  // Pin that every path goes through the same digest: with a constant digest
+  // two different tokens collide (the second mint overwrites the first), and
+  // any string at all resolves to that one session.
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  token_store store;
+  scoped_digest_override guard(constant_digest);
+  const std::string first = store.generate_for("first");
+  const std::string second = store.generate_for("second");
+  ASSERT_NE(first, second);
+  EXPECT_EQ(store.get_user(first), "second");
+  EXPECT_EQ(store.get_user("anything"), "second");
+}
+
+TEST(TokenStoreTest, RevokeByRawTokenRemovesTheHashedEntry) {
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  token_store store;
+  const std::string token = store.generate_for("test_user");
+  ASSERT_TRUE(store.is_valid(token));
+  // The client sends the raw token; the entry lives under its hash.
+  store.revoke(token);
+  EXPECT_FALSE(store.is_valid(token));
+  // Revoking by the hash does nothing: the hash is not a credential.
+  const std::string other = store.generate_for("test_user");
+  store.revoke(token_store::hash_token(other));
+  EXPECT_TRUE(store.is_valid(other));
+}
+
+TEST(TokenStoreTest, RevokeTokensForUserFindsHashedEntries) {
+  if (!token_store::has_hashing()) GTEST_SKIP() << "build has no hash function";
+  token_store store;
+  const std::string mine = store.generate_for("me");
+  const std::string theirs = store.generate_for("someone_else");
+  store.revoke_tokens_for_user("me");
+  EXPECT_FALSE(store.is_valid(mine));
+  EXPECT_TRUE(store.is_valid(theirs));
 }

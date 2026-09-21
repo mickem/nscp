@@ -3,10 +3,13 @@
 
 #include "token_store.hpp"
 
+#include <iomanip>
 #include <random>
+#include <sstream>
 #include <vector>
 
 #ifdef USE_SSL
+#include <openssl/evp.h>
 #include <openssl/rand.h>
 #endif
 
@@ -53,6 +56,13 @@ int csprng_bytes(unsigned char *buf, const int num) {
 
 void token_store::set_rand_bytes_for_test(const rand_bytes_fn fn) { g_rand_bytes_override = fn; }
 
+namespace {
+// Test seam, null in production. See token_store::set_digest_for_test.
+token_store::digest_fn g_digest_override = nullptr;
+}  // namespace
+
+void token_store::set_digest_for_test(const digest_fn fn) { g_digest_override = fn; }
+
 std::string token_store::generate_token(const int len) {
   constexpr std::size_t alphanum_size = sizeof(alphanum) - 1;
   if (len <= 0) return std::string();
@@ -84,6 +94,34 @@ std::string token_store::generate_token(const int len) {
   }
   return ret;
 }
+
+#ifdef USE_SSL
+bool token_store::has_hashing() { return true; }
+
+std::string token_store::hash_token(const std::string &in) {
+  if (g_digest_override != nullptr) return g_digest_override(in);
+  unsigned char md[EVP_MAX_MD_SIZE];
+  unsigned int md_len = 0;
+  EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+  if (ctx == nullptr) return std::string();
+  const bool ok =
+      EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr) == 1 && EVP_DigestUpdate(ctx, in.data(), in.size()) == 1 && EVP_DigestFinal_ex(ctx, md, &md_len) == 1;
+  EVP_MD_CTX_free(ctx);
+  if (!ok) return std::string();
+  std::ostringstream oss;
+  oss << std::hex << std::setfill('0');
+  for (unsigned int i = 0; i < md_len; ++i) {
+    oss << std::setw(2) << static_cast<int>(md[i]);
+  }
+  return oss.str();
+}
+#else
+// No OpenSSL: no hash. The in-memory map falls back to keying by the raw
+// token (key_for), as it always did.
+bool token_store::has_hashing() { return false; }
+
+std::string token_store::hash_token(const std::string &in) { return g_digest_override != nullptr ? g_digest_override(in) : std::string(); }
+#endif
 
 // `grants` is guarded by the same mutex as `tokens`: add_user / add_grant run
 // from the settings load path while can() is on the per-request authorisation

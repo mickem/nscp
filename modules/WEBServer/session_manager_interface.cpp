@@ -264,13 +264,14 @@ bool session_manager_interface::store_user_in_response(const std::string &user, 
   }
   const std::string token = tokens.generate_for(user);
   if (token.empty()) {
-    // generate_for only returns empty when the CSPRNG failed. token_store
-    // deliberately has no logging of its own (nor do grant_store /
-    // user_manager) - this is the layer that reports, and refusing here is
-    // what makes the fail-closed contract in generate_token() meaningful.
+    // generate_for only returns empty when the CSPRNG failed, or the SHA-256
+    // the token is stored under did. token_store deliberately has no logging
+    // of its own (nor do grant_store / user_manager) - this is the layer that
+    // reports, and refusing here is what makes the fail-closed contract in
+    // generate_token() meaningful.
     NSC_LOG_ERROR(
-        "SECURITY: refused to issue a session token because the cryptographic RNG (RAND_bytes) failed. No session was "
-        "created. Authentication will keep failing until the OpenSSL RNG is usable again.");
+        "SECURITY: refused to issue a session token because OpenSSL failed (the cryptographic RNG or the SHA-256 digest). No session was "
+        "created. Authentication will keep failing until OpenSSL is usable again.");
     return false;
   }
   // setContext, not setCookie: this is request-scoped state for the
