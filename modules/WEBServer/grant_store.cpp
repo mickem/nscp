@@ -13,6 +13,11 @@ void grant_store::add_role(const std::string &role, const std::string &grant) {
 
 void grant_store::add_user(const std::string &user, const std::string &role) { users[user] = role; }
 
+std::string grant_store::get_role(const std::string &user) const {
+  const auto it = users.find(user);
+  return it == users.end() ? std::string() : it->second;
+}
+
 void grant_store::remove_role(const std::string &role) { roles.erase(role); }
 
 void grant_store::remove_user(const std::string &uid) { users.erase(uid); }
@@ -22,7 +27,7 @@ void grant_store::clear() {
   users.clear();
 }
 
-bool grant_store::validate(const std::string &uid, const std::string &check) {
+bool grant_store::validate(const std::string &uid, const std::string &check) const {
   std::list<std::string> need = str::utils::split_lst(check, ".");
   const grants g = fetch_role(uid);
   for (const std::string &rule : g.rules) {
@@ -34,12 +39,17 @@ bool grant_store::validate(const std::string &uid, const std::string &check) {
   return false;
 }
 
-grants grant_store::fetch_role(const std::string &uid) {
-  const std::string role = users[uid];
+grants grant_store::fetch_role(const std::string &uid) const {
+  // find(), not the subscript: `users[uid]` inserted an empty role for every
+  // uid it was ever asked about, so each permission check for an unknown user
+  // grew the map for the lifetime of the process - and made a lookup mutate
+  // the store, which is why this could not be const.
+  const std::string role = get_role(uid);
   if (role.empty()) {
     return {};
   }
-  return roles[role];
+  const auto it = roles.find(role);
+  return it == roles.end() ? grants() : it->second;
 }
 
 bool grant_store::validate_grants(std::list<std::string> &grant, std::list<std::string> &need) {

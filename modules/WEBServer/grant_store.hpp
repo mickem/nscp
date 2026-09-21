@@ -17,14 +17,18 @@ class grant_store {
  public:
   void add_role(const std::string &role, const std::string &grant);
   void add_user(const std::string &user, const std::string &role);
+  // The role a user is mapped to, or "" when the user has none. The session
+  // layer needs it to build a user's credential fingerprint, and a lookup is
+  // cheaper (and cannot drift) than a second copy of the mapping.
+  std::string get_role(const std::string &user) const;
   void remove_role(const std::string &role);
   void remove_user(const std::string &uid);
   void clear();
 
-  bool validate(const std::string &uid, const std::string &check);
+  bool validate(const std::string &uid, const std::string &check) const;
 
  private:
   typedef std::list<std::string> grant_list;
-  grants fetch_role(const std::string &uid);
+  grants fetch_role(const std::string &uid) const;
   static bool validate_grants(grant_list &grant, grant_list &need);
 };

@@ -48,6 +48,13 @@ void storage_query_handler::parse_put(const long long plugin_id, const PB::Stora
     plugin_name = plugin->get_alias_or_name();
   }
   storage_->put(plugin_name, q.entry());
+  // A plugin asking for a flush wants this entry on disk now rather than at
+  // the next shutdown, because a kill or a power loss in between would lose
+  // it. save() is serialised against other savers and takes only a read lock
+  // on the store, so this is safe to call from a plugin's own thread.
+  if (q.flush()) {
+    storage_->save();
+  }
 }
 
 plugin_cache_item storage_query_handler::inventory_plugin_on_disk(nsclient::core::plugin_cache::plugin_cache_list_type &list, std::string plugin) {
