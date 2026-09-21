@@ -326,9 +326,10 @@ TEST(TokenStoreTest, HashTokenIsStableAndDistinct) {
 // In a hashing build the map key is the hash. If the digest ever fails, the
 // only wrong things to do are to store the raw token (a key no later lookup
 // would hash to - the client holds a credential that 403s until it expires
-// and that revoke() cannot find) or to store under "" (every tokenless
-// request would match). The right thing is what a failed RNG already does:
-// refuse to mint.
+// and that revoke() cannot find) or to store under "", which is not a key any
+// token maps to: while the digest stays down every lookup in the store
+// resolves to that one entry, and once it recovers nothing reaches it again.
+// The right thing is what a failed RNG already does: refuse to mint.
 
 namespace {
 std::string failing_digest(const std::string &) { return std::string(); }
@@ -378,6 +379,33 @@ TEST(TokenStoreTest, TheMapIsKeyedByWhatTheDigestReturns) {
   ASSERT_NE(first, second);
   EXPECT_EQ(store.get_user(first), "second");
   EXPECT_EQ(store.get_user("anything"), "second");
+}
+
+TEST(TokenStoreTest, TheDigestSeamEngagesInEveryBuild) {
+  // No has_hashing() guard, and that is the point: an installed seam IS this
+  // build's hash function, so the store keys by what the seam returns whether
+  // or not OpenSSL is present. Before has_hashing() accounted for the
+  // override, key_for() skipped hash_token() in a no-OpenSSL build and
+  // set_digest_for_test was a silent no-op there.
+  token_store store;
+  const scoped_digest_override guard(constant_digest);
+  ASSERT_TRUE(token_store::has_hashing()) << "an installed digest seam is a hash function";
+  const std::string token = store.generate_for("seam_user");
+  ASSERT_FALSE(token.empty());
+  EXPECT_EQ(token_store::key_for(token), constant_digest(token)) << "the key is not what the seam returned";
+  EXPECT_NE(token_store::key_for(token), token) << "the map is keyed by the raw token";
+  // The constant digest collapses every token onto one key, so any string at
+  // all resolves to the single session - proof the lookups hash too.
+  EXPECT_EQ(store.get_user("anything at all"), "seam_user");
+}
+
+TEST(TokenStoreTest, DigestFailureFailsClosedInEveryBuild) {
+  // Same reasoning for the fail-closed path: with the seam installed before
+  // the mint, generate_for refuses in any build.
+  token_store store;
+  const scoped_digest_override guard(failing_digest);
+  ASSERT_TRUE(token_store::has_hashing());
+  EXPECT_TRUE(store.generate_for("test_user").empty()) << "a session was minted without a usable key";
 }
 
 TEST(TokenStoreTest, RevokeByRawTokenRemovesTheHashedEntry) {

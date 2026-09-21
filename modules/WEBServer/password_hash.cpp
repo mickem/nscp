@@ -3,6 +3,8 @@
 
 #include "password_hash.hpp"
 
+#include "sha256.hpp"
+
 #ifdef USE_SSL
 #include <openssl/evp.h>
 #include <openssl/rand.h>
@@ -11,7 +13,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <iomanip>
 #include <sstream>
 #include <str/constant_time.hpp>
 #include <vector>
@@ -22,15 +23,6 @@ constexpr int kPbkdf2Iterations = 100000;
 constexpr int kPbkdf2HashBytes = 32;
 constexpr int kPbkdf2SaltBytes = 16;
 constexpr const char* kPbkdf2Prefix = "pbkdf2-sha256$";
-
-std::string to_hex(const unsigned char* data, std::size_t len) {
-  std::ostringstream oss;
-  oss << std::hex << std::setfill('0');
-  for (std::size_t i = 0; i < len; ++i) {
-    oss << std::setw(2) << static_cast<int>(data[i]);
-  }
-  return oss.str();
-}
 
 bool from_hex(const std::string& hex, std::vector<unsigned char>& out) {
   if (hex.size() % 2 != 0) return false;
@@ -60,7 +52,7 @@ std::string hash_password(const std::string& password) {
     return std::string();
   }
   std::ostringstream oss;
-  oss << kPbkdf2Prefix << kPbkdf2Iterations << "$" << to_hex(salt, sizeof(salt)) << "$" << to_hex(out, sizeof(out));
+  oss << kPbkdf2Prefix << kPbkdf2Iterations << "$" << web_digest::to_hex(salt, sizeof(salt)) << "$" << web_digest::to_hex(out, sizeof(out));
   return oss.str();
 }
 

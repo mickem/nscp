@@ -3,6 +3,7 @@
 
 #include "web_installer.hpp"
 
+#include "sha256.hpp"
 #include "upload_staging.hpp"
 #include "web_installer_detail.hpp"
 
@@ -16,11 +17,6 @@
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/json.hpp>
-
-#ifdef USE_SSL
-#include <openssl/evp.h>
-#include <openssl/sha.h>
-#endif
 
 #include <chrono>
 #include <cstring>
@@ -210,20 +206,13 @@ bool http_get(const std::string& ca_path, std::string url, std::string& body, st
 }
 
 #ifdef USE_SSL
+// Throws rather than returning "" like web_digest::sha256_hex: install()
+// treats any failure of the integrity check as a refusal to install, and a
+// hash that came back empty must never be compared against the expected one.
 std::string sha256_hex(const std::string& bytes) {
-  unsigned char digest[SHA256_DIGEST_LENGTH];
-  EVP_MD_CTX* ctx = EVP_MD_CTX_new();
-  if (!ctx) throw std::runtime_error("EVP_MD_CTX_new failed");
-  if (EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr) != 1 ||
-      EVP_DigestUpdate(ctx, bytes.data(), bytes.size()) != 1 ||
-      EVP_DigestFinal_ex(ctx, digest, nullptr) != 1) {
-    EVP_MD_CTX_free(ctx);
-    throw std::runtime_error("SHA-256 digest failed");
-  }
-  EVP_MD_CTX_free(ctx);
-  std::ostringstream oss;
-  for (const unsigned char c : digest) oss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
-  return oss.str();
+  const std::string hex = web_digest::sha256_hex(bytes);
+  if (hex.empty()) throw std::runtime_error("SHA-256 digest failed");
+  return hex;
 }
 #else
 // This build has no OpenSSL, so the bundle integrity check can't run. Fail

@@ -3,13 +3,12 @@
 
 #include "token_store.hpp"
 
-#include <iomanip>
+#include "sha256.hpp"
+
 #include <random>
-#include <sstream>
 #include <vector>
 
 #ifdef USE_SSL
-#include <openssl/evp.h>
 #include <openssl/rand.h>
 #endif
 
@@ -95,33 +94,21 @@ std::string token_store::generate_token(const int len) {
   return ret;
 }
 
-#ifdef USE_SSL
-bool token_store::has_hashing() { return true; }
+bool token_store::has_hashing() {
+  // A digest installed by set_digest_for_test() is a hash function this build
+  // has, whatever OpenSSL did or did not supply. Without that second term
+  // key_for() would skip hash_token() in a no-OpenSSL build and the seam
+  // would be a silent no-op there - functional-looking in one build only.
+  return web_digest::has_sha256() || g_digest_override != nullptr;
+}
 
 std::string token_store::hash_token(const std::string &in) {
   if (g_digest_override != nullptr) return g_digest_override(in);
-  unsigned char md[EVP_MAX_MD_SIZE];
-  unsigned int md_len = 0;
-  EVP_MD_CTX *ctx = EVP_MD_CTX_new();
-  if (ctx == nullptr) return std::string();
-  const bool ok =
-      EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr) == 1 && EVP_DigestUpdate(ctx, in.data(), in.size()) == 1 && EVP_DigestFinal_ex(ctx, md, &md_len) == 1;
-  EVP_MD_CTX_free(ctx);
-  if (!ok) return std::string();
-  std::ostringstream oss;
-  oss << std::hex << std::setfill('0');
-  for (unsigned int i = 0; i < md_len; ++i) {
-    oss << std::setw(2) << static_cast<int>(md[i]);
-  }
-  return oss.str();
+  // "" in a build with no digest and no seam. has_hashing() is false in
+  // exactly that case, so key_for() keys by the raw token - as it always did -
+  // and never stores a key this produced.
+  return web_digest::sha256_hex(in);
 }
-#else
-// No OpenSSL: no hash. The in-memory map falls back to keying by the raw
-// token (key_for), as it always did.
-bool token_store::has_hashing() { return false; }
-
-std::string token_store::hash_token(const std::string &in) { return g_digest_override != nullptr ? g_digest_override(in) : std::string(); }
-#endif
 
 // `grants` is guarded by the same mutex as `tokens`: add_user / add_grant run
 // from the settings load path while can() is on the per-request authorisation
