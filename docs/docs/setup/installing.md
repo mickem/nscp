@@ -16,6 +16,12 @@ See [Supported platforms](supported-platforms.md) for the Windows and Linux vers
   - [Rocky / RHEL / Fedora-family](#rocky-rhel-fedora-family)
   - [Installing the web UI bundle](#installing-the-web-ui-bundle)
   - [Offline / air-gapped UI install](#offline-air-gapped-ui-install)
+- [Installing on macOS (.pkg)](#installing-on-macos-pkg)
+  - [What the installer does](#what-the-installer-does-macos)
+  - [Managing the service](#managing-the-service-macos)
+  - [File locations (macOS)](#file-locations-macos)
+  - [Uninstalling](#uninstalling-macos)
+  - [What is not in the macOS build yet](#what-is-not-in-the-macos-build-yet)
 - [Automated installation (Windows MSI)](#automated-installation-windows-msi)
   - [Basic command line](#basic-command-line)
   - [MSI Options](#msi-options)
@@ -213,6 +219,134 @@ sudo nscp web install-ui --from /tmp/NSCP-Web-<version>.zip
 When a sibling `.zip.sha256` (or `<basename>.sha256`) is present next to the
 zip, the installer verifies it. Without one, it skips verification and prints
 a warning — you opted into trusting a local path.
+
+## Installing on macOS (.pkg)
+
+<!-- @formatter:off -->
+!!! warning "Preview"
+    The macOS build is new and ships a smaller set of check modules than the
+    Windows and Linux builds. Read [What is not in the macOS build
+    yet](#what-is-not-in-the-macos-build-yet) before deploying it.
+<!-- @formatter:on -->
+
+macOS builds are **Apple silicon (arm64) only** and are distributed as a
+standard installer package, `NSCP-<version>-macos-arm64.pkg`, on the
+[releases page](https://github.com/mickem/nscp/releases). The package is
+self-contained: everything it links against is inside it, so the target Mac
+does not need Homebrew or any other prerequisite.
+
+```bash
+sudo installer -pkg NSCP-<version>-macos-arm64.pkg -target /
+```
+
+Double-clicking the package works too, but the release builds are **not signed
+or notarized** yet, so Gatekeeper will refuse the first attempt. Either install
+from the command line as above, or right-click the package and choose *Open*.
+
+<!-- @formatter:off -->
+!!! note
+    An Intel Mac will be refused by the installer rather than silently
+    installing something that cannot run. Rosetta 2 does not help: the package
+    contains arm64 code only.
+<!-- @formatter:on -->
+
+A plain `NSCP-<version>-macos-arm64.tar.gz` of the same install tree is published
+alongside it, for anyone who would rather unpack than install. Unlike the `.pkg` it is
+**not** self-contained - it expects the same Homebrew formulas the build used
+(`boost`, `openssl@3`, `protobuf`, `lua`, `libzip`, `tinyxml2`, `cryptopp`) -
+and it sets up no service, account or configuration. Use the `.pkg` unless you
+have a specific reason not to.
+
+### What the installer does {#what-the-installer-does-macos}
+
+1. Stops and unloads any running agent, so the payload does not overwrite a
+   binary that is currently mapped.
+2. Creates a hidden system account and group, `_nsclient`, with a UID in
+   Apple's 200-400 range for third-party daemons. The agent runs as that
+   account, not as root.
+3. Lays down the program files under `/usr/local` and the launchd job
+   description in `/Library/LaunchDaemons`.
+4. Hands the writable directories (state, logs) to `_nsclient`, and locks
+   `nsclient.ini` down to `root:_nsclient` mode `0640` - it holds the web admin
+   password and the NRPE/NSCA credentials in plaintext.
+5. Loads and starts the launchd job, which also makes it start at boot.
+
+As on Linux, the web UI is a separate download; the installer prints a reminder.
+
+```bash
+sudo /usr/local/sbin/nscp web install-ui
+```
+
+### Managing the service {#managing-the-service-macos}
+
+macOS has no `systemctl`. The equivalent commands are:
+
+| What                | Command                                                            |
+|---------------------|--------------------------------------------------------------------|
+| Status              | `sudo launchctl print system/com.nsclient.nscp`                     |
+| Restart             | `sudo launchctl kickstart -k system/com.nsclient.nscp`              |
+| Stop (until reboot) | `sudo launchctl kill SIGTERM system/com.nsclient.nscp`              |
+| Stop and disable    | `sudo launchctl bootout system/com.nsclient.nscp`                   |
+| Start again         | `sudo launchctl bootstrap system /Library/LaunchDaemons/com.nsclient.nscp.plist` |
+
+`launchctl print` reports `state = running` when the agent is up. If the job is
+loaded but keeps restarting, the agent is failing at startup: look at
+`/usr/local/var/log/nsclient/nsclient.log` first, and at
+`/usr/local/var/log/nsclient/launchd.err.log` for anything that happened before
+the logger existed (a module that failed to load, a configuration file it could
+not read).
+
+### File locations (macOS) {#file-locations-macos}
+
+The prefix is `/usr/local`, because macOS mounts the system volume read-only and
+reserves `/usr` for the OS. The layout underneath mirrors the Linux packages:
+
+| What                 | Location                                                |
+|----------------------|---------------------------------------------------------|
+| Daemon               | `/usr/local/sbin/nscp`                                  |
+| Uninstaller          | `/usr/local/sbin/uninstall-nsclient`                    |
+| Check modules        | `/usr/local/lib/nsclient/modules`                       |
+| Private libraries    | `/usr/local/lib/nsclient`                               |
+| Scripts / web        | `/usr/local/lib/nsclient/{scripts,web}`                 |
+| Shipped certificates | `/usr/local/lib/nsclient/security`                      |
+| Configuration        | `/usr/local/etc/nsclient`                               |
+| State / cache        | `/usr/local/var/lib/nsclient`                           |
+| Logs                 | `/usr/local/var/log/nsclient`                           |
+| launchd job          | `/Library/LaunchDaemons/com.nsclient.nscp.plist`        |
+
+### Uninstalling {#uninstalling-macos}
+
+An installer package has no uninstall verb, so one ships in the payload:
+
+```bash
+sudo /usr/local/sbin/uninstall-nsclient            # keep configuration and logs
+sudo /usr/local/sbin/uninstall-nsclient --purge    # remove them, and the account
+```
+
+### What is not in the macOS build yet
+
+Three modules are not built for macOS, because their data sources are Linux
+kernel interfaces rather than portable code:
+
+| Module            | Why                                                                     | Checks affected                                     |
+|-------------------|-------------------------------------------------------------------------|-----------------------------------------------------|
+| `CheckSystem`     | Reads procfs (`/proc/stat`, `/proc/meminfo`, `/proc/<pid>`), which Darwin does not have | `check_cpu`, `check_memory`, `check_process`, `check_uptime`, `check_service`, `check_network`, ... |
+| `CheckDisk`       | Enumerates mounts through `<mntent.h>` and reads `/proc/diskstats`       | `check_drivesize`, `check_files`, `check_disk_io`    |
+| `CheckLogFile`    | Watches files with `inotify`                                             | `check_logfile`                                      |
+
+Everything else is present: the REST API and web server, NRPE/NSCA/NSCP/check_mk
+listeners and clients, `CheckHelpers`, `CheckExternalScripts`, `CheckNet`,
+`CheckSecurity`, `CheckDocker`, the Lua and Python script engines, the
+scheduler, and the Graphite/Elastic/Syslog/SMTP/collectd forwarders.
+
+Two smaller gaps:
+
+* The bundled `check_nsclient` plugin is not shipped, because
+  [mickem/check_nsclient](https://github.com/mickem/check_nsclient) publishes
+  Linux and Windows binaries only.
+* `PythonScript` and `CheckMySQL` are not built, because the macOS CI job does
+  not install Boost.Python or the MariaDB connector. They build from source if
+  you provide those.
 
 ## Automated installation (Windows MSI)
 

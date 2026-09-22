@@ -303,14 +303,17 @@ macro(NSCP_INSTALL_MODULE _TARGET)
             ARCHIVE
                 DESTINATION ${_FOLDER}
         )
-    elseif(APPLE)
-        set(_FOLDER ${MODULE_SUBFOLDER})
-        install(TARGETS ${_TARGET} LIBRARY DESTINATION ${_FOLDER})
     else()
+        # macOS used to have its own branch here, installing into a bare
+        # "modules" folder with no RPATH at all - which predates the
+        # prefix-derived layout and left a macOS build unable to find its own
+        # private libraries. It follows the same layout as every other unix now;
+        # only the RPATH token differs (@loader_path vs $ORIGIN), and that is
+        # already baked into NSCP_RPATH_MODULE.
         set(_FOLDER ${MODULE_TARGET_FOLDER})
         # Modules sit in NSCP_PKGLIBDIR/modules and load the project's private
-        # shared libraries from NSCP_PKGLIBDIR one directory up. Carry an
-        # $ORIGIN-relative RPATH so they resolve regardless of install prefix.
+        # shared libraries from NSCP_PKGLIBDIR one directory up. Carry a
+        # loader-relative RPATH so they resolve regardless of install prefix.
         set_target_properties(
             ${_TARGET}
             PROPERTIES
@@ -319,30 +322,35 @@ macro(NSCP_INSTALL_MODULE _TARGET)
         )
         install(TARGETS ${_TARGET} LIBRARY DESTINATION ${_FOLDER})
     endif()
+    # Where the module lands in the *build* tree (the install destination is
+    # above). BUILD_TARGET_LIB_PATH, not BUILD_TARGET_ROOT_PATH/${_FOLDER}: on
+    # unix _FOLDER is the absolute install path now, and concatenating the two
+    # would drop the modules at <build>//usr/local/lib/nsclient/modules. It is
+    # the same directory as before on MSVC, where _FOLDER is "modules".
     if(MSVC11 OR MSVC12 OR MSVC13 OR MSVC14 OR APPLE)
         set_target_properties(
             ${TARGET}
             PROPERTIES
                 LIBRARY_OUTPUT_DIRECTORY
-                    ${BUILD_TARGET_ROOT_PATH}/${_FOLDER}
+                    ${BUILD_TARGET_LIB_PATH}
         )
         set_target_properties(
             ${TARGET}
             PROPERTIES
                 LIBRARY_OUTPUT_DIRECTORY_DEBUG
-                    ${BUILD_TARGET_ROOT_PATH}/${_FOLDER}
+                    ${BUILD_TARGET_LIB_PATH}
         )
         set_target_properties(
             ${TARGET}
             PROPERTIES
                 LIBRARY_OUTPUT_DIRECTORY_RELEASE
-                    ${BUILD_TARGET_ROOT_PATH}/${_FOLDER}
+                    ${BUILD_TARGET_LIB_PATH}
         )
         set_target_properties(
             ${TARGET}
             PROPERTIES
                 LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO
-                    ${BUILD_TARGET_ROOT_PATH}/${_FOLDER}
+                    ${BUILD_TARGET_LIB_PATH}
         )
     endif()
 endmacro()
@@ -476,7 +484,7 @@ macro(NSCP_MAKE_EXE _TARGET _SRCS _FOLDER)
             ${_TARGET}
             PROPERTIES
                 INSTALL_RPATH
-                    "$ORIGIN/${_NSCP_EXE_TO_PKGLIB}"
+                    "${NSCP_RPATH_ORIGIN}/${_NSCP_EXE_TO_PKGLIB}"
         )
         install(TARGETS ${_TARGET} RUNTIME DESTINATION ${_FOLDER})
     endif()

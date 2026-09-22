@@ -1,0 +1,40 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2004-2026 Michael Medin
+# SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
+#
+# Runs before the payload is laid down, on install and on upgrade alike (a .pkg
+# has no separate upgrade path - it always overwrites).
+#
+# Its only job is to get the running agent out of the way. Installer writes over
+# @NSCP_SBINDIR@/nscp and every module under @NSCP_PKGLIBDIR@ while the old
+# process still has them mapped; on macOS that does not fail, it succeeds and
+# leaves a running daemon whose text pages no longer match the files on disk.
+# The next module it dlopens is from the new build against the old core.
+set -e
+
+LABEL="@NSCP_LAUNCHD_LABEL@"
+
+if [ -f "/Library/LaunchDaemons/${LABEL}.plist" ]; then
+    # bootout is the modern spelling; it fails harmlessly when the job is
+    # loaded but already stopped, and when it is not loaded at all. Neither is
+    # an error worth failing an install over, hence the guard - `set -e` would
+    # otherwise abort the installation of a package onto a machine where the
+    # operator had simply stopped the service first.
+    launchctl bootout "system/${LABEL}" 2>/dev/null || true
+
+    # bootout is asynchronous: it returns once launchd has accepted the request,
+    # not once the process is gone. Give the agent a few seconds to finish its
+    # shutdown (it has listeners to close and a settings store to flush) before
+    # the payload starts overwriting it.
+    n=0
+    while launchctl print "system/${LABEL}" >/dev/null 2>&1; do
+        n=$((n + 1))
+        if [ $n -ge 20 ]; then
+            echo "NSClient++: ${LABEL} did not stop within 10s; continuing anyway." >&2
+            break
+        fi
+        sleep 0.5
+    done
+fi
+
+exit 0

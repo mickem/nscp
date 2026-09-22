@@ -184,6 +184,41 @@ if(NOT WIN32)
         set(NSCP_SYSTEMD_UNITDIR "/lib/systemd/system")
     endif()
 
+    # macOS has no systemd. launchd runs the daemon from a property list, and
+    # only ever looks in /Library/LaunchDaemons and /System/Library/LaunchDaemons
+    # for one - so unlike the systemd unit directory this is fixed by the OS
+    # rather than derived from the install prefix, and relocating it would mean
+    # the job is simply never loaded.
+    if(NOT NSCP_LAUNCHD_DAEMONDIR)
+        set(NSCP_LAUNCHD_DAEMONDIR "/Library/LaunchDaemons")
+    endif()
+
+    # The launchd job label, in reverse-DNS form. This is one value and not
+    # three spellings on purpose: it names the plist file, it is the <key>Label</key>
+    # inside it, and it is the handle every launchctl subcommand takes
+    # (`sudo launchctl kickstart -k system/com.nsclient.nscp`).
+    if(NOT NSCP_LAUNCHD_LABEL)
+        set(NSCP_LAUNCHD_LABEL "com.nsclient.nscp")
+    endif()
+
+    # The installer package identifier. This is the key the macOS receipt
+    # database files the installation under, so it is what `pkgutil --pkgs`
+    # lists, what `pkgutil --forget` takes, and what makes a later .pkg an
+    # upgrade of this one rather than a second, parallel installation. It must
+    # never change between releases.
+    if(NOT NSCP_PKG_IDENTIFIER)
+        set(NSCP_PKG_IDENTIFIER "com.nsclient.nscp")
+    endif()
+
+    # The service account. Darwin convention prefixes system accounts with an
+    # underscore (_www, _spotlight), and Directory Service hides those from the
+    # login window; the Linux packages use the unprefixed "nsclient".
+    if(APPLE)
+        set(NSCP_SERVICE_USER "_nsclient")
+    else()
+        set(NSCP_SERVICE_USER "nsclient")
+    endif()
+
     # Map the historical *_TARGET_FOLDER install-destination variables (defined
     # above as Windows/fallback defaults) onto the prefix-derived NSCP_* values.
     # These are absolute now, so they ignore CMAKE_INSTALL_PREFIX at install
@@ -191,21 +226,33 @@ if(NOT WIN32)
     set(MODULE_TARGET_FOLDER "${NSCP_PKGLIBDIR}/modules")
     set(LIB_TARGET_FOLDER "${NSCP_PKGLIBDIR}") # Phase 2b: private libs next to modules
     set(SYSTEMD_TARGET_FOLDER "${NSCP_SYSTEMD_UNITDIR}")
+    set(LAUNCHD_TARGET_FOLDER "${NSCP_LAUNCHD_DAEMONDIR}")
     set(SBIN_TARGET_FOLDER "${NSCP_SBINDIR}")
     set(BIN_TARGET_FOLDER "${NSCP_BINDIR}")
     set(LOG_TARGET_FOLDER "${NSCP_LOGDIR}")
     set(ETC_TARGET_FOLDER "${NSCP_SYSCONFDIR}")
 
-    # $ORIGIN-relative RPATHs so the private libraries resolve regardless of
+    # Loader-relative RPATHs so the private libraries resolve regardless of
     # prefix. Executables derive theirs per-target in NSCP_MAKE_EXE (sbin and
     # bin are both one level under the prefix). Modules live in
     # NSCP_PKGLIBDIR/modules, so the libraries sit one dir up.
-    set(NSCP_RPATH_MODULE "$ORIGIN/..")
+    #
+    # The two linkers spell "the directory of the object doing the loading"
+    # differently - ELF says $ORIGIN, Mach-O says @loader_path - so it is a
+    # variable and everything else composes from it. Getting this wrong on
+    # macOS is not a warning: dyld treats $ORIGIN as a literal directory name,
+    # finds nothing, and every module fails to load.
+    if(APPLE)
+        set(NSCP_RPATH_ORIGIN "@loader_path")
+    else()
+        set(NSCP_RPATH_ORIGIN "$ORIGIN")
+    endif()
+    set(NSCP_RPATH_MODULE "${NSCP_RPATH_ORIGIN}/..")
     # The private libraries are co-located in NSCP_PKGLIBDIR; their inter-deps
-    # resolve via $ORIGIN. This is required because modern toolchains emit
-    # DT_RUNPATH (not the deprecated, transitive DT_RPATH), so each object must
-    # carry an RPATH covering its own direct dependencies.
-    set(NSCP_RPATH_LIB "$ORIGIN")
+    # resolve via the loader-relative RPATH. This is required because modern
+    # toolchains emit DT_RUNPATH (not the deprecated, transitive DT_RPATH), so
+    # each object must carry an RPATH covering its own direct dependencies.
+    set(NSCP_RPATH_LIB "${NSCP_RPATH_ORIGIN}")
 endif()
 
 # Where the managed .NET files (libs/dotnet-plugin-api, the C# sample) are
@@ -893,10 +940,17 @@ if(WIN32)
 endif(WIN32)
 
 if(CMAKE_HOST_UNIX)
+    # Darwin is a unix host but it is not Linux, and -DLINUX on a macOS build
+    # would be a claim the /proc-reading code would be entitled to believe.
+    if(APPLE)
+        set(_NSCP_DEFAULT_UNIX_FLAVOUR MACOSX)
+    else()
+        set(_NSCP_DEFAULT_UNIX_FLAVOUR LINUX)
+    endif()
     set(UNIX_FLAVOUR
-        LINUX
+        ${_NSCP_DEFAULT_UNIX_FLAVOUR}
         CACHE STRING
-        "Choose your unix flavour UNIX, AIX, HPUX"
+        "Choose your unix flavour UNIX, MACOSX, AIX, HPUX"
         FORCE
     )
     if(UNIX_FLAVOUR STREQUAL LINUX)
@@ -1533,6 +1587,117 @@ if(WIN32)
     set(CPACK_GENERATOR ZIP)
     set(CPACK_PACKAGE_FILE_NAME
         "NSCP-${CPACK_PACKAGE_VERSION}-${VERSION_ARCH}${RELEASE_SUFFIX}"
+    )
+elseif(APPLE)
+    # No DEB/RPM here: dpkg-deb and rpmbuild are not on a macOS runner, and the
+    # native installer is not a CPack generator we drive. The .pkg is built from
+    # a DESTDIR staging tree by pkgbuild/productbuild in
+    # .github/workflows/build-macos.yml, because the dylib bundling pass
+    # (packaging/macos/bundle_dylibs.sh) has to run between `make install` and
+    # the package being sealed. What CPack still produces is the relocatable
+    # tarball, for anyone who would rather unpack than install.
+    set(CPACK_GENERATOR "TGZ")
+    set(CPACK_PACKAGE_FILE_NAME
+        "NSCP-${CPACK_PACKAGE_VERSION}-macos-${CMAKE_SYSTEM_PROCESSOR}"
+    )
+    set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY TRUE)
+    set(CPACK_PACKAGING_INSTALL_PREFIX "/")
+
+    # Values the product archive needs and CMake is the only thing that knows.
+    #
+    # Deployment target: whatever the build was configured with. The workflow
+    # passes one explicitly; a developer running plain `cmake` gets the host's
+    # own version, which is right for a local build and wrong to ship, so the
+    # fallback only exists to keep the template renderable.
+    if(CMAKE_OSX_DEPLOYMENT_TARGET)
+        set(NSCP_MACOS_DEPLOYMENT_TARGET "${CMAKE_OSX_DEPLOYMENT_TARGET}")
+    else()
+        set(NSCP_MACOS_DEPLOYMENT_TARGET "13.0")
+    endif()
+    # The architectures the installer will accept. CMAKE_OSX_ARCHITECTURES is a
+    # CMake list (semicolon-separated) and the distribution wants a comma list,
+    # which is also how a universal binary would be spelled here.
+    if(CMAKE_OSX_ARCHITECTURES)
+        string(
+            REPLACE ";"
+            ","
+            NSCP_PKG_HOST_ARCHS
+            "${CMAKE_OSX_ARCHITECTURES}"
+        )
+    else()
+        set(NSCP_PKG_HOST_ARCHS "${CMAKE_SYSTEM_PROCESSOR}")
+    endif()
+    # The component package productbuild wraps. Named, not globbed, so a stale
+    # .pkg left in the build directory cannot end up in the product archive.
+    set(NSCP_PKG_COMPONENT_FILE
+        "NSCP-${NSCP_FULL_VERSION}-macos-${CMAKE_SYSTEM_PROCESSOR}-component.pkg"
+    )
+    # What ships. Named here rather than in the workflow so the distribution's
+    # pkg-ref and the file productbuild is told to read cannot disagree.
+    set(NSCP_PKG_PRODUCT_FILE
+        "NSCP-${NSCP_FULL_VERSION}-macos-${CMAKE_SYSTEM_PROCESSOR}.pkg"
+    )
+
+    # The launchd job description and the installer scripts all name install
+    # paths, so they are templated with the same NSCP_* values the install()
+    # rules use rather than baked to a prefix. They are not consumed by CPack -
+    # pkgbuild takes them from the build tree - but they are generated here so
+    # a plain `cmake && make` produces a complete, consistent set.
+    configure_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/files/macos/preinstall.sh.in
+        ${PROJECT_BINARY_DIR}/files/macos/scripts/preinstall
+        @ONLY
+    )
+    configure_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/files/macos/postinstall.sh.in
+        ${PROJECT_BINARY_DIR}/files/macos/scripts/postinstall
+        @ONLY
+    )
+    configure_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/files/macos/uninstall.sh.in
+        ${PROJECT_BINARY_DIR}/files/macos/uninstall-nsclient
+        @ONLY
+    )
+    configure_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/files/macos/distribution.xml.in
+        ${PROJECT_BINARY_DIR}/files/macos/distribution.xml
+        @ONLY
+    )
+    # The same values the templates above were rendered with, in a form the
+    # packaging step can read. build-macos.yml sources this rather than
+    # repeating the identifier and the install prefix in YAML, where they would
+    # drift from CMake the first time either is changed.
+    configure_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/files/macos/pkg.env.in
+        ${PROJECT_BINARY_DIR}/files/macos/pkg.env
+        @ONLY
+    )
+    # pkgbuild refuses a scripts directory whose entries are not executable, and
+    # configure_file copies the source file's mode - which git does not track
+    # for a .in template the same way. Set it explicitly.
+    file(
+        CHMOD
+        ${PROJECT_BINARY_DIR}/files/macos/scripts/preinstall
+        ${PROJECT_BINARY_DIR}/files/macos/scripts/postinstall
+        ${PROJECT_BINARY_DIR}/files/macos/uninstall-nsclient
+        PERMISSIONS
+            OWNER_READ
+            OWNER_WRITE
+            OWNER_EXECUTE
+            GROUP_READ
+            GROUP_EXECUTE
+            WORLD_READ
+            WORLD_EXECUTE
+    )
+
+    # The uninstaller is part of the payload: a .pkg has no uninstall verb, so
+    # without a shipped script the only way off the machine is for the operator
+    # to reconstruct the file list by hand.
+    install(
+        PROGRAMS
+            ${PROJECT_BINARY_DIR}/files/macos/uninstall-nsclient
+        DESTINATION ${NSCP_SBINDIR}
+        COMPONENT runtime
     )
 else()
     set(CPACK_GENERATOR "ZIP;DEB;RPM")

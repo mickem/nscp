@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SPDX-FileCopyrightText: 2004-2026 Michael Medin
+  SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
+
+  productbuild distribution for the NSClient++ installer.
+
+  pkgbuild alone produces a component package, which installs fine but shows no
+  licence, states no requirements, and will happily run on hardware it was not
+  built for. Wrapping it in a product archive is what gives the installer its
+  title, its licence pane and - the reason this file exists - a host requirement
+  that stops an arm64 build from being installed on an Intel Mac, where it would
+  install cleanly and then fail to launch with a dyld error.
+-->
+<installer-gui-script minSpecVersion="2">
+    <title>NSClient++ @NSCP_FULL_VERSION@</title>
+    <organization>@NSCP_PKG_IDENTIFIER@</organization>
+    <license file="license.txt" mime-type="text/plain"/>
+
+    <!--
+      hostArchitectures is the arm64 gate. allowed-os-versions matches the
+      oldest macOS the build's deployment target supports; installing on
+      anything older would fail at load time on missing libc++ symbols rather
+      than here, where the message is legible.
+    -->
+    <options customize="never" require-scripts="true" hostArchitectures="@NSCP_PKG_HOST_ARCHS@"/>
+    <volume-check>
+        <allowed-os-versions>
+            <os-version min="@NSCP_MACOS_DEPLOYMENT_TARGET@"/>
+        </allowed-os-versions>
+    </volume-check>
+
+    <!-- A system daemon: it installs into the system prefix and needs root. -->
+    <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
+
+    <choices-outline>
+        <line choice="default">
+            <line choice="@NSCP_PKG_IDENTIFIER@"/>
+        </line>
+    </choices-outline>
+    <choice id="default"/>
+    <choice id="@NSCP_PKG_IDENTIFIER@" visible="false">
+        <pkg-ref id="@NSCP_PKG_IDENTIFIER@"/>
+    </choice>
+    <pkg-ref id="@NSCP_PKG_IDENTIFIER@" version="@NSCP_FULL_VERSION@" onConclusion="none">@NSCP_PKG_COMPONENT_FILE@</pkg-ref>
+</installer-gui-script>

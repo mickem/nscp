@@ -68,6 +68,13 @@ jobs:
       with:
         name: NSCP-${{ inputs.version }}-rocky-10-arm64
 
+    # macOS arm64. The artifact is a directory (the .pkg plus the relocatable
+    # tarball), so it is unpacked into one and the paths below name both files.
+    - uses: actions/download-artifact@v7
+      with:
+        name: NSCP-${{ inputs.version }}-macos-arm64
+        path: macos
+
     - uses: actions/download-artifact@v7
       with:
         name: NSCP-${{ inputs.version }}-web
@@ -114,5 +121,7 @@ jobs:
           NSCP-${{ inputs.version }}-rocky-9-aarch64.rpm
           NSCP-${{ inputs.version }}-rocky-10-x86_64.rpm
           NSCP-${{ inputs.version }}-rocky-10-aarch64.rpm
+          macos/NSCP-${{ inputs.version }}-macos-arm64.pkg
+          macos/NSCP-${{ inputs.version }}-macos-arm64.tar.gz
           NSCP-Web-${{ inputs.version }}.zip
           NSCP-Web-${{ inputs.version }}.sha256
