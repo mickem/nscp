@@ -432,6 +432,29 @@ describe("metrics and real-time checks", () => {
     expect(text).not.toMatch(/^system_network_info\{[^}]*[a-z0-9]_status=/m);
   });
 
+  it("publishes no metric the renderer has to drop", async () => {
+    // A producer that publishes one thing twice - the same key under two
+    // spellings, or the same instance from two sources - costs the exposition
+    // a series and the log an error line per field on every single snapshot.
+    // The agent's own log is where that shows up, because the dropped metric
+    // is by definition not in the body: the JSON views keep whichever copy
+    // came first and say nothing.
+    //
+    // The live case was CheckSystem's network collector, which carries an
+    // adapter Win32_NetworkAdapter knows about in both its `interface` and
+    // its `adapter` list (what `check_network mode=` picks between) and used
+    // to hand both to the metrics bundle under one key.
+    await poll(
+      () => getText(key, "/api/v2/openmetrics"),
+      (t) => /^system_network_/m.test(t),
+    );
+    const complaints = nscp
+      .capturedStdout()
+      .split(/\r?\n/)
+      .filter((l) => /Dropping metric |(?:Ignoring|Rewriting) the unit /.test(l));
+    expect(complaints).toEqual([]);
+  });
+
   it("keeps the flat JSON keys exactly where they were", async () => {
     // The contract that makes the label sweep safe to ship: labels are
     // additive, and `key` stays authoritative for everyone who reads keys - the

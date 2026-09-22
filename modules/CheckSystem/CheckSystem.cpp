@@ -21,6 +21,7 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <set>
 #include <utility>
+#include <vector>
 #include <win/com_helpers.hpp>
 #include <win/pdh/pdh_enumerations.hpp>
 #include <win/services.hpp>
@@ -1531,8 +1532,32 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
   if (!net.empty()) {
     PB::Metrics::MetricsBundle *section = bundle->add_children();
     section->set_key("network");
+    // The collector reports one entry per (adapter, WMI source): an adapter
+    // that Win32_NetworkAdapter knows about is carried in both the
+    // `interface` and the `adapter` list, which is what `check_network
+    // mode=` picks between. Both spell the metric key `<adapter>.<field>`,
+    // so publishing both publishes one adapter twice - the JSON views keep
+    // whichever came first and drop the other silently, and the OpenMetrics
+    // renderer reports one "another metric already claimed that name" error
+    // per field on every single snapshot. Publish one entry per adapter -
+    // the first, which is exactly the one those views were already showing,
+    // except where it carries no counters and its twin does. The two perf
+    // classes name an adapter differently, so one of them having no row for
+    // it is the normal case, and publishing the metadata-only copy would
+    // hide readings the agent has taken.
+    std::map<std::string, const network_check::network_interface *> chosen;
+    std::vector<std::string> order;
     for (const network_check::nics_type::value_type &v : net) {
-      v.build_metrics(section);
+      const std::map<std::string, const network_check::network_interface *>::iterator it = chosen.find(v.get_name());
+      if (it == chosen.end()) {
+        chosen[v.get_name()] = &v;
+        order.push_back(v.get_name());
+      } else if (!it->second->has_prd && v.has_prd) {
+        it->second = &v;
+      }
+    }
+    for (const std::string &name : order) {
+      chosen[name]->build_metrics(section);
     }
   }
 
