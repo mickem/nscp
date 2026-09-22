@@ -1088,18 +1088,33 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
     else if (val.matches(path, "port"))
       port = val.get_string();
   }
-  bool want_https = !cert.empty();
+  // HTTPS is what install sets up unless the operator asks for cleartext with
+  // --insecure. It used to hinge on a `--https` bool_switch, and a bool_switch
+  // is stored as false when the flag is absent: a plain `nscp web install`
+  // therefore blanked `certificate`, never generated one, and (since the
+  // server stopped downgrading to cleartext on its own) left a WEB server that
+  // refused to start. The flag is still accepted so scripts keep working.
+  bool https_flag = false;
+  bool insecure = false;
 
   bool disable_admin = false;
 
   // clang-format off
   desc.add_options()("help", "Show help.")
       ("allowed-hosts,h", po::value<std::string>(&allowed_hosts)->default_value(allowed_hosts), "Set which hosts are allowed to connect")
-      ("certificate", po::value<std::string>(&cert)->default_value(cert), "Length of payload (has to be same as on the server)")
-      ("certificate-key", po::value<std::string>(&key)->default_value(key), "Client certificate to use")
+      ("certificate", po::value<std::string>(&cert)->default_value(cert),
+        "TLS certificate (PEM) the WEB server presents. The default, ${certificate-path}/certificate.pem, is generated as a "
+        "self-signed certificate (key and certificate in the one file) when it does not exist yet.")
+      ("certificate-key", po::value<std::string>(&key)->default_value(key),
+        "Private key for the certificate, when it is not in the same file as the certificate.")
       ("port", po::value<std::string>(&port)->default_value(port), "Port to use")
       ("password", po::value<std::string>(&password)->default_value(password), "Password to use to authenticate (if none a generated password will be set)")
-      ("https", boost::program_options::bool_switch(&want_https), "Enable https")
+      ("https", boost::program_options::bool_switch(&https_flag),
+        "Serve HTTPS. This is the default, the flag is kept for existing scripts; use --insecure for cleartext HTTP.")
+      ("insecure", boost::program_options::bool_switch(&insecure),
+        "Serve cleartext HTTP instead of HTTPS: writes `allow insecure = true` and no certificate, and moves the port from "
+        "8443 to 8080 when it is the default. Session keys and passwords then travel in clear, so only use this on loopback "
+        "or behind a TLS-terminating proxy.")
       ("disable-admin", boost::program_options::bool_switch(&disable_admin),
         "Lock out the built-in admin user. Sets `disable admin user = true` under [/settings/WEB/server] so the "
         "admin account is never seeded and the REST script-upload endpoint has no caller. Does NOT create any user "
@@ -1129,6 +1144,11 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
     // one of them to take effect. `defaulted()` is true when the value
     // came from default_value() (which is pre-populated from
     // /settings/default/password); we only error on an explicit user override.
+    if (https_flag && insecure) {
+      nscapi::protobuf::functions::set_response_bad(*response, "--https and --insecure are mutually exclusive.");
+      return true;
+    }
+
     if (disable_admin && vm.count("password") && !vm["password"].defaulted()) {
       nscapi::protobuf::functions::set_response_bad(
           *response,
@@ -1153,24 +1173,61 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
     s.set("/settings/default", "allowed hosts", allowed_hosts);
     s.set("/modules", "WEBServer", "enabled");
     boost::replace_all(port, "s", "");
-    if (!want_https) {
+    if (insecure) {
       cert = "";
       key = "";
+      // Mirror what the server does at start-up with `allow insecure` and no
+      // certificate: it moves off the TLS default port so a plain-HTTP
+      // listener does not masquerade on the conventional HTTPS port. Writing
+      // 8443 here would make the "point your browser to" line below wrong.
+      if (port == "8443") {
+        port = "8080";
+        result << "Using port 8080 instead of the HTTPS default 8443 for cleartext HTTP." << std::endl;
+      }
+      s.set(path, "allow insecure", "true");
+      result << "WARNING: Serving UNENCRYPTED HTTP (allow insecure = true): session keys and passwords are transmitted in clear. "
+                "Only use this on loopback or behind a TLS-terminating proxy."
+             << std::endl;
       result << "Point your browser to http://localhost:" << port << std::endl;
     } else {
-      if (cert == key || key.empty()) {
-        result << "Certificate & key: " << get_core()->expand_path(cert) << "." << std::endl;
-      } else {
-        result << "Certificate: " << get_core()->expand_path(cert) << std::endl;
-        result << "Certificate key: " << get_core()->expand_path(key) << std::endl;
+      // An earlier install may have left `certificate` blank (the pre-fix
+      // behaviour of this very command, or an --insecure run): HTTPS needs a
+      // certificate, so fall back to the default and generate it below.
+      if (cert.empty()) {
+        cert = "${certificate-path}/certificate.pem";
       }
-      const auto certificate = get_core()->expand_path(cert);
+      const std::string certificate = get_core()->expand_path(cert);
+      const std::string certificate_key = get_core()->expand_path(key);
+      if (cert == key || key.empty()) {
+        result << "Certificate & key: " << certificate << "." << std::endl;
+      } else {
+        result << "Certificate: " << certificate << std::endl;
+        result << "Certificate key: " << certificate_key << std::endl;
+      }
+      // Generates a self-signed certificate (key and certificate in the one
+      // file, readable only by the account running the agent) when the path
+      // is the default `.../certificate.pem` and the file does not exist.
       std::list<std::string> messages;
       socket_helpers::validate_certificate(certificate, messages);
       for (const auto &e : messages) {
         result << "Certificate validation: " << e << std::endl;
       }
-      result << "Point your browser to -- https://localhost:" << port << std::endl;
+      if (!boost::filesystem::is_regular_file(certificate)) {
+        result << "WARNING: The certificate " << certificate
+               << " does not exist. The WEB server refuses to start without it: place a certificate there, "
+                  "point --certificate at the default ${certificate-path}/certificate.pem to have one generated, "
+                  "or run `nscp web install --insecure` to accept cleartext HTTP."
+               << std::endl;
+      } else if (!key.empty() && cert != key && !boost::filesystem::is_regular_file(certificate_key)) {
+        result << "WARNING: The certificate key " << certificate_key
+               << " does not exist. The WEB server will fail to load its certificate until it does (leave --certificate-key "
+                  "empty when the key is in the certificate file, as it is for a generated one)."
+               << std::endl;
+      }
+      // A stale `allow insecure = true` from an earlier --insecure install
+      // would silently turn a lost certificate into a cleartext listener.
+      s.set(path, "allow insecure", "false");
+      result << "Point your browser to https://localhost:" << port << std::endl;
     }
     s.set(path, "certificate", cert);
     s.set(path, "certificate key", key);

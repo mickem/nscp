@@ -1,0 +1,21 @@
+---
+icon: "🔒 🔧"
+modules: [WEBServer]
+action: conditional
+---
+**`nscp web install` sets up HTTPS and generates the self-signed certificate.**
+The command used to enable HTTPS only when given `--https`; without the flag
+it blanked the `certificate` setting and generated nothing, which — since the
+web server no longer falls back to cleartext on its own — left a web server
+that refused to start. It now configures HTTPS by default and, when the
+default `${certificate-path}/certificate.pem` does not exist, generates a
+self-signed certificate there (key and certificate in the one file, readable
+only by the account running the agent), so the server starts. Re-running it on
+a host whose earlier install left `certificate` empty repairs that
+configuration. `--https` is still accepted and means the default. See the
+[security notice](../security/notices.md#nscp-web-install-serves-https-by-default).
+
+**If you want plain HTTP**, ask for it: `nscp web install --insecure` writes
+`allow insecure = true`, no certificate, and uses port `8080` in place of the
+HTTPS default `8443` — the same port the server itself moves to when it starts
+in cleartext. Nothing changes for a configuration written by hand.

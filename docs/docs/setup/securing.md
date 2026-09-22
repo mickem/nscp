@@ -167,7 +167,6 @@ The fastest way to get a hardened install is the WEB module's own install comman
 
 ```commandline
 $ nscp web install ^
-    --https ^
     --allowed-hosts 10.0.0.0/24 ^
     --certificate nsclient.pem ^
     --certificate-key nsclient.key ^
@@ -176,9 +175,13 @@ $ nscp web install ^
 
 A quick breakdown of the options:
 
-* `--https`: Enable HTTPS (without this it serves cleartext on port 8080).
 * `--allowed-hosts`: CIDR or comma-separated list of source IPs allowed to connect.
-* `--certificate` / `--certificate-key`: TLS server cert and private key.
+* `--certificate` / `--certificate-key`: TLS server cert and private key. HTTPS is the default; without these the
+  command generates a self-signed certificate at `${certificate-path}/certificate.pem` (key and certificate in the
+  one file) when it does not exist yet. `--https` is still accepted and means the same as leaving it out.
+* `--insecure`: Serve cleartext HTTP instead — sets `allow insecure = true`, writes no certificate and moves the
+  port from `8443` to `8080` when it is the default. Session keys and passwords then travel in clear, so only for
+  loopback or behind a TLS-terminating proxy.
 * `--port`: Listening port (default `8443`).
 * `--password`: Admin password. If omitted, a random one is generated and printed.
 * `--disable-admin`: Lock out the built-in admin user — no admin row is created, the REST script-upload endpoint
@@ -190,7 +193,6 @@ dedicated user:
 
 ```commandline
 $ nscp web install ^
-    --https ^
     --allowed-hosts 10.0.0.0/24 ^
     --certificate nsclient.pem ^
     --certificate-key nsclient.key ^
@@ -802,7 +804,6 @@ The fastest way to set this up is the WEB module's own install command, with the
 
 ```commandline
 $ nscp web install ^
-    --https ^
     --allowed-hosts 10.0.0.0/24 ^
     --certificate nsclient.pem ^
     --certificate-key nsclient.key ^

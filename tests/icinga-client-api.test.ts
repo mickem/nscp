@@ -56,11 +56,9 @@ dockerOrSkip()("Icinga client (check_nscp_api) integration", () => {
       "--allowed-hosts",
       "127.0.0.1,0.0.0.0/0",
     ]);
-    // `nscp web install`'s --certificate / --certificate-key flags don't
-    // actually persist into the INI, so the WEBServer module falls back
-    // to the (non-existent) default cert path and crashes on boot. Pin
-    // the cert explicitly via the settings path. Same for the matching
-    // private key.
+    // `web install` sets up HTTPS with a generated self-signed certificate;
+    // this scenario needs the server to present the CA-signed pair the
+    // docker Icinga verifies against, so pin those via the settings path.
     await nscp.configure({
       "/modules": {
         CheckHelpers: "enabled",
