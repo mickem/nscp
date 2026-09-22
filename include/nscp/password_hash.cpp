@@ -3,7 +3,7 @@
 
 #include <nscp/password_hash.hpp>
 
-#include "sha256.hpp"
+#include <nscp/sha256.hpp>
 
 #ifdef USE_SSL
 #include <openssl/evp.h>
