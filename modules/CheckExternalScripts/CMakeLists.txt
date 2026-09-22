@@ -51,11 +51,29 @@ endif(WIN32)
 add_library(${TARGET} MODULE ${SRCS})
 NSCP_DEBUG_SYMBOLS(${TARGET})
 
+# Boost.Thread is not optional here: script_provider.cpp guards its alias and
+# command tables with a boost::shared_mutex, which pulls in
+# this_thread::interruption_point, disable_interruption and
+# get_current_thread_data. script_provider_test below has always listed it -
+# the same source needed it as an executable.
+#
+# The module got away without it because an ELF shared object may leave symbols
+# undefined and resolve them from the host process at dlopen time, and nscp has
+# Boost.Thread loaded by then. A Mach-O bundle must resolve everything at link
+# time, so on macOS the omission is a build failure rather than a latent one:
+#
+#     Undefined symbols for architecture arm64:
+#       "boost::this_thread::interruption_point()", referenced from: ...
+#
+# Linking it explicitly is what the module always meant. Building the tree with
+# -Wl,--no-undefined makes the GNU linker enforce the same rule, and says this
+# is the only target in the project that was relying on the difference.
 target_link_libraries(
     ${TARGET}
     nscp_json
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_REGEX_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
     ${NSCP_DEF_PLUGIN_LIB}
     ${EXTRA_LIBS}
 )
