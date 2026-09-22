@@ -357,7 +357,7 @@ void worker_pool::start(const worker_config &config, const std::shared_ptr<query
     workers_.push_back(w);
     const std::shared_ptr<worker_logger> log = logger;
     threads_.push_back(threads::start_guarded_thread(
-        id, [w] { w->run(); }, [log](const std::string &name, const std::string &detail) { log->error("Worker '" + name + "': " + detail); }));
+        id, [w] { w->run(); }, [log](const std::string &message) { log->error(message); }));
   }
 }
 

@@ -11,6 +11,14 @@
 #include <str/utf8.hpp>
 #include <str/utils.hpp>
 
+#ifndef WIN32
+#include <errno.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+#endif
+
 namespace {
 // Published as a pointer, and the string it points at is never freed or
 // mutated: log_fatal() runs from a terminate handler, where a mutex could
@@ -24,33 +32,120 @@ std::string current_fatal_file() {
   return path ? *path : std::string("nsclient.fatal");
 }
 
-// Append one line, and say whether it actually landed. The check is the whole
-// point: a default-constructed ofstream has exceptions disabled, so a failed
-// open only sets failbit and every subsequent << is a silent no-op. Without
-// it, a report into a directory that does not exist looks exactly like a
-// report that was written.
+// Open `file` for append, creating it private to this account, and say
+// whether that worked. Checking is the whole point: a default-constructed
+// ofstream has exceptions disabled, so a failed open only sets failbit and
+// every subsequent << is a silent no-op - a report into a directory that does
+// not exist looked exactly like a report that was written.
+//
+// On POSIX this is open(2) rather than ofstream so the flags can be spelled
+// out. O_NOFOLLOW refuses a symlink planted as the final component instead of
+// following it; that matters because the fallback below writes into the temp
+// folder, as root, for a service. 0600 keeps the report - which quotes an
+// exception message and may carry internals - out of other users' reach, and
+// O_CLOEXEC keeps the descriptor out of any child a dying agent spawns.
+// O_APPEND makes each line a single atomic write, so two threads reporting at
+// once cannot interleave mid-line.
 bool append_line(const std::string &file, const std::string &message) {
   if (file.empty()) return false;
+#ifdef WIN32
   std::ofstream stream(file.c_str(), std::ios::out | std::ios::app | std::ios::ate);
   if (!stream.is_open()) return false;
   stream << message << "\n";
   stream.flush();
   return stream.good();
+#else
+  const int fd = ::open(file.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_NOFOLLOW | O_CLOEXEC, S_IRUSR | S_IWUSR);
+  if (fd < 0) return false;
+  const std::string line = message + "\n";
+  std::size_t written = 0;
+  bool ok = true;
+  while (written < line.size()) {
+    const ssize_t n = ::write(fd, line.data() + written, line.size() - written);
+    if (n < 0) {
+      if (errno == EINTR) continue;
+      ok = false;
+      break;
+    }
+    written += static_cast<std::size_t>(n);
+  }
+  ::close(fd);
+  return ok;
+#endif
 }
 
-// The same file name in the system temp folder. This is the place of last
-// resort when the configured folder cannot be written: the temp folder is
-// writable for whatever account the service runs under on both Windows and
-// Linux, and a report nobody expected to find there still beats no report at
-// all - the message is on stdout as well, which under the SCM goes nowhere.
-std::string temp_fallback(const std::string &file) {
+// Can a report be appended to `file`? Opens it exactly the way append_line()
+// does and closes it again without writing, so probing a file that already
+// holds a report does not append a blank line to it.
+bool can_append(const std::string &file) {
+  if (file.empty()) return false;
+#ifdef WIN32
+  const std::ofstream stream(file.c_str(), std::ios::out | std::ios::app | std::ios::ate);
+  return stream.is_open();
+#else
+  const int fd = ::open(file.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_NOFOLLOW | O_CLOEXEC, S_IRUSR | S_IWUSR);
+  if (fd < 0) return false;
+  ::close(fd);
+  return true;
+#endif
+}
+
+// A directory of our own inside the system temp folder, or empty if we cannot
+// have one.
+//
+// The fallback never writes straight into the temp folder. On Linux that is
+// /tmp: world-writable, and appending to a fixed name there as root means
+// appending to whatever an unprivileged user pre-created or symlinked, which
+// is a file-overwrite primitive handed out by the very feature that is
+// supposed to make a crash easier to diagnose. fs.protected_symlinks and
+// fs.protected_regular blunt it on a modern kernel, but a fallback whose
+// safety rests on a sysctl default is not one worth shipping.
+//
+// mkdir(0700) sets the mode in the same syscall that creates the directory,
+// so there is no create-then-chmod window to slip into, and the name carries
+// the uid so two accounts running the agent do not collide. If something is
+// already there it is used only if it really is a directory, really is ours,
+// is not a symlink, and is not accessible to anyone else; otherwise we have
+// nowhere safe to write and say so rather than writing anyway.
+std::string private_temp_dir() {
   try {
     boost::system::error_code ec;
     const boost::filesystem::path tmp = boost::filesystem::temp_directory_path(ec);
     if (ec) return std::string();
+#ifdef WIN32
+    // %TEMP% is already per-account on Windows (and admin-only for a
+    // service), so the subdirectory is about tidiness rather than safety.
+    const boost::filesystem::path dir = tmp / "nsclient++";
+    boost::filesystem::create_directory(dir, ec);
+    if (!boost::filesystem::is_directory(dir, ec)) return std::string();
+    return dir.string();
+#else
+    const boost::filesystem::path dir = tmp / ("nsclient++-" + std::to_string(static_cast<unsigned long>(::geteuid())));
+    const std::string path = dir.string();
+    if (::mkdir(path.c_str(), S_IRWXU) != 0 && errno != EEXIST) return std::string();
+    struct stat st;
+    if (::lstat(path.c_str(), &st) != 0) return std::string();
+    if (!S_ISDIR(st.st_mode)) return std::string();
+    if (st.st_uid != ::geteuid()) return std::string();
+    if ((st.st_mode & (S_IRWXG | S_IRWXO)) != 0) return std::string();
+    return path;
+#endif
+  } catch (...) {
+    return std::string();
+  }
+}
+
+// Where a report goes when the configured file cannot be written: the same
+// file name, in a directory of our own under the system temp folder. A report
+// nobody expected to find there still beats no report at all - the copy on
+// stdout goes nowhere under the SCM.
+std::string temp_fallback(const std::string &file) {
+  try {
+    const std::string dir = private_temp_dir();
+    if (dir.empty()) return std::string();
     std::string name = boost::filesystem::path(file).filename().string();
     if (name.empty() || name == "." || name == "..") name = "nsclient.fatal";
-    return (tmp / name).string();
+    return (boost::filesystem::path(dir) / name).string();
   } catch (...) {
     return std::string();
   }
@@ -103,10 +198,7 @@ writability is_writable(const std::string &file) {
     const boost::filesystem::path parent = path.parent_path();
     if (!parent.empty() && !boost::filesystem::exists(parent, ec)) return writability::deferred;
     const bool existed = boost::filesystem::exists(path, ec);
-    {
-      std::ofstream probe(file.c_str(), std::ios::out | std::ios::app | std::ios::ate);
-      if (!probe.is_open()) return writability::no;
-    }
+    if (!can_append(file)) return writability::no;
     if (!existed) boost::filesystem::remove(path, ec);
     return writability::ok;
   } catch (...) {
@@ -114,6 +206,10 @@ writability is_writable(const std::string &file) {
   }
 }
 }  // namespace
+
+std::string nsclient::logging::logger_helper::fatal_file() { return current_fatal_file(); }
+
+std::string nsclient::logging::logger_helper::fatal_fallback_file(const std::string &file) { return temp_fallback(file); }
 
 std::string nsclient::logging::logger_helper::set_fatal_file(const std::string &path) {
   if (path.empty()) return current_fatal_file();

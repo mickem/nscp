@@ -212,9 +212,10 @@ class scheduler : public boost::noncopyable {
     //
     // A worker that dies is not replaced until the watchdog next notices the
     // pool is short, so this report is the only warning an operator gets that
-    // scheduled checks have stopped running.
-    threads_.set_error_reporter(
-        [this](const std::string& name, const std::string& detail) { log_error(__FILE__, __LINE__, "Scheduler thread '" + name + "': " + detail); });
+    // scheduled checks have stopped running. It is logged exactly as the
+    // guard worded it: this used to prefix "Scheduler thread '...'", which
+    // is not the string the upgrade note tells operators to match on.
+    threads_.set_error_reporter([this](const std::string& message) { log_error(__FILE__, __LINE__, message); });
   }
   ~scheduler() { stop(); }
 

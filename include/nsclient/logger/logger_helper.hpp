@@ -36,6 +36,16 @@ struct logger_helper {
   // command line invocation, and the agent has nothing to report yet.
   // log_fatal() creates it at the moment it has a report to write.
   static std::string set_fatal_file(const std::string &path);
+  // The path log_fatal() is currently appending to. Mostly for tests, which
+  // have to put it back where they found it, and for anything that wants to
+  // tell an operator where to look.
+  static std::string fatal_file();
+  // Where a report for `file` goes when `file` itself cannot be written: the
+  // same file name in a directory of our own under the system temp folder,
+  // created 0700 and only used if it really is ours. Empty when no such
+  // directory can be had, in which case there is no fallback and the report
+  // is dropped rather than written somewhere another account controls.
+  static std::string fatal_fallback_file(const std::string &file);
   static std::pair<bool, std::string> render_console_message(bool oneline, const std::string &data);
   static std::string render_log_level_short(PB::Log::LogEntry::Entry::Level l);
   static std::string render_log_level_long(PB::Log::LogEntry::Entry::Level l);

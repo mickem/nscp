@@ -5,22 +5,42 @@
 
 #include <atomic>
 #include <boost/thread.hpp>
+#include <chrono>
 #include <cstdlib>
 #include <exception>
 #include <nsclient/logger/logger_helper.hpp>
 #include <sstream>
 #include <string>
+#include <thread>
+#include <threads/guarded_thread.hpp>
 #include <typeinfo>
 
 namespace {
 
+#ifdef _MSC_VER
+// MSVC documents set_terminate() as *per-thread* state: the handler installed
+// on the main thread does not cover a worker, so a worker that reached
+// std::terminate() aborted with no report at all - exactly the silence this
+// file exists to end, on the platform where the socket server pool makes it
+// reachable. Every thread therefore installs its own and remembers its own
+// predecessor (the CRT's, which is what produces the crash dump).
+// threads::run_guarded() calls install_fatal_handlers() for every guarded
+// thread through the hook registered below.
+#define NSCP_TERMINATE_HANDLER_IS_PER_THREAD 1
+thread_local std::terminate_handler previous_handler = nullptr;
+thread_local bool installed = false;
+#else
+// libstdc++ / libc++ keep one handler for the process, so installing it once
+// covers every thread and re-installing is a no-op.
 std::terminate_handler previous_handler = nullptr;
 std::atomic<bool> installed{false};
+#endif
 
 // Terminating while reporting a termination would recurse until the stack
 // runs out, which is a worse ending than the one we are already having. The
-// first thread in reports; any other just proceeds to the chained handler.
+// first thread in reports; see handle_terminate() for what the others do.
 std::atomic_flag reporting = ATOMIC_FLAG_INIT;
+std::atomic<bool> reported{false};
 
 std::string current_thread_id() {
   try {
@@ -41,6 +61,18 @@ void handle_terminate() {
                                                   "surrounding nsclient.log at https://github.com/mickem/nscp/issues");
     } catch (...) {
       // Nothing left to try. Fall through to the chained handler.
+    }
+    reported.store(true);
+  } else {
+    // Another thread got there first and is writing the report right now.
+    // Falling straight through to abort() would end the process mid-line and
+    // truncate the one sentence that explains the crash, so wait for it
+    // instead. Bounded, because the reporter can itself be stuck on a full
+    // disk or a dead NFS mount and a hung agent is worse than a torn line;
+    // std::this_thread::sleep_for rather than boost's, which is an
+    // interruption point and could throw from inside a terminate handler.
+    for (int i = 0; i < 200 && !reported.load(); ++i) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(25));
     }
   }
   // Chain rather than replace: on Windows the CRT's own handler is what
@@ -82,6 +114,15 @@ std::string nsclient::describe_current_exception() {
 }
 
 void nsclient::install_fatal_handlers() {
+#ifdef NSCP_TERMINATE_HANDLER_IS_PER_THREAD
+  if (installed) return;
+  installed = true;
+#else
   if (installed.exchange(true)) return;
+#endif
   previous_handler = std::set_terminate(&handle_terminate);
+  // Cover the threads this binary starts, not just this one. On MSVC that is
+  // the whole point (see the per-thread note above); elsewhere every call
+  // after the first returns immediately.
+  threads::set_thread_start_hook(&nsclient::install_fatal_handlers);
 }

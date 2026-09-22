@@ -376,16 +376,27 @@ bool NSClientT::load_configuration_2(const bool override_log) {
   // otherwise falls back to the temp folder, so say where the report will
   // actually land: this is the channel that explains a crash, and it silently
   // going nowhere is the one failure nobody would ever notice.
-  try {
-    const std::string wanted = path_->expand_path("${log-path}/nsclient.fatal");
-    const std::string actual = nsclient::logging::logger_helper::set_fatal_file(wanted);
-    if (actual == wanted) {
-      LOG_DEBUG_CORE("Crash reports will be written to: " + actual);
-    } else {
-      LOG_ERROR_CORE("Cannot write crash reports to " + wanted + ", using " + actual + " instead");
+  //
+  // Only for the service, which is what override_log distinguishes: the same
+  // load path runs for `nscp settings`, `nscp test` and every other command
+  // line invocation, and those are typically run with sudo. Letting one of
+  // them touch ${log-path} - probe it, and then create it the first time it
+  // has a report to write - is how `sudo nscp settings --generate` before the
+  // first service start leaves a root-owned log folder that the unprivileged
+  // nsclient user the systemd unit runs as can never write to. A command that
+  // is not the service keeps the default file and the temp fallback.
+  if (!override_log) {
+    try {
+      const std::string wanted = path_->expand_path("${log-path}/nsclient.fatal");
+      const std::string actual = nsclient::logging::logger_helper::set_fatal_file(wanted);
+      if (actual == wanted) {
+        LOG_DEBUG_CORE("Crash reports will be written to: " + actual);
+      } else {
+        LOG_ERROR_CORE("Cannot write crash reports to " + wanted + ", using " + actual + " instead");
+      }
+    } catch (const std::exception &e) {
+      LOG_ERROR_CORE_STD("Could not place nsclient.fatal in the log folder, keeping the working directory: " + utf8::utf8_from_native(e.what()));
     }
-  } catch (const std::exception &e) {
-    LOG_ERROR_CORE_STD("Could not place nsclient.fatal in the log folder, keeping the working directory: " + utf8::utf8_from_native(e.what()));
   }
 
 #ifdef WIN32

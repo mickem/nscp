@@ -30,9 +30,20 @@ namespace threads {
  * Run `io` until it runs out of work, re-entering run() if a completion
  * handler let an exception escape. Returns only on a clean exit or a
  * shutdown; see threads::run_guarded for the reporter contract.
+ *
+ * What re-entering does and does not recover is worth being precise about,
+ * because the report says so. Handlers still queued on the io_context are
+ * unaffected and keep running - that is the recovery. Anything the throwing
+ * handler itself owned is gone: for a coroutine (asio::spawn) that means the
+ * coroutine, so a server whose accept loop lives in one does not get its
+ * acceptor back by re-entering run(), and has to respawn it - see
+ * ServerBeastImpl::spawn_accept_loop(). The message is therefore worded as
+ * "the remaining handlers continue", which is true for every caller, rather
+ * than as a restart of the loop, which was not.
  */
 template <typename Report>
 void run_io_context_guarded(const std::string &name, boost::asio::io_context &io, Report report) {
+  detail::run_thread_start_hook();
   for (;;) {
     try {
       io.run();
@@ -42,9 +53,9 @@ void run_io_context_guarded(const std::string &name, boost::asio::io_context &io
     } catch (const stop_requested &) {
       return;
     } catch (const std::exception &e) {
-      detail::report_thread_event(name, "a completion handler threw (" + detail::what_of(e) + "); restarting the event loop", report);
+      detail::report_thread_event(name, "a completion handler threw (" + detail::what_of(e) + "); the remaining handlers continue", report);
     } catch (...) {
-      detail::report_thread_event(name, "a completion handler threw an exception of unknown type; restarting the event loop", report);
+      detail::report_thread_event(name, "a completion handler threw an exception of unknown type; the remaining handlers continue", report);
     }
   }
 }

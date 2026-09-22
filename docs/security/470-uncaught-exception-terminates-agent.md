@@ -33,9 +33,15 @@ what covers every path. Event loops go further and re-enter `run()`, so a
 request that throws fails as a request and the server keeps serving.
 Underneath all of it, a terminate handler now writes a report naming the
 exception and the thread to `nsclient.fatal` before the process goes down, so
-the paths nobody has thought of yet stop being silent.
+the paths nobody has thought of yet stop being silent. On Windows that handler
+is installed per worker thread, because MSVC keeps `std::set_terminate` state
+per thread and one installed on the main thread would have left every worker -
+the network-facing socket server pool included - terminating in silence.
 
 **What to do:** nothing. If an agent has been disappearing without explanation,
 check for a `nsclient.fatal` next to `nsclient.log` after upgrading - it will
-now say what happened. If that folder cannot be written the report goes to the
-system temp folder instead; the startup log says which file is in use.
+now say what happened. If that folder cannot be written the report goes to a
+private per-account folder under the system temp directory
+(`/tmp/nsclient++-<uid>/`, `%TEMP%\nsclient++\`) created with owner-only
+permissions, never to a fixed name directly in a world-writable directory;
+the startup log says which file is in use.

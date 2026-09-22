@@ -192,24 +192,21 @@ TEST(scoped_thread_group, thread_exception_is_caught) {
 
 TEST(scoped_thread_group, error_reporter_reports_a_thread_death) {
   scoped_thread_group ht;
-  std::string reported_name;
-  std::string reported_detail;
-  ht.set_error_reporter([&](const std::string& name, const std::string& detail) {
-    reported_name = name;
-    reported_detail = detail;
-  });
+  std::string reported;
+  ht.set_error_reporter([&](const std::string& message) { reported = message; });
 
   ht.create_thread([]() { throw std::runtime_error("test error"); }, "named worker");
   ht.wait_all();
 
-  EXPECT_EQ(reported_name, "named worker");
-  EXPECT_NE(reported_detail.find("test error"), std::string::npos);
+  // The line is worded by the guard, not by the reporter: the pool used to be
+  // wired to one that prefixed "Scheduler thread '...'" instead.
+  EXPECT_EQ(reported, "Thread 'named worker': terminated by an uncaught exception: test error");
 }
 
 TEST(scoped_thread_group, a_worker_that_exits_normally_is_not_reported) {
   scoped_thread_group ht;
   std::atomic<int> reports{0};
-  ht.set_error_reporter([&](const std::string&, const std::string&) { reports.fetch_add(1); });
+  ht.set_error_reporter([&](const std::string&) { reports.fetch_add(1); });
 
   ht.create_thread([]() {});
   ht.wait_all();

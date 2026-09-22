@@ -195,7 +195,7 @@ fleet_sync::fleet_sync(nsclient::logging::logger_instance logger, fleet_config c
     : logger_(std::move(logger)), config_(std::move(config)), tags_(std::move(tags)), request_reload_(std::move(request_reload)) {
   thread_ = threads::start_guarded_thread(
       "fleet sync", [this] { this->thread_proc(); },
-      [this](const std::string &name, const std::string &detail) { log_error("Thread '" + name + "': " + detail); });
+      [this](const std::string &message) { log_error(message); });
 }
 
 fleet_sync::~fleet_sync() {

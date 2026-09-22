@@ -20,8 +20,10 @@
  *   * Thread bodies that throw (boost::thread_interrupted, std::exception,
  *     or anything else) are caught by threads::run_guarded() so an escaping
  *     exception cannot terminate the process. What escaped is reported
- *     through set_error_reporter(): swallowing it silently left a pool
- *     quietly short of workers with nothing in the log to say why.
+ *     through set_error_reporter(), which is handed the finished line
+ *     threads::detail::render_thread_event() wrote: swallowing it silently
+ *     left a pool quietly short of workers with nothing in the log to say
+ *     why.
  *   * count() returns the number of currently-live worker threads.
  *
  * Non-copyable.
@@ -47,7 +49,7 @@ class scoped_thread_group {
   scoped_thread_group(const scoped_thread_group&) = delete;
   scoped_thread_group& operator=(const scoped_thread_group&) = delete;
 
-  typedef std::function<void(const std::string& /*name*/, const std::string& /*detail*/)> error_reporter;
+  typedef std::function<void(const std::string& /*message*/)> error_reporter;
 
   // How the death of a worker is reported. Set it before the first
   // create_thread(): a live worker reads it from its catch path without any
@@ -66,8 +68,8 @@ class scoped_thread_group {
     live_count_.fetch_add(1, std::memory_order_relaxed);
     try {
       group_.create_thread([this, f, name]() mutable {
-        threads::run_guarded(name, f, [this](const std::string& n, const std::string& detail) {
-          if (reporter_) reporter_(n, detail);
+        threads::run_guarded(name, f, [this](const std::string& message) {
+          if (reporter_) reporter_(message);
         });
         live_count_.fetch_sub(1, std::memory_order_relaxed);
       });

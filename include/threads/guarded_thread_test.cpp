@@ -16,10 +16,13 @@
 namespace {
 
 // Collects what the guard reported, so a test can assert on the operator's
-// view rather than on the fact that the process happened not to die.
+// view rather than on the fact that the process happened not to die. The
+// guard hands a reporter one finished line - the prefix is rendered in
+// render_thread_event() and not by the reporter, so that the string the
+// upgrade note tells operators to alert on cannot drift.
 struct recorder {
-  std::vector<std::pair<std::string, std::string> > events;
-  void operator()(const std::string &name, const std::string &detail) { events.push_back(std::make_pair(name, detail)); }
+  std::vector<std::string> events;
+  void operator()(const std::string &message) { events.push_back(message); }
 };
 
 struct custom_error {};
@@ -40,17 +43,16 @@ TEST(guarded_thread, contains_a_std_exception_and_reports_its_message) {
   recorder rec;
   threads::run_guarded("worker", []() { throw std::runtime_error("the disk fell off"); }, std::ref(rec));
   ASSERT_EQ(rec.events.size(), 1u);
-  EXPECT_EQ(rec.events[0].first, "worker");
-  // The message is the whole point: without what() an operator has a dead
-  // collector and no idea why.
-  EXPECT_NE(rec.events[0].second.find("the disk fell off"), std::string::npos);
+  // The exact line an operator alerts on, prefix and all.
+  EXPECT_EQ(rec.events[0], "Thread 'worker': terminated by an uncaught exception: the disk fell off");
 }
 
 TEST(guarded_thread, contains_an_exception_of_unknown_type) {
   recorder rec;
   threads::run_guarded("worker", []() { throw custom_error(); }, std::ref(rec));
   ASSERT_EQ(rec.events.size(), 1u);
-  EXPECT_NE(rec.events[0].second.find("unknown type"), std::string::npos);
+  EXPECT_NE(rec.events[0].find("unknown type"), std::string::npos);
+  EXPECT_EQ(rec.events[0].compare(0, 16, "Thread 'worker':"), 0);
 }
 
 TEST(guarded_thread, a_cooperative_interrupt_is_not_reported) {
@@ -72,7 +74,7 @@ TEST(guarded_thread, a_reporter_that_throws_does_not_escape) {
   // be gone. Throwing from there would be the terminate() the guard exists to
   // prevent.
   EXPECT_NO_THROW(threads::run_guarded(
-      "worker", []() { throw std::runtime_error("boom"); }, [](const std::string &, const std::string &) { throw std::runtime_error("the logger is gone"); }));
+      "worker", []() { throw std::runtime_error("boom"); }, [](const std::string &) { throw std::runtime_error("the logger is gone"); }));
 }
 
 // --- start_guarded_thread ---
@@ -82,17 +84,16 @@ TEST(guarded_thread, an_exception_in_a_started_thread_is_contained_and_reported)
   boost::mutex mutex;
   const std::shared_ptr<boost::thread> thread = threads::start_guarded_thread(
       "background worker", []() { throw std::runtime_error("threw on a worker"); },
-      [&rec, &mutex](const std::string &name, const std::string &detail) {
+      [&rec, &mutex](const std::string &message) {
         boost::lock_guard<boost::mutex> lock(mutex);
-        rec(name, detail);
+        rec(message);
       });
   ASSERT_TRUE(thread);
   thread->join();
 
   boost::lock_guard<boost::mutex> lock(mutex);
   ASSERT_EQ(rec.events.size(), 1u);
-  EXPECT_EQ(rec.events[0].first, "background worker");
-  EXPECT_NE(rec.events[0].second.find("threw on a worker"), std::string::npos);
+  EXPECT_EQ(rec.events[0], "Thread 'background worker': terminated by an uncaught exception: threw on a worker");
 }
 
 TEST(guarded_thread, a_started_thread_is_joinable_like_any_other) {
@@ -130,9 +131,14 @@ TEST(guarded_io_context, a_handler_that_throws_does_not_end_the_event_loop) {
   // or, on a bare thread, the process - with it.
   EXPECT_TRUE(later_handler_ran);
   ASSERT_EQ(rec.events.size(), 1u);
-  EXPECT_EQ(rec.events[0].first, "server");
-  EXPECT_NE(rec.events[0].second.find("bad request"), std::string::npos);
-  EXPECT_NE(rec.events[0].second.find("restarting the event loop"), std::string::npos);
+  EXPECT_EQ(rec.events[0].compare(0, 16, "Thread 'server':"), 0);
+  EXPECT_NE(rec.events[0].find("bad request"), std::string::npos);
+  // Worded as what actually happens. Re-entering run() keeps the queued
+  // handlers going; it does not resurrect anything the throwing handler
+  // owned, so a caller whose accept loop is a coroutine has to respawn it
+  // (ServerBeastImpl::spawn_accept_loop) and the report must not claim
+  // otherwise.
+  EXPECT_NE(rec.events[0].find("the remaining handlers continue"), std::string::npos);
 }
 
 TEST(guarded_io_context, reports_every_handler_that_throws) {
@@ -143,6 +149,6 @@ TEST(guarded_io_context, reports_every_handler_that_throws) {
   recorder rec;
   threads::run_io_context_guarded("server", io, std::ref(rec));
   ASSERT_EQ(rec.events.size(), 2u);
-  EXPECT_NE(rec.events[0].second.find("first"), std::string::npos);
-  EXPECT_NE(rec.events[1].second.find("second"), std::string::npos);
+  EXPECT_NE(rec.events[0].find("first"), std::string::npos);
+  EXPECT_NE(rec.events[1].find("second"), std::string::npos);
 }

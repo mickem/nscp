@@ -81,7 +81,7 @@ bool threaded_logger::startup() {
   thread_ = boost::thread([state]() {
     threads::run_guarded(
         "logger", [state]() { thread_proc(state); },
-        [](const std::string &name, const std::string &detail) { logger_helper::log_fatal("Thread '" + name + "': " + detail); });
+        [](const std::string &message) { logger_helper::log_fatal(message); });
   });
   return log_driver_interface_impl::startup();
 }

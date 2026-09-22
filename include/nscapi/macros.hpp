@@ -108,9 +108,11 @@
 // moving. The reporter is passed as an argument rather than looked up from a
 // global because the core and each module DLL have their own core wrapper.
 //
-// `detail` is a whole clause supplied by the guard, so nothing is added here
-// beyond naming the worker - see the reporter contract in guarded_thread.hpp.
-#define NSC_THREAD_REPORTER [](const std::string& thread_name, const std::string& detail) { NSC_LOG_CRITICAL("Thread '" + thread_name + "': " + detail); }
+// The message arrives fully worded from the guard - a reporter picks the
+// level and the channel and does not reword the event, or the string the
+// upgrade note tells operators to alert on drifts. See the reporter contract
+// in guarded_thread.hpp.
+#define NSC_THREAD_REPORTER [](const std::string& message) { NSC_LOG_CRITICAL(message); }
 
 //////////////////////////////////////////////////////////////////////////
 // Message wrappers below this point

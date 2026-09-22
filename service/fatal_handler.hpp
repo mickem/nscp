@@ -38,8 +38,16 @@ namespace nsclient {
 std::string describe_current_exception();
 
 /**
- * Install the process-wide last-resort handlers. Idempotent, and meant to be
- * called from the first line of main(), before anything that could throw.
+ * Install the last-resort handlers. Idempotent, and meant to be called from
+ * the first line of main(), before anything that could throw.
+ *
+ * It also registers itself as threads::set_thread_start_hook(), so every
+ * guarded thread this binary starts installs the handler too. That matters on
+ * Windows: MSVC documents std::set_terminate() as per-thread state, so a
+ * handler installed only on the main thread leaves every worker - including
+ * the network-facing socket server pool - terminating in the same silence
+ * this file exists to end. On Linux the handler is process-wide and the extra
+ * calls return immediately.
  */
 void install_fatal_handlers();
 

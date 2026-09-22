@@ -10,6 +10,13 @@
 #include <nsclient/logger/log_message_factory.hpp>
 #include <nsclient/logger/logger_helper.hpp>
 #include <string>
+#include <vector>
+
+#ifndef WIN32
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+#endif
 
 // ============================================================================
 // Tests for render_log_level_short
@@ -175,58 +182,95 @@ TEST(logger_helper, get_formated_date_empty_format) {
 // so what matters is that a report actually lands somewhere findable: the
 // default put it in the working directory, which for a service is wherever
 // the SCM happened to start it.
+//
+// Two things these cases have to be careful about, both of which bit earlier
+// versions of them. The configured file is process-global, so every case runs
+// under a fixture that puts it back - a test that left it pointing at a
+// directory it had just deleted sent every later log_fatal in this binary
+// somewhere nobody was looking. And the fallback keeps the file's name, so
+// every case uses a name of its own: two cases sharing one name in a shared
+// temp folder would both pass on a stale file left by an earlier run.
 // ============================================================================
 
-TEST(logger_helper, log_fatal_appends_to_the_configured_file) {
-  const boost::filesystem::path dir = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-fatal-%%%%%%%%");
+namespace {
+
+class fatal_file : public ::testing::Test {
+ protected:
+  void SetUp() override { saved_ = nsclient::logging::logger_helper::fatal_file(); }
+
+  void TearDown() override {
+    nsclient::logging::logger_helper::set_fatal_file(saved_);
+    for (const boost::filesystem::path &path : cleanup_) {
+      boost::system::error_code ec;
+      boost::filesystem::remove_all(path, ec);
+    }
+  }
+
+  // A path that is removed when the test ends, however it ends.
+  boost::filesystem::path scratch(const std::string &pattern = "nscp-fatal-%%%%%%%%") {
+    const boost::filesystem::path path = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path(pattern);
+    cleanup_.push_back(path);
+    return path;
+  }
+
+  void remove_when_done(const boost::filesystem::path &path) { cleanup_.push_back(path); }
+
+  // A report file name no other case, and no earlier run, can be using.
+  static std::string unique_report_name() { return boost::filesystem::unique_path("nscp-%%%%%%%%.fatal").string(); }
+
+  static std::string read(const boost::filesystem::path &file) {
+    std::ifstream stream(file.string().c_str());
+    return std::string((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
+  }
+
+ private:
+  std::string saved_;
+  std::vector<boost::filesystem::path> cleanup_;
+};
+
+}  // namespace
+
+TEST_F(fatal_file, log_fatal_appends_to_the_configured_file) {
+  const boost::filesystem::path dir = scratch();
   boost::filesystem::create_directories(dir);
-  const boost::filesystem::path file = dir / "nsclient.fatal";
+  const boost::filesystem::path file = dir / unique_report_name();
 
   nsclient::logging::logger_helper::set_fatal_file(file.string());
   nsclient::logging::logger_helper::log_fatal("first report");
   nsclient::logging::logger_helper::log_fatal("second report");
 
   ASSERT_TRUE(boost::filesystem::exists(file));
-  std::ifstream stream(file.string().c_str());
-  const std::string contents((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
-  stream.close();
-
+  const std::string contents = read(file);
   EXPECT_NE(contents.find("first report"), std::string::npos);
   // Appended, not truncated: a crash loop must not erase the report from the
   // first crash, which is usually the informative one.
   EXPECT_NE(contents.find("second report"), std::string::npos);
-
-  boost::filesystem::remove_all(dir);
 }
 
-TEST(logger_helper, set_fatal_file_ignores_an_empty_path) {
-  const boost::filesystem::path dir = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-fatal-%%%%%%%%");
+TEST_F(fatal_file, set_fatal_file_ignores_an_empty_path) {
+  const boost::filesystem::path dir = scratch();
   boost::filesystem::create_directories(dir);
-  const boost::filesystem::path file = dir / "nsclient.fatal";
+  const boost::filesystem::path file = dir / unique_report_name();
 
   nsclient::logging::logger_helper::set_fatal_file(file.string());
   // An unset path setting must not silently send the report back to the
   // working directory - keep whatever was configured last.
   nsclient::logging::logger_helper::set_fatal_file("");
+  EXPECT_EQ(nsclient::logging::logger_helper::fatal_file(), file.string());
+
   nsclient::logging::logger_helper::log_fatal("kept the configured file");
-
   ASSERT_TRUE(boost::filesystem::exists(file));
-  std::ifstream stream(file.string().c_str());
-  const std::string contents((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
-  stream.close();
-  EXPECT_NE(contents.find("kept the configured file"), std::string::npos);
-
-  boost::filesystem::remove_all(dir);
+  EXPECT_NE(read(file).find("kept the configured file"), std::string::npos);
 }
 
-TEST(logger_helper, set_fatal_file_does_not_create_the_log_folder_up_front) {
+TEST_F(fatal_file, set_fatal_file_does_not_create_the_log_folder_up_front) {
   // This runs on every start, including every short-lived command line
   // invocation, so the probe must not leave a ${log-path} behind for a report
   // that may never be written - tests/fleet-sync-hostile.test.ts holds the
   // agent to creating nothing in its working directory it did not need to.
   // A folder that is not there yet is therefore accepted as-is.
-  const boost::filesystem::path dir = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-fatal-%%%%%%%%");
-  const boost::filesystem::path file = dir / "logs" / "nsclient.fatal";
+  const boost::filesystem::path dir = scratch();
+  const boost::filesystem::path file = dir / "logs" / unique_report_name();
 
   EXPECT_EQ(nsclient::logging::logger_helper::set_fatal_file(file.string()), file.string());
   EXPECT_FALSE(boost::filesystem::exists(dir));
@@ -234,65 +278,74 @@ TEST(logger_helper, set_fatal_file_does_not_create_the_log_folder_up_front) {
   // ... and it is created at the moment there is something to write.
   nsclient::logging::logger_helper::log_fatal("report created the log folder");
   ASSERT_TRUE(boost::filesystem::exists(file));
-  std::ifstream stream(file.string().c_str());
-  const std::string contents((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
-  stream.close();
-  EXPECT_NE(contents.find("report created the log folder"), std::string::npos);
-
-  boost::filesystem::remove_all(dir);
+  EXPECT_NE(read(file).find("report created the log folder"), std::string::npos);
 }
 
-TEST(logger_helper, set_fatal_file_leaves_no_empty_report_behind) {
+TEST_F(fatal_file, set_fatal_file_leaves_no_empty_report_behind) {
   // An nsclient.fatal that exists means something was reported. An empty one
   // appearing on every boot would be a standing false alarm.
-  const boost::filesystem::path dir = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-fatal-%%%%%%%%");
+  const boost::filesystem::path dir = scratch();
   boost::filesystem::create_directories(dir);
-  const boost::filesystem::path file = dir / "nsclient.fatal";
+  const boost::filesystem::path file = dir / unique_report_name();
 
   EXPECT_EQ(nsclient::logging::logger_helper::set_fatal_file(file.string()), file.string());
   EXPECT_FALSE(boost::filesystem::exists(file));
-
-  boost::filesystem::remove_all(dir);
 }
 
-TEST(logger_helper, set_fatal_file_falls_back_to_temp_when_the_file_cannot_be_written) {
+TEST_F(fatal_file, set_fatal_file_falls_back_to_a_private_temp_folder) {
   // A regular file where a directory is expected: create_directories() and
   // the open both fail, on every platform and regardless of the account the
   // process runs under (a root-owned CI container ignores mode bits).
-  const boost::filesystem::path dir = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-fatal-%%%%%%%%");
+  const boost::filesystem::path dir = scratch();
   boost::filesystem::create_directories(dir);
   const boost::filesystem::path blocker = dir / "not-a-directory";
   {
     std::ofstream make_blocker(blocker.string().c_str());
     make_blocker << "x";
   }
-  const boost::filesystem::path unwritable = blocker / "nsclient.fatal";
+  const boost::filesystem::path unwritable = blocker / unique_report_name();
 
-  const boost::filesystem::path expected = boost::filesystem::temp_directory_path() / "nsclient.fatal";
-  const bool had_one_already = boost::filesystem::exists(expected);
+  const std::string expected = nsclient::logging::logger_helper::fatal_fallback_file(unwritable.string());
+  ASSERT_FALSE(expected.empty());
+  remove_when_done(expected);
+  // The name is unique to this run, so the assertion below cannot be
+  // satisfied by a leftover file.
+  ASSERT_FALSE(boost::filesystem::exists(expected));
+  // Not the shared temp folder itself: that one is world-writable, and a
+  // service appending to a fixed name there as root is a file-overwrite
+  // primitive.
+  EXPECT_NE(boost::filesystem::path(expected).parent_path(), boost::filesystem::temp_directory_path());
 
-  EXPECT_EQ(nsclient::logging::logger_helper::set_fatal_file(unwritable.string()), expected.string());
+  EXPECT_EQ(nsclient::logging::logger_helper::set_fatal_file(unwritable.string()), expected);
 
   nsclient::logging::logger_helper::log_fatal("fell back to the temp folder");
   ASSERT_TRUE(boost::filesystem::exists(expected));
-  std::ifstream stream(expected.string().c_str());
-  const std::string contents((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
-  stream.close();
-  EXPECT_NE(contents.find("fell back to the temp folder"), std::string::npos);
-
-  if (!had_one_already) boost::filesystem::remove(expected);
-  boost::filesystem::remove_all(dir);
+  EXPECT_NE(read(expected).find("fell back to the temp folder"), std::string::npos);
 }
 
-TEST(logger_helper, log_fatal_falls_back_to_temp_when_the_folder_cannot_be_restored) {
+#ifndef WIN32
+TEST_F(fatal_file, the_fallback_folder_is_private_to_this_account) {
+  const std::string fallback = nsclient::logging::logger_helper::fatal_fallback_file("nsclient.fatal");
+  ASSERT_FALSE(fallback.empty());
+  const std::string dir = boost::filesystem::path(fallback).parent_path().string();
+
+  struct stat st;
+  ASSERT_EQ(::lstat(dir.c_str(), &st), 0);
+  EXPECT_TRUE(S_ISDIR(st.st_mode)) << dir << " must be a directory, not a symlink to one";
+  EXPECT_EQ(st.st_uid, ::geteuid());
+  EXPECT_EQ(st.st_mode & (S_IRWXG | S_IRWXO), 0u) << "the crash report folder must not be reachable by other accounts";
+}
+#endif
+
+TEST_F(fatal_file, log_fatal_falls_back_when_the_folder_cannot_be_restored) {
   // The folder was writable when it was configured and is not any more - and
   // creating it again is not the answer either, because something else now
   // sits where it was. The classic case is simple_file_logger reporting
   // "Failed to create log directory" through this very channel, into the
   // directory it just failed to create.
-  const boost::filesystem::path dir = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-fatal-%%%%%%%%");
+  const boost::filesystem::path dir = scratch();
   boost::filesystem::create_directories(dir);
-  const boost::filesystem::path file = dir / "nsclient.fatal";
+  const boost::filesystem::path file = dir / unique_report_name();
   ASSERT_EQ(nsclient::logging::logger_helper::set_fatal_file(file.string()), file.string());
 
   boost::filesystem::remove_all(dir);
@@ -301,17 +354,13 @@ TEST(logger_helper, log_fatal_falls_back_to_temp_when_the_folder_cannot_be_resto
     blocker << "x";
   }
 
-  const boost::filesystem::path expected = boost::filesystem::temp_directory_path() / "nsclient.fatal";
-  const bool had_one_already = boost::filesystem::exists(expected);
+  const std::string expected = nsclient::logging::logger_helper::fatal_fallback_file(file.string());
+  ASSERT_FALSE(expected.empty());
+  remove_when_done(expected);
+  ASSERT_FALSE(boost::filesystem::exists(expected));
 
   nsclient::logging::logger_helper::log_fatal("the log folder vanished");
 
   ASSERT_TRUE(boost::filesystem::exists(expected));
-  std::ifstream stream(expected.string().c_str());
-  const std::string contents((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
-  stream.close();
-  EXPECT_NE(contents.find("the log folder vanished"), std::string::npos);
-
-  if (!had_one_already) boost::filesystem::remove(expected);
-  boost::filesystem::remove(dir);
+  EXPECT_NE(read(expected).find("the log folder vanished"), std::string::npos);
 }

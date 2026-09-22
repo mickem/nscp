@@ -103,11 +103,20 @@ leaves the server silently short of workers.
 
 The guard does not restart the body; a worker that dies reports
 `Thread '<name>': terminated by an uncaught exception: ...` and stays dead.
-The level is the reporter's: modules log it at critical through
+**A reporter is handed the finished line and must not reword it** - it picks
+the level and the channel, nothing else. The wording is rendered once, in
+`threads::detail::render_thread_event()`; reporters used to paste the prefix
+in by hand and two of them had drifted off the string the docs tell operators
+to alert on. The level is the reporter's: modules log it at critical through
 `NSC_THREAD_REPORTER`, the core at error through whatever logger the owning
 object holds - so docs tell operators to alert on the wording, not on a
 severity. Restart policy is per-worker and belongs in the body - see
 `fleet_sync::thread_proc()` for a supervisor loop with a widening backoff.
+
+Re-entering `run()` keeps the *queued* handlers going; it does not bring back
+anything the throwing handler owned. A coroutine that throws is destroyed, so
+a server whose accept loop lives in one has to respawn it - see
+`ServerBeastImpl::spawn_accept_loop()`.
 
 `tools/guarded_threads.py --check` sweeps for raw thread creation and runs in
 CI (`.github/workflows/guarded-threads.yml`). A site that genuinely cannot use

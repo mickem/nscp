@@ -202,9 +202,8 @@ class server : boost::noncopyable {
       // request. See threads/guarded_io_context.hpp for why the loop is
       // re-entered instead of letting the worker go.
       thread_group_.create_thread([this, i]() {
-        threads::run_io_context_guarded("socket server worker " + str::xtos(i), io_service_, [this](const std::string &name, const std::string &detail) {
-          logger_->log_error(__FILE__, __LINE__, "Thread '" + name + "': " + detail);
-        });
+        threads::run_io_context_guarded("socket server worker " + str::xtos(i), io_service_,
+                                        [this](const std::string &message) { logger_->log_error(__FILE__, __LINE__, message); });
       });
     }
     return true;

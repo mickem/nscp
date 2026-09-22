@@ -117,9 +117,7 @@ void ServerMongooseImpl::thread_proc() {
 void ServerMongooseImpl::start(const std::string &bind) {
   mg_http_listen(&mgr, bind.c_str(), event_handler, this);
   const WebLoggerPtr log = logger_;
-  thread_ = threads::start_guarded_thread("web server", [this] { thread_proc(); }, [log](const std::string &name, const std::string &detail) {
-    log->log_error("Thread '" + name + "': " + detail);
-  });
+  thread_ = threads::start_guarded_thread("web server", [this] { thread_proc(); }, [log](const std::string &message) { log->log_error(message); });
 }
 
 void ServerMongooseImpl::stop() {
