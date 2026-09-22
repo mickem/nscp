@@ -81,8 +81,34 @@ class settings_http : public settings::settings_interface_impl {
   // written to with the service's privileges, and the host name - which DHCP
   // can set on some systems - must not be able to smuggle a separator or a
   // ".." into it.
+  // Rooted at ${shared-path}, because an attachment target is a *destination*.
+  // The documented form has always been a bare relative name
+  // ("scripts/myscript.bat = https://..."), and expanding it left it relative,
+  // so the file was written relative to the service's working directory:
+  // C:\Windows\System32 for a Windows service, "/" under a bare init script.
+  // On Linux the shipped systemd unit sets WorkingDirectory to the package
+  // directory, which is ${shared-path} - so it landed correctly there by
+  // accident, and that accident is why this went unnoticed.
+  //
+  // ${shared-path} keeps the unix answer byte-identical and gives every other
+  // platform and launch method the same one. A target that names a root of its
+  // own is left alone: pointing an attachment anywhere on the filesystem stays
+  // the operator's call.
+  //
+  // The "unzip:" form is carried across the rooting rather than rooted with the
+  // rest of the value. cache_remote_file looks for the prefix at offset 0
+  // (substr(0, 6)), and "unzip:" names no root on either platform - a single
+  // letter is a Windows drive, six is not - so rooting the whole string would
+  // bury the prefix mid-path and the archive would be written verbatim to a
+  // file called "unzip:scripts" instead of being extracted. What the prefix
+  // introduces is a destination like any other, so it is split off, the
+  // destination behind it is rooted, and the prefix put back.
   static std::string resolve_attachment_target(settings_core *core, const std::string &key) {
-    return core->expand_path(socket_helpers::expand_hostname_placeholders_in_path(key));
+    const std::string expanded = socket_helpers::expand_hostname_placeholders_in_path(key);
+    if (expanded.size() > 6 && expanded.substr(0, 6) == "unzip:") {
+      return "unzip:" + core->resolve_path(expanded.substr(6), "${shared-path}");
+    }
+    return core->resolve_path(expanded, "${shared-path}");
   }
 
   settings_http(settings::settings_core *core, std::string alias, std::string context) : settings::settings_interface_impl(core, alias, context) {
@@ -265,7 +291,35 @@ class settings_http : public settings::settings_interface_impl {
                                 "controls this agent's entire configuration, including external script definitions.");
     }
 
+    // Create the directory before opening the stream, not after the download.
+    // The tmp file sits beside its target, so a target whose folder does not
+    // exist - `scripts\` is absent entirely when the Windows installer's sample
+    // scripts are deselected - meant this ofstream silently failed to open. The
+    // body was then written into a dead stream, which is why the settings
+    // server's log showed the file being served while nothing appeared on disk,
+    // and the only symptom was "Failed to find cached settings: <target>.tmp"
+    // eighty lines further down - a message about the wrong thing entirely
+    // (#1557). create_directories on the *tmp* path also covers the target,
+    // since the two share a parent.
+    boost::system::error_code dir_error;
+    const boost::filesystem::path parent = tmp_file.parent_path();
+    if (!parent.empty() && !boost::filesystem::is_directory(parent, dir_error)) {
+      boost::filesystem::create_directories(parent, dir_error);
+      if (dir_error) {
+        get_logger()->error("settings", __FILE__, __LINE__,
+                            "Failed to create directory '" + parent.string() + "' for " + local_file.string() + ": " + dir_error.message());
+        return false;
+      }
+    }
+
     std::ofstream os(tmp_file.string().c_str(), std::ofstream::binary);
+    if (!os) {
+      // Report the actual failure. Letting a dead stream through turns "cannot
+      // write here" into a download that appears to work and a confusing error
+      // about a missing cache file.
+      get_logger()->error("settings", __FILE__, __LINE__, "Failed to open '" + tmp_file.string() + "' for writing; cannot save " + local_file.string());
+      return false;
+    }
 
     try {
       std::string error;
@@ -440,7 +494,18 @@ class settings_http : public settings::settings_interface_impl {
     if (!child) return;
     string_list keys = child->get_keys("/attachments");
     for (const std::string &k : keys) {
-      std::string target = resolve_attachment_target(get_core(), k);
+      std::string target;
+      try {
+        target = resolve_attachment_target(get_core(), k);
+      } catch (const std::exception &e) {
+        // An unknown ${token} in the target is now an error rather than
+        // something that quietly resolved to the installation directory. Skip
+        // the one attachment and keep going: the configuration this agent has
+        // already loaded is worth more than the add-on file, and aborting here
+        // would take the whole settings load down with it.
+        get_logger()->error("settings", __FILE__, __LINE__, "Skipping attachment '" + k + "': " + e.what());
+        continue;
+      }
       op_string str = child->get_string("/attachments", k);
       if (!str) continue;
       net::url source = parse_settings_url(str.value());
@@ -457,14 +522,24 @@ class settings_http : public settings::settings_interface_impl {
     fetch_attachments(child_instance);
   }
 
-  void reload_data() {
+  // Re-download the configuration and, when it changed, rebuild the child
+  // store on top of the new cached copy. Returns whether anything changed, so
+  // house_keeping can tell a rebuilt subtree (everything below us was just
+  // fetched) from an unchanged one (nothing below us has been touched).
+  bool reload_data() {
     boost::filesystem::path local_file = resolve_cache_file(remote_url);
     migrate_legacy_cache_file(remote_url, local_file);
-    if (cache_remote_file(remote_url, local_file.string())) {
-      clear_cache();
-      fetch_attachments(add_child("remote_http_file", "ini://" + local_file.string()));
-      get_core()->set_reload(true);
-    }
+    if (!cache_remote_file(remote_url, local_file.string())) return false;
+    clear_cache();
+    // Reassigning child_instance matters as much as adding the child:
+    // get_sections and get_keys below read it directly, and clear_cache has
+    // just dropped the instance it pointed at from children_. Leaving it on
+    // the old instance served the previous file's sections out of that
+    // instance's own cache for the rest of the process.
+    child_instance = add_child("remote_http_file", "ini://" + local_file.string());
+    fetch_attachments(child_instance);
+    get_core()->set_reload(true);
+    return true;
   }
   //////////////////////////////////////////////////////////////////////////
   /// Get a string value if it does not exist exception will be thrown
@@ -559,7 +634,32 @@ class settings_http : public settings::settings_interface_impl {
 
   virtual std::string get_type() { return "http"; }
 
-  virtual void house_keeping() { reload_data(); }
+  // The only thing in the process which re-downloads anything, so it has to
+  // reach every remote store below this one - not just our own url.
+  //
+  // A settings url whose file carries an [/includes] entry naming another url
+  // builds a nested settings_http two levels down: our child is the INI store
+  // on our cached copy, and *its* child is the included url's store. The base
+  // house_keeping walks children_, and INISettings does not override it, so
+  // one call reaches the whole chain. Overriding it here without chaining
+  // stopped the walk at this store: an included url was only ever re-fetched
+  // when *our* file happened to change (which rebuilds the subtree from
+  // scratch), so on a server where the top-level file is stable the include
+  // was pinned to its boot-time content for the lifetime of the agent.
+  //
+  // Attachments are in the same position and get the same treatment: a
+  // re-fetch every pass, which cache_remote_file turns into a no-op below the
+  // download whenever the content hash is unchanged.
+  //
+  // Nothing below us is walked when our own copy *did* change, because
+  // reload_data has already discarded the old children and rebuilt them - each
+  // include and attachment was downloaded as part of that. Recursing as well
+  // would fetch every one of them twice in the same pass.
+  void house_keeping() override {
+    if (reload_data()) return;
+    fetch_attachments(child_instance);
+    settings_interface_impl::house_keeping();
+  }
 
   std::string get_file_name() {
     if (url_.empty()) {

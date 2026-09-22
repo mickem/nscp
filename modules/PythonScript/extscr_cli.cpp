@@ -28,7 +28,13 @@ namespace fs = boost::filesystem;
 
 #define SCRIPT_PATH "/settings/python/scripts"
 #define MODULE_NAME "PythonScript"
-#define REL_SCRIPT_PATH "scripts\\python\\"
+// Relative to ${scripts}, matching what the loader searches: find_file tries
+// root_ / <value>, so "python/x.py" resolves to ${scripts}/python/x.py - which
+// is where add --import now writes it. It was "scripts\\python\\", which paired
+// with the old doubled root and only ever resolved on Windows, where a
+// backslash is a separator. Forward slash so the stored value means the same
+// thing on both platforms.
+#define REL_SCRIPT_PATH "python/"
 
 namespace json = boost::json;
 
@@ -110,13 +116,31 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
     }
   } else {
     fs::path dir = provider_->get_core()->expand_path("${scripts}/python");
-    fs::path rel = provider_->get_core()->expand_path("${base-path}/python");
+    // Relativised against ${scripts}, the folder find_file resolves against, so
+    // that what `list` prints can be handed straight back to `add`. It used to
+    // append the sub-folder to the root, which matched on no platform and left
+    // the strip below relativising on its own; rooting at ${base-path} instead
+    // made the prefix match on Windows, but printed `scripts\python\x` - a
+    // spelling find_file has no candidate for, so `add` then refused the very
+    // value `list` had just produced from anywhere but the install directory.
+    // ${scripts} is the prefix on both platforms and survives a [paths]
+    // override moving the folder off ${base-path} entirely.
+    fs::path rel = provider_->get_core()->expand_path("${scripts}");
     fs::recursive_directory_iterator iter(dir), eod;
     for (fs::path const &i : boost::make_iterator_range(iter, eod)) {
       std::string s = i.string();
-      if (boost::algorithm::starts_with(s, rel.string())) s = s.substr(rel.string().size());
+      // Relative to ${scripts} when the file is under it, which is every file
+      // this loop walks, giving `python/x.py` - the same spelling `add --import`
+      // records and one find_file resolves from any working directory. A file
+      // reached through a symlink out of the folder is left absolute rather
+      // than mangled: the strip used to slice the leading separator off
+      // regardless, leaving a rootless `usr/lib/nsclient/scripts/x` that named
+      // no file at all.
+      if (boost::algorithm::starts_with(s, rel.string())) {
+        s = s.substr(rel.string().size());
+        if (!s.empty() && (s[0] == '\\' || s[0] == '/')) s = s.substr(1);
+      }
       if (s.empty()) continue;
-      if (s[0] == '\\' || s[0] == '/') s = s.substr(1);
       fs::path clone = i.parent_path();
       if (fs::is_regular_file(i) && !boost::algorithm::contains(clone.string(), "lib")) {
         if (json) {
@@ -244,6 +268,13 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
     nscapi::protobuf::functions::set_response_good(*response, npo::help(desc));
     return;
   }
+  if (script.empty()) {
+    // The destination name comes from --script, not from --import: with it
+    // empty the join below produced the script root itself, and the import
+    // copied over that directory path instead of into it.
+    nscapi::protobuf::functions::set_response_bad(*response, "No script specified add --script");
+    return;
+  }
   fs::path file = provider_->get_core()->expand_path(script);
   fs::path script_root = provider_->get_root();
 
@@ -259,6 +290,13 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
       }
     }
     try {
+      // copy_file does not create the destination directory, and nothing
+      // guarantees it exists: ${scripts}/python only materialises on Windows
+      // when the sample scripts feature is selected, and a ${scripts}
+      // override points somewhere that was never populated at all. Without
+      // this the import failed with a bare "No such file or directory"
+      // naming a path the operator had no reason to create by hand.
+      fs::create_directories(file.parent_path());
       fs::copy_file(import_script, file);
     } catch (const std::exception &e) {
       nscapi::protobuf::functions::set_response_bad(*response, "Failed to import script: " + utf8::utf8_from_native(e.what()));

@@ -228,6 +228,13 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/scheduler/simple_scheduler.cpp
         path_manager.cpp
         path_manager_test.cpp
+        # Path handling driven through the real settings registry rather than a
+        # stub, so the join between the two is covered and not just each half.
+        path_settings_integration_test.cpp
+        # The rooting rule on its own. Header-only and dependency-free, so it
+        # rides along here rather than carrying a target of its own.
+        ${NSCP_INCLUDEDIR}/nscp/path_rooting_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
         acl_test.cpp
         ${NSCP_INCLUDEDIR}/win/acl.cpp
         ${NSCP_INCLUDEDIR}/nscp/layout_migration.cpp

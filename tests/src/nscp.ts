@@ -227,10 +227,19 @@ export class NscpInstance {
     // it). Pointing it at the work dir keeps `<workDir>/security/agent-state.json`
     // and `<workDir>/fleet` inside the sandbox on every platform.
     const modulesDir = findSharedOptional("modules");
+    // Resolved the same way as bundledLuaScript(), not hardcoded to
+    // <bindir>/scripts. Those agree in a build tree and do not on a package,
+    // where nscp is /usr/sbin/nscp and the scripts live in
+    // /usr/lib/nsclient/scripts: the hardcoded form declared ${scripts} to be
+    // /usr/sbin/scripts, a directory that does not exist, while the fixtures
+    // went on passing absolute paths out of the real one. Nothing noticed
+    // until scripts had to sit inside ${scripts} to load, at which point
+    // every Lua-backed REST fixture lost mock.lua at once.
+    const scriptsDir = findSharedOptional("scripts");
     this.pathOverrides = {
       "certificate-path": defaultSecurityDir,
       "data-path": this.workDir,
-      scripts: path.join(path.dirname(nscpBin()), "scripts"),
+      scripts: scriptsDir ?? path.join(path.dirname(nscpBin()), "scripts"),
       ...(modulesDir ? { "module-path": modulesDir } : {}),
       ...(opts.pathOverrides ?? {}),
     };

@@ -143,7 +143,8 @@ bool SimpleFileWriter::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
                     "${alias-or-command} = alias if set otherwise command, ${message} = the message data (no escape), ${result} or ${result_number} = The "
                     "result status (number), ${epoch} = seconds since unix epoch, ${time} = time using time-format.")
 
-        .add_file("file", sh::path_key(&filename_, "output.txt"), "FILE TO WRITE TO", "The filename to write output to.")
+        .add_file("file", sh::path_key(&filename_, "output.txt", "${log-path}"), "FILE TO WRITE TO",
+                  "The filename to write output to. A bare file name is taken relative to the log folder; an absolute path is used as given.")
 
         .add_string("channel", sh::string_key(&channel, "FILE"), "CHANNEL", "The channel to listen to.")
 

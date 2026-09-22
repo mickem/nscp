@@ -394,8 +394,17 @@ bool NRPEClient::make_cert(const PB::Commands::ExecuteRequestMessage::Request &r
       return true;
     }
 
-    cert = get_core()->expand_path(cert);
-    key = get_core()->expand_path(key);
+    // These come from a settings query and the command line, neither of which
+    // went through a path_key's per-key catch, so a mistyped token would throw
+    // straight out of a CLI command. Answer the operator instead of aborting
+    // with whatever the caller makes of the exception.
+    try {
+      cert = get_core()->expand_path(cert);
+      key = get_core()->expand_path(key);
+    } catch (const std::exception &e) {
+      nscapi::protobuf::functions::set_response_bad(*response, std::string("Failed to resolve the certificate path: ") + utf8::utf8_from_native(e.what()));
+      return true;
+    }
 
     if (!force && (boost::filesystem::exists(cert) || boost::filesystem::exists(key))) {
       nscapi::protobuf::functions::set_response_bad(*response, "Certificate already exists, wont overwrite");

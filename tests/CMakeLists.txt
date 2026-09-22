@@ -22,6 +22,7 @@ if(WIN32)
             ${NSCP_INCLUDEDIR}/str/utf8.cpp
         LIBRARIES
             GTest::gtest_main
+            ${Boost_FILESYSTEM_LIBRARY}
             Shell32
         INCLUDES
             ${NSCP_INCLUDEDIR}
@@ -639,13 +640,27 @@ NSCP_CREATE_TEST(
 )
 
 if(OPENSSL_FOUND)
+    # The include/attachment refresh tests build a real INISettings under the
+    # http store (that is what an [/includes] entry inside a fetched file
+    # produces), so this target needs what settings_ini.hpp pulls in on
+    # Windows: the credential store and the win32 error formatter.
+    set(SETTINGS_HTTP_TEST_SOURCES
+        ${NSCP_INCLUDEDIR}/settings/impl/settings_http_test.cpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+        ${NSCP_INCLUDEDIR}/bytes/base64.c
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    )
+    if(WIN32)
+        list(
+            APPEND SETTINGS_HTTP_TEST_SOURCES
+            ${NSCP_INCLUDEDIR}/win/credentials.cpp
+            ${NSCP_INCLUDEDIR}/error/error_w32.cpp
+        )
+    endif()
     NSCP_CREATE_TEST(
         settings_http_test
         SOURCES
-            ${NSCP_INCLUDEDIR}/settings/impl/settings_http_test.cpp
-            ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
-            ${NSCP_INCLUDEDIR}/bytes/base64.c
-            ${NSCP_INCLUDEDIR}/str/utf8.cpp
+            ${SETTINGS_HTTP_TEST_SOURCES}
         LIBRARIES
             GTest::gtest_main
             ${Boost_FILESYSTEM_LIBRARY}

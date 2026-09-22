@@ -26,8 +26,10 @@
 #include <map>
 #include <memory>
 #include <nscapi/protobuf/log.hpp>
+#include <nscp/path_rooting.hpp>
 #include <settings/test_helpers.hpp>
 #include <sstream>
+#include <str/utils.hpp>
 #include <string>
 
 #include "../libs/settings_manager/settings_manager_impl.h"
@@ -192,12 +194,22 @@ namespace {
 class test_provider : public settings_manager::provider_interface {
  public:
   test_provider() : logger_(settings_test::make_null_logger()) {}
-  std::string expand_path(std::string file) override { return file; }
+
+  // Resolve ${log-path} the way the real path manager would, so the rooting
+  // the log file name now goes through has something absolute to root at. The
+  // suite points it at its own temp directory.
+  std::string expand_path(std::string file) override {
+    if (!log_path_.empty()) str::utils::replace(file, "${log-path}", log_path_);
+    return file;
+  }
+  void set_log_path(const std::string& path) { log_path_ = path; }
+
   nsclient::logging::logger_instance get_logger() const override { return logger_; }
   void apply_path_overrides(std::map<std::string, std::string>) override {}
 
  private:
   nsclient::logging::logger_instance logger_;
+  std::string log_path_;
 };
 
 // Enters a directory for the duration of a test and restores the previous
@@ -222,6 +234,7 @@ class SimpleFileLoggerSettingsTest : public ::testing::Test {
   void SetUp() override {
     settings_manager::destroy_settings();
     provider_ = std::make_unique<test_provider>();
+    provider_->set_log_path(dir_.path().string());
   }
 
   void TearDown() override { settings_manager::destroy_settings(); }
@@ -355,16 +368,37 @@ TEST_F(SimpleFileLoggerSettingsTest, FileNameNoneDisablesTheFileLog) {
   logger.asynch_configure();
   EXPECT_NO_THROW(logger.do_log(make_entry(PB::Log::LogEntry_Entry_Level_LOG_INFO, "t", "f", 1, "dropped")));
   EXPECT_FALSE(boost::filesystem::exists("none"));
+  // Assert the resolved target directly, not just that no file called "none"
+  // turned up in the working directory. The sentinel used to be mangled by the
+  // bare-name branch - which prepends base_path(), non-empty on Windows - into
+  // a real file called "<install dir>none", so logging stayed on and wrote
+  // somewhere this test never looked.
+  EXPECT_EQ(logger.get_file(), "") << "file logging was not disabled; target resolved to: " << logger.get_file();
 }
 
-#ifndef WIN32
-TEST_F(SimpleFileLoggerSettingsTest, ABareFileNameLandsNextToTheBinary) {
-  // No path separator in the configured name: base_path() (empty on POSIX,
-  // i.e. the working directory) is prepended. Run from inside the temp dir so
-  // the resolved-relative-to-cwd behaviour is exercised without depending on
-  // the working directory the suite happened to be started in being writable
-  // (it is not, for instance, when ctest runs from a read-only tree).
-  const cwd_guard cwd(dir_.path());
+TEST_F(SimpleFileLoggerSettingsTest, FileNameNoneSurvivesPathExpansion) {
+  // `none` is a sentinel, not a path: it must come back from the expander
+  // untouched so the check above sees it. Guards the expander contract from
+  // the consumer's side - path_manager has the matching test.
+  boot_with(
+      "[/settings/log]\n"
+      "file name = none\n");
+
+  simple_file_logger logger(unique_name("disabled-config"));
+  EXPECT_EQ(logger.do_config(false).file, "none");
+}
+
+TEST_F(SimpleFileLoggerSettingsTest, ABareFileNameLandsInTheLogFolder) {
+  // A bare name is rooted at ${log-path} rather than left relative. It used to
+  // resolve against the process working directory - System32 for a Windows
+  // service, whatever the shell was for `nscp test` - which is not something an
+  // operator can predict, so the log went wherever the agent happened to be
+  // started from.
+  //
+  // The fixture points ${log-path} at its own temp directory. Run from
+  // somewhere else entirely, so a regression that quietly went back to the
+  // working directory fails this rather than passing by coincidence.
+  const cwd_guard cwd(boost::filesystem::temp_directory_path());
   const std::string name = "simple_file_logger_bare.log";
   boot_with(
       "[/settings/log]\n"
@@ -374,9 +408,49 @@ TEST_F(SimpleFileLoggerSettingsTest, ABareFileNameLandsNextToTheBinary) {
   logger.asynch_configure();
   logger.do_log(make_entry(PB::Log::LogEntry_Entry_Level_LOG_INFO, "t", "f", 1, "bare-name"));
 
+  EXPECT_EQ(logger.get_file(), (dir_.path() / name).string());
   EXPECT_TRUE(boost::filesystem::exists(dir_.path() / name));
+  EXPECT_FALSE(boost::filesystem::exists(boost::filesystem::temp_directory_path() / name)) << "the log landed in the working directory";
 }
-#endif
+
+TEST_F(SimpleFileLoggerSettingsTest, AnAbsoluteFileNameIsLeftWhereTheOperatorPutIt) {
+  // Rooting applies only to a name that carries no location of its own.
+  const boost::filesystem::path target = dir_.path() / "explicit" / "chosen.log";
+  boot_with(
+      "[/settings/log]\n"
+      "file name = " + target.string() + "\n");
+
+  simple_file_logger logger(unique_name("absolute"));
+  logger.asynch_configure();
+  EXPECT_EQ(logger.get_file(), target.string());
+}
+
+TEST_F(SimpleFileLoggerSettingsTest, ALeadingSlashIsTakenAtItsWordRatherThanRewritten) {
+  // Windows used to special-case exactly "/nsclient.log" and rewrite it to
+  // ${exe-path}/nsclient.log, for configurations inherited from a version where
+  // a leading slash meant the installation directory. The rewrite is gone: a
+  // path that names a root is used as given, like every other absolute value,
+  // so on Windows this resolves against the current drive and on unix it is an
+  // ordinary absolute path.
+  //
+  // Asserted rather than merely documented because the whole point of the
+  // removal is that no hard-coded string gets moved behind the operator's back
+  // - reintroducing the shim would fail here.
+  const std::string name = "/nsclient.log";
+  boot_with(
+      "[/settings/log]\n"
+      "file name = " + name + "\n");
+
+  simple_file_logger logger(unique_name("rooted"));
+  logger.asynch_configure();
+
+  const boost::filesystem::path got(logger.get_file());
+  EXPECT_TRUE(nscp::paths::names_a_root(got)) << got.string();
+  EXPECT_EQ(got.filename(), boost::filesystem::path("nsclient.log"));
+  // Not relocated into the log folder, and not beside the executable.
+  EXPECT_NE(got, dir_.path() / "nsclient.log");
+  EXPECT_EQ(got.parent_path(), boost::filesystem::path(name).parent_path());
+}
 
 TEST_F(SimpleFileLoggerSettingsTest, ARotatedTargetThatIsADirectoryIsSurvived) {
   // With a max size configured, do_log stats the target before writing; a
