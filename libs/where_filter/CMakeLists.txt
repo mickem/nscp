@@ -45,10 +45,9 @@ if(WIN32)
     )
 endif(WIN32)
 
+# iconv is linked globally on macOS (see link_libraries() in the top-level
+# CMakeLists); it does not belong to this library in particular.
 set(EXTRA_LIBS)
-if(APPLE)
-    set(EXTRA_LIBS ${ICONV_LIBRARIES})
-endif()
 
 NSCP_MAKE_LIBRARY(${TARGET} "${SRCS}")
 

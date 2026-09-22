@@ -964,6 +964,31 @@ if(CMAKE_HOST_UNIX)
         ${EXTRA_LIBS}
         ${CMAKE_DL_LIBS}
     )
+
+    # libiconv is a platform library on macOS, so link it like one.
+    #
+    # glibc provides iconv_open/iconv/iconv_close, so on Linux nothing has to be
+    # linked and no target says anything about it. Darwin ships them in a
+    # separate libiconv (the SDK's libiconv.tbd), and every object that calls
+    # them needs it on the link line - which here means every object compiled
+    # from str/utf8.cpp, and that is compiled into some sixty targets: every
+    # private library, every module, both clients, the service and each test
+    # binary. Naming it in sixty target_link_libraries calls would be sixty
+    # places for the sixty-first to be forgotten.
+    #
+    # link_libraries() is the blunt instrument, and the right one for a library
+    # the platform itself provides - it reaches every target created after this
+    # point, which is all of them (the first add_subdirectory is far below).
+    # ICONV_LIBRARIES comes from find_package(IConv) in dependencies.cmake,
+    # included well above here.
+    #
+    # Two library directories used to carry this themselves, in an
+    # `if(APPLE) set(EXTRA_LIBS ${ICONV_LIBRARIES})` predating the rest of the
+    # macOS support. They were removed with this: they covered two of the sixty,
+    # which is why libnscp_net.dylib was the first thing to fail to link.
+    if(APPLE)
+        link_libraries(${ICONV_LIBRARIES})
+    endif()
 endif()
 
 if(NOT CMAKE_BUILD_TYPE)
