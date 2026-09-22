@@ -323,6 +323,28 @@ TEST(simple_scheduler_running, handle_schedule_fires_for_zero_duration_task) {
   s.unset_handler();
 }
 
+TEST(simple_scheduler_running, set_threads_while_running_keeps_the_pool_working) {
+  // set_threads() is the /settings/scheduler/threads notify callback, so it
+  // re-runs on every settings reload - with the pool already up and the
+  // workers running. It used to reassign the pool's error reporter on that
+  // path, an unsynchronised write to a std::function the live workers read
+  // from their catch path; the reporter is installed by the constructor now.
+  simple_scheduler::scheduler s;
+  counting_handler h;
+  h.reschedule_after = false;
+  s.set_handler(&h);
+  s.set_threads(2);
+  s.start();
+
+  s.set_threads(4);
+  s.add_task("after reload", boost::posix_time::seconds(0), 0.0);
+
+  EXPECT_TRUE(wait_for([&] { return h.calls.load() >= 1; }, std::chrono::seconds(5)));
+
+  s.stop();
+  s.unset_handler();
+}
+
 TEST(simple_scheduler_running, stop_clears_thread_count) {
   simple_scheduler::scheduler s;
   s.set_threads(2);

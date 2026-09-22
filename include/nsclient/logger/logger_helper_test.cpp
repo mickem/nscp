@@ -218,3 +218,77 @@ TEST(logger_helper, set_fatal_file_ignores_an_empty_path) {
 
   boost::filesystem::remove_all(dir);
 }
+
+TEST(logger_helper, set_fatal_file_creates_a_missing_log_directory) {
+  // ${log-path} does not exist until the ordinary log has been written once,
+  // and the path handed in is pure string substitution - nothing along the
+  // way creates the directory. Without this the configured file was accepted
+  // and every report afterwards went nowhere.
+  const boost::filesystem::path dir = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-fatal-%%%%%%%%");
+  const boost::filesystem::path file = dir / "logs" / "nsclient.fatal";
+
+  EXPECT_EQ(nsclient::logging::logger_helper::set_fatal_file(file.string()), file.string());
+  EXPECT_TRUE(boost::filesystem::is_directory(file.parent_path()));
+  // The probe must not leave an empty report behind: a file that exists means
+  // something was reported, and one appearing on every boot is a false alarm.
+  EXPECT_FALSE(boost::filesystem::exists(file));
+
+  nsclient::logging::logger_helper::log_fatal("report after the directory was created");
+  ASSERT_TRUE(boost::filesystem::exists(file));
+
+  boost::filesystem::remove_all(dir);
+}
+
+TEST(logger_helper, set_fatal_file_falls_back_to_temp_when_the_file_cannot_be_written) {
+  // A regular file where a directory is expected: create_directories() and
+  // the open both fail, on every platform and regardless of the account the
+  // process runs under (a root-owned CI container ignores mode bits).
+  const boost::filesystem::path dir = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-fatal-%%%%%%%%");
+  boost::filesystem::create_directories(dir);
+  const boost::filesystem::path blocker = dir / "not-a-directory";
+  {
+    std::ofstream make_blocker(blocker.string().c_str());
+    make_blocker << "x";
+  }
+  const boost::filesystem::path unwritable = blocker / "nsclient.fatal";
+
+  const boost::filesystem::path expected = boost::filesystem::temp_directory_path() / "nsclient.fatal";
+  const bool had_one_already = boost::filesystem::exists(expected);
+
+  EXPECT_EQ(nsclient::logging::logger_helper::set_fatal_file(unwritable.string()), expected.string());
+
+  nsclient::logging::logger_helper::log_fatal("fell back to the temp folder");
+  ASSERT_TRUE(boost::filesystem::exists(expected));
+  std::ifstream stream(expected.string().c_str());
+  const std::string contents((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
+  stream.close();
+  EXPECT_NE(contents.find("fell back to the temp folder"), std::string::npos);
+
+  if (!had_one_already) boost::filesystem::remove(expected);
+  boost::filesystem::remove_all(dir);
+}
+
+TEST(logger_helper, log_fatal_falls_back_to_temp_when_the_configured_file_goes_away) {
+  // The folder was writable when it was configured and is not any more - the
+  // classic case being simple_file_logger reporting "Failed to create log
+  // directory" through this very channel, into the directory it just failed
+  // to create.
+  const boost::filesystem::path dir = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-fatal-%%%%%%%%");
+  const boost::filesystem::path file = dir / "nsclient.fatal";
+  ASSERT_EQ(nsclient::logging::logger_helper::set_fatal_file(file.string()), file.string());
+  boost::filesystem::remove_all(dir);
+
+  const boost::filesystem::path expected = boost::filesystem::temp_directory_path() / "nsclient.fatal";
+  const bool had_one_already = boost::filesystem::exists(expected);
+
+  nsclient::logging::logger_helper::log_fatal("the log folder vanished");
+
+  EXPECT_FALSE(boost::filesystem::exists(file));
+  ASSERT_TRUE(boost::filesystem::exists(expected));
+  std::ifstream stream(expected.string().c_str());
+  const std::string contents((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
+  stream.close();
+  EXPECT_NE(contents.find("the log folder vanished"), std::string::npos);
+
+  if (!had_one_already) boost::filesystem::remove(expected);
+}

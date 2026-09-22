@@ -313,12 +313,10 @@ void scheduler::reschedule_at(const std::string &tag, const int id, boost::posix
 
 void scheduler::start_threads() {
   boost::mutex::scoped_lock l(pool_mutex_);
-  // Set before the first spawn: the group reads it from the worker it is
-  // reporting on. A worker that dies is not replaced until the watchdog next
-  // notices the pool is short, so this line is the only warning an operator
-  // gets that scheduled checks have stopped running.
-  threads_.set_error_reporter(
-      [this](const std::string &name, const std::string &detail) { log_error(__FILE__, __LINE__, "Scheduler thread '" + name + "': " + detail); });
+  // The error reporter is installed by the constructor, not here: set_threads()
+  // reaches this from the /settings/scheduler/threads notify callback, which
+  // re-runs on every settings reload, and a live worker reads the reporter
+  // from its catch path without holding pool_mutex_.
   spawn_missing_locked();
 }
 

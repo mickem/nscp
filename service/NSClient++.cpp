@@ -371,10 +371,21 @@ bool NSClientT::load_configuration_2(const bool override_log) {
   // directory, which for a service is wherever the SCM started it, to the
   // directory the ordinary log already lives in. Anyone told to "send the
   // log" then sends this too.
+  //
+  // set_fatal_file() proves it can write there before adopting the path and
+  // otherwise falls back to the temp folder, so say where the report will
+  // actually land: this is the channel that explains a crash, and it silently
+  // going nowhere is the one failure nobody would ever notice.
   try {
-    nsclient::logging::logger_helper::set_fatal_file(path_->expand_path("${log-path}/nsclient.fatal"));
+    const std::string wanted = path_->expand_path("${log-path}/nsclient.fatal");
+    const std::string actual = nsclient::logging::logger_helper::set_fatal_file(wanted);
+    if (actual == wanted) {
+      LOG_DEBUG_CORE("Crash reports will be written to: " + actual);
+    } else {
+      LOG_ERROR_CORE("Cannot write crash reports to " + wanted + ", using " + actual + " instead");
+    }
   } catch (const std::exception &e) {
-    LOG_DEBUG_CORE_STD("Could not place nsclient.fatal in the log folder, keeping the working directory: " + utf8::utf8_from_native(e.what()));
+    LOG_ERROR_CORE_STD("Could not place nsclient.fatal in the log folder, keeping the working directory: " + utf8::utf8_from_native(e.what()));
   }
 
 #ifdef WIN32

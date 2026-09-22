@@ -25,14 +25,17 @@ runner - had no top-level guard either, so an unexpected failure in a provider
 could end the process rather than one sample.
 
 Every background thread now starts through a guard
-(`threads::start_guarded_thread`): what escapes is logged as a critical naming
-the thread and the exception, and the thread ends instead of the process. Event
-loops go further and re-enter `run()`, so a request that throws fails as a
-request and the server keeps serving. Underneath all of it, a terminate handler
-now writes a report naming the exception and the thread to `nsclient.fatal`
-before the process goes down, so the paths nobody has thought of yet stop
-being silent.
+(`threads::start_guarded_thread`): what escapes is logged as
+`Thread '<name>': terminated by an uncaught exception: <details>` and the
+thread ends instead of the process. Modules log that line at `critical` and
+the core at `error`, so alerting on the text rather than on the severity is
+what covers every path. Event loops go further and re-enter `run()`, so a
+request that throws fails as a request and the server keeps serving.
+Underneath all of it, a terminate handler now writes a report naming the
+exception and the thread to `nsclient.fatal` before the process goes down, so
+the paths nobody has thought of yet stop being silent.
 
 **What to do:** nothing. If an agent has been disappearing without explanation,
 check for a `nsclient.fatal` next to `nsclient.log` after upgrading - it will
-now say what happened.
+now say what happened. If that folder cannot be written the report goes to the
+system temp folder instead; the startup log says which file is in use.

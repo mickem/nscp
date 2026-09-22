@@ -34,9 +34,13 @@
  *
  * What the guard does NOT do is restart the body. A thread that dies leaves
  * the agent up but no longer collecting, which is quieter than a crash and
- * not obviously better, so the report goes out at critical. Restart policy is
- * per-worker and belongs in the body: see fleet_sync::thread_proc() for a
- * supervisor loop that retries with a widening backoff.
+ * not obviously better, so the report has to be loud. How loud is up to the
+ * reporter: modules log it at critical (NSC_THREAD_REPORTER), while the core
+ * reports through whatever logger the owning object already holds, which is
+ * an error. The wording is the same either way, so that is what an operator
+ * alerts on. Restart policy is per-worker and belongs in the body: see
+ * fleet_sync::thread_proc() for a supervisor loop that retries with a
+ * widening backoff.
  */
 namespace threads {
 

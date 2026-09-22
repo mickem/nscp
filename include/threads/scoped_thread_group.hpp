@@ -5,6 +5,7 @@
 
 #include <atomic>
 #include <boost/thread.hpp>
+#include <cassert>
 #include <cstddef>
 #include <functional>
 #include <string>
@@ -49,11 +50,16 @@ class scoped_thread_group {
   typedef std::function<void(const std::string& /*name*/, const std::string& /*detail*/)> error_reporter;
 
   // How the death of a worker is reported. Set it before the first
-  // create_thread(): it is read from the worker threads and written by the
-  // owning thread, under the same "start/stop funnel through one thread"
-  // precondition as the rest of this class. With none set an escaping
+  // create_thread(): a live worker reads it from its catch path without any
+  // lock, so replacing it while the pool is running is a data race on a
+  // std::function - and a reporter is typically re-set from a settings notify
+  // callback, which re-runs on every reload. The assert is there because that
+  // is exactly how the scheduler got it wrong. With none set an escaping
   // exception is still contained, just not logged.
-  void set_error_reporter(error_reporter reporter) { reporter_ = reporter; }
+  void set_error_reporter(error_reporter reporter) {
+    assert(live_count_.load(std::memory_order_relaxed) == 0 && "set_error_reporter() must not race live workers; set it before create_thread()");
+    reporter_ = reporter;
+  }
 
   template <typename Callable>
   void create_thread(Callable f, const std::string& name = "worker") {

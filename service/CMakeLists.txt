@@ -302,6 +302,7 @@ NSCP_CREATE_TEST(
         nscp_protobuf
         ${Boost_THREAD_LIBRARY}
         ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_FILESYSTEM_LIBRARY}
     INCLUDES
         ${NSCP_INCLUDEDIR}
         ${CMAKE_CURRENT_SOURCE_DIR}
@@ -330,6 +331,7 @@ NSCP_CREATE_TEST(
         ${EXTRA_LIBS}
         ${Boost_DATE_TIME_LIBRARY}
         ${Boost_THREAD_LIBRARY}
+        ${Boost_FILESYSTEM_LIBRARY}
         settings_manager
     INCLUDES
         ${NSCP_INCLUDEDIR}

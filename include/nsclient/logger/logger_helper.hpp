@@ -18,12 +18,20 @@ struct logger_helper {
   static void log_fatal(std::string message);
   // Where log_fatal() appends. Defaults to "nsclient.fatal" in the working
   // directory, which for an installed service is wherever the SCM happened to
-  // start it; the core repoints it at the crash archive folder once settings
-  // have been read. Call it once, early, from one thread: the path is
-  // published through an atomic and read without a lock, because log_fatal()
-  // can run from a terminate handler where taking one risks deadlocking
-  // against a thread that is already gone.
-  static void set_fatal_file(const std::string &path);
+  // start it; the core repoints it at the log folder once settings have been
+  // read. Call it once, early, from one thread: the path is published through
+  // an atomic and read without a lock, because log_fatal() can run from a
+  // terminate handler where taking one risks deadlocking against a thread
+  // that is already gone.
+  //
+  // The path is only adopted if a report can actually be written there. The
+  // parent directory is created when it is missing, and the file is then
+  // opened for append exactly as log_fatal() will open it; if that fails the
+  // same file name in the system temp folder is tried instead. Returns the
+  // path now in use, which the caller should compare against what it asked
+  // for and log when the two differ - a last-resort channel that silently
+  // goes nowhere is worse than no channel at all.
+  static std::string set_fatal_file(const std::string &path);
   static std::pair<bool, std::string> render_console_message(bool oneline, const std::string &data);
   static std::string render_log_level_short(PB::Log::LogEntry::Entry::Level l);
   static std::string render_log_level_long(PB::Log::LogEntry::Entry::Level l);

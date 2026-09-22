@@ -101,8 +101,12 @@ into a check) and asio does not catch for it. Run one with
 re-enters `run()` - asio supports that, and dropping the pool thread instead
 leaves the server silently short of workers.
 
-The guard does not restart the body; a worker that dies logs a critical and
-stays dead. Restart policy is per-worker and belongs in the body - see
+The guard does not restart the body; a worker that dies reports
+`Thread '<name>': terminated by an uncaught exception: ...` and stays dead.
+The level is the reporter's: modules log it at critical through
+`NSC_THREAD_REPORTER`, the core at error through whatever logger the owning
+object holds - so docs tell operators to alert on the wording, not on a
+severity. Restart policy is per-worker and belongs in the body - see
 `fleet_sync::thread_proc()` for a supervisor loop with a widening backoff.
 
 `tools/guarded_threads.py --check` sweeps for raw thread creation and runs in
