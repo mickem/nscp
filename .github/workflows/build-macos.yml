@@ -262,16 +262,29 @@ jobs:
         echo "version=$NSCP_VERSION" >> "$GITHUB_OUTPUT"
         echo "label=$NSCP_LAUNCHD_LABEL" >> "$GITHUB_OUTPUT"
 
-    - name: Build the relocatable tarball
-      working-directory: tmp/nscp
+    - name: Build the tarball
       shell: bash
       run: |
         set -euo pipefail
-        # For anyone who would rather unpack than install. It is the CPack TGZ
-        # of the *unbundled* tree, so it needs the same Homebrew formulas the
-        # build used - said plainly in docs/docs/setup/installing.md.
-        cpack -G TGZ
-        cp NSCP-*.tar.gz "$GITHUB_WORKSPACE/out/"
+        . tmp/nscp/files/macos/pkg.env
+        # Rolled from the same staged tree the .pkg is built from, *after* the
+        # bundling pass - so the tarball is self-contained too, rather than
+        # quietly depending on whichever Homebrew formulas happen to be on the
+        # machine that unpacks it.
+        #
+        # Not `cpack -G TGZ`: CPack would re-run the install rules into a fresh
+        # staging directory and get the unbundled tree back, which is both a
+        # second artifact to keep in step with the first and a worse one.
+        #
+        # root:wheel, because the payload is meant to be extracted with
+        # `sudo tar -xzf ... -C /` and should land owned the way the .pkg
+        # installs it rather than owned by whoever built it.
+        tar -czf "$GITHUB_WORKSPACE/out/NSCP-${NSCP_VERSION}-macos-arm64.tar.gz" \
+          --uid 0 --gid 0 --uname root --gname wheel \
+          -C "$GITHUB_WORKSPACE/stage" .
+        echo "--- tarball contents (top two levels) ---"
+        tar -tzf "$GITHUB_WORKSPACE/out/NSCP-${NSCP_VERSION}-macos-arm64.tar.gz" |
+          awk -F/ '{print $2"/"$3}' | sort -u | head -20
 
     - name: Show the package contents
       if: always()

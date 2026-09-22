@@ -1658,6 +1658,24 @@ elseif(APPLE)
     set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY TRUE)
     set(CPACK_PACKAGING_INSTALL_PREFIX "/")
 
+    # Every install destination in this project is absolute (the prefix-derived
+    # NSCP_* values, and /Library/LaunchDaemons, which the OS fixes). An archive
+    # generator stages by pointing CMAKE_INSTALL_PREFIX at a temporary
+    # directory, and an absolute DESTINATION ignores that entirely - so `cpack
+    # -G TGZ` tried to write to the real /usr/local/sbin and failed on a runner
+    # that is not root:
+    #
+    #     file cannot create directory: /usr/local/sbin.
+    #     Maybe need administrative privileges.
+    #
+    # DESTDIR is the mechanism that does capture absolute destinations, which is
+    # how the DEB and RPM generators get this right. The same latent bug exists
+    # in the Linux branch's ZIP generator; it is left alone here because nothing
+    # invokes it (CI runs `cpack -G DEB` and `cpack -G RPM` explicitly) and
+    # changing DESTDIR handling for the two generators that do ship would be a
+    # gratuitous risk to a working build.
+    set(CPACK_SET_DESTDIR ON)
+
     # Values the product archive needs and CMake is the only thing that knows.
     #
     # Deployment target: whatever the build was configured with. The workflow

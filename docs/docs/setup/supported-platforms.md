@@ -32,7 +32,8 @@ NSClient++ runs on most modern Linux distributions. There is no single "minimum 
 <!-- @formatter:on -->
 
 macOS builds are **Apple silicon (arm64) only** and are published as a `.pkg`
-installer plus a relocatable tarball. The minimum macOS version is the one the
+installer plus a tarball of the same tree; both bundle their dependencies, so
+neither needs Homebrew on the target. The minimum macOS version is the one the
 release was built on, because the package carries the dependency libraries
 built for it; the installer refuses anything older rather than failing at
 launch. There is no Intel build, and Rosetta 2 does not substitute for one.

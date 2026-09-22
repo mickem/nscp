@@ -3,13 +3,16 @@
 The macOS artifacts are built by
 [`.github/workflows/build-macos.yml`](../../.github/workflows/build-macos.yml)
 on an Apple silicon runner. Unlike Windows (WiX/MSI) and Linux (CPack DEB/RPM),
-the installer is **not** produced by the build system: CPack only emits the
-relocatable tarball, and the `.pkg` is assembled from a staged install tree by
-Apple's own `pkgbuild` and `productbuild`.
+neither artifact is produced by the build system: both the `.pkg` and the
+tarball are assembled from a staged install tree, by Apple's own `pkgbuild` and
+`productbuild` and by `tar`.
 
-That split is not incidental. A step has to run between `make install` and the
-package being sealed — see *Why the bundling pass exists* below — and CPack has
-no hook there.
+That is not incidental. A step has to run between `make install` and the package
+being sealed — see *Why the bundling pass exists* below — and CPack has no hook
+there. `cpack -G TGZ` still works for a local build, but it re-runs the install
+rules into its own staging directory and so produces the *unbundled* tree; the
+tarball that ships is rolled from the same bundled tree as the `.pkg`, so the
+two cannot drift and neither needs Homebrew on the target.
 
 ```
 make install DESTDIR=stage            absolute install paths (NSCP_*) land under stage/
@@ -18,8 +21,9 @@ make install DESTDIR=stage            absolute install paths (NSCP_*) land under
         │                             names to @rpath, re-sign
         │
         ├─► pkgbuild                  stage/ + files/macos/scripts/ -> component .pkg
+        │      └─► productbuild       + distribution.xml -> the shipped product archive
         │
-        └─► productbuild              + distribution.xml -> the shipped product archive
+        └─► tar                       the same bundled tree -> the shipped tarball
 ```
 
 ## Where each piece lives

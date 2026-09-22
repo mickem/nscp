@@ -6,10 +6,10 @@ action: none
 **NSClient++ now ships a macOS (Apple silicon) package.** Nothing changes for
 existing Windows or Linux installations. Releases now also carry
 `NSCP-<version>-macos-arm64.pkg` and a plain
-`NSCP-<version>-macos-arm64.tar.gz`. The `.pkg` is self-contained - it bundles
-the libraries it links against, so the target Mac needs no Homebrew - and
-installs under `/usr/local`, creates a hidden `_nsclient` service account, and
-registers the agent as a launchd daemon
+`NSCP-<version>-macos-arm64.tar.gz` of the same tree. Both are self-contained -
+they bundle the libraries they link against, so the target Mac needs no
+Homebrew. The `.pkg` installs under `/usr/local`, creates a hidden `_nsclient`
+service account, and registers the agent as a launchd daemon
 (`/Library/LaunchDaemons/com.nsclient.nscp.plist`) that starts at boot. It is
 managed with `launchctl` rather than `systemctl`:
 

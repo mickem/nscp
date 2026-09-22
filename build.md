@@ -907,8 +907,11 @@ pkgbuild --root stage --scripts files/macos/scripts \
     "NSCP-${NSCP_VERSION}-macos-arm64-component.pkg"
 ```
 
-`cpack -G TGZ` produces the relocatable tarball, which is the *unbundled* tree
-and therefore still needs the Homebrew formulas above.
+`cpack -G TGZ` also works, but note what it gives you: CPack re-runs the install
+rules into its own staging directory, so its tarball is the *unbundled* tree and
+still needs the Homebrew formulas above. The tarball the release ships is rolled
+from the staged tree after `bundle_dylibs.sh` has run, which is why the workflow
+uses `tar` rather than CPack for it.
 
 ## Running tests
 

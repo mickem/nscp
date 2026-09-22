@@ -251,11 +251,18 @@ from the command line as above, or right-click the package and choose *Open*.
 <!-- @formatter:on -->
 
 A plain `NSCP-<version>-macos-arm64.tar.gz` of the same install tree is published
-alongside it, for anyone who would rather unpack than install. Unlike the `.pkg` it is
-**not** self-contained - it expects the same Homebrew formulas the build used
-(`boost`, `openssl@3`, `protobuf`, `lua`, `libzip`, `tinyxml2`, `cryptopp`) -
-and it sets up no service, account or configuration. Use the `.pkg` unless you
-have a specific reason not to.
+alongside it, for anyone who would rather unpack than install. It is rolled from
+the very tree the `.pkg` installs, so it carries the same bundled libraries and
+needs no Homebrew either:
+
+```bash
+sudo tar -xzf NSCP-<version>-macos-arm64.tar.gz -C /
+```
+
+What it does *not* do is any of the work the installer scripts do: no
+`_nsclient` account is created, nothing is chowned, and the launchd job is laid
+down but never loaded. You would be doing that by hand. Use the `.pkg` unless
+you have a specific reason not to.
 
 ### What the installer does {#what-the-installer-does-macos}
 
