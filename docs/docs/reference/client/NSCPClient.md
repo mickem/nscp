@@ -84,17 +84,12 @@ check then comes back UNKNOWN rather than passing.
 
 TLS is enabled by default and is configured with `certificate=`,
 `certificate-key=`, `ca=`, `dh=`, `verify=` and `allowed-ciphers=`. Certificate
-verification is on by default (`verify mode = peer`) against the agent's own
-trust bundle (`ca` defaults to `${ca-path}`), because the target carries the
-remote's password and an unverified connection hands it to whichever host
-answers for the address.
-
-An agent still presenting the self-signed certificate it generates on first
-start therefore does **not** verify out of the box: point `ca=` at that
-certificate and use `verify=peer-cert`, or point `ca=` at the issuing CA and
-keep `verify=peer`. `verify=none` restores the old behaviour — encrypted but
-unauthenticated — and now has to be asked for explicitly. `ssl=false` turns TLS
-off entirely, which sends the password in the clear.
+verification defaults to `none`, because an agent generates a self-signed
+certificate on first start and requiring a verified peer would make every
+default deployment fail — so out of the box the connection is encrypted but the
+server is not authenticated. Set `verify=peer` and point `ca=` at the issuing
+certificate to fix that. `ssl=false` turns TLS off entirely, which sends the
+password in the clear.
 
 **Jump to section:**
 
@@ -568,7 +563,7 @@ This is a section of objects. This means that you will create objects below this
 | address             |               | TARGET ADDRESS        |
 | allow host override | false         | ALLOW HOST OVERRIDE   |
 | allowed ciphers     |               | ALLOWED CIPHERS       |
-| ca                  |               | CA                    |
+| ca                  | ${ca-path}    | CA                    |
 | certificate         |               | SSL CERTIFICATE       |
 | certificate format  |               | CERTIFICATE FORMAT    |
 | certificate key     |               | SSL CERTIFICATE       |
@@ -579,7 +574,7 @@ This is a section of objects. This means that you will create objects below this
 | retries             | 3             | RETRIES               |
 | timeout             | 30            | TIMEOUT               |
 | use ssl             |               | ENABLE SSL ENCRYPTION |
-| verify mode         |               | VERIFY MODE           |
+| verify mode         | peer          | VERIFY MODE           |
 
 
 **Sample:**
@@ -590,7 +585,7 @@ This is a section of objects. This means that you will create objects below this
 #address=...
 allow host override=false
 #allowed ciphers=...
-#ca=...
+ca=${ca-path}
 #certificate=...
 #certificate format=...
 #certificate key=...
@@ -601,7 +596,7 @@ allow host override=false
 retries=3
 timeout=30
 #use ssl=...
-#verify mode=...
+verify mode=peer
 
 ```
 

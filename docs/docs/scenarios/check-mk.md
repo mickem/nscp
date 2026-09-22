@@ -328,6 +328,6 @@ For these, fall back to the official Checkmk agent on hosts that need them, or e
 
 ## Next Steps
 
-- [Reference: CheckMKServer](../reference/check/CheckMKServer.md) — full settings reference for the listener
+- [Reference: CheckMKServer](../reference/client/CheckMKServer.md) — full settings reference for the listener
 - [Reference: Scheduler](../reference/generic/Scheduler.md) — full scheduler reference for the submission channels
 - [Passive Monitoring with NSCA](passive-monitoring-nsca.md) — same scheduler pattern targeting a Nagios-style server instead

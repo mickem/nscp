@@ -1,6 +1,6 @@
 ---
 title: "Web sessions survive a restart of the agent"
-fixed_in: next
+fixed_in: 0.23.0
 severity: "Low"
 modules: [WEBServer]
 action: none

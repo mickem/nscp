@@ -1441,12 +1441,25 @@ Arguments:
 | `argument`          | Argument for the remote check; repeat for multiple                |
 | `timeout`           | Request timeout in milliseconds                                   |
 | `tls-version`       | TLS version (default `tlsv1.2+`)                                  |
-| `verify`            | Certificate verify mode (default `none`, for self-signed agents)  |
-| `ca`                | CA bundle to verify the remote certificate                        |
+| `verify`            | Certificate verify mode (default `peer`)                          |
+| `ca`                | CA bundle to verify the remote certificate (default `${ca-path}`) |
 
-By default the remote certificate is **not** verified (`verify=none`) because
-agents commonly present a self-signed certificate; set `verify=peer` with `ca=`
-to enforce verification.
+The remote certificate is verified by default (`verify=peer`) against the
+agent's own trust bundle, because the check sends the remote agent's API
+password and an unverified connection hands that password to whichever host
+answers for the address.
+
+An agent still presenting the self-signed certificate it generates on first
+start is reached by pointing `ca=` at that certificate and using
+`verify=peer-cert`:
+
+```
+check_nsclient_web_online host=agent.example.com password=... \
+    ca=/etc/nsclient/agent.pem verify=peer-cert
+```
+
+`verify=none` keeps the connection encrypted but leaves the agent
+unauthenticated; it now has to be asked for explicitly.
 
 **Jump to section:**
 

@@ -55,12 +55,6 @@ module's configured value), or `target=` to use a target defined in the module's
 settings, plus `timeout=`, `retries=` and the TLS options (`certificate=`,
 `ca=`, `verify=`, `allowed-ciphers=`).
 
-When TLS is enabled (`use ssl = true`) the agent is verified: `verify mode`
-defaults to `peer` and `ca` to `${ca-path}`, the agent's own trust bundle. An
-agent presenting a self-signed certificate needs `ca` pointed at that
-certificate and `verify mode = peer-cert`; `verify mode = none` leaves the
-connection encrypted but unauthenticated and has to be asked for.
-
 Note that a stock check_mk agent listens on **TCP 6556 in plain text**, with
 access control done by source-IP allowlist rather than by authentication, so set
 `port=6556` explicitly unless you have configured otherwise, and treat the
@@ -305,7 +299,7 @@ This is a section of objects. This means that you will create objects below this
 | address             |               | TARGET ADDRESS        |
 | allow host override | false         | ALLOW HOST OVERRIDE   |
 | allowed ciphers     |               | ALLOWED CIPHERS       |
-| ca                  |               | CA                    |
+| ca                  | ${ca-path}    | CA                    |
 | certificate         |               | SSL CERTIFICATE       |
 | certificate format  |               | CERTIFICATE FORMAT    |
 | certificate key     |               | SSL CERTIFICATE       |
@@ -315,7 +309,7 @@ This is a section of objects. This means that you will create objects below this
 | retries             | 3             | RETRIES               |
 | timeout             | 30            | TIMEOUT               |
 | use ssl             |               | ENABLE SSL ENCRYPTION |
-| verify mode         |               | VERIFY MODE           |
+| verify mode         | peer          | VERIFY MODE           |
 
 
 **Sample:**
@@ -326,7 +320,7 @@ This is a section of objects. This means that you will create objects below this
 #address=...
 allow host override=false
 #allowed ciphers=...
-#ca=...
+ca=${ca-path}
 #certificate=...
 #certificate format=...
 #certificate key=...
@@ -336,7 +330,7 @@ allow host override=false
 retries=3
 timeout=30
 #use ssl=...
-#verify mode=...
+verify mode=peer
 
 ```
 

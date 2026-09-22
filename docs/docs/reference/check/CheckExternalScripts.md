@@ -362,7 +362,8 @@ parent=default
 
 ### External scripts <a id="/settings/external scripts/scripts"></a>
 
-A list of scripts available to run from the CheckExternalScripts module. Syntax is: `command=script arguments`
+A list of scripts available to run from the CheckExternalScripts module. Syntax is: `command=script arguments`.
+The value is a command line handed to the operating system, not a path the agent resolves, so it is NOT searched for and `${...}` path tokens are NOT expanded here: `${scripts}/check_foo.sh` reaches the shell literally and fails. A name with no directory separator (`check_foo.sh`) is looked up on PATH rather than in the script folder. A relative name that does contain one (`scripts/check_foo.sh`) is resolved against the service's working directory, which is the installation directory on Windows and whatever the unit or init script set on Linux - so prefer an absolute path unless you are keeping the conventional `scripts\check_foo.bat` form.
 
 
 This is a section of objects. This means that you will create objects below this point by adding sections which all look the same.
