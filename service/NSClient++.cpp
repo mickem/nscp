@@ -532,11 +532,10 @@ void NSClientT::boot_facts() {
                                                 "configured in the module that produces them; nothing is collected until one is enabled there.",
                                                 true, false);
     settings_manager::get_core()->register_key(0xffff, path, "interval", "string", "Refresh interval",
-                                               "How often the core asks every module to refresh the fact sets it is configured to produce.", "1h", true,
-                                               false);
+                                               "How often the core asks every module to refresh the fact sets it is configured to produce.", "1h", true, false);
     settings_manager::get_core()->register_key(0xffff, path, "max size", "int", "Maximum document size",
-                                               "Serialised size budget for the whole facts document. A fact set that would take the document past it is "
-                                               "rejected, and the previous value of that set is kept.",
+                                               "Size budget for the whole facts document, counted on its encoded form. A fact set that would take the "
+                                               "document past it is rejected, and the previous value of that set is kept.",
                                                str::xtos(nsclient::core::fact_repository::default_max_size), true, false);
 
     const std::string max_size = settings_manager::get_settings()->get_string(path, "max size", str::xtos(nsclient::core::fact_repository::default_max_size));

@@ -10,15 +10,15 @@
 #include <boost/thread/recursive_mutex.hpp>
 #include <map>
 #include <memory>
-#include <set>
-#include <vector>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/metrics.hpp>
 #include <nsclient/logger/logger.hpp>
+#include <set>
+#include <vector>
 
 #include "../channels.hpp"
-#include "../fact_repository.hpp"
 #include "../commands.hpp"
+#include "../fact_repository.hpp"
 #include "../path_manager.hpp"
 #include "../permissions.hpp"
 #include "../routers.hpp"
@@ -168,15 +168,15 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   void set_fact_repository(const fact_repository_instance &facts) { facts_ = facts; }
 
   // Apply one producer's response to `facts`: the sets it returned, the ones
-  // it explicitly dropped (a null) and the ones it says it could not collect.
+  // it explicitly removed and the ones it says it could not collect.
   // A set the repository refuses lands in `errors` with the reason, and every
   // id the module spoke about lands in `produced` - which is what the caller
   // prunes against, so a set the module no longer mentions goes away.
   // Returns an empty string when the response could be read at all, and
   // otherwise why it could not - in which case nothing is pruned.
   //
-  // Static, so the JSON contract between a module and the core can be tested
-  // directly.
+  // Static, so the protobuf contract between a module and the core can be
+  // tested directly.
   static std::string apply_facts_response(const std::string &response, unsigned int plugin_id, fact_repository &facts,
                                           std::map<std::string, std::string> &errors, std::set<std::string> &produced);
 

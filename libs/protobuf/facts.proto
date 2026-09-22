@@ -1,0 +1,173 @@
+syntax = "proto3";
+
+package PB.Facts;
+
+//option optimize_for = CODE_SIZE;
+option optimize_for = LITE_RUNTIME;
+import "common.proto";
+
+//
+// Host facts: the opt-in inventory a module produces (fetchFacts) and the
+// core keeps (service/fact_repository.hpp).
+//
+// The document is a tree rather than a flat map, which is what separates it
+// from tags: "which volumes does this host have" is a list of records, and a
+// comma-joined tag value is where that shape goes to die. Protobuf has no
+// schemaless tree of its own that a LITE_RUNTIME build may use -
+// google.protobuf.Struct is full-runtime and a lite message cannot import it -
+// so Value/Object/List below are that tree, in the same hand-rolled spirit as
+// the recursive MetricsBundle in metrics.proto.
+//
+
+// One value in the document. The oneof is the value's type, and there is no
+// null member on purpose: an unknown value is omitted from the document, never
+// written as null, so a consumer never has to tell "absent" from "present but
+// nothing".
+message Value {
+	oneof kind {
+		string string_value = 1;
+		// Signed and unsigned are kept apart so a producer holding a DWORD or a
+		// 64-bit byte count does not have to squeeze it through int64.
+		int64 int_value = 2;
+		uint64 uint_value = 3;
+		double double_value = 4;
+		bool bool_value = 5;
+		Object object_value = 6;
+		List list_value = 7;
+	}
+}
+
+// One key/value pair of an object. Spelled out as a message in a `repeated`
+// rather than a protobuf `map` because the order is ours to decide: the core
+// stores the fields of every object sorted by key, which is what makes two
+// collections of the same inventory compare equal byte for byte (and, through
+// that, what keeps the revision from moving when nothing changed).
+message Field {
+	string key = 1;
+	Value value = 2;
+}
+
+message Object {
+	repeated Field fields = 1;
+}
+
+message List {
+	repeated Value values = 1;
+}
+
+// One fact set - the first level of the document - as a producer reports it.
+//
+// Not mentioning a set at all is the third state, and the important one: it
+// leaves whatever the core already has, so a transient failure never blanks
+// the inventory. `removed` is the explicit "stop holding this" (the docker
+// socket went away), and `error` says a set this module produces could not be
+// collected this round, which keeps the previous value and is reported next to
+// the document so a consumer can show the reason rather than silence.
+message FactSet {
+	string id = 1;
+	Object facts = 2;
+	bool removed = 3;
+	string error = 4;
+}
+
+//
+// Facts query message.
+// Core -> module: collect the fact sets you are configured to produce.
+//
+message FactsQueryMessage {
+	message Request {
+		int64 id = 1;
+		// Why the core is asking: startup, scheduled, reload or manual. All the
+		// core has to say - which sets to collect is the module's own
+		// configuration - and enough for an expensive collector to hand back its
+		// last snapshot instead of collecting again.
+		string reason = 2;
+	};
+
+	PB.Common.Header header = 1;
+	repeated Request payload = 2;
+}
+
+//
+// Facts message.
+// Module -> core: what this module produced this round.
+//
+message FactsMessage {
+	message Response {
+		int64 id = 1;
+		// A result other than STATUS_OK is "this round failed", which is not the
+		// same as "I no longer produce any of this": the core keeps every set it
+		// holds for this module and prunes nothing.
+		PB.Common.Result result = 2;
+
+		repeated FactSet sets = 3;
+	};
+
+	PB.Common.Header header = 1;
+	repeated Response payload = 2;
+}
+
+//
+// Facts request message.
+// Consumer (REST, the `nscp test` console) -> core: read the document.
+//
+// There is no set command on purpose. Facts are produced by fetchFacts on the
+// core's schedule from what each module's own configuration enables, so a
+// module cannot push inventory the operator did not ask for.
+//
+message FactsRequestMessage {
+	message Request {
+		enum Command {
+			GET = 0;
+			// Run a collection round now, then answer as GET does.
+			REFRESH = 1;
+		};
+
+		int64 id = 1;
+		Command command = 2;
+		// A dotted path into the document ("os", "software.installed"). Empty is
+		// the whole document.
+		string path = 3;
+	};
+
+	PB.Common.Header header = 1;
+	repeated Request payload = 2;
+}
+
+//
+// Facts response message.
+// The document (or the subtree asked for) and what a consumer needs to render
+// and cache it.
+//
+message FactsResponseMessage {
+	message Response {
+		int64 id = 1;
+		PB.Common.Result result = 2;
+
+		// Monotonic change counter: 0 is the empty document a fresh install
+		// reports, and it only moves when the stored facts actually change.
+		uint64 revision = 3;
+		// When the last round completed, ISO 8601 UTC; empty until one has.
+		string collected = 4;
+		// What the producers said they are collecting at their last completed
+		// round - including a set that is enabled and currently failing.
+		repeated string enabled = 5;
+		// Per-set collection errors from the last round.
+		repeated PB.Common.KeyValue errors = 6;
+
+		// Echoed back when the request carried one, with `found` saying whether
+		// anything produced it. A path the document does not have is not an
+		// error: "no such subtree" and "the call failed" are different answers.
+		string path = 7;
+		bool found = 8;
+
+		// The document, or the subtree at `path`. A Value rather than an Object
+		// because a path may address any node: `os` is an object, but
+		// `os.family` is a string and `storage.volumes` a list. The whole
+		// document is always an object_value.
+		Value facts = 9;
+	};
+
+	PB.Common.Header header = 1;
+	repeated Response payload = 2;
+}

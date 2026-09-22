@@ -89,9 +89,6 @@ target_link_libraries(
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     nscp_protobuf
-    # The facts builder is JSON, so every module that links the plugin API
-    # gets Boost.JSON through it rather than compiling its own copy.
-    nscp_json
     ${EXTRA_LIBS}
 )
 add_dependencies(${TARGET} nscp_protobuf)
@@ -115,7 +112,6 @@ NSCP_CREATE_TEST(
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}
         nscp_protobuf
-        nscp_json
         ${EXTRA_LIBS}
         ${Boost_DATE_TIME_LIBRARY}
         ${Boost_PROGRAM_OPTIONS_LIBRARY}

@@ -29,64 +29,72 @@ std::string format_date(const std::time_t when) {
   return boost::gregorian::to_iso_extended_string(day);
 }
 
-boost::json::value parse_document(const std::string &envelope) {
-  try {
-    const boost::json::value parsed = boost::json::parse(envelope);
-    const boost::json::object *root = parsed.if_object();
-    if (root == nullptr) return boost::json::object();
-    const boost::json::value *document = root->if_contains("facts");
-    if (document == nullptr) return boost::json::object();
-    return *document;
-  } catch (const std::exception &) {
-    // The envelope comes from the core, so this is a core that does not know
-    // the call (it returns "{}") or a truncated buffer. Either way the
-    // consumer gets an empty document rather than an exception it cannot act
-    // on.
-    return boost::json::object();
-  }
+PB::Facts::Value parse_document(const std::string &envelope) {
+  PB::Facts::Value empty;
+  empty.mutable_object_value();
+  PB::Facts::FactsResponseMessage message;
+  // The envelope comes from the core, so a parse failure is a core that does
+  // not know the call (it answers with nothing) or a truncated buffer. Either
+  // way the consumer gets an empty document rather than an error it cannot
+  // act on.
+  if (!message.ParseFromString(envelope)) return empty;
+  if (message.payload_size() == 0) return empty;
+  if (!message.payload(0).has_facts()) return empty;
+  return message.payload(0).facts();
 }
 
-request::request(const std::string &json) {
-  try {
-    const boost::json::value parsed = boost::json::parse(json);
-    const boost::json::object *root = parsed.if_object();
-    if (root == nullptr) return;
-    const boost::json::value *reason = root->if_contains("reason");
-    if (reason != nullptr && reason->is_string()) reason_ = json_to_string(reason->as_string());
-  } catch (const std::exception &) {
-    // Nothing to recover: the reason is a hint, and a producer that cannot
-    // read it simply collects as it would on a scheduled round.
-    reason_.clear();
-  }
+request::request(const std::string &buffer) {
+  PB::Facts::FactsQueryMessage message;
+  // Nothing to recover from a bad parse: the reason is a hint, and a producer
+  // that cannot read it simply collects as it would on a scheduled round.
+  if (!message.ParseFromString(buffer)) return;
+  if (message.payload_size() == 0) return;
+  reason_ = message.payload(0).reason();
 }
 
-std::string response::to_json() const {
-  boost::json::object sets;
-  for (const std::string &name : order_) {
-    const std::map<std::string, detail::node_ptr>::const_iterator it = sets_.find(name);
-    if (it == sets_.end()) continue;
-    sets[name] = it->second->build();
-  }
-  // An explicit null removes the set, as opposed to not mentioning it, which
-  // leaves what the core already has.
-  for (const std::string &name : removed_) sets[name] = boost::json::value(nullptr);
+PB::Facts::FactsMessage response::to_message() const {
+  PB::Facts::FactsMessage message;
+  PB::Facts::FactsMessage::Response *payload = message.add_payload();
 
-  boost::json::object root;
-  // A failed round says so at the top level and carries nothing else: the
+  // A failed round says so through the result and carries no sets at all: the
   // core keeps what it has rather than reading silence as "stopped
   // producing".
   if (!failure_.empty()) {
-    root["error"] = failure_;
-    return boost::json::serialize(root);
+    payload->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_ERROR);
+    payload->mutable_result()->set_message(failure_);
+    return message;
   }
-  root["sets"] = sets;
-  if (!problems_->empty()) {
-    boost::json::object errors;
-    for (const std::pair<const std::string, std::string> &problem : *problems_) errors[problem.first] = problem.second;
-    root["errors"] = errors;
+  payload->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
+
+  for (const std::string &name : order_) {
+    const std::map<std::string, detail::node_ptr>::const_iterator it = sets_.find(name);
+    if (it == sets_.end()) continue;
+    PB::Facts::FactSet *set = payload->add_sets();
+    set->set_id(name);
+    it->second->build_object(set->mutable_facts());
+    const std::map<std::string, std::string>::const_iterator problem = problems_->find(name);
+    if (problem != problems_->end()) set->set_error(problem->second);
   }
-  return boost::json::serialize(root);
+  // `removed` drops the set, as opposed to not mentioning it, which leaves
+  // what the core already has.
+  for (const std::string &name : removed_) {
+    PB::Facts::FactSet *set = payload->add_sets();
+    set->set_id(name);
+    set->set_removed(true);
+  }
+  // An error against a set the producer did not build at all - it could not
+  // collect it this round. It still rides as a FactSet so the core learns the
+  // module produces it and keeps the value it has.
+  for (const std::pair<const std::string, std::string> &problem : *problems_) {
+    if (sets_.find(problem.first) != sets_.end()) continue;
+    PB::Facts::FactSet *set = payload->add_sets();
+    set->set_id(problem.first);
+    set->set_error(problem.second);
+  }
+  return message;
 }
+
+std::string response::serialize() const { return to_message().SerializeAsString(); }
 
 }  // namespace facts
 }  // namespace nscapi

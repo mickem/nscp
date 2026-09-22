@@ -4,38 +4,29 @@
 #pragma once
 
 #include <algorithm>
-#include <boost/json.hpp>
 #include <boost/optional.hpp>
 #include <boost/thread/mutex.hpp>
 #include <cstddef>
 #include <ctime>
 #include <map>
 #include <memory>
+#include <nscapi/protobuf/facts.hpp>
 #include <set>
 #include <string>
 #include <vector>
 
-// The document hash is a SHA-256, which is OpenSSL's job here as everywhere
+// The upload hash is a SHA-256, which is OpenSSL's job here as everywhere
 // else in the tree. OpenSSL is optional (find_package(OpenSSL), and
 // build/docker/Dockerfile.no-openssl proves the build survives without it),
 // so a build without it collects and serves facts as usual and simply has no
 // hash to offer: the one consumer that needs it, the fleet upload, is
-// OpenSSL-only anyway, and the REST ETag is a cache optimisation.
+// OpenSSL-only anyway.
 #ifdef HAVE_OPENSSL
 #include <openssl/evp.h>
 #endif
 
 namespace nsclient {
 namespace core {
-
-// Copy a JSON string in full.
-//
-// boost::json::string converts to std::string only where json::string_view is
-// std::string_view; on the Boost the EL9 build uses (1.75) it is not, so the
-// conversion has to be spelled out. data()/size() rather than c_str() for the
-// same reason libs/onboarding/json_util.hpp gives: c_str() truncates at an
-// embedded nul, which turns a hostile value into a harmless looking one.
-inline std::string json_to_string(const boost::json::string &value) { return std::string(value.data(), value.size()); }
 
 // Central repository for host "facts": the opt-in inventory document modules
 // produce on a schedule (fetchFacts) and the agent serves on /api/v2/facts.
@@ -44,15 +35,21 @@ inline std::string json_to_string(const boost::json::string &value) { return std
 // a tag is a flat, always-present key=value a fleet selector can match on,
 // while a fact set is a structured document - objects, scalars and lists of
 // records - that describes what the host *is*. Nothing is collected until a
-// fact set is enabled in [/settings/facts], so an empty document is the
-// default and what a fresh install reports.
+// fact set is enabled in the configuration of the module that produces it, so
+// an empty document is the default and what a fresh install reports.
 //
-// The document is one JSON object whose first level is a fact set: `os`,
-// `hardware`, `storage`, ... Each set is owned by exactly one plugin, is
-// replaced whole, and is validated before it is accepted - a set that breaks
-// a rule is rejected in one piece and the previous value is kept, so a
-// producer that starts returning garbage cannot corrupt what the server
-// already has.
+// The document is one PB::Facts::Object whose first level is a fact set:
+// `os`, `hardware`, `storage`, ... Each set is owned by exactly one plugin, is
+// replaced whole, and is validated before it is accepted - a set that breaks a
+// rule is rejected in one piece and the previous value is kept, so a producer
+// that starts returning garbage cannot corrupt what the server already has.
+//
+// Protobuf, like every other payload that crosses the plugin ABI here. JSON
+// enters the picture once, at the far end: to_json() renders the document the
+// way the fleet upload sends it, and get_hash() is the digest of exactly those
+// bytes. That is the one boundary where a different implementation has to
+// agree on an encoding byte for byte, and JSON is the format that has a
+// canonical form to agree on - protobuf deliberately does not define one.
 //
 // Thread safety as tag_repository: one mutex, copies out.
 class fact_repository {
@@ -76,27 +73,29 @@ class fact_repository {
   static constexpr std::size_t max_depth = 6;
   // Records in one list.
   static constexpr std::size_t max_list_length = 5000;
-  // Serialised size of the whole document. Overridable from
-  // [/settings/facts] max size.
+  // Encoded size of the whole document. Overridable from [/settings/facts]
+  // max size.
   static constexpr std::size_t default_max_size = 1048576;
-
-  fact_repository() { canonical_ = "{}"; }
 
   // Replace one fact set (a top-level key) with `value`, recording which
   // plugin owns it. Returns `rejected` without touching the stored document
-  // when the name is not a valid key, the value is not an object, the
-  // document rules are broken, the size budget would be exceeded, or another
-  // plugin already produces this set; `error` then says why.
-  set_result set(const std::string &fact_set, const unsigned int plugin_id, const boost::json::value &value, std::string &error) {
+  // when the name is not a valid key, the document rules are broken, the size
+  // budget would be exceeded, or another plugin already produces this set;
+  // `error` then says why.
+  set_result set(const std::string &fact_set, const unsigned int plugin_id, const PB::Facts::Object &value, std::string &error) {
     if (!is_valid_key(fact_set)) {
       error = "'" + clip(fact_set) + "' is not a valid fact set name (snake_case, at most " + std::to_string(max_key_length) + " characters)";
       return set_result::rejected;
     }
-    if (!value.is_object()) {
-      error = "fact set '" + fact_set + "' must be a JSON object";
-      return set_result::rejected;
-    }
-    if (!validate(fact_set, value, 1, error)) return set_result::rejected;
+    if (!validate_object(fact_set, value, 1, error)) return set_result::rejected;
+
+    // Sorted as it is accepted, which is what makes the comparison below a
+    // byte comparison: a producer that returns the same facts in a different
+    // key order is rightly a no-op rather than a revision bump the fleet
+    // server has to chase.
+    PB::Facts::Object candidate = value;
+    nscapi::facts::tree::sort_fields(&candidate);
+    const std::string encoded = candidate.SerializeAsString();
 
     boost::unique_lock<boost::mutex> lock(mutex_);
     const std::map<std::string, unsigned int>::const_iterator owner = owners_.find(fact_set);
@@ -104,33 +103,30 @@ class fact_repository {
       error = "fact set '" + fact_set + "' is already produced by another module";
       return set_result::rejected;
     }
-    boost::json::object candidate = facts_;
-    candidate[fact_set] = value;
-    // The canonical form decides whether anything changed: it is what the
-    // hash, the size budget and the fleet upload are all taken from, so a
-    // producer that returns the same facts in a different key order is
-    // rightly a no-op rather than a revision bump the server has to chase.
-    const std::string canonical = canonicalise(candidate);
-    if (canonical == canonical_) {
+    const std::map<std::string, std::string>::const_iterator stored = encoded_.find(fact_set);
+    if (stored != encoded_.end() && stored->second == encoded) {
       owners_[fact_set] = plugin_id;
       return set_result::unchanged;
     }
-    if (canonical.size() > max_size_) {
+    const std::size_t would_be = size_ - (stored == encoded_.end() ? 0 : stored->second.size()) + encoded.size();
+    if (would_be > max_size_) {
       error = "fact set '" + fact_set + "' would take the facts document past the " + std::to_string(max_size_) + " byte budget";
       return set_result::rejected;
     }
-    facts_ = candidate;
+    sets_[fact_set] = candidate;
+    encoded_[fact_set] = encoded;
+    size_ = would_be;
     owners_[fact_set] = plugin_id;
-    store(canonical);
+    touch();
     return set_result::changed;
   }
 
-  // Drop one fact set, whoever owns it. A producer does this by returning an
-  // explicit null for the set (the docker socket went away).
+  // Drop one fact set, whoever owns it. A producer does this by marking the
+  // set removed (the docker socket went away).
   set_result remove(const std::string &fact_set) {
     boost::unique_lock<boost::mutex> lock(mutex_);
     if (!erase_locked(fact_set)) return set_result::unchanged;
-    store(canonicalise(facts_));
+    touch();
     return set_result::changed;
   }
 
@@ -146,7 +142,7 @@ class fact_repository {
     }
     bool changed = false;
     for (const std::string &fact_set : owned) changed = erase_locked(fact_set) || changed;
-    if (changed) store(canonicalise(facts_));
+    if (changed) touch();
   }
 
   // Take what one producer says it is configured to produce, and drop the
@@ -171,65 +167,72 @@ class fact_repository {
     }
     bool changed = false;
     for (const std::string &fact_set : owned) changed = erase_locked(fact_set) || changed;
-    if (changed) store(canonicalise(facts_));
+    if (changed) touch();
   }
 
-  // The whole document.
-  boost::json::object get_all() const {
+  // The whole document, one field per fact set. Sorted, because the sets live
+  // in a std::map and every object below them was sorted on the way in.
+  PB::Facts::Object get_all() const {
     boost::unique_lock<boost::mutex> lock(mutex_);
-    return facts_;
+    return build_document_locked();
   }
 
   // One subtree, addressed by a dotted path (`os`, `software.installed`).
   // None when the path is not in the document.
-  boost::optional<boost::json::value> get(const std::string &path) const {
+  boost::optional<PB::Facts::Value> get(const std::string &path) const {
     boost::unique_lock<boost::mutex> lock(mutex_);
-    const boost::json::value *current = nullptr;
-    std::size_t start = 0;
-    while (start <= path.size()) {
-      const std::size_t dot = path.find('.', start);
-      const std::string segment = path.substr(start, dot == std::string::npos ? std::string::npos : dot - start);
+    const std::size_t dot = path.find('.');
+    const std::string head = path.substr(0, dot);
+    if (head.empty()) return boost::none;
+    const std::map<std::string, PB::Facts::Object>::const_iterator it = sets_.find(head);
+    if (it == sets_.end()) return boost::none;
+    PB::Facts::Value current;
+    *current.mutable_object_value() = it->second;
+    std::size_t start = dot;
+    while (start != std::string::npos) {
+      ++start;
+      const std::size_t next = path.find('.', start);
+      const std::string segment = path.substr(start, next == std::string::npos ? std::string::npos : next - start);
       if (segment.empty()) return boost::none;
-      const boost::json::object &parent = current == nullptr ? facts_ : (current->is_object() ? current->as_object() : empty_object());
-      current = parent.if_contains(segment);
-      if (current == nullptr) return boost::none;
-      if (dot == std::string::npos) break;
-      start = dot + 1;
+      if (!current.has_object_value()) return boost::none;
+      const PB::Facts::Value *child = nscapi::facts::tree::get(current.object_value(), segment);
+      if (child == nullptr) return boost::none;
+      const PB::Facts::Value found = *child;
+      current = found;
+      start = next;
     }
-    if (current == nullptr) return boost::none;
-    return *current;
+    return current;
   }
 
-  // sha256 of the canonical serialisation: keys sorted, no whitespace. This
-  // is what the fleet server compares against and what the REST layer serves
-  // as an ETag, so it is computed from bytes that do not depend on insertion
-  // order. Computed lazily, so a producer replacing five sets in one round
-  // costs one hash.
+  // The document as the fleet upload sends it: canonical JSON, no whitespace,
+  // object keys sorted. Static-friendly, so a consumer holding the same tree
+  // can reproduce the bytes and check the hash itself.
+  std::string to_json() const {
+    boost::unique_lock<boost::mutex> lock(mutex_);
+    return nscapi::facts::tree::to_json(build_document_locked());
+  }
+
+  // sha256 of to_json(). Computed on demand rather than kept up to date: only
+  // the fleet upload needs it, once per round it actually uploads, while the
+  // agent's own reads and writes never look at it.
   std::string get_hash() const {
     boost::unique_lock<boost::mutex> lock(mutex_);
     if (hash_dirty_) {
-      hash_ = sha256_hex(canonical_);
+      hash_ = sha256_hex(nscapi::facts::tree::to_json(build_document_locked()));
       hash_dirty_ = false;
     }
     return hash_;
   }
 
   // Whether this build can hash the document at all (see the OpenSSL note at
-  // the top). Consumers that would otherwise publish an empty hash - the REST
-  // ETag, the state report - ask first.
+  // the top). Consumers that would otherwise publish an empty hash - the
+  // state report - ask first.
   static bool can_hash() {
 #ifdef HAVE_OPENSSL
     return true;
 #else
     return false;
 #endif
-  }
-
-  // The canonical serialisation the hash is taken of - the bytes an upload
-  // sends and a consumer can hash itself to check.
-  std::string get_canonical() const {
-    boost::unique_lock<boost::mutex> lock(mutex_);
-    return canonical_;
   }
 
   // Monotonic change counter: starts at 0 (empty document) and increments on
@@ -278,8 +281,8 @@ class fact_repository {
     collected_ = timestamp;
   }
 
-  // The serialised size budget ([/settings/facts] max size). A budget below
-  // what an empty document needs is ignored.
+  // The encoded size budget ([/settings/facts] max size). A budget below what
+  // a single empty set needs is ignored.
   void set_max_size(const std::size_t max_size) {
     boost::unique_lock<boost::mutex> lock(mutex_);
     if (max_size >= 2) max_size_ = max_size;
@@ -301,23 +304,20 @@ class fact_repository {
     return true;
   }
 
-  // The canonical serialisation of any value: object keys sorted, no
-  // whitespace. Static so the hash can be reproduced from a document a
-  // consumer holds.
-  static std::string canonicalise(const boost::json::value &value) {
-    std::string out;
-    write_canonical(value, out);
-    return out;
-  }
-
  private:
-  static const boost::json::object &empty_object() {
-    static const boost::json::object empty;
-    return empty;
+  // The document, assembled from the sets. Callers hold the lock.
+  PB::Facts::Object build_document_locked() const {
+    PB::Facts::Object document;
+    for (const std::pair<const std::string, PB::Facts::Object> &entry : sets_) {
+      PB::Facts::Field *field = document.add_fields();
+      field->set_key(entry.first);
+      *field->mutable_value()->mutable_object_value() = entry.second;
+    }
+    return document;
   }
 
-  // The canonical form's digest, as 64 lowercase hex characters; empty in a
-  // build without OpenSSL (see the note at the top of the file).
+  // The digest of `bytes`, as 64 lowercase hex characters; empty in a build
+  // without OpenSSL (see the note at the top of the file).
   static std::string sha256_hex(const std::string &bytes) {
 #ifdef HAVE_OPENSSL
     unsigned char digest[EVP_MAX_MD_SIZE];
@@ -350,66 +350,48 @@ class fact_repository {
 
   static std::string clip(const std::string &text) { return text.size() <= 64 ? text : text.substr(0, 64) + "..."; }
 
-  static void write_canonical(const boost::json::value &value, std::string &out) {
-    if (value.is_object()) {
-      const boost::json::object &object = value.as_object();
-      std::vector<std::string> keys;
-      keys.reserve(object.size());
-      for (const boost::json::key_value_pair &entry : object) keys.push_back(std::string(entry.key()));
-      std::sort(keys.begin(), keys.end());
-      out += "{";
-      bool first = true;
-      for (const std::string &key : keys) {
-        if (!first) out += ",";
-        first = false;
-        out += boost::json::serialize(boost::json::value(key));
-        out += ":";
-        write_canonical(object.at(key), out);
-      }
-      out += "}";
-      return;
-    }
-    if (value.is_array()) {
-      out += "[";
-      bool first = true;
-      for (const boost::json::value &item : value.as_array()) {
-        if (!first) out += ",";
-        first = false;
-        write_canonical(item, out);
-      }
-      out += "]";
-      return;
-    }
-    out += boost::json::serialize(value);
-  }
-
   // Walk a fact set and check it against the document rules. `path` is the
   // dotted position in the document, so the rejection message says where the
   // problem is rather than just that there is one.
-  static bool validate(const std::string &path, const boost::json::value &value, const std::size_t depth, std::string &error) {
-    if (value.is_null()) {
-      error = "'" + path + "' is null: an unknown value is omitted, never written as null";
+  static bool validate_object(const std::string &path, const PB::Facts::Object &object, const std::size_t depth, std::string &error) {
+    if (depth > max_depth) {
+      error = "'" + path + "' nests deeper than " + std::to_string(max_depth) + " levels";
       return false;
     }
-    if (value.is_object()) {
-      if (depth > max_depth) {
-        error = "'" + path + "' nests deeper than " + std::to_string(max_depth) + " levels";
+    std::set<std::string> keys;
+    for (const PB::Facts::Field &field : object.fields()) {
+      if (!is_valid_key(field.key())) {
+        error = "'" + path + "." + clip(field.key()) + "' is not a valid key (snake_case, at most " + std::to_string(max_key_length) + " characters)";
         return false;
       }
-      for (const boost::json::key_value_pair &entry : value.as_object()) {
-        const std::string key(entry.key());
-        if (!is_valid_key(key)) {
-          error = "'" + path + "." + clip(key) + "' is not a valid key (snake_case, at most " + std::to_string(max_key_length) + " characters)";
-          return false;
-        }
-        if (!validate(path + "." + key, entry.value(), depth + 1, error)) return false;
+      // A repeated field can carry the same key twice, which an object cannot
+      // mean: the document is a map at every level, and the second one would
+      // silently win or lose depending on the reader.
+      if (!keys.insert(field.key()).second) {
+        error = "'" + path + "' carries the key '" + clip(field.key()) + "' twice";
+        return false;
       }
-      return true;
+      if (!validate(path + "." + field.key(), field.value(), depth + 1, error)) return false;
     }
-    if (value.is_array()) return validate_list(path, value.as_array(), depth, error);
-    // Strings, numbers and booleans are the scalars; nothing else can reach
-    // here (boost::json has no other kinds).
     return true;
+  }
+
+  static bool validate(const std::string &path, const PB::Facts::Value &value, const std::size_t depth, std::string &error) {
+    switch (value.kind_case()) {
+      case PB::Facts::Value::kObjectValue:
+        return validate_object(path, value.object_value(), depth, error);
+      case PB::Facts::Value::kListValue:
+        return validate_list(path, value.list_value(), depth, error);
+      case PB::Facts::Value::KIND_NOT_SET:
+        // The protobuf equivalent of a null: a Value that says nothing. An
+        // unknown value is omitted from the document, never stored as an
+        // empty one.
+        error = "'" + path + "' carries no value: an unknown value is omitted, never stored empty";
+        return false;
+      default:
+        // Strings, numbers and booleans are the scalars.
+        return true;
+    }
   }
 
   // A list is either a list of records - objects carrying an `id` that is
@@ -417,59 +399,65 @@ class fact_repository {
   // diff two uploads instead of treating every refresh as a replacement - or
   // a plain list of strings (`addresses`, `modules`). Mixing the two, or
   // listing bare numbers, leaves a consumer with no way to tell what it has.
-  static bool validate_list(const std::string &path, const boost::json::array &list, const std::size_t depth, std::string &error) {
-    if (list.size() > max_list_length) {
-      error = "'" + path + "' holds " + std::to_string(list.size()) + " entries, more than the " + std::to_string(max_list_length) + " allowed";
+  static bool validate_list(const std::string &path, const PB::Facts::List &list, const std::size_t depth, std::string &error) {
+    if (static_cast<std::size_t>(list.values_size()) > max_list_length) {
+      error = "'" + path + "' holds " + std::to_string(list.values_size()) + " entries, more than the " + std::to_string(max_list_length) + " allowed";
       return false;
     }
-    if (list.empty()) return true;
-    const bool records = list.front().is_object();
+    if (list.values_size() == 0) return true;
+    const bool records = list.values(0).has_object_value();
     std::set<std::string> ids;
-    for (const boost::json::value &item : list) {
-      if (item.is_object() != records) {
+    for (const PB::Facts::Value &item : list.values()) {
+      if (item.has_object_value() != records) {
         error = "'" + path + "' mixes records and plain values: a list is either records or strings";
         return false;
       }
       if (!records) {
-        if (!item.is_string()) {
+        if (item.kind_case() != PB::Facts::Value::kStringValue) {
           error = "'" + path + "' holds a plain value that is not a string: a list is either records or strings";
           return false;
         }
         continue;
       }
-      const boost::json::value *id = item.as_object().if_contains("id");
-      if (id == nullptr || !id->is_string() || id->as_string().empty()) {
+      const PB::Facts::Value *id = nscapi::facts::tree::get(item.object_value(), "id");
+      if (id == nullptr || id->kind_case() != PB::Facts::Value::kStringValue || id->string_value().empty()) {
         error = "'" + path + "' holds a record without a non-empty string id";
         return false;
       }
-      const std::string key = json_to_string(id->as_string());
-      if (!ids.insert(key).second) {
-        error = "'" + path + "' holds two records with the id '" + clip(key) + "'";
+      if (!ids.insert(id->string_value()).second) {
+        error = "'" + path + "' holds two records with the id '" + clip(id->string_value()) + "'";
         return false;
       }
-      if (!validate(path + "[" + key + "]", item, depth + 1, error)) return false;
+      if (!validate_object(path + "[" + id->string_value() + "]", item.object_value(), depth + 1, error)) return false;
     }
     return true;
   }
 
-  // Erase one set, leaving the canonical form to the caller: a round that
-  // drops several sets re-serialises once, not once per set. Callers hold the
-  // lock.
+  // Erase one set. Callers hold the lock and call touch() themselves, so a
+  // round that drops several sets counts as one change.
   bool erase_locked(const std::string &fact_set) {
     owners_.erase(fact_set);
-    if (facts_.if_contains(fact_set) == nullptr) return false;
-    facts_.erase(fact_set);
+    const std::map<std::string, std::string>::iterator encoded = encoded_.find(fact_set);
+    if (encoded == encoded_.end()) return false;
+    size_ -= encoded->second.size();
+    encoded_.erase(encoded);
+    sets_.erase(fact_set);
     return true;
   }
 
-  void store(const std::string &canonical) {
-    canonical_ = canonical;
+  void touch() {
     hash_dirty_ = true;
     ++revision_;
   }
 
   mutable boost::mutex mutex_;
-  boost::json::object facts_;
+  // The document, one entry per fact set, each sorted by key. A std::map, so
+  // the first level is sorted too and the document has one encoding.
+  std::map<std::string, PB::Facts::Object> sets_;
+  // The encoded bytes of each set, kept beside it: they are what decides
+  // whether a round changed anything, and what the size budget counts.
+  std::map<std::string, std::string> encoded_;
+  std::size_t size_ = 0;
   // Which plugin produced each set, so unloading a module takes its sets with
   // it and two modules cannot fight over one top-level key.
   std::map<std::string, unsigned int> owners_;
@@ -477,7 +465,6 @@ class fact_repository {
   std::map<unsigned int, std::set<std::string>> declared_;
   std::map<std::string, std::string> errors_;
   std::string collected_;
-  std::string canonical_;
   mutable std::string hash_;
   mutable bool hash_dirty_ = true;
   unsigned long long revision_ = 0;

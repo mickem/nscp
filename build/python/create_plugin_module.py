@@ -619,7 +619,7 @@ int {{module.name}}Module::fetchFacts(const std::string &request_buffer, std::st
 	} catch (...) {
 		response.failed("Failed to collect facts");
 	}
-	response_buffer = response.to_json();
+	response_buffer = response.serialize();
 	return NSCAPI::api_return_codes::isSuccess;
 }
 {% endif %}
@@ -987,8 +987,8 @@ prepare_shutdown = False
 metrics = False
 # Fact sets this module can produce: {"os": "description", ...}, declared in
 # module.json the same way commands are. Presence generates the NSFetchFacts
-# glue; the ids are what [/settings/facts] and `nscp test`'s facts verbs speak
-# about.
+# glue; the ids are what the module's own `facts` settings subsection and
+# `nscp test`'s facts verb speak about.
 facts = {}
 events = False
 

@@ -4,12 +4,12 @@
 #pragma once
 
 #include <algorithm>
-#include <boost/json.hpp>
 #include <cstdint>
 #include <ctime>
 #include <map>
 #include <memory>
 #include <nscapi/dll_defines.hpp>
+#include <nscapi/protobuf/facts.hpp>
 #include <set>
 #include <string>
 #include <type_traits>
@@ -53,8 +53,8 @@
 //    ids cannot be built. The server diffs lists by id; without one every
 //    refresh looks like a full replacement.
 //  - An empty string is not a value: the document rules say an unknown value
-//    is omitted, never written as "" or null, so `value(key, "")` is a no-op
-//    and a producer does not have to guard every field it may not have.
+//    is omitted, never written as an empty field, so `value(key, "")` is a
+//    no-op and a producer does not have to guard every field it may not have.
 //  - Keys are checked against the document rules (snake_case ASCII, at most 64
 //    characters) as they are written. A key that breaks them is dropped and
 //    the set carries an error saying so, rather than the core rejecting the
@@ -66,17 +66,15 @@
 // reports on that instance calls it: a drive letter, an interface name, a
 // service name. That equality is the hook a later "context on failure"
 // feature hangs on, and the producers' unit tests are where it is enforced.
+//
+// The tree this builds is PB::Facts (libs/protobuf/facts.proto), which is what
+// crosses the plugin ABI and what the core stores, as with every other call
+// here. JSON appears exactly once in the facts pipeline, at the far end: the
+// fleet upload renders the stored document to canonical JSON and hashes that,
+// because that is the boundary where another implementation has to agree on
+// the bytes.
 namespace nscapi {
 namespace facts {
-
-// Copy a JSON string in full.
-//
-// boost::json::string converts to std::string only where json::string_view is
-// std::string_view; on the Boost the EL9 build uses (1.75) it is not, so the
-// conversion has to be spelled out. data()/size() rather than c_str() for the
-// same reason libs/onboarding/json_util.hpp gives: c_str() truncates at an
-// embedded nul, which turns a hostile value into a harmless looking one.
-inline std::string json_to_string(const boost::json::string &value) { return std::string(value.data(), value.size()); }
 
 // The document rules the builder enforces as it writes. They mirror
 // nsclient::core::fact_repository, which enforces them again when it accepts
@@ -85,20 +83,20 @@ NSCAPI_EXPORT bool is_valid_key(const std::string &key);
 // ISO 8601 UTC ("2026-09-19T14:03:11Z") and a plain date ("2026-09-19").
 NSCAPI_EXPORT std::string format_time(std::time_t when);
 NSCAPI_EXPORT std::string format_date(std::time_t when);
-// The `facts` member of the envelope core_wrapper::get_facts_json() returns,
-// for a consumer that wants the tree rather than the string. An empty object
-// when the envelope has none (a core without the API, an absent subtree).
-NSCAPI_EXPORT boost::json::value parse_document(const std::string &envelope);
+// The `facts` member of the envelope core_wrapper::get_facts() returns, for a
+// consumer that wants the tree. An empty object when the envelope has none (a
+// core without the API, an absent subtree).
+NSCAPI_EXPORT PB::Facts::Value parse_document(const std::string &envelope);
 
 namespace detail {
 
 // One object or array under construction.
 //
 // The tree is built out of separately allocated nodes rather than straight
-// into a boost::json::object because a producer holds handles to what it is
+// into the protobuf message because a producer holds handles to what it is
 // filling in: `section os = out.set("os")` stays alive while the next set is
-// added, and inserting into a boost::json::object can rehash and invalidate
-// every reference into it. A node, once allocated, does not move.
+// added, and adding to a repeated field can reallocate and invalidate every
+// pointer into it. A node, once allocated, does not move.
 class node {
  public:
   enum class kind { object, array };
@@ -117,7 +115,7 @@ class node {
     (*problems_)[set_] = message;
   }
 
-  void add_value(const std::string &key, boost::json::value value) {
+  void add_value(const std::string &key, PB::Facts::Value value) {
     if (!accepts(key)) return;
     values_.emplace_back(key, std::move(value));
   }
@@ -137,17 +135,31 @@ class node {
 
   void add_string(std::string value) { strings_.push_back(std::move(value)); }
 
-  boost::json::value build() const {
+  PB::Facts::Value build() const {
+    PB::Facts::Value out;
     if (kind_ == kind::array) {
-      boost::json::array array;
-      for (const std::shared_ptr<node> &item : items_) array.push_back(item->build());
-      for (const std::string &value : strings_) array.push_back(boost::json::value(value));
-      return array;
+      PB::Facts::List *list = out.mutable_list_value();
+      for (const std::shared_ptr<node> &item : items_) *list->add_values() = item->build();
+      for (const std::string &value : strings_) list->add_values()->set_string_value(value);
+      return out;
     }
-    boost::json::object object;
-    for (const std::pair<std::string, boost::json::value> &value : values_) object[value.first] = value.second;
-    for (const std::pair<std::string, std::shared_ptr<node>> &child : children_) object[child.first] = child.second->build();
-    return object;
+    build_object(out.mutable_object_value());
+    return out;
+  }
+
+  // The same, for a node that is known to be a fact set: the top of a set is
+  // always an object, and FactSet carries it as one.
+  void build_object(PB::Facts::Object *object) const {
+    for (const std::pair<std::string, PB::Facts::Value> &value : values_) {
+      PB::Facts::Field *field = object->add_fields();
+      field->set_key(value.first);
+      *field->mutable_value() = value.second;
+    }
+    for (const std::pair<std::string, std::shared_ptr<node>> &child : children_) {
+      PB::Facts::Field *field = object->add_fields();
+      field->set_key(child.first);
+      *field->mutable_value() = child.second->build();
+    }
   }
 
  private:
@@ -160,7 +172,7 @@ class node {
   kind kind_;
   std::string set_;
   std::shared_ptr<std::map<std::string, std::string>> problems_;
-  std::vector<std::pair<std::string, boost::json::value>> values_;
+  std::vector<std::pair<std::string, PB::Facts::Value>> values_;
   std::vector<std::pair<std::string, std::shared_ptr<node>>> children_;
   std::vector<std::shared_ptr<node>> items_;
   std::vector<std::string> strings_;
@@ -179,18 +191,26 @@ class section {
   explicit section(detail::node_ptr node) : node_(std::move(node)) {}
 
   // A string value. An empty string is not written: an unknown value is
-  // omitted from the document, never written as "" or null.
+  // omitted from the document, never written as an empty field.
   section &value(const std::string &key, const std::string &text) {
-    if (!text.empty()) node_->add_value(key, boost::json::value(text));
+    if (!text.empty()) {
+      PB::Facts::Value value;
+      value.set_string_value(text);
+      node_->add_value(key, std::move(value));
+    }
     return *this;
   }
   section &value(const std::string &key, const char *text) { return value(key, std::string(text == nullptr ? "" : text)); }
   section &value(const std::string &key, const bool flag) {
-    node_->add_value(key, boost::json::value(flag));
+    PB::Facts::Value value;
+    value.set_bool_value(flag);
+    node_->add_value(key, std::move(value));
     return *this;
   }
   section &value(const std::string &key, const double number) {
-    node_->add_value(key, boost::json::value(number));
+    PB::Facts::Value value;
+    value.set_double_value(number);
+    node_->add_value(key, std::move(value));
     return *this;
   }
   // Every integral type a producer is likely to hold (int, long, size_t, a
@@ -198,23 +218,25 @@ class section {
   // silently becoming 1.
   template <typename T, typename = typename std::enable_if<std::is_integral<T>::value && !std::is_same<T, bool>::value>::type>
   section &value(const std::string &key, const T number) {
+    PB::Facts::Value value;
     if (std::is_signed<T>::value) {
-      node_->add_value(key, boost::json::value(static_cast<std::int64_t>(number)));
+      value.set_int_value(static_cast<std::int64_t>(number));
     } else {
-      node_->add_value(key, boost::json::value(static_cast<std::uint64_t>(number)));
+      value.set_uint_value(static_cast<std::uint64_t>(number));
     }
+    node_->add_value(key, std::move(value));
     return *this;
   }
 
   // A point in time, as ISO 8601 UTC. Epoch 0 is "not known", and is skipped
   // the way an empty string is.
   section &time(const std::string &key, const std::time_t when) {
-    if (when > 0) node_->add_value(key, boost::json::value(format_time(when)));
+    if (when > 0) return value(key, format_time(when));
     return *this;
   }
   // A date without a time (an install date), as YYYY-MM-DD.
   section &date(const std::string &key, const std::time_t when) {
-    if (when > 0) node_->add_value(key, boost::json::value(format_date(when)));
+    if (when > 0) return value(key, format_date(when));
     return *this;
   }
 
@@ -266,9 +288,10 @@ inline record_list section::list(const std::string &key) { return record_list(no
 // Why the core is asking, this round.
 class request {
  public:
-  // Parses the core's request; an unparseable one leaves the reason empty,
-  // which reads as an ordinary scheduled round.
-  NSCAPI_EXPORT explicit request(const std::string &json);
+  // Parses the core's request (a serialised PB::Facts::FactsQueryMessage); an
+  // unparseable one leaves the reason empty, which reads as an ordinary
+  // scheduled round.
+  NSCAPI_EXPORT explicit request(const std::string &buffer);
 
   // startup, scheduled, reload or manual.
   const std::string &reason() const { return reason_; }
@@ -310,17 +333,24 @@ class response {
   void error(const std::string &id, const std::string &message) { (*problems_)[id] = message; }
 
   // This round failed outright: the producer threw, or could not run at all.
-  // Reported at the top level rather than per set, because the core must not
-  // read "I failed" as "I no longer produce any of this" and drop what it
-  // already has. The generated module glue calls this when a producer throws.
+  // Reported as the response's result rather than per set, because the core
+  // must not read "I failed" as "I no longer produce any of this" and drop
+  // what it already has. The generated module glue calls this when a producer
+  // throws.
   void failed(const std::string &message) { failure_ = message; }
 
-  NSCAPI_EXPORT std::string to_json() const;
+  // The response as a serialised PB::Facts::FactsMessage, which is what the
+  // module hands back over NSFetchFacts.
+  NSCAPI_EXPORT std::string serialize() const;
+  // The same message, for a unit test that would rather assert on the tree
+  // than on bytes.
+  NSCAPI_EXPORT PB::Facts::FactsMessage to_message() const;
 
  private:
   std::map<std::string, detail::node_ptr> sets_;
-  // Insertion order, so the JSON a producer's unit test sees does not depend
-  // on how the set names happen to sort.
+  // Insertion order, so what a producer's unit test sees does not depend on
+  // how the set names happen to sort. The core sorts the document when it
+  // stores it; that is where canonical order belongs.
   std::vector<std::string> order_;
   std::set<std::string> removed_;
   std::string failure_;

@@ -90,15 +90,16 @@ class NSCAPI_EXPORT core_wrapper {
   // through a setter - and, like the tag calls, degrading gracefully on a core
   // that predates the API.
   //
-  // The envelope is returned as it comes off the core:
-  //   { "revision": N, "hash": "...", "collected": "...", "enabled": [...],
-  //     "facts": { ... }, "errors": { ... } }
-  // and, with a path, "facts" is that subtree plus a "found" flag. It is
-  // handed back as a string rather than parsed here because the wrapper is
-  // linked into every module and parsing belongs where the consumer already
-  // has a JSON library - nscapi::facts::parse_document (nscapi_facts_helper)
-  // does it for a module that wants the tree.
-  std::string get_facts_json(const std::string &path = "") const;
+  // The answer is a serialised PB::Facts::FactsResponseMessage, carrying the
+  // document (or the subtree at `path`, plus a `found` flag) and what a
+  // consumer needs to render and cache it: the revision, when the last round
+  // ran, which sets are enabled and which of them failed to collect. Empty
+  // when the core does not know the call.
+  //
+  // Handed back as bytes rather than a parsed message so the wrapper - which
+  // is linked into every module - stays a thin shim over the ABI, exactly as
+  // the registry, settings and metrics calls beside it do.
+  std::string get_facts(const std::string &path = "") const;
   // Run a facts round now (the `manual` reason). False on a core without the
   // API, or when the round could not be run.
   bool refresh_facts() const;

@@ -6,7 +6,6 @@
 #include <config.h>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/json.hpp>
 #include <boost/unordered_map.hpp>
 #include <file_helpers.hpp>
 #include <nscapi/protobuf/functions_exec.hpp>
@@ -1320,49 +1319,41 @@ std::string nsclient::core::plugin_manager::apply_facts_response(const std::stri
   // nothing at all has not told us it stopped producing anything, so this
   // reads as a failed round and prunes nothing.
   if (response.empty()) return "returned no facts document";
-  boost::json::value parsed;
-  try {
-    parsed = boost::json::parse(response);
-  } catch (const std::exception &e) {
-    return std::string("returned facts that are not JSON: ") + utf8::utf8_from_native(e.what());
-  }
-  const boost::json::object *root = parsed.if_object();
-  if (root == nullptr) return "returned facts that are not a JSON object";
+  PB::Facts::FactsMessage message;
+  if (!message.ParseFromString(response)) return "returned facts that are not a valid facts message";
+  if (message.payload_size() == 0) return "returned a facts message with no payload";
+  const PB::Facts::FactsMessage::Response &payload = message.payload(0);
 
-  // A module that could not collect at all says so once, at the top level -
-  // the generated glue does this when a producer throws. Nothing it holds is
+  // A module that could not collect at all says so through the result - the
+  // generated glue does this when a producer throws. Nothing it holds is
   // pruned, because "I failed" is not "I no longer produce this".
-  const boost::json::value *failure = root->if_contains("error");
-  if (failure != nullptr && failure->is_string()) return json_to_string(failure->as_string());
-
-  const boost::json::value *sets = root->if_contains("sets");
-  if (sets != nullptr && sets->is_object()) {
-    for (const boost::json::key_value_pair &entry : sets->as_object()) {
-      const std::string id(entry.key());
-      // An explicit null drops the set (the docker socket went away), and is
-      // deliberately not a claim to produce it.
-      if (entry.value().is_null()) {
-        facts.remove(id);
-        continue;
-      }
-      produced.insert(id);
-      std::string error;
-      if (facts.set(id, plugin_id, entry.value(), error) == fact_repository::set_result::rejected) errors[id] = error;
-    }
+  if (payload.result().code() != PB::Common::Result_StatusCodeType_STATUS_OK) {
+    const std::string reported = payload.result().message();
+    return reported.empty() ? "reported a failed facts round" : reported;
   }
 
-  // What the producer could not collect this round. Reported next to the
-  // document so a consumer can tell "not collected" from "nothing to report",
-  // and counted as produced so a set that is enabled but failing keeps the
-  // value it had.
-  const boost::json::value *reported = root->if_contains("errors");
-  if (reported != nullptr && reported->is_object()) {
-    for (const boost::json::key_value_pair &entry : reported->as_object()) {
-      if (!entry.value().is_string()) continue;
-      const std::string id(entry.key());
-      produced.insert(id);
-      errors[id] = json_to_string(entry.value().as_string());
+  for (const PB::Facts::FactSet &set : payload.sets()) {
+    const std::string &id = set.id();
+    if (id.empty()) continue;
+    // Removed drops the set (the docker socket went away), and is
+    // deliberately not a claim to produce it.
+    if (set.removed()) {
+      facts.remove(id);
+      continue;
     }
+    // Every other mention is a claim to produce the set, including one that
+    // only carries an error: that is what keeps a set which is enabled but
+    // failing from being pruned along with the ones that were switched off.
+    produced.insert(id);
+    // What the producer could not collect this round. Reported next to the
+    // document so a consumer can tell "not collected" from "nothing to
+    // report".
+    if (!set.error().empty()) errors[id] = set.error();
+    // An error with no document is "keep what you have": the set is not
+    // replaced with the empty object the message would otherwise hand us.
+    if (!set.has_facts()) continue;
+    std::string error;
+    if (facts.set(id, plugin_id, set.facts(), error) == fact_repository::set_result::rejected) errors[id] = error;
   }
   return "";
 }
@@ -1404,9 +1395,9 @@ void nsclient::core::plugin_manager::process_facts(const std::string &reason) {
   // says it may produce. `reason` (startup, scheduled, reload, manual) is all
   // the core has to say, and lets an expensive collector hand back its last
   // snapshot instead of collecting again.
-  boost::json::object request;
-  request["reason"] = reason;
-  const std::string request_string = boost::json::serialize(request);
+  PB::Facts::FactsQueryMessage request;
+  request.add_payload()->set_reason(reason);
+  const std::string request_string = request.SerializeAsString();
   std::map<std::string, std::string> errors;
   std::set<std::string> failing;
   facts_fetchers_.do_all([this, &request_string, &errors, &failing](plugin_type plugin) { collect_facts_from(plugin, request_string, errors, failing); });
