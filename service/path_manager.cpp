@@ -161,7 +161,11 @@ void nsclient::core::path_manager::drop_unusable_overrides(paths_type &map, cons
         // is_absolute() here and names_a_root() there, which meant a Windows
         // root-relative `\\logs` was accepted when written in a setting and
         // rejected when written as the override for that same folder.
-        why = "it does not name an absolute location (it resolves to '" + resolved + "')";
+        // "names a location of its own", not "is absolute": the gate is
+        // names_a_root(), which by design also accepts a Windows drive-relative
+        // C:sub and a root-relative \\logs. Say what is enforced rather than
+        // promising something stricter.
+        why = "it does not name a location of its own (it resolves to '" + resolved + "')";
     } catch (const path_expansion_error &e) {
       why = e.what();
     }
@@ -228,7 +232,7 @@ void nsclient::core::path_manager::set_cli_overrides(paths_type overrides) {
     std::string why;
     try {
       resolved = expand_path(boot->second);
-      if (!nscp::paths::names_a_root(resolved)) why = "it resolves to '" + resolved + "', which is not an absolute location";
+      if (!nscp::paths::names_a_root(resolved)) why = "it resolves to '" + resolved + "', which names no location of its own";
     } catch (const std::exception &e) {
       why = std::string("it could not be resolved: ") + e.what();
     }
