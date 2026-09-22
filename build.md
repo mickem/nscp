@@ -849,11 +849,23 @@ cmake .. \
     -DCMAKE_INSTALL_PREFIX=/usr/local \
     -DCMAKE_OSX_ARCHITECTURES=arm64 \
     -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" \
+    -DPROTOBUF_ROOT="$(brew --prefix protobuf)" \
+    -DCRYPTOPP_ROOT="$(brew --prefix cryptopp)" \
     -DNSCP_WEB_BACKEND=beast \
     -DCHECK_NSCLIENT_MISSING=ON
 make -j"$(sysctl -n hw.ncpu)"
 ctest --output-on-failure
 ```
+
+The three `*_ROOT` flags are not optional on macOS. `openssl@3` is keg-only, so
+nothing finds it by default; protobuf and crypto++ are found by the project's
+own `Find*` modules, which search a hand-maintained list of paths rather than
+the system prefixes — `FindProtoBuf`'s library lookup is `NO_DEFAULT_PATH`
+outright. Neither list can name the Homebrew prefix, because it differs by
+architecture (`/opt/homebrew` on Apple silicon, `/usr/local` on Intel). Leave
+`PROTOBUF_ROOT` out and configure fails with `missing: PROTOBUF_LIBRARY` even
+though the headers and `protoc` were found; leave `CRYPTOPP_ROOT` out and the
+build quietly continues without NSCA encryption.
 
 `/usr/local`, not `/usr`: macOS mounts the system volume read-only and reserves
 `/usr` for the OS, so `/usr/local` is both the conventional prefix and the only

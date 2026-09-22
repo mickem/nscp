@@ -90,6 +90,14 @@ jobs:
         brew_prefix="$(brew --prefix)"
         echo "BREW_PREFIX=$brew_prefix" >> "$GITHUB_ENV"
         echo "OPENSSL_ROOT_DIR=$(brew --prefix openssl@3)" >> "$GITHUB_ENV"
+        # protobuf and crypto++ are found by the project's own Find modules,
+        # which search a hand-maintained path list rather than the default
+        # prefixes - FindProtoBuf's library lookup is NO_DEFAULT_PATH outright.
+        # Neither list can name a Homebrew prefix, because it differs by
+        # architecture (/opt/homebrew on arm64, /usr/local on Intel), so it is
+        # passed in. Both modules take the installed prefix.
+        echo "PROTOBUF_ROOT=$(brew --prefix protobuf)" >> "$GITHUB_ENV"
+        echo "CRYPTOPP_ROOT=$(brew --prefix cryptopp)" >> "$GITHUB_ENV"
 
         # The deployment target is the runner's own major version, not a number
         # picked by hand. The package carries Homebrew's bottles for boost,
@@ -161,6 +169,8 @@ jobs:
           -DCMAKE_OSX_ARCHITECTURES=arm64 \
           -DCMAKE_OSX_DEPLOYMENT_TARGET="$MACOS_DEPLOYMENT_TARGET" \
           -DOPENSSL_ROOT_DIR="$OPENSSL_ROOT_DIR" \
+          -DPROTOBUF_ROOT="$PROTOBUF_ROOT" \
+          -DCRYPTOPP_ROOT="$CRYPTOPP_ROOT" \
           -DNSCP_WEB_BACKEND=beast \
           -DCHECK_NSCLIENT_MISSING=ON \
           -DLIBRARY_ROOT_FOLDER="$GITHUB_WORKSPACE" \
