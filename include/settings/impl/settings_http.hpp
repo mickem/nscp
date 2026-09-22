@@ -522,14 +522,24 @@ class settings_http : public settings::settings_interface_impl {
     fetch_attachments(child_instance);
   }
 
-  void reload_data() {
+  // Re-download the configuration and, when it changed, rebuild the child
+  // store on top of the new cached copy. Returns whether anything changed, so
+  // house_keeping can tell a rebuilt subtree (everything below us was just
+  // fetched) from an unchanged one (nothing below us has been touched).
+  bool reload_data() {
     boost::filesystem::path local_file = resolve_cache_file(remote_url);
     migrate_legacy_cache_file(remote_url, local_file);
-    if (cache_remote_file(remote_url, local_file.string())) {
-      clear_cache();
-      fetch_attachments(add_child("remote_http_file", "ini://" + local_file.string()));
-      get_core()->set_reload(true);
-    }
+    if (!cache_remote_file(remote_url, local_file.string())) return false;
+    clear_cache();
+    // Reassigning child_instance matters as much as adding the child:
+    // get_sections and get_keys below read it directly, and clear_cache has
+    // just dropped the instance it pointed at from children_. Leaving it on
+    // the old instance served the previous file's sections out of that
+    // instance's own cache for the rest of the process.
+    child_instance = add_child("remote_http_file", "ini://" + local_file.string());
+    fetch_attachments(child_instance);
+    get_core()->set_reload(true);
+    return true;
   }
   //////////////////////////////////////////////////////////////////////////
   /// Get a string value if it does not exist exception will be thrown
@@ -624,7 +634,32 @@ class settings_http : public settings::settings_interface_impl {
 
   virtual std::string get_type() { return "http"; }
 
-  virtual void house_keeping() { reload_data(); }
+  // The only thing in the process which re-downloads anything, so it has to
+  // reach every remote store below this one - not just our own url.
+  //
+  // A settings url whose file carries an [/includes] entry naming another url
+  // builds a nested settings_http two levels down: our child is the INI store
+  // on our cached copy, and *its* child is the included url's store. The base
+  // house_keeping walks children_, and INISettings does not override it, so
+  // one call reaches the whole chain. Overriding it here without chaining
+  // stopped the walk at this store: an included url was only ever re-fetched
+  // when *our* file happened to change (which rebuilds the subtree from
+  // scratch), so on a server where the top-level file is stable the include
+  // was pinned to its boot-time content for the lifetime of the agent.
+  //
+  // Attachments are in the same position and get the same treatment: a
+  // re-fetch every pass, which cache_remote_file turns into a no-op below the
+  // download whenever the content hash is unchanged.
+  //
+  // Nothing below us is walked when our own copy *did* change, because
+  // reload_data has already discarded the old children and rebuilt them - each
+  // include and attachment was downloaded as part of that. Recursing as well
+  // would fetch every one of them twice in the same pass.
+  void house_keeping() override {
+    if (reload_data()) return;
+    fetch_attachments(child_instance);
+    settings_interface_impl::house_keeping();
+  }
 
   std::string get_file_name() {
     if (url_.empty()) {
