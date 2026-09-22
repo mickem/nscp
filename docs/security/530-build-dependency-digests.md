@@ -1,6 +1,6 @@
 ---
 title: "Build dependencies: digests recorded, and tag archives replaced by commit-pinned clones"
-fixed_in: next
+fixed_in: 0.23.0
 severity: "Low: build-chain integrity, no impact on a running agent"
 modules: [packaging]
 action: none

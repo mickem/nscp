@@ -1,6 +1,6 @@
 ---
 title: "Fleet: plaintext management urls refused, and enrollment no longer follows planted symlinks"
-fixed_in: next
+fixed_in: 0.23.0
 severity: "Medium"
 modules: [core]
 action: conditional

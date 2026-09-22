@@ -1,6 +1,6 @@
 ---
 title: "Listener verify mode: unknown flags are rejected instead of dropped"
-fixed_in: next
+fixed_in: 0.23.0
 severity: "High for listeners configured for mutual TLS, none otherwise"
 modules: [NRPEServer, NSCAServer, CheckMKServer, NSClientServer, WEBServer]
 action: required

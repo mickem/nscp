@@ -1,6 +1,6 @@
 ---
 title: "The op5 installer profile no longer forces insecure NRPE"
-fixed_in: next
+fixed_in: 0.23.0
 severity: "Medium for hosts installed with the op5 profile"
 modules: [NRPEServer, packaging]
 action: conditional

@@ -1,6 +1,6 @@
 ---
 title: "NSCP and check_mk clients sent credentials over unverified TLS"
-fixed_in: next
+fixed_in: 0.23.0
 severity: "Medium for NSCPClient and check_nsclient_web_online, Low for CheckMKClient"
 modules: [NSCPClient, CheckMKClient, CheckNet]
 action: conditional
