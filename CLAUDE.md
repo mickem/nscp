@@ -90,8 +90,13 @@ An exception that escapes a thread body calls `std::terminate()` and **the
 whole agent dies** - every check on the host stops because one collector hit
 one bad sample. The module entry points in `nscapi/nscapi_plugin_wrapper.hpp`
 are each wrapped for this reason, but a thread body has no wrapper between it
-and the runtime, so the guard has to be there on purpose. Several threads
-simply did not have one.
+and the runtime, so the guard has to be there on purpose.
+
+Most bodies did have one, which is why no agent is known to have died this
+way - do not claim otherwise in a commit message or a release note. The point
+of the rule is that the guard is structural rather than per-site: a couple of
+bodies had none, several caught `std::exception` but not everything, and the
+code between the inner `try` blocks was covered by neither.
 
 `boost::asio::io_context::run()` is the same hazard one level down: a
 completion handler runs arbitrary code (in the socket servers, all the way

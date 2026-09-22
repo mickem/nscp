@@ -16,10 +16,19 @@
  * nscapi/nscapi_plugin_wrapper.hpp have been individually wrapped for exactly
  * this reason since forever, but a worker thread is not an entry point -
  * nothing stands between its body and the runtime - so each thread had to
- * remember to guard itself, and several did not.
+ * remember to guard itself.
+ *
+ * Most did, which is why no agent is known to have died this way. But the
+ * coverage was uneven and it was the kind of uneven that does not stay fixed:
+ * a couple of bodies had no top-level catch at all (the CheckSystem auxiliary
+ * collector, the Gearman job runner), several caught std::exception but not
+ * everything, and the code between the inner try blocks - buffer growth,
+ * settings parsing, string building - was covered by neither. Every new line
+ * added outside one of those blocks was a fresh chance to get it wrong.
  *
  * start_guarded_thread() is the one way to start a background thread: the
- * guard comes with starting one rather than being something a body opts into.
+ * guard comes with starting one rather than being something a body opts into,
+ * so it is a property of the codebase rather than of whoever wrote the body.
  *
  * The reporter is an explicit argument rather than a global hook because the
  * core and each module log through a different object, and a process-global
