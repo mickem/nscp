@@ -24,13 +24,17 @@ struct logger_helper {
   // terminate handler where taking one risks deadlocking against a thread
   // that is already gone.
   //
-  // The path is only adopted if a report can actually be written there. The
-  // parent directory is created when it is missing, and the file is then
-  // opened for append exactly as log_fatal() will open it; if that fails the
-  // same file name in the system temp folder is tried instead. Returns the
-  // path now in use, which the caller should compare against what it asked
-  // for and log when the two differ - a last-resort channel that silently
-  // goes nowhere is worse than no channel at all.
+  // The path is only adopted if a report can actually be written there: the
+  // file is opened for append exactly as log_fatal() will open it, and if
+  // that fails the same file name in the system temp folder is tried instead.
+  // Returns the path now in use, which the caller should compare against what
+  // it asked for and log when the two differ - a last-resort channel that
+  // silently goes nowhere is worse than no channel at all.
+  //
+  // A folder that does not exist yet is not a failure and is deliberately not
+  // created here: this runs on every start, including every short-lived
+  // command line invocation, and the agent has nothing to report yet.
+  // log_fatal() creates it at the moment it has a report to write.
   static std::string set_fatal_file(const std::string &path);
   static std::pair<bool, std::string> render_console_message(bool oneline, const std::string &data);
   static std::string render_log_level_short(PB::Log::LogEntry::Entry::Level l);

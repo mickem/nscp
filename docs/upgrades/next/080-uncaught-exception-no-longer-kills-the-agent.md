@@ -36,10 +36,11 @@ knowing about:
   file the agent writes to when it is going down and cannot use the normal
   log - is written to the same folder as `nsclient.log` (`${log-path}`)
   instead of whatever directory the service happened to be started from. The
-  folder is created if it does not exist, and if it cannot be written to (a
-  read-only path, a full disk) the report goes to the system temp folder
-  rather than being lost: `%TEMP%\nsclient.fatal` on Windows,
-  `/tmp/nsclient.fatal` on Linux. The startup log says which one is in use.
+  folder is created if it is not there when a report has to be written, and
+  if it cannot be written to (a read-only path, a full disk) the report goes
+  to the system temp folder rather than being lost: `%TEMP%\nsclient.fatal`
+  on Windows, `/tmp/nsclient.fatal` on Linux. The startup log says which one
+  is in use.
   If an agent has been dying without explanation, that file is now the first
   place to look.
 

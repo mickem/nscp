@@ -56,45 +56,73 @@ std::string temp_fallback(const std::string &file) {
   }
 }
 
-// Can a report actually be appended to `file`? Creates the parent directory
-// when it is missing - ${log-path} does not exist until the ordinary log has
-// been written once - and then opens the file exactly the way log_fatal()
-// will, because only the open answers the question: the directory may be
-// read-only, on a full disk, or not a directory at all.
+// Create a file's parent directory, and say whether that changed anything -
+// i.e. whether retrying an append is worth doing.
+bool create_missing_parent(const std::string &file) {
+  try {
+    boost::system::error_code ec;
+    const boost::filesystem::path parent = boost::filesystem::path(file).parent_path();
+    if (parent.empty() || boost::filesystem::exists(parent, ec)) return false;
+    boost::filesystem::create_directories(parent, ec);
+    return !ec && boost::filesystem::is_directory(parent, ec);
+  } catch (...) {
+    return false;
+  }
+}
+
+enum class writability {
+  // A report can be appended right now.
+  ok,
+  // The folder is not there yet, which is not a failure: log_fatal() creates
+  // it if it ever has something to write.
+  deferred,
+  // The open failed for a reason creating a folder will not fix.
+  no
+};
+
+// Can a report be appended to `file`? Opens it exactly the way log_fatal()
+// will, because only the open answers the question: the folder may be
+// read-only, on a full disk, or not a folder at all.
+//
+// A missing parent directory is deliberately NOT created here. This runs on
+// every start, including every short-lived command line invocation, and the
+// agent has nothing to report yet - eagerly creating ${log-path} would leave
+// a folder behind for a report that is never written (the fleet-sync hostile
+// test holds the agent to creating nothing it did not need to). The ordinary
+// log creates that folder on its first line anyway, long before anything can
+// crash, and log_fatal() creates it itself if it gets there first.
 //
 // A probe that had to create the file removes it again. An nsclient.fatal
 // that exists means something was reported, and an empty one appearing on
 // every boot would be a standing false alarm.
-bool is_writable(const std::string &file) {
-  if (file.empty()) return false;
+writability is_writable(const std::string &file) {
+  if (file.empty()) return writability::no;
   try {
     boost::system::error_code ec;
     const boost::filesystem::path path(file);
     const boost::filesystem::path parent = path.parent_path();
-    if (!parent.empty() && !boost::filesystem::exists(parent, ec)) {
-      boost::filesystem::create_directories(parent, ec);
-    }
+    if (!parent.empty() && !boost::filesystem::exists(parent, ec)) return writability::deferred;
     const bool existed = boost::filesystem::exists(path, ec);
     {
       std::ofstream probe(file.c_str(), std::ios::out | std::ios::app | std::ios::ate);
-      if (!probe.is_open()) return false;
+      if (!probe.is_open()) return writability::no;
     }
     if (!existed) boost::filesystem::remove(path, ec);
-    return true;
+    return writability::ok;
   } catch (...) {
-    return false;
+    return writability::no;
   }
 }
 }  // namespace
 
 std::string nsclient::logging::logger_helper::set_fatal_file(const std::string &path) {
   if (path.empty()) return current_fatal_file();
-  if (is_writable(path)) {
+  if (is_writable(path) != writability::no) {
     fatal_file_path.store(new std::string(path), std::memory_order_release);
     return path;
   }
   const std::string fallback = temp_fallback(path);
-  if (!fallback.empty() && is_writable(fallback)) {
+  if (!fallback.empty() && is_writable(fallback) != writability::no) {
     fatal_file_path.store(new std::string(fallback), std::memory_order_release);
     return fallback;
   }
@@ -109,12 +137,15 @@ void nsclient::logging::logger_helper::log_fatal(std::string message) {
   try {
     const std::string file = current_fatal_file();
     if (append_line(file, message)) return;
-    // Writable when it was configured, not writable now: the log folder was
-    // removed, the disk filled up, the permissions changed - or nothing ever
-    // called set_fatal_file() and the working directory is not writable,
-    // which for a service is wherever the SCM happened to start it. This is
-    // the one report that explains why the agent is going down, so try the
-    // temp folder before dropping it.
+    // The folder may simply not be there yet - this is the first thing the
+    // agent has had to write, and set_fatal_file() deliberately does not
+    // create it up front. Create it now and try once more.
+    if (create_missing_parent(file) && append_line(file, message)) return;
+    // Still nothing: the folder was removed, the disk filled up, the
+    // permissions changed - or nothing ever called set_fatal_file() and the
+    // working directory is not writable, which for a service is wherever the
+    // SCM happened to start it. This is the one report that explains why the
+    // agent is going down, so try the temp folder before dropping it.
     const std::string fallback = temp_fallback(file);
     if (!fallback.empty() && fallback != file) append_line(fallback, message);
   } catch (...) {
