@@ -1382,6 +1382,36 @@ if(NSCP_BUILD_TESTS)
     if(GTEST_INCLUDE_DIR)
         include_directories(${GTEST_INCLUDE_DIR})
     endif()
+    # The one target that needs gmock rather than just gtest.
+    #
+    # service/plugins/dll_plugin_test.cpp uses EXPECT_THAT/MatchesRegex, but no
+    # target ever linked a gmock target: on Linux libgmock-dev/gmock-devel puts
+    # gmock/gmock.h on a default include path, so it compiled anyway, and the
+    # matchers it uses are templates so nothing was needed at link time either.
+    # macOS has no system Google Test, so the build falls back to the
+    # FetchContent copy, whose headers are reachable only through its targets -
+    # and the compile failed with "'gmock/gmock.h' file not found".
+    #
+    # gmock_main is a drop-in for gtest_main (it provides main() and links gmock,
+    # which links gtest) and carries the include directory with it. Both
+    # providers spell it GTest::gmock_main: the system GTestConfig package, and
+    # googletest's own cxx_library, which aliases every library it defines under
+    # the GTest:: namespace.
+    #
+    # The fallback is deliberate rather than paranoid. If some distribution's
+    # GTest package ships gtest without the gmock targets, this keeps that build
+    # exactly as it is today - working, via the default include path - instead of
+    # trading the macOS failure for a Linux one.
+    if(TARGET GTest::gmock_main)
+        set(NSCP_GMOCK_MAIN GTest::gmock_main)
+    else()
+        message(
+            STATUS
+            " ! GTest::gmock_main not available; gmock-using tests fall back to gtest_main"
+        )
+        set(NSCP_GMOCK_MAIN GTest::gtest_main)
+    endif()
+
     enable_testing()
     include(GoogleTest)
 endif(NSCP_BUILD_TESTS)
