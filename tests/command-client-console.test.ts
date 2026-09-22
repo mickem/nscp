@@ -361,6 +361,33 @@ describe("nscp test console", () => {
     expect(r.exitCode).toBe(0);
   });
 
+  // Facts are opt-in and nothing in this configuration produces any, so what
+  // these cover is the empty-install contract — which is every install until
+  // a fact set is enabled: each verb has to say what is going on rather than
+  // print an empty result.
+  it("reports that no inventory is collected when no fact set is enabled", async () => {
+    const out = await runConsole("facts\nexit\n");
+    expect(out).toMatch(/Revision: 0/);
+    expect(out).toMatch(/Enabled: \(none/);
+    expect(out).toMatch(/no facts collected/);
+  });
+
+  it("answers a path nothing produced rather than printing an empty tree", async () => {
+    const out = await runConsole("facts os.family\nexit\n");
+    expect(out).toMatch(/No facts at: os\.family/);
+  });
+
+  it("refreshes the inventory on demand", async () => {
+    const out = await runConsole("facts refresh\nexit\n");
+    expect(out).toMatch(/Revision: 0/);
+    expect(out).toMatch(/no facts collected/);
+  });
+
+  it("offers facts in the built-in help", async () => {
+    const out = await runConsole("help\nexit\n");
+    expect(out).toMatch(/facts \[path\|refresh\]/);
+  });
+
   it("exits on the exit command instead of running to the timeout", async () => {
     const r = await nscp.run(["test"], { input: "exit\n", timeout: 30_000, allowFailure: true });
     expect(r.timedOut).toBe(false);

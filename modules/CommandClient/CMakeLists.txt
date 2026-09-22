@@ -53,8 +53,14 @@ NSCP_CREATE_TEST(
     SOURCES
         console_syntax_test.cpp
         console_syntax.cpp
+        # The facts renderer is a pure function from the core's answer to the
+        # text on screen, so it tests with no core and no terminal either.
+        ${NSCP_INCLUDEDIR}/client/facts_renderer.hpp
+        ${NSCP_INCLUDEDIR}/client/facts_renderer_test.cpp
     LIBRARIES
         GTest::gtest_main
+        nscp_protobuf
+        ${PROTOBUF_LIBRARY}
     INCLUDES
         ${NSCP_INCLUDEDIR}
         ${CMAKE_CURRENT_SOURCE_DIR}
