@@ -11,6 +11,7 @@
 #include <net/socket/socket_helpers.hpp>
 #include <str/xtos.hpp>
 #include <string>
+#include <threads/guarded_io_context.hpp>
 
 namespace socket_helpers {
 namespace server {
@@ -195,7 +196,16 @@ class server : boost::noncopyable {
     }
 
     for (std::size_t i = 0; i < info_.thread_pool_size; ++i) {
-      thread_group_.create_thread([this]() { io_service_.run(); });
+      // Guarded, not bare: a completion handler here runs the protocol, and
+      // the protocol runs a check. Anything it throws comes out of run(), and
+      // on a bare pool thread that is a dead agent rather than a failed
+      // request. See threads/guarded_io_context.hpp for why the loop is
+      // re-entered instead of letting the worker go.
+      thread_group_.create_thread([this, i]() {
+        threads::run_io_context_guarded("socket server worker " + str::xtos(i), io_service_, [this](const std::string &name, const std::string &detail) {
+          logger_->log_error(__FILE__, __LINE__, "Thread '" + name + "': " + detail);
+        });
+      });
     }
     return true;
   }

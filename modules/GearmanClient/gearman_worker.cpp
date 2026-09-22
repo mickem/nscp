@@ -11,6 +11,7 @@
 #include <ctime>
 #include <str/utils.hpp>
 #include <thread>
+#include <threads/guarded_thread.hpp>
 
 namespace gearman {
 
@@ -351,9 +352,12 @@ void worker_pool::start(const worker_config &config, const std::shared_ptr<query
   stop();
   const unsigned int count = std::max(1u, config.workers);
   for (unsigned int i = 0; i < count; ++i) {
-    const std::shared_ptr<worker> w = std::make_shared<worker>(config.client_id + "-" + std::to_string(i + 1), config, executor, logger, counters_);
+    const std::string id = config.client_id + "-" + std::to_string(i + 1);
+    const std::shared_ptr<worker> w = std::make_shared<worker>(id, config, executor, logger, counters_);
     workers_.push_back(w);
-    threads_.push_back(std::make_shared<boost::thread>([w] { w->run(); }));
+    const std::shared_ptr<worker_logger> log = logger;
+    threads_.push_back(threads::start_guarded_thread(
+        id, [w] { w->run(); }, [log](const std::string &name, const std::string &detail) { log->error("Worker '" + name + "': " + detail); }));
   }
 }
 

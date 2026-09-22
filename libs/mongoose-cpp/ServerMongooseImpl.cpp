@@ -10,6 +10,7 @@
 #include <nsclient/nsclient_exception.hpp>
 #include <sstream>
 #include <string>
+#include <threads/guarded_thread.hpp>
 #include <utility>
 
 #include "Helpers.h"
@@ -104,22 +105,21 @@ void ServerMongooseImpl::setTlsOptions(const std::string &tls_version, const std
 }
 
 void ServerMongooseImpl::thread_proc() {
-  try {
-    while (true) {
-      mg_mgr_poll(&mgr, 1000);
-      if (stop_thread_) {
-        mg_mgr_free(&mgr);
-        return;
-      }
+  while (true) {
+    mg_mgr_poll(&mgr, 1000);
+    if (stop_thread_) {
+      mg_mgr_free(&mgr);
+      return;
     }
-  } catch (...) {
-    logger_->log_error("Mongoose error");
   }
 }
 
 void ServerMongooseImpl::start(const std::string &bind) {
   mg_http_listen(&mgr, bind.c_str(), event_handler, this);
-  thread_ = std::make_shared<boost::thread>([this] { thread_proc(); });
+  const WebLoggerPtr log = logger_;
+  thread_ = threads::start_guarded_thread("web server", [this] { thread_proc(); }, [log](const std::string &name, const std::string &detail) {
+    log->log_error("Thread '" + name + "': " + detail);
+  });
 }
 
 void ServerMongooseImpl::stop() {

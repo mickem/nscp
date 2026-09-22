@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
+#include <atomic>
 #include <boost/date_time.hpp>
 #include <iostream>
 #include <nsclient/logger/logger_helper.hpp>
@@ -8,10 +9,29 @@
 #include <str/utf8.hpp>
 #include <str/utils.hpp>
 
+namespace {
+// Published as a pointer, and the string it points at is never freed or
+// mutated: log_fatal() runs from a terminate handler, where a mutex could
+// deadlock against the thread that is already dying, and a std::string
+// reassigned under a concurrent read is a torn read. One atomic pointer load
+// has neither problem, and leaking one path at shutdown costs nothing.
+std::atomic<const std::string *> fatal_file_path{nullptr};
+
+std::string current_fatal_file() {
+  const std::string *path = fatal_file_path.load(std::memory_order_acquire);
+  return path ? *path : std::string("nsclient.fatal");
+}
+}  // namespace
+
+void nsclient::logging::logger_helper::set_fatal_file(const std::string &path) {
+  if (path.empty()) return;
+  fatal_file_path.store(new std::string(path), std::memory_order_release);
+}
+
 void nsclient::logging::logger_helper::log_fatal(std::string message) {
   std::cout << message << "\n";
   try {
-    std::ofstream stream("nsclient.fatal", std::ios::out | std::ios::app | std::ios::ate);
+    std::ofstream stream(current_fatal_file().c_str(), std::ios::out | std::ios::app | std::ios::ate);
     stream << message << "\n";
   } catch (...) {
     // ignored, since it has also been logged to display...

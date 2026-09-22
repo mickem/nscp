@@ -21,6 +21,7 @@
 #include <chrono>
 #include <memory>
 #include <string>
+#include <threads/guarded_io_context.hpp>
 #include <utility>
 
 #include <net/tls_versions.hpp>
@@ -456,13 +457,18 @@ void ServerBeastImpl::start(const std::string& bind) {
   // session coroutine — see accept_loop / run_*_session).
   spawn_detached(ioc_, [this](const asio::yield_context& yield) { accept_loop(yield); });
 
-  thread_ = std::make_shared<boost::thread>([this] {
-    try {
-      ioc_.run();
-    } catch (const std::exception& e) {
-      logger_->log_error(std::string("io_context error: ") + e.what());
-    }
-  });
+  // A handler that throws used to end the web server for the lifetime of the
+  // process - the exception was logged, but the one thread running the event
+  // loop was gone and nothing restarted it. Re-enter instead; the request
+  // fails, the server keeps serving.
+  const WebLoggerPtr log = logger_;
+  thread_ = threads::start_guarded_thread(
+      "web server",
+      [this, log] {
+        threads::run_io_context_guarded("web server", ioc_,
+                                        [log](const std::string& name, const std::string& detail) { log->log_error("Thread '" + name + "': " + detail); });
+      },
+      [log](const std::string& name, const std::string& detail) { log->log_error("Thread '" + name + "': " + detail); });
 }
 
 void ServerBeastImpl::accept_loop(const asio::yield_context& yield) {

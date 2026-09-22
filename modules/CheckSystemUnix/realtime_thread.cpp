@@ -19,6 +19,7 @@
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
 #include <thread>
+#include <threads/guarded_thread.hpp>
 
 #include "realtime_data.hpp"
 
@@ -518,7 +519,7 @@ process_history_check::history_type pdh_thread::get_process_history() const {
 
 bool pdh_thread::start() {
   stop_requested_ = false;
-  thread_ = std::shared_ptr<boost::thread>(new boost::thread([this]() { this->thread_proc(); }));
+  thread_ = threads::start_guarded_thread("checksystem collector", [this]() { this->thread_proc(); }, NSC_THREAD_REPORTER);
   return true;
 }
 

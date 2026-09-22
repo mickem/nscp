@@ -313,6 +313,12 @@ void scheduler::reschedule_at(const std::string &tag, const int id, boost::posix
 
 void scheduler::start_threads() {
   boost::mutex::scoped_lock l(pool_mutex_);
+  // Set before the first spawn: the group reads it from the worker it is
+  // reporting on. A worker that dies is not replaced until the watchdog next
+  // notices the pool is short, so this line is the only warning an operator
+  // gets that scheduled checks have stopped running.
+  threads_.set_error_reporter(
+      [this](const std::string &name, const std::string &detail) { log_error(__FILE__, __LINE__, "Scheduler thread '" + name + "': " + detail); });
   spawn_missing_locked();
 }
 
@@ -334,13 +340,13 @@ void scheduler::spawn_missing_locked() {
   if (missing_threads > 0 && missing_threads <= thread_count_) {
     for (std::size_t i = 0; i < missing_threads; i++) {
       const boost::function<void()> f = [this, i]() { this->thread_proc(static_cast<int>(100 + i)); };
-      threads_.create_thread(f);
+      threads_.create_thread(f, "scheduler worker " + str::xtos(100 + i));
     }
   }
   if (!has_watchdog_) {
     has_watchdog_ = true;
     const boost::function<void()> f = [this]() { this->watch_dog(0); };
-    threads_.create_thread(f);
+    threads_.create_thread(f, "scheduler watchdog");
   }
 }
 }  // namespace simple_scheduler

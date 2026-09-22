@@ -77,6 +77,38 @@ using `.value()` everywhere is what stops that edit from silently becoming UB.
 Uniformity is the point: a reviewer should never have to trace control flow to
 decide whether a given dereference is safe.
 
+### Background threads: `threads::start_guarded_thread`, never a raw `boost::thread`
+Never start a background thread with `new boost::thread(...)`,
+`std::make_shared<boost::thread>(...)` or `std::thread`. Use
+`threads::start_guarded_thread(name, body, reporter)`
+(`include/threads/guarded_thread.hpp`), or wrap an existing thread's body in
+`threads::run_guarded(...)` where the thread object itself cannot change.
+Modules pass `NSC_THREAD_REPORTER`; everything else passes a lambda over the
+logger it already holds.
+
+An exception that escapes a thread body calls `std::terminate()` and **the
+whole agent dies** - every check on the host stops because one collector hit
+one bad sample. The module entry points in `nscapi/nscapi_plugin_wrapper.hpp`
+are each wrapped for this reason, but a thread body has no wrapper between it
+and the runtime, so the guard has to be there on purpose. Several threads
+simply did not have one.
+
+`boost::asio::io_context::run()` is the same hazard one level down: a
+completion handler runs arbitrary code (in the socket servers, all the way
+into a check) and asio does not catch for it. Run one with
+`threads::run_io_context_guarded(name, io, reporter)`
+(`include/threads/guarded_io_context.hpp`), which logs what escaped and
+re-enters `run()` - asio supports that, and dropping the pool thread instead
+leaves the server silently short of workers.
+
+The guard does not restart the body; a worker that dies logs a critical and
+stays dead. Restart policy is per-worker and belongs in the body - see
+`fleet_sync::thread_proc()` for a supervisor loop with a widening backoff.
+
+`tools/guarded_threads.py --check` sweeps for raw thread creation and runs in
+CI (`.github/workflows/guarded-threads.yml`). A site that genuinely cannot use
+the helper goes in its `ALLOWED` set with the reason.
+
 ## Check command options
 - Boolean check options must be declared as
   `po::value<bool>(&x)->implicit_value(true)->default_value(false)`,

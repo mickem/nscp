@@ -4,9 +4,11 @@
 #pragma once
 
 #include <atomic>
-#include <cstddef>
-
 #include <boost/thread.hpp>
+#include <cstddef>
+#include <functional>
+#include <string>
+#include <threads/guarded_thread.hpp>
 
 /**
  * RAII-owning group of background worker threads.
@@ -15,8 +17,10 @@
  *   * interrupt_all() delivers boost::thread_interrupted to threads parked
  *     on an interruption point; it does not preempt running code.
  *   * Thread bodies that throw (boost::thread_interrupted, std::exception,
- *     or anything else) are caught and swallowed so an escaping exception
- *     cannot terminate the process. Diagnostics belong in the body itself.
+ *     or anything else) are caught by threads::run_guarded() so an escaping
+ *     exception cannot terminate the process. What escaped is reported
+ *     through set_error_reporter(): swallowing it silently left a pool
+ *     quietly short of workers with nothing in the log to say why.
  *   * count() returns the number of currently-live worker threads.
  *
  * Non-copyable.
@@ -42,19 +46,23 @@ class scoped_thread_group {
   scoped_thread_group(const scoped_thread_group&) = delete;
   scoped_thread_group& operator=(const scoped_thread_group&) = delete;
 
+  typedef std::function<void(const std::string& /*name*/, const std::string& /*detail*/)> error_reporter;
+
+  // How the death of a worker is reported. Set it before the first
+  // create_thread(): it is read from the worker threads and written by the
+  // owning thread, under the same "start/stop funnel through one thread"
+  // precondition as the rest of this class. With none set an escaping
+  // exception is still contained, just not logged.
+  void set_error_reporter(error_reporter reporter) { reporter_ = reporter; }
+
   template <typename Callable>
-  void create_thread(Callable f) {
+  void create_thread(Callable f, const std::string& name = "worker") {
     live_count_.fetch_add(1, std::memory_order_relaxed);
     try {
-      group_.create_thread([this, f]() mutable {
-        try {
-          f();
-        } catch (const boost::thread_interrupted&) {
-          // Cooperative interruption — normal exit path on shutdown.
-        } catch (const std::exception&) {
-          // Swallow: an uncaught exception in a worker calls std::terminate().
-        } catch (...) {
-        }
+      group_.create_thread([this, f, name]() mutable {
+        threads::run_guarded(name, f, [this](const std::string& n, const std::string& detail) {
+          if (reporter_) reporter_(n, detail);
+        });
         live_count_.fetch_sub(1, std::memory_order_relaxed);
       });
     } catch (...) {
@@ -69,11 +77,10 @@ class scoped_thread_group {
 
   void wait_all() { group_.join_all(); }
 
-  std::size_t count() const {
-    return live_count_.load(std::memory_order_relaxed);
-  }
+  std::size_t count() const { return live_count_.load(std::memory_order_relaxed); }
 
  private:
   boost::thread_group group_;
   std::atomic<std::size_t> live_count_{0};
+  error_reporter reporter_;
 };

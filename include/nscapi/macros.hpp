@@ -101,6 +101,18 @@
 #define NSC_ANY_MSG(msg, type) GET_CORE()->log(type, __FILE__, __LINE__, msg)
 
 //////////////////////////////////////////////////////////////////////////
+// Reporter for threads::start_guarded_thread() / threads::run_guarded()
+// (threads/guarded_thread.hpp) from inside a module. A worker thread that
+// dies leaves the module loaded but no longer doing its job, so this is a
+// critical: it is the only thing telling an operator why the numbers stopped
+// moving. The reporter is passed as an argument rather than looked up from a
+// global because the core and each module DLL have their own core wrapper.
+//
+// `detail` is a whole clause supplied by the guard, so nothing is added here
+// beyond naming the worker - see the reporter contract in guarded_thread.hpp.
+#define NSC_THREAD_REPORTER [](const std::string& thread_name, const std::string& detail) { NSC_LOG_CRITICAL("Thread '" + thread_name + "': " + detail); }
+
+//////////////////////////////////////////////////////////////////////////
 // Message wrappers below this point
 
 #ifdef _WIN32

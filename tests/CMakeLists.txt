@@ -136,6 +136,7 @@ NSCP_CREATE_TEST(
         GTest::gtest_main
         nscp_protobuf
         ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_FILESYSTEM_LIBRARY}
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )
@@ -511,17 +512,29 @@ if(NOT NSCP_ZIP_BACKEND STREQUAL "none")
     )
 endif()
 
+# boost::asio pulls in the platform socket library from its headers alone, so
+# a test that merely posts to an io_context still has to link it.
+if(WIN32)
+    set(NSCP_SOCKET_LIBS ws2_32)
+else()
+    set(NSCP_SOCKET_LIBS "")
+endif()
+
 NSCP_CREATE_TEST(
     threads_test
     SOURCES
         ${NSCP_INCLUDEDIR}/threads/queue_test.cpp
         ${NSCP_INCLUDEDIR}/threads/concurrent_queue_test.cpp
         ${NSCP_INCLUDEDIR}/threads/scoped_thread_group_test.cpp
+        ${NSCP_INCLUDEDIR}/threads/guarded_thread_test.cpp
     LIBRARIES
         GTest::gtest_main
         ${Boost_THREAD_LIBRARY}
         ${Boost_CHRONO_LIBRARY}
         ${Boost_DATE_TIME_LIBRARY}
+        # guarded_io_context_test posts to a real io_context, and boost::asio
+        # pulls in the platform socket library even when nothing opens a socket.
+        ${NSCP_SOCKET_LIBS}
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )

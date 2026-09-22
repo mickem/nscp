@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <nsclient/logger/logger_helper.hpp>
+#include <threads/guarded_thread.hpp>
 #include <utility>
 
 const static std::string QUIT_MESSAGE = "$$QUIT$$";
@@ -74,7 +75,14 @@ bool threaded_logger::startup() {
   state_->oneline = is_oneline();
   state_->no_std_err = is_no_std_err();
   std::shared_ptr<shared_state> state = state_;
-  thread_ = boost::thread([state]() { thread_proc(state); });
+  // Guarded like every other worker, with the last-resort channel as its
+  // reporter: this thread *is* the logger, so it cannot report its own death
+  // through one.
+  thread_ = boost::thread([state]() {
+    threads::run_guarded(
+        "logger", [state]() { thread_proc(state); },
+        [](const std::string &name, const std::string &detail) { logger_helper::log_fatal("Thread '" + name + "': " + detail); });
+  });
   return log_driver_interface_impl::startup();
 }
 bool threaded_logger::shutdown() {

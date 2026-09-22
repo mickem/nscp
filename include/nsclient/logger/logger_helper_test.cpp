@@ -3,9 +3,13 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/filesystem.hpp>
+#include <fstream>
+#include <iterator>
 #include <nscapi/protobuf/log.hpp>
 #include <nsclient/logger/log_message_factory.hpp>
 #include <nsclient/logger/logger_helper.hpp>
+#include <string>
 
 // ============================================================================
 // Tests for render_log_level_short
@@ -162,4 +166,55 @@ TEST(logger_helper, get_formated_date_empty_format) {
   std::string result = nsclient::logging::logger_helper::get_formated_date("");
   // Empty format should return empty or default behavior
   // The exact behavior depends on implementation
+}
+
+// ============================================================================
+// Tests for set_fatal_file / log_fatal
+//
+// log_fatal is the channel the terminate handler writes its report through,
+// so what matters is that a report actually lands somewhere findable: the
+// default put it in the working directory, which for a service is wherever
+// the SCM happened to start it.
+// ============================================================================
+
+TEST(logger_helper, log_fatal_appends_to_the_configured_file) {
+  const boost::filesystem::path dir = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-fatal-%%%%%%%%");
+  boost::filesystem::create_directories(dir);
+  const boost::filesystem::path file = dir / "nsclient.fatal";
+
+  nsclient::logging::logger_helper::set_fatal_file(file.string());
+  nsclient::logging::logger_helper::log_fatal("first report");
+  nsclient::logging::logger_helper::log_fatal("second report");
+
+  ASSERT_TRUE(boost::filesystem::exists(file));
+  std::ifstream stream(file.string().c_str());
+  const std::string contents((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
+  stream.close();
+
+  EXPECT_NE(contents.find("first report"), std::string::npos);
+  // Appended, not truncated: a crash loop must not erase the report from the
+  // first crash, which is usually the informative one.
+  EXPECT_NE(contents.find("second report"), std::string::npos);
+
+  boost::filesystem::remove_all(dir);
+}
+
+TEST(logger_helper, set_fatal_file_ignores_an_empty_path) {
+  const boost::filesystem::path dir = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-fatal-%%%%%%%%");
+  boost::filesystem::create_directories(dir);
+  const boost::filesystem::path file = dir / "nsclient.fatal";
+
+  nsclient::logging::logger_helper::set_fatal_file(file.string());
+  // An unset path setting must not silently send the report back to the
+  // working directory - keep whatever was configured last.
+  nsclient::logging::logger_helper::set_fatal_file("");
+  nsclient::logging::logger_helper::log_fatal("kept the configured file");
+
+  ASSERT_TRUE(boost::filesystem::exists(file));
+  std::ifstream stream(file.string().c_str());
+  const std::string contents((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
+  stream.close();
+  EXPECT_NE(contents.find("kept the configured file"), std::string::npos);
+
+  boost::filesystem::remove_all(dir);
 }
