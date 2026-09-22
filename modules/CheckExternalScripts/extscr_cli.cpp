@@ -3,6 +3,8 @@
 
 #include "extscr_cli.h"
 
+#include "script_paths.hpp"
+
 #include <config.h>
 
 #include <boost/algorithm/string/predicate.hpp>
@@ -66,14 +68,6 @@ bool extscr_cli::validate_sandbox(boost::filesystem::path pscript, PB::Commands:
 }
 
 namespace {
-// weakly_canonical, falling back to the lexical path when resolution fails -
-// the same treatment validate_sandbox gives both sides of its comparison.
-boost::filesystem::path resolve(const boost::filesystem::path &path) {
-  boost::system::error_code ec;
-  const boost::filesystem::path resolved = boost::filesystem::weakly_canonical(path, ec);
-  return ec ? path : resolved;
-}
-
 // True when this file is one the service itself created and nobody else can
 // rewrite.
 //
@@ -104,23 +98,24 @@ bool is_our_own_file(const boost::filesystem::path &path) {
   return (st.st_mode & (S_IWGRP | S_IWOTH)) == 0;
 #endif
 }
+
 }  // namespace
 
 bool extscr_cli::validate_import_source(const boost::filesystem::path &source, PB::Commands::ExecuteResponseMessage::Response *response) {
-  const boost::filesystem::path real_source = resolve(source);
+  const boost::filesystem::path real_source = script_paths::resolve(source);
   // The script root and ${shared-path} are the agent's own directories: being
   // inside one is enough.
   const std::string owned_roots[] = {provider_->get_root().string(), provider_->get_core()->expand_path("${shared-path}")};
   for (const std::string &root : owned_roots) {
     if (root.empty()) continue;
-    if (file_helpers::checks::path_contains_file(resolve(root), real_source)) return true;
+    if (file_helpers::checks::path_contains_file(script_paths::resolve(root), real_source)) return true;
   }
   // ${temp} is where the REST PUT /api/v2/scripts route stages an upload before
   // handing it to `add --import`, so it has to be reachable - but it is shared
   // with every local account, so being inside it proves nothing on its own. The
   // staged file is ours and owner-only; a planted one is not.
   const std::string temp_root = provider_->get_core()->expand_path("${temp}");
-  if (!temp_root.empty() && file_helpers::checks::path_contains_file(resolve(temp_root), real_source) && is_our_own_file(real_source)) {
+  if (!temp_root.empty() && file_helpers::checks::path_contains_file(script_paths::resolve(temp_root), real_source) && is_our_own_file(real_source)) {
     return true;
   }
   // Deliberately without the resolved path or the list of roots: naming them
@@ -405,29 +400,36 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
     // resolves nothing: the value is handed to the shell (or to execvp)
     // verbatim, with no ${...} expansion and no search of the script folder.
     //
-    // On Windows the launcher starts the child with ${base-path} as its
-    // working directory and ${scripts} sits directly below it, so the
-    // historical relative spelling resolves and is kept - it is what every
-    // existing nsclient.ini and the web UI's script list show.
+    // On Windows the launcher starts the child with ${base-path} as its working
+    // directory, so a path below it can be written relative and still resolve -
+    // and that is the spelling every existing nsclient.ini and the web UI's
+    // script list show. But only a path that really is below it: `script root`
+    // is a settable option (default ${scripts}), and ${scripts} itself moves
+    // with a [paths] override, so the old hard-coded "scripts\\<name>" was a
+    // guess about the default layout. Point `script root` anywhere else and the
+    // copy landed in one folder while the registered command named another,
+    // which the shell resolved to nothing and the check reported as exit 127.
+    // Ask where the file actually is instead of assuming.
     //
-    // Everywhere else it resolved to nothing at all: the backslash is an
-    // ordinary filename character on unix, ${scripts} is not below
-    // ${base-path} (/usr/lib/nsclient/scripts versus /usr/sbin), and the unix
-    // launcher does not set a working directory for the child in the first
-    // place - so the imported script exited 127 the moment it was run.
-    // Record where the file actually is instead.
+    // On unix the relative form never resolved at all: the backslash is an
+    // ordinary filename character, ${scripts} is not below ${base-path}
+    // (/usr/lib/nsclient/scripts versus /usr/sbin), and the unix launcher sets
+    // no working directory for the child in the first place.
+    script = file.string();
 #ifdef WIN32
-    script = "scripts\\" + file_helpers::meta::get_filename(file);
-#else
+    const boost::filesystem::path base(provider_->get_core()->expand_path("${base-path}"));
+    const std::string relative = script_paths::relative_to(base, file);
+    if (!relative.empty()) script = relative;
+#endif
     // Quoted when it has to be: the recorded value is a command line, and
     // parse_command tokenises it with boost::escaped_list_separator on spaces
-    // (with `"` as the quote character). An unquoted /opt/my scripts/x.sh would
-    // split into two argv entries and exit 127 - the very symptom recording an
-    // absolute path is meant to cure. Quote only when there is a space, so the
+    // (with `"` as the quote character). An unquoted C:\\Program Files\\...\\x.bat
+    // or /opt/my scripts/x.sh would split into two argv entries and exit 127 -
+    // the very symptom recording a real path is meant to cure. The default
+    // Windows install lives under Program Files, so this is the common case
+    // there, not the exotic one. Quote only when there is a space, so the
     // ordinary case still reads as a plain path in nsclient.ini.
-    script = file.string();
     if (script.find(' ') != std::string::npos) script = "\"" + script + "\"";
-#endif
     if (boost::filesystem::exists(file)) {
       if (replace) {
         boost::filesystem::remove(file);

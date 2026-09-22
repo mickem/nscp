@@ -65,6 +65,22 @@ include(${BUILD_CMAKE_FOLDER}/module.cmake)
 # The script provider (alias/command bookkeeping and wrapped-command expansion)
 # only needs a core wrapper with stubbed settings/registry endpoints, so it is
 # unit-testable on every platform.
+# Header-only path arithmetic shared by the ext-scr CLI; unit-tested rather
+# than covered by tests/ because the decision it makes is Windows-only and a
+# Linux integration run cannot observe it.
+NSCP_CREATE_TEST(
+    script_paths_test
+    SOURCES
+        script_paths_test.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
 NSCP_CREATE_TEST(
     script_provider_test
     SOURCES
