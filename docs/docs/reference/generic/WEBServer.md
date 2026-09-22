@@ -28,24 +28,25 @@ WEBServer = enabled
 
 Section for WEB (WEBServer.dll) (check_WEB) protocol options.
 
-| Key                                                                  | Default Value                       | Description                         |
-|----------------------------------------------------------------------|-------------------------------------|-------------------------------------|
-| [allow anonymous access](#allow-anonymous-access)                    | false                               | ALLOW ANONYMOUS ACCESS              |
-| [allow insecure](#allow-insecure-cleartext-http)                     | false                               | ALLOW INSECURE (CLEARTEXT HTTP)     |
-| [allowed ciphers](#allowed-ciphers)                                  |                                     | ALLOWED CIPHERS _(Windows only)_    |
-| [allowed hosts](#allowed-hosts)                                      | 127.0.0.1                           | Allowed hosts                       |
-| [auth rate limit block seconds](#auth-rate-limit-block-seconds)      | 60                                  | AUTH RATE LIMIT (BLOCK SECONDS)     |
-| [auth rate limit max failures](#auth-rate-limit-failures)            | 10                                  | AUTH RATE LIMIT (FAILURES)          |
-| [cache allowed hosts](#cache-list-of-allowed-hosts)                  | true                                | Cache list of allowed hosts         |
-| [certificate](#tls-certificate)                                      | ${certificate-path}/certificate.pem | TLS Certificate                     |
-| [certificate key](#tls-private-key)                                  |                                     | TLS private key                     |
-| [disable admin user](#disable-admin-user)                            | false                               | DISABLE ADMIN USER                  |
-| [legacy query auth user agents](#legacy-query-string-auth-allowlist) | Icinga/check_nscp_api               | LEGACY QUERY-STRING AUTH ALLOWLIST  |
-| [openmetrics format](#openmetrics-exposition-format)                 | openmetrics                         | OPENMETRICS EXPOSITION FORMAT       |
-| [password](#password)                                                |                                     | Password                            |
-| [port](#server-port)                                                 | 8443                                | Server port                         |
-| [threads](#server-threads)                                           | 10                                  | Server threads                      |
-| [tls version](#tls-version-to-use)                                   | 1.2+                                | TLS version to use _(Windows only)_ |
+| Key                                                                  | Default Value                       | Description                        |
+|----------------------------------------------------------------------|-------------------------------------|------------------------------------|
+| [allow anonymous access](#allow-anonymous-access)                    | false                               | ALLOW ANONYMOUS ACCESS             |
+| [allow insecure](#allow-insecure-cleartext-http)                     | false                               | ALLOW INSECURE (CLEARTEXT HTTP)    |
+| [allowed ciphers](#allowed-ciphers)                                  |                                     | ALLOWED CIPHERS                    |
+| [allowed hosts](#allowed-hosts)                                      | 127.0.0.1                           | Allowed hosts                      |
+| [auth rate limit block seconds](#auth-rate-limit-block-seconds)      | 60                                  | AUTH RATE LIMIT (BLOCK SECONDS)    |
+| [auth rate limit max failures](#auth-rate-limit-failures)            | 10                                  | AUTH RATE LIMIT (FAILURES)         |
+| [cache allowed hosts](#cache-list-of-allowed-hosts)                  | true                                | Cache list of allowed hosts        |
+| [certificate](#tls-certificate)                                      | ${certificate-path}/certificate.pem | TLS Certificate                    |
+| [certificate key](#tls-private-key)                                  |                                     | TLS private key                    |
+| [disable admin user](#disable-admin-user)                            | false                               | DISABLE ADMIN USER                 |
+| [legacy query auth user agents](#legacy-query-string-auth-allowlist) | Icinga/check_nscp_api               | LEGACY QUERY-STRING AUTH ALLOWLIST |
+| [openmetrics format](#openmetrics-exposition-format)                 | openmetrics                         | OPENMETRICS EXPOSITION FORMAT      |
+| [password](#password)                                                |                                     | Password                           |
+| [persist sessions](#persist-sessions)                                | true                                | PERSIST SESSIONS                   |
+| [port](#server-port)                                                 | 8443                                | Server port                        |
+| [threads](#server-threads)                                           | 10                                  | Server threads                     |
+| [tls version](#tls-version-to-use)                                   | 1.2+                                | TLS version to use                 |
 
 
 ```ini
@@ -61,9 +62,10 @@ certificate=${certificate-path}/certificate.pem
 disable admin user=false
 legacy query auth user agents=Icinga/check_nscp_api
 openmetrics format=openmetrics
+persist sessions=true
 port=8443
 threads=10
-tls version=1.2+  # Windows only
+tls version=1.2+
 ```
 
 #### ALLOW ANONYMOUS ACCESS <a id="/settings/WEB/server/allow anonymous access"></a>
@@ -115,7 +117,6 @@ OpenSSL cipher list the listener is restricted to. Empty (the default) leaves th
 |----------------|-----------------------------------------------|
 | Path:          | [/settings/WEB/server](#/settings/WEB/server) |
 | Key:           | allowed ciphers                               |
-| Platform:      | Windows only                                  |
 | Default value: | _N/A_                                         |
 
 
@@ -147,49 +148,25 @@ A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to
 allowed hosts=127.0.0.1
 ```
 
-=== "Windows"
+#### AUTH RATE LIMIT (BLOCK SECONDS) <a id="/settings/WEB/server/auth rate limit block seconds"></a>
 
-    #### AUTH RATE LIMIT (BLOCK SECONDS) <a id="/settings/WEB/server/auth rate limit block seconds"></a>
-
-    How long an IP stays blocked when it hits \`auth rate limit max failures\` consecutive failures. Default 60 s. A further block doubles the wait - up to an hour - only when that IP burned its whole failure budget at machine speed (faster than one attempt every two seconds on average); a slower run, such as a monitoring client retrying a stale password, keeps the base delay however long it goes on, so one broken client cannot lock everyone sharing its address (behind NAT or a proxy) out for hours. The escalation resets on a successful authentication, or after an hour of quiet. A value of an hour or more is already longer than any escalated block and is used as configured, without doubling.
+How long an IP stays blocked when it hits \`auth rate limit max failures\` consecutive failures. Default 60 s. A further block doubles the wait - up to an hour - only when that IP burned its whole failure budget at machine speed (faster than one attempt every two seconds on average); a slower run, such as a monitoring client retrying a stale password, keeps the base delay however long it goes on, so one broken client cannot lock everyone sharing its address (behind NAT or a proxy) out for hours. The escalation resets on a successful authentication, or after an hour of quiet. A value of an hour or more is already longer than any escalated block and is used as configured, without doubling.
 
 
-    | Key            | Description                                   |
-    |----------------|-----------------------------------------------|
-    | Path:          | [/settings/WEB/server](#/settings/WEB/server) |
-    | Key:           | auth rate limit block seconds                 |
-    | Default value: | `60`                                          |
+| Key            | Description                                   |
+|----------------|-----------------------------------------------|
+| Path:          | [/settings/WEB/server](#/settings/WEB/server) |
+| Key:           | auth rate limit block seconds                 |
+| Default value: | `60`                                          |
 
 
-    **Sample:**
+**Sample:**
 
-    ```
-    [/settings/WEB/server]
-    # AUTH RATE LIMIT (BLOCK SECONDS)
-    auth rate limit block seconds=60
-    ```
-
-=== "Linux"
-
-    #### AUTH RATE LIMIT (BLOCK SECONDS) <a id="/settings/WEB/server/auth rate limit block seconds"></a>
-
-    How long an IP stays blocked after hitting \`auth rate limit max failures\` consecutive failures. Default 60 s.
-
-
-    | Key            | Description                                   |
-    |----------------|-----------------------------------------------|
-    | Path:          | [/settings/WEB/server](#/settings/WEB/server) |
-    | Key:           | auth rate limit block seconds                 |
-    | Default value: | `60`                                          |
-
-
-    **Sample:**
-
-    ```
-    [/settings/WEB/server]
-    # AUTH RATE LIMIT (BLOCK SECONDS)
-    auth rate limit block seconds=60
-    ```
+```
+[/settings/WEB/server]
+# AUTH RATE LIMIT (BLOCK SECONDS)
+auth rate limit block seconds=60
+```
 
 #### AUTH RATE LIMIT (FAILURES) <a id="/settings/WEB/server/auth rate limit max failures"></a>
 
@@ -351,6 +328,26 @@ Password used to authenticate against server
 password=
 ```
 
+#### PERSIST SESSIONS <a id="/settings/WEB/server/persist sessions"></a>
+
+When true (the default) the sessions handed out by /api/v2/login are kept in ${data-path}/nsclient.db and restored at the next start, so a restart does not log every web user out. Only the SHA-256 of each session key is stored, a session is only restored while the user's password and role are unchanged, and logging one out removes it from the file straight away. Set to false to keep sessions in memory only: every restart then ends every session, which is also the way to invalidate all of them at once without rotating passwords.
+
+
+| Key            | Description                                   |
+|----------------|-----------------------------------------------|
+| Path:          | [/settings/WEB/server](#/settings/WEB/server) |
+| Key:           | persist sessions                              |
+| Default value: | `true`                                        |
+
+
+**Sample:**
+
+```
+[/settings/WEB/server]
+# PERSIST SESSIONS
+persist sessions=true
+```
+
 #### Server port <a id="/settings/WEB/server/port"></a>
 
 Port to use for WEB server.
@@ -400,7 +397,6 @@ Which TLS versions the listener will negotiate, in the same vocabulary as the NR
 |----------------|-----------------------------------------------|
 | Path:          | [/settings/WEB/server](#/settings/WEB/server) |
 | Key:           | tls version                                   |
-| Platform:      | Windows only                                  |
 | Default value: | `1.2+`                                        |
 
 
@@ -492,9 +488,6 @@ info=false
 ```
 
 ### Passive result cache <a id="/settings/WEB/server/results"></a>
-
-*Available on Windows only.*
-
 
 Configure the channel the web server listens on for passive check results and how long they are kept.
 
@@ -670,9 +663,9 @@ A list of roles and with coma separated list of access rights.
 | [client](#role-for-read-+-run-checks-queries.execute-can-run-side-effecting-commands) | public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list | Role for read + run checks (queries.execute can run side-effecting commands) |
 | [full](#role-for-full-access)                                                         | *                                                                                                             | Role for Full access                                                         |
 | [legacy](#role-for-legacy-api)                                                        | legacy,login.get                                                                                              | Role for legacy API                                                          |
-| [metrics](#role-for-reading-metrics-only)                                             | public,metrics.list,openmetrics.list,login.get                                                                | Role for reading metrics only _(Windows only)_                               |
+| [metrics](#role-for-reading-metrics-only)                                             | public,metrics.list,openmetrics.list,login.get                                                                | Role for reading metrics only                                                |
 | [monitoring](#role-for-checks,-queries-and-metrics)                                   | public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list                                   | Role for checks, queries and metrics                                         |
-| [restricted](#role-for-checks-and-queries-only,-without-arguments)                    | public,queries.execute.noargs,aliases.list,login.get                                                          | Role for checks and queries only, without arguments _(Windows only)_         |
+| [restricted](#role-for-checks-and-queries-only,-without-arguments)                    | public,queries.execute.noargs,aliases.list,login.get                                                          | Role for checks and queries only, without arguments                          |
 
 
 ```ini
@@ -681,54 +674,30 @@ A list of roles and with coma separated list of access rights.
 client=public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list
 full=*
 legacy=legacy,login.get
-metrics=public,metrics.list,openmetrics.list,login.get  # Windows only
+metrics=public,metrics.list,openmetrics.list,login.get
 monitoring=public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list
-restricted=public,queries.execute.noargs,aliases.list,login.get  # Windows only
+restricted=public,queries.execute.noargs,aliases.list,login.get
 ```
 
-=== "Windows"
+#### Role for read + run checks (queries.execute can run side-effecting commands) <a id="/settings/WEB/server/roles/client"></a>
 
-    #### Role for read + run checks (queries.execute can run side-effecting commands) <a id="/settings/WEB/server/roles/client"></a>
-
-    Default role for read + run checks (queries.execute can run side-effecting commands)
+Default role for read + run checks (queries.execute can run side-effecting commands)
 
 
-    | Key            | Description                                                                                                     |
-    |----------------|-----------------------------------------------------------------------------------------------------------------|
-    | Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles)                                                       |
-    | Key:           | client                                                                                                          |
-    | Default value: | `public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list` |
+| Key            | Description                                                                                                     |
+|----------------|-----------------------------------------------------------------------------------------------------------------|
+| Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles)                                                       |
+| Key:           | client                                                                                                          |
+| Default value: | `public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list` |
 
 
-    **Sample:**
+**Sample:**
 
-    ```
-    [/settings/WEB/server/roles]
-    # Role for read + run checks (queries.execute can run side-effecting commands)
-    client=public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list
-    ```
-
-=== "Linux"
-
-    #### Role for read only <a id="/settings/WEB/server/roles/client"></a>
-
-    Default role for read only
-
-
-    | Key            | Description                                                                                                     |
-    |----------------|-----------------------------------------------------------------------------------------------------------------|
-    | Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles)                                                       |
-    | Key:           | client                                                                                                          |
-    | Default value: | `public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list` |
-
-
-    **Sample:**
-
-    ```
-    [/settings/WEB/server/roles]
-    # Role for read only
-    client=public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list
-    ```
+```
+[/settings/WEB/server/roles]
+# Role for read + run checks (queries.execute can run side-effecting commands)
+client=public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list
+```
 
 #### Role for Full access <a id="/settings/WEB/server/roles/full"></a>
 
@@ -779,7 +748,6 @@ Default role for reading metrics only
 |----------------|-----------------------------------------------------------|
 | Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles) |
 | Key:           | metrics                                                   |
-| Platform:      | Windows only                                              |
 | Default value: | `public,metrics.list,openmetrics.list,login.get`          |
 
 
@@ -791,49 +759,25 @@ Default role for reading metrics only
 metrics=public,metrics.list,openmetrics.list,login.get
 ```
 
-=== "Windows"
+#### Role for checks, queries and metrics <a id="/settings/WEB/server/roles/monitoring"></a>
 
-    #### Role for checks, queries and metrics <a id="/settings/WEB/server/roles/monitoring"></a>
-
-    Default role for checks, queries and metrics
+Default role for checks, queries and metrics
 
 
-    | Key            | Description                                                                   |
-    |----------------|-------------------------------------------------------------------------------|
-    | Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles)                     |
-    | Key:           | monitoring                                                                    |
-    | Default value: | `public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list` |
+| Key            | Description                                                                   |
+|----------------|-------------------------------------------------------------------------------|
+| Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles)                     |
+| Key:           | monitoring                                                                    |
+| Default value: | `public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list` |
 
 
-    **Sample:**
+**Sample:**
 
-    ```
-    [/settings/WEB/server/roles]
-    # Role for checks, queries and metrics
-    monitoring=public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list
-    ```
-
-=== "Linux"
-
-    #### Role for checks and queries only <a id="/settings/WEB/server/roles/monitoring"></a>
-
-    Default role for checks and queries only
-
-
-    | Key            | Description                                                 |
-    |----------------|-------------------------------------------------------------|
-    | Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles)   |
-    | Key:           | monitoring                                                  |
-    | Default value: | `public,queries.execute,aliases.list,login.get,metrics.get` |
-
-
-    **Sample:**
-
-    ```
-    [/settings/WEB/server/roles]
-    # Role for checks and queries only
-    monitoring=public,queries.execute,aliases.list,login.get,metrics.get
-    ```
+```
+[/settings/WEB/server/roles]
+# Role for checks, queries and metrics
+monitoring=public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list
+```
 
 #### Role for checks and queries only, without arguments <a id="/settings/WEB/server/roles/restricted"></a>
 
@@ -844,7 +788,6 @@ Default role for checks and queries only, without arguments
 |----------------|-----------------------------------------------------------|
 | Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles) |
 | Key:           | restricted                                                |
-| Platform:      | Windows only                                              |
 | Default value: | `public,queries.execute.noargs,aliases.list,login.get`    |
 
 

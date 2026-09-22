@@ -636,11 +636,11 @@ use ssl=true
 
 #### VERIFY MODE <a id="/settings/NRPE/server/verify mode"></a>
 
-Comma separated list of verification flags to set on the SSL socket.
+Comma separated list of verification flags to set on the SSL socket. An unknown flag is rejected and the listener refuses to start, so a typo cannot quietly leave the peer unverified.
 
 none	The server will not send a client certificate request to the client, so the client will not send a certificate.
-peer	The server sends a client certificate request to the client and the certificate returned (if any) is checked.
-fail-if-no-cert	if the client did not return a certificate, the TLS/SSL handshake is immediately terminated. This flag must be used together with peer.
+peer (or certificate)	The server sends a client certificate request to the client and the certificate returned (if any) is checked.
+fail-if-no-cert (or fail-if-no-peer-cert, client-certificate)	if the client did not return a certificate, the TLS/SSL handshake is immediately terminated. This flag must be used together with peer.
 peer-cert	Alias for peer and fail-if-no-cert.
 workarounds	Various bug workarounds.
 single	Always create a new key when using tmp_dh parameters.
