@@ -15,11 +15,13 @@
 // clang-format on
 #endif
 
+#include <boost/filesystem/path.hpp>
 #include <string>
 #include <vector>
 
 using process::build_command_line_w;
 using process::quote_argv_w;
+using process::resolve_application_path;
 
 #ifdef _WIN32
 // Round-trip a single argument through quote_argv_w and CommandLineToArgvW.
@@ -110,5 +112,70 @@ TEST(BuildCommandLineW, MetacharsInArgStayInOneArg) {
   ASSERT_EQ(argc, 5);
   EXPECT_EQ(std::wstring(parsed[2]), L"10;reboot $(id) value");
   LocalFree(parsed);
+}
+
+// --- resolve_application_path ------------------------------------------------
+//
+// Which directory a relative `command = scripts\check_foo.bat` is measured
+// against. CreateProcess resolves lpApplicationName against the *calling*
+// process's working directory and lpCurrentDirectory only sets the child's, so
+// before this the script was found solely when the agent had been started from
+// the installation directory - never as a service, whose working directory is
+// C:\Windows\System32.
+
+namespace {
+const char* kRoot = "C:\\Program Files\\NSClient++";
+}
+
+TEST(ResolveApplicationPath, ARelativePathWithAFolderIsRootedAtTheInstallation) {
+  // The reported case, and the spelling every shipped sample and
+  // `ext-scr add --import` uses on Windows.
+  EXPECT_EQ(resolve_application_path(kRoot, "scripts\\check_foo.bat"), "C:\\Program Files\\NSClient++\\scripts\\check_foo.bat");
+}
+
+TEST(ResolveApplicationPath, ForwardSlashesAreRootedToo) {
+  // Same value written the other way round; Windows takes either separator and
+  // an operator copying from the unix documentation writes this one.
+  EXPECT_EQ(boost::filesystem::path(resolve_application_path(kRoot, "scripts/check_foo.bat")).generic_string(),
+            "C:/Program Files/NSClient++/scripts/check_foo.bat");
+}
+
+TEST(ResolveApplicationPath, ADeeperRelativePathKeepsItsShape) {
+  EXPECT_EQ(resolve_application_path(kRoot, "scripts\\lib\\check_foo.bat"), "C:\\Program Files\\NSClient++\\scripts\\lib\\check_foo.bat");
+}
+
+TEST(ResolveApplicationPath, ABareFileNameIsLeftToTheSystemSearch) {
+  // `cmd.exe`, `powershell.exe`, `cscript.exe` - the wrappings lean on the
+  // executable search, and rooting these at the installation directory would
+  // point every one of them at a file that is not there.
+  EXPECT_EQ(resolve_application_path(kRoot, "cmd.exe"), "cmd.exe");
+  EXPECT_EQ(resolve_application_path(kRoot, "powershell.exe"), "powershell.exe");
+}
+
+TEST(ResolveApplicationPath, AnAbsolutePathIsLeftWhereTheOperatorPutIt) {
+  EXPECT_EQ(resolve_application_path(kRoot, "C:\\tools\\check_foo.exe"), "C:\\tools\\check_foo.exe");
+  EXPECT_EQ(resolve_application_path(kRoot, "C:/tools/check_foo.exe"), "C:/tools/check_foo.exe");
+}
+
+TEST(ResolveApplicationPath, AUncPathIsLeftAlone) {
+  EXPECT_EQ(resolve_application_path(kRoot, "\\\\srv\\share\\check_foo.exe"), "\\\\srv\\share\\check_foo.exe");
+}
+
+TEST(ResolveApplicationPath, ADriveRelativePathIsLeftAlone) {
+  // `C:check_foo.exe` names drive C explicitly; is_absolute() is false for it,
+  // which is why the predicate is names_a_root() instead. Joining would give
+  // the nonsense C:\Program Files\NSClient++\C:check_foo.exe.
+  EXPECT_EQ(resolve_application_path(kRoot, "C:check_foo.exe"), "C:check_foo.exe");
+}
+
+TEST(ResolveApplicationPath, ARootRelativePathIsLeftAlone) {
+  // `\tools\check_foo.exe` is root-relative: the operator named the folder from
+  // the root of whatever drive is current, which is not ours to move either.
+  EXPECT_EQ(resolve_application_path(kRoot, "\\tools\\check_foo.exe"), "\\tools\\check_foo.exe");
+}
+
+TEST(ResolveApplicationPath, NothingToRootIsReturnedUnchanged) {
+  EXPECT_EQ(resolve_application_path(kRoot, ""), "");
+  EXPECT_EQ(resolve_application_path("", "scripts\\check_foo.bat"), "scripts\\check_foo.bat");
 }
 #endif

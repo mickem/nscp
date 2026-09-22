@@ -3,9 +3,25 @@
 
 #include "argv_quote.hpp"
 
+#include <boost/filesystem/path.hpp>
+#include <nscp/path_rooting.hpp>
 #include <str/utf8.hpp>
 
 namespace process {
+
+std::string resolve_application_path(const std::string& root_path, const std::string& argv0) {
+  if (argv0.empty() || root_path.empty()) return argv0;
+  const boost::filesystem::path app(argv0);
+  // names_a_root() rather than is_absolute(): on Windows `C:x.exe` is
+  // drive-relative and `\x.exe` is root-relative, and is_absolute() is false
+  // for both, yet joining the installation directory onto either produces
+  // nonsense. Same predicate the settings layer roots attachment targets with.
+  if (nscp::paths::names_a_root(app)) return argv0;
+  // No directory component at all: leave the system's executable search to do
+  // its job (see the header).
+  if (!app.has_parent_path()) return argv0;
+  return (boost::filesystem::path(root_path) / app).string();
+}
 
 std::wstring quote_argv_w(const std::wstring& arg) {
   // Determine whether quoting is needed at all. An empty arg must be quoted as

@@ -522,10 +522,15 @@ the working directory is:
 | `[/settings/filewriter] file` | `${log-path}` |
 
 That table is the complete list. Every other relative value — a script name's first search
-candidate, everything under `[/settings/external scripts]`, any setting not listed above — is
-measured against the working directory. Prefer naming the folder explicitly:
-`${scripts}/check.bat` resolves the same way however the agent was started, where
-`scripts/check.bat` depends on it.
+candidate, any setting not listed above — is measured against the working directory. Prefer naming
+the folder explicitly: `${scripts}/check.bat` resolves the same way however the agent was started,
+where `scripts/check.bat` depends on it.
+
+`[/settings/external scripts]` commands are the one exception, and only on Windows: a command that
+carries a folder is rooted at the installation directory before it is launched, so
+`scripts\check.bat` is the file `${scripts}` names whatever the working directory is. See
+[External scripts resolve differently](#external-scripts-resolve-differently) for the exact rule
+and for what Linux does instead.
 
 A script *name* is a different thing and is not covered by this. `[/settings/python/scripts]` and
 `[/settings/lua/scripts]` entries are resolved by **searching**, so a bare `check_foo.py` is found
@@ -559,23 +564,31 @@ expansion. A `${scripts}/check_foo.sh` entry reaches the shell with the token st
 |---|---|
 | `${scripts}/check_foo.sh` | not expanded; the token is passed through as written |
 | `check_foo.sh` | a name with no directory separator is looked up on `PATH`, not in the current directory |
-| `scripts/check_foo.sh` | resolved relative to the working directory |
+| `scripts/check_foo.sh` | Windows: resolved under the installation directory. Unix: relative to the working directory |
 | `/opt/nscp/scripts/check_foo.sh` | used as given |
 
-The conventional `scripts\check_foo.bat` is reliable on Windows, and by construction rather than by
-luck: the launcher starts the child with `${base-path}` as its working directory, and `${scripts}`
-is `${exe-path}/scripts` — the same folder. That holds under the modern layout too, because
-`${scripts}` stays with the program instead of moving to `%ProgramData%` with the writable state.
+The conventional `scripts\check_foo.bat` is reliable on Windows: the launcher roots a relative
+command at `${base-path}` before handing it to `CreateProcess`, and `${scripts}` is
+`${exe-path}/scripts` — the same folder. So the script is found wherever the agent was started
+from, including as a service, whose working directory is `C:\Windows\System32`. That holds under
+the modern layout too, because `${scripts}` stays with the program instead of moving to
+`%ProgramData%` with the writable state.
 
-On Linux it holds under the shipped systemd unit, which sets `WorkingDirectory` to `${shared-path}`,
-the folder `${scripts}` lives in. The difference is that the unix launcher does not set a working
-directory for the child at all — it inherits the agent's. Started any other way (by hand, from an
-init script, as a container entrypoint) a relative command is measured against whatever that
-happened to be, so prefer an absolute path there.
+Only the folder-bearing form is rooted. A bare `cmd.exe` or `powershell.exe` gets the system's own
+executable search instead — the directory the agent loaded from, the working directory, the system
+and Windows directories, then `PATH` — which is what the shipped wrappings rely on. A command that
+names a location of its own — `C:\tools\check_foo.exe`, `\\server\share\check_foo.exe`, and the
+drive-relative `C:check.exe` or root-relative `\tools\check.exe` — is used exactly as written.
+
+On Linux the relative form holds only under the shipped systemd unit, which sets `WorkingDirectory`
+to `${shared-path}`, the folder `${scripts}` lives in. The unix launcher sets no working directory
+for the child and does not root the command: both inherit the agent's. Started any other way (by
+hand, from an init script, as a container entrypoint) a relative command is measured against
+whatever that happened to be, so prefer an absolute path there.
 
 `nscp ext-scr add --import <file>` writes that value for you, and picks the spelling that works on
-the platform it runs on: `scripts\<name>` on Windows, where the working directory is known, and the
-destination's absolute path everywhere else.
+the platform it runs on: `scripts\<name>` on Windows, and the destination's absolute path
+everywhere else.
 
 ### Overriding
 

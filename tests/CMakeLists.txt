@@ -22,6 +22,7 @@ if(WIN32)
             ${NSCP_INCLUDEDIR}/str/utf8.cpp
         LIBRARIES
             GTest::gtest_main
+            ${Boost_FILESYSTEM_LIBRARY}
             Shell32
         INCLUDES
             ${NSCP_INCLUDEDIR}
