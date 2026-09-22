@@ -55,6 +55,12 @@ module's configured value), or `target=` to use a target defined in the module's
 settings, plus `timeout=`, `retries=` and the TLS options (`certificate=`,
 `ca=`, `verify=`, `allowed-ciphers=`).
 
+When TLS is enabled (`use ssl = true`) the agent is verified: `verify mode`
+defaults to `peer` and `ca` to `${ca-path}`, the agent's own trust bundle. An
+agent presenting a self-signed certificate needs `ca` pointed at that
+certificate and `verify mode = peer-cert`; `verify mode = none` leaves the
+connection encrypted but unauthenticated and has to be asked for.
+
 Note that a stock check_mk agent listens on **TCP 6556 in plain text**, with
 access control done by source-IP allowlist rather than by authentication, so set
 `port=6556` explicitly unless you have configured otherwise, and treat the

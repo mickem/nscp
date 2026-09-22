@@ -128,12 +128,22 @@ struct connection_data : public socket_helpers::connection_info {
     ssl.certificate = "";  // target.get_string_data("certificate", "${certificate-path}/certificate.pem");
     ssl.certificate_key = target.get_string_data("certificate key");
     ssl.certificate_key_format = target.get_string_data("certificate format", "PEM");
-    ssl.ca_path = target.get_string_data("ca");
+    ssl.ca_path = target.get_string_data("ca", "${ca-path}");
     ssl.allowed_ciphers = target.get_string_data("allowed ciphers", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
     ssl.dh_key = target.get_string_data("dh");
-    ssl.verify_mode = target.get_string_data("verify mode", "none");
+    ssl.verify_mode = target.get_string_data("verify mode", "peer");
+    // An empty verify mode parses to verify_none, so a key left blank in the
+    // ini would silently disable verification rather than fall back to the
+    // default. Treat blank as "not set", as NRDPClient does; `none` is the
+    // spelling that opts out.
+    if (ssl.verify_mode.empty()) ssl.verify_mode = "peer";
+    if (ssl.ca_path.empty()) ssl.ca_path = "${ca-path}";
     if (!ssl.certificate.empty()) ssl.certificate = handler->expand_path(ssl.certificate);
     if (!ssl.certificate_key.empty()) ssl.certificate_key = handler->expand_path(ssl.certificate_key);
+    // The settings layer expands a configured `ca` (it is registered as a path
+    // key), but the defaults above and a `ca=` passed on the command line or
+    // over REST reach us verbatim - and "${ca-path}" is not a filename.
+    ssl.ca_path = handler->expand_path(ssl.ca_path);
 
     timeout = target.timeout;
     retry = target.retry;
@@ -144,10 +154,12 @@ struct connection_data : public socket_helpers::connection_info {
 
     // The endpoint is the remote agent's REST API, which listens on TLS by
     // default (port 8443 above is its https port), so TLS is on unless the
-    // target turns it off. `verify mode` stays `none`: the agent generates a
-    // self-signed certificate on first start, so requiring a verified peer
-    // out of the box would make every default deployment fail. Point `ca` at
-    // the issuing certificate and set `verify mode = peer` to fix that.
+    // target turns it off - and the peer is verified against ${ca-path},
+    // because an unverified relay hands the target's password to whichever
+    // host answers for the address. An agent that still presents the
+    // self-signed certificate it generates on first start is reached with
+    // `verify mode = peer-cert` and `ca` pointing at that certificate;
+    // `verify mode = none` keeps the old behaviour and is never the default.
     ssl.enabled = true;
     if (target.has_data("no ssl")) ssl.enabled = !target.get_bool_data("no ssl");
     if (target.has_data("ssl")) ssl.enabled = target.get_bool_data("ssl");

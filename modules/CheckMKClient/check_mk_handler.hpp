@@ -18,6 +18,13 @@ struct check_mk_target_object : public nscapi::targets::target_object {
     set_property_int("timeout", 30);
     set_property_int("retries", 3);
     set_property_string("port", "5667");
+    // Verified by default when the target enables TLS: an unverified peer
+    // means the agent section is collected from whichever host answers for
+    // the address. `ca` is the macro, not a path - add_ssl_keys registers it
+    // as a path key so the settings layer expands it, and connection_data
+    // expands it again for the CLI/REST path.
+    set_property_string("verify mode", "peer");
+    set_property_string("ca", "${ca-path}");
   }
   check_mk_target_object(const nscapi::settings_objects::object_instance other, std::string alias, std::string path) : parent(other, alias, path) {}
 
@@ -29,7 +36,7 @@ struct check_mk_target_object : public nscapi::targets::target_object {
     nscapi::settings_helper::path_extension root_path = settings.path(get_path());
     if (is_sample) root_path.set_sample();
 
-    add_ssl_keys(root_path);
+    add_ssl_keys(root_path, {"peer", "${ca-path}"});
 
     settings.register_all();
     settings.notify();
