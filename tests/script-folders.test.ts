@@ -326,7 +326,13 @@ describe("script folder resolution", () => {
       section: string;
       name: string;
       body: string;
-    }): Promise<{ output: string; scripts: string[]; configured?: string; reload: string }> {
+    }): Promise<{
+      output: string;
+      scripts: string[];
+      configured?: string;
+      scriptsDir: string;
+      reload: string;
+    }> {
       const root = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-import-"));
       const src = path.join(root, "src", opts.name);
       fs.mkdirSync(path.dirname(src), { recursive: true });
@@ -389,6 +395,7 @@ describe("script folder resolution", () => {
         output: r.all ?? `${r.stdout}\n${r.stderr}`,
         scripts: found,
         configured,
+        scriptsDir,
         reload: boot.all ?? `${boot.stdout}\n${boot.stderr}`,
       };
     }
@@ -430,13 +437,22 @@ describe("script folder resolution", () => {
         body: "#!/bin/sh\necho 'import ok'\n",
       });
       expect(r.scripts).toEqual(["imported.sh"]);
-      // This module expands nothing and searches nowhere, so a relative value
-      // would only ever resolve against the caller's working directory - and
-      // on unix the historical "scripts\\name" was not even a path.
-      if (process.platform === "win32") {
-        expect(r.configured).toBe("scripts\\imported.sh");
-      } else {
-        expect(path.isAbsolute(r.configured ?? "")).toBe(true);
+      // This module expands nothing and searches nowhere, so whatever is
+      // recorded has to name the file on its own. The fixture points `script
+      // root` at a temp directory, which is not below ${base-path} on either
+      // platform, so the short historic "scripts\\name" spelling is not
+      // available here - and recording it anyway was the bug: the copy landed
+      // in the temp directory while the command named <install>\scripts\, and
+      // the check exited 127. On unix it was never even a path, the backslash
+      // being an ordinary filename character there.
+      //
+      // Asserted on both platforms as "names the file that was actually
+      // written", which is the property that matters and the one the old
+      // Windows expectation quietly violated.
+      const recorded = (r.configured ?? "").replace(/^"|"$/g, "");
+      expect(path.isAbsolute(recorded)).toBe(true);
+      expect(path.resolve(recorded)).toBe(path.resolve(path.join(r.scriptsDir, "imported.sh")));
+      if (process.platform !== "win32") {
         fs.chmodSync(r.configured as string, 0o755);
         const elsewhere = new NscpInstance({
           workDir: fs.mkdtempSync(path.join(os.tmpdir(), "nscp-import-run-")),
