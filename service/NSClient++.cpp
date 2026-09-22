@@ -93,6 +93,7 @@ struct nscp_settings_provider : public settings_manager::provider_interface {
   virtual std::string expand_path(std::string file) { return path_->expand_path(file); }
   nsclient::logging::logger_instance get_logger() const { return log_instance_; }
   void apply_path_overrides(std::map<std::string, std::string> overrides) override { path_->set_overrides(std::move(overrides)); }
+  void validate_path_overrides() override { path_->validate_overrides(); }
 
   void apply_layout(const std::string &mode) override {
     const nscp::paths::layout selected = nscp::paths::parse_layout(mode);
@@ -306,10 +307,11 @@ bool NSClientT::load_configuration_1() {
   if (!settings_manager::init_settings(provider_, context_)) {
     return false;
   }
-  // Now that boot.ini's [layout] and [paths] have been applied, the overrides
-  // can be judged: until this point a CLI override built from an operator's own
-  // [paths] token looks like a typo, and on Windows ${shared-path} still reads
-  // as the legacy layout whatever boot.ini selected.
+  // init_settings() judges them itself, at the point where the layout and
+  // [paths] are known but nothing has yet acted on a path - see
+  // validate_path_overrides(). Repeated here only because a provider is free
+  // not to implement that hook; drop_unusable_overrides is idempotent, so an
+  // override that already passed simply passes again.
   path_->validate_overrides();
   return true;
 }

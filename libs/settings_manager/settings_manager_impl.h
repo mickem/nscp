@@ -27,6 +27,15 @@ struct provider_interface {
   // rest of them are built from, so the layout has to be in place first.
   // Default is a no-op for providers that have only one layout.
   virtual void apply_layout(const std::string &mode) { static_cast<void>(mode); }
+  // Judge the path overrides that could not be judged when they were installed
+  // and drop the unusable ones. Called once boot.ini's [layout] and [paths] are
+  // applied - so a CLI override built from an operator's own token resolves -
+  // and before prepare_shared_folder() and prepare_trust_store(), which are the
+  // first things to act on a path. It used to run after boot() returned, which
+  // left a bad --path-override live across exactly those two side effects: the
+  // trust store was written where the broken override pointed and then read
+  // from the compiled default. Implementations must be idempotent.
+  virtual void validate_path_overrides() {}
   // Create the folder the layout points at, with whatever access control the
   // platform needs, before anything writes into it. Called after the [paths]
   // overrides so it acts on the operator's final answer, and before

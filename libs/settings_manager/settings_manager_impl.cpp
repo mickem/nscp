@@ -222,6 +222,14 @@ void NSCSettingsImpl::boot(std::string key) {
       provider_->apply_path_overrides(std::move(path_overrides));
     }
   }
+  // Everything an override could be built out of is now known - the layout is
+  // selected and [paths] is applied - so this is the first point at which the
+  // deferred overrides can be judged, and the last one before anything acts on
+  // a path. Drop the unusable ones here rather than after boot() returns, or
+  // the two prepare_ steps below run against a value that is about to be
+  // discarded.
+  provider_->validate_path_overrides();
+
   // The folder everything below writes into has to exist, and be locked down,
   // before the first write - which is the trust store export immediately after
   // this. Runs after the [paths] overrides so it acts on the final answer.
