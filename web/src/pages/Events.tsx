@@ -50,7 +50,7 @@ const REFRESH_RATES = [
 // type that has well-known fields worth surfacing.
 function getSubject(type: string, data: Record<string, string>): string {
   if (type === "system.process") {
-    return [data.exe, data.state].filter(Boolean).join(" â€” ");
+    return [data.exe, data.state].filter(Boolean).join(" — ");
   }
   return "";
 }
@@ -181,7 +181,7 @@ export default function Events() {
                 <TableCell colSpan={6}>
                   <Typography variant="body2" color="text.secondary" sx={{ p: 1 }}>
                     {needle
-                      ? `No events match â€œ${filter}â€.`
+                      ? `No events match “${filter}”.`
                       : "No events recorded."}
                   </Typography>
                 </TableCell>
@@ -253,7 +253,7 @@ function EventRow({ event, isOpen, onToggle, dataPairs }: EventRowProps) {
               whiteSpace: "nowrap",
             }}
           >
-            {event.subject || (dataPairs.length === 0 ? "â€”" : `${dataPairs.length} fields`)}
+            {event.subject || (dataPairs.length === 0 ? "—" : `${dataPairs.length} fields`)}
           </Typography>
         </TableCell>
       </TableRow>

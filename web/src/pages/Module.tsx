@@ -53,8 +53,8 @@ export default function Module() {
   const isFetching =
     isFetchingModules || isFetchingQueries || isFetchingAliases || isFetchingSettings;
 
-  // Hide legacy `checkXXX` aliases â€” the canonical names use the underscored
-  // `check_XXX` form. Anything that starts with `check` but isn't `check_â€¦`
+  // Hide legacy `checkXXX` aliases — the canonical names use the underscored
+  // `check_XXX` form. Anything that starts with `check` but isn't `check_…`
   // is treated as a legacy alias and excluded from the list.
   const isLegacyCheckAlias = (name: string) =>
     name.startsWith("check") && !name.startsWith("check_");

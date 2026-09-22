@@ -59,7 +59,7 @@ export default function Dashboard() {
     };
   }, [result.metrics]);
 
-  // Minimum sensible polling interval (ms) â€“ no point polling faster than the server updates
+  // Minimum sensible polling interval (ms) – no point polling faster than the server updates
   const maxRefreshMs = useMemo(
     () =>
       Math.max(serverIntervals.workersRefresh, serverIntervals.systemRefresh) * 1000,
@@ -120,7 +120,7 @@ export default function Dashboard() {
                       <Tooltip
                         title={
                           tooLow
-                            ? `Server updates every ${maxRefreshMs / 1000}s â€“ polling faster has no effect`
+                            ? `Server updates every ${maxRefreshMs / 1000}s – polling faster has no effect`
                             : ""
                         }
                         placement="right"
