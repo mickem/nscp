@@ -31,6 +31,7 @@ class NSCAPI_EXPORT core_wrapper {
   core_api::lpNSAPIStorageQuery fNSAPIStorageQuery;
   core_api::lpNSAPISetTag fNSAPISetTag;
   core_api::lpNSAPIGetTags fNSAPIGetTags;
+  core_api::lpNSAPIFactsQuery fNSAPIFactsQuery;
   core_api::lpNSAPISetLogOption fNSAPISetLogOption;
 
  public:
@@ -98,6 +99,26 @@ class NSCAPI_EXPORT core_wrapper {
   // standard string escapes, and returns what it has parsed so far on anything
   // unexpected. Static and core-free so it can be unit tested directly.
   static std::map<std::string, std::string> parse_tags_json(const std::string &json);
+
+  // Host facts: the structured inventory modules publish through fetchFacts.
+  // Read-only - a module produces facts by answering the core's request, not
+  // by pushing - and degrading to "{}" / false on a core that predates the
+  // call, as get_tags_json() does.
+  //
+  // The response is the envelope /api/v2/facts renders:
+  //   {"revision":12,"hash":"...","enabled":[...],"errors":{...},"facts":{...}}
+  // With a dotted `path` it carries that subtree plus "found", so a caller can
+  // tell an absent path from an empty one.
+  std::string get_facts_json(const std::string &path = "") const;
+  // Run a manual facts round and return the same envelope. Expensive by
+  // definition - it is what asks every producer to collect now - so it is the
+  // explicit-refresh path, never a read.
+  std::string refresh_facts() const;
+  // What fact sets this agent could collect, whether or not any is enabled:
+  //   {"sets":[{"id":"os","enabled":false,"title":"…","description":"…","producers":["CheckSystem"]}]}
+  // Read off the settings keys the producers registered, so the listing and
+  // the thing an operator edits cannot drift apart.
+  std::string list_facts() const;
 
   bool load_endpoints(core_api::lpNSAPILoader f);
   void set_alias(const std::string default_alias, const std::string alias);

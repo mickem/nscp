@@ -46,6 +46,7 @@
 #include "scripts_controller.hpp"
 #include "settings_controller.hpp"
 #include "static_controller.hpp"
+#include "facts_controller.hpp"
 #include "tags_controller.hpp"
 #include "token_store.hpp"
 #include "web_cli_handler.hpp"
@@ -396,8 +397,13 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   // dot-separated segment (grant_store::validate_grants), so `metrics.get`
   // matched neither. A monitoring server is expected to scrape, so the role
   // now carries the two grants that actually do it.
-  ensure_role(roles, settings, role_path, "monitoring", "public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list",
-              "checks, queries and metrics");
+  // `facts.get` reads inventory, which is what a monitoring server wants to
+  // decide what to monitor. `facts.refresh` is deliberately not here: it makes
+  // every producer collect now, which for the expensive sets means re-reading
+  // the installed-software hives or querying Windows Update, so it stays with
+  // `full`.
+  ensure_role(roles, settings, role_path, "monitoring", "public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list,facts.get",
+              "checks, queries, metrics and inventory");
   // `queries.execute.noargs` runs a query only when the request carries no
   // arguments at all - the REST twin of the NRPE server's
   // `allow arguments = false`. The caller can run the checks the agent
@@ -580,6 +586,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     server->registerController(new log_controller(2, session, get_core(), get_id()));
     server->registerController(new info_controller(2, session, get_core(), get_id()));
     server->registerController(new tags_controller(2, session, get_core(), get_id()));
+    server->registerController(new facts_controller(2, session, get_core(), get_id()));
     server->registerController(new settings_controller(2, session, get_core(), get_id()));
     server->registerController(new login_controller(2, session));
     server->registerController(new metrics_controller(2, session, get_core(), get_id()));

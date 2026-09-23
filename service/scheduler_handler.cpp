@@ -37,6 +37,7 @@ void scheduler::handle_settings() {
   }
 }
 void scheduler::handle_metrics() { mainClient->process_metrics(); }
+void scheduler::handle_facts() { mainClient->process_facts("scheduled"); }
 
 void scheduler::start() {
   tasks.set_handler(this);
@@ -53,11 +54,13 @@ boost::posix_time::seconds parse_interval(const std::string &str) {
 }
 
 void scheduler::add_task(schedule_metadata::task_source source, std::string interval, const std::string info) {
-  const auto metrics_interval = parse_interval(interval);
+  const auto task_interval = parse_interval(interval);
   if (source == schedule_metadata::METRICS) {
-    metrics_interval_ = static_cast<unsigned int>(metrics_interval.total_seconds());
+    metrics_interval_ = static_cast<unsigned int>(task_interval.total_seconds());
+  } else if (source == schedule_metadata::FACTS) {
+    facts_interval_ = static_cast<unsigned int>(task_interval.total_seconds());
   }
-  unsigned int id = tasks.add_task("internal", metrics_interval, 0.5);
+  unsigned int id = tasks.add_task("internal", task_interval, 0.5);
   schedule_metadata data;
   data.source = source;
   data.info = info;
@@ -75,6 +78,9 @@ bool scheduler::handle_schedule(simple_scheduler::task item) {
     return true;
   } else if (current_metadata.source == schedule_metadata::METRICS) {
     handle_metrics();
+    return true;
+  } else if (current_metadata.source == schedule_metadata::FACTS) {
+    handle_facts();
     return true;
   } else if (current_metadata.source == schedule_metadata::RELOAD) {
     handle_reload(current_metadata);

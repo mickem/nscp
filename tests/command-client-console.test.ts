@@ -361,6 +361,37 @@ describe("nscp test console", () => {
     expect(r.exitCode).toBe(0);
   });
 
+  // Facts are opt-in, so the console has to be legible on a host with nothing
+  // enabled - which is every host by default. Both verbs must say what is
+  // going on rather than printing an empty result.
+  it("reports that no inventory is collected when no fact set is enabled", async () => {
+    const out = await runConsole("facts\nexit\n");
+    expect(out).toMatch(/Revision: 0/);
+    expect(out).toMatch(/Enabled: \(none/);
+    expect(out).toMatch(/no facts collected/);
+  });
+
+  it("lists the fact sets that can be collected", async () => {
+    const out = await runConsole("facts list\nexit\n");
+    // CheckHelpers produces no facts, so on this configuration the listing is
+    // the empty one - and it has to explain itself rather than print nothing.
+    expect(out).toMatch(/No fact set is registered|ID\s+STATE\s+PRODUCER/);
+    // The two settings knobs live in the same section and must never be
+    // listed as fact sets.
+    expect(out).not.toMatch(/^interval\s/m);
+    expect(out).not.toMatch(/^max size\s/m);
+  });
+
+  it("refreshes on demand without a fact set enabled", async () => {
+    const out = await runConsole("facts refresh\nexit\n");
+    expect(out).toMatch(/Revision: 0/);
+  });
+
+  it("answers a path nothing produced rather than printing an empty tree", async () => {
+    const out = await runConsole("facts os.family\nexit\n");
+    expect(out).toMatch(/No facts at: os\.family/);
+  });
+
   it("exits on the exit command instead of running to the timeout", async () => {
     const r = await nscp.run(["test"], { input: "exit\n", timeout: 30_000, allowFailure: true });
     expect(r.timedOut).toBe(false);

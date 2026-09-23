@@ -14,6 +14,7 @@
 
 #include "../channels.hpp"
 #include "../commands.hpp"
+#include "../fact_repository.hpp"
 #include "../path_manager.hpp"
 #include "../permissions.hpp"
 #include "../routers.hpp"
@@ -60,6 +61,12 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   channels channels_;
   simple_plugins_list metrics_fetchers_;
   simple_plugins_list metrics_submitters_;
+  simple_plugins_list facts_fetchers_;
+  // The core's fact repository, handed over at boot. Held here so a plugin
+  // leaving drops its fact sets in the same place it is dropped from every
+  // other registry - the alternative is a `docker` set that survives
+  // unloading CheckDocker and freezes at whatever the socket last said.
+  fact_repository_instance facts_;
   plugin_cache plugin_cache_;
   event_subscribers event_subscribers_;
   permissions permissions_;
@@ -77,6 +84,7 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   virtual ~plugin_manager();
 
   plugin_cache *get_plugin_cache() { return &plugin_cache_; }
+  void set_fact_repository(fact_repository_instance facts) { facts_ = std::move(facts); }
   commands *get_commands() { return &commands_; }
   channels *get_channels() { return &channels_; }
   event_subscribers *get_event_subscribers() { return &event_subscribers_; }
@@ -132,6 +140,22 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   // the result to every submitter. Returns the assembled message so a caller can
   // feed non-plugin consumers from the same snapshot.
   PB::Metrics::MetricsMessage process_metrics(PB::Metrics::MetricsBundle bundle);
+
+  // Run one facts round: ask every facts producer for the enabled fact sets
+  // and apply what comes back to `repository`. `reason` is `startup`,
+  // `scheduled`, `reload` or `manual` and reaches the producers unchanged, so
+  // one with an expensive collection can skip work it knows has not moved.
+  //
+  // The enabled list is authoritative and is resolved here, not in the
+  // producers: a set nobody enabled is ignored even if a module returns it,
+  // and a set that was turned off is dropped from the repository before the
+  // round runs. That is the whole of "nothing is collected until a fact set is
+  // enabled", in one place rather than in every module.
+  void process_facts(const std::vector<std::string> &enabled, const std::string &reason);
+
+  // Whether any module can produce facts at all. The scheduler uses it to
+  // avoid registering a round nobody would answer.
+  bool has_facts_fetchers();
 
   bool enable_plugin(std::string name);
   bool disable_plugin(std::string name);

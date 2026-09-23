@@ -10,6 +10,7 @@
 #include <locale>
 #include <map>
 #include <nscapi/macros.hpp>
+#include <nscapi/nscapi_facts_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_metrics_helper.hpp>
 #include <nscapi/nscapi_program_options.hpp>
@@ -102,6 +103,21 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
                   "Timezone used to render dates such as boot time. Accepts 'local' (default), 'utc', or any POSIX TZ string parseable by Boost.Date_time "
                   "(e.g. 'MST-07' or 'EST-05EDT,M3.2.0,M11.1.0').",
                   true);
+
+  // The fact sets this module can produce. Registering them here is what
+  // documents them and lists them in `nscp test` -> `facts list`; the core
+  // decides which are enabled and says so in the fetchFacts request.
+  nscapi::facts::declare(settings, "os", "Collect operating system facts",
+                         "What this machine runs: family, distribution name and version, kernel release, architecture and boot time. Costs nothing to "
+                         "collect.");
+  nscapi::facts::declare(settings, "identity", "Collect host identity facts",
+                         "What this machine calls itself: host name, canonical FQDN and DNS domain. Costs one resolver lookup.");
+  nscapi::facts::declare(settings, "hardware", "Collect hardware facts",
+                         "What this machine is made of: vendor, model, serial, asset tag, chassis, CPU model and core count, and total memory. Read "
+                         "from the DMI table and /proc; the serial and UUID need root, and are simply absent otherwise. Costs nothing to collect.");
+  nscapi::facts::declare(settings, "network.interfaces", "Collect network interface facts",
+                         "Every network interface: name, MAC address, IP addresses, link speed and link state. The record ids are the same interface "
+                         "names check_network reports on. Costs nothing to collect.");
 
   settings.register_all();
   settings.notify();

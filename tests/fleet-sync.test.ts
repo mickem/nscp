@@ -83,6 +83,14 @@ describe("core fleet sync loop", () => {
 
   /** Mutable server behavior: which desired state is currently served. */
   let phase: "good" | "evil" | "trimmed" | "gone";
+  /** The inventory digest the last /agent/v1/facts upload carried. */
+  let serverFactsHash: string | undefined;
+  /**
+   * What the server claims to hold, answered on the state report. `undefined`
+   * leaves the key out, i.e. "I hold what you sent"; a different value is how
+   * a restore, or a host re-added server-side, asks for the document back.
+   */
+  let demandedFactsHash: string | undefined;
 
   function desiredStateFor(currentHash: string | null): { code: number; body: any } {
     const states = {
@@ -98,7 +106,12 @@ describe("core fleet sync loop", () => {
             version: "1.0",
             sha256: goodSha,
             format: "plain",
-            signature: signBundle(signingKeys.privateKey, { id: "b-good", name: "demo", version: "1.0", sha256: goodSha }),
+            signature: signBundle(signingKeys.privateKey, {
+              id: "b-good",
+              name: "demo",
+              version: "1.0",
+              sha256: goodSha,
+            }),
             url: "/agent/v1/bundles/b-good",
             priority: 100,
           },
@@ -116,7 +129,12 @@ describe("core fleet sync loop", () => {
             version: "6.6.6",
             sha256: evilSha,
             format: "plain",
-            signature: signBundle(wrongKeys.privateKey, { id: "b-evil", name: "evil", version: "6.6.6", sha256: evilSha }),
+            signature: signBundle(wrongKeys.privateKey, {
+              id: "b-evil",
+              name: "evil",
+              version: "6.6.6",
+              sha256: evilSha,
+            }),
             url: "/agent/v1/bundles/b-evil",
             priority: 100,
           },
@@ -134,7 +152,12 @@ describe("core fleet sync loop", () => {
             version: "2.0",
             sha256: trimmedSha,
             format: "plain",
-            signature: signBundle(signingKeys.privateKey, { id: "b-trimmed", name: "demo", version: "2.0", sha256: trimmedSha }),
+            signature: signBundle(signingKeys.privateKey, {
+              id: "b-trimmed",
+              name: "demo",
+              version: "2.0",
+              sha256: trimmedSha,
+            }),
             url: "/agent/v1/bundles/b-trimmed",
             priority: 100,
           },
@@ -154,7 +177,12 @@ describe("core fleet sync loop", () => {
             version: "3.0",
             sha256: goodSha,
             format: "plain",
-            signature: signBundle(signingKeys.privateKey, { id: "b-gone", name: "demo", version: "3.0", sha256: goodSha }),
+            signature: signBundle(signingKeys.privateKey, {
+              id: "b-gone",
+              name: "demo",
+              version: "3.0",
+              sha256: goodSha,
+            }),
             url: "/agent/v1/bundles/b-gone",
             priority: 100,
           },
@@ -162,6 +190,14 @@ describe("core fleet sync loop", () => {
       },
     };
     const active = states[phase];
+    // How a server tells the agent which inventory it holds. A 304 carries no
+    // body by definition, so a server with something to say answers with the
+    // full state instead - which is what a real one does, and what the agent
+    // reads the hash out of. Re-applying an identical state renders identical
+    // output, so it costs nothing and triggers no reload.
+    if (demandedFactsHash !== undefined) {
+      return { code: 200, body: { ...active, facts_hash: demandedFactsHash } };
+    }
     if (currentHash === active.state_hash) {
       return { code: 304, body: { next_poll_in_seconds: 1 } };
     }
@@ -176,6 +212,8 @@ describe("core fleet sync loop", () => {
     await nscp.configure({ "/modules": { CheckDisk: "enabled" } });
     requests = [];
     phase = "good";
+    serverFactsHash = undefined;
+    demandedFactsHash = undefined;
 
     server = http.createServer((req, res) => {
       let raw = "";
@@ -221,12 +259,22 @@ describe("core fleet sync loop", () => {
         } else if (parsed.pathname === "/agent/v1/bundles/b-gone") {
           res.writeHead(403, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "bundle no longer in effective set" }));
+        } else if (parsed.pathname === "/agent/v1/facts") {
+          serverFactsHash = body?.facts_hash;
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end("{}");
         } else if (
           parsed.pathname === "/agent/v1/state-report" ||
           parsed.pathname === "/agent/v1/renew"
         ) {
           res.writeHead(200, { "Content-Type": "application/json" });
-          res.end("{}");
+          // A server that holds a different inventory than the agent thinks it
+          // sent says so here.
+          res.end(
+            JSON.stringify(
+              demandedFactsHash === undefined ? {} : { facts_hash: demandedFactsHash },
+            ),
+          );
         } else {
           res.writeHead(404);
           res.end("not found");
@@ -255,11 +303,20 @@ describe("core fleet sync loop", () => {
   }
 
   const stateReports = () => requests.filter((r) => r.url.startsWith("/agent/v1/state-report"));
+  const factUploads = () => requests.filter((r) => r.url.startsWith("/agent/v1/facts"));
+  const desiredStatePolls = () =>
+    requests.filter((r) => r.url.startsWith("/agent/v1/desired-state"));
+  // sha256 of "{}" - what an agent with no fact set enabled reports, which is
+  // every agent by default.
+  const EMPTY_FACTS_HASH = "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a";
 
   it("enrolls, writing the manifest and the fleet.ini include (no module needed)", async () => {
-    const r = await nscp.run(["enroll", "--server", baseUrl, "--token", "tok-fleet", "--insecure"], {
-      allowFailure: true,
-    });
+    const r = await nscp.run(
+      ["enroll", "--server", baseUrl, "--token", "tok-fleet", "--insecure"],
+      {
+        allowFailure: true,
+      },
+    );
     expect(r.exitCode).toBe(0);
     // The manifest is the activation switch: its presence is what makes the
     // core start the sync thread at boot.
@@ -294,6 +351,12 @@ describe("core fleet sync loop", () => {
     // still carries no hint of *what* is configured.
     expect(report.body.local_config_present).toBe(true);
     expect(JSON.stringify(report.body)).not.toContain("CheckDisk");
+    // The inventory digest rides every report; the inventory itself never
+    // does. This host has no fact set enabled, so the digest is the empty
+    // document's - which is how the server tells "inventory off" apart from
+    // "agent too old to have any".
+    expect(report.body.facts_hash).toEqual(EMPTY_FACTS_HASH);
+    expect(report.body.facts).toBeUndefined();
     if (process.platform === "win32") {
       // Module-contributed tags (CheckDisk's drive list) ride along in every
       // state report, merged from the central tag repository.
@@ -408,5 +471,56 @@ describe("core fleet sync loop", () => {
         .slice(reportsBefore)
         .some((r) => r.body?.applied_state_hash === "h-good"),
     );
+  });
+
+  // Facts are opt-in, and this host has nothing enabled. The document still
+  // goes up once at startup - a server that held inventory for this host from
+  // before has to learn it was switched off - and then never again while
+  // nothing changes.
+  it("uploads the empty inventory once and then leaves it alone", async () => {
+    await waitFor("the startup facts upload", () => factUploads().length >= 1);
+    const first = factUploads()[0];
+    expect(first.body.facts).toEqual({});
+    expect(first.body.facts_hash).toEqual(EMPTY_FACTS_HASH);
+    expect(first.body.collected_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+    expect(serverFactsHash).toEqual(EMPTY_FACTS_HASH);
+
+    // Several poll cycles later - the desired-state poll is on a 1s interval
+    // here - nothing has changed, so nothing more is uploaded. That is the
+    // whole point of the hash: the document rides the wire on change, not on
+    // schedule.
+    const uploadsBefore = factUploads().length;
+    const pollsBefore = desiredStatePolls().length;
+    await waitFor("three more poll cycles", () => desiredStatePolls().length >= pollsBefore + 3);
+    expect(factUploads().length).toEqual(uploadsBefore);
+  });
+
+  // A server restore, or a host re-added server-side: the server answers the
+  // state report with an inventory hash that is not ours, and the agent sends
+  // the document again even though it believes the server already has it.
+  it("re-uploads when the server answers with a different inventory hash", async () => {
+    await waitFor("the startup facts upload", () => factUploads().length >= 1);
+    const uploadsBefore = factUploads().length;
+
+    demandedFactsHash = "0000000000000000000000000000000000000000000000000000000000000000";
+    await waitFor(
+      "a second upload after the server asked",
+      () => factUploads().length > uploadsBefore,
+    );
+    expect(factUploads()[factUploads().length - 1].body.facts_hash).toEqual(EMPTY_FACTS_HASH);
+
+    // Once the server stops asking, the agent stops uploading: what it sent
+    // has not changed, and the server no longer claims otherwise.
+    demandedFactsHash = undefined;
+    // Let the cycle that is already in flight finish before taking the
+    // baseline, or the upload it had already decided on lands after it.
+    const pollsAfter = desiredStatePolls().length;
+    await waitFor(
+      "a poll after the server stopped asking",
+      () => desiredStatePolls().length >= pollsAfter + 2,
+    );
+    const uploadsAfter = factUploads().length;
+    await waitFor("three quiet poll cycles", () => desiredStatePolls().length >= pollsAfter + 5);
+    expect(factUploads().length).toEqual(uploadsAfter);
   });
 });

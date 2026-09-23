@@ -6,6 +6,7 @@
 #include <config.h>
 #include <string.h>
 
+#include <algorithm>
 #include <boost/json.hpp>
 
 #include <nscapi/nscapi_helper.hpp>
@@ -18,6 +19,7 @@
 #include <nscapi/protobuf/settings.hpp>
 #include <nsclient/logger/logger.hpp>
 
+#include "../libs/settings_manager/settings_manager_impl.h"
 #include "registry_query_handler.hpp"
 #include "settings_query_handler.hpp"
 #include "storage_query_handler.hpp"
@@ -256,6 +258,110 @@ NSCAPI::errorReturn NSAPIGetTags(char **response_buffer, unsigned int *response_
   return NSCAPI::api_return_codes::hasFailed;
 }
 
+// Host facts: the read side of the fact repository, in the shape of
+// NSAPISettingsQuery - one JSON request in, one JSON response out.
+//
+//   {"op":"get"}                            -> the whole document
+//   {"op":"get","path":"software.installed"} -> that subtree
+//   {"op":"refresh"}                        -> run a manual round, then as get
+//
+// There is deliberately no "set": a module publishes facts by answering
+// fetchFacts when the core asks, so the enabled list in [/settings/facts] is
+// the only thing that decides what is collected. A push-style set_fact would
+// let a module ship a set nobody enabled from a side thread.
+NSCAPI::errorReturn NSAPIFactsQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer,
+                                    unsigned int *response_buffer_len) {
+  try {
+    const std::string request(request_buffer, request_buffer_len);
+    std::string op = "get";
+    std::string path;
+    if (!request.empty()) {
+      const boost::json::value parsed = boost::json::parse(request);
+      if (!parsed.is_object()) return NSCAPI::api_return_codes::hasFailed;
+      const boost::json::object &body = parsed.get_object();
+      const boost::json::value *op_value = body.if_contains("op");
+      if (op_value != nullptr && op_value->is_string()) op = std::string(op_value->get_string());
+      const boost::json::value *path_value = body.if_contains("path");
+      if (path_value != nullptr && path_value->is_string()) path = std::string(path_value->get_string());
+    }
+    if (op == "list") {
+      // What fact sets this agent could collect, from the settings keys the
+      // producers registered: every one carries the title and description the
+      // operator reads before enabling it, and the module that owns it. Kept
+      // on this API rather than the registry because a fact set is declared by
+      // registering its settings key, so there is exactly one source.
+      const std::vector<std::string> enabled_now = mainClient->get_enabled_facts();
+      boost::json::array sets;
+      for (const std::string &key : settings_manager::get_core()->get_reg_keys("/settings/facts", false)) {
+        if (!nsclient::core::fact_repository::is_valid_id(key)) continue;
+        boost::json::object entry;
+        entry["id"] = key;
+        entry["enabled"] = std::find(enabled_now.begin(), enabled_now.end(), key) != enabled_now.end();
+        const auto described = settings_manager::get_core()->get_registered_key("/settings/facts", key);
+        if (described.is_initialized()) {
+          entry["title"] = described.value().title;
+          entry["description"] = described.value().description;
+          boost::json::array producers;
+          for (const unsigned int plugin : described.value().plugins) {
+            // The core registers its own sets under a reserved id that is not
+            // in the plugin cache, so it is named rather than looked up.
+            producers.push_back(boost::json::value(plugin == nsclient::core::fact_repository::core_plugin_id()
+                                                       ? std::string("core")
+                                                       : mainClient->get_plugin_cache()->find_plugin_alias(plugin)));
+          }
+          entry["producers"] = producers;
+        }
+        sets.push_back(entry);
+      }
+      boost::json::object listing;
+      listing["sets"] = sets;
+      const std::string listed = boost::json::serialize(listing);
+      *response_buffer_len = static_cast<unsigned int>(listed.size());
+      *response_buffer = new char[*response_buffer_len + 10];
+      memcpy(*response_buffer, listed.c_str(), *response_buffer_len);
+      return NSCAPI::api_return_codes::isSuccess;
+    }
+    if (op == "refresh") {
+      mainClient->process_facts("manual");
+    } else if (op != "get") {
+      LOG_ERROR(mainClient, "Unknown facts operation: " + op.substr(0, 64));
+      return NSCAPI::api_return_codes::hasFailed;
+    }
+
+    const nsclient::core::fact_repository_instance facts = mainClient->get_fact_repository();
+    boost::json::object root;
+    root["revision"] = facts->get_revision();
+    root["hash"] = facts->get_hash();
+    boost::json::array enabled;
+    for (const std::string &fact_set : mainClient->get_enabled_facts()) enabled.push_back(boost::json::value(fact_set));
+    root["enabled"] = enabled;
+    boost::json::object errors;
+    for (const auto &entry : facts->get_errors()) errors[entry.first] = entry.second;
+    root["errors"] = errors;
+    if (path.empty()) {
+      root["facts"] = facts->get_all();
+    } else {
+      const auto subtree = facts->get(path);
+      // Absent is the caller's answer to give (a 404 on the REST route), so
+      // it is reported rather than turned into an empty object here.
+      root["found"] = subtree.is_initialized();
+      if (subtree.is_initialized()) root["facts"] = subtree.value();
+      root["path"] = path;
+    }
+
+    const std::string response = boost::json::serialize(root);
+    *response_buffer_len = static_cast<unsigned int>(response.size());
+    *response_buffer = new char[*response_buffer_len + 10];
+    memcpy(*response_buffer, response.c_str(), *response_buffer_len);
+    return NSCAPI::api_return_codes::isSuccess;
+  } catch (const std::exception &e) {
+    LOG_ERROR(mainClient, "Failed to query facts: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    LOG_ERROR(mainClient, "Failed to query facts");
+  }
+  return NSCAPI::api_return_codes::hasFailed;
+}
+
 nscapi::core_api::FUNPTR NSAPILoader(const char *buffer) {
   if (strcmp(buffer, "NSAPIGetApplicationName") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIGetApplicationName);
   if (strcmp(buffer, "NSAPIGetApplicationVersionStr") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIGetApplicationVersionStr);
@@ -275,6 +381,7 @@ nscapi::core_api::FUNPTR NSAPILoader(const char *buffer) {
   if (strcmp(buffer, "NSAPIStorageQuery") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSCAPIStorageQuery);
   if (strcmp(buffer, "NSAPISetTag") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPISetTag);
   if (strcmp(buffer, "NSAPIGetTags") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIGetTags);
+  if (strcmp(buffer, "NSAPIFactsQuery") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIFactsQuery);
   if (strcmp(buffer, "NSAPISetLogOption") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPISetLogOption);
   mainClient->get_logger()->critical("api", __FILE__, __LINE__, "Function not found: " + std::string(buffer));
   return NULL;

@@ -40,6 +40,7 @@ nscapi::core_wrapper::core_wrapper()
       fNSAPIStorageQuery(nullptr),
       fNSAPISetTag(nullptr),
       fNSAPIGetTags(nullptr),
+      fNSAPIFactsQuery(nullptr),
       fNSAPISetLogOption(nullptr) {}
 nscapi::core_wrapper::~core_wrapper() { delete pimpl; }
 
@@ -282,6 +283,47 @@ std::string nscapi::core_wrapper::get_tags_json() const {
 }
 
 namespace {
+// One facts query, with the response marshalled back into a string. Shared by
+// get_facts_json() and refresh_facts(), which differ only in the op.
+std::string facts_query(const nscapi::core_api::lpNSAPIFactsQuery call, const nscapi::core_wrapper &core, const std::string &request) {
+  if (!call) return "{}";
+  char *buffer = nullptr;
+  unsigned int buffer_size = 0;
+  const bool retC = NSCAPI::api_ok(call(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
+  std::string response;
+  if (buffer_size > 0 && buffer != nullptr) {
+    response = std::string(buffer, buffer_size);
+  }
+  core.DestroyBuffer(&buffer);
+  if (!retC || response.empty()) return "{}";
+  return response;
+}
+}  // namespace
+
+std::string nscapi::core_wrapper::get_facts_json(const std::string &path) const {
+  std::string request = "{\"op\":\"get\"";
+  if (!path.empty()) {
+    // The path is a dotted fact set id the caller chose, but it can come off a
+    // URL, so it is escaped rather than pasted: an unescaped quote would make
+    // the core parse a different request than the one that was asked for.
+    request += ",\"path\":";
+    request += '"';
+    for (const char c : path) {
+      if (c == '"' || c == '\\') request += '\\';
+      if (static_cast<unsigned char>(c) < 0x20) continue;
+      request += c;
+    }
+    request += '"';
+  }
+  request += "}";
+  return facts_query(fNSAPIFactsQuery, *this, request);
+}
+
+std::string nscapi::core_wrapper::refresh_facts() const { return facts_query(fNSAPIFactsQuery, *this, "{\"op\":\"refresh\"}"); }
+
+std::string nscapi::core_wrapper::list_facts() const { return facts_query(fNSAPIFactsQuery, *this, "{\"op\":\"list\"}"); }
+
+namespace {
 // Skip JSON insignificant whitespace.
 void tags_skip_ws(const std::string &s, std::size_t &i) {
   while (i < s.size() && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r')) ++i;
@@ -450,6 +492,7 @@ bool nscapi::core_wrapper::load_endpoints(core_api::lpNSAPILoader f) {
 
   fNSAPISetTag = reinterpret_cast<core_api::lpNSAPISetTag>(f("NSAPISetTag"));
   fNSAPIGetTags = reinterpret_cast<core_api::lpNSAPIGetTags>(f("NSAPIGetTags"));
+  fNSAPIFactsQuery = reinterpret_cast<core_api::lpNSAPIFactsQuery>(f("NSAPIFactsQuery"));
   fNSAPISetLogOption = reinterpret_cast<core_api::lpNSAPISetLogOption>(f("NSAPISetLogOption"));
 
   return true;

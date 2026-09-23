@@ -246,9 +246,12 @@ proxy chains, and a step-by-step guide for enabling the policy safely.
 | Threshold  | A `warn=` or `crit=` expression that triggers an alert                         |
 | Protocol   | How NSClient++ talks to your monitoring server                                 |
 | Permission | An optional allow-list controlling which callers may invoke which commands     |
+| Tag        | A flat `key=value` string about the host, used for fleet group selectors       |
+| Fact       | Opt-in structured inventory: what the host is (volumes, hardware, software)    |
 
 **Next steps:**
 
 - [Quick Start](../quick-start.md) — Install and run your first check
 - [Monitoring Scenarios](../scenarios/index.md) — Real-world examples
 - [Checks In Depth](checks.md) — Master filters and thresholds
+- [Tags And Facts](facts.md) — What the agent can report about the host it runs on

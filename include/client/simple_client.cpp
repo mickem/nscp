@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/function.hpp>
+#include <boost/json.hpp>
 #include <client/simple_client.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -315,6 +316,153 @@ static std::string render_description(const client::cli_handler_ptr &handler, co
   return out;
 }
 
+// --- facts rendering ----------------------------------------------------------
+//
+// The core answers a facts query with a JSON envelope. The prompt is read by a
+// person, so it is rendered as an indented tree - one line per scalar, a
+// record's `id` first so a list reads as a list of things - rather than
+// printed raw.
+
+static void render_facts_value(const boost::json::value &value, const std::string &indent, std::string &out);
+
+// `skip` is the one key already rendered by the caller (a record's id, which
+// leads its entry). Skipped rather than erased from a copy: boost::json::object
+// erases by swapping in the last element, which would reorder every record.
+static void render_facts_object(const boost::json::object &object, const std::string &indent, std::string &out, const char *skip = nullptr) {
+  for (const auto &field : object) {
+    const std::string key(field.key());
+    if (skip != nullptr && key == skip) continue;
+    if (field.value().is_object() || field.value().is_array()) {
+      out += "\n" + indent + key + ":";
+      render_facts_value(field.value(), indent + "  ", out);
+    } else {
+      out += "\n" + indent + key + ": ";
+      render_facts_value(field.value(), indent, out);
+    }
+  }
+}
+
+static void render_facts_value(const boost::json::value &value, const std::string &indent, std::string &out) {
+  switch (value.kind()) {
+    case boost::json::kind::object:
+      render_facts_object(value.get_object(), indent, out);
+      return;
+    case boost::json::kind::array: {
+      if (value.get_array().empty()) {
+        out += " (none)";
+        return;
+      }
+      for (const auto &entry : value.get_array()) {
+        if (!entry.is_object()) {
+          out += "\n" + indent + "- ";
+          render_facts_value(entry, indent, out);
+          continue;
+        }
+        // A record's id is what names it, so it leads the entry and the rest
+        // of its fields hang under it.
+        const boost::json::value *id = entry.get_object().if_contains("id");
+        out += "\n" + indent + "- " + (id != nullptr && id->is_string() ? std::string(id->get_string()) : std::string("(no id)"));
+        render_facts_object(entry.get_object(), indent + "    ", out, "id");
+      }
+      return;
+    }
+    case boost::json::kind::string:
+      out += std::string(value.get_string());
+      return;
+    default:
+      out += boost::json::serialize(value);
+      return;
+  }
+}
+
+static std::string render_facts(const std::string &body, const std::string &path) {
+  boost::json::value parsed;
+  try {
+    parsed = boost::json::parse(body);
+  } catch (const std::exception &e) {
+    return std::string("Could not read the facts the core returned: ") + e.what();
+  }
+  if (!parsed.is_object()) return "Could not read the facts the core returned: not an object";
+  const boost::json::object &root = parsed.get_object();
+
+  const boost::json::value *facts = root.if_contains("facts");
+  if (!path.empty()) {
+    const boost::json::value *found = root.if_contains("found");
+    if (found == nullptr || !found->is_bool() || !found->get_bool()) return "No facts at: " + path;
+  }
+
+  std::string out;
+  const boost::json::value *revision = root.if_contains("revision");
+  const boost::json::value *hash = root.if_contains("hash");
+  out += "Revision: " + (revision == nullptr ? std::string("?") : boost::json::serialize(*revision));
+  if (hash != nullptr && hash->is_string()) out += "  Hash: " + std::string(hash->get_string()).substr(0, 12);
+
+  const boost::json::value *enabled = root.if_contains("enabled");
+  if (enabled != nullptr && enabled->is_array()) {
+    std::string names;
+    for (const auto &entry : enabled->get_array()) {
+      if (!entry.is_string()) continue;
+      if (!names.empty()) names += ", ";
+      names += std::string(entry.get_string());
+    }
+    // The empty case is the default one, so it says what to do about it
+    // rather than printing an empty line.
+    out += "\nEnabled: " + (names.empty() ? std::string("(none - enable a fact set in [/settings/facts]; `facts list` shows them)") : names);
+  }
+
+  const boost::json::value *errors = root.if_contains("errors");
+  if (errors != nullptr && errors->is_object() && !errors->get_object().empty()) {
+    out += "\nErrors:";
+    for (const auto &entry : errors->get_object()) {
+      out += "\n  " + std::string(entry.key()) + ": " + (entry.value().is_string() ? std::string(entry.value().get_string()) : std::string("?"));
+    }
+  }
+
+  if (facts == nullptr) return out;
+  if (facts->is_object() && facts->get_object().empty()) return out + "\n\n(no facts collected)";
+  out += "\n";
+  if (!path.empty()) out += "\n" + path + ":";
+  render_facts_value(*facts, "  ", out);
+  return out;
+}
+
+static std::string render_facts_list(const std::string &body) {
+  boost::json::value parsed;
+  try {
+    parsed = boost::json::parse(body);
+  } catch (const std::exception &e) {
+    return std::string("Could not read the fact sets the core returned: ") + e.what();
+  }
+  const boost::json::value *sets = parsed.is_object() ? parsed.get_object().if_contains("sets") : nullptr;
+  if (sets == nullptr || !sets->is_array() || sets->get_array().empty()) {
+    return "No fact set is registered. A module that produces facts registers its sets when it loads, so check that the producing module is enabled.";
+  }
+  std::vector<table_row> rows{{"ID", "STATE", "PRODUCER", "DESCRIPTION"}};
+  for (const auto &entry : sets->get_array()) {
+    if (!entry.is_object()) continue;
+    const boost::json::object &set = entry.get_object();
+    const boost::json::value *id = set.if_contains("id");
+    const boost::json::value *on = set.if_contains("enabled");
+    const boost::json::value *title = set.if_contains("title");
+    const boost::json::value *description = set.if_contains("description");
+    const boost::json::value *producers = set.if_contains("producers");
+    std::string by;
+    if (producers != nullptr && producers->is_array()) {
+      for (const auto &producer : producers->get_array()) {
+        if (!producer.is_string()) continue;
+        if (!by.empty()) by += ", ";
+        by += std::string(producer.get_string());
+      }
+    }
+    const std::string text = description != nullptr && description->is_string() && !description->get_string().empty()
+                                 ? std::string(description->get_string())
+                                 : (title != nullptr && title->is_string() ? std::string(title->get_string()) : std::string());
+    rows.push_back({id != nullptr && id->is_string() ? std::string(id->get_string()) : std::string("?"),
+                    on != nullptr && on->is_bool() && on->get_bool() ? "enabled" : "disabled", by.empty() ? "?" : by, text});
+  }
+  return render_table(rows) + "\n\nEnable a set with `<id> = true` under [/settings/facts] in the configuration.";
+}
+
 namespace client {
 
 const std::vector<command_info> &builtin_commands() {
@@ -333,6 +481,7 @@ const std::vector<command_info> &builtin_commands() {
       {"desc", "<query>", "describe a query and its parameters"},
       {"keywords", "<query>", "list the filter keywords of a query with their descriptions"},
       {"metrics", "[prefix]", "show the metrics collected so far"},
+      {"facts", "[path|list|refresh]", "show the host inventory (facts), the sets that can be collected, or collect now"},
       {"settings", "", "show the configured settings (keys set in the configuration, not every registered default)"},
       {"exec", "<module> [command] [args]", "run a module's command line, as nscp <module> ... does (exec CheckSystem --list --all)"},
       {"load", "<module>", "load a module now"},
@@ -646,6 +795,17 @@ void cli_client::handle_command(const std::string &command) {
     create_registry_query(handler->get_core(), "", PB::Registry::ItemType::QUERY, queries);
     create_registry_query(handler->get_core(), "", PB::Registry::ItemType::QUERY_ALIAS, aliases);
     handler->output_message(render_inventory({queries, aliases}));
+  } else if (is_verb(command, "facts")) {
+    const std::string argument = boost::algorithm::trim_copy(command.substr(5));
+    if (argument == "list") {
+      handler->output_message(render_facts_list(handler->get_core()->list_facts()));
+    } else if (argument == "refresh") {
+      // A manual round: every producer collects now, which is the point of
+      // asking for it, so this is the one facts verb that costs something.
+      handler->output_message(render_facts(handler->get_core()->refresh_facts(), ""));
+    } else {
+      handler->output_message(render_facts(handler->get_core()->get_facts_json(argument), argument));
+    }
   } else if (command.size() >= 7 && command.substr(0, 7) == "metrics") {
     for (const metrics::metrics_store::values_map::value_type &v : metrics_store.get(command.substr(7))) {
       handler->output_message(v.first + "=" + v.second);

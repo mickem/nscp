@@ -124,6 +124,14 @@ typedef NSCAPI::errorReturn (*lpNSCAPIEmitEvent)(const char *, int);
 
 typedef NSCAPI::errorReturn (*lpNSAPIStorageQuery)(const char *, const unsigned int, char **, unsigned int *);
 
+// Host facts: structured inventory about this host, kept in the core and
+// published by modules through fetchFacts. Query-style, like the settings and
+// registry queries: a JSON request ({"op":"get","path":"software.installed"}
+// or {"op":"refresh"}) and a JSON response (free with NSAPIDestroyBuffer).
+// Read-only on purpose - there is no push-style set_fact, so the enabled list
+// in [/settings/facts] stays the only thing that decides what is collected.
+typedef NSCAPI::errorReturn (*lpNSAPIFactsQuery)(const char *, const unsigned int, char **, unsigned int *);
+
 // Host tags: set (or with an empty value remove) a key=value fact about this
 // host, and fetch the full tag map as a JSON object (free with
 // NSAPIDestroyBuffer).
@@ -175,6 +183,13 @@ typedef NSCAPI::errorReturn (*lpHandleSchedule)(unsigned int plugin_id, const ch
 
 typedef NSCAPI::errorReturn (*lpFetchMetrics)(unsigned int plugin_id, char **return_buffer, unsigned int *return_buffer_len);
 typedef NSCAPI::errorReturn (*lpSubmitMetrics)(unsigned int plugin_id, const char *buffer, const unsigned int buffer_len);
+
+// Facts producer. Unlike metrics the core sends a request, because a producer
+// must only collect what the operator enabled: the buffer carries the enabled
+// fact set ids and the reason for the round. Optional, like NSFetchMetrics -
+// a module without facts does not export it.
+typedef NSCAPI::errorReturn (*lpFetchFacts)(unsigned int plugin_id, const char *request_buffer, const unsigned int request_buffer_len,
+                                            char **return_buffer, unsigned int *return_buffer_len);
 
 typedef NSCAPI::errorReturn (*lpOnEvent)(unsigned int plugin_id, const char *buffer, const unsigned int buffer_len);
 }  // namespace plugin_api

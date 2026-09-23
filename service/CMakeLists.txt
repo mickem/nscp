@@ -242,6 +242,8 @@ NSCP_CREATE_TEST(
         permissions.hpp
         tag_repository_test.cpp
         tag_repository.hpp
+        fact_repository_test.cpp
+        fact_repository.hpp
         ../include/parsers/cron/cron_parser.hpp
         ${NSCP_INCLUDEDIR}/win/shellapi.cpp
     LIBRARIES

@@ -361,7 +361,7 @@ onboarding::transport_error_info onboarding::classify_transport_error(const std:
 
 std::string onboarding::build_state_report(const boost::optional<std::string> &applied_state_hash, const std::vector<installed_bundle> &bundles_installed,
                                            const std::vector<std::string> &errors, const std::map<std::string, std::string> &reported_tags,
-                                           const bool local_config_present) {
+                                           const bool local_config_present, const std::string &facts_hash) {
   json::object root;
   if (applied_state_hash) {
     root["applied_state_hash"] = applied_state_hash.value();
@@ -389,7 +389,61 @@ std::string onboarding::build_state_report(const boost::optional<std::string> &a
     tags[tag.first] = tag.second;
   }
   root["reported_tags"] = tags;
+  // The digest of this host's inventory, never the inventory itself. An older
+  // server ignores the extra key; a newer one compares it and asks for the
+  // document only when it differs from what it holds.
+  root["facts_hash"] = facts_hash;
   return json::serialize(root);
+}
+
+std::string onboarding::build_facts_upload(const std::string &facts_hash, const std::string &collected_at, const std::string &facts_document) {
+  json::object root;
+  root["facts_hash"] = facts_hash;
+  root["collected_at"] = collected_at;
+  // Parsed and re-serialised rather than embedded as a string: the server
+  // receives an object, as the wire contract says, and a document the agent
+  // somehow produced malformed fails here rather than at the server. The
+  // agent's own canonical serialisation is what was hashed, and Boost.JSON
+  // round-trips it byte for byte (keys keep their order, no whitespace is
+  // added), so the digest still describes what is sent.
+  if (facts_document.empty()) {
+    root["facts"] = json::object();
+  } else {
+    json::value parsed;
+    try {
+      parsed = json::parse(facts_document);
+    } catch (const std::exception &e) {
+      throw onboarding_error(std::string("Facts document is not valid JSON: ") + e.what(), false);
+    }
+    if (!parsed.is_object()) throw onboarding_error("Facts document is not a JSON object", false);
+    root["facts"] = parsed;
+  }
+  return json::serialize(root);
+}
+
+boost::optional<std::string> onboarding::parse_server_facts_hash(const std::string &body) {
+  if (body.empty()) return boost::none;
+  json::value parsed;
+  try {
+    parsed = json::parse(body);
+  } catch (const std::exception &) {
+    // A response that is not JSON says nothing about facts. The caller has
+    // already dealt with whatever else was wrong with it.
+    return boost::none;
+  }
+  if (!parsed.is_object()) return boost::none;
+  const json::value *value = parsed.as_object().if_contains("facts_hash");
+  if (value == nullptr || !value->is_string()) return boost::none;
+  const std::string hash(value->as_string());
+  // A value that is not a plausible digest is ignored rather than acted on: a
+  // junk hash that never matches ours would make the agent upload the whole
+  // document on every single poll.
+  if (hash.empty() || hash.size() > max_hash_length) return boost::none;
+  for (const char c : hash) {
+    const bool ok = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+    if (!ok) return boost::none;
+  }
+  return hash;
 }
 
 onboarding::enrolled_identity onboarding::parse_renew_response(const std::string &body, const identity &fresh_identity, const enrolled_identity &current) {

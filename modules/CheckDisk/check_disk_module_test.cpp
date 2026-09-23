@@ -20,10 +20,13 @@
 
 #include <gtest/gtest.h>
 
+#include <nscapi/nscapi_facts_helper.hpp>
 #include <nscapi/test_helpers.hpp>
+#include <set>
 #include <string>
 #include <vector>
 
+#include "facts_volumes.hpp"
 #include "test_support.hpp"
 
 namespace {
@@ -332,6 +335,72 @@ TEST_F(CheckDiskModule, LegacyCheckFilesIsUnsupportedHere) {
   const std::string out = join_lines(response);
   EXPECT_NE(out.find("deprecated legacy command"), std::string::npos) << out;
   EXPECT_NE(out.find("check_files"), std::string::npos) << out;
+}
+
+// ============================================================================
+// Facts
+// ============================================================================
+
+TEST_F(CheckDiskModule, FetchFactsProducesNothingForASetThatWasNotAskedFor) {
+  nscapi::facts::request request;
+  request.add_enabled("os");
+  nscapi::facts::response response;
+  module_.fetchFacts(request, response);
+
+  EXPECT_EQ(R"({"sets":{},"errors":{}})", response.serialize());
+}
+
+TEST_F(CheckDiskModule, FetchFactsProducesTheVolumeListWhenAskedFor) {
+  nscapi::facts::request request;
+  request.add_enabled("storage.volumes");
+  nscapi::facts::response response;
+  module_.fetchFacts(request, response);
+
+  const std::string body = response.serialize();
+  // Every CI host has at least a root filesystem, and the record for it has
+  // to carry the fields the fact set documents.
+  ASSERT_NE(std::string::npos, body.find(R"("volumes":[)")) << body;
+  EXPECT_NE(std::string::npos, body.find(R"("id":"/")")) << body;
+  EXPECT_NE(std::string::npos, body.find(R"("fs":)")) << body;
+  EXPECT_NE(std::string::npos, body.find(R"("type":)")) << body;
+  EXPECT_NE(std::string::npos, body.find(R"("size_bytes":)")) << body;
+}
+
+// The convention a later "context on a failing check" feature rests on: the
+// record id and the check's instance name are the same string, so the
+// `storage.volumes` record for a volume and a failing check_drivesize on it
+// name the same thing.
+TEST_F(CheckDiskModule, EveryVolumeRecordIsIdentifiedByItsMountPoint) {
+  std::string error;
+  const std::vector<check_disk_facts::volume> volumes = check_disk_facts::gather_volumes(error);
+  EXPECT_EQ("", error);
+  ASSERT_FALSE(volumes.empty()) << "a host with no mounted filesystem cannot happen";
+  for (const check_disk_facts::volume &entry : volumes) {
+    EXPECT_FALSE(entry.id.empty()) << "a record without an id makes the core reject the whole set";
+    EXPECT_EQ('/', entry.id[0]) << "on Unix the id is the mount point: " << entry.id;
+  }
+}
+
+TEST_F(CheckDiskModule, TheVolumeListHasNoDuplicateIds) {
+  std::string error;
+  const std::vector<check_disk_facts::volume> volumes = check_disk_facts::gather_volumes(error);
+  std::set<std::string> ids;
+  for (const check_disk_facts::volume &entry : volumes) {
+    EXPECT_TRUE(ids.insert(entry.id).second) << "a bind mount published twice makes the core reject the set: " << entry.id;
+  }
+}
+
+// Pseudo filesystems are properties of the kernel, not of the machine, and
+// there are dozens of them on every Linux host.
+TEST_F(CheckDiskModule, TheVolumeListLeavesOutPseudoFilesystems) {
+  std::string error;
+  const std::vector<check_disk_facts::volume> volumes = check_disk_facts::gather_volumes(error);
+  for (const check_disk_facts::volume &entry : volumes) {
+    EXPECT_NE("proc", entry.fs);
+    EXPECT_NE("sysfs", entry.fs);
+    EXPECT_NE("cgroup2", entry.fs);
+    EXPECT_NE("tmpfs", entry.fs);
+  }
 }
 
 // ============================================================================

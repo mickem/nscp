@@ -262,7 +262,7 @@ TEST(SessionManagerMetricsRole, MetricsGrantsAreWhatTheEndpointsAskFor) {
   smi.add_user("scraper", "metrics", "password");
   smi.add_grant("metrics", "public,metrics.list,openmetrics.list,login.get");
   smi.add_user("monitor", "monitoring", "password");
-  smi.add_grant("monitoring", "public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list");
+  smi.add_grant("monitoring", "public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list,facts.get");
 
   Mongoose::StreamResponse stale;
   smi.store_user_in_response("stale", stale);
@@ -281,6 +281,11 @@ TEST(SessionManagerMetricsRole, MetricsGrantsAreWhatTheEndpointsAskFor) {
   EXPECT_TRUE(smi.has_grant("metrics.list", monitor));
   EXPECT_TRUE(smi.has_grant("openmetrics.list", monitor));
   EXPECT_TRUE(smi.has_grant("queries.execute", monitor));
+  // Reading the host inventory is part of deciding what to monitor; making
+  // every producer collect now is not, so the refresh grant stays with `full`.
+  EXPECT_TRUE(smi.has_grant("facts.get", monitor));
+  EXPECT_FALSE(smi.has_grant("facts.refresh", monitor));
+  EXPECT_FALSE(smi.has_grant("facts.get", scraper));
 }
 
 TEST_F(SessionManagerTest, IsAllowedIp) { EXPECT_TRUE(smi.is_allowed("127.0.0.1")); }

@@ -5,6 +5,7 @@
 
 #include <win/CheckMemory.h>
 
+#include <nscapi/nscapi_facts_helper.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/metrics.hpp>
@@ -91,6 +92,10 @@ class CheckSystem : public nscapi::impl::simple_plugin {
 
   // Metrics
   void fetchMetrics(PB::Metrics::MetricsMessage::Response *response);
+
+  // Facts: `os`, `identity`, `hardware` and `network.interfaces` - the same
+  // four sets, with the same keys, the Unix module produces.
+  void fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response);
 
   // Legacy checks
   void checkCpu(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);

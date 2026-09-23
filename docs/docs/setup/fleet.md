@@ -324,6 +324,50 @@ sudo nscp settings --path /settings/default --key "allowed hosts" --show
 Never edit `fleet.ini` itself. It is rewritten wholesale on the next sync, which is exactly
 what the banner at the top of it says.
 
+### Collecting inventory for a group
+
+Enrolled hosts report a handful of **tags** — flat `key=value` strings the group selectors
+match on — and nothing else about themselves. The richer description of a machine, its
+**[facts](../concepts/facts.md)**, is opt-in and collected only when you ask for it.
+
+Asking is an ordinary bundle, because enablement is ordinary configuration:
+
+```ini
+[/settings/facts]
+os = true
+identity = true
+hardware = true
+network.interfaces = true
+storage.volumes = true
+```
+
+Assign it to a group and, within a poll interval, every host in it starts collecting and
+uploads its inventory. Bundles merge per key, so a bundle that enables `os` and another
+that enables `storage.volumes` coexist without either clobbering the other.
+
+What travels, and when:
+
+* Every state report carries the **hash** of the host's inventory document, never the
+  document. That is how the server notices a change on a per-minute report without paying
+  for a per-minute upload — and why a host with nothing enabled still reports a hash (of
+  the empty document), which is what distinguishes "inventory switched off" from "this
+  agent is too old to have any".
+* The **document** goes up on its own call, once at startup and then only when it actually
+  changes. If the server ever holds a different hash than the host sent — after a restore,
+  or when a host is re-added server-side — it says so in its next answer and the host
+  uploads again.
+
+Facts are inventory, never configuration: no credentials, no command lines, no environment.
+The state report's promise is unchanged — it still says only *that* the host has local
+configuration, never what it is.
+
+To see what a host can collect, and what each set costs, ask the host:
+
+```bash
+sudo nscp test
+facts list
+```
+
 ### Encrypted bundles
 
 A bundle can hold things the fleet server has no business reading — an API token, a

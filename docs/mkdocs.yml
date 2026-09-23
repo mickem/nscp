@@ -35,6 +35,7 @@ nav:
       - Checks In Depth: concepts/checks.md
       - Restricting What A Check May Read: concepts/check-access.md
       - Settings: concepts/settings.md
+      - Tags And Facts: concepts/facts.md
       - Test Mode: concepts/test-mode.md
       - File Layout: concepts/file-layout.md
       - Permissions: concepts/permissions.md
@@ -130,6 +131,7 @@ nav:
       - Scripts: api/rest/scripts.md
       - Logs: api/rest/logs.md
       - Results: api/rest/results.md
+      - Facts: api/rest/facts.md
       - Legacy API: api/rest/legacy.md
   - FAQ: faq.md
 

@@ -3,7 +3,9 @@
 
 #include <config.h>
 
+#include <algorithm>
 #include <boost/filesystem/operations.hpp>
+#include <boost/json.hpp>
 #include <boost/unordered_set.hpp>
 #include <nscapi/nscapi_metrics_helper.hpp>
 #include <nscapi/settings/helper.hpp>
@@ -259,7 +261,9 @@ NSClientT::NSClientT()
       path_(new nsclient::core::path_manager(log_instance_)),
       plugins_(new nsclient::core::plugin_manager(path_, log_instance_)),
       storage_manager_(new nsclient::core::storage_manager(path_, log_instance_)),
-      tags_(new nsclient::core::tag_repository()) {
+      tags_(new nsclient::core::tag_repository()),
+      facts_(new nsclient::core::fact_repository()) {
+  plugins_->set_fact_repository(facts_);
   provider_ = new nscp_settings_provider(path_, log_instance_);
   log_instance_->startup();
 }
@@ -503,6 +507,10 @@ bool NSClientT::boot_start_plugins(bool boot) {
     return false;
   }
   if (boot) {
+    // After every module is loaded and started, and before the fleet loop
+    // sends its first state report, so a fresh host reports its inventory
+    // with that first report rather than an hour later.
+    boot_facts("startup");
     boot_fleet_sync();
   }
   LOG_DEBUG_CORE(utf8::cvt<std::string>(APPLICATION_NAME " - " CURRENT_SERVICE_VERSION " Started!"));
@@ -572,7 +580,7 @@ void NSClientT::boot_fleet_sync() {
                          path_->expand_path("${data-path}") + ") and restart.");
       return;
     }
-    const std::shared_ptr<fleet_sync> sync = std::make_shared<fleet_sync>(log_instance_, config, tags_, [this] { this->reload("delayed,service"); });
+    const std::shared_ptr<fleet_sync> sync = std::make_shared<fleet_sync>(log_instance_, config, tags_, facts_, [this] { this->reload("delayed,service"); });
     {
       boost::mutex::scoped_lock lock(fleet_sync_mutex_);
       fleet_sync_ = sync;
@@ -709,6 +717,11 @@ bool NSClientT::do_reload(const std::string module) {
       // configs are reloaded via the per-plugin loadModuleEx path; this
       // catches the core-side state.
       plugins_->load_permissions();
+      // The enabled fact sets live in the settings too, and a fleet bundle is
+      // exactly how they get turned on, so a settings reload re-reads them and
+      // runs a round: a set that was enabled starts producing, and one that
+      // was turned off is dropped by the round itself.
+      boot_facts("reload");
       return true;
     } catch (const std::exception &e) {
       LOG_ERROR_CORE_STD("Exception raised when reloading: " + utf8::utf8_from_native(e.what()));
@@ -830,6 +843,156 @@ PB::Metrics::MetricsBundle NSClientT::ownMetricsFetcher() {
   return bundle;
 }
 void NSClientT::process_metrics() { plugins_->process_metrics(ownMetricsFetcher()); }
+
+// The section the fact sets and their two knobs live under. The knob names
+// themselves are reserved by the repository, which is also what refuses them
+// as fact set ids.
+static const char *FACTS_PATH = "/settings/facts";
+
+std::vector<std::string> NSClientT::get_enabled_facts() {
+  using nsclient::core::fact_repository;
+  std::vector<std::string> enabled;
+  try {
+    for (const std::string &key : settings_manager::get_settings()->get_keys(FACTS_PATH)) {
+      if (fact_repository::is_reserved_key(key)) continue;
+      if (!fact_repository::is_valid_id(key)) {
+        LOG_ERROR_CORE_STD("Ignoring '" + key.substr(0, 64) + "' in " + FACTS_PATH +
+                           ": a fact set id is one or two snake_case words, e.g. os or software.installed");
+        continue;
+      }
+      // Same spellings the settings helper's bool_key accepts, so a fleet
+      // bundle rendering `os = true` and an operator typing `os = 1` mean the
+      // same thing here as everywhere else.
+      if (settings::settings_interface::string_to_bool(settings_manager::get_settings()->get_string(FACTS_PATH, key, "false"))) {
+        enabled.push_back(key);
+      }
+    }
+  } catch (const std::exception &e) {
+    LOG_ERROR_CORE_STD("Failed to read " + std::string(FACTS_PATH) + ": " + utf8::utf8_from_native(e.what()));
+  }
+  return enabled;
+}
+
+// The core's own fact set. Small, cheap and always available, which is why it
+// is produced here rather than by a module: it describes the agent, and the
+// agent is the one thing no module can be relied on to know about.
+//
+// The loaded-module list is the one configuration-adjacent thing facts carry,
+// and it is opt-in like everything else. Nothing here names the enrollment
+// identity - only whether this host has one - because the state report is
+// deliberately free of configuration and the facts document must not become
+// the way around that.
+void NSClientT::publish_agent_facts(const unsigned int plugin_id) {
+  boost::json::object agent;
+  agent["version"] = CURRENT_SERVICE_VERSION;
+  try {
+    const std::string hostname = socket_helpers::expand_hostname("auto");
+    if (!hostname.empty()) agent["hostname"] = hostname;
+  } catch (const std::exception &e) {
+    LOG_DEBUG_CORE_STD("Could not read the host name for the agent facts: " + utf8::utf8_from_native(e.what()));
+  }
+  boost::json::array modules;
+  for (const auto &plugin : plugins_->get_plugin_cache()->get_list()) {
+    if (!plugin.is_loaded) continue;
+    modules.push_back(boost::json::value(plugin.dll));
+  }
+  agent["modules"] = modules;
+#ifdef HAVE_ONBOARDING
+  agent["enrolled"] = static_cast<bool>(get_fleet_sync());
+#else
+  agent["enrolled"] = false;
+#endif
+
+  std::string error;
+  if (facts_->set("agent", plugin_id, agent, error) == nsclient::core::fact_repository::set_result::rejected) {
+    LOG_ERROR_CORE_STD("Rejected the agent fact set: " + error);
+    facts_->set_error("agent", plugin_id, "not stored: " + error);
+  } else {
+    facts_->clear_error("agent");
+  }
+}
+
+void NSClientT::process_facts(const std::string &reason) {
+  try {
+    const std::vector<std::string> enabled = get_enabled_facts();
+    plugins_->process_facts(enabled, reason);
+    // After the modules, because process_facts() drops what is no longer
+    // enabled before it runs and `agent` would otherwise be dropped again on
+    // the same round it was written.
+    if (std::find(enabled.begin(), enabled.end(), "agent") != enabled.end()) {
+      publish_agent_facts(nsclient::core::fact_repository::core_plugin_id());
+    }
+  } catch (const std::exception &e) {
+    LOG_ERROR_CORE_STD("Failed to collect facts: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    LOG_ERROR_CORE("Failed to collect facts: UNKNOWN");
+  }
+}
+
+void NSClientT::boot_facts(const std::string &reason) {
+  using nsclient::core::fact_repository;
+  // The section itself is registered whatever is in it, so `nscp settings
+  // --generate` and the reference docs describe it on a host that has never
+  // enabled anything. The per-set keys are registered by their producers from
+  // loadModuleEx, which is what makes each one document its content and cost.
+  settings_manager::get_core()->register_path(fact_repository::core_plugin_id(), FACTS_PATH, "FACTS",
+                                              "Inventory this agent collects about the host and publishes on /api/v2/facts (and, when enrolled, to the "
+                                              "fleet server). Nothing is collected until a fact set is enabled here: add the set's id with a value of "
+                                              "true, e.g. `os = true`. The available ids and what each one costs are listed by `nscp test` -> `facts "
+                                              "list` and in the modules' reference documentation.",
+                                              false, false);
+  settings_manager::get_core()->register_key(fact_repository::core_plugin_id(), FACTS_PATH, fact_repository::interval_key(), "string", "Refresh interval",
+                                             "How often every enabled fact set is refreshed. Inventory changes slowly, and a producer with expensive "
+                                             "data (installed software, pending updates) paces itself on top of this.",
+                                             "1h", true, false);
+  settings_manager::get_core()->register_key(fact_repository::core_plugin_id(), FACTS_PATH, fact_repository::max_size_key(), "int", "Maximum document size",
+                                             "The largest facts document, in bytes, this agent will hold and upload. A fact set that would push the "
+                                             "document past it is rejected whole and the previous value is kept.",
+                                             "1048576", true, false);
+
+  // The core's own set, registered here because the core produces it.
+  settings_manager::get_core()->register_key(fact_repository::core_plugin_id(), FACTS_PATH, "agent", "bool", "Collect agent facts",
+                                             "What this agent is: its version, the host name it reports, the modules it has loaded and whether it is "
+                                             "enrolled with a fleet server (never the enrollment identity itself). Costs nothing to collect.",
+                                             "false", false, false);
+
+  const std::string max_size = settings_manager::get_settings()->get_string(FACTS_PATH, fact_repository::max_size_key(), "1048576");
+  try {
+    const long long parsed = str::stox<long long>(max_size);
+    if (parsed > 0) facts_->set_max_size(static_cast<std::size_t>(parsed));
+  } catch (const std::exception &e) {
+    LOG_ERROR_CORE_STD("Invalid facts 'max size' value '" + max_size + "', keeping the default: " + utf8::utf8_from_native(e.what()));
+  }
+
+  const std::vector<std::string> enabled = get_enabled_facts();
+  if (!enabled.empty() && !facts_scheduled_) {
+    // Registered on the first round that has anything to collect, and never
+    // again: a default install pays nothing for facts beyond an empty
+    // document and its hash, and a bundle that enables a set later gets its
+    // round without a restart.
+    // Only a set a *module* has to produce is worth warning about: `agent` is
+    // the core's own, and a host that enabled just that one needs no producer.
+    const bool needs_a_module = std::any_of(enabled.begin(), enabled.end(), [](const std::string &id) { return id != "agent"; });
+    if (needs_a_module && !plugins_->has_facts_fetchers()) {
+      LOG_ERROR_CORE_STD("A fact set is enabled in " + std::string(FACTS_PATH) +
+                         " but no loaded module produces facts: check that the module owning it is enabled in [/modules]");
+    }
+    const std::string interval = settings_manager::get_settings()->get_string(FACTS_PATH, fact_repository::interval_key(), "1h");
+    try {
+      scheduler_.add_task(task_scheduler::schedule_metadata::FACTS, interval);
+    } catch (const std::exception &e) {
+      LOG_ERROR_CORE_STD("Invalid facts 'interval' value '" + interval + "', falling back to '1h': " + utf8::utf8_from_native(e.what()));
+      scheduler_.add_task(task_scheduler::schedule_metadata::FACTS, "1h");
+    }
+    facts_scheduled_ = true;
+  } else if (enabled.empty()) {
+    LOG_DEBUG_CORE_STD("No fact set enabled in " + std::string(FACTS_PATH) + ": no inventory is collected");
+  }
+  // Run the round even with nothing enabled: that is what drops the sets a
+  // bundle just turned off, rather than leaving them until the next tick of a
+  // task that may no longer be wanted.
+  process_facts(reason);
+}
 
 #ifdef _WIN32
 void NSClientT::handle_session_change(unsigned long dwSessionId, bool logon) {}

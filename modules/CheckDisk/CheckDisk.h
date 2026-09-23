@@ -5,6 +5,7 @@
 
 #include <check/path_access_policy.hpp>
 #include <memory>
+#include <nscapi/nscapi_facts_helper.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/metrics.hpp>
@@ -54,6 +55,9 @@ class CheckDisk : public nscapi::impl::simple_plugin {
 
   // Metrics
   void fetchMetrics(PB::Metrics::MetricsMessage::Response *response);
+
+  // Facts: `storage.volumes`, the mounted filesystems of this host.
+  void fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response);
 
   // Legacy checks
   void checkDriveSize(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
