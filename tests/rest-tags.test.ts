@@ -179,3 +179,82 @@ describe("REST tags", () => {
       });
   });
 });
+
+/**
+ * The facts kill switch. A host's hardware identity and domain leave the
+ * machine once it is enrolled, so `publish facts = false` has to suppress the
+ * whole set - and only that set: the tags an operator configured themselves
+ * under service-tags are a separate decision and must survive.
+ */
+describe("REST tags with facts turned off", () => {
+  let nscp: NscpInstance;
+  let key: string | undefined = undefined;
+
+  beforeAll(async () => {
+    nscp = new NscpInstance();
+    await nscp.configure({
+      "/modules": {
+        WEBServer: "enabled",
+        CheckDisk: "enabled",
+        CheckSystem: "enabled",
+      },
+      "/settings/default": {
+        "allowed hosts": "127.0.0.1,::1",
+      },
+      "/settings/WEB/server/users/admin": {
+        role: "full",
+        password: "default-password",
+      },
+      [`/settings/system/${onWindows ? "windows" : "unix"}`]: {
+        "publish facts": "false",
+      },
+      [`/settings/system/${onWindows ? "windows" : "unix"}/service-tags`]: {
+        EventLog: "eventlog-service",
+      },
+    });
+    nscp.start();
+    await nscp.waitForPort(8443, { timeoutMs: 30_000 });
+  });
+
+  afterAll(async () => {
+    await nscp?.stop();
+  });
+
+  it("publishes no facts, and still publishes everything else", async () => {
+    await request(REST_URL)
+      .get("/api/v2/login")
+      .auth("admin", "default-password")
+      .trustLocalhost(true)
+      .expect(200)
+      .then((response) => {
+        key = response.body.key;
+      });
+    await request(REST_URL)
+      .get("/api/v2/tags")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true)
+      .expect(200)
+      .then((response) => {
+        for (const fact of [
+          "os_name",
+          "os_version",
+          "os_family",
+          "arch",
+          "cpu_cores",
+          "memory_gb",
+          "virtualization",
+          "manufacturer",
+          "model",
+          "domain",
+        ]) {
+          expect(response.body[fact]).toBeUndefined();
+        }
+        if (onWindows) {
+          // CheckDisk is a different module and is not switched off by this.
+          expect(response.body.drives).toMatch(/^[a-z]:(,[a-z]:)*$/);
+          // Nor are the tags the operator configured by hand.
+          expect(response.body["eventlog-service"]).toEqual("enabled");
+        }
+      });
+  });
+});
