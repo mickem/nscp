@@ -49,13 +49,24 @@ trap cleanup EXIT
 id "$NAME" >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin "$NAME"
 mkdir -p "$WORK" && chown "$NAME" "$WORK"
 
-# What the host sees. The service must see no mount point that is not here.
-awk '{print $2}' /proc/self/mounts | sort -u > "$WORK/host-mounts"
+# What the host sees, and the filesystem type of each mount, since that is what
+# decides whether check_drivesize turns a mount into a drive row.
+awk '{print $2 "\t" $3}' /proc/self/mounts | sort -u > "$WORK/host-mounts"
 chown "$NAME" "$WORK/host-mounts"
+
+# The pseudo-filesystem list is read out of the check's own source rather than
+# copied here, so the two cannot drift apart: whatever check_drivesize skips,
+# this skips.
+sed -n '/const std::set<std::string> pseudo = {/,/};/p' modules/CheckDisk/check_drive_unix.cpp \
+  | sed 's://.*::' | grep -o '"[^"]*"' | tr -d '"' | sort -u > "$WORK/pseudo-fs"
+if [ ! -s "$WORK/pseudo-fs" ]; then
+  echo "FAIL: could not read is_pseudo_fs() out of check_drive_unix.cpp"
+  exit 1
+fi
 
 cat > "$PROBE_PATH" <<PROBE
 #!/bin/sh
-awk '{print \$2}' /proc/self/mounts | sort -u > "$WORK/service-mounts"
+awk '{print \$2 "\\t" \$3}' /proc/self/mounts | sort -u > "$WORK/service-mounts"
 echo "\$(id -un)" > "$WORK/service-user"
 echo PROBE_DONE
 PROBE
@@ -129,13 +140,34 @@ if [ "$(cat "$WORK/service-user")" != "$NAME" ]; then
   exit 1
 fi
 
-EXTRA=$(comm -13 "$WORK/host-mounts" "$WORK/service-mounts")
+# Any unit gets some mount entries the host lacks - ProtectKernelTunables masks
+# paths under /proc, ProtectKernelModules masks /usr/lib/modules, and systemd
+# adds its own plumbing under /run and /sys/fs/cgroup. Those are harmless here
+# because check_drivesize skips them by filesystem type. What must not appear is
+# an extra mount whose type is NOT skipped: that is exactly a phantom drive row.
+EXTRA=$(awk -F'\t' '
+  NR == FNR { host[$1] = 1; next }
+  !($1 in host) { print $1 "\t" $2 }
+' "$WORK/host-mounts" "$WORK/service-mounts")
+
+REPORTED=""
 if [ -n "$EXTRA" ]; then
-  echo "FAIL: the service sees mount points the host does not. check_drivesize"
-  echo "      would report these as extra drives:"
-  echo "$EXTRA"
+  echo "   extra mount entries in the service (type in brackets):"
+  printf '%s\n' "$EXTRA" | while IFS="$(printf '\t')" read -r mp fs; do
+    echo "     $mp [$fs]"
+  done
+  REPORTED=$(printf '%s\n' "$EXTRA" | while IFS="$(printf '\t')" read -r mp fs; do
+    grep -qxF "$fs" "$WORK/pseudo-fs" || echo "$mp [$fs]"
+  done)
+fi
+
+if [ -n "$REPORTED" ]; then
+  echo "FAIL: the service sees mount points the host does not, on filesystem"
+  echo "      types check_drivesize does NOT skip - each becomes an extra drive"
+  echo "      row reporting another filesystem's usage, with writable = 0:"
+  printf '%s\n' "$REPORTED"
   exit 1
 fi
-echo "   ok ($(wc -l < "$WORK/service-mounts") mount points, same as the host)"
+echo "   ok (no extra mount that check_drivesize would report as a drive)"
 
 echo "All service-unit checks passed."
