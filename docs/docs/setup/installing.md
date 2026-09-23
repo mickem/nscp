@@ -223,10 +223,13 @@ a warning — you opted into trusting a local path.
 ## Installing on macOS (.pkg)
 
 <!-- @formatter:off -->
-!!! warning "Preview"
-    The macOS build is new and ships a smaller set of check modules than the
-    Windows and Linux builds. Read [What is not in the macOS build
-    yet](#what-is-not-in-the-macos-build-yet) before deploying it.
+!!! warning "macOS support is experimental"
+    It ships a smaller set of check modules than the Windows and Linux builds -
+    read [What is not in the macOS build
+    yet](#what-is-not-in-the-macos-build-yet) before deploying it - and the
+    packaging may still change between releases. The same sense of
+    "experimental" a young check command carries: it works, but what it looks
+    like is not settled yet.
 <!-- @formatter:on -->
 
 macOS builds are **Apple silicon (arm64) only** and are distributed as a
@@ -239,9 +242,22 @@ does not need Homebrew or any other prerequisite.
 sudo installer -pkg NSCP-<version>-macos-arm64.pkg -target /
 ```
 
-Double-clicking the package works too, but the release builds are **not signed
-or notarized** yet, so Gatekeeper will refuse the first attempt. Either install
-from the command line as above, or right-click the package and choose *Open*.
+Install from the command line, not the Finder. The release builds are **not
+signed or notarized** yet, so Gatekeeper refuses a double-click with "cannot be
+opened because Apple cannot check it for malicious software". `installer` does
+not go through that check, which is also why it is what CI installs with.
+
+To go through the Finder anyway, clear the quarantine flag your browser set on
+the download, then open it:
+
+```bash
+xattr -d com.apple.quarantine NSCP-<version>-macos-arm64.pkg
+```
+
+Or attempt the install once and approve it under **System Settings → Privacy &
+Security**, where a blocked package gets an *Open Anyway* button. The older
+right-click → *Open* route has been narrowed on recent macOS and may not offer
+the bypass at all.
 
 <!-- @formatter:off -->
 !!! note

@@ -26,9 +26,12 @@ NSClient++ runs on most modern Linux distributions. There is no single "minimum 
 ## macOS
 
 <!-- @formatter:off -->
-!!! warning "Preview"
-    The macOS build is new. It installs and runs as a launchd daemon, but it
-    ships a smaller set of check modules than Windows and Linux - see below.
+!!! warning "macOS support is experimental"
+    It installs and runs as a launchd daemon, but it ships a smaller set of
+    check modules than Windows and Linux (see below), and the packaging - the
+    install layout, the service account, the launchd job - may still change
+    between releases. Treat an upgrade as something to read the notes for
+    rather than apply blind.
 <!-- @formatter:on -->
 
 macOS builds are **Apple silicon (arm64) only** and are published as a `.pkg`

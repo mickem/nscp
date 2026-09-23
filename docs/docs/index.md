@@ -79,6 +79,8 @@ The most common check commands with their default thresholds:
 - **Windows**: Windows 2008 and later (Win32 and x64).
     - For Windows XP / Server 2003, use the legacy 0.4.x branch.
 - **Linux**: Debian, Ubuntu, CentOS/RHEL (limited module support).
+- **macOS** *(experimental)*: Apple silicon only, as a launchd daemon. Fewer
+  check modules again — see [Supported platforms](setup/supported-platforms.md#macos).
 
 ## Supported Protocols
 

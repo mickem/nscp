@@ -3,8 +3,11 @@ icon: "🍎"
 modules: [packaging, CheckSystem, CheckDisk, CheckLogFile]
 action: none
 ---
-**NSClient++ now ships a macOS (Apple silicon) package.** Nothing changes for
-existing Windows or Linux installations. Releases now also carry
+**NSClient++ now ships an experimental macOS (Apple silicon) package.** Nothing
+changes for existing Windows or Linux installations. Experimental in the sense a
+young check command is: it works, but the packaging - the install layout, the
+service account, the launchd job - is not settled, so read this note again on
+the next upgrade rather than applying it blind. Releases now also carry
 `NSCP-<version>-macos-arm64.pkg` and a plain
 `NSCP-<version>-macos-arm64.tar.gz` of the same tree. Both are self-contained -
 they bundle the libraries they link against, so the target Mac needs no
@@ -25,9 +28,13 @@ Three caveats for this first release:
 * **Apple silicon only.** There is no Intel build, and Rosetta 2 does not
   substitute for one; the installer refuses an Intel Mac rather than installing
   something that cannot run.
-* **Not signed or notarized.** Gatekeeper blocks a double-click install. Use
-  `sudo installer` from a terminal, or right-click the package and choose
-  *Open*.
+* **Not signed or notarized.** Gatekeeper refuses the package with "cannot be
+  opened because Apple cannot check it for malicious software". Install from a
+  terminal instead, which does not go through that check:
+  `sudo installer -pkg NSCP-<version>-macos-arm64.pkg -target /`. To install
+  from the Finder you have to clear the quarantine flag your browser set
+  (`xattr -d com.apple.quarantine <pkg>`) or approve it under System Settings →
+  Privacy & Security after the first attempt.
 * **`CheckSystem`, `CheckDisk` and `CheckLogFile` are not in the macOS build.**
   Their data sources are Linux kernel interfaces (procfs, `mntent`, `inotify`),
   so there are no CPU, memory, process, uptime, service, disk or log-file
