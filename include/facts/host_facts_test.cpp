@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 
 #include <facts/host_facts.hpp>
+#include <nscapi/nscapi_facts_helper.hpp>
 
 // The value-deciding half of host facts: everything a Windows host and a unix
 // host have to agree on. The gathering itself is platform code and is covered
@@ -164,4 +165,98 @@ TEST(host_facts_domain, an_unqualified_name_has_no_domain) {
   EXPECT_EQ("", host_facts::domain_from_fqdn("web01"));
   EXPECT_EQ("", host_facts::domain_from_fqdn(""));
   EXPECT_EQ("", host_facts::domain_from_fqdn("."));
+}
+
+// The two destinations. A gather produces one row; the tags take the five an
+// operator groups hosts by, the fact sets take the inventory. What must not
+// happen is the two disagreeing about a value, or the inventory leaking into
+// the tags - a tag is uploaded to the fleet server on every state report,
+// where a fact set is only collected once an operator turns it on.
+
+namespace {
+host_facts::facts sample_row() {
+  host_facts::facts f;
+  f.os_name = "Ubuntu 24.04.1 LTS";
+  f.os_version = "6.8.0-45-generic";
+  f.os_family = "linux";
+  f.arch = "x86_64";
+  f.virtualization = "kvm";
+  f.manufacturer = "Dell Inc.";
+  f.model = "PowerEdge R650";
+  f.domain = "corp.example.com";
+  f.cpu_cores = 16;
+  f.memory_gb = 64;
+  return f;
+}
+
+// One set, as JSON. The builder makes a protobuf tree; what a test wants to
+// say is "this set looks like this", which the one-line JSON says better than
+// a walk over the message.
+std::string json_of(const nscapi::facts::response &out, const std::string &id) {
+  const PB::Facts::FactsMessage message = out.to_message();
+  if (message.payload_size() == 0) return "(no payload)";
+  for (const PB::Facts::FactSet &set : message.payload(0).sets()) {
+    if (set.id() == id) return set.has_facts() ? nscapi::facts::tree::to_json(set.facts()) : "(no facts)";
+  }
+  return "(no such set)";
+}
+
+bool has_set(const nscapi::facts::response &out, const std::string &id) { return json_of(out, id).compare(0, 12, "(no such set") != 0; }
+}  // namespace
+
+TEST(host_facts_sets, the_os_set_carries_the_identity_and_the_domain) {
+  nscapi::facts::response out;
+  host_facts::publish_facts(sample_row(), true, false, out);
+  EXPECT_EQ(
+      "{\"family\":\"linux\",\"name\":\"Ubuntu 24.04.1 LTS\",\"version\":\"6.8.0-45-generic\","
+      "\"arch\":\"x86_64\",\"virtualization\":\"kvm\",\"domain\":\"corp.example.com\"}",
+      json_of(out, "os"));
+  EXPECT_FALSE(has_set(out, "hardware")) << "a set that is off is not written at all, which is what drops it from the document";
+}
+
+TEST(host_facts_sets, the_hardware_set_carries_the_vendor_and_the_size) {
+  nscapi::facts::response out;
+  host_facts::publish_facts(sample_row(), false, true, out);
+  EXPECT_EQ("{\"manufacturer\":\"Dell Inc.\",\"model\":\"PowerEdge R650\",\"cpu_cores\":16,\"memory_gb\":64}", json_of(out, "hardware"));
+  EXPECT_FALSE(has_set(out, "os"));
+}
+
+TEST(host_facts_sets, both_sets_are_built_when_both_are_on) {
+  nscapi::facts::response out;
+  host_facts::publish_facts(sample_row(), true, true, out);
+  EXPECT_TRUE(has_set(out, "os"));
+  EXPECT_TRUE(has_set(out, "hardware"));
+}
+
+TEST(host_facts_sets, nothing_is_written_when_nothing_is_enabled) {
+  nscapi::facts::response out;
+  host_facts::publish_facts(sample_row(), false, false, out);
+  const PB::Facts::FactsMessage message = out.to_message();
+  ASSERT_EQ(1, message.payload_size());
+  EXPECT_EQ(0, message.payload(0).sets_size());
+}
+
+TEST(host_facts_sets, a_fact_that_was_not_determined_is_omitted_not_written_empty) {
+  // A VM with no SMBIOS strings and an unqualified name. The keys have to be
+  // absent: a consumer reads "absent" as unknown, where an empty string reads
+  // as an answer.
+  host_facts::facts f = sample_row();
+  f.manufacturer = "";
+  f.model = "";
+  f.domain = "";
+  f.cpu_cores = 0;
+  f.memory_gb = 0;
+  nscapi::facts::response out;
+  host_facts::publish_facts(f, true, true, out);
+  EXPECT_EQ("{\"family\":\"linux\",\"name\":\"Ubuntu 24.04.1 LTS\",\"version\":\"6.8.0-45-generic\",\"arch\":\"x86_64\",\"virtualization\":\"kvm\"}",
+            json_of(out, "os"));
+  EXPECT_EQ("{}", json_of(out, "hardware"));
+}
+
+TEST(host_facts_sets, the_keys_are_valid_document_keys) {
+  // The builder drops a key that breaks the document rules and records a
+  // problem against the set, so a typo here would silently lose a field.
+  for (const char *key : {"family", "name", "version", "arch", "virtualization", "domain", "manufacturer", "model", "cpu_cores", "memory_gb"}) {
+    EXPECT_TRUE(nscapi::facts::is_valid_key(key)) << key;
+  }
 }

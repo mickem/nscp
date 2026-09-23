@@ -4,7 +4,7 @@
 #include <cctype>
 #include <facts/host_facts.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
-#include <str/xtos.hpp>
+#include <nscapi/nscapi_facts_helper.hpp>
 
 namespace host_facts {
 
@@ -13,11 +13,9 @@ const char *const tag_os_version = "os_version";
 const char *const tag_os_family = "os_family";
 const char *const tag_arch = "arch";
 const char *const tag_virtualization = "virtualization";
-const char *const tag_manufacturer = "manufacturer";
-const char *const tag_model = "model";
-const char *const tag_domain = "domain";
-const char *const tag_cpu_cores = "cpu_cores";
-const char *const tag_memory_gb = "memory_gb";
+
+const char *const set_os = "os";
+const char *const set_hardware = "hardware";
 
 namespace {
 std::string to_lower(const std::string &s) {
@@ -129,7 +127,7 @@ std::string domain_from_fqdn(const std::string &fqdn) {
   return value.substr(dot + 1);
 }
 
-void publish(const nscapi::core_wrapper *core, const facts &f) {
+void publish_tags(const nscapi::core_wrapper *core, const facts &f) {
   if (core == nullptr) return;
   // An empty value removes the tag (see tag_repository::set), so passing the
   // undetermined facts through unchanged is what sheds a stale tag.
@@ -138,11 +136,28 @@ void publish(const nscapi::core_wrapper *core, const facts &f) {
   core->set_tag(tag_os_family, f.os_family);
   core->set_tag(tag_arch, f.arch);
   core->set_tag(tag_virtualization, f.virtualization);
-  core->set_tag(tag_manufacturer, f.manufacturer);
-  core->set_tag(tag_model, f.model);
-  core->set_tag(tag_domain, f.domain);
-  core->set_tag(tag_cpu_cores, f.cpu_cores > 0 ? str::xtos(f.cpu_cores) : "");
-  core->set_tag(tag_memory_gb, f.memory_gb > 0 ? str::xtos(f.memory_gb) : "");
+}
+
+void publish_facts(const facts &f, const bool want_os, const bool want_hardware, nscapi::facts::response &out) {
+  if (want_os) {
+    // `family`, `name` and `version` rather than the tags' `os_` prefix: the
+    // set they sit in already says os, and a key that repeats its section
+    // reads badly in a document (`os.os_name`).
+    nscapi::facts::section os = out.set(set_os);
+    os.value("family", f.os_family).value("name", f.os_name).value("version", f.os_version);
+    os.value("arch", f.arch).value("virtualization", f.virtualization);
+    // The DNS domain is inventory rather than a group: an operator selects on
+    // os_family, but asks *which* domain a given host ended up in.
+    os.value("domain", f.domain);
+  }
+  if (want_hardware) {
+    nscapi::facts::section hardware = out.set(set_hardware);
+    hardware.value("manufacturer", f.manufacturer).value("model", f.model);
+    // Zero means "not determined" for both, and the builder writes a number
+    // as it is given - so the guard has to be here, unlike for the strings.
+    if (f.cpu_cores > 0) hardware.value("cpu_cores", f.cpu_cores);
+    if (f.memory_gb > 0) hardware.value("memory_gb", f.memory_gb);
+  }
 }
 
 }  // namespace host_facts

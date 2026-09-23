@@ -5,6 +5,8 @@
 
 #include <win/CheckMemory.h>
 
+#include <atomic>
+#include <nscapi/nscapi_facts_helper.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/metrics.hpp>
@@ -27,6 +29,14 @@ class CheckSystem : public nscapi::impl::simple_plugin {
 
   typedef std::map<std::string, std::string> counter_map_type;
   counter_map_type counters;
+
+  // Which fact sets this module is configured to produce
+  // ([/settings/system/windows/facts]). Read by fetchFacts on the core's
+  // schedule and written by loadModuleEx, which a reload runs on the live
+  // module while that schedule is ticking - hence atomic rather than plain
+  // bools.
+  std::atomic<bool> facts_os_{false};
+  std::atomic<bool> facts_hardware_{false};
 
   //	std::map<DWORD,std::string> lookups_;
 
@@ -91,6 +101,9 @@ class CheckSystem : public nscapi::impl::simple_plugin {
 
   // Metrics
   void fetchMetrics(PB::Metrics::MetricsMessage::Response *response);
+
+  // Host facts
+  void fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response);
 
   // Legacy checks
   void checkCpu(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);

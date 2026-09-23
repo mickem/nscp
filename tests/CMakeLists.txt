@@ -335,6 +335,7 @@ NSCP_CREATE_TEST(
     LIBRARIES
         GTest::gtest_main
         ${PLUGIN_API_TARGET}
+        nscp_protobuf
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )

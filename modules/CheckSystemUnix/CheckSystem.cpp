@@ -52,7 +52,8 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("system", alias, "unix");
   std::map<std::string, std::string> service_tags;
-  bool publish_facts = true;
+  bool facts_os = false;
+  bool facts_hardware = false;
 
   // Start the CPU collector thread. On a reload the previous collector is
   // still running; stop it before it is replaced. Publish the replacement
@@ -89,16 +90,26 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     ;
 
   settings.alias().add_key_to_settings()
-    .add_bool("publish facts", sh::bool_key(&publish_facts, true),
-        "PUBLISH HOST FACTS",
-        "Publish this host's facts - os_name, os_version, os_family, arch, cpu_cores, memory_gb, virtualization, manufacturer, model and domain - as host "
-        "tags when the module starts. They are read by the web UI and, on an enrolled host, reported to the fleet server, which is what makes a group "
-        "selector like 'os_family = \"linux\"' possible. Set to false on a host whose hardware identity and domain must not leave it; the tags configured "
-        "under service-tags are unaffected.")
     .add_string("default buffer length", sh::string_key(&fresh->default_buffer_size, "1h"),
         "Default buffer time", "Used to define the default size of range buffer checks (ie. CPU).")
     .add_bool("process history", sh::bool_key(&fresh->process_history_enabled, false),
         "Track process history", "Enable tracking of process history for use with the check_process_history and check_process_history_new commands.")
+    ;
+  // clang-format on
+
+  // clang-format off
+  settings.alias().add_key_to_settings("facts")
+    .add_bool("os", sh::bool_key(&facts_os, false),
+        "OS FACTS",
+        "Collect the `os` fact set: the OS family, the distribution's product name, the kernel version, the CPU architecture, whether the host is "
+        "virtualized and the DNS domain it is in. Cheap - every value is read from uname, /etc/os-release and /sys/class/dmi/id, and nothing is "
+        "collected while this is off.")
+
+    .add_bool("hardware", sh::bool_key(&facts_hardware, false),
+        "HARDWARE FACTS",
+        "Collect the `hardware` fact set: the system manufacturer and model as the firmware reports them (/sys/class/dmi/id), the number of online "
+        "processors and the installed memory in whole GB. A host whose kernel exposes no DMI - a container, a board without SMBIOS - reports the "
+        "sizes and omits the vendor and model.")
     ;
   // clang-format on
 
@@ -124,12 +135,17 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     fresh->start();
   }
 
+  // Which fact sets fetchFacts builds is configuration, so it is re-read on
+  // every load, a reload included - turning a set off has to take effect
+  // without a restart, and the core drops a set a producer stops returning.
+  facts_os_.store(facts_os);
+  facts_hardware_.store(facts_hardware);
+
   if (mode == NSCAPI::normalStart) {
-    // Facts describe the machine, not its configuration, so they are gathered
-    // once at start rather than on every reload: nothing they read can change
-    // without the host restarting anyway, and a reload runs on the live module
-    // while the checks are serving.
-    if (publish_facts) host_facts::publish(get_core(), system_facts::gather());
+    // The selector tags, on the other hand, describe the machine rather than
+    // its configuration: gathered once at start, because nothing they read
+    // can change without the host restarting anyway.
+    host_facts::publish_tags(get_core(), system_facts::gather());
 
     // Publish one tag per configured [/settings/system/unix/service-tags]
     // entry (systemd unit -> tag): <tag>=enabled when the unit is active,
@@ -244,6 +260,16 @@ bool read_uptime_seconds(double &uptime_secs) {
   }
 }
 }  // namespace
+
+void CheckSystem::fetchFacts(const nscapi::facts::request & /*request*/, nscapi::facts::response &response) {
+  // Collected fresh on every round rather than cached from the load: the
+  // gather reads a handful of small virtual files plus uname and sysconf, so
+  // it is cheaper than deciding when a cache is stale - and a host that is
+  // re-imaged or has memory added under it starts reporting the new answer at
+  // the next round instead of the next restart.
+  if (!facts_os_.load() && !facts_hardware_.load()) return;
+  host_facts::publish_facts(system_facts::gather(), facts_os_.load(), facts_hardware_.load(), response);
+}
 
 void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
   using nscapi::metrics::core_label;

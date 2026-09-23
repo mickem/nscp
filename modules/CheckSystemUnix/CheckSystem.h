@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <atomic>
+#include <nscapi/nscapi_facts_helper.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/metrics.hpp>
@@ -23,6 +25,14 @@ class CheckSystem : public nscapi::impl::simple_plugin {
   // See `include/nscp_time.hpp` for the supported value syntax.
   std::string timezone_;
 
+  // Which fact sets this module is configured to produce
+  // ([/settings/system/unix/facts]). Read by fetchFacts on the core's
+  // schedule and written by loadModuleEx, which a reload runs on the live
+  // module while that schedule is ticking - hence atomic rather than plain
+  // bools.
+  std::atomic<bool> facts_os_{false};
+  std::atomic<bool> facts_hardware_{false};
+
  public:
   CheckSystem() : simple_plugin() {}
   virtual ~CheckSystem() = default;
@@ -31,6 +41,9 @@ class CheckSystem : public nscapi::impl::simple_plugin {
   virtual bool unloadModule();
 
   void fetchMetrics(PB::Metrics::MetricsMessage::Response *response);
+
+  // Host facts
+  void fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response);
 
   void check_service(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   void check_memory(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);

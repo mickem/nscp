@@ -5,11 +5,13 @@
  * Uses a hand-rolled config (not setupRestNscp, which pins CheckSystem to
  * disabled) so both producers run:
  *  - CheckDisk publishes `drives=c:,d:,...` on Windows.
- *  - CheckSystem publishes the host facts (os_name, os_version, os_family,
- *    arch, cpu_cores, memory_gb, virtualization, and - where the host has
- *    them - manufacturer, model and domain) plus the configured service-tags:
+ *  - CheckSystem publishes the five selector facts (os_name, os_version,
+ *    os_family, arch, virtualization) plus the configured service-tags:
  *    EventLog (always running on Windows) maps to `eventlog-service=enabled`,
- *    and a nonexistent service maps to a tag that must NOT appear.
+ *    and a nonexistent service maps to a tag that must NOT appear. The rest
+ *    of what it gathers - the vendor, model, size and domain - is inventory
+ *    and goes into the `os`/`hardware` fact sets instead, which are opt-in
+ *    and are covered by the producer's unit tests.
  * On Linux the CheckSystem module resolves to the unix variant whose
  * service-tags check systemd units; the mapped names don't exist there, so
  * the tags must stay absent — asserted, since "no tag" is the documented
@@ -108,11 +110,11 @@ describe("REST tags", () => {
       });
   });
 
-  // Host facts. Asserted on shape rather than on this machine's values, and
-  // split from the tags above because these are the ones that have to read
-  // the same on every platform - a Windows agent and a Linux agent in one
-  // fleet are selected with the same expression.
-  it("publishes the host facts every platform can answer", async () => {
+  // The selector tags. Asserted on shape rather than on this machine's
+  // values, and split from the tags above because these are the ones that
+  // have to read the same on every platform - a Windows agent and a Linux
+  // agent in one fleet are selected with the same expression.
+  it("publishes the selector tags every platform can answer", async () => {
     await request(REST_URL)
       .get("/api/v2/tags")
       .set("Authorization", `Bearer ${key}`)
@@ -123,10 +125,6 @@ describe("REST tags", () => {
         // Not an exhaustive list: an architecture we have not seen is
         // published lower-cased rather than dropped.
         expect(response.body.arch).toMatch(/^[a-z0-9_]+$/);
-        // Every machine has at least one core and at least a gigabyte, and
-        // both are published as plain integers (the tag map is string-valued).
-        expect(Number(response.body.cpu_cores)).toBeGreaterThan(0);
-        expect(Number(response.body.memory_gb)).toBeGreaterThan(0);
         expect(response.body.os_name).toBeTruthy();
         expect(response.body.os_version).toBeTruthy();
       });
@@ -159,101 +157,19 @@ describe("REST tags", () => {
       });
   });
 
-  it("omits a fact it could not determine rather than inventing one", async () => {
+  it("keeps the inventory out of the tags", async () => {
     await request(REST_URL)
       .get("/api/v2/tags")
       .set("Authorization", `Bearer ${key}`)
       .trustLocalhost(true)
       .expect(200)
       .then((response) => {
-        // manufacturer/model come from SMBIOS and domain from the host name,
-        // and a VM or an unjoined host legitimately has none of them. What
-        // must never happen is a placeholder standing in for the answer.
-        for (const fact of ["manufacturer", "model", "domain"]) {
-          if (response.body[fact] !== undefined) {
-            expect(response.body[fact]).not.toEqual("");
-            expect(response.body[fact].toLowerCase()).not.toContain("to be filled by");
-            expect(response.body[fact].toLowerCase()).not.toEqual("unknown");
-          }
-        }
-      });
-  });
-});
-
-/**
- * The facts kill switch. A host's hardware identity and domain leave the
- * machine once it is enrolled, so `publish facts = false` has to suppress the
- * whole set - and only that set: the tags an operator configured themselves
- * under service-tags are a separate decision and must survive.
- */
-describe("REST tags with facts turned off", () => {
-  let nscp: NscpInstance;
-  let key: string | undefined = undefined;
-
-  beforeAll(async () => {
-    nscp = new NscpInstance();
-    await nscp.configure({
-      "/modules": {
-        WEBServer: "enabled",
-        CheckDisk: "enabled",
-        CheckSystem: "enabled",
-      },
-      "/settings/default": {
-        "allowed hosts": "127.0.0.1,::1",
-      },
-      "/settings/WEB/server/users/admin": {
-        role: "full",
-        password: "default-password",
-      },
-      [`/settings/system/${onWindows ? "windows" : "unix"}`]: {
-        "publish facts": "false",
-      },
-      [`/settings/system/${onWindows ? "windows" : "unix"}/service-tags`]: {
-        EventLog: "eventlog-service",
-      },
-    });
-    nscp.start();
-    await nscp.waitForPort(8443, { timeoutMs: 30_000 });
-  });
-
-  afterAll(async () => {
-    await nscp?.stop();
-  });
-
-  it("publishes no facts, and still publishes everything else", async () => {
-    await request(REST_URL)
-      .get("/api/v2/login")
-      .auth("admin", "default-password")
-      .trustLocalhost(true)
-      .expect(200)
-      .then((response) => {
-        key = response.body.key;
-      });
-    await request(REST_URL)
-      .get("/api/v2/tags")
-      .set("Authorization", `Bearer ${key}`)
-      .trustLocalhost(true)
-      .expect(200)
-      .then((response) => {
-        for (const fact of [
-          "os_name",
-          "os_version",
-          "os_family",
-          "arch",
-          "cpu_cores",
-          "memory_gb",
-          "virtualization",
-          "manufacturer",
-          "model",
-          "domain",
-        ]) {
+        // A tag is uploaded to the fleet server on every state report, where
+        // a fact set is only collected once an operator turns it on. The
+        // hardware identity, the size and the domain are inventory and must
+        // not arrive by the other road.
+        for (const fact of ["manufacturer", "model", "domain", "cpu_cores", "memory_gb"]) {
           expect(response.body[fact]).toBeUndefined();
-        }
-        if (onWindows) {
-          // CheckDisk is a different module and is not switched off by this.
-          expect(response.body.drives).toMatch(/^[a-z]:(,[a-z]:)*$/);
-          // Nor are the tags the operator configured by hand.
-          expect(response.body["eventlog-service"]).toEqual("enabled");
         }
       });
   });

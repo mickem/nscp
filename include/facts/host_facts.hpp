@@ -7,19 +7,32 @@
 
 namespace nscapi {
 class core_wrapper;
+namespace facts {
+class response;
 }
+}  // namespace nscapi
 
 namespace host_facts {
 
-// Host facts: the small, static key=value description of a machine that
-// CheckSystem publishes into the core's tag repository at start - what OS it
-// runs, how big it is, what it runs on and who made it. Fleet group selectors
-// and the web UI read these to know what a host *is* without running a check
-// against it.
+// Host facts: the small, static description of a machine that CheckSystem
+// collects once - what OS it runs, how big it is, what it runs on and who
+// made it.
+//
+// One gather, two destinations, and the split is deliberate:
+//
+//  - **Tags** (publish_tags) carry the handful an operator selects a *group*
+//    of hosts on: os_name, os_version, os_family, arch, virtualization. They
+//    are flat, always published, and they are what the fleet state report
+//    actually uploads today.
+//  - **Fact sets** (publish_facts) carry the inventory: the same OS fields
+//    plus the host's domain, and a `hardware` set with the vendor, model and
+//    size. These are opt-in per set, because an inventory is data an operator
+//    did not necessarily agree to ship, and they travel as a document the
+//    core stores rather than as a flat string a selector matches.
 //
 // Both CheckSystem modules (Windows and unix) fill the same struct and publish
-// it through the same publish() below, so a fact means exactly the same thing
-// on every host in a mixed fleet - the rule that already governs metric
+// it through the same two functions below, so a fact means exactly the same
+// thing on every host in a mixed fleet - the rule that already governs metric
 // labels. The platform-specific gathering lives in each module
 // (`system_facts.hpp`); everything that decides a *value* is here, shared and
 // unit-tested, because two independent mappings would drift into
@@ -51,11 +64,10 @@ extern const char *const tag_os_version;
 extern const char *const tag_os_family;
 extern const char *const tag_arch;
 extern const char *const tag_virtualization;
-extern const char *const tag_manufacturer;
-extern const char *const tag_model;
-extern const char *const tag_domain;
-extern const char *const tag_cpu_cores;
-extern const char *const tag_memory_gb;
+
+// The fact sets this producer can be configured to build.
+extern const char *const set_os;
+extern const char *const set_hardware;
 
 // Normalize a platform's spelling of a CPU architecture to the shared
 // vocabulary: `x86_64`, `arm64`, `x86`, `arm`, `ia64`, `riscv64`. Windows
@@ -111,14 +123,31 @@ long long memory_gb_from_bytes(unsigned long long bytes);
 // for an unqualified name, a trailing-dot-only name, or an empty one.
 std::string domain_from_fqdn(const std::string &fqdn);
 
-// Publish every determined fact as a host tag, and remove the tag of every
-// fact that could not be determined. Shared so that "empty means absent" is
-// decided once: a host that loses a fact between two starts (a VM migrated
-// onto hardware the DMI does not name) sheds the tag rather than keeping a
-// stale one forever.
+// Publish the selector tags, and remove the tag of any that could not be
+// determined. Shared so that "empty means absent" is decided once: a host
+// that loses a fact between two starts (a VM migrated onto hardware the DMI
+// does not name) sheds the tag rather than keeping a stale one forever.
+//
+// Only the five an operator groups hosts by - a tag is matched whole by a
+// fleet selector, so this is the wrong channel for the inventory. The rest
+// goes into the fact sets below.
 //
 // Safe to call with a core that predates the tag API; set_tag degrades to a
 // no-op there.
-void publish(const nscapi::core_wrapper *core, const facts &f);
+void publish_tags(const nscapi::core_wrapper *core, const facts &f);
+
+// Build the fact sets the module is configured to produce into `out`.
+//
+// `want_os` and `want_hardware` are the module's own settings
+// (`[/settings/system/<platform>/facts] os` / `hardware`), so a set that is
+// off is simply not written and the core drops it from the document - which
+// is what turning a set off means. Shared between the two modules for the
+// same reason publish_tags is: a Windows host and a Linux host have to put
+// the same value under the same key, or an inventory query has to be written
+// twice.
+//
+// A field the gather could not determine is omitted rather than written
+// empty; the builder enforces that too, so there is no guard at each call.
+void publish_facts(const facts &f, bool want_os, bool want_hardware, nscapi::facts::response &out);
 
 }  // namespace host_facts
