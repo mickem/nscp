@@ -31,4 +31,9 @@ one of the verified dependencies was not actually verified on most builds:
 No line in the manifest reads `unrecorded` any more, and a new check in the
 Windows build fails if one ever does.
 
+Windows builds now also ship a CycloneDX software bill of materials that
+records, for every third-party component, the version, the upstream URL and
+the digest or commit it was verified against. See
+[Verifying the download](../setup/installing.md#verifying-the-download).
+
 **What to do:** nothing. This affects the release build only.

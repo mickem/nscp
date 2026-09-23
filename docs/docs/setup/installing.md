@@ -23,6 +23,7 @@ See [Supported platforms](supported-platforms.md) for the Windows and Linux vers
   - [Uninstalling](#uninstalling-macos)
   - [What is not in the macOS build yet](#what-is-not-in-the-macos-build-yet)
 - [Automated installation (Windows MSI)](#automated-installation-windows-msi)
+  - [Verifying the download](#verifying-the-download)
   - [Basic command line](#basic-command-line)
   - [MSI Options](#msi-options)
   - [On-disk layout (LAYOUT)](#on-disk-layout-layout)
@@ -375,6 +376,44 @@ Two smaller gaps:
 
 The NSClient++ installer for windows is a standard MSI installer which means it can be installed using pretty much all
 deployment techniques available on the windows platform.
+
+### Verifying the download
+
+Every Windows release carries a software bill of materials (SBOM) in the
+[CycloneDX](https://cyclonedx.org) 1.6 JSON format: `NSCP-<version>-<platform>.cdx.json`
+on the release page next to the MSI and the zip, and the same file as
+`sbom.cdx.json` inside the zip. For every third-party component the build
+compiled or bundled, it lists the version, the upstream URL the build
+downloaded, and the SHA-256 (or, for a dependency cloned from git, the commit)
+the build verified before using it. To list them:
+
+```
+jq -r '.components[] | select(.purl | startswith("pkg:npm/") | not)
+       | [.name, .version, (.hashes[0].content // ([.properties[] | select(.name == "nscp:git-commit").value][0]) // "-"),
+          .externalReferences[0].url] | join("  ")' NSCP-<version>-x64.cdx.json
+```
+
+Any of them can be checked against its upstream source independently, for
+example:
+
+```
+curl -sSfLO https://github.com/openssl/openssl/releases/download/openssl-3.5.8/openssl-3.5.8.tar.gz
+sha256sum openssl-3.5.8.tar.gz
+```
+
+The web UI's npm packages are listed too, with the SHA-512 `package-lock.json`
+pins for each.
+
+The zip also holds `SHA256SUMS`, the SHA-256 of every file in it. After
+unpacking, `sha256sum -c SHA256SUMS` confirms that nothing was changed; in
+PowerShell:
+
+```powershell
+Get-Content SHA256SUMS | ForEach-Object {
+  $hash, $file = $_ -split '  ', 2
+  if ((Get-FileHash $file -Algorithm SHA256).Hash -ne $hash) { "MISMATCH: $file" }
+}
+```
 
 ### Basic command line
 

@@ -114,6 +114,10 @@ jobs:
           NSCP-${{ inputs.version }}-Win32-symbols.zip
           NSCP-${{ inputs.version }}-Win32-legacy-xp-symbols.zip
           NSCP-${{ inputs.version }}-ARM64-symbols.zip
+          NSCP-${{ inputs.version }}-x64.cdx.json
+          NSCP-${{ inputs.version }}-Win32.cdx.json
+          NSCP-${{ inputs.version }}-Win32-legacy-xp.cdx.json
+          NSCP-${{ inputs.version }}-ARM64.cdx.json
           NSCP-${{ inputs.version }}-ubuntu-24.04-amd64.deb
           NSCP-${{ inputs.version }}-ubuntu-24.04-arm64.deb
           NSCP-${{ inputs.version }}-debian-trixie-arm64.deb
