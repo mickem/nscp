@@ -3,6 +3,10 @@ name: Create release
 permissions:
   contents: write
   actions: read
+  # For the attestations below: an OIDC token to obtain the Sigstore signing
+  # certificate, and the attestations API to store the result.
+  id-token: write
+  attestations: write
 
 on:
   workflow_call:
@@ -86,6 +90,58 @@ jobs:
         rm NSCP-${{ inputs.version }}-Win32-legacy-xp-docs.zip
         rm NSCP-${{ inputs.version }}-ARM64-docs.zip
       shell: pwsh
+
+    # Signed statements about what is published, verifiable by anyone with
+    #   gh attestation verify <file> --repo mickem/nscp
+    # A SLSA build provenance attestation over every release asset ties each
+    # file to this workflow run and the commit it built. An SBOM attestation
+    # per Windows platform binds that platform's SBOM to its zip and MSI, so
+    # the SBOM cannot be swapped for another one after the fact. Both are
+    # Sigstore-signed with this workflow's identity; nothing here needs a key.
+    - name: Attest build provenance
+      uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+      with:
+        subject-path: |
+          NSCP-${{ inputs.version }}*.zip
+          NSCP-${{ inputs.version }}-*.cdx.json
+          NSCP-${{ inputs.version }}-*.deb
+          NSCP-${{ inputs.version }}-*.rpm
+          installers/installer-NSCP/NSCP-${{ inputs.version }}-*.msi
+          NSCP-Web-${{ inputs.version }}.zip
+          macos/NSCP-${{ inputs.version }}-macos-arm64.pkg
+          macos/NSCP-${{ inputs.version }}-macos-arm64.tar.gz
+
+    - name: Attest SBOM (x64)
+      uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+      with:
+        subject-path: |
+          NSCP-${{ inputs.version }}-x64.zip
+          installers/installer-NSCP/NSCP-${{ inputs.version }}-x64.msi
+        sbom-path: NSCP-${{ inputs.version }}-x64.cdx.json
+
+    - name: Attest SBOM (Win32)
+      uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+      with:
+        subject-path: |
+          NSCP-${{ inputs.version }}-Win32.zip
+          installers/installer-NSCP/NSCP-${{ inputs.version }}-Win32.msi
+        sbom-path: NSCP-${{ inputs.version }}-Win32.cdx.json
+
+    - name: Attest SBOM (Win32-legacy-xp)
+      uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+      with:
+        subject-path: |
+          NSCP-${{ inputs.version }}-Win32-legacy-xp.zip
+          installers/installer-NSCP/NSCP-${{ inputs.version }}-Win32-legacy-xp.msi
+        sbom-path: NSCP-${{ inputs.version }}-Win32-legacy-xp.cdx.json
+
+    - name: Attest SBOM (ARM64)
+      uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+      with:
+        subject-path: |
+          NSCP-${{ inputs.version }}-ARM64.zip
+          installers/installer-NSCP/NSCP-${{ inputs.version }}-ARM64.msi
+        sbom-path: NSCP-${{ inputs.version }}-ARM64.cdx.json
 
     - name: Create Release
       id: create_release

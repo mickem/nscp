@@ -33,7 +33,8 @@ Windows build fails if one ever does.
 
 Windows builds now also ship a CycloneDX software bill of materials that
 records, for every third-party component, the version, the upstream URL and
-the digest or commit it was verified against. See
+the digest or commit it was verified against, and the release attests every
+asset and binds each SBOM to its zip and MSI. See
 [Verifying the download](../setup/installing.md#verifying-the-download).
 
 **What to do:** nothing. This affects the release build only.

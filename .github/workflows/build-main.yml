@@ -121,6 +121,14 @@ jobs:
 
   release:
     needs: [get-version, build-server-x64, build-server-x86, build-server-arm64, build-x86-static, build-debian, build-redhat, build-macos, build-web]
+    # A called workflow gets no more than its caller grants. release.yml signs
+    # attestations for what it publishes, which needs an OIDC token and the
+    # attestations API on top of this workflow's defaults.
+    permissions:
+      contents: write
+      actions: read
+      id-token: write
+      attestations: write
     uses: ./.github/workflows/release.yml
     with:
       version: ${{ needs.get-version.outputs.version }}

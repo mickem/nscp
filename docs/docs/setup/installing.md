@@ -415,6 +415,19 @@ Get-Content SHA256SUMS | ForEach-Object {
 }
 ```
 
+Release assets are attested by the release workflow with
+[GitHub artifact attestations](https://docs.github.com/actions/security-for-github-actions/using-artifact-attestations).
+With the [GitHub CLI](https://cli.github.com):
+
+```
+gh attestation verify NSCP-<version>-x64.msi --repo mickem/nscp
+gh attestation verify NSCP-<version>-x64.msi --repo mickem/nscp --predicate-type https://cyclonedx.org/bom
+```
+
+The first shows the workflow run and the commit that built the file. The
+second shows that the SBOM published for that platform describes this exact
+file.
+
 ### Basic command line
 
 To customize the installation you can use the standard MSI options to add/remove features and set properties.
