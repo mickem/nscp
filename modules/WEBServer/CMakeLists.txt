@@ -48,6 +48,7 @@ set(SRCS
     log_controller.cpp
     info_controller.cpp
     tags_controller.cpp
+    facts_controller.cpp
     settings_controller.cpp
     login_controller.cpp
     metrics_controller.cpp
@@ -93,6 +94,7 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
         info_controller.hpp
         tags_controller.hpp
+        facts_controller.hpp
         settings_controller.hpp
         metrics_controller.hpp
         openmetrics_controller.hpp

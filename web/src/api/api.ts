@@ -82,6 +82,31 @@ interface Info {
 /** Host tags: key=value facts contributed by modules (e.g. drives=c:,d:). */
 export type Tags = { [key: string]: string };
 
+/**
+ * A node of the host-facts document. The tree the agent collects is made of
+ * objects, lists and scalars, and a list holds either records (each with an
+ * `id`) or plain strings — so a renderer has to handle all three rather than
+ * assume the flat map tags can.
+ */
+export type FactValue = string | number | boolean | FactValue[] | { [key: string]: FactValue };
+
+export interface Facts {
+  /** Monotonic change counter; 0 is the empty document a fresh install reports. */
+  revision: number;
+  /** When the last round completed, ISO 8601 UTC; empty until one has. */
+  collected: string;
+  /** The subtree that was asked for, "" for the whole document. */
+  path: string;
+  /** Whether anything produced it — a set nobody enabled is absent, not an error. */
+  found: boolean;
+  /** The sets the loaded producers are configured to collect. */
+  enabled: string[];
+  /** Per-set collection errors from the last round; the set keeps its last value. */
+  errors: { [set: string]: string };
+  /** The document itself, or the subtree at `path`. */
+  facts: FactValue;
+}
+
 interface Version {
   version: string;
 }
@@ -362,6 +387,7 @@ export const ALL_API_TAGS = [
   "Endpoints",
   "Info",
   "Tags",
+  "Facts",
   "Version",
   "Logs",
   "Modules",
@@ -385,6 +411,7 @@ export const nsclientApi = createApi({
     "Endpoints",
     "Info",
     "Tags",
+    "Facts",
     "Version",
     "Logs",
     "Modules",
@@ -424,6 +451,21 @@ export const nsclientApi = createApi({
         url: "/v2/tags",
       }),
       providesTags: ["Tags"],
+    }),
+    getFacts: builder.query<Facts, void>({
+      query: () => ({
+        url: "/v2/facts",
+      }),
+      providesTags: ["Facts"],
+    }),
+    refreshFacts: builder.mutation<Facts, void>({
+      query: () => ({
+        url: "/v2/facts/commands/refresh",
+        method: "POST",
+      }),
+      // The round may change any set, so let the cached document go rather
+      // than trusting the body this returns to be what the next reader wants.
+      invalidatesTags: ["Facts"],
     }),
     getLogs: builder.query<Page<LogRecord[]>, LogQuery>({
       query: ({ page, size, level }) => ({
@@ -709,6 +751,8 @@ export const {
   useGetInfoQuery,
   useGetVersionQuery,
   useGetTagsQuery,
+  useGetFactsQuery,
+  useRefreshFactsMutation,
   useGetLogsQuery,
   useGetModulesQuery,
   useGetModuleQuery,
