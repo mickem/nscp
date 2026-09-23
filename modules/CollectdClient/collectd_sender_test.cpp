@@ -19,6 +19,7 @@
 #include <chrono>
 #include <list>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -43,18 +44,37 @@ class udp_sink {
   unsigned short port() const { return socket_.local_endpoint().port(); }
   std::string port_string() const { return std::to_string(port()); }
 
-  // Drain whatever has arrived. Non-blocking: everything under test sends
-  // before this is called, and a datagram that never arrives must fail the
-  // test rather than hang it.
-  std::vector<std::string> drain() {
+  // Drain what has arrived, waiting up to a deadline for `expected` datagrams.
+  //
+  // This used to sweep the socket once, non-blocking, on the reasoning that
+  // everything under test sends before drain() is called. That is true of the
+  // sendto() call and not of the delivery: on Linux a loopback datagram is
+  // handed to the receiving socket in the sender's own context, so it is
+  // always already there, but XNU can queue it and hand it over later. The
+  // single-datagram tests duly failed on macOS about one run in three, with
+  // the sender reporting sent=1 and the sink seeing nothing.
+  //
+  // Polling rather than a blocking receive keeps the original property that a
+  // datagram which never arrives fails the test instead of hanging it: the
+  // deadline is generous enough never to be hit by a working send, and short
+  // enough to be a tolerable pause on a broken one. Callers expecting nothing
+  // pass 0 and pay no wait at all - they cannot distinguish "not yet" from
+  // "never", but that was already true and erring that way costs a run rather
+  // than a false pass.
+  std::vector<std::string> drain(std::size_t expected = 0) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     std::vector<std::string> out;
     socket_.non_blocking(true);
     for (;;) {
       char buffer[2048];
       boost::system::error_code ec;
       const std::size_t len = socket_.receive(boost::asio::buffer(buffer), 0, ec);
-      if (ec) break;
-      out.push_back(std::string(buffer, len));
+      if (!ec) {
+        out.push_back(std::string(buffer, len));
+        continue;
+      }
+      if (out.size() >= expected || std::chrono::steady_clock::now() >= deadline) break;
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
     return out;
   }
@@ -76,7 +96,7 @@ TEST(CollectdSender, SendsEveryDatagramToAnIpLiteralTarget) {
   // One send call per datagram: a successful send never spends retry budget.
   EXPECT_EQ(result.attempts, 3u);
   EXPECT_TRUE(result.errors.empty());
-  const std::vector<std::string> received = sink.drain();
+  const std::vector<std::string> received = sink.drain(3);
   ASSERT_EQ(received.size(), 3u);
   EXPECT_EQ(received[0], "one");
   EXPECT_EQ(received[2], "three");
@@ -91,7 +111,7 @@ TEST(CollectdSender, ResolvesAHostNameTarget) {
 
   EXPECT_TRUE(result.errors.empty());
   EXPECT_EQ(result.sent, 1u);
-  const std::vector<std::string> received = sink.drain();
+  const std::vector<std::string> received = sink.drain(1);
   ASSERT_EQ(received.size(), 1u);
   EXPECT_EQ(received[0], "payload");
 }
@@ -113,7 +133,7 @@ TEST(CollectdSender, SkipsEmptyDatagrams) {
   const collectd::sender_result result = collectd::send_datagrams(collectd::sender_config("127.0.0.1", sink.port_string()), {"", "kept", ""});
 
   EXPECT_EQ(result.sent, 1u);
-  const std::vector<std::string> received = sink.drain();
+  const std::vector<std::string> received = sink.drain(1);
   ASSERT_EQ(received.size(), 1u);
   EXPECT_EQ(received[0], "kept");
 }
@@ -292,7 +312,7 @@ TEST(CollectdSenderMulticast, TheSettingIsIgnoredForUnicastTargets) {
 
   EXPECT_EQ(result.sent, 1u);
   EXPECT_TRUE(result.errors.empty());
-  ASSERT_EQ(sink.drain().size(), 1u);
+  ASSERT_EQ(sink.drain(1).size(), 1u);
 }
 
 TEST(CollectdSenderMulticast, CountsADatagramOnceHoweverManyInterfacesCarryIt) {
