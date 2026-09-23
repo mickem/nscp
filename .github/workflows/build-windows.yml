@@ -232,6 +232,13 @@ jobs:
         architecture: ${{ inputs.architecture }}
         toolset: ${{ steps.setup.outputs.toolset }}
 
+    # Every Boost build below starts from this verified archive; see the
+    # action for why it has to run first.
+    - name: Fetch Boost source
+      uses: ./.github/actions/boost-source
+      with:
+        version: ${{ ENV.BOOST_VERSION }}
+
     # mickem/build-boost drives cmake-common, whose Platform enum is x86/x64
     # only: `--platform arm64` aborts with "invalid platform" before compiling
     # anything, which is what broke the ARM64 build in April 2026 (#1223). The

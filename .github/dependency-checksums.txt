@@ -46,15 +46,21 @@ protobuf        21.12     29b0f6b6d5714f212b8549cd0cb6fc531672630e41fb99d445421b
 cryptopp        8.9.0     4cc0ccc324625b80b695fcd3dee63a66f1a460d3e51b71640cdbfc4cd1a3779c
 miniz           3.1.1     cb28402bb2af93bdc331b60d16807e89727d1712a2d0a7ba0cac79a3e406fe40
 
-# Still unrecorded: boost.org serves the archive from a redirect chain, so the
-# digest has to be taken on a machine that can reach it and cross-checked
-# against the SHA256 the Boost release page publishes.
-boost           1.86.0    unrecorded
+# boost_1_86_0.tar.gz, fetched by .github/actions/boost-source for every
+# Windows build (the in-repo ARM64 action and mickem/build-boost both reuse
+# the verified copy it leaves in the runner workspace). The digest is the one
+# the Boost 1.86.0 release page publishes for the .tar.gz. It was taken from
+# the SourceForge mirror and cross-checked independently: the .tar.bz2 from
+# the same mirror matches the digest conan-center-index records for it, and
+# both archives decompress to the same tar.
+boost           1.86.0    2575e74ffc3ef1cd0babac2c1ee8bdb5782a0ee672b1912da40e5b4b591ca01f  # matches the Boost 1.86.0 release page
 
-# Still unrecorded: the digest has to be taken on a machine that can reach
-# www.lua.org, and cross-checked against the md5/sha256 Lua publishes on the
-# same page.
-lua             5.4.8     unrecorded
+# lua-5.4.8.tar.gz from www.lua.org. The digest is the one lua.org publishes
+# on its download page; it was cross-checked against the byte-identical
+# Debian/Ubuntu orig tarball (lua5.4_5.4.8.orig.tar.gz, whose .dsc records
+# the same SHA-256) and the digest conan-center-index records for the
+# lua.org URL.
+lua             5.4.8     4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae  # matches the lua.org download page
 
 # Cloned, not downloaded, and pinned to the commit rather than the tag.
 #
@@ -77,3 +83,11 @@ mariadb         3.4.9     64e9fe09fea6a017bab92e19a08d2301e3da5b56
 check_nsclient-x64      1.1.2   77a90830214e5f5613024adce05278887c19e818c0ae80f5284bfa090e93e65b
 check_nsclient-x86      1.1.2   a5ce21419bc93c15953b406b7a769525c9b545e64ddf89a7fa2ce50ed7256f9a
 check_nsclient-arm64    1.1.2   a044b01858f2d39c14574187185c55d57d0906db8b44240165d7b26361c8d0fa
+
+# The Linux builds of the same binary, shipped inside the .deb and .rpm
+# packages and fetched by build-debian.yml and build-redhat.yml. Keyed by the
+# `arch` of those workflows' matrices. The release publishes no checksum, so
+# these record the bytes a fetch returned (the Windows lines above, recorded
+# earlier, still matched the release on the same day).
+check_nsclient-linux-x64    1.1.2   cb6e07d94d6899dae588882b7c9d442a230f71e69362407be0bb4ac0f74caa5c
+check_nsclient-linux-arm64  1.1.2   991702252c5d40816f0708f83101c81c3c62fe9a4007e24c69f4d4a9baff931e

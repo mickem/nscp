@@ -1,0 +1,56 @@
+---
+name: Fetch Boost source
+description: >-
+  Download the Boost source archive into the runner workspace and verify it
+  against .github/dependency-checksums.txt, before anything builds from it.
+inputs:
+  version:
+    description: The Boost version, for example 1.86.0
+    required: true
+outputs:
+  archive:
+    description: Path of the verified archive
+    value: ${{ steps.fetch.outputs.archive }}
+runs:
+  using: composite
+  steps:
+    # Both Boost builders look for <runner.workspace>/boost_<v>.tar.gz before
+    # downloading anything: mickem/build-boost through cmake-common's
+    # `boost-download --cache <runner.workspace>`, and ./.github/actions/boost
+    # through its own Test-Path. mickem/build-boost has no verification step
+    # of its own, so without this action the x86, x64 and legacy XP builds
+    # compiled Boost from whatever the mirror served. Putting a verified copy
+    # where both of them look first means neither downloads at all.
+    - id: fetch
+      shell: bash
+      run: |
+        set -euo pipefail
+        version='${{ inputs.version }}'
+        name="boost_${version//./_}.tar.gz"
+        workspace='${{ runner.workspace }}'
+        archive="${workspace//\\//}/${name}"
+        # Same two sources, in the same order, as cmake-common uses.
+        urls=(
+          "https://archives.boost.io/release/${version}/source/${name}"
+          "https://sourceforge.net/projects/boost/files/boost/${version}/${name}/download"
+        )
+        if [ ! -f "${archive}" ]; then
+          for url in "${urls[@]}"; do
+            echo "Fetching ${url}"
+            if curl -sSfL --retry 8 --retry-delay 15 --retry-max-time 300 -o "${archive}" "${url}"; then
+              break
+            fi
+            rm -f "${archive}"
+          done
+        fi
+        if [ ! -f "${archive}" ]; then
+          echo "::error::Could not download Boost ${version} from any known source"
+          exit 1
+        fi
+        # Verified even when the file was already there: a cached or
+        # left-over archive is exactly what this step must not trust.
+        if ! "${GITHUB_WORKSPACE}/.github/scripts/verify-checksum.sh" boost "${version}" "${archive}"; then
+          rm -f "${archive}"
+          exit 1
+        fi
+        echo "archive=${archive}" >> "${GITHUB_OUTPUT}"

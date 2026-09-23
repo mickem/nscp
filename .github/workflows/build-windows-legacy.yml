@@ -167,6 +167,13 @@ jobs:
       with:
         version: ${{ ENV.MINIZ_VERSION }}
 
+    # mickem/build-boost does not verify what it downloads; it reuses the
+    # archive this action verifies and leaves in the runner workspace.
+    - name: Fetch Boost source
+      uses: ./.github/actions/boost-source
+      with:
+        version: ${{ ENV.BOOST_VERSION }}
+
     - name: Build Boost (static)
       id: static_boost
       uses: mickem/build-boost@42c59d10fc12f919a986f7e1c2f7c752d4960190
