@@ -67,23 +67,38 @@ module is running. Separately, the NRDP `key` alias — one of three spellings o
 the same token, and the only one not registered with `add_password` — is
 registered as a password.
 
-#### The Linux service ran without any sandboxing
+#### The Linux service ran without any hardening
 
-The unit correctly ran as an unprivileged account and had nothing else:
-no `PrivateTmp`, no `ProtectSystem`, no `UMask`. Given the agent executes
+The unit correctly ran as an unprivileged account and had nothing else: no
+`UMask`, none of the kernel-protection directives. Given the agent executes
 operator-defined and fleet-delivered scripts by design, that is a larger blast
-radius than it needs. The unit now sets `PrivateTmp=yes`,
-`ProtectSystem=full` with `ReadWritePaths` for the state and log directories,
-`ProtectHome=read-only`, `UMask=0027` and the usual kernel-protection
-directives. `UMask=0027` is what stops `nsclient.db`, `fleet.ini`,
-`applied-state.json` and the unsealed contents of a bundle landing
-world-readable: all four are written through a plain C++ `ofstream`, which asks
-for 0666 and leaves the rest to the umask. The log file is not among them — the
-logger creates that with an explicit 0640 of its own. `full` rather than `strict`: `strict` would make every filesystem
-read-only except the paths named, which turns `check_disk_write` on a healthy
-data mount into a CRITICAL reading `Read-only file system`. Operators who want
-it can add it with a drop-in. `NoNewPrivileges` is deliberately left off and documented in the
-unit: the Unix script launcher tells operators to sandbox a script with
+radius than it needs. The unit now sets `UMask=0027`,
+`ProtectKernelTunables=yes`, `ProtectKernelModules=yes`,
+`ProtectControlGroups=yes`, `RestrictSUIDSGID=yes`, `RestrictRealtime=yes` and
+`LockPersonality=yes`.
+
+`UMask=0027` is what stops `nsclient.db`, `fleet.ini`, `applied-state.json` and
+the unsealed contents of a bundle landing world-readable: all four are written
+through a plain C++ `ofstream`, which asks for 0666 and leaves the rest to the
+umask. The log file is not among them — the logger creates that with an explicit
+0640 of its own.
+
+`ProtectSystem`, `ProtectHome` and `PrivateTmp` are deliberately **not** set.
+They are the three directives that give the service a mount namespace, and
+systemd implements each as bind mounts that appear in the service's own
+`/proc/mounts`. For a monitoring agent the mount table is reported data, so
+they do not merely restrict the process, they falsify its output:
+`check_drivesize` enumerates `/proc/mounts` skipping only pseudo filesystems
+and repeated mount points, so a `ProtectSystem` bind — the root filesystem's
+own type at a fresh mount point — becomes an extra drive reporting `/`'s usage
+with `writable = 0`, and the disk-free collector applies the identical filter,
+so the phantom rows reach perfdata and OpenMetrics. `check_mount` can no longer
+distinguish a filesystem that genuinely went read-only, and `check_disk_write`
+reports the very fault it exists to detect. Reporting the kernel's real view is
+worth more than sandboxing an already-unprivileged process into reporting a
+different one; operators who want them can add them with a drop-in.
+`NoNewPrivileges` is left off for a separate reason, documented in the unit: the
+Unix script launcher tells operators to sandbox a script with
 `sudo -n -u <account>`, which needs setuid.
 
 `CauseCrashes`, whose `crash_client` command dereferences a null pointer on

@@ -4,76 +4,63 @@ Description=NSClient++ Monitoring Agent
 [Service]
 WorkingDirectory=@NSCP_PKGLIBDIR@
 User=nsclient
-PIDFile=@NSCP_PKGSTATEDIR@/nscp.pid
 
-ExecStart=@NSCP_SBINDIR@/nscp service --log-backend threaded-file --run --pid @NSCP_PKGSTATEDIR@/nscp.pid
+ExecStart=@NSCP_SBINDIR@/nscp service --log-backend threaded-file --run
 
-# Sandboxing.
+# Hardening.
 #
 # The agent already runs as an unprivileged account, but it also executes
 # operator-defined and fleet-delivered scripts by design, so the blast radius
-# of anything that goes wrong in one of them is worth bounding. Everything
-# below is chosen so a monitoring agent can still do its job: the filesystem
-# stays readable, since reading it is most of what the checks do.
+# of anything that goes wrong in one of them is worth bounding.
 #
-# Override any of these for a local setup with a drop-in rather than by editing
-# this file, which a package upgrade replaces:
+# Deliberately NOT set: ProtectSystem, ProtectHome, PrivateTmp - the three
+# directives that give the service a mount namespace of its own.
+#
+# For an ordinary daemon those only restrict what the process may do. For a
+# monitoring agent the mount table is part of the data it reports, and systemd
+# implements every one of them as bind mounts that appear in the service's own
+# /proc/mounts. So they do not merely sandbox the agent, they change its
+# answers - and they change them in exactly the direction the checks exist to
+# detect:
+#
+#   - check_drivesize with no drive= enumerates /proc/mounts, skipping
+#     filesystems by type and de-duplicating by mount point
+#     (check_drive_unix.cpp). A ProtectSystem bind carries the root
+#     filesystem's own type - ext4, xfs - and a fresh mount point, so it
+#     passes both filters. `full` alone adds /usr, /etc and /boot as three
+#     extra drives, each reporting / 's usage, so a threshold on / fires
+#     several times over; `strict` covers more of the tree still.
+#   - those rows read writable = 0, because the keyword is
+#     (vfs.f_flag & ST_RDONLY) == 0 (check_drive_unix.cpp) and the bind really
+#     is read-only. So does /boot/efi, which gets a second read-only mount
+#     stacked on it.
+#   - check_disk_io_unix.cpp applies the identical filter, so the disk-free
+#     collector gains the same phantom entries - they reach perfdata and
+#     /api/v2/openmetrics, not just one check's output.
+#   - check_mount with options=rw reports "missing options: rw, exceeding
+#     options: ro" for those mounts, and a filesystem that genuinely went
+#     read-only can no longer be told apart from one the sandbox remounted.
+#   - check_disk_write, whose whole job is to answer "is this mount writable",
+#     fails with "read-only file system" for any target outside
+#     ReadWritePaths - the same message as the fault it looks for.
+#   - PrivateTmp is milder but the same shape: check_files and check_logfile
+#     over /tmp report on the private tree, a plugin keeping state under /tmp
+#     loses it on every restart and stops agreeing with a run from a shell,
+#     and where /tmp is not a tmpfs the private bind adds a duplicate drive
+#     (tmpfs is filtered out by type, ext4 is not). ProtectHome does the same
+#     for /home, on a smaller scale.
+#
+# Teaching CheckDisk to see past the namespace is not the answer either:
+# inside it statvfs genuinely reports read-only, and a ProtectSystem bind is
+# not distinguishable from a bind mount an operator made on purpose, so it
+# would mean heuristics that could hide a real read-only remount. An agent
+# that reports the kernel's view is worth more here than one sandboxed into
+# reporting a different one.
+#
+# What is left below does not change anything the agent observes. Add any of
+# the three with a drop-in if you accept the above for your setup, rather than
+# by editing this file, which a package upgrade replaces:
 #   systemctl edit nsclient
-
-# A private /tmp of its own, so nothing the agent or a script writes there is
-# visible to other users, and nothing another user plants there is visible to
-# it. This is the one that neutralises most /tmp-based attacks on the service.
-PrivateTmp=yes
-
-# /usr, /boot, /efi and /etc read-only; the rest of the hierarchy is left
-# alone. Reads are unaffected everywhere, so every check that inspects files,
-# mounts or processes keeps working.
-#
-# `full` rather than `strict` on purpose. `strict` makes every filesystem
-# read-only except the paths named below, which breaks the checks whose job is
-# to write: `check_disk_write file=/mnt/backup/probe.dat` - the documented use
-# of that check - gets EROFS and reports CRITICAL with a "Read-only file
-# system" message indistinguishable from a real disk fault, on a mount that is
-# perfectly healthy. What `strict` adds over `full` is largely what DAC already
-# covers, since the service runs as an unprivileged account that owns nothing
-# under /srv, /mnt or /data; what it costs is a check that cannot tell the
-# truth. `full` keeps the part that matters: the agent cannot write to the
-# system binaries or to its own configuration.
-#
-# Tighten it with a drop-in if nothing on this host writes outside the state
-# and log directories. The ReadWritePaths below still applies, so only the
-# extra paths your checks and scripts write to need naming:
-#   [Service]
-#   ProtectSystem=strict
-#   ReadWritePaths=/mnt/backup
-#
-# One caveat if you do: the read-only remount is applied to the mount tree as
-# it stands when the service starts. With systemd's default shared
-# propagation, a filesystem mounted afterwards propagates into the namespace
-# as it is - writable - so under `strict` a mount's writability depends on
-# whether it existed at start, and flips on `systemctl restart`. `full` is
-# largely immune because the paths it covers (/usr, /boot, /efi, /etc) are
-# mounted long before any service; a `strict` drop-in is not, so name the
-# mounts your checks write to and restart the service after adding one.
-ProtectSystem=full
-# Both prefixed with `-`: an unprefixed path that does not exist fails the
-# unit outright with "Failed to set up mount namespacing", and neither
-# directory is guaranteed to be there. The packages create both in postinst,
-# but a source install does not, and an operator who cleans out
-# /var/log/nsclient would otherwise be left with a service that will not start
-# at all. With the `-` they are used when present and skipped when not.
-#
-# These are what a ProtectSystem=strict drop-in would build on; under `full`
-# they are already writable and the lines are a no-op.
-ReadWritePaths=-@NSCP_PKGSTATEDIR@ -@NSCP_LOGDIR@
-
-# read-only rather than yes: a monitoring agent is routinely asked about
-# /home - a check on files under it, or on the mount it sits on - and `yes`
-# replaces it with an empty directory, which would make those checks answer
-# about nothing at all. Read-only keeps the answers correct while stopping the
-# service writing there. A `check_disk_write` probe under /home therefore needs
-# a ReadWritePaths drop-in naming it, as above.
-ProtectHome=read-only
 
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
@@ -99,10 +86,25 @@ UMask=0027
 # `user =` key on an external script is Windows-only, and the Unix launcher
 # tells operators to sandbox a script by writing `sudo -n -u <account>` into
 # the command instead. sudo needs setuid, which NoNewPrivileges forbids, so
-# turning it on here would make every one of those scripts fail. Enable it with
-# a drop-in if no script on this host escalates:
+# turning it on here would make every one of those scripts fail.
+# CapabilityBoundingSet= and a restrictive SystemCallFilter= break it for the
+# same reason. Enable it with a drop-in if no script on this host escalates:
 #   [Service]
 #   NoNewPrivileges=yes
+
+# A note on systemd versions, because an unknown key or an unparsable value is
+# ignored with a warning rather than failing the unit, so a host too old for
+# one of these loses it silently:
+#
+#   UMask=                                                since always
+#   ProtectKernelTunables=, ProtectKernelModules=,
+#   ProtectControlGroups=                                 232
+#   LockPersonality=                                      235
+#   RestrictSUIDSGID=                                     242
+#
+# Every official package target has all of them (Ubuntu 24.04 ships 255, Rocky
+# 9 ships 252). A source build on RHEL 8 (239) loses RestrictSUIDSGID; on
+# RHEL 7 (219) only UMask survives.
 
 [Install]
 WantedBy=multi-user.target

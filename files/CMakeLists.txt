@@ -82,8 +82,8 @@ if(NOT WIN32)
             GROUP_EXECUTE
         COMPONENT logs
     )
-    # Template the unit so WorkingDirectory/PIDFile/ExecStart track the chosen
-    # install prefix (NSCP_* values) instead of being baked to /usr.
+    # Template the unit so WorkingDirectory/ExecStart track the chosen install
+    # prefix (NSCP_* values) instead of being baked to /usr.
     configure_file(
         nsclient.service.in
         ${PROJECT_BINARY_DIR}/nsclient.service
