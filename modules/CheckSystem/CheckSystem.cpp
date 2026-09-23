@@ -25,6 +25,7 @@
 #include <win/com_helpers.hpp>
 #include <win/pdh/pdh_enumerations.hpp>
 #include <win/services.hpp>
+#include <facts/host_facts.hpp>
 #include <win/sysinfo/win_sysinfo.hpp>
 
 #include "check_battery.hpp"
@@ -48,6 +49,7 @@
 #include "check_swap_io.hpp"
 #include "check_temperature.hpp"
 #include "check_w32time.hpp"
+#include "system_facts.hpp"
 #include "counter_filter.hpp"
 #include "filter.hpp"
 #include "module.hpp"
@@ -124,20 +126,6 @@ void load_counters(std::map<std::string, std::string> &counters, sh::settings_re
  * @return true
  */
 namespace {
-// Publish the Windows version as host tags: `os_version` is the numeric
-// kernel version (e.g. 10.0.20348) for machine matching, `os_name` the
-// human-readable name (e.g. "Windows Server 2022") for the UI.
-void publish_os_version_tags(const nscapi::core_wrapper *core) {
-  const OSVERSIONINFOEX *info = windows::system_info::get_versioninfo();
-  if (info != nullptr) {
-    core->set_tag("os_version", str::xtos(info->dwMajorVersion) + "." + str::xtos(info->dwMinorVersion) + "." + str::xtos(info->dwBuildNumber));
-  }
-  const std::string name = windows::system_info::get_version_string();
-  if (!name.empty()) {
-    core->set_tag("os_name", name);
-  }
-}
-
 // Publish one tag per configured [/settings/system/windows/service-tags]
 // entry (service name -> tag name): `<tag>=enabled` when the service exists
 // AND is running, otherwise the tag is removed. Lets operators surface "what
@@ -188,6 +176,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     detect_sql_server_tag(get_core());
   }
   std::map<std::string, std::string> service_tags;
+  bool publish_facts = true;
   // A reload replaces the collector: stop the running one first so its
   // threads are joined before the checks start reading the new instance.
   // Publish the replacement atomically and configure it through the local
@@ -244,6 +233,13 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     ;
 
   settings.alias().add_key_to_settings()
+  .add_bool("publish facts", sh::bool_key(&publish_facts, true),
+        "PUBLISH HOST FACTS",
+        "Publish this host's facts - os_name, os_version, os_family, arch, cpu_cores, memory_gb, virtualization, manufacturer, model and domain - as host "
+        "tags when the module starts. They are read by the web UI and, on an enrolled host, reported to the fleet server, which is what makes a group "
+        "selector like 'os_family = \"windows\"' possible. Set to false on a host whose hardware identity and domain must not leave it; the tags configured "
+        "under service-tags are unaffected.")
+
   .add_string("counter access", sh::string_fun_key([this](const auto& value) { pdh_checker.counter_access_.set_mode(value); }, "any"),
         "COUNTER ACCESS MODE",
         "Which performance counters a caller may ask check_pdh (check_counter) to read: any (the default - any counter path the caller names, which is how "
@@ -343,7 +339,11 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   }
 
   if (mode == NSCAPI::normalStart) {
-    publish_os_version_tags(get_core());
+    // Facts describe the machine, not its configuration, so they are gathered
+    // once at start rather than on every reload: nothing they read can change
+    // without the host restarting anyway, and a reload runs on the live module
+    // while the checks are serving.
+    if (publish_facts) host_facts::publish(get_core(), system_facts::gather());
     publish_service_tags(get_core(), service_tags);
   }
 

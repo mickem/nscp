@@ -328,6 +328,18 @@ NSCP_CREATE_TEST(
 )
 
 NSCP_CREATE_TEST(
+    host_facts_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/facts/host_facts_test.cpp
+        ${NSCP_INCLUDEDIR}/facts/host_facts.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${PLUGIN_API_TARGET}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+NSCP_CREATE_TEST(
     realtime_helper_test
     SOURCES
         ${NSCP_INCLUDEDIR}/parsers/filter/realtime_helper_test.cpp

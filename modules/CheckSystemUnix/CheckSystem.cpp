@@ -6,6 +6,7 @@
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/program_options.hpp>
+#include <facts/host_facts.hpp>
 #include <fstream>
 #include <locale>
 #include <map>
@@ -37,6 +38,7 @@
 #include "check_swap_io.h"
 #include "check_temperature.h"
 #include "check_uptime.h"
+#include "system_facts.h"
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
@@ -50,6 +52,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("system", alias, "unix");
   std::map<std::string, std::string> service_tags;
+  bool publish_facts = true;
 
   // Start the CPU collector thread. On a reload the previous collector is
   // still running; stop it before it is replaced. Publish the replacement
@@ -86,6 +89,12 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     ;
 
   settings.alias().add_key_to_settings()
+    .add_bool("publish facts", sh::bool_key(&publish_facts, true),
+        "PUBLISH HOST FACTS",
+        "Publish this host's facts - os_name, os_version, os_family, arch, cpu_cores, memory_gb, virtualization, manufacturer, model and domain - as host "
+        "tags when the module starts. They are read by the web UI and, on an enrolled host, reported to the fleet server, which is what makes a group "
+        "selector like 'os_family = \"linux\"' possible. Set to false on a host whose hardware identity and domain must not leave it; the tags configured "
+        "under service-tags are unaffected.")
     .add_string("default buffer length", sh::string_key(&fresh->default_buffer_size, "1h"),
         "Default buffer time", "Used to define the default size of range buffer checks (ie. CPU).")
     .add_bool("process history", sh::bool_key(&fresh->process_history_enabled, false),
@@ -116,6 +125,12 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   }
 
   if (mode == NSCAPI::normalStart) {
+    // Facts describe the machine, not its configuration, so they are gathered
+    // once at start rather than on every reload: nothing they read can change
+    // without the host restarting anyway, and a reload runs on the live module
+    // while the checks are serving.
+    if (publish_facts) host_facts::publish(get_core(), system_facts::gather());
+
     // Publish one tag per configured [/settings/system/unix/service-tags]
     // entry (systemd unit -> tag): <tag>=enabled when the unit is active,
     // removed otherwise so stopped units clear their tag on the next load.

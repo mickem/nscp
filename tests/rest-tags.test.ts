@@ -5,10 +5,11 @@
  * Uses a hand-rolled config (not setupRestNscp, which pins CheckSystem to
  * disabled) so both producers run:
  *  - CheckDisk publishes `drives=c:,d:,...` on Windows.
- *  - CheckSystem publishes `os_version`/`os_name` plus the configured
- *    service-tags: EventLog (always running on Windows) maps to
- *    `eventlog-service=enabled`, and a nonexistent service maps to a tag
- *    that must NOT appear.
+ *  - CheckSystem publishes the host facts (os_name, os_version, os_family,
+ *    arch, cpu_cores, memory_gb, virtualization, and - where the host has
+ *    them - manufacturer, model and domain) plus the configured service-tags:
+ *    EventLog (always running on Windows) maps to `eventlog-service=enabled`,
+ *    and a nonexistent service maps to a tag that must NOT appear.
  * On Linux the CheckSystem module resolves to the unix variant whose
  * service-tags check systemd units; the mapped names don't exist there, so
  * the tags must stay absent — asserted, since "no tag" is the documented
@@ -103,6 +104,77 @@ describe("REST tags", () => {
         } else {
           // The EventLog systemd unit does not exist on Linux either.
           expect(response.body["eventlog-service"]).toBeUndefined();
+        }
+      });
+  });
+
+  // Host facts. Asserted on shape rather than on this machine's values, and
+  // split from the tags above because these are the ones that have to read
+  // the same on every platform - a Windows agent and a Linux agent in one
+  // fleet are selected with the same expression.
+  it("publishes the host facts every platform can answer", async () => {
+    await request(REST_URL)
+      .get("/api/v2/tags")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true)
+      .expect(200)
+      .then((response) => {
+        expect(response.body.os_family).toEqual(onWindows ? "windows" : "linux");
+        // Not an exhaustive list: an architecture we have not seen is
+        // published lower-cased rather than dropped.
+        expect(response.body.arch).toMatch(/^[a-z0-9_]+$/);
+        // Every machine has at least one core and at least a gigabyte, and
+        // both are published as plain integers (the tag map is string-valued).
+        expect(Number(response.body.cpu_cores)).toBeGreaterThan(0);
+        expect(Number(response.body.memory_gb)).toBeGreaterThan(0);
+        expect(response.body.os_name).toBeTruthy();
+        expect(response.body.os_version).toBeTruthy();
+      });
+  });
+
+  it("names the virtualization from a closed vocabulary", async () => {
+    await request(REST_URL)
+      .get("/api/v2/tags")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true)
+      .expect(200)
+      .then((response) => {
+        // The fact is absent only where the host could not be asked at all
+        // (no CPUID and no DMI); on any CI runner it has to be present, and
+        // it must never be an unmapped vendor id.
+        expect(response.body.virtualization).toBeDefined();
+        expect([
+          "none",
+          "virtual",
+          "vmware",
+          "hyperv",
+          "kvm",
+          "xen",
+          "virtualbox",
+          "qemu",
+          "parallels",
+          "bhyve",
+          "acrn",
+        ]).toContain(response.body.virtualization);
+      });
+  });
+
+  it("omits a fact it could not determine rather than inventing one", async () => {
+    await request(REST_URL)
+      .get("/api/v2/tags")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true)
+      .expect(200)
+      .then((response) => {
+        // manufacturer/model come from SMBIOS and domain from the host name,
+        // and a VM or an unjoined host legitimately has none of them. What
+        // must never happen is a placeholder standing in for the answer.
+        for (const fact of ["manufacturer", "model", "domain"]) {
+          if (response.body[fact] !== undefined) {
+            expect(response.body[fact]).not.toEqual("");
+            expect(response.body[fact].toLowerCase()).not.toContain("to be filled by");
+            expect(response.body[fact].toLowerCase()).not.toEqual("unknown");
+          }
         }
       });
   });
