@@ -50,7 +50,9 @@ class recording_provider : public settings_manager::provider_interface {
     layout_count_++;
     calls_.push_back("layout");
   }
+  void validate_path_overrides() override { calls_.push_back("validate"); }
   void prepare_shared_folder() override { calls_.push_back("shared-folder"); }
+  void prepare_trust_store() override { calls_.push_back("trust-store"); }
 
   const std::map<std::string, std::string> &overrides() const { return overrides_; }
   int apply_count() const { return apply_count_; }
@@ -333,6 +335,51 @@ TEST_F(SettingsManagerBootTest, SharedFolderIsPreparedAfterPathOverridesAndBefor
   ASSERT_NE(paths, calls.end());
   ASSERT_NE(shared, calls.end());
   EXPECT_LT(paths - calls.begin(), shared - calls.begin()) << "the shared folder must be prepared against the final paths";
+}
+
+TEST_F(SettingsManagerBootTest, OverridesAreValidatedBeforeAnythingActsOnAPath) {
+  // The CLI override layer is installed before boot() and cannot be judged
+  // until the layout and [paths] are known. That deferral must not outlast
+  // boot(): validation used to run only after boot() returned, which left a
+  // bad --path-override in force across prepare_shared_folder() and
+  // prepare_trust_store(). A --path-override ca-path=relative/ca.pem was then
+  // used to write the trust store, dropped, and every later ${ca-path}
+  // expansion named the compiled default - so the agent wrote its trust
+  // material in one place and read it from another.
+  write_boot_ini("[layout]\nmode=modern\n[paths]\nshared-path=/tmp/explicit\n");
+
+  settings_manager::NSCSettingsImpl impl(provider_.get());
+  impl.boot("");
+
+  const auto &calls = provider_->calls();
+  const auto paths = std::find(calls.begin(), calls.end(), "paths");
+  const auto validate = std::find(calls.begin(), calls.end(), "validate");
+  const auto shared = std::find(calls.begin(), calls.end(), "shared-folder");
+  const auto trust = std::find(calls.begin(), calls.end(), "trust-store");
+  ASSERT_NE(validate, calls.end()) << "the deferred overrides are never judged inside boot()";
+  ASSERT_NE(paths, calls.end());
+  ASSERT_NE(shared, calls.end());
+  ASSERT_NE(trust, calls.end());
+  // After [paths], because until then an override built from an operator's own
+  // token cannot be told from a typo.
+  EXPECT_LT(paths - calls.begin(), validate - calls.begin()) << "overrides judged before [paths] is applied";
+  // ...and before anything acts on a path.
+  EXPECT_LT(validate - calls.begin(), shared - calls.begin()) << "the shared folder is created against an unvalidated override";
+  EXPECT_LT(validate - calls.begin(), trust - calls.begin()) << "the trust store is written against an unvalidated override";
+}
+
+TEST_F(SettingsManagerBootTest, OverridesAreValidatedEvenWithoutABootIni) {
+  // No boot.ini still means CLI overrides may be in force, and the prepare
+  // steps still run.
+  settings_manager::NSCSettingsImpl impl(provider_.get());
+  impl.boot("dummy");
+
+  const auto &calls = provider_->calls();
+  const auto validate = std::find(calls.begin(), calls.end(), "validate");
+  const auto shared = std::find(calls.begin(), calls.end(), "shared-folder");
+  ASSERT_NE(validate, calls.end());
+  ASSERT_NE(shared, calls.end());
+  EXPECT_LT(validate - calls.begin(), shared - calls.begin());
 }
 
 TEST_F(SettingsManagerBootTest, MissingBootIniStillPreparesTheSharedFolder) {

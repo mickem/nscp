@@ -93,7 +93,7 @@ runs:
       shell: cmd
 
     - id: cache
-      uses: actions/cache@v3
+      uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c # v3
       with:
         # The linkage flag and the suffix are part of the key, so a static
         # and a shared build of the same version never share a cache entry

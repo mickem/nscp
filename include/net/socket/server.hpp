@@ -149,7 +149,19 @@ class server : boost::noncopyable {
     if (info_.ssl.enabled) {
 #ifdef USE_SSL
       std::list<std::string> errors;
-      info_.ssl.configure_ssl_context(context_, errors);
+      try {
+        info_.ssl.configure_ssl_context(context_, errors);
+      } catch (const socket_helpers::socket_exception &e) {
+        // A rejected `verify mode` or `tls version` token lands here. Refusing
+        // to listen is the whole point: the alternative is a socket that
+        // accepts traffic with a TLS context the operator did not describe -
+        // historically an unknown verify token degraded to "request a client
+        // certificate but accept its absence". Every listener reaches start()
+        // through this path, so the refusal is uniform whether or not the
+        // module happens to wrap loadModuleEx in a catch.
+        logger_->log_error(__FILE__, __LINE__, "Refusing to listen on " + info_.get_endpoint_string() + ": " + e.reason());
+        return false;
+      }
       for (const std::string &e : errors) {
         logger_->log_error(__FILE__, __LINE__, e);
       }

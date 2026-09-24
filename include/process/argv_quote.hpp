@@ -8,6 +8,39 @@
 
 namespace process {
 
+// The path to hand CreateProcess as lpApplicationName, given argv[0] of a
+// configured command and the directory the launcher runs the child in
+// (exec_arguments::root_path, which is ${base-path}).
+//
+// lpApplicationName and lpCurrentDirectory are resolved against *different*
+// directories, and that is the whole reason this exists. lpCurrentDirectory
+// sets the working directory of the child; a relative lpApplicationName is
+// resolved against the working directory of the **calling** process, which for
+// a Windows service is C:\Windows\System32 and for an interactive `nscp test`
+// is wherever the operator happened to be standing. So the conventional
+// `command = scripts\check_foo.bat` found its script only when the agent had
+// been started from the installation directory.
+//
+// The legacy single-string form (lpApplicationName NULL, the module name
+// parsed out of the command line) does not have this problem - that lookup
+// honours lpCurrentDirectory - so before argv-isolation existed the relative
+// form worked from anywhere. Rooting argv[0] here is what restores parity, and
+// it is a fix rather than a policy change: nothing that already worked starts
+// resolving somewhere else, and ${scripts} is ${exe-path}/scripts on Windows,
+// so `scripts\check_foo.bat` joined onto ${base-path} names the same file the
+// token does.
+//
+// Left alone:
+//   * a path that names a root of its own (`C:\tools\x.exe`, `\srv\share\x.exe`,
+//     and the drive-relative `C:x.exe` / root-relative `\x.exe`) - the operator
+//     said where it is;
+//   * a bare file name with no directory component (`cmd.exe`,
+//     `powershell.exe`) - that is a request for the system's own executable
+//     search, and rooting it at the installation directory would break every
+//     wrapping that leans on PATH;
+//   * an empty argv[0], or an empty root, which leaves nothing to root at.
+std::string resolve_application_path(const std::string& root_path, const std::string& argv0);
+
 // Quote a single argument for inclusion in a Windows command line so that
 // CommandLineToArgvW round-trips it back to the original byte sequence.
 //

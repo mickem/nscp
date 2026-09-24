@@ -74,8 +74,18 @@ The unit correctly ran as an unprivileged account and had nothing else: no
 operator-defined and fleet-delivered scripts by design, that is a larger blast
 radius than it needs. The unit now sets `UMask=0027`,
 `ProtectKernelTunables=yes`, `ProtectKernelModules=yes`,
-`ProtectControlGroups=yes`, `RestrictSUIDSGID=yes`, `RestrictRealtime=yes` and
-`LockPersonality=yes`.
+`ProtectControlGroups=yes`, `RestrictSUIDSGID=yes`, `RestrictRealtime=yes`,
+`LockPersonality=yes` and `Group=nsclient`.
+
+`Group=` is a fix in its own right, reported by @Fantu. The unit named only
+`User=`, so the service ran under the account's primary group — and the DEB
+postinst creates the account with `adduser --system`, adding `nsclient` as a
+supplementary group only, which leaves the primary group as `nogroup` on Debian
+and Ubuntu. Together with `UMask=0027` that made every file the service wrote at
+runtime group-readable by `nogroup`, shared by many unprivileged daemons, and
+`/var/lib/nsclient` is 0755 from the postinst's `mkdir -p`, so `nsclient.db` and
+the `fleet/` tree — the enrollment key among them — were not protected by the
+directory either.
 
 `UMask=0027` is what stops `nsclient.db`, `fleet.ini`, `applied-state.json` and
 the unsealed contents of a bundle landing world-readable: all four are written

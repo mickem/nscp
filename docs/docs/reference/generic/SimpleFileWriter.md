@@ -64,7 +64,7 @@ channel=FILE
 
 #### FILE TO WRITE TO <a id="/settings/writers/file/file"></a>
 
-The filename to write output to.
+The filename to write output to. A bare file name is taken relative to the log folder; an absolute path is used as given.
 
 
 | Key            | Description                                       |

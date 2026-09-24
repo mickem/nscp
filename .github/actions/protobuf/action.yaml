@@ -52,7 +52,7 @@ runs:
       shell: cmd
 
     - id: cache
-      uses: actions/cache@v3
+      uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c # v3
       with:
         key: ${{ runner.os }}-protobuf-${{ inputs.version }}-${{ inputs.architecture }}-${{ inputs.runtime }}-${{ inputs.toolset }}
         path: |

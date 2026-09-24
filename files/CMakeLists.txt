@@ -82,19 +82,48 @@ if(NOT WIN32)
             GROUP_EXECUTE
         COMPONENT logs
     )
-    # Template the unit so WorkingDirectory/ExecStart track the chosen install
-    # prefix (NSCP_* values) instead of being baked to /usr.
-    configure_file(
-        nsclient.service.in
-        ${PROJECT_BINARY_DIR}/nsclient.service
-        @ONLY
-    )
-    install(
-        FILES
+    # How the daemon is supervised: systemd everywhere, launchd on macOS. Both
+    # descriptions are templated so the paths inside them track the chosen
+    # install prefix (the NSCP_* values) instead of being baked to /usr.
+    if(APPLE)
+        # The plist is installed into the payload like any other file, so
+        # `pkgbuild --root` picks it up and the installer lays it down in
+        # /Library/LaunchDaemons; the postinstall script is what loads it.
+        #
+        # No PIDFile here: launchd is the parent of the process it starts and
+        # tracks it directly, and a PIDFile would only give it a second, staler
+        # opinion about whether the job is alive. The systemd unit dropped its
+        # own PIDFile for the same reason, Type=simple making systemd the
+        # parent there.
+        configure_file(
+            macos/com.nsclient.nscp.plist.in
+            ${PROJECT_BINARY_DIR}/macos/${NSCP_LAUNCHD_LABEL}.plist
+            @ONLY
+        )
+        install(
+            FILES
+                ${PROJECT_BINARY_DIR}/macos/${NSCP_LAUNCHD_LABEL}.plist
+            DESTINATION ${LAUNCHD_TARGET_FOLDER}
+            COMPONENT runtime
+            PERMISSIONS
+                OWNER_READ
+                OWNER_WRITE
+                GROUP_READ
+                WORLD_READ
+        )
+    else()
+        configure_file(
+            nsclient.service.in
             ${PROJECT_BINARY_DIR}/nsclient.service
-        DESTINATION ${SYSTEMD_TARGET_FOLDER}
-        COMPONENT runtime
-    )
+            @ONLY
+        )
+        install(
+            FILES
+                ${PROJECT_BINARY_DIR}/nsclient.service
+            DESTINATION ${SYSTEMD_TARGET_FOLDER}
+            COMPONENT runtime
+        )
+    endif()
 endif()
 
 add_custom_target(copy_files ALL DEPENDS ${ALL_FILES})

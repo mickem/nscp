@@ -19,7 +19,8 @@ common:
         file:
           advanced: false
           default_value: output.txt
-          description: The filename to write output to.
+          description: The filename to write output to. A bare file name is taken relative to the log
+            folder; an absolute path is used as given.
           sample: false
           title: FILE TO WRITE TO
         host-syntax:

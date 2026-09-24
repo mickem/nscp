@@ -1,0 +1,81 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2004-2026 Michael Medin
+# SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
+#
+# Remove NSClient++ from this machine.
+#
+# macOS installer packages have no uninstall verb - the receipt database knows
+# what was installed but nothing acts on it - so a package that does not ship
+# this leaves the operator reconstructing a file list by hand. Installed as
+# @NSCP_SBINDIR@/uninstall-nsclient.
+#
+#   sudo @NSCP_SBINDIR@/uninstall-nsclient            # keep configuration
+#   sudo @NSCP_SBINDIR@/uninstall-nsclient --purge    # remove it too
+set -e
+
+LABEL="@NSCP_LAUNCHD_LABEL@"
+PLIST="/Library/LaunchDaemons/${LABEL}.plist"
+SVC_USER="@NSCP_SERVICE_USER@"
+PKG_ID="@NSCP_PKG_IDENTIFIER@"
+
+PURGE=no
+for arg in "$@"; do
+    case "$arg" in
+        --purge) PURGE=yes ;;
+        -h | --help)
+            sed -n '4,15p' "$0" | sed 's/^# \{0,1\}//'
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $arg (try --help)" >&2
+            exit 2
+            ;;
+    esac
+done
+
+if [ "$(id -u)" != "0" ]; then
+    echo "This must be run as root (try: sudo $0)" >&2
+    exit 1
+fi
+
+echo "Stopping ${LABEL}..."
+launchctl bootout "system/${LABEL}" 2>/dev/null || true
+rm -f "$PLIST"
+
+echo "Removing program files..."
+rm -f "@NSCP_SBINDIR@/nscp"
+rm -f "@NSCP_BINDIR@/check_nrpe" "@NSCP_BINDIR@/check_nscp" "@NSCP_BINDIR@/check_nsclient"
+rm -rf "@NSCP_PKGLIBDIR@"
+rm -rf "@NSCP_PKGDATADIR@"
+
+if [ "$PURGE" = "yes" ]; then
+    echo "Removing configuration, state and logs..."
+    rm -rf "@NSCP_PKGSYSCONFDIR@"
+    rm -rf "@NSCP_PKGSTATEDIR@"
+    rm -rf "@NSCP_LOGDIR@"
+
+    # The account only exists to own those directories, so it goes with them.
+    # Without --purge it is kept: the files it owns are still there, and a
+    # reinstall would otherwise create a *different* account with a recycled
+    # UID that does not match them.
+    if dscl . -read "/Users/${SVC_USER}" >/dev/null 2>&1; then
+        dscl . -delete "/Users/${SVC_USER}" || true
+    fi
+    if dscl . -read "/Groups/${SVC_USER}" >/dev/null 2>&1; then
+        dscl . -delete "/Groups/${SVC_USER}" || true
+    fi
+else
+    echo "Keeping @NSCP_PKGSYSCONFDIR@, @NSCP_PKGSTATEDIR@ and @NSCP_LOGDIR@ (pass --purge to remove)."
+fi
+
+# Forget the receipt last: until this runs, `pkgutil --pkgs` still lists a
+# package whose files are gone, and an upgrade would believe it was installed.
+pkgutil --forget "$PKG_ID" >/dev/null 2>&1 || true
+
+# This script is inside the tree it just deleted on some layouts; on others it
+# is the last thing left. Either way, remove it explicitly and do not touch
+# anything afterwards.
+rm -f "$0"
+
+echo "NSClient++ removed."
+exit 0

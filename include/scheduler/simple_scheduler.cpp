@@ -145,7 +145,21 @@ scheduler::op_task_object scheduler::get_task(const int id) {
   boost::mutex::scoped_lock l(mutex_);
   const auto it = tasks_.find(id);
   if (it == tasks_.end()) return {};
-  return {it->second};
+  // Direct-initialised, not `return {it->second};`. Boost 1.92 reimplemented
+  // optional over a union, and its converting constructor template
+  // `optional(U&&)` is explicit. For an lvalue `task&` that template is an
+  // exact match, so it beats the non-explicit `optional(const T&)` - which the
+  // argument would have to be qualification-adjusted for - and copy-list-
+  // initialization cannot choose an explicit constructor:
+  //
+  //     error: chosen constructor is explicit in copy-initialization
+  //
+  // `return it->second;` has the same problem for the same reason. Naming the
+  // type direct-initialises, which is allowed to pick an explicit constructor
+  // and compiles against every Boost version. (Boost 1.83, which the Linux
+  // packages build against, accepts all three spellings - this only showed up
+  // on macOS, where Homebrew ships 1.92.)
+  return op_task_object(it->second);
 }
 
 void scheduler::clear_tasks() {

@@ -16,6 +16,7 @@ Each topic has its own page:
 * [Scripts](scripts.md) — list and manage scripts
 * [Logs](logs.md) — read, write, status, reset, paginate
 * [Metrics](metrics.md) — flat JSON, OpenMetrics text, legacy nested JSON
+* [Facts](facts.md) — the opt-in host inventory the core collects
 * [Metadata](metadata.md) — performance counters, registered channels
 * [Results](results.md) — cached passive check results
 * [Legacy API](legacy.md) — pre-`/api/v2` endpoints kept for backwards compatibility

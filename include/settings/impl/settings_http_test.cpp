@@ -6,8 +6,11 @@
 #include <atomic>
 #include <boost/asio.hpp>
 #include <future>
+#include <map>
 #include <memory>
+#include <mutex>
 #include <settings/impl/settings_http.hpp>
+#include <settings/impl/settings_ini.hpp>
 #include <settings/test_helpers.hpp>
 #include <str/utils.hpp>
 #include <thread>
@@ -214,7 +217,6 @@ class loopback_listener {
   std::atomic<bool> served_;
   std::thread thread_;
 };
-
 
 }  // namespace
 
@@ -534,12 +536,67 @@ TEST(settings_http, attachment_target_expands_the_full_host_name) {
             "/etc/nsclient/" + boost::asio::ip::host_name() + ".ini");
 }
 
-TEST(settings_http, attachment_target_without_a_placeholder_is_unchanged) {
-  // Attachments have always been declared as plain paths; those must resolve
-  // exactly as before.
+TEST(settings_http, a_relative_attachment_target_lands_under_the_shared_path) {
+  // The documented form is a bare relative name, and expanding it left it
+  // relative - so the file was written relative to the service's working
+  // directory: C:\Windows\System32 for a Windows service, "/" under a bare
+  // init script. On Linux the shipped systemd unit happens to set
+  // WorkingDirectory to the package directory, which *is* ${shared-path}, so it
+  // landed correctly there by accident - and that accident is why nobody
+  // noticed. Root it explicitly: same answer on unix, same answer everywhere
+  // else now too.
   attachment_core core;
-  EXPECT_EQ(settings::settings_http::resolve_attachment_target(&core, "scripts/myscript.bat"), "scripts/myscript.bat");
+  // generic_string(): the join uses boost's preferred separator, which is a
+  // backslash on Windows. The folder it lands in is what matters here.
+  EXPECT_EQ(boost::filesystem::path(settings::settings_http::resolve_attachment_target(&core, "scripts/myscript.bat")).generic_string(),
+            "/etc/nsclient/scripts/myscript.bat");
+}
+
+TEST(settings_http, an_attachment_target_written_with_a_token_is_unchanged) {
+  attachment_core core;
   EXPECT_EQ(settings::settings_http::resolve_attachment_target(&core, "${shared-path}/scripts/myscript.bat"), "/etc/nsclient/scripts/myscript.bat");
+}
+
+TEST(settings_http, an_unzip_attachment_target_keeps_its_prefix_at_the_front) {
+  // cache_remote_file detects the archive form with substr(0, 6), so the prefix
+  // has to survive rooting at offset 0. Rooting the whole value would produce
+  // "/etc/nsclient/unzip:scripts" - no longer an archive instruction, just a
+  // very oddly named file for the download to land in.
+  attachment_core core;
+  EXPECT_EQ(boost::filesystem::path(settings::settings_http::resolve_attachment_target(&core, "unzip:scripts")).generic_string(),
+            "unzip:/etc/nsclient/scripts");
+}
+
+TEST(settings_http, an_unzip_attachment_target_roots_the_destination_behind_the_prefix) {
+  attachment_core core;
+  const std::string target = settings::settings_http::resolve_attachment_target(&core, "unzip:scripts/bundle");
+  ASSERT_EQ(target.substr(0, 6), "unzip:");
+  EXPECT_EQ(boost::filesystem::path(target.substr(6)).generic_string(), "/etc/nsclient/scripts/bundle");
+}
+
+TEST(settings_http, an_unzip_attachment_target_naming_a_root_is_left_alone) {
+  attachment_core core;
+  EXPECT_EQ(settings::settings_http::resolve_attachment_target(&core, "unzip:/srv/elsewhere"), "unzip:/srv/elsewhere");
+}
+
+TEST(settings_http, an_absolute_attachment_target_is_left_where_the_operator_put_it) {
+  // Rooting applies only to a value that names no location of its own. Pointing
+  // an attachment somewhere specific stays the operator's call.
+  attachment_core core;
+  EXPECT_EQ(settings::settings_http::resolve_attachment_target(&core, "/srv/elsewhere/myscript.bat"), "/srv/elsewhere/myscript.bat");
+}
+
+TEST(settings_http, an_attachment_target_naming_an_unknown_token_is_reported) {
+  // The caller skips just this attachment and keeps the configuration it has
+  // already loaded; what must not happen is a silent write to the wrong place.
+  class throwing_core : public attachment_core {
+   public:
+    std::string expand_path(std::string key) override {
+      if (key.find("${nope}") != std::string::npos) throw nscp::paths::path_expansion_error("Unknown path token ${nope}");
+      return attachment_core::expand_path(std::move(key));
+    }
+  } core;
+  EXPECT_THROW(settings::settings_http::resolve_attachment_target(&core, "${nope}/x.ini"), nscp::paths::path_expansion_error);
 }
 
 TEST(settings_http, attachment_target_and_source_agree_on_the_host) {
@@ -611,4 +668,266 @@ TEST(settings_http, a_url_without_a_scheme_is_refused_like_plain_http) {
   settings::settings_http s(&core, "test", "127.0.0.1:" + std::to_string(server.port()) + "/settings.ini");
 
   EXPECT_FALSE(server.served());
+}
+
+// --- a remote configuration that pulls in more remote files -----------------
+//
+// A fetched file is free to name further remote stores, and both forms end up
+// below this one in the instance tree:
+//
+//   [/includes]    -> a nested settings_http, two levels down (our child is the
+//                     INI store on our cached copy; *its* child is the include)
+//   [/attachments] -> a file cache_remote_file writes next to the agent
+//
+// house_keeping is the only thing in the process that re-downloads anything,
+// so it is the only thing that can keep either of them current. It used to
+// stop at this store, which left both pinned to whatever they held at boot
+// unless the top-level file happened to change - and on a server where the
+// top-level file is the stable part, that is never.
+
+namespace {
+
+// A loopback server that outlives a single fetch. Every test below asks for
+// the same url at least twice (once at construction, once per housekeeping
+// pass), and each response closes the connection because execute() reads the
+// body to EOF rather than honouring Content-Length.
+//
+// Bodies are keyed by request path and may be swapped between passes, which is
+// how a test spells "the operator edited the file on the settings server". The
+// per-path hit count is what proves a fetch did, or did not, happen.
+class serving_http {
+ public:
+  serving_http() : port_(0), running_(true) {
+    std::promise<unsigned short> p;
+    std::future<unsigned short> f = p.get_future();
+    thread_ = std::thread([this, prom = std::move(p)]() mutable {
+      try {
+        boost::asio::io_context io;
+        tcp::acceptor acceptor(io, {tcp::v4(), 0});
+        prom.set_value(acceptor.local_endpoint().port());
+        for (;;) {
+          boost::system::error_code ec;
+          tcp::socket socket(io);
+          acceptor.accept(socket, ec);
+          if (ec || !running_) return;
+          serve_one(socket);
+        }
+      } catch (...) {
+      }
+    });
+    port_ = f.get();
+  }
+
+  ~serving_http() { stop(); }
+
+  serving_http(const serving_http &) = delete;
+  serving_http &operator=(const serving_http &) = delete;
+
+  unsigned short port() const { return port_; }
+
+  void serve(const std::string &path, const std::string &body) {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    bodies_[path] = body;
+  }
+
+  // How many times this path has been asked for since the server started.
+  int hits(const std::string &path) {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    const std::map<std::string, int>::const_iterator it = hits_.find(path);
+    return it == hits_.end() ? 0 : it->second;
+  }
+
+  std::string url(const std::string &path) const { return "http://127.0.0.1:" + std::to_string(port_) + path; }
+
+ private:
+  void serve_one(tcp::socket &socket) {
+    boost::system::error_code ec;
+    boost::asio::streambuf request;
+    boost::asio::read_until(socket, request, "\r\n\r\n", ec);
+    std::istream is(&request);
+    std::string line;
+    std::getline(is, line);
+    if (!line.empty() && line.back() == '\r') line.pop_back();
+
+    // "GET /fleet.ini HTTP/1.0" - the middle token is what was asked for. The
+    // destructor's own unblocking connection sends nothing, so a line with no
+    // space in it means there is nothing to answer.
+    const std::string::size_type start = line.find(' ');
+    if (start == std::string::npos) return;
+    const std::string::size_type end = line.find(' ', start + 1);
+    const std::string path = line.substr(start + 1, end == std::string::npos ? std::string::npos : end - start - 1);
+
+    std::string body;
+    bool found = false;
+    {
+      const std::lock_guard<std::mutex> lock(mutex_);
+      hits_[path]++;
+      const std::map<std::string, std::string>::const_iterator it = bodies_.find(path);
+      if (it != bodies_.end()) {
+        body = it->second;
+        found = true;
+      }
+    }
+
+    const std::string status = found ? "HTTP/1.0 200 OK\r\n" : "HTTP/1.0 404 Not Found\r\n";
+    const std::string response = status + "Content-Length: " + std::to_string(body.size()) + "\r\n\r\n" + body;
+    boost::asio::write(socket, boost::asio::buffer(response), ec);
+    socket.shutdown(tcp::socket::shutdown_both, ec);
+  }
+
+  void stop() {
+    if (!thread_.joinable()) return;
+    running_ = false;
+    try {
+      boost::asio::io_context io;
+      tcp::socket probe(io);
+      boost::system::error_code ec;
+      probe.connect(tcp::endpoint(boost::asio::ip::make_address("127.0.0.1"), port_), ec);
+    } catch (...) {
+    }
+    thread_.join();
+  }
+
+  unsigned short port_;
+  std::atomic<bool> running_;
+  std::mutex mutex_;
+  std::map<std::string, std::string> bodies_;
+  std::map<std::string, int> hits_;
+  std::thread thread_;
+};
+
+// A core that builds children the way NSCSettingsImpl::create_instance does,
+// rather than returning the null the base mock hands back. Without it the
+// instance tree stops at this store and there is nothing below it to refresh -
+// which is exactly the shape these tests need to exercise.
+class chaining_http_core : public http_test_core {
+ public:
+  chaining_http_core(boost::filesystem::path cache, boost::filesystem::path shared) : http_test_core(std::move(cache)), shared_(std::move(shared)) {}
+
+  std::string expand_path(std::string key) override {
+    str::utils::replace(key, "${shared-path}", shared_.string());
+    return http_test_core::expand_path(key);
+  }
+
+  settings::instance_raw_ptr create_instance(std::string alias, std::string key) override {
+    const net::url url = net::parse(key);
+    if (url.protocol == "http" || url.protocol == "https") return settings::instance_raw_ptr(new settings::settings_http(this, alias, key));
+    return settings::instance_raw_ptr(new settings::INISettings(this, alias, key));
+  }
+
+ private:
+  boost::filesystem::path shared_;
+};
+
+const char *kRootPath = "/nsclient.ini";
+const char *kIncludePath = "/fleet.ini";
+
+std::string root_including(const std::string &include_url) { return std::string("[/includes]\nfleet = ") + include_url + "\n"; }
+
+}  // namespace
+
+TEST(settings_http, a_value_from_an_included_url_is_readable) {
+  // The baseline the refresh tests build on: an [/includes] entry naming a url
+  // resolves through the nested store, so /modules is served from fleet.ini
+  // even though the top-level file has no such section.
+  serving_http server;
+  server.serve(kRootPath, root_including(server.url(kIncludePath)));
+  server.serve(kIncludePath, "[/modules]\nCheckSystem = enabled\n");
+
+  temp_dir cache, shared;
+  chaining_http_core core(cache.path(), shared.path());
+  settings::settings_http s(&core, "test", server.url(kRootPath));
+
+  EXPECT_EQ(s.get_string("/modules", "CheckSystem", ""), "enabled");
+}
+
+TEST(settings_http, an_included_url_is_refetched_when_the_top_level_file_is_unchanged) {
+  // The reported case. Overriding house_keeping without chaining to the base
+  // stopped the walk at this store, so the nested store was only ever
+  // re-downloaded when the *top-level* file changed and the whole subtree was
+  // rebuilt from scratch. Point an agent at a stable nsclient.ini which
+  // includes the file that actually moves, and the include is pinned for the
+  // lifetime of the process.
+  serving_http server;
+  server.serve(kRootPath, root_including(server.url(kIncludePath)));
+  server.serve(kIncludePath, "[/modules]\nCheckSystem = enabled\n");
+
+  temp_dir cache, shared;
+  chaining_http_core core(cache.path(), shared.path());
+  settings::settings_http s(&core, "test", server.url(kRootPath));
+  ASSERT_EQ(s.get_string("/modules", "CheckSystem", ""), "enabled");
+  ASSERT_EQ(s.get_string("/modules", "NRDPClient", ""), "");
+
+  // Only the include moves; the top-level file is served byte-identical.
+  server.serve(kIncludePath, "[/modules]\nCheckSystem = enabled\nNRDPClient = enabled\n");
+  s.house_keeping();
+
+  EXPECT_EQ(s.get_string("/modules", "NRDPClient", ""), "enabled");
+  EXPECT_EQ(s.get_string("/modules", "CheckSystem", ""), "enabled") << "refreshing the include must not lose what it already had";
+  EXPECT_TRUE(core.needs_reload()) << "a changed include has to reach the scheduler, or nothing reloads to apply it";
+}
+
+TEST(settings_http, an_unchanged_included_url_is_still_asked_for) {
+  // The check above would pass for the wrong reason if the include were never
+  // fetched again at all: hash comparison, not the absence of a request, is
+  // what makes an unchanged include cheap.
+  serving_http server;
+  server.serve(kRootPath, root_including(server.url(kIncludePath)));
+  server.serve(kIncludePath, "[/modules]\nCheckSystem = enabled\n");
+
+  temp_dir cache, shared;
+  chaining_http_core core(cache.path(), shared.path());
+  settings::settings_http s(&core, "test", server.url(kRootPath));
+  ASSERT_EQ(server.hits(kIncludePath), 1);
+
+  s.house_keeping();
+
+  EXPECT_EQ(server.hits(kIncludePath), 2);
+  EXPECT_FALSE(core.needs_reload()) << "nothing changed, so nothing should ask the agent to reload";
+}
+
+TEST(settings_http, a_changed_top_level_file_does_not_fetch_its_includes_twice) {
+  // Why house_keeping returns early when our own copy changed: reload_data has
+  // already discarded the children and rebuilt them, and building the nested
+  // store downloads the include as part of its own construction. Recursing as
+  // well would ask for every include a second time in the same pass - on a
+  // fleet server, once per agent per interval.
+  serving_http server;
+  server.serve(kRootPath, root_including(server.url(kIncludePath)));
+  server.serve(kIncludePath, "[/modules]\nCheckSystem = enabled\n");
+
+  temp_dir cache, shared;
+  chaining_http_core core(cache.path(), shared.path());
+  settings::settings_http s(&core, "test", server.url(kRootPath));
+  ASSERT_EQ(server.hits(kIncludePath), 1);
+
+  server.serve(kRootPath, root_including(server.url(kIncludePath)) + "[/settings/default]\nallowed hosts = 10.0.0.1\n");
+  s.house_keeping();
+
+  EXPECT_EQ(server.hits(kIncludePath), 2) << "the rebuilt subtree already fetched it";
+  EXPECT_EQ(s.get_string("/settings/default", "allowed hosts", ""), "10.0.0.1");
+  EXPECT_EQ(s.get_string("/modules", "CheckSystem", ""), "enabled") << "the include has to survive the rebuild";
+}
+
+TEST(settings_http, an_attachment_is_refetched_when_the_top_level_file_is_unchanged) {
+  // Attachments were in the same position as includes: fetch_attachments ran
+  // at construction and inside the "our own file changed" branch, so an
+  // external script served alongside a stable nsclient.ini was written once at
+  // boot and never updated again.
+  serving_http server;
+  server.serve(kRootPath, "[/attachments]\nscripts/check.bat = " + server.url("/check.bat") + "\n");
+  server.serve("/check.bat", "@echo first\n");
+
+  temp_dir cache, shared;
+  chaining_http_core core(cache.path(), shared.path());
+  settings::settings_http s(&core, "test", server.url(kRootPath));
+
+  const boost::filesystem::path written = shared.path() / "scripts" / "check.bat";
+  ASSERT_TRUE(boost::filesystem::is_regular_file(written));
+  ASSERT_EQ(file_helpers::read_file_as_string(written), "@echo first\n");
+
+  server.serve("/check.bat", "@echo second\n");
+  s.house_keeping();
+
+  EXPECT_EQ(file_helpers::read_file_as_string(written), "@echo second\n");
 }

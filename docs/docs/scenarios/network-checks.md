@@ -401,9 +401,12 @@ check_nsclient_web_online url=https://192.168.0.10:8443 password=secret command=
 ```
 
 A wrong password reports `Authentication failed (HTTP 403)`; an unreachable
-agent is CRITICAL. The remote certificate is not verified by default
-(`verify=none`) since agents usually present a self-signed certificate — set
-`verify=peer` with `ca=` to enforce it.
+agent is CRITICAL. The remote certificate is verified by default
+(`verify=peer`, against the agent's own trust bundle) because the check sends
+the remote agent's API password. An agent still using the self-signed
+certificate it generates on first start needs `ca=` pointed at that certificate
+and `verify=peer-cert`; `verify=none` leaves the agent unauthenticated and has
+to be asked for.
 
 ---
 

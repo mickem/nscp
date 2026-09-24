@@ -11,12 +11,20 @@
 # CRYPTOPP_INCLUDE_DIR    - Set to where include files ar found (or sources)
 # CRYPTOPP_LIBRARIES              - Set to library
 
+# The headers are included unqualified (`#include <cryptlib.h>`, see
+# libs/nscpcrypt/nscpcrypt.cpp), so what is wanted here is the directory the
+# headers are *in* - /usr/include/crypto++ on Debian, <prefix>/include/cryptopp
+# from a package manager - not the prefix above it. CRYPTOPP_ROOT is accepted as
+# either: pass `brew --prefix cryptopp` on macOS and the include/cryptopp
+# spelling below picks it up.
 find_path(
     CRYPTOPP_INCLUDE_DIR
     cryptlib.h
     PATHS
         ${CRYPTOPP_DIR}
         ${CRYPTOPP_ROOT}
+        ${CRYPTOPP_ROOT}/include/cryptopp
+        ${CRYPTOPP_ROOT}/include/crypto++
         /usr/include/crypto++
         /usr/include/cryptopp
         /usr/include
@@ -36,6 +44,19 @@ else()
     set(CRYPTOPP_LIB_ROOT ${CRYPTOPP_INCLUDE_DIR}/Win32)
 endif()
 
+# The installed-prefix layout, where there is one build rather than a
+# debug/release pair - so both lookups resolve to the same file, as they already
+# do on Debian. CRYPTOPP_FOUND requires both, so leaving it out of one of them
+# would disable Crypto++ entirely (and with it NSCA encryption).
+#
+# Guarded on CRYPTOPP_ROOT being set: interpolating an unset one yields the bare
+# "/lib", which find_library also tries as "/lib64" - a real directory holding
+# libcryptopp.so on RedHat - ahead of /usr/lib, silently changing which path a
+# working Linux build records.
+set(_CRYPTOPP_ROOT_LIBDIRS)
+if(CRYPTOPP_ROOT)
+    set(_CRYPTOPP_ROOT_LIBDIRS ${CRYPTOPP_ROOT}/lib)
+endif()
 find_library(
     CRYPTOPP_LIBRARIES_RELEASE
     NAMES
@@ -45,6 +66,7 @@ find_library(
     PATHS
         ${CRYPTOPP_LIB_ROOT}/Output/Release
         ${CRYPTOPP_LIB_ROOT}/Output
+        ${_CRYPTOPP_ROOT_LIBDIRS}
         /usr/lib/
 )
 find_library(
@@ -56,6 +78,7 @@ find_library(
     PATHS
         ${CRYPTOPP_LIB_ROOT}/Output/Debug
         ${CRYPTOPP_LIB_ROOT}/Output
+        ${_CRYPTOPP_ROOT_LIBDIRS}
         /usr/lib/
 )
 

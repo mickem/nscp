@@ -207,6 +207,29 @@ packaging, and were wrong when the templates were first written:
 | `Moniker` | `nscp` | What 0.16.4 published, and what users type in `winget install nscp`. Renaming it on a later version breaks them. |
 | `Tags` | includes `naemon` | Published in 0.16.4; dropping a tag loses the searches that found the package by it. |
 
+### Why `ManifestVersion` is pinned at 1.9.0
+
+The three WinGet templates declare `ManifestVersion: 1.9.0` and a matching
+`$schema` header. Do not bump either to "the latest" without a field that
+needs it:
+
+* `winget validate` resolves the schema header against the schema **embedded
+  in the winget build doing the validating**, picking the highest version
+  bucket that build knows. The in-box winget on the `windows-latest` runner
+  lags winget-pkgs, so a manifest that declares 1.12.0 is checked against an
+  older bucket, the `$id` no longer matches the header, and every file draws
+  "The schema header URL does not match the expected pattern". That is what
+  broke the 0.21.0 and 0.22.0 releases, whose manifests were therefore never
+  submitted.
+* A *lower* `ManifestVersion` is also better for users: a winget client older
+  than the declared version cannot parse the manifest at all. Nothing in these
+  templates needs anything past 1.5 (`Documentations`), so 1.9.0 buys margin
+  in both directions.
+
+Bump it only alongside a field that requires the newer schema, and keep the
+header and `ManifestVersion` in lockstep — they are validated against each
+other as well as against the schema.
+
 ### Keeping metadata consistent between versions
 
 `winget-pkgs` runs a metadata-consistency check that compares a submission

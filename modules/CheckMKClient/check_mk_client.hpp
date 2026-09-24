@@ -5,6 +5,7 @@
 
 #include <boost/scoped_ptr.hpp>
 #include <boost/thread/locks.hpp>
+#include <memory>
 #include <net/check_mk/client/client_protocol.hpp>
 #include <net/socket/client.hpp>
 #include <nscapi/macros.hpp>
@@ -13,17 +14,36 @@
 
 namespace check_mk_client {
 struct connection_data : public socket_helpers::connection_info {
-  connection_data(client::destination_container arguments, client::destination_container sender) {
+  // `handler` is only used to expand ${...} in the configured paths; it is the
+  // same handler the connection itself is driven through (see
+  // check_mk_client_handler::query). A null handler leaves the paths verbatim,
+  // which is what a unit test without a core wants.
+  connection_data(client::destination_container arguments, client::destination_container sender,
+                  const std::shared_ptr<socket_helpers::client::client_handler> &handler = nullptr) {
+    const auto expand = [&handler](const std::string &path) { return handler ? handler->expand_path(path) : path; };
     address = arguments.address.host;
     port_ = arguments.address.get_port_string("6556");
     ssl.enabled = arguments.get_bool_data("ssl");
     ssl.certificate = arguments.get_string_data("certificate");
     ssl.certificate_key = arguments.get_string_data("certificate key");
     ssl.certificate_key_format = arguments.get_string_data("certificate format");
-    ssl.ca_path = arguments.get_string_data("ca");
+    ssl.ca_path = arguments.get_string_data("ca", "${ca-path}");
     ssl.allowed_ciphers = arguments.get_string_data("allowed ciphers");
     ssl.dh_key = arguments.get_string_data("dh");
-    ssl.verify_mode = arguments.get_string_data("verify mode");
+    // Verified by default. An empty verify mode parses to verify_none, so the
+    // old "leave it unset" behaviour meant a TLS-enabled target encrypted the
+    // agent section but never authenticated the agent it came from. Reach an
+    // agent presenting its own self-signed certificate with
+    // `verify mode = peer-cert` and `ca` pointing at that certificate.
+    ssl.verify_mode = arguments.get_string_data("verify mode", "peer");
+    // A key left blank in the ini would otherwise parse to verify_none rather
+    // than fall back to the default; `none` is the spelling that opts out.
+    if (ssl.verify_mode.empty()) ssl.verify_mode = "peer";
+    if (ssl.ca_path.empty()) ssl.ca_path = "${ca-path}";
+    // The settings layer expands a configured `ca` (registered as a path key),
+    // but the default above and a `ca=` given on the command line or over REST
+    // arrive verbatim - and "${ca-path}" is not a filename.
+    ssl.ca_path = expand(ssl.ca_path);
     timeout = arguments.get_int_data("timeout", 30);
     if (arguments.has_data("no ssl")) ssl.enabled = !arguments.get_bool_data("no ssl");
     if (arguments.has_data("use ssl")) ssl.enabled = arguments.get_bool_data("use ssl");
@@ -58,7 +78,7 @@ struct check_mk_client_handler : public client::handler_interface {
     const ::PB::Common::Header &request_header = request_message.header();
     // (target, sender), matching the ctor: the target's settings decide
     // where to connect, not the sender's.
-    check_mk_client::connection_data con(target, sender);
+    check_mk_client::connection_data con(target, sender, std::make_shared<client_handler>());
 
     nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 

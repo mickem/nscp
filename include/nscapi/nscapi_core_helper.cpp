@@ -48,7 +48,7 @@ nscapi::core_helper::storage_map nscapi::core_helper::get_storage_strings(std::s
   return ret;
 }
 
-bool nscapi::core_helper::put_storage(std::string context, std::string key, std::string value, bool private_data, bool binary_data) {
+bool nscapi::core_helper::put_storage(std::string context, std::string key, std::string value, bool private_data, bool binary_data, bool flush) {
   PB::Storage::StorageRequestMessage rrm;
   PB::Storage::StorageRequestMessage::Request *payload = rrm.add_payload();
 
@@ -58,6 +58,7 @@ bool nscapi::core_helper::put_storage(std::string context, std::string key, std:
   payload->mutable_put()->mutable_entry()->set_value(value);
   payload->mutable_put()->mutable_entry()->set_private_data(private_data);
   payload->mutable_put()->mutable_entry()->set_binary_data(binary_data);
+  payload->mutable_put()->set_flush(flush);
   std::string buffer;
   get_core()->storage_query(rrm.SerializeAsString(), buffer);
 

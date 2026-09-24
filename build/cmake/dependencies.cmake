@@ -322,24 +322,17 @@ else()
         " ! dotnet SDK not found: managed .NET plugin API and C# sample not built"
     )
 endif()
-# Report the resolved ZIP backend (computed above). libzip may be located
-# either via its CMake config package (imported target libzip::zip) or via
-# pkg-config (LIBZIP_INCLUDE_DIRS/LIBZIP_LIBRARIES, no target) — both count as
-# a working libzip backend.
+# Report the resolved ZIP backend (computed above). libzip may be located either
+# via its CMake config package or via pkg-config; both define the imported
+# target libzip::zip, so FindLibZip records which route it took in LIBZIP_SOURCE
+# rather than having this guess from the target's existence.
 if(NSCP_ZIP_BACKEND STREQUAL "miniz")
     message(STATUS " - ZIP backend: miniz (${MINIZ_INCLUDE_DIR})")
 elseif(NSCP_ZIP_BACKEND STREQUAL "libzip")
-    if(TARGET libzip::zip)
-        message(
-            STATUS
-            " - ZIP backend: libzip (CMake config package): ${LIBZIP_INCLUDE_DIRS}"
-        )
-    else()
-        message(
-            STATUS
-            " - ZIP backend: libzip (pkg-config): ${LIBZIP_INCLUDE_DIRS}"
-        )
-    endif()
+    message(
+        STATUS
+        " - ZIP backend: libzip (${LIBZIP_SOURCE}): ${LIBZIP_INCLUDE_DIRS}"
+    )
 else()
     # Not fatal: the libs/minizip wrapper builds a stub (NSCP_NO_ZIP) and ZIP
     # archive reading is disabled. Install libzip-dev (Debian) / libzip-devel

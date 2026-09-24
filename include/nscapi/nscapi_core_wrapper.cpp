@@ -4,6 +4,7 @@
 #include <atomic>
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_helper.hpp>
+#include <nscapi/protobuf/facts.hpp>
 #include <nsclient/nsclient_exception.hpp>
 
 #define CORE_LOG_ERROR(msg)                                 \
@@ -40,6 +41,7 @@ nscapi::core_wrapper::core_wrapper()
       fNSAPIStorageQuery(nullptr),
       fNSAPISetTag(nullptr),
       fNSAPIGetTags(nullptr),
+      fNSAPIFactsQuery(nullptr),
       fNSAPISetLogOption(nullptr) {}
 nscapi::core_wrapper::~core_wrapper() { delete pimpl; }
 
@@ -282,6 +284,41 @@ std::string nscapi::core_wrapper::get_tags_json() const {
 }
 
 namespace {
+std::string facts_request(const PB::Facts::FactsRequestMessage::Request::Command command, const std::string &path) {
+  PB::Facts::FactsRequestMessage message;
+  PB::Facts::FactsRequestMessage::Request *payload = message.add_payload();
+  payload->set_command(command);
+  if (!path.empty()) payload->set_path(path);
+  return message.SerializeAsString();
+}
+}  // namespace
+
+std::string nscapi::core_wrapper::get_facts(const std::string &path) const {
+  if (!fNSAPIFactsQuery) return "";
+  const std::string request = facts_request(PB::Facts::FactsRequestMessage::Request::GET, path);
+  char *buffer = nullptr;
+  unsigned int buffer_size = 0;
+  const bool retC = NSCAPI::api_ok(fNSAPIFactsQuery(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
+  std::string response;
+  if (buffer_size > 0 && buffer != nullptr) {
+    response = std::string(buffer, buffer_size);
+  }
+  DestroyBuffer(&buffer);
+  if (!retC) return "";
+  return response;
+}
+
+bool nscapi::core_wrapper::refresh_facts() const {
+  if (!fNSAPIFactsQuery) return false;
+  const std::string request = facts_request(PB::Facts::FactsRequestMessage::Request::REFRESH, "");
+  char *buffer = nullptr;
+  unsigned int buffer_size = 0;
+  const bool retC = NSCAPI::api_ok(fNSAPIFactsQuery(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
+  DestroyBuffer(&buffer);
+  return retC;
+}
+
+namespace {
 // Skip JSON insignificant whitespace.
 void tags_skip_ws(const std::string &s, std::size_t &i) {
   while (i < s.size() && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r')) ++i;
@@ -304,14 +341,30 @@ bool tags_parse_string(const std::string &s, std::size_t &i, std::string &out) {
     if (i >= s.size()) return false;
     const char e = s[i++];
     switch (e) {
-      case '"': out.push_back('"'); break;
-      case '\\': out.push_back('\\'); break;
-      case '/': out.push_back('/'); break;
-      case 'b': out.push_back('\b'); break;
-      case 'f': out.push_back('\f'); break;
-      case 'n': out.push_back('\n'); break;
-      case 'r': out.push_back('\r'); break;
-      case 't': out.push_back('\t'); break;
+      case '"':
+        out.push_back('"');
+        break;
+      case '\\':
+        out.push_back('\\');
+        break;
+      case '/':
+        out.push_back('/');
+        break;
+      case 'b':
+        out.push_back('\b');
+        break;
+      case 'f':
+        out.push_back('\f');
+        break;
+      case 'n':
+        out.push_back('\n');
+        break;
+      case 'r':
+        out.push_back('\r');
+        break;
+      case 't':
+        out.push_back('\t');
+        break;
       case 'u': {
         if (i + 4 > s.size()) return false;
         unsigned int cp = 0;
@@ -451,6 +504,7 @@ bool nscapi::core_wrapper::load_endpoints(core_api::lpNSAPILoader f) {
   fNSAPISetTag = reinterpret_cast<core_api::lpNSAPISetTag>(f("NSAPISetTag"));
   fNSAPIGetTags = reinterpret_cast<core_api::lpNSAPIGetTags>(f("NSAPIGetTags"));
   fNSAPISetLogOption = reinterpret_cast<core_api::lpNSAPISetLogOption>(f("NSAPISetLogOption"));
+  fNSAPIFactsQuery = reinterpret_cast<core_api::lpNSAPIFactsQuery>(f("NSAPIFactsQuery"));
 
   return true;
 }

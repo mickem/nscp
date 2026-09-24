@@ -79,6 +79,8 @@ The most common check commands with their default thresholds:
 - **Windows**: Windows 2008 and later (Win32 and x64).
     - For Windows XP / Server 2003, use the legacy 0.4.x branch.
 - **Linux**: Debian, Ubuntu, CentOS/RHEL (limited module support).
+- **macOS** *(experimental)*: Apple silicon only, as a launchd daemon. Fewer
+  check modules again — see [Supported platforms](setup/supported-platforms.md#macos).
 
 ## Supported Protocols
 
@@ -87,7 +89,7 @@ The most common check commands with their default thresholds:
 - **[NRDP](scenarios/passive-monitoring-nsca.md#using-nrdp-instead-of-nsca)**: Nagios Remote Data Processor — modern HTTP-based alternative to NSCA.
 - **[Icinga 2](scenarios/passive-monitoring-icinga.md)**: Submit scheduled check results to the Icinga 2 REST API.
 - **[REST API](api/rest/index.md)**: For custom integrations and scripts.
-- **check_mk**: For check_mk users, NSClient++ can be configured to work with the check_mk agent protocol — see [CheckMKClient](reference/check/CheckMKClient.md) / [CheckMKServer](reference/check/CheckMKServer.md) reference.
+- **check_mk**: For check_mk users, NSClient++ can be configured to work with the check_mk agent protocol — see [CheckMKClient](reference/client/CheckMKClient.md) / [CheckMKServer](reference/client/CheckMKServer.md) reference.
 - **Graphite**: For sending performance data to Graphite/Carbon — see [GraphiteClient](reference/client/GraphiteClient.md) reference.
 - **[Prometheus](scenarios/prometheus.md)**: Exposes metrics in OpenMetrics format on `/api/v2/openmetrics` for Prometheus to scrape.
 

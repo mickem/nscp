@@ -3,12 +3,28 @@ icon: "🔒"
 modules: [packaging]
 action: conditional
 ---
-**The Linux systemd unit is hardened, the DEB no longer depends on `sudo`, and
-`CauseCrashes` is not in any package.** The unit sets `UMask=0027`,
-`ProtectKernelTunables=yes`, `ProtectKernelModules=yes`,
+**The Linux systemd unit is hardened, the service runs under its own group, the
+DEB no longer depends on `sudo`, and `CauseCrashes` is not in any package.** The
+unit sets `UMask=0027`, `ProtectKernelTunables=yes`, `ProtectKernelModules=yes`,
 `ProtectControlGroups=yes`, `RestrictSUIDSGID=yes`, `RestrictRealtime=yes` and
 `LockPersonality=yes`. None of those change anything the agent observes, so no
 check answers differently after the upgrade.
+
+**`Group=nsclient` closes a disclosure on Debian and Ubuntu.** Without it the
+service ran under the account's *primary* group, and the postinst creates the
+account with `adduser --system` and adds `nsclient` only as a supplementary
+group — so the primary group stayed `nogroup`. With `UMask=0027` that left every
+file the service wrote at runtime readable by `nogroup`, which many unprivileged
+daemons share, and `/var/lib/nsclient` is `0755` from the postinst's `mkdir -p`,
+so `nsclient.db` and the `fleet/` tree — including the enrollment key — were not
+covered by the directory either. Upgrading fixes existing installs; no action is
+needed beyond that. If you created the service account by hand, make sure an
+`nsclient` group exists, since the unit now names it.
+
+The unit also gains `Documentation=` and `After=network.target`. The ordering
+guarantees little at start-up, but at shutdown it stops the agent before the
+network goes down, which is what a daemon holding client connections and
+submitting results wants.
 
 **`ProtectSystem`, `ProtectHome` and `PrivateTmp` are deliberately not set**,
 and the unit explains why at length. They are the three directives that give a

@@ -101,7 +101,11 @@ class NSCAPI_EXPORT core_helper {
   bool emit_event(std::string module, std::string event, std::map<std::string, std::string> data, std::string &error);
 
   typedef std::map<std::string, std::string> storage_map;
-  bool put_storage(std::string context, std::string key, std::string value, bool private_data, bool binary_data);
+  // With `flush` the core writes the whole store to disk before returning,
+  // instead of waiting for the shutdown save. Use it for state that must not
+  // be lost if the process is killed; it rewrites nsclient.db, so it is for
+  // rare events (a session being revoked), not for every put.
+  bool put_storage(std::string context, std::string key, std::string value, bool private_data, bool binary_data, bool flush = false);
   storage_map get_storage_strings(std::string context);
 
   bool load_module(std::string name, std::string alias = "");

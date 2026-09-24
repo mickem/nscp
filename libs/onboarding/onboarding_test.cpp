@@ -26,6 +26,7 @@
 
 #include <csignal>
 #include <cstdlib>
+#include <cstring>
 #include <functional>
 #endif
 
@@ -227,6 +228,50 @@ TEST(OnboardingParse, GarbageThrows) {
   } catch (const onboarding::onboarding_error &e) {
     EXPECT_FALSE(e.retryable());
   }
+}
+
+// The url the response names is where every later call goes, and on a plain
+// socket the client certificate and the pinned server certificate are not used
+// at all - the management channel that applies configuration and runs signed
+// bundles would be unauthenticated, silently.
+TEST(OnboardingParse, RefusesAManagementUrlThatIsNotHttps) {
+  for (const char *url : {"http://mtls.example.com:8443", "mtls.example.com:8443", "ftp://mtls.example.com", "//mtls.example.com"}) {
+    const std::string body = std::string("{\"cert_pem\": \"CERT\", \"ca_pem\": \"CA\", \"bundle_signing_pub_pem\": \"BUNDLE-KEY\",") +
+                             "\"mtls_url\": \"" + url + "\", \"mtls_server_cert_pem\": \"MTLS-CERT\"}";
+    try {
+      onboarding::parse_enroll_response(body, test_identity(), "https://fallback.example.com");
+      ADD_FAILURE() << "accepted a plaintext management url: " << url;
+    } catch (const onboarding::onboarding_error &e) {
+      EXPECT_FALSE(e.retryable());
+      EXPECT_NE(std::string(e.what()).find("not https"), std::string::npos) << e.what();
+    }
+  }
+}
+
+TEST(OnboardingParse, AcceptsAPlaintextManagementUrlWhenTheOperatorAskedForIt) {
+  const std::string body =
+      "{\"cert_pem\": \"CERT\", \"ca_pem\": \"CA\", \"bundle_signing_pub_pem\": \"BUNDLE-KEY\","
+      "\"mtls_url\": \"http://mtls.example.com\", \"mtls_server_cert_pem\": \"MTLS-CERT\"}";
+  const onboarding::enrolled_identity result = onboarding::parse_enroll_response(body, test_identity(), "https://fallback.example.com", true);
+  EXPECT_EQ(result.mtls_url, "http://mtls.example.com");
+  // Recorded, so the sync loop can honour the decision and say on every start
+  // that this host's management channel is unauthenticated.
+  EXPECT_TRUE(result.allow_plaintext);
+}
+
+TEST(OnboardingParse, DoesNotMarkAnHttpsManagementUrlAsPlaintextAllowed) {
+  // --insecure is about the enrollment call too; it must not leave an https
+  // manifest flagged as a plaintext one.
+  const onboarding::enrolled_identity result = onboarding::parse_enroll_response(ok_body, test_identity(), "https://fallback.example.com", true);
+  EXPECT_FALSE(result.allow_plaintext);
+}
+
+TEST(OnboardingUrls, IsPlaintextUrlTreatsAMissingSchemeAsPlaintext) {
+  EXPECT_FALSE(onboarding::is_plaintext_url("https://fleet.example.com/agent"));
+  EXPECT_FALSE(onboarding::is_plaintext_url("HTTPS://fleet.example.com"));
+  EXPECT_TRUE(onboarding::is_plaintext_url("http://fleet.example.com"));
+  EXPECT_TRUE(onboarding::is_plaintext_url("fleet.example.com/agent")) << "no scheme is opened on a plain socket just the same";
+  EXPECT_TRUE(onboarding::is_plaintext_url(""));
 }
 
 TEST(OnboardingEnroll, PostsTokenAndCsrToEnrollEndpoint) {
@@ -682,6 +727,99 @@ TEST_F(OnboardingStateTest, RoundTrip) {
   EXPECT_EQ(loaded.value().mtls_url, saved.mtls_url);
   EXPECT_EQ(loaded.value().mtls_server_cert_pem, saved.mtls_server_cert_pem);
 }
+
+#ifndef WIN32
+// `sudo nscp enroll` writes the manifest into ${data-path}, which packaging
+// hands to the unprivileged service account. Every name there is a name that
+// account can pre-create, so a plain open of `agent-state.json.tmp` is a
+// root-truncates-any-file primitive: plant a symlink to /etc/shadow and root
+// empties it. The write has to refuse instead.
+TEST_F(OnboardingStateTest, RefusesToWriteThroughAPlantedTemporarySymlink) {
+  const fs::path victim = dir_ / "victim";
+  {
+    std::ofstream out(victim.string().c_str());
+    out << "do not truncate me" << std::endl;
+  }
+  ASSERT_EQ(::symlink(victim.string().c_str(), (path_ + ".tmp").c_str()), 0) << std::strerror(errno);
+
+  // The planted link is removed (removing a link never touches its target) and
+  // the manifest is then created fresh, so enrollment still succeeds - what it
+  // must never do is open the name and write through it.
+  EXPECT_NO_THROW(onboarding::save_state(test_state(), path_));
+
+  // The victim is untouched and still holds its content.
+  std::ifstream in(victim.string().c_str());
+  std::string line;
+  std::getline(in, line);
+  EXPECT_EQ(line, "do not truncate me");
+  EXPECT_TRUE(onboarding::load_state(path_)) << "the manifest itself was written";
+  EXPECT_FALSE(fs::is_symlink(path_));
+}
+
+// A directory component the service account owns can be swapped for a symlink
+// just as easily as the file, so the parent is opened O_NOFOLLOW too.
+TEST_F(OnboardingStateTest, RefusesToWriteThroughAPlantedDirectorySymlink) {
+  const fs::path real = dir_ / "real";
+  fs::create_directories(real);
+  const fs::path link = dir_ / "link";
+  ASSERT_EQ(::symlink(real.string().c_str(), link.string().c_str()), 0) << std::strerror(errno);
+
+  EXPECT_THROW(onboarding::save_state(test_state(), (link / "agent-state.json").string()), onboarding::onboarding_error);
+  EXPECT_FALSE(fs::exists(real / "agent-state.json"));
+}
+
+// A temporary left behind by a crashed enrollment must not block the next one.
+TEST_F(OnboardingStateTest, ReplacesAStaleTemporaryFile) {
+  {
+    std::ofstream out((path_ + ".tmp").c_str());
+    out << "leftover from a crashed run" << std::endl;
+  }
+  EXPECT_NO_THROW(onboarding::save_state(test_state(), path_));
+  EXPECT_FALSE(fs::exists(path_ + ".tmp"));
+  EXPECT_TRUE(onboarding::load_state(path_));
+}
+
+// save_state over an existing manifest is the renewal path and has to keep
+// working: the exclusive create applies to the temporary, and the rename
+// replaces the name rather than writing through whatever sits behind it.
+TEST_F(OnboardingStateTest, OverwritesAnExistingManifestThroughTheRename) {
+  onboarding::save_state(test_state(), path_);
+  onboarding::enrolled_identity renewed = test_state();
+  renewed.server_url = "https://renewed.example.com";
+  EXPECT_NO_THROW(onboarding::save_state(renewed, path_));
+  const boost::optional<onboarding::enrolled_identity> loaded = onboarding::load_state(path_);
+  ASSERT_TRUE(loaded);
+  EXPECT_EQ(loaded.value().server_url, "https://renewed.example.com");
+}
+
+TEST_F(OnboardingStateTest, CreateFileExclusiveRefusesAPlantedSymlink) {
+  const fs::path victim = dir_ / "victim";
+  {
+    std::ofstream out(victim.string().c_str());
+    out << "keep me" << std::endl;
+  }
+  const std::string target = (dir_ / "fleet.ini").string();
+  ASSERT_EQ(::symlink(victim.string().c_str(), target.c_str()), 0) << std::strerror(errno);
+
+  EXPECT_THROW(onboarding::create_file_exclusive(target, "; placeholder\n", 0644), onboarding::onboarding_error);
+
+  std::ifstream in(victim.string().c_str());
+  std::string line;
+  std::getline(in, line);
+  EXPECT_EQ(line, "keep me");
+}
+
+TEST_F(OnboardingStateTest, CreateFileExclusiveWritesAndRefusesASecondCall) {
+  const std::string target = (dir_ / "fleet.ini").string();
+  ASSERT_NO_THROW(onboarding::create_file_exclusive(target, "; placeholder\n", 0644));
+  std::ifstream in(target.c_str());
+  std::string line;
+  std::getline(in, line);
+  EXPECT_EQ(line, "; placeholder");
+  // Already there: refuse rather than write through it.
+  EXPECT_THROW(onboarding::create_file_exclusive(target, "; again\n", 0644), onboarding::onboarding_error);
+}
+#endif
 
 TEST_F(OnboardingStateTest, RoundTripsBundleKeys) {
   onboarding::enrolled_identity saved = test_state();
@@ -1217,6 +1355,19 @@ TEST_F(OnboardingStateTest, AnUnreadableStateFileThrows) {
   fs::permissions(path_, fs::owner_read | fs::owner_write);
 }
 
+// Linux only. Everything below fakes root with a user namespace - unshare(2)
+// with CLONE_NEWUSER, then /proc/self/{uid,gid}_map - and none of that exists
+// on Darwin: no unshare, no CLONE_NEWUSER, no procfs. The enclosing #ifndef
+// WIN32 was not enough, and the macOS build failed on exactly that:
+//
+//     error: no member named 'unshare' in the global namespace
+//     error: use of undeclared identifier 'CLONE_NEWUSER'
+//
+// These cover a Linux-specific privilege handoff, so not compiling them
+// elsewhere loses no coverage of portable behaviour; the unprivileged
+// adopt_owner tests above still run everywhere.
+#if defined(__linux__)
+
 // --- adopt_owner under a fake root ------------------------------------------
 // The chown handoff itself only runs as root (geteuid() == 0), which the tests
 // above skip. A user namespace gives us that root: fork a child, map the
@@ -1446,4 +1597,5 @@ TEST_F(OnboardingStateTest, FakeRootLeavesASymlinkedReferenceAlone) {
   SKIP_WITHOUT_FAKE_ROOT(rc);
   EXPECT_EQ(rc, 0);
 }
+#endif  // defined(__linux__)
 #endif

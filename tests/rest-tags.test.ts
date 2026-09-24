@@ -5,10 +5,13 @@
  * Uses a hand-rolled config (not setupRestNscp, which pins CheckSystem to
  * disabled) so both producers run:
  *  - CheckDisk publishes `drives=c:,d:,...` on Windows.
- *  - CheckSystem publishes `os_version`/`os_name` plus the configured
- *    service-tags: EventLog (always running on Windows) maps to
- *    `eventlog-service=enabled`, and a nonexistent service maps to a tag
- *    that must NOT appear.
+ *  - CheckSystem publishes the five selector facts (os_name, os_version,
+ *    os_family, arch, virtualization) plus the configured service-tags:
+ *    EventLog (always running on Windows) maps to `eventlog-service=enabled`,
+ *    and a nonexistent service maps to a tag that must NOT appear. The rest
+ *    of what it gathers - the vendor, model, size and domain - is inventory
+ *    and goes into the `os`/`hardware` fact sets instead, which are opt-in
+ *    and are covered by the producer's unit tests.
  * On Linux the CheckSystem module resolves to the unix variant whose
  * service-tags check systemd units; the mapped names don't exist there, so
  * the tags must stay absent — asserted, since "no tag" is the documented
@@ -103,6 +106,70 @@ describe("REST tags", () => {
         } else {
           // The EventLog systemd unit does not exist on Linux either.
           expect(response.body["eventlog-service"]).toBeUndefined();
+        }
+      });
+  });
+
+  // The selector tags. Asserted on shape rather than on this machine's
+  // values, and split from the tags above because these are the ones that
+  // have to read the same on every platform - a Windows agent and a Linux
+  // agent in one fleet are selected with the same expression.
+  it("publishes the selector tags every platform can answer", async () => {
+    await request(REST_URL)
+      .get("/api/v2/tags")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true)
+      .expect(200)
+      .then((response) => {
+        expect(response.body.os_family).toEqual(onWindows ? "windows" : "linux");
+        // Not an exhaustive list: an architecture we have not seen is
+        // published lower-cased rather than dropped.
+        expect(response.body.arch).toMatch(/^[a-z0-9_]+$/);
+        expect(response.body.os_name).toBeTruthy();
+        expect(response.body.os_version).toBeTruthy();
+      });
+  });
+
+  it("names the virtualization from a closed vocabulary", async () => {
+    await request(REST_URL)
+      .get("/api/v2/tags")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true)
+      .expect(200)
+      .then((response) => {
+        // The fact is absent only where the host could not be asked at all
+        // (no CPUID and no DMI); on any CI runner it has to be present, and
+        // it must never be an unmapped vendor id.
+        expect(response.body.virtualization).toBeDefined();
+        expect([
+          "none",
+          "virtual",
+          "vmware",
+          "hyperv",
+          "kvm",
+          "xen",
+          "virtualbox",
+          "qemu",
+          "parallels",
+          "bhyve",
+          "acrn",
+        ]).toContain(response.body.virtualization);
+      });
+  });
+
+  it("keeps the inventory out of the tags", async () => {
+    await request(REST_URL)
+      .get("/api/v2/tags")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true)
+      .expect(200)
+      .then((response) => {
+        // A tag is uploaded to the fleet server on every state report, where
+        // a fact set is only collected once an operator turns it on. The
+        // hardware identity, the size and the domain are inventory and must
+        // not arrive by the other road.
+        for (const fact of ["manufacturer", "model", "domain", "cpu_cores", "memory_gb"]) {
+          expect(response.body[fact]).toBeUndefined();
         }
       });
   });

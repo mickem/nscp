@@ -397,4 +397,38 @@ describe("fleet sync certificate lifecycle", () => {
     await new Promise((r) => setTimeout(r, 4000));
     expect(fleet.requests).toEqual([]);
   });
+
+  it("refuses to sync over a management url that is not https", async () => {
+    // mtls_url is where desired state and signed bundles come from. On a plain
+    // socket the client certificate and the pinned server certificate are not
+    // used at all, so the whole management channel would be unauthenticated -
+    // and until this refusal existed, silently so. The manifest here is exactly
+    // what the rest of this suite runs on (the fake server speaks http), minus
+    // the allowance `--insecure` records: that is the case of an agent enrolled
+    // before the flag existed, or one hand-edited since.
+    fleet = await startFleet("plaintextmtls", {
+      beforeStart: (workDir) => {
+        const stateFile = path.join(workDir, "security", "agent-state.json");
+        const state = JSON.parse(fs.readFileSync(stateFile, "utf8"));
+        expect(state.mtls_url).toMatch(/^http:\/\//);
+        expect(state.allow_plaintext).toBe(true);
+        state.allow_plaintext = false;
+        fs.writeFileSync(stateFile, JSON.stringify(state));
+      },
+    });
+    await new Promise((r) => setTimeout(r, 4000));
+    expect(fleet.requests).toEqual([]);
+    const log = fleet.nscp.capturedStdout() + fleet.nscp.capturedStderr();
+    expect(log).toMatch(/not https/i);
+  });
+
+  it("syncs over a plaintext management url when the operator asked for it, saying so", async () => {
+    // The opt-in has to actually work, and it has to be loud: this channel is
+    // remote code execution by design, and what is protecting it is now only
+    // the bundle signature.
+    fleet = await startFleet("plaintextallowed");
+    await fleet.waitFor("the first desired-state poll", () => fleet!.count("/agent/v1/desired-state") > 0);
+    const log = fleet.nscp.capturedStdout() + fleet.nscp.capturedStderr();
+    expect(log).toMatch(/INSECURE/);
+  });
 });

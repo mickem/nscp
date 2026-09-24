@@ -18,7 +18,13 @@ struct nrpe_target_object : public nscapi::targets::target_object {
     set_property_string("certificate key", "");
     set_property_string("certificate format", "PEM");
     set_property_string("allowed ciphers", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
-    set_property_string("verify mode", "none");
+    // Verified by default: this target carries a password to another agent's
+    // REST API, so an unauthenticated peer means handing that password to
+    // whoever answers for the address. The `ca` default is the macro, not a
+    // path - add_ssl_keys registers it as a path key so the settings layer
+    // expands it, and connection_data expands it again for the CLI/REST path.
+    set_property_string("verify mode", "peer");
+    set_property_string("ca", "${ca-path}");
     set_property_string("password", "");
   }
 
@@ -42,7 +48,7 @@ struct nrpe_target_object : public nscapi::targets::target_object {
     settings.notify();
     settings.clear();
 
-    add_ssl_keys(root_path);
+    add_ssl_keys(root_path, {"peer", "${ca-path}"});
 
     settings.register_all();
     settings.notify();

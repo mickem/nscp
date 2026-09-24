@@ -22,6 +22,30 @@
 #ifdef __GNUC__
 namespace {
 
+// The iconv name for this platform's wchar_t.
+//
+// Not "WCHAR_T", which is what these conversions used to name. glibc
+// implements WCHAR_T as a plain UCS-4 conversion in the host's byte order,
+// independent of the locale. GNU libiconv - which is what macOS ships -
+// implements it through the C library's mbrtowc/wcrtomb instead, so it means
+// the *locale's* idea of wchar_t. A process that has not called setlocale runs
+// in the "C" locale, which handles ASCII and nothing else: every non-ASCII byte
+// comes back EILSEQ, the loop below skips it to make forward progress, and
+// "café" silently converts to "caf" while a CJK string converts to nothing at
+// all. That is data loss in the settings store, not just a failed test.
+//
+// Naming the representation explicitly takes the locale out of it. wchar_t is
+// UCS-4 in host byte order on every unix this builds for, which is precisely
+// what UCS-4LE/UCS-4BE mean - so on glibc this is byte-for-byte the conversion
+// that was already happening (verified: identical output for a mixed
+// Latin/CJK/Cyrillic/emoji string).
+#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+constexpr const char *kWcharEncoding = sizeof(wchar_t) == 4 ? "UCS-4BE" : "UTF-16BE";
+#else
+constexpr const char *kWcharEncoding = sizeof(wchar_t) == 4 ? "UCS-4LE" : "UTF-16LE";
+#endif
+static_assert(sizeof(wchar_t) == 4 || sizeof(wchar_t) == 2, "no iconv name for this wchar_t size");
+
 // Run iconv from `fromcode` to `tocode` over `in_bytes` bytes starting at
 // `in_data`. Returns the converted bytes as a basic_string<CharOut>.
 //
@@ -120,7 +144,7 @@ std::wstring utf8::to_unicode(std::string const &str) {
   delete[] buffer;
   return buf;
 #else
-  return iconv_convert<wchar_t>("WCHAR_T", "", str.data(), str.size());
+  return iconv_convert<wchar_t>(kWcharEncoding, "", str.data(), str.size());
 #endif
 }
 
@@ -147,7 +171,7 @@ std::wstring utf8::from_encoding(const std::string &str, const std::string &enco
   delete[] buffer;
   return buf;
 #else
-  return iconv_convert<wchar_t>("WCHAR_T", encoding.c_str(), str.data(), str.size());
+  return iconv_convert<wchar_t>(kWcharEncoding, encoding.c_str(), str.data(), str.size());
 #endif
 }
 
@@ -165,7 +189,7 @@ std::string utf8::to_encoding(std::wstring const &str, const std::string &encodi
   WideCharToMultiByte(uiEncoding, 0, str.c_str(), static_cast<int>(str.length()), const_cast<char *>(buf.c_str()), nChars, nullptr, nullptr);
   return buf;
 #else
-  return iconv_convert<char>(encoding.c_str(), "WCHAR_T", reinterpret_cast<const char *>(str.data()), str.size() * sizeof(wchar_t));
+  return iconv_convert<char>(encoding.c_str(), kWcharEncoding, reinterpret_cast<const char *>(str.data()), str.size() * sizeof(wchar_t));
 #endif
 }
 
@@ -182,7 +206,7 @@ std::string utf8::to_system(std::wstring const &str) {
   WideCharToMultiByte(CP_ACP, 0, str.c_str(), static_cast<int>(str.length()), const_cast<char *>(buf.c_str()), nChars, nullptr, nullptr);
   return buf;
 #else
-  return iconv_convert<char>("UTF-8", "WCHAR_T", reinterpret_cast<const char *>(str.data()), str.size() * sizeof(wchar_t));
+  return iconv_convert<char>("UTF-8", kWcharEncoding, reinterpret_cast<const char *>(str.data()), str.size() * sizeof(wchar_t));
 #endif
 }
 
@@ -199,7 +223,7 @@ std::string utf8::wstring_to_string(std::wstring const &str) {
   WideCharToMultiByte(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), const_cast<char *>(buf.c_str()), nChars, nullptr, nullptr);
   return buf;
 #else
-  return iconv_convert<char>("UTF-8", "WCHAR_T", reinterpret_cast<const char *>(str.data()), str.size() * sizeof(wchar_t));
+  return iconv_convert<char>("UTF-8", kWcharEncoding, reinterpret_cast<const char *>(str.data()), str.size() * sizeof(wchar_t));
 #endif
 }
 
@@ -215,6 +239,6 @@ std::wstring utf8::string_to_wstring(std::string const &str) {
   delete[] buffer;
   return buf;
 #else
-  return iconv_convert<wchar_t>("WCHAR_T", "UTF-8", str.data(), str.size());
+  return iconv_convert<wchar_t>(kWcharEncoding, "UTF-8", str.data(), str.size());
 #endif
 }

@@ -62,7 +62,7 @@ export default function Modules() {
       <List sx={{ width: "100%" }}>
         {filtered.length === 0 && needle && (
           <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
-            No modules match â€œ{filter}â€.
+            No modules match “{filter}”.
           </Typography>
         )}
         {filtered.map((module) => (

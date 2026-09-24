@@ -46,7 +46,12 @@ bool CheckNSCP::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
   // through the proxy instead of registering the key here: it belongs to the
   // core, and registering it again would document a core setting on this
   // module's reference page.
-  crashFolder = get_core()->expand_path(proxy->get_string("/settings/crash", "archive folder", CRASH_ARCHIVE_FOLDER));
+  // resolve_path, not expand_path: the core registers this key as a path_key
+  // rooted at ${crash-folder} (NSClient++.cpp), so a relative value archives
+  // there. Expanding it here without rooting made the reader measure the same
+  // setting against the working directory, so the handler wrote reports to one
+  // folder and check_nscp counted them in another.
+  crashFolder = proxy->resolve_path(proxy->get_string("/settings/crash", "archive folder", CRASH_ARCHIVE_FOLDER), "${" CRASH_ARCHIVE_FOLDER_KEY "}");
   NSC_DEBUG_MSG_STD("Crash folder is: " + crashFolder.string());
 
   // Default the CA bundle to the trusted system store (${ca-path} expands to

@@ -60,7 +60,13 @@ void check_nsclient_web_online(const std::string &default_ca_file, const PB::Com
   std::string command;
   std::vector<std::string> arguments;
   std::string tls_version = "tlsv1.2+";
-  std::string verify_mode = "none";
+  // Verified by default: this check sends the remote agent's API password, so
+  // an unauthenticated peer hands that password to whichever host answers for
+  // the address. An agent still presenting the self-signed certificate it
+  // generates on first start is reached with `verify=peer-cert` and `ca=` set
+  // to that certificate; `verify=none` keeps the connection encrypted but
+  // unauthenticated and has to be asked for.
+  std::string verify_mode = "peer";
   std::string ca_file = default_ca_file;
 
   // NSClient++ passes options either as separate `--key value` tokens (the CLI

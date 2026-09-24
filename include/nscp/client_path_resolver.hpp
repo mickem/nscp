@@ -6,16 +6,17 @@
 #include <config.h>
 
 #include <boost/filesystem.hpp>
+#include <iostream>
 #include <map>
+#include <set>
 #include <string>
 
 #include <nscp/boot_layout.hpp>
+#include <nscp/executable_path.hpp>
 #include <nscp/path_defaults.hpp>
 
 #ifdef WIN32
 #include <win/shellapi.hpp>
-#else
-#include <unistd.h>
 #endif
 
 // Path resolution for the standalone clients (check_nrpe, check_nscp).
@@ -44,6 +45,10 @@ namespace paths {
 class client_path_resolver {
   layout layout_;
   std::map<std::string, std::string> overrides_;
+  // Tokens already reported as unknown, so each is named once however many
+  // times it is resolved. Mutable because reporting is a side effect of a
+  // logically const lookup.
+  mutable std::set<std::string> reported_;
 
  public:
   // Reads boot.ini once. A missing or unreadable file means the legacy layout
@@ -52,18 +57,11 @@ class client_path_resolver {
   explicit client_path_resolver(const boost::filesystem::path &boot_ini)
       : layout_(layout_from_boot_ini_file(boot_ini.string())), overrides_(path_overrides_from_boot_ini_file(boot_ini.string())) {}
 
-  // The directory the running executable lives in.
-  static boost::filesystem::path executable_dir() {
-#ifdef WIN32
-    return shellapi::get_module_file_name();
-#else
-    char buff[1024];
-    const ssize_t len = ::readlink("/proc/self/exe", buff, sizeof(buff) - 1);
-    if (len == -1) return boost::filesystem::initial_path();
-    buff[len] = '\0';
-    return boost::filesystem::path(std::string(buff)).parent_path();
-#endif
-  }
+  // The directory the running executable lives in. The per-platform lookup
+  // itself lives in nscp/executable_path.hpp, shared with the service, so the
+  // clients and path_manager cannot drift apart about where the installation
+  // is - which is the same reason this resolver exists at all.
+  static boost::filesystem::path executable_dir() { return nscp::paths::executable_dir(); }
 
   std::string get_folder(const std::string &key) const {
     // boot.ini [paths] wins, exactly as it does for the service - and it wins
@@ -77,6 +75,11 @@ class client_path_resolver {
     if (key == "temp") return temp_dir();
 #ifdef WIN32
     if (key == "common-appdata") return shellapi::get_special_folder_path(CSIDL_COMMON_APPDATA, executable_dir()).string();
+    // As path_manager answers them. Without these two the client agreed with
+    // the service that ${appdata} and ${data-path} are real tokens - is_known_key
+    // says so - and then quietly handed back the executable's directory for
+    // both, which is the silent fallback this is all meant to remove.
+    if (key == "data-path" || key == "appdata") return shellapi::get_special_folder_path(CSIDL_APPDATA, executable_dir()).string();
 #endif
 
     // Everything else comes from the table the service uses, so the two cannot
@@ -84,8 +87,19 @@ class client_path_resolver {
     const std::string def = default_for(key, layout_);
     if (!def.empty()) return def;
 
-    // Last resort: the executable's directory, never an empty (and therefore
-    // root-relative) path from a typo in a settings file.
+    // An unknown token is a typo. The service raises it as an error; a client
+    // cannot - `main` has no handler, so throwing here would abort a Nagios
+    // plugin with no usable output. Say so on stderr (Nagios reads stdout, so
+    // this does not corrupt the check result) and carry on with the historical
+    // answer, which at least is not an empty, root-relative path.
+    // Once per token, not once per substitution: expand_tokens resolves each
+    // occurrence separately, so a value naming the same typo twice would
+    // otherwise report it twice, and a client that expands several settings
+    // would repeat it for each.
+    if (!is_known_key(key, layout_) && reported_.insert(key).second) {
+      std::cerr << "nscp: unknown path token ${" << key << "} - check the spelling, or define it in the [paths] section of boot.ini. Using "
+                << executable_dir().string() << std::endl;
+    }
     return executable_dir().string();
   }
 

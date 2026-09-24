@@ -46,7 +46,9 @@ cleanup() {
 }
 trap cleanup EXIT
 
-id "$NAME" >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin "$NAME"
+# --user-group so the account gets a primary group of its own, which is what
+# the unit's Group= names on a real install.
+id "$NAME" >/dev/null 2>&1 || useradd --system --user-group --no-create-home --shell /usr/sbin/nologin "$NAME"
 mkdir -p "$WORK" && chown "$NAME" "$WORK"
 
 # What the host sees, and the filesystem type of each mount, since that is what
@@ -68,6 +70,7 @@ cat > "$PROBE_PATH" <<PROBE
 #!/bin/sh
 awk '{print \$2 "\\t" \$3}' /proc/self/mounts | sort -u > "$WORK/service-mounts"
 echo "\$(id -un)" > "$WORK/service-user"
+echo "\$(id -gn)" > "$WORK/service-group"
 echo PROBE_DONE
 PROBE
 chmod 0755 "$PROBE_PATH"
@@ -81,6 +84,7 @@ render_unit() {
     -e "s#@NSCP_SBINDIR@#/usr/sbin#" \
     -e "/^ExecStart=/d" \
     -e "s#^User=.*#User=${NAME}#" \
+    -e "s#^Group=.*#Group=${NAME}#" \
     -e "s#^WorkingDirectory=.*#WorkingDirectory=/tmp#" \
     "$UNIT_IN" > "$UNIT_PATH"
   {
@@ -113,6 +117,23 @@ if [ -n "$NS" ]; then
 fi
 echo "   ok"
 
+# Checkable without systemd, so it runs everywhere this script does. The
+# runtime assertion further down proves the group actually takes effect; this
+# one catches the line simply going missing.
+echo "== the unit pins User= and Group="
+for key in User Group; do
+  if ! grep -qE "^\s*${key}=" "$UNIT_IN"; then
+    echo "FAIL: the unit does not set ${key}=."
+    if [ "$key" = "Group" ]; then
+      echo "      Without it the service inherits the account's primary group,"
+      echo "      which the DEB leaves as 'nogroup'; with UMask=0027 that makes"
+      echo "      everything the service writes readable by every daemon in it."
+    fi
+    exit 1
+  fi
+done
+echo "   ok"
+
 render_unit
 
 echo "== the service sees the host's mount table"
@@ -139,6 +160,17 @@ if [ "$(cat "$WORK/service-user")" != "$NAME" ]; then
   echo "FAIL: the service did not run as $NAME"
   exit 1
 fi
+
+# The unit must pin the group, not inherit the account's primary group. Without
+# Group= the DEB runs the service under `nogroup`, and UMask=0027 then leaves
+# everything it writes readable by every daemon sharing that group.
+if [ "$(cat "$WORK/service-group")" != "$NAME" ]; then
+  echo "FAIL: the service ran with group '$(cat "$WORK/service-group")', not"
+  echo "      '$NAME' - the unit is not pinning Group=, so on a packaged"
+  echo "      install it would inherit the account's primary group."
+  exit 1
+fi
+echo "   runs as $NAME:$NAME"
 
 # Any unit gets some mount entries the host lacks - ProtectKernelTunables masks
 # paths under /proc, ProtectKernelModules masks /usr/lib/modules, and systemd

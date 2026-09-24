@@ -563,7 +563,7 @@ This is a section of objects. This means that you will create objects below this
 | address             |               | TARGET ADDRESS        |
 | allow host override | false         | ALLOW HOST OVERRIDE   |
 | allowed ciphers     |               | ALLOWED CIPHERS       |
-| ca                  |               | CA                    |
+| ca                  | ${ca-path}    | CA                    |
 | certificate         |               | SSL CERTIFICATE       |
 | certificate format  |               | CERTIFICATE FORMAT    |
 | certificate key     |               | SSL CERTIFICATE       |
@@ -574,7 +574,7 @@ This is a section of objects. This means that you will create objects below this
 | retries             | 3             | RETRIES               |
 | timeout             | 30            | TIMEOUT               |
 | use ssl             |               | ENABLE SSL ENCRYPTION |
-| verify mode         |               | VERIFY MODE           |
+| verify mode         | peer          | VERIFY MODE           |
 
 
 **Sample:**
@@ -585,7 +585,7 @@ This is a section of objects. This means that you will create objects below this
 #address=...
 allow host override=false
 #allowed ciphers=...
-#ca=...
+ca=${ca-path}
 #certificate=...
 #certificate format=...
 #certificate key=...
@@ -596,7 +596,7 @@ allow host override=false
 retries=3
 timeout=30
 #use ssl=...
-#verify mode=...
+verify mode=peer
 
 ```
 

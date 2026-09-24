@@ -104,3 +104,29 @@ TEST(GrantStoreTest, UserWithoutRole) {
   store.add_user("user1", "");
   EXPECT_FALSE(store.validate("user1", "perm"));
 }
+
+TEST(GrantStoreTest, GetRoleReturnsTheMappingOrNothing) {
+  grant_store store;
+  store.add_role("role1", "permission1");
+  EXPECT_EQ(store.get_role("nobody"), "");
+  store.add_user("user1", "role1");
+  EXPECT_EQ(store.get_role("user1"), "role1");
+  store.add_user("user1", "role2");
+  EXPECT_EQ(store.get_role("user1"), "role2") << "re-adding a user replaces the role";
+  store.remove_user("user1");
+  EXPECT_EQ(store.get_role("user1"), "");
+}
+
+TEST(GrantStoreTest, ValidateDoesNotMutateTheStore) {
+  // A permission check is a lookup, not a write. `users[uid]` used to insert
+  // an empty role for every uid it was asked about, so each check for an
+  // unknown user grew the map for the lifetime of the process; asking through
+  // a const reference is what keeps that from coming back.
+  grant_store store;
+  store.add_role("role1", "permission1");
+  store.add_user("user1", "role1");
+  const grant_store &read_only = store;
+  EXPECT_TRUE(read_only.validate("user1", "permission1"));
+  EXPECT_FALSE(read_only.validate("ghost", "permission1"));
+  EXPECT_EQ(read_only.get_role("ghost"), "");
+}

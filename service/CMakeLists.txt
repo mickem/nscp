@@ -163,6 +163,12 @@ if(OPENSSL_FOUND)
     # (fleet_sync, started at boot when the enrollment manifest exists) - see
     # libs/onboarding. Only available when OpenSSL is present.
     add_definitions(-DHAVE_ONBOARDING)
+    # The facts document's hash is an OpenSSL digest (service/fact_repository.hpp);
+    # without OpenSSL the inventory is still collected and served, it just has
+    # no hash. Directory scoped, so the unit tests below see it too - and they
+    # need the library itself, which they do not get through onboarding.
+    add_definitions(-DHAVE_OPENSSL)
+    set(FACTS_HASH_LIBS ${OPENSSL_LIBRARIES})
     include_directories(${OPENSSL_INCLUDE_DIR})
     set(service_SRCS
         ${service_SRCS}
@@ -228,6 +234,13 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/scheduler/simple_scheduler.cpp
         path_manager.cpp
         path_manager_test.cpp
+        # Path handling driven through the real settings registry rather than a
+        # stub, so the join between the two is covered and not just each half.
+        path_settings_integration_test.cpp
+        # The rooting rule on its own. Header-only and dependency-free, so it
+        # rides along here rather than carrying a target of its own.
+        ${NSCP_INCLUDEDIR}/nscp/path_rooting_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
         acl_test.cpp
         ${NSCP_INCLUDEDIR}/win/acl.cpp
         ${NSCP_INCLUDEDIR}/nscp/layout_migration.cpp
@@ -235,6 +248,8 @@ NSCP_CREATE_TEST(
         permissions.hpp
         tag_repository_test.cpp
         tag_repository.hpp
+        fact_repository_test.cpp
+        fact_repository.hpp
         ../include/parsers/cron/cron_parser.hpp
         ${NSCP_INCLUDEDIR}/win/shellapi.cpp
     LIBRARIES
@@ -242,6 +257,7 @@ NSCP_CREATE_TEST(
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}
         ${EXTRA_LIBS}
+        ${FACTS_HASH_LIBS}
         ${Boost_DATE_TIME_LIBRARY}
         ${Boost_THREAD_LIBRARY}
         settings_manager
@@ -337,9 +353,12 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/win/shellapi.cpp
     LIBRARIES
         nscp_json
-        GTest::gtest_main
+        # gmock_main, not gtest_main: dll_plugin_test.cpp uses EXPECT_THAT with
+        # a gmock matcher. See NSCP_GMOCK_MAIN in the top-level CMakeLists.
+        ${NSCP_GMOCK_MAIN}
         ${NSCP_DEF_PLUGIN_LIB}
         ${EXTRA_LIBS}
+        ${FACTS_HASH_LIBS}
         ${Boost_DATE_TIME_LIBRARY}
         ${Boost_THREAD_LIBRARY}
         settings_manager

@@ -11,6 +11,7 @@
 #include <NSCAPI.h>
 #include <win/tool-helper.h>
 
+#include <boost/filesystem/path.hpp>
 #include <boost/thread.hpp>
 #include <boost/thread/locks.hpp>
 #include <bytes/buffer.hpp>
@@ -130,6 +131,39 @@ boost::timed_mutex mutex_;
 std::list<HANDLE> pids_;
 
 namespace {
+// Absolute path of `app` when it is a bare file name that the system's
+// executable search can find, and `app` unchanged otherwise.
+//
+// This is the second half of giving lpApplicationName the reach the command
+// line already has. SearchPathW walks the same list CreateProcess walks when
+// it parses a module name out of lpCommandLine - the directory the agent
+// loaded from, the working directory, the system and Windows directories, then
+// PATH - so `command = cmd.exe /c ...` and the `powershell.exe` /
+// `cscript.exe` wrappings resolve wherever the agent was started, instead of
+// only when its working directory happened to hold a copy.
+//
+// Deliberately confined to a name with no directory component. Anything
+// carrying a folder has already been rooted at ${base-path} by
+// resolve_application_path or names a location of its own, and running the
+// search over it would re-introduce exactly the working-directory dependency
+// that rooting removed.
+//
+// A name the search cannot place is handed on untouched: CreateProcess then
+// fails the way it always did, and the operator gets the same error about the
+// same string they configured.
+std::string search_path_for(const std::string &app) {
+  if (app.empty() || boost::filesystem::path(app).has_parent_path()) return app;
+  const std::wstring name = utf8::cvt<std::wstring>(app);
+  // Two calls: the first sizes the buffer (return value includes the NUL), the
+  // second fills it (return value does not).
+  const DWORD needed = SearchPathW(nullptr, name.c_str(), nullptr, 0, nullptr, nullptr);
+  if (needed == 0) return app;
+  std::vector<wchar_t> buffer(needed);
+  const DWORD written = SearchPathW(nullptr, name.c_str(), nullptr, needed, buffer.data(), nullptr);
+  if (written == 0 || written >= needed) return app;
+  return utf8::cvt<std::string>(std::wstring(buffer.data(), written));
+}
+
 // Restrict what a child inherits to its own two pipe ends.
 //
 // Checks run concurrently, and CreateProcess with bInheritHandles=TRUE hands
@@ -151,7 +185,7 @@ struct startupinfoex_compat {
   STARTUPINFOW StartupInfo;
   PVOID lpAttributeList;
 };
-const DWORD kExtendedStartupInfoPresent = 0x00080000;  // EXTENDED_STARTUPINFO_PRESENT
+const DWORD kExtendedStartupInfoPresent = 0x00080000;         // EXTENDED_STARTUPINFO_PRESENT
 const DWORD_PTR kProcThreadAttributeHandleList = 0x00020002;  // PROC_THREAD_ATTRIBUTE_HANDLE_LIST
 
 typedef BOOL(WINAPI *tInitializeProcThreadAttributeList)(PVOID lpAttributeList, DWORD dwAttributeCount, DWORD dwFlags, PSIZE_T lpSize);
@@ -345,9 +379,30 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
   LPCWSTR lpApplicationName = nullptr;
   std::wstring cmd_line_w;
   if (!args.argv.empty()) {
-    app_name_storage = utf8::cvt<std::wstring>(args.argv[0]);
+    // Locate the executable ourselves before naming it.
+    //
+    // lpApplicationName gets none of the lookup the command line gets: it is
+    // resolved against the working directory of the *calling* process and
+    // nothing else - not PATH, not the system directory, and not
+    // lpCurrentDirectory below, which only sets where the child runs. So
+    // `scripts\check_foo.bat` was found solely when the agent had been started
+    // from the installation directory, and a bare `cmd.exe` solely when the
+    // working directory happened to contain one. The legacy single-string form
+    // has neither problem because CreateProcess does the search itself there;
+    // these two steps are what give the argv path the same reach without
+    // giving up the locked executable.
+    std::vector<std::string> argv = args.argv;
+    argv[0] = process::resolve_application_path(args.root_path, argv[0]);
+    argv[0] = search_path_for(argv[0]);
+    // argv[0] goes into the command line as well, not just into
+    // lpApplicationName. Windows runs a .bat by handing the command line to
+    // cmd.exe, which resolves the script a second time out of that string; a
+    // command line still carrying the configured `scripts/check_foo.bat` puts
+    // cmd in the same position the launcher was just taken out of (and, with a
+    // forward slash, has it read `/check_foo.bat` as a switch).
+    app_name_storage = utf8::cvt<std::wstring>(argv[0]);
     lpApplicationName = app_name_storage.c_str();
-    cmd_line_w = process::build_command_line_w(args.argv);
+    cmd_line_w = process::build_command_line_w(argv);
   } else {
     cmd_line_w = utf8::cvt<std::wstring>(args.command);
   }

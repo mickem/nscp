@@ -35,12 +35,32 @@ else()
             " + Looking for protobuf in PROTOBUF_ROOT=${PROTOBUF_ROOT}"
         )
     endif(CMAKE_TRACE)
+    # The installed-prefix library directories, but only when PROTOBUF_ROOT is
+    # actually set. Interpolating an unset one yields the bare "/lib" and
+    # "/lib64" - which on a RedHat host exist and really do hold
+    # libprotobuf.so, and would be searched ahead of /usr/lib, silently
+    # changing which path a working Linux build records. Unset, this expands to
+    # nothing and the list is exactly what it was.
+    set(_PROTOBUF_ROOT_LIBDIRS)
+    if(PROTOBUF_ROOT)
+        set(_PROTOBUF_ROOT_LIBDIRS
+            ${PROTOBUF_ROOT}/lib
+            ${PROTOBUF_ROOT}/lib64
+        )
+    endif()
+    # PROTOBUF_ROOT is accepted both as a *source* root (the layout the Windows
+    # build uses: headers in src/, libraries in build/Release) and as an
+    # *installed* prefix (include/ + lib/), which is what a package manager
+    # gives you - `brew --prefix protobuf` on macOS, or a --prefix build on any
+    # unix. Both spellings are listed rather than documented, because the
+    # failure mode of guessing wrong is a "not found" that names neither.
     find_path(
         PROTOBUF_INCLUDE_DIR
         google/protobuf/stubs/common.h
         PATHS
             ${PROTOBUF_ROOT}
             ${PROTOBUF_ROOT}/src
+            ${PROTOBUF_ROOT}/include
             /usr/include
             /usr/local/include
             /usr/local/Cellar/protobuf241/2.4.1/include
@@ -74,6 +94,13 @@ else()
             ${PROTOBUF_LIBRARYDIR_RELEASE}
             ${PROTOBUF_LIBRARYDIR}
             ${PROTOBUF_ROOT}/build/Release
+            # The installed-prefix layout. This list is NO_DEFAULT_PATH, so a
+            # library that is not under one of these is not found however
+            # ordinary its location - which is how a Homebrew protobuf
+            # (/opt/homebrew/lib) went missing on macOS while its headers and
+            # protoc were picked up from the default paths, leaving a "missing:
+            # PROTOBUF_LIBRARY" with everything else present.
+            ${_PROTOBUF_ROOT_LIBDIRS}
             /usr/local/Cellar/protobuf241/2.4.1/lib
             /usr/lib/
             /usr/lib/${CMAKE_LIBRARY_ARCHITECTURE}
@@ -100,6 +127,11 @@ else()
             ${PROTOBUF_LIBRARYDIR}
             ${PROTOBUF_ROOT}/build/Debug
             ${PROTOBUF_ROOT}/cmake/solution/Debug
+            # As above. A package manager ships one build, not a debug/release
+            # pair, so this resolves to the same file as the release lookup -
+            # exactly as it already does on Linux, where both find
+            # /usr/lib/<triplet>/libprotobuf.so.
+            ${_PROTOBUF_ROOT_LIBDIRS}
             /usr/local/Cellar/protobuf241/2.4.1/lib
             /usr/lib/
             /usr/lib/${CMAKE_LIBRARY_ARCHITECTURE}

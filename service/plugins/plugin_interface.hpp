@@ -78,6 +78,12 @@ class plugin_interface : public logging::logging_subscriber {
   virtual NSCAPI::nagiosReturn on_event(const std::string &request) = 0;
   virtual bool hasMetricsFetcher() = 0;
   virtual NSCAPI::nagiosReturn fetchMetrics(std::string &request) = 0;
+  // Facts producer: the core tells the module why it is asking this round
+  // (a serialised PB::Facts::FactsQueryMessage) and gets the sets the module
+  // produced back as a PB::Facts::FactsMessage. See
+  // service/fact_repository.hpp for what the document is.
+  virtual bool hasFactsFetcher() = 0;
+  virtual NSCAPI::nagiosReturn fetchFacts(const std::string &request, std::string &response) = 0;
   virtual bool hasMetricsSubmitter() = 0;
   virtual NSCAPI::nagiosReturn submitMetrics(const std::string &request) = 0;
   virtual bool has_command_line_exec() = 0;

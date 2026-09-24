@@ -134,6 +134,8 @@ cost you the command you were halfway through.
 | `desc <query>`                     | Describe a query and its parameters |
 | `keywords <query>`                 | List the filter keywords a query offers |
 | `metrics [prefix]`                 | Show the metrics collected so far |
+| `facts [path]`                     | Show the host inventory, or the subtree at a dotted path |
+| `facts refresh`                    | Collect the inventory now, then show it |
 | `settings`                         | Dump the effective settings |
 | `exec <target> <command> [args]`   | Run a command on one specific module |
 | `load <module>`                    | Load a module now, without changing the configuration |
@@ -175,6 +177,58 @@ to know what is there but not loaded, the agent has to read every module in the
 directory. It reads their metadata only — nothing is started — and it remembers
 the answer, so only the first one pays for it. This is the same scan the first
 `load`/`enable` completion does, and either one warms it for the other.
+
+`facts` prints the host inventory the core keeps — the fact sets the loaded
+modules are configured to produce, as an indented tree, with the revision a
+fleet server polls on:
+
+```
+nscp> facts
+Revision: 7  Checked: 2026-09-22T10:00:00Z
+Enabled: os, storage
+Gathered:
+  os: 2026-09-22T06:12:41Z
+  storage: 2026-09-22T10:00:00Z
+
+  os:
+    family: windows
+    name: Windows 11
+    version: 10.0.26200
+  storage:
+    volumes:
+      - C:
+          fs: NTFS
+          label: System
+          size_bytes: 512110190592
+      - D:
+          size_bytes: 1024209543168
+```
+
+A record in a list leads with its `id` — the drive letter, interface name or
+service name the rest of its fields describe.
+
+**Checked** is when the agent last asked its modules; **Gathered** is when each
+set's values were actually read off the machine. They differ when a producer
+hands back a snapshot instead of collecting again — above, `os` was read once at
+boot, because what OS a machine runs cannot change while it runs, while
+`storage` was read on this round. `facts refresh` makes every producer read for
+real, which is the way to pick up a change the agent would otherwise not look
+for until it restarts.
+
+Facts are opt-in, so on a fresh install this says `Enabled: (none ...)` and
+`(no facts collected)`. Which sets exist is part of the producing module's
+configuration, and so is turning one on:
+
+```ini
+[/settings/system/windows/facts]
+os = true
+```
+
+Pass a dotted path to print one subtree — `facts os`, `facts storage.volumes` —
+and `facts refresh` collects now instead of waiting for the next round (the
+interval is `[/settings/facts] interval`, an hour by default). A set that is
+enabled but failed to collect is listed under `Errors:` with the reason rather
+than quietly missing from the tree.
 
 ## History
 

@@ -239,6 +239,15 @@ insecure               = false
 handshake is rejected unless the client presents a certificate that chains to
 `ca`. `nscp nrpe install --verify=peer-cert --ca ...` writes the same config.
 
+The listener accepts the same spellings as the outbound clients do —
+`certificate` for `peer`, and `fail-if-no-peer-cert` or `client-certificate`
+for `fail-if-no-cert` — and **rejects anything else**: a flag it does not
+recognise makes the listener refuse to start with the offending token in the
+log, rather than dropping it and running with whatever is left. Before 0.20.1
+an unknown flag was ignored, so `peer,fail-if-no-peer-cert` quietly resolved to
+bare `peer`: the server asked for a client certificate and completed the
+handshake when none was sent.
+
 Optionally, stamp the verified client's identity onto each request so the core
 permission system can authorize per-caller:
 

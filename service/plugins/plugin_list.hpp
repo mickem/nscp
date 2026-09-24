@@ -94,6 +94,15 @@ struct simple_plugins_list : boost::noncopyable {
     }
   }
 
+  // Whether anything is registered here. A failed lock reads as empty: the
+  // caller is deciding whether a feature is worth scheduling, and answering
+  // "nothing registered" is the harmless way to be wrong.
+  bool empty() {
+    const boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+    if (!has_valid_lock_log(readLock, "plugins_list::empty")) return true;
+    return plugins_.empty();
+  }
+
   void do_all(const boost::function<void(plugin_type)> &fun) {
     const boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
     if (!has_valid_lock_log(readLock, "plugins_list::list")) return;

@@ -34,22 +34,46 @@
 #
 # name          version   sha256 or commit
 
-openssl         3.5.8     unrecorded
-protobuf        21.12     unrecorded
-cryptopp        8.9.0     unrecorded
-lua             5.4.8     unrecorded
-tinyxml2        10.1.0    unrecorded
-mongoose        7.23      unrecorded
-miniz           3.1.1     unrecorded
-mariadb         3.4.9     unrecorded
+# Downloaded release assets, verified by sha256.
+#
+# openssl was cross-checked against the .sha256 OpenSSL publishes next to the
+# asset. protobuf, cryptopp and miniz publish no checksum of their own, so the
+# digests here record the bytes a fetch returned; they still turn a later
+# substitution of the asset into a build failure, which is what this file is
+# for.
+openssl         3.5.8     a8f84a39918ec6415ce765d9b429d313ba97b8143169c172e734b9514464f5b2  # matches the upstream openssl-3.5.8.tar.gz.sha256
+protobuf        21.12     29b0f6b6d5714f212b8549cd0cb6fc531672630e41fb99d445421bc4d1bbb9cd
+cryptopp        8.9.0     4cc0ccc324625b80b695fcd3dee63a66f1a460d3e51b71640cdbfc4cd1a3779c
+miniz           3.1.1     cb28402bb2af93bdc331b60d16807e89727d1712a2d0a7ba0cac79a3e406fe40
+
+# Still unrecorded: boost.org serves the archive from a redirect chain, so the
+# digest has to be taken on a machine that can reach it and cross-checked
+# against the SHA256 the Boost release page publishes.
 boost           1.86.0    unrecorded
 
-# Cloned, not downloaded: this is the commit `release-1.12.1` names today.
+# Still unrecorded: the digest has to be taken on a machine that can reach
+# www.lua.org, and cross-checked against the md5/sha256 Lua publishes on the
+# same page.
+lua             5.4.8     unrecorded
+
+# Cloned, not downloaded, and pinned to the commit rather than the tag.
+#
+# These used to be fetched as the zip/tar.gz GitHub generates for a tag. That
+# archive is not a release artifact anybody signs, and the tag it is generated
+# from can be moved; the commit cannot. Recording the commit and cloning at the
+# tag verifies the same thing a digest would, without depending on an archive
+# whose bytes are a server-side product. Each value is the commit the tag
+# resolves to (annotated tags peeled: mariadb's v3.4.9 tag object is
+# cc4d78c4..., the commit it points at is the one below).
 googletest      1.12.1    58d77fa8070e8cec2dc1ed015d66b454c8d78850
+tinyxml2        10.1.0    57eea48c5bfc354ac45d53b2eb499e66c80d63e0
+mongoose        7.23      02bdbb9ed6f0a8f7c42228c6e7cb35d748b60551
+mariadb         3.4.9     64e9fe09fea6a017bab92e19a08d2301e3da5b56
 
 # The prebuilt check_nsclient.exe, which ships inside the signed MSI. Keyed by
 # the version in .check_nsclient_version; one line per architecture, since the
-# release publishes a separate binary for each.
-check_nsclient-x64      1.1.1   b876044e71cd969bf7d3b00d18786817b6f8021692229e401f382683d342ff8d
-check_nsclient-x86      1.1.1   98b1e899bdf33bfe589516067e15ec5fe1eb6427658212d0aa811062dcd78ccf
-check_nsclient-arm64    1.1.1   b449918136a4a6ece28dc18b49bb5a121e316c3ec18027e030f566e1a0b69095
+# release publishes a separate binary for each. A missing line fails the build,
+# so adding an architecture cannot silently skip verification.
+check_nsclient-x64      1.1.2   77a90830214e5f5613024adce05278887c19e818c0ae80f5284bfa090e93e65b
+check_nsclient-x86      1.1.2   a5ce21419bc93c15953b406b7a769525c9b545e64ddf89a7fa2ce50ed7256f9a
+check_nsclient-arm64    1.1.2   a044b01858f2d39c14574187185c55d57d0906db8b44240165d7b26361c8d0fa

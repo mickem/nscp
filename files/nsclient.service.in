@@ -1,9 +1,29 @@
 [Unit]
 Description=NSClient++ Monitoring Agent
+Documentation=https://nsclient.org/docs/
+
+# Ordering, not a dependency: at start-up this guarantees little, but at
+# shutdown a unit ordered after network.target is stopped before the network
+# goes down (systemd.special(7)) - which is what an agent holding client
+# connections and submitting results wants.
+After=network.target
 
 [Service]
 WorkingDirectory=@NSCP_PKGLIBDIR@
 User=nsclient
+
+# Without this the service runs under the account's *primary* group, and the
+# packages do not make that `nsclient`: the DEB postinst creates the account
+# with `adduser --system` and then adds `nsclient` as a supplementary group, so
+# the primary group stays whatever adduser chose - `nogroup` on Debian and
+# Ubuntu. Combined with UMask=0027 that made every file the service creates at
+# runtime readable by `nogroup`, which many unprivileged daemons share, and
+# /var/lib/nsclient is 0755 from the postinst's mkdir -p, so nsclient.db and
+# the fleet/ tree - including the enrollment key - were not covered by the
+# directory either. Naming the group here fixes existing installs as well as
+# new ones. Both packages create the group, so it exists before this unit
+# starts; an account made by hand needs it too.
+Group=nsclient
 
 ExecStart=@NSCP_SBINDIR@/nscp service --log-backend threaded-file --run
 

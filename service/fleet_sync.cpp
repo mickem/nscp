@@ -218,9 +218,16 @@ http::response fleet_sync::do_call(const char *verb, const std::string &path, co
   const std::string full_url = identity_.mtls_url + path;
   const http::parsed_url parsed = http::parse_url(full_url);
   http::http_client_options options(parsed.protocol, config_.tls_version, "none", "");
-  options.identity_.cert_pem = identity_.cert_pem;
-  options.identity_.key_pem = identity_.private_key_pem;
-  options.identity_.pinned_ca_pem = identity_.mtls_server_cert_pem;
+  // Only on a TLS transport. A client certificate and a pinned CA on a plain
+  // socket are not merely useless, they are a lie the client refuses to tell:
+  // simple_client throws rather than hand back an unauthenticated connection
+  // that looks mutually authenticated. run() has already logged what running
+  // without them means.
+  if (!plaintext_channel_) {
+    options.identity_.cert_pem = identity_.cert_pem;
+    options.identity_.key_pem = identity_.private_key_pem;
+    options.identity_.pinned_ca_pem = identity_.mtls_server_cert_pem;
+  }
   // The agent API and the operator web UI usually share port 443, and the
   // server routes on ALPN: without this the connection is answered by the web
   // branch, which presents a different certificate and never asks for ours - so
@@ -716,6 +723,30 @@ void fleet_sync::run() {
   }
   identity_ = loaded.value();
   while (!identity_.mtls_url.empty() && identity_.mtls_url.back() == '/') identity_.mtls_url.pop_back();
+  // Enrollment refuses a plaintext management url, but the manifest is a file
+  // on disk: it can predate that check, be hand-edited, or come from an
+  // `--insecure` enrollment. do_call builds its client from this scheme, and
+  // on anything but https it opens a plain socket and uses neither the client
+  // certificate nor the server pin - so every poll, bundle download and
+  // renewal would run unauthenticated, with nothing in the log. Stop here
+  // instead: an unmanaged host is visible on the fleet server, a silently
+  // unauthenticated one is not.
+  plaintext_channel_ = onboarding::is_plaintext_url(identity_.mtls_url);
+  if (plaintext_channel_) {
+    if (!identity_.allow_plaintext && !config_.allow_plaintext) {
+      log_error("Fleet management url is not https ('" + identity_.mtls_url +
+                "'): the client certificate and the pinned server certificate cannot protect a plaintext channel, so configuration and bundle delivery "
+                "would be unauthenticated. Fleet sync disabled. Re-enroll against an https url, or - only on a trusted network - re-enroll with "
+                "`nscp enroll --insecure` or set [tls] allow plaintext = true in boot.ini.");
+      return;
+    }
+    // Allowed, but never silent: this is the channel that applies configuration
+    // and runs signed bundles, and over plaintext the only thing still
+    // authenticating it is the bundle signature.
+    log_error("INSECURE: the fleet management url is not https ('" + identity_.mtls_url +
+              "'), so this host polls desired state and downloads bundles over an unauthenticated channel. The client certificate and the pinned server "
+              "certificate are not used at all. Only bundle signatures are still checked.");
+  }
   // Fingerprints only: they are what the fleet server shows for a key, so an
   // operator can see at a glance whether this host holds the key the bundles
   // are sealed with. The key itself is never logged.

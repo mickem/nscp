@@ -1,0 +1,138 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2004-2026 Michael Medin
+# SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
+#
+# Runs after the payload is in place. This is the macOS counterpart of
+# files/deb/postinst.in and files/rpm/postinstall.sh.in, and does the same four
+# things: create the service account, create and hand over the writable
+# directories, lock down the credential file, and start the service.
+#
+# Where it differs is Directory Service. There is no adduser on macOS; accounts
+# are records in the local DS node, created a property at a time with dscl.
+set -e
+
+LABEL="@NSCP_LAUNCHD_LABEL@"
+PLIST="/Library/LaunchDaemons/${LABEL}.plist"
+SVC_USER="@NSCP_SERVICE_USER@"
+SVC_GROUP="@NSCP_SERVICE_USER@"
+
+# ---------------------------------------------------------------------------
+# Service account
+#
+# Darwin reserves UIDs below 500 for the system and hides them from the login
+# window, which is what an unprivileged daemon account wants. 200-400 is the
+# range Apple leaves for third parties; below 200 is Apple's own.
+# ---------------------------------------------------------------------------
+find_free_id() {
+    # $1: "Users"/"Groups", $2: "UniqueID"/"PrimaryGroupID"
+    taken=$(dscl . -list "/$1" "$2" 2>/dev/null | awk '{print $2}')
+    id=200
+    while [ "$id" -lt 400 ]; do
+        if ! echo "$taken" | grep -qx "$id"; then
+            echo "$id"
+            return 0
+        fi
+        id=$((id + 1))
+    done
+    return 1
+}
+
+if ! dscl . -read "/Groups/${SVC_GROUP}" >/dev/null 2>&1; then
+    gid=$(find_free_id Groups PrimaryGroupID) || {
+        echo "NSClient++: no free system GID in 200-400; cannot create the ${SVC_GROUP} group." >&2
+        exit 1
+    }
+    dscl . -create "/Groups/${SVC_GROUP}"
+    dscl . -create "/Groups/${SVC_GROUP}" PrimaryGroupID "$gid"
+    dscl . -create "/Groups/${SVC_GROUP}" RealName "NSClient++ monitoring agent"
+    dscl . -create "/Groups/${SVC_GROUP}" Password "*"
+fi
+gid=$(dscl . -read "/Groups/${SVC_GROUP}" PrimaryGroupID | awk '{print $2}')
+
+if ! dscl . -read "/Users/${SVC_USER}" >/dev/null 2>&1; then
+    uid=$(find_free_id Users UniqueID) || {
+        echo "NSClient++: no free system UID in 200-400; cannot create the ${SVC_USER} account." >&2
+        exit 1
+    }
+    dscl . -create "/Users/${SVC_USER}"
+    dscl . -create "/Users/${SVC_USER}" UniqueID "$uid"
+    dscl . -create "/Users/${SVC_USER}" PrimaryGroupID "$gid"
+    dscl . -create "/Users/${SVC_USER}" RealName "NSClient++ monitoring agent"
+    # /usr/bin/false, not /bin/sh: the account exists to own files and run one
+    # launchd job. Nothing should ever get a shell through it.
+    dscl . -create "/Users/${SVC_USER}" UserShell /usr/bin/false
+    dscl . -create "/Users/${SVC_USER}" NFSHomeDirectory /var/empty
+    # "*" is Directory Service for "no password will ever authenticate this".
+    dscl . -create "/Users/${SVC_USER}" Password "*"
+    # Belt and braces: accounts under UID 500 are hidden from the login window
+    # already, but an installer that ran on a machine with Show All Users set
+    # would otherwise put a "NSClient++ monitoring agent" face on the greeter.
+    dscl . -create "/Users/${SVC_USER}" IsHidden 1
+fi
+
+# ---------------------------------------------------------------------------
+# Writable state
+#
+# The package ships these directories empty and root-owned: the account does
+# not exist at build time, so ownership can only be handed over here. The
+# daemon runs unprivileged and creates its log file and its settings store
+# inside them.
+# ---------------------------------------------------------------------------
+mkdir -p "@NSCP_LOGDIR@"
+mkdir -p "@NSCP_PKGSTATEDIR@"
+chown "${SVC_USER}:${SVC_GROUP}" "@NSCP_LOGDIR@"
+chmod 0750 "@NSCP_LOGDIR@"
+chown "${SVC_USER}:${SVC_GROUP}" "@NSCP_PKGSTATEDIR@"
+chmod 0750 "@NSCP_PKGSTATEDIR@"
+
+# launchd creates StandardOutPath/StandardErrorPath as root before it drops to
+# the job's user, so their contents stay root-owned across restarts. Nothing
+# reads them but an operator, and they can contain a dyld error naming module
+# paths, so keep them out of reach of other local accounts.
+for f in "@NSCP_LOGDIR@/launchd.out.log" "@NSCP_LOGDIR@/launchd.err.log"; do
+    if [ -f "$f" ]; then chmod 0640 "$f"; fi
+done
+
+# ---------------------------------------------------------------------------
+# Credentials
+#
+# nsclient.ini carries the web admin password, the NRPE/NSCA passwords and the
+# submit-client tokens in plaintext - that is what the file is for, so the
+# filesystem is the boundary around it (CVE-2025-34078). The payload ships it
+# 0640 root:wheel; the group has to be handed to the service account here or
+# the daemon cannot read its own configuration. Re-applied on upgrade, because
+# a host installed before this existed still has the old mode.
+# ---------------------------------------------------------------------------
+chown "root:${SVC_GROUP}" "@NSCP_PKGSYSCONFDIR@"
+chmod 0750 "@NSCP_PKGSYSCONFDIR@"
+if [ -f "@NSCP_PKGSYSCONFDIR@/nsclient.ini" ]; then
+    chown "root:${SVC_GROUP}" "@NSCP_PKGSYSCONFDIR@/nsclient.ini"
+    chmod 0640 "@NSCP_PKGSYSCONFDIR@/nsclient.ini"
+fi
+
+# ---------------------------------------------------------------------------
+# Start
+#
+# The plist belongs to root, and launchd refuses to load a system daemon whose
+# description anyone else can write. Installer already lays it down 0644, but
+# say so explicitly: an operator who edited it in place would otherwise end up
+# with a job that silently never loads.
+# ---------------------------------------------------------------------------
+chown root:wheel "$PLIST"
+chmod 0644 "$PLIST"
+
+# preinstall booted the old job out, so this is a plain bootstrap rather than a
+# reload. `|| true` on the bootout: it is here only to cover the case where
+# something else loaded the job between the two scripts.
+launchctl bootout "system/${LABEL}" 2>/dev/null || true
+launchctl bootstrap system "$PLIST"
+launchctl enable "system/${LABEL}" 2>/dev/null || true
+
+# The web UI is a separate release artifact (it is a node build, which has no
+# place in a package build), so say how to get it - once, on a first install.
+# On an upgrade the operator has already been told.
+if [ ! -d "@NSCP_PKGLIBDIR@/web" ]; then
+    echo "NSClient++: web UI is not installed. Run 'sudo @NSCP_SBINDIR@/nscp web install-ui' to fetch it."
+fi
+
+exit 0

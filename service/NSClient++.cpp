@@ -93,6 +93,7 @@ struct nscp_settings_provider : public settings_manager::provider_interface {
   virtual std::string expand_path(std::string file) { return path_->expand_path(file); }
   nsclient::logging::logger_instance get_logger() const { return log_instance_; }
   void apply_path_overrides(std::map<std::string, std::string> overrides) override { path_->set_overrides(std::move(overrides)); }
+  void validate_path_overrides() override { path_->validate_overrides(); }
 
   void apply_layout(const std::string &mode) override {
     const nscp::paths::layout selected = nscp::paths::parse_layout(mode);
@@ -258,7 +259,9 @@ NSClientT::NSClientT()
       path_(new nsclient::core::path_manager(log_instance_)),
       plugins_(new nsclient::core::plugin_manager(path_, log_instance_)),
       storage_manager_(new nsclient::core::storage_manager(path_, log_instance_)),
-      tags_(new nsclient::core::tag_repository()) {
+      tags_(new nsclient::core::tag_repository()),
+      facts_(new nsclient::core::fact_repository()) {
+  plugins_->set_fact_repository(facts_);
   provider_ = new nscp_settings_provider(path_, log_instance_);
   log_instance_->startup();
 }
@@ -306,6 +309,12 @@ bool NSClientT::load_configuration_1() {
   if (!settings_manager::init_settings(provider_, context_)) {
     return false;
   }
+  // init_settings() judges them itself, at the point where the layout and
+  // [paths] are known but nothing has yet acted on a path - see
+  // validate_path_overrides(). Repeated here only because a provider is free
+  // not to implement that hook; drop_unusable_overrides is idempotent, so an
+  // override that already passed simply passes again.
+  path_->validate_overrides();
   return true;
 }
 
@@ -346,7 +355,8 @@ bool NSClientT::load_configuration_2(const bool override_log) {
 
     settings.add_key_to_settings("crash")
         .add_bool("archive", sh::bool_key(&crash_archive, true), "ARCHIVE CRASHREPORTS", "Archive crash reports in the archive folder")
-        .add_string("archive folder", sh::path_key(&crash_folder, CRASH_ARCHIVE_FOLDER), "CRASH ARCHIVE LOCATION", "The folder to archive crash dumps in");
+        .add_string("archive folder", sh::path_key(&crash_folder, CRASH_ARCHIVE_FOLDER, "${" CRASH_ARCHIVE_FOLDER_KEY "}"), "CRASH ARCHIVE LOCATION",
+                    "The folder to archive crash dumps in. A relative name is taken relative to the crash folder; an absolute path is used as given.");
 
     settings.register_all();
     settings.notify();
@@ -484,6 +494,7 @@ bool NSClientT::boot_start_plugins(bool boot) {
                                                "How many threads will run in the background to maintain the various core helper tasks.", "1", true, false);
     int count = str::stox<int>(settings_manager::get_settings()->get_string("/settings/core", "settings maintenance threads", "1"));
     scheduler_.set_threads(count);
+    boot_facts();
     scheduler_.start();
   }
   try {
@@ -495,10 +506,61 @@ bool NSClientT::boot_start_plugins(bool boot) {
     return false;
   }
   if (boot) {
+    // One round before the fleet loop sends its first state report, so a fresh
+    // host reports the inventory it has rather than an empty document it will
+    // correct a minute later.
+    process_facts("startup");
     boot_fleet_sync();
   }
   LOG_DEBUG_CORE(utf8::cvt<std::string>(APPLICATION_NAME " - " CURRENT_SERVICE_VERSION " Started!"));
   return true;
+}
+
+// Register the core's facts settings and, when a module can produce facts at
+// all, the round that refreshes them.
+//
+// Enablement itself is not here: which fact sets a module produces is that
+// module's own configuration, next to everything else it is configured with,
+// so the core never reads an enable list. This section owns only the two keys
+// that pace the round, and the task is not registered at all when no loaded
+// module produces facts.
+void NSClientT::boot_facts() {
+  try {
+    const std::string path = "/settings/facts";
+    settings_manager::get_core()->register_path(0xffff, path, "Host inventory (facts)",
+                                                "How often the host inventory is refreshed and how large it may get. Which fact sets are collected is "
+                                                "configured in the module that produces them; nothing is collected until one is enabled there.",
+                                                true, false);
+    settings_manager::get_core()->register_key(0xffff, path, "interval", "string", "Refresh interval",
+                                               "How often the core asks every module to refresh the fact sets it is configured to produce.", "1h", true, false);
+    settings_manager::get_core()->register_key(0xffff, path, "max size", "int", "Maximum document size",
+                                               "Size budget for the whole facts document, counted on its encoded form. A fact set that would take the "
+                                               "document past it is rejected, and the previous value of that set is kept.",
+                                               str::xtos(nsclient::core::fact_repository::default_max_size), true, false);
+
+    const std::string max_size = settings_manager::get_settings()->get_string(path, "max size", str::xtos(nsclient::core::fact_repository::default_max_size));
+    try {
+      facts_->set_max_size(str::stox<std::size_t>(max_size));
+    } catch (const std::exception &e) {
+      LOG_ERROR_CORE_STD("Invalid facts 'max size' value '" + max_size + "', keeping the default: " + utf8::utf8_from_native(e.what()));
+    }
+
+    if (!plugins_->has_facts_fetchers()) {
+      LOG_DEBUG_CORE("No loaded module produces facts, inventory will not be collected");
+      return;
+    }
+    const std::string interval = settings_manager::get_settings()->get_string(path, "interval", "1h");
+    try {
+      scheduler_.add_task(task_scheduler::schedule_metadata::FACTS, interval);
+    } catch (const std::exception &e) {
+      LOG_ERROR_CORE_STD("Invalid facts 'interval' value '" + interval + "', falling back to '1h': " + utf8::utf8_from_native(e.what()));
+      scheduler_.add_task(task_scheduler::schedule_metadata::FACTS, "1h");
+    }
+  } catch (const std::exception &e) {
+    LOG_ERROR_CORE_STD("Failed to configure facts: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    LOG_ERROR_CORE("Failed to configure facts");
+  }
 }
 
 // Start the fleet configuration sync loop - but only when this host has been
@@ -522,9 +584,15 @@ void NSClientT::boot_fleet_sync() {
                                                    "The enrollment manifest written by `nscp enroll` (certificates, keys and server urls). "
                                                    "Fleet sync only runs when this file exists.",
                                                    DEFAULT_FLEET_STATE_LOCATION));
-    config.managed_path =
-        path_->expand_path(reg_key("managed path", "Managed path",
-                                   "Directory where the synced configuration (fleet.ini), scripts and the bundle cache are kept.", "${" FLEET_FOLDER_KEY "}"));
+    // Rooted at ${fleet-folder}: the sync *writes* this tree - the rendered
+    // fleet.ini, the staged scripts, the bundle cache - so a relative value
+    // would scatter it wherever the service happened to be started from.
+    config.managed_path = path_->resolve_path(
+        reg_key("managed path", "Managed path",
+                "Directory where the synced configuration (fleet.ini), scripts and the bundle cache are kept. A relative name is taken relative to the "
+                "fleet folder; an absolute path is used as given.",
+                "${" FLEET_FOLDER_KEY "}"),
+        "${" FLEET_FOLDER_KEY "}");
     config.hostname = socket_helpers::expand_hostname(
         reg_key("hostname", "Hostname", "Hostname reported as a tag to the fleet server. Set to auto (default) to use this machine's hostname.", "auto"));
     config.tls_version = reg_key("tls version", "TLS version", "The TLS version used when connecting to the fleet server.", "tlsv1.2+");
@@ -539,6 +607,10 @@ void NSClientT::boot_fleet_sync() {
     }
     config.nscp_version = CURRENT_SERVICE_VERSION;
     config.local_config_probe = [] { return settings_manager::has_local_configuration(); };
+    // Same boot.ini opt-in that allows a plaintext settings source: whether
+    // this agent may take its configuration over an unauthenticated channel is
+    // one question, and the fleet channel is the same channel by another name.
+    config.allow_plaintext = settings_manager::get_core()->get_allow_plaintext();
 
     std::string manifest_detail;
     const fleet_sync::manifest_status manifest = fleet_sync::check_manifest(config.state_file, manifest_detail);
@@ -680,6 +752,10 @@ void NSClientT::reloadPlugins() {
   // TODO: a module *disabled* since the last load is still left running; that
   // needs unloading a live plugin, which is a different problem from this one.
   settings_manager::get_core()->set_reload(false);
+  // The reloaded configuration may have enabled or disabled fact sets, and a
+  // set that is no longer enabled has to leave the document now rather than at
+  // the next hourly round.
+  process_facts("reload");
 }
 
 bool NSClientT::do_reload(const std::string module) {
@@ -812,6 +888,7 @@ PB::Metrics::MetricsBundle NSClientT::ownMetricsFetcher() {
   return bundle;
 }
 void NSClientT::process_metrics() { plugins_->process_metrics(ownMetricsFetcher()); }
+void NSClientT::process_facts(const std::string &reason) { plugins_->process_facts(reason); }
 
 #ifdef _WIN32
 void NSClientT::handle_session_change(unsigned long dwSessionId, bool logon) {}

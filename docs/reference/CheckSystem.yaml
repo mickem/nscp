@@ -4150,7 +4150,7 @@ windows:
         short_description: ''
       info:
         description: 'Check kernel memory-manager health: paged/nonpaged pool bytes, file-cache bytes
-          and page-fault rates â€” the pool-exhaustion and hard-fault-storm signals free-RAM thresholds
+          and page-fault rates — the pool-exhaustion and hard-fault-storm signals free-RAM thresholds
           miss.'
     check_kernel_stats:
       common_fields:

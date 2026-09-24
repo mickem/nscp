@@ -26,6 +26,7 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/nscapi_facts_helper.cpp
     ${NSCP_INCLUDEDIR}/metrics/metrics_store_map.cpp
 )
 
@@ -47,15 +48,15 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.hpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.hpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_facts_helper.hpp
         ${NSCP_INCLUDEDIR}/metrics/metrics_store_map.hpp
         ${NSCP_INCLUDEDIR}/nscapi/macros.hpp
     )
 endif(WIN32)
 
+# iconv is linked globally on macOS (see link_libraries() in the top-level
+# CMakeLists); it does not belong to this library in particular.
 set(EXTRA_LIBS)
-if(APPLE)
-    set(EXTRA_LIBS ${ICONV_LIBRARIES})
-endif()
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
 # The public surface is annotated with NSCAPI_EXPORT (nscapi/dll_defines.hpp),
@@ -103,6 +104,8 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_facts_helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_facts_helper_test.cpp
     LIBRARIES
         GTest::gtest
         GTest::gtest_main

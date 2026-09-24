@@ -8,7 +8,9 @@
 
 #include <boost/filesystem.hpp>
 #include <fstream>
+#include <iostream>
 #include <memory>
+#include <sstream>
 #include <nsclient/logger/logger.hpp>
 #include <nscp/boot_layout.hpp>
 #include <nscp/client_path_resolver.hpp>
@@ -46,15 +48,123 @@ class PathManagerTest : public ::testing::Test {
 
 TEST_F(PathManagerTest, ExpandPathEmpty) { EXPECT_EQ(pm->expand_path(""), ""); }
 
+// `none` names no file at all - file logging off, `ca` falling back to the TLS
+// library's own trust store. It is a sentinel rather than a path, so it has to
+// come back from the expander byte-identical: every consumer compares against
+// the bare literal, and the write side must never join it onto a directory and
+// create a file called `none`.
+TEST_F(PathManagerTest, ExpandPathLeavesTheNoPathSentinelAlone) { EXPECT_EQ(pm->expand_path("none"), "none"); }
+
+// Only the exact sentinel is special. A real file that merely starts with
+// those letters, or names `none` inside a directory, is an ordinary path.
+TEST_F(PathManagerTest, ExpandPathTreatsNoneLikeAnyOtherNameWhenItIsPartOfAPath) {
+  EXPECT_EQ(pm->expand_path("none.log"), "none.log");
+  EXPECT_EQ(pm->expand_path("/var/log/none"), "/var/log/none");
+  EXPECT_EQ(pm->expand_path("None"), "None");
+}
+
 TEST_F(PathManagerTest, ExpandPathNoVariables) {
   std::string path = "/usr/local/bin";
   EXPECT_EQ(pm->expand_path(path), path);
 }
 
-TEST_F(PathManagerTest, GetFolderUnknownKey) {
-  std::string key = "unknown-key";
-  std::string result = pm->getFolder(key);
-  EXPECT_FALSE(result.empty());
+// --- resolve_path ------------------------------------------------------------
+// expand_path substitutes tokens and deliberately does not make anything
+// absolute: an operator may point a setting anywhere on the filesystem. But a
+// value with no token and no root only means something relative to the process
+// working directory, which differs per platform and per launch method. A
+// consumer that owns a namespace names it here so a bare name lands there.
+
+// Boost's operator/ appends the *preferred* separator, so a join that reads
+// "/var/log/nscp/x" on POSIX reads "/var/log/nscp\\x" on Windows. These tests
+// are about which directory a value lands in, not how the separator is spelt,
+// so compare the generic (forward-slash) form. Values produced by token
+// substitution alone keep whatever the operator typed and need no such care.
+static std::string generic(const std::string &path) { return boost::filesystem::path(path).generic_string(); }
+
+TEST_F(PathManagerTest, ResolvePathRootsABareNameAtTheGivenRoot) {
+  pm->set_overrides({{"log-path", "/var/log/nscp"}});
+  EXPECT_EQ(generic(pm->resolve_path("nsclient.log", "${log-path}")), "/var/log/nscp/nsclient.log");
+}
+
+TEST_F(PathManagerTest, ResolvePathRootsARelativeSubdirectoryToo) {
+  pm->set_overrides({{"shared-path", "/srv/nscp"}});
+  EXPECT_EQ(generic(pm->resolve_path("scripts/myscript.bat", "${shared-path}")), "/srv/nscp/scripts/myscript.bat");
+}
+
+TEST_F(PathManagerTest, ResolvePathLeavesAnAbsolutePathAlone) {
+  pm->set_overrides({{"log-path", "/var/log/nscp"}});
+  // The operator pointed somewhere specific; that is theirs to decide.
+  EXPECT_EQ(pm->resolve_path("/var/log/elsewhere.log", "${log-path}"), "/var/log/elsewhere.log");
+}
+
+TEST_F(PathManagerTest, ResolvePathExpandsTokensAndDoesNotRootTheResult) {
+  pm->set_overrides({{"shared-path", "/srv/nscp"}, {"log-path", "/var/log/nscp"}});
+  // Already rooted once the token is substituted, so the default root must not
+  // be applied on top of it.
+  EXPECT_EQ(pm->resolve_path("${shared-path}/x.log", "${log-path}"), "/srv/nscp/x.log");
+}
+
+TEST_F(PathManagerTest, ResolvePathKeepsAnUnsetValueUnset) {
+  // "" means "not configured" on a good number of path options, and their
+  // consumers test .empty(). Rooting it would turn "no certificate key" into a
+  // certificate key named after the root directory.
+  pm->set_overrides({{"log-path", "/var/log/nscp"}});
+  EXPECT_EQ(pm->resolve_path("", "${log-path}"), "");
+}
+
+TEST_F(PathManagerTest, ResolvePathKeepsTheNoPathSentinel) {
+  pm->set_overrides({{"log-path", "/var/log/nscp"}});
+  EXPECT_EQ(pm->resolve_path("none", "${log-path}"), "none");
+}
+
+TEST_F(PathManagerTest, ResolvePathReportsARootThatIsNotOne) {
+  // Every call site passes a literal, so this is a programming error rather
+  // than operator input - and a silent pass-through would leave the value
+  // resolving against the working directory, which is the bug being fixed.
+  EXPECT_THROW(pm->resolve_path("x.log", "not-a-root"), nsclient::core::path_expansion_error);
+}
+
+TEST_F(PathManagerTest, ResolvePathReportsAnUnknownTokenInTheValue) {
+  EXPECT_THROW(pm->resolve_path("${no-such-token}/x.log", "${log-path}"), nsclient::core::path_expansion_error);
+}
+
+TEST_F(PathManagerTest, ResolvePathAlwaysYieldsAnAbsolutePathForOrdinaryInput) {
+  // The property the write-side consumers actually depend on.
+  for (const char *value : {"x.log", "sub/x.log", "./x.log"}) {
+    const std::string resolved = pm->resolve_path(value, "${log-path}");
+    EXPECT_TRUE(boost::filesystem::path(resolved).is_absolute()) << value << " resolved to a relative path: " << resolved;
+  }
+}
+
+TEST_F(PathManagerTest, GetFolderUnknownKeyIsReported) {
+  // An unknown key is a typo, and it used to resolve to the executable's
+  // directory - so `${scripst}/x.bat` was not an error but a real path under
+  // the install folder, and whatever depended on it went somewhere nobody was
+  // looking (#458). Report it instead.
+  EXPECT_THROW(pm->getFolder("unknown-key"), nsclient::core::path_expansion_error);
+}
+
+TEST_F(PathManagerTest, UnknownTokenInAPathIsReported) {
+  EXPECT_THROW(pm->expand_path("${definitely-not-a-known-key}/file.ini"), nsclient::core::path_expansion_error);
+}
+
+TEST_F(PathManagerTest, UnknownTokenErrorNamesTheToken) {
+  // The message is the whole point: an operator has to be able to find the
+  // line they mistyped.
+  try {
+    pm->expand_path("${scripst}/check.bat");
+    FAIL() << "expected an unknown token to be reported";
+  } catch (const nsclient::core::path_expansion_error &e) {
+    EXPECT_NE(std::string(e.what()).find("scripst"), std::string::npos) << "message did not name the token: " << e.what();
+  }
+}
+
+TEST_F(PathManagerTest, AnOverrideMakesAnOtherwiseUnknownTokenResolvable) {
+  // The error is "no such path is configured", not "not on a fixed list": an
+  // operator may introduce their own token in boot.ini and use it.
+  pm->set_overrides({{"my-own-folder", "/srv/mine"}});
+  EXPECT_EQ(pm->expand_path("${my-own-folder}/x.ini"), "/srv/mine/x.ini");
 }
 
 TEST_F(PathManagerTest, ExpandPathWithVariables) {
@@ -504,6 +614,73 @@ TEST_F(ClientPathResolverTest, ReadsTheLayoutAlongsideThePaths) {
   EXPECT_EQ(r.get_layout(), nscp::paths::layout::modern);
 }
 
+TEST_F(ClientPathResolverTest, BasePathAndExePathBothNameTheExecutablesDirectory) {
+  const nscp::paths::client_path_resolver r = resolver_with("");
+  const std::string exe = nscp::paths::client_path_resolver::executable_dir().string();
+  EXPECT_EQ(r.get_folder("base-path"), exe);
+  EXPECT_EQ(r.get_folder("exe-path"), exe);
+}
+
+TEST_F(ClientPathResolverTest, APathsOverrideBeatsTheBinarysOwnLookup) {
+  // [paths] wins over the lookups only this binary can answer, not just over
+  // the table - so an operator who has to relocate ${exe-path} can, and the
+  // client follows the service rather than insisting on where it sits.
+  const nscp::paths::client_path_resolver r = resolver_with("[paths]\nexe-path = /opt/nscp\n");
+  EXPECT_EQ(r.get_folder("exe-path"), "/opt/nscp");
+  EXPECT_NE(r.get_folder("exe-path"), nscp::paths::client_path_resolver::executable_dir().string());
+}
+
+TEST_F(ClientPathResolverTest, AnUnknownTokenIsReportedOnStderrAndFallsBackToTheExeDir) {
+  // A client cannot raise the way the service does: main has no handler, and a
+  // Nagios plugin that aborts prints nothing usable. So it warns and carries
+  // on - on stderr, because Nagios reads the check result from stdout.
+  const nscp::paths::client_path_resolver r = resolver_with("");
+  std::ostringstream captured;
+  std::streambuf *const saved = std::cerr.rdbuf(captured.rdbuf());
+  const std::string got = r.get_folder("scripst");
+  std::cerr.rdbuf(saved);
+
+  EXPECT_EQ(got, nscp::paths::client_path_resolver::executable_dir().string());
+  EXPECT_NE(captured.str().find("scripst"), std::string::npos) << captured.str();
+}
+
+TEST_F(ClientPathResolverTest, AnUnknownTokenIsReportedOnceHoweverOftenItIsResolved) {
+  // expand_tokens resolves each occurrence separately, so a value naming the
+  // same typo twice would otherwise say so twice - and a client expanding
+  // several settings would repeat it for every one of them.
+  const nscp::paths::client_path_resolver r = resolver_with("");
+  std::ostringstream captured;
+  std::streambuf *const saved = std::cerr.rdbuf(captured.rdbuf());
+  r.expand_path("${scripst}/a;${scripst}/b");
+  r.get_folder("scripst");
+  std::cerr.rdbuf(saved);
+
+  const std::string out = captured.str();
+  EXPECT_NE(out.find("scripst"), std::string::npos) << out;
+  EXPECT_EQ(out.find("scripst"), out.rfind("scripst")) << "reported more than once: " << out;
+}
+
+#ifdef WIN32
+TEST_F(ClientPathResolverTest, LegacySharedPathFallsBackToTheExeDirWithoutComplaining) {
+  // The one key that is known AND reaches the fallback: under the legacy
+  // layout ${shared-path} is the executable's directory, which is why
+  // default_for deliberately has no entry for it. Every other known token
+  // either has a table entry or is answered by a lookup above, so this is the
+  // only case where the is_known_key guard on the warning does any work - and
+  // it is Windows-only, because on unix ${shared-path} comes from the table.
+  //
+  // Warning here would teach an operator to ignore the message that matters.
+  const nscp::paths::client_path_resolver r = resolver_with("[layout]\nmode = legacy\n");
+  std::ostringstream captured;
+  std::streambuf *const saved = std::cerr.rdbuf(captured.rdbuf());
+  const std::string got = r.get_folder("shared-path");
+  std::cerr.rdbuf(saved);
+
+  EXPECT_EQ(got, nscp::paths::client_path_resolver::executable_dir().string());
+  EXPECT_EQ(captured.str(), "") << captured.str();
+}
+#endif
+
 TEST(BootLayout, NoBootIniMeansLegacy) {
   // A fresh install, or one whose boot.ini has not been written yet.
   const boost::filesystem::path missing = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-none-%%%%") / "boot.ini";
@@ -575,6 +752,70 @@ TEST_F(PathManagerTest, WebRootIsNotWritableStateOnUnix) {
 #else
   GTEST_SKIP() << "covered by ProgramContentStaysPutWhenTheLayoutMoves on Windows";
 #endif
+}
+
+TEST_F(PathManagerTest, ARelativeBootConfOverrideIsRefusedImmediatelyRatherThanDeferred) {
+  // Every other CLI override is installed unvalidated and judged later, once
+  // boot.ini's [layout] and [paths] have been read. ${boot-conf} cannot wait:
+  // it names boot.ini, so init_settings() consumes it before that point. Left
+  // to the deferred check it would be used once - to read a file relative to
+  // the working directory - and then dropped, so the bootstrap would have read
+  // one file while every later ${boot-conf} expansion named another.
+  pm->set_cli_overrides({{"boot-conf", "relative-boot.ini"}});
+
+  // Dropped at install time, not at validate time: the default is already in
+  // force before anything reads boot.ini.
+  const std::string before_validate = pm->expand_path("${boot-conf}");
+  EXPECT_EQ(before_validate.find("relative-boot.ini"), std::string::npos) << before_validate;
+  EXPECT_TRUE(nscp::paths::names_a_root(before_validate)) << before_validate;
+
+  pm->validate_overrides();
+  EXPECT_EQ(pm->expand_path("${boot-conf}"), before_validate);
+}
+
+TEST_F(PathManagerTest, AnAbsoluteBootConfOverrideIsStillHonoured) {
+  // The whole point of the override - relocating boot.ini for a test or a
+  // sandbox - has to keep working.
+#ifdef WIN32
+  const std::string target = "C:\\sandbox\\boot.ini";
+#else
+  const std::string target = "/sandbox/boot.ini";
+#endif
+  pm->set_cli_overrides({{"boot-conf", target}});
+  EXPECT_EQ(pm->expand_path("${boot-conf}"), target);
+  pm->validate_overrides();
+  EXPECT_EQ(pm->expand_path("${boot-conf}"), target);
+}
+
+TEST_F(PathManagerTest, ABootConfOverrideWrittenWithATokenIsHonoured) {
+  // The early guard judges the resolved value, not the spelling. The built-in
+  // default is itself token-bearing (${exe-path}/boot.ini, ${etc}/nsclient/
+  // boot.ini), so rejecting the raw string would refuse the documented form and
+  // contradict the rule every other override follows.
+#ifdef WIN32
+  const std::string spelling = "${exe-path}/custom-boot.ini";
+#else
+  const std::string spelling = "${etc}/nsclient/custom-boot.ini";
+#endif
+  pm->set_cli_overrides({{"boot-conf", spelling}});
+
+  const std::string resolved = pm->expand_path("${boot-conf}");
+  EXPECT_NE(resolved.find("custom-boot.ini"), std::string::npos) << resolved;
+  EXPECT_TRUE(nscp::paths::names_a_root(resolved)) << resolved;
+  EXPECT_EQ(resolved.find("${"), std::string::npos) << resolved;
+
+  pm->validate_overrides();
+  EXPECT_EQ(pm->expand_path("${boot-conf}"), resolved);
+}
+
+TEST_F(PathManagerTest, ABootConfOverrideNamingAnUnknownTokenIsRefused) {
+  // It cannot be resolved, so it cannot be used to find boot.ini. Same outcome
+  // as a relative one: the default stays in force.
+  pm->set_cli_overrides({{"boot-conf", "${no-such-token}/boot.ini"}});
+
+  const std::string resolved = pm->expand_path("${boot-conf}");
+  EXPECT_EQ(resolved.find("no-such-token"), std::string::npos) << resolved;
+  EXPECT_TRUE(nscp::paths::names_a_root(resolved)) << resolved;
 }
 
 TEST_F(PathManagerTest, FleetFolderExpandsAndIsWritableByTheService) {
@@ -721,11 +962,66 @@ TEST_F(PathManagerTest, OverridesReplaceRatherThanMerge) {
   EXPECT_EQ(pm->getFolder("log-path"), "/second");
 }
 
-TEST_F(PathManagerTest, OverridesIgnoredForUnknownKeyFallback) {
-  // Unknown keys still fall through to getBasePath, even if overrides are set
-  // for other keys.
+TEST_F(PathManagerTest, OverridesForOtherKeysDoNotMakeAnUnknownKeyResolvable) {
+  // Setting an override for one key says nothing about another: the unknown
+  // one is still a typo and still reported.
   pm->set_overrides({{"certificate-path", "/x"}});
-  EXPECT_FALSE(pm->getFolder("definitely-not-a-known-key").empty());
+  EXPECT_THROW(pm->getFolder("definitely-not-a-known-key"), nsclient::core::path_expansion_error);
+}
+
+TEST_F(PathManagerTest, ARelativeOverrideIsDroppedSoTheDefaultApplies) {
+  // A relative override would be read and written relative to the service's
+  // working directory, which is System32 for a Windows service and "/" under a
+  // bare init - unpredictable, and invisible until something lands in the
+  // wrong place. Drop it and use the built-in default, which is absolute.
+  const std::string built_in = pm->getFolder("scripts");
+  pm->set_overrides({{"scripts", "myscripts"}});
+  EXPECT_EQ(pm->getFolder("scripts"), built_in);
+}
+
+TEST_F(PathManagerTest, ARelativeCliOverrideIsDroppedToo) {
+  const std::string built_in = pm->getFolder("log-path");
+  pm->set_cli_overrides({{"log-path", "../logs"}});
+  pm->validate_overrides();
+  EXPECT_EQ(pm->getFolder("log-path"), built_in);
+}
+
+TEST_F(PathManagerTest, ACliOverrideIsNotJudgedBeforeBootIniHasBeenApplied) {
+  // set_cli_overrides runs before init_settings, so boot.ini has been read for
+  // neither [layout] nor [paths]. An override built from an operator's own
+  // token - which the documentation explicitly allows - would look like a typo
+  // if it were judged at that point, and be dropped before the token it names
+  // ever existed.
+  pm->set_cli_overrides({{"log-path", "${my-own-folder}/logs"}});
+  pm->set_overrides({{"my-own-folder", "/srv/mine"}});
+  pm->validate_overrides();
+  EXPECT_EQ(pm->getFolder("log-path"), "${my-own-folder}/logs");
+  EXPECT_EQ(pm->expand_path("${log-path}"), "/srv/mine/logs");
+}
+
+TEST_F(PathManagerTest, ValidateOverridesIsIdempotent) {
+  // The boot.ini layer is checked when it is installed and checked again here;
+  // a second pass must not start discarding entries that already passed.
+  pm->set_overrides({{"log-path", "/var/log/keepme"}});
+  pm->validate_overrides();
+  pm->validate_overrides();
+  EXPECT_EQ(pm->getFolder("log-path"), "/var/log/keepme");
+}
+
+TEST_F(PathManagerTest, AnOverrideThatExpandsToAnAbsolutePathIsKept) {
+  // Rejection is on the *resolved* value, not on how it was written: an
+  // override built from other tokens is the documented way to relocate a
+  // folder and has to keep working.
+  pm->set_overrides({{"scripts", "${base-path}/custom-scripts"}});
+  const std::string resolved = pm->getFolder("scripts");
+  EXPECT_NE(resolved.find("custom-scripts"), std::string::npos);
+  EXPECT_TRUE(boost::filesystem::path(pm->expand_path("${scripts}")).is_absolute());
+}
+
+TEST_F(PathManagerTest, AnOverrideNamingAnUnknownTokenIsDropped) {
+  const std::string built_in = pm->getFolder("scripts");
+  pm->set_overrides({{"scripts", "${no-such-token}/mine"}});
+  EXPECT_EQ(pm->getFolder("scripts"), built_in);
 }
 
 TEST_F(PathManagerTest, OverrideValuesCanBeTemplates) {
