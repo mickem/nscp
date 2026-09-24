@@ -4,6 +4,7 @@
 #pragma once
 
 #include <atomic>
+#include <facts/host_facts.hpp>
 #include <nscapi/nscapi_facts_helper.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
@@ -32,6 +33,10 @@ class CheckSystem : public nscapi::impl::simple_plugin {
   // bools.
   std::atomic<bool> facts_os_{false};
   std::atomic<bool> facts_hardware_{false};
+  // The last gathered snapshot. These facts cannot change without the host
+  // rebooting, so a scheduled round reports what this holds and says how old
+  // it is; see host_facts::should_regather.
+  host_facts::snapshot_cache facts_cache_;
 
  public:
   CheckSystem() : simple_plugin() {}

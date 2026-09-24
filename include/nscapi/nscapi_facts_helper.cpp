@@ -74,6 +74,8 @@ PB::Facts::FactsMessage response::to_message() const {
     it->second->build_object(set->mutable_facts());
     const std::map<std::string, std::string>::const_iterator problem = problems_->find(name);
     if (problem != problems_->end()) set->set_error(problem->second);
+    const std::map<std::string, std::string>::const_iterator when = gathered_->find(name);
+    if (when != gathered_->end()) set->set_gathered(when->second);
   }
   // `removed` drops the set, as opposed to not mentioning it, which leaves
   // what the core already has.
@@ -90,6 +92,10 @@ PB::Facts::FactsMessage response::to_message() const {
     PB::Facts::FactSet *set = payload->add_sets();
     set->set_id(problem.first);
     set->set_error(problem.second);
+    // The set it could not collect still has a last-known age, and that is
+    // exactly what a reader wants when a set goes stale.
+    const std::map<std::string, std::string>::const_iterator when = gathered_->find(problem.first);
+    if (when != gathered_->end()) set->set_gathered(when->second);
   }
   return message;
 }

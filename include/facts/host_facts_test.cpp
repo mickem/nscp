@@ -189,6 +189,27 @@ host_facts::facts sample_row() {
   return f;
 }
 
+// The same row as a snapshot, with a fixed gather time so a test can assert
+// on the stamp rather than on "some time around now".
+const std::time_t kTakenAt = 1790000000;  // 2026-09-21T14:13:20Z
+
+host_facts::snapshot sample_snapshot(const host_facts::facts &values = sample_row(), const std::time_t taken_at = kTakenAt) {
+  host_facts::snapshot snap;
+  snap.values = values;
+  snap.taken_at = taken_at;
+  return snap;
+}
+
+// When a set says its values were read, or "" if it did not say.
+std::string gathered_of(const nscapi::facts::response &out, const std::string &id) {
+  const PB::Facts::FactsMessage message = out.to_message();
+  if (message.payload_size() == 0) return "";
+  for (const PB::Facts::FactSet &set : message.payload(0).sets()) {
+    if (set.id() == id) return set.gathered();
+  }
+  return "";
+}
+
 // One set, as JSON. The builder makes a protobuf tree; what a test wants to
 // say is "this set looks like this", which the one-line JSON says better than
 // a walk over the message.
@@ -206,7 +227,7 @@ bool has_set(const nscapi::facts::response &out, const std::string &id) { return
 
 TEST(host_facts_sets, the_os_set_carries_the_identity_and_the_domain) {
   nscapi::facts::response out;
-  host_facts::publish_facts(sample_row(), true, false, out);
+  host_facts::publish_facts(sample_snapshot(), true, false, out);
   EXPECT_EQ(
       "{\"family\":\"linux\",\"name\":\"Ubuntu 24.04.1 LTS\",\"version\":\"6.8.0-45-generic\","
       "\"arch\":\"x86_64\",\"virtualization\":\"kvm\",\"domain\":\"corp.example.com\"}",
@@ -216,21 +237,21 @@ TEST(host_facts_sets, the_os_set_carries_the_identity_and_the_domain) {
 
 TEST(host_facts_sets, the_hardware_set_carries_the_vendor_and_the_size) {
   nscapi::facts::response out;
-  host_facts::publish_facts(sample_row(), false, true, out);
+  host_facts::publish_facts(sample_snapshot(), false, true, out);
   EXPECT_EQ("{\"manufacturer\":\"Dell Inc.\",\"model\":\"PowerEdge R650\",\"cpu_cores\":16,\"memory_gb\":64}", json_of(out, "hardware"));
   EXPECT_FALSE(has_set(out, "os"));
 }
 
 TEST(host_facts_sets, both_sets_are_built_when_both_are_on) {
   nscapi::facts::response out;
-  host_facts::publish_facts(sample_row(), true, true, out);
+  host_facts::publish_facts(sample_snapshot(), true, true, out);
   EXPECT_TRUE(has_set(out, "os"));
   EXPECT_TRUE(has_set(out, "hardware"));
 }
 
 TEST(host_facts_sets, nothing_is_written_when_nothing_is_enabled) {
   nscapi::facts::response out;
-  host_facts::publish_facts(sample_row(), false, false, out);
+  host_facts::publish_facts(sample_snapshot(), false, false, out);
   const PB::Facts::FactsMessage message = out.to_message();
   ASSERT_EQ(1, message.payload_size());
   EXPECT_EQ(0, message.payload(0).sets_size());
@@ -247,7 +268,7 @@ TEST(host_facts_sets, a_fact_that_was_not_determined_is_omitted_not_written_empt
   f.cpu_cores = 0;
   f.memory_gb = 0;
   nscapi::facts::response out;
-  host_facts::publish_facts(f, true, true, out);
+  host_facts::publish_facts(sample_snapshot(f), true, true, out);
   EXPECT_EQ("{\"family\":\"linux\",\"name\":\"Ubuntu 24.04.1 LTS\",\"version\":\"6.8.0-45-generic\",\"arch\":\"x86_64\",\"virtualization\":\"kvm\"}",
             json_of(out, "os"));
   EXPECT_EQ("{}", json_of(out, "hardware"));
@@ -259,4 +280,92 @@ TEST(host_facts_sets, the_keys_are_valid_document_keys) {
   for (const char *key : {"family", "name", "version", "arch", "virtualization", "domain", "manufacturer", "model", "cpu_cores", "memory_gb"}) {
     EXPECT_TRUE(nscapi::facts::is_valid_key(key)) << key;
   }
+}
+
+// When the values were read, as opposed to when the core asked for them.
+// The distinction only exists because the producer caches; if it collected on
+// every round the two would always be the same moment and nobody would need
+// to tell them apart.
+
+TEST(host_facts_gathered, every_set_carries_when_its_values_were_read) {
+  nscapi::facts::response out;
+  host_facts::publish_facts(sample_snapshot(), true, true, out);
+  EXPECT_EQ("2026-09-21T14:13:20Z", gathered_of(out, "os"));
+  EXPECT_EQ("2026-09-21T14:13:20Z", gathered_of(out, "hardware"));
+}
+
+TEST(host_facts_gathered, a_snapshot_with_no_time_leaves_the_sets_unstamped) {
+  // The core then falls back to the time of the round, which is right for a
+  // producer that did not bother to say.
+  nscapi::facts::response out;
+  host_facts::publish_facts(sample_snapshot(sample_row(), 0), true, true, out);
+  EXPECT_EQ("", gathered_of(out, "os"));
+}
+
+TEST(host_facts_cache, the_first_round_has_to_read_the_machine) {
+  EXPECT_TRUE(host_facts::should_regather("startup", false));
+  EXPECT_TRUE(host_facts::should_regather("scheduled", false));
+  EXPECT_TRUE(host_facts::should_regather("reload", false));
+}
+
+TEST(host_facts_cache, a_scheduled_round_reports_what_is_held) {
+  // The whole point: an hourly round on a machine whose OS and hardware
+  // cannot change without a reboot should cost nothing.
+  EXPECT_FALSE(host_facts::should_regather("scheduled", true));
+  EXPECT_FALSE(host_facts::should_regather("reload", true));
+}
+
+TEST(host_facts_cache, an_operator_asking_for_a_refresh_gets_a_real_one) {
+  // The escape hatch for the host that did change underneath - memory added,
+  // re-imaged - without making it wait for a restart.
+  EXPECT_TRUE(host_facts::should_regather("manual", true));
+  EXPECT_TRUE(host_facts::should_regather("startup", true));
+}
+
+TEST(host_facts_cache, an_unknown_reason_reads_as_scheduled) {
+  // A core that grows a new reason must not silently turn a cached producer
+  // into a collecting one.
+  EXPECT_FALSE(host_facts::should_regather("something-new", true));
+  EXPECT_FALSE(host_facts::should_regather("", true));
+}
+
+TEST(host_facts_cache, the_machine_is_read_once_and_reported_thereafter) {
+  host_facts::snapshot_cache cache;
+  int gathers = 0;
+  const auto gather = [&gathers]() {
+    ++gathers;
+    return sample_row();
+  };
+
+  const host_facts::snapshot first = cache.get("startup", gather);
+  EXPECT_EQ(1, gathers);
+  EXPECT_TRUE(first.valid());
+  EXPECT_EQ("Ubuntu 24.04.1 LTS", first.values.os_name);
+
+  const host_facts::snapshot second = cache.get("scheduled", gather);
+  EXPECT_EQ(1, gathers) << "a scheduled round must not read the machine again";
+  EXPECT_EQ(first.taken_at, second.taken_at) << "and the values must keep the age they were read at";
+
+  cache.get("reload", gather);
+  EXPECT_EQ(1, gathers);
+
+  cache.get("manual", gather);
+  EXPECT_EQ(2, gathers) << "a manual refresh is the one that collects";
+}
+
+TEST(host_facts_cache, a_scheduled_first_round_still_collects) {
+  // A module loaded after the core booted has no snapshot yet; it must not
+  // report an empty inventory until someone asks by hand.
+  host_facts::snapshot_cache cache;
+  int gathers = 0;
+  const auto gather = [&gathers]() {
+    ++gathers;
+    return sample_row();
+  };
+
+  const host_facts::snapshot first = cache.get("scheduled", gather);
+  EXPECT_EQ(1, gathers);
+  EXPECT_TRUE(first.valid());
+  cache.get("scheduled", gather);
+  EXPECT_EQ(1, gathers);
 }

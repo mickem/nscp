@@ -68,6 +68,17 @@ message FactSet {
 	Object facts = 2;
 	bool removed = 3;
 	string error = 4;
+	// When the producer actually read these values off the machine, ISO 8601
+	// UTC. Distinct from the round that delivered them: a producer whose
+	// collection is expensive hands back a snapshot it took earlier, and this
+	// is what says how old that snapshot is. Empty when the producer did not
+	// say, and the core then falls back to the time of the round.
+	//
+	// Deliberately not a field inside `facts`: the repository decides "did
+	// anything change" by comparing the encoded document, so a timestamp in
+	// there would make every round a change and bump the revision hourly
+	// forever.
+	string gathered = 5;
 }
 
 //
@@ -154,6 +165,11 @@ message FactsResponseMessage {
 		repeated string enabled = 5;
 		// Per-set collection errors from the last round.
 		repeated PB.Common.KeyValue errors = 6;
+		// When each set's values were read off the machine, keyed by set id.
+		// A consumer shows this rather than `collected`: the latter says when
+		// the core last asked, which for a cached producer is not when the
+		// numbers were true.
+		repeated PB.Common.KeyValue gathered = 10;
 
 		// Echoed back when the request carried one, with `found` saying whether
 		// anything produced it. A path the document does not have is not an

@@ -356,7 +356,10 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     // The selector tags, on the other hand, describe the machine rather than
     // its configuration: gathered once at start, because nothing they read
     // can change without the host restarting anyway.
-    host_facts::publish_tags(get_core(), system_facts::gather());
+    // The tags are the same gather, and seeding the cache here means the
+    // first facts round has a snapshot to report rather than collecting
+    // again a moment later.
+    host_facts::publish_tags(get_core(), facts_cache_.get("startup", []() { return system_facts::gather(); }).values);
     publish_service_tags(get_core(), service_tags);
   }
 
@@ -1415,14 +1418,15 @@ class add_visitor : public boost::static_visitor<> {
     return nscapi::metrics::metric(b, dims.family).key(key).label("pdh_instance", dims.instance).help(meta.help).unit(meta.unit);
   }
 };
-void CheckSystem::fetchFacts(const nscapi::facts::request & /*request*/, nscapi::facts::response &response) {
-  // Collected fresh on every round rather than cached from the load: the
-  // gather touches only the cached version info, two registry values, CPUID
-  // and GetComputerNameEx, so it is cheaper than deciding when a cache is
-  // stale - and a host that is re-imaged or has memory added under it starts
-  // reporting the new answer at the next round instead of the next restart.
+void CheckSystem::fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response) {
   if (!facts_os_.load() && !facts_hardware_.load()) return;
-  host_facts::publish_facts(system_facts::gather(), facts_os_.load(), facts_hardware_.load(), response);
+  // Read once and reported thereafter: what OS this is and what it runs on
+  // does not change while the process does. The snapshot carries when it was
+  // taken, so a consumer shows the age of the values rather than the age of
+  // the round. `manual` re-reads, which is the escape hatch for a host that
+  // genuinely did change underneath.
+  const host_facts::snapshot snap = facts_cache_.get(request.reason(), []() { return system_facts::gather(); });
+  host_facts::publish_facts(snap, facts_os_.load(), facts_hardware_.load(), response);
 }
 
 void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {

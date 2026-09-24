@@ -138,7 +138,34 @@ void publish_tags(const nscapi::core_wrapper *core, const facts &f) {
   core->set_tag(tag_virtualization, f.virtualization);
 }
 
-void publish_facts(const facts &f, const bool want_os, const bool want_hardware, nscapi::facts::response &out) {
+bool should_regather(const std::string &reason, const bool have_snapshot) {
+  if (!have_snapshot) return true;
+  // An unknown reason reads as scheduled: a core that grows a new one should
+  // not silently turn a cached producer into a collecting one.
+  return reason == "startup" || reason == "manual";
+}
+
+snapshot snapshot_cache::get(const std::string &reason, const std::function<facts()> &gather) {
+  bool have_snapshot = false;
+  {
+    boost::unique_lock<boost::mutex> lock(mutex_);
+    have_snapshot = held_.valid();
+    if (!should_regather(reason, have_snapshot)) return held_;
+  }
+
+  // Outside the lock: a future producer's gather may be slow, and a reader
+  // waiting on it would be waiting for data it is about to be handed anyway.
+  snapshot fresh;
+  fresh.values = gather();
+  fresh.taken_at = std::time(nullptr);
+
+  boost::unique_lock<boost::mutex> lock(mutex_);
+  held_ = fresh;
+  return held_;
+}
+
+void publish_facts(const snapshot &snap, const bool want_os, const bool want_hardware, nscapi::facts::response &out) {
+  const facts &f = snap.values;
   if (want_os) {
     // `family`, `name` and `version` rather than the tags' `os_` prefix: the
     // set they sit in already says os, and a key that repeats its section
@@ -149,6 +176,7 @@ void publish_facts(const facts &f, const bool want_os, const bool want_hardware,
     // The DNS domain is inventory rather than a group: an operator selects on
     // os_family, but asks *which* domain a given host ended up in.
     os.value("domain", f.domain);
+    out.gathered(set_os, snap.taken_at);
   }
   if (want_hardware) {
     nscapi::facts::section hardware = out.set(set_hardware);
@@ -157,6 +185,7 @@ void publish_facts(const facts &f, const bool want_os, const bool want_hardware,
     // as it is given - so the guard has to be here, unlike for the strings.
     if (f.cpu_cores > 0) hardware.value("cpu_cores", f.cpu_cores);
     if (f.memory_gb > 0) hardware.value("memory_gb", f.memory_gb);
+    out.gathered(set_hardware, snap.taken_at);
   }
 }
 

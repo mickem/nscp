@@ -3,6 +3,9 @@
 
 #pragma once
 
+#include <boost/thread/mutex.hpp>
+#include <ctime>
+#include <functional>
 #include <string>
 
 namespace nscapi {
@@ -136,6 +139,51 @@ std::string domain_from_fqdn(const std::string &fqdn);
 // no-op there.
 void publish_tags(const nscapi::core_wrapper *core, const facts &f);
 
+// A gathered set of values, and when they were read off the machine.
+struct snapshot {
+  facts values;
+  std::time_t taken_at = 0;
+
+  bool valid() const { return taken_at > 0; }
+};
+
+// Should this round re-read the machine, or report the snapshot it already
+// has? Pure, so the policy is one testable thing rather than a condition
+// spelled twice in two modules.
+//
+// Host facts describe what the machine *is*: the OS it boots, the silicon it
+// sits on, how much memory is in it. None of that changes while the process
+// runs - changing it means a reboot - so re-reading on the hourly round buys
+// nothing and costs whatever the gather costs. Today that is a few registry
+// and /sys reads; a `storage` or `software` set is a different matter, and
+// the policy has to be right before the expensive producer arrives, not
+// after.
+//
+// So: read on `startup`, and on `manual` because an operator asking for a
+// refresh is asking for a real one - that is the escape hatch for the host
+// that did gain memory. A `scheduled` or `reload` round reports what is
+// held, and says how old it is.
+bool should_regather(const std::string &reason, bool have_snapshot);
+
+// Holds the last gathered snapshot for a module.
+//
+// fetchFacts runs on the core's scheduler and, for a manual refresh, on
+// whichever thread served the request, so the two can overlap: hence the
+// lock rather than a bare member.
+class snapshot_cache {
+ public:
+  // The values to report this round, re-reading through `gather` when
+  // should_regather() says to. `gather` is called without the lock held, so a
+  // slow collector does not block a concurrent reader - the cost is that two
+  // simultaneous refreshes may both collect, which is the right trade for a
+  // call an operator makes by hand.
+  snapshot get(const std::string &reason, const std::function<facts()> &gather);
+
+ private:
+  boost::mutex mutex_;
+  snapshot held_;
+};
+
 // Build the fact sets the module is configured to produce into `out`.
 //
 // `want_os` and `want_hardware` are the module's own settings
@@ -148,6 +196,9 @@ void publish_tags(const nscapi::core_wrapper *core, const facts &f);
 //
 // A field the gather could not determine is omitted rather than written
 // empty; the builder enforces that too, so there is no guard at each call.
-void publish_facts(const facts &f, bool want_os, bool want_hardware, nscapi::facts::response &out);
+// `taken_at` stamps each set with when its values were read, so a consumer
+// shows the age of the numbers rather than the age of the round that carried
+// them. Zero leaves the sets unstamped and the core falls back to the round.
+void publish_facts(const snapshot &snap, bool want_os, bool want_hardware, nscapi::facts::response &out);
 
 }  // namespace host_facts

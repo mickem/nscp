@@ -103,6 +103,13 @@ export interface Facts {
   enabled: string[];
   /** Per-set collection errors from the last round; the set keeps its last value. */
   errors: { [set: string]: string };
+  /**
+   * When each set's values were read off the machine, keyed by set id. This is
+   * what to show a reader: `collected` is when the core last *asked*, and a
+   * producer that caches its snapshot answers every round with values that are
+   * as old as the last real read.
+   */
+  gathered: { [set: string]: string };
   /** The document itself, or the subtree at `path`. */
   facts: FactValue;
 }

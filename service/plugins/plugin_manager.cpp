@@ -1350,10 +1350,22 @@ std::string nsclient::core::plugin_manager::apply_facts_response(const std::stri
     // report".
     if (!set.error().empty()) errors[id] = set.error();
     // An error with no document is "keep what you have": the set is not
-    // replaced with the empty object the message would otherwise hand us.
-    if (!set.has_facts()) continue;
+    // replaced with the empty object the message would otherwise hand us -
+    // but it may still carry a fresher age for what we already hold.
+    if (!set.has_facts()) {
+      facts.mark_gathered(id, set.gathered());
+      continue;
+    }
     std::string error;
-    if (facts.set(id, plugin_id, set.facts(), error) == fact_repository::set_result::rejected) errors[id] = error;
+    if (facts.set(id, plugin_id, set.facts(), error) == fact_repository::set_result::rejected) {
+      errors[id] = error;
+      continue;
+    }
+    // Whatever set() decided - stored or unchanged - the producer has just
+    // told us how old these values are, and an unchanged set is the case
+    // this matters most for: a cached snapshot keeps its original age
+    // instead of looking as fresh as the round that delivered it.
+    facts.mark_gathered(id, set.gathered());
   }
   return "";
 }

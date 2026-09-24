@@ -27,7 +27,7 @@ std::string render(const std::string &envelope) {
     // A core that does not know the call, or one that answered with nothing.
     // An empty inventory is the honest answer and the same shape a fresh
     // install produces, so the UI needs no second code path for it.
-    return R"({"revision":0,"collected":"","enabled":[],"errors":{},"found":false,"facts":{}})";
+    return R"({"revision":0,"collected":"","enabled":[],"errors":{},"gathered":{},"found":false,"facts":{}})";
   }
   const PB::Facts::FactsResponseMessage::Response &payload = message.payload(0);
 
@@ -51,6 +51,14 @@ std::string render(const std::string &envelope) {
   json::object errors;
   for (const PB::Common::KeyValue &error : payload.errors()) errors[error.key()] = error.value();
   out["errors"] = errors;
+
+  // When each set's values were read off the machine, keyed by set id. This,
+  // not `collected`, is what a reader should be shown: a producer that caches
+  // hands the same values to every round, and `collected` would age them by
+  // the hour while the numbers themselves are as old as the boot.
+  json::object gathered;
+  for (const PB::Common::KeyValue &when : payload.gathered()) gathered[when.key()] = when.value();
+  out["gathered"] = gathered;
 
   // `facts` is a Value, not an Object: a path may address any node, so
   // `?path=os` is an object and `?path=os.family` a bare string.

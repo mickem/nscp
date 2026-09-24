@@ -72,6 +72,10 @@ Optionally `?path=<dotted path>` to fetch one subtree: `?path=os`,
   "found": true,
   "enabled": ["hardware", "os"],
   "errors": {},
+  "gathered": {
+    "hardware": "2026-09-23T06:12:41Z",
+    "os": "2026-09-23T06:12:41Z"
+  },
   "facts": {
     "hardware": {
       "cpu_cores": 20,
@@ -93,7 +97,8 @@ Optionally `?path=<dotted path>` to fetch one subtree: `?path=os`,
 | Field       | Meaning |
 |-------------|---------|
 | `revision`  | Monotonic change counter. `0` is the empty document a fresh install reports, and it only moves when the stored facts actually change — so a poller can skip a body it has already seen. |
-| `collected` | When the last round *completed*, ISO 8601 UTC. A round with nothing enabled completes like any other, so this carries a timestamp even when `facts` is empty. |
+| `collected` | When the last round *completed*, ISO 8601 UTC — when the core last **asked**. A round with nothing enabled completes like any other, so this carries a timestamp even when `facts` is empty. |
+| `gathered`  | When each set's values were **read off the machine**, keyed by set id. This is the one to show a reader; see below. A set whose producer did not say is absent, and the round time is then the right answer for it. |
 | `path`      | Echoed back from the request; `""` for the whole document. |
 | `found`     | Whether anything produced what was asked for. |
 | `enabled`   | The sets the loaded producers are configured to collect, including one that is enabled and currently failing. |
@@ -102,6 +107,24 @@ Optionally `?path=<dotted path>` to fetch one subtree: `?path=os`,
 
 A field a producer could not determine is **omitted**, never written empty: an
 absent key means unknown, where an empty string would read as an answer.
+
+### `collected` is not `gathered`
+
+A producer is free to hand back a snapshot it took earlier rather than collect
+again — that is what `reason` in the request is for, and what a producer of an
+expensive set should do. When it does, the round that delivered the values has
+nothing to do with how old they are.
+
+`CheckSystem` works exactly this way: what OS a host runs and what hardware it
+sits on cannot change while the process runs, so it reads once at startup and
+reports that reading thereafter. An hourly round then moves `collected` while
+`gathered` stays where it was — and `revision` does not move at all, because
+the document did not change.
+
+**Show `gathered` against the values.** Showing `collected` claims an
+inventory is as fresh as the last time anyone asked, which for a cached
+producer is not true. `POST /api/v2/facts/commands/refresh` is what makes a
+producer read for real.
 
 ### A path nothing produced
 

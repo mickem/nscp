@@ -1,4 +1,4 @@
-import { Alert, Card, CardContent, Chip, Stack, Typography } from "@mui/material";
+import { Alert, Card, CardContent, Chip, Stack, Tooltip, Typography } from "@mui/material";
 import Grid from "@mui/material/Grid";
 import { useGetFactsQuery, useRefreshFactsMutation } from "../api/api.ts";
 import { Toolbar } from "../components/atoms/Toolbar.tsx";
@@ -17,10 +17,10 @@ import { FactValue } from "../api/api.ts";
  * collected only once someone turns it on.
  */
 
-function collectedLabel(collected: string): string {
-  if (!collected) return "never";
-  const when = new Date(collected);
-  return isNaN(when.getTime()) ? collected : when.toLocaleString();
+function timeLabel(iso: string): string {
+  if (!iso) return "never";
+  const when = new Date(iso);
+  return isNaN(when.getTime()) ? iso : when.toLocaleString();
 }
 
 export default function Facts() {
@@ -38,7 +38,13 @@ export default function Facts() {
         {facts !== undefined && (
           <>
             <Chip size="small" variant="outlined" label={`revision ${facts.revision}`} />
-            <Chip size="small" variant="outlined" label={`collected ${collectedLabel(facts.collected)}`} />
+            {/* When the core last asked, which is not when the values were
+                read - a producer that caches answers every round with the
+                snapshot it took earlier. Each card carries the age that
+                actually matters, so this one says "checked". */}
+            <Tooltip title="When the agent last asked its modules for facts" placement="bottom">
+              <Chip size="small" variant="outlined" label={`checked ${timeLabel(facts.collected)}`} />
+            </Tooltip>
           </>
         )}
         <Spacing />
@@ -89,6 +95,15 @@ export default function Facts() {
                     {name}
                   </Typography>
                   {facts?.errors?.[name] !== undefined && <Chip size="small" color="warning" label="stale" />}
+                  <Spacing />
+                  {/* The age of these values, not of the round that carried
+                      them. Falls back to the round for a producer that does
+                      not say, which is right: it read them just now. */}
+                  <Tooltip title="When these values were read from the machine" placement="bottom">
+                    <Typography variant="caption" color="text.secondary">
+                      gathered {timeLabel(facts?.gathered?.[name] ?? facts?.collected ?? "")}
+                    </Typography>
+                  </Tooltip>
                 </Stack>
                 <FactTree node={value} />
               </CardContent>

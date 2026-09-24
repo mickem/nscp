@@ -332,6 +332,18 @@ class response {
   // rather than silence.
   void error(const std::string &id, const std::string &message) { (*problems_)[id] = message; }
 
+  // When this set's values were actually read off the machine.
+  //
+  // A producer that collects on every round does not need to call this: the
+  // core falls back to the time of the round, which is the same moment. It is
+  // for the producer that hands back a snapshot it took earlier - the reason
+  // `req.reason()` exists - because then the round time is not when the
+  // numbers were true, and a UI that shows the round time is quietly lying
+  // about how old the inventory is.
+  void gathered(const std::string &id, const std::time_t when) {
+    if (when > 0) (*gathered_)[id] = format_time(when);
+  }
+
   // This round failed outright: the producer threw, or could not run at all.
   // Reported as the response's result rather than per set, because the core
   // must not read "I failed" as "I no longer produce any of this" and drop
@@ -355,6 +367,7 @@ class response {
   std::set<std::string> removed_;
   std::string failure_;
   std::shared_ptr<std::map<std::string, std::string>> problems_;
+  std::shared_ptr<std::map<std::string, std::string>> gathered_ = std::make_shared<std::map<std::string, std::string>>();
 };
 
 }  // namespace facts

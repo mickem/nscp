@@ -105,7 +105,10 @@ inline std::string render_facts(const std::string &body, const std::string &path
   if (!path.empty() && !payload.found()) return "No facts at: " + path;
 
   std::string out = "Revision: " + std::to_string(payload.revision());
-  if (!payload.collected().empty()) out += "  Collected: " + payload.collected();
+  // "Checked" rather than "Collected": this is when the core last asked, and
+  // for a producer that caches its snapshot that is not when the values were
+  // read. Each set says that for itself, below.
+  if (!payload.collected().empty()) out += "  Checked: " + payload.collected();
 
   std::string names;
   for (const std::string &id : payload.enabled()) {
@@ -118,6 +121,14 @@ inline std::string render_facts(const std::string &body, const std::string &path
   out +=
       "\nEnabled: " +
       (names.empty() ? std::string("(none - a fact set is enabled in the module that produces it, e.g. `[/settings/system/windows/facts] os = true`)") : names);
+
+  if (payload.gathered_size() > 0) {
+    // The age of the values themselves, per set. A set whose producer reads
+    // on every round shows the round's time here; one that caches shows when
+    // it actually looked.
+    out += "\nGathered:";
+    for (const PB::Common::KeyValue &entry : payload.gathered()) out += "\n  " + entry.key() + ": " + entry.value();
+  }
 
   if (payload.errors_size() > 0) {
     out += "\nErrors:";

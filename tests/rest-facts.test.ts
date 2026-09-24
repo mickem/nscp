@@ -83,6 +83,11 @@ describe("REST facts", () => {
         expect(response.body.revision).toBeGreaterThan(0);
         // ISO 8601 UTC, as the document rules require.
         expect(response.body.collected).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+        // Per set, when its values were actually read off the machine.
+        // CheckSystem caches, so this is what says how old the numbers are -
+        // `collected` only says when the core last asked.
+        expect(Object.keys(response.body.gathered).sort()).toEqual(["hardware", "os"]);
+        expect(response.body.gathered.os).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
 
         expect(response.body.facts.os.family).toEqual(onWindows ? "windows" : "linux");
         expect(response.body.facts.os.name).toBeTruthy();
@@ -121,17 +126,29 @@ describe("REST facts", () => {
       });
   });
 
-  it("collects on demand", async () => {
-    await request(REST_URL)
+  it("collects on demand, and that is what moves the gathered time", async () => {
+    const before = await request(REST_URL)
+      .get("/api/v2/facts")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true)
+      .expect(200);
+
+    const refreshed = await request(REST_URL)
       .post("/api/v2/facts/commands/refresh")
       .set("Authorization", `Bearer ${key}`)
       .trustLocalhost(true)
-      .expect(200)
-      .then((response) => {
-        // The round answers with the document it produced, so a caller does
-        // not have to follow up with a GET.
-        expect(response.body.facts.os.family).toEqual(onWindows ? "windows" : "linux");
-      });
+      .expect(200);
+
+    // The round answers with the document it produced, so a caller does not
+    // have to follow up with a GET.
+    expect(refreshed.body.facts.os.family).toEqual(onWindows ? "windows" : "linux");
+    // A manual refresh is the reason that makes a cached producer read the
+    // machine again, so the values are at least as fresh as they were.
+    expect(new Date(refreshed.body.gathered.os).getTime()).toBeGreaterThanOrEqual(
+      new Date(before.body.gathered.os).getTime(),
+    );
+    // Nothing about this host changed, so the document did not either.
+    expect(refreshed.body.revision).toEqual(before.body.revision);
   });
 });
 

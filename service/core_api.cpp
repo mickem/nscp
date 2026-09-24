@@ -259,8 +259,8 @@ NSCAPI::errorReturn NSAPIGetTags(char **response_buffer, unsigned int *response_
 namespace {
 // The facts envelope every command returns: the document (or the subtree asked
 // for), plus what a consumer needs to render and cache it - the revision it
-// can poll on, when the last round ran, which sets are enabled, and which of
-// them could not be collected.
+// can poll on, when the last round ran, when each set's values were actually
+// gathered, which sets are enabled, and which of them could not be collected.
 void build_facts_response(const std::string &path, PB::Facts::FactsResponseMessage::Response *payload) {
   const nsclient::core::fact_repository_instance facts = mainClient->get_fact_repository();
   payload->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
@@ -271,6 +271,14 @@ void build_facts_response(const std::string &path, PB::Facts::FactsResponseMessa
     PB::Common::KeyValue *entry = payload->add_errors();
     entry->set_key(error.first);
     entry->set_value(error.second);
+  }
+  // Per set, when its values were read off the machine. Always the whole map,
+  // even for a subtree request: a consumer showing `storage.volumes` still
+  // wants to say how old that reading is.
+  for (const std::pair<const std::string, std::string> &when : facts->get_gathered()) {
+    PB::Common::KeyValue *entry = payload->add_gathered();
+    entry->set_key(when.first);
+    entry->set_value(when.second);
   }
   if (path.empty()) {
     *payload->mutable_facts()->mutable_object_value() = facts->get_all();

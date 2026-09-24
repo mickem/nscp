@@ -184,8 +184,11 @@ fleet server polls on:
 
 ```
 nscp> facts
-Revision: 7  Collected: 2026-09-22T10:00:00Z
+Revision: 7  Checked: 2026-09-22T10:00:00Z
 Enabled: os, storage
+Gathered:
+  os: 2026-09-22T06:12:41Z
+  storage: 2026-09-22T10:00:00Z
 
   os:
     family: windows
@@ -203,6 +206,14 @@ Enabled: os, storage
 
 A record in a list leads with its `id` — the drive letter, interface name or
 service name the rest of its fields describe.
+
+**Checked** is when the agent last asked its modules; **Gathered** is when each
+set's values were actually read off the machine. They differ when a producer
+hands back a snapshot instead of collecting again — above, `os` was read once at
+boot, because what OS a machine runs cannot change while it runs, while
+`storage` was read on this round. `facts refresh` makes every producer read for
+real, which is the way to pick up a change the agent would otherwise not look
+for until it restarts.
 
 Facts are opt-in, so on a fresh install this says `Enabled: (none ...)` and
 `(no facts collected)`. Which sets exist is part of the producing module's

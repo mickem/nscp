@@ -281,6 +281,33 @@ class fact_repository {
     collected_ = timestamp;
   }
 
+  // When each stored set's values were gathered. Only the sets that are
+  // actually held: a timestamp for a set nobody produces would outlive the
+  // data it describes.
+  std::map<std::string, std::string> get_gathered() const {
+    boost::unique_lock<boost::mutex> lock(mutex_);
+    return gathered_;
+  }
+
+  // Record when a set's values were read off the machine. Separate from
+  // set(), and called whatever set() returned, because a producer handing
+  // back an unchanged snapshot still has something true to say about its age
+  // - and set() stops at `unchanged` without touching anything.
+  //
+  // An empty timestamp means the producer did not say; the set then has no
+  // gathered time and a consumer falls back to the round.
+  void mark_gathered(const std::string &fact_set, const std::string &timestamp) {
+    boost::unique_lock<boost::mutex> lock(mutex_);
+    // Only for a set we actually hold, so this cannot accumulate entries for
+    // sets that were rejected or never stored.
+    if (sets_.find(fact_set) == sets_.end()) return;
+    if (timestamp.empty()) {
+      gathered_.erase(fact_set);
+      return;
+    }
+    gathered_[fact_set] = timestamp;
+  }
+
   // The encoded size budget ([/settings/facts] max size). A budget below what
   // a single empty set needs is ignored.
   void set_max_size(const std::size_t max_size) {
@@ -442,6 +469,7 @@ class fact_repository {
     size_ -= encoded->second.size();
     encoded_.erase(encoded);
     sets_.erase(fact_set);
+    gathered_.erase(fact_set);
     return true;
   }
 
@@ -464,6 +492,12 @@ class fact_repository {
   // What each producer last said it is configured to produce.
   std::map<unsigned int, std::set<std::string>> declared_;
   std::map<std::string, std::string> errors_;
+  // When each set's values were read off the machine, as the producer
+  // reported it. Kept beside the set rather than in it: `set()` decides
+  // "changed" by comparing the encoded document, so a timestamp inside would
+  // bump the revision on every round and make an unchanging inventory look
+  // like it churns.
+  std::map<std::string, std::string> gathered_;
   std::string collected_;
   mutable std::string hash_;
   mutable bool hash_dirty_ = true;

@@ -383,3 +383,61 @@ TEST(FactRepository, CollectedIsWhatTheRoundRecorded) {
   repo.mark_collected("2026-09-19T14:03:11Z");
   EXPECT_EQ(repo.get_collected(), "2026-09-19T14:03:11Z");
 }
+
+// The age of a set's values, kept beside the set rather than in it.
+//
+// It has to live outside the document because set() decides "did anything
+// change" by comparing encoded bytes: a timestamp inside would make every
+// round a change, bump the revision hourly forever, and re-upload an
+// inventory that never moved.
+
+TEST(FactRepository, RecordsWhenASetsValuesWereGathered) {
+  fact_repository repo;
+  ASSERT_EQ(store(repo, "os", 1, R"({"family":"windows"})"), set_result::changed);
+  repo.mark_gathered("os", "2026-09-23T08:00:00Z");
+  ASSERT_EQ(repo.get_gathered().count("os"), 1u);
+  EXPECT_EQ(repo.get_gathered().at("os"), "2026-09-23T08:00:00Z");
+}
+
+TEST(FactRepository, AnUnchangedRoundStillRecordsTheAge) {
+  // The case this exists for: a producer that caches hands back the same
+  // bytes every round, so set() stops at `unchanged` without touching
+  // anything - but the producer still has something true to say about when
+  // it read them.
+  fact_repository repo;
+  ASSERT_EQ(store(repo, "os", 1, R"({"family":"windows"})"), set_result::changed);
+  repo.mark_gathered("os", "2026-09-23T08:00:00Z");
+  const unsigned long long revision = repo.get_revision();
+
+  ASSERT_EQ(store(repo, "os", 1, R"({"family":"windows"})"), set_result::unchanged);
+  repo.mark_gathered("os", "2026-09-23T09:00:00Z");
+
+  EXPECT_EQ(repo.get_gathered().at("os"), "2026-09-23T09:00:00Z");
+  EXPECT_EQ(repo.get_revision(), revision) << "recording the age must not look like a change to the document";
+}
+
+TEST(FactRepository, AGatheredTimeForASetWeDoNotHoldIsIgnored) {
+  // Otherwise a rejected or never-stored set would leave a timestamp behind
+  // describing data that is not there.
+  fact_repository repo;
+  repo.mark_gathered("storage", "2026-09-23T08:00:00Z");
+  EXPECT_TRUE(repo.get_gathered().empty());
+}
+
+TEST(FactRepository, RemovingASetTakesItsGatheredTimeWithIt) {
+  fact_repository repo;
+  ASSERT_EQ(store(repo, "os", 1, R"({"family":"windows"})"), set_result::changed);
+  repo.mark_gathered("os", "2026-09-23T08:00:00Z");
+  ASSERT_EQ(repo.remove("os"), set_result::changed);
+  EXPECT_TRUE(repo.get_gathered().empty());
+}
+
+TEST(FactRepository, AnEmptyGatheredTimeClearsIt) {
+  // A producer that stops saying falls back to "the time of the round", which
+  // is what the core reports when there is no per-set time.
+  fact_repository repo;
+  ASSERT_EQ(store(repo, "os", 1, R"({"family":"windows"})"), set_result::changed);
+  repo.mark_gathered("os", "2026-09-23T08:00:00Z");
+  repo.mark_gathered("os", "");
+  EXPECT_TRUE(repo.get_gathered().empty());
+}
