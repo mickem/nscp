@@ -7,7 +7,8 @@ on:
   pull_request:
     # Run CI for PRs into main, and into long-lived feature/* branches so
     # contributors can stack fix commits onto an in-progress feature branch.
-    # Signing still only happens on push to main (see build-windows.yml).
+    # Nothing is signed here, and the signing secrets are not passed: only
+    # build-release.yml signs.
     branches:
       - "main"
       - "feature/**"
@@ -31,30 +32,18 @@ jobs:
     with:
       architecture: x64
       version: ${{ needs.get-version.outputs.version }}
-    secrets:
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
   build-server-x86:
     needs: [get-version, create-test-bundle]
     uses: ./.github/workflows/build-windows.yml
     with:
       architecture: x86
       version: ${{ needs.get-version.outputs.version }}
-    secrets:
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
   build-x86-static:
     needs: get-version
     uses: ./.github/workflows/build-windows-legacy.yml
     with:
       architecture: x86
       version: ${{ needs.get-version.outputs.version }}
-    secrets:
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
   build-debian:
     needs: [get-version, create-test-bundle]
     uses: ./.github/workflows/build-debian.yml

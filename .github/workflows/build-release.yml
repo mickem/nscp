@@ -1,0 +1,164 @@
+name: Build release
+
+# The signed release build. It runs only for the release pull request: the one
+# that renames docs/upgrades/next to docs/upgrades/<version>. That merge is the
+# release decision, and the directory name is the version. Every other merge to
+# main is validated, unsigned, by build-main.yml, so the signing service is
+# billed per release rather than per merge.
+#
+# To re-cut a release whose build failed for reasons that had nothing to do
+# with the code, run this workflow by hand ("Run workflow") with the version.
+# It builds the tip of the branch picked there; to build an older commit, push
+# a branch at it and run the workflow on that branch.
+#
+# See .github/scripts/detect-release.sh for exactly what counts as a release.
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+    # Only a push that touches the notes can be a release. Features add notes
+    # under next/ too, so this narrows the runs; the detect job decides.
+    paths:
+      - 'docs/upgrades/**'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release, e.g. 0.24.0 (must not be tagged yet)'
+        required: true
+        type: string
+
+# No cancel-in-progress, unlike build-main.yml: a merge that lands while a
+# release is building must not cancel it. Runs for different commits do not
+# wait for each other; a manual re-run of the same commit queues behind the
+# first.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  get-version:
+    uses: ./.github/workflows/get-version.yml
+
+  detect:
+    needs: get-version
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.detect.outputs.release }}
+      version: ${{ steps.detect.outputs.version }}
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        # History and tags, to see what the push added and what is tagged.
+        fetch-depth: 0
+    - id: detect
+      env:
+        EVENT_NAME: ${{ github.event_name }}
+        BEFORE_SHA: ${{ github.event.before }}
+        INPUT_VERSION: ${{ inputs.version }}
+        DERIVED_VERSION: ${{ needs.get-version.outputs.version }}
+      run: .github/scripts/detect-release.sh
+
+  create-test-bundle:
+    needs: detect
+    if: needs.detect.outputs.release == 'true'
+    uses: ./.github/workflows/create-test-bundle.yml
+  build-server-x64:
+    needs: [detect, create-test-bundle]
+    if: needs.detect.outputs.release == 'true'
+    uses: ./.github/workflows/build-windows.yml
+    with:
+      architecture: x64
+      version: ${{ needs.detect.outputs.version }}
+      sign: true
+    secrets:
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  build-server-x86:
+    needs: [detect, create-test-bundle]
+    if: needs.detect.outputs.release == 'true'
+    uses: ./.github/workflows/build-windows.yml
+    with:
+      architecture: x86
+      version: ${{ needs.detect.outputs.version }}
+      sign: true
+    secrets:
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  # Cross-compiled on the x64 runner: the unit tests and the Windows
+  # integration suite are skipped inside build-windows.yml because the host
+  # cannot execute ARM64 binaries.
+  build-server-arm64:
+    needs: [detect, create-test-bundle]
+    if: needs.detect.outputs.release == 'true'
+    uses: ./.github/workflows/build-windows.yml
+    with:
+      architecture: arm64
+      version: ${{ needs.detect.outputs.version }}
+      sign: true
+    secrets:
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  build-x86-static:
+    needs: detect
+    if: needs.detect.outputs.release == 'true'
+    uses: ./.github/workflows/build-windows-legacy.yml
+    with:
+      architecture: x86
+      version: ${{ needs.detect.outputs.version }}
+      sign: true
+    secrets:
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  build-debian:
+    needs: [detect, create-test-bundle]
+    if: needs.detect.outputs.release == 'true'
+    uses: ./.github/workflows/build-debian.yml
+    with:
+      architecture: x64
+      version: ${{ needs.detect.outputs.version }}
+      targets: all
+  build-redhat:
+    needs: [detect, create-test-bundle]
+    if: needs.detect.outputs.release == 'true'
+    uses: ./.github/workflows/build-redhat.yml
+    with:
+      architecture: x64
+      version: ${{ needs.detect.outputs.version }}
+      targets: all
+  build-macos:
+    needs: detect
+    if: needs.detect.outputs.release == 'true'
+    uses: ./.github/workflows/build-macos.yml
+    with:
+      version: ${{ needs.detect.outputs.version }}
+  build-web:
+    needs: detect
+    if: needs.detect.outputs.release == 'true'
+    uses: ./.github/workflows/build-web.yml
+    with:
+      version: ${{ needs.detect.outputs.version }}
+
+  release:
+    needs: [detect, build-server-x64, build-server-x86, build-server-arm64, build-x86-static, build-debian, build-redhat, build-macos, build-web]
+    if: needs.detect.outputs.release == 'true'
+    # A called workflow gets no more than its caller grants. release.yml signs
+    # attestations for what it publishes, which needs an OIDC token and the
+    # attestations API on top of this workflow's defaults.
+    permissions:
+      contents: write
+      actions: read
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/release.yml
+    with:
+      version: ${{ needs.detect.outputs.version }}
+      # Publishing the draft creates the tag here, on the commit that was
+      # built, not on wherever main has moved to by then.
+      commit: ${{ github.sha }}
