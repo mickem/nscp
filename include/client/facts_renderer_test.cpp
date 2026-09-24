@@ -47,9 +47,43 @@ TEST(FactsRenderer, TheHeaderCarriesTheRoundsMetadata) {
   add_string(document_of(payload), "family", "windows");
 
   const std::string out = client::render_facts(message.SerializeAsString(), "");
-  EXPECT_EQ(out.substr(0, out.find('\n')), "Revision: 7  Collected: 2026-09-22T10:00:00Z");
+  // "Checked", not "Collected": the header time is when the core last asked,
+  // which for a producer that caches its snapshot is not when the values were
+  // read. That is what the per-set Gathered lines say.
+  EXPECT_EQ(out.substr(0, out.find('\n')), "Revision: 7  Checked: 2026-09-22T10:00:00Z");
   EXPECT_NE(out.find("\nEnabled: os, storage"), std::string::npos) << out;
   EXPECT_NE(out.find("\nErrors:\n  hardware: access denied"), std::string::npos) << "a set that failed to collect is reported, not silently absent";
+}
+
+TEST(FactsRenderer, TheHeaderSeparatesWhenItAskedFromWhenTheValuesWereRead) {
+  PB::Facts::FactsResponseMessage message;
+  PB::Facts::FactsResponseMessage::Response *payload = start(message);
+  payload->set_revision(7);
+  payload->set_collected("2026-09-22T10:00:00Z");
+  payload->add_enabled("os");
+  // The producer read the machine at boot and has handed back that snapshot
+  // since; the round that carried it says nothing about how old it is.
+  PB::Common::KeyValue *gathered = payload->add_gathered();
+  gathered->set_key("os");
+  gathered->set_value("2026-09-22T06:12:41Z");
+  add_string(document_of(payload), "family", "windows");
+
+  const std::string out = client::render_facts(message.SerializeAsString(), "");
+  EXPECT_NE(out.find("Checked: 2026-09-22T10:00:00Z"), std::string::npos) << out;
+  EXPECT_NE(out.find("\nGathered:\n  os: 2026-09-22T06:12:41Z"), std::string::npos) << out;
+}
+
+TEST(FactsRenderer, ASetThatDidNotSayWhenItReadCarriesNoGatheredLine) {
+  // A producer that collects on every round need not say: the round time is
+  // the same moment, and an empty Gathered block would be noise.
+  PB::Facts::FactsResponseMessage message;
+  PB::Facts::FactsResponseMessage::Response *payload = start(message);
+  payload->set_collected("2026-09-22T10:00:00Z");
+  payload->add_enabled("os");
+  add_string(document_of(payload), "family", "windows");
+
+  const std::string out = client::render_facts(message.SerializeAsString(), "");
+  EXPECT_EQ(out.find("Gathered:"), std::string::npos) << out;
 }
 
 TEST(FactsRenderer, ScalarsAreOneLineEach) {
