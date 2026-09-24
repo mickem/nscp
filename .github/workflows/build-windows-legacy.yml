@@ -167,25 +167,23 @@ jobs:
       with:
         version: ${{ ENV.MINIZ_VERSION }}
 
-    # mickem/build-boost does not verify what it downloads; it reuses the
-    # archive this action verifies and leaves in the runner workspace.
-    - name: Fetch Boost source
-      uses: ./.github/actions/boost-source
-      with:
-        version: ${{ ENV.BOOST_VERSION }}
-
+    # The XP build links Boost statically with the static runtime, built by
+    # the v141 toolset against the XP-compatible Windows API level. The
+    # action downloads the archive, verifies it against
+    # .github/dependency-checksums.txt, and caches the result keyed on that
+    # digest.
     - name: Build Boost (static)
       id: static_boost
-      uses: mickem/build-boost@42c59d10fc12f919a986f7e1c2f7c752d4960190
+      uses: ./.github/actions/boost
       with:
         version: ${{ ENV.BOOST_VERSION }}
         libraries: system filesystem thread regex date_time program_options python chrono json
         platform: ${{ inputs.architecture }}
         configuration: Release
-        static: 1
-        static-runtime: 1
+        static: '1'
+        static-runtime: '1'
         directory: ${{ runner.workspace }}/static_boost
-        toolset: msvc141
+        toolset: '14.1'
         defines: _USING_V110_SDK71_ BOOST_USE_WINAPI_VERSION=0x501 BOOST_NO_CXX17_HDR_SHARED_MUTEX
 
     - id: paths

@@ -63,6 +63,7 @@ jobs:
             echo "platform=x64" >> $env:GITHUB_OUTPUT
             echo "toolset=v141" >> $env:GITHUB_OUTPUT
             echo "vs_toolset=14.1" >> $env:GITHUB_OUTPUT
+            echo "boost_toolset=14.1" >> $env:GITHUB_OUTPUT
             echo "python_arch=x64" >> $env:GITHUB_OUTPUT
           }
           "x86" {
@@ -70,6 +71,7 @@ jobs:
             echo "platform=Win32" >> $env:GITHUB_OUTPUT
             echo "toolset=v141" >> $env:GITHUB_OUTPUT
             echo "vs_toolset=14.1" >> $env:GITHUB_OUTPUT
+            echo "boost_toolset=14.1" >> $env:GITHUB_OUTPUT
             echo "python_arch=x86" >> $env:GITHUB_OUTPUT
           }
           "arm64" {
@@ -79,6 +81,10 @@ jobs:
             echo "platform=ARM64" >> $env:GITHUB_OUTPUT
             echo "toolset=v143" >> $env:GITHUB_OUTPUT
             echo "vs_toolset=14.4" >> $env:GITHUB_OUTPUT
+            # Empty: Boost is built with the newest toolset, which is what
+            # the v143 build links it into. b2 knows that toolset as
+            # msvc-14.3, not 14.4, so vs_toolset cannot simply be reused.
+            echo "boost_toolset=" >> $env:GITHUB_OUTPUT
             # setup-python doesn't ship an arm64 Python on x64 hosts; use
             # the host x64 interpreter for build-time scripts.
             echo "python_arch=x64" >> $env:GITHUB_OUTPUT
@@ -232,44 +238,14 @@ jobs:
         architecture: ${{ inputs.architecture }}
         toolset: ${{ steps.setup.outputs.toolset }}
 
-    # Every Boost build below starts from this verified archive; see the
-    # action for why it has to run first.
-    - name: Fetch Boost source
-      uses: ./.github/actions/boost-source
-      with:
-        version: ${{ ENV.BOOST_VERSION }}
-
-    # mickem/build-boost drives cmake-common, whose Platform enum is x86/x64
-    # only: `--platform arm64` aborts with "invalid platform" before compiling
-    # anything, which is what broke the ARM64 build in April 2026 (#1223). The
-    # in-repo action below builds the same tree with b2 directly. x86 and x64
-    # stay on the action that has been shipping releases for years.
+    # Boost is built with the same MSVC toolset as the code that links it:
+    # v141 on x86 and x64 (static libraries built with a newer toolset than
+    # the one linking them are not supported), the newest on ARM64. The
+    # action downloads the archive, verifies it against
+    # .github/dependency-checksums.txt, and caches the result keyed on that
+    # digest.
     - name: Build Boost (static)
       id: static_boost
-      if: inputs.architecture != 'arm64'
-      uses: mickem/build-boost@c11609010636c8b5b6e66c6848565252ad134323 # v1
-      with:
-        version: ${{ ENV.BOOST_VERSION }}
-        libraries: system filesystem
-        platform: ${{ inputs.architecture }}
-        configuration: Release
-        static: 1
-        static-runtime: 1
-        directory: ${{ runner.workspace }}/static_boost
-
-    - name: Build Boost (regular)
-      id: boost
-      if: inputs.architecture != 'arm64'
-      uses: mickem/build-boost@c11609010636c8b5b6e66c6848565252ad134323 # v1
-      with:
-        version: ${{ ENV.BOOST_VERSION }}
-        libraries: ${{ steps.setup.outputs.boost_libraries }}
-        platform: ${{ inputs.architecture }}
-        configuration: Release
-
-    - name: Build Boost (static, ARM64)
-      id: static_boost_arm64
-      if: inputs.architecture == 'arm64'
       uses: ./.github/actions/boost
       with:
         version: ${{ ENV.BOOST_VERSION }}
@@ -278,31 +254,25 @@ jobs:
         configuration: Release
         static: '1'
         static-runtime: '1'
+        toolset: ${{ steps.setup.outputs.boost_toolset }}
         directory: ${{ runner.workspace }}/static_boost
 
-    - name: Build Boost (regular, ARM64)
-      id: boost_arm64
-      if: inputs.architecture == 'arm64'
+    - name: Build Boost (regular)
+      id: boost
       uses: ./.github/actions/boost
       with:
         version: ${{ ENV.BOOST_VERSION }}
         libraries: ${{ steps.setup.outputs.boost_libraries }}
         platform: ${{ inputs.architecture }}
         configuration: Release
+        toolset: ${{ steps.setup.outputs.boost_toolset }}
 
     - id: paths
       run: |
-        # Only one of each pair of Boost steps ran, so take whichever reported
-        # a path rather than repeating the architecture test here.
-        function Pick([string]$a, [string]$b, [string]$what) {
-          $value = if ($a) { $a } else { $b }
-          if (-not $value) { Write-Error "No Boost step produced a $what"; exit 1 }
-          return $value.replace('\','/')
-        }
-        echo "boost_root=$(Pick '${{ steps.boost.outputs.root }}' '${{ steps.boost_arm64.outputs.root }}' 'root')" >> $env:GITHUB_OUTPUT
-        echo "boost_librarydir=$(Pick '${{ steps.boost.outputs.librarydir }}' '${{ steps.boost_arm64.outputs.librarydir }}' 'library directory')" >> $env:GITHUB_OUTPUT
-        echo "static_boost_root=$(Pick '${{ steps.static_boost.outputs.root }}' '${{ steps.static_boost_arm64.outputs.root }}' 'static root')" >> $env:GITHUB_OUTPUT
-        echo "static_boost_librarydir=$(Pick '${{ steps.static_boost.outputs.librarydir }}' '${{ steps.static_boost_arm64.outputs.librarydir }}' 'static library directory')" >> $env:GITHUB_OUTPUT
+        echo "boost_root=$('${{ steps.boost.outputs.root }}'.replace('\','/'))" >> $env:GITHUB_OUTPUT
+        echo "boost_librarydir=$('${{ steps.boost.outputs.librarydir }}'.replace('\','/'))" >> $env:GITHUB_OUTPUT
+        echo "static_boost_root=$('${{ steps.static_boost.outputs.root }}'.replace('\','/'))" >> $env:GITHUB_OUTPUT
+        echo "static_boost_librarydir=$('${{ steps.static_boost.outputs.librarydir }}'.replace('\','/'))" >> $env:GITHUB_OUTPUT
         $path_unix="${{ env.Python_ROOT_DIR }}".replace('\','/')
         echo "python_path=$path_unix" >> $env:GITHUB_OUTPUT
       shell: pwsh

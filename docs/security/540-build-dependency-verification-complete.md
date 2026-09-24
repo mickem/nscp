@@ -10,13 +10,17 @@ After the previous release every dependency line in
 one of the verified dependencies was not actually verified on most builds:
 
 * **Boost was unverified on x86, x64 and the legacy XP build.** Those builds
-  compile Boost through the external `mickem/build-boost` action, which
-  downloads the source archive itself and never consults the manifest. Only the
-  ARM64 build, which uses the in-repo action, called the checksum gate — and
-  there the Boost line read `unrecorded`, so it warned and continued. A new
-  step downloads `boost_1_86_0.tar.gz` into the runner workspace and verifies it
-  before any Boost build starts; both Boost actions look there first and use
-  that copy instead of downloading their own.
+  compiled Boost through the external `mickem/build-boost` action, which
+  downloads the source archive itself and never consults the manifest. It also
+  installed its helper, `cmake-common`, with `pip install git+https://...` from
+  the tip of that repository's default branch on every run - unpinned code
+  running in the job that later receives the code-signing credentials. Only
+  the ARM64 build, which used the in-repo action, called the checksum gate, and
+  there the Boost line read `unrecorded`, so it warned and continued. Every
+  Windows build now uses the in-repo action, which verifies the archive on
+  every run and builds with an explicitly pinned MSVC toolset (v141 for x86,
+  x64 and XP, matching the code that links it). The external action is no
+  longer used.
 * **Boost and Lua digests are recorded.** Both are the values the upstream
   projects publish, cross-checked independently: the Boost `.tar.bz2` from the
   same mirror matches the digest conan-center-index records, and both Boost

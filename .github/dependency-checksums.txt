@@ -46,9 +46,8 @@ protobuf        21.12     29b0f6b6d5714f212b8549cd0cb6fc531672630e41fb99d445421b
 cryptopp        8.9.0     4cc0ccc324625b80b695fcd3dee63a66f1a460d3e51b71640cdbfc4cd1a3779c
 miniz           3.1.1     cb28402bb2af93bdc331b60d16807e89727d1712a2d0a7ba0cac79a3e406fe40
 
-# boost_1_86_0.tar.gz, fetched by .github/actions/boost-source for every
-# Windows build (the in-repo ARM64 action and mickem/build-boost both reuse
-# the verified copy it leaves in the runner workspace). The digest is the one
+# boost_1_86_0.tar.gz, fetched and verified by .github/actions/boost for
+# every Windows build (x86, x64, ARM64 and legacy XP). The digest is the one
 # the Boost 1.86.0 release page publishes for the .tar.gz. It was taken from
 # the SourceForge mirror and cross-checked independently: the .tar.bz2 from
 # the same mirror matches the digest conan-center-index records for it, and
