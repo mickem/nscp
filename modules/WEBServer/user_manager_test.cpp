@@ -7,7 +7,7 @@
 
 #include <string>
 
-#include "password_hash.hpp"
+#include <nscp/password_hash.hpp>
 
 TEST(UserManager, AddAndValidateRoundTrip) {
   user_manager um;
@@ -85,8 +85,8 @@ TEST(UserManager, GetHashReturnsTheStoredValue) {
 
   // A password already in PBKDF2 form is stored verbatim, which is what makes
   // it stable across processes.
-  const std::string pre_hashed = web_password::hash_password("secret");
-  ASSERT_TRUE(web_password::is_hashed(pre_hashed));
+  const std::string pre_hashed = password_hash::hash_password("secret");
+  ASSERT_TRUE(password_hash::is_hashed(pre_hashed));
   um.add_user("hashed", pre_hashed);
   EXPECT_EQ(um.get_hash("hashed"), pre_hashed);
 
@@ -95,7 +95,7 @@ TEST(UserManager, GetHashReturnsTheStoredValue) {
   um.add_user("plain", "secret");
   const std::string first = um.get_hash("plain");
   EXPECT_NE(first, "secret");
-  EXPECT_TRUE(web_password::is_hashed(first));
+  EXPECT_TRUE(password_hash::is_hashed(first));
   um.add_user("plain", "secret");
   EXPECT_NE(um.get_hash("plain"), first) << "re-adding a plaintext password re-salts it";
   EXPECT_TRUE(um.validate_user("plain", "secret"));
