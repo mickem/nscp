@@ -142,23 +142,17 @@ runs:
         $archive = Join-Path $baseDir "$dirName.tar.gz"
 
         if (-not (Test-Path $archive)) {
-            # Same two sources, in the same order, as cmake-common used.
-            $urls = @(
-                "https://archives.boost.io/release/$version/source/$dirName.tar.gz",
-                "https://sourceforge.net/projects/boost/files/boost/$version/$dirName.tar.gz/download"
-            )
-            foreach ($url in $urls) {
-                Write-Host "* Trying $url"
-                try {
-                    Invoke-WebRequest -Uri $url -OutFile $archive -UseBasicParsing
-                    break
-                } catch {
-                    Write-Host "! $url failed: $($_.Exception.Message)"
-                    if (Test-Path $archive) { Remove-Item $archive -Force }
-                }
-            }
-            if (-not (Test-Path $archive)) {
-                throw "Could not download Boost $version from any known source"
+            # archives.boost.io is the download location the Boost project
+            # lists; no third-party mirror is used. The retries cover a brief
+            # outage; a longer one fails the build, and a re-run picks it up.
+            $url = "https://archives.boost.io/release/$version/source/$dirName.tar.gz"
+            Write-Host "* Fetching $url"
+            try {
+                Invoke-WebRequest -Uri $url -OutFile $archive -UseBasicParsing `
+                    -MaximumRetryCount 5 -RetryIntervalSec 15
+            } catch {
+                if (Test-Path $archive) { Remove-Item $archive -Force }
+                throw "Could not download Boost ${version} from ${url}: $($_.Exception.Message)"
             }
         }
 
