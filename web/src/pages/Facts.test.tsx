@@ -60,16 +60,37 @@ describe("Facts", () => {
     gathered.forEach((node) => expect(node.textContent).toContain(new Date("2026-09-23T10:00:00Z").toLocaleString()));
   });
 
-  it("explains how to turn a set on when nothing is collected", async () => {
+  it("offers the switches when nothing is collected", async () => {
     // A fresh install: facts are opt-in, so an empty document is the normal
-    // state and has to read as a next step rather than as a failure.
+    // state and has to read as a next step rather than as a failure. The next
+    // step is on the page, which is why the empty state points at it rather
+    // than quoting an ini section to go and edit.
     installFetchMock({
       "/api/v2/facts": envelope({ revision: 0, collected: "", found: false, enabled: [], facts: {} }),
+      "/api/v2/settings/descriptions": jsonResponse([
+        {
+          path: "/settings/system/windows/facts",
+          key: "os",
+          type: "bool",
+          title: "OS FACTS",
+          description: "Collect the `os` fact set.",
+          value: "false",
+          default_value: "false",
+          icon: "",
+          is_advanced_key: false,
+          is_object: false,
+          is_sample_key: false,
+          is_template_key: false,
+          plugins: ["CheckSystem"],
+          sample_usage: "",
+        },
+      ]),
     });
     renderWithProviders(<Facts />, { withRouter: false });
 
     await waitFor(() => expect(screen.getByText(/No facts collected/)).toBeInTheDocument());
-    expect(screen.getByText(/\[\/settings\/system\/windows\/facts\] os = true/)).toBeInTheDocument();
+    expect(await screen.findByText("Fact sets")).toBeInTheDocument();
+    expect(await screen.findByLabelText("os")).not.toBeChecked();
   });
 
   it("flags a set that failed to collect as stale, and keeps showing its values", async () => {
