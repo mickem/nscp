@@ -72,6 +72,11 @@ TEST(software_facts, an_architecture_means_the_same_thing_on_every_platform) {
   // unknown.
   EXPECT_EQ(software_facts::normalize_architecture("Loongarch64"), "loongarch64");
   EXPECT_EQ(software_facts::normalize_architecture(""), "");
+  // What rpm prints for a package that has no architecture at all: its
+  // spelling of "unknown", which the document leaves out rather than
+  // publishing as a word no other platform uses.
+  EXPECT_EQ(software_facts::normalize_architecture("(none)"), "");
+  EXPECT_EQ(software_facts::normalize_architecture("(null)"), "");
 }
 
 TEST(software_facts, the_list_is_sorted_so_an_unchanged_host_is_an_unchanged_document) {

@@ -53,6 +53,13 @@ bool same_package(const package &lhs, const package &rhs) { return lhs.name == r
 
 std::string normalize_architecture(const std::string &raw) {
   const std::string value = to_lower(raw);
+  // Not an architecture but a platform's spelling of "this package does not
+  // have one": rpm prints "(none)" for a tag a package lacks, which is what
+  // its pseudo-packages (the imported gpg-pubkey keys) carry. An unknown
+  // value is omitted from the document, never published as a word no other
+  // platform uses - and unlike a real architecture it must not fall through
+  // to the vocabulary below, which passes anything it does not know.
+  if (value == "(none)" || value == "(null)") return "";
   // A package that runs anywhere: rpm's noarch, dpkg's all, pacman's any.
   // One word for it, as with every other value two platforms spell
   // differently.

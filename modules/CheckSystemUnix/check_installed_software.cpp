@@ -168,6 +168,11 @@ std::vector<software_entry> parse_rpm_output(const std::string &output) {
     e.name = boost::trim_copy(parts[0]);
     e.version = boost::trim_copy(parts[1]);
     e.architecture = boost::trim_copy(parts[2]);
+    // rpm prints "(none)" for a tag a package does not carry, which its
+    // pseudo-packages (the imported gpg-pubkey keys) have for both of these.
+    // It is rpm's spelling of "unknown", not a value: an empty field is what
+    // every other manager reports there.
+    if (e.architecture == "(none)") e.architecture = "";
     e.publisher = boost::trim_copy(parts[3]);
     if (e.publisher == "(none)") e.publisher = "";
     try {
