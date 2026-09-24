@@ -22,6 +22,7 @@
 #include <parsers/where/filter_handler_impl.hpp>
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
+#include <threads/guarded_thread.hpp>
 #include <vector>
 
 namespace sh = nscapi::settings_helper;
@@ -514,8 +515,10 @@ void CheckHelpers::check_timeout(const PB::Commands::QueryRequestMessage::Reques
   const int plugin_id = get_id();
   const std::string caller = id.caller_plugin_id;
   const std::string principal = id.principal;
-  auto t = std::make_shared<boost::thread>(
-      [obj, core, plugin_id, caller, principal, command, arguments]() { obj->proc(core, plugin_id, caller, principal, command, arguments); });
+  auto t = threads::start_guarded_thread(
+      "check_timeout " + command,
+      [obj, core, plugin_id, caller, principal, command, arguments]() { obj->proc(core, plugin_id, caller, principal, command, arguments); },
+      NSC_THREAD_REPORTER);
 
   if (t->timed_join(boost::posix_time::seconds(timeout))) {
     if (!obj->ok) {

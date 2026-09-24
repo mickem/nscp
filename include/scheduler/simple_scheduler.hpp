@@ -201,7 +201,22 @@ class scheduler : public boost::noncopyable {
   scoped_thread_group threads_;
 
  public:
-  scheduler() : schedule_id_(0), stop_requested_(false), running_(false), has_watchdog_(false), thread_count_(10), handler_(nullptr), error_threshold_(5) {}
+  scheduler() : schedule_id_(0), stop_requested_(false), running_(false), has_watchdog_(false), thread_count_(10), handler_(nullptr), error_threshold_(5) {
+    // Installed here, before a worker can possibly exist, because this is the
+    // only moment at which writing it is unambiguously safe. start_threads()
+    // is reached from set_threads(), which is the /settings/scheduler/threads
+    // notify callback and so re-runs on every settings reload - with the pool
+    // already running and the workers reading the reporter from their catch
+    // path without holding pool_mutex_. The lambda only touches handler_,
+    // which is an atomic, so it stays valid for the life of the scheduler.
+    //
+    // A worker that dies is not replaced until the watchdog next notices the
+    // pool is short, so this report is the only warning an operator gets that
+    // scheduled checks have stopped running. It is logged exactly as the
+    // guard worded it: this used to prefix "Scheduler thread '...'", which
+    // is not the string the upgrade note tells operators to match on.
+    threads_.set_error_reporter([this](const std::string& message) { log_error(__FILE__, __LINE__, message); });
+  }
   ~scheduler() { stop(); }
 
   void set_handler(handler* handler) { handler_ = handler; }

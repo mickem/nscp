@@ -1,0 +1,43 @@
+name: Guarded threads
+
+# A thread body that lets an exception escape calls std::terminate() and takes
+# the whole agent down. threads/guarded_thread.hpp makes the guard part of
+# starting a thread; this sweep is what stops a new raw boost::thread from
+# quietly reintroducing the hole. It is a grep, so it runs in seconds rather
+# than waiting for the build matrix.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**.cpp'
+      - '**.hpp'
+      - '**.h'
+      - 'tools/guarded_threads.py'
+      - '.github/workflows/guarded-threads.yml'
+  pull_request:
+    paths:
+      - '**.cpp'
+      - '**.hpp'
+      - '**.h'
+      - 'tools/guarded_threads.py'
+      - '.github/workflows/guarded-threads.yml'
+
+permissions:
+  contents: read
+
+# A new push supersedes this run; do not let it finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: No unguarded thread creation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Sweep for unguarded threads
+        run: python3 tools/guarded_threads.py --check

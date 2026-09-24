@@ -3,13 +3,14 @@
 
 #include "realtime_thread.hpp"
 
-#include <vector>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 #include <parsers/filter/realtime_helper.hpp>
 #include <str/format.hpp>
+#include <threads/guarded_thread.hpp>
+#include <vector>
 
 #include "realtime_data.hpp"
 
@@ -19,19 +20,7 @@ void real_time_thread::set_path(const std::string &p) { filters_.set_path(p); }
 
 inline bool icase_eq(const std::string &x, const std::string &y) { return boost::algorithm::ilexicographical_compare(x, y) == 0; }
 
-// The thread entry: an exception escaping the body would terminate the
-// process, so it is caught and logged here and the monitor simply ends.
 void real_time_thread::thread_proc() {
-  try {
-    thread_proc_body();
-  } catch (const std::exception &e) {
-    NSC_LOG_ERROR("Real-time eventlog monitoring stopped: " + std::string(e.what()));
-  } catch (...) {
-    NSC_LOG_ERROR("Real-time eventlog monitoring stopped: unknown exception");
-  }
-}
-
-void real_time_thread::thread_proc_body() {
   filter_helper helper(core, plugin_id);
   std::list<std::string> logs;
 
@@ -161,7 +150,7 @@ bool real_time_thread::start() {
     NSC_LOG_ERROR("Failed to create stop event, realtime eventlog monitoring is disabled: " + error);
     return false;
   }
-  thread_ = std::shared_ptr<boost::thread>(new boost::thread([this]() { this->thread_proc(); }));
+  thread_ = threads::start_guarded_thread("checkeventlog realtime", [this]() { this->thread_proc(); }, NSC_THREAD_REPORTER);
   return true;
 }
 bool real_time_thread::stop() {

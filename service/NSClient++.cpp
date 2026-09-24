@@ -7,12 +7,14 @@
 #include <boost/unordered_set.hpp>
 #include <nscapi/nscapi_metrics_helper.hpp>
 #include <nscapi/settings/helper.hpp>
+#include <nsclient/logger/logger_helper.hpp>
 #include <settings/settings_core.hpp>
 
 #include "../libs/settings_manager/settings_manager_impl.h"
 #include "NSClient++.h"
 #include "cli_parser.hpp"
 #include "core_api.h"
+#include "fatal_handler.hpp"
 #include "logger/nsclient_logger.hpp"
 #ifdef HAVE_ONBOARDING
 #include <net/socket/socket_helpers.hpp>
@@ -67,6 +69,10 @@ int main(int argc, char *argv[]) { return nscp_main(argc, argv); }
 #endif
 
 int nscp_main(int argc, char *argv[]) {
+  // First thing, before anything can throw: the try below only covers this
+  // thread, and only exceptions that actually unwind this far. See
+  // fatal_handler.hpp for what is left over and why it needs a backstop.
+  nsclient::install_fatal_handlers();
   try {
     mainClient.reset(new NSClient());
     cli_parser parser(mainClient);
@@ -368,6 +374,39 @@ bool NSClientT::load_configuration_2(const bool override_log) {
   }
   if (!override_log) {
     log_instance_->set_log_level(log_level);
+  }
+
+  // Repoint the last-resort log - and with it the report the terminate
+  // handler writes on the way down (see fatal_handler.hpp) - from the working
+  // directory, which for a service is wherever the SCM started it, to the
+  // directory the ordinary log already lives in. Anyone told to "send the
+  // log" then sends this too.
+  //
+  // set_fatal_file() proves it can write there before adopting the path and
+  // otherwise falls back to the temp folder, so say where the report will
+  // actually land: this is the channel that explains a crash, and it silently
+  // going nowhere is the one failure nobody would ever notice.
+  //
+  // Only for the service, which is what override_log distinguishes: the same
+  // load path runs for `nscp settings`, `nscp test` and every other command
+  // line invocation, and those are typically run with sudo. Letting one of
+  // them touch ${log-path} - probe it, and then create it the first time it
+  // has a report to write - is how `sudo nscp settings --generate` before the
+  // first service start leaves a root-owned log folder that the unprivileged
+  // nsclient user the systemd unit runs as can never write to. A command that
+  // is not the service keeps the default file and the temp fallback.
+  if (!override_log) {
+    try {
+      const std::string wanted = path_->expand_path("${log-path}/nsclient.fatal");
+      const std::string actual = nsclient::logging::logger_helper::set_fatal_file(wanted);
+      if (actual == wanted) {
+        LOG_DEBUG_CORE("Crash reports will be written to: " + actual);
+      } else {
+        LOG_ERROR_CORE("Cannot write crash reports to " + wanted + ", using " + actual + " instead");
+      }
+    } catch (const std::exception &e) {
+      LOG_ERROR_CORE_STD("Could not place nsclient.fatal in the log folder, keeping the working directory: " + utf8::utf8_from_native(e.what()));
+    }
   }
 
 #ifdef WIN32

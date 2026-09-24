@@ -17,6 +17,7 @@ endif()
 set(service_SRCS
     NSClient++.cpp
     core_api.cpp
+    fatal_handler.cpp
     path_manager.cpp
     plugins/plugin_manager.cpp
     plugins/master_plugin_list.cpp
@@ -78,6 +79,7 @@ if(WIN32)
         NSClient++.rc
         ${NSCP_INCLUDEDIR}/str/utf8.hpp
         core_api.h
+        fatal_handler.hpp
         settings_client.hpp
         cli_parser.hpp
         ${NSCP_INCLUDEDIR}/scheduler/simple_scheduler.hpp
@@ -121,7 +123,10 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.hpp
         ${NSCP_INCLUDEDIR}/nsclient/logger/log_message_factory.hpp
         ${NSCP_INCLUDEDIR}/pid_file.hpp
+        ${NSCP_INCLUDEDIR}/threads/guarded_thread.hpp
+        ${NSCP_INCLUDEDIR}/threads/guarded_io_context.hpp
         ${NSCP_INCLUDEDIR}/threads/scoped_thread_group.hpp
+        ${NSCP_INCLUDEDIR}/threads/stop_requested.hpp
         ${NSCP_INCLUDEDIR}/win/shellapi.cpp
         ${NSCP_INCLUDEDIR}/win/shellapi.hpp
         # Protobuf
@@ -301,6 +306,24 @@ if(WIN32)
     )
 endif()
 
+NSCP_CREATE_TEST(
+    fatal_handler_test
+    SOURCES
+        fatal_handler.cpp
+        fatal_handler_test.cpp
+        ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_protobuf
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_FILESYSTEM_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
 # settings_query_handler drives the process-wide settings manager, so the test
 # needs the same pieces the service links for it: the settings manager itself,
 # the plugin cache (plugin id -> name), boost::json for template registration
@@ -324,6 +347,7 @@ NSCP_CREATE_TEST(
         ${EXTRA_LIBS}
         ${Boost_DATE_TIME_LIBRARY}
         ${Boost_THREAD_LIBRARY}
+        ${Boost_FILESYSTEM_LIBRARY}
         settings_manager
     INCLUDES
         ${NSCP_INCLUDEDIR}

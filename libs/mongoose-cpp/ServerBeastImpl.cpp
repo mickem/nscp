@@ -21,6 +21,7 @@
 #include <chrono>
 #include <memory>
 #include <string>
+#include <threads/guarded_io_context.hpp>
 #include <utility>
 
 #include <net/tls_versions.hpp>
@@ -454,14 +455,46 @@ void ServerBeastImpl::start(const std::string& bind) {
   // Accept loop runs in its own coroutine so a slow handshake/read on one
   // connection can't block the accept side (each connection gets its own
   // session coroutine — see accept_loop / run_*_session).
-  spawn_detached(ioc_, [this](const asio::yield_context& yield) { accept_loop(yield); });
+  accept_loop_restarts_ = 0;
+  spawn_accept_loop();
 
-  thread_ = std::make_shared<boost::thread>([this] {
+  // A handler that throws used to end the web server for the lifetime of the
+  // process - the exception was logged, but the one thread running the event
+  // loop was gone and nothing restarted it. Re-enter instead; the request
+  // fails, the server keeps serving. What re-entering cannot bring back is
+  // the accept loop itself, which is why spawn_accept_loop() guards that
+  // separately.
+  const WebLoggerPtr log = logger_;
+  thread_ = threads::start_guarded_thread(
+      "web server", [this, log] { threads::run_io_context_guarded("web server", ioc_, [log](const std::string& message) { log->log_error(message); }); },
+      [log](const std::string& message) { log->log_error(message); });
+}
+
+void ServerBeastImpl::spawn_accept_loop() {
+  spawn_detached(ioc_, [this](const asio::yield_context& yield) {
     try {
-      ioc_.run();
+      accept_loop(yield);
+      // A clean return means stop() or a genuine accept error, both of which
+      // accept_loop() has already reported. Nothing to respawn.
+      return;
     } catch (const std::exception& e) {
-      logger_->log_error(std::string("io_context error: ") + e.what());
+      // std::exception only, deliberately. The exception a coroutine
+      // implementation throws through a coroutine it is destroying
+      // (forced_unwind) is not derived from std::exception and must be
+      // allowed to propagate - catching it is undefined behaviour - and its
+      // spelling moves between boost versions, so it is left alone rather
+      // than named here. Anything else non-std still reaches
+      // run_io_context_guarded(), which reports it.
+      logger_->log_error(std::string("Web server accept loop threw: ") + e.what());
     }
+    if (stopping_) return;
+    if (++accept_loop_restarts_ > kMaxAcceptLoopRestarts) {
+      logger_->log_error("Web server accept loop failed " + std::to_string(accept_loop_restarts_) +
+                         " times in a row and has been left stopped; the server is running but will not accept new connections. Restart the service.");
+      return;
+    }
+    logger_->log_error("Restarting the web server accept loop (attempt " + std::to_string(accept_loop_restarts_) + ")");
+    spawn_accept_loop();
   });
 }
 

@@ -43,7 +43,6 @@ struct real_time_thread {
   bool stop();
 
   void thread_proc();
-  void thread_proc_body();
   void process_object(filters::filter_config_object &object);
   void process_timeout(const filters::filter_config_object &object);
 };

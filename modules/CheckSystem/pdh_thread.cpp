@@ -10,6 +10,7 @@
 #include <parsers/filter/realtime_helper.hpp>
 #include <str/format.hpp>
 #include <str/utils_no_boost.hpp>
+#include <threads/guarded_thread.hpp>
 #include <win/com_helpers.hpp>
 #include <win/processes.hpp>
 #include <win/wmi/wmi_query.hpp>
@@ -880,8 +881,8 @@ bool pdh_thread::start() {
     NSC_LOG_ERROR("Failed to create stop event, the PDH collector is disabled: " + error);
     return false;
   }
-  thread_ = std::make_shared<boost::thread>([this]() { this->thread_proc(); });
-  aux_thread_ = std::make_shared<boost::thread>([this]() { this->aux_thread_proc(); });
+  thread_ = threads::start_guarded_thread("checksystem collector", [this]() { this->thread_proc(); }, NSC_THREAD_REPORTER);
+  aux_thread_ = threads::start_guarded_thread("checksystem aux collector", [this]() { this->aux_thread_proc(); }, NSC_THREAD_REPORTER);
   return true;
 }
 namespace {
