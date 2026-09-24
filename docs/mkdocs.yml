@@ -36,6 +36,7 @@ nav:
       - Restricting What A Check May Read: concepts/check-access.md
       - Settings: concepts/settings.md
       - Test Mode: concepts/test-mode.md
+      - Host Facts: concepts/facts.md
       - File Layout: concepts/file-layout.md
       - Permissions: concepts/permissions.md
   - Setup:
