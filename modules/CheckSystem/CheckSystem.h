@@ -38,6 +38,7 @@ class CheckSystem : public nscapi::impl::simple_plugin {
   // bools.
   std::atomic<bool> facts_os_{false};
   std::atomic<bool> facts_hardware_{false};
+  std::atomic<bool> facts_network_interfaces_{false};
   // The last gathered snapshot. These facts cannot change without the host
   // rebooting, so a scheduled round reports what this holds and says how old
   // it is; see host_facts::should_regather.

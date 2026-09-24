@@ -35,7 +35,9 @@ set(SRCS
     check_network.cpp
     check_process_history.cpp
     system_facts.cpp
+    network_facts_unix.cpp
     ${NSCP_INCLUDEDIR}/facts/host_facts.cpp
+    ${NSCP_INCLUDEDIR}/facts/network_facts.cpp
 )
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
@@ -71,6 +73,7 @@ if(WIN32)
         check_process_history.h
         system_facts.h
         ${NSCP_INCLUDEDIR}/facts/host_facts.hpp
+        ${NSCP_INCLUDEDIR}/facts/network_facts.hpp
     )
 endif(WIN32)
 
@@ -126,7 +129,10 @@ NSCP_CREATE_TEST(
         check_uptime.cpp
         system_facts_test.cpp
         system_facts.cpp
+        network_facts_unix.cpp
+        network_facts_unix_test.cpp
         ${NSCP_INCLUDEDIR}/facts/host_facts.cpp
+        ${NSCP_INCLUDEDIR}/facts/network_facts.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
