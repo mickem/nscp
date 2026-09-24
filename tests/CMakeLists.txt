@@ -371,6 +371,11 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
         GTest::gtest_main
+        # The core wrapper builds a PB::Facts::FactsRequestMessage in
+        # get_facts()/refresh_facts(), so every target that compiles it needs
+        # the generated messages to link against - even one that never asks
+        # the core for a fact.
+        nscp_protobuf
         nscp_where_filter
         perfconfig_parser
         expression_parser

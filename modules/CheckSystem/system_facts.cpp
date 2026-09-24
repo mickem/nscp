@@ -16,6 +16,14 @@
 
 #include "check_hostname.hpp"
 
+// Windows SDK 8.1, which the legacy x86/XP build still compiles against,
+// predates ARM64 and does not define this. The value is fixed in the Windows
+// ABI, so naming it here is safe - and it keeps a 32-bit agent running on an
+// ARM64 host reporting the machine it is actually on rather than nothing.
+#ifndef PROCESSOR_ARCHITECTURE_ARM64
+#define PROCESSOR_ARCHITECTURE_ARM64 12
+#endif
+
 namespace system_facts {
 namespace {
 
