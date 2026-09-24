@@ -321,7 +321,14 @@ has not shipped: it renders as *Unreleased* and sorts above every release, so
 nobody has to guess the next version number while writing a note. Cutting a
 release renames the directory to the version
 (`git mv docs/upgrades/next docs/upgrades/0.19.0`) and rewrites any
-`fixed_in: next` in `docs/security/` to match, in the release commit. Whenever a change is
+`fixed_in: next` in `docs/security/` to match, in the release commit. **That
+rename is the release trigger:** the merge that adds a new, untagged
+`docs/upgrades/<version>/` directory is what `build-release.yml` builds, signs
+and drafts as `<version>` (`.github/scripts/detect-release.sh`). So only the
+release PR may add a version directory, it adds exactly one, and a late note
+for a shipped release goes into that release's existing directory. Other
+merges to main are built unsigned by `build-main.yml` and publish nothing.
+Whenever a change is
 **security-relevant** — including hardening handled without a CVE — also add
 a security notice as a new file `docs/security/<slug>.md` (**never edit
 `docs/docs/security/notices.md`**, the same hook assembles it): a front matter

@@ -170,6 +170,19 @@ if(NSCP_OPENSSL_CRYPTO_DLL AND NSCP_OPENSSL_SSL_DLL)
         -dOpenSSLSslDll=${NSCP_OPENSSL_SSL_DLL}
     )
 endif()
+
+# The Windows build signs exactly the binaries this installer ships
+# (build/python/signing_list.py). It takes their names from the File elements
+# of the .wxs files and resolves the $(var.X) in them from this file, so a new
+# DLL in the .wxs, or a define that renames one, is signed without an edit to
+# the workflow.
+set(_WIX_DEFINES "")
+foreach(_flag IN LISTS WIX_CANDLE_FLAGS)
+    if(_flag MATCHES "^-d([^=]+)=(.*)$")
+        string(APPEND _WIX_DEFINES "${CMAKE_MATCH_1}=${CMAKE_MATCH_2}\n")
+    endif()
+endforeach()
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/wix-defines.txt" "${_WIX_DEFINES}")
 source_group(Generated FILES ${SRCS})
 # set_source_files_properties(${WIXOBJ_LIST} ${WIX_DEST} PROPERTIES GENERATED 1)
 

@@ -23,7 +23,12 @@ them to the package manager. They can be invoked:
 
 ## How publication is triggered
 
-`release.yml` creates the GitHub release as a **draft** (`draft: true`). The
+`release.yml` creates the GitHub release as a **draft** (`draft: true`). It
+runs from `build-release.yml`, and only for the release pull request: the
+merge that renames `docs/upgrades/next` to `docs/upgrades/<version>` (see
+`docs/upgrades/README.md`). Other merges to `main` build unsigned and create no
+draft. The draft is pinned to the commit it was built from, so publishing it
+tags that commit even if `main` has moved on. The
 three publish workflows only fire when the release transitions from draft to
 published, which today is a manual step performed in the GitHub web UI. That
 means:
