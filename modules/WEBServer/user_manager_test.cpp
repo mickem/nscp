@@ -67,6 +67,19 @@ TEST(UserManager, AcceptsPreviouslyHashedPassword) {
   EXPECT_TRUE(um.validate_user("alice", "s3cret"));
 }
 
+TEST(UserManager, HashesAPasswordThatOnlyLooksLikeAHash) {
+  // add_user() stores an already-hashed value verbatim, so what counts as
+  // hashed decides whether this password is protected or written through in
+  // the clear - and then compared against as a hash, which never matches.
+  const std::string lookalike = "pbkdf2-sha256$my-secret";
+  user_manager um;
+  um.add_user("alice", lookalike);
+  EXPECT_NE(um.get_hash("alice"), lookalike);
+  EXPECT_TRUE(password_hash::is_hashed(um.get_hash("alice")));
+  EXPECT_TRUE(um.validate_user("alice", lookalike));
+  EXPECT_FALSE(um.validate_user("alice", "pbkdf2-sha256$other"));
+}
+
 TEST(UserManager, DistinctUsersHaveDistinctHashes) {
   // Two users added with the *same* password must end up with different
   // stored values (random salt). We can't read the hash directly, but we can

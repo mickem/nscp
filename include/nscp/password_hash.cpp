@@ -37,9 +37,42 @@ bool from_hex(const std::string& hex, std::vector<unsigned char>& out) {
   }
   return true;
 }
+
+// The prefix alone. Only verify_password() asks this: it is what separates "a
+// hash, possibly a damaged one" from "a clear-text password", and a damaged
+// hash must not fall through to the clear-text compare.
+bool has_prefix(const std::string& s) { return s.compare(0, std::strlen(kPbkdf2Prefix), kPbkdf2Prefix) == 0; }
+
+// Splits a stored value into its three fields. False unless every one of them
+// is there and well formed, so a caller that gets true can verify against it.
+// is_hashed() and verify_password() both go through here rather than each
+// deciding for itself what counts as a hash.
+bool parse_hash(const std::string& stored, int& iter, std::vector<unsigned char>& salt, std::vector<unsigned char>& expected) {
+  if (!has_prefix(stored)) return false;
+  const std::string body = stored.substr(std::strlen(kPbkdf2Prefix));
+  const auto p1 = body.find('$');
+  if (p1 == std::string::npos) return false;
+  const auto p2 = body.find('$', p1 + 1);
+  if (p2 == std::string::npos) return false;
+  const std::string iterations = body.substr(0, p1);
+  // Digits only, and short enough that atoi() cannot overflow before the range
+  // check below gets a chance to reject the value (1000000 is seven digits).
+  if (iterations.empty() || iterations.size() > 7) return false;
+  if (iterations.find_first_not_of("0123456789") != std::string::npos) return false;
+  iter = std::atoi(iterations.c_str());
+  if (iter <= 0 || iter > 1000000) return false;
+  if (!from_hex(body.substr(p1 + 1, p2 - p1 - 1), salt)) return false;
+  if (!from_hex(body.substr(p2 + 1), expected)) return false;
+  return !salt.empty() && !expected.empty();
+}
 }  // namespace
 
-bool is_hashed(const std::string& s) { return s.compare(0, std::strlen(kPbkdf2Prefix), kPbkdf2Prefix) == 0; }
+bool is_hashed(const std::string& s) {
+  int iter = 0;
+  std::vector<unsigned char> salt;
+  std::vector<unsigned char> expected;
+  return parse_hash(s, iter, salt, expected);
+}
 
 #ifdef USE_SSL
 std::string hash_password(const std::string& password) {
@@ -57,21 +90,16 @@ std::string hash_password(const std::string& password) {
 }
 
 bool verify_password(const std::string& password, const std::string& stored) {
-  if (!is_hashed(stored)) {
-    return str::constant_time_eq(password, stored);
-  }
-  const std::string body = stored.substr(std::strlen(kPbkdf2Prefix));
-  const auto p1 = body.find('$');
-  if (p1 == std::string::npos) return false;
-  const auto p2 = body.find('$', p1 + 1);
-  if (p2 == std::string::npos) return false;
-  const int iter = std::atoi(body.substr(0, p1).c_str());
-  if (iter <= 0 || iter > 1000000) return false;
+  int iter = 0;
   std::vector<unsigned char> salt;
   std::vector<unsigned char> expected;
-  if (!from_hex(body.substr(p1 + 1, p2 - p1 - 1), salt)) return false;
-  if (!from_hex(body.substr(p2 + 1), expected)) return false;
-  if (expected.empty() || salt.empty()) return false;
+  if (!parse_hash(stored, iter, salt, expected)) {
+    // A value carrying the prefix that does not parse is a damaged hash, not a
+    // password: fail rather than compare the stored string as clear text,
+    // which would turn it into a credential of its own.
+    if (has_prefix(stored)) return false;
+    return str::constant_time_eq(password, stored);
+  }
   std::vector<unsigned char> got(expected.size());
   if (PKCS5_PBKDF2_HMAC(password.data(), static_cast<int>(password.size()), salt.data(), static_cast<int>(salt.size()), iter, EVP_sha256(),
                         static_cast<int>(got.size()), got.data()) != 1) {

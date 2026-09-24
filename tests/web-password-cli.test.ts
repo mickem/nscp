@@ -136,4 +136,40 @@ describe("nscp web install / password: the shared default password is stored has
     expect(admin()).toBe(copied);
     expect(hashMatches(shared(), "copied-secret")).toBe(true);
   });
+
+  // A password is only text, so it may start with "pbkdf2-sha256$" without
+  // being a hash. Deciding on the prefix alone stored such a password
+  // unchanged: in the clear, and in a form nothing could verify, so the
+  // operator was locked out by a command that reported success.
+  const LOOKALIKE = "pbkdf2-sha256$my-secret";
+
+  it("web password --set hashes a password that only looks like a hash", async () => {
+    const r = await nscp.run(["web", "password", "--set", LOOKALIKE]);
+    expect(r.all).toContain("stored hashed");
+    expect(shared()).not.toBe(LOOKALIKE);
+    expect(shared()).toMatch(HASH_RE);
+    expect(hashMatches(shared(), LOOKALIKE)).toBe(true);
+    expect(hashMatches(admin(), LOOKALIKE)).toBe(true);
+  });
+
+  it("web password --display refuses the hash it made of it, rather than echoing the password", async () => {
+    const r = await nscp.run(["web", "password", "--display"]);
+    expect(r.all).toContain("stored hashed and cannot be displayed");
+    expect(r.all).not.toContain("my-secret");
+  });
+
+  it("web install hashes a --password that only looks like a hash", async () => {
+    const r = await nscp.run([
+      "web",
+      "install",
+      "--password",
+      LOOKALIKE,
+      "--allowed-hosts",
+      "127.0.0.1",
+    ]);
+    expect(r.all).toContain(`Login using this password ${LOOKALIKE}`);
+    expect(shared()).not.toBe(LOOKALIKE);
+    expect(hashMatches(shared(), LOOKALIKE)).toBe(true);
+    expect(hashMatches(admin(), LOOKALIKE)).toBe(true);
+  });
 });

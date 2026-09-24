@@ -18,7 +18,13 @@
 // refuses a hashed one (set a clear-text password under /settings/NSCA/server
 // on such an agent).
 namespace password_hash {
-// True if the value already looks like a stored hash (has the prefix above).
+// True if the value is a complete stored hash: the prefix above, an iteration
+// count in range, and a salt and a hash that are both non-empty hex. This is
+// the question every *writer* has - "is this already hashed, or a password I
+// still have to hash?" - and the prefix alone cannot answer it: a password may
+// legitimately start with "pbkdf2-sha256$" (it is only text), and storing such
+// a password unchanged would leave a value nothing can verify, locking the
+// operator out of an agent whose command reported success.
 bool is_hashed(const std::string& s);
 
 // Returns the hashed form, or an empty string on failure (RNG / KDF). When
@@ -29,6 +35,9 @@ std::string hash_password(const std::string& password);
 
 // Verifies a plaintext password against the stored value. Accepts either a
 // hashed value (verified with PBKDF2) or a legacy plaintext value (compared
-// constant-time).
+// constant-time). A value that carries the prefix but does not parse is a
+// damaged hash rather than a password that happens to look like one, and is
+// rejected: the stored string is never a credential in its own right. Writers
+// keep that case from arising by hashing anything is_hashed() rejects.
 bool verify_password(const std::string& password, const std::string& stored);
 }  // namespace password_hash
