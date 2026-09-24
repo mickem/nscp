@@ -103,6 +103,16 @@ jobs:
       version: ${{ needs.get-version.outputs.version }}
       # Every supported RedHat release; the feature build takes the newest only.
       targets: all
+  # macOS arm64. Not in branch protection yet: the port is new, the runner is
+  # billed at 10x on private repos (free here, this repository is public), and a
+  # build nobody has watched for a few weeks has no business blocking a merge.
+  # It still runs on every pull request, because the alternative is finding out
+  # on the merge commit.
+  build-macos:
+    needs: get-version
+    uses: ./.github/workflows/build-macos.yml
+    with:
+      version: ${{ needs.get-version.outputs.version }}
   build-web:
     needs: get-version
     uses: ./.github/workflows/build-web.yml
@@ -110,7 +120,7 @@ jobs:
       version: ${{ needs.get-version.outputs.version }}
 
   release:
-    needs: [get-version, build-server-x64, build-server-x86, build-server-arm64, build-x86-static, build-debian, build-redhat, build-web]
+    needs: [get-version, build-server-x64, build-server-x86, build-server-arm64, build-x86-static, build-debian, build-redhat, build-macos, build-web]
     uses: ./.github/workflows/release.yml
     with:
       version: ${{ needs.get-version.outputs.version }}

@@ -1355,6 +1355,19 @@ TEST_F(OnboardingStateTest, AnUnreadableStateFileThrows) {
   fs::permissions(path_, fs::owner_read | fs::owner_write);
 }
 
+// Linux only. Everything below fakes root with a user namespace - unshare(2)
+// with CLONE_NEWUSER, then /proc/self/{uid,gid}_map - and none of that exists
+// on Darwin: no unshare, no CLONE_NEWUSER, no procfs. The enclosing #ifndef
+// WIN32 was not enough, and the macOS build failed on exactly that:
+//
+//     error: no member named 'unshare' in the global namespace
+//     error: use of undeclared identifier 'CLONE_NEWUSER'
+//
+// These cover a Linux-specific privilege handoff, so not compiling them
+// elsewhere loses no coverage of portable behaviour; the unprivileged
+// adopt_owner tests above still run everywhere.
+#if defined(__linux__)
+
 // --- adopt_owner under a fake root ------------------------------------------
 // The chown handoff itself only runs as root (geteuid() == 0), which the tests
 // above skip. A user namespace gives us that root: fork a child, map the
@@ -1584,4 +1597,5 @@ TEST_F(OnboardingStateTest, FakeRootLeavesASymlinkedReferenceAlone) {
   SKIP_WITHOUT_FAKE_ROOT(rc);
   EXPECT_EQ(rc, 0);
 }
+#endif  // defined(__linux__)
 #endif

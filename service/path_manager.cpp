@@ -14,23 +14,14 @@
 #endif
 
 #include <boost/filesystem.hpp>
+#include <nscp/executable_path.hpp>
 
 nsclient::core::path_manager::path_manager(const logging::log_client_accessor &log_instance_) : log_instance_(log_instance_) {}
 
-boost::filesystem::path get_exe_path() {
-#ifdef WIN32
-  return shellapi::get_module_file_name();
-#else
-  char buff[1024];
-  ssize_t len = ::readlink("/proc/self/exe", buff, sizeof(buff) - 1);
-  if (len != -1) {
-    buff[len] = '\0';
-    boost::filesystem::path p = std::string(buff);
-    return p.parent_path();
-  }
-  return boost::filesystem::initial_path();
-#endif
-}
+// Shared with the client binaries (nscp/executable_path.hpp) so the service and
+// the clients cannot disagree about where the installation is: they answer
+// ${exe-path} and ${base-path} from the same call.
+boost::filesystem::path get_exe_path() { return nscp::paths::executable_dir(); }
 boost::filesystem::path nsclient::core::path_manager::getBasePath() {
   const boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!lock.owns_lock()) {

@@ -12,12 +12,11 @@
 #include <string>
 
 #include <nscp/boot_layout.hpp>
+#include <nscp/executable_path.hpp>
 #include <nscp/path_defaults.hpp>
 
 #ifdef WIN32
 #include <win/shellapi.hpp>
-#else
-#include <unistd.h>
 #endif
 
 // Path resolution for the standalone clients (check_nrpe, check_nscp).
@@ -58,18 +57,11 @@ class client_path_resolver {
   explicit client_path_resolver(const boost::filesystem::path &boot_ini)
       : layout_(layout_from_boot_ini_file(boot_ini.string())), overrides_(path_overrides_from_boot_ini_file(boot_ini.string())) {}
 
-  // The directory the running executable lives in.
-  static boost::filesystem::path executable_dir() {
-#ifdef WIN32
-    return shellapi::get_module_file_name();
-#else
-    char buff[1024];
-    const ssize_t len = ::readlink("/proc/self/exe", buff, sizeof(buff) - 1);
-    if (len == -1) return boost::filesystem::initial_path();
-    buff[len] = '\0';
-    return boost::filesystem::path(std::string(buff)).parent_path();
-#endif
-  }
+  // The directory the running executable lives in. The per-platform lookup
+  // itself lives in nscp/executable_path.hpp, shared with the service, so the
+  // clients and path_manager cannot drift apart about where the installation
+  // is - which is the same reason this resolver exists at all.
+  static boost::filesystem::path executable_dir() { return nscp::paths::executable_dir(); }
 
   std::string get_folder(const std::string &key) const {
     // boot.ini [paths] wins, exactly as it does for the service - and it wins

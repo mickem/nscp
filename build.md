@@ -14,6 +14,7 @@ If you want to produce debug builds and/or w32 some adjustments will be required
 * [x64 version (dynamic runtime)](#x64-version-dynamic-runtime)
 * [Win32 version (static link)](#win32-version-static-link)
 * [Linux version](#linux-version)
+* [macOS version](#macos-version)
 * [Running tests](#running-tests)
 
 ## Prerequisites
@@ -816,6 +817,101 @@ Each missing-dependency combination is validated by the Docker images under
 Individual modules can also be dropped without touching dependencies — see
 [Selecting individual modules](#selecting-individual-modules) for the
 `-DBUILD_MODULE_<Name>=OFF` flag.
+
+## macOS version
+
+macOS builds are Apple silicon (arm64) only, and the CI job that produces the
+release package is
+[`.github/workflows/build-macos.yml`](.github/workflows/build-macos.yml) — read
+that first if something here disagrees with it, since it is what actually runs.
+
+### Install dependencies
+
+```bash
+brew install boost openssl@3 protobuf lua libzip tinyxml2 cryptopp pkgconf ccache
+pip3 install --break-system-packages -r build/python/requirements.txt
+```
+
+`openssl@3` is keg-only, so its location has to be handed to CMake explicitly
+(`-DOPENSSL_ROOT_DIR`, below). `boost-python3` and `mariadb-connector-c` are
+deliberately not in that list: `PythonScript` and `CheckMySQL` disable
+themselves when they are absent, and pinning Homebrew's Boost.Python to the
+matching CPython is the most fragile part of a macOS build. Install them if you
+want those two modules.
+
+### Configure and build
+
+```bash
+mkdir -p build-macos && cd build-macos
+cmake .. \
+    -DBUILD_VERSION=0.0.0 \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr/local \
+    -DCMAKE_OSX_ARCHITECTURES=arm64 \
+    -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" \
+    -DPROTOBUF_ROOT="$(brew --prefix protobuf)" \
+    -DCRYPTOPP_ROOT="$(brew --prefix cryptopp)" \
+    -DNSCP_WEB_BACKEND=beast \
+    -DCHECK_NSCLIENT_MISSING=ON
+make -j"$(sysctl -n hw.ncpu)"
+ctest --output-on-failure
+```
+
+The three `*_ROOT` flags are not optional on macOS. `openssl@3` is keg-only, so
+nothing finds it by default; protobuf and crypto++ are found by the project's
+own `Find*` modules, which search a hand-maintained list of paths rather than
+the system prefixes — `FindProtoBuf`'s library lookup is `NO_DEFAULT_PATH`
+outright. Neither list can name the Homebrew prefix, because it differs by
+architecture (`/opt/homebrew` on Apple silicon, `/usr/local` on Intel). Leave
+`PROTOBUF_ROOT` out and configure fails with `missing: PROTOBUF_LIBRARY` even
+though the headers and `protoc` were found; leave `CRYPTOPP_ROOT` out and the
+build quietly continues without NSCA encryption.
+
+`/usr/local`, not `/usr`: macOS mounts the system volume read-only and reserves
+`/usr` for the OS, so `/usr/local` is both the conventional prefix and the only
+one an installer package may write to. Everything else (`etc`, `var`,
+`lib/nsclient`) derives from it through GNUInstallDirs exactly as on Linux — see
+[Choosing an install prefix](#choosing-an-install-prefix-linux).
+
+`-DCHECK_NSCLIENT_MISSING=ON` is needed because
+[mickem/check_nsclient](https://github.com/mickem/check_nsclient) publishes
+Linux and Windows binaries only; without it the configure step fails looking for
+a file that does not exist for darwin.
+
+### Modules that are not built on macOS
+
+`CheckSystem` (procfs), `CheckDisk` (`mntent`, `/proc/diskstats`) and
+`CheckLogFile` (`inotify`) read Linux kernel interfaces and are skipped with a
+reason at configure time. The checks, filters and output builders in those
+modules are platform-neutral; it is the fetch that needs a Darwin
+implementation (`sysctl`, `host_statistics64`, libproc, `getmntinfo`). Porting
+one means adding a `_mac.cpp` beside the existing `_unix.cpp` and splitting it
+in the module's `CMakeLists.txt`, the same way `CheckDisk` already splits
+win/unix.
+
+### Building the installer package
+
+The `.pkg` is not a CMake target — it is assembled from a staged install tree by
+`pkgbuild` and `productbuild`, because the dylib bundling pass has to run in
+between. [`packaging/macos/README.md`](packaging/macos/README.md) explains why
+and what each piece does. To reproduce it locally:
+
+```bash
+# from build-macos/
+make install DESTDIR="$PWD/stage"
+../packaging/macos/bundle_dylibs.sh "$PWD/stage" usr/local/lib/nsclient
+. files/macos/pkg.env
+pkgbuild --root stage --scripts files/macos/scripts \
+    --identifier "$NSCP_PKG_IDENTIFIER" --version "$NSCP_VERSION" \
+    --install-location / --ownership recommended \
+    "NSCP-${NSCP_VERSION}-macos-arm64-component.pkg"
+```
+
+`cpack -G TGZ` also works, but note what it gives you: CPack re-runs the install
+rules into its own staging directory, so its tarball is the *unbundled* tree and
+still needs the Homebrew formulas above. The tarball the release ships is rolled
+from the staged tree after `bundle_dylibs.sh` has run, which is why the workflow
+uses `tar` rather than CPack for it.
 
 ## Running tests
 

@@ -41,36 +41,35 @@ set_target_properties(
 )
 NSCP_INSTALL_MODULE(${TARGET})
 
-if(WIN32)
-    set(_FOLDER "${MODULE_SUBFOLDER}")
-elseif(APPLE)
-    set(_FOLDER ${MODULE_SUBFOLDER})
-else()
-    set(_FOLDER ${MODULE_TARGET_FOLDER})
-endif()
+# Where the module lands in the build tree. This mirrors the tail of
+# NSCP_INSTALL_MODULE, which this file open-codes because it also installs the
+# crash-handler helpers; keep the two in step. BUILD_TARGET_LIB_PATH rather than
+# BUILD_TARGET_ROOT_PATH/${_FOLDER}: the unix install destination is absolute,
+# and concatenating it onto the build root yields <build>//usr/local/....
 if(MSVC11 OR MSVC12 OR MSVC13 OR MSVC14 OR APPLE)
+    set(_FOLDER ${BUILD_TARGET_LIB_PATH})
     set_target_properties(
         ${TARGET}
         PROPERTIES
             LIBRARY_OUTPUT_DIRECTORY
-                ${BUILD_TARGET_ROOT_PATH}/${_FOLDER}
+                ${_FOLDER}
     )
     set_target_properties(
         ${TARGET}
         PROPERTIES
             LIBRARY_OUTPUT_DIRECTORY_DEBUG
-                ${BUILD_TARGET_ROOT_PATH}/${_FOLDER}
+                ${_FOLDER}
     )
     set_target_properties(
         ${TARGET}
         PROPERTIES
             LIBRARY_OUTPUT_DIRECTORY_RELEASE
-                ${BUILD_TARGET_ROOT_PATH}/${_FOLDER}
+                ${_FOLDER}
     )
     set_target_properties(
         ${TARGET}
         PROPERTIES
             LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO
-                ${BUILD_TARGET_ROOT_PATH}/${_FOLDER}
+                ${_FOLDER}
     )
 endif()

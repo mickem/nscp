@@ -52,10 +52,9 @@ if(WIN32)
     )
 endif(WIN32)
 
+# iconv is linked globally on macOS (see link_libraries() in the top-level
+# CMakeLists); it does not belong to this library in particular.
 set(EXTRA_LIBS)
-if(APPLE)
-    set(EXTRA_LIBS ${ICONV_LIBRARIES})
-endif()
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
 # The public surface is annotated with NSCAPI_EXPORT (nscapi/dll_defines.hpp),

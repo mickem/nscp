@@ -344,7 +344,9 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/win/shellapi.cpp
     LIBRARIES
         nscp_json
-        GTest::gtest_main
+        # gmock_main, not gtest_main: dll_plugin_test.cpp uses EXPECT_THAT with
+        # a gmock matcher. See NSCP_GMOCK_MAIN in the top-level CMakeLists.
+        ${NSCP_GMOCK_MAIN}
         ${NSCP_DEF_PLUGIN_LIB}
         ${EXTRA_LIBS}
         ${Boost_DATE_TIME_LIBRARY}

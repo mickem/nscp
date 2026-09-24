@@ -1,0 +1,353 @@
+name: Build macOS package
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        description: 'Version to build'
+        required: true
+      runner:
+        type: string
+        description: >-
+          Which macOS runner to build on. This is not only where the build runs:
+          Homebrew serves bottles built for the runner's own OS version, and
+          those dylibs are bundled into the package, so the runner's version is
+          also the oldest macOS the package can be installed on. Moving to a
+          newer runner raises that floor.
+        required: false
+        default: macos-15
+  # The macOS build is not yet part of branch protection, so a contributor
+  # working on the port needs a way to run it against an arbitrary branch
+  # without opening a pull request.
+  workflow_dispatch:
+    inputs:
+      version:
+        type: string
+        description: 'Version to build'
+        required: false
+        default: '0.0.0'
+      runner:
+        type: string
+        required: false
+        default: macos-15
+
+jobs:
+  build-macos:
+    name: build-macos (arm64)
+    runs-on: ${{ inputs.runner || 'macos-15' }}
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        set -euo pipefail
+        # Homebrew's own network flakiness is the usual cause of a red run here,
+        # exactly as the apt/dnf mirrors are on the Linux jobs. Same helper.
+        retry() {
+          local n=0
+          until "$@"; do
+            n=$((n+1))
+            if [ $n -ge 3 ]; then echo "::error::Failed after $n attempts: $*" >&2; return 1; fi
+            echo "::warning::Attempt $n failed; retrying in $((n*5))s..." >&2
+            sleep $((n*5))
+          done
+        }
+        # cmake and pkg-config are already on the image; asking for them again
+        # costs a no-op. openssl@3 is keg-only, so its location is passed to
+        # CMake explicitly below rather than being found on the default paths.
+        #
+        # Not installed, and why:
+        #   boost-python3   PythonScript needs Boost.Python *and* the matching
+        #                   CPython. Homebrew's pairing of the two moves with
+        #                   every python bump and is the single most common way
+        #                   this job would break on an unrelated day. The module
+        #                   disables itself when they are absent.
+        #   mariadb-connector-c  CheckMySQL likewise disables itself.
+        retry brew update --quiet
+        retry brew install --quiet \
+          boost \
+          openssl@3 \
+          protobuf \
+          lua \
+          libzip \
+          tinyxml2 \
+          cryptopp \
+          pkgconf \
+          ccache \
+          coreutils
+
+    - name: Configure the build environment
+      id: env
+      shell: bash
+      run: |
+        set -euo pipefail
+        brew_prefix="$(brew --prefix)"
+        echo "BREW_PREFIX=$brew_prefix" >> "$GITHUB_ENV"
+        echo "OPENSSL_ROOT_DIR=$(brew --prefix openssl@3)" >> "$GITHUB_ENV"
+        # protobuf and crypto++ are found by the project's own Find modules,
+        # which search a hand-maintained path list rather than the default
+        # prefixes - FindProtoBuf's library lookup is NO_DEFAULT_PATH outright.
+        # Neither list can name a Homebrew prefix, because it differs by
+        # architecture (/opt/homebrew on arm64, /usr/local on Intel), so it is
+        # passed in. Both modules take the installed prefix.
+        echo "PROTOBUF_ROOT=$(brew --prefix protobuf)" >> "$GITHUB_ENV"
+        echo "CRYPTOPP_ROOT=$(brew --prefix cryptopp)" >> "$GITHUB_ENV"
+
+        # The deployment target is the runner's own major version, not a number
+        # picked by hand. The package carries Homebrew's bottles for boost,
+        # OpenSSL and protobuf (see packaging/macos/bundle_dylibs.sh), and those
+        # are built for this OS - claiming support for an older one would
+        # produce a package that installs and then fails to load a library.
+        major="$(sw_vers -productVersion | cut -d. -f1)"
+        echo "MACOS_DEPLOYMENT_TARGET=${major}.0" >> "$GITHUB_ENV"
+        echo "deployment_target=${major}.0" >> "$GITHUB_OUTPUT"
+
+        # See build-debian.yml for why a compiler cache is worth the wiring.
+        if command -v ccache > /dev/null; then
+          echo "CCACHE_DIR=$GITHUB_WORKSPACE/.ccache" >> "$GITHUB_ENV"
+          echo "CCACHE_MAXSIZE=500M" >> "$GITHUB_ENV"
+          echo "CCACHE_LAUNCHER=ccache" >> "$GITHUB_ENV"
+        else
+          echo "::warning::ccache not available - building without a compiler cache"
+        fi
+
+    - name: Restore ccache
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      with:
+        path: .ccache
+        key: ccache-macos-arm64-${{ github.sha }}
+        restore-keys: |
+          ccache-macos-arm64-
+
+    - name: setup python dependencies
+      shell: bash
+      run: |
+        set -euo pipefail
+        retry() {
+          local n=0
+          until "$@"; do
+            n=$((n+1))
+            if [ $n -ge 3 ]; then echo "::error::Failed after $n attempts: $*" >&2; return 1; fi
+            echo "::warning::Attempt $n failed; retrying in $((n*5))s..." >&2
+            sleep $((n*5))
+          done
+        }
+        # The runner's python is Homebrew's, which is an externally managed
+        # environment; --break-system-packages is the same escape hatch the
+        # Debian and RedHat jobs use.
+        retry bash -c 'pip3 install --break-system-packages -r build/python/requirements.txt 2>/dev/null || pip3 install -r build/python/requirements.txt'
+
+    # No check_nsclient step, unlike the Linux jobs: mickem/check_nsclient
+    # publishes linux and windows binaries only, so there is nothing to fetch
+    # for darwin/arm64 and the build is configured with
+    # -DCHECK_NSCLIENT_MISSING=ON. When a macOS build of it is published, drop
+    # that flag and add the same download step the Linux jobs use.
+
+    - name: CMake (NSCP)
+      working-directory: .
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p tmp/nscp
+        cd tmp/nscp
+        # /usr/local, not /usr: macOS reserves /usr for the OS and mounts the
+        # system volume read-only, so /usr/local is where third-party software
+        # goes and the only prefix an installer package may write to. Everything
+        # else (etc, var, lib/nsclient) derives from it through GNUInstallDirs,
+        # exactly as on Linux.
+        cmake ../.. \
+          ${CCACHE_LAUNCHER:+-DCMAKE_C_COMPILER_LAUNCHER=$CCACHE_LAUNCHER -DCMAKE_CXX_COMPILER_LAUNCHER=$CCACHE_LAUNCHER} \
+          -DBUILD_VERSION=${{ inputs.version || '0.0.0' }} \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_INSTALL_PREFIX=/usr/local \
+          -DCMAKE_OSX_ARCHITECTURES=arm64 \
+          -DCMAKE_OSX_DEPLOYMENT_TARGET="$MACOS_DEPLOYMENT_TARGET" \
+          -DOPENSSL_ROOT_DIR="$OPENSSL_ROOT_DIR" \
+          -DPROTOBUF_ROOT="$PROTOBUF_ROOT" \
+          -DCRYPTOPP_ROOT="$CRYPTOPP_ROOT" \
+          -DNSCP_WEB_BACKEND=beast \
+          -DCHECK_NSCLIENT_MISSING=ON \
+          -DLIBRARY_ROOT_FOLDER="$GITHUB_WORKSPACE" \
+          -DUSE_STATIC_RUNTIME=OFF
+
+    - name: Build nsclient
+      working-directory: tmp/nscp
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ -n "${CCACHE_LAUNCHER:-}" ]; then ccache --zero-stats; fi
+        make -j"$(sysctl -n hw.ncpu)"
+
+    - name: ccache statistics
+      if: always()
+      shell: bash
+      run: |
+        if [ -n "${CCACHE_LAUNCHER:-}" ]; then ccache --show-stats; fi
+
+    - name: Run tests
+      working-directory: tmp/nscp
+      shell: bash
+      run: ctest --output-on-failure -C Release
+
+    - name: Stage the install tree
+      working-directory: tmp/nscp
+      shell: bash
+      run: |
+        set -euo pipefail
+        # DESTDIR, not a second prefix: the install destinations are absolute
+        # (they are the prefix-derived NSCP_* values, and /Library/LaunchDaemons
+        # is fixed by the OS), so a staging root is the only way to capture them
+        # without installing onto the runner.
+        rm -rf "$GITHUB_WORKSPACE/stage"
+        make install DESTDIR="$GITHUB_WORKSPACE/stage"
+        echo "--- staged tree ---"
+        find "$GITHUB_WORKSPACE/stage" -type f | sed "s#$GITHUB_WORKSPACE/stage##" | sort
+
+    - name: Bundle the Homebrew dylibs
+      shell: bash
+      run: |
+        set -euo pipefail
+        # Turns the staged tree into something that runs on a Mac without
+        # Homebrew. Also re-signs, which on arm64 is what makes the binaries
+        # loadable at all after their install names are rewritten.
+        packaging/macos/bundle_dylibs.sh "$GITHUB_WORKSPACE/stage" usr/local/lib/nsclient
+
+    - name: Build the installer package
+      id: pkg
+      shell: bash
+      run: |
+        set -euo pipefail
+        # The identifier, the label and the version come from CMake rather than
+        # being repeated here: one definition, in CMakeLists.txt.
+        . tmp/nscp/files/macos/pkg.env
+
+        out="$GITHUB_WORKSPACE/out"
+        mkdir -p "$out" "$out/resources"
+        cp files/license.txt "$out/resources/license.txt"
+
+        # Both file names come from pkg.env: distribution.xml's pkg-ref names
+        # the component file, so a name invented here would make productbuild
+        # fail to find it.
+        component="$NSCP_PKG_COMPONENT_FILE"
+        product="$NSCP_PKG_PRODUCT_FILE"
+
+        # --install-location /: the staged tree already carries the full
+        # absolute paths, including /Library/LaunchDaemons.
+        pkgbuild \
+          --root "$GITHUB_WORKSPACE/stage" \
+          --scripts tmp/nscp/files/macos/scripts \
+          --identifier "$NSCP_PKG_IDENTIFIER" \
+          --version "$NSCP_VERSION" \
+          --install-location / \
+          --ownership recommended \
+          "$out/$component"
+
+        # The product archive adds the licence pane and the arm64 host
+        # requirement; see files/macos/distribution.xml.in.
+        productbuild \
+          --distribution tmp/nscp/files/macos/distribution.xml \
+          --package-path "$out" \
+          --resources "$out/resources" \
+          "$out/$product"
+
+        rm -f "$out/$component"
+        rm -rf "$out/resources"
+        echo "product=$product" >> "$GITHUB_OUTPUT"
+        echo "version=$NSCP_VERSION" >> "$GITHUB_OUTPUT"
+        echo "label=$NSCP_LAUNCHD_LABEL" >> "$GITHUB_OUTPUT"
+
+    - name: Build the tarball
+      shell: bash
+      run: |
+        set -euo pipefail
+        . tmp/nscp/files/macos/pkg.env
+        # Rolled from the same staged tree the .pkg is built from, *after* the
+        # bundling pass - so the tarball is self-contained too, rather than
+        # quietly depending on whichever Homebrew formulas happen to be on the
+        # machine that unpacks it.
+        #
+        # Not `cpack -G TGZ`: CPack would re-run the install rules into a fresh
+        # staging directory and get the unbundled tree back, which is both a
+        # second artifact to keep in step with the first and a worse one.
+        #
+        # root:wheel, because the payload is meant to be extracted with
+        # `sudo tar -xzf ... -C /` and should land owned the way the .pkg
+        # installs it rather than owned by whoever built it.
+        tar -czf "$GITHUB_WORKSPACE/out/NSCP-${NSCP_VERSION}-macos-arm64.tar.gz" \
+          --uid 0 --gid 0 --uname root --gname wheel \
+          -C "$GITHUB_WORKSPACE/stage" .
+        echo "--- tarball contents (top two levels) ---"
+        tar -tzf "$GITHUB_WORKSPACE/out/NSCP-${NSCP_VERSION}-macos-arm64.tar.gz" |
+          awk -F/ '{print $2"/"$3}' | sort -u | head -20
+
+    - name: Show the package contents
+      if: always()
+      shell: bash
+      run: |
+        ls -la "$GITHUB_WORKSPACE/out" || true
+
+    - uses: actions/upload-artifact@v6
+      with:
+        name: NSCP-${{ inputs.version || '0.0.0' }}-macos-arm64
+        path: out/
+        if-no-files-found: error
+
+    # A .pkg that builds is not a .pkg that works, and this runner is a Mac:
+    # install it and see. This is the step that catches a bad launchd plist, a
+    # dylib the bundling pass missed, a postinstall that cannot create its
+    # account - none of which any amount of building would reveal.
+    - name: Test the package on the runner
+      shell: bash
+      run: |
+        set -euo pipefail
+        . tmp/nscp/files/macos/pkg.env
+        sudo installer -pkg "$GITHUB_WORKSPACE/out/${{ steps.pkg.outputs.product }}" -target / -verbose
+
+        echo "--- the service account ---"
+        dscl . -read "/Users/${NSCP_SERVICE_USER}" UniqueID PrimaryGroupID
+
+        echo "--- the launchd job ---"
+        # launchd starts the job asynchronously, so give it a moment before
+        # asking whether it is there.
+        for i in $(seq 1 20); do
+          if sudo launchctl print "system/${NSCP_LAUNCHD_LABEL}" > /tmp/launchd-print.txt 2>&1; then
+            break
+          fi
+          sleep 1
+        done
+        cat /tmp/launchd-print.txt
+
+        # `state = running` is the whole point: a job that launchd knows about
+        # but that exits immediately (a missing dylib, a config it cannot read)
+        # prints just as happily.
+        if ! grep -qE 'state = running' /tmp/launchd-print.txt; then
+          echo "::error::${NSCP_LAUNCHD_LABEL} is loaded but not running"
+          echo "--- launchd stderr ---"
+          sudo cat /usr/local/var/log/nsclient/launchd.err.log 2>/dev/null || true
+          echo "--- agent log ---"
+          sudo cat /usr/local/var/log/nsclient/nsclient.log 2>/dev/null || true
+          exit 1
+        fi
+
+        # --load-all dlopens every module in the package, which is the only
+        # thing that proves the install names were rewritten correctly: a
+        # module whose Boost reference still points at /opt/homebrew would
+        # otherwise not be noticed until whoever first enabled it.
+        echo "--- the binary runs, loads every module, and reads its settings ---"
+        sudo "${NSCP_SBINDIR}/nscp" settings --load-all --list --add-defaults
+
+        echo "--- a check dispatches end to end ---"
+        sudo "${NSCP_SBINDIR}/nscp" client --module CheckHelpers --boot --query check_ok
+
+        echo "--- and it uninstalls ---"
+        sudo "${NSCP_SBINDIR}/uninstall-nsclient" --purge
+        if sudo launchctl print "system/${NSCP_LAUNCHD_LABEL}" > /dev/null 2>&1; then
+          echo "::error::the job is still loaded after uninstalling"
+          exit 1
+        fi
