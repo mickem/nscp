@@ -1,10 +1,11 @@
 # Host Facts
 
 **Facts are the agent's inventory of the machine it runs on**: what OS it is,
-what hardware it sits on, which volumes and network interfaces it has, and
-which NSClient++ is running on it. The core collects them from the loaded
-modules, keeps them as one document per host, and serves that document on
-[`/api/v2/facts`](../api/rest/facts.md), in the web UI and in `nscp test`.
+what hardware it sits on, which volumes and network interfaces it has, what is
+installed on it, and which NSClient++ is running on it. The core collects them
+from the loaded modules, keeps them as one document per host, and serves that
+document on [`/api/v2/facts`](../api/rest/facts.md), in the web UI and in
+`nscp test`.
 
 **Nothing is collected until you turn a fact set on.** An inventory is data an
 operator did not necessarily agree to ship, so a fresh install reports an empty
@@ -48,6 +49,7 @@ CheckDisk = enabled
 os = true
 hardware = true
 network.interfaces = true
+software.installed = true
 
 [/settings/disk/facts]
 storage.volumes = true
@@ -67,6 +69,7 @@ another bundle's choices.
 | `os`                 | CheckSystem | `os`, `[/settings/system/windows/facts]` or `[/settings/system/unix/facts]` | none: read once at start |
 | `hardware`           | CheckSystem | `hardware`, same section                         | none: read once at start |
 | `network.interfaces` | CheckSystem | `network.interfaces`, same section               | low: read every round, no WMI, nothing forked |
+| `software.installed` | CheckSystem | `software.installed`, same section               | the highest here: every round, a walk of the registry's Uninstall hives or one forked package-manager query |
 | `storage.volumes`    | CheckDisk   | `storage.volumes`, `[/settings/disk/facts]`      | low: the enumeration `check_drivesize drive=*` does |
 
 The full description of each switch is in the module's settings reference.
@@ -133,12 +136,49 @@ There is no free space, for the same reason there are no traffic counters.
 A remote volume (NFS, SMB, a mapped drive) is listed without `size_bytes`.
 Asking a dead server for a size would stall the round until it times out.
 
+### `software.installed`
+
+One record per installed program, from the same source
+[`check_installed_software`](../reference/check/CheckSystem.md) reads: the
+registry's `Uninstall` hives on Windows - the 64-bit and 32-bit machine views
+and every loaded per-user hive, never `Win32_Product` - and the host's own
+package manager (dpkg, rpm or pacman) on unix.
+
+| Field          | Example                      | Meaning |
+|----------------|------------------------------|---------|
+| `id`           | `Google Chrome`, `bash`      | the name, with the version appended when the host has two installs of it |
+| `name`         | `Google Chrome`              | what the platform calls it: the `name` of `check_installed_software` |
+| `version`      | `129.0.6668.101`             | as the platform recorded it; never parsed or compared as a number |
+| `publisher`    | `Google LLC`                 | the publisher (Windows), the maintainer or vendor (unix) |
+| `architecture` | `x86_64`, `x86`, `noarch`    | the [`os`](#os-and-hardware) set's vocabulary, plus `noarch` for a package that has none (rpm's `noarch`, dpkg's `all`, pacman's `any`) |
+| `source`       | `registry`, `dpkg`           | which database the record came from |
+| `scope`        | `machine`                    | `machine` or `user`, by the hive it was installed into. Windows only: a unix package manager installs for the machine |
+| `install_date` | `2026-09-09`                 | a date, not a time, and only where the platform records one |
+| `size_bytes`   | `5904384`                    | the installed size, where it is recorded |
+
+What it leaves out is as deliberate as what it carries. Entries Windows hides
+from Programs and Features (`SystemComponent`) are not listed: they are the
+runtimes and bookkeeping keys a component left behind, and they roughly double
+the record count. One product installed into several user hives is one record,
+because the host has that software on it once. And nothing here says whether
+anything is *running* - that is a check, and it would change the document every
+round.
+
+This is the one set with a size limit of its own. A Linux desktop has a few
+thousand packages, and the whole document has to fit `[/settings/facts] max
+size`; a set that would not fit is rejected whole, which would leave the host
+with no inventory at all. So the list stops at **2500 records**, and the set
+then carries an error under `errors` saying how many were found.
+
 ### Record ids match check instance names
 
 A list record's `id` is the same string that the corresponding check uses to
 name the instance. `storage.volumes[].id` is the `drive` of `check_drivesize`.
-`network.interfaces[].id` is the `name` of `check_network`. The ids are stable
-across rounds, so a consumer can diff two documents record by record.
+`network.interfaces[].id` is the `name` of `check_network`.
+`software.installed[].id` is the `name` of `check_installed_software` - with
+the version appended in the one case where the host has two installs sharing a
+name, because an id has to be unique in its list. The ids are stable across
+rounds, so a consumer can diff two documents record by record.
 
 ---
 
@@ -223,6 +263,8 @@ breaks a rule is rejected whole, and the previous value of that set is kept.
 ## What facts never contain
 
 Facts describe the machine, not the configuration. They never contain
-settings, credentials, command lines or environment variables. The loaded
-module list in `agent` is the one configuration-adjacent value, and it is
-opt-in like everything else.
+settings, credentials, command lines or environment variables. That holds
+inside a set too: `software.installed` carries what is installed and which
+version of it, never the install path or the uninstall command line
+`check_installed_software` can also show. The loaded module list in `agent` is
+the one configuration-adjacent value, and it is opt-in like everything else.

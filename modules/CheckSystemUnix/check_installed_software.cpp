@@ -45,8 +45,6 @@ std::string format_epoch_date(const long long epoch) {
   return buf;
 }
 
-namespace {
-
 // Execute a command via popen, capture stdout and keep the exit status: an
 // empty package list from a failed query must not be mistaken for an empty
 // package database.
@@ -64,6 +62,8 @@ command_result run_command(const std::string &cmd) {
   const bool ok = status != -1 && WIFEXITED(status) && WEXITSTATUS(status) == 0;
   return command_result(result, ok);
 }
+
+namespace {
 
 bool binary_exists(const std::string &path) { return access(path.c_str(), X_OK) == 0; }
 

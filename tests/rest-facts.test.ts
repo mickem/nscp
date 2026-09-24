@@ -39,6 +39,7 @@ describe("REST facts", () => {
         os: "true",
         hardware: "true",
         "network.interfaces": "true",
+        "software.installed": "true",
       },
       "/settings/disk/facts": {
         "storage.volumes": "true",
@@ -90,9 +91,15 @@ describe("REST facts", () => {
           "hardware",
           "network",
           "os",
+          "software",
           "storage",
         ]);
-        expect(response.body.errors).toEqual({});
+        // `software` is allowed one: a host with more packages than the set
+        // ships reports the truncation here, which the software test below
+        // checks in full.
+        expect(
+          Object.keys(response.body.errors).filter((id) => id !== "software"),
+        ).toEqual([]);
         expect(response.body.found).toBe(true);
         expect(response.body.revision).toBeGreaterThan(0);
         // ISO 8601 UTC, as the document rules require.
@@ -106,6 +113,7 @@ describe("REST facts", () => {
           "hardware",
           "network",
           "os",
+          "software",
           "storage",
         ]);
         expect(response.body.gathered.os).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
@@ -209,6 +217,76 @@ describe("REST facts", () => {
     }
   });
 
+  it("lists the installed software the way the platform records it", async () => {
+    const response = await request(REST_URL)
+      .get("/api/v2/facts?path=software.installed")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true)
+      .expect(200);
+    expect(response.body.found).toBe(true);
+    const installed = response.body.facts;
+    expect(Array.isArray(installed)).toBe(true);
+    // Every host these tests run on has software on it: the registry's
+    // Uninstall hives on Windows, the package database on Linux.
+    expect(installed.length).toBeGreaterThan(0);
+
+    const ids = installed.map((p: { id: string }) => p.id);
+    // Unique, because the core rejects a list whose ids are not - and sorted
+    // by name, so an unchanged host is an unchanged document.
+    expect(new Set(ids).size).toEqual(ids.length);
+    const names = installed.map((p: { name: string }) => p.name);
+    expect([...names].sort()).toEqual(names);
+
+    for (const entry of installed) {
+      expect(typeof entry.name).toBe("string");
+      expect(entry.name).not.toEqual("");
+      if (onWindows) {
+        expect(entry.source).toEqual("registry");
+        expect(["machine", "user"]).toContain(entry.scope);
+      } else {
+        expect(["dpkg", "rpm", "pacman"]).toContain(entry.source);
+        // Windows only: every unix package is installed for the machine.
+        expect(entry.scope).toBeUndefined();
+      }
+      // One architecture vocabulary on every platform, the `os` set's.
+      if (entry.architecture !== undefined)
+        expect(entry.architecture).toMatch(/^[a-z0-9_]+$/);
+      // A date, not a timestamp: an inventory does not need the second an
+      // install happened.
+      if (entry.install_date !== undefined)
+        expect(entry.install_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      if (entry.size_bytes !== undefined) expect(entry.size_bytes).toBeGreaterThan(0);
+      // Inventory, not monitoring: nothing about running processes or
+      // services, which would change the document every round.
+      expect(Object.keys(entry).filter((k) => /running|pid|status/.test(k))).toEqual([]);
+    }
+
+    // A host with more packages than the set ships is truncated, and says so
+    // rather than quietly reporting a short inventory.
+    const document = await request(REST_URL)
+      .get("/api/v2/facts")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true)
+      .expect(200);
+    if (document.body.errors.software !== undefined) {
+      expect(document.body.errors.software).toMatch(/only the first \d+ are reported/);
+    }
+
+    // The names check_installed_software reports, which is what lets a check
+    // and the inventory be talked about in the same words. Only the first few
+    // are compared: the check reports entries the fact set leaves out (hidden
+    // system components on Windows) and the inventory may be truncated.
+    const check = await request(REST_URL)
+      .get(
+        "/api/v2/queries/check_installed_software/commands/execute?filter=none&warning=none&critical=none&empty-state=ok&top-syntax=${list}&detail-syntax=%25(name)&perf-config=*(ignored:true)",
+      )
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true)
+      .expect(200);
+    const reported = check.body.lines.map((l: { message: string }) => l.message).join("");
+    for (const entry of installed.slice(0, 20)) expect(reported).toContain(entry.name);
+  });
+
   it("describes the agent itself", async () => {
     const response = await request(REST_URL)
       .get("/api/v2/facts?path=agent")
@@ -240,7 +318,7 @@ describe("REST facts", () => {
     // A set nobody produces is not an error: a UI asking for one an operator
     // has not enabled should render "not collected", not a failure.
     await request(REST_URL)
-      .get("/api/v2/facts?path=software")
+      .get("/api/v2/facts?path=docker")
       .set("Authorization", `Bearer ${key}`)
       .trustLocalhost(true)
       .expect(200)
