@@ -28,6 +28,15 @@ one of the verified dependencies was not actually verified on most builds:
   now goes through the same gate as the Windows binary, with one line per
   architecture.
 
+* **Cached dependency builds are keyed on the recorded digest.** The build
+  caches for OpenSSL, protobuf, Crypto++, Lua, MariaDB Connector/C and the
+  ARM64 Boost were keyed on the version alone, and Lua, Crypto++ and MariaDB
+  skip the download and its check entirely on a cache hit. A cache built while
+  Lua or Boost still read `unrecorded` would therefore have been restored for
+  good. The recorded SHA-256 or commit is now part of every such key, so a
+  cached build is only reused for exactly the input it was verified against,
+  and any change to that value forces a fresh, verified build.
+
 No line in the manifest reads `unrecorded` any more, and a new check in the
 Windows build fails if one ever does.
 
