@@ -5,15 +5,17 @@ The release build signs every executable and library the MSI installs, and
 nothing else: the build tree also holds the unit-test executables (over a
 hundred of them, next to nscp.exe), and each signature is billed. So the list
 is taken from the installer itself, the File elements of its .wxs files, rather
-than from a folder listing.
+than from a folder listing: the File elements it installs and the Binary
+elements it embeds, such as the custom-action DLL that runs during
+installation.
 
-A File's Source carries WiX preprocessor variables ($(var.Source)/nscp.exe,
+A Source carries WiX preprocessor variables ($(var.Source)/nscp.exe,
 $(var.Source)/$(var.OpenSSLCryptoDll)). They are resolved from wix-defines.txt,
 which installers/installer-NSCP/CMakeLists.txt writes from the same -d flags it
 hands to candle, so the names here are the names the MSI packs.
 
 Printed: one absolute path per line, sorted, for every binary that exists.
-A File whose variable is not defined (the OpenSSL DLLs of a static build) or
+An entry whose variable is not defined (the OpenSSL DLLs of a static build) or
 whose file is absent (Python on ARM64, where the .wxs leaves it out behind an
 <?if?>) is reported on stderr and skipped: the MSI build, not this list, is
 what fails when a file it needs is missing.
@@ -31,7 +33,10 @@ import sys
 
 SIGNABLE = ('.exe', '.dll', '.pyd')
 
-FILE_SOURCE = re.compile(r'<File\b[^>]*?\bSource="([^"]+)"', re.S)
+# A File installs its Source; a Binary is embedded in the MSI itself, which is
+# how the custom-action DLL (installer_lib.dll) that runs during installation
+# ships. Both are signed. WiX accepts either quote style.
+FILE_SOURCE = re.compile(r'<(?:File\b[^>]*?\bSource|Binary\b[^>]*?\bSourceFile)=(["\'])(.*?)\1', re.S)
 VARIABLE = re.compile(r'\$\(var\.([^)]+)\)')
 COMMENT = re.compile(r'<!--.*?-->', re.S)
 
@@ -53,12 +58,12 @@ def read_defines(path):
 
 
 def sources(wix_dir):
-    """Every File Source in the .wxs files of wix_dir, in file order."""
+    """Every File Source and Binary SourceFile in the .wxs files of wix_dir."""
     for wxs in sorted(glob.glob(os.path.join(wix_dir, '*.wxs'))):
         with open(wxs, encoding='utf-8') as f:
             text = COMMENT.sub('', f.read())
         for match in FILE_SOURCE.finditer(text):
-            yield wxs, match.group(1)
+            yield wxs, match.group(2)
 
 
 def resolve(source, defines):

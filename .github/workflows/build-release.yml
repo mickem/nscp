@@ -33,7 +33,8 @@ on:
 # No cancel-in-progress, unlike build-main.yml: a merge that lands while a
 # release is building must not cancel it. Runs for different commits do not
 # wait for each other; a manual re-run of the same commit queues behind the
-# first.
+# first. Runs for the same version from different commits are serialized on
+# the release job below, where they would otherwise share a draft.
 concurrency:
   group: ${{ github.workflow }}-${{ github.sha }}
   cancel-in-progress: false
@@ -148,6 +149,16 @@ jobs:
   release:
     needs: [detect, build-server-x64, build-server-x86, build-server-arm64, build-x86-static, build-debian, build-redhat, build-macos, build-web]
     if: needs.detect.outputs.release == 'true'
+    # One draft per version, updated by one run at a time. Two runs can target
+    # the same version from different commits (a re-cut by hand while the
+    # release PR's run is still going). Each run's release job uploads only
+    # its own artifacts and first removes the draft's, so serialized, the
+    # draft ends up as one run's commit and assets. Overlapping, the removal
+    # and uploads could interleave and leave assets from both commits. Only
+    # this job waits: the builds of both runs still proceed in parallel.
+    concurrency:
+      group: release-draft-${{ needs.detect.outputs.version }}
+      cancel-in-progress: false
     # A called workflow gets no more than its caller grants. release.yml signs
     # attestations for what it publishes, which needs an OIDC token and the
     # attestations API on top of this workflow's defaults.

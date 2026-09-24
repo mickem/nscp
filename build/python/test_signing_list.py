@@ -25,6 +25,8 @@ WXS = """\
   <File Id="E" Name="nsclient.ini" Source="$(var.Source)/nsclient.ini" />
   <File Id="F" Name="missing.dll" Source="$(var.Source)/modules/Missing.dll" />
   <!-- <File Id="G" Name="old.dll" Source="$(var.Source)/old.dll" /> -->
+  <Binary Id='Helper' SourceFile='$(var.InstallerDllPath)/installer_lib.dll' />
+  <Binary Id="Map" SourceFile="$(var.Source)/old-settings.map" />
 </Wix>
 """
 
@@ -47,7 +49,8 @@ class SigningListTest(unittest.TestCase):
         for name in ('nscp.exe', 'modules/CheckDisk.dll', 'python311.pyd', 'nsclient.ini',
                      'old.dll', 'libcrypto-3-x64.dll',
                      # Built next to nscp.exe, never installed: must not be signed.
-                     'nscp_where_filter_test.exe'):
+                     'nscp_where_filter_test.exe', 'old-settings.map',
+                     '../installer_lib/Release/installer_lib.dll'):
             touch(os.path.join(self.build, name))
 
     def tearDown(self):
@@ -62,8 +65,10 @@ class SigningListTest(unittest.TestCase):
 
     def test_lists_only_installed_binaries(self):
         rel, err = self.listed({'Source': self.build, 'Py': 'python311',
-                                'OpenSSLCryptoDll': 'libcrypto-3-x64.dll'})
-        self.assertEqual(rel, ['libcrypto-3-x64.dll', 'modules/CheckDisk.dll', 'nscp.exe', 'python311.pyd'])
+                                'OpenSSLCryptoDll': 'libcrypto-3-x64.dll',
+                                'InstallerDllPath': os.path.join(self.root, 'installer_lib', 'Release')})
+        self.assertCountEqual(rel, ['../installer_lib/Release/installer_lib.dll', 'libcrypto-3-x64.dll',
+                               'modules/CheckDisk.dll', 'nscp.exe', 'python311.pyd'])
         self.assertIn('Missing.dll: not built', err)
 
     def test_undefined_variable_is_skipped(self):
@@ -94,6 +99,7 @@ class SigningListTest(unittest.TestCase):
     def test_real_installer_sources(self):
         """The shipped .wxs files: the core binaries are found, tests are not."""
         defines = {'Source': self.build, 'BoostPythonVersion': 'python311',
+                   'InstallerDllPath': os.path.join(self.root, 'installer_lib', 'Release'),
                    'OpenSSLCryptoDll': 'libcrypto-3-x64.dll', 'OpenSSLSslDll': 'libssl-3-x64.dll'}
         for _, source in signing_list.sources(REAL_WIX_DIR):
             try:
@@ -106,7 +112,8 @@ class SigningListTest(unittest.TestCase):
         files = signing_list.signable_files(REAL_WIX_DIR, defines, log=io.StringIO())
         rel = {os.path.relpath(f, self.build).replace(os.sep, '/') for f in files}
         for expected in ('nscp.exe', 'plugin_api.dll', 'modules/CheckSystem.dll',
-                         'modules/dotnet/NSCP.Core.dll', 'libcrypto-3-x64.dll', 'python311.dll'):
+                         'modules/dotnet/NSCP.Core.dll', 'libcrypto-3-x64.dll', 'python311.dll',
+                         '../installer_lib/Release/installer_lib.dll'):
             self.assertIn(expected, rel)
         self.assertNotIn('nscp_where_filter_test.exe', rel)
         self.assertFalse([f for f in rel if not f.endswith(signing_list.SIGNABLE)])

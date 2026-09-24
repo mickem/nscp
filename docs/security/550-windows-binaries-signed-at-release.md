@@ -19,7 +19,8 @@ build the code under review.
 
 This release:
 
-* signs every executable, DLL and Python extension the MSI installs. The list
+* signs every executable, DLL and Python extension the MSI installs, and the
+  custom-action DLL embedded in the MSI that runs during installation. The list
   comes from the installer's own sources, so a new module is signed without a
   change to the build, and the unit-test executables built alongside are not.
   A third-party file that is already validly signed keeps its publisher's
