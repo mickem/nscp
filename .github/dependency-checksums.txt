@@ -47,19 +47,19 @@ cryptopp        8.9.0     4cc0ccc324625b80b695fcd3dee63a66f1a460d3e51b71640cdbfc
 miniz           3.1.1     cb28402bb2af93bdc331b60d16807e89727d1712a2d0a7ba0cac79a3e406fe40
 
 # boost_1_86_0.tar.gz, fetched and verified by .github/actions/boost for
-# every Windows build (x86, x64, ARM64 and legacy XP). Recorded from a
-# download and cross-checked independently: the .tar.bz2 of the same release
-# matches the digest conan-center-index records for it, and both archives
-# decompress to the same tar. Compare it with the SHA256 on the Boost 1.86.0
-# release page whenever that page is at hand.
-boost           1.86.0    2575e74ffc3ef1cd0babac2c1ee8bdb5782a0ee672b1912da40e5b4b591ca01f  # cross-checked via conan-center-index
+# every Windows build (x86, x64, ARM64 and legacy XP). The digest is the
+# SHA256 the Boost 1.86.0 release page publishes for the .tar.gz, compared
+# against that page by hand. It was also cross-checked independently: the
+# .tar.bz2 of the same release matches the digest conan-center-index records
+# for it, and both archives decompress to the same tar.
+boost           1.86.0    2575e74ffc3ef1cd0babac2c1ee8bdb5782a0ee672b1912da40e5b4b591ca01f  # matches the Boost 1.86.0 release page
 
-# lua-5.4.8.tar.gz from www.lua.org. Cross-checked independently: it is
-# byte-identical to the Debian/Ubuntu lua5.4_5.4.8.orig.tar.gz, whose .dsc
-# records the same SHA-256, and conan-center-index records the same digest
-# for the lua.org URL. Compare it with the checksum lua.org publishes
-# whenever that page is at hand.
-lua             5.4.8     4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae  # cross-checked via Debian and conan-center-index
+# lua-5.4.8.tar.gz from www.lua.org. The digest is the checksum lua.org
+# publishes for it, compared against that page by hand. It was also
+# cross-checked independently: the tarball is byte-identical to the
+# Debian/Ubuntu lua5.4_5.4.8.orig.tar.gz, whose .dsc records the same SHA-256,
+# and conan-center-index records the same digest for the lua.org URL.
+lua             5.4.8     4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae  # matches the lua.org download page
 
 # Cloned, not downloaded, and pinned to the commit rather than the tag.
 #

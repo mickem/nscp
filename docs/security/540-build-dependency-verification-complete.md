@@ -20,14 +20,13 @@ what decides whether the build goes ahead.
   packages. The other libraries come from the distribution, which verifies its
   own packages.
 
-Each recorded digest was cross-checked against an independent source: OpenSSL
-against the `.sha256` it publishes next to the tarball; Boost against the digest
-conan-center-index records for the same release, whose other archive format
-decompresses to the identical tar; and Lua against the byte-identical
-Debian/Ubuntu source tarball, whose `.dsc` records the same SHA-256, and
-conan-center-index. Boost and Lua also publish checksums on their own download
-pages, which [Verifying the download](../setup/installing.md#verifying-the-download)
-shows how to compare against.
+Where an upstream project publishes a checksum, the recorded value is that
+checksum: OpenSSL's `.sha256` next to the tarball, and the SHA-256 values on
+the Boost and Lua download pages. Each was also cross-checked against an
+independent source: Boost against the digest conan-center-index records for
+the same release, whose other archive format decompresses to the identical
+tar, and Lua against the byte-identical Debian/Ubuntu source tarball, whose
+`.dsc` records the same SHA-256.
 
 How the build enforces it:
 
