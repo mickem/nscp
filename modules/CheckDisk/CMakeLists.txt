@@ -23,6 +23,7 @@ set(SRCS
     check_share.cpp
     collector_thread.cpp
     filter.cpp
+    storage_facts.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
     ${NSCP_ERROR_CPP}
@@ -53,6 +54,7 @@ if(WIN32)
         collector_thread.hpp
         file_finder.hpp
         filter.hpp
+        storage_facts.hpp
         ${NSCP_DEF_PLUGIN_HPP}
         ${NSCP_FILTER_HPP}
         ${NSCP_ERROR_HPP}
@@ -126,6 +128,7 @@ if(WIN32)
             check_share_test.cpp
             collector_thread_test.cpp
             file_finder_filter_test.cpp
+            storage_facts_test.cpp
             # Module sources under test.
             check_disk_io.cpp
             check_disk_io_win.cpp
@@ -142,6 +145,7 @@ if(WIN32)
             file_finder_win.cpp
             filter.cpp
             filter_win.cpp
+            storage_facts.cpp
             ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
             ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
             ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
@@ -222,6 +226,8 @@ else()
             file_finder_unix.cpp
             filter.cpp
             filter_unix.cpp
+            storage_facts.cpp
+            storage_facts_test.cpp
             ${NSCP_FILTER_CPP}
             ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
             ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
