@@ -38,6 +38,8 @@ set(SRCS
     check_printqueue.cpp
     check_printjobs.cpp
     check_w32time.cpp
+    system_facts.cpp
+    ${NSCP_INCLUDEDIR}/facts/host_facts.cpp
     filter_config_object.cpp
     realtime_data.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.cpp
@@ -96,6 +98,8 @@ if(WIN32)
         check_printqueue.hpp
         check_printjobs.hpp
         check_w32time.hpp
+        system_facts.hpp
+        ${NSCP_INCLUDEDIR}/facts/host_facts.hpp
         ${NSCP_INCLUDEDIR}/win/registry.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.hpp

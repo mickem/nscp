@@ -5,6 +5,7 @@
 
 #include <config.h>
 
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/unordered_map.hpp>
 #include <file_helpers.hpp>
 #include <nscapi/protobuf/functions_exec.hpp>
@@ -137,6 +138,7 @@ nsclient::core::plugin_manager::plugin_manager(path_instance path_, logging::log
       channels_(log_instance_),
       metrics_fetchers_(log_instance_),
       metrics_submitters_(log_instance_),
+      facts_fetchers_(log_instance_),
       plugin_cache_(log_instance_),
       event_subscribers_(log_instance_) {}
 
@@ -417,6 +419,10 @@ void nsclient::core::plugin_manager::purge_broken_plugin(const unsigned long plu
   event_subscribers_.remove_plugin(plugin_id);
   metrics_fetchers_.remove_plugin(plugin_id);
   metrics_submitters_.remove_plugin(plugin_id);
+  facts_fetchers_.remove_plugin(plugin_id);
+  // Whatever this module contributed to the inventory goes with it: a frozen
+  // fact set from a module that is no longer running is worse than none.
+  if (facts_) facts_->remove_owned_by(static_cast<unsigned int>(plugin_id));
   if (plugin) {
     log_instance_->remove_subscriber(plugin);
     try {
@@ -496,6 +502,7 @@ void nsclient::core::plugin_manager::stop_plugins() {
   event_subscribers_.remove_all();
   metrics_fetchers_.remove_all();
   metrics_submitters_.remove_all();
+  facts_fetchers_.remove_all();
   for (const plugin_type &p : plugin_list_.get_plugins()) {
     try {
       if (p) {
@@ -593,6 +600,9 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::add_
     if (plugin->hasMetricsSubmitter()) {
       metrics_submitters_.add_plugin(plugin);
     }
+    if (plugin->hasFactsFetcher()) {
+      facts_fetchers_.add_plugin(plugin);
+    }
     if (plugin->hasMessageHandler()) {
       log_instance_->add_subscriber(plugin);
     }
@@ -669,6 +679,10 @@ bool nsclient::core::plugin_manager::remove_plugin(const std::string &name) {
   event_subscribers_.remove_plugin(plugin_id);
   metrics_fetchers_.remove_plugin(plugin_id);
   metrics_submitters_.remove_plugin(plugin_id);
+  facts_fetchers_.remove_plugin(plugin_id);
+  // Whatever this module contributed to the inventory goes with it: a frozen
+  // fact set from a module that is no longer running is worse than none.
+  if (facts_) facts_->remove_owned_by(static_cast<unsigned int>(plugin_id));
   // Drop the log subscription: the logger otherwise keeps the plugin alive and
   // the next log line calls into a module whose instance has been torn down.
   log_instance_->remove_subscriber(plugin);
@@ -1271,6 +1285,137 @@ PB::Metrics::MetricsMessage nsclient::core::plugin_manager::process_metrics(PB::
   f.render();
   metrics_submitters_.do_all([&f](auto key) { return f.digest(key); });
   return f.result;
+}
+
+namespace {
+std::string utc_now() { return boost::posix_time::to_iso_extended_string(boost::posix_time::second_clock::universal_time()) + "Z"; }
+}  // namespace
+
+void nsclient::core::plugin_manager::log_fact_problem_once(const std::string &key, const std::string &message, std::set<std::string> &failing) {
+  failing.insert(key);
+  {
+    const boost::mutex::scoped_lock lock(fact_errors_mutex_);
+    const std::map<std::string, std::string>::const_iterator it = logged_fact_errors_.find(key);
+    if (it != logged_fact_errors_.end() && it->second == message) return;
+    logged_fact_errors_[key] = message;
+  }
+  LOG_WARN_CORE_STD("facts: " + key + ": " + message);
+}
+
+void nsclient::core::plugin_manager::forget_fixed_fact_problems(const std::set<std::string> &failing) {
+  const boost::mutex::scoped_lock lock(fact_errors_mutex_);
+  for (std::map<std::string, std::string>::iterator it = logged_fact_errors_.begin(); it != logged_fact_errors_.end();) {
+    if (failing.count(it->first) > 0) {
+      ++it;
+    } else {
+      it = logged_fact_errors_.erase(it);
+    }
+  }
+}
+
+std::string nsclient::core::plugin_manager::apply_facts_response(const std::string &response, const unsigned int plugin_id, fact_repository &facts,
+                                                                 std::map<std::string, std::string> &errors, std::set<std::string> &produced) {
+  // An empty buffer is not an empty inventory: a module that answered with
+  // nothing at all has not told us it stopped producing anything, so this
+  // reads as a failed round and prunes nothing.
+  if (response.empty()) return "returned no facts document";
+  PB::Facts::FactsMessage message;
+  if (!message.ParseFromString(response)) return "returned facts that are not a valid facts message";
+  if (message.payload_size() == 0) return "returned a facts message with no payload";
+  const PB::Facts::FactsMessage::Response &payload = message.payload(0);
+
+  // A module that could not collect at all says so through the result - the
+  // generated glue does this when a producer throws. Nothing it holds is
+  // pruned, because "I failed" is not "I no longer produce this".
+  if (payload.result().code() != PB::Common::Result_StatusCodeType_STATUS_OK) {
+    const std::string reported = payload.result().message();
+    return reported.empty() ? "reported a failed facts round" : reported;
+  }
+
+  for (const PB::Facts::FactSet &set : payload.sets()) {
+    const std::string &id = set.id();
+    if (id.empty()) continue;
+    // Removed drops the set (the docker socket went away), and is
+    // deliberately not a claim to produce it.
+    if (set.removed()) {
+      facts.remove(id);
+      continue;
+    }
+    // Every other mention is a claim to produce the set, including one that
+    // only carries an error: that is what keeps a set which is enabled but
+    // failing from being pruned along with the ones that were switched off.
+    produced.insert(id);
+    // What the producer could not collect this round. Reported next to the
+    // document so a consumer can tell "not collected" from "nothing to
+    // report".
+    if (!set.error().empty()) errors[id] = set.error();
+    // An error with no document is "keep what you have": the set is not
+    // replaced with the empty object the message would otherwise hand us -
+    // but it may still carry a fresher age for what we already hold.
+    if (!set.has_facts()) {
+      facts.mark_gathered(id, set.gathered());
+      continue;
+    }
+    std::string error;
+    if (facts.set(id, plugin_id, set.facts(), error) == fact_repository::set_result::rejected) {
+      errors[id] = error;
+      continue;
+    }
+    // Whatever set() decided - stored or unchanged - the producer has just
+    // told us how old these values are, and an unchanged set is the case
+    // this matters most for: a cached snapshot keeps its original age
+    // instead of looking as fresh as the round that delivered it.
+    facts.mark_gathered(id, set.gathered());
+  }
+  return "";
+}
+
+void nsclient::core::plugin_manager::collect_facts_from(const plugin_type &plugin, const std::string &request, std::map<std::string, std::string> &errors,
+                                                        std::set<std::string> &failing) {
+  const std::string module = plugin->get_alias_or_name();
+  std::string response;
+  try {
+    plugin->fetchFacts(request, response);
+  } catch (const plugin_exception &e) {
+    log_fact_problem_once("module " + module, e.reason(), failing);
+    return;
+  } catch (const std::exception &e) {
+    log_fact_problem_once("module " + module, utf8::utf8_from_native(e.what()), failing);
+    return;
+  }
+
+  std::map<std::string, std::string> reported;
+  std::set<std::string> produced;
+  const std::string failure = apply_facts_response(response, plugin->get_id(), *facts_, reported, produced);
+  if (!failure.empty()) {
+    log_fact_problem_once("module " + module, failure, failing);
+    return;
+  }
+  // The round completed, so what this module did not mention it no longer
+  // produces: that is how a fact set turned off in a module's configuration
+  // leaves the document.
+  facts_->retain_only(plugin->get_id(), produced);
+  for (const std::pair<const std::string, std::string> &problem : reported) {
+    errors[problem.first] = problem.second;
+    log_fact_problem_once(problem.first, problem.second, failing);
+  }
+}
+
+void nsclient::core::plugin_manager::process_facts(const std::string &reason) {
+  if (!facts_) return;
+  // Every producer is asked; what it returns is what its own configuration
+  // says it may produce. `reason` (startup, scheduled, reload, manual) is all
+  // the core has to say, and lets an expensive collector hand back its last
+  // snapshot instead of collecting again.
+  PB::Facts::FactsQueryMessage request;
+  request.add_payload()->set_reason(reason);
+  const std::string request_string = request.SerializeAsString();
+  std::map<std::string, std::string> errors;
+  std::set<std::string> failing;
+  facts_fetchers_.do_all([this, &request_string, &errors, &failing](plugin_type plugin) { collect_facts_from(plugin, request_string, errors, failing); });
+  forget_fixed_fact_problems(failing);
+  facts_->set_errors(errors);
+  facts_->mark_collected(utc_now());
 }
 
 bool nsclient::core::plugin_manager::enable_plugin(std::string name) {

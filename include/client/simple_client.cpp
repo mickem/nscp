@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/function.hpp>
+#include <client/facts_renderer.hpp>
 #include <client/simple_client.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -333,6 +334,7 @@ const std::vector<command_info> &builtin_commands() {
       {"desc", "<query>", "describe a query and its parameters"},
       {"keywords", "<query>", "list the filter keywords of a query with their descriptions"},
       {"metrics", "[prefix]", "show the metrics collected so far"},
+      {"facts", "[path|refresh]", "show the host inventory (facts), a subtree of it, or collect it now"},
       {"settings", "", "show the configured settings (keys set in the configuration, not every registered default)"},
       {"exec", "<module> [command] [args]", "run a module's command line, as nscp <module> ... does (exec CheckSystem --list --all)"},
       {"load", "<module>", "load a module now"},
@@ -646,6 +648,19 @@ void cli_client::handle_command(const std::string &command) {
     create_registry_query(handler->get_core(), "", PB::Registry::ItemType::QUERY, queries);
     create_registry_query(handler->get_core(), "", PB::Registry::ItemType::QUERY_ALIAS, aliases);
     handler->output_message(render_inventory({queries, aliases}));
+  } else if (is_verb(command, "facts")) {
+    const std::string argument = boost::algorithm::trim_copy(command.substr(5));
+    if (argument == "refresh") {
+      // A manual round: every producer collects now, which is the point of
+      // asking for it, so this is the one facts verb that costs something.
+      if (!handler->get_core()->refresh_facts()) {
+        handler->output_message("Could not refresh the inventory (see the log); showing what the core has.");
+      }
+      handler->output_message(client::render_facts(handler->get_core()->get_facts(), ""));
+    } else {
+      // Anything else is a dotted path into the document; empty is all of it.
+      handler->output_message(client::render_facts(handler->get_core()->get_facts(argument), argument));
+    }
   } else if (command.size() >= 7 && command.substr(0, 7) == "metrics") {
     for (const metrics::metrics_store::values_map::value_type &v : metrics_store.get(command.substr(7))) {
       handler->output_message(v.first + "=" + v.second);

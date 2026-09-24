@@ -39,6 +39,9 @@ EXPORTS
 {% if module.metrics == "consume" or module.metrics == "both" %}
 	NSSubmitMetrics
 {% endif %}
+{% if module.facts %}
+	NSFetchFacts
+{% endif %}
 {% if module.events %}
 	NSOnEvent
 {% endif %}
@@ -110,6 +113,9 @@ using namespace Google::Protobuf;
 #include <nscapi/protobuf/command.hpp>
 {% if module.metrics %}
 #include <nscapi/protobuf/metrics.hpp>
+{% endif %}
+{% if module.facts %}
+#include <nscapi/nscapi_facts_helper.hpp>
 {% endif %}
 {%if module.log_handler %}
 #include <nscapi/protobuf/log.hpp>
@@ -600,6 +606,23 @@ int {{module.name}}Module::fetchMetrics(std::string &reply) {
 	return NSCAPI::api_return_codes::isSuccess;
 }
 {% endif %}
+{% if module.facts %}
+int {{module.name}}Module::fetchFacts(const std::string &request_buffer, std::string &response_buffer) {
+	const nscapi::facts::request request(request_buffer);
+	nscapi::facts::response response;
+	try {
+		impl_->fetchFacts(request, response);
+	} catch (const std::exception &e) {
+		// A failed round, not an empty one: the core keeps the sets it has
+		// rather than reading silence as "no longer produced".
+		response.failed(std::string("Failed to collect facts: ") + utf8::utf8_from_native(e.what()));
+	} catch (...) {
+		response.failed("Failed to collect facts");
+	}
+	response_buffer = response.serialize();
+	return NSCAPI::api_return_codes::isSuccess;
+}
+{% endif %}
 {% if module.metrics == "consume" or module.metrics == "both" %}
 int {{module.name}}Module::submitMetrics(const std::string &request) {
 	PB::Metrics::MetricsMessage metrics_message;
@@ -755,6 +778,12 @@ extern int NSSubmitMetrics(unsigned int plugin_id, const char* buffer, const uns
 	return wrapper.NSSubmitMetrics(buffer, buffer_len); 
 }
 {% endif %}
+{% if module.facts %}
+extern int NSFetchFacts(unsigned int plugin_id, const char* request_buffer, const unsigned int request_buffer_len, char** response_buffer, unsigned int *response_buffer_len) {
+	nscapi::facts_wrapper<plugin_impl_class> wrapper(plugin_instance.get(plugin_id));
+	return wrapper.NSFetchFacts(request_buffer, request_buffer_len, response_buffer, response_buffer_len); 
+}
+{% endif %}
 {% if module.events %}
 extern int NSOnEvent(unsigned int id, const char* buffer, unsigned int buffer_len) {
 	nscapi::event_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
@@ -799,6 +828,9 @@ extern "C" int NSFetchMetrics(unsigned int plugin_id, char** response_buffer, un
 {% endif %}
 {% if module.metrics == "consume" or module.metrics == "both" %}
 extern "C" int NSSubmitMetrics(unsigned int plugin_id, const char* buffer, const unsigned int buffer_len);
+{% endif %}
+{% if module.facts %}
+extern "C" int NSFetchFacts(unsigned int plugin_id, const char* request_buffer, const unsigned int request_buffer_len, char** response_buffer, unsigned int *response_buffer_len);
 {% endif %}
 {% if module.events %}
 extern "C" int NSOnEvent(unsigned int plugin_id, const char* buffer, unsigned int buffer_len);
@@ -922,6 +954,12 @@ public:
 	void submitMetrics(const PB::MetricsMetricsMessage::Response &response);
 	*/
 {% endif %}
+{% if module.facts %}
+	int fetchFacts(const std::string &request, std::string &response);
+	/*
+	void fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response);
+	*/
+{% endif %}
 	// exposed functions
 {%if options.hasRegisterCommand %}
 	void registerCommands();
@@ -947,6 +985,11 @@ channels = False
 on_start = False
 prepare_shutdown = False
 metrics = False
+# Fact sets this module can produce: {"os": "description", ...}, declared in
+# module.json the same way commands are. Presence generates the NSFetchFacts
+# glue; the ids are what the module's own `facts` settings subsection and
+# `nscp test`'s facts verb speak about.
+facts = {}
 events = False
 
 class Module:
@@ -1128,6 +1171,8 @@ for key, value in data.items():
 			log_handler = True
 	elif key == "metrics":
 		metrics = value
+	elif key == "facts":
+		facts = value
 	elif key == "events":
 		events = value
 	elif key == "on_start":
@@ -1170,6 +1215,7 @@ module.commands = commands
 module.cli = cli
 module.channels = channels
 module.metrics = metrics
+module.facts = facts
 module.log_handler = log_handler
 module.command_fallback = command_fallback
 module.command_fallback_raw = command_fallback_raw

@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <boost/filesystem.hpp>
+#include <nscapi/nscapi_facts_helper.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nsclient/logger/logger.hpp>
 
@@ -192,4 +193,133 @@ TEST(plugin_manager_extract_subject, ignores_unrelated_metadata) {
   user->set_key("some.user.key");
   user->set_value("also ignored");
   EXPECT_EQ("CheckSystem", nsclient::core::plugin_manager::extract_subject_from_header(h, cache.get()));
+}
+
+// The contract between a facts producer and the core: what a response does to
+// the repository. Driven through the producer-side builder every module uses
+// (nscapi::facts::response) and applied without a loaded module, so what is
+// pinned here is the real path from a producer's calls to the stored document.
+namespace {
+std::string apply(const std::string& response, nsclient::core::fact_repository& facts, std::map<std::string, std::string>& errors,
+                  std::set<std::string>* produced_out = nullptr, const unsigned int plugin_id = 1) {
+  std::set<std::string> produced;
+  const std::string failure = nsclient::core::plugin_manager::apply_facts_response(response, plugin_id, facts, errors, produced);
+  if (produced_out != nullptr) *produced_out = produced;
+  return failure;
+}
+
+std::string json_of(const nsclient::core::fact_repository& facts) { return facts.to_json(); }
+
+bool has_set(const nsclient::core::fact_repository& facts, const std::string& name) {
+  const PB::Facts::Object all = facts.get_all();
+  return nscapi::facts::tree::get(all, name) != nullptr;
+}
+}  // namespace
+
+TEST(plugin_manager_facts, a_returned_set_is_stored_and_counts_as_produced) {
+  nsclient::core::fact_repository facts;
+  std::map<std::string, std::string> errors;
+  std::set<std::string> produced;
+  nscapi::facts::response response;
+  response.set("os").value("family", "linux");
+  EXPECT_EQ(apply(response.serialize(), facts, errors, &produced), "");
+  EXPECT_EQ(json_of(facts), R"({"os":{"family":"linux"}})");
+  EXPECT_EQ(produced, std::set<std::string>{"os"});
+  EXPECT_TRUE(errors.empty());
+}
+
+TEST(plugin_manager_facts, a_removed_set_is_dropped_and_not_claimed) {
+  nsclient::core::fact_repository facts;
+  std::map<std::string, std::string> errors;
+  {
+    nscapi::facts::response response;
+    response.set("docker").value("version", "26.1.0");
+    response.set("os").value("family", "linux");
+    apply(response.serialize(), facts, errors);
+  }
+  std::set<std::string> produced;
+  {
+    // The docker socket went away: the set is removed rather than left to
+    // freeze at its last value.
+    nscapi::facts::response response;
+    response.remove("docker");
+    response.set("os").value("family", "linux");
+    apply(response.serialize(), facts, errors, &produced);
+  }
+  EXPECT_FALSE(has_set(facts, "docker"));
+  EXPECT_EQ(produced, std::set<std::string>{"os"});
+}
+
+TEST(plugin_manager_facts, a_rejected_set_is_reported_as_an_error) {
+  nsclient::core::fact_repository facts;
+  std::map<std::string, std::string> errors;
+  // Hand-built rather than through the builder: the builder drops an invalid
+  // key before it is ever sent, and what is under test here is the core
+  // refusing one that reaches it anyway - a module that does not use the
+  // builder, or a newer one talking to an older core.
+  PB::Facts::FactsMessage message;
+  PB::Facts::FactsMessage::Response* payload = message.add_payload();
+  payload->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
+  PB::Facts::FactSet* set = payload->add_sets();
+  set->set_id("os");
+  PB::Facts::Field* field = set->mutable_facts()->add_fields();
+  field->set_key("Family");
+  field->mutable_value()->set_string_value("linux");
+
+  EXPECT_EQ(apply(message.SerializeAsString(), facts, errors), "");
+  EXPECT_FALSE(has_set(facts, "os"));
+  ASSERT_EQ(errors.count("os"), 1u);
+  EXPECT_NE(errors.at("os").find("Family"), std::string::npos) << errors.at("os");
+}
+
+TEST(plugin_manager_facts, a_set_that_failed_to_collect_is_still_produced) {
+  nsclient::core::fact_repository facts;
+  std::map<std::string, std::string> errors;
+  std::set<std::string> produced;
+  nscapi::facts::response response;
+  response.error("software.installed", "access denied");
+  EXPECT_EQ(apply(response.serialize(), facts, errors, &produced), "");
+  EXPECT_EQ(errors.at("software.installed"), "access denied");
+  EXPECT_EQ(produced, std::set<std::string>{"software.installed"}) << "a set that is enabled but failing must not be pruned as if it had been switched off";
+}
+
+TEST(plugin_manager_facts, a_set_that_failed_to_collect_keeps_the_value_it_had) {
+  nsclient::core::fact_repository facts;
+  std::map<std::string, std::string> errors;
+  {
+    nscapi::facts::response response;
+    response.set("software").list("installed").record("nscp").value("version", "0.12.5");
+    apply(response.serialize(), facts, errors);
+  }
+  const unsigned long long revision = facts.get_revision();
+  {
+    // The next round cannot read the hive. The set is mentioned, with a
+    // reason and no document, so the core keeps what it has.
+    nscapi::facts::response response;
+    response.error("software", "access denied");
+    EXPECT_EQ(apply(response.serialize(), facts, errors), "");
+  }
+  EXPECT_EQ(json_of(facts), R"({"software":{"installed":[{"id":"nscp","version":"0.12.5"}]}})");
+  EXPECT_EQ(facts.get_revision(), revision) << "a failed collection is not a change to the inventory";
+}
+
+TEST(plugin_manager_facts, a_module_level_error_fails_the_round) {
+  nsclient::core::fact_repository facts;
+  std::map<std::string, std::string> errors;
+  std::set<std::string> produced;
+  nscapi::facts::response response;
+  response.failed("Failed to collect facts: the collector threw");
+  const std::string failure = apply(response.serialize(), facts, errors, &produced);
+  EXPECT_NE(failure, "");
+  EXPECT_NE(failure.find("the collector threw"), std::string::npos) << failure;
+  EXPECT_TRUE(produced.empty()) << "a failed round must prune nothing";
+}
+
+TEST(plugin_manager_facts, an_unreadable_response_says_why_and_changes_nothing) {
+  nsclient::core::fact_repository facts;
+  std::map<std::string, std::string> errors;
+  EXPECT_NE(apply(std::string("\xff\xff\xff\xff not a facts message", 24), facts, errors), "");
+  EXPECT_NE(apply(PB::Facts::FactsMessage().SerializeAsString(), facts, errors), "") << "a message with no payload says nothing about what is produced";
+  EXPECT_NE(apply("", facts, errors), "") << "an empty buffer is a failed round, not an empty inventory";
+  EXPECT_EQ(json_of(facts), "{}");
 }

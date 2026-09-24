@@ -46,6 +46,7 @@
 #include "scripts_controller.hpp"
 #include "settings_controller.hpp"
 #include "static_controller.hpp"
+#include "facts_controller.hpp"
 #include "tags_controller.hpp"
 #include "token_store.hpp"
 #include "web_cli_handler.hpp"
@@ -580,6 +581,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     server->registerController(new log_controller(2, session, get_core(), get_id()));
     server->registerController(new info_controller(2, session, get_core(), get_id()));
     server->registerController(new tags_controller(2, session, get_core(), get_id()));
+    server->registerController(new facts_controller(2, session, get_core(), get_id()));
     server->registerController(new settings_controller(2, session, get_core(), get_id()));
     server->registerController(new login_controller(2, session));
     server->registerController(new metrics_controller(2, session, get_core(), get_id()));

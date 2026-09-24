@@ -6,6 +6,7 @@
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/program_options.hpp>
+#include <facts/host_facts.hpp>
 #include <fstream>
 #include <locale>
 #include <map>
@@ -37,6 +38,7 @@
 #include "check_swap_io.h"
 #include "check_temperature.h"
 #include "check_uptime.h"
+#include "system_facts.h"
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
@@ -50,6 +52,8 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("system", alias, "unix");
   std::map<std::string, std::string> service_tags;
+  bool facts_os = false;
+  bool facts_hardware = false;
 
   // Start the CPU collector thread. On a reload the previous collector is
   // still running; stop it before it is replaced. Publish the replacement
@@ -93,6 +97,22 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     ;
   // clang-format on
 
+  // clang-format off
+  settings.alias().add_key_to_settings("facts")
+    .add_bool("os", sh::bool_key(&facts_os, false),
+        "OS FACTS",
+        "Collect the `os` fact set: the OS family, the distribution's product name, the kernel version, the CPU architecture, whether the host is "
+        "virtualized and the DNS domain it is in. Cheap - every value is read from uname, /etc/os-release and /sys/class/dmi/id, and nothing is "
+        "collected while this is off.")
+
+    .add_bool("hardware", sh::bool_key(&facts_hardware, false),
+        "HARDWARE FACTS",
+        "Collect the `hardware` fact set: the system manufacturer and model as the firmware reports them (/sys/class/dmi/id), the number of online "
+        "processors and the installed memory in whole GB. A host whose kernel exposes no DMI - a container, a board without SMBIOS - reports the "
+        "sizes and omits the vendor and model.")
+    ;
+  // clang-format on
+
   // Cache the configured timezone (issue #365). Mirrors the per-module
   // pattern used elsewhere (e.g. WEBServer "allowed hosts").
   settings.alias()
@@ -115,7 +135,21 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     fresh->start();
   }
 
+  // Which fact sets fetchFacts builds is configuration, so it is re-read on
+  // every load, a reload included - turning a set off has to take effect
+  // without a restart, and the core drops a set a producer stops returning.
+  facts_os_.store(facts_os);
+  facts_hardware_.store(facts_hardware);
+
   if (mode == NSCAPI::normalStart) {
+    // The selector tags, on the other hand, describe the machine rather than
+    // its configuration: gathered once at start, because nothing they read
+    // can change without the host restarting anyway.
+    // The tags are the same gather, and seeding the cache here means the
+    // first facts round has a snapshot to report rather than collecting
+    // again a moment later.
+    host_facts::publish_tags(get_core(), facts_cache_.get("startup", []() { return system_facts::gather(); }).values);
+
     // Publish one tag per configured [/settings/system/unix/service-tags]
     // entry (systemd unit -> tag): <tag>=enabled when the unit is active,
     // removed otherwise so stopped units clear their tag on the next load.
@@ -229,6 +263,17 @@ bool read_uptime_seconds(double &uptime_secs) {
   }
 }
 }  // namespace
+
+void CheckSystem::fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response) {
+  if (!facts_os_.load() && !facts_hardware_.load()) return;
+  // Read once and reported thereafter: what OS this is and what it runs on
+  // does not change while the process does. The snapshot carries when it was
+  // taken, so a consumer shows the age of the values rather than the age of
+  // the round. `manual` re-reads, which is the escape hatch for a host that
+  // genuinely did change underneath.
+  const host_facts::snapshot snap = facts_cache_.get(request.reason(), []() { return system_facts::gather(); });
+  host_facts::publish_facts(snap, facts_os_.load(), facts_hardware_.load(), response);
+}
 
 void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
   using nscapi::metrics::core_label;

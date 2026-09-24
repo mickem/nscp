@@ -129,6 +129,7 @@ nav:
       - Aliases: api/rest/aliases.md
       - Scripts: api/rest/scripts.md
       - Logs: api/rest/logs.md
+      - Facts: api/rest/facts.md
       - Results: api/rest/results.md
       - Legacy API: api/rest/legacy.md
   - FAQ: faq.md

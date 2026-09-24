@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.10)
 WRAP_PROTO(PROTO_PLUGIN_SRC plugin.proto)
 WRAP_PROTO(COMMON_PLUGIN_SRC common.proto)
 WRAP_PROTO(METRICS_PLUGIN_SRC metrics.proto)
+WRAP_PROTO(FACTS_PLUGIN_SRC facts.proto)
 WRAP_PROTO(LOG_PLUGIN_SRC log.proto)
 WRAP_PROTO(REGISTRY_PLUGIN_SRC registry.proto)
 WRAP_PROTO(SETTINGS_PLUGIN_SRC settings.proto)
@@ -14,6 +15,7 @@ set(SRCS
     ${COMMON_PLUGIN_SRC_C}
     ${PROTO_PLUGIN_SRC_C}
     ${METRICS_PLUGIN_SRC_C}
+    ${FACTS_PLUGIN_SRC_C}
     ${LOG_PLUGIN_SRC_C}
     ${REGISTRY_PLUGIN_SRC_C}
     ${SETTINGS_PLUGIN_SRC_C}
@@ -24,6 +26,7 @@ if(WIN32)
         ${SRCS}
         plugin.proto
         metrics.proto
+        facts.proto
         log.proto
         registry.proto
         settings.proto
@@ -32,6 +35,7 @@ if(WIN32)
         ${COMMON_PLUGIN_SRC_H}
         ${PROTO_PLUGIN_SRC_H}
         ${METRICS_PLUGIN_SRC_H}
+        ${FACTS_PLUGIN_SRC_H}
         ${LOG_PLUGIN_SRC_H}
         ${REGISTRY_PLUGIN_SRC_H}
         ${SETTINGS_PLUGIN_SRC_H}
@@ -62,6 +66,7 @@ if(PROTOC_GEN_LUA_FOUND AND (LUA_FOUND OR LUA_SOURCE_FOUND))
         ${COMMON_PLUGIN_SRC_LUA_C}
         ${PROTO_PLUGIN_SRC_LUA_C}
         ${METRICS_PLUGIN_SRC_LUA_C}
+        ${FACTS_PLUGIN_SRC_LUA_C}
         ${LOG_PLUGIN_SRC_LUA_C}
         ${REGISTRY_PLUGIN_SRC_LUA_C}
         ${SETTINGS_PLUGIN_SRC_LUA_C}
@@ -72,6 +77,7 @@ if(PROTOC_GEN_LUA_FOUND AND (LUA_FOUND OR LUA_SOURCE_FOUND))
             ${SRCS}
             plugin.proto
             metrics.proto
+            facts.proto
             log.proto
             registry.proto
             settings.proto
@@ -80,6 +86,7 @@ if(PROTOC_GEN_LUA_FOUND AND (LUA_FOUND OR LUA_SOURCE_FOUND))
             ${COMMON_PLUGIN_SRC_LUA_H}
             ${PROTO_PLUGIN_SRC_LUA_H}
             ${METRICS_PLUGIN_SRC_LUA_H}
+            ${FACTS_PLUGIN_SRC_LUA_H}
             ${LOG_PLUGIN_SRC_LUA_H}
             ${REGISTRY_PLUGIN_SRC_LUA_H}
             ${SETTINGS_PLUGIN_SRC_LUA_H}

@@ -51,6 +51,8 @@ class MockCommandPlugin : public nsclient::core::plugin_interface {
   bool has_on_event() override { return false; }
   NSCAPI::nagiosReturn on_event(const std::string&) override { return NSCAPI::cmd_return_codes::returnIgnored; }
   bool hasMetricsFetcher() override { return false; }
+  bool hasFactsFetcher() override { return false; }
+  NSCAPI::nagiosReturn fetchFacts(const std::string&, std::string&) override { return NSCAPI::cmd_return_codes::returnIgnored; }
   NSCAPI::nagiosReturn fetchMetrics(std::string&) override { return NSCAPI::cmd_return_codes::returnIgnored; }
   bool hasMetricsSubmitter() override { return false; }
   NSCAPI::nagiosReturn submitMetrics(const std::string&) override { return NSCAPI::cmd_return_codes::returnIgnored; }

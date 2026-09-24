@@ -74,6 +74,6 @@ mariadb         3.4.9     64e9fe09fea6a017bab92e19a08d2301e3da5b56
 # the version in .check_nsclient_version; one line per architecture, since the
 # release publishes a separate binary for each. A missing line fails the build,
 # so adding an architecture cannot silently skip verification.
-check_nsclient-x64      1.1.1   b876044e71cd969bf7d3b00d18786817b6f8021692229e401f382683d342ff8d
-check_nsclient-x86      1.1.1   98b1e899bdf33bfe589516067e15ec5fe1eb6427658212d0aa811062dcd78ccf
-check_nsclient-arm64    1.1.1   b449918136a4a6ece28dc18b49bb5a121e316c3ec18027e030f566e1a0b69095
+check_nsclient-x64      1.1.2   77a90830214e5f5613024adce05278887c19e818c0ae80f5284bfa090e93e65b
+check_nsclient-x86      1.1.2   a5ce21419bc93c15953b406b7a769525c9b545e64ddf89a7fa2ce50ed7256f9a
+check_nsclient-arm64    1.1.2   a044b01858f2d39c14574187185c55d57d0906db8b44240165d7b26361c8d0fa

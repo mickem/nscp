@@ -25,6 +25,7 @@
 #include <win/com_helpers.hpp>
 #include <win/pdh/pdh_enumerations.hpp>
 #include <win/services.hpp>
+#include <facts/host_facts.hpp>
 #include <win/sysinfo/win_sysinfo.hpp>
 
 #include "check_battery.hpp"
@@ -48,6 +49,7 @@
 #include "check_swap_io.hpp"
 #include "check_temperature.hpp"
 #include "check_w32time.hpp"
+#include "system_facts.hpp"
 #include "counter_filter.hpp"
 #include "filter.hpp"
 #include "module.hpp"
@@ -124,20 +126,6 @@ void load_counters(std::map<std::string, std::string> &counters, sh::settings_re
  * @return true
  */
 namespace {
-// Publish the Windows version as host tags: `os_version` is the numeric
-// kernel version (e.g. 10.0.20348) for machine matching, `os_name` the
-// human-readable name (e.g. "Windows Server 2022") for the UI.
-void publish_os_version_tags(const nscapi::core_wrapper *core) {
-  const OSVERSIONINFOEX *info = windows::system_info::get_versioninfo();
-  if (info != nullptr) {
-    core->set_tag("os_version", str::xtos(info->dwMajorVersion) + "." + str::xtos(info->dwMinorVersion) + "." + str::xtos(info->dwBuildNumber));
-  }
-  const std::string name = windows::system_info::get_version_string();
-  if (!name.empty()) {
-    core->set_tag("os_name", name);
-  }
-}
-
 // Publish one tag per configured [/settings/system/windows/service-tags]
 // entry (service name -> tag name): `<tag>=enabled` when the service exists
 // AND is running, otherwise the tag is removed. Lets operators surface "what
@@ -188,6 +176,8 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     detect_sql_server_tag(get_core());
   }
   std::map<std::string, std::string> service_tags;
+  bool facts_os = false;
+  bool facts_hardware = false;
   // A reload replaces the collector: stop the running one first so its
   // threads are joined before the checks start reading the new instance.
   // Publish the replacement atomically and configure it through the local
@@ -242,6 +232,20 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         "Service tags", "Windows services to surface as host tags: each key is a service name and each value the tag to publish. When the service exists and is running the tag is published as <tag>=enabled (removed otherwise). Example: MSSQLSERVER=sql-server",
         "SERVICE", "The tag to publish when this service is running")
     ;
+
+  settings.alias().add_key_to_settings("facts")
+  .add_bool("os", sh::bool_key(&facts_os, false),
+        "OS FACTS",
+        "Collect the `os` fact set: the OS family, product name and kernel version, the CPU architecture, whether the host is virtualized and the DNS "
+        "domain it is in. Cheap - every value is read from the cached version info, GetNativeSystemInfo, CPUID and GetComputerNameEx, and nothing is "
+        "collected while this is off.")
+
+  .add_bool("hardware", sh::bool_key(&facts_hardware, false),
+        "HARDWARE FACTS",
+        "Collect the `hardware` fact set: the system manufacturer and model as the firmware reports them, the number of logical processors and the "
+        "installed memory in whole GB. Cheap - the vendor and model come from the SMBIOS strings the kernel publishes under "
+        "HKLM\HARDWARE\DESCRIPTION\System\BIOS, not from WMI.")
+  ;
 
   settings.alias().add_key_to_settings()
   .add_string("counter access", sh::string_fun_key([this](const auto& value) { pdh_checker.counter_access_.set_mode(value); }, "any"),
@@ -342,8 +346,20 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     if (!pdh_checker.counters_.has_object("cpu_kernel")) add_rrd_counter("cpu_kernel", "\\Processor Information($INSTANCE$)\\% Privileged Utility");
   }
 
+  // Which fact sets fetchFacts builds is configuration, so it is re-read on
+  // every load, a reload included - turning a set off has to take effect
+  // without a restart, and the core drops a set a producer stops returning.
+  facts_os_.store(facts_os);
+  facts_hardware_.store(facts_hardware);
+
   if (mode == NSCAPI::normalStart) {
-    publish_os_version_tags(get_core());
+    // The selector tags, on the other hand, describe the machine rather than
+    // its configuration: gathered once at start, because nothing they read
+    // can change without the host restarting anyway.
+    // The tags are the same gather, and seeding the cache here means the
+    // first facts round has a snapshot to report rather than collecting
+    // again a moment later.
+    host_facts::publish_tags(get_core(), facts_cache_.get("startup", []() { return system_facts::gather(); }).values);
     publish_service_tags(get_core(), service_tags);
   }
 
@@ -1402,6 +1418,17 @@ class add_visitor : public boost::static_visitor<> {
     return nscapi::metrics::metric(b, dims.family).key(key).label("pdh_instance", dims.instance).help(meta.help).unit(meta.unit);
   }
 };
+void CheckSystem::fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response) {
+  if (!facts_os_.load() && !facts_hardware_.load()) return;
+  // Read once and reported thereafter: what OS this is and what it runs on
+  // does not change while the process does. The snapshot carries when it was
+  // taken, so a consumer shows the age of the values rather than the age of
+  // the round. `manual` re-reads, which is the escape hatch for a host that
+  // genuinely did change underneath.
+  const host_facts::snapshot snap = facts_cache_.get(request.reason(), []() { return system_facts::gather(); });
+  host_facts::publish_facts(snap, facts_os_.load(), facts_hardware_.load(), response);
+}
+
 void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
   using nscapi::metrics::core_label;
   using nscapi::metrics::describe;

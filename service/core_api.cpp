@@ -7,7 +7,6 @@
 #include <string.h>
 
 #include <boost/json.hpp>
-
 #include <nscapi/nscapi_helper.hpp>
 #include <settings/settings_core.hpp>
 
@@ -15,6 +14,7 @@
 #ifdef _WIN32
 #include <win/service_control.hpp>
 #endif
+#include <nscapi/protobuf/facts.hpp>
 #include <nscapi/protobuf/settings.hpp>
 #include <nsclient/logger/logger.hpp>
 
@@ -256,6 +256,89 @@ NSCAPI::errorReturn NSAPIGetTags(char **response_buffer, unsigned int *response_
   return NSCAPI::api_return_codes::hasFailed;
 }
 
+namespace {
+// The facts envelope every command returns: the document (or the subtree asked
+// for), plus what a consumer needs to render and cache it - the revision it
+// can poll on, when the last round ran, when each set's values were actually
+// gathered, which sets are enabled, and which of them could not be collected.
+void build_facts_response(const std::string &path, PB::Facts::FactsResponseMessage::Response *payload) {
+  const nsclient::core::fact_repository_instance facts = mainClient->get_fact_repository();
+  payload->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
+  payload->set_revision(facts->get_revision());
+  payload->set_collected(facts->get_collected());
+  for (const std::string &id : facts->get_enabled()) payload->add_enabled(id);
+  for (const std::pair<const std::string, std::string> &error : facts->get_errors()) {
+    PB::Common::KeyValue *entry = payload->add_errors();
+    entry->set_key(error.first);
+    entry->set_value(error.second);
+  }
+  // Per set, when its values were read off the machine. Always the whole map,
+  // even for a subtree request: a consumer showing `storage.volumes` still
+  // wants to say how old that reading is.
+  for (const std::pair<const std::string, std::string> &when : facts->get_gathered()) {
+    PB::Common::KeyValue *entry = payload->add_gathered();
+    entry->set_key(when.first);
+    entry->set_value(when.second);
+  }
+  if (path.empty()) {
+    *payload->mutable_facts()->mutable_object_value() = facts->get_all();
+    return;
+  }
+  // A subtree the document does not have is not an error here: the REST layer
+  // turns `found: false` into a 404 and the console prints "no such path".
+  payload->set_path(path);
+  const boost::optional<PB::Facts::Value> subtree = facts->get(path);
+  payload->set_found(subtree.is_initialized());
+  if (subtree.is_initialized()) *payload->mutable_facts() = subtree.value();
+}
+}  // namespace
+
+// Read side of the facts repository, shaped like the other query entry points:
+// a serialised request in, a serialised response out.
+//
+//   GET                      the whole document
+//   GET, path "software"     one subtree
+//   REFRESH                  run a round, then the document
+//
+// There is no set command on purpose. Facts are produced by fetchFacts on the
+// core's schedule from what each producing module's own configuration enables,
+// so a module cannot push inventory the operator did not ask for.
+NSCAPI::errorReturn NSAPIFactsQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer,
+                                    unsigned int *response_buffer_len) {
+  try {
+    PB::Facts::FactsRequestMessage::Request::Command command = PB::Facts::FactsRequestMessage::Request::GET;
+    std::string path;
+    // An empty request is "get the whole document": the console's bare `facts`
+    // verb sends nothing at all.
+    const std::string request = request_buffer == nullptr ? std::string() : std::string(request_buffer, request_buffer_len);
+    if (!request.empty()) {
+      PB::Facts::FactsRequestMessage message;
+      if (!message.ParseFromString(request)) {
+        LOG_ERROR(mainClient, "Facts query error: the request is not a valid facts request message");
+        return NSCAPI::api_return_codes::hasFailed;
+      }
+      if (message.payload_size() > 0) {
+        command = message.payload(0).command();
+        path = message.payload(0).path();
+      }
+    }
+    if (command == PB::Facts::FactsRequestMessage::Request::REFRESH) mainClient->process_facts("manual");
+
+    PB::Facts::FactsResponseMessage response_message;
+    build_facts_response(path, response_message.add_payload());
+    const std::string response = response_message.SerializeAsString();
+    *response_buffer_len = static_cast<unsigned int>(response.size());
+    *response_buffer = new char[*response_buffer_len + 10];
+    memcpy(*response_buffer, response.c_str(), *response_buffer_len);
+    return NSCAPI::api_return_codes::isSuccess;
+  } catch (const std::exception &e) {
+    LOG_ERROR(mainClient, "Facts query error: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    LOG_ERROR(mainClient, "Unknown facts query error");
+  }
+  return NSCAPI::api_return_codes::hasFailed;
+}
+
 nscapi::core_api::FUNPTR NSAPILoader(const char *buffer) {
   if (strcmp(buffer, "NSAPIGetApplicationName") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIGetApplicationName);
   if (strcmp(buffer, "NSAPIGetApplicationVersionStr") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIGetApplicationVersionStr);
@@ -275,6 +358,7 @@ nscapi::core_api::FUNPTR NSAPILoader(const char *buffer) {
   if (strcmp(buffer, "NSAPIStorageQuery") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSCAPIStorageQuery);
   if (strcmp(buffer, "NSAPISetTag") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPISetTag);
   if (strcmp(buffer, "NSAPIGetTags") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIGetTags);
+  if (strcmp(buffer, "NSAPIFactsQuery") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIFactsQuery);
   if (strcmp(buffer, "NSAPISetLogOption") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPISetLogOption);
   mainClient->get_logger()->critical("api", __FILE__, __LINE__, "Function not found: " + std::string(buffer));
   return NULL;

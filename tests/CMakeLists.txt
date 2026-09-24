@@ -328,6 +328,19 @@ NSCP_CREATE_TEST(
 )
 
 NSCP_CREATE_TEST(
+    host_facts_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/facts/host_facts_test.cpp
+        ${NSCP_INCLUDEDIR}/facts/host_facts.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${PLUGIN_API_TARGET}
+        nscp_protobuf
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+NSCP_CREATE_TEST(
     realtime_helper_test
     SOURCES
         ${NSCP_INCLUDEDIR}/parsers/filter/realtime_helper_test.cpp
@@ -358,6 +371,11 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
         GTest::gtest_main
+        # The core wrapper builds a PB::Facts::FactsRequestMessage in
+        # get_facts()/refresh_facts(), so every target that compiles it needs
+        # the generated messages to link against - even one that never asks
+        # the core for a fact.
+        nscp_protobuf
         nscp_where_filter
         perfconfig_parser
         expression_parser

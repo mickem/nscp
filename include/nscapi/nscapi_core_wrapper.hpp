@@ -32,6 +32,7 @@ class NSCAPI_EXPORT core_wrapper {
   core_api::lpNSAPISetTag fNSAPISetTag;
   core_api::lpNSAPIGetTags fNSAPIGetTags;
   core_api::lpNSAPISetLogOption fNSAPISetLogOption;
+  core_api::lpNSAPIFactsQuery fNSAPIFactsQuery;
 
  public:
   core_wrapper();
@@ -83,6 +84,25 @@ class NSCAPI_EXPORT core_wrapper {
   // for a passthrough consumer (the web tags controller); a module that wants
   // to read tags should prefer the typed get_tags() below.
   std::string get_tags_json() const;
+
+  // Host facts: the opt-in inventory document the core collects from modules
+  // on a schedule. Read only - a producer publishes through fetchFacts, not
+  // through a setter - and, like the tag calls, degrading gracefully on a core
+  // that predates the API.
+  //
+  // The answer is a serialised PB::Facts::FactsResponseMessage, carrying the
+  // document (or the subtree at `path`, plus a `found` flag) and what a
+  // consumer needs to render and cache it: the revision, when the last round
+  // ran, which sets are enabled and which of them failed to collect. Empty
+  // when the core does not know the call.
+  //
+  // Handed back as bytes rather than a parsed message so the wrapper - which
+  // is linked into every module - stays a thin shim over the ABI, exactly as
+  // the registry, settings and metrics calls beside it do.
+  std::string get_facts(const std::string &path = "") const;
+  // Run a facts round now (the `manual` reason). False on a core without the
+  // API, or when the round could not be run.
+  bool refresh_facts() const;
 
   // Change one logging option at runtime; takes the same strings as the --log
   // switch (a severity, or a driver option such as "no-console"). Returns
