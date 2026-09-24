@@ -691,6 +691,17 @@ curl -sSfL -o $DEPENDENCIES_FOLDER/check_nsclient/check_nsclient \
 chmod +x $DEPENDENCIES_FOLDER/check_nsclient/check_nsclient
 ```
 
+Each release publishes a `SHA256SUMS` next to the binaries and attests them
+from its release workflow. The digests the release builds pin for the version
+in `.check_nsclient_version` are in `.github/dependency-checksums.txt`; to
+check a download against them, or against the release's own attestation:
+
+```bash
+.github/scripts/verify-checksum.sh "check_nsclient-linux-${arch}" "${ver}" \
+    $DEPENDENCIES_FOLDER/check_nsclient/check_nsclient
+gh attestation verify $DEPENDENCIES_FOLDER/check_nsclient/check_nsclient --repo mickem/check_nsclient
+```
+
 To build without it, pass `-DCHECK_NSCLIENT_MISSING=TRUE` to `cmake` instead
 of `CHECK_NSCLIENT_LOCATION`.
 

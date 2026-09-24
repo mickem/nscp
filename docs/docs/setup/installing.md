@@ -22,6 +22,14 @@ See [Supported platforms](supported-platforms.md) for the Windows and Linux vers
   - [File locations (macOS)](#file-locations-macos)
   - [Uninstalling](#uninstalling-macos)
   - [What is not in the macOS build yet](#what-is-not-in-the-macos-build-yet)
+- [Verifying the download](#verifying-the-download)
+  - [Step 1: Check that the file came from this project](#step-1-check-that-the-file-came-from-this-project)
+  - [Step 2: Get the SBOM for that file](#step-2-get-the-sbom-for-that-file)
+  - [Step 3: List the third-party components](#step-3-list-the-third-party-components)
+  - [Step 4: Check a component against its upstream project](#step-4-check-a-component-against-its-upstream-project)
+  - [Step 5 (optional): Read how the build used them](#step-5-optional-read-how-the-build-used-them)
+  - [Checking the files you installed](#checking-the-files-you-installed)
+  - [What this proves, and what it does not](#what-this-proves-and-what-it-does-not)
 - [Automated installation (Windows MSI)](#automated-installation-windows-msi)
   - [Basic command line](#basic-command-line)
   - [MSI Options](#msi-options)
@@ -370,6 +378,199 @@ Two smaller gaps:
 * `PythonScript` and `CheckMySQL` are not built, because the macOS CI job does
   not install Boost.Python or the MariaDB connector. They build from source if
   you provide those.
+
+## Verifying the download
+
+A Windows release comes with enough evidence for you to check where it came
+from, and where the third-party code inside it came from, without taking our
+word for it. The checks below answer three questions:
+
+1. Was this file built by this project's release workflow, and from which commit?
+2. Which third-party components does it contain, and exactly which upstream files were they built from?
+3. Do those upstream files match what the upstream projects themselves publish?
+
+You need the [GitHub CLI](https://cli.github.com) (`gh`) for the first two,
+plus `jq`, `git`, and `sha256sum` or PowerShell's `Get-FileHash`. The examples
+use the x64 MSI; replace the file name with the one you downloaded. Releases
+published before the SBOM was introduced have no `.cdx.json` and no
+attestations, so only the Authenticode signature applies to them.
+
+Step 1 works for every release asset, including the Linux and macOS packages.
+Steps 2 to 4 are for the Windows builds, the only ones with an SBOM: the Linux
+packages link the distribution's own libraries, and the macOS package bundles
+libraries from Homebrew, which both verify their packages themselves.
+
+### Step 1: Check that the file came from this project
+
+Every release asset carries a [GitHub artifact attestation](https://docs.github.com/actions/security-for-github-actions/using-artifact-attestations):
+a statement, signed through Sigstore by the release workflow's own identity,
+that names the file's SHA-256 and the commit it was built from.
+
+```
+gh attestation verify NSCP-<version>-x64.msi --repo mickem/nscp \
+   --signer-workflow mickem/nscp/.github/workflows/release.yml
+```
+
+Verification fails for a file this workflow did not produce, and for one that
+was changed after it was produced. To see which commit and which workflow run
+built it:
+
+```
+gh attestation verify NSCP-<version>-x64.msi --repo mickem/nscp --format json \
+   --jq '.[].verificationResult.statement.predicate
+         | .buildDefinition.resolvedDependencies[0].digest.gitCommit, .runDetails.metadata.invocationId'
+```
+
+The MSI, `nscp.exe` and the DLLs are also Authenticode-signed, which Windows
+shows under *Properties > Digital Signatures*, or `Get-AuthenticodeSignature`
+in PowerShell.
+
+### Step 2: Get the SBOM for that file
+
+Each Windows release publishes a software bill of materials (SBOM) in
+[CycloneDX](https://cyclonedx.org) 1.6 JSON: `NSCP-<version>-<platform>.cdx.json`
+on the release page, and the same file as `sbom.cdx.json` inside the zip. The
+MSI does not install it.
+
+The SBOM is itself attested against the zip and the MSI of its platform, so
+the simplest way to get one you can trust is to take it out of the signed
+attestation for the file you have:
+
+```
+gh attestation verify NSCP-<version>-x64.msi --repo mickem/nscp \
+   --predicate-type https://cyclonedx.org/bom --format json \
+   --jq '.[0].verificationResult.statement.predicate' > sbom.cdx.json
+```
+
+This fails unless the SBOM was published for exactly this file. The same
+command with `NSCP-<version>-x64.zip` gives the same SBOM.
+
+### Step 3: List the third-party components
+
+For every component the build compiled in or bundled, the SBOM records the
+version, the upstream URL the build fetched, and either the SHA-256 of the
+downloaded file or the git commit of a cloned tag. The build checked each of
+these values against the ones recorded in the repository before it used the
+file, and the SBOM is written from those recorded values, not from what the
+download returned.
+
+```
+jq -r '.components[] | select(.purl | startswith("pkg:npm/") | not)
+       | [.name, .version, (.hashes[0].content // ([.properties[] | select(.name == "nscp:git-commit").value][0]) // "-"),
+          .externalReferences[0].url] | join("  ")' sbom.cdx.json
+```
+
+Each component also has an `nscp:verification` property:
+
+| Value           | Meaning                                                                                              |
+|-----------------|------------------------------------------------------------------------------------------------------|
+| `sha256`        | A downloaded file, checked against the recorded SHA-256.                                            |
+| `git-commit`    | A git tag, cloned and checked to resolve to the recorded commit (tags can be moved, commits cannot). |
+| `nuget-restore` | A NuGet package, listed with the SHA-512 NuGet recorded when it restored the package.               |
+| `npm-integrity` | A web UI package, listed with the SHA-512 pinned in `package-lock.json`.                            |
+| `none`          | Not digest-checked by the build. Currently only the embedded Python runtime.                        |
+
+GoogleTest is listed with `"scope": "excluded"`: only the unit tests link it,
+so it is not in anything you install.
+
+check_nsclient publishes an SBOM of its own with each release, and the build
+nests it under the check_nsclient component: the Rust crates it is built from,
+each with its version and SHA-256. The build checks that SBOM against the
+release's `SHA256SUMS` before nesting it. To list them:
+
+```
+jq -r '.components[] | select(.name == "check_nsclient") | .components[]
+       | "\(.name) \(.version) \(.hashes[0].content)"' sbom.cdx.json
+```
+
+### Step 4: Check a component against its upstream project
+
+Download the file the SBOM names and hash it yourself. The value must match
+the SBOM and, where the upstream project publishes one, the upstream
+checksum:
+
+```
+curl -sSfLO https://github.com/openssl/openssl/releases/download/openssl-3.5.8/openssl-3.5.8.tar.gz
+sha256sum openssl-3.5.8.tar.gz
+curl -sSfL https://github.com/openssl/openssl/releases/download/openssl-3.5.8/openssl-3.5.8.tar.gz.sha256
+```
+
+| Component                                          | Where upstream publishes the checksum                                                                                   |
+|----------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------|
+| OpenSSL                                            | A `.sha256` file next to the tarball: the URL with `.sha256` appended.                                                  |
+| Boost                                              | The release notes page for the version, e.g. [Boost 1.86.0](https://www.boost.org/users/history/version_1_86_0.html).   |
+| Lua                                                | The checksum column of [lua.org/ftp](https://www.lua.org/ftp/).                                                        |
+| check_nsclient                                     | `SHA256SUMS` on its [release page](https://github.com/mickem/check_nsclient/releases), itself attested (see below).     |
+| Protocol Buffers, Crypto++, miniz                  | Nowhere. The SBOM digest then only shows that the file has not changed since the project recorded it.                   |
+
+check_nsclient attests its releases the same way this project does, so its
+binary can be traced to its own release workflow:
+
+```
+gh attestation verify check_nsclient-<version>-windows-x64.exe --repo mickem/check_nsclient \
+   --signer-workflow mickem/check_nsclient/.github/workflows/release.yml
+```
+
+For a component cloned from git, ask the upstream repository which commit the
+tag points at. The SBOM's `nscp:git-ref` property names the tag, and the
+commit must equal `nscp:git-commit`. For an annotated tag it is the line
+ending in `^{}`:
+
+```
+git ls-remote https://github.com/mariadb-corporation/mariadb-connector-c.git 'refs/tags/v3.4.9*'
+```
+
+For a web UI package, `npm view <name>@<version> dist.integrity` prints the
+same SHA-512 in base64.
+
+### Step 5 (optional): Read how the build used them
+
+The commit from step 1 lets you read the exact build that produced the file.
+At that commit, `.github/dependency-checksums.txt` holds the values the SBOM
+lists, the actions under `.github/actions/` download each dependency and check
+it against that file before building it, and `build/python/sbom.py` writes the
+SBOM from it:
+
+```
+https://github.com/mickem/nscp/blob/<commit>/.github/dependency-checksums.txt
+```
+
+### Checking the files you installed
+
+The zip holds `SHA256SUMS`, the SHA-256 of every file in it. In the folder you
+unpacked the zip into:
+
+```
+sha256sum -c SHA256SUMS
+```
+
+or in PowerShell:
+
+```powershell
+Get-Content SHA256SUMS | ForEach-Object {
+  $hash, $file = $_ -split '  ', 2
+  if ((Get-FileHash $file -Algorithm SHA256).Hash -ne $hash) { "MISMATCH: $file" }
+}
+```
+
+An MSI install carries neither file. The MSI and the zip of a release are
+packaged from the same signed build, so take `SHA256SUMS` from the zip of the
+same version and platform and compare single files against it:
+
+```powershell
+(Get-FileHash "C:\Program Files\NSClient++\libcrypto-3-x64.dll").Hash
+```
+
+### What this proves, and what it does not
+
+These checks show that the file was built by this project's release workflow
+from a named commit, that the SBOM describes that exact file, and that every
+upstream file the SBOM names is the one upstream published. They do not show
+that the shipped binaries were compiled from those upstream files: the build
+is not reproducible, and signing changes the bytes, so compiling the same
+sources yourself gives different hashes. That last link rests on the
+GitHub-hosted runner having run the workflow as it is written at that commit,
+which step 5 lets you read.
 
 ## Automated installation (Windows MSI)
 

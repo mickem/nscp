@@ -92,6 +92,17 @@ runs:
       working-directory: tmp
       shell: cmd
 
+    # The value recorded for this version in .github/dependency-checksums.txt
+    # is part of the cache key, so a build is only ever restored for exactly
+    # the input it was made from. Re-recording the digest (or recording one
+    # where it used to read `unrecorded`) starts a fresh build instead of
+    # reusing one made from bytes that were never checked against it.
+    - id: digest
+      shell: bash
+      run: |
+        value="$("$GITHUB_WORKSPACE/.github/scripts/dependency-digest.sh" openssl "${{ inputs.version }}")"
+        echo "value=${value}" >> "$GITHUB_OUTPUT"
+
     - id: cache
       uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c # v3
       with:
@@ -99,7 +110,7 @@ runs:
         # and a shared build of the same version never share a cache entry
         # (with no suffix the static key spells "no-shared", as it always
         # did, so the legacy build keeps its cache).
-        key: ${{ runner.os }}-openssl-${{ inputs.version }}${{ inputs.suffix }}-${{ steps.setup.outputs.linkage_flags }}-${{ inputs.architecture }}-${{ inputs.runtime }}
+        key: ${{ runner.os }}-openssl-${{ inputs.version }}${{ inputs.suffix }}-${{ steps.setup.outputs.linkage_flags }}-${{ inputs.architecture }}-${{ inputs.runtime }}-${{ steps.digest.outputs.value }}
         # The two globs cover every linkage: the static libraries, and for a
         # shared build the import libraries, the versioned DLLs and their
         # _static twins.

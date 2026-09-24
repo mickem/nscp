@@ -63,6 +63,7 @@ jobs:
             echo "platform=x64" >> $env:GITHUB_OUTPUT
             echo "toolset=v141" >> $env:GITHUB_OUTPUT
             echo "vs_toolset=14.1" >> $env:GITHUB_OUTPUT
+            echo "boost_toolset=14.1" >> $env:GITHUB_OUTPUT
             echo "python_arch=x64" >> $env:GITHUB_OUTPUT
           }
           "x86" {
@@ -70,6 +71,7 @@ jobs:
             echo "platform=Win32" >> $env:GITHUB_OUTPUT
             echo "toolset=v141" >> $env:GITHUB_OUTPUT
             echo "vs_toolset=14.1" >> $env:GITHUB_OUTPUT
+            echo "boost_toolset=14.1" >> $env:GITHUB_OUTPUT
             echo "python_arch=x86" >> $env:GITHUB_OUTPUT
           }
           "arm64" {
@@ -79,6 +81,10 @@ jobs:
             echo "platform=ARM64" >> $env:GITHUB_OUTPUT
             echo "toolset=v143" >> $env:GITHUB_OUTPUT
             echo "vs_toolset=14.4" >> $env:GITHUB_OUTPUT
+            # Empty: Boost is built with the newest toolset, which is what
+            # the v143 build links it into. b2 knows that toolset as
+            # msvc-14.3, not 14.4, so vs_toolset cannot simply be reused.
+            echo "boost_toolset=" >> $env:GITHUB_OUTPUT
             # setup-python doesn't ship an arm64 Python on x64 hosts; use
             # the host x64 interpreter for build-time scripts.
             echo "python_arch=x64" >> $env:GITHUB_OUTPUT
@@ -232,37 +238,14 @@ jobs:
         architecture: ${{ inputs.architecture }}
         toolset: ${{ steps.setup.outputs.toolset }}
 
-    # mickem/build-boost drives cmake-common, whose Platform enum is x86/x64
-    # only: `--platform arm64` aborts with "invalid platform" before compiling
-    # anything, which is what broke the ARM64 build in April 2026 (#1223). The
-    # in-repo action below builds the same tree with b2 directly. x86 and x64
-    # stay on the action that has been shipping releases for years.
+    # Boost is built with the same MSVC toolset as the code that links it:
+    # v141 on x86 and x64 (static libraries built with a newer toolset than
+    # the one linking them are not supported), the newest on ARM64. The
+    # action downloads the archive, verifies it against
+    # .github/dependency-checksums.txt, and caches the result keyed on that
+    # digest.
     - name: Build Boost (static)
       id: static_boost
-      if: inputs.architecture != 'arm64'
-      uses: mickem/build-boost@c11609010636c8b5b6e66c6848565252ad134323 # v1
-      with:
-        version: ${{ ENV.BOOST_VERSION }}
-        libraries: system filesystem
-        platform: ${{ inputs.architecture }}
-        configuration: Release
-        static: 1
-        static-runtime: 1
-        directory: ${{ runner.workspace }}/static_boost
-
-    - name: Build Boost (regular)
-      id: boost
-      if: inputs.architecture != 'arm64'
-      uses: mickem/build-boost@c11609010636c8b5b6e66c6848565252ad134323 # v1
-      with:
-        version: ${{ ENV.BOOST_VERSION }}
-        libraries: ${{ steps.setup.outputs.boost_libraries }}
-        platform: ${{ inputs.architecture }}
-        configuration: Release
-
-    - name: Build Boost (static, ARM64)
-      id: static_boost_arm64
-      if: inputs.architecture == 'arm64'
       uses: ./.github/actions/boost
       with:
         version: ${{ ENV.BOOST_VERSION }}
@@ -271,31 +254,25 @@ jobs:
         configuration: Release
         static: '1'
         static-runtime: '1'
+        toolset: ${{ steps.setup.outputs.boost_toolset }}
         directory: ${{ runner.workspace }}/static_boost
 
-    - name: Build Boost (regular, ARM64)
-      id: boost_arm64
-      if: inputs.architecture == 'arm64'
+    - name: Build Boost (regular)
+      id: boost
       uses: ./.github/actions/boost
       with:
         version: ${{ ENV.BOOST_VERSION }}
         libraries: ${{ steps.setup.outputs.boost_libraries }}
         platform: ${{ inputs.architecture }}
         configuration: Release
+        toolset: ${{ steps.setup.outputs.boost_toolset }}
 
     - id: paths
       run: |
-        # Only one of each pair of Boost steps ran, so take whichever reported
-        # a path rather than repeating the architecture test here.
-        function Pick([string]$a, [string]$b, [string]$what) {
-          $value = if ($a) { $a } else { $b }
-          if (-not $value) { Write-Error "No Boost step produced a $what"; exit 1 }
-          return $value.replace('\','/')
-        }
-        echo "boost_root=$(Pick '${{ steps.boost.outputs.root }}' '${{ steps.boost_arm64.outputs.root }}' 'root')" >> $env:GITHUB_OUTPUT
-        echo "boost_librarydir=$(Pick '${{ steps.boost.outputs.librarydir }}' '${{ steps.boost_arm64.outputs.librarydir }}' 'library directory')" >> $env:GITHUB_OUTPUT
-        echo "static_boost_root=$(Pick '${{ steps.static_boost.outputs.root }}' '${{ steps.static_boost_arm64.outputs.root }}' 'static root')" >> $env:GITHUB_OUTPUT
-        echo "static_boost_librarydir=$(Pick '${{ steps.static_boost.outputs.librarydir }}' '${{ steps.static_boost_arm64.outputs.librarydir }}' 'static library directory')" >> $env:GITHUB_OUTPUT
+        echo "boost_root=$('${{ steps.boost.outputs.root }}'.replace('\','/'))" >> $env:GITHUB_OUTPUT
+        echo "boost_librarydir=$('${{ steps.boost.outputs.librarydir }}'.replace('\','/'))" >> $env:GITHUB_OUTPUT
+        echo "static_boost_root=$('${{ steps.static_boost.outputs.root }}'.replace('\','/'))" >> $env:GITHUB_OUTPUT
+        echo "static_boost_librarydir=$('${{ steps.static_boost.outputs.librarydir }}'.replace('\','/'))" >> $env:GITHUB_OUTPUT
         $path_unix="${{ env.Python_ROOT_DIR }}".replace('\','/')
         echo "python_path=$path_unix" >> $env:GITHUB_OUTPUT
       shell: pwsh
@@ -349,14 +326,32 @@ jobs:
     # This binary is not built here - it is fetched and then shipped inside the
     # signed MSI, so its digest has to be pinned in the repository like every
     # other dependency. See .github/dependency-checksums.txt.
+    #
+    # The release also publishes a CycloneDX SBOM for the binary, which the
+    # SBOM step below nests into ours. It is checked against the release's
+    # SHA256SUMS, whose own digest is pinned in the same file, so the SBOM is
+    # exactly the one released next to this binary.
     - name: Download check_nsclient from mickem/check_nsclient
       shell: bash
       run: |
+        set -euo pipefail
         ver=$(cat .check_nsclient_version | tr -d '[:space:]')
-        url="https://github.com/mickem/check_nsclient/releases/download/${ver}/check_nsclient-${ver}-windows-${{ inputs.architecture }}.exe"
-        echo "Fetching $url"
-        curl -sSfL --retry 8 --retry-delay 15 --retry-max-time 300 -o tmp/check_nsclient.exe "$url"
+        base="https://github.com/mickem/check_nsclient/releases/download/${ver}"
+        exe="check_nsclient-${ver}-windows-${{ inputs.architecture }}.exe"
+        sbom="check_nsclient-${ver}-windows-${{ inputs.architecture }}.cdx.json"
+        fetch() {
+          echo "Fetching $1"
+          curl -sSfL --retry 8 --retry-delay 15 --retry-max-time 300 -o "$2" "$1"
+        }
+        fetch "${base}/${exe}" tmp/check_nsclient.exe
         .github/scripts/verify-checksum.sh "check_nsclient-${{ inputs.architecture }}" "${ver}" tmp/check_nsclient.exe
+
+        mkdir -p tmp/check_nsclient-release
+        fetch "${base}/SHA256SUMS" tmp/check_nsclient-release/SHA256SUMS
+        .github/scripts/verify-checksum.sh check_nsclient-sha256sums "${ver}" tmp/check_nsclient-release/SHA256SUMS
+        fetch "${base}/${sbom}" "tmp/check_nsclient-release/${sbom}"
+        # Only the SBOM's own line: grep fails the step if the list has none.
+        (cd tmp/check_nsclient-release && grep -E "^[0-9a-f]{64} [ *]${sbom//./\\.}\$" SHA256SUMS | sha256sum --check --strict -)
 
     # Everything that only differs on ARM64, in one place.
     #
@@ -435,6 +430,49 @@ jobs:
         azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
         signing-enabled: ${{ github.ref == 'refs/heads/main' }}
 
+    # The SBOM records, for every dependency this build compiled or bundled,
+    # the version, the upstream URL and the SHA-256 or git commit it was
+    # verified against in .github/dependency-checksums.txt. It goes into the
+    # zip as sbom.cdx.json (with SHA256SUMS over the zip's files) and next to
+    # the zip and the MSI as a release asset. The values come from the
+    # manifest, never from the downloads, so it only claims what the build
+    # checked.
+    - name: Write the SBOM
+      shell: bash
+      run: |
+        set -euo pipefail
+        python build/python/test_sbom.py
+        python build/python/sbom.py --check
+        name="NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}"
+        cn_ver=$(tr -d '[:space:]' < .check_nsclient_version)
+        protobuf_net=$(sed -n 's:.*<GoogleProtobufVersion[^>]*>\([^<]*\)</GoogleProtobufVersion>.*:\1:p' libs/dotnet-plugin-api/NSCP.Core.csproj)
+        args=(
+          --version "${{ inputs.version }}"
+          --platform "${{ steps.setup.outputs.platform }}"
+          --commit "${GITHUB_SHA}"
+          --component "openssl=${{ env.OPENSSL_VERSION }}"
+          --component "protobuf=${{ env.PROTOBUF_VERSION }}"
+          --component "cryptopp=${{ env.CRYPTOPP_VERSION }}"
+          --component "boost=${{ env.BOOST_VERSION }}"
+          --component "lua=${{ env.LUA_VERSION }}"
+          --component "tinyxml2=${{ env.TINY_XML_2_VERSION }}"
+          --component "mongoose=${{ env.MONGOOSE_VERSION }}"
+          --component "miniz=${{ env.MINIZ_VERSION }}"
+          --component "googletest=${{ env.GOOGLE_TEST_VERSION }}"
+          --component "mariadb=${{ env.MARIADB_CONNECTOR_VERSION }}"
+          --component "check_nsclient-${{ inputs.architecture }}=${cn_ver}"
+          --nested-sbom "check_nsclient-${{ inputs.architecture }}=tmp/check_nsclient-release/check_nsclient-${cn_ver}-windows-${{ inputs.architecture }}.cdx.json"
+          --nuget "Google.Protobuf=${protobuf_net}"
+          --npm-lock web/package-lock.json
+          --zip "tmp/nscp/${name}.zip"
+          --output "tmp/nscp/${name}.cdx.json"
+        )
+        # ARM64 ships no embedded Python (see the setup step).
+        if [ "${{ steps.setup.outputs.with_python }}" = "true" ]; then
+          args+=(--python-runtime "${{ steps.python.outputs.python-version }}")
+        fi
+        python build/python/sbom.py "${args[@]}"
+
     # The C# sample plugin is built for the tests but deliberately not part of
     # the zip or the MSI, so it travels next to them in the artifact (staged
     # under tmp/nscp to keep the artifact's root where it is) and the
@@ -454,6 +492,7 @@ jobs:
           tmp/nscp/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}.zip
           tmp/nscp/installers/installer-NSCP/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}.msi
           tmp/nscp/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}-symbols.zip
+          tmp/nscp/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}.cdx.json
           tmp/nscp/dotnet-sample/
         if-no-files-found: error
 

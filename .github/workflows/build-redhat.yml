@@ -126,7 +126,7 @@ jobs:
         # than taking the older build that matches the installed runtime. It
         # can only widen what resolves - if no installable candidate exists the
         # install still fails loudly, exactly as it does now.
-        retry dnf install -y --allowerasing --nobest coreutils bash file findutils git boost-devel gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build python3-devel dbus-devel bash libzip-devel tinyxml2-devel mariadb-connector-c-devel pkgconf-pkg-config ccache zstd dotnet-sdk-8.0
+        retry dnf install -y --allowerasing --nobest coreutils bash file findutils gawk git boost-devel gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build python3-devel dbus-devel bash libzip-devel tinyxml2-devel mariadb-connector-c-devel pkgconf-pkg-config ccache zstd dotnet-sdk-8.0
     - uses: actions/checkout@v6
 
     - name: Configure ccache
@@ -181,6 +181,9 @@ jobs:
         url="https://github.com/mickem/check_nsclient/releases/download/${ver}/check_nsclient-${ver}-linux-${{ matrix.arch }}"
         echo "Fetching $url"
         curl -sSfL --retry 8 --retry-delay 15 --retry-max-time 300 -o check_nsclient "$url"
+        # Shipped inside the package, so pinned like every other dependency.
+        # See .github/dependency-checksums.txt.
+        .github/scripts/verify-checksum.sh "check_nsclient-linux-${{ matrix.arch }}" "${ver}" check_nsclient
         chmod +x check_nsclient
 
     - name: CMake (NSCP)

@@ -25,10 +25,21 @@ runs:
   using: composite
   steps:
 
+    # The value recorded for this version in .github/dependency-checksums.txt
+    # is part of the cache key, so a build is only ever restored for exactly
+    # the input it was made from. Re-recording the digest (or recording one
+    # where it used to read `unrecorded`) starts a fresh build instead of
+    # reusing one made from bytes that were never checked against it.
+    - id: digest
+      shell: bash
+      run: |
+        value="$("$GITHUB_WORKSPACE/.github/scripts/dependency-digest.sh" cryptopp "${{ inputs.version }}")"
+        echo "value=${value}" >> "$GITHUB_OUTPUT"
+
     - id: cache
       uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c # v3
       with:
-        key: ${{ runner.os }}-cryptopp-${{ inputs.version }}-${{ inputs.architecture }}-${{ inputs.runtime }}-${{ inputs.toolset }}
+        key: ${{ runner.os }}-cryptopp-${{ inputs.version }}-${{ inputs.architecture }}-${{ inputs.runtime }}-${{ inputs.toolset }}-${{ steps.digest.outputs.value }}
         path: |
           tmp/cryptopp
 

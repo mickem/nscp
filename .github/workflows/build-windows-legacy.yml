@@ -167,18 +167,23 @@ jobs:
       with:
         version: ${{ ENV.MINIZ_VERSION }}
 
+    # The XP build links Boost statically with the static runtime, built by
+    # the v141 toolset against the XP-compatible Windows API level. The
+    # action downloads the archive, verifies it against
+    # .github/dependency-checksums.txt, and caches the result keyed on that
+    # digest.
     - name: Build Boost (static)
       id: static_boost
-      uses: mickem/build-boost@42c59d10fc12f919a986f7e1c2f7c752d4960190
+      uses: ./.github/actions/boost
       with:
         version: ${{ ENV.BOOST_VERSION }}
         libraries: system filesystem thread regex date_time program_options python chrono json
         platform: ${{ inputs.architecture }}
         configuration: Release
-        static: 1
-        static-runtime: 1
+        static: '1'
+        static-runtime: '1'
         directory: ${{ runner.workspace }}/static_boost
-        toolset: msvc141
+        toolset: '14.1'
         defines: _USING_V110_SDK71_ BOOST_USE_WINAPI_VERSION=0x501 BOOST_NO_CXX17_HDR_SHARED_MUTEX
 
     - id: paths
@@ -284,6 +289,43 @@ jobs:
         azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
         signing-enabled: ${{ github.ref == 'refs/heads/main' }}
 
+    # The SBOM records, for every dependency this build compiled or bundled,
+    # the version, the upstream URL and the SHA-256 or git commit it was
+    # verified against in .github/dependency-checksums.txt. It goes into the
+    # zip as sbom.cdx.json (with SHA256SUMS over the zip's files) and next to
+    # the zip and the MSI as a release asset. The values come from the
+    # manifest, never from the downloads, so it only claims what the build
+    # checked.
+    # The legacy build links neither MariaDB Connector/C nor check_nsclient.
+    - name: Write the SBOM
+      shell: bash
+      run: |
+        set -euo pipefail
+        python build/python/test_sbom.py
+        python build/python/sbom.py --check
+        name="NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}-legacy-xp"
+        protobuf_net=$(sed -n 's:.*<GoogleProtobufVersion[^>]*>\([^<]*\)</GoogleProtobufVersion>.*:\1:p' libs/dotnet-plugin-api/NSCP.Core.csproj)
+        args=(
+          --version "${{ inputs.version }}"
+          --platform "${{ steps.setup.outputs.platform }}-legacy-xp"
+          --commit "${GITHUB_SHA}"
+          --component "openssl=${{ env.OPENSSL_VERSION }}"
+          --component "protobuf=${{ env.PROTOBUF_VERSION }}"
+          --component "cryptopp=${{ env.CRYPTOPP_VERSION }}"
+          --component "boost=${{ env.BOOST_VERSION }}"
+          --component "lua=${{ env.LUA_VERSION }}"
+          --component "tinyxml2=${{ env.TINY_XML_2_VERSION }}"
+          --component "mongoose=${{ env.MONGOOSE_VERSION }}"
+          --component "miniz=${{ env.MINIZ_VERSION }}"
+          --component "googletest=${{ env.GOOGLE_TEST_VERSION }}"
+          --python-runtime "${{ steps.python.outputs.python-version }}"
+          --nuget "Google.Protobuf=${protobuf_net}"
+          --npm-lock web/package-lock.json
+          --zip "tmp/nscp/${name}.zip"
+          --output "tmp/nscp/${name}.cdx.json"
+        )
+        python build/python/sbom.py "${args[@]}"
+
     # The C# sample plugin is built for the tests but deliberately not part of
     # the zip or the MSI, so it travels next to them in the artifact (staged
     # under tmp/nscp to keep the artifact's root where it is) and the
@@ -302,6 +344,7 @@ jobs:
           tmp/nscp/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}-legacy-xp.zip
           tmp/nscp/installers/installer-NSCP/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}-legacy-xp.msi
           tmp/nscp/NSCP-${{ inputs.version }}-${{ inputs.platform }}-legacy-xp-symbols.zip
+          tmp/nscp/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}-legacy-xp.cdx.json
           tmp/nscp/dotnet-sample/
         if-no-files-found: error
 
