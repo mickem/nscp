@@ -140,6 +140,10 @@ class NSClientT : public nsclient::core::core_interface {
   // Register [/settings/facts] and, when a fact set is enabled, schedule the
   // refresh round. Done at boot, before the first round runs.
   void boot_facts();
+  // Build the `agent` fact set (or drop it, when [/settings/facts] agent is
+  // off) ahead of every facts round.
+  void collect_agent_facts();
+  bool is_enrolled();
   void boot_fleet_sync();
   void stop_fleet_sync();
 

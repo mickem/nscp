@@ -7,6 +7,8 @@
 
 #include <boost/json.hpp>
 
+#include "agent_facts.hpp"
+
 using fact_repository = nsclient::core::fact_repository;
 using set_result = nsclient::core::fact_repository::set_result;
 
@@ -440,4 +442,46 @@ TEST(FactRepository, AnEmptyGatheredTimeClearsIt) {
   repo.mark_gathered("os", "2026-09-23T08:00:00Z");
   repo.mark_gathered("os", "");
   EXPECT_TRUE(repo.get_gathered().empty());
+}
+
+// ============================================================================
+// The agent set: the one the core produces itself.
+// ============================================================================
+
+TEST(AgentFacts, DescribesTheAgentAndIsAcceptedByTheRepository) {
+  const PB::Facts::Object agent = nsclient::core::agent_facts::build("0.12.6", {"WEBServer", "CheckSystem"}, true);
+  fact_repository repo;
+  std::string error;
+  ASSERT_EQ(repo.set(nsclient::core::agent_facts::set_agent, fact_repository::core_owner, agent, error), set_result::changed) << error;
+  EXPECT_EQ(repo.to_json(), R"({"agent":{"enrolled":true,"modules":["CheckSystem","WEBServer"],"version":"0.12.6"}})");
+}
+
+TEST(AgentFacts, AModuleLoadedTwiceIsOneModule) {
+  // Two aliases of one module, and the order they loaded in, are not a
+  // difference worth a revision.
+  const PB::Facts::Object first = nsclient::core::agent_facts::build("1", {"CheckExternalScripts", "CheckDisk", "CheckExternalScripts"}, false);
+  const PB::Facts::Object second = nsclient::core::agent_facts::build("1", {"CheckDisk", "CheckExternalScripts"}, false);
+  EXPECT_EQ(first.SerializeAsString(), second.SerializeAsString());
+}
+
+TEST(AgentFacts, NoModulesIsAnEmptyListAndNoVersionIsOmitted) {
+  fact_repository repo;
+  std::string error;
+  ASSERT_EQ(repo.set("agent", fact_repository::core_owner, nsclient::core::agent_facts::build("", {}, false), error), set_result::changed) << error;
+  EXPECT_EQ(repo.to_json(), R"({"agent":{"enrolled":false,"modules":[]}})");
+}
+
+TEST(AgentFacts, TheCoreOwnsItsSetLikeAModuleDoes) {
+  // Switching `agent` off is the same omission a module's switch is: the core
+  // declares nothing and the set leaves the document. And no module can
+  // claim it while the core holds it.
+  fact_repository repo;
+  std::string error;
+  ASSERT_EQ(repo.set("agent", fact_repository::core_owner, nsclient::core::agent_facts::build("1", {}, false), error), set_result::changed);
+  EXPECT_EQ(repo.set("agent", 0, nsclient::core::agent_facts::build("1", {}, false), error), set_result::rejected);
+  repo.retain_only(fact_repository::core_owner, {"agent"});
+  EXPECT_EQ(repo.get_enabled(), std::set<std::string>({"agent"}));
+  repo.retain_only(fact_repository::core_owner, {});
+  EXPECT_EQ(repo.to_json(), "{}");
+  EXPECT_TRUE(repo.get_enabled().empty());
 }

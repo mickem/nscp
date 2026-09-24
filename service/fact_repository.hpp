@@ -76,6 +76,10 @@ class fact_repository {
   // Encoded size of the whole document. Overridable from [/settings/facts]
   // max size.
   static constexpr std::size_t default_max_size = 1048576;
+  // The owner id of the sets the core produces itself (`agent`). Plugin ids
+  // count up from 0, so the top of the range is one no module will ever be
+  // handed.
+  static constexpr unsigned int core_owner = 0xffffffffu;
 
   // Replace one fact set (a top-level key) with `value`, recording which
   // plugin owns it. Returns `rejected` without touching the stored document
