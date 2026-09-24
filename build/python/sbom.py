@@ -158,6 +158,8 @@ COMPONENTS = {
         'purl': 'pkg:github/mickem/check_nsclient@{version}',
         'kind': 'download',
         'url': 'https://github.com/mickem/check_nsclient/releases/download/{version}/check_nsclient-{version}-windows-{variant}.exe',
+        # The SBOM the release publishes for that binary, nested by --nested-sbom.
+        'sbom_url': 'https://github.com/mickem/check_nsclient/releases/download/{version}/check_nsclient-{version}-windows-{variant}.cdx.json',
     },
     'check_nsclient-linux': {
         'name': 'check_nsclient',
@@ -167,6 +169,15 @@ COMPONENTS = {
         'purl': 'pkg:github/mickem/check_nsclient@{version}',
         'kind': 'download',
         'url': 'https://github.com/mickem/check_nsclient/releases/download/{version}/check_nsclient-{version}-linux-{variant}',
+    },
+    # Not a component: the SHA256SUMS a check_nsclient release publishes. Its
+    # pinned digest is what the build checks the release's SBOMs against
+    # before nesting one with --nested-sbom.
+    'check_nsclient-sha256sums': {
+        'name': 'check_nsclient SHA256SUMS',
+        'kind': 'download',
+        'checksum_list': True,
+        'url': 'https://github.com/mickem/check_nsclient/releases/download/{version}/SHA256SUMS',
     },
 }
 
@@ -251,6 +262,8 @@ def prop(name, value):
 def manifest_component(manifest, name, version):
     """A component for a dependency the build verified against the manifest."""
     key, meta, variant = lookup(name)
+    if meta.get('checksum_list'):
+        raise SbomError(f'{name} is a checksum list, not a component')
     if (name, version) not in manifest:
         raise SbomError(f'{name} {version} has no line in {MANIFEST_NAME}; the build could not have verified it')
     value, comment = manifest[(name, version)]
@@ -425,6 +438,68 @@ def zip_file_names(zip_path):
         return [i.filename for i in z.infolist() if not i.is_dir()]
 
 
+def _walk(components):
+    for c in components:
+        yield c
+        yield from _walk(c.get('components', []))
+
+
+def nest_sbom(component, path):
+    """Nest the SBOM a dependency publishes for itself under its component.
+
+    The nested SBOM's own root becomes `component`; every other bom-ref is
+    prefixed with the component's so it cannot collide with ours. Returns its
+    dependency graph, rewritten to the new refs, for the caller to append.
+    """
+    key, meta, variant = lookup(next(p['value'] for p in component['properties']
+                                     if p['name'] == 'nscp:manifest-name'))
+    if 'sbom_url' not in meta:
+        raise SbomError(f'{component["bom-ref"]} publishes no SBOM to nest')
+    with open(path, 'rb') as f:
+        raw = f.read()
+    inner = json.loads(raw)
+    if inner.get('bomFormat') != 'CycloneDX':
+        raise SbomError(f'{path} is not a CycloneDX SBOM')
+    root = inner.get('metadata', {}).get('component', {})
+    if root.get('name') != meta['name'] or root.get('version') != component['version']:
+        raise SbomError(f'{path} describes {root.get("name")} {root.get("version")}, '
+                        f'not {meta["name"]} {component["version"]}')
+
+    parent = component['bom-ref']
+    inner_root = root.get('bom-ref')
+
+    def ref(value):
+        return parent if value == inner_root else f'{parent}|{value}'
+
+    def rewrite(c):
+        c = dict(c)
+        if 'bom-ref' in c:
+            c['bom-ref'] = ref(c['bom-ref'])
+        if 'components' in c:
+            c['components'] = [rewrite(x) for x in c['components']]
+        return c
+
+    nested = [rewrite(c) for c in inner.get('components', [])]
+    known = {c['bom-ref'] for c in _walk(nested) if 'bom-ref' in c} | {parent}
+    dependencies = []
+    for d in inner.get('dependencies', []):
+        r = ref(d['ref'])
+        if r in known:
+            dependencies.append({'ref': r, 'dependsOn': [ref(x) for x in d.get('dependsOn', []) if ref(x) in known]})
+
+    component['components'] = nested
+    component['externalReferences'].append({
+        'type': 'bom',
+        'url': expand(meta['sbom_url'], component['version'], variant),
+        'hashes': [{'alg': 'SHA-256', 'content': hashlib.sha256(raw).hexdigest()}],
+        'comment': 'The SBOM this release of the component publishes for itself, nested here as its '
+                   'components. The build checked it against the release\'s SHA256SUMS, whose digest is '
+                   f'recorded in {MANIFEST_NAME}.',
+    })
+    component['properties'].append(prop('nested-sbom', f'{len(nested)} components'))
+    return dependencies
+
+
 def build_sbom(args, manifest, zip_names):
     components = []
     for spec in args.component:
@@ -447,7 +522,19 @@ def build_sbom(args, manifest, zip_names):
         components.extend(npm_components(args.npm_lock))
 
     refs = [c['bom-ref'] for c in components]
-    if len(set(refs)) != len(refs):
+    nested_dependencies = []
+    for spec in args.nested_sbom:
+        name, sep, path = spec.partition('=')
+        if not sep or not name or not path:
+            raise SbomError(f'--nested-sbom expects NAME=PATH, got {spec!r}')
+        target = [c for c in components
+                  if {'name': 'nscp:manifest-name', 'value': name} in c.get('properties', [])]
+        if not target:
+            raise SbomError(f'--nested-sbom {name}: no --component {name}=... to nest it under')
+        nested_dependencies += nest_sbom(target[0], path)
+
+    all_refs = [c['bom-ref'] for c in _walk(components) if 'bom-ref' in c]
+    if len(set(all_refs)) != len(all_refs):
         raise SbomError('the same component was given twice')
 
     epoch = os.environ.get('SOURCE_DATE_EPOCH')
@@ -488,7 +575,7 @@ def build_sbom(args, manifest, zip_names):
             'component': root,
         },
         'components': components,
-        'dependencies': [{'ref': 'nscp', 'dependsOn': refs}],
+        'dependencies': [{'ref': 'nscp', 'dependsOn': refs}] + nested_dependencies,
     }
 
 
@@ -541,6 +628,9 @@ def parse_args(argv):
                         help='a NuGet package shipped as <NAME>.dll; left out when --zip lacks the DLL')
     parser.add_argument('--nuget-root', default=default_nuget_root(),
                         help='the NuGet global packages folder, for the recorded package hashes')
+    parser.add_argument('--nested-sbom', action='append', default=[], metavar='NAME=PATH',
+                        help='the CycloneDX SBOM a --component publishes for itself, verified by the caller; '
+                             'its components are nested under that component')
     parser.add_argument('--npm-lock', metavar='PATH', help='package-lock.json of the bundled web UI')
     parser.add_argument('--zip', metavar='PATH', help=f'add {SBOM_ENTRY} and {SUMS_ENTRY} to this zip')
     parser.add_argument('--output', metavar='PATH', help='where to write the SBOM')
@@ -582,7 +672,8 @@ def main(argv=None):
             npm += 1
             continue
         verification = next((p['value'] for p in c['properties'] if p['name'] == 'nscp:verification'), '')
-        print(f'  {c["name"]:<22} {c["version"]:<10} {verification}')
+        nested = f'  (+{len(c["components"])} nested)' if c.get('components') else ''
+        print(f'  {c["name"]:<22} {c["version"]:<10} {verification}{nested}')
     if npm:
         print(f'  plus {npm} npm packages bundled in the web UI')
     if args.zip:

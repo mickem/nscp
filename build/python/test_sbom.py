@@ -192,6 +192,66 @@ class SbomTest(unittest.TestCase):
         self.assertIn({'name': 'nscp:verification', 'value': 'none'}, c['properties'])
         self.assertIn('without a hash', err)
 
+    def nested_sbom(self, version='1.1.1', name='check_nsclient'):
+        path = self.path('inner.cdx.json')
+        root = 'path+file:///build#' + version
+        self.write(path, json.dumps({
+            'bomFormat': 'CycloneDX', 'specVersion': '1.5',
+            'metadata': {'component': {'bom-ref': root, 'name': name, 'version': version}},
+            'components': [
+                {'type': 'library', 'bom-ref': 'crate#clap@4', 'name': 'clap', 'version': '4',
+                 'hashes': [{'alg': 'SHA-256', 'content': DIGEST_A}]},
+                {'type': 'library', 'bom-ref': 'crate#anyhow@1', 'name': 'anyhow', 'version': '1'},
+            ],
+            'dependencies': [
+                {'ref': root, 'dependsOn': ['crate#clap@4', 'crate#anyhow@1']},
+                {'ref': 'crate#clap@4', 'dependsOn': ['crate#anyhow@1', 'crate#not-listed@9']},
+                {'ref': 'crate#not-listed@9', 'dependsOn': []},
+            ],
+        }))
+        return path
+
+    def test_nested_sbom_hangs_under_its_component(self):
+        path = self.nested_sbom()
+        bom, _ = self.generate('--component', 'check_nsclient-x64=1.1.1',
+                               '--nested-sbom', f'check_nsclient-x64={path}')
+        c = self.component(bom, 'check_nsclient-x64@1.1.1')
+        self.assertEqual([n['bom-ref'] for n in c['components']],
+                         ['check_nsclient-x64@1.1.1|crate#clap@4', 'check_nsclient-x64@1.1.1|crate#anyhow@1'])
+        self.assertEqual(c['components'][0]['hashes'][0]['content'], DIGEST_A)
+        ref = next(r for r in c['externalReferences'] if r['type'] == 'bom')
+        self.assertTrue(ref['url'].endswith('check_nsclient-1.1.1-windows-x64.cdx.json'))
+        with open(path, 'rb') as f:
+            self.assertEqual(ref['hashes'][0]['content'], hashlib.sha256(f.read()).hexdigest())
+        # Their root maps onto our component; refs outside the nested tree are dropped.
+        deps = {d['ref']: d['dependsOn'] for d in bom['dependencies']}
+        self.assertEqual(deps['check_nsclient-x64@1.1.1'],
+                         ['check_nsclient-x64@1.1.1|crate#clap@4', 'check_nsclient-x64@1.1.1|crate#anyhow@1'])
+        self.assertEqual(deps['check_nsclient-x64@1.1.1|crate#clap@4'], ['check_nsclient-x64@1.1.1|crate#anyhow@1'])
+        self.assertNotIn('check_nsclient-x64@1.1.1|crate#not-listed@9', deps)
+        self.assertEqual(deps['nscp'], ['check_nsclient-x64@1.1.1'])
+
+    def test_nested_sbom_for_another_version_is_refused(self):
+        path = self.nested_sbom(version='9.9.9')
+        code, _, err = run(['--manifest', self.manifest, '--version', '1', '--platform', 'x64',
+                            '--output', self.output, '--component', 'check_nsclient-x64=1.1.1',
+                            '--nested-sbom', f'check_nsclient-x64={path}'])
+        self.assertEqual(code, 1)
+        self.assertIn('describes check_nsclient 9.9.9', err)
+
+    def test_nested_sbom_needs_its_component(self):
+        code, _, err = run(['--manifest', self.manifest, '--version', '1', '--platform', 'x64',
+                            '--output', self.output, '--nested-sbom', f'check_nsclient-x64={self.nested_sbom()}'])
+        self.assertEqual(code, 1)
+        self.assertIn('no --component check_nsclient-x64', err)
+
+    def test_checksum_list_is_not_a_component(self):
+        self.write(self.manifest, MANIFEST + f'check_nsclient-sha256sums 1.1.1 {DIGEST_A}\n')
+        code, _, err = run(['--manifest', self.manifest, '--version', '1', '--platform', 'x64',
+                            '--output', self.output, '--component', 'check_nsclient-sha256sums=1.1.1'])
+        self.assertEqual(code, 1)
+        self.assertIn('checksum list, not a component', err)
+
     def test_python_runtime_and_root_metadata(self):
         bom, _ = self.generate('--python-runtime', '3.11.9')
         c = self.component(bom, 'cpython@3.11.9')

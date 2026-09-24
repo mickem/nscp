@@ -26,7 +26,10 @@ the Boost and Lua download pages. Each was also cross-checked against an
 independent source: Boost against the digest conan-center-index records for
 the same release, whose other archive format decompresses to the identical
 tar, and Lua against the byte-identical Debian/Ubuntu source tarball, whose
-`.dsc` records the same SHA-256.
+`.dsc` records the same SHA-256. check_nsclient publishes a `SHA256SUMS` with
+each release and attests every file from its own release workflow; the
+recorded digests are the ones in that list, and the attestations were verified
+before recording them.
 
 How the build enforces it:
 
@@ -41,7 +44,8 @@ How the build enforces it:
 
 The result is published with every Windows release: a CycloneDX software bill
 of materials lists every third-party component with its version, upstream URL
-and the digest or commit it was verified against, and the release workflow
+and the digest or commit it was verified against, including check_nsclient's
+own SBOM of the Rust crates it is built from, and the release workflow
 attests every asset and binds each SBOM to its zip and MSI. See
 [Verifying the download](../setup/installing.md#verifying-the-download).
 

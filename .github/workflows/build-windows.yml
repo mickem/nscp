@@ -326,14 +326,32 @@ jobs:
     # This binary is not built here - it is fetched and then shipped inside the
     # signed MSI, so its digest has to be pinned in the repository like every
     # other dependency. See .github/dependency-checksums.txt.
+    #
+    # The release also publishes a CycloneDX SBOM for the binary, which the
+    # SBOM step below nests into ours. It is checked against the release's
+    # SHA256SUMS, whose own digest is pinned in the same file, so the SBOM is
+    # exactly the one released next to this binary.
     - name: Download check_nsclient from mickem/check_nsclient
       shell: bash
       run: |
+        set -euo pipefail
         ver=$(cat .check_nsclient_version | tr -d '[:space:]')
-        url="https://github.com/mickem/check_nsclient/releases/download/${ver}/check_nsclient-${ver}-windows-${{ inputs.architecture }}.exe"
-        echo "Fetching $url"
-        curl -sSfL --retry 8 --retry-delay 15 --retry-max-time 300 -o tmp/check_nsclient.exe "$url"
+        base="https://github.com/mickem/check_nsclient/releases/download/${ver}"
+        exe="check_nsclient-${ver}-windows-${{ inputs.architecture }}.exe"
+        sbom="check_nsclient-${ver}-windows-${{ inputs.architecture }}.cdx.json"
+        fetch() {
+          echo "Fetching $1"
+          curl -sSfL --retry 8 --retry-delay 15 --retry-max-time 300 -o "$2" "$1"
+        }
+        fetch "${base}/${exe}" tmp/check_nsclient.exe
         .github/scripts/verify-checksum.sh "check_nsclient-${{ inputs.architecture }}" "${ver}" tmp/check_nsclient.exe
+
+        mkdir -p tmp/check_nsclient-release
+        fetch "${base}/SHA256SUMS" tmp/check_nsclient-release/SHA256SUMS
+        .github/scripts/verify-checksum.sh check_nsclient-sha256sums "${ver}" tmp/check_nsclient-release/SHA256SUMS
+        fetch "${base}/${sbom}" "tmp/check_nsclient-release/${sbom}"
+        # Only the SBOM's own line: grep fails the step if the list has none.
+        (cd tmp/check_nsclient-release && grep -E "^[0-9a-f]{64} [ *]${sbom//./\\.}\$" SHA256SUMS | sha256sum --check --strict -)
 
     # Everything that only differs on ARM64, in one place.
     #
@@ -426,6 +444,7 @@ jobs:
         python build/python/test_sbom.py
         python build/python/sbom.py --check
         name="NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}"
+        cn_ver=$(tr -d '[:space:]' < .check_nsclient_version)
         protobuf_net=$(sed -n 's:.*<GoogleProtobufVersion[^>]*>\([^<]*\)</GoogleProtobufVersion>.*:\1:p' libs/dotnet-plugin-api/NSCP.Core.csproj)
         args=(
           --version "${{ inputs.version }}"
@@ -441,7 +460,8 @@ jobs:
           --component "miniz=${{ env.MINIZ_VERSION }}"
           --component "googletest=${{ env.GOOGLE_TEST_VERSION }}"
           --component "mariadb=${{ env.MARIADB_CONNECTOR_VERSION }}"
-          --component "check_nsclient-${{ inputs.architecture }}=$(tr -d '[:space:]' < .check_nsclient_version)"
+          --component "check_nsclient-${{ inputs.architecture }}=${cn_ver}"
+          --nested-sbom "check_nsclient-${{ inputs.architecture }}=tmp/check_nsclient-release/check_nsclient-${cn_ver}-windows-${{ inputs.architecture }}.cdx.json"
           --nuget "Google.Protobuf=${protobuf_net}"
           --npm-lock web/package-lock.json
           --zip "tmp/nscp/${name}.zip"

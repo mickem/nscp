@@ -473,6 +473,16 @@ Each component also has an `nscp:verification` property:
 GoogleTest is listed with `"scope": "excluded"`: only the unit tests link it,
 so it is not in anything you install.
 
+check_nsclient publishes an SBOM of its own with each release, and the build
+nests it under the check_nsclient component: the Rust crates it is built from,
+each with its version and SHA-256. The build checks that SBOM against the
+release's `SHA256SUMS` before nesting it. To list them:
+
+```
+jq -r '.components[] | select(.name == "check_nsclient") | .components[]
+       | "\(.name) \(.version) \(.hashes[0].content)"' sbom.cdx.json
+```
+
 ### Step 4: Check a component against its upstream project
 
 Download the file the SBOM names and hash it yourself. The value must match
@@ -490,7 +500,16 @@ curl -sSfL https://github.com/openssl/openssl/releases/download/openssl-3.5.8/op
 | OpenSSL                                            | A `.sha256` file next to the tarball: the URL with `.sha256` appended.                                                  |
 | Boost                                              | The release notes page for the version, e.g. [Boost 1.86.0](https://www.boost.org/users/history/version_1_86_0.html).   |
 | Lua                                                | The checksum column of [lua.org/ftp](https://www.lua.org/ftp/).                                                        |
-| Protocol Buffers, Crypto++, miniz, check_nsclient  | Nowhere. The SBOM digest then only shows that the file has not changed since the project recorded it.                   |
+| check_nsclient                                     | `SHA256SUMS` on its [release page](https://github.com/mickem/check_nsclient/releases), itself attested (see below).     |
+| Protocol Buffers, Crypto++, miniz                  | Nowhere. The SBOM digest then only shows that the file has not changed since the project recorded it.                   |
+
+check_nsclient attests its releases the same way this project does, so its
+binary can be traced to its own release workflow:
+
+```
+gh attestation verify check_nsclient-<version>-windows-x64.exe --repo mickem/check_nsclient \
+   --signer-workflow mickem/check_nsclient/.github/workflows/release.yml
+```
 
 For a component cloned from git, ask the upstream repository which commit the
 tag points at. The SBOM's `nscp:git-ref` property names the tag, and the

@@ -75,18 +75,35 @@ tinyxml2        10.1.0    57eea48c5bfc354ac45d53b2eb499e66c80d63e0
 mongoose        7.23      02bdbb9ed6f0a8f7c42228c6e7cb35d748b60551
 mariadb         3.4.9     64e9fe09fea6a017bab92e19a08d2301e3da5b56
 
-# The prebuilt check_nsclient.exe, which ships inside the signed MSI. Keyed by
-# the version in .check_nsclient_version; one line per architecture, since the
-# release publishes a separate binary for each. A missing line fails the build,
-# so adding an architecture cannot silently skip verification.
-check_nsclient-x64      1.1.2   77a90830214e5f5613024adce05278887c19e818c0ae80f5284bfa090e93e65b
-check_nsclient-x86      1.1.2   a5ce21419bc93c15953b406b7a769525c9b545e64ddf89a7fa2ce50ed7256f9a
-check_nsclient-arm64    1.1.2   a044b01858f2d39c14574187185c55d57d0906db8b44240165d7b26361c8d0fa
+# check_nsclient, from https://github.com/mickem/check_nsclient/releases,
+# keyed by the version in .check_nsclient_version. Each release publishes a
+# SHA256SUMS over its binaries and their CycloneDX SBOMs, and attests every
+# binary, the SBOM of each, and the SHA256SUMS itself from its release
+# workflow. The digests below are the ones in that SHA256SUMS, and the
+# attestations were verified before recording them: all name
+# .github/workflows/release.yml of mickem/check_nsclient at commit 4a3a09d
+# (the 1.1.3 tag). To check again:
+#
+#   gh attestation verify check_nsclient-1.1.3-windows-x64.exe \
+#     --repo mickem/check_nsclient \
+#     --signer-workflow mickem/check_nsclient/.github/workflows/release.yml
+#
+# One line per architecture, since the release publishes a separate binary
+# for each; a missing line fails the build, so adding an architecture cannot
+# silently skip verification.
 
-# The Linux builds of the same binary, shipped inside the .deb and .rpm
-# packages and fetched by build-debian.yml and build-redhat.yml. Keyed by the
-# `arch` of those workflows' matrices. The release publishes no checksum, so
-# these record the bytes a fetch returned (the Windows lines above, recorded
-# earlier, still matched the release on the same day).
-check_nsclient-linux-x64    1.1.2   cb6e07d94d6899dae588882b7c9d442a230f71e69362407be0bb4ac0f74caa5c
-check_nsclient-linux-arm64  1.1.2   991702252c5d40816f0708f83101c81c3c62fe9a4007e24c69f4d4a9baff931e
+# The Windows binaries, shipped inside the signed MSI and the zip.
+check_nsclient-x64      1.1.3   98eb249e6944a7658bff2b7fefeadfb3c327ad227108e08471aea589d75bf8e8
+check_nsclient-x86      1.1.3   3542589f50a120850a84996daba422824a5204ee83aa287caf465658986815cf
+check_nsclient-arm64    1.1.3   43063b98ff851906d8a2f7433a61029c156e14ba6899ecc37d59ad96ea2b873f
+
+# The Linux binaries, shipped inside the .deb and .rpm packages and fetched by
+# build-debian.yml and build-redhat.yml. Keyed by the `arch` of those
+# workflows' matrices.
+check_nsclient-linux-x64    1.1.3   61b81ceb0c586ffd717dcb412bd921001af1ef489f4134bdd31b7176d56cf741
+check_nsclient-linux-arm64  1.1.3   8f978a593402e5607cb530ae7f0da8ebc84cc24560277d02740bd31905bdd17e
+
+# The release's SHA256SUMS itself. The Windows build fetches the release's
+# SBOM for the binary it bundles, checks it against this list, and nests it
+# into the NSClient++ SBOM, so the check_nsclient Rust crates are listed too.
+check_nsclient-sha256sums   1.1.3   0f1eaa34f1618fe37827da5d7b087193dd5472f474b73fdccf34004a11d4f48d
