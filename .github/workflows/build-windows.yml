@@ -15,16 +15,24 @@ on:
         type: string
         description: 'Version to build'
         required: true
+      sign:
+        type: boolean
+        description: >-
+          Authenticode-sign the shipped binaries and the MSI. Only the release
+          build (build-release.yml) sets it, and only it passes the secrets
+          below: a pull request or a merge to main never sees them.
+        required: false
+        default: false
     secrets:
       AZURE_TENANT_ID:
-        description: 'Azure tenant ID'
-        required: true
+        description: 'Azure tenant ID (signing only)'
+        required: false
       AZURE_CLIENT_ID:
-        description: 'Azure client ID'
-        required: true
+        description: 'Azure client ID (signing only)'
+        required: false
       AZURE_CLIENT_SECRET:
-        description: 'Azure client secret'
-        required: true
+        description: 'Azure client secret (signing only)'
+        required: false
 
 env:
   PYTHON_VERSION: 3.11
@@ -406,11 +414,40 @@ jobs:
       run: |
         ctest --output-on-failure -C Release
 
+    # Every executable and library the MSI installs, taken from the installer's
+    # own .wxs files, and nothing else: the unit tests build into the same
+    # folder as nscp.exe. Runs on every build, signed or not, so a pull request
+    # that breaks the list fails here rather than in the release build. A file
+    # that already carries a valid signature (the Python runtime, the bundled
+    # check_nsclient.exe) keeps its publisher's.
+    - name: List binaries to sign
+      id: signing_list
+      shell: pwsh
+      run: |
+        python build/python/test_signing_list.py
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        $files = python build/python/signing_list.py --wix-dir installers/installer-NSCP --defines tmp/nscp/installers/installer-NSCP/wix-defines.txt
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        $unsigned = @()
+        foreach ($f in $files) {
+          $sig = Get-AuthenticodeSignature -LiteralPath $f
+          if ($sig.Status -eq 'Valid') {
+            Write-Host "keeps its signature ($($sig.SignerCertificate.Subject)): $f"
+          } else {
+            $unsigned += $f
+          }
+        }
+        Write-Host "$($unsigned.Count) of $($files.Count) shipped binaries to sign"
+        $delimiter = "EOF_$([guid]::NewGuid().ToString('N'))"
+        "files<<$delimiter" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+        $unsigned | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+        $delimiter | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
     - name: Sign binaries
-      # Only sign on main; PRs lack the signing secrets and don't need signed builds.
-      if: github.ref == 'refs/heads/main'
+      if: inputs.sign && steps.signing_list.outputs.files != ''
       uses: ./.github/actions/sign-windows-binaries
       with:
+        files: ${{ steps.signing_list.outputs.files }}
         azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
         azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
         azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
@@ -428,7 +465,7 @@ jobs:
         azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
         azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
         azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
-        signing-enabled: ${{ github.ref == 'refs/heads/main' }}
+        signing-enabled: ${{ inputs.sign }}
 
     # The SBOM records, for every dependency this build compiled or bundled,
     # the version, the upstream URL and the SHA-256 or git commit it was

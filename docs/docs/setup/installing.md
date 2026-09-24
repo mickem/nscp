@@ -421,9 +421,12 @@ gh attestation verify NSCP-<version>-x64.msi --repo mickem/nscp --format json \
          | .buildDefinition.resolvedDependencies[0].digest.gitCommit, .runDetails.metadata.invocationId'
 ```
 
-The MSI, `nscp.exe` and the DLLs are also Authenticode-signed, which Windows
-shows under *Properties > Digital Signatures*, or `Get-AuthenticodeSignature`
-in PowerShell.
+The MSI and every executable, DLL and Python extension it installs are also
+Authenticode-signed, which Windows shows under *Properties > Digital
+Signatures*, or `Get-AuthenticodeSignature` in PowerShell. A third-party file
+that already carries its publisher's signature, such as the Python runtime,
+keeps that signature. Releases up to 0.23.0 signed only the MSI and the
+executables.
 
 ### Step 2: Get the SBOM for that file
 
