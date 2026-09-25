@@ -8,6 +8,8 @@
  * the module that produces it. CheckSystem is the producer here, with `os` and
  * `hardware` turned on.
  */
+import * as fs from "fs";
+import * as path from "path";
 import request from "supertest";
 import { NscpInstance, REST_URL } from "@fixtures/index";
 
@@ -490,5 +492,124 @@ describe("REST facts with no set enabled", () => {
         // timestamp even here.
         expect(response.body.revision).toEqual(0);
       });
+  });
+});
+
+/**
+ * The producers that describe a service rather than the host: CheckDocker
+ * and CheckMySQL. Neither service is available to the docker-free suites, so
+ * what is asserted here is the contract for that case - the set is claimed
+ * (it is enabled), and the failure to reach the service is reported under
+ * `errors` instead of the set silently going missing. The live shape of both
+ * sets is covered next to their command suites, checkdocker-commands.test.ts
+ * and checkmysql-commands.test.ts, which have the daemon and a server.
+ */
+describe("REST facts from service producers", () => {
+  let nscp: NscpInstance;
+  let key: string | undefined = undefined;
+  const mysqlBuilt = (() => {
+    if (!process.env.NSCP_BIN) return false;
+    const dir = path.join(path.dirname(process.env.NSCP_BIN), "modules");
+    return (
+      fs.existsSync(path.join(dir, "libCheckMySQL.so")) ||
+      fs.existsSync(path.join(dir, "CheckMySQL.dll")) ||
+      fs.existsSync(path.join(dir, "CheckMySQL.so"))
+    );
+  })();
+
+  beforeAll(async () => {
+    nscp = new NscpInstance();
+    await nscp.configure({
+      "/modules": {
+        WEBServer: "enabled",
+        CheckDocker: "enabled",
+        ...(mysqlBuilt ? { CheckMySQL: "enabled" } : {}),
+      },
+      "/settings/default": {
+        "allowed hosts": "127.0.0.1,::1",
+      },
+      "/settings/WEB/server/users/admin": {
+        role: "full",
+        password: "default-password",
+      },
+      "/settings/docker": {
+        timeout: "5",
+      },
+      "/settings/docker/facts": {
+        docker: "true",
+        "docker.containers": "true",
+        "docker.images": "true",
+      },
+      ...(mysqlBuilt
+        ? {
+            // Nothing listens on port 1, so the connection is refused at
+            // once on every host rather than found on one that happens to
+            // run a server on 3306.
+            "/settings/mysql": {
+              hostname: "127.0.0.1",
+              port: "1",
+              timeout: "2",
+            },
+            "/settings/mysql/facts": {
+              mysql: "true",
+              "mysql.databases": "true",
+            },
+          }
+        : {}),
+    });
+    nscp.start();
+    await nscp.waitForPort(8443, { timeoutMs: 30_000 });
+    await request(REST_URL)
+      .get("/api/v2/login")
+      .auth("admin", "default-password")
+      .trustLocalhost(true)
+      .expect(200)
+      .then((response) => {
+        key = response.body.key;
+      });
+  });
+
+  afterAll(async () => {
+    await nscp?.stop();
+  });
+
+  it("claims the docker set and either fills it or says why not", async () => {
+    const response = await request(REST_URL)
+      .post("/api/v2/facts/commands/refresh")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true)
+      .expect(200);
+    // Enabled is a claim, not a result: a set that is switched on but could
+    // not be collected is still listed, so a UI can show it as failing rather
+    // than as absent.
+    expect(response.body.enabled).toContain("docker");
+    const docker = response.body.facts.docker;
+    if (docker !== undefined) {
+      // A host with a reachable daemon (a developer's machine): the real
+      // thing, in the shape checkdocker-commands.test.ts checks in full.
+      expect(typeof docker.version).toBe("string");
+      expect(Array.isArray(docker.containers)).toBe(true);
+      expect(Array.isArray(docker.images)).toBe(true);
+    } else {
+      // No daemon: the reason is reported against the set, naming the
+      // endpoint, and nothing pretends to be an empty inventory.
+      expect(response.body.errors.docker).toMatch(/docker daemon at '/);
+    }
+  });
+
+  it("reports a MySQL server it cannot reach against the set", async () => {
+    if (!mysqlBuilt) return;
+    const response = await request(REST_URL)
+      .post("/api/v2/facts/commands/refresh")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true)
+      .expect(200);
+    expect(response.body.enabled).toContain("mysql");
+    expect(response.body.facts.mysql).toBeUndefined();
+    // The target is named, so the operator knows which server is meant; the
+    // user and password never are.
+    expect(response.body.errors.mysql).toMatch(
+      /^Failed to connect to MySQL server '127\.0\.0\.1:1': /,
+    );
   });
 });

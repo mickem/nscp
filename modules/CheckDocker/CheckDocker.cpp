@@ -3,6 +3,7 @@
 
 #include "CheckDocker.h"
 
+#include <ctime>
 #include <net/http/client.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/settings/helper.hpp>
@@ -15,6 +16,7 @@
 #include "check_docker_stats.hpp"
 #include "docker_client.hpp"
 #include "docker_endpoint.hpp"
+#include "docker_facts.hpp"
 
 namespace sh = nscapi::settings_helper;
 
@@ -60,8 +62,38 @@ bool CheckDocker::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
       ;
     // clang-format on
 
+    bool facts_daemon = false;
+    bool facts_containers = false;
+    bool facts_images = false;
+    // clang-format off
+    settings.alias().add_key_to_settings("facts")
+      .add_bool(docker_facts::id_daemon, sh::bool_key(&facts_daemon, false),
+        "DOCKER DAEMON FACTS",
+        "Collect the daemon record of the `docker` fact set: the docker version, the OS and architecture it runs on, the kernel, the storage and "
+        "cgroup drivers, the CPU and memory it sees and whether it is a swarm node. Not the container or image counts: those are monitoring, "
+        "and they live in check_docker_info. One GET /info per facts round. Nothing is collected while this is off.")
+      .add_bool(docker_facts::id_containers, sh::bool_key(&facts_containers, false),
+        "DOCKER CONTAINERS FACTS",
+        "Collect the `docker.containers` fact set: one record per container the daemon knows, stopped ones included - its names (the record id, "
+        "the same value check_docker calls `names`), the image it was created from, when it was created, its published and exposed ports and "
+        "the compose project and service it belongs to. Not its state: that is monitoring, and it lives in check_docker. Cheap - the same "
+        "listing check_docker all=true does, re-read every facts round because containers come and go. Nothing is collected while this is off.")
+      .add_bool(docker_facts::id_images, sh::bool_key(&facts_images, false),
+        "DOCKER IMAGES FACTS",
+        "Collect the `docker.images` fact set: one record per image the daemon holds - its first tag (the record id; the image id when it has "
+        "none), every tag, when it was built and its size. One GET /images/json per facts round. Nothing is collected while this is off.")
+      ;
+    // clang-format on
+
     settings.register_all();
     settings.notify();
+
+    // Which parts of the set fetchFacts builds is configuration, so it is
+    // re-read on every load, a reload included: the core drops a set a
+    // producer stops returning, and that is what turning it off means.
+    facts_daemon_.store(facts_daemon);
+    facts_containers_.store(facts_containers);
+    facts_images_.store(facts_images);
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("loading: ", e);
     return false;
@@ -73,6 +105,35 @@ bool CheckDocker::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 }
 
 bool CheckDocker::unloadModule() { return true; }
+
+void CheckDocker::fetchFacts(const nscapi::facts::request &, nscapi::facts::response &response) {
+  docker_facts::selection what;
+  what.daemon = facts_daemon_.load();
+  what.containers = facts_containers_.load();
+  what.images = facts_images_.load();
+  if (!what.any()) return;
+
+  // Every round, whatever its reason: containers are started and removed and
+  // images pulled under a running agent, and each part costs one request to
+  // the daemon. The endpoint is the configured one - a facts round has no
+  // request to take a `host=` from - and it is held to the same rule as the
+  // checks hold theirs to (see is_local_docker_endpoint).
+  const std::string endpoint = defaults_.endpoint.empty() ? docker_checks::default_docker_endpoint() : defaults_.endpoint;
+  std::string endpoint_error;
+  if (!docker_checks::is_local_docker_endpoint(endpoint, endpoint_error)) {
+    response.error(docker_facts::set_docker, endpoint_error);
+    return;
+  }
+  try {
+    const docker_facts::snapshot snap = docker_facts::gather(what, make_daemon_fetcher(endpoint, defaults_.timeout), endpoint);
+    docker_facts::publish(what, snap, std::time(nullptr), response);
+  } catch (const std::exception &e) {
+    // Named against the set rather than failing the round: the core keeps the
+    // containers it already holds and reports why they are stale. A daemon
+    // that is down for a minute must not blank the inventory.
+    response.error(docker_facts::set_docker, utf8::utf8_from_native(e.what()));
+  }
+}
 
 void CheckDocker::check_docker(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   docker_checks::check_containers(defaults_, request, response, &make_daemon_fetcher);

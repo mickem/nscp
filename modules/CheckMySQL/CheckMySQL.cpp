@@ -3,6 +3,7 @@
 
 #include "CheckMySQL.h"
 
+#include <ctime>
 #include <nscapi/macros.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nscapi/settings/proxy.hpp>
@@ -10,6 +11,7 @@
 
 #include "check_mysql.hpp"
 #include "check_mysql_query.hpp"
+#include "mysql_facts.hpp"
 #include "mysql_session.hpp"
 
 namespace sh = nscapi::settings_helper;
@@ -48,8 +50,33 @@ bool CheckMySQL::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
       ;
     // clang-format on
 
+    bool facts_server = false;
+    bool facts_databases = false;
+    // clang-format off
+    settings.alias().add_key_to_settings("facts")
+      .add_bool(mysql_facts::id_server, sh::bool_key(&facts_server, false),
+        "MYSQL SERVER FACTS",
+        "Collect the server record of the `mysql` fact set: the flavor (mysql, mariadb or percona, the same value check_mysql calls `flavor`), the "
+        "version and version comment, the hostname and port the server reports about itself, its server id, its default character set and "
+        "collation and the OS and architecture it was built for. Not its uptime or connections: those are monitoring, and they live in "
+        "check_mysql. One connection and one query per facts round, made with the credentials configured in this section's parent (user, password "
+        "or defaults file): a facts round has no request to take them from. Nothing is collected while this is off.")
+      .add_bool(mysql_facts::id_databases, sh::bool_key(&facts_databases, false),
+        "MYSQL DATABASES FACTS",
+        "Collect the `mysql.databases` fact set: one record per database (schema) the configured user may see, system schemas included - its name "
+        "(the record id), its default character set and collation. Not its size: that is monitoring. One query of information_schema.SCHEMATA "
+        "per facts round, over the same connection as the server record. Nothing is collected while this is off.")
+      ;
+    // clang-format on
+
     settings.register_all();
     settings.notify();
+
+    // Which parts of the set fetchFacts builds is configuration, so it is
+    // re-read on every load, a reload included: the core drops a set a
+    // producer stops returning, and that is what turning it off means.
+    facts_server_.store(facts_server);
+    facts_databases_.store(facts_databases);
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("loading: ", e);
     return false;
@@ -61,6 +88,39 @@ bool CheckMySQL::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 }
 
 bool CheckMySQL::unloadModule() { return true; }
+
+void CheckMySQL::fetchFacts(const nscapi::facts::request &, nscapi::facts::response &response) {
+  mysql_facts::selection what;
+  what.server = facts_server_.load();
+  what.databases = facts_databases_.load();
+  if (!what.any()) return;
+
+  // Every round, whatever its reason: databases are created and dropped and
+  // servers upgraded under a running agent, and a round costs one connection
+  // and at most two queries. The connection is the configured one - a facts
+  // round has no request to take a host= or a user= from.
+  const mysql_client::connection_info info = defaults_;
+  mysql_client::query_runner run;
+  try {
+    run = mysql_session::make_session_factory()(info);
+  } catch (const mysql_client::mysql_exception &e) {
+    // Named against the set rather than failing the round: the core keeps the
+    // databases it already holds and reports why they are stale. A server
+    // that is down for a minute must not blank the inventory.
+    response.error(mysql_facts::set_mysql, "Failed to connect to MySQL server '" + info.display_target() + "': " + e.reason());
+    return;
+  } catch (const std::exception &e) {
+    response.error(mysql_facts::set_mysql, "Failed to connect to MySQL server '" + info.display_target() + "': " + utf8::utf8_from_native(e.what()));
+    return;
+  }
+  try {
+    mysql_facts::publish(what, mysql_facts::gather(what, run), std::time(nullptr), response);
+  } catch (const mysql_client::mysql_exception &e) {
+    response.error(mysql_facts::set_mysql, "Query failed on MySQL server '" + info.display_target() + "': " + e.reason());
+  } catch (const std::exception &e) {
+    response.error(mysql_facts::set_mysql, "Failed to collect from MySQL server '" + info.display_target() + "': " + utf8::utf8_from_native(e.what()));
+  }
+}
 
 void CheckMySQL::check_mysql(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_mysql_command::check_with(defaults_, request, response, mysql_session::make_session_factory());

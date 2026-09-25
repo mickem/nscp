@@ -14,7 +14,11 @@ set(SRCS
     check_mysql.cpp
     check_mysql_query.cpp
     mysql_client.cpp
+    mysql_facts.cpp
     mysql_session.cpp
+    # normalize_arch(): the server's architecture is published in the `os`
+    # set's vocabulary.
+    ${NSCP_INCLUDEDIR}/facts/host_facts.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
     ${NSCP_ERROR_CPP}
@@ -28,6 +32,7 @@ if(WIN32)
         check_mysql.hpp
         check_mysql_query.hpp
         mysql_client.hpp
+        mysql_facts.hpp
         mysql_session.hpp
         mysql_options.hpp
         mysql_filter_helpers.hpp
@@ -82,16 +87,20 @@ elseif(WIN32)
     )
 endif()
 
-# The unit tests exercise the checks through an injected session factory, so
-# they compile without mysql_session.cpp and never link the connector.
+# The unit tests exercise the checks and the facts producer through an
+# injected session factory, so they compile without mysql_session.cpp and
+# never link the connector.
 NSCP_CREATE_TEST(
     check_mysql_test
     SOURCES
         check_mysql_test.cpp
+        mysql_facts_test.cpp
         # Module sources under test.
         check_mysql.cpp
         check_mysql_query.cpp
         mysql_client.cpp
+        mysql_facts.cpp
+        ${NSCP_INCLUDEDIR}/facts/host_facts.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp

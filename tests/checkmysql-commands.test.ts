@@ -14,7 +14,8 @@
  */
 import * as fs from "fs";
 import * as path from "path";
-import { NscpInstance } from "@fixtures/index";
+import request from "supertest";
+import { NscpInstance, REST_URL } from "@fixtures/index";
 import { dockerOrSkip, GenericContainer, Wait, type StartedTestContainer } from "./src/docker";
 
 jest.setTimeout(300_000);
@@ -127,5 +128,102 @@ dockerOrSkip()("CheckMySQL commands", () => {
     if (!moduleBuilt()) return;
     const out = await query("check_mysql", ["host=127.0.0.1", "port=1", "timeout=2"]);
     expect(out).toMatch(/Failed to connect to MySQL server '127\.0\.0\.1:1'/);
+  });
+});
+
+/**
+ * The `mysql` fact set, read over REST from an `nscp test` pointed at the
+ * containerized server through [/settings/mysql] - the only place a facts
+ * round can take its credentials from.
+ */
+dockerOrSkip()("CheckMySQL facts", () => {
+  let nscp: NscpInstance;
+  let mariadb: StartedTestContainer | undefined;
+  let key: string | undefined = undefined;
+
+  beforeAll(async () => {
+    if (!moduleBuilt()) return;
+    mariadb = await new GenericContainer("mariadb:11")
+      .withEnvironment({ MARIADB_ROOT_PASSWORD: ROOT_PASSWORD, MARIADB_DATABASE: "nscp_inventory" })
+      .withExposedPorts(3306)
+      .withWaitStrategy(Wait.forLogMessage(/ready for connections/, 2))
+      .start();
+
+    nscp = new NscpInstance();
+    await nscp.configure({
+      "/modules": {
+        WEBServer: "enabled",
+        CheckMySQL: "enabled",
+      },
+      "/settings/default": {
+        "allowed hosts": "127.0.0.1,::1",
+      },
+      "/settings/WEB/server/users/admin": {
+        role: "full",
+        password: "default-password",
+      },
+      "/settings/mysql": {
+        hostname: mariadb.getHost(),
+        port: String(mariadb.getMappedPort(3306)),
+        user: "root",
+        password: ROOT_PASSWORD,
+      },
+      "/settings/mysql/facts": {
+        mysql: "true",
+        "mysql.databases": "true",
+      },
+    });
+    nscp.start();
+    await nscp.waitForPort(8443, { timeoutMs: 30_000 });
+    await request(REST_URL)
+      .get("/api/v2/login")
+      .auth("admin", "default-password")
+      .trustLocalhost(true)
+      .expect(200)
+      .then((response) => {
+        key = response.body.key;
+      });
+  });
+
+  afterAll(async () => {
+    await nscp?.stop();
+    await mariadb?.stop();
+  });
+
+  it("describes the server the way it describes itself, without its load or its credentials", async () => {
+    if (!moduleBuilt()) return;
+    // Collect now: the startup round may still be running.
+    const response = await request(REST_URL)
+      .post("/api/v2/facts/commands/refresh")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true)
+      .expect(200);
+    expect(response.body.enabled).toContain("mysql");
+    expect(response.body.errors.mysql).toBeUndefined();
+    const mysql = response.body.facts.mysql;
+    expect(mysql.flavor).toEqual("mariadb");
+    expect(mysql.version).toMatch(/MariaDB/);
+    // What the server reports about itself: its own port inside the
+    // container, not the mapped one the agent connected to.
+    expect(mysql.port).toEqual(3306);
+    expect(mysql.hostname).toBeTruthy();
+    expect(mysql.character_set).toBeTruthy();
+    expect(mysql.architecture).toMatch(/^[a-z0-9_]+$/);
+    // Inventory, not monitoring - and never the configuration: no uptime or
+    // connection counts, and nothing from [/settings/mysql].
+    expect(
+      Object.keys(mysql).filter((k) => /uptime|connections|user|password|socket/.test(k)),
+    ).toEqual([]);
+
+    const databases: Record<string, any>[] = mysql.databases;
+    expect(Array.isArray(databases)).toBe(true);
+    const ids = databases.map((d) => d.id);
+    expect(new Set(ids).size).toEqual(ids.length);
+    expect([...ids].sort()).toEqual(ids);
+    // System schemas are databases too, and the one the container created.
+    expect(ids).toEqual(expect.arrayContaining(["information_schema", "mysql", "nscp_inventory"]));
+    const created = databases.find((d) => d.id === "nscp_inventory");
+    expect(created!.character_set).toBeTruthy();
+    expect(created!.collation).toBeTruthy();
   });
 });

@@ -12,7 +12,8 @@
  * endpoint points); Windows named-pipe coverage lives in the unit tests.
  */
 import * as fs from "fs";
-import { NscpInstance } from "@fixtures/index";
+import request from "supertest";
+import { NscpInstance, REST_URL } from "@fixtures/index";
 import { skipDocker, GenericContainer, type StartedTestContainer } from "./src/docker";
 
 jest.setTimeout(300_000);
@@ -174,5 +175,139 @@ maybeDescribe("CheckDocker commands", () => {
   it("does not echo the endpoint the caller asked for", async () => {
     const out = await query("check_docker", ["host=/tmp/nscp-secret-probe.sock"]);
     expect(out).not.toMatch(/nscp-secret-probe/);
+  });
+});
+
+/**
+ * The `docker` fact set, read over REST from an `nscp test` with the three
+ * switches on. The inventory the daemon behind /var/run/docker.sock really
+ * holds, which is why this lives here rather than in rest-facts.test.ts: the
+ * probe container is the one record whose shape is known in advance.
+ */
+maybeDescribe("CheckDocker facts", () => {
+  let nscp: NscpInstance;
+  let probe: StartedTestContainer;
+  let probeName = "";
+  let key: string | undefined = undefined;
+
+  beforeAll(async () => {
+    probe = await new GenericContainer("alpine:3").withCommand(["sleep", "600"]).start();
+    probeName = probe.getName().replace(/^\//, "");
+
+    nscp = new NscpInstance();
+    await nscp.configure({
+      "/modules": {
+        WEBServer: "enabled",
+        CheckDocker: "enabled",
+      },
+      "/settings/default": {
+        "allowed hosts": "127.0.0.1,::1",
+      },
+      "/settings/WEB/server/users/admin": {
+        role: "full",
+        password: "default-password",
+      },
+      "/settings/docker/facts": {
+        docker: "true",
+        "docker.containers": "true",
+        "docker.images": "true",
+      },
+    });
+    nscp.start();
+    await nscp.waitForPort(8443, { timeoutMs: 30_000 });
+    await request(REST_URL)
+      .get("/api/v2/login")
+      .auth("admin", "default-password")
+      .trustLocalhost(true)
+      .expect(200)
+      .then((response) => {
+        key = response.body.key;
+      });
+  });
+
+  afterAll(async () => {
+    await nscp?.stop();
+    await probe?.stop();
+  });
+
+  /** Collect now and return the whole document: the startup round may still be running. */
+  async function refresh(): Promise<Record<string, any>> {
+    const response = await request(REST_URL)
+      .post("/api/v2/facts/commands/refresh")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true)
+      .expect(200);
+    return response.body;
+  }
+
+  it("describes the daemon without its counts", async () => {
+    const document = await refresh();
+    expect(document.enabled).toContain("docker");
+    expect(document.errors.docker).toBeUndefined();
+    const docker = document.facts.docker;
+    expect(docker.version).toMatch(/^\d+\./);
+    expect(docker.os_type).toEqual("linux");
+    // The `os` set's spelling, not the kernel's.
+    expect(docker.architecture).toMatch(/^[a-z0-9_]+$/);
+    expect(docker.architecture).not.toEqual("aarch64");
+    if (docker.cpus !== undefined) expect(docker.cpus).toBeGreaterThan(0);
+    if (docker.memory_bytes !== undefined) expect(docker.memory_bytes).toBeGreaterThan(0);
+    // Inventory, not monitoring: no container or image counts, which
+    // check_docker_info reports and which change every round.
+    expect(
+      Object.keys(docker).filter((k) => /containers|images|running|stopped|paused/.test(k)),
+    ).toEqual(["containers", "images"]);
+  });
+
+  it("lists the containers by the name check_docker gives them, without state", async () => {
+    const document = await refresh();
+    const containers: Record<string, any>[] = document.facts.docker.containers;
+    expect(Array.isArray(containers)).toBe(true);
+    const ids = containers.map((c) => c.id);
+    expect(new Set(ids).size).toEqual(ids.length);
+    expect([...ids].sort()).toEqual(ids);
+
+    const record = containers.find((c) => c.id === probeName);
+    expect(record).toBeDefined();
+    expect(record!.container_id).toEqual(probe.getId());
+    expect(record!.image).toEqual("alpine:3");
+    expect(record!.image_id).toMatch(/^sha256:/);
+    expect(record!.created).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+    for (const container of containers) {
+      // No state, status, health or address: those change every round and
+      // belong to check_docker.
+      expect(Object.keys(container).filter((k) => /state|status|health|^ip$/.test(k))).toEqual([]);
+    }
+
+    // The same ids check_docker reports, which is what lets a failing check
+    // find its record.
+    const check = await request(REST_URL)
+      .get(
+        "/api/v2/queries/check_docker/commands/execute?all=true&filter=none&warning=none&critical=none&empty-state=ok&top-syntax=${list}&detail-syntax=%25(names)%0A",
+      )
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true)
+      .expect(200);
+    const reported = check.body.lines.map((l: { message: string }) => l.message).join("\n");
+    for (const container of containers) expect(reported).toContain(container.id);
+  });
+
+  it("lists the images by tag", async () => {
+    const document = await refresh();
+    const images: Record<string, any>[] = document.facts.docker.images;
+    expect(Array.isArray(images)).toBe(true);
+    const ids = images.map((i) => i.id);
+    expect(new Set(ids).size).toEqual(ids.length);
+    // The probe's image is here, whichever of its tags sorted first.
+    const alpine = images.find((i) => (i.tags ?? []).includes("alpine:3"));
+    expect(alpine).toBeDefined();
+    expect(alpine!.image_id).toMatch(/^sha256:/);
+    expect(alpine!.size_bytes).toBeGreaterThan(0);
+    for (const image of images) {
+      // A dangling image is named by its id and carries no tags at all,
+      // never a "<none>:<none>" one.
+      if (image.tags === undefined) expect(image.id).toEqual(image.image_id);
+      else expect(image.tags).not.toContain("<none>:<none>");
+    }
   });
 });
