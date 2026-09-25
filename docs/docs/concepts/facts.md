@@ -492,22 +492,23 @@ collects now. Over REST the same document is `GET /api/v2/facts` (see
 ## Facts and the fleet server
 
 An agent [enrolled with a fleet server](../setup/fleet.md) sends its facts
-there too. The document is up to a megabyte and changes rarely, so it does not
-ride in the state report the agent sends every poll:
+there too, but only when the server does not already have them. The document
+is up to a megabyte and changes rarely, so the agent sends its hash and lets
+the server say whether it needs the rest:
 
-* **Every state report carries `facts_hash`**, the SHA-256 of the document.
-  A host with nothing enabled reports the hash of the empty document, `{}`.
-  That is enough for the server to see that an inventory changed, or that a
-  host has none, without the document itself.
-* **The document goes on its own call, `POST /agent/v1/facts`, and only when
-  it differs from what the server holds**: after a round changed it, after a
-  bundle enabled or disabled a set, and once after the agent starts. A host
-  with nothing enabled sends nothing.
-* **The server can ask for it again** by carrying the hash it holds, as
-  `facts_hash`, in a desired-state or state-report response. When that
-  differs from the agent's own, the agent uploads. A 304 has no body, so a
-  server that wants the document from a host that is already in sync answers
-  its poll with the full desired state instead.
+* **Every desired-state poll and every state report carries `facts_hash`**,
+  the SHA-256 of the document: a `facts_hash=` query parameter on the poll, a
+  member of the state report. A host with nothing enabled sends the hash of
+  the empty document, `{}`.
+* **The server answers with the hash it holds**, in an `X-Facts-Hash`
+  response header (`none` when it holds nothing). It is a header so that it
+  works on the 304 a host that is in sync gets on nearly every poll.
+* **The document is uploaded only on a miss**: when the server's answer
+  differs from the agent's hash, the agent sends it on its own call,
+  `POST /agent/v1/facts`. A matching answer costs nothing more than the hash,
+  a host with nothing enabled never uploads, and a server that sends no
+  `X-Facts-Hash` at all is one that does not do facts and is never sent the
+  document.
 
 ```json
 {
@@ -523,12 +524,15 @@ without re-encoding anything.
 
 Because the switches are ordinary INI, a fleet bundle turns inventory on for a
 whole group of hosts the same way it configures anything else; see
-[Collect an inventory](../setup/fleet.md#collect-an-inventory). A server that
-predates the facts call answers it with a 404, and the agent then stops
-offering it until the server starts talking about facts or the agent restarts.
-A document larger than `[/settings/facts] max size`, or one the server refuses
-as too large, is not sent again until it changes, and the agent log names the
-largest sets so you know which one to turn off.
+[Collect an inventory](../setup/fleet.md#collect-an-inventory).
+
+A server that acknowledges an upload and then reports a miss for the same
+document again gets it once more straight away, and after that no more often
+than a minute, then two, doubling up to once an hour. A document larger than
+`[/settings/facts] max size`, or one the server refuses (as too large, or with
+a 404 because it asked for a document it has nowhere to put), is not sent
+again until it changes, and the agent log names the largest sets so you know
+which one to turn off.
 
 ---
 
