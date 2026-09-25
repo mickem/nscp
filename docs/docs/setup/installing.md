@@ -361,14 +361,22 @@ kernel interfaces rather than portable code:
 
 | Module            | Why                                                                     | Checks affected                                     |
 |-------------------|-------------------------------------------------------------------------|-----------------------------------------------------|
-| `CheckSystem`     | Reads procfs (`/proc/stat`, `/proc/meminfo`, `/proc/<pid>`), which Darwin does not have | `check_cpu`, `check_memory`, `check_process`, `check_uptime`, `check_service`, `check_network`, ... |
-| `CheckDisk`       | Enumerates mounts through `<mntent.h>` and reads `/proc/diskstats`       | `check_drivesize`, `check_files`, `check_disk_io`    |
-| `CheckLogFile`    | Watches files with `inotify`                                             | `check_logfile`                                      |
+| `CheckSystem`     | Reads procfs (`/proc/stat`, `/proc/meminfo`, `/proc/<pid>`), which Darwin does not have | All 21 of its commands: `check_cpu`, `check_memory`, `check_process`, `check_uptime`, `check_service`, `check_network`, `check_load`, `check_os_version`, `check_os_updates`, `check_installed_software`, `check_battery`, ... - and with them the host, network and software facts, the real-time cpu/memory filters and the system metrics on the dashboard |
+| `CheckDisk`       | Enumerates mounts through `<mntent.h>` and reads `/proc/diskstats`       | `check_drivesize`, `check_mount`, `check_disk_io`, `check_disk_health`, and the storage facts. `check_files`, `check_single_file` and `check_disk_write` are portable code, but they ship inside the same module |
+| `CheckLogFile`    | Its real-time mode watches files with `inotify`                          | `check_logfile` (itself portable, but in the same module) and the real-time log filters |
+
+Two `CheckNet` checks are present but reduced:
+
+* `check_connections` reads `/proc/net` on Linux; on macOS it answers
+  "not implemented on this platform".
+* `check_ping` opens a raw ICMP socket, which macOS only lets root do. The
+  agent runs as `_nsclient`, so the check reports that it cannot open its
+  socket rather than a round-trip time.
 
 Everything else is present: the REST API and web server, NRPE/NSCA/NSCP/check_mk
 listeners and clients, `CheckHelpers`, `CheckExternalScripts`, `CheckNet`,
-`CheckSecurity`, `CheckDocker`, the Lua and Python script engines, the
-scheduler, and the Graphite/Elastic/Syslog/SMTP/collectd forwarders.
+`CheckSecurity`, `CheckDocker`, the Lua script engine, the scheduler, and the
+Graphite/Elastic/Syslog/SMTP/collectd forwarders.
 
 Two smaller gaps:
 
