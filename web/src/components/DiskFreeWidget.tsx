@@ -2,6 +2,8 @@ import { useMemo } from "react";
 import { Box, Card, CardContent, LinearProgress, Stack } from "@mui/material";
 import Typography from "@mui/material/Typography";
 import { Metric } from "../metric_parser.ts";
+import { ShowMore } from "./atoms/ShowMore.tsx";
+import { useCapped } from "./atoms/useCapped.ts";
 
 function formatBytes(bytes: number): string {
   if (bytes >= 1024 ** 4) return `${(bytes / 1024 ** 4).toFixed(1)} TB`;
@@ -9,6 +11,9 @@ function formatBytes(bytes: number): string {
   if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
   return `${(bytes / 1024).toFixed(1)} KB`;
 }
+
+/** How many volumes the widget shows before it offers the rest. */
+const PREVIEW_VOLUMES = 8;
 
 interface DiskFreeWidgetProps {
   metrics: Metric[];
@@ -34,6 +39,10 @@ export default function DiskFreeWidget({ metrics }: DiskFreeWidgetProps) {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [metrics]);
 
+  // A file server has dozens of volumes and this is one cell of a dashboard,
+  // so the widget shows the first few and offers the rest.
+  const { shown, hidden, showAll, toggle } = useCapped(disks, PREVIEW_VOLUMES);
+
   if (disks.length === 0) return null;
 
   return (
@@ -43,9 +52,8 @@ export default function DiskFreeWidget({ metrics }: DiskFreeWidgetProps) {
           Disk Space
         </Typography>
         <Stack spacing={2}>
-          {disks.map((disk) => {
-            const barColor =
-              disk.usedPct > 90 ? "error.main" : disk.usedPct > 75 ? "warning.main" : "success.main";
+          {shown.map((disk) => {
+            const barColor = disk.usedPct > 90 ? "error.main" : disk.usedPct > 75 ? "warning.main" : "success.main";
             return (
               <Box key={disk.name}>
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", mb: 0.5 }}>
@@ -74,9 +82,9 @@ export default function DiskFreeWidget({ metrics }: DiskFreeWidgetProps) {
               </Box>
             );
           })}
+          <ShowMore hidden={hidden} showAll={showAll} onToggle={toggle} />
         </Stack>
       </CardContent>
     </Card>
   );
 }
-

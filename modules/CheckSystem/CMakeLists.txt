@@ -39,7 +39,11 @@ set(SRCS
     check_printjobs.cpp
     check_w32time.cpp
     system_facts.cpp
+    network_facts_win.cpp
+    software_facts_win.cpp
     ${NSCP_INCLUDEDIR}/facts/host_facts.cpp
+    ${NSCP_INCLUDEDIR}/facts/network_facts.cpp
+    ${NSCP_INCLUDEDIR}/facts/software_facts.cpp
     filter_config_object.cpp
     realtime_data.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.cpp
@@ -100,6 +104,8 @@ if(WIN32)
         check_w32time.hpp
         system_facts.hpp
         ${NSCP_INCLUDEDIR}/facts/host_facts.hpp
+        ${NSCP_INCLUDEDIR}/facts/network_facts.hpp
+        ${NSCP_INCLUDEDIR}/facts/software_facts.hpp
         ${NSCP_INCLUDEDIR}/win/registry.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.hpp
@@ -138,6 +144,9 @@ target_link_libraries(
     Advapi32
     # NetGetJoinInformation (check_hostname).
     Netapi32
+    # GetAdaptersAddresses and getnameinfo (the network.interfaces fact set).
+    iphlpapi
+    ws2_32
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 source_group("pdh" REGULAR_EXPRESSION .*include/pdh/.*)
@@ -162,6 +171,7 @@ NSCP_CREATE_TEST(
         check_pending_reboot_test.cpp
         check_patch_age_test.cpp
         check_installed_software_test.cpp
+        software_facts_win_test.cpp
         check_load_test.cpp
         check_hardware_test.cpp
         check_hostname_test.cpp
@@ -193,6 +203,9 @@ NSCP_CREATE_TEST(
         check_pending_reboot.cpp
         check_patch_age.cpp
         check_installed_software.cpp
+        software_facts_win.cpp
+        ${NSCP_INCLUDEDIR}/facts/software_facts.cpp
+        ${NSCP_INCLUDEDIR}/facts/host_facts.cpp
         check_load.cpp
         check_hardware.cpp
         check_hostname.cpp

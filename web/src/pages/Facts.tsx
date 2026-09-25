@@ -1,10 +1,10 @@
-import { Alert, Card, CardContent, Chip, Stack, Tooltip, Typography } from "@mui/material";
-import Grid from "@mui/material/Grid";
+import { Alert, Box, Card, CardContent, Chip, Stack, Tooltip, Typography } from "@mui/material";
 import { useGetFactsQuery, useRefreshFactsMutation } from "../api/api.ts";
 import { Toolbar } from "../components/atoms/Toolbar.tsx";
 import { Spacing } from "../components/atoms/Spacing.tsx";
 import { RefreshButton } from "../components/atoms/RefreshButton.tsx";
 import FactTree from "../components/FactTree.tsx";
+import FactSetsWidget from "../components/FactSetsWidget.tsx";
 import { FactValue } from "../api/api.ts";
 
 /**
@@ -78,39 +78,47 @@ export default function Facts() {
       )}
 
       {sets.length === 0 && (
-        <Alert severity="info" sx={{ mx: 2 }}>
-          No facts collected. A fact set is enabled in the module that produces it — for example{" "}
-          <code>[/settings/system/windows/facts] os = true</code> for the OS and hardware of this host. Nothing is
-          collected until you turn a set on.
+        <Alert severity="info" sx={{ mx: 2, mb: 2 }}>
+          No facts collected. A fact set is enabled in the module that produces it — turn one on below.
         </Alert>
       )}
 
-      <Grid container spacing={2} sx={{ px: 2, pb: 2 }}>
+      {/* The switches, above the sets they produce: on a host collecting
+          nothing this is the only thing on the page worth doing, and on one
+          collecting something it is how the rest got here. */}
+      <Box sx={{ px: 2, pb: 2 }}>
+        <FactSetsWidget />
+      </Box>
+
+      {/* Masonry, not a grid of rows: the sets are as uneven as the host
+          makes them - four lines of `os` beside a dozen interfaces - and in
+          rows the short one leaves a hole the height of the tall one. CSS
+          columns pack each card under the previous one in its column, which
+          is all masonry is here, and costs no dependency. */}
+      <Box sx={{ px: 2, pb: 2, columnCount: { xs: 1, md: 2 }, columnGap: 2 }}>
         {sets.map(([name, value]) => (
-          <Grid key={name} size={{ xs: 12, md: 6 }}>
-            <Card variant="outlined" sx={{ height: "100%" }}>
-              <CardContent>
-                <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
-                  <Typography variant="h6" component="div">
-                    {name}
+          <Card key={name} variant="outlined" sx={{ breakInside: "avoid", mb: 2 }}>
+            <CardContent>
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
+                <Typography variant="h6" component="div">
+                  {name}
+                </Typography>
+                {facts?.errors?.[name] !== undefined && <Chip size="small" color="warning" label="stale" />}
+                <Spacing />
+                {/* The age of these values, not of the round that carried
+                    them. Falls back to the round for a producer that does
+                    not say, which is right: it read them just now. */}
+                <Tooltip title="When these values were read from the machine" placement="bottom">
+                  <Typography variant="caption" color="text.secondary">
+                    gathered {timeLabel(facts?.gathered?.[name] ?? facts?.collected ?? "")}
                   </Typography>
-                  {facts?.errors?.[name] !== undefined && <Chip size="small" color="warning" label="stale" />}
-                  <Spacing />
-                  {/* The age of these values, not of the round that carried
-                      them. Falls back to the round for a producer that does
-                      not say, which is right: it read them just now. */}
-                  <Tooltip title="When these values were read from the machine" placement="bottom">
-                    <Typography variant="caption" color="text.secondary">
-                      gathered {timeLabel(facts?.gathered?.[name] ?? facts?.collected ?? "")}
-                    </Typography>
-                  </Tooltip>
-                </Stack>
-                <FactTree node={value} />
-              </CardContent>
-            </Card>
-          </Grid>
+                </Tooltip>
+              </Stack>
+              <FactTree node={value} />
+            </CardContent>
+          </Card>
         ))}
-      </Grid>
+      </Box>
     </Stack>
   );
 }

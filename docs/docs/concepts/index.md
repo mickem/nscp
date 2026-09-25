@@ -235,6 +235,16 @@ proxy chains, and a step-by-step guide for enabling the policy safely.
 
 ---
 
+## Host Facts
+
+Besides answering checks, the agent can keep an **inventory** of the machine it runs on: the OS, the hardware, the
+volumes and network interfaces, and the NSClient++ install itself. Each part is a *fact set* that you enable in the
+module that produces it, and nothing is collected until you do.
+
+See [Host Facts](facts.md) for the sets, how to enable them, and how facts differ from tags.
+
+---
+
 ## Summary
 
 | Concept    | What it means                                                                  |
@@ -246,6 +256,7 @@ proxy chains, and a step-by-step guide for enabling the policy safely.
 | Threshold  | A `warn=` or `crit=` expression that triggers an alert                         |
 | Protocol   | How NSClient++ talks to your monitoring server                                 |
 | Permission | An optional allow-list controlling which callers may invoke which commands     |
+| Fact set   | An opt-in part of the host inventory, enabled in the module that produces it   |
 
 **Next steps:**
 

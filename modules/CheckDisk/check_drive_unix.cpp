@@ -5,14 +5,19 @@
 // query space via statvfs. Field registration / derived math / filter
 // scaffolding mirror check_drive_win.cpp so queries are portable.
 
+#include <dirent.h>
+#include <limits.h>
 #include <mntent.h>
 #include <sys/statvfs.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
+#include <cstdlib>
 #include <ctime>
 #include <list>
+#include <map>
 #include <memory>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -31,6 +36,7 @@
 
 #include "check_drive.hpp"
 #include "drive_trend.hpp"
+#include "storage_facts.hpp"
 
 namespace po = boost::program_options;
 
@@ -678,3 +684,63 @@ void check_drive::check(const PB::Commands::QueryRequestMessage::Request &reques
 
 // Test seam: classify a filesystem type string into the drive-type keyword.
 std::string checkdisk_unix_classify_fs(const std::string &fstype) { return type_to_string(classify_fs(fstype)); }
+
+namespace {
+// The canonical path of a device node, so `/dev/mapper/vg-root` in
+// /proc/mounts and the `../../dm-0` a by-label link points at compare equal.
+// Empty when the path does not resolve (a pseudo device, a remote spec).
+std::string canonical_device(const std::string &path) {
+  if (path.empty() || path[0] != '/') return "";
+  char resolved[PATH_MAX];
+  if (realpath(path.c_str(), resolved) == nullptr) return "";
+  return resolved;
+}
+
+// Filesystem labels, keyed by the canonical device they belong to. udev keeps
+// them as symlinks under /dev/disk/by-label, which is what `lsblk` reads too -
+// without forking blkid, and without needing the privileges it would.
+std::map<std::string, std::string> read_labels() {
+  std::map<std::string, std::string> labels;
+  const std::string folder = "/dev/disk/by-label/";
+  DIR *dir = opendir(folder.c_str());
+  if (dir == nullptr) return labels;
+  while (const struct dirent *entry = readdir(dir)) {
+    const std::string name = entry->d_name;
+    if (name == "." || name == "..") continue;
+    const std::string device = canonical_device(folder + name);
+    if (!device.empty()) labels[device] = storage_facts::decode_udev_label(name);
+  }
+  closedir(dir);
+  return labels;
+}
+}  // namespace
+
+std::vector<storage_facts::volume> storage_facts::gather() {
+  std::vector<volume> volumes;
+  // The same selection as check_drivesize drive=*, so every record's id is a
+  // value that check accepts: pseudo and image filesystems (proc, tmpfs,
+  // overlay, squashfs) are not storage anyone monitors.
+  const std::vector<std::string> wanted = {"*"};
+  std::vector<std::string> not_found;
+  const std::map<std::string, std::string> labels = read_labels();
+  for (const drive_container &drive : find_drives(wanted, not_found)) {
+    volume v;
+    v.id = drive.mountpoint;
+    v.device = drive.device;
+    v.filesystem = drive.fs;
+    v.type = type_to_string(drive.type);
+    const std::map<std::string, std::string>::const_iterator label = labels.find(canonical_device(drive.device));
+    if (label != labels.end()) v.label = label->second;
+    // Not for a remote mount: a hung NFS server hangs statvfs, and this runs
+    // on the core's background round where nobody is waiting for the answer.
+    if (drive.type != dt_remote) {
+      struct statvfs vfs;
+      if (statvfs(drive.mountpoint.c_str(), &vfs) == 0) {
+        const unsigned long long block = vfs.f_frsize ? vfs.f_frsize : vfs.f_bsize;
+        v.size_bytes = static_cast<unsigned long long>(vfs.f_blocks) * block;
+      }
+    }
+    volumes.push_back(v);
+  }
+  return volumes;
+}

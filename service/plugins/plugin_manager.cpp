@@ -1401,6 +1401,14 @@ void nsclient::core::plugin_manager::collect_facts_from(const plugin_type &plugi
   }
 }
 
+std::vector<std::string> nsclient::core::plugin_manager::get_loaded_modules() {
+  std::vector<std::string> modules;
+  for (const plugin_type &plugin : plugin_list_.get_plugins()) {
+    if (plugin) modules.push_back(plugin->getModule());
+  }
+  return modules;
+}
+
 void nsclient::core::plugin_manager::process_facts(const std::string &reason) {
   if (!facts_) return;
   // Every producer is asked; what it returns is what its own configuration

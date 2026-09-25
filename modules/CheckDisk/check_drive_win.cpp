@@ -24,6 +24,7 @@
 
 #include "check_drive.hpp"
 #include "drive_trend.hpp"
+#include "storage_facts.hpp"
 
 #ifdef WIN32
 #include <Windows.h>
@@ -1025,4 +1026,37 @@ void check_drive::check(const PB::Commands::QueryRequestMessage::Request &reques
     else
       response->add_lines()->set_message(msg);
   }
+}
+
+std::vector<storage_facts::volume> storage_facts::gather() {
+  std::vector<volume> volumes;
+  // The same enumeration as check_drivesize drive=all: every volume, then
+  // every logical drive the volume walk did not already name, so a record's
+  // id is a value that check accepts as drive=.
+  std::vector<std::string> not_found;
+  for (const drive_container &drive : find_drives({"all"}, not_found)) {
+    // A volume with no path to it (a recovery or EFI partition) has nothing a
+    // check can name it by, and nothing an operator reads as "a drive".
+    if (drive.letter.empty()) continue;
+    volume v;
+    v.id = drive.letter;
+    v.device = drive.id;
+    v.filesystem = drive.fs;
+    // volume_helper leaves its failure message where the label would go, and
+    // a label that reads "Failed to get volume information" is worse than
+    // none.
+    if (drive.name.rfind("Failed to get volume information", 0) != 0) v.label = drive.name;
+    const std::wstring root = utf8::cvt<std::wstring>(drive.letter);
+    const UINT drive_type = GetDriveType(root.c_str());
+    v.type = type_to_string(drive_type);
+    // Not for a network drive: a disconnected share blocks here for as long
+    // as the redirector takes to give up, and this runs on the core's
+    // background round where nobody is waiting for the answer.
+    if (drive_type != DRIVE_REMOTE) {
+      ULARGE_INTEGER available, total, total_free;
+      if (GetDiskFreeSpaceEx(root.c_str(), &available, &total, &total_free)) v.size_bytes = total.QuadPart;
+    }
+    volumes.push_back(v);
+  }
+  return volumes;
 }

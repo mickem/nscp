@@ -10,6 +10,9 @@
 #include <boost/json.hpp>
 #include <boost/program_options.hpp>
 #include <compat.hpp>
+#include <facts/host_facts.hpp>
+#include <facts/network_facts.hpp>
+#include <facts/software_facts.hpp>
 #include <map>
 #include <memory>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -25,7 +28,6 @@
 #include <win/com_helpers.hpp>
 #include <win/pdh/pdh_enumerations.hpp>
 #include <win/services.hpp>
-#include <facts/host_facts.hpp>
 #include <win/sysinfo/win_sysinfo.hpp>
 
 #include "check_battery.hpp"
@@ -49,10 +51,10 @@
 #include "check_swap_io.hpp"
 #include "check_temperature.hpp"
 #include "check_w32time.hpp"
-#include "system_facts.hpp"
 #include "counter_filter.hpp"
 #include "filter.hpp"
 #include "module.hpp"
+#include "system_facts.hpp"
 #include "tick_count.h"
 
 namespace sh = nscapi::settings_helper;
@@ -178,6 +180,8 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   std::map<std::string, std::string> service_tags;
   bool facts_os = false;
   bool facts_hardware = false;
+  bool facts_network_interfaces = false;
+  bool facts_software_installed = false;
   // A reload replaces the collector: stop the running one first so its
   // threads are joined before the checks start reading the new instance.
   // Publish the replacement atomically and configure it through the local
@@ -245,6 +249,21 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         "Collect the `hardware` fact set: the system manufacturer and model as the firmware reports them, the number of logical processors and the "
         "installed memory in whole GB. Cheap - the vendor and model come from the SMBIOS strings the kernel publishes under "
         "HKLM\HARDWARE\DESCRIPTION\System\BIOS, not from WMI.")
+
+  .add_bool(network_facts::id_interfaces, sh::bool_key(&facts_network_interfaces, false),
+        "NETWORK INTERFACES FACTS",
+        "Collect the `network.interfaces` fact set: one record per network adapter except the loopback - its description (the record id, the same "
+        "value check_network calls `name`), the connection name (`Ethernet`, `Wi-Fi`), the hardware address, the link state, the negotiated speed and "
+        "the IPv4 and IPv6 addresses on it. No traffic counters: those are monitoring, and live in check_network. Cheap - one GetAdaptersAddresses "
+        "call, no WMI - and re-read every facts round, because addresses change with a DHCP lease.")
+
+  .add_bool(software_facts::id_installed, sh::bool_key(&facts_software_installed, false),
+        "INSTALLED SOFTWARE FACTS",
+        "Collect the `software.installed` fact set: one record per installed program - its name (the record id, the same value "
+        "check_installed_software calls `name`), version, publisher, architecture, install date and size. The source is the registry's Uninstall "
+        "hives (the 64-bit and 32-bit machine views and every loaded per-user hive), exactly as check_installed_software reads them, never "
+        "Win32_Product. Entries hidden from Programs and Features (SystemComponent) are left out. The largest set there is: a few hundred records on "
+        "a typical host, and the list is truncated (with an error saying so) past the point where it would not fit the facts document.")
   ;
 
   settings.alias().add_key_to_settings()
@@ -351,6 +370,8 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   // without a restart, and the core drops a set a producer stops returning.
   facts_os_.store(facts_os);
   facts_hardware_.store(facts_hardware);
+  facts_network_interfaces_.store(facts_network_interfaces);
+  facts_software_installed_.store(facts_software_installed);
 
   if (mode == NSCAPI::normalStart) {
     // The selector tags, on the other hand, describe the machine rather than
@@ -1419,14 +1440,46 @@ class add_visitor : public boost::static_visitor<> {
   }
 };
 void CheckSystem::fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response) {
-  if (!facts_os_.load() && !facts_hardware_.load()) return;
-  // Read once and reported thereafter: what OS this is and what it runs on
-  // does not change while the process does. The snapshot carries when it was
-  // taken, so a consumer shows the age of the values rather than the age of
-  // the round. `manual` re-reads, which is the escape hatch for a host that
-  // genuinely did change underneath.
-  const host_facts::snapshot snap = facts_cache_.get(request.reason(), []() { return system_facts::gather(); });
-  host_facts::publish_facts(snap, facts_os_.load(), facts_hardware_.load(), response);
+  const bool want_os = facts_os_.load();
+  const bool want_hardware = facts_hardware_.load();
+  if (want_os || want_hardware) {
+    // Read once and reported thereafter: what OS this is and what it runs on
+    // does not change while the process does. The snapshot carries when it was
+    // taken, so a consumer shows the age of the values rather than the age of
+    // the round. `manual` re-reads, which is the escape hatch for a host that
+    // genuinely did change underneath.
+    const host_facts::snapshot snap = facts_cache_.get(request.reason(), []() { return system_facts::gather(); });
+    host_facts::publish_facts(snap, want_os, want_hardware, response);
+  }
+
+  if (facts_network_interfaces_.load()) {
+    // Every round, whatever its reason: unlike the OS and the hardware, the
+    // network does change under a running process (a DHCP lease, a cable, a
+    // VPN coming up), and reading it costs next to nothing.
+    try {
+      network_facts::publish(network_facts::gather(), std::time(nullptr), response);
+    } catch (const std::exception &e) {
+      // Named against the set rather than failing the round: the core keeps
+      // the interfaces it already holds and reports why they are stale.
+      response.error(network_facts::set_network, std::string("Failed to enumerate network interfaces: ") + e.what());
+    }
+  }
+
+  if (facts_software_installed_.load()) {
+    // Every round as well, and for the same reason: software is installed and
+    // removed under a running agent, which is most of the point of having an
+    // inventory. It is the most expensive set here - a walk of every Uninstall
+    // key in three views - but a facts round is hourly by default and nothing
+    // waits on it.
+    try {
+      software_facts::publish(software_facts::gather(), std::time(nullptr), response);
+    } catch (const std::exception &e) {
+      // The set keeps what the core already holds. An empty list would say
+      // this host has no software installed, which is never what a hive we
+      // could not read means.
+      response.error(software_facts::set_software, std::string("Failed to enumerate installed software: ") + e.what());
+    }
+  }
 }
 
 void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {

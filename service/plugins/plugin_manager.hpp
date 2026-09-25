@@ -163,6 +163,11 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   // nothing for a feature nobody can use.
   bool has_facts_fetchers() { return !facts_fetchers_.empty(); }
 
+  // The module names (not the aliases) of every loaded plugin, in load order
+  // and with a module loaded twice listed twice: the `agent` fact set is what
+  // sorts and folds them.
+  std::vector<std::string> get_loaded_modules();
+
   // The repository facts rounds write to. Also what lets unloading a module
   // take its fact sets with it.
   void set_fact_repository(const fact_repository_instance &facts) { facts_ = facts; }

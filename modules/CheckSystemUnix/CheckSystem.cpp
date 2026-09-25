@@ -7,6 +7,8 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/program_options.hpp>
 #include <facts/host_facts.hpp>
+#include <facts/network_facts.hpp>
+#include <facts/software_facts.hpp>
 #include <fstream>
 #include <locale>
 #include <map>
@@ -54,6 +56,8 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   std::map<std::string, std::string> service_tags;
   bool facts_os = false;
   bool facts_hardware = false;
+  bool facts_network_interfaces = false;
+  bool facts_software_installed = false;
 
   // Start the CPU collector thread. On a reload the previous collector is
   // still running; stop it before it is replaced. Publish the replacement
@@ -110,6 +114,21 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         "Collect the `hardware` fact set: the system manufacturer and model as the firmware reports them (/sys/class/dmi/id), the number of online "
         "processors and the installed memory in whole GB. A host whose kernel exposes no DMI - a container, a board without SMBIOS - reports the "
         "sizes and omits the vendor and model.")
+
+    .add_bool(network_facts::id_interfaces, sh::bool_key(&facts_network_interfaces, false),
+        "NETWORK INTERFACES FACTS",
+        "Collect the `network.interfaces` fact set: one record per network interface except the loopback - its kernel name (the record id, the same "
+        "value check_network calls `name`), the hardware address, the link state, the negotiated speed and the IPv4 and IPv6 addresses on it. No "
+        "traffic counters: those are monitoring, and live in check_network. Cheap - read from /sys/class/net and getifaddrs, nothing forks - and "
+        "re-read every facts round, because addresses change with a DHCP lease.")
+
+    .add_bool(software_facts::id_installed, sh::bool_key(&facts_software_installed, false),
+        "INSTALLED SOFTWARE FACTS",
+        "Collect the `software.installed` fact set: one record per installed package - its name (the record id, the same value "
+        "check_installed_software calls `name`), version, maintainer, architecture, install date and size. The list comes from the host's own package "
+        "manager (dpkg, rpm or pacman), through the same query check_installed_software runs, so it costs one forked query per facts round - hourly "
+        "by default. The largest set there is: a package list runs to thousands of records, and it is truncated (with an error saying so) past the "
+        "point where it would not fit the facts document.")
     ;
   // clang-format on
 
@@ -140,6 +159,8 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   // without a restart, and the core drops a set a producer stops returning.
   facts_os_.store(facts_os);
   facts_hardware_.store(facts_hardware);
+  facts_network_interfaces_.store(facts_network_interfaces);
+  facts_software_installed_.store(facts_software_installed);
 
   if (mode == NSCAPI::normalStart) {
     // The selector tags, on the other hand, describe the machine rather than
@@ -265,14 +286,46 @@ bool read_uptime_seconds(double &uptime_secs) {
 }  // namespace
 
 void CheckSystem::fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response) {
-  if (!facts_os_.load() && !facts_hardware_.load()) return;
-  // Read once and reported thereafter: what OS this is and what it runs on
-  // does not change while the process does. The snapshot carries when it was
-  // taken, so a consumer shows the age of the values rather than the age of
-  // the round. `manual` re-reads, which is the escape hatch for a host that
-  // genuinely did change underneath.
-  const host_facts::snapshot snap = facts_cache_.get(request.reason(), []() { return system_facts::gather(); });
-  host_facts::publish_facts(snap, facts_os_.load(), facts_hardware_.load(), response);
+  const bool want_os = facts_os_.load();
+  const bool want_hardware = facts_hardware_.load();
+  if (want_os || want_hardware) {
+    // Read once and reported thereafter: what OS this is and what it runs on
+    // does not change while the process does. The snapshot carries when it was
+    // taken, so a consumer shows the age of the values rather than the age of
+    // the round. `manual` re-reads, which is the escape hatch for a host that
+    // genuinely did change underneath.
+    const host_facts::snapshot snap = facts_cache_.get(request.reason(), []() { return system_facts::gather(); });
+    host_facts::publish_facts(snap, want_os, want_hardware, response);
+  }
+
+  if (facts_network_interfaces_.load()) {
+    // Every round, whatever its reason: unlike the OS and the hardware, the
+    // network does change under a running process (a DHCP lease, a cable, a
+    // VPN coming up), and reading it costs next to nothing.
+    try {
+      network_facts::publish(network_facts::gather(), std::time(nullptr), response);
+    } catch (const std::exception &e) {
+      // Named against the set rather than failing the round: the core keeps
+      // the interfaces it already holds and reports why they are stale.
+      response.error(network_facts::set_network, std::string("Failed to enumerate network interfaces: ") + e.what());
+    }
+  }
+
+  if (facts_software_installed_.load()) {
+    // Every round as well, and for the same reason: packages are installed and
+    // removed under a running agent, which is most of the point of having an
+    // inventory. It is the most expensive set here - one forked package
+    // manager query - but a facts round is hourly by default and nothing waits
+    // on it.
+    try {
+      software_facts::publish(software_facts::gather(), std::time(nullptr), response);
+    } catch (const std::exception &e) {
+      // The set keeps what the core already holds. An empty list would say
+      // this host has no software installed, which is never what a failed
+      // package query means.
+      response.error(software_facts::set_software, std::string("Failed to enumerate installed software: ") + e.what());
+    }
+  }
 }
 
 void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {

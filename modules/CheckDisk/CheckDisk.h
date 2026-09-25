@@ -3,8 +3,10 @@
 
 #pragma once
 
+#include <atomic>
 #include <check/path_access_policy.hpp>
 #include <memory>
+#include <nscapi/nscapi_facts_helper.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/metrics.hpp>
@@ -24,6 +26,10 @@ class CheckDisk : public nscapi::impl::simple_plugin {
   // check_disk_write. Open by default, so an upgrade changes nothing; see
   // docs/docs/concepts/check-access.md.
   check::access::path_policy file_access_;
+  // Whether this module is configured to produce the `storage.volumes` fact
+  // set ([/settings/disk/facts]). Read by fetchFacts on the core's scheduler
+  // while a reload may be writing it.
+  std::atomic<bool> facts_volumes_{false};
 
  public:
   CheckDisk();
@@ -54,6 +60,9 @@ class CheckDisk : public nscapi::impl::simple_plugin {
 
   // Metrics
   void fetchMetrics(PB::Metrics::MetricsMessage::Response *response);
+
+  // Host facts
+  void fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response);
 
   // Legacy checks
   void checkDriveSize(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
