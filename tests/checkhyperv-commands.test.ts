@@ -66,8 +66,11 @@ const NO_NAMESPACE =
   it("check_hyperv_cpu reports the aggregate load or the documented no-counters contract", async () => {
     const out = await query("check_hyperv_cpu", ["averages=false"]);
     if (NO_COUNTERS.test(out)) return;
-    expect(out).toMatch(/total: \d+% total \(\d+% guest, \d+% hypervisor\)/);
-    expect(out).toMatch(/'total'=\d+%/);
+    // One decimal in the detail line; the perf label is the perf-syntax (the
+    // processor) joined to the keyword, and the perf value is rendered by the
+    // float perfdata formatter (which may spell a rounded 0.6 as 0.59999).
+    expect(out).toMatch(/total: \d+(\.\d)?% total \(\d+(\.\d)?% guest, \d+(\.\d)?% hypervisor\)/);
+    expect(out).toMatch(/'total_total_run_time'=\d+(\.\d+)?%?;80;90/);
   });
 
   it("check_hyperv_cpu accepts averages=false as a valued boolean and per-processor filters", async () => {
@@ -97,11 +100,11 @@ const NO_NAMESPACE =
 
   it("check_hyperv_vms accepts pinned thresholds and filters on the VM keywords", async () => {
     // An impossible filter must not error out even without the role; with it,
-    // the empty set renders the top syntax given here.
+    // the empty set renders the empty syntax given here in the empty state.
     const out = await query("check_hyperv_vms", [
       "filter=state = 'no such state'",
       "empty-state=ok",
-      "top-syntax=no VMs matched",
+      "empty-syntax=no VMs matched",
       "warning=uptime < 0",
     ]);
     expect(out).toMatch(/role is not installed|no VMs matched/);

@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstdlib>
 #include <map>
 #include <string>
@@ -503,6 +504,10 @@ inline std::vector<vm_record> build_records(const raw_rows &rows) {
 // Logical processor counters
 // ---------------------------------------------------------------------------
 
+// The PDH percentages come with six significant digits; one decimal is what
+// a CPU figure is worth, in the detail line and in the perfdata alike.
+inline double round1(const double value) { return std::round(value * 10.0) / 10.0; }
+
 // One "Hyper-V Hypervisor Logical Processor" instance after sampling.
 struct processor_sample {
   std::string processor;  // "Hv LP 3", or "total" for the synthetic aggregate
@@ -528,10 +533,10 @@ inline std::vector<processor_sample> with_total(std::vector<processor_sample> pr
     total.context_switches += p.context_switches;
   }
   const double n = static_cast<double>(processors.size());
-  total.total_run_time /= n;
-  total.guest_run_time /= n;
-  total.hypervisor_run_time /= n;
-  total.idle_time /= n;
+  total.total_run_time = round1(total.total_run_time / n);
+  total.guest_run_time = round1(total.guest_run_time / n);
+  total.hypervisor_run_time = round1(total.hypervisor_run_time / n);
+  total.idle_time = round1(total.idle_time / n);
   processors.push_back(total);
   return processors;
 }

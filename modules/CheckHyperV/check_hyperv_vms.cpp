@@ -50,9 +50,14 @@ std::string string_or_empty(const wmi_impl::row &row, const std::string &col) {
   }
 }
 
-wmi_impl::row_enumerator run(const std::string &wql) {
+// Run one query and hand every row to `fn`. The query object (and the WMI
+// connection it holds) stays alive until the last row has been read, the way
+// the other WMI checks keep it.
+template <typename Fn>
+void for_each_row(const std::string &wql, Fn fn) {
   wmi_impl::query wmi_query(wql, kNamespace, "", "");
-  return wmi_query.execute();
+  wmi_impl::row_enumerator rows = wmi_query.execute();
+  while (rows.has_next()) fn(rows.get_next());
 }
 
 }  // namespace
@@ -70,11 +75,9 @@ raw_rows fetch_vm_rows() {
   // SELECT * rather than a column list: a column this Hyper-V version lacks
   // (ReplicationMode arrived with 2012 R2) would fail the whole query, while a
   // missing property on a row just reads as its default above.
-  wmi_impl::row_enumerator vms = run("SELECT * FROM Msvm_ComputerSystem");
-  while (vms.has_next()) {
-    const wmi_impl::row &row = vms.get_next();
+  for_each_row("SELECT * FROM Msvm_ComputerSystem", [&rows](const wmi_impl::row &row) {
     const std::string name = string_or_empty(row, "Name");
-    if (!is_vm_guid(name)) continue;  // the host's own row
+    if (!is_vm_guid(name)) return;  // the host's own row
     raw_vm vm;
     vm.id = to_lower(name);
     vm.name = string_or_empty(row, "ElementName");
@@ -88,78 +91,66 @@ raw_rows fetch_vm_rows() {
     vm.replication_state = int_or(row, "ReplicationState", 0);
     vm.replication_health = int_or(row, "ReplicationHealth", 0);
     rows.vms.push_back(vm);
-  }
+  });
 
-  wmi_impl::row_enumerator heartbeats = run("SELECT SystemName, EnabledState, OperationalStatus FROM Msvm_HeartbeatComponent");
-  while (heartbeats.has_next()) {
-    const wmi_impl::row &row = heartbeats.get_next();
+  for_each_row("SELECT SystemName, EnabledState, OperationalStatus FROM Msvm_HeartbeatComponent", [&rows](const wmi_impl::row &row) {
     raw_heartbeat hb;
     hb.vm_id = to_lower(string_or_empty(row, "SystemName"));
     hb.enabled_state = int_or(row, "EnabledState", 0);
     hb.operational_status = parse_int_array(string_or_empty(row, "OperationalStatus"));
     rows.heartbeats.push_back(hb);
-  }
+  });
 
-  wmi_impl::row_enumerator memory_settings = run("SELECT InstanceID, VirtualQuantity, Reservation, Limit, DynamicMemoryEnabled FROM Msvm_MemorySettingData");
-  while (memory_settings.has_next()) {
-    const wmi_impl::row &row = memory_settings.get_next();
+  for_each_row("SELECT InstanceID, VirtualQuantity, Reservation, Limit, DynamicMemoryEnabled FROM Msvm_MemorySettingData", [&rows](const wmi_impl::row &row) {
     raw_memory_setting ms;
     ms.vm_id = settings_owner_guid(string_or_empty(row, "InstanceID"));
-    if (ms.vm_id.empty()) continue;  // a template or a snapshot's copy
+    if (ms.vm_id.empty()) return;  // a template or a snapshot's copy
     ms.startup_mb = int_or(row, "VirtualQuantity", 0);
     ms.minimum_mb = int_or(row, "Reservation", 0);
     ms.maximum_mb = int_or(row, "Limit", 0);
     ms.dynamic = int_or(row, "DynamicMemoryEnabled", 0) != 0;
     rows.memory_settings.push_back(ms);
-  }
+  });
 
-  wmi_impl::row_enumerator memory = run("SELECT SystemName, NumberOfBlocks, BlockSize FROM Msvm_Memory");
-  while (memory.has_next()) {
-    const wmi_impl::row &row = memory.get_next();
+  for_each_row("SELECT SystemName, NumberOfBlocks, BlockSize FROM Msvm_Memory", [&rows](const wmi_impl::row &row) {
     raw_memory m;
     m.vm_id = to_lower(string_or_empty(row, "SystemName"));
     m.bytes = int_or(row, "NumberOfBlocks", 0) * int_or(row, "BlockSize", 0);
     rows.memory.push_back(m);
-  }
+  });
 
-  wmi_impl::row_enumerator processor_settings = run("SELECT InstanceID, VirtualQuantity FROM Msvm_ProcessorSettingData");
-  while (processor_settings.has_next()) {
-    const wmi_impl::row &row = processor_settings.get_next();
+  for_each_row("SELECT InstanceID, VirtualQuantity FROM Msvm_ProcessorSettingData", [&rows](const wmi_impl::row &row) {
     raw_processor_setting ps;
     ps.vm_id = settings_owner_guid(string_or_empty(row, "InstanceID"));
-    if (ps.vm_id.empty()) continue;
+    if (ps.vm_id.empty()) return;
     ps.count = int_or(row, "VirtualQuantity", 0);
     rows.processor_settings.push_back(ps);
-  }
+  });
 
-  wmi_impl::row_enumerator processors = run("SELECT SystemName, LoadPercentage FROM Msvm_Processor");
-  while (processors.has_next()) {
-    const wmi_impl::row &row = processors.get_next();
+  for_each_row("SELECT SystemName, LoadPercentage FROM Msvm_Processor", [&rows](const wmi_impl::row &row) {
     raw_processor p;
     p.vm_id = to_lower(string_or_empty(row, "SystemName"));
     p.load_percentage = int_or(row, "LoadPercentage", 0);
     rows.processors.push_back(p);
-  }
+  });
 
-  wmi_impl::row_enumerator settings =
-      run("SELECT VirtualSystemIdentifier, VirtualSystemType, VirtualSystemSubType, Version, CreationTime FROM Msvm_VirtualSystemSettingData");
-  while (settings.has_next()) {
-    const wmi_impl::row &row = settings.get_next();
-    const std::string type = string_or_empty(row, "VirtualSystemType");
-    raw_settings s;
-    s.vm_id = to_lower(string_or_empty(row, "VirtualSystemIdentifier"));
-    if (type == "Microsoft:Hyper-V:System:Realized") {
-      s.snapshot = false;
-      s.sub_type = string_or_empty(row, "VirtualSystemSubType");
-      s.version = string_or_empty(row, "Version");
-    } else if (type.find(":Snapshot:") != std::string::npos) {
-      s.snapshot = true;
-      s.creation_epoch = str::format::parse_cim_datetime(string_or_empty(row, "CreationTime"));
-    } else {
-      continue;  // planned systems (an import or migration in flight)
-    }
-    rows.settings.push_back(s);
-  }
+  for_each_row("SELECT VirtualSystemIdentifier, VirtualSystemType, VirtualSystemSubType, Version, CreationTime FROM Msvm_VirtualSystemSettingData",
+               [&rows](const wmi_impl::row &row) {
+                 const std::string type = string_or_empty(row, "VirtualSystemType");
+                 raw_settings s;
+                 s.vm_id = to_lower(string_or_empty(row, "VirtualSystemIdentifier"));
+                 if (type == "Microsoft:Hyper-V:System:Realized") {
+                   s.snapshot = false;
+                   s.sub_type = string_or_empty(row, "VirtualSystemSubType");
+                   s.version = string_or_empty(row, "Version");
+                 } else if (type.find(":Snapshot:") != std::string::npos) {
+                   s.snapshot = true;
+                   s.creation_epoch = str::format::parse_cim_datetime(string_or_empty(row, "CreationTime"));
+                 } else {
+                   return;  // planned systems (an import or migration in flight)
+                 }
+                 rows.settings.push_back(s);
+               });
 
   return rows;
 }
@@ -217,7 +208,7 @@ struct filter_obj_handler : public native_context {
     registry_.add_int_var("vcpus", type_int, [](auto obj) { return obj->vm.vcpus; }, "Configured virtual processors").add_int_perf("", "", "_vcpus");
     registry_.add_numbers("cpu_load", type_float, [](auto obj) { return static_cast<long long>(obj->vm.cpu_load); },
                           [](auto obj) { return obj->vm.cpu_load; }, "Average load of the VM's virtual processors in % (0 when it is off)")
-        .add_int_perf("%", "", "_cpu");
+        .add_float_perf("%", "", "_cpu");
     registry_.add_int_var("generation", type_int, [](auto obj) { return obj->vm.generation; }, "VM generation (1 or 2)");
     registry_.add_string_var("version", [](auto obj) { return obj->vm.version; }, "Configuration version of the VM (e.g. 9.0)");
     registry_.add_int_var("snapshots", type_int, [](auto obj) { return obj->vm.snapshots; }, "Number of checkpoints (snapshots) the VM has")

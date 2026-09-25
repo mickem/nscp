@@ -201,6 +201,14 @@ change from one round to the next and are what `check_hyperv_vms` monitors.
 On a host without the Hyper-V role the set is enabled but cannot be
 collected, and says so under `errors` every round.
 
+The set is not read on the startup round. That round runs on the thread
+that starts the service, and the first query into the virtualization
+namespace starts the Hyper-V management provider when it is not already
+running, which can take long enough to hold up every producer after it. So
+at startup the set says so under `errors`, and it is collected on the first
+scheduled round (every `[/settings/facts] interval`), on a settings reload,
+or right away with `facts refresh` / `POST /api/v2/facts/commands/refresh`.
+
 ### Record ids match check instance names
 
 A list record's `id` is the same string that the corresponding check uses to

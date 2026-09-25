@@ -24,6 +24,7 @@ namespace po = boost::program_options;
 namespace check_hyperv {
 
 using check_hyperv_internal::processor_sample;
+using check_hyperv_internal::round1;
 using check_hyperv_internal::with_total;
 using PDH::value_of;
 
@@ -159,20 +160,20 @@ struct filter_obj_handler : public native_context {
                           [](auto obj) { return obj->sample.total_run_time; },
                           "% of time the logical processor ran guest or hypervisor code (the host's real CPU usage, which Task Manager on the host "
                           "under-reports)")
-        .add_int_perf("%", "", "");
+        .add_float_perf("%", "", "");
     registry_.add_numbers("guest_run_time", parsers::where::type_float, [](auto obj) { return static_cast<long long>(obj->sample.guest_run_time); },
                           [](auto obj) { return obj->sample.guest_run_time; }, "% of time spent running guest (and root partition) code")
-        .add_int_perf("%", "", "_guest");
+        .add_float_perf("%", "", "_guest");
     registry_.add_numbers("hypervisor_run_time", parsers::where::type_float,
                           [](auto obj) { return static_cast<long long>(obj->sample.hypervisor_run_time); },
                           [](auto obj) { return obj->sample.hypervisor_run_time; }, "% of time spent in the hypervisor itself (scheduling, intercepts)")
-        .add_int_perf("%", "", "_hypervisor");
+        .add_float_perf("%", "", "_hypervisor");
     registry_.add_numbers("idle_time", parsers::where::type_float, [](auto obj) { return static_cast<long long>(obj->sample.idle_time); },
                           [](auto obj) { return obj->sample.idle_time; }, "% of time the logical processor was idle")
-        .add_int_perf("%", "", "_idle");
+        .add_float_perf("%", "", "_idle");
     registry_.add_numbers("context_switches", parsers::where::type_float, [](auto obj) { return static_cast<long long>(obj->sample.context_switches); },
                           [](auto obj) { return obj->sample.context_switches; }, "Virtual processor context switches per second on the logical processor")
-        .add_int_perf("", "", "_context_switches");
+        .add_float_perf("", "", "_context_switches");
   }
 };
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
@@ -216,11 +217,11 @@ void check_hyperv_cpu(const PB::Commands::QueryRequestMessage::Request &request,
   for (const auto &entry : instances) {
     processor_sample sample;
     sample.processor = entry.first;
-    sample.total_run_time = value_of(entry.second, "% Total Run Time");
-    sample.guest_run_time = value_of(entry.second, "% Guest Run Time");
-    sample.hypervisor_run_time = value_of(entry.second, "% Hypervisor Run Time");
-    sample.idle_time = value_of(entry.second, "% Idle Time");
-    sample.context_switches = value_of(entry.second, "Context Switches/sec");
+    sample.total_run_time = round1(value_of(entry.second, "% Total Run Time"));
+    sample.guest_run_time = round1(value_of(entry.second, "% Guest Run Time"));
+    sample.hypervisor_run_time = round1(value_of(entry.second, "% Hypervisor Run Time"));
+    sample.idle_time = round1(value_of(entry.second, "% Idle Time"));
+    sample.context_switches = round1(value_of(entry.second, "Context Switches/sec"));
     processors.push_back(sample);
   }
   for (const processor_sample &sample : with_total(processors)) f.match(std::make_shared<filter_obj>(sample));

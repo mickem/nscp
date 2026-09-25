@@ -276,3 +276,15 @@ TEST(CheckHyperV, TotalIsTheMeanOfThePercentagesAndTheSumOfTheSwitches) {
 }
 
 TEST(CheckHyperV, NoProcessorsGivesNoTotal) { EXPECT_TRUE(with_total({}).empty()); }
+
+TEST(CheckHyperV, PercentagesAreRoundedToOneDecimal) {
+  EXPECT_DOUBLE_EQ(round1(26.87731), 26.9);
+  EXPECT_DOUBLE_EQ(round1(0.569985), 0.6);
+  EXPECT_DOUBLE_EQ(round1(0.04), 0.0);
+  EXPECT_DOUBLE_EQ(round1(100.0), 100.0);
+  std::vector<processor_sample> lps(3);
+  lps[0].total_run_time = 1.0;
+  lps[1].total_run_time = 2.0;
+  lps[2].total_run_time = 2.0;
+  EXPECT_DOUBLE_EQ(with_total(lps).back().total_run_time, 1.7);
+}

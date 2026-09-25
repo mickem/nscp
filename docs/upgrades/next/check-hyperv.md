@@ -26,5 +26,7 @@ One record per virtual machine, with the name as its id - the same value
 `check_hyperv_vms` calls `vm` - carrying the GUID, generation, configuration
 version, configured processors and memory, dynamic memory, checkpoint count
 and Hyper-V Replica role. The state, heartbeat, load and assigned memory stay
-with the check. See [Host Facts](../concepts/facts.md) for every set, its
-fields and its cost.
+with the check. The set is collected from the first scheduled, reload or
+manual round on, not at startup, so the boot thread never waits on the
+virtualization namespace. See [Host Facts](../concepts/facts.md) for every
+set, its fields and its cost.

@@ -50,10 +50,23 @@ bool CheckHyperV::loadModuleEx(const std::string &alias, NSCAPI::moduleLoadMode)
 }
 bool CheckHyperV::unloadModule() { return true; }
 
-void CheckHyperV::fetchFacts(const nscapi::facts::request &, nscapi::facts::response &response) {
+void CheckHyperV::fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response) {
   if (!facts_vms_.load()) return;
-  // Every round, whatever its reason: VMs come and go while the process
-  // runs, and reading them costs what one check_hyperv_vms costs.
+  // The startup round runs on the boot thread, and every producer after this
+  // one in the round waits for it. The first query into the virtualization
+  // namespace starts the Hyper-V management provider when it is not already
+  // up, which on a host whose VMMS is stopped takes long enough to hold the
+  // rest of the inventory (and the service start) hostage - the same reason
+  // CheckSystem reads nothing over WMI in a round. So the set is claimed at
+  // startup and collected on the first scheduled, reload or manual round,
+  // which run on their own threads.
+  if (request.reason() == "startup") {
+    response.error(hyperv_facts::set_hyperv,
+                   "Not collected during startup: the virtual machines are read on the first scheduled round, or now with a manual refresh");
+    return;
+  }
+  // Every other round, whatever its reason: VMs come and go while the
+  // process runs, and reading them costs what one check_hyperv_vms costs.
   const com_helper::mta_scope com;
   try {
     hyperv_facts::publish(check_hyperv::check_hyperv_internal::build_records(check_hyperv::fetch_vm_rows()), std::time(nullptr), response);

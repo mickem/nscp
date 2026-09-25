@@ -293,16 +293,30 @@ describe("REST facts", () => {
   (onWindows ? it : it.skip)(
     "lists the virtual machines by the name check_hyperv_vms gives them, or says why not",
     async () => {
-      // The machines running this suite are not Hyper-V hosts, so the set is
-      // enabled but cannot be collected: the document must say so under
-      // `errors` rather than silently omitting it. On a Hyper-V host the
-      // records carry the check's names as ids, unique in the list.
-      const document = await request(REST_URL)
+      // The set is claimed at startup and only collected from the first
+      // scheduled, reload or manual round, so the boot thread never waits on
+      // the virtualization namespace: until then the document says so under
+      // `errors`. A manual refresh collects it. The machines running this
+      // suite may or may not carry the Hyper-V role: on one that does not, the
+      // refresh reports that instead, again under `errors`; on one that does,
+      // the records carry the check's names as ids, unique in the list.
+      const startup = await request(REST_URL)
         .get("/api/v2/facts")
         .set("Authorization", `Bearer ${key}`)
         .trustLocalhost(true)
         .expect(200);
+      expect(startup.body.enabled).toContain("hyperv");
+      expect(startup.body.errors.hyperv).toMatch(
+        /Not collected during startup|Hyper-V role is not installed on this host|Failed to query/,
+      );
+
+      const document = await request(REST_URL)
+        .post("/api/v2/facts/commands/refresh")
+        .set("Authorization", `Bearer ${key}`)
+        .trustLocalhost(true)
+        .expect(200);
       expect(document.body.enabled).toContain("hyperv");
+      expect(document.body.errors.hyperv).not.toMatch(/Not collected during startup/);
       if (document.body.errors.hyperv !== undefined) {
         expect(document.body.errors.hyperv).toMatch(
           /Hyper-V role is not installed on this host|Failed to query Hyper-V virtual machines/,
