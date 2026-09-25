@@ -12,7 +12,10 @@
  *
  * check_nt is spoken over a raw socket here (`<password>&<code>`, no framing,
  * one response then close), so this runs without docker; the real
- * nagios-plugins client is exercised in check_nt-client.test.ts.
+ * nagios-plugins client is exercised in check_nt-client.test.ts. That half
+ * needs NSClientServer, which is built on Windows only, so it is skipped where
+ * the install does not carry the module; NSCAServer is cross-platform and its
+ * half runs everywhere crypto++ was found.
  */
 import * as crypto from "crypto";
 import * as net from "net";
@@ -88,7 +91,14 @@ async function waitForOutput(
   );
 }
 
-describe("check_nt with the shared password stored hashed", () => {
+// NSClientServer is Windows-only (modules/NSClientServer/module.cmake sets
+// BUILD_MODULE 0 elsewhere), so on a Linux package there is no check_nt server
+// to configure and the whole group is skipped rather than left waiting on a
+// port nothing will open. Asked of the install rather than of the platform: a
+// build may omit a module the platform supports.
+const describeCheckNt = hasModule("NSClientServer") ? describe : describe.skip;
+
+describeCheckNt("check_nt with the shared password stored hashed", () => {
   const stored = pbkdf2Hash(PASSWORD);
   let nscp: NscpInstance;
 
