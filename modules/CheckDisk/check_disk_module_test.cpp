@@ -371,7 +371,7 @@ const PB::Facts::FactSet *find_fact_set(const PB::Facts::FactsMessage &message, 
 
 std::string string_field(const PB::Facts::Object &object, const std::string &key) {
   for (const PB::Facts::Field &field : object.fields()) {
-    if (field.key() == key && field.value().has_string_value()) return field.value().string_value();
+    if (field.key() == key && field.value().kind_case() == PB::Facts::Value::kStringValue) return field.value().string_value();
   }
   return "";
 }
