@@ -102,8 +102,12 @@ describe("REST facts", () => {
         );
         // `software` is allowed one: a host with more packages than the set
         // ships reports the truncation here, which the software test below
-        // checks in full.
-        expect(Object.keys(response.body.errors).filter((id) => id !== "software")).toEqual([]);
+        // checks in full. `hyperv` is allowed one too: it is claimed on the
+        // startup round and collected from the next one on, which the Hyper-V
+        // test below checks in full.
+        expect(
+          Object.keys(response.body.errors).filter((id) => id !== "software" && id !== "hyperv"),
+        ).toEqual([]);
         expect(response.body.found).toBe(true);
         expect(response.body.revision).toBeGreaterThan(0);
         // ISO 8601 UTC, as the document rules require.
@@ -316,10 +320,12 @@ describe("REST facts", () => {
         .trustLocalhost(true)
         .expect(200);
       expect(document.body.enabled).toContain("hyperv");
-      expect(document.body.errors.hyperv).not.toMatch(/Not collected during startup/);
       if (document.body.errors.hyperv !== undefined) {
-        // No role, a stopped management service, or (an unelevated run on a
-        // Hyper-V host) VMs the account is not allowed to see.
+        // The manual round did collect: whatever it reports is no longer the
+        // startup claim. No role, a stopped management service, or (an
+        // unelevated run on a Hyper-V host) VMs the account is not allowed to
+        // see.
+        expect(document.body.errors.hyperv).not.toMatch(/Not collected during startup/);
         expect(document.body.errors.hyperv).toMatch(
           /Hyper-V role is not installed on this host|management classes are missing|none are visible to this account|Failed to query Hyper-V virtual machines/,
         );
