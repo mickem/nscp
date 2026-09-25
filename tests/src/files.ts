@@ -1,6 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
 
+import { onWindows } from "./platform";
+
 /**
  * Read every regular file under `dir` (recursive) and return their
  * contents concatenated. Replaces `findstr /s` over a spool directory.
@@ -45,8 +47,6 @@ function walk(dir: string, visit: (file: string) => void): void {
     else if (entry.isFile()) visit(p);
   }
 }
-
-const onWindows = process.platform === "win32";
 
 /**
  * Write a helper script for the *agent under test* and return the command

@@ -28,7 +28,7 @@ import crypto from "crypto";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { NscpInstance, makeZip, signBundle, makeCertPem, FLEET_TENANT_ID } from "@fixtures/index";
+import { NscpInstance, makeZip, signBundle, makeCertPem, FLEET_TENANT_ID, onWindows } from "@fixtures/index";
 
 jest.setTimeout(180_000);
 
@@ -294,7 +294,7 @@ describe("core fleet sync loop", () => {
     // still carries no hint of *what* is configured.
     expect(report.body.local_config_present).toBe(true);
     expect(JSON.stringify(report.body)).not.toContain("CheckDisk");
-    if (process.platform === "win32") {
+    if (onWindows) {
       // Module-contributed tags (CheckDisk's drive list) ride along in every
       // state report, merged from the central tag repository.
       expect(report.body.reported_tags.drives).toMatch(/^[a-z]:(,[a-z]:)*$/);

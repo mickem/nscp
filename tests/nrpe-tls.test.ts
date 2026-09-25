@@ -18,6 +18,7 @@ import {
   dockerRunOnce,
   generateCertChain,
   hostGatewayExtraHosts,
+  onWindows,
 } from "@fixtures/index";
 
 jest.setTimeout(900_000);
@@ -129,7 +130,7 @@ dockerOrSkip()("NRPE integration", () => {
   // anyone ever builds a sanitizer there). The body becomes a no-op
   // on Linux to save the docker round-trip.
   async function shutdownViaMockExit(extraArgs: string[] = []): Promise<void> {
-    if (process.platform === "win32") {
+    if (onWindows) {
       await dockerRunOnce(
         image,
         [

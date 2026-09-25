@@ -8,7 +8,7 @@
  * the API their role grants.
  */
 import request from "supertest";
-import { NscpInstance, REST_URL, setupRestNscp } from "@fixtures/index";
+import { NscpInstance, REST_URL, setupRestNscp, itWithModules } from "@fixtures/index";
 
 jest.setTimeout(900_000);
 
@@ -51,7 +51,9 @@ describe("REST permissions", () => {
         });
     });
 
-    it("can load a module", async () => {
+    // The module loaded is one the fixture leaves out; on macOS it is also one
+    // the build leaves out, until CheckLogFile is ported.
+    itWithModules("CheckLogFile")("can load a module", async () => {
       await request(REST_URL)
         .get("/api/v2/modules/CheckLogFile/commands/load")
         .set("Authorization", `Bearer ${key}`)
@@ -64,7 +66,7 @@ describe("REST permissions", () => {
         });
     });
 
-    it("can unload a module", async () => {
+    itWithModules("CheckLogFile")("can unload a module", async () => {
       await request(REST_URL)
         .get("/api/v2/modules/CheckLogFile/commands/unload")
         .set("Authorization", `Bearer ${key}`)

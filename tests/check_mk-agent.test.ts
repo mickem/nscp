@@ -17,6 +17,7 @@ import {
   dockerOrSkip,
   dockerRunOnce,
   hostGatewayExtraHosts,
+  onWindows,
 } from "@fixtures/index";
 
 jest.setTimeout(900_000);
@@ -108,7 +109,7 @@ dockerOrSkip()("check_mk integration", () => {
     // in-band shutdown and runs atexit. Linux: nscp.stop()'s SIGTERM
     // hits the signal_set handler directly, so the NRPE round-trip is
     // skipped to keep teardown fast.
-    if (process.platform === "win32") {
+    if (onWindows) {
       await nscp.run(
         ["nrpe", "--host", "127.0.0.1", "--insecure", "--version", "2", "--command", "mock_exit"],
         { timeout: 5_000, allowFailure: true },

@@ -18,7 +18,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { curlHead } from "@fixtures/http";
-import { NscpInstance } from "@fixtures/index";
+import { NscpInstance, onWindows } from "@fixtures/index";
 
 jest.setTimeout(120_000);
 
@@ -126,7 +126,7 @@ describe("nscp web install", () => {
     // Root is needed to chown, so the branch that changes an owner runs where
     // the test is root (the package CI); elsewhere the no-op contract is what
     // is asserted, not skipped.
-    if (process.platform === "win32") return;
+    if (onWindows) return;
     const base = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-handoff-"));
     // mkdtemp makes it 0700: a pre-existing parent is not the command's to
     // open up (the test below pins that), so open it here, as packaging does.

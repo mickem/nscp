@@ -20,11 +20,11 @@ import {
   executeQuery,
   messageOf,
   setupQueryNscp,
+  describeOnWindows,
 } from "@fixtures/index";
 
 jest.setTimeout(300_000);
 
-const onWindows = process.platform === "win32";
 const TASK = "nscp_parity_hidden_test";
 
 // A minimal per-user task with the Hidden flag set. InteractiveToken + Author
@@ -38,7 +38,7 @@ const HIDDEN_TASK_XML = `<?xml version="1.0" encoding="UTF-16"?>
   <Actions Context="Author"><Exec><Command>cmd.exe</Command><Arguments>/c exit</Arguments></Exec></Actions>
 </Task>`;
 
-(onWindows ? describe : describe.skip)("CheckTaskSched check_tasksched", () => {
+describeOnWindows("CheckTaskSched check_tasksched", () => {
   let nscp: NscpInstance;
   let key: string;
 

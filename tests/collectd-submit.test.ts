@@ -31,7 +31,7 @@
  */
 import * as dgram from "dgram";
 import * as dns from "dns";
-import { NscpInstance } from "@fixtures/index";
+import { NscpInstance, describeWithModules } from "@fixtures/index";
 
 jest.setTimeout(600_000);
 
@@ -192,7 +192,9 @@ class CollectdReceiver {
   }
 }
 
-describe("CollectD integration", () => {
+// Every block here needs the CheckSystem metrics producer, which the macOS build
+// does not carry yet; the gate lifts when it is ported.
+describeWithModules("CheckSystem")("CollectD integration", () => {
   let nscp: NscpInstance;
   let receiver: CollectdReceiver;
 
@@ -284,7 +286,7 @@ describe("CollectD integration", () => {
 
 // A second instance with an explicit interval and a custom metric mapping,
 // proving the mapping/interval are settings-driven rather than hard-coded.
-describe("CollectD configurable mapping", () => {
+describeWithModules("CheckSystem")("CollectD configurable mapping", () => {
   let nscp: NscpInstance;
   let receiver: CollectdReceiver;
 
@@ -342,7 +344,7 @@ describe("CollectD configurable mapping", () => {
 // A target may name a host rather than an IP literal: the send path resolves
 // it. Before that it parsed literals only, so a hostname target threw on every
 // metrics cycle and the metrics silently never arrived.
-describe("CollectD hostname target", () => {
+describeWithModules("CheckSystem")("CollectD hostname target", () => {
   let nscp: NscpInstance;
   let receiver: CollectdReceiver;
 
@@ -390,7 +392,7 @@ describe("CollectD hostname target", () => {
 // targets. Configuring it on a unicast target must be accepted and ignored -
 // this also proves the key is registered, which a typo in the settings
 // declaration would break.
-describe("CollectD multicast interface setting", () => {
+describeWithModules("CheckSystem")("CollectD multicast interface setting", () => {
   let nscp: NscpInstance;
   let receiver: CollectdReceiver;
 
@@ -431,7 +433,7 @@ describe("CollectD multicast interface setting", () => {
 });
 
 // A per-target `interval` must override the client-level interval on the wire.
-describe("CollectD per-target interval override", () => {
+describeWithModules("CheckSystem")("CollectD per-target interval override", () => {
   let nscp: NscpInstance;
   let receiver: CollectdReceiver;
 

@@ -21,13 +21,14 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 
-import { NscpInstance } from "@fixtures/index";
+import { NscpInstance, itOnUnix, describeWithModules } from "@fixtures/index";
 
 jest.setTimeout(180_000);
 
 const UNKNOWN = 3;
 
-describe("CheckLogFile file access modes", () => {
+// Skipped where the build has no CheckLogFile (macOS, until it is ported).
+describeWithModules("CheckLogFile")("CheckLogFile file access modes", () => {
   let nscp: NscpInstance;
   let scratch: string;
   let allowedDir: string;
@@ -208,51 +209,43 @@ describe("CheckLogFile file access modes", () => {
     // A symlink is the other way the string comparison lies; the path is
     // resolved before it is matched, so the link is followed out of the
     // allowed directory and refused there.
-    (process.platform === "win32" ? it.skip : it)(
-      "refuses a symlink leading out of the allowed directory",
-      async () => {
-        const link = path.join(allowedDir, "escape.log");
-        fs.rmSync(link, { force: true });
-        fs.symlinkSync(secretFile, link);
-        const { out, code } = await check([`file=${link}`]);
-        fs.rmSync(link, { force: true });
-        expect(code).toBe(UNKNOWN);
-        expect(out).toMatch(/Refusing file/);
-        expect(out).not.toMatch(/SECRET which must not come back/);
-      },
-    );
+    itOnUnix("refuses a symlink leading out of the allowed directory", async () => {
+      const link = path.join(allowedDir, "escape.log");
+      fs.rmSync(link, { force: true });
+      fs.symlinkSync(secretFile, link);
+      const { out, code } = await check([`file=${link}`]);
+      fs.rmSync(link, { force: true });
+      expect(code).toBe(UNKNOWN);
+      expect(out).toMatch(/Refusing file/);
+      expect(out).not.toMatch(/SECRET which must not come back/);
+    });
 
     // The resolver only follows links in the part of the path which exists
     // and appends the rest lexically, so a `..` cancelling a name which is
     // not there used to leave a link after it unresolved: the path read as
     // inside the allowed directory and opened wherever the link pointed.
-    (process.platform === "win32" ? it.skip : it)(
-      "refuses a symlink reached past an element the resolver skipped",
-      async () => {
-        const link = path.join(allowedDir, "escape.log");
-        fs.rmSync(link, { force: true });
-        fs.symlinkSync(secretFile, link);
-        const spellings = [
-          path.join(allowedDir, "nonexist", "..", "escape.log"),
-          path.join(allowedDir, "a".repeat(300), "..", "escape.log"),
-        ];
-        try {
-          for (const spelling of spellings) {
-            const { out, code } = await check([`file=${spelling}`]);
-            expect(code).toBe(UNKNOWN);
-            expect(out).toMatch(/Refusing file/);
-            expect(out).not.toMatch(/SECRET which must not come back/);
-          }
-          // The same spelling without a link behind it is still fine.
-          const { out } = await check([
-            `file=${path.join(allowedDir, "nonexist", "..", "app.log")}`,
-          ]);
-          expect(out).toMatch(/SECRET in an allowed file/);
-        } finally {
-          fs.rmSync(link, { force: true });
+    itOnUnix("refuses a symlink reached past an element the resolver skipped", async () => {
+      const link = path.join(allowedDir, "escape.log");
+      fs.rmSync(link, { force: true });
+      fs.symlinkSync(secretFile, link);
+      const spellings = [
+        path.join(allowedDir, "nonexist", "..", "escape.log"),
+        path.join(allowedDir, "a".repeat(300), "..", "escape.log"),
+      ];
+      try {
+        for (const spelling of spellings) {
+          const { out, code } = await check([`file=${spelling}`]);
+          expect(code).toBe(UNKNOWN);
+          expect(out).toMatch(/Refusing file/);
+          expect(out).not.toMatch(/SECRET which must not come back/);
         }
-      },
-    );
+        // The same spelling without a link behind it is still fine.
+        const { out } = await check([`file=${path.join(allowedDir, "nonexist", "..", "app.log")}`]);
+        expect(out).toMatch(/SECRET in an allowed file/);
+      } finally {
+        fs.rmSync(link, { force: true });
+      }
+    });
 
     it("does not disclose the allow list in the refusal", async () => {
       const { out } = await check([`file=${secretFile}`]);

@@ -22,6 +22,7 @@ import {
   trackContainerLogs,
   waitForHttp,
   type StartedTestContainer,
+  onWindows,
 } from "@fixtures/index";
 
 jest.setTimeout(1_800_000); // up to 30 min — site bootstrap is slow
@@ -117,7 +118,7 @@ maybeDescribe("Checkmk site end-to-end", () => {
     if (!nscp) return;
     // See check_mk-agent.test.ts: NRPE mock_exit on Windows, plain
     // SIGTERM on Linux.
-    if (process.platform === "win32") {
+    if (onWindows) {
       await nscp.run(
         ["nrpe", "--host", "127.0.0.1", "--insecure", "--version", "2", "--command", "mock_exit"],
         { timeout: 5_000, allowFailure: true },

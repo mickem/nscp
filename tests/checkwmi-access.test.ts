@@ -18,11 +18,9 @@
  * so the mode can be rewritten between cases without restarting a server.
  * WMI is Windows-only, so the suite is skipped elsewhere.
  */
-import { NscpInstance } from "@fixtures/index";
+import { NscpInstance, describeOnWindows } from "@fixtures/index";
 
 jest.setTimeout(180_000);
-
-const onWindows = process.platform === "win32" ? describe : describe.skip;
 
 const UNKNOWN = 3;
 const OS_QUERY = "SELECT Caption FROM Win32_OperatingSystem";
@@ -30,7 +28,7 @@ const SERVICE_QUERY = "SELECT Name, State FROM Win32_Service";
 /** The filesystem side of WMI: what restricting by class is meant to shut out. */
 const FILE_QUERY = "SELECT Name FROM CIM_DataFile WHERE Drive = 'C:' AND Path = '\\\\Windows\\\\'";
 
-onWindows("CheckWMI query access modes", () => {
+describeOnWindows("CheckWMI query access modes", () => {
   let nscp: NscpInstance;
 
   async function check(args: string[]): Promise<{ out: string; code: number }> {

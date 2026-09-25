@@ -9,11 +9,9 @@
  * `hardware` turned on.
  */
 import request from "supertest";
-import { NscpInstance, REST_URL, hasModule } from "@fixtures/index";
+import { NscpInstance, REST_URL, hasModule, onWindows, describeWithModules } from "@fixtures/index";
 
 jest.setTimeout(900_000);
-
-const onWindows = process.platform === "win32";
 
 /**
  * The facts document once the startup round has claimed `set`. The round runs
@@ -37,7 +35,8 @@ async function documentClaiming(
 }
 const factsSection = `/settings/system/${onWindows ? "windows" : "unix"}/facts`;
 
-describe("REST facts", () => {
+// Skipped where the build has neither producer (macOS, until they are ported).
+describeWithModules("CheckSystem", "CheckDisk")("REST facts", () => {
   let nscp: NscpInstance;
   let key: string | undefined = undefined;
 

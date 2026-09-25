@@ -24,7 +24,7 @@
  */
 import * as path from "path";
 import execa from "execa";
-import { NscpInstance, dockerOrSkip } from "@fixtures/index";
+import { NscpInstance, dockerOrSkip, onWindows } from "@fixtures/index";
 
 jest.setTimeout(600_000);
 
@@ -113,10 +113,9 @@ dockerOrSkip()("CollectD real-daemon integration", () => {
   // namespace differs by OS), so the expected collectd output differs too. nscp
   // runs as a host process, so process.platform decides which default branch is
   // exercised; the collectd receiver is the same Linux container either way.
-  const isWindows = process.platform === "win32";
-  const label = isWindows ? "default Windows mapping" : "default Linux mapping";
+  const label = onWindows ? "default Windows mapping" : "default Linux mapping";
   // [regex, human description] for files that MUST be present for this platform.
-  const required: Array<[RegExp, string]> = isWindows
+  const required: Array<[RegExp, string]> = onWindows
     ? [
         [/\/cpu-total\/cpu-user-/, "cpu-total/cpu-user"],
         [/\/cpu-\d+\/cpu-user-/, "per-core cpu-<N>/cpu-user"],

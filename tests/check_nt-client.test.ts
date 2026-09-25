@@ -26,12 +26,12 @@ import {
   dockerOrSkip,
   dockerRunOnce,
   hostGatewayExtraHosts,
+  onWindows,
   pbkdf2StoredForm,
 } from "@fixtures/index";
 
 jest.setTimeout(900_000);
 
-const onWindows = process.platform === "win32";
 const PASSWORD = "check_nt-password";
 
 dockerOrSkip()("check_nt (legacy NSClient) integration", () => {

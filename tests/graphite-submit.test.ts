@@ -25,6 +25,7 @@ import {
   dockerOrSkip,
   trackContainerLogs,
   type StartedTestContainer,
+  itWithModules,
 } from "@fixtures/index";
 
 jest.setTimeout(600_000);
@@ -121,7 +122,7 @@ dockerOrSkip()("Graphite integration", () => {
     await server?.stop();
   });
 
-  it("forwards CheckSystem system metrics to Graphite", async () => {
+  itWithModules("CheckSystem")("forwards CheckSystem system metrics to Graphite", async () => {
     // CheckSystem always emits cpu metrics on Linux (read from /proc/stat) and
     // memory metrics; the default metric path is "nsclient.${hostname}.${metric}".
     const data = await waitForReceived((s) => /nsclient\.\S*(cpu|mem)/i.test(s));

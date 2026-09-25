@@ -24,18 +24,18 @@ import {
   GenericContainer,
   Wait,
   type StartedTestContainer,
+  onWindows,
+  describeOnWindows,
 } from "@fixtures/index";
 
 jest.setTimeout(600_000);
-
-const onWindows = process.platform === "win32";
 
 // Matches the module's stable error contract for unreachable servers.
 const CONNECT_FAILED = /Failed to connect to SQL Server/;
 // A check either produced a real status line or hit the connect contract.
 const STATUS_OR_CONNECT_FAILED = /(^|\n)(OK|WARNING|CRITICAL)|Failed to connect to SQL Server/;
 
-(onWindows ? describe : describe.skip)("CheckMSSQL contract (no SQL Server required)", () => {
+describeOnWindows("CheckMSSQL contract (no SQL Server required)", () => {
   let nscp: NscpInstance;
 
   async function query(command: string, args: string[] = []): Promise<string> {

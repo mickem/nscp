@@ -13,13 +13,13 @@
  */
 import * as fs from "fs";
 import request from "supertest";
-import { NscpInstance, REST_URL } from "@fixtures/index";
+import { NscpInstance, REST_URL, onLinux } from "@fixtures/index";
 import { skipDocker, GenericContainer, type StartedTestContainer } from "./src/docker";
 
 jest.setTimeout(300_000);
 
 const DOCKER_SOCKET = "/var/run/docker.sock";
-const canRun = !skipDocker() && process.platform === "linux" && fs.existsSync(DOCKER_SOCKET);
+const canRun = !skipDocker() && onLinux && fs.existsSync(DOCKER_SOCKET);
 const maybeDescribe = canRun ? describe : describe.skip;
 
 maybeDescribe("CheckDocker commands", () => {

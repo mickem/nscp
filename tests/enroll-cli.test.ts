@@ -15,7 +15,7 @@ import { AddressInfo } from "net";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { NscpInstance } from "@fixtures/index";
+import { NscpInstance, onWindows, onUnix } from "@fixtures/index";
 
 jest.setTimeout(120_000);
 
@@ -241,7 +241,7 @@ describe("nscp enroll (fleet onboarding CLI)", () => {
     // ${data-path}/security/agent-state.json instead. The fixture points both
     // at the work dir, so spell out which one is actually being relied on.
     const expected =
-      process.platform === "win32"
+      onWindows
         ? path.join(nscp.pathOverrides["certificate-path"], "agent-state.json")
         : path.join(nscp.pathOverrides["data-path"], "security", "agent-state.json");
     // A previous suite run (or test) may have left a state file behind.
@@ -419,7 +419,7 @@ describe("nscp enroll (fleet onboarding CLI)", () => {
     const r = await enroll(["--state-file", stateFile]);
     expect(r.exitCode).toBe(0);
     expect(fs.existsSync(stateFile)).toBe(true);
-    if (process.platform !== "win32") {
+    if (onUnix) {
       expect(fs.statSync(stateFile).mode & 0o777).toBe(0o600);
     }
   });

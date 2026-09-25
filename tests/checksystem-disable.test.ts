@@ -10,11 +10,9 @@
  */
 import request from "supertest";
 
-import { NscpInstance, OK, REST_URL, UNKNOWN, executeQuery, messageOf, perfValue, setupQueryNscp } from "@fixtures/index";
+import { NscpInstance, OK, REST_URL, UNKNOWN, executeQuery, messageOf, perfValue, setupQueryNscp, describeOnWindows } from "@fixtures/index";
 
 jest.setTimeout(300_000);
-
-const onWindows = process.platform === "win32" ? describe : describe.skip;
 
 /** All log messages buffered by the WEBServer so far, joined for matching. */
 async function fetchLogs(key: string): Promise<string> {
@@ -40,7 +38,7 @@ async function waitForLog(key: string, needle: string, timeoutMs = 15_000): Prom
   throw new Error(`log line not seen within ${timeoutMs}ms: ${needle}\n--- logs ---\n${logs}`);
 }
 
-onWindows("CheckSystem disable=cpu_frequency (#1368)", () => {
+describeOnWindows("CheckSystem disable=cpu_frequency (#1368)", () => {
   let nscp: NscpInstance;
   let key: string;
 
@@ -75,7 +73,7 @@ onWindows("CheckSystem disable=cpu_frequency (#1368)", () => {
   });
 });
 
-onWindows("CheckSystem disable=cpu (#1368)", () => {
+describeOnWindows("CheckSystem disable=cpu (#1368)", () => {
   let nscp: NscpInstance;
   let key: string;
 

@@ -29,7 +29,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { NscpInstance } from "@fixtures/index";
+import { NscpInstance, onUnix, describeOnWindows, describeOnLinux } from "@fixtures/index";
 
 jest.setTimeout(180_000);
 
@@ -229,7 +229,7 @@ describe("script folder resolution", () => {
   // agent resolves. So there is no search, no sandbox, and - the part that
   // catches people out - no ${...} expansion. Pinned here because it is the
   // opposite of the two modules above and the docs now promise it.
-  (process.platform === "linux" ? describe : describe.skip)("CheckExternalScripts", () => {
+  describeOnLinux("CheckExternalScripts", () => {
     let root: string;
 
     /** Configure one command and return its output. */
@@ -326,123 +326,118 @@ describe("script folder resolution", () => {
   // The distinction that matters is folder-bearing versus bare: rooting a bare
   // `cmd.exe` would point every shipped wrapping at a file that is not there,
   // so the system's own executable search has to keep working.
-  (process.platform === "win32" ? describe : describe.skip)(
-    "CheckExternalScripts on Windows",
-    () => {
-      let root: string;
+  describeOnWindows("CheckExternalScripts on Windows", () => {
+    let root: string;
 
-      /**
-       * Configure one command and return its output. `base-path` is overridden
-       * so the rooting has a tree this test owns to land in; ${exe-path} is left
-       * alone, so the module still loads from the build directory.
-       */
-      async function runScript(value: string, cwd: "rooted" | "neutral"): Promise<string> {
-        const workDir =
-          cwd === "rooted" ? root : fs.mkdtempSync(path.join(os.tmpdir(), "nscp-extwin-neutral-"));
-        const nscp = new NscpInstance({
-          workDir,
-          settingsFile: path.join(workDir, `extwin-${Math.random().toString(36).slice(2)}.ini`),
-          pathOverrides: { "base-path": root, scripts: path.join(root, "scripts") },
-        });
-        fs.writeFileSync(
-          nscp.settingsFile,
-          [
-            "[/modules]",
-            "CheckExternalScripts = enabled",
-            "",
-            "[/settings/external scripts/scripts]",
-            `probe = ${value}`,
-            "",
-          ].join("\n"),
-        );
-        const r = await nscp.run(
-          // --log debug so the launcher fork below is visible in the output.
-          [
-            "client",
-            "--module",
-            "CheckExternalScripts",
-            "--boot",
-            "--log",
-            "debug",
-            "--query",
-            "probe",
-          ],
-          { allowFailure: true },
-        );
-        return r.all ?? `${r.stdout}\n${r.stderr}`;
-      }
-
-      beforeAll(() => {
-        root = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-extwinroot-"));
-        const script = path.join(root, "scripts", "b.bat");
-        fs.mkdirSync(path.dirname(script), { recursive: true });
-        fs.writeFileSync(script, "@echo off\r\necho probe ok\r\n");
+    /**
+     * Configure one command and return its output. `base-path` is overridden
+     * so the rooting has a tree this test owns to land in; ${exe-path} is left
+     * alone, so the module still loads from the build directory.
+     */
+    async function runScript(value: string, cwd: "rooted" | "neutral"): Promise<string> {
+      const workDir =
+        cwd === "rooted" ? root : fs.mkdtempSync(path.join(os.tmpdir(), "nscp-extwin-neutral-"));
+      const nscp = new NscpInstance({
+        workDir,
+        settingsFile: path.join(workDir, `extwin-${Math.random().toString(36).slice(2)}.ini`),
+        pathOverrides: { "base-path": root, scripts: path.join(root, "scripts") },
       });
+      fs.writeFileSync(
+        nscp.settingsFile,
+        [
+          "[/modules]",
+          "CheckExternalScripts = enabled",
+          "",
+          "[/settings/external scripts/scripts]",
+          `probe = ${value}`,
+          "",
+        ].join("\n"),
+      );
+      const r = await nscp.run(
+        // --log debug so the launcher fork below is visible in the output.
+        [
+          "client",
+          "--module",
+          "CheckExternalScripts",
+          "--boot",
+          "--log",
+          "debug",
+          "--query",
+          "probe",
+        ],
+        { allowFailure: true },
+      );
+      return r.all ?? `${r.stdout}\n${r.stderr}`;
+    }
 
-      // Every command here is written with a doubled backslash, which is not
-      // cosmetic: the tokeniser escapes on `\`, so a single backslash cannot be
-      // parsed into an argument vector and the command falls back to the legacy
-      // single-string launcher instead. That is what kept this bug hidden for
-      // so long - every shipped sample is single-backslash, so every shipped
-      // sample was on the legacy path, where CreateProcess does the lookup
-      // itself and measures the command against the directory the agent loaded
-      // from. On a real install that is the installation directory and it
-      // works. A command that *is* argv-safe took the other path, and that one
-      // was measured against the caller's working directory.
-      //
-      // Which fork a spelling takes is pinned directly at the end of this
-      // block. Where the legacy one *lands* is not, because it resolves
-      // against the directory the agent loaded from - and this fixture points
-      // ${base-path} at a tree of its own while the agent still loads from the
-      // build directory, so the two deliberately disagree here in a way they
-      // never do on a real install.
-      it("runs a relative command from the installation directory", async () => {
-        expect(await runScript("scripts\\\\b.bat", "rooted")).toMatch(/probe ok/);
-      });
+    beforeAll(() => {
+      root = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-extwinroot-"));
+      const script = path.join(root, "scripts", "b.bat");
+      fs.mkdirSync(path.dirname(script), { recursive: true });
+      fs.writeFileSync(script, "@echo off\r\necho probe ok\r\n");
+    });
 
-      it("runs that same command from any other working directory", async () => {
-        // The regression this block exists for. `neutral` is a scratch directory
-        // with no `scripts` folder in it at all, which is the service's position.
-        expect(await runScript("scripts\\\\b.bat", "neutral")).toMatch(/probe ok/);
-      });
+    // Every command here is written with a doubled backslash, which is not
+    // cosmetic: the tokeniser escapes on `\`, so a single backslash cannot be
+    // parsed into an argument vector and the command falls back to the legacy
+    // single-string launcher instead. That is what kept this bug hidden for
+    // so long - every shipped sample is single-backslash, so every shipped
+    // sample was on the legacy path, where CreateProcess does the lookup
+    // itself and measures the command against the directory the agent loaded
+    // from. On a real install that is the installation directory and it
+    // works. A command that *is* argv-safe took the other path, and that one
+    // was measured against the caller's working directory.
+    //
+    // Which fork a spelling takes is pinned directly at the end of this
+    // block. Where the legacy one *lands* is not, because it resolves
+    // against the directory the agent loaded from - and this fixture points
+    // ${base-path} at a tree of its own while the agent still loads from the
+    // build directory, so the two deliberately disagree here in a way they
+    // never do on a real install.
+    it("runs a relative command from the installation directory", async () => {
+      expect(await runScript("scripts\\\\b.bat", "rooted")).toMatch(/probe ok/);
+    });
 
-      it("roots the forward-slash spelling the same way", async () => {
-        expect(await runScript("scripts/b.bat", "neutral")).toMatch(/probe ok/);
-      });
+    it("runs that same command from any other working directory", async () => {
+      // The regression this block exists for. `neutral` is a scratch directory
+      // with no `scripts` folder in it at all, which is the service's position.
+      expect(await runScript("scripts\\\\b.bat", "neutral")).toMatch(/probe ok/);
+    });
 
-      it("leaves a bare executable name to the system search", async () => {
-        // cmd.exe is on PATH and nowhere near ${base-path}; rooting it would
-        // break every wrapping in the shipped configuration.
-        expect(await runScript("cmd.exe /c echo probe ok", "neutral")).toMatch(/probe ok/);
-      });
+    it("roots the forward-slash spelling the same way", async () => {
+      expect(await runScript("scripts/b.bat", "neutral")).toMatch(/probe ok/);
+    });
 
-      it("runs an absolute command from anywhere", async () => {
-        expect(await runScript(path.join(root, "scripts", "b.bat"), "neutral")).toMatch(/probe ok/);
-      });
+    it("leaves a bare executable name to the system search", async () => {
+      // cmd.exe is on PATH and nowhere near ${base-path}; rooting it would
+      // break every wrapping in the shipped configuration.
+      expect(await runScript("cmd.exe /c echo probe ok", "neutral")).toMatch(/probe ok/);
+    });
 
-      it("does not expand path tokens", async () => {
-        // Same trap as on Linux: the value is a command line, so ${scripts}
-        // reaches the launcher literally. Rooting does not change that - it
-        // joins the token on as a folder name, and the file is still not there.
-        expect(await runScript("${scripts}/b.bat", "rooted")).not.toMatch(/probe ok/);
-      });
+    it("runs an absolute command from anywhere", async () => {
+      expect(await runScript(path.join(root, "scripts", "b.bat"), "neutral")).toMatch(/probe ok/);
+    });
 
-      // Which of the two launchers a spelling gets, pinned on the debug line
-      // the module logs when it gives up on building an argument vector. The
-      // rooting above only applies to the argv one, so a tokeniser change that
-      // moved a command across this line would move it out from under the fix
-      // without any test noticing.
-      it("sends a doubled backslash down the argv path", async () => {
-        expect(await runScript("scripts\\\\b.bat", "rooted")).not.toMatch(
-          /argv-isolation disabled/,
-        );
-      });
+    it("does not expand path tokens", async () => {
+      // Same trap as on Linux: the value is a command line, so ${scripts}
+      // reaches the launcher literally. Rooting does not change that - it
+      // joins the token on as a folder name, and the file is still not there.
+      expect(await runScript("${scripts}/b.bat", "rooted")).not.toMatch(/probe ok/);
+    });
 
-      it("sends a single backslash down the legacy path", async () => {
-        expect(await runScript("scripts\\b.bat", "rooted")).toMatch(/argv-isolation disabled/);
-      });
-    },
-  );
+    // Which of the two launchers a spelling gets, pinned on the debug line
+    // the module logs when it gives up on building an argument vector. The
+    // rooting above only applies to the argv one, so a tokeniser change that
+    // moved a command across this line would move it out from under the fix
+    // without any test noticing.
+    it("sends a doubled backslash down the argv path", async () => {
+      expect(await runScript("scripts\\\\b.bat", "rooted")).not.toMatch(/argv-isolation disabled/);
+    });
+
+    it("sends a single backslash down the legacy path", async () => {
+      expect(await runScript("scripts\\b.bat", "rooted")).toMatch(/argv-isolation disabled/);
+    });
+  });
   // --- add --import writes where the loader looks --------------------------
   //
   // The CLI copies a script into the module's folder and records a value for
@@ -584,7 +579,7 @@ describe("script folder resolution", () => {
       const recorded = (r.configured ?? "").replace(/^"|"$/g, "");
       expect(path.isAbsolute(recorded)).toBe(true);
       expect(path.resolve(recorded)).toBe(path.resolve(path.join(r.scriptsDir, "imported.sh")));
-      if (process.platform !== "win32") {
+      if (onUnix) {
         fs.chmodSync(r.configured as string, 0o755);
         const elsewhere = new NscpInstance({
           workDir: fs.mkdtempSync(path.join(os.tmpdir(), "nscp-import-run-")),

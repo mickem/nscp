@@ -17,13 +17,14 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 
-import { NscpInstance } from "@fixtures/index";
+import { NscpInstance, itOnUnix, describeWithModules } from "@fixtures/index";
 
 jest.setTimeout(180_000);
 
 const UNKNOWN = 3;
 
-describe("CheckDisk file access modes", () => {
+// Skipped where the build has no CheckDisk (macOS, until it is ported).
+describeWithModules("CheckDisk")("CheckDisk file access modes", () => {
   let nscp: NscpInstance;
   let scratch: string;
   let allowedDir: string;
@@ -195,7 +196,7 @@ describe("CheckDisk file access modes", () => {
     });
 
     // A symlink is the other way a string comparison would be fooled.
-    (process.platform === "win32" ? it.skip : it)("refuses a symlink leading out of the allowed directory", async () => {
+    itOnUnix("refuses a symlink leading out of the allowed directory", async () => {
       const link = path.join(allowedDir, "escape.log");
       fs.rmSync(link, { force: true });
       fs.symlinkSync(secretFile, link);
@@ -208,7 +209,7 @@ describe("CheckDisk file access modes", () => {
     // A `..` cancelling a name which is not there used to leave a link after
     // it unresolved, so the path read as inside the allowed directory and the
     // check followed the link out of it.
-    (process.platform === "win32" ? it.skip : it)("refuses a symlink reached past an element the resolver skipped", async () => {
+    itOnUnix("refuses a symlink reached past an element the resolver skipped", async () => {
       const link = path.join(allowedDir, "escape.log");
       fs.rmSync(link, { force: true });
       fs.symlinkSync(secretFile, link);

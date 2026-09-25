@@ -35,12 +35,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { NscpInstance } from "@fixtures/index";
+import { NscpInstance, onWindows } from "@fixtures/index";
 
 jest.setTimeout(180_000);
 
 const NRPE_PORT = 5666;
-const onWindows = process.platform === "win32";
 
 describe("CheckExternalScripts — concurrent scripts keep their streams apart", () => {
   let nscp: NscpInstance;

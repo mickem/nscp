@@ -1,7 +1,7 @@
 # Integration / scenario tests
 
 Cross-platform replacement for the per-protocol `tests/<proto>/run-test.bat` scripts. The same suites run on Linux (WSL
-or native) and Windows under one Jest + TypeScript harness,
+or native), macOS and Windows under one Jest + TypeScript harness,
 using [testcontainers-node](https://node.testcontainers.org/) to drive the per-test Docker images
 and [execa](https://github.com/sindresorhus/execa) to spawn the `nscp` CLI.
 
@@ -14,7 +14,8 @@ and [execa](https://github.com/sindresorhus/execa) to spawn the `nscp` CLI.
 ## Requirements
 
 - Node.js 20+ and npm (matches `tests/rest/`)
-- Docker Desktop (Windows) or a working Docker daemon (Linux)
+- Docker Desktop (Windows, macOS) or a working Docker daemon (Linux) - or
+  `NSCP_SKIP_DOCKER=1`, which is how the CI package jobs run
 - A built `nscp` binary
 
 ## Quick start
@@ -195,6 +196,14 @@ dependency.
 
 `src/files.ts` — `fileContains` / `anyFileContains` replace
 `findstr /s /c:` over spooled result files.
+
+`src/platform.ts` — the one place a suite asks which OS it is on: `onWindows`,
+`onLinux`, `onDarwin` and `onUnix` (Linux or macOS), with `describeOn*` / `itOn*`
+for a block that runs on one of them and `describeIf` / `itIf` for any other
+condition. A case that reads procfs, talks to systemd or expects `dpkg` is
+`onLinux`, not `onUnix`. `describeWithModules("CheckSystem")` gates a suite on
+the modules the macOS build does not carry yet; the port that adds a module
+removes it from the list there, and every gate flips at once.
 
 ## Formatting
 

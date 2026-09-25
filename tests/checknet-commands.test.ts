@@ -35,6 +35,8 @@ import {
   perfOf,
   perfValue,
   setupQueryNscp,
+  onDarwin,
+  itIf,
 } from "@fixtures/index";
 
 jest.setTimeout(120_000);
@@ -1573,7 +1575,10 @@ describe("CheckNet commands", () => {
 
   // --- check_connections ------------------------------------------------------
 
-  it("check_connections reports the total bucket via connections/total_connections", async () => {
+  // check_connections reads /proc/net on Linux and the IP helper API on Windows;
+  // on macOS it answers "not implemented on this platform" until it is ported
+  // to the pcblist sysctls, so both cases wait for that.
+  itIf(!onDarwin)("check_connections reports the total bucket via connections/total_connections", async () => {
     // `count`/`total` clashed with the generic summary keywords, so the record
     // keywords are `connections`/`total_connections`; the old names remain as
     // deprecated aliases. Thresholds are pinned so live host state cannot flip
@@ -1596,7 +1601,7 @@ describe("CheckNet commands", () => {
     expect(m?.[4]).toBe(m?.[1]);
   });
 
-  it("check_connections with a filter that matches nothing reports no data", async () => {
+  itIf(!onDarwin)("check_connections with a filter that matches nothing reports no data", async () => {
     // The empty state is 'ignored' here, so the verdict comes from the default
     // thresholds being force-evaluated with no bucket bound (#1499 shape):
     // they cannot resolve, which surfaces as UNKNOWN rather than a silent OK.

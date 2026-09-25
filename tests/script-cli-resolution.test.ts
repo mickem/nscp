@@ -21,7 +21,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { NscpInstance } from "@fixtures/index";
+import { NscpInstance, describeOnLinux } from "@fixtures/index";
 
 jest.setTimeout(240_000);
 
@@ -210,7 +210,7 @@ describe("script CLI resolution", () => {
   });
 
   // --- external scripts -----------------------------------------------------
-  (process.platform === "linux" ? describe : describe.skip)("nscp ext-scr add", () => {
+  describeOnLinux("nscp ext-scr add", () => {
     let root: string;
     let neutral: string;
     const scrub = (s: string) => s.split(root).join("<root>");

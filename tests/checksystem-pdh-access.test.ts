@@ -19,11 +19,9 @@
  * refusal) rather than asserting a value came back - the value is the
  * collector's business and is covered by the main CheckSystem suite.
  */
-import { NscpInstance } from "@fixtures/index";
+import { NscpInstance, describeOnWindows } from "@fixtures/index";
 
 jest.setTimeout(180_000);
-
-const onWindows = process.platform === "win32" ? describe : describe.skip;
 
 const UNKNOWN = 3;
 /** Present on every Windows install, and free of characters needing quoting. */
@@ -31,7 +29,7 @@ const THREADS = "\\System\\Threads";
 const PROCESSES = "\\System\\Processes";
 const MEMORY = "\\Memory\\Pages/sec";
 
-onWindows("CheckSystem counter access modes", () => {
+describeOnWindows("CheckSystem counter access modes", () => {
   let nscp: NscpInstance;
 
   async function check(args: string[]): Promise<{ out: string; code: number }> {

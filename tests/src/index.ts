@@ -1,3 +1,4 @@
+export * from "./platform";
 export * from "./nscp";
 export * from "./docker";
 export * from "./tls";
