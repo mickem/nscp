@@ -35,12 +35,25 @@ set(SRCS
     check_network.cpp
     check_process_history.cpp
     system_facts.cpp
-    network_facts_unix.cpp
     software_facts_unix.cpp
     ${NSCP_INCLUDEDIR}/facts/host_facts.cpp
     ${NSCP_INCLUDEDIR}/facts/network_facts.cpp
     ${NSCP_INCLUDEDIR}/facts/software_facts.cpp
 )
+
+# The per-kernel data sources. Everything above is platform-neutral, or POSIX
+# (`_unix`); a file named `_linux` reads procfs or sysfs and a `_darwin` one
+# will read sysctl, Mach and libproc. The module is skipped on macOS by
+# module.cmake until the Darwin readers exist, so the APPLE branch is where
+# they go rather than a build that works today.
+if(APPLE)
+    set(CHECK_SYSTEM_PLATFORM_SRCS)
+else()
+    set(CHECK_SYSTEM_PLATFORM_SRCS
+        network_facts_linux.cpp
+    )
+endif()
+set(SRCS ${SRCS} ${CHECK_SYSTEM_PLATFORM_SRCS})
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
 
@@ -95,6 +108,15 @@ target_link_libraries(
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 
+# The tests of the per-kernel readers, paired with CHECK_SYSTEM_PLATFORM_SRCS above.
+if(APPLE)
+    set(CHECK_SYSTEM_PLATFORM_TEST_SRCS)
+else()
+    set(CHECK_SYSTEM_PLATFORM_TEST_SRCS
+        network_facts_linux_test.cpp
+    )
+endif()
+
 NSCP_CREATE_TEST(
     check_system_unix_test
     SOURCES
@@ -132,8 +154,8 @@ NSCP_CREATE_TEST(
         check_uptime.cpp
         system_facts_test.cpp
         system_facts.cpp
-        network_facts_unix.cpp
-        network_facts_unix_test.cpp
+        ${CHECK_SYSTEM_PLATFORM_SRCS}
+        ${CHECK_SYSTEM_PLATFORM_TEST_SRCS}
         software_facts_unix.cpp
         software_facts_unix_test.cpp
         ${NSCP_INCLUDEDIR}/facts/host_facts.cpp

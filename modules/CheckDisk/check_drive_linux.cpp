@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
-// Unix implementation of check_drivesize: enumerate mounts via getmntent and
+// Linux implementation of check_drivesize: enumerate mounts via getmntent and
 // query space via statvfs. Field registration / derived math / filter
 // scaffolding mirror check_drive_win.cpp so queries are portable.
 

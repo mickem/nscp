@@ -63,13 +63,27 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/compat.hpp
     )
 else()
+    # POSIX: the file finder, the filter glue, the write probe and the checksum
+    # code are portable and stay `_unix`. Only the data sources below are
+    # per-kernel, and those are named for the kernel they read.
     set(SRCS
         ${SRCS}
-        check_drive_unix.cpp
-        check_disk_io_unix.cpp
         file_finder_unix.cpp
         filter_unix.cpp
     )
+    if(APPLE)
+        # Darwin has no mntent(3) and no /proc/diskstats: mounts come from
+        # getmntinfo(3) and block-device statistics from IOKit. Those readers
+        # (check_drive_darwin.cpp, check_disk_io_darwin.cpp) do not exist yet,
+        # which is why module.cmake still skips the module on macOS; they go
+        # here when they land.
+    else()
+        set(SRCS
+            ${SRCS}
+            check_drive_linux.cpp
+            check_disk_io_linux.cpp
+        )
+    endif()
 endif()
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
@@ -178,10 +192,22 @@ if(WIN32)
         target_compile_definitions(check_disk_test PRIVATE CHECKDISK_HAVE_OPENSSL)
     endif()
 else()
+    # The per-kernel data sources under test, picked the same way as for the
+    # module above. The seams check_disk_unix_test.cpp exercises
+    # (classify_fs, mount_source_to_disk) are exported by these files.
+    if(APPLE)
+        set(CHECK_DISK_TEST_PLATFORM_SRCS)
+    else()
+        set(CHECK_DISK_TEST_PLATFORM_SRCS
+            check_disk_io_linux.cpp
+            check_drive_linux.cpp
+        )
+    endif()
     NSCP_CREATE_TEST(
         check_disk_unix_test
         SOURCES
             check_disk_unix_test.cpp
+            ${CHECK_DISK_TEST_PLATFORM_SRCS}
             # The module class itself: its settings parsing and dispatch
             # wrappers are ordinary C++ that only needs a stubbed core, and
             # the branches they add (bad intervals, "collector not started",
@@ -195,10 +221,8 @@ else()
             check_disk_io_check_test.cpp
             check_disk_health.cpp
             check_disk_io.cpp
-            check_disk_io_unix.cpp
             check_disk_write.cpp
             check_disk_write_test.cpp
-            check_drive_unix.cpp
             drive_trend_test.cpp
             check_files.cpp
             check_files_checksum_test.cpp

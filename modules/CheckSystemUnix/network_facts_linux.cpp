@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
-// network_facts::gather() for unix: the interfaces the kernel lists in
+// network_facts::gather() for Linux: the interfaces the kernel lists in
 // /sys/class/net, with their addresses from getifaddrs(3). Every source is a
 // sysfs file or a netlink dump the C library does for us - nothing forks and
 // nothing touches the resolver (getnameinfo is asked for numeric hosts only).
