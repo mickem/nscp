@@ -14,8 +14,8 @@ synthetic `total` record carries the average over all of them (the sum for
 example to catch one VM pinning a single core.
 
 The run-time counters are rates, so the check samples them twice, one second
-apart (`averages`, on by default). `averages=false` skips the wait but then
-every rate reads 0 — only useful to prove the counters exist.
+apart. `single-sample` skips the wait but then every rate reads 0 — only
+useful to prove the counters exist.
 
 The percentages are rounded to one decimal, in the detail line and in the
 perfdata alike; the perfdata labels are the processor joined to the keyword

@@ -38,10 +38,11 @@ returns only the host's own row, so every VM just seems to be missing. The
 check compares that with the VM count from the health summary counters, which
 anyone can read, and when WMI shows none of the VMs the counters count it
 reports UNKNOWN (`... none are visible to this account`) instead of "No
-virtual machines found". When the counters cannot be read either, an empty
-list is only trusted from an account that may see every VM (an elevated
-administrator, a member of Hyper-V Administrators, LocalSystem); anyone else
-gets UNKNOWN (`... cannot tell that there are none`). The `hyperv.vms` facts
+virtual machines found". The counters only count running VMs, so when they
+count none (or cannot be read) an empty list is only trusted from an account
+that may see every VM (an elevated administrator, a member of Hyper-V
+Administrators, LocalSystem); anyone else gets UNKNOWN (`... cannot tell that
+there are none`). The `hyperv.vms` facts
 and the metrics do the same. This is what you see when you run `nscp test`
 from a shell that is not elevated.
 

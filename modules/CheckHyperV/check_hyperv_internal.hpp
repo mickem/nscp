@@ -277,13 +277,17 @@ inline std::string to_lower(std::string s) {
 // The VM a resource-setting row (Msvm_MemorySettingData, Msvm_ProcessorSettingData)
 // belongs to. Its InstanceID is "Microsoft:<owning settings id>\<resource guid>",
 // where the owning settings id is the VM GUID for the live configuration; the
-// template rows ("Microsoft:Definition\...") and the rows of a snapshot (whose
-// settings id is not a VM GUID) yield an empty string, so they never join.
+// template rows ("Microsoft:Definition\...") and the rows of a snapshot yield
+// an empty string, so they never join. A snapshot's settings id is either not
+// a VM GUID ("<vm guid>:<snapshot guid>") or the VM GUID followed by a second
+// path segment ("<vm guid>\<snapshot guid>\<resource guid>"), so exactly one
+// segment may follow the owner.
 inline std::string settings_owner_guid(const std::string &instance_id) {
   const std::string prefix = "Microsoft:";
   if (instance_id.compare(0, prefix.size(), prefix) != 0) return "";
   const std::string::size_type end = instance_id.find('\\', prefix.size());
-  const std::string owner = instance_id.substr(prefix.size(), end == std::string::npos ? std::string::npos : end - prefix.size());
+  if (end == std::string::npos || instance_id.find('\\', end + 1) != std::string::npos) return "";
+  const std::string owner = instance_id.substr(prefix.size(), end - prefix.size());
   return is_vm_guid(owner) ? to_lower(owner) : "";
 }
 
@@ -299,15 +303,17 @@ inline bool is_checkpoint_type(const std::string &type) { return type == "Micros
 // or an ordinary user sees the host's own row and nothing else. So an empty
 // list only means "no VMs" when something vouches for it. The health summary
 // counters are not filtered that way: when they count VMs (`counted` > 0) the
-// list is "not allowed to see them", and when they count none it is really
-// empty. When they could not be read (`counted` < 0) the caller's rights
-// decide: `may_see_all` (an elevated administrator or a member of Hyper-V
-// Administrators, which LocalSystem is) sees every VM, anyone else cannot
-// tell an empty host from a hidden one. Returns the explanation to report, or
-// an empty string when the list can be taken as it is.
+// list is "not allowed to see them". But they only count VMs with a running
+// worker process, so a count of none does not vouch for anything (every VM
+// may be off or saved), no more than a count that could not be read
+// (`counted` < 0) does. Then the caller's rights decide: `may_see_all` (an
+// elevated administrator or a member of Hyper-V Administrators, which
+// LocalSystem is) sees every VM, anyone else cannot tell an empty host from a
+// hidden one. Returns the explanation to report, or an empty string when the
+// list can be taken as it is.
 inline std::string hidden_vms_reason(const std::size_t visible, const long long counted, const bool may_see_all) {
   const std::string fix = "run as an elevated administrator or a member of Hyper-V Administrators";
-  if (visible > 0 || counted == 0) return "";
+  if (visible > 0) return "";
   if (counted > 0) return "Hyper-V reports " + std::to_string(counted) + " virtual machine(s) on this host but none are visible to this account: " + fix;
   if (may_see_all) return "";
   return "Hyper-V shows no virtual machines to this account, and without the rights to see them all it cannot tell that there are none: " + fix;

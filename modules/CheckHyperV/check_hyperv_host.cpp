@@ -190,7 +190,7 @@ void check_hyperv_cpu(const PB::Commands::QueryRequestMessage::Request &request,
 
   modern_filter::data_container data;
   modern_filter::cli_helper<filter> filter_helper(request, response, data);
-  bool averages = true;
+  bool single_sample = false;
 
   filter f;
   filter_helper.add_options("total_run_time > 80", "total_run_time > 90", "processor = 'total'", f.get_filter_syntax(), "unknown");
@@ -198,9 +198,9 @@ void check_hyperv_cpu(const PB::Commands::QueryRequestMessage::Request &request,
                            "${processor}", "No logical processor counters found", "");
   // clang-format off
   filter_helper.get_desc().add_options()
-    ("averages", po::value<bool>(&averages)->implicit_value(true)->default_value(true),
-        "Sample the counters twice, one second apart. The run-time counters are rates, so this is what gives them a value; "
-        "averages=false skips the wait and reports 0 for every rate.")
+    ("single-sample", po::value<bool>(&single_sample)->implicit_value(true)->default_value(false),
+        "Sample the counters once instead of twice one second apart. The run-time counters are rates, so the second sample is what "
+        "gives them a value; this skips the wait and reports 0 for every rate.")
     ;
   // clang-format on
   if (!filter_helper.parse_options()) return;
@@ -212,7 +212,7 @@ void check_hyperv_cpu(const PB::Commands::QueryRequestMessage::Request &request,
   PDH::object_instance_values instances;
   try {
     instances = PDH::gather_object_instances(
-        kLogicalProcessorObject, {"% Total Run Time", "% Guest Run Time", "% Hypervisor Run Time", "% Idle Time", "Context Switches/sec"}, averages);
+        kLogicalProcessorObject, {"% Total Run Time", "% Guest Run Time", "% Hypervisor Run Time", "% Idle Time", "Context Switches/sec"}, !single_sample);
   } catch (const PDH::pdh_exception &e) {
     return nscapi::protobuf::functions::set_response_bad(*response, counters_error(kLogicalProcessorObject, e));
   }

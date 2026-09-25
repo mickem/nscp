@@ -40,8 +40,12 @@ class vm_refresher {
   vm_refresher(const vm_refresher &) = delete;
   vm_refresher &operator=(const vm_refresher &) = delete;
 
-  // Start the thread unless it is running. Cheap to call on every interval.
-  void ensure_started();
+  // Start the thread unless it is running, and hand it what the host's health
+  // summary counters count right now (counted_vms; -1 when unknown): the walk
+  // uses it to vouch for an empty list instead of reading PDH itself. Cheap
+  // to call on every interval. Without a stop signal no thread is started
+  // (see threads::stop_signal), and the next call tries again.
+  void ensure_started(long long counted_vms);
   // Stop and join. The walk in flight is aborted between rows; one blocked
   // connecting to the namespace is not, and holds the join until it returns.
   void stop();
@@ -55,9 +59,10 @@ class vm_refresher {
 
   const std::chrono::seconds interval_;
   std::shared_ptr<boost::thread> thread_;
-  boost::mutex mutex_;  // guards stop_requested_ and snapshot_
+  boost::mutex mutex_;  // guards thread_, stop_requested_, counted_vms_ and snapshot_
   boost::condition_variable stop_cv_;
   bool stop_requested_ = false;
+  long long counted_vms_ = -1;
   threads::stop_signal abort_signal_;
   std::shared_ptr<const snapshot> snapshot_;
 };

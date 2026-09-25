@@ -3,7 +3,6 @@
 
 #include "check_hyperv_vms.hpp"
 
-#include <boost/optional.hpp>
 #include <boost/program_options.hpp>
 #include <memory>
 #include <nscapi/nscapi_program_options.hpp>
@@ -30,27 +29,6 @@ using namespace check_hyperv_internal;
 namespace {
 
 const char *const kNamespace = "root\\virtualization\\v2";
-
-// Property accessors that tolerate what differs between Hyper-V versions: a
-// property that this version does not have (Get fails) or that is NULL reads
-// as the default instead of failing the whole check.
-long long int_or(const wmi_impl::row &row, const std::string &col, const long long def) {
-  try {
-    const boost::optional<long long> value = row.get_int_opt(col);
-    return value ? value.value() : def;
-  } catch (const wmi_impl::wmi_exception &) {
-    return def;
-  }
-}
-
-std::string string_or_empty(const wmi_impl::row &row, const std::string &col) {
-  try {
-    const std::string value = row.get_string(col);
-    return value == "<NULL>" ? "" : value;
-  } catch (const wmi_impl::wmi_exception &) {
-    return "";
-  }
-}
 
 // Run one query over the already connected `service` and hand every row to
 // `fn`. The query object (and its copy of the connection) stays alive until
@@ -95,20 +73,16 @@ bool caller_may_see_all_vms() {
   return false;
 }
 
-std::string vms_hidden_from_caller(const std::size_t visible, const long long counted) {
-  if (visible > 0) return "";
-  return hidden_vms_reason(visible, counted, counted < 0 && caller_may_see_all_vms());
+long long counted_vms_or(const long long fallback) {
+  try {
+    return counted_vms(fetch_host_counters());
+  } catch (const PDH::pdh_exception &) {
+    return fallback;
+  }
 }
 
-std::string vms_hidden_from_caller(const std::size_t visible) {
-  if (visible > 0) return "";
-  long long counted = -1;
-  try {
-    counted = counted_vms(fetch_host_counters());
-  } catch (const PDH::pdh_exception &) {
-    // No counters to compare with: the caller's rights decide.
-  }
-  return vms_hidden_from_caller(visible, counted);
+std::string vms_hidden_from_caller(const std::size_t visible, const long long counted) {
+  return hidden_vms_reason(visible, counted, caller_may_see_all_vms());
 }
 
 raw_rows fetch_vm_rows(HANDLE abort_event) {
@@ -122,78 +96,78 @@ raw_rows fetch_vm_rows(HANDLE abort_event) {
 
   // SELECT * rather than a column list: a column this Hyper-V version lacks
   // (ReplicationMode arrived with 2012 R2) would fail the whole query, while a
-  // missing property on a row just reads as its default above.
+  // missing property on a row just reads as its default (get_int_or).
   for_each_row(service, abort_event, "SELECT * FROM Msvm_ComputerSystem", [&rows](const wmi_impl::row &row) {
-    const std::string name = string_or_empty(row, "Name");
+    const std::string name = row.get_string_or_empty("Name");
     if (!is_vm_guid(name)) return;  // the host's own row
     raw_vm vm;
     vm.id = to_lower(name);
-    vm.name = string_or_empty(row, "ElementName");
-    vm.enabled_state = int_or(row, "EnabledState", 0);
-    vm.health_state = int_or(row, "HealthState", 0);
-    vm.operational_status = parse_int_array(string_or_empty(row, "OperationalStatus"));
-    vm.uptime_ms = int_or(row, "OnTimeInMilliseconds", 0);
-    vm.last_state_change_epoch = str::format::parse_cim_datetime(string_or_empty(row, "TimeOfLastStateChange"));
-    vm.process_id = int_or(row, "ProcessID", 0);
-    vm.replication_mode = int_or(row, "ReplicationMode", 0);
-    vm.replication_state = int_or(row, "ReplicationState", 0);
-    vm.replication_health = int_or(row, "ReplicationHealth", 0);
+    vm.name = row.get_string_or_empty("ElementName");
+    vm.enabled_state = row.get_int_or("EnabledState", 0);
+    vm.health_state = row.get_int_or("HealthState", 0);
+    vm.operational_status = parse_int_array(row.get_string_or_empty("OperationalStatus"));
+    vm.uptime_ms = row.get_int_or("OnTimeInMilliseconds", 0);
+    vm.last_state_change_epoch = str::format::parse_cim_datetime(row.get_string_or_empty("TimeOfLastStateChange"));
+    vm.process_id = row.get_int_or("ProcessID", 0);
+    vm.replication_mode = row.get_int_or("ReplicationMode", 0);
+    vm.replication_state = row.get_int_or("ReplicationState", 0);
+    vm.replication_health = row.get_int_or("ReplicationHealth", 0);
     rows.vms.push_back(vm);
   });
 
   for_each_row(service, abort_event, "SELECT SystemName, EnabledState, OperationalStatus FROM Msvm_HeartbeatComponent", [&rows](const wmi_impl::row &row) {
     raw_heartbeat hb;
-    hb.vm_id = to_lower(string_or_empty(row, "SystemName"));
-    hb.enabled_state = int_or(row, "EnabledState", 0);
-    hb.operational_status = parse_int_array(string_or_empty(row, "OperationalStatus"));
+    hb.vm_id = to_lower(row.get_string_or_empty("SystemName"));
+    hb.enabled_state = row.get_int_or("EnabledState", 0);
+    hb.operational_status = parse_int_array(row.get_string_or_empty("OperationalStatus"));
     rows.heartbeats.push_back(hb);
   });
 
   for_each_row(service, abort_event, "SELECT InstanceID, VirtualQuantity, Reservation, Limit, DynamicMemoryEnabled FROM Msvm_MemorySettingData", [&rows](const wmi_impl::row &row) {
     raw_memory_setting ms;
-    ms.vm_id = settings_owner_guid(string_or_empty(row, "InstanceID"));
+    ms.vm_id = settings_owner_guid(row.get_string_or_empty("InstanceID"));
     if (ms.vm_id.empty()) return;  // a template or a snapshot's copy
-    ms.startup_mb = int_or(row, "VirtualQuantity", 0);
-    ms.minimum_mb = int_or(row, "Reservation", 0);
-    ms.maximum_mb = int_or(row, "Limit", 0);
-    ms.dynamic = int_or(row, "DynamicMemoryEnabled", 0) != 0;
+    ms.startup_mb = row.get_int_or("VirtualQuantity", 0);
+    ms.minimum_mb = row.get_int_or("Reservation", 0);
+    ms.maximum_mb = row.get_int_or("Limit", 0);
+    ms.dynamic = row.get_int_or("DynamicMemoryEnabled", 0) != 0;
     rows.memory_settings.push_back(ms);
   });
 
   for_each_row(service, abort_event, "SELECT SystemName, NumberOfBlocks, BlockSize FROM Msvm_Memory", [&rows](const wmi_impl::row &row) {
     raw_memory m;
-    m.vm_id = to_lower(string_or_empty(row, "SystemName"));
-    m.bytes = int_or(row, "NumberOfBlocks", 0) * int_or(row, "BlockSize", 0);
+    m.vm_id = to_lower(row.get_string_or_empty("SystemName"));
+    m.bytes = row.get_int_or("NumberOfBlocks", 0) * row.get_int_or("BlockSize", 0);
     rows.memory.push_back(m);
   });
 
   for_each_row(service, abort_event, "SELECT InstanceID, VirtualQuantity FROM Msvm_ProcessorSettingData", [&rows](const wmi_impl::row &row) {
     raw_processor_setting ps;
-    ps.vm_id = settings_owner_guid(string_or_empty(row, "InstanceID"));
+    ps.vm_id = settings_owner_guid(row.get_string_or_empty("InstanceID"));
     if (ps.vm_id.empty()) return;
-    ps.count = int_or(row, "VirtualQuantity", 0);
+    ps.count = row.get_int_or("VirtualQuantity", 0);
     rows.processor_settings.push_back(ps);
   });
 
   for_each_row(service, abort_event, "SELECT SystemName, LoadPercentage FROM Msvm_Processor", [&rows](const wmi_impl::row &row) {
     raw_processor p;
-    p.vm_id = to_lower(string_or_empty(row, "SystemName"));
-    p.load_percentage = int_or(row, "LoadPercentage", 0);
+    p.vm_id = to_lower(row.get_string_or_empty("SystemName"));
+    p.load_percentage = row.get_int_or("LoadPercentage", 0);
     rows.processors.push_back(p);
   });
 
   for_each_row(service, abort_event, "SELECT VirtualSystemIdentifier, VirtualSystemType, VirtualSystemSubType, Version, CreationTime FROM Msvm_VirtualSystemSettingData",
                [&rows](const wmi_impl::row &row) {
-                 const std::string type = string_or_empty(row, "VirtualSystemType");
+                 const std::string type = row.get_string_or_empty("VirtualSystemType");
                  raw_settings s;
-                 s.vm_id = to_lower(string_or_empty(row, "VirtualSystemIdentifier"));
+                 s.vm_id = to_lower(row.get_string_or_empty("VirtualSystemIdentifier"));
                  if (type == "Microsoft:Hyper-V:System:Realized") {
                    s.snapshot = false;
-                   s.sub_type = string_or_empty(row, "VirtualSystemSubType");
-                   s.version = string_or_empty(row, "Version");
+                   s.sub_type = row.get_string_or_empty("VirtualSystemSubType");
+                   s.version = row.get_string_or_empty("Version");
                  } else if (is_checkpoint_type(type)) {
                    s.snapshot = true;
-                   s.creation_epoch = str::format::parse_cim_datetime(string_or_empty(row, "CreationTime"));
+                   s.creation_epoch = str::format::parse_cim_datetime(row.get_string_or_empty("CreationTime"));
                  } else {
                    return;  // planned systems (an import or migration in flight), replica recovery points
                  }
@@ -302,8 +276,10 @@ void check_hyperv_vms(const PB::Commands::QueryRequestMessage::Request &request,
   const com_helper::mta_scope com;
   try {
     const std::vector<vm_record> records = build_records(fetch_vm_rows());
-    const std::string hidden = vms_hidden_from_caller(records.size());
-    if (!hidden.empty()) return nscapi::protobuf::functions::set_response_bad(*response, hidden);
+    if (records.empty()) {
+      const std::string hidden = vms_hidden_from_caller(0, counted_vms_or(-1));
+      if (!hidden.empty()) return nscapi::protobuf::functions::set_response_bad(*response, hidden);
+    }
     for (const vm_record &record : records) f.match(std::make_shared<filter_obj>(record));
   } catch (const wmi_impl::wmi_exception &e) {
     const std::string unavailable = hyperv_unavailable(e);

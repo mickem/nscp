@@ -173,6 +173,23 @@ long long row::get_int(const std::string &col) const {
   return value.value();
 }
 
+std::string row::get_string_or_empty(const std::string &col) const {
+  try {
+    const std::string value = get_string(col);
+    return value == "<NULL>" ? std::string() : value;
+  } catch (const wmi_exception &) {
+    return {};
+  }
+}
+
+long long row::get_int_or(const std::string &col, const long long def) const {
+  try {
+    return get_int_opt(col).get_value_or(def);
+  } catch (const wmi_exception &) {
+    return def;
+  }
+}
+
 namespace {
 // How long one Next() call on an abortable enumerator waits before the abort
 // event is re-checked. Bounds how long a stop request can go unnoticed while a

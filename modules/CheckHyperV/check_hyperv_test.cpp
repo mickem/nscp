@@ -81,6 +81,9 @@ TEST(CheckHyperV, SettingsOwnerIsTheVmGuidOfLiveConfigurationsOnly) {
   EXPECT_EQ(settings_owner_guid(std::string("Microsoft:") + kVmB + "\\b637f346-6a0e-4dec-af52-bd70cb80a21d"), to_lower(kVmB));
   EXPECT_EQ(settings_owner_guid("Microsoft:Definition\\4764334d-e001-4176-82ee-5594ec9b530e"), "");
   EXPECT_EQ(settings_owner_guid(std::string("Microsoft:") + kVmA + ":ad3b4a5c-1234-4a51-9c2e-6f8a0b1c2d3e\\4764334d-e001-4176-82ee-5594ec9b530e"), "");
+  // A checkpoint's copy spelt with a second path segment must not join the live VM either.
+  EXPECT_EQ(settings_owner_guid(std::string("Microsoft:") + kVmA + "\\ad3b4a5c-1234-4a51-9c2e-6f8a0b1c2d3e\\4764334d-e001-4176-82ee-5594ec9b530e"), "");
+  EXPECT_EQ(settings_owner_guid(std::string("Microsoft:") + kVmA), "");
   EXPECT_EQ(settings_owner_guid("Something else"), "");
   EXPECT_EQ(settings_owner_guid(""), "");
 }
@@ -287,15 +290,18 @@ TEST(CheckHyperV, VmsTheCountersSeeButWmiHidesAreExplained) {
   EXPECT_EQ(hidden_vms_reason(0, 1, true), expected);
 }
 
-TEST(CheckHyperV, AnUnreadableCountAndAnUnauthorisedCallerCannotVouchForAnEmptyList) {
-  EXPECT_EQ(hidden_vms_reason(0, -1, false),
-            "Hyper-V shows no virtual machines to this account, and without the rights to see them all it cannot tell that there are none: run as "
-            "an elevated administrator or a member of Hyper-V Administrators");
+TEST(CheckHyperV, AnUnreadableOrZeroCountAndAnUnauthorisedCallerCannotVouchForAnEmptyList) {
+  const std::string expected =
+      "Hyper-V shows no virtual machines to this account, and without the rights to see them all it cannot tell that there are none: run as "
+      "an elevated administrator or a member of Hyper-V Administrators";
+  EXPECT_EQ(hidden_vms_reason(0, -1, false), expected);
+  // The counters only count running VMs: a host whose VMs are all off reads 0 too.
+  EXPECT_EQ(hidden_vms_reason(0, 0, false), expected);
 }
 
 TEST(CheckHyperV, AnEmptyListSomethingVouchesForIsTakenAsItIs) {
-  EXPECT_EQ(hidden_vms_reason(0, 0, false), "");  // the counters count none
   EXPECT_EQ(hidden_vms_reason(0, -1, true), "");  // no counters, but the caller sees everything
+  EXPECT_EQ(hidden_vms_reason(0, 0, true), "");   // the counters count none, and the caller would see any that are off
   EXPECT_EQ(hidden_vms_reason(2, 2, false), "");
   EXPECT_EQ(hidden_vms_reason(1, 3, false), "");
   EXPECT_EQ(hidden_vms_reason(1, -1, false), "");

@@ -3,6 +3,7 @@
 
 #include "CheckHyperV.h"
 
+#include <chrono>
 #include <ctime>
 #include <map>
 #include <nscapi/nscapi_metrics_helper.hpp>
@@ -22,6 +23,13 @@
 #include "hyperv_facts.hpp"
 
 namespace sh = nscapi::settings_helper;
+
+namespace {
+// How long fetchMetrics leaves the host counters alone after they failed to
+// resolve. Resolving two objects that do not exist walks every counter-name
+// fallback, and a host without the role never grows them.
+const std::chrono::minutes kHostRetryBackoff(5);
+}  // namespace
 
 bool CheckHyperV::loadModuleEx(const std::string &alias, NSCAPI::moduleLoadMode) {
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
@@ -76,8 +84,10 @@ void CheckHyperV::fetchFacts(const nscapi::facts::request &request, nscapi::fact
     // An empty list here would tell the server the host has no VMs; when it
     // has some this account cannot see, say that instead and keep the last
     // list the core holds.
-    const std::string hidden = check_hyperv::vms_hidden_from_caller(vms.size());
-    if (!hidden.empty()) return response.error(hyperv_facts::set_hyperv, hidden);
+    if (vms.empty()) {
+      const std::string hidden = check_hyperv::vms_hidden_from_caller(0, check_hyperv::counted_vms_or(-1));
+      if (!hidden.empty()) return response.error(hyperv_facts::set_hyperv, hidden);
+    }
     hyperv_facts::publish(vms, std::time(nullptr), response);
   } catch (const wmi_impl::wmi_exception &e) {
     // Named against the set rather than failing the round: the core keeps
@@ -109,9 +119,12 @@ void CheckHyperV::check_hyperv_vms(const PB::Commands::QueryRequestMessage::Requ
 // virtual machines are the last snapshot vm_refresher took on its own thread:
 // nothing on this thread, which collects every module's metrics, waits on the
 // virtualization namespace. The first interval (and any before the first walk
-// finishes) publishes the host only. On a host without the role both sources
-// fail fast and nothing is published, so an enabled module on the wrong host
-// costs one failed lookup per interval and no log noise.
+// finishes) publishes the host only. On a host without the role the counters
+// fail, nothing is published and no log noise is made; the lookup is retried
+// after a backoff, and the refresher is only started once the counters have
+// been read, so an enabled module on the wrong host neither resolves missing
+// counters every interval nor connects to a missing namespace in the
+// background.
 void CheckHyperV::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
   using check_hyperv::check_hyperv_internal::vm_record;
   using nscapi::metrics::describe;
@@ -121,14 +134,21 @@ void CheckHyperV::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
 
   std::map<std::string, double> host;
   bool have_host = false;
-  try {
-    host = check_hyperv::fetch_host_counters();
-    have_host = true;
-  } catch (const PDH::pdh_exception &) {
-    // Not a Hyper-V host (or the hypervisor is not running): nothing to publish.
+  const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+  if (now >= host_retry_at_) {
+    try {
+      host = check_hyperv::fetch_host_counters();
+      have_host = true;
+    } catch (const PDH::pdh_exception &) {
+      // Not a Hyper-V host (or the hypervisor is not running): nothing to
+      // publish, and not worth resolving again for a while.
+      host_retry_at_ = now + kHostRetryBackoff;
+    }
   }
 
-  vms_.ensure_started();
+  // The count the walk uses to vouch for an empty list is the one just read,
+  // so the refresher does not sample PDH a second time on its own thread.
+  if (have_host) vms_.ensure_started(check_hyperv::counted_vms(host));
   const std::shared_ptr<const vm_refresher::snapshot> snap = vms_.get();
   const bool have_vms = snap && snap->usable;
   if (!have_host && !have_vms) return;

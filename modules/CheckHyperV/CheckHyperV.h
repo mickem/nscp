@@ -29,8 +29,13 @@ class CheckHyperV : public nscapi::impl::simple_plugin {
   std::atomic<bool> facts_vms_{false};
 
   // The virtual machines fetchMetrics publishes, walked once a minute on a
-  // thread of its own (started by the first fetchMetrics, stopped on unload).
+  // thread of its own (started by the first fetchMetrics that read the host
+  // counters, stopped on unload).
   vm_refresher vms_{std::chrono::seconds(60)};
+
+  // When fetchMetrics next tries the host counters after they failed. Only
+  // fetchMetrics touches it, and it runs on the core's one metrics thread.
+  std::chrono::steady_clock::time_point host_retry_at_{};
 
  public:
   CheckHyperV() {}

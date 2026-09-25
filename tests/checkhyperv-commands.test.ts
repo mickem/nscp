@@ -69,7 +69,7 @@ const HIDDEN_VMS =
   // --- check_hyperv_cpu -----------------------------------------------------
 
   it("check_hyperv_cpu reports the aggregate load or the documented no-counters contract", async () => {
-    const out = await query("check_hyperv_cpu", ["averages=false"]);
+    const out = await query("check_hyperv_cpu", ["single-sample=true"]);
     if (NO_COUNTERS.test(out)) return;
     // One decimal in the detail line; the perf label is the perf-syntax (the
     // processor) joined to the keyword, and the perf value is rendered by the
@@ -78,11 +78,11 @@ const HIDDEN_VMS =
     expect(out).toMatch(/'total_total_run_time'=\d+(\.\d+)?%?;80;90/);
   });
 
-  it("check_hyperv_cpu accepts averages=false as a valued boolean and per-processor filters", async () => {
+  it("check_hyperv_cpu accepts single-sample=true as a valued boolean and per-processor filters", async () => {
     // A bool_switch would reject the valued form with "does not take any
     // arguments" before touching any counters.
     const out = await query("check_hyperv_cpu", [
-      "averages=false",
+      "single-sample=true",
       "filter=processor != 'total'",
       "warning=total_run_time < 0",
       "critical=total_run_time < 0",

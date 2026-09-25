@@ -44,14 +44,7 @@ const status_name status_names[] = {
 
 // Optional Win32_PrintJob properties: drivers vary in what they populate, so a
 // missing one must not cost us the job.
-std::string read_string(const wmi_impl::row &r, const char *column) {
-  try {
-    const std::string value = r.get_string(column);
-    return value == "<NULL>" ? std::string() : value;
-  } catch (...) {
-    return {};
-  }
-}
+std::string read_string(const wmi_impl::row &r, const char *column) { return r.get_string_or_empty(column); }
 long long read_int(const wmi_impl::row &r, const char *column) {
   try {
     return r.get_int(column);

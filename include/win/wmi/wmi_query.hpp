@@ -89,6 +89,11 @@ struct row {
   // For optional fields: boost::none when the property is NULL or unset; still
   // throws for a property that does not exist or a value that is not numeric.
   boost::optional<long long> get_int_opt(const std::string& col) const;
+  // For fields that differ between Windows versions or drivers: a property
+  // this version does not have (Get fails), one that is NULL, or one that is
+  // not numeric reads as the default instead of failing the whole row.
+  std::string get_string_or_empty(const std::string& col) const;
+  long long get_int_or(const std::string& col, long long def) const;
 };
 
 struct row_enumerator {

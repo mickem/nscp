@@ -27,13 +27,15 @@ check_hyperv_internal::raw_rows fetch_vm_rows(HANDLE abort_event = nullptr);
 // `e` is an ordinary failure to be reported as it is.
 std::string hyperv_unavailable(const wmi_impl::wmi_exception &e);
 
+// The VMs the health summary counters count (counted_vms), or `fallback`
+// when they cannot be read. One PDH sample: read it only for an empty walk.
+long long counted_vms_or(long long fallback);
+
 // Why `visible` VMs (what fetch_vm_rows found) is not the whole story, or an
-// empty string when it is (see hidden_vms_reason): cross-checks against the
-// health summary counters, which WMI's per-caller authorisation does not
-// filter, and when those cannot be read, against the caller's own rights.
-// The first form reads the counters; the second takes the VMs they counted
-// (counted_vms), or -1 when they could not be read.
-std::string vms_hidden_from_caller(std::size_t visible);
+// empty string when it is (see hidden_vms_reason): cross-checks against
+// `counted`, the health summary counters' count (counted_vms_or(-1)), which
+// WMI's per-caller authorisation does not filter, and against the caller's
+// own rights.
 std::string vms_hidden_from_caller(std::size_t visible, long long counted);
 
 }  // namespace check_hyperv

@@ -9,41 +9,41 @@
 #include <string>
 #include <threads/guarded_thread.hpp>
 #include <win/com_helpers.hpp>
-#include <win/pdh/pdh_interface.hpp>
 #include <win/wmi/wmi_query.hpp>
 
-#include "check_hyperv_host.hpp"
 #include "check_hyperv_vms.hpp"
 
-void vm_refresher::ensure_started() {
+void vm_refresher::ensure_started(const long long counted_vms) {
+  const boost::lock_guard<boost::mutex> lock(mutex_);
+  counted_vms_ = counted_vms;
   if (thread_) return;
-  {
-    const boost::lock_guard<boost::mutex> lock(mutex_);
-    stop_requested_ = false;
-  }
-  // Without the abort primitive the walk still works, it just cannot be
-  // interrupted by stop().
+  stop_requested_ = false;
+  // A walk that cannot be aborted cannot be joined either, so without the
+  // primitive no thread is started (see threads::stop_signal); the next
+  // interval tries again.
   std::string error;
   if (!abort_signal_.create(error)) {
-    NSC_LOG_ERROR("Failed to create the Hyper-V refresh abort signal, a stalled refresh will delay shutdown: " + error);
+    NSC_LOG_ERROR("Failed to create the Hyper-V refresh abort signal, the virtual machines are not refreshed: " + error);
+    return;
   }
   thread_ = threads::start_guarded_thread("checkhyperv vm refresh", [this]() { this->thread_proc(); }, NSC_THREAD_REPORTER);
 }
 
 void vm_refresher::stop() {
+  std::shared_ptr<boost::thread> thread;
   {
     const boost::lock_guard<boost::mutex> lock(mutex_);
     stop_requested_ = true;
+    // The walk in flight watches abort_signal_, the wait between walks the CV.
+    abort_signal_.signal();
+    thread.swap(thread_);
   }
-  // The walk in flight watches abort_signal_, the wait between walks the CV.
-  abort_signal_.signal();
   stop_cv_.notify_all();
-  if (thread_) {
-    thread_->join();
-    thread_.reset();
-  }
-  // After the join, so a stop/start cycle gets a fresh, unsignalled primitive.
-  abort_signal_.close();
+  if (thread) thread->join();
+  // After the join, so a stop/start cycle gets a fresh, unsignalled primitive;
+  // unless a start that raced this stop owns the signal by now.
+  const boost::lock_guard<boost::mutex> lock(mutex_);
+  if (!thread_) abort_signal_.close();
 }
 
 std::shared_ptr<const vm_refresher::snapshot> vm_refresher::get() {
@@ -71,15 +71,14 @@ void vm_refresher::thread_proc() {
 }
 
 void vm_refresher::refresh() {
+  long long counted = -1;
+  {
+    const boost::lock_guard<boost::mutex> lock(mutex_);
+    counted = counted_vms_;
+  }
   auto next = std::make_shared<snapshot>();
   try {
     next->vms = check_hyperv::check_hyperv_internal::build_records(check_hyperv::fetch_vm_rows(abort_signal_.native_handle()));
-    long long counted = -1;
-    try {
-      counted = check_hyperv::counted_vms(check_hyperv::fetch_host_counters());
-    } catch (const PDH::pdh_exception &) {
-      // The caller's rights decide instead (vms_hidden_from_caller).
-    }
     next->usable = check_hyperv::vms_hidden_from_caller(next->vms.size(), counted).empty();
   } catch (const wmi_impl::wmi_exception &) {
     // No role or a stopped service; the check reports it where it is visible.
