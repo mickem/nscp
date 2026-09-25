@@ -46,9 +46,24 @@ To make this simple there is a command line tool which can set this configuratio
 nscp web install
 WARNING: No password specified using a generated password
 Enabling WEB access from 127.0.0.1
-Point your browser to http://localhost:8443
+Certificate & key: /var/lib/nsclient/security/certificate.pem.
+Certificate validation: Certificate not found: /var/lib/nsclient/security/certificate.pem (generating a default certificate)
+Point your browser to https://localhost:8443
 Login using this password RANDOM_PASSWORD
 ```
+
+The web server is set up for HTTPS. When the default certificate,
+`${certificate-path}/certificate.pem`, does not exist yet, the command
+generates a self-signed one (the private key and the certificate in that one
+file, readable only by its owner - handed to the service account on Linux,
+where the command runs under `sudo`), so the server starts right away; your
+browser will warn about it until you replace it with a
+certificate of your own (`--certificate` / `--certificate-key`, see
+[Securing NSClient++](securing.md)). To serve plain HTTP instead — only
+sensible on loopback or behind a TLS-terminating proxy, since session keys and
+passwords then travel in clear — run `nscp web install --insecure`, which sets
+`allow insecure = true`, writes no certificate and uses port `8080` in place of
+the HTTPS default.
 
 What this does is add the following configuration:
 
@@ -70,6 +85,8 @@ WEBServer = enabled
 
 [/settings/WEB/server]
 port = 8443
+certificate = ${certificate-path}/certificate.pem
+allow insecure = false
 ```
 
 ### Built-in roles

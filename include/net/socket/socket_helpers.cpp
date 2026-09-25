@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
 #include <algorithm>
+#include <cerrno>
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
@@ -220,18 +221,146 @@ std::string socket_helpers::expand_hostname(std::string spec) {
   if (spec == "auto-uc") return boost::algorithm::to_upper_copy(ip::host_name());
   return expand_hostname_placeholders(std::move(spec));
 }
-void socket_helpers::validate_certificate(const std::string &certificate, std::list<std::string> &list) {
+socket_helpers::owner_handoff socket_helpers::adopt_file_owner(const std::string &path, const std::string &reference, std::string &error) {
+#ifdef WIN32
+  static_cast<void>(path);
+  static_cast<void>(reference);
+  static_cast<void>(error);
+  return owner_handoff::not_needed;
+#else
+  if (reference.empty() || ::geteuid() != 0) {
+    // Only root can give a file away, and an unprivileged run already writes
+    // as whoever will read it.
+    return owner_handoff::not_needed;
+  }
+  struct stat reference_stat = {};
+  if (::stat(reference.c_str(), &reference_stat) != 0 || !S_ISDIR(reference_stat.st_mode)) {
+    // Nothing to copy the owner from (a from-source install that never created
+    // the state directory). Leaving ownership alone is the safe answer.
+    return owner_handoff::not_needed;
+  }
+  if (reference_stat.st_uid == 0 && reference_stat.st_gid == 0) {
+    // Root owns the reference too: an install that runs everything as root.
+    return owner_handoff::not_needed;
+  }
+  const int fd = ::open(path.c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
+  if (fd < 0) {
+    error = "Failed to open " + path + " to hand it to the owner of " + reference + ": " + std::strerror(errno);
+    return owner_handoff::failed;
+  }
+  struct stat st = {};
+  if (::fstat(fd, &st) != 0) {
+    error = "Failed to inspect " + path + ": " + std::strerror(errno);
+    ::close(fd);
+    return owner_handoff::failed;
+  }
+  if (st.st_uid == reference_stat.st_uid && st.st_gid == reference_stat.st_gid) {
+    // Already the service's - a re-run over the file an earlier run handed
+    // over. Decided before the "ours to give" check below, which it would
+    // otherwise fail: the file is no longer root's.
+    ::close(fd);
+    return owner_handoff::not_needed;
+  }
+  const bool ours = st.st_uid == ::geteuid();
+  const bool plain_file = S_ISREG(st.st_mode) && st.st_nlink == 1;
+  if (!ours || !(plain_file || S_ISDIR(st.st_mode))) {
+    // Not the plain file or directory we just created: a hardlink somebody
+    // planted, or a file that already belongs to someone. Neither is ours to
+    // hand over.
+    ::close(fd);
+    error = "Refusing to change the owner of " + path + ": it is not a regular file (with a single link) or directory owned by this process";
+    return owner_handoff::failed;
+  }
+  const bool ok = ::fchown(fd, reference_stat.st_uid, reference_stat.st_gid) == 0;
+  if (!ok) error = "Failed to change the owner of " + path + ": " + std::strerror(errno);
+  ::close(fd);
+  return ok ? owner_handoff::handed_over : owner_handoff::failed;
+#endif
+}
+
+std::string socket_helpers::chown_repair_hint(const std::string &target, const std::string &reference, const bool recursive) {
+  return std::string("chown ") + (recursive ? "-R " : "") + "--reference=" + reference + " " + target;
+}
+
 #ifdef USE_SSL
+namespace {
+// Create the missing levels of `dir` and record each one created.
+//
+// create_directories() honours the umask, and under `sudo` with `umask 0077`
+// every level comes out 0700: a certificate handed to the service account then
+// sits in a directory that account cannot traverse, which is the original
+// "installed fine, never starts" symptom by another route. Each level we
+// create is opened to traversal (0755 - the private key inside carries its
+// own 0600), through a descriptor on the directory we just made rather than a
+// path, since the parent can be a directory the service account writes to.
+void create_certificate_folder(const boost::filesystem::path &dir, std::vector<std::string> &created) {
+  std::vector<boost::filesystem::path> missing;
+  for (boost::filesystem::path level = dir; !level.empty() && !boost::filesystem::exists(level); level = level.parent_path()) {
+    missing.push_back(level);
+  }
+  for (auto level = missing.rbegin(); level != missing.rend(); ++level) {
+    if (!boost::filesystem::create_directory(*level)) continue;  // appeared meanwhile: not ours
+#ifndef WIN32
+    const int fd = ::open(level->string().c_str(), O_RDONLY | O_NOFOLLOW | O_DIRECTORY | O_CLOEXEC);
+    if (fd >= 0) {
+      struct stat st = {};
+      if (::fstat(fd, &st) == 0 && S_ISDIR(st.st_mode) && st.st_uid == ::geteuid()) ::fchmod(fd, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+      ::close(fd);
+    }
+#endif
+    created.push_back(level->string());
+  }
+}
+}  // namespace
+#endif
+
+void socket_helpers::validate_certificate(const std::string &certificate, std::list<std::string> &list) { validate_certificate(certificate, list, ""); }
+
+void socket_helpers::validate_certificate(const std::string &certificate, std::list<std::string> &list, const std::string &owner_reference) {
+#ifdef USE_SSL
+  // Report the handoff of a file generated below. A failure is a warning with
+  // the command that repairs it: the file is written and valid, but the
+  // service will not be able to read it, and the symptom on the host is a
+  // server that "was installed" and never comes up.
+  const auto hand_over = [&list, &owner_reference](const std::string &path, const std::string &what) {
+    if (owner_reference.empty()) return;
+    std::string error;
+    switch (adopt_file_owner(path, owner_reference, error)) {
+      case owner_handoff::handed_over:
+        list.emplace_back(what + " handed to the service account (the owner of " + owner_reference + "): " + path);
+        break;
+      case owner_handoff::failed:
+        list.emplace_back("WARNING: " + error + ". The service may not be able to read the " + what +
+                          "; fix it with: " + chown_repair_hint(path, owner_reference, false));
+        break;
+      case owner_handoff::not_needed:
+        break;
+    }
+  };
   if (!certificate.empty() && !boost::filesystem::is_regular_file(certificate)) {
     const auto parent_path = boost::filesystem::path(certificate).parent_path();
+    std::vector<std::string> created;
     if (!exists(parent_path)) {
-      boost::filesystem::create_directories(parent_path);
+      create_certificate_folder(parent_path, created);
       list.emplace_back("Creating certificate folder: " + parent_path.string());
     }
+    // A folder we created holds nothing shipped, so it goes to the service
+    // account with the certificate - which can then also regenerate one there.
+    // Strictly after the files are written: a folder handed over first is one
+    // the service account can plant a `certificate.pem` symlink in while root
+    // is about to write that name. And only when something was generated: with
+    // an operator-chosen name nothing is, and the operator is about to drop
+    // their own key into the folder, which is then not the service's to own.
+    // Nor is a folder created for a CA (below), whose private key stays root's.
+    const auto hand_over_created = [&created, &hand_over]() {
+      for (const std::string &dir : created) hand_over(dir, "certificate folder");
+    };
     if (boost::algorithm::ends_with(certificate, "/certificate.pem")) {
       list.emplace_back("Certificate not found: " + certificate + " (generating a default certificate)");
       try {
         write_certs(certificate, false);
+        hand_over(certificate, "certificate");
+        hand_over_created();
       } catch (const std::exception &e) {
         list.emplace_back(e.what());
       }
@@ -240,6 +369,13 @@ void socket_helpers::validate_certificate(const std::string &certificate, std::l
       try {
         write_certs(certificate, true);
         list.emplace_back("CA private key written to: " + ca_key_path(certificate) + " (keep it, do not distribute it)");
+        // Only the CA certificate is the service's to read (it verifies
+        // clients against it). Nothing in the server reads the CA private key:
+        // it is what mints client certificates that pass `verify mode =
+        // peer-cert`, NRPE's only real authentication, so it stays root's -
+        // as does a folder created here, so the service cannot replace or
+        // unlink the key beside its certificate either.
+        hand_over(certificate, "CA certificate");
       } catch (const std::exception &e) {
         list.emplace_back(e.what());
       }
@@ -247,6 +383,7 @@ void socket_helpers::validate_certificate(const std::string &certificate, std::l
       list.emplace_back("Certificate not found: " + certificate);
   }
 #else
+  static_cast<void>(owner_reference);
   list.emplace_back("SSL is not supported (not compiled with openssl)");
 #endif
 }

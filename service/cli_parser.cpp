@@ -15,6 +15,7 @@
 #include <pid_file.hpp>
 #endif
 #ifdef HAVE_ONBOARDING
+#include <net/socket/socket_helpers.hpp>
 #include <onboarding/bundle_crypto.hpp>
 #include <onboarding/onboarding.hpp>
 #endif
@@ -1036,7 +1037,8 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
       // enrollment. Say exactly what to run, because the symptom otherwise is a
       // healthy-looking agent that never appears in the fleet.
       std::cerr << "WARNING: " << owner_error << std::endl;
-      std::cerr << "The service may not be able to read its identity. Fix it with: chown --reference=" << owner_reference << " " << state_file << std::endl;
+      std::cerr << "The service may not be able to read its identity. Fix it with: " << socket_helpers::chown_repair_hint(state_file, owner_reference, false)
+                << std::endl;
     }
     if (created_state_dir) {
       std::string dir_error;
@@ -1086,8 +1088,8 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
         std::string fleet_error;
         if (!onboarding::adopt_owner(fleet_dir.string(), owner_reference, fleet_error)) {
           std::cerr << "WARNING: " << fleet_error << std::endl;
-          std::cerr << "The fleet sync may not be able to apply configuration. Fix it with: chown -R --reference=" << owner_reference << " "
-                    << fleet_dir.string() << std::endl;
+          std::cerr << "The fleet sync may not be able to apply configuration. Fix it with: "
+                    << socket_helpers::chown_repair_hint(fleet_dir.string(), owner_reference, true) << std::endl;
         }
       }
       // Ask before adding the include, so the answer describes the host as the
