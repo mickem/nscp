@@ -1,0 +1,18 @@
+{
+	"module"		: {
+		"title"			: "Kubernetes cluster checker",
+		"description"	: "Check a Kubernetes cluster through its API server: cluster health, pods, nodes and workloads.",
+		"name"			: "CheckKubernetes",
+		"alias"			: "kubernetes",
+		"version"		: "auto",
+		"experimental"	: true
+	},
+
+	"settings"		: {
+		"default_alias"	: "kubernetes"
+	},
+
+	"commands" : {
+		"check_kubernetes"	: "Check that the Kubernetes API server is reachable and ready: version, readiness and node counts."
+	}
+}
