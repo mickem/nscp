@@ -1328,29 +1328,31 @@ TEST(SyncFacts, UploadRefusesSomethingThatIsNotAnObject) {
   EXPECT_THROW(onboarding::build_facts_upload("h", "t", "null"), onboarding::onboarding_error);
 }
 
-TEST(SyncFacts, ParsesTheHashAServerHolds) {
-  const std::string hash(64, 'a');
-  EXPECT_EQ(onboarding::parse_facts_hash("{\"facts_hash\":\"" + hash + "\"}").value(), hash);
-  // Lowercased, so it compares against our own digest.
-  EXPECT_EQ(onboarding::parse_facts_hash("{\"facts_hash\":\"" + std::string(64, 'A') + "\"}").value(), hash);
-  // Empty is an answer: the server holds nothing for this host.
-  EXPECT_EQ(onboarding::parse_facts_hash("{\"facts_hash\":\"\"}").value(), "");
+TEST(SyncFacts, ThePollCarriesWhatTheAgentHolds) {
+  const std::string facts(64, 'f');
+  EXPECT_EQ(onboarding::desired_state_path("", ""), "/agent/v1/desired-state");
+  EXPECT_EQ(onboarding::desired_state_path("h1", ""), "/agent/v1/desired-state?current_hash=h1");
+  // Before the first apply there is no state hash, but there is always a
+  // facts hash to compare - the empty document's, at the least.
+  EXPECT_EQ(onboarding::desired_state_path("", facts), "/agent/v1/desired-state?facts_hash=" + facts);
+  EXPECT_EQ(onboarding::desired_state_path("h1", facts), "/agent/v1/desired-state?current_hash=h1&facts_hash=" + facts);
 }
 
-TEST(SyncFacts, NoHashMeansTheServerDoesNotDoFacts) {
-  EXPECT_FALSE(onboarding::parse_facts_hash("{\"next_poll_in_seconds\":60}"));
-  EXPECT_FALSE(onboarding::parse_facts_hash("{}"));
-  EXPECT_FALSE(onboarding::parse_facts_hash(""));
-  EXPECT_FALSE(onboarding::parse_facts_hash("not json"));
-  EXPECT_FALSE(onboarding::parse_facts_hash("[]"));
+TEST(SyncFacts, ParsesTheHashAServerHolds) {
+  const std::string hash(64, 'a');
+  EXPECT_EQ(onboarding::parse_facts_hash(hash).value(), hash);
+  // Lowercased, so it compares against our own digest.
+  EXPECT_EQ(onboarding::parse_facts_hash(std::string(64, 'A')).value(), hash);
+  // `none` is an answer: the server holds nothing for this host.
+  EXPECT_EQ(onboarding::parse_facts_hash("none").value(), "");
 }
 
 TEST(SyncFacts, IgnoresAHashThatIsNotADigest) {
-  EXPECT_FALSE(onboarding::parse_facts_hash("{\"facts_hash\":null}"));
-  EXPECT_FALSE(onboarding::parse_facts_hash("{\"facts_hash\":42}"));
-  EXPECT_FALSE(onboarding::parse_facts_hash("{\"facts_hash\":\"abc\"}"));
-  EXPECT_FALSE(onboarding::parse_facts_hash("{\"facts_hash\":\"" + std::string(63, 'a') + "g\"}"));
-  EXPECT_FALSE(onboarding::parse_facts_hash("{\"facts_hash\":\"" + std::string(65, 'a') + "\"}"));
+  EXPECT_FALSE(onboarding::parse_facts_hash(""));
+  EXPECT_FALSE(onboarding::parse_facts_hash("None"));
+  EXPECT_FALSE(onboarding::parse_facts_hash("abc"));
+  EXPECT_FALSE(onboarding::parse_facts_hash(std::string(63, 'a') + "g"));
+  EXPECT_FALSE(onboarding::parse_facts_hash(std::string(65, 'a')));
 }
 
 // build_state_report takes strings from outside (bundle names and versions

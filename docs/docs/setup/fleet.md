@@ -439,13 +439,14 @@ A section for a platform the host is not on is simply unused, so one bundle serv
 group. Each switch is its own key, so another bundle that turns on
 `software.installed` adds to this one rather than replacing it.
 
-After the reload that applies the bundle, the agent collects the sets and uploads the
-document to the server, then again whenever it changes. Every state report carries only a
-hash of it, never the document. To see what the agent holds, run `facts` in `nscp test`,
+After the reload that applies the bundle, the agent collects the sets. Its next poll
+carries the hash of the new document, the server answers that it does not have it, and
+the agent uploads it once. From then on the document is only sent again when it changes
+or the server loses it; every poll and state report carries only the hash. To see what the agent holds, run `facts` in `nscp test`,
 or read [`/api/v2/facts`](../api/rest/facts.md) when the web server is enabled.
 
-A server that does not support inventory yet ignores the hash and answers the upload with
-a 404. The agent then stops sending the document until the server starts asking for it.
+A server that does not support inventory yet ignores the hash and never asks, so the agent
+never sends it the document.
 
 ## Step 6 — Living with it
 

@@ -104,13 +104,13 @@ class fleet_sync {
   void maybe_renew();
   std::map<std::string, std::string> collect_tags() const;
 
-  // Upload the facts document to /agent/v1/facts when it differs from what
-  // the server is believed to hold. Cheap when it does not: one hash compare.
+  // Upload the facts document to /agent/v1/facts when the server has said it
+  // holds a different one. Cheap when it has not: one hash compare.
   void maybe_upload_facts();
-  // Take note of the facts hash a server response carries (desired state,
-  // state report): the server saying what it holds is what triggers a
-  // re-upload after it lost or never received the document.
-  void note_server_facts_hash(const std::string &body);
+  // Take note of the X-Facts-Hash header on a server response (desired
+  // state, 304 included, and state report): the server answering the hash we
+  // sent with the one it holds is the only thing that triggers an upload.
+  void note_server_facts_hash(const http::response &response);
   // The current facts hash for the state report; empty without a repository.
   std::string current_facts_hash() const;
 
@@ -144,22 +144,22 @@ class fleet_sync {
   // own call whenever its hash differs from what the server holds, while
   // every state report carries only the hash.
   nsclient::core::fact_repository_instance facts_;
-  // The hash of the document the server is believed to hold. Starts as the
-  // hash of the empty document: a host that has nothing enabled has nothing
-  // to send, and a server that still holds an old inventory for it says so
-  // (by carrying its own facts_hash in a response), which moves this.
-  std::string server_facts_hash_;
-  // The last facts_hash a server response carried. Only a change in what the
-  // server says moves server_facts_hash_, so a server that keeps repeating a
-  // stale value after a successful upload is not answered with an upload on
-  // every poll.
-  boost::optional<std::string> advertised_facts_hash_;
-  // A document the server refused as too large (413), or that is over our own
-  // cap: not sent again until the document changes.
+  // The hash of the document the server holds, as it last said (or as we
+  // last uploaded). None until the server says: nothing is uploaded on a
+  // guess, and a server that never says does not do facts.
+  boost::optional<std::string> server_facts_hash_;
+  // The document the server last acknowledged (2xx), and how often it has
+  // since reported a miss for that same document anyway. The first re-send
+  // is immediate - the server lost it, fine - and each further one waits
+  // twice as long (1 min up to 1 h), so a server that never keeps what it is
+  // sent costs a request an hour rather than a document every poll.
+  std::string acked_facts_hash_;
+  unsigned int facts_resends_ = 0;
+  std::chrono::steady_clock::time_point next_facts_resend_;
+  // A document the server refused (413, or 404/405 from a server that asked
+  // for it anyway), or that is over our own cap: not sent again until the
+  // document changes.
   std::string refused_facts_hash_;
-  // The server answered 404/405: it predates the facts call. Uploads stop
-  // until a response carries facts_hash, or the agent restarts.
-  bool facts_unsupported_ = false;
   // The last upload failure that was logged, so a failure repeated on every
   // poll is logged once.
   std::string last_facts_error_;

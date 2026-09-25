@@ -55,7 +55,6 @@ std::string describe_unreadable(const std::string &state_file) {
 #endif
 }
 
-const char *desired_state_path = "/agent/v1/desired-state";
 const char *state_report_path = "/agent/v1/state-report";
 const char *renew_path = "/agent/v1/renew";
 const char *heartbeat_path = "/agent/v1/heartbeat";
@@ -198,8 +197,6 @@ fleet_sync::fleet_sync(nsclient::logging::logger_instance logger, fleet_config c
       config_(std::move(config)),
       tags_(std::move(tags)),
       facts_(std::move(facts)),
-      // The empty document renders as `{}`: see server_facts_hash_.
-      server_facts_hash_(onboarding::sha256_hex("{}")),
       request_reload_(std::move(request_reload)) {
   thread_ = threads::start_guarded_thread(
       "fleet sync", [this] { this->thread_proc(); },
@@ -395,7 +392,7 @@ void fleet_sync::report_state(const boost::optional<std::string> &applied_hash, 
       log_error("Failed to submit state report: " + str::xtos(response.status_code_) + " " + response.payload_);
       return;
     }
-    note_server_facts_hash(response.payload_);
+    note_server_facts_hash(response);
     reported_tag_revision_ = tag_revision;
     tags_reported_ = true;
   } catch (const std::exception &e) {
@@ -405,28 +402,36 @@ void fleet_sync::report_state(const boost::optional<std::string> &applied_hash, 
 
 std::string fleet_sync::current_facts_hash() const { return facts_ ? facts_->get_hash() : std::string(); }
 
-void fleet_sync::note_server_facts_hash(const std::string &body) {
-  const boost::optional<std::string> advertised = onboarding::parse_facts_hash(body);
-  // No key: this server does not do facts (or this response does not say).
-  // That is never a reason to upload.
+void fleet_sync::note_server_facts_hash(const http::response &response) {
+  const auto header = response.headers_.find(onboarding::facts_hash_header);
+  // No header: this server does not do facts. That is never a reason to
+  // upload, and it says nothing about what an earlier response told us.
+  if (header == response.headers_.end()) return;
+  const boost::optional<std::string> advertised = onboarding::parse_facts_hash(header->second);
   if (!advertised) return;
-  // A server that talks about facts serves the call, whatever an earlier 404
-  // suggested (it was upgraded since).
-  facts_unsupported_ = false;
-  if (advertised_facts_hash_ && advertised_facts_hash_.value() == advertised.value()) return;
-  advertised_facts_hash_ = advertised;
+  // Always the latest answer: the server is the authority on what it holds.
+  // A server that keeps losing what it is sent is paced in
+  // maybe_upload_facts, not ignored here.
   // "Holds nothing" and "holds the empty document" are the same state, and a
   // host with nothing enabled has nothing to send in answer to either.
   server_facts_hash_ = advertised.value().empty() ? onboarding::sha256_hex("{}") : advertised.value();
 }
 
 void fleet_sync::maybe_upload_facts() {
-  if (!facts_ || facts_unsupported_) return;
+  // Only ever in answer to the server: until it has said which document it
+  // holds, there is no miss to repair, and a server that never says does not
+  // do facts at all.
+  if (!facts_ || !server_facts_hash_) return;
   const nsclient::core::fact_repository::snapshot snapshot = facts_->get_snapshot();
   // No hash, no upload: the call exists to hand the server a document it can
   // check against the hash it was told about.
   if (snapshot.hash.empty()) return;
-  if (snapshot.hash == server_facts_hash_ || snapshot.hash == refused_facts_hash_) return;
+  if (snapshot.hash == server_facts_hash_.value() || snapshot.hash == refused_facts_hash_) return;
+  // The server already acknowledged this very document and reports a miss
+  // anyway: send it again, but back off if that keeps happening.
+  const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+  const bool resend = snapshot.hash == acked_facts_hash_;
+  if (resend && facts_resends_ > 0 && now < next_facts_resend_) return;
 
   // The sets, largest first, for the two messages that ask the operator to
   // turn one off.
@@ -453,6 +458,11 @@ void fleet_sync::maybe_upload_facts() {
   if (collected_at.empty()) {
     collected_at = boost::posix_time::to_iso_extended_string(boost::posix_time::second_clock::universal_time()) + "Z";
   }
+  if (resend) {
+    const unsigned int shift = std::min(facts_resends_, 6u);  // 1 min << 6 caps at an hour
+    next_facts_resend_ = now + std::chrono::seconds(std::min(60ul << shift, 3600ul));
+    ++facts_resends_;
+  }
   http::response response;
   try {
     response = do_call("POST", facts_path, onboarding::build_facts_upload(snapshot.hash, collected_at, snapshot.json));
@@ -464,15 +474,20 @@ void fleet_sync::maybe_upload_facts() {
 
   if (response.is_2xx()) {
     server_facts_hash_ = snapshot.hash;
+    if (!resend) {
+      acked_facts_hash_ = snapshot.hash;
+      facts_resends_ = 0;
+    }
     last_facts_error_.clear();
     log_debug("Uploaded facts " + snapshot.hash + " (" + str::xtos(snapshot.json.size()) + " bytes, revision " + str::xtos(snapshot.revision) + ")");
     return;
   }
   if (response.status_code_ == 404 || response.status_code_ == 405) {
-    // A server from before the facts call. Expected during a rolling
-    // upgrade, so not an error - and not retried on every poll either.
-    facts_unsupported_ = true;
-    log_debug("The fleet server does not accept facts (" + str::xtos(response.status_code_) + "); not uploading them until it says it does");
+    // The server asked for the document and has nowhere to put it: a
+    // misconfigured server (or a proxy in front of it). Not retried until
+    // the document changes, so it costs one request, not one per poll.
+    refused_facts_hash_ = snapshot.hash;
+    log_error("The fleet server reported a facts mismatch but does not accept facts uploads (" + str::xtos(response.status_code_) + ")");
     return;
   }
   if (response.status_code_ == 413) {
@@ -717,10 +732,9 @@ bool fleet_sync::apply_state(const onboarding::desired_state &state, std::vector
 }
 
 unsigned long fleet_sync::poll_once() {
-  std::string path = desired_state_path;
-  if (!current_hash_.empty()) {
-    path += "?current_hash=" + current_hash_;
-  }
+  // Our facts hash rides along, so the server can say in the same answer -
+  // a 304 included - whether it holds that document; only a miss uploads.
+  const std::string path = onboarding::desired_state_path(current_hash_, current_facts_hash());
   http::response response;
   try {
     response = do_call("GET", path);
@@ -731,10 +745,10 @@ unsigned long fleet_sync::poll_once() {
     return std::min(backoff, poll_interval_ * 5);
   }
   note_transport_success();
+  note_server_facts_hash(response);
 
   if (response.status_code_ == 304) {
     failures_ = 0;
-    note_server_facts_hash(response.payload_);
     const boost::optional<unsigned long> next = onboarding::parse_next_poll(response.payload_);
     if (next) poll_interval_ = std::max(1ul, next.value());
     return poll_interval_;
@@ -754,7 +768,6 @@ unsigned long fleet_sync::poll_once() {
   failures_ = 0;
   try {
     const onboarding::desired_state state = onboarding::parse_desired_state(response.payload_);
-    note_server_facts_hash(response.payload_);
     poll_interval_ = std::max(1ul, state.next_poll_in_seconds);
     log_debug("New desired state " + state.state_hash + " with " + str::xtos(state.bundles.size()) + " bundle(s)");
 
@@ -882,8 +895,9 @@ void fleet_sync::run() {
     log_transport_failure("Fleet heartbeat", utf8::utf8_from_native(e.what()));
   }
   report_state(current_hash_.empty() ? boost::optional<std::string>() : boost::optional<std::string>(current_hash_), std::vector<std::string>());
-  // The core ran its startup facts round before starting this loop, so this
-  // is the inventory the host has, not an empty placeholder.
+  // The core ran its startup facts round before starting this loop, so the
+  // hash in that report - and in the first poll - is the inventory the host
+  // has. If the server answered it with a miss, repair it now.
   maybe_upload_facts();
 
   while (true) {
@@ -901,9 +915,8 @@ void fleet_sync::run() {
       if (tags_ && (!tags_reported_ || tags_->get_revision() != reported_tag_revision_)) {
         report_state(current_hash_.empty() ? boost::optional<std::string>() : boost::optional<std::string>(current_hash_), std::vector<std::string>());
       }
-      // The document changed (a round, a reload that enabled a set), or the
-      // server said it holds something else: upload. Steady state is one
-      // hash compare per poll.
+      // The server said, in answer to the hash in this poll, that it holds
+      // something else: upload. Steady state is one hash compare per poll.
       maybe_upload_facts();
     }
     boost::this_thread::sleep_for(boost::chrono::milliseconds(with_jitter_ms(sleep_seconds)));

@@ -191,15 +191,26 @@ std::string build_state_report(const boost::optional<std::string> &applied_state
 // Throws onboarding_error (non-retryable) when `facts_json` is not an object.
 std::string build_facts_upload(const std::string &facts_hash, const std::string &collected_at, const std::string &facts_json);
 
-// The facts hash a server says it holds for this host, read from a
-// desired-state or state-report response body. (A 304 is read too, but HTTP
-// gives it no body, so a server that wants the document from a host that is
-// already in sync answers the poll with the full state.) None when the body does
-// not carry one - which means "this server does not do facts", not "it holds
-// nothing" - or when what it carries is not a sha256 hex digest. An empty
-// string is a real answer: the server holds no document for this host.
-// Returned lowercase, so it compares directly against our own hash.
-boost::optional<std::string> parse_facts_hash(const std::string &body);
+// The desired-state poll path. Carries what the agent holds, so the server
+// can answer "you are in sync" without either side sending anything more:
+//   current_hash  the applied desired state (omitted before the first apply)
+//   facts_hash    the facts document's hash (omitted in a build that cannot
+//                 hash)
+// Both are tokens validated on the way in (state_hash) or produced locally
+// (hex), so neither needs escaping.
+std::string desired_state_path(const std::string &current_hash, const std::string &facts_hash);
+
+// The response header in which a server says which facts document it holds
+// for this host, on any desired-state or state-report response - a 304
+// included, which is why it is a header: a 304 has no body.
+extern const char *const facts_hash_header;  // "x-facts-hash", lowercase as the client stores it
+
+// Read that header's value. None when it is not a sha256 hex digest or
+// `none` - and a missing header is none too, which means "this server does
+// not do facts" and is never a reason to upload. `none` means the server
+// holds no document for this host, returned as an empty string. A digest is
+// returned lowercase, so it compares directly against our own hash.
+boost::optional<std::string> parse_facts_hash(const std::string &header_value);
 
 // --- transport error classification ------------------------------------------
 

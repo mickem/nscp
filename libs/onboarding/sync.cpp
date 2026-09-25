@@ -417,23 +417,32 @@ std::string onboarding::build_facts_upload(const std::string &facts_hash, const 
   return body;
 }
 
-boost::optional<std::string> onboarding::parse_facts_hash(const std::string &body) {
-  try {
-    const json::value parsed = json::parse(body);
-    if (!parsed.is_object()) return boost::none;
-    const json::value *value = parsed.as_object().if_contains("facts_hash");
-    if (value == nullptr || !value->is_string()) return boost::none;
-    std::string hash = detail::to_string(value->as_string());
-    if (hash.empty()) return hash;
-    if (hash.size() != 64) return boost::none;
-    for (char &c : hash) {
-      if (std::isxdigit(static_cast<unsigned char>(c)) == 0) return boost::none;
-      c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    }
-    return hash;
-  } catch (...) {
-    return boost::none;
+const char *const onboarding::facts_hash_header = "x-facts-hash";
+
+std::string onboarding::desired_state_path(const std::string &current_hash, const std::string &facts_hash) {
+  std::string path = "/agent/v1/desired-state";
+  char separator = '?';
+  if (!current_hash.empty()) {
+    path += separator;
+    path += "current_hash=" + current_hash;
+    separator = '&';
   }
+  if (!facts_hash.empty()) {
+    path += separator;
+    path += "facts_hash=" + facts_hash;
+  }
+  return path;
+}
+
+boost::optional<std::string> onboarding::parse_facts_hash(const std::string &header_value) {
+  if (header_value == "none") return std::string();
+  if (header_value.size() != 64) return boost::none;
+  std::string hash = header_value;
+  for (char &c : hash) {
+    if (std::isxdigit(static_cast<unsigned char>(c)) == 0) return boost::none;
+    c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  }
+  return hash;
 }
 
 onboarding::enrolled_identity onboarding::parse_renew_response(const std::string &body, const identity &fresh_identity, const enrolled_identity &current) {

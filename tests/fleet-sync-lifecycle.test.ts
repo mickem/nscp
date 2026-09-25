@@ -338,7 +338,7 @@ describe("fleet sync certificate lifecycle", () => {
     // It re-fetched rather than trusting the stale 304: the first desired-state
     // poll carried no current_hash, because recovery cleared it.
     const firstPoll = fleet.requests.find((r) => r.url.startsWith("/agent/v1/desired-state"))!;
-    expect(firstPoll.url).toBe("/agent/v1/desired-state");
+    expect(new URL(firstPoll.url, "http://x").pathname).toBe("/agent/v1/desired-state");
     expect(firstPoll.url).not.toContain("current_hash");
 
     // The interrupted swap was rolled back: scripts.old is consumed and the
