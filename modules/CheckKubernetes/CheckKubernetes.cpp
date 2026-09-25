@@ -12,6 +12,7 @@
 #include "check_cluster.hpp"
 #include "check_nodes.hpp"
 #include "check_pods.hpp"
+#include "check_workloads.hpp"
 #include "kube_client.hpp"
 
 namespace sh = nscapi::settings_helper;
@@ -101,4 +102,8 @@ void CheckKubernetes::check_pods(const PB::Commands::QueryRequestMessage::Reques
 
 void CheckKubernetes::check_nodes(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   kube_checks::check_nodes(defaults_, request, response, &make_api_fetcher);
+}
+
+void CheckKubernetes::check_workloads(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  kube_checks::check_workloads(defaults_, request, response, &make_api_fetcher);
 }

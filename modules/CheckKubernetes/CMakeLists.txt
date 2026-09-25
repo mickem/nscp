@@ -12,6 +12,7 @@ set(SRCS
     check_cluster.cpp
     check_pods.cpp
     check_nodes.cpp
+    check_workloads.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
     ${NSCP_INCLUDEDIR}/bytes/base64.c
@@ -40,6 +41,7 @@ if(WIN32)
         check_cluster.hpp
         check_pods.hpp
         check_nodes.hpp
+        check_workloads.hpp
         kube_client.hpp
         kube_json.hpp
         kube_settings.hpp
@@ -90,6 +92,7 @@ NSCP_CREATE_TEST(
         check_cluster.cpp
         check_pods.cpp
         check_nodes.cpp
+        check_workloads.cpp
         ${NSCP_INCLUDEDIR}/bytes/base64.c
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp

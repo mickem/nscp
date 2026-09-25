@@ -15,6 +15,7 @@
 #include "check_cluster.hpp"
 #include "check_nodes.hpp"
 #include "check_pods.hpp"
+#include "check_workloads.hpp"
 #include "kube_client.hpp"
 #include "kube_settings.hpp"
 
@@ -108,6 +109,15 @@ PB::Common::ResultCode run_nodes(const kube_checks::fetcher_factory &factory, co
   request.set_command("check_nodes");
   for (const std::string &a : args) request.add_arguments(a);
   kube_checks::check_nodes(defaults, request, &response, factory);
+  return response.result();
+}
+
+PB::Common::ResultCode run_workloads(const kube_checks::fetcher_factory &factory, const std::vector<std::string> &args,
+                                     PB::Commands::QueryResponseMessage::Response &response, const kube_checks::settings &defaults = configured()) {
+  PB::Commands::QueryRequestMessage::Request request;
+  request.set_command("check_workloads");
+  for (const std::string &a : args) request.add_arguments(a);
+  kube_checks::check_workloads(defaults, request, &response, factory);
   return response.result();
 }
 
@@ -771,4 +781,158 @@ TEST(CheckNodes, SelectorsReachTheServer) {
   EXPECT_EQ(run_nodes(api.factory(), {"label-selector=node-role.kubernetes.io/worker="}, response), PB::Common::ResultCode::CRITICAL) << join_lines(response);
   EXPECT_EQ(join_lines(response), "CRITICAL: No nodes found") << "an empty node list is the documented critical";
   EXPECT_EQ(api.requests[0], "/api/v1/nodes?limit=500&labelSelector=node-role.kubernetes.io%2Fworker%3D");
+}
+
+// --- check_workloads --------------------------------------------------------------
+
+namespace {
+
+const char *DEPLOYMENTS = R"json({"items":[
+  {"metadata":{"name":"web","namespace":"shop","creationTimestamp":"2025-01-01T00:00:00Z","labels":{"app":"web"}},
+   "spec":{"replicas":3},
+   "status":{"replicas":3,"readyReplicas":3,"availableReplicas":3,"updatedReplicas":3}},
+  {"metadata":{"name":"api","namespace":"shop"},
+   "spec":{"replicas":3},
+   "status":{"replicas":3,"readyReplicas":1,"availableReplicas":1,"updatedReplicas":3,"unavailableReplicas":2}},
+  {"metadata":{"name":"worker","namespace":"shop"},
+   "spec":{"replicas":2,"paused":true},
+   "status":{"replicas":2,"readyReplicas":2,"availableReplicas":2,"updatedReplicas":1}},
+  {"metadata":{"name":"legacy","namespace":"ops"},
+   "spec":{"replicas":2},
+   "status":{"replicas":2,"unavailableReplicas":2}},
+  {"metadata":{"name":"scaled-down","namespace":"ops"},
+   "spec":{"replicas":0},
+   "status":{}}
+]})json";
+
+const char *STATEFULSETS = R"json({"items":[
+  {"metadata":{"name":"db","namespace":"shop"},
+   "spec":{"replicas":3},
+   "status":{"replicas":3,"readyReplicas":3,"availableReplicas":3,"updatedReplicas":3,"currentReplicas":3}},
+  {"metadata":{"name":"old-db","namespace":"ops"},
+   "spec":{},
+   "status":{"replicas":1,"readyReplicas":1,"updatedReplicas":1}}
+]})json";
+
+const char *DAEMONSETS = R"json({"items":[
+  {"metadata":{"name":"node-exporter","namespace":"monitoring"},
+   "spec":{},
+   "status":{"desiredNumberScheduled":3,"currentNumberScheduled":3,"numberReady":2,"numberAvailable":2,"updatedNumberScheduled":3,"numberUnavailable":1,"numberMisscheduled":0}}
+]})json";
+
+void serve_all_kinds(fake_api &api) {
+  api.serve("/apis/apps/v1/deployments", DEPLOYMENTS);
+  api.serve("/apis/apps/v1/statefulsets", STATEFULSETS);
+  api.serve("/apis/apps/v1/daemonsets", DAEMONSETS);
+}
+
+}  // namespace
+
+TEST(CheckWorkloads, DefaultThresholdsAcrossAllKinds) {
+  fake_api api;
+  serve_all_kinds(api);
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_workloads(api.factory(), {}, response), PB::Common::ResultCode::CRITICAL) << join_lines(response);
+  // api is short (warning), worker's rollout is behind (warning), legacy has
+  // nothing available (critical), the daemonset misses a pod (warning); the
+  // scaled-down deployment wants nothing and is fine.
+  EXPECT_EQ(join_lines(response),
+            "CRITICAL: Deployment shop/api=1/3, Deployment shop/worker=2/2, Deployment ops/legacy=0/2, DaemonSet monitoring/node-exporter=2/3");
+  ASSERT_EQ(api.requests.size(), 3u);
+  EXPECT_EQ(api.requests[0], "/apis/apps/v1/deployments?limit=500");
+  EXPECT_EQ(api.requests[1], "/apis/apps/v1/statefulsets?limit=500");
+  EXPECT_EQ(api.requests[2], "/apis/apps/v1/daemonsets?limit=500");
+}
+
+TEST(CheckWorkloads, KindRestrictsTheCallsAndAcceptsPluralsAndCase) {
+  fake_api api;
+  serve_all_kinds(api);
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_workloads(api.factory(), {"kind=DaemonSets"}, response), PB::Common::ResultCode::WARNING) << join_lines(response);
+  EXPECT_EQ(join_lines(response), "WARNING: DaemonSet monitoring/node-exporter=2/3");
+  ASSERT_EQ(api.requests.size(), 1u);
+  EXPECT_EQ(api.requests[0], "/apis/apps/v1/daemonsets?limit=500");
+
+  PB::Commands::QueryResponseMessage::Response response2;
+  EXPECT_EQ(run_workloads(api.factory(), {"kind=statefulset", "kind=deployment"}, response2), PB::Common::ResultCode::CRITICAL) << join_lines(response2);
+  EXPECT_EQ(api.requests.size(), 3u);
+
+  PB::Commands::QueryResponseMessage::Response response3;
+  EXPECT_EQ(run_workloads(api.factory(), {"kind=cronjob"}, response3), PB::Common::ResultCode::UNKNOWN) << join_lines(response3);
+  EXPECT_NE(join_lines(response3).find("Unknown workload kind 'cronjob'"), std::string::npos) << join_lines(response3);
+}
+
+TEST(CheckWorkloads, KeywordsAreExposed) {
+  fake_api api;
+  serve_all_kinds(api);
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_workloads(api.factory(),
+                          {"filter=namespace = 'shop'", "warning=none", "critical=none",
+                           "detail-syntax=%(kind)/%(name)|%(desired)|%(ready)|%(available)|%(updated)|%(unavailable)|%(missing)|%(paused)|%(labels)",
+                           "top-syntax=${list}", "ok-syntax="},
+                          response),
+            PB::Common::ResultCode::OK)
+      << join_lines(response);
+  EXPECT_EQ(join_lines(response),
+            "Deployment/web|3|3|3|3|0|0|0|app=web, Deployment/api|3|1|1|3|2|2|0|, Deployment/worker|2|2|2|1|0|0|1|, StatefulSet/db|3|3|3|3|0|0|0|");
+}
+
+TEST(CheckWorkloads, StatefulSetWithoutAvailableReplicasFallsBackToReady) {
+  fake_api api;
+  api.serve("/apis/apps/v1/statefulsets", STATEFULSETS);
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_workloads(api.factory(),
+                          {"kind=statefulset", "filter=name = 'old-db'", "detail-syntax=%(name)=%(available)/%(desired)", "top-syntax=${list}", "ok-syntax="},
+                          response),
+            PB::Common::ResultCode::OK)
+      << join_lines(response);
+  EXPECT_EQ(join_lines(response), "old-db=1/1") << "spec.replicas defaults to 1 and available falls back to ready";
+}
+
+TEST(CheckWorkloads, PausedAndRolloutKeywordsInThresholds) {
+  fake_api api;
+  serve_all_kinds(api);
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_workloads(api.factory(), {"kind=deployment", "warning=paused = 1 and updated < 2", "critical=none"}, response),
+            PB::Common::ResultCode::WARNING)
+      << join_lines(response);
+  EXPECT_EQ(join_lines(response), "WARNING: Deployment shop/worker=2/2");
+  EXPECT_NE(perf_of(response).find("shop/worker updated=1"), std::string::npos) << perf_of(response);
+}
+
+TEST(CheckWorkloads, NamespaceAndSelectorsReachTheServer) {
+  fake_api api;
+  api.serve("/apis/apps/v1/namespaces/shop/deployments", R"({"items":[]})");
+  api.serve("/apis/apps/v1/namespaces/shop/statefulsets", R"({"items":[]})");
+  api.serve("/apis/apps/v1/namespaces/shop/daemonsets", R"({"items":[]})");
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_workloads(api.factory(), {"namespace=shop", "label-selector=app.kubernetes.io/part-of=shop"}, response), PB::Common::ResultCode::OK)
+      << join_lines(response);
+  EXPECT_EQ(join_lines(response), "OK: No workloads found");
+  ASSERT_EQ(api.requests.size(), 3u);
+  EXPECT_EQ(api.requests[0], "/apis/apps/v1/namespaces/shop/deployments?limit=500&labelSelector=app.kubernetes.io%2Fpart-of%3Dshop");
+}
+
+TEST(CheckWorkloads, RequiredWorkloadsAndMissingOnes) {
+  fake_api api;
+  serve_all_kinds(api);
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_workloads(api.factory(), {"workload=shop/web", "workload=db"}, response), PB::Common::ResultCode::OK) << join_lines(response);
+  EXPECT_EQ(join_lines(response), "OK: All 2 workloads are available");
+
+  PB::Commands::QueryResponseMessage::Response response2;
+  EXPECT_EQ(run_workloads(api.factory(), {"workload=shop/web", "workload=shop/ghost"}, response2), PB::Common::ResultCode::CRITICAL) << join_lines(response2);
+  EXPECT_EQ(join_lines(response2), "CRITICAL: missing shop/ghost=0/1");
+}
+
+TEST(CheckWorkloads, ForbiddenNamesTheResource) {
+  fake_api api;
+  api.serve("/apis/apps/v1/deployments", DEPLOYMENTS);
+  api.refuse(
+      "/apis/apps/v1/statefulsets", 403,
+      R"({"kind":"Status","message":"statefulsets.apps is forbidden: User \"system:serviceaccount:monitoring:nscp\" cannot list resource \"statefulsets\" in API group \"apps\" at the cluster scope","reason":"Forbidden","code":403})");
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_workloads(api.factory(), {}, response), PB::Common::ResultCode::UNKNOWN) << join_lines(response);
+  EXPECT_NE(join_lines(response).find("cannot list resource \"statefulsets\" in API group \"apps\""), std::string::npos) << join_lines(response);
+  EXPECT_EQ(response.lines_size(), 1) << "the partial deployment result is dropped, the error is the only line";
 }
