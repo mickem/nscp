@@ -249,6 +249,19 @@ TEST(CheckHyperV, AVmWithoutAHeartbeatComponentSaysSo) {
 
 TEST(CheckHyperV, NoVmsGivesNoRecords) { EXPECT_TRUE(build_records(raw_rows()).empty()); }
 
+TEST(CheckHyperV, VmsTheCountersSeeButWmiHidesAreExplained) {
+  EXPECT_EQ(hidden_vms_reason(0, 1),
+            "Hyper-V reports 1 virtual machine(s) on this host but none are visible to this account: run as an elevated administrator or a member "
+            "of Hyper-V Administrators");
+}
+
+TEST(CheckHyperV, AgreeingOrUnreadableCountersExplainNothing) {
+  EXPECT_EQ(hidden_vms_reason(0, 0), "");
+  EXPECT_EQ(hidden_vms_reason(0, -1), "");
+  EXPECT_EQ(hidden_vms_reason(2, 2), "");
+  EXPECT_EQ(hidden_vms_reason(1, 3), "");
+}
+
 // --- logical processors -----------------------------------------------------
 
 TEST(CheckHyperV, TotalIsTheMeanOfThePercentagesAndTheSumOfTheSwitches) {

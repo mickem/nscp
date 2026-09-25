@@ -69,7 +69,13 @@ void CheckHyperV::fetchFacts(const nscapi::facts::request &request, nscapi::fact
   // process runs, and reading them costs what one check_hyperv_vms costs.
   const com_helper::mta_scope com;
   try {
-    hyperv_facts::publish(check_hyperv::check_hyperv_internal::build_records(check_hyperv::fetch_vm_rows()), std::time(nullptr), response);
+    const std::vector<check_hyperv::check_hyperv_internal::vm_record> vms = check_hyperv::check_hyperv_internal::build_records(check_hyperv::fetch_vm_rows());
+    // An empty list here would tell the server the host has no VMs; when it
+    // has some this account cannot see, say that instead and keep the last
+    // list the core holds.
+    const std::string hidden = check_hyperv::vms_hidden_from_caller(vms.size());
+    if (!hidden.empty()) return response.error(hyperv_facts::set_hyperv, hidden);
+    hyperv_facts::publish(vms, std::time(nullptr), response);
   } catch (const wmi_impl::wmi_exception &e) {
     // Named against the set rather than failing the round: the core keeps
     // the VMs it already holds and reports why they are stale. On a host
@@ -123,7 +129,8 @@ void CheckHyperV::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
     const com_helper::mta_scope com;
     try {
       vms = build_records(check_hyperv::fetch_vm_rows());
-      have_vms = true;
+      // VMs this account is not allowed to see would publish as vms.total 0.
+      have_vms = check_hyperv::vms_hidden_from_caller(vms.size()).empty();
     } catch (const wmi_impl::wmi_exception &) {
       // The namespace is missing without the role; any other failure is
       // reported by the check itself, where it is visible.

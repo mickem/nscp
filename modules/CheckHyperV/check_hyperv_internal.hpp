@@ -287,6 +287,20 @@ inline std::string settings_owner_guid(const std::string &instance_id) {
   return is_vm_guid(owner) ? to_lower(owner) : "";
 }
 
+// Hyper-V's WMI provider only returns the virtual machines the caller is
+// authorised for, and it hides the rest silently: an unelevated administrator
+// or an ordinary user sees the host's own row and nothing else. The health
+// summary counters are not filtered that way, so when WMI shows no VM while
+// the counters count some, the list is not "no VMs" but "not allowed to see
+// them". Returns the explanation to report then, or an empty string when the
+// two sources agree (or the counters could not be read: `counted` < 0).
+inline std::string hidden_vms_reason(const std::size_t visible, const long long counted) {
+  if (visible > 0 || counted <= 0) return "";
+  return "Hyper-V reports " + std::to_string(counted) +
+         " virtual machine(s) on this host but none are visible to this account: run as an elevated administrator or a member of "
+         "Hyper-V Administrators";
+}
+
 // Msvm_VirtualSystemSettingData.VirtualSystemSubType is
 // "Microsoft:Hyper-V:SubType:<n>"; the number is the VM generation. 0 when the
 // value is missing or in another shape.

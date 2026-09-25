@@ -5,6 +5,7 @@
 
 #include <boost/optional.hpp>
 #include <boost/program_options.hpp>
+#include <map>
 #include <memory>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
@@ -15,8 +16,11 @@
 #include <string>
 #include <vector>
 #include <win/com_helpers.hpp>
+#include <win/pdh/pdh_interface.hpp>
+#include <win/pdh/pdh_object_gather.hpp>
 #include <win/wmi/wmi_query.hpp>
 
+#include "check_hyperv_host.hpp"
 #include "check_hyperv_internal.hpp"
 
 namespace po = boost::program_options;
@@ -67,6 +71,18 @@ bool is_hyperv_missing(const wmi_impl::wmi_exception &e) {
   // an installed role whose management service is off reports the classes
   // as missing instead.
   return e.get_code() == WBEM_E_INVALID_NAMESPACE || e.get_code() == WBEM_E_INVALID_CLASS || e.get_code() == WBEM_E_NOT_FOUND;
+}
+
+std::string vms_hidden_from_caller(const std::size_t visible) {
+  if (visible > 0) return "";
+  long long counted = -1;
+  try {
+    const std::map<std::string, double> host = fetch_host_counters();
+    counted = static_cast<long long>(PDH::value_of(host, "Health Ok") + PDH::value_of(host, "Health Critical"));
+  } catch (const PDH::pdh_exception &) {
+    // No counters to compare with: take the WMI answer as it is.
+  }
+  return hidden_vms_reason(visible, counted);
 }
 
 raw_rows fetch_vm_rows() {
@@ -251,6 +267,8 @@ void check_hyperv_vms(const PB::Commands::QueryRequestMessage::Request &request,
   const com_helper::mta_scope com;
   try {
     const std::vector<vm_record> records = build_records(fetch_vm_rows());
+    const std::string hidden = vms_hidden_from_caller(records.size());
+    if (!hidden.empty()) return nscapi::protobuf::functions::set_response_bad(*response, hidden);
     for (const vm_record &record : records) f.match(std::make_shared<filter_obj>(record));
   } catch (const wmi_impl::wmi_exception &e) {
     if (is_hyperv_missing(e)) {

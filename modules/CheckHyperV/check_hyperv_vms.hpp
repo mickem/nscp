@@ -4,6 +4,7 @@
 #pragma once
 
 #include <nscapi/protobuf/command.hpp>
+#include <string>
 #include <vector>
 #include <win/wmi/wmi_query.hpp>
 
@@ -19,5 +20,10 @@ void check_hyperv_vms(const PB::Commands::QueryRequestMessage::Request &request,
 // installed" case apart from a real error.
 check_hyperv_internal::raw_rows fetch_vm_rows();
 bool is_hyperv_missing(const wmi_impl::wmi_exception &e);
+
+// Why `visible` VMs (what fetch_vm_rows found) is not the whole story, or an
+// empty string when it is: cross-checks against the health summary counters,
+// which WMI's per-caller authorisation does not filter.
+std::string vms_hidden_from_caller(std::size_t visible);
 
 }  // namespace check_hyperv

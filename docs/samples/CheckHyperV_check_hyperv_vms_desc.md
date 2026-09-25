@@ -30,6 +30,13 @@ they read `none` / `disabled` / `not_applicable` on a VM that is not
 replicated.
 
 Reading the namespace needs local administrator or *Hyper-V Administrators*
-membership for the account the service runs as. Without the Hyper-V role the
+membership for the account the service runs as (the default LocalSystem
+account has it). Hyper-V does not refuse a caller without it: it silently
+returns only the host's own row, so every VM just seems to be missing. The
+check compares that with the VM count from the health summary counters, which
+anyone can read, and when WMI shows none of the VMs the counters count it
+reports UNKNOWN (`... none are visible to this account`) instead of "No
+virtual machines found". The `hyperv.vms` facts do the same. This is what you
+see when you run `nscp test` from a shell that is not elevated. Without the Hyper-V role the
 namespace does not exist and the check reports UNKNOWN with a message saying
 so.
