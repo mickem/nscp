@@ -14,6 +14,7 @@
 
 	"commands" : {
 		"check_kubernetes"	: "Check that the Kubernetes API server is reachable and ready: version, readiness and node counts.",
-		"check_pods"		: "Check the state of pods: phase, the kubectl STATUS column, readiness and restarts."
+		"check_pods"		: "Check the state of pods: phase, the kubectl STATUS column, readiness and restarts.",
+		"check_nodes"		: "Check node readiness, pressure conditions, schedulability and capacity."
 	}
 }

@@ -10,6 +10,7 @@
 #include <str/utf8.hpp>
 
 #include "check_cluster.hpp"
+#include "check_nodes.hpp"
 #include "check_pods.hpp"
 #include "kube_client.hpp"
 
@@ -96,4 +97,8 @@ void CheckKubernetes::check_kubernetes(const PB::Commands::QueryRequestMessage::
 
 void CheckKubernetes::check_pods(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   kube_checks::check_pods(defaults_, request, response, &make_api_fetcher);
+}
+
+void CheckKubernetes::check_nodes(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  kube_checks::check_nodes(defaults_, request, response, &make_api_fetcher);
 }

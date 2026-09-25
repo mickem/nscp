@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "check_cluster.hpp"
+#include "check_nodes.hpp"
 #include "check_pods.hpp"
 #include "kube_client.hpp"
 #include "kube_settings.hpp"
@@ -98,6 +99,15 @@ PB::Common::ResultCode run_pods(const kube_checks::fetcher_factory &factory, con
   request.set_command("check_pods");
   for (const std::string &a : args) request.add_arguments(a);
   kube_checks::check_pods(defaults, request, &response, factory);
+  return response.result();
+}
+
+PB::Common::ResultCode run_nodes(const kube_checks::fetcher_factory &factory, const std::vector<std::string> &args,
+                                 PB::Commands::QueryResponseMessage::Response &response, const kube_checks::settings &defaults = configured()) {
+  PB::Commands::QueryRequestMessage::Request request;
+  request.set_command("check_nodes");
+  for (const std::string &a : args) request.add_arguments(a);
+  kube_checks::check_nodes(defaults, request, &response, factory);
   return response.result();
 }
 
@@ -648,4 +658,117 @@ TEST(CheckPods, ForbiddenNamesTheNamespace) {
   EXPECT_EQ(run_pods(api.factory(), {"namespace=secret"}, response), PB::Common::ResultCode::UNKNOWN) << join_lines(response);
   EXPECT_NE(join_lines(response).find("in the namespace \"secret\""), std::string::npos) << join_lines(response);
   EXPECT_EQ(join_lines(response).find(TOKEN), std::string::npos);
+}
+
+// --- check_nodes ------------------------------------------------------------------
+
+namespace {
+
+// Three nodes: a healthy control plane, a worker under disk pressure that
+// has gone NotReady, and a cordoned worker.
+const char *THREE_FULL_NODES = R"json({"kind":"NodeList","metadata":{},"items":[
+  {"metadata":{"name":"cp-1","creationTimestamp":"2024-01-01T00:00:00Z",
+               "labels":{"node-role.kubernetes.io/control-plane":"","kubernetes.io/hostname":"cp-1"}},
+   "spec":{"taints":[{"key":"node-role.kubernetes.io/control-plane","effect":"NoSchedule"}]},
+   "status":{"conditions":[{"type":"MemoryPressure","status":"False"},{"type":"DiskPressure","status":"False"},
+                           {"type":"PIDPressure","status":"False"},{"type":"Ready","status":"True"}],
+             "addresses":[{"type":"InternalIP","address":"10.0.0.10"},{"type":"Hostname","address":"cp-1"}],
+             "nodeInfo":{"kubeletVersion":"v1.30.2","osImage":"Ubuntu 22.04.4 LTS","architecture":"amd64"},
+             "capacity":{"cpu":"4","memory":"16386764Ki","pods":"110"},
+             "allocatable":{"cpu":"3800m","memory":"15761100Ki","pods":"110"}}},
+  {"metadata":{"name":"worker-1","creationTimestamp":"2024-01-02T00:00:00Z","labels":{"node-role.kubernetes.io/worker":""}},
+   "spec":{},
+   "status":{"conditions":[{"type":"MemoryPressure","status":"False"},{"type":"DiskPressure","status":"True"},
+                           {"type":"PIDPressure","status":"False"},{"type":"Ready","status":"False"}],
+             "nodeInfo":{"kubeletVersion":"v1.30.2","osImage":"Ubuntu 22.04.4 LTS","architecture":"amd64"},
+             "capacity":{"cpu":"8","memory":"32Gi","pods":"110"},
+             "allocatable":{"cpu":"7900m","memory":"31Gi","pods":"110"}}},
+  {"metadata":{"name":"worker-2","creationTimestamp":"2024-01-03T00:00:00Z"},
+   "spec":{"unschedulable":true,"taints":[{"key":"node.kubernetes.io/unschedulable","effect":"NoSchedule"},{"key":"dedicated","value":"gpu","effect":"NoExecute"}]},
+   "status":{"conditions":[{"type":"MemoryPressure","status":"False"},{"type":"DiskPressure","status":"False"},
+                           {"type":"PIDPressure","status":"False"},{"type":"Ready","status":"True"}],
+             "nodeInfo":{"kubeletVersion":"v1.29.8","osImage":"Debian GNU/Linux 12 (bookworm)","architecture":"arm64"},
+             "capacity":{"cpu":"8","memory":"32Gi","pods":"110"},
+             "allocatable":{"cpu":"7900m","memory":"31Gi","pods":"110"}}}
+]})json";
+
+}  // namespace
+
+TEST(CheckNodes, DefaultThresholdsFlagNotReadyAndCordoned) {
+  fake_api api;
+  api.serve("/api/v1/nodes", THREE_FULL_NODES);
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_nodes(api.factory(), {}, response), PB::Common::ResultCode::CRITICAL) << join_lines(response);
+  EXPECT_EQ(join_lines(response), "CRITICAL: worker-1=NotReady, worker-2=Ready,SchedulingDisabled");
+  EXPECT_EQ(api.requests[0], "/api/v1/nodes?limit=500");
+}
+
+TEST(CheckNodes, HealthyNodesAreOkWithACount) {
+  fake_api api;
+  api.serve("/api/v1/nodes", THREE_NODES.substr(0, THREE_NODES.find(",{\"metadata\":{\"name\":\"worker-2\"")) + "]}");
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_nodes(api.factory(), {}, response), PB::Common::ResultCode::OK) << join_lines(response);
+  EXPECT_EQ(join_lines(response), "OK: All 2 nodes are ready");
+}
+
+TEST(CheckNodes, KeywordsAreExposed) {
+  fake_api api;
+  api.serve("/api/v1/nodes", THREE_FULL_NODES);
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_nodes(api.factory(),
+                      {"filter=name = 'cp-1'",
+                       "detail-syntax=%(name)|%(ready)|%(node_status)|%(schedulable)|%(roles)|%(taints)|%(kubelet_version)|%(os)|%(arch)|%(internal_ip)|%(cpu_"
+                       "capacity)|%(cpu_allocatable)|%(memory_capacity)|%(memory_allocatable)|%(pods_capacity)|%(disk_pressure)",
+                       "top-syntax=${list}", "ok-syntax="},
+                      response),
+            PB::Common::ResultCode::OK)
+      << join_lines(response);
+  EXPECT_EQ(join_lines(response),
+            "cp-1|True|Ready|1|control-plane|node-role.kubernetes.io/control-plane:NoSchedule|v1.30.2|Ubuntu 22.04.4 "
+            "LTS|amd64|10.0.0.10|4000|3800|16780046336|16139366400|110|0");
+}
+
+TEST(CheckNodes, PressureAndTaintKeywords) {
+  fake_api api;
+  api.serve("/api/v1/nodes", THREE_FULL_NODES);
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_nodes(api.factory(),
+                      {"filter=disk_pressure = 1 or taints like 'dedicated'", "detail-syntax=%(name)=%(disk_pressure)/%(taints)", "top-syntax=${list}",
+                       "ok-syntax=", "warning=none", "critical=none"},
+                      response),
+            PB::Common::ResultCode::OK)
+      << join_lines(response);
+  EXPECT_EQ(join_lines(response), "worker-1=1/, worker-2=0/node.kubernetes.io/unschedulable:NoSchedule,dedicated=gpu:NoExecute");
+}
+
+TEST(CheckNodes, MemoryThresholdsTakeUnitsAndEmitPerf) {
+  fake_api api;
+  api.serve("/api/v1/nodes", THREE_FULL_NODES);
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_nodes(api.factory(), {"filter=name = 'worker-2'", "warning=memory_allocatable < 40G", "critical=cpu_allocatable < 1000"}, response),
+            PB::Common::ResultCode::WARNING)
+      << join_lines(response);
+  EXPECT_EQ(join_lines(response), "WARNING: worker-2=Ready,SchedulingDisabled");
+  EXPECT_NE(perf_of(response).find("worker-2 memory allocatable=33285996544"), std::string::npos) << perf_of(response);
+  EXPECT_NE(perf_of(response).find("worker-2 cpu allocatable=7900"), std::string::npos) << perf_of(response);
+}
+
+TEST(CheckNodes, RequiredNodesAndMissingOnes) {
+  fake_api api;
+  api.serve("/api/v1/nodes", THREE_FULL_NODES);
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_nodes(api.factory(), {"node=cp-1", "node=gone-1"}, response), PB::Common::ResultCode::CRITICAL) << join_lines(response);
+  EXPECT_EQ(join_lines(response), "CRITICAL: gone-1=missing");
+  PB::Commands::QueryResponseMessage::Response response2;
+  EXPECT_EQ(run_nodes(api.factory(), {"node=cp-1"}, response2), PB::Common::ResultCode::OK) << join_lines(response2);
+  EXPECT_EQ(join_lines(response2), "OK: All 1 nodes are ready");
+}
+
+TEST(CheckNodes, SelectorsReachTheServer) {
+  fake_api api;
+  api.serve("/api/v1/nodes", R"({"items":[]})");
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_nodes(api.factory(), {"label-selector=node-role.kubernetes.io/worker="}, response), PB::Common::ResultCode::CRITICAL) << join_lines(response);
+  EXPECT_EQ(join_lines(response), "CRITICAL: No nodes found") << "an empty node list is the documented critical";
+  EXPECT_EQ(api.requests[0], "/api/v1/nodes?limit=500&labelSelector=node-role.kubernetes.io%2Fworker%3D");
 }
