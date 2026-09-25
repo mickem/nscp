@@ -55,6 +55,10 @@ std::map<std::string, double> fetch_host_counters() {
   return values;
 }
 
+long long counted_vms(const std::map<std::string, double> &host) {
+  return static_cast<long long>(value_of(host, "Health Ok")) + static_cast<long long>(value_of(host, "Health Critical"));
+}
+
 // ---------------------------------------------------------------------------
 // check_hyperv_host — VM health summary and hypervisor capacity
 // ---------------------------------------------------------------------------
@@ -76,10 +80,10 @@ typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native
 struct filter_obj_handler : public native_context {
   filter_obj_handler() {
     registry_.add_int_var("health_ok", parsers::where::type_int, [](auto obj) { return obj->health_ok; }, "Virtual machines whose health is ok")
-        .add_int_perf("", "", "_ok");
+        .add_int_perf("", "", "_health_ok");
     registry_.add_int_var("health_critical", parsers::where::type_int, [](auto obj) { return obj->health_critical; },
                           "Virtual machines whose health is critical (the host could not keep them running as configured)")
-        .add_int_perf("", "", "_critical");
+        .add_int_perf("", "", "_health_critical");
     registry_.add_int_var("logical_processors", parsers::where::type_int, [](auto obj) { return obj->logical_processors; },
                           "Logical processors the hypervisor manages on this host")
         .add_int_perf("", "", "_logical_processors");
@@ -160,17 +164,17 @@ struct filter_obj_handler : public native_context {
                           [](auto obj) { return obj->sample.total_run_time; },
                           "% of time the logical processor ran guest or hypervisor code (the host's real CPU usage, which Task Manager on the host "
                           "under-reports)")
-        .add_float_perf("%", "", "");
+        .add_float_perf("%", "", "_total_run_time");
     registry_.add_numbers("guest_run_time", parsers::where::type_float, [](auto obj) { return static_cast<long long>(obj->sample.guest_run_time); },
                           [](auto obj) { return obj->sample.guest_run_time; }, "% of time spent running guest (and root partition) code")
-        .add_float_perf("%", "", "_guest");
+        .add_float_perf("%", "", "_guest_run_time");
     registry_.add_numbers("hypervisor_run_time", parsers::where::type_float,
                           [](auto obj) { return static_cast<long long>(obj->sample.hypervisor_run_time); },
                           [](auto obj) { return obj->sample.hypervisor_run_time; }, "% of time spent in the hypervisor itself (scheduling, intercepts)")
-        .add_float_perf("%", "", "_hypervisor");
+        .add_float_perf("%", "", "_hypervisor_run_time");
     registry_.add_numbers("idle_time", parsers::where::type_float, [](auto obj) { return static_cast<long long>(obj->sample.idle_time); },
                           [](auto obj) { return obj->sample.idle_time; }, "% of time the logical processor was idle")
-        .add_float_perf("%", "", "_idle");
+        .add_float_perf("%", "", "_idle_time");
     registry_.add_numbers("context_switches", parsers::where::type_float, [](auto obj) { return static_cast<long long>(obj->sample.context_switches); },
                           [](auto obj) { return obj->sample.context_switches; }, "Virtual processor context switches per second on the logical processor")
         .add_float_perf("", "", "_context_switches");

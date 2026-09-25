@@ -3,6 +3,7 @@
 
 #include "CheckHyperV.h"
 
+#include <chrono>
 #include <ctime>
 #include <map>
 #include <nscapi/nscapi_metrics_helper.hpp>
@@ -81,8 +82,9 @@ void CheckHyperV::fetchFacts(const nscapi::facts::request &request, nscapi::fact
     // the VMs it already holds and reports why they are stale. On a host
     // without the role that is the standing answer, every round, which is
     // what an enabled set that cannot be collected is supposed to say.
-    if (check_hyperv::is_hyperv_missing(e)) {
-      response.error(hyperv_facts::set_hyperv, "The Hyper-V role is not installed on this host (root\\virtualization\\v2 missing)");
+    const std::string unavailable = check_hyperv::hyperv_unavailable(e);
+    if (!unavailable.empty()) {
+      response.error(hyperv_facts::set_hyperv, "Hyper-V virtual machines not available: " + unavailable);
     } else {
       response.error(hyperv_facts::set_hyperv, "Failed to query Hyper-V virtual machines: " + e.reason());
     }
@@ -101,13 +103,36 @@ void CheckHyperV::check_hyperv_vms(const PB::Commands::QueryRequestMessage::Requ
   check_hyperv::check_hyperv_vms(request, response);
 }
 
-// One snapshot per metrics interval: the host counters (a single PDH sample)
-// and one record per virtual machine (the same WMI rows check_hyperv_vms
-// reads). On a host without the role both sources fail fast and nothing is
-// published, so an enabled module on the wrong host costs one failed lookup
-// per interval and no log noise.
+// The host counters are one PDH sample and are read every metrics interval.
+// The virtual machines are the seven-query WMI walk check_hyperv_vms runs,
+// which grows with every VM and checkpoint and can stall while the Hyper-V
+// management provider starts - on the one thread that collects every module's
+// metrics. So they are re-read at most once per kVmRefresh, and the intervals
+// in between publish the records last read. On a host without the role both
+// sources fail fast and nothing is published, so an enabled module on the
+// wrong host costs one failed lookup per interval and no log noise.
+const std::chrono::seconds CheckHyperV::kVmRefresh(60);
+
+void CheckHyperV::refresh_vms(const std::map<std::string, double> *host) {
+  const auto now = std::chrono::steady_clock::now();
+  if (vms_read_ && now - vms_read_at_ < kVmRefresh) return;
+  vms_read_ = true;
+  vms_read_at_ = now;
+  vms_.clear();
+  have_vms_ = false;
+  const com_helper::mta_scope com;
+  try {
+    vms_ = check_hyperv::check_hyperv_internal::build_records(check_hyperv::fetch_vm_rows());
+    // VMs this account is not allowed to see would publish as vms.total 0.
+    const long long counted = host != nullptr ? check_hyperv::counted_vms(*host) : -1;
+    have_vms_ = check_hyperv::check_hyperv_internal::hidden_vms_reason(vms_.size(), counted).empty();
+  } catch (const wmi_impl::wmi_exception &) {
+    // The namespace is missing without the role; any other failure is
+    // reported by the check itself, where it is visible.
+  }
+}
+
 void CheckHyperV::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
-  using check_hyperv::check_hyperv_internal::build_records;
   using check_hyperv::check_hyperv_internal::vm_record;
   using nscapi::metrics::describe;
   using nscapi::metrics::for_instance;
@@ -123,20 +148,8 @@ void CheckHyperV::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
     // Not a Hyper-V host (or the hypervisor is not running): nothing to publish.
   }
 
-  std::vector<vm_record> vms;
-  bool have_vms = false;
-  {
-    const com_helper::mta_scope com;
-    try {
-      vms = build_records(check_hyperv::fetch_vm_rows());
-      // VMs this account is not allowed to see would publish as vms.total 0.
-      have_vms = check_hyperv::vms_hidden_from_caller(vms.size()).empty();
-    } catch (const wmi_impl::wmi_exception &) {
-      // The namespace is missing without the role; any other failure is
-      // reported by the check itself, where it is visible.
-    }
-  }
-  if (!have_host && !have_vms) return;
+  refresh_vms(have_host ? &host : nullptr);
+  if (!have_host && !have_vms_) return;
 
   PB::Metrics::MetricsBundle *bundle = response->add_bundles();
   bundle->set_key("hyperv");
@@ -152,11 +165,16 @@ void CheckHyperV::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
     metric(bundle, "partitions").help("Running partitions including the root partition").gauge(static_cast<long long>(value_of(host, "Partitions")));
   }
 
-  if (have_vms) {
+  if (have_vms_) {
+    // Hyper-V does not keep VM names unique and a VM can have none, so the
+    // instance is the id the facts give the VM: its name, with the GUID
+    // appended when the name is shared, or the GUID alone when it is empty.
+    const std::vector<std::string> ids = hyperv_facts::record_ids(vms_);
     long long running = 0;
-    for (const vm_record &vm : vms) {
+    for (std::size_t i = 0; i < vms_.size(); ++i) {
+      const vm_record &vm = vms_[i];
       if (vm.is_running()) ++running;
-      const auto scope = for_instance(bundle, vm.name, "vm");
+      const auto scope = for_instance(bundle, ids[i], "vm");
       scope.metric("state").help("Power state of the virtual machine").info(vm.state());
       scope.metric("running").help("1 when the virtual machine is running, else 0").gauge(vm.is_running() ? 1 : 0);
       scope.metric("heartbeat").help("Guest heartbeat status").info(vm.heartbeat);
@@ -166,7 +184,7 @@ void CheckHyperV::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
       scope.metric("vcpus").help("Configured virtual processors").gauge(vm.vcpus);
       scope.metric("snapshots").help("Checkpoints the virtual machine has").gauge(vm.snapshots);
     }
-    metric(bundle, "vms.total").help("Virtual machines on the host").gauge(static_cast<long long>(vms.size()));
+    metric(bundle, "vms.total").help("Virtual machines on the host").gauge(static_cast<long long>(vms_.size()));
     metric(bundle, "vms.running").help("Virtual machines that are running").gauge(running);
   }
 }

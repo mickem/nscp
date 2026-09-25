@@ -287,6 +287,13 @@ inline std::string settings_owner_guid(const std::string &instance_id) {
   return is_vm_guid(owner) ? to_lower(owner) : "";
 }
 
+// Msvm_VirtualSystemSettingData.VirtualSystemType of a checkpoint someone
+// took. Hyper-V Replica keeps its recovery history as Snapshot:Recovery rows
+// (and a replica its Snapshot:Replica ones), and a planned checkpoint is an
+// import in flight; counting any of those would make every replicated VM look
+// like it has forgotten checkpoints.
+inline bool is_checkpoint_type(const std::string &type) { return type == "Microsoft:Hyper-V:Snapshot:Realized"; }
+
 // Hyper-V's WMI provider only returns the virtual machines the caller is
 // authorised for, and it hides the rest silently: an unelevated administrator
 // or an ordinary user sees the host's own row and nothing else. The health

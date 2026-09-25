@@ -1,5 +1,6 @@
 if(WIN32)
     set(BUILD_MODULE 1)
 else(WIN32)
-    set(BUILD_MODULE_SKIP_REASON "Only supported on Windows")
+    set(BUILD_MODULE_SKIP_REASON "Only supported on Windows (unit test still built)")
+    include(${CMAKE_CURRENT_LIST_DIR}/unit_tests.cmake)
 endif(WIN32)

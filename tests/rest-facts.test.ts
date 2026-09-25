@@ -318,8 +318,10 @@ describe("REST facts", () => {
       expect(document.body.enabled).toContain("hyperv");
       expect(document.body.errors.hyperv).not.toMatch(/Not collected during startup/);
       if (document.body.errors.hyperv !== undefined) {
+        // No role, a stopped management service, or (an unelevated run on a
+        // Hyper-V host) VMs the account is not allowed to see.
         expect(document.body.errors.hyperv).toMatch(
-          /Hyper-V role is not installed on this host|Failed to query Hyper-V virtual machines/,
+          /Hyper-V role is not installed on this host|management classes are missing|none are visible to this account|Failed to query Hyper-V virtual machines/,
         );
         expect(document.body.facts.hyperv).toBeUndefined();
         return;

@@ -73,24 +73,4 @@ target_link_libraries(
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 source_group("pdh" REGULAR_EXPRESSION .*include/win/pdh/.*)
 
-NSCP_CREATE_TEST(
-    check_hyperv_test
-    SOURCES
-        check_hyperv_test.cpp
-        hyperv_facts_test.cpp
-        hyperv_facts.cpp
-        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
-        ${NSCP_INCLUDEDIR}/str/utf8.cpp
-    LIBRARIES
-        GTest::gtest_main
-        nscp_protobuf
-        ${PLUGIN_API_TARGET}
-        ${Boost_FILESYSTEM_LIBRARY}
-        ${Boost_THREAD_LIBRARY}
-        ${Boost_DATE_TIME_LIBRARY}
-        ${Boost_PROGRAM_OPTIONS_LIBRARY}
-        ${Boost_REGEX_LIBRARY}
-    INCLUDES
-        ${NSCP_INCLUDEDIR}
-        ${CMAKE_CURRENT_SOURCE_DIR}
-)
+include(${CMAKE_CURRENT_SOURCE_DIR}/unit_tests.cmake)

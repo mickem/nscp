@@ -37,6 +37,13 @@ check compares that with the VM count from the health summary counters, which
 anyone can read, and when WMI shows none of the VMs the counters count it
 reports UNKNOWN (`... none are visible to this account`) instead of "No
 virtual machines found". The `hyperv.vms` facts do the same. This is what you
-see when you run `nscp test` from a shell that is not elevated. Without the Hyper-V role the
-namespace does not exist and the check reports UNKNOWN with a message saying
-so.
+see when you run `nscp test` from a shell that is not elevated.
+
+Without the Hyper-V role the namespace does not exist and the check reports
+UNKNOWN with a message saying so. With the role installed but the *Hyper-V
+Virtual Machine Management* service (vmms) stopped, the namespace is there
+but its classes are not, and the message points at the service instead.
+
+`snapshots` and `oldest_snapshot` count the checkpoints someone took. The
+recovery points Hyper-V Replica keeps for a replicated VM are not
+checkpoints and are not counted.

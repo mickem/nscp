@@ -18,8 +18,12 @@ const onWindows = process.platform === "win32";
 
 const NO_COUNTERS =
   /Hyper-V counters \(.*\) not available - is the Hyper-V role installed and the hypervisor running on this host\?/;
+// No role (the namespace is missing), or a stopped management service.
 const NO_NAMESPACE =
-  /Hyper-V virtual machine information not available: the Hyper-V role is not installed on this host \(root\\virtualization\\v2 missing\)/;
+  /Hyper-V virtual machine information not available: (the Hyper-V role is not installed on this host \(root\\virtualization\\v2 missing\)|the Hyper-V management classes are missing)/;
+// An unelevated run on a Hyper-V host: WMI hides every VM from the caller
+// while the health summary counters still count them.
+const HIDDEN_VMS = /Hyper-V reports \d+ virtual machine\(s\) on this host but none are visible to this account/;
 
 (onWindows ? describe : describe.skip)("CheckHyperV commands", () => {
   let nscp: NscpInstance;
@@ -45,7 +49,7 @@ const NO_NAMESPACE =
     const out = await query("check_hyperv_host");
     if (NO_COUNTERS.test(out)) return;
     expect(out).toMatch(/\d+ VMs ok, \d+ critical, \d+ partitions on \d+ logical processors/);
-    expect(out).toMatch(/'vms_ok'=\d+/);
+    expect(out).toMatch(/'vms_health_ok'=\d+/);
     expect(out).toMatch(/'vms_partitions'=\d+/);
   });
 
@@ -92,7 +96,7 @@ const NO_NAMESPACE =
 
   it("check_hyperv_vms lists virtual machines or reports the documented no-role contract", async () => {
     const out = await query("check_hyperv_vms");
-    if (NO_NAMESPACE.test(out)) return;
+    if (NO_NAMESPACE.test(out) || HIDDEN_VMS.test(out)) return;
     expect(out).toMatch(
       /all \d+ virtual machine\(s\) ok|heartbeat \w+, health \w+|No virtual machines found/,
     );
@@ -107,7 +111,7 @@ const NO_NAMESPACE =
       "empty-syntax=no VMs matched",
       "warning=uptime < 0",
     ]);
-    expect(out).toMatch(/role is not installed|no VMs matched/);
+    expect(out).toMatch(/information not available|none are visible to this account|no VMs matched/);
     expect(out).not.toMatch(/(^|\s)(WARNING|CRITICAL)\b/);
   });
 });

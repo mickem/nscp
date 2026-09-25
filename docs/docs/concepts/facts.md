@@ -199,7 +199,11 @@ One record per virtual machine on a Hyper-V host, from the same
 There is no power state, heartbeat, uptime, load or assigned memory: those
 change from one round to the next and are what `check_hyperv_vms` monitors.
 On a host without the Hyper-V role the set is enabled but cannot be
-collected, and says so under `errors` every round.
+collected, and says so under `errors` every round. The same goes for a
+stopped management service (vmms), and for an account that may not see the
+virtual machines: Hyper-V hides them from it without an error, so an empty
+list would claim the host has none. The set reports that under `errors` and
+the last list collected is kept.
 
 The set is not read on the startup round. That round runs on the thread
 that starts the service, and the first query into the virtualization

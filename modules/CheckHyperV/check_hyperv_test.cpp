@@ -249,6 +249,14 @@ TEST(CheckHyperV, AVmWithoutAHeartbeatComponentSaysSo) {
 
 TEST(CheckHyperV, NoVmsGivesNoRecords) { EXPECT_TRUE(build_records(raw_rows()).empty()); }
 
+TEST(CheckHyperV, OnlyRealisedCheckpointsAreCheckpoints) {
+  EXPECT_TRUE(is_checkpoint_type("Microsoft:Hyper-V:Snapshot:Realized"));
+  EXPECT_FALSE(is_checkpoint_type("Microsoft:Hyper-V:Snapshot:Recovery"));
+  EXPECT_FALSE(is_checkpoint_type("Microsoft:Hyper-V:Snapshot:Replica"));
+  EXPECT_FALSE(is_checkpoint_type("Microsoft:Hyper-V:Snapshot:Planned"));
+  EXPECT_FALSE(is_checkpoint_type("Microsoft:Hyper-V:System:Realized"));
+}
+
 TEST(CheckHyperV, VmsTheCountersSeeButWmiHidesAreExplained) {
   EXPECT_EQ(hidden_vms_reason(0, 1),
             "Hyper-V reports 1 virtual machine(s) on this host but none are visible to this account: run as an elevated administrator or a member "

@@ -39,3 +39,10 @@ OK: all 2 virtual machine(s) ok|...
 check_hyperv_vms
 Hyper-V virtual machine information not available: the Hyper-V role is not installed on this host (root\virtualization\v2 missing)
 ```
+
+**Run by an account that may not see the virtual machines (here: `nscp test` in a shell that is not elevated):**
+
+```
+check_hyperv_vms
+Hyper-V reports 1 virtual machine(s) on this host but none are visible to this account: run as an elevated administrator or a member of Hyper-V Administrators
+```

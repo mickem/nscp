@@ -16,10 +16,14 @@ namespace check_hyperv {
 void check_hyperv_vms(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 
 // Fetch the rows behind check_hyperv_vms (the caller holds the COM scope).
-// Throws wmi_impl::wmi_exception; is_hyperv_missing() tells the "role not
-// installed" case apart from a real error.
+// Throws wmi_impl::wmi_exception; hyperv_unavailable() tells "Hyper-V is not
+// there" apart from a real error.
 check_hyperv_internal::raw_rows fetch_vm_rows();
-bool is_hyperv_missing(const wmi_impl::wmi_exception &e);
+
+// Why Hyper-V cannot be queried at all, worded to finish a sentence ("the
+// Hyper-V role is not installed on this host ..."), or an empty string when
+// `e` is an ordinary failure to be reported as it is.
+std::string hyperv_unavailable(const wmi_impl::wmi_exception &e);
 
 // Why `visible` VMs (what fetch_vm_rows found) is not the whole story, or an
 // empty string when it is: cross-checks against the health summary counters,

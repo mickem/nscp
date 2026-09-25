@@ -5,7 +5,6 @@
 
 #include <boost/optional.hpp>
 #include <boost/program_options.hpp>
-#include <map>
 #include <memory>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
@@ -17,7 +16,6 @@
 #include <vector>
 #include <win/com_helpers.hpp>
 #include <win/pdh/pdh_interface.hpp>
-#include <win/pdh/pdh_object_gather.hpp>
 #include <win/wmi/wmi_query.hpp>
 
 #include "check_hyperv_host.hpp"
@@ -66,19 +64,22 @@ void for_each_row(const std::string &wql, Fn fn) {
 
 }  // namespace
 
-bool is_hyperv_missing(const wmi_impl::wmi_exception &e) {
-  // Without the Hyper-V role the virtualization namespace does not exist;
-  // an installed role whose management service is off reports the classes
-  // as missing instead.
-  return e.get_code() == WBEM_E_INVALID_NAMESPACE || e.get_code() == WBEM_E_INVALID_CLASS || e.get_code() == WBEM_E_NOT_FOUND;
+std::string hyperv_unavailable(const wmi_impl::wmi_exception &e) {
+  // Without the Hyper-V role the virtualization namespace does not exist. An
+  // installed role whose management service is off keeps the namespace but
+  // reports its classes as missing, and that has a different fix.
+  if (e.get_code() == WBEM_E_INVALID_NAMESPACE) return "the Hyper-V role is not installed on this host (root\\virtualization\\v2 missing)";
+  if (e.get_code() == WBEM_E_INVALID_CLASS || e.get_code() == WBEM_E_NOT_FOUND) {
+    return "the Hyper-V management classes are missing - is the Hyper-V Virtual Machine Management service (vmms) running?";
+  }
+  return "";
 }
 
 std::string vms_hidden_from_caller(const std::size_t visible) {
   if (visible > 0) return "";
   long long counted = -1;
   try {
-    const std::map<std::string, double> host = fetch_host_counters();
-    counted = static_cast<long long>(PDH::value_of(host, "Health Ok") + PDH::value_of(host, "Health Critical"));
+    counted = counted_vms(fetch_host_counters());
   } catch (const PDH::pdh_exception &) {
     // No counters to compare with: take the WMI answer as it is.
   }
@@ -159,11 +160,11 @@ raw_rows fetch_vm_rows() {
                    s.snapshot = false;
                    s.sub_type = string_or_empty(row, "VirtualSystemSubType");
                    s.version = string_or_empty(row, "Version");
-                 } else if (type.find(":Snapshot:") != std::string::npos) {
+                 } else if (is_checkpoint_type(type)) {
                    s.snapshot = true;
                    s.creation_epoch = str::format::parse_cim_datetime(string_or_empty(row, "CreationTime"));
                  } else {
-                   return;  // planned systems (an import or migration in flight)
+                   return;  // planned systems (an import or migration in flight), replica recovery points
                  }
                  rows.settings.push_back(s);
                });
@@ -210,7 +211,7 @@ struct filter_obj_handler : public native_context {
     registry_.add_int_var("pid", type_int, [](auto obj) { return obj->vm.process_id; }, "Process id of the VM's worker process (0 when it is off)");
     registry_.add_int_var("memory_assigned", type_int, [](auto obj) { return obj->vm.memory_assigned; },
                           "Memory currently assigned to the VM in bytes (0 when it is off)")
-        .add_int_perf("B", "", "_memory");
+        .add_int_perf("B", "", "_memory_assigned");
     registry_.add_int_var("memory_startup", type_int, [](auto obj) { return obj->vm.memory_startup; }, "Configured startup memory in bytes")
         .add_int_perf("B", "", "_memory_startup");
     registry_.add_int_var("memory_minimum", type_int, [](auto obj) { return obj->vm.memory_minimum; },
@@ -224,7 +225,7 @@ struct filter_obj_handler : public native_context {
     registry_.add_int_var("vcpus", type_int, [](auto obj) { return obj->vm.vcpus; }, "Configured virtual processors").add_int_perf("", "", "_vcpus");
     registry_.add_numbers("cpu_load", type_float, [](auto obj) { return static_cast<long long>(obj->vm.cpu_load); },
                           [](auto obj) { return obj->vm.cpu_load; }, "Average load of the VM's virtual processors in % (0 when it is off)")
-        .add_float_perf("%", "", "_cpu");
+        .add_float_perf("%", "", "_cpu_load");
     registry_.add_int_var("generation", type_int, [](auto obj) { return obj->vm.generation; }, "VM generation (1 or 2)");
     registry_.add_string_var("version", [](auto obj) { return obj->vm.version; }, "Configuration version of the VM (e.g. 9.0)");
     registry_.add_int_var("snapshots", type_int, [](auto obj) { return obj->vm.snapshots; }, "Number of checkpoints (snapshots) the VM has")
@@ -271,9 +272,9 @@ void check_hyperv_vms(const PB::Commands::QueryRequestMessage::Request &request,
     if (!hidden.empty()) return nscapi::protobuf::functions::set_response_bad(*response, hidden);
     for (const vm_record &record : records) f.match(std::make_shared<filter_obj>(record));
   } catch (const wmi_impl::wmi_exception &e) {
-    if (is_hyperv_missing(e)) {
-      return nscapi::protobuf::functions::set_response_bad(
-          *response, "Hyper-V virtual machine information not available: the Hyper-V role is not installed on this host (root\\virtualization\\v2 missing)");
+    const std::string unavailable = hyperv_unavailable(e);
+    if (!unavailable.empty()) {
+      return nscapi::protobuf::functions::set_response_bad(*response, "Hyper-V virtual machine information not available: " + unavailable);
     }
     return nscapi::protobuf::functions::set_response_bad(*response, "Failed to query Hyper-V virtual machines: " + e.reason());
   }
