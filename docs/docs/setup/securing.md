@@ -178,7 +178,9 @@ A quick breakdown of the options:
 * `--allowed-hosts`: CIDR or comma-separated list of source IPs allowed to connect.
 * `--certificate` / `--certificate-key`: TLS server cert and private key. HTTPS is the default; without these the
   command generates a self-signed certificate at `${certificate-path}/certificate.pem` (key and certificate in the
-  one file) when it does not exist yet. `--https` is still accepted and means the same as leaving it out.
+  one file) when it does not exist yet. `--https` is still accepted and means the same as leaving it out. On Linux,
+  where the command runs under `sudo` and the packaged service runs as `nsclient`, a generated certificate is handed to
+  the service account (the owner of `${data-path}`) so the service can load it; an existing certificate is left as is.
 * `--insecure`: Serve cleartext HTTP instead — sets `allow insecure = true`, writes no certificate and moves the
   port from `8443` to `8080` when it is the default. Session keys and passwords then travel in clear, so only for
   loopback or behind a TLS-terminating proxy.

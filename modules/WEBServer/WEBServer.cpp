@@ -1205,10 +1205,14 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
         result << "Certificate key: " << certificate_key << std::endl;
       }
       // Generates a self-signed certificate (key and certificate in the one
-      // file, readable only by the account running the agent) when the path
-      // is the default `.../certificate.pem` and the file does not exist.
+      // file, readable only by its owner) when the path is the default
+      // `.../certificate.pem` and the file does not exist. This command runs
+      // under sudo on a packaged Linux host while the service runs as
+      // `nsclient`, so a generated file is handed to the owner of the state
+      // directory - the service account - or the server would find the
+      // certificate unreadable at the next start and refuse to come up.
       std::list<std::string> messages;
-      socket_helpers::validate_certificate(certificate, messages);
+      socket_helpers::validate_certificate(certificate, messages, get_core()->expand_path("${data-path}"));
       for (const auto &e : messages) {
         result << "Certificate validation: " << e << std::endl;
       }

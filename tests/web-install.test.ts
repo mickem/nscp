@@ -13,6 +13,7 @@
  * generated certificate lands somewhere writable. The HTTPS case also boots
  * the agent and completes a TLS handshake against it.
  */
+import execa from "execa";
 import * as fs from "fs";
 import * as path from "path";
 import { curlHead } from "@fixtures/http";
@@ -111,6 +112,49 @@ describe("nscp web install", () => {
     expect(fs.existsSync(certificatePath(nscp))).toBe(true);
     const server = iniSection(nscp.settingsFile, "/settings/WEB/server");
     expect(server["certificate"]).toBe("${certificate-path}/certificate.pem");
+  });
+
+  it("hands a generated certificate to the service account", async () => {
+    // On a packaged Linux host the command runs under sudo while the service
+    // runs as `nsclient`, and the generated key is readable by its owner only:
+    // written as root it was unreadable to the service, so the install reported
+    // success and the WEB server never came up. The owner of ${data-path} -
+    // the state directory packaging chowns to the service account - is who the
+    // file is handed to. Root is needed to chown, so the branch that changes an
+    // owner runs where the test is root (the package CI); elsewhere the no-op
+    // contract is what is asserted, not skipped.
+    if (process.platform === "win32") return;
+    const stateDir = fs.mkdtempSync(path.join(require("os").tmpdir(), "nscp-state-"));
+    const nscp = new NscpInstance({ pathOverrides: { "data-path": stateDir } });
+    const cert = certificatePath(nscp);
+
+    const root = process.getuid?.() === 0;
+    let serviceUid = -1;
+    if (root) {
+      const uid = await execa("id", ["-u", "nobody"], { reject: false });
+      const gid = await execa("id", ["-g", "nobody"], { reject: false });
+      if (uid.exitCode === 0 && gid.exitCode === 0) {
+        serviceUid = Number(uid.stdout.trim());
+        fs.chownSync(stateDir, serviceUid, Number(gid.stdout.trim()));
+      }
+    }
+
+    const r = await nscp.run(["web", "install", "--password", "install-password"]);
+    const out = r.all ?? `${r.stdout}\n${r.stderr}`;
+
+    expect(fs.existsSync(cert)).toBe(true);
+    expect(out).not.toContain("WARNING: Failed");
+    const st = fs.statSync(cert);
+    expect(st.mode & 0o777).toBe(0o600);
+    if (serviceUid >= 0) {
+      expect(out).toContain("handed to the service account");
+      expect(st.uid).toBe(serviceUid);
+    } else {
+      // Not root, or root with no unprivileged account to hand it to: the
+      // file stays with whoever wrote it, and nothing claims otherwise.
+      expect(out).not.toContain("handed to the service account");
+      expect(st.uid).toBe(process.getuid?.() ?? st.uid);
+    }
   });
 
   it("--https is still accepted and means the default", async () => {

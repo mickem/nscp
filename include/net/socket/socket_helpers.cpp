@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
 #include <algorithm>
+#include <cerrno>
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
@@ -220,8 +221,80 @@ std::string socket_helpers::expand_hostname(std::string spec) {
   if (spec == "auto-uc") return boost::algorithm::to_upper_copy(ip::host_name());
   return expand_hostname_placeholders(std::move(spec));
 }
-void socket_helpers::validate_certificate(const std::string &certificate, std::list<std::string> &list) {
+socket_helpers::owner_handoff socket_helpers::adopt_file_owner(const std::string &path, const std::string &reference, std::string &error) {
+#ifdef WIN32
+  static_cast<void>(path);
+  static_cast<void>(reference);
+  static_cast<void>(error);
+  return owner_handoff::not_needed;
+#else
+  if (reference.empty() || ::geteuid() != 0) {
+    // Only root can give a file away, and an unprivileged run already writes
+    // as whoever will read it.
+    return owner_handoff::not_needed;
+  }
+  struct stat reference_stat = {};
+  if (::stat(reference.c_str(), &reference_stat) != 0 || !S_ISDIR(reference_stat.st_mode)) {
+    // Nothing to copy the owner from (a from-source install that never created
+    // the state directory). Leaving ownership alone is the safe answer.
+    return owner_handoff::not_needed;
+  }
+  if (reference_stat.st_uid == 0 && reference_stat.st_gid == 0) {
+    // Root owns the reference too: an install that runs everything as root.
+    return owner_handoff::not_needed;
+  }
+  const int fd = ::open(path.c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
+  if (fd < 0) {
+    error = "Failed to open " + path + " to hand it to the owner of " + reference + ": " + std::strerror(errno);
+    return owner_handoff::failed;
+  }
+  struct stat st = {};
+  if (::fstat(fd, &st) != 0) {
+    error = "Failed to inspect " + path + ": " + std::strerror(errno);
+    ::close(fd);
+    return owner_handoff::failed;
+  }
+  if (!S_ISREG(st.st_mode) || st.st_nlink != 1 || st.st_uid != ::geteuid()) {
+    // Not the plain file we just wrote: a hardlink somebody planted, or a file
+    // that already belongs to someone. Neither is ours to hand over.
+    ::close(fd);
+    error = "Refusing to change the owner of " + path + ": it is not a regular file owned by this process with a single link";
+    return owner_handoff::failed;
+  }
+  if (st.st_uid == reference_stat.st_uid && st.st_gid == reference_stat.st_gid) {
+    ::close(fd);
+    return owner_handoff::not_needed;
+  }
+  const bool ok = ::fchown(fd, reference_stat.st_uid, reference_stat.st_gid) == 0;
+  if (!ok) error = "Failed to change the owner of " + path + ": " + std::strerror(errno);
+  ::close(fd);
+  return ok ? owner_handoff::handed_over : owner_handoff::failed;
+#endif
+}
+
+void socket_helpers::validate_certificate(const std::string &certificate, std::list<std::string> &list) { validate_certificate(certificate, list, ""); }
+
+void socket_helpers::validate_certificate(const std::string &certificate, std::list<std::string> &list, const std::string &owner_reference) {
 #ifdef USE_SSL
+  // Report the handoff of a file generated below. A failure is a warning with
+  // the command that repairs it: the file is written and valid, but the
+  // service will not be able to read it, and the symptom on the host is a
+  // server that "was installed" and never comes up.
+  const auto hand_over = [&list, &owner_reference](const std::string &path, const std::string &what) {
+    if (owner_reference.empty()) return;
+    std::string error;
+    switch (adopt_file_owner(path, owner_reference, error)) {
+      case owner_handoff::handed_over:
+        list.emplace_back(what + " handed to the service account (the owner of " + owner_reference + "): " + path);
+        break;
+      case owner_handoff::failed:
+        list.emplace_back("WARNING: " + error + ". The service may not be able to read the " + what + "; fix it with: chown --reference=" + owner_reference +
+                          " " + path);
+        break;
+      case owner_handoff::not_needed:
+        break;
+    }
+  };
   if (!certificate.empty() && !boost::filesystem::is_regular_file(certificate)) {
     const auto parent_path = boost::filesystem::path(certificate).parent_path();
     if (!exists(parent_path)) {
@@ -232,6 +305,7 @@ void socket_helpers::validate_certificate(const std::string &certificate, std::l
       list.emplace_back("Certificate not found: " + certificate + " (generating a default certificate)");
       try {
         write_certs(certificate, false);
+        hand_over(certificate, "certificate");
       } catch (const std::exception &e) {
         list.emplace_back(e.what());
       }
@@ -240,6 +314,8 @@ void socket_helpers::validate_certificate(const std::string &certificate, std::l
       try {
         write_certs(certificate, true);
         list.emplace_back("CA private key written to: " + ca_key_path(certificate) + " (keep it, do not distribute it)");
+        hand_over(certificate, "CA certificate");
+        hand_over(ca_key_path(certificate), "CA private key");
       } catch (const std::exception &e) {
         list.emplace_back(e.what());
       }
@@ -247,6 +323,7 @@ void socket_helpers::validate_certificate(const std::string &certificate, std::l
       list.emplace_back("Certificate not found: " + certificate);
   }
 #else
+  static_cast<void>(owner_reference);
   list.emplace_back("SSL is not supported (not compiled with openssl)");
 #endif
 }

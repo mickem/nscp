@@ -55,8 +55,9 @@ Login using this password RANDOM_PASSWORD
 The web server is set up for HTTPS. When the default certificate,
 `${certificate-path}/certificate.pem`, does not exist yet, the command
 generates a self-signed one (the private key and the certificate in that one
-file, readable only by the account running the agent), so the server starts
-right away; your browser will warn about it until you replace it with a
+file, readable only by its owner - handed to the service account on Linux,
+where the command runs under `sudo`), so the server starts right away; your
+browser will warn about it until you replace it with a
 certificate of your own (`--certificate` / `--certificate-key`, see
 [Securing NSClient++](securing.md)). To serve plain HTTP instead — only
 sensible on loopback or behind a TLS-terminating proxy, since session keys and
