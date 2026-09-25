@@ -27,6 +27,8 @@ describe("REST facts", () => {
         WEBServer: "enabled",
         CheckSystem: "enabled",
         CheckDisk: "enabled",
+        // Windows only: the module does not exist elsewhere.
+        ...(onWindows ? { CheckHyperV: "enabled" } : {}),
       },
       "/settings/default": {
         "allowed hosts": "127.0.0.1,::1",
@@ -44,6 +46,7 @@ describe("REST facts", () => {
       "/settings/disk/facts": {
         "storage.volumes": "true",
       },
+      ...(onWindows ? { "/settings/hyperv/facts": { "hyperv.vms": "true" } } : {}),
       "/settings/facts": {
         agent: "true",
       },
@@ -86,20 +89,21 @@ describe("REST facts", () => {
       .trustLocalhost(true)
       .expect(200)
       .then((response) => {
-        expect(response.body.enabled.sort()).toEqual([
-          "agent",
-          "hardware",
-          "network",
-          "os",
-          "software",
-          "storage",
-        ]);
+        expect(response.body.enabled.sort()).toEqual(
+          [
+            "agent",
+            "hardware",
+            ...(onWindows ? ["hyperv"] : []),
+            "network",
+            "os",
+            "software",
+            "storage",
+          ].sort(),
+        );
         // `software` is allowed one: a host with more packages than the set
         // ships reports the truncation here, which the software test below
         // checks in full.
-        expect(
-          Object.keys(response.body.errors).filter((id) => id !== "software"),
-        ).toEqual([]);
+        expect(Object.keys(response.body.errors).filter((id) => id !== "software")).toEqual([]);
         expect(response.body.found).toBe(true);
         expect(response.body.revision).toBeGreaterThan(0);
         // ISO 8601 UTC, as the document rules require.
@@ -249,8 +253,7 @@ describe("REST facts", () => {
         expect(entry.scope).toBeUndefined();
       }
       // One architecture vocabulary on every platform, the `os` set's.
-      if (entry.architecture !== undefined)
-        expect(entry.architecture).toMatch(/^[a-z0-9_]+$/);
+      if (entry.architecture !== undefined) expect(entry.architecture).toMatch(/^[a-z0-9_]+$/);
       // A date, not a timestamp: an inventory does not need the second an
       // install happened.
       if (entry.install_date !== undefined)
@@ -286,6 +289,51 @@ describe("REST facts", () => {
     const reported = check.body.lines.map((l: { message: string }) => l.message).join("");
     for (const entry of installed.slice(0, 20)) expect(reported).toContain(entry.name);
   });
+
+  (onWindows ? it : it.skip)(
+    "lists the virtual machines by the name check_hyperv_vms gives them, or says why not",
+    async () => {
+      // The machines running this suite are not Hyper-V hosts, so the set is
+      // enabled but cannot be collected: the document must say so under
+      // `errors` rather than silently omitting it. On a Hyper-V host the
+      // records carry the check's names as ids, unique in the list.
+      const document = await request(REST_URL)
+        .get("/api/v2/facts")
+        .set("Authorization", `Bearer ${key}`)
+        .trustLocalhost(true)
+        .expect(200);
+      expect(document.body.enabled).toContain("hyperv");
+      if (document.body.errors.hyperv !== undefined) {
+        expect(document.body.errors.hyperv).toMatch(
+          /Hyper-V role is not installed on this host|Failed to query Hyper-V virtual machines/,
+        );
+        expect(document.body.facts.hyperv).toBeUndefined();
+        return;
+      }
+
+      const vms = document.body.facts.hyperv.vms;
+      expect(Array.isArray(vms)).toBe(true);
+      const ids = vms.map((vm: { id: string }) => vm.id);
+      expect(new Set(ids).size).toBe(ids.length);
+      for (const vm of vms) {
+        expect(vm.id).toBeTruthy();
+        expect(vm.vm_id).toMatch(/^[0-9a-f-]{36}$/);
+        // The inventory, not the monitoring: nothing that moves every round.
+        expect(vm.state).toBeUndefined();
+        expect(vm.uptime).toBeUndefined();
+      }
+
+      const check = await request(REST_URL)
+        .get(
+          "/api/v2/queries/check_hyperv_vms/commands/execute?filter=none&warning=none&critical=none&empty-state=ok&top-syntax=${list}&detail-syntax=%25(vm)&perf-config=*(ignored:true)",
+        )
+        .set("Authorization", `Bearer ${key}`)
+        .trustLocalhost(true)
+        .expect(200);
+      const reported = check.body.lines.map((l: { message: string }) => l.message).join("");
+      for (const vm of vms) expect(reported).toContain(vm.name);
+    },
+  );
 
   it("describes the agent itself", async () => {
     const response = await request(REST_URL)

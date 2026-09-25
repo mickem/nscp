@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <atomic>
+#include <nscapi/nscapi_facts_helper.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/metrics.hpp>
@@ -12,10 +14,16 @@
 // health summary, logical processors) and the root\virtualization\v2 WMI
 // namespace (one Msvm_ComputerSystem per virtual machine plus the classes
 // hanging off it). Each area keeps its own check_hyperv_<area>.cpp/.hpp pair;
-// this class is only the dispatch surface the generated module glue binds to,
-// and it holds no state, so a settings reload re-entering loadModuleEx is a
-// no-op.
+// this class is the dispatch surface the generated module glue binds to and
+// holds the one piece of configuration the module has: which fact sets it
+// produces. Nothing here starts a thread, so a settings reload re-entering
+// loadModuleEx only re-reads that switch.
 class CheckHyperV : public nscapi::impl::simple_plugin {
+  // Whether fetchFacts builds the `hyperv.vms` set ([/settings/hyperv/facts]).
+  // Read by fetchFacts on the core's scheduler thread, written by
+  // loadModuleEx on the loading thread; the atomic is that hand-over.
+  std::atomic<bool> facts_vms_{false};
+
  public:
   CheckHyperV() {}
 
@@ -27,4 +35,7 @@ class CheckHyperV : public nscapi::impl::simple_plugin {
   static void check_hyperv_vms(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 
   void fetchMetrics(PB::Metrics::MetricsMessage::Response *response);
+
+  // Host facts
+  void fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response);
 };

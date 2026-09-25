@@ -3,8 +3,12 @@
 
 #include "CheckHyperV.h"
 
+#include <ctime>
 #include <map>
 #include <nscapi/nscapi_metrics_helper.hpp>
+#include <nscapi/settings/helper.hpp>
+#include <nscapi/settings/proxy.hpp>
+#include <str/utf8.hpp>
 #include <string>
 #include <vector>
 #include <win/com_helpers.hpp>
@@ -15,9 +19,58 @@
 #include "check_hyperv_host.hpp"
 #include "check_hyperv_internal.hpp"
 #include "check_hyperv_vms.hpp"
+#include "hyperv_facts.hpp"
 
-bool CheckHyperV::loadModuleEx(const std::string &, NSCAPI::moduleLoadMode) { return true; }
+namespace sh = nscapi::settings_helper;
+
+bool CheckHyperV::loadModuleEx(const std::string &alias, NSCAPI::moduleLoadMode) {
+  sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
+  settings.set_alias("hyperv", alias);
+
+  bool facts_vms = false;
+  // clang-format off
+  settings.alias().add_key_to_settings("facts")
+    .add_bool(hyperv_facts::id_vms, sh::bool_key(&facts_vms, false),
+        "HYPER-V VMS FACTS",
+        "Collect the `hyperv.vms` fact set: one record per virtual machine on this host - its name (the record id, the same value "
+        "check_hyperv_vms calls `vm`), its GUID, generation and configuration version, the configured processors and memory, whether dynamic "
+        "memory is on, how many checkpoints it has and its Hyper-V Replica role. Not its state, heartbeat, load or assigned memory: that is "
+        "monitoring, and it lives in check_hyperv_vms. Re-read every facts round with the same WMI queries the check runs, because VMs are "
+        "created, reconfigured and removed while the agent runs. Nothing is collected while this is off.")
+    ;
+  // clang-format on
+  settings.register_all();
+  settings.notify();
+
+  // Which fact sets fetchFacts builds is configuration, so it is re-read on
+  // every load, a reload included: the core drops a set a producer stops
+  // returning, and that is what turning it off means.
+  facts_vms_.store(facts_vms);
+  return true;
+}
 bool CheckHyperV::unloadModule() { return true; }
+
+void CheckHyperV::fetchFacts(const nscapi::facts::request &, nscapi::facts::response &response) {
+  if (!facts_vms_.load()) return;
+  // Every round, whatever its reason: VMs come and go while the process
+  // runs, and reading them costs what one check_hyperv_vms costs.
+  const com_helper::mta_scope com;
+  try {
+    hyperv_facts::publish(check_hyperv::check_hyperv_internal::build_records(check_hyperv::fetch_vm_rows()), std::time(nullptr), response);
+  } catch (const wmi_impl::wmi_exception &e) {
+    // Named against the set rather than failing the round: the core keeps
+    // the VMs it already holds and reports why they are stale. On a host
+    // without the role that is the standing answer, every round, which is
+    // what an enabled set that cannot be collected is supposed to say.
+    if (check_hyperv::is_hyperv_missing(e)) {
+      response.error(hyperv_facts::set_hyperv, "The Hyper-V role is not installed on this host (root\\virtualization\\v2 missing)");
+    } else {
+      response.error(hyperv_facts::set_hyperv, "Failed to query Hyper-V virtual machines: " + e.reason());
+    }
+  } catch (const std::exception &e) {
+    response.error(hyperv_facts::set_hyperv, "Failed to query Hyper-V virtual machines: " + utf8::utf8_from_native(e.what()));
+  }
+}
 
 void CheckHyperV::check_hyperv_host(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_hyperv::check_hyperv_host(request, response);

@@ -9,6 +9,7 @@
 	},
 
 	"metrics" : "produce",
+	"facts" : true,
 
 	"commands" : {
 		"check_hyperv_host"	: "Check the Hyper-V host: virtual machine health summary and hypervisor capacity (logical/virtual processors, partitions).",

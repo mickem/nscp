@@ -11,6 +11,7 @@ set(SRCS
     "${TARGET}.cpp"
     check_hyperv_host.cpp
     check_hyperv_vms.cpp
+    hyperv_facts.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/pdh_counters.cpp
@@ -35,6 +36,7 @@ if(WIN32)
         check_hyperv_host.hpp
         check_hyperv_vms.hpp
         check_hyperv_internal.hpp
+        hyperv_facts.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_counters.hpp
@@ -75,6 +77,8 @@ NSCP_CREATE_TEST(
     check_hyperv_test
     SOURCES
         check_hyperv_test.cpp
+        hyperv_facts_test.cpp
+        hyperv_facts.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
