@@ -1266,16 +1266,91 @@ TEST(SyncReport, LocalConfigFlagCarriesNoConfigurationContent) {
   // holds passwords. Guard the payload, not just the boolean.
   std::map<std::string, std::string> tags;
   tags["os"] = "linux";
-  const std::string payload = onboarding::build_state_report(std::string("h1"), {}, {}, tags, true);
+  const std::string payload = onboarding::build_state_report(std::string("h1"), {}, {}, tags, true, std::string(64, 'a'));
   const json::object root = json::parse(payload).as_object();
   // Exactly the members the report is allowed to have.
   for (const auto &member : root) {
     const std::string name(member.key());
     EXPECT_TRUE(name == "applied_state_hash" || name == "bundles_installed" || name == "errors" || name == "reported_tags" ||
-                name == "local_config_present")
+                name == "local_config_present" || name == "facts_hash")
         << "unexpected member in the state report: " << name;
   }
+  EXPECT_EQ(root.size(), 6u);
   EXPECT_TRUE(root.at("local_config_present").as_bool());
+}
+
+// --- facts --------------------------------------------------------------------
+
+TEST(SyncReport, CarriesTheFactsHashNotTheDocument) {
+  const std::string hash = onboarding::sha256_hex("{\"os\":{\"family\":\"linux\"}}");
+  const std::string payload = onboarding::build_state_report(boost::none, {}, {}, {}, false, hash);
+  const json::object root = json::parse(payload).as_object();
+  EXPECT_EQ(root.at("facts_hash").as_string(), hash);
+  EXPECT_EQ(payload.find("family"), std::string::npos) << "the report carries the hash, never the document";
+}
+
+TEST(SyncReport, OmitsTheFactsHashWhenThereIsNone) {
+  const json::object root = json::parse(onboarding::build_state_report(boost::none, {}, {}, {}, false)).as_object();
+  EXPECT_EQ(root.if_contains("facts_hash"), nullptr);
+}
+
+TEST(SyncFacts, UploadSplicesTheDocumentByteForByte) {
+  // A number spelt the way the core's renderer spells it, which a JSON
+  // library round trip would be free to re-spell. The hash covers these
+  // exact bytes, so they must reach the server untouched.
+  const std::string document = "{\"hardware\":{\"memory_bytes\":17179869184,\"ratio\":0.5},\"os\":{\"family\":\"linux\"}}";
+  const std::string hash = onboarding::sha256_hex(document);
+  const std::string body = onboarding::build_facts_upload(hash, "2026-09-25T10:00:00Z", document);
+  EXPECT_EQ(body, "{\"collected_at\":\"2026-09-25T10:00:00Z\",\"facts\":" + document + ",\"facts_hash\":\"" + hash + "\"}");
+  const json::object root = json::parse(body).as_object();
+  EXPECT_EQ(root.at("facts_hash").as_string(), hash);
+  EXPECT_EQ(root.at("facts").as_object().at("os").as_object().at("family").as_string(), "linux");
+}
+
+TEST(SyncFacts, UploadOfTheEmptyDocument) {
+  const std::string body = onboarding::build_facts_upload(onboarding::sha256_hex("{}"), "2026-09-25T10:00:00Z", "{}");
+  const json::object root = json::parse(body).as_object();
+  EXPECT_TRUE(root.at("facts").as_object().empty());
+  EXPECT_EQ(root.at("facts_hash").as_string(), "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a");
+}
+
+TEST(SyncFacts, UploadEscapesTheScalars) {
+  const std::string body = onboarding::build_facts_upload("h\"x", "t\"\n", "{}");
+  json::object root;
+  ASSERT_NO_THROW(root = json::parse(body).as_object()) << body;
+  EXPECT_EQ(root.at("facts_hash").as_string(), "h\"x");
+  EXPECT_EQ(root.at("collected_at").as_string(), "t\"\n");
+}
+
+TEST(SyncFacts, UploadRefusesSomethingThatIsNotAnObject) {
+  EXPECT_THROW(onboarding::build_facts_upload("h", "t", ""), onboarding::onboarding_error);
+  EXPECT_THROW(onboarding::build_facts_upload("h", "t", "[]"), onboarding::onboarding_error);
+  EXPECT_THROW(onboarding::build_facts_upload("h", "t", "null"), onboarding::onboarding_error);
+}
+
+TEST(SyncFacts, ParsesTheHashAServerHolds) {
+  const std::string hash(64, 'a');
+  EXPECT_EQ(onboarding::parse_facts_hash("{\"facts_hash\":\"" + hash + "\"}").value(), hash);
+  // Lowercased, so it compares against our own digest.
+  EXPECT_EQ(onboarding::parse_facts_hash("{\"facts_hash\":\"" + std::string(64, 'A') + "\"}").value(), hash);
+  // Empty is an answer: the server holds nothing for this host.
+  EXPECT_EQ(onboarding::parse_facts_hash("{\"facts_hash\":\"\"}").value(), "");
+}
+
+TEST(SyncFacts, NoHashMeansTheServerDoesNotDoFacts) {
+  EXPECT_FALSE(onboarding::parse_facts_hash("{\"next_poll_in_seconds\":60}"));
+  EXPECT_FALSE(onboarding::parse_facts_hash("{}"));
+  EXPECT_FALSE(onboarding::parse_facts_hash(""));
+  EXPECT_FALSE(onboarding::parse_facts_hash("not json"));
+  EXPECT_FALSE(onboarding::parse_facts_hash("[]"));
+}
+
+TEST(SyncFacts, IgnoresAHashThatIsNotADigest) {
+  EXPECT_FALSE(onboarding::parse_facts_hash("{\"facts_hash\":null}"));
+  EXPECT_FALSE(onboarding::parse_facts_hash("{\"facts_hash\":42}"));
+  EXPECT_FALSE(onboarding::parse_facts_hash("{\"facts_hash\":\"abc\"}"));
+  EXPECT_FALSE(onboarding::parse_facts_hash("{\"facts_hash\":\"" + std::string(63, 'a') + "g\"}"));
+  EXPECT_FALSE(onboarding::parse_facts_hash("{\"facts_hash\":\"" + std::string(65, 'a') + "\"}"));
 }
 
 // build_state_report takes strings from outside (bundle names and versions

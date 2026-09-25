@@ -361,7 +361,7 @@ onboarding::transport_error_info onboarding::classify_transport_error(const std:
 
 std::string onboarding::build_state_report(const boost::optional<std::string> &applied_state_hash, const std::vector<installed_bundle> &bundles_installed,
                                            const std::vector<std::string> &errors, const std::map<std::string, std::string> &reported_tags,
-                                           const bool local_config_present) {
+                                           const bool local_config_present, const std::string &facts_hash) {
   json::object root;
   if (applied_state_hash) {
     root["applied_state_hash"] = applied_state_hash.value();
@@ -389,7 +389,51 @@ std::string onboarding::build_state_report(const boost::optional<std::string> &a
     tags[tag.first] = tag.second;
   }
   root["reported_tags"] = tags;
+  // The hash alone: cheap enough for every report, and enough for the server
+  // to see "inventory changed" or "inventory missing" without the document.
+  if (!facts_hash.empty()) {
+    root["facts_hash"] = facts_hash;
+  }
   return json::serialize(root);
+}
+
+std::string onboarding::build_facts_upload(const std::string &facts_hash, const std::string &collected_at, const std::string &facts_json) {
+  // Cheap shape check only: the document comes from the core's own renderer,
+  // and anything but an object here is a bug that would otherwise reach the
+  // server as a body it cannot parse.
+  if (facts_json.size() < 2 || facts_json.front() != '{' || facts_json.back() != '}') {
+    throw onboarding_error("Facts document is not a JSON object", false);
+  }
+  // Members in sorted order, like the document itself. The scalars go
+  // through the serialiser for their escaping; the document is spliced in
+  // verbatim (see the header for why).
+  std::string body = "{\"collected_at\":";
+  body += json::serialize(json::value(collected_at));
+  body += ",\"facts\":";
+  body += facts_json;
+  body += ",\"facts_hash\":";
+  body += json::serialize(json::value(facts_hash));
+  body += "}";
+  return body;
+}
+
+boost::optional<std::string> onboarding::parse_facts_hash(const std::string &body) {
+  try {
+    const json::value parsed = json::parse(body);
+    if (!parsed.is_object()) return boost::none;
+    const json::value *value = parsed.as_object().if_contains("facts_hash");
+    if (value == nullptr || !value->is_string()) return boost::none;
+    std::string hash = detail::to_string(value->as_string());
+    if (hash.empty()) return hash;
+    if (hash.size() != 64) return boost::none;
+    for (char &c : hash) {
+      if (std::isxdigit(static_cast<unsigned char>(c)) == 0) return boost::none;
+      c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    return hash;
+  } catch (...) {
+    return boost::none;
+  }
 }
 
 onboarding::enrolled_identity onboarding::parse_renew_response(const std::string &body, const identity &fresh_identity, const enrolled_identity &current) {

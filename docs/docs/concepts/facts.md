@@ -25,7 +25,7 @@ facts do not replace tags.
 | Question              | *which group is this host in*                 | *what is this host*                                    |
 | Collected             | always, a handful per module                  | only the sets you enable                               |
 | Used for              | fleet group selectors (`os_family = "linux"`) | inventory, and deciding what to monitor                |
-| Sent to a fleet server | on every state report                        | not yet                                                |
+| Sent to a fleet server | whole, on every state report                  | the hash on every report, the document when it changes |
 
 A fleet selector matches a tag whole, which is why `os_family` and `arch` are
 tags. "Which volumes does this host have" is a list of records, and a
@@ -486,6 +486,49 @@ Gathered:
 `facts <path>` shows one subtree (`facts storage.volumes`), and `facts refresh`
 collects now. Over REST the same document is `GET /api/v2/facts` (see
 [Facts](../api/rest/facts.md)), and the web UI shows it on the Facts page.
+
+---
+
+## Facts and the fleet server
+
+An agent [enrolled with a fleet server](../setup/fleet.md) sends its facts
+there too. The document is up to a megabyte and changes rarely, so it does not
+ride in the state report the agent sends every poll:
+
+* **Every state report carries `facts_hash`**, the SHA-256 of the document.
+  A host with nothing enabled reports the hash of the empty document, `{}`.
+  That is enough for the server to see that an inventory changed, or that a
+  host has none, without the document itself.
+* **The document goes on its own call, `POST /agent/v1/facts`, and only when
+  it differs from what the server holds**: after a round changed it, after a
+  bundle enabled or disabled a set, and once after the agent starts. A host
+  with nothing enabled sends nothing.
+* **The server can ask for it again** by carrying the hash it holds, as
+  `facts_hash`, in a desired-state or state-report response. When that
+  differs from the agent's own, the agent uploads. A 304 has no body, so a
+  server that wants the document from a host that is already in sync answers
+  its poll with the full desired state instead.
+
+```json
+{
+  "collected_at": "2026-09-25T10:00:00Z",
+  "facts": { "os": { "family": "linux", "...": "..." } },
+  "facts_hash": "<sha256 hex of the facts value>"
+}
+```
+
+`facts_hash` is the digest of the `facts` value exactly as it appears in the
+body: compact JSON with every object's keys sorted, so the server can check it
+without re-encoding anything.
+
+Because the switches are ordinary INI, a fleet bundle turns inventory on for a
+whole group of hosts the same way it configures anything else; see
+[Collect an inventory](../setup/fleet.md#collect-an-inventory). A server that
+predates the facts call answers it with a 404, and the agent then stops
+offering it until the server starts talking about facts or the agent restarts.
+A document larger than `[/settings/facts] max size`, or one the server refuses
+as too large, is not sent again until it changes, and the agent log names the
+largest sets so you know which one to turn off.
 
 ---
 

@@ -169,9 +169,37 @@ struct installed_bundle {
 //
 // `local_config_present` reports THAT the host carries local configuration
 // outranking the fleet-managed values, never what that configuration is.
+//
+// `facts_hash` is the sha256 hex of the host's facts document (the hash of
+// `{}` when nothing is enabled): the report carries the hash, never the
+// document, which goes on its own call (build_facts_upload) and only when it
+// changed. Empty omits the member, for a build that cannot hash.
 std::string build_state_report(const boost::optional<std::string> &applied_state_hash, const std::vector<installed_bundle> &bundles_installed,
                                const std::vector<std::string> &errors, const std::map<std::string, std::string> &reported_tags,
-                               bool local_config_present);
+                               bool local_config_present, const std::string &facts_hash = "");
+
+// --- facts upload -------------------------------------------------------------
+
+// Build a /agent/v1/facts body:
+//
+//   {"collected_at":"<ts>","facts":<document>,"facts_hash":"<hex>"}
+//
+// `facts_json` is spliced in byte for byte rather than parsed and serialised
+// again: `facts_hash` is the digest of exactly those bytes, and a round trip
+// through a JSON library is free to re-spell a number or reorder a key, after
+// which the server could never reproduce the hash from what it received.
+// Throws onboarding_error (non-retryable) when `facts_json` is not an object.
+std::string build_facts_upload(const std::string &facts_hash, const std::string &collected_at, const std::string &facts_json);
+
+// The facts hash a server says it holds for this host, read from a
+// desired-state or state-report response body. (A 304 is read too, but HTTP
+// gives it no body, so a server that wants the document from a host that is
+// already in sync answers the poll with the full state.) None when the body does
+// not carry one - which means "this server does not do facts", not "it holds
+// nothing" - or when what it carries is not a sha256 hex digest. An empty
+// string is a real answer: the server holds no document for this host.
+// Returned lowercase, so it compares directly against our own hash.
+boost::optional<std::string> parse_facts_hash(const std::string &body);
 
 // --- transport error classification ------------------------------------------
 

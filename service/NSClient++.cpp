@@ -671,7 +671,7 @@ void NSClientT::boot_fleet_sync() {
                          path_->expand_path("${data-path}") + ") and restart.");
       return;
     }
-    const std::shared_ptr<fleet_sync> sync = std::make_shared<fleet_sync>(log_instance_, config, tags_, [this] { this->reload("delayed,service"); });
+    const std::shared_ptr<fleet_sync> sync = std::make_shared<fleet_sync>(log_instance_, config, tags_, facts_, [this] { this->reload("delayed,service"); });
     {
       boost::mutex::scoped_lock lock(fleet_sync_mutex_);
       fleet_sync_ = sync;
