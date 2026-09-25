@@ -164,7 +164,18 @@ enum class owner_handoff { not_needed, handed_over, failed };
 // /etc/shadow. A path that already has the reference's owner is not_needed.
 // No-op on Windows, where the service runs as LocalSystem and the material is
 // readable as written.
+//
+// This is the single-path counterpart of onboarding::adopt_owner, which hands
+// over a tree by descending from the reference and therefore refuses a target
+// outside it - by design, and exactly where a certificate lives on Linux
+// (${certificate-path} is the package directory, not ${data-path}). It also
+// lives here rather than in libs/onboarding because the install commands of
+// the check modules link nscp_net and not the fleet library.
 NSCP_NET_EXPORT owner_handoff adopt_file_owner(const std::string& path, const std::string& reference, std::string& error);
+
+// The command that repairs a failed handoff, for the message that reports it:
+// `chown [-R] --reference=<reference> <target>`. Shared with `nscp enroll`.
+NSCP_NET_EXPORT std::string chown_repair_hint(const std::string& target, const std::string& reference, bool recursive);
 
 // validate_certificate(), and when the certificate (or a CA and its private
 // key) had to be generated, hand it to the owner of `owner_reference` as

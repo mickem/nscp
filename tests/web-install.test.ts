@@ -163,7 +163,7 @@ describe("nscp web install", () => {
 
     expect(fs.existsSync(cert)).toBe(true);
     expect(out).toContain("Creating certificate folder");
-    expect(out).not.toContain("WARNING: Failed");
+    expect(out).not.toContain("WARNING:");
     const st = fs.statSync(cert);
     expect(st.mode & 0o777).toBe(0o600);
     for (const dir of [path.join(base, "missing"), securityDir]) {
@@ -187,6 +187,57 @@ describe("nscp web install", () => {
       expect(out).not.toContain("handed to the service account");
       expect(st.uid).toBe(process.getuid?.() ?? st.uid);
     }
+  });
+
+  it("repair drops a certificate key left over from another certificate", async () => {
+    // The generated certificate carries its own key; a `certificate key` from
+    // whatever used to be configured would make the server load a key that
+    // does not match it, and fail at start-up.
+    const nscp = new NscpInstance();
+    const stale = path.join(nscp.workDir, "old.key");
+    fs.writeFileSync(stale, "not a key");
+    fs.writeFileSync(
+      nscp.settingsFile,
+      ["[/settings/WEB/server]", "certificate = ", `certificate key = ${stale}`, ""].join("\n"),
+    );
+
+    const r = await nscp.run(["web", "install", "--password", "install-password"]);
+
+    expect(r.all ?? r.stdout).toContain("Ignoring certificate key");
+    const server = iniSection(nscp.settingsFile, "/settings/WEB/server");
+    expect(server["certificate"]).toBe("${certificate-path}/certificate.pem");
+    expect(server["certificate key"] ?? "").toBe("");
+  });
+
+  it("restores the default port when going back to HTTPS after --insecure", async () => {
+    const nscp = new NscpInstance();
+    await nscp.run(["web", "install", "--insecure", "--password", "install-password"]);
+    expect(iniSection(nscp.settingsFile, "/settings/WEB/server")["port"]).toBe("8080");
+
+    const r = await nscp.run(["web", "install", "--password", "install-password"]);
+
+    expect(r.all ?? r.stdout).toContain("Restoring the HTTPS default port 8443");
+    const server = iniSection(nscp.settingsFile, "/settings/WEB/server");
+    expect(server["port"]).toBe("8443");
+    expect(server["allow insecure"]).toBe("false");
+    expect(fs.existsSync(certificatePath(nscp))).toBe(true);
+  });
+
+  it("keeps port 8080 for HTTPS when --port asks for it", async () => {
+    const nscp = new NscpInstance();
+    await nscp.run(["web", "install", "--insecure", "--password", "install-password"]);
+
+    const r = await nscp.run([
+      "web",
+      "install",
+      "--port",
+      "8080",
+      "--password",
+      "install-password",
+    ]);
+
+    expect(r.all ?? r.stdout).not.toContain("Restoring the HTTPS default port");
+    expect(iniSection(nscp.settingsFile, "/settings/WEB/server")["port"]).toBe("8080");
   });
 
   it("--https is still accepted and means the default", async () => {

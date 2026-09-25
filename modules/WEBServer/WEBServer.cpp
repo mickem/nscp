@@ -1062,6 +1062,7 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
   namespace pf = nscapi::protobuf::functions;
   po::options_description desc;
   std::string allowed_hosts, cert, key, port, password;
+  bool was_insecure = false;
   const std::string path = "/settings/WEB/server";
 
   pf::settings_query q(get_id());
@@ -1070,6 +1071,7 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
   q.get(path, "certificate", "${certificate-path}/certificate.pem");
   q.get(path, "certificate key", "");
   q.get(path, "port", "8443");
+  q.get(path, "allow insecure", false);
 
   get_core()->settings_query(q.request(), q.response());
   if (!q.validate_response()) {
@@ -1087,6 +1089,8 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
       key = val.get_string();
     else if (val.matches(path, "port"))
       port = val.get_string();
+    else if (val.matches(path, "allow insecure"))
+      was_insecure = val.get_bool();
   }
   // HTTPS is what install sets up unless the operator asks for cleartext with
   // --insecure. It used to hinge on a `--https` bool_switch, and a bool_switch
@@ -1137,6 +1141,11 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
       return true;
     }
 
+    if (https_flag && insecure) {
+      nscapi::protobuf::functions::set_response_bad(*response, "--https and --insecure are mutually exclusive.");
+      return true;
+    }
+
     // --disable-admin and --password are mutually exclusive: the install
     // command with --disable-admin does not create any user, so a password
     // would have nowhere to go. Refuse explicitly rather than silently
@@ -1144,11 +1153,6 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
     // one of them to take effect. `defaulted()` is true when the value
     // came from default_value() (which is pre-populated from
     // /settings/default/password); we only error on an explicit user override.
-    if (https_flag && insecure) {
-      nscapi::protobuf::functions::set_response_bad(*response, "--https and --insecure are mutually exclusive.");
-      return true;
-    }
-
     if (disable_admin && vm.count("password") && !vm["password"].defaulted()) {
       nscapi::protobuf::functions::set_response_bad(
           *response,
@@ -1192,9 +1196,25 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
     } else {
       // An earlier install may have left `certificate` blank (the pre-fix
       // behaviour of this very command, or an --insecure run): HTTPS needs a
-      // certificate, so fall back to the default and generate it below.
+      // certificate, so fall back to the default and generate it below. The
+      // generated file carries its own key, so a `certificate key` left over
+      // from whatever certificate used to be configured would make the server
+      // load a key that does not match - the same "installed fine, never
+      // starts" symptom by another route. Drop it, and say so.
       if (cert.empty()) {
         cert = "${certificate-path}/certificate.pem";
+        if (!key.empty()) {
+          result << "Ignoring certificate key " << get_core()->expand_path(key)
+                 << ": no certificate was configured, and the default certificate carries its own key." << std::endl;
+          key = "";
+        }
+      }
+      // Undo the port move of an earlier --insecure install (8443 -> 8080, see
+      // above) when going back to HTTPS, unless --port asked for it: TLS on
+      // the conventional cleartext port is not what the operator chose.
+      if (was_insecure && port == "8080" && vm["port"].defaulted()) {
+        port = "8443";
+        result << "Restoring the HTTPS default port 8443 (8080 was set by an earlier --insecure install)." << std::endl;
       }
       const std::string certificate = get_core()->expand_path(cert);
       const std::string certificate_key = get_core()->expand_path(key);

@@ -278,6 +278,11 @@ socket_helpers::owner_handoff socket_helpers::adopt_file_owner(const std::string
 #endif
 }
 
+std::string socket_helpers::chown_repair_hint(const std::string &target, const std::string &reference, const bool recursive) {
+  return std::string("chown ") + (recursive ? "-R " : "") + "--reference=" + reference + " " + target;
+}
+
+#ifdef USE_SSL
 namespace {
 // Create the missing levels of `dir` and record each one created.
 //
@@ -307,6 +312,7 @@ void create_certificate_folder(const boost::filesystem::path &dir, std::vector<s
   }
 }
 }  // namespace
+#endif
 
 void socket_helpers::validate_certificate(const std::string &certificate, std::list<std::string> &list) { validate_certificate(certificate, list, ""); }
 
@@ -324,8 +330,8 @@ void socket_helpers::validate_certificate(const std::string &certificate, std::l
         list.emplace_back(what + " handed to the service account (the owner of " + owner_reference + "): " + path);
         break;
       case owner_handoff::failed:
-        list.emplace_back("WARNING: " + error + ". The service may not be able to read the " + what + "; fix it with: chown --reference=" + owner_reference +
-                          " " + path);
+        list.emplace_back("WARNING: " + error + ". The service may not be able to read the " + what +
+                          "; fix it with: " + chown_repair_hint(path, owner_reference, false));
         break;
       case owner_handoff::not_needed:
         break;
@@ -333,19 +339,27 @@ void socket_helpers::validate_certificate(const std::string &certificate, std::l
   };
   if (!certificate.empty() && !boost::filesystem::is_regular_file(certificate)) {
     const auto parent_path = boost::filesystem::path(certificate).parent_path();
+    std::vector<std::string> created;
     if (!exists(parent_path)) {
-      std::vector<std::string> created;
       create_certificate_folder(parent_path, created);
       list.emplace_back("Creating certificate folder: " + parent_path.string());
-      // A folder we created holds nothing shipped, so it is ours to hand over
-      // with the certificate - the service can then also regenerate one there.
-      for (const std::string &dir : created) hand_over(dir, "certificate folder");
     }
+    // A folder we created holds nothing shipped, so it goes to the service
+    // account with the certificate - which can then also regenerate one there.
+    // Strictly after the files are written: a folder handed over first is one
+    // the service account can plant a `certificate.pem` symlink in while root
+    // is about to write that name. And only when something was generated: with
+    // an operator-chosen name nothing is, and the operator is about to drop
+    // their own key into the folder, which is then not the service's to own.
+    const auto hand_over_created = [&created, &hand_over]() {
+      for (const std::string &dir : created) hand_over(dir, "certificate folder");
+    };
     if (boost::algorithm::ends_with(certificate, "/certificate.pem")) {
       list.emplace_back("Certificate not found: " + certificate + " (generating a default certificate)");
       try {
         write_certs(certificate, false);
         hand_over(certificate, "certificate");
+        hand_over_created();
       } catch (const std::exception &e) {
         list.emplace_back(e.what());
       }
@@ -356,6 +370,7 @@ void socket_helpers::validate_certificate(const std::string &certificate, std::l
         list.emplace_back("CA private key written to: " + ca_key_path(certificate) + " (keep it, do not distribute it)");
         hand_over(certificate, "CA certificate");
         hand_over(ca_key_path(certificate), "CA private key");
+        hand_over_created();
       } catch (const std::exception &e) {
         list.emplace_back(e.what());
       }

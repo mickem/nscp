@@ -14,11 +14,9 @@
 #include <string>
 #include <vector>
 #ifndef WIN32
-#include <sys/stat.h>
-#ifndef WIN32
 #include <pwd.h>
+#include <sys/stat.h>
 #include <unistd.h>
-#endif
 #endif
 
 // =============================================================================
@@ -1693,6 +1691,28 @@ TEST_F(WriteCertsFixture, ValidateCertificateCreatesATraversableFolderWhateverTh
   ASSERT_EQ(::stat(cert.c_str(), &st), 0);
   EXPECT_EQ(st.st_mode & 0777, 0600u);
   EXPECT_EQ(st.st_uid, root ? uid : ::geteuid());
+}
+
+// With an operator-chosen name nothing is generated, so the folder that was
+// created for it is not handed over either: the operator is about to put
+// their own key there, and a service-owned folder is not where it belongs.
+TEST_F(WriteCertsFixture, ValidateCertificateKeepsAFolderItCreatedForAnOperatorsCertificate) {
+  const std::string folder = path_of("tls");
+  const std::string reference = path_of("state");
+  boost::filesystem::create_directories(reference);
+  uid_t uid = 0;
+  gid_t gid = 0;
+  if (unprivileged_account(uid, gid)) ASSERT_EQ(::chown(reference.c_str(), uid, gid), 0);
+
+  std::list<std::string> messages;
+  socket_helpers::validate_certificate(folder + "/server.pem", messages, reference);
+
+  ASSERT_TRUE(boost::filesystem::is_directory(folder));
+  EXPECT_FALSE(boost::filesystem::exists(folder + "/server.pem"));
+  EXPECT_EQ(owner_of(folder), ::geteuid());
+  const std::string joined = boost::algorithm::join(messages, "\n");
+  EXPECT_NE(joined.find("Certificate not found"), std::string::npos) << joined;
+  EXPECT_EQ(joined.find("handed to"), std::string::npos) << joined;
 }
 
 // An existing certificate is never touched - it may be the operator's own,
