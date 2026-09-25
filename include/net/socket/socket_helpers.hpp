@@ -177,11 +177,14 @@ NSCP_NET_EXPORT owner_handoff adopt_file_owner(const std::string& path, const st
 // `chown [-R] --reference=<reference> <target>`. Shared with `nscp enroll`.
 NSCP_NET_EXPORT std::string chown_repair_hint(const std::string& target, const std::string& reference, bool recursive);
 
-// validate_certificate(), and when the certificate (or a CA and its private
-// key) had to be generated, hand it to the owner of `owner_reference` as
-// adopt_file_owner() does, along with any level of the certificate folder that
-// had to be created (made traversable whatever the umask), reporting the
-// outcome in `list`. Empty `owner_reference` skips the handoff.
+// validate_certificate(), and when the certificate had to be generated, hand
+// it to the owner of `owner_reference` as adopt_file_owner() does, along with
+// any level of the certificate folder that had to be created (made traversable
+// whatever the umask), reporting the outcome in `list`. A generated CA is
+// handed over as its certificate only: the CA private key, which nothing in
+// the server reads and which mints client certificates, stays with the caller
+// (root), as does a folder created for it. Empty `owner_reference` skips the
+// handoff.
 NSCP_NET_EXPORT void validate_certificate(const std::string& certificate, std::list<std::string>& list, const std::string& owner_reference);
 
 // Substitute the host name placeholders in `spec`: ${hostname}, ${hostname_lc}

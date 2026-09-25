@@ -1693,6 +1693,43 @@ TEST_F(WriteCertsFixture, ValidateCertificateCreatesATraversableFolderWhateverTh
   EXPECT_EQ(st.st_uid, root ? uid : ::geteuid());
 }
 
+// A generated CA is handed over as its certificate only. Nothing in the server
+// reads the CA private key - it mints client certificates that pass peer-cert
+// verification, NRPE's only real authentication - so it stays root's, in a
+// folder that stays root's, where the service can neither read nor replace it.
+TEST_F(WriteCertsFixture, ValidateCertificateKeepsTheCaPrivateKeyFromTheService) {
+  const std::string folder = path_of("pki");
+  const std::string ca = folder + "/ca.pem";
+  const std::string reference = path_of("state");
+  boost::filesystem::create_directories(reference);
+  uid_t uid = 0;
+  gid_t gid = 0;
+  const bool root = unprivileged_account(uid, gid);
+  if (root) ASSERT_EQ(::chown(reference.c_str(), uid, gid), 0);
+
+  std::list<std::string> messages;
+  socket_helpers::validate_certificate(ca, messages, reference);
+
+  ASSERT_TRUE(boost::filesystem::is_regular_file(ca));
+  const std::string key = socket_helpers::ca_key_path(ca);
+  ASSERT_TRUE(boost::filesystem::is_regular_file(key));
+  const std::string joined = boost::algorithm::join(messages, "\n");
+  EXPECT_EQ(joined.find("WARNING"), std::string::npos) << joined;
+  EXPECT_EQ(joined.find("CA private key handed"), std::string::npos) << joined;
+  EXPECT_EQ(owner_of(key), ::geteuid()) << "the CA private key must stay with whoever generated it";
+  EXPECT_EQ(owner_of(folder), ::geteuid()) << "a folder created for a CA stays with whoever generated it";
+  struct stat st = {};
+  ASSERT_EQ(::stat(key.c_str(), &st), 0);
+  EXPECT_EQ(st.st_mode & 0777, 0600u);
+  if (root) {
+    EXPECT_EQ(owner_of(ca), uid);
+    EXPECT_NE(joined.find("CA certificate handed to the service account"), std::string::npos) << joined;
+  } else {
+    EXPECT_EQ(owner_of(ca), ::geteuid());
+    EXPECT_EQ(joined.find("handed to"), std::string::npos) << joined;
+  }
+}
+
 // With an operator-chosen name nothing is generated, so the folder that was
 // created for it is not handed over either: the operator is about to put
 // their own key there, and a service-owned folder is not where it belongs.

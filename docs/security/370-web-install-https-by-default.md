@@ -36,8 +36,10 @@ write to is refused rather than followed; the mode stays `0600`, and an
 existing certificate is never touched. A certificate folder the command had to
 create is handed over with it and made traversable (`0755`) whatever umask the
 root shell carried, since a `0700` root-owned folder would keep the service out
-just as well. If a handoff fails, the command prints the `chown --reference=`
-to run.
+just as well. A CA that `nscp nrpe install` generates is handed over as its
+certificate only: the CA private key, which nothing in the server reads and
+which mints the client certificates `verify mode = peer-cert` accepts, stays
+root's. If a handoff fails, the command prints the `chown --reference=` to run.
 
 **What to do:** nothing required. If you ran `nscp web install` on a release
 that still fell back to HTTP, re-run it to switch the web server to HTTPS, or

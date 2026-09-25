@@ -351,6 +351,7 @@ void socket_helpers::validate_certificate(const std::string &certificate, std::l
     // is about to write that name. And only when something was generated: with
     // an operator-chosen name nothing is, and the operator is about to drop
     // their own key into the folder, which is then not the service's to own.
+    // Nor is a folder created for a CA (below), whose private key stays root's.
     const auto hand_over_created = [&created, &hand_over]() {
       for (const std::string &dir : created) hand_over(dir, "certificate folder");
     };
@@ -368,9 +369,13 @@ void socket_helpers::validate_certificate(const std::string &certificate, std::l
       try {
         write_certs(certificate, true);
         list.emplace_back("CA private key written to: " + ca_key_path(certificate) + " (keep it, do not distribute it)");
+        // Only the CA certificate is the service's to read (it verifies
+        // clients against it). Nothing in the server reads the CA private key:
+        // it is what mints client certificates that pass `verify mode =
+        // peer-cert`, NRPE's only real authentication, so it stays root's -
+        // as does a folder created here, so the service cannot replace or
+        // unlink the key beside its certificate either.
         hand_over(certificate, "CA certificate");
-        hand_over(ca_key_path(certificate), "CA private key");
-        hand_over_created();
       } catch (const std::exception &e) {
         list.emplace_back(e.what());
       }
