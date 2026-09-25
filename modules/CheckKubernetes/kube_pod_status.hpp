@@ -1,0 +1,139 @@
+// SPDX-FileCopyrightText: 2004-2026 Michael Medin
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
+
+#pragma once
+
+// The kubectl STATUS column, derived from a pod object the way `kubectl get
+// pods` does it (printers.go, printPod): Running, Completed, CrashLoopBackOff,
+// ImagePullBackOff, OOMKilled, Terminating, Init:1/2, ... Operators recognise
+// those words, and `phase` alone hides a crash loop behind "Running".
+//
+// Header only, on top of the tolerant accessors, so it is unit-tested against
+// pod JSON without the rest of the module.
+
+#include <boost/json.hpp>
+#include <string>
+
+#include "kube_json.hpp"
+
+namespace kube_checks {
+
+struct pod_state {
+  std::string status;        // the kubectl STATUS column
+  long long restarts = 0;    // sum of container restart counts
+  long long ready = 0;       // containers reporting ready
+  long long containers = 0;  // containers in the pod spec
+  bool terminating = false;  // deletionTimestamp is set
+  bool oom_killed = false;   // a container's current or last termination was OOMKilled
+  bool pod_ready = false;    // the Ready condition is True
+};
+
+namespace detail {
+
+inline const boost::json::object *state_of(const boost::json::object &container_status, const char *which, const char *key) {
+  if (const boost::json::object *state = get_obj(container_status, which)) return get_obj(*state, key);
+  return nullptr;
+}
+
+inline bool was_oom_killed(const boost::json::object &container_status) {
+  for (const char *which : {"state", "lastState"}) {
+    if (const boost::json::object *t = state_of(container_status, which, "terminated")) {
+      if (get_str(*t, "reason") == "OOMKilled") return true;
+    }
+  }
+  return false;
+}
+
+}  // namespace detail
+
+inline pod_state derive_pod_state(const boost::json::object &pod) {
+  pod_state out;
+  const boost::json::object *metadata = get_obj(pod, "metadata");
+  const boost::json::object *spec = get_obj(pod, "spec");
+  const boost::json::object *status = get_obj(pod, "status");
+  static const boost::json::object empty;
+  if (!status) status = &empty;
+  if (!spec) spec = &empty;
+
+  if (const boost::json::array *containers = get_arr(*spec, "containers")) out.containers = static_cast<long long>(containers->size());
+  out.pod_ready = condition_is_true(*status, "Ready");
+
+  std::string reason = get_str(*status, "phase");
+  if (!get_str(*status, "reason").empty()) reason = get_str(*status, "reason");
+
+  // Init containers first: an unfinished one is what the pod is waiting on.
+  bool initializing = false;
+  long long init_total = 0;
+  if (const boost::json::array *inits = get_arr(*spec, "initContainers")) init_total = static_cast<long long>(inits->size());
+  if (const boost::json::array *inits = get_arr(*status, "initContainerStatuses")) {
+    long long i = 0;
+    for (const auto &v : *inits) {
+      if (!v.is_object()) {
+        ++i;
+        continue;
+      }
+      const boost::json::object &cs = v.as_object();
+      out.restarts += get_num(cs, "restartCount");
+      if (detail::was_oom_killed(cs)) out.oom_killed = true;
+      const boost::json::object *terminated = detail::state_of(cs, "state", "terminated");
+      const boost::json::object *waiting = detail::state_of(cs, "state", "waiting");
+      if (terminated && get_num(*terminated, "exitCode") == 0) {
+        ++i;
+        continue;  // this init container finished fine
+      }
+      if (terminated) {
+        const std::string term_reason = get_str(*terminated, "reason");
+        if (term_reason.empty()) {
+          const long long signal = get_num(*terminated, "signal");
+          reason = signal != 0 ? "Init:Signal:" + std::to_string(signal) : "Init:ExitCode:" + std::to_string(get_num(*terminated, "exitCode"));
+        } else {
+          reason = "Init:" + term_reason;
+        }
+      } else if (waiting && !get_str(*waiting, "reason").empty() && get_str(*waiting, "reason") != "PodInitializing") {
+        reason = "Init:" + get_str(*waiting, "reason");
+      } else {
+        reason = "Init:" + std::to_string(i) + "/" + std::to_string(init_total);
+      }
+      initializing = true;
+      break;
+    }
+  }
+
+  if (!initializing) {
+    bool has_running = false;
+    if (const boost::json::array *statuses = get_arr(*status, "containerStatuses")) {
+      // kubectl walks the list backwards, so the first container's reason wins.
+      for (auto it = statuses->rbegin(); it != statuses->rend(); ++it) {
+        if (!it->is_object()) continue;
+        const boost::json::object &cs = it->as_object();
+        out.restarts += get_num(cs, "restartCount");
+        if (get_bool(cs, "ready")) ++out.ready;
+        if (detail::was_oom_killed(cs)) out.oom_killed = true;
+        const boost::json::object *waiting = detail::state_of(cs, "state", "waiting");
+        const boost::json::object *terminated = detail::state_of(cs, "state", "terminated");
+        const boost::json::object *running = detail::state_of(cs, "state", "running");
+        if (waiting && !get_str(*waiting, "reason").empty()) {
+          reason = get_str(*waiting, "reason");
+        } else if (terminated && !get_str(*terminated, "reason").empty()) {
+          reason = get_str(*terminated, "reason");
+        } else if (terminated) {
+          const long long signal = get_num(*terminated, "signal");
+          reason = signal != 0 ? "Signal:" + std::to_string(signal) : "ExitCode:" + std::to_string(get_num(*terminated, "exitCode"));
+        } else if (get_bool(cs, "ready") && running) {
+          has_running = true;
+        }
+      }
+    }
+    // A pod is Completed only when nothing in it is still running.
+    if (reason == "Completed" && has_running) reason = out.pod_ready ? "Running" : "NotReady";
+  }
+
+  if (metadata && !get_str(*metadata, "deletionTimestamp").empty()) {
+    out.terminating = true;
+    reason = get_str(*status, "reason") == "NodeLost" ? "Unknown" : "Terminating";
+  }
+  out.status = reason;
+  return out;
+}
+
+}  // namespace kube_checks

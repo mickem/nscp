@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "check_cluster.hpp"
+#include "check_pods.hpp"
 #include "kube_client.hpp"
 #include "kube_settings.hpp"
 
@@ -89,6 +90,15 @@ kube_checks::settings configured() {
   s.api_server = "https://k8s.example.com:6443";
   s.token = TOKEN;
   return s;
+}
+
+PB::Common::ResultCode run_pods(const kube_checks::fetcher_factory &factory, const std::vector<std::string> &args,
+                                PB::Commands::QueryResponseMessage::Response &response, const kube_checks::settings &defaults = configured()) {
+  PB::Commands::QueryRequestMessage::Request request;
+  request.set_command("check_pods");
+  for (const std::string &a : args) request.add_arguments(a);
+  kube_checks::check_pods(defaults, request, &response, factory);
+  return response.result();
 }
 
 PB::Common::ResultCode run_cluster(const kube_checks::fetcher_factory &factory, const std::vector<std::string> &args,
@@ -453,4 +463,189 @@ TEST(KubeClient, SecondsSinceHandlesTheApiTimestampForms) {
   EXPECT_EQ(kube_checks::seconds_since("not a date"), -1);
   EXPECT_GT(kube_checks::seconds_since("2020-01-01T00:00:00Z"), 24 * 3600LL * 365 * 5);
   EXPECT_GT(kube_checks::seconds_since("2020-01-01T00:00:00.123456Z"), 24 * 3600LL * 365 * 5);
+}
+
+// --- check_pods -------------------------------------------------------------------
+
+namespace {
+
+// Five pods as the API server reports them, trimmed to what the check reads
+// plus fields it must ignore: a healthy web pod, a crash-looping api pod, a
+// finished job, a pod being deleted and one that cannot be scheduled.
+const char *FIVE_PODS = R"json({"kind":"PodList","metadata":{"resourceVersion":"1"},"items":[
+  {"metadata":{"name":"web-7d4b9c-abcde","namespace":"default","creationTimestamp":"2020-01-01T00:00:00Z",
+               "labels":{"app":"web","tier":"frontend"},
+               "ownerReferences":[{"kind":"ReplicaSet","name":"web-7d4b9c","controller":true}]},
+   "spec":{"nodeName":"worker-1","containers":[{"name":"nginx"}]},
+   "status":{"phase":"Running","podIP":"10.244.1.5","qosClass":"Burstable",
+             "conditions":[{"type":"Ready","status":"True"}],
+             "containerStatuses":[{"name":"nginx","ready":true,"restartCount":0,"state":{"running":{}}}]}},
+  {"metadata":{"name":"api-5f6c7-xyz12","namespace":"default","creationTimestamp":"2026-09-25T00:00:00Z",
+               "ownerReferences":[{"kind":"ReplicaSet","name":"api-5f6c7","controller":true}]},
+   "spec":{"nodeName":"worker-2","containers":[{"name":"api"}]},
+   "status":{"phase":"Running","podIP":"10.244.2.9","qosClass":"BestEffort",
+             "conditions":[{"type":"Ready","status":"False"}],
+             "containerStatuses":[{"name":"api","ready":false,"restartCount":7,
+                                   "state":{"waiting":{"reason":"CrashLoopBackOff"}},
+                                   "lastState":{"terminated":{"exitCode":1,"reason":"Error"}}}]}},
+  {"metadata":{"name":"backup-28800-q9x","namespace":"ops","creationTimestamp":"2026-09-24T00:00:00Z",
+               "ownerReferences":[{"kind":"Job","name":"backup-28800","controller":true}]},
+   "spec":{"nodeName":"worker-1","containers":[{"name":"backup"}]},
+   "status":{"phase":"Succeeded","qosClass":"BestEffort",
+             "containerStatuses":[{"name":"backup","ready":false,"restartCount":0,"state":{"terminated":{"exitCode":0,"reason":"Completed"}}}]}},
+  {"metadata":{"name":"old-1","namespace":"default","deletionTimestamp":"2026-09-25T10:00:00Z"},
+   "spec":{"nodeName":"worker-1","containers":[{"name":"old"}]},
+   "status":{"phase":"Running","containerStatuses":[{"name":"old","ready":true,"restartCount":0,"state":{"running":{}}}]}},
+  {"metadata":{"name":"big-0","namespace":"default","ownerReferences":[{"kind":"StatefulSet","name":"big","controller":true}]},
+   "spec":{"containers":[{"name":"big"}]},
+   "status":{"phase":"Pending","conditions":[{"type":"PodScheduled","status":"False","reason":"Unschedulable"}]}}
+]})json";
+
+const char *TWO_HEALTHY_PODS = R"json({"items":[
+  {"metadata":{"name":"a","namespace":"default"},"spec":{"containers":[{"name":"a"}]},
+   "status":{"phase":"Running","conditions":[{"type":"Ready","status":"True"}],"containerStatuses":[{"name":"a","ready":true,"state":{"running":{}}}]}},
+  {"metadata":{"name":"b","namespace":"default"},"spec":{"containers":[{"name":"b"}]},
+   "status":{"phase":"Running","conditions":[{"type":"Ready","status":"True"}],"containerStatuses":[{"name":"b","ready":true,"state":{"running":{}}}]}}
+]})json";
+
+}  // namespace
+
+TEST(CheckPods, DefaultThresholdsFlagTheCrashLoopAndHideFinishedJobs) {
+  fake_api api;
+  api.serve("/api/v1/pods", FIVE_PODS);
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_pods(api.factory(), {}, response), PB::Common::ResultCode::CRITICAL) << join_lines(response);
+  const std::string msg = join_lines(response);
+  EXPECT_EQ(msg, "CRITICAL: default/api-5f6c7-xyz12=CrashLoopBackOff, default/big-0=Pending") << "the crash loop is critical, the pending pod a warning";
+  EXPECT_EQ(msg.find("backup"), std::string::npos) << "Succeeded pods are filtered out by default";
+  EXPECT_EQ(api.requests.size(), 1u);
+  EXPECT_EQ(api.requests[0], "/api/v1/pods?limit=500");
+}
+
+TEST(CheckPods, HealthyPodsAreOkWithACount) {
+  fake_api api;
+  api.serve("/api/v1/pods", TWO_HEALTHY_PODS);
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_pods(api.factory(), {}, response), PB::Common::ResultCode::OK) << join_lines(response);
+  EXPECT_EQ(join_lines(response), "OK: All 2 pods are fine");
+}
+
+TEST(CheckPods, NoPodsIsTheDocumentedOk) {
+  fake_api api;
+  api.serve("/api/v1/pods", R"({"items":[]})");
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_pods(api.factory(), {}, response), PB::Common::ResultCode::OK) << join_lines(response);
+  EXPECT_EQ(join_lines(response), "OK: No pods found");
+}
+
+TEST(CheckPods, KeywordsAreExposed) {
+  fake_api api;
+  api.serve("/api/v1/pods", FIVE_PODS);
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_pods(api.factory(),
+                     {"filter=name like 'web'",
+                      "detail-syntax=%(namespace)/%(name)|%(node)|%(phase)|%(pod_status)|%(ready_containers)/"
+                      "%(containers)|%(restarts)|%(owner_kind)|%(owner)|%(qos)|%(ip)|%(labels)|%(ready)|%(terminating)|%(oom_killed)",
+                      "top-syntax=${list}", "ok-syntax="},
+                     response),
+            PB::Common::ResultCode::OK)
+      << join_lines(response);
+  EXPECT_EQ(join_lines(response),
+            "default/web-7d4b9c-abcde|worker-1|Running|Running|1/1|0|ReplicaSet|web-7d4b9c|Burstable|10.244.1.5|app=web,tier=frontend|1|0|0");
+}
+
+TEST(CheckPods, TerminatingAndStatusKeywords) {
+  fake_api api;
+  api.serve("/api/v1/pods", FIVE_PODS);
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_pods(api.factory(), {"filter=terminating = 1", "detail-syntax=%(name)=%(pod_status)", "top-syntax=${list}", "ok-syntax="}, response),
+            PB::Common::ResultCode::OK)
+      << join_lines(response);
+  EXPECT_EQ(join_lines(response), "old-1=Terminating");
+}
+
+TEST(CheckPods, AgeTakesUnitsAndCreatedIsADate) {
+  fake_api api;
+  api.serve("/api/v1/pods", FIVE_PODS);
+  PB::Commands::QueryResponseMessage::Response response;
+  // The web pod was created in 2020, the api pod today (fixture date); a
+  // pod younger than a day is what a restart storm looks like.
+  EXPECT_EQ(run_pods(api.factory(), {"filter=name like 'web'", "critical=age < 1d", "warning=age < 1d"}, response), PB::Common::ResultCode::OK)
+      << join_lines(response);
+  PB::Commands::QueryResponseMessage::Response response2;
+  EXPECT_EQ(run_pods(api.factory(), {"filter=name like 'web'", "critical=age > 365d", "warning=none"}, response2), PB::Common::ResultCode::CRITICAL)
+      << join_lines(response2);
+  PB::Commands::QueryResponseMessage::Response response3;
+  EXPECT_EQ(run_pods(api.factory(), {"filter=name like 'web'", "critical=created > -10d", "warning=none"}, response3), PB::Common::ResultCode::OK)
+      << join_lines(response3);
+}
+
+TEST(CheckPods, RestartsThresholdEmitsPerfData) {
+  fake_api api;
+  api.serve("/api/v1/pods", FIVE_PODS);
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_pods(api.factory(), {"filter=namespace = 'default'", "warning=restarts > 5", "critical=none"}, response), PB::Common::ResultCode::WARNING)
+      << join_lines(response);
+  EXPECT_EQ(join_lines(response), "WARNING: default/api-5f6c7-xyz12=CrashLoopBackOff");
+  EXPECT_NE(perf_of(response).find("default/api-5f6c7-xyz12 restarts=7"), std::string::npos) << perf_of(response);
+}
+
+TEST(CheckPods, NamespaceAndSelectorsReachTheServer) {
+  fake_api api;
+  api.serve("/api/v1/namespaces/kube-system/pods", TWO_HEALTHY_PODS);
+  api.serve("/api/v1/namespaces/monitoring/pods", R"({"items":[]})");
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(
+      run_pods(api.factory(), {"namespace=kube-system", "namespace=monitoring", "label-selector=app=web,tier!=cache", "field-selector=spec.nodeName=worker-1"},
+               response),
+      PB::Common::ResultCode::OK)
+      << join_lines(response);
+  ASSERT_EQ(api.requests.size(), 2u);
+  EXPECT_EQ(api.requests[0], "/api/v1/namespaces/kube-system/pods?limit=500&labelSelector=app%3Dweb%2Ctier%21%3Dcache&fieldSelector=spec.nodeName%3Dworker-1");
+  EXPECT_EQ(api.requests[1], "/api/v1/namespaces/monitoring/pods?limit=500&labelSelector=app%3Dweb%2Ctier%21%3Dcache&fieldSelector=spec.nodeName%3Dworker-1");
+  EXPECT_EQ(join_lines(response), "OK: All 2 pods are fine");
+}
+
+TEST(CheckPods, PodListIsPaginated) {
+  fake_api api;
+  api.serve("/api/v1/pods?limit=500", R"({"metadata":{"continue":"ENCODED"},"items":[
+    {"metadata":{"name":"a","namespace":"default"},"spec":{"containers":[{"name":"a"}]},"status":{"phase":"Running","conditions":[{"type":"Ready","status":"True"}],"containerStatuses":[{"name":"a","ready":true,"state":{"running":{}}}]}}]})");
+  api.serve("/api/v1/pods?limit=500&continue=ENCODED", R"({"metadata":{},"items":[
+    {"metadata":{"name":"b","namespace":"default"},"spec":{"containers":[{"name":"b"}]},"status":{"phase":"Running","conditions":[{"type":"Ready","status":"True"}],"containerStatuses":[{"name":"b","ready":true,"state":{"running":{}}}]}},
+    {"metadata":{"name":"c","namespace":"default"},"spec":{"containers":[{"name":"c"}]},"status":{"phase":"Failed"}}]})");
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_pods(api.factory(), {}, response), PB::Common::ResultCode::CRITICAL) << join_lines(response);
+  EXPECT_EQ(join_lines(response), "CRITICAL: default/c=Failed");
+  ASSERT_EQ(api.requests.size(), 2u);
+  EXPECT_EQ(api.requests[1], "/api/v1/pods?limit=500&continue=ENCODED");
+}
+
+TEST(CheckPods, RequiredPodsAndMissingOnes) {
+  fake_api api;
+  api.serve("/api/v1/pods", FIVE_PODS);
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_pods(api.factory(), {"pod=web-7d4b9c-abcde"}, response), PB::Common::ResultCode::OK) << join_lines(response);
+  EXPECT_EQ(join_lines(response), "OK: All 1 pods are fine");
+
+  PB::Commands::QueryResponseMessage::Response response2;
+  EXPECT_EQ(run_pods(api.factory(), {"pod=web-7d4b9c-abcde", "pod=ops/ghost", "pod=nowhere"}, response2), PB::Common::ResultCode::CRITICAL)
+      << join_lines(response2);
+  EXPECT_EQ(join_lines(response2), "CRITICAL: ops/ghost=missing, /nowhere=missing");
+
+  PB::Commands::QueryResponseMessage::Response response3;
+  api.serve("/api/v1/namespaces/ops/pods", R"({"items":[]})");
+  EXPECT_EQ(run_pods(api.factory(), {"namespace=ops", "pod=ghost", "detail-syntax=%(namespace)/%(name)=%(phase)"}, response3), PB::Common::ResultCode::CRITICAL)
+      << join_lines(response3);
+  EXPECT_EQ(join_lines(response3), "CRITICAL: ops/ghost=missing") << "a single namespace= names the missing pod's namespace";
+}
+
+TEST(CheckPods, ForbiddenNamesTheNamespace) {
+  fake_api api;
+  api.refuse(
+      "/api/v1/namespaces/secret/pods", 403,
+      R"({"kind":"Status","message":"pods is forbidden: User \"system:serviceaccount:monitoring:nscp\" cannot list resource \"pods\" in API group \"\" in the namespace \"secret\"","reason":"Forbidden","code":403})");
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_pods(api.factory(), {"namespace=secret"}, response), PB::Common::ResultCode::UNKNOWN) << join_lines(response);
+  EXPECT_NE(join_lines(response).find("in the namespace \"secret\""), std::string::npos) << join_lines(response);
+  EXPECT_EQ(join_lines(response).find(TOKEN), std::string::npos);
 }

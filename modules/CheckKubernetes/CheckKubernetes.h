@@ -20,4 +20,5 @@ class CheckKubernetes : public nscapi::impl::simple_plugin {
 
   // Check commands
   void check_kubernetes(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+  void check_pods(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 };
