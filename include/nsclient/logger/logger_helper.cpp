@@ -6,10 +6,12 @@
 #include <boost/filesystem.hpp>
 #include <fstream>
 #include <iostream>
+#include <mutex>
 #include <nsclient/logger/logger_helper.hpp>
 #include <str/format.hpp>
 #include <str/utf8.hpp>
 #include <str/utils.hpp>
+#include <vector>
 
 #ifndef WIN32
 #include <errno.h>
@@ -26,6 +28,21 @@ namespace {
 // reassigned under a concurrent read is a torn read. One atomic pointer load
 // has neither problem, and leaking one path at shutdown costs nothing.
 std::atomic<const std::string *> fatal_file_path{nullptr};
+
+// Every path set_fatal_file() has replaced. They still must not be freed - a
+// reader may hold one - but they have to stay reachable, or LeakSanitizer
+// reports each overwritten one as a leak. The list is itself never destroyed,
+// so no static destructor can free a path under a late reader either. Only
+// the setter touches it, never the terminate handler, so a mutex is fine.
+std::mutex retired_mutex;
+std::vector<const std::string *> *retired_fatal_file_paths = new std::vector<const std::string *>();
+
+void publish_fatal_file(const std::string &path) {
+  const std::string *previous = fatal_file_path.exchange(new std::string(path), std::memory_order_acq_rel);
+  if (previous == nullptr) return;
+  std::lock_guard<std::mutex> lock(retired_mutex);
+  retired_fatal_file_paths->push_back(previous);
+}
 
 std::string current_fatal_file() {
   const std::string *path = fatal_file_path.load(std::memory_order_acquire);
@@ -214,12 +231,12 @@ std::string nsclient::logging::logger_helper::fatal_fallback_file(const std::str
 std::string nsclient::logging::logger_helper::set_fatal_file(const std::string &path) {
   if (path.empty()) return current_fatal_file();
   if (is_writable(path) != writability::no) {
-    fatal_file_path.store(new std::string(path), std::memory_order_release);
+    publish_fatal_file(path);
     return path;
   }
   const std::string fallback = temp_fallback(path);
   if (!fallback.empty() && is_writable(fallback) != writability::no) {
-    fatal_file_path.store(new std::string(fallback), std::memory_order_release);
+    publish_fatal_file(fallback);
     return fallback;
   }
   // Neither worked. Keep whatever was configured before rather than pointing
