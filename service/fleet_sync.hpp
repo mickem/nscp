@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 
+#include "fact_repository.hpp"
 #include "tag_repository.hpp"
 
 struct fleet_config {
@@ -70,7 +71,8 @@ class fleet_sync {
   // description (who owns the file, who we are running as).
   static manifest_status check_manifest(const std::string &state_file, std::string &detail);
 
-  fleet_sync(nsclient::logging::logger_instance logger, fleet_config config, nsclient::core::tag_repository_instance tags, reload_function request_reload);
+  fleet_sync(nsclient::logging::logger_instance logger, fleet_config config, nsclient::core::tag_repository_instance tags,
+             nsclient::core::fact_repository_instance facts, reload_function request_reload);
   ~fleet_sync();
   void stop();
 
@@ -102,6 +104,16 @@ class fleet_sync {
   void maybe_renew();
   std::map<std::string, std::string> collect_tags() const;
 
+  // Upload the facts document to /agent/v1/facts when it differs from what
+  // the server is believed to hold. Cheap when it does not: one hash compare.
+  void maybe_upload_facts();
+  // Take note of the facts hash a server response carries (desired state,
+  // state report): the server saying what it holds is what triggers a
+  // re-upload after it lost or never received the document.
+  void note_server_facts_hash(const std::string &body);
+  // The current facts hash for the state report; empty without a repository.
+  std::string current_facts_hash() const;
+
   // Connection-failure bookkeeping: log a classified, actionable error the
   // first time a failure (or a new kind of failure) appears, demote repeats
   // to debug with a periodic reminder, and announce recovery.
@@ -128,6 +140,29 @@ class fleet_sync {
   nsclient::core::tag_repository_instance tags_;
   unsigned long long reported_tag_revision_ = 0;
   bool tags_reported_ = false;
+  // The core's facts repository: the host inventory, uploaded whole on its
+  // own call whenever its hash differs from what the server holds, while
+  // every state report carries only the hash.
+  nsclient::core::fact_repository_instance facts_;
+  // The hash of the document the server is believed to hold. Starts as the
+  // hash of the empty document: a host that has nothing enabled has nothing
+  // to send, and a server that still holds an old inventory for it says so
+  // (by carrying its own facts_hash in a response), which moves this.
+  std::string server_facts_hash_;
+  // The last facts_hash a server response carried. Only a change in what the
+  // server says moves server_facts_hash_, so a server that keeps repeating a
+  // stale value after a successful upload is not answered with an upload on
+  // every poll.
+  boost::optional<std::string> advertised_facts_hash_;
+  // A document the server refused as too large (413), or that is over our own
+  // cap: not sent again until the document changes.
+  std::string refused_facts_hash_;
+  // The server answered 404/405: it predates the facts call. Uploads stop
+  // until a response carries facts_hash, or the agent restarts.
+  bool facts_unsupported_ = false;
+  // The last upload failure that was logged, so a failure repeated on every
+  // poll is logged once.
+  std::string last_facts_error_;
   reload_function request_reload_;
 
   onboarding::enrolled_identity identity_;

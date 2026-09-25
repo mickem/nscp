@@ -228,6 +228,36 @@ class fact_repository {
     return hash_;
   }
 
+  // The document, its hash and its revision read under one lock, so the bytes
+  // an upload sends and the hash it claims for them cannot straddle a round
+  // that lands between two separate reads.
+  struct snapshot {
+    std::string json;
+    std::string hash;
+    unsigned long long revision = 0;
+    // The encoded size of each set, largest first: what a rejected upload
+    // names so the operator knows which set to turn off.
+    std::vector<std::pair<std::string, std::size_t>> set_sizes;
+  };
+  snapshot get_snapshot() const {
+    boost::unique_lock<boost::mutex> lock(mutex_);
+    snapshot result;
+    const PB::Facts::Object document = build_document_locked();
+    result.json = nscapi::facts::tree::to_json(document);
+    if (hash_dirty_) {
+      hash_ = sha256_hex(result.json);
+      hash_dirty_ = false;
+    }
+    result.hash = hash_;
+    result.revision = revision_;
+    for (const PB::Facts::Field &field : document.fields()) {
+      result.set_sizes.emplace_back(field.key(), nscapi::facts::tree::to_json(field.value()).size());
+    }
+    std::stable_sort(result.set_sizes.begin(), result.set_sizes.end(),
+                     [](const std::pair<std::string, std::size_t> &a, const std::pair<std::string, std::size_t> &b) { return a.second > b.second; });
+    return result;
+  }
+
   // Whether this build can hash the document at all (see the OpenSSL note at
   // the top). Consumers that would otherwise publish an empty hash - the
   // state report - ask first.

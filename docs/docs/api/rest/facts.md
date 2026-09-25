@@ -18,7 +18,7 @@ are going to do with the answer.
 | Shape | flat `key=value` strings | a document: objects, lists, numbers, strings |
 | Question | *which group is this host in* | *what is this host* |
 | Collected | always | only once a set is enabled |
-| Uploaded to a fleet server | yes, on every state report | no |
+| Uploaded to a fleet server | yes, on every state report | when enrolled: the hash on every report, the document when it changes |
 
 A fleet selector matches a tag whole, which is why `os_family` and `arch` are
 tags. A list of volumes, or a vendor and model, is not something a selector
