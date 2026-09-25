@@ -156,19 +156,21 @@ enum class owner_handoff { not_needed, handed_over, failed };
 // `reference` is the directory whose owner the file is for: ${data-path}, which
 // packaging creates and chowns to the service account (the same reference
 // `nscp enroll` uses for the fleet identity). Nothing happens unless we are
-// root and the reference belongs to someone else. Only the file itself changes
-// owner, and only when it is a regular file we own with a single link: it is
-// opened O_NOFOLLOW and chowned by descriptor, because the directory holding a
-// generated certificate can be one the service account writes to, and root
-// chowning by path is how a planted symlink hands it /etc/shadow.
+// root and the reference belongs to someone else. Only the path itself changes
+// owner, and only when it is a regular file we own with a single link, or a
+// directory we own: it is opened O_NOFOLLOW and chowned by descriptor, because
+// the directory holding a generated certificate can be one the service account
+// writes to, and root chowning by path is how a planted symlink hands it
+// /etc/shadow. A path that already has the reference's owner is not_needed.
 // No-op on Windows, where the service runs as LocalSystem and the material is
 // readable as written.
 NSCP_NET_EXPORT owner_handoff adopt_file_owner(const std::string& path, const std::string& reference, std::string& error);
 
 // validate_certificate(), and when the certificate (or a CA and its private
 // key) had to be generated, hand it to the owner of `owner_reference` as
-// adopt_file_owner() does, reporting the outcome in `list`. Empty
-// `owner_reference` skips the handoff.
+// adopt_file_owner() does, along with any level of the certificate folder that
+// had to be created (made traversable whatever the umask), reporting the
+// outcome in `list`. Empty `owner_reference` skips the handoff.
 NSCP_NET_EXPORT void validate_certificate(const std::string& certificate, std::list<std::string>& list, const std::string& owner_reference);
 
 // Substitute the host name placeholders in `spec`: ${hostname}, ${hostname_lc}

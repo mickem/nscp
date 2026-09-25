@@ -1658,6 +1658,43 @@ TEST_F(WriteCertsFixture, ValidateCertificateHandsAGeneratedCertificateOver) {
   }
 }
 
+// A folder the validator creates must be one the service can walk into.
+// create_directories() honours the umask, so under `sudo` with `umask 0077`
+// it came out 0700 root-owned - and the handed-over certificate inside was as
+// unreachable as before the handoff.
+TEST_F(WriteCertsFixture, ValidateCertificateCreatesATraversableFolderWhateverTheUmask) {
+  const std::string folder = path_of("deep/security");
+  const std::string cert = folder + "/certificate.pem";
+  const std::string reference = path_of("state");
+  boost::filesystem::create_directories(reference);
+  uid_t uid = 0;
+  gid_t gid = 0;
+  const bool root = unprivileged_account(uid, gid);
+  if (root) ASSERT_EQ(::chown(reference.c_str(), uid, gid), 0);
+
+  const mode_t previous = ::umask(0077);
+  std::list<std::string> messages;
+  socket_helpers::validate_certificate(cert, messages, reference);
+  ::umask(previous);
+
+  ASSERT_TRUE(boost::filesystem::is_regular_file(cert));
+  const std::string joined = boost::algorithm::join(messages, "\n");
+  EXPECT_NE(joined.find("Creating certificate folder"), std::string::npos) << joined;
+  EXPECT_EQ(joined.find("WARNING"), std::string::npos) << joined;
+  for (const std::string& dir : {path_of("deep"), folder}) {
+    struct stat st = {};
+    ASSERT_EQ(::stat(dir.c_str(), &st), 0) << dir;
+    EXPECT_EQ(st.st_mode & 0777, 0755u) << dir;
+    EXPECT_EQ(st.st_uid, root ? uid : ::geteuid()) << dir;
+  }
+  // The pre-existing parent is not ours and keeps whatever it had.
+  EXPECT_EQ(owner_of(dir_.string()), ::geteuid());
+  struct stat st = {};
+  ASSERT_EQ(::stat(cert.c_str(), &st), 0);
+  EXPECT_EQ(st.st_mode & 0777, 0600u);
+  EXPECT_EQ(st.st_uid, root ? uid : ::geteuid());
+}
+
 // An existing certificate is never touched - it may be the operator's own,
 // placed there with the ownership they chose.
 TEST_F(WriteCertsFixture, ValidateCertificateDoesNotHandOverAnExistingCertificate) {

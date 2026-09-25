@@ -254,16 +254,22 @@ socket_helpers::owner_handoff socket_helpers::adopt_file_owner(const std::string
     ::close(fd);
     return owner_handoff::failed;
   }
-  if (!S_ISREG(st.st_mode) || st.st_nlink != 1 || st.st_uid != ::geteuid()) {
-    // Not the plain file we just wrote: a hardlink somebody planted, or a file
-    // that already belongs to someone. Neither is ours to hand over.
-    ::close(fd);
-    error = "Refusing to change the owner of " + path + ": it is not a regular file owned by this process with a single link";
-    return owner_handoff::failed;
-  }
   if (st.st_uid == reference_stat.st_uid && st.st_gid == reference_stat.st_gid) {
+    // Already the service's - a re-run over the file an earlier run handed
+    // over. Decided before the "ours to give" check below, which it would
+    // otherwise fail: the file is no longer root's.
     ::close(fd);
     return owner_handoff::not_needed;
+  }
+  const bool ours = st.st_uid == ::geteuid();
+  const bool plain_file = S_ISREG(st.st_mode) && st.st_nlink == 1;
+  if (!ours || !(plain_file || S_ISDIR(st.st_mode))) {
+    // Not the plain file or directory we just created: a hardlink somebody
+    // planted, or a file that already belongs to someone. Neither is ours to
+    // hand over.
+    ::close(fd);
+    error = "Refusing to change the owner of " + path + ": it is not a regular file (with a single link) or directory owned by this process";
+    return owner_handoff::failed;
   }
   const bool ok = ::fchown(fd, reference_stat.st_uid, reference_stat.st_gid) == 0;
   if (!ok) error = "Failed to change the owner of " + path + ": " + std::strerror(errno);
@@ -271,6 +277,36 @@ socket_helpers::owner_handoff socket_helpers::adopt_file_owner(const std::string
   return ok ? owner_handoff::handed_over : owner_handoff::failed;
 #endif
 }
+
+namespace {
+// Create the missing levels of `dir` and record each one created.
+//
+// create_directories() honours the umask, and under `sudo` with `umask 0077`
+// every level comes out 0700: a certificate handed to the service account then
+// sits in a directory that account cannot traverse, which is the original
+// "installed fine, never starts" symptom by another route. Each level we
+// create is opened to traversal (0755 - the private key inside carries its
+// own 0600), through a descriptor on the directory we just made rather than a
+// path, since the parent can be a directory the service account writes to.
+void create_certificate_folder(const boost::filesystem::path &dir, std::vector<std::string> &created) {
+  std::vector<boost::filesystem::path> missing;
+  for (boost::filesystem::path level = dir; !level.empty() && !boost::filesystem::exists(level); level = level.parent_path()) {
+    missing.push_back(level);
+  }
+  for (auto level = missing.rbegin(); level != missing.rend(); ++level) {
+    if (!boost::filesystem::create_directory(*level)) continue;  // appeared meanwhile: not ours
+#ifndef WIN32
+    const int fd = ::open(level->string().c_str(), O_RDONLY | O_NOFOLLOW | O_DIRECTORY | O_CLOEXEC);
+    if (fd >= 0) {
+      struct stat st = {};
+      if (::fstat(fd, &st) == 0 && S_ISDIR(st.st_mode) && st.st_uid == ::geteuid()) ::fchmod(fd, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+      ::close(fd);
+    }
+#endif
+    created.push_back(level->string());
+  }
+}
+}  // namespace
 
 void socket_helpers::validate_certificate(const std::string &certificate, std::list<std::string> &list) { validate_certificate(certificate, list, ""); }
 
@@ -298,8 +334,12 @@ void socket_helpers::validate_certificate(const std::string &certificate, std::l
   if (!certificate.empty() && !boost::filesystem::is_regular_file(certificate)) {
     const auto parent_path = boost::filesystem::path(certificate).parent_path();
     if (!exists(parent_path)) {
-      boost::filesystem::create_directories(parent_path);
+      std::vector<std::string> created;
+      create_certificate_folder(parent_path, created);
       list.emplace_back("Creating certificate folder: " + parent_path.string());
+      // A folder we created holds nothing shipped, so it is ours to hand over
+      // with the certificate - the service can then also regenerate one there.
+      for (const std::string &dir : created) hand_over(dir, "certificate folder");
     }
     if (boost::algorithm::ends_with(certificate, "/certificate.pem")) {
       list.emplace_back("Certificate not found: " + certificate + " (generating a default certificate)");

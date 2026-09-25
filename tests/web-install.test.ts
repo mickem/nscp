@@ -15,6 +15,7 @@
  */
 import execa from "execa";
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 import { curlHead } from "@fixtures/http";
 import { NscpInstance } from "@fixtures/index";
@@ -114,18 +115,28 @@ describe("nscp web install", () => {
     expect(server["certificate"]).toBe("${certificate-path}/certificate.pem");
   });
 
-  it("hands a generated certificate to the service account", async () => {
+  it("hands a generated certificate and its folder to the service account", async () => {
     // On a packaged Linux host the command runs under sudo while the service
     // runs as `nsclient`, and the generated key is readable by its owner only:
     // written as root it was unreadable to the service, so the install reported
     // success and the WEB server never came up. The owner of ${data-path} -
     // the state directory packaging chowns to the service account - is who the
-    // file is handed to. Root is needed to chown, so the branch that changes an
-    // owner runs where the test is root (the package CI); elsewhere the no-op
-    // contract is what is asserted, not skipped.
+    // file is handed to, along with a certificate folder the command had to
+    // create, which must be traversable whatever the umask sudo ran under.
+    // Root is needed to chown, so the branch that changes an owner runs where
+    // the test is root (the package CI); elsewhere the no-op contract is what
+    // is asserted, not skipped.
     if (process.platform === "win32") return;
-    const stateDir = fs.mkdtempSync(path.join(require("os").tmpdir(), "nscp-state-"));
-    const nscp = new NscpInstance({ pathOverrides: { "data-path": stateDir } });
+    const base = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-handoff-"));
+    // mkdtemp makes it 0700: a pre-existing parent is not the command's to
+    // open up (the test below pins that), so open it here, as packaging does.
+    fs.chmodSync(base, 0o755);
+    const stateDir = path.join(base, "state");
+    fs.mkdirSync(stateDir);
+    const securityDir = path.join(base, "missing", "security");
+    const nscp = new NscpInstance({
+      pathOverrides: { "data-path": stateDir, "certificate-path": securityDir },
+    });
     const cert = certificatePath(nscp);
 
     const root = process.getuid?.() === 0;
@@ -139,16 +150,37 @@ describe("nscp web install", () => {
       }
     }
 
-    const r = await nscp.run(["web", "install", "--password", "install-password"]);
+    // The strictest umask an operator's root shell is likely to carry; the
+    // child inherits it, exactly as under sudo.
+    const previousUmask = process.umask(0o077);
+    let r;
+    try {
+      r = await nscp.run(["web", "install", "--password", "install-password"]);
+    } finally {
+      process.umask(previousUmask);
+    }
     const out = r.all ?? `${r.stdout}\n${r.stderr}`;
 
     expect(fs.existsSync(cert)).toBe(true);
+    expect(out).toContain("Creating certificate folder");
     expect(out).not.toContain("WARNING: Failed");
     const st = fs.statSync(cert);
     expect(st.mode & 0o777).toBe(0o600);
+    for (const dir of [path.join(base, "missing"), securityDir]) {
+      expect(fs.statSync(dir).mode & 0o777).toBe(0o755);
+    }
     if (serviceUid >= 0) {
       expect(out).toContain("handed to the service account");
       expect(st.uid).toBe(serviceUid);
+      expect(fs.statSync(securityDir).uid).toBe(serviceUid);
+      // What matters on the host: the service account itself can read it.
+      // `su` is what a root-only CI container has (sudo usually is not).
+      if (fs.existsSync("/bin/su") || fs.existsSync("/usr/bin/su")) {
+        const probe = await execa("su", ["-s", "/bin/sh", "nobody", "-c", `test -r "${cert}"`], {
+          reject: false,
+        });
+        expect(probe.exitCode).toBe(0);
+      }
     } else {
       // Not root, or root with no unprivileged account to hand it to: the
       // file stays with whoever wrote it, and nothing claims otherwise.
