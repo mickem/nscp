@@ -1,0 +1,102 @@
+name: Integration Tests (macOS)
+
+# The jest scenario suite against the macOS package, on the Mac that built it.
+# build-macos.yml already installs the .pkg and proves the daemon starts and
+# every module loads; this is the other half - the same command dispatch,
+# REST argument parsing and module behaviour the Linux and Windows packages
+# are tested for, so a check that answers differently on Darwin fails here
+# rather than on someone's Mac.
+#
+# Called from build-macos.yml after the package job, so it runs wherever that
+# does (every pull request, every merge to main, a workflow_dispatch of the
+# build). Like the build it is not in branch protection yet.
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        description: 'Version the package was built as'
+        required: true
+      artifact-name:
+        type: string
+        description: 'Name of the artifact carrying the .pkg and the tarball'
+        required: true
+      runner:
+        type: string
+        description: >-
+          Which macOS runner to test on. The package bundles Homebrew bottles
+          built for the runner that produced it, so this should be the same
+          image the build used.
+        required: false
+        default: macos-15
+
+jobs:
+  integration-tests:
+    name: integration-tests (macos, arm64)
+    runs-on: ${{ inputs.runner }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      # The image ships a Node, but pin the version the harness is written
+      # against rather than inherit whatever the image moved to.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: 'tests/package-lock.json'
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: .
+
+      # The tarball rather than the .pkg: it is rolled from the same bundled
+      # tree, and unpacking it puts the files where the package puts them
+      # (/usr/local/sbin/nscp, /usr/local/lib/nsclient) without the installer
+      # scripts - no _nsclient account, no launchd job. The suites spawn their
+      # own `nscp test` per case with their own settings file, so a running
+      # daemon would only be in the way; the .pkg's install path is covered by
+      # the build job's smoke test.
+      - name: Install the package tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo tar -xzf "NSCP-${{ inputs.version }}-macos-arm64.tar.gz" -C /
+          echo "--- the daemon and its modules ---"
+          ls -l /usr/local/sbin/nscp
+          ls /usr/local/lib/nsclient/modules
+          echo "--- a check dispatches end to end ---"
+          # As the runner user, against a throwaway settings file: exactly the
+          # shape every suite runs in. The tree is owned by root, as the
+          # package installs it, and being readable by an ordinary user is
+          # part of what is being checked.
+          : > "$RUNNER_TEMP/smoke.ini"
+          /usr/local/sbin/nscp client --settings "$RUNNER_TEMP/smoke.ini" \
+            --module CheckHelpers --boot --query check_ok
+
+      # No acceptance-tests.sh here, unlike the Linux jobs: it drives
+      # `nscp unit --language python`, and PythonScript is not built into the
+      # macOS package yet (build-macos.yml says why). It joins when it is.
+
+      - name: Install integration harness deps
+        working-directory: tests
+        shell: bash
+        run: npm install
+
+      # The runner has no docker daemon, so the docker-backed scenarios skip
+      # themselves through NSCP_SKIP_DOCKER, as they do on the Linux package
+      # jobs. The suites that load CheckSystem, CheckDisk or CheckLogFile skip
+      # on Darwin through tests/src/platform.ts until those modules are ported;
+      # everything else runs as it does on Linux.
+      - name: Run the scenarios (no-docker)
+        working-directory: tests
+        shell: bash
+        env:
+          NSCP_BIN: /usr/local/sbin/nscp
+          NSCP_SKIP_DOCKER: "1"
+        run: npm test

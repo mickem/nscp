@@ -351,3 +351,15 @@ jobs:
           echo "::error::the job is still loaded after uninstalling"
           exit 1
         fi
+
+  # The jest scenario suite against the package, the way build-debian.yml runs
+  # it against the .deb. Same standing as the build: not in branch protection
+  # yet, runs everywhere the build does.
+  integration-tests:
+    name: integration-tests (macos, arm64)
+    needs: build-macos
+    uses: ./.github/workflows/integration-tests-macos.yml
+    with:
+      version: ${{ inputs.version || '0.0.0' }}
+      artifact-name: NSCP-${{ inputs.version || '0.0.0' }}-macos-arm64
+      runner: ${{ inputs.runner || 'macos-15' }}
