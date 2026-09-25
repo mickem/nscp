@@ -229,7 +229,8 @@ windows:
         thousands-separator: ''
         top-syntax: '${status}: ${problem_list}'
         warn: ''
-        warning: state = 'running' and heartbeat != 'ok' and heartbeat != 'disabled'
+        warning: state = 'running' and heartbeat != 'ok' and heartbeat != 'disabled' and heartbeat !=
+          'none'
       fields:
       - generic: false
         long_description: Average load of the VM's virtual processors in % (0 when it is off)
@@ -267,11 +268,11 @@ windows:
         name: memory_assigned
         short_description: ''
       - generic: false
-        long_description: Configured maximum memory in bytes (dynamic memory only)
+        long_description: Configured maximum memory in bytes (dynamic memory only; 0 with static memory)
         name: memory_maximum
         short_description: ''
       - generic: false
-        long_description: Configured minimum memory in bytes (dynamic memory only)
+        long_description: Configured minimum memory in bytes (dynamic memory only; 0 with static memory)
         name: memory_minimum
         short_description: ''
       - generic: false

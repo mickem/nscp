@@ -211,6 +211,27 @@ TEST(CheckHyperV, RecordsJoinEveryClassOntoTheVm) {
   EXPECT_EQ(a.replication_health_s(), "ok");
 }
 
+TEST(CheckHyperV, AStaticMemoryVmHasNoMinimumOrMaximum) {
+  raw_rows rows;
+  raw_vm vm;
+  vm.id = kVmA;
+  vm.name = "static";
+  rows.vms.push_back(vm);
+  raw_memory_setting ms;
+  ms.vm_id = kVmA;
+  ms.startup_mb = 4096;
+  ms.minimum_mb = 4096;  // what Hyper-V reports for static memory
+  ms.maximum_mb = 4096;
+  ms.dynamic = false;
+  rows.memory_settings.push_back(ms);
+  const std::vector<vm_record> records = build_records(rows);
+  ASSERT_EQ(records.size(), 1u);
+  EXPECT_EQ(records[0].memory_startup, 4096LL * 1024 * 1024);
+  EXPECT_EQ(records[0].memory_minimum, 0);
+  EXPECT_EQ(records[0].memory_maximum, 0);
+  EXPECT_FALSE(records[0].dynamic_memory);
+}
+
 TEST(CheckHyperV, AnOffVmKeepsItsDefaults) {
   const std::vector<vm_record> records = build_records(two_vms());
   ASSERT_EQ(records.size(), 2u);
@@ -258,16 +279,26 @@ TEST(CheckHyperV, OnlyRealisedCheckpointsAreCheckpoints) {
 }
 
 TEST(CheckHyperV, VmsTheCountersSeeButWmiHidesAreExplained) {
-  EXPECT_EQ(hidden_vms_reason(0, 1),
-            "Hyper-V reports 1 virtual machine(s) on this host but none are visible to this account: run as an elevated administrator or a member "
-            "of Hyper-V Administrators");
+  const std::string expected =
+      "Hyper-V reports 1 virtual machine(s) on this host but none are visible to this account: run as an elevated administrator or a member "
+      "of Hyper-V Administrators";
+  EXPECT_EQ(hidden_vms_reason(0, 1, false), expected);
+  // The counters win over the token: they saw the VMs, WMI did not.
+  EXPECT_EQ(hidden_vms_reason(0, 1, true), expected);
 }
 
-TEST(CheckHyperV, AgreeingOrUnreadableCountersExplainNothing) {
-  EXPECT_EQ(hidden_vms_reason(0, 0), "");
-  EXPECT_EQ(hidden_vms_reason(0, -1), "");
-  EXPECT_EQ(hidden_vms_reason(2, 2), "");
-  EXPECT_EQ(hidden_vms_reason(1, 3), "");
+TEST(CheckHyperV, AnUnreadableCountAndAnUnauthorisedCallerCannotVouchForAnEmptyList) {
+  EXPECT_EQ(hidden_vms_reason(0, -1, false),
+            "Hyper-V shows no virtual machines to this account, and without the rights to see them all it cannot tell that there are none: run as "
+            "an elevated administrator or a member of Hyper-V Administrators");
+}
+
+TEST(CheckHyperV, AnEmptyListSomethingVouchesForIsTakenAsItIs) {
+  EXPECT_EQ(hidden_vms_reason(0, 0, false), "");  // the counters count none
+  EXPECT_EQ(hidden_vms_reason(0, -1, true), "");  // no counters, but the caller sees everything
+  EXPECT_EQ(hidden_vms_reason(2, 2, false), "");
+  EXPECT_EQ(hidden_vms_reason(1, 3, false), "");
+  EXPECT_EQ(hidden_vms_reason(1, -1, false), "");
 }
 
 // --- logical processors -----------------------------------------------------

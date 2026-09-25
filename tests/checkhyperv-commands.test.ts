@@ -23,7 +23,8 @@ const NO_NAMESPACE =
   /Hyper-V virtual machine information not available: (the Hyper-V role is not installed on this host \(root\\virtualization\\v2 missing\)|the Hyper-V management classes are missing)/;
 // An unelevated run on a Hyper-V host: WMI hides every VM from the caller
 // while the health summary counters still count them.
-const HIDDEN_VMS = /Hyper-V reports \d+ virtual machine\(s\) on this host but none are visible to this account/;
+const HIDDEN_VMS =
+  /Hyper-V reports \d+ virtual machine\(s\) on this host but none are visible to this account|cannot tell that there are none/;
 
 (onWindows ? describe : describe.skip)("CheckHyperV commands", () => {
   let nscp: NscpInstance;
@@ -111,7 +112,9 @@ const HIDDEN_VMS = /Hyper-V reports \d+ virtual machine\(s\) on this host but no
       "empty-syntax=no VMs matched",
       "warning=uptime < 0",
     ]);
-    expect(out).toMatch(/information not available|none are visible to this account|no VMs matched/);
+    expect(out).toMatch(
+      /information not available|none are visible to this account|cannot tell that there are none|no VMs matched/,
+    );
     expect(out).not.toMatch(/(^|\s)(WARNING|CRITICAL)\b/);
   });
 });

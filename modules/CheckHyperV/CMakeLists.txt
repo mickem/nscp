@@ -12,6 +12,7 @@ set(SRCS
     check_hyperv_host.cpp
     check_hyperv_vms.cpp
     hyperv_facts.cpp
+    vm_refresher.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/pdh_counters.cpp
@@ -37,6 +38,7 @@ if(WIN32)
         check_hyperv_vms.hpp
         check_hyperv_internal.hpp
         hyperv_facts.hpp
+        vm_refresher.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_counters.hpp

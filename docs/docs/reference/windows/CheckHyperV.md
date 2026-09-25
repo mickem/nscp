@@ -299,10 +299,12 @@ memory and virtual processors currently backing it, and its checkpoints.
 The defaults look for the two things that go wrong most: a **running guest
 that stops answering the heartbeat** (`warning`), which is what a hung or
 blue-screened VM looks like from the outside, and a **VM the host itself
-reports as unhealthy** (`critical`). A guest whose heartbeat integration
-service is turned off cannot answer and is left alone (`heartbeat =
-'disabled'`); a guest without integration services at all reads `no_contact`,
-so either install them or exclude the VM with a filter.
+reports as unhealthy** (`critical`). A guest that cannot answer is left
+alone: `heartbeat = 'disabled'` when its heartbeat integration service is
+turned off in the VM settings, `heartbeat = 'none'` when the VM has no
+heartbeat component for the check to read. A guest without integration
+services at all still has the component and reads `no_contact`, which does
+warn, so either install them or exclude the VM with a filter.
 
 `state` covers the transitional states too (`starting`, `saving`,
 `pausing`, ...), and `operation` names a long-running operation in progress
@@ -326,8 +328,12 @@ returns only the host's own row, so every VM just seems to be missing. The
 check compares that with the VM count from the health summary counters, which
 anyone can read, and when WMI shows none of the VMs the counters count it
 reports UNKNOWN (`... none are visible to this account`) instead of "No
-virtual machines found". The `hyperv.vms` facts do the same. This is what you
-see when you run `nscp test` from a shell that is not elevated.
+virtual machines found". When the counters cannot be read either, an empty
+list is only trusted from an account that may see every VM (an elevated
+administrator, a member of Hyper-V Administrators, LocalSystem); anyone else
+gets UNKNOWN (`... cannot tell that there are none`). The `hyperv.vms` facts
+and the metrics do the same. This is what you see when you run `nscp test`
+from a shell that is not elevated.
 
 Without the Hyper-V role the namespace does not exist and the check reports
 UNKNOWN with a message saying so. With the role installed but the *Hyper-V
@@ -407,29 +413,29 @@ Hyper-V reports 1 virtual machine(s) on this host but none are visible to this a
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                                           | Default Value                                                       |
-|------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------|
-| <a id="check_hyperv_vms_filter"></a>[filter](../common-options.md#filter)                                        |                                                                     |
-| <a id="check_hyperv_vms_warning"></a>[warning](../common-options.md#warning)                                     | state = 'running' and heartbeat != 'ok' and heartbeat != 'disabled' |
-| <a id="check_hyperv_vms_warn"></a>[warn](../common-options.md#warn)                                              |                                                                     |
-| <a id="check_hyperv_vms_critical"></a>[critical](../common-options.md#critical)                                  | health != 'ok'                                                      |
-| <a id="check_hyperv_vms_crit"></a>[crit](../common-options.md#crit)                                              |                                                                     |
-| <a id="check_hyperv_vms_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                     |
-| <a id="check_hyperv_vms_debug"></a>[debug](../common-options.md#debug)                                           | false                                                               |
-| <a id="check_hyperv_vms_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                               |
-| <a id="check_hyperv_vms_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                                             |
-| <a id="check_hyperv_vms_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                     |
-| <a id="check_hyperv_vms_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                               |
-| <a id="check_hyperv_vms_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                   |
-| <a id="check_hyperv_vms_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_list}                                          |
-| <a id="check_hyperv_vms_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): all %(count) virtual machine(s) ok                       |
-| <a id="check_hyperv_vms_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No virtual machines found                                           |
-| <a id="check_hyperv_vms_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${vm}: ${state}, heartbeat ${heartbeat}, health ${health}           |
-| <a id="check_hyperv_vms_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${vm}                                                               |
-| <a id="check_hyperv_vms_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                     |
-| <a id="check_hyperv_vms_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                     |
-| <a id="check_hyperv_vms_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                  |
-| <a id="check_hyperv_vms_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                     |
+| Option                                                                                                           | Default Value                                                                               |
+|------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| <a id="check_hyperv_vms_filter"></a>[filter](../common-options.md#filter)                                        |                                                                                             |
+| <a id="check_hyperv_vms_warning"></a>[warning](../common-options.md#warning)                                     | state = 'running' and heartbeat != 'ok' and heartbeat != 'disabled' and heartbeat != 'none' |
+| <a id="check_hyperv_vms_warn"></a>[warn](../common-options.md#warn)                                              |                                                                                             |
+| <a id="check_hyperv_vms_critical"></a>[critical](../common-options.md#critical)                                  | health != 'ok'                                                                              |
+| <a id="check_hyperv_vms_crit"></a>[crit](../common-options.md#crit)                                              |                                                                                             |
+| <a id="check_hyperv_vms_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                                             |
+| <a id="check_hyperv_vms_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                                       |
+| <a id="check_hyperv_vms_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                                       |
+| <a id="check_hyperv_vms_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                                                                     |
+| <a id="check_hyperv_vms_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                                             |
+| <a id="check_hyperv_vms_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                                       |
+| <a id="check_hyperv_vms_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                                           |
+| <a id="check_hyperv_vms_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_list}                                                                  |
+| <a id="check_hyperv_vms_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): all %(count) virtual machine(s) ok                                               |
+| <a id="check_hyperv_vms_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No virtual machines found                                                                   |
+| <a id="check_hyperv_vms_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${vm}: ${state}, heartbeat ${heartbeat}, health ${health}                                   |
+| <a id="check_hyperv_vms_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${vm}                                                                                       |
+| <a id="check_hyperv_vms_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                                             |
+| <a id="check_hyperv_vms_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                                             |
+| <a id="check_hyperv_vms_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                                          |
+| <a id="check_hyperv_vms_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                                             |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -448,8 +454,8 @@ This command also accepts the standard [help options](../common-options.md#stand
 | id                 | GUID of the virtual machine                                                                                                                                                                                                                          |
 | last_state_change  | When the VM last changed power state. Comparable to relative times, e.g. last_state_change > -1h.                                                                                                                                                    |
 | memory_assigned    | Memory currently assigned to the VM in bytes (0 when it is off)                                                                                                                                                                                      |
-| memory_maximum     | Configured maximum memory in bytes (dynamic memory only)                                                                                                                                                                                             |
-| memory_minimum     | Configured minimum memory in bytes (dynamic memory only)                                                                                                                                                                                             |
+| memory_maximum     | Configured maximum memory in bytes (dynamic memory only; 0 with static memory)                                                                                                                                                                       |
+| memory_minimum     | Configured minimum memory in bytes (dynamic memory only; 0 with static memory)                                                                                                                                                                       |
 | memory_startup     | Configured startup memory in bytes                                                                                                                                                                                                                   |
 | oldest_snapshot    | Creation time of the oldest checkpoint (0 / 'none' without checkpoints). Comparable to relative times, e.g. oldest_snapshot < -7d.                                                                                                                   |
 | operation          | Long-running operation in progress (creating_snapshot, merging_disks, migrating, backing_up, ...) or none                                                                                                                                            |

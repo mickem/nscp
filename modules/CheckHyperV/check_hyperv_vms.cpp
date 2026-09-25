@@ -52,13 +52,15 @@ std::string string_or_empty(const wmi_impl::row &row, const std::string &col) {
   }
 }
 
-// Run one query and hand every row to `fn`. The query object (and the WMI
-// connection it holds) stays alive until the last row has been read, the way
-// the other WMI checks keep it.
+// Run one query over the already connected `service` and hand every row to
+// `fn`. The query object (and its copy of the connection) stays alive until
+// the last row has been read, the way the other WMI checks keep it. A null
+// `abort_event` is the plain blocking enumeration.
 template <typename Fn>
-void for_each_row(const std::string &wql, Fn fn) {
+void for_each_row(const wmi_impl::wmi_service &service, HANDLE abort_event, const std::string &wql, Fn fn) {
   wmi_impl::query wmi_query(wql, kNamespace, "", "");
-  wmi_impl::row_enumerator rows = wmi_query.execute();
+  wmi_query.instance = service;
+  wmi_impl::row_enumerator rows = wmi_query.execute(abort_event);
   while (rows.has_next()) fn(rows.get_next());
 }
 
@@ -75,24 +77,53 @@ std::string hyperv_unavailable(const wmi_impl::wmi_exception &e) {
   return "";
 }
 
+bool caller_may_see_all_vms() {
+  // The default Hyper-V authorisation policy lets the local Administrators
+  // (with an elevated token: CheckTokenMembership ignores a deny-only group)
+  // and Hyper-V Administrators see every VM. LocalSystem is an administrator.
+  // A host with a customised policy can grant more, never less, to these.
+  const DWORD groups[] = {DOMAIN_ALIAS_RID_ADMINS, 578 /* DOMAIN_ALIAS_RID_HYPER_V_ADMINS, missing from older SDKs */};
+  SID_IDENTIFIER_AUTHORITY nt_authority = SECURITY_NT_AUTHORITY;
+  for (const DWORD rid : groups) {
+    PSID sid = nullptr;
+    if (!AllocateAndInitializeSid(&nt_authority, 2, SECURITY_BUILTIN_DOMAIN_RID, rid, 0, 0, 0, 0, 0, 0, &sid)) continue;
+    BOOL member = FALSE;
+    const BOOL ok = CheckTokenMembership(nullptr, sid, &member);
+    FreeSid(sid);
+    if (ok && member) return true;
+  }
+  return false;
+}
+
+std::string vms_hidden_from_caller(const std::size_t visible, const long long counted) {
+  if (visible > 0) return "";
+  return hidden_vms_reason(visible, counted, counted < 0 && caller_may_see_all_vms());
+}
+
 std::string vms_hidden_from_caller(const std::size_t visible) {
   if (visible > 0) return "";
   long long counted = -1;
   try {
     counted = counted_vms(fetch_host_counters());
   } catch (const PDH::pdh_exception &) {
-    // No counters to compare with: take the WMI answer as it is.
+    // No counters to compare with: the caller's rights decide.
   }
-  return hidden_vms_reason(visible, counted);
+  return vms_hidden_from_caller(visible, counted);
 }
 
-raw_rows fetch_vm_rows() {
+raw_rows fetch_vm_rows(HANDLE abort_event) {
   raw_rows rows;
+
+  // One connection for the seven queries: connecting (a locator and a
+  // ConnectServer) is the expensive part of a small query. A missing
+  // namespace fails here, with the code hyperv_unavailable() reads.
+  wmi_impl::wmi_service service(kNamespace, "", "");
+  service.get();
 
   // SELECT * rather than a column list: a column this Hyper-V version lacks
   // (ReplicationMode arrived with 2012 R2) would fail the whole query, while a
   // missing property on a row just reads as its default above.
-  for_each_row("SELECT * FROM Msvm_ComputerSystem", [&rows](const wmi_impl::row &row) {
+  for_each_row(service, abort_event, "SELECT * FROM Msvm_ComputerSystem", [&rows](const wmi_impl::row &row) {
     const std::string name = string_or_empty(row, "Name");
     if (!is_vm_guid(name)) return;  // the host's own row
     raw_vm vm;
@@ -110,7 +141,7 @@ raw_rows fetch_vm_rows() {
     rows.vms.push_back(vm);
   });
 
-  for_each_row("SELECT SystemName, EnabledState, OperationalStatus FROM Msvm_HeartbeatComponent", [&rows](const wmi_impl::row &row) {
+  for_each_row(service, abort_event, "SELECT SystemName, EnabledState, OperationalStatus FROM Msvm_HeartbeatComponent", [&rows](const wmi_impl::row &row) {
     raw_heartbeat hb;
     hb.vm_id = to_lower(string_or_empty(row, "SystemName"));
     hb.enabled_state = int_or(row, "EnabledState", 0);
@@ -118,7 +149,7 @@ raw_rows fetch_vm_rows() {
     rows.heartbeats.push_back(hb);
   });
 
-  for_each_row("SELECT InstanceID, VirtualQuantity, Reservation, Limit, DynamicMemoryEnabled FROM Msvm_MemorySettingData", [&rows](const wmi_impl::row &row) {
+  for_each_row(service, abort_event, "SELECT InstanceID, VirtualQuantity, Reservation, Limit, DynamicMemoryEnabled FROM Msvm_MemorySettingData", [&rows](const wmi_impl::row &row) {
     raw_memory_setting ms;
     ms.vm_id = settings_owner_guid(string_or_empty(row, "InstanceID"));
     if (ms.vm_id.empty()) return;  // a template or a snapshot's copy
@@ -129,14 +160,14 @@ raw_rows fetch_vm_rows() {
     rows.memory_settings.push_back(ms);
   });
 
-  for_each_row("SELECT SystemName, NumberOfBlocks, BlockSize FROM Msvm_Memory", [&rows](const wmi_impl::row &row) {
+  for_each_row(service, abort_event, "SELECT SystemName, NumberOfBlocks, BlockSize FROM Msvm_Memory", [&rows](const wmi_impl::row &row) {
     raw_memory m;
     m.vm_id = to_lower(string_or_empty(row, "SystemName"));
     m.bytes = int_or(row, "NumberOfBlocks", 0) * int_or(row, "BlockSize", 0);
     rows.memory.push_back(m);
   });
 
-  for_each_row("SELECT InstanceID, VirtualQuantity FROM Msvm_ProcessorSettingData", [&rows](const wmi_impl::row &row) {
+  for_each_row(service, abort_event, "SELECT InstanceID, VirtualQuantity FROM Msvm_ProcessorSettingData", [&rows](const wmi_impl::row &row) {
     raw_processor_setting ps;
     ps.vm_id = settings_owner_guid(string_or_empty(row, "InstanceID"));
     if (ps.vm_id.empty()) return;
@@ -144,14 +175,14 @@ raw_rows fetch_vm_rows() {
     rows.processor_settings.push_back(ps);
   });
 
-  for_each_row("SELECT SystemName, LoadPercentage FROM Msvm_Processor", [&rows](const wmi_impl::row &row) {
+  for_each_row(service, abort_event, "SELECT SystemName, LoadPercentage FROM Msvm_Processor", [&rows](const wmi_impl::row &row) {
     raw_processor p;
     p.vm_id = to_lower(string_or_empty(row, "SystemName"));
     p.load_percentage = int_or(row, "LoadPercentage", 0);
     rows.processors.push_back(p);
   });
 
-  for_each_row("SELECT VirtualSystemIdentifier, VirtualSystemType, VirtualSystemSubType, Version, CreationTime FROM Msvm_VirtualSystemSettingData",
+  for_each_row(service, abort_event, "SELECT VirtualSystemIdentifier, VirtualSystemType, VirtualSystemSubType, Version, CreationTime FROM Msvm_VirtualSystemSettingData",
                [&rows](const wmi_impl::row &row) {
                  const std::string type = string_or_empty(row, "VirtualSystemType");
                  raw_settings s;
@@ -215,10 +246,10 @@ struct filter_obj_handler : public native_context {
     registry_.add_int_var("memory_startup", type_int, [](auto obj) { return obj->vm.memory_startup; }, "Configured startup memory in bytes")
         .add_int_perf("B", "", "_memory_startup");
     registry_.add_int_var("memory_minimum", type_int, [](auto obj) { return obj->vm.memory_minimum; },
-                          "Configured minimum memory in bytes (dynamic memory only)")
+                          "Configured minimum memory in bytes (dynamic memory only; 0 with static memory)")
         .add_int_perf("B", "", "_memory_minimum");
     registry_.add_int_var("memory_maximum", type_int, [](auto obj) { return obj->vm.memory_maximum; },
-                          "Configured maximum memory in bytes (dynamic memory only)")
+                          "Configured maximum memory in bytes (dynamic memory only; 0 with static memory)")
         .add_int_perf("B", "", "_memory_maximum");
     registry_.add_int_var("dynamic_memory", type_bool, [](auto obj) { return obj->vm.dynamic_memory ? 1LL : 0LL; },
                           "True when dynamic memory is enabled for the VM");
@@ -254,9 +285,12 @@ void check_hyperv_vms(const PB::Commands::QueryRequestMessage::Request &request,
 
   filter f;
   // A running guest that stops answering the heartbeat is the classic hung
-  // VM; a guest with the service turned off cannot answer, so it is left
-  // alone. Health is what the host reports about the VM itself.
-  filter_helper.add_options("state = 'running' and heartbeat != 'ok' and heartbeat != 'disabled'", "health != 'ok'", "", f.get_filter_syntax(), "unknown");
+  // VM; a guest with the service turned off (disabled) or without a heartbeat
+  // component at all (none) cannot answer, so it is left alone. A guest
+  // without integration services has the component and reads no_contact,
+  // which does warn. Health is what the host reports about the VM itself.
+  filter_helper.add_options("state = 'running' and heartbeat != 'ok' and heartbeat != 'disabled' and heartbeat != 'none'", "health != 'ok'", "",
+                            f.get_filter_syntax(), "unknown");
   filter_helper.add_syntax("${status}: ${problem_list}", "${vm}: ${state}, heartbeat ${heartbeat}, health ${health}", "${vm}", "No virtual machines found",
                            "%(status): all %(count) virtual machine(s) ok");
   if (!filter_helper.parse_options()) return;

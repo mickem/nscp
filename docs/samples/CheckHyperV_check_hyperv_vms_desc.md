@@ -9,10 +9,12 @@ memory and virtual processors currently backing it, and its checkpoints.
 The defaults look for the two things that go wrong most: a **running guest
 that stops answering the heartbeat** (`warning`), which is what a hung or
 blue-screened VM looks like from the outside, and a **VM the host itself
-reports as unhealthy** (`critical`). A guest whose heartbeat integration
-service is turned off cannot answer and is left alone (`heartbeat =
-'disabled'`); a guest without integration services at all reads `no_contact`,
-so either install them or exclude the VM with a filter.
+reports as unhealthy** (`critical`). A guest that cannot answer is left
+alone: `heartbeat = 'disabled'` when its heartbeat integration service is
+turned off in the VM settings, `heartbeat = 'none'` when the VM has no
+heartbeat component for the check to read. A guest without integration
+services at all still has the component and reads `no_contact`, which does
+warn, so either install them or exclude the VM with a filter.
 
 `state` covers the transitional states too (`starting`, `saving`,
 `pausing`, ...), and `operation` names a long-running operation in progress
@@ -36,8 +38,12 @@ returns only the host's own row, so every VM just seems to be missing. The
 check compares that with the VM count from the health summary counters, which
 anyone can read, and when WMI shows none of the VMs the counters count it
 reports UNKNOWN (`... none are visible to this account`) instead of "No
-virtual machines found". The `hyperv.vms` facts do the same. This is what you
-see when you run `nscp test` from a shell that is not elevated.
+virtual machines found". When the counters cannot be read either, an empty
+list is only trusted from an account that may see every VM (an elevated
+administrator, a member of Hyper-V Administrators, LocalSystem); anyone else
+gets UNKNOWN (`... cannot tell that there are none`). The `hyperv.vms` facts
+and the metrics do the same. This is what you see when you run `nscp test`
+from a shell that is not elevated.
 
 Without the Hyper-V role the namespace does not exist and the check reports
 UNKNOWN with a message saying so. With the role installed but the *Hyper-V

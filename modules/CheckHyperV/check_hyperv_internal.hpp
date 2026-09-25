@@ -296,16 +296,21 @@ inline bool is_checkpoint_type(const std::string &type) { return type == "Micros
 
 // Hyper-V's WMI provider only returns the virtual machines the caller is
 // authorised for, and it hides the rest silently: an unelevated administrator
-// or an ordinary user sees the host's own row and nothing else. The health
-// summary counters are not filtered that way, so when WMI shows no VM while
-// the counters count some, the list is not "no VMs" but "not allowed to see
-// them". Returns the explanation to report then, or an empty string when the
-// two sources agree (or the counters could not be read: `counted` < 0).
-inline std::string hidden_vms_reason(const std::size_t visible, const long long counted) {
-  if (visible > 0 || counted <= 0) return "";
-  return "Hyper-V reports " + std::to_string(counted) +
-         " virtual machine(s) on this host but none are visible to this account: run as an elevated administrator or a member of "
-         "Hyper-V Administrators";
+// or an ordinary user sees the host's own row and nothing else. So an empty
+// list only means "no VMs" when something vouches for it. The health summary
+// counters are not filtered that way: when they count VMs (`counted` > 0) the
+// list is "not allowed to see them", and when they count none it is really
+// empty. When they could not be read (`counted` < 0) the caller's rights
+// decide: `may_see_all` (an elevated administrator or a member of Hyper-V
+// Administrators, which LocalSystem is) sees every VM, anyone else cannot
+// tell an empty host from a hidden one. Returns the explanation to report, or
+// an empty string when the list can be taken as it is.
+inline std::string hidden_vms_reason(const std::size_t visible, const long long counted, const bool may_see_all) {
+  const std::string fix = "run as an elevated administrator or a member of Hyper-V Administrators";
+  if (visible > 0 || counted == 0) return "";
+  if (counted > 0) return "Hyper-V reports " + std::to_string(counted) + " virtual machine(s) on this host but none are visible to this account: " + fix;
+  if (may_see_all) return "";
+  return "Hyper-V shows no virtual machines to this account, and without the rights to see them all it cannot tell that there are none: " + fix;
 }
 
 // Msvm_VirtualSystemSettingData.VirtualSystemSubType is
@@ -406,8 +411,8 @@ struct vm_record {
 
   long long memory_assigned = 0;  // bytes backing the VM right now (0 when off)
   long long memory_startup = 0;   // bytes
-  long long memory_minimum = 0;   // bytes (dynamic memory only)
-  long long memory_maximum = 0;   // bytes (dynamic memory only)
+  long long memory_minimum = 0;   // bytes (dynamic memory only, else 0)
+  long long memory_maximum = 0;   // bytes (dynamic memory only, else 0)
   bool dynamic_memory = false;
 
   long long vcpus = 0;    // configured virtual processors
@@ -480,9 +485,15 @@ inline std::vector<vm_record> build_records(const raw_rows &rows) {
     vm_record *record = find(ms.vm_id);
     if (record == nullptr) continue;
     record->memory_startup = mb_to_bytes(ms.startup_mb);
-    record->memory_minimum = mb_to_bytes(ms.minimum_mb);
-    record->memory_maximum = mb_to_bytes(ms.maximum_mb);
     record->dynamic_memory = ms.dynamic;
+    // Hyper-V fills Reservation and Limit for a static-memory VM too (both
+    // are its fixed size), so they only mean minimum and maximum when
+    // dynamic memory is on; otherwise they stay 0, as documented and as the
+    // facts leave them out.
+    if (ms.dynamic) {
+      record->memory_minimum = mb_to_bytes(ms.minimum_mb);
+      record->memory_maximum = mb_to_bytes(ms.maximum_mb);
+    }
   }
   for (const raw_memory &m : rows.memory) {
     vm_record *record = find(m.vm_id);

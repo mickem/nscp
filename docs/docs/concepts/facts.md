@@ -75,7 +75,7 @@ another bundle's choices.
 | `network.interfaces` | CheckSystem | `network.interfaces`, same section               | low: read every round, no WMI, nothing forked |
 | `software.installed` | CheckSystem | `software.installed`, same section               | the highest here: every round, a walk of the registry's Uninstall hives or one forked package-manager query |
 | `storage.volumes`    | CheckDisk   | `storage.volumes`, `[/settings/disk/facts]`      | low: the enumeration `check_drivesize drive=*` does |
-| `hyperv.vms`         | CheckHyperV | `hyperv.vms`, `[/settings/hyperv/facts]`         | low: the WMI queries `check_hyperv_vms` runs, every round |
+| `hyperv.vms`         | CheckHyperV | `hyperv.vms`, `[/settings/hyperv/facts]`         | moderate: every round (never at startup), the seven WMI queries `check_hyperv_vms` runs, which grow with every VM and checkpoint and can stall while the Hyper-V management provider starts |
 
 The full description of each switch is in the module's settings reference.
 Turning a set off takes effect on the next settings reload: the module stops

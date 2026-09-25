@@ -117,13 +117,11 @@ describe("REST facts", () => {
         // `collected` only says when the core last asked.
         // The core's own `agent` set carries none: it is built on the round,
         // so the round's `collected` time is when it was read.
-        expect(Object.keys(response.body.gathered).sort()).toEqual([
-          "hardware",
-          "network",
-          "os",
-          "software",
-          "storage",
-        ]);
+        expect(
+          Object.keys(response.body.gathered)
+            .filter((id) => id !== "hyperv")
+            .sort(),
+        ).toEqual(["hardware", "network", "os", "software", "storage"]);
         expect(response.body.gathered.os).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
 
         expect(response.body.facts.os.family).toEqual(onWindows ? "windows" : "linux");
@@ -310,9 +308,16 @@ describe("REST facts", () => {
         .trustLocalhost(true)
         .expect(200);
       expect(startup.body.enabled).toContain("hyperv");
-      expect(startup.body.errors.hyperv).toMatch(
-        /Not collected during startup|Hyper-V role is not installed on this host|Failed to query/,
-      );
+      // A scheduled round may already have run by now; then the set is either
+      // collected or carries that round's error, which the refresh below
+      // checks in full.
+      if (startup.body.errors.hyperv !== undefined) {
+        expect(startup.body.errors.hyperv).toMatch(
+          /Not collected during startup|Hyper-V|Failed to query/,
+        );
+      } else {
+        expect(startup.body.facts.hyperv).toBeDefined();
+      }
 
       const document = await request(REST_URL)
         .post("/api/v2/facts/commands/refresh")
@@ -327,7 +332,7 @@ describe("REST facts", () => {
         // see.
         expect(document.body.errors.hyperv).not.toMatch(/Not collected during startup/);
         expect(document.body.errors.hyperv).toMatch(
-          /Hyper-V role is not installed on this host|management classes are missing|none are visible to this account|Failed to query Hyper-V virtual machines/,
+          /Hyper-V role is not installed on this host|management classes are missing|none are visible to this account|cannot tell that there are none|Failed to query Hyper-V virtual machines/,
         );
         expect(document.body.facts.hyperv).toBeUndefined();
         return;
