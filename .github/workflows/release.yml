@@ -31,62 +31,62 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
 
     - id: python
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ ENV.PYTHON_VERSION }}
 
     # Windows artifacts
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: NSCP-${{ inputs.version }}-x64
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: NSCP-${{ inputs.version }}-Win32
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: NSCP-${{ inputs.version }}-Win32-legacy-xp
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: NSCP-${{ inputs.version }}-ARM64
 
     # Ubuntu artifacts
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: NSCP-${{ inputs.version }}-ubuntu-24.04-x64
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: NSCP-${{ inputs.version }}-ubuntu-24.04-arm64
 
     # Raspberry Pi OS 64-bit (and Debian 13 arm64, which it is built from)
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: NSCP-${{ inputs.version }}-debian-trixie-arm64
 
     # RedHat (rocky) artifacts
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: NSCP-${{ inputs.version }}-rocky-9-x64
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: NSCP-${{ inputs.version }}-rocky-9-arm64
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: NSCP-${{ inputs.version }}-rocky-10-x64
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: NSCP-${{ inputs.version }}-rocky-10-arm64
 
     # macOS arm64. The artifact is a directory (the .pkg plus the relocatable
     # tarball), so it is unpacked into one and the paths below name both files.
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: NSCP-${{ inputs.version }}-macos-arm64
         path: macos
 
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: NSCP-${{ inputs.version }}-web
 
