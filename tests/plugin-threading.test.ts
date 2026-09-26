@@ -50,6 +50,15 @@ const NRPE_PORT = 15666;
 const SLOW_MS = 2000;
 
 /**
+ * Safety cap for the *released* blocking check, in seconds. It is only a net:
+ * the test lets that check go as soon as it has what it needs. Kept under the
+ * NRPE client timeout below so a runaway still comes back as an answer rather
+ * than as a client-side timeout, and well under the external-script timeout
+ * this suite configures so the script is never killed first.
+ */
+const BLOCK_CAP_S = 45;
+
+/**
  * Absolute path to a Python interpreter, or null if there is none. Asked for
  * as `sys.executable` rather than assumed from the platform, so the agent gets
  * a path it can hand straight to CreateProcess / execv.
@@ -84,6 +93,8 @@ describe("plugin threading", () => {
   let nscp: NscpInstance;
   let scriptDir: string;
   let traceDir: string;
+  /** Creating this file releases the blocking check; see BLOCK_CAP_S. */
+  let releaseFile: string;
 
   /** `nscp nrpe --command <cmd>` against our own agent. Never throws: a
    * failure has to reach the assertion as text rather than as a rejected
@@ -183,6 +194,24 @@ describe("plugin threading", () => {
     return peak;
   }
 
+  /**
+   * Wall time the agent spent with at least one of these checks inside it, in
+   * milliseconds: first enter to last exit, as the checks themselves recorded
+   * it.
+   *
+   * The clock the *client* sees is not this, and the difference is what makes a
+   * timing bound flaky. It also covers spawning one `nscp nrpe` process per
+   * caller, so on a loaded runner a straggler that starts seconds after the
+   * others inflates it without the agent having serialised anything. This is
+   * the honest denominator for "did they overlap": it measures the agent.
+   */
+  function traceSpanMs(events: TraceEvent[]): number {
+    const enters = events.filter((e) => e.kind === "enter").map((e) => e.at);
+    const exits = events.filter((e) => e.kind === "exit").map((e) => e.at);
+    if (enters.length === 0 || exits.length === 0) return 0;
+    return (Math.max(...exits) - Math.min(...enters)) * 1000;
+  }
+
   beforeAll(async () => {
     nscp = new NscpInstance();
     scriptDir = nscp.scratch("threading");
@@ -216,6 +245,42 @@ describe("plugin threading", () => {
         `time.sleep(${SLOW_MS / 1000})`,
         'mark("exit")',
         'print("OK: slow done")',
+        "sys.exit(0)",
+        "",
+      ].join("\n"),
+      { mode: 0o755 },
+    );
+
+    // The same thing, but held until the test lets it go rather than for a
+    // fixed time. "Stays answerable while one module is blocked" needs the
+    // blocked window to outlast however long its own NRPE round trips take on
+    // this machine, and no constant can promise that: on the arm64 runner
+    // three round trips used up the whole of SLOW_MS, so every fast check
+    // landed after the blocking one had already exited and the case failed
+    // with nothing counted. A window the test closes itself removes the race
+    // rather than widening it.
+    const blockScript = path.join(scriptDir, "block.py");
+    releaseFile = path.join(scriptDir, "release");
+    fs.writeFileSync(
+      blockScript,
+      [
+        "import os, sys, time, uuid",
+        "",
+        `TRACE_DIR = ${traceLiteral}`,
+        `RELEASE = ${JSON.stringify(releaseFile)}`,
+        "UID = uuid.uuid4().hex",
+        "",
+        "def mark(kind):",
+        '    p = os.path.join(TRACE_DIR, "%s.%s" % (UID, kind))',
+        '    with open(p, "w") as f:',
+        '        f.write("%.6f" % time.time())',
+        "",
+        'mark("enter")',
+        `deadline = time.time() + ${BLOCK_CAP_S}`,
+        "while not os.path.exists(RELEASE) and time.time() < deadline:",
+        "    time.sleep(0.05)",
+        'mark("exit")',
+        'print("OK: block done")',
         "sys.exit(0)",
         "",
       ].join("\n"),
@@ -345,12 +410,16 @@ describe("plugin threading", () => {
         // handshake is covered by nrpe-tls.test.ts.
         "use ssl": "false",
       },
+      // Comfortably longer than anything here blocks for, so no assertion in
+      // this suite can turn into an external-script timeout.
+      "/settings/external scripts": { timeout: "120" },
       // Absolute interpreter, forward slashes: see the header note on
       // lpApplicationName and the backslash-escaping tokeniser.
       ...(python
         ? {
             "/settings/external scripts/scripts": {
               slow: `${python} ${slowScript.replace(/\\/g, "/")}`,
+              block: `${python} ${blockScript.replace(/\\/g, "/")}`,
             },
           }
         : {}),
@@ -381,13 +450,16 @@ describe("plugin threading", () => {
 
     const trace = readEvents();
     const peak = peakOverlap(trace);
+    const spanMs = traceSpanMs(trace);
 
     // A failure here is almost always one CI-only observation, so make sure
     // the evidence reaches the log rather than just the expected/received.
     const serialisedMs = callers * SLOW_MS;
     const budgetMs = serialisedMs * 0.75;
-    if (peak <= 1 || elapsed >= budgetMs) {
-      console.error(`peak=${peak} elapsed=${elapsed}ms events=${trace.length}`);
+    if (peak <= 1 || spanMs >= budgetMs) {
+      console.error(
+        `peak=${peak} spanMs=${Math.round(spanMs)} clientElapsed=${elapsed}ms events=${trace.length}`,
+      );
     }
 
     expect(trace.filter((e) => e.kind === "enter")).toHaveLength(callers);
@@ -398,55 +470,56 @@ describe("plugin threading", () => {
     // here however fast the machine is.
     expect(peak).toBeGreaterThan(1);
 
-    // Backstop on the clock, deliberately loose. A busy runner can let one
-    // caller arrive after the others have finished, costing a second round
-    // (~2 * SLOW_MS); a core that truly serialises needs all four
-    // (~4 * SLOW_MS). The budget sits between the two so a straggler stays
-    // green and a serialising core cannot.
-    expect(elapsed).toBeLessThan(budgetMs);
+    // Backstop, deliberately loose, and measured from the trace rather than
+    // from the client: a busy runner can let one caller arrive after the others
+    // have finished, costing a second round (~2 * SLOW_MS), while a core that
+    // truly serialises needs all four (~4 * SLOW_MS). The budget sits between
+    // the two so a straggler stays green and a serialising core cannot. Taking
+    // the span the agent recorded keeps four client spawns out of that sum,
+    // which is the part of the old client-clock version that had nothing to do
+    // with dispatch.
+    expect(spanMs).toBeLessThan(budgetMs);
   });
 
   itScript("keeps a different module answering while one module is blocked", async () => {
     resetTrace();
 
-    // Live counts straight off the trace directory: one file per event, so a
-    // reader never sees a half-written shared log.
-    const hasEntered = () => entered() > 0;
-    const exits = () => exited();
+    fs.rmSync(releaseFile, { force: true });
 
     // Hold CheckExternalScripts busy, then ask CheckHelpers for something
-    // trivial. If a slow check could block the whole dispatch path, no fast
-    // check could come back until the slow one had.
-    const slow = nrpe("slow");
+    // trivial. If a blocked check could stall the whole dispatch path, no fast
+    // check could come back until it had.
+    //
+    // The blocked check holds its dispatch thread until this test releases it,
+    // so the window is not a guess: however slow the runner is, every fast
+    // check below is answered while it is still inside the agent. The previous
+    // version raced a fixed 2s sleep against its own round trips and lost on
+    // arm64.
+    const blocked = nrpe("block");
 
-    // Wait for the slow check to actually be inside the agent rather than
-    // assuming a fixed sleep was long enough on this machine.
+    // Wait for it to actually be inside the agent rather than assuming the
+    // spawn was prompt.
     const readyBy = Date.now() + 30_000;
-    while (!hasEntered() && Date.now() < readyBy) {
+    while (entered() === 0 && Date.now() < readyBy) {
       await new Promise((r) => setTimeout(r, 25));
     }
-    expect(hasEntered()).toBe(true);
+    expect(entered()).toBe(1);
 
-    // Count the fast checks that demonstrably came back while the slow one was
-    // still inside the agent: its entry marker written, its exit marker not.
-    //
-    // Read from the trace rather than compared as clocks. Two durations taken
-    // from the same origin can tie at millisecond resolution, and a slow runner
-    // can spend most of SLOW_MS on three NRPE round trips - which is exactly
-    // how this failed on the arm64 runner, at "2046 < 2046". Stopping as soon
-    // as the slow check exits also makes the loop adapt to the machine instead
-    // of assuming a fixed count fits in the window.
-    let servedWhileBlocked = 0;
-    const deadline = Date.now() + 60_000;
-    while (exits() === 0 && servedWhileBlocked < 3 && Date.now() < deadline) {
+    // Each fast check is answered while the blocked one is demonstrably still
+    // inside: nothing has released it, and its exit marker is what would say
+    // otherwise. A core that serialised dispatch cannot get through this loop
+    // at all - it would sit on the first fast check until the NRPE client
+    // timeout, because the blocked check is not going to finish on its own.
+    const fastChecks = 3;
+    for (let i = 0; i < fastChecks; i++) {
       const out = await nrpe("check_ok", ["message=fast"]);
       expect(out).toContain("fast");
-      if (exits() === 0) servedWhileBlocked++;
+      expect(exited()).toBe(0);
     }
 
-    expect(servedWhileBlocked).toBeGreaterThan(0);
-    expect(await slow).toContain("slow done");
-    expect(exits()).toBe(1);
+    fs.writeFileSync(releaseFile, "go");
+    expect(await blocked).toContain("block done");
+    expect(exited()).toBe(1);
   });
 
   it("lets a module dispatch into itself", async () => {
@@ -524,8 +597,11 @@ describe("plugin threading", () => {
 
     const trace = readEvents();
     const peak = peakOverlap(trace);
+    const spanMs = traceSpanMs(trace);
     if (peak <= 1) {
-      console.error(`peak=${peak} elapsed=${elapsed}ms events=${trace.length}`);
+      console.error(
+        `peak=${peak} spanMs=${Math.round(spanMs)} clientElapsed=${elapsed}ms events=${trace.length}`,
+      );
     }
 
     expect(trace.filter((e) => e.kind === "enter")).toHaveLength(callers);
@@ -534,7 +610,8 @@ describe("plugin threading", () => {
     // The point: more than one Python check was inside at once. A GIL held
     // across the sleep would score 1 here however fast the machine is.
     expect(peak).toBeGreaterThan(1);
-    expect(elapsed).toBeLessThan(callers * SLOW_MS * 0.75);
+    // From the trace, not the client clock: see traceSpanMs.
+    expect(spanMs).toBeLessThan(callers * SLOW_MS * 0.75);
   });
 
   itPy("lets a python script query a command its own module serves", async () => {
