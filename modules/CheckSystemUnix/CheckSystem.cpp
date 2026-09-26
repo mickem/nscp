@@ -269,23 +269,6 @@ void CheckSystem::check_process_history_new(const PB::Commands::QueryRequestMess
   process_history_check::check_process_history_new(get_collector(), request, response);
 }
 
-namespace {
-bool read_uptime_seconds(double &uptime_secs) {
-  try {
-    std::locale c_locale("C");
-    std::ifstream f;
-    f.imbue(c_locale);
-    f.open("/proc/uptime");
-    if (!f.is_open()) return false;
-    double idle = 0;
-    f >> uptime_secs >> idle;
-    return f.good() || f.eof();
-  } catch (...) {
-    return false;
-  }
-}
-}  // namespace
-
 void CheckSystem::fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response) {
   const bool want_os = facts_os_.load();
   const bool want_hardware = facts_hardware_.load();
@@ -411,9 +394,10 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
   try {
     PB::Metrics::MetricsBundle *up = bundle->add_children();
     up->set_key("uptime");
-    describe(up, "How long the machine has been up, as read from /proc/uptime");
+    describe(up, "How long the machine has been up");
     double uptime_secs = 0;
-    if (read_uptime_seconds(uptime_secs)) {
+    std::string uptime_error;
+    if (checks::read_uptime_seconds(uptime_secs, uptime_error)) {
       const auto value = static_cast<unsigned long long>(uptime_secs);
       const boost::posix_time::ptime now = nscp_time::now(timezone_);
       const boost::posix_time::ptime boot = now - boost::posix_time::time_duration(0, 0, static_cast<long>(value));

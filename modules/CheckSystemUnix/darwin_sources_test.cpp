@@ -10,8 +10,12 @@
 #include <gtest/gtest.h>
 #include <unistd.h>
 
+#include "check_kernel_stats.h"
+#include "check_os_version.h"
+#include "check_uptime.h"
 #include "collector_source.h"
 #include "interfaces_darwin.h"
+#include "mach_stats_darwin.h"
 
 TEST(darwin_collector, cpu_times_has_an_aggregate_and_every_core) {
   const std::map<std::string, collector_source::cpu_times> times = collector_source::read_cpu_times();
@@ -66,4 +70,46 @@ TEST(darwin_collector, running_exes_include_this_test) {
   const std::set<std::string> exes = collector_source::read_running_exes();
   EXPECT_EQ(exes.count("check_system_unix_test"), 1u);
   EXPECT_EQ(exes.count("launchd"), 1u);
+}
+
+TEST(darwin_live, uptime_is_positive) {
+  double uptime = 0;
+  std::string error;
+  ASSERT_TRUE(checks::read_uptime_seconds(uptime, error)) << error;
+  EXPECT_GT(uptime, 0.0);
+}
+
+TEST(darwin_live, os_release_is_macos) {
+  const os_version::os_release_info info = os_version::read_os_release();
+  EXPECT_EQ(info.distribution, "macos");
+  EXPECT_EQ(info.distribution_name, "macOS");
+  EXPECT_FALSE(info.version.empty());
+  EXPECT_EQ(info.pretty.compare(0, 6, "macOS "), 0) << info.pretty;
+}
+
+TEST(darwin_live, thread_count_is_positive) {
+  long long threads = 0;
+  std::string error;
+  ASSERT_TRUE(mach_stats::read_thread_count(threads, error)) << error;
+  EXPECT_GT(threads, 1);
+}
+
+TEST(darwin_live, vm_statistics_are_readable) {
+  vm_statistics64_data_t stats;
+  unsigned long long page_size = 0;
+  std::string error;
+  ASSERT_TRUE(mach_stats::read_vm_statistics(stats, page_size, error)) << error;
+  EXPECT_GT(page_size, 0u);
+  EXPECT_GT(stats.wire_count, 0u);
+  EXPECT_GT(stats.faults, 0u);
+}
+
+TEST(darwin_live, kernel_stats_reports_threads_only) {
+  PB::Commands::QueryRequestMessage::Request request;
+  request.set_command("check_kernel_stats");
+  PB::Commands::QueryResponseMessage::Response response;
+  kernel_stats_check::check_kernel_stats(request, &response);
+  ASSERT_GT(response.lines_size(), 0);
+  EXPECT_NE(response.lines(0).message().find("Threads"), std::string::npos) << response.lines(0).message();
+  EXPECT_EQ(response.lines(0).message().find("Context"), std::string::npos) << response.lines(0).message();
 }

@@ -16,13 +16,13 @@ namespace kernel_memory_check {
 using parsers::where::type_size;
 
 namespace {
-std::string read_file(const std::string &path) {
-  std::ifstream ifs(path.c_str());
-  if (!ifs.is_open()) return "";
-  std::stringstream ss;
-  ss << ifs.rdbuf();
-  return ss.str();
+// An absent gauge renders as the same word the keyword compares equal to.
+std::string human_bytes(const boost::optional<long long> &value, const parsers::where::evaluation_context &context) {
+  if (!value) return "unknown";
+  return str::format::format_byte_units(value.value(), context->get_number_format());
 }
+
+std::string plain_bytes(const boost::optional<long long> &value) { return value ? str::format::format_byte_units(value.value()) : "unknown"; }
 
 double rate_of(const unsigned long long cur, const unsigned long long prev, const double dt) {
   if (cur < prev || dt <= 0) return 0.0;
@@ -30,12 +30,12 @@ double rate_of(const unsigned long long cur, const unsigned long long prev, cons
 }
 }  // namespace
 
-std::string kernel_memory_obj::get_slab_human(parsers::where::evaluation_context context) const {
-  return str::format::format_byte_units(slab, context->get_number_format());
-}
+std::string kernel_memory_obj::get_slab_human(parsers::where::evaluation_context context) const { return human_bytes(slab, context); }
 std::string kernel_memory_obj::get_slab_unreclaimable_human(parsers::where::evaluation_context context) const {
-  return str::format::format_byte_units(slab_unreclaimable, context->get_number_format());
+  return human_bytes(slab_unreclaimable, context);
 }
+std::string kernel_memory_obj::get_wired_human(parsers::where::evaluation_context context) const { return human_bytes(wired, context); }
+std::string kernel_memory_obj::get_compressed_human(parsers::where::evaluation_context context) const { return human_bytes(compressed, context); }
 std::string kernel_memory_obj::get_cache_human(parsers::where::evaluation_context context) const {
   return str::format::format_byte_units(cache, context->get_number_format());
 }
@@ -43,8 +43,10 @@ std::string kernel_memory_obj::get_cache_human(parsers::where::evaluation_contex
 std::string kernel_memory_obj::show() const {
   // Debug output, so the plain rendering rather than the check's number format
   // (which lives on the evaluation context and is not in reach here).
-  return "slab " + str::format::format_byte_units(slab) + " (" + str::format::format_byte_units(slab_unreclaimable) + " unreclaimable), cache " +
-         str::format::format_byte_units(cache);
+  if (!slab && wired) {
+    return "wired " + plain_bytes(wired) + ", compressed " + plain_bytes(compressed) + ", cache " + str::format::format_byte_units(cache);
+  }
+  return "slab " + plain_bytes(slab) + " (" + plain_bytes(slab_unreclaimable) + " unreclaimable), cache " + str::format::format_byte_units(cache);
 }
 
 // /proc/meminfo lines look like "Slab:  123456 kB".
@@ -110,21 +112,27 @@ kernel_memory_obj compute_kernel_memory(const meminfo_kernel &mem, const vmstat_
 
 filter_obj_handler::filter_obj_handler() {
   // clang-format off
-  registry_.add_int_var("slab", type_size, &kernel_memory_obj::get_slab,
-                        "Total kernel slab allocator bytes (Slab in /proc/meminfo; supports size units, e.g. 'slab > 2G')")
-      .add_int_var("slab_reclaimable", type_size, &kernel_memory_obj::get_slab_reclaimable,
-                   "Reclaimable slab bytes the kernel can drop under pressure, e.g. dentry/inode caches (SReclaimable in /proc/meminfo)")
-      .add_int_var("slab_unreclaimable", type_size, &kernel_memory_obj::get_slab_unreclaimable,
-                   "Unreclaimable (pinned) slab bytes (SUnreclaim in /proc/meminfo) — steady growth here is the classic kernel/driver leak signal")
-      .add_int_var("cache", type_size, &kernel_memory_obj::get_cache, "Page-cache bytes (Cached in /proc/meminfo)");
+  registry_.add_optional_int_var("slab", type_size, [](auto obj) { return obj->get_slab(); }, "unknown",
+                        "Total kernel slab allocator bytes (Slab in /proc/meminfo; supports size units, e.g. 'slab > 2G'). 'unknown' on macOS, which has no slab allocator")
+      .add_optional_int_var("slab_reclaimable", type_size, [](auto obj) { return obj->get_slab_reclaimable(); }, "unknown",
+                   "Reclaimable slab bytes the kernel can drop under pressure, e.g. dentry/inode caches (SReclaimable in /proc/meminfo). 'unknown' on macOS")
+      .add_optional_int_var("slab_unreclaimable", type_size, [](auto obj) { return obj->get_slab_unreclaimable(); }, "unknown",
+                   "Unreclaimable (pinned) slab bytes (SUnreclaim in /proc/meminfo) — steady growth here is the classic kernel/driver leak signal. 'unknown' on macOS, where wired is the counterpart")
+      .add_optional_int_var("wired", type_size, [](auto obj) { return obj->get_wired(); }, "unknown",
+                   "macOS: wired memory in bytes - pages the kernel has pinned and cannot page out, its own allocations included; steady growth is the kernel/driver leak signal. 'unknown' on Linux")
+      .add_optional_int_var("compressed", type_size, [](auto obj) { return obj->get_compressed(); }, "unknown",
+                   "macOS: bytes held by the memory compressor - growth means memory pressure the host is absorbing by compressing rather than swapping. 'unknown' on Linux")
+      .add_int_var("cache", type_size, &kernel_memory_obj::get_cache, "Page-cache bytes (Cached in /proc/meminfo; file-backed pages on macOS)");
   registry_.add_float("page_faults_per_sec", &kernel_memory_obj::get_page_faults,
-                      "Total page faults per second, soft + hard (pgfault in /proc/vmstat). Dominated by cheap soft faults and routinely very large on a "
-                      "healthy host — alert on major_faults_per_sec instead")
+                      "Total page faults per second, soft + hard (pgfault in /proc/vmstat, faults in the macOS VM statistics). Dominated by cheap soft "
+                      "faults and routinely very large on a healthy host — alert on major_faults_per_sec instead")
       .add_float("major_faults_per_sec", &kernel_memory_obj::get_major_faults,
-                 "Major (hard) faults per second (pgmajfault in /proc/vmstat): faults that had to read from disk — the fault-storm signal");
+                 "Major (hard) faults per second (pgmajfault in /proc/vmstat; pageins on macOS): faults that had to read from disk — the fault-storm signal");
   // Render the byte gauges human-readable; expressions keep comparing bytes.
   registry_.add_human_string_context("slab", &kernel_memory_obj::get_slab_human, "Total slab as a human-readable size")
       .add_human_string_context("slab_unreclaimable", &kernel_memory_obj::get_slab_unreclaimable_human, "Unreclaimable slab as a human-readable size")
+      .add_human_string_context("wired", &kernel_memory_obj::get_wired_human, "Wired memory as a human-readable size")
+      .add_human_string_context("compressed", &kernel_memory_obj::get_compressed_human, "Compressed memory as a human-readable size")
       .add_human_string_context("cache", &kernel_memory_obj::get_cache_human, "Page cache as a human-readable size");
   // clang-format on
 }
@@ -139,9 +147,16 @@ void check_from(const PB::Commands::QueryRequestMessage::Request &request, PB::C
   // (baseline, then pin) and fault-storm levels are site policy. Mirrors the
   // Windows check_kernel_memory contract.
   filter_helper.add_options("", "", "", filter_.get_filter_syntax(), "ignored");
-  filter_helper.add_syntax("${status}: ${list}", "slab ${slab} (${slab_unreclaimable} unreclaimable), cache ${cache}, ${major_faults_per_sec} major faults/s",
+  // The detail line names the gauges this kernel has: slab on Linux, wired
+  // and compressed on macOS. Decided from the row rather than the platform,
+  // so the shared code carries no platform test.
+  const bool has_slab = static_cast<bool>(data.slab) || !data.wired;
+  filter_helper.add_syntax("${status}: ${list}",
+                           has_slab ? "slab ${slab} (${slab_unreclaimable} unreclaimable), cache ${cache}, ${major_faults_per_sec} major faults/s"
+                                    : "wired ${wired}, compressed ${compressed}, cache ${cache}, ${major_faults_per_sec} major faults/s",
                            "kernel", "", "");
-  filter_helper.set_default_perf_config("extra(slab;slab_reclaimable;slab_unreclaimable;cache;page_faults_per_sec;major_faults_per_sec)");
+  // Gauges a kernel does not have emit no perf data, so one list serves both.
+  filter_helper.set_default_perf_config("extra(slab;slab_reclaimable;slab_unreclaimable;wired;compressed;cache;page_faults_per_sec;major_faults_per_sec)");
 
   if (!filter_helper.parse_options()) return;
   if (!filter_helper.build_filter(filter_)) return;
@@ -150,25 +165,6 @@ void check_from(const PB::Commands::QueryRequestMessage::Request &request, PB::C
   filter_.match(record);
 
   filter_helper.post_process(filter_);
-}
-
-void check_kernel_memory(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  const vmstat_faults prev = parse_vmstat_faults(read_file("/proc/vmstat"));
-  if (!prev.valid) {
-    return nscapi::protobuf::functions::set_response_bad(*response, "Failed to read /proc/vmstat");
-  }
-  // Rates are divided by the interval actually slept, not the requested one:
-  // on a loaded host the wake-up can be noticeably late and a fixed 1.0 would
-  // overstate the fault rates.
-  const std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
-  std::this_thread::sleep_for(std::chrono::seconds(1));
-  const double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
-  const vmstat_faults cur = parse_vmstat_faults(read_file("/proc/vmstat"));
-  const meminfo_kernel mem = parse_meminfo_kernel(read_file("/proc/meminfo"));
-  if (!cur.valid || !mem.valid) {
-    return nscapi::protobuf::functions::set_response_bad(*response, "Failed to read /proc/vmstat or /proc/meminfo");
-  }
-  check_from(request, response, compute_kernel_memory(mem, prev, cur, elapsed));
 }
 
 }  // namespace kernel_memory_check

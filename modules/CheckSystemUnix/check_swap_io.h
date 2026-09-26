@@ -56,6 +56,9 @@ typedef modern_filter::modern_filters<swap_obj, filter_obj_handler> filter_type;
 void check_swap_io_from(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                         const vmstat_swap &prev, const vmstat_swap &cur, double elapsed_seconds, long long swap_count, long long page_size);
 
+// The live check: two samples one second apart. Defined per platform
+// (/proc/vmstat and /proc/swaps on Linux, host_statistics64 and vm.swapusage
+// on Darwin).
 void check_swap_io(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 
 }  // namespace swap_io_check

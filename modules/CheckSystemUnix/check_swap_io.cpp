@@ -16,14 +16,6 @@
 namespace swap_io_check {
 
 namespace {
-std::string read_file(const std::string &path) {
-  std::ifstream ifs(path.c_str());
-  if (!ifs.is_open()) return "";
-  std::stringstream ss;
-  ss << ifs.rdbuf();
-  return ss.str();
-}
-
 double rate_of(unsigned long long cur, unsigned long long prev, double dt) {
   if (cur < prev || dt <= 0) return 0.0;
   return static_cast<double>(cur - prev) / dt;
@@ -79,7 +71,8 @@ swap_obj compute_swap_io(const vmstat_swap &prev, const vmstat_swap &cur, double
 
 filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("name", &swap_obj::get_name, "Always 'swap' (single aggregate row)");
-  registry_.add_int_var("swap_count", &swap_obj::get_swap_count, "Number of active swap devices");
+  registry_.add_int_var("swap_count", &swap_obj::get_swap_count,
+                        "Number of active swap devices (on macOS 1 while the dynamic swap files are in use, else 0)");
   // Perf is emitted via the extra() perf-config; the default perf generator
   // names each metric "io_<keyword>" (e.g. io_swap_in, io_swap_in_bytes).
   registry_.add_float("swap_in", &swap_obj::get_swap_in, "Pages swapped in per second");
@@ -106,22 +99,6 @@ void check_swap_io_from(const PB::Commands::QueryRequestMessage::Request &reques
   filter.match(record);
 
   filter_helper.post_process(filter);
-}
-
-void check_swap_io(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  const vmstat_swap prev = parse_vmstat_swap(read_file("/proc/vmstat"));
-  if (!prev.valid) {
-    return nscapi::protobuf::functions::set_response_bad(*response, "Failed to read /proc/vmstat");
-  }
-  std::this_thread::sleep_for(std::chrono::seconds(1));
-  const vmstat_swap cur = parse_vmstat_swap(read_file("/proc/vmstat"));
-  if (!cur.valid) {
-    return nscapi::protobuf::functions::set_response_bad(*response, "Failed to read /proc/vmstat");
-  }
-  long long page_size = sysconf(_SC_PAGESIZE);
-  if (page_size <= 0) page_size = 4096;
-  const long long swap_count = count_swaps(read_file("/proc/swaps"));
-  check_swap_io_from(request, response, prev, cur, 1.0, swap_count, page_size);
 }
 
 }  // namespace swap_io_check

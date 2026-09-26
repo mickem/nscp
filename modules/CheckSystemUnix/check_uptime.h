@@ -22,6 +22,11 @@ struct filter_obj_handler : public native_context {
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 }  // namespace check_uptime_filter
 
+// Seconds since the machine booted. Defined per platform: /proc/uptime on
+// Linux, kern.boottime on Darwin. On failure returns false with `error`
+// naming the source that could not be read.
+bool read_uptime_seconds(double &uptime_secs, std::string &error);
+
 void check_uptime(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                   const std::string &timezone);
 }  // namespace checks

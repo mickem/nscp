@@ -3,11 +3,6 @@
 
 #include "check_uptime.h"
 
-#include <iosfwd>
-#include <locale>
-
-#define UPTIME_FILE "/proc/uptime"
-
 #include <boost/assign.hpp>
 #include <cmath>
 #include <list>
@@ -65,21 +60,6 @@ filter_obj_handler::filter_obj_handler() {
 
 }  // namespace checks
 
-bool get_uptime(double &uptime_secs, double &idle_secs) {
-  try {
-    std::locale mylocale("C");
-    std::ifstream uptime_file;
-    uptime_file.imbue(mylocale);
-    uptime_file.open(UPTIME_FILE);
-    if (!uptime_file.is_open()) return false;
-    uptime_file >> uptime_secs >> idle_secs;
-    uptime_file.close();
-  } catch (const std::exception &e) {
-    return false;
-  }
-  return true;
-}
-
 void checks::check_uptime(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                           const std::string &timezone) {
   typedef check_uptime_filter::filter filter_type;
@@ -109,10 +89,11 @@ void checks::check_uptime(const PB::Commands::QueryRequestMessage::Request &requ
 
   if (!filter_helper.build_filter(filter)) return;
 
-  double uptime_secs = 0, idle_secs = 0;
+  double uptime_secs = 0;
+  std::string error;
   // Honor read failure so we don't silently report an uptime of 0.
-  if (!get_uptime(uptime_secs, idle_secs)) {
-    nscapi::protobuf::functions::set_response_bad(*response, "Failed to read " UPTIME_FILE);
+  if (!read_uptime_seconds(uptime_secs, error)) {
+    nscapi::protobuf::functions::set_response_bad(*response, error);
     return;
   }
   unsigned long long value = uptime_secs;

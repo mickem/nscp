@@ -23,6 +23,7 @@
 
 #include "collector_source.h"
 #include "interfaces_darwin.h"
+#include "mach_stats_darwin.h"
 
 namespace collector_source {
 
@@ -69,20 +70,9 @@ struct vm_pages {
 
 vm_pages read_vm_pages() {
   vm_pages out;
-  std::memset(&out.stats, 0, sizeof(out.stats));
-  vm_size_t page_size = 0;
-  if (host_page_size(mach_host_self(), &page_size) != KERN_SUCCESS || page_size == 0) {
-    NSC_LOG_ERROR("Failed to read memory info: host_page_size failed");
-    return out;
-  }
-  mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
-  const kern_return_t kr = host_statistics64(mach_host_self(), HOST_VM_INFO64, reinterpret_cast<host_info64_t>(&out.stats), &count);
-  if (kr != KERN_SUCCESS) {
-    NSC_LOG_ERROR("Failed to read memory info: host_statistics64 returned " + std::to_string(kr));
-    return out;
-  }
-  out.page_size = page_size;
-  out.ok = true;
+  std::string error;
+  out.ok = mach_stats::read_vm_statistics(out.stats, out.page_size, error);
+  if (!out.ok) NSC_LOG_ERROR("Failed to read memory info: " + error);
   return out;
 }
 
