@@ -923,8 +923,17 @@ void write_changed_key_mod(msi_helper &h, msi_helper::custom_action_data_w &data
   write_key_mod(h, data, 1, key, val);
 }
 
+// Writes a property given on the command line, if it was given.
+//
+// The BARE property, not KEY_<prop>. The KEY_ namespace is the dialog's working
+// copy: a control writes it, and ImportConfig's applyPropertyValue() copies the
+// command line into it for each property the dialog owns. The options here have
+// no control and are in no such list, so KEY_<prop> was always empty - which is
+// why every NSCA_* and OP5_* option silently wrote nothing, whatever the
+// operator passed. There is no change detection to lose: unlike
+// write_changed_key, this writes whenever the value is non-empty.
 bool write_property_if_set(msi_helper &h, msi_helper::custom_action_data_w &data, const std::wstring prop, std::wstring path, std::wstring key) {
-  std::wstring val = boost::algorithm::trim_copy(h.getProperyKey(prop));
+  std::wstring val = boost::algorithm::trim_copy(h.getMsiPropery(prop));
   if (!val.empty()) {
     h.logMessage(L"write_property_if_set: " + prop + L"; <modules>." + key + L"=" + val);
     write_key(h, data, 1, path, key, val);
@@ -940,7 +949,7 @@ bool write_property_if_set(msi_helper &h, msi_helper::custom_action_data_w &data
 // reports, so it gets the property name and whether anything was written -
 // never the value. (write_changed_password_key does the same for NSCLIENT_PWD.)
 bool write_property_if_set_secret(msi_helper &h, msi_helper::custom_action_data_w &data, const std::wstring prop, std::wstring path, std::wstring key) {
-  std::wstring val = boost::algorithm::trim_copy(h.getProperyKey(prop));
+  std::wstring val = boost::algorithm::trim_copy(h.getMsiPropery(prop));
   if (!val.empty()) {
     h.logMessage(L"write_property_if_set: " + prop + L" (value not logged); " + path + L"." + key);
     write_key(h, data, 1, path, key, val);

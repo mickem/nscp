@@ -45,8 +45,9 @@ masked_values:
   # NSCA encrypts with its key rather than verifying it, so hashing it would
   # leave a key nobody has: it must survive the install verbatim.
   "/settings/NSCA/client/targets/default": the-nsca-key
-  # The shared inbound password is generated here, and generated or given it is
-  # stored hashed.
-  "/settings/default": hashed
+  # No NSCLIENT_PWD here, so the installer generated the shared password itself,
+  # and a generated one stays readable - see normal-install.yaml. Hashing is for
+  # a password that came from outside the installer.
+  "/settings/default": clear
   # And the two never get confused for one another.
   "/settings/NSCA/server": absent
