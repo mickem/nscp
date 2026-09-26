@@ -42,6 +42,12 @@ you do have to move it** — see the second point. Three things change:
 password = <the NSCA key>
 ```
 
+  or, equivalently:
+
+```commandline
+nscp nsca install --server --password <the key every submitting host uses>
+```
+
   A host that also *submits* NSCA configures that separately, because the two
   keys are shared with different peers — the listening key with the hosts
   submitting here, the client key with the daemon this agent submits to:
@@ -50,9 +56,12 @@ password = <the NSCA key>
 nscp nsca install --host <nsca-server> --password <the key from that daemon's nsca.cfg> --encryption aes256
 ```
 
-  That is a new command; it writes `[/settings/NSCA/client/targets/default]`
-  and enables `NSCAClient`. It never writes the server's key, and warns when an
-  enabled `NSCAServer` is still missing one. The Windows installer takes the same values as
+  `nsca install` is a new command. Without `--server` it configures submission
+  only — it writes `[/settings/NSCA/client/targets/default]` and enables
+  `NSCAClient`, never touching the server's section, and warns when an enabled
+  `NSCAServer` is still missing a key. With `--server` it configures the
+  listener instead: `[/settings/NSCA/server]` and `NSCAServer`. It refuses to
+  write a listener with a cipher and no key, since that one cannot start. The Windows installer takes the same values as
   `NSCA_SERVER`, `NSCA_PORT`, `NSCA_PASSWORD`, `NSCA_ENCRYPTION` and
   `NSCA_HOSTNAME`. Re-running `nscp web install` *without* `--password` now
   leaves an existing clear-text shared value alone, so a certificate rotation

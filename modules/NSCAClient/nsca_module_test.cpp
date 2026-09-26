@@ -265,6 +265,71 @@ TEST_F(NscaModule, InstallStaysQuietWhenNSCAServerHasItsOwnKey) {
   EXPECT_TRUE(response.payload(0).message().find("NSCAServer is enabled") == std::string::npos) << response.payload(0).message();
 }
 
+// --server: the listening side, which is a separate command invocation with a
+// separate key, because it is shared with the hosts submitting here.
+
+TEST_F(NscaModule, InstallServerWritesTheServerSectionAndEnablesTheModule) {
+  ASSERT_TRUE(load());
+  PB::Commands::ExecuteResponseMessage response;
+  ASSERT_TRUE(module_.commandLineExec(NSCAPI::target_module,
+                                      install_request({"--server", "--password", "the-listening-key", "--port", "5777", "--encryption", "xor"}),
+                                      response));
+  ASSERT_EQ(response.payload(0).result(), PB::Common::ResultCode::OK) << response.payload(0).message();
+
+  EXPECT_EQ(core().updated_value("NSCAServer"), "enabled");
+  EXPECT_EQ(core().updated_value("password"), "the-listening-key");
+  EXPECT_EQ(core().updated_value("port"), "5777");
+  EXPECT_EQ(core().updated_value("encryption"), "xor");
+  for (const auto &update : core().updated_settings()) {
+    EXPECT_NE(update.path, "/settings/default") << "wrote " << update.key << " into the shared inbound password section";
+    if (update.key == "password") EXPECT_EQ(update.path, "/settings/NSCA/server");
+  }
+}
+
+TEST_F(NscaModule, InstallServerDoesNotTouchTheClientTarget) {
+  ASSERT_TRUE(load());
+  PB::Commands::ExecuteResponseMessage response;
+  ASSERT_TRUE(module_.commandLineExec(NSCAPI::target_module, install_request({"--server", "--password", "the-listening-key"}), response));
+  ASSERT_EQ(response.payload(0).result(), PB::Common::ResultCode::OK) << response.payload(0).message();
+  // Configuring the listener must not enable submission or invent a target.
+  for (const auto &update : core().updated_settings()) {
+    EXPECT_NE(update.path, kTarget) << "wrote " << update.key << " into the client target";
+    EXPECT_NE(update.key, "NSCAClient") << "enabled the client while configuring the server";
+  }
+}
+
+TEST_F(NscaModule, InstallServerRefusesWithoutAKey) {
+  ASSERT_TRUE(load());
+  PB::Commands::ExecuteResponseMessage response;
+  ASSERT_TRUE(module_.commandLineExec(NSCAPI::target_module, install_request({"--server"}), response));
+  // A cipher with no key is a well-known key, and the module would decline to
+  // load - so the command refuses rather than writing that configuration.
+  EXPECT_EQ(response.payload(0).result(), PB::Common::ResultCode::UNKNOWN) << response.payload(0).message();
+  EXPECT_TRUE(response.payload(0).message().find("--password") != std::string::npos) << response.payload(0).message();
+  EXPECT_TRUE(core().updated_settings().empty()) << "wrote settings for a server that cannot start";
+}
+
+TEST_F(NscaModule, InstallServerAcceptsNoKeyWithEncryptionOff) {
+  ASSERT_TRUE(load());
+  PB::Commands::ExecuteResponseMessage response;
+  ASSERT_TRUE(module_.commandLineExec(NSCAPI::target_module, install_request({"--server", "--encryption", "none"}), response));
+  ASSERT_EQ(response.payload(0).result(), PB::Common::ResultCode::OK) << response.payload(0).message();
+  EXPECT_EQ(core().updated_value("encryption"), "none");
+  EXPECT_TRUE(response.payload(0).message().find("encryption is off") != std::string::npos) << response.payload(0).message();
+}
+
+TEST_F(NscaModule, InstallServerRefusesSubmissionOnlyOptions) {
+  ASSERT_TRUE(load());
+  PB::Commands::ExecuteResponseMessage response;
+  ASSERT_TRUE(module_.commandLineExec(NSCAPI::target_module,
+                                      install_request({"--server", "--password", "k", "--host", "nagios.example.com"}), response));
+  // Silently ignoring --host would leave the operator thinking submission was
+  // configured too.
+  EXPECT_EQ(response.payload(0).result(), PB::Common::ResultCode::UNKNOWN) << response.payload(0).message();
+  EXPECT_TRUE(response.payload(0).message().find("--host") != std::string::npos) << response.payload(0).message();
+  EXPECT_TRUE(core().updated_settings().empty());
+}
+
 TEST_F(NscaModule, InstallNeverWritesTheNSCAServerKey) {
   core().set_setting("/modules", "NSCAServer", "enabled");
   ASSERT_TRUE(load());
@@ -274,8 +339,10 @@ TEST_F(NscaModule, InstallNeverWritesTheNSCAServerKey) {
   ASSERT_EQ(response.payload(0).result(), PB::Common::ResultCode::OK) << response.payload(0).message();
   // Warning the operator is as far as it goes: the listening key is shared with
   // different peers, so this command must not guess it from the client target.
+  // Without --server the default really is client-only.
   for (const auto &update : core().updated_settings()) {
     EXPECT_NE(update.path, "/settings/NSCA/server") << "wrote " << update.key << " into the NSCA server section";
+    EXPECT_NE(update.key, "NSCAServer") << "enabled the server while configuring submission";
   }
 }
 

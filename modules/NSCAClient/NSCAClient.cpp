@@ -154,15 +154,23 @@ bool NSCAClient::commandLineExec(int target_mode, const PB::Commands::ExecuteReq
   return false;
 }
 
+namespace {
+const std::string kTargetPath = "/settings/NSCA/client/targets/default";
+const std::string kClientPath = "/settings/NSCA/client";
+const std::string kServerPath = "/settings/NSCA/server";
+
+// True for a /modules value that actually loads the module.
+bool module_is_enabled(const std::string &value) {
+  return !value.empty() && value != "disabled" && value != "0" && value != "false";
+}
+}  // namespace
+
 bool NSCAClient::cli_install(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) const {
   namespace pf = nscapi::protobuf::functions;
   po::options_description desc;
 
-  const std::string target_path = "/settings/NSCA/client/targets/default";
-  const std::string client_path = "/settings/NSCA/client";
-  const std::string server_path = "/settings/NSCA/server";
-
-  std::string host, port, password, encryption, hostname;
+  install_args args;
+  bool server = false;
 
   // options_description takes a const char*, and the cipher list is computed,
   // so it needs a string that outlives the add_options() call below. (The
@@ -173,16 +181,21 @@ bool NSCAClient::cli_install(const PB::Commands::ExecuteRequestMessage::Request 
 
   // clang-format off
   desc.add_options()("help", "Show help.")
-      ("host", po::value<std::string>(&host), "Address of the NSCA server (the machine running the nsca daemon) to submit results to.")
-      ("port", po::value<std::string>(&port), "Port the nsca daemon listens on (5667 unless it was changed).")
-      ("password", po::value<std::string>(&password),
-       "The shared key. NSCA encrypts with it rather than verifying it, so it has to be the same string as `password` in the daemon's nsca.cfg, "
-       "and it is stored in clear text because a hash is not a key. It is not the /settings/default password the web UI and check_nt verify "
-       "callers against, and not the key NSCAServer uses for hosts submitting *to* this agent - that one is set under /settings/NSCA/server.")
-      ("encryption", po::value<std::string>(&encryption), encryption_help.c_str())
-      ("hostname", po::value<std::string>(&hostname),
+      ("server", po::value<bool>(&server)->implicit_value(true)->default_value(false),
+       "Configure the *listening* side (NSCAServer) - the port this agent accepts NSCA submissions on and the key the hosts submitting to it use. "
+       "Without it only submission is configured, which is what almost every agent wants. The two sides have separate keys on purpose: they are "
+       "shared with different peers, and NSCAServer reads neither the client's key nor /settings/default.")
+      ("host", po::value<std::string>(&args.host), "Address of the NSCA server (the machine running the nsca daemon) to submit results to.")
+      ("port", po::value<std::string>(&args.port),
+       "Port to use: the one the nsca daemon listens on (5667 unless it was changed), or with --server the port to listen on.")
+      ("password", po::value<std::string>(&args.password),
+       "The shared key. NSCA encrypts with it rather than verifying it, so it has to be the same string as `password` in the daemon's nsca.cfg - or, "
+       "with --server, the key every host submitting here uses. It is stored in clear text because a hash is not a key, and it is not the "
+       "/settings/default password the web UI and check_nt verify callers against.")
+      ("encryption", po::value<std::string>(&args.encryption), encryption_help.c_str())
+      ("hostname", po::value<std::string>(&args.hostname),
        "The host name to submit results as. It has to match the host as Nagios/Icinga knows it, not necessarily this machine's name; `auto` uses "
-       "the computer name.")
+       "the computer name. Submission only.")
       ;
   // clang-format on
 
@@ -199,102 +212,197 @@ bool NSCAClient::cli_install(const PB::Commands::ExecuteRequestMessage::Request 
       return true;
     }
 
-    // What is on disk already, so an option left out keeps its value. Also
-    // whether NSCAServer is running, because it needs a key of its own and an
-    // operator who has just set one here is the one to tell.
-    std::string current_address, current_port, current_password, current_encryption, current_hostname;
-    std::string nsca_server_module, nsca_server_password;
-    pf::settings_query q(get_id());
-    q.get(target_path, "address", "");
-    q.get(target_path, "port", "");
-    q.get(target_path, "password", "");
-    q.get(target_path, "encryption", "");
-    q.get(client_path, "hostname", "");
-    q.get("/modules", "NSCAServer", "");
-    q.get(server_path, "password", "");
-    get_core()->settings_query(q.request(), q.response());
-    if (!q.validate_response()) {
-      pf::set_response_bad(*response, q.get_response_error());
-      return true;
+    if (server) {
+      // Submission-only options would silently do nothing here, and a typo in
+      // which side is being configured is worth a refusal rather than a
+      // half-configured agent.
+      if (!args.host.empty() || !args.hostname.empty()) {
+        pf::set_response_bad(*response,
+                             "--host and --hostname configure submission, not the listening side. With --server pass --port, --password and "
+                             "--encryption; run the command again without --server to point this agent at a daemon.");
+        return true;
+      }
+      return install_server(args, response);
     }
-    for (const pf::settings_query::key_values &val : q.get_query_key_response()) {
-      if (val.matches(target_path, "address"))
-        current_address = val.get_string();
-      else if (val.matches(target_path, "port"))
-        current_port = val.get_string();
-      else if (val.matches(target_path, "password"))
-        current_password = val.get_string();
-      else if (val.matches(target_path, "encryption"))
-        current_encryption = val.get_string();
-      else if (val.matches(client_path, "hostname"))
-        current_hostname = val.get_string();
-      else if (val.matches("/modules", "NSCAServer"))
-        nsca_server_module = val.get_string();
-      else if (val.matches(server_path, "password"))
-        nsca_server_password = val.get_string();
-    }
-
-    if (host.empty()) host = current_address;
-    if (port.empty()) port = current_port;
-    if (password.empty()) password = current_password;
-    if (encryption.empty()) encryption = current_encryption;
-    if (hostname.empty()) hostname = current_hostname;
-
-    // A submission with nowhere to go is the one thing worth refusing over: the
-    // module would load, register its channel and drop every result.
-    if (host.empty()) {
-      pf::set_response_bad(*response,
-                           "No NSCA server to submit to. Pass --host <address of the machine running the nsca daemon>; --port, --password, "
-                           "--encryption and --hostname are optional and keep their current values when left out.");
-      return true;
-    }
-    // Only default the cipher on a fresh target, so a re-run never silently
-    // changes a cipher the daemon is configured for.
-    if (encryption.empty()) encryption = "aes256";
-
-    std::stringstream result;
-    pf::settings_query s(get_id());
-    s.set("/modules", "NSCAClient", "enabled");
-    s.set(target_path, "address", host);
-    if (!port.empty()) s.set(target_path, "port", port);
-    s.set(target_path, "encryption", encryption);
-    s.set(target_path, "password", password);
-    if (!hostname.empty()) s.set(client_path, "hostname", hostname);
-    s.save();
-    get_core()->settings_query(s.request(), s.response());
-    if (!s.validate_response()) {
-      pf::set_response_bad(*response, s.get_response_error());
-      return true;
-    }
-
-    result << "Submitting NSCA results to " << host << (port.empty() ? "" : ":" + port) << " with encryption " << encryption << "." << std::endl;
-    if (!hostname.empty()) {
-      result << "Submitting as host name " << hostname << "." << std::endl;
-    }
-    if (password.empty()) {
-      result << "WARNING: no password set. NSCA derives its key from the password, so an empty one is a well-known key: anyone who can reach the" << std::endl;
-      result << "         daemon can forge submissions. Pass --password <the key from the daemon's nsca.cfg>." << std::endl;
-    } else {
-      result << "The key must match `password` in the daemon's nsca.cfg, and the cipher its `decryption_method`." << std::endl;
-    }
-    // The listening side does not borrow this key - it is the secret shared with
-    // a remote daemon, not with the hosts submitting here - and it refuses to
-    // start without one of its own. An operator who just configured submission
-    // is the one to tell, before the next restart drops the server.
-    const bool server_enabled =
-        !nsca_server_module.empty() && nsca_server_module != "disabled" && nsca_server_module != "0" && nsca_server_module != "false";
-    if (server_enabled && nsca_server_password.empty()) {
-      result << "WARNING: NSCAServer is enabled but has no key of its own, and it does not use this one: this key is shared with the" << std::endl;
-      result << "         daemon above, not with the hosts submitting to this agent. It refuses to start until you set" << std::endl;
-      result << "         password=<the key those hosts use> under [" << server_path << "]." << std::endl;
-    }
-    result << "Restart nsclient++ for the change to take effect." << std::endl;
-    pf::set_response_good(*response, result.str());
-    return true;
+    return install_client(args, response);
   } catch (const std::exception &e) {
     nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
     return true;
   }
+}
+
+bool NSCAClient::install_client(const install_args &in, PB::Commands::ExecuteResponseMessage::Response *response) const {
+  namespace pf = nscapi::protobuf::functions;
+  install_args args = in;
+  const std::string &target_path = kTargetPath;
+  const std::string &client_path = kClientPath;
+  const std::string &server_path = kServerPath;
+
+  // What is on disk already, so an option left out keeps its value. Also
+  // whether NSCAServer is running, because it needs a key of its own and an
+  // operator who has just set one here is the one to tell.
+  std::string current_address, current_port, current_password, current_encryption, current_hostname;
+  std::string nsca_server_module, nsca_server_password;
+  pf::settings_query q(get_id());
+  q.get(target_path, "address", "");
+  q.get(target_path, "port", "");
+  q.get(target_path, "password", "");
+  q.get(target_path, "encryption", "");
+  q.get(client_path, "hostname", "");
+  q.get("/modules", "NSCAServer", "");
+  q.get(server_path, "password", "");
+  get_core()->settings_query(q.request(), q.response());
+  if (!q.validate_response()) {
+    pf::set_response_bad(*response, q.get_response_error());
+    return true;
+  }
+  for (const pf::settings_query::key_values &val : q.get_query_key_response()) {
+    if (val.matches(target_path, "address"))
+      current_address = val.get_string();
+    else if (val.matches(target_path, "port"))
+      current_port = val.get_string();
+    else if (val.matches(target_path, "password"))
+      current_password = val.get_string();
+    else if (val.matches(target_path, "encryption"))
+      current_encryption = val.get_string();
+    else if (val.matches(client_path, "hostname"))
+      current_hostname = val.get_string();
+    else if (val.matches("/modules", "NSCAServer"))
+      nsca_server_module = val.get_string();
+    else if (val.matches(server_path, "password"))
+      nsca_server_password = val.get_string();
+  }
+
+  if (args.host.empty()) args.host = current_address;
+  if (args.port.empty()) args.port = current_port;
+  if (args.password.empty()) args.password = current_password;
+  if (args.encryption.empty()) args.encryption = current_encryption;
+  if (args.hostname.empty()) args.hostname = current_hostname;
+
+  // A submission with nowhere to go is the one thing worth refusing over: the
+  // module would load, register its channel and drop every result.
+  if (args.host.empty()) {
+    pf::set_response_bad(*response,
+                         "No NSCA server to submit to. Pass --host <address of the machine running the nsca daemon>; --port, --password, "
+                         "--encryption and --hostname are optional and keep their current values when left out.");
+    return true;
+  }
+  // Only default the cipher on a fresh target, so a re-run never silently
+  // changes a cipher the daemon is configured for.
+  if (args.encryption.empty()) args.encryption = "aes256";
+
+  std::stringstream result;
+  pf::settings_query s(get_id());
+  s.set("/modules", "NSCAClient", "enabled");
+  s.set(target_path, "address", args.host);
+  if (!args.port.empty()) s.set(target_path, "port", args.port);
+  s.set(target_path, "encryption", args.encryption);
+  s.set(target_path, "password", args.password);
+  if (!args.hostname.empty()) s.set(client_path, "hostname", args.hostname);
+  s.save();
+  get_core()->settings_query(s.request(), s.response());
+  if (!s.validate_response()) {
+    pf::set_response_bad(*response, s.get_response_error());
+    return true;
+  }
+
+  result << "Submitting NSCA results to " << args.host << (args.port.empty() ? "" : ":" + args.port) << " with encryption " << args.encryption
+         << "." << std::endl;
+  if (!args.hostname.empty()) {
+    result << "Submitting as host name " << args.hostname << "." << std::endl;
+  }
+  if (args.password.empty()) {
+    result << "WARNING: no password set. NSCA derives its key from the password, so an empty one is a well-known key: anyone who can reach the" << std::endl;
+    result << "         daemon can forge submissions. Pass --password <the key from the daemon's nsca.cfg>." << std::endl;
+  } else {
+    result << "The key must match `password` in the daemon's nsca.cfg, and the cipher its `decryption_method`." << std::endl;
+  }
+  // The listening side does not borrow this key - it is the secret shared with
+  // a remote daemon, not with the hosts submitting here - and it refuses to
+  // start without one of its own. An operator who just configured submission
+  // is the one to tell, before the next restart drops the server.
+  if (module_is_enabled(nsca_server_module) && nsca_server_password.empty()) {
+    result << "WARNING: NSCAServer is enabled but has no key of its own, and it does not use this one: this key is shared with the" << std::endl;
+    result << "         daemon above, not with the hosts submitting to this agent. It refuses to start until you set" << std::endl;
+    result << "         password=<the key those hosts use> under [" << server_path << "], or run `nscp nsca install --server" << std::endl;
+    result << "         --password <that key>`." << std::endl;
+  }
+  result << "Restart nsclient++ for the change to take effect." << std::endl;
+  pf::set_response_good(*response, result.str());
+  return true;
+}
+
+bool NSCAClient::install_server(const install_args &in, PB::Commands::ExecuteResponseMessage::Response *response) const {
+  namespace pf = nscapi::protobuf::functions;
+  install_args args = in;
+  const std::string &server_path = kServerPath;
+
+  // As on the client side, an option left out keeps what is on disk.
+  std::string current_port, current_password, current_encryption;
+  pf::settings_query q(get_id());
+  q.get(server_path, "port", "");
+  q.get(server_path, "password", "");
+  q.get(server_path, "encryption", "");
+  get_core()->settings_query(q.request(), q.response());
+  if (!q.validate_response()) {
+    pf::set_response_bad(*response, q.get_response_error());
+    return true;
+  }
+  for (const pf::settings_query::key_values &val : q.get_query_key_response()) {
+    if (val.matches(server_path, "port"))
+      current_port = val.get_string();
+    else if (val.matches(server_path, "password"))
+      current_password = val.get_string();
+    else if (val.matches(server_path, "encryption"))
+      current_encryption = val.get_string();
+  }
+
+  if (args.port.empty()) args.port = current_port;
+  if (args.password.empty()) args.password = current_password;
+  if (args.encryption.empty()) args.encryption = current_encryption;
+  // Only default the cipher on a fresh section, so a re-run never silently
+  // changes a cipher the submitting hosts are configured for.
+  if (args.encryption.empty()) args.encryption = "aes256";
+
+  // The names encryption_to_int() maps to no_encryption; the cipher has been
+  // defaulted above, so it is never empty here.
+  const bool encrypted = args.encryption != "none" && args.encryption != "0";
+  // Writing a server that cannot start is worse than refusing: with a cipher
+  // and no key it declines to load, because an empty password is a well-known
+  // key anyone who can reach the port could forge submissions with.
+  if (encrypted && args.password.empty()) {
+    pf::set_response_bad(*response,
+                         "No key for the listening side. NSCA derives its key from the password, so an empty one is a well-known key and the server "
+                         "refuses to start with it. Pass --password <the key every host submitting here uses>, or --encryption none if the payload "
+                         "genuinely needs no protection.");
+    return true;
+  }
+
+  std::stringstream result;
+  pf::settings_query s(get_id());
+  s.set("/modules", "NSCAServer", "enabled");
+  if (!args.port.empty()) s.set(server_path, "port", args.port);
+  s.set(server_path, "encryption", args.encryption);
+  s.set(server_path, "password", args.password);
+  s.save();
+  get_core()->settings_query(s.request(), s.response());
+  if (!s.validate_response()) {
+    pf::set_response_bad(*response, s.get_response_error());
+    return true;
+  }
+
+  result << "Accepting NSCA submissions on port " << (args.port.empty() ? "5667" : args.port) << " with encryption " << args.encryption << "."
+         << std::endl;
+  if (encrypted) {
+    result << "The key must match what every submitting host sends with: `password` in another agent's NSCA client target, or in nsca.cfg."
+           << std::endl;
+  } else {
+    result << "WARNING: encryption is off, so submissions are accepted in the clear and anyone who can reach the port can forge them." << std::endl;
+  }
+  result << "This key is the listening side's own; submission to a remote daemon is configured separately, without --server." << std::endl;
+  result << "Restart nsclient++ for the change to take effect." << std::endl;
+  pf::set_response_good(*response, result.str());
+  return true;
 }
 
 void NSCAClient::handleNotification(const std::string &, const PB::Commands::SubmitRequestMessage &request_message,

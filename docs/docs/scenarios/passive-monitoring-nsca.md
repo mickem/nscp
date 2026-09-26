@@ -272,7 +272,8 @@ password   = secret-password
 The password must match the password in the NSCA server's `nsca.cfg`, and the
 encryption its `decryption_method`. An option left off `nsca install` keeps
 whatever is already on disk, so a re-run to move the server does not reset the
-cipher.
+cipher. The command configures submission only; `--server` configures the other
+direction, where this agent *accepts* NSCA submissions.
 
 <!-- @formatter:off -->
 !!! note
@@ -283,7 +284,8 @@ cipher.
     it, so it needs the clear text and keeps it here. If this host also *runs*
     an NSCA server, that is a separate key: it is shared with the hosts
     submitting here, not with the daemon above, so set it under
-    `[/settings/NSCA/server]` — the server refuses to start without one.
+    `[/settings/NSCA/server]` (or with `nscp nsca install --server --password
+    <that key>`) — the server refuses to start without one.
 <!-- @formatter:on -->
 
 ---

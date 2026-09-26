@@ -8,9 +8,12 @@
  * The thing worth pinning is *where the key lands*. NSCA encrypts the payload
  * with the shared secret rather than verifying it, so it can never use the
  * hashed `/settings/default/password` the web UI and check_nt verify inbound
- * callers against. The key belongs with the client target, and nowhere else:
- * NSCAServer's key is shared with different peers, so this command warns about
- * it but never writes it.
+ * callers against. The key belongs with the client target, and nowhere else.
+ *
+ * The two directions are separate invocations: the default configures
+ * submission, `--server` configures the listener. They have separate keys
+ * because they are shared with different peers, so neither invocation writes
+ * the other's section.
  *
  * Runs the CLI against a scratch INI only: no server is started, and the
  * assertions read the file back.
@@ -139,6 +142,13 @@ describe("nscp nsca install", () => {
     expect(iniValue(fresh.settingsFile, SERVER, "password")).toBeUndefined();
   });
 
+  it("leaves the server section alone without --server", async () => {
+    // The default is client-only, so the listener is never enabled behind the
+    // operator's back.
+    expect(iniValue(nscp.settingsFile, SERVER, "password")).toBeUndefined();
+    expect(iniValue(nscp.settingsFile, "/modules", "NSCAServer")).toBeUndefined();
+  });
+
   it("stays quiet when NSCAServer has a key of its own", async () => {
     const fresh = new NscpInstance();
     await fresh.run(["settings", "--path", "/modules", "--key", "NSCAServer", "--set", "enabled"]);
@@ -161,5 +171,81 @@ describe("nscp nsca install", () => {
     ]);
     expect(r.all).not.toContain("NSCAServer is enabled");
     expect(iniValue(fresh.settingsFile, SERVER, "password")).toBe("a-different-key");
+  });
+});
+
+describe("nscp nsca install --server", () => {
+  const TARGET = "/settings/NSCA/client/targets/default";
+  const SERVER = "/settings/NSCA/server";
+  const SHARED = "/settings/default";
+
+  it("writes the server section and enables the listener", async () => {
+    const fresh = new NscpInstance();
+    const r = await fresh.run([
+      "nsca",
+      "install",
+      "--server",
+      "--password",
+      "the-listening-key",
+      "--port",
+      "5777",
+      "--encryption",
+      "xor",
+    ]);
+    expect(r.all).toContain("5777");
+    expect(iniValue(fresh.settingsFile, SERVER, "password")).toBe("the-listening-key");
+    expect(iniValue(fresh.settingsFile, SERVER, "port")).toBe("5777");
+    expect(iniValue(fresh.settingsFile, SERVER, "encryption")).toBe("xor");
+    expect(iniValue(fresh.settingsFile, "/modules", "NSCAServer")).toBe("enabled");
+    // The listening key is not the shared inbound password, and not the
+    // client's: configuring one side never configures the other.
+    expect(iniValue(fresh.settingsFile, SHARED, "password")).toBeUndefined();
+    expect(iniValue(fresh.settingsFile, TARGET, "password")).toBeUndefined();
+    expect(iniValue(fresh.settingsFile, "/modules", "NSCAClient")).toBeUndefined();
+  });
+
+  it("keeps what it was not given on a re-run", async () => {
+    const fresh = new NscpInstance();
+    await fresh.run(["nsca", "install", "--server", "--password", "k1", "--encryption", "xor"]);
+    await fresh.run(["nsca", "install", "--server", "--port", "5778"]);
+    expect(iniValue(fresh.settingsFile, SERVER, "port")).toBe("5778");
+    // Moving the port must not reset the cipher the submitting hosts use.
+    expect(iniValue(fresh.settingsFile, SERVER, "encryption")).toBe("xor");
+    expect(iniValue(fresh.settingsFile, SERVER, "password")).toBe("k1");
+  });
+
+  it("refuses a cipher with no key rather than writing a server that cannot start", async () => {
+    const fresh = new NscpInstance();
+    const r = await fresh.run(["nsca", "install", "--server"], { allowFailure: true });
+    expect(r.all).toContain("--password");
+    expect(iniValue(fresh.settingsFile, SERVER, "password")).toBeUndefined();
+    expect(iniValue(fresh.settingsFile, "/modules", "NSCAServer")).toBeUndefined();
+  });
+
+  it("accepts no key when encryption is off", async () => {
+    const fresh = new NscpInstance();
+    const r = await fresh.run(["nsca", "install", "--server", "--encryption", "none"]);
+    expect(r.all).toContain("encryption is off");
+    expect(iniValue(fresh.settingsFile, SERVER, "encryption")).toBe("none");
+    expect(iniValue(fresh.settingsFile, "/modules", "NSCAServer")).toBe("enabled");
+  });
+
+  it("refuses submission-only options", async () => {
+    const fresh = new NscpInstance();
+    const r = await fresh.run(
+      ["nsca", "install", "--server", "--password", "k", "--host", "nagios.example.com"],
+      { allowFailure: true },
+    );
+    // Silently ignoring --host would leave the operator thinking submission was
+    // configured too.
+    expect(r.all).toContain("--host");
+    expect(iniValue(fresh.settingsFile, SERVER, "password")).toBeUndefined();
+  });
+
+  it("takes --server=true, the way REST passes a flag", async () => {
+    const fresh = new NscpInstance();
+    const r = await fresh.run(["nsca", "install", "--server=true", "--password", "the-listening-key"]);
+    expect(iniValue(fresh.settingsFile, SERVER, "password")).toBe("the-listening-key");
+    expect(r.all).toContain("Accepting NSCA submissions");
   });
 });

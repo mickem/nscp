@@ -33,10 +33,27 @@ class NSCAClient : public nscapi::impl::simple_plugin {
  private:
   void add_command(const std::string &key, const std::string &args);
   void add_target(const std::string &key, const std::string &args);
-  // `nscp nsca install`: point this agent's NSCA submissions at a server, in
-  // one command instead of three `nscp settings --set` calls. Writes the
-  // default target (address, port, encryption and the shared key) and enables
-  // the module. An unspecified option keeps whatever is on disk, so a re-run to
-  // change one thing does not reset the rest.
+  // What `nsca install` was asked for. An empty field means the option was not
+  // given, and the value on disk stands - a re-run to change one thing does not
+  // reset the rest.
+  struct install_args {
+    std::string host;
+    std::string port;
+    std::string password;
+    std::string encryption;
+    std::string hostname;
+  };
+
+  // `nscp nsca install`: configure NSCA in one command instead of three
+  // `nscp settings --set` calls. Parses the options and hands off to one of the
+  // two sides below; which one is the whole point of --server.
   bool cli_install(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) const;
+  // The default: submission. Writes the default target (address, port,
+  // encryption and the shared key with the daemon) and enables NSCAClient.
+  bool install_client(const install_args &args, PB::Commands::ExecuteResponseMessage::Response *response) const;
+  // `--server`: the listening side. Writes /settings/NSCA/server (port,
+  // encryption and the key the submitting hosts use) and enables NSCAServer.
+  // A separate key on purpose: it is shared with different peers than the
+  // client's, and NSCAServer reads neither the client's nor /settings/default.
+  bool install_server(const install_args &args, PB::Commands::ExecuteResponseMessage::Response *response) const;
 };

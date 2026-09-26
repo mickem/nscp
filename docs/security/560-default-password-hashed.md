@@ -64,7 +64,9 @@ reachable only by pasting one in.
 That leaves the shared section holding only what it is for: passwords inbound
 protocols verify a caller against. `nscp nsca install --host <server>
 --password <key> --encryption <cipher>` configures the submission side in one
-command, and the Windows installer takes the same three as `NSCA_SERVER`,
+command, `nscp nsca install --server --password <key>` the listening side — two
+invocations for two keys, and neither writes the other's section — and the
+Windows installer takes the submission values as `NSCA_SERVER`,
 `NSCA_PASSWORD` and `NSCA_ENCRYPTION` (the key hidden, as a live credential
 should be).
 
