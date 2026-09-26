@@ -28,7 +28,7 @@ set(SRCS
     static_controller.cpp
     token_store.cpp
     user_manager.cpp
-    password_hash.cpp
+    ${NSCP_INCLUDEDIR}/nscp/password_hash.cpp
     name_safety.cpp
     grant_store.cpp
     session_manager_interface.cpp
@@ -138,8 +138,8 @@ NSCP_CREATE_TEST(
         session_manager_interface.cpp
         user_manager.cpp
         user_manager_test.cpp
-        password_hash.cpp
-        password_hash_test.cpp
+        ${NSCP_INCLUDEDIR}/nscp/password_hash.cpp
+        ${NSCP_INCLUDEDIR}/nscp/password_hash_test.cpp
         name_safety.cpp
         name_safety_test.cpp
         auth_rate_limiter_test.cpp

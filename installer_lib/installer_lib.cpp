@@ -38,6 +38,7 @@
 #include <list>
 #include <nscp/boot_layout.hpp>
 #include <nscp/layout_migration.hpp>
+#include <nscp/password_hash.hpp>
 #include <nscp/path_defaults.hpp>
 #include <win/acl.hpp>
 
@@ -460,7 +461,10 @@ std::wstring read_map_data(msi_helper &h) {
 
 void dump_config(msi_helper &h, std::wstring title) {
   h.dumpReason(title);
-  for (const auto key : {ALLOWED_HOSTS, NSCLIENT_PWD, CONF_SCHEDULER, CONF_CHECKS, CONF_NRPE, CONF_NSCA, CONF_WEB, CONF_NSCLIENT, NRPEMODE, CONFIGURATION_TYPE,
+  // NSCLIENT_PWD is deliberately not in this list: dumpProperties prints the
+  // value, and the KEY_/DEF_ pair for that one is a password (on an upgrade, the
+  // one already on disk).
+  for (const auto key : {ALLOWED_HOSTS, CONF_SCHEDULER, CONF_CHECKS, CONF_NRPE, CONF_NSCA, CONF_WEB, CONF_NSCLIENT, NRPEMODE, CONFIGURATION_TYPE,
                          CONF_INCLUDES, IMPORT_CONFIG}) {
     h.dumpProperties(key);
   }
@@ -505,7 +509,7 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
 
     if (tool == MONITORING_TOOL_OP5) {
       h.logMessage(L"Setting base config as Op5");
-      h.setPropertyKeyAndDefault(NSCLIENT_PWD, L"", L"");
+      h.setPropertyKeyAndDefaultSecret(NSCLIENT_PWD, L"", L"");
       h.setPropertyKeyAndDefault(CONF_CHECKS, L"1", L"");
       h.setPropertyKeyAndDefault(CONF_NRPE, L"1", L"");
       h.setPropertyKeyAndDefault(CONF_NSCA, L"1", L"");
@@ -529,7 +533,9 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
       h.logMessage(L"Setting base config as Generic");
       h.setPropertyKeyAndDefault(ALLOWED_HOSTS, L"127.0.0.1", L"");
 
-      h.setPropertyKeyAndDefault(NSCLIENT_PWD, genpwd(16), L"");
+      const std::wstring generated_password = genpwd(16);
+      h.setPropertyKeyAndDefaultSecret(NSCLIENT_PWD, generated_password, L"");
+      h.setGeneratedPassword(generated_password);
       h.setPropertyKeyAndDefault(CONF_CHECKS, L"1", L"");
       h.setPropertyKeyAndDefault(CONF_NRPE, L"1", L"");
       h.setPropertyKeyAndDefault(CONF_NSCA, L"", L"");
@@ -711,7 +717,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
     }
     if (settings_manager::get_settings()->has_key("/settings/default", "password")) {
       auto old_password = utf8::cvt<std::wstring>(settings_manager::get_settings()->get_string("/settings/default", "password", ""));
-      h.setPropertyKeyAndDefault(NSCLIENT_PWD, old_password, old_password);
+      h.setPropertyKeyAndDefaultSecret(NSCLIENT_PWD, old_password, old_password);
     }
 
     if (has_module("NRPEServer")) {
@@ -769,7 +775,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 
     h.logMessage(L"Determaining which keys have changed");
     h.applyPropertyValue(ALLOWED_HOSTS);
-    h.applyPropertyValue(NSCLIENT_PWD);
+    h.applyPropertyValue(NSCLIENT_PWD, true);
     h.applyPropertyValue(CONF_SCHEDULER);
     h.applyPropertyValue(CONF_CHECKS);
     h.applyPropertyValue(CONF_NRPE);
@@ -806,11 +812,23 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool write_config(msi_helper &h, std::wstring path, std::wstring file);
 
+// The settings keys whose value is a credential. The MSI log is written wherever
+// /l* points and goes into bug reports, so these are logged by key and never by
+// value - here, and again in ExecWriteConfig where the same tuples are read back
+// and applied. One rule rather than a flag at each call site, so a new writer
+// cannot forget: `password` covers the shared default, the NSCA target and op5.
+bool is_secret_key(const std::wstring &key) { return key == L"password"; }
+bool is_secret_key(const std::string &key) { return key == "password"; }
+
 void write_key(msi_helper &h, msi_helper::custom_action_data_w &data, int mode, std::wstring path, std::wstring key, std::wstring val) {
   data.write_int(mode);
   data.write_string(path);
   data.write_string(key);
   data.write_string(val);
+  if (is_secret_key(key)) {
+    h.logMessage(L"write_key: " + path + L"." + key + L"=<value not logged>");
+    return;
+  }
   h.logMessage(L"write_key: " + path + L"." + key + L"=" + val);
 }
 
@@ -833,6 +851,68 @@ void write_changed_key(msi_helper &h, msi_helper::custom_action_data_w &data, st
   write_key(h, data, 1, path, key, val);
 }
 
+// The shared inbound password, stored hashed - the same pbkdf2-sha256$... form
+// `nscp web install` writes, which the WEB admin seed and the check_nt server
+// verify through password_hash and so take in either form.
+//
+// Only a value that came from outside the installer this run is hashed - the
+// command line or the configuration dialog. A password the installer generated
+// for itself is stored in clear text, because nobody has seen it and a hash of
+// it is a lockout rather than a credential. write_changed_key's
+// rule applies: a property still equal to its default is not written at all,
+// and for NSCLIENT_PWD that default is seeded from the password already on
+// disk (see the upgrade path above), so an install that leaves the field alone
+// rewrites nothing - an existing value is migrated by `nscp web password
+// --set`, deliberately, not by an upgrade.
+//
+// Unlike write_changed_key this never logs the value: the MSI log is not a
+// place for a password.
+void write_changed_password_key(msi_helper &h, msi_helper::custom_action_data_w &data, std::wstring prop, std::wstring path, std::wstring key) {
+  const std::wstring val = h.getProperyKey(prop);
+  if (!h.propertyNotDefault(prop)) {
+    h.logMessage(L"IGNORING password property not changed: " + prop + L"; " + path + L"." + key);
+    return;
+  }
+  if (val.empty()) {
+    h.logMessage(L"write_changed_password_key: " + prop + L" is empty; " + path + L"." + key);
+    write_key(h, data, 1, path, key, val);
+    return;
+  }
+  const std::wstring generated = h.getMsiPropery(INT_NSCLIENT_PWD_GENERATED);
+  if (!generated.empty() && val == generated) {
+    // The password the installer invented for itself, still untouched: a silent
+    // install has no dialog to show it on and it is not written anywhere else.
+    // Hashing it would leave an agent whose web UI and check_nt nobody can log
+    // into, with no clear text left to recover - so it is stored as it is, as
+    // it was before hashing existed, and the operator is told to rotate it.
+    // Hashing is for a password that came from outside the installer.
+    h.logMessage(L"write_changed_password_key: " + prop +
+                 L" was generated by the installer, so it is stored in clear text to stay recoverable; rotate it with `nscp web password --set "
+                 L"<password>`, which stores it hashed. " +
+                 path + L"." + key);
+    write_key(h, data, 1, path, key, val);
+    return;
+  }
+  const std::string clear = utf8::cvt<std::string>(val);
+  if (password_hash::is_hashed(clear)) {
+    // A stored hash pasted into the property (cloning an agent, say). Hashing
+    // a hash would lock the admin out, so store it as it is.
+    h.logMessage(L"write_changed_password_key: " + prop + L" is already a stored hash; " + path + L"." + key);
+    write_key(h, data, 1, path, key, val);
+    return;
+  }
+  const std::string hashed = password_hash::hash_password(clear);
+  if (hashed.empty()) {
+    // RNG / KDF failure. A clear-text value still verifies, so store what we
+    // were given rather than failing the install over it.
+    h.logMessage(L"write_changed_password_key: failed to hash " + prop + L", storing it as given; " + path + L"." + key);
+    write_key(h, data, 1, path, key, val);
+    return;
+  }
+  h.logMessage(L"write_changed_password_key: " + prop + L" stored hashed; " + path + L"." + key);
+  write_key(h, data, 1, path, key, utf8::cvt<std::wstring>(hashed));
+}
+
 void write_changed_key_mod(msi_helper &h, msi_helper::custom_action_data_w &data, std::wstring prop, std::wstring key) {
   std::wstring val = h.getProperyKey(prop);
   if (!h.propertyNotDefault(prop)) {
@@ -843,8 +923,17 @@ void write_changed_key_mod(msi_helper &h, msi_helper::custom_action_data_w &data
   write_key_mod(h, data, 1, key, val);
 }
 
+// Writes a property given on the command line, if it was given.
+//
+// The BARE property, not KEY_<prop>. The KEY_ namespace is the dialog's working
+// copy: a control writes it, and ImportConfig's applyPropertyValue() copies the
+// command line into it for each property the dialog owns. The options here have
+// no control and are in no such list, so KEY_<prop> was always empty - which is
+// why every NSCA_* and OP5_* option silently wrote nothing, whatever the
+// operator passed. There is no change detection to lose: unlike
+// write_changed_key, this writes whenever the value is non-empty.
 bool write_property_if_set(msi_helper &h, msi_helper::custom_action_data_w &data, const std::wstring prop, std::wstring path, std::wstring key) {
-  std::wstring val = boost::algorithm::trim_copy(h.getProperyKey(prop));
+  std::wstring val = boost::algorithm::trim_copy(h.getMsiPropery(prop));
   if (!val.empty()) {
     h.logMessage(L"write_property_if_set: " + prop + L"; <modules>." + key + L"=" + val);
     write_key(h, data, 1, path, key, val);
@@ -852,6 +941,21 @@ bool write_property_if_set(msi_helper &h, msi_helper::custom_action_data_w &data
   } else {
     h.logMessage(L"IGNORING property not set: " + prop + L"; " + path + L"." + key + L"=" + val);
   }
+  return false;
+}
+
+// As above, for a property whose value is a live credential. The MSI log is
+// written wherever the caller pointed /l* and is routinely pasted into bug
+// reports, so it gets the property name and whether anything was written -
+// never the value. (write_changed_password_key does the same for NSCLIENT_PWD.)
+bool write_property_if_set_secret(msi_helper &h, msi_helper::custom_action_data_w &data, const std::wstring prop, std::wstring path, std::wstring key) {
+  std::wstring val = boost::algorithm::trim_copy(h.getMsiPropery(prop));
+  if (!val.empty()) {
+    h.logMessage(L"write_property_if_set: " + prop + L" (value not logged); " + path + L"." + key);
+    write_key(h, data, 1, path, key, val);
+    return true;
+  }
+  h.logMessage(L"IGNORING property not set: " + prop + L"; " + path + L"." + key);
   return false;
 }
 
@@ -926,7 +1030,9 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
       data.write_int(0);
 
       if (data.has_data()) {
-        h.logMessage(L"Scheduling (ExecWriteConfig): " + data.to_string());
+        // Not data.to_string(): the blob carries the values, and write_key has
+        // already logged every entry (secrets by key only).
+        h.logMessage(L"Scheduling (ExecWriteConfig)");
         HRESULT hr = h.do_deferred_action(L"ExecWriteConfig", data, 1000);
         if (FAILED(hr)) {
           h.errorMessage(L"failed to schedule config update");
@@ -975,7 +1081,7 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
 
     std::wstring defpath = L"/settings/default";
     write_changed_key(h, data, ALLOWED_HOSTS, defpath, L"allowed hosts");
-    write_changed_key(h, data, NSCLIENT_PWD, defpath, L"password");
+    write_changed_password_key(h, data, NSCLIENT_PWD, defpath, L"password");
 
     // Operator-supplied TLS material: ExecInstallCerts puts the files at the
     // default names under ${certificate-path}, so certificate.pem and ca.pem
@@ -1014,16 +1120,32 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
       write_key(h, data, 1, L"/includes", L"fleet", utf8::cvt<std::wstring>(std::string("${" FLEET_FOLDER_KEY "}/fleet.ini")));
     }
 
+    // NSCA submission: NSCA_SERVER is the machine running the nsca daemon this
+    // agent submits to. The address turns the client on, and the key goes with
+    // the target - never into /settings/default, which is the password the
+    // inbound protocols verify callers against and is stored hashed. It is the
+    // submission side only: an NSCAServer *on* this host needs its own key,
+    // shared with the hosts submitting here, and reads neither this target nor
+    // /settings/default (`nscp nsca install --server` sets it).
+    if (write_property_if_set(h, data, NSCA_SERVER, L"/settings/NSCA/client/targets/default", L"address")) {
+      write_key(h, data, 1, L"/modules", L"NSCAClient", L"enabled");
+    }
+    write_property_if_set(h, data, NSCA_PORT, L"/settings/NSCA/client/targets/default", L"port");
+    write_property_if_set_secret(h, data, NSCA_PASSWORD, L"/settings/NSCA/client/targets/default", L"password");
+    write_property_if_set(h, data, NSCA_ENCRYPTION, L"/settings/NSCA/client/targets/default", L"encryption");
+    write_property_if_set(h, data, NSCA_HOSTNAME, L"/settings/NSCA/client", L"hostname");
+
     if (write_property_if_set(h, data, OP5_SERVER, L"/settings/op5", L"server")) {
       write_key(h, data, 1, L"/modules", L"OP5Client", L"enabled");
     }
     write_property_if_set(h, data, OP5_USER, L"/settings/op5", L"user");
-    write_property_if_set(h, data, OP5_PASSWORD, L"/settings/op5", L"password");
+    write_property_if_set_secret(h, data, OP5_PASSWORD, L"/settings/op5", L"password");
     write_property_if_set(h, data, OP5_HOSTGROUPS, L"/settings/op5", L"hostgroups");
     write_property_if_set(h, data, OP5_CONTACTGROUP, L"/settings/op5", L"contactgroups");
 
     if (data.has_data()) {
-      h.logMessage(L"Scheduling (ExecWriteConfig): " + data.to_string());
+      // Not data.to_string(), for the reason above.
+      h.logMessage(L"Scheduling (ExecWriteConfig)");
       HRESULT hr = h.do_deferred_action(L"ExecWriteConfig", data, 1000);
       if (FAILED(hr)) {
         h.errorMessage(L"failed to schedule config update");
@@ -1042,9 +1164,9 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
 extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
   msi_helper h(hInstall, L"ExecWriteConfig");
   try {
-    h.logMessage(L"RAW: " + h.getMsiPropery(L"CustomActionData"));
+    // Neither the raw CustomActionData nor its parsed form is logged: both carry
+    // every value, and the fields below are logged individually.
     msi_helper::custom_action_data_r data(h.getMsiPropery(L"CustomActionData"));
-    h.logMessage(L"Got CA data: " + data.to_string());
     std::wstring target = data.get_next_string();
     std::string target_context = utf8::cvt<std::string>(data.get_next_string());
     std::wstring restore = data.get_next_string();
@@ -1194,12 +1316,14 @@ extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
       std::string val = utf8::cvt<std::string>(data.get_next_string());
 
       if (mode == 1) {
-        h.logMessage("Set key: " + path + "/" + key + " = " + val);
+        h.logMessage(is_secret_key(key) ? "Set key: " + path + "/" + key + " = <value not logged>" : "Set key: " + path + "/" + key + " = " + val);
         settings_manager::get_settings()->set_string(path, key, val);
       } else if (mode == 2) {
-        h.logMessage("***UNSUPPORTED*** Remove key: " + path + "/" + key + " = " + val);
+        h.logMessage(is_secret_key(key) ? "***UNSUPPORTED*** Remove key: " + path + "/" + key + " = <value not logged>"
+                                        : "***UNSUPPORTED*** Remove key: " + path + "/" + key + " = " + val);
       } else {
-        h.errorMessage(L"Unknown mode in CA data: " + strEx::xtos(mode) + L": " + data.to_string());
+        // No blob here either: it carries the values.
+        h.errorMessage(L"Unknown mode in CA data: " + strEx::xtos(mode));
         return ERROR_INSTALL_FAILURE;
       }
     }

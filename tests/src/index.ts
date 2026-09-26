@@ -12,3 +12,4 @@ export * from "./fleet-server";
 export * from "./live-target";
 export * from "./gearman";
 export * from "./module-manifests";
+export * from "./password-hash";

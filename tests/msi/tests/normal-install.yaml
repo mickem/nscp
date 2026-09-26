@@ -23,6 +23,14 @@ nsclient.ini: |
   allowed hosts = 127.0.0.1
   password = $$PASSWORD$$
 
+masked_values:
+  # No NSCLIENT_PWD here, so the installer generated this one. A silent install
+  # has no dialog to show it on and it is logged nowhere, so hashing it would
+  # lock the installation out of its own web UI and check_nt with no clear text
+  # left to recover. It is hashed only when the operator supplies it - see
+  # password-enabled-web-server.
+  "/settings/default": clear
+
 required_files:
   dlls:
     - boost_chrono.dll

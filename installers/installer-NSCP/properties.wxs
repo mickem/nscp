@@ -42,6 +42,45 @@
 	<Property Id="FLEET_REQUIRE_ENCRYPTED_BUNDLES" Secure="yes" />
 	<Property Id="ExecEnrollFleet" Hidden="yes" />
 
+	<!-- THE SHARED PASSWORD
+	     NSCLIENT_PWD is what the web UI and check_nt verify an inbound caller
+	     against. Declared here to mark it Secure, so a command-line value
+	     survives a managed install, and Hidden, so Windows Installer does not
+	     write "PROPERTY CHANGE" lines for it into the log: the log is written
+	     wherever /l* points and ends up in bug reports. The installer's own
+	     code logs it by name only (see write_key / setPropertyKeyAndDefaultSecret
+	     in installer_lib).
+
+	     The three derived properties carry the same value and so need hiding
+	     too: KEY_ is the working value, DEFAULT_ is what was found on disk (an
+	     upgrade seeds it with the existing password), and NSCP_GENERATED_PWD is
+	     what the installer generated for a fresh install, which it keeps so it
+	     can tell an invented password from one the operator gave. -->
+	<Property Id="NSCLIENT_PWD" Secure="yes" Hidden="yes" />
+	<Property Id="KEY_NSCLIENT_PWD" Hidden="yes" />
+	<Property Id="DEFAULT_NSCLIENT_PWD" Hidden="yes" />
+	<Property Id="NSCP_GENERATED_PWD" Hidden="yes" />
+
+	<!-- The CustomActionData for the deferred write, which is how a password
+	     reaches ExecWriteConfig at all: do_deferred_action() sets a property
+	     named after the action to the whole blob, so Windows Installer logs a
+	     PROPERTY CHANGE line carrying every value in it unless it is hidden -
+	     the same channel ExecEnrollFleet and ExecPrepareLayout are hidden for. -->
+	<Property Id="ExecWriteConfig" Hidden="yes" />
+
+	<!-- NSCA SUBMISSION
+	     Declared to mark them Secure so they survive a managed install, and to
+	     hide the key: NSCA encrypts the payload with it rather than checking
+	     it, so it is a live credential and must not reach the MSI log. It is
+	     written to the NSCA client's default target, not to
+	     /settings/default/password - that value is what the web UI and
+	     check_nt verify inbound callers against, and it is stored hashed. -->
+	<Property Id="NSCA_SERVER" Secure="yes" />
+	<Property Id="NSCA_PORT" Secure="yes" />
+	<Property Id="NSCA_PASSWORD" Secure="yes" Hidden="yes" />
+	<Property Id="NSCA_ENCRYPTION" Secure="yes" />
+	<Property Id="NSCA_HOSTNAME" Secure="yes" />
+
 	<!-- OPERATOR-SUPPLIED TLS MATERIAL (GitHub #568)
 	     Paths to PEM files on the installing machine, installed into
 	     ${certificate-path} as certificate.pem / certificate_key.pem / ca.pem
@@ -49,6 +88,17 @@
 	     service never generates its self-signed fallback. Declared to mark
 	     them Secure so they survive a managed/elevated install; they are
 	     paths, not secrets, so they are not hidden. -->
+	<!-- OP5 NORTHBOUND API
+	     Read the same way as the NSCA options above (write_property_if_set, off
+	     the bare property), so declared Secure for the same reason: a managed or
+	     elevated install keeps them. The password is hidden; the rest are not
+	     secrets. -->
+	<Property Id="OP5_SERVER" Secure="yes" />
+	<Property Id="OP5_USER" Secure="yes" />
+	<Property Id="OP5_PASSWORD" Secure="yes" Hidden="yes" />
+	<Property Id="OP5_HOSTGROUPS" Secure="yes" />
+	<Property Id="OP5_CONTACTGROUP" Secure="yes" />
+
 	<Property Id="CERTIFICATE" Secure="yes" />
 	<Property Id="CERTIFICATE_KEY" Secure="yes" />
 	<Property Id="CERTIFICATE_CA" Secure="yes" />

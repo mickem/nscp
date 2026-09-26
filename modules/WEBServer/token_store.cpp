@@ -8,7 +8,7 @@
 #include <sstream>
 #include <vector>
 
-#include "sha256.hpp"
+#include <nscp/sha256.hpp>
 
 #ifdef USE_SSL
 #include <openssl/rand.h>

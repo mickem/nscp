@@ -11,9 +11,8 @@
 #include <functional>
 #include <list>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscp/password_hash.hpp>
 #include <string>
-
-#include "password_hash.hpp"
 
 // Provide the nscapi singleton expected by NSC_LOG_ERROR / NSC_DEBUG_MSG
 // macros that fire from session_manager_interface.cpp. Production code gets
@@ -556,7 +555,7 @@ namespace {
 // stable across processes. This is what the first boot writes for `admin`,
 // and the only kind of password whose sessions survive a restart.
 std::string hashed(const std::string& password) {
-  const std::string h = web_password::hash_password(password);
+  const std::string h = password_hash::hash_password(password);
   return h.empty() ? password : h;
 }
 }  // namespace
