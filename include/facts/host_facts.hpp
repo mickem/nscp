@@ -4,6 +4,7 @@
 #pragma once
 
 #include <boost/thread/mutex.hpp>
+#include <cctype>
 #include <ctime>
 #include <functional>
 #include <string>
@@ -78,7 +79,29 @@ extern const char *const set_hardware;
 // `aarch64` and Windows `ARM64`. Unrecognised input is lower-cased and
 // returned as it came, so a new architecture publishes something honest
 // instead of nothing. Empty input yields an empty string.
-std::string normalize_arch(const std::string &raw);
+//
+// Inline: the docker and MySQL producers publish a daemon's or a server's
+// architecture in this vocabulary too, and this one function is all of
+// host facts they need.
+inline std::string normalize_arch(const std::string &raw) {
+  std::string value;
+  value.reserve(raw.size());
+  for (const char c : raw) value.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+  if (value.empty()) return "";
+  // 64-bit Intel: Windows says AMD64, unix says x86_64, a few tools say x64.
+  if (value == "amd64" || value == "x86_64" || value == "x64") return "x86_64";
+  // 64-bit ARM: Windows says ARM64, unix says aarch64.
+  if (value == "arm64" || value == "aarch64") return "arm64";
+  // 32-bit Intel, in every spelling uname and the registry produce.
+  if (value == "x86" || value == "i386" || value == "i486" || value == "i586" || value == "i686") return "x86";
+  // 32-bit ARM: armv7l, armv6l, arm.
+  if (value == "arm" || (value.size() > 3 && value.compare(0, 3, "arm") == 0)) return "arm";
+  if (value == "ia64") return "ia64";
+  if (value == "riscv64") return "riscv64";
+  // Something new. Publish it lower-cased rather than dropping the fact: a
+  // wrong-looking value is debuggable, a missing one is not.
+  return value;
+}
 
 // Map a CPUID hypervisor vendor id (leaf 0x40000000, the 12 bytes of
 // EBX:ECX:EDX) to the shared virtualization vocabulary. Returns an empty

@@ -5,6 +5,7 @@
 
 #include <facts/host_facts.hpp>
 #include <nscapi/nscapi_facts_helper.hpp>
+#include <nscapi/nscapi_facts_test_helper.hpp>
 
 // The value-deciding half of host facts: everything a Windows host and a unix
 // host have to agree on. The gathering itself is platform code and is covered
@@ -200,27 +201,8 @@ host_facts::snapshot sample_snapshot(const host_facts::facts &values = sample_ro
   return snap;
 }
 
-// When a set says its values were read, or "" if it did not say.
-std::string gathered_of(const nscapi::facts::response &out, const std::string &id) {
-  const PB::Facts::FactsMessage message = out.to_message();
-  if (message.payload_size() == 0) return "";
-  for (const PB::Facts::FactSet &set : message.payload(0).sets()) {
-    if (set.id() == id) return set.gathered();
-  }
-  return "";
-}
-
-// One set, as JSON. The builder makes a protobuf tree; what a test wants to
-// say is "this set looks like this", which the one-line JSON says better than
-// a walk over the message.
-std::string json_of(const nscapi::facts::response &out, const std::string &id) {
-  const PB::Facts::FactsMessage message = out.to_message();
-  if (message.payload_size() == 0) return "(no payload)";
-  for (const PB::Facts::FactSet &set : message.payload(0).sets()) {
-    if (set.id() == id) return set.has_facts() ? nscapi::facts::tree::to_json(set.facts()) : "(no facts)";
-  }
-  return "(no such set)";
-}
+using nscapi::facts::testing::gathered_of;
+using nscapi::facts::testing::json_of;
 
 bool has_set(const nscapi::facts::response &out, const std::string &id) { return json_of(out, id).compare(0, 12, "(no such set") != 0; }
 }  // namespace

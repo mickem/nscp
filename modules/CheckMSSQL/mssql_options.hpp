@@ -40,33 +40,42 @@ inline void fail(PB::Commands::QueryResponseMessage::Response *response, const s
   nscapi::protobuf::functions::set_response_bad(*response, message);
 }
 
-// Connect and run `body(session)` with the module's stable error contract:
-// connect failures become "Failed to connect to SQL Server '<server>': ...",
-// query failures "Query failed: ..." and anything else raised while running the
-// check "Check failed: ..." — all UNKNOWN.
-template <class TBody>
-void with_session(const mssql_odbc::connection_info &info, PB::Commands::QueryResponseMessage::Response *response, TBody body) {
+// Connect and run `body(session)` with the module's stable error contract,
+// reporting a failure through `report(message)`: connect failures become
+// "Failed to connect to SQL Server '<server>': ...", query failures "Query
+// failed: ..." and anything else raised while running the body "Check
+// failed: ...". The wording is the contract - the integration tests match on
+// it - so a check and the facts producer both get it from here and only
+// differ in where the message goes.
+template <class TReport, class TBody>
+void run_with_session(const mssql_odbc::connection_info &info, TReport report, TBody body) {
   try {
     mssql_odbc::session session(info);
     try {
       session.connect();
     } catch (const mssql_odbc::odbc_exception &e) {
-      return fail(response, "Failed to connect to SQL Server '" + info.server + "': " + e.reason());
+      return report("Failed to connect to SQL Server '" + info.server + "': " + e.reason());
     }
     try {
       body(session);
     } catch (const mssql_odbc::odbc_exception &e) {
-      return fail(response, "Query failed: " + e.reason());
+      return report("Query failed: " + e.reason());
     } catch (const std::exception &e) {
       // The connection succeeded, so this is a rendering/threshold failure, not
       // a connect failure; label it accordingly instead of misdirecting the
       // operator to the network.
-      return fail(response, std::string("Check failed: ") + e.what());
+      return report(std::string("Check failed: ") + e.what());
     }
   } catch (const std::exception &e) {
     // Only session construction (handle allocation) can reach here.
-    return fail(response, std::string("Failed to connect to SQL Server: ") + e.what());
+    return report(std::string("Failed to connect to SQL Server: ") + e.what());
   }
+}
+
+// The same, for a check: a failure becomes the response's UNKNOWN line.
+template <class TBody>
+void with_session(const mssql_odbc::connection_info &info, PB::Commands::QueryResponseMessage::Response *response, TBody body) {
+  run_with_session(info, [response](const std::string &message) { fail(response, message); }, body);
 }
 
 }  // namespace mssql_options

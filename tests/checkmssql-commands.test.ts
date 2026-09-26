@@ -16,8 +16,10 @@
  *    driver cannot talk to SQL Server 2022 (ancient sqlsrv32-only hosts), the
  *    block relaxes to the connect-failure contract instead of failing.
  */
+import request from "supertest";
 import {
   NscpInstance,
+  REST_URL,
   dockerOrSkip,
   GenericContainer,
   Wait,
@@ -345,5 +347,93 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
     );
     const out = r.all ?? `${r.stdout}\n${r.stderr}`;
     expect(out).toMatch(CONNECT_FAILED);
+  });
+
+  it("publishes the mssql fact set from the configured connection", async () => {
+    // The facts producer has no request to take credentials from, so this
+    // instance is pointed at the container through [/settings/mssql] and
+    // read over REST from an `nscp test`.
+    const web = new NscpInstance();
+    await web.configure({
+      "/modules": {
+        WEBServer: "enabled",
+        CheckMSSQL: "enabled",
+      },
+      "/settings/default": {
+        "allowed hosts": "127.0.0.1,::1",
+      },
+      "/settings/WEB/server/users/admin": {
+        role: "full",
+        password: "default-password",
+      },
+      "/settings/mssql": {
+        hostname: server,
+        user: "sa",
+        password: SA_PASSWORD,
+      },
+      "/settings/mssql/facts": {
+        mssql: "true",
+        "mssql.databases": "true",
+      },
+    });
+    try {
+      web.start();
+      await web.waitForPort(8443, { timeoutMs: 30_000 });
+      const login = await request(REST_URL)
+        .get("/api/v2/login")
+        .auth("admin", "default-password")
+        .trustLocalhost(true)
+        .expect(200);
+      const key = login.body.key;
+      // Collect now: the startup round may still be running.
+      const response = await request(REST_URL)
+        .post("/api/v2/facts/commands/refresh")
+        .set("Authorization", `Bearer ${key}`)
+        .trustLocalhost(true)
+        .expect(200);
+      expect(response.body.enabled).toContain("mssql");
+      // `live` was decided at the end of the readiness loop; a server that
+      // was still recovering then can be up by now, so ask it again rather
+      // than assert on a stale answer.
+      const up = live || /^OK/m.test(await query("check_mssql", ["timeout=5"]));
+      if (!up) {
+        // No usable ODBC driver, or a server still down: the set is claimed
+        // and the reason reported, in the words the checks use.
+        expect(response.body.facts.mssql).toBeUndefined();
+        return expect(response.body.errors.mssql).toMatch(CONNECT_FAILED);
+      }
+      expect(response.body.errors.mssql).toBeUndefined();
+      const mssql = response.body.facts.mssql;
+      expect(mssql.version).toMatch(/^16\./); // 2022 = product version 16.x
+      expect(mssql.server_name).toBeTruthy();
+      expect(mssql.edition).toBeTruthy();
+      expect(["standard", "enterprise", "express", "personal"]).toContain(mssql.engine_edition);
+      expect(["windows", "mixed"]).toContain(mssql.authentication);
+      expect(typeof mssql.clustered).toBe("boolean");
+      // Inventory, not monitoring - and never the configuration: no uptime,
+      // and nothing from [/settings/mssql].
+      expect(
+        Object.keys(mssql).filter((k) => /uptime|user|password|driver|connection/.test(k)),
+      ).toEqual([]);
+
+      const databases: Record<string, any>[] = mssql.databases;
+      expect(Array.isArray(databases)).toBe(true);
+      const ids = databases.map((d) => d.id);
+      expect(new Set(ids).size).toEqual(ids.length);
+      expect([...ids].sort()).toEqual(ids);
+      expect(ids).toEqual(expect.arrayContaining(["master", "model", "msdb", "tempdb"]));
+      const master = databases.find((d) => d.id === "master");
+      expect(master!.recovery_model).toEqual("SIMPLE");
+      expect(master!.collation).toBeTruthy();
+      expect(master!.compatibility_level).toBeGreaterThan(0);
+      expect(master!.create_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      for (const database of databases) {
+        // No state, no data or log size: those change every round and
+        // belong to check_mssql_databases.
+        expect(Object.keys(database).filter((k) => /state|size|bytes/.test(k))).toEqual([]);
+      }
+    } finally {
+      await web.stop();
+    }
   });
 });

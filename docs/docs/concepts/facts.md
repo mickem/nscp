@@ -2,7 +2,8 @@
 
 **Facts are the agent's inventory of the machine it runs on**: what OS it is,
 what hardware it sits on, which volumes and network interfaces it has, what is
-installed on it, and which NSClient++ is running on it. The core collects them
+installed on it, which services it runs (a docker daemon and its containers, a
+MySQL or SQL Server instance and its databases), and which NSClient++ is running on it. The core collects them
 from the loaded modules, keeps them as one document per host, and serves that
 document on [`/api/v2/facts`](../api/rest/facts.md), in the web UI and in
 `nscp test`.
@@ -58,6 +59,20 @@ storage.volumes = true
 [/settings/hyperv/facts]
 hyperv.vms = true
 
+; A service the host runs, in the module that already checks it.
+[/settings/docker/facts]
+docker = true
+docker.containers = true
+docker.images = true
+
+[/settings/mysql/facts]
+mysql = true
+mysql.databases = true
+
+[/settings/mssql/facts]
+mssql = true
+mssql.databases = true
+
 ; The one set the core produces itself.
 [/settings/facts]
 agent = true
@@ -76,6 +91,13 @@ another bundle's choices.
 | `software.installed` | CheckSystem | `software.installed`, same section               | the highest here: every round, a walk of the registry's Uninstall hives or one forked package-manager query |
 | `storage.volumes`    | CheckDisk   | `storage.volumes`, `[/settings/disk/facts]`      | low: the enumeration `check_drivesize drive=*` does |
 | `hyperv.vms`         | CheckHyperV | `hyperv.vms`, `[/settings/hyperv/facts]`         | moderate: every round (never at startup), the seven WMI queries `check_hyperv_vms` runs, which grow with every VM and checkpoint and can stall while the Hyper-V management provider starts |
+| `docker`             | CheckDocker | `docker`, `[/settings/docker/facts]`             | low: one `GET /info` on the daemon socket, every round but startup |
+| `docker.containers`  | CheckDocker | `docker.containers`, same section                | low: the listing `check_docker all=true` does, every round but startup |
+| `docker.images`      | CheckDocker | `docker.images`, same section                    | low: one `GET /images/json`, every round but startup |
+| `mysql`              | CheckMySQL  | `mysql`, `[/settings/mysql/facts]`               | low: one connection and one query, every round but startup |
+| `mysql.databases`    | CheckMySQL  | `mysql.databases`, same section                  | low: one query of `information_schema.SCHEMATA`, on the same connection |
+| `mssql`              | CheckMSSQL  | `mssql`, `[/settings/mssql/facts]`               | low: one connection and one `SERVERPROPERTY` query, every round but startup |
+| `mssql.databases`    | CheckMSSQL  | `mssql.databases`, same section                  | low: one query of `sys.databases`, on the same connection |
 
 The full description of each switch is in the module's settings reference.
 Turning a set off takes effect on the next settings reload: the module stops
@@ -213,6 +235,181 @@ at startup the set says so under `errors`, and it is collected on the first
 scheduled round (every `[/settings/facts] interval`), on a settings reload,
 or right away with `facts refresh` / `POST /api/v2/facts/commands/refresh`.
 
+### `docker`, `docker.containers` and `docker.images`
+
+The docker daemon behind `[/settings/docker] endpoint` - the one
+[`check_docker`](../reference/check/CheckDocker.md) talks to - what it holds,
+and what it has pulled. Three switches, one set: `docker` is the daemon record,
+and each list is enabled on its own, so a host can report its containers
+without the image list that goes with them.
+
+The daemon record:
+
+| Field            | Example              | Meaning |
+|------------------|----------------------|---------|
+| `version`        | `27.3.1`             | the daemon version: the `version` keyword of `check_docker_info` |
+| `os`             | `Ubuntu 24.04.1 LTS` | the operating system the daemon reports |
+| `os_type`        | `linux`              | `linux` or `windows`: the [`os`](#os-and-hardware) set's family vocabulary |
+| `architecture`   | `x86_64`, `arm64`    | the [`os`](#os-and-hardware) set's vocabulary, whatever the daemon's own spelling |
+| `kernel_version` | `6.8.0-45-generic`   | |
+| `storage_driver` | `overlay2`           | |
+| `cgroup_driver`  | `systemd`            | |
+| `cgroup_version` | `2`                  | |
+| `cpus`           | `8`                  | the CPUs the daemon sees |
+| `memory_bytes`   | `33547567104`        | the memory the daemon sees |
+| `swarm`          | `inactive`           | the node's swarm state: `inactive`, `active`, `pending`, `error`, `locked` |
+
+There are no container or image counts. They change every round, and
+`check_docker_info` reports them.
+
+`docker.containers`: one record per container the daemon knows, stopped ones
+included, because an inventory lists what exists rather than what runs.
+
+| Field             | Example                                    | Meaning |
+|-------------------|--------------------------------------------|---------|
+| `id`              | `web`                                      | the container's names, comma separated: the value `check_docker` calls `names` |
+| `container_id`    | `aaa111…`                                  | the daemon's id: the `id` keyword of `check_docker` |
+| `image`           | `nginx:1.25`                               | the image it was created from |
+| `image_id`        | `sha256:…`                                 | |
+| `created`         | `2026-09-19T14:03:11Z`                     | |
+| `ports`           | `["0.0.0.0:8080->80/tcp", ":::8080->80/tcp", "443/tcp"]` | published and exposed ports, spelled as `check_docker` spells `ports` and sorted; a port published on both address families is one entry per family, since which addresses it is bound on is part of the record |
+| `compose_project` | `shop`                                     | the compose project the container belongs to, where compose started it |
+| `compose_service` | `web`                                      | the compose service, likewise |
+
+There is no state, status, health or address. Each changes under a running
+agent and belongs to `check_docker`. Nor are the container's other labels
+carried: their keys (`com.docker.compose.project`) are not fact keys, and most
+of them are configuration. The two compose labels are read out by name because
+they say what a container *is*.
+
+`docker.images`: one record per image the daemon holds.
+
+| Field        | Example                            | Meaning |
+|--------------|------------------------------------|---------|
+| `id`         | `sha256:…`                         | the image id: the one name of an image that does not move when it is retagged, so a consumer diffing by id sees a pull as a pull and not as a removal plus an addition |
+| `tags`       | `["nginx:1.25", "nginx:latest"]`   | every tag; a dangling image has none, never a `<none>:<none>` |
+| `created`    | `2026-09-01T10:00:00Z`             | when the image was built |
+| `size_bytes` | `187000000`                        | |
+
+Both lists are re-read every round, because containers are started and
+removed and images pulled while the agent runs. Everything is fetched before
+anything is stored: a round that read the daemon but could not list the
+containers reports an error against `docker` and keeps the set the core has,
+rather than replacing it with one that is missing a list.
+
+Each list stops at **2500 records**, for the reason `software.installed`
+does: the whole document has to fit `[/settings/facts] max size`, and a set
+that would not is rejected whole, daemon record included. A build host with
+more images than that reports the first 2500 and says under `errors` how
+many there were.
+
+The set is not read on the startup round. That round runs on the thread that
+starts the service, and a daemon that is hung, or a socket that is there but
+not answering, would hold the service start for the full `timeout`. So at
+startup the set says so under `errors`, and it is collected on the first
+scheduled round (every `[/settings/facts] interval`), on a settings reload,
+or right away with `facts refresh` / `POST /api/v2/facts/commands/refresh`.
+
+### `mysql` and `mysql.databases`
+
+The server `[/settings/mysql]` points at - the one
+[`check_mysql`](../reference/check/CheckMySQL.md) connects to by default - and
+the databases it holds. A facts round has no request to take credentials from,
+so it connects with the ones configured there (`user` and `password`, or the
+`defaults file`), and it needs nothing the health check does not already need.
+
+The server record:
+
+| Field             | Example                     | Meaning |
+|-------------------|-----------------------------|---------|
+| `flavor`          | `mariadb`                   | `mysql`, `mariadb` or `percona`: the `flavor` keyword of `check_mysql` |
+| `version`         | `10.11.14-MariaDB-ubu2404`  | `@@version`, as recorded; never parsed or compared as a number |
+| `version_comment` | `Ubuntu 24.04`              | `@@version_comment` |
+| `hostname`        | `db01`                      | what the server calls the machine it runs on (`@@hostname`) |
+| `port`            | `3306`                      | the port the server listens on (`@@port`) |
+| `server_id`       | `1`                         | the replication identity (`@@server_id`) |
+| `character_set`   | `utf8mb4`                   | the server default (`@@character_set_server`) |
+| `collation`       | `utf8mb4_general_ci`        | the server default (`@@collation_server`) |
+| `os`              | `debian-linux-gnu`, `Win64` | what the server was built for (`@@version_compile_os`) |
+| `architecture`    | `x86_64`, `arm64`           | the [`os`](#os-and-hardware) set's vocabulary, whatever the server's own spelling |
+
+The record describes the server, not how the agent reaches it: `hostname` and
+`port` are what the server says about itself, never the configured target, and
+nothing from `[/settings/mysql]` appears in it. There is no uptime and no
+connection count. They change every round, and `check_mysql` reports them.
+
+`mysql.databases`: one record per database (schema) the configured user may
+see, sorted by name. The system schemas
+(`information_schema`, `mysql`, `performance_schema`, `sys`) are listed like
+any other: they are databases the server has.
+
+| Field           | Example              | Meaning |
+|-----------------|----------------------|---------|
+| `id`            | `shop`               | the schema name |
+| `character_set` | `utf8mb4`            | the schema's default character set |
+| `collation`     | `utf8mb4_unicode_ci` | the schema's default collation |
+
+There is no size. Summing a schema's tables is a query that changes its
+answer every round, and it belongs to `check_mysql_query`. The list stops at
+**2500 records**, as `software.installed` does, and says under `errors` how
+many there were.
+
+Like `docker`, the set is not read on the startup round: a server that is
+down, or a host that drops the packets, would hold the service start for the
+full connect `timeout`. At startup the set says so under `errors`, and it is
+collected on the first scheduled round, on a settings reload, or right away
+with a manual refresh.
+
+### `mssql` and `mssql.databases`
+
+The SQL Server instance `[/settings/mssql]` points at - the one
+[`check_mssql`](../reference/windows/CheckMSSQL.md) connects to by default -
+and the databases it holds. It connects the way the checks do when a check
+passes no credentials of its own: Windows integrated authentication, or the
+configured `user` and `password`. Windows only, like the module.
+
+The server record is read with `SERVERPROPERTY()` alone, which every version
+answers and which returns `NULL` for a property it does not have, so an old
+instance reports fewer fields rather than an error:
+
+| Field                  | Example                        | Meaning |
+|------------------------|--------------------------------|---------|
+| `server_name`          | `DB01\PROD`                    | the instance name: the `server_name` keyword of `check_mssql` |
+| `machine_name`         | `DB01`                         | the computer, or the cluster network name |
+| `instance_name`        | `PROD`                         | the named instance; absent for the default instance |
+| `version`              | `16.0.4135.4`                  | the product version, as recorded; never parsed or compared as a number |
+| `product_level`        | `RTM`, `SP3`                   | |
+| `product_update_level` | `CU15`                         | the cumulative update, where the version records one |
+| `edition`              | `Standard Edition (64-bit)`    | |
+| `engine_edition`       | `standard`                     | `personal`, `standard`, `enterprise`, `express`, `azure_sql_database`, `azure_sql_managed_instance`, … or the number for one this build does not name |
+| `collation`            | `SQL_Latin1_General_CP1_CI_AS` | the server collation |
+| `authentication`       | `mixed`                        | `windows` or `mixed` |
+| `clustered`            | `false`                        | whether the instance is a failover cluster instance |
+| `always_on`            | `true`                         | whether Always On availability groups are enabled (2012 and later) |
+
+There is no uptime. It changes every round, and `check_mssql` reports it.
+
+`mssql.databases`: one record per database the login may see, system databases
+included, by the name `check_mssql_databases` uses.
+
+| Field                 | Example                       | Meaning |
+|-----------------------|-------------------------------|---------|
+| `id`                  | `shop`                        | the database name |
+| `recovery_model`      | `FULL`                        | `SIMPLE`, `FULL` or `BULK_LOGGED`, spelled as the check spells it |
+| `collation`           | `Latin1_General_100_CI_AS`    | |
+| `compatibility_level` | `160`                         | |
+| `create_date`         | `2026-03-02`                  | a date, rendered by the server |
+| `read_only`           | `false`                       | |
+
+There is no state and no data or log size. Both move every round and belong
+to `check_mssql_databases`. The list stops at **2500 records**, as
+`software.installed` does, and says under `errors` how many there were.
+
+Like `docker` and `mysql`, the set is not read on the startup round: a stopped
+instance would hold the service start for the full login `timeout`. At
+startup the set says so under `errors`, and it is collected on the first
+scheduled round, on a settings reload, or right away with a manual refresh.
+
 ### Record ids match check instance names
 
 A list record's `id` is the same string that the corresponding check uses to
@@ -222,7 +419,10 @@ name the instance. `storage.volumes[].id` is the `drive` of `check_drivesize`.
 the version appended in the one case where the host has two installs sharing a
 name, because an id has to be unique in its list. `hyperv.vms[].id` is the `vm`
 of `check_hyperv_vms`, with the GUID appended for the same reason when two VMs
-share a name. The ids are stable across
+share a name. `docker.containers[].id` is the `names` of `check_docker`,
+`mysql.databases[].id` is the schema name a `check_mysql_query` would name in
+its `FROM`, and `mssql.databases[].id` is the `name` of
+`check_mssql_databases`. The ids are stable across
 rounds, so a consumer can diff two documents record by record.
 
 ---
@@ -311,5 +511,9 @@ Facts describe the machine, not the configuration. They never contain
 settings, credentials, command lines or environment variables. That holds
 inside a set too: `software.installed` carries what is installed and which
 version of it, never the install path or the uninstall command line
-`check_installed_software` can also show. The loaded module list in `agent` is
-the one configuration-adjacent value, and it is opt-in like everything else.
+`check_installed_software` can also show; `docker.containers` carries the
+image a container runs, never its command line, its environment or its labels
+at large; and `mysql` and `mssql` say what the server reports about itself,
+never the target, login, driver or connection string the agent connected with. The loaded module list in
+`agent` is the one configuration-adjacent value, and it is opt-in like
+everything else.

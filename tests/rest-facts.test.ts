@@ -9,11 +9,32 @@
  * `hardware` turned on.
  */
 import request from "supertest";
-import { NscpInstance, REST_URL } from "@fixtures/index";
+import { NscpInstance, REST_URL, hasModule } from "@fixtures/index";
 
 jest.setTimeout(900_000);
 
 const onWindows = process.platform === "win32";
+
+/**
+ * The facts document once the startup round has claimed `set`. The round runs
+ * on the boot thread after the modules (and the web server) have started, so
+ * a read the moment the port opens can land before it; poll rather than race.
+ */
+async function documentClaiming(
+  key: string | undefined,
+  set: string,
+): Promise<Record<string, any>> {
+  const deadline = Date.now() + 60_000;
+  for (;;) {
+    const response = await request(REST_URL)
+      .get("/api/v2/facts")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true)
+      .expect(200);
+    if (response.body.enabled.includes(set) || Date.now() > deadline) return response.body;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+}
 const factsSection = `/settings/system/${onWindows ? "windows" : "unix"}/facts`;
 
 describe("REST facts", () => {
@@ -302,21 +323,17 @@ describe("REST facts", () => {
       // suite may or may not carry the Hyper-V role: on one that does not, the
       // refresh reports that instead, again under `errors`; on one that does,
       // the records carry the check's names as ids, unique in the list.
-      const startup = await request(REST_URL)
-        .get("/api/v2/facts")
-        .set("Authorization", `Bearer ${key}`)
-        .trustLocalhost(true)
-        .expect(200);
-      expect(startup.body.enabled).toContain("hyperv");
+      const startup = await documentClaiming(key, "hyperv");
+      expect(startup.enabled).toContain("hyperv");
       // A scheduled round may already have run by now; then the set is either
       // collected or carries that round's error, which the refresh below
       // checks in full.
-      if (startup.body.errors.hyperv !== undefined) {
-        expect(startup.body.errors.hyperv).toMatch(
+      if (startup.errors.hyperv !== undefined) {
+        expect(startup.errors.hyperv).toMatch(
           /Not collected during startup|Hyper-V|Failed to query/,
         );
       } else {
-        expect(startup.body.facts.hyperv).toBeDefined();
+        expect(startup.facts.hyperv).toBeDefined();
       }
 
       const document = await request(REST_URL)
@@ -490,5 +507,170 @@ describe("REST facts with no set enabled", () => {
         // timestamp even here.
         expect(response.body.revision).toEqual(0);
       });
+  });
+});
+
+/**
+ * The producers that describe a service rather than the host: CheckDocker
+ * and CheckMySQL. Neither service is available to the docker-free suites, so
+ * what is asserted here is the contract for that case - the set is claimed
+ * (it is enabled), and the failure to reach the service is reported under
+ * `errors` instead of the set silently going missing. The live shape of both
+ * sets is covered next to their command suites, checkdocker-commands.test.ts
+ * and checkmysql-commands.test.ts, which have the daemon and a server.
+ */
+describe("REST facts from service producers", () => {
+  let nscp: NscpInstance;
+  let key: string | undefined = undefined;
+  // Built where MariaDB Connector/C was found, and loadable only where its
+  // runtime DLL sits next to nscp.exe: the CI zip layout has the module
+  // without the DLL, and a module that cannot load claims no set.
+  const mysqlBuilt = hasModule("CheckMySQL", ["libmariadb.dll"]);
+
+  beforeAll(async () => {
+    nscp = new NscpInstance();
+    await nscp.configure({
+      "/modules": {
+        WEBServer: "enabled",
+        CheckDocker: "enabled",
+        ...(mysqlBuilt ? { CheckMySQL: "enabled" } : {}),
+        ...(onWindows ? { CheckMSSQL: "enabled" } : {}),
+      },
+      "/settings/default": {
+        "allowed hosts": "127.0.0.1,::1",
+      },
+      "/settings/WEB/server/users/admin": {
+        role: "full",
+        password: "default-password",
+      },
+      "/settings/docker": {
+        timeout: "5",
+      },
+      "/settings/docker/facts": {
+        docker: "true",
+        "docker.containers": "true",
+        "docker.images": "true",
+      },
+      ...(mysqlBuilt
+        ? {
+            // Nothing listens on port 1, so the connection is refused at
+            // once on every host rather than found on one that happens to
+            // run a server on 3306.
+            "/settings/mysql": {
+              hostname: "127.0.0.1",
+              port: "1",
+              timeout: "2",
+            },
+            "/settings/mysql/facts": {
+              mysql: "true",
+              "mysql.databases": "true",
+            },
+          }
+        : {}),
+      ...(onWindows
+        ? {
+            // IM002 (driver not found) fails identically on every machine, no
+            // network involved - the same deterministic contract
+            // checkmssql-commands.test.ts uses.
+            "/settings/mssql": {
+              hostname: "localhost",
+              driver: "No Such Driver 99",
+            },
+            "/settings/mssql/facts": {
+              mssql: "true",
+              "mssql.databases": "true",
+            },
+          }
+        : {}),
+    });
+    nscp.start();
+    await nscp.waitForPort(8443, { timeoutMs: 30_000 });
+    await request(REST_URL)
+      .get("/api/v2/login")
+      .auth("admin", "default-password")
+      .trustLocalhost(true)
+      .expect(200)
+      .then((response) => {
+        key = response.body.key;
+      });
+  });
+
+  afterAll(async () => {
+    await nscp?.stop();
+  });
+
+  it("claims the docker set and either fills it or says why not", async () => {
+    // The set is claimed at startup and only collected from the first
+    // scheduled, reload or manual round, so the boot thread never waits on
+    // the daemon socket: until then the document says so under `errors`. A
+    // scheduled round may already have run by now; then the set is either
+    // collected or carries that round's error, which the refresh below
+    // checks in full.
+    const startup = await documentClaiming(key, "docker");
+    expect(startup.enabled).toContain("docker");
+    if (startup.errors.docker !== undefined) {
+      expect(startup.errors.docker).toMatch(/Not collected during startup|docker daemon at '/);
+    } else {
+      expect(startup.facts.docker).toBeDefined();
+    }
+
+    const response = await request(REST_URL)
+      .post("/api/v2/facts/commands/refresh")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true)
+      .expect(200);
+    // Enabled is a claim, not a result: a set that is switched on but could
+    // not be collected is still listed, so a UI can show it as failing rather
+    // than as absent.
+    expect(response.body.enabled).toContain("docker");
+    const docker = response.body.facts.docker;
+    if (docker !== undefined) {
+      // A host with a reachable daemon (a developer's machine): the real
+      // thing, in the shape checkdocker-commands.test.ts checks in full.
+      expect(typeof docker.version).toBe("string");
+      expect(Array.isArray(docker.containers)).toBe(true);
+      expect(Array.isArray(docker.images)).toBe(true);
+    } else {
+      // No daemon: the reason is reported against the set, naming the
+      // endpoint, and nothing pretends to be an empty inventory. The manual
+      // round did try, so it is no longer the startup claim.
+      expect(response.body.errors.docker).toMatch(/docker daemon at '/);
+      expect(response.body.errors.docker).not.toMatch(/Not collected during startup/);
+    }
+  });
+
+  it("reports a MySQL server it cannot reach against the set", async () => {
+    if (!mysqlBuilt) return;
+    const response = await request(REST_URL)
+      .post("/api/v2/facts/commands/refresh")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true)
+      .expect(200);
+    expect(response.body.enabled).toContain("mysql");
+    expect(response.body.facts.mysql).toBeUndefined();
+    // The target is named, so the operator knows which server is meant; the
+    // user and password never are. The manual round did try to connect, so
+    // this is the connect failure and no longer the startup claim.
+    expect(response.body.errors.mysql).not.toMatch(/Not collected during startup/);
+    expect(response.body.errors.mysql).toMatch(
+      /^Failed to connect to MySQL server '127\.0\.0\.1:1': /,
+    );
+  });
+
+  it("reports a SQL Server it cannot reach against the set", async () => {
+    if (!onWindows) return;
+    const response = await request(REST_URL)
+      .post("/api/v2/facts/commands/refresh")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true)
+      .expect(200);
+    expect(response.body.enabled).toContain("mssql");
+    expect(response.body.facts.mssql).toBeUndefined();
+    // The same contract check_mssql reports: the target is named, the driver
+    // error is passed through, and the login never is. The manual round did
+    // try to connect, so this is no longer the startup claim.
+    expect(response.body.errors.mssql).not.toMatch(/Not collected during startup/);
+    expect(response.body.errors.mssql).toMatch(/^Failed to connect to SQL Server 'localhost': /);
+    expect(response.body.errors.mssql).toMatch(/IM002/);
   });
 });

@@ -60,33 +60,42 @@ inline void fail(PB::Commands::QueryResponseMessage::Response *response, const s
 }
 
 // Connect via the factory and run `body(runner)` with the module's stable
-// error contract: connect failures become "Failed to connect to MySQL server
-// '<target>': ...", query failures "Query failed: ..." and anything else
-// raised while running the check "Check failed: ..." — all UNKNOWN.
-template <class TBody>
-void with_runner(const mysql_client::session_factory &factory, const mysql_client::connection_info &info,
-                 PB::Commands::QueryResponseMessage::Response *response, TBody body) {
+// error contract, reporting a failure through `report(message)`: connect
+// failures become "Failed to connect to MySQL server '<target>': ...", query
+// failures "Query failed: ..." and anything else raised while running the
+// body "Check failed: ...". The wording is the contract - the integration
+// tests match on it - so a check and the facts producer both get it from
+// here and only differ in where the message goes.
+template <class TReport, class TBody>
+void run_with_runner(const mysql_client::session_factory &factory, const mysql_client::connection_info &info, TReport report, TBody body) {
   try {
     mysql_client::query_runner run;
     try {
       run = factory(info);
     } catch (const mysql_client::mysql_exception &e) {
-      return fail(response, "Failed to connect to MySQL server '" + info.display_target() + "': " + e.reason());
+      return report("Failed to connect to MySQL server '" + info.display_target() + "': " + e.reason());
     }
     try {
       body(run);
     } catch (const mysql_client::mysql_exception &e) {
-      return fail(response, "Query failed: " + e.reason());
+      return report("Query failed: " + e.reason());
     } catch (const std::exception &e) {
       // The connection succeeded, so this is a rendering/threshold failure,
       // not a connect failure; label it accordingly instead of misdirecting
       // the operator to the network.
-      return fail(response, std::string("Check failed: ") + e.what());
+      return report(std::string("Check failed: ") + e.what());
     }
   } catch (const std::exception &e) {
     // Only factory/session construction can reach here.
-    return fail(response, std::string("Failed to connect to MySQL server: ") + e.what());
+    return report(std::string("Failed to connect to MySQL server: ") + e.what());
   }
+}
+
+// The same, for a check: a failure becomes the response's UNKNOWN line.
+template <class TBody>
+void with_runner(const mysql_client::session_factory &factory, const mysql_client::connection_info &info,
+                 PB::Commands::QueryResponseMessage::Response *response, TBody body) {
+  run_with_runner(factory, info, [response](const std::string &message) { fail(response, message); }, body);
 }
 
 }  // namespace mysql_options
