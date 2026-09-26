@@ -12,6 +12,7 @@
 // pod JSON without the rest of the module.
 
 #include <boost/json.hpp>
+#include <set>
 #include <string>
 
 #include "kube_json.hpp"
@@ -21,8 +22,8 @@ namespace kube_checks {
 struct pod_state {
   std::string status;        // the kubectl STATUS column
   long long restarts = 0;    // sum of container restart counts
-  long long ready = 0;       // containers reporting ready
-  long long containers = 0;  // containers in the pod spec
+  long long ready = 0;       // containers reporting ready (restartable init containers included)
+  long long containers = 0;  // containers in the pod spec (restartable init containers included)
   bool terminating = false;  // deletionTimestamp is set
   bool oom_killed = false;   // a container's current or last termination was OOMKilled
   bool pod_ready = false;    // the Ready condition is True
@@ -44,6 +45,21 @@ inline bool was_oom_killed(const boost::json::object &container_status) {
   return false;
 }
 
+// The names of the init containers declared with restartPolicy: Always -
+// native sidecars (Istio, log shippers), which run for the pod's lifetime and
+// count as started rather than as unfinished initialisation.
+inline std::set<std::string> restartable_init_containers(const boost::json::object &spec) {
+  std::set<std::string> names;
+  if (const boost::json::array *inits = get_arr(spec, "initContainers")) {
+    for (const auto &v : *inits) {
+      if (v.is_object() && get_str(v.as_object(), "restartPolicy") == "Always") names.insert(get_str(v.as_object(), "name"));
+    }
+  }
+  return names;
+}
+
+inline bool is_terminal_phase(const std::string &phase) { return phase == "Succeeded" || phase == "Failed"; }
+
 }  // namespace detail
 
 inline pod_state derive_pod_state(const boost::json::object &pod) {
@@ -55,13 +71,17 @@ inline pod_state derive_pod_state(const boost::json::object &pod) {
   if (!status) status = &empty;
   if (!spec) spec = &empty;
 
+  const std::set<std::string> sidecars = detail::restartable_init_containers(*spec);
   if (const boost::json::array *containers = get_arr(*spec, "containers")) out.containers = static_cast<long long>(containers->size());
+  out.containers += static_cast<long long>(sidecars.size());
   out.pod_ready = condition_is_true(*status, "Ready");
 
-  std::string reason = get_str(*status, "phase");
+  const std::string phase = get_str(*status, "phase");
+  std::string reason = phase;
   if (!get_str(*status, "reason").empty()) reason = get_str(*status, "reason");
 
   // Init containers first: an unfinished one is what the pod is waiting on.
+  // A finished one, or a started sidecar, is skipped.
   bool initializing = false;
   long long init_total = 0;
   if (const boost::json::array *inits = get_arr(*spec, "initContainers")) init_total = static_cast<long long>(inits->size());
@@ -80,6 +100,13 @@ inline pod_state derive_pod_state(const boost::json::object &pod) {
       if (terminated && get_num(*terminated, "exitCode") == 0) {
         ++i;
         continue;  // this init container finished fine
+      }
+      if (sidecars.count(get_str(cs, "name")) != 0 && get_bool(cs, "started")) {
+        // A native sidecar that is up: it is part of the running pod, not
+        // of its initialisation (kubectl reads the same `started` flag).
+        if (get_bool(cs, "ready")) ++out.ready;
+        ++i;
+        continue;
       }
       if (terminated) {
         const std::string term_reason = get_str(*terminated, "reason");
@@ -130,7 +157,13 @@ inline pod_state derive_pod_state(const boost::json::object &pod) {
 
   if (metadata && !get_str(*metadata, "deletionTimestamp").empty()) {
     out.terminating = true;
-    reason = get_str(*status, "reason") == "NodeLost" ? "Unknown" : "Terminating";
+    // A finished pod being cleaned up (a job under its TTL) keeps its verdict:
+    // Completed or Error say more than Terminating. kubectl does the same.
+    if (get_str(*status, "reason") == "NodeLost") {
+      reason = "Unknown";
+    } else if (!detail::is_terminal_phase(phase)) {
+      reason = "Terminating";
+    }
   }
   out.status = reason;
   return out;

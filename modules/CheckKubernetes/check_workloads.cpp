@@ -6,12 +6,14 @@
 #include <algorithm>
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/json.hpp>
+#include <check/duration_keyword.hpp>
 #include <ctime>
 #include <memory>
 #include <nscapi/nscapi_program_options.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <str/rfc3339.hpp>
 #include <string>
 #include <vector>
 
@@ -79,7 +81,7 @@ std::shared_ptr<workload_obj> parse_workload(const kind_spec &kind, const json::
   record->name = get_str(*metadata, "name");
   record->ns = get_str(*metadata, "namespace");
   record->labels = join_map(*metadata, "labels");
-  record->age = seconds_since(get_str(*metadata, "creationTimestamp"));
+  record->age = str::seconds_since_rfc3339(get_str(*metadata, "creationTimestamp"));
   if (record->age >= 0) record->created = static_cast<long long>(std::time(nullptr)) - record->age;
 
   if (std::string(kind.kind) == "DaemonSet") {
@@ -129,7 +131,7 @@ struct workload_obj_handler : public workload_context {
     registry_
         .add_int_var("age", type_custom_age, &workload_obj::get_age, "Seconds since the workload was created, -1 when unknown (supports units, e.g. age < 1h)")
         .no_perf();
-    registry_.add_converter(type_custom_age, &parse_time<std::shared_ptr<workload_obj>>);
+    registry_.add_converter(type_custom_age, &duration_keyword::parse_duration<std::shared_ptr<workload_obj>>);
   }
 };
 typedef modern_filter::modern_filters<workload_obj, workload_obj_handler> workload_filter;
@@ -184,45 +186,29 @@ void check_workloads(const settings &defaults, const PB::Commands::QueryRequestM
   target.timeout = timeout;
   const fetcher fetch = make_fetcher(target);
 
-  std::vector<bool> seen(required.size(), false);
+  required_names wanted(required);
   for (const kind_spec *kind : selected) {
     std::vector<json::value> items;
     if (!list_namespaced(fetch, target, "/apis/apps/v1", kind->resource, namespaces, opt, items, response)) return;
     for (const auto &v : items) {
       if (!v.is_object()) continue;
       auto record = parse_workload(*kind, v.as_object());
-      if (!required.empty()) {
-        bool matched = false;
-        for (std::size_t i = 0; i < required.size(); i++) {
-          if (required[i] == record->name || required[i] == record->ns + "/" + record->name) {
-            seen[i] = true;
-            matched = true;
-          }
-        }
-        if (!matched) continue;
-      }
+      if (!wanted.empty() && !wanted.claim(record->name, record->ns + "/" + record->name)) continue;
       filter.match(record);
     }
   }
 
   // A required workload the API server does not know about has nothing
   // available, which is what the default critical says.
-  for (std::size_t i = 0; i < required.size(); i++) {
-    if (seen[i]) continue;
+  wanted.for_each_missing(default_namespace(namespaces), [&filter](const std::string &ns, const std::string &name) {
     auto record = std::make_shared<workload_obj>();
-    const auto slash = required[i].find('/');
-    if (slash != std::string::npos) {
-      record->ns = required[i].substr(0, slash);
-      record->name = required[i].substr(slash + 1);
-    } else {
-      record->ns = namespaces.size() == 1 ? namespaces[0] : "";
-      record->name = required[i];
-    }
+    record->ns = ns;
+    record->name = name;
     record->kind = "missing";
     record->desired = 1;
     record->missing = 1;
     filter.match(record);
-  }
+  });
 
   filter_helper.post_process(filter);
 }

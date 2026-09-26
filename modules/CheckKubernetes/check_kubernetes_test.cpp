@@ -280,13 +280,28 @@ TEST(CheckKubernetes, MissingConfigurationIsUnknownBeforeAnyRequest) {
   EXPECT_TRUE(api.requests.empty());
 }
 
-TEST(CheckKubernetes, MetricsServerAbsenceIsNamed) {
-  kube_checks::cluster target;
-  target.host = "k8s.example.com";
-  target.port = "6443";
-  const kube_checks::kube_http_error e(404, "HTTP 404 Not Found", "");
-  EXPECT_EQ(kube_checks::describe_http_error(target, "/apis/metrics.k8s.io/v1beta1/pods", e),
-            "metrics-server is not installed in the cluster at 'https://k8s.example.com:6443' (HTTP 404 for GET /apis/metrics.k8s.io/v1beta1/pods)");
+TEST(CheckKubernetes, ReadyzDeniedByRbacIsUnknownNotCritical) {
+  // A service account without the nonResourceURLs rule for /readyz must not
+  // page anyone about a healthy cluster: the contract for 401/403 is UNKNOWN
+  // with the rule to grant, on every path.
+  fake_api api;
+  api.serve("/version", VERSION);
+  api.refuse(
+      "/readyz", 403,
+      R"({"kind":"Status","message":"forbidden: User \"system:serviceaccount:monitoring:nscp\" cannot get path \"/readyz\"","reason":"Forbidden","code":403})");
+  api.serve("/api/v1/nodes", THREE_NODES);
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_cluster(api.factory(), {}, response), PB::Common::ResultCode::UNKNOWN) << join_lines(response);
+  const std::string msg = join_lines(response);
+  EXPECT_NE(msg.find("denied GET /readyz (HTTP 403: forbidden: User \"system:serviceaccount:monitoring:nscp\" cannot get path \"/readyz\")"), std::string::npos)
+      << msg;
+  EXPECT_NE(msg.find("grant the agent's service account"), std::string::npos) << msg;
+  EXPECT_EQ(response.lines_size(), 1);
+
+  api.refuse("/readyz", 401, "");
+  PB::Commands::QueryResponseMessage::Response response2;
+  EXPECT_EQ(run_cluster(api.factory(), {}, response2), PB::Common::ResultCode::UNKNOWN) << join_lines(response2);
+  EXPECT_NE(join_lines(response2).find("rejected the credentials (HTTP 401 for GET /readyz)"), std::string::npos) << join_lines(response2);
 }
 
 TEST(CheckKubernetes, TimeoutOptionReachesTheFetcher) {
@@ -364,11 +379,14 @@ const char *KUBECONFIG = R"json({
   "current-context": "prod",
   "clusters": [
     {"name": "prod-cluster", "cluster": {"server": "https://prod.example.com:6443", "certificate-authority-data": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCg=="}},
-    {"name": "lab-cluster", "cluster": {"server": "https://lab.example.com", "insecure-skip-tls-verify": true}}
+    {"name": "lab-cluster", "cluster": {"server": "https://lab.example.com", "certificate-authority-data": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCg=="}},
+    {"name": "insecure-cluster", "cluster": {"server": "https://insecure.example.com", "insecure-skip-tls-verify": true}}
   ],
   "contexts": [
     {"name": "prod", "context": {"cluster": "prod-cluster", "user": "prod-user"}},
     {"name": "lab", "context": {"cluster": "lab-cluster", "user": "lab-user"}},
+    {"name": "insecure", "context": {"cluster": "insecure-cluster", "user": "prod-user"}},
+    {"name": "insecure-cert", "context": {"cluster": "insecure-cluster", "user": "lab-user"}},
     {"name": "cloud", "context": {"cluster": "lab-cluster", "user": "cloud-user"}}
   ],
   "users": [
@@ -406,7 +424,69 @@ TEST(KubeSettings, KubeconfigNamedContextWithClientCertificate) {
   EXPECT_TRUE(c.token.empty());
   EXPECT_EQ(c.client_cert_pem, "CERT");
   EXPECT_EQ(c.client_key_pem, "KEY");
+  EXPECT_EQ(c.ca_pem, "-----BEGIN CERTIFICATE-----\n");
+  EXPECT_EQ(c.verify_mode, "peer");
+}
+
+TEST(KubeSettings, InsecureSkipTlsVerifyIsHonouredForATokenAndRefusedWithAClientCertificate) {
+  const temp_file cfg(KUBECONFIG);
+  kube_checks::settings s;
+  s.kubeconfig = cfg.path.string();
+  kube_checks::cluster c;
+  std::string error;
+
+  s.context = "insecure";
+  ASSERT_TRUE(kube_checks::resolve_cluster(s, c, error)) << error;
+  EXPECT_EQ(c.host, "insecure.example.com");
+  EXPECT_EQ(c.token, "prod-token");
   EXPECT_EQ(c.verify_mode, "none") << "insecure-skip-tls-verify maps to verify mode none";
+
+  // A client certificate on an unverified server can never connect (the HTTP
+  // client refuses mTLS without server authentication), so it is rejected
+  // up front with the fix.
+  s.context = "insecure-cert";
+  EXPECT_FALSE(kube_checks::resolve_cluster(s, c, error));
+  EXPECT_NE(error.find("insecure-skip-tls-verify cannot be combined with a client certificate"), std::string::npos) << error;
+  EXPECT_NE(error.find("Remove insecure-skip-tls-verify and supply certificate-authority(-data)"), std::string::npos) << error;
+}
+
+TEST(KubeSettings, KubeconfigFileReferencesResolveAgainstItsOwnDirectory) {
+  // client-go resolves certificate-authority, client-certificate, client-key
+  // and tokenFile relative to the kubeconfig's directory, not the process
+  // cwd; a kubeconfig that works with kubectl must work here.
+  const temp_file token("relative-token\n");
+  const temp_file cert("CERT-FROM-FILE");
+  const temp_file key("KEY-FROM-FILE");
+  const temp_file ca("CA-FROM-FILE");
+  const std::string token_name = token.path.filename().string();
+  const std::string cert_name = cert.path.filename().string();
+  const std::string key_name = key.path.filename().string();
+  const std::string ca_name = ca.path.filename().string();
+  const temp_file cfg(R"({"current-context":"c",
+    "clusters":[{"name":"x","cluster":{"server":"https://x.example.com:6443","certificate-authority":")" +
+                      ca_name + R"("}}],
+    "contexts":[{"name":"c","context":{"cluster":"x","user":"tok"}},{"name":"mtls","context":{"cluster":"x","user":"cert"}}],
+    "users":[{"name":"tok","user":{"tokenFile":")" +
+                      token_name + R"("}},
+             {"name":"cert","user":{"client-certificate":")" +
+                      cert_name + R"(","client-key":")" + key_name + R"("}}]})");
+  kube_checks::settings s;
+  s.kubeconfig = cfg.path.string();
+  kube_checks::cluster c;
+  std::string error;
+  ASSERT_TRUE(kube_checks::resolve_cluster(s, c, error)) << error;
+  EXPECT_EQ(c.token, "relative-token");
+  EXPECT_EQ(c.ca, ca.path.string());
+
+  s.context = "mtls";
+  ASSERT_TRUE(kube_checks::resolve_cluster(s, c, error)) << error;
+  EXPECT_EQ(c.client_cert_pem, "CERT-FROM-FILE");
+  EXPECT_EQ(c.client_key_pem, "KEY-FROM-FILE");
+
+  // An absolute path is left alone.
+  EXPECT_EQ(kube_checks::detail::resolve_relative("/etc/nscp", "/abs/ca.pem"), "/abs/ca.pem");
+  EXPECT_EQ(kube_checks::detail::resolve_relative("/etc/nscp", ""), "");
+  EXPECT_EQ(kube_checks::detail::resolve_relative("", "ca.pem"), "ca.pem");
 }
 
 TEST(KubeSettings, KubeconfigErrorsAreSpecific) {
@@ -477,12 +557,22 @@ TEST(KubeClient, ListQueryEncodesSelectors) {
   EXPECT_EQ(kube_checks::list_path("/apis/apps/v1", "kube-system", "deployments"), "/apis/apps/v1/namespaces/kube-system/deployments");
 }
 
-TEST(KubeClient, SecondsSinceHandlesTheApiTimestampForms) {
-  EXPECT_EQ(kube_checks::seconds_since(""), -1);
-  EXPECT_EQ(kube_checks::seconds_since("0001-01-01T00:00:00Z"), -1);
-  EXPECT_EQ(kube_checks::seconds_since("not a date"), -1);
-  EXPECT_GT(kube_checks::seconds_since("2020-01-01T00:00:00Z"), 24 * 3600LL * 365 * 5);
-  EXPECT_GT(kube_checks::seconds_since("2020-01-01T00:00:00.123456Z"), 24 * 3600LL * 365 * 5);
+TEST(KubeClient, RequiredNamesMatchBareOrQualifiedAndReportTheRest) {
+  kube_checks::required_names wanted({"web", "ops/ghost", "db-0"});
+  EXPECT_FALSE(wanted.empty());
+  EXPECT_TRUE(wanted.claim("web", "shop/web"));
+  EXPECT_TRUE(wanted.claim("ghost", "ops/ghost"));
+  EXPECT_FALSE(wanted.claim("ghost", "shop/ghost")) << "a qualified name matches its own namespace only";
+  EXPECT_FALSE(wanted.claim("other", "shop/other"));
+  std::vector<std::string> missing;
+  wanted.for_each_missing("*", [&missing](const std::string &ns, const std::string &name) { missing.push_back(ns + "/" + name); });
+  EXPECT_EQ(missing, std::vector<std::string>({"*/db-0"}));
+
+  kube_checks::required_names none({});
+  EXPECT_TRUE(none.empty());
+  EXPECT_EQ(kube_checks::default_namespace({}), "*");
+  EXPECT_EQ(kube_checks::default_namespace({"ops"}), "ops");
+  EXPECT_EQ(kube_checks::default_namespace({"ops", "shop"}), "*");
 }
 
 // --- check_pods -------------------------------------------------------------------
@@ -650,7 +740,7 @@ TEST(CheckPods, RequiredPodsAndMissingOnes) {
   PB::Commands::QueryResponseMessage::Response response2;
   EXPECT_EQ(run_pods(api.factory(), {"pod=web-7d4b9c-abcde", "pod=ops/ghost", "pod=nowhere"}, response2), PB::Common::ResultCode::CRITICAL)
       << join_lines(response2);
-  EXPECT_EQ(join_lines(response2), "CRITICAL: ops/ghost=missing, /nowhere=missing");
+  EXPECT_EQ(join_lines(response2), "CRITICAL: ops/ghost=missing, */nowhere=missing") << "a bare name looked up everywhere is reported under *";
 
   PB::Commands::QueryResponseMessage::Response response3;
   api.serve("/api/v1/namespaces/ops/pods", R"({"items":[]})");
@@ -893,8 +983,7 @@ TEST(CheckWorkloads, PausedAndRolloutKeywordsInThresholds) {
   fake_api api;
   serve_all_kinds(api);
   PB::Commands::QueryResponseMessage::Response response;
-  EXPECT_EQ(run_workloads(api.factory(), {"kind=deployment", "warning=paused = 1 and updated < 2", "critical=none"}, response),
-            PB::Common::ResultCode::WARNING)
+  EXPECT_EQ(run_workloads(api.factory(), {"kind=deployment", "warning=paused = 1 and updated < 2", "critical=none"}, response), PB::Common::ResultCode::WARNING)
       << join_lines(response);
   EXPECT_EQ(join_lines(response), "WARNING: Deployment shop/worker=2/2");
   EXPECT_NE(perf_of(response).find("shop/worker updated=1"), std::string::npos) << perf_of(response);

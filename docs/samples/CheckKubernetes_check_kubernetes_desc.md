@@ -9,7 +9,9 @@ Reaching the API is the health signal. The default critical is
 `api_ready = 0`, which trips when `/readyz` answers with a failing check (the
 `readyz` keyword then names it, e.g. `failed: etcd`); an unreachable server, a
 rejected token or a missing RBAC rule are reported as UNKNOWN with the reason
-(see below). Node counts carry no default threshold, so add
+(see below). That holds for `/readyz` too: a service account without the
+`nonResourceURLs: ["/readyz"]` rule gets an UNKNOWN naming the rule, not a
+CRITICAL about a healthy cluster. Node counts carry no default threshold, so add
 `warning=nodes_not_ready > 0` when a NotReady node should show up here rather
 than in `check_nodes`.
 
@@ -27,4 +29,3 @@ Error messages are meant to be acted on:
 | TCP/TLS failure                          | UNKNOWN | `Failed to connect to Kubernetes API server at 'https://...'`                |
 | HTTP 401                                 | UNKNOWN | `... rejected the credentials (HTTP 401 ...)` - check `token` / `token file` |
 | HTTP 403                                 | UNKNOWN | `... denied GET /api/v1/... (HTTP 403: <the API server's own message>)`       |
-| HTTP 404 under `/apis/metrics.k8s.io/`   | UNKNOWN | `metrics-server is not installed in the cluster at ...`                      |

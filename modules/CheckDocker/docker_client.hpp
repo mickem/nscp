@@ -7,12 +7,8 @@
 // stable error contract, and the fetch-and-parse step.
 
 #include <boost/json.hpp>
-#include <cctype>
-#include <list>
+#include <json/accessors.hpp>
 #include <nscapi/nscapi_program_options.hpp>
-#include <parsers/where/helpers.hpp>
-#include <str/format.hpp>
-#include <str/xtos.hpp>
 #include <string>
 
 #include "check_docker.hpp"
@@ -44,38 +40,11 @@ const char *const API = "";
 //
 // The daemon's payload varies by version and container configuration (podman's
 // compat API differs in places too); a missing or differently-typed field must
-// degrade to an empty value, never throw.
-
-inline std::string get_str(const boost::json::object &o, const char *key) {
-  if (const boost::json::value *p = o.if_contains(key)) {
-    if (p->is_string()) return std::string(p->as_string().c_str());
-  }
-  return "";
-}
-
-inline long long get_num(const boost::json::object &o, const char *key) {
-  if (const boost::json::value *p = o.if_contains(key)) {
-    if (p->is_int64()) return p->as_int64();
-    if (p->is_uint64()) return static_cast<long long>(p->as_uint64());
-    if (p->is_double()) return static_cast<long long>(p->as_double());
-  }
-  return 0;
-}
-
-inline bool get_bool(const boost::json::object &o, const char *key) {
-  if (const boost::json::value *p = o.if_contains(key)) {
-    if (p->is_bool()) return p->as_bool();
-  }
-  return false;
-}
-
-// Nested object access; nullptr when absent or not an object.
-inline const boost::json::object *get_obj(const boost::json::object &o, const char *key) {
-  if (const boost::json::value *p = o.if_contains(key)) {
-    if (p->is_object()) return &p->as_object();
-  }
-  return nullptr;
-}
+// degrade to an empty value, never throw. The accessors are the shared ones.
+using json_accessors::get_bool;
+using json_accessors::get_num;
+using json_accessors::get_obj;
+using json_accessors::get_str;
 
 // Docker reports names as "/name"; the slash is an API artifact.
 inline std::string strip_slash(const std::string &name) { return !name.empty() && name[0] == '/' ? name.substr(1) : name; }
@@ -148,42 +117,6 @@ inline item_fetch fetch_json_item(const fetcher &fetch, const std::string &endpo
     return item_fetch::failed;
   }
   return item_fetch::ok;
-}
-
-// --- duration-literal converter ----------------------------------------------
-
-// True for an optionally-signed run of digits ("0", "-1", "+259200").
-inline bool is_plain_integer(const std::string &expr) {
-  std::size_t i = 0;
-  if (i < expr.size() && (expr[i] == '-' || expr[i] == '+')) ++i;
-  if (i >= expr.size()) return false;
-  for (; i < expr.size(); ++i) {
-    if (!std::isdigit(static_cast<unsigned char>(expr[i]))) return false;
-  }
-  return true;
-}
-
-// Duration-literal converter for age-style keywords (register with
-// add_converter on a type_custom_int_* keyword): turns "30m" / "2d" - or the
-// tokenized [number, unit] list form - into seconds, so expressions like
-// started < 10m work. Same shape as mssql_filter::parse_time in CheckMSSQL;
-// plain integers pass straight through so -1 sentinels keep working.
-template <class TObject>
-parsers::where::node_type parse_time(TObject object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-  using namespace parsers::where;
-  std::list<node_type> tokens = subject->get_list_value(context);
-  std::string expr;
-  if (tokens.size() == 2) {
-    auto cit = tokens.begin();
-    const long long n = (*cit)->get_int_value(context);
-    ++cit;
-    const std::string unit = (*cit)->get_value(context, type_string).get_string("");
-    expr = str::xtos(n) + unit;
-  } else {
-    expr = subject->get_string_value(context);
-  }
-  if (is_plain_integer(expr)) return factory::create_int(str::stox<long long>(expr, 0));
-  return factory::create_int(str::format::stox_as_time_sec<long long>(expr, "s"));
 }
 
 }  // namespace docker_checks

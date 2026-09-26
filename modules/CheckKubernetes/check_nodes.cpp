@@ -4,6 +4,7 @@
 #include "check_nodes.hpp"
 
 #include <boost/json.hpp>
+#include <check/duration_keyword.hpp>
 #include <ctime>
 #include <memory>
 #include <nscapi/nscapi_program_options.hpp>
@@ -11,6 +12,7 @@
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <str/format.hpp>
+#include <str/rfc3339.hpp>
 #include <string>
 #include <vector>
 
@@ -75,7 +77,7 @@ std::shared_ptr<node_obj> parse_node(const json::object &o) {
   if (!status) status = &empty;
 
   record->name = get_str(*metadata, "name");
-  record->age = seconds_since(get_str(*metadata, "creationTimestamp"));
+  record->age = str::seconds_since_rfc3339(get_str(*metadata, "creationTimestamp"));
   if (record->age >= 0) record->created = static_cast<long long>(std::time(nullptr)) - record->age;
   // Roles are labels: node-role.kubernetes.io/<role>="" (kubectl reads the same).
   if (const json::object *labels = get_obj(*metadata, "labels")) {
@@ -167,7 +169,7 @@ struct node_obj_handler : public node_context {
     static const parsers::where::value_type type_custom_age = parsers::where::type_custom_int_1;
     registry_.add_int_var("age", type_custom_age, &node_obj::get_age, "Seconds since the node joined, -1 when unknown (supports units, e.g. age < 1h)")
         .no_perf();
-    registry_.add_converter(type_custom_age, &parse_time<std::shared_ptr<node_obj>>);
+    registry_.add_converter(type_custom_age, &duration_keyword::parse_duration<std::shared_ptr<node_obj>>);
   }
 };
 typedef modern_filter::modern_filters<node_obj, node_obj_handler> node_filter;
@@ -210,34 +212,23 @@ void check_nodes(const settings &defaults, const PB::Commands::QueryRequestMessa
   std::vector<json::value> items;
   if (!list_all(fetch, target, "/api/v1/nodes", opt, items, response)) return;
 
-  std::vector<bool> seen(required.size(), false);
+  required_names wanted(required);
   for (const auto &v : items) {
     if (!v.is_object()) continue;
     auto record = parse_node(v.as_object());
-    if (!required.empty()) {
-      bool matched = false;
-      for (std::size_t i = 0; i < required.size(); i++) {
-        if (required[i] == record->name) {
-          seen[i] = true;
-          matched = true;
-        }
-      }
-      if (!matched) continue;
-    }
+    if (!wanted.empty() && !wanted.claim(record->name)) continue;
     filter.match(record);
   }
 
-  // A required node the API server does not know about: it left the
-  // cluster (or never joined), which is exactly what the operator asked to
-  // be told about.
-  for (std::size_t i = 0; i < required.size(); i++) {
-    if (seen[i]) continue;
+  // A required node the API server does not know about left the cluster (or
+  // never joined), which is exactly what the operator asked to be told about.
+  wanted.for_each_missing("", [&filter](const std::string &, const std::string &name) {
     auto record = std::make_shared<node_obj>();
-    record->name = required[i];
+    record->name = name;
     record->node_status = "missing";
     record->schedulable = false;
     filter.match(record);
-  }
+  });
 
   filter_helper.post_process(filter);
 }

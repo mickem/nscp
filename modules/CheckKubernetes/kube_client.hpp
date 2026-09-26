@@ -3,22 +3,19 @@
 
 #pragma once
 
-// Helpers shared by the CheckKubernetes commands: the fetcher contract,
-// tolerant JSON access, the stable UNKNOWN error contract, paginated list
-// calls and the duration-literal converter for age keywords.
+// Helpers shared by the CheckKubernetes commands: the fetcher contract, the
+// stable UNKNOWN error contract, paginated list calls and the "must exist"
+// bookkeeping behind pod= / node= / workload=.
 
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/json.hpp>
 #include <cctype>
 #include <cstdio>
 #include <functional>
-#include <list>
 #include <nscapi/nscapi_program_options.hpp>
-#include <parsers/where/helpers.hpp>
 #include <str/format.hpp>
 #include <str/utf8.hpp>
-#include <str/xtos.hpp>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "kube_json.hpp"
@@ -47,7 +44,8 @@ typedef std::function<std::string(const std::string &path)> fetcher;
 
 // Creates a fetcher for a resolved cluster. Injectable so the checks (and
 // their unit tests) never touch the HTTP client directly; the module wires in
-// the real HTTPS transport from CheckKubernetes.cpp.
+// the real HTTPS transport from CheckKubernetes.cpp. A check calls it once
+// and issues every request of that invocation through the one fetcher.
 typedef std::function<fetcher(const cluster &target)> fetcher_factory;
 
 // "key=value,key=value" from a labels/annotations map.
@@ -59,61 +57,6 @@ inline std::string join_map(const boost::json::object &o, const char *key) {
     }
   }
   return out;
-}
-
-// --- time ---------------------------------------------------------------------
-
-// Seconds since an RFC3339 timestamp ("2026-08-12T07:44:00Z"); -1 when absent
-// or unparsable.
-inline long long seconds_since(const std::string &rfc3339) {
-  if (rfc3339.empty() || rfc3339[0] == '0') return -1;
-  std::string s = rfc3339;
-  const auto dot = s.find('.');
-  if (dot != std::string::npos) {
-    s = s.substr(0, dot);
-  } else if (!s.empty() && s.back() == 'Z') {
-    s.pop_back();
-  }
-  try {
-    const boost::posix_time::ptime t = boost::posix_time::from_iso_extended_string(s);
-    const boost::posix_time::ptime now = boost::posix_time::second_clock::universal_time();
-    return (now - t).total_seconds();
-  } catch (const std::exception &) {
-    return -1;
-  }
-}
-
-// True for an optionally-signed run of digits ("0", "-1", "+259200").
-inline bool is_plain_integer(const std::string &expr) {
-  std::size_t i = 0;
-  if (i < expr.size() && (expr[i] == '-' || expr[i] == '+')) ++i;
-  if (i >= expr.size()) return false;
-  for (; i < expr.size(); ++i) {
-    if (!std::isdigit(static_cast<unsigned char>(expr[i]))) return false;
-  }
-  return true;
-}
-
-// Duration-literal converter for age-style keywords (register with
-// add_converter on a type_custom_int_* keyword): turns "30m" / "2d" - or the
-// tokenized [number, unit] list form - into seconds, so `age < 10m` works.
-// Plain integers pass straight through so -1 sentinels keep working.
-template <class TObject>
-parsers::where::node_type parse_time(TObject, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-  using namespace parsers::where;
-  std::list<node_type> tokens = subject->get_list_value(context);
-  std::string expr;
-  if (tokens.size() == 2) {
-    auto cit = tokens.begin();
-    const long long n = (*cit)->get_int_value(context);
-    ++cit;
-    const std::string unit = (*cit)->get_value(context, type_string).get_string("");
-    expr = str::xtos(n) + unit;
-  } else {
-    expr = subject->get_string_value(context);
-  }
-  if (is_plain_integer(expr)) return factory::create_int(str::stox<long long>(expr, 0));
-  return factory::create_int(str::format::stox_as_time_sec<long long>(expr, "s"));
 }
 
 // --- the error contract -------------------------------------------------------
@@ -139,7 +82,7 @@ inline std::string status_message(const std::string &body) {
 }
 
 // One line for a non-2xx answer, actionable and without the credential:
-// 401 is the token, 403 is RBAC, 404 under metrics.k8s.io is metrics-server.
+// 401 is the token, 403 is the RBAC rule to grant.
 inline std::string describe_http_error(const cluster &target, const std::string &path, const kube_http_error &e) {
   const std::string where = "Kubernetes API server at '" + target.address() + "'";
   const std::string detail = status_message(e.body());
@@ -153,11 +96,13 @@ inline std::string describe_http_error(const cluster &target, const std::string 
     return where + " denied " + request + " (" + http + (detail.empty() ? "" : ": " + detail) +
            "): grant the agent's service account get and list on the resource (see the CheckKubernetes documentation for the ClusterRole)";
   }
-  if (e.status() == 404 && path.find("/apis/metrics.k8s.io/") == 0) {
-    return "metrics-server is not installed in the cluster at '" + target.address() + "' (" + http + " for " + request + ")";
-  }
   return where + " returned " + http + " for " + request + (detail.empty() ? ": " + std::string(e.what()) : ": " + detail);
 }
+
+// True for the statuses describe_http_error turns into "fix your credentials
+// or RBAC": those are UNKNOWN on every path, never a finding about the
+// cluster.
+inline bool is_auth_error(const long status) { return status == 401 || status == 403; }
 
 inline std::string describe_transport_error(const cluster &target, const std::exception &e) {
   return "Failed to connect to Kubernetes API server at '" + target.address() + "' (" + target.source + "): " + utf8::utf8_from_native(e.what());
@@ -168,11 +113,13 @@ inline std::string describe_transport_error(const cluster &target, const std::ex
 enum class raw_fetch {
   ok,        // 2xx; `body` holds the payload
   rejected,  // non-2xx; `status` holds the code and `body` whatever came with it
-  failed,    // the server is unreachable; the response has been failed
+  failed,    // the server is unreachable, or refused the credentials; the response has been failed
 };
 
 // Fetch one path without treating a non-2xx status as a failure: /readyz
-// answers 500 when a check fails, and that is the finding, not an error.
+// answers 500 when a check fails, and that is the finding, not an error. A
+// 401 or 403 is still an error - the server never got to answer the
+// question - and is reported under the usual contract.
 inline raw_fetch fetch_raw(const fetcher &fetch, const cluster &target, const std::string &path, std::string &body, long &status,
                            PB::Commands::QueryResponseMessage::Response *response) {
   try {
@@ -180,6 +127,10 @@ inline raw_fetch fetch_raw(const fetcher &fetch, const cluster &target, const st
     status = 200;
     return raw_fetch::ok;
   } catch (const kube_http_error &e) {
+    if (is_auth_error(e.status())) {
+      fail(response, describe_http_error(target, path, e));
+      return raw_fetch::failed;
+    }
     status = e.status();
     body = e.body();
     return raw_fetch::rejected;
@@ -296,5 +247,55 @@ inline bool list_namespaced(const fetcher &fetch, const cluster &target, const s
   }
   return true;
 }
+
+// --- "must exist" names -------------------------------------------------------
+
+// The bookkeeping behind pod= / node= / workload=: only the named objects
+// take part in the check, and one the server did not return is synthesised
+// by the caller so it shows up (and trips the default critical) instead of
+// silently disappearing from the listing. A name is given bare or as
+// namespace/name.
+class required_names {
+  std::vector<std::string> names_;
+  std::vector<bool> seen_;
+
+ public:
+  explicit required_names(std::vector<std::string> names) : names_(std::move(names)), seen_(names_.size(), false) {}
+
+  bool empty() const { return names_.empty(); }
+
+  // True when the object is one of the required names, by its bare name or
+  // by `qualified` (namespace/name); marks every matching entry as seen.
+  bool claim(const std::string &name, const std::string &qualified = std::string()) {
+    bool matched = false;
+    for (std::size_t i = 0; i < names_.size(); ++i) {
+      if (names_[i] == name || (!qualified.empty() && names_[i] == qualified)) {
+        seen_[i] = true;
+        matched = true;
+      }
+    }
+    return matched;
+  }
+
+  // Calls fn(namespace, name) for every required name the server did not
+  // return. A bare name gets `default_ns`: the one namespace the check was
+  // scoped to, or "*" when it looked everywhere.
+  template <class F>
+  void for_each_missing(const std::string &default_ns, F fn) const {
+    for (std::size_t i = 0; i < names_.size(); ++i) {
+      if (seen_[i]) continue;
+      const auto slash = names_[i].find('/');
+      if (slash != std::string::npos) {
+        fn(names_[i].substr(0, slash), names_[i].substr(slash + 1));
+      } else {
+        fn(default_ns, names_[i]);
+      }
+    }
+  }
+};
+
+// The namespace a bare required name is reported under: the single
+// namespace= the check was scoped to, else "*" for "any".
+inline std::string default_namespace(const std::vector<std::string> &namespaces) { return namespaces.size() == 1 ? namespaces[0] : "*"; }
 
 }  // namespace kube_checks

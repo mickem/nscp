@@ -3,6 +3,7 @@
 
 #include "CheckKubernetes.h"
 
+#include <memory>
 #include <net/http/client.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/settings/helper.hpp>
@@ -21,25 +22,30 @@ namespace {
 // The real transport: HTTPS to the resolved API server with the bearer token.
 // Everything about where the request goes and what it carries comes from the
 // resolved cluster, never from the check request.
+//
+// One client serves every request of a check invocation: the TLS context
+// (CA bundle, client certificate) is built once, and each page of a list or
+// each namespace reconnects through it rather than reloading the bundle and
+// re-parsing the options.
 kube_checks::fetcher make_api_fetcher(const kube_checks::cluster &target) {
-  return [target](const std::string &path) -> std::string {
+  http::http_client_options options(target.protocol, target.tls_version, target.verify_mode, target.ca);
+  options.timeout_seconds_ = target.timeout > 0 ? static_cast<unsigned int>(target.timeout) : 30;
+  options.max_response_bytes_ = target.max_response_bytes;
+  // A kubeconfig's certificate-authority-data is a CA, so the client keeps
+  // hostname verification and merely adds it as a trust root.
+  options.identity_.pinned_ca_pem = target.ca_pem;
+  options.identity_.cert_pem = target.client_cert_pem;
+  options.identity_.key_pem = target.client_key_pem;
+  auto client = std::make_shared<http::simple_client>(options);
+  return [target, client](const std::string &path) -> std::string {
     http::request rq("GET", target.host_header(), target.base_path + path);
     rq.add_header("Accept", "application/json");
     rq.add_header("User-Agent", "NSClient++ CheckKubernetes");
     if (!target.token.empty()) rq.add_header("Authorization", "Bearer " + target.token);
-    http::http_client_options options(target.protocol, target.tls_version, target.verify_mode, target.ca);
-    options.timeout_seconds_ = target.timeout > 0 ? static_cast<unsigned int>(target.timeout) : 30;
-    options.max_response_bytes_ = target.max_response_bytes;
-    // A kubeconfig's certificate-authority-data is a CA, so the client keeps
-    // hostname verification and merely adds it as a trust root.
-    options.identity_.pinned_ca_pem = target.ca_pem;
-    options.identity_.cert_pem = target.client_cert_pem;
-    options.identity_.key_pem = target.client_key_pem;
-    http::simple_client client(options);
     // fetch(), not execute(): execute() throws on any non-2xx, folding a 403
     // (RBAC) into the same failure as an unreachable server. fetch() hands
     // back the status and the Status body so the check can say what to fix.
-    const http::response resp = client.fetch(target.host, target.port, rq);
+    const http::response resp = client->fetch(target.host, target.port, rq);
     if (!resp.is_2xx()) {
       throw kube_checks::kube_http_error(resp.status_code_, "HTTP " + std::to_string(resp.status_code_) + " " + resp.status_message_, resp.payload_);
     }

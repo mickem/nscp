@@ -16,6 +16,7 @@
 #include <bytes/base64.h>
 
 #include <boost/algorithm/string/trim.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/json.hpp>
 #include <cstdlib>
 #include <fstream>
@@ -109,6 +110,16 @@ inline std::string base64_decode(const std::string &encoded) {
   if (written == 0) return "";
   out.resize(written);
   return out;
+}
+
+// A file named by a kubeconfig is relative to the kubeconfig's own
+// directory, not to the agent's working directory (client-go resolves it the
+// same way, so a kubeconfig that works with kubectl works here).
+inline std::string resolve_relative(const std::string &base_dir, const std::string &path) {
+  if (path.empty() || base_dir.empty()) return path;
+  const boost::filesystem::path p(path);
+  if (p.is_absolute()) return path;
+  return (boost::filesystem::path(base_dir) / p).string();
 }
 
 inline std::string json_str(const boost::json::object &o, const char *key) {
@@ -220,9 +231,11 @@ inline bool parse_server_url(const std::string &url_in, cluster &out, std::strin
 }
 
 // Resolve a kubeconfig in JSON form (`kubectl config view --raw --minify -o
-// json`). YAML is not accepted: the agent carries no YAML parser.
-inline bool resolve_kubeconfig(const std::string &text, const std::string &context_name, const std::string &kubeconfig_label, cluster &out,
-                               std::string &error) {
+// json`). YAML is not accepted: the agent carries no YAML parser. Files the
+// kubeconfig names by a relative path are looked up under `base_dir`, the
+// directory the kubeconfig itself lives in.
+inline bool resolve_kubeconfig(const std::string &text, const std::string &base_dir, const std::string &context_name, const std::string &kubeconfig_label,
+                               cluster &out, std::string &error) {
   boost::json::value root;
   try {
     root = boost::json::parse(text);
@@ -266,9 +279,10 @@ inline bool resolve_kubeconfig(const std::string &text, const std::string &conte
     }
   } else {
     const std::string ca_file = detail::json_str(*cl, "certificate-authority");
-    if (!ca_file.empty()) out.ca = ca_file;
+    if (!ca_file.empty()) out.ca = detail::resolve_relative(base_dir, ca_file);
   }
-  if (detail::json_bool(*cl, "insecure-skip-tls-verify")) out.verify_mode = "none";
+  const bool insecure = detail::json_bool(*cl, "insecure-skip-tls-verify");
+  if (insecure) out.verify_mode = "none";
 
   const boost::json::object *user = detail::named_entry(cfg, "users", user_name, "user");
   if (!user) {
@@ -277,7 +291,7 @@ inline bool resolve_kubeconfig(const std::string &text, const std::string &conte
   }
   out.token = detail::json_str(*user, "token");
   if (out.token.empty()) {
-    const std::string token_file = detail::json_str(*user, "tokenFile");
+    const std::string token_file = detail::resolve_relative(base_dir, detail::json_str(*user, "tokenFile"));
     if (!token_file.empty() && !detail::read_token_file(token_file, out.token, error)) {
       error = "Kubeconfig " + kubeconfig_label + ", user '" + user_name + "': " + error;
       return false;
@@ -293,8 +307,8 @@ inline bool resolve_kubeconfig(const std::string &text, const std::string &conte
       return false;
     }
   } else {
-    const std::string cert_file = detail::json_str(*user, "client-certificate");
-    const std::string key_file = detail::json_str(*user, "client-key");
+    const std::string cert_file = detail::resolve_relative(base_dir, detail::json_str(*user, "client-certificate"));
+    const std::string key_file = detail::resolve_relative(base_dir, detail::json_str(*user, "client-key"));
     if (!cert_file.empty() || !key_file.empty()) {
       if (!detail::read_file(cert_file, out.client_cert_pem) || !detail::read_file(key_file, out.client_key_pem)) {
         error = "Kubeconfig " + kubeconfig_label + ", user '" + user_name + "': failed to read client-certificate '" + cert_file + "' / client-key '" +
@@ -302,6 +316,17 @@ inline bool resolve_kubeconfig(const std::string &text, const std::string &conte
         return false;
       }
     }
+  }
+  if (insecure && !out.client_cert_pem.empty()) {
+    // The HTTP client refuses to present a client certificate to a server it
+    // does not authenticate (mTLS without server authentication hands the
+    // credential to whoever answers), so this combination could never
+    // connect. Say so here, with the fix, instead of at request time.
+    error = "Kubeconfig " + kubeconfig_label + ", cluster '" + cluster_name +
+            "': insecure-skip-tls-verify cannot be combined with a client certificate (user '" + user_name +
+            "'): the agent will not present a certificate to an unverified server. Remove insecure-skip-tls-verify and supply "
+            "certificate-authority(-data), or authenticate with a token";
+    return false;
   }
   if (out.token.empty() && out.client_cert_pem.empty()) {
     if (user->if_contains("exec") || user->if_contains("auth-provider")) {
@@ -358,7 +383,8 @@ inline bool resolve_cluster(const settings &s, cluster &out, std::string &error)
       error = "Failed to read kubeconfig '" + s.kubeconfig + "' (`kubeconfig` under [/settings/kubernetes])";
       return false;
     }
-    return resolve_kubeconfig(text, s.context, "'" + s.kubeconfig + "'", out, error);
+    const std::string base_dir = boost::filesystem::path(s.kubeconfig).parent_path().string();
+    return resolve_kubeconfig(text, base_dir, s.context, "'" + s.kubeconfig + "'", out, error);
   }
 
   const char *host = std::getenv("KUBERNETES_SERVICE_HOST");

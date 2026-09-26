@@ -21,10 +21,16 @@ Three ways to use it:
 * `pod=<name>` or `pod=<namespace>/<name>` (repeatable) - only the named pods
   take part, and a pod the API server does not return is reported with
   `pod_status` `missing`, so it trips the default critical instead of silently
-  disappearing from the listing.
+  disappearing from the listing. A bare name is matched in every namespace
+  listed and, when missing, reported as `*/<name>` (or under the one
+  `namespace=` the check was scoped to).
 * A selector - `label-selector=app=web` or `field-selector=spec.nodeName=worker-1`
   for the pods of one application or one node.
 
 `age` takes duration units (`age < 10m`), `created` is a date, and `oom_killed`
 is 1 when a container's current or last termination was an out-of-memory kill,
-even if the pod has since restarted and shows `Running`.
+even if the pod has since restarted and shows `Running`. Native sidecars (init
+containers with `restartPolicy: Always`) count as running once started and are
+included in `containers` / `ready_containers`, as in kubectl; a finished job
+pod being cleaned up keeps `Completed` rather than turning into `Terminating`,
+while `terminating` still reports the pending deletion.

@@ -123,6 +123,10 @@ void check_cluster(const settings &defaults, const PB::Commands::QueryRequestMes
   record->version = get_str(version.as_object(), "gitVersion");
   record->platform = get_str(version.as_object(), "platform");
 
+  // A 5xx from /readyz is the finding (the failing checks are in the body);
+  // a 401 or 403 is not: fetch_raw reports those under the credentials/RBAC
+  // contract, so a service account without the nonResourceURLs rule gets an
+  // UNKNOWN naming the rule rather than a CRITICAL about a healthy cluster.
   std::string body;
   long status = 0;
   const raw_fetch ready = fetch_raw(fetch, target, "/readyz", body, status, response);

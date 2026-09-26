@@ -4,12 +4,14 @@
 #include "check_pods.hpp"
 
 #include <boost/json.hpp>
+#include <check/duration_keyword.hpp>
 #include <ctime>
 #include <memory>
 #include <nscapi/nscapi_program_options.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <str/rfc3339.hpp>
 #include <string>
 #include <vector>
 
@@ -65,7 +67,7 @@ std::shared_ptr<pod_obj> parse_pod(const json::object &o) {
   record->ns = get_str(*metadata, "namespace");
   record->labels = join_map(*metadata, "labels");
   const std::string created = get_str(*metadata, "creationTimestamp");
-  record->age = seconds_since(created);
+  record->age = str::seconds_since_rfc3339(created);
   if (record->age >= 0) record->created = static_cast<long long>(std::time(nullptr)) - record->age;
   if (const json::array *owners = get_arr(*metadata, "ownerReferences")) {
     // The controller reference is the one that matters; fall back to the first.
@@ -126,7 +128,7 @@ struct pod_obj_handler : public pod_context {
     static const parsers::where::value_type type_custom_age = parsers::where::type_custom_int_1;
     registry_.add_int_var("age", type_custom_age, &pod_obj::get_age, "Seconds since the pod was created, -1 when unknown (supports units, e.g. age < 10m)")
         .no_perf();
-    registry_.add_converter(type_custom_age, &parse_time<std::shared_ptr<pod_obj>>);
+    registry_.add_converter(type_custom_age, &duration_keyword::parse_duration<std::shared_ptr<pod_obj>>);
   }
 };
 typedef modern_filter::modern_filters<pod_obj, pod_obj_handler> pod_filter;
@@ -172,43 +174,27 @@ void check_pods(const settings &defaults, const PB::Commands::QueryRequestMessag
   std::vector<json::value> items;
   if (!list_namespaced(fetch, target, "/api/v1", "pods", namespaces, opt, items, response)) return;
 
-  std::vector<bool> seen(required.size(), false);
+  // Only the requested pods take part in the check; a name may be given as
+  // `pod` or `namespace/pod`.
+  required_names wanted(required);
   for (const auto &v : items) {
     if (!v.is_object()) continue;
     auto record = parse_pod(v.as_object());
-    if (!required.empty()) {
-      // Only the requested pods take part in the check; a name may be given
-      // as `pod` or `namespace/pod`.
-      bool matched = false;
-      for (std::size_t i = 0; i < required.size(); i++) {
-        if (required[i] == record->name || required[i] == record->ns + "/" + record->name) {
-          seen[i] = true;
-          matched = true;
-        }
-      }
-      if (!matched) continue;
-    }
+    if (!wanted.empty() && !wanted.claim(record->name, record->ns + "/" + record->name)) continue;
     filter.match(record);
   }
 
-  // A required pod the API server does not know about: synthesize a record
-  // so it shows up (and trips the default critical) instead of silently
+  // A required pod the API server does not know about is synthesised so it
+  // shows up (and trips the default critical) instead of silently
   // disappearing from the listing.
-  for (std::size_t i = 0; i < required.size(); i++) {
-    if (seen[i]) continue;
+  wanted.for_each_missing(default_namespace(namespaces), [&filter](const std::string &ns, const std::string &name) {
     auto record = std::make_shared<pod_obj>();
-    const auto slash = required[i].find('/');
-    if (slash != std::string::npos) {
-      record->ns = required[i].substr(0, slash);
-      record->name = required[i].substr(slash + 1);
-    } else {
-      record->ns = namespaces.size() == 1 ? namespaces[0] : "";
-      record->name = required[i];
-    }
+    record->ns = ns;
+    record->name = name;
     record->phase = "missing";
     record->pod_status = "missing";
     filter.match(record);
-  }
+  });
 
   filter_helper.post_process(filter);
 }

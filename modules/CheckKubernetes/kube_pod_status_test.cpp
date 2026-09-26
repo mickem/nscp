@@ -163,3 +163,70 @@ TEST(KubePodStatus, MissingFieldsDegradeGracefully) {
   EXPECT_EQ(pending.status, "Pending");
   EXPECT_EQ(pending.containers, 1);
 }
+
+TEST(KubePodStatus, NativeSidecarsCountAsRunningOnceStarted) {
+  // An init container with restartPolicy: Always (an Istio-style sidecar)
+  // never terminates; once started it is part of the running pod, and
+  // kubectl reads its `started` flag rather than reporting Init:0/1 forever.
+  const auto running = state_of(R"({
+    "spec": {"initContainers": [{"name": "istio-proxy", "restartPolicy": "Always"}], "containers": [{"name": "app"}]},
+    "status": {"phase": "Running",
+               "conditions": [{"type": "Ready", "status": "True"}],
+               "initContainerStatuses": [{"name": "istio-proxy", "ready": true, "started": true, "restartCount": 0, "state": {"running": {}}}],
+               "containerStatuses": [{"name": "app", "ready": true, "started": true, "restartCount": 0, "state": {"running": {}}}]}})");
+  EXPECT_EQ(running.status, "Running");
+  EXPECT_EQ(running.ready, 2) << "the sidecar counts towards READY";
+  EXPECT_EQ(running.containers, 2);
+  EXPECT_TRUE(running.pod_ready);
+
+  // Not started yet: the pod really is initialising.
+  const auto starting = state_of(R"({
+    "spec": {"initContainers": [{"name": "istio-proxy", "restartPolicy": "Always"}], "containers": [{"name": "app"}]},
+    "status": {"phase": "Pending",
+               "initContainerStatuses": [{"name": "istio-proxy", "ready": false, "started": false, "restartCount": 0, "state": {"running": {}}}],
+               "containerStatuses": [{"name": "app", "ready": false, "state": {"waiting": {"reason": "PodInitializing"}}}]}})");
+  EXPECT_EQ(starting.status, "Init:0/1");
+
+  // A sidecar that is crash-looping is still an initialisation problem.
+  const auto crashing = state_of(R"({
+    "spec": {"initContainers": [{"name": "istio-proxy", "restartPolicy": "Always"}], "containers": [{"name": "app"}]},
+    "status": {"phase": "Running",
+               "initContainerStatuses": [{"name": "istio-proxy", "ready": false, "started": false, "restartCount": 5, "state": {"waiting": {"reason": "CrashLoopBackOff"}}}],
+               "containerStatuses": [{"name": "app", "ready": true, "started": true, "state": {"running": {}}}]}})");
+  EXPECT_EQ(crashing.status, "Init:CrashLoopBackOff");
+  EXPECT_EQ(crashing.restarts, 5);
+
+  // A plain init container that is running is not a sidecar: still Init:0/1
+  // even with started=true.
+  const auto plain = state_of(R"({
+    "spec": {"initContainers": [{"name": "migrate"}], "containers": [{"name": "app"}]},
+    "status": {"phase": "Pending",
+               "initContainerStatuses": [{"name": "migrate", "ready": false, "started": true, "state": {"running": {}}}]}})");
+  EXPECT_EQ(plain.status, "Init:0/1");
+}
+
+TEST(KubePodStatus, TerminatingDoesNotHideATerminalPhase) {
+  // A finished job pod being cleaned up under its TTL keeps Completed (or
+  // its failure reason); kubectl only shows Terminating for pods that are
+  // still Pending or Running.
+  const auto completed = state_of(R"({
+    "metadata": {"deletionTimestamp": "2026-09-25T10:00:00Z"},
+    "spec": {"containers": [{"name": "job"}]},
+    "status": {"phase": "Succeeded",
+               "containerStatuses": [{"name": "job", "ready": false, "state": {"terminated": {"exitCode": 0, "reason": "Completed"}}}]}})");
+  EXPECT_EQ(completed.status, "Completed");
+  EXPECT_TRUE(completed.terminating) << "the deletion is still visible through the keyword";
+
+  const auto failed = state_of(R"({
+    "metadata": {"deletionTimestamp": "2026-09-25T10:00:00Z"},
+    "spec": {"containers": [{"name": "job"}]},
+    "status": {"phase": "Failed",
+               "containerStatuses": [{"name": "job", "ready": false, "state": {"terminated": {"exitCode": 1, "reason": "Error"}}}]}})");
+  EXPECT_EQ(failed.status, "Error");
+
+  const auto pending = state_of(R"({
+    "metadata": {"deletionTimestamp": "2026-09-25T10:00:00Z"},
+    "spec": {"containers": [{"name": "app"}]},
+    "status": {"phase": "Pending"}})");
+  EXPECT_EQ(pending.status, "Terminating");
+}

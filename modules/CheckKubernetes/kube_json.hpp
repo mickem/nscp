@@ -3,59 +3,20 @@
 
 #pragma once
 
-// Tolerant boost::json accessors shared by the CheckKubernetes helpers. Kept
-// free of any agent dependency so the header-only helpers (and their tests)
-// need nothing but boost::json.
+// The shared tolerant accessors plus the two Kubernetes-shaped helpers the
+// header-only pieces (and their tests) need, free of any agent dependency.
 
 #include <boost/json.hpp>
+#include <json/accessors.hpp>
 #include <string>
 
 namespace kube_checks {
 
-// --- tolerant JSON accessors -------------------------------------------------
-//
-// API objects vary by Kubernetes version and by what a controller has filled
-// in; a missing or differently-typed field degrades to an empty value, never
-// throws.
-
-inline std::string get_str(const boost::json::object &o, const char *key) {
-  if (const boost::json::value *p = o.if_contains(key)) {
-    if (p->is_string()) return std::string(p->as_string().c_str());
-  }
-  return "";
-}
-
-inline long long get_num(const boost::json::object &o, const char *key) {
-  if (const boost::json::value *p = o.if_contains(key)) {
-    if (p->is_int64()) return p->as_int64();
-    if (p->is_uint64()) return static_cast<long long>(p->as_uint64());
-    if (p->is_double()) return static_cast<long long>(p->as_double());
-  }
-  return 0;
-}
-
-inline bool get_bool(const boost::json::object &o, const char *key) {
-  if (const boost::json::value *p = o.if_contains(key)) {
-    if (p->is_bool()) return p->as_bool();
-  }
-  return false;
-}
-
-// Nested object access; nullptr when absent or not an object.
-inline const boost::json::object *get_obj(const boost::json::object &o, const char *key) {
-  if (const boost::json::value *p = o.if_contains(key)) {
-    if (p->is_object()) return &p->as_object();
-  }
-  return nullptr;
-}
-
-// Nested array access; nullptr when absent or not an array.
-inline const boost::json::array *get_arr(const boost::json::object &o, const char *key) {
-  if (const boost::json::value *p = o.if_contains(key)) {
-    if (p->is_array()) return &p->as_array();
-  }
-  return nullptr;
-}
+using json_accessors::get_arr;
+using json_accessors::get_bool;
+using json_accessors::get_num;
+using json_accessors::get_obj;
+using json_accessors::get_str;
 
 // The `metadata` object every API object carries (nullptr when malformed).
 inline const boost::json::object *metadata_of(const boost::json::object &o) { return get_obj(o, "metadata"); }
