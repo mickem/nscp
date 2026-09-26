@@ -439,7 +439,7 @@ layout, and what moves.
 
 ## Passwords
 
-The passwords the agent *checks* are stored hashed (salted PBKDF2-SHA256, `pbkdf2-sha256$…` in the file): the per-user
+The passwords the agent *verifies* are stored hashed (salted PBKDF2-SHA256, `pbkdf2-sha256$…` in the file): the per-user
 web passwords that `nscp web add-user` writes, and the shared `/settings/default/password` that `nscp web install`
 generates or `nscp web password --set` sets. The web admin seed and the check_nt server verify a login against either a
 hash or a clear-text value, so a password written by hand keeps working; re-setting it hashes it in place:
@@ -449,11 +449,14 @@ $ nscp web password --set "<the password>"
 ```
 
 `nscp web password --display` can only show a password while it is still in clear text; once hashed, set a new one if it
-is lost. The one server that needs the clear text is `NSCAServer`, whose encryption key *is* the password: it refuses to
-load on a hashed shared password, so an agent that serves NSCA gets a clear-text `password` of its own under
-`[/settings/NSCA/server]`. The Windows MSI still writes the value typed into its configuration dialog in clear text.
+is lost. `NSCAServer` is deliberately not one of these servers: it never verifies a password, its shared secret *is* the
+encryption key every submitting client has to know, so that key stays in clear text in `[/settings/NSCA/server]` — or,
+for an agent that also submits, in the `NSCAClient` default target it falls back to (`nscp nsca install` writes it
+there). It is never inherited from `[/settings/default]`. The Windows MSI hashes a password given on its command line or
+typed into its configuration dialog; a value it merely found on disk, which is what pre-fills the dialog on an upgrade,
+is left exactly as it is.
 
-That leaves the secrets the agent has to *use* rather than check — client-side passwords, tokens and keys for the
+That leaves the secrets the agent has to *use* rather than verify — client-side passwords, tokens and keys for the
 protocols and checks that reach out — which a hash cannot protect. Out of the box those sit in clear text in the config
 file, which is not recommended. There are two simple ways to solve this:
 

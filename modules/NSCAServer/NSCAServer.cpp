@@ -86,9 +86,9 @@ bool NSCAServer::loadModuleEx(const std::string &alias, const NSCAPI::moduleLoad
                                                        "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
 
   // The encryption key, and *not* under /settings/default. That section is the
-  // shared password inbound protocols check a caller against - the web UI,
-  // check_nt, NRPE - and it is stored hashed. NSCA has no password check: the
-  // string is the key the payload is encrypted with, and every submitting
+  // shared password inbound protocols verify a caller against - the web UI,
+  // check_nt, NRPE - and it is stored hashed. NSCA never verifies a password:
+  // the string is the key the payload is encrypted with, and every submitting
   // client has to know it. Sharing one value between "what I verify callers
   // with" and "the key I share with a remote server" is the antipattern, so
   // this key lives in NSCA's own sections.
@@ -98,7 +98,7 @@ bool NSCAServer::loadModuleEx(const std::string &alias, const NSCAPI::moduleLoad
       .add_password("password", sh::string_key(&password_, ""), DEFAULT_PASSWORD_NAME,
                     "The NSCA encryption key: the same value every submitting client uses. Falls back to the default target of NSCAClient "
                     "(/settings/NSCA/client/targets/default/password) when unset, so an agent that both submits and receives NSCA needs one key, "
-                    "not two. Never inherited from /settings/default - that is the password inbound protocols check against, and it is hashed.")
+                    "not two. Never inherited from /settings/default - that is the password inbound protocols verify against, and it is hashed.")
 
       ;
 

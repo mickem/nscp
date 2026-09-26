@@ -6,7 +6,7 @@
  * at a server, in place of three `nscp settings --set` calls.
  *
  * The thing worth pinning is *where the key lands*. NSCA encrypts the payload
- * with the shared secret rather than checking it, so it can never use the
+ * with the shared secret rather than verifying it, so it can never use the
  * hashed `/settings/default/password` the web UI and check_nt verify inbound
  * callers against. The key belongs with the client target, and an NSCAServer
  * with no key of its own reads it from there.

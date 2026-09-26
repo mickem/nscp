@@ -279,7 +279,7 @@ cipher.
 
     This is **not** the `password` under `[/settings/default]`. That one is the
     password the web UI, check_nt and NRPE verify an *inbound* caller against,
-    and it is stored as a hash. NSCA encrypts with its key rather than checking
+    and it is stored as a hash. NSCA encrypts with its key rather than verifying
     it, so it needs the clear text and keeps it here. If this host also *runs*
     an NSCA server, it reads this same key unless you give it one of its own
     under `[/settings/NSCA/server]`.

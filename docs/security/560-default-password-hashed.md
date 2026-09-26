@@ -35,7 +35,7 @@ The hash string itself is not a credential: it does not authenticate against
 either.
 
 `NSCAServer` used to read the same section, and it is the one reader that
-cannot: NSCA has no password *check*. The string is the key material the
+cannot: NSCA never *verifies* a password. The string is the key material the
 payload is encrypted with, and every submitting client has to know it, so a
 hash there is a key nobody has. Sharing one value between "what I verify
 inbound callers with" and "the key I share with a remote server" was the
@@ -49,7 +49,7 @@ is never a usable key, but reaching that now takes a deliberate paste rather
 than an inherited default.
 
 That leaves the shared section holding only what it is for: passwords inbound
-protocols check a caller against. `nscp nsca install --host <server>
+protocols verify a caller against. `nscp nsca install --host <server>
 --password <key> --encryption <cipher>` configures the submission side in one
 command, and the Windows installer takes the same three as `NSCA_SERVER`,
 `NSCA_PASSWORD` and `NSCA_ENCRYPTION` (the key hidden, as a live credential
@@ -68,7 +68,7 @@ is, so an upgrade migrates nothing on its own.
 
 One limit is worth knowing: a hash protects only this password.
 `nsclient.ini` still holds the client-side passwords, tokens and keys the agent
-needs in clear form — it has to use those, not check them — so the file
+needs in clear form — it has to use those, not verify them — so the file
 permissions remain the boundary around it.
 
 **What to do:** if the agent serves NSCA and relied on the shared default for

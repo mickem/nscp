@@ -9,15 +9,16 @@
 #include <mutex>
 #include <string>
 
-// The password check behind check_nt's `<password>&<code>` request, and the one
-// derivation it is allowed to cost.
+// Password verification behind check_nt's `<password>&<code>` request, and the
+// one derivation it is allowed to cost.
 //
 // The shared /settings/default/password is stored hashed (pbkdf2-sha256$...),
 // which is a deliberately expensive thing to verify - 100k iterations, tens of
 // milliseconds. The WEB server pays that once per login and rides a session
-// afterwards; check_nt has no session, so a naive check pays it on every single
-// request. On a listener with no rate limiter, that lets any host inside
-// `allowed hosts` spend a core of agent CPU at a few dozen requests a second.
+// afterwards; check_nt has no session, so verifying it the naive way pays that
+// on every single request. On a listener with no rate limiter, that lets any
+// host inside `allowed hosts` spend a core of agent CPU at a few dozen requests
+// a second.
 //
 // So derive once. The first request that proves itself against the hash leaves
 // the clear text behind, and every request after it - right password or wrong -
@@ -40,10 +41,10 @@ class memo {
   // True when `offered` is the password `stored` stands for. `stored` is either
   // the clear text or the hashed form; both compare in constant time.
   //
-  // The lock spans the whole check rather than just the memo. The fast path is
-  // a string compare, so serialising it costs nothing at any rate a monitoring
-  // system polls at, and during the cold window it keeps the KDF on one core
-  // instead of letting a flood of requests occupy all of them.
+  // The lock spans the whole verification rather than just the memo. The fast
+  // path is a string compare, so serialising it costs nothing at any rate a
+  // monitoring system polls at, and during the cold window it keeps the KDF on
+  // one core instead of letting a flood of requests occupy all of them.
   bool verify(const std::string &offered, const std::string &stored) {
     // Not a stored hash: verify_password compares constant-time against a
     // clear-text value, and rejects a value that carries the hash prefix but

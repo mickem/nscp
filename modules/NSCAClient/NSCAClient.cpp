@@ -176,7 +176,7 @@ bool NSCAClient::cli_install(const PB::Commands::ExecuteRequestMessage::Request 
       ("host", po::value<std::string>(&host), "Address of the NSCA server (the machine running the nsca daemon) to submit results to.")
       ("port", po::value<std::string>(&port), "Port the nsca daemon listens on (5667 unless it was changed).")
       ("password", po::value<std::string>(&password),
-       "The shared key. NSCA encrypts with it rather than checking it, so it has to be the same string as `password` in the daemon's nsca.cfg, "
+       "The shared key. NSCA encrypts with it rather than verifying it, so it has to be the same string as `password` in the daemon's nsca.cfg, "
        "and it is stored in clear text because a hash is not a key. It is not the /settings/default password the web UI and check_nt verify "
        "callers against.")
       ("encryption", po::value<std::string>(&encryption), encryption_help.c_str())

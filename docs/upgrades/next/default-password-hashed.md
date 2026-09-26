@@ -15,7 +15,8 @@ have to move it** — see the second point. Three things change:
 * `nscp web password --display` cannot show a hashed password. The clear text
   is printed once, by the command that set it; if it is lost, set a new one.
   `--set` now also updates the `admin` user's row, which is what the web login
-  checks once the server has booted; `--only-web` changes that row alone.
+  verifies against once the server has booted; `--only-web` changes that row
+  alone.
 * **`NSCAServer` no longer reads `/settings/default/password`.** That section
   is the password inbound protocols (web UI, check_nt, NRPE) verify a caller
   against, and it is now hashed; NSCA does not verify a password, it encrypts
