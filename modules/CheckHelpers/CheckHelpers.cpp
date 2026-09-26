@@ -349,6 +349,17 @@ void CheckHelpers::check_multi(const PB::Commands::QueryRequestMessage::Request 
   po::variables_map vm;
   if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) return;
   if (arguments.size() == 0) return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
+  // Fan-out cap. Each wrapped command is a full dispatch back through the core
+  // (and, for a nested check_multi, another level of stack), so one request
+  // carrying thousands of command= entries is a cheap way to make the agent do
+  // unbounded work for a single packet. The core's depth guard stops the
+  // recursion going deep; this stops it going wide. Well above any real
+  // check_multi, which groups a handful of checks.
+  const std::size_t max_commands = 128;
+  if (arguments.size() > max_commands) {
+    return nscapi::protobuf::functions::set_response_bad(
+        *response, "Too many commands (" + str::xtos(arguments.size()) + "): check_multi runs at most " + str::xtos(max_commands) + " commands per call");
+  }
   response->set_result(PB::Common::ResultCode::OK);
   for (std::string command_line : arguments) {
     std::list<std::string> args;
@@ -474,12 +485,27 @@ void CheckHelpers::check_and_forward(const PB::Commands::QueryRequestMessage::Re
   nscapi::protobuf::functions::set_response_good(*response, "Message submitted: " + channel);
 }
 
+// How many levels of check_timeout may nest.
+//
+// The core's dispatch-depth guard is thread-local, and check_timeout hands the
+// wrapped command to a NEW thread - which legitimately starts at depth zero,
+// because it carries its own stack. So nesting through check_timeout is not
+// bounded by that guard at all: it trades stack frames for threads, one per
+// level, each with its own stack reservation. This counter closes that, by
+// carrying the nesting level across the handoff. Eight is far more than any
+// real configuration (a timeout around a timeout is unusual already).
+const unsigned int max_timeout_depth = 8;
+thread_local unsigned int timeout_depth = 0;
+
 // State shared between check_timeout and its worker thread. Owned through a
 // shared_ptr by both, so a worker that overruns the timeout keeps writing
 // into live heap memory, never into the caller's returned stack frame.
 struct worker_object {
   void proc(nscapi::core_wrapper *core, int plugin_id, const std::string &caller_plugin_id, const std::string &principal, std::string command,
-            std::vector<std::string> arguments) {
+            std::vector<std::string> arguments, unsigned int inherited_depth) {
+    // Inherit the caller's nesting level: this thread is a continuation of the
+    // caller's request, not a fresh one.
+    timeout_depth = inherited_depth;
     nscapi::core_helper ch(core, plugin_id);
     // Forward the upstream caller's identity so the wrapped command's
     // permission check sees the original caller rather than CheckHelpers.
@@ -509,6 +535,13 @@ void CheckHelpers::check_timeout(const PB::Commands::QueryRequestMessage::Reques
   if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) return;
   if (command.empty()) return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
 
+  if (timeout_depth >= max_timeout_depth) {
+    return nscapi::protobuf::functions::set_response_bad(
+        *response, "check_timeout nested too deep (limit " + str::xtos(max_timeout_depth) +
+                       "): each level runs the wrapped command on a new thread, so an unbounded nesting is a thread per level");
+  }
+  const unsigned int child_depth = timeout_depth + 1;
+
   // Capture values only: the worker may outlive this call and the module.
   auto obj = std::make_shared<worker_object>();
   nscapi::core_wrapper *core = get_core();
@@ -517,7 +550,9 @@ void CheckHelpers::check_timeout(const PB::Commands::QueryRequestMessage::Reques
   const std::string principal = id.principal;
   auto t = threads::start_guarded_thread(
       "check_timeout " + command,
-      [obj, core, plugin_id, caller, principal, command, arguments]() { obj->proc(core, plugin_id, caller, principal, command, arguments); },
+      [obj, core, plugin_id, caller, principal, command, arguments, child_depth]() {
+        obj->proc(core, plugin_id, caller, principal, command, arguments, child_depth);
+      },
       NSC_THREAD_REPORTER);
 
   if (t->timed_join(boost::posix_time::seconds(timeout))) {

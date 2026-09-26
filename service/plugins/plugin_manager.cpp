@@ -807,11 +807,70 @@ static void emit_denied_payload(PB::Commands::QueryResponseMessage *response_mes
   marker->set_value(command);
 }
 
+namespace {
+// How deep a single caller-initiated query may re-enter the plugin stack.
+//
+// A check that dispatches another check (CheckHelpers' check_multi,
+// check_and_forward, check_timeout, the Scheduler's on-demand runs) calls back
+// into the core on the SAME OS thread, and nothing used to bound that. A
+// caller who is allowed to pass arguments could hand check_multi an argument
+// that nests check_multi a few thousand levels deep in one string; every level
+// pushes a full handler frame - protobuf messages, an options_description, the
+// filter machinery - so the thread stack runs out and the process dies. Stack
+// exhaustion is not a catchable exception on Windows, so there is no recovering
+// from it after the fact: the depth has to be refused before the frame is
+// pushed. Same failure class as the filter-expression depth cap.
+//
+// 16 is far above anything real (a wrapper around a wrapper is depth 2-3) and
+// far below what any thread stack has trouble with.
+const unsigned int max_query_depth = 16;
+
+// Depth of the query dispatch currently running on THIS thread. Thread-local
+// because the nesting is per-thread recursion: two unrelated checks running
+// concurrently on different threads must not see each other's depth, and a
+// check that hands work to a new thread (check_timeout) legitimately starts
+// over - that thread carries its own stack.
+thread_local unsigned int query_depth = 0;
+
+struct query_depth_guard {
+  query_depth_guard() { ++query_depth; }
+  ~query_depth_guard() { --query_depth; }
+  query_depth_guard(const query_depth_guard &) = delete;
+  query_depth_guard &operator=(const query_depth_guard &) = delete;
+};
+
+// Name the commands a request asks for, for the refusal message.
+std::string describe_requested_commands(const PB::Commands::QueryRequestMessage &request_message) {
+  if (!request_message.header().command().empty()) return request_message.header().command();
+  std::string commands;
+  for (int i = 0; i < request_message.payload_size(); i++) {
+    str::format::append_list(commands, request_message.payload(i).command());
+  }
+  return commands.empty() ? std::string("(no command)") : commands;
+}
+}  // namespace
+
 NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::string &request, std::string &response) {
   try {
     PB::Commands::QueryRequestMessage request_message;
     PB::Commands::QueryResponseMessage response_message;
     request_message.ParseFromString(request);
+
+    // Before anything is dispatched: the frames this call would push are the
+    // resource being protected, so the check has to come first.
+    const query_depth_guard depth_guard;
+    if (query_depth > max_query_depth) {
+      const std::string commands = describe_requested_commands(request_message);
+      LOG_ERROR_CORE_STD("Refusing to dispatch '" + commands + "': commands nested more than " + str::xtos(max_query_depth) +
+                         " deep. A check that runs other checks (check_multi, check_and_forward, check_timeout) re-enters the core on this thread, and an "
+                         "unbounded nesting would exhaust the thread stack.");
+      PB::Commands::QueryResponseMessage::Response *payload = response_message.add_payload();
+      payload->set_command(commands);
+      nscapi::protobuf::functions::set_response_bad(
+          *payload, "Command nesting too deep (limit " + str::xtos(max_query_depth) + "): a check that runs other checks cannot recurse indefinitely");
+      response = response_message.SerializeAsString();
+      return NSCAPI::cmd_return_codes::isSuccess;
+    }
 
     typedef boost::unordered_map<int, command_chunk> command_chunk_type;
     command_chunk_type command_chunks;

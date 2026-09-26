@@ -12,6 +12,7 @@
 #include <parsers/perfconfig/perfconfig.hpp>
 #include <parsers/where/engine.hpp>
 #include <parsers/where/engine_impl.hpp>
+#include <parsers/where/regex_guard.hpp>
 #include <set>
 #include <str/xtos.hpp>
 #include <string>
@@ -524,6 +525,10 @@ struct modern_filters {
   bool has_filter() const { return engine_filter.get(); }
   void fetch_hash(const bool fetch_hash) { fetch_hash_ = fetch_hash; }
   void start_match() {
+    // One check, one regex budget. Opened here so a filter that backtracks
+    // pathologically costs this check its budget and no more: the next check on
+    // this thread starts clean. See parsers/where/regex_guard.hpp.
+    parsers::where::reset_regex_budget();
     summary.returnCode = NSCAPI::query_return_codes::returnOK;
     has_matched = false;
     summary.reset();
