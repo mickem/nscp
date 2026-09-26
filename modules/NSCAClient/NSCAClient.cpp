@@ -13,6 +13,7 @@
 #include <nscapi/protobuf/settings_functions.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nscpcrypt/nscpcrypt.hpp>
+#include <sstream>
 #include <str/utf8.hpp>
 #include <str/utils.hpp>
 #include <utility>
@@ -163,6 +164,13 @@ bool NSCAClient::cli_install(const PB::Commands::ExecuteRequestMessage::Request 
 
   std::string host, port, password, encryption, hostname;
 
+  // options_description takes a const char*, and the cipher list is computed,
+  // so it needs a string that outlives the add_options() call below. (The
+  // module's other option blocks get away with `.c_str()` on a temporary
+  // because boost copies it immediately; a named local does not rely on that.)
+  const std::string encryption_help = std::string("Cipher, which has to match `decryption_method` in the daemon's nsca.cfg. Available:\n") +
+                                      nscp::encryption::helpers::get_crypto_string("\n");
+
   // clang-format off
   desc.add_options()("help", "Show help.")
       ("host", po::value<std::string>(&host), "Address of the NSCA server (the machine running the nsca daemon) to submit results to.")
@@ -171,8 +179,7 @@ bool NSCAClient::cli_install(const PB::Commands::ExecuteRequestMessage::Request 
        "The shared key. NSCA encrypts with it rather than checking it, so it has to be the same string as `password` in the daemon's nsca.cfg, "
        "and it is stored in clear text because a hash is not a key. It is not the /settings/default password the web UI and check_nt verify "
        "callers against.")
-      ("encryption", po::value<std::string>(&encryption),
-       std::string("Cipher, which has to match `decryption_method` in the daemon's nsca.cfg. Available:\n") + nscp::encryption::helpers::get_crypto_string("\n"))
+      ("encryption", po::value<std::string>(&encryption), encryption_help.c_str())
       ("hostname", po::value<std::string>(&hostname),
        "The host name to submit results as. It has to match the host as Nagios/Icinga knows it, not necessarily this machine's name; `auto` uses "
        "the computer name.")
