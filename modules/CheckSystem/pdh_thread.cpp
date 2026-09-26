@@ -772,6 +772,15 @@ process_checks::cpu_delta_map pdh_thread::get_process_cpu_deltas() {
   return process_checks::cpu_delta_map(proc_cpu_deltas_);
 }
 
+bool pdh_thread::has_cpu_data() {
+  boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+  if (!readLock.owns_lock()) {
+    NSC_LOG_ERROR("Failed to get Mutex for: cpu");
+    return false;
+  }
+  return cpu.has_data();
+}
+
 std::map<std::string, windows::system_info::load_entry> pdh_thread::get_cpu_load(long seconds) {
   std::map<std::string, windows::system_info::load_entry> ret;
   if (this->use_pdh_for_cpu) {

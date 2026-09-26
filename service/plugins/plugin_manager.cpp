@@ -414,6 +414,17 @@ void nsclient::core::plugin_manager::start_plugins(NSCAPI::moduleLoadMode mode) 
 void nsclient::core::plugin_manager::purge_broken_plugin(const unsigned long plugin_id) {
   const boost::recursive_mutex::scoped_lock lifecycle(lifecycle_mutex_);
   const auto plugin = plugin_list_.find_by_id(plugin_id);
+  // The load that failed was a reload driven from inside the module itself: a
+  // script calling core.reload() from a check the module is serving. Dropping
+  // the registries' references here would destroy the instance - and unmap the
+  // library - under a thread that is still executing inside it, the same
+  // hazard remove_plugin refuses. The module is still running and serving
+  // exactly as it was before the reload, so leave it be and say so; a reload
+  // from any other thread can retry.
+  if (plugin && plugin->is_dispatching_on_this_thread()) {
+    LOG_ERROR_CORE_STD("Not unloading " + plugin->get_alias_or_name() + " after its failed reload: the reload was requested from inside a call it is serving");
+    return;
+  }
   plugin_list_.remove(plugin_id);
   commands_.remove_plugin(plugin_id);
   channels_.remove_plugin(plugin_id);
@@ -638,6 +649,17 @@ bool nsclient::core::plugin_manager::reload_plugin(const std::string &module) {
     return true;
   }
   LOG_ERROR_CORE("Failed to reload plugin " + module);
+  return false;
+}
+
+bool nsclient::core::plugin_manager::is_dispatching_on_this_thread(const std::string &module) {
+  if (!module.empty()) {
+    const plugin_type plugin = plugin_list_.find_by_alias(module);
+    return plugin && plugin->is_dispatching_on_this_thread();
+  }
+  for (const plugin_type &plugin : plugin_list_.get_plugins()) {
+    if (plugin && plugin->is_dispatching_on_this_thread()) return true;
+  }
   return false;
 }
 

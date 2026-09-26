@@ -87,6 +87,8 @@ class DotnetPlugins : public nscapi::impl::simple_plugin {
   bool start_runtime();
   bool resolve_bridge();
   bool load_plugin(plugin_entry &entry, NSCAPI::moduleLoadMode mode);
+  // Take every loaded plugin out of plugins_ and unload its managed instance.
+  void unload_plugins();
   boost::filesystem::path resolve_plugin_root() const;
   std::int32_t dispatch(std::int32_t op, const char *str, const std::string &request, std::string &response);
 

@@ -138,6 +138,10 @@ class pdh_thread {
   std::map<std::string, double> get_average(std::string counter, long seconds);
   std::map<std::string, long long> get_int_value(std::string counter);
   std::map<std::string, windows::system_info::load_entry> get_cpu_load(long seconds);
+  // Whether the sampler has pushed at least one CPU sample yet. Only meaningful
+  // for the sampled path (use_pdh_for_cpu == false); the PDH path reads its
+  // counters directly.
+  bool has_cpu_data();
   // Snapshot of the synthetic load averages; samples == 0 until the collector
   // has completed its first tick (or when load sampling is disabled).
   load_check::load_avg_state get_load_avg();
