@@ -12,6 +12,7 @@ set(SRCS
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
     realtime_thread.cpp
+    collector_calc.cpp
     realtime_data.cpp
     filter_config_object.cpp
     check_uptime.cpp
@@ -41,12 +42,29 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/facts/software_facts.cpp
 )
 
-# The Linux reader, kept apart from the list above so the split is visible:
-# `_unix` there is POSIX, this reads sysfs. The check_*.cpp files above still
-# read procfs inline, which is why module.cmake skips the module on macOS; a
-# port adds a `_darwin` reader (sysctl, Mach, libproc) in an elseif(APPLE)
-# branch here and splits the procfs reads out behind it.
-set(SRCS ${SRCS} network_facts_linux.cpp)
+# The platform data sources. The files above are platform-neutral: the checks,
+# their keyword registries and output builders, and the pure parse/compute
+# halves the unit tests drive. Each file below reads one platform's kernel -
+# `_linux` procfs and sysfs, `_darwin` sysctl, Mach, libproc and IOKit - behind
+# a shared header, and the two lists define the same functions.
+if(APPLE)
+    set(PLATFORM_SRCS
+        collector_source_darwin.cpp
+        interfaces_darwin.cpp
+    )
+    set(PLATFORM_TEST_SRCS
+        darwin_sources_test.cpp
+    )
+else()
+    set(PLATFORM_SRCS
+        collector_source_linux.cpp
+        network_facts_linux.cpp
+    )
+    set(PLATFORM_TEST_SRCS
+        network_facts_linux_test.cpp
+    )
+endif()
+set(SRCS ${SRCS} ${PLATFORM_SRCS})
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
 
@@ -79,6 +97,7 @@ if(WIN32)
         check_battery.h
         check_network.h
         check_process_history.h
+        collector_source.h
         system_facts.h
         ${NSCP_INCLUDEDIR}/facts/host_facts.hpp
         ${NSCP_INCLUDEDIR}/facts/network_facts.hpp
@@ -138,10 +157,10 @@ NSCP_CREATE_TEST(
         check_uptime.cpp
         system_facts_test.cpp
         system_facts.cpp
-        network_facts_linux.cpp
-        network_facts_linux_test.cpp
         software_facts_unix.cpp
         software_facts_unix_test.cpp
+        collector_calc.cpp
+        collector_calc_test.cpp
         ${NSCP_INCLUDEDIR}/facts/host_facts.cpp
         ${NSCP_INCLUDEDIR}/facts/network_facts.cpp
         ${NSCP_INCLUDEDIR}/facts/software_facts.cpp
@@ -150,6 +169,8 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
         ${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.cpp
+        ${PLATFORM_SRCS}
+        ${PLATFORM_TEST_SRCS}
     LIBRARIES
         GTest::gtest_main
         nscp_protobuf

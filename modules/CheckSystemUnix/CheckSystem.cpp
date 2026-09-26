@@ -40,6 +40,7 @@
 #include "check_swap_io.h"
 #include "check_temperature.h"
 #include "check_uptime.h"
+#include "collector_source.h"
 #include "system_facts.h"
 
 namespace sh = nscapi::settings_helper;
@@ -374,7 +375,7 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
   try {
     PB::Metrics::MetricsBundle *mem = bundle->add_children();
     mem->set_key("mem");
-    describe(mem, "Memory as reported by /proc/meminfo");
+    describe(mem, "Memory as the kernel accounts for it");
     if (collector_->has_memory_data()) {
       const memory_info m = collector_->get_memory(1);
       auto add_mem_section = [&](const std::string &prefix, unsigned long long total, unsigned long long avail) {
@@ -389,6 +390,16 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
       add_mem_section("physical", m.physical.total, m.physical.free);
       add_mem_section("cached", m.cached.total, m.cached.free);
       add_mem_section("swap", m.swap.total, m.swap.free);
+    }
+    // States only some kernels track (Darwin: wired and compressed). Read
+    // live rather than averaged, like the other gauges above, and absent
+    // where the kernel has no such state rather than reported as 0.
+    for (const auto &extra : collector_source::read_memory_extras()) {
+      if (extra.first == "wired") {
+        metric(mem, "wired").help("Memory the kernel has wired down and cannot page out").unit("bytes").gauge(extra.second);
+      } else if (extra.first == "compressed") {
+        metric(mem, "compressed").help("Memory held in compressed form by the memory compressor").unit("bytes").gauge(extra.second);
+      }
     }
   } catch (const std::exception &e) {
     NSC_LOG_ERROR(std::string("Failed to fetch memory metrics: ") + e.what());
