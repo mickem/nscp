@@ -1342,6 +1342,13 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
         s.set("/settings/default", "password", stored);
       }
 
+      // This is the row as the *running* module sees it, and ensure_user() has
+      // already seeded one in memory from the shared value, so on a fresh
+      // install it reads as existing. That costs nothing: a fresh install is
+      // also `password_is_ours`, so the row is written anyway, and if it were
+      // not, the next boot seeds it again from the same value. What the check is
+      // for is the case that matters - a row an operator has deliberately
+      // changed, which a later re-run must not put back.
       const bool admin_row_exists = !existing_admin_password.empty();
       if (password_is_ours || !admin_row_exists) {
         s.set(admin_path, "password", stored);

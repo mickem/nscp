@@ -461,7 +461,10 @@ std::wstring read_map_data(msi_helper &h) {
 
 void dump_config(msi_helper &h, std::wstring title) {
   h.dumpReason(title);
-  for (const auto key : {ALLOWED_HOSTS, NSCLIENT_PWD, CONF_SCHEDULER, CONF_CHECKS, CONF_NRPE, CONF_NSCA, CONF_WEB, CONF_NSCLIENT, NRPEMODE, CONFIGURATION_TYPE,
+  // NSCLIENT_PWD is deliberately not in this list: dumpProperties prints the
+  // value, and the KEY_/DEF_ pair for that one is a password (on an upgrade, the
+  // one already on disk).
+  for (const auto key : {ALLOWED_HOSTS, CONF_SCHEDULER, CONF_CHECKS, CONF_NRPE, CONF_NSCA, CONF_WEB, CONF_NSCLIENT, NRPEMODE, CONFIGURATION_TYPE,
                          CONF_INCLUDES, IMPORT_CONFIG}) {
     h.dumpProperties(key);
   }
@@ -506,7 +509,7 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
 
     if (tool == MONITORING_TOOL_OP5) {
       h.logMessage(L"Setting base config as Op5");
-      h.setPropertyKeyAndDefault(NSCLIENT_PWD, L"", L"");
+      h.setPropertyKeyAndDefaultSecret(NSCLIENT_PWD, L"", L"");
       h.setPropertyKeyAndDefault(CONF_CHECKS, L"1", L"");
       h.setPropertyKeyAndDefault(CONF_NRPE, L"1", L"");
       h.setPropertyKeyAndDefault(CONF_NSCA, L"1", L"");
@@ -531,7 +534,7 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
       h.setPropertyKeyAndDefault(ALLOWED_HOSTS, L"127.0.0.1", L"");
 
       const std::wstring generated_password = genpwd(16);
-      h.setPropertyKeyAndDefault(NSCLIENT_PWD, generated_password, L"");
+      h.setPropertyKeyAndDefaultSecret(NSCLIENT_PWD, generated_password, L"");
       h.setGeneratedPassword(generated_password);
       h.setPropertyKeyAndDefault(CONF_CHECKS, L"1", L"");
       h.setPropertyKeyAndDefault(CONF_NRPE, L"1", L"");
@@ -714,7 +717,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
     }
     if (settings_manager::get_settings()->has_key("/settings/default", "password")) {
       auto old_password = utf8::cvt<std::wstring>(settings_manager::get_settings()->get_string("/settings/default", "password", ""));
-      h.setPropertyKeyAndDefault(NSCLIENT_PWD, old_password, old_password);
+      h.setPropertyKeyAndDefaultSecret(NSCLIENT_PWD, old_password, old_password);
     }
 
     if (has_module("NRPEServer")) {
@@ -772,7 +775,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 
     h.logMessage(L"Determaining which keys have changed");
     h.applyPropertyValue(ALLOWED_HOSTS);
-    h.applyPropertyValue(NSCLIENT_PWD);
+    h.applyPropertyValue(NSCLIENT_PWD, true);
     h.applyPropertyValue(CONF_SCHEDULER);
     h.applyPropertyValue(CONF_CHECKS);
     h.applyPropertyValue(CONF_NRPE);
@@ -809,11 +812,23 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool write_config(msi_helper &h, std::wstring path, std::wstring file);
 
+// The settings keys whose value is a credential. The MSI log is written wherever
+// /l* points and goes into bug reports, so these are logged by key and never by
+// value - here, and again in ExecWriteConfig where the same tuples are read back
+// and applied. One rule rather than a flag at each call site, so a new writer
+// cannot forget: `password` covers the shared default, the NSCA target and op5.
+bool is_secret_key(const std::wstring &key) { return key == L"password"; }
+bool is_secret_key(const std::string &key) { return key == "password"; }
+
 void write_key(msi_helper &h, msi_helper::custom_action_data_w &data, int mode, std::wstring path, std::wstring key, std::wstring val) {
   data.write_int(mode);
   data.write_string(path);
   data.write_string(key);
   data.write_string(val);
+  if (is_secret_key(key)) {
+    h.logMessage(L"write_key: " + path + L"." + key + L"=<value not logged>");
+    return;
+  }
   h.logMessage(L"write_key: " + path + L"." + key + L"=" + val);
 }
 
@@ -1006,7 +1021,9 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
       data.write_int(0);
 
       if (data.has_data()) {
-        h.logMessage(L"Scheduling (ExecWriteConfig): " + data.to_string());
+        // Not data.to_string(): the blob carries the values, and write_key has
+        // already logged every entry (secrets by key only).
+        h.logMessage(L"Scheduling (ExecWriteConfig)");
         HRESULT hr = h.do_deferred_action(L"ExecWriteConfig", data, 1000);
         if (FAILED(hr)) {
           h.errorMessage(L"failed to schedule config update");
@@ -1118,7 +1135,8 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
     write_property_if_set(h, data, OP5_CONTACTGROUP, L"/settings/op5", L"contactgroups");
 
     if (data.has_data()) {
-      h.logMessage(L"Scheduling (ExecWriteConfig): " + data.to_string());
+      // Not data.to_string(), for the reason above.
+      h.logMessage(L"Scheduling (ExecWriteConfig)");
       HRESULT hr = h.do_deferred_action(L"ExecWriteConfig", data, 1000);
       if (FAILED(hr)) {
         h.errorMessage(L"failed to schedule config update");
@@ -1137,9 +1155,9 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
 extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
   msi_helper h(hInstall, L"ExecWriteConfig");
   try {
-    h.logMessage(L"RAW: " + h.getMsiPropery(L"CustomActionData"));
+    // Neither the raw CustomActionData nor its parsed form is logged: both carry
+    // every value, and the fields below are logged individually.
     msi_helper::custom_action_data_r data(h.getMsiPropery(L"CustomActionData"));
-    h.logMessage(L"Got CA data: " + data.to_string());
     std::wstring target = data.get_next_string();
     std::string target_context = utf8::cvt<std::string>(data.get_next_string());
     std::wstring restore = data.get_next_string();
@@ -1289,12 +1307,14 @@ extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
       std::string val = utf8::cvt<std::string>(data.get_next_string());
 
       if (mode == 1) {
-        h.logMessage("Set key: " + path + "/" + key + " = " + val);
+        h.logMessage(is_secret_key(key) ? "Set key: " + path + "/" + key + " = <value not logged>" : "Set key: " + path + "/" + key + " = " + val);
         settings_manager::get_settings()->set_string(path, key, val);
       } else if (mode == 2) {
-        h.logMessage("***UNSUPPORTED*** Remove key: " + path + "/" + key + " = " + val);
+        h.logMessage(is_secret_key(key) ? "***UNSUPPORTED*** Remove key: " + path + "/" + key + " = <value not logged>"
+                                        : "***UNSUPPORTED*** Remove key: " + path + "/" + key + " = " + val);
       } else {
-        h.errorMessage(L"Unknown mode in CA data: " + strEx::xtos(mode) + L": " + data.to_string());
+        // No blob here either: it carries the values.
+        h.errorMessage(L"Unknown mode in CA data: " + strEx::xtos(mode));
         return ERROR_INSTALL_FAILURE;
       }
     }

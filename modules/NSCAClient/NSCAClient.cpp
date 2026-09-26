@@ -172,18 +172,27 @@ bool module_is_enabled(const std::string &value) {
 }
 }  // namespace
 
-// Refuse a cipher the agent cannot resolve, rather than write it and report
-// success: NSCAServer declines to load on an unknown cipher and a client target
-// throws at the first submission, so a typo here surfaces as a dead module at
-// the next restart. encryption_to_int() is the same resolver both of those use.
-bool NSCAClient::cipher_is_known(const std::string &encryption, PB::Commands::ExecuteResponseMessage::Response *response) const {
+// Resolve a cipher name to the id the modules use, or refuse. Writing a name
+// the agent cannot resolve and reporting success leaves a dead module at the
+// next restart - NSCAServer declines to load on it, a client target throws at
+// the first submission - and encryption_to_int() is the same resolver both of
+// those go through, so it also answers "is this one of the names for no cipher"
+// without this command re-implementing the list.
+//
+// `from_command_line` only shapes the message: a name that came off disk is not
+// the operator's typo of the moment, and they need to be told where it is and
+// that --encryption replaces it.
+bool NSCAClient::resolve_cipher(const std::string &encryption, bool from_command_line, int &resolved,
+                                PB::Commands::ExecuteResponseMessage::Response *response) const {
   try {
-    nscp::encryption::helpers::encryption_to_int(encryption);
+    resolved = nscp::encryption::helpers::encryption_to_int(encryption);
     return true;
   } catch (const nscp::encryption::encryption_exception &e) {
-    nscapi::protobuf::functions::set_response_bad(
-        *response, "Unknown cipher '" + encryption + "': " + utf8::utf8_from_native(e.what()) + "\nAvailable: " +
-                       nscp::encryption::helpers::get_crypto_string(", "));
+    const std::string where =
+        from_command_line ? "" : " - the value already in the configuration, which --encryption <cipher> replaces";
+    nscapi::protobuf::functions::set_response_bad(*response, "Unknown cipher '" + encryption + "'" + where + ": " +
+                                                                utf8::utf8_from_native(e.what()) + "\nAvailable: " +
+                                                                nscp::encryption::helpers::get_crypto_string(", "));
     return false;
   }
 }
@@ -313,7 +322,8 @@ bool NSCAClient::install_client(const install_args &in, PB::Commands::ExecuteRes
   // Only default the cipher on a fresh target, so a re-run never silently
   // changes a cipher the daemon is configured for.
   if (args.encryption.empty()) args.encryption = "aes256";
-  if (!cipher_is_known(args.encryption, response)) return true;
+  int cipher = 0;
+  if (!resolve_cipher(args.encryption, !in.encryption.empty(), cipher, response)) return true;
 
   std::stringstream result;
   pf::settings_query s(get_id());
@@ -388,16 +398,9 @@ bool NSCAClient::install_server(const install_args &in, PB::Commands::ExecuteRes
   // changes a cipher the submitting hosts are configured for.
   if (args.encryption.empty()) args.encryption = "aes256";
 
-  if (!cipher_is_known(args.encryption, response)) return true;
-  // Ask the resolver rather than re-implement its list of names for "no
-  // cipher": it takes ""/"none"/"0", and the value has been defaulted above so
-  // it is never empty here.
-  bool encrypted = true;
-  try {
-    encrypted = nscp::encryption::helpers::encryption_to_int(args.encryption) != nscp::encryption::helpers::no_encryption;
-  } catch (const nscp::encryption::encryption_exception &) {
-    return true;  // cipher_is_known() has already answered
-  }
+  int cipher = 0;
+  if (!resolve_cipher(args.encryption, !in.encryption.empty(), cipher, response)) return true;
+  const bool encrypted = cipher != nscp::encryption::helpers::no_encryption;
   // Writing a server that cannot start is worse than refusing: with a cipher
   // and no key it declines to load, because an empty password is a well-known
   // key anyone who can reach the port could forge submissions with.

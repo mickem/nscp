@@ -56,7 +56,10 @@ class NSCAClient : public nscapi::impl::simple_plugin {
   // A separate key on purpose: it is shared with different peers than the
   // client's, and NSCAServer reads neither the client's nor /settings/default.
   bool install_server(const install_args &args, PB::Commands::ExecuteResponseMessage::Response *response) const;
-  // True when the agent can resolve this cipher name; otherwise it fills in
-  // `response` with the refusal and the list of names it does know.
-  bool cipher_is_known(const std::string &encryption, PB::Commands::ExecuteResponseMessage::Response *response) const;
+  // Resolves a cipher name to its id. False when the agent does not know the
+  // name, having filled in `response` with the refusal and the names it does
+  // know; `from_command_line` says whether the name was given this run, which
+  // only changes the wording.
+  bool resolve_cipher(const std::string &encryption, bool from_command_line, int &resolved,
+                      PB::Commands::ExecuteResponseMessage::Response *response) const;
 };

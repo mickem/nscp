@@ -76,7 +76,9 @@ nscp nsca install --host <nsca-server> --password <the key from that daemon's ns
   password the installer *generates* for itself, when a fresh install is given
   none, also stays in clear text: nobody has seen it, so a hash of it would lock
   the new agent's web UI and check_nt with nothing left to recover. Rotate it
-  with `nscp web password --set <password>`. The password no longer reaches the
-  MSI log in any of these cases.
+  with `nscp web password --set <password>`. In none of these cases does the
+  password reach the MSI log: the installer logs the settings key and not the
+  value, and the properties carrying it are declared hidden so Windows Installer
+  does not log them either.
 
 See the [security notice](../security/notices.md#the-shared-default-password-is-stored-hashed).

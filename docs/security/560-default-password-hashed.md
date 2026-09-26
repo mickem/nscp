@@ -76,8 +76,11 @@ found it (it still hashes the `admin` row, which is its own), so migrating it
 is an explicit `nscp web password --set`.
 
 The Windows installer hashes a password that came from outside it: given on the
-command line (`NSCLIENT_PWD`) or typed into the configuration dialog. It never
-lands in the MSI log. Two values are deliberately left in clear text. One is a
+command line (`NSCLIENT_PWD`) or typed into the configuration dialog. It is kept
+out of the MSI log: the installer's own writers log the settings key they wrote
+and not its value, and `NSCLIENT_PWD` and the three properties derived from it
+are declared hidden, so Windows Installer does not record their values either.
+Two values are deliberately left in clear text. One is a
 value it merely found on disk — which is what pre-fills the dialog on an
 upgrade — so an upgrade migrates nothing on its own. The other is the password
 the installer *generates* when none was given: a silent install has no dialog to

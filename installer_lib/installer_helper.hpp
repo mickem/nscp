@@ -116,6 +116,16 @@ class msi_helper {
     setPropertyValue((PREFIX_KEY + key), value);
     setPropertyValue((PREFIX_DEF + key), old_value);
   }
+  // As above, for a property whose value is a credential. setPropertyValue()
+  // logs what it sets, and the MSI log is written wherever /l* points and gets
+  // pasted into bug reports, so this one logs the property name only. (The
+  // properties are also declared Hidden in properties.wxs, which is what stops
+  // Windows Installer logging its own property changes.)
+  void setPropertyKeyAndDefaultSecret(std::wstring key, std::wstring value, std::wstring old_value) {
+    logMessage(L" -- Setting " + std::wstring(PREFIX_KEY) + key + L" and " + std::wstring(PREFIX_DEF) + key + L" (values not logged)");
+    setMsiProperty(PREFIX_KEY + key, value);
+    setMsiProperty(PREFIX_DEF + key, old_value);
+  }
   void setPropertyKeyAndDefaultBool(std::wstring key, bool value) {
     std::wstring v = value ? L"1" : L"";
     setPropertyKeyAndDefault(key, v, v);
@@ -132,14 +142,18 @@ class msi_helper {
   // see propertyNotDefault above, and asked_for_mode() in nrpe_mode.hpp.
   std::wstring getProperyDefault(std::wstring key) { return getMsiPropery(PREFIX_DEF + key); }
 
- private:
+ public:
   void setMsiProperty(std::wstring key, std::wstring value) { MsiSetProperty(hInstall_, key.c_str(), value.c_str()); }
 
- public:
-  void applyPropertyValue(std::wstring key) {
+  void applyPropertyValue(std::wstring key, bool secret = false) {
     std::wstring old = getMsiPropery(PREFIX_KEY + key);
     std::wstring wanted_value = getMsiPropery(PREFIX_NA + key);
     if (!wanted_value.empty()) {
+      if (secret) {
+        logMessage(L" -- Setting " + std::wstring(PREFIX_KEY) + key + L" (applied, value not logged)");
+        setMsiProperty(PREFIX_KEY + key, wanted_value);
+        return;
+      }
       logMessage(L" -- Setting " + std::wstring(PREFIX_KEY) + key + L"='" + wanted_value + L"' (applied) from '" + old + L"'");
       setPropertyValue(PREFIX_KEY + key, wanted_value);
     }

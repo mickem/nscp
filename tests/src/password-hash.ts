@@ -19,8 +19,13 @@ export const PBKDF2_ITERATIONS = 100000;
 const SALT_BYTES = 16;
 const HASH_BYTES = 32;
 
-/** The stored form, anchored. Lower-case hex only, as the writers emit it. */
-export const STORED_HASH_RE = /^pbkdf2-sha256\$(\d+)\$([0-9a-f]+)\$([0-9a-f]+)$/;
+/**
+ * The stored form, anchored. Either case of hex, matching what
+ * `password_hash.cpp` parses - the writers emit lower case, but a value written
+ * by hand is still a hash and the three implementations of this check (here,
+ * the C++ parser and tests/msi/helpers.py) have to agree on that.
+ */
+export const STORED_HASH_RE = /^pbkdf2-sha256\$(\d+)\$([0-9a-fA-F]+)\$([0-9a-fA-F]+)$/;
 
 /** A stored hash of `password`, with a fresh random salt. */
 export function pbkdf2StoredForm(password: string, iterations: number = PBKDF2_ITERATIONS): string {
@@ -39,6 +44,8 @@ export function storedHashMatches(stored: string | undefined, password: string):
   const m = stored?.match(STORED_HASH_RE);
   if (!m) return false;
   const [, iterations, saltHex, hashHex] = m;
+  // An odd-length field is not hex, and asking node for half a byte throws.
+  if (saltHex.length % 2 !== 0 || hashHex.length % 2 !== 0) return false;
   const derived = crypto.pbkdf2Sync(
     password,
     Buffer.from(saltHex, "hex"),

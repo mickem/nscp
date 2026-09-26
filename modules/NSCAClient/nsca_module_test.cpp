@@ -387,6 +387,30 @@ TEST_F(NscaModule, InstallServerRefusesAnUnknownCipher) {
   EXPECT_TRUE(core().updated_settings().empty());
 }
 
+TEST_F(NscaModule, InstallSaysWhenTheUnknownCipherCameFromDisk) {
+  core().set_setting(kTarget, "address", "nagios.example.com");
+  core().set_setting(kTarget, "encryption", "rot13");
+  ASSERT_TRUE(load());
+
+  PB::Commands::ExecuteResponseMessage response;
+  // A re-run that passes no --encryption inherits the stored value, so the
+  // refusal has to say where the bad name is and how to replace it - it is not
+  // something the operator typed this time.
+  ASSERT_TRUE(module_.commandLineExec(NSCAPI::target_module, install_request({"--password", "k"}), response));
+  EXPECT_EQ(response.payload(0).result(), PB::Common::ResultCode::UNKNOWN) << response.payload(0).message();
+  EXPECT_TRUE(response.payload(0).message().find("already in the configuration") != std::string::npos) << response.payload(0).message();
+  EXPECT_TRUE(response.payload(0).message().find("--encryption") != std::string::npos) << response.payload(0).message();
+}
+
+TEST_F(NscaModule, InstallDoesNotBlameTheConfigurationForACipherJustGiven) {
+  ASSERT_TRUE(load());
+  PB::Commands::ExecuteResponseMessage response;
+  ASSERT_TRUE(module_.commandLineExec(NSCAPI::target_module,
+                                      install_request({"--host", "nagios.example.com", "--password", "k", "--encryption", "rot13"}), response));
+  EXPECT_EQ(response.payload(0).result(), PB::Common::ResultCode::UNKNOWN) << response.payload(0).message();
+  EXPECT_TRUE(response.payload(0).message().find("already in the configuration") == std::string::npos) << response.payload(0).message();
+}
+
 TEST_F(NscaModule, InstallHelpDoesNotWriteAnything) {
   ASSERT_TRUE(load());
   PB::Commands::ExecuteResponseMessage response;
