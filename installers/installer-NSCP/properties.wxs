@@ -61,6 +61,13 @@
 	<Property Id="DEFAULT_NSCLIENT_PWD" Hidden="yes" />
 	<Property Id="NSCP_GENERATED_PWD" Hidden="yes" />
 
+	<!-- The CustomActionData for the deferred write, which is how a password
+	     reaches ExecWriteConfig at all: do_deferred_action() sets a property
+	     named after the action to the whole blob, so Windows Installer logs a
+	     PROPERTY CHANGE line carrying every value in it unless it is hidden -
+	     the same channel ExecEnrollFleet and ExecPrepareLayout are hidden for. -->
+	<Property Id="ExecWriteConfig" Hidden="yes" />
+
 	<!-- NSCA SUBMISSION
 	     Declared to mark them Secure so they survive a managed install, and to
 	     hide the key: NSCA encrypts the payload with it rather than checking
@@ -81,6 +88,17 @@
 	     service never generates its self-signed fallback. Declared to mark
 	     them Secure so they survive a managed/elevated install; they are
 	     paths, not secrets, so they are not hidden. -->
+	<!-- OP5 NORTHBOUND API
+	     Read the same way as the NSCA options above (write_property_if_set, off
+	     the bare property), so declared Secure for the same reason: a managed or
+	     elevated install keeps them. The password is hidden; the rest are not
+	     secrets. -->
+	<Property Id="OP5_SERVER" Secure="yes" />
+	<Property Id="OP5_USER" Secure="yes" />
+	<Property Id="OP5_PASSWORD" Secure="yes" Hidden="yes" />
+	<Property Id="OP5_HOSTGROUPS" Secure="yes" />
+	<Property Id="OP5_CONTACTGROUP" Secure="yes" />
+
 	<Property Id="CERTIFICATE" Secure="yes" />
 	<Property Id="CERTIFICATE_KEY" Secure="yes" />
 	<Property Id="CERTIFICATE_CA" Secure="yes" />
