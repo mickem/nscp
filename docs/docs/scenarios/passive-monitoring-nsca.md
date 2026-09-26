@@ -281,8 +281,9 @@ cipher.
     password the web UI, check_nt and NRPE verify an *inbound* caller against,
     and it is stored as a hash. NSCA encrypts with its key rather than verifying
     it, so it needs the clear text and keeps it here. If this host also *runs*
-    an NSCA server, it reads this same key unless you give it one of its own
-    under `[/settings/NSCA/server]`.
+    an NSCA server, that is a separate key: it is shared with the hosts
+    submitting here, not with the daemon above, so set it under
+    `[/settings/NSCA/server]` — the server refuses to start without one.
 <!-- @formatter:on -->
 
 ---

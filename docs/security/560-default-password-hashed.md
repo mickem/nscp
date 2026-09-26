@@ -45,13 +45,21 @@ listener that lets the agent *receive* NSCA submissions, and only it inherited
 the shared password. Sharing one value between "what I verify inbound callers
 with" and "the key I share with a remote server" was the mistake, and hashing
 only made it visible. **`NSCAServer` no longer inherits
-`/settings/default/password`.** Its key comes from its own section, or failing
-that from the default target of `NSCAClient`
-(`/settings/NSCA/client/targets/default/password`) — one protocol, one shared
-secret per peer, so an agent that both submits and receives NSCA configures it
-once. It still refuses to load on a value that *is* a stored hash, since that
-is never a usable key, but reaching that now takes a deliberate paste rather
-than an inherited default.
+`/settings/default/password`, and inherits no substitute.** Its key comes from
+its own section and nowhere else — in particular not from `NSCAClient`, whose
+target key is what *this* agent submits to a remote daemon with. That is a
+secret shared with a different peer, and borrowing it would silently turn a
+client target into a credential for accepting inbound submissions. One peer,
+one key, set on purpose.
+
+**With encryption enabled and no key of its own, the server now refuses to
+start** rather than come up looking configured. The key is derived from the
+password string, so an empty password is a well-known key: a listener that
+started anyway would decrypt and accept forged submissions from anyone who can
+reach the port. There is nothing safe to fall back on — only the operator knows
+what the submitting hosts use — so the module logs what is missing and does not
+listen. It likewise still refuses a value that *is* a stored hash, which is now
+reachable only by pasting one in.
 
 That leaves the shared section holding only what it is for: passwords inbound
 protocols verify a caller against. `nscp nsca install --host <server>
@@ -78,9 +86,8 @@ permissions remain the boundary around it.
 
 **What to do:** if the agent runs `NSCAServer` (the listener — not the common
 `NSCAClient`, which is unaffected) and that listener relied on the shared
-default for its key, put the key where NSCA now reads it —
-`[/settings/NSCA/server]`, or the `NSCAClient` default target if this host also
-submits — before upgrading, or the module logs an empty-key warning and accepts
-nothing. Otherwise nothing is required. To hash a password already on disk, re-set it with `nscp web
-password --set <password>` (the same value is fine). See the
+default for its key, set the key under `[/settings/NSCA/server]` before
+upgrading, or the module refuses to start and logs that no password is set.
+Otherwise nothing is required. To hash a password already on disk, re-set it
+with `nscp web password --set <password>` (the same value is fine). See the
 [upgrade note](../setup/upgrading.md).

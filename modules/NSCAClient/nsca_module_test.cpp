@@ -154,8 +154,9 @@ TEST_F(NscaModule, CommandLineExecOnlyHandlesItsOwnTargetMode) {
 // shared NSCA key lives with it rather than under /settings/default - that
 // section is the password inbound protocols verify a caller against, and it is
 // stored hashed, which is not a key anything can encrypt with. These tests pin
-// the paths, because they are the contract the MSI's NSCA_* options and the
-// NSCAServer fallback both read.
+// the paths, because they are the contract the MSI's NSCA_* options write to,
+// and they pin that the command stays out of the NSCAServer section: the
+// listening key is shared with different peers and is the operator's to set.
 
 namespace {
 
@@ -241,14 +242,17 @@ TEST_F(NscaModule, InstallWarnsAboutAnEmptyKey) {
   EXPECT_TRUE(response.payload(0).message().find("no password set") != std::string::npos) << response.payload(0).message();
 }
 
-TEST_F(NscaModule, InstallSaysWhenNSCAServerWillShareTheKey) {
+TEST_F(NscaModule, InstallWarnsThatNSCAServerStillNeedsItsOwnKey) {
   core().set_setting("/modules", "NSCAServer", "enabled");
   ASSERT_TRUE(load());
 
   PB::Commands::ExecuteResponseMessage response;
   ASSERT_TRUE(module_.commandLineExec(NSCAPI::target_module, install_request({"--host", "nagios.example.com", "--password", "the-nsca-key"}), response));
   ASSERT_EQ(response.payload(0).result(), PB::Common::ResultCode::OK) << response.payload(0).message();
-  EXPECT_TRUE(response.payload(0).message().find("NSCAServer is enabled with no key of its own") != std::string::npos) << response.payload(0).message();
+  // The listener does not borrow this key and refuses to start without one, so
+  // the operator has to hear about it here rather than at the next restart.
+  EXPECT_TRUE(response.payload(0).message().find("NSCAServer is enabled but has no key of its own") != std::string::npos) << response.payload(0).message();
+  EXPECT_TRUE(response.payload(0).message().find("does not use this one") != std::string::npos) << response.payload(0).message();
 }
 
 TEST_F(NscaModule, InstallStaysQuietWhenNSCAServerHasItsOwnKey) {
@@ -258,7 +262,21 @@ TEST_F(NscaModule, InstallStaysQuietWhenNSCAServerHasItsOwnKey) {
 
   PB::Commands::ExecuteResponseMessage response;
   ASSERT_TRUE(module_.commandLineExec(NSCAPI::target_module, install_request({"--host", "nagios.example.com", "--password", "the-nsca-key"}), response));
-  EXPECT_TRUE(response.payload(0).message().find("NSCAServer is enabled with no key") == std::string::npos) << response.payload(0).message();
+  EXPECT_TRUE(response.payload(0).message().find("NSCAServer is enabled") == std::string::npos) << response.payload(0).message();
+}
+
+TEST_F(NscaModule, InstallNeverWritesTheNSCAServerKey) {
+  core().set_setting("/modules", "NSCAServer", "enabled");
+  ASSERT_TRUE(load());
+
+  PB::Commands::ExecuteResponseMessage response;
+  ASSERT_TRUE(module_.commandLineExec(NSCAPI::target_module, install_request({"--host", "nagios.example.com", "--password", "the-nsca-key"}), response));
+  ASSERT_EQ(response.payload(0).result(), PB::Common::ResultCode::OK) << response.payload(0).message();
+  // Warning the operator is as far as it goes: the listening key is shared with
+  // different peers, so this command must not guess it from the client target.
+  for (const auto &update : core().updated_settings()) {
+    EXPECT_NE(update.path, "/settings/NSCA/server") << "wrote " << update.key << " into the NSCA server section";
+  }
 }
 
 TEST_F(NscaModule, InstallHelpDoesNotWriteAnything) {

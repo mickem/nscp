@@ -178,7 +178,7 @@ bool NSCAClient::cli_install(const PB::Commands::ExecuteRequestMessage::Request 
       ("password", po::value<std::string>(&password),
        "The shared key. NSCA encrypts with it rather than verifying it, so it has to be the same string as `password` in the daemon's nsca.cfg, "
        "and it is stored in clear text because a hash is not a key. It is not the /settings/default password the web UI and check_nt verify "
-       "callers against.")
+       "callers against, and not the key NSCAServer uses for hosts submitting *to* this agent - that one is set under /settings/NSCA/server.")
       ("encryption", po::value<std::string>(&encryption), encryption_help.c_str())
       ("hostname", po::value<std::string>(&hostname),
        "The host name to submit results as. It has to match the host as Nagios/Icinga knows it, not necessarily this machine's name; `auto` uses "
@@ -200,7 +200,8 @@ bool NSCAClient::cli_install(const PB::Commands::ExecuteRequestMessage::Request 
     }
 
     // What is on disk already, so an option left out keeps its value. Also
-    // whether NSCAServer is running, because it falls back to this target's key.
+    // whether NSCAServer is running, because it needs a key of its own and an
+    // operator who has just set one here is the one to tell.
     std::string current_address, current_port, current_password, current_encryption, current_hostname;
     std::string nsca_server_module, nsca_server_password;
     pf::settings_query q(get_id());
@@ -276,13 +277,16 @@ bool NSCAClient::cli_install(const PB::Commands::ExecuteRequestMessage::Request 
     } else {
       result << "The key must match `password` in the daemon's nsca.cfg, and the cipher its `decryption_method`." << std::endl;
     }
-    // The server side reads this target when it has no key of its own, so say
-    // what that means rather than leaving the operator to infer it.
+    // The listening side does not borrow this key - it is the secret shared with
+    // a remote daemon, not with the hosts submitting here - and it refuses to
+    // start without one of its own. An operator who just configured submission
+    // is the one to tell, before the next restart drops the server.
     const bool server_enabled =
         !nsca_server_module.empty() && nsca_server_module != "disabled" && nsca_server_module != "0" && nsca_server_module != "false";
     if (server_enabled && nsca_server_password.empty()) {
-      result << "NSCAServer is enabled with no key of its own, so it will accept submissions with this same key." << std::endl;
-      result << "Give it a different one under [" << server_path << "] if that is not what you want." << std::endl;
+      result << "WARNING: NSCAServer is enabled but has no key of its own, and it does not use this one: this key is shared with the" << std::endl;
+      result << "         daemon above, not with the hosts submitting to this agent. It refuses to start until you set" << std::endl;
+      result << "         password=<the key those hosts use> under [" << server_path << "]." << std::endl;
     }
     result << "Restart nsclient++ for the change to take effect." << std::endl;
     pf::set_response_good(*response, result.str());

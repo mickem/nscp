@@ -8,8 +8,9 @@
  * The thing worth pinning is *where the key lands*. NSCA encrypts the payload
  * with the shared secret rather than verifying it, so it can never use the
  * hashed `/settings/default/password` the web UI and check_nt verify inbound
- * callers against. The key belongs with the client target, and an NSCAServer
- * with no key of its own reads it from there.
+ * callers against. The key belongs with the client target, and nowhere else:
+ * NSCAServer's key is shared with different peers, so this command warns about
+ * it but never writes it.
  *
  * Runs the CLI against a scratch INI only: no server is started, and the
  * assertions read the file back.
@@ -119,7 +120,7 @@ describe("nscp nsca install", () => {
     expect(iniValue(fresh.settingsFile, TARGET, "encryption")).toBe("aes256");
   });
 
-  it("says when an enabled NSCAServer will share the key", async () => {
+  it("warns that an enabled NSCAServer still needs a key of its own", async () => {
     const fresh = new NscpInstance();
     await fresh.run(["settings", "--path", "/modules", "--key", "NSCAServer", "--set", "enabled"]);
     const r = await fresh.run([
@@ -130,7 +131,12 @@ describe("nscp nsca install", () => {
       "--password",
       "the-nsca-key",
     ]);
-    expect(r.all).toContain("NSCAServer is enabled with no key of its own");
+    // The listener does not borrow this key and refuses to start without one,
+    // so say it here rather than let the next restart drop the server.
+    expect(r.all).toContain("NSCAServer is enabled but has no key of its own");
+    expect(r.all).toContain("does not use this one");
+    // And warning is as far as it goes - the listening key is the operator's.
+    expect(iniValue(fresh.settingsFile, SERVER, "password")).toBeUndefined();
   });
 
   it("stays quiet when NSCAServer has a key of its own", async () => {
@@ -153,6 +159,7 @@ describe("nscp nsca install", () => {
       "--password",
       "the-nsca-key",
     ]);
-    expect(r.all).not.toContain("NSCAServer is enabled with no key");
+    expect(r.all).not.toContain("NSCAServer is enabled");
+    expect(iniValue(fresh.settingsFile, SERVER, "password")).toBe("a-different-key");
   });
 });

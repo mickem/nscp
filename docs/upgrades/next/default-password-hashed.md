@@ -30,24 +30,29 @@ you do have to move it** — see the second point. Three things change:
   `/settings/default/password`.** That section is the password inbound
   protocols (web UI, check_nt, NRPE) verify a caller against, and it is now
   hashed; NSCA does not verify a password, it encrypts with it, so it could
-  never use a hash. **If you run `NSCAServer` and its key came from the shared
-  default, move it before upgrading** — otherwise the module loads with an
-  empty key and accepts nothing:
+  never use a hash. It is not inherited from anywhere else either — not from
+  `NSCAClient`, whose key is what this agent submits to a *remote* daemon with.
+  **If you run `NSCAServer` and its key came from the shared default, set it
+  under its own section before upgrading** — otherwise the module refuses to
+  start, logging `Refusing to start NSCA server: encryption is enabled … but no
+  password is set`:
 
 ```ini
 [/settings/NSCA/server]
 password = <the NSCA key>
 ```
 
-  On a host that also *submits* NSCA, put the key on the client target instead
-  and the server picks it up from there — one protocol, one shared secret:
+  A host that also *submits* NSCA configures that separately, because the two
+  keys are shared with different peers — the listening key with the hosts
+  submitting here, the client key with the daemon this agent submits to:
 
 ```commandline
-nscp nsca install --host <nsca-server> --password <the NSCA key> --encryption aes256
+nscp nsca install --host <nsca-server> --password <the key from that daemon's nsca.cfg> --encryption aes256
 ```
 
   That is a new command; it writes `[/settings/NSCA/client/targets/default]`
-  and enables `NSCAClient`. The Windows installer takes the same values as
+  and enables `NSCAClient`. It never writes the server's key, and warns when an
+  enabled `NSCAServer` is still missing one. The Windows installer takes the same values as
   `NSCA_SERVER`, `NSCA_PORT`, `NSCA_PASSWORD`, `NSCA_ENCRYPTION` and
   `NSCA_HOSTNAME`. Re-running `nscp web install` *without* `--password` now
   leaves an existing clear-text shared value alone, so a certificate rotation

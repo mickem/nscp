@@ -450,9 +450,10 @@ $ nscp web password --set "<the password>"
 
 `nscp web password --display` can only show a password while it is still in clear text; once hashed, set a new one if it
 is lost. `NSCAServer` is deliberately not one of these servers: it never verifies a password, its shared secret *is* the
-encryption key every submitting client has to know, so that key stays in clear text in `[/settings/NSCA/server]` — or,
-for an agent that also submits, in the `NSCAClient` default target it falls back to (`nscp nsca install` writes it
-there). It is never inherited from `[/settings/default]`. The Windows MSI hashes a password given on its command line or
+encryption key every submitting client has to know, so that key stays in clear text under `[/settings/NSCA/server]` and
+is inherited from nowhere — not from `[/settings/default]`, and not from `NSCAClient`, whose key is what this agent
+submits to a remote daemon with. With encryption on and no key of its own the server refuses to start, because an empty
+password is a well-known key. The Windows MSI hashes a password given on its command line or
 typed into its configuration dialog; a value it merely found on disk, which is what pre-fills the dialog on an upgrade,
 is left exactly as it is.
 

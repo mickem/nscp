@@ -6,9 +6,9 @@
  *   - NSClientServer (check_nt) verifies the clear-text password the client
  *     sends against the hash, exactly as it verifies against a clear-text
  *     value, and the hash string itself is not a valid credential;
- *   - NSCAServer derives its transport key from the password string, so it
- *     refuses to start on a hash, says why, and starts once the NSCA section
- *     carries a clear-text password of its own.
+ *   - NSCAServer does not read that section at all any more. Its key is shared
+ *     with the hosts submitting to this agent, it is inherited from nowhere,
+ *     and the server refuses to start rather than listen without one.
  *
  * check_nt is spoken over a raw socket here (`<password>&<code>`, no framing,
  * one response then close), so this runs without docker; the real
@@ -137,26 +137,33 @@ describeCheckNt("check_nt with the shared password stored hashed", () => {
   });
 });
 
-describe("NSCAServer with the shared password stored hashed", () => {
+describe("NSCAServer and the key it will not inherit", () => {
   // NSCAServer is only built where crypto++ is available.
   const available = hasModule("NSCAServer");
 
-  it("refuses to start rather than derive a transport key from the hash", async () => {
-    if (!available) return;
+  /** Boot with this config and hand the instance back, stopped by the caller. */
+  async function bootServer(extra: Record<string, Record<string, unknown>>): Promise<NscpInstance> {
     const nscp = new NscpInstance();
     await nscp.configure({
       "/modules": { NSCAServer: "enabled" },
-      "/settings/default": { "allowed hosts": "127.0.0.1", password: pbkdf2Hash("nsca-secret") },
       "/settings/NSCA/server": { encryption: "xor", port: String(NSCA_PORT) },
+      ...extra,
     });
     await nscp.waitForPortFree(NSCA_PORT, { timeoutMs: 30_000 });
     nscp.start();
+    return nscp;
+  }
+
+  it("refuses to start with no key of its own, however the shared default is written", async () => {
+    if (!available) return;
+    // The shared section holds a perfectly good clear-text password here, and
+    // it is still not the NSCA key: that one is shared with the hosts
+    // submitting to this agent and has to be set on purpose.
+    const nscp = await bootServer({
+      "/settings/default": { "allowed hosts": "127.0.0.1", password: "not-the-nsca-key" },
+    });
     try {
-      await waitForOutput(
-        nscp,
-        /Refusing to start NSCA server: the password is stored hashed/,
-        30_000,
-      );
+      await waitForOutput(nscp, /Refusing to start NSCA server: encryption is enabled/, 30_000);
       expect(nscp.capturedStdout()).toContain("/settings/NSCA/server");
       expect(await portOpen(NSCA_PORT)).toBe(false);
     } finally {
@@ -164,20 +171,70 @@ describe("NSCAServer with the shared password stored hashed", () => {
     }
   });
 
-  it("starts once the NSCA section carries a clear-text password of its own", async () => {
+  it("does not borrow the key NSCAClient submits with", async () => {
     if (!available) return;
-    const nscp = new NscpInstance();
-    await nscp.configure({
-      "/modules": { NSCAServer: "enabled" },
-      "/settings/default": { "allowed hosts": "127.0.0.1", password: pbkdf2Hash("nsca-secret") },
+    // Two different peers, two different secrets: the client target's key is
+    // what this agent sends to a remote daemon, and handing it to the listener
+    // would quietly turn it into a credential for inbound submissions.
+    const nscp = await bootServer({
+      "/settings/NSCA/client/targets/default": {
+        address: "nagios.example.com",
+        password: "the-client-key",
+        encryption: "aes256",
+      },
+    });
+    try {
+      await waitForOutput(nscp, /Refusing to start NSCA server: encryption is enabled/, 30_000);
+      expect(await portOpen(NSCA_PORT)).toBe(false);
+    } finally {
+      await nscp.stop();
+    }
+  });
+
+  it("refuses a key that is a stored hash rather than deriving from it", async () => {
+    if (!available) return;
+    // Reachable only by pasting one in, now that nothing is inherited - but a
+    // hash is never a usable key, so it is still a refusal and not a deaf port.
+    const nscp = await bootServer({
+      "/settings/NSCA/server": {
+        encryption: "xor",
+        port: String(NSCA_PORT),
+        password: pbkdf2Hash("nsca-secret"),
+      },
+    });
+    try {
+      await waitForOutput(nscp, /Refusing to start NSCA server: the password is stored hashed/, 30_000);
+      expect(await portOpen(NSCA_PORT)).toBe(false);
+    } finally {
+      await nscp.stop();
+    }
+  });
+
+  it("starts once the NSCA section carries a clear-text key of its own", async () => {
+    if (!available) return;
+    const nscp = await bootServer({
+      "/settings/default": { "allowed hosts": "127.0.0.1", password: pbkdf2Hash("something-else") },
       "/settings/NSCA/server": {
         encryption: "xor",
         port: String(NSCA_PORT),
         password: "nsca-secret",
       },
     });
-    await nscp.waitForPortFree(NSCA_PORT, { timeoutMs: 30_000 });
-    nscp.start();
+    try {
+      await nscp.waitForPort(NSCA_PORT, { timeoutMs: 30_000 });
+      expect(nscp.capturedStdout()).not.toContain("Refusing to start NSCA server");
+    } finally {
+      await nscp.stop();
+    }
+  });
+
+  it("starts without a key when encryption is off", async () => {
+    if (!available) return;
+    // No cipher, no key to be missing: the refusal is about a well-known key,
+    // not about the setting being unset.
+    const nscp = await bootServer({
+      "/settings/NSCA/server": { encryption: "none", port: String(NSCA_PORT) },
+    });
     try {
       await nscp.waitForPort(NSCA_PORT, { timeoutMs: 30_000 });
       expect(nscp.capturedStdout()).not.toContain("Refusing to start NSCA server");
