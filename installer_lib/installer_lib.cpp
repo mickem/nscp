@@ -38,6 +38,7 @@
 #include <list>
 #include <nscp/boot_layout.hpp>
 #include <nscp/layout_migration.hpp>
+#include <nscp/password_hash.hpp>
 #include <nscp/path_defaults.hpp>
 #include <win/acl.hpp>
 
@@ -833,6 +834,50 @@ void write_changed_key(msi_helper &h, msi_helper::custom_action_data_w &data, st
   write_key(h, data, 1, path, key, val);
 }
 
+// The shared inbound password, stored hashed - the same pbkdf2-sha256$... form
+// `nscp web install` writes, which the WEB admin seed and the check_nt server
+// verify through password_hash and so take in either form.
+//
+// Only a value the operator supplied this run is hashed. write_changed_key's
+// rule applies: a property still equal to its default is not written at all,
+// and for NSCLIENT_PWD that default is seeded from the password already on
+// disk (see the upgrade path above), so an install that leaves the field alone
+// rewrites nothing - an existing value is migrated by `nscp web password
+// --set`, deliberately, not by an upgrade.
+//
+// Unlike write_changed_key this never logs the value: the MSI log is not a
+// place for a password.
+void write_changed_password_key(msi_helper &h, msi_helper::custom_action_data_w &data, std::wstring prop, std::wstring path, std::wstring key) {
+  const std::wstring val = h.getProperyKey(prop);
+  if (!h.propertyNotDefault(prop)) {
+    h.logMessage(L"IGNORING password property not changed: " + prop + L"; " + path + L"." + key);
+    return;
+  }
+  if (val.empty()) {
+    h.logMessage(L"write_changed_password_key: " + prop + L" is empty; " + path + L"." + key);
+    write_key(h, data, 1, path, key, val);
+    return;
+  }
+  const std::string clear = utf8::cvt<std::string>(val);
+  if (password_hash::is_hashed(clear)) {
+    // A stored hash pasted into the property (cloning an agent, say). Hashing
+    // a hash would lock the admin out, so store it as it is.
+    h.logMessage(L"write_changed_password_key: " + prop + L" is already a stored hash; " + path + L"." + key);
+    write_key(h, data, 1, path, key, val);
+    return;
+  }
+  const std::string hashed = password_hash::hash_password(clear);
+  if (hashed.empty()) {
+    // RNG / KDF failure. A clear-text value still verifies, so store what we
+    // were given rather than failing the install over it.
+    h.logMessage(L"write_changed_password_key: failed to hash " + prop + L", storing it as given; " + path + L"." + key);
+    write_key(h, data, 1, path, key, val);
+    return;
+  }
+  h.logMessage(L"write_changed_password_key: " + prop + L" stored hashed; " + path + L"." + key);
+  write_key(h, data, 1, path, key, utf8::cvt<std::wstring>(hashed));
+}
+
 void write_changed_key_mod(msi_helper &h, msi_helper::custom_action_data_w &data, std::wstring prop, std::wstring key) {
   std::wstring val = h.getProperyKey(prop);
   if (!h.propertyNotDefault(prop)) {
@@ -975,7 +1020,7 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
 
     std::wstring defpath = L"/settings/default";
     write_changed_key(h, data, ALLOWED_HOSTS, defpath, L"allowed hosts");
-    write_changed_key(h, data, NSCLIENT_PWD, defpath, L"password");
+    write_changed_password_key(h, data, NSCLIENT_PWD, defpath, L"password");
 
     // Operator-supplied TLS material: ExecInstallCerts puts the files at the
     // default names under ${certificate-path}, so certificate.pem and ca.pem

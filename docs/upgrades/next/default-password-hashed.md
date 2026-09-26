@@ -43,9 +43,11 @@ nscp nsca install --host <nsca-server> --password <the NSCA key> --encryption ae
   cannot migrate a credential behind your back.
 
 * Tooling that read the shared password back out of `nsclient.ini` (or the
-  Windows MSI's configuration dialog on an upgrade, which pre-fills the field
-  from the file) sees the `pbkdf2-sha256$…` string. Leave it unchanged and the
-  hash is kept; type a new value and the MSI writes it in clear text, as it
-  always has.
+  Windows installer's configuration dialog on an upgrade, which pre-fills the
+  field from the file) sees the `pbkdf2-sha256$…` string. The installer hashes
+  a password you give it — `NSCLIENT_PWD` on the command line, or the dialog
+  field — and leaves a value it only found on disk alone, so leaving the field
+  unchanged keeps what is there and typing a new one stores it hashed. The
+  password no longer reaches the MSI log either way.
 
 See the [security notice](../security/notices.md#the-shared-default-password-is-stored-hashed).

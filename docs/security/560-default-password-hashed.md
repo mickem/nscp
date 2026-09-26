@@ -7,9 +7,9 @@ action: conditional
 ---
 The per-user web passwords under `/settings/WEB/server/users/<name>` are
 stored as salted PBKDF2-SHA256 hashes, but the shared `password` under
-`/settings/default` — the value `nscp web install` generates, the Windows MSI
-writes, and the web admin seed and the check_nt server read — stayed in clear
-text in `nsclient.ini`. Anyone who could read the file (the service account
+`/settings/default` — the value `nscp web install` generates, the Windows
+installer writes, and the web admin seed and the check_nt server read — stayed
+in clear text in `nsclient.ini`. Anyone who could read the file (the service account
 and administrators on a current install; every local user on older layouts,
 see [Securing NSClient++](../setup/securing.md#file-layout-windows)) held the
 admin password itself, not a hash of it, and could reuse it against the web
@@ -60,12 +60,16 @@ install` re-run without `--password` leaves the shared value exactly as it
 found it (it still hashes the `admin` row, which is its own), so migrating it
 is an explicit `nscp web password --set`.
 
-Two limits are worth knowing. The Windows MSI still writes the value typed
-into its configuration dialog in clear text, since that value is also the one
-the operator is told to note down for the first login. And a hash protects
-only the password: `nsclient.ini` still holds the client-side passwords,
-tokens and keys the agent needs in clear form, so the file permissions remain
-the boundary around it.
+The Windows installer follows the same rule: a password given on its command
+line (`NSCLIENT_PWD`) or typed into its configuration dialog is hashed before
+it is written, and it never lands in the MSI log. A value it merely found on
+disk — which is what pre-fills the dialog on an upgrade — is left exactly as it
+is, so an upgrade migrates nothing on its own.
+
+One limit is worth knowing: a hash protects only this password.
+`nsclient.ini` still holds the client-side passwords, tokens and keys the agent
+needs in clear form — it has to use those, not check them — so the file
+permissions remain the boundary around it.
 
 **What to do:** if the agent serves NSCA and relied on the shared default for
 its key, put that key where NSCA now reads it — `[/settings/NSCA/server]`, or

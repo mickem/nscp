@@ -239,6 +239,10 @@ set(SRCS
     # action can call them. See include/nscp/layout_migration.hpp.
     ${NSCP_INCLUDEDIR}/nscp/layout_migration.cpp
     ${NSCP_INCLUDEDIR}/nscp/layout_migration.hpp
+    # The password hash, shared with WEBServer / NSClientServer: the installer
+    # writes the shared inbound password in the same stored form the CLI does.
+    ${NSCP_INCLUDEDIR}/nscp/password_hash.cpp
+    ${NSCP_INCLUDEDIR}/nscp/password_hash.hpp
     ${NSCP_INCLUDEDIR}/win/acl.cpp
     ${NSCP_INCLUDEDIR}/win/acl.hpp
     # Fleet onboarding (enrollment) shared with the core client, see
