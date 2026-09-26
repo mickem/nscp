@@ -197,8 +197,8 @@ std::string build_facts_upload(const std::string &facts_hash, const std::string 
 //   current_hash  the applied desired state (omitted before the first apply)
 //   facts_hash    the facts document's hash (omitted in a build that cannot
 //                 hash)
-// Both are tokens validated on the way in (state_hash) or produced locally
-// (hex), so neither needs escaping.
+// Both values are percent-encoded: a state hash is a token that may carry
+// base64's + / =, and a bare '+' in a query decodes as a space.
 std::string desired_state_path(const std::string &current_hash, const std::string &facts_hash);
 
 // The response header in which a server says which facts document it holds

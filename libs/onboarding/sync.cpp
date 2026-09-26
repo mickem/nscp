@@ -423,17 +423,41 @@ std::string onboarding::build_facts_upload(const std::string &facts_hash, const 
 
 const char *const onboarding::facts_hash_header = "x-facts-hash";
 
+namespace {
+// Percent-encode a query value: everything but RFC 3986's unreserved
+// characters. A state hash may be base64 (the token grammar allows + / =),
+// and a bare '+' in a query reads back as a space - the server would compare
+// a different hash, and never answer 304.
+std::string encode_query_value(const std::string &value) {
+  static const char *digits = "0123456789ABCDEF";
+  std::string out;
+  out.reserve(value.size());
+  for (const char c : value) {
+    const auto u = static_cast<unsigned char>(c);
+    const bool unreserved = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '.' || c == '_' || c == '~';
+    if (unreserved) {
+      out.push_back(c);
+    } else {
+      out.push_back('%');
+      out.push_back(digits[u >> 4]);
+      out.push_back(digits[u & 0xf]);
+    }
+  }
+  return out;
+}
+}  // namespace
+
 std::string onboarding::desired_state_path(const std::string &current_hash, const std::string &facts_hash) {
   std::string path = "/agent/v1/desired-state";
   char separator = '?';
   if (!current_hash.empty()) {
     path += separator;
-    path += "current_hash=" + current_hash;
+    path += "current_hash=" + encode_query_value(current_hash);
     separator = '&';
   }
   if (!facts_hash.empty()) {
     path += separator;
-    path += "facts_hash=" + facts_hash;
+    path += "facts_hash=" + encode_query_value(facts_hash);
   }
   return path;
 }

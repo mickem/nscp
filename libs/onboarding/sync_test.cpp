@@ -14,6 +14,7 @@
 #include <map>
 #include <memory>
 #include <onboarding/bundle_crypto.hpp>
+#include <onboarding/facts_pacer.hpp>
 #include <onboarding/sync.hpp>
 #include <string>
 #include <vector>
@@ -1344,6 +1345,13 @@ TEST(SyncFacts, ThePollCarriesWhatTheAgentHolds) {
   EXPECT_EQ(onboarding::desired_state_path("h1", facts), "/agent/v1/desired-state?current_hash=h1&facts_hash=" + facts);
 }
 
+TEST(SyncFacts, ThePollEscapesWhatItCarries) {
+  // A state hash is a token that may be base64: a bare '+' would read back as
+  // a space, '/' and '=' are delimiters, so all three are percent-encoded.
+  EXPECT_EQ(onboarding::desired_state_path("ab+c/d=", ""), "/agent/v1/desired-state?current_hash=ab%2Bc%2Fd%3D");
+  EXPECT_EQ(onboarding::desired_state_path("a:b~c-d._e", ""), "/agent/v1/desired-state?current_hash=a%3Ab~c-d._e");
+}
+
 TEST(SyncFacts, ParsesTheHashAServerHolds) {
   const std::string hash(64, 'a');
   EXPECT_EQ(onboarding::parse_facts_hash(hash).value(), hash);
@@ -1360,6 +1368,107 @@ TEST(SyncFacts, IgnoresAHashThatIsNotADigest) {
   EXPECT_FALSE(onboarding::parse_facts_hash("abc"));
   EXPECT_FALSE(onboarding::parse_facts_hash(std::string(63, 'a') + "g"));
   EXPECT_FALSE(onboarding::parse_facts_hash(std::string(65, 'a')));
+}
+
+// --- facts upload pacing -------------------------------------------------------
+
+namespace {
+typedef onboarding::facts_upload_pacer pacer;
+const pacer::clock::time_point t0 = pacer::clock::time_point() + std::chrono::hours(24);
+pacer::clock::time_point at(const long long seconds) { return t0 + std::chrono::seconds(seconds); }
+const std::string H1(64, '1');
+const std::string H2(64, '2');
+const std::string NONE = onboarding::sha256_hex("{}");
+}  // namespace
+
+TEST(FactsPacer, NothingUntilTheServerSaysWhatItHolds) {
+  pacer p;
+  EXPECT_FALSE(p.should_upload(H1, t0)) << "a server that never says does not do facts";
+  p.server_holds(NONE, t0);
+  EXPECT_TRUE(p.should_upload(H1, t0));
+  EXPECT_FALSE(p.should_upload(NONE, t0)) << "no miss: the server holds what we hold";
+  EXPECT_FALSE(p.should_upload("", t0));
+}
+
+TEST(FactsPacer, SteadyStateSendsNothing) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.acknowledged(H1, t0);
+  p.server_holds(H1, at(1));
+  EXPECT_FALSE(p.should_upload(H1, at(2)));
+}
+
+TEST(FactsPacer, ARejectedDocumentWaitsDoublingUpToAnHour) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.rejected(H1, t0);
+  EXPECT_FALSE(p.should_upload(H1, at(59)));
+  EXPECT_TRUE(p.should_upload(H1, at(60)));
+  p.rejected(H1, at(60));
+  EXPECT_FALSE(p.should_upload(H1, at(60 + 119)));
+  EXPECT_TRUE(p.should_upload(H1, at(60 + 120)));
+  for (int i = 0; i < 10; ++i) p.rejected(H1, at(1000));
+  EXPECT_EQ(p.retry_at(H1), at(1000 + 3600)) << "capped at an hour";
+}
+
+TEST(FactsPacer, TheBackoffBelongsToTheDocument) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  for (int i = 0; i < 6; ++i) p.rejected(H1, t0);
+  EXPECT_FALSE(p.should_upload(H1, at(60)));
+  EXPECT_TRUE(p.should_upload(H2, at(1))) << "a changed inventory was never tried and must not wait on H1's clock";
+  p.rejected(H2, at(1));
+  EXPECT_EQ(p.retry_at(H2), at(61)) << "and starts its own clock from the first step";
+}
+
+TEST(FactsPacer, RetryAfterHoldsEveryDocument) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.rejected(H1, t0, 600);
+  EXPECT_FALSE(p.should_upload(H2, at(599))) << "the server asked for quiet, whatever we send";
+  EXPECT_TRUE(p.should_upload(H2, at(600)));
+  EXPECT_FALSE(p.should_upload(H1, at(599)));
+}
+
+TEST(FactsPacer, AnAcknowledgedDocumentReportedMissingIsResentOnceAtOnceThenPaced) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.acknowledged(H1, t0);
+  p.server_holds(NONE, at(5));  // lost it
+  EXPECT_TRUE(p.should_upload(H1, at(5))) << "the first re-send is immediate";
+  p.acknowledged(H1, at(5));
+  p.server_holds(H1, at(6));    // echoes what the upload just set...
+  p.server_holds(NONE, at(10)); // ...and loses it again
+  EXPECT_FALSE(p.should_upload(H1, at(10))) << "an echo inside the window is not proof it stuck";
+  EXPECT_TRUE(p.should_upload(H1, at(65)));
+}
+
+TEST(FactsPacer, ADocumentThatStuckResetsThePacing) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.acknowledged(H1, t0);
+  p.server_holds(NONE, at(5));
+  p.acknowledged(H1, at(5));  // re-sent: next re-send waits 60s
+  p.server_holds(H1, at(70)); // still held after the whole window: it stuck
+  p.server_holds(NONE, at(86400));
+  EXPECT_TRUE(p.should_upload(H1, at(86400))) << "a loss a day later is repaired at once";
+}
+
+TEST(FactsPacer, ARefusedDocumentWaitsForAChange) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.refused(H1);
+  EXPECT_FALSE(p.should_upload(H1, at(86400)));
+  EXPECT_TRUE(p.should_upload(H2, at(1)));
+}
+
+TEST(FactsPacer, ANewDocumentAfterRejectionsStartsClean) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  for (int i = 0; i < 4; ++i) p.rejected(H1, t0);
+  p.acknowledged(H2, at(1));
+  p.server_holds(NONE, at(2));
+  EXPECT_TRUE(p.should_upload(H2, at(2)));
 }
 
 // build_state_report takes strings from outside (bundle names and versions
