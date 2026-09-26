@@ -55,7 +55,11 @@ std::string read_command_line(const pid_t pid) {
     if (sysctl(mib, 2, &value, &length, nullptr, 0) != 0 || value <= 0) value = 256 * 1024;
     return value;
   }();
-  std::vector<char> buffer(static_cast<std::size_t>(argmax));
+  // One buffer per thread, reused: kern.argmax is 1 MiB, and allocating and
+  // zeroing that for every process on the host made a full scan cost the best
+  // part of a gigabyte of memset.
+  thread_local std::vector<char> buffer;
+  if (buffer.size() < static_cast<std::size_t>(argmax)) buffer.resize(static_cast<std::size_t>(argmax));
   int mib[3] = {CTL_KERN, KERN_PROCARGS2, pid};
   std::size_t length = buffer.size();
   if (sysctl(mib, 3, buffer.data(), &length, nullptr, 0) != 0 || length <= sizeof(int)) return "";

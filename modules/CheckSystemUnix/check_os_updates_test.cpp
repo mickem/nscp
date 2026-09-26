@@ -320,3 +320,18 @@ TEST(CheckOsUpdates, parse_softwareupdate_output_no_updates) {
   EXPECT_EQ(os_updates::parse_softwareupdate_output("Software Update Tool\n\nFinding available software\nNo new software available.\n").count, 0);
   EXPECT_EQ(os_updates::parse_softwareupdate_output("").count, 0);
 }
+
+TEST(CheckOsUpdates, a_rapid_security_response_counts_as_security_by_its_version) {
+  plist::value root;
+  root.kind = plist::value::dict;
+  plist::value list;
+  list.kind = plist::value::array;
+  list.items.push_back(recommended("macOS Ventura 13.4.1 (a)", "13.4.1 (a)", "MSU_UPDATE_22F770820d"));
+  list.items.push_back(recommended("macOS Ventura 13.5", "13.5", "MSU_UPDATE_22G74"));
+  root.members["RecommendedUpdates"] = list;
+  const os_updates::filter_obj obj = os_updates::parse_software_update_plist(root);
+  EXPECT_EQ(obj.count, 2);
+  EXPECT_EQ(obj.security, 1);
+  EXPECT_TRUE(obj.packages[0].security);
+  EXPECT_FALSE(obj.packages[1].security);
+}

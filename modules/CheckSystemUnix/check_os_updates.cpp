@@ -237,6 +237,15 @@ bool names_security(const std::string &text) {
   const std::string lower = boost::to_lower_copy(text);
   return lower.find("security") != std::string::npos;
 }
+
+// A Rapid Security Response is versioned as its release plus a letter,
+// "13.4.1 (a)", and is often titled as a plain OS update.
+bool is_rapid_response(const std::string &version) {
+  const std::string v = boost::trim_copy(version);
+  return v.size() >= 4 && v[v.size() - 1] == ')' && v[v.size() - 3] == '(' && v[v.size() - 4] == ' ' && v[v.size() - 2] >= 'a' && v[v.size() - 2] <= 'z';
+}
+
+bool is_security_update(const package_update &p) { return names_security(p.name) || names_security(p.source) || is_rapid_response(p.version); }
 }  // namespace
 
 filter_obj parse_software_update_plist(const plist::value &plist) {
@@ -251,7 +260,7 @@ filter_obj parse_software_update_plist(const plist::value &plist) {
       if (p.name.empty()) continue;
       p.version = u["Display Version"].as_string();
       p.source = u["Identifier"].as_string(u["Product Key"].as_string());
-      p.security = names_security(p.name) || names_security(p.source);
+      p.security = is_security_update(p);
       obj.packages.push_back(p);
       if (p.security) obj.security++;
     }
@@ -299,7 +308,7 @@ filter_obj parse_softwareupdate_output(const std::string &output) {
         p.version = detail.substr(open + 2, close - open - 2);
       }
     }
-    p.security = names_security(p.name) || names_security(p.source);
+    p.security = is_security_update(p);
     obj.packages.push_back(p);
     if (p.security) obj.security++;
   }

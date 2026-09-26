@@ -41,13 +41,23 @@ cpu_load calculate_cpu_load(const std::map<std::string, collector_source::cpu_ti
 
     const collector_source::cpu_times &old_ct = old_it->second;
 
-    unsigned long long total_diff = new_ct.total() - old_ct.total();
+    // Per field, so a counter that wrapped is measured across the wrap. The
+    // Darwin tick counters are 32-bit and an idle core's wraps after about
+    // 16 months at 100 Hz; the Linux ones are 64-bit and do not.
+    const auto d = [](const unsigned long long cur, const unsigned long long prev) -> unsigned long long {
+      if (cur >= prev) return cur - prev;
+      return prev <= 0xFFFFFFFFull ? cur + 0x100000000ull - prev : 0ull;
+    };
+    const unsigned long long user = d(new_ct.user, old_ct.user) + d(new_ct.nice, old_ct.nice);
+    const unsigned long long kernel =
+        d(new_ct.system, old_ct.system) + d(new_ct.irq, old_ct.irq) + d(new_ct.softirq, old_ct.softirq) + d(new_ct.steal, old_ct.steal);
+    const unsigned long long idle = d(new_ct.idle, old_ct.idle) + d(new_ct.iowait, old_ct.iowait);
+    unsigned long long total_diff = user + kernel + idle;
     if (total_diff == 0) total_diff = 1;
 
-    double user_pct = 100.0 * (new_ct.user + new_ct.nice - old_ct.user - old_ct.nice) / total_diff;
-    double kernel_pct =
-        100.0 * (new_ct.system + new_ct.irq + new_ct.softirq + new_ct.steal - old_ct.system - old_ct.irq - old_ct.softirq - old_ct.steal) / total_diff;
-    double idle_pct = 100.0 * (new_ct.total_idle() - old_ct.total_idle()) / total_diff;
+    double user_pct = 100.0 * static_cast<double>(user) / static_cast<double>(total_diff);
+    double kernel_pct = 100.0 * static_cast<double>(kernel) / static_cast<double>(total_diff);
+    double idle_pct = 100.0 * static_cast<double>(idle) / static_cast<double>(total_diff);
 
     // Clamp values
     user_pct = std::max(0.0, std::min(100.0, user_pct));

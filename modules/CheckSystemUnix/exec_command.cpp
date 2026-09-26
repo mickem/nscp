@@ -23,6 +23,11 @@ exec_result run(const std::vector<std::string> &argv, const int timeout_ms) {
 
   int pipefd[2];
   if (pipe(pipefd) == -1) return out;
+  // Close-on-exec on both ends, so a child another thread forks at the same
+  // time does not inherit the write end and hold our read open until it exits.
+  // The dup2 onto stdout below clears the flag where it is wanted.
+  fcntl(pipefd[0], F_SETFD, FD_CLOEXEC);
+  fcntl(pipefd[1], F_SETFD, FD_CLOEXEC);
 
   // Build argv before fork(): a heap allocation in the child can block on a
   // lock another thread held at fork time, and the parent then blocks in
@@ -88,9 +93,13 @@ exec_result run(const std::vector<std::string> &argv, const int timeout_ms) {
 
   int status = 0;
   if (timed_out) kill(pid, SIGKILL);
-  waitpid(pid, &status, 0);
+  pid_t reaped = -1;
+  do {
+    reaped = waitpid(pid, &status, 0);
+  } while (reaped == -1 && errno == EINTR);
   out.timed_out = timed_out;
-  if (!timed_out && WIFEXITED(status)) out.exit_code = WEXITSTATUS(status);
+  // No exit status (the child was not reaped) is not a clean exit.
+  if (reaped == pid && !timed_out && WIFEXITED(status)) out.exit_code = WEXITSTATUS(status);
   // 127 is what the child exits with when exec itself failed.
   if (out.exit_code == 127 && out.output.empty()) out.started = false;
   return out;

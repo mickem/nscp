@@ -41,6 +41,21 @@ int depth_change(const std::string &trimmed) {
 
 }  // namespace
 
+bool launchd_exit_is_failure(const long long last_exit, const bool expected_running) {
+  if (last_exit < 0) {
+    // A signal. launchd ends idle jobs with SIGTERM or SIGKILL (and jetsam
+    // with SIGKILL), and SIGINT is a deliberate stop; anything else - SIGSEGV,
+    // SIGABRT, SIGBUS, SIGILL - is a crash.
+    const long long signal = -last_exit;
+    return signal != 9 && signal != 15 && signal != 2;
+  }
+  // The last exit code is history, not state: an idle on-demand job that last
+  // ended with 78 ("not needed here") or 1 is not down. It is a failure only
+  // for a job that is meant to be running (run at load or kept alive) and is
+  // not.
+  return last_exit > 0 && expected_running;
+}
+
 std::vector<launchd_listing> parse_launchctl_services(const std::string &output) {
   std::vector<launchd_listing> result;
   std::istringstream lines(output);
@@ -158,6 +173,7 @@ filter_obj launchd_row(const launchd_listing &job, const std::map<std::string, b
 
   // Start type: an explicit override first, then how the job is launched
   // when its properties are known.
+  bool expected_running = false;
   const auto dis = disabled.find(job.label);
   if (dis != disabled.end() && dis->second) {
     info.start_type = "disabled";
@@ -170,18 +186,17 @@ filter_obj launchd_row(const launchd_listing &job, const std::map<std::string, b
       if (flag == "runatload" || flag == "keepalive") at_load = true;
     }
     info.start_type = at_load ? "enabled" : "on-demand";
-  } else {
-    info.start_type = "enabled";
+    expected_running = at_load;
   }
+  // Otherwise (a listing without the job's properties) the start type is not
+  // known, and stays empty rather than claiming "enabled": state_is_ok and
+  // state_is_perfect treat an unknown start type as fine.
 
   if (info.pid > 0) {
     info.active = "active";
     info.sub_state = "running";
     info.state = "running";
-  } else if (has_exit && last_exit > 0) {
-    // A positive status is the program's own exit code; a negative one is
-    // the signal launchd stopped it with, which is how an idle on-demand job
-    // normally ends.
+  } else if (has_exit && launchd_exit_is_failure(last_exit, expected_running)) {
     info.active = "failed";
     info.sub_state = "failed";
     info.state = "stopped";

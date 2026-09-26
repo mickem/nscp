@@ -97,8 +97,9 @@ std::vector<filter_obj> enumerate_services(const std::string &state_filter) {
   const std::map<std::string, bool> disabled = read_disabled();
   for (const launchd_listing &job : read_listing()) {
     // The listing alone, not a `launchctl print` per job: a Mac has several
-    // hundred of them. That leaves start_type at enabled or disabled here;
-    // on-demand needs the job's own properties, which a check by name reads.
+    // hundred of them. That leaves start_type disabled or unknown here, and a
+    // non-zero exit code is not taken as a failure (only a crash is); both
+    // need the job's own properties, which a check by name reads.
     filter_obj info = launchd_row(job, disabled, {});
     if (state_filter == "active" && info.active != "active") continue;
     if (state_filter == "inactive" && info.active != "inactive") continue;

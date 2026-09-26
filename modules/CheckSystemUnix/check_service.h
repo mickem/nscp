@@ -19,12 +19,14 @@ namespace check_svc_filter {
 // One service. On Linux a systemd unit; on macOS a launchd job in the system
 // domain, whose state is mapped onto the same fields:
 //   running (it has a pid)           active=active    sub_state=running state=running
-//   exited non-zero                  active=failed    sub_state=failed  state=stopped
+//   crashed, or a job meant to be
+//   running that exited non-zero     active=failed    sub_state=failed  state=stopped
 //   idle, launched on demand         active=inactive  sub_state=dead    state=static
 //   idle otherwise                   active=inactive  sub_state=dead    state=stopped
-// start_type is disabled/enabled from launchd's override database, or
-// on-demand for a job that neither runs at load nor is kept alive; preset has
-// no launchd counterpart and stays empty.
+// start_type is disabled from launchd's override database, else enabled for a
+// job that runs at load or is kept alive and on-demand for the rest - known
+// only when the job's own properties were read (a check by name); a listing
+// leaves it empty. preset has no launchd counterpart and stays empty.
 struct filter_obj {
   std::string name;
   std::string desc;
@@ -237,6 +239,12 @@ std::map<std::string, bool> parse_launchctl_disabled(const std::string &output);
 // The top-level `key = value` properties of `launchctl print system/<label>`
 // (nested blocks are skipped). Empty when the job does not exist.
 std::map<std::string, std::string> parse_launchctl_print(const std::string &output);
+
+// Whether a job that is not running ended badly: a crash signal always, a
+// non-zero exit code only for a job meant to be running (run at load or kept
+// alive) - launchd's last exit status is history, and idle on-demand jobs
+// routinely carry a non-zero one.
+bool launchd_exit_is_failure(long long last_exit, bool expected_running);
 
 // A filter row from a listing entry, the disabled map and (when available)
 // the job's printed properties - the state mapping documented on filter_obj.

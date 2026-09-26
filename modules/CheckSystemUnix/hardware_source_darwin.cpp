@@ -249,5 +249,12 @@ host_facts::facts system_facts::gather() {
   std::size_t length = sizeof(memsize);
   if (sysctlbyname("hw.memsize", &memsize, &length, nullptr, 0) == 0) in.memory_bytes = memsize;
 
-  return build(in);
+  host_facts::facts f = build(in);
+  // Firmware first is right where a CPU's hypervisor bit can be set on bare
+  // metal (Hyper-V and VBS hosts). On macOS kern.hv_vmm_present is set only
+  // inside a guest, and "Apple" plus a model identifier is what every guest
+  // that imitates a Mac reports, so the flag wins over a model that looks
+  // physical.
+  if (in.hypervisor.get_value_or(false) && f.virtualization == "none") f.virtualization = "virtual";
+  return f;
 }

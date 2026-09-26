@@ -530,12 +530,48 @@ TEST(Launchd, AnIdleOnDemandJobIsStaticAndOk) {
   EXPECT_EQ(run({info}, {"filter=none"}, response), PB::Common::ResultCode::OK) << join_lines(response);
 }
 
-TEST(Launchd, ANonZeroExitIsFailedAndCritical) {
-  const filter_obj info = launchd_row(job("com.apple.ReportCrash.Root", 0, true, 78), {}, {});
+TEST(Launchd, ANonZeroExitOfAnIdleJobIsHistoryNotFailure) {
+  // In a listing (no properties) and for an on-demand job alike, the last
+  // exit code of a job that is not meant to be running says nothing about
+  // whether it is down.
+  const filter_obj listed = launchd_row(job("com.apple.ReportCrash.Root", 0, true, 78), {}, {});
+  EXPECT_EQ(listed.active, "inactive");
+  EXPECT_EQ(listed.start_type, "");
+  EXPECT_TRUE(listed.state_is_ok());
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run({listed}, {}, response), PB::Common::ResultCode::UNKNOWN) << join_lines(response);
+}
+
+TEST(Launchd, AJobMeantToRunThatExitedIsFailedAndCritical) {
+  std::map<std::string, std::string> props = parse_launchctl_print(PRINT_LOGD);
+  props.erase("pid");
+  props["last exit code"] = "1";
+  const filter_obj info = launchd_row(job("com.apple.logd", 0, true, 1), {}, props);
+  EXPECT_EQ(info.start_type, "enabled");
   EXPECT_EQ(info.active, "failed");
   EXPECT_EQ(info.state, "stopped");
   PB::Commands::QueryResponseMessage::Response response;
   EXPECT_EQ(run({info}, {}, response), PB::Common::ResultCode::CRITICAL) << join_lines(response);
+}
+
+TEST(Launchd, ACrashIsAFailureEvenInAListing) {
+  // SIGSEGV
+  const filter_obj info = launchd_row(job("com.example.crashy", 0, true, -11), {}, {});
+  EXPECT_EQ(info.active, "failed");
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run({info}, {}, response), PB::Common::ResultCode::CRITICAL) << join_lines(response);
+}
+
+TEST(Launchd, ExitStatusRules) {
+  using checks::check_svc_filter::launchd_exit_is_failure;
+  EXPECT_FALSE(launchd_exit_is_failure(0, true));
+  EXPECT_FALSE(launchd_exit_is_failure(-9, true));   // SIGKILL: launchd/jetsam
+  EXPECT_FALSE(launchd_exit_is_failure(-15, true));  // SIGTERM: launchd
+  EXPECT_FALSE(launchd_exit_is_failure(-2, false));  // SIGINT
+  EXPECT_TRUE(launchd_exit_is_failure(-6, false));   // SIGABRT
+  EXPECT_TRUE(launchd_exit_is_failure(-11, false));  // SIGSEGV
+  EXPECT_TRUE(launchd_exit_is_failure(78, true));
+  EXPECT_FALSE(launchd_exit_is_failure(78, false));
 }
 
 TEST(Launchd, ASignalledIdleJobIsNotFailed) {

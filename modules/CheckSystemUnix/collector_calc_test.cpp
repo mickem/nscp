@@ -124,3 +124,14 @@ TEST(collector_calc, a_counter_that_went_backwards_reads_as_no_traffic) {
   after["en0"].rx_bytes = 100;
   EXPECT_EQ(collector_calc::calculate_network(before, after, 1.0).front().rx_bytes_per_sec, 0);
 }
+
+TEST(collector_calc, a_32_bit_tick_counter_that_wrapped_is_measured_across_the_wrap) {
+  std::map<std::string, collector_source::cpu_times> before, after;
+  before["cpu"] = make_times("cpu", 1000, 1000, 0xFFFFFFF0ull);
+  // idle wrapped: 0x10 ticks before the wrap and 0x40 after it.
+  after["cpu"] = make_times("cpu", 1010, 1010, 0x40ull);
+  const cpu_load load = collector_calc::calculate_cpu_load(before, after);
+  const double total = 10 + 10 + 0x50;
+  EXPECT_DOUBLE_EQ(load.total.idle, 100.0 * 0x50 / total);
+  EXPECT_DOUBLE_EQ(load.total.user, 100.0 * 10 / total);
+}

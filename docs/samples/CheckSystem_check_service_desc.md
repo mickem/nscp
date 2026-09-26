@@ -90,16 +90,19 @@ same way:
 | launchd job                                    | `active`   | `sub_state` | `state`   |
 |------------------------------------------------|------------|-------------|-----------|
 | has a pid                                      | `active`   | `running`   | `running` |
-| last exited with a non-zero code               | `failed`   | `failed`    | `stopped` |
+| crashed (killed by a signal other than SIGTERM, SIGKILL or SIGINT), or meant to run at load or be kept alive and exited non-zero | `failed` | `failed` | `stopped` |
 | idle, and launchd starts it on demand          | `inactive` | `dead`      | `static`  |
 | idle otherwise                                 | `inactive` | `dead`      | `stopped` |
 
 `start_type` is `disabled` for a job disabled by an override, `enabled` for one
 that runs at load or is kept alive, and `on-demand` for the rest. The
 distinction needs the job's own properties, so it is made for a check by name;
-`service=*` lists every job as `enabled` or `disabled`. A negative last status
-is the signal launchd stopped an idle job with, and does not count as a
-failure. `preset` has no launchd counterpart and is empty.
+`service=*` reports `disabled` or leaves `start_type` empty. launchd's last
+exit status is history rather than state - idle on-demand jobs routinely carry
+a non-zero one - so a non-zero exit only counts as a failure for a job meant
+to be running, which again needs a check by name. A crash counts everywhere;
+SIGTERM and SIGKILL are how launchd stops an idle job and do not. `preset` has
+no launchd counterpart and is empty.
 
 `rss`, `vms`, `cpu`, `tasks` (the thread count), `created` and `age` come from
 libproc. The first four need the job's task info, which the unprivileged agent

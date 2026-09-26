@@ -72,9 +72,10 @@ filter_obj parse_pacman_output(const std::string &output);
 // live (10 to 60 seconds).
 //
 // There is no security classification on either; an update is counted as a
-// security update when its name or identifier says so (the Rapid and
-// Background Security Responses, the old Security Update packages). A macOS
-// point release carries security fixes too and is not counted.
+// security update when its name or identifier says so (the Background
+// Security Improvements, the old Security Update packages) or its version
+// carries the letter suffix of a Rapid Security Response ("13.4.1 (a)"). A
+// macOS point release carries security fixes too and is not counted.
 filter_obj parse_software_update_plist(const plist::value &plist);
 filter_obj parse_softwareupdate_output(const std::string &output);
 

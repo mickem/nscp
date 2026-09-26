@@ -99,8 +99,12 @@ memory_sample read_memory() {
   // The closest Darwin has to the Linux page cache: file-backed pages, which
   // are the file cache, and purgeable pages, which an application has marked
   // as discardable. Activity Monitor adds up the same two as "Cached Files".
+  // The speculative pages are file-backed too, so they come out of the free
+  // count here rather than being counted twice.
   const unsigned long long cache = (static_cast<unsigned long long>(vm.stats.external_page_count) + vm.stats.purgeable_count) * page;
-  result.cached_free = std::min(total, result.physical_free + cache);
+  const unsigned long long speculative = static_cast<unsigned long long>(vm.stats.speculative_count) * page;
+  const unsigned long long free_only = result.physical_free > speculative ? result.physical_free - speculative : 0;
+  result.cached_free = std::min(total, free_only + cache);
 
   struct xsw_usage swap;
   std::memset(&swap, 0, sizeof(swap));
