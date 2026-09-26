@@ -63,7 +63,7 @@ bool NSCAServer::loadModuleEx(const std::string &alias, const NSCAPI::moduleLoad
 
   // The encryption key, and inherited from nowhere. /settings/default is the
   // shared password inbound protocols verify a caller against - the web UI,
-  // check_nt, NRPE - and it is stored hashed; NSCA never verifies a password,
+  // check_nt - and it is stored hashed; NSCA never verifies a password,
   // the string is the key the payload is encrypted with and every submitting
   // client has to know it, so a hash there is a key nobody has. Nor is it read
   // from NSCAClient: that key is what *this* agent submits to a remote daemon

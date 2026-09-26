@@ -31,6 +31,18 @@ TEST(PasswordHash, IsHashedRejectsAPasswordThatMerelyStartsWithThePrefix) {
   EXPECT_FALSE(password_hash::is_hashed("pbkdf2-sha256$100000$aa$b"));      // odd-length hash
   EXPECT_FALSE(password_hash::is_hashed("pbkdf2-sha256$100000$$bb"));       // empty salt
   EXPECT_FALSE(password_hash::is_hashed("pbkdf2-sha256$100000$aa$"));       // empty hash
+  // The hex fields are hex, and nothing sscanf("%2x") used to wave through:
+  // it skipped leading whitespace and accepted a sign, so each of these parsed
+  // as a hash and was then stored verbatim by every writer.
+  EXPECT_FALSE(password_hash::is_hashed("pbkdf2-sha256$100000$-1$0x"));
+  EXPECT_FALSE(password_hash::is_hashed("pbkdf2-sha256$100000$-1$bb"));
+  EXPECT_FALSE(password_hash::is_hashed("pbkdf2-sha256$100000$aa$0x"));
+  EXPECT_FALSE(password_hash::is_hashed("pbkdf2-sha256$100000$ aa$bb"));
+  EXPECT_FALSE(password_hash::is_hashed("pbkdf2-sha256$100000$aa$ b"));
+  EXPECT_FALSE(password_hash::is_hashed("pbkdf2-sha256$100000$+1$bb"));
+  EXPECT_FALSE(password_hash::is_hashed("pbkdf2-sha256$100000$aa\tbb$cc"));
+  // Upper case is still hex, since nothing forbids writing one by hand.
+  EXPECT_TRUE(password_hash::is_hashed("pbkdf2-sha256$100000$AA$BB"));
 }
 
 #ifdef USE_SSL

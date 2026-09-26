@@ -28,7 +28,7 @@ you do have to move it** — see the second point. Three things change:
   alone.
 * **`NSCAServer` — the listener, not the client — no longer reads
   `/settings/default/password`.** That section is the password inbound
-  protocols (web UI, check_nt, NRPE) verify a caller against, and it is now
+  protocols (the web UI and check_nt) verify a caller against, and it is now
   hashed; NSCA does not verify a password, it encrypts with it, so it could
   never use a hash. It is not inherited from anywhere else either — not from
   `NSCAClient`, whose key is what this agent submits to a *remote* daemon with.
@@ -72,7 +72,11 @@ nscp nsca install --host <nsca-server> --password <the key from that daemon's ns
   field from the file) sees the `pbkdf2-sha256$…` string. The installer hashes
   a password you give it — `NSCLIENT_PWD` on the command line, or the dialog
   field — and leaves a value it only found on disk alone, so leaving the field
-  unchanged keeps what is there and typing a new one stores it hashed. The
-  password no longer reaches the MSI log either way.
+  unchanged keeps what is there and typing a new one stores it hashed. A
+  password the installer *generates* for itself, when a fresh install is given
+  none, also stays in clear text: nobody has seen it, so a hash of it would lock
+  the new agent's web UI and check_nt with nothing left to recover. Rotate it
+  with `nscp web password --set <password>`. The password no longer reaches the
+  MSI log in any of these cases.
 
 See the [security notice](../security/notices.md#the-shared-default-password-is-stored-hashed).

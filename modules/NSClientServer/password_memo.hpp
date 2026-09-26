@@ -41,10 +41,13 @@ class memo {
   // True when `offered` is the password `stored` stands for. `stored` is either
   // the clear text or the hashed form; both compare in constant time.
   //
-  // The lock spans the whole verification rather than just the memo. The fast
-  // path is a string compare, so serialising it costs nothing at any rate a
-  // monitoring system polls at, and during the cold window it keeps the KDF on
-  // one core instead of letting a flood of requests occupy all of them.
+  // The lock covers the memo, not the derivation. The fast path is a string
+  // compare, so serialising that costs nothing at any rate a monitoring system
+  // polls at - but holding the lock across the KDF would queue every waiting
+  // request behind one 100k-iteration derivation each, so during the cold
+  // window (start-up, and after every reload) a flood of wrong passwords would
+  // serialise the legitimate poll behind all of them. Two requests arriving
+  // together may both derive; that is one wasted derivation, not a stall.
   bool verify(const std::string &offered, const std::string &stored) {
     // Not a stored hash: verify_password compares constant-time against a
     // clear-text value, and rejects a value that carries the hash prefix but
@@ -53,14 +56,21 @@ class memo {
     if (!password_hash::is_hashed(stored)) {
       return password_hash::verify_password(offered, stored);
     }
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (known_ && hash_ == stored) {
-      return str::constant_time_eq(offered, clear_);
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      if (known_ && hash_ == stored) {
+        return str::constant_time_eq(offered, clear_);
+      }
+      ++derivations_;
     }
-    ++derivations_;
     if (!password_hash::verify_password(offered, stored)) {
       return false;
     }
+    std::lock_guard<std::mutex> lock(mutex_);
+    // A forget() that landed while this was deriving is not undone in any way
+    // that matters: the memo records the stored value it learned from, so if
+    // the reload also changed the password, the next request's `stored` no
+    // longer matches and derives afresh.
     clear_ = offered;
     hash_ = stored;
     known_ = true;

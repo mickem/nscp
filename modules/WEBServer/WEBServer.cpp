@@ -1069,9 +1069,10 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
   namespace po = boost::program_options;
   namespace pf = nscapi::protobuf::functions;
   po::options_description desc;
-  std::string allowed_hosts, cert, key, port, password;
+  std::string allowed_hosts, cert, key, port, password, existing_admin_password;
   bool was_insecure = false;
   const std::string path = "/settings/WEB/server";
+  const std::string admin_path = path + "/users/admin";
 
   pf::settings_query q(get_id());
   q.get("/settings/default", "allowed hosts", "127.0.0.1");
@@ -1080,6 +1081,9 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
   q.get(path, "certificate key", "");
   q.get(path, "port", "8443");
   q.get(path, "allow insecure", false);
+  // Whether there is an admin row already, which decides whether a re-run that
+  // was given no password may write one (see below).
+  q.get(admin_path, "password", "");
 
   get_core()->settings_query(q.request(), q.response());
   if (!q.validate_response()) {
@@ -1099,6 +1103,8 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
       port = val.get_string();
     else if (val.matches(path, "allow insecure"))
       was_insecure = val.get_bool();
+    else if (val.matches(admin_path, "password"))
+      existing_admin_password = val.get_string();
   }
   // HTTPS is what install sets up unless the operator asks for cleartext with
   // --insecure. It used to hinge on a `--https` bool_switch, and a bool_switch
@@ -1314,7 +1320,12 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
       //    given a password and has no business migrating one; `nscp web
       //    password --set` is what does that, deliberately.
       //
-      // The admin row is this command's own, so it always gets the hash.
+      // The admin row gets the hash when this command owns the password, and
+      // when there is no row yet to seed. It must NOT be rewritten on a re-run
+      // that was given nothing: `web password --set <B> --only-web` exists to
+      // change the admin login on its own, and a later `web install` to rotate
+      // a certificate would otherwise put the shared default's value back over
+      // it - while printing "Keeping the existing password".
       const bool password_is_ours = password_was_supplied || password_was_generated;
       const bool already_hashed = password_hash::is_hashed(password);
 
@@ -1331,8 +1342,10 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
         s.set("/settings/default", "password", stored);
       }
 
-      const std::string admin_path = path + "/users/admin";
-      s.set(admin_path, "password", stored);
+      const bool admin_row_exists = !existing_admin_password.empty();
+      if (password_is_ours || !admin_row_exists) {
+        s.set(admin_path, "password", stored);
+      }
       s.set(admin_path, "role", "full");
 
       if (password_is_ours) {
@@ -1471,17 +1484,21 @@ bool WEBServer::password(const PB::Commands::ExecuteRequestMessage::Request &req
 
     std::stringstream result;
     nscapi::protobuf::functions::settings_query s(get_id());
+    // Say what was actually written. Without OpenSSL, hash_password() hands
+    // back the clear text, so claiming "stored hashed" there would describe
+    // something this build cannot do.
+    const std::string how = password_hash::is_hashed(stored) ? " (stored hashed)" : " (stored in clear text: this build has no password hashing)";
     if (!only_web) {
       s.set("/settings/default", "password", stored);
-      result << "Password updated (stored hashed) in /settings/default." << std::endl;
+      result << "Password updated" << how << " in /settings/default." << std::endl;
     }
     if (admin_row_exists) {
       s.set(admin_path, "password", stored);
-      result << "Password updated (stored hashed) for the admin user (" << admin_path << ")." << std::endl;
+      result << "Password updated" << how << " for the admin user (" << admin_path << ")." << std::endl;
     }
     if (web_override_exists || (only_web && !admin_row_exists)) {
       s.set(web_path, "password", stored);
-      result << "Password updated (stored hashed) in " << web_path << "." << std::endl;
+      result << "Password updated" << how << " in " << web_path << "." << std::endl;
     }
 
     s.save();

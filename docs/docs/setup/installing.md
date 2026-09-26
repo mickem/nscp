@@ -607,7 +607,7 @@ A list of all the MSI options can be found below.
 | CONF_SCHEDULER      | Enable Scheduler (required by NSCA)                                                                                     |
 | CONF_WEB            | Enabled WEB Server                                                                                                      |
 | NRPEMODE            | NRPE Mode (LEGACY, SECURE for using ceretificates)                                                                      |
-| NSCLIENT_PWD        | Password to use for check_nt (and web server). Stored hashed when given here or typed into the dialog; a value already on disk is left as it is |
+| NSCLIENT_PWD        | Password to use for check_nt (and web server). Stored hashed when given here or typed into the dialog; a value already on disk, or one the installer generated itself, is left in clear text |
 | CONF_INCLUDES       | Additional files to include in the config syntax: <alias>;<file> For instance CONF_INCLUDES=op5;op5.ini;local;local.ini |
 | NSCA_SERVER         | Address of the machine running the nsca daemon to submit passive results to. Setting it enables `NSCAClient`             |
 | NSCA_PORT           | Port that daemon listens on (5667 unless it was changed)                                                                |

@@ -10,7 +10,6 @@
 #include <openssl/rand.h>
 #endif
 
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <sstream>
@@ -24,16 +23,30 @@ constexpr int kPbkdf2HashBytes = 32;
 constexpr int kPbkdf2SaltBytes = 16;
 constexpr const char* kPbkdf2Prefix = "pbkdf2-sha256$";
 
+// One hex digit, or -1. Spelled out rather than via isxdigit(), which is
+// locale-dependent and takes an int that a negative char sign-extends into.
+int hex_digit(char c) {
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+  if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+  return -1;
+}
+
+// Every character checked, because this decides what counts as a stored hash.
+// sscanf("%2x") was doing it before and was far too generous: it skips leading
+// whitespace and accepts a sign, so "-1" and "0x" both parsed, and
+// `pbkdf2-sha256$100000$-1$0x` passed for a hash and was stored verbatim -
+// while the TypeScript tests and the MSI helper's regex rejected the same
+// string. A value only these three agree on is one we can act on.
 bool from_hex(const std::string& hex, std::vector<unsigned char>& out) {
-  if (hex.size() % 2 != 0) return false;
+  if (hex.empty() || hex.size() % 2 != 0) return false;
   out.clear();
   out.reserve(hex.size() / 2);
   for (std::size_t i = 0; i < hex.size(); i += 2) {
-    unsigned int byte = 0;
-    if (std::sscanf(hex.c_str() + i, "%2x", &byte) != 1) {
-      return false;
-    }
-    out.push_back(static_cast<unsigned char>(byte));
+    const int hi = hex_digit(hex[i]);
+    const int lo = hex_digit(hex[i + 1]);
+    if (hi < 0 || lo < 0) return false;
+    out.push_back(static_cast<unsigned char>((hi << 4) | lo));
   }
   return true;
 }

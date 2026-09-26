@@ -18,28 +18,9 @@
  * Runs the CLI against a scratch INI only: no server is started, and the
  * assertions read the file back.
  */
-import * as fs from "fs";
-import { NscpInstance } from "@fixtures/index";
+import { NscpInstance, iniValue } from "@fixtures/index";
 
 jest.setTimeout(120_000);
-
-/** Value of `key` under `[section]` in the INI, undefined when absent. */
-function iniValue(file: string, section: string, key: string): string | undefined {
-  let inSection = false;
-  for (const raw of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
-    const line = raw.trim();
-    if (line === "" || line.startsWith(";") || line.startsWith("#")) continue;
-    if (line.startsWith("[")) {
-      inSection = line === `[${section}]`;
-      continue;
-    }
-    if (!inSection) continue;
-    const eq = line.indexOf("=");
-    if (eq < 0) continue;
-    if (line.slice(0, eq).trim() === key) return line.slice(eq + 1).trim();
-  }
-  return undefined;
-}
 
 describe("nscp nsca install", () => {
   const TARGET = "/settings/NSCA/client/targets/default";
@@ -111,6 +92,16 @@ describe("nscp nsca install", () => {
     // A module that loads, registers its channel and drops every result is
     // worse than a command that refuses.
     expect(r.all).toContain("--host");
+    expect(iniValue(fresh.settingsFile, TARGET, "address")).toBeUndefined();
+  });
+
+  it("refuses a cipher the agent cannot resolve", async () => {
+    const fresh = new NscpInstance();
+    const r = await fresh.run(
+      ["nsca", "install", "--host", "nagios.example.com", "--password", "k", "--encryption", "aes257"],
+      { allowFailure: true },
+    );
+    expect(r.all).toContain("aes257");
     expect(iniValue(fresh.settingsFile, TARGET, "address")).toBeUndefined();
   });
 
@@ -240,6 +231,16 @@ describe("nscp nsca install --server", () => {
     // configured too.
     expect(r.all).toContain("--host");
     expect(iniValue(fresh.settingsFile, SERVER, "password")).toBeUndefined();
+  });
+
+  it("refuses a cipher the agent cannot resolve", async () => {
+    const fresh = new NscpInstance();
+    const r = await fresh.run(["nsca", "install", "--server", "--password", "k", "--encryption", "rot13"], {
+      allowFailure: true,
+    });
+    // Writing it and reporting success leaves a listener that will not load.
+    expect(r.all).toContain("rot13");
+    expect(iniValue(fresh.settingsFile, SERVER, "encryption")).toBeUndefined();
   });
 
   it("takes --server=true, the way REST passes a flag", async () => {

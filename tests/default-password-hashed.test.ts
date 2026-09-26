@@ -19,21 +19,13 @@
  */
 import * as crypto from "crypto";
 import * as net from "net";
-import { NscpInstance, hasModule } from "@fixtures/index";
+import { NscpInstance, hasModule, pbkdf2StoredForm } from "@fixtures/index";
 
 jest.setTimeout(180_000);
 
 const CHECK_NT_PORT = 12499;
 const NSCA_PORT = 5677;
 const PASSWORD = "check_nt-secret";
-
-/** The stored form password_hash.cpp writes: pbkdf2-sha256, 16-byte salt, 32-byte hash. */
-function pbkdf2Hash(password: string): string {
-  const salt = crypto.randomBytes(16);
-  const iterations = 100000;
-  const hash = crypto.pbkdf2Sync(password, salt, iterations, 32, "sha256");
-  return `pbkdf2-sha256$${iterations}$${salt.toString("hex")}$${hash.toString("hex")}`;
-}
 
 /** One check_nt request: send `request`, collect the reply until the server closes. */
 function checkNt(request: string): Promise<string> {
@@ -99,7 +91,7 @@ async function waitForOutput(
 const describeCheckNt = hasModule("NSClientServer") ? describe : describe.skip;
 
 describeCheckNt("check_nt with the shared password stored hashed", () => {
-  const stored = pbkdf2Hash(PASSWORD);
+  const stored = pbkdf2StoredForm(PASSWORD);
   let nscp: NscpInstance;
 
   beforeAll(async () => {
@@ -199,7 +191,7 @@ describe("NSCAServer and the key it will not inherit", () => {
       "/settings/NSCA/server": {
         encryption: "xor",
         port: String(NSCA_PORT),
-        password: pbkdf2Hash("nsca-secret"),
+        password: pbkdf2StoredForm("nsca-secret"),
       },
     });
     try {
@@ -213,7 +205,7 @@ describe("NSCAServer and the key it will not inherit", () => {
   it("starts once the NSCA section carries a clear-text key of its own", async () => {
     if (!available) return;
     const nscp = await bootServer({
-      "/settings/default": { "allowed hosts": "127.0.0.1", password: pbkdf2Hash("something-else") },
+      "/settings/default": { "allowed hosts": "127.0.0.1", password: pbkdf2StoredForm("something-else") },
       "/settings/NSCA/server": {
         encryption: "xor",
         port: String(NSCA_PORT),

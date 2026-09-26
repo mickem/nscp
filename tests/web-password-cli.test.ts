@@ -6,46 +6,9 @@
  * started, the assertions read the file back and re-derive the hash with
  * node's PBKDF2 to prove it is a hash *of the password given*.
  */
-import * as crypto from "crypto";
-import * as fs from "fs";
-import { NscpInstance } from "@fixtures/index";
+import { NscpInstance, iniValue, isStoredHash, pbkdf2StoredForm, storedHashMatches } from "@fixtures/index";
 
 jest.setTimeout(120_000);
-
-const HASH_RE = /^pbkdf2-sha256\$(\d+)\$([0-9a-f]+)\$([0-9a-f]+)$/;
-
-/** Value of `key` under `[section]` in the INI, undefined when absent. */
-function iniValue(file: string, section: string, key: string): string | undefined {
-  let inSection = false;
-  for (const raw of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
-    const line = raw.trim();
-    if (line === "" || line.startsWith(";") || line.startsWith("#")) continue;
-    if (line.startsWith("[")) {
-      inSection = line === `[${section}]`;
-      continue;
-    }
-    if (!inSection) continue;
-    const eq = line.indexOf("=");
-    if (eq < 0) continue;
-    if (line.slice(0, eq).trim() === key) return line.slice(eq + 1).trim();
-  }
-  return undefined;
-}
-
-/** True when `stored` is a pbkdf2-sha256 hash of `password` (the KDF in password_hash.cpp). */
-function hashMatches(stored: string | undefined, password: string): boolean {
-  const m = stored?.match(HASH_RE);
-  if (!m) return false;
-  const [, iterations, saltHex, hashHex] = m;
-  const derived = crypto.pbkdf2Sync(
-    password,
-    Buffer.from(saltHex, "hex"),
-    Number(iterations),
-    hashHex.length / 2,
-    "sha256",
-  );
-  return crypto.timingSafeEqual(derived, Buffer.from(hashHex, "hex"));
-}
 
 describe("nscp web install / password: the shared default password is stored hashed", () => {
   const SHARED = "/settings/default";
@@ -70,9 +33,9 @@ describe("nscp web install / password: the shared default password is stored has
     ]);
     // The clear text is shown once, at install, and only there.
     expect(r.all).toContain("Login using this password first-secret");
-    expect(shared()).toMatch(HASH_RE);
-    expect(hashMatches(shared(), "first-secret")).toBe(true);
-    expect(hashMatches(admin(), "first-secret")).toBe(true);
+    expect(isStoredHash(shared())).toBe(true);
+    expect(storedHashMatches(shared(), "first-secret")).toBe(true);
+    expect(storedHashMatches(admin(), "first-secret")).toBe(true);
     expect(iniValue(nscp.settingsFile, ADMIN, "role")).toBe("full");
   });
 
@@ -84,7 +47,7 @@ describe("nscp web install / password: the shared default password is stored has
     // A hash of the hash would lock the admin out on the next boot.
     expect(shared()).toBe(before);
     expect(admin()).toBe(before);
-    expect(hashMatches(admin(), "first-secret")).toBe(true);
+    expect(storedHashMatches(admin(), "first-secret")).toBe(true);
   });
 
   it("web password --display does not reveal a hashed password", async () => {
@@ -99,9 +62,9 @@ describe("nscp web install / password: the shared default password is stored has
     expect(r.all).toContain("stored hashed");
     expect(r.all).toContain("/settings/default");
     expect(r.all).toContain("admin user");
-    expect(hashMatches(shared(), "second-secret")).toBe(true);
-    expect(hashMatches(admin(), "second-secret")).toBe(true);
-    expect(hashMatches(admin(), "first-secret")).toBe(false);
+    expect(storedHashMatches(shared(), "second-secret")).toBe(true);
+    expect(storedHashMatches(admin(), "second-secret")).toBe(true);
+    expect(storedHashMatches(admin(), "first-secret")).toBe(false);
   });
 
   it("web password --set --only-web changes the admin row and leaves the shared default alone", async () => {
@@ -109,7 +72,7 @@ describe("nscp web install / password: the shared default password is stored has
     const r = await nscp.run(["web", "password", "--set", "web-only-secret", "--only-web"]);
     expect(r.all).not.toContain("/settings/default");
     expect(shared()).toBe(sharedBefore);
-    expect(hashMatches(admin(), "web-only-secret")).toBe(true);
+    expect(storedHashMatches(admin(), "web-only-secret")).toBe(true);
   });
 
   it("a clear-text value written by hand still verifies and is shown by --display", async () => {
@@ -122,19 +85,17 @@ describe("nscp web install / password: the shared default password is stored has
 
   it("re-setting the same clear-text value is how an existing password gets hashed in place", async () => {
     await nscp.run(["web", "password", "--set", "legacy-clear"]);
-    expect(shared()).toMatch(HASH_RE);
-    expect(hashMatches(shared(), "legacy-clear")).toBe(true);
+    expect(isStoredHash(shared())).toBe(true);
+    expect(storedHashMatches(shared(), "legacy-clear")).toBe(true);
   });
 
   it("a value that already carries the hash prefix is stored as it is", async () => {
     // Copying a hash from another agent must not hash it a second time.
-    const salt = crypto.randomBytes(16);
-    const hash = crypto.pbkdf2Sync("copied-secret", salt, 100000, 32, "sha256");
-    const copied = `pbkdf2-sha256$100000$${salt.toString("hex")}$${hash.toString("hex")}`;
+    const copied = pbkdf2StoredForm("copied-secret");
     await nscp.run(["web", "password", "--set", copied]);
     expect(shared()).toBe(copied);
     expect(admin()).toBe(copied);
-    expect(hashMatches(shared(), "copied-secret")).toBe(true);
+    expect(storedHashMatches(shared(), "copied-secret")).toBe(true);
   });
 
   // A password is only text, so it may start with "pbkdf2-sha256$" without
@@ -147,9 +108,9 @@ describe("nscp web install / password: the shared default password is stored has
     const r = await nscp.run(["web", "password", "--set", LOOKALIKE]);
     expect(r.all).toContain("stored hashed");
     expect(shared()).not.toBe(LOOKALIKE);
-    expect(shared()).toMatch(HASH_RE);
-    expect(hashMatches(shared(), LOOKALIKE)).toBe(true);
-    expect(hashMatches(admin(), LOOKALIKE)).toBe(true);
+    expect(isStoredHash(shared())).toBe(true);
+    expect(storedHashMatches(shared(), LOOKALIKE)).toBe(true);
+    expect(storedHashMatches(admin(), LOOKALIKE)).toBe(true);
   });
 
   it("web password --display refuses the hash it made of it, rather than echoing the password", async () => {
@@ -169,27 +130,60 @@ describe("nscp web install / password: the shared default password is stored has
     ]);
     expect(r.all).toContain(`Login using this password ${LOOKALIKE}`);
     expect(shared()).not.toBe(LOOKALIKE);
-    expect(hashMatches(shared(), LOOKALIKE)).toBe(true);
-    expect(hashMatches(admin(), LOOKALIKE)).toBe(true);
+    expect(storedHashMatches(shared(), LOOKALIKE)).toBe(true);
+    expect(storedHashMatches(admin(), LOOKALIKE)).toBe(true);
   });
 
-  it("re-running web install without --password leaves a clear-text shared value alone", async () => {
+  it("re-running web install without --password leaves both values alone", async () => {
     // A certificate rotation is a re-run of install, and it must not migrate a
-    // key NSCA may be deriving its encryption from. The admin row is this
-    // command's own, so that one is still hashed.
+    // key NSCA may be deriving its encryption from - nor touch the admin row,
+    // which the operator may have set separately.
+    const admin_before = admin();
     await nscp.run(["settings", "--path", SHARED, "--key", "password", "--set", "nsca-shared-key"]);
     expect(shared()).toBe("nsca-shared-key");
 
     const r = await nscp.run(["web", "install", "--allowed-hosts", "127.0.0.1"]);
     expect(r.all).toContain("Keeping the existing password, which is stored in clear text");
     expect(shared()).toBe("nsca-shared-key");
-    expect(hashMatches(admin(), "nsca-shared-key")).toBe(true);
+    expect(admin()).toBe(admin_before);
+  });
+
+  it("web install does not revert an admin password diverged with --only-web", async () => {
+    // The sequence that used to lose a password: set one, change the admin
+    // login on its own, then re-run install for an unrelated reason. The admin
+    // row was written from the shared default every time, so hash(A) came back
+    // over hash(B) - while install printed "Keeping the existing password".
+    const fresh = new NscpInstance();
+    const sharedOf = () => iniValue(fresh.settingsFile, SHARED, "password");
+    const adminOf = () => iniValue(fresh.settingsFile, ADMIN, "password");
+
+    await fresh.run(["web", "install", "--password", "password-A", "--allowed-hosts", "127.0.0.1"]);
+    expect(storedHashMatches(sharedOf(), "password-A")).toBe(true);
+    expect(storedHashMatches(adminOf(), "password-A")).toBe(true);
+
+    await fresh.run(["web", "password", "--set", "password-B", "--only-web"]);
+    expect(storedHashMatches(adminOf(), "password-B")).toBe(true);
+    expect(storedHashMatches(sharedOf(), "password-A")).toBe(true);
+
+    const r = await fresh.run(["web", "install", "--allowed-hosts", "127.0.0.1"]);
+    expect(r.all).toContain("Keeping the existing password");
+    expect(storedHashMatches(adminOf(), "password-B")).toBe(true);
+    expect(storedHashMatches(adminOf(), "password-A")).toBe(false);
+    expect(storedHashMatches(sharedOf(), "password-A")).toBe(true);
+  });
+
+  it("web install still seeds an admin row that is not there yet", async () => {
+    // The gate above must not stop the first install from creating the row:
+    // without it the boot loop re-applies the on-disk value and the password
+    // install just printed is silently ignored.
+    const fresh = new NscpInstance();
+    await fresh.run(["web", "install", "--password", "seeded-password", "--allowed-hosts", "127.0.0.1"]);
+    expect(storedHashMatches(iniValue(fresh.settingsFile, ADMIN, "password"), "seeded-password")).toBe(true);
+    expect(iniValue(fresh.settingsFile, ADMIN, "role")).toBe("full");
   });
 
   it("web install --password <a real hash> does not tell you to pass --password", async () => {
-    const salt = crypto.randomBytes(16);
-    const hash = crypto.pbkdf2Sync("given-as-a-hash", salt, 100000, 32, "sha256");
-    const given = `pbkdf2-sha256$100000$${salt.toString("hex")}$${hash.toString("hex")}`;
+    const given = pbkdf2StoredForm("given-as-a-hash");
     const r = await nscp.run([
       "web",
       "install",

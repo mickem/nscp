@@ -18,7 +18,6 @@
  * the payload echoed after "NSClient - ", which is what the deny
  * assertions key on.
  */
-import * as crypto from "crypto";
 import * as path from "path";
 import {
   DOCKER_HOST_ALLOWED_HOSTS,
@@ -27,6 +26,7 @@ import {
   dockerOrSkip,
   dockerRunOnce,
   hostGatewayExtraHosts,
+  pbkdf2StoredForm,
 } from "@fixtures/index";
 
 jest.setTimeout(900_000);
@@ -249,9 +249,7 @@ dockerOrSkip()("check_nt (legacy NSClient) integration", () => {
     // The form `nscp web install` / `nscp web password --set` write to
     // /settings/default/password; the server verifies the clear text the
     // client sends against it.
-    const salt = crypto.randomBytes(16);
-    const hash = crypto.pbkdf2Sync(PASSWORD, salt, 100000, 32, "sha256");
-    const stored = `pbkdf2-sha256$100000$${salt.toString("hex")}$${hash.toString("hex")}`;
+    const stored = pbkdf2StoredForm(PASSWORD);
 
     beforeAll(async () => {
       await startNsclient(undefined, stored);

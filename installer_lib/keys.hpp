@@ -7,6 +7,9 @@
 #define INT_CONF_CAN_CHANGE L"CONF_CAN_CHANGE"
 #define INT_CONF_CAN_CHANGE_REASON L"CONF_CAN_CHANGE_REASON"
 #define INT_CONF_HAS_ERRORS L"CONF_HAS_ERRORS"
+// The password the installer generated for itself, so the writer can tell one
+// nobody has ever seen from one the operator gave.
+#define INT_NSCLIENT_PWD_GENERATED L"NSCP_GENERATED_PWD"
 
 #define ALLOW_CONFIGURATION L"ALLOW_CONFIGURATION"
 

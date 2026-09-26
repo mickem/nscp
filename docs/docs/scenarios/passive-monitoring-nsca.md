@@ -279,7 +279,7 @@ direction, where this agent *accepts* NSCA submissions.
 !!! note
 
     This is **not** the `password` under `[/settings/default]`. That one is the
-    password the web UI, check_nt and NRPE verify an *inbound* caller against,
+    password the web UI and check_nt verify an *inbound* caller against,
     and it is stored as a hash. NSCA encrypts with its key rather than verifying
     it, so it needs the clear text and keeps it here. If this host also *runs*
     an NSCA server, that is a separate key: it is shared with the hosts

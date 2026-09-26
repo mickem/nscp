@@ -262,6 +262,9 @@ def validate_masked_values(config_folder, file_name, expectations):
 
       hashed  - a pbkdf2-sha256 stored hash, which is what the installer writes
                 for a password it was *given* (NSCLIENT_PWD or the dialog);
+      clear   - present and NOT a stored hash, without saying what it is: for
+                the password the installer generates for itself, which has to
+                stay readable because nobody has seen it;
       absent  - no password under that section at all;
       <text>  - that exact value, for a key that has to stay clear text because
                 something encrypts with it (NSCA) rather than verifying it, and
@@ -304,6 +307,12 @@ def validate_masked_values(config_folder, file_name, expectations):
             else:
                 print(f"! [{section}] password is not a stored hash.", flush=True)
                 ok = False
+        elif expected == 'clear':
+            if HASHED_PASSWORD.match(actual):
+                print(f"! [{section}] password is hashed and has to stay recoverable.", flush=True)
+                ok = False
+            else:
+                print(f"- [{section}] password is stored in clear text, as expected.", flush=True)
         elif actual == expected:
             print(f"- [{section}] password is the expected value.", flush=True)
         else:

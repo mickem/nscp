@@ -143,7 +143,14 @@ void NSCAClient::query_fallback(const PB::Commands::QueryRequestMessage &request
 
 bool NSCAClient::commandLineExec(int target_mode, const PB::Commands::ExecuteRequestMessage &request, PB::Commands::ExecuteResponseMessage &response) {
   for (const PB::Commands::ExecuteRequestMessage::Request &payload : request.payload()) {
-    if (payload.arguments_size() > 0 && payload.arguments(0) == "install") {
+    // This module's own command, and only the two ways it can arrive: `nscp
+    // nsca install ...` (the module's alias), or an exec aimed at this module
+    // by name. Matching `arguments(0) == "install"` on its own was enough for
+    // any broadcast exec whose first argument happened to be "install" to
+    // enable the module and write settings - WEBServer checks the command name
+    // for the same reason.
+    const bool addressed_to_us = payload.command() == "nsca" || target_mode == NSCAPI::target_module;
+    if (addressed_to_us && payload.arguments_size() > 0 && payload.arguments(0) == "install") {
       PB::Commands::ExecuteResponseMessage::Response *rp = response.add_payload();
       return cli_install(payload, rp);
     }
@@ -164,6 +171,22 @@ bool module_is_enabled(const std::string &value) {
   return !value.empty() && value != "disabled" && value != "0" && value != "false";
 }
 }  // namespace
+
+// Refuse a cipher the agent cannot resolve, rather than write it and report
+// success: NSCAServer declines to load on an unknown cipher and a client target
+// throws at the first submission, so a typo here surfaces as a dead module at
+// the next restart. encryption_to_int() is the same resolver both of those use.
+bool NSCAClient::cipher_is_known(const std::string &encryption, PB::Commands::ExecuteResponseMessage::Response *response) const {
+  try {
+    nscp::encryption::helpers::encryption_to_int(encryption);
+    return true;
+  } catch (const nscp::encryption::encryption_exception &e) {
+    nscapi::protobuf::functions::set_response_bad(
+        *response, "Unknown cipher '" + encryption + "': " + utf8::utf8_from_native(e.what()) + "\nAvailable: " +
+                       nscp::encryption::helpers::get_crypto_string(", "));
+    return false;
+  }
+}
 
 bool NSCAClient::cli_install(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) const {
   namespace pf = nscapi::protobuf::functions;
@@ -290,6 +313,7 @@ bool NSCAClient::install_client(const install_args &in, PB::Commands::ExecuteRes
   // Only default the cipher on a fresh target, so a re-run never silently
   // changes a cipher the daemon is configured for.
   if (args.encryption.empty()) args.encryption = "aes256";
+  if (!cipher_is_known(args.encryption, response)) return true;
 
   std::stringstream result;
   pf::settings_query s(get_id());
@@ -364,9 +388,16 @@ bool NSCAClient::install_server(const install_args &in, PB::Commands::ExecuteRes
   // changes a cipher the submitting hosts are configured for.
   if (args.encryption.empty()) args.encryption = "aes256";
 
-  // The names encryption_to_int() maps to no_encryption; the cipher has been
-  // defaulted above, so it is never empty here.
-  const bool encrypted = args.encryption != "none" && args.encryption != "0";
+  if (!cipher_is_known(args.encryption, response)) return true;
+  // Ask the resolver rather than re-implement its list of names for "no
+  // cipher": it takes ""/"none"/"0", and the value has been defaulted above so
+  // it is never empty here.
+  bool encrypted = true;
+  try {
+    encrypted = nscp::encryption::helpers::encryption_to_int(args.encryption) != nscp::encryption::helpers::no_encryption;
+  } catch (const nscp::encryption::encryption_exception &) {
+    return true;  // cipher_is_known() has already answered
+  }
   // Writing a server that cannot start is worse than refusing: with a cipher
   // and no key it declines to load, because an empty password is a well-known
   // key anyone who can reach the port could forge submissions with.

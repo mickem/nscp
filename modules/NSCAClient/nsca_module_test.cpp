@@ -346,6 +346,47 @@ TEST_F(NscaModule, InstallNeverWritesTheNSCAServerKey) {
   }
 }
 
+TEST_F(NscaModule, InstallIgnoresAnExecAddressedToSomeoneElse) {
+  ASSERT_TRUE(load());
+  // A broadcast exec whose first argument happens to be "install" is not this
+  // module's `nsca install`. Matching the argument alone was enough to enable
+  // the module and write settings from someone else's command line.
+  PB::Commands::ExecuteRequestMessage request;
+  PB::Commands::ExecuteRequestMessage::Request *payload = request.add_payload();
+  payload->set_command("some-other-module");
+  payload->add_arguments("install");
+  payload->add_arguments("--host");
+  payload->add_arguments("nagios.example.com");
+
+  PB::Commands::ExecuteResponseMessage response;
+  EXPECT_FALSE(module_.commandLineExec(NSCAPI::target_any, request, response));
+  EXPECT_TRUE(core().updated_settings().empty()) << "wrote settings for another module's command";
+}
+
+TEST_F(NscaModule, InstallRefusesAnUnknownCipher) {
+  ASSERT_TRUE(load());
+  PB::Commands::ExecuteResponseMessage response;
+  ASSERT_TRUE(module_.commandLineExec(NSCAPI::target_module,
+                                      install_request({"--host", "nagios.example.com", "--password", "k", "--encryption", "aes257"}), response));
+  // Writing a cipher the agent cannot resolve and reporting success leaves a
+  // target that throws at the first submission.
+  EXPECT_EQ(response.payload(0).result(), PB::Common::ResultCode::UNKNOWN) << response.payload(0).message();
+  EXPECT_TRUE(response.payload(0).message().find("aes257") != std::string::npos) << response.payload(0).message();
+  EXPECT_TRUE(core().updated_settings().empty()) << "wrote an unusable cipher";
+}
+
+TEST_F(NscaModule, InstallServerRefusesAnUnknownCipher) {
+  ASSERT_TRUE(load());
+  PB::Commands::ExecuteResponseMessage response;
+  ASSERT_TRUE(
+      module_.commandLineExec(NSCAPI::target_module, install_request({"--server", "--password", "k", "--encryption", "rot13"}), response));
+  // Same on the listening side, where an unknown cipher is what stops the
+  // module loading at the next start.
+  EXPECT_EQ(response.payload(0).result(), PB::Common::ResultCode::UNKNOWN) << response.payload(0).message();
+  EXPECT_TRUE(response.payload(0).message().find("rot13") != std::string::npos) << response.payload(0).message();
+  EXPECT_TRUE(core().updated_settings().empty());
+}
+
 TEST_F(NscaModule, InstallHelpDoesNotWriteAnything) {
   ASSERT_TRUE(load());
   PB::Commands::ExecuteResponseMessage response;

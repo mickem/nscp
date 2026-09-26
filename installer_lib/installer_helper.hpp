@@ -163,6 +163,10 @@ class msi_helper {
     setMsiProperty(INT_CONF_CAN_CHANGE_REASON, reason.c_str());
   }
 
+  // Records a password the installer generated itself. Not logged: the point of
+  // remembering it is to keep it out of the hash, not to publish it.
+  void setGeneratedPassword(std::wstring value) { setMsiProperty(INT_NSCLIENT_PWD_GENERATED, value); }
+
   void setConfHasErrors(std::wstring reason) {
     setMsiProperty(INT_CONF_HAS_ERRORS, L"1");
     setConfCanChange(false, reason);

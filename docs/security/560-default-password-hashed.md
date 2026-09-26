@@ -75,11 +75,15 @@ install` re-run without `--password` leaves the shared value exactly as it
 found it (it still hashes the `admin` row, which is its own), so migrating it
 is an explicit `nscp web password --set`.
 
-The Windows installer follows the same rule: a password given on its command
-line (`NSCLIENT_PWD`) or typed into its configuration dialog is hashed before
-it is written, and it never lands in the MSI log. A value it merely found on
-disk — which is what pre-fills the dialog on an upgrade — is left exactly as it
-is, so an upgrade migrates nothing on its own.
+The Windows installer hashes a password that came from outside it: given on the
+command line (`NSCLIENT_PWD`) or typed into the configuration dialog. It never
+lands in the MSI log. Two values are deliberately left in clear text. One is a
+value it merely found on disk — which is what pre-fills the dialog on an
+upgrade — so an upgrade migrates nothing on its own. The other is the password
+the installer *generates* when none was given: a silent install has no dialog to
+show it on and it is written nowhere else, so hashing it would leave an agent
+nobody can log into and no clear text to recover. Rotate it with `nscp web
+password --set <password>`, which stores it hashed.
 
 One limit is worth knowing: a hash protects only this password.
 `nsclient.ini` still holds the client-side passwords, tokens and keys the agent
