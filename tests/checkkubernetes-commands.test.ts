@@ -216,6 +216,10 @@ function startFakeApiServer(cert: { keyPem: string; certPem: string }): Promise<
         // Two pages, so the check has to follow metadata.continue.
         if (url.searchParams.get("continue") === "page-2") return list(res, PODS_PAGE_2);
         return list(res, PODS_PAGE_1, "page-2");
+      case ns === "gateway":
+        // An ingress in front of the API server answering for it.
+        res.writeHead(502, { "Content-Type": "text/html" });
+        return res.end("<html><body><h1>502 Bad Gateway</h1></body></html>");
       case ns === "secret":
         return status(
           res,
@@ -396,6 +400,17 @@ describe("CheckKubernetes commands", () => {
     expect(out).toMatch(/cannot list resource "pods" in API group "" in the namespace "secret"/);
     expect(out).toMatch(/grant the agent's service account get and list/);
     expect(out).not.toContain(TOKEN);
+    expect(exitCode).toBe(3);
+  });
+
+  it("a non-Kubernetes error page is reported on one clean line", async () => {
+    // The status line's reason carries a leading space and a trailing CR off
+    // the wire; neither may reach the plugin output.
+    const { out, exitCode } = await query("check_pods", ["namespace=gateway"]);
+    expect(out).toMatch(
+      /returned HTTP 502 for GET \/api\/v1\/namespaces\/gateway\/pods\?limit=500: HTTP 502 Bad Gateway$/m,
+    );
+    expect(out).not.toMatch(/\r/);
     expect(exitCode).toBe(3);
   });
 

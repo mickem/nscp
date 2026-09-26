@@ -167,6 +167,15 @@ inline pod_state derive_pod_state(const boost::json::object &pod) {
     if (!initializing && reason == "Completed" && has_running) reason = out.pod_ready ? "Running" : "NotReady";
   }
 
+  // A pod held back by a scheduling gate: kubectl reads the PodScheduled
+  // condition's reason rather than leaving it at Pending.
+  if (const boost::json::array *conditions = get_arr(*status, "conditions")) {
+    for (const auto &c : *conditions) {
+      if (!c.is_object()) continue;
+      if (get_str(c.as_object(), "type") == "PodScheduled" && get_str(c.as_object(), "reason") == "SchedulingGated") reason = "SchedulingGated";
+    }
+  }
+
   if (metadata && !get_str(*metadata, "deletionTimestamp").empty()) {
     out.terminating = true;
     // A finished pod being cleaned up (a job under its TTL) keeps its verdict:

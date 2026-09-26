@@ -3,6 +3,7 @@
 
 #include "CheckKubernetes.h"
 
+#include <boost/algorithm/string/trim.hpp>
 #include <memory>
 #include <net/http/client.hpp>
 #include <nscapi/macros.hpp>
@@ -47,7 +48,12 @@ kube_checks::fetcher make_api_fetcher(const kube_checks::cluster &target) {
     // back the status and the Status body so the check can say what to fix.
     const http::response resp = client->fetch(target.host, target.port, rq);
     if (!resp.is_2xx()) {
-      throw kube_checks::kube_http_error(resp.status_code_, "HTTP " + std::to_string(resp.status_code_) + " " + resp.status_message_, resp.payload_);
+      // The status message comes off the status line with its leading
+      // space and trailing carriage return; the check renders it inside a
+      // one-line plugin message when the body is not a Status object.
+      std::string reason = resp.status_message_;
+      boost::algorithm::trim(reason);
+      throw kube_checks::kube_http_error(resp.status_code_, "HTTP " + std::to_string(resp.status_code_) + " " + reason, resp.payload_);
     }
     return resp.payload_;
   };

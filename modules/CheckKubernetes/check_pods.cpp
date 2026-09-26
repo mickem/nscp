@@ -54,17 +54,14 @@ struct pod_obj {
 std::shared_ptr<pod_obj> parse_pod(const json::object &o) {
   auto record = std::make_shared<pod_obj>();
   const api_object pod(o);
-  const json::object *metadata = &pod.metadata;
-  const json::object *spec = &pod.spec;
-  const json::object *status = &pod.status;
 
   record->name = pod.name();
   record->ns = pod.ns();
-  record->labels = join_map(*metadata, "labels");
-  const object_age age = age_of(*metadata);
+  record->labels = join_map(pod.metadata, "labels");
+  const object_age age = age_of(pod.metadata);
   record->age = age.age;
   record->created = age.created;
-  if (const json::array *owners = get_arr(*metadata, "ownerReferences")) {
+  if (const json::array *owners = get_arr(pod.metadata, "ownerReferences")) {
     // The controller reference is the one that matters; fall back to the first.
     for (const auto &v : *owners) {
       if (!v.is_object()) continue;
@@ -77,10 +74,10 @@ std::shared_ptr<pod_obj> parse_pod(const json::object &o) {
     }
   }
 
-  record->node = get_str(*spec, "nodeName");
-  record->phase = get_str(*status, "phase");
-  record->ip = get_str(*status, "podIP");
-  record->qos = get_str(*status, "qosClass");
+  record->node = get_str(pod.spec, "nodeName");
+  record->phase = get_str(pod.status, "phase");
+  record->ip = get_str(pod.status, "podIP");
+  record->qos = get_str(pod.status, "qosClass");
 
   const pod_state state = derive_pod_state(o);
   record->pod_status = state.status;

@@ -19,6 +19,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/json.hpp>
 #include <cstdlib>
+#include <file_helpers.hpp>
 #include <fstream>
 #include <json/accessors.hpp>
 #include <sstream>
@@ -74,13 +75,15 @@ struct cluster {
 
 namespace detail {
 
+// file_helpers::read_file_as_string, with the failure as a return value:
+// every caller here turns it into a message naming the setting.
 inline bool read_file(const std::string &path, std::string &out) {
-  std::ifstream in(path.c_str(), std::ios::in | std::ios::binary);
-  if (!in) return false;
-  std::ostringstream ss;
-  ss << in.rdbuf();
-  out = ss.str();
-  return true;
+  try {
+    out = file_helpers::read_file_as_string(path);
+    return true;
+  } catch (const std::exception &) {
+    return false;
+  }
 }
 
 // A token file holds the token and, typically, a trailing newline.
@@ -272,6 +275,15 @@ inline bool resolve_kubeconfig(const std::string &text, const std::string &base_
     if (!ca_file.empty()) out.ca = detail::resolve_relative(base_dir, ca_file);
   }
   const bool insecure = get_bool(*cl, "insecure-skip-tls-verify");
+  if (insecure && !out.ca_pem.empty()) {
+    // The CA data would pin the server and the client verifies against a
+    // pin regardless of the verify mode, so the flag would be silently
+    // ignored. client-go rejects the pair; so does this.
+    error = "Kubeconfig " + kubeconfig_label + ", cluster '" + cluster_name +
+            "': insecure-skip-tls-verify cannot be combined with certificate-authority-data. Remove one of them: the CA data verifies the server, the "
+            "flag says not to";
+    return false;
+  }
   if (insecure) out.verify_mode = "none";
 
   const boost::json::object *user = detail::named_entry(cfg, "users", user_name, "user");
@@ -342,7 +354,11 @@ inline bool resolve_cluster(const settings &s, cluster &out, std::string &error)
   out.verify_mode = s.verify_mode;
   out.tls_version = s.tls_version;
   out.timeout = s.timeout;
-  out.max_response_bytes = s.max_response_mb > 0 ? static_cast<std::size_t>(s.max_response_mb) * 1024u * 1024u : 0;
+  if (s.max_response_mb < 0) {
+    error = "Invalid `max response size` under [/settings/kubernetes]: " + std::to_string(s.max_response_mb) + " - give the cap in megabytes, or 0 for no cap";
+    return false;
+  }
+  out.max_response_bytes = static_cast<std::size_t>(s.max_response_mb) * 1024u * 1024u;
   out.ca = s.ca;
 
   if (!s.api_server.empty()) {

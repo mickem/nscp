@@ -69,34 +69,31 @@ const kind_spec *kind_by_name(const std::string &arg) {
 std::shared_ptr<workload_obj> parse_workload(const kind_spec &kind, const json::object &o) {
   auto record = std::make_shared<workload_obj>();
   const api_object workload(o);
-  const json::object *metadata = &workload.metadata;
-  const json::object *spec = &workload.spec;
-  const json::object *status = &workload.status;
 
   record->kind = kind.kind;
   record->name = workload.name();
   record->ns = workload.ns();
-  record->labels = join_map(*metadata, "labels");
-  const object_age age = age_of(*metadata);
+  record->labels = join_map(workload.metadata, "labels");
+  const object_age age = age_of(workload.metadata);
   record->age = age.age;
   record->created = age.created;
 
   if (std::string(kind.kind) == "DaemonSet") {
-    record->desired = get_num(*status, "desiredNumberScheduled");
-    record->ready = get_num(*status, "numberReady");
-    record->available = get_num(*status, "numberAvailable");
-    record->updated = get_num(*status, "updatedNumberScheduled");
-    record->unavailable = get_num(*status, "numberUnavailable");
+    record->desired = get_num(workload.status, "desiredNumberScheduled");
+    record->ready = get_num(workload.status, "numberReady");
+    record->available = get_num(workload.status, "numberAvailable");
+    record->updated = get_num(workload.status, "updatedNumberScheduled");
+    record->unavailable = get_num(workload.status, "numberUnavailable");
   } else {
     // spec.replicas defaults to 1 when omitted.
-    record->desired = spec->if_contains("replicas") ? get_num(*spec, "replicas") : 1;
-    record->ready = get_num(*status, "readyReplicas");
+    record->desired = workload.spec.if_contains("replicas") ? get_num(workload.spec, "replicas") : 1;
+    record->ready = get_num(workload.status, "readyReplicas");
     // availableReplicas came to statefulsets in 1.22; before that ready is
     // the closest thing.
-    record->available = status->if_contains("availableReplicas") ? get_num(*status, "availableReplicas") : record->ready;
-    record->updated = get_num(*status, "updatedReplicas");
-    record->unavailable = get_num(*status, "unavailableReplicas");
-    record->paused = get_bool(*spec, "paused");
+    record->available = workload.status.if_contains("availableReplicas") ? get_num(workload.status, "availableReplicas") : record->ready;
+    record->updated = get_num(workload.status, "updatedReplicas");
+    record->unavailable = get_num(workload.status, "unavailableReplicas");
+    record->paused = get_bool(workload.spec, "paused");
   }
   record->missing = std::max(0LL, record->desired - record->available);
   return record;

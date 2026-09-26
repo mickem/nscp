@@ -93,8 +93,14 @@ inline std::string describe_http_error(const cluster &target, const std::string 
            "): the bearer token is invalid or expired - check `token` / `token file` under [/settings/kubernetes]";
   }
   if (e.status() == 403) {
-    return where + " denied " + request + " (" + http + (detail.empty() ? "" : ": " + detail) +
-           "): grant the agent's service account get and list on the resource (see the CheckKubernetes documentation for the ClusterRole)";
+    // A resource path wants get/list on the resource; /version, /readyz and
+    // friends are non-resource URLs and want a nonResourceURLs rule.
+    const bool resource = path.compare(0, 4, "/api") == 0;
+    const std::string bare = path.substr(0, path.find('?'));
+    const std::string hint = resource ? "grant the agent's service account get and list on the resource"
+                                      : "grant the agent's service account get on the non-resource URL " + bare + " (a nonResourceURLs rule)";
+    return where + " denied " + request + " (" + http + (detail.empty() ? "" : ": " + detail) + "): " + hint +
+           " (see the CheckKubernetes documentation for the ClusterRole)";
   }
   return where + " returned " + http + " for " + request + (detail.empty() ? ": " + std::string(e.what()) : ": " + detail);
 }
@@ -240,9 +246,13 @@ inline bool list_all(const fetcher &fetch, const cluster &target, const std::str
       fail(response, "Failed to parse the Kubernetes API server response from " + path + ": expected a list object");
       return false;
     }
-    const boost::json::object &o = root.as_object();
-    if (const boost::json::array *list = get_arr(o, "items")) {
-      for (const auto &item : *list) items.push_back(item);
+    boost::json::object &o = root.as_object();
+    // Moved, not copied: the page is dropped right after, and a pod list in
+    // a large cluster is the biggest thing this module ever holds.
+    if (boost::json::value *list = o.if_contains("items")) {
+      if (list->is_array()) {
+        for (auto &item : list->as_array()) items.push_back(std::move(item));
+      }
     }
     std::string next;
     if (const boost::json::object *md = metadata_of(o)) next = get_str(*md, "continue");

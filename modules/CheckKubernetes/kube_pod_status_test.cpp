@@ -288,3 +288,18 @@ TEST(KubePodStatus, ReadyRequiresARunningContainer) {
   EXPECT_EQ(s.status, "CrashLoopBackOff");
   EXPECT_EQ(s.ready, 1);
 }
+
+TEST(KubePodStatus, SchedulingGatedIsItsOwnStatus) {
+  // kubectl reads the PodScheduled condition's reason: a pod held back by a
+  // scheduling gate says so rather than showing plain Pending.
+  const auto s = state_of(R"({
+    "spec": {"containers": [{"name": "app"}], "schedulingGates": [{"name": "example.com/quota"}]},
+    "status": {"phase": "Pending",
+               "conditions": [{"type": "PodScheduled", "status": "False", "reason": "SchedulingGated"}]}})");
+  EXPECT_EQ(s.status, "SchedulingGated");
+  // An ordinary unschedulable pod stays Pending.
+  const auto pending = state_of(R"({
+    "spec": {"containers": [{"name": "app"}]},
+    "status": {"phase": "Pending", "conditions": [{"type": "PodScheduled", "status": "False", "reason": "Unschedulable"}]}})");
+  EXPECT_EQ(pending.status, "Pending");
+}

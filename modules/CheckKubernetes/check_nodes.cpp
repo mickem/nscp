@@ -67,16 +67,13 @@ std::string node_status_of(const std::string &ready, const bool schedulable) {
 std::shared_ptr<node_obj> parse_node(const json::object &o) {
   auto record = std::make_shared<node_obj>();
   const api_object node(o);
-  const json::object *metadata = &node.metadata;
-  const json::object *spec = &node.spec;
-  const json::object *status = &node.status;
 
   record->name = node.name();
-  const object_age age = age_of(*metadata);
+  const object_age age = age_of(node.metadata);
   record->age = age.age;
   record->created = age.created;
   // Roles are labels: node-role.kubernetes.io/<role>="" (kubectl reads the same).
-  if (const json::object *labels = get_obj(*metadata, "labels")) {
+  if (const json::object *labels = get_obj(node.metadata, "labels")) {
     static const std::string prefix = "node-role.kubernetes.io/";
     for (const auto &kv : *labels) {
       const std::string key(kv.key());
@@ -84,8 +81,8 @@ std::shared_ptr<node_obj> parse_node(const json::object &o) {
     }
   }
 
-  record->schedulable = !get_bool(*spec, "unschedulable");
-  if (const json::array *taints = get_arr(*spec, "taints")) {
+  record->schedulable = !get_bool(node.spec, "unschedulable");
+  if (const json::array *taints = get_arr(node.spec, "taints")) {
     for (const auto &v : *taints) {
       if (!v.is_object()) continue;
       const json::object &t = v.as_object();
@@ -94,28 +91,28 @@ std::shared_ptr<node_obj> parse_node(const json::object &o) {
     }
   }
 
-  record->ready = condition_status(*status, "Ready");
-  record->memory_pressure = condition_is_true(*status, "MemoryPressure");
-  record->disk_pressure = condition_is_true(*status, "DiskPressure");
-  record->pid_pressure = condition_is_true(*status, "PIDPressure");
-  record->network_unavailable = condition_is_true(*status, "NetworkUnavailable");
+  record->ready = condition_status(node.status, "Ready");
+  record->memory_pressure = condition_is_true(node.status, "MemoryPressure");
+  record->disk_pressure = condition_is_true(node.status, "DiskPressure");
+  record->pid_pressure = condition_is_true(node.status, "PIDPressure");
+  record->network_unavailable = condition_is_true(node.status, "NetworkUnavailable");
   record->node_status = node_status_of(record->ready, record->schedulable);
 
-  if (const json::object *info = get_obj(*status, "nodeInfo")) {
+  if (const json::object *info = get_obj(node.status, "nodeInfo")) {
     record->kubelet_version = get_str(*info, "kubeletVersion");
     record->os = get_str(*info, "osImage");
     record->arch = get_str(*info, "architecture");
   }
-  if (const json::object *capacity = get_obj(*status, "capacity")) {
+  if (const json::object *capacity = get_obj(node.status, "capacity")) {
     record->cpu_capacity = quantity_to_millicores(get_str(*capacity, "cpu"));
     record->memory_capacity = quantity_to_bytes(get_str(*capacity, "memory"));
     record->pods_capacity = quantity_to_count(get_str(*capacity, "pods"));
   }
-  if (const json::object *allocatable = get_obj(*status, "allocatable")) {
+  if (const json::object *allocatable = get_obj(node.status, "allocatable")) {
     record->cpu_allocatable = quantity_to_millicores(get_str(*allocatable, "cpu"));
     record->memory_allocatable = quantity_to_bytes(get_str(*allocatable, "memory"));
   }
-  if (const json::array *addresses = get_arr(*status, "addresses")) {
+  if (const json::array *addresses = get_arr(node.status, "addresses")) {
     for (const auto &v : *addresses) {
       if (!v.is_object()) continue;
       if (get_str(v.as_object(), "type") == "InternalIP") {

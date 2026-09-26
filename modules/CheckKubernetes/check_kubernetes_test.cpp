@@ -264,8 +264,22 @@ TEST(CheckKubernetes, ForbiddenIsUnknownAndNamesTheRbacRule) {
           "denied GET /api/v1/nodes?limit=500 (HTTP 403: nodes is forbidden: User \"system:serviceaccount:monitoring:nscp\" cannot list resource \"nodes\""),
       std::string::npos)
       << msg;
-  EXPECT_NE(msg.find("grant the agent's service account get and list"), std::string::npos) << msg;
+  EXPECT_NE(msg.find("grant the agent's service account get and list on the resource"), std::string::npos) << msg;
   EXPECT_EQ(msg.find(TOKEN), std::string::npos) << msg;
+}
+
+TEST(CheckKubernetes, ANegativeResponseCapIsRefusedNotUnlimited) {
+  fake_api api;
+  kube_checks::settings s = configured();
+  s.max_response_mb = -1;
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_cluster(api.factory(), {}, response, s), PB::Common::ResultCode::UNKNOWN) << join_lines(response);
+  EXPECT_NE(join_lines(response).find("Invalid `max response size` under [/settings/kubernetes]: -1"), std::string::npos) << join_lines(response);
+  EXPECT_TRUE(api.requests.empty());
+  s.max_response_mb = 0;
+  PB::Commands::QueryResponseMessage::Response response2;
+  run_cluster(api.factory(), {}, response2, s);
+  EXPECT_EQ(api.last_target.max_response_bytes, 0u) << "0 is the documented no-cap value";
 }
 
 TEST(CheckKubernetes, UnreachableServerIsUnknown) {
@@ -344,7 +358,8 @@ TEST(CheckKubernetes, ReadyzDeniedByRbacIsUnknownNotCritical) {
   const std::string msg = join_lines(response);
   EXPECT_NE(msg.find("denied GET /readyz (HTTP 403: forbidden: User \"system:serviceaccount:monitoring:nscp\" cannot get path \"/readyz\")"), std::string::npos)
       << msg;
-  EXPECT_NE(msg.find("grant the agent's service account"), std::string::npos) << msg;
+  EXPECT_NE(msg.find("grant the agent's service account get on the non-resource URL /readyz (a nonResourceURLs rule)"), std::string::npos)
+      << "a non-resource URL wants a nonResourceURLs rule, not a resource grant: " << msg;
   EXPECT_EQ(response.lines_size(), 1);
 
   api.refuse("/readyz", 401, "");
@@ -429,13 +444,15 @@ const char *KUBECONFIG = R"json({
   "clusters": [
     {"name": "prod-cluster", "cluster": {"server": "https://prod.example.com:6443", "certificate-authority-data": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCg=="}},
     {"name": "lab-cluster", "cluster": {"server": "https://lab.example.com", "certificate-authority-data": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCg=="}},
-    {"name": "insecure-cluster", "cluster": {"server": "https://insecure.example.com", "insecure-skip-tls-verify": true}}
+    {"name": "insecure-cluster", "cluster": {"server": "https://insecure.example.com", "insecure-skip-tls-verify": true}},
+    {"name": "insecure-ca-cluster", "cluster": {"server": "https://insecure.example.com", "insecure-skip-tls-verify": true, "certificate-authority-data": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCg=="}}
   ],
   "contexts": [
     {"name": "prod", "context": {"cluster": "prod-cluster", "user": "prod-user"}},
     {"name": "lab", "context": {"cluster": "lab-cluster", "user": "lab-user"}},
     {"name": "insecure", "context": {"cluster": "insecure-cluster", "user": "prod-user"}},
     {"name": "insecure-cert", "context": {"cluster": "insecure-cluster", "user": "lab-user"}},
+    {"name": "insecure-ca", "context": {"cluster": "insecure-ca-cluster", "user": "prod-user"}},
     {"name": "cloud", "context": {"cluster": "lab-cluster", "user": "cloud-user"}}
   ],
   "users": [
@@ -497,6 +514,13 @@ TEST(KubeSettings, InsecureSkipTlsVerifyIsHonouredForATokenAndRefusedWithAClient
   EXPECT_FALSE(kube_checks::resolve_cluster(s, c, error));
   EXPECT_NE(error.find("insecure-skip-tls-verify cannot be combined with a client certificate"), std::string::npos) << error;
   EXPECT_NE(error.find("Remove insecure-skip-tls-verify and supply certificate-authority(-data)"), std::string::npos) << error;
+
+  // CA data pins the server and the client verifies against a pin whatever
+  // the verify mode says, so the flag would be silently ignored; client-go
+  // refuses the pair and so does this.
+  s.context = "insecure-ca";
+  EXPECT_FALSE(kube_checks::resolve_cluster(s, c, error));
+  EXPECT_NE(error.find("insecure-skip-tls-verify cannot be combined with certificate-authority-data"), std::string::npos) << error;
 }
 
 TEST(KubeSettings, KubeconfigFileReferencesResolveAgainstItsOwnDirectory) {

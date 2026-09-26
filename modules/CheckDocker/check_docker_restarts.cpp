@@ -25,12 +25,10 @@ namespace docker_checks {
 namespace {
 
 // Seconds since an RFC3339 timestamp ("2026-08-12T07:44:00.123456789Z");
-// -1 when absent, unparsable or the zero-value "0001-01-01T00:00:00Z" the
-// daemon reports for containers that never started.
-long long seconds_since(const std::string &rfc3339) {
-  if (rfc3339.empty() || rfc3339[0] == '0') return -1;
-  return str::seconds_since_rfc3339(rfc3339);
-}
+// -1 when absent or unparsable, which covers the zero-value
+// "0001-01-01T00:00:00Z" the daemon reports for containers that never
+// started (year 1 is outside the range the parser accepts).
+long long seconds_since(const std::string &rfc3339) { return str::seconds_since_rfc3339(rfc3339); }
 
 struct restart_obj {
   std::string names, image, state;
