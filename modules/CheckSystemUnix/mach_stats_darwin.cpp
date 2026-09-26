@@ -5,6 +5,7 @@
 
 #include <mach/mach.h>
 #include <mach/mach_host.h>
+#include <mach/mach_time.h>
 #include <mach/processor_set.h>
 
 #include <cstring>
@@ -46,6 +47,22 @@ bool read_thread_count(long long &threads, std::string &error) {
   }
   threads = info.thread_count;
   return true;
+}
+
+unsigned long long mach_ticks_to_ns(const unsigned long long ticks) {
+  static const mach_timebase_info_data_t timebase = [] {
+    mach_timebase_info_data_t tb{0, 0};
+    if (mach_timebase_info(&tb) != KERN_SUCCESS || tb.denom == 0) {
+      tb.numer = 1;
+      tb.denom = 1;
+    }
+    return tb;
+  }();
+  if (timebase.numer == timebase.denom) return ticks;
+  // Split to keep ticks * numer from overflowing for long-running processes.
+  const unsigned long long whole = ticks / timebase.denom;
+  const unsigned long long rest = ticks % timebase.denom;
+  return whole * timebase.numer + rest * timebase.numer / timebase.denom;
 }
 
 }  // namespace mach_stats

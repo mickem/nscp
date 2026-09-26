@@ -13,6 +13,7 @@
 #include "check_kernel_stats.h"
 #include "check_os_version.h"
 #include "check_process.h"
+#include "check_service.h"
 #include "check_uptime.h"
 #include "collector_source.h"
 #include "interfaces_darwin.h"
@@ -163,4 +164,32 @@ TEST(darwin_process, cpu_capacity_advances_by_cores_times_wall_clock) {
   ASSERT_TRUE(check_proc::check_proc_filter::read_cpu_capacity(b));
   const long cores = sysconf(_SC_NPROCESSORS_ONLN);
   EXPECT_GE(b - a, 90ull * 1000 * 1000 * static_cast<unsigned long long>(cores));
+}
+
+TEST(darwin_service, logd_is_a_running_launchd_job) {
+  const checks::check_svc_filter::filter_obj info = checks::check_svc_filter::get_service_info("com.apple.logd");
+  EXPECT_EQ(info.name, "com.apple.logd");
+  EXPECT_EQ(info.load_state, "loaded");
+  EXPECT_EQ(info.state, "running");
+  EXPECT_GT(info.pid, 0);
+  EXPECT_GT(info.created, 0);
+}
+
+TEST(darwin_service, a_missing_job_is_not_found) {
+  const checks::check_svc_filter::filter_obj info = checks::check_svc_filter::get_service_info("org.nsclient.no-such-job");
+  EXPECT_EQ(info.load_state, "not-found");
+  EXPECT_EQ(info.state, "stopped");
+}
+
+TEST(darwin_service, the_system_domain_lists_jobs) {
+  const std::vector<checks::check_svc_filter::filter_obj> all = checks::check_svc_filter::enumerate_services("all");
+  EXPECT_GT(all.size(), 20u);
+  bool logd = false;
+  for (const auto &s : all) {
+    if (s.name == "com.apple.logd") logd = s.state == "running";
+  }
+  EXPECT_TRUE(logd);
+  const std::set<std::string> active = checks::check_svc_filter::active_units({"com.apple.logd", "org.nsclient.no-such-job"});
+  EXPECT_EQ(active.count("com.apple.logd"), 1u);
+  EXPECT_EQ(active.count("org.nsclient.no-such-job"), 0u);
 }

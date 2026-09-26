@@ -29,29 +29,14 @@
 #include <vector>
 
 #include "check_process.h"
+#include "mach_stats_darwin.h"
 
 namespace check_proc {
 namespace check_proc_filter {
 
 namespace {
 
-// libproc reports CPU time in Mach absolute-time units, which are nanoseconds
-// on Intel and 125/3 ns ticks on Apple silicon.
-unsigned long long mach_to_ns(const unsigned long long ticks) {
-  static const mach_timebase_info_data_t timebase = [] {
-    mach_timebase_info_data_t tb{0, 0};
-    if (mach_timebase_info(&tb) != KERN_SUCCESS || tb.denom == 0) {
-      tb.numer = 1;
-      tb.denom = 1;
-    }
-    return tb;
-  }();
-  if (timebase.numer == timebase.denom) return ticks;
-  // Split to keep ticks * numer from overflowing for long-running processes.
-  const unsigned long long whole = ticks / timebase.denom;
-  const unsigned long long rest = ticks % timebase.denom;
-  return whole * timebase.numer + rest * timebase.numer / timebase.denom;
-}
+unsigned long long mach_to_ns(const unsigned long long ticks) { return mach_stats::mach_ticks_to_ns(ticks); }
 
 std::string basename_of(const std::string &path) {
   const std::size_t pos = path.find_last_of('/');

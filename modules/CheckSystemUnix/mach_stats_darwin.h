@@ -21,4 +21,8 @@ bool read_vm_statistics(vm_statistics64_data_t &stats, unsigned long long &page_
 // the same number `top` prints as Threads. False with `error` set on failure.
 bool read_thread_count(long long &threads, std::string &error);
 
+// Mach absolute-time units to nanoseconds. libproc reports CPU time in these,
+// and they are nanoseconds on Intel but 125/3 ns ticks on Apple silicon.
+unsigned long long mach_ticks_to_ns(unsigned long long ticks);
+
 }  // namespace mach_stats

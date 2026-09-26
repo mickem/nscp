@@ -28,6 +28,8 @@ set(SRCS
     check_kernel_stats.cpp
     check_swap_io.cpp
     check_service.cpp
+    check_service_launchd.cpp
+    exec_command.cpp
     check_process.cpp
     check_pagefile.cpp
     check_cpu_frequency.cpp
@@ -52,6 +54,7 @@ if(APPLE)
         collector_source_darwin.cpp
         live_source_darwin.cpp
         process_source_darwin.cpp
+        service_source_darwin.cpp
         mach_stats_darwin.cpp
         interfaces_darwin.cpp
     )
@@ -63,6 +66,7 @@ else()
         collector_source_linux.cpp
         live_source_linux.cpp
         process_source_linux.cpp
+        service_source_linux.cpp
         network_facts_linux.cpp
     )
     set(PLATFORM_TEST_SRCS
@@ -145,6 +149,8 @@ NSCP_CREATE_TEST(
         check_process.cpp
         check_service_test.cpp
         check_service.cpp
+        check_service_launchd.cpp
+        exec_command.cpp
         check_cpu_frequency_test.cpp
         check_cpu_frequency.cpp
         check_network_test.cpp

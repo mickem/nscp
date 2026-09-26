@@ -90,7 +90,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         "FILTER", "For more configuration options add a dedicated section")
 
     ("service-tags", sh::string_map_path(&service_tags),
-        "Service tags", "Systemd units to surface as host tags: each key is a unit name and each value the tag to publish. When the unit exists and is active the tag is published as <tag>=enabled (removed otherwise). Example: postgresql=postgres",
+        "Service tags", "Services to surface as host tags: each key is a systemd unit name (a launchd label on macOS) and each value the tag to publish. When the service exists and is active (running, on macOS) the tag is published as <tag>=enabled (removed otherwise). Example: postgresql=postgres",
         "UNIT", "The tag to publish when this unit is active")
     ;
 
@@ -173,10 +173,11 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     host_facts::publish_tags(get_core(), facts_cache_.get("startup", []() { return system_facts::gather(); }).values);
 
     // Publish one tag per configured [/settings/system/unix/service-tags]
-    // entry (systemd unit -> tag): <tag>=enabled when the unit is active,
-    // removed otherwise so stopped units clear their tag on the next load.
-    // A single bulk `systemctl show` answers every mapping at once, rather
-    // than forking systemctl per unit on the startup path.
+    // entry (service -> tag): <tag>=enabled when the service is active,
+    // removed otherwise so stopped services clear their tag on the next load.
+    // A single bulk query (`systemctl show`, `launchctl print system`)
+    // answers every mapping at once, rather than forking per service on the
+    // startup path.
     std::vector<std::string> units;
     for (const auto &entry : service_tags) {
       if (!entry.first.empty() && !entry.second.empty()) units.push_back(entry.first);
