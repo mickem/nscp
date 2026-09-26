@@ -23,7 +23,6 @@ namespace battery_check {
 
 namespace {
 
-constexpr auto POWER_SUPPLY_PATH = "/sys/class/power_supply";
 
 // Read a single sysfs attribute file. Returns true and fills `value` (trimmed)
 // on success, false if the file is missing or unreadable. The stream is imbued
@@ -211,7 +210,6 @@ void battery_info::build_metrics(PB::Metrics::MetricsBundle *section) const {
   if (remaining_capacity > 0) bat.metric("remaining_capacity").help("Capacity left in the battery").unit("milliwatthours").gauge(remaining_capacity);
 }
 
-batteries_type read_battery() { return read_battery_from(POWER_SUPPLY_PATH); }
 
 batteries_type read_battery_from(const std::string &power_supply_path) {
   batteries_type result;

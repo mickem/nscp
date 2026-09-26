@@ -12,14 +12,18 @@
 
 #include "check_kernel_stats.h"
 #include "check_os_version.h"
+#include "check_battery.h"
+#include "check_cpu_frequency.h"
 #include "check_installed_software.h"
 #include "check_process.h"
 #include "check_service.h"
+#include "check_temperature.h"
 #include "check_uptime.h"
 #include "collector_source.h"
 #include "interfaces_darwin.h"
 #include "mach_stats_darwin.h"
 #include "plist_value.h"
+#include "system_facts.h"
 
 TEST(darwin_collector, cpu_times_has_an_aggregate_and_every_core) {
   const std::map<std::string, collector_source::cpu_times> times = collector_source::read_cpu_times();
@@ -219,4 +223,34 @@ TEST(darwin_software, inventory_has_receipts_and_bundles) {
   }
   EXPECT_TRUE(receipt);
   EXPECT_TRUE(bundle);
+}
+
+TEST(darwin_hardware, sensors_without_a_public_api_report_nothing) {
+  EXPECT_TRUE(temperature_check::read_temperature().empty());
+  EXPECT_TRUE(cpu_frequency_check::read_cpu_frequency().empty());
+}
+
+TEST(darwin_hardware, batteries_are_well_formed) {
+  // A desktop or a CI VM has none; a laptop has one internal battery.
+  for (const battery_check::battery_info &b : battery_check::read_battery()) {
+    EXPECT_FALSE(b.name.empty());
+    EXPECT_TRUE(b.power_source == "ac" || b.power_source == "battery" || b.power_source == "unknown") << b.power_source;
+    if (b.battery_present) {
+      EXPECT_GE(b.charge_percent, 0);
+      EXPECT_LE(b.charge_percent, 100);
+    }
+  }
+}
+
+TEST(darwin_hardware, host_facts) {
+  const host_facts::facts f = system_facts::gather();
+  EXPECT_EQ(f.os_family, "darwin");
+  EXPECT_EQ(f.os_name.compare(0, 6, "macOS "), 0) << f.os_name;
+  EXPECT_FALSE(f.os_version.empty());
+  EXPECT_EQ(f.manufacturer, "Apple");
+  EXPECT_FALSE(f.model.empty());
+  EXPECT_TRUE(f.virtualization == "virtual" || f.virtualization == "none") << f.virtualization;
+  EXPECT_GT(f.cpu_cores, 0);
+  EXPECT_GT(f.memory_gb, 0);
+  EXPECT_NE(f.domain, "local");
 }

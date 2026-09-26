@@ -182,7 +182,6 @@ zones_type read_temperature_from(const std::string &thermal_base, const std::str
   return zones;
 }
 
-zones_type read_temperature() { return read_temperature_from("/sys/class/thermal", "/sys/class/hwmon"); }
 
 typedef thermal_zone filter_obj;
 

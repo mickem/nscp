@@ -16,8 +16,10 @@ TEST(network_facts_unix, every_record_follows_the_document_rules) {
   for (const network_facts::interface_record &nic : interfaces) {
     EXPECT_FALSE(nic.id.empty());
     EXPECT_TRUE(ids.insert(nic.id).second) << "duplicate id " << nic.id;
-    // The loopback is left out, whatever it is called.
+    // The loopback is left out, whatever it is called (lo on Linux, lo0 on
+    // macOS).
     EXPECT_NE(nic.id, "lo");
+    EXPECT_NE(nic.id, "lo0");
     if (!nic.mac.empty()) EXPECT_EQ(nic.mac, network_facts::normalize_mac(nic.mac)) << nic.id;
     EXPECT_GE(nic.speed_bps, 0) << nic.id;
     for (const std::string &address : nic.addresses) {

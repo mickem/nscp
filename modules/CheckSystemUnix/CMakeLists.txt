@@ -57,6 +57,8 @@ if(APPLE)
         service_source_darwin.cpp
         software_source_darwin.cpp
         plist_darwin.cpp
+        hardware_source_darwin.cpp
+        network_facts_darwin.cpp
         mach_stats_darwin.cpp
         interfaces_darwin.cpp
     )
@@ -75,11 +77,10 @@ else()
         process_source_linux.cpp
         service_source_linux.cpp
         software_source_linux.cpp
+        hardware_source_linux.cpp
         network_facts_linux.cpp
     )
-    set(PLATFORM_TEST_SRCS
-        network_facts_linux_test.cpp
-    )
+    set(PLATFORM_TEST_SRCS)
     set(PLATFORM_LIBS)
 endif()
 set(SRCS ${SRCS} ${PLATFORM_SRCS})
@@ -180,6 +181,7 @@ NSCP_CREATE_TEST(
         system_facts.cpp
         software_facts_unix.cpp
         software_facts_unix_test.cpp
+        network_facts_unix_test.cpp
         collector_calc.cpp
         collector_calc_test.cpp
         ${NSCP_INCLUDEDIR}/facts/host_facts.cpp
