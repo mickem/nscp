@@ -8,6 +8,7 @@
 #include <mach/mach_time.h>
 #include <mach/processor_set.h>
 
+#include <cerrno>
 #include <cstring>
 
 namespace mach_stats {
@@ -62,6 +63,32 @@ unsigned long long mach_ticks_to_ns(const unsigned long long ticks) {
   const unsigned long long whole = ticks / divisor;
   const unsigned long long rest = ticks % divisor;
   return whole * scale + rest * scale / divisor;
+}
+
+std::vector<struct kinfo_proc> read_all_processes() {
+  int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0};
+  // The table can grow between the size query and the read; retry with the
+  // new size a few times, with headroom.
+  for (int attempt = 0; attempt < 4; ++attempt) {
+    std::size_t length = 0;
+    if (sysctl(mib, 4, nullptr, &length, nullptr, 0) != 0 || length == 0) return {};
+    std::vector<struct kinfo_proc> procs(length / sizeof(struct kinfo_proc) + 32);
+    length = procs.size() * sizeof(struct kinfo_proc);
+    if (sysctl(mib, 4, procs.data(), &length, nullptr, 0) == 0) {
+      procs.resize(length / sizeof(struct kinfo_proc));
+      return procs;
+    }
+    if (errno != ENOMEM) return {};
+  }
+  return {};
+}
+
+bool read_process(const pid_t pid, struct kinfo_proc &out) {
+  int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, pid};
+  std::memset(&out, 0, sizeof(out));
+  std::size_t length = sizeof(out);
+  // A pid that does not exist answers success with no data.
+  return sysctl(mib, 4, &out, &length, nullptr, 0) == 0 && length == sizeof(out) && out.kp_proc.p_pid == pid;
 }
 
 }  // namespace mach_stats

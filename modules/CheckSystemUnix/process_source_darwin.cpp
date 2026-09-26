@@ -5,8 +5,10 @@
 //
 // What an unprivileged caller gets differs by source, and the fields follow
 // that line:
-//  - proc_pidinfo(PROC_PIDTBSDINFO) and proc_pidpath answer for every process:
-//    pid, parent, owner, BSD state, start time and executable path.
+//  - The kernel's process table (sysctl KERN_PROC, what ps reads) and
+//    proc_pidpath answer for every process: pid, parent, owner, BSD state,
+//    start time and executable path. (proc_pidinfo's BSD info would carry the
+//    same, but is refused for other users' processes.)
 //  - proc_pidinfo(PROC_PIDTASKINFO) answers for the caller's own processes
 //    (and for all of them as root): memory, faults, CPU time and the running
 //    thread count. For anyone else's the counters are marked unreadable and
@@ -102,16 +104,11 @@ char state_letter(const int bsd_status, const bool have_task, const int running_
   }
 }
 
-bool read_process_info(const pid_t pid, const bool resolve_owner, filter_obj &info) {
-  struct proc_bsdinfo bsd;
-  std::memset(&bsd, 0, sizeof(bsd));
-  if (proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &bsd, PROC_PIDTBSDINFO_SIZE) != PROC_PIDTBSDINFO_SIZE) {
-    // Exited between the listing and now.
-    return false;
-  }
+bool read_process_info(const struct kinfo_proc &kp, const bool resolve_owner, filter_obj &info) {
+  const pid_t pid = kp.kp_proc.p_pid;
   info.pid = pid;
-  info.ppid = static_cast<int>(bsd.pbi_ppid);
-  info.uid = static_cast<long long>(bsd.pbi_ruid);
+  info.ppid = static_cast<int>(kp.kp_eproc.e_ppid);
+  info.uid = static_cast<long long>(kp.kp_eproc.e_pcred.p_ruid);
   if (resolve_owner) info.username = lookup_username(info.uid);
 
   char path[PROC_PIDPATHINFO_MAXSIZE];
@@ -119,16 +116,17 @@ bool read_process_info(const pid_t pid, const bool resolve_owner, filter_obj &in
     info.filename = path;
     info.exe = basename_of(info.filename);
   } else {
-    // No image (kernel_task) or already exiting: the accounting names are
-    // what is left. pbi_name holds up to 32 characters, pbi_comm 16.
-    info.exe = bsd.pbi_name[0] != '\0' ? std::string(bsd.pbi_name) : std::string(bsd.pbi_comm);
+    // No image (kernel_task) or already exiting: the accounting name (up to
+    // 16 characters) is what is left.
+    info.exe = std::string(kp.kp_proc.p_comm);
   }
   info.command_line = read_command_line(pid);
 
   // Start time: whole seconds for creation, and microseconds as the value
   // that identifies this incarnation of the pid for delta=true.
-  info.creation_time = static_cast<unsigned long long>(bsd.pbi_start_tvsec);
-  info.start_time_jiffies = static_cast<unsigned long long>(bsd.pbi_start_tvsec) * 1000000ull + bsd.pbi_start_tvusec;
+  const struct timeval started = kp.kp_proc.p_starttime;
+  info.creation_time = static_cast<unsigned long long>(started.tv_sec);
+  info.start_time_jiffies = static_cast<unsigned long long>(started.tv_sec) * 1000000ull + static_cast<unsigned long long>(started.tv_usec);
   const unsigned long long now = static_cast<unsigned long long>(::time(nullptr));
   info.elapsed = now > info.creation_time ? now - info.creation_time : 0;
 
@@ -153,10 +151,11 @@ bool read_process_info(const pid_t pid, const bool resolve_owner, filter_obj &in
     info.total_time = info.user_time + info.kernel_time;
   }
 
-  info.proc_state = state_letter(bsd.pbi_status, have_task, have_task ? task.pti_numrunning : 0);
+  const int status = kp.kp_proc.p_stat;
+  info.proc_state = state_letter(status, have_task, have_task ? task.pti_numrunning : 0);
   // Started means alive and able to run: not a zombie, not stopped, not
   // still being created.
-  info.started = bsd.pbi_status == SRUN || bsd.pbi_status == SSLEEP;
+  info.started = status == SRUN || status == SSLEEP;
   return true;
 }
 
@@ -164,24 +163,10 @@ bool read_process_info(const pid_t pid, const bool resolve_owner, filter_obj &in
 
 std::vector<filter_obj> enumerate_processes(bool resolve_owner) {
   std::vector<filter_obj> result;
-  const int bytes = proc_listpids(PROC_ALL_PIDS, 0, nullptr, 0);
-  if (bytes <= 0) return result;
-  // Headroom for processes started between the two calls.
-  std::vector<pid_t> pids(static_cast<std::size_t>(bytes) / sizeof(pid_t) + 64);
-  const int filled = proc_listpids(PROC_ALL_PIDS, 0, pids.data(), static_cast<int>(pids.size() * sizeof(pid_t)));
-  if (filled <= 0) return result;
-  pids.resize(static_cast<std::size_t>(filled) / sizeof(pid_t));
-
-  bool seen_kernel_task = false;
-  for (const pid_t pid : pids) {
-    if (pid < 0) continue;
-    // pid 0 is kernel_task; any further zero is unused buffer space.
-    if (pid == 0) {
-      if (seen_kernel_task) continue;
-      seen_kernel_task = true;
-    }
+  for (const struct kinfo_proc &kp : mach_stats::read_all_processes()) {
+    if (kp.kp_proc.p_pid < 0) continue;
     filter_obj info;
-    if (!read_process_info(pid, resolve_owner, info)) continue;
+    if (!read_process_info(kp, resolve_owner, info)) continue;
     if (!info.exe.empty() || !info.command_line.empty()) result.push_back(info);
   }
   return result;

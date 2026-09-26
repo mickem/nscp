@@ -36,11 +36,12 @@ std::vector<launchd_listing> read_listing() { return parse_launchctl_services(sy
 
 void fill_metrics(filter_obj &info) {
   if (info.pid <= 0) return;
-  struct proc_bsdinfo bsd;
-  std::memset(&bsd, 0, sizeof(bsd));
-  if (proc_pidinfo(info.pid, PROC_PIDTBSDINFO, 0, &bsd, PROC_PIDTBSDINFO_SIZE) != PROC_PIDTBSDINFO_SIZE) return;
+  // The start time from the process table, which is readable for every
+  // process; libproc's BSD info is refused for other users' ones.
+  struct kinfo_proc kp;
+  if (!mach_stats::read_process(info.pid, kp)) return;
   const long long now = static_cast<long long>(::time(nullptr));
-  info.created = static_cast<long long>(bsd.pbi_start_tvsec);
+  info.created = static_cast<long long>(kp.kp_proc.p_starttime.tv_sec);
   info.age = now > info.created ? now - info.created : 0;
 
   struct proc_taskinfo task;

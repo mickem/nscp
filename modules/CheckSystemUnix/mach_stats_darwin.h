@@ -8,8 +8,11 @@
 // check_load. Every call here works for an unprivileged account.
 
 #include <mach/vm_statistics.h>
+#include <sys/sysctl.h>
+#include <sys/types.h>
 
 #include <string>
+#include <vector>
 
 namespace mach_stats {
 
@@ -24,5 +27,12 @@ bool read_thread_count(long long &threads, std::string &error);
 // Mach absolute-time units to nanoseconds. libproc reports CPU time in these,
 // and they are nanoseconds on Intel but 125/3 ns ticks on Apple silicon.
 unsigned long long mach_ticks_to_ns(unsigned long long ticks);
+
+// The kernel's process table entry for every process, or for one: pid,
+// parent, real uid, BSD state, start time and the accounting name. This is
+// what ps reads, and unlike libproc's per-process calls it is readable for
+// every process whoever owns it.
+std::vector<struct kinfo_proc> read_all_processes();
+bool read_process(pid_t pid, struct kinfo_proc &out);
 
 }  // namespace mach_stats
