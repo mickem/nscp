@@ -24,9 +24,16 @@ if(OPENSSL_FOUND)
         ${OPENSSL_LIBRARIES}
     )
     if(WIN32)
+        # libcrypto's BIO layer calls into winsock (BIO_sock_init, BIO_lookup
+        # and the socket BIOs), so anything linking the static libcrypto needs
+        # ws2_32 as well. The module pulls it in through nscp_net; the password
+        # memo test links libcrypto for PBKDF2 and never touches a socket, and
+        # would otherwise fail with 30 unresolved externals out of libcrypto
+        # on the static build (same trap as GearmanClient's crypt tests).
         set(EXTRA_LIBS
             ${EXTRA_LIBS}
             CRYPT32
+            ws2_32
         )
     endif(WIN32)
 endif(OPENSSL_FOUND)
