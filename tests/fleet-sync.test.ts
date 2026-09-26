@@ -28,7 +28,15 @@ import crypto from "crypto";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { NscpInstance, makeZip, signBundle, makeCertPem, FLEET_TENANT_ID, onWindows } from "@fixtures/index";
+import {
+  NscpInstance,
+  makeZip,
+  signBundle,
+  makeCertPem,
+  FLEET_TENANT_ID,
+  onWindows,
+  moduleBuiltHere,
+} from "@fixtures/index";
 
 jest.setTimeout(180_000);
 
@@ -39,6 +47,9 @@ interface SeenRequest {
   url: string;
   body: any;
 }
+
+/** The module the agent is configured with locally; see the beforeAll. */
+const LOCAL_MODULE = moduleBuiltHere("CheckDisk") ? "CheckDisk" : "CheckHelpers";
 
 describe("core fleet sync loop", () => {
   let nscp: NscpInstance;
@@ -173,7 +184,10 @@ describe("core fleet sync loop", () => {
     nscp = new NscpInstance({ workDir, pathOverrides: { "shared-path": workDir } });
     // A tag producer: on Windows CheckDisk publishes `drives=c:,...` into the
     // central tag repository at load, which must surface in reported_tags.
-    await nscp.configure({ "/modules": { CheckDisk: "enabled" } });
+    // Where the build has no CheckDisk (macOS, until it is ported) a module
+    // it does carry stands in, so the "local configuration present" half of
+    // the scenario still runs on a real module rather than a load error.
+    await nscp.configure({ "/modules": { [LOCAL_MODULE]: "enabled" } });
     requests = [];
     phase = "good";
 
@@ -290,10 +304,10 @@ describe("core fleet sync loop", () => {
     expect(report.body.errors).toEqual([]);
     expect(report.body.reported_tags.os).toBeTruthy();
     // Whether the host has configuration of its own that outranks what we just
-    // applied. This suite enables CheckDisk locally, so it does - and the report
+    // applied. This suite enables a module locally, so it does - and the report
     // still carries no hint of *what* is configured.
     expect(report.body.local_config_present).toBe(true);
-    expect(JSON.stringify(report.body)).not.toContain("CheckDisk");
+    expect(JSON.stringify(report.body)).not.toContain(LOCAL_MODULE);
     if (onWindows) {
       // Module-contributed tags (CheckDisk's drive list) ride along in every
       // state report, merged from the central tag repository.

@@ -37,6 +37,7 @@ import {
   setupQueryNscp,
   onDarwin,
   itIf,
+  itOnDarwin,
 } from "@fixtures/index";
 
 jest.setTimeout(120_000);
@@ -1575,9 +1576,17 @@ describe("CheckNet commands", () => {
 
   // --- check_connections ------------------------------------------------------
 
-  // check_connections reads /proc/net on Linux and the IP helper API on Windows;
-  // on macOS it answers "not implemented on this platform" until it is ported
-  // to the pcblist sysctls, so both cases wait for that.
+  // check_connections reads /proc/net on Linux and the IP helper API on Windows.
+  // On macOS it is not ported yet (the pcblist sysctls), and what it answers
+  // there is a contract of its own: UNKNOWN naming the platform, never an OK
+  // over an empty table. That is what the Darwin case pins; the two live cases
+  // wait for the port.
+  itOnDarwin("check_connections says it is not implemented on this platform", async () => {
+    const q = await executeQuery(key, "check_connections", {});
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/check_connections is not implemented on this platform/);
+  });
+
   itIf(!onDarwin)("check_connections reports the total bucket via connections/total_connections", async () => {
     // `count`/`total` clashed with the generic summary keywords, so the record
     // keywords are `connections`/`total_connections`; the old names remain as

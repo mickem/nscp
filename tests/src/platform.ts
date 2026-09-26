@@ -15,10 +15,10 @@
  * `onLinux`, not `onUnix`: on a Mac it would fail on the first line rather
  * than skip, which is the drift this file removes.
  *
- * The `describe*` / `it*` variants are the block-level gates. They evaluate
- * `describe` at import time, so this module is for suites and the helpers
- * they import - not for `global-setup.ts` or the jest environment, which run
- * before those globals exist.
+ * Nothing here touches a jest global, so the harness modules that run outside
+ * a test context (global-setup.ts, the jest environment) can import it. The
+ * `describe` / `it` gates built on these flags live in gates.ts, which may
+ * only be imported from a suite.
  */
 
 export const onWindows = process.platform === "win32";
@@ -27,35 +27,17 @@ export const onDarwin = process.platform === "darwin";
 /** Linux or macOS: anything POSIX. */
 export const onUnix = !onWindows;
 
-/** `describe` when `condition` holds, `describe.skip` otherwise. */
-export function describeIf(condition: boolean): jest.Describe {
-  return condition ? describe : describe.skip;
-}
-
-/** `it` when `condition` holds, `it.skip` otherwise. */
-export function itIf(condition: boolean): jest.It {
-  return condition ? it : it.skip;
-}
-
-export const describeOnWindows = describeIf(onWindows);
-export const describeOnLinux = describeIf(onLinux);
-export const describeOnDarwin = describeIf(onDarwin);
-export const describeOnUnix = describeIf(onUnix);
-
-export const itOnWindows = itIf(onWindows);
-export const itOnLinux = itIf(onLinux);
-export const itOnDarwin = itIf(onDarwin);
-export const itOnUnix = itIf(onUnix);
-
 /**
- * The check modules the macOS build does not carry yet. Their data sources
- * read the Linux kernel (procfs, mntent, inotify) and each module's
- * `module.cmake` skips it on Darwin until a Darwin data source exists.
+ * The check modules the macOS build does not carry yet. CheckSystem, CheckDisk
+ * and CheckLogFile read the Linux kernel (procfs, mntent, inotify) and each
+ * module's `module.cmake` skips it on Darwin until a Darwin data source
+ * exists; PythonScript needs Boost.Python, which build-macos.yml leaves out.
  *
- * A suite that loads one of them gates on `describeWithModules(...)` below,
- * which skips the block on macOS and runs it everywhere else. The port that
- * adds a module to the macOS build removes it from this set, and that one
- * edit turns every gate on at once - the suites themselves do not change.
+ * A suite that loads one of them gates on `describeWithModules(...)` in
+ * gates.ts, which skips the block on macOS and runs it everywhere else. The
+ * change that adds a module to the macOS build removes it from this set, and
+ * that one edit turns every gate on at once - the suites themselves do not
+ * change.
  *
  * Deliberately a platform gate rather than a probe of the install: on Linux
  * and Windows these modules are always built, and a suite that quietly
@@ -65,19 +47,10 @@ const NOT_BUILT_ON_DARWIN: ReadonlySet<string> = new Set([
   "CheckSystem",
   "CheckDisk",
   "CheckLogFile",
+  "PythonScript",
 ]);
 
 /** True when this platform's build carries `module`. */
 export function moduleBuiltHere(module: string): boolean {
   return !(onDarwin && NOT_BUILT_ON_DARWIN.has(module));
-}
-
-/** `describe` when every named module is built on this platform. */
-export function describeWithModules(...modules: string[]): jest.Describe {
-  return describeIf(modules.every(moduleBuiltHere));
-}
-
-/** `it` when every named module is built on this platform. */
-export function itWithModules(...modules: string[]): jest.It {
-  return itIf(modules.every(moduleBuiltHere));
 }

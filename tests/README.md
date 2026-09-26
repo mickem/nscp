@@ -198,12 +198,15 @@ dependency.
 `findstr /s /c:` over spooled result files.
 
 `src/platform.ts` — the one place a suite asks which OS it is on: `onWindows`,
-`onLinux`, `onDarwin` and `onUnix` (Linux or macOS), with `describeOn*` / `itOn*`
-for a block that runs on one of them and `describeIf` / `itIf` for any other
-condition. A case that reads procfs, talks to systemd or expects `dpkg` is
-`onLinux`, not `onUnix`. `describeWithModules("CheckSystem")` gates a suite on
-the modules the macOS build does not carry yet; the port that adds a module
-removes it from the list there, and every gate flips at once.
+`onLinux`, `onDarwin` and `onUnix` (Linux or macOS), plus the list of modules
+the macOS build does not carry yet. It touches no jest global, so the harness
+files that run outside a test (global-setup, the environment) import it too.
+`src/gates.ts` builds the block gates on it: `describeOn*` / `itOn*` for a
+block that runs on one platform, `describeIf` / `itIf` for any other condition,
+and `describeWithModules("CheckSystem")` for a suite that loads a module the
+macOS build lacks; the change that adds a module removes it from the list in
+platform.ts, and every gate flips at once. A case that reads procfs, talks to
+systemd or expects `dpkg` is `onLinux`, not `onUnix`.
 
 ## Formatting
 

@@ -34,7 +34,7 @@ import {
   onUnix,
   describeOnWindows,
   describeOnLinux,
-  hasModule,
+  itWithModules,
 } from "@fixtures/index";
 
 jest.setTimeout(180_000);
@@ -533,22 +533,23 @@ describe("script folder resolution", () => {
       };
     }
 
-    it("PythonScript imports into ${scripts}/python and resolves it again", async () => {
-      // Optional module: built only where Boost.Python was found (not in the
-      // macOS package yet), so ask rather than assume.
-      if (!hasModule("PythonScript")) return;
-      const r = await importScript({
-        cli: "py",
-        module: "PythonScript",
-        section: "python",
-        name: "imported.py",
-        body: "# imported\n",
-      });
-      if (/No such (module|command)|not a valid/i.test(r.output)) return; // not built
-      expect(r.scripts).toEqual(["python/imported.py"]);
-      expect(r.configured).toBe("python/imported.py");
-      expect(r.reload).toMatch(/Adding script:.*imported\.py/);
-    });
+    // Skipped where the build has no PythonScript (macOS, until Boost.Python
+    // is in its package); everywhere else the module is always built.
+    itWithModules("PythonScript")(
+      "PythonScript imports into ${scripts}/python and resolves it again",
+      async () => {
+        const r = await importScript({
+          cli: "py",
+          module: "PythonScript",
+          section: "python",
+          name: "imported.py",
+          body: "# imported\n",
+        });
+        expect(r.scripts).toEqual(["python/imported.py"]);
+        expect(r.configured).toBe("python/imported.py");
+        expect(r.reload).toMatch(/Adding script:.*imported\.py/);
+      },
+    );
 
     it("LUAScript imports into ${scripts}/lua and resolves it again", async () => {
       const r = await importScript({

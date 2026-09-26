@@ -24,7 +24,7 @@
  */
 import * as path from "path";
 import execa from "execa";
-import { NscpInstance, dockerOrSkip, onWindows } from "@fixtures/index";
+import { NscpInstance, dockerOrSkip, onWindows, describeWithModules } from "@fixtures/index";
 
 jest.setTimeout(600_000);
 
@@ -132,7 +132,9 @@ dockerOrSkip()("CollectD real-daemon integration", () => {
         [/\/uptime\/uptime-/, "uptime/uptime"],
       ];
 
-  describe(label, () => {
+  // CheckSystem is the metrics producer here; without it the receiver waits
+  // out the timeout, so the block is gated where the build lacks the module.
+  describeWithModules("CheckSystem")(label, () => {
     const HOST = "it-collectd-default";
     let nscp: NscpInstance;
 
