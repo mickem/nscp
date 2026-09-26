@@ -72,6 +72,12 @@ include(${BUILD_CMAKE_FOLDER}/module.cmake)
 # module fails to load with "the specified module could not be found". The
 # application directory is searched, which is where nscp.exe lives; lua.dll and
 # the Python runtime DLL are shipped the same way (see Product.wxs).
+#
+# Copied into the build tree for a developer's nscp.exe, and installed at the
+# root for the zip, which is CPack's install tree - the OpenSSL and protobuf
+# DLLs travel the same way (see the top-level CMakeLists.txt). The MSI lists
+# it by name itself (MariaDBLibs in Product.wxs). Without the install rule
+# the zip carried CheckMySQL.dll without the DLL it cannot load without.
 if(WIN32 AND MARIADB_DLL)
     add_custom_command(
         TARGET ${TARGET}
@@ -80,6 +86,7 @@ if(WIN32 AND MARIADB_DLL)
             ${CMAKE_COMMAND} -E copy_if_different "${MARIADB_DLL}"
             "${NSCP_PROJECT_BINARY_DIR}"
     )
+    install(FILES "${MARIADB_DLL}" DESTINATION .)
 elseif(WIN32)
     message(
         WARNING
