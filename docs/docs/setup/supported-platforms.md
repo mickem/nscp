@@ -48,11 +48,15 @@ blocks a double-click install. Install from the command line
 Three modules are not built for macOS, because their data sources are Linux
 kernel interfaces: `CheckSystem` (procfs), `CheckDisk` (`mntent` and
 `/proc/diskstats`) and `CheckLogFile` (`inotify`). That means no CPU, memory,
-process, uptime, service, disk or log-file checks on macOS yet. Everything else
-- the REST API and web UI, the NRPE/NSCA/NSCP/check_mk listeners and clients,
-external scripts, the Lua and Python script engines, the network and security
-checks, the scheduler and the forwarders - is present. See [Installing on
-macOS](installing.md#installing-on-macos-pkg) for the full picture.
+process, uptime, service, disk, mount, file or log-file checks on macOS yet,
+and no host, network, software or storage facts. Two network checks are
+reduced: `check_connections` answers "not implemented" and `check_ping` cannot
+open its raw socket as the unprivileged service account. Everything else - the
+REST API and web UI, the NRPE/NSCA/NSCP/check_mk listeners and clients,
+external scripts, the Lua script engine, the other network checks, the
+security checks, the scheduler and the forwarders - is present; the Python
+script engine builds from source but is not in the package. See [Installing
+on macOS](installing.md#installing-on-macos-pkg) for the full picture.
 
 ## Architectures
 

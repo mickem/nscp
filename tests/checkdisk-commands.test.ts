@@ -26,14 +26,16 @@ import {
   perfOf,
   pollQuery,
   setupQueryNscp,
+  onWindows,
+  describeWithModules,
 } from "@fixtures/index";
 
 jest.setTimeout(300_000);
 
-const onWindows = process.platform === "win32";
 const ROOT_DRIVE = onWindows ? "c:" : "/";
 
-describe("CheckDisk commands", () => {
+// Skipped where the build has no CheckDisk (macOS, until it is ported).
+describeWithModules("CheckDisk")("CheckDisk commands", () => {
   let nscp: NscpInstance;
   let key: string;
 

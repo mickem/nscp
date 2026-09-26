@@ -16,6 +16,7 @@
 #endif
 
 #include <error/error.hpp>
+#include <threads/stop_requested.hpp>
 
 namespace threads {
 
@@ -46,16 +47,10 @@ namespace threads {
 // threads, and a stop/start cycle reopened the still-signalled object so the
 // restarted thread exited immediately. A name would also let any co-resident
 // process signal it and disable monitoring from outside.
-// Thrown by a worker step that gave up because its stop signal fired (a
-// collector fetch that let go of a stalled provider, an aborted search).
-// Deliberately unrelated to any failure type: a collector's "this source is
-// broken, disable it / count a failure" handling must never mistake a
-// shutdown for an error, and catching this type is how a portable collector
-// loop tells the two apart without knowing which platform API was abandoned.
-class stop_requested : public std::exception {
- public:
-  const char *what() const noexcept override { return "stop requested"; }
-};
+//
+// stop_requested, which a worker throws when it abandons a step because this
+// signal fired, lives in threads/stop_requested.hpp (included above) so that
+// guarded_thread.hpp can recognise it without pulling <windows.h> in too.
 
 class stop_signal {
  public:

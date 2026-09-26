@@ -11,5 +11,6 @@
 	"commands" : {
 		"check_mysql"		: "Check MySQL/MariaDB server connectivity and health (version, flavor, uptime, connections).",
 		"check_mysql_query"	: "Run a custom SQL query and apply thresholds to the returned rows."
-	}
+	},
+	"facts" : true
 }

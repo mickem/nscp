@@ -57,7 +57,7 @@
  * formatted as password_hash.cpp writes it.
  */
 import request from "supertest";
-import { NscpInstance, REST_URL, setupRestNscp } from "@fixtures/index";
+import { NscpInstance, REST_URL, setupRestNscp, describeOnUnix } from "@fixtures/index";
 
 jest.setTimeout(900_000);
 
@@ -71,7 +71,7 @@ const HASHED_PASSWORD_ROTATED =
 const USER_PATH = "/settings/WEB/server/users/persistent";
 
 /** A clean stop is a SIGTERM the agent turns into a shutdown; Windows has none. */
-const describeCleanRestart = process.platform === "win32" ? describe.skip : describe;
+const describeCleanRestart = describeOnUnix;
 
 describe("REST session persistence", () => {
   let nscp: NscpInstance;

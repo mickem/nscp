@@ -10,6 +10,7 @@
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/settings/helper.hpp>
+#include <nscp/password_hash.hpp>
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
 
@@ -60,11 +61,30 @@ bool NSCAServer::loadModuleEx(const std::string &alias, const NSCAPI::moduleLoad
   socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, false, "", "${certificate-path}/certificate.pem", "",
                                                        "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
 
+  // The encryption key, and inherited from nowhere. /settings/default is the
+  // shared password inbound protocols verify a caller against - the web UI,
+  // check_nt - and it is stored hashed; NSCA never verifies a password,
+  // the string is the key the payload is encrypted with and every submitting
+  // client has to know it, so a hash there is a key nobody has. Nor is it read
+  // from NSCAClient: that key is what *this* agent submits to a remote daemon
+  // with, a different secret shared with a different peer, and quietly reusing
+  // it would let a client target hand out a listening key. One section, one
+  // key, set on purpose - and the server refuses to start without it rather
+  // than listen with a well-known one.
+  settings.alias()
+      .add_key_to_settings()
+
+      .add_password("password", sh::string_key(&password_, ""), DEFAULT_PASSWORD_NAME,
+                    "The NSCA encryption key: the same value every host submitting to this agent uses. Required whenever encryption is enabled - "
+                    "the server refuses to start without it, since an empty password is a well-known key. Inherited from nowhere: not "
+                    "/settings/default (the hashed password inbound protocols verify against) and not the NSCAClient target (the key this agent "
+                    "submits to a remote daemon with, which is a different secret).")
+
+      ;
+
   settings.alias()
       .add_parent("/settings/default")
       .add_key_to_settings()
-
-      .add_password("password", sh::string_key(&password_, ""), DEFAULT_PASSWORD_NAME, DEFAULT_PASSWORD_DESC)
 
       .add_string("inbox", sh::string_key(&channel_, "inbox"), "INBOX", "The default channel to post incoming messages on");
 
@@ -77,10 +97,29 @@ bool NSCAServer::loadModuleEx(const std::string &alias, const NSCAPI::moduleLoad
     NSC_LOG_ERROR_STD("Refusing to start NSCA server: " + utf8::utf8_from_native(e.what()));
     return false;
   }
+  if (encryption_ != nscp::encryption::helpers::no_encryption && password_hash::is_hashed(password_)) {
+    // The key is derived from the password string itself, so a hashed value is
+    // not a usable key: no client knows it, and starting anyway would silently
+    // reject every submission. This key is inherited from nowhere, so it takes
+    // a deliberate paste to get here, but a stored hash is never a key - refuse
+    // rather than run deaf.
+    NSC_LOG_ERROR_STD("Refusing to start NSCA server: the password is stored hashed (pbkdf2-sha256$...), but NSCA encryption (" + encryption_name_ +
+                      ") derives its key from the clear-text password. Set the clear-text key under /settings/NSCA/server (password=...), or set "
+                      "encryption = none.");
+    return false;
+  }
   if (encryption_ != nscp::encryption::helpers::no_encryption && password_.empty()) {
-    NSC_LOG_ERROR_STD("NSCA encryption is enabled (" + encryption_name_ +
-                      ") but the password is empty. The NSCA key is derived directly from the password, so an empty password is a well-known key: anyone who "
-                      "can reach the port can decrypt and forge submissions. Set a password under /settings/default (password=...) on both ends.");
+    // Loudly, and without starting. An empty password is a well-known key, so
+    // a server that came up anyway would accept forged submissions from anyone
+    // who can reach the port while looking configured. There is nothing to fall
+    // back on - the key is shared with the hosts submitting *to* this agent and
+    // only the operator knows it - so the only safe answer is to refuse.
+    NSC_LOG_ERROR_STD("Refusing to start NSCA server: encryption is enabled (" + encryption_name_ +
+                      ") but no password is set under /settings/NSCA/server. The NSCA key is derived directly from the password, so an empty one is a "
+                      "well-known key: anyone who can reach the port could decrypt and forge submissions. Set password=<the key every submitting host "
+                      "uses> under /settings/NSCA/server - it is deliberately not inherited from /settings/default or from NSCAClient - or set "
+                      "encryption = none if the payload genuinely needs no protection.");
+    return false;
   }
 
 #ifndef USE_SSL

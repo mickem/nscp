@@ -96,6 +96,7 @@ std::string installer_feature_hint(const std::string &module) {
       {"CheckDisk", "Check Plugins"},
       {"CheckTaskSched", "Check Plugins"},
       {"CheckWindowsApps", "Check Plugins"},
+      {"CheckHyperV", "Check Plugins"},
       {"CheckSecurity", "Check Plugins"},
       {"CheckMSSQL", "Check Plugins"},
       // Its own feature, not part of "Check Plugins": it is the one check
@@ -1430,6 +1431,14 @@ void nsclient::core::plugin_manager::collect_facts_from(const plugin_type &plugi
     errors[problem.first] = problem.second;
     log_fact_problem_once(problem.first, problem.second, failing);
   }
+}
+
+std::vector<std::string> nsclient::core::plugin_manager::get_loaded_modules() {
+  std::vector<std::string> modules;
+  for (const plugin_type &plugin : plugin_list_.get_plugins()) {
+    if (plugin) modules.push_back(plugin->getModule());
+  }
+  return modules;
 }
 
 void nsclient::core::plugin_manager::process_facts(const std::string &reason) {

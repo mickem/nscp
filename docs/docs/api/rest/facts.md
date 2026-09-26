@@ -38,9 +38,10 @@ os = true
 hardware = true
 ```
 
-`[/settings/system/unix/facts]` on Linux, with the same keys. Which sets exist
-is part of each producing module's reference documentation. The collection
-interval is `[/settings/facts] interval` (an hour by default).
+`[/settings/system/unix/facts]` on Linux, with the same keys. Which sets exist,
+which module produces each and what they contain is on the
+[Host Facts](../../concepts/facts.md) page. The collection interval is
+`[/settings/facts] interval` (an hour by default).
 
 Turning a set off stops the module returning it, and the core then drops it
 from the document — there is nothing to clean up.

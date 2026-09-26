@@ -176,6 +176,9 @@ jobs:
         url="https://github.com/mickem/check_nsclient/releases/download/${ver}/check_nsclient-${ver}-linux-${{ matrix.arch }}"
         echo "Fetching $url"
         curl -sSfL --retry 8 --retry-delay 15 --retry-max-time 300 -o check_nsclient "$url"
+        # Shipped inside the package, so pinned like every other dependency.
+        # See .github/dependency-checksums.txt.
+        .github/scripts/verify-checksum.sh "check_nsclient-linux-${{ matrix.arch }}" "${ver}" check_nsclient
         chmod +x check_nsclient
 
     - name: CMake (NSCP)

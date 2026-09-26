@@ -165,15 +165,7 @@ namespace {
 
 // Per-field readers tolerating both missing columns (older Windows lacks e.g.
 // ConfiguredClockSpeed) and WMI's "<NULL>" rendering of empty values.
-std::string get_s(const wmi_impl::row &r, const char *col) {
-  try {
-    std::string v = boost::trim_copy(r.get_string(col));
-    if (v == "<NULL>") return "";
-    return v;
-  } catch (...) {
-    return "";
-  }
-}
+std::string get_s(const wmi_impl::row &r, const char *col) { return boost::trim_copy(r.get_string_or_empty(col)); }
 
 long long get_ll(const wmi_impl::row &r, const char *col) {
   const std::string v = get_s(r, col);

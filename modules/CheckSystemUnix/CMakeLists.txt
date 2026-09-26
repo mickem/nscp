@@ -35,8 +35,18 @@ set(SRCS
     check_network.cpp
     check_process_history.cpp
     system_facts.cpp
+    software_facts_unix.cpp
     ${NSCP_INCLUDEDIR}/facts/host_facts.cpp
+    ${NSCP_INCLUDEDIR}/facts/network_facts.cpp
+    ${NSCP_INCLUDEDIR}/facts/software_facts.cpp
 )
+
+# The Linux reader, kept apart from the list above so the split is visible:
+# `_unix` there is POSIX, this reads sysfs. The check_*.cpp files above still
+# read procfs inline, which is why module.cmake skips the module on macOS; a
+# port adds a `_darwin` reader (sysctl, Mach, libproc) in an elseif(APPLE)
+# branch here and splits the procfs reads out behind it.
+set(SRCS ${SRCS} network_facts_linux.cpp)
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
 
@@ -71,6 +81,8 @@ if(WIN32)
         check_process_history.h
         system_facts.h
         ${NSCP_INCLUDEDIR}/facts/host_facts.hpp
+        ${NSCP_INCLUDEDIR}/facts/network_facts.hpp
+        ${NSCP_INCLUDEDIR}/facts/software_facts.hpp
     )
 endif(WIN32)
 
@@ -126,7 +138,13 @@ NSCP_CREATE_TEST(
         check_uptime.cpp
         system_facts_test.cpp
         system_facts.cpp
+        network_facts_linux.cpp
+        network_facts_linux_test.cpp
+        software_facts_unix.cpp
+        software_facts_unix_test.cpp
         ${NSCP_INCLUDEDIR}/facts/host_facts.cpp
+        ${NSCP_INCLUDEDIR}/facts/network_facts.cpp
+        ${NSCP_INCLUDEDIR}/facts/software_facts.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp

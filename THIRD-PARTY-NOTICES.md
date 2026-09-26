@@ -20,7 +20,11 @@ containing GPL-2.0 code. Beast-backend binaries carry the full dual choice.
 
 Fetched and built at packaging time (not vendored in this repository) and linked
 into the shipped binary. Their license notices are reproduced because we
-distribute them. Pinned versions live in `.github/workflows/build-windows.yml`.
+distribute them. Pinned versions live in `.github/workflows/build-windows.yml`,
+and the digest or commit each download is verified against in
+`.github/dependency-checksums.txt`. Every Windows release lists both, per
+component, in the CycloneDX SBOM it publishes next to the MSI and the zip
+(`sbom.cdx.json` inside the zip).
 
 | Component                              | Notes                                   | License       |
 |----------------------------------------|-----------------------------------------|---------------|

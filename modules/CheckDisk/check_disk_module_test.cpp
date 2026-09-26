@@ -355,3 +355,72 @@ TEST_F(CheckDiskModule, FetchMetricsWithIdleCollectorProducesTheDiskBundle) {
   // Nothing has been collected, so the bundle carries no io/free sections.
   EXPECT_EQ(response.bundles(0).children_size(), 0);
 }
+
+// ============================================================================
+// Facts
+// ============================================================================
+
+namespace {
+const PB::Facts::FactSet *find_fact_set(const PB::Facts::FactsMessage &message, const std::string &id) {
+  if (message.payload_size() == 0) return nullptr;
+  for (const PB::Facts::FactSet &set : message.payload(0).sets()) {
+    if (set.id() == id) return &set;
+  }
+  return nullptr;
+}
+
+std::string string_field(const PB::Facts::Object &object, const std::string &key) {
+  for (const PB::Facts::Field &field : object.fields()) {
+    if (field.key() == key && field.value().kind_case() == PB::Facts::Value::kStringValue) return field.value().string_value();
+  }
+  return "";
+}
+}  // namespace
+
+TEST_F(CheckDiskModule, FetchFactsProducesNothingUntilEnabled) {
+  // The default: an inventory is opt-in, so a module that was merely loaded
+  // returns no set - and the core reads that as "not produced here".
+  ASSERT_TRUE(load());
+  nscapi::facts::response response;
+  module_.fetchFacts(nscapi::facts::request(""), response);
+  EXPECT_EQ(response.to_message().payload(0).sets_size(), 0);
+}
+
+TEST_F(CheckDiskModule, FetchFactsNamesEveryVolumeTheWayCheckDrivesizeDoes) {
+  core().set_setting("storage.volumes", "true");
+  ASSERT_TRUE(load());
+  nscapi::facts::response response;
+  module_.fetchFacts(nscapi::facts::request(""), response);
+
+  const PB::Facts::FactsMessage message = response.to_message();
+  const PB::Facts::FactSet *storage = find_fact_set(message, "storage");
+  ASSERT_NE(storage, nullptr);
+  EXPECT_TRUE(storage->error().empty()) << storage->error();
+  ASSERT_EQ(storage->facts().fields_size(), 1);
+  const PB::Facts::Field &volumes = storage->facts().fields(0);
+  EXPECT_EQ(volumes.key(), "volumes");
+  ASSERT_TRUE(volumes.value().has_list_value());
+
+  std::vector<std::string> ids;
+  for (const PB::Facts::Value &record : volumes.value().list_value().values()) {
+    ASSERT_TRUE(record.has_object_value());
+    const std::string id = string_field(record.object_value(), "id");
+    EXPECT_FALSE(id.empty());
+    EXPECT_FALSE(string_field(record.object_value(), "type").empty()) << id;
+    ids.push_back(id);
+  }
+
+  // The convention "context on failure" will hang on: a record's id is the
+  // `drive` keyword check_drivesize reports for the same volume, so a failing
+  // check can find its record without a lookup table.
+  PB::Commands::QueryResponseMessage::Response check;
+  module_.check_drivesize(make_request("check_drivesize", {"drive=*", "warning=none", "critical=none", "empty-state=ok", "filter=none", "top-syntax=${list}",
+                                                           "detail-syntax=%(drive)", "perf-config=*(ignored:true)"}),
+                          &check);
+  std::string expected;
+  for (const std::string &id : ids) {
+    if (!expected.empty()) expected += ", ";
+    expected += id;
+  }
+  EXPECT_EQ(join_lines(check), expected);
+}

@@ -3,9 +3,6 @@
 
 #include "check_docker.hpp"
 
-#include "docker_client.hpp"
-#include "docker_endpoint.hpp"
-
 #include <algorithm>
 #include <boost/json.hpp>
 #include <memory>
@@ -16,6 +13,9 @@
 #include <str/format.hpp>
 #include <string>
 #include <vector>
+
+#include "docker_client.hpp"
+#include "docker_endpoint.hpp"
 
 namespace json = boost::json;
 namespace po = boost::program_options;
@@ -66,13 +66,8 @@ std::shared_ptr<container_obj> parse_container(const json::object &o) {
   record->health = parse_health(record->status);
   record->created = get_num(o, "Created");
 
-  if (const json::value *names = o.if_contains("Names")) {
-    if (names->is_array()) {
-      for (const auto &name : names->as_array()) {
-        if (name.is_string()) str::format::append_list(record->names, strip_slash(name.as_string().c_str()), ",");
-      }
-    }
-  }
+  // Shared with the docker.containers fact set, whose record id this is.
+  record->names = container_names(o);
 
   // First IP found on any attached network (containers are commonly on
   // custom networks, not just "bridge").
@@ -93,25 +88,9 @@ std::shared_ptr<container_obj> parse_container(const json::object &o) {
     }
   }
 
-  // "0.0.0.0:8080->80/tcp" for published ports, "80/tcp" for unpublished.
-  if (const json::value *ports = o.if_contains("Ports")) {
-    if (ports->is_array()) {
-      for (const auto &p : ports->as_array()) {
-        if (!p.is_object()) continue;
-        const json::object &po_ = p.as_object();
-        const long long private_port = get_num(po_, "PrivatePort");
-        const long long public_port = get_num(po_, "PublicPort");
-        const std::string type = get_str(po_, "Type");
-        std::string entry;
-        if (public_port > 0) {
-          const std::string ip = get_str(po_, "IP");
-          entry = (ip.empty() ? "" : ip + ":") + std::to_string(public_port) + "->";
-        }
-        entry += std::to_string(private_port) + (type.empty() ? "" : "/" + type);
-        str::format::append_list(record->ports, entry, ",");
-      }
-    }
-  }
+  // "0.0.0.0:8080->80/tcp" for published ports, "80/tcp" for unpublished;
+  // the spelling is shared with the docker.containers fact set.
+  for (const std::string &entry : container_ports(o)) str::format::append_list(record->ports, entry, ",");
 
   if (const json::value *labels = o.if_contains("Labels")) {
     if (labels->is_object()) {
@@ -137,7 +116,8 @@ struct container_obj_handler : public container_context {
         .add_string_var("container_status", &container_obj::get_status, "Human readable status, e.g. 'Up 3 hours (healthy)'")
         .add_string_var("status", &container_obj::get_status,
                         "Deprecated alias for container_status (the name clashes with the generic status summary keyword)")
-        .add_string_var("health", &container_obj::get_health, "Health-check state: healthy, unhealthy, starting or empty when the container has no health check")
+        .add_string_var("health", &container_obj::get_health,
+                        "Health-check state: healthy, unhealthy, starting or empty when the container has no health check")
         .add_string_var("ip", &container_obj::get_ip, "First IP address on any network the container is attached to")
         .add_string_var("ports", &container_obj::get_ports, "Published/exposed ports, e.g. 0.0.0.0:8080->80/tcp")
         .add_string_var("labels", &container_obj::get_labels, "Container labels as key=value, comma separated");

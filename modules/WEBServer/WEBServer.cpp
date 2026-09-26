@@ -40,7 +40,7 @@
 #include "modules_controller.hpp"
 #include "openmetrics_controller.hpp"
 #include "openmetrics_renderer.hpp"
-#include "password_hash.hpp"
+#include <nscp/password_hash.hpp>
 #include "query_controller.hpp"
 #include "results_controller.hpp"
 #include "scripts_controller.hpp"
@@ -914,7 +914,7 @@ bool WEBServer::cli_add_user(const PB::Commands::ExecuteRequestMessage::Request 
         return true;
       }
       password_for_display = password;
-    } else if (web_password::is_hashed(password)) {
+    } else if (password_hash::is_hashed(password)) {
       // Existing on-disk hash; nothing to migrate, nothing to show.
       password_for_display = "(unchanged)";
     } else if (password_was_supplied) {
@@ -952,11 +952,11 @@ bool WEBServer::cli_add_user(const PB::Commands::ExecuteRequestMessage::Request 
       }
     }
 
-    // Hash the per-user password before persisting. The /settings/default
-    // password (shared with NRPE / NSCA / NSClient) is untouched - those
-    // protocols still need the plaintext to compare on the wire.
-    if (!web_password::is_hashed(password)) {
-      const std::string hashed = web_password::hash_password(password);
+    // Hash the per-user password before persisting. The shared
+    // /settings/default password is not this command's business; `nscp web
+    // password --set` is what rotates (and hashes) that one.
+    if (!password_hash::is_hashed(password)) {
+      const std::string hashed = password_hash::hash_password(password);
       if (hashed.empty()) {
         nscapi::protobuf::functions::set_response_bad(*response, "Failed to hash password (RNG / KDF failure)");
         return true;
@@ -1064,12 +1064,15 @@ bool WEBServer::cli_add_role(const PB::Commands::ExecuteRequestMessage::Request 
     return true;
   }
 }
+
 bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
   namespace po = boost::program_options;
   namespace pf = nscapi::protobuf::functions;
   po::options_description desc;
-  std::string allowed_hosts, cert, key, port, password;
+  std::string allowed_hosts, cert, key, port, password, existing_admin_password;
+  bool was_insecure = false;
   const std::string path = "/settings/WEB/server";
+  const std::string admin_path = path + "/users/admin";
 
   pf::settings_query q(get_id());
   q.get("/settings/default", "allowed hosts", "127.0.0.1");
@@ -1077,6 +1080,10 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
   q.get(path, "certificate", "${certificate-path}/certificate.pem");
   q.get(path, "certificate key", "");
   q.get(path, "port", "8443");
+  q.get(path, "allow insecure", false);
+  // Whether there is an admin row already, which decides whether a re-run that
+  // was given no password may write one (see below).
+  q.get(admin_path, "password", "");
 
   get_core()->settings_query(q.request(), q.response());
   if (!q.validate_response()) {
@@ -1094,19 +1101,38 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
       key = val.get_string();
     else if (val.matches(path, "port"))
       port = val.get_string();
+    else if (val.matches(path, "allow insecure"))
+      was_insecure = val.get_bool();
+    else if (val.matches(admin_path, "password"))
+      existing_admin_password = val.get_string();
   }
-  bool want_https = !cert.empty();
+  // HTTPS is what install sets up unless the operator asks for cleartext with
+  // --insecure. It used to hinge on a `--https` bool_switch, and a bool_switch
+  // is stored as false when the flag is absent: a plain `nscp web install`
+  // therefore blanked `certificate`, never generated one, and (since the
+  // server stopped downgrading to cleartext on its own) left a WEB server that
+  // refused to start. The flag is still accepted so scripts keep working.
+  bool https_flag = false;
+  bool insecure = false;
 
   bool disable_admin = false;
 
   // clang-format off
   desc.add_options()("help", "Show help.")
       ("allowed-hosts,h", po::value<std::string>(&allowed_hosts)->default_value(allowed_hosts), "Set which hosts are allowed to connect")
-      ("certificate", po::value<std::string>(&cert)->default_value(cert), "Length of payload (has to be same as on the server)")
-      ("certificate-key", po::value<std::string>(&key)->default_value(key), "Client certificate to use")
+      ("certificate", po::value<std::string>(&cert)->default_value(cert),
+        "TLS certificate (PEM) the WEB server presents. The default, ${certificate-path}/certificate.pem, is generated as a "
+        "self-signed certificate (key and certificate in the one file) when it does not exist yet.")
+      ("certificate-key", po::value<std::string>(&key)->default_value(key),
+        "Private key for the certificate, when it is not in the same file as the certificate.")
       ("port", po::value<std::string>(&port)->default_value(port), "Port to use")
       ("password", po::value<std::string>(&password)->default_value(password), "Password to use to authenticate (if none a generated password will be set)")
-      ("https", boost::program_options::bool_switch(&want_https), "Enable https")
+      ("https", boost::program_options::bool_switch(&https_flag),
+        "Serve HTTPS. This is the default, the flag is kept for existing scripts; use --insecure for cleartext HTTP.")
+      ("insecure", boost::program_options::bool_switch(&insecure),
+        "Serve cleartext HTTP instead of HTTPS: writes `allow insecure = true` and no certificate, and moves the port from "
+        "8443 to 8080 when it is the default. Session keys and passwords then travel in clear, so only use this on loopback "
+        "or behind a TLS-terminating proxy.")
       ("disable-admin", boost::program_options::bool_switch(&disable_admin),
         "Lock out the built-in admin user. Sets `disable admin user = true` under [/settings/WEB/server] so the "
         "admin account is never seeded and the REST script-upload endpoint has no caller. Does NOT create any user "
@@ -1129,6 +1155,11 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
       return true;
     }
 
+    if (https_flag && insecure) {
+      nscapi::protobuf::functions::set_response_bad(*response, "--https and --insecure are mutually exclusive.");
+      return true;
+    }
+
     // --disable-admin and --password are mutually exclusive: the install
     // command with --disable-admin does not create any user, so a password
     // would have nowhere to go. Refuse explicitly rather than silently
@@ -1146,6 +1177,13 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
 
     std::stringstream result;
 
+    // `--password` is pre-populated from /settings/default/password by
+    // default_value() above, so the flag being present says nothing on its
+    // own; `defaulted()` is what separates a value the operator typed from
+    // the one already on disk.
+    const bool password_was_supplied = vm.count("password") && !vm["password"].defaulted();
+    bool password_was_generated = false;
+
     if (password.empty() && !disable_admin) {
       result << "WARNING: No password specified using a generated password" << std::endl;
       password = token_store::generate_token(32);
@@ -1153,6 +1191,7 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
         nscapi::protobuf::functions::set_response_bad(*response, "Failed to generate a password (RNG failure)");
         return true;
       }
+      password_was_generated = true;
     }
 
     nscapi::protobuf::functions::settings_query s(get_id());
@@ -1160,24 +1199,81 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
     s.set("/settings/default", "allowed hosts", allowed_hosts);
     s.set("/modules", "WEBServer", "enabled");
     boost::replace_all(port, "s", "");
-    if (!want_https) {
+    if (insecure) {
       cert = "";
       key = "";
+      // Mirror what the server does at start-up with `allow insecure` and no
+      // certificate: it moves off the TLS default port so a plain-HTTP
+      // listener does not masquerade on the conventional HTTPS port. Writing
+      // 8443 here would make the "point your browser to" line below wrong.
+      if (port == "8443") {
+        port = "8080";
+        result << "Using port 8080 instead of the HTTPS default 8443 for cleartext HTTP." << std::endl;
+      }
+      s.set(path, "allow insecure", "true");
+      result << "WARNING: Serving UNENCRYPTED HTTP (allow insecure = true): session keys and passwords are transmitted in clear. "
+                "Only use this on loopback or behind a TLS-terminating proxy."
+             << std::endl;
       result << "Point your browser to http://localhost:" << port << std::endl;
     } else {
-      if (cert == key || key.empty()) {
-        result << "Certificate & key: " << get_core()->expand_path(cert) << "." << std::endl;
-      } else {
-        result << "Certificate: " << get_core()->expand_path(cert) << std::endl;
-        result << "Certificate key: " << get_core()->expand_path(key) << std::endl;
+      // An earlier install may have left `certificate` blank (the pre-fix
+      // behaviour of this very command, or an --insecure run): HTTPS needs a
+      // certificate, so fall back to the default and generate it below. The
+      // generated file carries its own key, so a `certificate key` left over
+      // from whatever certificate used to be configured would make the server
+      // load a key that does not match - the same "installed fine, never
+      // starts" symptom by another route. Drop it, and say so.
+      if (cert.empty()) {
+        cert = "${certificate-path}/certificate.pem";
+        if (!key.empty()) {
+          result << "Ignoring certificate key " << get_core()->expand_path(key)
+                 << ": no certificate was configured, and the default certificate carries its own key." << std::endl;
+          key = "";
+        }
       }
-      const auto certificate = get_core()->expand_path(cert);
+      // Undo the port move of an earlier --insecure install (8443 -> 8080, see
+      // above) when going back to HTTPS, unless --port asked for it: TLS on
+      // the conventional cleartext port is not what the operator chose.
+      if (was_insecure && port == "8080" && vm["port"].defaulted()) {
+        port = "8443";
+        result << "Restoring the HTTPS default port 8443 (8080 was set by an earlier --insecure install)." << std::endl;
+      }
+      const std::string certificate = get_core()->expand_path(cert);
+      const std::string certificate_key = get_core()->expand_path(key);
+      if (cert == key || key.empty()) {
+        result << "Certificate & key: " << certificate << "." << std::endl;
+      } else {
+        result << "Certificate: " << certificate << std::endl;
+        result << "Certificate key: " << certificate_key << std::endl;
+      }
+      // Generates a self-signed certificate (key and certificate in the one
+      // file, readable only by its owner) when the path is the default
+      // `.../certificate.pem` and the file does not exist. This command runs
+      // under sudo on a packaged Linux host while the service runs as
+      // `nsclient`, so a generated file is handed to the owner of the state
+      // directory - the service account - or the server would find the
+      // certificate unreadable at the next start and refuse to come up.
       std::list<std::string> messages;
-      socket_helpers::validate_certificate(certificate, messages);
+      socket_helpers::validate_certificate(certificate, messages, get_core()->expand_path("${data-path}"));
       for (const auto &e : messages) {
         result << "Certificate validation: " << e << std::endl;
       }
-      result << "Point your browser to -- https://localhost:" << port << std::endl;
+      if (!boost::filesystem::is_regular_file(certificate)) {
+        result << "WARNING: The certificate " << certificate
+               << " does not exist. The WEB server refuses to start without it: place a certificate there, "
+                  "point --certificate at the default ${certificate-path}/certificate.pem to have one generated, "
+                  "or run `nscp web install --insecure` to accept cleartext HTTP."
+               << std::endl;
+      } else if (!key.empty() && cert != key && !boost::filesystem::is_regular_file(certificate_key)) {
+        result << "WARNING: The certificate key " << certificate_key
+               << " does not exist. The WEB server will fail to load its certificate until it does (leave --certificate-key "
+                  "empty when the key is in the certificate file, as it is for a generated one)."
+               << std::endl;
+      }
+      // A stale `allow insecure = true` from an earlier --insecure install
+      // would silently turn a lost certificate into a cleartext listener.
+      s.set(path, "allow insecure", "false");
+      result << "Point your browser to https://localhost:" << port << std::endl;
     }
     s.set(path, "certificate", cert);
     s.set(path, "certificate key", key);
@@ -1208,17 +1304,72 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
       // and the boot loop then re-applies the stale on-disk hash over the
       // seeded value, so the new password is silently ignored until the
       // user manually deletes the admin row.
-      s.set("/settings/default", "password", password);
+      //
+      // The password this command is responsible for - one the operator typed
+      // or one it generated - is stored hashed, in the shared default and in
+      // the admin row alike. The shared default is read by the WEB seed and by
+      // check_nt, which verify through password_hash and so take either form.
+      //
+      // A value that was merely found on disk is a different matter, and this
+      // command does not rewrite it:
+      //
+      //  * an existing hash is stored as it is - hashing it again would lock
+      //    the admin out;
+      //  * an existing clear-text value is left in the shared default as it
+      //    is. A re-run of `web install` to rotate a certificate has not been
+      //    given a password and has no business migrating one; `nscp web
+      //    password --set` is what does that, deliberately.
+      //
+      // The admin row gets the hash when this command owns the password, and
+      // when there is no row yet to seed. It must NOT be rewritten on a re-run
+      // that was given nothing: `web password --set <B> --only-web` exists to
+      // change the admin login on its own, and a later `web install` to rotate
+      // a certificate would otherwise put the shared default's value back over
+      // it - while printing "Keeping the existing password".
+      const bool password_is_ours = password_was_supplied || password_was_generated;
+      const bool already_hashed = password_hash::is_hashed(password);
 
-      const std::string admin_path = path + "/users/admin";
-      std::string hashed_admin = web_password::hash_password(password);
-      if (hashed_admin.empty()) {
-        hashed_admin = password;  // KDF failure: fall back to plaintext (still verifies)
+      std::string stored = password;
+      if (!already_hashed) {
+        const std::string hashed = password_hash::hash_password(password);
+        if (!hashed.empty()) {
+          stored = hashed;
+        }
+        // KDF failure: fall back to the clear text (still verifies).
       }
-      s.set(admin_path, "password", hashed_admin);
+
+      if (password_is_ours || already_hashed) {
+        s.set("/settings/default", "password", stored);
+      }
+
+      // This is the row as the *running* module sees it, and ensure_user() has
+      // already seeded one in memory from the shared value, so on a fresh
+      // install it reads as existing. That costs nothing: a fresh install is
+      // also `password_is_ours`, so the row is written anyway, and if it were
+      // not, the next boot seeds it again from the same value. What the check is
+      // for is the case that matters - a row an operator has deliberately
+      // changed, which a later re-run must not put back.
+      const bool admin_row_exists = !existing_admin_password.empty();
+      if (password_is_ours || !admin_row_exists) {
+        s.set(admin_path, "password", stored);
+      }
       s.set(admin_path, "role", "full");
 
-      result << "Login using this password " << password << std::endl;
+      if (password_is_ours) {
+        if (already_hashed) {
+          // An operator who passes a value that is already in stored form
+          // (copied from another agent) gets it verbatim; there is no clear
+          // text here to echo.
+          result << "Password stored as given (already in pbkdf2-sha256 form, so it cannot be shown)." << std::endl;
+        } else {
+          result << "Login using this password " << password << std::endl;
+        }
+      } else if (already_hashed) {
+        result << "Keeping the existing password (stored hashed, so it cannot be shown); pass --password to set a new one." << std::endl;
+      } else {
+        result << "Keeping the existing password, which is stored in clear text; pass --password to set a new one," << std::endl;
+        result << "or `nscp web password --set <password>` to store the same one hashed." << std::endl;
+      }
     }
 
     s.save();
@@ -1245,15 +1396,20 @@ bool WEBServer::password(const PB::Commands::ExecuteRequestMessage::Request &req
   po::options_description desc;
 
   std::string password;
-  bool display = false, setweb = false;
+  bool display = false, only_web = false;
 
   desc.add_options()("help", "Show help.")
 
-      ("set,s", po::value<std::string>(&password), "Set the new password")
+      ("set,s", po::value<std::string>(&password),
+       "Set the new password. It is stored hashed (pbkdf2-sha256$...) in the shared /settings/default/password, which the WEB admin seed and "
+       "check_nt read, and in the admin user's row under /settings/WEB/server/users/admin when that row exists. An agent that also serves NSCA "
+       "keeps a clear-text password of its own under /settings/NSCA/server, since NSCA derives its encryption key from the clear text.")
 
-          ("display,d", po::bool_switch(&display), "Display the current configured password")
+          ("display,d", po::bool_switch(&display), "Display the current configured password (only possible while it is still stored in clear text)")
 
-              ("only-web", po::bool_switch(&setweb), "Set the password for WebServer only (if not specified the default password is used)")
+              ("only-web", po::bool_switch(&only_web),
+               "Set the password for the WEB server only (the admin user's row, or the /settings/WEB/server override when no admin row exists) and "
+               "leave the shared /settings/default/password alone")
 
       ;
   try {
@@ -1289,15 +1445,67 @@ bool WEBServer::password(const PB::Commands::ExecuteRequestMessage::Request &req
     settings.notify();
     if (password.empty())
       nscapi::protobuf::functions::set_response_good(*response, "No password set you will not be able to login");
+    else if (password_hash::is_hashed(password))
+      nscapi::protobuf::functions::set_response_good(*response,
+                                                     "The password is stored hashed and cannot be displayed. Use `nscp web password --set <password>` to replace it.");
     else
-      nscapi::protobuf::functions::set_response_good(*response, "Current password: " + password);
+      nscapi::protobuf::functions::set_response_good(
+          *response, "Current password: " + password +
+                         "\nThe password is stored in clear text; `nscp web password --set <password>` stores it hashed (re-setting the same value works).");
   } else if (!password.empty()) {
+    // The clear text is hashed here; a value that already carries the hash
+    // prefix (copied from another agent) is stored as it is.
+    std::string stored = password;
+    if (!password_hash::is_hashed(password)) {
+      stored = password_hash::hash_password(password);
+      if (stored.empty()) {
+        nscapi::protobuf::functions::set_response_bad(*response, "Failed to hash password (RNG / KDF failure)");
+        return true;
+      }
+    }
+
+    // Since the admin login checks the per-user row when there is one, the
+    // shared key alone would change nothing on an agent that has booted the
+    // WEB server before: the row is updated too. Without a row the first
+    // boot seeds it from the WEB override or, failing that, the shared key.
+    const std::string admin_path = "/settings/WEB/server/users/admin";
+    const std::string web_path = "/settings/WEB/server";
+    pf::settings_query q(get_id());
+    q.get(admin_path, "password", "");
+    q.get(admin_path, "role", "");
+    q.get(web_path, "password", "");
+    get_core()->settings_query(q.request(), q.response());
+    if (!q.validate_response()) {
+      nscapi::protobuf::functions::set_response_bad(*response, q.get_response_error());
+      return true;
+    }
+    bool admin_row_exists = false;
+    bool web_override_exists = false;
+    for (const pf::settings_query::key_values &val : q.get_query_key_response()) {
+      if (val.matches(admin_path, "password") || val.matches(admin_path, "role")) {
+        if (!val.get_string().empty()) admin_row_exists = true;
+      } else if (val.matches(web_path, "password")) {
+        if (!val.get_string().empty()) web_override_exists = true;
+      }
+    }
+
+    std::stringstream result;
     nscapi::protobuf::functions::settings_query s(get_id());
-    if (setweb) {
-      s.set("/settings/default", "password", password);
-      s.set("/settings/WEB/server", "password", "");
-    } else {
-      s.set("/settings/WEB/server", "password", password);
+    // Say what was actually written. Without OpenSSL, hash_password() hands
+    // back the clear text, so claiming "stored hashed" there would describe
+    // something this build cannot do.
+    const std::string how = password_hash::is_hashed(stored) ? " (stored hashed)" : " (stored in clear text: this build has no password hashing)";
+    if (!only_web) {
+      s.set("/settings/default", "password", stored);
+      result << "Password updated" << how << " in /settings/default." << std::endl;
+    }
+    if (admin_row_exists) {
+      s.set(admin_path, "password", stored);
+      result << "Password updated" << how << " for the admin user (" << admin_path << ")." << std::endl;
+    }
+    if (web_override_exists || (only_web && !admin_row_exists)) {
+      s.set(web_path, "password", stored);
+      result << "Password updated" << how << " in " << web_path << "." << std::endl;
     }
 
     s.save();
@@ -1306,7 +1514,8 @@ bool WEBServer::password(const PB::Commands::ExecuteRequestMessage::Request &req
       nscapi::protobuf::functions::set_response_bad(*response, s.get_response_error());
       return true;
     }
-    nscapi::protobuf::functions::set_response_good(*response, "Password updated successfully, please restart nsclient++ for changes to affect.");
+    result << "Please restart nsclient++ for the change to take effect.";
+    nscapi::protobuf::functions::set_response_good(*response, result.str());
   } else {
     nscapi::protobuf::functions::set_response_bad(*response, nscapi::program_options::help(desc));
   }
@@ -1486,12 +1695,14 @@ void WEBServer::ensure_user(const nscapi::settings_helper::settings_registry &se
   // and in the session (so it can authenticate this run before the
   // normalStart loop populates session from users_).
   const std::string the_path = path + "/" + user;
-  // Per-user passwords on disk are stored hashed. The default password
-  // under /settings/default/password (shared with NRPE / NSCA / NSClient)
-  // is left alone; only this per-user slot is migrated.
+  // Per-user passwords on disk are stored hashed. The value we were handed
+  // is the resolved /settings/default/password (or its WEB override), which
+  // is itself a hash on an agent set up by `nscp web install`, and a
+  // clear-text value on one where the operator wrote the key by hand; only
+  // this per-user slot is migrated, the shared key is left as it is.
   std::string stored = password;
-  if (!stored.empty() && !web_password::is_hashed(stored)) {
-    const std::string hashed = web_password::hash_password(stored);
+  if (!stored.empty() && !password_hash::is_hashed(stored)) {
+    const std::string hashed = password_hash::hash_password(stored);
     if (!hashed.empty()) {
       stored = hashed;
     }

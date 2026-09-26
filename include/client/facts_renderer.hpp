@@ -53,7 +53,7 @@ inline void render_value(const PB::Facts::Value &value, const std::string &inden
         // A record's id is what names it, so it leads the entry and the rest
         // of its fields hang under it.
         const PB::Facts::Value *id = nscapi::facts::tree::get(entry.object_value(), "id");
-        out += "\n" + indent + "- " + (id != nullptr && id->has_string_value() ? id->string_value() : std::string("(no id)"));
+        out += "\n" + indent + "- " + (id != nullptr && id->kind_case() == PB::Facts::Value::kStringValue ? id->string_value() : std::string("(no id)"));
         PB::Facts::Object rest;
         for (const PB::Facts::Field &field : entry.object_value().fields()) {
           if (field.key() == "id") continue;

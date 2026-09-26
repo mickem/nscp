@@ -9,6 +9,8 @@
 #include <set>
 #include <string>
 
+#include "password_memo.hpp"
+
 class NSClientServer : public nscapi::impl::simple_plugin, public check_nt::server::handler {
  public:
   NSClientServer();
@@ -36,7 +38,11 @@ class NSClientServer : public nscapi::impl::simple_plugin, public check_nt::serv
   std::string get_password() const { return password_; }
 
  private:
-  void set_password(std::string password) { password_ = password; }
+  void set_password(std::string password) {
+    password_ = password;
+    // A reload may hand us a different password; the memo belongs to the old one.
+    password_memo_.forget();
+  }
   virtual void set_allow_arguments(bool v) { allowArgs_ = v; }
   virtual void set_allow_nasty_arguments(bool v) { allowNasty_ = v; }
   virtual void set_perf_data(bool v) { noPerfData_ = !v; }
@@ -52,6 +58,9 @@ class NSClientServer : public nscapi::impl::simple_plugin, public check_nt::serv
   socket_helpers::connection_info info_;
   std::shared_ptr<check_nt::server::server> server_;
   std::string password_;
+  // Verifies a request's password against password_, without re-running the
+  // KDF on every request when password_ is a hash. See password_memo.hpp.
+  check_nt_password::memo password_memo_;
   // Set of permitted check_nt request codes (REQ_*). Populated from the `allow`
   // setting; a request for a code not in this set is rejected.
   std::set<int> allowed_commands_;

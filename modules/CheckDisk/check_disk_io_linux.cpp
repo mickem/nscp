@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
-// Unix data acquisition for the disk I/O / disk free subsystem. Disk I/O rates
+// Linux data acquisition for the disk I/O / disk free subsystem. Disk I/O rates
 // are derived from /proc/diskstats cumulative counters sampled over time; free
 // space is read with statvfs over the real mounts. The metric builders / check
 // logic are shared in check_disk_io.cpp.

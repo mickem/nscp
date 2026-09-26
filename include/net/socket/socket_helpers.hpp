@@ -145,6 +145,48 @@ NSCP_NET_EXPORT std::string format_subject_cn_only(void* x509);
 #endif
 NSCP_NET_EXPORT void validate_certificate(const std::string& certificate, std::list<std::string>& list);
 
+// What adopt_file_owner() did.
+enum class owner_handoff { not_needed, handed_over, failed };
+
+// Hand a file this process generated to the account that has to read it.
+//
+// `nscp web install` and `nscp nrpe install` run under sudo on Linux while the
+// packaged service runs as `nsclient`, and a generated private key is written
+// readable by its owner only - so it is root's and the service cannot load it.
+// `reference` is the directory whose owner the file is for: ${data-path}, which
+// packaging creates and chowns to the service account (the same reference
+// `nscp enroll` uses for the fleet identity). Nothing happens unless we are
+// root and the reference belongs to someone else. Only the path itself changes
+// owner, and only when it is a regular file we own with a single link, or a
+// directory we own: it is opened O_NOFOLLOW and chowned by descriptor, because
+// the directory holding a generated certificate can be one the service account
+// writes to, and root chowning by path is how a planted symlink hands it
+// /etc/shadow. A path that already has the reference's owner is not_needed.
+// No-op on Windows, where the service runs as LocalSystem and the material is
+// readable as written.
+//
+// This is the single-path counterpart of onboarding::adopt_owner, which hands
+// over a tree by descending from the reference and therefore refuses a target
+// outside it - by design, and exactly where a certificate lives on Linux
+// (${certificate-path} is the package directory, not ${data-path}). It also
+// lives here rather than in libs/onboarding because the install commands of
+// the check modules link nscp_net and not the fleet library.
+NSCP_NET_EXPORT owner_handoff adopt_file_owner(const std::string& path, const std::string& reference, std::string& error);
+
+// The command that repairs a failed handoff, for the message that reports it:
+// `chown [-R] --reference=<reference> <target>`. Shared with `nscp enroll`.
+NSCP_NET_EXPORT std::string chown_repair_hint(const std::string& target, const std::string& reference, bool recursive);
+
+// validate_certificate(), and when the certificate had to be generated, hand
+// it to the owner of `owner_reference` as adopt_file_owner() does, along with
+// any level of the certificate folder that had to be created (made traversable
+// whatever the umask), reporting the outcome in `list`. A generated CA is
+// handed over as its certificate only: the CA private key, which nothing in
+// the server reads and which mints client certificates, stays with the caller
+// (root), as does a folder created for it. Empty `owner_reference` skips the
+// handoff.
+NSCP_NET_EXPORT void validate_certificate(const std::string& certificate, std::list<std::string>& list, const std::string& owner_reference);
+
 // Substitute the host name placeholders in `spec`: ${hostname}, ${hostname_lc}
 // and ${hostname_uc} are the system host name as reported; ${host}, ${domain},
 // ${host_lc}, ${host_uc}, ${domain_lc} and ${domain_uc} are substituted from it

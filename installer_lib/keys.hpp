@@ -7,6 +7,9 @@
 #define INT_CONF_CAN_CHANGE L"CONF_CAN_CHANGE"
 #define INT_CONF_CAN_CHANGE_REASON L"CONF_CAN_CHANGE_REASON"
 #define INT_CONF_HAS_ERRORS L"CONF_HAS_ERRORS"
+// The password the installer generated for itself, so the writer can tell one
+// nobody has ever seen from one the operator gave.
+#define INT_NSCLIENT_PWD_GENERATED L"NSCP_GENERATED_PWD"
 
 #define ALLOW_CONFIGURATION L"ALLOW_CONFIGURATION"
 
@@ -77,6 +80,17 @@
 // an upgrade never silently moves an installation, and never silently moves a
 // modern one back. See docs/design/shared-folder-migration.md.
 #define LAYOUT_MODE L"LAYOUT"
+
+// NSCA submission, the passive counterpart to the NRPE/check_nt listeners this
+// installer configures. NSCA_PASSWORD is the shared key the nsca daemon
+// encrypts with, so it goes to the NSCA client's target and never to
+// /settings/default - that is the password the web UI and check_nt verify
+// inbound callers against, and it is stored hashed, which is not a key.
+#define NSCA_SERVER L"NSCA_SERVER"
+#define NSCA_PORT L"NSCA_PORT"
+#define NSCA_PASSWORD L"NSCA_PASSWORD"
+#define NSCA_ENCRYPTION L"NSCA_ENCRYPTION"
+#define NSCA_HOSTNAME L"NSCA_HOSTNAME"
 
 #define OP5_SERVER L"OP5_SERVER"
 #define OP5_USER L"OP5_USER"

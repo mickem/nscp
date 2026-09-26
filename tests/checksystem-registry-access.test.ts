@@ -13,11 +13,9 @@
  * mode can be rewritten between cases without restarting a server.
  * The registry is Windows-only, so the suite is skipped elsewhere.
  */
-import { NscpInstance } from "@fixtures/index";
+import { NscpInstance, describeOnWindows } from "@fixtures/index";
 
 jest.setTimeout(180_000);
-
-const onWindows = process.platform === "win32" ? describe : describe.skip;
 
 const UNKNOWN = 3;
 /** Present on every Windows install and safe to read. */
@@ -26,7 +24,7 @@ const CV_LONG = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVer
 /** Deliberately outside anything the tests allow. */
 const ELSEWHERE = "HKLM\\SYSTEM\\CurrentControlSet\\Control";
 
-onWindows("CheckSystem registry access modes", () => {
+describeOnWindows("CheckSystem registry access modes", () => {
   let nscp: NscpInstance;
 
   async function query(command: string, args: string[]): Promise<{ out: string; code: number }> {

@@ -22,12 +22,13 @@
 #include <str/format.hpp>
 #include <str/utf8.hpp>
 #include <str/utils.hpp>
+#include <threads/guarded_thread.hpp>
 
 namespace json = boost::json;
 
 op5_client::op5_client(const nscapi::core_wrapper *core, int plugin_id, op5_config config)
     : core_(core), plugin_id_(plugin_id), config_(config), stop_thread_(false) {
-  thread_ = std::shared_ptr<boost::thread>(new boost::thread([this]() { this->thread_proc(); }));
+  thread_ = threads::start_guarded_thread("op5 client", [this]() { this->thread_proc(); }, NSC_THREAD_REPORTER);
 }
 
 /**
@@ -344,90 +345,86 @@ void op5_client::stop() {
 }
 
 void op5_client::thread_proc() {
-  try {
-    std::string hostname, hostgroups, contactgroups;
-    bool deregister = false;
-    unsigned long long interval = 3600;
-    {
-      boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-      if (!lock.owns_lock()) {
-        NSC_LOG_ERROR("Failed to start thread");
-        return;
-      }
-      hostname = config_.hostname;
-      hostgroups = config_.hostgroups;
-      contactgroups = config_.contactgroups;
-      deregister = config_.deregister;
-      interval = config_.interval;
+  std::string hostname, hostgroups, contactgroups;
+  bool deregister = false;
+  unsigned long long interval = 3600;
+  {
+    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+    if (!lock.owns_lock()) {
+      NSC_LOG_ERROR("Failed to start thread");
+      return;
     }
-    register_host(hostname, hostgroups, contactgroups);
+    hostname = config_.hostname;
+    hostgroups = config_.hostgroups;
+    contactgroups = config_.contactgroups;
+    deregister = config_.deregister;
+    interval = config_.interval;
+  }
+  register_host(hostname, hostgroups, contactgroups);
 
-    while (true) {
-      try {
-        NSC_TRACE_MSG("Running op5 checks...");
-        std::string status;
-        if (!send_a_check("host_check", NSCAPI::query_return_codes::returnOK, "OK", status)) {
-          NSC_LOG_ERROR("Failed to submit host ok status: " + status);
+  while (true) {
+    try {
+      NSC_TRACE_MSG("Running op5 checks...");
+      std::string status;
+      if (!send_a_check("host_check", NSCAPI::query_return_codes::returnOK, "OK", status)) {
+        NSC_LOG_ERROR("Failed to submit host ok status: " + status);
+      }
+
+      op5_config::check_map copy;
+      {
+        boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+        if (!lock.owns_lock()) {
+          NSC_LOG_ERROR("Failed to run checks");
+          continue;
         }
+        interval = config_.interval;
+        copy = config_.checks;
+      }
+      std::string response;
+      nscapi::core_helper ch(get_core(), get_id());
+      for (op5_config::check_map::value_type &v : copy) {
+        std::string command;
+        std::string alias = v.second;
+        std::list<std::string> arguments;
+        str::utils::parse_command(alias, command, arguments);
 
-        op5_config::check_map copy;
-        {
-          boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-          if (!lock.owns_lock()) {
-            NSC_LOG_ERROR("Failed to run checks");
-            continue;
-          }
-          interval = config_.interval;
-          copy = config_.checks;
-        }
-        std::string response;
-        nscapi::core_helper ch(get_core(), get_id());
-        for (op5_config::check_map::value_type &v : copy) {
-          std::string command;
-          std::string alias = v.second;
-          std::list<std::string> arguments;
-          str::utils::parse_command(alias, command, arguments);
-
-          if (ch.simple_query(command, arguments, response)) {
-            PB::Commands::QueryResponseMessage resp_msg;
-            resp_msg.ParseFromString(response);
-            for (const PB::Commands::QueryResponseMessage::Response &p : resp_msg.payload()) {
-              std::string message = nscapi::protobuf::functions::query_data_to_nagios_string(p, nscapi::protobuf::functions::no_truncation);
-              int result = nscapi::protobuf::functions::gbp_to_nagios_status(p.result());
-              std::string check_status;
-              if (!send_a_check(v.first, result, message, check_status)) {
-                NSC_LOG_ERROR("Failed to submit " + v.first + " result: " + check_status);
-              }
-            }
-          } else {
+        if (ch.simple_query(command, arguments, response)) {
+          PB::Commands::QueryResponseMessage resp_msg;
+          resp_msg.ParseFromString(response);
+          for (const PB::Commands::QueryResponseMessage::Response &p : resp_msg.payload()) {
+            std::string message = nscapi::protobuf::functions::query_data_to_nagios_string(p, nscapi::protobuf::functions::no_truncation);
+            int result = nscapi::protobuf::functions::gbp_to_nagios_status(p.result());
             std::string check_status;
-            if (!send_a_check(v.first, NSCAPI::query_return_codes::returnUNKNOWN, "Failed to execute command: " + command, check_status)) {
+            if (!send_a_check(v.first, result, message, check_status)) {
               NSC_LOG_ERROR("Failed to submit " + v.first + " result: " + check_status);
             }
           }
+        } else {
+          std::string check_status;
+          if (!send_a_check(v.first, NSCAPI::query_return_codes::returnUNKNOWN, "Failed to execute command: " + command, check_status)) {
+            NSC_LOG_ERROR("Failed to submit " + v.first + " result: " + check_status);
+          }
         }
-      } catch (const std::exception &e) {
-        NSC_LOG_ERROR_EXR("Failed to submit data: ", e);
       }
+    } catch (const std::exception &e) {
+      NSC_LOG_ERROR_EXR("Failed to submit data: ", e);
+    }
+    if (stop_thread_) {
+      if (deregister) {
+        deregister_host(hostname);
+      }
+      return;
+    }
+    try {
+      boost::this_thread::sleep(boost::posix_time::seconds(interval));
+    } catch (const boost::thread_interrupted &) {
       if (stop_thread_) {
         if (deregister) {
           deregister_host(hostname);
         }
         return;
       }
-      try {
-        boost::this_thread::sleep(boost::posix_time::seconds(interval));
-      } catch (const boost::thread_interrupted &) {
-        if (stop_thread_) {
-          if (deregister) {
-            deregister_host(hostname);
-          }
-          return;
-        }
-      }
     }
-  } catch (...) {
-    NSC_LOG_ERROR("Unknown exception in thread, op5 will not receive requests");
   }
 }
 

@@ -23,6 +23,7 @@ set(SRCS
     check_share.cpp
     collector_thread.cpp
     filter.cpp
+    storage_facts.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
     ${NSCP_ERROR_CPP}
@@ -53,6 +54,7 @@ if(WIN32)
         collector_thread.hpp
         file_finder.hpp
         filter.hpp
+        storage_facts.hpp
         ${NSCP_DEF_PLUGIN_HPP}
         ${NSCP_FILTER_HPP}
         ${NSCP_ERROR_HPP}
@@ -61,12 +63,24 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/compat.hpp
     )
 else()
+    # POSIX: the file finder, the filter glue, the write probe and the checksum
+    # code are portable and stay `_unix`. Only the data sources below are
+    # per-kernel, and those are named for the kernel they read.
     set(SRCS
         ${SRCS}
-        check_drive_unix.cpp
-        check_disk_io_unix.cpp
         file_finder_unix.cpp
         filter_unix.cpp
+    )
+    # The Linux readers: mounts through mntent(3), block-device statistics from
+    # /proc/diskstats. Darwin has neither (getmntinfo(3) and IOKit spell the
+    # same thing), which is why module.cmake skips the module there. A port
+    # adds check_drive_darwin.cpp / check_disk_io_darwin.cpp in an
+    # elseif(APPLE) branch of this if, and moves check_mount.cpp's inline
+    # mntent reader out with them.
+    set(SRCS
+        ${SRCS}
+        check_drive_linux.cpp
+        check_disk_io_linux.cpp
     )
 endif()
 
@@ -126,6 +140,7 @@ if(WIN32)
             check_share_test.cpp
             collector_thread_test.cpp
             file_finder_filter_test.cpp
+            storage_facts_test.cpp
             # Module sources under test.
             check_disk_io.cpp
             check_disk_io_win.cpp
@@ -142,6 +157,7 @@ if(WIN32)
             file_finder_win.cpp
             filter.cpp
             filter_win.cpp
+            storage_facts.cpp
             ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
             ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
             ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
@@ -178,6 +194,11 @@ else()
         check_disk_unix_test
         SOURCES
             check_disk_unix_test.cpp
+            # The Linux readers, whose seams (classify_fs, mount_source_to_disk)
+            # the test exercises; a Darwin port pairs them with its own the way
+            # the module list above does.
+            check_disk_io_linux.cpp
+            check_drive_linux.cpp
             # The module class itself: its settings parsing and dispatch
             # wrappers are ordinary C++ that only needs a stubbed core, and
             # the branches they add (bad intervals, "collector not started",
@@ -191,10 +212,8 @@ else()
             check_disk_io_check_test.cpp
             check_disk_health.cpp
             check_disk_io.cpp
-            check_disk_io_unix.cpp
             check_disk_write.cpp
             check_disk_write_test.cpp
-            check_drive_unix.cpp
             drive_trend_test.cpp
             check_files.cpp
             check_files_checksum_test.cpp
@@ -222,6 +241,8 @@ else()
             file_finder_unix.cpp
             filter.cpp
             filter_unix.cpp
+            storage_facts.cpp
+            storage_facts_test.cpp
             ${NSCP_FILTER_CPP}
             ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
             ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp

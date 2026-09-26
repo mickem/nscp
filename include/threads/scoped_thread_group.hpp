@@ -4,9 +4,12 @@
 #pragma once
 
 #include <atomic>
-#include <cstddef>
-
 #include <boost/thread.hpp>
+#include <cassert>
+#include <cstddef>
+#include <functional>
+#include <string>
+#include <threads/guarded_thread.hpp>
 
 /**
  * RAII-owning group of background worker threads.
@@ -15,8 +18,12 @@
  *   * interrupt_all() delivers boost::thread_interrupted to threads parked
  *     on an interruption point; it does not preempt running code.
  *   * Thread bodies that throw (boost::thread_interrupted, std::exception,
- *     or anything else) are caught and swallowed so an escaping exception
- *     cannot terminate the process. Diagnostics belong in the body itself.
+ *     or anything else) are caught by threads::run_guarded() so an escaping
+ *     exception cannot terminate the process. What escaped is reported
+ *     through set_error_reporter(), which is handed the finished line
+ *     threads::detail::render_thread_event() wrote: swallowing it silently
+ *     left a pool quietly short of workers with nothing in the log to say
+ *     why.
  *   * count() returns the number of currently-live worker threads.
  *
  * Non-copyable.
@@ -42,19 +49,28 @@ class scoped_thread_group {
   scoped_thread_group(const scoped_thread_group&) = delete;
   scoped_thread_group& operator=(const scoped_thread_group&) = delete;
 
+  typedef std::function<void(const std::string& /*message*/)> error_reporter;
+
+  // How the death of a worker is reported. Set it before the first
+  // create_thread(): a live worker reads it from its catch path without any
+  // lock, so replacing it while the pool is running is a data race on a
+  // std::function - and a reporter is typically re-set from a settings notify
+  // callback, which re-runs on every reload. The assert is there because that
+  // is exactly how the scheduler got it wrong. With none set an escaping
+  // exception is still contained, just not logged.
+  void set_error_reporter(error_reporter reporter) {
+    assert(live_count_.load(std::memory_order_relaxed) == 0 && "set_error_reporter() must not race live workers; set it before create_thread()");
+    reporter_ = reporter;
+  }
+
   template <typename Callable>
-  void create_thread(Callable f) {
+  void create_thread(Callable f, const std::string& name = "worker") {
     live_count_.fetch_add(1, std::memory_order_relaxed);
     try {
-      group_.create_thread([this, f]() mutable {
-        try {
-          f();
-        } catch (const boost::thread_interrupted&) {
-          // Cooperative interruption — normal exit path on shutdown.
-        } catch (const std::exception&) {
-          // Swallow: an uncaught exception in a worker calls std::terminate().
-        } catch (...) {
-        }
+      group_.create_thread([this, f, name]() mutable {
+        threads::run_guarded(name, f, [this](const std::string& message) {
+          if (reporter_) reporter_(message);
+        });
         live_count_.fetch_sub(1, std::memory_order_relaxed);
       });
     } catch (...) {
@@ -69,11 +85,10 @@ class scoped_thread_group {
 
   void wait_all() { group_.join_all(); }
 
-  std::size_t count() const {
-    return live_count_.load(std::memory_order_relaxed);
-  }
+  std::size_t count() const { return live_count_.load(std::memory_order_relaxed); }
 
  private:
   boost::thread_group group_;
   std::atomic<std::size_t> live_count_{0};
+  error_reporter reporter_;
 };

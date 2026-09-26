@@ -294,8 +294,11 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
       else
         result << "Traffic is encrypted using " << get_core()->expand_path(cert) << " and " << get_core()->expand_path(key) << "." << std::endl;
 
+      // A certificate generated here is written by root under sudo while the
+      // packaged Linux service runs as `nsclient`: hand it to the owner of the
+      // state directory, the service account, or the listener cannot load it.
       std::list<std::string> messages;
-      socket_helpers::validate_certificate(get_core()->expand_path(cert), messages);
+      socket_helpers::validate_certificate(get_core()->expand_path(cert), messages, get_core()->expand_path("${data-path}"));
       for (const auto &e : messages) {
         result << "Certificate validation: " << e << std::endl;
       }

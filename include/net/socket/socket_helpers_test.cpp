@@ -14,7 +14,9 @@
 #include <string>
 #include <vector>
 #ifndef WIN32
+#include <pwd.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #endif
 
 // =============================================================================
@@ -1513,6 +1515,260 @@ TEST_F(WriteCertsFixture, PrivateKeyFilesAreOwnerOnly) {
   ASSERT_NO_THROW(socket_helpers::write_certs(ca, true));
   ASSERT_EQ(::stat(socket_helpers::ca_key_path(ca).c_str(), &st), 0);
   EXPECT_EQ(st.st_mode & 0777, 0600);
+}
+#endif
+
+// =============================================================================
+// adopt_file_owner - a generated private key must end up readable by the
+// service account
+//
+// `nscp web install` / `nscp nrpe install` run under sudo on a packaged Linux
+// host while the service runs as `nsclient`. The generated certificate.pem is
+// root's, mode 0600, so the service could not load it: the install reported
+// success and the WEB server never came up. The handoff copies the owner of
+// ${data-path}, the directory packaging chowns to the service account.
+//
+// Only root can chown, so the cases that change an owner run only when the
+// test binary is root (the package CI is); everywhere else they pin the no-op
+// contract instead of skipping.
+// =============================================================================
+
+#ifndef WIN32
+namespace {
+// An unprivileged account to hand files to, when we are root and one exists.
+bool unprivileged_account(uid_t& uid, gid_t& gid) {
+  if (::geteuid() != 0) return false;
+  for (const char* name : {"nobody", "nogroup", "daemon"}) {
+    const struct passwd* pw = ::getpwnam(name);
+    if (pw != nullptr && pw->pw_uid != 0) {
+      uid = pw->pw_uid;
+      gid = pw->pw_gid;
+      return true;
+    }
+  }
+  return false;
+}
+uid_t owner_of(const std::string& path) {
+  struct stat st = {};
+  return ::stat(path.c_str(), &st) == 0 ? st.st_uid : static_cast<uid_t>(-1);
+}
+}  // namespace
+
+TEST_F(WriteCertsFixture, AdoptFileOwnerIsANoOpWithoutAReference) {
+  const std::string cert = path_of("certificate.pem");
+  ASSERT_NO_THROW(socket_helpers::write_certs(cert, false));
+  const uid_t before = owner_of(cert);
+
+  std::string error;
+  EXPECT_EQ(socket_helpers::adopt_file_owner(cert, "", error), socket_helpers::owner_handoff::not_needed);
+  EXPECT_EQ(socket_helpers::adopt_file_owner(cert, path_of("no-such-state-dir"), error), socket_helpers::owner_handoff::not_needed);
+  EXPECT_TRUE(error.empty()) << error;
+  EXPECT_EQ(owner_of(cert), before);
+}
+
+// The reference belongs to whoever runs the test: as root that is "root owns
+// the reference too, nothing to hand over", as anybody else "only root can
+// give a file away". Either way the file is left alone.
+TEST_F(WriteCertsFixture, AdoptFileOwnerLeavesAFileAloneWhenTheReferenceIsOurs) {
+  const std::string cert = path_of("certificate.pem");
+  ASSERT_NO_THROW(socket_helpers::write_certs(cert, false));
+  const uid_t before = owner_of(cert);
+
+  std::string error;
+  EXPECT_EQ(socket_helpers::adopt_file_owner(cert, dir_.string(), error), socket_helpers::owner_handoff::not_needed);
+  EXPECT_TRUE(error.empty()) << error;
+  EXPECT_EQ(owner_of(cert), before);
+}
+
+TEST_F(WriteCertsFixture, AdoptFileOwnerHandsAGeneratedFileToTheReferenceOwner) {
+  const std::string cert = path_of("certificate.pem");
+  ASSERT_NO_THROW(socket_helpers::write_certs(cert, false));
+  const std::string reference = path_of("state");
+  boost::filesystem::create_directories(reference);
+
+  uid_t uid = 0;
+  gid_t gid = 0;
+  std::string error;
+  if (!unprivileged_account(uid, gid)) {
+    // Not root: the contract is that nothing changes.
+    EXPECT_EQ(socket_helpers::adopt_file_owner(cert, reference, error), socket_helpers::owner_handoff::not_needed);
+    EXPECT_EQ(owner_of(cert), ::geteuid());
+    return;
+  }
+  ASSERT_EQ(::chown(reference.c_str(), uid, gid), 0);
+
+  EXPECT_EQ(socket_helpers::adopt_file_owner(cert, reference, error), socket_helpers::owner_handoff::handed_over) << error;
+  EXPECT_EQ(owner_of(cert), uid);
+  // The mode is untouched: still readable by the new owner alone.
+  struct stat st = {};
+  ASSERT_EQ(::stat(cert.c_str(), &st), 0);
+  EXPECT_EQ(st.st_mode & 0777, 0600);
+
+  // A second run has nothing left to do.
+  EXPECT_EQ(socket_helpers::adopt_file_owner(cert, reference, error), socket_helpers::owner_handoff::not_needed);
+}
+
+// Root chowning by path is the classic escalation: the service account plants
+// `certificate.pem -> /etc/shadow` in a directory it can write to. The handoff
+// opens O_NOFOLLOW and refuses anything that is not the plain file we wrote.
+TEST_F(WriteCertsFixture, AdoptFileOwnerRefusesASymbolicLink) {
+  uid_t uid = 0;
+  gid_t gid = 0;
+  if (!unprivileged_account(uid, gid)) return;  // only root reaches the check
+  const std::string target = path_of("target.pem");
+  ASSERT_NO_THROW(socket_helpers::write_certs(target, false));
+  const std::string link = path_of("certificate.pem");
+  boost::filesystem::create_symlink(target, link);
+  const std::string reference = path_of("state");
+  boost::filesystem::create_directories(reference);
+  ASSERT_EQ(::chown(reference.c_str(), uid, gid), 0);
+
+  std::string error;
+  EXPECT_EQ(socket_helpers::adopt_file_owner(link, reference, error), socket_helpers::owner_handoff::failed);
+  EXPECT_FALSE(error.empty());
+  EXPECT_EQ(owner_of(target), 0u) << "the link target must keep its owner";
+}
+
+// validate_certificate with a reference is what the install commands call:
+// it generates and hands over in one go, and says what it did.
+TEST_F(WriteCertsFixture, ValidateCertificateHandsAGeneratedCertificateOver) {
+  const std::string cert = path_of("certificate.pem");
+  const std::string reference = path_of("state");
+  boost::filesystem::create_directories(reference);
+  uid_t uid = 0;
+  gid_t gid = 0;
+  const bool root = unprivileged_account(uid, gid);
+  if (root) ASSERT_EQ(::chown(reference.c_str(), uid, gid), 0);
+
+  std::list<std::string> messages;
+  socket_helpers::validate_certificate(cert, messages, reference);
+
+  ASSERT_TRUE(boost::filesystem::is_regular_file(cert));
+  const std::string joined = boost::algorithm::join(messages, "\n");
+  EXPECT_NE(joined.find("generating a default certificate"), std::string::npos) << joined;
+  EXPECT_EQ(joined.find("WARNING"), std::string::npos) << joined;
+  if (root) {
+    EXPECT_EQ(owner_of(cert), uid);
+    EXPECT_NE(joined.find("handed to the service account"), std::string::npos) << joined;
+  } else {
+    EXPECT_EQ(owner_of(cert), ::geteuid());
+    EXPECT_EQ(joined.find("handed to"), std::string::npos) << joined;
+  }
+}
+
+// A folder the validator creates must be one the service can walk into.
+// create_directories() honours the umask, so under `sudo` with `umask 0077`
+// it came out 0700 root-owned - and the handed-over certificate inside was as
+// unreachable as before the handoff.
+TEST_F(WriteCertsFixture, ValidateCertificateCreatesATraversableFolderWhateverTheUmask) {
+  const std::string folder = path_of("deep/security");
+  const std::string cert = folder + "/certificate.pem";
+  const std::string reference = path_of("state");
+  boost::filesystem::create_directories(reference);
+  uid_t uid = 0;
+  gid_t gid = 0;
+  const bool root = unprivileged_account(uid, gid);
+  if (root) ASSERT_EQ(::chown(reference.c_str(), uid, gid), 0);
+
+  const mode_t previous = ::umask(0077);
+  std::list<std::string> messages;
+  socket_helpers::validate_certificate(cert, messages, reference);
+  ::umask(previous);
+
+  ASSERT_TRUE(boost::filesystem::is_regular_file(cert));
+  const std::string joined = boost::algorithm::join(messages, "\n");
+  EXPECT_NE(joined.find("Creating certificate folder"), std::string::npos) << joined;
+  EXPECT_EQ(joined.find("WARNING"), std::string::npos) << joined;
+  for (const std::string& dir : {path_of("deep"), folder}) {
+    struct stat st = {};
+    ASSERT_EQ(::stat(dir.c_str(), &st), 0) << dir;
+    EXPECT_EQ(st.st_mode & 0777, 0755u) << dir;
+    EXPECT_EQ(st.st_uid, root ? uid : ::geteuid()) << dir;
+  }
+  // The pre-existing parent is not ours and keeps whatever it had.
+  EXPECT_EQ(owner_of(dir_.string()), ::geteuid());
+  struct stat st = {};
+  ASSERT_EQ(::stat(cert.c_str(), &st), 0);
+  EXPECT_EQ(st.st_mode & 0777, 0600u);
+  EXPECT_EQ(st.st_uid, root ? uid : ::geteuid());
+}
+
+// A generated CA is handed over as its certificate only. Nothing in the server
+// reads the CA private key - it mints client certificates that pass peer-cert
+// verification, NRPE's only real authentication - so it stays root's, in a
+// folder that stays root's, where the service can neither read nor replace it.
+TEST_F(WriteCertsFixture, ValidateCertificateKeepsTheCaPrivateKeyFromTheService) {
+  const std::string folder = path_of("pki");
+  const std::string ca = folder + "/ca.pem";
+  const std::string reference = path_of("state");
+  boost::filesystem::create_directories(reference);
+  uid_t uid = 0;
+  gid_t gid = 0;
+  const bool root = unprivileged_account(uid, gid);
+  if (root) ASSERT_EQ(::chown(reference.c_str(), uid, gid), 0);
+
+  std::list<std::string> messages;
+  socket_helpers::validate_certificate(ca, messages, reference);
+
+  ASSERT_TRUE(boost::filesystem::is_regular_file(ca));
+  const std::string key = socket_helpers::ca_key_path(ca);
+  ASSERT_TRUE(boost::filesystem::is_regular_file(key));
+  const std::string joined = boost::algorithm::join(messages, "\n");
+  EXPECT_EQ(joined.find("WARNING"), std::string::npos) << joined;
+  EXPECT_EQ(joined.find("CA private key handed"), std::string::npos) << joined;
+  EXPECT_EQ(owner_of(key), ::geteuid()) << "the CA private key must stay with whoever generated it";
+  EXPECT_EQ(owner_of(folder), ::geteuid()) << "a folder created for a CA stays with whoever generated it";
+  struct stat st = {};
+  ASSERT_EQ(::stat(key.c_str(), &st), 0);
+  EXPECT_EQ(st.st_mode & 0777, 0600u);
+  if (root) {
+    EXPECT_EQ(owner_of(ca), uid);
+    EXPECT_NE(joined.find("CA certificate handed to the service account"), std::string::npos) << joined;
+  } else {
+    EXPECT_EQ(owner_of(ca), ::geteuid());
+    EXPECT_EQ(joined.find("handed to"), std::string::npos) << joined;
+  }
+}
+
+// With an operator-chosen name nothing is generated, so the folder that was
+// created for it is not handed over either: the operator is about to put
+// their own key there, and a service-owned folder is not where it belongs.
+TEST_F(WriteCertsFixture, ValidateCertificateKeepsAFolderItCreatedForAnOperatorsCertificate) {
+  const std::string folder = path_of("tls");
+  const std::string reference = path_of("state");
+  boost::filesystem::create_directories(reference);
+  uid_t uid = 0;
+  gid_t gid = 0;
+  if (unprivileged_account(uid, gid)) ASSERT_EQ(::chown(reference.c_str(), uid, gid), 0);
+
+  std::list<std::string> messages;
+  socket_helpers::validate_certificate(folder + "/server.pem", messages, reference);
+
+  ASSERT_TRUE(boost::filesystem::is_directory(folder));
+  EXPECT_FALSE(boost::filesystem::exists(folder + "/server.pem"));
+  EXPECT_EQ(owner_of(folder), ::geteuid());
+  const std::string joined = boost::algorithm::join(messages, "\n");
+  EXPECT_NE(joined.find("Certificate not found"), std::string::npos) << joined;
+  EXPECT_EQ(joined.find("handed to"), std::string::npos) << joined;
+}
+
+// An existing certificate is never touched - it may be the operator's own,
+// placed there with the ownership they chose.
+TEST_F(WriteCertsFixture, ValidateCertificateDoesNotHandOverAnExistingCertificate) {
+  const std::string cert = path_of("certificate.pem");
+  ASSERT_NO_THROW(socket_helpers::write_certs(cert, false));
+  const std::string reference = path_of("state");
+  boost::filesystem::create_directories(reference);
+  uid_t uid = 0;
+  gid_t gid = 0;
+  if (unprivileged_account(uid, gid)) ASSERT_EQ(::chown(reference.c_str(), uid, gid), 0);
+  const uid_t before = owner_of(cert);
+
+  std::list<std::string> messages;
+  socket_helpers::validate_certificate(cert, messages, reference);
+
+  EXPECT_TRUE(messages.empty()) << boost::algorithm::join(messages, "\n");
+  EXPECT_EQ(owner_of(cert), before);
 }
 #endif
 

@@ -67,6 +67,12 @@ struct command_result {
 // Helper for command execution (injectable for tests).
 typedef std::function<command_result(const std::string &)> exec_fn;
 
+// The real one: runs the command through popen, captures stdout and keeps the
+// exit status. Exposed because the `software.installed` fact set runs the same
+// queries this check does (software_facts_unix.cpp) and there is no reason for
+// a second popen wrapper to exist.
+command_result run_command(const std::string &cmd);
+
 // The package manager owning this host: the manager name plus the absolute
 // path of its query binary (commands are invoked by absolute path so a
 // manipulated PATH cannot redirect them).

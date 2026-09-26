@@ -7,7 +7,7 @@
 
 #include <string>
 
-#include "password_hash.hpp"
+#include <nscp/password_hash.hpp>
 
 TEST(UserManager, AddAndValidateRoundTrip) {
   user_manager um;
@@ -67,6 +67,19 @@ TEST(UserManager, AcceptsPreviouslyHashedPassword) {
   EXPECT_TRUE(um.validate_user("alice", "s3cret"));
 }
 
+TEST(UserManager, HashesAPasswordThatOnlyLooksLikeAHash) {
+  // add_user() stores an already-hashed value verbatim, so what counts as
+  // hashed decides whether this password is protected or written through in
+  // the clear - and then compared against as a hash, which never matches.
+  const std::string lookalike = "pbkdf2-sha256$my-secret";
+  user_manager um;
+  um.add_user("alice", lookalike);
+  EXPECT_NE(um.get_hash("alice"), lookalike);
+  EXPECT_TRUE(password_hash::is_hashed(um.get_hash("alice")));
+  EXPECT_TRUE(um.validate_user("alice", lookalike));
+  EXPECT_FALSE(um.validate_user("alice", "pbkdf2-sha256$other"));
+}
+
 TEST(UserManager, DistinctUsersHaveDistinctHashes) {
   // Two users added with the *same* password must end up with different
   // stored values (random salt). We can't read the hash directly, but we can
@@ -85,8 +98,8 @@ TEST(UserManager, GetHashReturnsTheStoredValue) {
 
   // A password already in PBKDF2 form is stored verbatim, which is what makes
   // it stable across processes.
-  const std::string pre_hashed = web_password::hash_password("secret");
-  ASSERT_TRUE(web_password::is_hashed(pre_hashed));
+  const std::string pre_hashed = password_hash::hash_password("secret");
+  ASSERT_TRUE(password_hash::is_hashed(pre_hashed));
   um.add_user("hashed", pre_hashed);
   EXPECT_EQ(um.get_hash("hashed"), pre_hashed);
 
@@ -95,7 +108,7 @@ TEST(UserManager, GetHashReturnsTheStoredValue) {
   um.add_user("plain", "secret");
   const std::string first = um.get_hash("plain");
   EXPECT_NE(first, "secret");
-  EXPECT_TRUE(web_password::is_hashed(first));
+  EXPECT_TRUE(password_hash::is_hashed(first));
   um.add_user("plain", "secret");
   EXPECT_NE(um.get_hash("plain"), first) << "re-adding a plaintext password re-salts it";
   EXPECT_TRUE(um.validate_user("plain", "secret"));

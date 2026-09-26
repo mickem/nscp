@@ -15,6 +15,7 @@
 #include <sstream>
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
+#include <threads/guarded_thread.hpp>
 #include <utility>
 
 #ifndef WIN32
@@ -192,7 +193,9 @@ fleet_sync::manifest_status fleet_sync::check_manifest(const std::string &state_
 fleet_sync::fleet_sync(nsclient::logging::logger_instance logger, fleet_config config, nsclient::core::tag_repository_instance tags,
                        reload_function request_reload)
     : logger_(std::move(logger)), config_(std::move(config)), tags_(std::move(tags)), request_reload_(std::move(request_reload)) {
-  thread_ = std::make_shared<boost::thread>([this] { this->thread_proc(); });
+  thread_ = threads::start_guarded_thread(
+      "fleet sync", [this] { this->thread_proc(); },
+      [this](const std::string &message) { log_error(message); });
 }
 
 fleet_sync::~fleet_sync() {

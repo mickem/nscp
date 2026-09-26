@@ -11,6 +11,7 @@ set(SRCS
     "${TARGET}.cpp"
     check_nt_commands.cpp
     ${NSCP_INCLUDEDIR}/net/check_nt/packet.cpp
+    ${NSCP_INCLUDEDIR}/nscp/password_hash.cpp
     ${NSCP_DEF_PLUGIN_CPP}
 )
 
@@ -23,9 +24,16 @@ if(OPENSSL_FOUND)
         ${OPENSSL_LIBRARIES}
     )
     if(WIN32)
+        # libcrypto's BIO layer calls into winsock (BIO_sock_init, BIO_lookup
+        # and the socket BIOs), so anything linking the static libcrypto needs
+        # ws2_32 as well. The module pulls it in through nscp_net; the password
+        # memo test links libcrypto for PBKDF2 and never touches a socket, and
+        # would otherwise fail with 30 unresolved externals out of libcrypto
+        # on the static build (same trap as GearmanClient's crypt tests).
         set(EXTRA_LIBS
             ${EXTRA_LIBS}
             CRYPT32
+            ws2_32
         )
     endif(WIN32)
 endif(OPENSSL_FOUND)
@@ -73,6 +81,21 @@ NSCP_CREATE_TEST(
         GTest::gtest_main
         nscp_protobuf
         ${PLUGIN_API_TARGET}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+# The password check is a class of its own precisely so the KDF-per-request
+# question can be asserted on without standing up the server: the memo exposes
+# how many derivations it has run.
+NSCP_CREATE_TEST(
+    check_nt_password_memo_test
+    SOURCES
+        password_memo_test.cpp
+        ${NSCP_INCLUDEDIR}/nscp/password_hash.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${EXTRA_LIBS}
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )

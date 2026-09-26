@@ -15,9 +15,12 @@ jest.setTimeout(120_000);
 const TARGET_PATH = "/settings/NRDP/client/targets/default";
 // Port 1 on localhost refuses immediately, so a request that is *not* refused
 // by the guard fails fast on the connection instead of hanging on a timeout.
+// The caller's proxy differs from the configured one by port, not by address:
+// 127.0.0.2 is a loopback address on Linux only, and on macOS a connection to
+// it waits out the timeout instead of being refused.
 const CONFIGURED_ADDRESS = "https://127.0.0.1:1/nrdp/";
 const CONFIGURED_PROXY = "http://127.0.0.1:1/";
-const CALLER_PROXY = "http://127.0.0.2:1/";
+const CALLER_PROXY = "http://127.0.0.1:2/";
 
 describe("NRDPClient — a request-chosen proxy is guarded like a request-chosen host", () => {
   let nscp: NscpInstance;
@@ -108,7 +111,7 @@ describe("NRDPClient — a request-chosen proxy is guarded like a request-chosen
     expect(out).not.toMatch(/carries credentials/);
     // Past the guard: the submission went to the caller's proxy and failed
     // there, so a module that never reached the request cannot pass vacuously.
-    expect(out).toMatch(/Failed to connect to proxy 127\.0\.0\.2:1/);
+    expect(out).toMatch(/Failed to connect to proxy 127\.0\.0\.1:2/);
   });
 
   it("lets a request choose a proxy when the target allows host override", async () => {
@@ -127,6 +130,6 @@ describe("NRDPClient — a request-chosen proxy is guarded like a request-chosen
     expect(out).not.toMatch(/carries credentials/);
     // Past the guard: the submission went to the caller's proxy and failed
     // there, so a module that never reached the request cannot pass vacuously.
-    expect(out).toMatch(/Failed to connect to proxy 127\.0\.0\.2:1/);
+    expect(out).toMatch(/Failed to connect to proxy 127\.0\.0\.1:2/);
   });
 });

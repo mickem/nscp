@@ -18,15 +18,13 @@
  * is a legitimate outcome. `scan-range` is pinned so no case depends on how
  * much history the box happens to hold.
  */
-import { NscpInstance } from "@fixtures/index";
+import { NscpInstance, describeOnWindows } from "@fixtures/index";
 
 jest.setTimeout(180_000);
 
-const onWindows = process.platform === "win32" ? describe : describe.skip;
-
 const UNKNOWN = 3;
 
-onWindows("CheckEventLog log access modes", () => {
+describeOnWindows("CheckEventLog log access modes", () => {
   let nscp: NscpInstance;
 
   async function check(args: string[]): Promise<{ out: string; code: number }> {

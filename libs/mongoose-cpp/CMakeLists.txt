@@ -59,6 +59,8 @@ if(WIN32)
         dll_defines.hpp
         mcp_exception.hpp
         string_response.hpp
+        ${NSCP_INCLUDEDIR}/threads/guarded_thread.hpp
+        ${NSCP_INCLUDEDIR}/threads/guarded_io_context.hpp
         ${NSCP_INCLUDEDIR}/threads/scoped_thread_group.hpp
     )
     if(NSCP_WEB_BACKEND STREQUAL "beast")

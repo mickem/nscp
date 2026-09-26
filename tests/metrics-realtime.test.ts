@@ -21,11 +21,16 @@
  */
 import request from "supertest";
 
-import { NscpInstance, REST_URL, setupQueryNscp } from "@fixtures/index";
+import {
+  NscpInstance,
+  REST_URL,
+  setupQueryNscp,
+  onWindows,
+  describeWithModules,
+} from "@fixtures/index";
 
 jest.setTimeout(300_000);
 
-const onWindows = process.platform === "win32";
 /** Our own long-lived process — the one thing guaranteed to be running. */
 const SELF_EXE = onWindows ? "nscp.exe" : "nscp";
 const SYSTEM_PATH = onWindows ? "/settings/system/windows" : "/settings/system/unix";
@@ -235,7 +240,8 @@ function checkExposition(text: string, openmetrics: boolean): Map<string, string
   return families;
 }
 
-describe("metrics and real-time checks", () => {
+// Skipped where the build has no CheckSystem (macOS, until it is ported).
+describeWithModules("CheckSystem")("metrics and real-time checks", () => {
   let nscp: NscpInstance;
   let key: string;
 

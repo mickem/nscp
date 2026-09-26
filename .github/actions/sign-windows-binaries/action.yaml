@@ -1,7 +1,14 @@
 ---
 name: Sign windows binaries
-description: Sign windows binaries before building the installer
+description: Sign the binaries the installer ships, before the installer is built
 inputs:
+  files:
+    description: >-
+      Newline-separated absolute paths of the files to sign, normally the
+      output of build/python/signing_list.py. An explicit list rather than a
+      folder: the build tree also holds the unit-test executables, and every
+      signature is billed.
+    required: true
   azure-tenant-id:
     description: The Azure Active Directory tenant (directory) ID.
     required: true
@@ -23,9 +30,7 @@ runs:
         endpoint: https://neu.codesigning.azure.net
         trusted-signing-account-name: nsclient
         certificate-profile-name: nsclient
-        files-folder: ${{ github.workspace }}\tmp\nscp
-        files-folder-filter: exe
-        files-folder-recurse: true
+        files: ${{ inputs.files }}
         file-digest: SHA256
         timestamp-rfc3161: http://timestamp.acs.microsoft.com
         timestamp-digest: SHA256

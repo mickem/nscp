@@ -12,6 +12,7 @@
 #include <parsers/filter/realtime_helper.hpp>
 #include <simple_timer.hpp>
 #include <str/utils.hpp>
+#include <threads/guarded_thread.hpp>
 #include <vector>
 
 #include "filter.hpp"
@@ -29,19 +30,7 @@
 
 typedef parsers::where::realtime_filter_helper<runtime_data, filters::filter_config_object> filter_helper;
 
-// The thread entry: an exception escaping the body would terminate the
-// process, so it is caught and logged here and the monitor simply ends.
 void real_time_thread::thread_proc() {
-  try {
-    thread_proc_body();
-  } catch (const std::exception &e) {
-    NSC_LOG_ERROR("Real-time log monitoring stopped: " + std::string(e.what()));
-  } catch (...) {
-    NSC_LOG_ERROR("Real-time log monitoring stopped: unknown exception");
-  }
-}
-
-void real_time_thread::thread_proc_body() {
   filter_helper helper(core, plugin_id);
   std::list<std::string> logs;
 
@@ -242,7 +231,7 @@ bool real_time_thread::start() {
     NSC_LOG_ERROR("Failed to create stop signal, realtime log monitoring is disabled: " + error);
     return false;
   }
-  thread_ = std::shared_ptr<boost::thread>(new boost::thread([this]() { this->thread_proc(); }));
+  thread_ = threads::start_guarded_thread("checklogfile realtime", [this]() { this->thread_proc(); }, NSC_THREAD_REPORTER);
   return true;
 }
 bool real_time_thread::stop() {

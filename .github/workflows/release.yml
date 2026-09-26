@@ -3,6 +3,10 @@ name: Create release
 permissions:
   contents: write
   actions: read
+  # For the attestations below: an OIDC token to obtain the Sigstore signing
+  # certificate, and the attestations API to store the result.
+  id-token: write
+  attestations: write
 
 on:
   workflow_call:
@@ -10,6 +14,13 @@ on:
       version:
         type: string
         description: 'Version to build'
+        required: true
+      commit:
+        type: string
+        description: >-
+          The commit the release was built from. Publishing the draft creates
+          the tag on it, rather than on the tip of the default branch at the
+          time someone presses Publish.
         required: true
 
 env:
@@ -87,13 +98,75 @@ jobs:
         rm NSCP-${{ inputs.version }}-ARM64-docs.zip
       shell: pwsh
 
+    # Signed statements about what is published, verifiable by anyone with
+    #   gh attestation verify <file> --repo mickem/nscp
+    # A SLSA build provenance attestation over every release asset ties each
+    # file to this workflow run and the commit it built. An SBOM attestation
+    # per Windows platform binds that platform's SBOM to its zip and MSI, so
+    # the SBOM cannot be swapped for another one after the fact. Both are
+    # Sigstore-signed with this workflow's identity; nothing here needs a key.
+    - name: Attest build provenance
+      uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+      with:
+        subject-path: |
+          NSCP-${{ inputs.version }}*.zip
+          NSCP-${{ inputs.version }}-*.cdx.json
+          NSCP-${{ inputs.version }}-*.deb
+          NSCP-${{ inputs.version }}-*.rpm
+          installers/installer-NSCP/NSCP-${{ inputs.version }}-*.msi
+          NSCP-Web-${{ inputs.version }}.zip
+          macos/NSCP-${{ inputs.version }}-macos-arm64.pkg
+          macos/NSCP-${{ inputs.version }}-macos-arm64.tar.gz
+
+    - name: Attest SBOM (x64)
+      uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+      with:
+        subject-path: |
+          NSCP-${{ inputs.version }}-x64.zip
+          installers/installer-NSCP/NSCP-${{ inputs.version }}-x64.msi
+        sbom-path: NSCP-${{ inputs.version }}-x64.cdx.json
+
+    - name: Attest SBOM (Win32)
+      uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+      with:
+        subject-path: |
+          NSCP-${{ inputs.version }}-Win32.zip
+          installers/installer-NSCP/NSCP-${{ inputs.version }}-Win32.msi
+        sbom-path: NSCP-${{ inputs.version }}-Win32.cdx.json
+
+    - name: Attest SBOM (Win32-legacy-xp)
+      uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+      with:
+        subject-path: |
+          NSCP-${{ inputs.version }}-Win32-legacy-xp.zip
+          installers/installer-NSCP/NSCP-${{ inputs.version }}-Win32-legacy-xp.msi
+        sbom-path: NSCP-${{ inputs.version }}-Win32-legacy-xp.cdx.json
+
+    - name: Attest SBOM (ARM64)
+      uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+      with:
+        subject-path: |
+          NSCP-${{ inputs.version }}-ARM64.zip
+          installers/installer-NSCP/NSCP-${{ inputs.version }}-ARM64.msi
+        sbom-path: NSCP-${{ inputs.version }}-ARM64.cdx.json
+
     - name: Create Release
       id: create_release
       uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
       with:
         tag: ${{ inputs.version }}
+        commit: ${{ inputs.commit }}
         name: ${{ inputs.version }}
         draft: true
+        # A re-cut of the same version (build-release.yml run by hand) replaces
+        # the assets of the draft the failed attempt left, instead of failing
+        # because the release exists. A published release is tagged, and
+        # detect-release.sh refuses to build a tagged version at all.
+        allowUpdates: true
+        updateOnlyUnreleased: true
+        removeArtifacts: true
+        # Keep release notes already written into the draft.
+        omitBodyDuringUpdate: true
         prerelease: false
         generateReleaseNotes: true
         # The standalone check_nsclient binary now lives in its own repo
@@ -114,6 +187,10 @@ jobs:
           NSCP-${{ inputs.version }}-Win32-symbols.zip
           NSCP-${{ inputs.version }}-Win32-legacy-xp-symbols.zip
           NSCP-${{ inputs.version }}-ARM64-symbols.zip
+          NSCP-${{ inputs.version }}-x64.cdx.json
+          NSCP-${{ inputs.version }}-Win32.cdx.json
+          NSCP-${{ inputs.version }}-Win32-legacy-xp.cdx.json
+          NSCP-${{ inputs.version }}-ARM64.cdx.json
           NSCP-${{ inputs.version }}-ubuntu-24.04-amd64.deb
           NSCP-${{ inputs.version }}-ubuntu-24.04-arm64.deb
           NSCP-${{ inputs.version }}-debian-trixie-arm64.deb

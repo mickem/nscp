@@ -56,6 +56,23 @@ class NSCP_MONGOOSE_EXPORT ServerBeastImpl final : public Server {
   // error occurs, spawning a per-connection session coroutine for each.
   void accept_loop(const boost::asio::yield_context& yield);
 
+  // Spawn accept_loop() with a guard that respawns it if it throws.
+  //
+  // threads::run_io_context_guarded() re-enters run() after a handler throws,
+  // which keeps the queued handlers going - but the accept loop is a
+  // coroutine, and a coroutine that throws is destroyed. Re-entering run()
+  // would then block on the work guard with no acceptor: a web server that is
+  // up, logged a recovery and answers nothing. Respawning is what actually
+  // recovers it.
+  void spawn_accept_loop();
+
+  // Consecutive respawns of the accept loop. An accept loop that throws every
+  // time it is spawned would otherwise spin, so it is given a few tries and
+  // then left down with a clear message rather than burning a core in
+  // silence. Only touched from the io_context thread.
+  unsigned int accept_loop_restarts_ = 0;
+  static constexpr unsigned int kMaxAcceptLoopRestarts = 5;
+
   // Per-connection session coroutines: each owns its socket (moved in),
   // reads one request, dispatches it, writes the response and closes.
   // Exceptions are caught and logged so a single misbehaving client can't

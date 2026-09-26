@@ -1,0 +1,326 @@
+/**
+ * `nscp web install` — the command that turns the WEB server on.
+ *
+ * It has to leave the agent with a WEB server that starts: HTTPS with a
+ * generated self-signed certificate, unless the operator asks for cleartext
+ * with --insecure. It used to hinge on a `--https` switch that was stored as
+ * false whenever it was absent, so a plain `nscp web install` blanked the
+ * `certificate` setting and generated nothing — and because the server no
+ * longer downgrades to cleartext on its own, it then refused to start.
+ *
+ * Every case runs the one-shot command against a throwaway settings file, with
+ * `certificate-path` pinned to a scratch directory by the harness so the
+ * generated certificate lands somewhere writable. The HTTPS case also boots
+ * the agent and completes a TLS handshake against it.
+ */
+import execa from "execa";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+import { curlHead } from "@fixtures/http";
+import { NscpInstance, onWindows, onDarwin } from "@fixtures/index";
+
+jest.setTimeout(120_000);
+
+/** The keys of one `[section]` of an nsclient.ini, values trimmed. */
+function iniSection(iniPath: string, section: string): Record<string, string> {
+  const values: Record<string, string> = {};
+  let inSection = false;
+  for (const raw of fs.readFileSync(iniPath, "utf8").split(/\r?\n/)) {
+    const line = raw.trim();
+    if (line === "" || line.startsWith(";") || line.startsWith("#")) continue;
+    if (line.startsWith("[")) {
+      inSection = line === `[${section}]`;
+      continue;
+    }
+    if (!inSection) continue;
+    const eq = line.indexOf("=");
+    if (eq < 0) continue;
+    values[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+  }
+  return values;
+}
+
+function certificatePath(nscp: NscpInstance): string {
+  return path.join(nscp.pathOverrides["certificate-path"], "certificate.pem");
+}
+
+describe("nscp web install", () => {
+  it("defaults to HTTPS and generates the self-signed certificate", async () => {
+    const nscp = new NscpInstance();
+    const cert = certificatePath(nscp);
+    expect(fs.existsSync(cert)).toBe(false);
+
+    const r = await nscp.run(["web", "install", "--password", "install-password"]);
+    const out = r.all ?? `${r.stdout}\n${r.stderr}`;
+
+    expect(out).toContain("generating a default certificate");
+    expect(out).toContain("Point your browser to https://localhost:8443");
+    expect(out).not.toContain("WARNING: The certificate");
+
+    // The agent's own identity: key and certificate in the one file, which is
+    // what the server loads when `certificate key` is empty.
+    expect(fs.existsSync(cert)).toBe(true);
+    const pem = fs.readFileSync(cert, "utf8");
+    expect(pem).toContain("PRIVATE KEY");
+    expect(pem).toContain("BEGIN CERTIFICATE");
+
+    const server = iniSection(nscp.settingsFile, "/settings/WEB/server");
+    expect(server["certificate"]).toBe("${certificate-path}/certificate.pem");
+    expect(server["certificate key"] ?? "").toBe("");
+    expect(server["allow insecure"]).toBe("false");
+    expect(server["port"]).toBe("8443");
+    expect(iniSection(nscp.settingsFile, "/modules")["WEBServer"]).toBe("enabled");
+  });
+
+  it("leaves the agent with a WEB server that starts and answers over TLS", async () => {
+    const nscp = new NscpInstance();
+    await nscp.run(["web", "install", "--password", "install-password", "--port", "18443"]);
+
+    nscp.start();
+    try {
+      await nscp.waitForPort(18443, { timeoutMs: 30_000 });
+      // Any HTTP status proves the TLS handshake completed against the
+      // generated certificate (curl -k) and the server is answering; "000"
+      // is what a refused connection or a handshake failure yields.
+      const code = await curlHead("https://127.0.0.1:18443/api/v2/info");
+      expect(code).not.toBe("000");
+    } finally {
+      await nscp.stop();
+    }
+  });
+
+  it("repairs an install that was left without a certificate", async () => {
+    // The state the previous behaviour of this command left behind: HTTPS
+    // intended, `certificate` blank. A re-run has to fall back to the default
+    // and generate it rather than persist the blank again.
+    const nscp = new NscpInstance();
+    fs.writeFileSync(
+      nscp.settingsFile,
+      [
+        "[/modules]",
+        "WEBServer = enabled",
+        "",
+        "[/settings/WEB/server]",
+        "certificate = ",
+        "port = 8443",
+        "",
+      ].join("\n"),
+    );
+
+    await nscp.run(["web", "install", "--password", "install-password"]);
+
+    expect(fs.existsSync(certificatePath(nscp))).toBe(true);
+    const server = iniSection(nscp.settingsFile, "/settings/WEB/server");
+    expect(server["certificate"]).toBe("${certificate-path}/certificate.pem");
+  });
+
+  it("hands a generated certificate and its folder to the service account", async () => {
+    // On a packaged Linux host the command runs under sudo while the service
+    // runs as `nsclient`, and the generated key is readable by its owner only:
+    // written as root it was unreadable to the service, so the install reported
+    // success and the WEB server never came up. The owner of ${data-path} -
+    // the state directory packaging chowns to the service account - is who the
+    // file is handed to, along with a certificate folder the command had to
+    // create, which must be traversable whatever the umask sudo ran under.
+    // Root is needed to chown, so the branch that changes an owner runs where
+    // the test is root (the package CI); elsewhere the no-op contract is what
+    // is asserted, not skipped.
+    if (onWindows) return;
+    const base = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-handoff-"));
+    // mkdtemp makes it 0700: a pre-existing parent is not the command's to
+    // open up (the test below pins that), so open it here, as packaging does.
+    fs.chmodSync(base, 0o755);
+    const stateDir = path.join(base, "state");
+    fs.mkdirSync(stateDir);
+    const securityDir = path.join(base, "missing", "security");
+    const nscp = new NscpInstance({
+      pathOverrides: { "data-path": stateDir, "certificate-path": securityDir },
+    });
+    const cert = certificatePath(nscp);
+
+    const root = process.getuid?.() === 0;
+    let serviceUid = -1;
+    if (root) {
+      const uid = await execa("id", ["-u", "nobody"], { reject: false });
+      const gid = await execa("id", ["-g", "nobody"], { reject: false });
+      if (uid.exitCode === 0 && gid.exitCode === 0) {
+        serviceUid = Number(uid.stdout.trim());
+        fs.chownSync(stateDir, serviceUid, Number(gid.stdout.trim()));
+      }
+    }
+
+    // The strictest umask an operator's root shell is likely to carry; the
+    // child inherits it, exactly as under sudo.
+    const previousUmask = process.umask(0o077);
+    let r;
+    try {
+      r = await nscp.run(["web", "install", "--password", "install-password"]);
+    } finally {
+      process.umask(previousUmask);
+    }
+    const out = r.all ?? `${r.stdout}\n${r.stderr}`;
+
+    expect(fs.existsSync(cert)).toBe(true);
+    expect(out).toContain("Creating certificate folder");
+    expect(out).not.toContain("WARNING:");
+    const st = fs.statSync(cert);
+    expect(st.mode & 0o777).toBe(0o600);
+    for (const dir of [path.join(base, "missing"), securityDir]) {
+      expect(fs.statSync(dir).mode & 0o777).toBe(0o755);
+    }
+    if (serviceUid >= 0) {
+      expect(out).toContain("handed to the service account");
+      expect(st.uid).toBe(serviceUid);
+      expect(fs.statSync(securityDir).uid).toBe(serviceUid);
+      // What matters on the host: the service account itself can read it.
+      // `su -s` is what a root-only Linux CI container has (sudo usually is
+      // not). BSD su, which macOS ships, has no -s, and nobody's shell there
+      // is /usr/bin/false, so on Darwin the probe goes through sudo -u
+      // instead (root needs no password for it); Linux keeps the su path.
+      const check = `test -r "${cert}"`;
+      const probe = onDarwin
+        ? await execa("sudo", ["-n", "-u", "nobody", "/bin/sh", "-c", check], { reject: false })
+        : fs.existsSync("/bin/su") || fs.existsSync("/usr/bin/su")
+          ? await execa("su", ["-s", "/bin/sh", "nobody", "-c", check], { reject: false })
+          : undefined;
+      if (probe) expect(probe.exitCode).toBe(0);
+    } else {
+      // Not root, or root with no unprivileged account to hand it to: the
+      // file stays with whoever wrote it, and nothing claims otherwise.
+      expect(out).not.toContain("handed to the service account");
+      expect(st.uid).toBe(process.getuid?.() ?? st.uid);
+    }
+  });
+
+  it("repair drops a certificate key left over from another certificate", async () => {
+    // The generated certificate carries its own key; a `certificate key` from
+    // whatever used to be configured would make the server load a key that
+    // does not match it, and fail at start-up.
+    const nscp = new NscpInstance();
+    const stale = path.join(nscp.workDir, "old.key");
+    fs.writeFileSync(stale, "not a key");
+    fs.writeFileSync(
+      nscp.settingsFile,
+      ["[/settings/WEB/server]", "certificate = ", `certificate key = ${stale}`, ""].join("\n"),
+    );
+
+    const r = await nscp.run(["web", "install", "--password", "install-password"]);
+
+    expect(r.all ?? r.stdout).toContain("Ignoring certificate key");
+    const server = iniSection(nscp.settingsFile, "/settings/WEB/server");
+    expect(server["certificate"]).toBe("${certificate-path}/certificate.pem");
+    expect(server["certificate key"] ?? "").toBe("");
+  });
+
+  it("restores the default port when going back to HTTPS after --insecure", async () => {
+    const nscp = new NscpInstance();
+    await nscp.run(["web", "install", "--insecure", "--password", "install-password"]);
+    expect(iniSection(nscp.settingsFile, "/settings/WEB/server")["port"]).toBe("8080");
+
+    const r = await nscp.run(["web", "install", "--password", "install-password"]);
+
+    expect(r.all ?? r.stdout).toContain("Restoring the HTTPS default port 8443");
+    const server = iniSection(nscp.settingsFile, "/settings/WEB/server");
+    expect(server["port"]).toBe("8443");
+    expect(server["allow insecure"]).toBe("false");
+    expect(fs.existsSync(certificatePath(nscp))).toBe(true);
+  });
+
+  it("keeps port 8080 for HTTPS when --port asks for it", async () => {
+    const nscp = new NscpInstance();
+    await nscp.run(["web", "install", "--insecure", "--password", "install-password"]);
+
+    const r = await nscp.run([
+      "web",
+      "install",
+      "--port",
+      "8080",
+      "--password",
+      "install-password",
+    ]);
+
+    expect(r.all ?? r.stdout).not.toContain("Restoring the HTTPS default port");
+    expect(iniSection(nscp.settingsFile, "/settings/WEB/server")["port"]).toBe("8080");
+  });
+
+  it("--https is still accepted and means the default", async () => {
+    const nscp = new NscpInstance();
+
+    const r = await nscp.run(["web", "install", "--https", "--password", "install-password"]);
+
+    expect(r.all ?? r.stdout).toContain("Point your browser to https://localhost:8443");
+    expect(fs.existsSync(certificatePath(nscp))).toBe(true);
+  });
+
+  it("--insecure opts into cleartext HTTP explicitly", async () => {
+    const nscp = new NscpInstance();
+
+    const r = await nscp.run(["web", "install", "--insecure", "--password", "install-password"]);
+    const out = r.all ?? `${r.stdout}\n${r.stderr}`;
+
+    expect(out).toContain("WARNING: Serving UNENCRYPTED HTTP");
+    // The server moves a cleartext listener off the HTTPS default port at
+    // start-up; install writes the port it will actually listen on.
+    expect(out).toContain("Point your browser to http://localhost:8080");
+    expect(fs.existsSync(certificatePath(nscp))).toBe(false);
+
+    const server = iniSection(nscp.settingsFile, "/settings/WEB/server");
+    expect(server["allow insecure"]).toBe("true");
+    expect(server["certificate"] ?? "").toBe("");
+    expect(server["port"]).toBe("8080");
+  });
+
+  it("--insecure keeps an explicitly chosen port", async () => {
+    const nscp = new NscpInstance();
+
+    await nscp.run([
+      "web",
+      "install",
+      "--insecure",
+      "--port",
+      "9090",
+      "--password",
+      "install-password",
+    ]);
+
+    expect(iniSection(nscp.settingsFile, "/settings/WEB/server")["port"]).toBe("9090");
+  });
+
+  it("refuses --https together with --insecure", async () => {
+    const nscp = new NscpInstance();
+
+    const r = await nscp.run(
+      ["web", "install", "--https", "--insecure", "--password", "install-password"],
+      {
+        allowFailure: true,
+      },
+    );
+
+    expect(r.all ?? `${r.stdout}\n${r.stderr}`).toContain("mutually exclusive");
+    expect(fs.existsSync(certificatePath(nscp))).toBe(false);
+    expect(iniSection(nscp.settingsFile, "/modules")["WEBServer"]).toBeUndefined();
+  });
+
+  it("warns when the operator points at a certificate that does not exist", async () => {
+    const nscp = new NscpInstance();
+    const missing = path.join(nscp.workDir, "no-such.pem");
+
+    const r = await nscp.run([
+      "web",
+      "install",
+      "--certificate",
+      missing,
+      "--password",
+      "install-password",
+    ]);
+    const out = r.all ?? `${r.stdout}\n${r.stderr}`;
+
+    // Only the default name is generated: an operator-supplied path is theirs
+    // to provide, and the output says the server will not start without it.
+    expect(out).toContain("WARNING: The certificate");
+    expect(out).toContain("does not exist");
+    expect(fs.existsSync(missing)).toBe(false);
+    expect(iniSection(nscp.settingsFile, "/settings/WEB/server")["certificate"]).toBe(missing);
+  });
+});

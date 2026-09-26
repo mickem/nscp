@@ -167,7 +167,6 @@ The fastest way to get a hardened install is the WEB module's own install comman
 
 ```commandline
 $ nscp web install ^
-    --https ^
     --allowed-hosts 10.0.0.0/24 ^
     --certificate nsclient.pem ^
     --certificate-key nsclient.key ^
@@ -176,11 +175,19 @@ $ nscp web install ^
 
 A quick breakdown of the options:
 
-* `--https`: Enable HTTPS (without this it serves cleartext on port 8080).
 * `--allowed-hosts`: CIDR or comma-separated list of source IPs allowed to connect.
-* `--certificate` / `--certificate-key`: TLS server cert and private key.
+* `--certificate` / `--certificate-key`: TLS server cert and private key. HTTPS is the default; without these the
+  command generates a self-signed certificate at `${certificate-path}/certificate.pem` (key and certificate in the
+  one file) when it does not exist yet. `--https` is still accepted and means the same as leaving it out. On Linux,
+  where the command runs under `sudo` and the packaged service runs as `nsclient`, a generated certificate is handed to
+  the service account (the owner of `${data-path}`) so the service can load it; an existing certificate is left as is.
+* `--insecure`: Serve cleartext HTTP instead — sets `allow insecure = true`, writes no certificate and moves the
+  port from `8443` to `8080` when it is the default. Session keys and passwords then travel in clear, so only for
+  loopback or behind a TLS-terminating proxy.
 * `--port`: Listening port (default `8443`).
-* `--password`: Admin password. If omitted, a random one is generated and printed.
+* `--password`: Admin password. If omitted, a random one is generated and printed. It is stored hashed, both as the
+  shared `/settings/default/password` and in the `admin` user's row; `nscp web password --set` rotates it later (see
+  [Passwords](#passwords)).
 * `--disable-admin`: Lock out the built-in admin user — no admin row is created, the REST script-upload endpoint
   becomes unreachable. Recommended for monitoring-only deployments. Mutually exclusive with `--password`; create a
   dedicated user separately (see below).
@@ -190,7 +197,6 @@ dedicated user:
 
 ```commandline
 $ nscp web install ^
-    --https ^
     --allowed-hosts 10.0.0.0/24 ^
     --certificate nsclient.pem ^
     --certificate-key nsclient.key ^
@@ -302,7 +308,9 @@ What it does **not** expose, to be fair:
   `CheckExternalScripts`. The realistic risk is therefore **credential capture and read access to system metrics**, not
   remote code execution. The server-side authentication itself is sound (constant-time password compare, an empty
   password is refused, a single generic error string with no username/oracle) — it is the *transport* that is broken,
-  and that cannot be fixed within the protocol.
+  and that cannot be fixed within the protocol. The stored value may be the clear text or the hashed form
+  `nscp web install` / `nscp web password --set` write to `[/settings/default]`; the client sends the clear text
+  either way, and the hash string itself does not authenticate.
 
 If you must keep it running for a legacy monitoring system:
 
@@ -431,9 +439,27 @@ layout, and what moves.
 
 ## Passwords
 
-NSClient++ has among other secrets an admin password which out-of-the box is stored in a config file.
-This is insecure and not recommended.
-There are two simple way to solve this:
+The passwords the agent *verifies* are stored hashed (salted PBKDF2-SHA256, `pbkdf2-sha256$…` in the file): the per-user
+web passwords that `nscp web add-user` writes, and the shared `/settings/default/password` that `nscp web install`
+generates or `nscp web password --set` sets. The web admin seed and the check_nt server verify a login against either a
+hash or a clear-text value, so a password written by hand keeps working; re-setting it hashes it in place:
+
+```commandline
+$ nscp web password --set "<the password>"
+```
+
+`nscp web password --display` can only show a password while it is still in clear text; once hashed, set a new one if it
+is lost. `NSCAServer` is deliberately not one of these servers: it never verifies a password, its shared secret *is* the
+encryption key every submitting client has to know, so that key stays in clear text under `[/settings/NSCA/server]` and
+is inherited from nowhere — not from `[/settings/default]`, and not from `NSCAClient`, whose key is what this agent
+submits to a remote daemon with. With encryption on and no key of its own the server refuses to start, because an empty
+password is a well-known key. The Windows MSI hashes a password given on its command line or
+typed into its configuration dialog; a value it merely found on disk, which is what pre-fills the dialog on an upgrade,
+is left exactly as it is.
+
+That leaves the secrets the agent has to *use* rather than verify — client-side passwords, tokens and keys for the
+protocols and checks that reach out — which a hash cannot protect. Out of the box those sit in clear text in the config
+file, which is not recommended. There are two simple ways to solve this:
 
 1. Store the config file in the profile of the user.
 2. Store secrets in credential manager.
@@ -802,7 +828,6 @@ The fastest way to set this up is the WEB module's own install command, with the
 
 ```commandline
 $ nscp web install ^
-    --https ^
     --allowed-hosts 10.0.0.0/24 ^
     --certificate nsclient.pem ^
     --certificate-key nsclient.key ^
@@ -855,8 +880,8 @@ Apply the usual transport / network hygiene on top:
 
 - Use a real TLS certificate (do not let the agent silently fall back to HTTP on port 8080).
 - Firewall the WEB port (`8443`) to your monitoring network only.
-- Move the `/settings/default/password` into the credential manager so it's not sitting in cleartext alongside the
-  config (see the Passwords section above).
+- The `/settings/default/password` is stored hashed once `nscp web install` or `nscp web password --set` has written
+  it; move the remaining clear-text secrets into the credential manager (see the Passwords section above).
 
 #### When you actually need administration over WEB
 

@@ -19,6 +19,21 @@ is renamed to the version (`git mv docs/upgrades/next docs/upgrades/0.19.0`) in
 the release commit. Naming the release up front means guessing it, and moving
 every note again when the guess is wrong.
 
+That rename is also what builds the release. A push to `main` that adds a
+`docs/upgrades/<version>/` directory which did not exist before and is not
+tagged yet starts `.github/workflows/build-release.yml`: the signed Windows
+build, every other platform, and a draft GitHub release named after the
+directory, pinned to the merged commit. So:
+
+* only the release pull request adds a version directory, and exactly one;
+* a note added later to a release that is already out goes into its existing
+  directory, which does not start a build;
+* the directory name is the version that ships. The build warns when it differs
+  from the one the commit subjects imply, but builds the name you chose.
+
+A release whose build failed for reasons unrelated to the code is re-cut by
+running *Build release* by hand from the Actions tab with the version.
+
 ```markdown
 ---
 icon: "🔒"

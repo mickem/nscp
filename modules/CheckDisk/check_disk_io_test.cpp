@@ -6,11 +6,11 @@
 #include <boost/thread/thread.hpp>
 #include <cstdio>
 #include <cstdlib>
-#include <fstream>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <vector>
 
 #ifdef WIN32
+#include <io.h>
 #include <objbase.h>
 #endif
 
@@ -394,11 +394,18 @@ TEST_F(DiskIoDataTest, LatencyIsComputedBetweenFetches) {
   }
   // Generate some real disk I/O so the second sample has a non-zero delta.
   const std::string path = std::string(std::getenv("TEMP") ? std::getenv("TEMP") : ".") + "\\nscp_disk_io_latency_test.tmp";
+  // The write has to reach the disk inside the sample window. Flushing the
+  // stream only hands it to the file cache, where the lazy writer may sit on
+  // it past the second fetch and leave every disk with a zero delta; _commit()
+  // is FlushFileBuffers() and waits for the device.
   {
-    std::ofstream f(path, std::ios::binary | std::ios::trunc);
+    FILE *f = std::fopen(path.c_str(), "wb");
+    ASSERT_NE(f, nullptr) << path;
     const std::vector<char> block(1024 * 1024, 'x');
-    for (int i = 0; i < 16; ++i) f.write(block.data(), block.size());
-    f.flush();
+    for (int i = 0; i < 16; ++i) std::fwrite(block.data(), 1, block.size(), f);
+    std::fflush(f);
+    _commit(_fileno(f));
+    std::fclose(f);
   }
   boost::this_thread::sleep(boost::posix_time::milliseconds(1100));
   data.fetch();

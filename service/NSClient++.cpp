@@ -7,12 +7,15 @@
 #include <boost/unordered_set.hpp>
 #include <nscapi/nscapi_metrics_helper.hpp>
 #include <nscapi/settings/helper.hpp>
+#include <nsclient/logger/logger_helper.hpp>
 #include <settings/settings_core.hpp>
 
 #include "../libs/settings_manager/settings_manager_impl.h"
 #include "NSClient++.h"
+#include "agent_facts.hpp"
 #include "cli_parser.hpp"
 #include "core_api.h"
+#include "fatal_handler.hpp"
 #include "logger/nsclient_logger.hpp"
 #ifdef HAVE_ONBOARDING
 #include <net/socket/socket_helpers.hpp>
@@ -67,6 +70,10 @@ int main(int argc, char *argv[]) { return nscp_main(argc, argv); }
 #endif
 
 int nscp_main(int argc, char *argv[]) {
+  // First thing, before anything can throw: the try below only covers this
+  // thread, and only exceptions that actually unwind this far. See
+  // fatal_handler.hpp for what is left over and why it needs a backstop.
+  nsclient::install_fatal_handlers();
   try {
     mainClient.reset(new NSClient());
     cli_parser parser(mainClient);
@@ -370,6 +377,39 @@ bool NSClientT::load_configuration_2(const bool override_log) {
     log_instance_->set_log_level(log_level);
   }
 
+  // Repoint the last-resort log - and with it the report the terminate
+  // handler writes on the way down (see fatal_handler.hpp) - from the working
+  // directory, which for a service is wherever the SCM started it, to the
+  // directory the ordinary log already lives in. Anyone told to "send the
+  // log" then sends this too.
+  //
+  // set_fatal_file() proves it can write there before adopting the path and
+  // otherwise falls back to the temp folder, so say where the report will
+  // actually land: this is the channel that explains a crash, and it silently
+  // going nowhere is the one failure nobody would ever notice.
+  //
+  // Only for the service, which is what override_log distinguishes: the same
+  // load path runs for `nscp settings`, `nscp test` and every other command
+  // line invocation, and those are typically run with sudo. Letting one of
+  // them touch ${log-path} - probe it, and then create it the first time it
+  // has a report to write - is how `sudo nscp settings --generate` before the
+  // first service start leaves a root-owned log folder that the unprivileged
+  // nsclient user the systemd unit runs as can never write to. A command that
+  // is not the service keeps the default file and the temp fallback.
+  if (!override_log) {
+    try {
+      const std::string wanted = path_->expand_path("${log-path}/nsclient.fatal");
+      const std::string actual = nsclient::logging::logger_helper::set_fatal_file(wanted);
+      if (actual == wanted) {
+        LOG_DEBUG_CORE("Crash reports will be written to: " + actual);
+      } else {
+        LOG_ERROR_CORE("Cannot write crash reports to " + wanted + ", using " + actual + " instead");
+      }
+    } catch (const std::exception &e) {
+      LOG_ERROR_CORE_STD("Could not place nsclient.fatal in the log folder, keeping the working directory: " + utf8::utf8_from_native(e.what()));
+    }
+  }
+
 #ifdef WIN32
   ExceptionManager::instance()->setup_app(APPLICATION_NAME, STRPRODUCTVER, STRPRODUCTDATE);
 
@@ -537,6 +577,11 @@ void NSClientT::boot_facts() {
                                                "Size budget for the whole facts document, counted on its encoded form. A fact set that would take the "
                                                "document past it is rejected, and the previous value of that set is kept.",
                                                str::xtos(nsclient::core::fact_repository::default_max_size), true, false);
+    settings_manager::get_core()->register_key(0xffff, path, "agent", "bool", "AGENT FACTS",
+                                               "Collect the `agent` fact set: the NSClient++ version, the modules it has loaded and whether it is enrolled "
+                                               "with a fleet server (yes or no - never which server or with which identity). The one set the core produces "
+                                               "itself; it is re-read at start and on every settings reload, which is when any of it can change.",
+                                               "false", false, false);
 
     const std::string max_size = settings_manager::get_settings()->get_string(path, "max size", str::xtos(nsclient::core::fact_repository::default_max_size));
     try {
@@ -888,7 +933,59 @@ PB::Metrics::MetricsBundle NSClientT::ownMetricsFetcher() {
   return bundle;
 }
 void NSClientT::process_metrics() { plugins_->process_metrics(ownMetricsFetcher()); }
-void NSClientT::process_facts(const std::string &reason) { plugins_->process_facts(reason); }
+void NSClientT::process_facts(const std::string &reason) {
+  collect_agent_facts();
+  plugins_->process_facts(reason);
+}
+
+// The `agent` set. Read from the settings on every round rather than cached at
+// boot, so a reload that switches it takes effect on the reload round without
+// the core keeping a copy of its own switch.
+//
+// Nothing in it changes between reloads - the version is compiled in, the
+// module list moves only when modules are loaded, and enrolling takes a
+// restart - so it needs no round of its own: the startup and reload rounds are
+// the ones that can see a difference, and the hourly round, when there is one,
+// merely confirms it (an unchanged set costs no revision).
+void NSClientT::collect_agent_facts() {
+  const unsigned int owner = nsclient::core::fact_repository::core_owner;
+  bool enabled = false;
+  try {
+    enabled = settings::settings_interface::string_to_bool(settings_manager::get_settings()->get_string("/settings/facts", "agent", "false"));
+  } catch (const std::exception &e) {
+    LOG_ERROR_CORE_STD("Failed to read the facts 'agent' setting: " + utf8::utf8_from_native(e.what()));
+    return;
+  }
+  if (!enabled) {
+    // Turned off, or never on: the same omission that drops a module's set.
+    facts_->retain_only(owner, {});
+    return;
+  }
+  std::string error;
+  const PB::Facts::Object agent = nsclient::core::agent_facts::build(CURRENT_SERVICE_VERSION, plugins_->get_loaded_modules(), is_enrolled());
+  if (facts_->set(nsclient::core::agent_facts::set_agent, owner, agent, error) == nsclient::core::fact_repository::set_result::rejected) {
+    LOG_ERROR_CORE_STD("The agent fact set was rejected: " + error);
+  }
+  facts_->retain_only(owner, {nsclient::core::agent_facts::set_agent});
+}
+
+// Whether this host is enrolled with a fleet server: the same test the fleet
+// sync makes before it starts, that the enrollment manifest exists. Asked of
+// the file rather than of the running loop because the first facts round runs
+// before the loop is started - on purpose, so the first report carries the
+// inventory - and would otherwise always say no.
+bool NSClientT::is_enrolled() {
+#ifdef HAVE_ONBOARDING
+  try {
+    const std::string state_file = settings_manager::get_settings()->get_string("/settings/fleet", "state file", DEFAULT_FLEET_STATE_LOCATION);
+    return boost::filesystem::exists(path_->expand_path(state_file));
+  } catch (const std::exception &) {
+    return false;
+  }
+#else
+  return false;
+#endif
+}
 
 #ifdef _WIN32
 void NSClientT::handle_session_change(unsigned long dwSessionId, bool logon) {}

@@ -2,6 +2,8 @@ import * as fs from "fs";
 import * as path from "path";
 import execa from "execa";
 
+import { onWindows } from "./platform";
+
 /**
  * Resolve a bare executable name (e.g. "nscp") against PATH. Returns the
  * absolute path or undefined. Used so CI configs can set NSCP_BIN=nscp
@@ -10,10 +12,7 @@ import execa from "execa";
  */
 function whichOnPath(name: string): string | undefined {
   const dirs = (process.env.PATH ?? "").split(path.delimiter);
-  const exts =
-    process.platform === "win32"
-      ? (process.env.PATHEXT ?? ".EXE;.CMD;.BAT").split(";")
-      : [""];
+  const exts = onWindows ? (process.env.PATHEXT ?? ".EXE;.CMD;.BAT").split(";") : [""];
   for (const dir of dirs) {
     if (!dir) continue;
     for (const ext of exts) {
@@ -51,7 +50,7 @@ function findNscp(): string {
     path.resolve(__dirname, "../../cmake-build-debug"),
     path.resolve(__dirname, "../../build"),
   ].filter(Boolean) as string[];
-  const exe = process.platform === "win32" ? "nscp.exe" : "nscp";
+  const exe = onWindows ? "nscp.exe" : "nscp";
   for (const dir of buildDirs) {
     const candidate = path.join(dir, exe);
     if (fs.existsSync(candidate)) return candidate;

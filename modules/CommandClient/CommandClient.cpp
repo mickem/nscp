@@ -16,6 +16,7 @@
 #include <nscapi/settings/helper.hpp>
 #include <nscapi/settings/proxy.hpp>
 #include <str/utf8.hpp>
+#include <threads/guarded_thread.hpp>
 
 #include "console_editor.hpp"
 
@@ -380,7 +381,7 @@ bool CommandClient::commandLineExec(const int target_mode, const PB::Commands::E
     is_running = false;
     if (const std::shared_ptr<command_client::console_editor> editor = get_editor()) editor->interrupt();
   });
-  boost::thread signal_thread([&signal_ioc] { signal_ioc.run(); });
+  boost::thread signal_thread([&signal_ioc] { threads::run_guarded("command client signals", [&signal_ioc] { signal_ioc.run(); }, NSC_THREAD_REPORTER); });
 #endif
 
   const bool interactive = command_client::console_editor::is_interactive();
@@ -399,11 +400,16 @@ bool CommandClient::commandLineExec(const int target_mode, const PB::Commands::E
   }
 
   input_thread = boost::thread([this, editor]() {
-    if (editor) {
-      this->interactive_input_loop(editor);
-    } else {
-      this->piped_input_loop();
-    }
+    threads::run_guarded(
+        "command client input",
+        [this, editor]() {
+          if (editor) {
+            this->interactive_input_loop(editor);
+          } else {
+            this->piped_input_loop();
+          }
+        },
+        NSC_THREAD_REPORTER);
   });
   input_thread.join();
   // Release the thread object so it stops holding a copy of the functor (and

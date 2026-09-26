@@ -23,17 +23,24 @@ import {
   DOCKER_HOST_ALLOWED_HOSTS,
   GenericContainer,
   NscpInstance,
-  dockerOrSkip,
   dockerRunOnce,
   hostGatewayExtraHosts,
+  onWindows,
+  pbkdf2StoredForm,
+  describeIf,
+  moduleBuiltHere,
+  skipDocker,
 } from "@fixtures/index";
 
 jest.setTimeout(900_000);
 
-const onWindows = process.platform === "win32";
 const PASSWORD = "check_nt-password";
 
-dockerOrSkip()("check_nt (legacy NSClient) integration", () => {
+// Docker for the check_nt image, and the two modules that serve the counters
+// it asks for (UPTIME/CPULOAD/MEMUSE from CheckSystem, USEDDISKSPACE/FILEAGE
+// from CheckDisk), which the macOS build does not carry yet.
+const canRun = !skipDocker() && moduleBuiltHere("CheckSystem") && moduleBuiltHere("CheckDisk");
+describeIf(canRun)("check_nt (legacy NSClient) integration", () => {
   let nscp: NscpInstance;
   const image = "check_nt";
 
@@ -51,9 +58,11 @@ dockerOrSkip()("check_nt (legacy NSClient) integration", () => {
 
   /**
    * (Re)configure and (re)start nscp with the NSClient (check_nt) server.
-   * Leaving `allow` undefined keeps the built-in default ("any").
+   * Leaving `allow` undefined keeps the built-in default ("any");
+   * `storedPassword` is what goes into the INI (the clear text, or the
+   * hashed form `nscp web install` writes).
    */
-  async function startNsclient(allow?: string): Promise<void> {
+  async function startNsclient(allow?: string, storedPassword: string = PASSWORD): Promise<void> {
     await nscp.stop();
     await nscp.configure({
       // CheckSystem serves UPTIME/CPULOAD/MEMUSE/PROCSTATE; CheckDisk
@@ -61,7 +70,7 @@ dockerOrSkip()("check_nt (legacy NSClient) integration", () => {
       "/modules": { NSClientServer: "enabled", CheckSystem: "enabled", CheckDisk: "enabled" },
       "/settings/default": {
         "allowed hosts": DOCKER_HOST_ALLOWED_HOSTS,
-        password: PASSWORD,
+        password: storedPassword,
       },
       "/settings/NSClient/server": {
         // The real check_nt never learned TLS, and the server now
@@ -239,6 +248,32 @@ dockerOrSkip()("check_nt (legacy NSClient) integration", () => {
       const r = await checkNt(["-v", "CLIENTVERSION"], { allowFailure: true });
       expect(r.exitCode).toBe(3);
       expect(r.all).toContain("ERROR: Command not allowed.");
+    });
+  });
+
+  describe("with the shared password stored hashed", () => {
+    // The form `nscp web install` / `nscp web password --set` write to
+    // /settings/default/password; the server verifies the clear text the
+    // client sends against it.
+    const stored = pbkdf2StoredForm(PASSWORD);
+
+    beforeAll(async () => {
+      await startNsclient(undefined, stored);
+    });
+
+    it("the real check_nt still authenticates with the clear-text password", async () => {
+      const r = await checkNt(["-v", "CLIENTVERSION"]);
+      expect(r.exitCode).toBe(0);
+      expect(r.all).toMatch(/\d+\.\d+\.\d+/);
+    });
+
+    it("a wrong password is still rejected with the generic error", async () => {
+      const r = await checkNt(["-v", "UPTIME"], {
+        password: "not-the-password",
+        allowFailure: true,
+      });
+      expect(r.exitCode).toBe(3);
+      expect(r.all).toContain("ERROR: Bad request.");
     });
   });
 });

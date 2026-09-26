@@ -11,6 +11,7 @@
 #include <nsclient/nsclient_exception.hpp>
 #include <str/xtos.hpp>
 #include <string>
+#include <threads/guarded_thread.hpp>
 
 namespace {
 // Granularity of the persisted form: coarse enough to keep nsclient.db small,
@@ -41,7 +42,7 @@ bool collector_thread::start() {
   if (!abort_signal_.create(error)) {
     NSC_LOG_ERROR("Failed to create the disk collector abort signal, a stalled fetch will delay shutdown: " + error);
   }
-  thread_ = std::make_shared<boost::thread>([this]() { this->thread_proc(); });
+  thread_ = threads::start_guarded_thread("checkdisk collector", [this]() { this->thread_proc(); }, NSC_THREAD_REPORTER);
   return true;
 }
 

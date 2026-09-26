@@ -25,17 +25,20 @@ import {
   perfValue,
   pollQuery,
   setupQueryNscp,
+  onWindows,
+  describeOnWindows,
+  describeWithModules,
 } from "@fixtures/index";
 
 jest.setTimeout(300_000);
 
-const onWindows = process.platform === "win32";
 /** Our own long-lived process — the one thing guaranteed to be running. */
 const SELF_EXE = onWindows ? "nscp.exe" : "nscp";
 const SELF_RE = /nscp(\.exe)?/i;
 const SYSTEM_PATH = onWindows ? "/settings/system/windows" : "/settings/system/unix";
 
-describe("CheckSystem commands", () => {
+// Skipped where the build has no CheckSystem (macOS, until it is ported).
+describeWithModules("CheckSystem")("CheckSystem commands", () => {
   let nscp: NscpInstance;
   let key: string;
 
@@ -1228,7 +1231,7 @@ describe("CheckSystem commands", () => {
 // collector. This runs in its own nscp instance (own describe) so the main
 // suite can assert the collector-off contract while this one asserts the
 // collector-on behaviour. Skipped entirely off Windows.
-(onWindows ? describe : describe.skip)("CheckSystem check_process delta with the CPU collector (Windows)", () => {
+describeOnWindows("CheckSystem check_process delta with the CPU collector (Windows)", () => {
   let nscp: NscpInstance;
   let key: string;
 

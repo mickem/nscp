@@ -30,11 +30,13 @@ import {
   messageOf,
   pollQuery,
   setupQueryNscp,
+  describeWithModules,
 } from "@fixtures/index";
 
 jest.setTimeout(300_000);
 
-describe("CheckLogFile real-time run on startup", () => {
+// Skipped where the build has no CheckLogFile (macOS, until it is ported).
+describeWithModules("CheckLogFile")("CheckLogFile real-time run on startup", () => {
   let nscp: NscpInstance;
   let key: string;
   let scratch: string;

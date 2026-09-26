@@ -1,23 +1,22 @@
-name: Build release
+name: Build main
+
+# Validates every merge to main: the full platform matrix, unsigned, plus the
+# sanitizer and coverage runs a pull request skips. It publishes nothing. The
+# signed build and the draft release come from build-release.yml, and only for
+# the release pull request, so code signing is billed per release rather than
+# per merge.
 
 permissions:
-  contents: write
-  actions: read
+  contents: read
 
 on:
   push:
     branches: [main]
 
-# Merging three PRs in a row used to start three full release builds when only
-# the newest one can become the release: the drafts from the older two are
-# superseded before they are even finished. Cancel them and let the newest
-# merge produce the artifacts.
-#
-# Trade-off: a merge whose run is cancelled never gets its own draft release.
-# That is deliberate — the draft is cut from the newest state of main, and the
-# run that follows produces one for its own version a few minutes later. If a
-# per-merge draft ever becomes load-bearing, set cancel-in-progress to false
-# and the runs will queue instead.
+# Merging three PRs in a row would start three full builds when only the
+# newest state of main matters. Cancel the older ones. Nothing is lost: this
+# workflow publishes nothing, and a release is built by build-release.yml,
+# whose runs are never cancelled by a later merge.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -48,44 +47,29 @@ jobs:
     with:
       architecture: x64
       version: ${{ needs.get-version.outputs.version }}
-    secrets:
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
   build-server-x86:
     needs: [get-version, create-test-bundle]
     uses: ./.github/workflows/build-windows.yml
     with:
       architecture: x86
       version: ${{ needs.get-version.outputs.version }}
-    secrets:
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
   # Cross-compiled on the x64 runner: the unit tests and the Windows
   # integration suite are skipped inside build-windows.yml because the host
-  # cannot execute ARM64 binaries. Release builds only - a PR does not need a
-  # fourth Windows build to tell it whether the change compiles.
+  # cannot execute ARM64 binaries. Main and release builds only - a PR does
+  # not need a fourth Windows build to tell it whether the change compiles,
+  # but a release should never be the first time ARM64 is built.
   build-server-arm64:
     needs: [get-version, create-test-bundle]
     uses: ./.github/workflows/build-windows.yml
     with:
       architecture: arm64
       version: ${{ needs.get-version.outputs.version }}
-    secrets:
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
   build-x86-static:
     needs: get-version
     uses: ./.github/workflows/build-windows-legacy.yml
     with:
       architecture: x86
       version: ${{ needs.get-version.outputs.version }}
-    secrets:
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
   build-debian:
     needs: [get-version, create-test-bundle]
     uses: ./.github/workflows/build-debian.yml
@@ -119,8 +103,3 @@ jobs:
     with:
       version: ${{ needs.get-version.outputs.version }}
 
-  release:
-    needs: [get-version, build-server-x64, build-server-x86, build-server-arm64, build-x86-static, build-debian, build-redhat, build-macos, build-web]
-    uses: ./.github/workflows/release.yml
-    with:
-      version: ${{ needs.get-version.outputs.version }}

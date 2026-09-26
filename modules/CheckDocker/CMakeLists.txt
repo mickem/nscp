@@ -13,6 +13,7 @@ set(SRCS
     check_docker_stats.cpp
     check_docker_restarts.cpp
     check_docker_df.cpp
+    docker_facts.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
     ${NSCP_INCLUDEDIR}/bytes/base64.c
@@ -44,6 +45,7 @@ if(WIN32)
         check_docker_df.hpp
         docker_client.hpp
         docker_endpoint.hpp
+        docker_facts.hpp
         ${NSCP_DEF_PLUGIN_HPP}
         ${NSCP_FILTER_HPP}
     )
@@ -70,16 +72,19 @@ NSCP_CREATE_TEST(
         GTest::gtest_main
 )
 
-# The check logic is tested through an injected fetcher serving canned daemon
-# payloads, so this target needs no HTTP/socket sources.
+# The check logic and the facts producer are tested through an injected
+# fetcher serving canned daemon payloads, so this target needs no HTTP/socket
+# sources.
 NSCP_CREATE_TEST(
     check_docker_test
     SOURCES
         check_docker_test.cpp
+        docker_facts_test.cpp
         check_docker.cpp
         check_docker_stats.cpp
         check_docker_restarts.cpp
         check_docker_df.cpp
+        docker_facts.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp

@@ -330,6 +330,11 @@ class NSCAServerTest(BasicTest):
 		conf.set_string('/settings/NSCA/test_nsca_server', 'port', '15667')
 		conf.set_string('/settings/NSCA/test_nsca_server', 'inbox', 'nsca_test_inbox')
 		conf.set_string('/settings/NSCA/test_nsca_server', 'encryption', '1')
+		# The server refuses to load when encryption is on and it has no key (an
+		# empty password is a well-known key), so the boot configuration needs one
+		# too - test_one_crypto() replaces it per cipher, but only once the module
+		# is up and can be reloaded.
+		conf.set_string('/settings/NSCA/test_nsca_server', 'password', 'pwd-1')
 
 		conf.set_string('/settings/NSCA/test_nsca_client', 'channel', 'nsca_test_outbox')
 		

@@ -11,13 +11,11 @@
  * the real output shape if the suite ever runs on a licensing server.
  * Client-query output is the raw Nagios message with no status-word prefix.
  */
-import { NscpInstance } from "@fixtures/index";
+import { NscpInstance, describeOnWindows } from "@fixtures/index";
 
 jest.setTimeout(120_000);
 
-const onWindows = process.platform === "win32";
-
-(onWindows ? describe : describe.skip)("CheckWindowsApps RDS commands", () => {
+describeOnWindows("CheckWindowsApps RDS commands", () => {
   let nscp: NscpInstance;
 
   /** Run a CheckWindowsApps query and return the combined output. */

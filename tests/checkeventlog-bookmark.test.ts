@@ -34,13 +34,12 @@ import {
   resolveEventLogSource,
   setupQueryNscp,
   writeEventLogEntry,
+  describeOnWindows,
 } from "@fixtures/index";
 
 jest.setTimeout(300_000);
 
-const onWindows = process.platform === "win32" ? describe : describe.skip;
-
-onWindows("CheckEventLog bookmark", () => {
+describeOnWindows("CheckEventLog bookmark", () => {
   let nscp: NscpInstance;
   let key: string;
   let source: string;

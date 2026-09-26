@@ -14,5 +14,6 @@
 		"check_mssql_databases"		: "Check database state, recovery model and data/log size.",
 		"check_mssql_backup"		: "Check the age of the last full/differential/log backup per database.",
 		"check_mssql_jobs"		: "Check SQL Server Agent job status."
-	}
+	},
+	"facts" : true
 }

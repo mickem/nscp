@@ -15,7 +15,6 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/settings/helper.hpp>
-#include <str/constant_time.hpp>
 #include <str/utils.hpp>
 
 namespace sh = nscapi::settings_helper;
@@ -179,7 +178,13 @@ bool NSClientServer::isPasswordOk(std::string remotePassword) {
     NSC_LOG_ERROR_STD("Using check_nt without a password is a security risk, please configure passwords (or better yet switch protocols).");
     return false;
   }
-  return str::constant_time_eq(localPassword, remotePassword);
+  // The stored value is either the clear-text password or the hashed form that
+  // `nscp web install` / `nscp web password --set` write to the shared
+  // /settings/default/password. The memo compares against either in constant
+  // time, and runs the KDF at most once per password rather than once per
+  // request - check_nt has no session to amortise it over. See
+  // password_memo.hpp for why that matters on this listener.
+  return password_memo_.verify(remotePassword, localPassword);
 }
 
 void log_bad_command(const std::string &cmd) {

@@ -5,6 +5,7 @@ import * as path from "path";
 import execa from "execa";
 
 import { registerFailureDumper } from "./log-on-fail";
+import { onUnix, onWindows } from "./platform";
 
 type ExecaChildProcess = execa.ExecaChildProcess;
 type ExecaReturnValue = execa.ExecaReturnValue;
@@ -64,6 +65,8 @@ function extractSanitizerReport(stderr: string): string {
  *                                 that fails the bin-relative lookup.
  *   4. `/usr/lib/nsclient/<rel>` — absolute fallback in case the bin dir
  *                                 ever moves but the shared dir doesn't.
+ *   5. `/usr/local/lib/nsclient/<rel>` — the same fallback for the macOS
+ *                                 package, whose prefix is /usr/local.
  */
 function sharedCandidates(rel: string): string[] {
   const binDir = path.dirname(nscpBin());
@@ -73,8 +76,12 @@ function sharedCandidates(rel: string): string[] {
   }
   candidates.push(path.join(binDir, rel));
   candidates.push(path.join(binDir, "..", "lib", "nsclient", rel));
-  if (process.platform !== "win32") {
+  if (onUnix) {
     candidates.push(path.join("/usr/lib/nsclient", rel));
+    // The macOS package: nscp is /usr/local/sbin/nscp and the shared files
+    // sit in /usr/local/lib/nsclient, which the bin-relative lookup above
+    // already finds. Listed for the same reason as the Linux path.
+    candidates.push(path.join("/usr/local/lib/nsclient", rel));
   }
   return candidates;
 }
@@ -94,14 +101,26 @@ function findShared(rel: string): string {
 }
 
 /**
- * True when the named module is present in this install. PythonScript and the
- * other optional modules are built only where their dependencies were found
- * (Boost.Python, libpython), so a test that needs one has to ask rather than
- * assume, or it fails on a perfectly good package that simply omits it.
+ * True when the named module is present in this install and can load.
+ * PythonScript and the other optional modules are built only where their
+ * dependencies were found (Boost.Python, libpython), so a test that needs one
+ * has to ask rather than assume, or it fails on a perfectly good package that
+ * simply omits it.
+ *
+ * `windowsRuntimeDlls` names the runtime DLLs the module needs on Windows
+ * (`libmariadb.dll` for CheckMySQL). The plugin loader opens a module with a
+ * full-path LoadLibrary, which does not search `modules/`, so such a DLL has
+ * to sit next to nscp.exe - the MSI puts it there, a bare zip or build tree
+ * may not - and a module whose DLL is missing is built but cannot load.
  */
-export function hasModule(name: string): boolean {
-  const file = process.platform === "win32" ? `${name}.dll` : `lib${name}.so`;
-  return findSharedOptional(path.join("modules", file)) !== undefined;
+export function hasModule(name: string, windowsRuntimeDlls: string[] = []): boolean {
+  // `.so` on macOS too: CMake gives a MODULE library that suffix on Darwin,
+  // and the loader (include/dll/impl_unix.hpp) asks for it by that name.
+  const file = onWindows ? `${name}.dll` : `lib${name}.so`;
+  if (findSharedOptional(path.join("modules", file)) === undefined) return false;
+  if (onUnix) return true;
+  const binDir = path.dirname(nscpBin());
+  return windowsRuntimeDlls.every((dll) => fs.existsSync(path.join(binDir, dll)));
 }
 
 /**
@@ -374,7 +393,7 @@ export class NscpInstance {
     if (!this.proc) return;
     this.stopping = true;
     const proc = this.proc;
-    const signal = opts.signal ?? (process.platform === "win32" ? "SIGKILL" : "SIGTERM");
+    const signal = opts.signal ?? (onWindows ? "SIGKILL" : "SIGTERM");
     const timeout = opts.timeout ?? 5_000;
     const waitExit = (ms: number) => {
       let timer: NodeJS.Timeout | undefined;

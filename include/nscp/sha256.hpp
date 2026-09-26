@@ -10,11 +10,15 @@
 #include <openssl/evp.h>
 #endif
 
-// The module's one SHA-256-and-hex implementation. Three call sites used to
+// The agent's one SHA-256-and-hex implementation. Three call sites used to
 // carry a hand-rolled copy - token_store (the session-table key),
 // web_installer (the bundle integrity check) and password_hash (the PBKDF2
 // salt and hash encoding) - each with its own error handling and its own
 // ostringstream hex loop. A digest or encoding fix now lands in one place.
+//
+// It lives next to password_hash.hpp because that one is built into the
+// NSCAServer and NSClientServer modules too, which have no access to the WEB
+// module's sources.
 //
 // Header-only and deliberately dependency-free (<string> plus OpenSSL): it is
 // included by token_store.cpp and password_hash.cpp, which the WEBServer unit

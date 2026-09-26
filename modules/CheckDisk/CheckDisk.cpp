@@ -38,6 +38,7 @@
 #include "check_uncpath.hpp"
 #include "file_finder.hpp"
 #include "filter.hpp"
+#include "storage_facts.hpp"
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
@@ -145,8 +146,26 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         "How much used-space history is kept per drive; bounds the largest useful trend-window. Duration, e.g. 7d.", true)
     ;
   // clang-format on
+
+  bool facts_volumes = false;
+  // clang-format off
+  settings.alias().add_key_to_settings("facts")
+    .add_bool(storage_facts::id_volumes, sh::bool_key(&facts_volumes, false),
+        "STORAGE VOLUMES FACTS",
+        "Collect the `storage.volumes` fact set: one record per volume check_drivesize drive=* would report - its mount point (the record id, the "
+        "same value check_drivesize calls `drive`), the device behind it, the filesystem, the drive type, the label and the size. Not the free "
+        "space: that is monitoring, and it lives in check_drivesize. Cheap - the same enumeration the check does, re-read every facts round because "
+        "volumes come and go - and a remote volume is listed without a size rather than asked for one, so a dead share cannot stall the round. "
+        "Nothing is collected while this is off.")
+    ;
+  // clang-format on
   settings.register_all();
   settings.notify();
+
+  // Which fact sets fetchFacts builds is configuration, so it is re-read on
+  // every load, a reload included: the core drops a set a producer stops
+  // returning, and that is what turning it off means.
+  facts_volumes_.store(facts_volumes);
 
   if (!file_access_.get_config_error().empty()) NSC_LOG_ERROR_STD(file_access_.get_config_error());
 
@@ -187,6 +206,20 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     publish_drives_tag(get_core());
   }
   return true;
+}
+
+void CheckDisk::fetchFacts(const nscapi::facts::request &, nscapi::facts::response &response) {
+  if (!facts_volumes_.load()) return;
+  // Every round, whatever its reason: unlike what CheckSystem reports, the
+  // volume list does change while the process runs (a USB disk, a new mount),
+  // and reading it costs what one check_drivesize drive=* costs.
+  try {
+    storage_facts::publish(storage_facts::gather(), std::time(nullptr), response);
+  } catch (const std::exception &e) {
+    // Named against the set rather than failing the round: the core keeps the
+    // volumes it already holds and reports why they are stale.
+    response.error(storage_facts::set_storage, "Failed to enumerate volumes: " + utf8::utf8_from_native(e.what()));
+  }
 }
 
 bool CheckDisk::unloadModule() {

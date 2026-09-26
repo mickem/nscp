@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import DiskFreeWidget from "./DiskFreeWidget";
 import { parseMetrics } from "../metric_parser";
 
@@ -40,5 +41,42 @@ describe("DiskFreeWidget", () => {
     });
     const { container } = render(<DiskFreeWidget metrics={metrics} />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("folds a long list of volumes between whole bars, and offers the rest", async () => {
+    // A file server, in one cell of a dashboard: without a fold the widget is
+    // as tall as the machine has volumes. The fold lands between two bars, so
+    // no volume is ever shown as half a row.
+    const many: Record<string, number> = {};
+    for (let i = 0; i < 11; i++) {
+      const drive = String.fromCharCode(65 + i) + ":";
+      Object.assign(many, {
+        [`disk.free.${drive}.total`]: 100 * GB,
+        [`disk.free.${drive}.free`]: 40 * GB,
+        [`disk.free.${drive}.used`]: 60 * GB,
+        [`disk.free.${drive}.used_pct`]: 60,
+      });
+    }
+    const { metrics } = parseMetrics(many);
+    render(<DiskFreeWidget metrics={metrics} />);
+
+    expect(screen.getAllByRole("progressbar")).toHaveLength(8);
+    expect(screen.queryByText("I:")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "… 3 more" }));
+    expect(screen.getAllByRole("progressbar")).toHaveLength(11);
+    expect(screen.getByText("K:")).toBeInTheDocument();
+  });
+
+  it("carries no control when every volume already fits", () => {
+    const { metrics } = parseMetrics({
+      "disk.free.C:.total": 100 * GB,
+      "disk.free.C:.free": 40 * GB,
+      "disk.free.C:.used": 60 * GB,
+      "disk.free.C:.used_pct": 60,
+    });
+    render(<DiskFreeWidget metrics={metrics} />);
+
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });

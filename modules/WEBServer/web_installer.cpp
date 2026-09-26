@@ -3,7 +3,6 @@
 
 #include "web_installer.hpp"
 
-#include "sha256.hpp"
 #include "upload_staging.hpp"
 #include "web_installer_detail.hpp"
 
@@ -12,6 +11,7 @@
 #include <bytes/unzip.hpp>
 #include <net/http/client.hpp>
 #include <net/http/http_request.hpp>
+#include <nscp/sha256.hpp>
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/trim.hpp>

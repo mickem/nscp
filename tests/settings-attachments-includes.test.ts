@@ -22,7 +22,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { NscpInstance } from "@fixtures/index";
+import { NscpInstance, onWindows, describeOnLinux } from "@fixtures/index";
 
 jest.setTimeout(180_000);
 
@@ -218,7 +218,7 @@ describe("settings attachments and includes", () => {
       // an operator moving a fleet config between the two will meet exactly
       // this.
       const r = await includeResolves("included.ini", "shared");
-      if (process.platform === "win32") {
+      if (onWindows) {
         expect(r.loaded).toBe(true);
       } else {
         expect(r.loaded).toBe(false);
@@ -247,7 +247,6 @@ describe("settings attachments and includes", () => {
 
   // What attachments are actually for: shipping a check script to the fleet.
   describe("attaching a script and running it", () => {
-    const onWindows = process.platform === "win32";
     const ext = onWindows ? "bat" : "sh";
     const body = onWindows
       ? "@echo off\r\necho OK: attached script ran\r\n"
@@ -362,119 +361,116 @@ describe("settings attachments and includes", () => {
    * CreateProcess, while the unix launcher sets nothing and the child inherits
    * the agent's. Linux-only for the /bin/sh runner.
    */
-  (process.platform === "linux" ? describe : describe.skip)(
-    "a script attachment paired with a relative command",
-    () => {
-      interface Shape {
-        name: string;
-        /** The child's working directory. */
-        cwd: "shared" | "base" | "elsewhere";
-        /** Whether ${shared-path} and ${base-path} are the same folder. */
-        sharedIsBase: boolean;
-      }
+  describeOnLinux("a script attachment paired with a relative command", () => {
+    interface Shape {
+      name: string;
+      /** The child's working directory. */
+      cwd: "shared" | "base" | "elsewhere";
+      /** Whether ${shared-path} and ${base-path} are the same folder. */
+      sharedIsBase: boolean;
+    }
 
-      // ${scripts} is ${exe-path}/scripts on Windows and ${shared-path}/scripts
-      // on unix, and on Windows it deliberately does NOT move to %ProgramData%
-      // with the writable state - only ${shared-path} does. That is what splits
-      // the two Windows rows apart.
-      const shapes: Shape[] = [
-        { name: "linux, shipped systemd unit", cwd: "shared", sharedIsBase: true },
-        { name: "linux, any other launch", cwd: "elsewhere", sharedIsBase: true },
-        { name: "windows service, legacy layout", cwd: "base", sharedIsBase: true },
-        { name: "windows service, modern layout", cwd: "base", sharedIsBase: false },
-      ];
+    // ${scripts} is ${exe-path}/scripts on Windows and ${shared-path}/scripts
+    // on unix, and on Windows it deliberately does NOT move to %ProgramData%
+    // with the writable state - only ${shared-path} does. That is what splits
+    // the two Windows rows apart.
+    const shapes: Shape[] = [
+      { name: "linux, shipped systemd unit", cwd: "shared", sharedIsBase: true },
+      { name: "linux, any other launch", cwd: "elsewhere", sharedIsBase: true },
+      { name: "windows service, legacy layout", cwd: "base", sharedIsBase: true },
+      { name: "windows service, modern layout", cwd: "base", sharedIsBase: false },
+    ];
 
-      /** Run one shape against one target spelling; report whether it ran. */
-      async function attempt(shape: Shape, target: string): Promise<boolean> {
-        const root = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-layout-"));
-        const base = path.join(root, "base");
-        const shared = shape.sharedIsBase ? base : path.join(root, "programdata");
-        // ${scripts} follows ${base-path} when the two are split, which is the
-        // Windows arrangement; when they are the same folder both readings
-        // agree, which is every other row.
-        const scripts = path.join(shape.sharedIsBase ? shared : base, "scripts");
-        const elsewhere = path.join(root, "elsewhere");
-        for (const d of [base, shared, scripts, elsewhere]) fs.mkdirSync(d, { recursive: true });
+    /** Run one shape against one target spelling; report whether it ran. */
+    async function attempt(shape: Shape, target: string): Promise<boolean> {
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-layout-"));
+      const base = path.join(root, "base");
+      const shared = shape.sharedIsBase ? base : path.join(root, "programdata");
+      // ${scripts} follows ${base-path} when the two are split, which is the
+      // Windows arrangement; when they are the same folder both readings
+      // agree, which is every other row.
+      const scripts = path.join(shape.sharedIsBase ? shared : base, "scripts");
+      const elsewhere = path.join(root, "elsewhere");
+      for (const d of [base, shared, scripts, elsewhere]) fs.mkdirSync(d, { recursive: true });
 
-        const cwd = { shared, base, elsewhere }[shape.cwd];
-        const bootIni = path.join(root, "boot.ini");
-        fs.writeFileSync(bootIni, "[tls]\nallow plaintext = true\n");
+      const cwd = { shared, base, elsewhere }[shape.cwd];
+      const bootIni = path.join(root, "boot.ini");
+      fs.writeFileSync(bootIni, "[tls]\nallow plaintext = true\n");
 
-        const key = `/layout-${Math.random().toString(36).slice(2)}.ini`;
-        served["/hello.sh"] = "#!/bin/sh\necho 'OK: attached script ran'\n";
-        served[key] = [
-          "[/modules]",
-          "CheckExternalScripts = enabled",
-          "",
-          "[/attachments]",
-          `${target} = ${baseUrl}/hello.sh`,
-          "",
-          "[/settings/external scripts/scripts]",
-          "check = /bin/sh scripts/hello.sh",
-          "",
-        ].join("\n");
+      const key = `/layout-${Math.random().toString(36).slice(2)}.ini`;
+      served["/hello.sh"] = "#!/bin/sh\necho 'OK: attached script ran'\n";
+      served[key] = [
+        "[/modules]",
+        "CheckExternalScripts = enabled",
+        "",
+        "[/attachments]",
+        `${target} = ${baseUrl}/hello.sh`,
+        "",
+        "[/settings/external scripts/scripts]",
+        "check = /bin/sh scripts/hello.sh",
+        "",
+      ].join("\n");
 
-        const nscp = new NscpInstance({
-          workDir: cwd,
-          settingsFile: path.join(root, "nsclient.ini"),
-          pathOverrides: { "shared-path": shared, scripts, "boot-conf": bootIni },
-        });
-        fs.writeFileSync(nscp.settingsFile, `[/includes]\nfleet = ${baseUrl}${key}\n`);
-
-        const r = await nscp.run(
-          ["client", "--module", "CheckExternalScripts", "--boot", "--query", "check"],
-          { allowFailure: true },
-        );
-        return /OK: attached script ran/.test(r.all ?? "");
-      }
-
-      // `scripts/hello.sh` as the target is rooted at ${shared-path}, so it
-      // meets a cwd-relative command only where the cwd IS ${shared-path}.
-      it("with a relative target, works only where the working directory is ${shared-path}", async () => {
-        const got: Record<string, boolean> = {};
-        for (const shape of shapes) got[shape.name] = await attempt(shape, "scripts/hello.sh");
-        console.log(
-          "\n  target scripts/hello.sh + command scripts/hello.sh\n" +
-            shapes
-              .map((s) => `    ${s.name.padEnd(32)} ${got[s.name] ? "runs" : "DOES NOT RUN"}`)
-              .join("\n"),
-        );
-
-        expect(got["linux, shipped systemd unit"]).toBe(true);
-        expect(got["windows service, legacy layout"]).toBe(true);
-        // The two that break, for different reasons: nothing sets the child's
-        // cwd on a non-systemd unix launch, and under the modern layout the
-        // attachment goes to %ProgramData%\NSClient++\scripts while the
-        // command looks in <install>\scripts.
-        expect(got["linux, any other launch"]).toBe(false);
-        expect(got["windows service, modern layout"]).toBe(false);
+      const nscp = new NscpInstance({
+        workDir: cwd,
+        settingsFile: path.join(root, "nsclient.ini"),
+        pathOverrides: { "shared-path": shared, scripts, "boot-conf": bootIni },
       });
+      fs.writeFileSync(nscp.settingsFile, `[/includes]\nfleet = ${baseUrl}${key}\n`);
 
-      // ${scripts}/hello.sh instead puts the file where ${scripts} says, and
-      // ${scripts} sits under the folder the child starts in on every standard
-      // launch - including the modern layout, because ${scripts} does not move.
-      it("with a ${scripts} target, works on every standard launch", async () => {
-        const got: Record<string, boolean> = {};
-        for (const shape of shapes) got[shape.name] = await attempt(shape, "${scripts}/hello.sh");
-        console.log(
-          "\n  target ${scripts}/hello.sh + command scripts/hello.sh\n" +
-            shapes
-              .map((s) => `    ${s.name.padEnd(32)} ${got[s.name] ? "runs" : "DOES NOT RUN"}`)
-              .join("\n"),
-        );
+      const r = await nscp.run(
+        ["client", "--module", "CheckExternalScripts", "--boot", "--query", "check"],
+        { allowFailure: true },
+      );
+      return /OK: attached script ran/.test(r.all ?? "");
+    }
 
-        expect(got["linux, shipped systemd unit"]).toBe(true);
-        expect(got["windows service, legacy layout"]).toBe(true);
-        // The one this spelling fixes: the file now lands beside the executable
-        // rather than in the writable state, which is where the command looks.
-        expect(got["windows service, modern layout"]).toBe(true);
-        // The one it cannot fix. Nothing sets a working directory for the child
-        // on unix, so a relative command still has no fixed meaning; only an
-        // absolute path in the command covers this.
-        expect(got["linux, any other launch"]).toBe(false);
-      });
-    },
-  );
+    // `scripts/hello.sh` as the target is rooted at ${shared-path}, so it
+    // meets a cwd-relative command only where the cwd IS ${shared-path}.
+    it("with a relative target, works only where the working directory is ${shared-path}", async () => {
+      const got: Record<string, boolean> = {};
+      for (const shape of shapes) got[shape.name] = await attempt(shape, "scripts/hello.sh");
+      console.log(
+        "\n  target scripts/hello.sh + command scripts/hello.sh\n" +
+          shapes
+            .map((s) => `    ${s.name.padEnd(32)} ${got[s.name] ? "runs" : "DOES NOT RUN"}`)
+            .join("\n"),
+      );
+
+      expect(got["linux, shipped systemd unit"]).toBe(true);
+      expect(got["windows service, legacy layout"]).toBe(true);
+      // The two that break, for different reasons: nothing sets the child's
+      // cwd on a non-systemd unix launch, and under the modern layout the
+      // attachment goes to %ProgramData%\NSClient++\scripts while the
+      // command looks in <install>\scripts.
+      expect(got["linux, any other launch"]).toBe(false);
+      expect(got["windows service, modern layout"]).toBe(false);
+    });
+
+    // ${scripts}/hello.sh instead puts the file where ${scripts} says, and
+    // ${scripts} sits under the folder the child starts in on every standard
+    // launch - including the modern layout, because ${scripts} does not move.
+    it("with a ${scripts} target, works on every standard launch", async () => {
+      const got: Record<string, boolean> = {};
+      for (const shape of shapes) got[shape.name] = await attempt(shape, "${scripts}/hello.sh");
+      console.log(
+        "\n  target ${scripts}/hello.sh + command scripts/hello.sh\n" +
+          shapes
+            .map((s) => `    ${s.name.padEnd(32)} ${got[s.name] ? "runs" : "DOES NOT RUN"}`)
+            .join("\n"),
+      );
+
+      expect(got["linux, shipped systemd unit"]).toBe(true);
+      expect(got["windows service, legacy layout"]).toBe(true);
+      // The one this spelling fixes: the file now lands beside the executable
+      // rather than in the writable state, which is where the command looks.
+      expect(got["windows service, modern layout"]).toBe(true);
+      // The one it cannot fix. Nothing sets a working directory for the child
+      // on unix, so a relative command still has no fixed meaning; only an
+      // absolute path in the command covers this.
+      expect(got["linux, any other launch"]).toBe(false);
+    });
+  });
 
   describe("an attachment that is then included", () => {
     it("converges on the second boot, by token everywhere and by bare name only on Windows", async () => {
@@ -508,7 +504,7 @@ describe("settings attachments and includes", () => {
       // landed in ${shared-path}, which IS DEFAULT_CONF_INI_BASE on Windows, so
       // the natural `extra.ini = <url>` / `extra = extra.ini` pairing converges
       // there - and does not on unix, where the config base is the sysconfdir.
-      if (process.platform === "win32") {
+      if (onWindows) {
         expect(second).not.toMatch(/Failed to load child extra\.ini/);
       } else {
         expect(second).toMatch(/Failed to load child extra\.ini/);

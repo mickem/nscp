@@ -127,7 +127,11 @@ TEST(CheckInstalledSoftware, ParsesRpmOutput) {
   EXPECT_EQ(entries[0].size_bytes, 8654321);
   EXPECT_EQ(entries[0].install_date_epoch, 1717200000);
   EXPECT_EQ(entries[0].install_date_str, "2024-06-01");
-  EXPECT_EQ(entries[1].publisher, "");  // "(none)" is normalised away
+  // rpm prints "(none)" for a tag a package does not carry; a pseudo-package
+  // such as an imported gpg-pubkey key has neither an architecture nor a
+  // vendor, and both read as empty rather than as that word.
+  EXPECT_EQ(entries[1].architecture, "");
+  EXPECT_EQ(entries[1].publisher, "");
 }
 
 TEST(CheckInstalledSoftware, ParsesPacmanOutput) {

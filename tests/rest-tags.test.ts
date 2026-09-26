@@ -18,13 +18,12 @@
  * contract for a missing/stopped service.
  */
 import request from "supertest";
-import { NscpInstance, REST_URL } from "@fixtures/index";
+import { NscpInstance, REST_URL, onWindows, describeWithModules } from "@fixtures/index";
 
 jest.setTimeout(900_000);
 
-const onWindows = process.platform === "win32";
-
-describe("REST tags", () => {
+// Both tag producers are missing from the macOS build until they are ported.
+describeWithModules("CheckSystem", "CheckDisk")("REST tags", () => {
   let nscp: NscpInstance;
   let key: string | undefined = undefined;
 

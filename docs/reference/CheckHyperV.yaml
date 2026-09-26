@@ -1,0 +1,346 @@
+module: CheckHyperV
+namespace: windows
+platforms:
+- windows
+windows:
+  info:
+    description: 'Checks for a Hyper-V host: hypervisor health and capacity, logical processor load and
+      the state, heartbeat, memory and snapshots of every virtual machine.'
+    experimental: true
+    title: CheckHyperV
+  paths:
+    /settings/hyperv/facts:
+      info:
+        advanced: false
+        description: ''
+        subkey: false
+        title: ''
+      keys:
+        hyperv.vms:
+          advanced: false
+          default_value: 'false'
+          description: 'Collect the `hyperv.vms` fact set: one record per virtual machine on this host
+            - its name (the record id, the same value check_hyperv_vms calls `vm`), its GUID, generation
+            and configuration version, the configured processors and memory, whether dynamic memory is
+            on, how many checkpoints it has and its Hyper-V Replica role. Not its state, heartbeat, load
+            or assigned memory: that is monitoring, and it lives in check_hyperv_vms. Re-read every facts
+            round with the same WMI queries the check runs, because VMs are created, reconfigured and
+            removed while the agent runs. Nothing is collected while this is off.'
+          sample: false
+          title: HYPER-V VMS FACTS
+  queries:
+    check_hyperv_cpu:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: total_run_time > 90
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: '${processor}: ${total_run_time}% total (${guest_run_time}% guest, ${hypervisor_run_time}%
+          hypervisor)'
+        empty-state: unknown
+        empty-syntax: No logical processor counters found
+        escape-html: 'false'
+        filter: processor = 'total'
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: ''
+        perf-config: ''
+        perf-syntax: ${processor}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: total_run_time > 80
+      fields:
+      - generic: false
+        long_description: Virtual processor context switches per second on the logical processor
+        name: context_switches
+        short_description: ''
+      - generic: false
+        long_description: '% of time spent running guest (and root partition) code'
+        name: guest_run_time
+        short_description: ''
+      - generic: false
+        long_description: '% of time spent in the hypervisor itself (scheduling, intercepts)'
+        name: hypervisor_run_time
+        short_description: ''
+      - generic: false
+        long_description: '% of time the logical processor was idle'
+        name: idle_time
+        short_description: ''
+      - generic: false
+        long_description: Logical processor instance ('Hv LP 0', 'Hv LP 1', ...) or 'total' for the average
+          over all of them
+        name: processor
+        short_description: ''
+      - generic: false
+        long_description: '% of time the logical processor ran guest or hypervisor code (the host''s real
+          CPU usage, which Task Manager on the host under-reports)'
+        name: total_run_time
+        short_description: ''
+      info:
+        description: Check hypervisor logical processor load (guest, hypervisor and total run time) on
+          the host.
+        experimental: true
+      params:
+      - content_type: 4
+        default_value: 'true'
+        is_simple: false
+        long_description: Sample the counters twice, one second apart. The run-time counters are rates,
+          so this is what gives them a value; averages=false skips the wait and reports 0 for every rate.
+        name: averages
+        repeatable: false
+        required: false
+        short_description: Sample the counters twice, one second apart. The run-time counters are rates,
+          so this is what gives them a value; averages=false skips the wait and reports 0 for every rate.
+    check_hyperv_host:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: health_critical > 0
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: ${health_ok} VMs ok, ${health_critical} critical, ${partitions} partitions on ${logical_processors}
+          logical processors (${virtual_processors} virtual)
+        empty-state: unknown
+        empty-syntax: No Hyper-V counters found
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: ''
+        perf-config: ''
+        perf-syntax: vms
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: ''
+      fields:
+      - generic: false
+        long_description: Virtual machines whose health is critical (the host could not keep them running
+          as configured)
+        name: health_critical
+        short_description: ''
+      - generic: false
+        long_description: Virtual machines whose health is ok
+        name: health_ok
+        short_description: ''
+      - generic: false
+        long_description: Logical processors the hypervisor manages on this host
+        name: logical_processors
+        short_description: ''
+      - generic: false
+        long_description: 'Running partitions, including the root (host) partition: the number of running
+          virtual machines plus one'
+        name: partitions
+        short_description: ''
+      - generic: false
+        long_description: Memory pages the hypervisor has allocated for its own use
+        name: total_pages
+        short_description: ''
+      - generic: false
+        long_description: Virtual processors currently allocated to running partitions (root and guests)
+        name: virtual_processors
+        short_description: ''
+      info:
+        description: 'Check the Hyper-V host: virtual machine health summary and hypervisor capacity (logical/virtual
+          processors, partitions).'
+        experimental: true
+    check_hyperv_vms:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: health != 'ok'
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: '${vm}: ${state}, heartbeat ${heartbeat}, health ${health}'
+        empty-state: unknown
+        empty-syntax: No virtual machines found
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: '%(status): all %(count) virtual machine(s) ok'
+        perf-config: ''
+        perf-syntax: ${vm}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${problem_list}'
+        warn: ''
+        warning: state = 'running' and heartbeat != 'ok' and heartbeat != 'disabled' and heartbeat !=
+          'none'
+      fields:
+      - generic: false
+        long_description: Average load of the VM's virtual processors in % (0 when it is off)
+        name: cpu_load
+        short_description: ''
+      - generic: false
+        long_description: True when dynamic memory is enabled for the VM
+        name: dynamic_memory
+        short_description: ''
+      - generic: false
+        long_description: VM generation (1 or 2)
+        name: generation
+        short_description: ''
+      - generic: false
+        long_description: 'Health as the host sees it: ok, major_failure or critical_failure'
+        name: health
+        short_description: ''
+      - generic: false
+        long_description: 'What the guest''s heartbeat integration service reports: ok, degraded, error,
+          non_recoverable_error, no_contact, lost_communication, dormant; disabled when the service is
+          turned off in the VM settings, none when the VM has no heartbeat component'
+        name: heartbeat
+        short_description: ''
+      - generic: false
+        long_description: GUID of the virtual machine
+        name: id
+        short_description: ''
+      - generic: false
+        long_description: When the VM last changed power state. Comparable to relative times, e.g. last_state_change
+          > -1h.
+        name: last_state_change
+        short_description: ''
+      - generic: false
+        long_description: Memory currently assigned to the VM in bytes (0 when it is off)
+        name: memory_assigned
+        short_description: ''
+      - generic: false
+        long_description: Configured maximum memory in bytes (dynamic memory only; 0 with static memory)
+        name: memory_maximum
+        short_description: ''
+      - generic: false
+        long_description: Configured minimum memory in bytes (dynamic memory only; 0 with static memory)
+        name: memory_minimum
+        short_description: ''
+      - generic: false
+        long_description: Configured startup memory in bytes
+        name: memory_startup
+        short_description: ''
+      - generic: false
+        long_description: Creation time of the oldest checkpoint (0 / 'none' without checkpoints). Comparable
+          to relative times, e.g. oldest_snapshot < -7d.
+        name: oldest_snapshot
+        short_description: ''
+      - generic: false
+        long_description: Long-running operation in progress (creating_snapshot, merging_disks, migrating,
+          backing_up, ...) or none
+        name: operation
+        short_description: ''
+      - generic: false
+        long_description: 'Operational status: ok, degraded, predictive_failure, stopped, in_service or
+          dormant'
+        name: operational_status
+        short_description: ''
+      - generic: false
+        long_description: Process id of the VM's worker process (0 when it is off)
+        name: pid
+        short_description: ''
+      - generic: false
+        long_description: 'Hyper-V Replica health: not_applicable, ok, warning or critical'
+        name: replication_health
+        short_description: ''
+      - generic: false
+        long_description: 'Hyper-V Replica role of the VM: none, primary, replica, test_replica or extended_replica'
+        name: replication_mode
+        short_description: ''
+      - generic: false
+        long_description: 'Hyper-V Replica state: disabled, replicating, suspended, critical, resynchronizing,
+          failover_in_progress, ...'
+        name: replication_state
+        short_description: ''
+      - generic: false
+        long_description: Number of checkpoints (snapshots) the VM has
+        name: snapshots
+        short_description: ''
+      - generic: false
+        long_description: 'Power state: running, off, saved, paused, starting, stopping, saving, pausing,
+          resuming, fast_saved, fast_saving or state_<n> for an unknown code'
+        name: state
+        short_description: ''
+      - generic: false
+        long_description: Raw EnabledState value behind `state`
+        name: state_code
+        short_description: ''
+      - generic: false
+        long_description: Seconds since the VM was last started (0 when it is off)
+        name: uptime
+        short_description: ''
+      - generic: false
+        long_description: Configured virtual processors
+        name: vcpus
+        short_description: ''
+      - generic: false
+        long_description: Configuration version of the VM (e.g. 9.0)
+        name: version
+        short_description: ''
+      - generic: false
+        long_description: Name of the virtual machine
+        name: vm
+        short_description: ''
+      info:
+        description: Check virtual machines (state, health, heartbeat, uptime, memory, processors, snapshots,
+          replication).
+        experimental: true

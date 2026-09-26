@@ -77,6 +77,56 @@ using `.value()` everywhere is what stops that edit from silently becoming UB.
 Uniformity is the point: a reviewer should never have to trace control flow to
 decide whether a given dereference is safe.
 
+### Background threads: `threads::start_guarded_thread`, never a raw `boost::thread`
+Never start a background thread with `new boost::thread(...)`,
+`std::make_shared<boost::thread>(...)` or `std::thread`. Use
+`threads::start_guarded_thread(name, body, reporter)`
+(`include/threads/guarded_thread.hpp`), or wrap an existing thread's body in
+`threads::run_guarded(...)` where the thread object itself cannot change.
+Modules pass `NSC_THREAD_REPORTER`; everything else passes a lambda over the
+logger it already holds.
+
+An exception that escapes a thread body calls `std::terminate()` and **the
+whole agent dies** - every check on the host stops because one collector hit
+one bad sample. The module entry points in `nscapi/nscapi_plugin_wrapper.hpp`
+are each wrapped for this reason, but a thread body has no wrapper between it
+and the runtime, so the guard has to be there on purpose.
+
+Most bodies did have one, which is why no agent is known to have died this
+way - do not claim otherwise in a commit message or a release note. The point
+of the rule is that the guard is structural rather than per-site: a couple of
+bodies had none, several caught `std::exception` but not everything, and the
+code between the inner `try` blocks was covered by neither.
+
+`boost::asio::io_context::run()` is the same hazard one level down: a
+completion handler runs arbitrary code (in the socket servers, all the way
+into a check) and asio does not catch for it. Run one with
+`threads::run_io_context_guarded(name, io, reporter)`
+(`include/threads/guarded_io_context.hpp`), which logs what escaped and
+re-enters `run()` - asio supports that, and dropping the pool thread instead
+leaves the server silently short of workers.
+
+The guard does not restart the body; a worker that dies reports
+`Thread '<name>': terminated by an uncaught exception: ...` and stays dead.
+**A reporter is handed the finished line and must not reword it** - it picks
+the level and the channel, nothing else. The wording is rendered once, in
+`threads::detail::render_thread_event()`; reporters used to paste the prefix
+in by hand and two of them had drifted off the string the docs tell operators
+to alert on. The level is the reporter's: modules log it at critical through
+`NSC_THREAD_REPORTER`, the core at error through whatever logger the owning
+object holds - so docs tell operators to alert on the wording, not on a
+severity. Restart policy is per-worker and belongs in the body - see
+`fleet_sync::thread_proc()` for a supervisor loop with a widening backoff.
+
+Re-entering `run()` keeps the *queued* handlers going; it does not bring back
+anything the throwing handler owned. A coroutine that throws is destroyed, so
+a server whose accept loop lives in one has to respawn it - see
+`ServerBeastImpl::spawn_accept_loop()`.
+
+`tools/guarded_threads.py --check` sweeps for raw thread creation and runs in
+CI (`.github/workflows/guarded-threads.yml`). A site that genuinely cannot use
+the helper goes in its `ALLOWED` set with the reason.
+
 ## Check command options
 - Boolean check options must be declared as
   `po::value<bool>(&x)->implicit_value(true)->default_value(false)`,
@@ -116,11 +166,21 @@ decide whether a given dereference is safe.
   options, keywords and output have settled — that is the only thing it
   promises. A zip bundle declares the same key at the top level of its
   `module.json`.
-- Cross-platform data acquisition uses the win/unix shim: platform-neutral
-  sources plus an `if(WIN32) … _win.cpp else() … _unix.cpp` split in
-  `CMakeLists.txt`, behind a shared filter/interface header (see `CheckDisk`).
-  Keep the check logic, keyword registry and output builders platform-neutral;
-  only the data source is `#ifdef`'d.
+- Cross-platform data acquisition uses the platform shim: platform-neutral
+  sources plus an `if(WIN32) … _win.cpp else() … _linux.cpp` split in
+  `CMakeLists.txt` (an `elseif(APPLE) … _darwin.cpp` branch joins it with the
+  first Darwin reader), behind a shared filter/interface header (see
+  `CheckDisk`). The suffix says what the file itself reads: `_unix` is POSIX
+  and compiles on Linux and macOS alike (`file_finder_unix.cpp`;
+  `software_facts_unix.cpp` is portable glue whose dpkg/rpm/pacman readers
+  live in `check_installed_software.cpp`), `_linux` reads procfs, sysfs or
+  `mntent` (`check_drive_linux.cpp`), `_darwin` reads sysctl, Mach or IOKit.
+  Keep the check logic, keyword registry and output builders
+  platform-neutral, and put a new data source in its own suffixed file rather
+  than behind `#ifdef` in a shared one. Two readers still sit inline behind
+  `#ifndef WIN32` - `check_mount.cpp`'s mntent walk and the procfs paths in
+  CheckSystemUnix's checks - and they are the seams a macOS port splits out
+  first, not a pattern to copy.
 - Packaging: modules self-install via `NSCP_INSTALL_MODULE()` (pulled in by
   `include(${BUILD_CMAKE_FOLDER}/module.cmake)` in the module's `CMakeLists.txt`),
   so Linux CPack (DEB/RPM/ZIP) packages them automatically. The **Windows MSI
@@ -321,7 +381,14 @@ has not shipped: it renders as *Unreleased* and sorts above every release, so
 nobody has to guess the next version number while writing a note. Cutting a
 release renames the directory to the version
 (`git mv docs/upgrades/next docs/upgrades/0.19.0`) and rewrites any
-`fixed_in: next` in `docs/security/` to match, in the release commit. Whenever a change is
+`fixed_in: next` in `docs/security/` to match, in the release commit. **That
+rename is the release trigger:** the merge that adds a new, untagged
+`docs/upgrades/<version>/` directory is what `build-release.yml` builds, signs
+and drafts as `<version>` (`.github/scripts/detect-release.sh`). So only the
+release PR may add a version directory, it adds exactly one, and a late note
+for a shipped release goes into that release's existing directory. Other
+merges to main are built unsigned by `build-main.yml` and publish nothing.
+Whenever a change is
 **security-relevant** — including hardening handled without a CVE — also add
 a security notice as a new file `docs/security/<slug>.md` (**never edit
 `docs/docs/security/notices.md`**, the same hook assembles it): a front matter

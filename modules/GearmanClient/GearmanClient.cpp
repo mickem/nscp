@@ -21,6 +21,7 @@
 #include <str/utf8.hpp>
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
+#include <threads/guarded_thread.hpp>
 #include <vector>
 
 #include "gearman_client.hpp"
@@ -75,8 +76,8 @@ class core_query_executor : public gearman::query_executor {
     const std::shared_ptr<query_state> state = std::make_shared<query_state>();
     nscapi::core_wrapper *core = core_;
     const int plugin_id = plugin_id_;
-    const std::shared_ptr<boost::thread> runner =
-        std::make_shared<boost::thread>([state, core, plugin_id, command, arguments] { state->run(core, plugin_id, command, arguments); });
+    const std::shared_ptr<boost::thread> runner = threads::start_guarded_thread(
+        "gearman job " + command, [state, core, plugin_id, command, arguments] { state->run(core, plugin_id, command, arguments); }, NSC_THREAD_REPORTER);
 
     if (!runner->timed_join(boost::posix_time::seconds(timeout_seconds))) {
       // A check cannot be cancelled, so the thread is left to finish and its

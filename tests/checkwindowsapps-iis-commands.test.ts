@@ -11,11 +11,9 @@
  * so a regression in either fails the test on every machine.
  * Client-query output is the raw Nagios message with no status-word prefix.
  */
-import { NscpInstance } from "@fixtures/index";
+import { NscpInstance, describeOnWindows } from "@fixtures/index";
 
 jest.setTimeout(120_000);
-
-const onWindows = process.platform === "win32";
 
 const NOT_AVAILABLE = /not available - is the Web Server \(IIS\) role installed\?/;
 
@@ -26,7 +24,7 @@ const NOT_AVAILABLE = /not available - is the Web Server \(IIS\) role installed\
 // keeps accepting both shapes so it runs on any developer machine.
 const expectIis = process.env.NSCP_EXPECT_IIS === "1";
 
-(onWindows ? describe : describe.skip)("CheckWindowsApps IIS commands", () => {
+describeOnWindows("CheckWindowsApps IIS commands", () => {
   let nscp: NscpInstance;
 
   /** Run a CheckWindowsApps query and return the combined output. */

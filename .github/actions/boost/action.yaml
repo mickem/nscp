@@ -1,18 +1,19 @@
 ---
 name: Build Boost
 description: >-
-  Download and build Boost with b2, including for ARM64.
+  Download, verify and build Boost with b2, for every Windows build (x86, x64,
+  ARM64 and the legacy XP build).
 
-  This is a drop-in replacement for mickem/build-boost (same inputs, same two
-  outputs, same on-disk layout) for the one case that action cannot serve: it
-  shells out to cmake-common's `boost-build --platform ...`, whose Platform enum
-  is exactly x86/x64/auto, so `--platform arm64` aborts with "invalid platform"
-  before anything is compiled. That is what failed the ARM64 Windows build in
-  April 2026 and got it disabled in #1223.
+  This replaced mickem/build-boost, which drove cmake-common's `boost-build`.
+  That action installed cmake-common with `pip install git+https://...` from
+  the tip of its default branch on every run, unpinned, inside the job that
+  later receives the code-signing credentials; it did not verify the archive
+  it downloaded; and it had no build cache. Its Platform enum was also x86/x64
+  only, which is why this action existed for ARM64 in the first place (#1223).
 
-  The b2 invocation mirrors cmake-common's so the two produce interchangeable
-  trees - most importantly --layout=system (plain boost_system.lib rather than
-  the versioned name) and --stagedir=stage/<platform>/<configuration>, both of
+  The b2 invocation mirrors cmake-common's so the trees are interchangeable -
+  most importantly --layout=system (plain boost_system.lib rather than the
+  versioned name) and --stagedir=stage/<platform>/<configuration>, both of
   which the rest of the pipeline and FindBoost rely on.
 inputs:
   version:
@@ -37,6 +38,18 @@ inputs:
     description: Link against the static runtime
     required: false
     default: '0'
+  toolset:
+    description: >-
+      MSVC toolset version to build with, e.g. 14.1 for v141. It must match
+      the toolset the libraries are linked into: static libraries built with
+      a newer toolset than the one linking them are not supported. Empty
+      means the newest toolset of the newest Visual Studio.
+    required: false
+    default: ''
+  defines:
+    description: Space-separated preprocessor defines, passed to b2 as define=<value>
+    required: false
+    default: ''
   directory:
     description: Destination directory (defaults to <workspace>/boost)
     required: false
@@ -51,18 +64,29 @@ outputs:
 runs:
   using: composite
   steps:
-    # Boost is the most expensive dependency in the job by a wide margin, and
-    # the ARM64 build calls this action twice (static, then shared). The key
-    # covers everything that changes the output: the version, the target, the
-    # configuration, both link flags and the library set. The destination
-    # directory is deliberately not in the key - it is where the result is
-    # put, not what the result is - but it is what gets cached, so the two
-    # invocations in a job must keep using different directories, which they
-    # do.
+    # The value recorded for this version in .github/dependency-checksums.txt
+    # is part of the cache key, so a build is only ever restored for exactly
+    # the input it was made from. Re-recording the digest (or recording one
+    # where it used to read `unrecorded`) starts a fresh build instead of
+    # reusing one made from bytes that were never checked against it.
+    - id: digest
+      shell: bash
+      run: |
+        value="$("$GITHUB_WORKSPACE/.github/scripts/dependency-digest.sh" boost "${{ inputs.version }}")"
+        echo "value=${value}" >> "$GITHUB_OUTPUT"
+
+    # Boost is called twice per job (static for installer_lib, then the
+    # regular build). The key covers everything that changes the output: the
+    # version and its recorded digest, the target, the configuration, both
+    # link flags, the toolset, the defines and the library set. The
+    # destination directory is deliberately not in the key - it is where the
+    # result is put, not what the result is - but it is what gets cached, so
+    # the two invocations in a job must keep using different directories,
+    # which they do.
     - id: cache
-      uses: actions/cache@v3
+      uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c # v3
       with:
-        key: ${{ runner.os }}-boost-${{ inputs.version }}-${{ inputs.platform }}-${{ inputs.configuration }}-static${{ inputs.static }}-rt${{ inputs.static-runtime }}-${{ inputs.libraries }}
+        key: ${{ runner.os }}-boost-${{ inputs.version }}-${{ inputs.platform }}-${{ inputs.configuration }}-static${{ inputs.static }}-rt${{ inputs.static-runtime }}-msvc${{ inputs.toolset }}-${{ inputs.defines }}-${{ inputs.libraries }}-${{ steps.digest.outputs.value }}
         path: |
           ${{ inputs.directory || format('{0}/boost', runner.workspace) }}
 
@@ -78,66 +102,28 @@ runs:
         $configuration = '${{ inputs.configuration }}'
         $static = '${{ inputs.static }}' -eq '1'
         $staticRuntime = '${{ inputs.static-runtime }}' -eq '1'
+        $toolset = '${{ inputs.toolset }}'.Trim()
         $libraries = '${{ inputs.libraries }}'.Split(
+            ' ', [System.StringSplitOptions]::RemoveEmptyEntries)
+        $defines = '${{ inputs.defines }}'.Split(
             ' ', [System.StringSplitOptions]::RemoveEmptyEntries)
         if (-not $libraries) {
             throw 'No Boost libraries selected; building them all is never what we want here.'
+        }
+        if ($toolset -and $toolset -notmatch '^\d+\.\d+$') {
+            throw "toolset must look like 14.1, got '$toolset'"
         }
 
         $baseDir = '${{ runner.workspace }}'
         $boostDir = '${{ inputs.directory }}'
         if (-not $boostDir) { $boostDir = Join-Path $baseDir 'boost' }
-
-        $dirName = 'boost_' + $version.Replace('.', '_')
-        # The archive is kept next to the build trees so the second invocation
-        # of this action in a job (static Boost, then the regular one) reuses
-        # the download instead of fetching 130MB again.
-        $archive = Join-Path $baseDir "$dirName.tar.gz"
-
-        if (-not (Test-Path $archive)) {
-            # Same two sources, in the same order, as cmake-common uses.
-            $urls = @(
-                "https://archives.boost.io/release/$version/source/$dirName.tar.gz",
-                "https://sourceforge.net/projects/boost/files/boost/$version/$dirName.tar.gz/download"
-            )
-            foreach ($url in $urls) {
-                Write-Host "* Trying $url"
-                try {
-                    Invoke-WebRequest -Uri $url -OutFile $archive -UseBasicParsing
-                    break
-                } catch {
-                    Write-Host "! $url failed: $($_.Exception.Message)"
-                    if (Test-Path $archive) { Remove-Item $archive -Force }
-                }
-            }
-            if (-not (Test-Path $archive)) {
-                throw "Could not download Boost $version from any known source"
-            }
-
-            # Same policy as every other downloaded dependency: TLS says who
-            # served the bytes, not what they are, and this archive ends up
-            # inside an Authenticode-signed artifact. Forward slashes because
-            # the script runs under Git Bash, where a backslash is an escape.
-            $unix = $archive.Replace('\', '/')
-            & bash "$env:GITHUB_WORKSPACE/.github/scripts/verify-checksum.sh" boost $version $unix
-            if ($LASTEXITCODE -ne 0) {
-                Remove-Item $archive -Force -ErrorAction SilentlyContinue
-                throw "Boost $version failed checksum verification"
-            }
-        }
-
-        if (-not (Test-Path (Join-Path $boostDir 'bootstrap.bat'))) {
-            Write-Host "* Extracting $archive to $boostDir"
-            New-Item -ItemType Directory -Force -Path $boostDir | Out-Null
-            tar -xf $archive -C $boostDir --strip-components=1
-            if ($LASTEXITCODE -ne 0) { throw "Extracting $archive failed" }
-        }
-
         $libraryDir = "$boostDir\stage\$platform\$configuration\lib"
 
-        # A cache hit still has to produce the outputs and prove the tree is
-        # the one that was cached, since a partially-restored cache would
-        # otherwise surface much later as a link error.
+        # A cache hit is keyed on the recorded digest, so the cached tree was
+        # built from the verified archive; there is nothing to download. It
+        # still has to produce the outputs and prove the tree is the one that
+        # was cached, since a partially-restored cache would otherwise surface
+        # much later as a link error.
         if ($cacheHit) {
             $cached = @(Get-ChildItem -Path $libraryDir -Filter '*.lib' -ErrorAction SilentlyContinue)
             if ($cached.Count -gt 0) {
@@ -147,6 +133,48 @@ runs:
                 exit 0
             }
             Write-Host "! Cache hit but $libraryDir holds no libraries; building from source."
+        }
+
+        $dirName = 'boost_' + $version.Replace('.', '_')
+        # The archive is kept next to the build trees so the second invocation
+        # of this action in a job (static Boost, then the regular one) reuses
+        # the download instead of fetching 130MB again.
+        $archive = Join-Path $baseDir "$dirName.tar.gz"
+
+        if (-not (Test-Path $archive)) {
+            # archives.boost.io is the download location the Boost project
+            # lists; no third-party mirror is used. The retries cover a brief
+            # outage; a longer one fails the build, and a re-run picks it up.
+            $url = "https://archives.boost.io/release/$version/source/$dirName.tar.gz"
+            Write-Host "* Fetching $url"
+            try {
+                Invoke-WebRequest -Uri $url -OutFile $archive -UseBasicParsing `
+                    -MaximumRetryCount 5 -RetryIntervalSec 15
+            } catch {
+                if (Test-Path $archive) { Remove-Item $archive -Force }
+                throw "Could not download Boost ${version} from ${url}: $($_.Exception.Message)"
+            }
+        }
+
+        # Same policy as every other downloaded dependency: TLS says who
+        # served the bytes, not what they are, and this archive ends up
+        # inside an Authenticode-signed artifact. Verified on every run, also
+        # when the second invocation finds the first one's download: a file
+        # that is already there is exactly what this must not trust. Forward
+        # slashes because the script runs under Git Bash, where a backslash
+        # is an escape.
+        $unix = $archive.Replace('\', '/')
+        & bash "$env:GITHUB_WORKSPACE/.github/scripts/verify-checksum.sh" boost $version $unix
+        if ($LASTEXITCODE -ne 0) {
+            Remove-Item $archive -Force -ErrorAction SilentlyContinue
+            throw "Boost $version failed checksum verification"
+        }
+
+        if (-not (Test-Path (Join-Path $boostDir 'bootstrap.bat'))) {
+            Write-Host "* Extracting $archive to $boostDir"
+            New-Item -ItemType Directory -Force -Path $boostDir | Out-Null
+            tar -xf $archive -C $boostDir --strip-components=1
+            if ($LASTEXITCODE -ne 0) { throw "Extracting $archive failed" }
         }
 
         $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
@@ -171,13 +199,21 @@ runs:
             $link = if ($static) { 'static' } else { 'shared' }
             $runtimeLink = if ($staticRuntime) { 'static' } else { 'shared' }
 
+            # With a toolset given, both the environment and b2 are pinned to
+            # it: -vcvars_ver puts that cl.exe on PATH, and toolset=msvc-14.1
+            # makes b2 name and use it rather than the newest one it can find.
+            # This is the same pair the legacy XP build used through
+            # cmake-common (`--toolset msvc141` under a 14.1 environment).
+            $b2Toolset = if ($toolset) { "msvc-$toolset" } else { 'msvc' }
+            $vcvarsVer = if ($toolset) { " -vcvars_ver=$toolset" } else { '' }
+
             $b2Args = @(
                 '--layout=system'
                 "--stagedir=stage/$platform/$configuration"
                 "variant=$($configuration.ToLower())"
                 "link=$link"
                 "runtime-link=$runtimeLink"
-                'toolset=msvc'
+                "toolset=$b2Toolset"
             )
             switch ($platform) {
                 'x86'   { $b2Args += 'address-model=32'; $targetVcvars = 'amd64_x86' }
@@ -188,6 +224,7 @@ runs:
                 }
                 default { throw "Unsupported platform '$platform'" }
             }
+            $b2Args += $defines | ForEach-Object { "define=$_" }
             $b2Args += $libraries | ForEach-Object { "--with-$_" }
 
             # The build itself runs under the environment for the *target*,
@@ -199,8 +236,8 @@ runs:
             # what it is given, so the wrong architecture would travel silently
             # into installer_lib.
             $commandLine = '.\b2.exe ' + ($b2Args -join ' ')
-            Write-Host "* [$targetVcvars] $commandLine"
-            cmd /c "call `"$vcvarsall`" $targetVcvars && $commandLine"
+            Write-Host "* [$targetVcvars$vcvarsVer] $commandLine"
+            cmd /c "call `"$vcvarsall`" $targetVcvars$vcvarsVer && $commandLine"
             if ($LASTEXITCODE -ne 0) { throw 'b2 failed' }
         } finally {
             Pop-Location
