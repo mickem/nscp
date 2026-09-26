@@ -526,13 +526,21 @@ Because the switches are ordinary INI, a fleet bundle turns inventory on for a
 whole group of hosts the same way it configures anything else; see
 [Collect an inventory](../setup/fleet.md#collect-an-inventory).
 
-A server that acknowledges an upload and then reports a miss for the same
-document again gets it once more straight away, and after that no more often
-than a minute, then two, doubling up to once an hour. A document larger than
-`[/settings/facts] max size`, or one the server refuses (as too large, or with
-a 404 because it asked for a document it has nowhere to put), is not sent
-again until it changes, and the agent log names the largest sets so you know
-which one to turn off.
+Uploads are paced so that a server in trouble is never sent the document on
+every poll. An upload the server rejects (a 400, 401, 429 or 5xx), or a
+document it acknowledged and then reports missing again, is retried after a
+minute, then two, doubling up to once an hour (or after the server's
+`Retry-After`, when that is longer). The server answering with the agent's own
+hash resets that, so a loss weeks later is repaired at once. A connection that
+fails outright costs nothing: the next poll that gets through tries again.
+
+The size cap is enforced where the document is built: the core refuses any set
+that would take the document past `[/settings/facts] max size`, and keeps the
+previous value of that set. The upload is checked against the same cap once
+more, which only matters after a reload lowered it. A document the server
+refuses outright (413 as too large, or a 404 because it asked for a document it
+has nowhere to put) is not sent again until it changes. Both size errors name
+the largest sets in the agent log, so you know which one to turn off.
 
 ---
 

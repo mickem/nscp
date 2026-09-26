@@ -4,7 +4,6 @@
 #include "fleet_sync.hpp"
 
 #include <algorithm>
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/json.hpp>
 #include <bytes/unzip.hpp>
@@ -412,9 +411,21 @@ void fleet_sync::note_server_facts_hash(const http::response &response) {
   // Always the latest answer: the server is the authority on what it holds.
   // A server that keeps losing what it is sent is paced in
   // maybe_upload_facts, not ignored here.
-  // "Holds nothing" and "holds the empty document" are the same state, and a
-  // host with nothing enabled has nothing to send in answer to either.
-  server_facts_hash_ = advertised.value().empty() ? onboarding::sha256_hex("{}") : advertised.value();
+  server_facts_hash_ = advertised;
+  // The server holds what it last acknowledged: the upload stuck, so a later
+  // loss - weeks later, say - is repaired at once rather than after the
+  // backoff an earlier loss built up.
+  if (!acked_facts_hash_.empty() && advertised.value() == acked_facts_hash_) {
+    facts_attempts_ = 0;
+    facts_retry_at_ = std::chrono::steady_clock::time_point();
+  }
+}
+
+void fleet_sync::facts_back_off(const unsigned long minimum_seconds) {
+  const unsigned int shift = std::min(facts_attempts_, 6u);  // 1 min << 6 caps at an hour
+  const unsigned long seconds = std::max(std::min(60ul << shift, 3600ul), minimum_seconds);
+  facts_retry_at_ = std::chrono::steady_clock::now() + std::chrono::seconds(seconds);
+  ++facts_attempts_;
 }
 
 void fleet_sync::maybe_upload_facts() {
@@ -422,30 +433,33 @@ void fleet_sync::maybe_upload_facts() {
   // holds, there is no miss to repair, and a server that never says does not
   // do facts at all.
   if (!facts_ || !server_facts_hash_) return;
-  const nsclient::core::fact_repository::snapshot snapshot = facts_->get_snapshot();
-  // No hash, no upload: the call exists to hand the server a document it can
-  // check against the hash it was told about.
-  if (snapshot.hash.empty()) return;
-  if (snapshot.hash == server_facts_hash_.value() || snapshot.hash == refused_facts_hash_) return;
-  // The server already acknowledged this very document and reports a miss
-  // anyway: send it again, but back off if that keeps happening.
-  const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-  const bool resend = snapshot.hash == acked_facts_hash_;
-  if (resend && facts_resends_ > 0 && now < next_facts_resend_) return;
+  // The cached hash first: in steady state the server holds what we hold, and
+  // this is the whole cost of the call - the document is not rendered.
+  const std::string current = facts_->get_hash();
+  if (current.empty() || current == server_facts_hash_.value() || current == refused_facts_hash_) return;
+  if (std::chrono::steady_clock::now() < facts_retry_at_) return;
 
-  // The sets, largest first, for the two messages that ask the operator to
-  // turn one off.
-  const auto largest_sets = [&snapshot]() {
+  // A miss: render what we send. The snapshot's own hash is the one that
+  // counts from here on, in case a round landed since the check above.
+  const nsclient::core::fact_repository::snapshot snapshot = facts_->get_snapshot();
+  if (snapshot.hash.empty() || snapshot.hash == server_facts_hash_.value() || snapshot.hash == refused_facts_hash_) return;
+
+  // The sets, largest first, for the messages that ask the operator to turn
+  // one off. Only rendered when one of those is logged.
+  const auto largest_sets = [this]() {
+    const std::vector<std::pair<std::string, std::size_t>> sizes = facts_->get_set_sizes();
     std::string names;
-    for (std::size_t i = 0; i < snapshot.set_sizes.size() && i < 3; ++i) {
+    for (std::size_t i = 0; i < sizes.size() && i < 3; ++i) {
       if (!names.empty()) names += ", ";
-      names += snapshot.set_sizes[i].first + " (" + str::xtos(snapshot.set_sizes[i].second) + " bytes)";
+      names += sizes[i].first + " (" + str::xtos(sizes[i].second) + " bytes)";
     }
     return names.empty() ? std::string("none") : names;
   };
 
-  // Our own cap first, so a producer cannot push the agent into a loop of
-  // uploads the server will only refuse.
+  // The core refuses any set that would take the document past
+  // [/settings/facts] max size, but it counts the stored encoding, and a
+  // reload can lower the cap under a document it already holds. So the
+  // upload is capped again, on the JSON it actually sends.
   const std::size_t max_size = facts_->get_max_size();
   if (snapshot.json.size() > max_size) {
     refused_facts_hash_ = snapshot.hash;
@@ -454,30 +468,39 @@ void fleet_sync::maybe_upload_facts() {
     return;
   }
 
-  std::string collected_at = facts_->get_collected();
-  if (collected_at.empty()) {
-    collected_at = boost::posix_time::to_iso_extended_string(boost::posix_time::second_clock::universal_time()) + "Z";
+  // Built before the call, so a local failure is reported as what it is
+  // rather than as the fleet server being unreachable.
+  std::string body;
+  try {
+    body = onboarding::build_facts_upload(snapshot.hash, facts_->get_collected(), snapshot.json);
+  } catch (const std::exception &e) {
+    refused_facts_hash_ = snapshot.hash;
+    log_error("Facts document not uploaded: " + utf8::utf8_from_native(e.what()));
+    return;
   }
-  if (resend) {
-    const unsigned int shift = std::min(facts_resends_, 6u);  // 1 min << 6 caps at an hour
-    next_facts_resend_ = now + std::chrono::seconds(std::min(60ul << shift, 3600ul));
-    ++facts_resends_;
-  }
+
   http::response response;
   try {
-    response = do_call("POST", facts_path, onboarding::build_facts_upload(snapshot.hash, collected_at, snapshot.json));
+    response = do_call("POST", facts_path, body);
   } catch (const std::exception &e) {
+    // Never reached the server (or never heard back): no pacing step, the
+    // next poll that gets through tries again.
     log_transport_failure("Facts upload", utf8::utf8_from_native(e.what()));
     return;
   }
   note_transport_success();
 
   if (response.is_2xx()) {
-    server_facts_hash_ = snapshot.hash;
-    if (!resend) {
-      acked_facts_hash_ = snapshot.hash;
-      facts_resends_ = 0;
+    // A document it had already acknowledged and then reported missing: it
+    // did not keep it. Send it again when it asks, but not on every poll.
+    if (snapshot.hash == acked_facts_hash_) {
+      facts_back_off();
+    } else {
+      facts_attempts_ = 0;
+      facts_retry_at_ = std::chrono::steady_clock::time_point();
     }
+    server_facts_hash_ = snapshot.hash;
+    acked_facts_hash_ = snapshot.hash;
     last_facts_error_.clear();
     log_debug("Uploaded facts " + snapshot.hash + " (" + str::xtos(snapshot.json.size()) + " bytes, revision " + str::xtos(snapshot.revision) + ")");
     return;
@@ -496,7 +519,10 @@ void fleet_sync::maybe_upload_facts() {
               largest_sets() + ". Disable one of them in the module that produces it.");
     return;
   }
-  // Anything else is retried on the next poll; say so once.
+  // Anything else - 400, 401, 429, 5xx - is paced: retried after the backoff
+  // (or the server's Retry-After, when longer), never on every poll.
+  const boost::optional<unsigned long> retry_after = get_retry_after(response);
+  facts_back_off(retry_after ? clamp_sleep_seconds(retry_after.value()) : 0);
   const std::string error = "Facts upload failed: " + str::xtos(response.status_code_) + " " + response.payload_;
   if (error != last_facts_error_) {
     last_facts_error_ = error;

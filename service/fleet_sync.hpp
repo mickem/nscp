@@ -148,17 +148,24 @@ class fleet_sync {
   // last uploaded). None until the server says: nothing is uploaded on a
   // guess, and a server that never says does not do facts.
   boost::optional<std::string> server_facts_hash_;
-  // The document the server last acknowledged (2xx), and how often it has
-  // since reported a miss for that same document anyway. The first re-send
-  // is immediate - the server lost it, fine - and each further one waits
-  // twice as long (1 min up to 1 h), so a server that never keeps what it is
-  // sent costs a request an hour rather than a document every poll.
+  // The document the server last acknowledged (2xx).
   std::string acked_facts_hash_;
-  unsigned int facts_resends_ = 0;
-  std::chrono::steady_clock::time_point next_facts_resend_;
-  // A document the server refused (413, or 404/405 from a server that asked
-  // for it anyway), or that is over our own cap: not sent again until the
-  // document changes.
+  // Upload pacing: one clock for every upload, first or repeated. Each
+  // upload the server answered without the document sticking - a rejection
+  // (400, 401, 5xx, ...), or a 2xx for a document it had already
+  // acknowledged and then reported missing again - counts one step, and the
+  // next upload waits 1 min, 2, 4, ... up to an hour (a 429's Retry-After if
+  // that is longer). The server answering with our hash is the proof a
+  // document stuck, and resets it. A transport failure never reached the
+  // server and costs no step.
+  unsigned int facts_attempts_ = 0;
+  std::chrono::steady_clock::time_point facts_retry_at_;
+  // Take one pacing step, waiting at least `minimum_seconds`.
+  void facts_back_off(unsigned long minimum_seconds = 0);
+  // A document that can never be sent as it is: the server refused it (413,
+  // or 404/405 from a server that asked for it anyway), it is over our own
+  // cap, or it could not be rendered. Not tried again until the document
+  // changes.
   std::string refused_facts_hash_;
   // The last upload failure that was logged, so a failure repeated on every
   // poll is logged once.

@@ -1314,6 +1314,12 @@ TEST(SyncFacts, UploadOfTheEmptyDocument) {
   EXPECT_EQ(root.at("facts_hash").as_string(), "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a");
 }
 
+TEST(SyncFacts, UploadLeavesOutAnUnknownCollectionTime) {
+  const json::object root = json::parse(onboarding::build_facts_upload(std::string(64, 'a'), "", "{}")).as_object();
+  EXPECT_EQ(root.if_contains("collected_at"), nullptr);
+  EXPECT_EQ(root.size(), 2u);
+}
+
 TEST(SyncFacts, UploadEscapesTheScalars) {
   const std::string body = onboarding::build_facts_upload("h\"x", "t\"\n", "{}");
   json::object root;
@@ -1343,8 +1349,9 @@ TEST(SyncFacts, ParsesTheHashAServerHolds) {
   EXPECT_EQ(onboarding::parse_facts_hash(hash).value(), hash);
   // Lowercased, so it compares against our own digest.
   EXPECT_EQ(onboarding::parse_facts_hash(std::string(64, 'A')).value(), hash);
-  // `none` is an answer: the server holds nothing for this host.
-  EXPECT_EQ(onboarding::parse_facts_hash("none").value(), "");
+  // `none` is an answer: the server holds nothing for this host, which is
+  // what a host with nothing enabled holds too - so they compare equal.
+  EXPECT_EQ(onboarding::parse_facts_hash("none").value(), onboarding::sha256_hex("{}"));
 }
 
 TEST(SyncFacts, IgnoresAHashThatIsNotADigest) {

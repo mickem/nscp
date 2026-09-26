@@ -571,6 +571,25 @@ describe("core fleet sync loop", () => {
     expect(factsUploads()[before].body.facts.os).toBeTruthy();
   });
 
+  it("backs off from a server that fails the upload, until it confirms it holds ours", async () => {
+    const ours = factsUploads()[factsUploads().length - 1].body.facts_hash;
+    factsStatus = 500;
+    heldFactsHash = "none";
+    const before = factsUploads().length;
+
+    // A rejection the next poll would only repeat: tried once, then paced -
+    // the document is not POSTed again on every poll.
+    await waitFor("the failed upload", () => factsUploads().length > before);
+    await settle(5);
+    expect(factsUploads()).toHaveLength(before + 1);
+
+    // The server recovers and says it holds our document after all: that
+    // resets the pacing, so the next miss is answered at once (below).
+    factsStatus = 200;
+    heldFactsHash = ours;
+    await settle();
+  });
+
   it("asks once, not on every poll, when the server refuses the upload", async () => {
     factsStatus = 404;
     heldFactsHash = "none";

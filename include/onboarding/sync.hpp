@@ -184,6 +184,7 @@ std::string build_state_report(const boost::optional<std::string> &applied_state
 //
 //   {"collected_at":"<ts>","facts":<document>,"facts_hash":"<hex>"}
 //
+// `collected_at` is left out when empty (no facts round has completed).
 // `facts_json` is spliced in byte for byte rather than parsed and serialised
 // again: `facts_hash` is the digest of exactly those bytes, and a round trip
 // through a JSON library is free to re-spell a number or reorder a key, after
@@ -208,8 +209,9 @@ extern const char *const facts_hash_header;  // "x-facts-hash", lowercase as the
 // Read that header's value. None when it is not a sha256 hex digest or
 // `none` - and a missing header is none too, which means "this server does
 // not do facts" and is never a reason to upload. `none` means the server
-// holds no document for this host, returned as an empty string. A digest is
-// returned lowercase, so it compares directly against our own hash.
+// holds no document for this host, which is the same state as holding the
+// empty one, so it is returned as the digest of `{}`. A digest is returned
+// lowercase, so it compares directly against our own hash.
 boost::optional<std::string> parse_facts_hash(const std::string &header_value);
 
 // --- transport error classification ------------------------------------------
