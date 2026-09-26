@@ -23,6 +23,8 @@ import {
   waitForHttp,
   type StartedTestContainer,
   onWindows,
+  describeIf,
+  moduleBuiltHere,
 } from "@fixtures/index";
 
 jest.setTimeout(1_800_000); // up to 30 min — site bootstrap is slow
@@ -38,7 +40,11 @@ const CMK_IMAGE = process.env.CMK_IMAGE ?? "checkmk/check-mk-raw:latest";
 
 // Gated by both flags: the opt-in env var (RUN_CMK_SITE_TEST=1) and the
 // general docker-skip (NSCP_SKIP_DOCKER=1 wins, even when the opt-in is set).
-const maybeDescribe = RUN_CMK_SITE && !skipDocker() ? describe : describe.skip;
+// Opt-in, docker, and the two modules whose sections the site asserts on,
+// which the macOS build does not carry yet.
+const maybeDescribe = describeIf(
+  RUN_CMK_SITE && !skipDocker() && moduleBuiltHere("CheckSystem") && moduleBuiltHere("CheckDisk"),
+);
 
 maybeDescribe("Checkmk site end-to-end", () => {
   let nscp: NscpInstance;

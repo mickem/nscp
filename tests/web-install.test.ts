@@ -18,7 +18,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { curlHead } from "@fixtures/http";
-import { NscpInstance, onWindows } from "@fixtures/index";
+import { NscpInstance, onWindows, onDarwin } from "@fixtures/index";
 
 jest.setTimeout(120_000);
 
@@ -176,15 +176,13 @@ describe("nscp web install", () => {
       // What matters on the host: the service account itself can read it.
       // `su -s` is what a root-only Linux CI container has (sudo usually is
       // not). BSD su, which macOS ships, has no -s, and nobody's shell there
-      // is /usr/bin/false, so where sudo exists the probe goes through it -
-      // root needs no password for -u.
-      const sudo = ["/usr/bin/sudo", "/bin/sudo"].find((p) => fs.existsSync(p));
-      const su = ["/bin/su", "/usr/bin/su"].find((p) => fs.existsSync(p));
+      // is /usr/bin/false, so on Darwin the probe goes through sudo -u
+      // instead (root needs no password for it); Linux keeps the su path.
       const check = `test -r "${cert}"`;
-      const probe = sudo
-        ? await execa(sudo, ["-n", "-u", "nobody", "/bin/sh", "-c", check], { reject: false })
-        : su
-          ? await execa(su, ["-s", "/bin/sh", "nobody", "-c", check], { reject: false })
+      const probe = onDarwin
+        ? await execa("sudo", ["-n", "-u", "nobody", "/bin/sh", "-c", check], { reject: false })
+        : fs.existsSync("/bin/su") || fs.existsSync("/usr/bin/su")
+          ? await execa("su", ["-s", "/bin/sh", "nobody", "-c", check], { reject: false })
           : undefined;
       if (probe) expect(probe.exitCode).toBe(0);
     } else {

@@ -15,11 +15,11 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-import { NscpInstance, generateCertChain, describeOnWindows, describeOnLinux } from "@fixtures/index";
+import { NscpInstance, generateCertChain, describeOnWindows, describeOnUnix } from "@fixtures/index";
 
 jest.setTimeout(120_000);
 
-describeOnLinux("CheckSecurity", () => {
+describeOnUnix("CheckSecurity", () => {
   let nscp: NscpInstance;
   let validCert: string; // ~800 days, leaf signed by caCert
   let caCert: string; // the CA that signed validCert

@@ -8,7 +8,7 @@
  * the API their role grants.
  */
 import request from "supertest";
-import { NscpInstance, REST_URL, setupRestNscp, itWithModules } from "@fixtures/index";
+import { NscpInstance, REST_URL, setupRestNscp } from "@fixtures/index";
 
 jest.setTimeout(900_000);
 
@@ -51,30 +51,30 @@ describe("REST permissions", () => {
         });
     });
 
-    // The module loaded is one the fixture leaves out; on macOS it is also one
-    // the build leaves out, until CheckLogFile is ported.
-    itWithModules("CheckLogFile")("can load a module", async () => {
+    // SimpleCache: a module every platform ships and the fixture leaves
+    // unloaded, so the load/unload permission cases run everywhere.
+    it("can load a module", async () => {
       await request(REST_URL)
-        .get("/api/v2/modules/CheckLogFile/commands/load")
+        .get("/api/v2/modules/SimpleCache/commands/load")
         .set("Authorization", `Bearer ${key}`)
         .trustLocalhost(true)
         .expect(200)
         .then((response) => {
           expect(response.body).toBeDefined();
-          expect(response.body.message).toEqual("Success load CheckLogFile");
+          expect(response.body.message).toEqual("Success load SimpleCache");
           expect(response.body.result).toEqual(0);
         });
     });
 
-    itWithModules("CheckLogFile")("can unload a module", async () => {
+    it("can unload a module", async () => {
       await request(REST_URL)
-        .get("/api/v2/modules/CheckLogFile/commands/unload")
+        .get("/api/v2/modules/SimpleCache/commands/unload")
         .set("Authorization", `Bearer ${key}`)
         .trustLocalhost(true)
         .expect(200)
         .then((response) => {
           expect(response.body).toBeDefined();
-          expect(response.body.message).toEqual("Success unload CheckLogFile");
+          expect(response.body.message).toEqual("Success unload SimpleCache");
           expect(response.body.result).toEqual(0);
         });
     });
@@ -105,7 +105,7 @@ describe("REST permissions", () => {
 
     it("can not load a module", async () => {
       await request(REST_URL)
-        .get("/api/v2/modules/CheckLogFile/commands/load")
+        .get("/api/v2/modules/SimpleCache/commands/load")
         .set("Authorization", `Bearer ${key}`)
         .trustLocalhost(true)
         .expect(403);
@@ -113,7 +113,7 @@ describe("REST permissions", () => {
 
     it("can not unload a module", async () => {
       await request(REST_URL)
-        .get("/api/v2/modules/CheckLogFile/commands/unload")
+        .get("/api/v2/modules/SimpleCache/commands/unload")
         .set("Authorization", `Bearer ${key}`)
         .trustLocalhost(true)
         .expect(403);
@@ -149,7 +149,7 @@ describe("REST permissions", () => {
 
     it("can not load a module", async () => {
       await request(REST_URL)
-        .get("/api/v2/modules/CheckLogFile/commands/load")
+        .get("/api/v2/modules/SimpleCache/commands/load")
         .set("Authorization", `Bearer ${key}`)
         .trustLocalhost(true)
         .expect(403);
@@ -157,7 +157,7 @@ describe("REST permissions", () => {
 
     it("can not unload a module", async () => {
       await request(REST_URL)
-        .get("/api/v2/modules/CheckLogFile/commands/unload")
+        .get("/api/v2/modules/SimpleCache/commands/unload")
         .set("Authorization", `Bearer ${key}`)
         .trustLocalhost(true)
         .expect(403);

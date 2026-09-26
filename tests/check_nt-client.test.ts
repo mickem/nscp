@@ -23,18 +23,24 @@ import {
   DOCKER_HOST_ALLOWED_HOSTS,
   GenericContainer,
   NscpInstance,
-  dockerOrSkip,
   dockerRunOnce,
   hostGatewayExtraHosts,
   onWindows,
   pbkdf2StoredForm,
+  describeIf,
+  moduleBuiltHere,
+  skipDocker,
 } from "@fixtures/index";
 
 jest.setTimeout(900_000);
 
 const PASSWORD = "check_nt-password";
 
-dockerOrSkip()("check_nt (legacy NSClient) integration", () => {
+// Docker for the check_nt image, and the two modules that serve the counters
+// it asks for (UPTIME/CPULOAD/MEMUSE from CheckSystem, USEDDISKSPACE/FILEAGE
+// from CheckDisk), which the macOS build does not carry yet.
+const canRun = !skipDocker() && moduleBuiltHere("CheckSystem") && moduleBuiltHere("CheckDisk");
+describeIf(canRun)("check_nt (legacy NSClient) integration", () => {
   let nscp: NscpInstance;
   const image = "check_nt";
 

@@ -14,17 +14,23 @@ import {
   GenericContainer,
   NscpInstance,
   bundledLuaScript,
-  dockerOrSkip,
   dockerRunOnce,
   hostGatewayExtraHosts,
   onWindows,
+  describeIf,
+  moduleBuiltHere,
+  skipDocker,
 } from "@fixtures/index";
 
 jest.setTimeout(900_000);
 
 const CHECK_MK_PORT = 6556;
 
-dockerOrSkip()("check_mk integration", () => {
+// Docker for the check_mk image, and the module whose sections the agent
+// output is asserted on (<<<mem>>>, <<<df>>>, ...), which the macOS build does
+// not carry yet.
+const canRun = !skipDocker() && moduleBuiltHere("CheckSystem");
+describeIf(canRun)("check_mk integration", () => {
   let nscp: NscpInstance;
   let image: string;
   let agentDump = "";
