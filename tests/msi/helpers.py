@@ -3,6 +3,7 @@ from subprocess import run, CalledProcessError, CREATE_NEW_PROCESS_GROUP
 from os import path, makedirs, environ, walk
 from shutil import rmtree
 from configparser import ConfigParser
+from re import compile as re_compile
 import yaml
 from winreg import HKEY_LOCAL_MACHINE, OpenKey, DeleteKey, KEY_ALL_ACCESS, EnumKey
 
@@ -244,6 +245,60 @@ def install(msi_file, target_folder, command_line, test_data_folder=None):
         print(f"! Installation folder does not exist: {target_folder}", flush=True)
         print_install_log()
         exit(1)
+
+
+# The stored form nscp/password_hash.cpp writes: pbkdf2-sha256, iterations,
+# salt and hash, the last two as hex.
+HASHED_PASSWORD = re_compile(r"^pbkdf2-sha256\$\d+\$[0-9a-fA-F]+\$[0-9a-fA-F]+$")
+
+
+def validate_passwords(config_folder, file_name, expectations):
+    """Check each `password` value against what the test case expects.
+
+    `compare_file` masks password lines, because a generated password (and the
+    salt of a hash) is different on every run - so the value itself needs an
+    assertion of its own. A section maps to:
+
+      hashed  - a pbkdf2-sha256 stored hash, which is what the installer writes
+                for a password it was *given* (NSCLIENT_PWD or the dialog);
+      absent  - no password under that section at all;
+      <text>  - that exact value, for a key that has to stay clear text because
+                something encrypts with it (NSCA) rather than verifying it, and
+                for an existing value an upgrade must not rewrite.
+    """
+    config_file = path.join(config_folder, file_name)
+    if not path.exists(config_file):
+        print(f"! {file_name} does not exist: {config_file}", flush=True)
+        return False
+    parser = ConfigParser()
+    parser.read_string(read_and_remove_bom(config_file))
+    ok = True
+    for section, expected in expectations.items():
+        actual = parser.get(section, 'password') if parser.has_option(section, 'password') else None
+        if expected == 'absent':
+            if actual is not None:
+                print(f"! [{section}] has a password ({actual!r}) and should have none.", flush=True)
+                ok = False
+            else:
+                print(f"- [{section}] has no password, as expected.", flush=True)
+            continue
+        if actual is None:
+            print(f"! [{section}] has no password; expected {expected!r}.", flush=True)
+            ok = False
+        elif expected == 'hashed':
+            if HASHED_PASSWORD.match(actual):
+                print(f"- [{section}] password is stored hashed.", flush=True)
+            else:
+                # Not the value: an unhashed one here is a real password, and
+                # this runs in CI where the log is kept.
+                print(f"! [{section}] password is not a stored hash (it is {len(actual)} characters of something else).", flush=True)
+                ok = False
+        elif actual == expected:
+            print(f"- [{section}] password is {expected!r}, as expected.", flush=True)
+        else:
+            print(f"! [{section}] password is {actual!r}; expected {expected!r}.", flush=True)
+            ok = False
+    return ok
 
 
 def compare_file(target_folder, file_name, test_case):

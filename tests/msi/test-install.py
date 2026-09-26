@@ -2,7 +2,7 @@ from os import path, listdir, environ
 from glob import glob
 from argparse import ArgumentParser
 
-from helpers import ensure_uninstalled, read_config, install, compare_file, create_upgrade_config, validate_files, validate_files_absent, resolve_folder, validate_secured, generate_certificates, validate_copied_files
+from helpers import ensure_uninstalled, read_config, install, compare_file, create_upgrade_config, validate_files, validate_files_absent, resolve_folder, validate_secured, generate_certificates, validate_copied_files, validate_passwords
 
 # Argument parsing for test selection
 parser = ArgumentParser(description="Run NSCP MSI installer tests.")
@@ -72,6 +72,13 @@ for test_case_file in test_cases:
     if not compare_file(config_folder, "nsclient.ini", test_case):
         print("! Test failed.", flush=True)
         failure = True
+    if 'passwords' in test_case:
+        # compare_file masks the values, so the form of each one is asserted
+        # separately: hashed where the agent verifies it, clear where something
+        # encrypts with it.
+        if not validate_passwords(config_folder, "nsclient.ini", test_case['passwords']):
+            print("! Test failed.", flush=True)
+            failure = True
     if 'secured_folder' in test_case:
         if not validate_secured(resolve_folder(target_folder, test_case['secured_folder'])):
             print("! Test failed.", flush=True)

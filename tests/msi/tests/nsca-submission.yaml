@@ -1,0 +1,52 @@
+# NSCA_*: the submission side, configured at install time.
+#
+# What is worth pinning is *where each secret lands*. The NSCA key is what the
+# payload is encrypted with, so it has to stay clear text and has to go with the
+# client target; the shared NSCLIENT_PWD is what the inbound protocols verify a
+# caller against, so it is hashed and lives under [/settings/default]. Nothing
+# is written into [/settings/NSCA/server]: the listening side's key is shared
+# with different peers and is set with `nscp nsca install --server`.
+command_line: ["msiexec.exe", "/i", "$MSI-FILE", "/qn", "/l*", "log.txt", "ADDLOCAL=ALL", "NSCA_SERVER=nagios.example.com", "NSCA_PORT=15667", "NSCA_PASSWORD=the-nsca-key", "NSCA_ENCRYPTION=aes256", "NSCA_HOSTNAME=as-nagios-knows-me" ]
+replace_password: true
+boot.ini: |
+  [settings]
+  1 = ini://${shared-path}/nsclient.ini
+
+nsclient.ini: |
+  [/modules]
+  checkdisk = enabled
+  checkeventlog = enabled
+  checkexternalscripts = enabled
+  checkhelpers = enabled
+  checknscp = enabled
+  checksystem = enabled
+  nrpeserver = enabled
+  nscaclient = enabled
+  webserver = enabled
+
+  [/settings/NRPE/server]
+  insecure = false
+  verify mode = peer-cert
+
+  [/settings/NSCA/client]
+  hostname = as-nagios-knows-me
+
+  [/settings/NSCA/client/targets/default]
+  address = nagios.example.com
+  encryption = aes256
+  password = $$PASSWORD$$
+  port = 15667
+
+  [/settings/default]
+  allowed hosts = 127.0.0.1
+  password = $$PASSWORD$$
+
+passwords:
+  # NSCA encrypts with its key rather than verifying it, so hashing it would
+  # leave a key nobody has: it must survive the install verbatim.
+  "/settings/NSCA/client/targets/default": the-nsca-key
+  # The shared inbound password is generated here, and generated or given it is
+  # stored hashed.
+  "/settings/default": hashed
+  # And the two never get confused for one another.
+  "/settings/NSCA/server": absent

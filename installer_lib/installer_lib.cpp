@@ -900,6 +900,21 @@ bool write_property_if_set(msi_helper &h, msi_helper::custom_action_data_w &data
   return false;
 }
 
+// As above, for a property whose value is a live credential. The MSI log is
+// written wherever the caller pointed /l* and is routinely pasted into bug
+// reports, so it gets the property name and whether anything was written -
+// never the value. (write_changed_password_key does the same for NSCLIENT_PWD.)
+bool write_property_if_set_secret(msi_helper &h, msi_helper::custom_action_data_w &data, const std::wstring prop, std::wstring path, std::wstring key) {
+  std::wstring val = boost::algorithm::trim_copy(h.getProperyKey(prop));
+  if (!val.empty()) {
+    h.logMessage(L"write_property_if_set: " + prop + L" (value not logged); " + path + L"." + key);
+    write_key(h, data, 1, path, key, val);
+    return true;
+  }
+  h.logMessage(L"IGNORING property not set: " + prop + L"; " + path + L"." + key);
+  return false;
+}
+
 extern "C" UINT __stdcall BackupConfig(MSIHANDLE hInstall) {
   msi_helper h(hInstall, L"BackupConfig");
   try {
@@ -1059,16 +1074,18 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
       write_key(h, data, 1, L"/includes", L"fleet", utf8::cvt<std::wstring>(std::string("${" FLEET_FOLDER_KEY "}/fleet.ini")));
     }
 
-    // NSCA submission. The address turns the client on, the key goes with the
-    // target - never into /settings/default, which is the password the inbound
-    // protocols verify callers against and is stored hashed. An NSCAServer on
-    // this host with no key of its own reads this same target, so one option
-    // configures both directions.
+    // NSCA submission: NSCA_SERVER is the machine running the nsca daemon this
+    // agent submits to. The address turns the client on, and the key goes with
+    // the target - never into /settings/default, which is the password the
+    // inbound protocols verify callers against and is stored hashed. It is the
+    // submission side only: an NSCAServer *on* this host needs its own key,
+    // shared with the hosts submitting here, and reads neither this target nor
+    // /settings/default (`nscp nsca install --server` sets it).
     if (write_property_if_set(h, data, NSCA_SERVER, L"/settings/NSCA/client/targets/default", L"address")) {
       write_key(h, data, 1, L"/modules", L"NSCAClient", L"enabled");
     }
     write_property_if_set(h, data, NSCA_PORT, L"/settings/NSCA/client/targets/default", L"port");
-    write_property_if_set(h, data, NSCA_PASSWORD, L"/settings/NSCA/client/targets/default", L"password");
+    write_property_if_set_secret(h, data, NSCA_PASSWORD, L"/settings/NSCA/client/targets/default", L"password");
     write_property_if_set(h, data, NSCA_ENCRYPTION, L"/settings/NSCA/client/targets/default", L"encryption");
     write_property_if_set(h, data, NSCA_HOSTNAME, L"/settings/NSCA/client", L"hostname");
 
@@ -1076,7 +1093,7 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
       write_key(h, data, 1, L"/modules", L"OP5Client", L"enabled");
     }
     write_property_if_set(h, data, OP5_USER, L"/settings/op5", L"user");
-    write_property_if_set(h, data, OP5_PASSWORD, L"/settings/op5", L"password");
+    write_property_if_set_secret(h, data, OP5_PASSWORD, L"/settings/op5", L"password");
     write_property_if_set(h, data, OP5_HOSTGROUPS, L"/settings/op5", L"hostgroups");
     write_property_if_set(h, data, OP5_CONTACTGROUP, L"/settings/op5", L"contactgroups");
 

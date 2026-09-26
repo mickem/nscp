@@ -607,8 +607,13 @@ A list of all the MSI options can be found below.
 | CONF_SCHEDULER      | Enable Scheduler (required by NSCA)                                                                                     |
 | CONF_WEB            | Enabled WEB Server                                                                                                      |
 | NRPEMODE            | NRPE Mode (LEGACY, SECURE for using ceretificates)                                                                      |
-| NSCLIENT_PWD        | Password to use for check_nt (and web server)                                                                           |
+| NSCLIENT_PWD        | Password to use for check_nt (and web server). Stored hashed when given here or typed into the dialog; a value already on disk is left as it is |
 | CONF_INCLUDES       | Additional files to include in the config syntax: <alias>;<file> For instance CONF_INCLUDES=op5;op5.ini;local;local.ini |
+| NSCA_SERVER         | Address of the machine running the nsca daemon to submit passive results to. Setting it enables `NSCAClient`             |
+| NSCA_PORT           | Port that daemon listens on (5667 unless it was changed)                                                                |
+| NSCA_PASSWORD       | The NSCA shared key, matching `password` in the daemon's `nsca.cfg`. Stored in clear text - NSCA encrypts with it, so a hash is not a key - and never written to the MSI log |
+| NSCA_ENCRYPTION     | Cipher, matching the daemon's `decryption_method` (e.g. `aes256`)                                                        |
+| NSCA_HOSTNAME       | Host name to submit results as, as Nagios/Icinga knows this host (`auto` uses the computer name)                         |
 | OP5_SERVER          | OP5 Server if you want to automatically submit passive checks via Op5 northbound API.                                   |
 | OP5_USER            | The username to login with on the OP5_SERVER                                                                            |
 | OP5_PASSWORD        | The password to login with on the OP5_SERVER                                                                            |
@@ -632,6 +637,36 @@ A list of all the MSI options can be found below.
 | FLEET_BUNDLE_KEY    | Bundle encryption key(s) for sealed bundles, as shown once by the fleet server; several separated by commas             |
 | FLEET_REQUIRE_ENCRYPTED_BUNDLES | Set to 1 to refuse every bundle that is not sealed with one of the bundle keys                              |
 | LAYOUT              | On-disk layout: `modern` keeps the writable state in `%ProgramData%\NSClient++` restricted to SYSTEM and administrators, `legacy` (default) keeps it in the install folder. Omit it to keep whatever the host already uses. **Experimental** - see below |
+
+### Passive results over NSCA (NSCA_*)
+
+`NSCA_SERVER` and friends configure the *submission* side: this agent sending
+passive results to an nsca daemon. Setting `NSCA_SERVER` enables `NSCAClient`
+and writes `[/settings/NSCA/client/targets/default]`.
+
+```batch
+msiexec /qn /i NSCP-<version>-x64.msi ADDLOCAL=ALL ^
+  NSCA_SERVER=nagios.example.com NSCA_PORT=5667 ^
+  NSCA_PASSWORD=<the key from the daemon's nsca.cfg> NSCA_ENCRYPTION=aes256 ^
+  NSCA_HOSTNAME=<the host name Nagios knows this machine by>
+```
+
+The key must match `password` in the daemon's `nsca.cfg` and the cipher its
+`decryption_method`, or the daemon silently discards every submission. It is
+stored in clear text on purpose: NSCA encrypts the payload with it rather than
+verifying it, so a hash there would be a key nobody has. It is deliberately not
+the shared `NSCLIENT_PWD`, which the inbound protocols verify callers against
+and which is stored hashed.
+
+These properties do not configure the other direction, where this agent
+*accepts* NSCA submissions (`NSCAServer`). That listener has its own key, shared
+with the hosts submitting here rather than with the daemon above, and it reads
+neither this target nor `[/settings/default]` - with encryption on and no key of
+its own it refuses to start. Set it after installing:
+
+```batch
+nscp nsca install --server --password <the key every submitting host uses>
+```
 
 ### On-disk layout (LAYOUT)
 
