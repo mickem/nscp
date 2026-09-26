@@ -556,8 +556,13 @@ TEST(KubeSettings, KubeconfigFileReferencesResolveAgainstItsOwnDirectory) {
   EXPECT_EQ(c.client_cert_pem, "CERT-FROM-FILE");
   EXPECT_EQ(c.client_key_pem, "KEY-FROM-FILE");
 
-  // An absolute path is left alone.
+  // An absolute or rooted path is left alone, on Windows too, where a path
+  // without a drive letter is rooted but not absolute.
   EXPECT_EQ(kube_checks::detail::resolve_relative("/etc/nscp", "/abs/ca.pem"), "/abs/ca.pem");
+  EXPECT_EQ(kube_checks::detail::resolve_relative("C:\\nscp", "/abs/ca.pem"), "/abs/ca.pem");
+#ifdef _WIN32
+  EXPECT_EQ(kube_checks::detail::resolve_relative("C:\\nscp", "C:\\certs\\ca.pem"), "C:\\certs\\ca.pem");
+#endif
   EXPECT_EQ(kube_checks::detail::resolve_relative("/etc/nscp", ""), "");
   EXPECT_EQ(kube_checks::detail::resolve_relative("", "ca.pem"), "ca.pem");
 }

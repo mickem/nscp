@@ -125,7 +125,10 @@ inline std::string base64_decode(const std::string &encoded) {
 inline std::string resolve_relative(const std::string &base_dir, const std::string &path) {
   if (path.empty() || base_dir.empty()) return path;
   const boost::filesystem::path p(path);
-  if (p.is_absolute()) return path;
+  // A rooted path ("/etc/ca.pem") is left alone everywhere: on Windows it is
+  // not absolute without a drive letter, but it is not relative to the
+  // kubeconfig's directory either, and appending would make it so.
+  if (p.is_absolute() || p.has_root_directory()) return path;
   return (boost::filesystem::path(base_dir) / p).string();
 }
 
