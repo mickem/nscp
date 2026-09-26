@@ -17,13 +17,13 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0
 
     - name: Fetch version from git tags
       id: version
-      uses: codacy/git-version@e81d6fdad74f9e114420d69ca8b47658f1182afb # 2.8.7
+      uses: codacy/git-version@376c75fc90be05da2e5c3b7e54de18524b5226bd # 2.8.8
       with:
         release-branch: main
         # Pin the downloaded git-version binary instead of resolving
