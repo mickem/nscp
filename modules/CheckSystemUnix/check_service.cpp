@@ -45,8 +45,6 @@ struct CaseBlindCompare {
   bool operator()(const std::string &a, const std::string &b) const { return boost::ilexicographical_compare(a, b); }
 };
 
-// Allowlist for systemd unit names. Rejects anything that could be parsed as a
-// flag or contain shell/path metacharacters. Empty on bad input.
 bool is_safe_unit_name(const std::string &name) {
   if (name.empty() || name.size() > 256) return false;
   if (name[0] == '-') return false;
@@ -56,83 +54,6 @@ bool is_safe_unit_name(const std::string &name) {
     if (!ok) return false;
   }
   return true;
-}
-
-// Execute a program directly (no shell) and capture stdout. argv[0] is the
-// program; remaining elements are arguments passed verbatim to execvp.
-std::string exec_command(const std::vector<std::string> &argv) {
-  if (argv.empty()) return "";
-
-  int pipefd[2];
-  if (pipe(pipefd) == -1) return "";
-
-  // Build argv before fork(): a heap allocation in the child can block on a
-  // lock another thread held at fork time, and the parent then blocks in
-  // read() for good.
-  std::vector<char *> cargv;
-  cargv.reserve(argv.size() + 1);
-  for (const auto &a : argv) cargv.push_back(const_cast<char *>(a.c_str()));
-  cargv.push_back(nullptr);
-
-  const pid_t pid = fork();
-  if (pid == -1) {
-    close(pipefd[0]);
-    close(pipefd[1]);
-    return "";
-  }
-
-  if (pid == 0) {
-    close(pipefd[0]);
-    if (dup2(pipefd[1], STDOUT_FILENO) == -1) _exit(127);
-    const int devnull = open("/dev/null", O_WRONLY);
-    if (devnull != -1) {
-      dup2(devnull, STDERR_FILENO);
-      close(devnull);
-    }
-    close(pipefd[1]);
-
-    // Only async-signal-safe calls between fork() and exec().
-    execvp(cargv[0], cargv.data());
-    _exit(127);
-  }
-
-  close(pipefd[1]);
-  std::array<char, 4096> buffer{};
-  std::string result;
-  // Bounded wait: a child that never exits (or never closes its stdout) must
-  // not hang the check forever. The bound is an absolute deadline, not a fresh
-  // timeout handed to every poll() - a child trickling one byte at a time reset
-  // the budget on each iteration and was never killed.
-  const int timeout_ms = 30000;
-  const std::chrono::steady_clock::time_point deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
-  bool timed_out = false;
-  for (;;) {
-    const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-    if (now >= deadline) {
-      timed_out = true;
-      break;
-    }
-    struct pollfd pfd;
-    pfd.fd = pipefd[0];
-    pfd.events = POLLIN;
-    pfd.revents = 0;
-    const int ready = poll(&pfd, 1, static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count()));
-    if (ready < 0 && errno == EINTR) continue;
-    if (ready <= 0) {
-      timed_out = true;
-      break;
-    }
-    const ssize_t n = read(pipefd[0], buffer.data(), buffer.size());
-    if (n < 0 && errno == EINTR) continue;
-    if (n <= 0) break;
-    result.append(buffer.data(), static_cast<size_t>(n));
-  }
-  close(pipefd[0]);
-
-  int status = 0;
-  if (timed_out) kill(pid, SIGKILL);
-  waitpid(pid, &status, 0);
-  return result;
 }
 
 // ---- /proc process-metric parsing (unit-tested) --------------------------
@@ -194,67 +115,6 @@ double compute_cpu_pct(unsigned long long utime, unsigned long long stime, unsig
 }
 
 namespace {
-std::string read_file(const std::string &path) {
-  std::ifstream ifs(path.c_str());
-  if (!ifs.is_open()) return "";
-  std::stringstream ss;
-  ss << ifs.rdbuf();
-  return ss.str();
-}
-
-// System-wide timing needed to turn a process' jiffies into wall-clock values.
-struct sys_timing {
-  long long btime;    // boot time (unix seconds)
-  double uptime;      // seconds since boot
-  long long hz;       // clock ticks per second
-  long long now;      // current unix time
-};
-
-sys_timing read_sys_timing() {
-  sys_timing t;
-  t.hz = sysconf(_SC_CLK_TCK);
-  if (t.hz <= 0) t.hz = 100;
-  t.now = static_cast<long long>(::time(nullptr));
-  t.btime = 0;
-  {
-    std::istringstream iss(read_file("/proc/stat"));
-    std::string line;
-    while (std::getline(iss, line)) {
-      if (line.compare(0, 6, "btime ") == 0) {
-        try {
-          t.btime = std::stoll(line.substr(6));
-        } catch (...) {
-        }
-        break;
-      }
-    }
-  }
-  t.uptime = 0;
-  {
-    std::istringstream iss(read_file("/proc/uptime"));
-    iss >> t.uptime;
-  }
-  return t;
-}
-
-proc_metrics read_proc_metrics(long long pid, const sys_timing &timing) {
-  proc_metrics m;
-  if (pid <= 0) return m;
-  const std::string base = "/proc/" + std::to_string(pid);
-  parse_status_mem(read_file(base + "/status"), m.rss, m.vms);
-  unsigned long long utime = 0, stime = 0, starttime = 0;
-  if (parse_stat_times(read_file(base + "/stat"), utime, stime, starttime)) {
-    m.cpu = compute_cpu_pct(utime, stime, starttime, timing.uptime, timing.hz);
-    if (timing.btime > 0 && timing.hz > 0) {
-      m.created = timing.btime + static_cast<long long>(starttime / timing.hz);
-      m.age = timing.now - m.created;
-      if (m.age < 0) m.age = 0;
-    }
-  }
-  m.valid = true;
-  return m;
-}
-
 // TasksCurrent is unset (a huge sentinel) for units without a cgroup task
 // count; clamp such values to 0.
 long long parse_tasks(const std::string &value) {
@@ -267,6 +127,7 @@ long long parse_tasks(const std::string &value) {
   }
 }
 }  // namespace
+
 
 std::vector<filter_obj> parse_systemctl_show(const std::string &output) {
   std::vector<filter_obj> result;
@@ -315,19 +176,6 @@ std::vector<filter_obj> parse_systemctl_show(const std::string &output) {
   return result;
 }
 
-// Populate per-process metrics for a running service.
-void fill_metrics(filter_obj &info, const sys_timing &timing) {
-  if (info.state != "running" || info.pid <= 0) return;
-  const proc_metrics m = read_proc_metrics(info.pid, timing);
-  if (!m.valid) return;
-  info.rss = m.rss;
-  info.vms = m.vms;
-  info.cpu = m.cpu;
-  info.created = m.created;
-  info.age = m.age;
-  info.has_metrics = true;
-}
-
 // Parse state helper functions for the filter
 node_type parse_state(std::shared_ptr<filter_obj> object, evaluation_context context, node_type subject) {
   return factory::create_int(filter_obj::parse_state(subject->get_string_value(context)));
@@ -359,28 +207,33 @@ filter_obj_handler::filter_obj_handler() {
   static constexpr value_type type_custom_state = type_custom_int_1;
   static constexpr value_type type_custom_start_type = type_custom_int_2;
 
-  registry_.add_string_var("name", &filter_obj::get_name, "Unit (service) name")
+  registry_.add_string_var("name", &filter_obj::get_name, "Unit (service) name; the launchd label on macOS")
       .add_string_var("service", &filter_obj::get_name, "Alias for name")
       .add_string_var("desc", &filter_obj::get_desc, "Unit description")
-      .add_string_var("active", &filter_obj::get_active, "Raw systemd ActiveState (active, inactive, failed)")
-      .add_string_var("sub_state", &filter_obj::get_sub_state, "Raw systemd SubState (running, dead, exited, ...)")
-      .add_string_var("preset", &filter_obj::get_preset, "Vendor preset (enabled, disabled)");
+      .add_string_var("active", &filter_obj::get_active, "Raw systemd ActiveState (active, inactive, failed); mapped from the launchd job state on macOS")
+      .add_string_var("sub_state", &filter_obj::get_sub_state, "Raw systemd SubState (running, dead, exited, ...); running, dead or failed on macOS")
+      .add_string_var("preset", &filter_obj::get_preset, "Vendor preset (enabled, disabled); empty on macOS, where launchd has none");
 
   registry_.add_int_var("pid", &filter_obj::get_pid, "Main process id")
       .add_int_var("state", type_custom_state, &filter_obj::get_state_i,
-                   "The mapped service state (stopped, starting, oneshot, running, static, unknown)")
+                   "The mapped service state (stopped, starting, oneshot, running, static, unknown). On macOS an idle job launchd starts on demand is "
+                   "static")
       .add_int_perf("")
-      .add_int_var("start_type", type_custom_start_type, &filter_obj::get_start_type_i, "The configured start type (enabled, disabled, static, masked)")
+      .add_int_var("start_type", type_custom_start_type, &filter_obj::get_start_type_i,
+                   "The configured start type (enabled, disabled, static, masked; on macOS enabled, disabled or on-demand)")
       .add_int_var("started", type_bool, &filter_obj::get_started, "Service is started/active")
       .add_int_var("stopped", type_bool, &filter_obj::get_stopped, "Service is stopped/inactive")
       .add_int_var("rss", &filter_obj::get_rss, "Resident memory of the main process in bytes")
       .add_int_perf("B", "", "_rss")
       .add_int_var("vms", &filter_obj::get_vms, "Virtual memory of the main process in bytes")
       .add_int_perf("B", "", "_vms")
-      .add_int_var("tasks", &filter_obj::get_tasks, "Number of tasks (cgroup) for this service")
+      .add_int_var("tasks", &filter_obj::get_tasks, "Number of tasks (cgroup) for this service; the main process's thread count on macOS")
       .add_int_perf("", "", "_tasks")
       .add_int_var("created", type_date, &filter_obj::get_created, "Unix timestamp when the main process started")
-      .add_int_var("age", &filter_obj::get_age, "Seconds since the main process started");
+      .add_int_var("age", &filter_obj::get_age, "Seconds since the main process started")
+      .add_int_var("has_metrics", type_bool, &filter_obj::get_has_metrics,
+                   "Whether rss, vms, cpu and tasks were measured: false for a service that is not running, and on macOS for a job the agent may not "
+                   "inspect (another user's process when not running as root), where they read 0");
 
   registry_.add_float("cpu", &filter_obj::get_cpu, "CPU usage of the main process in percent (lifetime average)").add_float_perf("%", "", "_cpu");
 
@@ -394,106 +247,6 @@ filter_obj_handler::filter_obj_handler() {
       .add_human_string("start_type", &filter_obj::get_start_type_s, "The configured start type");
 
   registry_.add_converter(type_custom_state, &parse_state).add_converter(type_custom_start_type, &parse_start_type);
-}
-
-bool is_unit_active(const std::string &unit) {
-  if (!is_safe_unit_name(unit)) return false;
-  const std::vector<filter_obj> parsed = parse_systemctl_show(exec_command({"systemctl", "show", "--no-pager", "--", unit}));
-  if (parsed.empty()) return false;
-  // A missing unit still yields a block (LoadState=not-found) with
-  // ActiveState=inactive, so "started" covers existence too.
-  return parsed.front().is_started();
-}
-
-std::set<std::string> active_units(const std::vector<std::string> &units) {
-  std::set<std::string> active;
-  // One bulk `systemctl show -- u1 u2 ...` instead of a fork per unit;
-  // parse_systemctl_show already returns a block per unit, in argument order.
-  std::vector<std::string> safe;
-  for (const std::string &u : units) {
-    if (is_safe_unit_name(u)) safe.push_back(u);
-  }
-  if (safe.empty()) return active;
-  std::vector<std::string> argv = {"systemctl", "show", "--no-pager", "--"};
-  argv.insert(argv.end(), safe.begin(), safe.end());
-  const std::vector<filter_obj> parsed = parse_systemctl_show(exec_command(argv));
-
-  // filter_obj::name is the Id with the .service suffix stripped; index the
-  // started ones by that canonical name.
-  std::set<std::string> started;
-  for (const filter_obj &info : parsed) {
-    if (info.is_started()) started.insert(info.name);
-  }
-  // Return the caller's original spellings, matching with or without .service.
-  for (const std::string &u : units) {
-    std::string canonical = u;
-    if (boost::ends_with(canonical, ".service")) canonical = canonical.substr(0, canonical.size() - 8);
-    if (started.count(canonical)) active.insert(u);
-  }
-  return active;
-}
-
-// Get one service's info via `systemctl show`, then attach process metrics.
-filter_obj get_service_info(const std::string &service_name, const sys_timing &timing) {
-  filter_obj info;
-  info.name = service_name;
-
-  if (!is_safe_unit_name(service_name)) {
-    return info;
-  }
-
-  const std::vector<filter_obj> parsed = parse_systemctl_show(exec_command({"systemctl", "show", "--no-pager", "--", service_name}));
-  if (!parsed.empty()) info = parsed.front();
-
-  // Fall back to is-enabled when the show output lacked UnitFileState.
-  if (info.start_type.empty()) {
-    std::string enabled_output = exec_command({"systemctl", "is-enabled", "--", service_name});
-    boost::trim(enabled_output);
-    if (!enabled_output.empty()) info.start_type = enabled_output;
-  }
-
-  fill_metrics(info, timing);
-  return info;
-}
-
-// List all service unit names via systemctl list-units.
-std::vector<std::string> list_service_units() {
-  std::vector<std::string> names;
-  const std::string output = exec_command({"systemctl", "list-units", "--type=service", "--all", "--no-legend", "--plain", "--no-pager"});
-  std::istringstream iss(output);
-  std::string line;
-  while (std::getline(iss, line)) {
-    std::istringstream ls(line);
-    std::string tok;
-    while (ls >> tok) {
-      if (boost::ends_with(tok, ".service") && is_safe_unit_name(tok)) {
-        names.push_back(tok);
-        break;
-      }
-    }
-  }
-  return names;
-}
-
-// Enumerate all services: one bulk `systemctl show` for every unit, then
-// process metrics from /proc (no extra forks per service).
-std::vector<filter_obj> enumerate_services(const std::string & /*type*/, const std::string &state_filter, const sys_timing &timing) {
-  std::vector<filter_obj> result;
-  const std::vector<std::string> names = list_service_units();
-  if (names.empty()) return result;
-
-  std::vector<std::string> argv = {"systemctl", "show", "--no-pager", "--"};
-  argv.insert(argv.end(), names.begin(), names.end());
-  std::vector<filter_obj> parsed = parse_systemctl_show(exec_command(argv));
-
-  for (filter_obj &info : parsed) {
-    if (state_filter == "active" && info.active != "active") continue;
-    if (state_filter == "inactive" && info.active != "inactive") continue;
-    if (state_filter == "failed" && info.active != "failed") continue;
-    fill_metrics(info, timing);
-    result.push_back(info);
-  }
-  return result;
 }
 
 }  // namespace check_svc_filter
@@ -539,15 +292,13 @@ void check_service_evaluate(const PB::Commands::QueryRequestMessage::Request &re
 }
 
 void check_service(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  const check_svc_filter::sys_timing timing = check_svc_filter::read_sys_timing();
-
   // `fetch-only` short-circuits the filter machinery and emits one line per
   // service in `<<<services>>>` format: name state/start_type display.
   for (int i = 0; i < request.arguments_size(); i++) {
     const std::string &a = request.arguments(i);
     if (a == "fetch-only" || a == "--fetch-only") {
       std::string body;
-      const std::vector<check_svc_filter::filter_obj> svcs = check_svc_filter::enumerate_services("service", "all", timing);
+      const std::vector<check_svc_filter::filter_obj> svcs = check_svc_filter::enumerate_services("all");
       for (const check_svc_filter::filter_obj &s : svcs) {
         if (!body.empty()) body += "\n";
         body += s.name + " " + s.state + "/" + s.start_type + " " + (s.desc.empty() ? s.name : s.desc);
@@ -588,7 +339,7 @@ void check_service(const PB::Commands::QueryRequestMessage::Request &request, PB
   for (const std::string &service : services) {
     if (service == "*") {
       // Enumerate all services
-      std::vector<check_svc_filter::filter_obj> service_list = check_svc_filter::enumerate_services("service", state, timing);
+      std::vector<check_svc_filter::filter_obj> service_list = check_svc_filter::enumerate_services(state);
       for (const check_svc_filter::filter_obj &info : service_list) {
         // Check excludes
         if (std::find(excludes.begin(), excludes.end(), info.name) != excludes.end()) continue;
@@ -601,18 +352,7 @@ void check_service(const PB::Commands::QueryRequestMessage::Request &request, PB
       }
     } else {
       // Get specific service
-      std::string service_name = service;
-      // Add .service suffix if not present
-      if (!boost::ends_with(service_name, ".service")) {
-        service_name += ".service";
-      }
-
-      check_svc_filter::filter_obj info = check_svc_filter::get_service_info(service_name, timing);
-
-      // Remove .service suffix for display
-      if (boost::ends_with(info.name, ".service")) {
-        info.name = info.name.substr(0, info.name.length() - 8);
-      }
+      const check_svc_filter::filter_obj info = check_svc_filter::get_service_info(service);
 
       std::shared_ptr<check_svc_filter::filter_obj> record(new check_svc_filter::filter_obj(info));
       filter.match(record);

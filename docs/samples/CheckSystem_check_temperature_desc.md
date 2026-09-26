@@ -43,3 +43,9 @@ check_temperature "warn=temperature > 75" "crit=temperature > 90" "detail-syntax
 `active` reports whether the zone is currently active; on Windows
 `throttle_reasons` carries the ACPI throttle bitmask, which is a more direct
 signal that thermal limits are actually biting than the temperature alone.
+
+##### macOS
+
+Always UNKNOWN (`No temperature sensors found`). The SMC sensors are reachable
+only through the undocumented AppleSMC interface or the private
+IOHIDEventSystem, and both change between macOS releases.

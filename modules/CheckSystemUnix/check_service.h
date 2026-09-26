@@ -3,6 +3,7 @@
 
 #ifndef NSCP_CHECK_SERVICE_H
 #define NSCP_CHECK_SERVICE_H
+#include <map>
 #include <memory>
 #include <nscapi/protobuf/command.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -15,6 +16,17 @@ namespace checks {
 
 namespace check_svc_filter {
 
+// One service. On Linux a systemd unit; on macOS a launchd job in the system
+// domain, whose state is mapped onto the same fields:
+//   running (it has a pid)           active=active    sub_state=running state=running
+//   crashed, or a job meant to be
+//   running that exited non-zero     active=failed    sub_state=failed  state=stopped
+//   idle, launched on demand         active=inactive  sub_state=dead    state=static
+//   idle otherwise                   active=inactive  sub_state=dead    state=stopped
+// start_type is disabled from launchd's override database, else enabled for a
+// job that runs at load or is kept alive and on-demand for the rest - known
+// only when the job's own properties were read (a check by name); a listing
+// leaves it empty. preset has no launchd counterpart and stays empty.
 struct filter_obj {
   std::string name;
   std::string desc;
@@ -22,7 +34,7 @@ struct filter_obj {
   std::string sub_state;   // raw systemd SubState: running, dead, exited, ...
   std::string load_state;  // loaded, not-found, masked, ...
   std::string state;       // stopped, starting, oneshot, running, static, unknown
-  std::string start_type;  // UnitFileState: enabled, disabled, static, masked, ...
+  std::string start_type;  // UnitFileState: enabled, disabled, static, masked, ... (launchd: enabled, disabled, on-demand)
   std::string preset;      // UnitFilePreset: enabled, disabled
   int pid;
 
@@ -54,6 +66,7 @@ struct filter_obj {
   long long get_tasks() const { return tasks; }
   long long get_created() const { return created; }
   long long get_age() const { return age; }
+  long long get_has_metrics() const { return has_metrics ? 1 : 0; }
 
   std::string show() const { return name + ":" + state; }
 
@@ -119,7 +132,9 @@ struct filter_obj {
   bool is_disabled() const { return start_type == "disabled"; }
   bool is_static() const { return start_type == "static"; }
   bool is_masked() const { return start_type == "masked" || start_type == "masked-runtime"; }
+  bool is_on_demand() const { return start_type == "on-demand"; }
 
+  static constexpr long long start_type_on_demand = 3;
   static constexpr long long start_type_enabled = 1;
   static constexpr long long start_type_disabled = 0;
   static constexpr long long start_type_static = 2;
@@ -131,6 +146,7 @@ struct filter_obj {
     if (is_disabled()) return start_type_disabled;
     if (is_static()) return start_type_static;
     if (is_masked()) return start_type_masked;
+    if (is_on_demand()) return start_type_on_demand;
     return start_type_unknown;
   }
 
@@ -139,6 +155,7 @@ struct filter_obj {
     if (s == "disabled" || s == "manual") return start_type_disabled;
     if (s == "static") return start_type_static;
     if (s == "masked") return start_type_masked;
+    if (s == "on-demand" || s == "demand") return start_type_on_demand;
     return start_type_unknown;
   }
 
@@ -147,7 +164,8 @@ struct filter_obj {
     if (is_masked()) return is_stopped();
     if (is_disabled()) return true;  // Can be either running or stopped
     if (is_enabled()) return is_started();
-    if (is_static()) return true;  // Static services are OK in any state
+    if (is_static()) return true;     // Static services are OK in any state
+    if (is_on_demand()) return true;  // So are jobs launchd starts on demand
     return true;
   }
 
@@ -188,9 +206,63 @@ struct filter_obj_handler : public native_context {
 };
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 
+// Allowlist for service names (systemd units, launchd labels): rejects
+// anything that could be parsed as a flag or contains shell/path
+// metacharacters.
+bool is_safe_unit_name(const std::string &name);
+
 // Parse `systemctl show` output (one or more property blocks separated by blank
 // lines) into filter_obj rows (without process metrics).
 std::vector<filter_obj> parse_systemctl_show(const std::string &output);
+
+// ---- launchd (pure parsers, unit-tested on every platform) ----------------
+
+// One row of the `services` table in `launchctl print system`.
+struct launchd_listing {
+  std::string label;
+  long long pid = 0;          // 0 when not running
+  bool has_exit = false;      // false when the job never exited ("-")
+  long long last_exit = 0;    // exit code, or the negative signal number
+};
+
+// The `services = { ... }` table of `launchctl print system`: one
+// "<pid> <last exit> <label>" line per job, "-" or 0 for none. Lines that do
+// not parse are skipped; the output is documented as unstable, so only this
+// one table is read.
+std::vector<launchd_listing> parse_launchctl_services(const std::string &output);
+
+// `launchctl print-disabled system`: label -> true when disabled. Accepts both
+// spellings launchd has used ("=> disabled"/"=> enabled" and "=> true"/"=>
+// false", true meaning disabled).
+std::map<std::string, bool> parse_launchctl_disabled(const std::string &output);
+
+// The top-level `key = value` properties of `launchctl print system/<label>`
+// (nested blocks are skipped). Empty when the job does not exist.
+std::map<std::string, std::string> parse_launchctl_print(const std::string &output);
+
+// Whether a job that is not running ended badly: a crash signal always, a
+// non-zero exit code only for a job meant to be running (run at load or kept
+// alive) - launchd's last exit status is history, and idle on-demand jobs
+// routinely carry a non-zero one.
+bool launchd_exit_is_failure(long long last_exit, bool expected_running);
+
+// A filter row from a listing entry, the disabled map and (when available)
+// the job's printed properties - the state mapping documented on filter_obj.
+filter_obj launchd_row(const launchd_listing &job, const std::map<std::string, bool> &disabled,
+                       const std::map<std::string, std::string> &properties);
+
+// ---- the platform source ----------------------------------------------------
+// Defined per platform: service_source_linux.cpp (systemctl) and
+// service_source_darwin.cpp (launchctl).
+
+// Every service, optionally only those whose `active` is `state_filter`
+// (active, inactive, failed; "all" for every one), with process metrics.
+std::vector<filter_obj> enumerate_services(const std::string &state_filter);
+
+// One service by the name the user gave (a unit with or without .service; a
+// launchd label). A service that does not exist comes back with
+// load_state "not-found" and a stopped state.
+filter_obj get_service_info(const std::string &service);
 
 // True when the systemd unit exists and is active (ActiveState=active).
 // Rejects unsafe unit names; false for missing units and on any systemctl

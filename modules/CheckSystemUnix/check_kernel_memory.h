@@ -4,6 +4,7 @@
 #ifndef NSCP_CHECK_KERNEL_MEMORY_H
 #define NSCP_CHECK_KERNEL_MEMORY_H
 
+#include <boost/optional.hpp>
 #include <memory>
 #include <nscapi/protobuf/command.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -18,21 +19,31 @@ namespace kernel_memory_check {
 // kernel-allocation gauges keep their platform-native names (slab_* here,
 // pool_* on Windows), the same convention as hive vs manager elsewhere.
 struct kernel_memory_obj {
-  long long slab;                // Slab: total kernel slab allocator bytes
-  long long slab_reclaimable;    // SReclaimable: slab that can be reclaimed (caches)
-  long long slab_unreclaimable;  // SUnreclaim: pinned kernel slab — the leak signal
-  long long cache;               // Cached: page-cache bytes (excluding swap cache)
-  double page_faults;            // pgfault delta/s (soft + hard; huge on healthy hosts)
-  double major_faults;           // pgmajfault delta/s: faults that had to hit disk
+  // Linux slab allocator; absent on macOS, whose kernel has no slab.
+  boost::optional<long long> slab;                // Slab: total kernel slab allocator bytes
+  boost::optional<long long> slab_reclaimable;    // SReclaimable: slab that can be reclaimed (caches)
+  boost::optional<long long> slab_unreclaimable;  // SUnreclaim: pinned kernel slab — the leak signal
+  // Darwin memory states; absent on Linux. Wired memory is what the kernel
+  // has pinned (its own allocations included), the nearest Darwin has to
+  // unreclaimable slab; compressed is what the memory compressor holds.
+  boost::optional<long long> wired;
+  boost::optional<long long> compressed;
+  long long cache;      // page-cache bytes (Linux Cached, Darwin file-backed pages)
+  double page_faults;   // faults/s (soft + hard; huge on healthy hosts)
+  double major_faults;  // faults/s that had to hit disk (Darwin: pageins)
 
-  kernel_memory_obj() : slab(0), slab_reclaimable(0), slab_unreclaimable(0), cache(0), page_faults(0.0), major_faults(0.0) {}
+  kernel_memory_obj() : cache(0), page_faults(0.0), major_faults(0.0) {}
 
-  long long get_slab() const { return slab; }
-  long long get_slab_reclaimable() const { return slab_reclaimable; }
-  long long get_slab_unreclaimable() const { return slab_unreclaimable; }
+  boost::optional<long long> get_slab() const { return slab; }
+  boost::optional<long long> get_slab_reclaimable() const { return slab_reclaimable; }
+  boost::optional<long long> get_slab_unreclaimable() const { return slab_unreclaimable; }
+  boost::optional<long long> get_wired() const { return wired; }
+  boost::optional<long long> get_compressed() const { return compressed; }
   long long get_cache() const { return cache; }
   std::string get_slab_human(parsers::where::evaluation_context context) const;
   std::string get_slab_unreclaimable_human(parsers::where::evaluation_context context) const;
+  std::string get_wired_human(parsers::where::evaluation_context context) const;
+  std::string get_compressed_human(parsers::where::evaluation_context context) const;
   std::string get_cache_human(parsers::where::evaluation_context context) const;
   double get_page_faults() const { return page_faults; }
   double get_major_faults() const { return major_faults; }
@@ -69,11 +80,15 @@ meminfo_kernel parse_meminfo_kernel(const std::string &content);
 vmstat_faults parse_vmstat_faults(const std::string &content);
 kernel_memory_obj compute_kernel_memory(const meminfo_kernel &mem, const vmstat_faults &prev, const vmstat_faults &cur, double elapsed_seconds);
 
-// Testable core: renders / thresholds a pre-gathered row.
+// Testable core: renders / thresholds a pre-gathered row. The default detail
+// line names the gauges the row has: slab on Linux, wired and compressed on
+// macOS.
 void check_from(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                 const kernel_memory_obj &data);
 
-// Live check: reads /proc/meminfo and samples /proc/vmstat over 1 second.
+// Live check: samples the fault counters over 1 second and reads the gauges.
+// Defined per platform (/proc/vmstat and /proc/meminfo on Linux,
+// host_statistics64 on Darwin).
 void check_kernel_memory(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 
 }  // namespace kernel_memory_check

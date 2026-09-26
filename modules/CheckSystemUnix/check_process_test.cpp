@@ -430,3 +430,62 @@ TEST(FilterObjAggregation, PlusEqualsIncludesPeaksAndTotalTime) {
   EXPECT_EQ(30, a.get_peak_working_set());
   EXPECT_EQ(7, a.get_total_time());
 }
+
+// ============================================================================
+// Unreadable counters (macOS: task info of another user's process)
+// ============================================================================
+
+TEST(TaskInfo, ReadableCountersAreValues) {
+  filter_obj p;
+  p.working_set = 4096;
+  p.user_time = 7;
+  p.peak_working_set = 8192;
+  ASSERT_TRUE(p.task_value(p.working_set));
+  EXPECT_EQ(4096, p.task_value(p.working_set).value());
+  EXPECT_EQ(7, p.task_value(p.user_time).value());
+  EXPECT_EQ(8192, p.peak_value(p.peak_working_set).value());
+}
+
+TEST(TaskInfo, UnreadableCountersAreAbsentNotZero) {
+  filter_obj p;
+  p.has_task_info = false;
+  EXPECT_FALSE(p.task_value(p.working_set));
+  EXPECT_FALSE(p.task_value(p.total_time));
+  EXPECT_FALSE(p.peak_value(p.peak_working_set));
+}
+
+TEST(TaskInfo, MissingPeaksAreAbsentWhileTheRestIsKnown) {
+  filter_obj p;
+  p.has_peaks = false;
+  p.working_set = 10;
+  EXPECT_TRUE(p.task_value(p.working_set));
+  EXPECT_FALSE(p.peak_value(p.peak_working_set));
+  EXPECT_FALSE(p.peak_value(p.peak_virtual_size));
+}
+
+TEST(TaskInfo, DeltaKeepsTheProcessWithUnknownUsage) {
+  filter_obj before = make_cpu_sample(100, 100);
+  filter_obj after = make_cpu_sample(150, 150);
+  after.has_task_info = false;
+  // Kept (true), but its usage is unknown rather than computed from zeros.
+  EXPECT_TRUE(after.make_cpu_delta(before, 1000));
+  EXPECT_FALSE(after.task_value(after.total_time));
+
+  filter_obj unreadable_before = make_cpu_sample(0, 0);
+  unreadable_before.has_task_info = false;
+  filter_obj readable_after = make_cpu_sample(150, 150);
+  EXPECT_TRUE(readable_after.make_cpu_delta(unreadable_before, 1000));
+  EXPECT_FALSE(readable_after.has_task_info);
+}
+
+TEST(TaskInfo, ATotalOverAnUnreadableProcessIsUnknown) {
+  filter_obj total;
+  filter_obj readable;
+  readable.working_set = 100;
+  filter_obj unreadable;
+  unreadable.has_task_info = false;
+  total += readable;
+  EXPECT_TRUE(total.task_value(total.working_set));
+  total += unreadable;
+  EXPECT_FALSE(total.task_value(total.working_set));
+}

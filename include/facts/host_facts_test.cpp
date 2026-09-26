@@ -97,6 +97,14 @@ TEST(host_facts_dmi, a_surface_is_not_hyper_v) {
   EXPECT_EQ("", host_facts::virtualization_from_dmi("Microsoft Corporation", "Surface Laptop 5"));
 }
 
+TEST(host_facts_dmi, an_apple_virtualization_guest_is_virtual) {
+  EXPECT_EQ("virtual", host_facts::virtualization_from_dmi("Apple", "VirtualMac2,1"));
+  EXPECT_FALSE(host_facts::dmi_names_physical_hardware("Apple", "VirtualMac2,1"));
+  // A real Mac names its model.
+  EXPECT_EQ("", host_facts::virtualization_from_dmi("Apple", "Mac14,2"));
+  EXPECT_TRUE(host_facts::dmi_names_physical_hardware("Apple", "Mac14,2"));
+}
+
 TEST(host_facts_dmi, real_hardware_yields_nothing) {
   EXPECT_EQ("", host_facts::virtualization_from_dmi("Dell Inc.", "PowerEdge R650"));
   EXPECT_EQ("", host_facts::virtualization_from_dmi("LENOVO", "20XW"));

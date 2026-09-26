@@ -144,3 +144,9 @@ each adapter is annotated with its team:
 Team annotation is best-effort and self-disabling: if the provider or namespace
 is absent, the fields stay empty and the check does not fail. Use `team != ''`
 to scope a check to teamed adapters.
+
+#### macOS
+
+The counters, hardware address and link speed come from the kernel's interface
+list (the `NET_RT_IFLIST2` sysctl, the source `netstat` uses) with 64-bit
+counters, and `status` from the interface's media state. The loopback is `lo0`.

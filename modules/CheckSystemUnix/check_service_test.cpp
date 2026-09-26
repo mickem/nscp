@@ -342,3 +342,252 @@ TEST(CheckService, StartTypeKeywordFiltersThroughEvaluate) {
   EXPECT_EQ(rc, PB::Common::ResultCode::CRITICAL) << join_lines(response);
   EXPECT_NE(join_lines(response).find("crashed"), std::string::npos) << join_lines(response);
 }
+
+// ============================================================================
+// launchd (macOS)
+//
+// The fixtures follow the layout of `launchctl print system`,
+// `launchctl print system/<label>` and `launchctl print-disabled system` on
+// macOS 14, trimmed to the parts that surround what is read. Apple documents
+// that output as unstable; the parsers read only these fields and skip the
+// rest, which is what these tests pin.
+// ============================================================================
+
+using checks::check_svc_filter::launchd_listing;
+using checks::check_svc_filter::launchd_row;
+using checks::check_svc_filter::parse_launchctl_disabled;
+using checks::check_svc_filter::parse_launchctl_print;
+using checks::check_svc_filter::parse_launchctl_services;
+
+namespace {
+const std::string PRINT_SYSTEM =
+    "system = {\n"
+    "\ttype = system\n"
+    "\thandle = 0\n"
+    "\tactive count = 612\n"
+    "\tservice count = 401\n"
+    "\tcreator = launchd[1]\n"
+    "\tsecurity context = {\n"
+    "\t\tuid unset\n"
+    "\t\tasid = 0\n"
+    "\t}\n"
+    "\n"
+    "\tsubdomains = {\n"
+    "\t\tpid/412\n"
+    "\t}\n"
+    "\n"
+    "\tservices = {\n"
+    "\t\t     412      - \tcom.apple.logd\n"
+    "\t\t       0      - \tcom.apple.ftp-proxy\n"
+    "\t\t       0     78 \tcom.apple.ReportCrash.Root\n"
+    "\t\t       0     -9 \tcom.apple.mdworker.shared\n"
+    "\t\t      97      0 \tcom.apple.syslogd\n"
+    "\t\t       0      0 \tcom.apple.periodic-daily\n"
+    "\t}\n"
+    "\n"
+    "\tunmanaged processes = {\n"
+    "\t\t0x1234  1  0 \t/usr/libexec/something\n"
+    "\t}\n"
+    "\n"
+    "\tendpoints = {\n"
+    "\t\t      0x0  M  com.apple.logd.events\n"
+    "\t}\n"
+    "}\n";
+
+const std::string PRINT_DISABLED =
+    "disabled services = {\n"
+    "\t\"com.apple.ftpd\" => disabled\n"
+    "\t\"com.apple.ftp-proxy\" => disabled\n"
+    "\t\"org.example.agent\" => enabled\n"
+    "}\n"
+    "\n"
+    "login item associations = {\n"
+    "\t\"com.example.helper\" => com.example.app\n"
+    "}\n";
+
+const std::string PRINT_LOGD =
+    "system/com.apple.logd = {\n"
+    "\tactive count = 5\n"
+    "\tpath = /System/Library/LaunchDaemons/com.apple.logd.plist\n"
+    "\ttype = LaunchDaemon\n"
+    "\tstate = running\n"
+    "\n"
+    "\tprogram = /usr/libexec/logd\n"
+    "\targuments = {\n"
+    "\t\t/usr/libexec/logd\n"
+    "\t}\n"
+    "\n"
+    "\tdefault environment = {\n"
+    "\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n"
+    "\t}\n"
+    "\n"
+    "\tdomain = system\n"
+    "\tpid = 412\n"
+    "\timmediate reason = speculative\n"
+    "\tlast exit code = (never exited)\n"
+    "\n"
+    "\tendpoints = {\n"
+    "\t\t\"com.apple.logd\" = {\n"
+    "\t\t\tport = 0x1a03\n"
+    "\t\t\tactive = 1\n"
+    "\t\t}\n"
+    "\t}\n"
+    "\n"
+    "\tproperties = keepalive | runatload | inferred program | system service\n"
+    "}\n";
+
+const std::string PRINT_ON_DEMAND =
+    "system/com.apple.ReportCrash.Root = {\n"
+    "\tactive count = 0\n"
+    "\tpath = /System/Library/LaunchDaemons/com.apple.ReportCrash.Root.plist\n"
+    "\tstate = not running\n"
+    "\n"
+    "\tprogram = /System/Library/CoreServices/ReportCrash\n"
+    "\tlast exit code = 0\n"
+    "\tproperties = inferred program | system service\n"
+    "}\n";
+
+launchd_listing job(const std::string &label, long long pid, bool has_exit, long long last_exit) {
+  launchd_listing j;
+  j.label = label;
+  j.pid = pid;
+  j.has_exit = has_exit;
+  j.last_exit = last_exit;
+  return j;
+}
+}  // namespace
+
+TEST(Launchd, ServicesTableIsReadAndNothingElse) {
+  const std::vector<launchd_listing> jobs = parse_launchctl_services(PRINT_SYSTEM);
+  ASSERT_EQ(jobs.size(), 6u);
+  EXPECT_EQ(jobs[0].label, "com.apple.logd");
+  EXPECT_EQ(jobs[0].pid, 412);
+  EXPECT_FALSE(jobs[0].has_exit);
+  EXPECT_EQ(jobs[1].label, "com.apple.ftp-proxy");
+  EXPECT_EQ(jobs[1].pid, 0);
+  EXPECT_EQ(jobs[2].label, "com.apple.ReportCrash.Root");
+  EXPECT_TRUE(jobs[2].has_exit);
+  EXPECT_EQ(jobs[2].last_exit, 78);
+  EXPECT_EQ(jobs[3].last_exit, -9);
+  EXPECT_EQ(jobs[4].pid, 97);
+  // The endpoints and unmanaged-process tables have the same shape and are
+  // not jobs.
+  for (const launchd_listing &j : jobs) EXPECT_NE(j.label, "com.apple.logd.events");
+}
+
+TEST(Launchd, AnOutputWithoutAServicesTableIsEmpty) {
+  EXPECT_TRUE(parse_launchctl_services("").empty());
+  EXPECT_TRUE(parse_launchctl_services("Could not find domain\n").empty());
+}
+
+TEST(Launchd, DisabledMapReadsBothSpellings) {
+  std::map<std::string, bool> d = parse_launchctl_disabled(PRINT_DISABLED);
+  EXPECT_TRUE(d["com.apple.ftpd"]);
+  EXPECT_TRUE(d["com.apple.ftp-proxy"]);
+  EXPECT_FALSE(d["org.example.agent"]);
+  // The login-item block that follows is not part of the map.
+  EXPECT_EQ(d.count("com.example.helper"), 0u);
+
+  const std::map<std::string, bool> old = parse_launchctl_disabled("disabled services = {\n\t\"com.apple.a\" => true\n\t\"com.apple.b\" => false\n}\n");
+  EXPECT_TRUE(old.at("com.apple.a"));
+  EXPECT_FALSE(old.at("com.apple.b"));
+}
+
+TEST(Launchd, PrintReadsTopLevelPropertiesOnly) {
+  const std::map<std::string, std::string> p = parse_launchctl_print(PRINT_LOGD);
+  EXPECT_EQ(p.at("state"), "running");
+  EXPECT_EQ(p.at("pid"), "412");
+  EXPECT_EQ(p.at("program"), "/usr/libexec/logd");
+  EXPECT_EQ(p.at("last exit code"), "(never exited)");
+  EXPECT_EQ(p.at("properties"), "keepalive | runatload | inferred program | system service");
+  // Nested blocks (the endpoint's own port and active) do not leak up.
+  EXPECT_EQ(p.count("port"), 0u);
+  EXPECT_EQ(p.count("active"), 0u);
+  EXPECT_TRUE(parse_launchctl_print("").empty());
+}
+
+TEST(Launchd, ARunningJobIsRunning) {
+  const filter_obj info = launchd_row(job("com.apple.logd", 0, false, 0), {}, parse_launchctl_print(PRINT_LOGD));
+  EXPECT_EQ(info.name, "com.apple.logd");
+  EXPECT_EQ(info.pid, 412);
+  EXPECT_EQ(info.active, "active");
+  EXPECT_EQ(info.state, "running");
+  EXPECT_EQ(info.start_type, "enabled");
+  EXPECT_EQ(info.desc, "/usr/libexec/logd");
+  EXPECT_TRUE(info.state_is_perfect());
+}
+
+TEST(Launchd, AnIdleOnDemandJobIsStaticAndOk) {
+  const filter_obj info = launchd_row(job("com.apple.ReportCrash.Root", 0, true, 78), {}, parse_launchctl_print(PRINT_ON_DEMAND));
+  // The job's own print (last exit 0) is newer than the listing's 78.
+  EXPECT_EQ(info.active, "inactive");
+  EXPECT_EQ(info.start_type, "on-demand");
+  EXPECT_EQ(info.state, "static");
+  EXPECT_EQ(info.get_start_type_i(), filter_obj::start_type_on_demand);
+  EXPECT_EQ(filter_obj::parse_start_type("on-demand"), filter_obj::start_type_on_demand);
+
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run({info}, {"filter=none"}, response), PB::Common::ResultCode::OK) << join_lines(response);
+}
+
+TEST(Launchd, ANonZeroExitOfAnIdleJobIsHistoryNotFailure) {
+  // In a listing (no properties) and for an on-demand job alike, the last
+  // exit code of a job that is not meant to be running says nothing about
+  // whether it is down.
+  const filter_obj listed = launchd_row(job("com.apple.ReportCrash.Root", 0, true, 78), {}, {});
+  EXPECT_EQ(listed.active, "inactive");
+  EXPECT_EQ(listed.start_type, "");
+  EXPECT_TRUE(listed.state_is_ok());
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run({listed}, {}, response), PB::Common::ResultCode::UNKNOWN) << join_lines(response);
+}
+
+TEST(Launchd, AJobMeantToRunThatExitedIsFailedAndCritical) {
+  std::map<std::string, std::string> props = parse_launchctl_print(PRINT_LOGD);
+  props.erase("pid");
+  props["last exit code"] = "1";
+  const filter_obj info = launchd_row(job("com.apple.logd", 0, true, 1), {}, props);
+  EXPECT_EQ(info.start_type, "enabled");
+  EXPECT_EQ(info.active, "failed");
+  EXPECT_EQ(info.state, "stopped");
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run({info}, {}, response), PB::Common::ResultCode::CRITICAL) << join_lines(response);
+}
+
+TEST(Launchd, ACrashIsAFailureEvenInAListing) {
+  // SIGSEGV
+  const filter_obj info = launchd_row(job("com.example.crashy", 0, true, -11), {}, {});
+  EXPECT_EQ(info.active, "failed");
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run({info}, {}, response), PB::Common::ResultCode::CRITICAL) << join_lines(response);
+}
+
+TEST(Launchd, ExitStatusRules) {
+  using checks::check_svc_filter::launchd_exit_is_failure;
+  EXPECT_FALSE(launchd_exit_is_failure(0, true));
+  EXPECT_FALSE(launchd_exit_is_failure(-9, true));   // SIGKILL: launchd/jetsam
+  EXPECT_FALSE(launchd_exit_is_failure(-15, true));  // SIGTERM: launchd
+  EXPECT_FALSE(launchd_exit_is_failure(-2, false));  // SIGINT
+  EXPECT_TRUE(launchd_exit_is_failure(-6, false));   // SIGABRT
+  EXPECT_TRUE(launchd_exit_is_failure(-11, false));  // SIGSEGV
+  EXPECT_TRUE(launchd_exit_is_failure(78, true));
+  EXPECT_FALSE(launchd_exit_is_failure(78, false));
+}
+
+TEST(Launchd, ASignalledIdleJobIsNotFailed) {
+  // launchd stops idle on-demand jobs with a signal; that is not a failure.
+  const filter_obj info = launchd_row(job("com.apple.mdworker.shared", 0, true, -9), {}, {});
+  EXPECT_EQ(info.active, "inactive");
+  PB::Commands::QueryResponseMessage::Response response;
+  // Inactive rows are filtered out by default, so it cannot turn the check
+  // critical the way a failed job does.
+  EXPECT_EQ(run({info}, {}, response), PB::Common::ResultCode::UNKNOWN) << join_lines(response);
+  EXPECT_EQ(join_lines(response), "UNKNOWN: No services found");
+}
+
+TEST(Launchd, ADisabledJobSaysSo) {
+  const filter_obj info = launchd_row(job("com.apple.ftp-proxy", 0, false, 0), parse_launchctl_disabled(PRINT_DISABLED), {});
+  EXPECT_EQ(info.start_type, "disabled");
+  EXPECT_EQ(info.state, "stopped");
+  EXPECT_TRUE(info.state_is_perfect());
+}

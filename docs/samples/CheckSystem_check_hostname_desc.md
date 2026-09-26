@@ -49,6 +49,11 @@ The useful alerts are **pinned expectations**:
   canonicalising this host under a *different* name (stale `/etc/hosts`
   entries, CNAME chains, re-imaged boxes keeping an old DNS record).
 
+##### macOS
+
+The same calls as on Linux. A default Mac name ends in `.local`, the
+multicast-DNS pseudo-domain, which is not a DNS domain.
+
 ##### See also
 
 CheckSecurity's `check_nla` covers the runtime side of the same question — which

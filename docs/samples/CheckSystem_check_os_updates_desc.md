@@ -83,6 +83,28 @@ check_os_updates "warning=none" "critical=security > 0"
 
 This will return `CRITICAL` if any security updates are pending and otherwise `OK` regardless of the number of ordinary updates.
 
+##### macOS
+
+The `manager` is `softwareupdate`. By default the check reads the list macOS
+caches at its background check,
+`/Library/Preferences/com.apple.SoftwareUpdate.plist`. That is instant and
+needs no network. `last_checked` is when that list was last refreshed, so a
+Mac that has stopped checking shows up:
+
+```
+check_os_updates "warning=last_checked < -14d or updates > 0" "critical=security > 0"
+```
+
+`live=true` asks Apple's update server with `softwareupdate --list` instead.
+That takes 10 to 60 seconds and needs network access; the check gives up after
+60 seconds with UNKNOWN. A Mac with no cached list yet is UNKNOWN rather than
+"no updates".
+
+macOS publishes no security classification. `security` counts the updates
+named as security responses (Rapid and Background Security Responses, the
+older Security Update packages). A macOS point release also carries security
+fixes, but it is not counted.
+
 ##### Customizing the output
 
 You can use the syntax options to format the output string:

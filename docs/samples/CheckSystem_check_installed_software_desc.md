@@ -56,3 +56,17 @@ upgrade — treat it as "last installed/upgraded". A dpkg older than 1.19.3 does
 not have that field, so `install_date` stays unset there. `pacman -Q` exposes
 only name and version, so `publisher`, `size` and `install_date` stay unset
 there.
+
+##### macOS
+
+A Mac has no single package database, so the inventory is three sources, all
+read from disk without running anything. The `manager` keyword names the one
+each entry came from:
+
+| `manager`  | Source                                                           | What it carries                                               |
+|------------|------------------------------------------------------------------|---------------------------------------------------------------|
+| `pkgutil`  | Installer receipts in `/var/db/receipts`, the list `pkgutil --pkgs` prints | Package identifier, version, install date              |
+| `bundle`   | Applications in `/Applications` and `/Applications/Utilities`    | Bundle name, version, bundle identifier as `publisher`, last modified as the install date |
+| `homebrew` | Formulae and casks under `/opt/homebrew` (or `/usr/local`)       | Formula name, the linked version, when that version was installed |
+
+`architecture` and `size` are not recorded by any of them.

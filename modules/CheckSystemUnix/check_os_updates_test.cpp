@@ -223,6 +223,115 @@ TEST(CheckOsUpdates, fetch_updates_dispatches_to_pacman) {
 TEST(CheckOsUpdates, detect_manager_returns_known_or_empty) {
   std::string mgr = os_updates::detect_manager();
   if (!mgr.empty()) {
-    EXPECT_TRUE(mgr == "apt" || mgr == "dnf" || mgr == "yum" || mgr == "zypper" || mgr == "pacman") << "got: " << mgr;
+    EXPECT_TRUE(mgr == "apt" || mgr == "dnf" || mgr == "yum" || mgr == "zypper" || mgr == "pacman" || mgr == "softwareupdate") << "got: " << mgr;
   }
+}
+
+// ============================================================================
+// macOS: the cached list and softwareupdate --list
+// ============================================================================
+
+namespace {
+plist::value recommended(const std::string &name, const std::string &version, const std::string &identifier) {
+  plist::value u;
+  u.kind = plist::value::dict;
+  u.members["Display Name"] = plist::value::make_string(name);
+  u.members["Display Version"] = plist::value::make_string(version);
+  u.members["Identifier"] = plist::value::make_string(identifier);
+  u.members["Product Key"] = plist::value::make_string("062-00001");
+  return u;
+}
+}  // namespace
+
+TEST(CheckOsUpdates, parse_software_update_plist) {
+  plist::value root;
+  root.kind = plist::value::dict;
+  root.members["LastSuccessfulDate"] = plist::value::make_date(1718000000);
+  plist::value list;
+  list.kind = plist::value::array;
+  list.items.push_back(recommended("macOS Sonoma 14.5", "14.5", "MSU_UPDATE_23F79_patch_14.5"));
+  list.items.push_back(recommended("Background Security Improvement", "14.5 (a)", "MSU_UPDATE_BSI"));
+  list.items.push_back(recommended("Command Line Tools for Xcode", "15.3", "Command Line Tools for Xcode-15.3"));
+  root.members["RecommendedUpdates"] = list;
+
+  const os_updates::filter_obj obj = os_updates::parse_software_update_plist(root);
+  EXPECT_EQ(obj.manager, "softwareupdate");
+  EXPECT_EQ(obj.count, 3);
+  EXPECT_EQ(obj.security, 1);
+  EXPECT_EQ(obj.last_checked, 1718000000);
+  ASSERT_TRUE(obj.get_last_checked());
+  EXPECT_EQ(obj.packages[0].name, "macOS Sonoma 14.5");
+  EXPECT_EQ(obj.packages[0].version, "14.5");
+  EXPECT_FALSE(obj.packages[0].security);
+  EXPECT_TRUE(obj.packages[1].security);
+}
+
+TEST(CheckOsUpdates, parse_software_update_plist_without_updates) {
+  plist::value root;
+  root.kind = plist::value::dict;
+  root.members["LastSuccessfulDate"] = plist::value::make_date(1718000000);
+  const os_updates::filter_obj obj = os_updates::parse_software_update_plist(root);
+  EXPECT_EQ(obj.count, 0);
+  EXPECT_EQ(obj.last_checked, 1718000000);
+}
+
+TEST(CheckOsUpdates, last_checked_is_unknown_on_linux_managers) {
+  EXPECT_FALSE(os_updates::parse_apt_output("Listing... Done\n").get_last_checked());
+}
+
+TEST(CheckOsUpdates, parse_softwareupdate_output) {
+  const std::string out =
+      "Software Update Tool\n"
+      "\n"
+      "Finding available software\n"
+      "Software Update found the following new or updated software:\n"
+      "* Label: macOS Sonoma 14.5-23F79\n"
+      "\tTitle: macOS Sonoma 14.5, Version: 14.5, Size: 6834924KiB, Recommended: YES, Action: restart, \n"
+      "* Label: Rapid Security Response 14.5 (a)-23F79a\n"
+      "\tTitle: Rapid Security Response 14.5 (a), Version: 14.5 (a), Size: 102400KiB, Recommended: YES, Action: restart, \n"
+      "* Label: Command Line Tools for Xcode-15.3\n"
+      "\tTitle: Command Line Tools for Xcode, Version: 15.3, Size: 751430KiB, Recommended: YES, \n";
+  const os_updates::filter_obj obj = os_updates::parse_softwareupdate_output(out);
+  EXPECT_EQ(obj.manager, "softwareupdate");
+  ASSERT_EQ(obj.count, 3);
+  EXPECT_EQ(obj.security, 1);
+  EXPECT_EQ(obj.packages[0].name, "macOS Sonoma 14.5");
+  EXPECT_EQ(obj.packages[0].version, "14.5");
+  EXPECT_EQ(obj.packages[0].source, "macOS Sonoma 14.5-23F79");
+  EXPECT_EQ(obj.packages[1].version, "14.5 (a)");
+  EXPECT_TRUE(obj.packages[1].security);
+}
+
+TEST(CheckOsUpdates, parse_softwareupdate_output_old_format) {
+  const std::string out =
+      "Software Update found the following new or updated software:\n"
+      "   * Safari12.1.1Mojave-12.1.1\n"
+      "\tSafari (12.1.1), 67140K [recommended]\n"
+      "   * Security Update 2019-003-10.13.6\n"
+      "\tSecurity Update 2019-003 (10.13.6), 1943960K [recommended] [restart]\n";
+  const os_updates::filter_obj obj = os_updates::parse_softwareupdate_output(out);
+  ASSERT_EQ(obj.count, 2);
+  EXPECT_EQ(obj.packages[0].name, "Safari");
+  EXPECT_EQ(obj.packages[0].version, "12.1.1");
+  EXPECT_EQ(obj.security, 1);
+}
+
+TEST(CheckOsUpdates, parse_softwareupdate_output_no_updates) {
+  EXPECT_EQ(os_updates::parse_softwareupdate_output("Software Update Tool\n\nFinding available software\nNo new software available.\n").count, 0);
+  EXPECT_EQ(os_updates::parse_softwareupdate_output("").count, 0);
+}
+
+TEST(CheckOsUpdates, a_rapid_security_response_counts_as_security_by_its_version) {
+  plist::value root;
+  root.kind = plist::value::dict;
+  plist::value list;
+  list.kind = plist::value::array;
+  list.items.push_back(recommended("macOS Ventura 13.4.1 (a)", "13.4.1 (a)", "MSU_UPDATE_22F770820d"));
+  list.items.push_back(recommended("macOS Ventura 13.5", "13.5", "MSU_UPDATE_22G74"));
+  root.members["RecommendedUpdates"] = list;
+  const os_updates::filter_obj obj = os_updates::parse_software_update_plist(root);
+  EXPECT_EQ(obj.count, 2);
+  EXPECT_EQ(obj.security, 1);
+  EXPECT_TRUE(obj.packages[0].security);
+  EXPECT_FALSE(obj.packages[1].security);
 }

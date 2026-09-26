@@ -29,7 +29,9 @@ struct thermal_zone {
 
 typedef std::list<thermal_zone> zones_type;
 
-// Reads temperatures from /sys/class/thermal and /sys/class/hwmon. May return an empty list.
+// Reads temperatures from /sys/class/thermal and /sys/class/hwmon. May return
+// an empty list. Defined per platform; always empty on macOS, which has no
+// public API for its sensors (see hardware_source_darwin.cpp).
 zones_type read_temperature();
 
 // Testable variant of read_temperature() reading from explicit sysfs-style roots.

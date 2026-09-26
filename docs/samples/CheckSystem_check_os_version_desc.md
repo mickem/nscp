@@ -11,3 +11,10 @@ filter on `arch` to assert a fleet's architecture.
 best-effort from WMI, are empty when WMI is unavailable, are not part of the
 default output, and are not intended for alerting. Reference them in a custom
 `detail-syntax` (or `top-syntax`) to pull inventory.
+
+#### macOS
+
+`os` is the product name and build, e.g. `macOS 14.5 (23F79)`. `distribution`
+and `family` are `macos`, `distribution_name` is `macOS` and `version` the
+product version. `kernel_name` is `Darwin` and `kernel_release` the Darwin
+version, as `uname` reports them.

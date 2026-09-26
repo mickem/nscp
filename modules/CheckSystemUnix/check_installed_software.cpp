@@ -23,9 +23,9 @@ filter_obj_handler::filter_obj_handler() {
   // clang-format off
   registry_.add_string_var("name", &software_entry::get_name, "Package name")
       .add_string_var("version", &software_entry::get_version, "Version string (rpm: version-release); comparisons are lexical, not version-aware")
-      .add_string_var("publisher", &software_entry::get_publisher, "Maintainer (dpkg, email stripped) / vendor (rpm); empty for pacman")
-      .add_string_var("architecture", &software_entry::get_architecture, "Package architecture (amd64, x86_64, noarch, ...)")
-      .add_string_var("manager", &software_entry::get_manager, "Package manager the entry came from (dpkg, rpm, pacman)")
+      .add_string_var("publisher", &software_entry::get_publisher, "Maintainer (dpkg, email stripped) / vendor (rpm); empty for pacman; the bundle identifier for a macOS application bundle")
+      .add_string_var("architecture", &software_entry::get_architecture, "Package architecture (amd64, x86_64, noarch, ...); empty on macOS")
+      .add_string_var("manager", &software_entry::get_manager, "Package manager the entry came from (dpkg, rpm, pacman; on macOS pkgutil, bundle or homebrew)")
       .add_string_var("package_status", &software_entry::get_status, "Package state; always 'installed' for listed packages")
       .add_string_var("status", &software_entry::get_status, "Deprecated alias for package_status (the name clashes with the generic status summary keyword).")
       .add_string_var("install_date_s", &software_entry::get_install_date_str, "Install date as YYYY-MM-DD; empty when unknown");
@@ -84,6 +84,13 @@ std::string first_existing(const std::string &a, const std::string &b) {
 
 package_manager detect_manager() {
   package_manager pm;
+  // pkgutil is part of every macOS install and of nothing else. The macOS
+  // sources are read in-process; the binary is only named in messages.
+  if (binary_exists("/usr/sbin/pkgutil")) {
+    pm.name = "macos";
+    pm.binary = "/usr/sbin/pkgutil";
+    return pm;
+  }
   // Commands are run by the absolute path probed here rather than by bare
   // name, so the collector cannot be redirected through an inherited PATH.
   pm.binary = first_existing("/usr/bin/dpkg-query", "/usr/local/bin/dpkg-query");
@@ -213,8 +220,36 @@ std::vector<software_entry> parse_pacman_output(const std::string &output) {
   return out;
 }
 
+software_entry receipt_entry(const plist::value &receipt) {
+  software_entry e;
+  e.manager = "pkgutil";
+  e.name = receipt["PackageIdentifier"].as_string();
+  e.version = receipt["PackageVersion"].as_string();
+  e.install_date_epoch = receipt["InstallDate"].as_date();
+  e.install_date_str = format_epoch_date(e.install_date_epoch);
+  return e;
+}
+
+software_entry bundle_entry(const std::string &bundle_name, const plist::value &info, const long long mtime) {
+  software_entry e;
+  e.manager = "bundle";
+  // The bundle's own name is what Finder shows and what is unique in the
+  // folder; CFBundleName is often shortened or missing.
+  e.name = bundle_name;
+  // The marketing version ("17.5"); the build number is the fallback for the
+  // bundles that carry nothing else.
+  e.version = info["CFBundleShortVersionString"].as_string(info["CFBundleVersion"].as_string());
+  e.publisher = info["CFBundleIdentifier"].as_string();
+  e.install_date_epoch = mtime > 0 ? mtime : 0;
+  e.install_date_str = format_epoch_date(e.install_date_epoch);
+  return e;
+}
+
 fetch_result fetch_installed(const package_manager &manager, const exec_fn &exec) {
   fetch_result result;
+  if (manager.name == "macos") {
+    return fetch_macos_inventory();
+  }
   if (manager.name == "dpkg") {
     const command_result r =
         exec(manager.binary +
@@ -273,7 +308,7 @@ void check_from(const PB::Commands::QueryRequestMessage::Request &request, PB::C
 void check_installed_software(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   const package_manager manager = detect_manager();
   if (manager.empty()) {
-    return nscapi::protobuf::functions::set_response_bad(*response, "No supported package manager found (dpkg/rpm/pacman)");
+    return nscapi::protobuf::functions::set_response_bad(*response, "No supported package manager found (dpkg/rpm/pacman/pkgutil)");
   }
 
   fetch_result fetched = fetch_installed(manager, run_command);

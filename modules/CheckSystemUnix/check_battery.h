@@ -71,6 +71,9 @@ struct battery_info {
 
 typedef std::list<battery_info> batteries_type;
 
+// This host's batteries. Defined per platform: Linux reads
+// /sys/class/power_supply, macOS the IOKit power sources and the
+// AppleSmartBattery registry entry. Empty when there is no battery.
 batteries_type read_battery();
 // Read batteries from an alternative power_supply class root (for tests).
 batteries_type read_battery_from(const std::string &power_supply_path);

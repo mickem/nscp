@@ -207,3 +207,53 @@ TEST(CheckInstalledSoftware, EmptyMatchSetTakesEmptyState) {
   EXPECT_EQ(run_check(sample_entries(), {"filter=name like 'zz_no_such_package_zz'"}, response), PB::Common::ResultCode::OK) << join_lines(response);
   EXPECT_NE(join_lines(response).find("No installed software found"), std::string::npos) << join_lines(response);
 }
+
+// ============================================================================
+// macOS: receipts and application bundles
+// ============================================================================
+
+TEST(CheckInstalledSoftware, receipt_entry) {
+  plist::value r;
+  r.kind = plist::value::dict;
+  r.members["PackageIdentifier"] = plist::value::make_string("com.apple.pkg.CLTools_Executables");
+  r.members["PackageVersion"] = plist::value::make_string("15.3.0.0.1.1708646388");
+  r.members["InstallDate"] = plist::value::make_date(1710000000);
+  r.members["InstallPrefixPath"] = plist::value::make_string("/");
+  const installed_software::software_entry e = installed_software::receipt_entry(r);
+  EXPECT_EQ(e.manager, "pkgutil");
+  EXPECT_EQ(e.name, "com.apple.pkg.CLTools_Executables");
+  EXPECT_EQ(e.version, "15.3.0.0.1.1708646388");
+  EXPECT_EQ(e.install_date_epoch, 1710000000);
+  EXPECT_EQ(e.install_date_str, "2024-03-09");
+  EXPECT_EQ(e.status, "installed");
+}
+
+TEST(CheckInstalledSoftware, a_plist_that_is_not_a_receipt_has_no_name) {
+  EXPECT_TRUE(installed_software::receipt_entry(plist::value()).name.empty());
+}
+
+TEST(CheckInstalledSoftware, bundle_entry) {
+  plist::value info;
+  info.kind = plist::value::dict;
+  info.members["CFBundleShortVersionString"] = plist::value::make_string("17.5");
+  info.members["CFBundleVersion"] = plist::value::make_string("19618.2.12.11.6");
+  info.members["CFBundleIdentifier"] = plist::value::make_string("com.apple.Safari");
+  const installed_software::software_entry e = installed_software::bundle_entry("Safari", info, 1716000000);
+  EXPECT_EQ(e.manager, "bundle");
+  EXPECT_EQ(e.name, "Safari");
+  EXPECT_EQ(e.version, "17.5");
+  EXPECT_EQ(e.publisher, "com.apple.Safari");
+  EXPECT_EQ(e.install_date_epoch, 1716000000);
+}
+
+TEST(CheckInstalledSoftware, bundle_version_falls_back_to_the_build) {
+  plist::value info;
+  info.kind = plist::value::dict;
+  info.members["CFBundleVersion"] = plist::value::make_string("412");
+  EXPECT_EQ(installed_software::bundle_entry("Tool", info, 0).version, "412");
+  // No Info.plist at all is still an installed bundle.
+  const installed_software::software_entry bare = installed_software::bundle_entry("Bare", plist::value(), 0);
+  EXPECT_EQ(bare.name, "Bare");
+  EXPECT_EQ(bare.version, "");
+  EXPECT_EQ(bare.install_date_str, "");
+}

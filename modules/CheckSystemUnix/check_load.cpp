@@ -30,25 +30,31 @@ bool parse_loadavg(const std::string &content, int ncpu, bool percpu, load_obj &
     if (slash != std::string::npos) {
       try {
         out.procs_running = std::stoll(procs.substr(0, slash));
+        out.has_procs_running = true;
         out.procs_total = std::stoll(procs.substr(slash + 1));
+        out.has_procs_total = true;
       } catch (...) {
       }
     }
   }
 
+  out.load1 = l1;
+  out.load5 = l5;
+  out.load15 = l15;
+  apply_percpu(out, ncpu, percpu);
+  return true;
+}
+
+void apply_percpu(load_obj &out, const int ncpu, const bool percpu) {
   if (percpu && ncpu > 1) {
     const double d = static_cast<double>(ncpu);
-    l1 /= d;
-    l5 /= d;
-    l15 /= d;
+    out.load1 /= d;
+    out.load5 /= d;
+    out.load15 /= d;
     out.type = "scaled";
   } else {
     out.type = "total";
   }
-  out.load1 = l1;
-  out.load5 = l5;
-  out.load15 = l15;
-  return true;
 }
 
 filter_obj_handler::filter_obj_handler() {
@@ -61,12 +67,14 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_float("load15", &load_obj::get_load15, "Load average over the last 15 minutes");
   registry_.add_float("load", &load_obj::get_load, "The largest of load1, load5 and load15");
 
-  registry_.add_int_var("procs_running", &load_obj::get_procs_running, "Number of currently runnable kernel scheduling entities");
-  registry_.add_int_var("procs_total", &load_obj::get_procs_total, "Total number of kernel scheduling entities");
+  registry_.add_optional_int_var("procs_running", [](auto obj) { return obj->get_procs_running(); }, "unknown",
+                                 "Number of currently runnable kernel scheduling entities ('unknown' on macOS, which keeps no such count)");
+  registry_.add_optional_int_var("procs_total", [](auto obj) { return obj->get_procs_total(); }, "unknown",
+                                 "Total number of kernel scheduling entities (threads)");
 }
 
-void check_load_from(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
-                     const std::string &loadavg_path) {
+void check_load_with(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                     const load_reader &read) {
   modern_filter::data_container data;
   modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 
@@ -87,29 +95,38 @@ void check_load_from(const PB::Commands::QueryRequestMessage::Request &request, 
 
   if (!filter_helper.build_filter(filter)) return;
 
-  std::string content;
-  {
-    std::ifstream ifs(loadavg_path.c_str());
-    if (!ifs.is_open()) {
-      return nscapi::protobuf::functions::set_response_bad(*response, "Failed to read " + loadavg_path);
-    }
-    std::getline(ifs, content);
-  }
-
-  long ncpu = sysconf(_SC_NPROCESSORS_ONLN);
-  if (ncpu < 1) ncpu = 1;
-
   const std::shared_ptr<load_obj> record(new load_obj());
-  if (!parse_loadavg(content, static_cast<int>(ncpu), percpu, *record)) {
-    return nscapi::protobuf::functions::set_response_bad(*response, "Failed to parse " + loadavg_path + ": '" + content + "'");
+  std::string error;
+  if (!read(percpu, *record, error)) {
+    return nscapi::protobuf::functions::set_response_bad(*response, error);
   }
   filter.match(record);
 
   filter_helper.post_process(filter);
 }
 
-void check_load(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_load_from(request, response, "/proc/loadavg");
+void check_load_from(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                     const std::string &loadavg_path) {
+  check_load_with(request, response, [&loadavg_path](const bool percpu, load_obj &out, std::string &error) {
+    std::string content;
+    {
+      std::ifstream ifs(loadavg_path.c_str());
+      if (!ifs.is_open()) {
+        error = "Failed to read " + loadavg_path;
+        return false;
+      }
+      std::getline(ifs, content);
+    }
+
+    long ncpu = sysconf(_SC_NPROCESSORS_ONLN);
+    if (ncpu < 1) ncpu = 1;
+
+    if (!parse_loadavg(content, static_cast<int>(ncpu), percpu, out)) {
+      error = "Failed to parse " + loadavg_path + ": '" + content + "'";
+      return false;
+    }
+    return true;
+  });
 }
 
 }  // namespace load_check

@@ -40,6 +40,7 @@
 #include "check_swap_io.h"
 #include "check_temperature.h"
 #include "check_uptime.h"
+#include "collector_source.h"
 #include "system_facts.h"
 
 namespace sh = nscapi::settings_helper;
@@ -89,7 +90,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         "FILTER", "For more configuration options add a dedicated section")
 
     ("service-tags", sh::string_map_path(&service_tags),
-        "Service tags", "Systemd units to surface as host tags: each key is a unit name and each value the tag to publish. When the unit exists and is active the tag is published as <tag>=enabled (removed otherwise). Example: postgresql=postgres",
+        "Service tags", "Services to surface as host tags: each key is a systemd unit name (a launchd label on macOS) and each value the tag to publish. When the service exists and is active (running, on macOS) the tag is published as <tag>=enabled (removed otherwise). Example: postgresql=postgres",
         "UNIT", "The tag to publish when this unit is active")
     ;
 
@@ -106,12 +107,12 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     .add_bool("os", sh::bool_key(&facts_os, false),
         "OS FACTS",
         "Collect the `os` fact set: the OS family, the distribution's product name, the kernel version, the CPU architecture, whether the host is "
-        "virtualized and the DNS domain it is in. Cheap - every value is read from uname, /etc/os-release and /sys/class/dmi/id, and nothing is "
-        "collected while this is off.")
+        "virtualized and the DNS domain it is in. Cheap - every value is read from uname, /etc/os-release and /sys/class/dmi/id (uname and sysctl "
+        "on macOS), and nothing is collected while this is off.")
 
     .add_bool("hardware", sh::bool_key(&facts_hardware, false),
         "HARDWARE FACTS",
-        "Collect the `hardware` fact set: the system manufacturer and model as the firmware reports them (/sys/class/dmi/id), the number of online "
+        "Collect the `hardware` fact set: the system manufacturer and model as the firmware reports them (/sys/class/dmi/id; Apple and hw.model on macOS), the number of online "
         "processors and the installed memory in whole GB. A host whose kernel exposes no DMI - a container, a board without SMBIOS - reports the "
         "sizes and omits the vendor and model.")
 
@@ -119,14 +120,15 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         "NETWORK INTERFACES FACTS",
         "Collect the `network.interfaces` fact set: one record per network interface except the loopback - its kernel name (the record id, the same "
         "value check_network calls `name`), the hardware address, the link state, the negotiated speed and the IPv4 and IPv6 addresses on it. No "
-        "traffic counters: those are monitoring, and live in check_network. Cheap - read from /sys/class/net and getifaddrs, nothing forks - and "
+        "traffic counters: those are monitoring, and live in check_network. Cheap - read from /sys/class/net (the kernel's interface list on macOS) and getifaddrs, nothing forks - and "
         "re-read every facts round, because addresses change with a DHCP lease.")
 
     .add_bool(software_facts::id_installed, sh::bool_key(&facts_software_installed, false),
         "INSTALLED SOFTWARE FACTS",
         "Collect the `software.installed` fact set: one record per installed package - its name (the record id, the same value "
         "check_installed_software calls `name`), version, maintainer, architecture, install date and size. The list comes from the host's own package "
-        "manager (dpkg, rpm or pacman), through the same query check_installed_software runs, so it costs one forked query per facts round - hourly "
+        "manager (dpkg, rpm or pacman; on macOS the installer receipts, application bundles and Homebrew, read without forking), through the same "
+        "query check_installed_software runs, so it costs one forked query per facts round - hourly "
         "by default. The largest set there is: a package list runs to thousands of records, and it is truncated (with an error saying so) past the "
         "point where it would not fit the facts document.")
     ;
@@ -172,10 +174,11 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     host_facts::publish_tags(get_core(), facts_cache_.get("startup", []() { return system_facts::gather(); }).values);
 
     // Publish one tag per configured [/settings/system/unix/service-tags]
-    // entry (systemd unit -> tag): <tag>=enabled when the unit is active,
-    // removed otherwise so stopped units clear their tag on the next load.
-    // A single bulk `systemctl show` answers every mapping at once, rather
-    // than forking systemctl per unit on the startup path.
+    // entry (service -> tag): <tag>=enabled when the service is active,
+    // removed otherwise so stopped services clear their tag on the next load.
+    // A single bulk query (`systemctl show`, `launchctl print system`)
+    // answers every mapping at once, rather than forking per service on the
+    // startup path.
     std::vector<std::string> units;
     for (const auto &entry : service_tags) {
       if (!entry.first.empty() && !entry.second.empty()) units.push_back(entry.first);
@@ -268,23 +271,6 @@ void CheckSystem::check_process_history_new(const PB::Commands::QueryRequestMess
   process_history_check::check_process_history_new(get_collector(), request, response);
 }
 
-namespace {
-bool read_uptime_seconds(double &uptime_secs) {
-  try {
-    std::locale c_locale("C");
-    std::ifstream f;
-    f.imbue(c_locale);
-    f.open("/proc/uptime");
-    if (!f.is_open()) return false;
-    double idle = 0;
-    f >> uptime_secs >> idle;
-    return f.good() || f.eof();
-  } catch (...) {
-    return false;
-  }
-}
-}  // namespace
-
 void CheckSystem::fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response) {
   const bool want_os = facts_os_.load();
   const bool want_hardware = facts_hardware_.load();
@@ -374,7 +360,7 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
   try {
     PB::Metrics::MetricsBundle *mem = bundle->add_children();
     mem->set_key("mem");
-    describe(mem, "Memory as reported by /proc/meminfo");
+    describe(mem, "Memory as the kernel accounts for it");
     if (collector_->has_memory_data()) {
       const memory_info m = collector_->get_memory(1);
       auto add_mem_section = [&](const std::string &prefix, unsigned long long total, unsigned long long avail) {
@@ -390,6 +376,16 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
       add_mem_section("cached", m.cached.total, m.cached.free);
       add_mem_section("swap", m.swap.total, m.swap.free);
     }
+    // States only some kernels track (Darwin: wired and compressed). Read
+    // live rather than averaged, like the other gauges above, and absent
+    // where the kernel has no such state rather than reported as 0.
+    for (const auto &extra : collector_source::read_memory_extras()) {
+      if (extra.first == "wired") {
+        metric(mem, "wired").help("Memory the kernel has wired down and cannot page out").unit("bytes").gauge(extra.second);
+      } else if (extra.first == "compressed") {
+        metric(mem, "compressed").help("Memory held in compressed form by the memory compressor").unit("bytes").gauge(extra.second);
+      }
+    }
   } catch (const std::exception &e) {
     NSC_LOG_ERROR(std::string("Failed to fetch memory metrics: ") + e.what());
   } catch (...) {
@@ -400,9 +396,10 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
   try {
     PB::Metrics::MetricsBundle *up = bundle->add_children();
     up->set_key("uptime");
-    describe(up, "How long the machine has been up, as read from /proc/uptime");
+    describe(up, "How long the machine has been up");
     double uptime_secs = 0;
-    if (read_uptime_seconds(uptime_secs)) {
+    std::string uptime_error;
+    if (checks::read_uptime_seconds(uptime_secs, uptime_error)) {
       const auto value = static_cast<unsigned long long>(uptime_secs);
       const boost::posix_time::ptime now = nscp_time::now(timezone_);
       const boost::posix_time::ptime boot = now - boost::posix_time::time_duration(0, 0, static_cast<long>(value));

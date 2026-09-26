@@ -21,14 +21,6 @@ namespace po = boost::program_options;
 namespace kernel_stats_check {
 
 namespace {
-std::string read_proc_stat() {
-  std::ifstream ifs("/proc/stat");
-  if (!ifs.is_open()) return "";
-  std::stringstream ss;
-  ss << ifs.rdbuf();
-  return ss.str();
-}
-
 std::string human_rate(double rate) {
   char buf[32];
   std::snprintf(buf, sizeof(buf), "%.1f/s", rate);
@@ -88,7 +80,9 @@ rows_type build_rows(const kstat_counters &prev, const kstat_counters &cur, doub
   rows_type rows;
   const double dt = elapsed_seconds > 0 ? elapsed_seconds : 1.0;
 
-  if (wanted(types, "ctxt")) {
+  // Counters that were not read (a platform that keeps no system-wide count
+  // of them) produce no row rather than a rate of 0.
+  if (cur.valid && prev.valid && wanted(types, "ctxt")) {
     kstat_row r;
     r.name = "ctxt";
     r.label = "Context Switches";
@@ -97,7 +91,7 @@ rows_type build_rows(const kstat_counters &prev, const kstat_counters &cur, doub
     r.human = human_rate(r.rate);
     rows.push_back(r);
   }
-  if (wanted(types, "processes")) {
+  if (cur.valid && prev.valid && wanted(types, "processes")) {
     kstat_row r;
     r.name = "processes";
     r.label = "Process Creations";
@@ -145,6 +139,17 @@ void check_kernel_stats_from(const PB::Commands::QueryRequestMessage::Request &r
 
   if (!filter_helper.build_filter(filter)) return;
 
+  if (!cur.valid || !prev.valid) {
+    // Asked for by name, a row this platform cannot produce is an error, not
+    // an empty result that would read as OK.
+    for (const std::string &t : types) {
+      if (t == "ctxt" || t == "processes") {
+        return nscapi::protobuf::functions::set_response_bad(
+            *response, "'" + t + "' is not available on this platform: the kernel keeps no system-wide count of context switches or process creations");
+      }
+    }
+  }
+
   const rows_type rows = build_rows(prev, cur, elapsed_seconds, thread_count, types);
   for (const kstat_row &row : rows) {
     const std::shared_ptr<kstat_row> record(new kstat_row(row));
@@ -152,20 +157,6 @@ void check_kernel_stats_from(const PB::Commands::QueryRequestMessage::Request &r
   }
 
   filter_helper.post_process(filter);
-}
-
-void check_kernel_stats(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  const kstat_counters prev = parse_proc_stat_counters(read_proc_stat());
-  if (!prev.valid) {
-    return nscapi::protobuf::functions::set_response_bad(*response, "Failed to read /proc/stat");
-  }
-  std::this_thread::sleep_for(std::chrono::seconds(1));
-  const kstat_counters cur = parse_proc_stat_counters(read_proc_stat());
-  if (!cur.valid) {
-    return nscapi::protobuf::functions::set_response_bad(*response, "Failed to read /proc/stat");
-  }
-  const long long threads = count_threads_from("/proc");
-  check_kernel_stats_from(request, response, prev, cur, 1.0, threads);
 }
 
 }  // namespace kernel_stats_check

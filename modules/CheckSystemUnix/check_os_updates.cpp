@@ -13,6 +13,8 @@
 #include <sstream>
 #include <str/xtos.hpp>
 
+#include "exec_command.h"
+
 namespace os_updates {
 
 std::string filter_obj::get_packages() const {
@@ -32,14 +34,19 @@ std::string filter_obj::show() const {
 }
 
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_string_var("manager", &filter_obj::get_manager, "Package manager used to query updates")
+  registry_.add_string_var("manager", &filter_obj::get_manager, "Package manager used to query updates (apt, dnf, yum, zypper, pacman; softwareupdate on macOS)")
       .add_string_var("packages", &filter_obj::get_packages, "Comma separated list of available package updates");
   registry_.add_int_var("updates", &filter_obj::get_count, "Total number of available updates")
       .add_int_perf("")
       .add_int_var("count", &filter_obj::get_count, "Deprecated alias for updates (the name clashes with the generic count summary keyword)")
       .add_int_perf("")
-      .add_int_var("security", &filter_obj::get_security, "Number of available security updates")
+      .add_int_var("security", &filter_obj::get_security,
+                   "Number of available security updates (on macOS the updates named as security responses; a macOS point release is not counted)")
       .add_int_perf("", "", "_security");
+  registry_.add_optional_int_var("last_checked", parsers::where::type_date, [](auto obj) { return obj->get_last_checked(); }, "unknown",
+                                 "When the update list was last refreshed from the update server (macOS: the last successful background check); "
+                                 "supports date expressions such as 'last_checked < -7d'. 'unknown' where the package manager does not record it")
+      .no_perf();
 }
 
 namespace {
@@ -62,7 +69,10 @@ bool binary_exists(const std::string &path) { return access(path.c_str(), X_OK) 
 }  // namespace
 
 std::string detect_manager() {
-  // Check standard install locations for each package manager.
+  // Check standard install locations for each package manager. softwareupdate
+  // is part of macOS and of nothing else, and goes first because a Mac can
+  // carry a Homebrew copy of one of the Linux managers.
+  if (binary_exists("/usr/sbin/softwareupdate")) return "softwareupdate";
   if (binary_exists("/usr/bin/apt-get") || binary_exists("/usr/local/bin/apt-get")) return "apt";
   if (binary_exists("/usr/bin/dnf") || binary_exists("/usr/local/bin/dnf")) return "dnf";
   if (binary_exists("/usr/bin/yum") || binary_exists("/usr/local/bin/yum")) return "yum";
@@ -222,6 +232,90 @@ filter_obj parse_pacman_output(const std::string &output) {
   return obj;
 }
 
+namespace {
+bool names_security(const std::string &text) {
+  const std::string lower = boost::to_lower_copy(text);
+  return lower.find("security") != std::string::npos;
+}
+
+// A Rapid Security Response is versioned as its release plus a letter,
+// "13.4.1 (a)", and is often titled as a plain OS update.
+bool is_rapid_response(const std::string &version) {
+  const std::string v = boost::trim_copy(version);
+  return v.size() >= 4 && v[v.size() - 1] == ')' && v[v.size() - 3] == '(' && v[v.size() - 4] == ' ' && v[v.size() - 2] >= 'a' && v[v.size() - 2] <= 'z';
+}
+
+bool is_security_update(const package_update &p) { return names_security(p.name) || names_security(p.source) || is_rapid_response(p.version); }
+}  // namespace
+
+filter_obj parse_software_update_plist(const plist::value &plist) {
+  filter_obj obj;
+  obj.manager = "softwareupdate";
+  obj.last_checked = plist["LastSuccessfulDate"].as_date();
+  const plist::value &updates = plist["RecommendedUpdates"];
+  if (updates.kind == plist::value::array) {
+    for (const plist::value &u : updates.items) {
+      package_update p;
+      p.name = u["Display Name"].as_string(u["Identifier"].as_string());
+      if (p.name.empty()) continue;
+      p.version = u["Display Version"].as_string();
+      p.source = u["Identifier"].as_string(u["Product Key"].as_string());
+      p.security = is_security_update(p);
+      obj.packages.push_back(p);
+      if (p.security) obj.security++;
+    }
+  }
+  obj.count = static_cast<long long>(obj.packages.size());
+  return obj;
+}
+
+// Parse `softwareupdate --list`. Since macOS 10.15 each update is
+//   * Label: macOS Sonoma 14.5-23F79
+//   \tTitle: macOS Sonoma 14.5, Version: 14.5, Size: 6834924KiB, Recommended: YES, Action: restart,
+// and before that
+//   * Safari12.1.1Mojave-12.1.1
+//   \tSafari (12.1.1), 67140K [recommended]
+// The progress lines ("Finding available software") and "No new software
+// available." carry no leading "*" and are ignored.
+filter_obj parse_softwareupdate_output(const std::string &output) {
+  filter_obj obj;
+  obj.manager = "softwareupdate";
+  std::vector<std::string> lines;
+  boost::split(lines, output, boost::is_any_of("\n"));
+  for (std::size_t i = 0; i < lines.size(); ++i) {
+    const std::string line = boost::trim_copy(lines[i]);
+    if (line.empty() || line[0] != '*') continue;
+    std::string label = boost::trim_copy(line.substr(1));
+    if (boost::starts_with(label, "Label:")) label = boost::trim_copy(label.substr(6));
+    if (label.empty()) continue;
+    package_update p;
+    p.source = label;
+    p.name = label;
+    const std::string detail = i + 1 < lines.size() ? boost::trim_copy(lines[i + 1]) : std::string();
+    if (boost::starts_with(detail, "Title:")) {
+      std::vector<std::string> fields;
+      boost::split(fields, detail, boost::is_any_of(","));
+      for (std::string &field : fields) {
+        boost::trim(field);
+        if (boost::starts_with(field, "Title:")) p.name = boost::trim_copy(field.substr(6));
+        if (boost::starts_with(field, "Version:")) p.version = boost::trim_copy(field.substr(8));
+      }
+    } else if (!detail.empty() && detail[0] != '*') {
+      const std::string::size_type open = detail.find(" (");
+      const std::string::size_type close = detail.find(')', open == std::string::npos ? 0 : open);
+      if (open != std::string::npos && close != std::string::npos) {
+        p.name = detail.substr(0, open);
+        p.version = detail.substr(open + 2, close - open - 2);
+      }
+    }
+    p.security = is_security_update(p);
+    obj.packages.push_back(p);
+    if (p.security) obj.security++;
+  }
+  obj.count = static_cast<long long>(obj.packages.size());
+  return obj;
+}
+
 filter_obj fetch_updates(const std::string &manager, const exec_fn &exec) {
   if (manager == "apt") {
     return parse_apt_output(exec("apt list --upgradable 2>/dev/null"));
@@ -241,6 +335,11 @@ filter_obj fetch_updates(const std::string &manager, const exec_fn &exec) {
   if (manager == "pacman") {
     return parse_pacman_output(exec("pacman -Qu 2>/dev/null"));
   }
+  if (manager == "softwareupdate") {
+    // The cached list; the live query is the check's live=true, which needs
+    // a deadline the exec_fn here does not have.
+    return parse_software_update_plist(read_software_update_cache());
+  }
   filter_obj obj;
   obj.manager = "none";
   return obj;
@@ -252,12 +351,20 @@ void check_os_updates(const PB::Commands::QueryRequestMessage::Request &request,
   modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 
   filter_type filter;
+  bool live = false;
   filter_helper.add_options("updates > 0", "security > 0", "", filter.get_filter_syntax(), "ok");
   // Top-syntax renders after the record is detached, so record variables like
   // ${updates} read as 0 there (and the generic ${count} is the matched-row
   // count) -- the real numbers render through the detail line via ${list}.
   filter_helper.add_syntax("${status}: ${list}", "${updates} updates available (${security} security) via ${manager}", "updates", "",
                            "%(status): No updates available.");
+  // clang-format off
+  filter_helper.get_desc().add_options()
+    ("live", boost::program_options::value<bool>(&live)->implicit_value(true)->default_value(false),
+     "macOS: ask Apple's update server with `softwareupdate --list` (10 to 60 seconds, needs network access) instead of reading the list macOS "
+     "cached at its last background check. Ignored on Linux, where the package manager is always queried.")
+    ;
+  // clang-format on
 
   if (!filter_helper.parse_options()) return;
 
@@ -268,7 +375,27 @@ void check_os_updates(const PB::Commands::QueryRequestMessage::Request &request,
     return nscapi::protobuf::functions::set_response_bad(*response, "No supported package manager found (apt-get/dnf/yum/zypper/pacman)");
   }
 
-  filter_obj result = fetch_updates(manager, run_command);
+  filter_obj result;
+  if (manager == "softwareupdate" && live) {
+    const system_exec::exec_result r = system_exec::run({"/usr/sbin/softwareupdate", "--list"}, 60000);
+    if (!r.started) return nscapi::protobuf::functions::set_response_bad(*response, "Failed to run /usr/sbin/softwareupdate");
+    if (r.timed_out) return nscapi::protobuf::functions::set_response_bad(*response, "softwareupdate --list did not finish within 60 seconds");
+    if (r.exit_code != 0) {
+      return nscapi::protobuf::functions::set_response_bad(*response, "softwareupdate --list failed with exit code " + str::xtos(r.exit_code));
+    }
+    result = parse_softwareupdate_output(r.output);
+  } else if (manager == "softwareupdate") {
+    const plist::value cache = read_software_update_cache();
+    // No cache is not "no updates": the background check has not run yet, or
+    // the file is not readable.
+    if (cache.empty()) {
+      return nscapi::protobuf::functions::set_response_bad(
+          *response, "No cached update list in /Library/Preferences/com.apple.SoftwareUpdate.plist (use live=true to ask the update server)");
+    }
+    result = parse_software_update_plist(cache);
+  } else {
+    result = fetch_updates(manager, run_command);
+  }
   std::shared_ptr<filter_obj> record(new filter_obj(result));
   filter.match(record);
 

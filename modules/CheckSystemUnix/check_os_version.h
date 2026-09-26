@@ -26,6 +26,13 @@ os_release_info parse_os_release(const std::string &content);
 // location). Returns an empty struct if the file is missing.
 os_release_info read_os_release_from(const std::string &path);
 
+// This host's distribution identity. Defined per platform: Linux reads
+// /etc/os-release (or the vendor copy in /usr/lib); Darwin has no such file
+// and answers from sysctl in the same shape - ID and family "macos", NAME
+// "macOS", VERSION_ID the product version and PRETTY_NAME with the build
+// appended, e.g. "macOS 14.5 (23F79)". Empty fields when nothing is readable.
+os_release_info read_os_release();
+
 namespace os_version_filter {
 
 struct filter_obj {
