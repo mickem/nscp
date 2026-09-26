@@ -371,6 +371,45 @@ TEST(FactRepository, TheEmptyDocumentHashIsThePinnedValue) {
   EXPECT_EQ(repo.get_hash(), "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a");
 }
 
+// What the fleet upload reads: the bytes it sends and the hash it claims for
+// them, from one lock, so they cannot describe two different documents.
+TEST(FactRepository, TheSnapshotHashesExactlyTheBytesItCarries) {
+  if (!fact_repository::can_hash()) GTEST_SKIP() << "built without OpenSSL: the document has no hash";
+  fact_repository repo;
+  store(repo, "os", 1, R"({"family":"linux"})");
+  store(repo, "hardware", 1, R"({"vendor":"Dell Inc.","model":"PowerEdge R740"})");
+  const fact_repository::snapshot snapshot = repo.get_snapshot();
+  EXPECT_EQ(snapshot.json, json_of(repo));
+  EXPECT_EQ(snapshot.hash, repo.get_hash());
+  EXPECT_EQ(snapshot.revision, repo.get_revision());
+  repo.mark_collected("2026-09-26T08:00:00Z");
+  EXPECT_EQ(repo.get_snapshot().collected, "2026-09-26T08:00:00Z") << "read under the same lock as the document";
+  fact_repository same;
+  store(same, "hardware", 1, R"({"model":"PowerEdge R740","vendor":"Dell Inc."})");
+  store(same, "os", 1, R"({"family":"linux"})");
+  EXPECT_EQ(same.get_snapshot().hash, snapshot.hash);
+}
+
+TEST(FactRepository, SetSizesNameTheLargestSetFirst) {
+  fact_repository repo;
+  store(repo, "os", 1, R"({"family":"linux"})");
+  store(repo, "hardware", 1, R"({"vendor":"a vendor with a long name","model":"and a long model name too"})");
+  const std::vector<std::pair<std::string, std::size_t>> sizes = repo.get_set_sizes();
+  ASSERT_EQ(sizes.size(), 2u);
+  EXPECT_EQ(sizes[0].first, "hardware");
+  EXPECT_EQ(sizes[1].first, "os");
+  EXPECT_GT(sizes[1].second, 0u);
+  EXPECT_EQ(sizes[0].second + sizes[1].second, repo.get_snapshot().encoded_size) << "the measure max size is enforced on";
+}
+
+TEST(FactRepository, TheEmptySnapshot) {
+  const fact_repository repo;
+  const fact_repository::snapshot snapshot = repo.get_snapshot();
+  EXPECT_EQ(snapshot.json, "{}");
+  EXPECT_EQ(snapshot.revision, 0u);
+  EXPECT_TRUE(repo.get_set_sizes().empty());
+}
+
 TEST(FactRepository, ErrorsAreReplacedPerRound) {
   fact_repository repo;
   repo.set_errors({{"software.installed", "access denied"}});

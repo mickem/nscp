@@ -407,6 +407,47 @@ off would not be much of a requirement. To switch it off yourself, run
     unreadable, on the server and on every host; re-seal and re-upload with a new one.
 <!-- @formatter:on -->
 
+### Collect an inventory
+
+The agent can also tell the server what the host *is*: its OS, hardware, network
+interfaces, volumes and installed software. These are [host facts](../concepts/facts.md),
+and nothing is collected until a fact set is turned on in the module that produces it.
+The switches are ordinary INI, so a bundle turns inventory on for a whole group:
+
+```ini
+[/modules]
+CheckSystem = enabled
+CheckDisk = enabled
+
+; CheckSystem on Windows hosts
+[/settings/system/windows/facts]
+os = true
+hardware = true
+network.interfaces = true
+
+; CheckSystem on Linux hosts (same module name, its own section)
+[/settings/system/unix/facts]
+os = true
+hardware = true
+network.interfaces = true
+
+[/settings/disk/facts]
+storage.volumes = true
+```
+
+A section for a platform the host is not on is simply unused, so one bundle serves a mixed
+group. Each switch is its own key, so another bundle that turns on
+`software.installed` adds to this one rather than replacing it.
+
+After the reload that applies the bundle, the agent collects the sets. Its next poll
+carries the hash of the new document, the server answers that it does not have it, and
+the agent uploads it once. From then on the document is only sent again when it changes
+or the server loses it; every poll and state report carries only the hash. To see what the agent holds, run `facts` in `nscp test`,
+or read [`/api/v2/facts`](../api/rest/facts.md) when the web server is enabled.
+
+A server that does not support inventory yet ignores the hash and never asks, so the agent
+never sends it the document.
+
 ## Step 6 — Living with it
 
 **Leaving the fleet** is one command, run as root or from an elevated prompt:

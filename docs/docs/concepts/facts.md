@@ -25,7 +25,7 @@ facts do not replace tags.
 | Question              | *which group is this host in*                 | *what is this host*                                    |
 | Collected             | always, a handful per module                  | only the sets you enable                               |
 | Used for              | fleet group selectors (`os_family = "linux"`) | inventory, and deciding what to monitor                |
-| Sent to a fleet server | on every state report                        | not yet                                                |
+| Sent to a fleet server | whole, on every state report                  | the hash on every report, the document when it changes |
 
 A fleet selector matches a tag whole, which is why `os_family` and `arch` are
 tags. "Which volumes does this host have" is a list of records, and a
@@ -486,6 +486,75 @@ Gathered:
 `facts <path>` shows one subtree (`facts storage.volumes`), and `facts refresh`
 collects now. Over REST the same document is `GET /api/v2/facts` (see
 [Facts](../api/rest/facts.md)), and the web UI shows it on the Facts page.
+
+---
+
+## Facts and the fleet server
+
+An agent [enrolled with a fleet server](../setup/fleet.md) sends its facts
+there too, but only when the server does not already have them. The document
+is up to a megabyte and changes rarely, so the agent sends its hash and lets
+the server say whether it needs the rest:
+
+* **Every desired-state poll and every state report carries `facts_hash`**,
+  the SHA-256 of the document: a `facts_hash=` query parameter on the poll, a
+  member of the state report. A host with nothing enabled sends the hash of
+  the empty document, `{}`.
+* **The server answers with the hash it holds**, in an `X-Facts-Hash`
+  response header (`none` when it holds nothing). It is a header so that it
+  works on the 304 a host that is in sync gets on nearly every poll. The
+  agent reads it only on a 2xx or 304: an error page from the server or a
+  proxy says nothing about what the server holds.
+* **The document is uploaded only on a miss**: when the server's answer
+  differs from the agent's hash, the agent sends it on its own call,
+  `POST /agent/v1/facts`. A matching answer costs nothing more than the hash,
+  a host with nothing enabled never uploads, and a server that sends no
+  `X-Facts-Hash` at all is one that does not do facts and is never sent the
+  document.
+
+```json
+{
+  "collected_at": "2026-09-25T10:00:00Z",
+  "facts": { "os": { "family": "linux", "...": "..." } },
+  "facts_hash": "<sha256 hex of the facts value>"
+}
+```
+
+`facts_hash` is the digest of the `facts` value exactly as it appears in the
+body: compact JSON with every object's keys sorted, so the server can check it
+without re-encoding anything.
+
+Because the switches are ordinary INI, a fleet bundle turns inventory on for a
+whole group of hosts the same way it configures anything else; see
+[Collect an inventory](../setup/fleet.md#collect-an-inventory).
+
+Uploads are paced so that a server in trouble is never sent the document on
+every poll:
+
+* **A rejected upload** (a 400, 401, 404, 429 or 5xx) is retried after a
+  minute, then two, doubling up to once an hour. The wait belongs to that
+  document: an inventory that changed in the meantime was never tried and goes
+  at once.
+* **A server asking for quiet** - a 429 or 503 on the upload, the poll or the
+  state report - holds every upload for its `Retry-After`, or for one poll
+  interval when it sends none.
+* **A document the server acknowledged and then reports missing** is sent
+  again at once the first time, then on the same doubling schedule. Once the
+  server has kept it for a whole wait, the schedule resets, so a loss weeks
+  later is repaired at once again.
+* **A connection that fails outright** costs nothing: the next poll that gets
+  through tries again.
+* **A document the server refuses as too large** (413) is not sent again until
+  it changes.
+
+The size cap is enforced where the document is built: the core refuses any set
+that would take the document past `[/settings/facts] max size`, and keeps the
+previous value of that set. `max size` is re-read on every settings reload, and
+the upload is held to the same cap, counted the same way - which only matters
+when a reload lowered it under a document the core already held. Raising it
+again takes effect on the next reload, with nothing else to change. Both size
+errors name the largest sets in the agent log, so you know which one to turn
+off.
 
 ---
 

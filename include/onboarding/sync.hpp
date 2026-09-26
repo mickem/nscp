@@ -169,9 +169,54 @@ struct installed_bundle {
 //
 // `local_config_present` reports THAT the host carries local configuration
 // outranking the fleet-managed values, never what that configuration is.
+//
+// `facts_hash` is the sha256 hex of the host's facts document (the hash of
+// `{}` when nothing is enabled): the report carries the hash, never the
+// document, which goes on its own call (build_facts_upload) and only when it
+// changed. Empty omits the member, for a build that cannot hash.
 std::string build_state_report(const boost::optional<std::string> &applied_state_hash, const std::vector<installed_bundle> &bundles_installed,
                                const std::vector<std::string> &errors, const std::map<std::string, std::string> &reported_tags,
-                               bool local_config_present);
+                               bool local_config_present, const std::string &facts_hash = "");
+
+// --- facts upload -------------------------------------------------------------
+
+// Build a /agent/v1/facts body:
+//
+//   {"collected_at":"<ts>","facts":<document>,"facts_hash":"<hex>"}
+//
+// `collected_at` is left out when empty (no facts round has completed).
+// `facts_json` is spliced in byte for byte rather than parsed and serialised
+// again: `facts_hash` is the digest of exactly those bytes, and a round trip
+// through a JSON library is free to re-spell a number or reorder a key, after
+// which the server could never reproduce the hash from what it received.
+// Throws onboarding_error (non-retryable) when `facts_json` is not an object.
+std::string build_facts_upload(const std::string &facts_hash, const std::string &collected_at, const std::string &facts_json);
+
+// The desired-state poll path. Carries what the agent holds, so the server
+// can answer "you are in sync" without either side sending anything more:
+//   current_hash  the applied desired state (omitted before the first apply)
+//   facts_hash    the facts document's hash (omitted in a build that cannot
+//                 hash)
+// Both values are percent-encoded: a state hash is a token that may carry
+// base64's + / =, and a bare '+' in a query decodes as a space.
+std::string desired_state_path(const std::string &current_hash, const std::string &facts_hash);
+
+// The response header in which a server says which facts document it holds
+// for this host, on any desired-state or state-report response - a 304
+// included, which is why it is a header: a 304 has no body.
+extern const char *const facts_hash_header;  // "x-facts-hash", lowercase as the client stores it
+
+// sha256 of `{}`: the hash of the empty facts document, what a host with
+// nothing enabled holds and what `none` means.
+extern const char *const empty_facts_hash;
+
+// Read that header's value. None when it is not a sha256 hex digest or
+// `none` - and a missing header is none too, which means "this server does
+// not do facts" and is never a reason to upload. `none` means the server
+// holds no document for this host, which is the same state as holding the
+// empty one, so it is returned as the digest of `{}`. A digest is returned
+// lowercase, so it compares directly against our own hash.
+boost::optional<std::string> parse_facts_hash(const std::string &header_value);
 
 // --- transport error classification ------------------------------------------
 

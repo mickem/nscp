@@ -11,11 +11,13 @@
 #include <memory>
 #include <net/http/http_response.hpp>
 #include <nsclient/logger/logger.hpp>
+#include <onboarding/facts_pacer.hpp>
 #include <onboarding/onboarding.hpp>
 #include <onboarding/sync.hpp>
 #include <string>
 #include <vector>
 
+#include "fact_repository.hpp"
 #include "tag_repository.hpp"
 
 struct fleet_config {
@@ -70,7 +72,8 @@ class fleet_sync {
   // description (who owns the file, who we are running as).
   static manifest_status check_manifest(const std::string &state_file, std::string &detail);
 
-  fleet_sync(nsclient::logging::logger_instance logger, fleet_config config, nsclient::core::tag_repository_instance tags, reload_function request_reload);
+  fleet_sync(nsclient::logging::logger_instance logger, fleet_config config, nsclient::core::tag_repository_instance tags,
+             nsclient::core::fact_repository_instance facts, reload_function request_reload);
   ~fleet_sync();
   void stop();
 
@@ -102,6 +105,17 @@ class fleet_sync {
   void maybe_renew();
   std::map<std::string, std::string> collect_tags() const;
 
+  // Upload the facts document to /agent/v1/facts when the server has said it
+  // holds a different one. Cheap when it has not: one hash compare.
+  void maybe_upload_facts();
+  // What a desired-state or state-report response says to the facts upload:
+  // a 429/503 holds it (for the Retry-After, or one poll interval), and the
+  // X-Facts-Hash header on a 2xx or 304 is what the server holds - the only
+  // thing that triggers an upload. One rule for both calls.
+  void note_server_response(const http::response &response);
+  // The current facts hash for the state report; empty without a repository.
+  std::string current_facts_hash() const;
+
   // Connection-failure bookkeeping: log a classified, actionable error the
   // first time a failure (or a new kind of failure) appears, demote repeats
   // to debug with a periodic reminder, and announce recovery.
@@ -128,6 +142,22 @@ class fleet_sync {
   nsclient::core::tag_repository_instance tags_;
   unsigned long long reported_tag_revision_ = 0;
   bool tags_reported_ = false;
+  // The core's facts repository: the host inventory, uploaded whole on its
+  // own call whenever its hash differs from what the server holds, while
+  // every state report carries only the hash.
+  nsclient::core::fact_repository_instance facts_;
+  // When to upload the facts document: only on a miss the server reported,
+  // paced per document. See onboarding::facts_upload_pacer for the rules.
+  onboarding::facts_upload_pacer facts_pacer_;
+  // A document over [/settings/facts] max size, with the cap it broke: not
+  // rendered again until either the document or the cap changes (the cap is
+  // re-read on every settings reload).
+  std::string oversize_hash_;
+  std::size_t oversize_cap_ = 0;
+  // The status of the last failed upload that was logged, so a failure
+  // repeated on every retry is logged once - keyed on the status, not the
+  // body, which may carry a request id that differs every time.
+  unsigned int last_facts_error_status_ = 0;
   reload_function request_reload_;
 
   onboarding::enrolled_identity identity_;

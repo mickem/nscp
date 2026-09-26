@@ -361,7 +361,7 @@ onboarding::transport_error_info onboarding::classify_transport_error(const std:
 
 std::string onboarding::build_state_report(const boost::optional<std::string> &applied_state_hash, const std::vector<installed_bundle> &bundles_installed,
                                            const std::vector<std::string> &errors, const std::map<std::string, std::string> &reported_tags,
-                                           const bool local_config_present) {
+                                           const bool local_config_present, const std::string &facts_hash) {
   json::object root;
   if (applied_state_hash) {
     root["applied_state_hash"] = applied_state_hash.value();
@@ -389,7 +389,91 @@ std::string onboarding::build_state_report(const boost::optional<std::string> &a
     tags[tag.first] = tag.second;
   }
   root["reported_tags"] = tags;
+  // The hash alone: cheap enough for every report, and enough for the server
+  // to see "inventory changed" or "inventory missing" without the document.
+  if (!facts_hash.empty()) {
+    root["facts_hash"] = facts_hash;
+  }
   return json::serialize(root);
+}
+
+std::string onboarding::build_facts_upload(const std::string &facts_hash, const std::string &collected_at, const std::string &facts_json) {
+  // Cheap shape check only: the document comes from the core's own renderer,
+  // and anything but an object here is a bug that would otherwise reach the
+  // server as a body it cannot parse.
+  if (facts_json.size() < 2 || facts_json.front() != '{' || facts_json.back() != '}') {
+    throw onboarding_error("Facts document is not a JSON object", false);
+  }
+  // Members in sorted order, like the document itself. The scalars go
+  // through the serialiser for their escaping; the document is spliced in
+  // verbatim (see the header for why).
+  std::string body = "{";
+  if (!collected_at.empty()) {
+    body += "\"collected_at\":";
+    body += json::serialize(json::value(collected_at));
+    body += ",";
+  }
+  body += "\"facts\":";
+  body += facts_json;
+  body += ",\"facts_hash\":";
+  body += json::serialize(json::value(facts_hash));
+  body += "}";
+  return body;
+}
+
+const char *const onboarding::facts_hash_header = "x-facts-hash";
+const char *const onboarding::empty_facts_hash = "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a";
+
+namespace {
+// Percent-encode a query value: everything but RFC 3986's unreserved
+// characters. A state hash may be base64 (the token grammar allows + / =),
+// and a bare '+' in a query reads back as a space - the server would compare
+// a different hash, and never answer 304.
+std::string encode_query_value(const std::string &value) {
+  static const char *digits = "0123456789ABCDEF";
+  std::string out;
+  out.reserve(value.size());
+  for (const char c : value) {
+    const auto u = static_cast<unsigned char>(c);
+    const bool unreserved = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '.' || c == '_' || c == '~';
+    if (unreserved) {
+      out.push_back(c);
+    } else {
+      out.push_back('%');
+      out.push_back(digits[u >> 4]);
+      out.push_back(digits[u & 0xf]);
+    }
+  }
+  return out;
+}
+}  // namespace
+
+std::string onboarding::desired_state_path(const std::string &current_hash, const std::string &facts_hash) {
+  std::string path = "/agent/v1/desired-state";
+  char separator = '?';
+  if (!current_hash.empty()) {
+    path += separator;
+    path += "current_hash=" + encode_query_value(current_hash);
+    separator = '&';
+  }
+  if (!facts_hash.empty()) {
+    path += separator;
+    path += "facts_hash=" + encode_query_value(facts_hash);
+  }
+  return path;
+}
+
+boost::optional<std::string> onboarding::parse_facts_hash(const std::string &header_value) {
+  // Holding nothing and holding the empty document are one state, and a host
+  // with nothing enabled has nothing to send in answer to either.
+  if (header_value == "none") return std::string(empty_facts_hash);
+  if (header_value.size() != 64) return boost::none;
+  std::string hash = header_value;
+  for (char &c : hash) {
+    if (std::isxdigit(static_cast<unsigned char>(c)) == 0) return boost::none;
+    c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  }
+  return hash;
 }
 
 onboarding::enrolled_identity onboarding::parse_renew_response(const std::string &body, const identity &fresh_identity, const enrolled_identity &current) {

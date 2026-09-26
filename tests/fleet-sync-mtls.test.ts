@@ -236,7 +236,7 @@ describeMtls("core fleet sync over strict mTLS", () => {
     expect(mtlsRequests.some((r) => r.url === "/agent/v1/heartbeat")).toBe(true);
 
     // Steady state over mTLS too: poll with the applied hash -> 304.
-    await waitFor("a 304 steady-state poll", () => mtlsRequests.some((r) => r.url === "/agent/v1/desired-state?current_hash=mtls-1"));
+    await waitFor("a 304 steady-state poll", () => mtlsRequests.some((r) => r.url.startsWith("/agent/v1/desired-state?current_hash=mtls-1&")));
   });
 
   it("offers the fleet ALPN protocol on every mTLS connection", () => {

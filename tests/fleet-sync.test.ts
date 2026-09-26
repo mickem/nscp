@@ -8,7 +8,11 @@
  * poll, bundle download, SHA-256 + Ed25519 verification, unzip, JSON merge
  * patch, INI render, atomic swap, state report, then 304
  * steady-state. A second phase serves a tampered bundle and asserts it is
- * rejected and reported without touching the applied configuration.
+ * rejected and reported without touching the applied configuration. The last
+ * phases cover the host facts: the agent sends its facts hash on every poll
+ * and state report, the server answers with the hash it holds in an
+ * X-Facts-Hash header, and the document goes on /agent/v1/facts only on a
+ * miss - never to a server that does not answer.
  *
  * The fake server speaks plain http; the agent treats mtls_url's scheme as
  * authoritative, which keeps the test transport-simple while production uses
@@ -46,10 +50,14 @@ interface SeenRequest {
   method: string;
   url: string;
   body: any;
+  raw: string;
 }
 
 /** The module the agent is configured with locally; see the beforeAll. */
 const LOCAL_MODULE = moduleBuiltHere("CheckDisk") ? "CheckDisk" : "CheckHelpers";
+
+/** sha256("{}"): the facts hash of a host with nothing enabled. */
+const EMPTY_FACTS_HASH = "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a";
 
 describe("core fleet sync loop", () => {
   let nscp: NscpInstance;
@@ -92,8 +100,41 @@ describe("core fleet sync loop", () => {
   ]);
   const trimmedSha = crypto.createHash("sha256").update(trimmedZip).digest("hex");
 
+  // Fleet-managed enablement of a fact set: the bundle flips a switch, which
+  // is plain INI like any other setting. The core's own `agent` set, so the
+  // scenario needs no module and runs on every platform the agent builds on.
+  const factsZip = makeZip([
+    { name: "bundle.toml", data: 'name = "inventory"\nversion = "1.0"\n' },
+    { name: "config.json", data: JSON.stringify({ settings: { facts: { agent: true } } }) },
+  ]);
+  const factsSha = crypto.createHash("sha256").update(factsZip).digest("hex");
+  // The same switch turned off: a different document (the empty one) for the
+  // agent to hold, while the server still holds the one with `agent` in it.
+  const factsOffZip = makeZip([
+    { name: "bundle.toml", data: 'name = "inventory"\nversion = "2.0"\n' },
+    { name: "config.json", data: JSON.stringify({ settings: { facts: { agent: false } } }) },
+  ]);
+  const factsOffSha = crypto.createHash("sha256").update(factsOffZip).digest("hex");
+
   /** Mutable server behavior: which desired state is currently served. */
-  let phase: "good" | "evil" | "trimmed" | "gone";
+  let phase: "good" | "evil" | "trimmed" | "gone" | "facts" | "factsOff";
+  /** What the fake server does with a facts upload. */
+  let factsStatus = 200;
+  /**
+   * The facts hash the fake server holds for the host, sent back as
+   * X-Facts-Hash: `none` when it holds nothing, null for a server that does
+   * not do facts at all (no header). A successful upload sets it.
+   */
+  let heldFactsHash: string | null = "none";
+  /** A server that acknowledges uploads and keeps nothing. */
+  let forgetUploads = false;
+  const factsHeader = (): Record<string, string> => (heldFactsHash === null ? {} : { "X-Facts-Hash": heldFactsHash });
+  /**
+   * Answer every poll with the full desired state, never 304. After a restart
+   * the agent only learns the 1s poll interval from a body, and a 304 has
+   * none.
+   */
+  let answerFull = false;
 
   function desiredStateFor(currentHash: string | null): { code: number; body: any } {
     const states = {
@@ -171,9 +212,45 @@ describe("core fleet sync loop", () => {
           },
         ],
       },
+      facts: {
+        tenant_id: FLEET_TENANT_ID,
+        state_hash: "h-facts",
+        next_poll_in_seconds: 1,
+        merged_config_json: {},
+        bundles: [
+          {
+            id: "b-facts",
+            name: "inventory",
+            version: "1.0",
+            sha256: factsSha,
+            format: "plain",
+            signature: signBundle(signingKeys.privateKey, { id: "b-facts", name: "inventory", version: "1.0", sha256: factsSha }),
+            url: "/agent/v1/bundles/b-facts",
+            priority: 100,
+          },
+        ],
+      },
+      factsOff: {
+        tenant_id: FLEET_TENANT_ID,
+        state_hash: "h-facts-off",
+        next_poll_in_seconds: 1,
+        merged_config_json: {},
+        bundles: [
+          {
+            id: "b-facts-off",
+            name: "inventory",
+            version: "2.0",
+            sha256: factsOffSha,
+            format: "plain",
+            signature: signBundle(signingKeys.privateKey, { id: "b-facts-off", name: "inventory", version: "2.0", sha256: factsOffSha }),
+            url: "/agent/v1/bundles/b-facts-off",
+            priority: 100,
+          },
+        ],
+      },
     };
     const active = states[phase];
-    if (currentHash === active.state_hash) {
+    if (currentHash === active.state_hash && !answerFull) {
       return { code: 304, body: { next_poll_in_seconds: 1 } };
     }
     return { code: 200, body: active };
@@ -201,7 +278,7 @@ describe("core fleet sync loop", () => {
         } catch {
           /* keep raw */
         }
-        requests.push({ method: req.method ?? "", url: req.url ?? "", body });
+        requests.push({ method: req.method ?? "", url: req.url ?? "", body, raw });
 
         const parsed = new URL(req.url ?? "/", "http://x");
         if (req.method === "POST" && parsed.pathname === "/enroll/v1") {
@@ -221,7 +298,7 @@ describe("core fleet sync loop", () => {
           res.end("{}");
         } else if (parsed.pathname === "/agent/v1/desired-state") {
           const r = desiredStateFor(parsed.searchParams.get("current_hash"));
-          res.writeHead(r.code, { "Content-Type": "application/json" });
+          res.writeHead(r.code, { "Content-Type": "application/json", ...factsHeader() });
           res.end(JSON.stringify(r.body));
         } else if (parsed.pathname === "/agent/v1/bundles/b-good") {
           res.writeHead(200, { "Content-Type": "application/zip" });
@@ -232,13 +309,23 @@ describe("core fleet sync loop", () => {
         } else if (parsed.pathname === "/agent/v1/bundles/b-trimmed") {
           res.writeHead(200, { "Content-Type": "application/zip" });
           res.end(trimmedZip);
+        } else if (parsed.pathname === "/agent/v1/bundles/b-facts") {
+          res.writeHead(200, { "Content-Type": "application/zip" });
+          res.end(factsZip);
+        } else if (parsed.pathname === "/agent/v1/bundles/b-facts-off") {
+          res.writeHead(200, { "Content-Type": "application/zip" });
+          res.end(factsOffZip);
+        } else if (req.method === "POST" && parsed.pathname === "/agent/v1/facts") {
+          if (factsStatus === 200 && !forgetUploads) heldFactsHash = body?.facts_hash ?? "";
+          res.writeHead(factsStatus, { "Content-Type": "application/json" });
+          res.end(factsStatus === 200 ? "{}" : JSON.stringify({ error: "not found" }));
+        } else if (parsed.pathname === "/agent/v1/state-report") {
+          res.writeHead(200, { "Content-Type": "application/json", ...factsHeader() });
+          res.end("{}");
         } else if (parsed.pathname === "/agent/v1/bundles/b-gone") {
           res.writeHead(403, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "bundle no longer in effective set" }));
-        } else if (
-          parsed.pathname === "/agent/v1/state-report" ||
-          parsed.pathname === "/agent/v1/renew"
-        ) {
+        } else if (parsed.pathname === "/agent/v1/renew") {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end("{}");
         } else {
@@ -269,6 +356,13 @@ describe("core fleet sync loop", () => {
   }
 
   const stateReports = () => requests.filter((r) => r.url.startsWith("/agent/v1/state-report"));
+  const factsUploads = () => requests.filter((r) => r.url === "/agent/v1/facts");
+  const polls = () => requests.filter((r) => r.url.startsWith("/agent/v1/desired-state")).length;
+  /** Let the loop run `count` more poll cycles, so anything it was going to send has been sent. */
+  async function settle(count = 3): Promise<void> {
+    const target = polls() + count;
+    await waitFor(`${count} more polls`, () => polls() >= target);
+  }
 
   it("enrolls, writing the manifest and the fleet.ini include (no module needed)", async () => {
     const r = await nscp.run(["enroll", "--server", baseUrl, "--token", "tok-fleet", "--insecure"], {
@@ -308,6 +402,13 @@ describe("core fleet sync loop", () => {
     // still carries no hint of *what* is configured.
     expect(report.body.local_config_present).toBe(true);
     expect(JSON.stringify(report.body)).not.toContain(LOCAL_MODULE);
+    // Nothing is enabled, so every report and every poll carries the hash of
+    // the empty document. The server holds nothing, which is the same thing:
+    // no miss, so nothing was uploaded.
+    for (const r of stateReports()) expect(r.body.facts_hash).toBe(EMPTY_FACTS_HASH);
+    for (const r of requests.filter((q) => q.url.startsWith("/agent/v1/desired-state")))
+      expect(new URL(r.url, "http://x").searchParams.get("facts_hash")).toBe(EMPTY_FACTS_HASH);
+    expect(factsUploads()).toEqual([]);
     if (onWindows) {
       // Module-contributed tags (CheckDisk's drive list) ride along in every
       // state report, merged from the central tag repository.
@@ -346,7 +447,7 @@ describe("core fleet sync loop", () => {
 
   it("settles into 304 polling with the applied hash", async () => {
     await waitFor("a 304 steady-state poll", () =>
-      requests.some((r) => r.url === "/agent/v1/desired-state?current_hash=h-good"),
+      requests.some((r) => r.url.startsWith("/agent/v1/desired-state?current_hash=h-good&")),
     );
   });
 
@@ -422,5 +523,116 @@ describe("core fleet sync loop", () => {
         .slice(reportsBefore)
         .some((r) => r.body?.applied_state_hash === "h-good"),
     );
+  });
+  it("uploads the inventory once, when the server reports a miss", async () => {
+    expect(factsUploads()).toEqual([]);
+    phase = "facts";
+
+    // The bundle turns `agent` on; the reload round puts it in the document.
+    // The next poll carries the new hash, the server answers that it holds
+    // nothing, and the agent uploads.
+    await waitFor("a facts upload carrying agent", () => factsUploads().some((r) => r.body?.facts?.agent));
+    const upload = factsUploads()[0];
+    expect(factsUploads()).toHaveLength(1);
+    expect(upload.body.facts.agent.enrolled).toBe(true);
+    expect(upload.body.collected_at).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/);
+    // The hash is the digest of the document bytes exactly as they were sent,
+    // which is what lets the server check it without a canonical re-encoding
+    // of its own.
+    const start = upload.raw.indexOf('"facts":') + '"facts":'.length;
+    const end = upload.raw.lastIndexOf(',"facts_hash":');
+    expect(upload.body.facts_hash).toBe(crypto.createHash("sha256").update(upload.raw.slice(start, end), "utf8").digest("hex"));
+    expect(upload.body.facts_hash).not.toBe(EMPTY_FACTS_HASH);
+    expect(heldFactsHash).toBe(upload.body.facts_hash);
+
+    // From here the polls carry the new hash, the server answers with the
+    // same one, and nothing more is sent.
+    await settle();
+    const lastPoll = requests.filter((r) => r.url.startsWith("/agent/v1/desired-state")).pop()!;
+    expect(new URL(lastPoll.url, "http://x").searchParams.get("facts_hash")).toBe(upload.body.facts_hash);
+    expect(factsUploads()).toHaveLength(1);
+    for (const r of stateReports()) expect(r.body).not.toHaveProperty("facts");
+  });
+
+  it("re-uploads when the server loses the document, and backs off if it keeps losing it", async () => {
+    const ours = factsUploads()[0].body.facts_hash;
+    // A server that acknowledges uploads and keeps nothing: it answers "none"
+    // to every poll, before and after.
+    forgetUploads = true;
+    heldFactsHash = "none";
+
+    // The answer to the very next poll - a 304, carrying the header - is the
+    // miss, and the first re-send is immediate.
+    await waitFor("a second facts upload", () => factsUploads().length >= 2);
+    expect(factsUploads()[1].body.facts_hash).toBe(ours);
+    // The next one waits a minute (then two, ... up to an hour), so a broken
+    // server does not pull the document on every poll.
+    await settle(5);
+    expect(factsUploads()).toHaveLength(2);
+    forgetUploads = false;
+    heldFactsHash = ours;
+  });
+
+  it("sends nothing to a server that does not do facts", async () => {
+    await nscp.stop();
+    heldFactsHash = null;
+    answerFull = true;
+    const before = factsUploads().length;
+    nscp.start();
+
+    // The agent restarted with `agent` enabled, and still uploads nothing: it
+    // never sends the document on a guess, only in answer to a miss.
+    await settle(5);
+    expect(factsUploads()).toHaveLength(before);
+    const lastPoll = requests.filter((r) => r.url.startsWith("/agent/v1/desired-state")).pop()!;
+    // It still says what it holds (not the empty document): the server that
+    // does not answer simply never asks for it.
+    const polled = new URL(lastPoll.url, "http://x").searchParams.get("facts_hash");
+    expect(polled).toMatch(/^[0-9a-f]{64}$/);
+    expect(polled).not.toBe(EMPTY_FACTS_HASH);
+
+    // A server that starts answering (it was upgraded) gets the document.
+    heldFactsHash = "none";
+    await waitFor("an upload once the server answers", () => factsUploads().length > before);
+    expect(factsUploads()[before].body.facts.agent).toBeTruthy();
+  });
+
+  it("paces a rejected upload, and does not give up on it", async () => {
+    // A 404 from a server that asked for the document: a proxy without the
+    // route, say. Not a verdict on the document, so it is paced like any
+    // rejection rather than dropped until the inventory changes.
+    factsStatus = 404;
+    heldFactsHash = "none";
+    const before = factsUploads().length;
+
+    // Tried once, then not on every poll.
+    await waitFor("the rejected upload", () => factsUploads().length > before);
+    await settle(5);
+    expect(factsUploads()).toHaveLength(before + 1);
+
+    // The route appears; the same document goes at the next step (a minute).
+    factsStatus = 200;
+    await waitFor("the paced retry", () => factsUploads().length > before + 1, 90_000);
+    expect(factsUploads()[before + 1].body.facts_hash).toBe(factsUploads()[before].body.facts_hash);
+    answerFull = false;
+  });
+  it("keeps a new document's backoff while the server echoes the older one", async () => {
+    // The server holds H1 (the document with `agent` in it) and says so on
+    // every poll. The inventory moves to H2 - the switch turned off, the empty
+    // document - and the server rejects H2's upload.
+    const h1 = factsUploads()[factsUploads().length - 1].body.facts_hash;
+    expect(heldFactsHash).toBe(h1);
+    factsStatus = 500;
+    const before = factsUploads().length;
+    phase = "factsOff";
+
+    await waitFor("the rejected upload of the new document", () => factsUploads().length > before);
+    expect(factsUploads()[before].body.facts_hash).toBe(EMPTY_FACTS_HASH);
+    // Each poll truthfully answers H1. That is no news about H2, whose own
+    // backoff keeps running: it is not POSTed again on every poll.
+    await settle(5);
+    expect(heldFactsHash).toBe(h1);
+    expect(factsUploads()).toHaveLength(before + 1);
+    factsStatus = 200;
   });
 });

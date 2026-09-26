@@ -14,6 +14,7 @@
 #include <map>
 #include <memory>
 #include <onboarding/bundle_crypto.hpp>
+#include <onboarding/facts_pacer.hpp>
 #include <onboarding/sync.hpp>
 #include <string>
 #include <vector>
@@ -1266,16 +1267,241 @@ TEST(SyncReport, LocalConfigFlagCarriesNoConfigurationContent) {
   // holds passwords. Guard the payload, not just the boolean.
   std::map<std::string, std::string> tags;
   tags["os"] = "linux";
-  const std::string payload = onboarding::build_state_report(std::string("h1"), {}, {}, tags, true);
+  const std::string payload = onboarding::build_state_report(std::string("h1"), {}, {}, tags, true, std::string(64, 'a'));
   const json::object root = json::parse(payload).as_object();
   // Exactly the members the report is allowed to have.
   for (const auto &member : root) {
     const std::string name(member.key());
     EXPECT_TRUE(name == "applied_state_hash" || name == "bundles_installed" || name == "errors" || name == "reported_tags" ||
-                name == "local_config_present")
+                name == "local_config_present" || name == "facts_hash")
         << "unexpected member in the state report: " << name;
   }
+  EXPECT_EQ(root.size(), 6u);
   EXPECT_TRUE(root.at("local_config_present").as_bool());
+}
+
+// --- facts --------------------------------------------------------------------
+
+TEST(SyncReport, CarriesTheFactsHashNotTheDocument) {
+  const std::string hash = onboarding::sha256_hex("{\"os\":{\"family\":\"linux\"}}");
+  const std::string payload = onboarding::build_state_report(boost::none, {}, {}, {}, false, hash);
+  const json::object root = json::parse(payload).as_object();
+  EXPECT_EQ(root.at("facts_hash").as_string(), hash);
+  EXPECT_EQ(payload.find("family"), std::string::npos) << "the report carries the hash, never the document";
+}
+
+TEST(SyncReport, OmitsTheFactsHashWhenThereIsNone) {
+  const json::object root = json::parse(onboarding::build_state_report(boost::none, {}, {}, {}, false)).as_object();
+  EXPECT_EQ(root.if_contains("facts_hash"), nullptr);
+}
+
+TEST(SyncFacts, UploadSplicesTheDocumentByteForByte) {
+  // A number spelt the way the core's renderer spells it, which a JSON
+  // library round trip would be free to re-spell. The hash covers these
+  // exact bytes, so they must reach the server untouched.
+  const std::string document = "{\"hardware\":{\"memory_bytes\":17179869184,\"ratio\":0.5},\"os\":{\"family\":\"linux\"}}";
+  const std::string hash = onboarding::sha256_hex(document);
+  const std::string body = onboarding::build_facts_upload(hash, "2026-09-25T10:00:00Z", document);
+  EXPECT_EQ(body, "{\"collected_at\":\"2026-09-25T10:00:00Z\",\"facts\":" + document + ",\"facts_hash\":\"" + hash + "\"}");
+  const json::object root = json::parse(body).as_object();
+  EXPECT_EQ(root.at("facts_hash").as_string(), hash);
+  EXPECT_EQ(root.at("facts").as_object().at("os").as_object().at("family").as_string(), "linux");
+}
+
+TEST(SyncFacts, UploadOfTheEmptyDocument) {
+  const std::string body = onboarding::build_facts_upload(onboarding::sha256_hex("{}"), "2026-09-25T10:00:00Z", "{}");
+  const json::object root = json::parse(body).as_object();
+  EXPECT_TRUE(root.at("facts").as_object().empty());
+  EXPECT_EQ(root.at("facts_hash").as_string(), "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a");
+}
+
+TEST(SyncFacts, UploadLeavesOutAnUnknownCollectionTime) {
+  const json::object root = json::parse(onboarding::build_facts_upload(std::string(64, 'a'), "", "{}")).as_object();
+  EXPECT_EQ(root.if_contains("collected_at"), nullptr);
+  EXPECT_EQ(root.size(), 2u);
+}
+
+TEST(SyncFacts, UploadEscapesTheScalars) {
+  const std::string body = onboarding::build_facts_upload("h\"x", "t\"\n", "{}");
+  json::object root;
+  ASSERT_NO_THROW(root = json::parse(body).as_object()) << body;
+  EXPECT_EQ(root.at("facts_hash").as_string(), "h\"x");
+  EXPECT_EQ(root.at("collected_at").as_string(), "t\"\n");
+}
+
+TEST(SyncFacts, UploadRefusesSomethingThatIsNotAnObject) {
+  EXPECT_THROW(onboarding::build_facts_upload("h", "t", ""), onboarding::onboarding_error);
+  EXPECT_THROW(onboarding::build_facts_upload("h", "t", "[]"), onboarding::onboarding_error);
+  EXPECT_THROW(onboarding::build_facts_upload("h", "t", "null"), onboarding::onboarding_error);
+}
+
+TEST(SyncFacts, ThePollCarriesWhatTheAgentHolds) {
+  const std::string facts(64, 'f');
+  EXPECT_EQ(onboarding::desired_state_path("", ""), "/agent/v1/desired-state");
+  EXPECT_EQ(onboarding::desired_state_path("h1", ""), "/agent/v1/desired-state?current_hash=h1");
+  // Before the first apply there is no state hash, but there is always a
+  // facts hash to compare - the empty document's, at the least.
+  EXPECT_EQ(onboarding::desired_state_path("", facts), "/agent/v1/desired-state?facts_hash=" + facts);
+  EXPECT_EQ(onboarding::desired_state_path("h1", facts), "/agent/v1/desired-state?current_hash=h1&facts_hash=" + facts);
+}
+
+TEST(SyncFacts, ThePollEscapesWhatItCarries) {
+  // A state hash is a token that may be base64: a bare '+' would read back as
+  // a space, '/' and '=' are delimiters, so all three are percent-encoded.
+  EXPECT_EQ(onboarding::desired_state_path("ab+c/d=", ""), "/agent/v1/desired-state?current_hash=ab%2Bc%2Fd%3D");
+  EXPECT_EQ(onboarding::desired_state_path("a:b~c-d._e", ""), "/agent/v1/desired-state?current_hash=a%3Ab~c-d._e");
+}
+
+TEST(SyncFacts, TheEmptyDocumentHashIsTheDigestOfEmptyBraces) {
+  EXPECT_EQ(onboarding::sha256_hex("{}"), onboarding::empty_facts_hash);
+}
+
+TEST(SyncFacts, ParsesTheHashAServerHolds) {
+  const std::string hash(64, 'a');
+  EXPECT_EQ(onboarding::parse_facts_hash(hash).value(), hash);
+  // Lowercased, so it compares against our own digest.
+  EXPECT_EQ(onboarding::parse_facts_hash(std::string(64, 'A')).value(), hash);
+  // `none` is an answer: the server holds nothing for this host, which is
+  // what a host with nothing enabled holds too - so they compare equal.
+  EXPECT_EQ(onboarding::parse_facts_hash("none").value(), onboarding::empty_facts_hash);
+}
+
+TEST(SyncFacts, IgnoresAHashThatIsNotADigest) {
+  EXPECT_FALSE(onboarding::parse_facts_hash(""));
+  EXPECT_FALSE(onboarding::parse_facts_hash("None"));
+  EXPECT_FALSE(onboarding::parse_facts_hash("abc"));
+  EXPECT_FALSE(onboarding::parse_facts_hash(std::string(63, 'a') + "g"));
+  EXPECT_FALSE(onboarding::parse_facts_hash(std::string(65, 'a')));
+}
+
+// --- facts upload pacing -------------------------------------------------------
+
+namespace {
+typedef onboarding::facts_upload_pacer pacer;
+const pacer::clock::time_point t0 = pacer::clock::time_point() + std::chrono::hours(24);
+pacer::clock::time_point at(const long long seconds) { return t0 + std::chrono::seconds(seconds); }
+const std::string H1(64, '1');
+const std::string H2(64, '2');
+const std::string NONE = onboarding::empty_facts_hash;
+}  // namespace
+
+TEST(FactsPacer, NothingUntilTheServerSaysWhatItHolds) {
+  pacer p;
+  EXPECT_FALSE(p.should_upload(H1, t0)) << "a server that never says does not do facts";
+  p.server_holds(NONE, t0);
+  EXPECT_TRUE(p.should_upload(H1, t0));
+  EXPECT_FALSE(p.should_upload(NONE, t0)) << "no miss: the server holds what we hold";
+  EXPECT_FALSE(p.should_upload("", t0));
+}
+
+TEST(FactsPacer, SteadyStateSendsNothing) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.acknowledged(H1, t0);
+  p.server_holds(H1, at(1));
+  EXPECT_FALSE(p.should_upload(H1, at(2)));
+}
+
+TEST(FactsPacer, ARejectedDocumentWaitsDoublingUpToAnHour) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.rejected(H1, t0);
+  EXPECT_FALSE(p.should_upload(H1, at(59)));
+  EXPECT_TRUE(p.should_upload(H1, at(60)));
+  p.rejected(H1, at(60));
+  EXPECT_FALSE(p.should_upload(H1, at(60 + 119)));
+  EXPECT_TRUE(p.should_upload(H1, at(60 + 120)));
+  for (int i = 0; i < 10; ++i) p.rejected(H1, at(1000));
+  EXPECT_EQ(p.retry_at(H1), at(1000 + 3600)) << "capped at an hour";
+}
+
+TEST(FactsPacer, TheBackoffBelongsToTheDocument) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  for (int i = 0; i < 6; ++i) p.rejected(H1, t0);
+  EXPECT_FALSE(p.should_upload(H1, at(60)));
+  EXPECT_TRUE(p.should_upload(H2, at(1))) << "a changed inventory was never tried and must not wait on H1's clock";
+  p.rejected(H2, at(1));
+  EXPECT_EQ(p.retry_at(H2), at(61)) << "and starts its own clock from the first step";
+}
+
+TEST(FactsPacer, RetryAfterHoldsEveryDocument) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.rejected(H1, t0, 600);
+  EXPECT_FALSE(p.should_upload(H2, at(599))) << "the server asked for quiet, whatever we send";
+  EXPECT_TRUE(p.should_upload(H2, at(600)));
+  EXPECT_FALSE(p.should_upload(H1, at(599)));
+}
+
+TEST(FactsPacer, AnAcknowledgedDocumentReportedMissingIsResentOnceAtOnceThenPaced) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.acknowledged(H1, t0);
+  p.server_holds(NONE, at(5));  // lost it
+  EXPECT_TRUE(p.should_upload(H1, at(5))) << "the first re-send is immediate";
+  p.acknowledged(H1, at(5));
+  p.server_holds(H1, at(6));    // echoes what the upload just set...
+  p.server_holds(NONE, at(10)); // ...and loses it again
+  EXPECT_FALSE(p.should_upload(H1, at(10))) << "an echo inside the window is not proof it stuck";
+  EXPECT_TRUE(p.should_upload(H1, at(65)));
+}
+
+TEST(FactsPacer, ADocumentThatStuckResetsThePacing) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.acknowledged(H1, t0);
+  p.server_holds(NONE, at(5));
+  p.acknowledged(H1, at(5));  // re-sent: next re-send waits 60s
+  p.server_holds(H1, at(70)); // still held after the whole window: it stuck
+  p.server_holds(NONE, at(86400));
+  EXPECT_TRUE(p.should_upload(H1, at(86400))) << "a loss a day later is repaired at once";
+}
+
+TEST(FactsPacer, AnEchoOfTheOlderDocumentKeepsTheNewerOnesBackoff) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.acknowledged(H1, t0);
+  p.server_holds(H1, at(1));
+  // The inventory moves to H2, and its upload is rejected.
+  p.rejected(H2, at(10));
+  // The next poll truthfully answers H1: the server still holds the older
+  // document. That says nothing about H2, whose clock must keep running -
+  // or the megabyte POST would repeat on every poll.
+  p.server_holds(H1, at(11));
+  EXPECT_FALSE(p.should_upload(H2, at(12)));
+  p.server_holds(H1, at(30));
+  EXPECT_FALSE(p.should_upload(H2, at(69)));
+  EXPECT_TRUE(p.should_upload(H2, at(70)));
+}
+
+TEST(FactsPacer, AHoldPausesEveryDocument) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.hold(t0, 120);  // a rate-limited poll
+  EXPECT_FALSE(p.should_upload(H1, at(119)));
+  EXPECT_TRUE(p.should_upload(H1, at(120)));
+  p.hold(at(120), 30);
+  p.hold(at(120), 10);  // a shorter hold never shortens a longer one
+  EXPECT_FALSE(p.should_upload(H1, at(149)));
+  EXPECT_TRUE(p.should_upload(H1, at(150)));
+}
+
+TEST(FactsPacer, ARefusedDocumentWaitsForAChange) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.refused(H1);
+  EXPECT_FALSE(p.should_upload(H1, at(86400)));
+  EXPECT_TRUE(p.should_upload(H2, at(1)));
+}
+
+TEST(FactsPacer, ANewDocumentAfterRejectionsStartsClean) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  for (int i = 0; i < 4; ++i) p.rejected(H1, t0);
+  p.acknowledged(H2, at(1));
+  p.server_holds(NONE, at(2));
+  EXPECT_TRUE(p.should_upload(H2, at(2)));
 }
 
 // build_state_report takes strings from outside (bundle names and versions

@@ -54,10 +54,10 @@ std::string describe_unreadable(const std::string &state_file) {
 #endif
 }
 
-const char *desired_state_path = "/agent/v1/desired-state";
 const char *state_report_path = "/agent/v1/state-report";
 const char *renew_path = "/agent/v1/renew";
 const char *heartbeat_path = "/agent/v1/heartbeat";
+const char *facts_path = "/agent/v1/facts";
 // Renew when the client certificate has fewer days than this left.
 const long renew_threshold_days = 14;
 // Longest we will ever sleep between polls, whatever the server asks for
@@ -191,8 +191,12 @@ fleet_sync::manifest_status fleet_sync::check_manifest(const std::string &state_
 }
 
 fleet_sync::fleet_sync(nsclient::logging::logger_instance logger, fleet_config config, nsclient::core::tag_repository_instance tags,
-                       reload_function request_reload)
-    : logger_(std::move(logger)), config_(std::move(config)), tags_(std::move(tags)), request_reload_(std::move(request_reload)) {
+                       nsclient::core::fact_repository_instance facts, reload_function request_reload)
+    : logger_(std::move(logger)),
+      config_(std::move(config)),
+      tags_(std::move(tags)),
+      facts_(std::move(facts)),
+      request_reload_(std::move(request_reload)) {
   thread_ = threads::start_guarded_thread(
       "fleet sync", [this] { this->thread_proc(); },
       [this](const std::string &message) { log_error(message); });
@@ -380,9 +384,10 @@ void fleet_sync::report_state(const boost::optional<std::string> &applied_hash, 
     // No probe configured (a test harness, say) reads as "nothing local", which
     // is the same answer an un-configured host gives.
     const bool local_config = config_.local_config_probe ? config_.local_config_probe() : false;
-    const std::string body = onboarding::build_state_report(applied_hash, installed_, errors, collect_tags(), local_config);
+    const std::string body = onboarding::build_state_report(applied_hash, installed_, errors, collect_tags(), local_config, current_facts_hash());
     const http::response response = do_call("POST", state_report_path, body);
     note_transport_success();
+    note_server_response(response);
     if (!response.is_2xx()) {
       log_error("Failed to submit state report: " + str::xtos(response.status_code_) + " " + response.payload_);
       return;
@@ -391,6 +396,131 @@ void fleet_sync::report_state(const boost::optional<std::string> &applied_hash, 
     tags_reported_ = true;
   } catch (const std::exception &e) {
     log_transport_failure("State report", utf8::utf8_from_native(e.what()));
+  }
+}
+
+std::string fleet_sync::current_facts_hash() const { return facts_ ? facts_->get_hash() : std::string(); }
+
+void fleet_sync::note_server_response(const http::response &response) {
+  const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+  // Asked for quiet, on whichever call: no facts upload until it has passed.
+  // Without a Retry-After, one poll interval - the same wait the poll takes.
+  if (response.status_code_ == 429 || response.status_code_ == 503) {
+    const boost::optional<unsigned long> retry_after = get_retry_after(response);
+    facts_pacer_.hold(now, retry_after ? clamp_sleep_seconds(retry_after.value()) : poll_interval_);
+  }
+  // What the server holds is read off an answer it meant: a 2xx, or the 304
+  // an in-sync poll gets. A 429, a 5xx or an error page from a proxy in
+  // between says nothing about the server's inventory, whatever headers it
+  // happens to carry.
+  if (!response.is_2xx() && response.status_code_ != 304) return;
+  const auto header = response.headers_.find(onboarding::facts_hash_header);
+  // No header: this server does not do facts. That is never a reason to
+  // upload, and it says nothing about what an earlier response told us.
+  if (header == response.headers_.end()) return;
+  const boost::optional<std::string> advertised = onboarding::parse_facts_hash(header->second);
+  if (!advertised) return;
+  facts_pacer_.server_holds(advertised.value(), now);
+}
+
+void fleet_sync::maybe_upload_facts() {
+  if (!facts_) return;
+  // The cached hash first: in steady state the server holds what we hold, and
+  // this is the whole cost of the call - the document is not rendered.
+  const std::string current = facts_->get_hash();
+  if (!facts_pacer_.should_upload(current, std::chrono::steady_clock::now())) return;
+  // Over the cap when last looked at, and neither the document nor the cap
+  // has moved since: nothing to render.
+  if (current == oversize_hash_ && facts_->get_max_size() == oversize_cap_) return;
+
+  // A miss: render what we send, with its hash and collection time from the
+  // same lock. The snapshot's own hash is the one that counts from here on,
+  // in case a round landed since the check above.
+  const nsclient::core::fact_repository::snapshot snapshot = facts_->get_snapshot();
+  if (!facts_pacer_.should_upload(snapshot.hash, std::chrono::steady_clock::now())) return;
+
+  // The sets, largest first, for the messages that ask the operator to turn
+  // one off. Only rendered when one of those is logged.
+  const auto largest_sets = [this]() {
+    const std::vector<std::pair<std::string, std::size_t>> sizes = facts_->get_set_sizes();
+    std::string names;
+    for (std::size_t i = 0; i < sizes.size() && i < 3; ++i) {
+      if (!names.empty()) names += ", ";
+      names += sizes[i].first + " (" + str::xtos(sizes[i].second) + " bytes)";
+    }
+    return names.empty() ? std::string("none") : names;
+  };
+
+  // The core refuses any set that would take the document past
+  // [/settings/facts] max size, measured on its stored encoding. The same
+  // measure against the same cap here, so this only fires when a reload
+  // lowered the cap under a document the core already held - never for a
+  // document the core accepted under the cap it has now.
+  // Remembered with the cap it broke rather than handed to the pacer as a
+  // refusal of the document: raising max size is one of the two remedies the
+  // log line names, and it has to work without a fact changing.
+  const std::size_t max_size = facts_->get_max_size();
+  if (snapshot.encoded_size > max_size) {
+    if (oversize_hash_ != snapshot.hash || oversize_cap_ != max_size) {
+      oversize_hash_ = snapshot.hash;
+      oversize_cap_ = max_size;
+      log_error("Facts document not uploaded: it is " + str::xtos(snapshot.encoded_size) + " bytes, over the [/settings/facts] max size of " +
+                str::xtos(max_size) + ", which was lowered after it was collected. Largest sets: " + largest_sets() +
+                ". Disable one of them in the module that produces it, or raise max size.");
+    }
+    return;
+  }
+
+  // Built before the call, so a local failure is reported as what it is
+  // rather than as the fleet server being unreachable.
+  std::string body;
+  try {
+    body = onboarding::build_facts_upload(snapshot.hash, snapshot.collected, snapshot.json);
+  } catch (const std::exception &e) {
+    facts_pacer_.refused(snapshot.hash);
+    log_error("Facts document not uploaded: " + utf8::utf8_from_native(e.what()));
+    return;
+  }
+
+  http::response response;
+  try {
+    response = do_call("POST", facts_path, body);
+  } catch (const std::exception &e) {
+    // Never reached the server (or never heard back): nothing to pace, the
+    // next poll that gets through tries again.
+    log_transport_failure("Facts upload", utf8::utf8_from_native(e.what()));
+    return;
+  }
+  note_transport_success();
+  const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+
+  if (response.is_2xx()) {
+    facts_pacer_.acknowledged(snapshot.hash, now);
+    last_facts_error_status_ = 0;
+    log_debug("Uploaded facts " + snapshot.hash + " (" + str::xtos(snapshot.json.size()) + " bytes, revision " + str::xtos(snapshot.revision) + ")");
+    return;
+  }
+  if (response.status_code_ == 413) {
+    // This document is too large for the server, and will be every time.
+    facts_pacer_.refused(snapshot.hash);
+    log_error("The fleet server refused the facts document as too large (" + str::xtos(snapshot.json.size()) + " bytes). Largest sets: " +
+              largest_sets() + ". Disable one of them in the module that produces it.");
+    return;
+  }
+  // Anything else - 400, 401, 404, 429, 5xx - is paced, not given up on: a
+  // server that is fixed (a 404 from a proxy that gains the route, say) gets
+  // the document at the next step of the backoff.
+  const boost::optional<unsigned long> retry_after = get_retry_after(response);
+  facts_pacer_.rejected(snapshot.hash, now, retry_after ? clamp_sleep_seconds(retry_after.value()) : 0);
+  const bool missing_route = response.status_code_ == 404 || response.status_code_ == 405;
+  const std::string error = missing_route ? "The fleet server reported a facts mismatch but does not accept facts uploads (" +
+                                                str::xtos(response.status_code_) + "); retrying later"
+                                          : "Facts upload failed: " + str::xtos(response.status_code_) + " " + response.payload_.substr(0, 512);
+  if (response.status_code_ != last_facts_error_status_) {
+    last_facts_error_status_ = response.status_code_;
+    log_error(error);
+  } else {
+    log_debug(error);
   }
 }
 
@@ -620,10 +750,9 @@ bool fleet_sync::apply_state(const onboarding::desired_state &state, std::vector
 }
 
 unsigned long fleet_sync::poll_once() {
-  std::string path = desired_state_path;
-  if (!current_hash_.empty()) {
-    path += "?current_hash=" + current_hash_;
-  }
+  // Our facts hash rides along, so the server can say in the same answer -
+  // a 304 included - whether it holds that document; only a miss uploads.
+  const std::string path = onboarding::desired_state_path(current_hash_, current_facts_hash());
   http::response response;
   try {
     response = do_call("GET", path);
@@ -634,6 +763,7 @@ unsigned long fleet_sync::poll_once() {
     return std::min(backoff, poll_interval_ * 5);
   }
   note_transport_success();
+  note_server_response(response);
 
   if (response.status_code_ == 304) {
     failures_ = 0;
@@ -783,6 +913,10 @@ void fleet_sync::run() {
     log_transport_failure("Fleet heartbeat", utf8::utf8_from_native(e.what()));
   }
   report_state(current_hash_.empty() ? boost::optional<std::string>() : boost::optional<std::string>(current_hash_), std::vector<std::string>());
+  // The core ran its startup facts round before starting this loop, so the
+  // hash in that report - and in the first poll - is the inventory the host
+  // has. If the server answered it with a miss, repair it now.
+  maybe_upload_facts();
 
   while (true) {
     const unsigned long sleep_seconds = poll_once();
@@ -799,6 +933,9 @@ void fleet_sync::run() {
       if (tags_ && (!tags_reported_ || tags_->get_revision() != reported_tag_revision_)) {
         report_state(current_hash_.empty() ? boost::optional<std::string>() : boost::optional<std::string>(current_hash_), std::vector<std::string>());
       }
+      // The server said, in answer to the hash in this poll, that it holds
+      // something else: upload. Steady state is one hash compare per poll.
+      maybe_upload_facts();
     }
     boost::this_thread::sleep_for(boost::chrono::milliseconds(with_jitter_ms(sleep_seconds)));
   }
