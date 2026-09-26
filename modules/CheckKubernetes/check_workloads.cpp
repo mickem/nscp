@@ -150,7 +150,7 @@ void check_workloads(const settings &defaults, const PB::Commands::QueryRequestM
     ("label-selector", po::value<std::string>(&opt.label_selector), "Label selector passed to the API server, e.g. app.kubernetes.io/part-of=shop.")
     ("field-selector", po::value<std::string>(&opt.field_selector), "Field selector passed to the API server, e.g. metadata.name=web.")
     ("workload", po::value<std::vector<std::string>>(&required), "Name of a workload that must exist, as name or namespace/name (repeatable). Only the named workloads take part in the check; one the API server does not return is reported with 0 available of 1 desired.")
-    ("timeout", po::value<int>(&timeout)->default_value(timeout), "Timeout for each API server request, in seconds.")
+    ("timeout", po::value<int>(&timeout)->default_value(timeout), "Timeout for each API server request, in seconds (a positive number).")
     ;
   // clang-format on
 
@@ -172,7 +172,7 @@ void check_workloads(const settings &defaults, const PB::Commands::QueryRequestM
   cluster target;
   std::string error;
   if (!resolve_cluster(defaults, target, error)) return fail(response, error);
-  target.timeout = timeout;
+  if (!set_request_timeout(target, timeout, response)) return;
   fetcher fetch;
   if (!open_fetcher(make_fetcher, target, fetch, response)) return;
 

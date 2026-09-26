@@ -84,7 +84,9 @@ NSCP_CREATE_TEST(
 )
 
 # The check logic is tested through an injected fetcher serving canned API
-# server payloads, so this target needs no HTTP/socket sources.
+# server payloads, so this target needs no HTTP client. nscp_net is linked
+# for the verify-mode helper the settings resolver shares with the client,
+# and OpenSSL (EXTRA_LIBS) for the inline helpers in its header.
 NSCP_CREATE_TEST(
     check_kubernetes_test
     SOURCES
@@ -101,6 +103,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
         nscp_json
+        nscp_net
         GTest::gtest_main
         nscp_protobuf
         ${NSCP_FILTER_LIB}
@@ -111,6 +114,7 @@ NSCP_CREATE_TEST(
         ${Boost_DATE_TIME_LIBRARY}
         ${Boost_PROGRAM_OPTIONS_LIBRARY}
         ${Boost_REGEX_LIBRARY}
+        ${EXTRA_LIBS}
     INCLUDES
         ${NSCP_INCLUDEDIR}
         ${CMAKE_CURRENT_SOURCE_DIR}

@@ -11,6 +11,7 @@
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <str/format.hpp>
+#include <str/utils_no_boost.hpp>
 #include <string>
 
 namespace json = boost::json;
@@ -75,19 +76,12 @@ bool is_readyz_report(const long status, const std::string &body) {
 // Reduce a /readyz report to the failing check names.
 std::string summarize_readyz(const std::string &body, const long status) {
   std::string failing;
-  std::string line;
-  for (std::size_t i = 0; i <= body.size(); ++i) {
-    if (i < body.size() && body[i] != '\n') {
-      line.push_back(body[i]);
-      continue;
-    }
-    if (line.find("[-]") == 0) {
-      std::string name = line.substr(3);
-      const auto sp = name.find(' ');
-      if (sp != std::string::npos) name = name.substr(0, sp);
-      str::format::append_list(failing, name, ",");
-    }
-    line.clear();
+  for (const std::string &line : str::utils::split_lst(body, "\n")) {
+    if (line.compare(0, 3, "[-]") != 0) continue;
+    std::string name = line.substr(3);
+    const auto sp = name.find(' ');
+    if (sp != std::string::npos) name = name.substr(0, sp);
+    str::format::append_list(failing, name, ",");
   }
   if (!failing.empty()) return "failed: " + failing;
   std::string trimmed = body;
@@ -113,7 +107,7 @@ void check_cluster(const settings &defaults, const PB::Commands::QueryRequestMes
                            "%(status): No cluster information returned", "");
   // clang-format off
   filter_helper.get_desc().add_options()
-    ("timeout", po::value<int>(&timeout)->default_value(timeout), "Timeout for each API server request, in seconds.")
+    ("timeout", po::value<int>(&timeout)->default_value(timeout), "Timeout for each API server request, in seconds (a positive number).")
     ;
   // clang-format on
 
@@ -123,7 +117,7 @@ void check_cluster(const settings &defaults, const PB::Commands::QueryRequestMes
   cluster target;
   std::string error;
   if (!resolve_cluster(defaults, target, error)) return fail(response, error);
-  target.timeout = timeout;
+  if (!set_request_timeout(target, timeout, response)) return;
   fetcher fetch;
   if (!open_fetcher(make_fetcher, target, fetch, response)) return;
 

@@ -139,7 +139,9 @@ spec:
 ```
 
 Nothing else needs to be configured; `check_kubernetes` reports
-`source in-cluster` when this path is in use.
+`source in-cluster` when this path is in use. A `token`, `token file` or
+`ca` you do set still wins over the mounted one: behind a TLS-intercepting
+service mesh, point `ca` at a bundle that also trusts the mesh's CA.
 
 ---
 
@@ -155,7 +157,11 @@ error text or the log; a 401 is reported as "rejected the credentials", a
 account may not read.
 
 Keep `verify mode = peer` (the default): with `none` the token is sent to
-whichever server answers on that address.
+whichever server answers on that address. `none` is refused outright with a
+kubeconfig that carries `certificate-authority-data`, since the CA data would
+verify the server anyway; remove one of the two. An `http://` API server
+sends the token in cleartext; the agent logs a warning the first time it
+connects to one.
 
 ---
 
@@ -308,7 +314,9 @@ apply Service "k8s-pods-shop" {
 ## Customisation
 
 * **Timeouts.** `timeout` under `[/settings/kubernetes]` (default 30 s) bounds
-  each API request; every command also takes `timeout=` per call.
+  each API request; every command also takes `timeout=` per call. The value
+  must be positive: 0 or less is reported as an error rather than waiting
+  without a deadline.
 * **Large clusters.** Lists are paged 500 objects at a time. `max response
   size` (default 64 MB) caps a single page in memory; prefer `namespace=`,
   `label-selector=` and `kind=` to keep the payload small rather than raising

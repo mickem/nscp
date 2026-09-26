@@ -163,8 +163,11 @@ inline pod_state derive_pod_state(const boost::json::object &pod) {
         }
       }
     }
-    // A pod is Completed only when nothing in it is still running.
-    if (!initializing && reason == "Completed" && has_running) reason = out.pod_ready ? "Running" : "NotReady";
+    // A pod is Completed only when nothing in it is still running. kubectl
+    // applies this inside the same branch whether or not an init container
+    // is still unfinished, so a crashed sidecar on an Initialized pod does
+    // not keep a finished main container's Completed either.
+    if (reason == "Completed" && has_running) reason = out.pod_ready ? "Running" : "NotReady";
   }
 
   // A pod held back by a scheduling gate: kubectl reads the PodScheduled

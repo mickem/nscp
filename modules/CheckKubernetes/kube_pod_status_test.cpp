@@ -275,6 +275,23 @@ TEST(KubePodStatus, ACrashedSidecarOnAnInitialisedPodStillShowsTheMainContainers
   EXPECT_EQ(s.restarts, 0) << "a sidecar that is not running does not count towards RESTARTS";
 }
 
+TEST(KubePodStatus, CompletedBesideARunningContainerIsNotReadyEvenWithACrashedSidecar) {
+  // kubectl rewrites Completed to Running / NotReady inside the main-container
+  // branch whether or not an init container is still unfinished. A crashed
+  // sidecar on an Initialized pod must not leave a finished main container's
+  // Completed as the headline while another container is still running.
+  const auto s = state_of(R"({
+    "spec": {"initContainers": [{"name": "istio-proxy", "restartPolicy": "Always"}], "containers": [{"name": "setup"}, {"name": "app"}]},
+    "status": {"phase": "Running",
+               "conditions": [{"type": "Initialized", "status": "True"}, {"type": "Ready", "status": "False"}],
+               "initContainerStatuses": [{"name": "istio-proxy", "ready": false, "started": false, "restartCount": 4, "state": {"waiting": {"reason": "CrashLoopBackOff"}}}],
+               "containerStatuses": [
+                 {"name": "setup", "ready": false, "started": false, "restartCount": 0, "state": {"terminated": {"exitCode": 0, "reason": "Completed"}}},
+                 {"name": "app", "ready": true, "started": true, "restartCount": 0, "state": {"running": {}}}]}})");
+  EXPECT_EQ(s.status, "NotReady");
+  EXPECT_EQ(s.ready, 1);
+}
+
 TEST(KubePodStatus, ReadyRequiresARunningContainer) {
   // A status that lags after a crash can still say ready:true for a moment;
   // kubectl counts a container as ready only when it is also running.

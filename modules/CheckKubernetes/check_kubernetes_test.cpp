@@ -378,6 +378,19 @@ TEST(CheckKubernetes, TimeoutOptionReachesTheFetcher) {
   EXPECT_EQ(api.last_target.timeout, 7);
 }
 
+TEST(CheckKubernetes, NonPositiveTimeoutIsRefused) {
+  // The HTTP client reads 0 as "no deadline"; a check must not hand it one.
+  for (const std::string &value : {"0", "-5"}) {
+    fake_api api;
+    api.serve("/version", VERSION);
+    PB::Commands::QueryResponseMessage::Response response;
+    EXPECT_EQ(run_cluster(api.factory(), {"timeout=" + value}, response), PB::Common::ResultCode::UNKNOWN) << join_lines(response);
+    EXPECT_NE(join_lines(response).find("Invalid timeout=" + value + ": give the deadline for each API server request in seconds"), std::string::npos)
+        << join_lines(response);
+    EXPECT_TRUE(api.requests.empty()) << "nothing is fetched without a deadline";
+  }
+}
+
 // --- settings resolution --------------------------------------------------------
 
 TEST(KubeSettings, ServerUrlForms) {
@@ -431,6 +444,12 @@ TEST(KubeSettings, ExplicitSettingsWithTokenFile) {
   s.token_file = "/nonexistent/nscp/token";
   EXPECT_FALSE(kube_checks::resolve_cluster(s, c, error));
   EXPECT_NE(error.find("Failed to read token file"), std::string::npos) << error;
+
+  s.token_file.clear();
+  s.timeout = 0;
+  EXPECT_FALSE(kube_checks::resolve_cluster(s, c, error));
+  EXPECT_NE(error.find("Invalid `timeout` under [/settings/kubernetes]: 0"), std::string::npos) << error;
+  s.timeout = 30;
 
   s.token_file.clear();
   s.token.clear();
@@ -521,6 +540,33 @@ TEST(KubeSettings, InsecureSkipTlsVerifyIsHonouredForATokenAndRefusedWithAClient
   s.context = "insecure-ca";
   EXPECT_FALSE(kube_checks::resolve_cluster(s, c, error));
   EXPECT_NE(error.find("insecure-skip-tls-verify cannot be combined with certificate-authority-data"), std::string::npos) << error;
+}
+
+TEST(KubeSettings, VerifyModeNoneIsRefusedWithKubeconfigCaData) {
+  // The settings-level twin of insecure-skip-tls-verify: the CA data is a pin
+  // and the client verifies against a pin whatever the verify mode says, so
+  // `verify mode = none` would be silently ignored.
+  const temp_file cfg(KUBECONFIG);
+  kube_checks::settings s;
+  s.kubeconfig = cfg.path.string();
+  kube_checks::cluster c;
+  std::string error;
+  for (const std::string &mode : {"none", ""}) {
+    s.verify_mode = mode;
+    EXPECT_FALSE(kube_checks::resolve_cluster(s, c, error)) << "verify mode '" << mode << "'";
+    EXPECT_NE(error.find("cannot be combined with certificate-authority-data"), std::string::npos) << error;
+  }
+
+  // Without CA data there is no pin, so `none` does what it says.
+  s.verify_mode = "none";
+  s.context = "insecure";
+  ASSERT_TRUE(kube_checks::resolve_cluster(s, c, error)) << error;
+  EXPECT_EQ(c.verify_mode, "none");
+
+  // And a verifying mode with CA data is the ordinary case.
+  s.verify_mode = "peer";
+  s.context.clear();
+  ASSERT_TRUE(kube_checks::resolve_cluster(s, c, error)) << error;
 }
 
 TEST(KubeSettings, KubeconfigFileReferencesResolveAgainstItsOwnDirectory) {
@@ -633,6 +679,27 @@ TEST(KubeSettings, InClusterHonoursAConfiguredToken) {
   s.token_file = "/nonexistent/nscp/token";
   EXPECT_FALSE(kube_checks::resolve_cluster(s, c, error));
   EXPECT_NE(error.find("Invalid `token file`"), std::string::npos) << error;
+}
+
+TEST(KubeSettings, InClusterKeepsAConfiguredCa) {
+  // The mounted service account CA stands in for the default bundle only: a
+  // `ca` the operator set (one that also trusts a TLS-intercepting mesh) is
+  // the one used, as a configured token is.
+  const scoped_env host("KUBERNETES_SERVICE_HOST", "10.96.0.1");
+  kube_checks::settings s;
+  s.token = "configured-token";
+  s.default_ca = "/etc/ssl/certs";
+  s.ca = "/etc/nscp/mesh-ca.pem";
+  kube_checks::cluster c;
+  std::string error;
+  ASSERT_TRUE(kube_checks::resolve_cluster(s, c, error)) << error;
+  EXPECT_EQ(c.ca, "/etc/nscp/mesh-ca.pem");
+
+  // Left at the default, the mounted CA replaces it when there is one.
+  s.ca = s.default_ca;
+  ASSERT_TRUE(kube_checks::resolve_cluster(s, c, error)) << error;
+  const bool mounted = boost::filesystem::exists(kube_checks::in_cluster_ca_path());
+  EXPECT_EQ(c.ca, mounted ? std::string(kube_checks::in_cluster_ca_path()) : s.default_ca);
 }
 
 TEST(KubeSettings, ExplicitServerWinsOverKubeconfigAndEnvironment) {

@@ -114,6 +114,19 @@ inline std::string describe_transport_error(const cluster &target, const std::ex
   return "Failed to connect to Kubernetes API server at '" + target.address() + "' (" + target.source + "): " + utf8::utf8_from_native(e.what());
 }
 
+// Apply a check's `timeout=` to the resolved cluster. The HTTP client reads 0
+// as "no deadline", so a non-positive value is refused rather than passed on
+// (or quietly replaced): a stalled API server would hold the check forever.
+// False when the response has been failed.
+inline bool set_request_timeout(cluster &target, const int timeout, PB::Commands::QueryResponseMessage::Response *response) {
+  if (timeout <= 0) {
+    fail(response, "Invalid timeout=" + std::to_string(timeout) + ": give the deadline for each API server request in seconds, a positive number");
+    return false;
+  }
+  target.timeout = timeout;
+  return true;
+}
+
 // Build the check's fetcher. The real factory constructs the TLS client,
 // which loads the CA bundle and parses the client certificate up front, so a
 // missing `ca` file or non-PEM identity data throws here rather than on the

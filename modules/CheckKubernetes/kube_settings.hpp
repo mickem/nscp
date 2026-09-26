@@ -13,15 +13,15 @@
 // a check (over REST, anyone holding `queries.execute`) must not be able to
 // point the agent - and its bearer token - at a server of their choosing.
 
-#include <bytes/base64.h>
-
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/json.hpp>
+#include <bytes/base64.hpp>
 #include <cstdlib>
 #include <file_helpers.hpp>
 #include <fstream>
 #include <json/accessors.hpp>
+#include <net/socket/socket_helpers.hpp>
 #include <sstream>
 #include <string>
 
@@ -38,6 +38,7 @@ struct settings {
   std::string kubeconfig;  // path to a kubeconfig in JSON form
   std::string context;     // kubeconfig context to use; empty = current-context
   std::string ca;          // CA bundle (file or hashed directory); the ${ca-path} default is expanded by the settings layer
+  std::string default_ca;  // what ${ca-path} expands to: `ca` still equal to it was not set by the operator
   std::string verify_mode = "peer";
   std::string tls_version = "tlsv1.2+";
   int timeout = 30;          // per-request deadline, seconds
@@ -100,23 +101,6 @@ inline bool read_token_file(const std::string &path, std::string &token, std::st
   }
   token = data;
   return true;
-}
-
-inline std::string base64_decode(const std::string &encoded) {
-  // Kubeconfig data fields are one line, but a hand-edited one may wrap.
-  std::string compact;
-  compact.reserve(encoded.size());
-  for (const char c : encoded) {
-    if (c != '\n' && c != '\r' && c != ' ' && c != '\t') compact.push_back(c);
-  }
-  if (compact.empty()) return "";
-  const std::size_t needed = b64::b64_decode(compact.c_str(), compact.size(), nullptr, 0);
-  if (needed == 0) return "";
-  std::string out(needed, '\0');
-  const std::size_t written = b64::b64_decode(compact.c_str(), compact.size(), &out[0], needed);
-  if (written == 0) return "";
-  out.resize(written);
-  return out;
 }
 
 // A file named by a kubeconfig is relative to the kubeconfig's own
@@ -268,7 +252,7 @@ inline bool resolve_kubeconfig(const std::string &text, const std::string &base_
   }
   const std::string ca_data = get_str(*cl, "certificate-authority-data");
   if (!ca_data.empty()) {
-    out.ca_pem = detail::base64_decode(ca_data);
+    out.ca_pem = bytes::base64_decode(ca_data);
     if (out.ca_pem.empty()) {
       error = "Kubeconfig " + kubeconfig_label + ", cluster '" + cluster_name + "': certificate-authority-data is not valid base64";
       return false;
@@ -305,8 +289,8 @@ inline bool resolve_kubeconfig(const std::string &text, const std::string &base_
   const std::string cert_data = get_str(*user, "client-certificate-data");
   const std::string key_data = get_str(*user, "client-key-data");
   if (!cert_data.empty() || !key_data.empty()) {
-    out.client_cert_pem = detail::base64_decode(cert_data);
-    out.client_key_pem = detail::base64_decode(key_data);
+    out.client_cert_pem = bytes::base64_decode(cert_data);
+    out.client_key_pem = bytes::base64_decode(key_data);
     if (out.client_cert_pem.empty() || out.client_key_pem.empty()) {
       error = "Kubeconfig " + kubeconfig_label + ", user '" + user_name + "': client-certificate-data and client-key-data must both be valid base64";
       return false;
@@ -357,6 +341,13 @@ inline bool resolve_cluster(const settings &s, cluster &out, std::string &error)
   out.verify_mode = s.verify_mode;
   out.tls_version = s.tls_version;
   out.timeout = s.timeout;
+  if (s.timeout <= 0) {
+    // The HTTP client reads 0 as "no deadline", which would let one stalled
+    // API server hold a check (and the thread running it) forever.
+    error =
+        "Invalid `timeout` under [/settings/kubernetes]: " + std::to_string(s.timeout) + " - give the deadline for each request in seconds, a positive number";
+    return false;
+  }
   if (s.max_response_mb < 0) {
     error = "Invalid `max response size` under [/settings/kubernetes]: " + std::to_string(s.max_response_mb) + " - give the cap in megabytes, or 0 for no cap";
     return false;
@@ -393,7 +384,18 @@ inline bool resolve_cluster(const settings &s, cluster &out, std::string &error)
       return false;
     }
     const std::string base_dir = boost::filesystem::path(s.kubeconfig).parent_path().string();
-    return resolve_kubeconfig(text, base_dir, s.context, "'" + s.kubeconfig + "'", out, error);
+    if (!resolve_kubeconfig(text, base_dir, s.context, "'" + s.kubeconfig + "'", out, error)) return false;
+    if (!out.ca_pem.empty() && socket_helpers::client_verify_mode_disables_verification(out.verify_mode)) {
+      // The same trap as insecure-skip-tls-verify in the kubeconfig: the CA
+      // data is handed to the client as a pin, and the client verifies
+      // against a pin whatever the verify mode says, so `none` would be
+      // silently ignored.
+      error = "Kubeconfig '" + s.kubeconfig + "': `verify mode = " + out.verify_mode +
+              "` under [/settings/kubernetes] cannot be combined with certificate-authority-data. Remove one of them: the "
+              "CA data verifies the server, the verify mode says not to";
+      return false;
+    }
+    return true;
   }
 
   const char *host = std::getenv("KUBERNETES_SERVICE_HOST");
@@ -417,8 +419,12 @@ inline bool resolve_cluster(const settings &s, cluster &out, std::string &error)
               ". Mount a service account (automountServiceAccountToken) or set `api server` and `token` under [/settings/kubernetes]";
       return false;
     }
+    // The mounted CA only stands in for the default: a `ca` the operator
+    // set (a bundle that also trusts a TLS-intercepting mesh, say) wins, the
+    // same way a configured token wins over the mounted one.
+    const bool ca_configured = !s.ca.empty() && s.ca != s.default_ca;
     std::string ca_pem;
-    if (detail::read_file(in_cluster_ca_path(), ca_pem) && !ca_pem.empty()) out.ca = in_cluster_ca_path();
+    if (!ca_configured && detail::read_file(in_cluster_ca_path(), ca_pem) && !ca_pem.empty()) out.ca = in_cluster_ca_path();
     return true;
   }
 
