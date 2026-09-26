@@ -10,11 +10,9 @@
  * if the suite ever runs on a Hyper-V host. Client-query output is the raw
  * Nagios message with no status-word prefix.
  */
-import { NscpInstance } from "@fixtures/index";
+import { NscpInstance, describeOnWindows } from "@fixtures/index";
 
 jest.setTimeout(120_000);
-
-const onWindows = process.platform === "win32";
 
 const NO_COUNTERS =
   /Hyper-V counters \(.*\) not available - is the Hyper-V role installed and the hypervisor running on this host\?/;
@@ -26,7 +24,7 @@ const NO_NAMESPACE =
 const HIDDEN_VMS =
   /Hyper-V reports \d+ virtual machine\(s\) on this host but none are visible to this account|cannot tell that there are none/;
 
-(onWindows ? describe : describe.skip)("CheckHyperV commands", () => {
+describeOnWindows("CheckHyperV commands", () => {
   let nscp: NscpInstance;
 
   /** Run a CheckHyperV query and return the combined output. */
