@@ -16,10 +16,10 @@ leaves the host.
   header. The document is uploaded on its own call, `POST /agent/v1/facts`,
   only when that answer differs from the agent's hash. A server that sends no
   such header is never sent the document.
-* An upload is capped by `[/settings/facts] max size`. A document over it, or
-  one the server refuses, is not sent again until it changes, and the log
-  names the largest sets. A server that keeps reporting a miss for a document
-  it acknowledged gets it again at most hourly, after a short backoff.
+* A server that rejects the upload (400, 401, 429, 5xx), or keeps reporting
+  a miss for a document it acknowledged, is retried after 1 minute, doubling
+  up to once an hour. A document the server refuses outright (413, or 404) is
+  not sent again until it changes, and the log names the largest sets.
 
 To keep a set on the host but off the server, there is no separate switch:
 turn the set off, or do not enroll the host. See

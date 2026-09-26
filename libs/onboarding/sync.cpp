@@ -407,9 +407,13 @@ std::string onboarding::build_facts_upload(const std::string &facts_hash, const 
   // Members in sorted order, like the document itself. The scalars go
   // through the serialiser for their escaping; the document is spliced in
   // verbatim (see the header for why).
-  std::string body = "{\"collected_at\":";
-  body += json::serialize(json::value(collected_at));
-  body += ",\"facts\":";
+  std::string body = "{";
+  if (!collected_at.empty()) {
+    body += "\"collected_at\":";
+    body += json::serialize(json::value(collected_at));
+    body += ",";
+  }
+  body += "\"facts\":";
   body += facts_json;
   body += ",\"facts_hash\":";
   body += json::serialize(json::value(facts_hash));
@@ -435,7 +439,9 @@ std::string onboarding::desired_state_path(const std::string &current_hash, cons
 }
 
 boost::optional<std::string> onboarding::parse_facts_hash(const std::string &header_value) {
-  if (header_value == "none") return std::string();
+  // Holding nothing and holding the empty document are one state, and a host
+  // with nothing enabled has nothing to send in answer to either.
+  if (header_value == "none") return sha256_hex("{}");
   if (header_value.size() != 64) return boost::none;
   std::string hash = header_value;
   for (char &c : hash) {

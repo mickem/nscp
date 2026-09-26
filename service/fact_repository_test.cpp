@@ -388,15 +388,15 @@ TEST(FactRepository, TheSnapshotHashesExactlyTheBytesItCarries) {
   EXPECT_EQ(same.get_snapshot().hash, snapshot.hash);
 }
 
-TEST(FactRepository, TheSnapshotNamesTheLargestSetsFirst) {
+TEST(FactRepository, SetSizesNameTheLargestSetFirst) {
   fact_repository repo;
   store(repo, "os", 1, R"({"family":"linux"})");
   store(repo, "hardware", 1, R"({"vendor":"a vendor with a long name","model":"and a long model name too"})");
-  const fact_repository::snapshot snapshot = repo.get_snapshot();
-  ASSERT_EQ(snapshot.set_sizes.size(), 2u);
-  EXPECT_EQ(snapshot.set_sizes[0].first, "hardware");
-  EXPECT_EQ(snapshot.set_sizes[1].first, "os");
-  EXPECT_EQ(snapshot.set_sizes[1].second, std::string(R"({"family":"linux"})").size());
+  const std::vector<std::pair<std::string, std::size_t>> sizes = repo.get_set_sizes();
+  ASSERT_EQ(sizes.size(), 2u);
+  EXPECT_EQ(sizes[0].first, "hardware");
+  EXPECT_EQ(sizes[1].first, "os");
+  EXPECT_EQ(sizes[1].second, std::string(R"({"family":"linux"})").size());
 }
 
 TEST(FactRepository, TheEmptySnapshot) {
@@ -404,7 +404,7 @@ TEST(FactRepository, TheEmptySnapshot) {
   const fact_repository::snapshot snapshot = repo.get_snapshot();
   EXPECT_EQ(snapshot.json, "{}");
   EXPECT_EQ(snapshot.revision, 0u);
-  EXPECT_TRUE(snapshot.set_sizes.empty());
+  EXPECT_TRUE(repo.get_set_sizes().empty());
 }
 
 TEST(FactRepository, ErrorsAreReplacedPerRound) {
