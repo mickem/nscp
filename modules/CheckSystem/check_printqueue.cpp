@@ -28,14 +28,7 @@ constexpr long long kJobStatusError = 0x00000002;
 
 // Optional Win32_Printer properties: absent or NULL on many queues, so read them
 // best-effort rather than letting one missing value cost us the whole row.
-std::string read_string(const wmi_impl::row &r, const char *column) {
-  try {
-    const std::string value = r.get_string(column);
-    return value == "<NULL>" ? std::string() : value;
-  } catch (...) {
-    return {};
-  }
-}
+std::string read_string(const wmi_impl::row &r, const char *column) { return r.get_string_or_empty(column); }
 bool read_bool(const wmi_impl::row &r, const char *column) {
   try {
     return r.get_int(column) != 0;  // WMI VT_BOOL arrives as -1/0 through get_int

@@ -54,6 +54,10 @@ software.installed = true
 [/settings/disk/facts]
 storage.volumes = true
 
+; CheckHyperV, on a Hyper-V host.
+[/settings/hyperv/facts]
+hyperv.vms = true
+
 ; The one set the core produces itself.
 [/settings/facts]
 agent = true
@@ -71,6 +75,7 @@ another bundle's choices.
 | `network.interfaces` | CheckSystem | `network.interfaces`, same section               | low: read every round, no WMI, nothing forked |
 | `software.installed` | CheckSystem | `software.installed`, same section               | the highest here: every round, a walk of the registry's Uninstall hives or one forked package-manager query |
 | `storage.volumes`    | CheckDisk   | `storage.volumes`, `[/settings/disk/facts]`      | low: the enumeration `check_drivesize drive=*` does |
+| `hyperv.vms`         | CheckHyperV | `hyperv.vms`, `[/settings/hyperv/facts]`         | moderate: every round (never at startup), the seven WMI queries `check_hyperv_vms` runs, which grow with every VM and checkpoint and can stall while the Hyper-V management provider starts |
 
 The full description of each switch is in the module's settings reference.
 Turning a set off takes effect on the next settings reload: the module stops
@@ -170,6 +175,44 @@ size`; a set that would not fit is rejected whole, which would leave the host
 with no inventory at all. So the list stops at **2500 records**, and the set
 then carries an error under `errors` saying how many were found.
 
+### `hyperv.vms`
+
+One record per virtual machine on a Hyper-V host, from the same
+`root\virtualization\v2` classes
+[`check_hyperv_vms`](../reference/windows/CheckHyperV.md) reads.
+
+| Field                  | Example                                | Meaning |
+|------------------------|----------------------------------------|---------|
+| `id`                   | `web-01`                               | the VM name: the value `check_hyperv_vms` calls `vm`, with the VM's GUID appended when the host has two VMs of that name |
+| `name`                 | `web-01`                               | the VM name as Hyper-V shows it |
+| `vm_id`                | `1e4f6e3b-0f7c-4a51-9c2e-6f8a0b1c2d3e` | the VM's GUID |
+| `generation`           | `2`                                    | the VM generation |
+| `version`              | `9.0`                                  | the configuration version |
+| `vcpus`                | `4`                                    | the configured virtual processors |
+| `memory_startup_bytes` | `2147483648`                           | the configured startup memory |
+| `dynamic_memory`       | `true`                                 | whether dynamic memory is on |
+| `memory_minimum_bytes` | `536870912`                            | the dynamic memory floor (dynamic memory only) |
+| `memory_maximum_bytes` | `8589934592`                           | the dynamic memory ceiling (dynamic memory only) |
+| `checkpoints`          | `2`                                    | how many checkpoints (snapshots) the VM has |
+| `replication_mode`     | `primary`                              | the Hyper-V Replica role: `none`, `primary`, `replica`, `test_replica`, `extended_replica` |
+
+There is no power state, heartbeat, uptime, load or assigned memory: those
+change from one round to the next and are what `check_hyperv_vms` monitors.
+On a host without the Hyper-V role the set is enabled but cannot be
+collected, and says so under `errors` every round. The same goes for a
+stopped management service (vmms), and for an account that may not see the
+virtual machines: Hyper-V hides them from it without an error, so an empty
+list would claim the host has none. The set reports that under `errors` and
+the last list collected is kept.
+
+The set is not read on the startup round. That round runs on the thread
+that starts the service, and the first query into the virtualization
+namespace starts the Hyper-V management provider when it is not already
+running, which can take long enough to hold up every producer after it. So
+at startup the set says so under `errors`, and it is collected on the first
+scheduled round (every `[/settings/facts] interval`), on a settings reload,
+or right away with `facts refresh` / `POST /api/v2/facts/commands/refresh`.
+
 ### Record ids match check instance names
 
 A list record's `id` is the same string that the corresponding check uses to
@@ -177,7 +220,9 @@ name the instance. `storage.volumes[].id` is the `drive` of `check_drivesize`.
 `network.interfaces[].id` is the `name` of `check_network`.
 `software.installed[].id` is the `name` of `check_installed_software` - with
 the version appended in the one case where the host has two installs sharing a
-name, because an id has to be unique in its list. The ids are stable across
+name, because an id has to be unique in its list. `hyperv.vms[].id` is the `vm`
+of `check_hyperv_vms`, with the GUID appended for the same reason when two VMs
+share a name. The ids are stable across
 rounds, so a consumer can diff two documents record by record.
 
 ---
