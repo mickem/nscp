@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <nscapi/nscapi_facts_helper.hpp>
+#include <nscapi/nscapi_facts_test_helper.hpp>
 #include <string>
 #include <vector>
 
@@ -14,20 +15,10 @@
 
 namespace {
 
-const PB::Facts::FactSet *find_set(const PB::Facts::FactsMessage &message, const std::string &id) {
-  if (message.payload_size() == 0) return nullptr;
-  for (const PB::Facts::FactSet &set : message.payload(0).sets()) {
-    if (set.id() == id) return &set;
-  }
-  return nullptr;
-}
+using nscapi::facts::testing::find_set;
+using nscapi::facts::testing::json_of;
 
-std::string mssql_json(const nscapi::facts::response &out) {
-  const PB::Facts::FactsMessage message = out.to_message();
-  const PB::Facts::FactSet *set = find_set(message, "mssql");
-  if (set == nullptr) return "(no mssql set)";
-  return nscapi::facts::tree::to_json(set->facts());
-}
+std::string mssql_json(const nscapi::facts::response &out) { return json_of(out, "mssql"); }
 
 // "<null>" is a NULL cell, as ODBC hands back a SERVERPROPERTY the server
 // does not know.
@@ -194,7 +185,7 @@ TEST(MssqlFacts, NoDatabasesIsAnEmptyListNotAMissingSet) {
 TEST(MssqlFacts, NothingSelectedPublishesNothing) {
   nscapi::facts::response out;
   mssql_facts::publish(mssql_facts::selection(), mssql_facts::snapshot(), 0, out);
-  EXPECT_EQ(mssql_json(out), "(no mssql set)");
+  EXPECT_EQ(mssql_json(out), "(no such set)");
 }
 
 TEST(MssqlFacts, StampsWhenTheValuesWereRead) {

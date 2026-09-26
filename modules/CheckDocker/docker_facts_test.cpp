@@ -7,6 +7,7 @@
 
 #include <map>
 #include <nscapi/nscapi_facts_helper.hpp>
+#include <nscapi/nscapi_facts_test_helper.hpp>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -18,20 +19,10 @@
 
 namespace {
 
-const PB::Facts::FactSet *find_set(const PB::Facts::FactsMessage &message, const std::string &id) {
-  if (message.payload_size() == 0) return nullptr;
-  for (const PB::Facts::FactSet &set : message.payload(0).sets()) {
-    if (set.id() == id) return &set;
-  }
-  return nullptr;
-}
+using nscapi::facts::testing::find_set;
+using nscapi::facts::testing::json_of;
 
-std::string docker_json(const nscapi::facts::response &out) {
-  const PB::Facts::FactsMessage message = out.to_message();
-  const PB::Facts::FactSet *set = find_set(message, "docker");
-  if (set == nullptr) return "(no docker set)";
-  return nscapi::facts::tree::to_json(set->facts());
-}
+std::string docker_json(const nscapi::facts::response &out) { return json_of(out, "docker"); }
 
 // A daemon serving one canned payload per path; records what was asked for.
 struct fake_daemon {
@@ -121,8 +112,9 @@ TEST(DockerFacts, ContainersAreRecordsByNameWithoutState) {
   // Sorted by id, not in the daemon's newest-first order.
   EXPECT_EQ(containers[0].id, "job");
   EXPECT_EQ(containers[1].id, "web");
-  // The port published on both address families is one entry, and the
-  // exposed-only port is spelled as check_docker spells it.
+  // Spelled as check_docker spells them and sorted: the port published on
+  // both address families is one entry per family, since which addresses a
+  // port is bound on is part of the record.
   EXPECT_EQ(containers[1].ports, (std::vector<std::string>{"0.0.0.0:8080->80/tcp", "443/tcp", ":::8080->80/tcp"}));
   EXPECT_EQ(containers[1].compose_project, "shop");
   EXPECT_EQ(containers[1].compose_service, "web");
@@ -153,12 +145,12 @@ TEST(DockerFacts, ContainerIdIsTheNamesKeywordOfCheckDocker) {
   EXPECT_EQ(containers[0].id, "db,web/db");
 }
 
-TEST(DockerFacts, ImagesAreRecordsByTagOrByIdWhenDangling) {
+TEST(DockerFacts, ImagesAreRecordsByImageIdWithTheirTags) {
   const std::vector<docker_facts::image> images = docker_facts::parse_images(IMAGES);
   ASSERT_EQ(images.size(), 3u);
-  // Sorted by id: the tagged image first (its first tag in sorted order),
-  // then the two dangling images by their ids.
-  EXPECT_EQ(images[0].id, "nginx:1.25");
+  // Keyed on the image id, which does not move when a tag does, and sorted
+  // by it; the tags ride along, sorted, for reading.
+  EXPECT_EQ(images[0].id, "sha256:aaa");
   EXPECT_EQ(images[0].tags, (std::vector<std::string>{"nginx:1.25", "nginx:latest"}));
   EXPECT_EQ(images[1].id, "sha256:bbb");
   EXPECT_TRUE(images[1].tags.empty());
@@ -172,7 +164,7 @@ TEST(DockerFacts, ImagesAreRecordsByTagOrByIdWhenDangling) {
   nscapi::facts::response out;
   docker_facts::publish(what, snap, 0, out);
   EXPECT_EQ(docker_json(out),
-            "{\"images\":[{\"id\":\"nginx:1.25\",\"image_id\":\"sha256:aaa\",\"created\":\"2023-11-03T08:26:40Z\",\"size_bytes\":187000000,"
+            "{\"images\":[{\"id\":\"sha256:aaa\",\"image_id\":\"sha256:aaa\",\"created\":\"2023-11-03T08:26:40Z\",\"size_bytes\":187000000,"
             "\"tags\":[\"nginx:1.25\",\"nginx:latest\"]},"
             "{\"id\":\"sha256:bbb\",\"image_id\":\"sha256:bbb\",\"created\":\"2023-10-22T18:40:00Z\",\"size_bytes\":5000000},"
             "{\"id\":\"sha256:ccc\",\"image_id\":\"sha256:ccc\",\"created\":\"2023-10-11T04:53:20Z\"}]}");
@@ -214,7 +206,7 @@ TEST(DockerFacts, NoContainersIsAnEmptyListNotAMissingSet) {
 TEST(DockerFacts, NothingSelectedPublishesNothing) {
   nscapi::facts::response out;
   docker_facts::publish(docker_facts::selection(), docker_facts::snapshot(), 0, out);
-  EXPECT_EQ(docker_json(out), "(no docker set)");
+  EXPECT_EQ(docker_json(out), "(no such set)");
 }
 
 TEST(DockerFacts, StampsWhenTheValuesWereRead) {

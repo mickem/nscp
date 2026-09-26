@@ -79,7 +79,8 @@ struct container {
   std::string image_id;      // `sha256:…`
   std::time_t created = 0;
   // Published and exposed ports, spelled as check_docker spells them
-  // (`0.0.0.0:8080->80/tcp`, `80/tcp`).
+  // (`0.0.0.0:8080->80/tcp`, `80/tcp`), sorted; a port published on both
+  // address families is one entry per family, as the daemon lists it.
   std::vector<std::string> ports;
   // The compose project and service the container belongs to, from the
   // labels compose stamps on it. Labels in general are not carried: their
@@ -91,10 +92,11 @@ struct container {
 
 // One image, as GET /images/json lists it.
 struct image {
-  // The record id: the first tag in sorted order (`nginx:1.25`), or the
-  // image id when the image has none (a dangling `<none>:<none>` image).
+  // The record id: the daemon's Id (`sha256:…`), which is the one name of
+  // an image that does not move when it is retagged. The tags are carried
+  // beside it, and are what an operator reads the list by.
   std::string id;
-  std::string image_id;           // the daemon's Id: `sha256:…`
+  std::string image_id;           // the same Id, as a field
   std::vector<std::string> tags;  // every tag, sorted; `<none>:<none>` is not a tag
   std::time_t created = 0;
   unsigned long long size_bytes = 0;

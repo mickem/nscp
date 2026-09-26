@@ -12,6 +12,7 @@
 #include "check_mysql.hpp"
 #include "check_mysql_query.hpp"
 #include "mysql_facts.hpp"
+#include "mysql_options.hpp"
 #include "mysql_session.hpp"
 
 namespace sh = nscapi::settings_helper;
@@ -23,29 +24,33 @@ bool CheckMySQL::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
     settings.set_alias(alias, "mysql");
 
+    // Bound to a fresh struct rather than the live one: the checks and the
+    // facts round read the current snapshot on their own threads while this
+    // runs, and it is swapped in whole once notify() has filled it.
+    mysql_client::connection_info fresh;
     // clang-format off
     settings.alias().add_key_to_settings()
-      .add_string("hostname", sh::string_key(&defaults_.host, "localhost"),
+      .add_string("hostname", sh::string_key(&fresh.host, "localhost"),
         "MYSQL SERVER", "Default MySQL/MariaDB server to connect to.")
-      .add_int("port", sh::int_key(&defaults_.port, 3306),
+      .add_int("port", sh::int_key(&fresh.port, 3306),
         "MYSQL PORT", "Default TCP port of the server.")
-      .add_string("socket", sh::string_key(&defaults_.socket, ""),
+      .add_string("socket", sh::string_key(&fresh.socket, ""),
         "MYSQL SOCKET", "Unix socket path (or Windows named pipe) to connect through instead of TCP.")
-      .add_string("user", sh::string_key(&defaults_.user, ""),
+      .add_string("user", sh::string_key(&fresh.user, ""),
         "MYSQL USER", "User used to authenticate.")
-      .add_password("password", sh::string_key(&defaults_.password, ""),
+      .add_password("password", sh::string_key(&fresh.password, ""),
         "MYSQL PASSWORD", "Password used to authenticate.")
-      .add_string("database", sh::string_key(&defaults_.database, ""),
+      .add_string("database", sh::string_key(&fresh.database, ""),
         "DATABASE", "Default database (schema) to connect to.")
-      .add_string("defaults file", sh::string_key(&defaults_.defaults_file, ""),
+      .add_string("defaults file", sh::string_key(&fresh.defaults_file, ""),
         "DEFAULTS FILE", "my.cnf-style file whose [client] section supplies credentials, so passwords can be kept out of nsclient.ini.", true)
-      .add_string("plugin dir", sh::string_key(&defaults_.plugin_dir, ""),
+      .add_string("plugin dir", sh::string_key(&fresh.plugin_dir, ""),
         "PLUGIN DIRECTORY", "Directory the connector loads client auth plugins from (needed for MySQL 8's caching_sha2_password when the connector's default is wrong).", true)
-      .add_bool("tls", sh::bool_key(&defaults_.tls, false),
+      .add_bool("tls", sh::bool_key(&fresh.tls, false),
         "TLS", "Require TLS on the connection.", true)
-      .add_int("timeout", sh::int_key(&defaults_.connect_timeout, 10),
+      .add_int("timeout", sh::int_key(&fresh.connect_timeout, 10),
         "CONNECTION TIMEOUT", "Connection timeout in seconds.", true)
-      .add_int("query timeout", sh::int_key(&defaults_.query_timeout, 30),
+      .add_int("query timeout", sh::int_key(&fresh.query_timeout, 30),
         "QUERY TIMEOUT", "Query (read/write) timeout in seconds.", true)
       ;
     // clang-format on
@@ -71,6 +76,7 @@ bool CheckMySQL::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
     settings.register_all();
     settings.notify();
+    std::atomic_store(&defaults_, std::make_shared<const mysql_client::connection_info>(fresh));
 
     // Which parts of the set fetchFacts builds is configuration, so it is
     // re-read on every load, a reload included: the core drops a set a
@@ -89,43 +95,41 @@ bool CheckMySQL::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 bool CheckMySQL::unloadModule() { return true; }
 
-void CheckMySQL::fetchFacts(const nscapi::facts::request &, nscapi::facts::response &response) {
+void CheckMySQL::fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response) {
   mysql_facts::selection what;
   what.server = facts_server_.load();
   what.databases = facts_databases_.load();
   if (!what.any()) return;
 
-  // Every round, whatever its reason: databases are created and dropped and
-  // servers upgraded under a running agent, and a round costs one connection
-  // and at most two queries. The connection is the configured one - a facts
-  // round has no request to take a host= or a user= from.
-  const mysql_client::connection_info info = defaults_;
-  mysql_client::query_runner run;
-  try {
-    run = mysql_session::make_session_factory()(info);
-  } catch (const mysql_client::mysql_exception &e) {
-    // Named against the set rather than failing the round: the core keeps the
-    // databases it already holds and reports why they are stale. A server
-    // that is down for a minute must not blank the inventory.
-    response.error(mysql_facts::set_mysql, "Failed to connect to MySQL server '" + info.display_target() + "': " + e.reason());
-    return;
-  } catch (const std::exception &e) {
-    response.error(mysql_facts::set_mysql, "Failed to connect to MySQL server '" + info.display_target() + "': " + utf8::utf8_from_native(e.what()));
+  // The startup round runs on the boot thread, and every producer after this
+  // one in the round waits for it. A server that is down, or a host that
+  // drops the packets, holds the service start for the full connect timeout
+  // - so, as CheckHyperV does, the set is claimed at startup and collected
+  // on the first scheduled, reload or manual round, which run on their own
+  // threads.
+  if (request.reason() == "startup") {
+    response.error(mysql_facts::set_mysql, "Not collected during startup: the MySQL server is read on the first scheduled round, or now with a manual refresh");
     return;
   }
-  try {
-    mysql_facts::publish(what, mysql_facts::gather(what, run), std::time(nullptr), response);
-  } catch (const mysql_client::mysql_exception &e) {
-    response.error(mysql_facts::set_mysql, "Query failed on MySQL server '" + info.display_target() + "': " + e.reason());
-  } catch (const std::exception &e) {
-    response.error(mysql_facts::set_mysql, "Failed to collect from MySQL server '" + info.display_target() + "': " + utf8::utf8_from_native(e.what()));
-  }
+
+  // Every other round, whatever its reason: databases are created and
+  // dropped and servers upgraded under a running agent, and a round costs
+  // one connection and at most two queries. The connection is the configured
+  // one - a facts round has no request to take a host= or a user= from - and
+  // a failure is worded as the checks word theirs, named against the set
+  // rather than failing the round: the core keeps the databases it already
+  // holds and reports why they are stale, so a server that is down for a
+  // minute never blanks the inventory.
+  const std::shared_ptr<const mysql_client::connection_info> info = settings_snapshot();
+  mysql_options::run_with_runner(
+      mysql_session::make_session_factory(), *info, [&response](const std::string &message) { response.error(mysql_facts::set_mysql, message); },
+      [&](const mysql_client::query_runner &run) { mysql_facts::publish(what, mysql_facts::gather(what, run), std::time(nullptr), response); });
 }
 
 void CheckMySQL::check_mysql(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_mysql_command::check_with(defaults_, request, response, mysql_session::make_session_factory());
+  check_mysql_command::check_with(*settings_snapshot(), request, response, mysql_session::make_session_factory());
 }
 
 void CheckMySQL::check_mysql_query(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_mysql_query_command::check_with(defaults_, request, response, mysql_session::make_session_factory());
+  check_mysql_query_command::check_with(*settings_snapshot(), request, response, mysql_session::make_session_factory());
 }

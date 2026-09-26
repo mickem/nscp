@@ -91,12 +91,12 @@ another bundle's choices.
 | `software.installed` | CheckSystem | `software.installed`, same section               | the highest here: every round, a walk of the registry's Uninstall hives or one forked package-manager query |
 | `storage.volumes`    | CheckDisk   | `storage.volumes`, `[/settings/disk/facts]`      | low: the enumeration `check_drivesize drive=*` does |
 | `hyperv.vms`         | CheckHyperV | `hyperv.vms`, `[/settings/hyperv/facts]`         | moderate: every round (never at startup), the seven WMI queries `check_hyperv_vms` runs, which grow with every VM and checkpoint and can stall while the Hyper-V management provider starts |
-| `docker`             | CheckDocker | `docker`, `[/settings/docker/facts]`             | low: one `GET /info` on the daemon socket |
-| `docker.containers`  | CheckDocker | `docker.containers`, same section                | low: the listing `check_docker all=true` does |
-| `docker.images`      | CheckDocker | `docker.images`, same section                    | low: one `GET /images/json` |
-| `mysql`              | CheckMySQL  | `mysql`, `[/settings/mysql/facts]`               | low: one connection and one query per round |
+| `docker`             | CheckDocker | `docker`, `[/settings/docker/facts]`             | low: one `GET /info` on the daemon socket, every round but startup |
+| `docker.containers`  | CheckDocker | `docker.containers`, same section                | low: the listing `check_docker all=true` does, every round but startup |
+| `docker.images`      | CheckDocker | `docker.images`, same section                    | low: one `GET /images/json`, every round but startup |
+| `mysql`              | CheckMySQL  | `mysql`, `[/settings/mysql/facts]`               | low: one connection and one query, every round but startup |
 | `mysql.databases`    | CheckMySQL  | `mysql.databases`, same section                  | low: one query of `information_schema.SCHEMATA`, on the same connection |
-| `mssql`              | CheckMSSQL  | `mssql`, `[/settings/mssql/facts]`               | low: one connection and one `SERVERPROPERTY` query per round |
+| `mssql`              | CheckMSSQL  | `mssql`, `[/settings/mssql/facts]`               | low: one connection and one `SERVERPROPERTY` query, every round but startup |
 | `mssql.databases`    | CheckMSSQL  | `mssql.databases`, same section                  | low: one query of `sys.databases`, on the same connection |
 
 The full description of each switch is in the module's settings reference.
@@ -272,7 +272,7 @@ included, because an inventory lists what exists rather than what runs.
 | `image`           | `nginx:1.25`                               | the image it was created from |
 | `image_id`        | `sha256:…`                                 | |
 | `created`         | `2026-09-19T14:03:11Z`                     | |
-| `ports`           | `["0.0.0.0:8080->80/tcp", "443/tcp"]`      | published and exposed ports, spelled as `check_docker` spells `ports`; sorted, one entry per port however many addresses it is bound on |
+| `ports`           | `["0.0.0.0:8080->80/tcp", ":::8080->80/tcp", "443/tcp"]` | published and exposed ports, spelled as `check_docker` spells `ports` and sorted; a port published on both address families is one entry per family, since which addresses it is bound on is part of the record |
 | `compose_project` | `shop`                                     | the compose project the container belongs to, where compose started it |
 | `compose_service` | `web`                                      | the compose service, likewise |
 
@@ -286,8 +286,8 @@ they say what a container *is*.
 
 | Field        | Example                            | Meaning |
 |--------------|------------------------------------|---------|
-| `id`         | `nginx:1.25`                       | the first tag in sorted order, or the image id for an untagged (dangling) image |
-| `image_id`   | `sha256:…`                         | |
+| `id`         | `sha256:…`                         | the image id: the one name of an image that does not move when it is retagged, so a consumer diffing by id sees a pull as a pull and not as a removal plus an addition |
+| `image_id`   | `sha256:…`                         | the same, as a field |
 | `tags`       | `["nginx:1.25", "nginx:latest"]`   | every tag; a dangling image has none, never a `<none>:<none>` |
 | `created`    | `2026-09-01T10:00:00Z`             | when the image was built |
 | `size_bytes` | `187000000`                        | |
@@ -297,6 +297,13 @@ removed and images pulled while the agent runs. Everything is fetched before
 anything is stored: a round that read the daemon but could not list the
 containers reports an error against `docker` and keeps the set the core has,
 rather than replacing it with one that is missing a list.
+
+The set is not read on the startup round. That round runs on the thread that
+starts the service, and a daemon that is hung, or a socket that is there but
+not answering, would hold the service start for the full `timeout`. So at
+startup the set says so under `errors`, and it is collected on the first
+scheduled round (every `[/settings/facts] interval`), on a settings reload,
+or right away with `facts refresh` / `POST /api/v2/facts/commands/refresh`.
 
 ### `mysql` and `mysql.databases`
 
@@ -327,7 +334,7 @@ nothing from `[/settings/mysql]` appears in it. There is no uptime and no
 connection count. They change every round, and `check_mysql` reports them.
 
 `mysql.databases`: one record per database (schema) the configured user may
-see, in `information_schema.SCHEMATA` order. The system schemas
+see, sorted by name. The system schemas
 (`information_schema`, `mysql`, `performance_schema`, `sys`) are listed like
 any other: they are databases the server has.
 
@@ -339,6 +346,12 @@ any other: they are databases the server has.
 
 There is no size. Summing a schema's tables is a query that changes its
 answer every round, and it belongs to `check_mysql_query`.
+
+Like `docker`, the set is not read on the startup round: a server that is
+down, or a host that drops the packets, would hold the service start for the
+full connect `timeout`. At startup the set says so under `errors`, and it is
+collected on the first scheduled round, on a settings reload, or right away
+with a manual refresh.
 
 ### `mssql` and `mssql.databases`
 
@@ -383,6 +396,11 @@ included, by the name `check_mssql_databases` uses.
 
 There is no state and no data or log size. Both move every round and belong
 to `check_mssql_databases`.
+
+Like `docker` and `mysql`, the set is not read on the startup round: a stopped
+instance would hold the service start for the full login `timeout`. At
+startup the set says so under `errors`, and it is collected on the first
+scheduled round, on a settings reload, or right away with a manual refresh.
 
 ### Record ids match check instance names
 

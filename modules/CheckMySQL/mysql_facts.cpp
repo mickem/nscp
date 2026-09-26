@@ -27,12 +27,10 @@ const char *const DATABASES_SQL =
 
 namespace {
 // A NULL cell is "not known", the same as an empty string; the record
-// omits it either way.
+// omits it either way. (get_int already reads a NULL as 0, which is the
+// same "not known" for a number.)
 std::string text_or_empty(const mysql_client::result &result, const std::size_t row, const std::string &column) {
   return result.is_null(row, column) ? "" : result.get_string(row, column);
-}
-long long number_or_zero(const mysql_client::result &result, const std::size_t row, const std::string &column) {
-  return result.is_null(row, column) ? 0 : result.get_int(row, column);
 }
 }  // namespace
 
@@ -43,8 +41,8 @@ server parse_server(const mysql_client::result &result) {
   s.version_comment = text_or_empty(result, 0, "version_comment");
   s.flavor = mysql_client::derive_flavor(s.version, s.version_comment);
   s.hostname = text_or_empty(result, 0, "hostname");
-  s.port = number_or_zero(result, 0, "port");
-  s.server_id = number_or_zero(result, 0, "server_id");
+  s.port = result.get_int(0, "port");
+  s.server_id = result.get_int(0, "server_id");
   s.character_set = text_or_empty(result, 0, "character_set");
   s.collation = text_or_empty(result, 0, "collation");
   s.os = text_or_empty(result, 0, "os");

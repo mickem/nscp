@@ -292,22 +292,23 @@ maybeDescribe("CheckDocker facts", () => {
     for (const container of containers) expect(reported).toContain(container.id);
   });
 
-  it("lists the images by tag", async () => {
+  it("lists the images by image id, with their tags", async () => {
     const document = await refresh();
     const images: Record<string, any>[] = document.facts.docker.images;
     expect(Array.isArray(images)).toBe(true);
     const ids = images.map((i) => i.id);
     expect(new Set(ids).size).toEqual(ids.length);
-    // The probe's image is here, whichever of its tags sorted first.
+    // The probe's image is here, found by its tag.
     const alpine = images.find((i) => (i.tags ?? []).includes("alpine:3"));
     expect(alpine).toBeDefined();
-    expect(alpine!.image_id).toMatch(/^sha256:/);
+    expect(alpine!.id).toMatch(/^sha256:/);
     expect(alpine!.size_bytes).toBeGreaterThan(0);
     for (const image of images) {
-      // A dangling image is named by its id and carries no tags at all,
-      // never a "<none>:<none>" one.
-      if (image.tags === undefined) expect(image.id).toEqual(image.image_id);
-      else expect(image.tags).not.toContain("<none>:<none>");
+      // Keyed on the image id, which does not move when a tag does; a
+      // dangling image carries no tags at all, never a "<none>:<none>" one.
+      expect(image.id).toEqual(image.image_id);
+      if (image.tags !== undefined)
+        expect(image.tags).not.toContain("<none>:<none>");
     }
   });
 });

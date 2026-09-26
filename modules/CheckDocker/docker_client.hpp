@@ -14,6 +14,7 @@
 #include <str/format.hpp>
 #include <str/xtos.hpp>
 #include <string>
+#include <vector>
 
 #include "check_docker.hpp"
 
@@ -79,6 +80,52 @@ inline const boost::json::object *get_obj(const boost::json::object &o, const ch
 
 // Docker reports names as "/name"; the slash is an API artifact.
 inline std::string strip_slash(const std::string &name) { return !name.empty() && name[0] == '/' ? name.substr(1) : name; }
+
+// A container's names as one string: every entry of `Names` without its
+// leading slash, comma separated. This is the `names` keyword of check_docker
+// and the record id of the `docker.containers` fact set, and the two have to
+// agree byte for byte - that equality is what lets a failing check find its
+// record - so both read it from here.
+inline std::string container_names(const boost::json::object &o) {
+  std::string names;
+  if (const boost::json::value *value = o.if_contains("Names")) {
+    if (value->is_array()) {
+      for (const boost::json::value &name : value->as_array()) {
+        if (name.is_string()) str::format::append_list(names, strip_slash(name.as_string().c_str()), ",");
+      }
+    }
+  }
+  return names;
+}
+
+// A container's `Ports`, one entry each, spelled the way `docker ps` does:
+// "0.0.0.0:8080->80/tcp" for a published port, "80/tcp" for an exposed one.
+// In the daemon's order, which lists a port once per address it is bound on
+// (0.0.0.0 and :: for a dual-stack publish). check_docker joins these into
+// its `ports` keyword; the `docker.containers` fact set carries them as a
+// list, and the spelling is shared so the two agree.
+inline std::vector<std::string> container_ports(const boost::json::object &o) {
+  std::vector<std::string> ports;
+  if (const boost::json::value *value = o.if_contains("Ports")) {
+    if (value->is_array()) {
+      for (const boost::json::value &p : value->as_array()) {
+        if (!p.is_object()) continue;
+        const boost::json::object &port = p.as_object();
+        const long long private_port = get_num(port, "PrivatePort");
+        const long long public_port = get_num(port, "PublicPort");
+        const std::string type = get_str(port, "Type");
+        std::string entry;
+        if (public_port > 0) {
+          const std::string ip = get_str(port, "IP");
+          entry = (ip.empty() ? "" : ip + ":") + std::to_string(public_port) + "->";
+        }
+        entry += std::to_string(private_port) + (type.empty() ? "" : "/" + type);
+        ports.push_back(entry);
+      }
+    }
+  }
+  return ports;
+}
 
 // set_response_bad appends, so a failure raised after post_process() has
 // already written the result line would produce a garbled two-line UNKNOWN.

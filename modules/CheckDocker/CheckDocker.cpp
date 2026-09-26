@@ -53,11 +53,15 @@ bool CheckDocker::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
     settings.set_alias(alias, "docker");
 
+    // Bound to a fresh struct rather than the live one: the checks and the
+    // facts round read the current snapshot on their own threads while this
+    // runs, and it is swapped in whole once notify() has filled it.
+    docker_checks::settings fresh;
     // clang-format off
     settings.alias().add_key_to_settings()
-      .add_string("endpoint", sh::string_key(&defaults_.endpoint, docker_checks::default_docker_endpoint()),
+      .add_string("endpoint", sh::string_key(&fresh.endpoint, docker_checks::default_docker_endpoint()),
         "DOCKER ENDPOINT", "The local docker daemon socket: a named pipe (\\\\.\\pipe\\docker_engine) on Windows, a unix socket (/var/run/docker.sock) elsewhere.")
-      .add_int("timeout", sh::int_key(&defaults_.timeout, 10),
+      .add_int("timeout", sh::int_key(&fresh.timeout, 10),
         "TIMEOUT", "Timeout for talking to the daemon, in seconds.", true)
       ;
     // clang-format on
@@ -87,6 +91,7 @@ bool CheckDocker::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
     settings.register_all();
     settings.notify();
+    std::atomic_store(&defaults_, std::make_shared<const docker_checks::settings>(fresh));
 
     // Which parts of the set fetchFacts builds is configuration, so it is
     // re-read on every load, a reload included: the core drops a set a
@@ -106,26 +111,39 @@ bool CheckDocker::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 bool CheckDocker::unloadModule() { return true; }
 
-void CheckDocker::fetchFacts(const nscapi::facts::request &, nscapi::facts::response &response) {
+void CheckDocker::fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response) {
   docker_facts::selection what;
   what.daemon = facts_daemon_.load();
   what.containers = facts_containers_.load();
   what.images = facts_images_.load();
   if (!what.any()) return;
 
-  // Every round, whatever its reason: containers are started and removed and
-  // images pulled under a running agent, and each part costs one request to
-  // the daemon. The endpoint is the configured one - a facts round has no
-  // request to take a `host=` from - and it is held to the same rule as the
-  // checks hold theirs to (see is_local_docker_endpoint).
-  const std::string endpoint = defaults_.endpoint.empty() ? docker_checks::default_docker_endpoint() : defaults_.endpoint;
+  // The startup round runs on the boot thread, and every producer after this
+  // one in the round waits for it. A daemon that is hung, or a socket that
+  // is there but not answering, holds the service start for the full
+  // timeout - so, as CheckHyperV does, the set is claimed at startup and
+  // collected on the first scheduled, reload or manual round, which run on
+  // their own threads.
+  if (request.reason() == "startup") {
+    response.error(docker_facts::set_docker,
+                   "Not collected during startup: the docker daemon is read on the first scheduled round, or now with a manual refresh");
+    return;
+  }
+
+  // Every other round, whatever its reason: containers are started and
+  // removed and images pulled under a running agent, and each part costs one
+  // request to the daemon. The endpoint is the configured one - a facts
+  // round has no request to take a `host=` from - and it is held to the same
+  // rule as the checks hold theirs to (see is_local_docker_endpoint).
+  const std::shared_ptr<const docker_checks::settings> defaults = settings_snapshot();
+  const std::string endpoint = defaults->endpoint.empty() ? docker_checks::default_docker_endpoint() : defaults->endpoint;
   std::string endpoint_error;
   if (!docker_checks::is_local_docker_endpoint(endpoint, endpoint_error)) {
     response.error(docker_facts::set_docker, endpoint_error);
     return;
   }
   try {
-    const docker_facts::snapshot snap = docker_facts::gather(what, make_daemon_fetcher(endpoint, defaults_.timeout), endpoint);
+    const docker_facts::snapshot snap = docker_facts::gather(what, make_daemon_fetcher(endpoint, defaults->timeout), endpoint);
     docker_facts::publish(what, snap, std::time(nullptr), response);
   } catch (const std::exception &e) {
     // Named against the set rather than failing the round: the core keeps the
@@ -136,21 +154,21 @@ void CheckDocker::fetchFacts(const nscapi::facts::request &, nscapi::facts::resp
 }
 
 void CheckDocker::check_docker(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  docker_checks::check_containers(defaults_, request, response, &make_daemon_fetcher);
+  docker_checks::check_containers(*settings_snapshot(), request, response, &make_daemon_fetcher);
 }
 
 void CheckDocker::check_docker_info(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  docker_checks::check_info(defaults_, request, response, &make_daemon_fetcher);
+  docker_checks::check_info(*settings_snapshot(), request, response, &make_daemon_fetcher);
 }
 
 void CheckDocker::check_docker_stats(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  docker_checks::check_stats(defaults_, request, response, &make_daemon_fetcher);
+  docker_checks::check_stats(*settings_snapshot(), request, response, &make_daemon_fetcher);
 }
 
 void CheckDocker::check_docker_restarts(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  docker_checks::check_restarts(defaults_, request, response, &make_daemon_fetcher);
+  docker_checks::check_restarts(*settings_snapshot(), request, response, &make_daemon_fetcher);
 }
 
 void CheckDocker::check_docker_df(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  docker_checks::check_df(defaults_, request, response, &make_daemon_fetcher);
+  docker_checks::check_df(*settings_snapshot(), request, response, &make_daemon_fetcher);
 }

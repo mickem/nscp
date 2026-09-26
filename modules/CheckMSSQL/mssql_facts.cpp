@@ -39,12 +39,10 @@ const char *const DATABASES_SQL =
 
 namespace {
 // A NULL cell is "not known", the same as an empty string; the record omits
-// it either way.
+// it either way. (get_int already reads a NULL as 0, which is the same "not
+// known" for a number.)
 std::string text_or_empty(const mssql_odbc::result &result, const std::size_t row, const std::string &column) {
   return result.is_null(row, column) ? "" : result.get_string(row, column);
-}
-long long number_or_zero(const mssql_odbc::result &result, const std::size_t row, const std::string &column) {
-  return result.is_null(row, column) ? 0 : result.get_int(row, column);
 }
 // A property the server did not answer (NULL) leaves the flag unknown,
 // which is omitted; anything else is a yes or a no.
@@ -97,7 +95,7 @@ server parse_server(const mssql_odbc::result &result) {
   s.product_level = text_or_empty(result, 0, "product_level");
   s.product_update_level = text_or_empty(result, 0, "product_update_level");
   s.edition = text_or_empty(result, 0, "edition");
-  s.engine_edition = engine_edition_name(number_or_zero(result, 0, "engine_edition"));
+  s.engine_edition = engine_edition_name(result.get_int(0, "engine_edition"));
   s.collation = text_or_empty(result, 0, "collation");
   if (!result.is_null(0, "is_integrated_security_only")) {
     s.authentication = result.get_int(0, "is_integrated_security_only") != 0 ? "windows" : "mixed";
@@ -115,10 +113,10 @@ std::vector<database> parse_databases(const mssql_odbc::result &result) {
     if (d.id.empty()) continue;  // not a database the server can name; nothing to record it by
     d.recovery_model = text_or_empty(result, i, "recovery_model");
     d.collation = text_or_empty(result, i, "collation");
-    d.compatibility_level = number_or_zero(result, i, "compatibility_level");
+    d.compatibility_level = result.get_int(i, "compatibility_level");
     const std::string created = text_or_empty(result, i, "create_date");
     if (looks_like_date(created)) d.create_date = created;
-    d.read_only = number_or_zero(result, i, "is_read_only") != 0;
+    d.read_only = result.get_int(i, "is_read_only") != 0;
     databases.push_back(d);
   }
   // Sorted here as well as in the query, so the document does not depend on

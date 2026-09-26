@@ -101,40 +101,20 @@ std::vector<container> parse_containers(const std::string &body) {
     c.image_id = docker_checks::get_str(o, "ImageID");
     const long long created = docker_checks::get_num(o, "Created");
     if (created > 0) c.created = static_cast<std::time_t>(created);
-    // Joined the way check_docker joins them, so the id is the check's
-    // `names` value byte for byte.
-    if (const json::value *names = o.if_contains("Names")) {
-      if (names->is_array()) {
-        for (const json::value &name : names->as_array()) {
-          if (name.is_string()) str::format::append_list(c.id, docker_checks::strip_slash(name.as_string().c_str()), ",");
-        }
-      }
-    }
+    // The same helper check_docker reads its `names` keyword from, so the id
+    // is the check's value byte for byte.
+    c.id = docker_checks::container_names(o);
     // A container the daemon lists without a name cannot be a record (a
     // record without an id is rejected); the daemon always names one, so
     // falling back to the Id is belt and braces rather than a real case.
     if (c.id.empty()) c.id = c.container_id;
-    if (const json::value *ports = o.if_contains("Ports")) {
-      if (ports->is_array()) {
-        for (const json::value &p : ports->as_array()) {
-          if (!p.is_object()) continue;
-          const json::object &port = p.as_object();
-          const long long private_port = docker_checks::get_num(port, "PrivatePort");
-          const long long public_port = docker_checks::get_num(port, "PublicPort");
-          const std::string type = docker_checks::get_str(port, "Type");
-          std::string entry;
-          if (public_port > 0) {
-            const std::string ip = docker_checks::get_str(port, "IP");
-            entry = (ip.empty() ? "" : ip + ":") + std::to_string(public_port) + "->";
-          }
-          entry += std::to_string(private_port) + (type.empty() ? "" : "/" + type);
-          c.ports.push_back(entry);
-        }
-      }
-    }
-    // The daemon lists a port once per bound address (0.0.0.0 and ::), and
-    // its order is its own; sorted and unique so the record does not change
-    // when only the listing order did.
+    // Spelled as check_docker spells its `ports` keyword, and kept as the
+    // daemon lists them: a port published on both address families is one
+    // entry per family (0.0.0.0:8080->80/tcp and :::8080->80/tcp), because
+    // which addresses a port is bound on is part of what the record says.
+    // Sorted, with exact duplicates dropped, so the record does not change
+    // when only the daemon's listing order did.
+    c.ports = docker_checks::container_ports(o);
     std::sort(c.ports.begin(), c.ports.end());
     c.ports.erase(std::unique(c.ports.begin(), c.ports.end()), c.ports.end());
     c.compose_project = label_of(o, LABEL_COMPOSE_PROJECT);
@@ -174,9 +154,11 @@ std::vector<image> parse_images(const std::string &body) {
     }
     std::sort(i.tags.begin(), i.tags.end());
     i.tags.erase(std::unique(i.tags.begin(), i.tags.end()), i.tags.end());
-    // A tag is what an operator reads an image list by, and a tag names one
-    // image, so it is unique in the list; an untagged image only has its id.
-    i.id = i.tags.empty() ? i.image_id : i.tags.front();
+    // The image id is the identity: a tag moves (pulling a new `latest`
+    // retags the old image, `docker tag` adds one), and a record keyed on it
+    // would read as a removal and an addition to a consumer diffing by id.
+    // The tags are what an operator reads the list by, and they are carried.
+    i.id = i.image_id;
     images.push_back(i);
   }
   std::sort(images.begin(), images.end(), [](const image &a, const image &b) { return a.id < b.id; });

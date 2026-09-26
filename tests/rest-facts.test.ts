@@ -590,6 +590,24 @@ describe("REST facts from service producers", () => {
   });
 
   it("claims the docker set and either fills it or says why not", async () => {
+    // The set is claimed at startup and only collected from the first
+    // scheduled, reload or manual round, so the boot thread never waits on
+    // the daemon socket: until then the document says so under `errors`. A
+    // scheduled round may already have run by now; then the set is either
+    // collected or carries that round's error, which the refresh below
+    // checks in full.
+    const startup = await request(REST_URL)
+      .get("/api/v2/facts")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true)
+      .expect(200);
+    expect(startup.body.enabled).toContain("docker");
+    if (startup.body.errors.docker !== undefined) {
+      expect(startup.body.errors.docker).toMatch(/Not collected during startup|docker daemon at '/);
+    } else {
+      expect(startup.body.facts.docker).toBeDefined();
+    }
+
     const response = await request(REST_URL)
       .post("/api/v2/facts/commands/refresh")
       .set("Authorization", `Bearer ${key}`)
@@ -608,8 +626,10 @@ describe("REST facts from service producers", () => {
       expect(Array.isArray(docker.images)).toBe(true);
     } else {
       // No daemon: the reason is reported against the set, naming the
-      // endpoint, and nothing pretends to be an empty inventory.
+      // endpoint, and nothing pretends to be an empty inventory. The manual
+      // round did try, so it is no longer the startup claim.
       expect(response.body.errors.docker).toMatch(/docker daemon at '/);
+      expect(response.body.errors.docker).not.toMatch(/Not collected during startup/);
     }
   });
 
@@ -623,7 +643,9 @@ describe("REST facts from service producers", () => {
     expect(response.body.enabled).toContain("mysql");
     expect(response.body.facts.mysql).toBeUndefined();
     // The target is named, so the operator knows which server is meant; the
-    // user and password never are.
+    // user and password never are. The manual round did try to connect, so
+    // this is the connect failure and no longer the startup claim.
+    expect(response.body.errors.mysql).not.toMatch(/Not collected during startup/);
     expect(response.body.errors.mysql).toMatch(
       /^Failed to connect to MySQL server '127\.0\.0\.1:1': /,
     );
@@ -639,7 +661,9 @@ describe("REST facts from service producers", () => {
     expect(response.body.enabled).toContain("mssql");
     expect(response.body.facts.mssql).toBeUndefined();
     // The same contract check_mssql reports: the target is named, the driver
-    // error is passed through, and the login never is.
+    // error is passed through, and the login never is. The manual round did
+    // try to connect, so this is no longer the startup claim.
+    expect(response.body.errors.mssql).not.toMatch(/Not collected during startup/);
     expect(response.body.errors.mssql).toMatch(/^Failed to connect to SQL Server 'localhost': /);
     expect(response.body.errors.mssql).toMatch(/IM002/);
   });

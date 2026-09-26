@@ -4,37 +4,14 @@
 #include <gtest/gtest.h>
 
 #include <nscapi/nscapi_facts_helper.hpp>
+#include <nscapi/nscapi_facts_test_helper.hpp>
 
 using namespace nscapi::facts;
 
 namespace {
-// The set the producer built, as JSON. The builder makes a protobuf tree, but
-// what a test wants to say is "this set looks like this", and the one-line
-// JSON of it says that better than a walk over the message does. Field order
-// is the producer's own - the core is what sorts a set when it stores it.
-std::string json_of(const response &out, const std::string &id) {
-  const PB::Facts::FactsMessage message = out.to_message();
-  if (message.payload_size() == 0) return "(no payload)";
-  for (const PB::Facts::FactSet &set : message.payload(0).sets()) {
-    if (set.id() == id) return set.has_facts() ? tree::to_json(set.facts()) : "(no facts)";
-  }
-  return "(no such set)";
-}
-
-const PB::Facts::FactSet *find_set(const PB::Facts::FactsMessage &message, const std::string &id) {
-  if (message.payload_size() == 0) return nullptr;
-  for (const PB::Facts::FactSet &set : message.payload(0).sets()) {
-    if (set.id() == id) return &set;
-  }
-  return nullptr;
-}
-
-// What the producer said went wrong with one set, or "" if it said nothing.
-std::string error_of(const response &out, const std::string &id) {
-  const PB::Facts::FactsMessage message = out.to_message();
-  const PB::Facts::FactSet *set = find_set(message, id);
-  return set == nullptr ? "" : set->error();
-}
+using nscapi::facts::testing::error_of;
+using nscapi::facts::testing::find_set;
+using nscapi::facts::testing::json_of;
 
 std::string serialized_request(const std::string &reason) {
   PB::Facts::FactsQueryMessage message;

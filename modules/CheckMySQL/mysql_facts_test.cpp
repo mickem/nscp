@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <nscapi/nscapi_facts_helper.hpp>
+#include <nscapi/nscapi_facts_test_helper.hpp>
 #include <string>
 #include <vector>
 
@@ -14,20 +15,10 @@
 
 namespace {
 
-const PB::Facts::FactSet *find_set(const PB::Facts::FactsMessage &message, const std::string &id) {
-  if (message.payload_size() == 0) return nullptr;
-  for (const PB::Facts::FactSet &set : message.payload(0).sets()) {
-    if (set.id() == id) return &set;
-  }
-  return nullptr;
-}
+using nscapi::facts::testing::find_set;
+using nscapi::facts::testing::json_of;
 
-std::string mysql_json(const nscapi::facts::response &out) {
-  const PB::Facts::FactsMessage message = out.to_message();
-  const PB::Facts::FactSet *set = find_set(message, "mysql");
-  if (set == nullptr) return "(no mysql set)";
-  return nscapi::facts::tree::to_json(set->facts());
-}
+std::string mysql_json(const nscapi::facts::response &out) { return json_of(out, "mysql"); }
 
 mysql_client::result make_result(const std::vector<std::string> &columns, const std::vector<std::vector<std::string>> &rows) {
   mysql_client::result res;
@@ -161,7 +152,7 @@ TEST(MysqlFacts, NoDatabasesIsAnEmptyListNotAMissingSet) {
 TEST(MysqlFacts, NothingSelectedPublishesNothing) {
   nscapi::facts::response out;
   mysql_facts::publish(mysql_facts::selection(), mysql_facts::snapshot(), 0, out);
-  EXPECT_EQ(mysql_json(out), "(no mysql set)");
+  EXPECT_EQ(mysql_json(out), "(no such set)");
 }
 
 TEST(MysqlFacts, StampsWhenTheValuesWereRead) {

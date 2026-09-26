@@ -4,6 +4,7 @@
 #pragma once
 
 #include <atomic>
+#include <memory>
 #include <nscapi/nscapi_facts_helper.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
@@ -30,9 +31,16 @@ class CheckMSSQL : public nscapi::impl::simple_plugin {
   void check_mssql_jobs(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 
  private:
-  // Connection defaults from /settings/mssql; each check copies these and
-  // applies its command-line overrides.
-  mssql_odbc::connection_info defaults_;
+  // Connection defaults from /settings/mssql, as one immutable snapshot;
+  // each check copies these and applies its command-line overrides. A
+  // settings reload runs loadModuleEx on the loading thread while checks and
+  // facts rounds read the server, login and driver on theirs, and a
+  // std::string being rewritten under a reader is a data race; so a load
+  // builds a fresh struct and swaps the pointer, and every reader takes the
+  // pointer once and reads that. Never null: a module that has not loaded
+  // yet reads the defaults.
+  std::shared_ptr<const mssql_odbc::connection_info> defaults_ = std::make_shared<const mssql_odbc::connection_info>();
+  std::shared_ptr<const mssql_odbc::connection_info> settings_snapshot() const { return std::atomic_load(&defaults_); }
   // Which parts of the `mssql` fact set this module is configured to produce
   // ([/settings/mssql/facts]). Read by fetchFacts on the core's scheduler
   // thread, written by loadModuleEx on every load, hence atomic.
