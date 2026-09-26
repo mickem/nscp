@@ -55,23 +55,32 @@ if(APPLE)
         live_source_darwin.cpp
         process_source_darwin.cpp
         service_source_darwin.cpp
+        software_source_darwin.cpp
+        plist_darwin.cpp
         mach_stats_darwin.cpp
         interfaces_darwin.cpp
     )
     set(PLATFORM_TEST_SRCS
         darwin_sources_test.cpp
     )
+    # Property lists (receipts, bundles, the update cache) and IOKit power
+    # sources. libproc and the Mach calls are in libSystem.
+    find_library(CORE_FOUNDATION_FRAMEWORK CoreFoundation)
+    find_library(IOKIT_FRAMEWORK IOKit)
+    set(PLATFORM_LIBS ${CORE_FOUNDATION_FRAMEWORK} ${IOKIT_FRAMEWORK})
 else()
     set(PLATFORM_SRCS
         collector_source_linux.cpp
         live_source_linux.cpp
         process_source_linux.cpp
         service_source_linux.cpp
+        software_source_linux.cpp
         network_facts_linux.cpp
     )
     set(PLATFORM_TEST_SRCS
         network_facts_linux_test.cpp
     )
+    set(PLATFORM_LIBS)
 endif()
 set(SRCS ${SRCS} ${PLATFORM_SRCS})
 
@@ -126,6 +135,7 @@ target_link_libraries(
     ${NSCP_DEF_PLUGIN_LIB}
     ${NSCP_FILTER_LIB}
     expression_parser
+    ${PLATFORM_LIBS}
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 
@@ -193,6 +203,7 @@ NSCP_CREATE_TEST(
         ${Boost_DATE_TIME_LIBRARY}
         ${Boost_PROGRAM_OPTIONS_LIBRARY}
         ${Boost_REGEX_LIBRARY}
+        ${PLATFORM_LIBS}
     INCLUDES
         ${NSCP_INCLUDEDIR}
         ${CMAKE_CURRENT_SOURCE_DIR}

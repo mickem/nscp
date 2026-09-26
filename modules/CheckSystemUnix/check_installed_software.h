@@ -12,6 +12,8 @@
 #include <string>
 #include <vector>
 
+#include "plist_value.h"
+
 namespace installed_software {
 
 // One installed package as reported by the system package manager. The unix
@@ -23,7 +25,7 @@ struct software_entry {
   std::string version;           // Version (rpm: version-release)
   std::string publisher;         // Maintainer (dpkg) / vendor (rpm); may be empty
   std::string architecture;      // amd64, x86_64, noarch, ...; may be empty
-  std::string manager;           // dpkg, rpm, pacman
+  std::string manager;           // dpkg, rpm, pacman; on macOS pkgutil, bundle or homebrew
   std::string status;            // Package state; "installed" for everything this check lists
   std::string install_date_str;  // YYYY-MM-DD when known; empty otherwise
   long long install_date_epoch;  // Install time (epoch seconds); 0 if unknown
@@ -77,7 +79,7 @@ command_result run_command(const std::string &cmd);
 // path of its query binary (commands are invoked by absolute path so a
 // manipulated PATH cannot redirect them).
 struct package_manager {
-  std::string name;    // dpkg, rpm, pacman
+  std::string name;    // dpkg, rpm, pacman, or macos (several sources, see fetch_macos_inventory)
   std::string binary;  // absolute path to the query binary
 
   bool empty() const { return name.empty(); }
@@ -102,9 +104,34 @@ std::vector<software_entry> parse_rpm_output(const std::string &output);
 std::vector<software_entry> parse_pacman_output(const std::string &output);
 
 // Detection of the available package manager (name is empty if none found).
-// Order: dpkg-query, rpm, pacman — dpkg first because Debian-family hosts
-// frequently have an rpm binary installed as well.
+// Order: macOS (pkgutil), dpkg-query, rpm, pacman — macOS first because a Mac
+// can carry a Homebrew dpkg or rpm that does not own the system, and dpkg
+// before rpm because Debian-family hosts frequently have an rpm binary
+// installed as well.
 package_manager detect_manager();
+
+// ---- macOS -------------------------------------------------------------------
+// A Mac has no single package database. Its inventory is three sources, each
+// entry tagged with the one it came from in `manager`:
+//   pkgutil   installer receipts in /var/db/receipts (what `pkgutil --pkgs`
+//             lists): identifier, version and install date.
+//   bundle    application bundles in /Applications and /Applications/Utilities:
+//             the bundle name, its version and when it was last modified.
+//   homebrew  Homebrew formulae and casks, read from the Cellar and Caskroom
+//             directories rather than by running brew.
+// Everything is read in-process; nothing forks.
+
+// An installer receipt's property list as a row. Empty name when it is not a
+// receipt.
+software_entry receipt_entry(const plist::value &receipt);
+
+// An application bundle as a row: `bundle_name` is the .app directory without
+// the extension, `info` its Contents/Info.plist, `mtime` when it last changed.
+software_entry bundle_entry(const std::string &bundle_name, const plist::value &info, long long mtime);
+
+// The three macOS sources together. Defined per platform; not ok on anything
+// but macOS.
+fetch_result fetch_macos_inventory();
 
 // Run the query + parse pipeline for the given manager. exec is called with
 // the shell command and must return the captured stdout plus whether the

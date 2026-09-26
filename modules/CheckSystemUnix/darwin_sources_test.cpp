@@ -12,12 +12,14 @@
 
 #include "check_kernel_stats.h"
 #include "check_os_version.h"
+#include "check_installed_software.h"
 #include "check_process.h"
 #include "check_service.h"
 #include "check_uptime.h"
 #include "collector_source.h"
 #include "interfaces_darwin.h"
 #include "mach_stats_darwin.h"
+#include "plist_value.h"
 
 TEST(darwin_collector, cpu_times_has_an_aggregate_and_every_core) {
   const std::map<std::string, collector_source::cpu_times> times = collector_source::read_cpu_times();
@@ -192,4 +194,29 @@ TEST(darwin_service, the_system_domain_lists_jobs) {
   const std::set<std::string> active = checks::check_svc_filter::active_units({"com.apple.logd", "org.nsclient.no-such-job"});
   EXPECT_EQ(active.count("com.apple.logd"), 1u);
   EXPECT_EQ(active.count("org.nsclient.no-such-job"), 0u);
+}
+
+TEST(darwin_software, plist_reads_the_system_version) {
+  // A binary-or-XML property list every Mac has.
+  const plist::value v = plist::read_file("/System/Library/CoreServices/SystemVersion.plist");
+  ASSERT_EQ(v.kind, plist::value::dict);
+  EXPECT_FALSE(v["ProductVersion"].as_string().empty());
+  EXPECT_TRUE(plist::read_file("/nonexistent.plist").empty());
+}
+
+TEST(darwin_software, inventory_has_receipts_and_bundles) {
+  EXPECT_EQ(installed_software::detect_manager().name, "macos");
+  const installed_software::fetch_result r = installed_software::fetch_macos_inventory();
+  ASSERT_TRUE(r.ok);
+  bool receipt = false, bundle = false;
+  for (const auto &e : r.entries) {
+    EXPECT_FALSE(e.name.empty());
+    if (e.manager == "pkgutil") {
+      receipt = true;
+      EXPECT_GT(e.install_date_epoch, 0) << e.name;
+    }
+    if (e.manager == "bundle") bundle = true;
+  }
+  EXPECT_TRUE(receipt);
+  EXPECT_TRUE(bundle);
 }
