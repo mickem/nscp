@@ -788,3 +788,51 @@ TEST(settings_ini, include_directory_sections_and_subkeys_resolve_through_the_pa
   EXPECT_EQ(s.get_string("/settings/scheduler/schedules/fancy", "command", ""), "check_ok");
   EXPECT_EQ(s.get_string("/settings/scheduler/schedules/fancy", "interval", ""), "30s");
 }
+
+#ifndef WIN32
+// A file made only of invalid UTF-8 converts to nothing, which SimpleIni
+// reports as a general failure from LoadFile. That fails the load for any
+// uid, so these run in the CI containers too, where the tests run as root
+// and an unreadable file would not be. Windows is left out: there
+// MultiByteToWideChar substitutes U+FFFD for the bad bytes and the load
+// succeeds.
+namespace {
+const std::string kNotUtf8 = "\xff\xfe\xff";
+}  // namespace
+
+TEST(settings_ini, load_error_on_construction_names_the_file) {
+  temp_dir dir;
+  auto file = dir.file("broken.ini");
+  write_file(file, kNotUtf8);
+  mock_settings_core core;
+  try {
+    settings::INISettings s(&core, "test", ini_context(file));
+    FAIL() << "constructing a store on a file that does not load did not throw";
+  } catch (const settings::settings_exception &e) {
+    const std::string reason = e.what();
+    EXPECT_NE(reason.find("Failed to load file"), std::string::npos) << reason;
+    EXPECT_NE(reason.find(file.filename().string()), std::string::npos) << reason;
+  }
+}
+
+TEST(settings_ini, load_error_on_reload_names_the_file) {
+  // clear_cache() holds the settings mutex while real_clear_cache() reloads
+  // the file, and that mutex is not recursive. Anything on the error path
+  // that took it again would surface here as a lock timeout in place of the
+  // load failure, five seconds later.
+  temp_dir dir;
+  auto file = dir.file("reloaded.ini");
+  write_file(file, "[/foo]\nbar=baz\n");
+  mock_settings_core core;
+  settings::INISettings s(&core, "test", ini_context(file));
+  write_file(file, kNotUtf8);
+  try {
+    s.clear_cache();
+    FAIL() << "reloading a file that does not load did not throw";
+  } catch (const settings::settings_exception &e) {
+    const std::string reason = e.what();
+    EXPECT_NE(reason.find("Failed to load file"), std::string::npos) << reason;
+    EXPECT_NE(reason.find(file.filename().string()), std::string::npos) << reason;
+  }
+}
+#endif
