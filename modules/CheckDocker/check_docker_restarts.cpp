@@ -6,13 +6,14 @@
 #include "docker_client.hpp"
 #include "docker_endpoint.hpp"
 
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/json.hpp>
+#include <check/duration_keyword.hpp>
 #include <memory>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <str/format.hpp>
+#include <str/rfc3339.hpp>
 #include <string>
 #include <vector>
 
@@ -24,25 +25,10 @@ namespace docker_checks {
 namespace {
 
 // Seconds since an RFC3339 timestamp ("2026-08-12T07:44:00.123456789Z");
-// -1 when absent, unparsable or the zero-value "0001-01-01T00:00:00Z" the
-// daemon reports for containers that never started.
-long long seconds_since(const std::string &rfc3339) {
-  if (rfc3339.empty() || rfc3339[0] == '0') return -1;
-  std::string s = rfc3339;
-  const auto dot = s.find('.');
-  if (dot != std::string::npos) {
-    s = s.substr(0, dot);
-  } else if (!s.empty() && s.back() == 'Z') {
-    s.pop_back();
-  }
-  try {
-    const boost::posix_time::ptime t = boost::posix_time::from_iso_extended_string(s);
-    const boost::posix_time::ptime now = boost::posix_time::second_clock::universal_time();
-    return (now - t).total_seconds();
-  } catch (const std::exception &) {
-    return -1;
-  }
-}
+// -1 when absent or unparsable, which covers the zero-value
+// "0001-01-01T00:00:00Z" the daemon reports for containers that never
+// started (year 1 is outside the range the parser accepts).
+long long seconds_since(const std::string &rfc3339) { return str::seconds_since_rfc3339(rfc3339); }
 
 struct restart_obj {
   std::string names, image, state;
@@ -78,7 +64,7 @@ struct restart_obj_handler : public restart_context {
         .add_int_var("started", type_custom_started, &restart_obj::get_started,
                      "Seconds since the container last started, -1 when it never started (supports units, e.g. started < 10m)")
         .no_perf();
-    registry_.add_converter(type_custom_started, &parse_time<std::shared_ptr<restart_obj>>);
+    registry_.add_converter(type_custom_started, &duration_keyword::parse_duration<std::shared_ptr<restart_obj>>);
   }
 };
 typedef modern_filter::modern_filters<restart_obj, restart_obj_handler> restart_filter;

@@ -4,6 +4,7 @@
 #include <bytes/base64.h>
 #include <gtest/gtest.h>
 
+#include <bytes/base64.hpp>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -301,4 +302,23 @@ TEST(base64_roundtrip, various_lengths) {
     ASSERT_EQ(decoded.size(), len);
     EXPECT_EQ(std::memcmp(decoded.data(), input.data(), len), 0);
   }
+}
+
+// --- the std::string wrappers in base64.hpp ---------------------------------
+
+TEST(base64_string_wrappers, decode_round_trips_encode) {
+  const std::string input = "-----BEGIN CERTIFICATE-----\n";
+  EXPECT_EQ(bytes::base64_decode(bytes::base64_encode(input)), input);
+}
+
+TEST(base64_string_wrappers, decode_skips_whitespace_between_quanta) {
+  // A hand-edited or PEM-style value wrapped across lines decodes as written.
+  EXPECT_EQ(bytes::base64_decode("TWFu\r\nTWFu\n TWE=\t"), "ManManMa");
+}
+
+TEST(base64_string_wrappers, decode_is_empty_for_empty_or_invalid_input) {
+  EXPECT_EQ(bytes::base64_decode(""), "");
+  EXPECT_EQ(bytes::base64_decode(" \n"), "");
+  EXPECT_EQ(bytes::base64_decode("TWE"), "") << "not a multiple of 4";
+  EXPECT_EQ(bytes::base64_decode("T!E="), "") << "invalid character";
 }

@@ -357,6 +357,7 @@ struct ssl_socket final : generic_socket {
   socket_helpers::pinned_certificate pin_;
   boost::asio::io_context &io_;
   unsigned int timeout_ = 0;
+  bool connected_once_ = false;
 
   // Build the fully-configured TLS context BEFORE any SSL stream exists. OpenSSL's
   // SSL_new() COPIES the certificate/key state out of the context at creation time
@@ -677,6 +678,13 @@ struct ssl_socket final : generic_socket {
   }
 
   void connect(const std::string &server, const std::string &port) override {
+    // OpenSSL will not run a second handshake on an SSL object that has
+    // finished a session, so a client that is reused for another request
+    // (a check paging through a list) gets a fresh stream on the kept
+    // context: the CA bundle and client certificate are loaded once, per
+    // client, not once per request.
+    if (connected_once_) ssl_socket_ = boost::asio::ssl::stream<tcp::socket>(io_, context_);
+    connected_once_ = true;
     if (proxy_.is_set() && proxy_.type == proxy_type::HTTP && !should_bypass(server, proxy_.no_proxy)) {
       connect_via_http_proxy(server, port);
       return;

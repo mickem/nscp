@@ -106,6 +106,7 @@ std::string installer_feature_hint(const std::string &module) {
       {"CheckLogFile", "Check Plugins"},
       {"CheckNet", "Check Plugins"},
       {"CheckDocker", "Check Plugins"},
+      {"CheckKubernetes", "Check Plugins"},
   };
   for (const auto &e : table) {
     if (name == e.module) {
