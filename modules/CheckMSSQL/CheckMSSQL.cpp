@@ -73,7 +73,7 @@ bool CheckMSSQL::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
     settings.register_all();
     settings.notify();
-    std::atomic_store(&defaults_, std::make_shared<const mssql_odbc::connection_info>(fresh));
+    defaults_.set(fresh);
 
     // Which parts of the set fetchFacts builds is configuration, so it is
     // re-read on every load, a reload included: the core drops a set a
@@ -117,7 +117,7 @@ void CheckMSSQL::fetchFacts(const nscapi::facts::request &request, nscapi::facts
   // rather than failing the round: the core keeps the databases it already
   // holds and reports why they are stale, so an instance that is down for a
   // minute never blanks the inventory.
-  const std::shared_ptr<const mssql_odbc::connection_info> info = settings_snapshot();
+  const std::shared_ptr<const mssql_odbc::connection_info> info = defaults_.get();
   mssql_options::run_with_session(
       *info, [&response](const std::string &message) { response.error(mssql_facts::set_mssql, message); },
       [&](mssql_odbc::session &session) {
@@ -127,21 +127,21 @@ void CheckMSSQL::fetchFacts(const nscapi::facts::request &request, nscapi::facts
 }
 
 void CheckMSSQL::check_mssql(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_mssql_command::check(*settings_snapshot(), request, response);
+  check_mssql_command::check(*defaults_.get(), request, response);
 }
 
 void CheckMSSQL::check_mssql_query(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_mssql_query_command::check(*settings_snapshot(), request, response);
+  check_mssql_query_command::check(*defaults_.get(), request, response);
 }
 
 void CheckMSSQL::check_mssql_databases(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_mssql_databases_command::check(*settings_snapshot(), request, response);
+  check_mssql_databases_command::check(*defaults_.get(), request, response);
 }
 
 void CheckMSSQL::check_mssql_backup(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_mssql_backup_command::check(*settings_snapshot(), request, response);
+  check_mssql_backup_command::check(*defaults_.get(), request, response);
 }
 
 void CheckMSSQL::check_mssql_jobs(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_mssql_jobs_command::check(*settings_snapshot(), request, response);
+  check_mssql_jobs_command::check(*defaults_.get(), request, response);
 }

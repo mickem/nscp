@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <ctime>
 #include <string>
 #include <vector>
@@ -40,6 +41,16 @@ extern const char *const id_containers;
 extern const char *const id_images;
 extern const char *const key_containers;
 extern const char *const key_images;
+
+// The most records either list will ship. The whole facts document lives
+// inside `[/settings/facts] max size` (1 MiB by default) and a set that
+// would push it past that is rejected *whole* by the core - a build host
+// with a few thousand images would lose its daemon record and its container
+// list along with them, and keep losing them every round. So each list stops
+// at this count and the set carries an error saying how many there were,
+// exactly as software.installed does. Truncating is also what keeps a list
+// inside the document rules' own 5000-record limit.
+extern const std::size_t max_records;
 
 // Which of the three an operator turned on. gather() fetches only what is
 // asked for, and publish() writes only that, so a set with just
@@ -96,7 +107,6 @@ struct image {
   // an image that does not move when it is retagged. The tags are carried
   // beside it, and are what an operator reads the list by.
   std::string id;
-  std::string image_id;           // the same Id, as a field
   std::vector<std::string> tags;  // every tag, sorted; `<none>:<none>` is not a tag
   std::time_t created = 0;
   unsigned long long size_bytes = 0;

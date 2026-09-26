@@ -392,9 +392,13 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
         .trustLocalhost(true)
         .expect(200);
       expect(response.body.enabled).toContain("mssql");
-      if (!live) {
-        // No usable ODBC driver: the set is claimed and the reason reported,
-        // in the words the checks use.
+      // `live` was decided at the end of the readiness loop; a server that
+      // was still recovering then can be up by now, so ask it again rather
+      // than assert on a stale answer.
+      const up = live || /^OK/m.test(await query("check_mssql", ["timeout=5"]));
+      if (!up) {
+        // No usable ODBC driver, or a server still down: the set is claimed
+        // and the reason reported, in the words the checks use.
         expect(response.body.facts.mssql).toBeUndefined();
         return expect(response.body.errors.mssql).toMatch(CONNECT_FAILED);
       }

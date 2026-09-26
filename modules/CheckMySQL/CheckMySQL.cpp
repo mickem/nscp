@@ -76,7 +76,7 @@ bool CheckMySQL::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
     settings.register_all();
     settings.notify();
-    std::atomic_store(&defaults_, std::make_shared<const mysql_client::connection_info>(fresh));
+    defaults_.set(fresh);
 
     // Which parts of the set fetchFacts builds is configuration, so it is
     // re-read on every load, a reload included: the core drops a set a
@@ -120,16 +120,16 @@ void CheckMySQL::fetchFacts(const nscapi::facts::request &request, nscapi::facts
   // rather than failing the round: the core keeps the databases it already
   // holds and reports why they are stale, so a server that is down for a
   // minute never blanks the inventory.
-  const std::shared_ptr<const mysql_client::connection_info> info = settings_snapshot();
+  const std::shared_ptr<const mysql_client::connection_info> info = defaults_.get();
   mysql_options::run_with_runner(
       mysql_session::make_session_factory(), *info, [&response](const std::string &message) { response.error(mysql_facts::set_mysql, message); },
       [&](const mysql_client::query_runner &run) { mysql_facts::publish(what, mysql_facts::gather(what, run), std::time(nullptr), response); });
 }
 
 void CheckMySQL::check_mysql(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_mysql_command::check_with(*settings_snapshot(), request, response, mysql_session::make_session_factory());
+  check_mysql_command::check_with(*defaults_.get(), request, response, mysql_session::make_session_factory());
 }
 
 void CheckMySQL::check_mysql_query(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_mysql_query_command::check_with(*settings_snapshot(), request, response, mysql_session::make_session_factory());
+  check_mysql_query_command::check_with(*defaults_.get(), request, response, mysql_session::make_session_factory());
 }

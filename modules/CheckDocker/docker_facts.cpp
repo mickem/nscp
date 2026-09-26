@@ -22,6 +22,7 @@ const char *const id_containers = "docker.containers";
 const char *const id_images = "docker.images";
 const char *const key_containers = "containers";
 const char *const key_images = "images";
+const std::size_t max_records = 2500;
 
 namespace {
 
@@ -104,10 +105,11 @@ std::vector<container> parse_containers(const std::string &body) {
     // The same helper check_docker reads its `names` keyword from, so the id
     // is the check's value byte for byte.
     c.id = docker_checks::container_names(o);
-    // A container the daemon lists without a name cannot be a record (a
-    // record without an id is rejected); the daemon always names one, so
-    // falling back to the Id is belt and braces rather than a real case.
+    // The daemon always names a container, so this is belt and braces: a
+    // row with no name falls back to its Id, and one with neither is not a
+    // record at all - an empty id would have the core reject the whole set.
     if (c.id.empty()) c.id = c.container_id;
+    if (c.id.empty()) continue;
     // Spelled as check_docker spells its `ports` keyword, and kept as the
     // daemon lists them: a port published on both address families is one
     // entry per family (0.0.0.0:8080->80/tcp and :::8080->80/tcp), because
@@ -135,8 +137,12 @@ std::vector<image> parse_images(const std::string &body) {
     if (!v.is_object()) continue;
     const json::object &o = v.as_object();
     image i;
-    i.image_id = docker_checks::get_str(o, "Id");
-    if (i.image_id.empty()) continue;  // not an image the daemon can name; nothing to record it by
+    // The image id is the identity: a tag moves (pulling a new `latest`
+    // retags the old image, `docker tag` adds one), and a record keyed on it
+    // would read as a removal and an addition to a consumer diffing by id.
+    // The tags are what an operator reads the list by, and they are carried.
+    i.id = docker_checks::get_str(o, "Id");
+    if (i.id.empty()) continue;  // not an image the daemon can name; nothing to record it by
     const long long created = docker_checks::get_num(o, "Created");
     if (created > 0) i.created = static_cast<std::time_t>(created);
     const long long size = docker_checks::get_num(o, "Size");
@@ -154,11 +160,6 @@ std::vector<image> parse_images(const std::string &body) {
     }
     std::sort(i.tags.begin(), i.tags.end());
     i.tags.erase(std::unique(i.tags.begin(), i.tags.end()), i.tags.end());
-    // The image id is the identity: a tag moves (pulling a new `latest`
-    // retags the old image, `docker tag` adds one), and a record keyed on it
-    // would read as a removal and an addition to a consumer diffing by id.
-    // The tags are what an operator reads the list by, and they are carried.
-    i.id = i.image_id;
     images.push_back(i);
   }
   std::sort(images.begin(), images.end(), [](const image &a, const image &b) { return a.id < b.id; });
@@ -192,28 +193,44 @@ void publish(const selection &what, const snapshot &snap, const std::time_t take
     if (d.cpus > 0) docker.value("cpus", d.cpus);
     if (d.memory_bytes > 0) docker.value("memory_bytes", d.memory_bytes);
   }
+  // Where a list is cut short, the set is still published: most of an
+  // inventory, and the reason it is not all of it, beats the core rejecting
+  // the whole set over the size budget. One error per set, so both reasons
+  // share it.
+  std::string truncated;
   if (what.containers) {
     // Written even when empty: a daemon with no containers has told us
     // something, and an absent list would read as "not collected".
     nscapi::facts::record_list list = docker.list(key_containers);
-    for (const container &c : snap.containers) {
+    const std::size_t count = std::min(snap.containers.size(), max_records);
+    for (std::size_t n = 0; n < count; ++n) {
+      const container &c = snap.containers[n];
       nscapi::facts::section record = list.record(c.id);
       record.value("container_id", c.container_id).value("image", c.image).value("image_id", c.image_id);
       record.time("created", c.created);
       if (!c.ports.empty()) record.strings("ports", c.ports);
       record.value("compose_project", c.compose_project).value("compose_service", c.compose_service);
     }
+    if (snap.containers.size() > count) {
+      truncated += "Daemon has " + std::to_string(snap.containers.size()) + " containers; only the first " + std::to_string(count) + " are reported";
+    }
   }
   if (what.images) {
     nscapi::facts::record_list list = docker.list(key_images);
-    for (const image &i : snap.images) {
+    const std::size_t count = std::min(snap.images.size(), max_records);
+    for (std::size_t n = 0; n < count; ++n) {
+      const image &i = snap.images[n];
       nscapi::facts::section record = list.record(i.id);
-      record.value("image_id", i.image_id);
       if (!i.tags.empty()) record.strings("tags", i.tags);
       record.time("created", i.created);
       if (i.size_bytes > 0) record.value("size_bytes", i.size_bytes);
     }
+    if (snap.images.size() > count) {
+      if (!truncated.empty()) truncated += "; ";
+      truncated += "Daemon has " + std::to_string(snap.images.size()) + " images; only the first " + std::to_string(count) + " are reported";
+    }
   }
+  if (!truncated.empty()) out.error(set_docker, truncated + ", to keep the facts document inside its size budget");
   out.gathered(set_docker, taken_at);
 }
 

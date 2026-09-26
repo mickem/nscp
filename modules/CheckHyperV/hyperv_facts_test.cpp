@@ -11,7 +11,7 @@
 using check_hyperv::check_hyperv_internal::vm_record;
 
 namespace {
-using nscapi::facts::testing::find_set;
+using nscapi::facts::testing::gathered_of;
 using nscapi::facts::testing::json_of;
 
 std::string hyperv_json(const nscapi::facts::response &out) { return json_of(out, "hyperv"); }
@@ -93,8 +93,5 @@ TEST(HyperVFacts, NoVmsIsAnEmptyListNotAMissingSet) {
 TEST(HyperVFacts, StampsWhenTheValuesWereRead) {
   nscapi::facts::response out;
   hyperv_facts::publish({}, 1790000000, out);
-  const PB::Facts::FactsMessage message = out.to_message();
-  const PB::Facts::FactSet *set = find_set(message, "hyperv");
-  ASSERT_NE(set, nullptr);
-  EXPECT_EQ(set->gathered(), nscapi::facts::format_time(1790000000));
+  EXPECT_EQ(gathered_of(out, "hyperv"), nscapi::facts::format_time(1790000000));
 }

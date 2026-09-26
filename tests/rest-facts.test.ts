@@ -14,6 +14,27 @@ import { NscpInstance, REST_URL, hasModule } from "@fixtures/index";
 jest.setTimeout(900_000);
 
 const onWindows = process.platform === "win32";
+
+/**
+ * The facts document once the startup round has claimed `set`. The round runs
+ * on the boot thread after the modules (and the web server) have started, so
+ * a read the moment the port opens can land before it; poll rather than race.
+ */
+async function documentClaiming(
+  key: string | undefined,
+  set: string,
+): Promise<Record<string, any>> {
+  const deadline = Date.now() + 60_000;
+  for (;;) {
+    const response = await request(REST_URL)
+      .get("/api/v2/facts")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true)
+      .expect(200);
+    if (response.body.enabled.includes(set) || Date.now() > deadline) return response.body;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+}
 const factsSection = `/settings/system/${onWindows ? "windows" : "unix"}/facts`;
 
 describe("REST facts", () => {
@@ -302,21 +323,17 @@ describe("REST facts", () => {
       // suite may or may not carry the Hyper-V role: on one that does not, the
       // refresh reports that instead, again under `errors`; on one that does,
       // the records carry the check's names as ids, unique in the list.
-      const startup = await request(REST_URL)
-        .get("/api/v2/facts")
-        .set("Authorization", `Bearer ${key}`)
-        .trustLocalhost(true)
-        .expect(200);
-      expect(startup.body.enabled).toContain("hyperv");
+      const startup = await documentClaiming(key, "hyperv");
+      expect(startup.enabled).toContain("hyperv");
       // A scheduled round may already have run by now; then the set is either
       // collected or carries that round's error, which the refresh below
       // checks in full.
-      if (startup.body.errors.hyperv !== undefined) {
-        expect(startup.body.errors.hyperv).toMatch(
+      if (startup.errors.hyperv !== undefined) {
+        expect(startup.errors.hyperv).toMatch(
           /Not collected during startup|Hyper-V|Failed to query/,
         );
       } else {
-        expect(startup.body.facts.hyperv).toBeDefined();
+        expect(startup.facts.hyperv).toBeDefined();
       }
 
       const document = await request(REST_URL)
@@ -589,16 +606,12 @@ describe("REST facts from service producers", () => {
     // scheduled round may already have run by now; then the set is either
     // collected or carries that round's error, which the refresh below
     // checks in full.
-    const startup = await request(REST_URL)
-      .get("/api/v2/facts")
-      .set("Authorization", `Bearer ${key}`)
-      .trustLocalhost(true)
-      .expect(200);
-    expect(startup.body.enabled).toContain("docker");
-    if (startup.body.errors.docker !== undefined) {
-      expect(startup.body.errors.docker).toMatch(/Not collected during startup|docker daemon at '/);
+    const startup = await documentClaiming(key, "docker");
+    expect(startup.enabled).toContain("docker");
+    if (startup.errors.docker !== undefined) {
+      expect(startup.errors.docker).toMatch(/Not collected during startup|docker daemon at '/);
     } else {
-      expect(startup.body.facts.docker).toBeDefined();
+      expect(startup.facts.docker).toBeDefined();
     }
 
     const response = await request(REST_URL)

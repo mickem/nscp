@@ -13,6 +13,7 @@ const char *const set_mysql = "mysql";
 const char *const id_server = "mysql";
 const char *const id_databases = "mysql.databases";
 const char *const key_databases = "databases";
+const std::size_t max_records = 2500;
 
 // Every variable here exists on MySQL 5.7+, MariaDB and Percona alike, so one
 // statement serves every flavor; a server that lacked one would fail the
@@ -25,30 +26,24 @@ const char *const DATABASES_SQL =
     "SELECT SCHEMA_NAME AS name, DEFAULT_CHARACTER_SET_NAME AS character_set, DEFAULT_COLLATION_NAME AS collation FROM information_schema.SCHEMATA "
     "ORDER BY SCHEMA_NAME";
 
-namespace {
-// A NULL cell is "not known", the same as an empty string; the record
-// omits it either way. (get_int already reads a NULL as 0, which is the
-// same "not known" for a number.)
-std::string text_or_empty(const mysql_client::result &result, const std::size_t row, const std::string &column) {
-  return result.is_null(row, column) ? "" : result.get_string(row, column);
-}
-}  // namespace
+// A NULL cell reads as "" from get_string and as 0 from get_int, which is
+// the same "not known" the record omits; no separate NULL check is needed.
 
 server parse_server(const mysql_client::result &result) {
   if (result.rows.empty()) throw mysql_client::mysql_exception("Server returned no version information");
   server s;
-  s.version = text_or_empty(result, 0, "version");
-  s.version_comment = text_or_empty(result, 0, "version_comment");
+  s.version = result.get_string(0, "version");
+  s.version_comment = result.get_string(0, "version_comment");
   s.flavor = mysql_client::derive_flavor(s.version, s.version_comment);
-  s.hostname = text_or_empty(result, 0, "hostname");
+  s.hostname = result.get_string(0, "hostname");
   s.port = result.get_int(0, "port");
   s.server_id = result.get_int(0, "server_id");
-  s.character_set = text_or_empty(result, 0, "character_set");
-  s.collation = text_or_empty(result, 0, "collation");
-  s.os = text_or_empty(result, 0, "os");
+  s.character_set = result.get_string(0, "character_set");
+  s.collation = result.get_string(0, "collation");
+  s.os = result.get_string(0, "os");
   // The server spells it as its build did (`x86_64`, `aarch64`); the `os`
   // set has one spelling per architecture and this has to match it.
-  s.architecture = host_facts::normalize_arch(text_or_empty(result, 0, "machine"));
+  s.architecture = host_facts::normalize_arch(result.get_string(0, "machine"));
   return s;
 }
 
@@ -56,10 +51,10 @@ std::vector<database> parse_databases(const mysql_client::result &result) {
   std::vector<database> databases;
   for (std::size_t i = 0; i < result.rows.size(); ++i) {
     database d;
-    d.id = text_or_empty(result, i, "name");
+    d.id = result.get_string(i, "name");
     if (d.id.empty()) continue;  // not a schema the server can name; nothing to record it by
-    d.character_set = text_or_empty(result, i, "character_set");
-    d.collation = text_or_empty(result, i, "collation");
+    d.character_set = result.get_string(i, "character_set");
+    d.collation = result.get_string(i, "collation");
     databases.push_back(d);
   }
   // Sorted here as well as in the query, so the document does not depend on
@@ -92,8 +87,16 @@ void publish(const selection &what, const snapshot &snap, const std::time_t take
     // us something (most likely about the grant), and an absent list would
     // read as "not collected".
     nscapi::facts::record_list list = mysql.list(key_databases);
-    for (const database &d : snap.databases) {
+    const std::size_t count = std::min(snap.databases.size(), max_records);
+    for (std::size_t n = 0; n < count; ++n) {
+      const database &d = snap.databases[n];
       list.record(d.id).value("character_set", d.character_set).value("collation", d.collation);
+    }
+    if (snap.databases.size() > count) {
+      // The set is still published: most of an inventory, and the reason it
+      // is not all of it, beats the core rejecting it over the size budget.
+      out.error(set_mysql, "Server has " + std::to_string(snap.databases.size()) + " databases; only the first " + std::to_string(count) +
+                               " are reported, to keep the facts document inside its size budget");
     }
   }
   out.gathered(set_mysql, taken_at);

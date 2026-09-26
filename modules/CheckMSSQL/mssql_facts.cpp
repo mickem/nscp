@@ -13,6 +13,7 @@ const char *const set_mssql = "mssql";
 const char *const id_server = "mssql";
 const char *const id_databases = "mssql.databases";
 const char *const key_databases = "databases";
+const std::size_t max_records = 2500;
 
 // SERVERPROPERTY() only: it exists on every supported version, and a property
 // the version does not know comes back NULL instead of failing the statement.
@@ -38,12 +39,9 @@ const char *const DATABASES_SQL =
     " FROM sys.databases ORDER BY name";
 
 namespace {
-// A NULL cell is "not known", the same as an empty string; the record omits
-// it either way. (get_int already reads a NULL as 0, which is the same "not
-// known" for a number.)
-std::string text_or_empty(const mssql_odbc::result &result, const std::size_t row, const std::string &column) {
-  return result.is_null(row, column) ? "" : result.get_string(row, column);
-}
+// A NULL cell reads as "" from get_string and as 0 from get_int, which is
+// the same "not known" the record omits; only the flags below need to tell
+// NULL from false.
 // A property the server did not answer (NULL) leaves the flag unknown,
 // which is omitted; anything else is a yes or a no.
 void read_flag(const mssql_odbc::result &result, const std::string &column, bool &known, bool &value) {
@@ -88,15 +86,15 @@ std::string engine_edition_name(const long long engine_edition) {
 server parse_server(const mssql_odbc::result &result) {
   if (result.rows.empty()) throw mssql_odbc::odbc_exception("Server returned no server properties");
   server s;
-  s.server_name = text_or_empty(result, 0, "server_name");
-  s.machine_name = text_or_empty(result, 0, "machine_name");
-  s.instance_name = text_or_empty(result, 0, "instance_name");
-  s.version = text_or_empty(result, 0, "version");
-  s.product_level = text_or_empty(result, 0, "product_level");
-  s.product_update_level = text_or_empty(result, 0, "product_update_level");
-  s.edition = text_or_empty(result, 0, "edition");
+  s.server_name = result.get_string(0, "server_name");
+  s.machine_name = result.get_string(0, "machine_name");
+  s.instance_name = result.get_string(0, "instance_name");
+  s.version = result.get_string(0, "version");
+  s.product_level = result.get_string(0, "product_level");
+  s.product_update_level = result.get_string(0, "product_update_level");
+  s.edition = result.get_string(0, "edition");
   s.engine_edition = engine_edition_name(result.get_int(0, "engine_edition"));
-  s.collation = text_or_empty(result, 0, "collation");
+  s.collation = result.get_string(0, "collation");
   if (!result.is_null(0, "is_integrated_security_only")) {
     s.authentication = result.get_int(0, "is_integrated_security_only") != 0 ? "windows" : "mixed";
   }
@@ -109,12 +107,12 @@ std::vector<database> parse_databases(const mssql_odbc::result &result) {
   std::vector<database> databases;
   for (std::size_t i = 0; i < result.rows.size(); ++i) {
     database d;
-    d.id = text_or_empty(result, i, "name");
+    d.id = result.get_string(i, "name");
     if (d.id.empty()) continue;  // not a database the server can name; nothing to record it by
-    d.recovery_model = text_or_empty(result, i, "recovery_model");
-    d.collation = text_or_empty(result, i, "collation");
+    d.recovery_model = result.get_string(i, "recovery_model");
+    d.collation = result.get_string(i, "collation");
     d.compatibility_level = result.get_int(i, "compatibility_level");
-    const std::string created = text_or_empty(result, i, "create_date");
+    const std::string created = result.get_string(i, "create_date");
     if (looks_like_date(created)) d.create_date = created;
     d.read_only = result.get_int(i, "is_read_only") != 0;
     databases.push_back(d);
@@ -156,12 +154,20 @@ void publish(const selection &what, const snapshot &snap, const std::time_t take
     // has told us something (most likely about the login), and an absent
     // list would read as "not collected".
     nscapi::facts::record_list list = mssql.list(key_databases);
-    for (const database &d : snap.databases) {
+    const std::size_t count = std::min(snap.databases.size(), max_records);
+    for (std::size_t n = 0; n < count; ++n) {
+      const database &d = snap.databases[n];
       nscapi::facts::section record = list.record(d.id);
       record.value("recovery_model", d.recovery_model).value("collation", d.collation);
       if (d.compatibility_level > 0) record.value("compatibility_level", d.compatibility_level);
       record.value("create_date", d.create_date);
       record.value("read_only", d.read_only);
+    }
+    if (snap.databases.size() > count) {
+      // The set is still published: most of an inventory, and the reason it
+      // is not all of it, beats the core rejecting it over the size budget.
+      out.error(set_mssql, "Instance has " + std::to_string(snap.databases.size()) + " databases; only the first " + std::to_string(count) +
+                               " are reported, to keep the facts document inside its size budget");
     }
   }
   out.gathered(set_mssql, taken_at);

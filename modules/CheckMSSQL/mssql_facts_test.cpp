@@ -5,6 +5,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <nscapi/nscapi_facts_helper.hpp>
 #include <nscapi/nscapi_facts_test_helper.hpp>
 #include <string>
@@ -15,7 +16,7 @@
 
 namespace {
 
-using nscapi::facts::testing::find_set;
+using nscapi::facts::testing::gathered_of;
 using nscapi::facts::testing::json_of;
 
 std::string mssql_json(const nscapi::facts::response &out) { return json_of(out, "mssql"); }
@@ -172,6 +173,27 @@ TEST(MssqlFacts, ADateTheServerDidNotRenderIsOmitted) {
   EXPECT_EQ(mssql_json(out), "{\"databases\":[{\"id\":\"odd\",\"recovery_model\":\"SIMPLE\",\"read_only\":true}]}");
 }
 
+TEST(MssqlFacts, ALongListIsCutAndTheSetSaysSo) {
+  // More databases than the set will ship: the first max_records go out,
+  // the rest is counted in the set's error, and the set - instance record
+  // included - is still published rather than rejected whole by the core.
+  mssql_facts::snapshot snap;
+  snap.server_info.server_name = "DB01";
+  for (std::size_t n = 0; n < mssql_facts::max_records + 1; ++n) {
+    mssql_facts::database d;
+    d.id = "db" + std::to_string(n);
+    snap.databases.push_back(d);
+  }
+  nscapi::facts::response out;
+  mssql_facts::publish(both(), snap, 0, out);
+  const std::string json = mssql_json(out);
+  EXPECT_EQ(json.rfind("{\"server_name\":\"DB01\",", 0), 0u) << json.substr(0, 80);
+  EXPECT_EQ(static_cast<std::size_t>(std::count(json.begin(), json.end(), '{')), 1 + mssql_facts::max_records) << "one object per record, plus the set";
+  EXPECT_EQ(nscapi::facts::testing::error_of(out, "mssql"), "Instance has " + std::to_string(mssql_facts::max_records + 1) + " databases; only the first " +
+                                                                std::to_string(mssql_facts::max_records) +
+                                                                " are reported, to keep the facts document inside its size budget");
+}
+
 TEST(MssqlFacts, NoDatabasesIsAnEmptyListNotAMissingSet) {
   mssql_facts::selection what;
   what.databases = true;
@@ -193,10 +215,7 @@ TEST(MssqlFacts, StampsWhenTheValuesWereRead) {
   what.server = true;
   nscapi::facts::response out;
   mssql_facts::publish(what, mssql_facts::snapshot(), 1790000000, out);
-  const PB::Facts::FactsMessage message = out.to_message();
-  const PB::Facts::FactSet *set = find_set(message, "mssql");
-  ASSERT_NE(set, nullptr);
-  EXPECT_EQ(set->gathered(), nscapi::facts::format_time(1790000000));
+  EXPECT_EQ(gathered_of(out, "mssql"), nscapi::facts::format_time(1790000000));
 }
 
 TEST(MssqlFacts, AFailedQueryThrowsRatherThanPublishingAPartialSnapshot) {

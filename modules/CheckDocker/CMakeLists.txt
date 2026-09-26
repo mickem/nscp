@@ -14,9 +14,6 @@ set(SRCS
     check_docker_restarts.cpp
     check_docker_df.cpp
     docker_facts.cpp
-    # normalize_arch(): the daemon's architecture is published in the `os`
-    # set's vocabulary.
-    ${NSCP_INCLUDEDIR}/facts/host_facts.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
     ${NSCP_INCLUDEDIR}/bytes/base64.c
@@ -88,7 +85,6 @@ NSCP_CREATE_TEST(
         check_docker_restarts.cpp
         check_docker_df.cpp
         docker_facts.cpp
-        ${NSCP_INCLUDEDIR}/facts/host_facts.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp

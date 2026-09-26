@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <ctime>
 #include <string>
 #include <vector>
@@ -41,6 +42,13 @@ extern const char *const set_mysql;
 extern const char *const id_server;
 extern const char *const id_databases;
 extern const char *const key_databases;
+
+// The most databases the list will ship. The whole facts document lives
+// inside `[/settings/facts] max size` and a set that would push it past that
+// is rejected *whole* by the core, server record included; so the list stops
+// at this count and the set carries an error saying how many there were,
+// exactly as software.installed does.
+extern const std::size_t max_records;
 
 // Which of the two an operator turned on. gather() runs only the queries it
 // needs, and publish() writes only that.

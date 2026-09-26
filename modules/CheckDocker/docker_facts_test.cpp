@@ -5,6 +5,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <map>
 #include <nscapi/nscapi_facts_helper.hpp>
 #include <nscapi/nscapi_facts_test_helper.hpp>
@@ -19,7 +20,7 @@
 
 namespace {
 
-using nscapi::facts::testing::find_set;
+using nscapi::facts::testing::gathered_of;
 using nscapi::facts::testing::json_of;
 
 std::string docker_json(const nscapi::facts::response &out) { return json_of(out, "docker"); }
@@ -136,6 +137,47 @@ TEST(DockerFacts, ContainersAreRecordsByNameWithoutState) {
       "\"compose_project\":\"shop\",\"compose_service\":\"web\",\"ports\":[\"0.0.0.0:8080->80/tcp\",\"443/tcp\",\":::8080->80/tcp\"]}]}");
 }
 
+TEST(DockerFacts, ARowWithNeitherNameNorIdIsNotARecord) {
+  // A malformed listing entry must not become an empty-id record, which
+  // would have the core reject the whole set; it is skipped, and a row with
+  // an Id but no name is recorded under the Id.
+  const std::vector<docker_facts::container> containers =
+      docker_facts::parse_containers(R"([{"Image":"x"},{"Id":"c9","Image":"y","Created":1},{"Id":"c1","Names":["/web"],"Image":"z","Created":1}])");
+  ASSERT_EQ(containers.size(), 2u);
+  EXPECT_EQ(containers[0].id, "c9");
+  EXPECT_EQ(containers[1].id, "web");
+  EXPECT_TRUE(docker_facts::parse_images(R"([{"RepoTags":["a:1"]}])").empty()) << "an image without an Id is not a record either";
+}
+
+TEST(DockerFacts, ALongListIsCutAndTheSetSaysSo) {
+  // More records than the set will ship: the first max_records of each
+  // list go out, the rest is counted in the set's error, and the set - the
+  // daemon record included - is still published rather than rejected whole
+  // by the core over the size budget.
+  docker_facts::snapshot snap;
+  snap.daemon_info.version = "27.3.1";
+  for (std::size_t n = 0; n < docker_facts::max_records + 3; ++n) {
+    docker_facts::container c;
+    c.id = "c" + std::to_string(n);
+    snap.containers.push_back(c);
+    docker_facts::image i;
+    i.id = "sha256:" + std::to_string(n);
+    snap.images.push_back(i);
+  }
+  nscapi::facts::response out;
+  docker_facts::publish(everything(), snap, 0, out);
+  const std::string json = docker_json(out);
+  EXPECT_EQ(json.rfind("{\"version\":\"27.3.1\",", 0), 0u) << json.substr(0, 80);
+  EXPECT_EQ(static_cast<std::size_t>(std::count(json.begin(), json.end(), '{')), 1 + 2 * docker_facts::max_records) << "one object per record, plus the set";
+  const std::string error = nscapi::facts::testing::error_of(out, "docker");
+  EXPECT_NE(error.find("Daemon has " + std::to_string(docker_facts::max_records + 3) + " containers; only the first " +
+                       std::to_string(docker_facts::max_records) + " are reported"),
+            std::string::npos)
+      << error;
+  EXPECT_NE(error.find("; Daemon has " + std::to_string(docker_facts::max_records + 3) + " images; only the first"), std::string::npos) << error;
+  EXPECT_NE(error.find("size budget"), std::string::npos) << error;
+}
+
 TEST(DockerFacts, ContainerIdIsTheNamesKeywordOfCheckDocker) {
   // A container with several names (legacy links) is one record, named the
   // way check_docker's `names` keyword spells it.
@@ -149,7 +191,8 @@ TEST(DockerFacts, ImagesAreRecordsByImageIdWithTheirTags) {
   const std::vector<docker_facts::image> images = docker_facts::parse_images(IMAGES);
   ASSERT_EQ(images.size(), 3u);
   // Keyed on the image id, which does not move when a tag does, and sorted
-  // by it; the tags ride along, sorted, for reading.
+  // by it; the tags ride along, sorted, for reading. The id is the one
+  // field that names the image - it is not repeated under a second key.
   EXPECT_EQ(images[0].id, "sha256:aaa");
   EXPECT_EQ(images[0].tags, (std::vector<std::string>{"nginx:1.25", "nginx:latest"}));
   EXPECT_EQ(images[1].id, "sha256:bbb");
@@ -164,10 +207,10 @@ TEST(DockerFacts, ImagesAreRecordsByImageIdWithTheirTags) {
   nscapi::facts::response out;
   docker_facts::publish(what, snap, 0, out);
   EXPECT_EQ(docker_json(out),
-            "{\"images\":[{\"id\":\"sha256:aaa\",\"image_id\":\"sha256:aaa\",\"created\":\"2023-11-03T08:26:40Z\",\"size_bytes\":187000000,"
+            "{\"images\":[{\"id\":\"sha256:aaa\",\"created\":\"2023-11-03T08:26:40Z\",\"size_bytes\":187000000,"
             "\"tags\":[\"nginx:1.25\",\"nginx:latest\"]},"
-            "{\"id\":\"sha256:bbb\",\"image_id\":\"sha256:bbb\",\"created\":\"2023-10-22T18:40:00Z\",\"size_bytes\":5000000},"
-            "{\"id\":\"sha256:ccc\",\"image_id\":\"sha256:ccc\",\"created\":\"2023-10-11T04:53:20Z\"}]}");
+            "{\"id\":\"sha256:bbb\",\"created\":\"2023-10-22T18:40:00Z\",\"size_bytes\":5000000},"
+            "{\"id\":\"sha256:ccc\",\"created\":\"2023-10-11T04:53:20Z\"}]}");
 }
 
 TEST(DockerFacts, OnlyTheSelectedPartsAreFetchedAndPublished) {
@@ -214,10 +257,7 @@ TEST(DockerFacts, StampsWhenTheValuesWereRead) {
   what.daemon = true;
   nscapi::facts::response out;
   docker_facts::publish(what, docker_facts::snapshot(), 1790000000, out);
-  const PB::Facts::FactsMessage message = out.to_message();
-  const PB::Facts::FactSet *set = find_set(message, "docker");
-  ASSERT_NE(set, nullptr);
-  EXPECT_EQ(set->gathered(), nscapi::facts::format_time(1790000000));
+  EXPECT_EQ(gathered_of(out, "docker"), nscapi::facts::format_time(1790000000));
 }
 
 TEST(DockerFacts, AnUnreachableDaemonThrowsRatherThanPublishingAPartialSnapshot) {

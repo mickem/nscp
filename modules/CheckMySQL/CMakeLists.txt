@@ -16,9 +16,6 @@ set(SRCS
     mysql_client.cpp
     mysql_facts.cpp
     mysql_session.cpp
-    # normalize_arch(): the server's architecture is published in the `os`
-    # set's vocabulary.
-    ${NSCP_INCLUDEDIR}/facts/host_facts.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
     ${NSCP_ERROR_CPP}
@@ -107,7 +104,6 @@ NSCP_CREATE_TEST(
         check_mysql_query.cpp
         mysql_client.cpp
         mysql_facts.cpp
-        ${NSCP_INCLUDEDIR}/facts/host_facts.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp

@@ -26,7 +26,7 @@ mssql.databases = true
 |---|---|---|
 | `docker` | CheckDocker | the daemon: `version`, `os`, `os_type`, `architecture`, `kernel_version`, `storage_driver`, `cgroup_driver`, `cgroup_version`, `cpus`, `memory_bytes`, `swarm` |
 | `docker.containers` | CheckDocker | per container, stopped ones included: `id`, `container_id`, `image`, `image_id`, `created`, `ports`, `compose_project`, `compose_service` |
-| `docker.images` | CheckDocker | per image, keyed on the image id: `id`, `image_id`, `tags`, `created`, `size_bytes` |
+| `docker.images` | CheckDocker | per image, keyed on the image id: `id`, `tags`, `created`, `size_bytes` |
 | `mysql` | CheckMySQL | the server: `flavor`, `version`, `version_comment`, `hostname`, `port`, `server_id`, `character_set`, `collation`, `os`, `architecture` |
 | `mysql.databases` | CheckMySQL | per database: `id`, `character_set`, `collation` |
 | `mssql` | CheckMSSQL | the instance: `server_name`, `machine_name`, `instance_name`, `version`, `product_level`, `product_update_level`, `edition`, `engine_edition`, `collation`, `authentication`, `clustered`, `always_on` |
@@ -52,7 +52,10 @@ authentication), the same connection the checks use when a check does not
 pass its own. `CheckDocker` talks to the configured `endpoint`. All three are
 re-read every facts round, because containers and databases come and go while
 the agent runs; a round that cannot reach the service reports why under
-`errors` and keeps the last good set. None of them is read on the startup
+`errors` and keeps the last good set. Every list stops at 2500 records and
+says under `errors` how many there were, as `software.installed` does, so a
+host with more never loses the whole set to the document's size budget.
+None of them is read on the startup
 round, which runs on the thread that starts the service: a daemon or server
 that does not answer would hold the start for its full timeout, so at startup
 the set says so under `errors` and is collected from the first scheduled

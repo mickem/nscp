@@ -287,7 +287,6 @@ they say what a container *is*.
 | Field        | Example                            | Meaning |
 |--------------|------------------------------------|---------|
 | `id`         | `sha256:…`                         | the image id: the one name of an image that does not move when it is retagged, so a consumer diffing by id sees a pull as a pull and not as a removal plus an addition |
-| `image_id`   | `sha256:…`                         | the same, as a field |
 | `tags`       | `["nginx:1.25", "nginx:latest"]`   | every tag; a dangling image has none, never a `<none>:<none>` |
 | `created`    | `2026-09-01T10:00:00Z`             | when the image was built |
 | `size_bytes` | `187000000`                        | |
@@ -297,6 +296,12 @@ removed and images pulled while the agent runs. Everything is fetched before
 anything is stored: a round that read the daemon but could not list the
 containers reports an error against `docker` and keeps the set the core has,
 rather than replacing it with one that is missing a list.
+
+Each list stops at **2500 records**, for the reason `software.installed`
+does: the whole document has to fit `[/settings/facts] max size`, and a set
+that would not is rejected whole, daemon record included. A build host with
+more images than that reports the first 2500 and says under `errors` how
+many there were.
 
 The set is not read on the startup round. That round runs on the thread that
 starts the service, and a daemon that is hung, or a socket that is there but
@@ -345,7 +350,9 @@ any other: they are databases the server has.
 | `collation`     | `utf8mb4_unicode_ci` | the schema's default collation |
 
 There is no size. Summing a schema's tables is a query that changes its
-answer every round, and it belongs to `check_mysql_query`.
+answer every round, and it belongs to `check_mysql_query`. The list stops at
+**2500 records**, as `software.installed` does, and says under `errors` how
+many there were.
 
 Like `docker`, the set is not read on the startup round: a server that is
 down, or a host that drops the packets, would hold the service start for the
@@ -395,7 +402,8 @@ included, by the name `check_mssql_databases` uses.
 | `read_only`           | `false`                       | |
 
 There is no state and no data or log size. Both move every round and belong
-to `check_mssql_databases`.
+to `check_mssql_databases`. The list stops at **2500 records**, as
+`software.installed` does, and says under `errors` how many there were.
 
 Like `docker` and `mysql`, the set is not read on the startup round: a stopped
 instance would hold the service start for the full login `timeout`. At

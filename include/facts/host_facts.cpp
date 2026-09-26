@@ -31,24 +31,6 @@ bool contains(const std::string &haystack_lower, const char *needle_lower) { ret
 bool starts_with(const std::string &value, const char *prefix) { return value.compare(0, std::string(prefix).size(), prefix) == 0; }
 }  // namespace
 
-std::string normalize_arch(const std::string &raw) {
-  const std::string value = to_lower(raw);
-  if (value.empty()) return "";
-  // 64-bit Intel: Windows says AMD64, unix says x86_64, a few tools say x64.
-  if (value == "amd64" || value == "x86_64" || value == "x64") return "x86_64";
-  // 64-bit ARM: Windows says ARM64, unix says aarch64.
-  if (value == "arm64" || value == "aarch64") return "arm64";
-  // 32-bit Intel, in every spelling uname and the registry produce.
-  if (value == "x86" || value == "i386" || value == "i486" || value == "i586" || value == "i686") return "x86";
-  // 32-bit ARM: armv7l, armv6l, arm.
-  if (value == "arm" || (value.size() > 3 && value.compare(0, 3, "arm") == 0)) return "arm";
-  if (value == "ia64") return "ia64";
-  if (value == "riscv64") return "riscv64";
-  // Something new. Publish it lower-cased rather than dropping the fact: a
-  // wrong-looking value is debuggable, a missing one is not.
-  return value;
-}
-
 std::string virtualization_from_hypervisor_id(const std::string &id) {
   // The id is 12 bytes and vendors pad it with NULs or spaces ("KVMKVMKVM\0\0\0",
   // "prl hyperv "), so cut at the first NUL, trim, and match on a prefix of

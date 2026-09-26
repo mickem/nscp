@@ -84,14 +84,14 @@ bool CheckDocker::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
         "listing check_docker all=true does, re-read every facts round because containers come and go. Nothing is collected while this is off.")
       .add_bool(docker_facts::id_images, sh::bool_key(&facts_images, false),
         "DOCKER IMAGES FACTS",
-        "Collect the `docker.images` fact set: one record per image the daemon holds - its first tag (the record id; the image id when it has "
-        "none), every tag, when it was built and its size. One GET /images/json per facts round. Nothing is collected while this is off.")
+        "Collect the `docker.images` fact set: one record per image the daemon holds - its image id (the record id, which does not move when a "
+        "tag does), every tag, when it was built and its size. One GET /images/json per facts round. Nothing is collected while this is off.")
       ;
     // clang-format on
 
     settings.register_all();
     settings.notify();
-    std::atomic_store(&defaults_, std::make_shared<const docker_checks::settings>(fresh));
+    defaults_.set(fresh);
 
     // Which parts of the set fetchFacts builds is configuration, so it is
     // re-read on every load, a reload included: the core drops a set a
@@ -135,7 +135,7 @@ void CheckDocker::fetchFacts(const nscapi::facts::request &request, nscapi::fact
   // request to the daemon. The endpoint is the configured one - a facts
   // round has no request to take a `host=` from - and it is held to the same
   // rule as the checks hold theirs to (see is_local_docker_endpoint).
-  const std::shared_ptr<const docker_checks::settings> defaults = settings_snapshot();
+  const std::shared_ptr<const docker_checks::settings> defaults = defaults_.get();
   const std::string endpoint = defaults->endpoint.empty() ? docker_checks::default_docker_endpoint() : defaults->endpoint;
   std::string endpoint_error;
   if (!docker_checks::is_local_docker_endpoint(endpoint, endpoint_error)) {
@@ -154,21 +154,21 @@ void CheckDocker::fetchFacts(const nscapi::facts::request &request, nscapi::fact
 }
 
 void CheckDocker::check_docker(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  docker_checks::check_containers(*settings_snapshot(), request, response, &make_daemon_fetcher);
+  docker_checks::check_containers(*defaults_.get(), request, response, &make_daemon_fetcher);
 }
 
 void CheckDocker::check_docker_info(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  docker_checks::check_info(*settings_snapshot(), request, response, &make_daemon_fetcher);
+  docker_checks::check_info(*defaults_.get(), request, response, &make_daemon_fetcher);
 }
 
 void CheckDocker::check_docker_stats(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  docker_checks::check_stats(*settings_snapshot(), request, response, &make_daemon_fetcher);
+  docker_checks::check_stats(*defaults_.get(), request, response, &make_daemon_fetcher);
 }
 
 void CheckDocker::check_docker_restarts(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  docker_checks::check_restarts(*settings_snapshot(), request, response, &make_daemon_fetcher);
+  docker_checks::check_restarts(*defaults_.get(), request, response, &make_daemon_fetcher);
 }
 
 void CheckDocker::check_docker_df(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  docker_checks::check_df(*settings_snapshot(), request, response, &make_daemon_fetcher);
+  docker_checks::check_df(*defaults_.get(), request, response, &make_daemon_fetcher);
 }

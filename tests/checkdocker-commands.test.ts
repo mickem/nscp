@@ -189,6 +189,10 @@ maybeDescribe("CheckDocker facts", () => {
   let probe: StartedTestContainer;
   let probeName = "";
   let key: string | undefined = undefined;
+  // One manual round, taken once the probe is up, and every case reads the
+  // same document: the inventory is live, and a refresh per case would let
+  // another suite's container come and go between assertions.
+  let document: Record<string, any>;
 
   beforeAll(async () => {
     probe = await new GenericContainer("alpine:3").withCommand(["sleep", "600"]).start();
@@ -223,6 +227,13 @@ maybeDescribe("CheckDocker facts", () => {
       .then((response) => {
         key = response.body.key;
       });
+    // Collect now: the set is claimed but not read on the startup round.
+    const response = await request(REST_URL)
+      .post("/api/v2/facts/commands/refresh")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true)
+      .expect(200);
+    document = response.body;
   });
 
   afterAll(async () => {
@@ -230,18 +241,7 @@ maybeDescribe("CheckDocker facts", () => {
     await probe?.stop();
   });
 
-  /** Collect now and return the whole document: the startup round may still be running. */
-  async function refresh(): Promise<Record<string, any>> {
-    const response = await request(REST_URL)
-      .post("/api/v2/facts/commands/refresh")
-      .set("Authorization", `Bearer ${key}`)
-      .trustLocalhost(true)
-      .expect(200);
-    return response.body;
-  }
-
   it("describes the daemon without its counts", async () => {
-    const document = await refresh();
     expect(document.enabled).toContain("docker");
     expect(document.errors.docker).toBeUndefined();
     const docker = document.facts.docker;
@@ -254,13 +254,10 @@ maybeDescribe("CheckDocker facts", () => {
     if (docker.memory_bytes !== undefined) expect(docker.memory_bytes).toBeGreaterThan(0);
     // Inventory, not monitoring: no container or image counts, which
     // check_docker_info reports and which change every round.
-    expect(
-      Object.keys(docker).filter((k) => /containers|images|running|stopped|paused/.test(k)),
-    ).toEqual(["containers", "images"]);
+    expect(Object.keys(docker).filter((k) => /containers|images|running|stopped|paused/.test(k))).toEqual(["containers", "images"]);
   });
 
   it("lists the containers by the name check_docker gives them, without state", async () => {
-    const document = await refresh();
     const containers: Record<string, any>[] = document.facts.docker.containers;
     expect(Array.isArray(containers)).toBe(true);
     const ids = containers.map((c) => c.id);
@@ -279,8 +276,9 @@ maybeDescribe("CheckDocker facts", () => {
       expect(Object.keys(container).filter((k) => /state|status|health|^ip$/.test(k))).toEqual([]);
     }
 
-    // The same ids check_docker reports, which is what lets a failing check
-    // find its record.
+    // The same id check_docker reports, which is what lets a failing check
+    // find its record. The probe is the one container this suite owns, so it
+    // is the one asserted to be in both.
     const check = await request(REST_URL)
       .get(
         "/api/v2/queries/check_docker/commands/execute?all=true&filter=none&warning=none&critical=none&empty-state=ok&top-syntax=${list}&detail-syntax=%25(names)%0A",
@@ -289,26 +287,26 @@ maybeDescribe("CheckDocker facts", () => {
       .trustLocalhost(true)
       .expect(200);
     const reported = check.body.lines.map((l: { message: string }) => l.message).join("\n");
-    for (const container of containers) expect(reported).toContain(container.id);
+    expect(reported).toContain(probeName);
   });
 
   it("lists the images by image id, with their tags", async () => {
-    const document = await refresh();
     const images: Record<string, any>[] = document.facts.docker.images;
     expect(Array.isArray(images)).toBe(true);
     const ids = images.map((i) => i.id);
     expect(new Set(ids).size).toEqual(ids.length);
-    // The probe's image is here, found by its tag.
+    // The probe's image is here, found by its tag and named by its id.
     const alpine = images.find((i) => (i.tags ?? []).includes("alpine:3"));
     expect(alpine).toBeDefined();
     expect(alpine!.id).toMatch(/^sha256:/);
     expect(alpine!.size_bytes).toBeGreaterThan(0);
     for (const image of images) {
-      // Keyed on the image id, which does not move when a tag does; a
-      // dangling image carries no tags at all, never a "<none>:<none>" one.
-      expect(image.id).toEqual(image.image_id);
-      if (image.tags !== undefined)
-        expect(image.tags).not.toContain("<none>:<none>");
+      // Keyed on the image id, which does not move when a tag does, and not
+      // repeated under a second key; a dangling image carries no tags at
+      // all, never a "<none>:<none>" one.
+      expect(image.id).toMatch(/^sha256:/);
+      expect(image.image_id).toBeUndefined();
+      if (image.tags !== undefined) expect(image.tags).not.toContain("<none>:<none>");
     }
   });
 });
