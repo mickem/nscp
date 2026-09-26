@@ -422,6 +422,7 @@ std::string onboarding::build_facts_upload(const std::string &facts_hash, const 
 }
 
 const char *const onboarding::facts_hash_header = "x-facts-hash";
+const char *const onboarding::empty_facts_hash = "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a";
 
 namespace {
 // Percent-encode a query value: everything but RFC 3986's unreserved
@@ -465,7 +466,7 @@ std::string onboarding::desired_state_path(const std::string &current_hash, cons
 boost::optional<std::string> onboarding::parse_facts_hash(const std::string &header_value) {
   // Holding nothing and holding the empty document are one state, and a host
   // with nothing enabled has nothing to send in answer to either.
-  if (header_value == "none") return sha256_hex("{}");
+  if (header_value == "none") return std::string(empty_facts_hash);
   if (header_value.size() != 64) return boost::none;
   std::string hash = header_value;
   for (char &c : hash) {

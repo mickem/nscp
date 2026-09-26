@@ -1352,6 +1352,10 @@ TEST(SyncFacts, ThePollEscapesWhatItCarries) {
   EXPECT_EQ(onboarding::desired_state_path("a:b~c-d._e", ""), "/agent/v1/desired-state?current_hash=a%3Ab~c-d._e");
 }
 
+TEST(SyncFacts, TheEmptyDocumentHashIsTheDigestOfEmptyBraces) {
+  EXPECT_EQ(onboarding::sha256_hex("{}"), onboarding::empty_facts_hash);
+}
+
 TEST(SyncFacts, ParsesTheHashAServerHolds) {
   const std::string hash(64, 'a');
   EXPECT_EQ(onboarding::parse_facts_hash(hash).value(), hash);
@@ -1359,7 +1363,7 @@ TEST(SyncFacts, ParsesTheHashAServerHolds) {
   EXPECT_EQ(onboarding::parse_facts_hash(std::string(64, 'A')).value(), hash);
   // `none` is an answer: the server holds nothing for this host, which is
   // what a host with nothing enabled holds too - so they compare equal.
-  EXPECT_EQ(onboarding::parse_facts_hash("none").value(), onboarding::sha256_hex("{}"));
+  EXPECT_EQ(onboarding::parse_facts_hash("none").value(), onboarding::empty_facts_hash);
 }
 
 TEST(SyncFacts, IgnoresAHashThatIsNotADigest) {
@@ -1378,7 +1382,7 @@ const pacer::clock::time_point t0 = pacer::clock::time_point() + std::chrono::ho
 pacer::clock::time_point at(const long long seconds) { return t0 + std::chrono::seconds(seconds); }
 const std::string H1(64, '1');
 const std::string H2(64, '2');
-const std::string NONE = onboarding::sha256_hex("{}");
+const std::string NONE = onboarding::empty_facts_hash;
 }  // namespace
 
 TEST(FactsPacer, NothingUntilTheServerSaysWhatItHolds) {
@@ -1452,6 +1456,35 @@ TEST(FactsPacer, ADocumentThatStuckResetsThePacing) {
   p.server_holds(H1, at(70)); // still held after the whole window: it stuck
   p.server_holds(NONE, at(86400));
   EXPECT_TRUE(p.should_upload(H1, at(86400))) << "a loss a day later is repaired at once";
+}
+
+TEST(FactsPacer, AnEchoOfTheOlderDocumentKeepsTheNewerOnesBackoff) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.acknowledged(H1, t0);
+  p.server_holds(H1, at(1));
+  // The inventory moves to H2, and its upload is rejected.
+  p.rejected(H2, at(10));
+  // The next poll truthfully answers H1: the server still holds the older
+  // document. That says nothing about H2, whose clock must keep running -
+  // or the megabyte POST would repeat on every poll.
+  p.server_holds(H1, at(11));
+  EXPECT_FALSE(p.should_upload(H2, at(12)));
+  p.server_holds(H1, at(30));
+  EXPECT_FALSE(p.should_upload(H2, at(69)));
+  EXPECT_TRUE(p.should_upload(H2, at(70)));
+}
+
+TEST(FactsPacer, AHoldPausesEveryDocument) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.hold(t0, 120);  // a rate-limited poll
+  EXPECT_FALSE(p.should_upload(H1, at(119)));
+  EXPECT_TRUE(p.should_upload(H1, at(120)));
+  p.hold(at(120), 30);
+  p.hold(at(120), 10);  // a shorter hold never shortens a longer one
+  EXPECT_FALSE(p.should_upload(H1, at(149)));
+  EXPECT_TRUE(p.should_upload(H1, at(150)));
 }
 
 TEST(FactsPacer, ARefusedDocumentWaitsForAChange) {

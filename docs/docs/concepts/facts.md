@@ -502,7 +502,9 @@ the server say whether it needs the rest:
   the empty document, `{}`.
 * **The server answers with the hash it holds**, in an `X-Facts-Hash`
   response header (`none` when it holds nothing). It is a header so that it
-  works on the 304 a host that is in sync gets on nearly every poll.
+  works on the 304 a host that is in sync gets on nearly every poll. The
+  agent reads it only on a 2xx or 304: an error page from the server or a
+  proxy says nothing about what the server holds.
 * **The document is uploaded only on a miss**: when the server's answer
   differs from the agent's hash, the agent sends it on its own call,
   `POST /agent/v1/facts`. A matching answer costs nothing more than the hash,
@@ -532,7 +534,10 @@ every poll:
 * **A rejected upload** (a 400, 401, 404, 429 or 5xx) is retried after a
   minute, then two, doubling up to once an hour. The wait belongs to that
   document: an inventory that changed in the meantime was never tried and goes
-  at once. A `Retry-After` from the server holds every upload until it passes.
+  at once.
+* **A server asking for quiet** - a 429 or 503 on the upload, the poll or the
+  state report - holds every upload for its `Retry-After`, or for one poll
+  interval when it sends none.
 * **A document the server acknowledged and then reports missing** is sent
   again at once the first time, then on the same doubling schedule. Once the
   server has kept it for a whole wait, the schedule resets, so a loss weeks
@@ -544,9 +549,12 @@ every poll:
 
 The size cap is enforced where the document is built: the core refuses any set
 that would take the document past `[/settings/facts] max size`, and keeps the
-previous value of that set. The upload is held to the same cap, counted the
-same way, which only matters after a reload lowered it. Both size errors name
-the largest sets in the agent log, so you know which one to turn off.
+previous value of that set. `max size` is re-read on every settings reload, and
+the upload is held to the same cap, counted the same way - which only matters
+when a reload lowered it under a document the core already held. Raising it
+again takes effect on the next reload, with nothing else to change. Both size
+errors name the largest sets in the agent log, so you know which one to turn
+off.
 
 ---
 

@@ -206,6 +206,10 @@ std::string desired_state_path(const std::string &current_hash, const std::strin
 // included, which is why it is a header: a 304 has no body.
 extern const char *const facts_hash_header;  // "x-facts-hash", lowercase as the client stores it
 
+// sha256 of `{}`: the hash of the empty facts document, what a host with
+// nothing enabled holds and what `none` means.
+extern const char *const empty_facts_hash;
+
 // Read that header's value. None when it is not a sha256 hex digest or
 // `none` - and a missing header is none too, which means "this server does
 // not do facts" and is never a reason to upload. `none` means the server

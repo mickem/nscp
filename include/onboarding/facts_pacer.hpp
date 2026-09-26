@@ -25,17 +25,20 @@ namespace onboarding {
 //    only repeat) waits 1 min, then 2, doubling up to an hour, before that
 //    same document is tried again. The clock belongs to the document: a
 //    changed inventory was never tried and goes at once.
-//  * A 429's Retry-After holds every upload, whatever the document: it is the
-//    server asking for quiet, not a verdict on one document.
+//  * A Retry-After holds every upload, whatever the document and whichever
+//    call it came on - a rate-limited poll included: it is the server asking
+//    for quiet, not a verdict on one document.
 //  * A document the server acknowledged and then reports missing is sent
 //    again at once, the first time. Each further re-send of it waits on the
 //    same doubling clock, so a server that never keeps what it is sent costs
 //    an upload an hour, not one per poll.
-//  * The server answering with the document it acknowledged resets that - but
-//    only once the document's clock has run out. An echo seconds after the
-//    re-send only repeats what the upload just set; a document still held a
-//    whole backoff window later has stuck, and a loss weeks after that is
-//    repaired at once again.
+//  * The server answering with the document it acknowledged resets that
+//    document's clock - only that document's, and only once the clock has
+//    run out. An echo seconds after the re-send only repeats what the upload
+//    just set; a document still held a whole backoff window later has stuck,
+//    and a loss weeks after that is repaired at once again. An echo of an
+//    older document says nothing about a newer one being rejected: the
+//    server truthfully still holds H1 while H2 waits out its own backoff.
 //  * A document that can never be sent as it is (413, over our own cap, or
 //    one that could not be rendered) is not tried again until it changes.
 class facts_upload_pacer {
@@ -46,7 +49,14 @@ class facts_upload_pacer {
   // parsed: `none` arrives as the empty document's digest).
   void server_holds(const std::string &hash, const clock::time_point now) {
     server_ = hash;
-    if (!acked_.empty() && hash == acked_ && (backoff_hash_ != hash || now >= retry_at_)) reset();
+    if (!acked_.empty() && hash == acked_ && backoff_hash_ == hash && now >= retry_at_) reset();
+  }
+
+  // The server asked for quiet (a Retry-After, on any call): no upload of any
+  // document before `seconds` have passed.
+  void hold(const clock::time_point now, const unsigned long seconds) {
+    if (seconds == 0) return;
+    server_not_before_ = std::max(server_not_before_, now + std::chrono::seconds(seconds));
   }
 
   // Whether to upload the document whose hash is `current`.
@@ -75,7 +85,7 @@ class facts_upload_pacer {
   // none.
   void rejected(const std::string &hash, const clock::time_point now, const unsigned long retry_after_seconds = 0) {
     back_off(hash, now);
-    if (retry_after_seconds > 0) server_not_before_ = now + std::chrono::seconds(retry_after_seconds);
+    hold(now, retry_after_seconds);
   }
 
   // `hash` cannot be sent as it is: not tried again until the document

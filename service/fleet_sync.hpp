@@ -108,10 +108,11 @@ class fleet_sync {
   // Upload the facts document to /agent/v1/facts when the server has said it
   // holds a different one. Cheap when it has not: one hash compare.
   void maybe_upload_facts();
-  // Take note of the X-Facts-Hash header on a server response (desired
-  // state, 304 included, and state report): the server answering the hash we
-  // sent with the one it holds is the only thing that triggers an upload.
-  void note_server_facts_hash(const http::response &response);
+  // What a desired-state or state-report response says to the facts upload:
+  // a 429/503 holds it (for the Retry-After, or one poll interval), and the
+  // X-Facts-Hash header on a 2xx or 304 is what the server holds - the only
+  // thing that triggers an upload. One rule for both calls.
+  void note_server_response(const http::response &response);
   // The current facts hash for the state report; empty without a repository.
   std::string current_facts_hash() const;
 
@@ -148,6 +149,11 @@ class fleet_sync {
   // When to upload the facts document: only on a miss the server reported,
   // paced per document. See onboarding::facts_upload_pacer for the rules.
   onboarding::facts_upload_pacer facts_pacer_;
+  // A document over [/settings/facts] max size, with the cap it broke: not
+  // rendered again until either the document or the cap changes (the cap is
+  // re-read on every settings reload).
+  std::string oversize_hash_;
+  std::size_t oversize_cap_ = 0;
   // The status of the last failed upload that was logged, so a failure
   // repeated on every retry is logged once - keyed on the status, not the
   // body, which may carry a request id that differs every time.

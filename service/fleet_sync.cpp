@@ -387,11 +387,11 @@ void fleet_sync::report_state(const boost::optional<std::string> &applied_hash, 
     const std::string body = onboarding::build_state_report(applied_hash, installed_, errors, collect_tags(), local_config, current_facts_hash());
     const http::response response = do_call("POST", state_report_path, body);
     note_transport_success();
+    note_server_response(response);
     if (!response.is_2xx()) {
       log_error("Failed to submit state report: " + str::xtos(response.status_code_) + " " + response.payload_);
       return;
     }
-    note_server_facts_hash(response);
     reported_tag_revision_ = tag_revision;
     tags_reported_ = true;
   } catch (const std::exception &e) {
@@ -401,21 +401,37 @@ void fleet_sync::report_state(const boost::optional<std::string> &applied_hash, 
 
 std::string fleet_sync::current_facts_hash() const { return facts_ ? facts_->get_hash() : std::string(); }
 
-void fleet_sync::note_server_facts_hash(const http::response &response) {
+void fleet_sync::note_server_response(const http::response &response) {
+  const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+  // Asked for quiet, on whichever call: no facts upload until it has passed.
+  // Without a Retry-After, one poll interval - the same wait the poll takes.
+  if (response.status_code_ == 429 || response.status_code_ == 503) {
+    const boost::optional<unsigned long> retry_after = get_retry_after(response);
+    facts_pacer_.hold(now, retry_after ? clamp_sleep_seconds(retry_after.value()) : poll_interval_);
+  }
+  // What the server holds is read off an answer it meant: a 2xx, or the 304
+  // an in-sync poll gets. A 429, a 5xx or an error page from a proxy in
+  // between says nothing about the server's inventory, whatever headers it
+  // happens to carry.
+  if (!response.is_2xx() && response.status_code_ != 304) return;
   const auto header = response.headers_.find(onboarding::facts_hash_header);
   // No header: this server does not do facts. That is never a reason to
   // upload, and it says nothing about what an earlier response told us.
   if (header == response.headers_.end()) return;
   const boost::optional<std::string> advertised = onboarding::parse_facts_hash(header->second);
   if (!advertised) return;
-  facts_pacer_.server_holds(advertised.value(), std::chrono::steady_clock::now());
+  facts_pacer_.server_holds(advertised.value(), now);
 }
 
 void fleet_sync::maybe_upload_facts() {
   if (!facts_) return;
   // The cached hash first: in steady state the server holds what we hold, and
   // this is the whole cost of the call - the document is not rendered.
-  if (!facts_pacer_.should_upload(facts_->get_hash(), std::chrono::steady_clock::now())) return;
+  const std::string current = facts_->get_hash();
+  if (!facts_pacer_.should_upload(current, std::chrono::steady_clock::now())) return;
+  // Over the cap when last looked at, and neither the document nor the cap
+  // has moved since: nothing to render.
+  if (current == oversize_hash_ && facts_->get_max_size() == oversize_cap_) return;
 
   // A miss: render what we send, with its hash and collection time from the
   // same lock. The snapshot's own hash is the one that counts from here on,
@@ -440,12 +456,18 @@ void fleet_sync::maybe_upload_facts() {
   // measure against the same cap here, so this only fires when a reload
   // lowered the cap under a document the core already held - never for a
   // document the core accepted under the cap it has now.
+  // Remembered with the cap it broke rather than handed to the pacer as a
+  // refusal of the document: raising max size is one of the two remedies the
+  // log line names, and it has to work without a fact changing.
   const std::size_t max_size = facts_->get_max_size();
   if (snapshot.encoded_size > max_size) {
-    facts_pacer_.refused(snapshot.hash);
-    log_error("Facts document not uploaded: it is " + str::xtos(snapshot.encoded_size) + " bytes, over the [/settings/facts] max size of " +
-              str::xtos(max_size) + ", which was lowered after it was collected. Largest sets: " + largest_sets() +
-              ". Disable one of them in the module that produces it, or raise max size.");
+    if (oversize_hash_ != snapshot.hash || oversize_cap_ != max_size) {
+      oversize_hash_ = snapshot.hash;
+      oversize_cap_ = max_size;
+      log_error("Facts document not uploaded: it is " + str::xtos(snapshot.encoded_size) + " bytes, over the [/settings/facts] max size of " +
+                str::xtos(max_size) + ", which was lowered after it was collected. Largest sets: " + largest_sets() +
+                ". Disable one of them in the module that produces it, or raise max size.");
+    }
     return;
   }
 
@@ -741,7 +763,7 @@ unsigned long fleet_sync::poll_once() {
     return std::min(backoff, poll_interval_ * 5);
   }
   note_transport_success();
-  note_server_facts_hash(response);
+  note_server_response(response);
 
   if (response.status_code_ == 304) {
     failures_ = 0;
