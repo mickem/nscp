@@ -308,10 +308,30 @@ jobs:
       run: |
         ls -la "$GITHUB_WORKSPACE/out" || true
 
+    # The C# sample plugin is built for the tests (the runner image has the
+    # dotnet SDK, so the managed half builds here too) but deliberately not
+    # part of the package, so it travels next to the package in the artifact
+    # and the integration job copies it into the installed modules/dotnet
+    # folder - the same arrangement as build-debian.yml. Guarded on the files
+    # rather than asserted: the package is built with or without a dotnet SDK.
+    - name: Stage the C# sample plugin for the integration tests
+      shell: bash
+      run: |
+        if [ -f tmp/nscp/modules/dotnet/NSCP.Plugin.CSharpSample.dll ]; then
+          mkdir -p dotnet-sample
+          cp tmp/nscp/modules/dotnet/NSCP.Plugin.CSharpSample.dll tmp/nscp/modules/dotnet/NSCP.Plugin.CSharpSample.deps.json dotnet-sample/
+        else
+          echo "::notice::C# sample plugin not built (no dotnet SDK); the DotnetPlugins scenario will skip its managed assertions"
+        fi
+
+    # release.yml picks the .pkg and the tarball out of this by name, so the
+    # sample directory beside them never reaches a release.
     - uses: actions/upload-artifact@v6
       with:
         name: NSCP-${{ inputs.version || '0.0.0' }}-macos-arm64
-        path: out/
+        path: |
+          out/
+          dotnet-sample/
         if-no-files-found: error
 
     # A .pkg that builds is not a .pkg that works, and this runner is a Mac:

@@ -8,9 +8,10 @@
  * against a throwaway settings file and inspects the resulting [/modules]
  * section. No server/port/docker needed.
  *
- * The modules used (CheckHelpers, CheckSystem, CheckDisk) exist on both Linux
- * and Windows — the Unix variants (CheckSystemUnix / CheckDiskUnix) register
- * under the same names — so the suite runs on both platforms.
+ * The modules used (CheckHelpers, CheckNet, CheckNSCP) are built on every
+ * platform, macOS included, so the suite runs everywhere. CheckSystem and
+ * CheckDisk were used before; they are not in the macOS build yet, and the
+ * command refuses a module it cannot load.
  */
 import * as fs from "fs";
 import { NscpInstance } from "@fixtures/index";
@@ -42,14 +43,14 @@ describe("settings --activate-module", () => {
       "settings",
       "--activate-module",
       "CheckHelpers",
-      "CheckSystem",
-      "CheckDisk",
+      "CheckNet",
+      "CheckNSCP",
     ]);
     expect(r.exitCode).toBe(0);
     // Exactly the three requested modules are enabled — proving all names past
     // the first were consumed (the old single-string option dropped them).
     expect(enabledModules(nscp.settingsFile)).toEqual(
-      new Set(["CheckHelpers", "CheckSystem", "CheckDisk"]),
+      new Set(["CheckHelpers", "CheckNet", "CheckNSCP"]),
     );
   });
 

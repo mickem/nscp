@@ -83,6 +83,17 @@ jobs:
           sudo /usr/local/sbin/nscp client --settings "$RUNNER_TEMP/smoke.ini" \
             --module CheckHelpers --boot --query check_ok
 
+      # The C# sample plugin the DotnetPlugins scenario drives is built by the
+      # package job but is not part of the package (it is an example, not the
+      # product); it arrives next to the package in the artifact.
+      - name: Install the C# sample plugin (DotnetPlugins scenario)
+        shell: bash
+        run: |
+          if [ -d dotnet-sample ]; then
+            sudo mkdir -p /usr/local/lib/nsclient/modules/dotnet
+            sudo cp dotnet-sample/* /usr/local/lib/nsclient/modules/dotnet/
+          fi
+
       # No acceptance-tests.sh here, unlike the Linux jobs: it drives
       # `nscp unit --language python`, and PythonScript is not built into the
       # macOS package yet (build-macos.yml says why). It joins when it is.

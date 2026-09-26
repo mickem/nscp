@@ -29,7 +29,13 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { NscpInstance, onUnix, describeOnWindows, describeOnLinux } from "@fixtures/index";
+import {
+  NscpInstance,
+  onUnix,
+  describeOnWindows,
+  describeOnLinux,
+  hasModule,
+} from "@fixtures/index";
 
 jest.setTimeout(180_000);
 
@@ -528,6 +534,9 @@ describe("script folder resolution", () => {
     }
 
     it("PythonScript imports into ${scripts}/python and resolves it again", async () => {
+      // Optional module: built only where Boost.Python was found (not in the
+      // macOS package yet), so ask rather than assume.
+      if (!hasModule("PythonScript")) return;
       const r = await importScript({
         cli: "py",
         module: "PythonScript",

@@ -19,7 +19,7 @@ import * as path from "path";
 
 import request from "supertest";
 
-import { NscpInstance, REST_URL, setupQueryNscp } from "@fixtures/index";
+import { NscpInstance, REST_URL, setupQueryNscp, describeIf, hasModule } from "@fixtures/index";
 
 jest.setTimeout(300_000);
 
@@ -102,7 +102,9 @@ async function poll(fetch: () => Promise<string>, until: (v: string) => boolean)
   }
 }
 
-describe("PythonScript metrics", () => {
+// PythonScript is optional (built where Boost.Python is found; not in the macOS
+// package yet), so the suite asks the install rather than assuming.
+describeIf(hasModule("PythonScript"))("PythonScript metrics", () => {
   let nscp: NscpInstance;
   let key: string;
 
