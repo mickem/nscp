@@ -95,7 +95,8 @@ std::shared_ptr<workload_obj> parse_workload(const kind_spec &kind, const json::
     record->unavailable = get_num(workload.status, "unavailableReplicas");
     record->paused = get_bool(workload.spec, "paused");
   }
-  record->missing = std::max(0LL, record->desired - record->available);
+  // Not std::max: windows.h defines max as a macro and MSVC chokes on it.
+  record->missing = record->desired > record->available ? record->desired - record->available : 0;
   return record;
 }
 
