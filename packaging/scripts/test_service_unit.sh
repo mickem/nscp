@@ -5,10 +5,10 @@
 # This is the regression that matters for a monitoring agent. ProtectSystem,
 # ProtectHome and PrivateTmp are each implemented as bind mounts that land in
 # the service's /proc/mounts, and check_drivesize enumerates that file skipping
-# only pseudo filesystems and repeated mount points (check_drive_unix.cpp). A
+# only pseudo filesystems and repeated mount points (check_drive_linux.cpp). A
 # ProtectSystem bind carries the root filesystem's own type and a fresh mount
 # point, so it survives both filters and becomes an extra drive reporting / 's
-# usage with writable = 0 - and check_disk_io_unix.cpp applies the identical
+# usage with writable = 0 - and check_disk_io_linux.cpp applies the identical
 # filter, so the same phantom rows reach perfdata and OpenMetrics. Adding any
 # of those three directives back would therefore corrupt what the agent
 # reports, silently and on every Linux host. This test fails if one reappears.
@@ -86,10 +86,24 @@ chown "$NAME" "$WORK/host-mounts"
 # The pseudo-filesystem list is read out of the check's own source rather than
 # copied here, so the two cannot drift apart: whatever check_drivesize skips,
 # this skips.
-sed -n '/const std::set<std::string> pseudo = {/,/};/p' modules/CheckDisk/check_drive_unix.cpp \
+#
+# Located by content, not by path. It lived in check_drive_unix.cpp until the
+# Linux-only data sources were renamed _linux.cpp for macOS support, and this
+# test then failed on a missing file - which says nothing about the unit it is
+# supposed to be checking. Any check_drive_*.cpp that declares the set will do.
+PSEUDO_SRC=$(grep -l 'const std::set<std::string> pseudo = {' modules/CheckDisk/check_drive_*.cpp 2>/dev/null \
+  | grep -v '_test\.cpp$' | head -1 || true)
+if [ -z "$PSEUDO_SRC" ]; then
+  echo "FAIL: no modules/CheckDisk/check_drive_*.cpp declares the is_pseudo_fs() set."
+  echo "      If the filter moved, point this at its new home - the list must be"
+  echo "      read from the check, never copied into this script."
+  exit 1
+fi
+echo "   reading the pseudo-filesystem list from $PSEUDO_SRC"
+sed -n '/const std::set<std::string> pseudo = {/,/};/p' "$PSEUDO_SRC" \
   | sed 's://.*::' | grep -o '"[^"]*"' | tr -d '"' | sort -u > "$WORK/pseudo-fs"
 if [ ! -s "$WORK/pseudo-fs" ]; then
-  echo "FAIL: could not read is_pseudo_fs() out of check_drive_unix.cpp"
+  echo "FAIL: could not read is_pseudo_fs() out of $PSEUDO_SRC"
   exit 1
 fi
 

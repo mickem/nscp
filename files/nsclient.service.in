@@ -45,16 +45,16 @@ ExecStart=@NSCP_SBINDIR@/nscp service --log-backend threaded-file --run
 #
 #   - check_drivesize with no drive= enumerates /proc/mounts, skipping
 #     filesystems by type and de-duplicating by mount point
-#     (check_drive_unix.cpp). A ProtectSystem bind carries the root
+#     (check_drive_linux.cpp). A ProtectSystem bind carries the root
 #     filesystem's own type - ext4, xfs - and a fresh mount point, so it
 #     passes both filters. `full` alone adds /usr, /etc and /boot as three
 #     extra drives, each reporting / 's usage, so a threshold on / fires
 #     several times over; `strict` covers more of the tree still.
 #   - those rows read writable = 0, because the keyword is
-#     (vfs.f_flag & ST_RDONLY) == 0 (check_drive_unix.cpp) and the bind really
+#     (vfs.f_flag & ST_RDONLY) == 0 (check_drive_linux.cpp) and the bind really
 #     is read-only. So does /boot/efi, which gets a second read-only mount
 #     stacked on it.
-#   - check_disk_io_unix.cpp applies the identical filter, so the disk-free
+#   - check_disk_io_linux.cpp applies the identical filter, so the disk-free
 #     collector gains the same phantom entries - they reach perfdata and
 #     /api/v2/openmetrics, not just one check's output.
 #   - check_mount with options=rw reports "missing options: rw, exceeding
