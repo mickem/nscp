@@ -51,6 +51,7 @@ if(APPLE)
     set(PLATFORM_SRCS
         collector_source_darwin.cpp
         live_source_darwin.cpp
+        process_source_darwin.cpp
         mach_stats_darwin.cpp
         interfaces_darwin.cpp
     )
@@ -61,6 +62,7 @@ else()
     set(PLATFORM_SRCS
         collector_source_linux.cpp
         live_source_linux.cpp
+        process_source_linux.cpp
         network_facts_linux.cpp
     )
     set(PLATFORM_TEST_SRCS

@@ -3,6 +3,7 @@
 
 #ifndef NSCP_CHECK_PROCESS_H
 #define NSCP_CHECK_PROCESS_H
+#include <boost/optional.hpp>
 #include <memory>
 #include <nscapi/protobuf/command.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -35,8 +36,19 @@ struct filter_obj {
 
   // Raw process state character from /proc/[pid]/stat (R, S, D, Z, T, ...).
   // This is the Linux state, exposed as the `proc_state` keyword; the
-  // cross-platform `state` keyword keeps its started/stopped meaning.
+  // cross-platform `state` keyword keeps its started/stopped meaning. The
+  // Darwin reader maps the BSD process states onto the same letters.
   char proc_state = '?';
+
+  // Whether the memory, fault and CPU-time counters below were readable.
+  // Always true on Linux. macOS hands a process's task info only to its owner
+  // and root, so for other users' processes an unprivileged agent knows the
+  // pid, owner, state and start time but not these; they then render as
+  // "unknown" and never satisfy a threshold, rather than reading as 0.
+  bool has_task_info = true;
+  // Whether the peak sizes were readable: macOS keeps no peak virtual size or
+  // high-water resident size per process.
+  bool has_peaks = true;
 
   // Memory counters
   unsigned long long virtual_size = 0;
@@ -194,6 +206,18 @@ struct filter_obj {
     return proc_state_unknown;
   }
 
+  // Memory and time counters as optional values: absent when the counters
+  // could not be read (see has_task_info / has_peaks).
+  boost::optional<long long> task_value(const unsigned long long v) const {
+    return has_task_info ? boost::optional<long long>(static_cast<long long>(v)) : boost::none;
+  }
+  boost::optional<long long> peak_value(const unsigned long long v) const {
+    return has_task_info && has_peaks ? boost::optional<long long>(static_cast<long long>(v)) : boost::none;
+  }
+  std::string task_bytes_human(const unsigned long long v, const bool known, parsers::where::evaluation_context context) const {
+    return known ? str::format::format_byte_units(v, context->get_number_format()) : "unknown";
+  }
+
   // Memory getters
   long long get_virtual_size() const { return virtual_size; }
   long long get_peak_virtual_size() const { return peak_virtual_size; }
@@ -202,16 +226,16 @@ struct filter_obj {
   long long get_page_faults() const { return page_faults; }
 
   std::string get_virtual_size_human(parsers::where::evaluation_context context) const {
-    return str::format::format_byte_units(virtual_size, context->get_number_format());
+    return task_bytes_human(virtual_size, has_task_info, context);
   }
   std::string get_peak_virtual_size_human(parsers::where::evaluation_context context) const {
-    return str::format::format_byte_units(peak_virtual_size, context->get_number_format());
+    return task_bytes_human(peak_virtual_size, has_task_info && has_peaks, context);
   }
   std::string get_working_set_human(parsers::where::evaluation_context context) const {
-    return str::format::format_byte_units(working_set, context->get_number_format());
+    return task_bytes_human(working_set, has_task_info, context);
   }
   std::string get_peak_working_set_human(parsers::where::evaluation_context context) const {
-    return str::format::format_byte_units(peak_working_set, context->get_number_format());
+    return task_bytes_human(peak_working_set, has_task_info && has_peaks, context);
   }
 
   // Time getters
@@ -242,7 +266,15 @@ struct filter_obj {
   // fields - when the delta is not meaningful and the caller should drop the
   // process: when a raw counter moved backwards (the PID was recycled to a
   // different process mid-interval) or when no capacity was measured.
+  //
+  // A process whose counters were unreadable in either snapshot (see
+  // has_task_info) is kept, with its CPU fields unknown: it is running, only
+  // its usage cannot be measured.
   bool make_cpu_delta(const filter_obj &previous, const unsigned long long capacity_jiffies) {
+    if (!has_task_info || !previous.has_task_info) {
+      has_task_info = false;
+      return true;
+    }
     if (capacity_jiffies == 0 || kernel_time_raw < previous.kernel_time_raw || user_time_raw < previous.user_time_raw) {
       kernel_time = 0;
       user_time = 0;
@@ -263,6 +295,10 @@ struct filter_obj {
     // Without this the total is always "stopped", which trips the default
     // critical filter `state = 'stopped'`.
     started = started || other.started;
+    // A total over processes some of whose counters were unreadable is not a
+    // total; it renders unknown rather than a silent undercount.
+    has_task_info = has_task_info && other.has_task_info;
+    has_peaks = has_peaks && other.has_peaks;
     virtual_size += other.virtual_size;
     peak_virtual_size += other.peak_virtual_size;
     working_set += other.working_set;
@@ -323,10 +359,18 @@ struct filter_obj_handler : native_context {
 };
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 
-// Enumerate every process from /proc (used by check_process and the real-time
-// process filter). `resolve_owner` additionally resolves each uid to a user
-// name; it is off by default because that goes through NSS.
+// Enumerate every process (used by check_process and the real-time process
+// filter). `resolve_owner` additionally resolves each uid to a user name; it
+// is off by default because that goes through NSS. Defined per platform:
+// process_source_linux.cpp walks /proc, process_source_darwin.cpp libproc.
 std::vector<filter_obj> enumerate_processes(bool resolve_owner = false);
+
+// The total CPU capacity consumed so far, in the unit the platform's
+// user_time_raw / kernel_time_raw use: every core's jiffies from /proc/stat on
+// Linux, nanoseconds of wall-clock time times the core count on Darwin. The
+// difference between two reads is the denominator of a delta=true percentage.
+// Defined per platform; false when it cannot be read.
+bool read_cpu_capacity(unsigned long long &capacity);
 
 // Enumerate processes twice, one second apart, and report user/kernel/time as
 // whole-percent CPU usage over that window (delta=true mode).

@@ -56,41 +56,55 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_int_var("pid", &filter_obj::get_pid, "Process id")
       .add_int_var("ppid", &filter_obj::get_ppid, "Parent process id")
       .add_int_var("uid", &filter_obj::get_uid,
-                   "Real uid of the process owner from /proc/<pid>/status; -1 when not known (the synthetic 'not found' and total rows)")
+                   "Real uid of the process owner (/proc/<pid>/status on Linux, the BSD process info on macOS); -1 when not known (the synthetic "
+                   "'not found' and total rows)")
       .add_int_var("started", &filter_obj::get_started, "Process is started")
       .add_int_var("stopped", &filter_obj::get_stopped, "Process is stopped")
       .add_int_var("state", type_custom_state, &filter_obj::get_state_i,
                    "Cross-platform state verdict: started or stopped ('running' is accepted as a synonym for started in expressions; the rendered value "
                    "stays 'started')")
       .add_int_var("proc_state", type_custom_proc_state, &filter_obj::get_proc_state_i,
-                   "Raw Linux scheduler state (the letter ps prints in its STAT column): running, sleeping, disk_sleep, zombie, stopped, tracing_stop, "
-                   "dead, idle, parked or unknown");
+                   "Raw scheduler state (the letter ps prints in its STAT column): running, sleeping, disk_sleep, zombie, stopped, tracing_stop, "
+                   "dead, idle, parked or unknown. macOS has running, sleeping, zombie and stopped; running vs sleeping needs the process's task "
+                   "info, so it is unknown for other users' processes when the agent is not root");
 
   registry_.add_human_string("state", &filter_obj::get_state_s, "The current state (started, stopped)");
-  registry_.add_human_string("proc_state", &filter_obj::get_proc_state_s, "The raw Linux process state");
+  registry_.add_human_string("proc_state", &filter_obj::get_proc_state_s, "The raw process scheduler state");
 
   // Memory counters. Perfdata mirrors the Windows check_process: working set and
   // virtual size are emitted as scaled bytes, page faults as a plain counter.
-  registry_.add_int_legacy()("virtual", parsers::where::type_size, [](auto obj, auto context) { return obj->get_virtual_size(); }, "Virtual size in bytes")
-      .add_scaled_byte(std::string(""), " v_size")("working_set", parsers::where::type_size,
-                                                    [](auto obj, auto context) { return obj->get_working_set(); }, "Working set (RSS) in bytes")
-      .add_scaled_byte(std::string(""), " ws_size")("page_faults", [](auto obj, auto context) { return obj->get_page_faults(); }, "Page fault count")
-      .add_perf("", "", " pf_count");
+  // They are optional because macOS only hands task info to a process's owner
+  // and root: an unreadable counter renders "unknown", never satisfies a
+  // threshold and emits no perf data (see filter_obj::has_task_info).
+  // clang-format off
+  registry_.add_optional_int_var("virtual", parsers::where::type_size, [](auto obj) { return obj->task_value(obj->virtual_size); }, "unknown",
+                                 "Virtual size in bytes")
+      .add_scaled_byte_perf("", " v_size")
+      .add_optional_int_var("working_set", parsers::where::type_size, [](auto obj) { return obj->task_value(obj->working_set); }, "unknown",
+                            "Working set (RSS) in bytes")
+      .add_scaled_byte_perf("", " ws_size")
+      .add_optional_int_var("page_faults", [](auto obj) { return obj->task_value(obj->page_faults); }, "unknown",
+                            "Page fault count (major faults on Linux, pageins on macOS)")
+      .add_int_perf("", "", " pf_count");
 
   // Peak memory counters (VmPeak / VmHWM) and the page_fault alias mirror the
-  // Windows keyword names so queries are portable both ways.
-  registry_.add_int_legacy()("peak_virtual", parsers::where::type_size, [](auto obj, auto context) { return obj->get_peak_virtual_size(); },
-                             "Peak virtual size in bytes")
-      .add_scaled_byte(std::string(""), " pv_size")("peak_working_set", parsers::where::type_size,
-                                                    [](auto obj, auto context) { return obj->get_peak_working_set(); }, "Peak working set in bytes")
-      .add_scaled_byte(std::string(""), " pws_size")("page_fault", [](auto obj, auto context) { return obj->get_page_faults(); }, "Page fault count")
-      .add_perf("", "", " pf_count");
+  // Windows keyword names so queries are portable both ways. macOS keeps no
+  // per-process peaks, so there they are unknown.
+  registry_.add_optional_int_var("peak_virtual", parsers::where::type_size, [](auto obj) { return obj->peak_value(obj->peak_virtual_size); }, "unknown",
+                                 "Peak virtual size in bytes (unknown on macOS)")
+      .add_scaled_byte_perf("", " pv_size")
+      .add_optional_int_var("peak_working_set", parsers::where::type_size, [](auto obj) { return obj->peak_value(obj->peak_working_set); }, "unknown",
+                            "Peak working set in bytes (unknown on macOS)")
+      .add_scaled_byte_perf("", " pws_size")
+      .add_optional_int_var("page_fault", [](auto obj) { return obj->task_value(obj->page_faults); }, "unknown", "Page fault count")
+      .add_int_perf("", "", " pf_count");
 
   // `rss` is a straight alias for `working_set`, matching the Windows
   // check_process keyword set so the same expression works on both platforms.
-  registry_.add_int_legacy()("rss", parsers::where::type_size, [](auto obj, auto context) { return obj->get_working_set(); },
-                             "Resident set size in bytes; alias for working_set, matching the Windows keyword set (g,m,k,b)")
-      .add_scaled_byte(std::string(""), " rss");
+  registry_.add_optional_int_var("rss", parsers::where::type_size, [](auto obj) { return obj->task_value(obj->working_set); }, "unknown",
+                                 "Resident set size in bytes; alias for working_set, matching the Windows keyword set (g,m,k,b)")
+      .add_scaled_byte_perf("", " rss");
+  // clang-format on
 
   registry_.add_human_string_context("virtual", &filter_obj::get_virtual_size_human, "")
       .add_human_string_context("working_set", &filter_obj::get_working_set_human, "");
@@ -102,12 +116,17 @@ filter_obj_handler::filter_obj_handler() {
   // normally, whole percentages of total CPU with delta=true. creation is the
   // process start time as an absolute timestamp (date type, like Windows).
   registry_.add_int_legacy()("creation", parsers::where::type_date, [](auto obj, auto context) { return obj->get_creation_time(); }, "Creation time")
-      .add_perf("", "", " creation")("user", [](auto obj, auto context) { return obj->get_user_time(); }, "User time in seconds")
-      .add_perf("", "", " user")("kernel", [](auto obj, auto context) { return obj->get_kernel_time(); }, "Kernel time in seconds")
-      .add_perf("", "", " kernel")("time", [](auto obj, auto context) { return obj->get_total_time(); }, "User-kernel time in seconds")
-      .add_perf("", "", " total")("elapsed", [](auto obj, auto context) { return obj->get_elapsed(); },
-                                  "Wall-clock seconds since the process started (0 when not known)")
+      .add_perf("", "", " creation")("elapsed", [](auto obj, auto context) { return obj->get_elapsed(); },
+                                     "Wall-clock seconds since the process started (0 when not known)")
       .add_perf("s", "", " elapsed");
+  // clang-format off
+  registry_.add_optional_int_var("user", [](auto obj) { return obj->task_value(obj->user_time); }, "unknown", "User time in seconds")
+      .add_int_perf("", "", " user")
+      .add_optional_int_var("kernel", [](auto obj) { return obj->task_value(obj->kernel_time); }, "unknown", "Kernel time in seconds")
+      .add_int_perf("", "", " kernel")
+      .add_optional_int_var("time", [](auto obj) { return obj->task_value(obj->total_time); }, "unknown", "User-kernel time in seconds")
+      .add_int_perf("", "", " total");
+  // clang-format on
 
   registry_.add_converter(type_custom_state, &parse_state);
   registry_.add_converter(type_custom_proc_state, &parse_proc_state);
@@ -250,219 +269,15 @@ bool parse_proc_stat_btime(const std::string &content, unsigned long long &btime
   return false;
 }
 
-namespace {
-
-std::string read_file(const std::string &path) {
-  std::ifstream file(path);
-  std::stringstream ss;
-  ss << file.rdbuf();
-  return ss.str();
-}
-
-// Boot time is constant for the lifetime of the agent; read it once.
-unsigned long long get_boot_time() {
-  static const unsigned long long boot_time = [] {
-    unsigned long long btime = 0;
-    parse_proc_stat_btime(read_file("/proc/stat"), btime);
-    return btime;
-  }();
-  return boot_time;
-}
-
-}  // namespace
-
-// Read process information from /proc
-filter_obj read_process_info(int pid, bool resolve_owner = false) {
-  filter_obj info;
-  info.pid = pid;
-  info.started = true;
-
-  std::string proc_path = "/proc/" + std::to_string(pid);
-
-  // Read /proc/[pid]/exe (symlink to executable)
-  try {
-    char exe_path[PATH_MAX];
-    std::string exe_link = proc_path + "/exe";
-    ssize_t len = readlink(exe_link.c_str(), exe_path, sizeof(exe_path) - 1);
-    if (len != -1) {
-      exe_path[len] = '\0';
-      info.filename = std::string(exe_path);
-      // Extract just the executable name
-      std::size_t pos = info.filename.find_last_of('/');
-      if (pos != std::string::npos)
-        info.exe = info.filename.substr(pos + 1);
-      else
-        info.exe = info.filename;
-    }
-  } catch (...) {
-    info.error = "Cannot read exe link";
-  }
-
-  try {
-    std::ifstream cmdline_file(proc_path + "/cmdline");
-    if (cmdline_file.is_open()) {
-      std::string cmdline;
-      std::getline(cmdline_file, cmdline, '\0');
-      // cmdline uses null bytes as separators, replace with spaces
-      std::string full_cmdline;
-      while (cmdline_file.good()) {
-        if (!full_cmdline.empty()) full_cmdline += " ";
-        full_cmdline += cmdline;
-        std::getline(cmdline_file, cmdline, '\0');
-      }
-      if (!full_cmdline.empty()) {
-        info.command_line = full_cmdline;
-      } else if (!cmdline.empty()) {
-        info.command_line = cmdline;
-      }
-    }
-  } catch (...) {
-    info.error = "Cannot read cmdline";
-  }
-
-  // If we couldn't get exe from /exe symlink, try to get it from cmdline or comm
-  if (info.exe.empty()) {
-    // Try /proc/[pid]/comm
-    try {
-      std::ifstream comm_file(proc_path + "/comm");
-      if (comm_file.is_open()) {
-        std::getline(comm_file, info.exe);
-        boost::trim(info.exe);
-      }
-    } catch (...) {
-    }
-
-    // If still empty, try from command line
-    if (info.exe.empty() && !info.command_line.empty()) {
-      std::size_t pos = info.command_line.find(' ');
-      std::string first_arg = (pos != std::string::npos) ? info.command_line.substr(0, pos) : info.command_line;
-      pos = first_arg.find_last_of('/');
-      info.exe = (pos != std::string::npos) ? first_arg.substr(pos + 1) : first_arg;
-    }
-  }
-
-  // Read /proc/[pid]/stat for status and other info
-  try {
-    std::ifstream stat_file(proc_path + "/stat");
-    if (stat_file.is_open()) {
-      std::string line;
-      std::getline(stat_file, line);
-
-      proc_stat_data stat_data;
-      if (parse_proc_pid_stat(line, stat_data)) {
-        // State: R=running, S=sleeping, D=disk sleep, Z=zombie, T=stopped, t=tracing stop, X=dead
-        info.started = (stat_data.state == 'R' || stat_data.state == 'S' || stat_data.state == 'D');
-        info.proc_state = stat_data.state;
-        info.ppid = stat_data.ppid;
-
-        info.user_time_raw = stat_data.utime_jiffies;
-        info.kernel_time_raw = stat_data.stime_jiffies;
-        info.start_time_jiffies = stat_data.starttime_jiffies;
-
-        // Convert jiffies to seconds (typically 100 Hz = USER_HZ)
-        long ticks_per_sec = sysconf(_SC_CLK_TCK);
-        const unsigned long long boot_time = get_boot_time();
-        if (ticks_per_sec > 0) {
-          info.user_time = stat_data.utime_jiffies / ticks_per_sec;
-          info.kernel_time = stat_data.stime_jiffies / ticks_per_sec;
-          info.creation_time = boot_time + stat_data.starttime_jiffies / ticks_per_sec;
-          // Only meaningful once the boot time is known; without it
-          // creation_time is an offset from the epoch and the elapsed seconds
-          // would be nonsense rather than merely imprecise.
-          if (boot_time != 0) {
-            const unsigned long long now = static_cast<unsigned long long>(::time(nullptr));
-            info.elapsed = now > info.creation_time ? now - info.creation_time : 0;
-          }
-        }
-        info.total_time = info.user_time + info.kernel_time;
-
-        info.page_faults = stat_data.major_faults;
-      }
-    }
-  } catch (...) {
-    info.error = "Cannot read stat";
-  }
-
-  // Read /proc/[pid]/status for the peak memory counters and the owner uid.
-  // Kernel threads have no Vm* entries; the peaks then stay 0.
-  try {
-    std::ifstream status_file(proc_path + "/status");
-    if (status_file.is_open()) {
-      std::stringstream ss;
-      ss << status_file.rdbuf();
-      const std::string content = ss.str();
-      parse_proc_status_bytes(content, "VmPeak", info.peak_virtual_size);
-      parse_proc_status_bytes(content, "VmHWM", info.peak_working_set);
-      // The uid itself is free (it is in the file we just read); turning it
-      // into a name is what costs, so that stays behind resolve-owner.
-      parse_proc_status_uid(content, info.uid);
-      if (resolve_owner) info.username = lookup_username(info.uid);
-    }
-  } catch (...) {
-    info.error = "Cannot read status";
-  }
-
-  // Read /proc/[pid]/statm for memory info
-  try {
-    std::ifstream statm_file(proc_path + "/statm");
-    if (statm_file.is_open()) {
-      unsigned long size, resident, shared, text, lib, data, dt;
-      statm_file >> size >> resident >> shared >> text >> lib >> data >> dt;
-
-      long page_size = sysconf(_SC_PAGESIZE);
-      if (page_size > 0) {
-        info.virtual_size = size * page_size;
-        info.working_set = resident * page_size;
-      }
-    }
-  } catch (...) {
-    info.error = "Cannot read statm";
-  }
-
-  return info;
-}
-
-// Enumerate all processes from /proc
-std::vector<filter_obj> enumerate_processes(bool resolve_owner) {
-  std::vector<filter_obj> result;
-
-  DIR *proc_dir = opendir("/proc");
-  if (!proc_dir) {
-    return result;
-  }
-
-  struct dirent *entry;
-  while ((entry = readdir(proc_dir)) != nullptr) {
-    // Check if the entry is a PID directory (all digits)
-    std::string name = entry->d_name;
-    bool is_pid = !name.empty() && std::all_of(name.begin(), name.end(), ::isdigit);
-
-    if (is_pid) {
-      int pid = std::stoi(name);
-      try {
-        filter_obj info = read_process_info(pid, resolve_owner);
-        if (!info.exe.empty() || !info.command_line.empty()) {
-          result.push_back(info);
-        }
-      } catch (...) {
-        // Skip processes we can't read
-      }
-    }
-  }
-
-  closedir(proc_dir);
-  return result;
-}
-
 // Delta mode (mirrors the Windows enumerate_processes_delta): snapshot the
-// processes and the total system jiffies, sleep one second, snapshot again and
-// turn the per-process CPU counters into whole percentages of total CPU. The
-// two /proc/stat reads bracket both process snapshots so the numerator
-// (per-process jiffies) and denominator (system jiffies) cover the same
+// processes and the total system capacity, sleep one second, snapshot again
+// and turn the per-process CPU counters into whole percentages of total CPU.
+// The two capacity reads bracket both process snapshots so the numerator
+// (per-process CPU time) and denominator (system capacity) cover the same
 // wall-clock window.
 std::vector<filter_obj> enumerate_processes_delta(bool resolve_owner) {
   unsigned long long capacity_start = 0;
-  const bool have_start = parse_proc_stat_cpu_total(read_file("/proc/stat"), capacity_start);
+  const bool have_start = read_cpu_capacity(capacity_start);
 
   // Only the second (reported) snapshot needs owner names; the first is used
   // purely for the CPU counters it carries.
@@ -471,7 +286,7 @@ std::vector<filter_obj> enumerate_processes_delta(bool resolve_owner) {
   std::vector<filter_obj> second = enumerate_processes(resolve_owner);
 
   unsigned long long capacity_end = 0;
-  const bool have_end = parse_proc_stat_cpu_total(read_file("/proc/stat"), capacity_end);
+  const bool have_end = read_cpu_capacity(capacity_end);
   const unsigned long long capacity = (have_start && have_end && capacity_end > capacity_start) ? capacity_end - capacity_start : 0;
 
   std::map<int, const filter_obj *> previous;

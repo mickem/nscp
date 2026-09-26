@@ -12,6 +12,7 @@
 
 #include "check_kernel_stats.h"
 #include "check_os_version.h"
+#include "check_process.h"
 #include "check_uptime.h"
 #include "collector_source.h"
 #include "interfaces_darwin.h"
@@ -112,4 +113,54 @@ TEST(darwin_live, kernel_stats_reports_threads_only) {
   ASSERT_GT(response.lines_size(), 0);
   EXPECT_NE(response.lines(0).message().find("Threads"), std::string::npos) << response.lines(0).message();
   EXPECT_EQ(response.lines(0).message().find("Context"), std::string::npos) << response.lines(0).message();
+}
+
+TEST(darwin_process, finds_this_test_with_its_counters) {
+  const std::vector<check_proc::check_proc_filter::filter_obj> procs = check_proc::check_proc_filter::enumerate_processes(true);
+  bool found = false;
+  for (const auto &p : procs) {
+    if (p.pid != getpid()) continue;
+    found = true;
+    EXPECT_EQ(p.exe, "check_system_unix_test");
+    EXPECT_FALSE(p.filename.empty());
+    EXPECT_NE(p.command_line.find("check_system_unix_test"), std::string::npos) << p.command_line;
+    EXPECT_EQ(p.ppid, getppid());
+    EXPECT_EQ(p.uid, static_cast<long long>(getuid()));
+    EXPECT_FALSE(p.username.empty());
+    EXPECT_TRUE(p.started);
+    // Our own task info is always readable.
+    EXPECT_TRUE(p.has_task_info);
+    EXPECT_GT(p.working_set, 0u);
+    EXPECT_GT(p.virtual_size, p.working_set);
+    EXPECT_GT(p.creation_time, 0u);
+    EXPECT_EQ(p.proc_state, 'R') << "the test is running";
+    EXPECT_FALSE(p.has_peaks);
+  }
+  EXPECT_TRUE(found);
+}
+
+TEST(darwin_process, launchd_is_listed_with_its_owner) {
+  bool found = false;
+  for (const auto &p : check_proc::check_proc_filter::enumerate_processes()) {
+    if (p.pid != 1) continue;
+    found = true;
+    EXPECT_EQ(p.exe, "launchd");
+    EXPECT_EQ(p.uid, 0);
+    EXPECT_TRUE(p.started);
+    // Not ours unless the tests run as root: then the counters are unknown
+    // rather than 0.
+    if (getuid() != 0) {
+      EXPECT_FALSE(p.has_task_info);
+    }
+  }
+  EXPECT_TRUE(found);
+}
+
+TEST(darwin_process, cpu_capacity_advances_by_cores_times_wall_clock) {
+  unsigned long long a = 0, b = 0;
+  ASSERT_TRUE(check_proc::check_proc_filter::read_cpu_capacity(a));
+  usleep(100 * 1000);
+  ASSERT_TRUE(check_proc::check_proc_filter::read_cpu_capacity(b));
+  const long cores = sysconf(_SC_NPROCESSORS_ONLN);
+  EXPECT_GE(b - a, 90ull * 1000 * 1000 * static_cast<unsigned long long>(cores));
 }
