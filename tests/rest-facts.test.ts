@@ -8,10 +8,8 @@
  * the module that produces it. CheckSystem is the producer here, with `os` and
  * `hardware` turned on.
  */
-import * as fs from "fs";
-import * as path from "path";
 import request from "supertest";
-import { NscpInstance, REST_URL } from "@fixtures/index";
+import { NscpInstance, REST_URL, hasModule } from "@fixtures/index";
 
 jest.setTimeout(900_000);
 
@@ -507,15 +505,10 @@ describe("REST facts with no set enabled", () => {
 describe("REST facts from service producers", () => {
   let nscp: NscpInstance;
   let key: string | undefined = undefined;
-  const mysqlBuilt = (() => {
-    if (!process.env.NSCP_BIN) return false;
-    const dir = path.join(path.dirname(process.env.NSCP_BIN), "modules");
-    return (
-      fs.existsSync(path.join(dir, "libCheckMySQL.so")) ||
-      fs.existsSync(path.join(dir, "CheckMySQL.dll")) ||
-      fs.existsSync(path.join(dir, "CheckMySQL.so"))
-    );
-  })();
+  // Built where MariaDB Connector/C was found, and loadable only where its
+  // runtime DLL sits next to nscp.exe: the CI zip layout has the module
+  // without the DLL, and a module that cannot load claims no set.
+  const mysqlBuilt = hasModule("CheckMySQL", ["libmariadb.dll"]);
 
   beforeAll(async () => {
     nscp = new NscpInstance();

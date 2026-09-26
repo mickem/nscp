@@ -12,24 +12,18 @@
  * suite skips itself when the binary was built without it. It also needs a
  * docker daemon for the server container (NSCP_SKIP_DOCKER=1 skips).
  */
-import * as fs from "fs";
-import * as path from "path";
 import request from "supertest";
-import { NscpInstance, REST_URL } from "@fixtures/index";
+import { NscpInstance, REST_URL, hasModule } from "@fixtures/index";
 import { dockerOrSkip, GenericContainer, Wait, type StartedTestContainer } from "./src/docker";
 
 jest.setTimeout(300_000);
 
 const ROOT_PASSWORD = "nscp-integration-test";
 
+// Built where MariaDB Connector/C was found, and loadable only where its
+// runtime DLL sits next to nscp.exe (see hasModule).
 function moduleBuilt(): boolean {
-  if (!process.env.NSCP_BIN) return false;
-  const dir = path.join(path.dirname(process.env.NSCP_BIN), "modules");
-  return (
-    fs.existsSync(path.join(dir, "libCheckMySQL.so")) ||
-    fs.existsSync(path.join(dir, "CheckMySQL.dll")) ||
-    fs.existsSync(path.join(dir, "CheckMySQL.so"))
-  );
+  return hasModule("CheckMySQL", ["libmariadb.dll"]);
 }
 
 dockerOrSkip()("CheckMySQL commands", () => {
@@ -40,9 +34,12 @@ dockerOrSkip()("CheckMySQL commands", () => {
 
   /** Run a CheckMySQL query and return the combined output. */
   async function query(command: string, args: string[] = []): Promise<string> {
-    const r = await nscp.run(["client", "--module", "CheckMySQL", "--boot", "--query", command, ...args], {
-      allowFailure: true,
-    });
+    const r = await nscp.run(
+      ["client", "--module", "CheckMySQL", "--boot", "--query", command, ...args],
+      {
+        allowFailure: true,
+      },
+    );
     return r.all ?? `${r.stdout}\n${r.stderr}`;
   }
 
@@ -119,7 +116,12 @@ dockerOrSkip()("CheckMySQL commands", () => {
 
   it("rejects bad credentials with the connect-failure contract", async () => {
     if (!moduleBuilt()) return;
-    const out = await query("check_mysql", [`host=${host}`, `port=${port}`, "user=root", "password=wrong"]);
+    const out = await query("check_mysql", [
+      `host=${host}`,
+      `port=${port}`,
+      "user=root",
+      "password=wrong",
+    ]);
     expect(out).toMatch(/Failed to connect to MySQL server/);
     expect(out).toMatch(/Access denied/);
   });
