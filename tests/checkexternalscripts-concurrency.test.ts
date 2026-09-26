@@ -30,6 +30,16 @@
  * and removes it on the way out, and the test watches for both being present
  * at the same instant. That is a fact recorded by the scripts rather than
  * inferred from the client's clock, and it needs nothing a `.bat` cannot do.
+ *
+ * That still left the overlap itself to chance, which is how this failed on
+ * the arm64 runner: recording the window correctly does not make the window
+ * happen. Each query spawns its own client process, and if the second is
+ * scheduled a few seconds late the first script has already finished - no
+ * overlap to observe, through a marker file or anything else. So the scripts
+ * now rendezvous: each marks itself, waits for the other's marker, and only
+ * then runs down its clock. Overlap is therefore constructed rather than hoped
+ * for, and a core that serialised dispatch still cannot produce it - the first
+ * script would wait out the barrier alone, and `bothAlive` would stay false.
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -49,9 +59,15 @@ describe("CheckExternalScripts — concurrent scripts keep their streams apart",
   // mean the two streams crossed.
   const ALPHA = "alpha-3f2a1c";
   const BETA = "beta-9d4b7e";
-  // Each script waits before printing, so both are still alive, each holding
-  // its own pipe, while the other one is spawned.
-  const WAIT_SECONDS = 3;
+  // How long a script waits for its peer to show up before giving up and
+  // finishing alone. Only reached when the two never overlap, which is the
+  // failure this suite exists to catch; kept short enough that the case
+  // reports promptly.
+  const BARRIER_SECONDS = 15;
+  // How long both markers stay up once the two have met. This is the window
+  // the test polls for, so it wants to be comfortably wider than a starved
+  // event loop's polling interval - not long, just not marginal.
+  const HOLD_SECONDS = 2;
 
   const scriptFile = (name: string) => path.join(scriptsDir, `${name}.${onWindows ? "bat" : "sh"}`);
 
@@ -61,18 +77,49 @@ describe("CheckExternalScripts — concurrent scripts keep their streams apart",
   /** How many of the two scripts are inside the agent right now. */
   const runningCount = () => ["alpha", "beta"].filter((n) => fs.existsSync(runningFile(n))).length;
 
-  function writeScript(name: string, marker: string): void {
+  function writeScript(name: string, marker: string, peer: string): void {
     // One line of output, printed last: it proves the script ran to
     // completion, and it keeps the payload clear of any question about how a
     // transport treats multi-line check output.
     //
     // The marker file brackets the wait, so "both were alive at once" is
     // something the scripts record rather than something the test infers from
-    // how quickly the two clients happened to start.
+    // how quickly the two clients happened to start. Waiting for the peer's
+    // marker before running the clock down is what makes the overlap certain:
+    // whichever script is dispatched first sits at the barrier until the other
+    // arrives, so a late second client delays the test instead of breaking it.
     const mark = runningFile(name);
+    const peerMark = runningFile(peer);
+    // ping is the portable batch sleep: -n 2 waits about a second.
     const body = onWindows
-      ? `@echo off\r\necho running > "${mark}"\r\nping -n ${WAIT_SECONDS + 1} 127.0.0.1 >nul\r\ndel "${mark}"\r\necho ${marker}-done\r\n`
-      : `#!/bin/sh\necho running > "${mark}"\nsleep ${WAIT_SECONDS}\nrm -f "${mark}"\necho "${marker}-done"\n`;
+      ? [
+          "@echo off",
+          `echo running > "${mark}"`,
+          "set /a waited=0",
+          ":wait",
+          `if exist "${peerMark}" goto ready`,
+          "ping -n 2 127.0.0.1 >nul",
+          "set /a waited+=1",
+          `if %waited% LSS ${BARRIER_SECONDS} goto wait`,
+          ":ready",
+          `ping -n ${HOLD_SECONDS + 1} 127.0.0.1 >nul`,
+          `del "${mark}"`,
+          `echo ${marker}-done`,
+          "",
+        ].join("\r\n")
+      : [
+          "#!/bin/sh",
+          `echo running > "${mark}"`,
+          "waited=0",
+          `while [ ! -f "${peerMark}" ] && [ "$waited" -lt ${BARRIER_SECONDS * 10} ]; do`,
+          "  sleep 0.1",
+          "  waited=$((waited+1))",
+          "done",
+          `sleep ${HOLD_SECONDS}`,
+          `rm -f "${mark}"`,
+          `echo "${marker}-done"`,
+          "",
+        ].join("\n");
     fs.writeFileSync(scriptFile(name), body, { mode: 0o755 });
   }
 
@@ -102,8 +149,8 @@ describe("CheckExternalScripts — concurrent scripts keep their streams apart",
 
   beforeAll(async () => {
     scriptsDir = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-extscr-conc-"));
-    writeScript("alpha", ALPHA);
-    writeScript("beta", BETA);
+    writeScript("alpha", ALPHA, "beta");
+    writeScript("beta", BETA, "alpha");
 
     nscp = new NscpInstance();
     await nscp.configure({
@@ -143,8 +190,8 @@ describe("CheckExternalScripts — concurrent scripts keep their streams apart",
     });
 
     // Watch for the moment both markers exist. Polling rather than sleeping a
-    // fixed time: whenever the two scripts do overlap they overlap for about
-    // WAIT_SECONDS, which is thousands of samples at this interval.
+    // fixed time: once the two have met they both hold their markers for
+    // HOLD_SECONDS, which is thousands of samples at this interval.
     let bothAlive = false;
     const deadline = Date.now() + 120_000;
     while (!settled && !bothAlive && Date.now() < deadline) {
@@ -168,9 +215,10 @@ describe("CheckExternalScripts — concurrent scripts keep their streams apart",
     // to back. This is the claim the old wall-clock bound was standing in for.
     expect(bothAlive).toBe(true);
 
-    // Loose backstop only. Two overlapping scripts take a little over one
-    // wait; this catches a gross stall without failing because a client
-    // process was slow off the mark.
-    expect(elapsed).toBeLessThan(WAIT_SECONDS * 8);
+    // Loose backstop only, and deliberately never the assertion that reports
+    // a real problem: two scripts that meet promptly are done in about
+    // HOLD_SECONDS, while two that never overlap sit out the barrier twice and
+    // fail on `bothAlive` above first. This is here to catch a gross stall.
+    expect(elapsed).toBeLessThan((BARRIER_SECONDS + HOLD_SECONDS) * 4);
   });
 });
