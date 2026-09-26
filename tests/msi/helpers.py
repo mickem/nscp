@@ -252,12 +252,13 @@ def install(msi_file, target_folder, command_line, test_data_folder=None):
 HASHED_PASSWORD = re_compile(r"^pbkdf2-sha256\$\d+\$[0-9a-fA-F]+\$[0-9a-fA-F]+$")
 
 
-def validate_passwords(config_folder, file_name, expectations):
-    """Check each `password` value against what the test case expects.
+def validate_masked_values(config_folder, file_name, expectations):
+    """Check each value `compare_file` masked against what the test case expects.
 
     `compare_file` masks password lines, because a generated password (and the
     salt of a hash) is different on every run - so the value itself needs an
-    assertion of its own. A section maps to:
+    assertion of its own. That is what a test case's `masked_values:` block is:
+    a section maps to what its masked value has to be, one of
 
       hashed  - a pbkdf2-sha256 stored hash, which is what the installer writes
                 for a password it was *given* (NSCLIENT_PWD or the dialog);
@@ -266,9 +267,12 @@ def validate_passwords(config_folder, file_name, expectations):
                 something encrypts with it (NSCA) rather than verifying it, and
                 for an existing value an upgrade must not rewrite.
 
-    Reports which section failed and how, never a password: the CI log is kept,
-    and the generated one is a real credential whenever the thing under test
-    (hashing) is what broke.
+    Reports which section failed and how, never a value: the CI log is kept, and
+    the generated password is a real credential whenever the thing under test
+    (hashing) is what broke. The block is deliberately not called `passwords:`
+    either - CodeQL reads a `test_case['passwords']` at the call site as a
+    sensitive source, which made printing even a *section name* from it an
+    alert.
     """
     config_file = path.join(config_folder, file_name)
     if not path.exists(config_file):

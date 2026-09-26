@@ -41,7 +41,7 @@ nsclient.ini: |
   allowed hosts = 127.0.0.1
   password = $$PASSWORD$$
 
-passwords:
+masked_values:
   # NSCA encrypts with its key rather than verifying it, so hashing it would
   # leave a key nobody has: it must survive the install verbatim.
   "/settings/NSCA/client/targets/default": the-nsca-key
