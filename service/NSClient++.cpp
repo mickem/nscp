@@ -583,12 +583,7 @@ void NSClientT::boot_facts() {
                                                "itself; it is re-read at start and on every settings reload, which is when any of it can change.",
                                                "false", false, false);
 
-    const std::string max_size = settings_manager::get_settings()->get_string(path, "max size", str::xtos(nsclient::core::fact_repository::default_max_size));
-    try {
-      facts_->set_max_size(str::stox<std::size_t>(max_size));
-    } catch (const std::exception &e) {
-      LOG_ERROR_CORE_STD("Invalid facts 'max size' value '" + max_size + "', keeping the default: " + utf8::utf8_from_native(e.what()));
-    }
+    read_facts_max_size();
 
     if (!plugins_->has_facts_fetchers()) {
       LOG_DEBUG_CORE("No loaded module produces facts, inventory will not be collected");
@@ -605,6 +600,19 @@ void NSClientT::boot_facts() {
     LOG_ERROR_CORE_STD("Failed to configure facts: " + utf8::utf8_from_native(e.what()));
   } catch (...) {
     LOG_ERROR_CORE("Failed to configure facts");
+  }
+}
+
+// [/settings/facts] max size, applied to the repository. Read at boot and again
+// on every settings reload, before the reload's facts round, so a cap that was
+// raised or lowered applies to that round and to the next upload.
+void NSClientT::read_facts_max_size() {
+  const std::string max_size =
+      settings_manager::get_settings()->get_string("/settings/facts", "max size", str::xtos(nsclient::core::fact_repository::default_max_size));
+  try {
+    facts_->set_max_size(str::stox<std::size_t>(max_size));
+  } catch (const std::exception &e) {
+    LOG_ERROR_CORE_STD("Invalid facts 'max size' value '" + max_size + "', keeping the previous one: " + utf8::utf8_from_native(e.what()));
   }
 }
 
@@ -800,6 +808,7 @@ void NSClientT::reloadPlugins() {
   // The reloaded configuration may have enabled or disabled fact sets, and a
   // set that is no longer enabled has to leave the document now rather than at
   // the next hourly round.
+  read_facts_max_size();
   process_facts("reload");
 }
 

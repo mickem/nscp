@@ -108,9 +108,16 @@ describe("core fleet sync loop", () => {
     { name: "config.json", data: JSON.stringify({ settings: { facts: { agent: true } } }) },
   ]);
   const factsSha = crypto.createHash("sha256").update(factsZip).digest("hex");
+  // The same switch turned off: a different document (the empty one) for the
+  // agent to hold, while the server still holds the one with `agent` in it.
+  const factsOffZip = makeZip([
+    { name: "bundle.toml", data: 'name = "inventory"\nversion = "2.0"\n' },
+    { name: "config.json", data: JSON.stringify({ settings: { facts: { agent: false } } }) },
+  ]);
+  const factsOffSha = crypto.createHash("sha256").update(factsOffZip).digest("hex");
 
   /** Mutable server behavior: which desired state is currently served. */
-  let phase: "good" | "evil" | "trimmed" | "gone" | "facts";
+  let phase: "good" | "evil" | "trimmed" | "gone" | "facts" | "factsOff";
   /** What the fake server does with a facts upload. */
   let factsStatus = 200;
   /**
@@ -223,6 +230,24 @@ describe("core fleet sync loop", () => {
           },
         ],
       },
+      factsOff: {
+        tenant_id: FLEET_TENANT_ID,
+        state_hash: "h-facts-off",
+        next_poll_in_seconds: 1,
+        merged_config_json: {},
+        bundles: [
+          {
+            id: "b-facts-off",
+            name: "inventory",
+            version: "2.0",
+            sha256: factsOffSha,
+            format: "plain",
+            signature: signBundle(signingKeys.privateKey, { id: "b-facts-off", name: "inventory", version: "2.0", sha256: factsOffSha }),
+            url: "/agent/v1/bundles/b-facts-off",
+            priority: 100,
+          },
+        ],
+      },
     };
     const active = states[phase];
     if (currentHash === active.state_hash && !answerFull) {
@@ -287,6 +312,9 @@ describe("core fleet sync loop", () => {
         } else if (parsed.pathname === "/agent/v1/bundles/b-facts") {
           res.writeHead(200, { "Content-Type": "application/zip" });
           res.end(factsZip);
+        } else if (parsed.pathname === "/agent/v1/bundles/b-facts-off") {
+          res.writeHead(200, { "Content-Type": "application/zip" });
+          res.end(factsOffZip);
         } else if (req.method === "POST" && parsed.pathname === "/agent/v1/facts") {
           if (factsStatus === 200 && !forgetUploads) heldFactsHash = body?.facts_hash ?? "";
           res.writeHead(factsStatus, { "Content-Type": "application/json" });
@@ -587,5 +615,24 @@ describe("core fleet sync loop", () => {
     await waitFor("the paced retry", () => factsUploads().length > before + 1, 90_000);
     expect(factsUploads()[before + 1].body.facts_hash).toBe(factsUploads()[before].body.facts_hash);
     answerFull = false;
+  });
+  it("keeps a new document's backoff while the server echoes the older one", async () => {
+    // The server holds H1 (the document with `agent` in it) and says so on
+    // every poll. The inventory moves to H2 - the switch turned off, the empty
+    // document - and the server rejects H2's upload.
+    const h1 = factsUploads()[factsUploads().length - 1].body.facts_hash;
+    expect(heldFactsHash).toBe(h1);
+    factsStatus = 500;
+    const before = factsUploads().length;
+    phase = "factsOff";
+
+    await waitFor("the rejected upload of the new document", () => factsUploads().length > before);
+    expect(factsUploads()[before].body.facts_hash).toBe(EMPTY_FACTS_HASH);
+    // Each poll truthfully answers H1. That is no news about H2, whose own
+    // backoff keeps running: it is not POSTed again on every poll.
+    await settle(5);
+    expect(heldFactsHash).toBe(h1);
+    expect(factsUploads()).toHaveLength(before + 1);
+    factsStatus = 200;
   });
 });
