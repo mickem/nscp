@@ -31,6 +31,10 @@ Three ways to use it:
 is 1 when a container's current or last termination was an out-of-memory kill,
 even if the pod has since restarted and shows `Running`. Native sidecars (init
 containers with `restartPolicy: Always`) count as running once started and are
-included in `containers` / `ready_containers`, as in kubectl; a finished job
+included in `containers` / `ready_containers`, as in kubectl; `restarts` is
+the kubectl RESTARTS column, which counts the main containers and running
+sidecars once the pod is initialised and the init containers only while it is
+not, and `ready_containers` counts a container only while it is actually
+running; a finished job
 pod being cleaned up keeps `Completed` rather than turning into `Terminating`,
 while `terminating` still reports the pending deletion.

@@ -4,18 +4,16 @@
 #include "check_nodes.hpp"
 
 #include <boost/json.hpp>
-#include <check/duration_keyword.hpp>
-#include <ctime>
 #include <memory>
 #include <nscapi/nscapi_program_options.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <str/format.hpp>
-#include <str/rfc3339.hpp>
 #include <string>
 #include <vector>
 
+#include "kube_object.hpp"
 #include "kube_quantity.hpp"
 
 namespace json = boost::json;
@@ -68,17 +66,15 @@ std::string node_status_of(const std::string &ready, const bool schedulable) {
 
 std::shared_ptr<node_obj> parse_node(const json::object &o) {
   auto record = std::make_shared<node_obj>();
-  static const json::object empty;
-  const json::object *metadata = get_obj(o, "metadata");
-  const json::object *spec = get_obj(o, "spec");
-  const json::object *status = get_obj(o, "status");
-  if (!metadata) metadata = &empty;
-  if (!spec) spec = &empty;
-  if (!status) status = &empty;
+  const api_object node(o);
+  const json::object *metadata = &node.metadata;
+  const json::object *spec = &node.spec;
+  const json::object *status = &node.status;
 
-  record->name = get_str(*metadata, "name");
-  record->age = str::seconds_since_rfc3339(get_str(*metadata, "creationTimestamp"));
-  if (record->age >= 0) record->created = static_cast<long long>(std::time(nullptr)) - record->age;
+  record->name = node.name();
+  const object_age age = age_of(*metadata);
+  record->age = age.age;
+  record->created = age.created;
   // Roles are labels: node-role.kubernetes.io/<role>="" (kubectl reads the same).
   if (const json::object *labels = get_obj(*metadata, "labels")) {
     static const std::string prefix = "node-role.kubernetes.io/";
@@ -164,12 +160,7 @@ struct node_obj_handler : public node_context {
         .add_int_var("memory_allocatable", parsers::where::type_size, &node_obj::get_memory_allocatable,
                      "Memory available to pods in bytes, -1 when not reported (thresholds take units, e.g. memory_allocatable < 4G)")
         .add_int_perf("B", "", " memory allocatable");
-    registry_.add_int_var("created", parsers::where::type_date, &node_obj::get_created, "When the node joined the cluster (date)").no_perf();
-
-    static const parsers::where::value_type type_custom_age = parsers::where::type_custom_int_1;
-    registry_.add_int_var("age", type_custom_age, &node_obj::get_age, "Seconds since the node joined, -1 when unknown (supports units, e.g. age < 1h)")
-        .no_perf();
-    registry_.add_converter(type_custom_age, &duration_keyword::parse_duration<std::shared_ptr<node_obj>>);
+    register_age_keywords<node_obj>(registry_, &node_obj::get_created, &node_obj::get_age, "the node joined the cluster");
   }
 };
 typedef modern_filter::modern_filters<node_obj, node_obj_handler> node_filter;
@@ -207,7 +198,8 @@ void check_nodes(const settings &defaults, const PB::Commands::QueryRequestMessa
   std::string error;
   if (!resolve_cluster(defaults, target, error)) return fail(response, error);
   target.timeout = timeout;
-  const fetcher fetch = make_fetcher(target);
+  fetcher fetch;
+  if (!open_fetcher(make_fetcher, target, fetch, response)) return;
 
   std::vector<json::value> items;
   if (!list_all(fetch, target, "/api/v1/nodes", opt, items, response)) return;

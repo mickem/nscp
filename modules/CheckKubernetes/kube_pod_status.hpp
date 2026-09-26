@@ -81,8 +81,12 @@ inline pod_state derive_pod_state(const boost::json::object &pod) {
   if (!get_str(*status, "reason").empty()) reason = get_str(*status, "reason");
 
   // Init containers first: an unfinished one is what the pod is waiting on.
-  // A finished one, or a started sidecar, is skipped.
+  // A finished one, or a started sidecar, is skipped. Their restarts count
+  // only while the pod is initialising; once it is, kubectl's RESTARTS is the
+  // main containers plus the sidecars that keep running (a migrate container
+  // that retried while waiting for a database is not held against the pod).
   bool initializing = false;
+  long long sidecar_restarts = 0;
   long long init_total = 0;
   if (const boost::json::array *inits = get_arr(*spec, "initContainers")) init_total = static_cast<long long>(inits->size());
   if (const boost::json::array *inits = get_arr(*status, "initContainerStatuses")) {
@@ -105,6 +109,7 @@ inline pod_state derive_pod_state(const boost::json::object &pod) {
         // A native sidecar that is up: it is part of the running pod, not
         // of its initialisation (kubectl reads the same `started` flag).
         if (get_bool(cs, "ready")) ++out.ready;
+        sidecar_restarts += get_num(cs, "restartCount");
         ++i;
         continue;
       }
@@ -126,7 +131,12 @@ inline pod_state derive_pod_state(const boost::json::object &pod) {
     }
   }
 
-  if (!initializing) {
+  // The main containers are looked at once initialisation is over - or, as
+  // kubectl does, when the Initialized condition says it is even though a
+  // sidecar is currently unhealthy: a crashed sidecar on an otherwise
+  // healthy pod still reports 2/3 ready.
+  if (!initializing || condition_is_true(*status, "Initialized")) {
+    out.restarts = sidecar_restarts;
     bool has_running = false;
     if (const boost::json::array *statuses = get_arr(*status, "containerStatuses")) {
       // kubectl walks the list backwards, so the first container's reason wins.
@@ -134,7 +144,6 @@ inline pod_state derive_pod_state(const boost::json::object &pod) {
         if (!it->is_object()) continue;
         const boost::json::object &cs = it->as_object();
         out.restarts += get_num(cs, "restartCount");
-        if (get_bool(cs, "ready")) ++out.ready;
         if (detail::was_oom_killed(cs)) out.oom_killed = true;
         const boost::json::object *waiting = detail::state_of(cs, "state", "waiting");
         const boost::json::object *terminated = detail::state_of(cs, "state", "terminated");
@@ -147,12 +156,15 @@ inline pod_state derive_pod_state(const boost::json::object &pod) {
           const long long signal = get_num(*terminated, "signal");
           reason = signal != 0 ? "Signal:" + std::to_string(signal) : "ExitCode:" + std::to_string(get_num(*terminated, "exitCode"));
         } else if (get_bool(cs, "ready") && running) {
+          // Ready counts only for a container that is actually running: a
+          // status that lags after a crash still says ready for a moment.
           has_running = true;
+          ++out.ready;
         }
       }
     }
     // A pod is Completed only when nothing in it is still running.
-    if (reason == "Completed" && has_running) reason = out.pod_ready ? "Running" : "NotReady";
+    if (!initializing && reason == "Completed" && has_running) reason = out.pod_ready ? "Running" : "NotReady";
   }
 
   if (metadata && !get_str(*metadata, "deletionTimestamp").empty()) {

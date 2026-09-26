@@ -81,6 +81,12 @@ struct fake_api {
   }
 };
 
+// A factory whose client cannot even be constructed: the TLS context is built
+// eagerly, so a missing CA file or non-PEM identity data throws here.
+kube_checks::fetcher_factory unconstructible_api(const std::string &error) {
+  return [error](const kube_checks::cluster &) -> kube_checks::fetcher { throw std::runtime_error(error); };
+}
+
 kube_checks::fetcher_factory unreachable_api(const std::string &error) {
   return [error](const kube_checks::cluster &) -> kube_checks::fetcher {
     return [error](const std::string &) -> std::string { throw std::runtime_error(error); };
@@ -269,6 +275,49 @@ TEST(CheckKubernetes, UnreachableServerIsUnknown) {
   EXPECT_EQ(
       join_lines(response),
       "Failed to connect to Kubernetes API server at 'https://k8s.example.com:6443' (settings): Failed to connect to k8s.example.com:6443: Connection refused");
+}
+
+TEST(CheckKubernetes, ABadTlsConfigurationIsUnknownNotACommandFailure) {
+  // The client's constructor loads the CA bundle and parses the identity;
+  // that failure has to land under the same contract as a refused
+  // connection, on every command.
+  const std::string error = "Failed to load CA /etc/nscp/missing-ca.pem: no such file";
+  PB::Commands::QueryResponseMessage::Response cluster;
+  EXPECT_EQ(run_cluster(unconstructible_api(error), {}, cluster), PB::Common::ResultCode::UNKNOWN) << join_lines(cluster);
+  EXPECT_EQ(join_lines(cluster), "Failed to connect to Kubernetes API server at 'https://k8s.example.com:6443' (settings): " + error);
+  PB::Commands::QueryResponseMessage::Response pods;
+  EXPECT_EQ(run_pods(unconstructible_api(error), {}, pods), PB::Common::ResultCode::UNKNOWN) << join_lines(pods);
+  EXPECT_NE(join_lines(pods).find(error), std::string::npos);
+  PB::Commands::QueryResponseMessage::Response nodes;
+  EXPECT_EQ(run_nodes(unconstructible_api(error), {}, nodes), PB::Common::ResultCode::UNKNOWN) << join_lines(nodes);
+  EXPECT_NE(join_lines(nodes).find(error), std::string::npos);
+  PB::Commands::QueryResponseMessage::Response workloads;
+  EXPECT_EQ(run_workloads(unconstructible_api(error), {}, workloads), PB::Common::ResultCode::UNKNOWN) << join_lines(workloads);
+  EXPECT_NE(join_lines(workloads).find(error), std::string::npos);
+}
+
+TEST(CheckKubernetes, ReadyzUnavailableIsNotAVerdict) {
+  // A 404 from a path-restricting ingress, or a 502 HTML page, is the path
+  // being unavailable; /version and the node list answered, so the API is
+  // reachable and nothing said it is unready.
+  fake_api api;
+  api.serve("/version", VERSION);
+  api.serve("/api/v1/nodes", THREE_NODES);
+  api.refuse("/readyz", 404, R"({"kind":"Status","message":"the server could not find the requested resource","code":404})");
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_cluster(api.factory(), {"detail-syntax=%(api_ready)|%(readyz)"}, response), PB::Common::ResultCode::OK) << join_lines(response);
+  EXPECT_EQ(join_lines(response), "OK: ready|unavailable (HTTP 404)");
+
+  api.refuse("/readyz", 502, "<html><body><h1>502 Bad Gateway</h1></body></html>");
+  PB::Commands::QueryResponseMessage::Response response2;
+  EXPECT_EQ(run_cluster(api.factory(), {"detail-syntax=%(api_ready)|%(readyz)"}, response2), PB::Common::ResultCode::OK) << join_lines(response2);
+  EXPECT_EQ(join_lines(response2), "OK: ready|unavailable (HTTP 502)");
+
+  // The API server's own report, without a named check, is still a verdict.
+  api.refuse("/readyz", 500, "readyz check failed\n");
+  PB::Commands::QueryResponseMessage::Response response3;
+  EXPECT_EQ(run_cluster(api.factory(), {"detail-syntax=%(api_ready)|%(readyz)"}, response3), PB::Common::ResultCode::CRITICAL) << join_lines(response3);
+  EXPECT_EQ(join_lines(response3), "CRITICAL: not ready|failed (HTTP 500)");
 }
 
 TEST(CheckKubernetes, MissingConfigurationIsUnknownBeforeAnyRequest) {
@@ -531,6 +580,30 @@ TEST(KubeSettings, InClusterWithoutAMountedTokenIsExplained) {
   EXPECT_FALSE(kube_checks::resolve_cluster(s, c, error));
   EXPECT_NE(error.find("Running in-cluster"), std::string::npos) << error;
   EXPECT_NE(error.find("service account token"), std::string::npos) << error;
+}
+
+TEST(KubeSettings, InClusterHonoursAConfiguredToken) {
+  // `token` / `token file` without `api server`: the server is auto-detected
+  // but the credential the operator configured is the one that is sent, not
+  // the mounted service account's.
+  const scoped_env host("KUBERNETES_SERVICE_HOST", "10.96.0.1");
+  kube_checks::settings s;
+  s.token = "configured-token";
+  kube_checks::cluster c;
+  std::string error;
+  ASSERT_TRUE(kube_checks::resolve_cluster(s, c, error)) << error;
+  EXPECT_EQ(c.host, "10.96.0.1");
+  EXPECT_EQ(c.source, "in-cluster");
+  EXPECT_EQ(c.token, "configured-token");
+
+  const temp_file token("projected-token\n");
+  s.token_file = token.path.string();
+  ASSERT_TRUE(kube_checks::resolve_cluster(s, c, error)) << error;
+  EXPECT_EQ(c.token, "projected-token") << "the token file wins over the inline token here too";
+
+  s.token_file = "/nonexistent/nscp/token";
+  EXPECT_FALSE(kube_checks::resolve_cluster(s, c, error));
+  EXPECT_NE(error.find("Invalid `token file`"), std::string::npos) << error;
 }
 
 TEST(KubeSettings, ExplicitServerWinsOverKubeconfigAndEnvironment) {

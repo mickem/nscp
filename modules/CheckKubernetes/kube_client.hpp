@@ -108,6 +108,22 @@ inline std::string describe_transport_error(const cluster &target, const std::ex
   return "Failed to connect to Kubernetes API server at '" + target.address() + "' (" + target.source + "): " + utf8::utf8_from_native(e.what());
 }
 
+// Build the check's fetcher. The real factory constructs the TLS client,
+// which loads the CA bundle and parses the client certificate up front, so a
+// missing `ca` file or non-PEM identity data throws here rather than on the
+// first request. Report it the way a failed connection is reported instead of
+// letting it escape the check as a bare command failure. False when the
+// response has been failed.
+inline bool open_fetcher(const fetcher_factory &make_fetcher, const cluster &target, fetcher &out, PB::Commands::QueryResponseMessage::Response *response) {
+  try {
+    out = make_fetcher(target);
+    return true;
+  } catch (const std::exception &e) {
+    fail(response, describe_transport_error(target, e));
+    return false;
+  }
+}
+
 // What happened to a fetch whose non-2xx status is itself an answer (see
 // fetch_raw), rather than a failure.
 enum class raw_fetch {

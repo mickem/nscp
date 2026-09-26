@@ -44,10 +44,13 @@ struct cluster_obj_handler : public cluster_context {
         .add_string_var("source", &cluster_obj::get_source, "Where the cluster configuration came from: settings, kubeconfig <path> or in-cluster")
         .add_string_var("version", &cluster_obj::get_version, "Kubernetes version reported by /version (e.g. v1.30.2)")
         .add_string_var("platform", &cluster_obj::get_platform, "Platform the API server runs on (e.g. linux/amd64)")
-        .add_string_var("readyz", &cluster_obj::get_readyz, "What /readyz answered: ok, or the failing checks it listed");
+        .add_string_var(
+            "readyz", &cluster_obj::get_readyz,
+            "What /readyz answered: ok, the failing checks it listed, or unavailable (HTTP n) when the path did not answer with a readiness report");
     registry_
         .add_int_var("api_ready", &cluster_obj::get_api_ready, &cluster_obj::get_api_ready_str,
-                     "1 when /readyz answers ok, 0 when the API server reports itself not ready (renders as ready / not ready)")
+                     "1 unless /readyz carries a readiness report saying the API server is not ready (renders as ready / not ready); a path that is "
+                     "unavailable (a 404 or 502 from an ingress) leaves it 1 - /version answered")
         .no_perf();
     registry_.add_int_var("nodes", &cluster_obj::get_nodes, "Number of nodes in the cluster")
         .add_int_perf("", "", " nodes")
@@ -59,8 +62,15 @@ struct cluster_obj_handler : public cluster_context {
 };
 typedef modern_filter::modern_filters<cluster_obj, cluster_obj_handler> cluster_filter;
 
-// /readyz answers "ok" when healthy and, on failure, a list of "[+]check ok" /
-// "[-]check failed" lines. Reduce that to the failing check names.
+// A readiness verdict is what the API server itself writes on /readyz: "ok",
+// or a 5xx whose body lists the checks ("[+]ping ok", "[-]etcd failed", "readyz
+// check failed"). A 404 from a path-restricting ingress or a 502 HTML page is
+// the path being unavailable, not the API server saying it is unready.
+bool is_readyz_report(const long status, const std::string &body) {
+  return status >= 500 && (body.find("[-]") != std::string::npos || body.find("[+]") != std::string::npos || body.find("check failed") != std::string::npos);
+}
+
+// Reduce a /readyz report to the failing check names.
 std::string summarize_readyz(const std::string &body, const long status) {
   std::string failing;
   std::string line;
@@ -81,7 +91,8 @@ std::string summarize_readyz(const std::string &body, const long status) {
   std::string trimmed = body;
   boost::algorithm::trim(trimmed);
   if (trimmed == "ok") return "ok";
-  return "HTTP " + std::to_string(status);
+  if (is_readyz_report(status, body)) return "failed (HTTP " + std::to_string(status) + ")";
+  return "unavailable (HTTP " + std::to_string(status) + ")";
 }
 
 }  // namespace
@@ -111,7 +122,8 @@ void check_cluster(const settings &defaults, const PB::Commands::QueryRequestMes
   std::string error;
   if (!resolve_cluster(defaults, target, error)) return fail(response, error);
   target.timeout = timeout;
-  const fetcher fetch = make_fetcher(target);
+  fetcher fetch;
+  if (!open_fetcher(make_fetcher, target, fetch, response)) return;
 
   auto record = std::make_shared<cluster_obj>();
   record->server = target.address();
@@ -131,7 +143,7 @@ void check_cluster(const settings &defaults, const PB::Commands::QueryRequestMes
   long status = 0;
   const raw_fetch ready = fetch_raw(fetch, target, "/readyz", body, status, response);
   if (ready == raw_fetch::failed) return;
-  record->api_ready = ready == raw_fetch::ok;
+  record->api_ready = ready == raw_fetch::ok || !is_readyz_report(status, body);
   record->readyz = summarize_readyz(body, status);
 
   std::vector<json::value> nodes;

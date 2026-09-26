@@ -493,6 +493,30 @@ describe("CheckKubernetes commands", () => {
     expect(api.requests).toHaveLength(0);
   });
 
+  it("a CA bundle that cannot be loaded is UNKNOWN under the connection contract", async () => {
+    // The TLS context is built when the client is constructed, before any
+    // request; that failure must not escape the check as a bare error.
+    const badCa = new NscpInstance();
+    await badCa.configure({
+      "/modules": { CheckKubernetes: "enabled" },
+      "/settings/kubernetes": {
+        "api server": api.url,
+        token: TOKEN,
+        ca: "/nonexistent/nscp/ca.pem",
+        "verify mode": "peer",
+      },
+    });
+    for (const command of ["check_kubernetes", "check_pods", "check_nodes", "check_workloads"]) {
+      const { out, exitCode } = await query(command, [], badCa);
+      expect(out).toMatch(
+        /Failed to connect to Kubernetes API server at 'https:\/\/127\.0\.0\.1:\d+' \(settings\): /,
+      );
+      expect(out).not.toContain(TOKEN);
+      expect(exitCode).toBe(3);
+    }
+    expect(api.requests).toHaveLength(0);
+  });
+
   it("an unreachable API server is UNKNOWN with the address", async () => {
     const down = new NscpInstance();
     await down.configure({

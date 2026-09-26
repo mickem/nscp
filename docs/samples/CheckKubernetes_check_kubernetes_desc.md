@@ -11,7 +11,10 @@ Reaching the API is the health signal. The default critical is
 rejected token or a missing RBAC rule are reported as UNKNOWN with the reason
 (see below). That holds for `/readyz` too: a service account without the
 `nonResourceURLs: ["/readyz"]` rule gets an UNKNOWN naming the rule, not a
-CRITICAL about a healthy cluster. Node counts carry no default threshold, so add
+CRITICAL about a healthy cluster. Only a readiness report counts as a verdict
+(`ok`, or the API server's own 5xx listing its checks); a 404 or 502 from an
+ingress that does not forward the path leaves `api_ready` at 1 and shows
+`readyz` as `unavailable (HTTP 404)`, since `/version` did answer. Node counts carry no default threshold, so add
 `warning=nodes_not_ready > 0` when a NotReady node should show up here rather
 than in `check_nodes`.
 

@@ -6,16 +6,15 @@
 #include <algorithm>
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/json.hpp>
-#include <check/duration_keyword.hpp>
-#include <ctime>
 #include <memory>
 #include <nscapi/nscapi_program_options.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
-#include <str/rfc3339.hpp>
 #include <string>
 #include <vector>
+
+#include "kube_object.hpp"
 
 namespace json = boost::json;
 namespace po = boost::program_options;
@@ -69,20 +68,18 @@ const kind_spec *kind_by_name(const std::string &arg) {
 
 std::shared_ptr<workload_obj> parse_workload(const kind_spec &kind, const json::object &o) {
   auto record = std::make_shared<workload_obj>();
-  static const json::object empty;
-  const json::object *metadata = get_obj(o, "metadata");
-  const json::object *spec = get_obj(o, "spec");
-  const json::object *status = get_obj(o, "status");
-  if (!metadata) metadata = &empty;
-  if (!spec) spec = &empty;
-  if (!status) status = &empty;
+  const api_object workload(o);
+  const json::object *metadata = &workload.metadata;
+  const json::object *spec = &workload.spec;
+  const json::object *status = &workload.status;
 
   record->kind = kind.kind;
-  record->name = get_str(*metadata, "name");
-  record->ns = get_str(*metadata, "namespace");
+  record->name = workload.name();
+  record->ns = workload.ns();
   record->labels = join_map(*metadata, "labels");
-  record->age = str::seconds_since_rfc3339(get_str(*metadata, "creationTimestamp"));
-  if (record->age >= 0) record->created = static_cast<long long>(std::time(nullptr)) - record->age;
+  const object_age age = age_of(*metadata);
+  record->age = age.age;
+  record->created = age.created;
 
   if (std::string(kind.kind) == "DaemonSet") {
     record->desired = get_num(*status, "desiredNumberScheduled");
@@ -125,13 +122,7 @@ struct workload_obj_handler : public workload_context {
         .add_int_var("missing", &workload_obj::get_missing, "desired minus available, never below 0")
         .add_int_perf("", "", " missing");
     registry_.add_int_var("paused", &workload_obj::get_paused, "1 when a deployment's rollout is paused, else 0").no_perf();
-    registry_.add_int_var("created", parsers::where::type_date, &workload_obj::get_created, "When the workload was created (date)").no_perf();
-
-    static const parsers::where::value_type type_custom_age = parsers::where::type_custom_int_1;
-    registry_
-        .add_int_var("age", type_custom_age, &workload_obj::get_age, "Seconds since the workload was created, -1 when unknown (supports units, e.g. age < 1h)")
-        .no_perf();
-    registry_.add_converter(type_custom_age, &duration_keyword::parse_duration<std::shared_ptr<workload_obj>>);
+    register_age_keywords<workload_obj>(registry_, &workload_obj::get_created, &workload_obj::get_age, "the workload was created");
   }
 };
 typedef modern_filter::modern_filters<workload_obj, workload_obj_handler> workload_filter;
@@ -184,7 +175,8 @@ void check_workloads(const settings &defaults, const PB::Commands::QueryRequestM
   std::string error;
   if (!resolve_cluster(defaults, target, error)) return fail(response, error);
   target.timeout = timeout;
-  const fetcher fetch = make_fetcher(target);
+  fetcher fetch;
+  if (!open_fetcher(make_fetcher, target, fetch, response)) return;
 
   required_names wanted(required);
   for (const kind_spec *kind : selected) {

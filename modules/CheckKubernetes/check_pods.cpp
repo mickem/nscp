@@ -4,17 +4,15 @@
 #include "check_pods.hpp"
 
 #include <boost/json.hpp>
-#include <check/duration_keyword.hpp>
-#include <ctime>
 #include <memory>
 #include <nscapi/nscapi_program_options.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
-#include <str/rfc3339.hpp>
 #include <string>
 #include <vector>
 
+#include "kube_object.hpp"
 #include "kube_pod_status.hpp"
 
 namespace json = boost::json;
@@ -55,20 +53,17 @@ struct pod_obj {
 
 std::shared_ptr<pod_obj> parse_pod(const json::object &o) {
   auto record = std::make_shared<pod_obj>();
-  static const json::object empty;
-  const json::object *metadata = get_obj(o, "metadata");
-  const json::object *spec = get_obj(o, "spec");
-  const json::object *status = get_obj(o, "status");
-  if (!metadata) metadata = &empty;
-  if (!spec) spec = &empty;
-  if (!status) status = &empty;
+  const api_object pod(o);
+  const json::object *metadata = &pod.metadata;
+  const json::object *spec = &pod.spec;
+  const json::object *status = &pod.status;
 
-  record->name = get_str(*metadata, "name");
-  record->ns = get_str(*metadata, "namespace");
+  record->name = pod.name();
+  record->ns = pod.ns();
   record->labels = join_map(*metadata, "labels");
-  const std::string created = get_str(*metadata, "creationTimestamp");
-  record->age = str::seconds_since_rfc3339(created);
-  if (record->age >= 0) record->created = static_cast<long long>(std::time(nullptr)) - record->age;
+  const object_age age = age_of(*metadata);
+  record->age = age.age;
+  record->created = age.created;
   if (const json::array *owners = get_arr(*metadata, "ownerReferences")) {
     // The controller reference is the one that matters; fall back to the first.
     for (const auto &v : *owners) {
@@ -117,18 +112,15 @@ struct pod_obj_handler : public pod_context {
         .add_int_perf("", "", " ready")
         .add_int_var("containers", &pod_obj::get_containers, "Number of containers in the pod spec")
         .add_int_perf("", "", " containers")
-        .add_int_var("restarts", &pod_obj::get_restarts, "Total container restarts (the kubectl RESTARTS column)")
+        .add_int_var(
+            "restarts", &pod_obj::get_restarts,
+            "The kubectl RESTARTS column: restarts of the containers and native sidecars once the pod is initialised, of the init containers while it is not")
         .add_int_perf("", "", " restarts");
     registry_.add_int_var("ready", &pod_obj::get_ready, "1 when the pod's Ready condition is True, else 0").no_perf();
     registry_.add_int_var("terminating", &pod_obj::get_terminating, "1 when the pod is being deleted (deletionTimestamp is set), else 0").no_perf();
     registry_.add_int_var("oom_killed", &pod_obj::get_oom_killed, "1 when a container's current or last termination was an out-of-memory kill, else 0")
         .no_perf();
-    registry_.add_int_var("created", parsers::where::type_date, &pod_obj::get_created, "When the pod was created (date)").no_perf();
-
-    static const parsers::where::value_type type_custom_age = parsers::where::type_custom_int_1;
-    registry_.add_int_var("age", type_custom_age, &pod_obj::get_age, "Seconds since the pod was created, -1 when unknown (supports units, e.g. age < 10m)")
-        .no_perf();
-    registry_.add_converter(type_custom_age, &duration_keyword::parse_duration<std::shared_ptr<pod_obj>>);
+    register_age_keywords<pod_obj>(registry_, &pod_obj::get_created, &pod_obj::get_age, "the pod was created");
   }
 };
 typedef modern_filter::modern_filters<pod_obj, pod_obj_handler> pod_filter;
@@ -169,7 +161,8 @@ void check_pods(const settings &defaults, const PB::Commands::QueryRequestMessag
   std::string error;
   if (!resolve_cluster(defaults, target, error)) return fail(response, error);
   target.timeout = timeout;
-  const fetcher fetch = make_fetcher(target);
+  fetcher fetch;
+  if (!open_fetcher(make_fetcher, target, fetch, response)) return;
 
   std::vector<json::value> items;
   if (!list_namespaced(fetch, target, "/api/v1", "pods", namespaces, opt, items, response)) return;

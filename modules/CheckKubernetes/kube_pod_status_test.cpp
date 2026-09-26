@@ -230,3 +230,61 @@ TEST(KubePodStatus, TerminatingDoesNotHideATerminalPhase) {
     "status": {"phase": "Pending"}})");
   EXPECT_EQ(pending.status, "Terminating");
 }
+
+TEST(KubePodStatus, RestartsFollowTheKubectlColumn) {
+  // Once the pod is initialised, RESTARTS is the main containers plus the
+  // sidecars that keep running; an init container that retried while waiting
+  // for a database is not held against the pod.
+  const auto initialised = state_of(R"({
+    "spec": {"initContainers": [{"name": "migrate"}, {"name": "istio-proxy", "restartPolicy": "Always"}], "containers": [{"name": "app"}]},
+    "status": {"phase": "Running",
+               "conditions": [{"type": "Initialized", "status": "True"}, {"type": "Ready", "status": "True"}],
+               "initContainerStatuses": [
+                 {"name": "migrate", "ready": false, "restartCount": 6, "state": {"terminated": {"exitCode": 0, "reason": "Completed"}}},
+                 {"name": "istio-proxy", "ready": true, "started": true, "restartCount": 2, "state": {"running": {}}}],
+               "containerStatuses": [{"name": "app", "ready": true, "started": true, "restartCount": 1, "state": {"running": {}}}]}})");
+  EXPECT_EQ(initialised.status, "Running");
+  EXPECT_EQ(initialised.restarts, 3) << "1 for app + 2 for the sidecar; the 6 migrate retries are gone";
+  EXPECT_EQ(initialised.ready, 2);
+
+  // While still initialising, the init containers' restarts are the column.
+  const auto initialising = state_of(R"({
+    "spec": {"initContainers": [{"name": "migrate"}], "containers": [{"name": "app"}]},
+    "status": {"phase": "Pending",
+               "conditions": [{"type": "Initialized", "status": "False"}],
+               "initContainerStatuses": [{"name": "migrate", "ready": false, "restartCount": 6, "state": {"waiting": {"reason": "CrashLoopBackOff"}}}],
+               "containerStatuses": [{"name": "app", "ready": false, "restartCount": 0, "state": {"waiting": {"reason": "PodInitializing"}}}]}})");
+  EXPECT_EQ(initialising.status, "Init:CrashLoopBackOff");
+  EXPECT_EQ(initialising.restarts, 6);
+}
+
+TEST(KubePodStatus, ACrashedSidecarOnAnInitialisedPodStillShowsTheMainContainers) {
+  // kubectl enters the main-container loop when Initialized is True even
+  // though the sidecar is unhealthy: 2/3 ready, not 0/3.
+  const auto s = state_of(R"({
+    "spec": {"initContainers": [{"name": "istio-proxy", "restartPolicy": "Always"}], "containers": [{"name": "app"}, {"name": "worker"}]},
+    "status": {"phase": "Running",
+               "conditions": [{"type": "Initialized", "status": "True"}, {"type": "Ready", "status": "False"}],
+               "initContainerStatuses": [{"name": "istio-proxy", "ready": false, "started": false, "restartCount": 4, "state": {"waiting": {"reason": "CrashLoopBackOff"}}}],
+               "containerStatuses": [
+                 {"name": "app", "ready": true, "started": true, "restartCount": 0, "state": {"running": {}}},
+                 {"name": "worker", "ready": true, "started": true, "restartCount": 0, "state": {"running": {}}}]}})");
+  EXPECT_EQ(s.status, "Init:CrashLoopBackOff") << "the sidecar's trouble is still the headline";
+  EXPECT_EQ(s.ready, 2);
+  EXPECT_EQ(s.containers, 3);
+  EXPECT_EQ(s.restarts, 0) << "a sidecar that is not running does not count towards RESTARTS";
+}
+
+TEST(KubePodStatus, ReadyRequiresARunningContainer) {
+  // A status that lags after a crash can still say ready:true for a moment;
+  // kubectl counts a container as ready only when it is also running.
+  const auto s = state_of(R"({
+    "spec": {"containers": [{"name": "app"}, {"name": "helper"}]},
+    "status": {"phase": "Running",
+               "conditions": [{"type": "Ready", "status": "True"}],
+               "containerStatuses": [
+                 {"name": "app", "ready": true, "restartCount": 0, "state": {"running": {}}},
+                 {"name": "helper", "ready": true, "restartCount": 1, "state": {"waiting": {"reason": "CrashLoopBackOff"}}}]}})");
+  EXPECT_EQ(s.status, "CrashLoopBackOff");
+  EXPECT_EQ(s.ready, 1);
+}

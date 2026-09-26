@@ -20,10 +20,14 @@
 #include <boost/json.hpp>
 #include <cstdlib>
 #include <fstream>
+#include <json/accessors.hpp>
 #include <sstream>
 #include <string>
 
 namespace kube_checks {
+
+using json_accessors::get_bool;
+using json_accessors::get_str;
 
 // Module-level settings, straight from [/settings/kubernetes].
 struct settings {
@@ -122,20 +126,6 @@ inline std::string resolve_relative(const std::string &base_dir, const std::stri
   return (boost::filesystem::path(base_dir) / p).string();
 }
 
-inline std::string json_str(const boost::json::object &o, const char *key) {
-  if (const boost::json::value *p = o.if_contains(key)) {
-    if (p->is_string()) return std::string(p->as_string().c_str());
-  }
-  return "";
-}
-
-inline bool json_bool(const boost::json::object &o, const char *key) {
-  if (const boost::json::value *p = o.if_contains(key)) {
-    if (p->is_bool()) return p->as_bool();
-  }
-  return false;
-}
-
 // The named entry of a kubeconfig list ("clusters", "contexts", "users"): the
 // object under `section` of the item whose "name" matches. nullptr when absent.
 inline const boost::json::object *named_entry(const boost::json::object &root, const char *list, const std::string &name, const char *section) {
@@ -144,7 +134,7 @@ inline const boost::json::object *named_entry(const boost::json::object &root, c
   for (const auto &item : l->as_array()) {
     if (!item.is_object()) continue;
     const boost::json::object &o = item.as_object();
-    if (json_str(o, "name") != name) continue;
+    if (get_str(o, "name") != name) continue;
     if (const boost::json::value *s = o.if_contains(section)) {
       if (s->is_object()) return &s->as_object();
     }
@@ -249,7 +239,7 @@ inline bool resolve_kubeconfig(const std::string &text, const std::string &base_
     return false;
   }
   const boost::json::object &cfg = root.as_object();
-  const std::string ctx_name = context_name.empty() ? detail::json_str(cfg, "current-context") : context_name;
+  const std::string ctx_name = context_name.empty() ? get_str(cfg, "current-context") : context_name;
   if (ctx_name.empty()) {
     error = "Kubeconfig " + kubeconfig_label + " has no current-context; set `context` under [/settings/kubernetes]";
     return false;
@@ -259,18 +249,18 @@ inline bool resolve_kubeconfig(const std::string &text, const std::string &base_
     error = "Kubeconfig " + kubeconfig_label + " has no context named '" + ctx_name + "'";
     return false;
   }
-  const std::string cluster_name = detail::json_str(*ctx, "cluster");
-  const std::string user_name = detail::json_str(*ctx, "user");
+  const std::string cluster_name = get_str(*ctx, "cluster");
+  const std::string user_name = get_str(*ctx, "user");
   const boost::json::object *cl = detail::named_entry(cfg, "clusters", cluster_name, "cluster");
   if (!cl) {
     error = "Kubeconfig " + kubeconfig_label + ": context '" + ctx_name + "' names a cluster '" + cluster_name + "' that does not exist";
     return false;
   }
-  if (!parse_server_url(detail::json_str(*cl, "server"), out, error)) {
+  if (!parse_server_url(get_str(*cl, "server"), out, error)) {
     error = "Kubeconfig " + kubeconfig_label + ", cluster '" + cluster_name + "': " + error;
     return false;
   }
-  const std::string ca_data = detail::json_str(*cl, "certificate-authority-data");
+  const std::string ca_data = get_str(*cl, "certificate-authority-data");
   if (!ca_data.empty()) {
     out.ca_pem = detail::base64_decode(ca_data);
     if (out.ca_pem.empty()) {
@@ -278,10 +268,10 @@ inline bool resolve_kubeconfig(const std::string &text, const std::string &base_
       return false;
     }
   } else {
-    const std::string ca_file = detail::json_str(*cl, "certificate-authority");
+    const std::string ca_file = get_str(*cl, "certificate-authority");
     if (!ca_file.empty()) out.ca = detail::resolve_relative(base_dir, ca_file);
   }
-  const bool insecure = detail::json_bool(*cl, "insecure-skip-tls-verify");
+  const bool insecure = get_bool(*cl, "insecure-skip-tls-verify");
   if (insecure) out.verify_mode = "none";
 
   const boost::json::object *user = detail::named_entry(cfg, "users", user_name, "user");
@@ -289,16 +279,16 @@ inline bool resolve_kubeconfig(const std::string &text, const std::string &base_
     error = "Kubeconfig " + kubeconfig_label + ": context '" + ctx_name + "' names a user '" + user_name + "' that does not exist";
     return false;
   }
-  out.token = detail::json_str(*user, "token");
+  out.token = get_str(*user, "token");
   if (out.token.empty()) {
-    const std::string token_file = detail::resolve_relative(base_dir, detail::json_str(*user, "tokenFile"));
+    const std::string token_file = detail::resolve_relative(base_dir, get_str(*user, "tokenFile"));
     if (!token_file.empty() && !detail::read_token_file(token_file, out.token, error)) {
       error = "Kubeconfig " + kubeconfig_label + ", user '" + user_name + "': " + error;
       return false;
     }
   }
-  const std::string cert_data = detail::json_str(*user, "client-certificate-data");
-  const std::string key_data = detail::json_str(*user, "client-key-data");
+  const std::string cert_data = get_str(*user, "client-certificate-data");
+  const std::string key_data = get_str(*user, "client-key-data");
   if (!cert_data.empty() || !key_data.empty()) {
     out.client_cert_pem = detail::base64_decode(cert_data);
     out.client_key_pem = detail::base64_decode(key_data);
@@ -307,8 +297,8 @@ inline bool resolve_kubeconfig(const std::string &text, const std::string &base_
       return false;
     }
   } else {
-    const std::string cert_file = detail::resolve_relative(base_dir, detail::json_str(*user, "client-certificate"));
-    const std::string key_file = detail::resolve_relative(base_dir, detail::json_str(*user, "client-key"));
+    const std::string cert_file = detail::resolve_relative(base_dir, get_str(*user, "client-certificate"));
+    const std::string key_file = detail::resolve_relative(base_dir, get_str(*user, "client-key"));
     if (!cert_file.empty() || !key_file.empty()) {
       if (!detail::read_file(cert_file, out.client_cert_pem) || !detail::read_file(key_file, out.client_key_pem)) {
         error = "Kubeconfig " + kubeconfig_label + ", user '" + user_name + "': failed to read client-certificate '" + cert_file + "' / client-key '" +
@@ -393,7 +383,17 @@ inline bool resolve_cluster(const settings &s, cluster &out, std::string &error)
     const char *port = std::getenv("KUBERNETES_SERVICE_PORT");
     out.host = host;
     out.port = (port && *port) ? port : "443";
-    if (!detail::read_token_file(in_cluster_token_path(), out.token, error)) {
+    // A configured credential wins over the mounted one: an operator who set
+    // `token file` (a projected token for a different service account, say)
+    // meant it, even with the server auto-detected.
+    if (!s.token_file.empty()) {
+      if (!detail::read_token_file(s.token_file, out.token, error)) {
+        error = "Invalid `token file` under [/settings/kubernetes]: " + error;
+        return false;
+      }
+    } else if (!s.token.empty()) {
+      out.token = s.token;
+    } else if (!detail::read_token_file(in_cluster_token_path(), out.token, error)) {
       error = "Running in-cluster (KUBERNETES_SERVICE_HOST is set) but the service account token is unusable: " + error +
               ". Mount a service account (automountServiceAccountToken) or set `api server` and `token` under [/settings/kubernetes]";
       return false;
