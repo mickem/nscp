@@ -52,17 +52,16 @@ bool read_thread_count(long long &threads, std::string &error) {
 unsigned long long mach_ticks_to_ns(const unsigned long long ticks) {
   static const mach_timebase_info_data_t timebase = [] {
     mach_timebase_info_data_t tb{0, 0};
-    if (mach_timebase_info(&tb) != KERN_SUCCESS || tb.denom == 0) {
-      tb.numer = 1;
-      tb.denom = 1;
-    }
+    if (mach_timebase_info(&tb) != KERN_SUCCESS || tb.denom == 0) tb = mach_timebase_info_data_t{1, 1};
     return tb;
   }();
-  if (timebase.numer == timebase.denom) return ticks;
-  // Split to keep ticks * numer from overflowing for long-running processes.
-  const unsigned long long whole = ticks / timebase.denom;
-  const unsigned long long rest = ticks % timebase.denom;
-  return whole * timebase.numer + rest * timebase.numer / timebase.denom;
+  // The ratio ticks are scaled by: its two members, in declaration order.
+  const auto [scale, divisor] = timebase;
+  if (scale == divisor) return ticks;
+  // Split to keep ticks * scale from overflowing for long-running processes.
+  const unsigned long long whole = ticks / divisor;
+  const unsigned long long rest = ticks % divisor;
+  return whole * scale + rest * scale / divisor;
 }
 
 }  // namespace mach_stats

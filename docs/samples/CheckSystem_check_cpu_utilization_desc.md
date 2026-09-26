@@ -14,3 +14,10 @@ differs from [`check_cpu`](#check_cpu), which averages utilization over rolling
 time windows (`1m`/`5m`/`15m`) from the background collector; `check_cpu_utilization`
 takes a single fresh 1-second sample and exposes the per-mode breakdown, which
 is what you want to distinguish user vs. `iowait` vs. `steal` pressure.
+
+##### macOS
+
+Sourced from `host_processor_info`, which accounts CPU time as user, nice,
+system and idle only. `iowait`, `irq`, `softirq`, `steal` and `guest` are
+always 0 there: the time is folded into the other buckets, not measured as
+zero.

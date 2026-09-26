@@ -28,10 +28,10 @@ export const onDarwin = process.platform === "darwin";
 export const onUnix = !onWindows;
 
 /**
- * The check modules the macOS build does not carry yet. CheckSystem, CheckDisk
- * and CheckLogFile read the Linux kernel (procfs, mntent, inotify) and each
- * module's `module.cmake` skips it on Darwin until a Darwin data source
- * exists; PythonScript needs Boost.Python, which build-macos.yml leaves out.
+ * The check modules the macOS build does not carry yet. CheckDisk and
+ * CheckLogFile read the Linux kernel (mntent, inotify) and each module's
+ * `module.cmake` skips it on Darwin until a Darwin data source exists;
+ * PythonScript needs Boost.Python, which build-macos.yml leaves out.
  *
  * A suite that loads one of them gates on `describeWithModules(...)` in
  * gates.ts, which skips the block on macOS and runs it everywhere else. The
@@ -44,7 +44,6 @@ export const onUnix = !onWindows;
  * skipped because one was missing there would be hiding a broken package.
  */
 const NOT_BUILT_ON_DARWIN: ReadonlySet<string> = new Set([
-  "CheckSystem",
   "CheckDisk",
   "CheckLogFile",
   "PythonScript",

@@ -107,12 +107,12 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     .add_bool("os", sh::bool_key(&facts_os, false),
         "OS FACTS",
         "Collect the `os` fact set: the OS family, the distribution's product name, the kernel version, the CPU architecture, whether the host is "
-        "virtualized and the DNS domain it is in. Cheap - every value is read from uname, /etc/os-release and /sys/class/dmi/id, and nothing is "
-        "collected while this is off.")
+        "virtualized and the DNS domain it is in. Cheap - every value is read from uname, /etc/os-release and /sys/class/dmi/id (uname and sysctl "
+        "on macOS), and nothing is collected while this is off.")
 
     .add_bool("hardware", sh::bool_key(&facts_hardware, false),
         "HARDWARE FACTS",
-        "Collect the `hardware` fact set: the system manufacturer and model as the firmware reports them (/sys/class/dmi/id), the number of online "
+        "Collect the `hardware` fact set: the system manufacturer and model as the firmware reports them (/sys/class/dmi/id; Apple and hw.model on macOS), the number of online "
         "processors and the installed memory in whole GB. A host whose kernel exposes no DMI - a container, a board without SMBIOS - reports the "
         "sizes and omits the vendor and model.")
 
@@ -120,14 +120,15 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         "NETWORK INTERFACES FACTS",
         "Collect the `network.interfaces` fact set: one record per network interface except the loopback - its kernel name (the record id, the same "
         "value check_network calls `name`), the hardware address, the link state, the negotiated speed and the IPv4 and IPv6 addresses on it. No "
-        "traffic counters: those are monitoring, and live in check_network. Cheap - read from /sys/class/net and getifaddrs, nothing forks - and "
+        "traffic counters: those are monitoring, and live in check_network. Cheap - read from /sys/class/net (the kernel's interface list on macOS) and getifaddrs, nothing forks - and "
         "re-read every facts round, because addresses change with a DHCP lease.")
 
     .add_bool(software_facts::id_installed, sh::bool_key(&facts_software_installed, false),
         "INSTALLED SOFTWARE FACTS",
         "Collect the `software.installed` fact set: one record per installed package - its name (the record id, the same value "
         "check_installed_software calls `name`), version, maintainer, architecture, install date and size. The list comes from the host's own package "
-        "manager (dpkg, rpm or pacman), through the same query check_installed_software runs, so it costs one forked query per facts round - hourly "
+        "manager (dpkg, rpm or pacman; on macOS the installer receipts, application bundles and Homebrew, read without forking), through the same "
+        "query check_installed_software runs, so it costs one forked query per facts round - hourly "
         "by default. The largest set there is: a package list runs to thousands of records, and it is truncated (with an error saying so) past the "
         "point where it would not fit the facts document.")
     ;

@@ -74,3 +74,34 @@ check_service service=nginx filter=none "crit=state != 'running'"
 
 `exclude=` drops units by name, and `state=` (`all`, `active`, `inactive`,
 `failed`) restricts the enumeration before filtering.
+
+##### macOS
+
+`check_service` inspects **launchd** jobs in the system domain, which is what
+a daemon sees and the counterpart of systemd's system services. `service=`
+takes a job label (`service=com.apple.logd`); there is no `.service` suffix.
+The job list comes from `launchctl print system`, the overrides from
+`launchctl print-disabled system`, and a check by name also reads
+`launchctl print system/<label>`.
+
+Each job is mapped onto the same fields, so the default thresholds read the
+same way:
+
+| launchd job                                    | `active`   | `sub_state` | `state`   |
+|------------------------------------------------|------------|-------------|-----------|
+| has a pid                                      | `active`   | `running`   | `running` |
+| last exited with a non-zero code               | `failed`   | `failed`    | `stopped` |
+| idle, and launchd starts it on demand          | `inactive` | `dead`      | `static`  |
+| idle otherwise                                 | `inactive` | `dead`      | `stopped` |
+
+`start_type` is `disabled` for a job disabled by an override, `enabled` for one
+that runs at load or is kept alive, and `on-demand` for the rest. The
+distinction needs the job's own properties, so it is made for a check by name;
+`service=*` lists every job as `enabled` or `disabled`. A negative last status
+is the signal launchd stopped an idle job with, and does not count as a
+failure. `preset` has no launchd counterpart and is empty.
+
+`rss`, `vms`, `cpu`, `tasks` (the thread count), `created` and `age` come from
+libproc. The first four need the job's task info, which the unprivileged agent
+only has for its own processes; for any other job they read 0, and
+`has_metrics` is `false`.

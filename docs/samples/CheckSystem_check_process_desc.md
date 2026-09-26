@@ -44,6 +44,29 @@ process.
 check_process process=postgres resolve-owner=true "crit=username != 'postgres'" "detail-syntax=%(exe) owner=%(username)"
 ```
 
+##### macOS
+
+The process list comes from libproc. `pid`, `ppid`, `uid`, `username`,
+`creation`, `elapsed`, `filename` and `exe` are readable for every process.
+The memory, fault and CPU counters (`virtual`, `working_set`, `rss`,
+`page_faults`, `user`, `kernel`, `time`) and `command_line` are not: macOS
+gives them only to the process's owner and to root, and the agent runs as the
+unprivileged `_nsclient` account. For other users' processes those keywords
+render `unknown`, never satisfy a threshold and emit no performance data, and
+`command_line` is empty; a `total=true` row over such a process is `unknown`
+too, rather than an undercount. `peak_virtual` and `peak_working_set` are
+always `unknown`, since macOS keeps no per-process peaks. `page_faults` counts
+pageins, the faults that had to read from disk.
+
+`proc_state` maps the BSD process states: `running`, `sleeping`, `zombie` and
+`stopped`. Telling running from sleeping needs the counters above, so for
+other users' processes it is `unknown`. `delta=true` measures against
+wall-clock time on every core.
+
+To see every process's counters, the agent has to run as root; see [Installing
+on macOS](../../setup/installing.md#what-is-not-in-the-macos-build-yet) for the
+trade-off.
+
 #### Process state: `state` vs `proc_state` (Linux)
 
 Two different questions, two keywords: `state` is the cross-platform

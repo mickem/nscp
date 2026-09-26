@@ -891,25 +891,24 @@ a file that does not exist for darwin.
 
 ### Modules that are not built on macOS
 
-`CheckSystem` (procfs), `CheckDisk` (`mntent`, `/proc/diskstats`) and
-`CheckLogFile` (`inotify`) read Linux kernel interfaces and are skipped with a
-reason at configure time. The checks, filters and output builders in those
-modules are platform-neutral; it is the fetch that needs a Darwin
-implementation (`sysctl`, `host_statistics64`, libproc, `getmntinfo`).
+`CheckDisk` (`mntent`, `/proc/diskstats`) and `CheckLogFile` (`inotify`) read
+Linux kernel interfaces and are skipped with a reason at configure time. The
+checks, filters and output builders in those modules are platform-neutral; it
+is the fetch that needs a Darwin implementation (`getmntinfo`, IOKit, kqueue).
 
 The source split is three-way. A file named `_win.cpp` is Windows, `_unix.cpp`
 is POSIX and compiles on both Linux and macOS (`file_finder_unix.cpp`,
 `check_users_unix.cpp`), `_linux.cpp` reads procfs, sysfs or `mntent` and is
 Linux only (`check_drive_linux.cpp`, `check_disk_io_linux.cpp`,
-`network_facts_linux.cpp`), and a Darwin reader is `_darwin.cpp`. The module's
-`CMakeLists.txt` picks with `if(WIN32) / else()` today and gains an
-`elseif(APPLE)` branch with the first Darwin reader. Porting a module means
-writing the `_darwin.cpp` behind the header the `_linux.cpp` already
-implements, selecting it in that branch, and dropping the skip from
-`module.cmake`. Two readers still sit inline behind `#ifndef WIN32` and have
-to be split out first: `check_mount.cpp`'s mntent walk in CheckDisk, and the
-procfs paths the CheckSystemUnix checks read directly. The checks above the
-fetch are not touched.
+`network_facts_linux.cpp`), and a Darwin reader is `_darwin.cpp`. Porting a
+module means writing the `_darwin.cpp` behind the header the `_linux.cpp`
+already implements, selecting it in an `elseif(APPLE)` branch of the module's
+`CMakeLists.txt`, and dropping the skip from `module.cmake`. The checks above
+the fetch are not touched. CheckSystemUnix is the worked example: each
+`*_source_linux.cpp` there has a `*_source_darwin.cpp` twin defining the same
+functions, and the pure halves both call are unit-tested on every platform.
+CheckDisk's `check_mount.cpp` still reads mntent inline behind `#ifndef WIN32`
+and has to be split out first.
 
 ### Running the integration tests on a Mac
 

@@ -356,14 +356,41 @@ sudo /usr/local/sbin/uninstall-nsclient --purge    # remove them, and the accoun
 
 ### What is not in the macOS build yet
 
-Three modules are not built for macOS, because their data sources are Linux
+Two modules are not built for macOS, because their data sources are Linux
 kernel interfaces rather than portable code:
 
 | Module            | Why                                                                     | Checks affected                                     |
 |-------------------|-------------------------------------------------------------------------|-----------------------------------------------------|
-| `CheckSystem`     | Reads procfs (`/proc/stat`, `/proc/meminfo`, `/proc/<pid>`), which Darwin does not have | All 21 of its commands: `check_cpu`, `check_memory`, `check_process`, `check_uptime`, `check_service`, `check_network`, `check_load`, `check_os_version`, `check_os_updates`, `check_installed_software`, `check_battery`, ... - and with them the host, network and software facts, the real-time cpu/memory filters and the system metrics on the dashboard |
 | `CheckDisk`       | Enumerates mounts through `<mntent.h>` and reads `/proc/diskstats`       | `check_drivesize`, `check_mount`, `check_disk_io`, `check_disk_health`, and the storage facts. `check_files`, `check_single_file` and `check_disk_write` are portable code, but they ship inside the same module |
 | `CheckLogFile`    | Its real-time mode watches files with `inotify`                          | `check_logfile` (itself portable, but in the same module) and the real-time log filters |
+
+`CheckSystem` is built and carries all 21 of its Linux commands, the host,
+network and software facts, the real-time filters and the system metrics. Its
+data comes from sysctl, the Mach host statistics, libproc, IOKit and
+`launchctl` instead of procfs, and a few values have no Darwin counterpart.
+Those are reported as absent - the keyword renders `unknown`, never satisfies
+a threshold and emits no performance data - or the check returns UNKNOWN,
+rather than a zero that was never measured:
+
+| Check                         | On macOS                                                                                                                                                                                                                                  |
+|-------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `check_process`               | For processes owned by another user, `virtual`, `working_set`, `rss`, `page_faults`, `user`, `kernel` and `time` are `unknown` and `command_line` is empty: macOS gives that information only to the owner and root. `peak_virtual` and `peak_working_set` are always `unknown`. |
+| `check_service`               | Checks launchd jobs in the system domain by label (`service=com.apple.logd`). An idle job launchd starts on demand has `start_type` `on-demand` and state `static`. `rss`, `vms`, `cpu` and `tasks` read 0 for a job the agent may not inspect; `has_metrics` says which. |
+| `check_installed_software`    | Lists installer receipts (`manager` `pkgutil`), the applications in `/Applications` (`bundle`) and Homebrew formulae and casks (`homebrew`).                                                                                                |
+| `check_os_updates`            | Reads the list macOS cached at its last background check (`manager` `softwareupdate`); `live=true` asks Apple's server instead, which takes 10 to 60 seconds. `last_checked` is when the cached list was refreshed.                          |
+| `check_cpu_utilization`       | `iowait`, `irq`, `softirq`, `steal` and `guest` are 0: Darwin does not account for them.                                                                                                                                                 |
+| `check_kernel_memory`         | No slab allocator, so the `slab*` keywords are `unknown`; `wired` and `compressed` report the Darwin memory states instead.                                                                                                              |
+| `check_kernel_stats`          | Only the `threads` row. `type=ctxt` and `type=processes` are UNKNOWN: Darwin keeps no unprivileged count of context switches or forks.                                                                                                   |
+| `check_load`                  | `procs_running` is `unknown`; `procs_total` is the thread count.                                                                                                                                                                         |
+| `check_temperature`, `check_cpu_frequency` | Always UNKNOWN. The sensors and per-core clocks are reachable only through private, version-specific interfaces.                                                                                                               |
+| `check_memory`                | `cached` counts file-backed and purgeable pages as free. Swap is created on demand, so its total can be 0.                                                                                                                                 |
+
+The process counters are the one gap an operator can close. The launchd job
+runs the agent as `_nsclient` through the `UserName` and `GroupName` keys in
+`/Library/LaunchDaemons/com.nsclient.nscp.plist`; without them it runs as root
+and `check_process` sees every process. That also runs every check, external
+script and listener as root, and a package upgrade reinstalls the plist, so it
+is a deliberate choice rather than a default.
 
 Two `CheckNet` checks are present but reduced:
 

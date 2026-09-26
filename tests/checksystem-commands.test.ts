@@ -1,8 +1,8 @@
 /**
- * Exercises the CheckSystem module's check commands end-to-end on BOTH
- * platforms (modules/CheckSystem on Windows, modules/CheckSystemUnix — which
- * also registers as "CheckSystem" — on Linux). The point is command parity:
- * the same query with the same arguments must work on either OS.
+ * Exercises the CheckSystem module's check commands end-to-end on every
+ * platform (modules/CheckSystem on Windows, modules/CheckSystemUnix — which
+ * also registers as "CheckSystem" — on Linux and macOS). The point is command
+ * parity: the same query with the same arguments must work on any OS.
  *
  * Queries run over the REST API against a long-lived `nscp test` process
  * because several checks (cpu, memory, network, process history) read from a
@@ -26,6 +26,8 @@ import {
   pollQuery,
   setupQueryNscp,
   onWindows,
+  onLinux,
+  onDarwin,
   describeOnWindows,
   describeWithModules,
 } from "@fixtures/index";
@@ -37,7 +39,6 @@ const SELF_EXE = onWindows ? "nscp.exe" : "nscp";
 const SELF_RE = /nscp(\.exe)?/i;
 const SYSTEM_PATH = onWindows ? "/settings/system/windows" : "/settings/system/unix";
 
-// Skipped where the build has no CheckSystem (macOS, until it is ported).
 describeWithModules("CheckSystem")("CheckSystem commands", () => {
   let nscp: NscpInstance;
   let key: string;
@@ -144,6 +145,8 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
   });
 
   it("check_process exposes page_fault, peak sizes and creation time", async () => {
+    // macOS keeps no per-process peaks; the case below covers it there.
+    if (onDarwin) return;
     const q = await executeQuery(key, "check_process", {
       process: SELF_EXE,
       "top-syntax": "${list}",
@@ -157,6 +160,25 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
     expect(msg).toMatch(/peak_ws=[1-9]\d*/);
     expect(msg).toMatch(/peak_virt=[1-9]\d*/);
     expect(msg).toMatch(/created=\S+/);
+    expect(msg).not.toMatch(/created=0(\s|$)/);
+  });
+
+  it("check_process reports unknown peaks and real counters for its own process (macOS)", async () => {
+    if (!onDarwin) return;
+    // Our own process's task info is always readable, so the counters are
+    // values; the peaks, which macOS does not keep, are unknown rather than 0
+    // and never trip a threshold.
+    const q = await executeQuery(key, "check_process", {
+      process: SELF_EXE,
+      "top-syntax": "${list}",
+      "detail-syntax":
+        "own=${working_set} peak_ws=${peak_working_set} peak_virt=${peak_virtual} created=${creation}",
+      critical: "peak_working_set > 1k or peak_virtual > 1k",
+    });
+    expect(q.result).toBe(OK);
+    const msg = messageOf(q);
+    expect(msg).toMatch(/peak_ws=unknown peak_virt=unknown/);
+    expect(msg).not.toMatch(/own=unknown/);
     expect(msg).not.toMatch(/created=0(\s|$)/);
   });
 
@@ -295,7 +317,7 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
     expect(ppid).not.toBe(pid);
   });
 
-  it("check_process proc_state reports the raw Linux state (Linux)", async () => {
+  it("check_process proc_state reports the raw scheduler state (Unix)", async () => {
     if (onWindows) return;
     // A live process is in one of the running states; `state` stays "started".
     const q = await executeQuery(key, "check_process", {
@@ -831,19 +853,22 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
     expect(perfValue(q, "count")).toBeGreaterThan(0);
   });
 
-  it("check_installed_software exposes the package manager keyword (Linux)", async () => {
+  it("check_installed_software exposes the package manager keyword (Unix)", async () => {
     if (onWindows) return; // manager is the unix package-manager keyword.
-    // Whatever manager owns this host, every entry carries the same value, so
-    // filtering on the full known set must keep the inventory non-empty.
+    // Whatever manager owns this host, every entry carries one of these
+    // values (macOS: its three sources), so filtering on the full known set
+    // must keep the inventory non-empty.
     const q = await executeQuery(key, "check_installed_software", {
-      filter: "manager = 'dpkg' or manager = 'rpm' or manager = 'pacman'",
+      filter: onDarwin
+        ? "manager = 'pkgutil' or manager = 'bundle' or manager = 'homebrew'"
+        : "manager = 'dpkg' or manager = 'rpm' or manager = 'pacman'",
     });
     expect(q.result).toBe(OK);
     expect(perfValue(q, "count")).toBeGreaterThan(0);
   });
 
   it("check_installed_software dates every package on dpkg and rpm (Linux)", async () => {
-    if (onWindows) return; // manager is the unix package-manager keyword.
+    if (!onLinux) return; // dpkg and rpm are Linux package managers.
     // dpkg-query (db-fsys:Last-Modified) and rpm (INSTALLTIME) date every
     // installed package, so an entry with no date means the date query broke;
     // pacman records none and is left out.
@@ -859,13 +884,19 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
 
   it("check_kernel_memory reports kernel gauges and fault rates with perf", async () => {
     // Windows samples the PDH Memory counters; Linux reads /proc/meminfo and
-    // /proc/vmstat. Both take a 1s window for the fault rates.
+    // /proc/vmstat; macOS the Mach VM statistics. All take a 1s window for
+    // the fault rates.
     const q = await executeQuery(key, "check_kernel_memory", {});
     expect(q.result).toBe(OK);
     expect(messageOf(q)).toMatch(/cache/i);
     const perf = perfOf(q);
-    // The byte gauges are never zero on a live kernel.
-    const gauge = onWindows ? "kernel_pool_nonpaged" : "kernel_slab_unreclaimable";
+    // The byte gauges are never zero on a live kernel. macOS has no slab;
+    // wired memory is its counterpart.
+    const gauge = onWindows
+      ? "kernel_pool_nonpaged"
+      : onDarwin
+        ? "kernel_wired"
+        : "kernel_slab_unreclaimable";
     expect(perf[gauge]).toBeDefined();
     expect(perf[gauge].value as number).toBeGreaterThan(0);
     expect(perf["kernel_cache"].value as number).toBeGreaterThan(0);
@@ -875,7 +906,7 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
   it("check_kernel_memory size-unit and rate thresholds parse over REST", async () => {
     // Pool/slab thresholds use size units and the fault thresholds are rates,
     // all passed as single k=v tokens. Pinned so they can never trip.
-    const gauge = onWindows ? "pool_nonpaged" : "slab_unreclaimable";
+    const gauge = onWindows ? "pool_nonpaged" : onDarwin ? "wired" : "slab_unreclaimable";
     const rate = onWindows ? "hard_faults_per_sec" : "major_faults_per_sec";
     const q = await executeQuery(key, "check_kernel_memory", {
       warning: `${gauge} > 999999G`,
@@ -1164,15 +1195,31 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
   it("check_kernel_stats reports ctxt/processes/threads", async () => {
     // Linux reads /proc/stat; Windows samples the PDH System counters. Both
     // expose ctxt/processes/threads rows (Windows adds a syscalls row, and its
-    // processes row is a gauge rather than a fork rate).
+    // processes row is a gauge rather than a fork rate). macOS has only the
+    // threads row.
     const q = await executeQuery(key, "check_kernel_stats", {
       "detail-syntax": "${name}=${current}",
     });
     expect(q.result).toBeLessThanOrEqual(CRITICAL);
     const msg = messageOf(q);
-    expect(msg).toMatch(/ctxt=\d+/);
-    expect(msg).toMatch(/processes=\d+/);
+    if (onDarwin) {
+      expect(msg).not.toMatch(/ctxt|processes/);
+    } else {
+      expect(msg).toMatch(/ctxt=\d+/);
+      expect(msg).toMatch(/processes=\d+/);
+    }
     expect(msg).toMatch(/threads=[1-9]\d*/); // there is always at least one thread
+  });
+
+  it("check_kernel_stats type=ctxt is UNKNOWN where the kernel keeps no such counter (macOS)", async () => {
+    if (!onDarwin) return;
+    const q = await executeQuery(key, "check_kernel_stats", {
+      type: "ctxt",
+      warning: "none",
+      critical: "none",
+    });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/'ctxt' is not available/);
   });
 
   it("check_kernel_stats type= selects a single metric", async () => {
@@ -1193,8 +1240,8 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
     expect(messageOf(q)).toMatch(/in=[\d.]+ out=[\d.]+ count=\d+/);
   });
 
-  it("check_os_version reports the distribution on Linux", async () => {
-    if (onWindows) return; // distribution keywords are Linux-only.
+  it("check_os_version reports the distribution (Unix)", async () => {
+    if (onWindows) return; // distribution keywords are unix-only.
     const q = await executeQuery(key, "check_os_version", {
       "detail-syntax":
         "os=${os}|distro=${distribution}|ver=${version}|fam=${family}|proc=${processor}",
@@ -1208,10 +1255,15 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
     expect(msg).toMatch(/distro=\w+/);
     expect(msg).toMatch(/proc=\w+/);
     expect(msg).not.toMatch(/proc=$/);
+    if (onDarwin) {
+      expect(msg).toMatch(/os=macOS \d/);
+      expect(msg).toMatch(/distro=macos\|/);
+      expect(msg).toMatch(/fam=macos\|/);
+    }
   });
 
   it("check_service maps systemd state and exposes process metrics (Linux)", async () => {
-    if (onWindows) return; // Linux systemd semantics differ from Windows services.
+    if (!onLinux) return; // systemd semantics differ from Windows services and launchd jobs.
     const q = await executeQuery(key, "check_service", {
       "top-syntax": "${list}",
       "detail-syntax": "${name}=${state}/${active} rss=${rss} tasks=${tasks}",
@@ -1224,6 +1276,53 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
       expect(msg).toMatch(/=(running|oneshot|static|starting|stopped|unknown)\//);
       expect(msg).toMatch(/rss=\d+ tasks=\d+/);
     }
+  });
+
+  it("check_service checks a launchd job by label (macOS)", async () => {
+    if (!onDarwin) return;
+    // logd is running on every Mac. The suite runs as root, so its metrics are
+    // readable too.
+    const q = await executeQuery(key, "check_service", {
+      service: "com.apple.logd",
+      "top-syntax": "${list}",
+      "detail-syntax": "${name}=${state}/${active} pid=${pid} metrics=${has_metrics}",
+    });
+    expect(q.result).toBe(OK);
+    const msg = messageOf(q);
+    expect(msg).toMatch(/com\.apple\.logd=running\/active pid=[1-9]\d*/);
+    expect(msg).not.toMatch(/\.service/);
+  });
+
+  it("check_service reports a missing launchd job as not found (macOS)", async () => {
+    if (!onDarwin) return;
+    const q = await executeQuery(key, "check_service", {
+      service: "org.nsclient.no-such-job-1499",
+      filter: "none",
+      "detail-syntax": "${name}=${state}",
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toMatch(/org\.nsclient\.no-such-job-1499=stopped/);
+  });
+
+  it("check_os_updates reads the macOS update cache and accepts a valued live flag (macOS)", async () => {
+    if (!onDarwin) return;
+    // live=false is the default path (the cached list); passing it as a
+    // valued boolean is what REST does, and must not be rejected. A runner
+    // that has never run a background check has no cache: UNKNOWN, saying so.
+    const q = await executeQuery(key, "check_os_updates", {
+      live: "false",
+      warning: "none",
+      critical: "none",
+      "top-syntax": "${list}",
+      "detail-syntax": "manager=${manager} updates=${updates}",
+    });
+    expect(messageOf(q)).not.toMatch(/does not take any arguments/);
+    if (q.result === UNKNOWN) {
+      expect(messageOf(q)).toMatch(/No cached update list/);
+      return;
+    }
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/manager=softwareupdate updates=\d+/);
   });
 });
 

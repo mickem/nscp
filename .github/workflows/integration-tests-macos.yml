@@ -105,9 +105,10 @@ jobs:
 
       # The runner has no docker daemon, so the docker-backed scenarios skip
       # themselves through NSCP_SKIP_DOCKER, as they do on the Linux package
-      # jobs. The suites that load CheckSystem, CheckDisk, CheckLogFile or
-      # PythonScript skip on Darwin through tests/src/gates.ts until those
-      # modules are in this package; everything else runs as it does on Linux.
+      # jobs. The suites that load CheckDisk, CheckLogFile or PythonScript skip
+      # on Darwin through tests/src/gates.ts until those modules are in this
+      # package; everything else, CheckSystem included, runs as it does on
+      # Linux.
       #
       # Under sudo for the reason the smoke check above is: the installed
       # agent cannot start as the runner user. PATH is carried across so the

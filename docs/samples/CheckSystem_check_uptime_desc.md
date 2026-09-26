@@ -34,3 +34,7 @@ message matches the clock an operator is reading it against.
 The same duration formatting and unit handling is shared with `check_nscp`'s
 `uptime` and `crash_age` keywords, so thresholds written for one read the same
 way in the other.
+
+##### macOS
+
+Boot time is `kern.boottime`.

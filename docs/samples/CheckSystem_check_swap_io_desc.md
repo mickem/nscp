@@ -26,3 +26,9 @@ a single system-wide aggregate row.
 
 Reads `pswpin` / `pswpout` from `/proc/vmstat`. On a host with no swap
 configured the rates are simply `0`.
+
+##### macOS
+
+The rates come from the swapins and swapouts in the Mach VM statistics, in
+16 KiB pages on Apple silicon. macOS creates swap files on demand and removes
+them again, so `swap_count` is 1 while any exist and 0 otherwise.

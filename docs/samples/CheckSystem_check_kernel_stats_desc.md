@@ -44,6 +44,14 @@ the rounded rate rather than a running total. `Processor Queue Length` and
 | `processes`  | `/proc/stat`          | rate  | Process/fork creations per second      |
 | `threads`    | `/proc/*/task`        | gauge | Live thread count (instantaneous)      |
 
+##### macOS
+
+Only the `threads` row, from the Mach processor-set statistics - the number
+`top` prints as Threads. macOS keeps no system-wide count of context switches
+or process creations that an unprivileged process can read, so there are no
+`ctxt` or `processes` rows, and asking for one with `type=ctxt` or
+`type=processes` returns UNKNOWN naming the missing counter.
+
 ##### Platform differences
 
 Linux's `processes` row is a fork *rate*; Windows has no process-creation-rate

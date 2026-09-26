@@ -36,3 +36,14 @@ Sourced from `/proc/meminfo` and `/proc/vmstat`. Keywords: `slab`,
 `major_faults_per_sec`. `slab_unreclaimable` is the gauge that exposes a slow
 kernel-side leak — reclaimable slab grows and shrinks with cache pressure and
 is not by itself a problem.
+
+##### macOS
+
+Sourced from the Mach VM statistics. macOS has no slab allocator, so `slab`,
+`slab_reclaimable` and `slab_unreclaimable` are `unknown`. Two macOS-only
+keywords take their place: `wired` is memory the kernel has pinned, its own
+allocations included, and steady growth there is the kernel-side leak signal;
+`compressed` is memory held by the memory compressor, which grows under
+pressure the host absorbs by compressing rather than swapping. Both are
+`unknown` on Linux. `cache` is the file-backed pages, `page_faults_per_sec`
+counts every fault and `major_faults_per_sec` the pageins.

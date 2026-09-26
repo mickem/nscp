@@ -11,3 +11,8 @@ perfdata (it is never a fabricated `0`, which is a valid idle reading);
 columns (`architecture`, `l2_cache`, `l3_cache`) make the check double as the
 per-socket CPU hardware inventory; pin them to detect a re-imaged or migrated
 box (`crit=architecture != 'x64'`).
+
+#### macOS
+
+Always UNKNOWN. Apple silicon exposes no per-core clock to an unprivileged
+process; `powermetrics` needs root and the IOReport framework is private.
