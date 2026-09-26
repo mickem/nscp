@@ -3,7 +3,7 @@
 **Facts are the agent's inventory of the machine it runs on**: what OS it is,
 what hardware it sits on, which volumes and network interfaces it has, what is
 installed on it, which services it runs (a docker daemon and its containers, a
-MySQL server and its databases), and which NSClient++ is running on it. The core collects them
+MySQL or SQL Server instance and its databases), and which NSClient++ is running on it. The core collects them
 from the loaded modules, keeps them as one document per host, and serves that
 document on [`/api/v2/facts`](../api/rest/facts.md), in the web UI and in
 `nscp test`.
@@ -69,6 +69,10 @@ docker.images = true
 mysql = true
 mysql.databases = true
 
+[/settings/mssql/facts]
+mssql = true
+mssql.databases = true
+
 ; The one set the core produces itself.
 [/settings/facts]
 agent = true
@@ -92,6 +96,8 @@ another bundle's choices.
 | `docker.images`      | CheckDocker | `docker.images`, same section                    | low: one `GET /images/json` |
 | `mysql`              | CheckMySQL  | `mysql`, `[/settings/mysql/facts]`               | low: one connection and one query per round |
 | `mysql.databases`    | CheckMySQL  | `mysql.databases`, same section                  | low: one query of `information_schema.SCHEMATA`, on the same connection |
+| `mssql`              | CheckMSSQL  | `mssql`, `[/settings/mssql/facts]`               | low: one connection and one `SERVERPROPERTY` query per round |
+| `mssql.databases`    | CheckMSSQL  | `mssql.databases`, same section                  | low: one query of `sys.databases`, on the same connection |
 
 The full description of each switch is in the module's settings reference.
 Turning a set off takes effect on the next settings reload: the module stops
@@ -334,6 +340,50 @@ any other: they are databases the server has.
 There is no size. Summing a schema's tables is a query that changes its
 answer every round, and it belongs to `check_mysql_query`.
 
+### `mssql` and `mssql.databases`
+
+The SQL Server instance `[/settings/mssql]` points at - the one
+[`check_mssql`](../reference/windows/CheckMSSQL.md) connects to by default -
+and the databases it holds. It connects the way the checks do when a check
+passes no credentials of its own: Windows integrated authentication, or the
+configured `user` and `password`. Windows only, like the module.
+
+The server record is read with `SERVERPROPERTY()` alone, which every version
+answers and which returns `NULL` for a property it does not have, so an old
+instance reports fewer fields rather than an error:
+
+| Field                  | Example                        | Meaning |
+|------------------------|--------------------------------|---------|
+| `server_name`          | `DB01\PROD`                    | the instance name: the `server_name` keyword of `check_mssql` |
+| `machine_name`         | `DB01`                         | the computer, or the cluster network name |
+| `instance_name`        | `PROD`                         | the named instance; absent for the default instance |
+| `version`              | `16.0.4135.4`                  | the product version, as recorded; never parsed or compared as a number |
+| `product_level`        | `RTM`, `SP3`                   | |
+| `product_update_level` | `CU15`                         | the cumulative update, where the version records one |
+| `edition`              | `Standard Edition (64-bit)`    | |
+| `engine_edition`       | `standard`                     | `personal`, `standard`, `enterprise`, `express`, `azure_sql_database`, `azure_sql_managed_instance`, … or the number for one this build does not name |
+| `collation`            | `SQL_Latin1_General_CP1_CI_AS` | the server collation |
+| `authentication`       | `mixed`                        | `windows` or `mixed` |
+| `clustered`            | `false`                        | whether the instance is a failover cluster instance |
+| `always_on`            | `true`                         | whether Always On availability groups are enabled (2012 and later) |
+
+There is no uptime. It changes every round, and `check_mssql` reports it.
+
+`mssql.databases`: one record per database the login may see, system databases
+included, by the name `check_mssql_databases` uses.
+
+| Field                 | Example                       | Meaning |
+|-----------------------|-------------------------------|---------|
+| `id`                  | `shop`                        | the database name |
+| `recovery_model`      | `FULL`                        | `SIMPLE`, `FULL` or `BULK_LOGGED`, spelled as the check spells it |
+| `collation`           | `Latin1_General_100_CI_AS`    | |
+| `compatibility_level` | `160`                         | |
+| `create_date`         | `2026-03-02`                  | a date, rendered by the server |
+| `read_only`           | `false`                       | |
+
+There is no state and no data or log size. Both move every round and belong
+to `check_mssql_databases`.
+
 ### Record ids match check instance names
 
 A list record's `id` is the same string that the corresponding check uses to
@@ -343,9 +393,10 @@ name the instance. `storage.volumes[].id` is the `drive` of `check_drivesize`.
 the version appended in the one case where the host has two installs sharing a
 name, because an id has to be unique in its list. `hyperv.vms[].id` is the `vm`
 of `check_hyperv_vms`, with the GUID appended for the same reason when two VMs
-share a name. `docker.containers[].id` is the `names` of `check_docker`, and
+share a name. `docker.containers[].id` is the `names` of `check_docker`,
 `mysql.databases[].id` is the schema name a `check_mysql_query` would name in
-its `FROM`. The ids are stable across
+its `FROM`, and `mssql.databases[].id` is the `name` of
+`check_mssql_databases`. The ids are stable across
 rounds, so a consumer can diff two documents record by record.
 
 ---
@@ -436,7 +487,7 @@ inside a set too: `software.installed` carries what is installed and which
 version of it, never the install path or the uninstall command line
 `check_installed_software` can also show; `docker.containers` carries the
 image a container runs, never its command line, its environment or its labels
-at large; and `mysql` says what the server reports about itself, never the
-target, user or password the agent connected with. The loaded module list in
+at large; and `mysql` and `mssql` say what the server reports about itself,
+never the target, login, driver or connection string the agent connected with. The loaded module list in
 `agent` is the one configuration-adjacent value, and it is opt-in like
 everything else.

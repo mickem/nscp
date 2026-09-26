@@ -524,6 +524,7 @@ describe("REST facts from service producers", () => {
         WEBServer: "enabled",
         CheckDocker: "enabled",
         ...(mysqlBuilt ? { CheckMySQL: "enabled" } : {}),
+        ...(onWindows ? { CheckMSSQL: "enabled" } : {}),
       },
       "/settings/default": {
         "allowed hosts": "127.0.0.1,::1",
@@ -553,6 +554,21 @@ describe("REST facts from service producers", () => {
             "/settings/mysql/facts": {
               mysql: "true",
               "mysql.databases": "true",
+            },
+          }
+        : {}),
+      ...(onWindows
+        ? {
+            // IM002 (driver not found) fails identically on every machine, no
+            // network involved - the same deterministic contract
+            // checkmssql-commands.test.ts uses.
+            "/settings/mssql": {
+              hostname: "localhost",
+              driver: "No Such Driver 99",
+            },
+            "/settings/mssql/facts": {
+              mssql: "true",
+              "mssql.databases": "true",
             },
           }
         : {}),
@@ -611,5 +627,20 @@ describe("REST facts from service producers", () => {
     expect(response.body.errors.mysql).toMatch(
       /^Failed to connect to MySQL server '127\.0\.0\.1:1': /,
     );
+  });
+
+  it("reports a SQL Server it cannot reach against the set", async () => {
+    if (!onWindows) return;
+    const response = await request(REST_URL)
+      .post("/api/v2/facts/commands/refresh")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true)
+      .expect(200);
+    expect(response.body.enabled).toContain("mssql");
+    expect(response.body.facts.mssql).toBeUndefined();
+    // The same contract check_mssql reports: the target is named, the driver
+    // error is passed through, and the login never is.
+    expect(response.body.errors.mssql).toMatch(/^Failed to connect to SQL Server 'localhost': /);
+    expect(response.body.errors.mssql).toMatch(/IM002/);
   });
 });
