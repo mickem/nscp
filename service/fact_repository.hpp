@@ -235,6 +235,11 @@ class fact_repository {
     std::string json;
     std::string hash;
     unsigned long long revision = 0;
+    // When the round that produced this document completed.
+    std::string collected;
+    // The document's size as the core counts it against max size: the
+    // stored encoding, not the JSON above.
+    std::size_t encoded_size = 0;
   };
   snapshot get_snapshot() const {
     boost::unique_lock<boost::mutex> lock(mutex_);
@@ -247,17 +252,19 @@ class fact_repository {
     }
     result.hash = hash_;
     result.revision = revision_;
+    result.collected = collected_;
+    result.encoded_size = size_;
     return result;
   }
 
-  // The JSON size of each set, largest first: what a refused upload names so
-  // the operator knows which set to turn off. Only asked for then, so it is
-  // not rendered on every upload.
+  // The size of each set, largest first, as the core counts it against max
+  // size: what a refused upload names so the operator knows which set to
+  // turn off.
   std::vector<std::pair<std::string, std::size_t>> get_set_sizes() const {
     boost::unique_lock<boost::mutex> lock(mutex_);
     std::vector<std::pair<std::string, std::size_t>> sizes;
-    for (const std::pair<const std::string, PB::Facts::Object> &entry : sets_) {
-      sizes.emplace_back(entry.first, nscapi::facts::tree::to_json(entry.second).size());
+    for (const std::pair<const std::string, std::string> &entry : encoded_) {
+      sizes.emplace_back(entry.first, entry.second.size());
     }
     std::stable_sort(sizes.begin(), sizes.end(),
                      [](const std::pair<std::string, std::size_t> &a, const std::pair<std::string, std::size_t> &b) { return a.second > b.second; });

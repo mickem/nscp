@@ -11,6 +11,7 @@
 #include <memory>
 #include <net/http/http_response.hpp>
 #include <nsclient/logger/logger.hpp>
+#include <onboarding/facts_pacer.hpp>
 #include <onboarding/onboarding.hpp>
 #include <onboarding/sync.hpp>
 #include <string>
@@ -144,32 +145,13 @@ class fleet_sync {
   // own call whenever its hash differs from what the server holds, while
   // every state report carries only the hash.
   nsclient::core::fact_repository_instance facts_;
-  // The hash of the document the server holds, as it last said (or as we
-  // last uploaded). None until the server says: nothing is uploaded on a
-  // guess, and a server that never says does not do facts.
-  boost::optional<std::string> server_facts_hash_;
-  // The document the server last acknowledged (2xx).
-  std::string acked_facts_hash_;
-  // Upload pacing: one clock for every upload, first or repeated. Each
-  // upload the server answered without the document sticking - a rejection
-  // (400, 401, 5xx, ...), or a 2xx for a document it had already
-  // acknowledged and then reported missing again - counts one step, and the
-  // next upload waits 1 min, 2, 4, ... up to an hour (a 429's Retry-After if
-  // that is longer). The server answering with our hash is the proof a
-  // document stuck, and resets it. A transport failure never reached the
-  // server and costs no step.
-  unsigned int facts_attempts_ = 0;
-  std::chrono::steady_clock::time_point facts_retry_at_;
-  // Take one pacing step, waiting at least `minimum_seconds`.
-  void facts_back_off(unsigned long minimum_seconds = 0);
-  // A document that can never be sent as it is: the server refused it (413,
-  // or 404/405 from a server that asked for it anyway), it is over our own
-  // cap, or it could not be rendered. Not tried again until the document
-  // changes.
-  std::string refused_facts_hash_;
-  // The last upload failure that was logged, so a failure repeated on every
-  // poll is logged once.
-  std::string last_facts_error_;
+  // When to upload the facts document: only on a miss the server reported,
+  // paced per document. See onboarding::facts_upload_pacer for the rules.
+  onboarding::facts_upload_pacer facts_pacer_;
+  // The status of the last failed upload that was logged, so a failure
+  // repeated on every retry is logged once - keyed on the status, not the
+  // body, which may carry a request id that differs every time.
+  unsigned int last_facts_error_status_ = 0;
   reload_function request_reload_;
 
   onboarding::enrolled_identity identity_;

@@ -16,10 +16,11 @@ leaves the host.
   header. The document is uploaded on its own call, `POST /agent/v1/facts`,
   only when that answer differs from the agent's hash. A server that sends no
   such header is never sent the document.
-* A server that rejects the upload (400, 401, 429, 5xx), or keeps reporting
-  a miss for a document it acknowledged, is retried after 1 minute, doubling
-  up to once an hour. A document the server refuses outright (413, or 404) is
-  not sent again until it changes, and the log names the largest sets.
+* A rejected upload (400, 401, 404, 429, 5xx) is retried after 1 minute, then
+  2, doubling up to once an hour, or after the server's `Retry-After` when
+  that is longer. A document the server acknowledged and then reports missing
+  is re-sent at once the first time, then on the same schedule. A 413 is not
+  retried until the document changes, and the log names the largest sets.
 
 To keep a set on the host but off the server, there is no separate switch:
 turn the set off, or do not enroll the host. See

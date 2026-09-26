@@ -100,18 +100,12 @@ describe("core fleet sync loop", () => {
   ]);
   const trimmedSha = crypto.createHash("sha256").update(trimmedZip).digest("hex");
 
-  // Fleet-managed enablement of a fact set: the bundle loads the module that
-  // produces `os` and flips its switch, which is plain INI like any other
-  // setting.
+  // Fleet-managed enablement of a fact set: the bundle flips a switch, which
+  // is plain INI like any other setting. The core's own `agent` set, so the
+  // scenario needs no module and runs on every platform the agent builds on.
   const factsZip = makeZip([
     { name: "bundle.toml", data: 'name = "inventory"\nversion = "1.0"\n' },
-    {
-      name: "config.json",
-      data: JSON.stringify({
-        modules: { CheckSystem: "enabled" },
-        settings: { system: { [onWindows ? "windows" : "unix"]: { facts: { os: true } } } },
-      }),
-    },
+    { name: "config.json", data: JSON.stringify({ settings: { facts: { agent: true } } }) },
   ]);
   const factsSha = crypto.createHash("sha256").update(factsZip).digest("hex");
 
@@ -506,13 +500,13 @@ describe("core fleet sync loop", () => {
     expect(factsUploads()).toEqual([]);
     phase = "facts";
 
-    // The bundle loads CheckSystem and turns `os` on. The next poll carries
-    // the new hash, the server answers that it holds nothing, and the agent
-    // uploads.
-    await waitFor("a facts upload carrying os", () => factsUploads().some((r) => r.body?.facts?.os));
+    // The bundle turns `agent` on; the reload round puts it in the document.
+    // The next poll carries the new hash, the server answers that it holds
+    // nothing, and the agent uploads.
+    await waitFor("a facts upload carrying agent", () => factsUploads().some((r) => r.body?.facts?.agent));
     const upload = factsUploads()[0];
     expect(factsUploads()).toHaveLength(1);
-    expect(upload.body.facts.os.family).toBe(onWindows ? "windows" : "linux");
+    expect(upload.body.facts.agent.enrolled).toBe(true);
     expect(upload.body.collected_at).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/);
     // The hash is the digest of the document bytes exactly as they were sent,
     // which is what lets the server check it without a canonical re-encoding
@@ -558,47 +552,40 @@ describe("core fleet sync loop", () => {
     const before = factsUploads().length;
     nscp.start();
 
-    // The agent restarted with `os` enabled, and still uploads nothing: it
+    // The agent restarted with `agent` enabled, and still uploads nothing: it
     // never sends the document on a guess, only in answer to a miss.
     await settle(5);
     expect(factsUploads()).toHaveLength(before);
     const lastPoll = requests.filter((r) => r.url.startsWith("/agent/v1/desired-state")).pop()!;
-    expect(new URL(lastPoll.url, "http://x").searchParams.get("facts_hash")).toBe(factsUploads()[0].body.facts_hash);
+    // It still says what it holds (not the empty document): the server that
+    // does not answer simply never asks for it.
+    const polled = new URL(lastPoll.url, "http://x").searchParams.get("facts_hash");
+    expect(polled).toMatch(/^[0-9a-f]{64}$/);
+    expect(polled).not.toBe(EMPTY_FACTS_HASH);
 
     // A server that starts answering (it was upgraded) gets the document.
     heldFactsHash = "none";
     await waitFor("an upload once the server answers", () => factsUploads().length > before);
-    expect(factsUploads()[before].body.facts.os).toBeTruthy();
+    expect(factsUploads()[before].body.facts.agent).toBeTruthy();
   });
 
-  it("backs off from a server that fails the upload, until it confirms it holds ours", async () => {
-    const ours = factsUploads()[factsUploads().length - 1].body.facts_hash;
-    factsStatus = 500;
-    heldFactsHash = "none";
-    const before = factsUploads().length;
-
-    // A rejection the next poll would only repeat: tried once, then paced -
-    // the document is not POSTed again on every poll.
-    await waitFor("the failed upload", () => factsUploads().length > before);
-    await settle(5);
-    expect(factsUploads()).toHaveLength(before + 1);
-
-    // The server recovers and says it holds our document after all: that
-    // resets the pacing, so the next miss is answered at once (below).
-    factsStatus = 200;
-    heldFactsHash = ours;
-    await settle();
-  });
-
-  it("asks once, not on every poll, when the server refuses the upload", async () => {
+  it("paces a rejected upload, and does not give up on it", async () => {
+    // A 404 from a server that asked for the document: a proxy without the
+    // route, say. Not a verdict on the document, so it is paced like any
+    // rejection rather than dropped until the inventory changes.
     factsStatus = 404;
     heldFactsHash = "none";
     const before = factsUploads().length;
 
-    await waitFor("the refused upload", () => factsUploads().length > before);
+    // Tried once, then not on every poll.
+    await waitFor("the rejected upload", () => factsUploads().length > before);
     await settle(5);
     expect(factsUploads()).toHaveLength(before + 1);
+
+    // The route appears; the same document goes at the next step (a minute).
     factsStatus = 200;
+    await waitFor("the paced retry", () => factsUploads().length > before + 1, 90_000);
+    expect(factsUploads()[before + 1].body.facts_hash).toBe(factsUploads()[before].body.facts_hash);
     answerFull = false;
   });
 });

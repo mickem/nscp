@@ -382,6 +382,8 @@ TEST(FactRepository, TheSnapshotHashesExactlyTheBytesItCarries) {
   EXPECT_EQ(snapshot.json, json_of(repo));
   EXPECT_EQ(snapshot.hash, repo.get_hash());
   EXPECT_EQ(snapshot.revision, repo.get_revision());
+  repo.mark_collected("2026-09-26T08:00:00Z");
+  EXPECT_EQ(repo.get_snapshot().collected, "2026-09-26T08:00:00Z") << "read under the same lock as the document";
   fact_repository same;
   store(same, "hardware", 1, R"({"model":"PowerEdge R740","vendor":"Dell Inc."})");
   store(same, "os", 1, R"({"family":"linux"})");
@@ -396,7 +398,8 @@ TEST(FactRepository, SetSizesNameTheLargestSetFirst) {
   ASSERT_EQ(sizes.size(), 2u);
   EXPECT_EQ(sizes[0].first, "hardware");
   EXPECT_EQ(sizes[1].first, "os");
-  EXPECT_EQ(sizes[1].second, std::string(R"({"family":"linux"})").size());
+  EXPECT_GT(sizes[1].second, 0u);
+  EXPECT_EQ(sizes[0].second + sizes[1].second, repo.get_snapshot().encoded_size) << "the measure max size is enforced on";
 }
 
 TEST(FactRepository, TheEmptySnapshot) {

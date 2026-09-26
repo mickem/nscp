@@ -527,19 +527,25 @@ whole group of hosts the same way it configures anything else; see
 [Collect an inventory](../setup/fleet.md#collect-an-inventory).
 
 Uploads are paced so that a server in trouble is never sent the document on
-every poll. An upload the server rejects (a 400, 401, 429 or 5xx), or a
-document it acknowledged and then reports missing again, is retried after a
-minute, then two, doubling up to once an hour (or after the server's
-`Retry-After`, when that is longer). The server answering with the agent's own
-hash resets that, so a loss weeks later is repaired at once. A connection that
-fails outright costs nothing: the next poll that gets through tries again.
+every poll:
+
+* **A rejected upload** (a 400, 401, 404, 429 or 5xx) is retried after a
+  minute, then two, doubling up to once an hour. The wait belongs to that
+  document: an inventory that changed in the meantime was never tried and goes
+  at once. A `Retry-After` from the server holds every upload until it passes.
+* **A document the server acknowledged and then reports missing** is sent
+  again at once the first time, then on the same doubling schedule. Once the
+  server has kept it for a whole wait, the schedule resets, so a loss weeks
+  later is repaired at once again.
+* **A connection that fails outright** costs nothing: the next poll that gets
+  through tries again.
+* **A document the server refuses as too large** (413) is not sent again until
+  it changes.
 
 The size cap is enforced where the document is built: the core refuses any set
 that would take the document past `[/settings/facts] max size`, and keeps the
-previous value of that set. The upload is checked against the same cap once
-more, which only matters after a reload lowered it. A document the server
-refuses outright (413 as too large, or a 404 because it asked for a document it
-has nowhere to put) is not sent again until it changes. Both size errors name
+previous value of that set. The upload is held to the same cap, counted the
+same way, which only matters after a reload lowered it. Both size errors name
 the largest sets in the agent log, so you know which one to turn off.
 
 ---
