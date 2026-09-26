@@ -42,6 +42,19 @@
 	<Property Id="FLEET_REQUIRE_ENCRYPTED_BUNDLES" Secure="yes" />
 	<Property Id="ExecEnrollFleet" Hidden="yes" />
 
+	<!-- NSCA SUBMISSION
+	     Declared to mark them Secure so they survive a managed install, and to
+	     hide the key: NSCA encrypts the payload with it rather than checking
+	     it, so it is a live credential and must not reach the MSI log. It is
+	     written to the NSCA client's default target, not to
+	     /settings/default/password - that value is what the web UI and
+	     check_nt verify inbound callers against, and it is stored hashed. -->
+	<Property Id="NSCA_SERVER" Secure="yes" />
+	<Property Id="NSCA_PORT" Secure="yes" />
+	<Property Id="NSCA_PASSWORD" Secure="yes" Hidden="yes" />
+	<Property Id="NSCA_ENCRYPTION" Secure="yes" />
+	<Property Id="NSCA_HOSTNAME" Secure="yes" />
+
 	<!-- OPERATOR-SUPPLIED TLS MATERIAL (GitHub #568)
 	     Paths to PEM files on the installing machine, installed into
 	     ${certificate-path} as certificate.pem / certificate_key.pem / ca.pem

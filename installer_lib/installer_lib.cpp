@@ -1014,6 +1014,19 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
       write_key(h, data, 1, L"/includes", L"fleet", utf8::cvt<std::wstring>(std::string("${" FLEET_FOLDER_KEY "}/fleet.ini")));
     }
 
+    // NSCA submission. The address turns the client on, the key goes with the
+    // target - never into /settings/default, which is the password the inbound
+    // protocols verify callers against and is stored hashed. An NSCAServer on
+    // this host with no key of its own reads this same target, so one option
+    // configures both directions.
+    if (write_property_if_set(h, data, NSCA_SERVER, L"/settings/NSCA/client/targets/default", L"address")) {
+      write_key(h, data, 1, L"/modules", L"NSCAClient", L"enabled");
+    }
+    write_property_if_set(h, data, NSCA_PORT, L"/settings/NSCA/client/targets/default", L"port");
+    write_property_if_set(h, data, NSCA_PASSWORD, L"/settings/NSCA/client/targets/default", L"password");
+    write_property_if_set(h, data, NSCA_ENCRYPTION, L"/settings/NSCA/client/targets/default", L"encryption");
+    write_property_if_set(h, data, NSCA_HOSTNAME, L"/settings/NSCA/client", L"hostname");
+
     if (write_property_if_set(h, data, OP5_SERVER, L"/settings/op5", L"server")) {
       write_key(h, data, 1, L"/modules", L"OP5Client", L"enabled");
     }

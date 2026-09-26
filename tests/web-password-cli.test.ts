@@ -203,48 +203,4 @@ describe("nscp web install / password: the shared default password is stored has
     expect(shared()).toBe(given);
     expect(admin()).toBe(given);
   });
-
-  describe("the NSCA warning", () => {
-    const NSCA = "/settings/NSCA/server";
-
-    // NSCAServer encrypts with the password rather than comparing against it,
-    // so hashing the shared value stops it loading. Both writers say so on the
-    // spot; the upgrade note alone is easy to miss.
-    beforeAll(async () => {
-      await nscp.run(["settings", "--path", "/modules", "--key", "NSCAServer", "--set", "enabled"]);
-    });
-
-    it("web password --set warns when NSCA would lose its key", async () => {
-      const r = await nscp.run(["web", "password", "--set", "rotated-secret"]);
-      expect(r.all).toContain("NSCAServer is enabled with encryption");
-      expect(r.all).toContain(NSCA);
-    });
-
-    it("web install --password warns too", async () => {
-      const r = await nscp.run([
-        "web",
-        "install",
-        "--password",
-        "installed-secret",
-        "--allowed-hosts",
-        "127.0.0.1",
-      ]);
-      expect(r.all).toContain("NSCAServer is enabled with encryption");
-    });
-
-    it("stays quiet once NSCA has a password of its own", async () => {
-      await nscp.run(["settings", "--path", NSCA, "--key", "password", "--set", "the-nsca-key"]);
-      const r = await nscp.run(["web", "password", "--set", "rotated-again"]);
-      expect(r.all).toContain("stored hashed");
-      expect(r.all).not.toContain("NSCAServer is enabled with encryption");
-    });
-
-    it("stays quiet when NSCA runs without encryption", async () => {
-      await nscp.run(["settings", "--path", NSCA, "--key", "password", "--set", ""]);
-      await nscp.run(["settings", "--path", NSCA, "--key", "encryption", "--set", "none"]);
-      const r = await nscp.run(["web", "password", "--set", "rotated-once-more"]);
-      expect(r.all).toContain("stored hashed");
-      expect(r.all).not.toContain("NSCAServer is enabled with encryption");
-    });
-  });
 });

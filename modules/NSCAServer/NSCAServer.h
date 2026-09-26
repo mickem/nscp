@@ -30,6 +30,13 @@ class NSCAServer final : public nscapi::impl::simple_plugin, nsca::server::handl
     if (noPerfData_) log_debug("nsca", __FILE__, __LINE__, "Performance data disabled!");
   }
 
+  // The NSCA key NSCAClient submits with, from its default target. NSCA is one
+  // protocol with one shared secret per peer, so an agent that both submits and
+  // receives has no reason to configure the same key twice - but the two keys
+  // live in different sections, so the server has to go and read the client's.
+  // Returns "" when NSCAClient has no default target, or none with a password.
+  std::string read_client_target_password() const;
+
  public:
   NSCAServer()
       : simple_plugin(), core_(nullptr), payload_length_(0), plugin_id_(0), noPerfData_(false), allowNasty_(false), allowArgs_(false), encryption_(0) {}

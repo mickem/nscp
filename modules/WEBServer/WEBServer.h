@@ -8,7 +8,6 @@
 #include <atomic>
 #include <boost/thread/mutex.hpp>
 #include <client/simple_client.hpp>
-#include <iosfwd>
 #include <memory>
 #include <nscapi/plugin.hpp>
 #include <nscapi/protobuf/command.hpp>
@@ -55,16 +54,6 @@ class WEBServer : public nscapi::impl::simple_plugin {
   bool cli_ui_status(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
 
  private:
-  // NSCAServer derives its transport key from the password string rather than
-  // comparing against it, so it cannot use a hash. When it is enabled with
-  // encryption on and no key of its own, it reads the shared
-  // /settings/default/password - and a command that hashes that value stops it
-  // from loading at the next restart. Appends a warning to `out` when that is
-  // the case, so `web install` and `web password --set` say so on the spot
-  // rather than leaving it to the upgrade notes. Best effort: a settings query
-  // that fails is not worth failing the command over.
-  void warn_if_nsca_shares_the_password(std::ostream &out);
-
   void add_user(const std::string &key, const std::string &arg);
   void set_openmetrics_format(const std::string &value);
   // Write the live web sessions back to the core storage. Called from

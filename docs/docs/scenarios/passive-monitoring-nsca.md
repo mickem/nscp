@@ -254,6 +254,14 @@ out to multiple servers (or channels) by combining target sections with the
 
 ## Step 3 — Configure the NSCA Client
 
+One command writes all three:
+
+```commandline
+nscp nsca install --host <nagios-server-ip> --password secret-password --encryption aes256
+```
+
+which is the same as writing:
+
 ```ini
 [/settings/NSCA/client/targets/default]
 address    = <nagios-server-ip>
@@ -261,7 +269,21 @@ encryption = aes256
 password   = secret-password
 ```
 
-The password must match the password in the NSCA server's `nsca.cfg`.
+The password must match the password in the NSCA server's `nsca.cfg`, and the
+encryption its `decryption_method`. An option left off `nsca install` keeps
+whatever is already on disk, so a re-run to move the server does not reset the
+cipher.
+
+<!-- @formatter:off -->
+!!! note
+
+    This is **not** the `password` under `[/settings/default]`. That one is the
+    password the web UI, check_nt and NRPE verify an *inbound* caller against,
+    and it is stored as a hash. NSCA encrypts with its key rather than checking
+    it, so it needs the clear text and keeps it here. If this host also *runs*
+    an NSCA server, it reads this same key unless you give it one of its own
+    under `[/settings/NSCA/server]`.
+<!-- @formatter:on -->
 
 ---
 

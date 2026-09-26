@@ -34,20 +34,31 @@ helper, so either form is accepted:
 The hash string itself is not a credential: it does not authenticate against
 either.
 
-`NSCAServer` is different, because NSCA has no password *check* — the string
-is the key material the payload is encrypted with, and every client must know
-it. A hashed value there is a key nobody has, so the module now refuses to load
-on one, with a log line naming the fix, instead of silently rejecting every
-submission. The clear-text value goes under `/settings/NSCA/server`, the
-section NSCA reads before falling back to the shared default. Nothing rewrites
-an existing clear-text value on its own: `nscp web install` re-run without
-`--password` leaves the shared value exactly as it found it (it still hashes
-the `admin` row, which is its own), so the migration is explicit
-(`nscp web password --set`) and an agent that serves NSCA from the shared
-default keeps working until its operator chooses to move the key. When a
-command *is* about to hash the shared value and an enabled `NSCAServer` would
-have taken its key from it — encryption on, no `password` of its own — the
-command says so in its output rather than leaving it to the upgrade notes.
+`NSCAServer` used to read the same section, and it is the one reader that
+cannot: NSCA has no password *check*. The string is the key material the
+payload is encrypted with, and every submitting client has to know it, so a
+hash there is a key nobody has. Sharing one value between "what I verify
+inbound callers with" and "the key I share with a remote server" was the
+mistake, and hashing only made it visible. **`NSCAServer` no longer inherits
+`/settings/default/password`.** Its key comes from its own section, or failing
+that from the default target of `NSCAClient`
+(`/settings/NSCA/client/targets/default/password`) — one protocol, one shared
+secret per peer, so an agent that both submits and receives NSCA configures it
+once. It still refuses to load on a value that *is* a stored hash, since that
+is never a usable key, but reaching that now takes a deliberate paste rather
+than an inherited default.
+
+That leaves the shared section holding only what it is for: passwords inbound
+protocols check a caller against. `nscp nsca install --host <server>
+--password <key> --encryption <cipher>` configures the submission side in one
+command, and the Windows installer takes the same three as `NSCA_SERVER`,
+`NSCA_PASSWORD` and `NSCA_ENCRYPTION` (the key hidden, as a live credential
+should be).
+
+Nothing rewrites an existing clear-text value on its own either: `nscp web
+install` re-run without `--password` leaves the shared value exactly as it
+found it (it still hashes the `admin` row, which is its own), so migrating it
+is an explicit `nscp web password --set`.
 
 Two limits are worth knowing. The Windows MSI still writes the value typed
 into its configuration dialog in clear text, since that value is also the one
@@ -56,8 +67,10 @@ only the password: `nsclient.ini` still holds the client-side passwords,
 tokens and keys the agent needs in clear form, so the file permissions remain
 the boundary around it.
 
-**What to do:** nothing required. To hash a password that is already on disk,
-re-set it with `nscp web password --set <password>` (the same value is fine).
-If the agent serves NSCA from the shared default, first give NSCA its own
-`password` under `[/settings/NSCA/server]`, or the module will refuse to load
-after the hash is written. See the [upgrade note](../setup/upgrading.md).
+**What to do:** if the agent serves NSCA and relied on the shared default for
+its key, put that key where NSCA now reads it — `[/settings/NSCA/server]`, or
+the `NSCAClient` default target if this host also submits — before upgrading,
+or the module logs an empty-key warning and accepts nothing. Otherwise nothing
+is required. To hash a password already on disk, re-set it with `nscp web
+password --set <password>` (the same value is fine). See the
+[upgrade note](../setup/upgrading.md).

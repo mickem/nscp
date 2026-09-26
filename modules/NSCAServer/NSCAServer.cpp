@@ -9,6 +9,7 @@
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/protobuf/settings_functions.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nscp/password_hash.hpp>
 #include <str/utf8.hpp>
@@ -19,6 +20,29 @@ const std::string DEFAULT_CHANNEL = "";
 }  // namespace CryptoPP
 
 namespace sh = nscapi::settings_helper;
+
+std::string NSCAServer::read_client_target_password() const {
+  namespace pf = nscapi::protobuf::functions;
+  const std::string target_path = "/settings/NSCA/client/targets/default";
+
+  pf::settings_query q(get_id());
+  q.get(target_path, "password", "");
+  get_core()->settings_query(q.request(), q.response());
+  if (!q.validate_response()) {
+    // Not fatal: no key here just means the checks below report an empty one.
+    return "";
+  }
+  for (const pf::settings_query::key_values &val : q.get_query_key_response()) {
+    if (val.matches(target_path, "password")) {
+      const std::string password = val.get_string();
+      if (!password.empty()) {
+        NSC_DEBUG_MSG_STD("NSCA server has no password of its own, using the key from " + target_path);
+      }
+      return password;
+    }
+  }
+  return "";
+}
 
 bool NSCAServer::loadModuleEx(const std::string &alias, const NSCAPI::moduleLoadMode mode) {
   try {
@@ -61,16 +85,35 @@ bool NSCAServer::loadModuleEx(const std::string &alias, const NSCAPI::moduleLoad
   socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, false, "", "${certificate-path}/certificate.pem", "",
                                                        "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
 
+  // The encryption key, and *not* under /settings/default. That section is the
+  // shared password inbound protocols check a caller against - the web UI,
+  // check_nt, NRPE - and it is stored hashed. NSCA has no password check: the
+  // string is the key the payload is encrypted with, and every submitting
+  // client has to know it. Sharing one value between "what I verify callers
+  // with" and "the key I share with a remote server" is the antipattern, so
+  // this key lives in NSCA's own sections.
+  settings.alias()
+      .add_key_to_settings()
+
+      .add_password("password", sh::string_key(&password_, ""), DEFAULT_PASSWORD_NAME,
+                    "The NSCA encryption key: the same value every submitting client uses. Falls back to the default target of NSCAClient "
+                    "(/settings/NSCA/client/targets/default/password) when unset, so an agent that both submits and receives NSCA needs one key, "
+                    "not two. Never inherited from /settings/default - that is the password inbound protocols check against, and it is hashed.")
+
+      ;
+
   settings.alias()
       .add_parent("/settings/default")
       .add_key_to_settings()
-
-      .add_password("password", sh::string_key(&password_, ""), DEFAULT_PASSWORD_NAME, DEFAULT_PASSWORD_DESC)
 
       .add_string("inbox", sh::string_key(&channel_, "inbox"), "INBOX", "The default channel to post incoming messages on");
 
   settings.register_all();
   settings.notify();
+
+  if (password_.empty()) {
+    password_ = read_client_target_password();
+  }
 
   try {
     encryption_ = nscp::encryption::helpers::encryption_to_int(encryption_name_);
@@ -79,20 +122,21 @@ bool NSCAServer::loadModuleEx(const std::string &alias, const NSCAPI::moduleLoad
     return false;
   }
   if (encryption_ != nscp::encryption::helpers::no_encryption && password_hash::is_hashed(password_)) {
-    // The NSCA key is derived from the password string itself, so a hashed
-    // value is not a usable key: no client knows it, and starting anyway would
-    // silently reject every submission. `nscp web install` and `nscp web
-    // password --set` write the shared /settings/default/password hashed;
-    // an agent that also serves NSCA keeps a clear-text key of its own.
+    // The key is derived from the password string itself, so a hashed value is
+    // not a usable key: no client knows it, and starting anyway would silently
+    // reject every submission. Since this key is no longer inherited from
+    // /settings/default it takes a deliberate paste to get here, but a stored
+    // hash is never a key, so refuse rather than run deaf.
     NSC_LOG_ERROR_STD("Refusing to start NSCA server: the password is stored hashed (pbkdf2-sha256$...), but NSCA encryption (" + encryption_name_ +
-                      ") derives its key from the clear-text password. Set a clear-text password under /settings/NSCA/server (password=...) "
-                      "instead of sharing the hashed /settings/default/password, or set encryption = none.");
+                      ") derives its key from the clear-text password. Set the clear-text key under /settings/NSCA/server (password=...), or set "
+                      "encryption = none.");
     return false;
   }
   if (encryption_ != nscp::encryption::helpers::no_encryption && password_.empty()) {
     NSC_LOG_ERROR_STD("NSCA encryption is enabled (" + encryption_name_ +
                       ") but the password is empty. The NSCA key is derived directly from the password, so an empty password is a well-known key: anyone who "
-                      "can reach the port can decrypt and forge submissions. Set a password under /settings/default (password=...) on both ends.");
+                      "can reach the port can decrypt and forge submissions. Set a password under /settings/NSCA/server (password=...) on both ends, or run "
+                      "`nscp nsca install --host <server> --password <key>` to configure both directions at once.");
   }
 
 #ifndef USE_SSL

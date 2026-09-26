@@ -33,4 +33,10 @@ class NSCAClient : public nscapi::impl::simple_plugin {
  private:
   void add_command(const std::string &key, const std::string &args);
   void add_target(const std::string &key, const std::string &args);
+  // `nscp nsca install`: point this agent's NSCA submissions at a server, in
+  // one command instead of three `nscp settings --set` calls. Writes the
+  // default target (address, port, encryption and the shared key) and enables
+  // the module. An unspecified option keeps whatever is on disk, so a re-run to
+  // change one thing does not reset the rest.
+  bool cli_install(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) const;
 };

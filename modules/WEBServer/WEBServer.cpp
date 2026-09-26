@@ -1065,56 +1065,6 @@ bool WEBServer::cli_add_role(const PB::Commands::ExecuteRequestMessage::Request 
   }
 }
 
-void WEBServer::warn_if_nsca_shares_the_password(std::ostream &out) {
-  namespace pf = nscapi::protobuf::functions;
-  const std::string nsca_path = "/settings/NSCA/server";
-
-  pf::settings_query q(get_id());
-  q.get("/modules", "NSCAServer", "");
-  // The module's own defaults: encryption is on unless turned off, and the
-  // password falls through to /settings/default when the section has none
-  // (NSCAServer registers its password key with add_parent("/settings/default")).
-  q.get(nsca_path, "encryption", "aes256");
-  q.get(nsca_path, "password", "");
-  get_core()->settings_query(q.request(), q.response());
-  if (!q.validate_response()) {
-    return;
-  }
-
-  std::string module;
-  std::string encryption = "aes256";
-  std::string nsca_password;
-  for (const pf::settings_query::key_values &val : q.get_query_key_response()) {
-    if (val.matches("/modules", "NSCAServer")) {
-      module = val.get_string();
-    } else if (val.matches(nsca_path, "encryption")) {
-      encryption = val.get_string();
-    } else if (val.matches(nsca_path, "password")) {
-      nsca_password = val.get_string();
-    }
-  }
-
-  // Same spellings the core treats as off (plugin_manager::equals_disabled).
-  if (module.empty() || module == "disabled" || module == "0" || module == "false") {
-    return;
-  }
-  // Same spellings nscp::encryption::helpers::encryption_to_int resolves to
-  // no_encryption. Anything else is either a real algorithm or a value that
-  // makes NSCAServer refuse to load anyway, so treat it as encryption on.
-  if (encryption.empty() || encryption == "none" || encryption == "0") {
-    return;
-  }
-  if (!nsca_password.empty()) {
-    return;
-  }
-
-  out << "WARNING: NSCAServer is enabled with encryption = " << encryption << " and no password of its own under [" << nsca_path << "]," << std::endl;
-  out << "         so it takes its encryption key from the shared /settings/default/password. That key is the password itself, not" << std::endl;
-  out << "         something compared against it, so a hash will not do and NSCAServer will refuse to load at the next restart." << std::endl;
-  out << "         Give it a clear-text key of its own first:" << std::endl;
-  out << "           nscp settings --path " << nsca_path << " --key password --set <key>" << std::endl;
-}
-
 bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
   namespace po = boost::program_options;
   namespace pf = nscapi::protobuf::functions;
@@ -1360,10 +1310,9 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
       //  * an existing hash is stored as it is - hashing it again would lock
       //    the admin out;
       //  * an existing clear-text value is left in the shared default as it
-      //    is. NSCA may be deriving its encryption key from that string (see
-      //    warn_if_nsca_shares_the_password), and a re-run of `web install`
-      //    to rotate a certificate must not break submissions on a restart.
-      //    `nscp web password --set` is what migrates it, deliberately.
+      //    is. A re-run of `web install` to rotate a certificate has not been
+      //    given a password and has no business migrating one; `nscp web
+      //    password --set` is what does that, deliberately.
       //
       // The admin row is this command's own, so it always gets the hash.
       const bool password_is_ours = password_was_supplied || password_was_generated;
@@ -1400,13 +1349,6 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
       } else {
         result << "Keeping the existing password, which is stored in clear text; pass --password to set a new one," << std::endl;
         result << "or `nscp web password --set <password>` to store the same one hashed." << std::endl;
-      }
-
-      // Warn only where this command turns the shared default into a hash. A
-      // re-run that found a hash there changes nothing, and one that found
-      // clear text leaves it alone.
-      if (password_is_ours && password_hash::is_hashed(stored)) {
-        warn_if_nsca_shares_the_password(result);
       }
     }
 
@@ -1532,7 +1474,6 @@ bool WEBServer::password(const PB::Commands::ExecuteRequestMessage::Request &req
     if (!only_web) {
       s.set("/settings/default", "password", stored);
       result << "Password updated (stored hashed) in /settings/default." << std::endl;
-      warn_if_nsca_shares_the_password(result);
     }
     if (admin_row_exists) {
       s.set(admin_path, "password", stored);
