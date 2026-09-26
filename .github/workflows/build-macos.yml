@@ -279,12 +279,28 @@ jobs:
         # root:wheel, because the payload is meant to be extracted with
         # `sudo tar -xzf ... -C /` and should land owned the way the .pkg
         # installs it rather than owned by whoever built it.
+        #
+        # The two trees by name, not `.`: an archive rolled from `.` carries
+        # entries for `./` and `./usr/`, and extracting it onto `/` makes tar
+        # restore their timestamps - on `/` and `/usr`, which live on the
+        # sealed read-only system volume. That fails ("Can't restore time:
+        # Read-only file system") and tar exits 1 after extracting everything,
+        # which is a broken install command for a user and a red job for the
+        # integration tests. /usr/local and /Library are on the writable data
+        # volume, so entries starting there restore cleanly.
         tar -czf "$GITHUB_WORKSPACE/out/NSCP-${NSCP_VERSION}-macos-arm64.tar.gz" \
           --uid 0 --gid 0 --uname root --gname wheel \
-          -C "$GITHUB_WORKSPACE/stage" .
+          -C "$GITHUB_WORKSPACE/stage" usr/local Library
         echo "--- tarball contents (top two levels) ---"
         tar -tzf "$GITHUB_WORKSPACE/out/NSCP-${NSCP_VERSION}-macos-arm64.tar.gz" |
-          awk -F/ '{print $2"/"$3}' | sort -u | head -20
+          awk -F/ '{print $1"/"$2}' | sort -u | head -20
+        # The guard for the paragraph above: nothing may sit above /usr/local
+        # or /Library, or the extraction regresses.
+        if tar -tzf "$GITHUB_WORKSPACE/out/NSCP-${NSCP_VERSION}-macos-arm64.tar.gz" |
+            grep -v -E '^(usr/local|Library)/' ; then
+          echo "::error::the tarball carries entries outside /usr/local and /Library (see above)"
+          exit 1
+        fi
 
     - name: Show the package contents
       if: always()
