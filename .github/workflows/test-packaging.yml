@@ -8,10 +8,12 @@ on:
     branches: [main]
     paths:
       - 'packaging/**'
+      - 'files/nsclient.service.in'
       - '.github/workflows/test-packaging.yml'
   pull_request:
     paths:
       - 'packaging/**'
+      - 'files/nsclient.service.in'
       - '.github/workflows/test-packaging.yml'
 
 # A new push supersedes this run; do not let it finish.
@@ -33,3 +35,15 @@ jobs:
         working-directory: packaging/scripts
         run: |
           python -m unittest test_render_templates test_verify_manifest_hashes -v
+
+  test-service-unit:
+    # A hosted runner rather than a container: this starts a real unit, so it
+    # needs systemd as PID 1. The Debian and RedHat build jobs run in a
+    # container and drive `nscp test` directly, so nothing else in CI has ever
+    # loaded the shipped unit, let alone started it.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Start the service unit's sandbox and check what it allows
+        run: sudo ./packaging/scripts/test_service_unit.sh files/nsclient.service.in

@@ -13,7 +13,7 @@
 #include <nscapi/protobuf/registry.hpp>
 #include <str/xtos.hpp>
 
-#include "name_safety.hpp"
+#include <nscp/name_safety.hpp>
 
 #ifdef WIN32
 #pragma warning(disable : 4456)

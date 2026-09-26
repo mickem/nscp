@@ -152,7 +152,20 @@ class settings_core {
   /// @param key The key of the key
   /// @return the key description
   virtual boost::optional<key_description> get_registered_key(std::string path, std::string key) = 0;
+  // Two questions, deliberately not one.
+  //
+  // is_sensitive_key answers "must this value be hidden from a reader" and
+  // errs towards yes: it takes the name heuristic as well as the registry, so
+  // a password left behind for a module that is not loaded is still masked.
+  //
+  // is_registered_sensitive_key answers "did the owning module declare this a
+  // credential" - registry only. That is the one to ask before *moving* a
+  // value somewhere else (the Windows Credential Manager), where a guess is
+  // not free: acting on a name that merely reads like a credential rewrote the
+  // key in nsclient.ini and, for a value that was never a secret, achieved
+  // nothing but that.
   virtual bool is_sensitive_key(std::string path, std::string key) = 0;
+  virtual bool is_registered_sensitive_key(std::string path, std::string key) = 0;
 
   virtual settings_core::path_description get_registered_path(const std::string &path) = 0;
 

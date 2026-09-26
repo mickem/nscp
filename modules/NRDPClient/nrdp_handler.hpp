@@ -27,7 +27,14 @@ struct nrdp_target_object : nscapi::targets::target_object {
     if (oneliner) return;
 
     root_path.add_key()
-        .add_string("key", sh::string_fun_key([this](const auto& value) { this->set_property_string("token", value); }), "SECURITY TOKEN", "The security token")
+        // add_password, not add_string: all three spellings set the same NRDP
+        // token, and only this one was registered as plain text - so a target
+        // written with `key = ...` had its token printed in the clear by
+        // GET /api/v2/settings, `nscp settings --list/--show` and the settings
+        // diff, while `password` and `token` were masked. That is the gap
+        // notice 110 closed for every other secret in the tree.
+        .add_password("key", sh::string_fun_key([this](const auto& value) { this->set_property_string("token", value); }), "SECURITY TOKEN",
+                      "The security token")
         .add_password("password", sh::string_fun_key([this](const auto& value) { this->set_property_string("token", value); }), "SECURITY TOKEN",
                       "The security token")
         .add_password("token", sh::string_fun_key([this](const auto& value) { this->set_property_string("token", value); }), "SECURITY TOKEN",

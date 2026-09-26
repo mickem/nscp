@@ -377,7 +377,8 @@ What the agent does with a sealed bundle:
 - The download is verified exactly as before: the published SHA-256 and the Ed25519 signature
   cover the sealed envelope. Only then is it opened, with the key whose fingerprint the
   envelope names. The plaintext exists on disk only while it is being unpacked; the cache
-  keeps the envelope.
+  keeps the envelope. A cache hit is re-verified on every apply rather than trusted because
+  it is already on disk, so tampering with the cached file is caught too.
 - The bundle's name and version are bound twice over: into the signature, which covers the
   bundle's whole identity (tenant, id, name, version, format and digest) rather than just its
   bytes, and into the seal itself. A server that re-labels a sealed bundle — serving last
@@ -393,8 +394,17 @@ debug level on start, so a mismatch is visible without exposing the key.
 For a server you do not trust with plaintext at all, make sealed bundles the only kind the
 host accepts: pass `--require-encrypted-bundles` to `nscp enroll` (at enrollment, or later
 with `--update-bundle-keys`), or `FLEET_REQUIRE_ENCRYPTED_BUNDLES=1` to the installer. Then
-nothing the server sends is applied unless a key holder produced it — including ordinary
-plain bundles, which are refused with an error in the state report.
+no **bundle** is applied unless a key holder produced it — ordinary plain bundles included,
+which are refused with an error in the state report.
+
+<!-- @formatter:off -->
+!!! warning "The flag covers bundles, not the managed configuration"
+    The desired state itself — the merged configuration rendered into `fleet.ini` — carries
+    no signature and is applied whatever this flag says. Sealing decides who may author a
+    bundle's contents; it does not narrow what the configuration is allowed to tell this
+    agent to do. See
+    [What the fleet server can do to a host](#what-the-fleet-server-can-do-to-a-host).
+<!-- @formatter:on -->
 
 This is deliberately not a setting. It is stored in the enrollment manifest with the keys,
 where the fleet-managed include cannot reach it: a server that could switch the requirement
@@ -406,6 +416,42 @@ off would not be much of a requirement. To switch it off yourself, run
     The server holds only the fingerprint. Lose the key and every bundle sealed with it is
     unreadable, on the server and on every host; re-seal and re-upload with a new one.
 <!-- @formatter:on -->
+
+## What the fleet server can do to a host
+
+Worth stating plainly, because every control above narrows something *within* this and none
+of them changes it:
+
+**A fleet server can run code as `SYSTEM` or `root` on every host enrolled with it.**
+
+The mechanism is not a back door, it is the feature. `fleet.ini` is an ordinary INI include
+of the settings store, and the desired state the server sends is rendered into it verbatim
+and unsigned. A configuration file for this agent can enable `CheckExternalScripts`, define
+a script and the command line that runs it, add an `[/includes]` entry pointing anywhere,
+and rewrite `[/settings/fleet]` itself. Anything you could do by editing `nsclient.ini` as
+an administrator, the server can do by sending a desired state.
+
+That is the same trust you extend to any configuration-management system — Ansible, Puppet,
+an MDM — and it is the reason the enrollment step matters so much:
+
+- **Enroll over a verified link.** An unverified enrollment (`--insecure`, or a bootstrap
+  URL served without a certificate you checked) hands the server pin and the bundle keys to
+  whoever answered. From that moment they are your fleet server.
+- **Treat the server as a production admin host.** Whoever can write a desired state on it
+  has the run of every enrolled machine. Access to the server's configuration UI is
+  administrator access to the fleet.
+- **Bundle signing and sealing are strong — and they only cover bundles.** A bundle is
+  signed offline, so a compromised server cannot forge one; a sealed bundle is AES-256-GCM
+  with its name and version as additional data, so that server cannot read it, alter it, or
+  re-label it either. Only a key holder can produce a bundle at all. None of that reaches
+  the desired state, which is rendered into `fleet.ini` verbatim and unsigned — so these
+  controls bound what arrives *as a bundle*, and do not make an untrusted server safe.
+- **A host can opt out of being managed.** Local configuration takes precedence over
+  `fleet.ini`, and leaving the fleet is one command (below). Both are host-side decisions,
+  which is the point.
+
+If a host must not be administrable this way, do not enroll it — run it with local
+configuration and a monitoring transport of its own.
 
 ## Step 6 — Living with it
 

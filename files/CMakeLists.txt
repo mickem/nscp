@@ -90,9 +90,11 @@ if(NOT WIN32)
         # `pkgbuild --root` picks it up and the installer lays it down in
         # /Library/LaunchDaemons; the postinstall script is what loads it.
         #
-        # No PIDFile here, unlike the systemd unit: launchd is the parent of the
-        # process it starts and tracks it directly, and a PIDFile would only
-        # give it a second, staler opinion about whether the job is alive.
+        # No PIDFile here: launchd is the parent of the process it starts and
+        # tracks it directly, and a PIDFile would only give it a second, staler
+        # opinion about whether the job is alive. The systemd unit dropped its
+        # own PIDFile for the same reason, Type=simple making systemd the
+        # parent there.
         configure_file(
             macos/com.nsclient.nscp.plist.in
             ${PROJECT_BINARY_DIR}/macos/${NSCP_LAUNCHD_LABEL}.plist
