@@ -9,20 +9,30 @@ reads that section at all.** Nothing to do on a default install: the WEB admin
 seed and the check_nt server verify a password against either form, and a
 clear-text value you wrote by hand keeps working until you re-set it
 (`nscp web password --set <the same value>` hashes an existing password in
-place). **If you serve NSCA and its key came from the shared default, you do
-have to move it** — see the second point. Three things change:
+place).
+
+Which *direction* of NSCA you run decides whether the second half touches you
+at all. Sending passive results from this agent to an NSCA daemon —
+`NSCAClient`, which is how NSCA is used in almost every installation — is
+**unaffected**: its key has always lived on the client target
+(`/settings/NSCA/client/targets/default/password`) and was never read from the
+shared section. Only `NSCAServer`, the rarely used listener that lets this
+agent *receive* NSCA submissions from somewhere else, ever inherited the shared
+password. **If you run that listener and its key came from the shared default,
+you do have to move it** — see the second point. Three things change:
 
 * `nscp web password --display` cannot show a hashed password. The clear text
   is printed once, by the command that set it; if it is lost, set a new one.
   `--set` now also updates the `admin` user's row, which is what the web login
   verifies against once the server has booted; `--only-web` changes that row
   alone.
-* **`NSCAServer` no longer reads `/settings/default/password`.** That section
-  is the password inbound protocols (web UI, check_nt, NRPE) verify a caller
-  against, and it is now hashed; NSCA does not verify a password, it encrypts
-  with it, so it could never use a hash. **If your NSCA server took its key
-  from the shared default, move it before upgrading** — otherwise the module
-  loads with an empty key and accepts nothing:
+* **`NSCAServer` — the listener, not the client — no longer reads
+  `/settings/default/password`.** That section is the password inbound
+  protocols (web UI, check_nt, NRPE) verify a caller against, and it is now
+  hashed; NSCA does not verify a password, it encrypts with it, so it could
+  never use a hash. **If you run `NSCAServer` and its key came from the shared
+  default, move it before upgrading** — otherwise the module loads with an
+  empty key and accepts nothing:
 
 ```ini
 [/settings/NSCA/server]

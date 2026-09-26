@@ -37,9 +37,14 @@ either.
 `NSCAServer` used to read the same section, and it is the one reader that
 cannot: NSCA never *verifies* a password. The string is the key material the
 payload is encrypted with, and every submitting client has to know it, so a
-hash there is a key nobody has. Sharing one value between "what I verify
-inbound callers with" and "the key I share with a remote server" was the
-mistake, and hashing only made it visible. **`NSCAServer` no longer inherits
+hash there is a key nobody has. To be clear about which half of NSCA that is:
+`NSCAClient`, the submitting side and the way NSCA is used in almost every
+installation, is unaffected — its key has always been on the client target and
+was never read from the shared section. `NSCAServer` is the rarely used
+listener that lets the agent *receive* NSCA submissions, and only it inherited
+the shared password. Sharing one value between "what I verify inbound callers
+with" and "the key I share with a remote server" was the mistake, and hashing
+only made it visible. **`NSCAServer` no longer inherits
 `/settings/default/password`.** Its key comes from its own section, or failing
 that from the default target of `NSCAClient`
 (`/settings/NSCA/client/targets/default/password`) — one protocol, one shared
@@ -71,10 +76,11 @@ One limit is worth knowing: a hash protects only this password.
 needs in clear form — it has to use those, not verify them — so the file
 permissions remain the boundary around it.
 
-**What to do:** if the agent serves NSCA and relied on the shared default for
-its key, put that key where NSCA now reads it — `[/settings/NSCA/server]`, or
-the `NSCAClient` default target if this host also submits — before upgrading,
-or the module logs an empty-key warning and accepts nothing. Otherwise nothing
-is required. To hash a password already on disk, re-set it with `nscp web
+**What to do:** if the agent runs `NSCAServer` (the listener — not the common
+`NSCAClient`, which is unaffected) and that listener relied on the shared
+default for its key, put the key where NSCA now reads it —
+`[/settings/NSCA/server]`, or the `NSCAClient` default target if this host also
+submits — before upgrading, or the module logs an empty-key warning and accepts
+nothing. Otherwise nothing is required. To hash a password already on disk, re-set it with `nscp web
 password --set <password>` (the same value is fine). See the
 [upgrade note](../setup/upgrading.md).
