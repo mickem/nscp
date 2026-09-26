@@ -902,11 +902,14 @@ is POSIX and compiles on both Linux and macOS (`file_finder_unix.cpp`,
 `check_users_unix.cpp`), `_linux.cpp` reads procfs, sysfs or `mntent` and is
 Linux only (`check_drive_linux.cpp`, `check_disk_io_linux.cpp`,
 `network_facts_linux.cpp`), and a Darwin reader is `_darwin.cpp`. The module's
-`CMakeLists.txt` picks with `if(WIN32) / elseif(APPLE) / else()`; nothing in a
-shared source tests a platform define. Porting a module means writing the
-`_darwin.cpp` behind the header the `_linux.cpp` already implements, adding it
-to the `APPLE` branch, and dropping the skip from `module.cmake`. The checks
-above the fetch are not touched.
+`CMakeLists.txt` picks with `if(WIN32) / else()` today and gains an
+`elseif(APPLE)` branch with the first Darwin reader. Porting a module means
+writing the `_darwin.cpp` behind the header the `_linux.cpp` already
+implements, selecting it in that branch, and dropping the skip from
+`module.cmake`. Two readers still sit inline behind `#ifndef WIN32` and have
+to be split out first: `check_mount.cpp`'s mntent walk in CheckDisk, and the
+procfs paths the CheckSystemUnix checks read directly. The checks above the
+fetch are not touched.
 
 ### Running the integration tests on a Mac
 
@@ -925,9 +928,10 @@ NSCP_SKIP_DOCKER=1 npm test                                 # everything docker-
 
 Drop `NSCP_SKIP_DOCKER` if Docker Desktop is running and you want the
 container-backed scenarios too. A suite that loads one of the modules above
-skips itself on macOS through `tests/src/platform.ts` until that module is
-ported; the same file is where every suite decides which platform it is on, so
-a new case that reads procfs or expects `dpkg` says `onLinux`, not `onUnix`.
+skips itself on macOS through `describeWithModules` in `tests/src/gates.ts`
+until that module is ported; `tests/src/platform.ts` next to it is where every
+suite decides which platform it is on, so a new case that reads procfs or
+expects `dpkg` says `onLinux`, not `onUnix`.
 
 ### Building the installer package
 
