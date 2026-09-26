@@ -71,12 +71,16 @@ jobs:
           ls -l /usr/local/sbin/nscp
           ls /usr/local/lib/nsclient/modules
           echo "--- a check dispatches end to end ---"
-          # As the runner user, against a throwaway settings file: exactly the
-          # shape every suite runs in. The tree is owned by root, as the
-          # package installs it, and being readable by an ordinary user is
-          # part of what is being checked.
+          # As root, against a throwaway settings file: the shape every suite
+          # below runs in. Root because the package installs its configuration
+          # directory readable by root and the service account only (the ini
+          # holds credentials), and nscp probes boot.ini there even when told
+          # --settings, so an ordinary user gets "Permission denied:
+          # /usr/local/etc/nsclient/boot.ini" before it reads anything. The
+          # Linux package job runs the suite as root in its container and the
+          # Windows one as an administrator; this is the same posture.
           : > "$RUNNER_TEMP/smoke.ini"
-          /usr/local/sbin/nscp client --settings "$RUNNER_TEMP/smoke.ini" \
+          sudo /usr/local/sbin/nscp client --settings "$RUNNER_TEMP/smoke.ini" \
             --module CheckHelpers --boot --query check_ok
 
       # No acceptance-tests.sh here, unlike the Linux jobs: it drives
@@ -93,10 +97,15 @@ jobs:
       # jobs. The suites that load CheckSystem, CheckDisk or CheckLogFile skip
       # on Darwin through tests/src/platform.ts until those modules are ported;
       # everything else runs as it does on Linux.
+      #
+      # Under sudo for the reason the smoke check above is: the installed
+      # agent cannot start as the runner user. PATH is carried across so the
+      # node setup-node put there is the one root runs, and the two variables
+      # are what the harness reads.
       - name: Run the scenarios (no-docker)
         working-directory: tests
         shell: bash
-        env:
-          NSCP_BIN: /usr/local/sbin/nscp
-          NSCP_SKIP_DOCKER: "1"
-        run: npm test
+        run: |
+          sudo env PATH="$PATH" HOME="$HOME" \
+            NSCP_BIN=/usr/local/sbin/nscp NSCP_SKIP_DOCKER=1 \
+            npm test
