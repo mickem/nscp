@@ -29,7 +29,6 @@ set(SRCS
     token_store.cpp
     user_manager.cpp
     password_hash.cpp
-    name_safety.cpp
     grant_store.cpp
     session_manager_interface.cpp
     metrics_handler.cpp
@@ -140,8 +139,9 @@ NSCP_CREATE_TEST(
         user_manager_test.cpp
         password_hash.cpp
         password_hash_test.cpp
-        name_safety.cpp
-        name_safety_test.cpp
+        # Header-only and shared with the plugin loader, which applies the same
+        # rule to a [/modules] entry: ${NSCP_INCLUDEDIR}/nscp/name_safety.hpp.
+        ${NSCP_INCLUDEDIR}/nscp/name_safety_test.cpp
         auth_rate_limiter_test.cpp
         error_handler.cpp
         error_handler_test.cpp

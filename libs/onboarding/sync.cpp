@@ -392,7 +392,9 @@ std::string onboarding::build_state_report(const boost::optional<std::string> &a
   return json::serialize(root);
 }
 
-onboarding::enrolled_identity onboarding::parse_renew_response(const std::string &body, const identity &fresh_identity, const enrolled_identity &current) {
+onboarding::enrolled_identity onboarding::parse_renew_response(const std::string &body, const identity &fresh_identity, const enrolled_identity &current,
+                                                               std::string &signing_key_refused) {
+  signing_key_refused.clear();
   const json::object root = parse_object(body, "renewal response");
   enrolled_identity result = current;
   result.private_key_pem = fresh_identity.private_key_pem;
@@ -417,22 +419,42 @@ onboarding::enrolled_identity onboarding::parse_renew_response(const std::string
   // is accepted as before: it authenticates the channel, the old pin
   // authenticated the channel this arrived on, and refusing it would break
   // ordinary certificate rotation.
-  if (new_signing_key != current.bundle_signing_pub_pem && !current.bundle_signing_pub_pem.empty()) {
-    const json::value *signature = root.if_contains("bundle_signing_pub_sig");
-    if (signature == nullptr || !signature->is_string()) {
-      throw onboarding_error(
-          "Renewal response rotates the bundle signing key without a bundle_signing_pub_sig endorsing it with the previous key. Keeping the current key; "
-          "re-enroll this host to adopt a new one.",
-          false);
-    }
-    std::string error;
-    if (!verify_ed25519(current.bundle_signing_pub_pem, new_signing_key, std::string(signature->as_string().c_str()), error)) {
-      throw onboarding_error("Renewal response rotates the bundle signing key but bundle_signing_pub_sig did not verify with the previous key (" + error +
-                                 "). Keeping the current key; re-enroll this host to adopt a new one.",
-                             false);
+  //
+  // Refusing the key is not refusing the renewal. The rest of this response is
+  // certificate material the host needs to keep talking to the fleet at all, and
+  // it is not the server's to forge: it is signed by the fleet CA and arrived
+  // over the pinned channel. So the key stays as it was, the reason goes back to
+  // the caller, and the new certificate is kept - otherwise a server that got
+  // the rotation wrong would quietly stop this host renewing until its
+  // certificate expired.
+  if (!same_public_key(new_signing_key, current.bundle_signing_pub_pem)) {
+    if (current.bundle_signing_pub_pem.empty()) {
+      // Nothing to endorse a new key with. Installing one here would make the
+      // fleet server the source of the very key that exists so that it is not:
+      // whoever answers this renewal would decide what signs bundles from then
+      // on. The offline key is adopted at enrollment, which is a deliberate act
+      // by someone who holds it.
+      signing_key_refused =
+          "Renewal response supplies a bundle signing key, but this host has none to endorse it with, so there is nothing to check it against. Keeping the "
+          "host without a signing key; re-enroll it to adopt one.";
+    } else {
+      const json::value *signature = root.if_contains("bundle_signing_pub_sig");
+      if (signature == nullptr || !signature->is_string()) {
+        signing_key_refused =
+            "Renewal response rotates the bundle signing key without a bundle_signing_pub_sig endorsing it with the previous key. Keeping the current key; "
+            "re-enroll this host to adopt a new one.";
+      } else {
+        std::string error;
+        if (!verify_ed25519(current.bundle_signing_pub_pem, new_signing_key, std::string(signature->as_string().c_str()), error)) {
+          signing_key_refused = "Renewal response rotates the bundle signing key but bundle_signing_pub_sig did not verify with the previous key (" + error +
+                                "). Keeping the current key; re-enroll this host to adopt a new one.";
+        }
+      }
     }
   }
-  result.bundle_signing_pub_pem = new_signing_key;
+  if (signing_key_refused.empty()) {
+    result.bundle_signing_pub_pem = new_signing_key;
+  }
   result.mtls_server_cert_pem = detail::require_string(root, "mtls_server_cert_pem", "Renewal response");
   return result;
 }

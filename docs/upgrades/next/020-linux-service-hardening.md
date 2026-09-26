@@ -7,8 +7,23 @@ action: conditional
 DEB no longer depends on `sudo`, and `CauseCrashes` is not in any package.** The
 unit sets `UMask=0027`, `ProtectKernelTunables=yes`, `ProtectKernelModules=yes`,
 `ProtectControlGroups=yes`, `RestrictSUIDSGID=yes`, `RestrictRealtime=yes` and
-`LockPersonality=yes`. None of those change anything the agent observes, so no
-check answers differently after the upgrade.
+`LockPersonality=yes`. No drive, mount or disk-free answer changes as a result —
+the three directives that would do that are deliberately left out, below — but
+two consequences are worth knowing about:
+
+- **`UMask=0027` is inherited by external scripts.** It applies to the agent's
+  own writes (`nsclient.db`, `fleet.ini`, `applied-state.json` and the unsealed
+  contents of a bundle go from 0644 to 0640, which is the point), and equally to
+  every command the agent spawns. A script that writes a file for another
+  account or a web server to read will now create it without the group-write and
+  world bits. If you have one, set the mode in the script — `install -m`,
+  `chmod`, or a `umask` line of its own — rather than relying on the service's.
+- **The kernel protections do remount `/proc/sys`, `/sys` and
+  `/usr/lib/modules` read-only inside the service.** Every one of those is on a
+  filesystem `check_drivesize` and the disk-free collector skip by type, so no
+  drive row appears and no metric changes, and `check_mount` skips them too when
+  listing all mounts. Naming one explicitly is the only way to see the
+  difference: `check_mount mount=/sys options=rw` now reports `ro`.
 
 **`Group=nsclient` closes a disclosure on Debian and Ubuntu.** Without it the
 service ran under the account's *primary* group, and the postinst creates the
@@ -78,3 +93,5 @@ for a documentation example. If an external script escalates with `sudo`, make
 sure the package stays installed. `CauseCrashes`, whose only command
 deliberately crashes the daemon, is now a diagnostic module behind
 `-DBUILD_TESTING_MODULES=ON` and is no longer shipped.
+
+See the [security notice](../security/notices.md#core-module-names-as-paths-remote-settings-migration-sensitive-key-names-service-hardening).

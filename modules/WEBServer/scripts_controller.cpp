@@ -11,7 +11,7 @@
 #include <nscapi/protobuf/command.hpp>
 #include <utility>
 
-#include "name_safety.hpp"
+#include <nscp/name_safety.hpp>
 #include "upload_staging.hpp"
 
 #define EXT_SCR "CheckExternalScripts"

@@ -43,12 +43,39 @@ cleanup() {
   systemctl daemon-reload >/dev/null 2>&1 || true
   rm -rf "$WORK"
   userdel "$NAME" >/dev/null 2>&1 || true
+  groupdel "$NAME" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
-# --user-group so the account gets a primary group of its own, which is what
-# the unit's Group= names on a real install.
-id "$NAME" >/dev/null 2>&1 || useradd --system --user-group --no-create-home --shell /usr/sbin/nologin "$NAME"
+make_account() {
+  # --user-group so the account gets a primary group of its own, which is what
+  # the unit's Group= names on a real install.
+  useradd --system --user-group --no-create-home --shell /usr/sbin/nologin "$NAME"
+}
+
+# A run killed before its cleanup leaves the account behind, so reuse is normal
+# - but only when the account still looks the way this test needs. The rendered
+# unit names Group=$NAME, and if a stale account's primary group is something
+# else (or the group is gone while the user survived, which userdel can leave
+# behind when it is another account's primary group) the service fails to start
+# with a credentials error, or starts under the wrong group and fails the
+# assertion further down. Either reads as a bug in the unit rather than as
+# leftover state on the runner, so repair it here instead.
+if id "$NAME" >/dev/null 2>&1; then
+  PRIMARY=$(id -gn "$NAME" 2>/dev/null || true)
+  if [ "$PRIMARY" != "$NAME" ]; then
+    echo "NOTE: reusing stale account $NAME whose primary group is '${PRIMARY:-unknown}'; recreating it." >&2
+    userdel "$NAME" >/dev/null 2>&1 || true
+    groupdel "$NAME" >/dev/null 2>&1 || true
+    make_account
+  fi
+else
+  # A group left over from a previous run would make useradd --user-group fail.
+  if getent group "$NAME" >/dev/null 2>&1; then
+    groupdel "$NAME" >/dev/null 2>&1 || true
+  fi
+  make_account
+fi
 mkdir -p "$WORK" && chown "$NAME" "$WORK"
 
 # What the host sees, and the filesystem type of each mount, since that is what

@@ -1,5 +1,5 @@
 ---
-title: "Core: module names as paths, remote settings migration, sensitive-key names, service sandboxing"
+title: "Core: module names as paths, remote settings migration, sensitive-key names, service hardening"
 fixed_in: next
 severity: "Low"
 modules: [core, packaging, NRDPClient, WEBServer]
@@ -42,16 +42,22 @@ What is fixed here is the path the loader is *given* — the two items above —
 which is where a caller had influence. Resolving a module's imports is a
 hardening item with no caller-controlled input, and it is tracked separately.
 
-#### A settings `Control.LOAD` could name an http:// store
+#### Settings migration could name an http:// store
 
-`Control.LOAD` and `Control.SAVE` migrate between settings stores, and the store
-factory honours every protocol it knows — including `http` and `https`. A caller
-able to issue a settings control could therefore make the agent pull its whole
+`Control.LOAD` and `Control.SAVE`, and the `nscp settings --migrate-from` /
+`--migrate-to` CLI, migrate between settings stores — and the store factory
+honours every protocol it knows, including `http` and `https`. A caller able to
+issue a settings control could therefore make the agent pull its whole
 configuration from a host of their choosing, or push the local configuration,
 credentials included, to one. Migration is now refused for a remote context; a
 remote settings source remains a deliberate boot.ini decision, where
 [notice 280](notices.md#remote-settings-sources-must-be-https) already requires
 https.
+
+The refusal sits on the core's own `migrate_to`/`migrate_from` rather than in one
+caller, so both entry points are covered by the same predicate: guarding only the
+`Control` handler would leave the CLI able to name an https store. The
+module-name rule above is shared with the REST routes for the same reason.
 
 #### Redaction only covered modules that were loaded
 
@@ -93,6 +99,21 @@ through a plain C++ `ofstream`, which asks for 0666 and leaves the rest to the
 umask. The log file is not among them — the logger creates that with an explicit
 0640 of its own.
 
+A umask is inherited, so it also applies to every external script the agent
+spawns: a script that writes a file for another account to read now produces it
+without the group-write and world bits. That is the one directive here an
+operator may have to act on, and the upgrade note says so.
+
+The kernel-protection directives are not entirely free of the mount-table
+concern either, only clear of the part that matters. `ProtectKernelTunables` and
+`ProtectKernelModules` do give the service read-only binds — over `/proc/sys`,
+`/sys` and `/usr/lib/modules` — but every one of them is on a filesystem
+`check_drivesize` and the disk-free collector skip by type, so no drive row or
+metric changes. `check_mount` skips them as well when listing all mounts (it
+excludes `/proc`, `/sys`, `/dev` and `/run`), so the only way to observe the
+difference is to name one explicitly, as in `check_mount mount=/sys options=rw`,
+which now reports `ro`.
+
 `ProtectSystem`, `ProtectHome` and `PrivateTmp` are deliberately **not** set.
 They are the three directives that give the service a mount namespace, and
 systemd implements each as bind mounts that appear in the service's own
@@ -118,7 +139,9 @@ agent itself never calls.
 
 **What to do:** nothing on a default install. A `[/modules]` entry naming a path
 rather than a module file name will now be refused with an error in the log; put
-the module in the module path and name it. If you drive `settings --load` /
-`--save` against an `http://` context, migrate locally instead. If an external
-script escalates with `sudo`, keep `sudo` installed — the package no longer
-pulls it in.
+the module in the module path and name it. If you drive
+`nscp settings --migrate-from` / `--migrate-to` against an `http://` context,
+migrate locally instead. If an external script writes files for another account
+to read, check the modes `UMask=0027` now gives them. If an external script
+escalates with `sudo`, keep `sudo` installed — the package no longer pulls it
+in.

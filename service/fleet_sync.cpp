@@ -410,10 +410,17 @@ void fleet_sync::maybe_renew() {
       log_error("Certificate renewal failed: " + str::xtos(response.status_code_) + " " + response.payload_);
       return;
     }
-    const onboarding::enrolled_identity renewed = onboarding::parse_renew_response(response.payload_, fresh, identity_);
+    std::string signing_key_refused;
+    const onboarding::enrolled_identity renewed = onboarding::parse_renew_response(response.payload_, fresh, identity_, signing_key_refused);
     onboarding::save_state(renewed, config_.state_file);
     identity_ = renewed;
     log_info("Client certificate renewed");
+    // The certificate was renewed either way; only the signing key was not
+    // taken. Logged as an error because it needs an operator: bundles keep
+    // verifying against the key this host already has, and if the server has
+    // genuinely moved on, every bundle it signs from now on fails to verify
+    // until someone re-enrolls.
+    if (!signing_key_refused.empty()) log_error(signing_key_refused);
   } catch (const std::exception &e) {
     log_error("Certificate renewal failed: " + utf8::utf8_from_native(e.what()));
   }

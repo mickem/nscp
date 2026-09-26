@@ -14,3 +14,10 @@ core now also matches on the key name (`password`, `passwd`, `passphrase`,
 NRDP `key` alias, the one spelling of that token which was not registered as a
 password, is now registered as one. Nothing to do; expect `***` where a settings
 dump used to print a value.
+
+The name is only used for *masking*. Moving a value into the Windows Credential
+Manager (`use credential manager = true`) still follows what the owning module
+declared, so a key that merely reads like a credential is never rewritten in
+`nsclient.ini` on the strength of its name — the core's own
+`use credential manager` boolean is one of those, and it is excluded from the
+match outright. See the [security notice](../security/notices.md#core-module-names-as-paths-remote-settings-migration-sensitive-key-names-service-hardening).

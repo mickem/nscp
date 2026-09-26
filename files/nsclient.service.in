@@ -77,10 +77,18 @@ ExecStart=@NSCP_SBINDIR@/nscp service --log-backend threaded-file --run
 # that reports the kernel's view is worth more here than one sandboxed into
 # reporting a different one.
 #
-# What is left below does not change anything the agent observes. Add any of
-# the three with a drop-in if you accept the above for your setup, rather than
-# by editing this file, which a package upgrade replaces:
+# What is left below changes no drive, mount or disk-free answer. Add any of the
+# three with a drop-in if you accept the above for your setup, rather than by
+# editing this file, which a package upgrade replaces:
 #   systemctl edit nsclient
+#
+# The two ProtectKernel* directives are not quite free of the same mechanism:
+# they too are implemented with read-only binds, over /proc/sys, /sys and
+# /usr/lib/modules. They are kept because every one of those is on a filesystem
+# both check_drivesize and the disk-free collector skip by type, so none of them
+# can become a drive row, and check_mount skips /proc, /sys, /dev and /run when
+# listing all mounts. The one observable difference is naming one explicitly:
+# `check_mount mount=/sys options=rw` reports ro inside the service.
 
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
@@ -98,6 +106,12 @@ LockPersonality=yes
 # fleet-delivered material, i.e. the same disclosure as the configuration file
 # the packages ship 0640, and under the manager's usual 0022 they would land
 # world-readable.
+#
+# A umask is inherited, so this reaches the external scripts the agent runs as
+# well: one that writes a file for another account to read now creates it
+# without the group-write and world bits. A script that needs a wider mode sets
+# it itself (install -m, chmod, or its own umask) rather than relying on the
+# service's - which is what the upgrade note tells operators.
 UMask=0027
 
 # Deliberately NOT set: NoNewPrivileges=yes.

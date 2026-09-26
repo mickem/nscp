@@ -147,6 +147,25 @@ bool onboarding::verify_ed25519(const std::string &pub_pem, const std::string &m
   return true;
 }
 
+bool onboarding::same_public_key(const std::string &left_pem, const std::string &right_pem) {
+  if (left_pem == right_pem) return true;
+  const auto read = [](const std::string &pem) {
+    const std::unique_ptr<BIO, bio_deleter> bio(BIO_new_mem_buf(pem.data(), static_cast<int>(pem.size())));
+    return std::unique_ptr<EVP_PKEY, evp_pkey_deleter>(bio ? PEM_read_bio_PUBKEY(bio.get(), nullptr, nullptr, nullptr) : nullptr);
+  };
+  const std::unique_ptr<EVP_PKEY, evp_pkey_deleter> left = read(left_pem);
+  const std::unique_ptr<EVP_PKEY, evp_pkey_deleter> right = read(right_pem);
+  // One of them is not a key this process can decode - an empty state field, a
+  // truncated PEM, a placeholder. Nothing to compare but the text, which the
+  // equality above already answered.
+  if (!left || !right) return false;
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+  return EVP_PKEY_eq(left.get(), right.get()) == 1;
+#else
+  return EVP_PKEY_cmp(left.get(), right.get()) == 1;
+#endif
+}
+
 bool onboarding::verify_bundle(const std::string &pub_pem, const std::string &bytes, const bundle_descriptor &descriptor,
                                const std::string &signature_b64, std::string &error) {
   const std::string digest = sha256_raw(bytes);

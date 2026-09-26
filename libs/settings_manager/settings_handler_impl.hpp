@@ -11,6 +11,7 @@
 #include <map>
 #include <nsclient/logger/logger.hpp>
 #include <set>
+#include <settings/settings_context.hpp>
 #include <settings/settings_core.hpp>
 #include <string>
 
@@ -105,18 +106,38 @@ class settings_handler_impl : public settings_core {
   }
   void migrate_to(instance_ptr to) { migrate(get(), to); }
   void migrate_from(instance_ptr from) { migrate(from, get()); }
+  // The guard sits here, not only in the callers: a context reaches migration
+  // from the settings Control LOAD/SAVE request *and* from
+  // `nscp settings --migrate-from/--migrate-to`, and the first version of this
+  // fix guarded only the protobuf path, leaving the CLI able to name an https
+  // store. is_local_context() is the one rule both now go through.
   void migrate_to(std::string alias, std::string to) {
+    require_local_context(to);
     instance_ptr i = create_instance(alias, to);
     migrate(get(), i, to);
   }
   void migrate_from(std::string alias, std::string from) {
+    require_local_context(from);
     instance_ptr i = create_instance(alias, from);
     migrate_from(i);
   }
   void migrate(std::string alias_from, std::string from, std::string alias_to, std::string to) {
+    require_local_context(from);
+    require_local_context(to);
     instance_ptr ifrom = create_instance(alias_from, from);
     instance_ptr ito = create_instance(alias_to, to);
     migrate(ifrom, ito, to);
+  }
+
+  // Checked as written and as it will be opened: create_instance() resolves the
+  // protocol aliases and host name placeholders before choosing a backend, so
+  // the expanded form is the one that decides what is fetched.
+  void require_local_context(const std::string &context) {
+    if (context.empty()) return;
+    if (is_local_context(context) && is_local_context(expand_context(context))) return;
+    throw settings_exception(__FILE__, __LINE__,
+                             "Refusing a remote settings context (" + context +
+                                 "): migration works between the stores on this host. Configure a remote settings source in boot.ini instead.");
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -261,8 +282,24 @@ class settings_handler_impl : public settings_core {
   // Deliberately erring towards masking: a key that only looks like a secret
   // costs an operator one `--show` of that key, while missing one prints a
   // credential to whoever asked.
+  //
+  // This is only ever the masking question. Whether a value may be *moved*
+  // into the Windows Credential Manager is is_registered_sensitive_key(), so a
+  // name that merely reads like a credential is never rewritten on that basis.
   static bool key_name_reads_as_secret(const std::string &path, const std::string &key) {
     const std::string lower_key = boost::algorithm::to_lower_copy(key);
+    // Names that contain a needle below without holding a credential. The
+    // core's own `use credential manager` is the reason this list exists: a
+    // substring match on "credential" made the boolean itself read as a
+    // secret, so `settings --list` printed the switch as `***`.
+    //
+    // Prefer adding a name here over dropping a needle: a needle covers every
+    // module's spelling of a real credential, including modules that are not
+    // installed on this host, and the collisions are countable.
+    static const char *const never_secret[] = {"use credential manager"};
+    for (const char *name : never_secret) {
+      if (lower_key == name) return false;
+    }
     static const char *const needles[] = {"password", "passwd", "passphrase", "token", "secret", "apikey", "api key", "api-key", "credential"};
     for (const char *needle : needles) {
       if (lower_key.find(needle) != std::string::npos) return true;
@@ -278,6 +315,17 @@ class settings_handler_impl : public settings_core {
 
   bool is_sensitive_key(const std::string path, const std::string key) override {
     if (key_name_reads_as_secret(path, key)) return true;
+    return is_registered_sensitive_key(path, key);
+  }
+
+  // Registry only: what the loaded modules declared through add_password /
+  // add_sensitive_key. The ini writer asks this before diverting a value into
+  // the Windows Credential Manager, because that rewrites the key in
+  // nsclient.ini and, on a host where the mapping is unsupported, logs a
+  // warning about storing a secret in clear text. Neither is something to do
+  // on the strength of a name that merely reads like a credential - the core's
+  // own `use credential manager` boolean is one of those.
+  bool is_registered_sensitive_key(const std::string path, const std::string key) override {
     boost::shared_lock<boost::shared_mutex> readLock(registry_mutex_, boost::get_system_time() + boost::posix_time::milliseconds(5000));
     if (!readLock.owns_lock()) {
       throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex: " + path);

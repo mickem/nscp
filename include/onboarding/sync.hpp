@@ -152,6 +152,15 @@ bool verify_bundle(const std::string &pub_pem, const std::string &bytes, const b
 // it to check that a new bundle signing key was endorsed by the old one.
 bool verify_ed25519(const std::string &pub_pem, const std::string &message, const std::string &signature_b64, std::string &error);
 
+// Whether two PEM public keys are the same key, compared on the decoded key
+// rather than on the PEM text. A server that re-serialises the key it already
+// gave us - different line wrapping, a trailing newline, CRLF - hands back the
+// same key in different bytes, and a text comparison would read that as a
+// rotation and refuse the renewal. Keys that cannot both be parsed (a
+// placeholder, a truncated PEM) fall back to an exact text comparison, which is
+// the only defensible answer for a key this process cannot decode.
+bool same_public_key(const std::string &left_pem, const std::string &right_pem);
+
 // RFC 7396 JSON Merge Patch: objects deep-merge, scalars/arrays replace
 // wholesale, null deletes the key. Returns the patched value.
 boost::json::value json_merge_patch(const boost::json::value &target, const boost::json::value &patch);
@@ -207,6 +216,16 @@ long days_until_expiry(const std::string &cert_pem);
 // Apply a /agent/v1/renew response: new certificate material + the freshly
 // generated key, keeping server_url/mtls_url from the current identity.
 // Throws onboarding_error (non-retryable) on malformed/incomplete responses.
-enrolled_identity parse_renew_response(const std::string &body, const identity &fresh_identity, const enrolled_identity &current);
+//
+// A bundle signing key the response is not allowed to install is *not* one of
+// those: the certificate material is accepted and the current signing key kept,
+// with the reason written to `signing_key_refused` (empty when the response's
+// key was accepted). Throwing there dropped the new certificate, the CA and the
+// server pin along with the key, so a host facing a server that got the
+// rotation wrong stopped renewing altogether and fell off the fleet when its
+// certificate expired - while the message claimed only the key was kept.
+// Callers log the reason; the operator re-enrolls to adopt a new key.
+enrolled_identity parse_renew_response(const std::string &body, const identity &fresh_identity, const enrolled_identity &current,
+                                       std::string &signing_key_refused);
 
 }  // namespace onboarding

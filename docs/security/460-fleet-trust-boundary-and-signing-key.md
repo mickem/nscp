@@ -24,6 +24,28 @@ certificate is unchanged in this respect — it authenticates the channel, the
 pin authenticated the channel the renewal arrived on, and refusing it would
 break ordinary certificate rotation.
 
+Refusing the key is not refusing the renewal. The rest of the response — the new
+client certificate, the CA and the server pin — is certificate material the host
+needs to keep talking to the fleet at all, it is signed by the fleet CA, and it
+arrived over the pinned channel. So the certificate is taken, the signing key
+stays as it was, and the refusal is logged as an error for the operator.
+Abandoning the whole renewal instead would be the more expensive failure: a host
+facing a server that got the rotation wrong would stop renewing altogether and
+fall off the fleet when its certificate expired — over a key it was keeping
+either way.
+
+Two details of the check follow from the same reasoning. Keys are compared as
+keys, not as PEM text, so a server that re-serialises the key it already gave
+this host — different line wrapping, a trailing newline gained or lost — is not
+mistaken for a rotation and refused. And a host whose state carries *no* signing
+key does not get one from a renewal either: with nothing to endorse a new key
+with, whoever answered that renewal would be choosing what verifies every bundle
+from then on, which is the authority the offline key exists to keep away from the
+server. A key is adopted at enrollment; such a host re-enrolls. Nothing is
+loosened by the refusal: a host with no signing key already fails verification
+on every bundle it is offered, so it stays fail-closed rather than trusting a
+key the server chose.
+
 #### What a fleet server can do to a host was not written down anywhere
 
 `fleet.ini` is an ordinary INI include of the settings store, and the desired
@@ -46,4 +68,5 @@ configured.
 **What to do:** nothing required on a working fleet. If your fleet server
 rotates the bundle signing key at renewal, it must now send
 `bundle_signing_pub_sig` alongside it; until it does, re-enroll the hosts
-instead.
+instead. Certificates keep renewing meanwhile, so watch the log for the refusal
+rather than for renewal failures.
