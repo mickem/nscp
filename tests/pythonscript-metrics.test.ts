@@ -19,7 +19,7 @@ import * as path from "path";
 
 import request from "supertest";
 
-import { NscpInstance, REST_URL, setupQueryNscp } from "@fixtures/index";
+import { NscpInstance, REST_URL, setupQueryNscp, describeWithModules } from "@fixtures/index";
 
 jest.setTimeout(300_000);
 
@@ -102,7 +102,10 @@ async function poll(fetch: () => Promise<string>, until: (v: string) => boolean)
   }
 }
 
-describe("PythonScript metrics", () => {
+// Skipped where the build has no PythonScript (macOS, until Boost.Python is in
+// its package); on Linux and Windows the module is always built, so a package
+// that lost it fails here rather than skipping.
+describeWithModules("PythonScript")("PythonScript metrics", () => {
   let nscp: NscpInstance;
   let key: string;
 

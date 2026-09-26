@@ -13,7 +13,7 @@
 // those objects without a module wrapper, so define it here.
 nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();
 
-// Test seam exported by check_drive_unix.cpp: maps a filesystem type string to
+// Test seam exported by check_drive_linux.cpp: maps a filesystem type string to
 // the drive-type keyword used by the `type` filter field (no syscalls, so it is
 // directly unit-testable).
 extern std::string checkdisk_unix_classify_fs(const std::string &fstype);
@@ -43,7 +43,7 @@ TEST(CheckDiskUnixClassify, RealDisksAreFixed) {
   EXPECT_EQ(checkdisk_unix_classify_fs("vfat"), "fixed");
 }
 
-// Test seam exported by check_disk_io_unix.cpp: resolves a /proc/mounts device
+// Test seam exported by check_disk_io_linux.cpp: resolves a /proc/mounts device
 // path to the whole physical disk it lives on, with the symlink (realpath) and
 // sysfs slaves lookups injected so no real /dev or /sys is needed.
 extern std::string checkdisk_unix_mount_source_to_disk(const std::string &fsname, const std::function<std::string(const std::string &)> &canonicalize,

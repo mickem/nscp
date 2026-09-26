@@ -14,16 +14,23 @@ import {
   GenericContainer,
   NscpInstance,
   bundledLuaScript,
-  dockerOrSkip,
   dockerRunOnce,
   hostGatewayExtraHosts,
+  onWindows,
+  describeIf,
+  moduleBuiltHere,
+  skipDocker,
 } from "@fixtures/index";
 
 jest.setTimeout(900_000);
 
 const CHECK_MK_PORT = 6556;
 
-dockerOrSkip()("check_mk integration", () => {
+// Docker for the check_mk image, and the module whose sections the agent
+// output is asserted on (<<<mem>>>, <<<df>>>, ...), which the macOS build does
+// not carry yet.
+const canRun = !skipDocker() && moduleBuiltHere("CheckSystem");
+describeIf(canRun)("check_mk integration", () => {
   let nscp: NscpInstance;
   let image: string;
   let agentDump = "";
@@ -108,7 +115,7 @@ dockerOrSkip()("check_mk integration", () => {
     // in-band shutdown and runs atexit. Linux: nscp.stop()'s SIGTERM
     // hits the signal_set handler directly, so the NRPE round-trip is
     // skipped to keep teardown fast.
-    if (process.platform === "win32") {
+    if (onWindows) {
       await nscp.run(
         ["nrpe", "--host", "127.0.0.1", "--insecure", "--version", "2", "--command", "mock_exit"],
         { timeout: 5_000, allowFailure: true },

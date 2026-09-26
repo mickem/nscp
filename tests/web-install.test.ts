@@ -18,7 +18,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { curlHead } from "@fixtures/http";
-import { NscpInstance } from "@fixtures/index";
+import { NscpInstance, onWindows, onDarwin } from "@fixtures/index";
 
 jest.setTimeout(120_000);
 
@@ -126,7 +126,7 @@ describe("nscp web install", () => {
     // Root is needed to chown, so the branch that changes an owner runs where
     // the test is root (the package CI); elsewhere the no-op contract is what
     // is asserted, not skipped.
-    if (process.platform === "win32") return;
+    if (onWindows) return;
     const base = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-handoff-"));
     // mkdtemp makes it 0700: a pre-existing parent is not the command's to
     // open up (the test below pins that), so open it here, as packaging does.
@@ -174,13 +174,17 @@ describe("nscp web install", () => {
       expect(st.uid).toBe(serviceUid);
       expect(fs.statSync(securityDir).uid).toBe(serviceUid);
       // What matters on the host: the service account itself can read it.
-      // `su` is what a root-only CI container has (sudo usually is not).
-      if (fs.existsSync("/bin/su") || fs.existsSync("/usr/bin/su")) {
-        const probe = await execa("su", ["-s", "/bin/sh", "nobody", "-c", `test -r "${cert}"`], {
-          reject: false,
-        });
-        expect(probe.exitCode).toBe(0);
-      }
+      // `su -s` is what a root-only Linux CI container has (sudo usually is
+      // not). BSD su, which macOS ships, has no -s, and nobody's shell there
+      // is /usr/bin/false, so on Darwin the probe goes through sudo -u
+      // instead (root needs no password for it); Linux keeps the su path.
+      const check = `test -r "${cert}"`;
+      const probe = onDarwin
+        ? await execa("sudo", ["-n", "-u", "nobody", "/bin/sh", "-c", check], { reject: false })
+        : fs.existsSync("/bin/su") || fs.existsSync("/usr/bin/su")
+          ? await execa("su", ["-s", "/bin/sh", "nobody", "-c", check], { reject: false })
+          : undefined;
+      if (probe) expect(probe.exitCode).toBe(0);
     } else {
       // Not root, or root with no unprivileged account to hand it to: the
       // file stays with whoever wrote it, and nothing claims otherwise.

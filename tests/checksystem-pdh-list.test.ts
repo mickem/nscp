@@ -17,13 +17,11 @@
  * below are on every Windows install; the assertions are about which lines
  * survive the filters rather than about any value.
  */
-import { NscpInstance } from "@fixtures/index";
+import { NscpInstance, describeOnWindows } from "@fixtures/index";
 
 jest.setTimeout(180_000);
 
-const onWindows = process.platform === "win32" ? describe : describe.skip;
-
-onWindows("CheckSystem pdh counter listing", () => {
+describeOnWindows("CheckSystem pdh counter listing", () => {
   let nscp: NscpInstance;
 
   beforeAll(async () => {

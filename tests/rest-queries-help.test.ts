@@ -13,7 +13,7 @@
  * because it exists, and is filter based, on every platform.
  */
 import request from "supertest";
-import { NscpInstance, REST_URL } from "@fixtures/index";
+import { NscpInstance, REST_URL, describeWithModules } from "@fixtures/index";
 
 jest.setTimeout(900_000);
 
@@ -43,7 +43,8 @@ interface Help {
 const named = <T extends { name: string }>(items: T[], name: string): T | undefined =>
   items.find((item) => item.name === name);
 
-describe("REST query help", () => {
+// Skipped where the build has no CheckDisk (macOS, until it is ported).
+describeWithModules("CheckDisk")("REST query help", () => {
   let nscp: NscpInstance;
   let key: string | undefined;
 

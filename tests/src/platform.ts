@@ -1,0 +1,56 @@
+/**
+ * Which platform a suite is running on, decided once.
+ *
+ * Every suite used to carry its own `process.platform === "win32"` line, and
+ * they had drifted: some held a boolean, some a `describe`-or-skip, a few
+ * tested for `"linux"` where they meant "not Windows" - which, now that the
+ * harness also runs on macOS, is exactly the distinction that matters. Import
+ * from here instead, so a suite says which of the three it is about:
+ *
+ *   - `onWindows` / `onLinux` / `onDarwin` name one OS;
+ *   - `onUnix` is Linux and macOS together, for anything POSIX (a `/bin/sh`
+ *     script, a `.so` module name, a SIGTERM shutdown).
+ *
+ * A case that reads procfs or sysfs, talks to systemd, or expects `dpkg` is
+ * `onLinux`, not `onUnix`: on a Mac it would fail on the first line rather
+ * than skip, which is the drift this file removes.
+ *
+ * Nothing here touches a jest global, so the harness modules that run outside
+ * a test context (global-setup.ts, the jest environment) can import it. The
+ * `describe` / `it` gates built on these flags live in gates.ts, which may
+ * only be imported from a suite.
+ */
+
+export const onWindows = process.platform === "win32";
+export const onLinux = process.platform === "linux";
+export const onDarwin = process.platform === "darwin";
+/** Linux or macOS: anything POSIX. */
+export const onUnix = !onWindows;
+
+/**
+ * The check modules the macOS build does not carry yet. CheckSystem, CheckDisk
+ * and CheckLogFile read the Linux kernel (procfs, mntent, inotify) and each
+ * module's `module.cmake` skips it on Darwin until a Darwin data source
+ * exists; PythonScript needs Boost.Python, which build-macos.yml leaves out.
+ *
+ * A suite that loads one of them gates on `describeWithModules(...)` in
+ * gates.ts, which skips the block on macOS and runs it everywhere else. The
+ * change that adds a module to the macOS build removes it from this set, and
+ * that one edit turns every gate on at once - the suites themselves do not
+ * change.
+ *
+ * Deliberately a platform gate rather than a probe of the install: on Linux
+ * and Windows these modules are always built, and a suite that quietly
+ * skipped because one was missing there would be hiding a broken package.
+ */
+const NOT_BUILT_ON_DARWIN: ReadonlySet<string> = new Set([
+  "CheckSystem",
+  "CheckDisk",
+  "CheckLogFile",
+  "PythonScript",
+]);
+
+/** True when this platform's build carries `module`. */
+export function moduleBuiltHere(module: string): boolean {
+  return !(onDarwin && NOT_BUILT_ON_DARWIN.has(module));
+}

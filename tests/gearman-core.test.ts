@@ -49,6 +49,7 @@ import {
   writeSleepScript,
   type StartedTestContainer,
   type StatusDat,
+  itWithModules,
 } from "@fixtures/index";
 
 jest.setTimeout(900_000);
@@ -270,16 +271,19 @@ dockerOrSkip()("a real Mod-Gearman core driving the agent", () => {
       expect(helper.check_type).toBe("0");
     });
 
-    it("hands the core performance data from a collector-backed check", async () => {
-      // check_cpu reads the agent's own 1 Hz collector. The thresholds can
-      // never hold, so the state is deterministic wherever this runs; what
-      // matters is that the perf data survives the `message|perfdata` line
-      // the core parses.
-      const cpu = await serviceResult("cpu", (f) => f.performance_data.includes("total 5m"));
-      expect(cpu.current_state).toBe("0");
-      expect(cpu.performance_data).toContain("total 5m");
-      expect(cpu.plugin_output).not.toContain("|");
-    });
+    itWithModules("CheckSystem")(
+      "hands the core performance data from a collector-backed check",
+      async () => {
+        // check_cpu reads the agent's own 1 Hz collector. The thresholds can
+        // never hold, so the state is deterministic wherever this runs; what
+        // matters is that the perf data survives the `message|perfdata` line
+        // the core parses.
+        const cpu = await serviceResult("cpu", (f) => f.performance_data.includes("total 5m"));
+        expect(cpu.current_state).toBe("0");
+        expect(cpu.performance_data).toContain("total 5m");
+        expect(cpu.plugin_output).not.toContain("|");
+      },
+    );
 
     it("reports the configured timeout return when a check overruns the job", async () => {
       // The core allows three seconds (service_check_timeout); the script

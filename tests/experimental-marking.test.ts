@@ -15,7 +15,7 @@
  * are covered in command-client-console.test.ts.
  */
 import request from "supertest";
-import { NscpInstance, REST_URL, moduleManifest, moduleManifests, setupQueryNscp } from "@fixtures/index";
+import { NscpInstance, REST_URL, moduleManifest, moduleManifests, setupQueryNscp, describeWithModules } from "@fixtures/index";
 
 jest.setTimeout(300_000);
 
@@ -28,7 +28,8 @@ interface Listed {
   experimental?: boolean;
 }
 
-describe("experimental marking", () => {
+// Skipped where the build has no such module (macOS, until CheckDisk is ported).
+describeWithModules(LOADED_MODULE)("experimental marking", () => {
   let nscp: NscpInstance;
   let key: string;
   const manifests = moduleManifests();

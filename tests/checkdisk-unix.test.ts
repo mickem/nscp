@@ -12,13 +12,11 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { NscpInstance } from "@fixtures/index";
+import { NscpInstance, describeOnLinux } from "@fixtures/index";
 
 jest.setTimeout(120_000);
 
-const onLinux = process.platform === "linux" ? describe : describe.skip;
-
-onLinux("CheckDisk (Unix)", () => {
+describeOnLinux("CheckDisk (Unix)", () => {
   let nscp: NscpInstance;
   let scratch: string;
 

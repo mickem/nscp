@@ -4,7 +4,7 @@
 // Platform-neutral parts of the disk I/O / disk free subsystem: the metric
 // builders, the thread-safe data holders' get/set, and the check_disk_io filter.
 // The per-platform data acquisition (fetch) lives in check_disk_io_win.cpp /
-// check_disk_io_unix.cpp.
+// check_disk_io_linux.cpp.
 
 #include "check_disk_io.hpp"
 

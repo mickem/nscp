@@ -34,6 +34,7 @@ import {
   type EnvelopeOptions,
   type GearmanServer,
   type StartedTestContainer,
+  onWindows,
 } from "@fixtures/index";
 
 jest.setTimeout(600_000);
@@ -46,8 +47,6 @@ const KEY = "nscp-test-key";
  */
 const HOST_PORT = 14731;
 const HOSTNAME = "nscp-test";
-
-const onWindows = process.platform === "win32";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));

@@ -20,17 +20,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { NscpInstance } from "@fixtures/index";
+import { NscpInstance, describeOnWindows, describeOnUnix } from "@fixtures/index";
 
 jest.setTimeout(120_000);
 
 // The timeout / shell-fallback cases drive the POSIX launcher (fork/execvp,
-// /bin/sh, /bin/echo), so they only run off Windows.
-const onUnix = process.platform === "win32" ? describe.skip : describe;
-// ...and the capture cases drive the Windows one (CreatePipe, the
-// STARTUPINFOEX inherit list, the chunked ReadFile drain).
-const onWindows = process.platform === "win32" ? describe : describe.skip;
-
+// /bin/sh, /bin/echo), so they run only on Unix (`describeOnUnix`), and the
+// capture cases drive the Windows one (CreatePipe, the STARTUPINFOEX inherit
+// list, the chunked ReadFile drain), so they run only there (`describeOnWindows`).
 describe("CheckExternalScripts — ext-scr install argument lockdown (settings path)", () => {
   let nscp: NscpInstance;
 
@@ -75,7 +72,7 @@ describe("CheckExternalScripts — ext-scr install argument lockdown (settings p
   });
 });
 
-onUnix("CheckExternalScripts — command timeout enforcement (POSIX launcher)", () => {
+describeOnUnix("CheckExternalScripts — command timeout enforcement (POSIX launcher)", () => {
   // A runaway script must be killed at the configured timeout and reported, not
   // left running. On Unix the shell-fallback path used to run through popen(),
   // which hid the child pid and blocked forever with the timeout unenforced;
@@ -157,7 +154,7 @@ onUnix("CheckExternalScripts — command timeout enforcement (POSIX launcher)", 
   });
 });
 
-onUnix("CheckExternalScripts — shell-fallback metacharacter guard (POSIX launcher)", () => {
+describeOnUnix("CheckExternalScripts — shell-fallback metacharacter guard (POSIX launcher)", () => {
   // When a command template is not argv-safe (e.g. it contains a backslash the
   // tokeniser rejects), the command degrades to the shell fallback and the
   // stricter SHELL_METACHARS set is applied to user arguments. `%` and `^`
@@ -202,7 +199,7 @@ onUnix("CheckExternalScripts — shell-fallback metacharacter guard (POSIX launc
   });
 });
 
-onUnix("CheckExternalScripts — run-as user settings are refused (POSIX launcher)", () => {
+describeOnUnix("CheckExternalScripts — run-as user settings are refused (POSIX launcher)", () => {
   // `user`, `domain` and `password` are implemented by the Windows launcher
   // only. The Unix launcher used to ignore them silently, so a script an
   // operator had sandboxed with `user = nobody` ran as the service identity.
@@ -274,7 +271,7 @@ onUnix("CheckExternalScripts — run-as user settings are refused (POSIX launche
   });
 });
 
-onWindows("CheckExternalScripts — output capture (Windows launcher)", () => {
+describeOnWindows("CheckExternalScripts — output capture (Windows launcher)", () => {
   // Everything here asserts on the *content* the agent read back, not merely
   // that the command succeeded: a launcher that hands the child the wrong
   // pipe end, or that stops draining early, still "works" by every other

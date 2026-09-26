@@ -279,18 +279,57 @@ jobs:
         # root:wheel, because the payload is meant to be extracted with
         # `sudo tar -xzf ... -C /` and should land owned the way the .pkg
         # installs it rather than owned by whoever built it.
+        #
+        # The two trees by name, not `.`: an archive rolled from `.` carries
+        # entries for `./` and `./usr/`, and extracting it onto `/` makes tar
+        # restore their timestamps - on `/` and `/usr`, which live on the
+        # sealed read-only system volume. That fails ("Can't restore time:
+        # Read-only file system") and tar exits 1 after extracting everything,
+        # which is a broken install command for a user and a red job for the
+        # integration tests. /usr/local and /Library are on the writable data
+        # volume, so entries starting there restore cleanly.
         tar -czf "$GITHUB_WORKSPACE/out/NSCP-${NSCP_VERSION}-macos-arm64.tar.gz" \
           --uid 0 --gid 0 --uname root --gname wheel \
-          -C "$GITHUB_WORKSPACE/stage" .
+          -C "$GITHUB_WORKSPACE/stage" usr/local Library
         echo "--- tarball contents (top two levels) ---"
         tar -tzf "$GITHUB_WORKSPACE/out/NSCP-${NSCP_VERSION}-macos-arm64.tar.gz" |
-          awk -F/ '{print $2"/"$3}' | sort -u | head -20
+          awk -F/ '{print $1"/"$2}' | sort -u | head -20
+        # The guard for the paragraph above: nothing may sit above /usr/local
+        # or /Library, or the extraction regresses.
+        if tar -tzf "$GITHUB_WORKSPACE/out/NSCP-${NSCP_VERSION}-macos-arm64.tar.gz" |
+            grep -v -E '^(usr/local|Library)/' ; then
+          echo "::error::the tarball carries entries outside /usr/local and /Library (see above)"
+          exit 1
+        fi
 
     - name: Show the package contents
       if: always()
       shell: bash
       run: |
         ls -la "$GITHUB_WORKSPACE/out" || true
+
+    # The C# sample plugin is built for the tests (the runner image has the
+    # dotnet SDK, so the managed half builds here too) but deliberately not
+    # part of the package, so it travels next to the package in the artifact
+    # and the integration job copies it into the installed modules/dotnet
+    # folder - the same arrangement as build-debian.yml. Guarded on the files
+    # rather than asserted: the package is built with or without a dotnet SDK.
+    #
+    # Inside out/, not beside it: with a single upload root the artifact is
+    # flat (the tarball at its top level, which both the integration job and
+    # release.yml rely on), whereas a second root would make upload-artifact
+    # keep the out/ prefix on everything. release.yml picks the .pkg and the
+    # tarball out of the artifact by name, so the sample never reaches a
+    # release.
+    - name: Stage the C# sample plugin for the integration tests
+      shell: bash
+      run: |
+        if [ -f tmp/nscp/modules/dotnet/NSCP.Plugin.CSharpSample.dll ]; then
+          mkdir -p out/dotnet-sample
+          cp tmp/nscp/modules/dotnet/NSCP.Plugin.CSharpSample.dll tmp/nscp/modules/dotnet/NSCP.Plugin.CSharpSample.deps.json out/dotnet-sample/
+        else
+          echo "::notice::C# sample plugin not built (no dotnet SDK); the DotnetPlugins scenario will skip its managed assertions"
+        fi
 
     - uses: actions/upload-artifact@v6
       with:
@@ -351,3 +390,15 @@ jobs:
           echo "::error::the job is still loaded after uninstalling"
           exit 1
         fi
+
+  # The jest scenario suite against the package, the way build-debian.yml runs
+  # it against the .deb. Same standing as the build: not in branch protection
+  # yet, runs everywhere the build does.
+  integration-tests:
+    name: integration-tests (macos, arm64)
+    needs: build-macos
+    uses: ./.github/workflows/integration-tests-macos.yml
+    with:
+      version: ${{ inputs.version || '0.0.0' }}
+      artifact-name: NSCP-${{ inputs.version || '0.0.0' }}-macos-arm64
+      runner: ${{ inputs.runner || 'macos-15' }}

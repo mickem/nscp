@@ -15,7 +15,7 @@
  */
 import * as http from "http";
 import type { AddressInfo } from "net";
-import { NscpInstance } from "@fixtures/index";
+import { NscpInstance, describeWithModules } from "@fixtures/index";
 
 jest.setTimeout(600_000);
 
@@ -29,7 +29,9 @@ interface CapturedRequest {
   body: string;
 }
 
-describe("Elastic integration", () => {
+// Needs the CheckSystem metrics producer, which the macOS build does not carry
+// yet; the gate lifts when it is ported.
+describeWithModules("CheckSystem")("Elastic integration", () => {
   let nscp: NscpInstance;
   let server: http.Server;
   const requests: CapturedRequest[] = [];

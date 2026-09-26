@@ -19,7 +19,7 @@
  *     in this directory runs it.
  */
 import execa from "execa";
-import { NscpInstance, commandsDeclaring, moduleManifest } from "@fixtures/index";
+import { NscpInstance, commandsDeclaring, moduleManifest, onWindows, itWithModules } from "@fixtures/index";
 
 jest.setTimeout(120_000);
 
@@ -67,7 +67,7 @@ describe("nscp test console", () => {
     expect(out).toContain("OK: it's");
   });
 
-  it("marks experimental commands in the listings and in desc", async () => {
+  itWithModules("CheckDisk")("marks experimental commands in the listings and in desc", async () => {
     // Which of CheckDisk's commands are experimental is read from its
     // module.json rather than written down here: the flag is meant to come
     // off as a command settles, and a test that names today's answers would
@@ -112,7 +112,7 @@ describe("nscp test console", () => {
     await nscp.configure({ "/modules": { CheckExternalScripts: "enabled" } });
     const help = await runConsole("exec CheckExternalScripts help\nexit\n");
     expect(help).toContain("Usage: nscp ext-scr [add|list|show|install|delete] --help");
-    if (process.platform === "win32") {
+    if (onWindows) {
       await nscp.configure({ "/modules": { CheckSystem: "enabled" } });
       const out = await runConsole("exec CheckSystem --help\nexit\n");
       expect(out).toContain("List counters and/or instances");
@@ -232,7 +232,7 @@ describe("nscp test console", () => {
       expect(out).toMatch(/\smessage\s+Message to return/);
     });
 
-    it("keywords lists a filter check's keywords with their descriptions", async () => {
+    itWithModules("CheckSystem")("keywords lists a filter check's keywords with their descriptions", async () => {
       // check_cpu is a filter check on every platform. Nothing is executed:
       // the list is the help payload's field list, so it cannot fail the way
       // rendering a value can (the filter functions are listed too).

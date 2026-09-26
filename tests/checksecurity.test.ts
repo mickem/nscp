@@ -15,13 +15,11 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-import { NscpInstance, generateCertChain } from "@fixtures/index";
+import { NscpInstance, generateCertChain, describeOnWindows, describeOnUnix } from "@fixtures/index";
 
 jest.setTimeout(120_000);
 
-const onLinux = process.platform === "linux" ? describe : describe.skip;
-
-onLinux("CheckSecurity", () => {
+describeOnUnix("CheckSecurity", () => {
   let nscp: NscpInstance;
   let validCert: string; // ~800 days, leaf signed by caCert
   let caCert: string; // the CA that signed validCert
@@ -164,9 +162,7 @@ onLinux("CheckSecurity", () => {
 // namespace is present only with the feature installed, so those two accept an
 // availability error as well as a real result.
 
-const onWindows = process.platform === "win32" ? describe : describe.skip;
-
-onWindows("CheckSecurity (Windows posture)", () => {
+describeOnWindows("CheckSecurity (Windows posture)", () => {
   let nscp: NscpInstance;
 
   /** Run a CheckSecurity query and return the combined output. */

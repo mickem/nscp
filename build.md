@@ -895,10 +895,43 @@ a file that does not exist for darwin.
 `CheckLogFile` (`inotify`) read Linux kernel interfaces and are skipped with a
 reason at configure time. The checks, filters and output builders in those
 modules are platform-neutral; it is the fetch that needs a Darwin
-implementation (`sysctl`, `host_statistics64`, libproc, `getmntinfo`). Porting
-one means adding a `_mac.cpp` beside the existing `_unix.cpp` and splitting it
-in the module's `CMakeLists.txt`, the same way `CheckDisk` already splits
-win/unix.
+implementation (`sysctl`, `host_statistics64`, libproc, `getmntinfo`).
+
+The source split is three-way. A file named `_win.cpp` is Windows, `_unix.cpp`
+is POSIX and compiles on both Linux and macOS (`file_finder_unix.cpp`,
+`check_users_unix.cpp`), `_linux.cpp` reads procfs, sysfs or `mntent` and is
+Linux only (`check_drive_linux.cpp`, `check_disk_io_linux.cpp`,
+`network_facts_linux.cpp`), and a Darwin reader is `_darwin.cpp`. The module's
+`CMakeLists.txt` picks with `if(WIN32) / else()` today and gains an
+`elseif(APPLE)` branch with the first Darwin reader. Porting a module means
+writing the `_darwin.cpp` behind the header the `_linux.cpp` already
+implements, selecting it in that branch, and dropping the skip from
+`module.cmake`. Two readers still sit inline behind `#ifndef WIN32` and have
+to be split out first: `check_mount.cpp`'s mntent walk in CheckDisk, and the
+procfs paths the CheckSystemUnix checks read directly. The checks above the
+fetch are not touched.
+
+### Running the integration tests on a Mac
+
+The jest scenario suite ([Scenario / integration
+tests](#scenario--integration-tests) below) runs on macOS the way it does on
+Linux, against the binary in the build tree, and CI runs it against the package
+on the macOS runner ([`.github/workflows/integration-tests-macos.yml`](.github/workflows/integration-tests-macos.yml)):
+
+```bash
+cd tests
+npm install                                    # one-time
+export NSCP_BIN=/path/to/nscp/build-macos/nscp
+NSCP_SKIP_DOCKER=1 npx jest --runInBand checknet-commands   # one suite
+NSCP_SKIP_DOCKER=1 npm test                                 # everything docker-free
+```
+
+Drop `NSCP_SKIP_DOCKER` if Docker Desktop is running and you want the
+container-backed scenarios too. A suite that loads one of the modules above
+skips itself on macOS through `describeWithModules` in `tests/src/gates.ts`
+until that module is ported; `tests/src/platform.ts` next to it is where every
+suite decides which platform it is on, so a new case that reads procfs or
+expects `dpkg` says `onLinux`, not `onUnix`.
 
 ### Building the installer package
 

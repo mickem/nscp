@@ -25,11 +25,10 @@ import { AddressInfo } from "net";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { NscpInstance } from "@fixtures/index";
+import { NscpInstance, onWindows } from "@fixtures/index";
 
 jest.setTimeout(180_000);
 
-const onWindows = process.platform === "win32";
 // ${host} expands to the OS host name up to the first dot, case preserved —
 // the same gethostname() node's os.hostname() reports.
 const host = os.hostname().split(".")[0];

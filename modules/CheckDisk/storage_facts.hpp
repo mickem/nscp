@@ -23,7 +23,7 @@ class response;
 // where free space lives.
 //
 // The split mirrors host_facts: the platform-specific enumeration sits next
-// to the check that already does it (check_drive_win.cpp / check_drive_unix.cpp,
+// to the check that already does it (check_drive_win.cpp / check_drive_linux.cpp,
 // whose helpers are private to those files), and everything that decides what
 // a record looks like is here, shared, so a Windows volume and a Linux mount
 // are the same shape in a mixed fleet.
@@ -67,7 +67,7 @@ void publish(const std::vector<volume> &volumes, std::time_t taken_at, nscapi::f
 std::string decode_udev_label(const std::string &escaped);
 
 // Read this host's volumes. Implemented per platform, in check_drive_win.cpp
-// and check_drive_unix.cpp, where the enumeration check_drivesize already uses
+// and check_drive_linux.cpp, where the enumeration check_drivesize already uses
 // lives.
 //
 // Never touches a remote volume for its size: an hourly background round has

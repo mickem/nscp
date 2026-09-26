@@ -23,11 +23,13 @@ import {
   executeQuery,
   messageOf,
   setupQueryNscp,
+  describeWithModules,
 } from "@fixtures/index";
 
 jest.setTimeout(300_000);
 
-describe("CheckLogFile check_logfile", () => {
+// Skipped where the build has no CheckLogFile (macOS, until it is ported).
+describeWithModules("CheckLogFile")("CheckLogFile check_logfile", () => {
   let nscp: NscpInstance;
   let key: string;
   let scratch: string;

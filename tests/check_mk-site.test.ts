@@ -22,6 +22,9 @@ import {
   trackContainerLogs,
   waitForHttp,
   type StartedTestContainer,
+  onWindows,
+  describeIf,
+  moduleBuiltHere,
 } from "@fixtures/index";
 
 jest.setTimeout(1_800_000); // up to 30 min — site bootstrap is slow
@@ -37,7 +40,11 @@ const CMK_IMAGE = process.env.CMK_IMAGE ?? "checkmk/check-mk-raw:latest";
 
 // Gated by both flags: the opt-in env var (RUN_CMK_SITE_TEST=1) and the
 // general docker-skip (NSCP_SKIP_DOCKER=1 wins, even when the opt-in is set).
-const maybeDescribe = RUN_CMK_SITE && !skipDocker() ? describe : describe.skip;
+// Opt-in, docker, and the two modules whose sections the site asserts on,
+// which the macOS build does not carry yet.
+const maybeDescribe = describeIf(
+  RUN_CMK_SITE && !skipDocker() && moduleBuiltHere("CheckSystem") && moduleBuiltHere("CheckDisk"),
+);
 
 maybeDescribe("Checkmk site end-to-end", () => {
   let nscp: NscpInstance;
@@ -117,7 +124,7 @@ maybeDescribe("Checkmk site end-to-end", () => {
     if (!nscp) return;
     // See check_mk-agent.test.ts: NRPE mock_exit on Windows, plain
     // SIGTERM on Linux.
-    if (process.platform === "win32") {
+    if (onWindows) {
       await nscp.run(
         ["nrpe", "--host", "127.0.0.1", "--insecure", "--version", "2", "--command", "mock_exit"],
         { timeout: 5_000, allowFailure: true },

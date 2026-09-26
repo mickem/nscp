@@ -166,11 +166,21 @@ the helper goes in its `ALLOWED` set with the reason.
   options, keywords and output have settled — that is the only thing it
   promises. A zip bundle declares the same key at the top level of its
   `module.json`.
-- Cross-platform data acquisition uses the win/unix shim: platform-neutral
-  sources plus an `if(WIN32) … _win.cpp else() … _unix.cpp` split in
-  `CMakeLists.txt`, behind a shared filter/interface header (see `CheckDisk`).
-  Keep the check logic, keyword registry and output builders platform-neutral;
-  only the data source is `#ifdef`'d.
+- Cross-platform data acquisition uses the platform shim: platform-neutral
+  sources plus an `if(WIN32) … _win.cpp else() … _linux.cpp` split in
+  `CMakeLists.txt` (an `elseif(APPLE) … _darwin.cpp` branch joins it with the
+  first Darwin reader), behind a shared filter/interface header (see
+  `CheckDisk`). The suffix says what the file itself reads: `_unix` is POSIX
+  and compiles on Linux and macOS alike (`file_finder_unix.cpp`;
+  `software_facts_unix.cpp` is portable glue whose dpkg/rpm/pacman readers
+  live in `check_installed_software.cpp`), `_linux` reads procfs, sysfs or
+  `mntent` (`check_drive_linux.cpp`), `_darwin` reads sysctl, Mach or IOKit.
+  Keep the check logic, keyword registry and output builders
+  platform-neutral, and put a new data source in its own suffixed file rather
+  than behind `#ifdef` in a shared one. Two readers still sit inline behind
+  `#ifndef WIN32` - `check_mount.cpp`'s mntent walk and the procfs paths in
+  CheckSystemUnix's checks - and they are the seams a macOS port splits out
+  first, not a pattern to copy.
 - Packaging: modules self-install via `NSCP_INSTALL_MODULE()` (pulled in by
   `include(${BUILD_CMAKE_FOLDER}/module.cmake)` in the module's `CMakeLists.txt`),
   so Linux CPack (DEB/RPM/ZIP) packages them automatically. The **Windows MSI
