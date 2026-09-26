@@ -392,7 +392,6 @@ class INISettings : public settings_interface_impl {
     if (err == SI_FAIL) error_str = "General failure";
     if (err == SI_FILE) {
 #ifdef WIN32
-      const int saved_errno = errno;
       error_str = "I/O error: " + error::lookup::last_error();
 #else
       const int saved_errno = errno;
@@ -406,7 +405,14 @@ class INISettings : public settings_interface_impl {
       }
 #endif
     }
-    const std::string file_hint = filename_.empty() ? get_context() : filename_;
+    // get_file_name() fills in filename_ before any load or save can fail,
+    // so the context_ fallback is not expected to run. It reads the member
+    // rather than calling get_context() all the same: get_context() is
+    // virtual and this runs from the constructor (load_data() is its last
+    // statement), which CodeQL flags as cpp/unsafe-use-of-this; and it takes
+    // the settings mutex, which clear_cache() and getter<> already hold when
+    // they reach load_data(), and that mutex is not recursive.
+    const std::string file_hint = filename_.empty() ? context_ : filename_;
     throw settings_exception(__FILE__, __LINE__, msg + " '" + file_hint + "': " + error_str);
   }
   boost::filesystem::path get_file_name() {
