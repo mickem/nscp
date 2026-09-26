@@ -23,7 +23,13 @@ helper, so either form is accepted:
 * the WEB server, which seeds the `admin` row from the shared value on first
   boot (a hashed value is copied as it is; a clear-text one is hashed);
 * `NSClientServer`, which compares the password a check_nt client sends
-  against the stored value in constant time in both cases.
+  against the stored value in constant time in both cases. check_nt has no
+  session to amortise a key derivation over, so the server derives once: the
+  first request that proves itself against the hash leaves the clear text in
+  memory, and every request after it — right password or wrong — is answered by
+  a constant-time compare. Without that, a host inside `allowed hosts` could
+  spend tens of milliseconds of agent CPU per packet on a listener that has no
+  rate limiter.
 
 The hash string itself is not a credential: it does not authenticate against
 either.
@@ -34,9 +40,14 @@ it. A hashed value there is a key nobody has, so the module now refuses to load
 on one, with a log line naming the fix, instead of silently rejecting every
 submission. The clear-text value goes under `/settings/NSCA/server`, the
 section NSCA reads before falling back to the shared default. Nothing rewrites
-an existing clear-text value on its own: the migration is explicit
-(`nscp web password --set`), so an agent that serves NSCA from the shared
-default keeps working until its operator chooses to move the key.
+an existing clear-text value on its own: `nscp web install` re-run without
+`--password` leaves the shared value exactly as it found it (it still hashes
+the `admin` row, which is its own), so the migration is explicit
+(`nscp web password --set`) and an agent that serves NSCA from the shared
+default keeps working until its operator chooses to move the key. When a
+command *is* about to hash the shared value and an enabled `NSCAServer` would
+have taken its key from it — encryption on, no `password` of its own — the
+command says so in its output rather than leaving it to the upgrade notes.
 
 Two limits are worth knowing. The Windows MSI still writes the value typed
 into its configuration dialog in clear text, since that value is also the one

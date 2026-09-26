@@ -172,4 +172,79 @@ describe("nscp web install / password: the shared default password is stored has
     expect(hashMatches(shared(), LOOKALIKE)).toBe(true);
     expect(hashMatches(admin(), LOOKALIKE)).toBe(true);
   });
+
+  it("re-running web install without --password leaves a clear-text shared value alone", async () => {
+    // A certificate rotation is a re-run of install, and it must not migrate a
+    // key NSCA may be deriving its encryption from. The admin row is this
+    // command's own, so that one is still hashed.
+    await nscp.run(["settings", "--path", SHARED, "--key", "password", "--set", "nsca-shared-key"]);
+    expect(shared()).toBe("nsca-shared-key");
+
+    const r = await nscp.run(["web", "install", "--allowed-hosts", "127.0.0.1"]);
+    expect(r.all).toContain("Keeping the existing password, which is stored in clear text");
+    expect(shared()).toBe("nsca-shared-key");
+    expect(hashMatches(admin(), "nsca-shared-key")).toBe(true);
+  });
+
+  it("web install --password <a real hash> does not tell you to pass --password", async () => {
+    const salt = crypto.randomBytes(16);
+    const hash = crypto.pbkdf2Sync("given-as-a-hash", salt, 100000, 32, "sha256");
+    const given = `pbkdf2-sha256$100000$${salt.toString("hex")}$${hash.toString("hex")}`;
+    const r = await nscp.run([
+      "web",
+      "install",
+      "--password",
+      given,
+      "--allowed-hosts",
+      "127.0.0.1",
+    ]);
+    expect(r.all).toContain("Password stored as given");
+    expect(r.all).not.toContain("pass --password to set a new one");
+    expect(shared()).toBe(given);
+    expect(admin()).toBe(given);
+  });
+
+  describe("the NSCA warning", () => {
+    const NSCA = "/settings/NSCA/server";
+
+    // NSCAServer encrypts with the password rather than comparing against it,
+    // so hashing the shared value stops it loading. Both writers say so on the
+    // spot; the upgrade note alone is easy to miss.
+    beforeAll(async () => {
+      await nscp.run(["settings", "--path", "/modules", "--key", "NSCAServer", "--set", "enabled"]);
+    });
+
+    it("web password --set warns when NSCA would lose its key", async () => {
+      const r = await nscp.run(["web", "password", "--set", "rotated-secret"]);
+      expect(r.all).toContain("NSCAServer is enabled with encryption");
+      expect(r.all).toContain(NSCA);
+    });
+
+    it("web install --password warns too", async () => {
+      const r = await nscp.run([
+        "web",
+        "install",
+        "--password",
+        "installed-secret",
+        "--allowed-hosts",
+        "127.0.0.1",
+      ]);
+      expect(r.all).toContain("NSCAServer is enabled with encryption");
+    });
+
+    it("stays quiet once NSCA has a password of its own", async () => {
+      await nscp.run(["settings", "--path", NSCA, "--key", "password", "--set", "the-nsca-key"]);
+      const r = await nscp.run(["web", "password", "--set", "rotated-again"]);
+      expect(r.all).toContain("stored hashed");
+      expect(r.all).not.toContain("NSCAServer is enabled with encryption");
+    });
+
+    it("stays quiet when NSCA runs without encryption", async () => {
+      await nscp.run(["settings", "--path", NSCA, "--key", "password", "--set", ""]);
+      await nscp.run(["settings", "--path", NSCA, "--key", "encryption", "--set", "none"]);
+      const r = await nscp.run(["web", "password", "--set", "rotated-once-more"]);
+      expect(r.all).toContain("stored hashed");
+      expect(r.all).not.toContain("NSCAServer is enabled with encryption");
+    });
+  });
 });

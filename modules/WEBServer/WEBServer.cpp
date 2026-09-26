@@ -1064,6 +1064,57 @@ bool WEBServer::cli_add_role(const PB::Commands::ExecuteRequestMessage::Request 
     return true;
   }
 }
+
+void WEBServer::warn_if_nsca_shares_the_password(std::ostream &out) {
+  namespace pf = nscapi::protobuf::functions;
+  const std::string nsca_path = "/settings/NSCA/server";
+
+  pf::settings_query q(get_id());
+  q.get("/modules", "NSCAServer", "");
+  // The module's own defaults: encryption is on unless turned off, and the
+  // password falls through to /settings/default when the section has none
+  // (NSCAServer registers its password key with add_parent("/settings/default")).
+  q.get(nsca_path, "encryption", "aes256");
+  q.get(nsca_path, "password", "");
+  get_core()->settings_query(q.request(), q.response());
+  if (!q.validate_response()) {
+    return;
+  }
+
+  std::string module;
+  std::string encryption = "aes256";
+  std::string nsca_password;
+  for (const pf::settings_query::key_values &val : q.get_query_key_response()) {
+    if (val.matches("/modules", "NSCAServer")) {
+      module = val.get_string();
+    } else if (val.matches(nsca_path, "encryption")) {
+      encryption = val.get_string();
+    } else if (val.matches(nsca_path, "password")) {
+      nsca_password = val.get_string();
+    }
+  }
+
+  // Same spellings the core treats as off (plugin_manager::equals_disabled).
+  if (module.empty() || module == "disabled" || module == "0" || module == "false") {
+    return;
+  }
+  // Same spellings nscp::encryption::helpers::encryption_to_int resolves to
+  // no_encryption. Anything else is either a real algorithm or a value that
+  // makes NSCAServer refuse to load anyway, so treat it as encryption on.
+  if (encryption.empty() || encryption == "none" || encryption == "0") {
+    return;
+  }
+  if (!nsca_password.empty()) {
+    return;
+  }
+
+  out << "WARNING: NSCAServer is enabled with encryption = " << encryption << " and no password of its own under [" << nsca_path << "]," << std::endl;
+  out << "         so it takes its encryption key from the shared /settings/default/password. That key is the password itself, not" << std::endl;
+  out << "         something compared against it, so a hash will not do and NSCAServer will refuse to load at the next restart." << std::endl;
+  out << "         Give it a clear-text key of its own first:" << std::endl;
+  out << "           nscp settings --path " << nsca_path << " --key password --set <key>" << std::endl;
+}
+
 bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
   namespace po = boost::program_options;
   namespace pf = nscapi::protobuf::functions;
@@ -1170,6 +1221,13 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
 
     std::stringstream result;
 
+    // `--password` is pre-populated from /settings/default/password by
+    // default_value() above, so the flag being present says nothing on its
+    // own; `defaulted()` is what separates a value the operator typed from
+    // the one already on disk.
+    const bool password_was_supplied = vm.count("password") && !vm["password"].defaulted();
+    bool password_was_generated = false;
+
     if (password.empty() && !disable_admin) {
       result << "WARNING: No password specified using a generated password" << std::endl;
       password = token_store::generate_token(32);
@@ -1177,6 +1235,7 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
         nscapi::protobuf::functions::set_response_bad(*response, "Failed to generate a password (RNG failure)");
         return true;
       }
+      password_was_generated = true;
     }
 
     nscapi::protobuf::functions::settings_query s(get_id());
@@ -1290,14 +1349,26 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
       // seeded value, so the new password is silently ignored until the
       // user manually deletes the admin row.
       //
-      // Both rows get the hashed form. The shared default is read by the
-      // WEB seed and by check_nt, which verify through password_hash and so
-      // take either form; only NSCA needs the clear text, and it keeps a
-      // password of its own under /settings/NSCA/server. When no --password
-      // was given the value is whatever is on disk already, which may be a
-      // hash from an earlier install - store it as it is rather than hashing
-      // it a second time (a double hash would lock the admin out).
+      // The password this command is responsible for - one the operator typed
+      // or one it generated - is stored hashed, in the shared default and in
+      // the admin row alike. The shared default is read by the WEB seed and by
+      // check_nt, which verify through password_hash and so take either form.
+      //
+      // A value that was merely found on disk is a different matter, and this
+      // command does not rewrite it:
+      //
+      //  * an existing hash is stored as it is - hashing it again would lock
+      //    the admin out;
+      //  * an existing clear-text value is left in the shared default as it
+      //    is. NSCA may be deriving its encryption key from that string (see
+      //    warn_if_nsca_shares_the_password), and a re-run of `web install`
+      //    to rotate a certificate must not break submissions on a restart.
+      //    `nscp web password --set` is what migrates it, deliberately.
+      //
+      // The admin row is this command's own, so it always gets the hash.
+      const bool password_is_ours = password_was_supplied || password_was_generated;
       const bool already_hashed = password_hash::is_hashed(password);
+
       std::string stored = password;
       if (!already_hashed) {
         const std::string hashed = password_hash::hash_password(password);
@@ -1306,16 +1377,36 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
         }
         // KDF failure: fall back to the clear text (still verifies).
       }
-      s.set("/settings/default", "password", stored);
+
+      if (password_is_ours || already_hashed) {
+        s.set("/settings/default", "password", stored);
+      }
 
       const std::string admin_path = path + "/users/admin";
       s.set(admin_path, "password", stored);
       s.set(admin_path, "role", "full");
 
-      if (already_hashed) {
+      if (password_is_ours) {
+        if (already_hashed) {
+          // An operator who passes a value that is already in stored form
+          // (copied from another agent) gets it verbatim; there is no clear
+          // text here to echo.
+          result << "Password stored as given (already in pbkdf2-sha256 form, so it cannot be shown)." << std::endl;
+        } else {
+          result << "Login using this password " << password << std::endl;
+        }
+      } else if (already_hashed) {
         result << "Keeping the existing password (stored hashed, so it cannot be shown); pass --password to set a new one." << std::endl;
       } else {
-        result << "Login using this password " << password << std::endl;
+        result << "Keeping the existing password, which is stored in clear text; pass --password to set a new one," << std::endl;
+        result << "or `nscp web password --set <password>` to store the same one hashed." << std::endl;
+      }
+
+      // Warn only where this command turns the shared default into a hash. A
+      // re-run that found a hash there changes nothing, and one that found
+      // clear text leaves it alone.
+      if (password_is_ours && password_hash::is_hashed(stored)) {
+        warn_if_nsca_shares_the_password(result);
       }
     }
 
@@ -1441,6 +1532,7 @@ bool WEBServer::password(const PB::Commands::ExecuteRequestMessage::Request &req
     if (!only_web) {
       s.set("/settings/default", "password", stored);
       result << "Password updated (stored hashed) in /settings/default." << std::endl;
+      warn_if_nsca_shares_the_password(result);
     }
     if (admin_row_exists) {
       s.set(admin_path, "password", stored);

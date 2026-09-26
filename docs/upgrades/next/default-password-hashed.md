@@ -16,8 +16,13 @@ password in place). Three things change:
   checks once the server has booted; `--only-web` changes that row alone.
 * **NSCAServer** derives its encryption key from the password string, so a
   hashed value is not a usable key. An agent that serves NSCA from the shared
-  default now refuses to load the module, with a log line saying why. Give
-  NSCA a clear-text password of its own instead:
+  default now refuses to load the module, with a log line saying why. Both
+  `nscp web install` (with `--password`) and `nscp web password --set` warn
+  about this before you restart, when they can see an enabled `NSCAServer`
+  with encryption on and no key of its own; re-running `nscp web install`
+  *without* `--password` leaves an existing clear-text shared value alone, so
+  it cannot surprise you on a certificate rotation. Give NSCA a clear-text
+  password of its own instead:
 
 ```ini
 [/settings/NSCA/server]

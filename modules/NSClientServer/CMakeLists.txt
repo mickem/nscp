@@ -77,3 +77,18 @@ NSCP_CREATE_TEST(
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )
+
+# The password check is a class of its own precisely so the KDF-per-request
+# question can be asserted on without standing up the server: the memo exposes
+# how many derivations it has run.
+NSCP_CREATE_TEST(
+    check_nt_password_memo_test
+    SOURCES
+        password_memo_test.cpp
+        ${NSCP_INCLUDEDIR}/nscp/password_hash.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${EXTRA_LIBS}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
