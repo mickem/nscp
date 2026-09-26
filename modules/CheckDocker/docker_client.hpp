@@ -9,6 +9,7 @@
 #include <boost/json.hpp>
 #include <json/accessors.hpp>
 #include <nscapi/nscapi_program_options.hpp>
+#include <str/format.hpp>
 #include <string>
 
 #include "check_docker.hpp"

@@ -3,12 +3,14 @@
 
 #include "check_cluster.hpp"
 
+#include <boost/algorithm/string/trim.hpp>
 #include <boost/json.hpp>
 #include <memory>
 #include <nscapi/nscapi_program_options.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <str/format.hpp>
 #include <string>
 
 namespace json = boost::json;
