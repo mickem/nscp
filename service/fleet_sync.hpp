@@ -112,11 +112,10 @@ class fleet_sync {
   // a 429/503 holds it (for the Retry-After, or one poll interval), and the
   // X-Facts-Hash header on a 2xx or 304 is what the server holds - the only
   // thing that triggers an upload. One rule for both calls.
-  // `upload` is true for the facts upload's own response.
-  void note_server_response(const http::response &response, bool upload);
-  // The upload at the end of a loop turn, unless the turn's calls (or the
-  // last upload) asked for quiet.
-  void upload_facts_this_turn();
+  // Which fleet call a response answered: they share one rule, which differs
+  // only in what trouble and a Retry-After mean for the facts upload.
+  enum class fleet_call { poll, report, upload };
+  void note_server_response(const http::response &response, fleet_call call);
   void log_facts_failure(const std::string &hash, unsigned int status, const std::string &message);
   // The current facts hash for the state report; empty without a repository.
   std::string current_facts_hash() const;
@@ -154,11 +153,6 @@ class fleet_sync {
   // When to upload the facts document: only on a miss the server reported,
   // paced per document. See onboarding::facts_upload_pacer for the rules.
   onboarding::facts_upload_pacer facts_pacer_;
-  // Skip the upload in the current (or, set by the upload, the next) loop
-  // turn: a poll or report in it answered with trouble, or the last upload
-  // was rate limited. One turn, never more; longer quiet is a Retry-After
-  // hold in the pacer.
-  bool facts_skip_turn_ = false;
   // Said once until the condition clears: an unreadable X-Facts-Hash, and a
   // facts hash that could not be computed.
   bool bad_facts_header_logged_ = false;

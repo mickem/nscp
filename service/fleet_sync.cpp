@@ -396,7 +396,7 @@ void fleet_sync::report_state(const boost::optional<std::string> &applied_hash, 
     const std::string body = onboarding::build_state_report(applied_hash, installed_, errors, collect_tags(), local_config, current_facts_hash());
     const http::response response = do_call("POST", state_report_path, body);
     note_transport_success();
-    note_server_response(response, false);
+    note_server_response(response, fleet_call::report);
     if (!response.is_2xx()) {
       log_error("Failed to submit state report: " + str::xtos(response.status_code_) + " " + response.payload_);
       return;
@@ -423,7 +423,7 @@ std::string fleet_sync::current_facts_hash() const {
   return hash;
 }
 
-void fleet_sync::note_server_response(const http::response &response, const bool upload) {
+void fleet_sync::note_server_response(const http::response &response, const fleet_call call) {
   const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
   if (!response.is_2xx() && response.status_code_ != 304) {
     // Trouble - a rejection, a rate limit, a 5xx or a proxy's error page - on
@@ -431,11 +431,17 @@ void fleet_sync::note_server_response(const http::response &response, const bool
     // call itself does about it. The upload is the last thing a turn does, so
     // for the upload itself this is the next turn, and only for the statuses
     // that ask for quiet (429, 503): its other failures are the document's
-    // own backoff's business. A Retry-After is the server naming the wait,
-    // and holds every upload until it has passed.
-    if (!upload || response.status_code_ == 429 || response.status_code_ == 503) facts_skip_turn_ = true;
+    // own backoff's business.
+    if (call != fleet_call::upload) {
+      facts_pacer_.trouble_this_turn();
+    } else if (response.status_code_ == 429 || response.status_code_ == 503) {
+      facts_pacer_.quiet_next_turn();
+    }
+    // A Retry-After is the server naming the wait, and holds every upload
+    // until it has passed - except the poll's own, which the loop sleeps:
+    // a second, unjittered clock over the same wait would only outlast it.
     const boost::optional<unsigned long> retry_after = get_retry_after(response);
-    if (retry_after) facts_pacer_.hold(now, clamp_sleep_seconds(retry_after.value()));
+    if (retry_after && call != fleet_call::poll) facts_pacer_.hold(now, clamp_sleep_seconds(retry_after.value()));
     // And says nothing about what the server holds, whatever headers the
     // error page happens to carry.
     return;
@@ -463,14 +469,6 @@ void fleet_sync::note_server_response(const http::response &response, const bool
   }
   bad_facts_header_logged_ = false;
   facts_pacer_.server_holds(advertised.value(), now);
-}
-
-void fleet_sync::upload_facts_this_turn() {
-  if (facts_skip_turn_) {
-    facts_skip_turn_ = false;
-    return;
-  }
-  maybe_upload_facts();
 }
 
 void fleet_sync::log_facts_failure(const std::string &hash, const unsigned int status, const std::string &message) {
@@ -536,15 +534,27 @@ void fleet_sync::maybe_upload_facts() {
   const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
 
   if (response.is_2xx()) {
-    const onboarding::facts_upload_pacer::ack ack = facts_pacer_.acknowledged(snapshot.hash, now);
+    // The acknowledgement's own X-Facts-Hash, when it carries a readable one,
+    // says at once what the server made of the document.
+    boost::optional<std::string> server_says;
+    const auto held = response.headers_.find(onboarding::facts_hash_header);
+    if (held != response.headers_.end()) server_says = onboarding::parse_facts_hash(held->second);
+    const onboarding::facts_upload_pacer::ack ack = facts_pacer_.acknowledged(snapshot.hash, now, server_says);
     const unsigned int resends = ack.resends;
     last_facts_error_hash_.clear();
     last_facts_error_status_ = 0;
     log_debug("Uploaded facts " + snapshot.hash + " (" + str::xtos(snapshot.json.size()) + " bytes, revision " + str::xtos(snapshot.revision) + ")");
     if (ack.mismatch) {
-      log_error("The fleet server acknowledged the facts document " + snapshot.hash +
-                " twice but has never reported holding it: it computes a different hash for it (the hash is the SHA-256 of the `facts` value "
-                "exactly as sent). Not sending it again until it changes.");
+      if (ack.hashed_differently) {
+        log_error("The fleet server acknowledged the facts document " + snapshot.hash +
+                  " and answered with a different hash for it: it computes the hash differently (it must be the SHA-256 of the `facts` value "
+                  "exactly as sent). Not sending it again until it changes.");
+      } else {
+        log_error("The fleet server acknowledged the facts document " + snapshot.hash + " " +
+                  str::xtos(onboarding::facts_upload_pacer::unconfirmed_verdict) +
+                  " times and has never reported holding it: it does not keep it, or hashes it differently. Not sending it again until it "
+                  "changes.");
+      }
       return;
     }
     // The server acknowledged this document before and then reported it
@@ -565,7 +575,7 @@ void fleet_sync::maybe_upload_facts() {
   // that answered with a rate limit and no Retry-After gets a whole poll
   // interval of quiet, measured in the polls the loop actually makes rather
   // than in a clock the jittered sleep would land either side of.
-  note_server_response(response, true);
+  note_server_response(response, fleet_call::upload);
   if (response.status_code_ == 413) {
     // This document is too large for the server, and will be every time.
     facts_pacer_.refused(snapshot.hash);
@@ -831,7 +841,7 @@ unsigned long fleet_sync::poll_once() {
     return std::min(backoff, poll_interval_ * 5);
   }
   note_transport_success();
-  note_server_response(response, false);
+  note_server_response(response, fleet_call::poll);
 
   if (response.status_code_ == 304) {
     failures_ = 0;
@@ -985,9 +995,12 @@ void fleet_sync::run() {
   // hash in that report - and in the first poll - is the inventory the host
   // has. If the server answered it with a miss, repair it now - under the same
   // condition as every turn of the loop below.
-  if (transport_ok_) upload_facts_this_turn();
+  if (transport_ok_) maybe_upload_facts();
 
   while (true) {
+    // Whatever the last turn carried over applies to this one, and to this
+    // one only - even if its poll fails before the upload is considered.
+    facts_pacer_.begin_turn();
     const unsigned long sleep_seconds = poll_once();
     // When the server is unreachable the poll already logged it; don't pile
     // further failures (and further log entries) on top with a renewal
@@ -1006,7 +1019,7 @@ void fleet_sync::run() {
       // something else: upload. Steady state is one hash compare per poll.
       // Not in a turn whose poll or report got an error: that server, or the
       // proxy in front of it, is in no state for a megabyte.
-      upload_facts_this_turn();
+      maybe_upload_facts();
     }
     boost::this_thread::sleep_for(boost::chrono::milliseconds(with_jitter_ms(sleep_seconds)));
   }

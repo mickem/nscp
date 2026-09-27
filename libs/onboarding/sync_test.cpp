@@ -1716,20 +1716,94 @@ TEST(FactsPacer, ALossIsCountedPerResend) {
   EXPECT_EQ(p.retry_at(H1), at(now + 3600)) << "re-sends of a document the server keeps losing settle at once an hour";
 }
 
-TEST(FactsPacer, AServerThatNeverReportsHoldingWhatItAcknowledgedHashesDifferently) {
+TEST(FactsPacer, WithoutAHeaderOnTheAckAMismatchTakesThreeUnconfirmedAcks) {
   pacer p;
   const std::string THEIRS(64, 'e');
   p.server_holds(NONE, t0);
   EXPECT_FALSE(p.acknowledged(H1, t0).mismatch);
-  // It hashes its own re-encoding, so it never answers H1.
+  // It hashes its own re-encoding, so it never answers H1 - but the
+  // acknowledgements carry no header to say so.
   p.server_holds(THEIRS, at(1));
-  ASSERT_TRUE(p.should_upload(H1, at(1))) << "once: it may simply have lost it";
-  const pacer::ack second = p.acknowledged(H1, at(1));
-  EXPECT_TRUE(second.mismatch) << "twice acknowledged, never reported held";
+  ASSERT_TRUE(p.should_upload(H1, at(1))) << "it may simply have lost it: the first re-send is immediate";
+  EXPECT_FALSE(p.acknowledged(H1, at(1)).mismatch) << "two unconfirmed acknowledgements are not yet a verdict";
   p.server_holds(THEIRS, at(2));
-  EXPECT_FALSE(p.should_upload(H1, at(86400))) << "no re-send will ever make them match";
-  EXPECT_TRUE(p.should_upload(H2, at(3))) << "until the document changes";
+  EXPECT_FALSE(p.should_upload(H1, at(60))) << "and the next re-send is paced";
+  ASSERT_TRUE(p.should_upload(H1, at(61)));
+  const pacer::ack third = p.acknowledged(H1, at(61));
+  EXPECT_TRUE(third.mismatch);
+  EXPECT_FALSE(third.hashed_differently) << "inferred, not stated: it may also just not keep it";
+  p.server_holds(THEIRS, at(62));
+  EXPECT_FALSE(p.should_upload(H1, at(86400))) << "refused until the document changes";
+  EXPECT_TRUE(p.should_upload(H2, at(63)));
 }
+
+TEST(FactsPacer, AnAckAnsweringADifferentHashIsAMismatchAtOnce) {
+  pacer p;
+  const std::string THEIRS(64, 'e');
+  p.server_holds(NONE, t0);
+  const pacer::ack ack = p.acknowledged(H1, t0, THEIRS);
+  EXPECT_TRUE(ack.mismatch) << "no second upload needed to learn it";
+  EXPECT_TRUE(ack.hashed_differently);
+  EXPECT_FALSE(p.should_upload(H1, at(86400)));
+}
+
+TEST(FactsPacer, AnAckAnsweringOurHashConfirmsAtOnce) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  EXPECT_FALSE(p.acknowledged(H1, t0, H1).mismatch);
+  // Confirmed on the acknowledgement itself, so a later loss is a loss: the
+  // re-send is immediate, however soon it comes.
+  p.server_holds(NONE, at(1));
+  EXPECT_TRUE(p.should_upload(H1, at(1)));
+  EXPECT_FALSE(p.acknowledged(H1, at(1), H1).mismatch);
+}
+
+TEST(FactsPacer, AnAckAnsweringNoneIsNotAMismatchButIsNotKeptEither) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  const pacer::ack ack = p.acknowledged(H1, t0, NONE);
+  EXPECT_FALSE(ack.mismatch);
+  EXPECT_TRUE(p.should_upload(H1, t0)) << "it says it holds nothing, so it is a miss";
+}
+
+TEST(FactsPacer, OneStaleAnswerNeverRefusesTheDocument) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.acknowledged(H1, t0);
+  // A queued write or a lagging replica: the next answer is stale, once.
+  p.server_holds(NONE, at(1));
+  ASSERT_TRUE(p.should_upload(H1, at(1)));
+  EXPECT_FALSE(p.acknowledged(H1, at(1)).mismatch);
+  p.server_holds(H1, at(2));  // and then it catches up
+  // A real loss later is still repaired.
+  p.server_holds(NONE, at(86400));
+  EXPECT_TRUE(p.should_upload(H1, at(86400)));
+  EXPECT_FALSE(p.acknowledged(H1, at(86400)).mismatch);
+}
+
+TEST(FactsPacer, TroubleSkipsOnlyTheTurnItHappenedIn) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.begin_turn();
+  p.trouble_this_turn();  // the poll failed
+  EXPECT_FALSE(p.should_upload(H1, t0));
+  p.begin_turn();
+  EXPECT_TRUE(p.should_upload(H1, at(1)));
+}
+
+TEST(FactsPacer, ARateLimitedUploadSkipsExactlyTheNextTurn) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.begin_turn();
+  p.quiet_next_turn();  // the upload was answered 429
+  p.begin_turn();       // that next turn's poll fails at the transport: the upload is never asked
+  p.begin_turn();       // a later, healthy turn
+  EXPECT_TRUE(p.should_upload(H1, at(2))) << "the skip does not leak past the turn it was for";
+  p.quiet_next_turn();
+  p.begin_turn();
+  EXPECT_FALSE(p.should_upload(H1, at(3)));
+}
+
 
 TEST(FactsPacer, AnyAcknowledgementClearsTheRejections) {
   pacer p;

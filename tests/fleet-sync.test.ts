@@ -330,7 +330,9 @@ describe("core fleet sync loop", () => {
           res.end(factsOffZip);
         } else if (req.method === "POST" && parsed.pathname === "/agent/v1/facts") {
           if (factsStatus === 200 && !forgetUploads) heldFactsHash = hashesItsOwnWay ? "e".repeat(64) : (body?.facts_hash ?? "");
-          res.writeHead(factsStatus, { "Content-Type": "application/json" });
+          // A 2xx says what the server now holds, as every answer it means
+          // does: the agent learns at once whether the document stuck.
+          res.writeHead(factsStatus, { "Content-Type": "application/json", ...(factsStatus === 200 ? factsHeader() : {}) });
           res.end(factsStatus === 200 ? "{}" : JSON.stringify({ error: "not found" }));
         } else if (parsed.pathname === "/agent/v1/state-report") {
           res.writeHead(200, { "Content-Type": "application/json", ...factsHeader() });
@@ -641,11 +643,15 @@ describe("core fleet sync loop", () => {
     await waitFor("the rejected upload", () => factsUploads().length > before);
     await settle(5);
     expect(factsUploads()).toHaveLength(before + 1);
+    // That it is tried again at the next step (a minute), rather than dropped
+    // until the inventory changes, is the pacer's rule and its unit tests'
+    // business: waiting out a real minute here bought nothing but a slower
+    // suite.
 
-    // The route appears; the same document goes at the next step (a minute).
+    // The server had it all along; say so, for the cases below.
     factsStatus = 200;
-    await waitFor("the paced retry", () => factsUploads().length > before + 1, 90_000);
-    expect(factsUploads()[before + 1].body.facts_hash).toBe(factsUploads()[before].body.facts_hash);
+    heldFactsHash = factsUploads()[before].body.facts_hash;
+    await settle();
     answerFull = false;
   });
   it("keeps a new document's backoff while the server echoes the older one", async () => {
@@ -670,7 +676,7 @@ describe("core fleet sync loop", () => {
 
   it("stops re-sending to a server that hashes the document its own way", async () => {
     // A fresh agent (a fresh pacer) whose fleet.ini has `agent` off, against a
-    // server that acknowledges every upload and then reports a hash of its own
+    // server that acknowledges every upload and reports a hash of its own
     // re-encoding - never the one it was sent.
     await nscp.stop();
     hashesItsOwnWay = true;
@@ -682,11 +688,12 @@ describe("core fleet sync loop", () => {
 
     phase = "facts";
     await waitFor("the first upload", () => factsUploads().length > before);
-    // It may have lost it, so it is sent once more; after that, no number of
-    // re-sends will make the hashes match, and the agent says so.
-    await waitFor("the mismatch log line", () => nscp.capturedStdout().includes("computes a different hash"));
+    // The acknowledgement itself carries the server's hash for what it kept,
+    // and it is not ours: no re-send will ever match, and the agent says so
+    // without sending the document a second time.
+    await waitFor("the mismatch log line", () => nscp.capturedStdout().includes("answered with a different hash"));
     await settle(5);
-    expect(factsUploads()).toHaveLength(before + 2);
+    expect(factsUploads()).toHaveLength(before + 1);
     hashesItsOwnWay = false;
   });
 

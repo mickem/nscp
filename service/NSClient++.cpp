@@ -603,9 +603,9 @@ void NSClientT::boot_facts() {
   }
 }
 
-// [/settings/facts] max size, applied to the repository. Read at boot and again
-// on every settings reload, before the reload's facts round, so a cap that was
-// raised or lowered applies to that round and to the next upload.
+// [/settings/facts] max size, applied to the repository. Read at boot, on a
+// settings-only reload, and on a full reload before its facts round, so a cap
+// that was raised or lowered applies without a restart.
 void NSClientT::read_facts_max_size() {
   const std::string max_size =
       settings_manager::get_settings()->get_string("/settings/facts", "max size", str::xtos(nsclient::core::fact_repository::default_max_size));
@@ -825,6 +825,10 @@ bool NSClientT::do_reload(const std::string module) {
       // configs are reloaded via the per-plugin loadModuleEx path; this
       // catches the core-side state.
       plugins_->load_permissions();
+      // And [/settings/facts] max size, which a settings-only reload has to
+      // apply as well as a full one: a lowered cap drops the sets that no
+      // longer fit now, a raised one lets the next round keep them.
+      read_facts_max_size();
       return true;
     } catch (const std::exception &e) {
       LOG_ERROR_CORE_STD("Exception raised when reloading: " + utf8::utf8_from_native(e.what()));

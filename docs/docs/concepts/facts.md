@@ -504,7 +504,9 @@ the server say whether it needs the rest:
   response header (`none` when it holds nothing). It is a header so that it
   works on the 304 a host that is in sync gets on nearly every poll. The
   agent reads it only on a 2xx or 304: an error page from the server or a
-  proxy says nothing about what the server holds.
+  proxy says nothing about what the server holds. The server sends it on its
+  answer to an upload too, saying what it now holds, so the agent learns at
+  once whether the document stuck.
 * **The document is uploaded only on a miss**: when the server's answer
   differs from the agent's hash, the agent sends it on its own call,
   `POST /agent/v1/facts`. A matching answer costs nothing more than the hash,
@@ -542,8 +544,9 @@ every poll:
   at once.
 * **A server in trouble** - any error answer to the poll, the state report
   or the upload, a proxy's error page included - is sent no document in that
-  poll cycle, and a `Retry-After` holds every upload until it has passed. A
-  429 or 503 on the upload itself without one skips the next poll cycle too.
+  poll cycle. A `Retry-After` on a report or an upload holds every upload until
+  it has passed; a poll's own is the wait before the next poll. A 429 or 503
+  on the upload itself skips the next poll cycle too.
   A rejection is forgotten as soon as the document gets through.
 * **A document the server acknowledged and then reports missing** is sent
   again at once the first time, and the agent log says so at info level.
@@ -555,10 +558,13 @@ every poll:
   through tries again.
 * **A document the server refuses as too large** (413) is not sent again until
   it changes.
-* **A document the server acknowledges but never reports holding** - it
-  answers with a hash of its own instead - is sent once more, in case it was
-  simply lost, and then not again until it changes, with an error in the agent
-  log. The server has to hash the `facts` value exactly as it received it.
+* **A document the server does not end up holding as sent** is not sent again
+  until it changes, with an error in the agent log. The server has to hash
+  the `facts` value exactly as it received it. When it answers the upload with
+  a different hash, that is known at once. When its answers carry no hash, it
+  takes three acknowledgements of the document with no confirmation between
+  them, with the re-sends paced as above - one stale answer from a lagging
+  server never gets there.
 
 The size cap is enforced in one place, where the document is kept, so every
 reader - the web UI, REST and the fleet upload - sees the same document: the
