@@ -459,16 +459,16 @@ class fact_repository {
 
   // The state a round started from, captured at the round's first change:
   // the collection time always (marking it is the one change every round
-  // makes), the sets only when the round changes one. Until then the live
-  // sets are the round's starting sets, and serve as they are. The hash comes
-  // along when it was already known; otherwise it, and the rendering, are
-  // only made if someone asks mid-round.
+  // makes), the document only when the round changes a set - and then as the
+  // JSON it renders to, one string, which is all a reader mid-round is served.
+  // Until then the live sets are the round's starting sets, and serve as they
+  // are. The hash comes along when it was already known; otherwise it is only
+  // computed if someone asks mid-round.
   struct frozen_state {
     std::string collected;
-    boost::optional<std::map<std::string, PB::Facts::Object>> sets;
+    boost::optional<std::string> json;
     unsigned long long revision = 0;
     mutable std::string hash;
-    mutable boost::optional<std::string> json;
   };
 
   // Called before every change; `sets_change` says whether it touches the
@@ -481,32 +481,30 @@ class fact_repository {
       frozen_ = state;
     }
     frozen_state &state = frozen_.value();
-    if (!sets_change || state.sets) return;
-    state.sets = sets_;
+    if (!sets_change || state.json) return;
+    state.json = nscapi::facts::tree::to_json(build_document_locked());
     state.revision = revision_;
     if (!hash_dirty_) state.hash = hash_;
   }
 
   std::string frozen_hash_locked() const {
     const frozen_state &state = frozen_.value();
-    // The sets have not moved: the live hash is the round's starting hash.
-    if (!state.sets) return can_hash() && hash_dirty_ ? hash_locked(nscapi::facts::tree::to_json(build_document_locked())) : hash_;
-    if (!state.hash.empty() || !can_hash()) return state.hash;
-    return frozen_snapshot_locked().hash;
+    // No set has moved: the live hash is the round's starting hash.
+    if (!state.json) return can_hash() && hash_dirty_ ? hash_locked(nscapi::facts::tree::to_json(build_document_locked())) : hash_;
+    if (state.hash.empty() && can_hash()) state.hash = sha256_hex(state.json.value());
+    return state.hash;
   }
 
   snapshot frozen_snapshot_locked() const {
     const frozen_state &state = frozen_.value();
-    if (!state.sets) {
+    if (!state.json) {
       snapshot live = build_snapshot_locked();
       live.collected = state.collected;
       return live;
     }
-    if (!state.json) state.json = nscapi::facts::tree::to_json(build_document(state.sets.value()));
-    if (state.hash.empty() && can_hash()) state.hash = sha256_hex(state.json.value());
     snapshot result;
     result.json = state.json.value();
-    result.hash = state.hash;
+    result.hash = frozen_hash_locked();
     result.revision = state.revision;
     result.collected = state.collected;
     return result;

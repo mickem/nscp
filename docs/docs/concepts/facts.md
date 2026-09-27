@@ -545,21 +545,26 @@ every poll:
 * **A server in trouble** - any error answer to the poll, the state report
   or the upload, a proxy's error page included - is sent no document in that
   poll cycle. A `Retry-After` on a report or an upload holds every upload until
-  it has passed; a poll's own is the wait before the next poll. A 429 or 503
-  on the upload itself skips the next poll cycle too.
+  it has passed; on a poll (429, or 503), the agent waits it out before it
+  calls again at all. A 429 or 503 on the upload itself skips the next poll
+  cycle too.
   A rejection is forgotten as soon as the document gets through.
-* **A document the server acknowledged and then reports missing** is sent
-  again at once the first time, and the agent log says so at info level.
+* **A document the server acknowledged and then reports missing** - having
+  reported holding it first - is sent again at once the first time, and the
+  agent log says so at info level. One it has not confirmed yet is not sent
+  again for a minute, so a store that is slow to land a write never costs a
+  second copy of the document.
   Further re-sends of it wait a minute, then two, doubling up to once an hour,
   which is logged as an error when it gets there. Once the server has kept it
   for a whole wait, that resets, so a loss weeks later is repaired at once
   again.
 * **A connection that fails outright** costs nothing: the next poll that gets
   through tries again.
-* **A document the server refuses as too large** (413) is not sent again until
-  it changes.
-* **A document the server does not end up holding as sent** is not sent again
-  until it changes, with an error in the agent log. The server has to hash
+* **A document the server refuses as too large** (413) is not offered again
+  until it changes, or for a day - its cap may be raised in the meantime.
+* **A document the server does not end up holding as sent** is not offered
+  again until it changes, the hash the server reports changes (a fix on its
+  side), or a day has passed, with an error in the agent log. The server has to hash
   the `facts` value exactly as it received it. When it answers the upload with
   a new, different hash, that is known at once. When its answers carry no
   hash, or only repeat what it held before the upload (an asynchronous store

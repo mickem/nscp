@@ -115,7 +115,8 @@ class fleet_sync {
   // The X-Facts-Hash on a response the server meant, for both readers - what
   // it holds after a poll or report, what it kept after an upload. None when
   // there is no header, or one that cannot be read (logged once).
-  boost::optional<std::string> read_facts_hash_header(const http::response &response);
+  // `call` only picks the wording of the log line.
+  boost::optional<std::string> read_facts_hash_header(const http::response &response, fleet_call call);
   void log_facts_failure(const std::string &hash, unsigned int status, const std::string &message);
   // The current facts hash for the state report; empty without a repository.
   std::string current_facts_hash() const;
@@ -172,6 +173,9 @@ class fleet_sync {
   std::string content_hash_;
   std::vector<onboarding::installed_bundle> installed_;
   unsigned long poll_interval_ = 60;
+  // The sleep poll_once returned is a wait the server named (Retry-After), so
+  // it is jittered upwards only.
+  bool sleep_is_minimum_ = false;
   unsigned int failures_ = 0;
 
   // Transport state shared by all calls in the loop: once the server is known

@@ -105,6 +105,14 @@ unsigned long with_jitter_ms(const unsigned long seconds) {
   return base * 9 / 10 + rd() % spread;
 }
 
+// The same spread, upwards only: for a wait the server named (Retry-After),
+// which is a minimum - jitter below it would call back early.
+unsigned long with_jitter_up_ms(const unsigned long seconds) {
+  std::random_device rd;
+  const unsigned long base = seconds * 1000UL;
+  return base + rd() % (base / 10 + 1);
+}
+
 boost::optional<unsigned long> get_retry_after(const http::response &response) {
   const auto it = response.headers_.find("retry-after");
   if (it == response.headers_.end()) return boost::none;
@@ -446,7 +454,7 @@ void fleet_sync::note_server_response(const http::response &response, const flee
     // error page happens to carry.
     return;
   }
-  const boost::optional<std::string> advertised = read_facts_hash_header(response);
+  const boost::optional<std::string> advertised = read_facts_hash_header(response, call);
   if (!advertised) {
     // An answer the server meant, without a readable header: it does not do
     // facts - or no longer does, after a downgrade - and is sent nothing more
@@ -457,7 +465,7 @@ void fleet_sync::note_server_response(const http::response &response, const flee
   facts_pacer_.server_holds(advertised.value(), now);
 }
 
-boost::optional<std::string> fleet_sync::read_facts_hash_header(const http::response &response) {
+boost::optional<std::string> fleet_sync::read_facts_hash_header(const http::response &response, const fleet_call call) {
   const auto header = response.headers_.find(onboarding::facts_hash_header);
   if (header == response.headers_.end()) return boost::none;
   const boost::optional<std::string> hash = onboarding::parse_facts_hash(header->second);
@@ -467,8 +475,15 @@ boost::optional<std::string> fleet_sync::read_facts_hash_header(const http::resp
     // and said once, since it is a server bug an operator can fix.
     if (!bad_facts_header_logged_) {
       bad_facts_header_logged_ = true;
-      log_error("The fleet server sent an unreadable X-Facts-Hash header (" + header->second.substr(0, 80) +
-                "): expected a SHA-256 hex digest or 'none'. Not uploading facts until it sends a valid one.");
+      const std::string value = header->second.substr(0, 80);
+      if (call == fleet_call::upload) {
+        log_error("The fleet server answered the facts upload with an unreadable X-Facts-Hash header (" + value +
+                  "): expected a SHA-256 hex digest or 'none'. The upload was accepted but is counted as unconfirmed until a poll says what "
+                  "the server holds.");
+      } else {
+        log_error("The fleet server sent an unreadable X-Facts-Hash header (" + value +
+                  "): expected a SHA-256 hex digest or 'none'. Not uploading facts until it sends a valid one.");
+      }
     }
     return boost::none;
   }
@@ -521,7 +536,7 @@ void fleet_sync::maybe_upload_facts() {
   try {
     body = onboarding::build_facts_upload(snapshot.hash, snapshot.collected, snapshot.json);
   } catch (const std::exception &e) {
-    facts_pacer_.refused(snapshot.hash);
+    facts_pacer_.refused(snapshot.hash, std::chrono::steady_clock::now());
     log_error("Facts document not uploaded: " + utf8::utf8_from_native(e.what()));
     return;
   }
@@ -541,7 +556,7 @@ void fleet_sync::maybe_upload_facts() {
   if (response.is_2xx()) {
     // The acknowledgement's own X-Facts-Hash, when it carries a readable one,
     // says at once what the server made of the document.
-    const onboarding::facts_upload_pacer::ack ack = facts_pacer_.acknowledged(snapshot.hash, now, read_facts_hash_header(response));
+    const onboarding::facts_upload_pacer::ack ack = facts_pacer_.acknowledged(snapshot.hash, now, read_facts_hash_header(response, fleet_call::upload));
     const unsigned int resends = ack.resends;
     last_facts_error_hash_.clear();
     last_facts_error_status_ = 0;
@@ -550,12 +565,12 @@ void fleet_sync::maybe_upload_facts() {
       if (ack.hashed_differently) {
         log_error("The fleet server acknowledged the facts document " + snapshot.hash +
                   " and answered with a different hash for it: it computes the hash differently (it must be the SHA-256 of the `facts` value "
-                  "exactly as sent). Not sending it again until it changes.");
+                  "exactly as sent). Not sending it again until it changes, the server's hash for it changes, or a day has passed.");
       } else {
         log_error("The fleet server acknowledged the facts document " + snapshot.hash + " " +
                   str::xtos(onboarding::facts_upload_pacer::unconfirmed_verdict) +
                   " times and has never reported holding it: it does not keep it, or hashes it differently. Not sending it again until it "
-                  "changes.");
+                  "changes, the server's answers change, or a day has passed.");
       }
       return;
     }
@@ -564,8 +579,9 @@ void fleet_sync::maybe_upload_facts() {
     // hourly cap, so the operator can tell why the server sees the same
     // upload again and again.
     if (resends == 1) {
-      log_info("The fleet server lost the facts document it had acknowledged (" + snapshot.hash +
-               ") and has it again now. If it keeps losing it, further re-sends wait 1 minute, doubling up to once an hour.");
+      log_info("The fleet server lost the facts document it had acknowledged (" + snapshot.hash + ") and was sent it again" +
+               std::string(ack.confirmed ? "; it holds it now." : ", but has not confirmed holding it yet.") +
+               " If it keeps losing it, further re-sends wait 1 minute, doubling up to once an hour.");
     } else if (resends == 7) {
       log_error("The fleet server keeps losing the facts document it acknowledges (" + snapshot.hash +
                 "): re-sending it once an hour until it keeps it. Check the server's storage for facts.");
@@ -580,7 +596,7 @@ void fleet_sync::maybe_upload_facts() {
   note_server_response(response, fleet_call::upload);
   if (response.status_code_ == 413) {
     // This document is too large for the server, and will be every time.
-    facts_pacer_.refused(snapshot.hash);
+    facts_pacer_.refused(snapshot.hash, now);
     log_facts_failure(snapshot.hash, response.status_code_,
                       "The fleet server refused the facts document as too large (" + str::xtos(snapshot.json.size()) +
                           " bytes). Largest sets: " + largest_sets() + ". Disable one of them in the module that produces it.");
@@ -830,6 +846,7 @@ bool fleet_sync::apply_state(const onboarding::desired_state &state, std::vector
 }
 
 unsigned long fleet_sync::poll_once() {
+  sleep_is_minimum_ = false;
   // Our facts hash rides along, so the server can say in the same answer -
   // a 304 included - whether it holds that document; only a miss uploads.
   const std::string path = onboarding::desired_state_path(current_hash_, current_facts_hash());
@@ -851,10 +868,16 @@ unsigned long fleet_sync::poll_once() {
     if (next) poll_interval_ = std::max(1ul, next.value());
     return poll_interval_;
   }
-  if (response.status_code_ == 429) {
-    const boost::optional<unsigned long> retry = get_retry_after(response);
-    log_info("Desired-state poll rate limited");
-    return retry ? clamp_sleep_seconds(retry.value()) : poll_interval_;
+  // Asked to wait: a 429, or a 503 that names the wait. The loop sleeps it -
+  // no less - which is also why the poll's Retry-After is not a facts hold
+  // (note_server_response): the next turn, poll and report and upload, comes
+  // after it anyway. A 503 without one is a failure like any other.
+  const boost::optional<unsigned long> retry = get_retry_after(response);
+  if (response.status_code_ == 429 || (response.status_code_ == 503 && retry)) {
+    log_info("Desired-state poll " + std::string(response.status_code_ == 429 ? "rate limited" : "deferred by the server"));
+    if (!retry) return poll_interval_;
+    sleep_is_minimum_ = true;
+    return clamp_sleep_seconds(retry.value());
   }
   if (!response.is_2xx()) {
     ++failures_;
@@ -1027,6 +1050,6 @@ void fleet_sync::run() {
       // proxy in front of it, is in no state for a megabyte.
       maybe_upload_facts();
     }
-    boost::this_thread::sleep_for(boost::chrono::milliseconds(with_jitter_ms(sleep_seconds)));
+    boost::this_thread::sleep_for(boost::chrono::milliseconds(sleep_is_minimum_ ? with_jitter_up_ms(sleep_seconds) : with_jitter_ms(sleep_seconds)));
   }
 }

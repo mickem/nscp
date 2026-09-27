@@ -51,6 +51,7 @@ interface SeenRequest {
   url: string;
   body: any;
   raw: string;
+  at: number;
 }
 
 /** The module the agent is configured with locally; see the beforeAll. */
@@ -132,6 +133,8 @@ describe("core fleet sync loop", () => {
    * answer. 200 serves the real thing.
    */
   let pollStatus = 200;
+  /** Defer the next poll only: answer it 503 with this Retry-After (seconds). */
+  let deferNextPoll: number | null = null;
   /** A server that acknowledges uploads and keeps nothing. */
   let forgetUploads = false;
   /** A server that stores each upload under a hash of its own making. */
@@ -286,7 +289,7 @@ describe("core fleet sync loop", () => {
         } catch {
           /* keep raw */
         }
-        requests.push({ method: req.method ?? "", url: req.url ?? "", body, raw });
+        requests.push({ method: req.method ?? "", url: req.url ?? "", body, raw, at: Date.now() });
 
         const parsed = new URL(req.url ?? "/", "http://x");
         if (req.method === "POST" && parsed.pathname === "/enroll/v1") {
@@ -305,6 +308,12 @@ describe("core fleet sync loop", () => {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end("{}");
         } else if (parsed.pathname === "/agent/v1/desired-state") {
+          if (deferNextPoll !== null) {
+            res.writeHead(503, { "Content-Type": "text/html", "Retry-After": String(deferNextPoll) });
+            deferNextPoll = null;
+            res.end("<html><body>503 Service Unavailable</body></html>");
+            return;
+          }
           if (pollStatus !== 200) {
             res.writeHead(pollStatus, { "Content-Type": "text/html", "X-Facts-Hash": "none" });
             res.end("<html><body>502 Bad Gateway</body></html>");
@@ -629,6 +638,18 @@ describe("core fleet sync loop", () => {
     pollStatus = 200;
     await settle(3);
     expect(factsUploads()).toHaveLength(before);
+  });
+
+  it("sleeps a 503's Retry-After on the poll, and sends nothing inside it", async () => {
+    // The server defers one poll by four seconds. Nothing - no poll, no
+    // report, no upload - may reach it before they are up; the one poll
+    // interval (a second, here) a plain failure would wait is not enough.
+    deferNextPoll = 4;
+    await waitFor("the deferred poll", () => deferNextPoll === null);
+    const deferred = requests[requests.length - 1];
+    await waitFor("the next call", () => requests.length > requests.indexOf(deferred) + 1);
+    const next = requests[requests.indexOf(deferred) + 1];
+    expect(next.at - deferred.at).toBeGreaterThanOrEqual(4000);
   });
 
   it("paces a rejected upload, and does not give up on it", async () => {

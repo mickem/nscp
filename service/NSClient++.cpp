@@ -812,8 +812,7 @@ void NSClientT::reloadPlugins() {
   // The reloaded configuration may have enabled or disabled fact sets, and a
   // set that is no longer enabled has to leave the document now rather than at
   // the next hourly round.
-  read_facts_max_size();
-  process_facts("reload");
+  process_facts("reload", true);
 }
 
 bool NSClientT::do_reload(const std::string module) {
@@ -827,8 +826,12 @@ bool NSClientT::do_reload(const std::string module) {
       plugins_->load_permissions();
       // And [/settings/facts] max size, which a settings-only reload has to
       // apply as well as a full one: a lowered cap drops the sets that no
-      // longer fit now, a raised one lets the next round keep them.
-      read_facts_max_size();
+      // longer fit now, a raised one lets the next round keep them. Inside a
+      // round, so the drop is published as one change.
+      {
+        const nsclient::core::fact_repository::scoped_round round(*facts_);
+        read_facts_max_size();
+      }
       return true;
     } catch (const std::exception &e) {
       LOG_ERROR_CORE_STD("Exception raised when reloading: " + utf8::utf8_from_native(e.what()));
@@ -950,11 +953,14 @@ PB::Metrics::MetricsBundle NSClientT::ownMetricsFetcher() {
   return bundle;
 }
 void NSClientT::process_metrics() { plugins_->process_metrics(ownMetricsFetcher()); }
-void NSClientT::process_facts(const std::string &reason) {
+void NSClientT::process_facts(const std::string &reason, const bool reread_max_size) {
   // One round, published whole: the fleet sync, polling on its own thread,
   // hashes and uploads the document as the last round left it until this one
   // has stored every set and marked the time.
   const nsclient::core::fact_repository::scoped_round round(*facts_);
+  // A reload's new cap is applied inside the same round: the sets it drops
+  // and the ones the round stores are one publication, not two uploads.
+  if (reread_max_size) read_facts_max_size();
   collect_agent_facts();
   plugins_->process_facts(reason);
 }

@@ -1724,17 +1724,18 @@ TEST(FactsPacer, WithoutAHeaderOnTheAckAMismatchTakesThreeUnconfirmedAcks) {
   // It hashes its own re-encoding, so it never answers H1 - but the
   // acknowledgements carry no header to say so.
   p.server_holds(THEIRS, at(1));
-  ASSERT_TRUE(p.should_upload(H1, at(1))) << "it may simply have lost it: the first re-send is immediate";
-  EXPECT_FALSE(p.acknowledged(H1, at(1)).mismatch) << "two unconfirmed acknowledgements are not yet a verdict";
-  p.server_holds(THEIRS, at(2));
-  EXPECT_FALSE(p.should_upload(H1, at(60))) << "and the next re-send is paced";
-  ASSERT_TRUE(p.should_upload(H1, at(61)));
-  const pacer::ack third = p.acknowledged(H1, at(61));
+  EXPECT_FALSE(p.should_upload(H1, at(59))) << "not confirmed yet: the write gets a step to land";
+  ASSERT_TRUE(p.should_upload(H1, at(60)));
+  EXPECT_FALSE(p.acknowledged(H1, at(60)).mismatch) << "two unconfirmed acknowledgements are not yet a verdict";
+  p.server_holds(THEIRS, at(61));
+  EXPECT_FALSE(p.should_upload(H1, at(119))) << "and the next re-send is paced";
+  ASSERT_TRUE(p.should_upload(H1, at(120)));
+  const pacer::ack third = p.acknowledged(H1, at(120));
   EXPECT_TRUE(third.mismatch);
   EXPECT_FALSE(third.hashed_differently) << "inferred, not stated: it may also just not keep it";
-  p.server_holds(THEIRS, at(62));
-  EXPECT_FALSE(p.should_upload(H1, at(86400))) << "refused until the document changes";
-  EXPECT_TRUE(p.should_upload(H2, at(63)));
+  p.server_holds(THEIRS, at(121));
+  EXPECT_FALSE(p.should_upload(H1, at(3600))) << "refused";
+  EXPECT_TRUE(p.should_upload(H2, at(122)));
 }
 
 TEST(FactsPacer, AnAckAnsweringADifferentHashIsAMismatchAtOnce) {
@@ -1763,19 +1764,21 @@ TEST(FactsPacer, AnAckAnsweringNoneIsNotAMismatchButIsNotKeptEither) {
   p.server_holds(NONE, t0);
   const pacer::ack ack = p.acknowledged(H1, t0, NONE);
   EXPECT_FALSE(ack.mismatch);
-  EXPECT_TRUE(p.should_upload(H1, t0)) << "it says it holds nothing, so it is a miss";
+  EXPECT_FALSE(ack.confirmed);
+  EXPECT_FALSE(p.should_upload(H1, at(59))) << "a miss, but the write gets a step to land first";
+  EXPECT_TRUE(p.should_upload(H1, at(60)));
 }
 
-TEST(FactsPacer, OneStaleAnswerNeverRefusesTheDocument) {
+TEST(FactsPacer, OneStaleAnswerCostsNoSecondUploadAndNeverRefuses) {
   pacer p;
   p.server_holds(NONE, t0);
   p.acknowledged(H1, t0);
   // A queued write or a lagging replica: the next answer is stale, once.
   p.server_holds(NONE, at(1));
-  ASSERT_TRUE(p.should_upload(H1, at(1)));
-  EXPECT_FALSE(p.acknowledged(H1, at(1)).mismatch);
-  p.server_holds(H1, at(2));  // and then it catches up
-  // A real loss later is still repaired.
+  EXPECT_FALSE(p.should_upload(H1, at(1))) << "no second megabyte before the first write could land";
+  p.server_holds(H1, at(20));  // and then it catches up
+  EXPECT_FALSE(p.should_upload(H1, at(60)));
+  // A real loss later is still repaired, at once.
   p.server_holds(NONE, at(86400));
   EXPECT_TRUE(p.should_upload(H1, at(86400)));
   EXPECT_FALSE(p.acknowledged(H1, at(86400)).mismatch);
@@ -1843,21 +1846,45 @@ TEST(FactsPacer, AStaleEchoThatNeverClearsIsSettledByTheUnconfirmedCount) {
   p.server_holds(H2, t0);
   EXPECT_FALSE(p.acknowledged(H1, t0, H2).mismatch);
   p.server_holds(H2, at(1));
-  ASSERT_TRUE(p.should_upload(H1, at(1)));
-  EXPECT_FALSE(p.acknowledged(H1, at(1), H2).mismatch);
-  EXPECT_FALSE(p.should_upload(H1, at(60)));
-  ASSERT_TRUE(p.should_upload(H1, at(61)));
-  const pacer::ack third = p.acknowledged(H1, at(61), H2);
+  EXPECT_FALSE(p.should_upload(H1, at(59)));
+  ASSERT_TRUE(p.should_upload(H1, at(60)));
+  EXPECT_FALSE(p.acknowledged(H1, at(60), H2).mismatch);
+  EXPECT_FALSE(p.should_upload(H1, at(119)));
+  ASSERT_TRUE(p.should_upload(H1, at(120)));
+  const pacer::ack third = p.acknowledged(H1, at(120), H2);
   EXPECT_TRUE(third.mismatch) << "three unconfirmed acknowledgements";
   EXPECT_FALSE(third.hashed_differently);
 }
 
-TEST(FactsPacer, ARefusedDocumentWaitsForAChange) {
+TEST(FactsPacer, ARefusedDocumentWaitsForAChangeOrADay) {
   pacer p;
   p.server_holds(NONE, t0);
-  p.refused(H1);
-  EXPECT_FALSE(p.should_upload(H1, at(86400)));
-  EXPECT_TRUE(p.should_upload(H2, at(1)));
+  p.refused(H1, t0);
+  EXPECT_FALSE(p.should_upload(H1, at(86399)));
+  EXPECT_TRUE(p.should_upload(H2, at(1))) << "a changed document goes at once";
+  EXPECT_TRUE(p.should_upload(H1, at(86400))) << "and after a day - a raised size cap, say - it is offered again";
+}
+
+TEST(FactsPacer, ARefusalIsReleasedWhenTheServersHashChanges) {
+  pacer p;
+  const std::string THEIRS(64, 'e');
+  p.server_holds(NONE, t0);
+  ASSERT_TRUE(p.acknowledged(H1, t0, THEIRS).mismatch);
+  p.server_holds(THEIRS, at(1));  // what it said at the verdict: nothing new
+  EXPECT_FALSE(p.should_upload(H1, at(2)));
+  // Its hashing is fixed, or its store wiped: it answers something else.
+  p.server_holds(NONE, at(3600));
+  EXPECT_TRUE(p.should_upload(H1, at(3600)));
+}
+
+TEST(FactsPacer, AnInferredRefusalTakesTheNextAnswerAsItsBaseline) {
+  pacer p;
+  p.refused(H1, t0);
+  p.server_holds(H2, at(1));  // what it held when the refusal was made
+  p.server_holds(H2, at(2));
+  EXPECT_FALSE(p.should_upload(H1, at(3)));
+  p.server_holds(NONE, at(4));
+  EXPECT_TRUE(p.should_upload(H1, at(4)));
 }
 
 TEST(FactsPacer, ANewDocumentAfterRejectionsStartsClean) {
@@ -1865,8 +1892,9 @@ TEST(FactsPacer, ANewDocumentAfterRejectionsStartsClean) {
   p.server_holds(NONE, t0);
   for (int i = 0; i < 4; ++i) p.rejected(H1, t0);
   p.acknowledged(H2, at(1));
-  p.server_holds(NONE, at(2));
-  EXPECT_TRUE(p.should_upload(H2, at(2)));
+  p.server_holds(H2, at(2));    // confirmed
+  p.server_holds(NONE, at(3));  // and lost
+  EXPECT_TRUE(p.should_upload(H2, at(3))) << "no rejection clock, and a confirmed loss is re-sent at once";
 }
 
 // build_state_report takes strings from outside (bundle names and versions

@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <boost/optional.hpp>
 #include <chrono>
-#include <onboarding/sync.hpp>
+#include <onboarding/facts_hash.hpp>
 #include <string>
 
 namespace onboarding {
@@ -35,8 +35,9 @@ namespace onboarding {
 //    starts, whether or not that turn gets as far as asking.
 //  * A hold (a Retry-After on a report or an upload) pauses every upload,
 //    whatever the document: it is the server asking for quiet, not a verdict
-//    on one document. A poll's own Retry-After is not a hold: the loop sleeps
-//    it, and a second, unjittered clock would only outlast that sleep.
+//    on one document. A poll's own Retry-After (429 or 503) is not a hold: the
+//    loop sleeps it, and a second clock over the same wait would only outlast
+//    that sleep.
 //  * A document the server acknowledged, reported holding, and then reports
 //    missing has been lost. The first re-send is immediate; each further one
 //    waits 1 min, 2, ... up to an hour after the previous one, so a server that
@@ -48,16 +49,20 @@ namespace onboarding {
 //    what the server made of the document: our hash is confirmation, `none` is
 //    a server that did not keep it, and any other new digest is a server
 //    hashing the document differently - no re-send will ever match, so the
-//    document is refused until it changes, and the caller is told so it can
+//    document is refused (see the last rule), and the caller is told so it can
 //    say what is wrong. The digest the server held before the upload is not
 //    new: a server whose storage is asynchronous echoes it until the write
 //    lands, so it is an unconfirmed acknowledgement, left to the rule below.
 //  * An acknowledgement without the header proves nothing either way, so the
 //    same verdict takes three acknowledgements of one document with no
-//    confirmation between them - the re-sends paced as above. A single stale
-//    answer (a queued write, a lagging replica, a cache) never reaches it.
-//  * A document that can never be sent as it is (413, one that could not be
-//    rendered, or a hash mismatch) is not tried again until it changes.
+//    confirmation between them. A document not yet confirmed is re-sent a step
+//    (1 min) after its upload at the soonest, then on the doubling steps, so a
+//    single stale answer (a queued write, a lagging replica, a cache) neither
+//    reaches the verdict nor costs a second copy of the document.
+//  * A document that cannot be sent as it is (413, one that could not be
+//    rendered, or a hash mismatch) is not tried again until it changes, the
+//    hash the server reports changes (a hashing bug fixed on its side), or a
+//    day has passed (what its answers cannot show, like a raised size cap).
 class facts_upload_pacer {
  public:
   typedef std::chrono::steady_clock clock;
@@ -85,6 +90,17 @@ class facts_upload_pacer {
   void server_holds(const std::string &hash, const clock::time_point now) {
     server_ = hash;
     if (!acked_.empty() && hash == acked_) confirm(now);
+    if (!refused_.empty()) {
+      // The first answer after a refusal is what the server held when it
+      // refused; any later, different one means something changed on its
+      // side (a hashing bug fixed, the store wiped) and the refused document
+      // is worth offering again.
+      if (!refused_server_) {
+        refused_server_ = hash;
+      } else if (hash != refused_server_.value()) {
+        clear_refusal();
+      }
+    }
   }
 
   // A response the server meant carried no readable X-Facts-Hash: it does not
@@ -95,7 +111,8 @@ class facts_upload_pacer {
   bool should_upload(const std::string &current, const clock::time_point now) const {
     if (skip_this_turn_) return false;
     if (!server_ || current.empty()) return false;
-    if (current == server_.value() || current == refused_) return false;
+    if (current == server_.value()) return false;
+    if (current == refused_ && now < refused_until_) return false;
     if (now < hold_until_) return false;
     if (current == rejected_hash_ && now < retry_at_) return false;
     if (current == acked_ && now < resend_at_) return false;
@@ -108,13 +125,15 @@ class facts_upload_pacer {
     // server lost it: 0 for a document it did not have before.
     unsigned int resends = 0;
     // The server does not end up holding the document as we hash it (see
-    // the rules); it is refused until it changes.
+    // the rules); it is refused (see refused()).
     bool mismatch = false;
     // The mismatch was stated by the server itself - it answered the upload
     // with a different digest - rather than inferred from acknowledgements
     // that were never confirmed (which a server that simply does not keep the
     // document produces too).
     bool hashed_differently = false;
+    // The acknowledgement itself said the server holds the document.
+    bool confirmed = false;
   };
 
   // The server acknowledged (2xx) the document `hash`. `server_says` is the
@@ -143,7 +162,12 @@ class facts_upload_pacer {
     } else {
       acked_ = hash;
       resends_ = 0;
-      resend_at_ = clock::time_point();
+      // A document the server has not confirmed yet is not re-sent before a
+      // step has passed, even if the next poll still answers with what it
+      // held before: an asynchronous store gets the time to land the write
+      // instead of a second copy of it. A confirmation lifts this, so a
+      // confirmed document that is lost later is re-sent at once.
+      resend_at_ = now + step(0);
       unconfirmed_ = 0;
     }
     confirmed_ = false;
@@ -154,6 +178,7 @@ class facts_upload_pacer {
       const std::string &says = server_says.value();
       if (says == hash) {
         confirm(now);
+        result.confirmed = true;
       } else if (says == empty_facts_hash || (held_before && says == held_before.value())) {
         // It says it holds nothing, or still what it held before - the write
         // has not landed, or did not keep. Not a verdict on its own: the
@@ -167,7 +192,12 @@ class facts_upload_pacer {
       }
     }
     if (!result.mismatch && unconfirmed_ >= unconfirmed_verdict) result.mismatch = true;
-    if (result.mismatch) refused_ = hash;
+    if (result.mismatch) {
+      refused(hash, now);
+      // What the server said instead is the baseline a later change is
+      // measured against.
+      if (server_says) refused_server_ = server_says;
+    }
     result.resends = resends_;
     return result;
   }
@@ -191,8 +221,14 @@ class facts_upload_pacer {
   }
 
   // `hash` cannot be sent as it is: not tried again until the document
-  // changes.
-  void refused(const std::string &hash) { refused_ = hash; }
+  // changes, the hash the server reports changes, or a day has passed - the
+  // last for what the server's answers cannot show, such as its size cap
+  // being raised after a 413.
+  void refused(const std::string &hash, const clock::time_point now) {
+    refused_ = hash;
+    refused_until_ = now + std::chrono::hours(24);
+    refused_server_ = boost::none;
+  }
 
   // For tests and diagnostics: when the document `hash` may next be tried.
   clock::time_point retry_at(const std::string &hash) const {
@@ -221,11 +257,18 @@ class facts_upload_pacer {
   void confirm(const clock::time_point now) {
     confirmed_ = true;
     unconfirmed_ = 0;
-    // Kept through the whole wait since the last re-send: it stuck.
-    if (resends_ > 0 && now >= resend_at_) {
+    // Never lost, or kept through the whole wait since the last re-send: it
+    // stuck, and a later loss is re-sent at once.
+    if (resends_ == 0 || now >= resend_at_) {
       resends_ = 0;
       resend_at_ = clock::time_point();
     }
+  }
+
+  void clear_refusal() {
+    refused_.clear();
+    refused_until_ = clock::time_point();
+    refused_server_ = boost::none;
   }
 
   void clear_rejections() {
@@ -235,7 +278,11 @@ class facts_upload_pacer {
   }
 
   boost::optional<std::string> server_;
+  // A document that is not offered again, until when at the latest, and what
+  // the server reported when it was refused.
   std::string refused_;
+  clock::time_point refused_until_;
+  boost::optional<std::string> refused_server_;
   clock::time_point hold_until_;
   bool skip_this_turn_ = false;
   bool skip_next_turn_ = false;

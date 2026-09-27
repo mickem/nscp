@@ -6,6 +6,7 @@
 #include <boost/json.hpp>
 #include <boost/optional.hpp>
 #include <map>
+#include <onboarding/facts_hash.hpp>
 #include <onboarding/onboarding.hpp>
 #include <string>
 #include <vector>
@@ -220,9 +221,7 @@ std::string desired_state_path(const std::string &current_hash, const std::strin
 // included, which is why it is a header: a 304 has no body.
 extern const char *const facts_hash_header;  // "x-facts-hash", lowercase as the client stores it
 
-// sha256 of `{}`: the hash of the empty facts document, what a host with
-// nothing enabled holds and what `none` means.
-extern const char *const empty_facts_hash;
+// empty_facts_hash - sha256 of `{}` - is declared in onboarding/facts_hash.hpp.
 
 // Read that header's value. None when it is not a sha256 hex digest or
 // `none` - and a missing header is none too, which means "this server does

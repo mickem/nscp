@@ -20,16 +20,19 @@ leaves the host.
 * A rejected upload (any error status but 413) is retried after 1 minute, then
   2, doubling up to once an hour. No upload goes out in a poll cycle whose
   poll or report got an error answer, and a `Retry-After` on a report or an
-  upload holds every upload until it passes. A document the server
-  acknowledged and then reports missing is re-sent at once the first time
+  upload holds every upload until it passes; on a poll (429, or 503), the
+  agent waits it out before calling again at all. A document the server
+  confirmed holding and then reports missing is re-sent at once the first time
   (logged at info), then after 1 minute, doubling up to once an hour (logged
-  as an error when it gets there). A 413 is not retried until the document
-  changes, and the log names the largest sets.
+  as an error when it gets there); one it has not confirmed yet is not re-sent
+  for a minute. A 413 is not retried for a day or until the document changes,
+  and the log names the largest sets.
 * The server must hash the `facts` value exactly as it received it. A server
   that answers an upload with a new hash of its own, or that acknowledges one
   document three times without ever reporting holding it (repeating what it
   held before the upload counts as not reporting), is not sent that document
-  again until it changes, and the agent logs an error.
+  again until it changes, the server's reported hash changes, or a day has
+  passed, and the agent logs an error.
 * `[/settings/facts] max size` is re-read on every settings reload, a
   settings-only one included. Lowering
   it under the current document drops the largest sets (each is logged) until
