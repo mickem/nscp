@@ -16,7 +16,7 @@ Keywords (one row per database/login pair):
 | `sessions`    | Number of sessions for this pair                                               |
 | `running`     | Sessions currently executing a request                                         |
 | `idle`        | Sessions that are sleeping or dormant                                          |
-| `connections` | Number of physical connections (differs from `sessions` under MARS)            |
+| `connections` | Number of physical connections (MARS logical connections are excluded)         |
 | `max_idle`    | Seconds since the most idle **sleeping/dormant** session last completed a request, `-1` = unknown (accepts units) |
 
 There are **no default thresholds**: healthy session counts are entirely

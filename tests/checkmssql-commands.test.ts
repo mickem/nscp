@@ -619,6 +619,41 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
     expect(out).toMatch(/master_checkdb_age'?=\d+s/); // a real, recent timestamp
   });
 
+  it("check_mssql_integrity reads CHECKDB age for Unicode names containing quotes", async () => {
+    if (!live) return expect(await query("check_mssql_integrity")).toMatch(CONNECT_FAILED);
+
+    // The default container collation cannot represent these characters in a
+    // varchar literal. The batched DBCC must preserve both Unicode and quotes.
+    const name = "nscp_integrity_\u6570\u636e\u5e93_'\u6d4b\u8bd5";
+    const literal = name.replace(/'/g, "''");
+    const created = await query("check_mssql_query", [
+      `query=CREATE DATABASE [${name}]; SELECT 1 AS done;`,
+      "top-syntax=${status}",
+    ]);
+    expect(created).toMatch(/^OK/m);
+    try {
+      const checked = await query("check_mssql_query", [
+        `query=DBCC CHECKDB(N'${literal}') WITH NO_INFOMSGS; SELECT 1 AS done;`,
+        "top-syntax=${status}",
+      ]);
+      expect(checked).toMatch(/^OK/m);
+      const out = await query("check_mssql_integrity", [
+        `filter=name = str(${name})`,
+        "warning=checkdb_age > 1h",
+        "critical=checkdb_age < 0",
+        "top-syntax=${status}: ${list}",
+        "detail-syntax=age=${checkdb_age}",
+      ]);
+      expect(out).toMatch(/^OK: age=\d+/m);
+    } finally {
+      const dropped = await query("check_mssql_query", [
+        `query=DROP DATABASE [${name}]; SELECT 1 AS done;`,
+        "top-syntax=${status}",
+      ]);
+      expect(dropped).toMatch(/^OK/m);
+    }
+  });
+
   it("check_mssql_integrity degrades per keyword without msdb or sysadmin", async () => {
     // The suspect_pages half used to live in the same query as the database
     // list, so a login that cannot reach msdb turned the whole check UNKNOWN.

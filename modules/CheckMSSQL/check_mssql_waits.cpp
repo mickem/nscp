@@ -17,13 +17,14 @@ namespace {
 
 // Scheduler pressure is point-in-time: runnable tasks have CPU work but no
 // scheduler slot, work-queue tasks do not even have a worker (THREADPOOL
-// starvation). scheduler_id >= 255 are hidden/internal schedulers (DAC etc.).
+// starvation). VISIBLE ONLINE excludes hidden, offline and DAC schedulers
+// without dropping user schedulers with IDs >= 255 on large servers.
 const char *SCHEDULERS_SQL =
     "SELECT COUNT(*) AS schedulers,"
     " ISNULL(SUM(runnable_tasks_count), 0) AS runnable_tasks,"
     " ISNULL(SUM(work_queue_count), 0) AS work_queue,"
     " ISNULL(SUM(active_workers_count), 0) AS workers"
-    " FROM sys.dm_os_schedulers WHERE scheduler_id < 255 AND status = 'VISIBLE ONLINE'";
+    " FROM sys.dm_os_schedulers WHERE status = 'VISIBLE ONLINE'";
 
 // sys.dm_os_wait_stats is cumulative since instance start, so two snapshots
 // bracket a server-side WAITFOR DELAY window and only the deltas are

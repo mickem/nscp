@@ -49,6 +49,8 @@ const char *SUSPECT_PAGES_SQL =
 // losing the rest, and MAX(Value) because some versions emit the field more than
 // once. DBCC DBINFO needs sysadmin, so a login without it simply gets no rows
 // and every database reports the -2 unknown sentinel.
+// The generated DBCC argument must itself be a Unicode literal: making @sql
+// nvarchar does not preserve names outside the database's code page otherwise.
 const char *CHECKDB_BATCH_SQL =
     "SET NOCOUNT ON;"
     " CREATE TABLE #dbinfo (ParentObject nvarchar(255), Object nvarchar(255), Field nvarchar(255), Value nvarchar(255));"
@@ -59,7 +61,7 @@ const char *CHECKDB_BATCH_SQL =
     " WHILE @@FETCH_STATUS = 0 BEGIN"
     "  BEGIN TRY"
     "   DELETE FROM #dbinfo;"
-    "   SET @sql = N'DBCC DBINFO(' + QUOTENAME(@name, '''') + N') WITH TABLERESULTS, NO_INFOMSGS';"
+    "   SET @sql = N'DBCC DBINFO(N' + QUOTENAME(@name, '''') + N') WITH TABLERESULTS, NO_INFOMSGS';"
     "   INSERT INTO #dbinfo EXEC (@sql);"
     "   INSERT INTO #checkdb SELECT @name, MAX(Value) FROM #dbinfo WHERE Field = 'dbi_dbccLastKnownGood';"
     "  END TRY BEGIN CATCH END CATCH;"

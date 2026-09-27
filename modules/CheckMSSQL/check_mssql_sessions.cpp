@@ -18,10 +18,13 @@ namespace {
 // One row per (database, login) pair over the user sessions. Connections are
 // counted per session with OUTER APPLY: joining sys.dm_exec_connections
 // directly would multiply the session rows for MARS sessions and break the
-// COUNT(*). max_idle only considers sleeping/dormant sessions (the same
-// statuses the idle count uses): a running session's last_request_end_time
-// describes its *previous* request, and counting it would flag a session that
-// is busy, not leaked. last_request_end_time is NULL (or the 1900-01-01 epoch
+// COUNT(*). Only parent connections count: MARS logical connections share
+// their parent's physical connection.
+//
+// max_idle only considers sleeping/dormant sessions (the same statuses the
+// idle count uses): a running session's last_request_end_time describes its
+// *previous* request, and counting it would flag a busy session as leaked.
+// last_request_end_time is NULL (or the 1900-01-01 epoch
 // default) for sessions that never completed a request; both would break or
 // skew the idle age (DATEDIFF overflows on the epoch), so they map to
 // NULL = unknown.
@@ -35,7 +38,8 @@ const char *SESSIONS_SQL =
     " MAX(CASE WHEN s.status IN ('sleeping', 'dormant') AND s.last_request_end_time >= '2000-01-01'"
     " THEN DATEDIFF(second, s.last_request_end_time, GETDATE()) END) AS max_idle"
     " FROM sys.dm_exec_sessions s"
-    " OUTER APPLY (SELECT COUNT(*) AS conns FROM sys.dm_exec_connections c WHERE c.session_id = s.session_id) c"
+    " OUTER APPLY (SELECT COUNT(*) AS conns FROM sys.dm_exec_connections c"
+    " WHERE c.session_id = s.session_id AND c.parent_connection_id IS NULL) c"
     " WHERE s.is_user_process = 1"
     " GROUP BY DB_NAME(s.database_id), s.login_name";
 
