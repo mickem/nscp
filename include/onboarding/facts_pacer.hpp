@@ -24,8 +24,9 @@ namespace onboarding {
 //  * A rejected upload (400, 401, 404, 429, 5xx: anything the next poll would
 //    only repeat) waits 1 min, then 2, doubling up to an hour, before that
 //    same document is tried again. The clock belongs to the document - a
-//    changed inventory was never tried and goes at once - and a successful
-//    upload of it clears it: a rejection is a transient state, not a record.
+//    changed inventory was never tried and goes at once - and any successful
+//    upload clears it: a rejection is a transient state, not a record, and a
+//    document that comes back after a detour does not inherit an old clock.
 //  * A hold (a Retry-After, on any call) pauses every upload, whatever the
 //    document: it is the server asking for quiet, not a verdict on one
 //    document.
@@ -38,6 +39,11 @@ namespace onboarding {
 //    re-send has passed means it stuck: the loss count resets, so a loss weeks
 //    later is repaired at once again. An echo inside that wait only repeats
 //    what the re-send just set, and says nothing.
+//  * A document the server acknowledged twice without ever answering with its
+//    hash in between is not being lost: the server is computing a different
+//    hash for it (hashing its own re-encoding, say), and no number of
+//    re-sends will make them match. It is refused until it changes, and the
+//    caller is told so it can say what is wrong.
 //  * A document that can never be sent as it is (413, or one that could not
 //    be rendered) is not tried again until it changes.
 class facts_upload_pacer {
@@ -48,6 +54,7 @@ class facts_upload_pacer {
   // parsed: `none` arrives as the empty document's digest).
   void server_holds(const std::string &hash, const clock::time_point now) {
     server_ = hash;
+    if (!acked_.empty() && hash == acked_) confirmed_ = true;
     if (resends_ > 0 && hash == acked_ && now >= resend_at_) {
       resends_ = 0;
       resend_at_ = clock::time_point();
@@ -68,24 +75,43 @@ class facts_upload_pacer {
     return true;
   }
 
-  // The server acknowledged (2xx) the document `hash`. Returns how many times
-  // in a row this document has now been re-sent because the server lost it:
-  // 0 for a document it did not have before.
-  unsigned int acknowledged(const std::string &hash, const clock::time_point now) {
-    // Whatever was rejected before, this one got through.
-    if (hash == rejected_hash_) clear_rejections();
+  // What an acknowledgement means.
+  struct ack {
+    // How many times in a row this document has now been re-sent because the
+    // server lost it: 0 for a document it did not have before.
+    unsigned int resends = 0;
+    // The server acknowledged it before and never once answered with its
+    // hash since: it hashes the document differently, and the document is
+    // now refused until it changes.
+    bool mismatch = false;
+  };
+
+  // The server acknowledged (2xx) the document `hash`.
+  ack acknowledged(const std::string &hash, const clock::time_point now) {
+    ack result;
+    // Whatever was rejected - this document or another one - the server is
+    // taking uploads again.
+    clear_rejections();
     if (hash == acked_) {
-      // Acknowledged before, reported missing since: lost. The next re-send
-      // of it waits.
-      ++resends_;
-      resend_at_ = now + step(resends_ - 1);
+      if (!confirmed_) {
+        // Twice acknowledged, never once reported held.
+        refused_ = hash;
+        result.mismatch = true;
+      } else {
+        // Acknowledged, reported held, reported missing since: lost. The next
+        // re-send of it waits.
+        ++resends_;
+        resend_at_ = now + step(resends_ - 1);
+      }
     } else {
       acked_ = hash;
       resends_ = 0;
       resend_at_ = clock::time_point();
     }
+    confirmed_ = false;
     server_ = hash;
-    return resends_;
+    result.resends = resends_;
+    return result;
   }
 
   // The server rejected the upload of `hash` in a way the next poll would
@@ -149,6 +175,8 @@ class facts_upload_pacer {
   std::string acked_;
   unsigned int resends_ = 0;
   clock::time_point resend_at_;
+  // Whether the server has answered with acked_ since it acknowledged it.
+  bool confirmed_ = false;
 };
 
 }  // namespace onboarding

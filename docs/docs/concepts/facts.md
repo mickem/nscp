@@ -510,7 +510,12 @@ the server say whether it needs the rest:
   `POST /agent/v1/facts`. A matching answer costs nothing more than the hash,
   a host with nothing enabled never uploads, and a server that sends no
   `X-Facts-Hash` at all is one that does not do facts and is never sent the
-  document - including one that sent it before and was downgraded since.
+  document - including one that sent it before and was downgraded since. A
+  header the agent cannot read counts as no header, and is logged once.
+* **A round is published whole.** A round stores its sets one at a time; until
+  it has finished, the hash on the poll and the document an upload sends are
+  the previous round's. A round therefore costs at most one upload, never one
+  per set.
 
 ```json
 {
@@ -550,15 +555,19 @@ every poll:
   through tries again.
 * **A document the server refuses as too large** (413) is not sent again until
   it changes.
+* **A document the server acknowledges but never reports holding** - it
+  answers with a hash of its own instead - is sent once more, in case it was
+  simply lost, and then not again until it changes, with an error in the agent
+  log. The server has to hash the `facts` value exactly as it received it.
 
-The size cap is enforced where the document is built: the core refuses any set
-that would take the document past `[/settings/facts] max size`, and keeps the
-previous value of that set. `max size` is re-read on every settings reload, and
-the upload is held to the same cap, counted the same way - which only matters
-when a reload lowered it under a document the core already held. Raising it
-again takes effect on the next reload, with nothing else to change. Both size
-errors name the largest sets in the agent log, so you know which one to turn
-off.
+The size cap is enforced in one place, where the document is kept, so every
+reader - the web UI, REST and the fleet upload - sees the same document: the
+core refuses any set that would take the document past `[/settings/facts] max
+size`, and keeps the previous value of that set. `max size` is re-read on every
+settings reload. Lowering it under the document the core already holds drops
+the largest sets until the rest fits, logging each one; the next round offers
+them again and keeps whichever fit. Raising it takes effect on the next reload,
+with nothing else to change.
 
 ---
 

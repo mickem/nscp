@@ -134,6 +134,8 @@ describe("core fleet sync loop", () => {
   let pollStatus = 200;
   /** A server that acknowledges uploads and keeps nothing. */
   let forgetUploads = false;
+  /** A server that stores each upload under a hash of its own making. */
+  let hashesItsOwnWay = false;
   const factsHeader = (): Record<string, string> => (heldFactsHash === null ? {} : { "X-Facts-Hash": heldFactsHash });
   /**
    * Answer every poll with the full desired state, never 304. After a restart
@@ -327,7 +329,7 @@ describe("core fleet sync loop", () => {
           res.writeHead(200, { "Content-Type": "application/zip" });
           res.end(factsOffZip);
         } else if (req.method === "POST" && parsed.pathname === "/agent/v1/facts") {
-          if (factsStatus === 200 && !forgetUploads) heldFactsHash = body?.facts_hash ?? "";
+          if (factsStatus === 200 && !forgetUploads) heldFactsHash = hashesItsOwnWay ? "e".repeat(64) : (body?.facts_hash ?? "");
           res.writeHead(factsStatus, { "Content-Type": "application/json" });
           res.end(factsStatus === 200 ? "{}" : JSON.stringify({ error: "not found" }));
         } else if (parsed.pathname === "/agent/v1/state-report") {
@@ -664,5 +666,38 @@ describe("core fleet sync loop", () => {
     expect(heldFactsHash).toBe(h1);
     expect(factsUploads()).toHaveLength(before + 1);
     factsStatus = 200;
+  });
+
+  it("stops re-sending to a server that hashes the document its own way", async () => {
+    // A fresh agent (a fresh pacer) whose fleet.ini has `agent` off, against a
+    // server that acknowledges every upload and then reports a hash of its own
+    // re-encoding - never the one it was sent.
+    await nscp.stop();
+    hashesItsOwnWay = true;
+    heldFactsHash = "none";
+    answerFull = true;
+    nscp.start();
+    await settle(3);
+    const before = factsUploads().length;
+
+    phase = "facts";
+    await waitFor("the first upload", () => factsUploads().length > before);
+    // It may have lost it, so it is sent once more; after that, no number of
+    // re-sends will make the hashes match, and the agent says so.
+    await waitFor("the mismatch log line", () => nscp.capturedStdout().includes("computes a different hash"));
+    await settle(5);
+    expect(factsUploads()).toHaveLength(before + 2);
+    hashesItsOwnWay = false;
+  });
+
+  it("treats an unreadable X-Facts-Hash as no answer, and says so once", async () => {
+    const before = factsUploads().length;
+    heldFactsHash = "not-a-digest";
+    await waitFor("the unreadable-header log line", () => nscp.capturedStdout().includes("unreadable X-Facts-Hash"));
+    await settle(3);
+    expect(factsUploads()).toHaveLength(before);
+    const said = nscp.capturedStdout().split("unreadable X-Facts-Hash").length - 1;
+    expect(said).toBe(1);
+    answerFull = false;
   });
 });

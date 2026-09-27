@@ -1611,7 +1611,8 @@ TEST(FactsPacer, AnAcknowledgedDocumentReportedMissingIsResentOnceAtOnceThenPace
   pacer p;
   p.server_holds(NONE, t0);
   p.acknowledged(H1, t0);
-  p.server_holds(NONE, at(5));  // lost it
+  p.server_holds(H1, at(1));    // holds it...
+  p.server_holds(NONE, at(5));  // ...then loses it
   EXPECT_TRUE(p.should_upload(H1, at(5))) << "the first re-send is immediate";
   p.acknowledged(H1, at(5));
   p.server_holds(H1, at(6));    // echoes what the upload just set...
@@ -1624,6 +1625,7 @@ TEST(FactsPacer, ADocumentThatStuckResetsThePacing) {
   pacer p;
   p.server_holds(NONE, t0);
   p.acknowledged(H1, t0);
+  p.server_holds(H1, at(1));
   p.server_holds(NONE, at(5));
   p.acknowledged(H1, at(5));  // re-sent: next re-send waits 60s
   p.server_holds(H1, at(70)); // still held after the whole window: it stuck
@@ -1664,7 +1666,7 @@ TEST(FactsPacer, ASuccessfulUploadClearsTheRejections) {
   pacer p;
   p.server_holds(NONE, t0);
   for (int i = 0; i < 3; ++i) p.rejected(H1, at(i));
-  EXPECT_EQ(p.acknowledged(H1, at(1000)), 0u) << "a document the server did not have is not a re-send";
+  EXPECT_EQ(p.acknowledged(H1, at(1000)).resends, 0u) << "a document the server did not have is not a re-send";
   EXPECT_EQ(p.rejections(), 0u) << "a rejection is transient: it does not outlive the success";
   // A later loss starts from nothing: the first re-send is immediate.
   p.server_holds(NONE, at(86400));
@@ -1675,13 +1677,14 @@ TEST(FactsPacer, ATransientRejectionDuringAResendDoesNotEscalateTheLosses) {
   pacer p;
   p.server_holds(NONE, t0);
   p.acknowledged(H1, t0);
+  p.server_holds(H1, at(1));
   p.server_holds(NONE, at(5));  // lost
   p.rejected(H1, at(5));        // the re-send hits a 500
   EXPECT_FALSE(p.should_upload(H1, at(64)));
   ASSERT_TRUE(p.should_upload(H1, at(65)));
   // It gets through: one loss, one re-send - the 500 in between counts for
   // nothing once it is over.
-  EXPECT_EQ(p.acknowledged(H1, at(65)), 1u);
+  EXPECT_EQ(p.acknowledged(H1, at(65)).resends, 1u);
   EXPECT_EQ(p.rejections(), 0u);
   EXPECT_EQ(p.retry_at(H1), at(65 + 60)) << "the next re-send waits the first step, not a step escalated by the 500";
 }
@@ -1702,12 +1705,39 @@ TEST(FactsPacer, ALossIsCountedPerResend) {
   p.acknowledged(H1, t0);
   long long now = 0;
   for (unsigned int n = 1; n <= 8; ++n) {
-    p.server_holds(NONE, at(now));
-    ASSERT_TRUE(p.should_upload(H1, p.retry_at(H1)));
-    now = std::chrono::duration_cast<std::chrono::seconds>(p.retry_at(H1) - t0).count();
-    EXPECT_EQ(p.acknowledged(H1, at(now)), n);
+    p.server_holds(H1, at(now + 1));  // it has it...
+    p.server_holds(NONE, at(now + 2));  // ...and loses it again before the wait is out
+    ASSERT_TRUE(p.should_upload(H1, std::max(p.retry_at(H1), at(now + 2))));
+    now = std::max<long long>(std::chrono::duration_cast<std::chrono::seconds>(p.retry_at(H1) - t0).count(), now + 2);
+    const pacer::ack ack = p.acknowledged(H1, at(now));
+    EXPECT_FALSE(ack.mismatch);
+    EXPECT_EQ(ack.resends, n);
   }
   EXPECT_EQ(p.retry_at(H1), at(now + 3600)) << "re-sends of a document the server keeps losing settle at once an hour";
+}
+
+TEST(FactsPacer, AServerThatNeverReportsHoldingWhatItAcknowledgedHashesDifferently) {
+  pacer p;
+  const std::string THEIRS(64, 'e');
+  p.server_holds(NONE, t0);
+  EXPECT_FALSE(p.acknowledged(H1, t0).mismatch);
+  // It hashes its own re-encoding, so it never answers H1.
+  p.server_holds(THEIRS, at(1));
+  ASSERT_TRUE(p.should_upload(H1, at(1))) << "once: it may simply have lost it";
+  const pacer::ack second = p.acknowledged(H1, at(1));
+  EXPECT_TRUE(second.mismatch) << "twice acknowledged, never reported held";
+  p.server_holds(THEIRS, at(2));
+  EXPECT_FALSE(p.should_upload(H1, at(86400))) << "no re-send will ever make them match";
+  EXPECT_TRUE(p.should_upload(H2, at(3))) << "until the document changes";
+}
+
+TEST(FactsPacer, AnyAcknowledgementClearsTheRejections) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  for (int i = 0; i < 6; ++i) p.rejected(H1, t0);  // H1: an hour-long clock
+  p.acknowledged(H2, at(1));                         // a detour through H2
+  p.server_holds(H2, at(2));
+  EXPECT_TRUE(p.should_upload(H1, at(3))) << "H1 coming back does not inherit the old clock";
 }
 
 TEST(FactsPacer, ARefusedDocumentWaitsForAChange) {

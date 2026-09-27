@@ -610,7 +610,11 @@ void NSClientT::read_facts_max_size() {
   const std::string max_size =
       settings_manager::get_settings()->get_string("/settings/facts", "max size", str::xtos(nsclient::core::fact_repository::default_max_size));
   try {
-    facts_->set_max_size(str::stox<std::size_t>(max_size));
+    const std::vector<std::string> dropped = facts_->set_max_size(str::stox<std::size_t>(max_size));
+    for (const std::string &fact_set : dropped) {
+      LOG_ERROR_CORE_STD("Dropped the fact set '" + fact_set + "': the facts document no longer fits the lowered [/settings/facts] max size of " +
+                         max_size + " bytes. Disable a set, or raise max size.");
+    }
   } catch (const std::exception &e) {
     LOG_ERROR_CORE_STD("Invalid facts 'max size' value '" + max_size + "', keeping the previous one: " + utf8::utf8_from_native(e.what()));
   }
@@ -943,6 +947,10 @@ PB::Metrics::MetricsBundle NSClientT::ownMetricsFetcher() {
 }
 void NSClientT::process_metrics() { plugins_->process_metrics(ownMetricsFetcher()); }
 void NSClientT::process_facts(const std::string &reason) {
+  // One round, published whole: the fleet sync, polling on its own thread,
+  // hashes and uploads the document as the last round left it until this one
+  // has stored every set and marked the time.
+  const nsclient::core::fact_repository::scoped_round round(*facts_);
   collect_agent_facts();
   plugins_->process_facts(reason);
 }

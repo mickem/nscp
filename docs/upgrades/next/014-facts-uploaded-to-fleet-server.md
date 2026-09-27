@@ -24,6 +24,12 @@ leaves the host.
   then after 1 minute, doubling up to once an hour (logged as an error when it
   gets there). A 413 is not retried until the document changes, and the log
   names the largest sets.
+* The server must hash the `facts` value exactly as it received it. A server
+  that acknowledges a document and then answers with a hash of its own is sent
+  it once more, then not again until it changes, and the agent logs an error.
+* `[/settings/facts] max size` is re-read on every settings reload. Lowering
+  it under the current document drops the largest sets (each is logged) until
+  the rest fits.
 
 To keep a set on the host but off the server, there is no separate switch:
 turn the set off, or do not enroll the host. See
