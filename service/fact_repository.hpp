@@ -117,7 +117,7 @@ class fact_repository {
       error = "fact set '" + fact_set + "' would take the facts document past the " + std::to_string(max_size_) + " byte budget";
       return set_result::rejected;
     }
-    freeze_locked();
+    freeze_locked(true);
     sets_[fact_set] = candidate;
     encoded_[fact_set] = encoded;
     size_ = would_be;
@@ -263,8 +263,9 @@ class fact_repository {
   void begin_round() {
     boost::unique_lock<boost::mutex> lock(mutex_);
     // Nothing is copied yet: the state is frozen by the round's first change
-    // (freeze_locked), so a round that changes nothing - an inventory that
-    // did not move, the usual case - costs nothing at all.
+    // (freeze_locked). Every round moves the collection time, which costs a
+    // string; the sets are only copied by a round that changes one, so a round
+    // whose inventory did not move - the usual one - copies no document.
     ++rounds_;
   }
   void end_round() {
@@ -356,7 +357,7 @@ class fact_repository {
   void mark_collected(const std::string &timestamp) {
     boost::unique_lock<boost::mutex> lock(mutex_);
     if (collected_ == timestamp) return;
-    freeze_locked();
+    freeze_locked(false);
     collected_ = timestamp;
   }
 
@@ -456,38 +457,52 @@ class fact_repository {
     return result;
   }
 
-  // The state a round started from, captured at the round's first change.
-  // The hash comes along when it was already known; otherwise it, and the
-  // rendering, are only made if someone asks mid-round.
+  // The state a round started from, captured at the round's first change:
+  // the collection time always (marking it is the one change every round
+  // makes), the sets only when the round changes one. Until then the live
+  // sets are the round's starting sets, and serve as they are. The hash comes
+  // along when it was already known; otherwise it, and the rendering, are
+  // only made if someone asks mid-round.
   struct frozen_state {
-    std::map<std::string, PB::Facts::Object> sets;
     std::string collected;
+    boost::optional<std::map<std::string, PB::Facts::Object>> sets;
     unsigned long long revision = 0;
     mutable std::string hash;
     mutable boost::optional<std::string> json;
   };
 
-  // Called before every change. Captures the pre-change state once per round.
-  // Callers hold the lock.
-  void freeze_locked() {
-    if (rounds_ == 0 || frozen_) return;
-    frozen_state state;
+  // Called before every change; `sets_change` says whether it touches the
+  // sets or only the collection time. Callers hold the lock.
+  void freeze_locked(const bool sets_change) {
+    if (rounds_ == 0) return;
+    if (!frozen_) {
+      frozen_state state;
+      state.collected = collected_;
+      frozen_ = state;
+    }
+    frozen_state &state = frozen_.value();
+    if (!sets_change || state.sets) return;
     state.sets = sets_;
-    state.collected = collected_;
     state.revision = revision_;
     if (!hash_dirty_) state.hash = hash_;
-    frozen_ = state;
   }
 
   std::string frozen_hash_locked() const {
     const frozen_state &state = frozen_.value();
+    // The sets have not moved: the live hash is the round's starting hash.
+    if (!state.sets) return can_hash() && hash_dirty_ ? hash_locked(nscapi::facts::tree::to_json(build_document_locked())) : hash_;
     if (!state.hash.empty() || !can_hash()) return state.hash;
     return frozen_snapshot_locked().hash;
   }
 
   snapshot frozen_snapshot_locked() const {
     const frozen_state &state = frozen_.value();
-    if (!state.json) state.json = nscapi::facts::tree::to_json(build_document(state.sets));
+    if (!state.sets) {
+      snapshot live = build_snapshot_locked();
+      live.collected = state.collected;
+      return live;
+    }
+    if (!state.json) state.json = nscapi::facts::tree::to_json(build_document(state.sets.value()));
     if (state.hash.empty() && can_hash()) state.hash = sha256_hex(state.json.value());
     snapshot result;
     result.json = state.json.value();
@@ -633,7 +648,7 @@ class fact_repository {
     owners_.erase(fact_set);
     const std::map<std::string, std::string>::iterator encoded = encoded_.find(fact_set);
     if (encoded == encoded_.end()) return false;
-    freeze_locked();
+    freeze_locked(true);
     size_ -= encoded->second.size();
     encoded_.erase(encoded);
     sets_.erase(fact_set);

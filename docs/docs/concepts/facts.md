@@ -538,7 +538,7 @@ whole group of hosts the same way it configures anything else; see
 Uploads are paced so that a server in trouble is never sent the document on
 every poll:
 
-* **A rejected upload** (a 400, 401, 404, 429 or 5xx) is retried after a
+* **A rejected upload** (any error status but 413) is retried after a
   minute, then two, doubling up to once an hour. The wait belongs to that
   document: an inventory that changed in the meantime was never tried and goes
   at once.
@@ -561,10 +561,11 @@ every poll:
 * **A document the server does not end up holding as sent** is not sent again
   until it changes, with an error in the agent log. The server has to hash
   the `facts` value exactly as it received it. When it answers the upload with
-  a different hash, that is known at once. When its answers carry no hash, it
-  takes three acknowledgements of the document with no confirmation between
-  them, with the re-sends paced as above - one stale answer from a lagging
-  server never gets there.
+  a new, different hash, that is known at once. When its answers carry no
+  hash, or only repeat what it held before the upload (an asynchronous store
+  whose write has not landed yet), it takes three acknowledgements of the
+  document with no confirmation between them, with the re-sends paced as
+  above - one stale answer from a lagging server never gets there.
 
 The size cap is enforced in one place, where the document is kept, so every
 reader - the web UI, REST and the fleet upload - sees the same document: the

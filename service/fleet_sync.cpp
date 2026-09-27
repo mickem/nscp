@@ -446,29 +446,34 @@ void fleet_sync::note_server_response(const http::response &response, const flee
     // error page happens to carry.
     return;
   }
-  const auto header = response.headers_.find(onboarding::facts_hash_header);
-  if (header == response.headers_.end()) {
-    // An answer the server meant, without the header: it does not do facts -
-    // or no longer does, after a downgrade - and is sent nothing more until
-    // it says what it holds again.
+  const boost::optional<std::string> advertised = read_facts_hash_header(response);
+  if (!advertised) {
+    // An answer the server meant, without a readable header: it does not do
+    // facts - or no longer does, after a downgrade - and is sent nothing more
+    // until it says what it holds again.
     facts_pacer_.server_silent();
     return;
   }
-  const boost::optional<std::string> advertised = onboarding::parse_facts_hash(header->second);
-  if (!advertised) {
-    // A header nobody can read (a redeployed server, a proxy rewriting it):
-    // no statement about what it holds, so the same as none at all - and
-    // said once, since it is a server bug an operator can fix.
-    facts_pacer_.server_silent();
+  facts_pacer_.server_holds(advertised.value(), now);
+}
+
+boost::optional<std::string> fleet_sync::read_facts_hash_header(const http::response &response) {
+  const auto header = response.headers_.find(onboarding::facts_hash_header);
+  if (header == response.headers_.end()) return boost::none;
+  const boost::optional<std::string> hash = onboarding::parse_facts_hash(header->second);
+  if (!hash) {
+    // A header nobody can read (a redeployed server, a proxy rewriting it) is
+    // no statement about what the server holds, so the same as none at all -
+    // and said once, since it is a server bug an operator can fix.
     if (!bad_facts_header_logged_) {
       bad_facts_header_logged_ = true;
       log_error("The fleet server sent an unreadable X-Facts-Hash header (" + header->second.substr(0, 80) +
                 "): expected a SHA-256 hex digest or 'none'. Not uploading facts until it sends a valid one.");
     }
-    return;
+    return boost::none;
   }
   bad_facts_header_logged_ = false;
-  facts_pacer_.server_holds(advertised.value(), now);
+  return hash;
 }
 
 void fleet_sync::log_facts_failure(const std::string &hash, const unsigned int status, const std::string &message) {
@@ -536,10 +541,7 @@ void fleet_sync::maybe_upload_facts() {
   if (response.is_2xx()) {
     // The acknowledgement's own X-Facts-Hash, when it carries a readable one,
     // says at once what the server made of the document.
-    boost::optional<std::string> server_says;
-    const auto held = response.headers_.find(onboarding::facts_hash_header);
-    if (held != response.headers_.end()) server_says = onboarding::parse_facts_hash(held->second);
-    const onboarding::facts_upload_pacer::ack ack = facts_pacer_.acknowledged(snapshot.hash, now, server_says);
+    const onboarding::facts_upload_pacer::ack ack = facts_pacer_.acknowledged(snapshot.hash, now, read_facts_hash_header(response));
     const unsigned int resends = ack.resends;
     last_facts_error_hash_.clear();
     last_facts_error_status_ = 0;
@@ -584,7 +586,7 @@ void fleet_sync::maybe_upload_facts() {
                           " bytes). Largest sets: " + largest_sets() + ". Disable one of them in the module that produces it.");
     return;
   }
-  // Anything else - 400, 401, 404, 429, 5xx - is paced, not given up on: a
+  // Any other error status - 4xx, 5xx, a stray 3xx - is paced, not given up on: a
   // server that is fixed (a 404 from a proxy that gains the route, say) gets
   // the document at the next step of the backoff.
   facts_pacer_.rejected(snapshot.hash, now);
@@ -927,6 +929,10 @@ void fleet_sync::thread_proc() {
 }
 
 void fleet_sync::run() {
+  // A fresh life of the sync - after a restart by thread_proc too - carries no
+  // turn over: a skip left by the turn that died must not suppress the repair
+  // upload below.
+  facts_pacer_.start();
   const boost::optional<onboarding::enrolled_identity> loaded = onboarding::load_state(config_.state_file);
   if (!loaded) {
     log_error("No fleet enrollment found (" + config_.state_file + "): run `nscp enroll` first; fleet sync disabled");

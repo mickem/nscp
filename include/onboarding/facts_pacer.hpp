@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <boost/optional.hpp>
 #include <chrono>
+#include <onboarding/sync.hpp>
 #include <string>
 
 namespace onboarding {
@@ -21,7 +22,7 @@ namespace onboarding {
 //    holds, nothing is uploaded; a server that stops saying (a downgrade to a
 //    build without facts) is back to not doing facts, and gets nothing more.
 //  * Only on a miss: the document we hold differs from the one it holds.
-//  * A rejected upload (400, 401, 404, 429, 5xx: anything the next poll would
+//  * A rejected upload (any error status but 413: anything the next poll would
 //    only repeat) waits 1 min, then 2, doubling up to an hour, before that
 //    same document is tried again. The clock belongs to the document - a
 //    changed inventory was never tried and goes at once - and any successful
@@ -45,10 +46,12 @@ namespace onboarding {
 //    repaired at once again. An echo inside that wait says nothing.
 //  * An acknowledgement that carries the server's X-Facts-Hash settles at once
 //    what the server made of the document: our hash is confirmation, `none` is
-//    a server that did not keep it, and any other digest is a server hashing
-//    the document differently - no re-send will ever match, so the document is
-//    refused until it changes, and the caller is told so it can say what is
-//    wrong.
+//    a server that did not keep it, and any other new digest is a server
+//    hashing the document differently - no re-send will ever match, so the
+//    document is refused until it changes, and the caller is told so it can
+//    say what is wrong. The digest the server held before the upload is not
+//    new: a server whose storage is asynchronous echoes it until the write
+//    lands, so it is an unconfirmed acknowledgement, left to the rule below.
 //  * An acknowledgement without the header proves nothing either way, so the
 //    same verdict takes three acknowledgements of one document with no
 //    confirmation between them - the re-sends paced as above. A single stale
@@ -58,6 +61,14 @@ namespace onboarding {
 class facts_upload_pacer {
  public:
   typedef std::chrono::steady_clock clock;
+
+  // The sync starts (again, after a restart): no turn is carried over. The
+  // restart delay has already given a server that asked for quiet more than
+  // the one turn it asked for.
+  void start() {
+    skip_this_turn_ = false;
+    skip_next_turn_ = false;
+  }
 
   // A loop turn starts: whatever the last one carried over applies now.
   void begin_turn() {
@@ -111,6 +122,9 @@ class facts_upload_pacer {
   // readable one.
   ack acknowledged(const std::string &hash, const clock::time_point now, const boost::optional<std::string> &server_says = boost::none) {
     ack result;
+    // What the server said it held before this upload: an acknowledgement
+    // that merely repeats it is stale, not a verdict.
+    const boost::optional<std::string> held_before = server_;
     // Whatever was rejected - this document or another one - the server is
     // taking uploads again.
     clear_rejections();
@@ -137,15 +151,19 @@ class facts_upload_pacer {
     server_ = hash;
 
     if (server_says) {
-      if (server_says.value() == hash) {
+      const std::string &says = server_says.value();
+      if (says == hash) {
         confirm(now);
-      } else if (!is_empty_document(server_says.value())) {
-        // It kept something, and says it is something else.
+      } else if (says == empty_facts_hash || (held_before && says == held_before.value())) {
+        // It says it holds nothing, or still what it held before - the write
+        // has not landed, or did not keep. Not a verdict on its own: the
+        // unconfirmed count below decides, over paced re-sends.
+        server_ = server_says;
+      } else {
+        // It kept something new, and says it is something other than what
+        // it was sent.
         result.mismatch = true;
         result.hashed_differently = true;
-      } else {
-        // It says it holds nothing: it did not keep it.
-        server_ = server_says;
       }
     }
     if (!result.mismatch && unconfirmed_ >= unconfirmed_verdict) result.mismatch = true;
@@ -198,9 +216,6 @@ class facts_upload_pacer {
     const unsigned int shift = std::min(taken, 6u);  // 1 min << 6 is past the hour cap
     return std::chrono::seconds(std::min(first_step_seconds << shift, max_step_seconds));
   }
-
-  // sha256("{}"), which is what `none` parses to.
-  static bool is_empty_document(const std::string &hash) { return hash == "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"; }
 
   // The server holds the acknowledged document.
   void confirm(const clock::time_point now) {

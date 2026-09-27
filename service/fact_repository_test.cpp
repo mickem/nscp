@@ -426,6 +426,26 @@ TEST(FactRepository, ARoundIsInvisibleToTheHashUntilItEnds) {
   if (fact_repository::can_hash()) EXPECT_EQ(repo.get_hash(), after.hash);
 }
 
+TEST(FactRepository, ARoundThatOnlyMarksTheTimeHoldsTheTimeBack) {
+  fact_repository repo;
+  store(repo, "os", 1, R"({"family":"linux"})");
+  repo.mark_collected("2026-09-26T08:00:00Z");
+  const fact_repository::snapshot before = repo.get_snapshot();
+
+  // The usual round: every set comes back unchanged, only the time moves.
+  repo.begin_round();
+  EXPECT_EQ(store(repo, "os", 1, R"({"family":"linux"})"), set_result::unchanged);
+  repo.mark_collected("2026-09-26T09:00:00Z");
+  const fact_repository::snapshot during = repo.get_snapshot();
+  EXPECT_EQ(during.json, before.json);
+  EXPECT_EQ(during.collected, "2026-09-26T08:00:00Z") << "the round's time is published with the round";
+  if (fact_repository::can_hash()) EXPECT_EQ(repo.get_hash(), before.hash);
+  repo.end_round();
+
+  EXPECT_EQ(repo.get_snapshot().collected, "2026-09-26T09:00:00Z");
+  EXPECT_EQ(repo.get_snapshot().json, before.json);
+}
+
 TEST(FactRepository, OverlappingRoundsPublishWhenTheLastEnds) {
   fact_repository repo;
   const std::string empty = repo.get_snapshot().json;

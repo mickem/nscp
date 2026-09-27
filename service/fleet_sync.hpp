@@ -108,14 +108,14 @@ class fleet_sync {
   // Upload the facts document to /agent/v1/facts when the server has said it
   // holds a different one. Cheap when it has not: one hash compare.
   void maybe_upload_facts();
-  // What a desired-state or state-report response says to the facts upload:
-  // a 429/503 holds it (for the Retry-After, or one poll interval), and the
-  // X-Facts-Hash header on a 2xx or 304 is what the server holds - the only
-  // thing that triggers an upload. One rule for both calls.
   // Which fleet call a response answered: they share one rule, which differs
   // only in what trouble and a Retry-After mean for the facts upload.
   enum class fleet_call { poll, report, upload };
   void note_server_response(const http::response &response, fleet_call call);
+  // The X-Facts-Hash on a response the server meant, for both readers - what
+  // it holds after a poll or report, what it kept after an upload. None when
+  // there is no header, or one that cannot be read (logged once).
+  boost::optional<std::string> read_facts_hash_header(const http::response &response);
   void log_facts_failure(const std::string &hash, unsigned int status, const std::string &message);
   // The current facts hash for the state report; empty without a repository.
   std::string current_facts_hash() const;

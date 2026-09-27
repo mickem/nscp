@@ -1814,6 +1814,44 @@ TEST(FactsPacer, AnyAcknowledgementClearsTheRejections) {
   EXPECT_TRUE(p.should_upload(H1, at(3))) << "H1 coming back does not inherit the old clock";
 }
 
+TEST(FactsPacer, ARestartCarriesNoTurnOver) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.begin_turn();
+  p.quiet_next_turn();  // the last upload before the sync died was rate limited
+  p.start();            // thread_proc restarts the sync
+  EXPECT_TRUE(p.should_upload(H1, at(30))) << "the repair upload after a restart is not suppressed";
+}
+
+TEST(FactsPacer, AnAckEchoingWhatTheServerHeldBeforeIsNotAVerdict) {
+  pacer p;
+  p.server_holds(H2, t0);  // the server holds an older document
+  // Asynchronous storage: the upload of H1 is acknowledged while the server
+  // still answers with what it held before the write landed.
+  const pacer::ack first = p.acknowledged(H1, t0, H2);
+  EXPECT_FALSE(first.mismatch) << "a stale echo is not a server hashing differently";
+  EXPECT_FALSE(first.hashed_differently);
+  // The write lands; the next answer confirms, and nothing is refused.
+  p.server_holds(H1, at(5));
+  EXPECT_FALSE(p.should_upload(H1, at(5)));
+  p.server_holds(NONE, at(86400));
+  EXPECT_TRUE(p.should_upload(H1, at(86400)));
+}
+
+TEST(FactsPacer, AStaleEchoThatNeverClearsIsSettledByTheUnconfirmedCount) {
+  pacer p;
+  p.server_holds(H2, t0);
+  EXPECT_FALSE(p.acknowledged(H1, t0, H2).mismatch);
+  p.server_holds(H2, at(1));
+  ASSERT_TRUE(p.should_upload(H1, at(1)));
+  EXPECT_FALSE(p.acknowledged(H1, at(1), H2).mismatch);
+  EXPECT_FALSE(p.should_upload(H1, at(60)));
+  ASSERT_TRUE(p.should_upload(H1, at(61)));
+  const pacer::ack third = p.acknowledged(H1, at(61), H2);
+  EXPECT_TRUE(third.mismatch) << "three unconfirmed acknowledgements";
+  EXPECT_FALSE(third.hashed_differently);
+}
+
 TEST(FactsPacer, ARefusedDocumentWaitsForAChange) {
   pacer p;
   p.server_holds(NONE, t0);
