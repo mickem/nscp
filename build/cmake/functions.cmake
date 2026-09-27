@@ -118,7 +118,7 @@ macro(CREATE_MODULE _SRCS _SOURCE _TARGET)
             "${BUILD_PYTHON_FOLDER}/create_plugin_module.py" --source ${_SOURCE}
             --target ${_TARGET}
         COMMENT
-            "Generating ${_TARGET}/module.cpp and ${_TARGET}/module.hpp from ${_SOURCE}/module.json"
+            "Generating module.* from ${_SOURCE}/module.json"
         DEPENDS
             ${_SOURCE}/module.json
             "${BUILD_PYTHON_FOLDER}/create_plugin_module.py"
