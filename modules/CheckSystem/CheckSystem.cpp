@@ -188,9 +188,9 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   // copy: a check running right now holds its own reference to whichever
   // instance it read, so the old one dies when that check returns rather than
   // under it (the member is read by every check thread, see get_collector()).
-  if (const std::shared_ptr<pdh_thread> previous = std::atomic_load(&collector)) previous->stop();
+  if (const std::shared_ptr<pdh_thread> previous = std::atomic_load(&collector_)) previous->stop();
   const std::shared_ptr<pdh_thread> fresh = std::make_shared<pdh_thread>(get_core(), get_id());
-  std::atomic_store(&collector, fresh);
+  std::atomic_store(&collector_, fresh);
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("system", alias, "windows");
   pdh_checker.counters_.set_path(settings.alias().get_settings_path("counters"));
@@ -248,7 +248,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         "HARDWARE FACTS",
         "Collect the `hardware` fact set: the system manufacturer and model as the firmware reports them, the number of logical processors and the "
         "installed memory in whole GB. Cheap - the vendor and model come from the SMBIOS strings the kernel publishes under "
-        "HKLM\HARDWARE\DESCRIPTION\System\BIOS, not from WMI.")
+        "HKLM\\HARDWARE\\DESCRIPTION\\System\\BIOS, not from WMI.")
 
   .add_bool(network_facts::id_interfaces, sh::bool_key(&facts_network_interfaces, false),
         "NETWORK INTERFACES FACTS",

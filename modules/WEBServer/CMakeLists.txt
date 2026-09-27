@@ -249,6 +249,16 @@ else()
         ${MONGOOSE_CPP_DIR}/Server_test.cpp
         ${MONGOOSE_INCLUDE_DIR}/mongoose.c
     )
+    # Source properties are directory-scoped: the vendored C source needs
+    # the same MSVC exceptions here as in libs/mongoose-cpp.
+    if(MSVC)
+        set_source_files_properties(
+            ${MONGOOSE_INCLUDE_DIR}/mongoose.c
+            PROPERTIES
+                COMPILE_OPTIONS
+                    "/wd4201;/wd4204;/wd4267;/wd4310"
+        )
+    endif()
 endif()
 
 NSCP_CREATE_TEST(

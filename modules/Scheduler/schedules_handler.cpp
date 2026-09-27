@@ -78,8 +78,9 @@ void scheduler::run_startup_tasks(const boost::posix_time::time_duration window)
   if (ids.empty()) return;
   // Evenly spaced over the window: the first task runs immediately and no task
   // waits the full window (with a zero window every offset collapses to 0).
-  const long step = window.total_milliseconds() / static_cast<long>(ids.size());
-  long offset = 0;
+  using tick_type = boost::posix_time::time_duration::tick_type;
+  const tick_type step = window.total_milliseconds() / static_cast<tick_type>(ids.size());
+  tick_type offset = 0;
   for (const int id : ids) {
     tasks.run_now(id, boost::posix_time::milliseconds(offset));
     offset += step;

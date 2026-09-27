@@ -761,6 +761,9 @@ if(MSVC)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
     endif()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4373 /wd4100")
+    # Boost.Asio 1.86 still uses allocator<void>. Acknowledge only that C++17
+    # deprecation on MSVC, keeping other deprecated API diagnostics enabled.
+    add_definitions(-D_SILENCE_CXX17_ALLOCATOR_VOID_DEPRECATION_WARNING)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /ignore:4099")
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /ignore:4099")
     set(CMAKE_STATIC_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} /ignore:4099")

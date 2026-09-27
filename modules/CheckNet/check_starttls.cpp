@@ -190,7 +190,7 @@ std::string ldap_starttls_request() {
   request.push_back(static_cast<char>(0x01));  // messageID = 1
   request.push_back(static_cast<char>(0x77));  // [APPLICATION 23] ExtendedRequest
   request.push_back(static_cast<char>(2 + oid_length));
-  request.push_back(static_cast<char>(0x80));  // [0] requestName
+  request.push_back('\x80');  // [0] requestName
   request.push_back(static_cast<char>(oid_length));
   request.append(oid, oid_length);
   return request;

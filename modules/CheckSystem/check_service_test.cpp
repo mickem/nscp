@@ -169,11 +169,11 @@ TEST(ServiceInfo, CopyConstruction) {
 
   win_list_services::service_info copy(info);
   EXPECT_EQ(copy.get_name(), "Svc");
-  EXPECT_EQ(copy.pid, 1234);
-  EXPECT_EQ(copy.state, SERVICE_RUNNING);
-  EXPECT_EQ(copy.start_type, SERVICE_AUTO_START);
+  EXPECT_EQ(copy.pid, DWORD{1234});
+  EXPECT_EQ(copy.state, DWORD{SERVICE_RUNNING});
+  EXPECT_EQ(copy.start_type, DWORD{SERVICE_AUTO_START});
   EXPECT_TRUE(copy.delayed);
-  EXPECT_EQ(copy.triggers, 2);
+  EXPECT_EQ(copy.triggers, DWORD{2});
 }
 
 TEST(ServiceInfo, GetStateString) {
@@ -347,10 +347,10 @@ TEST(ServiceInfo, ShowFormat) {
 // ============================================================================
 
 TEST(ParseServiceType, SingleTypes) {
-  EXPECT_EQ(win_list_services::parse_service_type("service"), SERVICE_WIN32);
-  EXPECT_EQ(win_list_services::parse_service_type("svc"), SERVICE_WIN32);
-  EXPECT_EQ(win_list_services::parse_service_type("driver"), SERVICE_DRIVER);
-  EXPECT_EQ(win_list_services::parse_service_type("drv"), SERVICE_DRIVER);
+  EXPECT_EQ(win_list_services::parse_service_type("service"), DWORD{SERVICE_WIN32});
+  EXPECT_EQ(win_list_services::parse_service_type("svc"), DWORD{SERVICE_WIN32});
+  EXPECT_EQ(win_list_services::parse_service_type("driver"), DWORD{SERVICE_DRIVER});
+  EXPECT_EQ(win_list_services::parse_service_type("drv"), DWORD{SERVICE_DRIVER});
 }
 
 TEST(ParseServiceType, CombinedTypes) {
@@ -362,9 +362,9 @@ TEST(ParseServiceType, CombinedTypes) {
 TEST(ParseServiceType, InvalidTypeThrows) { EXPECT_THROW(win_list_services::parse_service_type("invalid"), nsclient::nsclient_exception); }
 
 TEST(ParseServiceState, AllStates) {
-  EXPECT_EQ(win_list_services::parse_service_state("all"), SERVICE_STATE_ALL);
-  EXPECT_EQ(win_list_services::parse_service_state("active"), SERVICE_ACTIVE);
-  EXPECT_EQ(win_list_services::parse_service_state("inactive"), SERVICE_INACTIVE);
+  EXPECT_EQ(win_list_services::parse_service_state("all"), DWORD{SERVICE_STATE_ALL});
+  EXPECT_EQ(win_list_services::parse_service_state("active"), DWORD{SERVICE_ACTIVE});
+  EXPECT_EQ(win_list_services::parse_service_state("inactive"), DWORD{SERVICE_INACTIVE});
 }
 
 TEST(ParseServiceState, InvalidStateThrows) { EXPECT_THROW(win_list_services::parse_service_state("invalid"), nsclient::nsclient_exception); }

@@ -137,11 +137,10 @@ size_t b64_decode(char const *src, size_t srcLen, void *dest, size_t destSize) {
       }
     }
 
-    const unsigned char triple[3] = {
-        (unsigned char)((v[0] << 2) | (v[1] >> 4)),
-        (unsigned char)(((v[1] & 0x0f) << 4) | (v[2] >> 2)),
-        (unsigned char)(((v[2] & 0x03) << 6) | v[3]),
-    };
+    unsigned char triple[3];
+    triple[0] = (unsigned char)((v[0] << 2) | (v[1] >> 4));
+    triple[1] = (unsigned char)(((v[1] & 0x0f) << 4) | (v[2] >> 2));
+    triple[2] = (unsigned char)(((v[2] & 0x03) << 6) | v[3]);
 
     size_t emit = total - produced;
     if (emit > 3) {

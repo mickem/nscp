@@ -4,7 +4,6 @@
 #include "PythonScript.h"
 
 #include <boost/program_options.hpp>
-#include <boost/python.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_program_options.hpp>
@@ -15,6 +14,7 @@
 #include <nscapi/protobuf/metrics.hpp>
 #include <nscapi/settings/helper.hpp>
 
+#include "boost_python_wrapper.hpp"
 #include "extscr_cli.h"
 #include "python_script.hpp"
 #include "script_provider.hpp"

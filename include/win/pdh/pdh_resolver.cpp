@@ -49,10 +49,10 @@ bool PDHResolver::validate(const std::wstring &counter, std::wstring &error, con
 bool is_special_char(char c) { return c == '\\' || c == '(' || c == ')'; }
 
 bool PDHResolver::expand_index(std::string &counter) {
-  auto pos = 0;
+  std::string::size_type pos = 0;
   do {
     const auto p1 = counter.find_first_of("0123456789", pos);
-    if (p1 == std::wstring::npos) return true;
+    if (p1 == std::string::npos) return true;
     auto p2 = counter.find_first_not_of("0123456789", p1);
     if (p2 == std::string::npos) p2 = counter.size();
     if (p2 <= p1) return false;

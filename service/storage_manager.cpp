@@ -3,9 +3,16 @@
 
 #include "storage_manager.hpp"
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4251)  // Protobuf stream adapters contain private STL members.
+#endif
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/thread/locks.hpp>

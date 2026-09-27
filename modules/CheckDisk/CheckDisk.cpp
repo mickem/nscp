@@ -223,34 +223,34 @@ void CheckDisk::fetchFacts(const nscapi::facts::request &, nscapi::facts::respon
 }
 
 bool CheckDisk::unloadModule() {
-  const std::shared_ptr<collector_thread> collector_ = get_collector_ptr();
-  if (collector_) {
-    collector_->stop();
+  const std::shared_ptr<collector_thread> collector = get_collector_ptr();
+  if (collector) {
+    collector->stop();
   }
   return true;
 }
 
 void CheckDisk::check_disk_io(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  const std::shared_ptr<collector_thread> collector_ = get_collector_ptr();
-  if (!collector_) {
+  const std::shared_ptr<collector_thread> collector = get_collector_ptr();
+  if (!collector) {
     nscapi::protobuf::functions::set_response_bad(*response, "Collector not started");
     return;
   }
   try {
-    disk_io_check::check::check_disk_io(request, response, collector_->get_disk_io());
+    disk_io_check::check::check_disk_io(request, response, collector->get_disk_io());
   } catch (const std::exception &e) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to get disk I/O data: " + std::string(e.what()));
   }
 }
 
 void CheckDisk::check_disk_health(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  const std::shared_ptr<collector_thread> collector_ = get_collector_ptr();
-  if (!collector_) {
+  const std::shared_ptr<collector_thread> collector = get_collector_ptr();
+  if (!collector) {
     nscapi::protobuf::functions::set_response_bad(*response, "Collector not started");
     return;
   }
   try {
-    auto data = disk_health_check::join(collector_->get_disk_io(), collector_->get_disk_free(), disk_device_check::query());
+    auto data = disk_health_check::join(collector->get_disk_io(), collector->get_disk_free(), disk_device_check::query());
     disk_health_check::check::check_disk_health(request, response, data);
   } catch (const std::exception &e) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to get disk health data: " + std::string(e.what()));
@@ -298,15 +298,15 @@ void CheckDisk::check_share(const PB::Commands::QueryRequestMessage::Request &re
 }
 
 void CheckDisk::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
-  const std::shared_ptr<collector_thread> collector_ = get_collector_ptr();
-  if (!collector_) return;
+  const std::shared_ptr<collector_thread> collector = get_collector_ptr();
+  if (!collector) return;
 
   using namespace nscapi::metrics;
 
   PB::Metrics::MetricsBundle *bundle = response->add_bundles();
   bundle->set_key("disk");
 
-  const auto disks = collector_->get_disk_io();
+  const auto disks = collector->get_disk_io();
   if (!disks.empty()) {
     PB::Metrics::MetricsBundle *section = bundle->add_children();
     section->set_key("io");
@@ -316,7 +316,7 @@ void CheckDisk::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
     }
   }
 
-  const auto drives = collector_->get_disk_free();
+  const auto drives = collector->get_disk_free();
   if (!drives.empty()) {
     PB::Metrics::MetricsBundle *section = bundle->add_children();
     section->set_key("free");
@@ -392,14 +392,14 @@ void CheckDisk::checkDriveSize(PB::Commands::QueryRequestMessage::Request &reque
     request.add_arguments("filter=type in (" + type_list + ")");
   }
   compat::log_args(request);
-  const std::shared_ptr<collector_thread> collector_ = get_collector_ptr();
-  const collector_thread::trend_snapshot trends = collector_ ? collector_->get_drive_trends() : collector_thread::trend_snapshot();
+  const std::shared_ptr<collector_thread> collector = get_collector_ptr();
+  const collector_thread::trend_snapshot trends = collector ? collector->get_drive_trends() : collector_thread::trend_snapshot();
   check_drive::check(request, response, deref_trends(trends));
 }
 
 void CheckDisk::check_drivesize(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  const std::shared_ptr<collector_thread> collector_ = get_collector_ptr();
-  const collector_thread::trend_snapshot trends = collector_ ? collector_->get_drive_trends() : collector_thread::trend_snapshot();
+  const std::shared_ptr<collector_thread> collector = get_collector_ptr();
+  const collector_thread::trend_snapshot trends = collector ? collector->get_drive_trends() : collector_thread::trend_snapshot();
   check_drive::check(request, response, deref_trends(trends));
 }
 
