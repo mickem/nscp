@@ -7,6 +7,7 @@
 #include <openssl/x509.h>
 
 #include <algorithm>
+#include <boost/algorithm/string/replace.hpp>
 #include <boost/json.hpp>
 #include <bytes/base64.hpp>
 #include <cctype>
@@ -1151,10 +1152,34 @@ TEST(SyncCertHostile, IgnoresTrailingGarbageAfterTheCertificate) {
   EXPECT_GE(onboarding::days_until_expiry(cert + "trailing junk\n"), 29);
 }
 
+namespace {
+// parse_renew_response hands a refused signing-key rotation back through an
+// out-parameter instead of throwing, because the rest of the response is
+// certificate material the host needs. Most cases below do not exercise that,
+// so wrap the parameter away; refusal_of() is for the ones that do.
+onboarding::enrolled_identity renew(const std::string &body, const onboarding::identity &fresh = onboarding::identity(),
+                                    const onboarding::enrolled_identity &current = onboarding::enrolled_identity()) {
+  std::string refused;
+  const onboarding::enrolled_identity result = onboarding::parse_renew_response(body, fresh, current, refused);
+  EXPECT_EQ(refused, "") << "unexpected signing-key refusal";
+  return result;
+}
+
+std::string refusal_of(const std::string &body, const onboarding::enrolled_identity &current, onboarding::enrolled_identity *renewed = nullptr) {
+  std::string refused;
+  const onboarding::enrolled_identity result = onboarding::parse_renew_response(body, onboarding::identity(), current, refused);
+  if (renewed != nullptr) *renewed = result;
+  return refused;
+}
+}  // namespace
+
 TEST(SyncRenew, KeepsUrlsAndSwapsMaterial) {
   onboarding::enrolled_identity current;
   current.private_key_pem = "OLD-KEY";
   current.cert_pem = "OLD-CERT";
+  // Unchanged: a *rotation* needs the old key's endorsement, which the signing
+  // key cases below cover; this one is about the rest of the material.
+  current.bundle_signing_pub_pem = "NEW-BUNDLE-KEY";
   current.server_url = "https://api.example.com";
   current.mtls_url = "https://mtls.example.com";
   onboarding::identity fresh;
@@ -1162,7 +1187,7 @@ TEST(SyncRenew, KeepsUrlsAndSwapsMaterial) {
   const std::string body =
       "{\"cert_pem\": \"NEW-CERT\", \"ca_pem\": \"NEW-CA\", \"bundle_signing_pub_pem\": \"NEW-BUNDLE-KEY\","
       " \"mtls_server_cert_pem\": \"NEW-MTLS-CERT\"}";
-  const onboarding::enrolled_identity renewed = onboarding::parse_renew_response(body, fresh, current);
+  const onboarding::enrolled_identity renewed = renew(body, fresh, current);
   EXPECT_EQ(renewed.private_key_pem, "NEW-KEY");
   EXPECT_EQ(renewed.cert_pem, "NEW-CERT");
   EXPECT_EQ(renewed.ca_pem, "NEW-CA");
@@ -1173,7 +1198,7 @@ TEST(SyncRenew, KeepsUrlsAndSwapsMaterial) {
 }
 
 TEST(SyncRenew, MissingFieldThrows) {
-  EXPECT_THROW(onboarding::parse_renew_response("{\"cert_pem\": \"C\"}", onboarding::identity(), onboarding::enrolled_identity()),
+  EXPECT_THROW(renew("{\"cert_pem\": \"C\"}"),
                onboarding::onboarding_error);
 }
 
@@ -1186,20 +1211,22 @@ TEST(SyncRenewHostile, EveryRequiredFieldIsRequired) {
   full["ca_pem"] = "NEW-CA";
   full["bundle_signing_pub_pem"] = "NEW-BUNDLE-KEY";
   full["mtls_server_cert_pem"] = "NEW-MTLS-CERT";
-  ASSERT_NO_THROW(onboarding::parse_renew_response(json::serialize(full), onboarding::identity(), onboarding::enrolled_identity()));
+  // The signing key the body carries is the one this host already has, so
+  // nothing here turns on the rotation rule.
+  onboarding::enrolled_identity current;
+  current.bundle_signing_pub_pem = "NEW-BUNDLE-KEY";
+  ASSERT_NO_THROW(renew(json::serialize(full), onboarding::identity(), current));
 
   for (const char *field : {"cert_pem", "ca_pem", "bundle_signing_pub_pem", "mtls_server_cert_pem"}) {
     json::object missing = full;
     missing.erase(field);
-    EXPECT_THROW(onboarding::parse_renew_response(json::serialize(missing), onboarding::identity(), onboarding::enrolled_identity()),
-                 onboarding::onboarding_error)
+    EXPECT_THROW(renew(json::serialize(missing), onboarding::identity(), current), onboarding::onboarding_error)
         << "accepted a response without " << field;
 
     for (const json::value bad : {json::value(""), json::value(), json::value(42), json::value(json::object())}) {
       json::object wrong = full;
       wrong[field] = bad;
-      EXPECT_THROW(onboarding::parse_renew_response(json::serialize(wrong), onboarding::identity(), onboarding::enrolled_identity()),
-                   onboarding::onboarding_error)
+      EXPECT_THROW(renew(json::serialize(wrong), onboarding::identity(), current), onboarding::onboarding_error)
           << "accepted " << json::serialize(bad) << " as " << field;
     }
   }
@@ -1207,7 +1234,7 @@ TEST(SyncRenewHostile, EveryRequiredFieldIsRequired) {
 
 TEST(SyncRenewHostile, MalformedBodiesThrow) {
   for (const std::string body : {std::string(""), std::string("not json"), std::string("[]"), std::string("null"), std::string("{")}) {
-    EXPECT_THROW(onboarding::parse_renew_response(body, onboarding::identity(), onboarding::enrolled_identity()), onboarding::onboarding_error);
+    EXPECT_THROW(renew(body), onboarding::onboarding_error);
   }
 }
 
@@ -1217,6 +1244,7 @@ TEST(SyncRenewHostile, TheServerCannotMoveUsToAnotherServer) {
   // compromised renewal endpoint could hand the host to someone else.
   onboarding::enrolled_identity current;
   current.private_key_pem = "OLD-KEY";
+  current.bundle_signing_pub_pem = "K";
   current.server_url = "https://api.example.com";
   current.mtls_url = "https://mtls.example.com";
   onboarding::identity fresh;
@@ -1224,10 +1252,154 @@ TEST(SyncRenewHostile, TheServerCannotMoveUsToAnotherServer) {
   const std::string body =
       "{\"cert_pem\": \"C\", \"ca_pem\": \"CA\", \"bundle_signing_pub_pem\": \"K\", \"mtls_server_cert_pem\": \"M\","
       " \"server_url\": \"https://evil.example.com\", \"mtls_url\": \"https://evil.example.com\", \"private_key_pem\": \"ATTACKER-KEY\"}";
-  const onboarding::enrolled_identity renewed = onboarding::parse_renew_response(body, fresh, current);
+  const onboarding::enrolled_identity renewed = renew(body, fresh, current);
   EXPECT_EQ(renewed.server_url, "https://api.example.com");
   EXPECT_EQ(renewed.mtls_url, "https://mtls.example.com");
   EXPECT_EQ(renewed.private_key_pem, "NEW-KEY") << "the key must come from our own CSR, never from the response";
+}
+
+// ---------------------------------------------------------------------------
+// The bundle signing key is the one thing in a renewal response the server is
+// not supposed to be able to choose: bundles are signed offline precisely so a
+// compromised server cannot forge one. A renewal arrives over the pinned mTLS
+// channel, so it is authenticated - by the server, which is the authority in
+// question. A rotation is therefore only accepted when the key being replaced
+// endorsed its replacement.
+// ---------------------------------------------------------------------------
+
+namespace {
+std::string renew_body(const std::string &signing_key, const std::string &signature = std::string()) {
+  json::object root;
+  root["cert_pem"] = "NEW-CERT";
+  root["ca_pem"] = "NEW-CA";
+  root["bundle_signing_pub_pem"] = signing_key;
+  root["mtls_server_cert_pem"] = "NEW-MTLS-CERT";
+  if (!signature.empty()) root["bundle_signing_pub_sig"] = signature;
+  return json::serialize(root);
+}
+}  // namespace
+
+TEST(SyncRenewSigningKey, AnUnchangedKeyNeedsNoEndorsement) {
+  onboarding::enrolled_identity current;
+  current.bundle_signing_pub_pem = "THE-KEY";
+  const onboarding::enrolled_identity renewed = renew(renew_body("THE-KEY"), onboarding::identity(), current);
+  EXPECT_EQ(renewed.bundle_signing_pub_pem, "THE-KEY");
+}
+
+TEST(SyncRenewSigningKey, AnUnsignedRotationIsRefused) {
+  onboarding::enrolled_identity current;
+  current.bundle_signing_pub_pem = "THE-KEY";
+  onboarding::enrolled_identity renewed;
+  const std::string refused = refusal_of(renew_body("SOMEONE-ELSES-KEY"), current, &renewed);
+  EXPECT_NE(refused, "");
+  EXPECT_EQ(renewed.bundle_signing_pub_pem, "THE-KEY");
+}
+
+// Refusing the key must not refuse the renewal. Throwing here dropped the new
+// certificate, the CA and the server pin with it, so a host facing a server
+// that got the rotation wrong stopped renewing and fell off the fleet when its
+// certificate expired - while the message said only the key was kept.
+TEST(SyncRenewSigningKey, ARefusedRotationStillTakesTheCertificateMaterial) {
+  onboarding::enrolled_identity current;
+  current.bundle_signing_pub_pem = "THE-KEY";
+  current.cert_pem = "OLD-CERT";
+  current.ca_pem = "OLD-CA";
+  current.mtls_server_cert_pem = "OLD-MTLS-CERT";
+  onboarding::identity fresh;
+  fresh.private_key_pem = "OUR-NEW-KEY";
+
+  std::string refused;
+  const onboarding::enrolled_identity renewed = onboarding::parse_renew_response(renew_body("SOMEONE-ELSES-KEY"), fresh, current, refused);
+
+  EXPECT_NE(refused, "") << "the rotation must still be reported";
+  EXPECT_EQ(renewed.bundle_signing_pub_pem, "THE-KEY") << "the signing key is the one thing not taken";
+  EXPECT_EQ(renewed.cert_pem, "NEW-CERT");
+  EXPECT_EQ(renewed.ca_pem, "NEW-CA");
+  EXPECT_EQ(renewed.mtls_server_cert_pem, "NEW-MTLS-CERT");
+  EXPECT_EQ(renewed.private_key_pem, "OUR-NEW-KEY");
+}
+
+// A PEM is not a key: the same Ed25519 key re-serialised with different line
+// wrapping, or with a trailing newline added or lost, is not a rotation and
+// must not be refused as one.
+TEST(SyncRenewSigningKey, ReserialisingTheSameKeyIsNotARotation) {
+  const pkey_ptr key = generate_ed25519();
+  const std::string pem = public_key_pem(key.get());
+  onboarding::enrolled_identity current;
+  current.bundle_signing_pub_pem = pem;
+
+  std::string rewrapped = pem;
+  while (!rewrapped.empty() && rewrapped.back() == '\n') rewrapped.pop_back();
+  ASSERT_NE(rewrapped, pem) << "expected the PEM to end in a newline";
+  const std::string crlf = boost::algorithm::replace_all_copy(pem, "\n", "\r\n");
+
+  for (const std::string &variant : {rewrapped, crlf, pem + "\n"}) {
+    onboarding::enrolled_identity renewed;
+    EXPECT_EQ(refusal_of(renew_body(variant), current, &renewed), "") << "refused a re-serialisation of the key it already has";
+    EXPECT_TRUE(onboarding::same_public_key(renewed.bundle_signing_pub_pem, pem));
+  }
+}
+
+TEST(SyncRenewSigningKey, ARotationSignedByTheOldKeyIsAccepted) {
+  const pkey_ptr old_key = generate_ed25519();
+  const pkey_ptr new_key = generate_ed25519();
+  const std::string new_pem = public_key_pem(new_key.get());
+  onboarding::enrolled_identity current;
+  current.bundle_signing_pub_pem = public_key_pem(old_key.get());
+
+  const onboarding::enrolled_identity renewed =
+      renew(renew_body(new_pem, sign_raw(old_key.get(), new_pem)), onboarding::identity(), current);
+
+  EXPECT_EQ(renewed.bundle_signing_pub_pem, new_pem);
+}
+
+TEST(SyncRenewSigningKey, ARotationSignedByTheNewKeyIsRefused) {
+  // Self-endorsement proves nothing: anyone able to generate a key can do it.
+  const pkey_ptr old_key = generate_ed25519();
+  const pkey_ptr new_key = generate_ed25519();
+  const std::string new_pem = public_key_pem(new_key.get());
+  onboarding::enrolled_identity current;
+  current.bundle_signing_pub_pem = public_key_pem(old_key.get());
+
+  onboarding::enrolled_identity renewed;
+  EXPECT_NE(refusal_of(renew_body(new_pem, sign_raw(new_key.get(), new_pem)), current, &renewed), "");
+  EXPECT_EQ(renewed.bundle_signing_pub_pem, current.bundle_signing_pub_pem);
+}
+
+TEST(SyncRenewSigningKey, AnEndorsementOverSomethingElseIsRefused) {
+  // The signature has to cover the key being installed, not just verify.
+  const pkey_ptr old_key = generate_ed25519();
+  const pkey_ptr new_key = generate_ed25519();
+  const std::string new_pem = public_key_pem(new_key.get());
+  onboarding::enrolled_identity current;
+  current.bundle_signing_pub_pem = public_key_pem(old_key.get());
+
+  onboarding::enrolled_identity renewed;
+  EXPECT_NE(refusal_of(renew_body(new_pem, sign_raw(old_key.get(), "something else")), current, &renewed), "");
+  EXPECT_EQ(renewed.bundle_signing_pub_pem, current.bundle_signing_pub_pem);
+}
+
+// A host with no signing key has nothing to check a new one against, so a
+// renewal is not where it gets one: whoever answered that renewal would be
+// choosing the key that verifies every bundle from then on - exactly the
+// authority the offline key exists to keep away from the server. Enrollment is
+// where a key is adopted, by an operator who holds it.
+TEST(SyncRenewSigningKey, AHostWithNoKeyDoesNotGetOneFromARenewal) {
+  onboarding::enrolled_identity current;
+  onboarding::enrolled_identity renewed;
+  const std::string refused = refusal_of(renew_body("FIRST-KEY"), current, &renewed);
+  EXPECT_NE(refused, "");
+  EXPECT_EQ(renewed.bundle_signing_pub_pem, "") << "a renewal must not install the first signing key";
+  EXPECT_EQ(renewed.cert_pem, "NEW-CERT") << "the certificate is still renewed";
+}
+
+TEST(SyncVerifyEd25519, VerifiesADetachedSignature) {
+  const pkey_ptr key = generate_ed25519();
+  std::string error;
+  EXPECT_TRUE(onboarding::verify_ed25519(public_key_pem(key.get()), "hello", sign_raw(key.get(), "hello"), error)) << error;
+  EXPECT_FALSE(onboarding::verify_ed25519(public_key_pem(key.get()), "hello!", sign_raw(key.get(), "hello"), error));
+  EXPECT_FALSE(onboarding::verify_ed25519(public_key_pem(key.get()), "hello", "not base64 !!!", error));
+  EXPECT_FALSE(onboarding::verify_ed25519("not a key", "hello", sign_raw(key.get(), "hello"), error));
 }
 
 // --- state report payload ---------------------------------------------------

@@ -1,12 +1,144 @@
 [Unit]
 Description=NSClient++ Monitoring Agent
+Documentation=https://nsclient.org/docs/
+
+# Ordering, not a dependency: at start-up this guarantees little, but at
+# shutdown a unit ordered after network.target is stopped before the network
+# goes down (systemd.special(7)) - which is what an agent holding client
+# connections and submitting results wants.
+After=network.target
 
 [Service]
 WorkingDirectory=@NSCP_PKGLIBDIR@
 User=nsclient
-PIDFile=@NSCP_PKGSTATEDIR@/nscp.pid
 
-ExecStart=@NSCP_SBINDIR@/nscp service --log-backend threaded-file --run --pid @NSCP_PKGSTATEDIR@/nscp.pid
+# Without this the service runs under the account's *primary* group, and the
+# packages do not make that `nsclient`: the DEB postinst creates the account
+# with `adduser --system` and then adds `nsclient` as a supplementary group, so
+# the primary group stays whatever adduser chose - `nogroup` on Debian and
+# Ubuntu. Combined with UMask=0027 that made every file the service creates at
+# runtime readable by `nogroup`, which many unprivileged daemons share, and
+# /var/lib/nsclient is 0755 from the postinst's mkdir -p, so nsclient.db and
+# the fleet/ tree - including the enrollment key - were not covered by the
+# directory either. Naming the group here fixes existing installs as well as
+# new ones. Both packages create the group, so it exists before this unit
+# starts; an account made by hand needs it too.
+Group=nsclient
+
+ExecStart=@NSCP_SBINDIR@/nscp service --log-backend threaded-file --run
+
+# Hardening.
+#
+# The agent already runs as an unprivileged account, but it also executes
+# operator-defined and fleet-delivered scripts by design, so the blast radius
+# of anything that goes wrong in one of them is worth bounding.
+#
+# Deliberately NOT set: ProtectSystem, ProtectHome, PrivateTmp - the three
+# directives that give the service a mount namespace of its own.
+#
+# For an ordinary daemon those only restrict what the process may do. For a
+# monitoring agent the mount table is part of the data it reports, and systemd
+# implements every one of them as bind mounts that appear in the service's own
+# /proc/mounts. So they do not merely sandbox the agent, they change its
+# answers - and they change them in exactly the direction the checks exist to
+# detect:
+#
+#   - check_drivesize with no drive= enumerates /proc/mounts, skipping
+#     filesystems by type and de-duplicating by mount point
+#     (check_drive_linux.cpp). A ProtectSystem bind carries the root
+#     filesystem's own type - ext4, xfs - and a fresh mount point, so it
+#     passes both filters. `full` alone adds /usr, /etc and /boot as three
+#     extra drives, each reporting / 's usage, so a threshold on / fires
+#     several times over; `strict` covers more of the tree still.
+#   - those rows read writable = 0, because the keyword is
+#     (vfs.f_flag & ST_RDONLY) == 0 (check_drive_linux.cpp) and the bind really
+#     is read-only. So does /boot/efi, which gets a second read-only mount
+#     stacked on it.
+#   - check_disk_io_linux.cpp applies the identical filter, so the disk-free
+#     collector gains the same phantom entries - they reach perfdata and
+#     /api/v2/openmetrics, not just one check's output.
+#   - check_mount with options=rw reports "missing options: rw, exceeding
+#     options: ro" for those mounts, and a filesystem that genuinely went
+#     read-only can no longer be told apart from one the sandbox remounted.
+#   - check_disk_write, whose whole job is to answer "is this mount writable",
+#     fails with "read-only file system" for any target outside
+#     ReadWritePaths - the same message as the fault it looks for.
+#   - PrivateTmp is milder but the same shape: check_files and check_logfile
+#     over /tmp report on the private tree, a plugin keeping state under /tmp
+#     loses it on every restart and stops agreeing with a run from a shell,
+#     and where /tmp is not a tmpfs the private bind adds a duplicate drive
+#     (tmpfs is filtered out by type, ext4 is not). ProtectHome does the same
+#     for /home, on a smaller scale.
+#
+# Teaching CheckDisk to see past the namespace is not the answer either:
+# inside it statvfs genuinely reports read-only, and a ProtectSystem bind is
+# not distinguishable from a bind mount an operator made on purpose, so it
+# would mean heuristics that could hide a real read-only remount. An agent
+# that reports the kernel's view is worth more here than one sandboxed into
+# reporting a different one.
+#
+# What is left below changes no drive, mount or disk-free answer. Add any of the
+# three with a drop-in if you accept the above for your setup, rather than by
+# editing this file, which a package upgrade replaces:
+#   systemctl edit nsclient
+#
+# The two ProtectKernel* directives are not quite free of the same mechanism:
+# they too are implemented with read-only binds, over /proc/sys, /sys and
+# /usr/lib/modules. They are kept because every one of those is on a filesystem
+# both check_drivesize and the disk-free collector skip by type, so none of them
+# can become a drive row, and check_mount skips /proc, /sys, /dev and /run when
+# listing all mounts. The one observable difference is naming one explicitly:
+# `check_mount mount=/sys options=rw` reports ro inside the service.
+
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+
+# 0640 for files the service creates. Not for the log file - the logger
+# creates that itself with an explicit 0640 (simple_file_logger.cpp), which no
+# umask in play here would change. It is the bare ofstream writers that this
+# covers, because a C++ ofstream asks for 0666 and lets the umask decide:
+# nsclient.db (storage_manager.cpp), and fleet.ini, applied-state.json and the
+# unsealed contents of a bundle (fleet_sync.cpp). Those hold settings and
+# fleet-delivered material, i.e. the same disclosure as the configuration file
+# the packages ship 0640, and under the manager's usual 0022 they would land
+# world-readable.
+#
+# A umask is inherited, so this reaches the external scripts the agent runs as
+# well: one that writes a file for another account to read now creates it
+# without the group-write and world bits. A script that needs a wider mode sets
+# it itself (install -m, chmod, or its own umask) rather than relying on the
+# service's - which is what the upgrade note tells operators.
+UMask=0027
+
+# Deliberately NOT set: NoNewPrivileges=yes.
+#
+# It would be the obvious next line, and it breaks a documented setup. The
+# `user =` key on an external script is Windows-only, and the Unix launcher
+# tells operators to sandbox a script by writing `sudo -n -u <account>` into
+# the command instead. sudo needs setuid, which NoNewPrivileges forbids, so
+# turning it on here would make every one of those scripts fail.
+# CapabilityBoundingSet= and a restrictive SystemCallFilter= break it for the
+# same reason. Enable it with a drop-in if no script on this host escalates:
+#   [Service]
+#   NoNewPrivileges=yes
+
+# A note on systemd versions, because an unknown key or an unparsable value is
+# ignored with a warning rather than failing the unit, so a host too old for
+# one of these loses it silently:
+#
+#   UMask=                                                since always
+#   ProtectKernelTunables=, ProtectKernelModules=,
+#   ProtectControlGroups=                                 232
+#   LockPersonality=                                      235
+#   RestrictSUIDSGID=                                     242
+#
+# Every official package target has all of them (Ubuntu 24.04 ships 255, Rocky
+# 9 ships 252). A source build on RHEL 8 (239) loses RestrictSUIDSGID; on
+# RHEL 7 (219) only UMask survives.
 
 [Install]
 WantedBy=multi-user.target

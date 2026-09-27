@@ -7,6 +7,7 @@
 #include <boost/unordered_set.hpp>
 #include <nscapi/protobuf/functions_query.hpp>
 #include <nscapi/protobuf/settings.hpp>
+#include <settings/settings_context.hpp>
 
 #include "../libs/settings_manager/settings_manager_impl.h"
 
@@ -340,6 +341,30 @@ void settings_query_handler::parse_update(const PB::Settings::SettingsRequestMes
 void settings_query_handler::parse_control(const PB::Settings::SettingsRequestMessage::Request::Control &p,
                                            PB::Settings::SettingsResponseMessage::Response *rp) {
   rp->mutable_control();
+  // SAVE only, and deliberately not LOAD.
+  //
+  // A SAVE names where this host's configuration is written, and nsclient.ini
+  // holds the NRPE and NSCA keys, the WEB password and every module's
+  // credentials. Letting the context name a remote store would publish exactly
+  // the values GET /api/v2/settings redacts, to a host the caller picked.
+  //
+  // A LOAD reads a configuration in, and refusing a remote source there would
+  // take away the CLI and installer's import for no gain: this request is behind
+  // settings.put, and a caller with settings.put can already write [/modules]
+  // and [/settings/external scripts] and reload. Whether a remote source may be
+  // plain http is settled in settings_http's cache_remote_file (notice 280),
+  // which is the part that is not a capability the caller already has.
+  //
+  // The core enforces the same target rule (settings::is_local_context is shared
+  // with it); it is checked here too so the refusal carries STATUS_ERROR and
+  // this message rather than arriving as a generic settings exception.
+  if (p.command() == PB::Settings::Command::SAVE && !p.context().empty() && !settings::is_local_context(p.context())) {
+    rp->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_ERROR);
+    rp->mutable_result()->set_message(
+        "Refusing to save settings to a remote store: that would send this host's configuration, credentials included, to whatever the context names. Save "
+        "to a local store; a remote settings source belongs in boot.ini.");
+    return;
+  }
   if (p.command() == PB::Settings::Command::LOAD) {
     if (!p.context().empty())
       settings_manager::get_core()->migrate_from("master", p.context());

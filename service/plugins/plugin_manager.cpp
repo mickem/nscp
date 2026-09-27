@@ -13,6 +13,7 @@
 #include <nscapi/protobuf/functions_query.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <nscapi/protobuf/functions_submit.hpp>
+#include <nscp/name_safety.hpp>
 #include <settings/settings_core.hpp>
 #include <str/format.hpp>
 
@@ -520,6 +521,24 @@ void nsclient::core::plugin_manager::stop_plugins() {
 }
 
 boost::optional<boost::filesystem::path> nsclient::core::plugin_manager::find_file(const std::string &file_name) {
+  // A module name is a single filename inside the module path, never a path.
+  //
+  // The right-hand side of a [/modules] entry, and the name in a settings
+  // Control.LOAD request, both arrive here as-is. An absolute value replaced
+  // plugin_path_ outright and `..` walked out of it, so `/tmp/evil.so = enabled`
+  // or `C:\Users\Public\evil.dll = enabled` loaded an arbitrary shared object
+  // into the SYSTEM or root process. Both writers are already
+  // code-execution-equivalent (a settings.put grant plus a reload; a script
+  // plugin issuing a registry query), but nothing about "name a module" should
+  // also mean "name a file anywhere on this host".
+  //
+  // The rule the REST module routes have applied for a while, shared with them
+  // rather than restated: one segment, no separators, no drive letter, no
+  // `.`/`..`, not starting with `-`, and only alphanumerics plus `._-`.
+  if (!name_safety::is_safe_module_name(file_name)) {
+    LOG_ERROR_CORE("Refusing to load plugin '" + file_name + "': a module is named by a single file name inside the module path, not by a path.");
+    return {};
+  }
   std::string name = file_name;
   std::list<std::string> names;
   names.push_back(file_name);
@@ -537,14 +556,26 @@ boost::optional<boost::filesystem::path> nsclient::core::plugin_manager::find_fi
     }
   }
 
+  // `${exe-path}/modules`, not `./modules`. The relative form resolved against
+  // the process's current directory, so `nscp client` or `nscp test` run by an
+  // administrator from a user-writable folder would load a library planted
+  // there whenever the real module was missing. The directory beside the
+  // executable is what the fallback was always meant to name.
+  // getFolder("exe-path") is the public spelling of getBasePath(); resolved
+  // once here rather than per candidate name, since it cannot change between
+  // iterations.
+  const boost::filesystem::path exe_path = path_->getFolder("exe-path");
+
   for (const std::string &current_name : names) {
     boost::optional<boost::filesystem::path> module = file_helpers::finder::locate_file_icase(plugin_path_, current_name);
     if (module) {
       return module;
     }
-    module = file_helpers::finder::locate_file_icase(boost::filesystem::path("./modules"), current_name);
-    if (module) {
-      return module;
+    if (!exe_path.empty()) {
+      module = file_helpers::finder::locate_file_icase(exe_path / "modules", current_name);
+      if (module) {
+        return module;
+      }
     }
   }
   LOG_ERROR_CORE("Failed to find plugin: " + file_name + " in " + plugin_path_.string());

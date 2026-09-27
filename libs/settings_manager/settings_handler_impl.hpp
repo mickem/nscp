@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/thread/locks.hpp>
@@ -10,6 +11,7 @@
 #include <map>
 #include <nsclient/logger/logger.hpp>
 #include <set>
+#include <settings/settings_context.hpp>
 #include <settings/settings_core.hpp>
 #include <string>
 
@@ -104,7 +106,28 @@ class settings_handler_impl : public settings_core {
   }
   void migrate_to(instance_ptr to) { migrate(get(), to); }
   void migrate_from(instance_ptr from) { migrate(from, get()); }
+  // The *target* may not be remote; the source may. The two directions are not
+  // symmetric.
+  //
+  // Migrating to a store takes this host's configuration out - nsclient.ini
+  // holds the NRPE and NSCA keys, the WEB password and every module's
+  // credentials, unredacted - and puts it wherever the context names. Nothing
+  // an operator wants needs that, and a caller able to issue a settings
+  // Control.SAVE would be exfiltrating the values redaction exists to keep out
+  // of a settings read.
+  //
+  // Migrating *from* a store is reading a configuration in, which is what the
+  // MSI's ImportConfig action and `nscp settings --migrate-from <url>` are for.
+  // It is not an escalation to refuse: Control.LOAD is behind settings.put
+  // (settings_controller.cpp), and a caller with settings.put can already write
+  // [/modules] and [/settings/external scripts] directly and reload, so a
+  // remote source is another spelling of a capability they hold, not a new one.
+  // The transport is what matters there, and it is enforced a layer down in
+  // settings_http's cache_remote_file: anything but https is skipped unless
+  // boot.ini opts in with `[tls] allow plaintext`, and the same [tls] section
+  // decides how the peer is verified (notice 280).
   void migrate_to(std::string alias, std::string to) {
+    require_local_target(to);
     instance_ptr i = create_instance(alias, to);
     migrate(get(), i, to);
   }
@@ -113,9 +136,25 @@ class settings_handler_impl : public settings_core {
     migrate_from(i);
   }
   void migrate(std::string alias_from, std::string from, std::string alias_to, std::string to) {
+    require_local_target(to);
     instance_ptr ifrom = create_instance(alias_from, from);
     instance_ptr ito = create_instance(alias_to, to);
     migrate(ifrom, ito, to);
+  }
+
+  // Checked as written and as it will be opened: create_instance() resolves the
+  // protocol aliases and host name placeholders before choosing a backend, so
+  // the expanded form is the one that decides where the write would land.
+  //
+  // The http backend also refuses to save, so this is belt and braces - but it
+  // refuses with "Cannot save settings over HTTP", which reads like a missing
+  // feature rather than a refusal to publish the host's credentials.
+  void require_local_target(const std::string &context) {
+    if (context.empty()) return;
+    if (is_local_context(context) && is_local_context(expand_context(context))) return;
+    throw settings_exception(__FILE__, __LINE__, "Refusing to migrate settings to a remote store (" + context +
+                                                     "): that would send this host's configuration, credentials included, to whatever the context names. "
+                                                     "Migrate to a local store; a remote settings source belongs in boot.ini.");
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -246,7 +285,64 @@ class settings_handler_impl : public settings_core {
     }
     return boost::none;
   }
+  // Whether a key's *name* says it holds a credential, whatever module owns
+  // it and whether or not that module is loaded here.
+  //
+  // The registered set only ever holds what the modules currently loaded
+  // declared through add_password. So a secret left in nsclient.ini for a
+  // module that is disabled or not installed on this host - an NRPE client
+  // target password, a WEB password on a host with WEBServer off, an NRDP
+  // token - was printed in the clear by GET /api/v2/settings to any
+  // settings.get role and by `nscp settings --list` without --load-all. The
+  // names are the same handful all through the tree, so match on them too.
+  //
+  // Deliberately erring towards masking: a key that only looks like a secret
+  // costs an operator one `--show` of that key, while missing one prints a
+  // credential to whoever asked.
+  //
+  // This is only ever the masking question. Whether a value may be *moved*
+  // into the Windows Credential Manager is is_registered_sensitive_key(), so a
+  // name that merely reads like a credential is never rewritten on that basis.
+  static bool key_name_reads_as_secret(const std::string &path, const std::string &key) {
+    const std::string lower_key = boost::algorithm::to_lower_copy(key);
+    // Names that contain a needle below without holding a credential. The
+    // core's own `use credential manager` is the reason this list exists: a
+    // substring match on "credential" made the boolean itself read as a
+    // secret, so `settings --list` printed the switch as `***`.
+    //
+    // Prefer adding a name here over dropping a needle: a needle covers every
+    // module's spelling of a real credential, including modules that are not
+    // installed on this host, and the collisions are countable.
+    static const char *const never_secret[] = {"use credential manager"};
+    for (const char *name : never_secret) {
+      if (lower_key == name) return false;
+    }
+    static const char *const needles[] = {"password", "passwd", "passphrase", "token", "secret", "apikey", "api key", "api-key", "credential"};
+    for (const char *needle : needles) {
+      if (lower_key.find(needle) != std::string::npos) return true;
+    }
+    // A bare `key` is a credential on a target object - it is the third
+    // spelling of the NRDP token - but everywhere else it names a file
+    // (`certificate key`, `dh key`), which is a path and not a secret.
+    if (lower_key == "key") {
+      return boost::algorithm::to_lower_copy(path).find("/targets") != std::string::npos;
+    }
+    return false;
+  }
+
   bool is_sensitive_key(const std::string path, const std::string key) override {
+    if (key_name_reads_as_secret(path, key)) return true;
+    return is_registered_sensitive_key(path, key);
+  }
+
+  // Registry only: what the loaded modules declared through add_password /
+  // add_sensitive_key. The ini writer asks this before diverting a value into
+  // the Windows Credential Manager, because that rewrites the key in
+  // nsclient.ini and, on a host where the mapping is unsupported, logs a
+  // warning about storing a secret in clear text. Neither is something to do
+  // on the strength of a name that merely reads like a credential - the core's
+  // own `use credential manager` boolean is one of those.
+  bool is_registered_sensitive_key(const std::string path, const std::string key) override {
     boost::shared_lock<boost::shared_mutex> readLock(registry_mutex_, boost::get_system_time() + boost::posix_time::milliseconds(5000));
     if (!readLock.owns_lock()) {
       throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex: " + path);

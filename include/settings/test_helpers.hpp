@@ -98,6 +98,7 @@ class mock_settings_core : public settings::settings_core {
   // --- the rest: no-ops / empty defaults -------------------------------------
   boost::optional<key_description> get_registered_key(std::string, std::string) override { return boost::none; }
   bool is_sensitive_key(std::string, std::string) override { return false; }
+  bool is_registered_sensitive_key(std::string, std::string) override { return false; }
   settings::settings_core::path_description get_registered_path(const std::string &) override { return {}; }
   std::list<settings::settings_core::tpl_description> get_registered_templates() override { return {}; }
   string_list get_reg_sections(std::string, bool) override { return {}; }
