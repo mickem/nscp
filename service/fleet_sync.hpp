@@ -87,7 +87,14 @@ class fleet_sync {
   // retried by thread_proc.
   void run();
   // One poll cycle; returns how many seconds to sleep before the next one.
-  unsigned long poll_once();
+  // How long to sleep before the next poll, and whether that is a wait the
+  // server named (a Retry-After): a minimum, jittered upwards only.
+  struct poll_sleep {
+    unsigned long seconds;
+    bool at_least;
+    poll_sleep(const unsigned long seconds_, const bool at_least_ = false) : seconds(seconds_), at_least(at_least_) {}  // NOLINT: implicit on purpose
+  };
+  poll_sleep poll_once();
   // `stale` is set when the server says a bundle is no longer ours (the
   // desired state changed under us): the cycle is abandoned without reporting
   // a failure and the next poll picks up the new state.
@@ -161,6 +168,9 @@ class fleet_sync {
   // The last failed upload that was logged, so a failure repeated at every
   // backoff step is logged once per document and status - not per body,
   // which may carry a request id that differs every time.
+  // The documents the "lost" and "keeps losing" lines were last said for.
+  std::string lost_logged_hash_;
+  std::string hourly_logged_hash_;
   std::string last_facts_error_hash_;
   unsigned int last_facts_error_status_ = 0;
   std::chrono::steady_clock::time_point last_facts_error_at_;
@@ -174,9 +184,6 @@ class fleet_sync {
   std::string content_hash_;
   std::vector<onboarding::installed_bundle> installed_;
   unsigned long poll_interval_ = 60;
-  // The sleep poll_once returned is a wait the server named (Retry-After), so
-  // it is jittered upwards only.
-  bool sleep_is_minimum_ = false;
   unsigned int failures_ = 0;
 
   // Transport state shared by all calls in the loop: once the server is known

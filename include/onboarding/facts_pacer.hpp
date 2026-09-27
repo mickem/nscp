@@ -97,10 +97,12 @@ class facts_upload_pacer {
       // The first answer after a refusal is what the server held when it
       // refused; any later, different one means something changed on its
       // side (a hashing bug fixed, the store wiped) and the refused document
-      // is worth offering again.
+      // is worth offering again - unless the change is our own doing: the
+      // server now holding a document we uploaded since says nothing about
+      // why it refused this one.
       if (!refused_server_) {
         refused_server_ = hash;
-      } else if (hash != refused_server_.value()) {
+      } else if (hash != refused_server_.value() && hash != acked_) {
         clear_refusal();
       }
     }
@@ -150,6 +152,13 @@ class facts_upload_pacer {
     // Whatever was rejected - this document or another one - the server is
     // taking uploads again.
     clear_rejections();
+    // A refused document that is uploaded again was released (the server
+    // changed, or a day passed): it starts over, as a document the server has
+    // not seen, not one step away from its old verdict.
+    if (!refused_.empty() && hash == refused_) {
+      clear_refusal();
+      acked_.clear();
+    }
     if (hash == acked_) {
       if (confirmed_) {
         // Acknowledged, reported held, reported missing since: lost. The next
@@ -158,9 +167,11 @@ class facts_upload_pacer {
         resend_at_ = now + step(resends_ - 1);
         unconfirmed_ = 0;
       } else {
-        // Acknowledged again without a confirmation in between: paced like a
-        // loss, and counted towards the verdict below.
-        resend_at_ = now + step(unconfirmed_ > 0 ? unconfirmed_ - 1 : 0);
+        // Acknowledged again without a confirmation in between: counted
+        // towards the verdict below, and paced on the doubling steps - the
+        // first re-send waited one step (set at the first acknowledgement),
+        // this wait is the next.
+        resend_at_ = now + step(unconfirmed_);
       }
     } else {
       acked_ = hash;
@@ -231,6 +242,8 @@ class facts_upload_pacer {
     refused_ = hash;
     refused_until_ = now + std::chrono::hours(24);
     refused_server_ = boost::none;
+    // The verdict is spent: a release starts the count over.
+    unconfirmed_ = 0;
   }
 
   // For tests and diagnostics: when the document `hash` may next be tried.
@@ -272,6 +285,7 @@ class facts_upload_pacer {
     refused_.clear();
     refused_until_ = clock::time_point();
     refused_server_ = boost::none;
+    unconfirmed_ = 0;
   }
 
   void clear_rejections() {

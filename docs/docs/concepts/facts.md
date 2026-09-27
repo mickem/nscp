@@ -501,7 +501,7 @@ the server say whether it needs the rest:
   member of the state report. A host with nothing enabled sends the hash of
   the empty document, `{}`.
 * **The server answers with the hash it holds**, in an `X-Facts-Hash`
-  response header (`none` when it holds nothing). It is a header so that it
+  response header (`none`, in any case, when it holds nothing). It is a header so that it
   works on the 304 a host that is in sync gets on nearly every poll. The
   agent reads it only on a 2xx or 304: an error page from the server or a
   proxy says nothing about what the server holds. The server sends it on its
@@ -569,7 +569,8 @@ every poll:
 * **A document the server refuses as too large** (413) is not offered again
   until it changes, or for a day - its cap may be raised in the meantime.
 * **A document the server does not end up holding as sent** is not offered
-  again until it changes, the hash the server reports changes (a fix on its
+  again until it changes, the hash the server reports changes for a reason
+  other than an upload of the agent's own (a fix on its
   side), or a day has passed, with an error in the agent log. The server has to hash
   the `facts` value exactly as it received it. When it answers the upload with
   a new, different hash, that is known at once. When its answers carry no

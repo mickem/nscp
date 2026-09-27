@@ -97,20 +97,15 @@ std::string default_os() {
 #endif
 }
 
-// ±10% jitter so a fleet does not poll in lockstep.
-unsigned long with_jitter_ms(const unsigned long seconds) {
+// A 20% jitter window so a fleet does not poll in lockstep: centred on the
+// wait (±10%), or - for a wait the server named, a Retry-After, which is a
+// minimum - starting at it (+0..20%), since jitter below it would call back
+// early.
+unsigned long with_jitter_ms(const unsigned long seconds, const bool at_least = false) {
   std::random_device rd;
   const unsigned long base = seconds * 1000UL;
-  const unsigned long spread = base / 5 + 1;  // 20% window centered on base
-  return base * 9 / 10 + rd() % spread;
-}
-
-// The same spread, upwards only: for a wait the server named (Retry-After),
-// which is a minimum - jitter below it would call back early.
-unsigned long with_jitter_up_ms(const unsigned long seconds) {
-  std::random_device rd;
-  const unsigned long base = seconds * 1000UL;
-  return base + rd() % (base / 10 + 1);
+  const unsigned long spread = base / 5 + 1;
+  return (at_least ? base : base * 9 / 10) + rd() % spread;
 }
 
 boost::optional<unsigned long> get_retry_after(const http::response &response) {
@@ -569,10 +564,25 @@ void fleet_sync::maybe_upload_facts() {
     // The acknowledgement's own X-Facts-Hash, when it carries a readable one,
     // says at once what the server made of the document.
     const onboarding::facts_upload_pacer::ack ack = facts_pacer_.acknowledged(snapshot.hash, now, read_facts_hash_header(response, fleet_call::upload));
-    const unsigned int resends = ack.resends;
     last_facts_error_hash_.clear();
     last_facts_error_status_ = 0;
     log_debug("Uploaded facts " + snapshot.hash + " (" + str::xtos(snapshot.json.size()) + " bytes, revision " + str::xtos(snapshot.revision) + ")");
+    // The server acknowledged this document before and then reported it
+    // missing. Said once per document when it starts, and once more when the
+    // re-sends reach the hourly cap, so the operator can tell why the server
+    // sees the same upload again - and said before any verdict below, which
+    // would otherwise leave the upload that led to it unexplained.
+    if (ack.resends >= 1 && lost_logged_hash_ != snapshot.hash) {
+      lost_logged_hash_ = snapshot.hash;
+      log_info("The fleet server lost the facts document it had acknowledged (" + snapshot.hash + ") and was sent it again" +
+               std::string(ack.confirmed ? "; it holds it now." : ", but has not confirmed holding it yet.") +
+               " If it keeps losing it, further re-sends wait 1 minute, doubling up to once an hour.");
+    }
+    if (ack.resends >= 7 && hourly_logged_hash_ != snapshot.hash) {
+      hourly_logged_hash_ = snapshot.hash;
+      log_error("The fleet server keeps losing the facts document it acknowledges (" + snapshot.hash +
+                "): re-sending it once an hour until it keeps it. Check the server's storage for facts.");
+    }
     if (ack.mismatch) {
       if (ack.hashed_differently) {
         log_error("The fleet server acknowledged the facts document " + snapshot.hash +
@@ -585,18 +595,6 @@ void fleet_sync::maybe_upload_facts() {
                   "changes, the server's answers change, or a day has passed.");
       }
       return;
-    }
-    // The server acknowledged this document before and then reported it
-    // missing. Said once when it starts, and once more if it reaches the
-    // hourly cap, so the operator can tell why the server sees the same
-    // upload again and again.
-    if (resends == 1) {
-      log_info("The fleet server lost the facts document it had acknowledged (" + snapshot.hash + ") and was sent it again" +
-               std::string(ack.confirmed ? "; it holds it now." : ", but has not confirmed holding it yet.") +
-               " If it keeps losing it, further re-sends wait 1 minute, doubling up to once an hour.");
-    } else if (resends == 7) {
-      log_error("The fleet server keeps losing the facts document it acknowledges (" + snapshot.hash +
-                "): re-sending it once an hour until it keeps it. Check the server's storage for facts.");
     }
     return;
   }
@@ -641,7 +639,16 @@ void fleet_sync::maybe_renew() {
     const onboarding::identity fresh = onboarding::generate_identity();
     json::object body;
     body["csr_pem"] = fresh.csr_pem;
-    const http::response response = do_call("POST", renew_path, json::serialize(body));
+    http::response response;
+    try {
+      response = do_call("POST", renew_path, json::serialize(body));
+    } catch (const std::exception &e) {
+      // Could not reach the server: a transport failure like any other, so
+      // the rest of the turn - the facts upload - knows not to try.
+      log_transport_failure("Certificate renewal", utf8::utf8_from_native(e.what()));
+      return;
+    }
+    note_transport_success();
     if (!response.is_2xx()) {
       log_error("Certificate renewal failed: " + str::xtos(response.status_code_) + " " + response.payload_);
       return;
@@ -859,8 +866,7 @@ bool fleet_sync::apply_state(const onboarding::desired_state &state, std::vector
   }
 }
 
-unsigned long fleet_sync::poll_once() {
-  sleep_is_minimum_ = false;
+fleet_sync::poll_sleep fleet_sync::poll_once() {
   // Our facts hash rides along, so the server can say in the same answer -
   // a 304 included - whether it holds that document; only a miss uploads.
   const std::string path = onboarding::desired_state_path(current_hash_, current_facts_hash());
@@ -891,8 +897,7 @@ unsigned long fleet_sync::poll_once() {
     // A rate limit: the server is up and pacing us, not failing.
     log_info("Desired-state poll rate limited");
     if (!retry) return poll_interval_;
-    sleep_is_minimum_ = true;
-    return clamp_sleep_seconds(retry.value());
+    return poll_sleep(clamp_sleep_seconds(retry.value()), true);
   }
   if (!response.is_2xx()) {
     // A failure - a 503 maintenance page included, whatever Retry-After it
@@ -902,8 +907,7 @@ unsigned long fleet_sync::poll_once() {
     log_error("Desired-state poll failed: " + str::xtos(response.status_code_) + " " + response.payload_);
     const unsigned long backoff = std::min(poll_interval_ << std::min(failures_, 5u), poll_interval_ * 5);
     if (!retry) return backoff;
-    sleep_is_minimum_ = true;
-    return std::max(backoff, clamp_sleep_seconds(retry.value()));
+    return poll_sleep(std::max(backoff, clamp_sleep_seconds(retry.value())), true);
   }
 
   failures_ = 0;
@@ -1050,7 +1054,7 @@ void fleet_sync::run() {
     // Whatever the last turn carried over applies to this one, and to this
     // one only - even if its poll fails before the upload is considered.
     facts_pacer_.begin_turn();
-    const unsigned long sleep_seconds = poll_once();
+    const poll_sleep sleep = poll_once();
     // When the server is unreachable the poll already logged it; don't pile
     // further failures (and further log entries) on top with a renewal
     // call that cannot succeed either.
@@ -1067,9 +1071,11 @@ void fleet_sync::run() {
       // The server said, in answer to the hash in this poll, that it holds
       // something else: upload. Steady state is one hash compare per poll.
       // Not in a turn whose poll or report got an error: that server, or the
-      // proxy in front of it, is in no state for a megabyte.
-      maybe_upload_facts();
+      // proxy in front of it, is in no state for a megabyte - and not after a
+      // report or renewal that could not reach it, which the transport check
+      // above does not cover because it ran before them.
+      if (transport_ok_) maybe_upload_facts();
     }
-    boost::this_thread::sleep_for(boost::chrono::milliseconds(sleep_is_minimum_ ? with_jitter_up_ms(sleep_seconds) : with_jitter_ms(sleep_seconds)));
+    boost::this_thread::sleep_for(boost::chrono::milliseconds(with_jitter_ms(sleep.seconds, sleep.at_least)));
   }
 }

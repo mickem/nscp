@@ -32,10 +32,7 @@ struct x509_deleter {
 using onboarding::detail::sha256_raw;
 using onboarding::detail::to_hex;
 
-std::string to_lower(std::string s) {
-  std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-  return s;
-}
+using onboarding::detail::to_lower;
 
 }  // namespace
 

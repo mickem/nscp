@@ -12,6 +12,7 @@
 #include <sstream>
 #include <str/xtos.hpp>
 
+#include "digest.hpp"
 #include "json_util.hpp"
 
 namespace json = boost::json;
@@ -331,8 +332,7 @@ std::string onboarding::render_ini(const boost::json::value &config) {
 }
 
 onboarding::transport_error_info onboarding::classify_transport_error(const std::string &message) {
-  std::string lower = message;
-  std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  const std::string lower = detail::to_lower(message);
   const auto contains_any = [&lower](std::initializer_list<const char *> needles) {
     for (const char *needle : needles) {
       if (lower.find(needle) != std::string::npos) return true;
@@ -448,11 +448,12 @@ std::string onboarding::desired_state_path(const std::string &current_hash, cons
 boost::optional<std::string> onboarding::parse_facts_hash(const std::string &header_value) {
   // Holding nothing and holding the empty document are one state, and a host
   // with nothing enabled has nothing to send in answer to either.
-  if (header_value == "none") return std::string(empty_facts_hash);
-  if (!is_sha256_hex(header_value)) return boost::none;
-  std::string hash = header_value;
-  std::transform(hash.begin(), hash.end(), hash.begin(), [](const unsigned char c) { return static_cast<char>(std::tolower(c)); });
-  return hash;
+  // Case-insensitive, like the digests: a proxy or framework that title-cases
+  // header values must not turn "none" into an unreadable header.
+  const std::string value = detail::to_lower(header_value);
+  if (value == "none") return std::string(empty_facts_hash);
+  if (!is_sha256_hex(value)) return boost::none;
+  return value;
 }
 
 onboarding::enrolled_identity onboarding::parse_renew_response(const std::string &body, const identity &fresh_identity, const enrolled_identity &current,

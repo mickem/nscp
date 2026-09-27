@@ -1536,11 +1536,14 @@ TEST(SyncFacts, ParsesTheHashAServerHolds) {
   // `none` is an answer: the server holds nothing for this host, which is
   // what a host with nothing enabled holds too - so they compare equal.
   EXPECT_EQ(onboarding::parse_facts_hash("none").value(), onboarding::empty_facts_hash);
+  // In any case, like the digests: a proxy that title-cases header values
+  // must not make the server unreadable.
+  EXPECT_EQ(onboarding::parse_facts_hash("None").value(), onboarding::empty_facts_hash);
+  EXPECT_EQ(onboarding::parse_facts_hash("NONE").value(), onboarding::empty_facts_hash);
 }
 
 TEST(SyncFacts, IgnoresAHashThatIsNotADigest) {
   EXPECT_FALSE(onboarding::parse_facts_hash(""));
-  EXPECT_FALSE(onboarding::parse_facts_hash("None"));
   EXPECT_FALSE(onboarding::parse_facts_hash("abc"));
   EXPECT_FALSE(onboarding::parse_facts_hash(std::string(63, 'a') + "g"));
   EXPECT_FALSE(onboarding::parse_facts_hash(std::string(65, 'a')));
@@ -1728,14 +1731,14 @@ TEST(FactsPacer, WithoutAHeaderOnTheAckAMismatchTakesThreeUnconfirmedAcks) {
   ASSERT_TRUE(p.should_upload(H1, at(60)));
   EXPECT_FALSE(p.acknowledged(H1, at(60)).mismatch) << "two unconfirmed acknowledgements are not yet a verdict";
   p.server_holds(THEIRS, at(61));
-  EXPECT_FALSE(p.should_upload(H1, at(119))) << "and the next re-send is paced";
-  ASSERT_TRUE(p.should_upload(H1, at(120)));
-  const pacer::ack third = p.acknowledged(H1, at(120));
+  EXPECT_FALSE(p.should_upload(H1, at(179))) << "and the next re-send waits the next, doubled step (2 min)";
+  ASSERT_TRUE(p.should_upload(H1, at(180)));
+  const pacer::ack third = p.acknowledged(H1, at(180));
   EXPECT_TRUE(third.mismatch);
   EXPECT_FALSE(third.hashed_differently) << "inferred, not stated: it may also just not keep it";
-  p.server_holds(THEIRS, at(121));
+  p.server_holds(THEIRS, at(181));
   EXPECT_FALSE(p.should_upload(H1, at(3600))) << "refused";
-  EXPECT_TRUE(p.should_upload(H2, at(122)));
+  EXPECT_TRUE(p.should_upload(H2, at(182)));
 }
 
 TEST(FactsPacer, AnAckAnsweringADifferentHashIsAMismatchAtOnce) {
@@ -1849,11 +1852,54 @@ TEST(FactsPacer, AStaleEchoThatNeverClearsIsSettledByTheUnconfirmedCount) {
   EXPECT_FALSE(p.should_upload(H1, at(59)));
   ASSERT_TRUE(p.should_upload(H1, at(60)));
   EXPECT_FALSE(p.acknowledged(H1, at(60), H2).mismatch);
-  EXPECT_FALSE(p.should_upload(H1, at(119)));
-  ASSERT_TRUE(p.should_upload(H1, at(120)));
-  const pacer::ack third = p.acknowledged(H1, at(120), H2);
+  EXPECT_FALSE(p.should_upload(H1, at(179)));
+  ASSERT_TRUE(p.should_upload(H1, at(180)));
+  const pacer::ack third = p.acknowledged(H1, at(180), H2);
   EXPECT_TRUE(third.mismatch) << "three unconfirmed acknowledgements";
   EXPECT_FALSE(third.hashed_differently);
+}
+
+TEST(FactsPacer, AReleasedRefusalStartsTheCountOver) {
+  pacer p;
+  const std::string THEIRS(64, 'e');
+  p.server_holds(NONE, t0);
+  // Refused after three unconfirmed, header-less acknowledgements.
+  p.acknowledged(H1, t0);
+  p.server_holds(THEIRS, at(1));
+  p.acknowledged(H1, at(60));
+  p.server_holds(THEIRS, at(61));
+  ASSERT_TRUE(p.acknowledged(H1, at(180)).mismatch);
+  p.server_holds(THEIRS, at(181));
+  // A day later it is offered again - and one more unconfirmed
+  // acknowledgement is not a verdict: the count started over.
+  const pacer::clock::time_point later = at(180 + 86400);
+  ASSERT_TRUE(p.should_upload(H1, later));
+  const pacer::ack again = p.acknowledged(H1, later);
+  EXPECT_FALSE(again.mismatch);
+  EXPECT_EQ(again.resends, 0u) << "a fresh document to the pacer, not a re-send";
+}
+
+TEST(FactsPacer, OurOwnUploadOfAnotherDocumentDoesNotReleaseARefusal) {
+  pacer p;
+  const std::string H0(64, '0');
+  p.server_holds(H0, t0);
+  p.refused(H1, t0);          // a 413 on H1
+  p.server_holds(H0, at(1));  // the baseline: it still holds H0
+  // The operator turns the large set off; H2 goes up and sticks.
+  p.acknowledged(H2, at(10), H2);
+  p.server_holds(H2, at(11));
+  // The server's hash moved because of us, not because it changed: turning
+  // the set back on must not re-send the same oversized document at once.
+  EXPECT_FALSE(p.should_upload(H1, at(12)));
+}
+
+TEST(FactsPacer, UnconfirmedReSendsDouble) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.acknowledged(H1, t0);
+  EXPECT_EQ(p.retry_at(H1), at(60)) << "the first re-send waits one step";
+  p.acknowledged(H1, at(60));
+  EXPECT_EQ(p.retry_at(H1), at(60 + 120)) << "the second waits twice that";
 }
 
 TEST(FactsPacer, ARefusedDocumentWaitsForAChangeOrADay) {

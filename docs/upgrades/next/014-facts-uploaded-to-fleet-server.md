@@ -33,7 +33,8 @@ leaves the host.
   that answers an upload with a new hash of its own, or that acknowledges one
   document three times without ever reporting holding it (repeating what it
   held before the upload counts as not reporting), is not sent that document
-  again until it changes, the server's reported hash changes, or a day has
+  again until it changes, the server's reported hash changes (other than by
+  another upload of the agent's), or a day has
   passed, and the agent logs an error.
 * `[/settings/facts] max size` is re-read on every settings reload, a
   settings-only one included. Lowering
