@@ -225,6 +225,9 @@ Windows startup modes include `auto`, `delayed`, `auto_trigger`,
 systemd's `UnitFileState`, such as `enabled`, `disabled`, `static` or `masked`;
 these are not interchangeable with Windows startup types. A template such as
 `worker@.service` has id `worker@` and a startup mode, without a description.
+An installed unit with `LoadState=error` or `bad-setting` still appears with the
+metadata systemd can return; its configuration problem does not block the other
+services. Load state is not published as a fact.
 Unknown fields are omitted. Drivers and per-user systemd managers are outside
 this set. Linux hosts without a working systemd manager report an error.
 The service inventory is not yet supported on macOS; enabling it reports an
@@ -240,6 +243,10 @@ One record per local Windows scheduled task, including disabled tasks and hidden
 tasks in every folder. This is independent of `check_tasksched`'s default filter,
 which excludes disabled tasks, and its default enumeration, which hides tasks
 marked hidden.
+
+When CheckTaskSched is loaded with a custom module alias, enable
+`tasks.scheduled` under `[/settings/<alias>/facts]`. The default
+`[/settings/task schedule/facts]` section applies to an unaliased module.
 
 | Field | Example | Meaning |
 |-------|---------|---------|

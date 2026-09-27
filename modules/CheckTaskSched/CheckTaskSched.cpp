@@ -23,7 +23,7 @@ namespace po = boost::program_options;
 
 bool CheckTaskSched::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
-  settings.set_alias("task schedule", alias);
+  settings.set_alias(alias, "task schedule");
   bool enabled = false;
   settings.alias().add_key_to_settings("facts").add_bool(
       task_facts::id_scheduled, sh::bool_key(&enabled, false), "SCHEDULED TASK FACTS",

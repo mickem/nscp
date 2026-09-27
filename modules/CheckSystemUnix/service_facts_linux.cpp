@@ -54,8 +54,10 @@ std::vector<service> gather_systemd(const command_runner &run) {
     const auto rows = checks::check_svc_filter::parse_systemctl_show(run(argv));
     if (rows.size() != batch.size()) throw std::runtime_error("Incomplete systemctl show response");
     for (const auto &row : rows) {
-      if (row.name.empty() || row.load_state.empty() || row.load_state == "not-found" || row.load_state == "error" || row.load_state == "bad-setting")
-        throw std::runtime_error("Service disappeared or could not be read during inventory collection");
+      if (row.name.empty() || row.load_state.empty()) throw std::runtime_error("Incomplete systemctl service metadata");
+      if (row.load_state == "not-found") throw std::runtime_error("Service disappeared during inventory collection: " + row.name);
+      // A unit with error/bad-setting is still installed. Its available
+      // metadata belongs in the inventory even though systemd cannot load it.
       result.push_back({row.name, row.desc, row.start_type});
     }
     batch.clear();

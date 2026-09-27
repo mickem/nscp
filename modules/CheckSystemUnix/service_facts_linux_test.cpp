@@ -105,6 +105,36 @@ TEST(service_facts_linux, show_queries_are_batched) {
   EXPECT_EQ(services.size(), 260u);
 }
 
+TEST(service_facts_linux, broken_unit_files_remain_in_the_inventory_without_blocking_other_services) {
+  const auto services = service_facts::gather_systemd([](const std::vector<std::string> &argv) {
+    if (argv[0] == "list-unit-files") return std::string("bad-setting.service disabled -\nerror.service disabled -\nhealthy.service enabled enabled\n");
+    if (argv[0] == "list-units") return std::string();
+    return std::string(
+        "Id=bad-setting.service\nDescription=Misconfigured service\nUnitFileState=disabled\nLoadState=bad-setting\n\n"
+        "Id=error.service\nLoadState=error\n\n"
+        "Id=healthy.service\nDescription=Healthy service\nUnitFileState=enabled\nLoadState=loaded\n");
+  });
+  ASSERT_EQ(services.size(), 3u);
+  nscapi::facts::response out;
+  service_facts::publish(services, 1700000000, out);
+  EXPECT_EQ(
+      nscapi::facts::testing::json_of(out, "services"),
+      "{\"installed\":[{\"id\":\"bad-setting\",\"name\":\"bad-setting\",\"display_name\":\"Misconfigured service\",\"start_type\":\"disabled\"},"
+      "{\"id\":\"error\",\"name\":\"error\"},{\"id\":\"healthy\",\"name\":\"healthy\",\"display_name\":\"Healthy service\",\"start_type\":\"enabled\"}]}");
+  EXPECT_EQ(nscapi::facts::testing::error_of(out, "services"), "");
+}
+
+TEST(service_facts_linux, incomplete_unit_metadata_still_fails_collection) {
+  for (const std::string output : {"LoadState=error\n", "Id=demo.service\n"}) {
+    EXPECT_THROW(service_facts::gather_systemd([&](const std::vector<std::string> &argv) {
+                   if (argv[0] == "list-unit-files") return std::string("demo.service disabled -\n");
+                   if (argv[0] == "list-units") return std::string();
+                   return output;
+                 }),
+                 std::runtime_error);
+  }
+}
+
 TEST(service_facts_linux, live_systemd_inventory) {
   if (access("/run/systemd/system", F_OK) != 0) GTEST_SKIP() << "This host does not run a systemd system manager";
   const auto services = service_facts::gather();

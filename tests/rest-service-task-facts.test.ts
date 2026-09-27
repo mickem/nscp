@@ -9,9 +9,8 @@ import { NscpInstance, describeWithModules, hasModule, onWindows } from "@fixtur
 jest.setTimeout(180_000);
 
 const serviceSection = `/settings/system/${onWindows ? "windows" : "unix"}/facts`;
-const taskSection = "/settings/task schedule/facts";
-
-describeWithModules("CheckSystem", "WEBServer")("REST service and task facts", () => {
+function serviceAndTaskFacts(taskAlias: string) {
+  const taskSection = `/settings/${taskAlias || "task schedule"}/facts`;
   let nscp: NscpInstance;
   let key: string;
   let withTasks: boolean;
@@ -95,11 +94,19 @@ describeWithModules("CheckSystem", "WEBServer")("REST service and task facts", (
       "/modules": {
         WEBServer: "enabled",
         CheckSystem: "enabled",
-        ...(withTasks ? { CheckTaskSched: "enabled" } : {}),
+        ...(withTasks
+          ? taskAlias
+            ? { [taskAlias]: "CheckTaskSched" }
+            : { CheckTaskSched: "enabled" }
+          : {}),
       },
       "/settings/default": { "allowed hosts": "127.0.0.1,::1" },
       "/settings/WEB/server": { port: String(port) },
       "/settings/WEB/server/users/admin": { role: "full", password: "facts-password" },
+      // A custom alias must ignore the default section, even if it is enabled.
+      ...(withTasks && taskAlias
+        ? { "/settings/task schedule/facts": { "tasks.scheduled": "true" } }
+        : {}),
     });
     nscp.start();
     await nscp.waitForPort(port, { timeoutMs: 30_000 });
@@ -216,4 +223,9 @@ describeWithModules("CheckSystem", "WEBServer")("REST service and task facts", (
     expect(body.errors).toEqual({});
     expect(body.gathered).toEqual({});
   });
-});
+}
+
+describeWithModules("CheckSystem", "WEBServer").each(onWindows ? ["", "custom tasks"] : [""])(
+  "REST service and task facts (alias=%s)",
+  serviceAndTaskFacts,
+);
