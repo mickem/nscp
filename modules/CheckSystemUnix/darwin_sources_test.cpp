@@ -25,15 +25,20 @@
 #include "plist_value.h"
 #include "system_facts.h"
 
-TEST(darwin_collector, cpu_times_has_an_aggregate_and_every_core) {
+TEST(darwin_collector, cpu_times_has_every_core_and_no_summed_aggregate) {
   const std::map<std::string, collector_source::cpu_times> times = collector_source::read_cpu_times();
-  ASSERT_EQ(times.count("cpu"), 1u);
+  // No "cpu" row: the aggregate is summed from corrected per-core deltas.
+  EXPECT_EQ(times.count("cpu"), 0u);
   const long cores = sysconf(_SC_NPROCESSORS_ONLN);
-  EXPECT_EQ(static_cast<long>(times.size()), cores + 1);
-  EXPECT_GT(times.at("cpu").total(), 0u);
-  // Darwin has no iowait or steal accounting; the reader leaves them at 0.
-  EXPECT_EQ(times.at("cpu").iowait, 0u);
-  EXPECT_EQ(times.at("cpu").steal, 0u);
+  EXPECT_EQ(static_cast<long>(times.size()), cores);
+  for (const auto &entry : times) {
+    EXPECT_GE(collector_source::core_index(entry.first), 0) << entry.first;
+    EXPECT_TRUE(entry.second.counters_32bit) << entry.first;
+    EXPECT_GT(entry.second.total(), 0u) << entry.first;
+    // Darwin has no iowait or steal accounting; the reader leaves them at 0.
+    EXPECT_EQ(entry.second.iowait, 0u);
+    EXPECT_EQ(entry.second.steal, 0u);
+  }
 }
 
 TEST(darwin_collector, memory_is_measured) {

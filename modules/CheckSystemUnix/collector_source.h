@@ -22,12 +22,17 @@ namespace collector_source {
 
 // Cumulative CPU time for one row, in the platform's tick unit. The aggregate
 // row is named "cpu", each core "cpu<N>" with N its zero-based index - the
-// /proc/stat spelling, which the Darwin reader adopts so the load calculation
-// does not care where the numbers came from.
+// /proc/stat spelling, which the Darwin reader adopts for its cores so the load
+// calculation does not care where the numbers came from.
 //
 // Darwin has user, nice, system and idle only. iowait, irq, softirq and steal
 // stay 0 there: they are folded into the others by the Darwin scheduler, not
 // measured as zero.
+//
+// Darwin has no aggregate row. Its tick counters are 32-bit per core, and a
+// row summed from them would be neither 32-bit (so a wrap cannot be detected
+// on it) nor monotonic (it drops whenever one core wraps). The aggregate is
+// the sum of the per-core deltas instead: see aggregate_delta().
 struct cpu_times {
   std::string name;
   unsigned long long user = 0;
@@ -38,6 +43,10 @@ struct cpu_times {
   unsigned long long irq = 0;
   unsigned long long softirq = 0;
   unsigned long long steal = 0;
+  // The counters are 32-bit and wrap (Darwin). When false (Linux: 64-bit
+  // counters), a counter that went down is not a wrap but a decrease the
+  // kernel documents - iowait can drop - and it counts as no time.
+  bool counters_32bit = false;
 
   unsigned long long total_idle() const { return idle + iowait; }
   unsigned long long total_busy() const { return user + nice + system + irq + softirq + steal; }
@@ -51,6 +60,19 @@ struct cpu_times {
 int core_index(const std::string &name);
 
 std::map<std::string, cpu_times> read_cpu_times();
+
+// The ticks a counter advanced between two readings. A 32-bit counter that
+// went down wrapped, and is measured across the wrap; any other decrease is
+// no time rather than a near-2^64 (or near-2^32) jump.
+unsigned long long counter_delta(unsigned long long cur, unsigned long long prev, bool counters_32bit);
+
+// Field by field counter_delta() of one row. The result's name is cur's.
+cpu_times times_delta(const cpu_times &prev, const cpu_times &cur);
+
+// The aggregate ticks between two readings: the "cpu" row's delta where the
+// platform has one (Linux), otherwise the sum of the deltas of every core
+// present in both readings (Darwin). False when there is nothing to compare.
+bool aggregate_delta(const std::map<std::string, cpu_times> &prev, const std::map<std::string, cpu_times> &cur, cpu_times &out);
 
 // Memory in bytes, in the three views check_memory reports.
 //

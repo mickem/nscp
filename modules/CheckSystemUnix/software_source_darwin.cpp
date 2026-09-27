@@ -62,24 +62,22 @@ void read_bundles(const fs::path &dir, std::vector<installed_software::software_
 
 // A formula or cask directory holds one directory per installed version. The
 // linked one - the target of <prefix>/opt/<name> for a formula - is the one in
-// use; otherwise the highest.
+// use; otherwise the highest by version, not by name (1.10 is newer than 1.9).
 void read_kegs(const fs::path &root, const fs::path &opt, std::vector<installed_software::software_entry> &out) {
   for (const fs::path &keg : list_dir(root)) {
-    const std::vector<fs::path> versions = list_dir(keg);
-    if (versions.empty()) continue;
-    fs::path chosen = versions.back();
+    const std::string name = keg.filename().string();
+    if (name.empty() || name[0] == '.') continue;
+    std::vector<std::string> versions;
+    for (const fs::path &v : list_dir(keg)) versions.push_back(v.filename().string());
     boost::system::error_code ec;
-    const fs::path linked = fs::read_symlink(opt / keg.filename(), ec);
-    if (!ec) {
-      for (const fs::path &v : versions) {
-        if (v.filename() == linked.filename()) chosen = v;
-      }
-    }
+    const fs::path linked = fs::read_symlink(opt / name, ec);
+    const std::string chosen = installed_software::pick_keg_version(versions, ec ? std::string() : linked.filename().string());
+    if (chosen.empty()) continue;
     installed_software::software_entry e;
     e.manager = "homebrew";
-    e.name = keg.filename().string();
-    e.version = chosen.filename().string();
-    e.install_date_epoch = mtime_of(chosen);
+    e.name = name;
+    e.version = chosen;
+    e.install_date_epoch = mtime_of(keg / chosen);
     e.install_date_str = installed_software::format_epoch_date(e.install_date_epoch);
     out.push_back(e);
   }

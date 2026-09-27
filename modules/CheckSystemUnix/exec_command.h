@@ -22,7 +22,8 @@ struct exec_result {
 // /dev/null. argv[0] is the program - an absolute path, or a name looked up
 // on PATH - and the remaining elements are passed verbatim. The child is
 // killed once `timeout_ms` has passed, measured as one deadline for the whole
-// run rather than per read.
+// run rather than per read - including the wait for it to exit after it
+// closed its stdout.
 exec_result run(const std::vector<std::string> &argv, int timeout_ms = 30000);
 
 // run() for callers that only want the output: empty when the program could

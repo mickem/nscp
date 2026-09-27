@@ -257,3 +257,27 @@ TEST(CheckInstalledSoftware, bundle_version_falls_back_to_the_build) {
   EXPECT_EQ(bare.version, "");
   EXPECT_EQ(bare.install_date_str, "");
 }
+
+TEST(CheckInstalledSoftware, versions_compare_by_number_not_by_text) {
+  using installed_software::version_less;
+  EXPECT_TRUE(version_less("1.9", "1.10"));
+  EXPECT_FALSE(version_less("1.10", "1.9"));
+  EXPECT_TRUE(version_less("1.2.3", "1.2.3_1"));
+  EXPECT_TRUE(version_less("2.0", "10.0"));
+  EXPECT_TRUE(version_less("1.02", "1.3"));
+  EXPECT_FALSE(version_less("1.0", "1.0"));
+  EXPECT_TRUE(version_less("99999999999999999999", "100000000000000000000"));
+}
+
+TEST(CheckInstalledSoftware, the_keg_in_use_is_the_linked_one_or_the_highest_version) {
+  using installed_software::pick_keg_version;
+  // Sorted by name, 1.9 would be last and win.
+  EXPECT_EQ(pick_keg_version({"1.10", "1.9"}, ""), "1.10");
+  // A cask's .metadata sorts after the digits and is not a version.
+  EXPECT_EQ(pick_keg_version({"1.10", "1.9", ".metadata", ".DS_Store"}, ""), "1.10");
+  EXPECT_EQ(pick_keg_version({"1.10", "1.9"}, "1.9"), "1.9");
+  // A link to something that is not installed falls back to the highest.
+  EXPECT_EQ(pick_keg_version({"1.10", "1.9"}, "2.0"), "1.10");
+  EXPECT_EQ(pick_keg_version({".metadata"}, ""), "");
+  EXPECT_EQ(pick_keg_version({}, ""), "");
+}

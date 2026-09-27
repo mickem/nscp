@@ -230,6 +230,40 @@ software_entry receipt_entry(const plist::value &receipt) {
   return e;
 }
 
+bool version_less(const std::string &a, const std::string &b) {
+  std::string::size_type i = 0, j = 0;
+  const auto is_digit = [](const char c) { return c >= '0' && c <= '9'; };
+  while (i < a.size() && j < b.size()) {
+    if (is_digit(a[i]) && is_digit(b[j])) {
+      // Compare the digit runs as numbers of any length: skip leading zeros,
+      // then the longer run is the larger, then the first differing digit.
+      while (i < a.size() && a[i] == '0') ++i;
+      while (j < b.size() && b[j] == '0') ++j;
+      const std::string::size_type si = i, sj = j;
+      while (i < a.size() && is_digit(a[i])) ++i;
+      while (j < b.size() && is_digit(b[j])) ++j;
+      if (i - si != j - sj) return i - si < j - sj;
+      const int c = a.compare(si, i - si, b, sj, j - sj);
+      if (c != 0) return c < 0;
+    } else {
+      if (a[i] != b[j]) return a[i] < b[j];
+      ++i;
+      ++j;
+    }
+  }
+  return a.size() - i < b.size() - j;
+}
+
+std::string pick_keg_version(const std::vector<std::string> &versions, const std::string &linked) {
+  std::string best;
+  for (const std::string &v : versions) {
+    if (v.empty() || v[0] == '.') continue;
+    if (!linked.empty() && v == linked) return v;
+    if (best.empty() || version_less(best, v)) best = v;
+  }
+  return best;
+}
+
 software_entry bundle_entry(const std::string &bundle_name, const plist::value &info, const long long mtime) {
   software_entry e;
   e.manager = "bundle";

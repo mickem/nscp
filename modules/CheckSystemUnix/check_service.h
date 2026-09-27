@@ -251,6 +251,14 @@ bool launchd_exit_is_failure(long long last_exit, bool expected_running);
 filter_obj launchd_row(const launchd_listing &job, const std::map<std::string, bool> &disabled,
                        const std::map<std::string, std::string> &properties);
 
+// A check by name: the row for `label` from its printed properties (empty
+// when `launchctl print` did not find the job) and the disabled map.
+// Disabling a job also unloads it, so a disabled job has no properties to
+// print; it is still a known job, reported stopped with start_type disabled
+// and load_state not-loaded rather than as not-found.
+filter_obj launchd_service_info(const std::string &label, const std::map<std::string, bool> &disabled,
+                                const std::map<std::string, std::string> &properties);
+
 // ---- the platform source ----------------------------------------------------
 // Defined per platform: service_source_linux.cpp (systemctl) and
 // service_source_darwin.cpp (launchctl).

@@ -7,6 +7,7 @@
 // memory sample, check_kernel_memory, check_swap_io, check_kernel_stats and
 // check_load. Every call here works for an unprivileged account.
 
+#include <mach/mach_types.h>
 #include <mach/vm_statistics.h>
 #include <sys/sysctl.h>
 #include <sys/types.h>
@@ -15,6 +16,10 @@
 #include <vector>
 
 namespace mach_stats {
+
+// The host port, taken once. mach_host_self() hands out a new send right on
+// every call, which the collector would otherwise leak once a second.
+mach_port_t host_port();
 
 // host_statistics64(HOST_VM_INFO64) plus the page size its counts are in (16
 // KiB on Apple silicon). False with `error` set when either call fails.
@@ -34,5 +39,9 @@ unsigned long long mach_ticks_to_ns(unsigned long long ticks);
 // every process whoever owns it.
 std::vector<struct kinfo_proc> read_all_processes();
 bool read_process(pid_t pid, struct kinfo_proc &out);
+
+// A string sysctl by name (hw.model, kern.osproductversion, ...), empty when
+// it does not exist or cannot be read.
+std::string sysctl_string(const char *name);
 
 }  // namespace mach_stats

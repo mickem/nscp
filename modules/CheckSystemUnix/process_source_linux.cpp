@@ -17,18 +17,14 @@
 #include <vector>
 
 #include "check_process.h"
+#include "procfs_linux.h"
 
 namespace check_proc {
 namespace check_proc_filter {
 
 namespace {
 
-std::string read_file(const std::string &path) {
-  std::ifstream file(path);
-  std::stringstream ss;
-  ss << file.rdbuf();
-  return ss.str();
-}
+using procfs::read_file;
 
 // Boot time is constant for the lifetime of the agent; read it once.
 unsigned long long get_boot_time() {

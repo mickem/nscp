@@ -56,16 +56,6 @@ void fill_metrics(filter_obj &info) {
   info.has_metrics = true;
 }
 
-filter_obj not_found(const std::string &name) {
-  filter_obj info;
-  info.name = name;
-  info.load_state = "not-found";
-  info.active = "inactive";
-  info.sub_state = "dead";
-  info.state = "stopped";
-  return info;
-}
-
 }  // namespace
 
 bool is_unit_active(const std::string &unit) { return !active_units({unit}).empty(); }
@@ -83,12 +73,11 @@ std::set<std::string> active_units(const std::vector<std::string> &units) {
 }
 
 filter_obj get_service_info(const std::string &service) {
-  if (!is_safe_unit_name(service)) return not_found(service);
+  if (!is_safe_unit_name(service)) return launchd_service_info(service, {}, {});
   const std::map<std::string, std::string> properties = parse_launchctl_print(system_exec::exec_command({launchctl, "print", "system/" + service}));
-  if (properties.empty()) return not_found(service);
-  launchd_listing job;
-  job.label = service;
-  filter_obj info = launchd_row(job, read_disabled(), properties);
+  // Read even when the print found nothing: disabling a job unloads it, and
+  // the override database is the only place a disabled job still shows up.
+  filter_obj info = launchd_service_info(service, read_disabled(), properties);
   fill_metrics(info);
   return info;
 }

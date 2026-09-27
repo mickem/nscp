@@ -335,11 +335,6 @@ filter_obj fetch_updates(const std::string &manager, const exec_fn &exec) {
   if (manager == "pacman") {
     return parse_pacman_output(exec("pacman -Qu 2>/dev/null"));
   }
-  if (manager == "softwareupdate") {
-    // The cached list; the live query is the check's live=true, which needs
-    // a deadline the exec_fn here does not have.
-    return parse_software_update_plist(read_software_update_cache());
-  }
   filter_obj obj;
   obj.manager = "none";
   return obj;

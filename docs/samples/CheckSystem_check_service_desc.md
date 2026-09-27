@@ -97,7 +97,11 @@ same way:
 `start_type` is `disabled` for a job disabled by an override, `enabled` for one
 that runs at load or is kept alive, and `on-demand` for the rest. The
 distinction needs the job's own properties, so it is made for a check by name;
-`service=*` reports `disabled` or leaves `start_type` empty. launchd's last
+`service=*` reports `disabled` or leaves `start_type` empty. Disabling a job
+also unloads it, so `service=*` does not list it at all; a check by name still
+finds it in the override database and reports it `stopped` with `start_type`
+`disabled` and `load_state` `not-loaded`. A label launchd knows nothing about
+has `load_state` `not-found` and an empty `start_type`. launchd's last
 exit status is history rather than state - idle on-demand jobs routinely carry
 a non-zero one - so a non-zero exit only counts as a failure for a job meant
 to be running, which again needs a check by name. A crash counts everywhere;

@@ -127,11 +127,79 @@ TEST(collector_calc, a_counter_that_went_backwards_reads_as_no_traffic) {
 
 TEST(collector_calc, a_32_bit_tick_counter_that_wrapped_is_measured_across_the_wrap) {
   std::map<std::string, collector_source::cpu_times> before, after;
-  before["cpu"] = make_times("cpu", 1000, 1000, 0xFFFFFFF0ull);
+  before["cpu0"] = make_times("cpu0", 1000, 1000, 0xFFFFFFF0ull);
   // idle wrapped: 0x10 ticks before the wrap and 0x40 after it.
-  after["cpu"] = make_times("cpu", 1010, 1010, 0x40ull);
+  after["cpu0"] = make_times("cpu0", 1010, 1010, 0x40ull);
+  before["cpu0"].counters_32bit = after["cpu0"].counters_32bit = true;
   const cpu_load load = collector_calc::calculate_cpu_load(before, after);
   const double total = 10 + 10 + 0x50;
+  ASSERT_EQ(load.core.size(), 1u);
+  EXPECT_DOUBLE_EQ(load.core[0].idle, 100.0 * 0x50 / total);
+  EXPECT_DOUBLE_EQ(load.core[0].user, 100.0 * 10 / total);
+  // No aggregate row (Darwin): the machine is the sum of the corrected cores.
   EXPECT_DOUBLE_EQ(load.total.idle, 100.0 * 0x50 / total);
   EXPECT_DOUBLE_EQ(load.total.user, 100.0 * 10 / total);
+}
+
+TEST(collector_calc, one_core_wrapping_on_a_machine_past_2_32_total_ticks_is_not_a_busy_second) {
+  // Eight busy-ish cores whose idle counters sum well past 2^32. A summed
+  // aggregate row would have dropped by almost 2^32 when core 0 wrapped, and
+  // the old heuristic (prev > 2^32, so not a wrap) read that as zero idle.
+  std::map<std::string, collector_source::cpu_times> before, after;
+  for (int i = 0; i < 8; ++i) {
+    const std::string name = "cpu" + std::to_string(i);
+    before[name] = make_times(name, 5000, 5000, i == 0 ? 0xFFFFFFF0ull : 0xF0000000ull);
+    after[name] = make_times(name, 5010, 5010, i == 0 ? 0x50ull : 0xF0000060ull);
+    before[name].counters_32bit = after[name].counters_32bit = true;
+  }
+  const cpu_load load = collector_calc::calculate_cpu_load(before, after);
+  ASSERT_EQ(load.core.size(), 8u);
+  const double per_core = 10 + 10 + 0x60;
+  EXPECT_DOUBLE_EQ(load.core[0].idle, 100.0 * 0x60 / per_core);
+  EXPECT_DOUBLE_EQ(load.total.idle, 100.0 * 0x60 / per_core);
+  EXPECT_DOUBLE_EQ(load.total.user, 100.0 * 10 / per_core);
+}
+
+TEST(collector_calc, a_64_bit_counter_that_went_down_is_no_time_not_a_wrap) {
+  // proc(5): iowait can decrease. A one-tick drop on a counter still under
+  // 2^32 used to be "corrected" into a ~4.29e9-tick delta and a 100% idle
+  // sample.
+  std::map<std::string, collector_source::cpu_times> before, after;
+  before["cpu"] = make_times("cpu", 1000, 1000, 5000);
+  after["cpu"] = make_times("cpu", 1060, 1020, 5020);
+  before["cpu"].iowait = 700;
+  after["cpu"].iowait = 699;
+  const cpu_load load = collector_calc::calculate_cpu_load(before, after);
+  const double total = 60 + 20 + 20;
+  EXPECT_DOUBLE_EQ(load.total.idle, 100.0 * 20 / total);
+  EXPECT_DOUBLE_EQ(load.total.user, 100.0 * 60 / total);
+  EXPECT_DOUBLE_EQ(load.total.kernel, 100.0 * 20 / total);
+}
+
+TEST(collector_calc, counter_delta_only_wraps_a_32_bit_counter) {
+  EXPECT_EQ(collector_source::counter_delta(5, 3, false), 2ull);
+  EXPECT_EQ(collector_source::counter_delta(3, 5, false), 0ull);
+  EXPECT_EQ(collector_source::counter_delta(0x10, 0xFFFFFFF0ull, true), 0x20ull);
+  // Above 2^32 a 32-bit counter cannot have been: a reset, not a wrap.
+  EXPECT_EQ(collector_source::counter_delta(0x10, 0x1FFFFFFF0ull, true), 0ull);
+}
+
+TEST(collector_calc, aggregate_delta_prefers_the_aggregate_row_and_otherwise_sums_the_cores) {
+  std::map<std::string, collector_source::cpu_times> before, after;
+  before["cpu0"] = make_times("cpu0", 10, 10, 10);
+  after["cpu0"] = make_times("cpu0", 15, 12, 20);
+  before["cpu1"] = make_times("cpu1", 10, 10, 10);
+  after["cpu1"] = make_times("cpu1", 11, 14, 30);
+  collector_source::cpu_times d;
+  ASSERT_TRUE(collector_source::aggregate_delta(before, after, d));
+  EXPECT_EQ(d.user, 6ull);
+  EXPECT_EQ(d.system, 6ull);
+  EXPECT_EQ(d.idle, 30ull);
+
+  before["cpu"] = make_times("cpu", 100, 100, 100);
+  after["cpu"] = make_times("cpu", 101, 101, 101);
+  ASSERT_TRUE(collector_source::aggregate_delta(before, after, d));
+  EXPECT_EQ(d.user, 1ull);
+
+  EXPECT_FALSE(collector_source::aggregate_delta({}, after, d));
 }

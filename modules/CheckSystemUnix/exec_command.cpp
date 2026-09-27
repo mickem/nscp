@@ -12,6 +12,7 @@
 #include <cerrno>
 #include <chrono>
 #include <csignal>
+#include <thread>
 
 namespace system_exec {
 
@@ -91,12 +92,28 @@ exec_result run(const std::vector<std::string> &argv, const int timeout_ms) {
   }
   close(pipefd[0]);
 
+  // End of output is not the end of the child: one that closes (or hands
+  // off) its stdout and lingers - a helper that daemonises - would block a
+  // plain waitpid() for good. Poll for the exit under the same deadline, then
+  // kill.
   int status = 0;
-  if (timed_out) kill(pid, SIGKILL);
-  pid_t reaped = -1;
-  do {
-    reaped = waitpid(pid, &status, 0);
-  } while (reaped == -1 && errno == EINTR);
+  pid_t reaped = 0;
+  while (!timed_out) {
+    reaped = waitpid(pid, &status, WNOHANG);
+    if (reaped == pid) break;
+    if (reaped == -1 && errno != EINTR) break;
+    if (std::chrono::steady_clock::now() >= deadline) {
+      timed_out = true;
+      break;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  if (timed_out) {
+    kill(pid, SIGKILL);
+    do {
+      reaped = waitpid(pid, &status, 0);
+    } while (reaped == -1 && errno == EINTR);
+  }
   out.timed_out = timed_out;
   // No exit status (the child was not reaped) is not a clean exit.
   if (reaped == pid && !timed_out && WIFEXITED(status)) out.exit_code = WEXITSTATUS(status);

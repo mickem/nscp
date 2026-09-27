@@ -30,6 +30,7 @@
 #include "check_cpu_frequency.h"
 #include "check_os_version.h"
 #include "check_temperature.h"
+#include "mach_stats_darwin.h"
 #include "system_facts.h"
 
 namespace {
@@ -194,15 +195,6 @@ cpu_frequency_check::cpus_type cpu_frequency_check::read_cpu_frequency() { retur
 
 namespace {
 
-std::string sysctl_string(const char *name) {
-  std::size_t length = 0;
-  if (sysctlbyname(name, nullptr, &length, nullptr, 0) != 0 || length == 0) return "";
-  std::string value(length, '\0');
-  if (sysctlbyname(name, &value[0], &length, nullptr, 0) != 0) return "";
-  value.resize(std::strlen(value.c_str()));
-  return value;
-}
-
 bool sysctl_int(const char *name, long long &out) {
   int value = 0;
   std::size_t length = sizeof(value);
@@ -238,7 +230,7 @@ host_facts::facts system_facts::gather() {
   // Apple, and hw.model is the model identifier ("Mac14,2"; "VirtualMac2,1"
   // in a guest of Apple's Virtualization framework).
   in.vendor = "Apple";
-  in.model = sysctl_string("hw.model");
+  in.model = mach_stats::sysctl_string("hw.model");
 
   long long vmm = 0;
   if (sysctl_int("kern.hv_vmm_present", vmm)) in.hypervisor = vmm != 0;

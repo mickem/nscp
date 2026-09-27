@@ -46,8 +46,10 @@ check_process process=postgres resolve-owner=true "crit=username != 'postgres'" 
 
 ##### macOS
 
-The process list comes from libproc. `pid`, `ppid`, `uid`, `username`,
-`creation`, `elapsed`, `filename` and `exe` are readable for every process.
+The process list comes from the kernel's process table (`sysctl KERN_PROC`,
+what `ps` reads) and the executable path from libproc. `pid`, `ppid`, `uid`,
+`username`, `creation`, `elapsed`, `filename` and `exe` are readable for every
+process.
 The memory, fault and CPU counters (`virtual`, `working_set`, `rss`,
 `page_faults`, `user`, `kernel`, `time`) and `command_line` are not: macOS
 gives them only to the process's owner and to root, and the agent runs as the
@@ -57,6 +59,11 @@ render `unknown`, never satisfy a threshold and emit no performance data, and
 too, rather than an undercount. `peak_virtual` and `peak_working_set` are
 always `unknown`, since macOS keeps no per-process peaks. `page_faults` counts
 pageins, the faults that had to read from disk.
+
+`fetch-only`, the check_mk `<<<ps>>>` feed, is the one exception. Its
+format has no way to say unknown and a missing row would undercount the
+processes check_mk matches, so for those processes it lists `vsz`, `rss` and
+`cputime` as `0`. Put thresholds on them in `check_process` itself.
 
 `proc_state` maps the BSD process states: `running`, `sleeping`, `zombie` and
 `stopped`. Telling running from sleeping needs the counters above, so for

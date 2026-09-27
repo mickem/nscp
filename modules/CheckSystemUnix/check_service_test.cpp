@@ -355,6 +355,7 @@ TEST(CheckService, StartTypeKeywordFiltersThroughEvaluate) {
 
 using checks::check_svc_filter::launchd_listing;
 using checks::check_svc_filter::launchd_row;
+using checks::check_svc_filter::launchd_service_info;
 using checks::check_svc_filter::parse_launchctl_disabled;
 using checks::check_svc_filter::parse_launchctl_print;
 using checks::check_svc_filter::parse_launchctl_services;
@@ -515,6 +516,41 @@ TEST(Launchd, ARunningJobIsRunning) {
   EXPECT_EQ(info.start_type, "enabled");
   EXPECT_EQ(info.desc, "/usr/libexec/logd");
   EXPECT_TRUE(info.state_is_perfect());
+}
+
+TEST(Launchd, ADisabledJobThatLaunchdUnloadedIsDisabledNotMissing) {
+  // Disabling a job unloads it, so `launchctl print system/<label>` finds
+  // nothing; the override database still names it.
+  const filter_obj info = launchd_service_info("com.example.agent", {{"com.example.agent", true}}, parse_launchctl_print(""));
+  EXPECT_EQ(info.name, "com.example.agent");
+  EXPECT_EQ(info.start_type, "disabled");
+  EXPECT_EQ(info.load_state, "not-loaded");
+  EXPECT_EQ(info.state, "stopped");
+  EXPECT_TRUE(info.state_is_perfect());
+
+  // A check that alerts on an unhealthy job rather than on a stopped one
+  // leaves it alone, which it could not while the start type was empty.
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run({info}, {"filter=none", "critical=not state_is_perfect()", "detail-syntax=${name}=${start_type}"}, response),
+            PB::Common::ResultCode::OK)
+      << join_lines(response);
+}
+
+TEST(Launchd, AJobLaunchdDoesNotKnowIsNotFound) {
+  // Not in the override database, or listed there as enabled: no such job.
+  for (const std::map<std::string, bool> &disabled : {std::map<std::string, bool>{}, std::map<std::string, bool>{{"com.example.gone", false}}}) {
+    const filter_obj info = launchd_service_info("com.example.gone", disabled, {});
+    EXPECT_EQ(info.load_state, "not-found");
+    EXPECT_EQ(info.start_type, "");
+    EXPECT_EQ(info.state, "stopped");
+  }
+}
+
+TEST(Launchd, ALoadedJobIsReadFromItsProperties) {
+  const filter_obj info = launchd_service_info("com.apple.logd", {}, parse_launchctl_print(PRINT_LOGD));
+  EXPECT_EQ(info.load_state, "loaded");
+  EXPECT_EQ(info.state, "running");
+  EXPECT_EQ(info.start_type, "enabled");
 }
 
 TEST(Launchd, AnIdleOnDemandJobIsStaticAndOk) {

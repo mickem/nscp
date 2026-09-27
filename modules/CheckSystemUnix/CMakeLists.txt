@@ -162,6 +162,7 @@ NSCP_CREATE_TEST(
         check_service.cpp
         check_service_launchd.cpp
         exec_command.cpp
+        exec_command_test.cpp
         check_cpu_frequency_test.cpp
         check_cpu_frequency.cpp
         check_network_test.cpp

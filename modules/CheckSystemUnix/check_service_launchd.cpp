@@ -208,5 +208,25 @@ filter_obj launchd_row(const launchd_listing &job, const std::map<std::string, b
   return info;
 }
 
+filter_obj launchd_service_info(const std::string &label, const std::map<std::string, bool> &disabled,
+                                const std::map<std::string, std::string> &properties) {
+  launchd_listing job;
+  job.label = label;
+  if (!properties.empty()) return launchd_row(job, disabled, properties);
+  const auto dis = disabled.find(label);
+  if (dis != disabled.end() && dis->second) {
+    filter_obj info = launchd_row(job, disabled, properties);
+    info.load_state = "not-loaded";
+    return info;
+  }
+  filter_obj info;
+  info.name = label;
+  info.load_state = "not-found";
+  info.active = "inactive";
+  info.sub_state = "dead";
+  info.state = "stopped";
+  return info;
+}
+
 }  // namespace check_svc_filter
 }  // namespace checks

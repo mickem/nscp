@@ -318,6 +318,13 @@ void check_process(const PB::Commands::QueryRequestMessage::Request &request, PB
   // `fetch-only` short-circuits the filter machinery and emits one line per
   // process in `<<<ps>>>` format: (user,vsz_kb,rss_kb,cputime,pid) cmdline.
   // user is left empty; user_time + kernel_time are returned in seconds.
+  //
+  // The one exception to "never a zero that was not measured": check_mk
+  // parses vsz, rss and cputime as integers and has no spelling for unknown,
+  // and dropping the row would undercount the processes it matches. So a
+  // process whose counters the agent may not read (another user's, on macOS,
+  // see has_task_info) is listed with 0 there. The check itself reports those
+  // fields unknown; thresholds on them belong in the check, not in this feed.
   for (int i = 0; i < request.arguments_size(); i++) {
     const std::string &a = request.arguments(i);
     if (a == "fetch-only" || a == "--fetch-only") {

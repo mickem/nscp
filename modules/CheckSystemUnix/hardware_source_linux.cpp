@@ -19,6 +19,7 @@
 #include "check_cpu_frequency.h"
 #include "check_temperature.h"
 #include "system_facts.h"
+#include "procfs_linux.h"
 
 battery_check::batteries_type battery_check::read_battery() { return read_battery_from("/sys/class/power_supply"); }
 
@@ -44,16 +45,7 @@ std::string trim(const std::string &s) {
   return s.substr(begin, end - begin + 1);
 }
 
-// Read a whole (small, virtual) file. Returns an empty string when it is not
-// there, which is the normal case for the DMI files on a container or a board
-// with no SMBIOS.
-std::string read_file(const std::string &path) {
-  std::ifstream ifs(path.c_str());
-  if (!ifs.is_open()) return "";
-  std::stringstream ss;
-  ss << ifs.rdbuf();
-  return ss.str();
-}
+using procfs::read_file;
 
 // The first `flags` (x86) or `Features` (ARM) line of /proc/cpuinfo.
 std::string read_cpuinfo_flags() {

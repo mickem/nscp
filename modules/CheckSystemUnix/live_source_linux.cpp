@@ -21,18 +21,9 @@
 #include "check_os_version.h"
 #include "check_swap_io.h"
 #include "check_uptime.h"
+#include "procfs_linux.h"
 
-namespace {
-
-std::string read_file(const std::string &path) {
-  std::ifstream ifs(path.c_str());
-  if (!ifs.is_open()) return "";
-  std::stringstream ss;
-  ss << ifs.rdbuf();
-  return ss.str();
-}
-
-}  // namespace
+using procfs::read_file;
 
 bool checks::read_uptime_seconds(double &uptime_secs, std::string &error) {
   try {

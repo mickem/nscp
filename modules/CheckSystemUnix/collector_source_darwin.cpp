@@ -32,14 +32,15 @@ std::map<std::string, cpu_times> read_cpu_times() {
   natural_t cpu_count = 0;
   processor_info_array_t info = nullptr;
   mach_msg_type_number_t info_count = 0;
-  const kern_return_t kr = host_processor_info(mach_host_self(), PROCESSOR_CPU_LOAD_INFO, &cpu_count, &info, &info_count);
+  const kern_return_t kr = host_processor_info(mach_stats::host_port(), PROCESSOR_CPU_LOAD_INFO, &cpu_count, &info, &info_count);
   if (kr != KERN_SUCCESS || info == nullptr) {
     NSC_LOG_ERROR("Failed to read CPU times: host_processor_info returned " + std::to_string(kr));
     return result;
   }
 
-  cpu_times total;
-  total.name = "cpu";
+  // Per core only. The ticks are 32-bit and each core wraps on its own, so an
+  // aggregate row summed here could not be corrected for a wrap; the load
+  // calculation sums the corrected per-core deltas instead.
   const processor_cpu_load_info_t load = reinterpret_cast<processor_cpu_load_info_t>(info);
   for (natural_t i = 0; i < cpu_count; ++i) {
     cpu_times core;
@@ -48,13 +49,9 @@ std::map<std::string, cpu_times> read_cpu_times() {
     core.nice = load[i].cpu_ticks[CPU_STATE_NICE];
     core.system = load[i].cpu_ticks[CPU_STATE_SYSTEM];
     core.idle = load[i].cpu_ticks[CPU_STATE_IDLE];
-    total.user += core.user;
-    total.nice += core.nice;
-    total.system += core.system;
-    total.idle += core.idle;
+    core.counters_32bit = true;
     result[core.name] = core;
   }
-  result[total.name] = total;
 
   vm_deallocate(mach_task_self(), reinterpret_cast<vm_address_t>(info), static_cast<vm_size_t>(info_count) * sizeof(integer_t));
   return result;

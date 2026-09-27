@@ -17,18 +17,13 @@
 
 #include "check_service.h"
 #include "exec_command.h"
+#include "procfs_linux.h"
 
 namespace checks {
 namespace check_svc_filter {
 
 namespace {
-std::string read_file(const std::string &path) {
-  std::ifstream ifs(path.c_str());
-  if (!ifs.is_open()) return "";
-  std::stringstream ss;
-  ss << ifs.rdbuf();
-  return ss.str();
-}
+using procfs::read_file;
 
 // System-wide timing needed to turn a process' jiffies into wall-clock values.
 struct sys_timing {

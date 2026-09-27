@@ -92,7 +92,9 @@ std::string detect_manager();
 typedef std::function<std::string(const std::string &)> exec_fn;
 
 // Run the appropriate detection + parse pipeline. exec is called with the shell command and
-// must return the captured stdout.
+// must return the captured stdout. The Linux package managers only: macOS's
+// softwareupdate is read by the check itself, which needs a deadline for
+// live=true and an UNKNOWN for a missing cache that this return cannot carry.
 filter_obj fetch_updates(const std::string &manager, const exec_fn &exec);
 
 // Public check entry point.

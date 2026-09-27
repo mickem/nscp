@@ -30,15 +30,6 @@
 
 namespace {
 
-std::string sysctl_string(const char *name) {
-  std::size_t length = 0;
-  if (sysctlbyname(name, nullptr, &length, nullptr, 0) != 0 || length == 0) return "";
-  std::string value(length, '\0');
-  if (sysctlbyname(name, &value[0], &length, nullptr, 0) != 0) return "";
-  value.resize(std::strlen(value.c_str()));
-  return value;
-}
-
 long online_cpus() {
   const long ncpu = sysconf(_SC_NPROCESSORS_ONLN);
   return ncpu < 1 ? 1 : ncpu;
@@ -66,8 +57,8 @@ os_version::os_release_info os_version::read_os_release() {
   os_release_info out;
   // kern.osproductversion is the marketing version ("14.5") and
   // kern.osversion the build ("23F79"); both are what About This Mac shows.
-  const std::string version = sysctl_string("kern.osproductversion");
-  const std::string build = sysctl_string("kern.osversion");
+  const std::string version = mach_stats::sysctl_string("kern.osproductversion");
+  const std::string build = mach_stats::sysctl_string("kern.osversion");
   if (version.empty()) return out;
   out.distribution = "macos";
   out.family = "macos";
@@ -103,17 +94,25 @@ void load_check::check_load(const PB::Commands::QueryRequestMessage::Request &re
 
 namespace {
 
-bool read_cpu_jiffies(cpu_utilization_check::cpu_jiffies &out) {
-  const std::map<std::string, collector_source::cpu_times> times = collector_source::read_cpu_times();
-  const auto it = times.find("cpu");
-  if (it == times.end()) return false;
+// The aggregate ticks between two readings, as the jiffies of an interval
+// that starts at zero: Darwin's per-core counters are 32-bit and wrap one by
+// one, so they are corrected per core and summed rather than summed first.
+// compute_utilization() only takes differences, so a zero `prev` and the
+// delta as `cur` give it exactly the interval.
+bool cpu_interval(const std::map<std::string, collector_source::cpu_times> &before, const std::map<std::string, collector_source::cpu_times> &after,
+                  cpu_utilization_check::cpu_jiffies &prev, cpu_utilization_check::cpu_jiffies &cur) {
+  collector_source::cpu_times d;
+  if (!collector_source::aggregate_delta(before, after, d)) return false;
   // user, nice, system and idle are all Darwin accounts; the Linux-only
   // buckets stay 0.
-  out.user = it->second.user;
-  out.nice = it->second.nice;
-  out.system = it->second.system;
-  out.idle = it->second.idle;
-  out.valid = true;
+  prev = cpu_utilization_check::cpu_jiffies();
+  prev.valid = true;
+  cur = cpu_utilization_check::cpu_jiffies();
+  cur.user = d.user;
+  cur.nice = d.nice;
+  cur.system = d.system;
+  cur.idle = d.idle;
+  cur.valid = true;
   return true;
 }
 
@@ -121,12 +120,14 @@ bool read_cpu_jiffies(cpu_utilization_check::cpu_jiffies &out) {
 
 void cpu_utilization_check::check_cpu_utilization(const PB::Commands::QueryRequestMessage::Request &request,
                                                   PB::Commands::QueryResponseMessage::Response *response) {
-  cpu_jiffies prev, cur;
-  if (!read_cpu_jiffies(prev)) {
+  const std::map<std::string, collector_source::cpu_times> before = collector_source::read_cpu_times();
+  if (before.empty()) {
     return nscapi::protobuf::functions::set_response_bad(*response, "Failed to read CPU times (host_processor_info)");
   }
   std::this_thread::sleep_for(std::chrono::seconds(1));
-  if (!read_cpu_jiffies(cur)) {
+  const std::map<std::string, collector_source::cpu_times> after = collector_source::read_cpu_times();
+  cpu_jiffies prev, cur;
+  if (after.empty() || !cpu_interval(before, after, prev, cur)) {
     return nscapi::protobuf::functions::set_response_bad(*response, "Failed to read CPU times (host_processor_info)");
   }
   check_cpu_utilization_from(request, response, prev, cur);

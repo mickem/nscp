@@ -129,6 +129,17 @@ software_entry receipt_entry(const plist::value &receipt);
 // the extension, `info` its Contents/Info.plist, `mtime` when it last changed.
 software_entry bundle_entry(const std::string &bundle_name, const plist::value &info, long long mtime);
 
+// Version order for the directory names a package manager installs under:
+// runs of digits compare as numbers and everything else as text, so 1.10
+// sorts after 1.9 and 1.2.3_1 (a Homebrew revision) after 1.2.3.
+bool version_less(const std::string &a, const std::string &b);
+
+// The version directory of a Homebrew formula or cask in use: `linked` (the
+// name <prefix>/opt/<name> points at, empty when there is none) when it is
+// installed, otherwise the highest by version_less(). Dot entries - a cask's
+// .metadata, Finder's .DS_Store - are not versions. Empty when none is left.
+std::string pick_keg_version(const std::vector<std::string> &versions, const std::string &linked);
+
 // The three macOS sources together. Defined per platform; not ok on anything
 // but macOS.
 fetch_result fetch_macos_inventory();
