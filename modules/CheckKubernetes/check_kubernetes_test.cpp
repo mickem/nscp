@@ -560,18 +560,20 @@ TEST(KubeSettings, KubeconfigCaDataReplacesTheDefaultBundle) {
 }
 
 TEST(KubeSettings, KubeconfigCertificateAndKeyResolveIndependently) {
+  // Files are named relative to the kubeconfig (same temp directory): a full
+  // Windows path would put backslashes, which are JSON escapes, in the text.
   const temp_file key("KEY-FROM-FILE");
   const temp_file ca("CA-FROM-FILE");
   const temp_file cfg(R"({"current-context":"mixed",
     "clusters":[{"name":"x","cluster":{"server":"https://x.example.com","certificate-authority-data":"LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCg=="}},
                 {"name":"insecure-file","cluster":{"server":"https://x.example.com","insecure-skip-tls-verify":true,"certificate-authority":")" +
-                      ca.path.string() + R"("}}],
+                      ca.path.filename().string() + R"("}}],
     "contexts":[{"name":"mixed","context":{"cluster":"x","user":"mixed"}},
                 {"name":"half","context":{"cluster":"x","user":"half"}},
                 {"name":"bad-data","context":{"cluster":"x","user":"bad-data"}},
                 {"name":"insecure-file","context":{"cluster":"insecure-file","user":"half"}}],
     "users":[{"name":"mixed","user":{"client-certificate-data":"Q0VSVA==","client-key":")" +
-                      key.path.string() + R"("}},
+                      key.path.filename().string() + R"("}},
              {"name":"half","user":{"token":"t","client-certificate-data":"Q0VSVA=="}},
              {"name":"bad-data","user":{"client-certificate-data":"!!!","client-key-data":"S0VZ"}}]})");
   kube_checks::settings s;
