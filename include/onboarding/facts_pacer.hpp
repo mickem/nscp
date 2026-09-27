@@ -252,7 +252,7 @@ class facts_upload_pacer {
   // have passed. A shorter hold never cuts a longer one short.
   void hold(const clock::time_point now, const unsigned long seconds) {
     if (seconds == 0) return;
-    hold_until_ = std::max(hold_until_, now + std::chrono::seconds(seconds));
+    hold_until_ = (std::max)(hold_until_, now + std::chrono::seconds(seconds));
   }
 
   // `hash` cannot be sent as it is: not tried again until the document
@@ -270,8 +270,8 @@ class facts_upload_pacer {
   // For tests and diagnostics: when the document `hash` may next be tried.
   clock::time_point retry_at(const std::string &hash) const {
     clock::time_point at = hold_until_;
-    if (hash == rejected_hash_) at = std::max(at, retry_at_);
-    if (hash == acked_) at = std::max(at, resend_at_);
+    if (hash == rejected_hash_) at = (std::max)(at, retry_at_);
+    if (hash == acked_) at = (std::max)(at, resend_at_);
     return at;
   }
   unsigned int rejections() const { return rejections_; }
@@ -286,8 +286,8 @@ class facts_upload_pacer {
   static std::chrono::seconds step(const unsigned int taken) {
     const unsigned long first_step_seconds = 60;
     const unsigned long max_step_seconds = 3600;
-    const unsigned int shift = std::min(taken, 6u);  // 1 min << 6 is past the hour cap
-    return std::chrono::seconds(std::min(first_step_seconds << shift, max_step_seconds));
+    const unsigned int shift = (std::min)(taken, 6u);  // 1 min << 6 is past the hour cap
+    return std::chrono::seconds((std::min)(first_step_seconds << shift, max_step_seconds));
   }
 
   // The server holds the acknowledged document.
