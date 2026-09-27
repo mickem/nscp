@@ -113,6 +113,10 @@ class fleet_sync {
   // X-Facts-Hash header on a 2xx or 304 is what the server holds - the only
   // thing that triggers an upload. One rule for both calls.
   void note_server_response(const http::response &response);
+  // The upload at the end of a loop turn, unless the turn's calls (or the
+  // last upload) asked for quiet.
+  void upload_facts_this_turn();
+  void log_facts_failure(const std::string &hash, unsigned int status, const std::string &message);
   // The current facts hash for the state report; empty without a repository.
   std::string current_facts_hash() const;
 
@@ -154,9 +158,13 @@ class fleet_sync {
   // re-read on every settings reload).
   std::string oversize_hash_;
   std::size_t oversize_cap_ = 0;
-  // The status of the last failed upload that was logged, so a failure
-  // repeated on every retry is logged once - keyed on the status, not the
-  // body, which may carry a request id that differs every time.
+  // Loop turns whose upload is skipped: a fleet call in this turn answered
+  // with trouble, or the last upload was rate limited.
+  unsigned int facts_skip_turns_ = 0;
+  // The last failed upload that was logged, so a failure repeated at every
+  // backoff step is logged once per document and status - not per body,
+  // which may carry a request id that differs every time.
+  std::string last_facts_error_hash_;
   unsigned int last_facts_error_status_ = 0;
   reload_function request_reload_;
 

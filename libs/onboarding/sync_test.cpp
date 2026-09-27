@@ -1600,7 +1600,8 @@ TEST(FactsPacer, TheBackoffBelongsToTheDocument) {
 TEST(FactsPacer, RetryAfterHoldsEveryDocument) {
   pacer p;
   p.server_holds(NONE, t0);
-  p.rejected(H1, t0, 600);
+  p.rejected(H1, t0);
+  p.hold(t0, 600);
   EXPECT_FALSE(p.should_upload(H2, at(599))) << "the server asked for quiet, whatever we send";
   EXPECT_TRUE(p.should_upload(H2, at(600)));
   EXPECT_FALSE(p.should_upload(H1, at(599)));
@@ -1657,6 +1658,56 @@ TEST(FactsPacer, AHoldPausesEveryDocument) {
   p.hold(at(120), 10);  // a shorter hold never shortens a longer one
   EXPECT_FALSE(p.should_upload(H1, at(149)));
   EXPECT_TRUE(p.should_upload(H1, at(150)));
+}
+
+TEST(FactsPacer, ASuccessfulUploadClearsTheRejections) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  for (int i = 0; i < 3; ++i) p.rejected(H1, at(i));
+  EXPECT_EQ(p.acknowledged(H1, at(1000)), 0u) << "a document the server did not have is not a re-send";
+  EXPECT_EQ(p.rejections(), 0u) << "a rejection is transient: it does not outlive the success";
+  // A later loss starts from nothing: the first re-send is immediate.
+  p.server_holds(NONE, at(86400));
+  EXPECT_TRUE(p.should_upload(H1, at(86400)));
+}
+
+TEST(FactsPacer, ATransientRejectionDuringAResendDoesNotEscalateTheLosses) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.acknowledged(H1, t0);
+  p.server_holds(NONE, at(5));  // lost
+  p.rejected(H1, at(5));        // the re-send hits a 500
+  EXPECT_FALSE(p.should_upload(H1, at(64)));
+  ASSERT_TRUE(p.should_upload(H1, at(65)));
+  // It gets through: one loss, one re-send - the 500 in between counts for
+  // nothing once it is over.
+  EXPECT_EQ(p.acknowledged(H1, at(65)), 1u);
+  EXPECT_EQ(p.rejections(), 0u);
+  EXPECT_EQ(p.retry_at(H1), at(65 + 60)) << "the next re-send waits the first step, not a step escalated by the 500";
+}
+
+TEST(FactsPacer, AServerThatFallsSilentIsSentNothing) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  ASSERT_TRUE(p.should_upload(H1, t0));
+  p.server_silent();  // downgraded to a build without facts
+  EXPECT_FALSE(p.should_upload(H1, at(3600)));
+  p.server_holds(NONE, at(7200));  // and upgraded again
+  EXPECT_TRUE(p.should_upload(H1, at(7200)));
+}
+
+TEST(FactsPacer, ALossIsCountedPerResend) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.acknowledged(H1, t0);
+  long long now = 0;
+  for (unsigned int n = 1; n <= 8; ++n) {
+    p.server_holds(NONE, at(now));
+    ASSERT_TRUE(p.should_upload(H1, p.retry_at(H1)));
+    now = std::chrono::duration_cast<std::chrono::seconds>(p.retry_at(H1) - t0).count();
+    EXPECT_EQ(p.acknowledged(H1, at(now)), n);
+  }
+  EXPECT_EQ(p.retry_at(H1), at(now + 3600)) << "re-sends of a document the server keeps losing settle at once an hour";
 }
 
 TEST(FactsPacer, ARefusedDocumentWaitsForAChange) {

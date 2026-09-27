@@ -510,7 +510,7 @@ the server say whether it needs the rest:
   `POST /agent/v1/facts`. A matching answer costs nothing more than the hash,
   a host with nothing enabled never uploads, and a server that sends no
   `X-Facts-Hash` at all is one that does not do facts and is never sent the
-  document.
+  document - including one that sent it before and was downgraded since.
 
 ```json
 {
@@ -535,13 +535,17 @@ every poll:
   minute, then two, doubling up to once an hour. The wait belongs to that
   document: an inventory that changed in the meantime was never tried and goes
   at once.
-* **A server asking for quiet** - a 429 or 503 on the upload, the poll or the
-  state report - holds every upload for its `Retry-After`, or for one poll
-  interval when it sends none.
+* **A server in trouble** - any error answer to the poll, the state report
+  or the upload, a proxy's error page included - is sent no document in that
+  poll cycle, and a `Retry-After` holds every upload until it has passed. A
+  429 or 503 on the upload itself without one skips the next poll cycle too.
+  A rejection is forgotten as soon as the document gets through.
 * **A document the server acknowledged and then reports missing** is sent
-  again at once the first time, then on the same doubling schedule. Once the
-  server has kept it for a whole wait, the schedule resets, so a loss weeks
-  later is repaired at once again.
+  again at once the first time, and the agent log says so at info level.
+  Further re-sends of it wait a minute, then two, doubling up to once an hour,
+  which is logged as an error when it gets there. Once the server has kept it
+  for a whole wait, that resets, so a loss weeks later is repaired at once
+  again.
 * **A connection that fails outright** costs nothing: the next poll that gets
   through tries again.
 * **A document the server refuses as too large** (413) is not sent again until

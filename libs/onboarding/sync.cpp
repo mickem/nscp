@@ -7,6 +7,7 @@
 #include <initializer_list>
 #include <limits>
 #include <map>
+#include <net/http/http_request.hpp>
 #include <onboarding/sync.hpp>
 #include <sstream>
 #include <str/xtos.hpp>
@@ -74,15 +75,19 @@ std::string require_id(const json::object &object, const char *key, const char *
   return value;
 }
 
+// A SHA-256 as hex: exactly 64 hex digits, either case.
+bool is_sha256_hex(const std::string &value) {
+  if (value.size() != 64) return false;
+  for (const char c : value) {
+    if (std::isxdigit(static_cast<unsigned char>(c)) == 0) return false;
+  }
+  return true;
+}
+
 std::string require_sha256_hex(const json::object &object, const char *key, const char *context) {
   const std::string value = onboarding::detail::require_string(object, key, context);
-  if (value.size() != 64) {
+  if (!is_sha256_hex(value)) {
     throw bad_field(context, key, "must be a 64 character SHA-256 hex digest");
-  }
-  for (const char c : value) {
-    if (std::isxdigit(static_cast<unsigned char>(c)) == 0) {
-      throw bad_field(context, key, "must be a 64 character SHA-256 hex digest");
-    }
   }
   return value;
 }
@@ -424,41 +429,18 @@ std::string onboarding::build_facts_upload(const std::string &facts_hash, const 
 const char *const onboarding::facts_hash_header = "x-facts-hash";
 const char *const onboarding::empty_facts_hash = "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a";
 
-namespace {
-// Percent-encode a query value: everything but RFC 3986's unreserved
-// characters. A state hash may be base64 (the token grammar allows + / =),
-// and a bare '+' in a query reads back as a space - the server would compare
-// a different hash, and never answer 304.
-std::string encode_query_value(const std::string &value) {
-  static const char *digits = "0123456789ABCDEF";
-  std::string out;
-  out.reserve(value.size());
-  for (const char c : value) {
-    const auto u = static_cast<unsigned char>(c);
-    const bool unreserved = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '.' || c == '_' || c == '~';
-    if (unreserved) {
-      out.push_back(c);
-    } else {
-      out.push_back('%');
-      out.push_back(digits[u >> 4]);
-      out.push_back(digits[u & 0xf]);
-    }
-  }
-  return out;
-}
-}  // namespace
 
 std::string onboarding::desired_state_path(const std::string &current_hash, const std::string &facts_hash) {
   std::string path = "/agent/v1/desired-state";
   char separator = '?';
   if (!current_hash.empty()) {
     path += separator;
-    path += "current_hash=" + encode_query_value(current_hash);
+    path += "current_hash=" + http::uri_encode(current_hash);
     separator = '&';
   }
   if (!facts_hash.empty()) {
     path += separator;
-    path += "facts_hash=" + encode_query_value(facts_hash);
+    path += "facts_hash=" + http::uri_encode(facts_hash);
   }
   return path;
 }
@@ -467,12 +449,9 @@ boost::optional<std::string> onboarding::parse_facts_hash(const std::string &hea
   // Holding nothing and holding the empty document are one state, and a host
   // with nothing enabled has nothing to send in answer to either.
   if (header_value == "none") return std::string(empty_facts_hash);
-  if (header_value.size() != 64) return boost::none;
+  if (!is_sha256_hex(header_value)) return boost::none;
   std::string hash = header_value;
-  for (char &c : hash) {
-    if (std::isxdigit(static_cast<unsigned char>(c)) == 0) return boost::none;
-    c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-  }
+  std::transform(hash.begin(), hash.end(), hash.begin(), [](const unsigned char c) { return static_cast<char>(std::tolower(c)); });
   return hash;
 }
 

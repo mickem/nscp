@@ -126,6 +126,12 @@ describe("core fleet sync loop", () => {
    * not do facts at all (no header). A successful upload sets it.
    */
   let heldFactsHash: string | null = "none";
+  /**
+   * Answer desired-state polls with this status and a proxy's error page -
+   * one that happens to carry `X-Facts-Hash: none` - instead of the server's
+   * answer. 200 serves the real thing.
+   */
+  let pollStatus = 200;
   /** A server that acknowledges uploads and keeps nothing. */
   let forgetUploads = false;
   const factsHeader = (): Record<string, string> => (heldFactsHash === null ? {} : { "X-Facts-Hash": heldFactsHash });
@@ -297,6 +303,11 @@ describe("core fleet sync loop", () => {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end("{}");
         } else if (parsed.pathname === "/agent/v1/desired-state") {
+          if (pollStatus !== 200) {
+            res.writeHead(pollStatus, { "Content-Type": "text/html", "X-Facts-Hash": "none" });
+            res.end("<html><body>502 Bad Gateway</body></html>");
+            return;
+          }
           const r = desiredStateFor(parsed.searchParams.get("current_hash"));
           res.writeHead(r.code, { "Content-Type": "application/json", ...factsHeader() });
           res.end(JSON.stringify(r.body));
@@ -565,6 +576,9 @@ describe("core fleet sync loop", () => {
     // miss, and the first re-send is immediate.
     await waitFor("a second facts upload", () => factsUploads().length >= 2);
     expect(factsUploads()[1].body.facts_hash).toBe(ours);
+    // Said once, above debug, so an operator can tell why the server sees the
+    // same document arrive again.
+    await waitFor("the lost-document log line", () => nscp.capturedStdout().includes("The fleet server lost the facts document"));
     // The next one waits a minute (then two, ... up to an hour), so a broken
     // server does not pull the document on every poll.
     await settle(5);
@@ -595,6 +609,22 @@ describe("core fleet sync loop", () => {
     heldFactsHash = "none";
     await waitFor("an upload once the server answers", () => factsUploads().length > before);
     expect(factsUploads()[before].body.facts.agent).toBeTruthy();
+  });
+
+  it("ignores an error page's X-Facts-Hash, and uploads nothing while polls fail", async () => {
+    // The server holds our document. A proxy in front of it starts answering
+    // polls with an error page that carries `X-Facts-Hash: none`: that says
+    // nothing about the server, and a turn whose poll failed uploads nothing.
+    const before = factsUploads().length;
+    expect(heldFactsHash).toBe(factsUploads()[before - 1].body.facts_hash);
+    pollStatus = 502;
+    await settle(4);
+    expect(factsUploads()).toHaveLength(before);
+
+    // The proxy recovers; the server's own answer is that it holds ours.
+    pollStatus = 200;
+    await settle(3);
+    expect(factsUploads()).toHaveLength(before);
   });
 
   it("paces a rejected upload, and does not give up on it", async () => {

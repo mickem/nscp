@@ -17,30 +17,29 @@ namespace onboarding {
 //
 // The rules:
 //
-//  * Only in answer to the server. Until a response has said which document
-//    it holds, nothing is uploaded; a server that never says does not do
-//    facts.
+//  * Only in answer to the server. Until a response has said which document it
+//    holds, nothing is uploaded; a server that stops saying (a downgrade to a
+//    build without facts) is back to not doing facts, and gets nothing more.
 //  * Only on a miss: the document we hold differs from the one it holds.
 //  * A rejected upload (400, 401, 404, 429, 5xx: anything the next poll would
 //    only repeat) waits 1 min, then 2, doubling up to an hour, before that
-//    same document is tried again. The clock belongs to the document: a
-//    changed inventory was never tried and goes at once.
-//  * A Retry-After holds every upload, whatever the document and whichever
-//    call it came on - a rate-limited poll included: it is the server asking
-//    for quiet, not a verdict on one document.
-//  * A document the server acknowledged and then reports missing is sent
-//    again at once, the first time. Each further re-send of it waits on the
-//    same doubling clock, so a server that never keeps what it is sent costs
-//    an upload an hour, not one per poll.
-//  * The server answering with the document it acknowledged resets that
-//    document's clock - only that document's, and only once the clock has
-//    run out. An echo seconds after the re-send only repeats what the upload
-//    just set; a document still held a whole backoff window later has stuck,
-//    and a loss weeks after that is repaired at once again. An echo of an
-//    older document says nothing about a newer one being rejected: the
-//    server truthfully still holds H1 while H2 waits out its own backoff.
-//  * A document that can never be sent as it is (413, over our own cap, or
-//    one that could not be rendered) is not tried again until it changes.
+//    same document is tried again. The clock belongs to the document - a
+//    changed inventory was never tried and goes at once - and a successful
+//    upload of it clears it: a rejection is a transient state, not a record.
+//  * A hold (a Retry-After, on any call) pauses every upload, whatever the
+//    document: it is the server asking for quiet, not a verdict on one
+//    document.
+//  * A document the server acknowledged and then reports missing has been
+//    lost, which is a separate count from rejections. The first re-send is
+//    immediate; each further one waits 1 min, 2, ... up to an hour after the
+//    previous one, so a server that never keeps what it is sent costs an
+//    upload an hour, not one per poll.
+//  * The server answering with the lost document once the wait since its last
+//    re-send has passed means it stuck: the loss count resets, so a loss weeks
+//    later is repaired at once again. An echo inside that wait only repeats
+//    what the re-send just set, and says nothing.
+//  * A document that can never be sent as it is (413, or one that could not
+//    be rendered) is not tried again until it changes.
 class facts_upload_pacer {
  public:
   typedef std::chrono::steady_clock clock;
@@ -49,43 +48,62 @@ class facts_upload_pacer {
   // parsed: `none` arrives as the empty document's digest).
   void server_holds(const std::string &hash, const clock::time_point now) {
     server_ = hash;
-    if (!acked_.empty() && hash == acked_ && backoff_hash_ == hash && now >= retry_at_) reset();
+    if (resends_ > 0 && hash == acked_ && now >= resend_at_) {
+      resends_ = 0;
+      resend_at_ = clock::time_point();
+    }
   }
 
-  // The server asked for quiet (a Retry-After, on any call): no upload of any
-  // document before `seconds` have passed.
-  void hold(const clock::time_point now, const unsigned long seconds) {
-    if (seconds == 0) return;
-    server_not_before_ = std::max(server_not_before_, now + std::chrono::seconds(seconds));
-  }
+  // A response the server meant carried no X-Facts-Hash: it does not do
+  // facts (any more). Nothing is uploaded until one says what it holds again.
+  void server_silent() { server_ = boost::none; }
 
   // Whether to upload the document whose hash is `current`.
   bool should_upload(const std::string &current, const clock::time_point now) const {
     if (!server_ || current.empty()) return false;
     if (current == server_.value() || current == refused_) return false;
-    if (now < server_not_before_) return false;
-    if (current == backoff_hash_ && now < retry_at_) return false;
+    if (now < hold_until_) return false;
+    if (current == rejected_hash_ && now < retry_at_) return false;
+    if (current == acked_ && now < resend_at_) return false;
     return true;
   }
 
-  // The server acknowledged (2xx) the document `hash`.
-  void acknowledged(const std::string &hash, const clock::time_point now) {
-    // Acknowledged before, reported missing since: it did not keep it.
+  // The server acknowledged (2xx) the document `hash`. Returns how many times
+  // in a row this document has now been re-sent because the server lost it:
+  // 0 for a document it did not have before.
+  unsigned int acknowledged(const std::string &hash, const clock::time_point now) {
+    // Whatever was rejected before, this one got through.
+    if (hash == rejected_hash_) clear_rejections();
     if (hash == acked_) {
-      back_off(hash, now);
+      // Acknowledged before, reported missing since: lost. The next re-send
+      // of it waits.
+      ++resends_;
+      resend_at_ = now + step(resends_ - 1);
     } else {
-      reset();
+      acked_ = hash;
+      resends_ = 0;
+      resend_at_ = clock::time_point();
     }
-    acked_ = hash;
     server_ = hash;
+    return resends_;
   }
 
   // The server rejected the upload of `hash` in a way the next poll would
-  // only repeat. `retry_after_seconds` is its Retry-After, 0 when it sent
-  // none.
-  void rejected(const std::string &hash, const clock::time_point now, const unsigned long retry_after_seconds = 0) {
-    back_off(hash, now);
-    hold(now, retry_after_seconds);
+  // only repeat.
+  void rejected(const std::string &hash, const clock::time_point now) {
+    if (hash != rejected_hash_) {
+      rejected_hash_ = hash;
+      rejections_ = 0;
+    }
+    retry_at_ = now + step(rejections_);
+    ++rejections_;
+  }
+
+  // The server asked for quiet: no upload of any document before `seconds`
+  // have passed. A shorter hold never cuts a longer one short.
+  void hold(const clock::time_point now, const unsigned long seconds) {
+    if (seconds == 0) return;
+    hold_until_ = std::max(hold_until_, now + std::chrono::seconds(seconds));
   }
 
   // `hash` cannot be sent as it is: not tried again until the document
@@ -94,38 +112,43 @@ class facts_upload_pacer {
 
   // For tests and diagnostics: when the document `hash` may next be tried.
   clock::time_point retry_at(const std::string &hash) const {
-    const clock::time_point document = hash == backoff_hash_ ? retry_at_ : clock::time_point();
-    return std::max(document, server_not_before_);
+    clock::time_point at = hold_until_;
+    if (hash == rejected_hash_) at = std::max(at, retry_at_);
+    if (hash == acked_) at = std::max(at, resend_at_);
+    return at;
   }
+  unsigned int rejections() const { return rejections_; }
+  unsigned int resends() const { return resends_; }
 
  private:
-  void back_off(const std::string &hash, const clock::time_point now) {
-    if (hash != backoff_hash_) {
-      backoff_hash_ = hash;
-      attempts_ = 0;
-    }
+  // The wait after `taken` earlier steps: 1 min, doubling, capped at an hour.
+  static std::chrono::seconds step(const unsigned int taken) {
     const unsigned long first_step_seconds = 60;
     const unsigned long max_step_seconds = 3600;
-    const unsigned int shift = std::min(attempts_, 6u);  // 1 min << 6 is past the hour cap
-    retry_at_ = now + std::chrono::seconds(std::min(first_step_seconds << shift, max_step_seconds));
-    ++attempts_;
+    const unsigned int shift = std::min(taken, 6u);  // 1 min << 6 is past the hour cap
+    return std::chrono::seconds(std::min(first_step_seconds << shift, max_step_seconds));
   }
 
-  void reset() {
-    backoff_hash_.clear();
-    attempts_ = 0;
+  void clear_rejections() {
+    rejected_hash_.clear();
+    rejections_ = 0;
     retry_at_ = clock::time_point();
   }
 
   boost::optional<std::string> server_;
-  std::string acked_;
   std::string refused_;
-  // The document the backoff clock belongs to, how many steps it has taken,
-  // and when that document may next be tried.
-  std::string backoff_hash_;
-  unsigned int attempts_ = 0;
+  clock::time_point hold_until_;
+  // Rejections: the document they belong to, how many in a row, and when it
+  // may next be tried.
+  std::string rejected_hash_;
+  unsigned int rejections_ = 0;
   clock::time_point retry_at_;
-  clock::time_point server_not_before_;
+  // Losses: the document the server last acknowledged, how many times it has
+  // been re-sent since because the server reported it missing, and when the
+  // next re-send may go.
+  std::string acked_;
+  unsigned int resends_ = 0;
+  clock::time_point resend_at_;
 };
 
 }  // namespace onboarding
