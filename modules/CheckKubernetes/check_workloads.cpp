@@ -150,7 +150,7 @@ void check_workloads(const settings &defaults, const PB::Commands::QueryRequestM
     ("label-selector", po::value<std::string>(&opt.label_selector), "Label selector passed to the API server, e.g. app.kubernetes.io/part-of=shop.")
     ("field-selector", po::value<std::string>(&opt.field_selector), "Field selector passed to the API server, e.g. metadata.name=web.")
     ("workload", po::value<std::vector<std::string>>(&required), "Name of a workload that must exist, as name or namespace/name (repeatable). Only the named workloads take part in the check; one the API server does not return is reported with 0 available of 1 desired.")
-    ("timeout", po::value<int>(&timeout)->default_value(timeout), "Timeout for each API server request, in seconds (a positive number).")
+    ("timeout", po::value<int>(&timeout)->default_value(timeout), "Timeout in seconds for each network step of an API server request: the connect, the TLS handshake and each read. It is not a total for the check (a server that keeps trickling data takes longer). A positive number.")
     ;
   // clang-format on
 

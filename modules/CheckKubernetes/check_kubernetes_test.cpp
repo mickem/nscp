@@ -6,6 +6,7 @@
 #include <boost/filesystem.hpp>
 #include <cstdlib>
 #include <fstream>
+#include <limits>
 #include <map>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <stdexcept>
@@ -58,7 +59,10 @@ struct fake_api {
   std::vector<std::string> requests;
   kube_checks::cluster last_target;
 
-  void serve(const std::string &path, const std::string &payload) { routes[path] = payload; }
+  void serve(const std::string &path, const std::string &payload) {
+    errors.erase(path);
+    routes[path] = payload;
+  }
   void refuse(const std::string &path, const long status, const std::string &body = "") { errors[path] = std::make_pair(status, body); }
 
   kube_checks::fetcher_factory factory() {
@@ -246,7 +250,25 @@ TEST(CheckKubernetes, RejectedTokenIsUnknownWithoutTheToken) {
   EXPECT_EQ(run_cluster(api.factory(), {}, response), PB::Common::ResultCode::UNKNOWN) << join_lines(response);
   const std::string msg = join_lines(response);
   EXPECT_NE(msg.find("Kubernetes API server at 'https://k8s.example.com:6443' rejected the credentials (HTTP 401 for GET /version)"), std::string::npos) << msg;
+  EXPECT_NE(msg.find("the bearer token is invalid or expired - check `token` under [/settings/kubernetes]"), std::string::npos) << msg;
   EXPECT_EQ(msg.find(TOKEN), std::string::npos) << msg;
+}
+
+TEST(KubeClient, RejectedCredentialsNameTheCredentialInUse) {
+  const kube_checks::kube_http_error e(401, "HTTP 401 Unauthorized", "");
+  kube_checks::cluster c;
+  c.host = "k8s.example.com";
+  c.token = "t";
+  c.credential = "the mounted service account token (/var/run/secrets/kubernetes.io/serviceaccount/token)";
+  std::string msg = kube_checks::describe_http_error(c, "/version", e);
+  EXPECT_NE(msg.find("the bearer token is invalid or expired - check the mounted service account token"), std::string::npos) << msg;
+  EXPECT_EQ(msg.find("[/settings/kubernetes]"), std::string::npos) << "the mounted token is not configured there: " << msg;
+
+  c.token.clear();
+  c.client_cert_pem = "CERT";
+  c.credential = "the client certificate of user 'ops' in kubeconfig '/etc/nscp/kube.json'";
+  msg = kube_checks::describe_http_error(c, "/version", e);
+  EXPECT_NE(msg.find("the client certificate was not accepted - check the client certificate of user 'ops'"), std::string::npos) << msg;
 }
 
 TEST(CheckKubernetes, ForbiddenIsUnknownAndNamesTheRbacRule) {
@@ -280,6 +302,19 @@ TEST(CheckKubernetes, ANegativeResponseCapIsRefusedNotUnlimited) {
   PB::Commands::QueryResponseMessage::Response response2;
   run_cluster(api.factory(), {}, response2, s);
   EXPECT_EQ(api.last_target.max_response_bytes, 0u) << "0 is the documented no-cap value";
+
+  // 4096 MB is 2^32 bytes: a 32-bit size_t must clamp it, not wrap it to the
+  // no-cap value.
+  s.max_response_mb = 4096;
+  kube_checks::cluster c;
+  std::string error;
+  ASSERT_TRUE(kube_checks::resolve_cluster(s, c, error)) << error;
+  EXPECT_NE(c.max_response_bytes, 0u);
+  if (sizeof(std::size_t) == 4) {
+    EXPECT_EQ(c.max_response_bytes, (std::numeric_limits<std::size_t>::max)());
+  } else {
+    EXPECT_EQ(c.max_response_bytes, 4096ull * 1024ull * 1024ull);
+  }
 }
 
 TEST(CheckKubernetes, UnreachableServerIsUnknown) {
@@ -326,6 +361,12 @@ TEST(CheckKubernetes, ReadyzUnavailableIsNotAVerdict) {
   PB::Commands::QueryResponseMessage::Response response2;
   EXPECT_EQ(run_cluster(api.factory(), {"detail-syntax=%(api_ready)|%(readyz)"}, response2), PB::Common::ResultCode::OK) << join_lines(response2);
   EXPECT_EQ(join_lines(response2), "OK: ready|unavailable (HTTP 502)");
+
+  // A 2xx is a ready server whatever the body says.
+  api.serve("/readyz", "[+]ping ok\n[+]etcd ok\nreadyz check passed\n");
+  PB::Commands::QueryResponseMessage::Response response_verbose;
+  EXPECT_EQ(run_cluster(api.factory(), {"detail-syntax=%(api_ready)|%(readyz)"}, response_verbose), PB::Common::ResultCode::OK) << join_lines(response_verbose);
+  EXPECT_EQ(join_lines(response_verbose), "OK: ready|ok");
 
   // The API server's own report, without a named check, is still a verdict.
   api.refuse("/readyz", 500, "readyz check failed\n");
@@ -440,6 +481,7 @@ TEST(KubeSettings, ExplicitSettingsWithTokenFile) {
   EXPECT_EQ(c.verify_mode, "peer-cert");
   EXPECT_EQ(c.ca, "/etc/nscp/k8s-ca.pem");
   EXPECT_EQ(c.source, "settings");
+  EXPECT_EQ(c.credential, "`token file` ('" + token.path.string() + "') under [/settings/kubernetes]");
 
   s.token_file = "/nonexistent/nscp/token";
   EXPECT_FALSE(kube_checks::resolve_cluster(s, c, error));
@@ -494,6 +536,67 @@ TEST(KubeSettings, KubeconfigCurrentContext) {
   EXPECT_EQ(c.ca_pem, "-----BEGIN CERTIFICATE-----\n");
   EXPECT_EQ(c.verify_mode, "peer");
   EXPECT_EQ(c.source, "kubeconfig " + cfg.path.string());
+  EXPECT_EQ(c.credential, "the token of user 'prod-user' in kubeconfig '" + cfg.path.string() + "'");
+}
+
+TEST(KubeSettings, KubeconfigCaDataReplacesTheDefaultBundle) {
+  // kubectl trusts the kubeconfig's CA instead of the system store; loading
+  // both would accept any publicly trusted certificate for the server's name.
+  const temp_file cfg(KUBECONFIG);
+  kube_checks::settings s;
+  s.kubeconfig = cfg.path.string();
+  s.default_ca = "/etc/ssl/certs";
+  s.ca = s.default_ca;
+  kube_checks::cluster c;
+  std::string error;
+  ASSERT_TRUE(kube_checks::resolve_cluster(s, c, error)) << error;
+  EXPECT_EQ(c.ca_pem, "-----BEGIN CERTIFICATE-----\n");
+  EXPECT_TRUE(c.ca.empty()) << "the default bundle must not be trusted beside the CA data: " << c.ca;
+
+  // A bundle the operator set is kept, as the in-cluster path keeps it.
+  s.ca = "/etc/nscp/mesh-ca.pem";
+  ASSERT_TRUE(kube_checks::resolve_cluster(s, c, error)) << error;
+  EXPECT_EQ(c.ca, "/etc/nscp/mesh-ca.pem");
+}
+
+TEST(KubeSettings, KubeconfigCertificateAndKeyResolveIndependently) {
+  const temp_file key("KEY-FROM-FILE");
+  const temp_file ca("CA-FROM-FILE");
+  const temp_file cfg(R"({"current-context":"mixed",
+    "clusters":[{"name":"x","cluster":{"server":"https://x.example.com","certificate-authority-data":"LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCg=="}},
+                {"name":"insecure-file","cluster":{"server":"https://x.example.com","insecure-skip-tls-verify":true,"certificate-authority":")" +
+                      ca.path.string() + R"("}}],
+    "contexts":[{"name":"mixed","context":{"cluster":"x","user":"mixed"}},
+                {"name":"half","context":{"cluster":"x","user":"half"}},
+                {"name":"bad-data","context":{"cluster":"x","user":"bad-data"}},
+                {"name":"insecure-file","context":{"cluster":"insecure-file","user":"half"}}],
+    "users":[{"name":"mixed","user":{"client-certificate-data":"Q0VSVA==","client-key":")" +
+                      key.path.string() + R"("}},
+             {"name":"half","user":{"token":"t","client-certificate-data":"Q0VSVA=="}},
+             {"name":"bad-data","user":{"client-certificate-data":"!!!","client-key-data":"S0VZ"}}]})");
+  kube_checks::settings s;
+  s.kubeconfig = cfg.path.string();
+  kube_checks::cluster c;
+  std::string error;
+
+  // client-go accepts data for the certificate and a file for the key.
+  ASSERT_TRUE(kube_checks::resolve_cluster(s, c, error)) << error;
+  EXPECT_EQ(c.client_cert_pem, "CERT");
+  EXPECT_EQ(c.client_key_pem, "KEY-FROM-FILE");
+  EXPECT_EQ(c.credential, "the client certificate of user 'mixed' in kubeconfig '" + cfg.path.string() + "'");
+
+  s.context = "half";
+  EXPECT_FALSE(kube_checks::resolve_cluster(s, c, error));
+  EXPECT_NE(error.find("user 'half': client-certificate is set without a client-key"), std::string::npos) << error;
+
+  s.context = "bad-data";
+  EXPECT_FALSE(kube_checks::resolve_cluster(s, c, error));
+  EXPECT_NE(error.find("user 'bad-data': client-certificate-data is not valid base64"), std::string::npos) << error;
+
+  // client-go refuses insecure-skip-tls-verify with a CA in either form.
+  s.context = "insecure-file";
+  EXPECT_FALSE(kube_checks::resolve_cluster(s, c, error));
+  EXPECT_NE(error.find("insecure-skip-tls-verify cannot be combined with certificate-authority."), std::string::npos) << error;
 }
 
 TEST(KubeSettings, KubeconfigNamedContextWithClientCertificate) {
@@ -720,7 +823,11 @@ TEST(KubeClient, ListQueryEncodesSelectors) {
   kube_checks::list_options opt;
   opt.label_selector = "app=web,tier in (a,b)";
   opt.field_selector = "status.phase!=Succeeded";
-  EXPECT_EQ(kube_checks::list_query(opt, ""), "?limit=500&labelSelector=app%3Dweb%2Ctier%20in%20%28a%2Cb%29&fieldSelector=status.phase%21%3DSucceeded");
+  EXPECT_EQ(kube_checks::list_query(opt, ""), "?limit=500&labelSelector=app%3Dweb%2Ctier+in+(a%2Cb)&fieldSelector=status.phase!%3DSucceeded");
+  // A non-ASCII byte is escaped whatever the process locale says.
+  opt.label_selector = "team=\xC3\xA9quipe";
+  opt.field_selector.clear();
+  EXPECT_EQ(kube_checks::list_query(opt, ""), "?limit=500&labelSelector=team%3D%C3%A9quipe");
   EXPECT_EQ(kube_checks::list_query(kube_checks::list_options(), "tok"), "?limit=500&continue=tok");
   EXPECT_EQ(kube_checks::list_path("/api/v1", "", "pods"), "/api/v1/pods");
   EXPECT_EQ(kube_checks::list_path("/apis/apps/v1", "kube-system", "deployments"), "/apis/apps/v1/namespaces/kube-system/deployments");
@@ -880,8 +987,8 @@ TEST(CheckPods, NamespaceAndSelectorsReachTheServer) {
       PB::Common::ResultCode::OK)
       << join_lines(response);
   ASSERT_EQ(api.requests.size(), 2u);
-  EXPECT_EQ(api.requests[0], "/api/v1/namespaces/kube-system/pods?limit=500&labelSelector=app%3Dweb%2Ctier%21%3Dcache&fieldSelector=spec.nodeName%3Dworker-1");
-  EXPECT_EQ(api.requests[1], "/api/v1/namespaces/monitoring/pods?limit=500&labelSelector=app%3Dweb%2Ctier%21%3Dcache&fieldSelector=spec.nodeName%3Dworker-1");
+  EXPECT_EQ(api.requests[0], "/api/v1/namespaces/kube-system/pods?limit=500&labelSelector=app%3Dweb%2Ctier!%3Dcache&fieldSelector=spec.nodeName%3Dworker-1");
+  EXPECT_EQ(api.requests[1], "/api/v1/namespaces/monitoring/pods?limit=500&labelSelector=app%3Dweb%2Ctier!%3Dcache&fieldSelector=spec.nodeName%3Dworker-1");
   EXPECT_EQ(join_lines(response), "OK: All 2 pods are fine");
 }
 

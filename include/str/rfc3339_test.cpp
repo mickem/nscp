@@ -17,10 +17,32 @@ TEST(Rfc3339, ParsesTheFormsTheApisEmit) {
   EXPECT_EQ(plain.value(), no_zone.value());
 }
 
+TEST(Rfc3339, AppliesANumericOffset) {
+  const auto plain = str::parse_rfc3339("2026-08-12T07:44:00Z");
+  ASSERT_TRUE(plain);
+  const auto east = str::parse_rfc3339("2026-08-12T09:44:00+02:00");
+  ASSERT_TRUE(east);
+  EXPECT_EQ(plain.value(), east.value());
+  const auto west = str::parse_rfc3339("2026-08-12T02:14:00.25-05:30");
+  ASSERT_TRUE(west);
+  EXPECT_EQ(plain.value(), west.value());
+  const auto zero = str::parse_rfc3339("2026-08-12T07:44:00+00:00");
+  ASSERT_TRUE(zero);
+  EXPECT_EQ(plain.value(), zero.value());
+  // Across midnight.
+  const auto next_day = str::parse_rfc3339("2026-08-13T01:00:00+01:00");
+  ASSERT_TRUE(next_day);
+  EXPECT_EQ(boost::posix_time::to_iso_extended_string(next_day.value()), "2026-08-13T00:00:00");
+}
+
 TEST(Rfc3339, RejectsWhatIsNotATimestamp) {
   EXPECT_FALSE(str::parse_rfc3339(""));
   EXPECT_FALSE(str::parse_rfc3339("not a date"));
   EXPECT_FALSE(str::parse_rfc3339("2026-13-45T99:00:00Z"));
+  EXPECT_FALSE(str::parse_rfc3339("2026-08-12T07:44:00+2"));
+  EXPECT_FALSE(str::parse_rfc3339("2026-08-12T07:44:00+24:00"));
+  EXPECT_FALSE(str::parse_rfc3339("2026-08-12T07:44:00Zjunk"));
+  EXPECT_FALSE(str::parse_rfc3339("2026-08-12T07:44:00."));
   EXPECT_EQ(str::seconds_since_rfc3339(""), -1);
   EXPECT_EQ(str::seconds_since_rfc3339("not a date"), -1);
 }

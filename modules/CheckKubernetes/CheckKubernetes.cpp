@@ -118,7 +118,7 @@ bool CheckKubernetes::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
       .add_string("tls version", sh::string_key(&defaults_.tls_version, "tlsv1.2+"),
         "TLS VERSION", "Minimum TLS protocol version accepted: tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+ (the default: TLS 1.2 and 1.3), tlsv1.3.", true)
       .add_int("timeout", sh::int_key(&defaults_.timeout, 30),
-        "TIMEOUT", "Timeout for each API server request, in seconds. Must be positive: the checks refuse 0 or less rather than wait forever.", true)
+        "TIMEOUT", "Timeout in seconds for each network step of an API server request: the connect, the TLS handshake and each read. It bounds a stalled server, not the whole check: a server that keeps trickling data, or a list of many pages, takes longer. Must be positive: the checks refuse 0 or less rather than wait forever.", true)
       .add_int("max response size", sh::int_key(&defaults_.max_response_mb, 64),
         "MAX RESPONSE SIZE", "Largest API response the agent will buffer, in megabytes. A pod list in a large cluster runs to tens of megabytes; 0 removes the cap.", true)
       ;

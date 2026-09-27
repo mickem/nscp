@@ -30,5 +30,5 @@ Error messages are meant to be acted on:
 |------------------------------------------|---------|------------------------------------------------------------------------------|
 | Nothing configured                       | UNKNOWN | `No Kubernetes API server configured: set `api server` and `token` ...`       |
 | TCP/TLS failure                          | UNKNOWN | `Failed to connect to Kubernetes API server at 'https://...'`                |
-| HTTP 401                                 | UNKNOWN | `... rejected the credentials (HTTP 401 ...)` - check `token` / `token file` |
+| HTTP 401                                 | UNKNOWN | `... rejected the credentials (HTTP 401 ...)`, naming the credential sent     |
 | HTTP 403                                 | UNKNOWN | `... denied GET /api/v1/... (HTTP 403: <the API server's own message>)`       |

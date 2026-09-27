@@ -375,7 +375,7 @@ describe("CheckKubernetes commands", () => {
     expect(out).toMatch(/All 1 pods are fine/);
     expect(exitCode).toBe(0);
     expect(api.requests[0].path).toBe(
-      "/api/v1/namespaces/ops/pods?limit=500&labelSelector=app%3Dweb%2Ctier%21%3Dcache",
+      "/api/v1/namespaces/ops/pods?limit=500&labelSelector=app%3Dweb%2Ctier!%3Dcache",
     );
   });
 

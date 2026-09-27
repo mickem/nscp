@@ -147,7 +147,7 @@ void check_pods(const settings &defaults, const PB::Commands::QueryRequestMessag
     ("label-selector", po::value<std::string>(&opt.label_selector), "Label selector passed to the API server, e.g. app=web,tier!=cache: filtering happens before the payload is built.")
     ("field-selector", po::value<std::string>(&opt.field_selector), "Field selector passed to the API server, e.g. spec.nodeName=worker-1 or status.phase!=Succeeded.")
     ("pod", po::value<std::vector<std::string>>(&required), "Name of a pod that must exist (repeatable). Only the named pods take part in the check; a name the API server does not return gets pod_status 'missing'.")
-    ("timeout", po::value<int>(&timeout)->default_value(timeout), "Timeout for each API server request, in seconds (a positive number).")
+    ("timeout", po::value<int>(&timeout)->default_value(timeout), "Timeout in seconds for each network step of an API server request: the connect, the TLS handshake and each read. It is not a total for the check (a server that keeps trickling data takes longer). A positive number.")
     ;
   // clang-format on
 

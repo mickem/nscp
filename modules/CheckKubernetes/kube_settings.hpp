@@ -21,6 +21,7 @@
 #include <file_helpers.hpp>
 #include <fstream>
 #include <json/accessors.hpp>
+#include <limits>
 #include <net/socket/socket_helpers.hpp>
 #include <sstream>
 #include <string>
@@ -61,7 +62,8 @@ struct cluster {
   std::string tls_version = "tlsv1.2+";
   int timeout = 30;
   std::size_t max_response_bytes = 64u * 1024u * 1024u;
-  std::string source;  // where the configuration came from, for messages: "settings", "kubeconfig <path>", "in-cluster"
+  std::string source;      // where the configuration came from, for messages: "settings", "kubeconfig <path>", "in-cluster"
+  std::string credential;  // which credential authenticates, for the 401 message ("`token file` (...) under [/settings/kubernetes]")
 
   // The address as it appears in messages: never the token.
   std::string address() const { return protocol + "://" + host_header() + (base_path.empty() ? "" : base_path); }
@@ -115,6 +117,10 @@ inline std::string resolve_relative(const std::string &base_dir, const std::stri
   if (p.is_absolute() || p.has_root_directory()) return path;
   return (boost::filesystem::path(base_dir) / p).string();
 }
+
+// The operator-set credentials, as the 401 message names them.
+inline std::string configured_token_file(const std::string &path) { return "`token file` ('" + path + "') under [/settings/kubernetes]"; }
+inline std::string configured_token() { return "`token` under [/settings/kubernetes]"; }
 
 // The named entry of a kubeconfig list ("clusters", "contexts", "users"): the
 // object under `section` of the item whose "name" matches. nullptr when absent.
@@ -257,18 +263,18 @@ inline bool resolve_kubeconfig(const std::string &text, const std::string &base_
       error = "Kubeconfig " + kubeconfig_label + ", cluster '" + cluster_name + "': certificate-authority-data is not valid base64";
       return false;
     }
-  } else {
-    const std::string ca_file = get_str(*cl, "certificate-authority");
-    if (!ca_file.empty()) out.ca = detail::resolve_relative(base_dir, ca_file);
   }
+  const std::string ca_file = ca_data.empty() ? get_str(*cl, "certificate-authority") : std::string();
+  if (!ca_file.empty()) out.ca = detail::resolve_relative(base_dir, ca_file);
   const bool insecure = get_bool(*cl, "insecure-skip-tls-verify");
-  if (insecure && !out.ca_pem.empty()) {
-    // The CA data would pin the server and the client verifies against a
-    // pin regardless of the verify mode, so the flag would be silently
-    // ignored. client-go rejects the pair; so does this.
-    error = "Kubeconfig " + kubeconfig_label + ", cluster '" + cluster_name +
-            "': insecure-skip-tls-verify cannot be combined with certificate-authority-data. Remove one of them: the CA data verifies the server, the "
-            "flag says not to";
+  if (insecure && (!out.ca_pem.empty() || !ca_file.empty())) {
+    // client-go rejects a CA together with insecure-skip-tls-verify, in
+    // either form. The CA data would also be silently honoured here: it
+    // becomes a pin, and the client verifies against a pin whatever the
+    // verify mode says.
+    const std::string field = ca_file.empty() ? "certificate-authority-data" : "certificate-authority";
+    error = "Kubeconfig " + kubeconfig_label + ", cluster '" + cluster_name + "': insecure-skip-tls-verify cannot be combined with " + field +
+            ". Remove one of them: the CA verifies the server, the flag says not to";
     return false;
   }
   if (insecure) out.verify_mode = "none";
@@ -278,33 +284,43 @@ inline bool resolve_kubeconfig(const std::string &text, const std::string &base_
     error = "Kubeconfig " + kubeconfig_label + ": context '" + ctx_name + "' names a user '" + user_name + "' that does not exist";
     return false;
   }
+  const std::string in_kubeconfig = " of user '" + user_name + "' in kubeconfig " + kubeconfig_label;
   out.token = get_str(*user, "token");
-  if (out.token.empty()) {
+  if (!out.token.empty()) {
+    out.credential = "the token" + in_kubeconfig;
+  } else {
     const std::string token_file = detail::resolve_relative(base_dir, get_str(*user, "tokenFile"));
     if (!token_file.empty() && !detail::read_token_file(token_file, out.token, error)) {
       error = "Kubeconfig " + kubeconfig_label + ", user '" + user_name + "': " + error;
       return false;
     }
+    if (!token_file.empty()) out.credential = "the tokenFile '" + token_file + "'" + in_kubeconfig;
   }
-  const std::string cert_data = get_str(*user, "client-certificate-data");
-  const std::string key_data = get_str(*user, "client-key-data");
-  if (!cert_data.empty() || !key_data.empty()) {
-    out.client_cert_pem = bytes::base64_decode(cert_data);
-    out.client_key_pem = bytes::base64_decode(key_data);
-    if (out.client_cert_pem.empty() || out.client_key_pem.empty()) {
-      error = "Kubeconfig " + kubeconfig_label + ", user '" + user_name + "': client-certificate-data and client-key-data must both be valid base64";
+  // The certificate and the key each come from their -data field or their
+  // file, independently: client-go accepts data for one and a file for the
+  // other, and so does this.
+  const std::string user_label = "Kubeconfig " + kubeconfig_label + ", user '" + user_name + "': ";
+  const auto load_pem = [&](const std::string &field, std::string &pem) {
+    const std::string data = get_str(*user, (field + "-data").c_str());
+    if (!data.empty()) {
+      pem = bytes::base64_decode(data);
+      if (pem.empty()) error = user_label + field + "-data is not valid base64";
+      return !pem.empty();
+    }
+    const std::string file = detail::resolve_relative(base_dir, get_str(*user, field.c_str()));
+    if (file.empty()) return true;
+    if (!detail::read_file(file, pem) || pem.empty()) {
+      error = user_label + "failed to read " + field + " '" + file + "'";
       return false;
     }
-  } else {
-    const std::string cert_file = detail::resolve_relative(base_dir, get_str(*user, "client-certificate"));
-    const std::string key_file = detail::resolve_relative(base_dir, get_str(*user, "client-key"));
-    if (!cert_file.empty() || !key_file.empty()) {
-      if (!detail::read_file(cert_file, out.client_cert_pem) || !detail::read_file(key_file, out.client_key_pem)) {
-        error = "Kubeconfig " + kubeconfig_label + ", user '" + user_name + "': failed to read client-certificate '" + cert_file + "' / client-key '" +
-                key_file + "'";
-        return false;
-      }
-    }
+    return true;
+  };
+  if (!load_pem("client-certificate", out.client_cert_pem) || !load_pem("client-key", out.client_key_pem)) return false;
+  if (out.token.empty() && !out.client_cert_pem.empty()) out.credential = "the client certificate" + in_kubeconfig;
+  if (out.client_cert_pem.empty() != out.client_key_pem.empty()) {
+    error = user_label + (out.client_cert_pem.empty() ? "client-key is set without a client-certificate" : "client-certificate is set without a client-key") +
+            " (each as -data or a file)";
+    return false;
   }
   if (insecure && !out.client_cert_pem.empty()) {
     // The HTTP client refuses to present a client certificate to a server it
@@ -352,8 +368,18 @@ inline bool resolve_cluster(const settings &s, cluster &out, std::string &error)
     error = "Invalid `max response size` under [/settings/kubernetes]: " + std::to_string(s.max_response_mb) + " - give the cap in megabytes, or 0 for no cap";
     return false;
   }
-  out.max_response_bytes = static_cast<std::size_t>(s.max_response_mb) * 1024u * 1024u;
+  // Computed wide and clamped: on a 32-bit build 4096 MB and up does not fit
+  // a size_t, and the wrapped value (0) is what the client reads as no cap.
+  // The parentheses keep windows.h's max macro out of the call.
+  const unsigned long long cap = static_cast<unsigned long long>(s.max_response_mb) * 1024ull * 1024ull;
+  const unsigned long long size_max = (std::numeric_limits<std::size_t>::max)();
+  out.max_response_bytes = static_cast<std::size_t>(cap > size_max ? size_max : cap);
   out.ca = s.ca;
+  // A `ca` still equal to the ${ca-path} default was not set by the operator,
+  // so a CA that comes with the cluster (kubeconfig data, the in-cluster
+  // mount) replaces it. One the operator did set (a bundle that also trusts a
+  // TLS-intercepting mesh, say) wins, the same way a configured token wins.
+  const bool ca_configured = !s.ca.empty() && s.ca != s.default_ca;
 
   if (!s.api_server.empty()) {
     out.source = "settings";
@@ -366,8 +392,10 @@ inline bool resolve_cluster(const settings &s, cluster &out, std::string &error)
         error = "Invalid `token file` under [/settings/kubernetes]: " + error;
         return false;
       }
+      out.credential = detail::configured_token_file(s.token_file);
     } else {
       out.token = s.token;
+      out.credential = detail::configured_token();
     }
     if (out.token.empty()) {
       error = "No credentials for the Kubernetes API server at '" + out.address() + "': set `token` or `token file` under [/settings/kubernetes]";
@@ -395,6 +423,11 @@ inline bool resolve_cluster(const settings &s, cluster &out, std::string &error)
               "CA data verifies the server, the verify mode says not to";
       return false;
     }
+    // kubectl trusts the kubeconfig's CA data instead of the system store,
+    // not beside it: loading both would accept any publicly trusted
+    // certificate for the API server's name. The certificate-authority file
+    // form already replaces `ca`.
+    if (!out.ca_pem.empty() && !ca_configured) out.ca.clear();
     return true;
   }
 
@@ -412,17 +445,18 @@ inline bool resolve_cluster(const settings &s, cluster &out, std::string &error)
         error = "Invalid `token file` under [/settings/kubernetes]: " + error;
         return false;
       }
+      out.credential = detail::configured_token_file(s.token_file);
     } else if (!s.token.empty()) {
       out.token = s.token;
+      out.credential = detail::configured_token();
     } else if (!detail::read_token_file(in_cluster_token_path(), out.token, error)) {
       error = "Running in-cluster (KUBERNETES_SERVICE_HOST is set) but the service account token is unusable: " + error +
               ". Mount a service account (automountServiceAccountToken) or set `api server` and `token` under [/settings/kubernetes]";
       return false;
+    } else {
+      out.credential = std::string("the mounted service account token (") + in_cluster_token_path() + ")";
     }
-    // The mounted CA only stands in for the default: a `ca` the operator
-    // set (a bundle that also trusts a TLS-intercepting mesh, say) wins, the
-    // same way a configured token wins over the mounted one.
-    const bool ca_configured = !s.ca.empty() && s.ca != s.default_ca;
+    // The mounted CA only stands in for the default (see ca_configured).
     std::string ca_pem;
     if (!ca_configured && detail::read_file(in_cluster_ca_path(), ca_pem) && !ca_pem.empty()) out.ca = in_cluster_ca_path();
     return true;

@@ -16,5 +16,7 @@ daemonsets). The cluster is configured once under `[/settings/kubernetes]`
 all when the agent runs in-cluster with a service account); no check accepts
 a `url=`, `host=` or `token=` argument, so a REST caller cannot redirect the
 token to another server. Every command is marked experimental until the
-keywords and output have settled against real clusters. See the
+keywords and output have settled against real clusters. Building from source
+needs Boost 1.77 or later for this module; with an older Boost (RHEL 9 ships
+1.75) it is skipped and the rest of the agent builds as before. See the
 [Kubernetes scenario](../scenarios/kubernetes.md).

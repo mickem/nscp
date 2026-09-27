@@ -3,7 +3,6 @@
 
 #include "check_cluster.hpp"
 
-#include <boost/algorithm/string/trim.hpp>
 #include <boost/json.hpp>
 #include <memory>
 #include <nscapi/nscapi_program_options.hpp>
@@ -84,9 +83,9 @@ std::string summarize_readyz(const std::string &body, const long status) {
     str::format::append_list(failing, name, ",");
   }
   if (!failing.empty()) return "failed: " + failing;
-  std::string trimmed = body;
-  boost::algorithm::trim(trimmed);
-  if (trimmed == "ok") return "ok";
+  // A 2xx is the server saying it is ready, whatever the body: "ok" plain,
+  // the [+] list with ?verbose, or whatever a fronting proxy rewrites it to.
+  if (status >= 200 && status < 300) return "ok";
   if (is_readyz_report(status, body)) return "failed (HTTP " + std::to_string(status) + ")";
   return "unavailable (HTTP " + std::to_string(status) + ")";
 }
@@ -107,7 +106,7 @@ void check_cluster(const settings &defaults, const PB::Commands::QueryRequestMes
                            "%(status): No cluster information returned", "");
   // clang-format off
   filter_helper.get_desc().add_options()
-    ("timeout", po::value<int>(&timeout)->default_value(timeout), "Timeout for each API server request, in seconds (a positive number).")
+    ("timeout", po::value<int>(&timeout)->default_value(timeout), "Timeout in seconds for each network step of an API server request: the connect, the TLS handshake and each read. It is not a total for the check (a server that keeps trickling data takes longer). A positive number.")
     ;
   // clang-format on
 

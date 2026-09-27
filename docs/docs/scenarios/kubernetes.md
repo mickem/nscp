@@ -54,18 +54,12 @@ metadata:
   name: nscp-monitoring
 rules:
   - apiGroups: [""]
-    resources: [pods, nodes, namespaces, events, persistentvolumeclaims]
+    resources: [pods, nodes]
     verbs: [get, list]
   - apiGroups: [apps]
     resources: [deployments, statefulsets, daemonsets]
     verbs: [get, list]
-  - apiGroups: [batch]
-    resources: [jobs, cronjobs]
-    verbs: [get, list]
-  - apiGroups: [metrics.k8s.io]
-    resources: [pods, nodes]
-    verbs: [get, list]
-  - nonResourceURLs: ["/version", "/readyz", "/livez"]
+  - nonResourceURLs: ["/version", "/readyz"]
     verbs: [get]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -82,9 +76,10 @@ subjects:
     namespace: monitoring
 ```
 
-The role grants `get` and `list` and nothing else; it already covers the
-resources the later checks (jobs, events, claims, metrics-server usage) will
-read, so it does not need to be revisited per release.
+The role grants `get` and `list` on exactly what the checks read: nodes and
+pods, the three workload kinds, and the `/version` and `/readyz` endpoints.
+A check that reads something new says so in its release notes, with the rule
+to add.
 
 Mint a token and fetch the cluster CA:
 
@@ -122,6 +117,13 @@ YAML kubeconfigs are not read (the agent carries no YAML parser), and
 `exec`-style credential plugins are not supported: use a token or a client
 certificate.
 
+The kubeconfig's TLS settings are read the way kubectl reads them. The
+cluster's `certificate-authority-data` is trusted instead of the system CA
+store, not beside it; a `ca` you set yourself is kept as well. The client
+certificate and key may each be given as `-data` or as a file.
+`insecure-skip-tls-verify` is refused together with a CA in either form, as
+kubectl refuses it.
+
 ---
 
 ## Deployment mode 2: the agent inside the cluster
@@ -152,9 +154,10 @@ None of the check commands accepts a `url=`, `host=` or `token=` argument,
 so a caller who can run checks over the REST API (anyone holding
 `queries.execute`) cannot redirect the agent - and the bearer token it sends
 - to a server of their choosing. The token never appears in check output,
-error text or the log; a 401 is reported as "rejected the credentials", a
-403 with the API server's own explanation of which resource the service
-account may not read.
+error text or the log; a 401 is reported as "rejected the credentials",
+naming the credential that was sent (a setting, a kubeconfig user or the
+mounted service account token), and a 403 with the API server's own
+explanation of which resource the service account may not read.
 
 Keep `verify mode = peer` (the default): with `none` the token is sent to
 whichever server answers on that address. `none` is refused outright with a
@@ -314,9 +317,12 @@ apply Service "k8s-pods-shop" {
 ## Customisation
 
 * **Timeouts.** `timeout` under `[/settings/kubernetes]` (default 30 s) bounds
-  each API request; every command also takes `timeout=` per call. The value
-  must be positive: 0 or less is reported as an error rather than waiting
-  without a deadline.
+  each network step of an API request: the connect, the TLS handshake and
+  each read. It catches a server that has stopped answering, not a slow one:
+  a server that keeps trickling data, or a list that runs to many pages, can
+  hold a check for longer than `timeout`. Every command also takes
+  `timeout=` per call. The value must be positive: 0 or less is reported as
+  an error rather than waiting without a deadline.
 * **Large clusters.** Lists are paged 500 objects at a time. `max response
   size` (default 64 MB) caps a single page in memory; prefer `namespace=`,
   `label-selector=` and `kind=` to keep the payload small rather than raising

@@ -8,9 +8,8 @@
 // bookkeeping behind pod= / node= / workload=.
 
 #include <boost/json.hpp>
-#include <cctype>
-#include <cstdio>
 #include <functional>
+#include <net/http/http_request.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <str/format.hpp>
 #include <str/utf8.hpp>
@@ -89,8 +88,13 @@ inline std::string describe_http_error(const cluster &target, const std::string 
   const std::string http = "HTTP " + std::to_string(e.status());
   const std::string request = "GET " + path;
   if (e.status() == 401) {
-    return where + " rejected the credentials (" + http + " for " + request +
-           "): the bearer token is invalid or expired - check `token` / `token file` under [/settings/kubernetes]";
+    // Name the credential actually sent: a kubeconfig user's token or
+    // certificate, or the mounted service account token, is not fixed under
+    // [/settings/kubernetes].
+    const bool certificate = target.token.empty() && !target.client_cert_pem.empty();
+    const std::string what = certificate ? "the client certificate was not accepted" : "the bearer token is invalid or expired";
+    const std::string credential = target.credential.empty() ? "`token` / `token file` under [/settings/kubernetes]" : target.credential;
+    return where + " rejected the credentials (" + http + " for " + request + "): " + what + " - check " + credential;
   }
   if (e.status() == 403) {
     // A resource path wants get/list on the resource; /version, /readyz and
@@ -200,22 +204,6 @@ inline bool fetch_json(const fetcher &fetch, const cluster &target, const std::s
 
 // --- list calls ---------------------------------------------------------------
 
-// Percent-encode a query parameter value (RFC 3986 unreserved characters pass).
-inline std::string url_encode(const std::string &value) {
-  std::string out;
-  out.reserve(value.size());
-  for (const unsigned char c : value) {
-    if (std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
-      out.push_back(static_cast<char>(c));
-    } else {
-      char buf[4];
-      std::snprintf(buf, sizeof(buf), "%%%02X", c);
-      out += buf;
-    }
-  }
-  return out;
-}
-
 // The selectors a list check passes to the server, so filtering happens
 // before the payload is built.
 struct list_options {
@@ -226,9 +214,14 @@ struct list_options {
 
 inline std::string list_query(const list_options &opt, const std::string &continue_token) {
   std::string q;
+  // http::uri_encode matches ASCII explicitly, where std::isalnum follows the
+  // process locale (the service sets it from the environment) and would pass
+  // a non-ASCII selector byte through unescaped on a single-byte code page.
+  // It writes a space as '+', which the API server's query parser reads back
+  // as a space.
   const auto add = [&q](const std::string &key, const std::string &value) {
     if (value.empty()) return;
-    q += (q.empty() ? "?" : "&") + key + "=" + url_encode(value);
+    q += (q.empty() ? "?" : "&") + key + "=" + http::uri_encode(value);
   };
   if (opt.limit > 0) add("limit", std::to_string(opt.limit));
   add("labelSelector", opt.label_selector);
@@ -241,7 +234,7 @@ inline std::string list_query(const list_options &opt, const std::string &contin
 // `prefix` is the API group path ("/api/v1", "/apis/apps/v1").
 inline std::string list_path(const std::string &prefix, const std::string &ns, const std::string &resource) {
   if (ns.empty()) return prefix + "/" + resource;
-  return prefix + "/namespaces/" + url_encode(ns) + "/" + resource;
+  return prefix + "/namespaces/" + http::uri_encode(ns) + "/" + resource;
 }
 
 // GET a list resource, following `metadata.continue` until the server has no
