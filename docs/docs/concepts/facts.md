@@ -209,7 +209,9 @@ then carries an error under `errors` saying how many were found.
 One record per local Windows service or systemd service on Linux, including
 stopped and disabled services. Linux enumerates both installed unit files and
 loaded units, so never-started services, templates and transient instances are
-included. Systemd aliases resolve to a single record with the canonical name.
+included. Systemd aliases, including template aliases such as `autovt@.service`
+pointing to `getty@.service`, resolve to one record with the canonical name and
+the canonical unit's startup mode.
 
 | Field | Example | Meaning |
 |-------|---------|---------|

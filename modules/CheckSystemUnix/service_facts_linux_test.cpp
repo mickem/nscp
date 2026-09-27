@@ -6,9 +6,47 @@
 #include <gtest/gtest.h>
 #include <unistd.h>
 
+#include <nscapi/nscapi_facts_test_helper.hpp>
 #include <stdexcept>
 
-#include "check_service.h"
+TEST(service_facts_linux, template_aliases_use_the_canonical_identity_and_startup_mode) {
+  const auto services = service_facts::gather_systemd([](const std::vector<std::string> &argv) {
+    if (argv[0] == "list-unit-files") return std::string("autovt@.service alias -\ngetty@.service enabled enabled\nzconsole@.service alias -\n");
+    if (argv[0] == "list-units") return std::string();
+    EXPECT_EQ(argv, (std::vector<std::string>{"cat", "--no-pager", "--", argv.back()}));
+    EXPECT_TRUE(argv.back() == "autovt@.service" || argv.back() == "zconsole@.service");
+    // systemctl follows alias chains and puts the canonical fragment first,
+    // before the unit's contents and any drop-in headers.
+    return std::string(
+        "# /usr/lib/systemd/system/getty@.service\n[Unit]\nDescription=Getty\n\n"
+        "# /etc/systemd/system/getty@.service.d/override.conf\n[Service]\n");
+  });
+  ASSERT_EQ(services.size(), 1u);
+  EXPECT_EQ(services.front().name, "getty@");
+  EXPECT_EQ(services.front().start_type, "enabled");
+  nscapi::facts::response out;
+  service_facts::publish(services, 0, out);
+  EXPECT_EQ(nscapi::facts::testing::json_of(out, "services"), "{\"installed\":[{\"id\":\"getty@\",\"name\":\"getty@\",\"start_type\":\"enabled\"}]}");
+}
+
+TEST(service_facts_linux, unresolved_template_aliases_fail_instead_of_inflating_the_inventory) {
+  for (const std::string definition : {"", "[Unit]\n", "# /usr/lib/systemd/system/autovt@.service\n", "# /usr/lib/systemd/system/missing@.service\n",
+                                       "# /etc/systemd/system/getty@.service.d/override.conf\n"}) {
+    EXPECT_THROW(service_facts::gather_systemd([&](const std::vector<std::string> &argv) {
+                   if (argv[0] == "list-unit-files") return std::string("autovt@.service alias -\ngetty@.service enabled enabled\n");
+                   if (argv[0] == "list-units") return std::string();
+                   return definition;
+                 }),
+                 std::runtime_error)
+        << definition;
+  }
+  EXPECT_THROW(service_facts::gather_systemd([](const std::vector<std::string> &argv) {
+                 if (argv[0] == "list-unit-files") return std::string("autovt@.service alias -\ngetty@.service enabled enabled\n");
+                 if (argv[0] == "list-units") return std::string();
+                 throw std::runtime_error("Could not read the template fragment");
+               }),
+               std::runtime_error);
+}
 
 TEST(service_facts_linux, discovers_unloaded_disabled_templates_and_transient_instances) {
   int calls = 0;
@@ -74,5 +112,8 @@ TEST(service_facts_linux, live_systemd_inventory) {
   for (const auto &service : services) {
     EXPECT_FALSE(service.name.empty());
     EXPECT_EQ(service.name.find('\n'), std::string::npos);
+    if (!service.name.empty() && service.name.back() == '@') {
+      EXPECT_NE(service.start_type, "alias") << service.name;
+    }
   }
 }

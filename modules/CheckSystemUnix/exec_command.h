@@ -25,7 +25,8 @@ struct exec_result {
 // on PATH - and the remaining elements are passed verbatim. The child is
 // killed once `timeout_ms` has passed, measured as one deadline for the whole
 // run rather than per read - including the wait for it to exit after it
-// closed its stdout.
+// closed its stdout. A nonzero max_output also bounds captured bytes; exceeding
+// it kills the child and sets output_failed. Zero means no output limit.
 exec_result run(const std::vector<std::string> &argv, int timeout_ms = 30000, std::size_t max_output = 0);
 
 // Inventory must not treat a failed command or partial output as an empty

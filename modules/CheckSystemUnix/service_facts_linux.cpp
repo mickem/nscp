@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include <map>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 
@@ -15,6 +16,7 @@
 namespace service_facts {
 namespace {
 bool is_service(const std::string &name) { return name.size() > 8 && name.compare(name.size() - 8, 8, ".service") == 0; }
+bool is_template(const std::string &name) { return name.size() > 9 && name.compare(name.size() - 9, 9, "@.service") == 0; }
 std::string short_name(const std::string &name) { return name.substr(0, name.size() - 8); }
 }  // namespace
 
@@ -43,6 +45,7 @@ std::vector<service> gather_systemd(const command_runner &run) {
   }
 
   std::vector<service> result;
+  std::set<std::string> templates;
   std::vector<std::string> batch;
   const auto flush = [&]() {
     if (batch.empty()) return;
@@ -58,10 +61,22 @@ std::vector<service> gather_systemd(const command_runner &run) {
     batch.clear();
   };
   for (const auto &entry : names) {
-    // Templates are installed definitions, not instantiated units; querying
-    // them with show may fail. Keep their identity and unit-file startup mode.
-    if (entry.first.size() >= 9 && entry.first.compare(entry.first.size() - 9, 9, "@.service") == 0) {
-      result.push_back({short_name(entry.first), "", entry.second});
+    // Bare templates cannot be queried with show. For aliases, cat follows
+    // the alias chain and names the canonical fragment in its first header.
+    // Keep the canonical unit-file state, not the alias's "alias" state.
+    if (is_template(entry.first)) {
+      std::string canonical = entry.first;
+      if (entry.second == "alias") {
+        std::istringstream definition(run({"cat", "--no-pager", "--", entry.first}));
+        std::string header;
+        if (!std::getline(definition, header) || header.compare(0, 3, "# /") != 0)
+          throw std::runtime_error("Could not resolve systemd template alias: " + entry.first);
+        canonical = header.substr(header.find_last_of('/') + 1);
+        const auto target = names.find(canonical);
+        if (!is_template(canonical) || canonical == entry.first || target == names.end() || target->second.empty() || target->second == "alias")
+          throw std::runtime_error("Missing or unresolved systemd template alias target: " + entry.first);
+      }
+      if (templates.insert(canonical).second) result.push_back({short_name(canonical), "", names.at(canonical)});
     } else {
       batch.push_back(entry.first);
       if (batch.size() == 128) flush();

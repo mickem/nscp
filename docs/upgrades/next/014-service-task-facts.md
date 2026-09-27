@@ -10,6 +10,8 @@ CheckSystem can now publish `services.installed`: local Windows services or
 Linux systemd service units, including stopped and disabled services. Records
 carry the name used by `check_service`, display name and native startup type.
 Linux includes never-loaded installed units, templates and loaded instances.
+The inventory is not yet supported on macOS; enabling it reports an explicit
+error while the existing launchd checks remain available.
 
 CheckTaskSched can publish `tasks.scheduled`: every visible-to-the-agent local
 task, including hidden and disabled tasks in subfolders. Full paths distinguish
