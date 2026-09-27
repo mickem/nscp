@@ -1172,9 +1172,6 @@ timeout=10
 
 ### /settings/docker/facts <a id="/settings/docker/facts"></a>
 
-*Available on Windows only.*
-
-
 
 
 | Key                                           | Default Value | Description             |

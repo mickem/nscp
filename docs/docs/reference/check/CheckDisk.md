@@ -2536,9 +2536,6 @@ trend retention=7d
 
 ### /settings/disk/facts <a id="/settings/disk/facts"></a>
 
-*Available on Windows only.*
-
-
 
 
 | Key                                       | Default Value | Description           |

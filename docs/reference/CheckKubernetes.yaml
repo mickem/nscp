@@ -1,8 +1,4 @@
-module: CheckKubernetes
-namespace: check
-platforms:
-- windows
-windows:
+common:
   info:
     description: 'Check a Kubernetes cluster through its API server: cluster health, pods, nodes and workloads.'
     experimental: true
@@ -704,3 +700,8 @@ windows:
         short_description: 'Timeout in seconds for each network step of an API server request: the connect,
           the TLS handshake and each read. It is not a total for the check (a server that keeps trickling
           data takes longer). A positive number.'
+module: CheckKubernetes
+namespace: check
+platforms:
+- unix
+- windows

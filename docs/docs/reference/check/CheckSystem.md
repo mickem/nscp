@@ -969,18 +969,18 @@ This command also accepts the standard [help options](../common-options.md#stand
 <a id="check_cpu_utilization_filter_keys"></a>
 #### Filter keywords
 
-| Option  | Description                                                                     |
-|---------|---------------------------------------------------------------------------------|
-| guest   | CPU time spent running a guest under this kernel, in percent (incl. guest_nice) |
-| idle    | Idle CPU in percent                                                             |
-| iowait  | I/O-wait CPU utilization in percent                                             |
-| irq     | Hardware-interrupt CPU utilization in percent                                   |
-| name    | Always 'total' (single aggregate row)                                           |
-| softirq | Soft-interrupt CPU utilization in percent                                       |
-| steal   | CPU time stolen by the hypervisor in percent (VM guests)                        |
-| system  | System/kernel CPU utilization in percent                                        |
-| usage   | Non-idle CPU utilization in percent (100 - idle - iowait)                       |
-| user    | User (incl. nice) CPU utilization in percent                                    |
+| Option  | Description                                                                                                                       |
+|---------|-----------------------------------------------------------------------------------------------------------------------------------|
+| guest   | CPU time spent running a guest under this kernel, in percent (incl. guest_nice; always 0 on macOS, which does not account for it) |
+| idle    | Idle CPU in percent                                                                                                               |
+| iowait  | I/O-wait CPU utilization in percent (always 0 on macOS, which does not account for it)                                            |
+| irq     | Hardware-interrupt CPU utilization in percent (always 0 on macOS, which does not account for it)                                  |
+| name    | Always 'total' (single aggregate row)                                                                                             |
+| softirq | Soft-interrupt CPU utilization in percent (always 0 on macOS, which does not account for it)                                      |
+| steal   | CPU time stolen by the hypervisor in percent (VM guests; always 0 on macOS, which does not account for it)                        |
+| system  | System/kernel CPU utilization in percent                                                                                          |
+| usage   | Non-idle CPU utilization in percent (100 - idle - iowait)                                                                         |
+| user    | User (incl. nice) CPU utilization in percent                                                                                      |
 
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
@@ -1536,7 +1536,7 @@ OK: web01 (web01.corp.example.com), domain=corp.example.com
 
 === "Linux"
 
-    Check installed software packages via the system package manager (dpkg/rpm/pacman): inventory, unwanted/EOL software policy and recent-install detection.
+    Check installed software packages via the system package manager (dpkg/rpm/pacman; installer receipts, applications and Homebrew on macOS): inventory, unwanted/EOL software policy and recent-install detection.
 
     #### About `check_installed_software`
 
@@ -1812,17 +1812,17 @@ OK: bash 5.2.21-2 via dpkg|'count'=1;0;0
 
 === "Linux"
 
-    | Option         | Description                                                                                                        |
-    |----------------|--------------------------------------------------------------------------------------------------------------------|
-    | architecture   | Package architecture (amd64, x86_64, noarch, ...)                                                                  |
-    | install_date   | Install date (supports date expressions such as 'install_date > -30d'); unset when the manager does not record one |
-    | install_date_s | Install date as YYYY-MM-DD; empty when unknown                                                                     |
-    | manager        | Package manager the entry came from (dpkg, rpm, pacman)                                                            |
-    | name           | Package name                                                                                                       |
-    | package_status | Package state; always 'installed' for listed packages                                                              |
-    | publisher      | Maintainer (dpkg, email stripped) / vendor (rpm); empty for pacman                                                 |
-    | size           | Installed size in bytes; 0 when not recorded                                                                       |
-    | version        | Version string (rpm: version-release); comparisons are lexical, not version-aware                                  |
+    | Option         | Description                                                                                                              |
+    |----------------|--------------------------------------------------------------------------------------------------------------------------|
+    | architecture   | Package architecture (amd64, x86_64, noarch, ...); empty on macOS                                                        |
+    | install_date   | Install date (supports date expressions such as 'install_date > -30d'); unset when the manager does not record one       |
+    | install_date_s | Install date as YYYY-MM-DD; empty when unknown                                                                           |
+    | manager        | Package manager the entry came from (dpkg, rpm, pacman; on macOS pkgutil, bundle or homebrew)                            |
+    | name           | Package name                                                                                                             |
+    | package_status | Package state; always 'installed' for listed packages                                                                    |
+    | publisher      | Maintainer (dpkg, email stripped) / vendor (rpm); empty for pacman; the bundle identifier for a macOS application bundle |
+    | size           | Installed size in bytes; 0 when not recorded                                                                             |
+    | version        | Version string (rpm: version-release); comparisons are lexical, not version-aware                                        |
 
     This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
@@ -2122,14 +2122,16 @@ OK: slab 512MB (128MB unreclaimable), cache 4GB, 2 major faults/s
 
 === "Linux"
 
-    | Option               | Description                                                                                                                                                                            |
-    |----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-    | cache                | Page-cache bytes (Cached in /proc/meminfo)                                                                                                                                             |
-    | major_faults_per_sec | Major (hard) faults per second (pgmajfault in /proc/vmstat): faults that had to read from disk — the fault-storm signal                                                                |
-    | page_faults_per_sec  | Total page faults per second, soft + hard (pgfault in /proc/vmstat). Dominated by cheap soft faults and routinely very large on a healthy host — alert on major_faults_per_sec instead |
-    | slab                 | Total kernel slab allocator bytes (Slab in /proc/meminfo; supports size units, e.g. 'slab > 2G')                                                                                       |
-    | slab_reclaimable     | Reclaimable slab bytes the kernel can drop under pressure, e.g. dentry/inode caches (SReclaimable in /proc/meminfo)                                                                    |
-    | slab_unreclaimable   | Unreclaimable (pinned) slab bytes (SUnreclaim in /proc/meminfo) — steady growth here is the classic kernel/driver leak signal                                                          |
+    | Option               | Description                                                                                                                                                                                                               |
+    |----------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | cache                | Page-cache bytes (Cached in /proc/meminfo; file-backed pages on macOS)                                                                                                                                                    |
+    | compressed           | macOS: bytes held by the memory compressor - growth means memory pressure the host is absorbing by compressing rather than swapping. 'unknown' on Linux                                                                   |
+    | major_faults_per_sec | Major (hard) faults per second (pgmajfault in /proc/vmstat; pageins on macOS): faults that had to read from disk — the fault-storm signal                                                                                 |
+    | page_faults_per_sec  | Total page faults per second, soft + hard (pgfault in /proc/vmstat, faults in the macOS VM statistics). Dominated by cheap soft faults and routinely very large on a healthy host — alert on major_faults_per_sec instead |
+    | slab                 | Total kernel slab allocator bytes (Slab in /proc/meminfo; supports size units, e.g. 'slab > 2G'). 'unknown' on macOS, which has no slab allocator                                                                         |
+    | slab_reclaimable     | Reclaimable slab bytes the kernel can drop under pressure, e.g. dentry/inode caches (SReclaimable in /proc/meminfo). 'unknown' on macOS                                                                                   |
+    | slab_unreclaimable   | Unreclaimable (pinned) slab bytes (SUnreclaim in /proc/meminfo) — steady growth here is the classic kernel/driver leak signal. 'unknown' on macOS, where wired is the counterpart                                         |
+    | wired                | macOS: wired memory in bytes - pages the kernel has pinned and cannot page out, its own allocations included; steady growth is the kernel/driver leak signal. 'unknown' on Linux                                          |
 
     This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
@@ -2710,15 +2712,15 @@ This command also accepts the standard [help options](../common-options.md#stand
 <a id="check_load_filter_keys"></a>
 #### Filter keywords
 
-| Option        | Description                                             |
-|---------------|---------------------------------------------------------|
-| load          | The largest of load1, load5 and load15                  |
-| load1         | Load average over the last 1 minute                     |
-| load15        | Load average over the last 15 minutes                   |
-| load5         | Load average over the last 5 minutes                    |
-| procs_running | Number of currently runnable kernel scheduling entities |
-| procs_total   | Total number of kernel scheduling entities              |
-| type          | 'total' or (with --percpu) 'scaled'                     |
+| Option        | Description                                                                                             |
+|---------------|---------------------------------------------------------------------------------------------------------|
+| load          | The largest of load1, load5 and load15                                                                  |
+| load1         | Load average over the last 1 minute                                                                     |
+| load15        | Load average over the last 15 minutes                                                                   |
+| load5         | Load average over the last 5 minutes                                                                    |
+| procs_running | Number of currently runnable kernel scheduling entities ('unknown' on macOS, which keeps no such count) |
+| procs_total   | Total number of kernel scheduling entities (threads)                                                    |
+| type          | 'total' or (with --percpu) 'scaled'                                                                     |
 
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
@@ -3626,7 +3628,7 @@ OK: eth0 >659B/s <659B/s, lo >0B/s <0B/s
 
 === "Linux"
 
-    Check for available OS package updates via the system package manager (apt/dnf/yum/zypper/pacman).
+    Check for available OS package updates via the system package manager (apt/dnf/yum/zypper/pacman; softwareupdate on macOS).
 
     #### Checking for pending OS updates
 
@@ -3900,6 +3902,20 @@ OK: 0 updates available (0 security)
 
 === "Linux"
 
+
+    | Option                         | Default Value | Description                                                                                                                                                                                                                                  |
+    |--------------------------------|---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | [live](#check_os_updates_live) | false         | macOS: ask Apple's update server with `softwareupdate --list` (10 to 60 seconds, needs network access) instead of reading the list macOS cached at its last background check. Ignored on Linux, where the package manager is always queried. |
+
+
+
+    <h5 id="check_os_updates_live">live:</h5>
+
+    macOS: ask Apple's update server with `softwareupdate --list` (10 to 60 seconds, needs network access) instead of reading the list macOS cached at its last background check. Ignored on Linux, where the package manager is always queried.
+
+    *Default Value:* `false`
+
+
     **Common options:**
 
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
@@ -3956,12 +3972,13 @@ OK: 0 updates available (0 security)
 
 === "Linux"
 
-    | Option   | Description                                       |
-    |----------|---------------------------------------------------|
-    | manager  | Package manager used to query updates             |
-    | packages | Comma separated list of available package updates |
-    | security | Number of available security updates              |
-    | updates  | Total number of available updates                 |
+    | Option       | Description                                                                                                                                                                                                                  |
+    |--------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | last_checked | When the update list was last refreshed from the update server (macOS: the last successful background check); supports date expressions such as 'last_checked < -7d'. 'unknown' where the package manager does not record it |
+    | manager      | Package manager used to query updates (apt, dnf, yum, zypper, pacman; softwareupdate on macOS)                                                                                                                               |
+    | packages     | Comma separated list of available package updates                                                                                                                                                                            |
+    | security     | Number of available security updates (on macOS the updates named as security responses; a macOS point release is not counted)                                                                                                |
+    | updates      | Total number of available updates                                                                                                                                                                                            |
 
     This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
@@ -4145,19 +4162,19 @@ OK: 5CG1234ABC / American Megatrends Inc. BIOS 1.7.0 / 10.0.22631.3810 x64|'vers
 
 === "Linux"
 
-    | Option            | Description                                                         |
-    |-------------------|---------------------------------------------------------------------|
-    | distribution      | Distribution id, e.g. 'ubuntu' (from /etc/os-release ID)            |
-    | distribution_name | Distribution name, e.g. 'Ubuntu' (from NAME)                        |
-    | family            | Distribution family, e.g. 'debian' (from ID_LIKE/ID)                |
-    | kernel_name       | Kernel name                                                         |
-    | kernel_release    | Kernel release                                                      |
-    | kernel_version    | Kernel version                                                      |
-    | machine           | Machine hardware name                                               |
-    | nodename          | Network node hostname                                               |
-    | os                | Operating system (distribution pretty name, or kernel when unknown) |
-    | processor         | Processor / machine architecture                                    |
-    | version           | Distribution version, e.g. '22.04' (from VERSION_ID)                |
+    | Option            | Description                                                                                      |
+    |-------------------|--------------------------------------------------------------------------------------------------|
+    | distribution      | Distribution id, e.g. 'ubuntu' (from /etc/os-release ID); 'macos' on macOS                       |
+    | distribution_name | Distribution name, e.g. 'Ubuntu' (from NAME); 'macOS' on macOS                                   |
+    | family            | Distribution family, e.g. 'debian' (from ID_LIKE/ID); 'macos' on macOS                           |
+    | kernel_name       | Kernel name                                                                                      |
+    | kernel_release    | Kernel release                                                                                   |
+    | kernel_version    | Kernel version                                                                                   |
+    | machine           | Machine hardware name                                                                            |
+    | nodename          | Network node hostname                                                                            |
+    | os                | Operating system (distribution pretty name, or kernel when unknown)                              |
+    | processor         | Processor / machine architecture                                                                 |
+    | version           | Distribution version, e.g. '22.04' (from VERSION_ID); the product version, e.g. '14.5', on macOS |
 
     This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
@@ -5825,32 +5842,32 @@ bash rss=8.594MB ws=8.594MB, bash rss=9.219MB ws=9.219MB, bash rss=4.688MB ws=4.
 
 === "Linux"
 
-    | Option           | Description                                                                                                                                                      |
-    |------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-    | command_line     | Command line of process                                                                                                                                          |
-    | creation         | Creation time                                                                                                                                                    |
-    | elapsed          | Wall-clock seconds since the process started (0 when not known)                                                                                                  |
-    | error            | Any error messages associated with fetching info                                                                                                                 |
-    | exe              | The name of the executable                                                                                                                                       |
-    | filename         | Name of process (with path)                                                                                                                                      |
-    | kernel           | Kernel time in seconds                                                                                                                                           |
-    | page_fault       | Page fault count                                                                                                                                                 |
-    | page_faults      | Page fault count                                                                                                                                                 |
-    | peak_virtual     | Peak virtual size in bytes                                                                                                                                       |
-    | peak_working_set | Peak working set in bytes                                                                                                                                        |
-    | pid              | Process id                                                                                                                                                       |
-    | ppid             | Parent process id                                                                                                                                                |
-    | proc_state       | Raw Linux scheduler state (the letter ps prints in its STAT column): running, sleeping, disk_sleep, zombie, stopped, tracing_stop, dead, idle, parked or unknown |
-    | rss              | Resident set size in bytes; alias for working_set, matching the Windows keyword set (g,m,k,b)                                                                    |
-    | started          | Process is started                                                                                                                                               |
-    | state            | Cross-platform state verdict: started or stopped ('running' is accepted as a synonym for started in expressions; the rendered value stays 'started')             |
-    | stopped          | Process is stopped                                                                                                                                               |
-    | time             | User-kernel time in seconds                                                                                                                                      |
-    | uid              | Real uid of the process owner from /proc/<pid>/status; -1 when not known (the synthetic 'not found' and total rows)                                              |
-    | user             | User time in seconds                                                                                                                                             |
-    | username         | Process owner user name (empty unless resolve-owner=true)                                                                                                        |
-    | virtual          | Virtual size in bytes                                                                                                                                            |
-    | working_set      | Working set (RSS) in bytes                                                                                                                                       |
+    | Option           | Description                                                                                                                                                                                                                                                                                                                            |
+    |------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | command_line     | Command line of process                                                                                                                                                                                                                                                                                                                |
+    | creation         | Creation time                                                                                                                                                                                                                                                                                                                          |
+    | elapsed          | Wall-clock seconds since the process started (0 when not known)                                                                                                                                                                                                                                                                        |
+    | error            | Any error messages associated with fetching info                                                                                                                                                                                                                                                                                       |
+    | exe              | The name of the executable                                                                                                                                                                                                                                                                                                             |
+    | filename         | Name of process (with path)                                                                                                                                                                                                                                                                                                            |
+    | kernel           | Kernel time in seconds                                                                                                                                                                                                                                                                                                                 |
+    | page_fault       | Page fault count                                                                                                                                                                                                                                                                                                                       |
+    | page_faults      | Page fault count (major faults on Linux, pageins on macOS)                                                                                                                                                                                                                                                                             |
+    | peak_virtual     | Peak virtual size in bytes (unknown on macOS)                                                                                                                                                                                                                                                                                          |
+    | peak_working_set | Peak working set in bytes (unknown on macOS)                                                                                                                                                                                                                                                                                           |
+    | pid              | Process id                                                                                                                                                                                                                                                                                                                             |
+    | ppid             | Parent process id                                                                                                                                                                                                                                                                                                                      |
+    | proc_state       | Raw scheduler state (the letter ps prints in its STAT column): running, sleeping, disk_sleep, zombie, stopped, tracing_stop, dead, idle, parked or unknown. macOS has running, sleeping, zombie and stopped; running vs sleeping needs the process's task info, so it is unknown for other users' processes when the agent is not root |
+    | rss              | Resident set size in bytes; alias for working_set, matching the Windows keyword set (g,m,k,b)                                                                                                                                                                                                                                          |
+    | started          | Process is started                                                                                                                                                                                                                                                                                                                     |
+    | state            | Cross-platform state verdict: started or stopped ('running' is accepted as a synonym for started in expressions; the rendered value stays 'started')                                                                                                                                                                                   |
+    | stopped          | Process is stopped                                                                                                                                                                                                                                                                                                                     |
+    | time             | User-kernel time in seconds                                                                                                                                                                                                                                                                                                            |
+    | uid              | Real uid of the process owner (/proc/<pid>/status on Linux, the BSD process info on macOS); -1 when not known (the synthetic 'not found' and total rows)                                                                                                                                                                               |
+    | user             | User time in seconds                                                                                                                                                                                                                                                                                                                   |
+    | username         | Process owner user name (empty unless resolve-owner=true)                                                                                                                                                                                                                                                                              |
+    | virtual          | Virtual size in bytes                                                                                                                                                                                                                                                                                                                  |
+    | working_set      | Working set (RSS) in bytes                                                                                                                                                                                                                                                                                                             |
 
     This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
@@ -7319,27 +7336,28 @@ OK: All 1 service(s) are ok.
 
 === "Linux"
 
-    | Option             | Description                                                                                         |
-    |--------------------|-----------------------------------------------------------------------------------------------------|
-    | active             | Raw systemd ActiveState (active, inactive, failed)                                                  |
-    | age                | Seconds since the main process started                                                              |
-    | cpu                | CPU usage of the main process in percent (lifetime average)                                         |
-    | created            | Unix timestamp when the main process started                                                        |
-    | desc               | Unit description                                                                                    |
-    | name               | Unit (service) name                                                                                 |
-    | pid                | Main process id                                                                                     |
-    | preset             | Vendor preset (enabled, disabled)                                                                   |
-    | rss                | Resident memory of the main process in bytes                                                        |
-    | service            | Alias for name                                                                                      |
-    | start_type         | The configured start type (enabled, disabled, static, masked)                                       |
-    | started            | Service is started/active                                                                           |
-    | state              | The mapped service state (stopped, starting, oneshot, running, static, unknown)                     |
-    | state_is_ok()      | Check if the state is ok (enabled services running or starting, disabled services can be any state) |
-    | state_is_perfect() | Check if the state is perfect (enabled services running, disabled services stopped)                 |
-    | stopped            | Service is stopped/inactive                                                                         |
-    | sub_state          | Raw systemd SubState (running, dead, exited, ...)                                                   |
-    | tasks              | Number of tasks (cgroup) for this service                                                           |
-    | vms                | Virtual memory of the main process in bytes                                                         |
+    | Option             | Description                                                                                                                                                                                                   |
+    |--------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | active             | Raw systemd ActiveState (active, inactive, failed); mapped from the launchd job state on macOS                                                                                                                |
+    | age                | Seconds since the main process started                                                                                                                                                                        |
+    | cpu                | CPU usage of the main process in percent (lifetime average)                                                                                                                                                   |
+    | created            | Unix timestamp when the main process started                                                                                                                                                                  |
+    | desc               | Unit description                                                                                                                                                                                              |
+    | has_metrics        | Whether rss, vms, cpu and tasks were measured: false for a service that is not running, and on macOS for a job the agent may not inspect (another user's process when not running as root), where they read 0 |
+    | name               | Unit (service) name; the launchd label on macOS                                                                                                                                                               |
+    | pid                | Main process id                                                                                                                                                                                               |
+    | preset             | Vendor preset (enabled, disabled); empty on macOS, where launchd has none                                                                                                                                     |
+    | rss                | Resident memory of the main process in bytes                                                                                                                                                                  |
+    | service            | Alias for name                                                                                                                                                                                                |
+    | start_type         | The configured start type (enabled, disabled, static, masked; on macOS enabled, disabled or on-demand)                                                                                                        |
+    | started            | Service is started/active                                                                                                                                                                                     |
+    | state              | The mapped service state (stopped, starting, oneshot, running, static, unknown). On macOS an idle job launchd starts on demand is static                                                                      |
+    | state_is_ok()      | Check if the state is ok (enabled services running or starting, disabled services can be any state)                                                                                                           |
+    | state_is_perfect() | Check if the state is perfect (enabled services running, disabled services stopped)                                                                                                                           |
+    | stopped            | Service is stopped/inactive                                                                                                                                                                                   |
+    | sub_state          | Raw systemd SubState (running, dead, exited, ...); running, dead or failed on macOS                                                                                                                           |
+    | tasks              | Number of tasks (cgroup) for this service; the main process's thread count on macOS                                                                                                                           |
+    | vms                | Virtual memory of the main process in bytes                                                                                                                                                                   |
 
     This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
@@ -7560,14 +7578,14 @@ OK: in 172032B/s, out 28672B/s|'io_swap_in_bytes'=172032B;;; 'io_swap_out_bytes'
 
 === "Linux"
 
-    | Option         | Description                                      |
-    |----------------|--------------------------------------------------|
-    | name           | Always 'swap' (single aggregate row)             |
-    | swap_count     | Number of active swap devices                    |
-    | swap_in        | Pages swapped in per second                      |
-    | swap_in_bytes  | Bytes swapped in per second (pages x page size)  |
-    | swap_out       | Pages swapped out per second                     |
-    | swap_out_bytes | Bytes swapped out per second (pages x page size) |
+    | Option         | Description                                                                                |
+    |----------------|--------------------------------------------------------------------------------------------|
+    | name           | Always 'swap' (single aggregate row)                                                       |
+    | swap_count     | Number of active swap devices (on macOS 1 while the dynamic swap files are in use, else 0) |
+    | swap_in        | Pages swapped in per second                                                                |
+    | swap_in_bytes  | Bytes swapped in per second (pages x page size)                                            |
+    | swap_out       | Pages swapped out per second                                                               |
+    | swap_out_bytes | Bytes swapped out per second (pages x page size)                                           |
 
     This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
@@ -7631,7 +7649,7 @@ OK: in 172032B/s, out 28672B/s|'io_swap_in_bytes'=172032B;;; 'io_swap_out_bytes'
 
 === "Linux"
 
-    Check temperature sensors (thermal zones / hwmon).
+    Check temperature sensors (thermal zones / hwmon; none on macOS).
 
     #### About `check_temperature`
 
@@ -8232,6 +8250,7 @@ This command also supports the [common filter keywords](../common-options.md#com
 |-------------------------------------------------------------------------|--------------------------|
 | [/settings/default](#default-values)                                    | Default values           |
 | [/settings/system/unix](#unix-system)                                   | Unix system              |
+| [/settings/system/unix/facts](#/settings/system/unix/facts)             |                          |
 | [/settings/system/unix/real-time/cpu](#realtime-cpu-filters)            | Realtime cpu filters     |
 | [/settings/system/unix/real-time/memory](#realtime-memory-filters)      | Realtime memory filters  |
 | [/settings/system/unix/real-time/process](#realtime-process-filters)    | Realtime process filters |
@@ -8378,49 +8397,25 @@ The default channel to post incoming messages on
 inbox=inbox
 ```
 
-=== "Windows"
+#### Password <a id="/settings/default/password"></a>
 
-    #### Password <a id="/settings/default/password"></a>
-
-    Password an inbound caller has to present. Stored hashed (pbkdf2-sha256$...) when written by \`nscp web install\` or \`nscp web password --set\`; a clear-text value written by hand is still accepted, and is hashed in place when re-set. This is a password to verify against, not key material: NSCA encrypts with its shared secret instead of verifying it, so it keeps its own key under /settings/NSCA/server (or the NSCAClient default target) and never reads this one.
+Password an inbound caller has to present. Stored hashed (pbkdf2-sha256$...) when written by \`nscp web install\` or \`nscp web password --set\`; a clear-text value written by hand is still accepted, and is hashed in place when re-set. This is a password to verify against, not key material: NSCA encrypts with its shared secret instead of verifying it, so it keeps its own key under /settings/NSCA/server (or the NSCAClient default target) and never reads this one.
 
 
-    | Key            | Description                             |
-    |----------------|-----------------------------------------|
-    | Path:          | [/settings/default](#/settings/default) |
-    | Key:           | password                                |
-    | Default value: | _N/A_                                   |
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | password                                |
+| Default value: | _N/A_                                   |
 
 
-    **Sample:**
+**Sample:**
 
-    ```
-    [/settings/default]
-    # Password
-    password=
-    ```
-
-=== "Linux"
-
-    #### Password <a id="/settings/default/password"></a>
-
-    Password used to authenticate against server
-
-
-    | Key            | Description                             |
-    |----------------|-----------------------------------------|
-    | Path:          | [/settings/default](#/settings/default) |
-    | Key:           | password                                |
-    | Default value: | _N/A_                                   |
-
-
-    **Sample:**
-
-    ```
-    [/settings/default]
-    # Password
-    password=
-    ```
+```
+[/settings/default]
+# Password
+password=
+```
 
 #### LISTEN QUEUE <a id="/settings/default/socket queue size"></a>
 
@@ -8586,6 +8581,110 @@ Timezone used to render dates such as boot time. Accepts 'local' (default), 'utc
 [/settings/system/unix]
 # Timezone
 timezone=local
+```
+
+### /settings/system/unix/facts <a id="/settings/system/unix/facts"></a>
+
+*Available on Linux only.*
+
+
+
+
+| Key                                             | Default Value | Description              |
+|-------------------------------------------------|---------------|--------------------------|
+| [hardware](#hardware-facts)                     | false         | HARDWARE FACTS           |
+| [network.interfaces](#network-interfaces-facts) | false         | NETWORK INTERFACES FACTS |
+| [os](#os-facts)                                 | false         | OS FACTS                 |
+| [software.installed](#installed-software-facts) | false         | INSTALLED SOFTWARE FACTS |
+
+
+```ini
+# 
+[/settings/system/unix/facts]
+hardware=false
+network.interfaces=false
+os=false
+software.installed=false
+```
+
+#### HARDWARE FACTS <a id="/settings/system/unix/facts/hardware"></a>
+
+Collect the \`hardware\` fact set: the system manufacturer and model as the firmware reports them (/sys/class/dmi/id; Apple and hw.model on macOS), the number of online processors and the installed memory in whole GB. A host whose kernel exposes no DMI - a container, a board without SMBIOS - reports the sizes and omits the vendor and model.
+
+
+| Key            | Description                                                 |
+|----------------|-------------------------------------------------------------|
+| Path:          | [/settings/system/unix/facts](#/settings/system/unix/facts) |
+| Key:           | hardware                                                    |
+| Default value: | `false`                                                     |
+
+
+**Sample:**
+
+```
+[/settings/system/unix/facts]
+# HARDWARE FACTS
+hardware=false
+```
+
+#### NETWORK INTERFACES FACTS <a id="/settings/system/unix/facts/network.interfaces"></a>
+
+Collect the \`network.interfaces\` fact set: one record per network interface except the loopback - its kernel name (the record id, the same value check_network calls \`name\`), the hardware address, the link state, the negotiated speed and the IPv4 and IPv6 addresses on it. No traffic counters: those are monitoring, and live in check_network. Cheap - read from /sys/class/net (the kernel's interface list on macOS) and getifaddrs, nothing forks - and re-read every facts round, because addresses change with a DHCP lease.
+
+
+| Key            | Description                                                 |
+|----------------|-------------------------------------------------------------|
+| Path:          | [/settings/system/unix/facts](#/settings/system/unix/facts) |
+| Key:           | network.interfaces                                          |
+| Default value: | `false`                                                     |
+
+
+**Sample:**
+
+```
+[/settings/system/unix/facts]
+# NETWORK INTERFACES FACTS
+network.interfaces=false
+```
+
+#### OS FACTS <a id="/settings/system/unix/facts/os"></a>
+
+Collect the \`os\` fact set: the OS family, the distribution's product name, the kernel version, the CPU architecture, whether the host is virtualized and the DNS domain it is in. Cheap - every value is read from uname, /etc/os-release and /sys/class/dmi/id (uname and sysctl on macOS), and nothing is collected while this is off.
+
+
+| Key            | Description                                                 |
+|----------------|-------------------------------------------------------------|
+| Path:          | [/settings/system/unix/facts](#/settings/system/unix/facts) |
+| Key:           | os                                                          |
+| Default value: | `false`                                                     |
+
+
+**Sample:**
+
+```
+[/settings/system/unix/facts]
+# OS FACTS
+os=false
+```
+
+#### INSTALLED SOFTWARE FACTS <a id="/settings/system/unix/facts/software.installed"></a>
+
+Collect the \`software.installed\` fact set: one record per installed package - its name (the record id, the same value check_installed_software calls \`name\`), version, maintainer, architecture, install date and size. The list comes from the host's own package manager (dpkg, rpm or pacman; on macOS the installer receipts, application bundles and Homebrew, read without forking), through the same query check_installed_software runs, so it costs one forked query per facts round - hourly by default. The largest set there is: a package list runs to thousands of records, and it is truncated (with an error saying so) past the point where it would not fit the facts document.
+
+
+| Key            | Description                                                 |
+|----------------|-------------------------------------------------------------|
+| Path:          | [/settings/system/unix/facts](#/settings/system/unix/facts) |
+| Key:           | software.installed                                          |
+| Default value: | `false`                                                     |
+
+
+**Sample:**
+
+```
+[/settings/system/unix/facts]
+# INSTALLED SOFTWARE FACTS
+software.installed=false
 ```
 
 ### Realtime cpu filters <a id="/settings/system/unix/real-time/cpu"></a>
@@ -8848,7 +8947,7 @@ silent period=false
 *Available on Linux only.*
 
 
-Systemd units to surface as host tags: each key is a unit name and each value the tag to publish. When the unit exists and is active the tag is published as <tag>=enabled (removed otherwise). Example: postgresql=postgres
+Services to surface as host tags: each key is a systemd unit name (a launchd label on macOS) and each value the tag to publish. When the service exists and is active (running, on macOS) the tag is published as <tag>=enabled (removed otherwise). Example: postgresql=postgres
 
 
 This is a section of objects. This means that you will create objects below this point by adding sections which all look the same.

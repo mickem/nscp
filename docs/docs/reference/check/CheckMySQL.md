@@ -692,9 +692,6 @@ user=
 
 ### /settings/mysql/facts <a id="/settings/mysql/facts"></a>
 
-*Available on Windows only.*
-
-
 
 
 | Key                                       | Default Value | Description           |

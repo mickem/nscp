@@ -1,7 +1,5 @@
 # CheckKubernetes
 
-*Available on Windows only.*
-
 !!! warning "Experimental"
 
     This module is experimental: it works, but its options, filter keywords

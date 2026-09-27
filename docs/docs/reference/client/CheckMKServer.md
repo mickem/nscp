@@ -701,49 +701,25 @@ The default channel to post incoming messages on
 inbox=inbox
 ```
 
-=== "Windows"
+#### Password <a id="/settings/default/password"></a>
 
-    #### Password <a id="/settings/default/password"></a>
-
-    Password an inbound caller has to present. Stored hashed (pbkdf2-sha256$...) when written by \`nscp web install\` or \`nscp web password --set\`; a clear-text value written by hand is still accepted, and is hashed in place when re-set. This is a password to verify against, not key material: NSCA encrypts with its shared secret instead of verifying it, so it keeps its own key under /settings/NSCA/server (or the NSCAClient default target) and never reads this one.
+Password an inbound caller has to present. Stored hashed (pbkdf2-sha256$...) when written by \`nscp web install\` or \`nscp web password --set\`; a clear-text value written by hand is still accepted, and is hashed in place when re-set. This is a password to verify against, not key material: NSCA encrypts with its shared secret instead of verifying it, so it keeps its own key under /settings/NSCA/server (or the NSCAClient default target) and never reads this one.
 
 
-    | Key            | Description                             |
-    |----------------|-----------------------------------------|
-    | Path:          | [/settings/default](#/settings/default) |
-    | Key:           | password                                |
-    | Default value: | _N/A_                                   |
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | password                                |
+| Default value: | _N/A_                                   |
 
 
-    **Sample:**
+**Sample:**
 
-    ```
-    [/settings/default]
-    # Password
-    password=
-    ```
-
-=== "Linux"
-
-    #### Password <a id="/settings/default/password"></a>
-
-    Password used to authenticate against server
-
-
-    | Key            | Description                             |
-    |----------------|-----------------------------------------|
-    | Path:          | [/settings/default](#/settings/default) |
-    | Key:           | password                                |
-    | Default value: | _N/A_                                   |
-
-
-    **Sample:**
-
-    ```
-    [/settings/default]
-    # Password
-    password=
-    ```
+```
+[/settings/default]
+# Password
+password=
+```
 
 #### LISTEN QUEUE <a id="/settings/default/socket queue size"></a>
 
