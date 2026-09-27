@@ -9,18 +9,46 @@
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/settings/helper.hpp>
+#include <nscapi/settings/proxy.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <str/utils.hpp>
 #include <vector>
 
 #include "TaskSched.h"
 #include "filter.hpp"
+#include "task_facts.hpp"
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
-bool CheckTaskSched::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) { return true; }
+bool CheckTaskSched::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
+  sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
+  settings.set_alias(alias, "task schedule");
+  bool enabled = false;
+  settings.alias().add_key_to_settings("facts").add_bool(
+      task_facts::id_scheduled, sh::bool_key(&enabled, false), "SCHEDULED TASK FACTS",
+      "Collect tasks.scheduled: every local task, including disabled and hidden tasks in subfolders. Records contain the full path "
+      "(the check's uri), name, folder, enabled and hidden flags. No actions, arguments, accounts or run results. Collected every "
+      "facts round except startup; failures retain the previous inventory. Limited to 2500 records with a truncation error.");
+  settings.register_all();
+  settings.notify();
+  facts_scheduled_.store(enabled);
+  return true;
+}
 bool CheckTaskSched::unloadModule() { return true; }
+
+void CheckTaskSched::fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response) {
+  if (!facts_scheduled_.load()) return;
+  if (request.reason() == "startup") {
+    response.error(task_facts::set_tasks, "Not collected during startup: scheduled tasks are read on the first scheduled round, or now with a manual refresh");
+    return;
+  }
+  try {
+    task_facts::publish(task_facts::gather(), std::time(nullptr), response);
+  } catch (const std::exception &e) {
+    response.error(task_facts::set_tasks, std::string("Failed to enumerate scheduled tasks: ") + e.what());
+  }
+}
 
 void log_args(const PB::Commands::QueryRequestMessage::Request &request) {
   std::stringstream ss;

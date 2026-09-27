@@ -12,6 +12,7 @@
 #include <compat.hpp>
 #include <facts/host_facts.hpp>
 #include <facts/network_facts.hpp>
+#include <facts/service_facts.hpp>
 #include <facts/software_facts.hpp>
 #include <map>
 #include <memory>
@@ -182,6 +183,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   bool facts_hardware = false;
   bool facts_network_interfaces = false;
   bool facts_software_installed = false;
+  bool facts_services_installed = false;
   // A reload replaces the collector: stop the running one first so its
   // threads are joined before the checks start reading the new instance.
   // Publish the replacement atomically and configure it through the local
@@ -256,6 +258,12 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         "value check_network calls `name`), the connection name (`Ethernet`, `Wi-Fi`), the hardware address, the link state, the negotiated speed and "
         "the IPv4 and IPv6 addresses on it. No traffic counters: those are monitoring, and live in check_network. Cheap - one GetAdaptersAddresses "
         "call, no WMI - and re-read every facts round, because addresses change with a DHCP lease.")
+
+  .add_bool(service_facts::id_installed, sh::bool_key(&facts_services_installed, false),
+      "INSTALLED SERVICES FACTS",
+      "Collect services.installed: every local Windows service, including stopped and disabled services, with its name, display name and "
+      "startup type (the check_service vocabulary). No state, process IDs, accounts or command lines. Read every facts round except startup; "
+      "failures retain the previous inventory. Limited to 2500 records with a truncation error.")
 
   .add_bool(software_facts::id_installed, sh::bool_key(&facts_software_installed, false),
         "INSTALLED SOFTWARE FACTS",
@@ -372,6 +380,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   facts_hardware_.store(facts_hardware);
   facts_network_interfaces_.store(facts_network_interfaces);
   facts_software_installed_.store(facts_software_installed);
+  facts_services_installed_.store(facts_services_installed);
 
   if (mode == NSCAPI::normalStart) {
     // The selector tags, on the other hand, describe the machine rather than
@@ -1440,6 +1449,17 @@ class add_visitor : public boost::static_visitor<> {
   }
 };
 void CheckSystem::fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response) {
+  if (facts_services_installed_.load()) {
+    if (request.reason() == "startup") {
+      response.error(service_facts::set_services, "Not collected during startup: services are read on the first scheduled round, or now with a manual refresh");
+    } else {
+      try {
+        service_facts::publish(service_facts::gather(), std::time(nullptr), response);
+      } catch (const std::exception &e) {
+        response.error(service_facts::set_services, std::string("Failed to enumerate services: ") + e.what());
+      }
+    }
+  }
   const bool want_os = facts_os_.load();
   const bool want_hardware = facts_hardware_.load();
   if (want_os || want_hardware) {

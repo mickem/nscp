@@ -39,6 +39,7 @@ set(SRCS
     check_process_history.cpp
     system_facts.cpp
     software_facts_unix.cpp
+    ${NSCP_INCLUDEDIR}/facts/service_facts.cpp
     ${NSCP_INCLUDEDIR}/facts/host_facts.cpp
     ${NSCP_INCLUDEDIR}/facts/network_facts.cpp
     ${NSCP_INCLUDEDIR}/facts/software_facts.cpp
@@ -55,6 +56,7 @@ if(APPLE)
         live_source_darwin.cpp
         process_source_darwin.cpp
         service_source_darwin.cpp
+        service_facts_darwin.cpp
         software_source_darwin.cpp
         plist_darwin.cpp
         hardware_source_darwin.cpp
@@ -64,6 +66,7 @@ if(APPLE)
     )
     set(PLATFORM_TEST_SRCS
         darwin_sources_test.cpp
+        service_facts_darwin_test.cpp
     )
     # Property lists (receipts, bundles, the update cache) and IOKit power
     # sources. libproc and the Mach calls are in libSystem.
@@ -76,11 +79,13 @@ else()
         live_source_linux.cpp
         process_source_linux.cpp
         service_source_linux.cpp
+        systemd_units_linux.cpp
+        service_facts_linux.cpp
         software_source_linux.cpp
         hardware_source_linux.cpp
         network_facts_linux.cpp
     )
-    set(PLATFORM_TEST_SRCS)
+    set(PLATFORM_TEST_SRCS service_facts_linux_test.cpp systemd_units_linux_test.cpp)
     set(PLATFORM_LIBS)
 endif()
 set(SRCS ${SRCS} ${PLATFORM_SRCS})
@@ -181,6 +186,7 @@ NSCP_CREATE_TEST(
         system_facts_test.cpp
         system_facts.cpp
         software_facts_unix.cpp
+        ${NSCP_INCLUDEDIR}/facts/service_facts.cpp
         software_facts_unix_test.cpp
         network_facts_unix_test.cpp
         collector_calc.cpp

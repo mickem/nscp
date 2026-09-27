@@ -41,6 +41,8 @@ set(SRCS
     system_facts.cpp
     network_facts_win.cpp
     software_facts_win.cpp
+    service_facts_win.cpp
+    ${NSCP_INCLUDEDIR}/facts/service_facts.cpp
     ${NSCP_INCLUDEDIR}/facts/host_facts.cpp
     ${NSCP_INCLUDEDIR}/facts/network_facts.cpp
     ${NSCP_INCLUDEDIR}/facts/software_facts.cpp
@@ -204,6 +206,9 @@ NSCP_CREATE_TEST(
         check_patch_age.cpp
         check_installed_software.cpp
         software_facts_win.cpp
+        service_facts_win.cpp
+        service_facts_win_test.cpp
+        ${NSCP_INCLUDEDIR}/facts/service_facts.cpp
         ${NSCP_INCLUDEDIR}/facts/software_facts.cpp
         ${NSCP_INCLUDEDIR}/facts/host_facts.cpp
         check_load.cpp

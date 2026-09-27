@@ -11,6 +11,7 @@
 		"default_alias"	: "task schedule"
 	},
 
+	"facts" : true,
 	"commands" : {
 		"check_tasksched"	: "Check status of scheduled jobs.",
 		"CheckTaskSched"	: "Legacy version of check_tasksched"

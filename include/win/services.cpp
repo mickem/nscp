@@ -22,7 +22,6 @@ namespace {
 std::string from_wide(const wchar_t *s) { return s ? utf8::cvt<std::string>(std::wstring(s)) : std::string(); }
 }  // namespace
 
-
 typedef boost::unordered_map<std::string, std::string> hash_map;
 hash_map smap;
 
@@ -327,13 +326,14 @@ hlp::buffer<BYTE, SERVICE_STATUS_PROCESS *> queryServiceStatusEx(SC_HANDLE hServ
   return buf;
 }
 
-void fetch_triggers(const service_handle &hService, service_info &info) {
+void fetch_triggers(const service_handle &hService, service_info &info, const bool strict = false) {
   DWORD bytesNeeded = 0;
   DWORD deErr = 0;
   if (QueryServiceConfig2W(hService, SERVICE_CONFIG_TRIGGER_INFO, nullptr, 0, &bytesNeeded)) return;
   deErr = GetLastError();
   if (deErr != ERROR_INSUFFICIENT_BUFFER) {
-    if (deErr != ERROR_INVALID_PARAMETER) {
+    if (deErr != ERROR_INVALID_PARAMETER && deErr != ERROR_INVALID_LEVEL && deErr != ERROR_CALL_NOT_IMPLEMENTED) {
+      if (strict) throw nsclient::nsclient_exception("Failed to query trigger info: " + info.name + ": " + error::lookup::last_error(deErr));
       NSC_LOG_ERROR("Failed to query trigger info size: " + info.name + ": " + error::lookup::last_error(deErr));
     }
     return;
@@ -342,7 +342,8 @@ void fetch_triggers(const service_handle &hService, service_info &info) {
 
   if (QueryServiceConfig2W(hService, SERVICE_CONFIG_TRIGGER_INFO, buffer.get(), bytesNeeded, &bytesNeeded) == 0) {
     deErr = GetLastError();
-    if (deErr != ERROR_INVALID_PARAMETER) {
+    if (deErr != ERROR_INVALID_PARAMETER && deErr != ERROR_INVALID_LEVEL && deErr != ERROR_CALL_NOT_IMPLEMENTED) {
+      if (strict) throw nsclient::nsclient_exception("Failed to query trigger details: " + info.name + ": " + error::lookup::last_error(deErr));
       NSC_LOG_ERROR("Failed to query trigger details: " + info.name + ": " + error::lookup::last_error(deErr));
     }
   } else {
@@ -350,16 +351,21 @@ void fetch_triggers(const service_handle &hService, service_info &info) {
   }
 }
 
-void fetch_delayed(const service_handle &hService, service_info &info) {
+void fetch_delayed(const service_handle &hService, service_info &info, const bool strict = false) {
   SERVICE_DELAYED_AUTO_START_INFO delayed;
   DWORD size = sizeof(SERVICE_DELAYED_AUTO_START_INFO);
   if (windows::winapi::QueryServiceConfig2W(hService, SERVICE_CONFIG_DELAYED_AUTO_START_INFO, reinterpret_cast<LPBYTE>(&delayed), size, &size)) {
     info.delayed = delayed.fDelayedAutostart ? true : false;
+  } else if (strict && info.start_type == SERVICE_AUTO_START) {
+    const DWORD last_error = GetLastError();
+    // Older Windows versions have no delayed-start configuration level.
+    if (last_error != ERROR_INVALID_LEVEL && last_error != ERROR_INVALID_PARAMETER && last_error != ERROR_CALL_NOT_IMPLEMENTED)
+      throw nsclient::nsclient_exception("Failed to query delayed start: " + info.name + ": " + error::lookup::last_error(last_error));
   }
 }
 
 std::list<service_info> enum_services(const std::string &computer, const DWORD dwServiceType, const DWORD dwServiceState,
-                                      const std::vector<std::string> &excludes) {
+                                      const std::vector<std::string> &excludes, const bool strict_config) {
   std::list<service_info> ret;
   const std::wstring comp = utf8::cvt<std::wstring>(computer);
 
@@ -404,13 +410,14 @@ std::list<service_info> enum_services(const std::string &computer, const DWORD d
             info.binary_path = from_wide(qscData.get()->lpBinaryPathName);
             info.error_control = qscData.get()->dwErrorControl;
           } catch (std::exception &e) {
+            if (strict_config) throw;
             NSC_LOG_ERROR("Failed to query service config: " + info.name + ": " + e.what());
             info.start_type = 0;
             info.binary_path = "N/A";
             info.error_control = 0;
           }
-          fetch_delayed(hService, info);
-          fetch_triggers(hService, info);
+          fetch_delayed(hService, info, strict_config);
+          fetch_triggers(hService, info, strict_config);
           ret.push_back(info);
         }
       });

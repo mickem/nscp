@@ -370,6 +370,21 @@ NSCP_CREATE_TEST(
 )
 
 NSCP_CREATE_TEST(
+    service_task_facts_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/facts/service_facts_test.cpp
+        ${NSCP_INCLUDEDIR}/facts/service_facts.cpp
+        ${PROJECT_SOURCE_DIR}/modules/CheckTaskSched/task_facts_test.cpp
+        ${PROJECT_SOURCE_DIR}/modules/CheckTaskSched/task_facts.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${PLUGIN_API_TARGET}
+        nscp_protobuf
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+NSCP_CREATE_TEST(
     realtime_helper_test
     SOURCES
         ${NSCP_INCLUDEDIR}/parsers/filter/realtime_helper_test.cpp

@@ -10,6 +10,7 @@ set(SRCS
     ${SRCS}
     "${TARGET}.cpp"
     TaskSched.cpp
+    task_facts.cpp
     filter.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
@@ -46,3 +47,34 @@ target_link_libraries(
     Mstask.lib
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
+
+NSCP_CREATE_TEST(
+    check_tasksched_test
+    SOURCES
+        task_facts_win_test.cpp
+        TaskSched.cpp
+        filter.cpp
+        task_facts.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        ${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.cpp
+        ${NSCP_ERROR_CPP}
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_protobuf
+        ${PLUGIN_API_TARGET}
+        ${NSCP_FILTER_LIB}
+        expression_parser
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+        Mstask.lib
+        ole32
+        OleAut32
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
