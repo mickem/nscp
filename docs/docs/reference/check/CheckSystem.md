@@ -133,6 +133,14 @@ A list of all short hand aliases for queries (check commands)
     (`status` is a deprecated alias — the name clashes with the generic status
     summary keyword and resolves to that in `top-syntax`).
 
+    ##### macOS
+
+    Sourced from the IOKit power sources (charge, power source, charging state,
+    time remaining) and the `AppleSmartBattery` registry entry (design, full and
+    remaining capacity, charge and discharge rate). Both are public and readable
+    without privileges. A desktop Mac or a virtual machine has no battery and gets
+    the no-battery result.
+
 === "Linux"
 
     Check battery charge level, power source and health.
@@ -196,6 +204,14 @@ A list of all short hand aliases for queries (check commands)
     not populate sysfs will not be. `battery_status` carries the charging state
     (`status` is a deprecated alias — the name clashes with the generic status
     summary keyword and resolves to that in `top-syntax`).
+
+    ##### macOS
+
+    Sourced from the IOKit power sources (charge, power source, charging state,
+    time remaining) and the `AppleSmartBattery` registry entry (design, full and
+    remaining capacity, charge and discharge rate). Both are public and readable
+    without privileges. A desktop Mac or a virtual machine has no battery and gets
+    the no-battery result.
 
 **Jump to section:**
 
@@ -713,6 +729,11 @@ CPU Load ok
     per-socket CPU hardware inventory; pin them to detect a re-imaged or migrated
     box (`crit=architecture != 'x64'`).
 
+    #### macOS
+
+    Always UNKNOWN. Apple silicon exposes no per-core clock to an unprivileged
+    process; `powermetrics` needs root and the IOReport framework is private.
+
 === "Linux"
 
     Check the CPU clock frequency (current vs max) per core.
@@ -730,6 +751,11 @@ CPU Load ok
     columns (`architecture`, `l2_cache`, `l3_cache`) make the check double as the
     per-socket CPU hardware inventory; pin them to detect a re-imaged or migrated
     box (`crit=architecture != 'x64'`).
+
+    #### macOS
+
+    Always UNKNOWN. Apple silicon exposes no per-core clock to an unprivileged
+    process; `powermetrics` needs root and the IOReport framework is private.
 
 **Jump to section:**
 
@@ -855,6 +881,13 @@ differs from [`check_cpu`](#check_cpu), which averages utilization over rolling
 time windows (`1m`/`5m`/`15m`) from the background collector; `check_cpu_utilization`
 takes a single fresh 1-second sample and exposes the per-mode breakdown, which
 is what you want to distinguish user vs. `iowait` vs. `steal` pressure.
+
+##### macOS
+
+Sourced from `host_processor_info`, which accounts CPU time as user, nice,
+system and idle only. `iowait`, `irq`, `softirq`, `steal` and `guest` are
+always 0 there: the time is folded into the other buckets, not measured as
+zero.
 
 **Jump to section:**
 
@@ -1161,6 +1194,11 @@ This command also supports the [common filter keywords](../common-options.md#com
       canonicalising this host under a *different* name (stale `/etc/hosts`
       entries, CNAME chains, re-imaged boxes keeping an old DNS record).
 
+    ##### macOS
+
+    The same calls as on Linux. A default Mac name ends in `.local`, the
+    multicast-DNS pseudo-domain, which is not a DNS domain.
+
     ##### See also
 
     CheckSecurity's `check_nla` covers the runtime side of the same question — which
@@ -1220,6 +1258,11 @@ This command also supports the [common filter keywords](../common-options.md#com
     - **"Is the name coherent?"** — `warn=fqdn_consistent = 0` flags the resolver
       canonicalising this host under a *different* name (stale `/etc/hosts`
       entries, CNAME chains, re-imaged boxes keeping an old DNS record).
+
+    ##### macOS
+
+    The same calls as on Linux. A default Mac name ends in `.local`, the
+    multicast-DNS pseudo-domain, which is not a DNS domain.
 
     ##### See also
 
@@ -1477,6 +1520,20 @@ OK: web01 (web01.corp.example.com), domain=corp.example.com
     only name and version, so `publisher`, `size` and `install_date` stay unset
     there.
 
+    ##### macOS
+
+    A Mac has no single package database, so the inventory is three sources, all
+    read from disk without running anything. The `manager` keyword names the one
+    each entry came from:
+
+    | `manager`  | Source                                                           | What it carries                                               |
+    |------------|------------------------------------------------------------------|---------------------------------------------------------------|
+    | `pkgutil`  | Installer receipts in `/var/db/receipts`, the list `pkgutil --pkgs` prints | Package identifier, version, install date              |
+    | `bundle`   | Applications in `/Applications` and `/Applications/Utilities`    | Bundle name, version, bundle identifier as `publisher`, last modified as the install date |
+    | `homebrew` | Formulae and casks under `/opt/homebrew` (or `/usr/local`)       | Formula name, the linked version, when that version was installed |
+
+    `architecture` and `size` are not recorded by any of them.
+
 === "Linux"
 
     Check installed software packages via the system package manager (dpkg/rpm/pacman): inventory, unwanted/EOL software policy and recent-install detection.
@@ -1539,6 +1596,20 @@ OK: web01 (web01.corp.example.com), domain=corp.example.com
     not have that field, so `install_date` stays unset there. `pacman -Q` exposes
     only name and version, so `publisher`, `size` and `install_date` stay unset
     there.
+
+    ##### macOS
+
+    A Mac has no single package database, so the inventory is three sources, all
+    read from disk without running anything. The `manager` keyword names the one
+    each entry came from:
+
+    | `manager`  | Source                                                           | What it carries                                               |
+    |------------|------------------------------------------------------------------|---------------------------------------------------------------|
+    | `pkgutil`  | Installer receipts in `/var/db/receipts`, the list `pkgutil --pkgs` prints | Package identifier, version, install date              |
+    | `bundle`   | Applications in `/Applications` and `/Applications/Utilities`    | Bundle name, version, bundle identifier as `publisher`, last modified as the install date |
+    | `homebrew` | Formulae and casks under `/opt/homebrew` (or `/usr/local`)       | Formula name, the linked version, when that version was installed |
+
+    `architecture` and `size` are not recorded by any of them.
 
 **Jump to section:**
 
@@ -1800,6 +1871,17 @@ OK: bash 5.2.21-2 via dpkg|'count'=1;0;0
     kernel-side leak — reclaimable slab grows and shrinks with cache pressure and
     is not by itself a problem.
 
+    ##### macOS
+
+    Sourced from the Mach VM statistics. macOS has no slab allocator, so `slab`,
+    `slab_reclaimable` and `slab_unreclaimable` are `unknown`. Two macOS-only
+    keywords take their place: `wired` is memory the kernel has pinned, its own
+    allocations included, and steady growth there is the kernel-side leak signal;
+    `compressed` is memory held by the memory compressor, which grows under
+    pressure the host absorbs by compressing rather than swapping. Both are
+    `unknown` on Linux. `cache` is the file-backed pages, `page_faults_per_sec`
+    counts every fault and `major_faults_per_sec` the pageins.
+
 === "Linux"
 
     Check kernel memory-manager health: slab bytes (reclaimable/unreclaimable), page-cache bytes and page-fault rates — the kernel-leak and fault-storm signals free-RAM thresholds miss.
@@ -1842,6 +1924,17 @@ OK: bash 5.2.21-2 via dpkg|'count'=1;0;0
     `major_faults_per_sec`. `slab_unreclaimable` is the gauge that exposes a slow
     kernel-side leak — reclaimable slab grows and shrinks with cache pressure and
     is not by itself a problem.
+
+    ##### macOS
+
+    Sourced from the Mach VM statistics. macOS has no slab allocator, so `slab`,
+    `slab_reclaimable` and `slab_unreclaimable` are `unknown`. Two macOS-only
+    keywords take their place: `wired` is memory the kernel has pinned, its own
+    allocations included, and steady growth there is the kernel-side leak signal;
+    `compressed` is memory held by the memory compressor, which grows under
+    pressure the host absorbs by compressing rather than swapping. Both are
+    `unknown` on Linux. `cache` is the file-backed pages, `page_faults_per_sec`
+    counts every fault and `major_faults_per_sec` the pageins.
 
 **Jump to section:**
 
@@ -2092,6 +2185,14 @@ OK: slab 512MB (128MB unreclaimable), cache 4GB, 2 major faults/s
     | `processes`  | `/proc/stat`          | rate  | Process/fork creations per second      |
     | `threads`    | `/proc/*/task`        | gauge | Live thread count (instantaneous)      |
 
+    ##### macOS
+
+    Only the `threads` row, from the Mach processor-set statistics - the number
+    `top` prints as Threads. macOS keeps no system-wide count of context switches
+    or process creations that an unprivileged process can read, so there are no
+    `ctxt` or `processes` rows, and asking for one with `type=ctxt` or
+    `type=processes` returns UNKNOWN naming the missing counter.
+
     ##### Platform differences
 
     Linux's `processes` row is a fork *rate*; Windows has no process-creation-rate
@@ -2147,6 +2248,14 @@ OK: slab 512MB (128MB unreclaimable), cache 4GB, 2 major faults/s
     | `ctxt`       | `/proc/stat`          | rate  | Context switches per second            |
     | `processes`  | `/proc/stat`          | rate  | Process/fork creations per second      |
     | `threads`    | `/proc/*/task`        | gauge | Live thread count (instantaneous)      |
+
+    ##### macOS
+
+    Only the `threads` row, from the Mach processor-set statistics - the number
+    `top` prints as Threads. macOS keeps no system-wide count of context switches
+    or process creations that an unprivileged process can read, so there are no
+    `ctxt` or `processes` rows, and asking for one with `type=ctxt` or
+    `type=processes` returns UNKNOWN naming the missing counter.
 
     ##### Platform differences
 
@@ -2361,6 +2470,12 @@ OK - Context Switches 57111.0/s, Process Creations 317.0/s
     The averages come straight from `/proc/loadavg` — the kernel's own 1-, 5-
     and 15-minute run-queue averages.
 
+    ##### macOS
+
+    The averages come from `getloadavg(3)`. `procs_total` is the number of
+    threads, as it is on Linux. macOS keeps no count of runnable threads, so
+    `procs_running` is `unknown` and never satisfies a threshold.
+
     ##### Windows
 
     Windows has no kernel-maintained load average, so the CheckSystem background
@@ -2419,6 +2534,12 @@ OK - Context Switches 57111.0/s, Process Creations 317.0/s
 
     The averages come straight from `/proc/loadavg` — the kernel's own 1-, 5-
     and 15-minute run-queue averages.
+
+    ##### macOS
+
+    The averages come from `getloadavg(3)`. `procs_total` is the number of
+    threads, as it is on Linux. macOS keeps no count of runnable threads, so
+    `procs_running` is `unknown` and never satisfies a threshold.
 
     ##### Windows
 
@@ -2626,6 +2747,14 @@ declaring the counter yourself:
 ```
 check_pdh "counter=memory_pages_sec" "warn=value > 1000" "crit=value > 5000"
 ```
+
+##### macOS
+
+`physical` is installed memory against the free pages. `cached` counts
+file-backed and purgeable pages as free as well, the same two Activity Monitor
+adds up as Cached Files. `swap` is the dynamic swap files, so its size is zero
+until macOS has needed swap. On macOS the system metrics also carry
+`system.mem.wired` and `system.mem.compressed`.
 
 **Jump to section:**
 
@@ -2957,6 +3086,12 @@ page = 8.05G, physical = 7.85G
     is absent, the fields stay empty and the check does not fail. Use `team != ''`
     to scope a check to teamed adapters.
 
+    #### macOS
+
+    The counters, hardware address and link speed come from the kernel's interface
+    list (the `NET_RT_IFLIST2` sysctl, the source `netstat` uses) with 64-bit
+    counters, and `status` from the interface's media state. The loopback is `lo0`.
+
 === "Linux"
 
     Check network interface status and throughput.
@@ -3107,6 +3242,12 @@ page = 8.05G, physical = 7.85G
     Team annotation is best-effort and self-disabling: if the provider or namespace
     is absent, the fields stay empty and the check does not fail. Use `team != ''`
     to scope a check to teamed adapters.
+
+    #### macOS
+
+    The counters, hardware address and link speed come from the kernel's interface
+    list (the `NET_RT_IFLIST2` sysctl, the source `netstat` uses) with 64-bit
+    counters, and `status` from the interface's media state. The loopback is `lo0`.
 
 **Jump to section:**
 
@@ -3446,6 +3587,28 @@ OK: eth0 >659B/s <659B/s, lo >0B/s <0B/s
 
     This will return `CRITICAL` if any security updates are pending and otherwise `OK` regardless of the number of ordinary updates.
 
+    ##### macOS
+
+    The `manager` is `softwareupdate`. By default the check reads the list macOS
+    caches at its background check,
+    `/Library/Preferences/com.apple.SoftwareUpdate.plist`. That is instant and
+    needs no network. `last_checked` is when that list was last refreshed, so a
+    Mac that has stopped checking shows up:
+
+    ```
+    check_os_updates "warning=last_checked < -14d or updates > 0" "critical=security > 0"
+    ```
+
+    `live=true` asks Apple's update server with `softwareupdate --list` instead.
+    That takes 10 to 60 seconds and needs network access; the check gives up after
+    60 seconds with UNKNOWN. A Mac with no cached list yet is UNKNOWN rather than
+    "no updates".
+
+    macOS publishes no security classification. `security` counts the updates
+    named as security responses (Rapid and Background Security Responses, the
+    older Security Update packages). A macOS point release also carries security
+    fixes, but it is not counted.
+
     ##### Customizing the output
 
     You can use the syntax options to format the output string:
@@ -3549,6 +3712,28 @@ OK: eth0 >659B/s <659B/s, lo >0B/s <0B/s
     ```
 
     This will return `CRITICAL` if any security updates are pending and otherwise `OK` regardless of the number of ordinary updates.
+
+    ##### macOS
+
+    The `manager` is `softwareupdate`. By default the check reads the list macOS
+    caches at its background check,
+    `/Library/Preferences/com.apple.SoftwareUpdate.plist`. That is instant and
+    needs no network. `last_checked` is when that list was last refreshed, so a
+    Mac that has stopped checking shows up:
+
+    ```
+    check_os_updates "warning=last_checked < -14d or updates > 0" "critical=security > 0"
+    ```
+
+    `live=true` asks Apple's update server with `softwareupdate --list` instead.
+    That takes 10 to 60 seconds and needs network access; the check gives up after
+    60 seconds with UNKNOWN. A Mac with no cached list yet is UNKNOWN rather than
+    "no updates".
+
+    macOS publishes no security classification. `security` counts the updates
+    named as security responses (Rapid and Background Security Responses, the
+    older Security Update packages). A macOS point release also carries security
+    fixes, but it is not counted.
 
     ##### Customizing the output
 
@@ -3798,6 +3983,13 @@ best-effort from WMI, are empty when WMI is unavailable, are not part of the
 default output, and are not intended for alerting. Reference them in a custom
 `detail-syntax` (or `top-syntax`) to pull inventory.
 
+#### macOS
+
+`os` is the product name and build, e.g. `macOS 14.5 (23F79)`. `distribution`
+and `family` are `macos`, `distribution_name` is `macOS` and `version` the
+product version. `kernel_name` is `Darwin` and `kernel_release` the Darwin
+version, as `uname` reports them.
+
 **Jump to section:**
 
 * [Sample Commands](#check_os_version_samples)
@@ -4011,6 +4203,12 @@ Each swap device (or swap file) is one record, and `name` is its path. A host
 with swap disabled entirely reports only the `total` record with a size of zero;
 guard against that with `filter=size > 0` if a zero-sized total would otherwise
 read as 100% used in your dashboards.
+
+##### macOS
+
+Swap comes from `vm.swapusage`, reported as the single `total` record. macOS
+creates its swap files on demand, so a Mac that has not needed swap reports a
+size of zero, and the same `filter=size > 0` guard applies.
 
 **Jump to section:**
 
@@ -5149,6 +5347,36 @@ process.
 ```
 check_process process=postgres resolve-owner=true "crit=username != 'postgres'" "detail-syntax=%(exe) owner=%(username)"
 ```
+
+##### macOS
+
+The process list comes from the kernel's process table (`sysctl KERN_PROC`,
+what `ps` reads) and the executable path from libproc. `pid`, `ppid`, `uid`,
+`username`, `creation`, `elapsed`, `filename` and `exe` are readable for every
+process.
+The memory, fault and CPU counters (`virtual`, `working_set`, `rss`,
+`page_faults`, `user`, `kernel`, `time`) and `command_line` are not: macOS
+gives them only to the process's owner and to root, and the agent runs as the
+unprivileged `_nsclient` account. For other users' processes those keywords
+render `unknown`, never satisfy a threshold and emit no performance data, and
+`command_line` is empty; a `total=true` row over such a process is `unknown`
+too, rather than an undercount. `peak_virtual` and `peak_working_set` are
+always `unknown`, since macOS keeps no per-process peaks. `page_faults` counts
+pageins, the faults that had to read from disk.
+
+`fetch-only`, the check_mk `<<<ps>>>` feed, is the one exception. Its
+format has no way to say unknown and a missing row would undercount the
+processes check_mk matches, so for those processes it lists `vsz`, `rss` and
+`cputime` as `0`. Put thresholds on them in `check_process` itself.
+
+`proc_state` maps the BSD process states: `running`, `sleeping`, `zombie` and
+`stopped`. Telling running from sleeping needs the counters above, so for
+other users' processes it is `unknown`. `delta=true` measures against
+wall-clock time on every core.
+
+To see every process's counters, the agent has to run as root; see [Installing
+on macOS](../../setup/installing.md#what-is-not-in-the-macos-build-yet) for the
+trade-off.
 
 #### Process state: `state` vs `proc_state` (Linux)
 
@@ -6688,6 +6916,44 @@ check_service service=nginx filter=none "crit=state != 'running'"
 `exclude=` drops units by name, and `state=` (`all`, `active`, `inactive`,
 `failed`) restricts the enumeration before filtering.
 
+##### macOS
+
+`check_service` inspects **launchd** jobs in the system domain, which is what
+a daemon sees and the counterpart of systemd's system services. `service=`
+takes a job label (`service=com.apple.logd`); there is no `.service` suffix.
+The job list comes from `launchctl print system`, the overrides from
+`launchctl print-disabled system`, and a check by name also reads
+`launchctl print system/<label>`.
+
+Each job is mapped onto the same fields, so the default thresholds read the
+same way:
+
+| launchd job                                    | `active`   | `sub_state` | `state`   |
+|------------------------------------------------|------------|-------------|-----------|
+| has a pid                                      | `active`   | `running`   | `running` |
+| crashed (killed by a signal other than SIGTERM, SIGKILL or SIGINT), or meant to run at load or be kept alive and exited non-zero | `failed` | `failed` | `stopped` |
+| idle, and launchd starts it on demand          | `inactive` | `dead`      | `static`  |
+| idle otherwise                                 | `inactive` | `dead`      | `stopped` |
+
+`start_type` is `disabled` for a job disabled by an override, `enabled` for one
+that runs at load or is kept alive, and `on-demand` for the rest. The
+distinction needs the job's own properties, so it is made for a check by name;
+`service=*` reports `disabled` or leaves `start_type` empty. Disabling a job
+also unloads it, so `service=*` does not list it at all; a check by name still
+finds it in the override database and reports it `stopped` with `start_type`
+`disabled` and `load_state` `not-loaded`. A label launchd knows nothing about
+has `load_state` `not-found` and an empty `start_type`. launchd's last
+exit status is history rather than state - idle on-demand jobs routinely carry
+a non-zero one - so a non-zero exit only counts as a failure for a job meant
+to be running, which again needs a check by name. A crash counts everywhere;
+SIGTERM and SIGKILL are how launchd stops an idle job and do not. `preset` has
+no launchd counterpart and is empty.
+
+`rss`, `vms`, `cpu`, `tasks` (the thread count), `created` and `age` come from
+libproc. The first four need the job's task info, which the unprivileged agent
+only has for its own processes; for any other job they read 0, and
+`has_metrics` is `false`.
+
 **Jump to section:**
 
 * [Sample Commands](#check_service_samples)
@@ -7112,6 +7378,12 @@ OK: All 1 service(s) are ok.
     Reads `pswpin` / `pswpout` from `/proc/vmstat`. On a host with no swap
     configured the rates are simply `0`.
 
+    ##### macOS
+
+    The rates come from the swapins and swapouts in the Mach VM statistics, in
+    16 KiB pages on Apple silicon. macOS creates swap files on demand and removes
+    them again, so `swap_count` is 1 while any exist and 0 otherwise.
+
 === "Linux"
 
     Check the swap in/out paging rate.
@@ -7144,6 +7416,12 @@ OK: All 1 service(s) are ok.
 
     Reads `pswpin` / `pswpout` from `/proc/vmstat`. On a host with no swap
     configured the rates are simply `0`.
+
+    ##### macOS
+
+    The rates come from the swapins and swapouts in the Mach VM statistics, in
+    16 KiB pages on Apple silicon. macOS creates swap files on demand and removes
+    them again, so `swap_count` is 1 while any exist and 0 otherwise.
 
 **Jump to section:**
 
@@ -7345,6 +7623,12 @@ OK: in 172032B/s, out 28672B/s|'io_swap_in_bytes'=172032B;;; 'io_swap_out_bytes'
     `throttle_reasons` carries the ACPI throttle bitmask, which is a more direct
     signal that thermal limits are actually biting than the temperature alone.
 
+    ##### macOS
+
+    Always UNKNOWN (`No temperature sensors found`). The SMC sensors are reachable
+    only through the undocumented AppleSMC interface or the private
+    IOHIDEventSystem, and both change between macOS releases.
+
 === "Linux"
 
     Check temperature sensors (thermal zones / hwmon).
@@ -7394,6 +7678,12 @@ OK: in 172032B/s, out 28672B/s|'io_swap_in_bytes'=172032B;;; 'io_swap_out_bytes'
     `active` reports whether the zone is currently active; on Windows
     `throttle_reasons` carries the ACPI throttle bitmask, which is a more direct
     signal that thermal limits are actually biting than the temperature alone.
+
+    ##### macOS
+
+    Always UNKNOWN (`No temperature sensors found`). The SMC sensors are reachable
+    only through the undocumented AppleSMC interface or the private
+    IOHIDEventSystem, and both change between macOS releases.
 
 **Jump to section:**
 
@@ -7592,6 +7882,10 @@ message matches the clock an operator is reading it against.
 The same duration formatting and unit handling is shared with `check_nscp`'s
 `uptime` and `crash_age` keywords, so thresholds written for one read the same
 way in the other.
+
+##### macOS
+
+Boot time is `kern.boottime`.
 
 **Jump to section:**
 
@@ -7944,6 +8238,7 @@ This command also supports the [common filter keywords](../common-options.md#com
 | [/settings/system/unix/service-tags](#service-tags)                     | Service tags             |
 | [/settings/system/windows](#windows-system)                             | Windows system           |
 | [/settings/system/windows/counters](#pdh-counters)                      | PDH Counters             |
+| [/settings/system/windows/facts](#/settings/system/windows/facts)       |                          |
 | [/settings/system/windows/real-time/checks](#legacy-generic-filters)    | Legacy generic filters   |
 | [/settings/system/windows/real-time/cpu](#realtime-cpu-filters)         | Realtime cpu filters     |
 | [/settings/system/windows/real-time/memory](#realtime-memory-filters)   | Realtime memory filters  |
@@ -8083,25 +8378,49 @@ The default channel to post incoming messages on
 inbox=inbox
 ```
 
-#### Password <a id="/settings/default/password"></a>
+=== "Windows"
 
-Password used to authenticate against server
+    #### Password <a id="/settings/default/password"></a>
 
-
-| Key            | Description                             |
-|----------------|-----------------------------------------|
-| Path:          | [/settings/default](#/settings/default) |
-| Key:           | password                                |
-| Default value: | _N/A_                                   |
+    Password an inbound caller has to present. Stored hashed (pbkdf2-sha256$...) when written by \`nscp web install\` or \`nscp web password --set\`; a clear-text value written by hand is still accepted, and is hashed in place when re-set. This is a password to verify against, not key material: NSCA encrypts with its shared secret instead of verifying it, so it keeps its own key under /settings/NSCA/server (or the NSCAClient default target) and never reads this one.
 
 
-**Sample:**
+    | Key            | Description                             |
+    |----------------|-----------------------------------------|
+    | Path:          | [/settings/default](#/settings/default) |
+    | Key:           | password                                |
+    | Default value: | _N/A_                                   |
 
-```
-[/settings/default]
-# Password
-password=
-```
+
+    **Sample:**
+
+    ```
+    [/settings/default]
+    # Password
+    password=
+    ```
+
+=== "Linux"
+
+    #### Password <a id="/settings/default/password"></a>
+
+    Password used to authenticate against server
+
+
+    | Key            | Description                             |
+    |----------------|-----------------------------------------|
+    | Path:          | [/settings/default](#/settings/default) |
+    | Key:           | password                                |
+    | Default value: | _N/A_                                   |
+
+
+    **Sample:**
+
+    ```
+    [/settings/default]
+    # Password
+    password=
+    ```
 
 #### LISTEN QUEUE <a id="/settings/default/socket queue size"></a>
 
@@ -8888,6 +9207,110 @@ parent=default
 
 
 
+
+### /settings/system/windows/facts <a id="/settings/system/windows/facts"></a>
+
+*Available on Windows only.*
+
+
+
+
+| Key                                             | Default Value | Description              |
+|-------------------------------------------------|---------------|--------------------------|
+| [hardware](#hardware-facts)                     | false         | HARDWARE FACTS           |
+| [network.interfaces](#network-interfaces-facts) | false         | NETWORK INTERFACES FACTS |
+| [os](#os-facts)                                 | false         | OS FACTS                 |
+| [software.installed](#installed-software-facts) | false         | INSTALLED SOFTWARE FACTS |
+
+
+```ini
+# 
+[/settings/system/windows/facts]
+hardware=false
+network.interfaces=false
+os=false
+software.installed=false
+```
+
+#### HARDWARE FACTS <a id="/settings/system/windows/facts/hardware"></a>
+
+Collect the \`hardware\` fact set: the system manufacturer and model as the firmware reports them, the number of logical processors and the installed memory in whole GB. Cheap - the vendor and model come from the SMBIOS strings the kernel publishes under HKLMHARDWAREDESCRIPTIONSystemBIOS, not from WMI.
+
+
+| Key            | Description                                                       |
+|----------------|-------------------------------------------------------------------|
+| Path:          | [/settings/system/windows/facts](#/settings/system/windows/facts) |
+| Key:           | hardware                                                          |
+| Default value: | `false`                                                           |
+
+
+**Sample:**
+
+```
+[/settings/system/windows/facts]
+# HARDWARE FACTS
+hardware=false
+```
+
+#### NETWORK INTERFACES FACTS <a id="/settings/system/windows/facts/network.interfaces"></a>
+
+Collect the \`network.interfaces\` fact set: one record per network adapter except the loopback - its description (the record id, the same value check_network calls \`name\`), the connection name (\`Ethernet\`, \`Wi-Fi\`), the hardware address, the link state, the negotiated speed and the IPv4 and IPv6 addresses on it. No traffic counters: those are monitoring, and live in check_network. Cheap - one GetAdaptersAddresses call, no WMI - and re-read every facts round, because addresses change with a DHCP lease.
+
+
+| Key            | Description                                                       |
+|----------------|-------------------------------------------------------------------|
+| Path:          | [/settings/system/windows/facts](#/settings/system/windows/facts) |
+| Key:           | network.interfaces                                                |
+| Default value: | `false`                                                           |
+
+
+**Sample:**
+
+```
+[/settings/system/windows/facts]
+# NETWORK INTERFACES FACTS
+network.interfaces=false
+```
+
+#### OS FACTS <a id="/settings/system/windows/facts/os"></a>
+
+Collect the \`os\` fact set: the OS family, product name and kernel version, the CPU architecture, whether the host is virtualized and the DNS domain it is in. Cheap - every value is read from the cached version info, GetNativeSystemInfo, CPUID and GetComputerNameEx, and nothing is collected while this is off.
+
+
+| Key            | Description                                                       |
+|----------------|-------------------------------------------------------------------|
+| Path:          | [/settings/system/windows/facts](#/settings/system/windows/facts) |
+| Key:           | os                                                                |
+| Default value: | `false`                                                           |
+
+
+**Sample:**
+
+```
+[/settings/system/windows/facts]
+# OS FACTS
+os=false
+```
+
+#### INSTALLED SOFTWARE FACTS <a id="/settings/system/windows/facts/software.installed"></a>
+
+Collect the \`software.installed\` fact set: one record per installed program - its name (the record id, the same value check_installed_software calls \`name\`), version, publisher, architecture, install date and size. The source is the registry's Uninstall hives (the 64-bit and 32-bit machine views and every loaded per-user hive), exactly as check_installed_software reads them, never Win32_Product. Entries hidden from Programs and Features (SystemComponent) are left out. The largest set there is: a few hundred records on a typical host, and the list is truncated (with an error saying so) past the point where it would not fit the facts document.
+
+
+| Key            | Description                                                       |
+|----------------|-------------------------------------------------------------------|
+| Path:          | [/settings/system/windows/facts](#/settings/system/windows/facts) |
+| Key:           | software.installed                                                |
+| Default value: | `false`                                                           |
+
+
+**Sample:**
+
+```
+[/settings/system/windows/facts]
+# INSTALLED SOFTWARE FACTS
+software.installed=false
+```
 
 ### Legacy generic filters <a id="/settings/system/windows/real-time/checks"></a>
 

@@ -1,78 +1,4 @@
 common:
-  paths:
-    /settings/default:
-      info:
-        advanced: false
-        description: Default values used in other config sections.
-        subkey: false
-        title: Default values
-      keys:
-        allowed hosts:
-          advanced: false
-          default_value: 127.0.0.1
-          description: A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to
-            create ranges.
-          sample: false
-          title: Allowed hosts
-        bind to:
-          advanced: false
-          default_value: ''
-          description: Allows you to bind server to a specific local address. This has to be a dotted
-            ip address not a host name. Leaving this blank will bind to all available IP addresses.
-          sample: false
-          title: BIND TO ADDRESS
-        cache allowed hosts:
-          advanced: false
-          default_value: 'true'
-          description: If host names (DNS entries) should be cached, improves speed and security somewhat
-            but won't allow you to have dynamic IPs for your Nagios server.
-          sample: false
-          title: Cache list of allowed hosts
-        encoding:
-          advanced: true
-          default_value: ''
-          description: ''
-          sample: false
-          title: NRPE PAYLOAD ENCODING
-        inbox:
-          advanced: false
-          default_value: inbox
-          description: The default channel to post incoming messages on
-          sample: false
-          title: INBOX
-        password:
-          advanced: false
-          default_value: ''
-          description: Password used to authenticate against server
-          sample: false
-          title: Password
-        socket queue size:
-          advanced: true
-          default_value: '0'
-          description: Number of sockets to queue before starting to refuse new incoming connections.
-            This can be used to tweak the amount of simultaneous sockets that the server accepts.
-          sample: false
-          title: LISTEN QUEUE
-        thread pool:
-          advanced: true
-          default_value: '10'
-          description: ''
-          sample: false
-          title: THREAD POOL
-        timeout:
-          advanced: false
-          default_value: '30'
-          description: Timeout (in seconds) when reading packets on incoming sockets. If the data has
-            not arrived within this time we will bail out.
-          sample: false
-          title: TIMEOUT
-        timezone:
-          advanced: true
-          default_value: local
-          description: Timezone used to render dates such as boot time. Accepts 'local' (default), 'utc',
-            or any POSIX TZ string parseable by Boost.Date_time (e.g. 'MST-07' or 'EST-05EDT,M3.2.0,M11.1.0').
-          sample: false
-          title: Timezone
   queries:
     check_uptime:
       common_fields:
@@ -148,6 +74,79 @@ unix:
     description: Various system related checks, such as CPU load, process state and memory.
     title: CheckSystem
   paths:
+    /settings/default:
+      info:
+        advanced: false
+        description: Default values used in other config sections.
+        subkey: false
+        title: Default values
+      keys:
+        allowed hosts:
+          advanced: false
+          default_value: 127.0.0.1
+          description: A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to
+            create ranges.
+          sample: false
+          title: Allowed hosts
+        bind to:
+          advanced: false
+          default_value: ''
+          description: Allows you to bind server to a specific local address. This has to be a dotted
+            ip address not a host name. Leaving this blank will bind to all available IP addresses.
+          sample: false
+          title: BIND TO ADDRESS
+        cache allowed hosts:
+          advanced: false
+          default_value: 'true'
+          description: If host names (DNS entries) should be cached, improves speed and security somewhat
+            but won't allow you to have dynamic IPs for your Nagios server.
+          sample: false
+          title: Cache list of allowed hosts
+        encoding:
+          advanced: true
+          default_value: ''
+          description: ''
+          sample: false
+          title: NRPE PAYLOAD ENCODING
+        inbox:
+          advanced: false
+          default_value: inbox
+          description: The default channel to post incoming messages on
+          sample: false
+          title: INBOX
+        password:
+          advanced: false
+          default_value: ''
+          description: Password used to authenticate against server
+          sample: false
+          title: Password
+        socket queue size:
+          advanced: true
+          default_value: '0'
+          description: Number of sockets to queue before starting to refuse new incoming connections.
+            This can be used to tweak the amount of simultaneous sockets that the server accepts.
+          sample: false
+          title: LISTEN QUEUE
+        thread pool:
+          advanced: true
+          default_value: '10'
+          description: ''
+          sample: false
+          title: THREAD POOL
+        timeout:
+          advanced: false
+          default_value: '30'
+          description: Timeout (in seconds) when reading packets on incoming sockets. If the data has
+            not arrived within this time we will bail out.
+          sample: false
+          title: TIMEOUT
+        timezone:
+          advanced: true
+          default_value: local
+          description: Timezone used to render dates such as boot time. Accepts 'local' (default), 'utc',
+            or any POSIX TZ string parseable by Boost.Date_time (e.g. 'MST-07' or 'EST-05EDT,M3.2.0,M11.1.0').
+          sample: false
+          title: Timezone
     /settings/system/unix:
       info:
         advanced: false
@@ -2498,6 +2497,84 @@ windows:
       usage and PDH counters.
     title: CheckSystem
   paths:
+    /settings/default:
+      info:
+        advanced: false
+        description: Default values used in other config sections.
+        subkey: false
+        title: Default values
+      keys:
+        allowed hosts:
+          advanced: false
+          default_value: 127.0.0.1
+          description: A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to
+            create ranges.
+          sample: false
+          title: Allowed hosts
+        bind to:
+          advanced: false
+          default_value: ''
+          description: Allows you to bind server to a specific local address. This has to be a dotted
+            ip address not a host name. Leaving this blank will bind to all available IP addresses.
+          sample: false
+          title: BIND TO ADDRESS
+        cache allowed hosts:
+          advanced: false
+          default_value: 'true'
+          description: If host names (DNS entries) should be cached, improves speed and security somewhat
+            but won't allow you to have dynamic IPs for your Nagios server.
+          sample: false
+          title: Cache list of allowed hosts
+        encoding:
+          advanced: true
+          default_value: ''
+          description: ''
+          sample: false
+          title: NRPE PAYLOAD ENCODING
+        inbox:
+          advanced: false
+          default_value: inbox
+          description: The default channel to post incoming messages on
+          sample: false
+          title: INBOX
+        password:
+          advanced: false
+          default_value: ''
+          description: 'Password an inbound caller has to present. Stored hashed (pbkdf2-sha256$...) when
+            written by `nscp web install` or `nscp web password --set`; a clear-text value written by
+            hand is still accepted, and is hashed in place when re-set. This is a password to verify against,
+            not key material: NSCA encrypts with its shared secret instead of verifying it, so it keeps
+            its own key under /settings/NSCA/server (or the NSCAClient default target) and never reads
+            this one.'
+          sample: false
+          title: Password
+        socket queue size:
+          advanced: true
+          default_value: '0'
+          description: Number of sockets to queue before starting to refuse new incoming connections.
+            This can be used to tweak the amount of simultaneous sockets that the server accepts.
+          sample: false
+          title: LISTEN QUEUE
+        thread pool:
+          advanced: true
+          default_value: '10'
+          description: ''
+          sample: false
+          title: THREAD POOL
+        timeout:
+          advanced: false
+          default_value: '30'
+          description: Timeout (in seconds) when reading packets on incoming sockets. If the data has
+            not arrived within this time we will bail out.
+          sample: false
+          title: TIMEOUT
+        timezone:
+          advanced: true
+          default_value: local
+          description: Timezone used to render dates such as boot time. Accepts 'local' (default), 'utc',
+            or any POSIX TZ string parseable by Boost.Date_time (e.g. 'MST-07' or 'EST-05EDT,M3.2.0,M11.1.0').
+          sample: false
+          title: Timezone
     /settings/system/windows:
       info:
         advanced: false
@@ -2710,6 +2787,54 @@ windows:
               a rate.'
             sample: true
             title: COUNTER UNIT
+    /settings/system/windows/facts:
+      info:
+        advanced: false
+        description: ''
+        subkey: false
+        title: ''
+      keys:
+        hardware:
+          advanced: false
+          default_value: 'false'
+          description: 'Collect the `hardware` fact set: the system manufacturer and model as the firmware
+            reports them, the number of logical processors and the installed memory in whole GB. Cheap
+            - the vendor and model come from the SMBIOS strings the kernel publishes under HKLMHARDWAREDESCRIPTIONSystemBIOS,
+            not from WMI.'
+          sample: false
+          title: HARDWARE FACTS
+        network.interfaces:
+          advanced: false
+          default_value: 'false'
+          description: 'Collect the `network.interfaces` fact set: one record per network adapter except
+            the loopback - its description (the record id, the same value check_network calls `name`),
+            the connection name (`Ethernet`, `Wi-Fi`), the hardware address, the link state, the negotiated
+            speed and the IPv4 and IPv6 addresses on it. No traffic counters: those are monitoring, and
+            live in check_network. Cheap - one GetAdaptersAddresses call, no WMI - and re-read every facts
+            round, because addresses change with a DHCP lease.'
+          sample: false
+          title: NETWORK INTERFACES FACTS
+        os:
+          advanced: false
+          default_value: 'false'
+          description: 'Collect the `os` fact set: the OS family, product name and kernel version, the
+            CPU architecture, whether the host is virtualized and the DNS domain it is in. Cheap - every
+            value is read from the cached version info, GetNativeSystemInfo, CPUID and GetComputerNameEx,
+            and nothing is collected while this is off.'
+          sample: false
+          title: OS FACTS
+        software.installed:
+          advanced: false
+          default_value: 'false'
+          description: 'Collect the `software.installed` fact set: one record per installed program -
+            its name (the record id, the same value check_installed_software calls `name`), version, publisher,
+            architecture, install date and size. The source is the registry''s Uninstall hives (the 64-bit
+            and 32-bit machine views and every loaded per-user hive), exactly as check_installed_software
+            reads them, never Win32_Product. Entries hidden from Programs and Features (SystemComponent)
+            are left out. The largest set there is: a few hundred records on a typical host, and the list
+            is truncated (with an error saying so) past the point where it would not fit the facts document.'
+          sample: false
+          title: INSTALLED SOFTWARE FACTS
     /settings/system/windows/real-time/checks:
       info:
         advanced: false

@@ -1801,6 +1801,26 @@ unix:
         required: false
         short_description: The filesystem type to expect
 windows:
+  paths:
+    /settings/disk/facts:
+      info:
+        advanced: false
+        description: ''
+        subkey: false
+        title: ''
+      keys:
+        storage.volumes:
+          advanced: false
+          default_value: 'false'
+          description: 'Collect the `storage.volumes` fact set: one record per volume check_drivesize
+            drive=* would report - its mount point (the record id, the same value check_drivesize calls
+            `drive`), the device behind it, the filesystem, the drive type, the label and the size. Not
+            the free space: that is monitoring, and it lives in check_drivesize. Cheap - the same enumeration
+            the check does, re-read every facts round because volumes come and go - and a remote volume
+            is listed without a size rather than asked for one, so a dead share cannot stall the round.
+            Nothing is collected while this is off.'
+          sample: false
+          title: STORAGE VOLUMES FACTS
   queries:
     check_drivesize:
       common_fields:

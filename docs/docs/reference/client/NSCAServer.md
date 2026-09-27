@@ -22,6 +22,9 @@ NSCAServer = enabled
 
 ### NSCA SERVER SECTION <a id="/settings/NSCA/server"></a>
 
+*Available on Linux only.*
+
+
 Section for NSCA (NSCAServer) (check_nsca) protocol options.
 
 | Key                                                  | Default Value                       | Description                         |
@@ -609,6 +612,9 @@ verify mode=none
 ```
 
 ### Default values <a id="/settings/default"></a>
+
+*Available on Linux only.*
+
 
 Default values used in other config sections.
 

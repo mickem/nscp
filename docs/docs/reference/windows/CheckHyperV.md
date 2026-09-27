@@ -53,8 +53,8 @@ synthetic `total` record carries the average over all of them (the sum for
 example to catch one VM pinning a single core.
 
 The run-time counters are rates, so the check samples them twice, one second
-apart (`averages`, on by default). `averages=false` skips the wait but then
-every rate reads 0 — only useful to prove the counters exist.
+apart. `single-sample` skips the wait but then every rate reads 0 — only
+useful to prove the counters exist.
 
 The percentages are rounded to one decimal, in the detail line and in the
 perfdata alike; the perfdata labels are the processor joined to the keyword
@@ -109,17 +109,17 @@ Hyper-V counters (Hyper-V Hypervisor Logical Processor) not available - is the H
 #### Command-line Arguments
 
         
-| Option                                 | Default Value | Description                                                                                                                                                                   |
-|----------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [averages](#check_hyperv_cpu_averages) | true          | Sample the counters twice, one second apart. The run-time counters are rates, so this is what gives them a value; averages=false skips the wait and reports 0 for every rate. |
+| Option                                           | Default Value | Description                                                                                                                                                                                     |
+|--------------------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [single-sample](#check_hyperv_cpu_single-sample) | false         | Sample the counters once instead of twice one second apart. The run-time counters are rates, so the second sample is what gives them a value; this skips the wait and reports 0 for every rate. |
 
 
 
-<h5 id="check_hyperv_cpu_averages">averages:</h5>
+<h5 id="check_hyperv_cpu_single-sample">single-sample:</h5>
 
-Sample the counters twice, one second apart. The run-time counters are rates, so this is what gives them a value; averages=false skips the wait and reports 0 for every rate.
+Sample the counters once instead of twice one second apart. The run-time counters are rates, so the second sample is what gives them a value; this skips the wait and reports 0 for every rate.
 
-*Default Value:* `true`
+*Default Value:* `false`
 
 
 **Common options:**
@@ -328,10 +328,11 @@ returns only the host's own row, so every VM just seems to be missing. The
 check compares that with the VM count from the health summary counters, which
 anyone can read, and when WMI shows none of the VMs the counters count it
 reports UNKNOWN (`... none are visible to this account`) instead of "No
-virtual machines found". When the counters cannot be read either, an empty
-list is only trusted from an account that may see every VM (an elevated
-administrator, a member of Hyper-V Administrators, LocalSystem); anyone else
-gets UNKNOWN (`... cannot tell that there are none`). The `hyperv.vms` facts
+virtual machines found". The counters only count running VMs, so when they
+count none (or cannot be read) an empty list is only trusted from an account
+that may see every VM (an elevated administrator, a member of Hyper-V
+Administrators, LocalSystem); anyone else gets UNKNOWN (`... cannot tell that
+there are none`). The `hyperv.vms` facts
 and the metrics do the same. This is what you see when you run `nscp test`
 from a shell that is not elevated.
 

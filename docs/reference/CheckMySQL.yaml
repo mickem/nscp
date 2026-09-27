@@ -344,3 +344,35 @@ namespace: check
 platforms:
 - unix
 - windows
+windows:
+  paths:
+    /settings/mysql/facts:
+      info:
+        advanced: false
+        description: ''
+        subkey: false
+        title: ''
+      keys:
+        mysql:
+          advanced: false
+          default_value: 'false'
+          description: 'Collect the server record of the `mysql` fact set: the flavor (mysql, mariadb
+            or percona, the same value check_mysql calls `flavor`), the version and version comment, the
+            hostname and port the server reports about itself, its server id, its default character set
+            and collation and the OS and architecture it was built for. Not its uptime or connections:
+            those are monitoring, and they live in check_mysql. One connection and one query per facts
+            round, made with the credentials configured in this section''s parent (user, password or defaults
+            file): a facts round has no request to take them from. Nothing is collected while this is
+            off.'
+          sample: false
+          title: MYSQL SERVER FACTS
+        mysql.databases:
+          advanced: false
+          default_value: 'false'
+          description: 'Collect the `mysql.databases` fact set: one record per database (schema) the configured
+            user may see, system schemas included - its name (the record id), its default character set
+            and collation. Not its size: that is monitoring. One query of information_schema.SCHEMATA
+            per facts round, over the same connection as the server record. Nothing is collected while
+            this is off.'
+          sample: false
+          title: MYSQL DATABASES FACTS

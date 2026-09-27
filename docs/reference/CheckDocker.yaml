@@ -640,6 +640,43 @@ windows:
           description: Timeout for talking to the daemon, in seconds.
           sample: false
           title: TIMEOUT
+    /settings/docker/facts:
+      info:
+        advanced: false
+        description: ''
+        subkey: false
+        title: ''
+      keys:
+        docker:
+          advanced: false
+          default_value: 'false'
+          description: 'Collect the daemon record of the `docker` fact set: the docker version, the OS
+            and architecture it runs on, the kernel, the storage and cgroup drivers, the CPU and memory
+            it sees and whether it is a swarm node. Not the container or image counts: those are monitoring,
+            and they live in check_docker_info. One GET /info per facts round. Nothing is collected while
+            this is off.'
+          sample: false
+          title: DOCKER DAEMON FACTS
+        docker.containers:
+          advanced: false
+          default_value: 'false'
+          description: 'Collect the `docker.containers` fact set: one record per container the daemon
+            knows, stopped ones included - its names (the record id, the same value check_docker calls
+            `names`), the image it was created from, when it was created, its published and exposed ports
+            and the compose project and service it belongs to. Not its state: that is monitoring, and
+            it lives in check_docker. Cheap - the same listing check_docker all=true does, re-read every
+            facts round because containers come and go. Nothing is collected while this is off.'
+          sample: false
+          title: DOCKER CONTAINERS FACTS
+        docker.images:
+          advanced: false
+          default_value: 'false'
+          description: 'Collect the `docker.images` fact set: one record per image the daemon holds -
+            its image id (the record id, which does not move when a tag does), every tag, when it was
+            built and its size. One GET /images/json per facts round. Nothing is collected while this
+            is off.'
+          sample: false
+          title: DOCKER IMAGES FACTS
   queries:
     check_docker:
       common_fields:

@@ -105,15 +105,17 @@ windows:
         experimental: true
       params:
       - content_type: 4
-        default_value: 'true'
+        default_value: 'false'
         is_simple: false
-        long_description: Sample the counters twice, one second apart. The run-time counters are rates,
-          so this is what gives them a value; averages=false skips the wait and reports 0 for every rate.
-        name: averages
+        long_description: Sample the counters once instead of twice one second apart. The run-time counters
+          are rates, so the second sample is what gives them a value; this skips the wait and reports
+          0 for every rate.
+        name: single-sample
         repeatable: false
         required: false
-        short_description: Sample the counters twice, one second apart. The run-time counters are rates,
-          so this is what gives them a value; averages=false skips the wait and reports 0 for every rate.
+        short_description: Sample the counters once instead of twice one second apart. The run-time counters
+          are rates, so the second sample is what gives them a value; this skips the wait and reports
+          0 for every rate.
     check_hyperv_host:
       common_fields:
       - count

@@ -2355,10 +2355,11 @@ This command also supports the [common filter keywords](../common-options.md#com
 
 ## Configuration
 
-| Path / Section                            | Description      |
-|-------------------------------------------|------------------|
-| [/settings/disk](#/settings/disk)         |                  |
-| [/settings/disk/files](#predefined-paths) | PREDEFINED PATHS |
+| Path / Section                                | Description      |
+|-----------------------------------------------|------------------|
+| [/settings/disk](#/settings/disk)             |                  |
+| [/settings/disk/facts](#/settings/disk/facts) |                  |
+| [/settings/disk/files](#predefined-paths)     | PREDEFINED PATHS |
 
 
 ### /settings/disk <a id="/settings/disk"></a>
@@ -2531,6 +2532,44 @@ How much used-space history is kept per drive; bounds the largest useful trend-w
 [/settings/disk]
 # Trend history retention
 trend retention=7d
+```
+
+### /settings/disk/facts <a id="/settings/disk/facts"></a>
+
+*Available on Windows only.*
+
+
+
+
+| Key                                       | Default Value | Description           |
+|-------------------------------------------|---------------|-----------------------|
+| [storage.volumes](#storage-volumes-facts) | false         | STORAGE VOLUMES FACTS |
+
+
+```ini
+# 
+[/settings/disk/facts]
+storage.volumes=false
+```
+
+#### STORAGE VOLUMES FACTS <a id="/settings/disk/facts/storage.volumes"></a>
+
+Collect the \`storage.volumes\` fact set: one record per volume check_drivesize drive=* would report - its mount point (the record id, the same value check_drivesize calls \`drive\`), the device behind it, the filesystem, the drive type, the label and the size. Not the free space: that is monitoring, and it lives in check_drivesize. Cheap - the same enumeration the check does, re-read every facts round because volumes come and go - and a remote volume is listed without a size rather than asked for one, so a dead share cannot stall the round. Nothing is collected while this is off.
+
+
+| Key            | Description                                   |
+|----------------|-----------------------------------------------|
+| Path:          | [/settings/disk/facts](#/settings/disk/facts) |
+| Key:           | storage.volumes                               |
+| Default value: | `false`                                       |
+
+
+**Sample:**
+
+```
+[/settings/disk/facts]
+# STORAGE VOLUMES FACTS
+storage.volumes=false
 ```
 
 ### PREDEFINED PATHS <a id="/settings/disk/files"></a>

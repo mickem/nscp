@@ -1082,9 +1082,10 @@ This command also supports the [common filter keywords](../common-options.md#com
 
 ## Configuration
 
-| Path / Section                        | Description |
-|---------------------------------------|-------------|
-| [/settings/docker](#/settings/docker) |             |
+| Path / Section                                    | Description |
+|---------------------------------------------------|-------------|
+| [/settings/docker](#/settings/docker)             |             |
+| [/settings/docker/facts](#/settings/docker/facts) |             |
 
 
 ### /settings/docker <a id="/settings/docker"></a>
@@ -1167,4 +1168,86 @@ Timeout for talking to the daemon, in seconds.
 [/settings/docker]
 # TIMEOUT
 timeout=10
+```
+
+### /settings/docker/facts <a id="/settings/docker/facts"></a>
+
+*Available on Windows only.*
+
+
+
+
+| Key                                           | Default Value | Description             |
+|-----------------------------------------------|---------------|-------------------------|
+| [docker](#docker-daemon-facts)                | false         | DOCKER DAEMON FACTS     |
+| [docker.containers](#docker-containers-facts) | false         | DOCKER CONTAINERS FACTS |
+| [docker.images](#docker-images-facts)         | false         | DOCKER IMAGES FACTS     |
+
+
+```ini
+# 
+[/settings/docker/facts]
+docker=false
+docker.containers=false
+docker.images=false
+```
+
+#### DOCKER DAEMON FACTS <a id="/settings/docker/facts/docker"></a>
+
+Collect the daemon record of the \`docker\` fact set: the docker version, the OS and architecture it runs on, the kernel, the storage and cgroup drivers, the CPU and memory it sees and whether it is a swarm node. Not the container or image counts: those are monitoring, and they live in check_docker_info. One GET /info per facts round. Nothing is collected while this is off.
+
+
+| Key            | Description                                       |
+|----------------|---------------------------------------------------|
+| Path:          | [/settings/docker/facts](#/settings/docker/facts) |
+| Key:           | docker                                            |
+| Default value: | `false`                                           |
+
+
+**Sample:**
+
+```
+[/settings/docker/facts]
+# DOCKER DAEMON FACTS
+docker=false
+```
+
+#### DOCKER CONTAINERS FACTS <a id="/settings/docker/facts/docker.containers"></a>
+
+Collect the \`docker.containers\` fact set: one record per container the daemon knows, stopped ones included - its names (the record id, the same value check_docker calls \`names\`), the image it was created from, when it was created, its published and exposed ports and the compose project and service it belongs to. Not its state: that is monitoring, and it lives in check_docker. Cheap - the same listing check_docker all=true does, re-read every facts round because containers come and go. Nothing is collected while this is off.
+
+
+| Key            | Description                                       |
+|----------------|---------------------------------------------------|
+| Path:          | [/settings/docker/facts](#/settings/docker/facts) |
+| Key:           | docker.containers                                 |
+| Default value: | `false`                                           |
+
+
+**Sample:**
+
+```
+[/settings/docker/facts]
+# DOCKER CONTAINERS FACTS
+docker.containers=false
+```
+
+#### DOCKER IMAGES FACTS <a id="/settings/docker/facts/docker.images"></a>
+
+Collect the \`docker.images\` fact set: one record per image the daemon holds - its image id (the record id, which does not move when a tag does), every tag, when it was built and its size. One GET /images/json per facts round. Nothing is collected while this is off.
+
+
+| Key            | Description                                       |
+|----------------|---------------------------------------------------|
+| Path:          | [/settings/docker/facts](#/settings/docker/facts) |
+| Key:           | docker.images                                     |
+| Default value: | `false`                                           |
+
+
+**Sample:**
+
+```
+[/settings/docker/facts]
+# DOCKER IMAGES FACTS
+docker.images=false
 ```
