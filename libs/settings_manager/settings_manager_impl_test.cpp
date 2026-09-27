@@ -704,45 +704,59 @@ TEST_F(SettingsHandlerTest, OrdinarySettingsAreNotMasked) {
 }
 
 // ---------------------------------------------------------------------------
-// Migration is between the stores on this host.
+// Migration may read from a remote store but never write to one.
 //
-// The store factory honours every protocol it knows, http(s) included, so a
-// context naming a remote store made migration fetch this agent's whole
-// configuration - [/modules], external script definitions - from whatever host
-// was named, or push the local configuration, credentials included, to one. The
-// guard lives on the core rather than in one caller because a context arrives
-// both from a settings Control LOAD/SAVE request and from the
-// `--migrate-from`/`--migrate-to` CLI.
+// The store factory honours every protocol it knows, http(s) included. Writing
+// there would send this host's configuration - the NRPE and NSCA keys, the WEB
+// password, every module's credentials - to whatever host the context named,
+// unredacted. Reading from one is the MSI's ImportConfig action and
+// `nscp settings --migrate-from <url>`, an operator importing a configuration,
+// and the transport for it is settled in settings_http (notice 280).
 // ---------------------------------------------------------------------------
 
-TEST_F(SettingsHandlerTest, MigrationRefusesARemoteContext) {
-  // The message is asserted, not just the throw: create_instance() can fail on
-  // its own, so a test that only demands "some settings_exception" would still
-  // pass with the guard removed.
-  const auto refusal = [](const std::function<void()> &call) {
-    try {
-      call();
-    } catch (const settings::settings_exception &e) {
-      return std::string(e.what());
-    } catch (...) {
-      return std::string("(not a settings_exception)");
-    }
-    return std::string("(no exception)");
-  };
+namespace {
+// The message is what is asserted, not merely that something threw:
+// create_instance() and a fetch can fail on their own, so a test demanding only
+// "some settings_exception" would pass with the rule removed - and, the other way
+// round, a remote *source* is expected to fail here (there is no server) without
+// that being a refusal.
+std::string thrown_message(const std::function<void()> &call) {
+  try {
+    call();
+  } catch (const settings::settings_exception &e) {
+    return std::string(e.what());
+  } catch (const std::exception &e) {
+    return std::string(e.what());
+  } catch (...) {
+    return std::string("(non-std exception)");
+  }
+  return std::string("(no exception)");
+}
+}  // namespace
+
+TEST_F(SettingsHandlerTest, MigratingToARemoteStoreIsRefused) {
   for (const char *context : {"http://evil.example.com/nsclient.ini", "https://evil.example.com/nsclient.ini", "HTTPS://evil.example.com/x.ini"}) {
-    EXPECT_NE(refusal([&] { impl_->migrate_to("master", context); }).find("Refusing a remote settings context"), std::string::npos) << context;
-    EXPECT_NE(refusal([&] { impl_->migrate_from("master", context); }).find("Refusing a remote settings context"), std::string::npos) << context;
+    EXPECT_NE(thrown_message([&] { impl_->migrate_to("master", context); }).find("Refusing to migrate settings to a remote store"), std::string::npos)
+        << context;
   }
 }
 
-TEST_F(SettingsHandlerTest, MigrationRefusalNamesTheContextAndWhereToPutIt) {
-  try {
-    impl_->migrate_from("master", "https://evil.example.com/nsclient.ini");
-    FAIL() << "a remote context was accepted";
-  } catch (const settings::settings_exception &e) {
-    const std::string what = e.what();
-    EXPECT_NE(what.find("https://evil.example.com/nsclient.ini"), std::string::npos) << what;
-    EXPECT_NE(what.find("boot.ini"), std::string::npos) << what;
+TEST_F(SettingsHandlerTest, TheRefusalNamesTheContextAndWhyItIsRefused) {
+  const std::string what = thrown_message([&] { impl_->migrate_to("master", "https://evil.example.com/nsclient.ini"); });
+  EXPECT_NE(what.find("https://evil.example.com/nsclient.ini"), std::string::npos) << what;
+  EXPECT_NE(what.find("credentials"), std::string::npos) << what;
+  EXPECT_NE(what.find("boot.ini"), std::string::npos) << what;
+}
+
+// Importing from a remote store is a feature, not a hole: the MSI's
+// ImportConfig action and the --migrate-from CLI are the same operation, and
+// Control.LOAD is behind settings.put, which can already write [/modules] and
+// [/settings/external scripts] and reload. Whatever this fails with - there is
+// no server on the other end - it must not be the refusal.
+TEST_F(SettingsHandlerTest, MigratingFromARemoteStoreIsNotRefused) {
+  for (const char *context : {"http://config.example.com/nsclient.ini", "https://config.example.com/nsclient.ini"}) {
+    EXPECT_EQ(thrown_message([&] { impl_->migrate_from("master", context); }).find("Refusing"), std::string::npos)
+        << "a remote source must not be refused: " << context;
   }
 }
 

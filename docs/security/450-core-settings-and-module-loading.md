@@ -42,22 +42,39 @@ What is fixed here is the path the loader is *given* — the two items above —
 which is where a caller had influence. Resolving a module's imports is a
 hardening item with no caller-controlled input, and it is tracked separately.
 
-#### Settings migration could name an http:// store
+#### Settings could be migrated *to* an http:// store
 
-`Control.LOAD` and `Control.SAVE`, and the `nscp settings --migrate-from` /
-`--migrate-to` CLI, migrate between settings stores — and the store factory
-honours every protocol it knows, including `http` and `https`. A caller able to
-issue a settings control could therefore make the agent pull its whole
-configuration from a host of their choosing, or push the local configuration,
-credentials included, to one. Migration is now refused for a remote context; a
-remote settings source remains a deliberate boot.ini decision, where
-[notice 280](notices.md#remote-settings-sources-must-be-https) already requires
-https.
+`Control.SAVE`, and `nscp settings --migrate-to`, name the store to write. The
+store factory honours every protocol it knows, including `http` and `https`, so a
+caller able to issue a settings control could name a host of their choosing as
+the target — and what is written there is this host's whole configuration: the
+NRPE and NSCA keys, the WEB password, every module's credentials, unredacted.
+That is precisely what `GET /api/v2/settings` masks from a `settings.get` reader.
+Migrating to a remote store is now refused, on the core's own `migrate_to` and in
+the `Control` handler, through one shared predicate.
 
-The refusal sits on the core's own `migrate_to`/`migrate_from` rather than in one
-caller, so both entry points are covered by the same predicate: guarding only the
-`Control` handler would leave the CLI able to name an https store. The
-module-name rule above is shared with the REST routes for the same reason.
+In practice the HTTP backend already refused to save (`Cannot save settings over
+HTTP`), so no configuration is known to have left a host this way; the refusal
+replaces a message that reads like a missing feature with one that says why, and
+closes the direction rather than relying on a backend that does not implement it.
+
+**Reading a configuration *in* is deliberately still allowed**, from a remote
+store as much as a local one: `nscp settings --migrate-from <url>`, the MSI's
+configuration import, and a `Control.LOAD` naming one. Refusing that was
+considered and rejected. It would take away a documented feature — the CLI import
+is the command-line form of the installer's — and it would not remove a
+capability: `Control.LOAD` is behind `settings.put`, and a caller with
+`settings.put` can already write `[/modules]` and `[/settings/external scripts]`
+and reload, which is the code execution that naming a remote source would have
+bought them. What does matter for a source is the transport, and that is enforced
+where every remote read passes through it, in `settings_http`'s
+`cache_remote_file`: anything but `https` is skipped unless `boot.ini` opts in
+with `[tls] allow plaintext`, and the same `[tls]` section decides how the peer is
+verified — [notice 280](notices.md#remote-settings-sources-must-be-https).
+
+The module-name rule above is shared with the REST routes for the same reason this
+one is shared between the core and the `Control` handler: one predicate, so it
+cannot drift between callers.
 
 #### Redaction only covered modules that were loaded
 
@@ -139,9 +156,9 @@ agent itself never calls.
 
 **What to do:** nothing on a default install. A `[/modules]` entry naming a path
 rather than a module file name will now be refused with an error in the log; put
-the module in the module path and name it. If you drive
-`nscp settings --migrate-from` / `--migrate-to` against an `http://` context,
-migrate locally instead. If an external script writes files for another account
+the module in the module path and name it. If you drive `nscp settings
+--migrate-to` against an `http://` or `https://` context, migrate to a local store
+instead — importing with `--migrate-from` is unaffected. If an external script writes files for another account
 to read, check the modes `UMask=0027` now gives them. If an external script
 escalates with `sudo`, keep `sudo` installed — the package no longer pulls it
 in.

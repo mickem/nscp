@@ -106,24 +106,37 @@ class settings_handler_impl : public settings_core {
   }
   void migrate_to(instance_ptr to) { migrate(get(), to); }
   void migrate_from(instance_ptr from) { migrate(from, get()); }
-  // The guard sits here, not only in the callers: a context reaches migration
-  // from the settings Control LOAD/SAVE request *and* from
-  // `nscp settings --migrate-from/--migrate-to`, and the first version of this
-  // fix guarded only the protobuf path, leaving the CLI able to name an https
-  // store. is_local_context() is the one rule both now go through.
+  // The *target* may not be remote; the source may. The two directions are not
+  // symmetric.
+  //
+  // Migrating to a store takes this host's configuration out - nsclient.ini
+  // holds the NRPE and NSCA keys, the WEB password and every module's
+  // credentials, unredacted - and puts it wherever the context names. Nothing
+  // an operator wants needs that, and a caller able to issue a settings
+  // Control.SAVE would be exfiltrating the values redaction exists to keep out
+  // of a settings read.
+  //
+  // Migrating *from* a store is reading a configuration in, which is what the
+  // MSI's ImportConfig action and `nscp settings --migrate-from <url>` are for.
+  // It is not an escalation to refuse: Control.LOAD is behind settings.put
+  // (settings_controller.cpp), and a caller with settings.put can already write
+  // [/modules] and [/settings/external scripts] directly and reload, so a
+  // remote source is another spelling of a capability they hold, not a new one.
+  // The transport is what matters there, and it is enforced a layer down in
+  // settings_http's cache_remote_file: anything but https is skipped unless
+  // boot.ini opts in with `[tls] allow plaintext`, and the same [tls] section
+  // decides how the peer is verified (notice 280).
   void migrate_to(std::string alias, std::string to) {
-    require_local_context(to);
+    require_local_target(to);
     instance_ptr i = create_instance(alias, to);
     migrate(get(), i, to);
   }
   void migrate_from(std::string alias, std::string from) {
-    require_local_context(from);
     instance_ptr i = create_instance(alias, from);
     migrate_from(i);
   }
   void migrate(std::string alias_from, std::string from, std::string alias_to, std::string to) {
-    require_local_context(from);
-    require_local_context(to);
+    require_local_target(to);
     instance_ptr ifrom = create_instance(alias_from, from);
     instance_ptr ito = create_instance(alias_to, to);
     migrate(ifrom, ito, to);
@@ -131,13 +144,17 @@ class settings_handler_impl : public settings_core {
 
   // Checked as written and as it will be opened: create_instance() resolves the
   // protocol aliases and host name placeholders before choosing a backend, so
-  // the expanded form is the one that decides what is fetched.
-  void require_local_context(const std::string &context) {
+  // the expanded form is the one that decides where the write would land.
+  //
+  // The http backend also refuses to save, so this is belt and braces - but it
+  // refuses with "Cannot save settings over HTTP", which reads like a missing
+  // feature rather than a refusal to publish the host's credentials.
+  void require_local_target(const std::string &context) {
     if (context.empty()) return;
     if (is_local_context(context) && is_local_context(expand_context(context))) return;
-    throw settings_exception(__FILE__, __LINE__,
-                             "Refusing a remote settings context (" + context +
-                                 "): migration works between the stores on this host. Configure a remote settings source in boot.ini instead.");
+    throw settings_exception(__FILE__, __LINE__, "Refusing to migrate settings to a remote store (" + context +
+                                                     "): that would send this host's configuration, credentials included, to whatever the context names. "
+                                                     "Migrate to a local store; a remote settings source belongs in boot.ini.");
   }
 
   //////////////////////////////////////////////////////////////////////////

