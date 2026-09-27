@@ -3,10 +3,11 @@
 
 #pragma once
 #include <facts/service_facts.hpp>
-#include <functional>
+
+#include "systemd_units_linux.hpp"
 
 namespace service_facts {
 // Direct argv execution; the runner throws on timeout or a nonzero exit.
-using command_runner = std::function<std::string(const std::vector<std::string> &)>;
+using command_runner = systemd_units::command_runner;
 std::vector<service> gather_systemd(const command_runner &run);
 }  // namespace service_facts

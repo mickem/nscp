@@ -4,8 +4,11 @@
 #include "service_facts_linux.hpp"
 
 #include <gtest/gtest.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
+#include <cstdlib>
+#include <fstream>
 #include <nscapi/nscapi_facts_test_helper.hpp>
 #include <stdexcept>
 
@@ -14,7 +17,7 @@ TEST(service_facts_linux, template_aliases_use_the_canonical_identity_and_startu
     if (argv[0] == "list-unit-files") return std::string("autovt@.service alias -\ngetty@.service enabled enabled\nzconsole@.service alias -\n");
     if (argv[0] == "list-units") return std::string();
     EXPECT_EQ(argv, (std::vector<std::string>{"cat", "--no-pager", "--", argv.back()}));
-    EXPECT_TRUE(argv.back() == "autovt@.service" || argv.back() == "zconsole@.service");
+    EXPECT_TRUE(argv.back() == "autovt@.service" || argv.back() == "getty@.service" || argv.back() == "zconsole@.service");
     // systemctl follows alias chains and puts the canonical fragment first,
     // before the unit's contents and any drop-in headers.
     return std::string(
@@ -54,6 +57,7 @@ TEST(service_facts_linux, discovers_unloaded_disabled_templates_and_transient_in
     ++calls;
     if (argv[0] == "list-unit-files") return std::string("backup.service disabled enabled\nworker@.service static -\n");
     if (argv[0] == "list-units") return std::string("worker@night.service loaded inactive dead Worker\nmissing.service not-found inactive dead Missing\n");
+    if (argv[0] == "cat") return std::string("# /usr/lib/systemd/system/worker@.service\n[Unit]\n");
     EXPECT_EQ(argv[0], "show");
     EXPECT_EQ(argv[2], "--property=Id,Description,UnitFileState,LoadState");
     EXPECT_EQ(argv[4], "backup.service");
@@ -62,7 +66,7 @@ TEST(service_facts_linux, discovers_unloaded_disabled_templates_and_transient_in
         "Id=backup.service\nDescription=Backups\nUnitFileState=disabled\nLoadState=loaded\n\n"
         "Id=worker@night.service\nDescription=Worker\nUnitFileState=transient\nLoadState=loaded\n");
   });
-  EXPECT_EQ(calls, 3);
+  EXPECT_EQ(calls, 4);
   ASSERT_EQ(services.size(), 3u);
   EXPECT_EQ(services[0].name, "worker@");
   EXPECT_EQ(services[0].start_type, "static");
@@ -80,12 +84,84 @@ TEST(service_facts_linux, empty_success_is_distinct_from_failed_or_incomplete_qu
                  return std::string();
                }),
                std::runtime_error);
-  EXPECT_THROW(service_facts::gather_systemd([](const auto &argv) {
-                 if (argv[0] == "list-unit-files") return std::string("demo.service disabled\n");
-                 if (argv[0] == "list-units") return std::string();
-                 return std::string("Id=demo.service\nLoadState=not-found\n");
-               }),
-               std::runtime_error);
+  EXPECT_TRUE(service_facts::gather_systemd([](const auto &argv) {
+                if (argv[0] == "list-unit-files") return std::string("demo.service disabled\n");
+                if (argv[0] == "list-units") return std::string();
+                return std::string("Id=demo.service\nLoadState=not-found\n");
+              }).empty());
+}
+
+TEST(service_facts_linux, stale_aliases_do_not_block_healthy_services) {
+  const auto services = service_facts::gather_systemd([](const auto &argv) {
+    if (argv[0] == "list-unit-files") return std::string("stale.service alias -\nhealthy.service enabled enabled\n");
+    if (argv[0] == "list-units") return std::string("stale.service not-found inactive dead Stale\n");
+    return std::string("Id=healthy.service\nLoadState=loaded\nUnitFileState=enabled\n\nId=stale.service\nLoadState=not-found\n");
+  });
+  ASSERT_EQ(services.size(), 1u);
+  EXPECT_EQ(services.front().name, "healthy");
+}
+
+TEST(service_facts_linux, template_aliases_resolve_without_the_new_alias_state) {
+  for (const std::string state : {"enabled", "disabled", "static"}) {
+    const auto services = service_facts::gather_systemd([&](const auto &argv) {
+      if (argv[0] == "list-unit-files") return "autovt@.service " + state + "\ngetty@.service enabled\n";
+      if (argv[0] == "list-units") return std::string();
+      EXPECT_EQ(argv[0], "cat");
+      return std::string("# /usr/lib/systemd/system/getty@.service\n[Unit]\n");
+    });
+    ASSERT_EQ(services.size(), 1u) << state;
+    EXPECT_EQ(services.front().name, "getty@");
+    EXPECT_EQ(services.front().start_type, "enabled");
+  }
+}
+
+TEST(service_facts_linux, masked_templates_have_no_fragment_to_resolve) {
+  const auto services = service_facts::gather_systemd([](const auto &argv) {
+    if (argv[0] == "list-unit-files") return std::string("masked@.service masked\nruntime@.service masked-runtime\n");
+    EXPECT_EQ(argv[0], "list-units");
+    return std::string();
+  });
+  ASSERT_EQ(services.size(), 2u);
+  EXPECT_EQ(services[0].name, "masked@");
+  EXPECT_EQ(services[0].start_type, "masked");
+  EXPECT_EQ(services[1].start_type, "masked-runtime");
+}
+
+TEST(service_facts_linux, collector_finds_systemctl_through_path) {
+  struct scoped_path {
+    std::string directory, previous;
+    bool had_path;
+    scoped_path() : had_path(std::getenv("PATH") != nullptr) {
+      if (had_path) previous = std::getenv("PATH");
+      char pattern[] = "/tmp/nscp-systemctl-XXXXXX";
+      const char *created = mkdtemp(pattern);
+      if (!created) throw std::runtime_error("Could not create PATH fixture");
+      directory = created;
+    }
+    ~scoped_path() {
+      if (had_path)
+        setenv("PATH", previous.c_str(), 1);
+      else
+        unsetenv("PATH");
+      unlink((directory + "/systemctl").c_str());
+      rmdir(directory.c_str());
+    }
+  } fixture;
+  const auto executable = fixture.directory + "/systemctl";
+  {
+    std::ofstream file(executable);
+    file << "#!/bin/sh\ncase \"$1\" in\n"
+            "list-unit-files) printf 'path-fixture.service enabled\\n';;\n"
+            "list-units) :;;\n"
+            "show) printf 'Id=path-fixture.service\\nLoadState=loaded\\nUnitFileState=enabled\\n';;\n"
+            "*) exit 7;;\nesac\n";
+    ASSERT_TRUE(file.good());
+  }
+  ASSERT_EQ(chmod(executable.c_str(), 0700), 0);
+  ASSERT_EQ(setenv("PATH", fixture.directory.c_str(), 1), 0);
+  const auto services = service_facts::gather();
+  ASSERT_EQ(services.size(), 1u);
+  EXPECT_EQ(services.front().name, "path-fixture");
 }
 
 TEST(service_facts_linux, show_queries_are_batched) {

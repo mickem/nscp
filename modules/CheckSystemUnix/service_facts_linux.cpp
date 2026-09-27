@@ -3,8 +3,6 @@
 
 #include "service_facts_linux.hpp"
 
-#include <unistd.h>
-
 #include <map>
 #include <set>
 #include <sstream>
@@ -32,73 +30,46 @@ std::vector<service> gather_systemd(const command_runner &run) {
     if (!is_service(name) || !(row >> state)) throw std::runtime_error("Invalid systemctl list-unit-files response");
     names[name] = state;
   }
-  std::istringstream units(run({"list-units", "--type=service", "--all", "--no-legend", "--plain", "--no-pager"}));
-  while (std::getline(units, line)) {
-    std::istringstream row(line);
-    if (!(row >> name)) continue;
-    std::string load_state;
-    if (!is_service(name) || !(row >> load_state)) throw std::runtime_error("Invalid systemctl list-units response");
-    // Dependencies on absent optional units appear in list-units --all as
-    // not-found. They are references, not installed or transient services.
-    if (load_state == "not-found") continue;
+  for (const auto &name : systemd_units::list_services(run)) {
     names.emplace(name, "");
   }
 
   std::vector<service> result;
   std::set<std::string> templates;
-  std::vector<std::string> batch;
-  const auto flush = [&]() {
-    if (batch.empty()) return;
-    std::vector<std::string> argv = {"show", "--no-pager", "--property=Id,Description,UnitFileState,LoadState", "--"};
-    argv.insert(argv.end(), batch.begin(), batch.end());
-    const auto rows = checks::check_svc_filter::parse_systemctl_show(run(argv));
-    if (rows.size() != batch.size()) throw std::runtime_error("Incomplete systemctl show response");
-    for (const auto &row : rows) {
-      if (row.name.empty() || row.load_state.empty()) throw std::runtime_error("Incomplete systemctl service metadata");
-      if (row.load_state == "not-found") throw std::runtime_error("Service disappeared during inventory collection: " + row.name);
-      // A unit with error/bad-setting is still installed. Its available
-      // metadata belongs in the inventory even though systemd cannot load it.
-      result.push_back({row.name, row.desc, row.start_type});
-    }
-    batch.clear();
-  };
+  std::vector<std::string> ordinary;
   for (const auto &entry : names) {
-    // Bare templates cannot be queried with show. For aliases, cat follows
-    // the alias chain and names the canonical fragment in its first header.
-    // Keep the canonical unit-file state, not the alias's "alias" state.
+    // Bare templates cannot be queried with show. Resolve every unmasked
+    // template via cat: older systemd versions do not report the alias state.
+    // A masked unit has no readable fragment and keeps its listed identity.
     if (is_template(entry.first)) {
       std::string canonical = entry.first;
-      if (entry.second == "alias") {
+      if (entry.second != "masked" && entry.second != "masked-runtime") {
         std::istringstream definition(run({"cat", "--no-pager", "--", entry.first}));
         std::string header;
         if (!std::getline(definition, header) || header.compare(0, 3, "# /") != 0)
           throw std::runtime_error("Could not resolve systemd template alias: " + entry.first);
         canonical = header.substr(header.find_last_of('/') + 1);
         const auto target = names.find(canonical);
-        if (!is_template(canonical) || canonical == entry.first || target == names.end() || target->second.empty() || target->second == "alias")
+        if (!is_template(canonical) || target == names.end() || target->second.empty() || target->second == "alias")
           throw std::runtime_error("Missing or unresolved systemd template alias target: " + entry.first);
       }
       if (templates.insert(canonical).second) result.push_back({short_name(canonical), "", names.at(canonical)});
     } else {
-      batch.push_back(entry.first);
-      if (batch.size() == 128) flush();
+      ordinary.push_back(entry.first);
     }
   }
-  flush();
+  for (const auto &row : systemd_units::show_services(ordinary, run, "Id,Description,UnitFileState,LoadState", true)) {
+    // Stale aliases and units removed since listing are not installed services.
+    if (row.load_state == "not-found") continue;
+    // A unit with error/bad-setting is still installed; retain its metadata.
+    result.push_back({row.name, row.desc, row.start_type});
+  }
   return result;
 }
 
 std::vector<service> gather() {
-  std::string binary;
-  for (const char *candidate : {"/usr/bin/systemctl", "/bin/systemctl"}) {
-    if (access(candidate, X_OK) == 0) {
-      binary = candidate;
-      break;
-    }
-  }
-  if (binary.empty()) throw std::runtime_error("Service facts require systemd (systemctl was not found)");
-  return gather_systemd([&](const std::vector<std::string> &args) {
-    std::vector<std::string> argv = {binary};
+  return gather_systemd([](const std::vector<std::string> &args) {
+    std::vector<std::string> argv = {"systemctl"};
     argv.insert(argv.end(), args.begin(), args.end());
     return system_exec::run_inventory_command(argv);
   });

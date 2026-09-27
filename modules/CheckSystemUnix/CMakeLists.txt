@@ -79,12 +79,13 @@ else()
         live_source_linux.cpp
         process_source_linux.cpp
         service_source_linux.cpp
+        systemd_units_linux.cpp
         service_facts_linux.cpp
         software_source_linux.cpp
         hardware_source_linux.cpp
         network_facts_linux.cpp
     )
-    set(PLATFORM_TEST_SRCS service_facts_linux_test.cpp)
+    set(PLATFORM_TEST_SRCS service_facts_linux_test.cpp systemd_units_linux_test.cpp)
     set(PLATFORM_LIBS)
 endif()
 set(SRCS ${SRCS} ${PLATFORM_SRCS})

@@ -9,15 +9,6 @@
     Various system related checks, such as CPU load, process state and memory.
 
 
-## Enable module
-
-To enable this module and allow using the commands you need to add `CheckSystem = enabled` to the `[/modules]` section in nsclient.ini:
-
-```
-[/modules]
-CheckSystem = enabled
-```
-
 ## Service facts
 
 Enable `services.installed = true` under `[/settings/system/windows/facts]`
@@ -28,6 +19,16 @@ instances. Collection starts on the first scheduled facts round or a manual
 `facts refresh`; it does not delay agent startup. See [Host Facts](../../concepts/facts.md#servicesinstalled)
 for fields, limits and failure behavior. The setting defaults to false. This
 inventory is not yet supported on macOS.
+
+
+## Enable module
+
+To enable this module and allow using the commands you need to add `CheckSystem = enabled` to the `[/modules]` section in nsclient.ini:
+
+```
+[/modules]
+CheckSystem = enabled
+```
 
 ## Queries
 

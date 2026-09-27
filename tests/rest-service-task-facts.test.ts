@@ -48,33 +48,36 @@ function serviceAndTaskFacts(taskAlias: string) {
     let lastEnabled: string[] = [];
     while (Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, 250));
-      try {
-        const response = await request(REST_URL)
-          .get("/api/v2/facts")
-          .set("Authorization", `Bearer ${key}`)
-          .trustLocalhost(true);
-        // Saving freshly configured credentials can invalidate a session on
-        // reload. This test concerns facts; obtain a new session when needed.
-        if (response.status === 403) {
-          const login = await request(REST_URL)
-            .get("/api/v2/login")
-            .auth("admin", "facts-password")
-            .trustLocalhost(true)
-            .expect(200);
-          key = login.body.key;
-          continue;
-        }
-        expect(response.status).toEqual(200);
-        const body = response.body;
-        lastEnabled = body.enabled;
-        if (
-          body.enabled.includes("services") === enabled &&
-          (!withTasks || body.enabled.includes("tasks") === enabled)
-        )
-          return body;
-      } catch {
-        // A reload briefly recreates the web listener.
+      const response = await request(REST_URL)
+        .get("/api/v2/facts")
+        .set("Authorization", `Bearer ${key}`)
+        .trustLocalhost(true)
+        .catch((error: NodeJS.ErrnoException) => {
+          // A reload briefly recreates the listener. HTTP errors and failed
+          // assertions must propagate instead of becoming reload timeouts.
+          if (["ECONNREFUSED", "ECONNRESET", "EPIPE"].includes(error.code || "")) return undefined;
+          throw error;
+        });
+      if (!response) continue;
+      // Saving freshly configured credentials can invalidate a session on
+      // reload. This test concerns facts; obtain a new session when needed.
+      if (response.status === 403) {
+        const login = await request(REST_URL)
+          .get("/api/v2/login")
+          .auth("admin", "facts-password")
+          .trustLocalhost(true)
+          .expect(200);
+        key = login.body.key;
+        continue;
       }
+      expect(response.status).toEqual(200);
+      const body = response.body;
+      lastEnabled = body.enabled;
+      if (
+        body.enabled.includes("services") === enabled &&
+        (!withTasks || body.enabled.includes("tasks") === enabled)
+      )
+        return body;
     }
     throw new Error(`Facts did not reflect the settings reload: enabled=${lastEnabled.join(",")}`);
   }

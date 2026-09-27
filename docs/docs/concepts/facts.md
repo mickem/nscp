@@ -227,7 +227,9 @@ these are not interchangeable with Windows startup types. A template such as
 `worker@.service` has id `worker@` and a startup mode, without a description.
 An installed unit with `LoadState=error` or `bad-setting` still appears with the
 metadata systemd can return; its configuration problem does not block the other
-services. Load state is not published as a fact.
+services. Units reported as `not-found`, including dangling aliases, are skipped.
+Template aliases resolve to the canonical fragment even on systemd versions
+that do not report the `alias` unit-file state. Load state is not published as a fact.
 Unknown fields are omitted. Drivers and per-user systemd managers are outside
 this set. Linux hosts without a working systemd manager report an error.
 The service inventory is not yet supported on macOS; enabling it reports an
@@ -260,8 +262,12 @@ On legacy Windows with only the Task Scheduler 1.0 API, the id is `\` followed
 by the enumerated task name (including `.job`), the folder is `\`, and `hidden`
 is omitted because that API does not expose it. No action, arguments, account,
 XML definition, runtime state, last result or next-run timestamp is published.
-Enumeration uses the agent's account and sees only tasks accessible to it;
-collection errors are reported rather than publishing a partial snapshot.
+Enumeration uses the agent's account and requires permission to enumerate every
+Task Scheduler folder and read each returned task. Use an account with that
+access (normally the agent's LocalSystem service account); a non-elevated account
+may fail on protected folders. An access-denied error aborts the collection,
+reports the failing operation under `errors.tasks`, and retains the last
+successful inventory. Inaccessible folders are not silently skipped.
 
 Both new sets are opt-in and capped at **2500 records**, with a truncation error
 when more are found. They are claimed but not collected during startup, to avoid

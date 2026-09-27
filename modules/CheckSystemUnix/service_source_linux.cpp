@@ -18,6 +18,7 @@
 #include "check_service.h"
 #include "exec_command.h"
 #include "procfs_linux.h"
+#include "systemd_units_linux.hpp"
 
 namespace checks {
 namespace check_svc_filter {
@@ -25,12 +26,18 @@ namespace check_svc_filter {
 namespace {
 using procfs::read_file;
 
+std::string run_systemctl(const std::vector<std::string> &args) {
+  std::vector<std::string> argv = {"systemctl"};
+  argv.insert(argv.end(), args.begin(), args.end());
+  return system_exec::exec_command(argv);
+}
+
 // System-wide timing needed to turn a process' jiffies into wall-clock values.
 struct sys_timing {
-  long long btime;    // boot time (unix seconds)
-  double uptime;      // seconds since boot
-  long long hz;       // clock ticks per second
-  long long now;      // current unix time
+  long long btime;  // boot time (unix seconds)
+  double uptime;    // seconds since boot
+  long long hz;     // clock ticks per second
+  long long now;    // current unix time
 };
 
 sys_timing read_sys_timing() {
@@ -104,16 +111,13 @@ bool is_unit_active(const std::string &unit) {
 
 std::set<std::string> active_units(const std::vector<std::string> &units) {
   std::set<std::string> active;
-  // One bulk `systemctl show -- u1 u2 ...` instead of a fork per unit;
-  // parse_systemctl_show already returns a block per unit, in argument order.
+  // Batched queries avoid both a fork per unit and the argv size limit.
   std::vector<std::string> safe;
   for (const std::string &u : units) {
     if (is_safe_unit_name(u)) safe.push_back(u);
   }
   if (safe.empty()) return active;
-  std::vector<std::string> argv = {"systemctl", "show", "--no-pager", "--"};
-  argv.insert(argv.end(), safe.begin(), safe.end());
-  const std::vector<filter_obj> parsed = parse_systemctl_show(system_exec::exec_command(argv));
+  const auto parsed = systemd_units::show_services(safe, run_systemctl);
 
   // filter_obj::name is the Id with the .service suffix stripped; index the
   // started ones by that canonical name.
@@ -173,40 +177,15 @@ filter_obj get_service_info(const std::string &service) {
   return info;
 }
 
-namespace {
-
-// List all service unit names via systemctl list-units.
-std::vector<std::string> list_service_units() {
-  std::vector<std::string> names;
-  const std::string output = system_exec::exec_command({"systemctl", "list-units", "--type=service", "--all", "--no-legend", "--plain", "--no-pager"});
-  std::istringstream iss(output);
-  std::string line;
-  while (std::getline(iss, line)) {
-    std::istringstream ls(line);
-    std::string tok;
-    while (ls >> tok) {
-      if (boost::ends_with(tok, ".service") && is_safe_unit_name(tok)) {
-        names.push_back(tok);
-        break;
-      }
-    }
-  }
-  return names;
-}
-
-}  // namespace
-
-// Enumerate all services: one bulk `systemctl show` for every unit, then
+// Enumerate all services: batched `systemctl show` for every unit, then
 // process metrics from /proc (no extra forks per service).
 std::vector<filter_obj> enumerate_services(const std::string &state_filter) {
   const sys_timing timing = read_sys_timing();
   std::vector<filter_obj> result;
-  const std::vector<std::string> names = list_service_units();
+  const std::vector<std::string> names = systemd_units::list_services(run_systemctl);
   if (names.empty()) return result;
 
-  std::vector<std::string> argv = {"systemctl", "show", "--no-pager", "--"};
-  argv.insert(argv.end(), names.begin(), names.end());
-  std::vector<filter_obj> parsed = parse_systemctl_show(system_exec::exec_command(argv));
+  auto parsed = systemd_units::show_services(names, run_systemctl);
 
   for (filter_obj &info : parsed) {
     if (state_filter == "active" && info.active != "active") continue;

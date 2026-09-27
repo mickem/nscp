@@ -13,8 +13,10 @@ Linux includes never-loaded installed units, templates and loaded instances.
 The inventory is not yet supported on macOS; enabling it reports an explicit
 error while the existing launchd checks remain available.
 
-CheckTaskSched can publish `tasks.scheduled`: every visible-to-the-agent local
-task, including hidden and disabled tasks in subfolders. Full paths distinguish
+CheckTaskSched can publish `tasks.scheduled`: local tasks, including hidden and
+disabled tasks in subfolders. The agent's account must be able to enumerate every
+folder and read each returned task; access denied fails collection and retains
+the last successful inventory. Full paths distinguish
 tasks with the same title; records also contain name, folder, enabled and hidden
 flags. Legacy Task Scheduler omits the unknown hidden flag.
 
