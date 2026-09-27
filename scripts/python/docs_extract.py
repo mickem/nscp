@@ -34,7 +34,7 @@ helper = None
 WINDOWS_MODULES = ['NSClientServer', 'CheckEventLog', 'CheckMSSQL', 'CheckTaskSched', 'CheckWMI', 'CheckWindowsApps', 'CheckHyperV']
 UNIX_MODULES = []
 CHECK_MODULES = ['CheckSystem', 'CheckExternalScripts', 'CheckDisk', 'CheckHelpers', 'CheckLogFile', 'CheckNSCP', 'CheckNet',
-                 'CheckSecurity', 'CheckMySQL', 'CheckDocker', 'CheckWindowsApps']
+                 'CheckSecurity', 'CheckMySQL', 'CheckDocker', 'CheckKubernetes', 'CheckWindowsApps']
 CLIENT_MODULES = ['GraphiteClient', 'IcingaClient', 'NRDPClient', 'NRPEClient', 'NRPEServer',
                   'NSCAClient', 'NSCANgClient', 'NSCAServer', 'NSClientServer', 'SMTPClient',
                   'SyslogClient', 'CollectdClient', 'Op5Client', 'CheckNSCP', 'ElasticClient', 'NSCPClient',

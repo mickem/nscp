@@ -39,6 +39,7 @@ Each scenario follows the same structure:
 | Scenario                              | Description                                                                     |
 |---------------------------------------|---------------------------------------------------------------------------------|
 | [SQL Server Monitoring](sql-server.md) | Microsoft SQL Server end to end: services, connectivity, database state, data/log disk usage, memory pressure, backups, Agent jobs and workload |
+| [Kubernetes Cluster Monitoring](kubernetes.md) | API server health, node readiness, pod status and workload replicas through the Kubernetes API with a service account token (experimental) |
 
 ### Network
 

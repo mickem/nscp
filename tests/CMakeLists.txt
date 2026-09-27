@@ -113,6 +113,7 @@ NSCP_CREATE_TEST(
     nscp_time_test
     SOURCES
         ${NSCP_INCLUDEDIR}/nscp_time_test.cpp
+        ${NSCP_INCLUDEDIR}/str/rfc3339_test.cpp
     LIBRARIES
         GTest::gtest
         GTest::gtest_main
