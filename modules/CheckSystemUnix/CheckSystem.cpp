@@ -8,6 +8,7 @@
 #include <boost/program_options.hpp>
 #include <facts/host_facts.hpp>
 #include <facts/network_facts.hpp>
+#include <facts/service_facts.hpp>
 #include <facts/software_facts.hpp>
 #include <fstream>
 #include <locale>
@@ -59,6 +60,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   bool facts_hardware = false;
   bool facts_network_interfaces = false;
   bool facts_software_installed = false;
+  bool facts_services_installed = false;
 
   // Start the CPU collector thread. On a reload the previous collector is
   // still running; stop it before it is replaced. Publish the replacement
@@ -70,7 +72,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   std::atomic_store(&collector_, fresh);
   fresh->set_core(get_core(), get_id());
   fresh->set_path(settings.alias().get_settings_path("real-time/cpu"), settings.alias().get_settings_path("real-time/memory"),
-                       settings.alias().get_settings_path("real-time/process"));
+                  settings.alias().get_settings_path("real-time/process"));
   fresh->set_settings_path(settings.alias().get_settings_path(""));
 
   // clang-format off
@@ -123,6 +125,13 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         "traffic counters: those are monitoring, and live in check_network. Cheap - read from /sys/class/net (the kernel's interface list on macOS) and getifaddrs, nothing forks - and "
         "re-read every facts round, because addresses change with a DHCP lease.")
 
+    .add_bool(service_facts::id_installed, sh::bool_key(&facts_services_installed, false),
+        "INSTALLED SERVICES FACTS",
+        "Collect services.installed: installed systemd service units (including disabled units and templates), plus loaded instances and transient "
+        "services. Names match check_service, without .service. Records contain name, description and native startup type, never state, process "
+        "metrics, accounts or command lines. Runs bounded systemctl queries every facts round except startup. Failures retain the previous "
+        "inventory; Linux hosts without systemd report an error. Not yet supported on macOS. Limited to 2500 records with a truncation error.")
+
     .add_bool(software_facts::id_installed, sh::bool_key(&facts_software_installed, false),
         "INSTALLED SOFTWARE FACTS",
         "Collect the `software.installed` fact set: one record per installed package - its name (the record id, the same value "
@@ -163,6 +172,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   facts_hardware_.store(facts_hardware);
   facts_network_interfaces_.store(facts_network_interfaces);
   facts_software_installed_.store(facts_software_installed);
+  facts_services_installed_.store(facts_services_installed);
 
   if (mode == NSCAPI::normalStart) {
     // The selector tags, on the other hand, describe the machine rather than
@@ -272,6 +282,17 @@ void CheckSystem::check_process_history_new(const PB::Commands::QueryRequestMess
 }
 
 void CheckSystem::fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response) {
+  if (facts_services_installed_.load()) {
+    if (request.reason() == "startup") {
+      response.error(service_facts::set_services, "Not collected during startup: services are read on the first scheduled round, or now with a manual refresh");
+    } else {
+      try {
+        service_facts::publish(service_facts::gather(), std::time(nullptr), response);
+      } catch (const std::exception &e) {
+        response.error(service_facts::set_services, std::string("Failed to enumerate services: ") + e.what());
+      }
+    }
+  }
   const bool want_os = facts_os_.load();
   const bool want_hardware = facts_hardware_.load();
   if (want_os || want_hardware) {

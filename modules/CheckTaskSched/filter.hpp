@@ -69,7 +69,7 @@ struct lpwstr_traits : public fetch_traits<LPWSTR, std::string, TObject> {
 template <typename TObject>
 struct bstr_traits : public fetch_traits<BSTR, std::string, TObject> {
   static std::string get_default() { return ""; }
-  static void cleanup(LPWSTR) { /*CoTaskMemFree(obj);*/ }
+  static void cleanup(BSTR value) { SysFreeString(value); }
   static bool has_failed(HRESULT hr) { return FAILED(hr); }
   // NULL for stock tasks (comment, creator, max_run_time): never construct a string from it.
   static std::string convert(HRESULT, LPWSTR value) { return value ? utf8::cvt<std::string>(value) : std::string(); }

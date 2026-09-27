@@ -6,16 +6,18 @@
 // Running a system tool from a check: systemctl on Linux, launchctl and
 // softwareupdate on macOS. POSIX, shared by both platforms.
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
 namespace system_exec {
 
 struct exec_result {
-  std::string output;     // everything the child wrote to stdout
-  bool started = false;   // the child was forked and exec'd
-  bool timed_out = false; // killed at the deadline; output is what it wrote so far
-  int exit_code = -1;     // the exit status, or -1 when it did not exit normally
+  std::string output;          // everything the child wrote to stdout
+  bool started = false;        // the child was forked and exec'd
+  bool timed_out = false;      // killed at the deadline; output is what it wrote so far
+  bool output_failed = false;  // read failure or the caller's output limit was exceeded
+  int exit_code = -1;          // the exit status, or -1 when it did not exit normally
 };
 
 // Execute a program directly (no shell) and capture stdout; stderr goes to
@@ -24,7 +26,11 @@ struct exec_result {
 // killed once `timeout_ms` has passed, measured as one deadline for the whole
 // run rather than per read - including the wait for it to exit after it
 // closed its stdout.
-exec_result run(const std::vector<std::string> &argv, int timeout_ms = 30000);
+exec_result run(const std::vector<std::string> &argv, int timeout_ms = 30000, std::size_t max_output = 0);
+
+// Inventory must not treat a failed command or partial output as an empty
+// successful snapshot. Bound its output as well as its runtime, and throw.
+std::string run_inventory_command(const std::vector<std::string> &argv, int timeout_ms = 30000, std::size_t max_output = 4 * 1024 * 1024);
 
 // run() for callers that only want the output: empty when the program could
 // not be started.

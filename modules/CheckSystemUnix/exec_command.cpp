@@ -12,13 +12,14 @@
 #include <cerrno>
 #include <chrono>
 #include <csignal>
+#include <stdexcept>
 #include <thread>
 
 namespace system_exec {
 
 // Execute a program directly (no shell) and capture stdout. argv[0] is the
 // program; remaining elements are arguments passed verbatim to execvp.
-exec_result run(const std::vector<std::string> &argv, const int timeout_ms) {
+exec_result run(const std::vector<std::string> &argv, const int timeout_ms, const std::size_t max_output) {
   exec_result out;
   if (argv.empty()) return out;
 
@@ -87,7 +88,15 @@ exec_result run(const std::vector<std::string> &argv, const int timeout_ms) {
     }
     const ssize_t n = read(pipefd[0], buffer.data(), buffer.size());
     if (n < 0 && errno == EINTR) continue;
-    if (n <= 0) break;
+    if (n < 0) {
+      out.output_failed = true;
+      break;
+    }
+    if (n == 0) break;
+    if (max_output && static_cast<std::size_t>(n) > max_output - out.output.size()) {
+      out.output_failed = true;
+      break;
+    }
     out.output.append(buffer.data(), static_cast<size_t>(n));
   }
   close(pipefd[0]);
@@ -98,7 +107,7 @@ exec_result run(const std::vector<std::string> &argv, const int timeout_ms) {
   // kill.
   int status = 0;
   pid_t reaped = 0;
-  while (!timed_out) {
+  while (!timed_out && !out.output_failed) {
     reaped = waitpid(pid, &status, WNOHANG);
     if (reaped == pid) break;
     if (reaped == -1 && errno != EINTR) break;
@@ -108,7 +117,7 @@ exec_result run(const std::vector<std::string> &argv, const int timeout_ms) {
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
-  if (timed_out) {
+  if (timed_out || out.output_failed) {
     kill(pid, SIGKILL);
     do {
       reaped = waitpid(pid, &status, 0);
@@ -116,12 +125,19 @@ exec_result run(const std::vector<std::string> &argv, const int timeout_ms) {
   }
   out.timed_out = timed_out;
   // No exit status (the child was not reaped) is not a clean exit.
-  if (reaped == pid && !timed_out && WIFEXITED(status)) out.exit_code = WEXITSTATUS(status);
+  if (reaped == pid && !timed_out && !out.output_failed && WIFEXITED(status)) out.exit_code = WEXITSTATUS(status);
   // 127 is what the child exits with when exec itself failed.
   if (out.exit_code == 127 && out.output.empty()) out.started = false;
   return out;
 }
 
 std::string exec_command(const std::vector<std::string> &argv, const int timeout_ms) { return run(argv, timeout_ms).output; }
+
+std::string run_inventory_command(const std::vector<std::string> &argv, const int timeout_ms, const std::size_t max_output) {
+  const exec_result result = run(argv, timeout_ms, max_output);
+  if (!result.started || result.timed_out || result.output_failed || result.exit_code != 0)
+    throw std::runtime_error(result.timed_out ? "Inventory command timed out" : "Inventory command failed or returned incomplete output");
+  return result.output;
+}
 
 }  // namespace system_exec

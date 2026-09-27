@@ -51,6 +51,11 @@ os = true
 hardware = true
 network.interfaces = true
 software.installed = true
+services.installed = true
+
+; CheckTaskSched, on Windows.
+[/settings/task schedule/facts]
+tasks.scheduled = true
 
 [/settings/disk/facts]
 storage.volumes = true
@@ -89,6 +94,8 @@ another bundle's choices.
 | `hardware`           | CheckSystem | `hardware`, same section                         | none: read once at start |
 | `network.interfaces` | CheckSystem | `network.interfaces`, same section               | low: read every round, no WMI, nothing forked |
 | `software.installed` | CheckSystem | `software.installed`, same section               | the highest here: every round, a walk of the registry's Uninstall hives or one forked package-manager query |
+| `services.installed` | CheckSystem | `services.installed`, same section | every round except startup: Windows SCM enumeration or bounded systemctl queries on Linux |
+| `tasks.scheduled` | CheckTaskSched | `tasks.scheduled`, `[/settings/task schedule/facts]` | every round except startup: recursive local Task Scheduler enumeration, including hidden tasks |
 | `storage.volumes`    | CheckDisk   | `storage.volumes`, `[/settings/disk/facts]`      | low: the enumeration `check_drivesize drive=*` does |
 | `hyperv.vms`         | CheckHyperV | `hyperv.vms`, `[/settings/hyperv/facts]`         | moderate: every round (never at startup), the seven WMI queries `check_hyperv_vms` runs, which grow with every VM and checkpoint and can stall while the Hyper-V management provider starts |
 | `docker`             | CheckDocker | `docker`, `[/settings/docker/facts]`             | low: one `GET /info` on the daemon socket, every round but startup |
@@ -196,6 +203,64 @@ thousand packages, and the whole document has to fit `[/settings/facts] max
 size`; a set that would not fit is rejected whole, which would leave the host
 with no inventory at all. So the list stops at **2500 records**, and the set
 then carries an error under `errors` saying how many were found.
+
+### `services.installed`
+
+One record per local Windows service or systemd service on Linux, including
+stopped and disabled services. Linux enumerates both installed unit files and
+loaded units, so never-started services, templates and transient instances are
+included. Systemd aliases resolve to a single record with the canonical name.
+
+| Field | Example | Meaning |
+|-------|---------|---------|
+| `id` | `Spooler`, `sshd` | the service name used by `check_service`; Linux strips `.service` |
+| `name` | `sshd` | the same native service name |
+| `display_name` | `OpenSSH server daemon` | Windows display name or systemd description, when available |
+| `start_type` | `auto`, `disabled` | the platform's native startup mode, as used by `check_service` |
+
+Windows startup modes include `auto`, `delayed`, `auto_trigger`,
+`delayed_trigger`, `demand`, `disabled`, `boot` and `system`. Linux retains
+systemd's `UnitFileState`, such as `enabled`, `disabled`, `static` or `masked`;
+these are not interchangeable with Windows startup types. A template such as
+`worker@.service` has id `worker@` and a startup mode, without a description.
+Unknown fields are omitted. Drivers and per-user systemd managers are outside
+this set. Linux hosts without a working systemd manager report an error.
+The service inventory is not yet supported on macOS; enabling it reports an
+explicit unsupported-platform error without affecting launchd checks.
+
+There is no runtime state, PID, resource usage, service account or executable
+command line. Each systemctl query has a 30-second deadline and bounded output;
+service properties are fetched in batches rather than one process per service.
+
+### `tasks.scheduled`
+
+One record per local Windows scheduled task, including disabled tasks and hidden
+tasks in every folder. This is independent of `check_tasksched`'s default filter,
+which excludes disabled tasks, and its default enumeration, which hides tasks
+marked hidden.
+
+| Field | Example | Meaning |
+|-------|---------|---------|
+| `id` | `\Maintenance\Backup` | the full registered task path, the `uri` of `check_tasksched` |
+| `name` | `Backup` | the check's `title`; two folders can contain this same name |
+| `folder` | `\Maintenance` | the containing folder; `\` for the root |
+| `enabled` | `false` | whether the task is enabled |
+| `hidden` | `true` | whether Task Scheduler marks the task hidden |
+
+On legacy Windows with only the Task Scheduler 1.0 API, the id is `\` followed
+by the enumerated task name (including `.job`), the folder is `\`, and `hidden`
+is omitted because that API does not expose it. No action, arguments, account,
+XML definition, runtime state, last result or next-run timestamp is published.
+Enumeration uses the agent's account and sees only tasks accessible to it;
+collection errors are reported rather than publishing a partial snapshot.
+
+Both new sets are opt-in and capped at **2500 records**, with a truncation error
+when more are found. They are claimed but not collected during startup, to avoid
+holding up service start on SCM/systemd/Task Scheduler calls. Collect immediately
+with `facts refresh` or `POST /api/v2/facts/commands/refresh`, or wait for the first
+scheduled round. A failed collection keeps the last successful set and reports
+the failure under `errors`.
+Disabling a set on reload removes it from the document.
 
 ### `hyperv.vms`
 
@@ -415,6 +480,9 @@ scheduled round, on a settings reload, or right away with a manual refresh.
 A list record's `id` is the same string that the corresponding check uses to
 name the instance. `storage.volumes[].id` is the `drive` of `check_drivesize`.
 `network.interfaces[].id` is the `name` of `check_network`.
+`services.installed[].id` is the `name` of `check_service`.
+`tasks.scheduled[].id` is the full `uri` of `check_tasksched` (the legacy API
+uses a root path plus its task name).
 `software.installed[].id` is the `name` of `check_installed_software` - with
 the version appended in the one case where the host has two installs sharing a
 name, because an id has to be unique in its list. `hyperv.vms[].id` is the `vm`

@@ -13,6 +13,20 @@ To enable this module and allow using the commands you need to add `CheckTaskSch
 CheckTaskSched = enabled
 ```
 
+## Scheduled task facts
+
+```ini
+[/settings/task schedule/facts]
+tasks.scheduled = true
+```
+
+This opt-in inventory includes disabled and hidden local tasks in every folder.
+Each record has the full task path as its `id`, plus `name`, `folder`, `enabled`
+and `hidden` (omitted on the legacy API). Actions, arguments, accounts and run
+results are excluded. Collection starts on the first scheduled facts round or a
+manual `facts refresh`. See [Host Facts](../../concepts/facts.md#tasksscheduled)
+for limits and failure behavior. Turning the switch off on reload removes the set.
+
 ## Queries
 
 A quick reference for all available queries (check commands) in the CheckTaskSched module.

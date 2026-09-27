@@ -6,12 +6,29 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <stdexcept>
 
 namespace {
 double seconds_since(const std::chrono::steady_clock::time_point started) {
   return std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
 }
 }  // namespace
+
+TEST(exec_command, inventory_rejects_failed_commands_and_partial_stdout) {
+  EXPECT_EQ(system_exec::run_inventory_command({"/bin/sh", "-c", "printf complete"}), "complete");
+  EXPECT_THROW(system_exec::run_inventory_command({"/bin/sh", "-c", "printf partial; exit 7"}), std::runtime_error);
+  EXPECT_THROW(system_exec::run_inventory_command({"/nonexistent-systemctl"}), std::runtime_error);
+}
+
+TEST(exec_command, inventory_enforces_the_output_limit) {
+  EXPECT_EQ(system_exec::run_inventory_command({"/bin/sh", "-c", "printf 1234"}, 30000, 4), "1234");
+  EXPECT_THROW(system_exec::run_inventory_command({"/bin/sh", "-c", "printf 12345"}, 30000, 4), std::runtime_error);
+}
+
+TEST(exec_command, inventory_rejects_timeouts_even_after_stdout_closes) {
+  EXPECT_THROW(system_exec::run_inventory_command({"/bin/sh", "-c", "printf partial; exec sleep 30"}, 100), std::runtime_error);
+  EXPECT_THROW(system_exec::run_inventory_command({"/bin/sh", "-c", "exec >&-; exec sleep 30"}, 100), std::runtime_error);
+}
 
 TEST(exec_command, captures_stdout_and_the_exit_code) {
   const system_exec::exec_result r = system_exec::run({"/bin/sh", "-c", "echo hello; exit 3"});
