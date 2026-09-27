@@ -430,9 +430,10 @@ This command also supports the [common filter keywords](../common-options.md#com
 
 ## Configuration
 
-| Path / Section                      | Description |
-|-------------------------------------|-------------|
-| [/settings/mysql](#/settings/mysql) |             |
+| Path / Section                                  | Description |
+|-------------------------------------------------|-------------|
+| [/settings/mysql](#/settings/mysql)             |             |
+| [/settings/mysql/facts](#/settings/mysql/facts) |             |
 
 
 ### /settings/mysql <a id="/settings/mysql"></a>
@@ -687,4 +688,61 @@ User used to authenticate.
 [/settings/mysql]
 # MYSQL USER
 user=
+```
+
+### /settings/mysql/facts <a id="/settings/mysql/facts"></a>
+
+
+
+| Key                                       | Default Value | Description           |
+|-------------------------------------------|---------------|-----------------------|
+| [mysql](#mysql-server-facts)              | false         | MYSQL SERVER FACTS    |
+| [mysql.databases](#mysql-databases-facts) | false         | MYSQL DATABASES FACTS |
+
+
+```ini
+# 
+[/settings/mysql/facts]
+mysql=false
+mysql.databases=false
+```
+
+#### MYSQL SERVER FACTS <a id="/settings/mysql/facts/mysql"></a>
+
+Collect the server record of the \`mysql\` fact set: the flavor (mysql, mariadb or percona, the same value check_mysql calls \`flavor\`), the version and version comment, the hostname and port the server reports about itself, its server id, its default character set and collation and the OS and architecture it was built for. Not its uptime or connections: those are monitoring, and they live in check_mysql. One connection and one query per facts round, made with the credentials configured in this section's parent (user, password or defaults file): a facts round has no request to take them from. Nothing is collected while this is off.
+
+
+| Key            | Description                                     |
+|----------------|-------------------------------------------------|
+| Path:          | [/settings/mysql/facts](#/settings/mysql/facts) |
+| Key:           | mysql                                           |
+| Default value: | `false`                                         |
+
+
+**Sample:**
+
+```
+[/settings/mysql/facts]
+# MYSQL SERVER FACTS
+mysql=false
+```
+
+#### MYSQL DATABASES FACTS <a id="/settings/mysql/facts/mysql.databases"></a>
+
+Collect the \`mysql.databases\` fact set: one record per database (schema) the configured user may see, system schemas included - its name (the record id), its default character set and collation. Not its size: that is monitoring. One query of information_schema.SCHEMATA per facts round, over the same connection as the server record. Nothing is collected while this is off.
+
+
+| Key            | Description                                     |
+|----------------|-------------------------------------------------|
+| Path:          | [/settings/mysql/facts](#/settings/mysql/facts) |
+| Key:           | mysql.databases                                 |
+| Default value: | `false`                                         |
+
+
+**Sample:**
+
+```
+[/settings/mysql/facts]
+# MYSQL DATABASES FACTS
+mysql.databases=false
 ```

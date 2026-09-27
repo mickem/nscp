@@ -703,7 +703,7 @@ inbox=inbox
 
 #### Password <a id="/settings/default/password"></a>
 
-Password used to authenticate against server
+Password an inbound caller has to present. Stored hashed (pbkdf2-sha256$...) when written by \`nscp web install\` or \`nscp web password --set\`; a clear-text value written by hand is still accepted, and is hashed in place when re-set. This is a password to verify against, not key material: NSCA encrypts with its shared secret instead of verifying it, so it keeps its own key under /settings/NSCA/server (or the NSCAClient default target) and never reads this one.
 
 
 | Key            | Description                             |

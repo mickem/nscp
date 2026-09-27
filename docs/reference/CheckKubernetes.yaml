@@ -1,0 +1,707 @@
+common:
+  info:
+    description: 'Check a Kubernetes cluster through its API server: cluster health, pods, nodes and workloads.'
+    experimental: true
+    title: CheckKubernetes
+  paths:
+    /settings/kubernetes:
+      info:
+        advanced: false
+        description: ''
+        subkey: false
+        title: ''
+      keys:
+        api server:
+          advanced: false
+          default_value: ''
+          description: 'The Kubernetes API server, e.g. https://k8s.example.com:6443. Leave empty to auto-detect
+            when the agent runs inside the cluster (KUBERNETES_SERVICE_HOST plus the mounted service account
+            token and CA). Which cluster the agent talks to is an operator decision: a check request cannot
+            choose another server. Use https: an http:// server receives the bearer token in cleartext,
+            and the agent logs a warning when it connects to one.'
+          sample: false
+          title: API SERVER
+        ca:
+          advanced: false
+          default_value: ${ca-path}
+          description: 'CA bundle (a PEM file or a hashed directory) used to verify the API server certificate.
+            Defaults to the trusted system store (in-cluster: the mounted service account CA, unless this
+            is set); point it at the cluster CA (`kubectl config view --raw -o jsonpath=''{.clusters[0].cluster.certificate-authority-data}''
+            | base64 -d`) for a private cluster CA.'
+          sample: false
+          title: CERTIFICATE AUTHORITY
+        context:
+          advanced: true
+          default_value: ''
+          description: The kubeconfig context to use; empty means its current-context.
+          sample: false
+          title: KUBECONFIG CONTEXT
+        kubeconfig:
+          advanced: true
+          default_value: ''
+          description: Path to a kubeconfig in JSON form (`kubectl config view --raw --minify -o json
+            > nscp-kubeconfig.json`), used when `api server` is empty. YAML kubeconfigs are not read.
+            Supplies the server, CA, token or client certificate of the selected context.
+          sample: false
+          title: KUBECONFIG (JSON)
+        max response size:
+          advanced: true
+          default_value: '64'
+          description: Largest API response the agent will buffer, in megabytes. A pod list in a large
+            cluster runs to tens of megabytes; 0 removes the cap.
+          sample: false
+          title: MAX RESPONSE SIZE
+        timeout:
+          advanced: true
+          default_value: '30'
+          description: 'Timeout in seconds for each network step of an API server request: the connect,
+            the TLS handshake and each read. It bounds a stalled server, not the whole check: a server
+            that keeps trickling data, or a list of many pages, takes longer. Must be positive: the checks
+            refuse 0 or less rather than wait forever.'
+          sample: false
+          title: TIMEOUT
+        tls version:
+          advanced: true
+          default_value: tlsv1.2+
+          description: 'Minimum TLS protocol version accepted: tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+ (the
+            default: TLS 1.2 and 1.3), tlsv1.3.'
+          sample: false
+          title: TLS VERSION
+        token:
+          advanced: false
+          default_value: ''
+          description: Service account bearer token used to authenticate against the API server. Prefer
+            `token file` for a token that is rotated.
+          sample: false
+          title: BEARER TOKEN
+        token file:
+          advanced: false
+          default_value: ''
+          description: Path to a file holding the bearer token, read at check time so a rotated (projected)
+            token keeps working without a reload. Takes precedence over `token`.
+          sample: false
+          title: TOKEN FILE
+        verify mode:
+          advanced: false
+          default_value: peer
+          description: 'Comma separated list of options: none, peer (or certificate), peer-cert, fail-if-no-cert
+            (or fail-if-no-peer-cert, client-certificate). For a self signed certificate use peer-cert
+            and point `ca` at that certificate; none disables verification entirely and sends the token
+            to an unverified peer.'
+          sample: false
+          title: TLS PEER VERIFY MODE
+  queries:
+    check_kubernetes:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: api_ready = 0
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: 'Kubernetes ${version} at ${server}: API ${api_ready}, ${nodes_ready}/${nodes}
+          nodes ready'
+        empty-state: unknown
+        empty-syntax: '%(status): No cluster information returned'
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: ''
+        perf-config: ''
+        perf-syntax: ${server}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: ''
+      fields:
+      - generic: false
+        long_description: 1 unless /readyz carries a readiness report saying the API server is not ready
+          (renders as ready / not ready); a path that is unavailable (a 404 or 502 from an ingress) leaves
+          it 1 - /version answered
+        name: api_ready
+        short_description: ''
+      - generic: false
+        long_description: Number of nodes in the cluster
+        name: nodes
+        short_description: ''
+      - generic: false
+        long_description: Number of nodes whose Ready condition is False or Unknown
+        name: nodes_not_ready
+        short_description: ''
+      - generic: false
+        long_description: Number of nodes whose Ready condition is True
+        name: nodes_ready
+        short_description: ''
+      - generic: false
+        long_description: Platform the API server runs on (e.g. linux/amd64)
+        name: platform
+        short_description: ''
+      - generic: false
+        long_description: 'What /readyz answered: ok, the failing checks it listed, or unavailable (HTTP
+          n) when the path did not answer with a readiness report'
+        name: readyz
+        short_description: ''
+      - generic: false
+        long_description: The API server address (never the credential)
+        name: server
+        short_description: ''
+      - generic: false
+        long_description: 'Where the cluster configuration came from: settings, kubeconfig <path> or in-cluster'
+        name: source
+        short_description: ''
+      - generic: false
+        long_description: Kubernetes version reported by /version (e.g. v1.30.2)
+        name: version
+        short_description: ''
+      info:
+        description: 'Check that the Kubernetes API server is reachable and ready: version, readiness
+          and node counts.'
+        experimental: true
+      params:
+      - content_type: 2
+        default_value: '30'
+        is_simple: false
+        long_description: 'Timeout in seconds for each network step of an API server request: the connect,
+          the TLS handshake and each read. It is not a total for the check (a server that keeps trickling
+          data takes longer). A positive number.'
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: 'Timeout in seconds for each network step of an API server request: the connect,
+          the TLS handshake and each read. It is not a total for the check (a server that keeps trickling
+          data takes longer). A positive number.'
+    check_nodes:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: ready != 'True'
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: ${name}=${node_status}
+        empty-state: critical
+        empty-syntax: '%(status): No nodes found'
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: '%(status): All %(count) nodes are ready'
+        perf-config: ''
+        perf-syntax: ${name}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${problem_list}'
+        warn: ''
+        warning: memory_pressure = 1 or disk_pressure = 1 or pid_pressure = 1 or network_unavailable =
+          1 or schedulable = 0
+      fields:
+      - generic: false
+        long_description: Seconds since the node joined the cluster, -1 when unknown (supports units,
+          e.g. age < 1h)
+        name: age
+        short_description: ''
+      - generic: false
+        long_description: CPU architecture (amd64, arm64, ...)
+        name: arch
+        short_description: ''
+      - generic: false
+        long_description: CPU available to pods in millicores (-1 when not reported)
+        name: cpu_allocatable
+        short_description: ''
+      - generic: false
+        long_description: CPU capacity in millicores (-1 when not reported)
+        name: cpu_capacity
+        short_description: ''
+      - generic: false
+        long_description: When the node joined the cluster (date)
+        name: created
+        short_description: ''
+      - generic: false
+        long_description: 1 when the DiskPressure condition is True, else 0
+        name: disk_pressure
+        short_description: ''
+      - generic: false
+        long_description: The node's InternalIP address
+        name: internal_ip
+        short_description: ''
+      - generic: false
+        long_description: Kubelet version (e.g. v1.30.2)
+        name: kubelet_version
+        short_description: ''
+      - generic: false
+        long_description: Memory available to pods in bytes, -1 when not reported (thresholds take units,
+          e.g. memory_allocatable < 4G)
+        name: memory_allocatable
+        short_description: ''
+      - generic: false
+        long_description: Memory capacity in bytes, -1 when not reported (thresholds take units, e.g.
+          memory_capacity < 8G)
+        name: memory_capacity
+        short_description: ''
+      - generic: false
+        long_description: 1 when the MemoryPressure condition is True, else 0
+        name: memory_pressure
+        short_description: ''
+      - generic: false
+        long_description: Node name
+        name: name
+        short_description: ''
+      - generic: false
+        long_description: 1 when the NetworkUnavailable condition is True, else 0
+        name: network_unavailable
+        short_description: ''
+      - generic: false
+        long_description: 'The kubectl STATUS column: Ready, NotReady or Unknown, with ,SchedulingDisabled
+          appended for a cordoned node; missing for a requested node the API server does not know about'
+        name: node_status
+        short_description: ''
+      - generic: false
+        long_description: OS image the node runs (e.g. Ubuntu 22.04.4 LTS)
+        name: os
+        short_description: ''
+      - generic: false
+        long_description: 1 when the PIDPressure condition is True, else 0
+        name: pid_pressure
+        short_description: ''
+      - generic: false
+        long_description: Maximum number of pods the node accepts (-1 when not reported)
+        name: pods_capacity
+        short_description: ''
+      - generic: false
+        long_description: 'The Ready condition: True, False or Unknown (empty for a requested node the
+          API server does not know about)'
+        name: ready
+        short_description: ''
+      - generic: false
+        long_description: Node roles from the node-role.kubernetes.io/<role> labels, comma separated
+        name: roles
+        short_description: ''
+      - generic: false
+        long_description: 1 unless the node is cordoned (spec.unschedulable), then 0
+        name: schedulable
+        short_description: ''
+      - generic: false
+        long_description: Taints as key=value:effect, comma separated
+        name: taints
+        short_description: ''
+      info:
+        description: Check node readiness, pressure conditions, schedulability and capacity.
+        experimental: true
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Label selector passed to the API server, e.g. node-role.kubernetes.io/worker=
+          or topology.kubernetes.io/zone=eu-1a.
+        name: label-selector
+        repeatable: false
+        required: false
+        short_description: Label selector passed to the API server, e.g. node-role.kubernetes.io/worker=
+          or topology.kubernetes.io/zone=eu-1a.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Field selector passed to the API server, e.g. metadata.name=worker-1.
+        name: field-selector
+        repeatable: false
+        required: false
+        short_description: Field selector passed to the API server, e.g. metadata.name=worker-1.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Name of a node that must exist (repeatable). Only the named nodes take part
+          in the check; a name the API server does not return gets node_status 'missing'.
+        name: node
+        repeatable: false
+        required: false
+        short_description: Name of a node that must exist (repeatable). Only the named nodes take part
+          in the check; a name the API server does not return gets node_status 'missing'.
+      - content_type: 2
+        default_value: '30'
+        is_simple: false
+        long_description: 'Timeout in seconds for each network step of an API server request: the connect,
+          the TLS handshake and each read. It is not a total for the check (a server that keeps trickling
+          data takes longer). A positive number.'
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: 'Timeout in seconds for each network step of an API server request: the connect,
+          the TLS handshake and each read. It is not a total for the check (a server that keeps trickling
+          data takes longer). A positive number.'
+    check_pods:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: phase = 'Failed' or phase = 'Unknown' or pod_status like 'BackOff' or pod_status = 'OOMKilled'
+          or pod_status = 'missing'
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: ${namespace}/${name}=${pod_status}
+        empty-state: ok
+        empty-syntax: '%(status): No pods found'
+        escape-html: 'false'
+        filter: phase != 'Succeeded'
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: '%(status): All %(count) pods are fine'
+        perf-config: ''
+        perf-syntax: ${namespace}/${name}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${problem_list}'
+        warn: ''
+        warning: phase = 'Pending' or restarts > 5
+      fields:
+      - generic: false
+        long_description: Seconds since the pod was created, -1 when unknown (supports units, e.g. age
+          < 1h)
+        name: age
+        short_description: ''
+      - generic: false
+        long_description: Number of containers in the pod spec
+        name: containers
+        short_description: ''
+      - generic: false
+        long_description: When the pod was created (date)
+        name: created
+        short_description: ''
+      - generic: false
+        long_description: Pod IP address
+        name: ip
+        short_description: ''
+      - generic: false
+        long_description: Pod labels as key=value, comma separated
+        name: labels
+        short_description: ''
+      - generic: false
+        long_description: Pod name
+        name: name
+        short_description: ''
+      - generic: false
+        long_description: Namespace the pod lives in
+        name: namespace
+        short_description: ''
+      - generic: false
+        long_description: Node the pod is scheduled on (empty while Pending)
+        name: node
+        short_description: ''
+      - generic: false
+        long_description: 1 when a container's current or last termination was an out-of-memory kill,
+          else 0
+        name: oom_killed
+        short_description: ''
+      - generic: false
+        long_description: Name of the controller owning the pod
+        name: owner
+        short_description: ''
+      - generic: false
+        long_description: 'Kind of the controller owning the pod: ReplicaSet, StatefulSet, DaemonSet,
+          Job, Node, ...'
+        name: owner_kind
+        short_description: ''
+      - generic: false
+        long_description: 'Pod phase: Pending, Running, Succeeded, Failed or Unknown'
+        name: phase
+        short_description: ''
+      - generic: false
+        long_description: 'The kubectl STATUS column: Running, Completed, CrashLoopBackOff, ImagePullBackOff,
+          OOMKilled, Terminating, Init:1/2, ... or missing for a requested pod the API server does not
+          know about'
+        name: pod_status
+        short_description: ''
+      - generic: false
+        long_description: 'QoS class: Guaranteed, Burstable or BestEffort'
+        name: qos
+        short_description: ''
+      - generic: false
+        long_description: 1 when the pod's Ready condition is True, else 0
+        name: ready
+        short_description: ''
+      - generic: false
+        long_description: Number of containers reporting ready
+        name: ready_containers
+        short_description: ''
+      - generic: false
+        long_description: 'The kubectl RESTARTS column: restarts of the containers and native sidecars
+          once the pod is initialised, of the init containers while it is not'
+        name: restarts
+        short_description: ''
+      - generic: false
+        long_description: 1 when the pod is being deleted (deletionTimestamp is set), else 0
+        name: terminating
+        short_description: ''
+      info:
+        description: 'Check the state of pods: phase, the kubectl STATUS column, readiness and restarts.'
+        experimental: true
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Only list pods in this namespace (repeatable). Default: all namespaces.'
+        name: namespace
+        repeatable: false
+        required: false
+        short_description: 'Only list pods in this namespace (repeatable). Default: all namespaces.'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Label selector passed to the API server, e.g. app=web,tier!=cache: filtering
+          happens before the payload is built.'
+        name: label-selector
+        repeatable: false
+        required: false
+        short_description: 'Label selector passed to the API server, e.g. app=web,tier!=cache: filtering
+          happens before the payload is built.'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Field selector passed to the API server, e.g. spec.nodeName=worker-1 or status.phase!=Succeeded.
+        name: field-selector
+        repeatable: false
+        required: false
+        short_description: Field selector passed to the API server, e.g. spec.nodeName=worker-1 or status.phase!=Succeeded.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Name of a pod that must exist (repeatable). Only the named pods take part in
+          the check; a name the API server does not return gets pod_status 'missing'.
+        name: pod
+        repeatable: false
+        required: false
+        short_description: Name of a pod that must exist (repeatable). Only the named pods take part in
+          the check; a name the API server does not return gets pod_status 'missing'.
+      - content_type: 2
+        default_value: '30'
+        is_simple: false
+        long_description: 'Timeout in seconds for each network step of an API server request: the connect,
+          the TLS handshake and each read. It is not a total for the check (a server that keeps trickling
+          data takes longer). A positive number.'
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: 'Timeout in seconds for each network step of an API server request: the connect,
+          the TLS handshake and each read. It is not a total for the check (a server that keeps trickling
+          data takes longer). A positive number.'
+    check_workloads:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: available = 0 and desired > 0
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: ${kind} ${namespace}/${name}=${available}/${desired}
+        empty-state: ok
+        empty-syntax: '%(status): No workloads found'
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: '%(status): All %(count) workloads are available'
+        perf-config: ''
+        perf-syntax: ${namespace}/${name}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${problem_list}'
+        warn: ''
+        warning: missing > 0 or updated < desired
+      fields:
+      - generic: false
+        long_description: Seconds since the workload was created, -1 when unknown (supports units, e.g.
+          age < 1h)
+        name: age
+        short_description: ''
+      - generic: false
+        long_description: Replicas available (Ready for at least minReadySeconds)
+        name: available
+        short_description: ''
+      - generic: false
+        long_description: When the workload was created (date)
+        name: created
+        short_description: ''
+      - generic: false
+        long_description: Replicas wanted (spec.replicas, or the nodes a daemonset should run on)
+        name: desired
+        short_description: ''
+      - generic: false
+        long_description: 'Workload kind: Deployment, StatefulSet or DaemonSet'
+        name: kind
+        short_description: ''
+      - generic: false
+        long_description: Workload labels as key=value, comma separated
+        name: labels
+        short_description: ''
+      - generic: false
+        long_description: desired minus available, never below 0
+        name: missing
+        short_description: ''
+      - generic: false
+        long_description: Workload name
+        name: name
+        short_description: ''
+      - generic: false
+        long_description: Namespace the workload lives in
+        name: namespace
+        short_description: ''
+      - generic: false
+        long_description: 1 when a deployment's rollout is paused, else 0
+        name: paused
+        short_description: ''
+      - generic: false
+        long_description: Replicas whose pod is Ready
+        name: ready
+        short_description: ''
+      - generic: false
+        long_description: Replicas the controller reports unavailable
+        name: unavailable
+        short_description: ''
+      - generic: false
+        long_description: Replicas running the current template (less than desired during a rollout)
+        name: updated
+        short_description: ''
+      info:
+        description: Check that deployments, statefulsets and daemonsets have their desired replicas available.
+        experimental: true
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Only list workloads in this namespace (repeatable). Default: all namespaces.'
+        name: namespace
+        repeatable: false
+        required: false
+        short_description: 'Only list workloads in this namespace (repeatable). Default: all namespaces.'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Only check this workload kind: deployment, statefulset or daemonset (repeatable).
+          Default: all three.'
+        name: kind
+        repeatable: false
+        required: false
+        short_description: 'Only check this workload kind: deployment, statefulset or daemonset (repeatable).
+          Default: all three.'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Label selector passed to the API server, e.g. app.kubernetes.io/part-of=shop.
+        name: label-selector
+        repeatable: false
+        required: false
+        short_description: Label selector passed to the API server, e.g. app.kubernetes.io/part-of=shop.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Field selector passed to the API server, e.g. metadata.name=web.
+        name: field-selector
+        repeatable: false
+        required: false
+        short_description: Field selector passed to the API server, e.g. metadata.name=web.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Name of a workload that must exist, as name or namespace/name (repeatable).
+          Only the named workloads take part in the check; one the API server does not return is reported
+          with 0 available of 1 desired.
+        name: workload
+        repeatable: false
+        required: false
+        short_description: Name of a workload that must exist, as name or namespace/name (repeatable).
+          Only the named workloads take part in the check; one the API server does not return is reported
+          with 0 available of 1 desired.
+      - content_type: 2
+        default_value: '30'
+        is_simple: false
+        long_description: 'Timeout in seconds for each network step of an API server request: the connect,
+          the TLS handshake and each read. It is not a total for the check (a server that keeps trickling
+          data takes longer). A positive number.'
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: 'Timeout in seconds for each network step of an API server request: the connect,
+          the TLS handshake and each read. It is not a total for the check (a server that keeps trickling
+          data takes longer). A positive number.'
+module: CheckKubernetes
+namespace: check
+platforms:
+- unix
+- windows

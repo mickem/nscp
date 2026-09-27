@@ -1029,9 +1029,10 @@ This command also supports the [common filter keywords](../common-options.md#com
 
 ## Configuration
 
-| Path / Section                      | Description |
-|-------------------------------------|-------------|
-| [/settings/mssql](#/settings/mssql) |             |
+| Path / Section                                  | Description |
+|-------------------------------------------------|-------------|
+| [/settings/mssql](#/settings/mssql)             |             |
+| [/settings/mssql/facts](#/settings/mssql/facts) |             |
 
 
 ### /settings/mssql <a id="/settings/mssql"></a>
@@ -1219,4 +1220,61 @@ SQL login used to authenticate; leave user and password empty to use Windows int
 [/settings/mssql]
 # SQL USER
 user=
+```
+
+### /settings/mssql/facts <a id="/settings/mssql/facts"></a>
+
+
+
+| Key                                       | Default Value | Description           |
+|-------------------------------------------|---------------|-----------------------|
+| [mssql](#mssql-server-facts)              | false         | MSSQL SERVER FACTS    |
+| [mssql.databases](#mssql-databases-facts) | false         | MSSQL DATABASES FACTS |
+
+
+```ini
+# 
+[/settings/mssql/facts]
+mssql=false
+mssql.databases=false
+```
+
+#### MSSQL SERVER FACTS <a id="/settings/mssql/facts/mssql"></a>
+
+Collect the server record of the \`mssql\` fact set: the instance name (the same value check_mssql calls \`server_name\`), the machine and instance it is, the version, patch level, update level and edition, the engine edition, the server collation, the authentication mode and whether it is clustered or has Always On enabled. Not its uptime: that is monitoring, and it lives in check_mssql. One connection and one SERVERPROPERTY query per facts round, made with the connection configured in this section's parent (Windows authentication, or the user and password): a facts round has no request to take them from. Nothing is collected while this is off.
+
+
+| Key            | Description                                     |
+|----------------|-------------------------------------------------|
+| Path:          | [/settings/mssql/facts](#/settings/mssql/facts) |
+| Key:           | mssql                                           |
+| Default value: | `false`                                         |
+
+
+**Sample:**
+
+```
+[/settings/mssql/facts]
+# MSSQL SERVER FACTS
+mssql=false
+```
+
+#### MSSQL DATABASES FACTS <a id="/settings/mssql/facts/mssql.databases"></a>
+
+Collect the \`mssql.databases\` fact set: one record per database the login may see, system databases included - its name (the record id, the same value check_mssql_databases calls \`name\`), its recovery model, collation, compatibility level, creation date and whether it is read-only. Not its state or size: those are monitoring, and they live in check_mssql_databases. One query of sys.databases per facts round, over the same connection as the server record. Nothing is collected while this is off.
+
+
+| Key            | Description                                     |
+|----------------|-------------------------------------------------|
+| Path:          | [/settings/mssql/facts](#/settings/mssql/facts) |
+| Key:           | mssql.databases                                 |
+| Default value: | `false`                                         |
+
+
+**Sample:**
+
+```
+[/settings/mssql/facts]
+# MSSQL DATABASES FACTS
+mssql.databases=false
 ```
