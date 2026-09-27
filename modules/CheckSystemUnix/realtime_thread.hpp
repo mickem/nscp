@@ -19,6 +19,7 @@
 
 #include "check_network.h"
 #include "check_process_history.h"
+#include "collector_source.h"
 #include "filter_config_object.hpp"
 
 // CPU load entry structure (similar to Windows version)
@@ -230,33 +231,9 @@ class pdh_thread {
   // Memory data collection
   rrd_buffer<memory_info> memory_buffer_;
 
-  // Raw CPU times for delta calculation
-  struct cpu_times {
-    std::string name;
-    unsigned long long user;
-    unsigned long long nice;
-    unsigned long long system;
-    unsigned long long idle;
-    unsigned long long iowait;
-    unsigned long long irq;
-    unsigned long long softirq;
-    unsigned long long steal;
-
-    cpu_times() : user(0), nice(0), system(0), idle(0), iowait(0), irq(0), softirq(0), steal(0) {}
-
-    unsigned long long total_idle() const { return idle + iowait; }
-    unsigned long long total_busy() const { return user + nice + system + irq + softirq + steal; }
-    unsigned long long total() const { return total_idle() + total_busy(); }
-  };
-
-  std::map<std::string, cpu_times> last_cpu_times_;
-
-  // Raw cumulative /proc/net/dev counters per interface, for rate calculation.
-  struct net_counters {
-    unsigned long long rx_bytes = 0, rx_packets = 0, rx_errors = 0;
-    unsigned long long tx_bytes = 0, tx_packets = 0, tx_errors = 0;
-  };
-  std::map<std::string, net_counters> last_net_;
+  // The previous raw samples, for the per-second deltas.
+  std::map<std::string, collector_source::cpu_times> last_cpu_times_;
+  std::map<std::string, collector_source::net_sample> last_net_;
   network_check::nics_type network_;
 
   // Process history (keyed by lowercase exe name), tracked once per second when
@@ -333,11 +310,15 @@ class pdh_thread {
 
  private:
   void thread_proc();
-  std::map<std::string, cpu_times> read_cpu_times();
-  cpu_load calculate_cpu_load(const std::map<std::string, cpu_times> &old_times, const std::map<std::string, cpu_times> &new_times);
-  memory_info read_memory_info();
-  std::map<std::string, net_counters> read_net_counters();
-  network_check::nics_type calculate_network(const std::map<std::string, net_counters> &old_c, const std::map<std::string, net_counters> &new_c, double dt);
-  std::set<std::string> read_running_exes();
   void update_process_history(const std::set<std::string> &running, long long now_ts);
 };
+
+// The pure halves of the collector, exposed for unit tests: the samples come
+// from collector_source, these turn two of them into what the checks report.
+namespace collector_calc {
+cpu_load calculate_cpu_load(const std::map<std::string, collector_source::cpu_times> &old_times,
+                            const std::map<std::string, collector_source::cpu_times> &new_times);
+memory_info to_memory_info(const collector_source::memory_sample &sample);
+network_check::nics_type calculate_network(const std::map<std::string, collector_source::net_sample> &old_c,
+                                           const std::map<std::string, collector_source::net_sample> &new_c, double dt);
+}  // namespace collector_calc

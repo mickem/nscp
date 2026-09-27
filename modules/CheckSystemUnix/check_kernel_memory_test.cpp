@@ -127,3 +127,48 @@ TEST(CheckKernelMemory, MajorFaultStormTripsWhileSoftFaultsDoNot) {
   PB::Commands::QueryResponseMessage::Response ok_response;
   EXPECT_EQ(run_check(healthy(), {"crit=major_faults_per_sec > 500"}, ok_response), PB::Common::ResultCode::OK) << join_lines(ok_response);
 }
+
+// --- a kernel without slab (macOS) -------------------------------------------
+
+namespace {
+kernel_memory_obj darwin_row() {
+  kernel_memory_obj o;
+  o.wired = 2LL * 1024 * 1024 * 1024;
+  o.compressed = 512LL * 1024 * 1024;
+  o.cache = 4LL * 1024 * 1024 * 1024;
+  o.page_faults = 20000;
+  o.major_faults = 3;
+  return o;
+}
+}  // namespace
+
+TEST(CheckKernelMemory, WithoutSlabTheDetailNamesWiredAndCompressed) {
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_check(darwin_row(), {}, response), PB::Common::ResultCode::OK);
+  const std::string msg = join_lines(response);
+  EXPECT_NE(msg.find("wired 2GB, compressed 512MB, cache 4GB"), std::string::npos) << msg;
+  EXPECT_TRUE(has_perf(response, "wired")) << msg;
+  EXPECT_TRUE(has_perf(response, "compressed")) << msg;
+  // A gauge the kernel does not have is not plotted as 0.
+  EXPECT_FALSE(has_perf(response, "slab")) << msg;
+}
+
+TEST(CheckKernelMemory, AMissingSlabRendersUnknownAndNeverTrips) {
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_check(darwin_row(), {"crit=slab_unreclaimable > 1k", "detail-syntax=slab=${slab}"}, response), PB::Common::ResultCode::OK)
+      << join_lines(response);
+  EXPECT_NE(join_lines(response).find("slab=unknown"), std::string::npos) << join_lines(response);
+}
+
+TEST(CheckKernelMemory, WiredThresholdsTakeSizeUnits) {
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_check(darwin_row(), {"crit=wired > 1G"}, response), PB::Common::ResultCode::CRITICAL) << join_lines(response);
+  PB::Commands::QueryResponseMessage::Response ok_response;
+  EXPECT_EQ(run_check(darwin_row(), {"crit=wired > 3G"}, ok_response), PB::Common::ResultCode::OK) << join_lines(ok_response);
+}
+
+TEST(CheckKernelMemory, OnLinuxWiredIsUnknown) {
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_check(healthy(), {"crit=wired > 1k", "detail-syntax=wired=${wired}"}, response), PB::Common::ResultCode::OK) << join_lines(response);
+  EXPECT_NE(join_lines(response).find("wired=unknown"), std::string::npos) << join_lines(response);
+}

@@ -27,6 +27,8 @@ import {
   setupQueryNscp,
   onWindows,
   describeWithModules,
+  itWithModules,
+  moduleBuiltHere,
 } from "@fixtures/index";
 
 jest.setTimeout(300_000);
@@ -240,7 +242,10 @@ function checkExposition(text: string, openmetrics: boolean): Map<string, string
   return families;
 }
 
-// Skipped where the build has no CheckSystem (macOS, until it is ported).
+// CheckDisk joins as a second producer where it is built (not yet on macOS);
+// the cases about its metrics gate on it, the rest run everywhere.
+const withDisk = moduleBuiltHere("CheckDisk");
+
 describeWithModules("CheckSystem")("metrics and real-time checks", () => {
   let nscp: NscpInstance;
   let key: string;
@@ -254,7 +259,7 @@ describeWithModules("CheckSystem")("metrics and real-time checks", () => {
         // producer (disk.io.* / disk.free.*). CheckDisk has no real-time mode
         // on either platform, so it only participates in the metrics tests.
         CheckSystem: "enabled",
-        CheckDisk: "enabled",
+        ...(withDisk ? { CheckDisk: "enabled" } : {}),
         WEBServer: "enabled",
       },
       "/settings/core": {
@@ -297,7 +302,7 @@ describeWithModules("CheckSystem")("metrics and real-time checks", () => {
     expect(keys.some((k) => k.startsWith("system.uptime."))).toBe(true);
   });
 
-  it("publishes CheckDisk io and free-space metrics", async () => {
+  itWithModules("CheckDisk")("publishes CheckDisk io and free-space metrics", async () => {
     // disk.io.* comes from CheckDisk's own 1 Hz sampler, disk.free.* from the
     // mounted-filesystem walk; both need a sample before they show up.
     const metrics = await poll(
@@ -406,13 +411,16 @@ describeWithModules("CheckSystem")("metrics and real-time checks", () => {
   it("labels the other per-instance producers too", async () => {
     const text = await poll(
       () => getText(key, "/api/v2/openmetrics"),
-      (t) => /^disk_free_total_bytes\{drive="/m.test(t) && /^system_network_/m.test(t),
+      (t) =>
+        (!withDisk || /^disk_free_total_bytes\{drive="/m.test(t)) && /^system_network_/m.test(t),
     );
 
     // CheckDisk: one `disk_free_total_bytes` family with a `drive` label per
     // filesystem, rather than one family per drive letter or mount point.
-    expect(text).toMatch(/^# TYPE disk_free_total_bytes gauge$/m);
-    expect(text).toMatch(/^disk_free_total_bytes\{drive="[^"]+"\} \d+$/m);
+    if (withDisk) {
+      expect(text).toMatch(/^# TYPE disk_free_total_bytes gauge$/m);
+      expect(text).toMatch(/^disk_free_total_bytes\{drive="[^"]+"\} \d+$/m);
+    }
     // And the network counters, whose family name used to embed a WMI adapter
     // description or a Linux interface name.
     const received = onWindows ? "system_network_BytesReceivedPersec" : "system_network_received";
@@ -478,7 +486,7 @@ describeWithModules("CheckSystem")("metrics and real-time checks", () => {
     expect(keys.some((k) => k.startsWith(core))).toBe(true);
     expect(keys).toContain("system.cpu.total.idle");
     // Per-drive and per-NIC keys keep the instance in the middle of the key.
-    expect(keys.some((k) => /^disk\.free\..+\.free_pct$/.test(k))).toBe(true);
+    if (withDisk) expect(keys.some((k) => /^disk\.free\..+\.free_pct$/.test(k))).toBe(true);
     expect(keys.some((k) => /^system\.network\..+\./.test(k))).toBe(true);
     // Nothing leaked the label syntax, or a unit suffix, into a key.
     expect(keys.filter((k) => k.includes("{") || k.includes("}"))).toEqual([]);

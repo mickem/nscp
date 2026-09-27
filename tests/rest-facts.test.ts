@@ -9,7 +9,14 @@
  * `hardware` turned on.
  */
 import request from "supertest";
-import { NscpInstance, REST_URL, hasModule, onWindows, describeWithModules } from "@fixtures/index";
+import {
+  NscpInstance,
+  REST_URL,
+  hasModule,
+  onWindows,
+  onDarwin,
+  describeWithModules,
+} from "@fixtures/index";
 
 jest.setTimeout(900_000);
 
@@ -144,7 +151,9 @@ describeWithModules("CheckSystem", "CheckDisk")("REST facts", () => {
         ).toEqual(["hardware", "network", "os", "software", "storage"]);
         expect(response.body.gathered.os).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
 
-        expect(response.body.facts.os.family).toEqual(onWindows ? "windows" : "linux");
+        expect(response.body.facts.os.family).toEqual(
+          onWindows ? "windows" : onDarwin ? "darwin" : "linux",
+        );
         expect(response.body.facts.os.name).toBeTruthy();
         expect(response.body.facts.os.version).toBeTruthy();
         expect(response.body.facts.os.arch).toMatch(/^[a-z0-9_]+$/);
@@ -223,6 +232,7 @@ describeWithModules("CheckSystem", "CheckDisk")("REST facts", () => {
     const ids = interfaces.map((i: { id: string }) => i.id);
     expect(new Set(ids).size).toEqual(ids.length);
     expect(ids).not.toContain("lo");
+    expect(ids).not.toContain("lo0");
     for (const nic of interfaces) {
       // One spelling of a MAC on every platform.
       if (nic.mac !== undefined) expect(nic.mac).toMatch(/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/);
@@ -270,7 +280,9 @@ describeWithModules("CheckSystem", "CheckDisk")("REST facts", () => {
         expect(entry.source).toEqual("registry");
         expect(["machine", "user"]).toContain(entry.scope);
       } else {
-        expect(["dpkg", "rpm", "pacman"]).toContain(entry.source);
+        expect(onDarwin ? ["pkgutil", "bundle", "homebrew"] : ["dpkg", "rpm", "pacman"]).toContain(
+          entry.source,
+        );
         // Windows only: every unix package is installed for the machine.
         expect(entry.scope).toBeUndefined();
       }
@@ -403,7 +415,7 @@ describeWithModules("CheckSystem", "CheckDisk")("REST facts", () => {
       .then((response) => {
         expect(response.body.path).toEqual("os.family");
         expect(response.body.found).toBe(true);
-        expect(response.body.facts).toEqual(onWindows ? "windows" : "linux");
+        expect(response.body.facts).toEqual(onWindows ? "windows" : onDarwin ? "darwin" : "linux");
       });
 
     // A set nobody produces is not an error: a UI asking for one an operator
@@ -443,7 +455,9 @@ describeWithModules("CheckSystem", "CheckDisk")("REST facts", () => {
 
     // The round answers with the document it produced, so a caller does not
     // have to follow up with a GET.
-    expect(refreshed.body.facts.os.family).toEqual(onWindows ? "windows" : "linux");
+    expect(refreshed.body.facts.os.family).toEqual(
+      onWindows ? "windows" : onDarwin ? "darwin" : "linux",
+    );
     // A manual refresh is the reason that makes a cached producer read the
     // machine again, so the values are at least as fresh as they were.
     expect(new Date(refreshed.body.gathered.os).getTime()).toBeGreaterThanOrEqual(

@@ -86,3 +86,52 @@ TEST(CheckLoad, LoadKeywordIsWorstWindow) {
   // load = max(1,2,0.5) = 2 -> crit at load > 1.5
   EXPECT_EQ(run_load("1.0 2.0 0.5 1/10 5", {"critical=load > 1.5"}, response), PB::Common::ResultCode::CRITICAL) << join_lines(response);
 }
+
+// --- a reader without the /proc/loadavg process counts (macOS) ---------------
+
+TEST(CheckLoad, UnknownProcessCountsRenderAsUnknown) {
+  PB::Commands::QueryRequestMessage::Request request;
+  request.set_command("check_load");
+  request.add_arguments("detail-syntax=run=${procs_running} total=${procs_total}");
+  request.add_arguments("warning=procs_running > 0");
+  PB::Commands::QueryResponseMessage::Response response;
+  load_check::check_load_with(request, &response, [](const bool percpu, load_check::load_obj &out, std::string &) {
+    out.load1 = 8.0;
+    out.load5 = 4.0;
+    out.load15 = 2.0;
+    out.procs_total = 1500;
+    out.has_procs_total = true;
+    load_check::apply_percpu(out, 4, percpu);
+    return true;
+  });
+  // A missing count never satisfies a threshold.
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::OK) << join_lines(response);
+  EXPECT_NE(join_lines(response).find("run=unknown total=1500"), std::string::npos) << join_lines(response);
+}
+
+TEST(CheckLoad, AReadErrorIsUnknownWithTheReason) {
+  PB::Commands::QueryRequestMessage::Request request;
+  request.set_command("check_load");
+  PB::Commands::QueryResponseMessage::Response response;
+  load_check::check_load_with(request, &response, [](const bool, load_check::load_obj &, std::string &error) {
+    error = "getloadavg failed";
+    return false;
+  });
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::UNKNOWN);
+  EXPECT_NE(join_lines(response).find("getloadavg failed"), std::string::npos) << join_lines(response);
+}
+
+TEST(CheckLoad, PercpuScalesAReaderSample) {
+  load_check::load_obj o;
+  o.load1 = 8.0;
+  o.load5 = 4.0;
+  o.load15 = 2.0;
+  load_check::apply_percpu(o, 4, true);
+  EXPECT_EQ(o.type, "scaled");
+  EXPECT_DOUBLE_EQ(o.load1, 2.0);
+  load_check::load_obj one;
+  one.load1 = 3.0;
+  load_check::apply_percpu(one, 1, true);
+  EXPECT_EQ(one.type, "total");
+  EXPECT_DOUBLE_EQ(one.load1, 3.0);
+}

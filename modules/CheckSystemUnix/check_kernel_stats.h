@@ -48,7 +48,8 @@ long long count_threads_from(const std::string &proc_root);
 
 // Build the metric rows from two counter snapshots taken `elapsed_seconds`
 // apart plus a live thread count. `types` (empty = all) selects which of
-// ctxt/processes/threads to include.
+// ctxt/processes/threads to include. When either snapshot is not valid - the
+// platform keeps no such counters, as on macOS - only the threads row is built.
 rows_type build_rows(const kstat_counters &prev, const kstat_counters &cur, double elapsed_seconds, long long thread_count,
                      const std::vector<std::string> &types);
 
@@ -59,9 +60,14 @@ struct filter_obj_handler : public native_context {
 typedef modern_filter::modern_filters<kstat_row, filter_obj_handler> filter_type;
 
 // Testable variant: builds rows from pre-sampled snapshots + thread count.
+// With invalid snapshots only the threads row exists, and asking for ctxt or
+// processes by type= is an UNKNOWN naming the missing counter.
 void check_kernel_stats_from(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                              const kstat_counters &prev, const kstat_counters &cur, double elapsed_seconds, long long thread_count);
 
+// The live check. Defined per platform (/proc/stat and the /proc/<pid>/task
+// trees on Linux; the Mach processor-set thread count on Darwin, which has no
+// unprivileged system-wide context-switch or fork counter).
 void check_kernel_stats(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 
 }  // namespace kernel_stats_check

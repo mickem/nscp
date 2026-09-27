@@ -1,6 +1,6 @@
 ---
 icon: "🍎"
-modules: [packaging, CheckSystem, CheckDisk, CheckLogFile]
+modules: [packaging, CheckDisk, CheckLogFile]
 action: none
 ---
 **NSClient++ now ships an experimental macOS (Apple silicon) package.** Nothing
@@ -35,15 +35,15 @@ Three caveats for this first release:
   from the Finder you have to clear the quarantine flag your browser set
   (`xattr -d com.apple.quarantine <pkg>`) or approve it under System Settings →
   Privacy & Security after the first attempt.
-* **`CheckSystem`, `CheckDisk` and `CheckLogFile` are not in the macOS build.**
-  Their data sources are Linux kernel interfaces (procfs, `mntent`, `inotify`),
-  so there are no CPU, memory, process, uptime, service, disk or log-file
-  checks on macOS yet. Everything else - the REST API and web UI, the
-  NRPE/NSCA/NSCP/check_mk listeners and clients, external scripts, the Lua and
-  Python script engines, the network and security checks, the scheduler and the
-  forwarders - is present. A macOS configuration that enables one of those three
-  modules logs a "module not found" error on startup, which is worth checking
-  for if you are reusing a Linux `nsclient.ini`.
+* **`CheckDisk` and `CheckLogFile` are not in the macOS build.** Their data
+  sources are Linux kernel interfaces (`mntent`, `inotify`), so there are no
+  disk or log-file checks on macOS yet. Everything else - `CheckSystem` (see
+  the note on it below), the REST API and web UI, the NRPE/NSCA/NSCP/check_mk
+  listeners and clients, external scripts, the Lua script engine, the network
+  and security checks, the scheduler and the forwarders - is present. A macOS
+  configuration that enables one of those two modules logs a "module not found"
+  error on startup, which is worth checking for if you are reusing a Linux
+  `nsclient.ini`.
 
 See [Installing on macOS](installing.md#installing-on-macos-pkg) and
 [Supported platforms](supported-platforms.md#macos).

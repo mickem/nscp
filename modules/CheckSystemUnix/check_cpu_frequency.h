@@ -32,6 +32,8 @@ struct cpu_frequency {
 
 typedef std::list<cpu_frequency> cpus_type;
 
+// Defined per platform; always empty on macOS, which exposes no per-core
+// clock to an unprivileged process (see hardware_source_darwin.cpp).
 cpus_type read_cpu_frequency();
 // Same, but reading from an alternate sysfs cpu directory (the layout of
 // /sys/devices/system/cpu). Exposed for unit testing against fixture trees.

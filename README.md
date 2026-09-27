@@ -138,9 +138,9 @@ for the full picture.
   and aarch64. Other glibc-compatible distributions usually work too. Some
   modules are Windows-only (event log, PDH, WMI, service control).
 - **macOS** (experimental): Apple silicon only, as a `.pkg` that registers a launchd
-  daemon. `CheckSystem`, `CheckDisk` and `CheckLogFile` are not in the macOS
-  build yet - their data sources are Linux kernel interfaces - so there are no
-  CPU, memory, process, disk or log-file checks there. See
+  daemon. `CheckDisk` and `CheckLogFile` are not in the macOS build yet - their
+  data sources are Linux kernel interfaces - so there are no disk or log-file
+  checks there. See
   [supported platforms](https://docs.nsclient.org/setup/supported-platforms/#macos).
 
 ### Which package to download
@@ -161,7 +161,7 @@ one that matches your operating system and architecture:
 | Rocky Linux / RHEL / AlmaLinux | 9                                                 | ARM64 (aarch64)  | `NSCP-<version>-rocky-9-aarch64.rpm`             | 64-bit ARM build for RHEL 9-family distributions.                                                                                                                |
 | Rocky Linux / RHEL / AlmaLinux | 10                                                | x64 (x86_64)     | `NSCP-<version>-rocky-10-x86_64.rpm`             | Compatible with RHEL 10 and other RHEL 10 rebuilds.                                                                                                              |
 | Rocky Linux / RHEL / AlmaLinux | 10                                                | ARM64 (aarch64)  | `NSCP-<version>-rocky-10-aarch64.rpm`            | 64-bit ARM build for RHEL 10-family distributions.                                                                                                               |
-| macOS (experimental)              | The release's build version and newer             | ARM64 (Apple silicon) | `NSCP-<version>-macos-arm64.pkg`            | Self-contained installer; registers a launchd daemon. Not signed or notarized yet, so install with `sudo installer -pkg ... -target /` rather than double-clicking. No Intel build. Ships without `CheckSystem`, `CheckDisk` and `CheckLogFile`. A `NSCP-<version>-macos-arm64.tar.gz` of the same tree is published too, equally self-contained, for unpacking by hand. |
+| macOS (experimental)              | The release's build version and newer             | ARM64 (Apple silicon) | `NSCP-<version>-macos-arm64.pkg`            | Self-contained installer; registers a launchd daemon. Not signed or notarized yet, so install with `sudo installer -pkg ... -target /` rather than double-clicking. No Intel build. Ships without `CheckDisk` and `CheckLogFile`. A `NSCP-<version>-macos-arm64.tar.gz` of the same tree is published too, equally self-contained, for unpacking by hand. |
 
 In addition, a stand-alone `check_nsclient` binary is published alongside each
 Linux package for use as a Nagios/Icinga check plugin.

@@ -57,3 +57,11 @@ platform driver are visible; a battery behind a vendor-specific driver that does
 not populate sysfs will not be. `battery_status` carries the charging state
 (`status` is a deprecated alias — the name clashes with the generic status
 summary keyword and resolves to that in `top-syntax`).
+
+##### macOS
+
+Sourced from the IOKit power sources (charge, power source, charging state,
+time remaining) and the `AppleSmartBattery` registry entry (design, full and
+remaining capacity, charge and discharge rate). Both are public and readable
+without privileges. A desktop Mac or a virtual machine has no battery and gets
+the no-battery result.

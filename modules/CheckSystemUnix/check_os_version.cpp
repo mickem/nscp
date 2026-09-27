@@ -67,10 +67,10 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("machine", &filter_obj::get_machine, "Machine hardware name")
       .add_string_var("processor", &filter_obj::get_processor, "Processor / machine architecture")
       .add_string_var("os", &filter_obj::get_os, "Operating system (distribution pretty name, or kernel when unknown)")
-      .add_string_var("distribution", &filter_obj::get_distribution, "Distribution id, e.g. 'ubuntu' (from /etc/os-release ID)")
-      .add_string_var("distribution_name", &filter_obj::get_distribution_name, "Distribution name, e.g. 'Ubuntu' (from NAME)")
-      .add_string_var("version", &filter_obj::get_version, "Distribution version, e.g. '22.04' (from VERSION_ID)")
-      .add_string_var("family", &filter_obj::get_family, "Distribution family, e.g. 'debian' (from ID_LIKE/ID)");
+      .add_string_var("distribution", &filter_obj::get_distribution, "Distribution id, e.g. 'ubuntu' (from /etc/os-release ID); 'macos' on macOS")
+      .add_string_var("distribution_name", &filter_obj::get_distribution_name, "Distribution name, e.g. 'Ubuntu' (from NAME); 'macOS' on macOS")
+      .add_string_var("version", &filter_obj::get_version, "Distribution version, e.g. '22.04' (from VERSION_ID); the product version, e.g. '14.5', on macOS")
+      .add_string_var("family", &filter_obj::get_family, "Distribution family, e.g. 'debian' (from ID_LIKE/ID); 'macos' on macOS");
 }
 }  // namespace os_version_filter
 }  // namespace os_version
@@ -91,7 +91,7 @@ void os_version::check_os_version(const PB::Commands::QueryRequestMessage::Reque
   utsname name{};
   if (uname(&name) == -1) return nscapi::protobuf::functions::set_response_bad(*response, "Cannot get system name");
 
-  const os_release_info osr = read_os_release_from("/etc/os-release");
+  const os_release_info osr = read_os_release();
 
   std::shared_ptr<os_version_filter::filter_obj> record(new os_version_filter::filter_obj());
   record->kernel_name = name.sysname;

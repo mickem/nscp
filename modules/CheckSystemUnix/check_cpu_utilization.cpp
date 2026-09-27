@@ -15,15 +15,6 @@
 namespace cpu_utilization_check {
 
 namespace {
-// Read the whole of /proc/stat. Returns "" on failure.
-std::string read_proc_stat() {
-  std::ifstream ifs("/proc/stat");
-  if (!ifs.is_open()) return "";
-  std::stringstream ss;
-  ss << ifs.rdbuf();
-  return ss.str();
-}
-
 double pct(unsigned long long delta, unsigned long long total) {
   if (total == 0) return 0.0;
   return static_cast<double>(delta) * 100.0 / static_cast<double>(total);
@@ -81,11 +72,15 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_float("total", &util_obj::get_total, "Deprecated alias for usage (the name clashes with the generic total summary keyword).");
   registry_.add_float("user", &util_obj::get_user, "User (incl. nice) CPU utilization in percent");
   registry_.add_float("system", &util_obj::get_system, "System/kernel CPU utilization in percent");
-  registry_.add_float("iowait", &util_obj::get_iowait, "I/O-wait CPU utilization in percent");
-  registry_.add_float("irq", &util_obj::get_irq, "Hardware-interrupt CPU utilization in percent");
-  registry_.add_float("softirq", &util_obj::get_softirq, "Soft-interrupt CPU utilization in percent");
-  registry_.add_float("steal", &util_obj::get_steal, "CPU time stolen by the hypervisor in percent (VM guests)");
-  registry_.add_float("guest", &util_obj::get_guest, "CPU time spent running a guest under this kernel, in percent (incl. guest_nice)");
+  // macOS accounts CPU time as user, nice, system and idle only; the kernel
+  // folds the rest into those, so the Linux-only buckets read 0 there.
+  registry_.add_float("iowait", &util_obj::get_iowait, "I/O-wait CPU utilization in percent (always 0 on macOS, which does not account for it)");
+  registry_.add_float("irq", &util_obj::get_irq, "Hardware-interrupt CPU utilization in percent (always 0 on macOS, which does not account for it)");
+  registry_.add_float("softirq", &util_obj::get_softirq, "Soft-interrupt CPU utilization in percent (always 0 on macOS, which does not account for it)");
+  registry_.add_float("steal", &util_obj::get_steal,
+                      "CPU time stolen by the hypervisor in percent (VM guests; always 0 on macOS, which does not account for it)");
+  registry_.add_float("guest", &util_obj::get_guest,
+                      "CPU time spent running a guest under this kernel, in percent (incl. guest_nice; always 0 on macOS, which does not account for it)");
   registry_.add_float("idle", &util_obj::get_idle, "Idle CPU in percent");
 }
 
@@ -108,19 +103,6 @@ void check_cpu_utilization_from(const PB::Commands::QueryRequestMessage::Request
   filter.match(record);
 
   filter_helper.post_process(filter);
-}
-
-void check_cpu_utilization(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  const cpu_jiffies prev = parse_proc_stat_cpu(read_proc_stat());
-  if (!prev.valid) {
-    return nscapi::protobuf::functions::set_response_bad(*response, "Failed to read /proc/stat");
-  }
-  std::this_thread::sleep_for(std::chrono::seconds(1));
-  const cpu_jiffies cur = parse_proc_stat_cpu(read_proc_stat());
-  if (!cur.valid) {
-    return nscapi::protobuf::functions::set_response_bad(*response, "Failed to read /proc/stat");
-  }
-  check_cpu_utilization_from(request, response, prev, cur);
 }
 
 }  // namespace cpu_utilization_check

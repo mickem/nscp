@@ -33,7 +33,6 @@ bool read_khz_file_as_mhz(const boost::filesystem::path &file, long long &out_mh
 }
 }  // namespace
 
-cpus_type read_cpu_frequency() { return read_cpu_frequency("/sys/devices/system/cpu"); }
 
 cpus_type read_cpu_frequency(const std::string &base_path) {
   cpus_type result;

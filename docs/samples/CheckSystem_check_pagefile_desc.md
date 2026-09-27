@@ -36,3 +36,9 @@ Each swap device (or swap file) is one record, and `name` is its path. A host
 with swap disabled entirely reports only the `total` record with a size of zero;
 guard against that with `filter=size > 0` if a zero-sized total would otherwise
 read as 100% used in your dashboards.
+
+##### macOS
+
+Swap comes from `vm.swapusage`, reported as the single `total` record. macOS
+creates its swap files on demand, so a Mac that has not needed swap reports a
+size of zero, and the same `filter=size > 0` guard applies.

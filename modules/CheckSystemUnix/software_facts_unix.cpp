@@ -4,7 +4,8 @@
 // software_facts::gather() for unix: the installed packages the host's own
 // package manager lists, through the same query check_installed_software runs
 // (dpkg-query, rpm or pacman, each by absolute path so an inherited PATH
-// cannot redirect the collector).
+// cannot redirect the collector; on macOS the installer receipts, application
+// bundles and Homebrew kegs, read in-process).
 
 #include <facts/software_facts.hpp>
 #include <stdexcept>
@@ -21,7 +22,7 @@ std::vector<package> gather() {
     // Not an empty inventory: this host keeps its package list somewhere we
     // cannot read (apk, nix, a container built without a package database),
     // and publishing an empty list would say it has no software installed.
-    throw std::runtime_error("No supported package manager found (dpkg/rpm/pacman)");
+    throw std::runtime_error("No supported package manager found (dpkg/rpm/pacman/pkgutil)");
   }
   const installed_software::fetch_result fetched = installed_software::fetch_installed(manager, installed_software::run_command);
   if (!fetched.ok) {
@@ -40,9 +41,10 @@ std::vector<package> gather() {
     p.version = e.version;
     p.publisher = e.publisher;
     p.architecture = normalize_architecture(e.architecture);
-    // Which database the record came from - dpkg, rpm, pacman - which is also
-    // what says how much of the record to expect: pacman -Q reports a name and
-    // a version and nothing else.
+    // Which database the record came from - dpkg, rpm, pacman; pkgutil,
+    // bundle or homebrew on macOS - which is also what says how much of the
+    // record to expect: pacman -Q reports a name and a version and nothing
+    // else.
     p.source = e.manager;
     // No `scope`: a unix package manager installs for the machine, so the
     // field would say the same thing for every record on every host.

@@ -20,3 +20,10 @@ declaring the counter yourself:
 check_pdh "counter=memory_pages_sec" "warn=value > 1000" "crit=value > 5000"
 ```
 
+##### macOS
+
+`physical` is installed memory against the free pages. `cached` counts
+file-backed and purgeable pages as free as well, the same two Activity Monitor
+adds up as Cached Files. `swap` is the dynamic swap files, so its size is zero
+until macOS has needed swap. On macOS the system metrics also carry
+`system.mem.wired` and `system.mem.compressed`.

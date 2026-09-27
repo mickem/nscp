@@ -58,6 +58,8 @@ typedef modern_filter::modern_filters<util_obj, filter_obj_handler> filter_type;
 void check_cpu_utilization_from(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                                 const cpu_jiffies &prev, const cpu_jiffies &cur);
 
+// The live check: two samples one second apart. Defined per platform
+// (/proc/stat on Linux, host_processor_info on Darwin).
 void check_cpu_utilization(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 
 }  // namespace cpu_utilization_check

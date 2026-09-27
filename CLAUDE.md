@@ -177,10 +177,11 @@ the helper goes in its `ALLOWED` set with the reason.
   `mntent` (`check_drive_linux.cpp`), `_darwin` reads sysctl, Mach or IOKit.
   Keep the check logic, keyword registry and output builders
   platform-neutral, and put a new data source in its own suffixed file rather
-  than behind `#ifdef` in a shared one. Two readers still sit inline behind
-  `#ifndef WIN32` - `check_mount.cpp`'s mntent walk and the procfs paths in
-  CheckSystemUnix's checks - and they are the seams a macOS port splits out
-  first, not a pattern to copy.
+  than behind `#ifdef` in a shared one. One reader still sits inline behind
+  `#ifndef WIN32` - `check_mount.cpp`'s mntent walk - and it is the seam a
+  macOS port splits out first, not a pattern to copy. CheckSystemUnix shows
+  the finished shape: `*_source_linux.cpp` / `*_source_darwin.cpp` pairs
+  behind the check headers.
 - Packaging: modules self-install via `NSCP_INSTALL_MODULE()` (pulled in by
   `include(${BUILD_CMAKE_FOLDER}/module.cmake)` in the module's `CMakeLists.txt`),
   so Linux CPack (DEB/RPM/ZIP) packages them automatically. The **Windows MSI

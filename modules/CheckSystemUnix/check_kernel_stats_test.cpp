@@ -156,3 +156,38 @@ TEST(CheckKernelStats, HugeCtxtCounterDoesNotTripThreadThreshold) {
   PB::Commands::QueryResponseMessage::Response response;
   EXPECT_EQ(run_ks(200, {}, response), PB::Common::ResultCode::OK) << join_lines(response);
 }
+
+// --- a kernel without ctxt/fork counters (macOS) -----------------------------
+
+namespace {
+PB::Common::ResultCode run_threads_only(const std::vector<std::string> &args, PB::Commands::QueryResponseMessage::Response &response) {
+  const kstat_counters none;  // valid = false: nothing to read
+  PB::Commands::QueryRequestMessage::Request request;
+  request.set_command("check_kernel_stats");
+  for (const std::string &a : args) request.add_arguments(a);
+  kernel_stats_check::check_kernel_stats_from(request, &response, none, none, 1.0, 1234);
+  return response.result();
+}
+}  // namespace
+
+TEST(CheckKernelStats, WithoutCountersOnlyThreadsIsReported) {
+  const kstat_counters none;
+  const auto rows = by_name(build_rows(none, none, 1.0, 42, {}));
+  EXPECT_EQ(rows.size(), 1u);
+  EXPECT_EQ(rows.count("threads"), 1u);
+
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_threads_only({}, response), PB::Common::ResultCode::OK) << join_lines(response);
+  const std::string msg = join_lines(response);
+  EXPECT_NE(msg.find("Threads 1234"), std::string::npos) << msg;
+  EXPECT_EQ(msg.find("Context"), std::string::npos) << msg;
+}
+
+TEST(CheckKernelStats, AskingForAMissingCounterIsUnknown) {
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_threads_only({"type=ctxt"}, response), PB::Common::ResultCode::UNKNOWN);
+  EXPECT_NE(join_lines(response).find("'ctxt' is not available"), std::string::npos) << join_lines(response);
+
+  PB::Commands::QueryResponseMessage::Response threads;
+  EXPECT_EQ(run_threads_only({"type=threads"}, threads), PB::Common::ResultCode::OK) << join_lines(threads);
+}

@@ -37,8 +37,13 @@ TEST(software_facts_unix, every_record_follows_the_document_rules) {
     EXPECT_FALSE(p.id.empty());
     EXPECT_TRUE(ids.insert(p.id).second) << "duplicate id " << p.id;
     EXPECT_FALSE(p.name.empty());
-    // The manager the record came from, which is the one detect_manager found.
-    EXPECT_EQ(p.source, installed_software::detect_manager().name) << p.id;
+    // The manager the record came from: the one detect_manager found, or on
+    // macOS, which has no single package database, one of its three sources.
+    if (installed_software::detect_manager().name == "macos") {
+      EXPECT_TRUE(p.source == "pkgutil" || p.source == "bundle" || p.source == "homebrew") << p.id << ": " << p.source;
+    } else {
+      EXPECT_EQ(p.source, installed_software::detect_manager().name) << p.id;
+    }
     // A unix package is installed for the machine; `scope` is a Windows hive
     // distinction and is not published here.
     EXPECT_EQ(p.scope, "") << p.id;

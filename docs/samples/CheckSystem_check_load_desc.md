@@ -11,6 +11,12 @@ overloaded one).
 The averages come straight from `/proc/loadavg` — the kernel's own 1-, 5-
 and 15-minute run-queue averages.
 
+##### macOS
+
+The averages come from `getloadavg(3)`. `procs_total` is the number of
+threads, as it is on Linux. macOS keeps no count of runnable threads, so
+`procs_running` is `unknown` and never satisfies a threshold.
+
 ##### Windows
 
 Windows has no kernel-maintained load average, so the CheckSystem background

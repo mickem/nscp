@@ -18,7 +18,7 @@
  * contract for a missing/stopped service.
  */
 import request from "supertest";
-import { NscpInstance, REST_URL, onWindows, describeWithModules } from "@fixtures/index";
+import { NscpInstance, REST_URL, onWindows, onDarwin, describeWithModules } from "@fixtures/index";
 
 jest.setTimeout(900_000);
 
@@ -120,7 +120,9 @@ describeWithModules("CheckSystem", "CheckDisk")("REST tags", () => {
       .trustLocalhost(true)
       .expect(200)
       .then((response) => {
-        expect(response.body.os_family).toEqual(onWindows ? "windows" : "linux");
+        expect(response.body.os_family).toEqual(
+          onWindows ? "windows" : onDarwin ? "darwin" : "linux",
+        );
         // Not an exhaustive list: an architecture we have not seen is
         // published lower-cased rather than dropped.
         expect(response.body.arch).toMatch(/^[a-z0-9_]+$/);

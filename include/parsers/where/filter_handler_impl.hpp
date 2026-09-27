@@ -321,6 +321,13 @@ struct function_registry {
     get_last_variable()->set_no_perf();
     return *this;
   }
+  // Perf data rendered in scaled byte units (KB, MB, ...), as the legacy
+  // adder's add_scaled_byte does. For byte gauges registered through
+  // add_optional_int_var, which have no legacy adder to chain it on.
+  function_registry<T>& add_scaled_byte_perf(std::string prefix = "", std::string suffix = "") {
+    get_last_variable()->int_perf.push_back(int_perf_generator_type(new scaled_byte_int_performance_generator<T>(prefix, suffix)));
+    return *this;
+  }
 
   bool has_converter(const value_type type) const { return converters.find(type) != converters.end(); }
   bool has_variable(const std::string& key) const { return variables.find(key) != variables.end() || human_variables.find(key) != human_variables.end(); }

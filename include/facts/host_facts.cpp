@@ -79,6 +79,10 @@ std::string virtualization_from_dmi(const std::string &sys_vendor, const std::st
   if (contains(vendor, "nutanix") || contains(product, "ahv")) return "kvm";
   if (contains(vendor, "oracle") && contains(product, "virtualbox")) return "virtualbox";
   if (contains(product, "bhyve")) return "bhyve";
+  // A guest of Apple's Virtualization framework (macOS VMs, the arm64 macOS
+  // CI runners) reports the model VirtualMac<n>,<m>; the framework has no name
+  // of its own in the vocabulary, so it is an unnamed "virtual".
+  if (contains(vendor, "apple") && contains(product, "virtualmac")) return "virtual";
   return "";
 }
 
