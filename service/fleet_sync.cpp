@@ -456,10 +456,13 @@ void fleet_sync::note_server_response(const http::response &response, const flee
   }
   const boost::optional<std::string> advertised = read_facts_hash_header(response, call);
   if (!advertised) {
-    // An answer the server meant, without a readable header: it does not do
-    // facts - or no longer does, after a downgrade - and is sent nothing more
-    // until it says what it holds again.
-    facts_pacer_.server_silent();
+    // An answer the server meant, without a readable header. On a poll -
+    // the call the header is for - that is a server that does not do facts,
+    // or no longer does after a downgrade, and it is sent nothing more until
+    // it says what it holds again. On a report it says nothing: a server may
+    // set the header on desired state only, or a proxy strip it on one route,
+    // and that must not silence the upload the poll just asked for.
+    if (call == fleet_call::poll) facts_pacer_.server_silent();
     return;
   }
   facts_pacer_.server_holds(advertised.value(), now);
@@ -493,10 +496,14 @@ boost::optional<std::string> fleet_sync::read_facts_hash_header(const http::resp
 
 void fleet_sync::log_facts_failure(const std::string &hash, const unsigned int status, const std::string &message) {
   // Once per document and status: a new inventory rejected the same way is
-  // news, the same one rejected again at every backoff step is not.
-  if (hash != last_facts_error_hash_ || status != last_facts_error_status_) {
+  // news, the same one rejected again at every backoff step is not - but
+  // once a day it is again, so an operator who missed the first line (a 413
+  // retried daily, an upload the network keeps cutting) is told once more.
+  const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+  if (hash != last_facts_error_hash_ || status != last_facts_error_status_ || now >= last_facts_error_at_ + std::chrono::hours(24)) {
     last_facts_error_hash_ = hash;
     last_facts_error_status_ = status;
+    last_facts_error_at_ = now;
     log_error(message);
   } else {
     log_debug(message);
@@ -545,9 +552,14 @@ void fleet_sync::maybe_upload_facts() {
   try {
     response = do_call("POST", facts_path, body);
   } catch (const std::exception &e) {
-    // Never reached the server (or never heard back): nothing to pace, the
-    // next poll that gets through tries again.
-    log_transport_failure("Facts upload", utf8::utf8_from_native(e.what()));
+    // The polls get through, so this is the upload's own trouble - a proxy
+    // that resets a large POST, a timeout too short for a megabyte on a slow
+    // link - and the next poll would only repeat it: paced like a rejection,
+    // not retried every turn. Logged once per document (log_facts_failure),
+    // not through the transport bookkeeping, whose "restored" line every
+    // successful poll would otherwise re-arm.
+    facts_pacer_.rejected(snapshot.hash, std::chrono::steady_clock::now());
+    log_facts_failure(snapshot.hash, 0, "Facts upload failed: " + utf8::utf8_from_native(e.what()));
     return;
   }
   note_transport_success();
@@ -599,7 +611,9 @@ void fleet_sync::maybe_upload_facts() {
     facts_pacer_.refused(snapshot.hash, now);
     log_facts_failure(snapshot.hash, response.status_code_,
                       "The fleet server refused the facts document as too large (" + str::xtos(snapshot.json.size()) +
-                          " bytes). Largest sets: " + largest_sets() + ". Disable one of them in the module that produces it.");
+                          " bytes of JSON). Largest sets, as JSON: " + largest_sets() +
+                          ". Disable one of them in the module that produces it; the server's limit is its own, and not what "
+                          "[/settings/facts] max size counts.");
     return;
   }
   // Any other error status - 4xx, 5xx, a stray 3xx - is paced, not given up on: a
@@ -868,22 +882,28 @@ unsigned long fleet_sync::poll_once() {
     if (next) poll_interval_ = std::max(1ul, next.value());
     return poll_interval_;
   }
-  // Asked to wait: a 429, or a 503 that names the wait. The loop sleeps it -
-  // no less - which is also why the poll's Retry-After is not a facts hold
+  // A Retry-After is a wait the server named, and the loop sleeps it - no
+  // less - which is also why the poll's Retry-After is not a facts hold
   // (note_server_response): the next turn, poll and report and upload, comes
-  // after it anyway. A 503 without one is a failure like any other.
+  // after it anyway.
   const boost::optional<unsigned long> retry = get_retry_after(response);
-  if (response.status_code_ == 429 || (response.status_code_ == 503 && retry)) {
-    log_info("Desired-state poll " + std::string(response.status_code_ == 429 ? "rate limited" : "deferred by the server"));
+  if (response.status_code_ == 429) {
+    // A rate limit: the server is up and pacing us, not failing.
+    log_info("Desired-state poll rate limited");
     if (!retry) return poll_interval_;
     sleep_is_minimum_ = true;
     return clamp_sleep_seconds(retry.value());
   }
   if (!response.is_2xx()) {
+    // A failure - a 503 maintenance page included, whatever Retry-After it
+    // sends (often 1): counted, logged at error for whatever alerts on it,
+    // and backed off, taking the Retry-After as a floor rather than the wait.
     ++failures_;
     log_error("Desired-state poll failed: " + str::xtos(response.status_code_) + " " + response.payload_);
-    const unsigned long backoff = poll_interval_ << std::min(failures_, 5u);
-    return std::min(backoff, poll_interval_ * 5);
+    const unsigned long backoff = std::min(poll_interval_ << std::min(failures_, 5u), poll_interval_ * 5);
+    if (!retry) return backoff;
+    sleep_is_minimum_ = true;
+    return std::max(backoff, clamp_sleep_seconds(retry.value()));
   }
 
   failures_ = 0;

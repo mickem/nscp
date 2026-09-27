@@ -163,6 +163,7 @@ class fleet_sync {
   // which may carry a request id that differs every time.
   std::string last_facts_error_hash_;
   unsigned int last_facts_error_status_ = 0;
+  std::chrono::steady_clock::time_point last_facts_error_at_;
   reload_function request_reload_;
 
   onboarding::enrolled_identity identity_;

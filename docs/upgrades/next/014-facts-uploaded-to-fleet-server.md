@@ -14,14 +14,16 @@ leaves the host.
   never the document itself.
 * The server answers with the hash it holds in an `X-Facts-Hash` response
   header. The document is uploaded on its own call, `POST /agent/v1/facts`,
-  only when that answer differs from the agent's hash. A server that sends no
-  such header is never sent the document. The server sends the header on its
-  answer to an upload too.
+  only when that answer differs from the agent's hash. A server whose poll
+  answers carry no such header is never sent the document. The server sends
+  the header on its answer to an upload too.
 * A rejected upload (any error status but 413) is retried after 1 minute, then
   2, doubling up to once an hour. No upload goes out in a poll cycle whose
   poll or report got an error answer, and a `Retry-After` on a report or an
-  upload holds every upload until it passes; on a poll (429, or 503), the
-  agent waits it out before calling again at all. A document the server
+  upload holds every upload until it passes. A 429 on a poll is waited out
+  before the agent calls again; any other failed poll, a 503 included, is
+  logged and backed off with its `Retry-After` as the shortest wait. An upload
+  cut by the network while the polls get through is paced like a rejection. A document the server
   confirmed holding and then reports missing is re-sent at once the first time
   (logged at info), then after 1 minute, doubling up to once an hour (logged
   as an error when it gets there); one it has not confirmed yet is not re-sent

@@ -137,6 +137,10 @@ describe("core fleet sync loop", () => {
   let deferNextPoll: number | null = null;
   /** A server that acknowledges uploads and keeps nothing. */
   let forgetUploads = false;
+  /** State reports answered without X-Facts-Hash (a proxy stripping it on that route). */
+  let reportWithoutHeader = false;
+  /** Cut the connection on a facts upload instead of answering it. */
+  let resetUploads = false;
   /** A server that stores each upload under a hash of its own making. */
   let hashesItsOwnWay = false;
   const factsHeader = (): Record<string, string> => (heldFactsHash === null ? {} : { "X-Facts-Hash": heldFactsHash });
@@ -337,6 +341,9 @@ describe("core fleet sync loop", () => {
         } else if (parsed.pathname === "/agent/v1/bundles/b-facts-off") {
           res.writeHead(200, { "Content-Type": "application/zip" });
           res.end(factsOffZip);
+        } else if (req.method === "POST" && parsed.pathname === "/agent/v1/facts" && resetUploads) {
+          // A proxy that passes the small calls and resets the large POST.
+          req.socket.destroy();
         } else if (req.method === "POST" && parsed.pathname === "/agent/v1/facts") {
           if (factsStatus === 200 && !forgetUploads) heldFactsHash = hashesItsOwnWay ? "e".repeat(64) : (body?.facts_hash ?? "");
           // A 2xx says what the server now holds, as every answer it means
@@ -344,7 +351,7 @@ describe("core fleet sync loop", () => {
           res.writeHead(factsStatus, { "Content-Type": "application/json", ...(factsStatus === 200 ? factsHeader() : {}) });
           res.end(factsStatus === 200 ? "{}" : JSON.stringify({ error: "not found" }));
         } else if (parsed.pathname === "/agent/v1/state-report") {
-          res.writeHead(200, { "Content-Type": "application/json", ...factsHeader() });
+          res.writeHead(200, { "Content-Type": "application/json", ...(reportWithoutHeader ? {} : factsHeader()) });
           res.end("{}");
         } else if (parsed.pathname === "/agent/v1/bundles/b-gone") {
           res.writeHead(403, { "Content-Type": "application/json" });
@@ -592,8 +599,10 @@ describe("core fleet sync loop", () => {
     // Said once, above debug, so an operator can tell why the server sees the
     // same document arrive again.
     await waitFor("the lost-document log line", () => nscp.capturedStdout().includes("The fleet server lost the facts document"));
-    // The next one waits a minute (then two, ... up to an hour), so a broken
-    // server does not pull the document on every poll.
+    // The re-sent document is not confirmed either, so the next re-send waits
+    // a step (a minute); two more unconfirmed acknowledgements and it is
+    // refused for a day. Either way a broken server does not pull the
+    // document on every poll.
     await settle(5);
     expect(factsUploads()).toHaveLength(2);
     forgetUploads = false;
@@ -726,6 +735,37 @@ describe("core fleet sync loop", () => {
     expect(factsUploads()).toHaveLength(before);
     const said = nscp.capturedStdout().split("unreadable X-Facts-Hash").length - 1;
     expect(said).toBe(1);
+    answerFull = false;
+  });
+
+  it("keeps a report without the header from silencing the upload, and paces an upload the network cuts", async () => {
+    // A fresh agent, `agent` on, against a server that holds nothing and says
+    // so on every poll - but whose state reports come back without the
+    // header. The poll is the call the header is for; a report without it
+    // must not undo what the poll just said.
+    await nscp.stop();
+    hashesItsOwnWay = false;
+    heldFactsHash = "none";
+    reportWithoutHeader = true;
+    answerFull = true;  // a report every turn, right after the poll
+    const before = factsUploads().length;
+    nscp.start();
+    await waitFor("the upload the poll asked for", () => factsUploads().length > before);
+    reportWithoutHeader = false;
+    await settle();
+
+    // Now the network cuts the upload itself, while the small calls go
+    // through: paced like a rejection - not re-sent every poll - and not
+    // churned through the connection bookkeeping every turn.
+    resetUploads = true;
+    heldFactsHash = "none";
+    const cutBefore = factsUploads().length;
+    const restoredBefore = nscp.capturedStdout().split("connection restored").length;
+    await waitFor("the cut upload", () => factsUploads().length > cutBefore);
+    await settle(5);
+    expect(factsUploads()).toHaveLength(cutBefore + 1);
+    expect(nscp.capturedStdout().split("connection restored").length).toBe(restoredBefore);
+    resetUploads = false;
     answerFull = false;
   });
 });

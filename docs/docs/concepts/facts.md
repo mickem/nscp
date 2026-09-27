@@ -510,10 +510,12 @@ the server say whether it needs the rest:
 * **The document is uploaded only on a miss**: when the server's answer
   differs from the agent's hash, the agent sends it on its own call,
   `POST /agent/v1/facts`. A matching answer costs nothing more than the hash,
-  a host with nothing enabled never uploads, and a server that sends no
-  `X-Facts-Hash` at all is one that does not do facts and is never sent the
-  document - including one that sent it before and was downgraded since. A
-  header the agent cannot read counts as no header, and is logged once.
+  a host with nothing enabled never uploads, and a server whose poll answers
+  carry no `X-Facts-Hash` is one that does not do facts and is never sent the
+  document - including one that sent it before and was downgraded since. (A
+  state report answered without the header changes nothing: the poll is the
+  call it is for.) A header the agent cannot read counts as no header, and is
+  logged once.
 * **A round is published whole.** A round stores its sets one at a time; until
   it has finished, the hash on the poll and the document an upload sends are
   the previous round's. A round therefore costs at most one upload, never one
@@ -545,9 +547,11 @@ every poll:
 * **A server in trouble** - any error answer to the poll, the state report
   or the upload, a proxy's error page included - is sent no document in that
   poll cycle. A `Retry-After` on a report or an upload holds every upload until
-  it has passed; on a poll (429, or 503), the agent waits it out before it
-  calls again at all. A 429 or 503 on the upload itself skips the next poll
-  cycle too.
+  it has passed. On a poll, the agent waits out a 429's `Retry-After` before
+  it calls again at all; any other failed poll - a 503 maintenance page
+  included - is logged as a failure and backed off as usual, with its
+  `Retry-After` as the shortest wait. A 429 or 503 on the upload itself skips
+  the next poll cycle too.
   A rejection is forgotten as soon as the document gets through.
 * **A document the server acknowledged and then reports missing** - having
   reported holding it first - is sent again at once the first time, and the
@@ -558,8 +562,10 @@ every poll:
   which is logged as an error when it gets there. Once the server has kept it
   for a whole wait, that resets, so a loss weeks later is repaired at once
   again.
-* **A connection that fails outright** costs nothing: the next poll that gets
-  through tries again.
+* **A connection that fails outright** costs nothing when it is the poll: the
+  next poll that gets through tries again. When the polls get through and the
+  upload alone is cut - a proxy that resets a large request, a timeout too
+  short for a large document on a slow link - it is paced like a rejection.
 * **A document the server refuses as too large** (413) is not offered again
   until it changes, or for a day - its cap may be raised in the meantime.
 * **A document the server does not end up holding as sent** is not offered

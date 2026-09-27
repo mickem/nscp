@@ -35,16 +35,19 @@ namespace onboarding {
 //    starts, whether or not that turn gets as far as asking.
 //  * A hold (a Retry-After on a report or an upload) pauses every upload,
 //    whatever the document: it is the server asking for quiet, not a verdict
-//    on one document. A poll's own Retry-After (429 or 503) is not a hold: the
-//    loop sleeps it, and a second clock over the same wait would only outlast
-//    that sleep.
+//    on one document. A poll's own Retry-After is not a hold: the loop sleeps
+//    at least that long (a 429's exactly, a failed poll's as a floor under its
+//    backoff), and a second clock over the same wait would only outlast it.
 //  * A document the server acknowledged, reported holding, and then reports
 //    missing has been lost. The first re-send is immediate; each further one
 //    waits 1 min, 2, ... up to an hour after the previous one, so a server that
-//    never keeps what it is sent costs an upload an hour, not one per poll.
-//    The server answering with it once the wait since the last re-send has
-//    passed means it stuck: the loss count resets, so a loss weeks later is
-//    repaired at once again. An echo inside that wait says nothing.
+//    keeps confirming the document and then losing it again within the wait
+//    costs an upload an hour, not one per poll. (One that never confirms it
+//    at all is settled by the unconfirmed rule below instead, in three
+//    acknowledgements.) The server answering with it once the wait since the
+//    last re-send has passed means it stuck: the loss count resets, so a loss
+//    weeks later is repaired at once again. An echo inside that wait says
+//    nothing.
 //  * An acknowledgement that carries the server's X-Facts-Hash settles at once
 //    what the server made of the document: our hash is confirmation, `none` is
 //    a server that did not keep it, and any other new digest is a server

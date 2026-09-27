@@ -286,14 +286,15 @@ class fact_repository {
     fact_repository &repository_;
   };
 
-  // The size of each set, largest first, as the core counts it against max
-  // size: what a refused upload names so the operator knows which set to
-  // turn off.
+  // The size of each set's JSON rendering, largest first: what a refused
+  // upload names so the operator knows which set to turn off. JSON because
+  // that is what the upload sent and the server measured; it is not the
+  // measure max size is enforced on (the stored encoding, usually smaller),
+  // and the values alone - without their keys and the braces around them -
+  // add up to a little less than the document.
   std::vector<std::pair<std::string, std::size_t>> get_set_sizes() const {
     boost::unique_lock<boost::mutex> lock(mutex_);
     std::vector<std::pair<std::string, std::size_t>> sizes;
-    // Measured on the JSON, which is what an upload sends and what a
-    // refusal of it was about, so the sizes add up to the document's.
     for (const std::pair<const std::string, PB::Facts::Object> &entry : sets_) {
       sizes.emplace_back(entry.first, nscapi::facts::tree::to_json(entry.second).size());
     }
