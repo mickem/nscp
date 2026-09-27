@@ -76,6 +76,8 @@ class fact_repository {
   // Encoded size of the whole document. Overridable from [/settings/facts]
   // max size.
   static constexpr std::size_t default_max_size = 1048576;
+  // The smallest budget set_max_size() takes: below it no set fits at all.
+  static constexpr std::size_t min_max_size = 2;
   // The owner id of the sets the core produces itself (`agent`). Plugin ids
   // count up from 0, so the top of the range is one no module will ever be
   // handed.
@@ -390,7 +392,7 @@ class fact_repository {
   }
 
   // The encoded size budget ([/settings/facts] max size). A budget below what
-  // a single empty set needs is ignored.
+  // a single empty set needs (min_max_size) is ignored; the caller says so.
   //
   // A budget lowered under the document the repository already holds is
   // enforced here, once, for every consumer: the largest sets are dropped
@@ -399,7 +401,7 @@ class fact_repository {
   std::vector<std::string> set_max_size(const std::size_t max_size) {
     boost::unique_lock<boost::mutex> lock(mutex_);
     std::vector<std::string> dropped;
-    if (max_size < 2) return dropped;
+    if (max_size < min_max_size) return dropped;
     max_size_ = max_size;
     while (size_ > max_size_ && !encoded_.empty()) {
       const std::map<std::string, std::string>::const_iterator largest =
@@ -408,6 +410,10 @@ class fact_repository {
       const std::string name = largest->first;
       erase_locked(name);
       dropped.push_back(name);
+      // Still enabled in its module, so still declared - and the REST view
+      // says why it has no data until the next round offers it again (and
+      // reports in its own words whether it fits).
+      errors_[name] = "not kept: the facts document no longer fits the lowered max size of " + std::to_string(max_size_) + " bytes";
     }
     if (!dropped.empty()) touch();
     return dropped;

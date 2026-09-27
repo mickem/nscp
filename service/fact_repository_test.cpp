@@ -476,6 +476,8 @@ TEST(FactRepository, ALoweredCapDropsTheLargestSetsUntilTheRestFits) {
   EXPECT_FALSE(repo.get("hardware").is_initialized());
   EXPECT_TRUE(repo.get("os").is_initialized());
   EXPECT_GT(repo.get_revision(), revision) << "a change like any other: the next upload carries it";
+  ASSERT_EQ(repo.get_errors().count("hardware"), 1u) << "still enabled in its module: the REST view says why it has no data";
+  EXPECT_NE(repo.get_errors().at("hardware").find("max size"), std::string::npos);
   EXPECT_TRUE(repo.set_max_size(fact_repository::default_max_size).empty()) << "raising it drops nothing";
 }
 

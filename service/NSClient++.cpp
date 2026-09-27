@@ -610,7 +610,13 @@ void NSClientT::read_facts_max_size() {
   const std::string max_size =
       settings_manager::get_settings()->get_string("/settings/facts", "max size", str::xtos(nsclient::core::fact_repository::default_max_size));
   try {
-    const std::vector<std::string> dropped = facts_->set_max_size(str::stox<std::size_t>(max_size));
+    const std::size_t value = str::stox<std::size_t>(max_size);
+    if (value < nsclient::core::fact_repository::min_max_size) {
+      LOG_ERROR_CORE_STD("Facts 'max size' " + max_size + " is too small to hold any fact set; keeping the previous cap of " +
+                         str::xtos(facts_->get_max_size()) + " bytes.");
+      return;
+    }
+    const std::vector<std::string> dropped = facts_->set_max_size(value);
     for (const std::string &fact_set : dropped) {
       LOG_ERROR_CORE_STD("Dropped the fact set '" + fact_set + "': the facts document no longer fits the lowered [/settings/facts] max size of " +
                          max_size + " bytes. Disable a set, or raise max size.");
@@ -828,9 +834,13 @@ bool NSClientT::do_reload(const std::string module) {
       // apply as well as a full one: a lowered cap drops the sets that no
       // longer fit now, a raised one lets the next round keep them. Inside a
       // round, so the drop is published as one change.
+      // The `agent` set's switch lives in the same section and is documented
+      // as re-read on every settings reload, so it is collected in the same
+      // round.
       {
         const nsclient::core::fact_repository::scoped_round round(*facts_);
         read_facts_max_size();
+        collect_agent_facts();
       }
       return true;
     } catch (const std::exception &e) {

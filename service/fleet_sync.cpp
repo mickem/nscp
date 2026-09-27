@@ -449,6 +449,10 @@ void fleet_sync::note_server_response(const http::response &response, const flee
     // error page happens to carry.
     return;
   }
+  // An upload's own answer is read where it is acknowledged, alongside the
+  // document it answers (maybe_upload_facts); here it only needed the
+  // trouble rule above.
+  if (call == fleet_call::upload) return;
   const boost::optional<std::string> advertised = read_facts_hash_header(response, call);
   if (!advertised) {
     // An answer the server meant, without a readable header. On a poll -
@@ -568,18 +572,19 @@ void fleet_sync::maybe_upload_facts() {
     last_facts_error_status_ = 0;
     log_debug("Uploaded facts " + snapshot.hash + " (" + str::xtos(snapshot.json.size()) + " bytes, revision " + str::xtos(snapshot.revision) + ")");
     // The server acknowledged this document before and then reported it
-    // missing. Said once per document when it starts, and once more when the
-    // re-sends reach the hourly cap, so the operator can tell why the server
+    // missing. Said once per loss episode when it starts - a confirmation
+    // ends an episode, so a loss weeks later is news again - and once more
+    // when the re-sends reach the hourly cap, so the operator can tell why the server
     // sees the same upload again - and said before any verdict below, which
     // would otherwise leave the upload that led to it unexplained.
-    if (ack.resends >= 1 && lost_logged_hash_ != snapshot.hash) {
-      lost_logged_hash_ = snapshot.hash;
+    if (ack.resends >= 1 && lost_logged_episode_ != ack.loss_episode) {
+      lost_logged_episode_ = ack.loss_episode;
       log_info("The fleet server lost the facts document it had acknowledged (" + snapshot.hash + ") and was sent it again" +
                std::string(ack.confirmed ? "; it holds it now." : ", but has not confirmed holding it yet.") +
                " If it keeps losing it, further re-sends wait 1 minute, doubling up to once an hour.");
     }
-    if (ack.resends >= 7 && hourly_logged_hash_ != snapshot.hash) {
-      hourly_logged_hash_ = snapshot.hash;
+    if (ack.resends >= 7 && hourly_logged_episode_ != ack.loss_episode) {
+      hourly_logged_episode_ = ack.loss_episode;
       log_error("The fleet server keeps losing the facts document it acknowledges (" + snapshot.hash +
                 "): re-sending it once an hour until it keeps it. Check the server's storage for facts.");
     }
@@ -594,7 +599,6 @@ void fleet_sync::maybe_upload_facts() {
                   " times and has never reported holding it: it does not keep it, or hashes it differently. Not sending it again until it "
                   "changes, the server's answers change, or a day has passed.");
       }
-      return;
     }
     return;
   }
@@ -1076,6 +1080,8 @@ void fleet_sync::run() {
       // above does not cover because it ran before them.
       if (transport_ok_) maybe_upload_facts();
     }
-    boost::this_thread::sleep_for(boost::chrono::milliseconds(with_jitter_ms(sleep.seconds, sleep.at_least)));
+    // Clamped after the jitter, so no sleep - a day-long Retry-After jittered
+    // upwards included - runs past the longest one we allow.
+    boost::this_thread::sleep_for(boost::chrono::milliseconds(std::min(with_jitter_ms(sleep.seconds, sleep.at_least), max_sleep_seconds * 1000UL)));
   }
 }

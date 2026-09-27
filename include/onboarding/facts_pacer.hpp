@@ -139,6 +139,10 @@ class facts_upload_pacer {
     bool hashed_differently = false;
     // The acknowledgement itself said the server holds the document.
     bool confirmed = false;
+    // Which loss episode this acknowledgement belongs to, when resends > 0:
+    // it moves each time a confirmed document is lost anew, so a caller can
+    // say once per episode that it started - not once per document ever.
+    unsigned long loss_episode = 0;
   };
 
   // The server acknowledged (2xx) the document `hash`. `server_says` is the
@@ -163,6 +167,7 @@ class facts_upload_pacer {
       if (confirmed_) {
         // Acknowledged, reported held, reported missing since: lost. The next
         // re-send of it waits.
+        if (resends_ == 0) ++loss_episode_;
         ++resends_;
         resend_at_ = now + step(resends_ - 1);
         unconfirmed_ = 0;
@@ -193,6 +198,17 @@ class facts_upload_pacer {
       if (says == hash) {
         confirm(now);
         result.confirmed = true;
+        // It holds it as sent after all: whatever it said before is history.
+        if (hash == mismatch_hash_) {
+          mismatch_hash_.clear();
+          mismatch_digest_.clear();
+        }
+      } else if (hash == mismatch_hash_ && says == mismatch_digest_) {
+        // The very digest an earlier verdict on this document was measured
+        // against: the server still hashes it differently. Polls during the
+        // refusal made it the pre-upload value too, but it is no stale echo.
+        result.mismatch = true;
+        result.hashed_differently = true;
       } else if (says == empty_facts_hash || (held_before && says == held_before.value())) {
         // It says it holds nothing, or still what it held before - the write
         // has not landed, or did not keep. Not a verdict on its own: the
@@ -211,8 +227,13 @@ class facts_upload_pacer {
       // What the server said instead is the baseline a later change is
       // measured against.
       if (server_says) refused_server_ = server_says;
+      if (result.hashed_differently) {
+        mismatch_hash_ = hash;
+        mismatch_digest_ = server_says.value();
+      }
     }
     result.resends = resends_;
+    result.loss_episode = loss_episode_;
     return result;
   }
 
@@ -314,6 +335,13 @@ class facts_upload_pacer {
   std::string acked_;
   unsigned int resends_ = 0;
   clock::time_point resend_at_;
+  // Loss episodes so far (see ack::loss_episode).
+  unsigned long loss_episode_ = 0;
+  // The document the last "hashes differently" verdict was about, and the
+  // digest the server gave for it: kept past the refusal's release, so the
+  // retry recognises the same answer as the same verdict.
+  std::string mismatch_hash_;
+  std::string mismatch_digest_;
   // Whether the server has answered with acked_ since it last acknowledged
   // it, and how many acknowledgements of it have gone unconfirmed in a row.
   bool confirmed_ = false;

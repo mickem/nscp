@@ -168,9 +168,9 @@ class fleet_sync {
   // The last failed upload that was logged, so a failure repeated at every
   // backoff step is logged once per document and status - not per body,
   // which may carry a request id that differs every time.
-  // The documents the "lost" and "keeps losing" lines were last said for.
-  std::string lost_logged_hash_;
-  std::string hourly_logged_hash_;
+  // The loss episodes the "lost" and "keeps losing" lines were last said for.
+  unsigned long lost_logged_episode_ = 0;
+  unsigned long hourly_logged_episode_ = 0;
   std::string last_facts_error_hash_;
   unsigned int last_facts_error_status_ = 0;
   std::chrono::steady_clock::time_point last_facts_error_at_;

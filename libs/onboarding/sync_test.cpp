@@ -1902,6 +1902,37 @@ TEST(FactsPacer, UnconfirmedReSendsDouble) {
   EXPECT_EQ(p.retry_at(H1), at(60 + 120)) << "the second waits twice that";
 }
 
+TEST(FactsPacer, ARetryAfterAHashedDifferentlyVerdictIsTheSameVerdictAtOnce) {
+  pacer p;
+  const std::string THEIRS(64, 'e');
+  p.server_holds(NONE, t0);
+  ASSERT_TRUE(p.acknowledged(H1, t0, THEIRS).hashed_differently);
+  // A day of polls answering with the server's own digest makes it the
+  // pre-upload value when the refusal lapses...
+  for (int i = 1; i < 24; ++i) p.server_holds(THEIRS, at(i * 3600));
+  const pacer::clock::time_point retry = at(86400);
+  ASSERT_TRUE(p.should_upload(H1, retry));
+  // ...but an acknowledgement echoing it is the same verdict, not a stale
+  // write: one upload a day, and the log names the real cause.
+  const pacer::ack again = p.acknowledged(H1, retry, THEIRS);
+  EXPECT_TRUE(again.mismatch);
+  EXPECT_TRUE(again.hashed_differently);
+}
+
+TEST(FactsPacer, EachLossEpisodeIsNumbered) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.acknowledged(H1, t0, H1);
+  p.server_holds(NONE, at(1));
+  const pacer::ack first = p.acknowledged(H1, at(1), H1);
+  ASSERT_EQ(first.resends, 1u);
+  p.server_holds(H1, at(100));  // stuck: the episode is over
+  p.server_holds(NONE, at(86400));
+  const pacer::ack second = p.acknowledged(H1, at(86400), H1);
+  ASSERT_EQ(second.resends, 1u);
+  EXPECT_NE(second.loss_episode, first.loss_episode) << "a new loss weeks later is a new episode, and its start is news";
+}
+
 TEST(FactsPacer, ARefusedDocumentWaitsForAChangeOrADay) {
   pacer p;
   p.server_holds(NONE, t0);
