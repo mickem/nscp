@@ -13,7 +13,8 @@ of wait accumulated per second of wall clock** over that window. Idle
 housekeeping waits (`LAZYWRITER_SLEEP`, `CHECKPOINT_QUEUE`, `XE_*`, the
 `HADR_` housekeeping timers, and the other community benign-wait suspects —
 including this check's own `WAITFOR`) are excluded, so `0` really means
-nothing waited.
+nothing waited. A wait whose counters reset during the sampling window is
+excluded from the rates and signal-wait percentage.
 
 Two families are deliberately **not** excluded wholesale, because the waits that
 matter most hide inside them. `HADR_SYNC_COMMIT` counts towards
@@ -28,24 +29,7 @@ to URL, domain lookups, key operations and linked servers, under `other_waits`).
 Autogrow on slow storage or a hanging backup would otherwise leave every
 category reading zero in the middle of the incident.
 
-Keywords (one row per instance):
-
-| Keyword           | Description                                                                  |
-|-------------------|-------------------------------------------------------------------------------|
-| `runnable_tasks`  | Tasks with CPU work waiting for a scheduler slot (point in time)              |
-| `work_queue`      | Tasks queued with **no worker thread at all** — THREADPOOL starvation when > 0 |
-| `schedulers`      | Visible online schedulers (compare `runnable_tasks` against this)             |
-| `workers`         | Active worker threads                                                         |
-| `cpu_waits`       | `SOS_SCHEDULER_YIELD`, `THREADPOOL`, `CX*` (parallelism), ms/s                |
-| `io_waits`        | `PAGEIOLATCH_*`, `IO_COMPLETION`, `BACKUPIO`, ms/s                            |
-| `log_waits`       | `WRITELOG`, `LOGBUFFER` — transaction-log flush latency, ms/s                 |
-| `lock_waits`      | `LCK_M_*`, ms/s                                                               |
-| `latch_waits`     | `PAGELATCH_*`, `LATCH_*` (in-memory contention, e.g. tempdb), ms/s            |
-| `memory_waits`    | `RESOURCE_SEMAPHORE*` (queries waiting for memory grants), `CMEMTHREAD`, ms/s |
-| `network_waits`   | `ASYNC_NETWORK_IO` — usually the client not consuming results, not the network, ms/s |
-| `other_waits`     | Everything not covered above (benign waits excluded), ms/s                    |
-| `total_waits`     | Total non-benign wait, ms/s                                                   |
-| `signal_wait_pct` | Percent of wait time spent runnable **after** the resource arrived — sustained > 20–25% means CPU pressure (`-1` when nothing waited) |
+The check returns one row per instance.
 
 The whole profile is emitted as **perfdata by default** — like
 `check_mssql_counters` this is primarily a graphing source, and wait rates

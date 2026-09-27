@@ -1,14 +1,9 @@
 #### About `check_mssql_integrity`
 
 `check_mssql_integrity` closes the gap `check_mssql_backup` leaves open: **a
-backup of a corrupt database restores a corrupt database.** It reports, per
-online database (tempdb excluded):
-
-| Keyword         | Description                                                                       |
-|-----------------|------------------------------------------------------------------------------------|
-| `name`          | Database name                                                                      |
-| `suspect_pages` | Pages in `msdb.dbo.suspect_pages` with unresolved 823/824/825 errors — any value above 0 means the engine has already **seen** corruption, `-1` = unknown/no msdb access |
-| `checkdb_age`   | Seconds since the last successful `DBCC CHECKDB` (`dbi_dbccLastKnownGood`), `-1` = never checked, `-2` = unknown/no access (accepts units, e.g. `checkdb_age > 14d`) |
+backup of a corrupt database restores a corrupt database.** It reports suspect
+pages and the age of the last successful CHECKDB for each online database
+(tempdb excluded).
 
 Defaults: **CRITICAL** on `suspect_pages > 0` (corruption has occurred — act
 now, while the backups that can repair it still exist), **WARNING** on
@@ -29,7 +24,9 @@ an agent in a different timezone does not skew them.
 
 The CHECKDB timestamps are collected in a single server-side batch (one `DBCC
 DBINFO` per database, executed on the server), so an instance with hundreds of
-databases costs one round trip rather than hundreds.
+databases costs one round trip rather than hundreds. If that batch fails, the
+check logs a warning before falling back to individual queries; this slower
+fallback can exceed the timeout on a large instance.
 
 Note that `DBCC CHECKDB` itself is a heavy operation this check deliberately
 never runs — it only reads the timestamp the last run left behind. Schedule

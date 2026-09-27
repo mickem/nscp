@@ -612,6 +612,21 @@ TEST(BuildCounters, MissingFirstSnapshotYieldsMinusOneRate) {
   EXPECT_DOUBLE_EQ(out.compilations, -1);
 }
 
+TEST(BuildCounters, ResetCountersAreUnavailable) {
+  const auto out = check_mssql_counters_command::build_counters(
+      {make_counter("Batch Requests/sec", 10, 1000), make_counter("Buffer cache hit ratio", 5, 900), make_counter("Buffer cache hit ratio base", 10, 1000)});
+  EXPECT_DOUBLE_EQ(out.batch_requests, -1);
+  EXPECT_DOUBLE_EQ(out.hit_ratio, -1);
+  const auto numerator_reset =
+      check_mssql_counters_command::build_counters({make_counter("Buffer cache hit ratio", 5, 900), make_counter("Buffer cache hit ratio base", 1100, 1000)});
+  EXPECT_DOUBLE_EQ(numerator_reset.hit_ratio, -1);
+}
+
+TEST(BuildCounters, InvalidSamplingWindowIsUnavailable) {
+  const auto out = check_mssql_counters_command::build_counters({make_counter("Batch Requests/sec", 200, 100, 0)});
+  EXPECT_DOUBLE_EQ(out.batch_requests, -1);
+}
+
 TEST(BuildSessions, UnknownIdleAgeMapsToMinusOne) {
   std::vector<check_mssql_sessions_command::session_row> rows(2);
   rows[0].database = "appdb";
@@ -721,6 +736,26 @@ TEST(BuildWaits, QuietWindowReportsMinusOneSignalPct) {
   EXPECT_DOUBLE_EQ(out.total_waits, 0.0);
 }
 
+TEST(BuildWaits, IdleWaitsDoNotMaskCpuPressure) {
+  std::vector<check_mssql_waits_command::wait_row> rows{make_wait("SOS_SCHEDULER_YIELD", 100, 30)};
+  for (const auto *wait : {"CLR_AUTO_EVENT", "CLR_MANUAL_EVENT", "CLR_SEMAPHORE", "DISPATCHER_QUEUE_SEMAPHORE", "RESOURCE_QUEUE", "WAIT_FOR_RESULTS",
+                           "SNI_HTTP_ACCEPT", "HADR_LOGCAPTURE_SYNC"}) {
+    rows.push_back(make_wait(wait, 100000, 0));
+  }
+  const auto out = check_mssql_waits_command::build_waits(rows);
+  EXPECT_DOUBLE_EQ(out.total_waits, 100.0);
+  EXPECT_DOUBLE_EQ(out.other_waits, 0.0);
+  EXPECT_DOUBLE_EQ(out.signal_wait_pct, 30.0);
+}
+
+TEST(BuildWaits, ResetCountersAndInvalidWindowsAreExcluded) {
+  const auto out = check_mssql_waits_command::build_waits(
+      {make_wait("PAGEIOLATCH_SH", -1, 0), make_wait("LCK_M_X", 300, -1), make_wait("WRITELOG", 100, 30, 0), make_wait("SOS_SCHEDULER_YIELD", 100, 30)});
+  EXPECT_DOUBLE_EQ(out.total_waits, 100.0);
+  EXPECT_DOUBLE_EQ(out.cpu_waits, 100.0);
+  EXPECT_DOUBLE_EQ(out.signal_wait_pct, 30.0);
+}
+
 TEST(ParseSqlDatetime, ParsesAndDiffsWithoutTimezone) {
   using check_mssql_integrity_command::parse_sql_datetime;
   const long long a = parse_sql_datetime("2026-08-12 10:00:00.000");
@@ -798,17 +833,6 @@ TEST(ParseTime, PlainIntegersIncludingNegativesAreRecognized) {
   EXPECT_TRUE(mssql_filter::is_plain_integer("-2"));
   EXPECT_TRUE(mssql_filter::is_plain_integer("+259200"));
   EXPECT_TRUE(mssql_filter::is_plain_integer("259200"));
-}
-
-TEST(ApplySizeUnit, MatchesTheBuiltinSizeLiterals) {
-  using mssql_filter::apply_size_unit;
-  EXPECT_EQ(apply_size_unit(5, ""), 5);
-  EXPECT_EQ(apply_size_unit(5, "B"), 5);
-  EXPECT_EQ(apply_size_unit(5, "K"), 5 * 1024);
-  EXPECT_EQ(apply_size_unit(5, "m"), 5 * 1024 * 1024);
-  EXPECT_EQ(apply_size_unit(5, "G"), 5LL * 1024 * 1024 * 1024);
-  EXPECT_EQ(apply_size_unit(5, "t"), 5LL * 1024 * 1024 * 1024 * 1024);
-  EXPECT_EQ(apply_size_unit(-1, ""), -1);  // the unknown sentinel passes through
 }
 
 TEST(ParseTime, DurationSpecsAreNotTreatedAsPlainIntegers) {

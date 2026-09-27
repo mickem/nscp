@@ -283,6 +283,7 @@ TEST(WhereHelpers, CanConvertFromTbdTrue) {
 TEST(WhereHelpers, CanConvertIntToFloat) { EXPECT_TRUE(can_convert(type_int, type_float)); }
 TEST(WhereHelpers, CanConvertIntToString) { EXPECT_TRUE(can_convert(type_int, type_string)); }
 TEST(WhereHelpers, CanConvertIntToBool) { EXPECT_TRUE(can_convert(type_int, type_bool)); }
+TEST(WhereHelpers, CanConvertIntToSize) { EXPECT_TRUE(can_convert(type_int, type_size)); }
 TEST(WhereHelpers, CanConvertFloatToInt) { EXPECT_TRUE(can_convert(type_float, type_int)); }
 TEST(WhereHelpers, CanConvertFloatToString) { EXPECT_TRUE(can_convert(type_float, type_string)); }
 TEST(WhereHelpers, CanConvertFloatToBool) { EXPECT_TRUE(can_convert(type_float, type_bool)); }

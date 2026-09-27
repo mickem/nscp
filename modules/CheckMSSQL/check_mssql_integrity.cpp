@@ -190,7 +190,7 @@ void check(const mssql_odbc::connection_info &defaults, const PB::Commands::Quer
       // so fall back to the one-round-trip-per-database walk. Read by position
       // (ParentObject, Object, Field, Value): the Field values are internal
       // names, but the column headers are localized on non-English servers.
-      NSC_DEBUG_MSG("batched DBCC DBINFO failed, falling back to one query per database: " + e.reason());
+      NSC_LOG_WARNING("batched DBCC DBINFO failed, falling back to one query per database; large instances may exceed the check timeout: " + e.reason());
       for (const integrity_row &row : rows) {
         std::string quoted = row.name;
         for (std::size_t pos = 0; (pos = quoted.find('\'', pos)) != std::string::npos; pos += 2) quoted.replace(pos, 1, "''");

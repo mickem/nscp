@@ -13,19 +13,11 @@
 #include <unordered_map>
 #include <utility>
 
-#include "mssql_filter_helpers.hpp"
 #include "mssql_options.hpp"
 
 namespace check_mssql_databases_command {
 
 namespace {
-
-// Three flat selects rather than one aggregating join: all the deciding (which
-// file limits growth, how files roll up to a filegroup, what "unknown" means)
-// happens in compute_headroom() where it is unit-testable, and each query can
-// fail on its own. That matters because they need different permissions -
-// sys.master_files needs only VIEW ANY DEFINITION, while dm_os_volume_stats
-// needs VIEW SERVER STATE - so a login without the latter still gets sizes.
 
 // ORDER BY name so the detail list and perfdata come out in a stable order; the
 // GROUP BY this replaced used to impose one as a side effect.
@@ -36,11 +28,11 @@ const char *DATABASES_SQL =
 // max_size is a page count except for the -1 "unlimited" sentinel, which must
 // survive the conversion to bytes. A log file with unlimited growth reports the
 // 268435456-page (2TB) engine limit here rather than -1, and that is a real cap.
-const char *FILES_SQL =
+const std::string FILE_COLUMNS =
     "SELECT f.database_id, f.file_id, f.type, f.data_space_id, f.growth,"
     " CAST(f.size AS bigint) * 8192 AS size_bytes,"
-    " CASE WHEN f.max_size < 0 THEN -1 ELSE CAST(f.max_size AS bigint) * 8192 END AS max_size_bytes"
-    " FROM sys.master_files f WHERE f.type IN (0, 1)";
+    " CASE WHEN f.max_size < 0 THEN -1 ELSE CAST(f.max_size AS bigint) * 8192 END AS max_size_bytes";
+const std::string FILES_SQL = FILE_COLUMNS + " FROM sys.master_files f WHERE f.type IN (0, 1)";
 
 // OUTER APPLY, not CROSS: a file in an offline or inaccessible database yields
 // no volume row and must still be visible as unknown rather than vanishing.
@@ -51,28 +43,30 @@ const char *FILES_SQL =
 // come back NULL, so total_bytes is the fallback identity: it is stable, unlike
 // available_bytes, and it can only merge two distinct volumes of exactly equal
 // size, which under-reports headroom rather than multiplying it.
-const char *VOLUMES_SQL =
-    "SELECT f.database_id, f.file_id, vs.available_bytes,"
-    " COALESCE(vs.volume_mount_point, vs.volume_id, CAST(vs.total_bytes AS varchar(30))) AS volume"
-    " FROM sys.master_files f"
-    " OUTER APPLY sys.dm_os_volume_stats(f.database_id, f.file_id) vs"
-    " WHERE f.type IN (0, 1)";
+// Read sizes and volume metadata together only when headroom is requested.
+// The catalog has no volume identifier, so deduplicating files by drive letter
+// or parent path before resolving their volumes would confuse mount points.
+const std::string FILES_WITH_VOLUMES_SQL = FILE_COLUMNS +
+                                           ", vs.available_bytes,"
+                                           " COALESCE(vs.volume_mount_point, vs.volume_id, CAST(vs.total_bytes AS varchar(30))) AS volume"
+                                           " FROM sys.master_files f"
+                                           " OUTER APPLY sys.dm_os_volume_stats(f.database_id, f.file_id) vs"
+                                           " WHERE f.type IN (0, 1)";
 
 typedef database_info filter_obj;
 
 typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj>> native_context;
 struct filter_obj_handler : native_context {
+  bool needs_headroom = false;
   filter_obj_handler();
+  parsers::where::node_type create_variable(const std::string &name, bool human_readable) override {
+    if (name == "data_headroom" || name == "log_headroom") needs_headroom = true;
+    return native_context::create_variable(name, human_readable);
+  }
 };
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_type;
 
 filter_obj_handler::filter_obj_handler() {
-  // Not type_size: the -1 unknown sentinel must be expressible (see
-  // mssql_filter::parse_size), and type_size cannot compare against plain
-  // integers at all.
-  static const parsers::where::value_type type_headroom = parsers::where::type_custom_int_1;
-  registry_.add_converter(type_headroom, &mssql_filter::parse_size<std::shared_ptr<filter_obj>>);
-
   registry_.add_string_var("name", &filter_obj::get_name, "Database name")
       .add_string_var("state", &filter_obj::get_state, "Database state: ONLINE, RESTORING, RECOVERING, RECOVERY_PENDING, SUSPECT, EMERGENCY or OFFLINE")
       .add_string_var("recovery_model", &filter_obj::get_recovery_model, "Recovery model: SIMPLE, FULL or BULK_LOGGED");
@@ -86,12 +80,12 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_perf("B", "", "_log")
       .add_int_var("log_used_pct", &filter_obj::get_log_used_pct, "Percentage of the log in use (-1 if unavailable)")
       .add_int_perf("%", "", "_log_used_pct")
-      .add_int_var("data_headroom", type_headroom, &filter_obj::get_data_headroom,
+      .add_int_var("data_headroom", parsers::where::type_size, &filter_obj::get_data_headroom,
                    "Remaining growth room for the data files in bytes: each file's room is the distance to its max_size but never more than the free space on "
                    "its volume, summed per filegroup, and the most constrained filegroup wins; 0 when autogrowth is off, -1 if unavailable (supports units "
                    "and plain integers, e.g. data_headroom < 5G and data_headroom >= 0)")
       .add_int_perf("B", "", "_data_headroom")
-      .add_int_var("log_headroom", type_headroom, &filter_obj::get_log_headroom,
+      .add_int_var("log_headroom", parsers::where::type_size, &filter_obj::get_log_headroom,
                    "Remaining growth room for the log files in bytes, same semantics as data_headroom - note that a log file with unlimited growth still "
                    "carries the engine's 2TB cap, so this reports the volume's free space until the log approaches 2TB (supports units)")
       .add_int_perf("B", "", "_log_headroom")
@@ -253,22 +247,20 @@ void check(const mssql_odbc::connection_info &defaults, const PB::Commands::Quer
       NSC_DEBUG_MSG("DBCC SQLPERF(LOGSPACE) failed, log_used_pct will be unavailable: " + e.reason());
     }
 
-    // Volume free space is likewise nice-to-have: dm_os_volume_stats needs VIEW
-    // SERVER STATE, so a file with no entry here reports headroom -1 while its
-    // size still comes through.
-    std::map<std::pair<long long, long long>, std::pair<std::string, long long>> volume_by_file;
-    try {
-      const mssql_odbc::result vs = session.execute(VOLUMES_SQL);
-      for (std::size_t i = 0; i < vs.rows.size(); i++) {
-        if (vs.is_null(i, "available_bytes") || vs.is_null(i, "volume")) continue;
-        volume_by_file[std::make_pair(vs.get_int(i, "database_id"), vs.get_int(i, "file_id"))] =
-            std::make_pair(vs.get_string(i, "volume"), vs.get_int(i, "available_bytes"));
+    // State/size-only checks need no OS volume calls. Headroom queries read the
+    // file catalog once on success; a permission failure falls back to sizes.
+    mssql_odbc::result fs;
+    bool have_volumes = false;
+    if (filter.context->needs_headroom) {
+      try {
+        fs = session.execute(FILES_WITH_VOLUMES_SQL);
+        have_volumes = true;
+      } catch (const mssql_odbc::odbc_exception &e) {
+        NSC_DEBUG_MSG("volume stats query failed, data/log_headroom will be unavailable: " + e.reason());
       }
-    } catch (const mssql_odbc::odbc_exception &e) {
-      NSC_DEBUG_MSG("volume stats query failed, data/log_headroom will be unavailable: " + e.reason());
     }
+    if (!have_volumes) fs = session.execute(FILES_SQL);
 
-    const mssql_odbc::result fs = session.execute(FILES_SQL);
     std::vector<file_row> files;
     for (std::size_t i = 0; i < fs.rows.size(); i++) {
       file_row row;
@@ -279,10 +271,9 @@ void check(const mssql_odbc::connection_info &defaults, const PB::Commands::Quer
       row.growth = fs.get_int(i, "growth");
       row.size_bytes = fs.get_int(i, "size_bytes");
       row.max_size_bytes = fs.get_int(i, "max_size_bytes");
-      const auto vol = volume_by_file.find(std::make_pair(row.database_id, row.file_id));
-      if (vol != volume_by_file.end()) {
-        row.volume = vol->second.first;
-        row.available_bytes = vol->second.second;
+      if (have_volumes && !fs.is_null(i, "volume") && !fs.is_null(i, "available_bytes")) {
+        row.volume = fs.get_string(i, "volume");
+        row.available_bytes = fs.get_int(i, "available_bytes");
       }
       files.push_back(row);
     }

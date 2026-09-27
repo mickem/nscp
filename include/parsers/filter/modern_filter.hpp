@@ -391,7 +391,8 @@ struct modern_filters {
     if (!perf_config.parse(context, perf_config_data, get_error_handler(debug))) {
       return false;
     }
-    renderer_hash.parse(context);
+    renderer_hash.entries.clear();
+    if (fetch_hash_) renderer_hash.parse(context);
     return true;
   }
   bool build_engines(const bool debug, const std::string &filter, const std::string &ok, const std::string &warn, const std::string &crit) {
@@ -522,7 +523,13 @@ struct modern_filters {
   }
 
   bool has_filter() const { return engine_filter.get(); }
-  void fetch_hash(const bool fetch_hash) { fetch_hash_ = fetch_hash; }
+  void fetch_hash(const bool fetch_hash) {
+    fetch_hash_ = fetch_hash;
+    // Hash output needs every keyword. Ordinary checks must only bind the
+    // requested keywords so collectors can avoid fetching unused data.
+    // Real-time checks may enable hash output after building their syntax.
+    if (fetch_hash_ && renderer_hash.empty()) renderer_hash.parse(context);
+  }
   void start_match() {
     summary.returnCode = NSCAPI::query_return_codes::returnOK;
     has_matched = false;

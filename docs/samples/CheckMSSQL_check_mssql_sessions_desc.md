@@ -7,18 +7,6 @@ producing one row per (database, login) pair. Only user sessions are counted
 and runaway session counts precede most application outages, and this check
 shows the growth per application login before the hard limit is hit.
 
-Keywords (one row per database/login pair):
-
-| Keyword       | Description                                                                    |
-|---------------|--------------------------------------------------------------------------------|
-| `database`    | Database the sessions are connected to (empty if unavailable)                  |
-| `login`       | Login name the sessions authenticated as                                       |
-| `sessions`    | Number of sessions for this pair                                               |
-| `running`     | Sessions currently executing a request                                         |
-| `idle`        | Sessions that are sleeping or dormant                                          |
-| `connections` | Number of physical connections (MARS logical connections are excluded)         |
-| `max_idle`    | Seconds since the most idle **sleeping/dormant** session last completed a request, `-1` = unknown (accepts units) |
-
 There are **no default thresholds**: healthy session counts are entirely
 workload-specific, so the check lists the pairs and stays OK until you add
 thresholds, e.g. `warning=sessions > 100` sized to your application's
@@ -30,7 +18,8 @@ that has completed a request (e.g. just-opened or all-running connections).
 
 The check's own monitoring connection counts as one session (typically
 `master/<monitoring login>`), so a live server always reports at least one
-pair.
+pair. The default label omits the database and slash when the database name
+is unavailable. Physical connections exclude logical MARS connections.
 
 Rights: `VIEW SERVER STATE` is required to see sessions other than your own;
 without it the check still works but only reports the monitoring session. A

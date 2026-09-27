@@ -10,6 +10,7 @@
 #include <parsers/where/filter_handler_impl.hpp>
 
 #include "mssql_options.hpp"
+#include "mssql_sampling.hpp"
 
 namespace check_mssql_waits_command {
 
@@ -27,22 +28,19 @@ const char *SCHEDULERS_SQL =
     " FROM sys.dm_os_schedulers WHERE status = 'VISIBLE ONLINE'";
 
 // sys.dm_os_wait_stats is cumulative since instance start, so two snapshots
-// bracket a server-side WAITFOR DELAY window and only the deltas are
-// returned. Rows whose wait time did not move are filtered out server-side;
-// classification happens client-side where it is unit-testable.
-const char *WAITS_SQL =
-    "SET NOCOUNT ON;"
-    " DECLARE @t0 datetime2 = SYSDATETIME();"
+// bracket a server-side WAITFOR DELAY window. Rows whose wait time did not
+// increase are filtered out server-side; reset detection and classification
+// happen client-side where they share the counters' sampling helpers.
+const std::string WAITS_SQL = mssql_sampling::batch(
     " DECLARE @w1 TABLE(wait_type nvarchar(120) PRIMARY KEY, wait_ms bigint, signal_ms bigint);"
-    " INSERT INTO @w1 SELECT wait_type, wait_time_ms, signal_wait_time_ms FROM sys.dm_os_wait_stats;"
-    " WAITFOR DELAY '00:00:01';"
+    " INSERT INTO @w1 SELECT wait_type, wait_time_ms, signal_wait_time_ms FROM sys.dm_os_wait_stats",
     " SELECT w2.wait_type,"
-    " w2.wait_time_ms - ISNULL(w1.wait_ms, 0) AS wait_ms,"
-    " w2.signal_wait_time_ms - ISNULL(w1.signal_ms, 0) AS signal_ms,"
-    " DATEDIFF(millisecond, @t0, SYSDATETIME()) AS elapsed_ms"
+    " w2.wait_time_ms AS wait_ms, ISNULL(w1.wait_ms, 0) AS prev_wait_ms,"
+    " w2.signal_wait_time_ms AS signal_ms, ISNULL(w1.signal_ms, 0) AS prev_signal_ms,"
+    " @elapsed_ms AS elapsed_ms"
     " FROM sys.dm_os_wait_stats w2"
     " LEFT JOIN @w1 w1 ON w1.wait_type = w2.wait_type"
-    " WHERE w2.wait_time_ms > ISNULL(w1.wait_ms, 0)";
+    " WHERE w2.wait_time_ms > ISNULL(w1.wait_ms, 0)");
 
 bool starts_with(const std::string &s, const char *prefix) { return s.compare(0, strlen(prefix), prefix) == 0; }
 
@@ -116,13 +114,14 @@ std::string categorize_wait(const std::string &w) {
   // listed HADR housekeeping waits idle-accumulate on every AG instance.
   if (starts_with(w, "SLEEP_") || starts_with(w, "BROKER_") || starts_with(w, "SQLTRACE_") || starts_with(w, "XE_") || starts_with(w, "FT_") ||
       starts_with(w, "QDS_") || starts_with(w, "HADR_FILESTREAM_") || w == "HADR_CLUSAPI_CALL" || w == "HADR_CLUSTER_INTEGRATION" ||
-      w == "HADR_FAILOVER_PARTNER" || w == "HADR_LOGCAPTURE_WAIT" || w == "HADR_NOTIFICATION_DEQUEUE" || w == "HADR_TIMER_TASK" ||
-      w == "HADR_WORK_QUEUE" || starts_with(w, "DBMIRROR") || (starts_with(w, "PREEMPTIVE_") && !preemptive_stall) ||
+      w == "HADR_FAILOVER_PARTNER" || w == "HADR_LOGCAPTURE_WAIT" || w == "HADR_LOGCAPTURE_SYNC" || w == "HADR_NOTIFICATION_DEQUEUE" ||
+      w == "HADR_TIMER_TASK" || w == "HADR_WORK_QUEUE" || starts_with(w, "DBMIRROR") || (starts_with(w, "PREEMPTIVE_") && !preemptive_stall) ||
       starts_with(w, "PARALLEL_REDO_") || starts_with(w, "PWAIT_") || starts_with(w, "SP_SERVER_DIAGNOSTICS") || starts_with(w, "VDI_CLIENT_") ||
       starts_with(w, "WAIT_XTP_") || w == "LAZYWRITER_SLEEP" || w == "LOGMGR_QUEUE" || w == "CHECKPOINT_QUEUE" || w == "REQUEST_FOR_DEADLOCK_SEARCH" ||
       w == "WAITFOR" || w == "WAITFOR_TASKSHUTDOWN" || w == "ONDEMAND_TASK_QUEUE" || w == "DIRTY_PAGE_POLL" || w == "SOS_WORK_DISPATCHER" ||
-      w == "SLEEP_TASK" || w == "SERVER_IDLE_CHECK" || w == "XTP_HOST_WAIT" || w == "POPULATE_LOCK_ORDINALS" || w == "KSOURCE_WAKEUP" ||
-      w == "TRACEWRITE" || w == "WINFAB_API_CALL")
+      w == "SLEEP_TASK" || w == "SERVER_IDLE_CHECK" || w == "XTP_HOST_WAIT" || w == "POPULATE_LOCK_ORDINALS" || w == "KSOURCE_WAKEUP" || w == "TRACEWRITE" ||
+      w == "WINFAB_API_CALL" || w == "CLR_AUTO_EVENT" || w == "CLR_MANUAL_EVENT" || w == "CLR_SEMAPHORE" || w == "DISPATCHER_QUEUE_SEMAPHORE" ||
+      w == "RESOURCE_QUEUE" || w == "WAIT_FOR_RESULTS" || w == "SNI_HTTP_ACCEPT")
     return "benign";
   if (w == "SOS_SCHEDULER_YIELD" || w == "THREADPOOL" || starts_with(w, "CX")) return "cpu";
   // The two file-level preemptive stalls are storage waits: report them where a
@@ -144,8 +143,8 @@ waits_info build_waits(const std::vector<wait_row> &rows) {
   double cpu = 0, io = 0, log = 0, lock = 0, latch = 0, memory = 0, network = 0, other = 0;
   for (const wait_row &row : rows) {
     const std::string category = categorize_wait(row.wait_type);
-    if (category == "benign") continue;
-    if (row.elapsed_ms > 0) elapsed_ms = row.elapsed_ms;
+    if (category == "benign" || mssql_sampling::per_second(static_cast<double>(row.wait_ms), row.elapsed_ms) < 0 || row.signal_ms < 0) continue;
+    elapsed_ms = row.elapsed_ms;
     wait_total += row.wait_ms;
     signal_total += row.signal_ms;
     if (category == "cpu")
@@ -166,16 +165,15 @@ waits_info build_waits(const std::vector<wait_row> &rows) {
       other += static_cast<double>(row.wait_ms);
   }
   if (elapsed_ms > 0) {
-    const double per_second = 1000.0 / static_cast<double>(elapsed_ms);
-    info.cpu_waits = cpu * per_second;
-    info.io_waits = io * per_second;
-    info.log_waits = log * per_second;
-    info.lock_waits = lock * per_second;
-    info.latch_waits = latch * per_second;
-    info.memory_waits = memory * per_second;
-    info.network_waits = network * per_second;
-    info.other_waits = other * per_second;
-    info.total_waits = static_cast<double>(wait_total) * per_second;
+    info.cpu_waits = mssql_sampling::per_second(cpu, elapsed_ms);
+    info.io_waits = mssql_sampling::per_second(io, elapsed_ms);
+    info.log_waits = mssql_sampling::per_second(log, elapsed_ms);
+    info.lock_waits = mssql_sampling::per_second(lock, elapsed_ms);
+    info.latch_waits = mssql_sampling::per_second(latch, elapsed_ms);
+    info.memory_waits = mssql_sampling::per_second(memory, elapsed_ms);
+    info.network_waits = mssql_sampling::per_second(network, elapsed_ms);
+    info.other_waits = mssql_sampling::per_second(other, elapsed_ms);
+    info.total_waits = mssql_sampling::per_second(static_cast<double>(wait_total), elapsed_ms);
   }
   if (wait_total > 0) info.signal_wait_pct = 100.0 * static_cast<double>(signal_total) / static_cast<double>(wait_total);
   return info;
@@ -212,8 +210,8 @@ void check(const mssql_odbc::connection_info &defaults, const PB::Commands::Quer
     for (std::size_t i = 0; i < res.rows.size(); i++) {
       wait_row row;
       row.wait_type = res.get_string(i, "wait_type");
-      row.wait_ms = res.get_int(i, "wait_ms");
-      row.signal_ms = res.get_int(i, "signal_ms");
+      row.wait_ms = mssql_sampling::delta(res.get_int(i, "wait_ms"), res.get_int(i, "prev_wait_ms"));
+      row.signal_ms = mssql_sampling::delta(res.get_int(i, "signal_ms"), res.get_int(i, "prev_signal_ms"));
       row.elapsed_ms = res.get_int(i, "elapsed_ms");
       rows.push_back(row);
     }

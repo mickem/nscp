@@ -12,6 +12,39 @@
 // all log calls are harmless no-ops.
 nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();
 
+namespace {
+struct demand_object {
+  std::string show() const { return "demand"; }
+  long long cheap() const { return 1; }
+  long long expensive() const { return 42; }
+};
+using demand_context = parsers::where::filter_handler_impl<std::shared_ptr<demand_object>>;
+struct demand_handler : demand_context {
+  bool needs_expensive = false;
+  demand_handler() {
+    registry_.add_int_var("cheap", &demand_object::cheap, "Cheap value").add_int_var("expensive", &demand_object::expensive, "Expensive value");
+  }
+  parsers::where::node_type create_variable(const std::string &name, bool human_readable) override {
+    if (name == "expensive") needs_expensive = true;
+    return demand_context::create_variable(name, human_readable);
+  }
+};
+}  // namespace
+
+TEST(ModernFilter, BindsOnlyRequestedValuesUntilHashOutputIsEnabled) {
+  modern_filter::modern_filters<demand_object, demand_handler> filter;
+  ASSERT_TRUE(filter.build_syntax(false, "${list}", "${cheap}", "", "", "", ""));
+  EXPECT_FALSE(filter.context->needs_expensive);
+  // Real-time events request hashes after syntax construction. They must
+  // still bind and capture every keyword, including ones absent from syntax.
+  filter.fetch_hash(true);
+  EXPECT_TRUE(filter.context->needs_expensive);
+  filter.start_match();
+  filter.match(std::make_shared<demand_object>());
+  ASSERT_EQ(filter.records_.size(), 1u);
+  EXPECT_EQ(filter.records_.front().at("expensive"), "42");
+}
+
 // ============================================================================
 // match_result tests
 // ============================================================================

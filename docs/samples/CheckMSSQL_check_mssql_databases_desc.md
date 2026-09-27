@@ -39,10 +39,15 @@ contribute `0`. Those per-file limits roll up in two steps:
 A threshold like
 `"critical=data_headroom < 1G and data_headroom >= 0"` catches both a file
 approaching its cap and a volume filling up — the `>= 0` guard excludes the
-`-1` unknown sentinel (unlike the plain size keywords, the headroom keywords
-accept plain integers as well as units, so `= -1` and `>= 0` work). Note that a
+`-1` unknown sentinel. Size keywords accept plain byte counts and fractional
+units, so `= -1`, `>= 0` and `< 1.5G` all work. Note that a
 filegroup of fixed-size pre-allocated files reports headroom `0` by design —
 free space *inside* the files is a different measure (`log_used_pct` covers it
 for logs). Like `log_used_pct`, the keywords degrade to `-1` when
 `dm_os_volume_stats` is unavailable, and a single file with no volume
 information makes its whole database report `-1` rather than guess.
+
+Volume statistics are collected only when a headroom keyword appears in a
+filter, threshold, output template or extra perfdata request. Those checks read
+file sizes and volume statistics together; ordinary state/size checks avoid
+the per-file volume lookups.

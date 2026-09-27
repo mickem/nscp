@@ -138,7 +138,7 @@ describeOnWindows("CheckMSSQL contract (no SQL Server required)", () => {
     const out = await query("check_mssql_tempdb", [
       "timeout=5",
       "warning=used_pct > 80",
-      "critical=volume_free < 1G and volume_free >= 0",
+      "critical=volume_free < 1.5G and volume_free >= 0",
     ]);
     expect(out).not.toMatch(/does not take any arguments|invalid expression/i);
     expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
@@ -167,7 +167,8 @@ describeOnWindows("CheckMSSQL contract (no SQL Server required)", () => {
   it("check_mssql_counters parses its options and hits a server or the contract", async () => {
     const out = await query("check_mssql_counters", [
       "timeout=5",
-      "warning=hit_ratio < 90 or page_life_expectancy < 300",
+      "warning=(hit_ratio >= 0 and hit_ratio < 95) or (page_life_expectancy >= 0 and page_life_expectancy < 300)",
+      "critical=(hit_ratio >= 0 and hit_ratio < 85) or (page_life_expectancy >= 0 and page_life_expectancy < 60)",
     ]);
     expect(out).not.toMatch(/does not take any arguments|invalid expression/i);
     expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
@@ -310,10 +311,10 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
   it("check_mssql_databases reports growth headroom with size units", async () => {
     // The container's files are uncapped with autogrowth on, so headroom is
     // the (large, positive) volume free space and never trips these. The
-    // `>= 0` guard excludes the -1 unknown sentinel: plain integers only
-    // parse against headroom keywords thanks to the custom size converter.
+    // `>= 0` guard excludes the -1 unknown sentinel. The built-in byte-size
+    // type accepts both plain integers and fractional unit literals.
     const out = await query("check_mssql_databases", [
-      "warning=data_headroom < 1K and data_headroom >= 0",
+      "warning=data_headroom < 1.5K and data_headroom >= 0",
       "critical=log_headroom < 1K and log_headroom >= 0",
     ]);
     if (!live) return expect(out).toMatch(CONNECT_FAILED);
@@ -332,6 +333,19 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
     if (!live) return expect(out).toMatch(CONNECT_FAILED);
     expect(out).not.toMatch(/invalid expression|is not valid/i);
     expect(out).toMatch(/^OK/m);
+  });
+
+  it("check_mssql_databases collects headroom for extra perfdata without thresholds", async () => {
+    const out = await query("check_mssql_databases", [
+      "filter=name = 'master'",
+      "warning=none",
+      "critical=none",
+      "perf-config=extra(data_headroom;log_headroom)",
+    ]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/master_data_headroom'?=\d+B/);
+    expect(out).toMatch(/master_log_headroom'?=\d+B/);
   });
 
   it("check_mssql_databases bounds headroom by the volume, counting it once", async () => {
@@ -582,11 +596,8 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
   });
 
   it("check_mssql_tempdb matches the -1 volume_free sentinel exactly", async () => {
-    // volume_free carries the -1 unknown sentinel, so it uses the custom size
-    // converter: plain integers must parse, and the container's working
-    // volume stats mean the sentinel expression must not fire. With plain
-    // type_size this expression would fail to parse - and worse,
-    // `volume_free < 1G` would silently match -1.
+    // Built-in byte sizes accept the unknown sentinel as well as unit literals.
+    // Working volume stats in the container must not match the sentinel.
     const out = await query("check_mssql_tempdb", [
       "warning=volume_free = -1",
       "critical=volume_free < 1G and volume_free >= 0",
@@ -645,6 +656,7 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
         "detail-syntax=age=${checkdb_age}",
       ]);
       expect(out).toMatch(/^OK: age=\d+/m);
+      expect(out).not.toMatch(/batched DBCC DBINFO failed/i);
     } finally {
       const dropped = await query("check_mssql_query", [
         `query=DROP DATABASE [${name}]; SELECT 1 AS done;`,

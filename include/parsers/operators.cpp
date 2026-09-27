@@ -570,7 +570,7 @@ struct function_convert : binary_function_impl {
       }
       if (type == type_size) {
         const std::string unit_s = u->get_string_value(context);
-        if (v->is_float()) {
+        if (v->is_float() && !v->is_int()) {
           // Same as above: `1.5g` used to truncate to 1g before scaling.
           const value_container vc = v->get_value(context, type_float);
           return std::make_shared<int_value>(llround(str::format::decode_byte_units<double>(vc.get_float(0.0), unit_s)), vc.is_unsure);
@@ -582,6 +582,9 @@ struct function_convert : binary_function_impl {
       return std::make_shared<int_value>(0, /*is_unsure=*/true);
     }
     if (helpers::type_is_int(type)) {
+      // Byte counts and integer sentinels need no numeric conversion. In
+      // particular, a trip through double would round integers above 2^53.
+      if (v->is_int()) return v;
       if (v->is_float()) {
         const value_container vc = v->get_value(context, type_float);
         return std::make_shared<int_value>(llround(vc.get_float(0.0)), vc.is_unsure);

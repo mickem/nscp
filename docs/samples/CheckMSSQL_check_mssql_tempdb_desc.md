@@ -4,17 +4,9 @@
 `tempdb.sys.dm_db_file_space_usage`, plus the free space on the tempdb
 volume. tempdb is the instance-wide shared resource: when it fills, every
 database on the instance starts failing — and the split tells you *what* is
-filling it before you have to guess:
-
-| Keyword            | Description                                                              |
-|--------------------|---------------------------------------------------------------------------|
-| `size`             | Allocated tempdb data-file bytes (accepts units)                          |
-| `free`             | Unallocated bytes within the files                                        |
-| `used` / `used_pct`| Bytes / percent of the current allocation in use                          |
-| `version_store`    | Held by the version store — growth means a **long-running snapshot transaction** is pinning cleanup |
-| `user_objects`     | Held by user objects — **temp tables and table variables**                |
-| `internal_objects` | Held by internal objects — **sort/hash spills and work tables** (under-estimated memory grants) |
-| `volume_free`      | Free bytes on the most constrained volume holding a tempdb data file, `-1` = unknown (accepts units and plain integers) |
+filling it: version-store growth can mean a long snapshot transaction, internal
+objects can mean query spills, and user objects cover temp tables and table
+variables.
 
 All values are emitted as **perfdata by default** — trending the split is how
 tempdb sizing problems are diagnosed. `volume_free` uses `MIN` across the

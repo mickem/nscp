@@ -10,6 +10,7 @@
 #include <string>
 
 #include "mssql_options.hpp"
+#include "mssql_sampling.hpp"
 
 namespace check_mssql_counters_command {
 
@@ -36,21 +37,17 @@ const std::string COUNTER_PREDICATE =
 // is meaningless as a rate. Two snapshots bracket a WAITFOR DELAY sampling
 // window (kept server-side so client latency does not stretch it), and the
 // window is measured rather than assumed.
-const std::string COUNTERS_SQL =
-    "SET NOCOUNT ON;"
-    " DECLARE @t0 datetime2 = SYSDATETIME();"
+const std::string COUNTERS_SQL = mssql_sampling::batch(
     " DECLARE @c1 TABLE(counter_name nvarchar(128) PRIMARY KEY, cntr_value bigint);"
     " INSERT INTO @c1 SELECT RTRIM(pc.counter_name), pc.cntr_value FROM sys.dm_os_performance_counters pc"
     " WHERE " +
-    COUNTER_PREDICATE +
-    ";"
-    " WAITFOR DELAY '00:00:01';"
+        COUNTER_PREDICATE,
     " SELECT RTRIM(pc.counter_name) AS counter_name, pc.cntr_value AS value, c1.cntr_value AS prev_value,"
-    " DATEDIFF(millisecond, @t0, SYSDATETIME()) AS elapsed_ms"
+    " @elapsed_ms AS elapsed_ms"
     " FROM sys.dm_os_performance_counters pc"
     " LEFT JOIN @c1 c1 ON c1.counter_name = RTRIM(pc.counter_name)"
     " WHERE " +
-    COUNTER_PREDICATE;
+        COUNTER_PREDICATE);
 
 typedef counters_info filter_obj;
 
@@ -81,14 +78,10 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_perf("s", "", "_page_life_expectancy");
 }
 
-double rate(long long value, bool has_prev, long long prev, long long elapsed_ms) {
-  if (!has_prev || elapsed_ms <= 0) return -1;
-  return static_cast<double>(value - prev) * 1000.0 / static_cast<double>(elapsed_ms);
-}
-
 }  // namespace
 
 counters_info build_counters(const std::vector<counter_row> &rows) {
+  using mssql_sampling::rate;
   counters_info info;
   long long hit_value = -1, hit_base = -1, hit_value_prev = -1, hit_base_prev = -1;
   bool has_hit_prev = false, has_base_prev = false;
@@ -117,7 +110,9 @@ counters_info build_counters(const std::vector<counter_row> &rows) {
       info.lock_waits = rate(row.value, row.has_prev, row.prev_value, row.elapsed_ms);
     }
   }
-  if (hit_value >= 0 && hit_base > 0) {
+  const bool hit_reset = has_hit_prev && mssql_sampling::delta(hit_value, hit_value_prev) < 0;
+  const bool base_reset = has_base_prev && mssql_sampling::delta(hit_base, hit_base_prev) < 0;
+  if (hit_value >= 0 && hit_base > 0 && !hit_reset && !base_reset) {
     if (has_hit_prev && has_base_prev && hit_base - hit_base_prev > 0) {
       // Ratio over the sampling window: the lifetime ratio converges to ~100%
       // on a long-running instance and hides a cold or thrashing cache.

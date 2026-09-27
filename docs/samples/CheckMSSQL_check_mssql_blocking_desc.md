@@ -14,20 +14,7 @@ undetermined) name no session at all; neither is one session blocking another,
 so neither is reported here. A session with several requests blocked at once (a
 `MultipleActiveResultSets` connection) is reported once, with its longest wait.
 
-Keywords (one row per blocked session):
-
-| Keyword               | Description                                                              |
-|-----------------------|--------------------------------------------------------------------------|
-| `session_id`          | Session id of the blocked request                                        |
-| `blocking_session_id` | Session id of the direct blocker                                         |
-| `root_blocker`        | Session id at the head of the blocking chain                             |
-| `database`            | Database the blocked request runs in                                     |
-| `login`               | Login of the blocked session                                             |
-| `blocking_login`      | Login of the direct blocker                                              |
-| `wait_time`           | Seconds the request has been blocked (accepts units, e.g. `wait_time > 5m`) |
-| `wait_type`           | Wait type of the blocked request, e.g. `LCK_M_X`                         |
-| `command`             | Command the blocked request is executing, e.g. `UPDATE`                  |
-| `blocker_idle`        | `1` if the direct blocker has **no active request**                      |
+The check returns one row per blocked session.
 
 Defaults: **WARNING** on `wait_time > 30` (blocking that is already
 user-visible), **CRITICAL** on `wait_time > 300` (the application is frozen).

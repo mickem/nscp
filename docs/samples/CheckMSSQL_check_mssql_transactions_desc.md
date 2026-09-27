@@ -14,18 +14,7 @@ running several concurrent requests on one transaction (a
 `MultipleActiveResultSets` connection) is one row, described by its
 longest-running request.
 
-Keywords (one row per session with an open transaction):
-
-| Keyword            | Description                                                                |
-|--------------------|-----------------------------------------------------------------------------|
-| `session_id`       | Session owning the transaction                                              |
-| `login`            | Login that owns the transaction                                             |
-| `database`         | Database context of the session                                             |
-| `transaction_name` | e.g. `user_transaction` or `implicit_transaction`                           |
-| `transaction_age`  | Seconds since the transaction began (accepts units, e.g. `transaction_age > 30m`) |
-| `request_age`      | Seconds the current request has been executing, `-1` = no active request (accepts units) |
-| `is_idle`          | `1` if the transaction is open but the session has **no active request**    |
-| `command`          | Command of the active request (empty when idle)                             |
+The check returns one row per session with an open transaction.
 
 Defaults: **WARNING** on `transaction_age > 1800 or is_idle = 1 and
 transaction_age > 300`, **CRITICAL** on `transaction_age > 7200`. The idle

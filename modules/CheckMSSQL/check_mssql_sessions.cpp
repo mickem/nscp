@@ -53,7 +53,8 @@ typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_typ
 
 filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("database", &filter_obj::get_database, "Database the sessions are connected to (empty if unavailable)")
-      .add_string_var("login", &filter_obj::get_login, "Login name the sessions authenticated as");
+      .add_string_var("login", &filter_obj::get_login, "Login name the sessions authenticated as")
+      .add_string_var("name", &filter_obj::show, "Database/login label, or just the login when the database is unavailable");
 
   static const parsers::where::value_type type_age = parsers::where::type_custom_int_1;
   registry_.add_converter(type_age, &mssql_filter::parse_time<std::shared_ptr<filter_obj>>);
@@ -99,8 +100,7 @@ void check(const mssql_odbc::connection_info &defaults, const PB::Commands::Quer
   // No default thresholds: healthy session counts are workload-specific, so
   // the check is informational until the user thresholds sessions/max_idle.
   filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
-  filter_helper.add_syntax("${status}: ${list}", "${database}/${login}: ${sessions} sessions (${running} running)", "${database}/${login}",
-                           "%(status): No user sessions found", "");
+  filter_helper.add_syntax("${status}: ${list}", "${name}: ${sessions} sessions (${running} running)", "${name}", "%(status): No user sessions found", "");
   mssql_options::add_connection_options(filter_helper.get_desc(), info);
 
   if (!filter_helper.parse_options()) return;
