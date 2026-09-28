@@ -35,9 +35,11 @@ function framed(message: number[]): Buffer {
 }
 
 // KRB-ERROR { pvno 5, msg-type 30, error-code 25 (KDC_ERR_PREAUTH_REQUIRED) } —
-// what a healthy AD KDC answers an unauthenticated AS-REQ with.
+// what a healthy AD KDC answers an unauthenticated AS-REQ for an account that
+// exists with.
 const KRB_ERROR_PREAUTH = framed([
-  0x7e, 0x11, 0x30, 0x0f, 0xa0, 0x03, 0x02, 0x01, 0x05, 0xa1, 0x03, 0x02, 0x01, 0x1e, 0xa6, 0x03, 0x02, 0x01, 0x19,
+  0x7e, 0x11, 0x30, 0x0f, 0xa0, 0x03, 0x02, 0x01, 0x05, 0xa1, 0x03, 0x02, 0x01, 0x1e, 0xa6, 0x03,
+  0x02, 0x01, 0x19,
 ]);
 // A (structurally minimal) AS-REP: a KDC that issued a ticket outright.
 const AS_REP = framed([0x6b, 0x03, 0x30, 0x01, 0x00]);
@@ -46,33 +48,47 @@ const NOT_KERBEROS = framed([0x16, 0x03, 0x01, 0x00, 0x00]);
 
 interface FakeKdc {
   port: number;
+  /** Every request received, as sent (length prefix included). */
+  received: Buffer[];
   close: () => Promise<void>;
 }
 
 /** A TCP server that answers every request with the given canned response. */
 function startFakeKdc(response: Buffer): Promise<FakeKdc> {
   return new Promise((resolve) => {
+    const received: Buffer[] = [];
     const server = net.createServer((socket) => {
-      socket.on("data", () => socket.write(response));
+      socket.on("data", (data: Buffer) => {
+        received.push(data);
+        socket.write(response);
+      });
       socket.on("error", () => socket.destroy());
     });
     server.listen(0, "127.0.0.1", () => {
       resolve({
         port: (server.address() as AddressInfo).port,
+        received,
         close: () => new Promise<void>((done) => server.close(() => done())),
       });
     });
   });
 }
 
+// EXAMPLE.TEST is no runner's domain, so the probe has no account of its own
+// there and must be told which one to name.
+const PRINCIPAL = "principal=svc-monitor";
+
 onWindows("CheckActiveDirectory", () => {
   let nscp: NscpInstance;
 
   /** Run a CheckActiveDirectory query and return the combined output. */
   async function query(command: string, args: string[] = []): Promise<string> {
-    const r = await nscp.run(["client", "--module", "CheckActiveDirectory", "--boot", "--query", command, ...args], {
-      allowFailure: true,
-    });
+    const r = await nscp.run(
+      ["client", "--module", "CheckActiveDirectory", "--boot", "--query", command, ...args],
+      {
+        allowFailure: true,
+      },
+    );
     return r.all ?? `${r.stdout}\n${r.stderr}`;
   }
 
@@ -85,7 +101,13 @@ onWindows("CheckActiveDirectory", () => {
   it("check_kdc reports OK when the KDC answers with KRB-ERROR preauth-required", async () => {
     const kdc = await startFakeKdc(KRB_ERROR_PREAUTH);
     try {
-      const out = await query("check_kdc", ["server=127.0.0.1", `port=${kdc.port}`, "realm=EXAMPLE.TEST", "warning=none"]);
+      const out = await query("check_kdc", [
+        "server=127.0.0.1",
+        `port=${kdc.port}`,
+        "realm=EXAMPLE.TEST",
+        PRINCIPAL,
+        "warning=none",
+      ]);
       expect(out).toMatch(/^OK/m);
       expect(out).toMatch(/KDC_ERR_PREAUTH_REQUIRED/);
     } finally {
@@ -96,7 +118,13 @@ onWindows("CheckActiveDirectory", () => {
   it("check_kdc treats an outright AS-REP as a responding KDC", async () => {
     const kdc = await startFakeKdc(AS_REP);
     try {
-      const out = await query("check_kdc", ["server=127.0.0.1", `port=${kdc.port}`, "realm=EXAMPLE.TEST", "warning=none"]);
+      const out = await query("check_kdc", [
+        "server=127.0.0.1",
+        `port=${kdc.port}`,
+        "realm=EXAMPLE.TEST",
+        PRINCIPAL,
+        "warning=none",
+      ]);
       expect(out).toMatch(/^OK/m);
       expect(out).toMatch(/AS-REP/);
     } finally {
@@ -107,7 +135,13 @@ onWindows("CheckActiveDirectory", () => {
   it("check_kdc goes CRITICAL when a non-Kerberos service answers", async () => {
     const kdc = await startFakeKdc(NOT_KERBEROS);
     try {
-      const out = await query("check_kdc", ["server=127.0.0.1", `port=${kdc.port}`, "realm=EXAMPLE.TEST", "warning=none"]);
+      const out = await query("check_kdc", [
+        "server=127.0.0.1",
+        `port=${kdc.port}`,
+        "realm=EXAMPLE.TEST",
+        PRINCIPAL,
+        "warning=none",
+      ]);
       expect(out).toMatch(/^CRITICAL/m);
       expect(out).toMatch(/invalid response/);
     } finally {
@@ -118,7 +152,12 @@ onWindows("CheckActiveDirectory", () => {
   it("check_kdc goes CRITICAL when nothing listens on the port", async () => {
     // Port 1 is never serviced; Windows retries a refused connect internally
     // for ~2s, comfortably inside the 5s default timeout.
-    const out = await query("check_kdc", ["server=127.0.0.1", "port=1", "realm=EXAMPLE.TEST"]);
+    const out = await query("check_kdc", [
+      "server=127.0.0.1",
+      "port=1",
+      "realm=EXAMPLE.TEST",
+      PRINCIPAL,
+    ]);
     expect(out).toMatch(/^CRITICAL/m);
     expect(out).toMatch(/connect failed|timeout/);
   });
@@ -128,7 +167,12 @@ onWindows("CheckActiveDirectory", () => {
     try {
       // The default warning (time > 1000) references `time`, which is what
       // makes the perf series appear; keep it and pin only critical.
-      const out = await query("check_kdc", ["server=127.0.0.1", `port=${kdc.port}`, "realm=EXAMPLE.TEST"]);
+      const out = await query("check_kdc", [
+        "server=127.0.0.1",
+        `port=${kdc.port}`,
+        "realm=EXAMPLE.TEST",
+        PRINCIPAL,
+      ]);
       expect(out).toMatch(/'127\.0\.0\.1'=\d+ms;1000/);
       // The default critical (responding = 0) carries no `time` bound, so the
       // crit field must stay empty — a crit of 0 reads as "always critical"
@@ -153,6 +197,7 @@ onWindows("CheckActiveDirectory", () => {
       "server=127.0.0.4",
       "port=1",
       "realm=EXAMPLE.TEST",
+      PRINCIPAL,
       "timeout=1500",
     ]);
     expect(out).toMatch(/^CRITICAL/m);
@@ -164,13 +209,69 @@ onWindows("CheckActiveDirectory", () => {
     // Nothing resolves, so no exchange ever starts and there is no round trip
     // to report: `time` must render as `?` and emit no perf sample rather than
     // planting a -1ms point in the series for good.
-    const out = await query("check_kdc", ["server=nx.invalid.nscp-test", "realm=EXAMPLE.TEST"]);
+    const out = await query("check_kdc", [
+      "server=nx.invalid.nscp-test",
+      "realm=EXAMPLE.TEST",
+      PRINCIPAL,
+    ]);
     expect(out).toMatch(/^CRITICAL/m);
     expect(out).not.toMatch(/=-\d+ms/);
   });
 
+  it("check_kdc names principal= in the AS-REQ, never a made-up account", async () => {
+    // An AS-REQ for an account that does not exist is logged on the DC as a
+    // failed ticket request - the user-enumeration pattern SIEM rules alert
+    // on - so the name that goes over the wire is the one asked for.
+    const kdc = await startFakeKdc(KRB_ERROR_PREAUTH);
+    try {
+      const out = await query("check_kdc", [
+        "server=127.0.0.1",
+        `port=${kdc.port}`,
+        "realm=EXAMPLE.TEST",
+        PRINCIPAL,
+        "warning=none",
+      ]);
+      expect(out).toMatch(/^OK/m);
+      const request = Buffer.concat(kdc.received).toString("latin1");
+      expect(request).toContain("svc-monitor");
+      expect(request).not.toContain("nscp-probe");
+    } finally {
+      await kdc.close();
+    }
+  });
+
+  it("check_kdc requires principal= for a realm this machine has no account in", async () => {
+    const kdc = await startFakeKdc(KRB_ERROR_PREAUTH);
+    try {
+      const out = await query("check_kdc", [
+        "server=127.0.0.1",
+        `port=${kdc.port}`,
+        "realm=EXAMPLE.TEST",
+      ]);
+      expect(out).toMatch(/principal= is required to probe EXAMPLE\.TEST/);
+      // Refused before anything is sent: no request reaches the KDC.
+      expect(kdc.received).toHaveLength(0);
+    } finally {
+      await kdc.close();
+    }
+  });
+
+  it("check_kdc rejects an oversized principal rather than sending it", async () => {
+    const out = await query("check_kdc", [
+      "server=127.0.0.1",
+      "port=1",
+      "realm=EXAMPLE.TEST",
+      `principal=${"p".repeat(300)}`,
+    ]);
+    expect(out).toMatch(/principal= is too long/);
+  });
+
   it("check_kdc rejects an oversized realm rather than sending it", async () => {
-    const out = await query("check_kdc", ["server=127.0.0.1", "port=1", `realm=${"R".repeat(300)}`]);
+    const out = await query("check_kdc", [
+      "server=127.0.0.1",
+      "port=1",
+      `realm=${"R".repeat(300)}`,
+    ]);
     expect(out).toMatch(/realm= is too long/);
   });
 
@@ -181,10 +282,15 @@ onWindows("CheckActiveDirectory", () => {
         "server=127.0.0.1",
         `port=${kdc.port}`,
         "realm=EXAMPLE.TEST",
+        PRINCIPAL,
         "warning=none",
-        "detail-syntax=${kdc} port ${port} realm ${realm}: ${response} code=${error_code}",
+        "detail-syntax=${kdc} port ${port} realm ${realm} as ${principal}: ${response} code=${error_code}",
       ]);
-      expect(out).toMatch(new RegExp(`127\\.0\\.0\\.1 port ${kdc.port} realm EXAMPLE\\.TEST: KRB-ERROR \\S+ code=25`));
+      expect(out).toMatch(
+        new RegExp(
+          `127\\.0\\.0\\.1 port ${kdc.port} realm EXAMPLE\\.TEST as svc-monitor: KRB-ERROR \\S+ code=25`,
+        ),
+      );
     } finally {
       await kdc.close();
     }
@@ -218,7 +324,10 @@ onWindows("CheckActiveDirectory", () => {
   });
 
   it("check_secure_channel accepts its threshold keywords", async () => {
-    const out = await query("check_secure_channel", ["critical=healthy = 0 or error_code != 0", "warning=none"]);
+    const out = await query("check_secure_channel", [
+      "critical=healthy = 0 or error_code != 0",
+      "warning=none",
+    ]);
     expect(out).not.toMatch(/does not take any arguments|invalid expression|error parsing/i);
   });
 
@@ -232,10 +341,13 @@ onWindows("CheckActiveDirectory", () => {
     expect(out).not.toMatch(/does not take any arguments|unknown option/i);
   });
 
-  it("check_ad_replication bounds an unreachable server= by timeout=", async () => {
-    // 127.0.0.1:135 refuses immediately on a CI runner; the point is that the
-    // option parses and the check returns well inside its own deadline rather
-    // than blocking on the RPC bind.
+  it("check_ad_replication bounds a server= that is no domain controller by timeout=", async () => {
+    // Every Windows host serves the RPC endpoint mapper on 127.0.0.1:135, so
+    // this passes the port 135 pre-check and goes on to the directory service
+    // bind, which a non-DC runner refuses. It proves the option parses and the
+    // whole read returns inside its deadline; the case the deadline exists for
+    // (135 answers, the bind never returns) cannot be staged on a runner and
+    // is covered deterministically by the BoundedWorkers unit tests.
     const started = Date.now();
     const out = await query("check_ad_replication", ["server=127.0.0.1", "timeout=1500"]);
     expect(out).not.toMatch(/does not take any arguments|unknown option/i);

@@ -18,10 +18,13 @@
 
 #include <chrono>
 #include <memory>
+#include <nscapi/macros.hpp>
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
 #include <vector>
 
+#include "bounded_worker.hpp"
+#include "dsrole_buffer.hpp"
 #include "win32_error.hpp"
 
 namespace ad_replication_source {
@@ -67,14 +70,6 @@ class ds_replica_info {
   VOID *data_ = nullptr;
 };
 
-// DsRoleGetPrimaryDomainInformation has its own allocator (not NetApiBuffer).
-struct ds_role_deleter {
-  void operator()(void *buffer) const noexcept {
-    if (buffer != nullptr) DsRoleFreeMemory(buffer);
-  }
-};
-typedef std::unique_ptr<DSROLE_PRIMARY_DOMAIN_INFO_BASIC, ds_role_deleter> ds_role_ptr;
-
 // --- helpers ----------------------------------------------------------------
 
 std::string local_dns_hostname() {
@@ -97,18 +92,15 @@ std::string local_dns_hostname() {
 // alarm.
 bool looks_like_a_domain_controller(const std::string &server) {
   const std::wstring server_w = utf8::cvt<std::wstring>(server);
-  PBYTE raw = nullptr;
-  if (DsRoleGetPrimaryDomainInformation(server.empty() ? nullptr : server_w.c_str(), DsRolePrimaryDomainInfoBasic, &raw) != ERROR_SUCCESS) return true;
-  const ds_role_ptr info(reinterpret_cast<DSROLE_PRIMARY_DOMAIN_INFO_BASIC *>(raw));
+  const check_ad::ds_role_ptr info = check_ad::primary_domain_info(server.empty() ? nullptr : server_w.c_str());
   if (!info) return true;
   return info->MachineRole == DsRole_RoleBackupDomainController || info->MachineRole == DsRole_RolePrimaryDomainController;
 }
 
-// DsBindW itself has no timeout: against a black-holed host it blocks for the
-// full TCP retransmit window (~21s+, possibly per RPC endpoint), blowing the
-// transport's command timeout. Before binding to an explicitly named remote
-// server, require its RPC endpoint mapper (port 135) to answer a TCP connect
-// within a bounded deadline so an unreachable DC fails fast instead.
+// Before binding to an explicitly named remote server, require its RPC
+// endpoint mapper (port 135) to answer a TCP connect. This is not what bounds
+// the check - fetch() below does that - but it turns the most common failure,
+// a host that is down or firewalled outright, into a message that says so.
 bool can_reach_rpc(const std::string &host, int timeout_ms, std::string &error) {
   namespace asio = boost::asio;
   using boost::asio::ip::tcp;
@@ -138,6 +130,11 @@ bool can_reach_rpc(const std::string &host, int timeout_ms, std::string &error) 
   return connected;
 }
 
+// The pre-check inside the worker gives up at the same timeout= the check does.
+// Waiting this much longer lets its own, more specific failure ("cannot reach
+// port 135") be the one reported rather than the generic deadline.
+const std::chrono::milliseconds kPreCheckGrace(250);
+
 long long filetime_to_epoch(const FILETIME &ft) {
   const unsigned long long ticks = (static_cast<unsigned long long>(ft.dwHighDateTime) << 32) | ft.dwLowDateTime;
   if (ticks == 0) return 0;
@@ -147,9 +144,17 @@ long long filetime_to_epoch(const FILETIME &ft) {
   return static_cast<long long>((ticks - kEpochDelta) / 10000000ULL);
 }
 
-}  // namespace
+// Everything fetch_unbounded() produces. It is filled in on a worker that the
+// check may stop waiting for, so the worker owns it and the check reads it
+// only once the worker has returned.
+struct fetch_result {
+  bool ok = false;
+  std::vector<ad_replication_filter::filter_obj_ptr> links;
+  std::string error;
+  bool not_a_dc = false;
+};
 
-bool fetch(const std::string &server, int timeout_ms, std::vector<ad_replication_filter::filter_obj_ptr> &out, std::string &error, bool &not_a_dc) {
+bool fetch_unbounded(const std::string &server, int timeout_ms, std::vector<ad_replication_filter::filter_obj_ptr> &out, std::string &error, bool &not_a_dc) {
   not_a_dc = false;
   // DsBind with a NULL server binds to *some* DC in the domain, not this host,
   // so always name the target explicitly: replication state is per-DC.
@@ -208,6 +213,37 @@ bool fetch(const std::string &server, int timeout_ms, std::vector<ad_replication
   }
 
   return true;
+}
+
+}  // namespace
+
+// DsBindW, DsReplicaGetInfoW and DsRoleGetPrimaryDomainInformation take no
+// timeout. The port 135 pre-check only proves the endpoint mapper answers: the
+// bind then goes on to the directory service's dynamic RPC port, and a
+// firewall that passes 135 but drops the dynamic range blocks the bind for as
+// long as RPC keeps retrying. So the whole fetch runs on a worker and the
+// check stops waiting for it at the deadline.
+bool fetch(const std::string &server, int timeout_ms, std::vector<ad_replication_filter::filter_obj_ptr> &out, std::string &error, bool &not_a_dc) {
+  not_a_dc = false;
+  const std::string target = server.empty() ? "the local machine" : server;
+  const std::shared_ptr<fetch_result> result = std::make_shared<fetch_result>();
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms) + kPreCheckGrace;
+  const check_ad::bounded_workers::handle worker = check_ad::module_workers().start(
+      "ad_replication " + server, "check_ad_replication " + target,
+      [result, server, timeout_ms]() { result->ok = fetch_unbounded(server, timeout_ms, result->links, result->error, result->not_a_dc); },
+      NSC_THREAD_REPORTER);
+  if (!worker) {
+    error = "The previous replication read from " + target + " has still not returned; not starting another";
+    return false;
+  }
+  if (!check_ad::bounded_workers::wait_until(worker, deadline)) {
+    error = "No answer from the directory service on " + target + " within " + str::xtos(timeout_ms) + "ms";
+    return false;
+  }
+  out = result->links;
+  error = result->error;
+  not_a_dc = result->not_a_dc;
+  return result->ok;
 }
 
 }  // namespace ad_replication_source

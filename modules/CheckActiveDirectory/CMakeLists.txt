@@ -26,6 +26,8 @@ set(SRCS
     check_ad_replication.hpp
     ad_replication_filter.hpp
     ad_replication_source.hpp
+    bounded_worker.hpp
+    dsrole_buffer.hpp
     check_secure_channel.hpp
     check_kdc.hpp
     kdc_probe.hpp

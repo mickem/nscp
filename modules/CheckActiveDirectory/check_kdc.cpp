@@ -17,6 +17,7 @@
 #include <chrono>
 #include <deque>
 #include <memory>
+#include <nscapi/macros.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -28,6 +29,8 @@
 #include <utility>
 #include <vector>
 
+#include "bounded_worker.hpp"
+#include "dsrole_buffer.hpp"
 #include "kdc_probe.hpp"
 #include "netapi_buffer.hpp"
 #include "win32_error.hpp"
@@ -42,6 +45,7 @@ struct filter_obj {
 
   std::string get_kdc() const { return kdc; }
   std::string get_realm() const { return realm; }
+  std::string get_principal() const { return principal; }
   std::string get_response() const { return response; }
   long long get_port() const { return port; }
   long long get_responding() const { return responding; }
@@ -50,9 +54,10 @@ struct filter_obj {
 
   std::string show() const { return kdc; }
 
-  std::string kdc;       // host probed
-  std::string realm;     // realm the AS-REQ was for
-  std::string response;  // what came back ("KRB-ERROR ..." / "AS-REP ..." / transport error)
+  std::string kdc;        // host probed
+  std::string realm;      // realm the AS-REQ was for
+  std::string principal;  // client principal the AS-REQ named
+  std::string response;   // what came back ("KRB-ERROR ..." / "AS-REP ..." / transport error)
   long long port;
   long long responding;  // 1 when a well-formed Kerberos answer arrived
   long long error_code;  // KRB-ERROR code (-1 when none)
@@ -72,6 +77,7 @@ struct filter_obj_handler : native_context {
     // clang-format off
     registry_.add_string_var("kdc", &filter_obj::get_kdc, "The KDC host that was probed")
         .add_string_var("realm", &filter_obj::get_realm, "The Kerberos realm the probe requested a ticket for")
+        .add_string_var("principal", &filter_obj::get_principal, "The client principal the probe named (this machine's account unless principal= was given)")
         .add_string_var("response", &filter_obj::get_response, "What the KDC answered (or the transport error)");
     registry_
         .add_optional_int_var("time", type_int, &filter_obj::get_time, "?",
@@ -102,14 +108,14 @@ struct probe_outcome {
 
 // The in-flight state of one KDC probe on the shared io_context.
 struct probe_state {
-  explicit probe_state(boost::asio::io_context &io) : resolver(io), socket(io), header{}, done(false), timed(false) {}
+  explicit probe_state(boost::asio::io_context &io) : socket(io), header{}, done(false), timed(false) {}
 
-  boost::asio::ip::tcp::resolver resolver;
+  std::vector<boost::asio::ip::tcp::endpoint> endpoints;
   boost::asio::ip::tcp::socket socket;
   std::array<unsigned char, 4> header;  // RFC 4120 7.2.2 length prefix
   bool done;
-  // Round-trip time is measured from when the resolver answered (timed set),
-  // so a slow DNS server is not billed to the KDC.
+  // Round-trip time is measured from when the connect starts (timed set), so
+  // a slow DNS server is not billed to the KDC.
   bool timed;
   std::chrono::steady_clock::time_point exchange_start;
   probe_outcome out;
@@ -128,17 +134,76 @@ struct probe_state {
   }
 };
 
-// One framed request/response exchange (RFC 4120 7.2.2: 4-byte big-endian
-// length prefix) per host against host:port. All hosts are probed concurrently
-// on one io_context with a single deadline, so the worst case costs one
-// timeout rather than one per unreachable KDC. A DNS lookup the OS never
-// answers can still hold the io_context destructor past the deadline (asio
-// runs getaddrinfo on a worker thread it joins on shutdown), but at most once
-// for the whole batch.
+// A name lookup, filled in on a worker the check may stop waiting for.
+struct lookup_result {
+  std::vector<boost::asio::ip::tcp::endpoint> endpoints;
+  std::string error;
+};
+
+// Start the framed request/response exchange (RFC 4120 7.2.2: 4-byte
+// big-endian length prefix) with a host whose endpoints are known.
+void begin_exchange(probe_state &st, const kdc_probe::bytes &framed) {
+  namespace asio = boost::asio;
+  using boost::asio::ip::tcp;
+  st.start_exchange();
+  asio::async_connect(st.socket, st.endpoints, [&st, &framed](const boost::system::error_code &ec, const tcp::endpoint &) {
+    if (ec) {
+      st.finish("connect failed: " + ec.message());
+      return;
+    }
+    asio::async_write(st.socket, asio::buffer(framed), [&st](const boost::system::error_code &ec, std::size_t) {
+      if (ec) {
+        st.finish("send failed: " + ec.message());
+        return;
+      }
+      asio::async_read(st.socket, asio::buffer(st.header), [&st](const boost::system::error_code &ec, std::size_t) {
+        if (ec) {
+          st.finish("read failed: " + ec.message());
+          return;
+        }
+        const std::size_t len = (static_cast<std::size_t>(st.header[0]) << 24) | (static_cast<std::size_t>(st.header[1]) << 16) |
+                                (static_cast<std::size_t>(st.header[2]) << 8) | static_cast<std::size_t>(st.header[3]);
+        if (len == 0 || len > 512 * 1024) {
+          st.finish("invalid response length");
+          return;
+        }
+        st.out.response.resize(len);
+        asio::async_read(st.socket, asio::buffer(st.out.response), [&st](const boost::system::error_code &ec, std::size_t) {
+          if (ec) {
+            st.out.response.clear();
+            st.finish("read failed: " + ec.message());
+            return;
+          }
+          st.out.exchanged = true;
+          st.finish("");
+        });
+      });
+    });
+  });
+}
+
+// How often the event loop looks up from the exchanges to pick up finished
+// name lookups. It only delays when an exchange starts, never what it measures.
+const std::chrono::milliseconds kLookupPoll(10);
+
+// Probe every host concurrently under one deadline covering the name lookups
+// and the exchange, so the worst case costs one timeout rather than one per
+// unreachable KDC.
+//
+// Names are not looked up with async_resolve on this io_context: asio runs
+// getaddrinfo on a private thread that the io_context joins when it is
+// destroyed, so a DNS server that never answered held the check open for the
+// OS resolver timeout however small timeout= was. Each lookup runs on a parked
+// worker instead (see bounded_worker.hpp); one that misses the deadline is
+// reported as such and left to finish on its own. A host starts its exchange
+// as soon as its own lookup is done, so a slow name never costs the others
+// their time, and an IP address needs no lookup at all.
 std::vector<probe_outcome> exchange_with_kdcs(const std::vector<std::string> &hosts, int port, int timeout_ms, const kdc_probe::bytes &request) {
   namespace asio = boost::asio;
   using boost::asio::ip::tcp;
 
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
+  const std::string service = str::xtos(port);
   const std::size_t size = request.size();
   const std::array<unsigned char, 4> prefix = {static_cast<unsigned char>((size >> 24) & 0xff), static_cast<unsigned char>((size >> 16) & 0xff),
                                                static_cast<unsigned char>((size >> 8) & 0xff), static_cast<unsigned char>(size & 0xff)};
@@ -150,66 +215,93 @@ std::vector<probe_outcome> exchange_with_kdcs(const std::vector<std::string> &ho
   asio::io_context io;
   // deque: the completion handlers hold references into the container.
   std::deque<probe_state> states;
+  std::vector<std::pair<check_ad::bounded_workers::handle, std::shared_ptr<lookup_result>>> lookups(hosts.size());
 
-  for (const std::string &host : hosts) {
+  for (std::size_t i = 0; i < hosts.size(); ++i) {
     states.emplace_back(io);
     probe_state &st = states.back();
-    st.resolver.async_resolve(host, str::xtos(port), [&st, &framed](const boost::system::error_code &ec, tcp::resolver::results_type results) {
-      if (ec) {
-        st.finish("resolve failed: " + ec.message());
-        return;
-      }
-      st.start_exchange();
-      asio::async_connect(st.socket, results, [&st, &framed](const boost::system::error_code &ec, const tcp::endpoint &) {
-        if (ec) {
-          st.finish("connect failed: " + ec.message());
-          return;
-        }
-        asio::async_write(st.socket, asio::buffer(framed), [&st](const boost::system::error_code &ec, std::size_t) {
-          if (ec) {
-            st.finish("send failed: " + ec.message());
+    boost::system::error_code ec;
+    const asio::ip::address address = asio::ip::make_address(hosts[i], ec);
+    if (!ec) {
+      st.endpoints.push_back(tcp::endpoint(address, static_cast<unsigned short>(port)));
+      begin_exchange(st, framed);
+      continue;
+    }
+    const std::shared_ptr<lookup_result> result = std::make_shared<lookup_result>();
+    const std::string host = hosts[i];
+    const check_ad::bounded_workers::handle worker = check_ad::module_workers().start(
+        "kdc resolve " + host + ":" + service, "check_kdc resolve " + host,
+        [result, host, service]() {
+          asio::io_context lookup_io;
+          tcp::resolver resolver(lookup_io);
+          boost::system::error_code resolve_ec;
+          const tcp::resolver::results_type found = resolver.resolve(host, service, resolve_ec);
+          if (resolve_ec) {
+            result->error = "resolve failed: " + resolve_ec.message();
             return;
           }
-          asio::async_read(st.socket, asio::buffer(st.header), [&st](const boost::system::error_code &ec, std::size_t) {
-            if (ec) {
-              st.finish("read failed: " + ec.message());
-              return;
-            }
-            const std::size_t len = (static_cast<std::size_t>(st.header[0]) << 24) | (static_cast<std::size_t>(st.header[1]) << 16) |
-                                    (static_cast<std::size_t>(st.header[2]) << 8) | static_cast<std::size_t>(st.header[3]);
-            if (len == 0 || len > 512 * 1024) {
-              st.finish("invalid response length");
-              return;
-            }
-            st.out.response.resize(len);
-            asio::async_read(st.socket, asio::buffer(st.out.response), [&st](const boost::system::error_code &ec, std::size_t) {
-              if (ec) {
-                st.out.response.clear();
-                st.finish("read failed: " + ec.message());
-                return;
-              }
-              st.out.exchanged = true;
-              st.finish("");
-            });
-          });
-        });
-      });
-    });
+          for (const tcp::resolver::results_type::value_type &entry : found) result->endpoints.push_back(entry.endpoint());
+        },
+        NSC_THREAD_REPORTER);
+    if (!worker) {
+      st.finish("resolve failed: the previous lookup of " + host + " has still not returned");
+      continue;
+    }
+    lookups[i] = std::make_pair(worker, result);
   }
 
-  io.run_for(std::chrono::milliseconds(timeout_ms));
+  // Keeps run_for() blocking for its whole slice while the only thing left to
+  // wait for is a lookup; without work it would return at once and spin.
+  asio::steady_timer keep_alive(io, deadline);
+  keep_alive.async_wait([](const boost::system::error_code &) {});
+
+  while (std::chrono::steady_clock::now() < deadline) {
+    bool waiting = false;
+    for (std::size_t i = 0; i < states.size(); ++i) {
+      if (lookups[i].first && lookups[i].first->is_done()) {
+        const lookup_result &result = *lookups[i].second;
+        if (!result.error.empty()) {
+          states[i].finish(result.error);
+        } else {
+          states[i].endpoints = result.endpoints;
+          begin_exchange(states[i], framed);
+        }
+        lookups[i].first.reset();
+      }
+      if (!states[i].done) waiting = true;
+    }
+    if (!waiting) break;
+    const auto left = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - std::chrono::steady_clock::now());
+    if (left.count() <= 0) break;
+    io.run_for((std::min)(left, kLookupPoll));
+  }
 
   std::vector<probe_outcome> out;
-  for (probe_state &st : states) {
+  for (std::size_t i = 0; i < states.size(); ++i) {
+    probe_state &st = states[i];
     if (!st.done) {
       boost::system::error_code ignored;
       st.socket.close(ignored);
-      st.resolver.cancel();
-      st.finish("timeout after " + str::xtos(timeout_ms) + "ms");
+      st.finish(lookups[i].first ? "resolve failed: no answer from DNS in time" : "timeout after " + str::xtos(timeout_ms) + "ms");
     }
     out.push_back(std::move(st.out));
   }
   return out;
+}
+
+// This machine's account in the domain it is joined to, as an AS-REQ names it
+// (the sAMAccountName, "HOST$"), and that domain's DNS name. Both empty when
+// the machine is not joined to an Active Directory domain. Local calls only:
+// nothing here goes to the network.
+void local_machine_account(std::string &domain, std::string &account) {
+  const check_ad::ds_role_ptr info = check_ad::primary_domain_info(nullptr);
+  if (!info || info->DomainNameDns == nullptr) return;
+  if (info->MachineRole == DsRole_RoleStandaloneWorkstation || info->MachineRole == DsRole_RoleStandaloneServer) return;
+  wchar_t name[MAX_COMPUTERNAME_LENGTH + 1] = {};
+  DWORD size = MAX_COMPUTERNAME_LENGTH + 1;
+  if (!GetComputerNameExW(ComputerNamePhysicalNetBIOS, name, &size) || size == 0) return;
+  domain = utf8::cvt<std::string>(std::wstring(info->DomainNameDns));
+  account = utf8::cvt<std::string>(std::wstring(name, size)) + "$";
 }
 
 std::string strip_leading_backslashes(std::string s) {
@@ -227,9 +319,11 @@ std::string upper_ascii(std::string s) {
   return s;
 }
 
-// A Kerberos realm is a domain name, so it fits comfortably; the cap keeps a
-// caller from making the agent write a large payload at an arbitrary host.
+// A Kerberos realm is a domain name and a principal an account name, so both
+// fit comfortably; the cap keeps a caller from making the agent write a large
+// payload at an arbitrary host.
 const std::size_t kMaxRealmLength = 255;
+const std::size_t kMaxPrincipalLength = 255;
 
 }  // namespace
 
@@ -239,6 +333,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
 
   std::vector<std::string> servers;
   std::string realm;
+  std::string principal;
   int port = 88;
   int timeout_ms = 5000;
 
@@ -252,8 +347,11 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   filter_helper.get_desc().add_options()
     ("server", po::value<std::vector<std::string>>(&servers), "KDC host to probe; can be given multiple times (default: the KDC located via the domain join).")
     ("realm", po::value<std::string>(&realm), "Kerberos realm to request a ticket for (default: the joined domain; required when not domain-joined).")
+    ("principal", po::value<std::string>(&principal),
+        "Client principal to name in the AS-REQ (default: this machine's account, HOST$, when probing the domain it is joined to; required for any other realm). Name an account that exists and requires pre-authentication.")
     ("port", po::value<int>(&port)->default_value(88), "TCP port to probe.")
-    ("timeout", po::value<int>(&timeout_ms)->default_value(5000), "Timeout in milliseconds. All KDCs are probed concurrently, so this also bounds the whole check.")
+    ("timeout", po::value<int>(&timeout_ms)->default_value(5000),
+        "Timeout in milliseconds for the probes, name lookups included. All KDCs are probed concurrently, so this also bounds the whole check.")
     ;
   // clang-format on
 
@@ -261,9 +359,12 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   if (!filter_helper.build_filter(filter)) return;
 
   if (realm.size() > kMaxRealmLength) {
-    return nscapi::protobuf::functions::set_response_bad(*response,
-                                                         "realm= is too long (max " + str::xtos(kMaxRealmLength) + " characters, got " +
-                                                             str::xtos(realm.size()) + ")");
+    return nscapi::protobuf::functions::set_response_bad(
+        *response, "realm= is too long (max " + str::xtos(kMaxRealmLength) + " characters, got " + str::xtos(realm.size()) + ")");
+  }
+  if (principal.size() > kMaxPrincipalLength) {
+    return nscapi::protobuf::functions::set_response_bad(
+        *response, "principal= is too long (max " + str::xtos(kMaxPrincipalLength) + " characters, got " + str::xtos(principal.size()) + ")");
   }
 
   const bool realm_was_given = !realm.empty();
@@ -278,7 +379,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
       if (realm.empty() && info->DomainName != nullptr) realm = utf8::cvt<std::string>(std::wstring(info->DomainName));
     } else if (servers.empty()) {
       return nscapi::protobuf::functions::set_response_bad(
-          *response, "Failed to locate a KDC (is this machine domain-joined?): " + check_ad::win32_error(rc) + ". Specify server= and realm=.");
+          *response, "Failed to locate a KDC (is this machine domain-joined?): " + check_ad::win32_error(rc) + ". Specify server=, realm= and principal=.");
     }
   }
   if (realm.empty()) {
@@ -294,7 +395,22 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   // serve a lowercase one.
   if (!realm_was_given) realm = upper_ascii(realm);
 
-  const kdc_probe::bytes as_req = kdc_probe::build_as_req(realm, "nscp-probe", 12345678UL);
+  // An AS-REQ for a name that does not exist gets KDC_ERR_C_PRINCIPAL_UNKNOWN
+  // back and is logged on the DC as a failed ticket request (4768): run
+  // against every DC, that is the pattern user-enumeration detections alert
+  // on. So the probe names an account that exists - by default this machine's
+  // own, whose healthy answer is KDC_ERR_PREAUTH_REQUIRED - and asks for one
+  // rather than invent a name when it knows of none in the realm.
+  std::string joined_domain, machine_account;
+  local_machine_account(joined_domain, machine_account);
+  const std::string client = kdc_probe::choose_principal(principal, realm, joined_domain, machine_account);
+  if (client.empty()) {
+    return nscapi::protobuf::functions::set_response_bad(*response, "principal= is required to probe " + realm +
+                                                                        ": this machine has no account in that realm. Name an account that exists "
+                                                                        "there and requires pre-authentication.");
+  }
+
+  const kdc_probe::bytes as_req = kdc_probe::build_as_req(realm, client, 12345678UL);
 
   const std::vector<probe_outcome> outcomes = exchange_with_kdcs(servers, port, timeout_ms, as_req);
 
@@ -303,6 +419,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
     kdc_filter::filter_obj_ptr obj = std::make_shared<kdc_filter::filter_obj>();
     obj->kdc = servers[i];
     obj->realm = realm;
+    obj->principal = client;
     obj->port = port;
     const probe_outcome &outcome = outcomes[i];
     obj->time = outcome.time_ms;

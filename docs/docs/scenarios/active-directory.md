@@ -96,9 +96,10 @@ contact the DC.
 ## Kerberos KDC availability
 
 `check_kdc` sends a real (unauthenticated) Kerberos `AS-REQ` to the KDC and expects
-a Kerberos answer — typically `KDC_ERR_PREAUTH_REQUIRED`, which is the *healthy*
-response. A plain port check cannot see a KDC that accepts connections but no longer
-issues tickets; this can.
+a Kerberos answer. The request names this machine's own account, so a healthy KDC
+answers `KDC_ERR_PREAUTH_REQUIRED`: it asks for proof of identity, which the probe
+never sends (no password, nothing towards a lockout). A plain port check cannot see
+a KDC that accepts connections but no longer issues tickets; this can.
 
 ```
 check_kdc
@@ -110,13 +111,18 @@ check_kdc
 OK: dc01.example.com: KRB-ERROR KDC_ERR_PREAUTH_REQUIRED (2ms)|'dc01.example.com'=2ms;1000
 ```
 
-On a domain-joined machine the KDC and realm are discovered automatically; from
-anywhere else, name them explicitly — no domain membership, account or Kerberos
-configuration is needed:
+On a domain-joined machine the KDC, realm and account are discovered
+automatically. From anywhere else, name them explicitly — no domain membership,
+password or Kerberos configuration is needed, only the name of an account that
+exists in the realm:
 
 ```
-check_kdc server=dc01.example.com server=dc02.example.com realm=EXAMPLE.COM
+check_kdc server=dc01.example.com server=dc02.example.com realm=EXAMPLE.COM principal=svc-monitor
 ```
+
+The check will not make an account name up: a request for one that does not exist
+is logged on the DC as a failed ticket request (event 4768), which is what
+user-enumeration detections look for.
 
 Defaults: WARNING when the round trip exceeds 1 second, CRITICAL when a KDC does not
 answer with a well-formed Kerberos message.
