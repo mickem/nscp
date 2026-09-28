@@ -49,6 +49,7 @@ if(WIN32)
         check_ntp_offset.h
         check_radius.hpp
         check_radius_protocol.hpp
+        check_radius_resolver.hpp
         ${NSCP_DEF_PLUGIN_HPP}
         ${NSCP_FILTER_HPP}
     )
@@ -106,6 +107,7 @@ NSCP_CREATE_TEST(
     SOURCES
         check_net_test.cpp
         check_radius_test.cpp
+        check_radius_resolver_test.cpp
         check_http_json_test.cpp
         check_http_json.cpp
         check_webserver_test.cpp

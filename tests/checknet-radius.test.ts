@@ -114,7 +114,12 @@ describe("CheckNet RADIUS", () => {
     fs.writeFileSync(secretFile, secret + "\r\n", { mode: 0o600 });
     fs.writeFileSync(passwordFile, password + "\n", { mode: 0o600 });
   });
-  async function query(port: number, args: string[] = [], host = "127.0.0.1") {
+  async function query(
+    port: number,
+    args: string[] = [],
+    host = "127.0.0.1",
+    credentialFile = secretFile,
+  ) {
     const result = await nscp.run(
       [
         "client",
@@ -125,7 +130,7 @@ describe("CheckNet RADIUS", () => {
         "check_radius",
         `host=${host}`,
         `port=${port}`,
-        `secret-file=${secretFile}`,
+        `secret-file=${credentialFile}`,
         "timeout=300",
         ...args,
       ],
@@ -150,6 +155,61 @@ describe("CheckNet RADIUS", () => {
     } finally {
       target.socket.close();
     }
+  });
+  it("reads both credential files from Unicode paths", async () => {
+    const dir = nscp.scratch("radius-hämlighet-秘密");
+    const unicodeSecret = path.join(dir, "delad-hemlighet-秘密.txt");
+    const unicodePassword = path.join(dir, "lösenord-密码.txt");
+    fs.writeFileSync(unicodeSecret, secret + "\r\n", { mode: 0o600 });
+    fs.writeFileSync(unicodePassword, password + "\n", { mode: 0o600 });
+    const target = await server();
+    try {
+      expect(
+        await query(
+          target.port,
+          ["username=test-user", `password-file=${unicodePassword}`],
+          "127.0.0.1",
+          unicodeSecret,
+        ),
+      ).toMatch(/OK:.*reply=access_accept/);
+      expect(target.passwords).toEqual([password]);
+      expect(target.errors).toEqual([]);
+    } finally {
+      target.socket.close();
+    }
+  });
+  it.each(["ipv4", "ipv6"])("resolves a hostname over %s before the exchange", async (family) => {
+    const target = await server(2, "none", family === "ipv6");
+    try {
+      expect(
+        await query(target.port, [...auth(), `address-family=${family}`], "localhost"),
+      ).toMatch(/OK:.*reply=access_accept/);
+      expect(target.errors).toEqual([]);
+    } finally {
+      target.socket.close();
+    }
+  });
+  it("bounds hostname resolution and process cleanup by the overall deadline", async () => {
+    const started = Date.now();
+    const output = await nscp.run(
+      [
+        "client",
+        "--module",
+        "CheckNet",
+        "--boot",
+        "--query",
+        "check_radius",
+        `host=nscp-radius-${Date.now()}.local`,
+        `secret-file=${secretFile}`,
+        "mode=status",
+        "timeout=10",
+      ],
+      { allowFailure: true },
+    );
+    const message = output.all ?? `${output.stdout}\n${output.stderr}`;
+    expect(message).toMatch(/CRITICAL:.*(?:timeout|resolve_failed), reply=none/);
+    expect(Number(message.match(/time=(\d+)ms/)?.[1])).toBeLessThan(500);
+    expect(Date.now() - started).toBeLessThan(2000);
   });
   it.each([3, 11])("does not mistake reply %i for successful authentication", async (code) => {
     const target = await server(code);

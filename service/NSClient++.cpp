@@ -5,6 +5,7 @@
 
 #include <boost/filesystem/operations.hpp>
 #include <boost/unordered_set.hpp>
+#include <net/resolve_host.hpp>
 #include <nscapi/nscapi_metrics_helper.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nsclient/logger/logger_helper.hpp>
@@ -75,6 +76,7 @@ int nscp_main(int argc, char *argv[]) {
   // fatal_handler.hpp for what is left over and why it needs a backstop.
   nsclient::install_fatal_handlers();
   try {
+    if (argc > 1 && std::string(argv[1]) == "--resolve-host") return net::resolve_host_cli(argc, argv);
     mainClient.reset(new NSClient());
     cli_parser parser(mainClient);
     const int exit = parser.parse(argc, argv);
