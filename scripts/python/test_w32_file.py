@@ -689,8 +689,20 @@ class Win32FileTest(BasicTest):
 		result.append(sub_result)
 
 		# Check dates
+		# check_files() re-stamps the fixture immediately before every query,
+		# so a file's mtime is "now minus its offset" as of the stamping, while
+		# the check resolves its own "now" a moment later. Elapsed time moves
+		# the threshold forward but not the files, so a `ge` threshold sitting
+		# exactly on a fixture offset only counts those files when stamping and
+		# query land in the same wall-clock second: `written ge -5m` dropped
+		# test-001 and test-002 and returned 5 instead of 7 whenever the two
+		# straddled a second boundary. It asks for -6m instead, which counts
+		# the same seven files for any elapsed time under a minute - the
+		# tolerance `written lt -1m` and `written gt 0m` below already need.
+		# The `le`/`lt` thresholds need no such margin: elapsed time can only
+		# push the older files further inside them.
 		sub_result = TestResult('Check dates')
-		sub_result.add(self.check_files('written ge -5m', 'Count all files (*.txt, >-5m)', 7, ['pattern=*.txt']))
+		sub_result.add(self.check_files('written ge -6m', 'Count all files (*.txt, >-6m)', 7, ['pattern=*.txt']))
 		sub_result.add(self.check_files('written le -5m', 'Count all files (*.txt, <-5m)', 4, ['pattern=*.txt']))
 		sub_result.add(self.check_files('written lt -9m', 'Count all files (*.txt, <-9m)', 2, ['pattern=*.txt']))
 		sub_result.add(self.check_files('written gt -9m', 'Count all files (*.txt, >-9m)', 7, ['pattern=*.txt']))
