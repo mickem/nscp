@@ -1,5 +1,7 @@
 # Live / remote acceptance suite
 
+For the opt-in NPS/RADIUS role lab, see [NPS acceptance tests](nps.md).
+
 These suites connect to an NSClient++ that is **already installed, configured
 and running** somewhere else and verify — over the REST API — that the service
 is reachable, authentication works, and the standard checks return sane results

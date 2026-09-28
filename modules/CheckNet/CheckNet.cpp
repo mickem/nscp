@@ -22,12 +22,17 @@
 #include "check_ping_internal.hpp"
 #include "check_webserver.h"
 #include "check_ntp_offset.h"
+#include "check_radius.hpp"
 #include "check_tcp.h"
 #include "filter.hpp"
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 boost::atomic<unsigned short> identifier(0);
+
+void CheckNet::check_radius(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_net::check_radius(request, response);
+}
 
 bool CheckNet::loadModuleEx(const std::string &, NSCAPI::moduleLoadMode) {
   // Resolve the trusted CA bundle path once, at module load. ${ca-path}

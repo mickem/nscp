@@ -1,7 +1,7 @@
 {
 	"module"		: {
 		"title"			: "Windows application and server-role checks",
-		"description"		: "Checks for applications and server roles on Windows: IIS (web sites, application pools, worker processes, HTTP.sys request queues) and Remote Desktop Services (CAL licensing, session host load, Connection Broker).",
+		"description"		: "Checks for Windows applications and server roles: IIS, Remote Desktop Services, and NPS authentication, accounting and performance counters.",
 		"name"			: "CheckWindowsApps",
 		"alias"			: "windowsapps",
 		"version"		: "auto",
@@ -9,6 +9,9 @@
 	},
 
 	"commands" : {
+		"check_nps_auth": "Check NPS authentication outcomes, rejection percentages and reason codes over a time window.",
+		"check_nps_accounting": "Check discarded NPS accounting requests and optional accounting log freshness.",
+		"check_nps_counters": "Check the installed NPS/RADIUS performance counters using two samples.",
 		"check_iis_app_pools"	: "Check IIS application pools (state, uptime, recycles).",
 		"check_iis_sites"	: "Check IIS web sites (state, connections, traffic).",
 		"check_iis_worker_processes"	: "Check IIS worker processes (active and served requests per w3wp).",
