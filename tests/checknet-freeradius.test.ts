@@ -108,7 +108,7 @@ dockerOrSkip()("CheckNet RADIUS against FreeRADIUS", () => {
   it("authenticates a PAP user and gets a signed Access-Accept", async () => {
     const output = await query(["username=test-user", `password-file=${passwordFile}`]);
     expect(output).toMatch(/OK:.*reply=access_accept/);
-    expect(output).toMatch(/=\d+ms;/);
+    expect(output).toMatch(/_time'=\d+ms(?:\s|$)/);
   });
 
   it("reports a wrong password as a failed check, not as reachable", async () => {
