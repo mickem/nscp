@@ -52,6 +52,25 @@ describeOnWindows("CheckSystem pdh counter listing", () => {
   }
 
   /**
+   * Runs a comparison of several captures, taking them all again when it
+   * fails. stableOnly() covers a counter set that appears or goes away for
+   * good during the test, but Windows also drops a set for a moment and brings
+   * it back, and a capture that lands in that moment lacks it while both
+   * references have it. That does not survive a few fresh attempts; a real
+   * regression fails every one, so the comparison keeps its full strength.
+   */
+  async function eventually(compare: () => Promise<void>, attempts = 3): Promise<void> {
+    for (let attempt = 1; ; ++attempt) {
+      try {
+        await compare();
+        return;
+      } catch (e) {
+        if (attempt >= attempts) throw e;
+      }
+    }
+  }
+
+  /**
    * Restricts a listing to the counters that were stably present, given two
    * captures of the reference query taken either side of the queries being
    * compared. Sorted, because the comparisons here are about which counters
@@ -120,37 +139,41 @@ describeOnWindows("CheckSystem pdh counter listing", () => {
     // capitalises its own names inconsistently - so the casing must not be
     // something you have to guess right before you get any output.
     const reference = ["--list", "Processor", "--all", "--no-instances"];
-    const asWritten = await list(reference);
-    expect(asWritten.length).toBeGreaterThan(0);
+    await eventually(async () => {
+      const asWritten = await list(reference);
+      expect(asWritten.length).toBeGreaterThan(0);
 
-    const lower = await list(["--list", "processor", "--all", "--no-instances"]);
-    const upper = await list(["--list", "PROCESSOR", "--all", "--no-instances"]);
-    const mixed = await list(["--list", "PROCESSOR", "--all", "--no-instances", "--filter", "frequency"]);
-    const mixedAsWritten = await list([...reference, "--filter", "Frequency"]);
+      const lower = await list(["--list", "processor", "--all", "--no-instances"]);
+      const upper = await list(["--list", "PROCESSOR", "--all", "--no-instances"]);
+      const mixed = await list(["--list", "PROCESSOR", "--all", "--no-instances", "--filter", "frequency"]);
+      const mixedAsWritten = await list([...reference, "--filter", "Frequency"]);
 
-    // Second capture of the reference, after every query above: what survived
-    // both is what these listings can fairly be compared over. Without this the
-    // case fails whenever a provider unregisters mid-test.
-    const keep = stableOnly(asWritten, await list(reference));
+      // Second capture of the reference, after every query above: what survived
+      // both is what these listings can fairly be compared over. Without this the
+      // case fails whenever a provider unregisters mid-test.
+      const keep = stableOnly(asWritten, await list(reference));
 
-    expect(keep(asWritten).length).toBeGreaterThan(0);
-    expect(keep(lower)).toEqual(keep(asWritten));
-    expect(keep(upper)).toEqual(keep(asWritten));
+      expect(keep(asWritten).length).toBeGreaterThan(0);
+      expect(keep(lower)).toEqual(keep(asWritten));
+      expect(keep(upper)).toEqual(keep(asWritten));
 
-    expect(keep(mixed).length).toBeGreaterThan(0);
-    expect(keep(mixed)).toEqual(keep(mixedAsWritten));
+      expect(keep(mixed).length).toBeGreaterThan(0);
+      expect(keep(mixed)).toEqual(keep(mixedAsWritten));
+    });
   });
 
   it("treats a valueless --filter as no filter at all", async () => {
     const reference = ["--list", "Processor", "--all", "--no-instances"];
-    const without = await list(reference);
-    const bare = await list([...reference, "--filter"]);
-    const keep = stableOnly(without, await list(reference));
+    await eventually(async () => {
+      const without = await list(reference);
+      const bare = await list([...reference, "--filter"]);
+      const keep = stableOnly(without, await list(reference));
 
-    // Still catches the regression this pins - a bare --filter that filtered
-    // everything out leaves nothing to match the reference with.
-    expect(keep(without).length).toBeGreaterThan(0);
-    expect(keep(bare)).toEqual(keep(without));
+      // Still catches the regression this pins - a bare --filter that filtered
+      // everything out leaves nothing to match the reference with.
+      expect(keep(without).length).toBeGreaterThan(0);
+      expect(keep(bare)).toEqual(keep(without));
+    });
   });
 
   it("narrows the instances of a single --counter too", async () => {
