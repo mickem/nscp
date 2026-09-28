@@ -14,6 +14,9 @@ set(SRCS
     check_starttls.cpp
     check_net_cert.cpp
     check_dns.cpp
+    check_domain.cpp
+    check_domain_parse.cpp
+    check_domain_fetch.cpp
     check_http.cpp
     check_http_json.cpp
     check_webserver.cpp
@@ -106,6 +109,8 @@ NSCP_CREATE_TEST(
     SOURCES
         check_net_test.cpp
         check_radius_test.cpp
+        check_domain_test.cpp
+        check_domain_parse.cpp
         check_http_json_test.cpp
         check_http_json.cpp
         check_webserver_test.cpp

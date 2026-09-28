@@ -329,6 +329,27 @@ TEST(http_packet, get_header_no_host_when_server_empty) {
   EXPECT_EQ(header.find("Host:"), std::string::npos);
 }
 
+TEST(http_packet, http_1_1_is_used_by_every_serializer) {
+  http::request p("GET", "example.com", "/domain/example.com");
+  p.version_ = http::request::version::http_1_1;
+  const std::string expected = "GET /domain/example.com HTTP/1.1\r\n";
+  EXPECT_EQ(p.get_header().find(expected), 0u);
+  const auto packet = p.get_packet();
+  EXPECT_EQ(std::string(packet.begin(), packet.end()).find(expected), 0u);
+  std::ostringstream output;
+  p.build_request(output);
+  EXPECT_EQ(output.str().find(expected), 0u);
+  EXPECT_NE(output.str().find("Host: example.com\r\n"), std::string::npos);
+  EXPECT_NE(output.str().find("Connection: close\r\n"), std::string::npos);
+}
+
+TEST(http_packet, proxy_request_preserves_http_version) {
+  http::request p("GET", "example.com", "/domain/example.com");
+  p.version_ = http::request::version::http_1_1;
+  const auto proxied = http::simple_client::make_proxy_request(p, "example.com", "80", http::proxy_config());
+  EXPECT_EQ(proxied.get_header().find("GET http://example.com/domain/example.com HTTP/1.1\r\n"), 0u);
+}
+
 TEST(http_packet, get_payload_empty) {
   const http::request p;
   EXPECT_EQ(p.get_payload(), "");
