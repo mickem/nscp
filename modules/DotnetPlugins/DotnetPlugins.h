@@ -12,6 +12,7 @@
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/log.hpp>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -89,6 +90,13 @@ class DotnetPlugins : public nscapi::impl::simple_plugin {
   bool load_plugin(plugin_entry &entry, NSCAPI::moduleLoadMode mode);
   // Take every loaded plugin out of plugins_ and unload its managed instance.
   void unload_plugins();
+  // Note the commands, aliases and channels a plugin registers through the
+  // core callback, so a reload can take them back.
+  void track_registrations(const std::string &request);
+  // Unregister everything track_registrations noted. Unloading the managed
+  // instances does not do it: the core would otherwise keep routing a removed
+  // plugin's commands here, to fail with "No .NET plugin loaded".
+  void unregister_tracked();
   boost::filesystem::path resolve_plugin_root() const;
   std::int32_t dispatch(std::int32_t op, const char *str, const std::string &request, std::string &response);
 
@@ -102,6 +110,10 @@ class DotnetPlugins : public nscapi::impl::simple_plugin {
   // threads than the one loading and unloading the module.
   std::mutex plugins_mutex_;
   std::vector<plugin_entry> plugins_;
+  // (PB::Registry::ItemType, name) of everything the plugins have registered
+  // with the core. Guarded by plugins_mutex_: registrations arrive from
+  // managed code on whichever thread it runs.
+  std::set<std::pair<int, std::string> > registered_;
   bridge_functions bridge_;
   std::shared_ptr<dotnet::host> host_;
 };

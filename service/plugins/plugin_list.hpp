@@ -269,6 +269,23 @@ struct plugins_list_with_listener : plugins_list<plugins_list_listeners_impl> {
     }
   }
 
+  // The reverse of register_listener: drop this plugin from each channel in
+  // the (comma separated) list, and a channel entry once nobody is left on it.
+  // Other subscribers of the same channel keep their subscription.
+  void unregister_listener(unsigned long plugin_id, const std::string &channel) {
+    boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
+    if (!writeLock.owns_lock()) {
+      log_error(__FILE__, __LINE__, "Failed to get mutex: ", channel);
+      return;
+    }
+    for (const std::string &c : str::utils::split_lst(make_key(channel), ",")) {
+      const auto it = listeners_.find(c);
+      if (it == listeners_.end()) continue;
+      it->second.erase(plugin_id);
+      if (it->second.empty()) listeners_.erase(it);
+    }
+  }
+
   // Collect the subscribers for `channel`. Runs under a SHARED lock, so
   // nothing in here may modify plugins_ - see append_subscribers.
   std::list<plugin_type> get(const std::string &channel) {

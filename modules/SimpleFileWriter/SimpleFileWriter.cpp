@@ -159,7 +159,11 @@ bool SimpleFileWriter::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     settings.notify();
 
     nscapi::core_helper core(get_core(), get_id());
+    // A channel changed in the ini replaces the old subscription rather than
+    // adding to it: left registered, both channels kept writing to the file.
+    if (!registered_channel_.empty() && registered_channel_ != channel) core.unregister_channel(registered_channel_);
     core.register_channel(channel);
+    registered_channel_ = channel;
 
     if (syntax_host.empty()) {
       syntax_host = syntax;

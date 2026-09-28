@@ -273,3 +273,16 @@ TEST_F(SimpleFileWriterModule, ReloadAppliesTheChangedSyntaxAndFile) {
   ss << in.rdbuf();
   EXPECT_EQ(ss.str(), "changed after\n");
 }
+
+// The channel used to be registered again on every load with nothing taken
+// back, so changing it in the ini left the module subscribed to both.
+TEST_F(SimpleFileWriterModule, ReloadMovesTheSubscriptionToTheChangedChannel) {
+  ASSERT_TRUE(load());
+  ASSERT_TRUE(core().has_channel("FILE"));
+
+  core().set_setting("channel", "MY_FILE");
+  ASSERT_TRUE(load());
+
+  EXPECT_TRUE(core().has_channel("MY_FILE"));
+  EXPECT_FALSE(core().has_channel("FILE"));
+}

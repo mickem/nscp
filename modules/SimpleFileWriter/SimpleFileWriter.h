@@ -29,6 +29,9 @@ class SimpleFileWriter : public nscapi::impl::simple_plugin {
   std::string filename_;
   boost::shared_mutex cache_mutex_;
   config_object config_;
+  // The channel the last load subscribed to. Only loadModuleEx touches it,
+  // and loads never overlap, so it needs no lock.
+  std::string registered_channel_;
 
  public:
   SimpleFileWriter() {}
