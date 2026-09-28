@@ -4,9 +4,19 @@
 
 #include <boost/asio.hpp>
 #include <boost/dll/runtime_symbol_info.hpp>
+#include <boost/version.hpp>
+// Boost 1.86 introduced the versioned headers; newer releases default to v2.
+// This resolver uses v1's child and pipe API explicitly.
+#if BOOST_VERSION >= 108600
+#include <boost/process/v1.hpp>
+#ifdef _WIN32
+#include <boost/process/v1/windows.hpp>
+#endif
+#else
 #include <boost/process.hpp>
 #ifdef _WIN32
 #include <boost/process/windows.hpp>
+#endif
 #endif
 #include <algorithm>
 #include <chrono>
@@ -23,7 +33,11 @@ struct resolved_host {
 
 inline resolved_host resolve_process(const boost::filesystem::path &executable, const std::vector<std::string> &args,
                                      std::chrono::steady_clock::time_point deadline) {
+#if BOOST_VERSION >= 108600
+  namespace bp = boost::process::v1;
+#else
   namespace bp = boost::process;
+#endif
   if (std::chrono::steady_clock::now() >= deadline) return {{}, "timeout"};
   bp::ipstream output;
 #ifdef _WIN32
