@@ -1236,16 +1236,9 @@ if module.managed:
 data = {'module': module, 'options': options}
 
 changed = []
-if render_template(data, env.from_string(HPP_TEMPLATE), '%s/module.hpp'%options.target):
-	changed.append('module.hpp')
-if render_template(data, env.from_string(CPP_TEMPLATE), '%s/module.cpp'%options.target):
-	changed.append('module.cpp')
-if render_template(data, env.from_string(DEF_TEMPLATE), '%s/module.def'%options.target):
-	changed.append('module.def')
-if render_template(data, env.from_string(RC_TEMPLATE), '%s/module.rc'%options.target):
-	changed.append('module.rc')
+for template, name in ((HPP_TEMPLATE, 'module.hpp'), (CPP_TEMPLATE, 'module.cpp'),
+                       (DEF_TEMPLATE, 'module.def'), (RC_TEMPLATE, 'module.rc')):
+	if render_template(data, env.from_string(template), '%s/%s'%(options.target, name)):
+		changed.append(name)
 if changed:
-	changed_str = ", ".join(changed)
-	print(f'Wrote: {changed_str} in {options.target}')
-
-
+	print(f'Wrote: {", ".join(changed)} in {options.target}')

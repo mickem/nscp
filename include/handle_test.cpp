@@ -186,7 +186,7 @@ TEST(handle, assign_from_raw_pointer_closes_old) {
 // Assignment from another handle (move ownership)
 // ============================================================================
 
-TEST(handle, assign_from_other_handle_transfers_ownership) {
+TEST(handle, move_into_empty_handle_closes_nothing) {
   MockCloser::close_count = 0;
   int* raw = new int(33);
   mock_handle src(raw);

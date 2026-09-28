@@ -81,7 +81,7 @@ void ServerMongooseImpl::setSsl(std::string &new_certificate, std::string &new_k
 #endif
 }
 
-void ServerMongooseImpl::setTlsOptions(const std::string &tls_version, const std::string &allowed_ciphers) {
+void ServerMongooseImpl::setTlsOptions(const std::string &tls_version, const std::string &ciphers) {
   // mongoose drives TLS through its own stack, which exposes neither a
   // protocol-version range nor a cipher list. Saying so is the point: an
   // operator who narrowed either setting must know it did not take effect on
@@ -92,14 +92,14 @@ void ServerMongooseImpl::setTlsOptions(const std::string &tls_version, const std
   // on every start and reload of every stock Windows agent - naming a setting
   // nobody wrote - is noise that teaches operators to ignore the log. The
   // backend's limitation is still recorded, at debug level.
-  if (tls_version.empty() && allowed_ciphers.empty()) {
+  if (tls_version.empty() && ciphers.empty()) {
     logger_->log_debug("The mongoose web backend drives TLS through its own stack: 'tls version' and 'allowed ciphers' have no effect here.");
     return;
   }
   if (!tls_version.empty()) {
     logger_->log_error("Ignoring 'tls version = " + tls_version + "': the mongoose web backend does not expose the TLS protocol version.");
   }
-  if (!allowed_ciphers.empty()) {
+  if (!ciphers.empty()) {
     logger_->log_error("Ignoring 'allowed ciphers': the mongoose web backend does not expose the TLS cipher list.");
   }
 }

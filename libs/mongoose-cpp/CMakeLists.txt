@@ -94,14 +94,7 @@ if(NSCP_WEB_BACKEND STREQUAL "mongoose")
         add_definitions(-DMG_TLS=MG_TLS_NONE)
     endif()
     include_directories("${MONGOOSE_INCLUDE_DIR}")
-    if(MSVC)
-        set_source_files_properties(
-            ${MONGOOSE_INCLUDE_DIR}/mongoose.c
-            PROPERTIES
-                COMPILE_OPTIONS
-                    "/wd4201;/wd4204;/wd4267;/wd4310"
-        )
-    endif()
+    nscp_quiet_vendored_mongoose(${MONGOOSE_INCLUDE_DIR}/mongoose.c)
 endif()
 
 if(OPENSSL_FOUND)
