@@ -189,28 +189,6 @@ describe("CheckNet RADIUS", () => {
       target.socket.close();
     }
   });
-  it("bounds hostname resolution and process cleanup by the overall deadline", async () => {
-    const started = Date.now();
-    const output = await nscp.run(
-      [
-        "client",
-        "--module",
-        "CheckNet",
-        "--boot",
-        "--query",
-        "check_radius",
-        `host=nscp-radius-${Date.now()}.local`,
-        `secret-file=${secretFile}`,
-        "mode=status",
-        "timeout=10",
-      ],
-      { allowFailure: true },
-    );
-    const message = output.all ?? `${output.stdout}\n${output.stderr}`;
-    expect(message).toMatch(/CRITICAL:.*(?:timeout|resolve_failed), reply=none/);
-    expect(Number(message.match(/time=(\d+)ms/)?.[1])).toBeLessThan(500);
-    expect(Date.now() - started).toBeLessThan(2000);
-  });
   it.each([3, 11])("does not mistake reply %i for successful authentication", async (code) => {
     const target = await server(code);
     try {

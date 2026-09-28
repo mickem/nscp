@@ -17,7 +17,6 @@
 #include <threads/guarded_io_context.hpp>
 
 #include "check_radius_protocol.hpp"
-#include "check_radius_resolver.hpp"
 
 namespace check_net {
 namespace {
@@ -66,23 +65,18 @@ std::string read_secret(const std::string &path, const char *kind, std::size_t m
 void query_radius(radius_result &out, const radius::packet &request, const std::string &secret, const std::string &mode, net::address_family family,
                   int timeout) {
   using boost::asio::ip::udp;
-  const auto start = std::chrono::steady_clock::now();
-  const auto deadline = start + std::chrono::milliseconds(timeout);
-  const auto resolved = radius::resolve_host(out.server, family, deadline);
-  if (!resolved.error.empty() || std::chrono::steady_clock::now() >= deadline) {
-    out.result = resolved.error.empty() ? "timeout" : resolved.error;
-    out.elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
-    return;
-  }
   boost::asio::io_context io;
+  udp::resolver resolver(io);
   udp::socket socket(io);
   boost::asio::steady_timer timer(io);
   std::array<unsigned char, 65536> buffer{};
+  const auto start = std::chrono::steady_clock::now();
   bool done = false;
   const auto finish = [&](const std::string &result) {
     if (done) return;
     done = true;
     out.result = result;
+    resolver.cancel();
     boost::system::error_code ignored;
     socket.close(ignored);
     try {
@@ -90,7 +84,7 @@ void query_radius(radius_result &out, const radius::packet &request, const std::
     } catch (...) {
     }
   };
-  timer.expires_at(deadline);
+  timer.expires_after(std::chrono::milliseconds(timeout));
   timer.async_wait([&](const boost::system::error_code &ec) {
     if (!ec) finish(out.result);
   });
@@ -110,10 +104,12 @@ void query_radius(radius_result &out, const radius::packet &request, const std::
       finish(radius::expected(mode, response[0]) ? "ok" : "unexpected_response");
     });
   };
-  const auto send = [&]() {
+  const auto resolved = [&](const boost::system::error_code &ec, udp::resolver::results_type endpoints) {
+    if (done) return;
+    if (ec || endpoints.empty()) return finish("resolve_failed");
     boost::system::error_code error;
     // A connected UDP socket accepts traffic only from the selected endpoint.
-    socket.connect(udp::endpoint(resolved.address, static_cast<unsigned short>(out.port)), error);
+    socket.connect(endpoints.begin()->endpoint(), error);
     if (error) return finish("connect_failed");
     socket.async_send(boost::asio::buffer(request), [&](const boost::system::error_code &send_error, std::size_t) {
       if (done) return;
@@ -121,7 +117,10 @@ void query_radius(radius_result &out, const radius::packet &request, const std::
       receive();
     });
   };
-  send();
+  if (family == net::address_family::any)
+    resolver.async_resolve(out.server, std::to_string(out.port), resolved);
+  else
+    resolver.async_resolve(family == net::address_family::ipv4 ? udp::v4() : udp::v6(), out.server, std::to_string(out.port), resolved);
   threads::run_io_context_guarded("RADIUS query", io, [&](const std::string &message) {
     NSC_LOG_ERROR_STD(message);
     finish("internal_error");
