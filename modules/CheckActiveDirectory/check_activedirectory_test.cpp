@@ -8,12 +8,19 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <memory>
+#include <mutex>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <parsers/helpers.hpp>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
 #include "ad_replication_filter.hpp"
+#include "bounded_worker.hpp"
 #include "kdc_probe.hpp"
 
 // Normally provided by NSC_WRAP_DLL() in the auto-generated module.cpp; in the
@@ -320,6 +327,123 @@ TEST(ReplicationFilter, DerivedFieldsAndNeverDates) {
   obj.last_success = 1700000000;
   EXPECT_EQ(1, obj.get_failed());
   EXPECT_NE("never", obj.get_last_success_su());
+}
+
+// --- probe principal ----------------------------------------------------------
+
+TEST(ChoosePrincipal, ExplicitPrincipalAlwaysWins) {
+  EXPECT_EQ("svc-monitor", kdc_probe::choose_principal("svc-monitor", "OTHER.TEST", "example.com", "WS01$"));
+  EXPECT_EQ("svc-monitor", kdc_probe::choose_principal("svc-monitor", "EXAMPLE.COM", "", ""));
+}
+
+TEST(ChoosePrincipal, MachineAccountForTheJoinedDomainIgnoringCase) {
+  EXPECT_EQ("WS01$", kdc_probe::choose_principal("", "EXAMPLE.COM", "example.com", "WS01$"));
+  EXPECT_EQ("WS01$", kdc_probe::choose_principal("", "example.com", "Example.Com", "WS01$"));
+}
+
+TEST(ChoosePrincipal, NoneForAnotherRealmOrWhenNotJoined) {
+  // No account is known to exist there: the caller must ask, not invent one.
+  EXPECT_EQ("", kdc_probe::choose_principal("", "OTHER.TEST", "example.com", "WS01$"));
+  EXPECT_EQ("", kdc_probe::choose_principal("", "EXAMPLE.COM", "", ""));
+  EXPECT_EQ("", kdc_probe::choose_principal("", "EXAMPLE.COM.EVIL", "example.com", "WS01$"));
+}
+
+// --- bounded workers ------------------------------------------------------------
+
+// A gate the test opens to let a blocked worker body return. Shared, because
+// an abandoned worker may still be waiting on it after the test body is done.
+struct gate {
+  std::mutex mutex;
+  std::condition_variable opened;
+  bool open = false;
+
+  void release() {
+    {
+      std::lock_guard<std::mutex> lock(mutex);
+      open = true;
+    }
+    opened.notify_all();
+  }
+  void wait() {
+    std::unique_lock<std::mutex> lock(mutex);
+    opened.wait(lock, [this] { return open; });
+  }
+};
+
+struct recorded_reports {
+  std::mutex mutex;
+  std::vector<std::string> lines;
+};
+
+std::chrono::steady_clock::time_point from_now(int ms) { return std::chrono::steady_clock::now() + std::chrono::milliseconds(ms); }
+
+TEST(BoundedWorkers, AFinishedBodyIsSeenAndItsKeyFreed) {
+  check_ad::bounded_workers workers;
+  auto reports = std::make_shared<recorded_reports>();
+  auto value = std::make_shared<std::atomic<int>>(0);
+  auto w = workers.start("k", "fast", [value]() { value->store(42); }, [reports](const std::string &line) { reports->lines.push_back(line); });
+  ASSERT_TRUE(w);
+  ASSERT_TRUE(check_ad::bounded_workers::wait_until(w, from_now(5000)));
+  EXPECT_EQ(42, value->load());
+  EXPECT_EQ(0u, workers.parked());
+  EXPECT_TRUE(workers.start("k", "again", []() {}, [](const std::string &) {}));
+}
+
+TEST(BoundedWorkers, AMissedDeadlineParksTheWorkerAndRefusesItsKey) {
+  check_ad::bounded_workers workers;
+  auto g = std::make_shared<gate>();
+  auto blocked = workers.start("dc01", "blocked", [g]() { g->wait(); }, [](const std::string &) {});
+  ASSERT_TRUE(blocked);
+
+  const auto started = std::chrono::steady_clock::now();
+  EXPECT_FALSE(check_ad::bounded_workers::wait_until(blocked, from_now(100)));
+  EXPECT_LT(std::chrono::steady_clock::now() - started, std::chrono::seconds(5));
+
+  // The stuck call keeps its key: a second run against the same host must not
+  // add another thread, while other hosts are unaffected.
+  EXPECT_FALSE(workers.start("dc01", "blocked again", []() {}, [](const std::string &) {}));
+  auto other = workers.start("dc02", "other", []() {}, [](const std::string &) {});
+  ASSERT_TRUE(other);
+  ASSERT_TRUE(check_ad::bounded_workers::wait_until(other, from_now(5000)));
+
+  g->release();
+  ASSERT_TRUE(check_ad::bounded_workers::wait_until(blocked, from_now(5000)));
+  EXPECT_EQ(0u, workers.parked());
+  EXPECT_TRUE(workers.start("dc01", "retry", []() {}, [](const std::string &) {}));
+}
+
+TEST(BoundedWorkers, ABodyThatThrowsIsReportedAndStillCountsAsReturned) {
+  check_ad::bounded_workers workers;
+  auto reports = std::make_shared<recorded_reports>();
+  auto w = workers.start(
+      "k", "thrower", []() { throw std::runtime_error("boom"); },
+      [reports](const std::string &line) {
+        std::lock_guard<std::mutex> lock(reports->mutex);
+        reports->lines.push_back(line);
+      });
+  ASSERT_TRUE(w);
+  ASSERT_TRUE(check_ad::bounded_workers::wait_until(w, from_now(5000)));
+  EXPECT_EQ(0u, workers.parked());
+  std::lock_guard<std::mutex> lock(reports->mutex);
+  ASSERT_EQ(1u, reports->lines.size());
+  EXPECT_EQ("Thread 'thrower': terminated by an uncaught exception: boom", reports->lines[0]);
+}
+
+TEST(BoundedWorkers, ShutdownAbandonsOnlyWhatIsStillBlocked) {
+  check_ad::bounded_workers workers;
+  auto g = std::make_shared<gate>();
+  auto done = workers.start("done", "done", []() {}, [](const std::string &) {});
+  ASSERT_TRUE(check_ad::bounded_workers::wait_until(done, from_now(5000)));
+
+  int abandoned = 0;
+  workers.shutdown(std::chrono::milliseconds(50), [&abandoned]() { ++abandoned; });
+  EXPECT_EQ(0, abandoned);
+
+  workers.start("stuck", "stuck", [g]() { g->wait(); }, [](const std::string &) {});
+  workers.shutdown(std::chrono::milliseconds(50), [&abandoned]() { ++abandoned; });
+  EXPECT_EQ(1, abandoned);
+  EXPECT_EQ(0u, workers.parked());
+  g->release();  // the detached worker owns the gate through its shared_ptr
 }
 
 }  // namespace

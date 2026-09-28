@@ -230,4 +230,24 @@ std::string classification::describe() const {
   }
 }
 
+namespace {
+bool equal_ignoring_ascii_case(const std::string &a, const std::string &b) {
+  if (a.size() != b.size()) return false;
+  for (std::size_t i = 0; i < a.size(); ++i) {
+    char x = a[i], y = b[i];
+    if (x >= 'a' && x <= 'z') x = static_cast<char>(x - 'a' + 'A');
+    if (y >= 'a' && y <= 'z') y = static_cast<char>(y - 'a' + 'A');
+    if (x != y) return false;
+  }
+  return true;
+}
+}  // namespace
+
+std::string choose_principal(const std::string &explicit_principal, const std::string &realm, const std::string &joined_domain,
+                             const std::string &machine_account) {
+  if (!explicit_principal.empty()) return explicit_principal;
+  if (machine_account.empty() || joined_domain.empty()) return "";
+  return equal_ignoring_ascii_case(realm, joined_domain) ? machine_account : "";
+}
+
 }  // namespace kdc_probe

@@ -11,8 +11,10 @@
 namespace ad_replication_source {
 
 // Fetch the inbound replication neighbors of `server` (empty = the local
-// machine) via DsBind/DsReplicaGetInfo. `timeout_ms` bounds the reachability
-// pre-check made before binding to a named remote server. Returns false on
+// machine) via DsBind/DsReplicaGetInfo. `timeout_ms` bounds the whole read,
+// the bind to the directory service's dynamic RPC port included: a read that
+// has not returned by then is reported as a failure and left to finish on a
+// parked worker (see bounded_worker.hpp). Returns false on
 // failure with `error` set; `not_a_dc` is true when the target is known not to
 // be a domain controller (the common "checked a member server" case) rather
 // than a domain controller that failed to answer.

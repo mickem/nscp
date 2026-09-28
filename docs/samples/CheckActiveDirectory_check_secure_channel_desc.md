@@ -11,16 +11,6 @@ By default the check actively *verifies* the channel (netlogon `TC_VERIFY`,
 the same operation as `nltest /sc_verify` / `Test-ComputerSecureChannel`),
 which contacts the DC. Pass `verify=false` for a passive status query only.
 
-Keywords (a single row):
-
-| Keyword         | Description                                                        |
-|-----------------|--------------------------------------------------------------------|
-| `domain`        | The trusted domain the secure channel points at                    |
-| `dc`            | The domain controller the channel is established with              |
-| `healthy`       | True when the channel is established (and verified)                |
-| `error_code`    | Win32 status of the channel (0 = healthy)                          |
-| `error_message` | `OK` or the formatted failure message                              |
-
 Defaults: **CRITICAL** when `healthy = 0`; no warning threshold.
 
 Options: `domain=<name>` checks the channel to a specific trusted domain

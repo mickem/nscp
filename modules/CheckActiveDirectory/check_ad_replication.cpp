@@ -39,7 +39,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   filter_helper.get_desc().add_options()
     ("server", po::value<std::string>(&server), "The domain controller to check (default: the local machine).")
     ("timeout", po::value<int>(&timeout_ms)->default_value(5000),
-        "Timeout in milliseconds for reaching a remote server= before binding to it (ignored for the local machine).")
+        "Timeout in milliseconds for the whole read, the directory service bind included.")
     ;
   // clang-format on
 
