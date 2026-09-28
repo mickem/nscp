@@ -50,13 +50,13 @@ const NRPE_PORT = 15666;
 const SLOW_MS = 2000;
 
 /**
- * Safety cap for the *released* blocking check, in seconds. It is only a net:
- * the test lets that check go as soon as it has what it needs. Kept under the
- * NRPE client timeout below so a runaway still comes back as an answer rather
- * than as a client-side timeout, and well under the external-script timeout
- * this suite configures so the script is never killed first.
+ * External-script watchdog, in seconds. The blocker itself waits only for
+ * release; a shorter script-side cap can expire while a healthy fast response
+ * is still reaching the test. This watchdog outlasts readiness polling (30s)
+ * plus the concurrent fast clients' process budget (120s), and still bounds a
+ * script left behind if the test runner dies before its finally block.
  */
-const BLOCK_CAP_S = 45;
+const SCRIPT_TIMEOUT_S = 180;
 
 /**
  * Absolute path to a Python interpreter, or null if there is none. Asked for
@@ -93,13 +93,13 @@ describe("plugin threading", () => {
   let nscp: NscpInstance;
   let scriptDir: string;
   let traceDir: string;
-  /** Creating this file releases the blocking check; see BLOCK_CAP_S. */
+  /** Creating this file releases the blocking check. */
   let releaseFile: string;
 
   /** `nscp nrpe --command <cmd>` against our own agent. Never throws: a
    * failure has to reach the assertion as text rather than as a rejected
    * promise, or a broken agent shows up as an unhelpful timeout. */
-  async function nrpe(command: string, args: string[] = []): Promise<string> {
+  async function nrpe(command: string, args: string[] = [], timeoutSeconds = 60): Promise<string> {
     const extra: string[] = [];
     for (const a of args) extra.push("--argument", a);
     const res = await execa(
@@ -115,10 +115,16 @@ describe("plugin threading", () => {
         "--ssl",
         "false",
         "--timeout",
-        "60",
+        String(timeoutSeconds),
         ...extra,
       ],
-      { cwd: nscp.workDir, reject: false, all: true, timeout: 120_000, env: process.env },
+      {
+        cwd: nscp.workDir,
+        reject: false,
+        all: true,
+        timeout: (timeoutSeconds + 60) * 1000,
+        env: process.env,
+      },
     );
     return (res.all ?? "").trim();
   }
@@ -276,8 +282,7 @@ describe("plugin threading", () => {
         '        f.write("%.6f" % time.time())',
         "",
         'mark("enter")',
-        `deadline = time.time() + ${BLOCK_CAP_S}`,
-        "while not os.path.exists(RELEASE) and time.time() < deadline:",
+        "while not os.path.exists(RELEASE):",
         "    time.sleep(0.05)",
         'mark("exit")',
         'print("OK: block done")',
@@ -410,9 +415,8 @@ describe("plugin threading", () => {
         // handshake is covered by nrpe-tls.test.ts.
         "use ssl": "false",
       },
-      // Comfortably longer than anything here blocks for, so no assertion in
-      // this suite can turn into an external-script timeout.
-      "/settings/external scripts": { timeout: "120" },
+      // A last-resort watchdog; the test releases the blocker in finally.
+      "/settings/external scripts": { timeout: String(SCRIPT_TIMEOUT_S) },
       // Absolute interpreter, forward slashes: see the header note on
       // lpApplicationName and the backslash-escaping tokeniser.
       ...(python
@@ -495,30 +499,35 @@ describe("plugin threading", () => {
     // check below is answered while it is still inside the agent. The previous
     // version raced a fixed 2s sleep against its own round trips and lost on
     // arm64.
-    const blocked = nrpe("block");
+    // Keep this client alive through the script watchdog, so it can receive
+    // the released result even when a fast probe times out and assertions fail.
+    const blocked = nrpe("block", [], SCRIPT_TIMEOUT_S + 30);
+    let blockedOutput = "";
+    try {
+      // Wait for it to actually be inside the agent rather than assuming the
+      // spawn was prompt.
+      const readyBy = Date.now() + 30_000;
+      while (entered() === 0 && Date.now() < readyBy) {
+        await new Promise((r) => setTimeout(r, 25));
+      }
+      expect(entered()).toBe(1);
 
-    // Wait for it to actually be inside the agent rather than assuming the
-    // spawn was prompt.
-    const readyBy = Date.now() + 30_000;
-    while (entered() === 0 && Date.now() < readyBy) {
-      await new Promise((r) => setTimeout(r, 25));
-    }
-    expect(entered()).toBe(1);
-
-    // Each fast check is answered while the blocked one is demonstrably still
-    // inside: nothing has released it, and its exit marker is what would say
-    // otherwise. A core that serialised dispatch cannot get through this loop
-    // at all - it would sit on the first fast check until the NRPE client
-    // timeout, because the blocked check is not going to finish on its own.
-    const fastChecks = 3;
-    for (let i = 0; i < fastChecks; i++) {
-      const out = await nrpe("check_ok", ["message=fast"]);
-      expect(out).toContain("fast");
+      // All callers share one timeout budget instead of accumulating three
+      // sequential round trips. Serialised dispatch still fails: these clients
+      // time out before the blocker is released or its watchdog can fire.
+      const results = await Promise.all(
+        Array.from({ length: 3 }, () => nrpe("check_ok", ["message=fast"])),
+      );
+      for (const out of results) expect(out).toContain("fast");
       expect(exited()).toBe(0);
+    } finally {
+      // An assertion failure must not leave the check holding a dispatch thread
+      // or writing trace markers after a later test has reset the directory.
+      fs.writeFileSync(releaseFile, "go");
+      blockedOutput = await blocked;
     }
 
-    fs.writeFileSync(releaseFile, "go");
-    expect(await blocked).toContain("block done");
+    expect(blockedOutput).toContain("block done");
     expect(exited()).toBe(1);
   });
 

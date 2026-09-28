@@ -22,6 +22,7 @@ set(SRCS
     check_nsclient_web_online_parse.cpp
     check_connections.cpp
     check_ntp_offset.cpp
+    check_radius.cpp
     ${NSCP_INCLUDEDIR}/bytes/base64.c
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
@@ -46,6 +47,8 @@ if(WIN32)
         check_nsclient_web_online.h
         check_connections.h
         check_ntp_offset.h
+        check_radius.hpp
+        check_radius_protocol.hpp
         ${NSCP_DEF_PLUGIN_HPP}
         ${NSCP_FILTER_HPP}
     )
@@ -102,6 +105,7 @@ NSCP_CREATE_TEST(
     check_net_test
     SOURCES
         check_net_test.cpp
+        check_radius_test.cpp
         check_http_json_test.cpp
         check_http_json.cpp
         check_webserver_test.cpp

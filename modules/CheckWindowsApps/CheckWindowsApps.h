@@ -7,16 +7,21 @@
 #include <nscapi/protobuf/command.hpp>
 
 // One module for the Windows application/server-role checks (IIS, RDS, and
-// whatever role comes next). Each role keeps its own check_<role>_*.cpp/.hpp
+// NPS). Each role keeps its own check_<role>_*.cpp/.hpp
 // pair; this class is only the dispatch surface the generated module glue
 // binds to. A role earns a module of its own only when it drags in a heavy or
-// optional dependency - these are all plain PDH + WMI.
+// optional dependency - these use Windows APIs, PDH and WMI.
 class CheckWindowsApps : public nscapi::impl::simple_plugin {
  public:
   CheckWindowsApps() {}
 
   bool loadModuleEx(const std::string &alias, NSCAPI::moduleLoadMode mode);
   bool unloadModule();
+
+  // Network Policy Server check commands
+  static void check_nps_auth(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+  static void check_nps_accounting(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+  static void check_nps_counters(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 
   // IIS check commands
   static void check_iis_app_pools(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);

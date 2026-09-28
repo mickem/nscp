@@ -4,8 +4,19 @@
 #include "CheckWindowsApps.h"
 
 #include "check_iis_checks.hpp"
+#include "check_nps.hpp"
 #include "check_rds_licenses.hpp"
 #include "check_rds_sessions.hpp"
+
+void CheckWindowsApps::check_nps_auth(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_nps::check_nps_auth(request, response);
+}
+void CheckWindowsApps::check_nps_accounting(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_nps::check_nps_accounting(request, response);
+}
+void CheckWindowsApps::check_nps_counters(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_nps::check_nps_counters(request, response);
+}
 
 bool CheckWindowsApps::loadModuleEx(const std::string &, NSCAPI::moduleLoadMode) { return true; }
 bool CheckWindowsApps::unloadModule() { return true; }

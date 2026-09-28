@@ -16,7 +16,7 @@ set(SRCS
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
     eventlog_wrapper.cpp
-    modern_eventlog.cpp
+    ${NSCP_INCLUDEDIR}/win/eventlog/modern_eventlog.cpp
     bookmarks.cpp
     ${NSCP_ERROR_CPP}
     ${NSCP_INCLUDEDIR}/compat.cpp
@@ -35,7 +35,7 @@ if(WIN32)
         simple_registry.hpp
         filter.hpp
         filter_config_object.hpp
-        modern_eventlog.hpp
+        ${NSCP_INCLUDEDIR}/win/eventlog/modern_eventlog.hpp
         bookmarks.hpp
         ${NSCP_INCLUDEDIR}/compat.hpp
         ${NSCP_ERROR_HPP}

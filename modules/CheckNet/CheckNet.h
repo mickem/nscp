@@ -17,6 +17,7 @@ class CheckNet : public nscapi::impl::simple_plugin {
   bool loadModuleEx(const std::string &alias, NSCAPI::moduleLoadMode mode);
 
   // Check commands
+  static void check_radius(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   static void check_ping(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   void check_tcp(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) const;
   void check_ssh(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) const;

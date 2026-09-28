@@ -8,6 +8,7 @@
 		"load"			: "load"
 	},
 	"commands" : {
+		"check_radius": { "description": "Probe RADIUS authentication or responsiveness with authenticated UDP replies.", "experimental": true },
 		"check_ping"		: "Ping another host and check the result.",
 		"check_tcp"		: { "description" : "Connect to a TCP port and optionally send/expect data to check that a service is reachable.", "experimental" : true },
 		"check_ssh"		: { "description" : "Connect to an SSH port and verify the server presents a valid SSH banner.", "experimental" : true },

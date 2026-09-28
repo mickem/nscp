@@ -12,6 +12,9 @@ set(SRCS
     check_iis_checks.cpp
     check_rds_licenses.cpp
     check_rds_sessions.cpp
+    check_nps.cpp
+    check_nps_source_win.cpp
+    ${NSCP_INCLUDEDIR}/win/eventlog/modern_eventlog.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/pdh_counters.cpp
@@ -38,6 +41,9 @@ if(WIN32)
         check_rds_licenses.hpp
         check_rds_sessions.hpp
         check_rds_internal.hpp
+        check_nps.hpp
+        check_nps_internal.hpp
+        check_nps_event_values.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_counters.hpp
@@ -103,6 +109,31 @@ NSCP_CREATE_TEST(
     LIBRARIES
         GTest::gtest_main
         nscp_protobuf
+        ${PLUGIN_API_TARGET}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+NSCP_CREATE_TEST(
+    check_nps_test
+    SOURCES
+        check_nps_test.cpp
+        check_nps.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        ${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_protobuf
+        ${NSCP_FILTER_LIB}
+        expression_parser
         ${PLUGIN_API_TARGET}
         ${Boost_FILESYSTEM_LIBRARY}
         ${Boost_THREAD_LIBRARY}
