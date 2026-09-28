@@ -152,9 +152,12 @@ bool CheckMKServer::unloadModule() {
       server_.reset();
     }
     // unload_all() runs each script's unload hook and deletes the
-    // script_information objects (which own the Lua_State). script_manager's
-    // destructor does NOT do this, so reset()ing without it leaks the
-    // lua_State and everything it allocated. Mirrors LUAScript::unloadModule.
+    // script_information objects (which own the lua_State). The
+    // script_manager destructor does the same, but only once the last
+    // reference goes - handler_ holds one too - so unload here, explicitly and
+    // in this order. Mirrors LUAScript::unloadModule. (A reload replaces
+    // scripts_ in loadModuleEx and relies on that destructor: the previous
+    // generation's unload hooks run then.)
     if (scripts_) {
       scripts_->unload_all();
     }

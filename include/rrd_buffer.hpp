@@ -78,8 +78,8 @@ struct rrd_buffer {
       ret.normalize(time);
       return ret;
     }
+    // Within the hours ring: a longer window was refused above.
     time /= 60;
-    if (static_cast<size_t>(time) >= hours.size()) throw nsclient::nsclient_exception("Size larger than buffer");
     for (typename list_type::const_iterator cit = hours.end() - time; cit != hours.end(); ++cit) {
       ret.add(*cit);
     }
