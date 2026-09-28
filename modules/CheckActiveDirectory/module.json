@@ -4,7 +4,8 @@
 		"description"	: "CheckActiveDirectory checks Active Directory health: replication on domain controllers, the machine-account secure channel and Kerberos KDC availability.",
 		"name"			: "CheckActiveDirectory",
 		"alias"			: "ad",
-		"version"		: "auto"
+		"version"		: "auto",
+		"experimental"	: true
 	},
 	"commands" : {
 		"check_ad_replication"	: "Check inbound Active Directory replication links on a domain controller (last success, consecutive failures). Windows only.",

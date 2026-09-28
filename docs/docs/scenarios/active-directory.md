@@ -9,6 +9,13 @@ Domain controllers are the most business-critical Windows role there is: when AD
 degraded, "everything is broken" for users while per-service port checks stay green.
 The checks below catch the failure modes that matter, in rough order of blast radius.
 
+!!! note "Experimental"
+    `CheckActiveDirectory` is new and marked experimental: the checks work, but
+    option names, keywords and output may still change while they are being
+    used against real domains. The `check_pdh` counter checks further down are
+    not affected. Pin thresholds you rely on in your service definitions and
+    read the release notes when upgrading.
+
 ---
 
 ## Prerequisites
